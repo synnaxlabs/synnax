@@ -137,6 +137,10 @@ export const { use, useResult, createResultSelector } = Flux.createRetrieve<
   },
 });
 
+export const useResultKey = createResultSelector(({ key }) => key);
+
 export const useResultUsername = createResultSelector(({ username }) => username);
 
 export const useResultFirstName = createResultSelector(({ firstName }) => firstName);
+
+export const useResultLastName = createResultSelector(({ lastName }) => lastName);

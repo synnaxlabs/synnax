@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { panel, query } from "@synnaxlabs/client";
-import { Icon, Menu, Panel, Synnax } from "@synnaxlabs/pluto";
+import { Access, Icon, Menu, Panel, Synnax } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
 import { useMovePicker } from "@/feature/panel/MovePicker";
@@ -18,10 +18,12 @@ import { ContextMenu as CMenu } from "@/platform/context-menu";
 import { Panel as PlatformPanel } from "@/platform/panel";
 import { Session } from "@/session";
 
-const RenameItem = (): ReactElement | null => {
+// Split out because useTabResource throws on a view tab.
+const ResourceRenameItem = (): ReactElement | null => {
   const tabKey = Panel.useTabKey();
-  const isResource = Panel.useTabVariant({}) === "resource";
-  if (!isResource) return null;
+  const resource = Panel.useTabResource({});
+  const canRename = Access.useUpdateGranted(resource);
+  if (!canRename) return null;
   return (
     <CMenu.RenameItem
       onClick={() => PlatformPanel.editTabName(tabKey)}
@@ -30,6 +32,9 @@ const RenameItem = (): ReactElement | null => {
     />
   );
 };
+
+const RenameItem = (): ReactElement | null =>
+  Panel.useTabVariant({}) === "resource" ? <ResourceRenameItem /> : null;
 
 const FocusItem = (): ReactElement => {
   const tabKey = Panel.useTabKey();
@@ -72,13 +77,15 @@ const SplitItems = (): ReactElement | null => {
   return <Panel.SplitTabMenuItems />;
 };
 
-const MoveToPanelItem = (): ReactElement => {
+const MoveToPanelItem = (): ReactElement | null => {
   const getOrigin = useOrigin();
   const openPicker = useMovePicker();
+  const canEdit = Panel.useCanEdit({});
   const handleMove = useCallback(() => {
     const origin = getOrigin();
     if (origin != null) openPicker({ origin });
   }, [getOrigin, openPicker]);
+  if (!canEdit) return null;
   return (
     <Menu.Item itemKey="move-to-panel" onClick={handleMove}>
       <Icon.Panel />
@@ -90,10 +97,13 @@ const MoveToPanelItem = (): ReactElement => {
 const MoveToNewWindowItem = (): ReactElement | null => {
   const getOrigin = useOrigin();
   const tearOff = useTearOffTab();
+  const canEdit = Panel.useCanEdit({});
+  const canCreate = Access.useCreateGranted(panel.TYPE_ONTOLOGY_ID);
   const handleMove = useCallback(() => {
     const origin = getOrigin();
     if (origin != null) tearOff(origin);
   }, [getOrigin, tearOff]);
+  if (!canEdit || !canCreate) return null;
   if (Session.Runtime.ENGINE !== "tauri") return null;
   return (
     <Menu.Item itemKey="move-to-new-window" onClick={handleMove}>

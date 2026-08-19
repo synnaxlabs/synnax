@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { type ranger, type Synnax as Client } from "@synnaxlabs/client";
+import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { Ranger } from "@synnaxlabs/pluto";
 import { state } from "@synnaxlabs/x";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -23,11 +23,13 @@ import {
   createConsoleWrapper,
   getIconButton,
   getInputByNodePlaceholder,
+  queryIconButton,
   renderSuspended,
   uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();
+const roles = new RoleClients(client);
 
 const Harness = (): ReactElement => {
   const { data, getItem, subscribe, retrieve, answered } = Ranger.useList({});
@@ -45,15 +47,16 @@ const Harness = (): ReactElement => {
   );
 };
 
-const renderList = async (): Promise<void> => {
-  const { wrapper } = await createConsoleWrapper({ client });
-  await renderSuspended(
+const renderList = async (as: Client = client): Promise<HTMLElement> => {
+  const { wrapper } = await createConsoleWrapper({ client: as });
+  const { container } = await renderSuspended(
     <>
       <Harness />
       <Modals.Stack />
     </>,
     { wrapper },
   );
+  return container;
 };
 
 describe("range/list/List", () => {
@@ -119,5 +122,62 @@ describe("range/list/SelectFilters", () => {
     );
     expect(await screen.findByText("Labels")).toBeTruthy();
     expect(await screen.findByText(label.name)).toBeTruthy();
+  });
+});
+
+describe("range/list/List permissions", () => {
+  // A search that matches nothing is the only way to reach the empty state: the shared
+  // cluster accumulates ranges across runs. The term shares no token with the test range
+  // names, which search matches word by word.
+  const showEmptyState = async (container: HTMLElement): Promise<void> => {
+    const rng = await createTestRange(client);
+    const input = await waitFor(() =>
+      getInputByNodePlaceholder(container, "Search Ranges..."),
+    );
+    fireEvent.change(input, { target: { value: rng.name } });
+    await within(container).findByText(rng.name);
+    fireEvent.change(input, { target: { value: "qqqqzzzz" } });
+    await within(container).findByText("No ranges found", undefined, {
+      timeout: 5000,
+    });
+  };
+
+  const showRange = async (container: HTMLElement): Promise<void> => {
+    const rng = await createTestRange(client);
+    const input = await waitFor(() =>
+      getInputByNodePlaceholder(container, "Search Ranges..."),
+    );
+    fireEvent.change(input, { target: { value: rng.name } });
+    await within(container).findByText(rng.name);
+  };
+
+  it("should freeze the stage selector for a viewer", async () => {
+    const container = await renderList(await roles.get("Viewer"));
+    await showRange(container);
+    expect(getIconButton(container, "in-progress").getAttribute("aria-disabled")).toBe(
+      "true",
+    );
+  });
+
+  it("should leave the stage selector live for an operator", async () => {
+    const container = await renderList(await roles.get("Operator"));
+    await showRange(container);
+    expect(
+      getIconButton(container, "in-progress").getAttribute("aria-disabled"),
+    ).toBeNull();
+  });
+
+  it("should withhold both create affordances from a viewer", async () => {
+    const container = await renderList(await roles.get("Viewer"));
+    await showEmptyState(container);
+    expect(within(container).queryByText("Create range")).toBeNull();
+    expect(queryIconButton(container, "add")).toBeNull();
+  });
+
+  it("should offer both create affordances to an operator", async () => {
+    const container = await renderList(await roles.get("Operator"));
+    await showEmptyState(container);
+    expect(await within(container).findByText("Create range")).toBeTruthy();
+    expect(queryIconButton(container, "add")).toBeTruthy();
   });
 });

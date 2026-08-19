@@ -64,7 +64,14 @@ export class InvalidTokenError extends AuthError.sub("invalid_token") {}
 export class ExpiredTokenError extends AuthError.sub("expired_token") {}
 
 /** Raised when the caller's policies do not permit the action. */
-export class AccessDeniedError extends AuthError.sub("access_denied") {}
+export class AccessDeniedError extends AuthError.sub("access_denied") {
+  toStatus() {
+    return {
+      message: "You do not have permission to do that",
+      description: this.message,
+    };
+  }
+}
 
 /**
  * UnexpectedError is raised when an unexpected error occurs.

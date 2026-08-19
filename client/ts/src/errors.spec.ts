@@ -11,6 +11,7 @@ import { errors, id, uuid } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
 import {
+  AccessDeniedError,
   AuthError,
   ContiguityError,
   ControlError,
@@ -24,6 +25,7 @@ import {
   UnexpectedError,
   ValidationError,
 } from "@/errors";
+import { status } from "@/status";
 import { createTestClient } from "@/testutil";
 
 describe("error", () => {
@@ -78,6 +80,24 @@ describe("error", () => {
       expect(payload.type).toBe(errors.UNKNOWN);
       expect(payload.data).toBe("boom");
     });
+  });
+});
+
+describe("AccessDeniedError", () => {
+  test("should render a denial without the wire wording", () => {
+    const err = new AccessDeniedError("access denied: auth error");
+    const stat = status.fromException(err);
+    expect(stat.message).toBe("You do not have permission to do that");
+    expect(stat.description).toBe("access denied: auth error");
+    expect(stat.variant).toBe("error");
+  });
+
+  test("should survive the wire as a denial that still renders", () => {
+    const decoded = errors.decode(errors.encode(new AccessDeniedError("nope")));
+    expect(AccessDeniedError.matches(decoded)).toBe(true);
+    expect(status.fromException(decoded).message).toBe(
+      "You do not have permission to do that",
+    );
   });
 });
 

@@ -29,6 +29,7 @@ import { Properties } from "@/feature/lineplot/toolbar/Properties";
 import { useDownloadPlotAsCSV } from "@/feature/lineplot/useDownloadAsCSV";
 import { Cluster } from "@/platform/cluster";
 import { CSS } from "@/platform/css";
+import { Empty } from "@/platform/empty";
 import { Export } from "@/platform/export";
 import { Toolbar as Base } from "@/platform/toolbar";
 import { Session } from "@/session";
@@ -86,21 +87,27 @@ const Internal = (): ReactElement => {
             )}
           </Flex.Box>
         </Base.Header>
-        <Tabs.Content itemKey="data">
-          <Data />
-        </Tabs.Content>
-        <Tabs.Content itemKey="lines">
-          <Lines />
-        </Tabs.Content>
-        <Tabs.Content itemKey="axes">
-          <Axes />
-        </Tabs.Content>
-        <Tabs.Content itemKey="properties">
-          <Properties />
-        </Tabs.Content>
-        <Tabs.Content itemKey="annotations">
-          <Annotations />
-        </Tabs.Content>
+        {hasUpdatePermission ? (
+          <>
+            <Tabs.Content itemKey="data">
+              <Data />
+            </Tabs.Content>
+            <Tabs.Content itemKey="lines">
+              <Lines />
+            </Tabs.Content>
+            <Tabs.Content itemKey="axes">
+              <Axes />
+            </Tabs.Content>
+            <Tabs.Content itemKey="properties">
+              <Properties />
+            </Tabs.Content>
+            <Tabs.Content itemKey="annotations">
+              <Annotations />
+            </Tabs.Content>
+          </>
+        ) : (
+          <Empty.Action message={`${name} is not editable`} />
+        )}
       </Tabs.Frame>
     </Base.Content>
   );

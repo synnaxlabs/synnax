@@ -7,8 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { panel, ranger } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { panel, project, ranger, type Synnax as Client } from "@synnaxlabs/client";
+import {
+  type BuiltInRole,
+  createTestClient,
+  RoleClients,
+} from "@synnaxlabs/client/testutil";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -21,9 +25,21 @@ import {
   primePanel,
 } from "@/platform/panel/testutil";
 import { Session } from "@/session";
-import { resolveFocusedTab, waitForFocusedTab } from "@/testutil";
+import {
+  createTestClientWithGrants,
+  resolveFocusedTab,
+  uniqueName,
+  waitForFocusedTab,
+} from "@/testutil";
 
 const client = createTestClient();
+const roles = new RoleClients(client);
+
+let projectKey: string | undefined;
+const testProject = async (): Promise<string> =>
+  (projectKey ??= (
+    await client.projects.create({ name: uniqueName("project"), layout: {} })
+  ).key);
 
 const viewLeaf = (key: string, type: string): panel.New["root"] => ({
   variant: "leaf",
@@ -418,5 +434,50 @@ describe("Panel.useOpenTabs", () => {
         seedTabKey,
       ),
     );
+  });
+});
+
+describe("Panel.useCanOpenTab", () => {
+  const renderCan = async (as: Client, panelKey?: panel.Key) => {
+    const { wrapper } = await createPanelWrapper({
+      client: as,
+      project: await testProject(),
+      panelKey,
+    });
+    if (panelKey != null) await primePanel(wrapper, panelKey);
+    return renderHook(
+      () => ({
+        open: Panel.useCanOpenTab(),
+        edit: Panel.useCanEditActive(),
+      }),
+      { wrapper },
+    );
+  };
+
+  it.each<BuiltInRole>(["Viewer", "Operator"])(
+    "should refuse both to a %s",
+    async (role) => {
+      const existing = await createServerPanel(client, viewLeaf(uuid.create(), "seed"));
+      const { result } = await renderCan(await roles.get(role), existing.key);
+      await waitFor(() => expect(result.current.edit).toBe(false));
+      expect(result.current.open).toBe(false);
+    },
+  );
+
+  it("should allow both for an engineer", async () => {
+    const existing = await createServerPanel(client, viewLeaf(uuid.create(), "seed"));
+    const { result } = await renderCan(await roles.get("Engineer"), existing.key);
+    await waitFor(() => expect(result.current.open).toBe(true));
+    expect(result.current.edit).toBe(true);
+  });
+
+  it("should fall back to the create grant when no panel is in scope", async () => {
+    const creator = await createTestClientWithGrants(client, {
+      retrieve: [panel.TYPE_ONTOLOGY_ID, project.TYPE_ONTOLOGY_ID],
+      create: [panel.TYPE_ONTOLOGY_ID],
+    });
+    const { result } = await renderCan(creator);
+    await waitFor(() => expect(result.current.open).toBe(true));
+    expect(result.current.edit).toBe(false);
   });
 });

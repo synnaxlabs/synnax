@@ -121,6 +121,7 @@ const useTabDrop = (
   key: panel.Key | undefined,
   onDrop: (origin: TabOrigin) => void,
   onEnter?: () => void,
+  enabled: boolean = true,
 ): TabDropReturn => {
   const [over, setOver] = useState(false);
   const handleDragOver = useCallback(() => {
@@ -128,10 +129,14 @@ const useTabDrop = (
     onEnter?.();
   }, [onEnter]);
   const handleDragLeave = useCallback(() => setOver(false), []);
+  const canDrop = useCallback<Haul.CanDrop>(
+    (props) => enabled && canDropTab(props),
+    [enabled],
+  );
   const { onDragOver, onDrop: handleDrop } = Haul.useDrop({
     type: "PanelSelector",
     key,
-    canDrop: canDropTab,
+    canDrop,
     onDragOver: handleDragOver,
     onDrop: useCallback(
       ({ items }: Haul.OnDropProps) => {
@@ -170,6 +175,7 @@ const Tab = ({ tabKey, dwell }: TabProps): ReactElement => (
 const TabContent = ({ tabKey, dwell }: TabProps): ReactElement => {
   Panel.useEnsure({ key: tabKey });
   const name = Panel.useName({ key: tabKey });
+  const canEdit = Panel.useCanEdit({ key: tabKey });
   const { update: rename } = Panel.useRename();
   const handleChange = useCallback(
     (name: string) => rename({ key: tabKey, name }),
@@ -190,6 +196,7 @@ const TabContent = ({ tabKey, dwell }: TabProps): ReactElement => {
     tabKey,
     handleMove,
     handleDwell,
+    canEdit,
   );
   const handleDragLeave = useCallback(() => {
     onDragLeave();
@@ -206,10 +213,11 @@ const TabContent = ({ tabKey, dwell }: TabProps): ReactElement => {
       {...dropProps}
     >
       <Icon.Panel />
-      <Text.Editable
+      <Text.MaybeEditable
         id={PCSS.B(`tab-${tabKey}`)}
         value={name}
         onChange={handleChange}
+        disabled={!canEdit}
       />
     </Tabs.Tab>
   );
@@ -217,11 +225,13 @@ const TabContent = ({ tabKey, dwell }: TabProps): ReactElement => {
 
 // The create button doubles as a drop target: releasing a tab on it mints a panel to
 // hold the tab, the drag twin of the picker's "New panel" entry.
-const CreateButton = (): ReactElement => {
+const CreateButton = (): ReactElement | null => {
   const selected = Session.Panel.useSelectSelected();
+  const canCreate = Access.useCreateGranted(panel.TYPE_ONTOLOGY_ID);
   const handleCreate = useCreate();
   const moveToNewPanel = useMoveTabToNewPanel();
   const { className, ...dropProps } = useTabDrop(undefined, moveToNewPanel);
+  if (!canCreate) return null;
   return (
     <Button.Button
       variant="text"

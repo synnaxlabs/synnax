@@ -21,7 +21,7 @@ import { type ReactElement, type ReactNode, useCallback } from "react";
 
 import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
-import { useIsSnapshot } from "@/platform/task/Form";
+import { useIsPreview } from "@/platform/task/Form";
 import { type Channel } from "@/platform/task/types";
 
 export interface ContextMenuItemProps<C extends Channel> {
@@ -52,7 +52,7 @@ const ContextMenu = <C extends Channel>({
   remove,
   contextMenuItems,
 }: ContextMenuProps<C>) => {
-  const isSnapshot = useIsSnapshot();
+  const isPreview = useIsPreview();
   const handleRemove = () => onSelect(array.toArray(remove(keys)[0]));
   const { get, set } = Form.useContext();
   const channels = Form.useFieldValue<C[]>(path).filter(({ key }) =>
@@ -78,7 +78,7 @@ const ContextMenu = <C extends Channel>({
   const canTare = allowTare?.(keys, channels) ?? false;
   return (
     <PlatformContextMenu.Menu>
-      {!isSnapshot && (
+      {!isPreview && (
         <>
           {canDuplicate && (
             <Menu.Item itemKey="duplicate" onClick={handleDuplicate}>
@@ -100,12 +100,16 @@ const ContextMenu = <C extends Channel>({
               Disable
             </Menu.Item>
           )}
-          {canTare && (
-            <Menu.Item itemKey="tare" onClick={handleTare}>
-              <Icon.Tare />
-              Tare
-            </Menu.Item>
-          )}
+        </>
+      )}
+      {canTare && (
+        <Menu.Item itemKey="tare" onClick={handleTare}>
+          <Icon.Tare />
+          Tare
+        </Menu.Item>
+      )}
+      {!isPreview && (
+        <>
           <Menu.Divider />
           {canRemove && (
             <Menu.Item itemKey="remove" onClick={handleRemove}>

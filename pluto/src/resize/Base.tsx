@@ -24,6 +24,8 @@ export interface BaseProps extends Omit<
   size: number;
   decimal?: boolean;
   hideHandle?: boolean;
+  /** Drops the drag handle while keeping the divider, for a pane that cannot resize. */
+  disabled?: boolean;
 }
 
 export const Base = ({
@@ -36,6 +38,7 @@ export const Base = ({
   onPointerDown,
   decimal = false,
   hideHandle = false,
+  disabled = false,
   ...rest
 }: BaseProps): ReactElement => {
   const parsedLocation = location.construct(cloc);
@@ -64,7 +67,7 @@ export const Base = ({
       {...rest}
     >
       {children}
-      {!hideHandle && (
+      {!hideHandle && !disabled && (
         <div
           className={CSS(CSS.BE("resize", "handle"), Cursor.DRAG_CLASS)}
           onPointerDown={onPointerDown}

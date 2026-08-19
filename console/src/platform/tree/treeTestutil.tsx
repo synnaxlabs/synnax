@@ -29,6 +29,8 @@ export interface RenderOntologyTreeOptions {
   items?: Tree.Items;
   /** Extra siblings rendered alongside the tree, e.g. CaptureStatuses. */
   extra?: ReactNode;
+  /** The client that creates the session's project; defaults to the rendering one. */
+  projectClient?: Synnax;
 }
 
 export interface OntologyTreeHandle extends RenderResult {
@@ -47,9 +49,10 @@ export const renderOntologyTree = async ({
   root,
   items = {},
   extra,
+  projectClient = client,
 }: RenderOntologyTreeOptions): Promise<OntologyTreeHandle> => {
   const { wrapper, store } = await createConsoleWrapper({ client });
-  await selectTestProject(store, client);
+  await selectTestProject(store, projectClient);
   const rendered = render(
     <Triggers.Provider>
       <Haul.Provider>

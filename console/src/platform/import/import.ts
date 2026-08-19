@@ -15,7 +15,7 @@ import {
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { type UploadBody } from "@synnaxlabs/freighter";
-import { Status, Synnax } from "@synnaxlabs/pluto";
+import { Access, Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { useImportBatch } from "@/platform/import/useImportBatch";
@@ -69,4 +69,19 @@ export const use = (): ((projectKey?: string) => void) => {
       }),
     [store, client, handleError, importBatch],
   );
+};
+
+/**
+ * Reports whether the subject may import into the selected project. The Core enforces
+ * create on the imported resource's own type as well, which no caller can know before
+ * the file is read, so a permitted import can still be refused on that second check.
+ * With no project selected there is no parent to read the grant on, and the import
+ * itself has nowhere to land, so the answer is deferred to the Core.
+ */
+export const useCanImport = (): boolean => {
+  const selected = Session.Project.useSelectOptionalSelected();
+  const granted = Access.useUpdateGranted(
+    selected == null ? project.TYPE_ONTOLOGY_ID : project.ontologyID(selected),
+  );
+  return selected == null || granted;
 };

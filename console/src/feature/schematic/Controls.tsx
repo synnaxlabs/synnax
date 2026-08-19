@@ -12,6 +12,7 @@ import { location } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback } from "react";
 
 import { CSS } from "@/platform/css";
+import { Framer } from "@/platform/framer";
 import { Vis } from "@/platform/vis";
 import { Session } from "@/session";
 
@@ -39,13 +40,14 @@ export const Controls = memo((): ReactElement => {
   const isSnapshot = Schematic.useIsSnapshot();
   const isAcquired = Session.Schematic.useSelectControlIsAcquired();
   const { canEdit, isCurrentlyEditable } = Session.Schematic.useSelectEditable();
+  const canControl = Framer.useCanCommand();
   return (
     <Vis.Controls x>
       {isCurrentlyEditable && <Diagram.Controls.SelectViewportMode />}
       <Diagram.Controls.FitView />
       <Flex.Box x pack className={CSS(isAcquired && Vis.CONTROLS_PINNED_CLASS)}>
         {canEdit && <Diagram.Controls.ToggleEdit disabled={isAcquired} />}
-        {!isSnapshot && <ControlToggleButton />}
+        {!isSnapshot && canControl && <ControlToggleButton />}
       </Flex.Box>
     </Vis.Controls>
   );

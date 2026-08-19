@@ -80,6 +80,12 @@ export const getIconButton = (
   return button;
 };
 
+/** Like getIconButton, but waits for the button to appear. */
+export const findIconButton = async (
+  container: ParentNode,
+  icon: string,
+): Promise<HTMLButtonElement> => await waitFor(() => getIconButton(container, icon));
+
 /**
  * Returns the pluto toggle button in container. Toggles carry no accessible name, and
  * their icon is decoration that changes with the design, so the toggle class is the
@@ -179,13 +185,19 @@ export const getCompositeIconButton = (
   container: ParentNode,
   icons: string[],
 ): HTMLButtonElement => {
-  const buttons = Array.from(container.querySelectorAll("button"));
-  const btn = buttons.find((b) =>
-    icons.every((i) => b.querySelector(`[aria-label="pluto-icon--${i}"]`) != null),
-  );
+  const [btn] = getCompositeIconButtons(container, icons);
   if (btn == null) throw new Error(`no button with icons ${icons.join(", ")}`);
   return btn;
 };
+
+/** Like getCompositeIconButton, but returns every match instead of throwing on none. */
+export const getCompositeIconButtons = (
+  container: ParentNode,
+  icons: string[],
+): HTMLButtonElement[] =>
+  Array.from(container.querySelectorAll("button")).filter((b) =>
+    icons.every((i) => b.querySelector(`[aria-label="pluto-icon--${i}"]`) != null),
+  );
 
 /**
  * Finds the checkbox input of the pluto switch field labeled with labelText. Pluto

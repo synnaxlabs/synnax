@@ -399,6 +399,20 @@ class Schematic(ConsolePage):
                 if current_state != show_control_legend:
                     legend_toggle.click()
 
+    def has_control_toggle(self) -> bool:
+        """Report whether the control acquisition toggle is offered.
+
+        The toggle is gated on framer create, so a user without it never sees one.
+
+        :returns: True when the toggle is present and visible.
+        """
+        control_button = (
+            self.page.locator(".console-controls button")
+            .filter(has=self.page.locator("svg.pluto-icon--circle"))
+            .first
+        )
+        return control_button.count() > 0 and control_button.is_visible()
+
     def get_control_status(self) -> bool:
         """Get whether control is currently acquired for this schematic."""
         control_button = (

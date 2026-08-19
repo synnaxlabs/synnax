@@ -100,9 +100,11 @@ export const Time = ({
   showDragHandle = true,
   className,
   children,
+  preview,
   ...rest
 }: TimeProps) => {
   const { inputValue, ts, handleChange } = useTime({ value, onChange, timeZone });
+  if (preview === true) showDragHandle = false;
   return (
     <Text
       ref={ref}
@@ -111,6 +113,7 @@ export const Time = ({
       type="time"
       step="1"
       onChange={handleChange}
+      preview={preview}
       {...rest}
     >
       {showDragHandle && (

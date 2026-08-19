@@ -39,7 +39,8 @@ export const KeyValueEditor = <K extends string, V extends string | number>({
 }: KeyValueEditorProps<K, V>): React.ReactElement => {
   const vt = valueType ?? "string";
   const defaultValue: V = (vt === "number" ? 0 : "") as V;
-  const { set } = Form.useContext();
+  const { set, mode } = Form.useContext();
+  const preview = mode === "preview" ? true : undefined;
   const value = Form.useFieldValue<Entry<K, V>[]>(path, { defaultValue: [] });
 
   useEffect(() => {
@@ -78,14 +79,16 @@ export const KeyValueEditor = <K extends string, V extends string | number>({
     <Flex.Box y gap="small" {...rest}>
       <Text.Text level="small" justify="between" size="small" color={9}>
         {label}
-        <Button.Button
-          onClick={addRow}
-          variant="filled"
-          tooltip={`Add ${label.toLowerCase()}`}
-          size="small"
-        >
-          <Icon.Add />
-        </Button.Button>
+        {!preview && (
+          <Button.Button
+            onClick={addRow}
+            variant="filled"
+            tooltip={`Add ${label.toLowerCase()}`}
+            size="small"
+          >
+            <Icon.Add />
+          </Button.Button>
+        )}
       </Text.Text>
       <Flex.Box y gap="small">
         {entries.map((entry, i) => {
@@ -94,6 +97,7 @@ export const KeyValueEditor = <K extends string, V extends string | number>({
               placeholder={keyPlaceholder}
               value={entry[keyField]}
               onChange={(v) => updateRowKey(i, v)}
+              preview={preview}
             />
           );
           const valueInput =
@@ -101,12 +105,14 @@ export const KeyValueEditor = <K extends string, V extends string | number>({
               <Input.Numeric
                 value={entry.value as number}
                 onChange={(v) => updateRowValue(i, v as V)}
+                preview={preview}
               />
             ) : (
               <Input.Text
                 placeholder={valuePlaceholder}
                 value={entry.value as string}
                 onChange={(v) => updateRowValue(i, v as V)}
+                preview={preview}
               />
             );
           return (
@@ -119,14 +125,16 @@ export const KeyValueEditor = <K extends string, V extends string | number>({
             >
               {valueFirst ? valueInput : keyInput}
               {valueFirst ? keyInput : valueInput}
-              <Button.Button
-                variant="text"
-                reveal
-                size="small"
-                onClick={() => removeRow(i)}
-              >
-                <Icon.Close />
-              </Button.Button>
+              {!preview && (
+                <Button.Button
+                  variant="text"
+                  reveal
+                  size="small"
+                  onClick={() => removeRow(i)}
+                >
+                  <Icon.Close />
+                </Button.Button>
+              )}
             </Flex.Box>
           );
         })}

@@ -171,6 +171,72 @@ class AccessClient:
             return user_badge.inner_text().strip()
         return None
 
+    def get_current_role(self) -> str | None:
+        """Get the role name shown in the user badge dialog.
+
+        Opens the badge dialog, reads the role, and closes it again.
+
+        :returns: The role name, or None if the badge shows none.
+        """
+        badge = self.layout.page.locator(
+            ".pluto-dialog__trigger:has(.pluto-icon--user)"
+        )
+        if badge.count() == 0 or not badge.is_visible():
+            return None
+        badge.click()
+        role = self.layout.page.locator(".console-user-badge__roles")
+        try:
+            role.wait_for(state="visible", timeout=5000)
+            return role.inner_text().strip()
+        except PlaywrightTimeoutError:
+            return None
+        finally:
+            self.layout.press_escape()
+
+    # -------------------------------------------------------------------------
+    # Permission probes
+    # -------------------------------------------------------------------------
+
+    def command_available(self, name: str) -> bool:
+        """Report whether a command is offered in the palette.
+
+        Commands hidden by a permission guard are filtered out of the list, so
+        absence is how the Console denies one. Leaves the palette closed.
+
+        :param name: The command's exact display name.
+        """
+        self.layout.press_key("ControlOrMeta+Shift+p")
+        palette = self.layout.page.locator(
+            ".console-palette__input input[role='textbox']"
+        )
+        palette.wait_for(state="visible", timeout=5000)
+        palette.fill(f">{name}")
+        try:
+            self.layout.page.get_by_text(name, exact=True).first.wait_for(
+                state="visible", timeout=2000
+            )
+            return True
+        except PlaywrightTimeoutError:
+            return False
+        finally:
+            self.layout.press_escape()
+
+    def users_toolbar_visible(self) -> bool:
+        """Report whether the Users toolbar opens for the current user.
+
+        The toolbar is gated on user update, so only an Owner sees it. Leaves
+        the toolbar closed.
+        """
+        self.layout.press_key(self.SHORTCUT_KEY)
+        roles = self.layout.page.locator(f"div[id^='{self.ROLE_ITEM_PREFIX}']")
+        try:
+            roles.first.wait_for(state="visible", timeout=2000)
+            return True
+        except PlaywrightTimeoutError:
+            return False
+        finally:
+            self.layout.press_escape()
+
     # -------------------------------------------------------------------------
     # User Registration (with role selection)
     # -------------------------------------------------------------------------

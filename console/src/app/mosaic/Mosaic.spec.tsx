@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, type panel } from "@synnaxlabs/client";
+import { type ontology, type panel, project } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Haul, Icon, Text } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
@@ -30,7 +30,7 @@ import {
   getMosaicLeaf,
   primePanel,
 } from "@/platform/panel/testutil";
-import { assertDefined, renderSuspended } from "@/testutil";
+import { assertDefined, awaitGranted, renderSuspended, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -54,10 +54,16 @@ describe("Mosaic file drop", () => {
       variant: "leaf",
       tabs: [{ variant: "view", key: uuid.create(), type: "seed", args: {} }],
     });
+    const proj = await client.projects.create({
+      name: uniqueName("project"),
+      layout: {},
+    });
     const { wrapper: Console } = await createPanelWrapper({
       client,
       panelKey: existing.key,
+      project: proj.key,
     });
+    await awaitGranted(client, project.ontologyID(proj.key), "update");
     await primePanel(Console, existing.key);
     const Harness = ({ children }: PropsWithChildren): ReactElement => (
       <Console>

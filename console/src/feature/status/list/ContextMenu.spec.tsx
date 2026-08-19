@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { status } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { status, type Synnax as Client } from "@synnaxlabs/client";
+import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { xy } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, type Mock } from "vitest";
@@ -26,6 +26,7 @@ import {
 } from "@/testutil";
 
 const client = createTestClient();
+const roles = new RoleClients(client);
 
 let clipboard: Mock;
 
@@ -41,9 +42,10 @@ const createStatus = async (message = "under test") =>
 const renderMenu = async (
   keys: status.Key[],
   favorites: status.Key[] = [],
+  as: Client = client,
 ): Promise<TestStore> => {
   const { wrapper, store } = await createConsoleWrapper({
-    client,
+    client: as,
     preloadedState: {
       [Session.Status.SLICE_NAME]: { version: 0, favorites },
     },
@@ -117,5 +119,22 @@ describe("status list context menu", () => {
       const updated = await client.statuses.retrieve(s.key);
       expect(updated.name).toBe(newName);
     });
+  });
+});
+
+describe("status list context menu permissions", () => {
+  it("should withhold rename and delete from a viewer", async () => {
+    const s = await createStatus();
+    await renderMenu([s.key], [], await roles.get("Viewer"));
+    expect(await screen.findByText("Copy diagnostics")).toBeTruthy();
+    expect(screen.queryByText("Rename")).toBeNull();
+    expect(screen.queryByText("Delete")).toBeNull();
+  });
+
+  it("should offer rename and delete to an engineer", async () => {
+    const s = await createStatus();
+    await renderMenu([s.key], [], await roles.get("Engineer"));
+    expect(await screen.findByText("Rename")).toBeTruthy();
+    expect(await screen.findByText("Delete")).toBeTruthy();
   });
 });

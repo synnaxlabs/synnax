@@ -225,6 +225,8 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
       applyColumns(table, rawCol, value);
     };
 
+    if (preScaledField.preview) return <CustomScaleUnitsFields prefix={prefix} />;
+
     return (
       <>
         <CustomScaleUnitsFields prefix={prefix} />

@@ -9,125 +9,93 @@
 
 """Test that Engineer role has full access except user management."""
 
-import synnax as sy
 from console.case import ConsoleCase
 from x import random_name
 
+PASSWORD = "testpassword123"
+FIRST_NAME = "Engineer"
+SCHEMATIC_NAME = "engineer_perm_schematic"
+PLOT_NAME = "engineer_perm_plot"
+TABLE_NAME = "engineer_perm_table"
+
 
 class RoleEngineerPermissions(ConsoleCase):
-    """Test that Engineer can create resources but cannot manage users."""
+    """Engineer holds every action except user, role, and policy writes."""
 
     def run(self) -> None:
-        # Create a new user with Engineer role
-        username = f"engineer_{random_name()}"
-        password = "testpassword123"
-        first_name = "Engineer"
-        last_name = "Test"
-        role_name = "Engineer"
+        self.log_in_as_engineer()
+        self.badge_names_the_role()
+        self.user_management_is_hidden()
+        self.creation_commands_are_offered()
+        self.mosaic_is_interactive()
+        self.tab_menu_offers_the_writes()
+        self.visualizations_are_editable()
 
-        self.log(f"Registering engineer user: {username}")
-
-        success = self.console.access.register_user(
-            username=username,
-            password=password,
-            first_name=first_name,
-            last_name=last_name,
-            role_name=role_name,
-        )
-        assert success, f"Failed to register user {username}"
-
-        # Log out and log in as the engineer
-        self.log("Logging out and logging in as engineer...")
+    def log_in_as_engineer(self) -> None:
+        self._username = f"engineer_{random_name()}"
+        assert self.console.access.register_user(
+            username=self._username,
+            password=PASSWORD,
+            first_name=FIRST_NAME,
+            last_name="Test",
+            role_name="Engineer",
+        ), f"failed to register user {self._username}"
         self.console.access.logout()
-        self.console.access.login(username=username, password=password)
-
-        # Verify logged in as engineer
-        user_badge = self.page.get_by_text(first_name, exact=True)
-        user_badge.wait_for(state="visible", timeout=10000)
-        self.log(f"Logged in as engineer: {first_name}")
-
-        # Test 1: Users toolbar should be hidden (Engineer can view but not edit users)
-        self.log("Testing: Users toolbar should be hidden for engineer...")
-        self.page.keyboard.press("u")
-        sy.sleep(0.5)
-
-        role_elements = self.page.locator("div[id^='role:']")
-        users_visible = role_elements.count() > 0 and role_elements.first.is_visible()
-
-        if users_visible:
-            self.log("WARNING: Users toolbar is visible to engineer (unexpected)")
-        else:
-            self.log("PASS: Users toolbar is hidden for engineer")
-
-        self.console.layout.press_escape()
-        sy.sleep(0.3)
-
-        # Test 2: Engineer SHOULD be able to create project
-        self.log("Testing: Engineer should be able to create project...")
-        self.page.keyboard.press("ControlOrMeta+Shift+p")
-        sy.sleep(0.3)
-
-        palette_input = self.page.locator(
-            ".console-palette__input input[role='textbox']"
+        self.console.access.login(username=self._username, password=PASSWORD)
+        self.page.get_by_text(FIRST_NAME, exact=True).wait_for(
+            state="visible", timeout=10000
         )
-        palette_input.fill(">Create a project", timeout=2000)
-        sy.sleep(0.3)
 
-        project_cmd = self.page.get_by_text("Create project", exact=True)
-        project_cmd_exists = project_cmd.count() > 0
+    def badge_names_the_role(self) -> None:
+        role = self.console.access.get_current_role()
+        assert role == "Engineer", f"badge shows role {role!r}, expected 'Engineer'"
 
-        self.console.layout.press_escape()
-        sy.sleep(0.2)
-
-        if project_cmd_exists:
-            self.log("PASS: Create Project command available for engineer")
-        else:
-            self.log("FAIL: Create Project command not available for engineer")
-            assert False, "Engineer should be able to create project"
-
-        # Test 3: Engineer SHOULD be able to create schematic
-        self.log("Testing: Engineer should be able to create schematic...")
-        self.page.keyboard.press("ControlOrMeta+Shift+p")
-        sy.sleep(0.3)
-
-        palette_input = self.page.locator(
-            ".console-palette__input input[role='textbox']"
+    def user_management_is_hidden(self) -> None:
+        """The toolbar needs user update, which an Engineer does not hold."""
+        assert not self.console.access.users_toolbar_visible(), (
+            "Users toolbar is visible to an Engineer; it is gated on user update"
         )
-        palette_input.fill(">Create a schematic", timeout=2000)
-        sy.sleep(0.3)
 
-        schematic_cmd = self.page.get_by_text("Create schematic", exact=True)
-        schematic_cmd_exists = schematic_cmd.count() > 0
+    def creation_commands_are_offered(self) -> None:
+        for command in (
+            "Create project",
+            "Create schematic",
+            "Create line plot",
+            "Create channel",
+            "Create range",
+        ):
+            assert self.console.access.command_available(command), (
+                f"{command!r} is withheld from an Engineer, who can create one"
+            )
 
-        self.console.layout.press_escape()
-        sy.sleep(0.2)
-
-        if schematic_cmd_exists:
-            self.log("PASS: Create schematic command available for engineer")
-        else:
-            self.log("FAIL: Create schematic command not available for engineer")
-            assert False, "Engineer should be able to create schematic"
-
-        # Test 4: Engineer SHOULD be able to create channel
-        self.log("Testing: Engineer should be able to create channel...")
-        self.page.keyboard.press("ControlOrMeta+Shift+p")
-        sy.sleep(0.3)
-
-        palette_input = self.page.locator(
-            ".console-palette__input input[role='textbox']"
+    def mosaic_is_interactive(self) -> None:
+        """An Engineer writes panels, so every structural affordance stays."""
+        schematic = self.console.project.create_schematic(SCHEMATIC_NAME)
+        self._cleanup_pages.append(schematic.page_name)
+        assert self.console.layout.tab_is_closable(SCHEMATIC_NAME), (
+            "tab withholds its close button from an Engineer, who can write the panel"
         )
-        palette_input.fill(">Create a channel", timeout=2000)
-        sy.sleep(0.3)
+        assert not self.console.layout.mosaic_is_static(), (
+            "mosaic withholds structural writes from an Engineer"
+        )
 
-        channel_cmd = self.page.get_by_text("Create channel", exact=True)
-        channel_cmd_exists = channel_cmd.count() > 0
+    def tab_menu_offers_the_writes(self) -> None:
+        for option in ("Rename", "Move to panel"):
+            assert self.console.layout.tab_menu_has_option(SCHEMATIC_NAME, option), (
+                f"tab menu withholds {option!r} from an Engineer, who writes the panel"
+            )
 
-        self.console.layout.press_escape()
-
-        if channel_cmd_exists:
-            self.log("PASS: Create channel command available for engineer")
-        else:
-            self.log("FAIL: Create Channel command not available for engineer")
-            assert False, "Engineer should be able to create channel"
-
-        self.log("Engineer permissions test completed")
+    def visualizations_are_editable(self) -> None:
+        """An Engineer writes plots and tables, so both offer their editing surface."""
+        plot = self.console.project.create_plot(PLOT_NAME)
+        self._cleanup_pages.append(plot.page_name)
+        self.console.layout.show_visualization_toolbar()
+        self.console.layout.get_by_text("Axes", exact=True).wait_for(
+            state="visible", timeout=10000
+        )
+        table = self.console.project.create_table(TABLE_NAME)
+        self._cleanup_pages.append(table.page_name)
+        self.console.layout.get_by_text("enable editing.").wait_for(
+            state="visible", timeout=10000
+        )
+        self.console.layout.hide_visualization_toolbar()

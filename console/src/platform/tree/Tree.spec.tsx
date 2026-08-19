@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, ontology } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { group, ontology, type Synnax as Client } from "@synnaxlabs/client";
+import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { Haul, Tree as PTree } from "@synnaxlabs/pluto";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import {
@@ -25,9 +25,10 @@ import { renderOntologyTree } from "@/platform/tree/treeTestutil";
 import { createConsoleWrapper, uniqueName, withControlHeld } from "@/testutil";
 
 const client = createTestClient();
+const roles = new RoleClients(client);
 
-const createWrapper = async (items: Tree.Items = {}) => {
-  const { wrapper: Console } = await createConsoleWrapper({ client });
+const createWrapper = async (items: Tree.Items = {}, as: Client = client) => {
+  const { wrapper: Console } = await createConsoleWrapper({ client: as });
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Console>
       <Haul.Provider>
@@ -38,8 +39,11 @@ const createWrapper = async (items: Tree.Items = {}) => {
   return Wrapper;
 };
 
-const renderTree = async (root: ontology.ID | null, items: Tree.Items = {}) =>
-  render(<Tree.Tree root={root} />, { wrapper: await createWrapper(items) });
+const renderTree = async (
+  root: ontology.ID | null,
+  items: Tree.Items = {},
+  as: Client = client,
+) => render(<Tree.Tree root={root} />, { wrapper: await createWrapper(items, as) });
 
 const NO_CHILDREN = "no children here";
 
@@ -658,6 +662,40 @@ describe("Tree.Tree", () => {
     await screen.findByText(name);
     await client.groups.delete(created.key);
     await waitFor(() => expect(screen.queryByText(name)).toBeNull());
+  });
+
+  describe("without permission to move a resource", () => {
+    const DROPPABLE: Tree.Items = {
+      group: Tree.createItem({ type: "group", canDrop: () => true }),
+    };
+
+    it("should leave the rows undraggable and refuse the drop", async () => {
+      const container = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: uniqueName("container"),
+      });
+      const containerID = group.ontologyID(container.key);
+      const folder = await client.groups.create({
+        parent: containerID,
+        name: uniqueName("folder"),
+      });
+      const dest = await client.groups.create({
+        parent: containerID,
+        name: uniqueName("dest"),
+      });
+      const viewer = await roles.get("Viewer");
+      await renderTree(containerID, DROPPABLE, viewer);
+      await screen.findByText(folder.name);
+      await waitFor(() =>
+        expect(getTreeRow(folder.name).getAttribute("draggable")).toBe("false"),
+      );
+      fireEvent.dragStart(getTreeRow(folder.name));
+      fireEvent.drop(getTreeRow(dest.name));
+      const children = await client.ontology.children.retrieve({
+        ids: group.ontologyID(dest.key),
+      });
+      expect(children.map((c) => c.id.key)).not.toContain(folder.key);
+    });
   });
 
   describe("cluster event isolation", () => {

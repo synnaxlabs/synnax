@@ -11,6 +11,7 @@ import "@/platform/range/overview/Details.css";
 
 import { ranger } from "@synnaxlabs/client";
 import {
+  Access,
   Button,
   Divider,
   Flex,
@@ -75,6 +76,9 @@ export interface DetailsProps {
 export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   const range = Ranger.use({ key: rangeKey });
   const now = TimeStamp.now().nanoseconds;
+  // The form saves on every edit, so a subject who cannot write the range gets it
+  // read-only rather than a field that reverts once the save is refused.
+  const canEdit = Access.useUpdateGranted(ranger.ontologyID(rangeKey));
   const { form, status } = Ranger.useForm({
     query: { key: rangeKey },
     initialValues: {
@@ -84,6 +88,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
       labels: [],
     },
     autoSave: true,
+    mode: canEdit ? "normal" : "preview",
   });
 
   const handleLink = Cluster.useCopyLinkToClipboard();

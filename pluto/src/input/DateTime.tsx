@@ -39,6 +39,7 @@ export const DateTime = ({
   onBlur,
   onlyChangeOnBlur,
   variant,
+  preview,
   ...rest
 }: DateTimeProps): ReactElement => {
   const [tempValue, setTempValue] = useState<string | null>(null);
@@ -89,14 +90,17 @@ export const DateTime = ({
         value={tempValue ?? parsedValue}
         onChange={handleChange}
         step={0.00001}
+        preview={preview}
         {...rest}
       >
-        <Button.Button
-          onClick={() => setVisible(!visible)}
-          variant={variant === "shadow" ? "outlined" : variant}
-        >
-          <Icon.Calendar />
-        </Button.Button>
+        {preview !== true && (
+          <Button.Button
+            onClick={() => setVisible(!visible)}
+            variant={variant === "shadow" ? "outlined" : variant}
+          >
+            <Icon.Calendar />
+          </Button.Button>
+        )}
       </InputText>
       <DateTimeModal
         value={tsValue}
@@ -121,7 +125,7 @@ const DateTimeModal = ({ value, onChange }: DateTimeModalProps): ReactElement =>
     <Dialog.Dialog>
       <Flex.Box className={CSS.B("datetime-modal")} empty>
         <Flex.Box className={CSS.B("datetime-modal-container")}>
-          <Flex.Box x className={CSS.B("header")}>
+          <Flex.Box x className={CSS.B("datetime-modal-header")}>
             <TelemText.TimeStamp level="h3" format="preciseDate">
               {value}
             </TelemText.TimeStamp>

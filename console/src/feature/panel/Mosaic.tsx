@@ -12,6 +12,7 @@ import "@/feature/panel/Mosaic.css";
 import { NotFoundError, ontology, panel } from "@synnaxlabs/client";
 import { Logo } from "@synnaxlabs/media";
 import {
+  Access,
   Button,
   Component,
   Errors,
@@ -241,6 +242,7 @@ const EmptyTabContent = ({
   onCreateTab,
 }: Pick<MosaicProps, "onCreateTab">): ReactElement => {
   const openTab = PlatformPanel.useOpenTab();
+  const canEdit = Panel.useCanEdit({});
   const handleCreate = useCallback(
     () => openTab(onCreateTab()),
     [onCreateTab, openTab],
@@ -252,7 +254,7 @@ const EmptyTabContent = ({
         className={CSS.BE("mosaic", "empty-action")}
         level="h5"
         message="No components open"
-        action="Create component"
+        action={canEdit ? "Create component" : undefined}
         onClick={handleCreate}
       />
     </Flex.Box>
@@ -303,10 +305,12 @@ interface EmptyContentProps extends Pick<MosaicProps, "onFileDrop"> {}
 // same framed L0 surface instead of collapsing to bare window background.
 const EmptyContent = ({ onFileDrop }: EmptyContentProps): ReactElement => {
   const createPanel = useCreate();
+  const canCreate = Access.useCreateGranted(panel.TYPE_ONTOLOGY_ID);
   const [over, setOver] = useState(false);
+  const acceptsFiles = onFileDrop != null;
   const canDrop: Haul.CanDrop = useCallback(
-    ({ items }) => Haul.filterByType(Haul.FILE_TYPE, items).length > 0,
-    [],
+    ({ items }) => acceptsFiles && Haul.filterByType(Haul.FILE_TYPE, items).length > 0,
+    [acceptsFiles],
   );
   const handleDragOver = useCallback(() => setOver(true), []);
   const handleDragLeave = useCallback(() => setOver(false), []);
@@ -316,7 +320,7 @@ const EmptyContent = ({ onFileDrop }: EmptyContentProps): ReactElement => {
       if (event == null) return [];
       // No leaf exists to target, so the root key and center stand in; the handler
       // creates a fresh panel and the placement never applies.
-      onFileDrop({ nodeKey: panel.ROOT_NODE_KEY, location: "center", event });
+      onFileDrop?.({ nodeKey: panel.ROOT_NODE_KEY, location: "center", event });
       return items;
     },
     [onFileDrop],
@@ -351,7 +355,7 @@ const EmptyContent = ({ onFileDrop }: EmptyContentProps): ReactElement => {
           className={CSS.BE("mosaic", "empty-action")}
           level="h5"
           message="No panels open"
-          action="Create panel"
+          action={canCreate ? "Create panel" : undefined}
           onClick={createPanel}
         />
       </Flex.Box>
@@ -442,8 +446,9 @@ PortaledOutPanel.displayName = "PortaledOutPanel";
 
 export interface MosaicProps {
   onCreateTab: () => panel.NewTab;
-  /** Handles an OS file drop. A drop with no leaf landed on the no-panel state. */
-  onFileDrop: Import.FileDrop;
+  /** Handles an OS file drop. A drop with no leaf landed on the no-panel state.
+   * Absent when the subject may not import; the drop affordances hide with it. */
+  onFileDrop?: Import.FileDrop;
 }
 
 export const Mosaic = (props: MosaicProps): ReactElement => (

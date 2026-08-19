@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  createTestClientWithRole,
+} from "@synnaxlabs/client/testutil";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -18,6 +21,12 @@ import { createConsoleWrapper, renderWithConsole } from "@/testutil";
 
 const createStateWithUser = (username: string, selected = "LOCAL") =>
   createClusterState([createCluster("LOCAL", { name: "Local", username })], selected);
+
+const getTrigger = (container: ParentNode): HTMLElement => {
+  const trigger = container.querySelector<HTMLElement>(".pluto-dialog__trigger");
+  if (trigger == null) throw new Error("badge trigger not found");
+  return trigger;
+};
 
 describe("User.Badge", () => {
   it("should fall back to the cluster username when no user is loaded", async () => {
@@ -36,6 +45,36 @@ describe("User.Badge", () => {
     render(<User.Badge />, { wrapper });
     await waitFor(() => expect(screen.getByText("synnax")).toBeTruthy());
     expect(screen.queryByText("fallback_user")).toBeNull();
+  });
+
+  it("should name the subject's role in the dialog", async () => {
+    const root = createTestClient();
+    const viewer = await createTestClientWithRole(root, "Viewer");
+    const { wrapper } = await createConsoleWrapper({
+      client: viewer,
+      preloadedState: createStateWithUser("fallback_user"),
+    });
+    const { container } = render(<User.Badge />, { wrapper });
+    fireEvent.click(getTrigger(container));
+    const role = await waitFor(() => {
+      const el = document.body.querySelector(".console-user-badge__roles");
+      if (el == null) throw new Error("role not rendered");
+      return el;
+    });
+    expect(role.textContent).toContain("Viewer");
+  });
+
+  it("should show the subject's full name and username in the dialog", async () => {
+    const root = createTestClient();
+    const other = await createTestClientWithRole(root, "Viewer");
+    const { wrapper } = await createConsoleWrapper({
+      client: other,
+      preloadedState: createStateWithUser("fallback_user"),
+    });
+    const { container } = render(<User.Badge />, { wrapper });
+    fireEvent.click(getTrigger(container));
+    expect(await screen.findByText("test test")).toBeTruthy();
+    expect(await screen.findByText(other.auth?.user?.username ?? "")).toBeTruthy();
   });
 
   it("should log out of the active cluster when Log out is clicked", async () => {

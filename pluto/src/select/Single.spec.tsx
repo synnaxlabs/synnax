@@ -218,15 +218,22 @@ describe("Select.Single", () => {
     it("should mark the trigger as a preview", () => {
       const { SelectSingle } = createSelectSingle();
       const c = render(<SelectSingle preview />);
-      expect(c.getByText("Select Test Item").closest("button")?.classList).toContain(
+      expect(c.getByText("None").closest("button")?.classList).toContain(
         "pluto-btn--preview",
       );
+    });
+
+    it("should render None instead of the placeholder while previewing", () => {
+      const { SelectSingle } = createSelectSingle();
+      const c = render(<SelectSingle preview />);
+      expect(c.queryByText("Select Test Item")).toBeNull();
+      expect(c.getByText("None")).toBeTruthy();
     });
 
     it("should not open the dialog while previewing", () => {
       const { SelectSingle } = createSelectSingle();
       const c = render(<SelectSingle preview />);
-      fireEvent.click(c.getByText("Select Test Item"));
+      fireEvent.click(c.getByText("None"));
       expect(c.queryByText("First Item Option")).toBeNull();
     });
   });

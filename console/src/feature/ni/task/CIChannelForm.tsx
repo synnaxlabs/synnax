@@ -358,10 +358,11 @@ const ZIndexPhaseField: FC<{ path: string; grow?: boolean; disabled?: boolean }>
   disabled,
 }) => (
   <Form.Field<string> path={`${path}.zIndexPhase`} label="Phase">
-    {({ value, onChange }) => (
+    {({ value, onChange, preview }) => (
       <Select.Static
         value={value}
         onChange={(v: string) => onChange(v)}
+        preview={preview}
         disabled={disabled}
         resourceName="phase"
         data={[
@@ -380,10 +381,11 @@ const TerminalZField: FC<{ path: string; grow?: boolean; disabled?: boolean }> =
   disabled,
 }) => (
   <Form.Field<string> path={`${path}.terminalZ`} label="Input terminal Z">
-    {({ value, onChange }) => (
+    {({ value, onChange, preview }) => (
       <Select.Static
         value={value}
         onChange={(v: string | null) => onChange(v ?? "")}
+        preview={preview}
         allowNone
         disabled={disabled}
         resourceName="input terminal Z"

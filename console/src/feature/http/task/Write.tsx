@@ -328,7 +328,7 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
   const path = `config.endpoints.${epKey}.fields`;
   const { data, push, remove } = PForm.useFieldList<string, WriteField>(path);
   const [selected, setSelected] = useState<string[]>([]);
-  const isSnapshot = Task.useIsSnapshot();
+  const isPreview = Task.useIsPreview();
 
   const handleAddStatic = useCallback(() => {
     const field: WriteField = {
@@ -382,7 +382,7 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
         <Header.Title weight={500} color={9}>
           Additional fields
         </Header.Title>
-        {!isSnapshot && (
+        {!isPreview && (
           <Header.Actions>
             <Button.Button
               onClick={handleAddStatic}
@@ -477,7 +477,7 @@ const Form: FC = () => {
     "config.endpoints",
   );
   const ctx = PForm.useContext();
-  const isSnapshot = Task.useIsSnapshot();
+  const isPreview = Task.useIsPreview();
 
   const handleAddEndpoint = useCallback(() => {
     const ep: WriteEndpoint = { ...writeEndpointZ.parse({}), key: id.create() };
@@ -535,7 +535,7 @@ const Form: FC = () => {
           <Header.Title weight={500} color={10}>
             Endpoints
           </Header.Title>
-          {!isSnapshot && (
+          {!isPreview && (
             <Header.Actions>
               <Button.Button
                 onClick={handleAddEndpoint}
@@ -565,8 +565,8 @@ const Form: FC = () => {
               emptyContent={
                 <Empty.Action
                   message="No endpoints"
-                  action="Add endpoint"
-                  onClick={isSnapshot ? undefined : handleAddEndpoint}
+                  action={isPreview ? undefined : "Add endpoint"}
+                  onClick={handleAddEndpoint}
                 />
               }
             >
