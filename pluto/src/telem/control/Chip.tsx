@@ -125,7 +125,7 @@ export const Chip = ({ source, sink, className, ...rest }: ChipProps): ReactElem
   return (
     <Button.Button
       variant="text"
-      className={CSS(CSS.B("control-chip"), className)}
+      className={CSS.cls(CSS.B("control-chip"), className)}
       disabled={disabled}
       onClick={handleToggle}
       tooltip={<Text.Text level="small">{message}</Text.Text>}

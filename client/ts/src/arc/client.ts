@@ -357,10 +357,9 @@ export class Client extends query.Retriever<
   }
 
   /**
-   * Applies actions to the cached arc and sends them to the server,
-   * recording an undoable entry. Returns false without side effects when the
-   * arc isn't cached. Rolls back the local apply and rethrows on send
-   * failure.
+   * Applies actions to the cached arc and sends them to the server, recording an
+   * undoable entry. Returns false without side effects when the arc isn't cached. Rolls
+   * back the local apply and rethrows on send failure.
    */
   async dispatch(
     key: Key,
@@ -409,9 +408,7 @@ export class Client extends query.Retriever<
     return this.dispatcher.onUndoStateChange(callback, key);
   }
 
-  /**
-   * Stages actions committed atomically as one undoable entry.
-   */
+  /** Stages actions committed atomically as one undoable entry. */
   beginTransaction(key: Key, kind?: string): actions.Transaction<Action> {
     return this.dispatcher.transaction(key, this.dispatchSender(key), kind);
   }

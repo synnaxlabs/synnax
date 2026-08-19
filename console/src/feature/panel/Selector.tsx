@@ -205,7 +205,7 @@ const TabContent = ({ tabKey, dwell }: TabProps): ReactElement => {
   return (
     <Tabs.Tab
       itemKey={tabKey}
-      className={CSS(className)}
+      className={CSS.cls(className)}
       draggable
       onDragStart={handleDragStart}
       onDragEnd={onDragEnd}
@@ -236,7 +236,7 @@ const CreateButton = (): ReactElement | null => {
     <Button.Button
       variant="text"
       textColor={9}
-      className={CSS(className)}
+      className={CSS.cls(className)}
       onClick={handleCreate}
       {...dropProps}
     >

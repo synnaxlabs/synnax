@@ -17,15 +17,20 @@ import { Text, type TextProps } from "@/input/Text";
 import { type Control } from "@/input/types";
 import { Triggers } from "@/triggers";
 
+/** Props for {@link Numeric}. */
 export interface NumericProps
   extends
     Omit<TextProps, "type" | "onBlur" | "value" | "onChange">,
     DragButtonExtraProps,
     Control<number> {
+  /** Whether focusing selects the whole value. Defaults to true. */
   selectOnFocus?: boolean;
+  /** Whether to show the drag handle that scrubs the value. Defaults to true. */
   showDragHandle?: boolean;
+  /** Clamps the committed value. */
   bounds?: bounds.Crude;
   onBlur?: () => void;
+  /** Unit suffix shown after the value, e.g. "Hz". */
   units?: string;
   /// When set, a value equal to emptyValue renders as an empty input (showing the
   /// placeholder) and clearing the input on blur emits emptyValue via onChange. Useful
@@ -34,27 +39,11 @@ export interface NumericProps
 }
 
 /**
- * A controlled number input component.
+ * A number input. It accepts any math expression `mathjs` can evaluate, so a user can
+ * type `2 * 60` or `1 kHz`, and it commits on blur or Enter rather than per keystroke.
+ * A drag handle scrubs the value.
  *
- * @param props - The props for the input component. Unlisted props are passed to the
- * underlying input element.
- * @param props.value - The value of the input.
- * @param props.onChange - A function to call when the input value changes.
- * @param props.size - The size of the input: "small" | "medium" | "large".
- * @default "medium"
- * @param props.selectOnFocus - Whether the input should select its contents when focused.
- * @default true
- * @param props.centerPlaceholder - Whether the placeholder should be centered.
- * @default false
- * @param props.showDragHandle - Whether or not to show a drag handle to set the time.
- * @default true
- * @param props.dragScale - The scale of the drag handle.
- * @default x: 1, y: 10
- * @param props.dragDirection - The direction of the drag handle.
- * @default undefined
- * @param props.onlyChangeOnBlur - If true, a drag holds its value locally and calls
- * `onChange` once, on release. Typed input always waits for blur or 'Enter'.
- * @default false
+ * @example <Input.Numeric value={rate} onChange={setRate} units="Hz" />
  */
 export const Numeric = ({
   ref,
@@ -158,7 +147,6 @@ export const Numeric = ({
   );
 
   if (dragScale == null && bounds.isFinite(propsBounds))
-    // make X 5% of the bounds and Y 10% of the bounds
     dragScale = {
       x: bounds.span(propsBounds) * 0.01,
       y: bounds.span(propsBounds) * 0.02,

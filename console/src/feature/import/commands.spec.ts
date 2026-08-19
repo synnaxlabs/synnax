@@ -33,9 +33,8 @@ describe("Import Commands", () => {
     const picker = interceptFilePicker();
     await openCommandPalette();
     const item = await screen.findByText("Import components");
-    // The picker interceptor swallows programmatic clicks, including the select
-    // frame's synthetic click, so fire the detail-0 click that invokes onSelect
-    // directly.
+    // The picker interceptor swallows programmatic clicks, including the select frame's
+    // synthetic click, so fire the detail-0 click that invokes onSelect directly.
     await act(async () => {
       fireEvent.click(item, { detail: 0 });
     });

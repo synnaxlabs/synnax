@@ -14,13 +14,16 @@ import synnax as sy
 from console.access import AccessClient
 from console.arc import ArcClient
 from console.channels import ChannelClient
+from console.cluster import ClusterClient
 from console.devices import DevicesClient
 from console.docs import DocsClient
 from console.labels import LabelClient
 from console.layout import LayoutClient
 from console.notifications import NotificationsClient
+from console.pages import PagesClient
+from console.panels import PanelsClient
 from console.project import ProjectClient
-from console.ranges import RangesClient
+from console.range import Client as RangesClient
 from console.statuses import StatusesClient
 from console.tasks import TaskClient
 from framework.run_dir import resolve_results_path
@@ -39,6 +42,7 @@ class Console:
     arc: ArcClient
     channels: ChannelClient
     client: sy.Synnax
+    cluster: ClusterClient
     docs: DocsClient
     labels: LabelClient
     layout: LayoutClient
@@ -48,21 +52,26 @@ class Console:
     statuses: StatusesClient
     tasks: TaskClient
     project: ProjectClient
+    pages: PagesClient
+    panels: PanelsClient
     page: Page
 
     def __init__(self, page: Page, client: sy.Synnax):
         self.page = page
         self.client = client
         self.layout = LayoutClient(page)
-        self.notifications = NotificationsClient(page)
+        self.notifications = self.layout.notifications
         self.docs = DocsClient(self.layout)
         self.labels = LabelClient(self.layout)
         self.devices = DevicesClient(self.layout, self.client)
         self.arc = ArcClient(self.layout)
         self.access = AccessClient(self.layout)
         self.channels = ChannelClient(self.layout, self.client)
-        self.project = ProjectClient(self.layout, self.client)
-        self.ranges = RangesClient(self.layout, self.project)
+        self.cluster = ClusterClient(self.layout)
+        self.project = ProjectClient(self.layout)
+        self.pages = PagesClient(self.layout, self.client, self.project)
+        self.panels = PanelsClient(self.layout)
+        self.ranges = RangesClient(self.layout, self.pages)
         self.statuses = StatusesClient(self.layout)
         self.tasks = TaskClient(self.layout)
 

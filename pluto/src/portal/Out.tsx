@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { record } from "@synnaxlabs/x";
 import {
   type ComponentPropsWithoutRef,
   type ReactElement,
@@ -58,9 +59,8 @@ export interface OutProps
     Omit<ComponentPropsWithoutRef<"div">, "children" | keyof HostHandlers>,
     HostHandlers {
   /**
-   * itemKey addresses the {@link In} content to host. While null or not yet
-   * registered, the Out renders an empty host and attaches the content as
-   * soon as it appears.
+   * itemKey addresses the {@link In} content to host. While null or not yet registered,
+   * the Out renders an empty host and attaches the content as soon as it appears.
    */
   itemKey?: string | null;
 }
@@ -107,17 +107,14 @@ export const Out = ({
   useLayoutEffect(() => {
     const hostEl = host.current;
     if (hostEl == null) return;
-    const bound = Object.entries(DELEGATED_EVENTS).map(
-      ([reactName, { name, capture }]) => {
+    const bound = record
+      .entries(DELEGATED_EVENTS)
+      .map(([reactName, { name, capture }]) => {
         const listener = (ev: Event): void =>
-          (
-            handlers.current[reactName as keyof HostHandlers] as
-              ((e: Event) => void) | undefined
-          )?.(ev);
+          (handlers.current[reactName] as ((e: Event) => void) | undefined)?.(ev);
         hostEl.addEventListener(name, listener, capture);
         return () => hostEl.removeEventListener(name, listener, capture);
-      },
-    );
+      });
     return () => bound.forEach((unbind) => unbind());
   }, []);
   // Attachment is fully imperative: the hosted element never appears in JSX,

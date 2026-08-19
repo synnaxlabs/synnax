@@ -29,9 +29,6 @@ describe("project/Splash", () => {
     it("should hide the project list and create action when there is no client", async () => {
       await renderWithConsole(<Project.Splash />);
       expect(screen.getByText("Projects")).toBeDefined();
-      expect(
-        screen.getByText("You do not have permission to create a project."),
-      ).toBeDefined();
       expect(screen.queryByText("New project")).toBeNull();
     });
 
@@ -134,6 +131,8 @@ describe("project/Splash", () => {
       fireEvent.change(search, { target: { value: name } });
       await screen.findByText(name);
 
+      fireEvent.keyDown(search, { code: "ArrowDown" });
+      fireEvent.keyUp(search, { code: "ArrowDown" });
       fireEvent.keyDown(search, { code: "Enter" });
       await waitFor(() => {
         const active = Session.Project.selectOptionalSelected(store.getState());
@@ -163,6 +162,8 @@ describe("project/Splash", () => {
 
       fireEvent.keyDown(search, { code: "ArrowDown" });
       fireEvent.keyUp(search, { code: "ArrowDown" });
+      fireEvent.keyDown(search, { code: "ArrowDown" });
+      fireEvent.keyUp(search, { code: "ArrowDown" });
       fireEvent.keyDown(search, { code: "Enter" });
       await waitFor(() => {
         const active = Session.Project.selectOptionalSelected(store.getState());
@@ -185,6 +186,8 @@ describe("project/Splash", () => {
       const search = await screen.findByPlaceholderText("Search projects...");
       fireEvent.change(search, { target: { value: name } });
       await screen.findByText(name);
+      fireEvent.keyDown(search, { code: "ArrowDown" });
+      fireEvent.keyUp(search, { code: "ArrowDown" });
 
       fireEvent.click(screen.getByText("New project"));
       await screen.findByPlaceholderText("Name");

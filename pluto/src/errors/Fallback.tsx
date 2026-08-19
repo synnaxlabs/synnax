@@ -52,7 +52,6 @@ export interface FallbackProps extends PropsWithChildren {
  * @example
  * // With default retry button
  * <Fallback error={error} resetErrorBoundary={reset} />
- *
  * @example
  * // With custom actions
  * <Fallback error={error} resetErrorBoundary={reset} icon={<Logo />}>
@@ -145,7 +144,7 @@ export const Fallback = ({
               level={multiline ? "small" : "h5"}
               variant={multiline ? "code" : undefined}
               color={10}
-              className={CSS(
+              className={CSS.cls(
                 CSS.BE("error-fallback", "message"),
                 multiline && CSS.BEM("error-fallback", "message", "multiline"),
               )}

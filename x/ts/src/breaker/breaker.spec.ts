@@ -30,11 +30,8 @@ describe("breaker", () => {
       sleepFn: mockSleep,
     });
 
-    // First attempt
     expect(await brk.wait()).toBe(true);
-    // Second attempt
     expect(await brk.wait()).toBe(true);
-    // Third attempt (should fail)
     expect(await brk.wait()).toBe(false);
 
     expect(mockSleep).toHaveBeenCalledTimes(2);

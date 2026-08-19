@@ -43,7 +43,7 @@ export const Badge = (): ReactElement | null => {
   const name = fullName !== "" ? fullName : username;
   return (
     <Dialog.Frame>
-      <Dialog.Trigger hideCaret textColor={10} gap="small">
+      <Dialog.Trigger aria-label="User menu" hideCaret textColor={10} gap="small">
         <Icon.User />
         {firstName != null && firstName !== "" ? firstName : username}
       </Dialog.Trigger>

@@ -45,7 +45,7 @@ export const Item = (props: ItemProps): ReactElement | null => {
   return (
     <List.Item<status.Key>
       {...props}
-      className={CSS(CSS.BE("status", "list-item"))}
+      className={CSS.cls(CSS.BE("status", "list-item"))}
       justify="between"
       selected={selected}
     >
@@ -55,6 +55,7 @@ export const Item = (props: ItemProps): ReactElement | null => {
           onChange={onSelect}
           size="medium"
           reveal={!selected}
+          aria-label="Select"
         />
         <Text.Text level="p" weight={450}>
           <Status.Indicator variant={variant} />

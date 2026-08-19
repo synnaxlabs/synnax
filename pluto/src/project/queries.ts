@@ -161,9 +161,8 @@ const findProjectAncestor = async (
 };
 
 /**
- * Retrieves the sibling resources sharing the queried resource's project,
- * excluding the resource itself. Returns an empty list when the resource has no
- * project ancestor.
+ * Retrieves the sibling resources sharing the queried resource's project, excluding the
+ * resource itself. Returns an empty list when the resource has no project ancestor.
  */
 export const retrieveChildren = async (
   client: Synnax,

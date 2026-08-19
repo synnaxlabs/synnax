@@ -65,7 +65,6 @@ export interface DriftedParams extends Pick<
  * with. Tasks that are not running never drift. Both hashes are server-assigned, so
  * this compares two given values and never hashes a config. A status with an empty
  * deployed hash never drifts: the deployed config is unknown, not different.
- * @param task - The stored task's hash, rack, and status.
  * @returns True when a redeploy (start) would change the running instance.
  */
 export const drifted = (task: DriftedParams): boolean => {
@@ -85,20 +84,25 @@ const retrieveSnapshottedTo = async (taskKey: Key, ontologyClient: ontology.Clie
   return parents[0];
 };
 
+/** One command sent to a task, as issued from the task itself. */
 export interface TaskExecuteCommandParams {
   type: string;
   args?: record.Unknown;
 }
 
+/** One command sent to a task, as issued from the client. */
 export interface ExecuteCommandParams extends TaskExecuteCommandParams {
   task: Key;
 }
 
+/** Several commands sent in one round trip. */
 export interface ExecuteCommandsParams {
   commands: NewCommand[];
 }
 
+/** A command awaited to completion, as issued from the task itself. */
 export interface TaskExecuteCommandSyncParams extends TaskExecuteCommandParams {
+  /** How long to wait for the status before giving up. */
   timeout?: CrudeTimeSpan;
 }
 
@@ -112,6 +116,10 @@ export interface ExecuteCommandSyncParams<StatusData extends z.ZodType> extends 
   "frameClient" | "name"
 > {}
 
+/**
+ * A unit of work a rack runs against hardware: its config, its running status, and the
+ * commands it accepts. Get one from `client.hardware.tasks` rather than building it.
+ */
 export class Task<S extends Schemas = Schemas> {
   readonly key: Key;
   readonly rack: RackKey;
@@ -275,12 +283,15 @@ const singleRetrieveParamsZ = z.union([
     .object({ type: z.string(), rack: rackKeyZ.optional() })
     .transform(({ type, rack }) => ({ types: [type], rack })),
 ]);
+/** Names one task: by key, by name, or by type and rack. */
 export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
 
 const multiRetrieveParamsZ = retrieveReqZ;
+/** Everything a multi-task retrieval can filter on. */
 export type RetrieveMultipleParams = z.input<typeof multiRetrieveParamsZ>;
 
 const retrieveParamsZ = z.union([singleRetrieveParamsZ, multiRetrieveParamsZ]);
+/** Params for a task retrieval, single or multiple. */
 export type RetrieveParams = z.input<typeof retrieveParamsZ>;
 
 type SingleRequest = Partial<
@@ -345,6 +356,7 @@ const retrieveResZ = <S extends Schemas = Schemas>(schemas?: S) =>
       .default(() => []),
   });
 
+/** A task retrieval on the wire. */
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 
 const createReqZ = <S extends Schemas = Schemas>(schemas?: S) =>
@@ -365,6 +377,7 @@ const matchesSingle = (t: Omit<Task, "status">, query: SingleRequest): boolean =
   return false;
 };
 
+/** Config for {@link Client}. */
 export interface ClientConfig {
   unary: UnaryClient;
   framer: framer.Client;
@@ -374,6 +387,10 @@ export interface ClientConfig {
   statusStore: query.Table<status.Key, status.Status>;
 }
 
+/**
+ * Creates, reads, deletes, and commands tasks on a Core. Reach it through
+ * `client.hardware.tasks`. Reads are served from a cache a change stream keeps current.
+ */
 export class Client extends query.Retriever<
   typeof retrieveMultiParamsZ,
   Key,
@@ -773,6 +790,7 @@ export class Client extends query.Retriever<
   }
 }
 
+/** @returns the key of the status that reports on the given task. */
 export const statusKey = (key: Key): string => ontology.idToString(ontologyID(key));
 
 const taskStatusZ = z.object({ details: z.object({ task: keyZ }) });
@@ -815,6 +833,7 @@ const executeCommand = async ({
     })
   )[0];
 
+/** A command queued for a task. */
 export interface NewCommand {
   task: Key;
   type: string;
@@ -898,10 +917,11 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
   let timeoutID: NodeJS.Timeout | undefined;
   const timeoutPromise = new Promise<never>((_, reject) => {
     timeoutID = setTimeout(() => {
-      void (async () => {
-        const taskKeys = commands.map((c) => c.task);
-        reject(await formatTimeoutError("command", taskName, parsedTimeout, taskKeys));
-      })();
+      const taskKeys = commands.map((c) => c.task);
+      formatTimeoutError("command", taskName, parsedTimeout, taskKeys).then(
+        reject,
+        reject,
+      );
     }, parsedTimeout.milliseconds);
   });
   try {

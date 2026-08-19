@@ -58,7 +58,7 @@ export const Static = ({
     <Primitive.Div
       ref={setContainer}
       orientation={orientation}
-      className={CSS(CSS.BM("symbol", "custom"), CSS.B("custom-static"), className)}
+      className={CSS.cls(CSS.BM("symbol", "custom"), CSS.B("custom-static"), className)}
     >
       <Handle.Boundary orientation={orientation}>
         {handles.map((handle) => (

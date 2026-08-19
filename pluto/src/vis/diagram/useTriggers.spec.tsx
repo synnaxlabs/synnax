@@ -7,17 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, render } from "@testing-library/react";
-import { type ReactElement } from "react";
+import { fireEvent, renderHook } from "@testing-library/react";
+import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Triggers } from "@/triggers";
 import { useTriggers, type UseTriggersProps } from "@/vis/diagram/useTriggers";
-
-const TestComponent = (props: UseTriggersProps): ReactElement => {
-  useTriggers(props);
-  return <div>Canvas</div>;
-};
 
 const noop = () => {};
 const noopCursor = () => {};
@@ -31,14 +26,18 @@ const defaultProps: UseTriggersProps = {
   onSelectAll: noop,
 };
 
+const wrapper = ({ children }: PropsWithChildren): ReactElement => (
+  <Triggers.Provider>{children}</Triggers.Provider>
+);
+
+const renderTriggers = (props: Partial<UseTriggersProps>): void => {
+  renderHook(() => useTriggers({ ...defaultProps, ...props }), { wrapper });
+};
+
 describe("Diagram.useTriggers", () => {
   it("should call onUndo when Control+Z is pressed", () => {
     const onUndo = vi.fn();
-    render(
-      <Triggers.Provider>
-        <TestComponent {...defaultProps} onUndo={onUndo} />
-      </Triggers.Provider>,
-    );
+    renderTriggers({ onUndo });
     fireEvent.keyDown(document.body, { code: "ControlLeft" });
     fireEvent.keyDown(document.body, { code: "KeyZ", ctrlKey: true });
     expect(onUndo).toHaveBeenCalledOnce();
@@ -48,11 +47,7 @@ describe("Diagram.useTriggers", () => {
 
   it("should call onRedo when Control+Shift+Z is pressed", () => {
     const onRedo = vi.fn();
-    render(
-      <Triggers.Provider>
-        <TestComponent {...defaultProps} onRedo={onRedo} />
-      </Triggers.Provider>,
-    );
+    renderTriggers({ onRedo });
     fireEvent.keyDown(document.body, { code: "ShiftLeft", shiftKey: true });
     fireEvent.keyDown(document.body, { code: "ControlLeft", shiftKey: true });
     fireEvent.keyDown(document.body, {
@@ -68,11 +63,7 @@ describe("Diagram.useTriggers", () => {
 
   it("should call onCopy when Control+C is pressed", () => {
     const onCopy = vi.fn();
-    render(
-      <Triggers.Provider>
-        <TestComponent {...defaultProps} onCopy={onCopy} />
-      </Triggers.Provider>,
-    );
+    renderTriggers({ onCopy });
     fireEvent.keyDown(document.body, { code: "ControlLeft" });
     fireEvent.keyDown(document.body, { code: "KeyC", ctrlKey: true });
     expect(onCopy).toHaveBeenCalledOnce();
@@ -82,11 +73,7 @@ describe("Diagram.useTriggers", () => {
 
   it("should call onPaste when Control+V is pressed", () => {
     const onPaste = vi.fn();
-    render(
-      <Triggers.Provider>
-        <TestComponent {...defaultProps} onPaste={onPaste} />
-      </Triggers.Provider>,
-    );
+    renderTriggers({ onPaste });
     fireEvent.keyDown(document.body, { code: "ControlLeft" });
     fireEvent.keyDown(document.body, { code: "KeyV", ctrlKey: true });
     expect(onPaste).toHaveBeenCalledOnce();
@@ -95,24 +82,16 @@ describe("Diagram.useTriggers", () => {
   });
 
   it("should call onClear when Escape is pressed", () => {
-    const onClear = vi.fn();
-    render(
-      <Triggers.Provider>
-        <TestComponent {...defaultProps} onClearSelection={onClear} />
-      </Triggers.Provider>,
-    );
+    const onClearSelection = vi.fn();
+    renderTriggers({ onClearSelection });
     fireEvent.keyDown(document.body, { code: "Escape" });
-    expect(onClear).toHaveBeenCalledOnce();
+    expect(onClearSelection).toHaveBeenCalledOnce();
     fireEvent.keyUp(document.body, { code: "Escape" });
   });
 
   it("should call onSelectAll when Control+A is pressed", () => {
     const onSelectAll = vi.fn();
-    render(
-      <Triggers.Provider>
-        <TestComponent {...defaultProps} onSelectAll={onSelectAll} />
-      </Triggers.Provider>,
-    );
+    renderTriggers({ onSelectAll });
     fireEvent.keyDown(document.body, { code: "ControlLeft" });
     fireEvent.keyDown(document.body, { code: "KeyA", ctrlKey: true });
     expect(onSelectAll).toHaveBeenCalledOnce();

@@ -55,13 +55,13 @@ export const OffPageReference = ({
 
   const swap = direction.construct(orientation) === "y";
   const style = useMemo<CSSProperties>(
-    () => ({ [CSS.var("symbol-color")]: symbolColorVar(colorVal) }),
+    () => ({ [CSS.variable("symbol-color")]: symbolColorVar(colorVal) }),
     [colorVal],
   );
 
   return (
     <Primitive.Div
-      className={CSS(
+      className={CSS.cls(
         CSS.B("arrow"),
         CSS.B("symbol-colored"),
         linked && CSS.M("linked"),

@@ -56,7 +56,7 @@ const Base = ({
   }
   return (
     <List.Item
-      className={CSS(CSS.B("cluster-list-item"))}
+      className={CSS.cls(CSS.B("cluster-list-item"))}
       x
       selected={selected}
       onSelect={onSelect}

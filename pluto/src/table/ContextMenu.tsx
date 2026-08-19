@@ -21,10 +21,9 @@ export interface DefaultContextMenuProps {
   selected: string[];
   editable: boolean;
   onEditableChange?: (editable: boolean) => void;
-  // showIndicators reflects whether the row/column indicator strips are
-  // currently visible. When onShowIndicatorsChange is also provided and
-  // editable is false, the context menu surfaces a Show / Hide indicators
-  // item.
+  // showIndicators reflects whether the row/column indicator strips are currently
+  // visible. When onShowIndicatorsChange is also provided and editable is false, the
+  // context menu surfaces a Show / Hide indicators item.
   showIndicators?: boolean;
   onShowIndicatorsChange?: (next: boolean) => void;
   /** Whether the table is centered in its container. */
@@ -72,10 +71,9 @@ export const DefaultContextMenu = ({
   const colIdx = resizer?.dir === "x" ? resizer.index : (cellPos?.x ?? null);
   const rows = useRows({ key: resourceKey });
   const selectedSet = useMemo(() => new Set(selected), [selected]);
-  // fullySelectedRows / fullySelectedCols: indices where every cell along
-  // that axis is in the selection. When the right-clicked row/col is part
-  // of this set, the delete action operates on the whole set; otherwise
-  // just the clicked one.
+  // fullySelectedRows / fullySelectedCols: indices where every cell along that axis is
+  // in the selection. When the right-clicked row/col is part of this set, the delete
+  // action operates on the whole set; otherwise just the clicked one.
   const fullySelectedRows = useMemo(() => {
     const out: number[] = [];
     rows.forEach((row, i) => {

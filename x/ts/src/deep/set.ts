@@ -40,27 +40,22 @@ export const set = <V>(obj: V, path: string, value: unknown): void => {
   try {
     const lastPart = parts[parts.length - 1];
 
-    // Handle arrays specially
     if (Array.isArray(result)) {
       let index = getIndex(lastPart);
       if (index == null) {
-        // Check for negative index
         if (lastPart.startsWith("-")) {
           const negIndex = getIndex(lastPart.substring(1));
           if (negIndex != null) index = result.length - negIndex;
         }
 
-        // If still no valid index, try keyed array logic
         if (index == null) {
           if (result.length === 0) {
-            // For empty arrays, try to set at numeric index
             const idx = getIndex(lastPart);
             if (idx != null) {
               result[idx] = value;
               return;
             }
           }
-          // Check if it's a keyed array
           const first = result[0];
           if (typeof first === "object" && "key" in first) {
             const objIndex = result.findIndex((o) => o.key === lastPart);
@@ -69,16 +64,13 @@ export const set = <V>(obj: V, path: string, value: unknown): void => {
               return;
             }
           }
-          // Can't find a valid way to set on this array
           return;
         }
       }
-      // Set at the calculated index
       result[index] = value;
       return;
     }
 
-    // Handle objects
     const best = findBestKey(result, [lastPart]);
     if (best != null) {
       result[best[0]] = value;

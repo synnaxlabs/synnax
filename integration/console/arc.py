@@ -10,25 +10,15 @@
 from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
-from console.context_menu import ContextMenu
-from console.layout import LayoutClient
-from console.notifications import NotificationsClient
-from console.tree import Tree
+from console.base import ResourceClient
 
 
-class ArcClient:
+class ArcClient(ResourceClient):
     """Arc automation management for Console UI automation."""
 
-    ICON_NAME = "arc"
     TOOLBAR_CLASS = ".console-arc-toolbar"
     CONTROLS_CLASS = ".console-arc-editor__controls"
     LIST_ITEM_CLASS = ".pluto-list__item"
-
-    def __init__(self, layout: LayoutClient):
-        self.layout = layout
-        self.ctx_menu = ContextMenu(layout.page)
-        self.notifications = NotificationsClient(layout.page)
-        self.tree = Tree(layout.page)
 
     def _show_arc_panel(self) -> None:
         """Show the Arc panel in the navigation drawer.
@@ -40,8 +30,7 @@ class ArcClient:
         toolbar = self.layout.page.locator(self.TOOLBAR_CLASS)
         if toolbar.count() > 0 and toolbar.is_visible():
             return
-        arc_btn = self.layout.page.locator(f"button:has(.pluto-icon--{self.ICON_NAME})")
-        arc_btn.click()
+        self.layout.page.get_by_role("menuitem", name="Arcs", exact=True).click()
         toolbar.wait_for(state="visible", timeout=5000)
 
     def _get_controls(self) -> Locator:
@@ -306,7 +295,7 @@ class ArcClient:
         self.layout.select_all_and_type(new_name)
         self.layout.press_enter()
         # If running, a confirmation dialog appears warning about redeployment
-        confirm_modal = self.layout.page.locator(LayoutClient.MODAL_SELECTOR)
+        confirm_modal = self.layout.page.locator(self.layout.MODAL_SELECTOR)
         try:
             confirm_modal.wait_for(state="visible", timeout=1000)
         except PlaywrightTimeoutError:

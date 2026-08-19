@@ -11,13 +11,11 @@ from playwright.sync_api import Locator, expect
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 import synnax as sy
-from console.context_menu import ContextMenu
+from console.base import ResourceClient
 from console.layout import LayoutClient
-from console.notifications import NotificationsClient
-from console.tree import Tree
 
 
-class ChannelClient:
+class ChannelClient(ResourceClient):
     """Console channel client for managing channels via the UI.
 
     Provides methods for creating, renaming, deleting, and organizing channels
@@ -25,17 +23,13 @@ class ChannelClient:
     """
 
     ITEM_PREFIX = "channel:"
-    ICON_NAME = "channel"
 
     def __init__(
         self,
         layout: LayoutClient,
         client: sy.Synnax,
     ):
-        self.layout = layout
-        self.ctx_menu = ContextMenu(layout.page)
-        self.notifications = NotificationsClient(layout.page)
-        self.tree = Tree(layout.page)
+        super().__init__(layout)
         self.client = client
 
     # ── Private Helpers ──────────────────────────────────────────────────
@@ -71,7 +65,7 @@ class ChannelClient:
 
     def show_channels(self) -> None:
         """Show the channels pane in the sidebar if not already visible."""
-        self.layout.show_resource_toolbar(self.ICON_NAME)
+        self.layout.show_resource_toolbar("Channels")
         self.layout.page.locator(f"div[id^='{self.ITEM_PREFIX}']").first.wait_for(
             state="visible", timeout=5000
         )
@@ -444,7 +438,7 @@ class ChannelClient:
         finally:
             self.hide_channels()
 
-    def wait_for_channel_removed(self, name: str) -> None:
+    def wait_for_removed(self, name: str) -> None:
         """Wait for a channel to be removed from the channel list."""
         self.show_channels()
         self.tree.wait_for_removal(self.ITEM_PREFIX, str(name), exact=True)

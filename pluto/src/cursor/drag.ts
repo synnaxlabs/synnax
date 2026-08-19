@@ -44,7 +44,6 @@ const DRAG_THRESHOLD = 4;
  * drag. The gesture activates only after the pointer moves past {@link DRAG_THRESHOLD},
  * so a stationary press stays a click. Once active, the pointer is captured to the
  * element so moves and the terminating up/cancel are delivered even outside its bounds.
- *
  * Add {@link DRAG_CLASS} to the element so touch gestures and text selection don't
  * pre-empt the drag.
  */

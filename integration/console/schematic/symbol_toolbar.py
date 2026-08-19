@@ -15,9 +15,7 @@ from typing import Any
 from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
-from console.context_menu import ContextMenu
 from console.layout import LayoutClient
-from console.notifications import NotificationsClient
 from console.schematic.symbol_editor import SymbolEditor
 from framework.run_dir import resolve_results_path
 
@@ -28,8 +26,8 @@ class SymbolToolbar:
     def __init__(self, layout: LayoutClient):
         self.page = layout.page
         self.layout = layout
-        self.ctx_menu = ContextMenu(layout.page)
-        self.notifications = NotificationsClient(layout.page)
+        self.ctx_menu = layout.ctx_menu
+        self.notifications = layout.notifications
 
     @property
     def toolbar(self) -> Locator:
@@ -75,11 +73,9 @@ class SymbolToolbar:
         self.show()
         self.notifications.close_all()
 
-        create_group_btn = (
-            self.toolbar.locator("button[class*='outlined']")
-            .filter(has=self.page.locator("[aria-label*='group']"))
-            .first
-        )
+        create_group_btn = self.toolbar.get_by_role(
+            "button", name="Create symbol group", exact=True
+        ).first
         # Notifications stack over the actions bar and swallow coordinate
         # clicks, so dispatch the click on the button itself.
         create_group_btn.wait_for(state="visible", timeout=5000)
@@ -140,18 +136,16 @@ class SymbolToolbar:
         except PlaywrightTimeoutError:
             return False
 
-    def wait_for_group_hidden(self, name: str) -> None:
+    def wait_for_group_removed(self, name: str) -> None:
         """Wait for a symbol group to be hidden/removed."""
         group_btn = self._group_tab(name)
         self.layout.wait_for_hidden(group_btn)
 
     def create_symbol(self) -> SymbolEditor:
         """Open the symbol editor to create a new symbol."""
-        create_symbol_btn = (
-            self.toolbar.locator("button[class*='outlined']")
-            .filter(has=self.page.locator("[aria-label*='schematic']"))
-            .first
-        )
+        create_symbol_btn = self.toolbar.get_by_role(
+            "button", name="Create symbol", exact=True
+        ).first
         create_symbol_btn.click()
 
         editor = SymbolEditor(self.layout)
@@ -185,7 +179,7 @@ class SymbolToolbar:
         except PlaywrightTimeoutError:
             return False
 
-    def wait_for_symbol_hidden(self, name: str) -> None:
+    def wait_for_symbol_removed(self, name: str) -> None:
         """Wait for a symbol to be hidden/removed."""
         symbol = self.get_symbol(name)
         symbol.wait_for(state="hidden", timeout=5000)
@@ -214,6 +208,51 @@ class SymbolToolbar:
             confirm_btn.click()
 
         symbol.wait_for(state="hidden", timeout=5000)
+
+    def import_symbol(self, path: str) -> None:
+        """Import a symbol envelope into the selected group via the toolbar.
+
+        Only drives the file chooser; callers assert the outcome via
+        ``symbol_exists`` or the notifications client. Requires a remote
+        (user-created) group to be selected: the button is disabled otherwise.
+
+        :param path: Path to the symbol JSON file to import.
+        """
+        button = self.toolbar.get_by_role("button", name="Import symbol", exact=True)
+        with self.page.expect_file_chooser() as fc_info:
+            button.click()
+        fc_info.value.set_files(path)
+
+    def import_group(self, zip_path: str) -> None:
+        """Import a symbol group bundle zip through the import-group modal.
+
+        Only drives the modal and file chooser; callers assert the outcome via
+        ``group_exists`` or the notifications client.
+
+        :param zip_path: Path to the bundle zip to import.
+        """
+        button = self.toolbar.get_by_role(
+            "button", name="Import symbol group", exact=True
+        )
+        button.wait_for(state="visible", timeout=5000)
+        button.dispatch_event("click")
+        zone = self.layout.dialog.get_by_text("Drop a .zip or folder here")
+        self.layout.wait_for_visible(zone)
+        with self.page.expect_file_chooser() as fc_info:
+            zone.click()
+        fc_info.value.set_files(zip_path)
+
+    def export_group(self, name: str) -> str:
+        """Export a symbol group via context menu and return the saved zip path."""
+        self.show()
+        group_btn = self._group_tab(name)
+        self.layout.wait_for_visible(group_btn)
+        self.ctx_menu.open_on(group_btn)
+        with self.page.expect_download(timeout=10000) as download_info:
+            self.ctx_menu.click_option("Export")
+        zip_path = resolve_results_path(f"{name}_export.zip")
+        download_info.value.save_as(zip_path)
+        return zip_path
 
     def export_symbol(self, name: str) -> dict[str, Any]:
         """Export a symbol via context menu and return the JSON content."""

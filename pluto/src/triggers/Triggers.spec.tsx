@@ -8,10 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { act, fireEvent, render, renderHook } from "@testing-library/react";
+import { type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { mockBoundingClientRect } from "@/testutil/dom";
 import { Triggers } from "@/triggers";
+
+const TriggersWrapper = ({ children }: PropsWithChildren): ReactElement => (
+  <Triggers.Provider>{children}</Triggers.Provider>
+);
 
 describe("Triggers", () => {
   describe("filter", () => {
@@ -131,8 +136,7 @@ describe("Triggers", () => {
         it("should select the matching mode with the highest complexity", () => {
           const config: Triggers.ModeConfig<"a" | "b"> = {
             defaultMode: "a",
-            a: [["Shift"]],
-            b: [["Shift", "Control"]],
+            modes: { a: [["Shift"]], b: [["Shift", "Control"]] },
           };
           expect(Triggers.determineMode(config, [["Shift", "Control"]])).toEqual("b");
           expect(Triggers.determineMode(config, [["Shift"]])).toEqual("a");
@@ -140,8 +144,7 @@ describe("Triggers", () => {
         it("should correctly match loose trigers", () => {
           const config: Triggers.ModeConfig<"a" | "b"> = {
             defaultMode: "a",
-            a: [["Shift"]],
-            b: [["Shift", "Control"]],
+            modes: { a: [["Shift"]], b: [["Shift", "Control"]] },
           };
           expect(
             Triggers.determineMode(config, [["Shift", "Control"]], { loose: true }),
@@ -157,19 +160,9 @@ describe("Triggers", () => {
   describe("use", () => {
     it("should handle single key triggers", async () => {
       const callback = vi.fn();
-      const C = () => {
-        Triggers.use({
-          callback,
-          triggers: [["A"]],
-        });
-        return <div>Hello</div>;
-      };
-      const Wrapper = () => (
-        <Triggers.Provider>
-          <C />
-        </Triggers.Provider>
-      );
-      render(<Wrapper />);
+      renderHook(() => Triggers.use({ callback, triggers: [["A"]] }), {
+        wrapper: TriggersWrapper,
+      });
       fireEvent.keyDown(document.body, { code: "KeyA" });
       expect(callback).toHaveBeenCalledOnce();
       expect(callback).toHaveBeenCalledWith({
@@ -194,24 +187,13 @@ describe("Triggers", () => {
 
     it("should handle multi-key combinations", async () => {
       const callback = vi.fn();
-      const C = () => {
-        Triggers.use({
-          callback,
-          triggers: [["Control", "A"]],
-        });
-        return <div>Hello</div>;
-      };
-      render(
-        <Triggers.Provider>
-          <C />
-        </Triggers.Provider>,
-      );
+      renderHook(() => Triggers.use({ callback, triggers: [["Control", "A"]] }), {
+        wrapper: TriggersWrapper,
+      });
 
-      // Press Control first
       fireEvent.keyDown(document.body, { code: "ControlLeft" });
       expect(callback).not.toHaveBeenCalled();
 
-      // Then press A
       fireEvent.keyDown(document.body, { code: "KeyA" });
       expect(callback).toHaveBeenCalledWith({
         target: document.body,
@@ -222,7 +204,6 @@ describe("Triggers", () => {
         stopPropagation: expect.any(Function),
       });
 
-      // Release A first
       fireEvent.keyUp(document.body, { code: "KeyA" });
       expect(callback).toHaveBeenLastCalledWith({
         target: document.body,
@@ -233,24 +214,14 @@ describe("Triggers", () => {
         stopPropagation: expect.any(Function),
       });
 
-      // Release Control
       fireEvent.keyUp(document.body, { code: "ControlLeft" });
     });
 
     it("should handle mouse triggers", async () => {
       const callback = vi.fn();
-      const C = () => {
-        Triggers.use({
-          callback,
-          triggers: [["MouseLeft"]],
-        });
-        return <div>Hello</div>;
-      };
-      render(
-        <Triggers.Provider>
-          <C />
-        </Triggers.Provider>,
-      );
+      renderHook(() => Triggers.use({ callback, triggers: [["MouseLeft"]] }), {
+        wrapper: TriggersWrapper,
+      });
 
       fireEvent.mouseDown(document.body, { button: 0 });
       expect(callback).toHaveBeenCalledWith({
@@ -275,21 +246,11 @@ describe("Triggers", () => {
 
     it("should handle double key presses", async () => {
       const callback = vi.fn();
-      const C = () => {
-        Triggers.use({
-          callback,
-          triggers: [["A", "A"]],
-          double: true,
-        });
-        return <div>Hello</div>;
-      };
-      render(
-        <Triggers.Provider>
-          <C />
-        </Triggers.Provider>,
+      renderHook(
+        () => Triggers.use({ callback, triggers: [["A", "A"]], double: true }),
+        { wrapper: TriggersWrapper },
       );
 
-      // First press
       fireEvent.keyDown(document.body, { code: "KeyA" });
       fireEvent.keyUp(document.body, { code: "KeyA" });
 
@@ -317,18 +278,9 @@ describe("Triggers", () => {
 
     it("should handle loose matching", async () => {
       const callback = vi.fn();
-      const C = () => {
-        Triggers.use({
-          callback,
-          triggers: [["Control"]],
-          loose: true,
-        });
-        return <div>Hello</div>;
-      };
-      render(
-        <Triggers.Provider>
-          <C />
-        </Triggers.Provider>,
+      renderHook(
+        () => Triggers.use({ callback, triggers: [["Control"]], loose: true }),
+        { wrapper: TriggersWrapper },
       );
 
       // Control + A should trigger because of loose matching
@@ -359,23 +311,18 @@ describe("Triggers", () => {
 
     it("should handle multiple simultaneous triggers", async () => {
       const callback = vi.fn();
-      const C = () => {
-        Triggers.use({
-          callback,
-          triggers: [
-            ["Control", "A"],
-            ["Control", "B"],
-          ],
-        });
-        return <div>Hello</div>;
-      };
-      render(
-        <Triggers.Provider>
-          <C />
-        </Triggers.Provider>,
+      renderHook(
+        () =>
+          Triggers.use({
+            callback,
+            triggers: [
+              ["Control", "A"],
+              ["Control", "B"],
+            ],
+          }),
+        { wrapper: TriggersWrapper },
       );
 
-      // Try Control + A
       fireEvent.keyDown(document.body, { code: "ControlLeft" });
       fireEvent.keyDown(document.body, { code: "KeyA" });
 
@@ -391,7 +338,6 @@ describe("Triggers", () => {
       fireEvent.keyUp(document.body, { code: "KeyA" });
       fireEvent.keyUp(document.body, { code: "ControlLeft" });
 
-      // Try Control + B
       fireEvent.keyDown(document.body, { code: "ControlLeft" });
       fireEvent.keyDown(document.body, { code: "KeyB" });
 
@@ -522,21 +468,16 @@ describe("Triggers", () => {
     const renderUndoRedo = ({ enabled, scope }: RenderUndoRedoProps = {}) => {
       const undo = vi.fn();
       const redo = vi.fn();
-      const C = () => {
-        Triggers.useUndoRedo({ undo, redo, enabled });
-        return <div>Hello</div>;
-      };
-      render(
+      const wrapper = ({ children }: PropsWithChildren): ReactElement => (
         <Triggers.Provider>
           {scope == null ? (
-            <C />
+            children
           ) : (
-            <Triggers.Scope active={scope}>
-              <C />
-            </Triggers.Scope>
+            <Triggers.Scope active={scope}>{children}</Triggers.Scope>
           )}
-        </Triggers.Provider>,
+        </Triggers.Provider>
       );
+      renderHook(() => Triggers.useUndoRedo({ undo, redo, enabled }), { wrapper });
       return { undo, redo };
     };
 
@@ -830,7 +771,6 @@ describe("Triggers", () => {
 
       vi.advanceTimersByTime(500);
 
-      // Mouse click inside region
       fireEvent.mouseMove(regionRef.current, { clientX: 10, clientY: 10 });
       fireEvent.mouseDown(regionRef.current, { button: 0 });
       expect(callback).toHaveBeenCalledWith({
@@ -897,7 +837,6 @@ describe("Triggers", () => {
       const input = getByTestId("input");
       fireEvent.mouseMove(input, { clientX: 10, clientY: 10 });
 
-      // Press Control first
       fireEvent.keyDown(input, { code: "ControlLeft" });
       expect(callback).not.toHaveBeenCalled();
 
@@ -914,7 +853,6 @@ describe("Triggers", () => {
         stopPropagation: expect.any(Function),
       });
 
-      // Release in correct order
       fireEvent.keyUp(input, { code: "KeyB", ctrlKey: true });
       fireEvent.keyUp(input, { code: "ControlLeft" });
     });
@@ -1014,7 +952,6 @@ describe("Triggers", () => {
       vi.advanceTimersByTime(500);
       expect(callback).not.toHaveBeenCalled();
 
-      // Ctrl+key should trigger
       fireEvent.keyDown(editable, { code: "ControlLeft" });
       fireEvent.keyDown(editable, { code: "KeyB", ctrlKey: true });
       vi.advanceTimersByTime(500);
@@ -1050,7 +987,6 @@ describe("Triggers", () => {
       const input = getByTestId("input");
       fireEvent.mouseMove(input, { clientX: 10, clientY: 10 });
 
-      // Escape should trigger
       fireEvent.keyDown(input, { code: "Escape" });
       vi.advanceTimersByTime(500);
 
@@ -1066,7 +1002,6 @@ describe("Triggers", () => {
       fireEvent.keyUp(input, { code: "Escape" });
       vi.advanceTimersByTime(500);
 
-      // Arrow keys should trigger
       fireEvent.keyDown(input, { code: "ArrowUp" });
       vi.advanceTimersByTime(500);
 
@@ -1112,7 +1047,6 @@ describe("Triggers", () => {
       const target = getByTestId("target");
       fireEvent.mouseMove(target, { clientX: 10, clientY: 10 });
 
-      // Press Meta (Command) first
       fireEvent.keyDown(target, { code: "MetaLeft" });
       expect(callback).not.toHaveBeenCalled();
 
@@ -1129,7 +1063,6 @@ describe("Triggers", () => {
         stopPropagation: expect.any(Function),
       });
 
-      // Release in correct order
       fireEvent.keyUp(target, { code: "KeyA", metaKey: true });
       fireEvent.keyUp(target, { code: "MetaLeft" });
     });
@@ -1152,7 +1085,6 @@ describe("Triggers", () => {
       const target = getByTestId("target");
       fireEvent.mouseMove(target, { clientX: 10, clientY: 10 });
 
-      // Test with Control
       fireEvent.keyDown(target, { code: "ControlLeft" });
       fireEvent.keyDown(target, { code: "KeyS", ctrlKey: true });
       vi.advanceTimersByTime(500);
@@ -1170,7 +1102,6 @@ describe("Triggers", () => {
       fireEvent.keyUp(target, { code: "ControlLeft" });
       vi.advanceTimersByTime(500);
 
-      // Test with Meta
       fireEvent.keyDown(target, { code: "MetaLeft" });
       fireEvent.keyDown(target, { code: "KeyS", metaKey: true });
       vi.advanceTimersByTime(500);
@@ -1226,20 +1157,16 @@ describe("Triggers", () => {
 
     it("should clear stuck non-modifier keys when Meta (Cmd) is released", async () => {
       const callback = vi.fn();
-      const C = () => {
-        Triggers.use({
-          callback,
-          triggers: [
-            ["Control", "Shift", "P"],
-            ["Control", "P"],
-          ],
-        });
-        return <div>Hello</div>;
-      };
-      render(
-        <Triggers.Provider>
-          <C />
-        </Triggers.Provider>,
+      renderHook(
+        () =>
+          Triggers.use({
+            callback,
+            triggers: [
+              ["Control", "Shift", "P"],
+              ["Control", "P"],
+            ],
+          }),
+        { wrapper: TriggersWrapper },
       );
 
       // Cmd + Shift + P fires and opens whatever Control+Shift+P controls.
@@ -1302,7 +1229,6 @@ describe("Triggers", () => {
       const target = getByTestId("target");
       fireEvent.mouseMove(target, { clientX: 10, clientY: 10 });
 
-      // Press Shift first
       fireEvent.keyDown(target, { code: "ShiftLeft", shiftKey: true });
       expect(callback).not.toHaveBeenCalled();
 
@@ -1341,7 +1267,6 @@ describe("Triggers", () => {
       fireEvent.keyDown(target, { code: "KeyC", shiftKey: false });
       expect(callback).toHaveBeenCalledTimes(2);
 
-      // Cleanup
       fireEvent.keyUp(target, { code: "KeyA", shiftKey: false });
       fireEvent.keyUp(target, { code: "KeyB", shiftKey: false });
       fireEvent.keyUp(target, { code: "KeyC", shiftKey: false });
@@ -1352,15 +1277,12 @@ describe("Triggers", () => {
         const order: string[] = [];
         const high = vi.fn(() => order.push("high"));
         const low = vi.fn(() => order.push("low"));
-        const C = () => {
-          Triggers.use({ callback: high, triggers: [["A"]], priority: 100 });
-          Triggers.use({ callback: low, triggers: [["A"]], priority: 0 });
-          return <div>Hello</div>;
-        };
-        render(
-          <Triggers.Provider>
-            <C />
-          </Triggers.Provider>,
+        renderHook(
+          () => {
+            Triggers.use({ callback: high, triggers: [["A"]], priority: 100 });
+            Triggers.use({ callback: low, triggers: [["A"]], priority: 0 });
+          },
+          { wrapper: TriggersWrapper },
         );
         fireEvent.keyDown(document.body, { code: "KeyA" });
         expect(order).toEqual(["high", "low"]);
@@ -1369,15 +1291,12 @@ describe("Triggers", () => {
       it("should not invoke lower-priority subscribers when a higher-priority one stops propagation", () => {
         const high = vi.fn((e: Triggers.UseEvent) => e.stopPropagation());
         const low = vi.fn();
-        const C = () => {
-          Triggers.use({ callback: high, triggers: [["A"]], priority: 100 });
-          Triggers.use({ callback: low, triggers: [["A"]], priority: 0 });
-          return <div>Hello</div>;
-        };
-        render(
-          <Triggers.Provider>
-            <C />
-          </Triggers.Provider>,
+        renderHook(
+          () => {
+            Triggers.use({ callback: high, triggers: [["A"]], priority: 100 });
+            Triggers.use({ callback: low, triggers: [["A"]], priority: 0 });
+          },
+          { wrapper: TriggersWrapper },
         );
         fireEvent.keyDown(document.body, { code: "KeyA" });
         expect(high).toHaveBeenCalledOnce();
@@ -1388,16 +1307,13 @@ describe("Triggers", () => {
         const stopper = vi.fn((e: Triggers.UseEvent) => e.stopPropagation());
         const peer = vi.fn();
         const lower = vi.fn();
-        const C = () => {
-          Triggers.use({ callback: stopper, triggers: [["A"]], priority: 100 });
-          Triggers.use({ callback: peer, triggers: [["A"]], priority: 100 });
-          Triggers.use({ callback: lower, triggers: [["A"]], priority: 0 });
-          return <div>Hello</div>;
-        };
-        render(
-          <Triggers.Provider>
-            <C />
-          </Triggers.Provider>,
+        renderHook(
+          () => {
+            Triggers.use({ callback: stopper, triggers: [["A"]], priority: 100 });
+            Triggers.use({ callback: peer, triggers: [["A"]], priority: 100 });
+            Triggers.use({ callback: lower, triggers: [["A"]], priority: 0 });
+          },
+          { wrapper: TriggersWrapper },
         );
         fireEvent.keyDown(document.body, { code: "KeyA" });
         expect(stopper).toHaveBeenCalledOnce();
@@ -1408,15 +1324,12 @@ describe("Triggers", () => {
       it("should invoke all subscribers when none stops propagation", () => {
         const high = vi.fn();
         const low = vi.fn();
-        const C = () => {
-          Triggers.use({ callback: high, triggers: [["A"]], priority: 100 });
-          Triggers.use({ callback: low, triggers: [["A"]], priority: 0 });
-          return <div>Hello</div>;
-        };
-        render(
-          <Triggers.Provider>
-            <C />
-          </Triggers.Provider>,
+        renderHook(
+          () => {
+            Triggers.use({ callback: high, triggers: [["A"]], priority: 100 });
+            Triggers.use({ callback: low, triggers: [["A"]], priority: 0 });
+          },
+          { wrapper: TriggersWrapper },
         );
         fireEvent.keyDown(document.body, { code: "KeyA" });
         expect(high).toHaveBeenCalledOnce();
@@ -1426,15 +1339,12 @@ describe("Triggers", () => {
       it("should default priority to 0 so unconfigured subscribers are blocked by a stopping priority>0 peer", () => {
         const high = vi.fn((e: Triggers.UseEvent) => e.stopPropagation());
         const defaultPriority = vi.fn();
-        const C = () => {
-          Triggers.use({ callback: high, triggers: [["A"]], priority: 1 });
-          Triggers.use({ callback: defaultPriority, triggers: [["A"]] });
-          return <div>Hello</div>;
-        };
-        render(
-          <Triggers.Provider>
-            <C />
-          </Triggers.Provider>,
+        renderHook(
+          () => {
+            Triggers.use({ callback: high, triggers: [["A"]], priority: 1 });
+            Triggers.use({ callback: defaultPriority, triggers: [["A"]] });
+          },
+          { wrapper: TriggersWrapper },
         );
         fireEvent.keyDown(document.body, { code: "KeyA" });
         expect(high).toHaveBeenCalledOnce();
@@ -1446,15 +1356,12 @@ describe("Triggers", () => {
           if (e.stage === "start") e.stopPropagation();
         });
         const low = vi.fn();
-        const C = () => {
-          Triggers.use({ callback: high, triggers: [["A"]], priority: 100 });
-          Triggers.use({ callback: low, triggers: [["B"]], priority: 0 });
-          return <div>Hello</div>;
-        };
-        render(
-          <Triggers.Provider>
-            <C />
-          </Triggers.Provider>,
+        renderHook(
+          () => {
+            Triggers.use({ callback: high, triggers: [["A"]], priority: 100 });
+            Triggers.use({ callback: low, triggers: [["B"]], priority: 0 });
+          },
+          { wrapper: TriggersWrapper },
         );
         fireEvent.keyDown(document.body, { code: "KeyA" });
         expect(high).toHaveBeenCalledOnce();
@@ -1470,15 +1377,12 @@ describe("Triggers", () => {
           if (e.stage === "start") e.stopPropagation();
         });
         const low = vi.fn();
-        const C = () => {
-          Triggers.use({ callback: high, triggers: [["A"]], priority: 100 });
-          Triggers.use({ callback: low, triggers: [["A"]], priority: 0 });
-          return <div>Hello</div>;
-        };
-        render(
-          <Triggers.Provider>
-            <C />
-          </Triggers.Provider>,
+        renderHook(
+          () => {
+            Triggers.use({ callback: high, triggers: [["A"]], priority: 100 });
+            Triggers.use({ callback: low, triggers: [["A"]], priority: 0 });
+          },
+          { wrapper: TriggersWrapper },
         );
         fireEvent.keyDown(document.body, { code: "KeyA" });
         fireEvent.keyUp(document.body, { code: "KeyA" });

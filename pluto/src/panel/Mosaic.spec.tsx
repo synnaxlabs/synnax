@@ -144,10 +144,9 @@ const TabKeyNameProbe = (): ReactElement => {
 
 const children: Panel.MosaicProps["children"] = () => <TabContentProbe />;
 
-// Bootstrap pre-warms the cache with the suspending hook alone, so the
-// mosaic mounts against a cached document. Suspending inside Mosaic itself
-// trips a React 19 dev-mode replay bug for hooks declared after the
-// suspension point.
+// Bootstrap pre-warms the cache with the suspending hook alone, so the mosaic mounts
+// against a cached document. Suspending inside Mosaic itself trips a React 19 dev-mode
+// replay bug for hooks declared after the suspension point.
 const Bootstrap = ({ panelKey }: { panelKey: panel.Key }): ReactElement => {
   Panel.useEnsure({ key: panelKey });
   return <p>loaded</p>;
@@ -294,8 +293,7 @@ describe("Panel.Mosaic", () => {
         panelKey: p.key,
         selected: [a2.key, b2.key],
       });
-      // Both leaves show their own selected tab, so both are attached to the
-      // document.
+      // Both leaves show their own selected tab, so both are attached to the document.
       await waitFor(() => expect(utils.getByText(contentText(b2))).toBeTruthy());
       expect(utils.getByText(contentText(a2))).toBeTruthy();
       expect(utils.queryByText(contentText(a1))).toBeNull();
@@ -548,7 +546,7 @@ describe("Panel.Mosaic", () => {
       await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
 
       await act(async () => {
-        fireEvent.click(utils.getByLabelText("pluto-icon--add"));
+        fireEvent.click(utils.container.querySelector(".pluto-icon--add")!);
       });
 
       await waitFor(() => expect(onSelect).toHaveBeenCalledTimes(1));

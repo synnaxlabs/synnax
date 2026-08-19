@@ -29,6 +29,11 @@ describe("detectConnection", () => {
     expect(Cluster.detectConnection()).toBeNull();
   });
 
+  it("should return null when the select-cluster param is set", () => {
+    pinLocationOrigin("http://example.com", "?select-cluster");
+    expect(Cluster.detectConnection()).toBeNull();
+  });
+
   it("should parse an insecure origin with an explicit port", () => {
     pinLocationOrigin("http://example.com:8080");
     expect(Cluster.detectConnection()).toEqual({

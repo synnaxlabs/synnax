@@ -20,6 +20,7 @@ import { type Theming } from "@/theming";
 
 /** All possible alignments for the cross axis of a space */
 export const ALIGNMENTS = ["start", "center", "end", "stretch"] as const;
+/** Zod schema for {@link Alignment}. */
 export const alignmentZ = z.enum(ALIGNMENTS);
 
 /** The alignments for the cross axis of a space */
@@ -34,6 +35,7 @@ export const JUSTIFICATIONS = [
   "around",
   "evenly",
 ] as const;
+/** Zod schema for {@link Justification}. */
 export const justificationZ = z.enum(JUSTIFICATIONS);
 
 /** The justification for the main axis of a space */
@@ -42,8 +44,6 @@ export type Justification = z.infer<typeof justificationZ>;
 /**
  * Props for the Box component. Extends generic element props with flex layout
  * capabilities.
- *
- * @template E - The HTML element type to render as
  *
  * @example
  * ```tsx
@@ -148,6 +148,10 @@ export interface BoxExtensionProps {
   square?: boolean;
 }
 
+/**
+ * @returns whether a box laid out along the given direction reverses its children. An
+ * explicit `reverse` wins; otherwise "right" and "bottom" reverse.
+ */
 export const shouldReverse = (
   direction?: direction.Crude,
   reverse?: boolean,
@@ -156,6 +160,12 @@ export const shouldReverse = (
   return direction === "right" || direction === "bottom";
 };
 
+/**
+ * Resolves the {@link Box} direction shorthands into a single axis, in the order `x`,
+ * `y`, `direction`, then `pack` (which implies "x").
+ *
+ * @returns undefined when the caller set none of them, leaving the CSS default.
+ */
 export const parseDirection = (
   dir?: direction.Crude,
   x?: boolean,
@@ -176,8 +186,11 @@ const parseFull = (full?: boolean | direction.Direction): string | false => {
 };
 
 /**
- * A flexible container component that arranges its children using CSS flexbox.
- * See {@link BoxProps} for all available props and examples.
+ * The layout primitive. Lays its children out with flexbox and carries the shared
+ * border, background, radius, and gap scales, so a caller rarely needs custom CSS.
+ *
+ * @example <Flex.Box x gap="small" align="center">{children}</Flex.Box>
+ * @example <Flex.Box y grow bordered rounded background={1}>{children}</Flex.Box>
  */
 export const Box = <E extends Generic.ElementType = "div">({
   style,
@@ -236,7 +249,7 @@ export const Box = <E extends Generic.ElementType = "div">({
   ]);
   return (
     <Generic.Element<E>
-      className={CSS(
+      className={CSS.cls(
         className,
         CSS.B("flex"),
         parsedDirection != null && CSS.M("direction", parsedDirection),

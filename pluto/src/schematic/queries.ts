@@ -23,8 +23,7 @@ const RESOURCE_NAME = "schematic";
 
 export type RetrieveQuery = schematic.RetrieveSingleParams;
 
-// Prefers the cached copy: it may hold locally replayed edits ahead of the
-// server.
+// Prefers the cached copy: it may hold locally replayed edits ahead of the server.
 export const { use, useEnsure, useTombstone, createSelector } = Flux.createRetrieve<
   RetrieveQuery,
   schematic.Schematic

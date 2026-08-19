@@ -12,9 +12,10 @@ import "@/select/Dialog.css";
 import { type status } from "@synnaxlabs/client";
 import { type record } from "@synnaxlabs/x";
 import { plural } from "pluralize";
-import { memo, type ReactElement, type ReactNode, useMemo } from "react";
+import { type ReactElement, type ReactNode, useMemo } from "react";
 import { type z } from "zod";
 
+import { memo } from "@/component/memo";
 import { CSS } from "@/css";
 import { Dialog as BaseDialog } from "@/dialog";
 import { Flex } from "@/flex";
@@ -23,6 +24,7 @@ import { SearchInput, type SearchInputProps } from "@/select/SearchInput";
 import { Status } from "@/status/base";
 import { Text } from "@/text";
 
+/** Props for {@link Dialog}. */
 export interface DialogProps<K extends record.Key>
   extends
     Omit<BaseDialog.DialogProps, "children">,
@@ -34,6 +36,7 @@ export interface DialogProps<K extends record.Key>
   footer?: ReactNode;
 }
 
+/** Props for the content shown when a selection has nothing to offer. */
 export interface DefaultEmptyContentProps extends Status.SummaryProps {
   resourceName: string;
 }
@@ -61,99 +64,100 @@ const useDisplayItems = (): number => {
   );
 };
 
-const Base = memo(
-  <K extends record.Key>({
-    onSearch,
-    children,
-    emptyContent,
-    status,
-    resourceName,
-    actions,
-    footer,
-    className,
-    ...rest
-  }: DialogProps<K>) => {
-    const loading = status?.variant === "loading";
-    const hasSearch = onSearch != null;
-    const displayItems = useDisplayItems();
-    emptyContent = useMemo(() => {
-      if (loading) return hasSearch ? null : <Status.Loading />;
-      if (status != null && status.variant !== "success")
-        return (
-          <Status.Summary
-            center
-            variant={status?.variant}
-            description={status?.description}
-          >
-            {status?.message}
-          </Status.Summary>
-        );
-      if (typeof emptyContent === "string")
-        return (
-          <Status.Summary center variant="disabled">
-            {emptyContent}
-          </Status.Summary>
-        );
-      if (emptyContent == null)
-        return <DefaultEmptyContent resourceName={resourceName} />;
-      return emptyContent;
-    }, [status?.key, emptyContent, loading, hasSearch]);
-    return (
-      <BaseDialog.Dialog
-        {...rest}
-        className={CSS(CSS.BE("select", "dialog"), className)}
-        bordered={false}
-      >
-        {hasSearch && (
-          <SearchInput
-            dialogVariant="floating"
-            onSearch={onSearch}
-            searchPlaceholder={`Search ${plural(resourceName)}...`}
-            actions={actions}
-            loading={loading}
-          />
-        )}
-        {footer == null || footer === false ? (
+const Base = <K extends record.Key>({
+  onSearch,
+  children,
+  emptyContent,
+  status,
+  resourceName,
+  actions,
+  footer,
+  className,
+  ...rest
+}: DialogProps<K>): ReactElement => {
+  const loading = status?.variant === "loading";
+  const hasSearch = onSearch != null;
+  const displayItems = useDisplayItems();
+  emptyContent = useMemo(() => {
+    if (loading) return hasSearch ? null : <Status.Loading />;
+    if (status != null && status.variant !== "success")
+      return (
+        <Status.Summary
+          center
+          variant={status?.variant}
+          description={status?.description}
+        >
+          {status?.message}
+        </Status.Summary>
+      );
+    if (typeof emptyContent === "string")
+      return (
+        <Status.Summary center variant="disabled">
+          {emptyContent}
+        </Status.Summary>
+      );
+    if (emptyContent == null)
+      return <DefaultEmptyContent resourceName={resourceName} />;
+    return emptyContent;
+  }, [status?.key, emptyContent, loading, hasSearch]);
+  return (
+    <BaseDialog.Dialog
+      {...rest}
+      className={CSS.cls(CSS.BE("select", "dialog"), className)}
+      bordered={false}
+    >
+      {hasSearch && (
+        <SearchInput
+          dialogVariant="floating"
+          onSearch={onSearch}
+          searchPlaceholder={`Search ${plural(resourceName)}...`}
+          actions={actions}
+          loading={loading}
+        />
+      )}
+      {footer == null || footer === false ? (
+        <List.Items
+          emptyContent={emptyContent}
+          bordered
+          borderColor={6}
+          grow
+          rounded
+          full="x"
+          displayItems={displayItems}
+          animateHeight
+        >
+          {children}
+        </List.Items>
+      ) : (
+        <Flex.Box
+          y
+          empty
+          grow
+          className={CSS.BE("select", "body")}
+          bordered
+          borderColor={6}
+          rounded
+          full="x"
+        >
           <List.Items
             emptyContent={emptyContent}
-            bordered
-            borderColor={6}
             grow
-            rounded
             full="x"
             displayItems={displayItems}
             animateHeight
           >
             {children}
           </List.Items>
-        ) : (
-          <Flex.Box
-            y
-            empty
-            grow
-            className={CSS.BE("select", "body")}
-            bordered
-            borderColor={6}
-            rounded
-            full="x"
-          >
-            <List.Items
-              emptyContent={emptyContent}
-              grow
-              full="x"
-              displayItems={displayItems}
-              animateHeight
-            >
-              {children}
-            </List.Items>
-            {footer}
-          </Flex.Box>
-        )}
-      </BaseDialog.Dialog>
-    );
-  },
-);
+          {footer}
+        </Flex.Box>
+      )}
+    </BaseDialog.Dialog>
+  );
+};
 Base.displayName = "Select.Dialog";
-export const Dialog = Base as <K extends record.Key>(
-  props: DialogProps<K>,
-) => ReactElement;
+
+/**
+ * The dropdown of a selection: its search field, its list, and its empty and error
+ * content. It sizes the list to whole rows, so its growth animates.
+ */
+export const Dialog = memo(Base);

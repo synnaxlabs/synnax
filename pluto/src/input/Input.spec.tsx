@@ -264,7 +264,7 @@ describe("Input", () => {
 
       it("should show drag handle by default", () => {
         const c = render(<Input.Numeric value={0} onChange={vi.fn()} />);
-        const dragButton = c.getByLabelText("pluto-icon--drag");
+        const dragButton = c.container.querySelector(".pluto-icon--drag")!;
         expect(dragButton).toBeTruthy();
       });
     });

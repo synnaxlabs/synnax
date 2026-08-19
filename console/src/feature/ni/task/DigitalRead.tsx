@@ -109,7 +109,6 @@ const onConfigure: Task.OnConfigure<typeof digitalReadConfigZ> = async (
     const toCreate: DIChannel[] = [];
     for (const channel of config.channels) {
       const key = getDigitalChannelDeviceKey(channel);
-      // check if the channel is in properties
       const exKey = dev.properties.digitalInput.channels[key];
       if (primitive.isZero(exKey)) toCreate.push(channel);
       else

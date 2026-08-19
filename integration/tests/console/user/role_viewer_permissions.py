@@ -10,9 +10,11 @@
 """Test that Viewer role has read-only permissions and cannot actuate controls."""
 
 import synnax as sy
-from console.case import ConsoleCase
+from console.plot import Plot
 from console.schematic import Setpoint, Valve
 from console.schematic.schematic import Schematic
+from console.table import Table
+from tests.console.user.role_case import RoleCase
 from x import random_name
 
 F64_CHANNEL = f"viewer_perm_f64_{random_name()}"
@@ -23,12 +25,11 @@ SCHEMATIC_NAME = "viewer_perm_schematic"
 PLOT_NAME = "viewer_perm_plot"
 TABLE_NAME = "viewer_perm_table"
 
-PASSWORD = "testpassword123"
-FIRST_NAME = "Viewer"
 
-
-class RoleViewerPermissions(ConsoleCase):
+class RoleViewerPermissions(RoleCase):
     """Viewer holds retrieve on everything and no write anywhere."""
+
+    role_name = "Viewer"
 
     def setup(self) -> None:
         f64_idx = self.client.channels.create(
@@ -58,9 +59,9 @@ class RoleViewerPermissions(ConsoleCase):
 
     def run(self) -> None:
         self.owner_creates_and_actuates()
-        self.log_in_as_viewer()
-        self.badge_names_the_role()
-        self.management_surfaces_are_hidden()
+        self.login_as_role()
+        self.assert_badge_names_role()
+        self.assert_users_toolbar_hidden()
         self.creation_commands_are_hidden()
         self.mosaic_is_static()
         self.tab_menu_offers_no_writes()
@@ -69,11 +70,11 @@ class RoleViewerPermissions(ConsoleCase):
 
     def owner_creates_and_actuates(self) -> None:
         """As Owner: build the pages, prove control works, leave the tabs open."""
-        table = self.console.project.create_table(TABLE_NAME)
+        table = self.console.pages.create(Table, TABLE_NAME)
         self._cleanup_pages.append(table.page_name)
-        plot = self.console.project.create_plot(PLOT_NAME)
+        plot = self.console.pages.create(Plot, PLOT_NAME)
         self._cleanup_pages.append(plot.page_name)
-        schematic = self.console.project.create_schematic(SCHEMATIC_NAME)
+        schematic = self.console.pages.create(Schematic, SCHEMATIC_NAME)
         self._cleanup_pages.append(schematic.page_name)
 
         setpoint = schematic.create_symbol(
@@ -100,30 +101,6 @@ class RoleViewerPermissions(ConsoleCase):
         valve.press()
         self.wait_for_eq(VALVE_CHANNEL, 0)
 
-    def log_in_as_viewer(self) -> None:
-        self._username = f"viewer_{random_name()}"
-        assert self.console.access.register_user(
-            username=self._username,
-            password=PASSWORD,
-            first_name=FIRST_NAME,
-            last_name="Test",
-            role_name="Viewer",
-        ), f"failed to register user {self._username}"
-        self.console.access.logout()
-        self.console.access.login(username=self._username, password=PASSWORD)
-        self.page.get_by_text(FIRST_NAME, exact=True).wait_for(
-            state="visible", timeout=10000
-        )
-
-    def badge_names_the_role(self) -> None:
-        role = self.console.access.get_current_role()
-        assert role == "Viewer", f"badge shows role {role!r}, expected 'Viewer'"
-
-    def management_surfaces_are_hidden(self) -> None:
-        assert not self.console.access.users_toolbar_visible(), (
-            "Users toolbar is visible to a Viewer; it is gated on user update"
-        )
-
     def creation_commands_are_hidden(self) -> None:
         for command in (
             "Create project",
@@ -132,9 +109,7 @@ class RoleViewerPermissions(ConsoleCase):
             "Create schematic",
             "Create range",
         ):
-            assert not self.console.access.command_available(command), (
-                f"{command!r} is offered to a Viewer, who cannot create one"
-            )
+            self.assert_command_hidden(command)
 
     def mosaic_is_static(self) -> None:
         self.console.layout.get_read_only_tab(SCHEMATIC_NAME).wait_for(
@@ -170,7 +145,7 @@ class RoleViewerPermissions(ConsoleCase):
 
     def viewer_cannot_actuate(self) -> None:
         """A Viewer holds no framer create, so control affordances are gone."""
-        schematic = self.console.project.bind_open_page(Schematic, SCHEMATIC_NAME)
+        schematic = self.console.pages.bind_open(Schematic, SCHEMATIC_NAME)
 
         assert not schematic.has_control_toggle(), (
             "schematic offers control acquisition to a Viewer, who cannot write framer"

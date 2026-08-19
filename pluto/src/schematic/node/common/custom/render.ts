@@ -192,11 +192,10 @@ const runRender = (
   if (spec == null || spec.svg.length === 0) return;
 
   // useRender has two callers with opposite mutation models: the schematic node
-  // renderers receive a fresh spec reference from the flux cache on every update,
-  // while the symbol editor's form mutates a single spec object in place. Diffing by
-  // object identity is therefore wrong - it never detects the editor's in-place
-  // edits. Compare against value snapshots instead: primitives by value, states by
-  // deep equality.
+  // renderers receive a fresh spec reference from the flux cache on every update, while
+  // the symbol editor's form mutates a single spec object in place. Diffing by object
+  // identity is therefore wrong - it never detects the editor's in-place edits. Compare
+  // against value snapshots instead: primitives by value, states by deep equality.
   const externalScaleDiffers = state.prevExternalScale !== externalScale;
   const orientationDiffers = state.prevOrientation !== orientation;
   const svgDiffers = state.prevSvg !== spec.svg;

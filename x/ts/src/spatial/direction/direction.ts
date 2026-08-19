@@ -20,7 +20,6 @@ import {
   OUTER_LOCATIONS,
   type SignedDimension,
   Y_LOCATIONS,
-  type YLocation,
 } from "@/spatial/types.gen";
 
 export { type Direction, DIRECTIONS, directionZ };
@@ -31,10 +30,11 @@ export type Crude = z.infer<typeof crudeZ>;
 export type CrudeX = "x" | "left" | "right";
 export type CrudeY = "y" | "top" | "bottom";
 
+const Y_LOCATION_SET = new Set<string>(Y_LOCATIONS);
+
 export const construct = (c: Crude): Direction => {
-  if (DIRECTIONS.includes(c as Direction)) return c as Direction;
-  if (Y_LOCATIONS.includes(c as YLocation)) return "y";
-  return "x";
+  if (c === "x" || c === "y") return c;
+  return Y_LOCATION_SET.has(c) ? "y" : "x";
 };
 
 export const swap = (direction: Crude): Direction =>

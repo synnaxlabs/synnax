@@ -67,7 +67,7 @@ const Internal = (): ReactElement => {
             )}
           </Breadcrumb.Breadcrumb>
         </Flex.Box>
-        <Flex.Box x className={CSS.BE("table", "toolbar-buttons")} empty>
+        <Flex.Box x className={CSS.BE("table", "toolbar-buttons")} gap="small">
           <Export.ToolbarButton id={table.ontologyID(key)} />
           <Cluster.CopyLinkToolbarButton
             name={name}

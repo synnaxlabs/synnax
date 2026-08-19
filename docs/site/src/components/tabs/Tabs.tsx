@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Tabs as Base } from "@synnaxlabs/pluto/tabs";
+import { Text } from "@synnaxlabs/pluto/text";
 import { type ReactElement, useEffect, useState } from "react";
 
 export interface TabEntry {
@@ -54,7 +55,7 @@ export const Tabs = ({ tabs, queryParamKey, ...rest }: TabsProps): ReactElement 
         {tabs.map(({ tabKey, name, icon }) => (
           <Base.Tab key={tabKey} itemKey={tabKey}>
             {icon ?? rest[`${tabKey}-icon`]}
-            {name}
+            <Text.Text>{name}</Text.Text>
           </Base.Tab>
         ))}
       </Base.Selector>

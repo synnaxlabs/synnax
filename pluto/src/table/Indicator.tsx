@@ -72,9 +72,9 @@ export const ColumnIndicators = memo(
     );
     const allSelected = totalCells > 0 && selected.length >= totalCells;
     return (
-      <tr className={CSS(CSS.BE("table", "row"), CSS.BE("table", "col-resizer"))}>
+      <tr className={CSS.cls(CSS.BE("table", "row"), CSS.BE("table", "col-resizer"))}>
         <td
-          className={CSS(CSS.BE("table", "select-all"), CSS.selected(allSelected))}
+          className={CSS.cls(CSS.BE("table", "select-all"), CSS.selected(allSelected))}
           onClick={onSelectAll}
           onContextMenu={onSelectAll}
         />
@@ -127,10 +127,11 @@ export const Indicator = ({
     ),
   });
   const style = useMemo(() => ({ [direction.dimension(dir)]: value }), [dir, value]);
+  const label = dir === "x" ? ALPHABET[index] : index + 1;
   return (
     <td
       id={`resizer-${dir}-${index}`}
-      className={CSS(
+      className={CSS.cls(
         CSS.BE("table", "resizer"),
         CSS.dir(dir),
         CSS.selected(selected),
@@ -142,11 +143,11 @@ export const Indicator = ({
       onContextMenu={(e) => onSelect(index, e)}
     >
       <Text.Text full="x" justify="center" align="center" square={false}>
-        {dir === "x" ? ALPHABET[index] : index + 1}
+        {label}
       </Text.Text>
       {editable && (
         <button
-          aria-label={dir === "x" ? "Resize column" : "Resize row"}
+          aria-label={`Resize ${dir === "x" ? "column" : "row"} ${label}`}
           tabIndex={-1}
           className={Cursor.DRAG_CLASS}
           onClick={stopPropagation}

@@ -456,7 +456,6 @@ const rgbaToHSLA = (rgba: RGBA): HSLA => {
     h /= 6;
   }
 
-  // Convert hue to degrees
   h *= 360;
   s *= 100;
   l *= 100;

@@ -311,7 +311,7 @@ export class Client extends query.Retriever<
    */
   private ensureLabel(rel: ontology.Relationship): void {
     if (rel.to.type !== "label" || this.cfg.labels.store.has(rel.to.key)) return;
-    void this.cfg.labels
+    this.cfg.labels
       .retrieve(rel.to.key)
       .catch((exc: unknown) =>
         this.cfg.cache.onError(

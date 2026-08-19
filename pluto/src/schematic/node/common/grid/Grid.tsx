@@ -201,7 +201,7 @@ const EditableSlot = ({ loc, nodeKey, items }: SlotProps) => {
   return (
     <Flex.Box
       direction={location.direction(loc)}
-      className={CSS(
+      className={CSS.cls(
         CSS.BE("grid", "item"),
         CSS.loc(loc),
         CSS.dropRegion(isDragging),
@@ -232,7 +232,7 @@ const StaticSlot = ({ loc, items }: SlotProps) => {
   return (
     <Flex.Box
       direction={location.direction(loc)}
-      className={CSS(CSS.BE("grid", "item"), CSS.loc(loc))}
+      className={CSS.cls(CSS.BE("grid", "item"), CSS.loc(loc))}
       empty
     >
       {filtered.map(({ children, itemKey }) => (

@@ -23,16 +23,14 @@ import {
 } from "@/table/actions.gen";
 import { type Cell } from "@/table/types.gen";
 
-// MIN_CELL_DIM is the floor enforced on row and column sizes.
 const MIN_CELL_DIM = 32;
 // BASE_ROW_DIM and BASE_COL_DIM are the defaults used when an action
 // bootstraps the opposing axis on an empty table.
 const BASE_ROW_DIM = 36;
 const BASE_COL_DIM = 72;
 
-// deriveCellKey returns the key for the index-th replica of template. Both
-// reducers run the same scheme so optimistic client state agrees with the
-// server.
+// deriveCellKey returns the key for the index-th replica of template. Both reducers run
+// the same scheme so optimistic client state agrees with the server.
 const deriveCellKey = (templateKey: string, index: number): string => {
   const suffix = index.toString(16).padStart(4, "0");
   if (templateKey.length < 36) return `${templateKey}-${suffix}`;
@@ -264,12 +262,11 @@ export const reduceAll = createReduceAll(handlers);
 export const createOf = (action: Action) =>
   action.type === "create" ? action.create.table : undefined;
 
-// kindOf classifies an action batch for the undoable store's
-// per-kind coalesce window. Continuous resize gestures (a stream of
-// resize_row or resize_col actions) collapse into a single undo step;
-// successive set_cell actions on the same cell coalesce per-cell so typing
-// inside one cell collapses to one undo step but switching cells starts a
-// fresh entry; everything else is treated as a discrete user action.
+// kindOf classifies an action batch for the undoable store's per-kind coalesce window.
+// Continuous resize gestures (a stream of resize_row or resize_col actions) collapse
+// into a single undo step; successive set_cell actions on the same cell coalesce
+// per-cell so typing inside one cell collapses to one undo step but switching cells
+// starts a fresh entry; everything else is treated as a discrete user action.
 export const kindOf = (actions: Action[]): string => {
   if (actions.length === 0) return "default";
   if (actions.every((a) => a.type === "resize_row" || a.type === "resize_col"))

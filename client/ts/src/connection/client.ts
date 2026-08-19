@@ -76,9 +76,8 @@ export interface CheckParams {
 }
 
 /**
- * Runs a one-shot connectivity check against the given cluster address and
- * folds the result into a status. Never throws: failures land in the
- * returned status.
+ * Runs a one-shot connectivity check against the given cluster address and folds the
+ * result into a status. Never throws: failures land in the returned status.
  */
 export const check = async (params: CheckParams): Promise<Status> => {
   const { host, port, secure = false, name } = params;
@@ -196,11 +195,10 @@ export interface ClientParams {
 }
 
 /**
- * Owns a cluster connection's status: checks on a cadence, backs off while
- * degraded, folds outside facts ({@link Client.notify}) into the status, and
- * notifies observers on material changes. The check loop starts on
- * construction, deferred one microtask so callers can finish synchronous
- * wiring (middleware installation) first.
+ * Owns a cluster connection's status: checks on a cadence, backs off while degraded,
+ * folds outside facts ({@link Client.notify}) into the status, and notifies observers
+ * on material changes. The check loop starts on construction, deferred one microtask so
+ * callers can finish synchronous wiring (middleware installation) first.
  */
 export class Client implements Handle {
   private readonly unary: UnaryClient;
@@ -276,10 +274,9 @@ export class Client implements Handle {
   }
 
   /**
-   * Resolves once the connection is usable: success, or warning when the
-   * cluster refuses live updates. Rejects with the stored failure when it
-   * settles on an error variant or is closed. An already-connected client
-   * resolves without waiting.
+   * Resolves once the connection is usable: success, or warning when the cluster
+   * refuses live updates. Rejects with the stored failure when it settles on an error
+   * variant or is closed. An already-connected client resolves without waiting.
    * @throws {Error} if the timeout elapses first.
    */
   async connect(timeout?: CrudeTimeSpan): Promise<Status> {
@@ -348,17 +345,18 @@ export class Client implements Handle {
       prev.details.clusterKey !== "" &&
       next.details.clusterKey !== prev.details.clusterKey
     )
-      this.stream
-        ?.reset()
-        .then(async () => await this.stream?.ensure())
-        .catch((err: unknown) =>
-          this.onInternalError(
-            new Error("failed to reset cache after cluster replacement", {
-              cause: err,
-            }),
-          ),
-        );
+      this.resetStream().catch((err: unknown) =>
+        this.onInternalError(
+          new Error("failed to reset cache after cluster replacement", { cause: err }),
+        ),
+      );
     this.setMode(modeFor(next));
+  }
+
+  /** Drops everything cached from the replaced cluster, then brings the stream up. */
+  private async resetStream(): Promise<void> {
+    await this.stream?.reset();
+    await this.stream?.ensure();
   }
 
   /** Discards in-flight checks and wakes the loop for an immediate check. */
@@ -382,10 +380,9 @@ export class Client implements Handle {
   }
 
   /**
-   * Consumes this check's turn at re-demanding a dark stream, returning whether
-   * it gets one. A denied stream probes on a slow cadence: every probe costs an
-   * open the cluster refuses until an administrator changes the caller's
-   * policies.
+   * Consumes this check's turn at re-demanding a dark stream, returning whether it gets
+   * one. A denied stream probes on a slow cadence: every probe costs an open the
+   * cluster refuses until an administrator changes the caller's policies.
    */
   private takeStreamProbe(): boolean {
     if (!this.current.details.streamDenied) return true;

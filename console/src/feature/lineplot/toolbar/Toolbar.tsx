@@ -61,7 +61,11 @@ const Internal = (): ReactElement => {
             {name}
           </Base.Title>
           <Flex.Box x align="center" empty>
-            <Flex.Box x empty className={CSS.BE("line-plot", "toolbar", "actions")}>
+            <Flex.Box
+              x
+              gap="small"
+              className={CSS.BE("line-plot", "toolbar", "actions")}
+            >
               <Button.Button
                 tooltip="Download as CSV"
                 size="medium"

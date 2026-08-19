@@ -124,7 +124,7 @@ export const Frame = ({
   );
   return (
     <Context value={ctx}>
-      <Flex.Box empty={empty} className={CSS(CSS.B("mosaic"), className)} {...rest}>
+      <Flex.Box empty={empty} className={CSS.cls(CSS.B("mosaic"), className)} {...rest}>
         {children}
       </Flex.Box>
     </Context>

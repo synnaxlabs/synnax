@@ -478,6 +478,23 @@ describe("Editor", () => {
       expect(screen.queryByText("Rename")).toBeNull();
     });
 
+    it("should hide the rename action and report when a provider fails", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      setRenameProviders([
+        { resolveRenameLocation: vi.fn().mockRejectedValue(new Error("boom")) },
+      ]);
+      renderEditor();
+      openMenu(monaco.editorInstance);
+      await vi.waitFor(() =>
+        expect(errorSpy).toHaveBeenCalledWith(
+          "failed to check rename availability",
+          expect.anything(),
+        ),
+      );
+      expect(screen.queryByText("Rename")).toBeNull();
+      errorSpy.mockRestore();
+    });
+
     it("should show and trigger rename when the cursor is renameable", async () => {
       setRenameProviders([renameableProvider]);
       renderEditor();

@@ -17,6 +17,7 @@ import { type Icon } from "@/icon";
 import { Indicator } from "@/status/base/Indicator";
 import { Text as BaseText } from "@/text";
 
+/** Props for {@link Summary}. Pass a whole `status`, or its parts one by one. */
 export interface SummaryProps
   extends
     Omit<BaseText.TextProps, "wrap" | "variant" | "status">,
@@ -25,6 +26,10 @@ export interface SummaryProps
   status?: status.Status;
 }
 
+/**
+ * Renders a status as an {@link Indicator}, its message, and its description. Use it
+ * wherever an error or a result has to read inline.
+ */
 export const Summary = ({
   level = "p",
   variant,
@@ -47,7 +52,7 @@ export const Summary = ({
   children ??= message;
   const baseText = (
     <BaseText.Text
-      className={CSS(className, !hasDescription && CSS.BE("status", "text"))}
+      className={CSS.cls(className, !hasDescription && CSS.BE("status", "text"))}
       level={level}
       status={variant}
       {...(hasDescription ? {} : rest)}

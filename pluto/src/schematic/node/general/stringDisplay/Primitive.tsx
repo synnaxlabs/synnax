@@ -40,7 +40,7 @@ export const StringDisplay = ({
 }: RenderProps): ReactElement => {
   const style = useMemo<CSSProperties>(
     () => ({
-      [CSS.var("symbol-color")]: symbolColorVar(colorVal),
+      [CSS.variable("symbol-color")]: symbolColorVar(colorVal),
       width: inlineSize,
     }),
     [colorVal, inlineSize],
@@ -51,7 +51,7 @@ export const StringDisplay = ({
     : textColor;
   return (
     <Primitive.Div
-      className={CSS(CSS.B("string-display"), CSS.B("symbol-colored"), className)}
+      className={CSS.cls(CSS.B("string-display"), CSS.B("symbol-colored"), className)}
       style={style}
     >
       <div className={CSS.BE("string-display", "content")}>

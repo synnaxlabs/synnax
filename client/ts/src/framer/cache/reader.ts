@@ -56,15 +56,13 @@ export interface ReaderProps {
 }
 
 /**
- * Reads historical telemetry, serving from the cache and batch-filling gaps from
- * the server. A batch failure rejects only the reads whose gaps were in the failed
- * fetch.
+ * Reads historical telemetry, serving from the cache and batch-filling gaps from the
+ * server. A batch failure rejects only the reads whose gaps were in the failed fetch.
  */
 export class Reader {
   private readonly props: Required<Omit<ReaderProps, "batchDebounce">>;
   private readonly batcher: debounce.Batcher<ReadRequest>;
-  // Serializes batch execution against close, so close waits for the batch in
-  // flight.
+  // Serializes batch execution against close, so close waits for the batch in flight.
   private readonly mu = sync.newMutex({ closed: false });
 
   constructor(props: ReaderProps) {

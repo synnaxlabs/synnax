@@ -77,7 +77,7 @@ class CustomSymbol(Symbol):
         )
         self.layout.show_visualization_toolbar()
 
-        self.page.get_by_text("Properties").click()
+        self.open_properties_tab()
         # Two "control" tabs exist: the toolbar's own and the symbol form's, which
         # renders after it. Tab DOM ids are namespaced per Tabs.Frame, so match on the
         # stable key attribute.

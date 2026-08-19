@@ -156,9 +156,8 @@ describe("Panel queries", () => {
   });
 
   describe("useEnsure", () => {
-    // Single-hook bootstrap component so the suspending useEnsure is
-    // not followed by additional hooks; that shape trips a React 19
-    // concurrent-replay warning.
+    // Single-hook bootstrap component so the suspending useEnsure is not followed by
+    // additional hooks; that shape trips a React 19 concurrent-replay warning.
     it("populates the cache so downstream selectors resolve", async () => {
       const created = await createPanel();
       const Bootstrap = (): ReactElement => {

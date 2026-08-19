@@ -17,9 +17,8 @@ import { Log } from "@/platform/log";
 import { Panel } from "@/platform/panel";
 import { Session } from "@/session";
 
-// A virtual channel without an expression has no stored data to plot, so it
-// routes to a log, which displays its live samples. Calculated channels plot
-// like persisted ones.
+// A virtual channel without an expression has no stored data to plot, so it routes to a
+// log, which displays its live samples. Calculated channels plot like persisted ones.
 const isPlainVirtual = ({ data }: ontology.Resource): boolean =>
   data?.virtual === true && data.expression == "";
 

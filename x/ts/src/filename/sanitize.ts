@@ -11,14 +11,18 @@
 // characters Windows forbids.
 // eslint-disable-next-line no-control-regex
 const UNSAFE_FILE_NAME_CHARS = /[/\\<>:"|?*\x00-\x1f]/gu;
+
 const TRAILING_DOTS_AND_SPACES = /[. ]+$/;
+
 // Matches the device names Windows refuses to open a file under, bare or carrying an
 // extension.
 const RESERVED_FILE_NAMES = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|$)/i;
+
 // The longest single path element ext4, APFS, and NTFS accept. It counts bytes, which
 // bounds NTFS's UTF-16 limit too: a code point never takes more UTF-16 code units than
 // it takes UTF-8 bytes.
 const MAX_FILE_NAME_LENGTH = 255;
+
 // Names a file whose name sanitizes to nothing.
 const PLACEHOLDER_FILE_NAME = "_";
 
@@ -49,12 +53,9 @@ const fit = (name: string, maxBytes: number): string => {
  * platform, carrying extension. Replaces every character a file name cannot hold with
  * an underscore, drops trailing dots and spaces, prefixes an underscore to a Windows
  * device name or a name starting with a dot, and shortens the name until it and
- * extension together fit the longest path element a filesystem takes.
- *
- * The result is a single path element, but it is not unique: two names can sanitize to
- * one, and shortening makes that more likely.
- *
- * @param name - The user-supplied name.
+ * extension together fit the longest path element a filesystem takes. The result is a
+ * single path element, but it is not unique: two names can sanitize to one, and
+ * shortening makes that more likely.
  * @param extension - The extension the result carries, leading dot included. Defaults
  * to none.
  * @returns a single underscore for a name that sanitizes to nothing, such as one

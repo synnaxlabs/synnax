@@ -122,9 +122,8 @@ describe("createStore", () => {
   });
 });
 
-// A pre-render webview's label never resolves a window key, so window-scoped
-// dispatches from it must die locally instead of mutating state or leaking to
-// other windows.
+// A pre-render webview's label never resolves a window key, so window-scoped dispatches
+// from it must die locally instead of mutating state or leaking to other windows.
 describe("pre-rendered windows", () => {
   const PRERENDER_LABEL = "prerender-label";
 

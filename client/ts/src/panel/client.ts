@@ -188,10 +188,9 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
   }
 
   /**
-   * Applies actions to the cached panel and sends them to the server,
-   * recording an undoable entry. Returns false without side effects when the
-   * panel isn't cached. Rolls back the local apply and rethrows on send
-   * failure.
+   * Applies actions to the cached panel and sends them to the server, recording an
+   * undoable entry. Returns false without side effects when the panel isn't cached.
+   * Rolls back the local apply and rethrows on send failure.
    */
   async dispatch(
     key: Key,

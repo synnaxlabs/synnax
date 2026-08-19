@@ -41,6 +41,7 @@ import {
 import { Scope, TabScope } from "@/panel/scope";
 import { Portal } from "@/portal";
 import { Select } from "@/select";
+import { Status } from "@/status/base";
 import { Synnax } from "@/synnax";
 import { Tabs } from "@/tabs";
 import { Triggers } from "@/triggers";
@@ -305,10 +306,9 @@ const PortalIn = memo(
 );
 PortalIn.displayName = "Panel.Mosaic.PortalIn";
 
-// Content renders into portaled elements hosted from each leaf, so moving a tab
-// around the mosaic does not remount it: the destination leaf's Out re-parents
-// the same element, preserving DOM state and expensive resources like WebGL
-// contexts.
+// Content renders into portaled elements hosted from each leaf, so moving a tab around
+// the mosaic does not remount it: the destination leaf's Out re-parents the same
+// element, preserving DOM state and expensive resources like WebGL contexts.
 const PortaledContents = memo(
   ({ children }: Pick<MosaicProps, "children">): ReactElement => {
     const keys = useTabKeys();
@@ -345,6 +345,7 @@ export const Mosaic = ({
   const canEdit = useCanEdit({});
 
   const moveToPanel = useMoveTabToPanel();
+  const handleError = Status.useErrorHandler();
 
   const handleDrop = useCallback(
     ({ nodeKey, tabKey, location, index, data }: Base.OnDropProps) => {
@@ -358,18 +359,19 @@ export const Mosaic = ({
           onSelect?.(tabKey);
         return;
       }
-      void moveToPanel({
-        source: source.panel,
-        destination: key,
-        tab: source.tab,
-        targetLeaf: nodeKey,
-        index,
-        location,
-      }).then((landed) => {
+      handleError(async () => {
+        const landed = await moveToPanel({
+          source: source.panel,
+          destination: key,
+          tab: source.tab,
+          targetLeaf: nodeKey,
+          index,
+          location,
+        });
         if (landed != null) onSelect?.(landed);
-      });
+      }, "Failed to move tab");
     },
-    [client, dispatch, moveToPanel, key, onSelect],
+    [client, dispatch, moveToPanel, key, onSelect, handleError],
   );
 
   const handleResize = useCallback(
@@ -435,7 +437,7 @@ export const Mosaic = ({
             onCreate={handleCreate}
             onResize={handleResize}
             disabled={!canEdit}
-            className={CSS(
+            className={CSS.cls(
               className,
               overlaid != null && CSS.BM("panel-mosaic", "overlaid"),
             )}

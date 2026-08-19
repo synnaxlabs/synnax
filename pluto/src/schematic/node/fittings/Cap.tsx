@@ -24,7 +24,7 @@ export const Cap = ({
   scale,
   ...rest
 }: CapProps): ReactElement => (
-  <Primitive.Div className={CSS(CSS.B("cap"), className)} {...rest}>
+  <Primitive.Div className={CSS.cls(CSS.B("cap"), className)} {...rest}>
     <Handle.Boundary orientation={orientation}>
       <Handle.Handle
         location="left"

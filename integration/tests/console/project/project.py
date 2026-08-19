@@ -13,14 +13,12 @@ import shutil
 import tempfile
 from typing import Any
 
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
-
 from console.case import ConsoleCase
 from console.log import Log
 from console.plot import Plot
 from console.schematic.schematic import Schematic
 from console.table import Table
-from framework.utils import get_fixture_path
+from framework.utils import get_fixture_path, resolve_channel_placeholders
 
 EXPECTED_PAGES = ["Metrics Plot", "Metrics Schematic", "Metrics Log", "Metrics Table"]
 
@@ -35,11 +33,20 @@ class Project(ConsoleCase):
         self._cleanup_projects = []
 
     def teardown(self) -> None:
+        # Server-side delete: fast, and immune to UI state a failure leaves
+        # behind (an open modal blocks the context-menu delete, stranding a
+        # duplicate-name project for the retry to trip over).
         for name in self._cleanup_projects:
             try:
-                self.console.project.delete(name)
-            except PlaywrightTimeoutError:
-                pass
+                keys = [
+                    p.key
+                    for p in self.client.projects.retrieve(search_term=name)
+                    if p.name == name
+                ]
+                if len(keys) > 0:
+                    self.client.projects.delete(keys)
+            except Exception as e:
+                self.log(f"Failed to delete project {name}: {e}")
         super().teardown()
 
     def run(self) -> None:
@@ -95,9 +102,9 @@ class Project(ConsoleCase):
         """Test importing a line plot from a JSON file."""
         self.log("Testing import line plot")
         json_path = get_fixture_path("ImportSpace/Metrics Plot.json")
-        self.console.project.import_page(json_path, "Metrics Plot")
+        self.console.pages.import_file(json_path, "Metrics Plot")
 
-        assert self.console.project.page_exists("Metrics Plot"), (
+        assert self.console.pages.exists("Metrics Plot"), (
             "Imported line plot should appear in project resources"
         )
 
@@ -115,9 +122,9 @@ class Project(ConsoleCase):
         """Test importing a schematic from a JSON file."""
         self.log("Testing import schematic")
         json_path = get_fixture_path("ImportSpace/Metrics Schematic.json")
-        self.console.project.import_page(json_path, "Metrics Schematic")
+        self.console.pages.import_file(json_path, "Metrics Schematic")
 
-        assert self.console.project.page_exists("Metrics Schematic"), (
+        assert self.console.pages.exists("Metrics Schematic"), (
             "Imported schematic should appear in project resources"
         )
 
@@ -134,9 +141,9 @@ class Project(ConsoleCase):
         """Test importing a log from a JSON file."""
         self.log("Testing import log")
         json_path = get_fixture_path("ImportSpace/Metrics Log.json")
-        self.console.project.import_page(json_path, "Metrics Log")
+        self.console.pages.import_file(json_path, "Metrics Log")
 
-        assert self.console.project.page_exists("Metrics Log"), (
+        assert self.console.pages.exists("Metrics Log"), (
             "Imported log should appear in project resources"
         )
 
@@ -164,7 +171,7 @@ class Project(ConsoleCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_path = os.path.join(tmp_dir, f"{file_name}.json")
             with open(tmp_path, "w", encoding="utf-8") as f:
-                json.dump(data, f)
+                f.write(resolve_channel_placeholders(self.client, json.dumps(data)))
             with self.console.layout.page.expect_file_chooser() as fc_info:
                 self.console.layout.command_palette("Import components")
             fc_info.value.set_files(tmp_path)
@@ -175,11 +182,11 @@ class Project(ConsoleCase):
                 self.console.layout.get_tab(file_name)
             ).first.wait_for(state="visible", timeout=10000)
 
-        assert self.console.project.page_exists(body_name), (
+        assert self.console.pages.exists(body_name), (
             f"Imported log should appear in project resources as {body_name!r}, "
             "taking its name from the JSON's name key"
         )
-        assert not self.console.project.page_exists(file_name), (
+        assert not self.console.pages.exists(file_name), (
             f"Imported log should not be named after the file ({file_name!r}) when "
             "the JSON carries a name key"
         )
@@ -194,9 +201,9 @@ class Project(ConsoleCase):
         """Test importing a table from a JSON file."""
         self.log("Testing import table")
         json_path = get_fixture_path("ImportSpace/Metrics Table.json")
-        self.console.project.import_page(json_path, "Metrics Table")
+        self.console.pages.import_file(json_path, "Metrics Table")
 
-        assert self.console.project.page_exists("Metrics Table"), (
+        assert self.console.pages.exists("Metrics Table"), (
             "Imported table should appear in project resources"
         )
 
@@ -225,9 +232,9 @@ class Project(ConsoleCase):
         # Re-open all imported pages so they exist in Redux state
         # (import tests close tabs, which removes layouts from Redux)
         for p in EXPECTED_PAGES:
-            self.console.project.open_page(p)
+            self.console.pages.open_by_name(p)
 
-        self._export_dir = self.console.project.export_project("ImportSpace")
+        self._export_dir = self.console.project.export("ImportSpace")
 
         for p in EXPECTED_PAGES:
             self.console.layout.close_tab(p)
@@ -303,7 +310,7 @@ class Project(ConsoleCase):
         with open(manifest_path, "w", encoding="utf-8") as f:
             json.dump(manifest, f)
 
-        self.console.project.import_project_from_directory(imported_dir)
+        self.console.project.import_from_directory(imported_dir)
 
         for tab_name in EXPECTED_PAGES:
             tab = self.console.layout.get_tab(tab_name)

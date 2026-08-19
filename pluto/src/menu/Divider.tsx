@@ -14,6 +14,7 @@ import { type ReactElement } from "react";
 import { CSS } from "@/css";
 import { Divider as Base } from "@/divider";
 
+/** A horizontal rule that separates groups of {@link Item}s. */
 export const Divider = (): ReactElement => (
   <Base.Divider className={CSS.BE("menu", "divider")} x padded />
 );

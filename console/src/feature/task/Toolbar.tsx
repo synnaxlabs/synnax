@@ -152,7 +152,7 @@ const Content = () => {
   );
   return (
     <Menu.ContextMenu menu={contextMenu} {...menuProps}>
-      <Toolbar.Content className={CSS(CSS.B("task-toolbar"), menuProps.className)}>
+      <Toolbar.Content className={CSS.cls(CSS.B("task-toolbar"), menuProps.className)}>
         <Toolbar.Header>
           <Toolbar.Title>
             <Icon.Task />

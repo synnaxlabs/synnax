@@ -71,7 +71,7 @@ const Base = ({
 
   return (
     <List.Item
-      className={CSS(CSS.BE("range", "list-item"))}
+      className={CSS.cls(CSS.BE("range", "list-item"))}
       onSelect={handleSelect}
       justify="between"
       selected={selected}
@@ -86,6 +86,7 @@ const Base = ({
             size="medium"
             variant="text"
             reveal={!selected}
+            aria-label="Select"
           />
           <Flex.Box x align="center" gap="tiny">
             <Form.Field<NumericTimeRange>

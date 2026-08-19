@@ -221,7 +221,6 @@ describe("queries", () => {
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      // Update both projects simultaneously
       await Promise.all([
         client.projects.rename(p1.key, "updated1"),
         client.projects.rename(p2.key, "updated2"),
@@ -245,7 +244,6 @@ describe("queries", () => {
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      // Perform rapid layout updates
       await act(async () => {
         for (let i = 1; i <= 3; i++)
           await client.projects.setLayout(testProject.key, { counter: i });
@@ -593,7 +591,6 @@ describe("queries", () => {
         sEm: schematic.Schematic;
 
       beforeEach(async () => {
-        // --- TestSpace ---
         const proj = await client.projects.create({ name: "TestSpace", layout: {} });
         sA = await client.schematics.create(proj.key, {
           name: "Schematic A",
@@ -646,7 +643,6 @@ describe("queries", () => {
           schematic.ontologyID(sE.key),
         );
 
-        // --- Mirrored TestSpace ---
         const mproj = await client.projects.create({
           name: "Mirrored TestSpace",
           layout: {},

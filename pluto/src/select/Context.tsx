@@ -14,9 +14,8 @@ import { Store } from "@/store";
 
 type Value<K extends record.Key = record.Key> = Store.MembershipValue<K>;
 
-// Focus is only defined for ordered multi-selections: the key heading the value
-// array is the focused key. A scalar selection carries no ordering, so nothing is
-// focused.
+// Focus is only defined for ordered multi-selections: the key heading the value array
+// is the focused key. A scalar selection carries no ordering, so nothing is focused.
 const focusOf = <K extends record.Key>(value: Value<K>): K | undefined =>
   Array.isArray(value) ? value[0] : undefined;
 
@@ -36,12 +35,14 @@ interface ContextValue<K extends record.Key = record.Key> {
   getState: () => SelectionState<K>;
 }
 
+/** Props for {@link Context}. */
 export interface ContextProps<K extends record.Key = record.Key>
   extends
     PropsWithChildren,
     Partial<Pick<ContextValue<K>, "onSelect" | "setSelected" | "clear">>,
     SelectionState<K> {}
 
+/** Return value for {@link useItemState}. */
 export interface UseItemStateReturn {
   selected: boolean;
   /**
@@ -114,6 +115,10 @@ export const useContext = <K extends record.Key = record.Key>(): ContextValue<K>
 /**
  * useItemState subscribes a single keyed item to the enclosing Context, re-rendering only
  * when that key's selected, focused, or hovered state flips.
+ */
+/**
+ * Reads one key's place in the enclosing selection. The caller re-renders only when
+ * the dimensions it reads change, so a long list stays cheap.
  */
 export const useItemState = <K extends record.Key>(key: K): UseItemStateReturn => {
   const { member, onItem } = members<K>().useItem(key);

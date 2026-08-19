@@ -49,14 +49,14 @@ class StateIndicator(Symbol):
 
         if channel_name is not None:
             self.set_label(channel_name)
-            self.page.get_by_text("Properties").click()
+            self.open_properties_tab()
             self.page.get_by_text("Telemetry").click()
             self.set_channel(input_field="Channel", channel_name=channel_name)
             applied_properties["channel"] = channel_name
 
         if options is not None and len(options) > 0:
             self.click()
-            self.page.get_by_text("Properties").click()
+            self.open_properties_tab()
             self.page.get_by_text("Options", exact=True).click()
             for i, option in enumerate(options):
                 if i == 0:

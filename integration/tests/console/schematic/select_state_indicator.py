@@ -9,7 +9,7 @@
 
 import synnax as sy
 from console.case import ConsoleCase
-from console.schematic import Select, StateIndicator
+from console.schematic import Schematic, Select, StateIndicator
 from x import random_name
 
 
@@ -48,7 +48,7 @@ class SelectStateIndicator(ConsoleCase):
         ]
 
         self.log("Creating schematic")
-        schematic = console.project.create_schematic("select_state_indicator")
+        schematic = console.pages.create(Schematic, "select_state_indicator")
         self._cleanup_pages.append(schematic.page_name)
 
         self.log("Creating Select symbol")

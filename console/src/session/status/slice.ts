@@ -75,10 +75,5 @@ export const { addFavorites, filterFavoritesToKeys, removeFavorites, toggleFavor
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 
-/** AnySliceState is any persisted shape of the slice: fields may be absent. */
-export type AnySliceState = z.input<typeof sliceStateZ>;
-
-export const migrateSlice = (state: AnySliceState): SliceState => ({
-  ...ZERO_SLICE_STATE,
-  ...state,
-});
+/** Migrates a persisted slice, filling absent fields with their defaults. */
+export const migrateSlice = (state: unknown): SliceState => sliceStateZ.parse(state);

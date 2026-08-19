@@ -9,22 +9,16 @@
 
 from playwright.sync_api import Locator
 
-from console.context_menu import ContextMenu
+from console.base import ResourceClient
 from console.layout import LayoutClient
-from console.notifications import NotificationsClient
 
 
-class StatusesClient:
+class StatusesClient(ResourceClient):
     """Console statuses client for managing statuses via the UI."""
 
     TOOLBAR_ITEM_SELECTOR = ".console-status-list-item"
     EXPLORER_ITEM_SELECTOR = ".console-status__list-item"
     SEARCH_INPUT_PLACEHOLDER = "Search statuses..."
-
-    def __init__(self, layout: LayoutClient):
-        self.layout = layout
-        self.ctx_menu = ContextMenu(layout.page)
-        self.notifications = NotificationsClient(layout.page)
 
     # ── Private Helpers ──────────────────────────────────────────────────
 
@@ -132,7 +126,7 @@ class StatusesClient:
         item = self.get_explorer_item(name)
         item.wait_for(state="visible", timeout=5000)
         self.ctx_menu.open_on(item)
-        menu = self.layout.page.locator(".pluto-menu-context")
+        menu = self.layout.page.get_by_role("menu")
         fav_btn = menu.get_by_text("Favorite", exact=True)
         unfav_btn = menu.get_by_text("Unfavorite", exact=True)
         fav_btn.or_(unfav_btn).wait_for(state="visible", timeout=2000)
@@ -157,11 +151,9 @@ class StatusesClient:
         )
         if search_input.is_visible():
             return
-        edit_button = (
-            self.layout.page.locator("button")
-            .filter(has=self.layout.page.locator("svg.pluto-icon--edit"))
-            .first
-        )
+        edit_button = self.layout.page.get_by_role(
+            "button", name="Enable editing", exact=True
+        ).first
         edit_button.click()
         search_input.wait_for(state="visible", timeout=5000)
 
@@ -172,13 +164,11 @@ class StatusesClient:
             Locator for the visible filter dialog.
         """
         self.enable_explorer_editing()
-        filter_button = (
-            self.layout.page.locator("button")
-            .filter(has=self.layout.page.locator("svg.pluto-icon--filter"))
-            .first
-        )
+        filter_button = self.layout.page.get_by_role(
+            "button", name="Filter", exact=True
+        ).first
         filter_button.click()
-        dialog = self.layout.page.locator(".pluto-dialog__dialog.pluto--visible")
+        dialog = self.layout.dialog
         dialog.wait_for(state="visible", timeout=5000)
         return dialog
 
@@ -191,14 +181,8 @@ class StatusesClient:
         filter_dialog = self.open_explorer_filter()
         select_variants_trigger = filter_dialog.get_by_text("Select variants")
         select_variants_trigger.click()
-        variant_dialog = self.layout.page.locator(
-            ".pluto-select__dialog.pluto--visible"
-        )
-        variant_dialog.wait_for(state="visible", timeout=5000)
         item = (
-            variant_dialog.locator(".pluto-list__item")
-            .filter(has_text=variant_name)
-            .first
+            self.layout.dialog.get_by_role("option").filter(has_text=variant_name).first
         )
         item.wait_for(state="visible", timeout=5000)
         item.click()
@@ -211,16 +195,12 @@ class StatusesClient:
         Args:
             variant_name: The display name of the variant to remove.
         """
-        tag = (
-            self.layout.page.locator(".pluto-tag:has(button)")
-            .filter(has_text=variant_name)
-            .first
-        )
-        tag.wait_for(state="visible", timeout=5000)
-        tag.hover()
-        close_btn = tag.locator("button")
-        close_btn.click()
-        tag.wait_for(state="hidden", timeout=5000)
+        remove_btn = self.layout.page.get_by_role(
+            "button", name=f"Remove {variant_name}", exact=True
+        ).first
+        remove_btn.wait_for(state="visible", timeout=5000)
+        remove_btn.dispatch_event("click")
+        remove_btn.wait_for(state="hidden", timeout=5000)
 
     def select_explorer_label_filter(self, label_name: str) -> None:
         """Select a label in the explorer's label filter dropdown.
@@ -231,10 +211,8 @@ class StatusesClient:
         filter_dialog = self.open_explorer_filter()
         select_labels_trigger = filter_dialog.get_by_text("Select labels")
         select_labels_trigger.click()
-        label_dialog = self.layout.page.locator(".pluto-select__dialog.pluto--visible")
-        label_dialog.wait_for(state="visible", timeout=5000)
         item = (
-            label_dialog.locator(".pluto-list__item").filter(has_text=label_name).first
+            self.layout.dialog.get_by_role("option").filter(has_text=label_name).first
         )
         item.wait_for(state="visible", timeout=5000)
         item.click()
@@ -243,22 +221,18 @@ class StatusesClient:
 
     def clear_explorer_label_filter(self, label_name: str) -> None:
         """Remove a label from the active filter by clicking its chip close button."""
-        tag = (
-            self.layout.page.locator(".pluto-tag:has(button)")
-            .filter(has_text=label_name)
-            .first
-        )
-        tag.wait_for(state="visible", timeout=5000)
-        tag.hover()
-        close_btn = tag.locator("button")
-        close_btn.click()
-        tag.wait_for(state="hidden", timeout=5000)
+        remove_btn = self.layout.page.get_by_role(
+            "button", name=f"Remove {label_name}", exact=True
+        ).first
+        remove_btn.wait_for(state="visible", timeout=5000)
+        remove_btn.dispatch_event("click")
+        remove_btn.wait_for(state="hidden", timeout=5000)
 
     # ── Toolbar ───────────────────────────────────────────────────────────
 
     def show_toolbar(self) -> None:
         """Show the statuses toolbar in the left sidebar."""
-        self.layout.show_resource_toolbar("notification")
+        self.layout.show_resource_toolbar("Statuses")
 
     def hide_toolbar(self) -> None:
         """Hide the statuses toolbar."""

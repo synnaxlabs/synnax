@@ -18,6 +18,7 @@ import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Generic } from "@/generic";
 import { useCombinedRefs } from "@/hooks";
+import { useLabelledBy } from "@/input/Item";
 import { type InputProps, type Variant } from "@/input/types";
 import { Text as BaseText } from "@/text";
 import { type Tooltip } from "@/tooltip";
@@ -155,6 +156,8 @@ export const Text = ({
 
   const inputStyle = useMemo(() => ({ fontWeight: weight }), [weight]);
 
+  const ariaLabelledBy = useLabelledBy(rest);
+
   const showPlaceholder =
     preview !== true &&
     (value == null || value.length === 0) &&
@@ -185,7 +188,7 @@ export const Text = ({
       x
       empty
       align="center"
-      className={CSS(
+      className={CSS.cls(
         CSS.B("input"),
         CSS.M("focus-frozen"),
         flush && CSS.M("flush"),
@@ -222,7 +225,7 @@ export const Text = ({
     >
       {showPlaceholder && (
         <BaseText.Text
-          className={CSS(
+          className={CSS.cls(
             CSS.visible(false),
             CSS.BE("input", "placeholder"),
             centerPlaceholder && CSS.M("centered"),
@@ -267,6 +270,7 @@ export const Text = ({
           placeholder={typeof placeholder === "string" ? placeholder : undefined}
           style={inputStyle}
           {...rest}
+          aria-labelledby={ariaLabelledBy}
         />
       )}
       {endContent != null && (

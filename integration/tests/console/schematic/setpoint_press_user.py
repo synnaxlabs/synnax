@@ -11,7 +11,7 @@ from examples.simulators import PressSimDAQ
 
 import synnax as sy
 from console.case import ConsoleCase
-from console.schematic import Button, Setpoint, Valve
+from console.schematic import Button, Schematic, Setpoint, Valve
 from tests.driver.sim_daq_case import SimDaqCase
 
 
@@ -39,7 +39,7 @@ class SetpointPressUser(SimDaqCase, ConsoleCase):
 
     def run(self) -> None:
         self.log("Creating schematic symbols")
-        schematic = self.console.project.create_schematic("setpoint_press_user")
+        schematic = self.console.pages.create(Schematic, "setpoint_press_user")
 
         start_cmd = schematic.create_symbol(
             Valve(

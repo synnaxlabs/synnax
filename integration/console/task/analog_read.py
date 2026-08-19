@@ -58,7 +58,7 @@ ANALOG_READ_CHANNEL_TYPES: dict[str, type[Analog]] = {
 class AnalogRead(NITask):
     """NI Analog Read/Input Task automation interface."""
 
-    page_type: str = "NI analog read task"
+    page_type = "NI analog read task"
     pluto_label: str = ".console-task-configure--ni_analog_read"
 
     def add_channel(

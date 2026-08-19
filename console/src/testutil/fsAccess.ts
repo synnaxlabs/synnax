@@ -29,7 +29,6 @@ export const fakeSaveFileHandle = (
 ): FileSystemFileHandle =>
   ({ name, createWritable: async () => writable }) as unknown as FileSystemFileHandle;
 
-/** installSaveFilePicker installs picker as window.showSaveFilePicker. */
 export const installSaveFilePicker = (
   picker: NonNullable<Window["showSaveFilePicker"]>,
 ): void => {

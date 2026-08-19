@@ -395,12 +395,10 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.form.value().role).toEqual(role1.key);
 
-      // Change the role in the form
       act(() => {
         result.current.form.set("role", role2.key);
       });
 
-      // Save the form
       await act(async () => {
         result.current.save();
       });
@@ -435,19 +433,16 @@ describe("queries", () => {
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      // Set the role in the form
       act(() => {
         result.current.form.set("role", role.key);
       });
 
-      // Save the form
       await act(async () => {
         result.current.save();
       });
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      // Verify role assigned
       const parents = await client.ontology.parents.retrieve({
         ids: user.ontologyID(testUser.key),
         types: ["role"],

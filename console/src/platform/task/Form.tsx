@@ -185,7 +185,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     return (
       <Flex.Box
         y
-        className={CSS(CSS.B("task-configure"), CSS.BM("task-configure", type))}
+        className={CSS.cls(CSS.B("task-configure"), CSS.BM("task-configure", type))}
         grow
         empty
       >

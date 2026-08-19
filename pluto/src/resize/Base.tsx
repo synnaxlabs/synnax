@@ -50,7 +50,7 @@ export const Base = ({
   }, [decimal, size, dir, propsStyle]);
   return (
     <Flex.Box
-      className={CSS(
+      className={CSS.cls(
         CSS.B("resize"),
         CSS.loc(parsedLocation),
         CSS.dir(dir),
@@ -69,7 +69,7 @@ export const Base = ({
       {children}
       {!hideHandle && !disabled && (
         <div
-          className={CSS(CSS.BE("resize", "handle"), Cursor.DRAG_CLASS)}
+          className={CSS.cls(CSS.BE("resize", "handle"), Cursor.DRAG_CLASS)}
           onPointerDown={onPointerDown}
         />
       )}

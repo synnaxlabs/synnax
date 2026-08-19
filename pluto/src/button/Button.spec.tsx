@@ -351,7 +351,7 @@ describe("Button", () => {
     });
     it("should display a loading indicator when the status is loading", () => {
       const c = render(<Button.Button status="loading">Hello</Button.Button>);
-      expect(c.getByLabelText("pluto-icon--loading")).toBeTruthy();
+      expect(c.container.querySelector(".pluto-icon--loading")!).toBeTruthy();
     });
 
     it("should display the content along with the loading indicator when the button is not square", () => {
@@ -365,7 +365,7 @@ describe("Button", () => {
           <Icon.Access />
         </Button.Button>,
       );
-      const el = c.queryByLabelText("pluto-icon--access");
+      const el = c.container.querySelector(".pluto-icon--access");
       expect(el?.parentElement).not.toBeTruthy();
     });
   });

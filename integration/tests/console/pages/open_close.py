@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from console.case import ConsoleCase
-from console.project import PageType
+from console.page import PageType
 from x import random_name
 
 
@@ -53,24 +53,24 @@ class OpenClose(ConsoleCase):
         all_pages = PROJECT_PAGES + TASK_PAGES
 
         for page_type, page_name in all_pages:
-            console.project.create_page_by_command_palette(page_type, page_name)
+            console.pages.create_by_command_palette(page_type, page_name)
             if page_type in ("Schematic", "Line plot", "Log", "Table"):
                 self._page_names.append(page_name)
         for _, page_name in all_pages:
-            console.project.close_page(page_name)
+            console.layout.close_tab(page_name)
 
         self.log("(2/2) Create pages by (+) button")
         for page_type, page_name in all_pages:
-            console.project.create_page_by_new_page_button(page_type, page_name)
+            console.pages.create_by_new_page_button(page_type, page_name)
             if page_type in ("Schematic", "Line plot", "Log", "Table"):
                 self._page_names.append(page_name)
         for _, page_name in all_pages:
-            console.project.close_page(page_name)
+            console.layout.close_tab(page_name)
 
         remaining = console.layout.tab_names()
         assert not remaining, f"Some pages were not closed: {remaining}"
 
-        console.project.delete_pages(self._page_names)
+        console.pages.delete_many(self._page_names)
         self._pages_deleted = True
 
     def teardown(self) -> None:

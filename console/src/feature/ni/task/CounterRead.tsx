@@ -134,7 +134,6 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
     dev.properties = enrich(dev.model, dev.properties);
     let devModified = false;
 
-    // Initialize index for counter channels
     let shouldCreateIndex = primitive.isZero(dev.properties.counterInput.index);
     if (!shouldCreateIndex)
       try {
@@ -156,7 +155,6 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
         dev.properties.counterInput.channels = {};
       }
 
-      // Create counter channels for this device
       const deviceChannels = config.channels.filter((c) => c.device === dev.key);
       const toCreate: CIChannel[] = [];
       for (const channel of deviceChannels) {
@@ -185,7 +183,6 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
             (dev.properties.counterInput.channels[toCreate[i].port.toString()] = c.key),
         );
       }
-      // Map config channels to their Synnax channel keys
       deviceChannels.forEach((c) => {
         c.channel = dev.properties.counterInput.channels[c.port.toString()];
       });

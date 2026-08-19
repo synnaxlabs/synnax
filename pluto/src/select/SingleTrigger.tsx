@@ -22,14 +22,19 @@ export interface SingleTriggerEntry<K extends record.Key> extends record.KeyedNa
   icon?: Icon.ReactElement;
 }
 
+/** Props for {@link SingleTrigger}. */
 export interface SingleTriggerProps extends Dialog.TriggerProps {
+  /** Haul item type this trigger accepts as a drop. Empty accepts nothing. */
   haulType?: string;
   placeholder?: string;
   icon?: Icon.ReactElement;
+  /** Whether to render the icon alone, with no name and no caret. */
   iconOnly?: boolean;
+  /** Chooses an icon from the selected entry, overriding `icon`. */
   renderIcon?: (entry: unknown) => Icon.ReactElement | undefined;
 }
 
+/** The button of a {@link Single} selection, showing the selected entry's name. */
 export const SingleTrigger = <K extends record.Key>({
   haulType = "",
   placeholder,
@@ -69,7 +74,7 @@ export const SingleTrigger = <K extends record.Key>({
     <Dialog.Trigger
       variant="outlined"
       gap="small"
-      className={CSS(CSS.dropRegion(canDrop(dragging)))}
+      className={CSS.cls(CSS.dropRegion(canDrop(dragging)))}
       disabled={disabled}
       {...dropProps}
       {...rest}

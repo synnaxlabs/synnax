@@ -17,8 +17,6 @@ export interface LogoWatermarkProps extends PropsWithChildren<LogoProps> {}
 
 /**
  * LogoWatermark displays the Synnax logo as a watermark in the center of the screen.
- *
- * @param props - The same props as Logo.
  */
 export const LogoWatermark = ({
   children,

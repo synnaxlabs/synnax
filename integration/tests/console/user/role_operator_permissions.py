@@ -10,9 +10,11 @@
 """Test that Operator can actuate controls but cannot restructure or configure."""
 
 import synnax as sy
-from console.case import ConsoleCase
+from console.plot import Plot
 from console.schematic import Setpoint, Valve
 from console.schematic.schematic import Schematic
+from console.table import Table
+from tests.console.user.role_case import RoleCase
 from x import random_name
 
 F64_CHANNEL = f"operator_perm_f64_{random_name()}"
@@ -23,12 +25,11 @@ SCHEMATIC_NAME = "operator_perm_schematic"
 PLOT_NAME = "operator_perm_plot"
 TABLE_NAME = "operator_perm_table"
 
-PASSWORD = "testpassword123"
-FIRST_NAME = "Operator"
 
-
-class RoleOperatorPermissions(ConsoleCase):
+class RoleOperatorPermissions(RoleCase):
     """Operator holds framer and range writes, and retrieve on everything else."""
+
+    role_name = "Operator"
 
     def setup(self) -> None:
         f64_idx = self.client.channels.create(
@@ -58,9 +59,9 @@ class RoleOperatorPermissions(ConsoleCase):
 
     def run(self) -> None:
         self.owner_creates_pages()
-        self.log_in_as_operator()
-        self.badge_names_the_role()
-        self.management_surfaces_are_hidden()
+        self.login_as_role()
+        self.assert_badge_names_role()
+        self.assert_users_toolbar_hidden()
         self.creation_commands_are_hidden()
         self.mosaic_is_static()
         self.tab_menu_offers_no_writes()
@@ -73,11 +74,11 @@ class RoleOperatorPermissions(ConsoleCase):
         An Operator cannot open a tab, so anything they view has to already be
         open in a panel an Engineer or Owner built.
         """
-        table = self.console.project.create_table(TABLE_NAME)
+        table = self.console.pages.create(Table, TABLE_NAME)
         self._cleanup_pages.append(table.page_name)
-        plot = self.console.project.create_plot(PLOT_NAME)
+        plot = self.console.pages.create(Plot, PLOT_NAME)
         self._cleanup_pages.append(plot.page_name)
-        schematic = self.console.project.create_schematic(SCHEMATIC_NAME)
+        schematic = self.console.pages.create(Schematic, SCHEMATIC_NAME)
         self._cleanup_pages.append(schematic.page_name)
 
         setpoint = schematic.create_symbol(
@@ -94,31 +95,6 @@ class RoleOperatorPermissions(ConsoleCase):
         )
         valve.move(delta_x=200, delta_y=0)
 
-    def log_in_as_operator(self) -> None:
-        self._username = f"operator_{random_name()}"
-        assert self.console.access.register_user(
-            username=self._username,
-            password=PASSWORD,
-            first_name=FIRST_NAME,
-            last_name="Test",
-            role_name="Operator",
-        ), f"failed to register user {self._username}"
-        self.console.access.logout()
-        self.console.access.login(username=self._username, password=PASSWORD)
-        self.page.get_by_text(FIRST_NAME, exact=True).wait_for(
-            state="visible", timeout=10000
-        )
-
-    def badge_names_the_role(self) -> None:
-        """The badge is the only standing signal a restricted session carries."""
-        role = self.console.access.get_current_role()
-        assert role == "Operator", f"badge shows role {role!r}, expected 'Operator'"
-
-    def management_surfaces_are_hidden(self) -> None:
-        assert not self.console.access.users_toolbar_visible(), (
-            "Users toolbar is visible to an Operator; it is gated on user update"
-        )
-
     def creation_commands_are_hidden(self) -> None:
         for command in (
             "Create project",
@@ -126,9 +102,7 @@ class RoleOperatorPermissions(ConsoleCase):
             "Create line plot",
             "Create channel",
         ):
-            assert not self.console.access.command_available(command), (
-                f"{command!r} is offered to an Operator, who cannot create one"
-            )
+            self.assert_command_hidden(command)
 
     def mosaic_is_static(self) -> None:
         """An Operator cannot write panels, so no structural affordance appears."""
@@ -165,7 +139,7 @@ class RoleOperatorPermissions(ConsoleCase):
 
     def operator_can_actuate(self) -> None:
         """Schematic control is a framer write, which Operator holds in full."""
-        schematic = self.console.project.bind_open_page(Schematic, SCHEMATIC_NAME)
+        schematic = self.console.pages.bind_open(Schematic, SCHEMATIC_NAME)
 
         self.log("Testing: Operator sends an f64 setpoint")
         setpoint = schematic.find_symbol(

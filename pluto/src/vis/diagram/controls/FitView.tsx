@@ -13,7 +13,6 @@ import { type ReactElement } from "react";
 
 import { Button } from "@/button";
 import { Icon } from "@/icon";
-import { Text } from "@/text";
 import { diagram } from "@/vis/diagram/aether";
 import { useContext } from "@/vis/diagram/Context";
 
@@ -31,7 +30,7 @@ export const FitView = ({ onClick, ...rest }: FitViewProps): ReactElement => {
         void fitView(diagram.FIT_VIEW_OPTIONS);
         onClick?.(e);
       }}
-      tooltip={<Text.Text level="small">Fit view to contents</Text.Text>}
+      tooltip="Fit view to contents"
       tooltipLocation={location.BOTTOM_LEFT}
       size="small"
       {...rest}

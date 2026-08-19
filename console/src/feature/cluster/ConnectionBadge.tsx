@@ -143,6 +143,7 @@ export const ConnectionBadge = (): ReactElement => {
         {/* Button disables itself on "loading" and "disabled", and the badge must
             stay clickable while disconnected. */}
         <Dialog.Trigger
+          aria-label="Connection status"
           hideCaret
           variant="outlined"
           size="medium"

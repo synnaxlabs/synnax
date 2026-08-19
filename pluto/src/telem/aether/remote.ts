@@ -94,13 +94,10 @@ export class StreamChannelValue
 
   cleanup(): void {
     this.generation++;
-    // Start off by stopping telemetry streaming.
     this.removeStreamHandler?.();
     // Set valid to false so if we read again, we know to update the buffer.
     this.valid = false;
-    // Release the leading buffer.
     this.leadingBuffer?.release();
-    // Clear out references.
     this.leadingBuffer = null;
     this.removeStreamHandler = null;
   }
@@ -114,6 +111,7 @@ export class StreamChannelValue
     return this.leadingBuffer.at(-1, true) as number;
   }
 
+  /** Never rejects: a failure invalidates the read and reaches onStatusChange. */
   private async read(): Promise<void> {
     const generation = this.generation;
     this.valid = true;
@@ -183,7 +181,6 @@ const channelDataSourcePropsZ = z.object({
 
 export type ChannelDataProps = z.input<typeof channelDataSourcePropsZ>;
 
-// ChannelData reads a fixed time range of data from a particular channel or its index.
 export class ChannelData
   extends AbstractSource<typeof channelDataSourcePropsZ>
   implements SeriesSource
@@ -228,6 +225,7 @@ export class ChannelData
     return [b, data];
   }
 
+  /** Never rejects: a failure invalidates the read and reaches onStatusChange. */
   private async read(): Promise<void> {
     const generation = this.generation;
     this.valid = true;
@@ -306,6 +304,7 @@ export class StreamChannelData
     return [b, this.data];
   }
 
+  /** Never rejects: a failure invalidates the read and reaches onStatusChange. */
   private async read(): Promise<void> {
     const generation = this.generation;
     this.valid = true;
@@ -433,6 +432,7 @@ export class StreamChannelStringValue
     return this.latest;
   }
 
+  /** Never rejects: a failure invalidates the read and reaches onStatusChange. */
   private async read(): Promise<void> {
     const generation = this.generation;
     this.valid = true;

@@ -19,6 +19,7 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 import synnax as sy
 from console.context_menu import ContextMenu
 from console.notifications import NotificationsClient
+from console.tree import Tree
 
 AriaRole = Literal[
     "alert",
@@ -126,8 +127,19 @@ class LayoutClient:
 
     def __init__(self, page: Page):
         self.page = page
-        self.ctx_menu = ContextMenu(self.page)  # For internal tab operations
+        self.ctx_menu = ContextMenu(self.page)
         self.notifications = NotificationsClient(self.page)
+        self.tree = Tree(self)
+
+    @property
+    def dialog(self) -> Locator:
+        """The currently open dialog.
+
+        Closed dialogs unmount, except passthrough ones, which stay mounted at
+        opacity 0 and still expose their role; the open-state class excludes
+        them.
+        """
+        return self.page.locator("[role='dialog'].pluto--visible")
 
     def command_palette(self, command: str, retries: int = 3) -> None:
         """Execute a command via the command palette."""
@@ -138,6 +150,18 @@ class LayoutClient:
             error_prefix="Command palette",
             retries=retries,
         )
+
+    def choose_import_file(self, path: str | list[str]) -> None:
+        """Send ``path`` through the "Import components" palette file chooser.
+
+        Only drives the chooser; callers assert the import's outcome on their
+        own surface (project tree, Arc panel, notifications).
+
+        :param path: Path, or list of paths, of the JSON file(s) to import.
+        """
+        with self.page.expect_file_chooser() as fc_info:
+            self.command_palette("Import components")
+        fc_info.value.set_files(path)
 
     def search_palette(self, query: str, retries: int = 3) -> None:
         """Search for a resource via the command palette (without > prefix)."""
@@ -172,9 +196,9 @@ class LayoutClient:
             palette_input.type(input_text, timeout=5000)
 
             try:
-                self.page.locator(
-                    ".console-palette__list .pluto-list__item"
-                ).first.wait_for(state="attached", timeout=10000)
+                self.dialog.get_by_role("option").first.wait_for(
+                    state="attached", timeout=10000
+                )
             except PlaywrightTimeoutError:
                 no_results = self.page.get_by_text(empty_message).is_visible()
                 if no_results and attempt < retries - 1:
@@ -202,23 +226,13 @@ class LayoutClient:
                 )
 
             target_result = (
-                self.page.locator(".console-palette__list .pluto-list__item")
-                .filter(has_text=query)
-                .first
+                self.dialog.get_by_role("option").filter(has_text=query).first
             )
             try:
                 target_result.wait_for(state="visible", timeout=5000)
             except PlaywrightTimeoutError:
                 input_value = palette_input.input_value()
-                list_items = self.page.locator(
-                    ".console-palette__list .pluto-list__virtualizer > div"
-                ).all()
-                options = []
-                for item in list_items:
-                    try:
-                        options.append(item.inner_text(timeout=5000))
-                    except PlaywrightTimeoutError:
-                        options.append("<failed to get text>")
+                options = self.dialog.get_by_role("option").all_text_contents()
                 raise RuntimeError(
                     f"{error_prefix}: Could not find '{query}'. "
                     f"Input value: '{input_value}'. "
@@ -226,6 +240,39 @@ class LayoutClient:
                 )
             target_result.click(timeout=5000)
             return
+
+    def command_exists(self, command: str) -> bool:
+        """Report whether the command palette offers ``command``.
+
+        Opens the palette, types the command name, checks for a matching
+        entry, and closes the palette again. Access-controlled commands are
+        hidden from the palette, so this is the probe for permission checks.
+
+        :param command: The exact visible label of the palette command.
+        :returns: True if the command is offered.
+        """
+        palette_btn = self.page.locator(".console-palette button").first
+        palette_btn.wait_for(state="visible", timeout=5000)
+        palette_btn.click(timeout=5000)
+        palette_input = self.page.locator(
+            ".console-palette__input input[role='textbox']"
+        )
+        palette_input.wait_for(state="visible", timeout=5000)
+        palette_input.press("ControlOrMeta+a")
+        palette_input.type(f">{command}", timeout=5000)
+        entry = self.dialog.get_by_role("option").filter(has_text=command).first
+        no_results = self.page.get_by_text("No commands found")
+        # A hidden command can still leave fuzzy matches in the list, in which
+        # case neither the entry nor the empty message ever shows: fall through
+        # to a plain visibility check after the wait.
+        try:
+            entry.or_(no_results).first.wait_for(state="visible", timeout=3000)
+        except PlaywrightTimeoutError:
+            pass
+        exists = entry.is_visible()
+        self.press_escape()
+        palette_input.wait_for(state="hidden", timeout=5000)
+        return exists
 
     def is_modal_open(self) -> bool:
         """Check if a modal dialog is currently open."""
@@ -248,32 +295,23 @@ class LayoutClient:
         return False
 
     # Resource toolbar toggles live in the left navbar's main content section. The
-    # end section holds the Component toggle, whose icon mirrors the focused tab.
+    # end section holds the Component toggle.
     _RESOURCE_NAV_ITEMS = (
         ".pluto-navbar.pluto--location-left "
         ".pluto-navbar__content:not(.pluto--end) button.console-main-nav__item"
     )
 
-    def show_resource_toolbar(self, resource: str) -> None:
-        """Show a resource toolbar by clicking its icon in the sidebar."""
+    def show_resource_toolbar(self, name: str) -> None:
+        """Show a resource toolbar by its nav item's name (e.g. "Tasks")."""
         nav_drawer = self.page.locator(
             ".console-nav__drawer.pluto--visible:not(.pluto--location-bottom)"
         )
-        items = self.page.locator(f"div[id^='{resource}:']")
-        drawer_count = nav_drawer.count()
-        items_count = items.count()
-        items_visible = items.first.is_visible() if items_count > 0 else False
-        if drawer_count > 0 and items_count > 0 and items_visible:
+        item = self.page.get_by_role("menuitem", name=name, exact=True)
+        selected = "pluto--selected" in (item.get_attribute("class") or "")
+        if selected and nav_drawer.count() > 0 and nav_drawer.first.is_visible():
             return
-
-        # Scope to the main content section: the Component toggle in the end section
-        # mirrors the focused tab's icon and can duplicate any resource icon.
-        button = self.page.locator(self._RESOURCE_NAV_ITEMS).filter(
-            has=self.page.locator(f"svg.pluto-icon--{resource}")
-        )
-        btn_class = button.first.get_attribute("class") or ""
-        if "selected" not in btn_class:
-            button.click(timeout=5000)
+        if not selected:
+            item.click(timeout=5000)
         nav_drawer.wait_for(state="visible", timeout=5000)
 
     def close_left_toolbar(self) -> None:
@@ -418,8 +456,6 @@ class LayoutClient:
         """
         parent = self.page if scope is None else scope
         parent.get_by_text("Select labels", exact=True).click(timeout=5000)
-        dialog = self.page.locator(".pluto-select__dialog.pluto--visible")
-        dialog.wait_for(state="visible", timeout=5000)
         for name in labels:
             self.select_from_dropdown(name, exact=True)
         self.press_escape()
@@ -440,7 +476,7 @@ class LayoutClient:
             closed before the item was found (e.g. a re-render dismissed it).
         """
         sy.sleep(0.3)
-        target_item = f".pluto-list__item:not(.pluto-tree__item):has-text('{text}')"
+        target = self.dialog.get_by_role("option", name=text, exact=exact)
 
         def apply_search() -> None:
             search_input = None
@@ -458,22 +494,15 @@ class LayoutClient:
         last_recovery_error: Exception | None = None
         for _ in range(5):
             try:
-                self.page.wait_for_selector(target_item, timeout=5000)
-                if exact:
-                    for candidate in self.page.locator(target_item).all():
-                        if candidate.inner_text().strip() == text:
-                            candidate.click(timeout=5000)
-                            return
-                else:
-                    item = self.page.locator(target_item).first
-                    item.wait_for(state="attached", timeout=5000)
-                    item.click(timeout=5000)
-                    return
+                item = target.first
+                item.wait_for(state="visible", timeout=5000)
+                item.click(timeout=5000)
+                return
             except Exception:
                 try:
                     # Toasts overlap the dropdown and swallow the click.
                     self.notifications.close_all()
-                    dialog = self.page.locator(".pluto-dialog__dialog.pluto--visible")
+                    dialog = self.dialog
                     if reopen is not None and dialog.count() == 0:
                         reopen()
                         apply_search()
@@ -485,9 +514,7 @@ class LayoutClient:
                     sy.sleep(1)
                 continue
 
-        items = self.page.locator(
-            ".pluto-list__item:not(.pluto-tree__item)"
-        ).all_text_contents()
+        items = self.dialog.get_by_role("option").all_text_contents()
         message = f"Could not find item '{text}' in dropdown. Available items: {items}"
         if last_recovery_error is not None:
             message += f" (last recovery attempt failed: {last_recovery_error})"
@@ -772,18 +799,12 @@ class LayoutClient:
             tab_name: Name of the tab to focus
         """
         self.close_left_toolbar()
-        tab = self.get_tab(tab_name)
+        # Focus is a session action, not a panel write, so it must work on tabs
+        # without a close button (a user who cannot write the panel).
+        tab = self.get_read_only_tab(tab_name)
         tab.wait_for(state="visible", timeout=5000)
         tab.click()
         self.ctx_menu.action(tab.locator("p"), "Focus", exact=False)
-
-    # The bottom Component toolbar's toggle is the single nav menu item in the left
-    # navbar's end section. Its icon mirrors the focused tab's icon, so it cannot be
-    # located by icon like the resource toolbars.
-    _COMPONENT_TOOLBAR_TOGGLE = (
-        ".pluto-navbar.pluto--location-left .pluto-navbar__content.pluto--end "
-        "button.console-main-nav__item"
-    )
 
     def show_visualization_toolbar(self) -> None:
         """Show the bottom Component toolbar via its nav toggle."""
@@ -793,7 +814,7 @@ class LayoutClient:
         if bottom_drawer.count() > 0 and bottom_drawer.is_visible():
             return
 
-        self.page.locator(self._COMPONENT_TOOLBAR_TOGGLE).click()
+        self.page.get_by_role("menuitem", name="Component", exact=True).click()
         bottom_drawer.wait_for(state="visible", timeout=5000)
 
     def hide_visualization_toolbar(self) -> None:
@@ -804,7 +825,7 @@ class LayoutClient:
         if bottom_drawer.count() == 0 or not bottom_drawer.is_visible():
             return
 
-        self.page.locator(self._COMPONENT_TOOLBAR_TOGGLE).click()
+        self.page.get_by_role("menuitem", name="Component", exact=True).click()
         bottom_drawer.wait_for(state="hidden", timeout=5000)
 
     def get_visualization_toolbar_title(self) -> str:
@@ -856,10 +877,6 @@ class LayoutClient:
     def press_enter(self) -> None:
         """Press the Enter key."""
         self.page.keyboard.press("Enter")
-
-    def press_meta_enter(self) -> None:
-        """Press Ctrl/Cmd+Enter."""
-        self.page.keyboard.press("ControlOrMeta+Enter")
 
     def press_delete(self) -> None:
         """Press the Delete key."""
@@ -954,17 +971,48 @@ class LayoutClient:
         """
         return str(self.page.evaluate("navigator.clipboard.readText()"))
 
-    def context_menu_action(
-        self, item: Locator, action: str, *, exact: bool = True
-    ) -> None:
-        """Perform a context menu action on an item.
+    def drop_files(self, paths: list[str], target: Locator | None = None) -> None:
+        """Drop OS files or directories onto ``target`` (default: the mosaic).
 
-        Args:
-            item: The Locator for the element to right-click.
-            action: The exact text of the menu action to click.
-            exact: If True, match the action text exactly.
+        Synthetic ``DataTransfer`` drops carry no file-system entries, so the
+        drag is dispatched through CDP, which produces a native drag whose
+        dropped items resolve real ``FileSystemEntry`` objects.
+
+        :param paths: Absolute paths of the files or directories to drop.
+        :param target: Locator to drop onto; the mosaic when omitted.
         """
-        self.ctx_menu.action(item, action, exact=exact)
+        if target is None:
+            target = self.page.locator(".console-mosaic").first
+        target.wait_for(state="visible", timeout=5000)
+        box = target.bounding_box()
+        if box is None:
+            raise AssertionError("drop target has no bounding box")
+        x = box["x"] + box["width"] / 2
+        y = box["y"] + box["height"] / 2
+        cdp = self.page.context.new_cdp_session(self.page)
+        try:
+            # Copy, link, and move together present as effectAllowed "all",
+            # matching a real OS file drag; a copy-only mask reads "copy" and
+            # the app does not recognize the drag as a file drag.
+            data = {"items": [], "files": paths, "dragOperationsMask": 19}
+
+            def send(event_type: str) -> None:
+                cdp.send(
+                    "Input.dispatchDragEvent",
+                    {"type": event_type, "x": x, "y": y, "data": data},
+                )
+
+            send("dragEnter")
+            send("dragOver")
+            # The drop is accepted only once React commits the file-drag state,
+            # signalled by the mosaic's drag shield appearing.
+            self.page.locator(".pluto-mosaic__shield").first.wait_for(
+                state="visible", timeout=5000
+            )
+            send("dragOver")
+            send("drop")
+        finally:
+            cdp.detach()
 
     def show_toolbar(self, shortcut_key: str, item_prefix: str) -> None:
         """Show a navigation toolbar using keyboard shortcut.
@@ -1096,8 +1144,10 @@ class LayoutClient:
         Args:
             selector: CSS selector for the modal to wait for hidden.
         """
-        close_btn = self.page.locator(
-            ".pluto-dialog__dialog button:has(svg.pluto-icon--close)"
-        ).first
+        close_btn = (
+            self.page.locator(self.MODAL_SELECTOR)
+            .get_by_role("button", name="Close", exact=True)
+            .first
+        )
         close_btn.click()
         self.page.locator(selector).wait_for(state="hidden", timeout=5000)

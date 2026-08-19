@@ -63,11 +63,10 @@ interface CacheEntry {
 
 /**
  * A cache for historical channel data that will not be modified after it is written.
- *
  * Fetched and streamed entries are held apart because they measure position in
  * different spaces: a fetched sample carries its committed alignment, the same sample
- * streamed carries a provisional leading one. Insertion and gap computation both
- * assume a single space, so each kind gets its own list.
+ * streamed carries a provisional leading one. Insertion and gap computation both assume
+ * a single space, so each kind gets its own list.
  */
 export class Static {
   private fetched: CacheEntry[] = [];
@@ -84,12 +83,10 @@ export class Static {
   }
 
   /**
-   * Writes the given series to the cache, merging written series with any
-   * existing series in the cache.
-   *
-   * @param series - The series to write.
-   * @param streamed - Marks the series as live-streamed data. A fetched write
-   * evicts every streamed entry whose time range it fully covers.
+   * Writes the given series to the cache, merging written series with any existing
+   * series in the cache.
+   * @param streamed - Marks the series as live-streamed data. A fetched write evicts
+   * every streamed entry whose time range it fully covers.
    */
   write(series: MultiSeries, streamed: boolean = false): void {
     if (series.length === 0) return;
@@ -116,14 +113,10 @@ export class Static {
 
   /**
    * Executes a 'dirty' read of the cache, retrieving any series in the cache that
-   * overlap with the given time range. The series may extend before or after the
-   * range.
-   *
-   * Gaps are computed against fetched entries only. Streamed entries carry
-   * provisional leading alignments that cannot pair with fetched data on another
-   * channel, so they never claim coverage; the fetch they provoke evicts them.
-   *
-   * @param tr - The time range to read from the cache.
+   * overlap with the given time range. The series may extend before or after the range.
+   * Gaps are computed against fetched entries only. Streamed entries carry provisional
+   * leading alignments that cannot pair with fetched data on another channel, so they
+   * never claim coverage; the fetch they provoke evicts them.
    * @returns A list of series that overlap with the given time range and a list of
    * gaps, representing the regions of time the fetched series do not cover.
    */
@@ -147,7 +140,6 @@ export class Static {
 
   /**
    * Garbage collects the cache, removing any stale entries.
-   *
    * @returns metrics about the garbage collection.
    */
   gc(): GCMetrics {

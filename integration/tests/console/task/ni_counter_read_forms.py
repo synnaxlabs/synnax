@@ -29,7 +29,7 @@ class NICounterReadForms(NIRackCase):
         device_name = "CI_E103"
 
         self.log("Creating NI Counter Read Task")
-        ni_ci = console.project.create_task("NI counter read task", "CI_Test_task")
+        ni_ci = console.pages.create(CounterRead, "CI_Test_task")
 
         ni_ci.set_parameters(
             task_name="CI_Test_task",

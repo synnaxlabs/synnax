@@ -57,6 +57,12 @@ class ConsoleCase(TestCase):
         self._project: sy.Project | None = None
 
     def setup(self) -> None:
+        self._launch_browser()
+        self._goto_console()
+        self._login()
+        self._bootstrap_project()
+
+    def _launch_browser(self) -> None:
         env_headed = os.environ.get("PLAYWRIGHT_CONSOLE_HEADED", "0") == "1"
         headed = self.params.get("headed", env_headed)
         slow_mo = self.params.get("slow_mo", 0)
@@ -98,32 +104,37 @@ class ConsoleCase(TestCase):
         self.page.set_default_timeout(default_timeout)  # 1s
         self.page.set_default_navigation_timeout(default_nav_timeout)  # 1s
 
-        # Try embedded console first, fallback to dev server if no console found
+    def _goto_console(self, query: str = "") -> None:
+        """Navigate to the Console, falling back to the dev server when the
+        Core lacks an embedded Console. ``query`` is appended verbatim (e.g.
+        ``"?select-cluster"``)."""
         host = self.synnax_connection.server_address
         port = self.synnax_connection.port
 
-        self.page.goto(f"http://{host}:{port}/", timeout=20000)
+        self.page.goto(f"http://{host}:{port}/{query}", timeout=20000)
         if "core built without embedded console" in self.page.content().lower():
             port = 5173
-            self.page.goto(f"http://{host}:{port}/", timeout=15000)
+            self.page.goto(f"http://{host}:{port}/{query}", timeout=15000)
 
         self.log(f"Console found on port {port}")
+        self.console = Console(self.page, self.client)
 
-        # Wait for and fill login form
+    def _login(self) -> None:
         username = self.synnax_connection.username
         password = self.synnax_connection.password
 
-        self.page.wait_for_selector(".pluto-field__username", timeout=5000)
-        username_input = self.page.locator(".pluto-field__username input").first
+        self.page.get_by_label("Username", exact=True).wait_for(
+            state="visible", timeout=5000
+        )
+        username_input = self.page.get_by_label("Username", exact=True).first
         username_input.fill(username)
 
-        password_input = self.page.locator(".pluto-field__password input").first
+        password_input = self.page.get_by_label("Password", exact=True).first
         password_input.fill(password)
 
         self.page.get_by_role("button", name="Log in").click(timeout=2000)
 
-        self.console = Console(self.page, self.client)
-
+    def _bootstrap_project(self) -> None:
         # Each test runs in its own project so tests never inherit one another's
         # open tabs (a project's layout persists server-side). The project is
         # provisioned through the client rather than the UI: create/delete are
@@ -156,7 +167,7 @@ class ConsoleCase(TestCase):
 
         if self._cleanup_pages:
             try:
-                self.console.project.delete_pages(self._cleanup_pages)
+                self.console.pages.delete_many(self._cleanup_pages)
             except PlaywrightTimeoutError:
                 pass
         # Delete the per-test project through the client. Server-side delete is

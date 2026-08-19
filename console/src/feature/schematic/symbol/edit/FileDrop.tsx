@@ -74,7 +74,7 @@ export const FileDrop = ({
   return (
     <FS.DropZone
       grow
-      className={CSS(
+      className={CSS.cls(
         CSS.B("file-drop"),
         CSS.B("schematic-file-drop"),
         enabled && CSS.M("enabled"),

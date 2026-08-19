@@ -92,7 +92,6 @@ export class Client {
   /**
    * Imports a resource from the given serialized source and returns its new ontology
    * ID.
-   *
    * @param source - the serialized resource (e.g. a file's contents). A ReadableStream
    * or Blob is streamed to the Core without buffering it in client memory; an
    * ArrayBufferView or string is sent as-is.
@@ -118,8 +117,6 @@ export class Client {
    * wherever it likes — a file on disk, a browser download, or an in-memory buffer via
    * `new Response(stream).json()` — without the client ever buffering the whole
    * payload.
-   *
-   * @param id - the ontology id of the resource to export.
    * @param options - the export options, including the desired wire format.
    * @returns the serialized resource as a stream of bytes.
    */

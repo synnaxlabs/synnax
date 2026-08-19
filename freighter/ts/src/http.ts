@@ -59,7 +59,6 @@ const shouldCastToUnreachable = (
   if (err.name === "TypeError") {
     const msg = String(err.message || "").toLowerCase();
     if (/load failed|failed to fetch|networkerror|network error/.test(msg)) {
-      // Optionally gate on being online:
       if (typeof navigator !== "undefined" && navigator.onLine === false) return true;
       // If you want to be conservative, return false here and treat generically. If you
       // want parity with Node for user messaging, you can return true.
@@ -99,7 +98,6 @@ const appendQueryParams = (
 
 /**
  * HTTPClientFactory provides a POST and GET implementation of the Unary protocol.
- *
  * @param url - The base URL of the API.
  * @param encoder - The encoder/decoder to use for the request/response.
  */

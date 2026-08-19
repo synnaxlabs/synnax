@@ -508,9 +508,8 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
 
       const ids = keys.map((key) => ontology.parseID(key));
 
-      // TODO: we might be selecting two nodes that are not ascendants or
-      // descendants of the other ones. We need to change this function to
-      // implement recursion.
+      // TODO: we might be selecting two nodes that are not ascendants or descendants of
+      // the other ones. We need to change this function to implement recursion.
       const parent = Base.findNodeParent({
         tree: nodeSnapshot,
         // We want to find the parent of the node with the lowest depth, since we

@@ -9,15 +9,14 @@
 
 import { type UploadBody } from "@synnaxlabs/freighter";
 
-import { supportsRequestStreams } from "@/platform/runtime/requestStreams";
-
 /**
- * Adapts body to the most performant form the runtime's fetch can stream. Case 1:
- * Files, Blobs, and bytes pass through — every engine streams a file-backed Blob from
- * disk. Case 2: a ReadableStream passes through where fetch supports streaming request
- * bodies. Case 3: elsewhere the stream is buffered into a single Blob.
+ * Adapts body to a form the runtime's fetch can send on any connection. Files, Blobs,
+ * and bytes pass through — every engine streams a file-backed Blob from disk. A
+ * ReadableStream is buffered into a single Blob: Chromium sends streaming request
+ * bodies only over HTTP/2 or HTTP/3, and the negotiated protocol is unknowable before
+ * the request, so streaming would fail against any HTTP/1.1 Core.
  */
 export const uploadBody = async (body: UploadBody): Promise<UploadBody> => {
-  if (!(body instanceof ReadableStream) || supportsRequestStreams()) return body;
+  if (!(body instanceof ReadableStream)) return body;
   return await new Response(body).blob();
 };

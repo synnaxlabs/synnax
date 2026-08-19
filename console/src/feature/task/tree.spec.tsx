@@ -11,7 +11,15 @@ import { group, NotFoundError, ontology, type task } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { List, Text } from "@synnaxlabs/pluto";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { NI } from "@/feature/ni";
@@ -179,18 +187,19 @@ describe("task ontology", () => {
         state: createState([createResource(t.ontologyID, t.name, { snapshot: false })]),
       };
       const itemID = List.itemNameID(ontology.idToString(t.ontologyID));
-      const RenameHarness = () => {
-        const rename = Task.useRename(props);
-        return (
-          <>
-            <button onClick={rename}>trigger rename</button>
-            <Text.MaybeEditable id={itemID} value={t.name} onChange={() => {}} />
-          </>
-        );
-      };
-      const { wrapper } = await createConsoleWrapper({ client, store });
-      render(<RenameHarness />, { wrapper });
-      fireEvent.click(screen.getByText("trigger rename"));
+      const { wrapper: Console } = await createConsoleWrapper({ client, store });
+      // The editable item is the surface the rename drives, so it mounts alongside
+      // the hook exactly as the tree mounts it in production.
+      const wrapper = ({ children }: PropsWithChildren): ReactElement => (
+        <Console>
+          {children}
+          <Text.MaybeEditable id={itemID} value={t.name} onChange={() => {}} />
+        </Console>
+      );
+      const { result } = renderHook(() => Task.useRename(props), { wrapper });
+      act(() => {
+        result.current();
+      });
       const editor = await awaitTextEditing(itemID);
       const renamed = uniqueName("renamed");
       await act(async () => {

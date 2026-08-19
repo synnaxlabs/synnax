@@ -30,9 +30,14 @@ import { Text as TelemText } from "@/telem/text";
 import { Text } from "@/text";
 import { Triggers } from "@/triggers";
 
+/** Props for {@link DateTime}. The value is UTC nanoseconds since the Unix epoch. */
 export interface DateTimeProps
   extends Omit<TextProps, "type" | "value" | "onChange">, Control<number> {}
 
+/**
+ * A combined date and time field over UTC nanoseconds, shown in local time. A dropdown
+ * offers plain-language entry ("yesterday at 3pm") and a nanosecond offset.
+ */
 export const DateTime = ({
   value,
   onChange,
@@ -327,7 +332,7 @@ const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
           </Button.Button>
           <Text.Text
             level="small"
-            className={CSS(
+            className={CSS.cls(
               CSS.BE("calendar-header", "month"),
               CSS.B("datetime-calendar-header-label"),
             )}
@@ -358,7 +363,7 @@ const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
             <Button.Button
               key={i}
               variant="text"
-              className={CSS(CSS.selected(i + 1 === day))}
+              className={CSS.cls(CSS.selected(i + 1 === day))}
               onClick={() => handleDayChange(i + 1)}
               square
             >

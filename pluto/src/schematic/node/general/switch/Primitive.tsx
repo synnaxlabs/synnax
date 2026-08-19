@@ -30,11 +30,11 @@ export const Switch = ({
 }: Props): ReactElement => {
   const colorVar = symbolColorVar(colorVal);
   const style: CSSProperties | undefined =
-    colorVar != null ? { [CSS.var("symbol-color")]: colorVar } : undefined;
+    colorVar != null ? { [CSS.variable("symbol-color")]: colorVar } : undefined;
   return (
     <Primitive.Div
       orientation={orientation}
-      className={CSS(
+      className={CSS.cls(
         colorVar != null && CSS.B("symbol-colored"),
         colorVar != null && CSS.BM("switch-symbol", "colored"),
       )}

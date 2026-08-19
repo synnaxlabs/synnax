@@ -22,7 +22,7 @@ const RED = "#ff0000";
 const GREEN = "00ff00";
 const BLUE = "0000ff";
 
-const SWATCH_VAR = CSS.var("swatch", "color");
+const SWATCH_VAR = CSS.variable("swatch", "color");
 
 const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
   <Triggers.Provider>

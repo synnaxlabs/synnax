@@ -72,9 +72,8 @@ const createTables = (
     equal: (a, b) => deep.equal(a.payload, b.payload),
     fetch,
     listen: [
-      // Labels and parents are composed from the relationship tables on read,
-      // so the event only carries the base payload; enriched fields are
-      // preserved.
+      // Labels and parents are composed from the relationship tables on read, so the
+      // event only carries the base payload; enriched fields are preserved.
       query.createSetListener(SET_CHANNEL_NAME, payloadZ, {
         value: (changed, prev) =>
           sugarOne({ ...changed, labels: prev?.labels, parent: prev?.parent }),
@@ -86,7 +85,7 @@ const createTables = (
   // Fetches missing relationship targets so compositions and membership
   // checks can see them.
   relationships.subscribe((event) => {
-    if (event.variant === "set") void backfill(event.value).catch(cache.onError);
+    if (event.variant === "set") backfill(event.value).catch(cache.onError);
   });
 
   const kvPairs = cache.createTable<string, kv.Pair>({
@@ -125,6 +124,10 @@ interface RangeConstructionOptions {
   rangeClient: Client;
 }
 
+/**
+ * A named window of time, with the labels, metadata, and channel aliases attached to
+ * it. Its `read` and `kv` members scope those operations to its own time range.
+ */
 export class Range {
   key: string;
   name: string;
@@ -254,6 +257,7 @@ const retrieveRequestZ = z.object({
   ignoreNotFoundError: z.boolean().optional(),
 });
 
+/** Everything a range retrieval can filter on. */
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 
 const retrieveParamsZ = retrieveRequestZ
@@ -268,6 +272,7 @@ const retrieveParamsZ = retrieveRequestZ
   )
   .or(TimeRange.z.transform((timeRange) => ({ overlapsWith: timeRange })));
 
+/** Params for a range retrieval. A bare key, name, or time range is shorthand. */
 export type RetrieveParams = z.input<typeof retrieveParamsZ>;
 
 /** Canonicalizes every retrieve shape addressing more than one range. */
@@ -359,6 +364,7 @@ const watchLabels = <Q extends query.Params>(
     rangesWithLabel(relationships, event.key),
   );
 
+/** Config for {@link Client}. */
 export interface ClientConfig {
   framer: framer.Client;
   unary: UnaryClient;
@@ -368,6 +374,10 @@ export interface ClientConfig {
   cache: query.Cache;
 }
 
+/**
+ * Creates, reads, and deletes ranges on a Core. Reach it through `client.ranges`. Reads
+ * return sugared {@link Range}s, served from a cache a change stream keeps current.
+ */
 export class Client extends query.Retriever<
   typeof retrieveMultiParamsZ,
   Key,
@@ -649,9 +659,8 @@ export class Client extends query.Retriever<
   }
 
   /**
-   * Fetches records a relationship points at that the cache is missing, so
-   * compositions and membership checks can include them. Presence guards make
-   * it idempotent.
+   * Fetches records a relationship points at that the cache is missing, so compositions
+   * and membership checks can include them. Presence guards make it idempotent.
    */
   private async ensureRelationshipTargets(rel: ontology.Relationship): Promise<void> {
     if (rel.type === label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE) {
@@ -786,11 +795,16 @@ export class Client extends query.Retriever<
   }
 }
 
+/** @returns the ontology ID of a range's alias set. */
 export const aliasOntologyID = (key: Key): ontology.ID => ({
   type: "range-alias",
   key,
 });
 
+/**
+ * Rebuilds a range payload from its ontology resource, for a search result that arrives
+ * through the ontology rather than the range endpoint.
+ */
 export const convertOntologyResourceToPayload = ({
   data,
   id: { key },

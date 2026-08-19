@@ -21,13 +21,19 @@ import { Select } from "@/select";
 interface FieldChild<I, O>
   extends Input.Control<I, O>, Pick<UseFieldReturn<I, O>, "preview"> {}
 
+/** Props for {@link Field}. */
 export type FieldProps<I = string | number, O = I> = GetOptions<I> &
   UseFieldOptions<I, O> &
   Omit<Input.ItemProps, "children" | "onChange" | "defaultValue"> & {
+    /** Dot-separated path into the form values. */
     path: string;
+    /** Renders the input. Defaults to a text input. */
     children?: RenderProp<FieldChild<I, O>>;
+    /** Whether to hold room for help text, so the layout does not jump. */
     padHelpText?: boolean;
+    /** Hides the field when false, or when the predicate rejects its state. */
     visible?: boolean | ((state: FieldState<I>, ctx: ContextValue) => boolean);
+    /** Whether an absent value hides the field instead of throwing. */
     hideIfNull?: boolean;
   };
 
@@ -35,6 +41,13 @@ const defaultInput = renderProp((p: Input.TextProps) => <Input.Text {...p} />);
 
 export type FieldT<I, O = I> = (props: FieldProps<I, O>) => ReactElement | null;
 
+/**
+ * One labeled row of a form: its label, its input, and its validation message. The
+ * label falls back to the last path element in sentence case.
+ *
+ * @example <Form.Field path="range.name" />
+ * @example <Form.Field path="rate">{(p) => <Input.Numeric {...p} />}</Form.Field>
+ */
 export const Field = <I = string | number, O = I>({
   path,
   children = defaultInput as unknown as RenderProp<FieldChild<I, O>>,
@@ -70,7 +83,7 @@ export const Field = <I = string | number, O = I>({
       status={field.status.variant}
       label={label}
       required={field.required && field.preview !== true}
-      className={CSS(
+      className={CSS.cls(
         className,
         CSS.BE("field", path.split(".").join("-")),
         CSS.M(field.status.variant),
@@ -98,6 +111,13 @@ export type BuiltFieldProps<
   fieldKey?: string;
 };
 
+/**
+ * Binds an input component to a form field once, so callers write the field instead of
+ * a render prop. Use it for an input the app reaches for often.
+ *
+ * @example
+ * export const RateField = fieldBuilder(Input.Numeric)({ inputProps: { units: "Hz" } });
+ */
 export const fieldBuilder =
   <
     I,

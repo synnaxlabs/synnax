@@ -385,30 +385,24 @@ describe("color.Color", () => {
     const tests: Array<
       [string, [number, number, number, number], [number, number, number, number]]
     > = [
-      // Test primary colors
       ["Red", [255, 0, 0, 1], [0, 100, 50, 1]],
       ["Green", [0, 255, 0, 1], [120, 100, 50, 1]],
       ["Blue", [0, 0, 255, 1], [240, 100, 50, 1]],
 
-      // Test secondary colors
       ["Yellow", [255, 255, 0, 1], [60, 100, 50, 1]],
       ["Cyan", [0, 255, 255, 1], [180, 100, 50, 1]],
       ["Magenta", [255, 0, 255, 1], [300, 100, 50, 1]],
 
-      // Test shades of gray
       ["Black", [0, 0, 0, 1], [0, 0, 0, 1]],
       ["White", [255, 255, 255, 1], [0, 0, 100, 1]],
       ["Mid Gray", [128, 128, 128, 1], [0, 0, 50, 1]],
 
-      // Test different alpha values
       ["Transparent Red", [255, 0, 0, 0], [0, 100, 50, 0]],
       ["Semi-transparent Blue", [0, 0, 255, 0.5], [240, 100, 50, 0.5]],
 
-      // Test different lightness levels
       ["Dark Red", [128, 0, 0, 1], [0, 100, 25, 1]],
       ["Light Blue", [128, 128, 255, 1], [240, 100, 75, 1]],
 
-      // Test different saturation levels
       ["Desaturated Red", [191, 64, 64, 1], [0, 50, 50, 1]],
       ["Slightly Saturated Green", [96, 159, 96, 1], [120, 25, 50, 1]],
     ];
@@ -420,13 +414,11 @@ describe("color.Color", () => {
         // we use toBeCloseTo for HSL values with precision 0
         for (let i = 0; i < 3; i++) expect(result[i]).toBeCloseTo(expected[i], 0);
 
-        // Alpha should match
         expect(result[3]).toBeCloseTo(expected[3]);
       });
     });
 
     test("handles hex color input", () => {
-      // Red in hex
       const hexColor = "#ff0000";
       const expected = [0, 100, 50, 1];
       const result = color.hsla(hexColor);
@@ -437,7 +429,6 @@ describe("color.Color", () => {
     });
 
     test("handles RGB array input", () => {
-      // Green as RGB array
       const rgbColor: color.RGB = [0, 255, 0];
       const expected = [120, 100, 50, 1];
       const result = color.hsla(rgbColor);
@@ -466,7 +457,6 @@ describe("color.Color", () => {
         // Compare RGB values with some tolerance for rounding
         for (let i = 0; i < 3; i++) expect(converted[i]).toBeCloseTo(original[i], 0);
 
-        // Alpha should match
         expect(converted[3]).toBeCloseTo(original[3]);
       }
     });

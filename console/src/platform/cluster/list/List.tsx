@@ -159,7 +159,7 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
     <Select.Frame data={keys} value={value} onChange={onChange} itemHeight={54}>
       <Flex.Box y bordered grow empty {...rest}>
         <Menu.ContextMenu menu={contextMenu} {...menuProps} />
-        <Header.Header gap="small" x className={CSS.BE("cluster-list", "header")}>
+        <Header.Header gap="small" x>
           <Header.Title level="h4" color={11}>
             <Icon.Cluster />
             Cores
@@ -169,7 +169,7 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
           empty
           onContextMenu={menuProps.open}
           grow
-          className={CSS.BE("cluster-list", "items")}
+          className={CSS.cls(CSS.BE("shell", "items"), CSS.BE("cluster-list", "items"))}
         >
           {keys.length === 0 ? (
             <Empty.Action

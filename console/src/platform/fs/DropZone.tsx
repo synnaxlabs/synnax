@@ -56,7 +56,7 @@ export const DropZone = ({
   const handleDragLeave = useCallback(() => setDraggingOver(false), []);
   return (
     <Flex.Box
-      className={CSS(
+      className={CSS.cls(
         CSS.B("drop-zone"),
         draggingOver && CSS.M("dragging-over"),
         className,

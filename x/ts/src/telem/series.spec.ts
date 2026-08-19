@@ -1216,7 +1216,6 @@ describe("Series", () => {
       it("should preserve properties when converting between different JS types", () => {
         const timeRange = new TimeRange(TimeStamp.seconds(50), TimeStamp.seconds(150));
 
-        // Test with bigint series
         const bigintSeries = new Series({
           data: [100n, 200n, 300n],
           dataType: DataType.INT64,
@@ -1236,7 +1235,6 @@ describe("Series", () => {
         expect(bigintConverted.at(0)).toBe(1100n); // 100n + 1000n
         expect(bigintConverted.alignmentBounds).toEqual({ lower: 50n, upper: 80n });
 
-        // Test with string series
         const stringSeries = new Series({
           data: ["apple", "banana", "cherry"],
           dataType: DataType.STRING,

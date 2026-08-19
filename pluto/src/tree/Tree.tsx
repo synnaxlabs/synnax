@@ -198,7 +198,12 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
       >
         <List.Items<K, E>
           full="y"
-          className={CSS(CSS.B("tree"), className, showRules && CSS.M("show-rules"))}
+          role="tree"
+          className={CSS.cls(
+            CSS.B("tree"),
+            className,
+            showRules && CSS.M("show-rules"),
+          )}
           {...rest}
         >
           {children}

@@ -34,7 +34,7 @@ const createRange = async (): Promise<ranger.Range> => await createTestRange(cli
 const buttonWithIcon = (label: string): HTMLElement => {
   const button = screen
     .getAllByRole("button")
-    .find((b) => b.querySelector(`svg[aria-label*='${label}']`));
+    .find((b) => b.querySelector(`svg.pluto-icon--${label}`));
   if (button == null) throw new Error(`button with icon ${label} not found`);
   return button;
 };

@@ -9,6 +9,7 @@
 
 import { errors } from "@synnaxlabs/x";
 
+/** Base for every error Flux raises. Match on it to catch them all. */
 export class FluxError extends errors.createTyped("flux") {}
 
 const Base = FluxError.sub("deleted");

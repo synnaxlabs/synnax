@@ -16,9 +16,8 @@ export interface OptimisticParams<R> {
    */
   rollbacks: destructor.Destructor[];
   /**
-   * Notified after the rollbacks are captured and before commit runs.
-   * Value-bearing writes close over their optimistic value:
-   * `() => opts.onOptimistic?.(value)`.
+   * Notified after the rollbacks are captured and before commit runs. Value-bearing
+   * writes close over their optimistic value: `() => opts.onOptimistic?.(value)`.
    */
   onOptimistic?: () => Promise<void> | void;
   /** The network send. Its result is returned when it succeeds. */
