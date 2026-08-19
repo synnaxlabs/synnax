@@ -10,6 +10,7 @@
 package filename
 
 import (
+	"path/filepath"
 	"regexp"
 	"strings"
 	"unicode/utf8"
@@ -98,6 +99,16 @@ func fit(name string, maxBytes int) string {
 		name = name[:len(name)-size]
 	}
 	return strings.TrimRight(name, ". ")
+}
+
+// Stem strips name's directory segments and trailing extension. Both path separators
+// are cut, so a name built on any platform resolves the same way. An empty name stays
+// empty.
+func Stem(name string) string {
+	if i := strings.LastIndexAny(name, `/\`); i >= 0 {
+		name = name[i+1:]
+	}
+	return strings.TrimSuffix(name, filepath.Ext(name))
 }
 
 // Fold reduces name to the form two file names must be compared in: case-folded and

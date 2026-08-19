@@ -9,8 +9,7 @@
 
 import { Flex, Form, Icon, Input, Select, state } from "@synnaxlabs/pluto";
 import { binary, deep, type record } from "@synnaxlabs/x";
-import { type DialogFilter } from "@tauri-apps/plugin-dialog";
-import { type FC, useRef } from "react";
+import { type FC } from "react";
 import { z } from "zod";
 
 import { CoefficientsField } from "@/feature/ni/task/CoefficientsField";
@@ -99,7 +98,7 @@ const UnitsField = Form.buildSelectField<Units, record.KeyedNamed<Units>>({
   },
 });
 
-const FILTERS: DialogFilter[] = [{ name: "CSV", extensions: ["csv"] }];
+const tableSchema = z.record(z.string(), z.array(z.unknown()));
 
 export interface CustomScaleFormProps {
   prefix: string;
@@ -172,17 +171,23 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
       [],
       `${prefix}.colOptions`,
     );
-    const [path, setPath] = state.usePersisted<string>("", `${prefix}.path`);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const tableSchema = z.record(z.string(), z.array(z.unknown()));
+    const [fileName, setFileName] = state.usePersisted<string>("", `${prefix}.path`);
+    // The parsed table persists beside the form state, so a column change after a
+    // remount recomputes the values without re-reading the file.
+    const [table, setTable] = state.usePersisted<Record<string, unknown[]>>(
+      {},
+      `${prefix}.table`,
+    );
     const preScaledField = Form.useField<number[]>(`${prefix}.preScaledVals`);
     const scaledField = Form.useField<number[]>(`${prefix}.scaledVals`);
-    const currValueRef = useRef<Record<string, unknown[]>>({});
 
-    const updateValue = () => {
-      const value = currValueRef.current;
-      const preScaledValues = value[rawCol] as number[] | undefined;
-      const scaledValues = value[scaledCol] as number[] | undefined;
+    const applyColumns = (
+      value: Record<string, unknown[]>,
+      raw: string,
+      scaled: string,
+    ) => {
+      const preScaledValues = value[raw] as number[] | undefined;
+      const scaledValues = value[scaled] as number[] | undefined;
       const hasScaled = scaledValues != null;
       const hasPreScaled = preScaledValues != null;
       if (hasScaled && hasPreScaled)
@@ -195,30 +200,29 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
       if (hasScaled) scaledField.onChange(scaledValues);
     };
 
-    const handleFileContentsChange = (
-      value: z.infer<typeof tableSchema>,
-      path: string,
-    ) => {
-      setPath(path);
-      currValueRef.current = value;
+    const handleFileChange = (value: z.infer<typeof tableSchema>, name: string) => {
+      setFileName(name);
+      setTable(value);
       const keys = Object.keys(value).filter(
         (key) =>
           Array.isArray(value[key]) && value[key].every((v) => isFinite(Number(v))),
       );
       setColOptions(keys.map((key) => ({ key, name: key })));
-      if (keys.length > 0) setRawCol(keys[0]);
-      if (keys.length > 1) setScaledCol(keys[1]);
-      updateValue();
+      const raw = keys.length > 0 ? keys[0] : rawCol;
+      const scaled = keys.length > 1 ? keys[1] : scaledCol;
+      if (keys.length > 0) setRawCol(raw);
+      if (keys.length > 1) setScaledCol(scaled);
+      applyColumns(value, raw, scaled);
     };
 
     const handleRawColChange = (value: string) => {
       setRawCol(value);
-      updateValue();
+      applyColumns(table, value, scaledCol);
     };
 
     const handleScaledColChange = (value: string) => {
       setScaledCol(value);
-      updateValue();
+      applyColumns(table, rawCol, value);
     };
 
     if (preScaledField.preview) return <CustomScaleUnitsFields prefix={prefix} />;
@@ -227,10 +231,12 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
       <>
         <CustomScaleUnitsFields prefix={prefix} />
         <Input.Item label="Table CSV" padHelpText>
-          <FS.InputFileContents<typeof tableSchema>
-            initialPath={path}
-            onChange={handleFileContentsChange}
-            filters={FILTERS}
+          <FS.InputFile<typeof tableSchema>
+            value={fileName}
+            onChange={handleFileChange}
+            title="Select a table CSV"
+            extension="csv"
+            schema={tableSchema}
             decoder={binary.CSV_CODEC}
           />
         </Input.Item>

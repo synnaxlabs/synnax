@@ -42,7 +42,10 @@ export default defineConfig({
     "/guides/operations": "/reference/",
     "/guides/comparison": "/reference/",
     "/reference/device-drivers/standalone": "/reference/driver/installation",
-    "/reference/console/clusters": "/reference/console/cores",
+    "/reference/console/clusters": "/reference/console/get-started",
+    "/reference/console/cores": "/reference/console/get-started",
+    "/reference/console/requirements": "/reference/console/get-started",
+    "/reference/console/workspaces": "/reference/console/projects",
     // Python client redirects
     "/reference/python-client": "/reference/client/quick-start",
     "/reference/python-client/get-started": "/reference/client/quick-start",

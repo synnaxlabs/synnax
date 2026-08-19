@@ -46,9 +46,10 @@ const loadTable = async (
   wrapper: React.FC<PropsWithChildren>,
   key: table.Key,
 ): Promise<void> => {
+  const testID = `loaded-${key}`;
   const Bootstrap = (): ReactElement => {
     Table.useEnsure({ key });
-    return <div data-testid="loaded" />;
+    return <div data-testid={testID} />;
   };
   let utils!: ReturnType<typeof render>;
   await act(async () => {
@@ -59,7 +60,7 @@ const loadTable = async (
       { wrapper },
     );
   });
-  await utils.findByTestId("loaded");
+  await utils.findByTestId(testID);
 };
 
 // The @juggle polyfill reads computed styles, which jsdom leaves empty, so it
@@ -274,6 +275,32 @@ describe("Table", () => {
       await expectDrawnAt(ORIGIN);
       scrollTo(scroller, { x: 10, y: 20 });
       await expectDrawnAt({ x: ORIGIN.x - 10, y: ORIGIN.y - 20 });
+    });
+  });
+
+  describe("sparse cell props", () => {
+    // An imported legacy state can carry a value cell with empty props. The
+    // renderer merges wire props over the variant's defaults, so the cell
+    // renders instead of crashing on the missing fields.
+    it("renders a value cell whose wire props are empty", async () => {
+      const project = await client.projects.create({ name: "sparse", layout: {} });
+      const created = await client.tables.create(project.key, {
+        name: "sparse_table",
+        rows: [{ size: ROW_SIZE, cells: ["a"] }],
+        columns: [{ size: COL_SIZE }],
+        cells: { a: { key: "a", variant: "value", props: {} } },
+      });
+      await loadTable(wrapper, created.key);
+      const Wrapped = (): ReactElement => (
+        <Table.Suspended tableKey={created.key}>
+          <Table.Table visible />
+        </Table.Suspended>
+      );
+      const { container } = render(<Wrapped />, { wrapper });
+      await waitFor(() => {
+        expect(container.querySelector(".pluto-table-frame")).not.toBeNull();
+        expect(container.querySelector(".pluto-table__cell--value")).not.toBeNull();
+      });
     });
   });
 });

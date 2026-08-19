@@ -8,12 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { DisconnectedError, imex, project } from "@synnaxlabs/client";
+import { type UploadBody } from "@synnaxlabs/freighter";
 import { Access, Project as PProject, Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { import_ } from "@/feature/project/import";
 import { Command } from "@/platform/command";
 import { Export } from "@/platform/export";
+import { Import } from "@/platform/import";
 import { Project } from "@/platform/project";
 import { Session } from "@/session";
 
@@ -27,21 +28,30 @@ const CreateCommand = Command.create({
   useVisible: useCreateVisible,
 });
 
-const useImportProject = () => {
-  const handleError = Status.useErrorHandler();
-  const store = Session.useStore();
-  const client = Synnax.use();
-  return useCallback(
-    () => import_({ handleError, store, client }),
-    [handleError, store, client],
-  );
-};
+/** A modal that imports a project from a .zip export or its extracted folder. */
+const useImportModal = Import.createModal({
+  header: "Project.Import",
+  resourceName: "project",
+  useOnImport: () => {
+    const client = Synnax.use();
+    const store = Session.useStore();
+    return useCallback(
+      async (bundle: UploadBody, fileName: string) => {
+        if (client == null) throw new DisconnectedError();
+        const imported = await client.projects.import(bundle, { fileName });
+        store.dispatch(Session.Project.select(imported.key));
+        return imported.name;
+      },
+      [client, store],
+    );
+  },
+});
 
 const ImportProjectCommand = Command.create({
   key: "project_import",
   name: "Import project",
   icon: <PProject.ImportIcon />,
-  useOnSelect: useImportProject,
+  useOnSelect: useImportModal,
   useVisible: useCreateVisible,
 });
 

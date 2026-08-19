@@ -14,14 +14,18 @@ package role
 import (
 	"context"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/x/gorp"
 )
 
 // Retrieve is used to retrieve Role records from the database using a
 // builder pattern for constructing queries.
 type Retrieve struct {
-	baseTX gorp.Tx
-	gorp   gorp.Retrieve[Key, Role]
+	baseTX     gorp.Tx
+	gorp       gorp.Retrieve[Key, Role]
+	search     *search.Index
+	searchTerm string
 }
 
 // Filter is a per-service filter that is bound to the Retrieve when passed to
@@ -55,6 +59,9 @@ func Or(fs ...Filter) Filter {
 func Not(f Filter) Filter {
 	return gorp.NotBound[Retrieve, Key, Role](f)
 }
+
+// Search sets a fuzzy search term that Retrieve will use to filter results.
+func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
 
 // MatchKeys returns a filter that restricts results to
 // roles whose key matches any of the provided
@@ -122,17 +129,47 @@ func (r Retrieve) Offset(offset int) Retrieve {
 	return r
 }
 
+func (r Retrieve) execSearch(ctx context.Context) (Retrieve, error) {
+	if r.searchTerm == "" {
+		return r, nil
+	}
+	ids, err := r.search.Search(ctx, search.Request{
+		Type: ontology.ResourceTypeRole,
+		Term: r.searchTerm,
+	})
+	if err != nil {
+		return Retrieve{}, err
+	}
+	keys, err := KeysFromOntologyIDs(ids)
+	if err != nil {
+		return Retrieve{}, err
+	}
+	return r.Where(MatchKeys(keys...)), nil
+}
+
 // Exec executes the query against the provided transaction.
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
+	var err error
+	if r, err = r.execSearch(ctx); err != nil {
+		return err
+	}
 	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTX, tx))
 }
 
 // Count returns the number of roles matching the query.
 func (r Retrieve) Count(ctx context.Context, tx gorp.Tx) (int, error) {
+	var err error
+	if r, err = r.execSearch(ctx); err != nil {
+		return 0, err
+	}
 	return r.gorp.Count(ctx, gorp.OverrideTx(r.baseTX, tx))
 }
 
 // Exists checks whether any roles match the query.
 func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
+	var err error
+	if r, err = r.execSearch(ctx); err != nil {
+		return false, err
+	}
 	return r.gorp.Exists(ctx, gorp.OverrideTx(r.baseTX, tx))
 }

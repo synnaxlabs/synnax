@@ -153,3 +153,15 @@ var _ = Describe("Fold", func() {
 		Expect(filename.Fold("inlet.json")).ToNot(Equal(filename.Fold("outlet.json")))
 	})
 })
+
+var _ = DescribeTable("Stem",
+	func(name, expected string) {
+		Expect(filename.Stem(name)).To(Equal(expected))
+	},
+	Entry("bare file name", "Metrics Log.json", "Metrics Log"),
+	Entry("zip archive", "Test Stand 12.zip", "Test Stand 12"),
+	Entry("slash-separated path", "a/b/Pump.json", "Pump"),
+	Entry("backslash-separated path", `a\Valve.json`, "Valve"),
+	Entry("no extension", "Gauge", "Gauge"),
+	Entry("empty name", "", ""),
+)

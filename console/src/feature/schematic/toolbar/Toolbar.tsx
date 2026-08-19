@@ -98,7 +98,7 @@ const Internal = (): ReactElement => {
           </Breadcrumb.Breadcrumb>
           <Flex.Box x align="center" empty>
             <Flex.Box x empty className={CSS.BE("schematic", "toolbar", "actions")}>
-              <Export.ToolbarButton getID={() => schematic.ontologyID(key)} />
+              <Export.ToolbarButton id={schematic.ontologyID(key)} />
               <Cluster.CopyLinkToolbarButton
                 name={name}
                 ontologyID={schematic.ontologyID(key)}

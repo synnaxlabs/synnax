@@ -166,10 +166,11 @@ func (s *Service) CreateRole(
 
 type (
 	RetrieveRoleRequest struct {
-		Internal *bool      `json:"internal" msgpack:"internal"`
-		Keys     []role.Key `json:"keys"     msgpack:"keys"`
-		Limit    int        `json:"limit"    msgpack:"limit"`
-		Offset   int        `json:"offset"   msgpack:"offset"`
+		Internal   *bool      `json:"internal"    msgpack:"internal"`
+		Keys       []role.Key `json:"keys"        msgpack:"keys"`
+		SearchTerm string     `json:"search_term" msgpack:"search_term"`
+		Limit      int        `json:"limit"       msgpack:"limit"`
+		Offset     int        `json:"offset"      msgpack:"offset"`
 	}
 	RetrieveRoleResponse struct {
 		Roles []role.Role `json:"roles,omitzero" msgpack:"roles,omitzero"`
@@ -181,6 +182,9 @@ func (s *Service) RetrieveRole(
 	req RetrieveRoleRequest,
 ) (RetrieveRoleResponse, error) {
 	q := s.internal.Role.NewRetrieve()
+	if req.SearchTerm != "" {
+		q = q.Search(req.SearchTerm)
+	}
 	if len(req.Keys) > 0 {
 		q = q.Where(role.MatchKeys(req.Keys...))
 	}

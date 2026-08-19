@@ -9,6 +9,7 @@
 
 import { id, uuid, zod } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { project } from "@/project";
 import { createTestClient } from "@/testutil";
@@ -92,6 +93,50 @@ describe("Imex", () => {
       const stream = await client.imex.export(oid, { encoding: "JSON" });
       const parsed = await new Response(stream).json();
       expect(parsed.name).toEqual(name);
+    });
+
+    it("should route a typeless legacy state, naming it after the file", async () => {
+      // A legacy Console log state: version-stamped, no type, no name. The Core
+      // recognizes it by its frozen channels-array marker.
+      const state = { version: "0.0.0", channels: [1, 2, 3], remoteCreated: false };
+      const fileName = `imex-legacy-${id.create()}`;
+      const oid = await client.imex.import(toBlob(state), {
+        encoding: "JSON",
+        fileName: `${fileName}.json`,
+        parent: project.ontologyID(projectKey),
+      });
+      expect(oid.type).toEqual("log");
+      const stream = await client.imex.export(oid, { encoding: "JSON" });
+      const parsed = await new Response(stream).json();
+      expect(parsed.name).toEqual(fileName);
+    });
+
+    it("should migrate a legacy task config", async () => {
+      // A legacy Console task export: the camelCase config with only a type marker.
+      const legacy = {
+        type: "pagerduty_alert",
+        routingKey: "R016395AF23B4E62B7A2BF7B24C1EF31",
+        autoStart: true,
+        alerts: [],
+      };
+      const fileName = `imex-pd-${id.create()}`;
+      const oid = await client.imex.import(toBlob(legacy), {
+        encoding: "JSON",
+        fileName: `${fileName}.json`,
+        parent: project.ontologyID(projectKey),
+      });
+      const created = await client.tasks.retrieve({
+        key: oid.key,
+        schemas: {
+          type: z.literal("pagerduty_alert"),
+          config: z.looseObject({ routingKey: z.string(), autoStart: z.boolean() }),
+          statusData: z.unknown(),
+        },
+      });
+      expect(created.name).toEqual(fileName);
+      expect(created.rack).toBe(0);
+      expect(created.config.routingKey).toBe("R016395AF23B4E62B7A2BF7B24C1EF31");
+      expect(created.config.autoStart).toBe(true);
     });
 
     it("should reject an empty file name before the request is sent", async () => {

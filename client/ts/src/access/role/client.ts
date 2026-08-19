@@ -28,6 +28,7 @@ export const DELETE_CHANNEL_NAME = "sy_role_delete";
 
 const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),
+  searchTerm: z.string().optional(),
   limit: z.number().optional(),
   offset: z.number().optional(),
   internal: z.boolean().optional(),
@@ -80,13 +81,10 @@ export type UnassignParams = z.input<typeof unassignReqZ>;
 
 const unassignResZ = z.object({});
 
-/** Query fields only the server can evaluate. */
-const SERVER_FIELDS = ["limit", "offset"] as const;
-
 /**
  * Client-side matching for a request: key sets and the internal flag.
- * Server-computed shapes (pagination) never reach this filter; they refetch
- * instead.
+ * Server-computed shapes (search, limit/offset) never reach this filter; they
+ * refetch instead.
  */
 const requestFilter = (req: RetrieveRequest): ((r: Role) => boolean) => {
   const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
@@ -130,7 +128,6 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ro
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
         matches: (role, req) => requestFilter(req)(role),
-        serverFields: SERVER_FIELDS,
       },
     });
     this.cfg = cfg;

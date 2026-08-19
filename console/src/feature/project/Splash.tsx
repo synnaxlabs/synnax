@@ -76,6 +76,7 @@ export const Splash = (): ReactElement => {
     [getItem],
   );
   const menuProps = Menu.useContextMenu();
+  const getIsAnyModalOpen = Session.Modals.useGetIsAnyOpen();
 
   return (
     <Shell.Frame className={CSS.B("project-splash")} connection={activeCluster}>
@@ -86,6 +87,8 @@ export const Splash = (): ReactElement => {
         getItem={getItem}
         subscribe={subscribe}
         onFetchMore={fetchMore}
+        initialHover={0}
+        enableTriggers={() => !getIsAnyModalOpen()}
       >
         <Flex.Box
           y

@@ -28,6 +28,7 @@ describe("Import Commands", () => {
   it("should open a JSON file picker when the import command is selected", async () => {
     const { openCommandPalette } = await renderPalette({
       commands: Import.COMMANDS,
+      client: createTestClient(),
     });
     const picker = interceptFilePicker();
     await openCommandPalette();

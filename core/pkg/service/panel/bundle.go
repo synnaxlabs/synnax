@@ -10,12 +10,16 @@
 package panel
 
 import (
+	"context"
+	"encoding/json"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // bundleBody is the envelope body for a panel bundle member.
@@ -69,6 +73,78 @@ func EncodeBundle(p Panel, refs map[ontology.ID]string) (imex.Envelope, error) {
 		return imex.Envelope{}, err
 	}
 	return env, nil
+}
+
+// DecodeBundle deserializes a project-bundle member produced by EncodeBundle. Where the
+// bundle tree holds a member path, the returned tree holds the ontology.ID refs maps
+// that path to; a path refs does not hold is a validation error naming it. The returned
+// panel carries no key or parent; the caller assigns both.
+func DecodeBundle(
+	ctx context.Context,
+	env imex.Envelope,
+	refs map[string]ontology.ID,
+) (Panel, error) {
+	body, err := imex.Decode[bundleBody](ctx, env)
+	if err != nil {
+		return Panel{}, err
+	}
+	resolved, err := resolveBundleNode(body.Root, refs)
+	if err != nil {
+		return Panel{}, err
+	}
+	data, err := json.Marshal(resolved)
+	if err != nil {
+		return Panel{}, err
+	}
+	var root Node
+	if err := json.Unmarshal(data, &root); err != nil {
+		return Panel{}, errors.Wrap(validate.ErrValidation, err.Error())
+	}
+	return Panel{Name: env.Name, Root: root}, nil
+}
+
+// resolveBundleNode rewrites each resource tab's bundle path to the ontology.ID refs
+// maps it to, returning the tree in the in-cluster wire form. A node the tree grammar
+// cannot hold is left for Node's decoder to reject.
+func resolveBundleNode(node any, refs map[string]ontology.ID) (any, error) {
+	m, ok := node.(map[string]any)
+	if !ok {
+		return node, nil
+	}
+	switch m["variant"] {
+	case string(LeafNodeType):
+		tabs, _ := m["tabs"].([]any)
+		for _, rawTab := range tabs {
+			tab, ok := rawTab.(map[string]any)
+			if !ok || tab["variant"] != string(ResourceTabType) {
+				continue
+			}
+			path, ok := tab["resource"].(string)
+			if !ok {
+				return nil, errors.Wrap(
+					validate.ErrValidation,
+					"resource tab holds no member path",
+				)
+			}
+			id, ok := refs[path]
+			if !ok {
+				return nil, errors.Wrapf(
+					validate.ErrValidation,
+					"references %q, which is not a member of the bundle", path,
+				)
+			}
+			tab["resource"] = id
+		}
+	case string(SplitNodeType):
+		for _, side := range []string{"first", "last"} {
+			resolved, err := resolveBundleNode(m[side], refs)
+			if err != nil {
+				return nil, err
+			}
+			m[side] = resolved
+		}
+	}
+	return m, nil
 }
 
 // TaskRefs returns the ID of every task the tree's resource tabs reference, each once.

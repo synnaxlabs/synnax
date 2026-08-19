@@ -16,10 +16,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // encodedBody unpacks env's wire form into the generic map assertions inspect.
@@ -150,6 +152,90 @@ var _ = Describe("EncodeBundle", func() {
 	It("Should reject a panel without a name", func() {
 		Expect(panel.EncodeBundle(panel.Panel{Root: leafNode()}, nil)).Error().
 			To(MatchError(ContainSubstring("name must be a non-empty string")))
+	})
+})
+
+var _ = Describe("DecodeBundle", func() {
+	It("Should resolve resource paths back to ontology IDs", func(ctx SpecContext) {
+		first, second := tab(uuid.New()), tab(uuid.New())
+		encodeRefs := map[ontology.ID]string{
+			mustResource(first):  "chamber_pressure.json",
+			mustResource(second): "propulsion/pressurization.json",
+		}
+		p := panel.Panel{
+			Name: "Controls",
+			Root: splitNode(
+				spatial.DirectionX, 0.5, leafNode(first), leafNode(second),
+			),
+		}
+		env := MustSucceed(panel.EncodeBundle(p, encodeRefs))
+		minted := map[string]ontology.ID{
+			"chamber_pressure.json": {
+				Type: ontology.ResourceTypeLineplot, Key: uuid.NewString(),
+			},
+			"propulsion/pressurization.json": {
+				Type: ontology.ResourceTypeSchematic, Key: uuid.NewString(),
+			},
+		}
+		decoded := MustSucceed(panel.DecodeBundle(ctx, WireRoundTrip(env), minted))
+		Expect(decoded.Name).To(Equal("Controls"))
+		split, ok := decoded.Root.Variant.(panel.SplitNode)
+		Expect(ok).To(BeTrue())
+		firstLeaf, ok := split.First.Variant.(panel.LeafNode)
+		Expect(ok).To(BeTrue())
+		Expect(firstLeaf.Tabs).To(HaveLen(1))
+		Expect(firstLeaf.Tabs[0].Key()).To(Equal(first.Key()))
+		Expect(mustResource(firstLeaf.Tabs[0])).
+			To(Equal(minted["chamber_pressure.json"]))
+		lastLeaf, ok := split.Last.Variant.(panel.LeafNode)
+		Expect(ok).To(BeTrue())
+		Expect(mustResource(lastLeaf.Tabs[0])).
+			To(Equal(minted["propulsion/pressurization.json"]))
+	})
+
+	It("Should pass view tabs through unchanged", func(ctx SpecContext) {
+		view := viewTab(uuid.New(), "docs")
+		p := panel.Panel{Name: "Controls", Root: leafNode(view)}
+		env := MustSucceed(panel.EncodeBundle(p, nil))
+		decoded := MustSucceed(panel.DecodeBundle(ctx, WireRoundTrip(env), nil))
+		leaf, ok := decoded.Root.Variant.(panel.LeafNode)
+		Expect(ok).To(BeTrue())
+		Expect(leaf.Tabs).To(HaveLen(1))
+		v, ok := leaf.Tabs[0].Variant.(panel.ViewTab)
+		Expect(ok).To(BeTrue())
+		Expect(v.Type).To(Equal("docs"))
+	})
+
+	It("Should reject a path the reference table does not hold", func(
+		ctx SpecContext,
+	) {
+		t := tab(uuid.New())
+		refs := map[ontology.ID]string{mustResource(t): "missing.json"}
+		env := MustSucceed(panel.EncodeBundle(
+			panel.Panel{Name: "Controls", Root: leafNode(t)}, refs,
+		))
+		Expect(panel.DecodeBundle(ctx, WireRoundTrip(env), nil)).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(`"missing.json"`)),
+		))
+	})
+
+	It("Should reject a resource tab without a path", func(ctx SpecContext) {
+		env := imex.Envelope{Version: 0, Type: "panel", Name: "Controls"}
+		Expect(imex.Encode(&env, map[string]any{
+			"root": map[string]any{
+				"variant": "leaf",
+				"tabs": []any{map[string]any{
+					"key":      uuid.NewString(),
+					"variant":  "resource",
+					"resource": 42,
+				}},
+			},
+		})).To(Succeed())
+		Expect(panel.DecodeBundle(ctx, WireRoundTrip(env), nil)).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("holds no member path")),
+		))
 	})
 })
 

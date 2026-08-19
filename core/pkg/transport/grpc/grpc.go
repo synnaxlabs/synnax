@@ -35,6 +35,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/auth"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/channel"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/connectivity"
+	"github.com/synnaxlabs/synnax/pkg/transport/grpc/control"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/device"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/framer"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/rack"
@@ -66,6 +67,7 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 		status.New(&t),
 		arc.New(&t),
 		view.New(&t),
+		control.New(&t),
 	}
 
 	// AUTH
@@ -101,6 +103,7 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.ProjectRename = noop.UnaryServer[project.RenameRequest, types.Nil]{}
 	t.ProjectSetLayout = noop.UnaryServer[project.SetLayoutRequest, types.Nil]{}
 	t.ProjectExport = noop.UnaryServer[project.ExportRequest, project.ExportResponse]{}
+	t.ProjectImport = noop.UnaryServer[project.ImportRequest, project.ImportResponse]{}
 
 	// SCHEMATIC
 	t.SchematicCreate = noop.UnaryServer[schematic.CreateRequest, schematic.CreateResponse]{}

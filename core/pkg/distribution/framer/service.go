@@ -37,13 +37,12 @@ import (
 // To create a new service, call Open with a valid ServiceConfig. The framer service
 // must be closed after used.
 type Service struct {
-	relay           *relay.Relay
-	closer          io.MultiCloser
-	writer          *writer.Service
-	iterator        *iterator.Service
-	deleter         *deleter.Service
-	cfg             ServiceConfig
-	controlStateKey channel.Key
+	relay    *relay.Relay
+	closer   io.MultiCloser
+	writer   *writer.Service
+	iterator *iterator.Service
+	deleter  *deleter.Service
+	cfg      ServiceConfig
 }
 
 // ServiceConfig is the configuration for the Service.
@@ -187,6 +186,14 @@ func (s *Service) NewStreamWriter(
 	return s.writer.NewStream(ctx, cfg)
 }
 
+// NewStreamer returns a streamer that delivers live writes to the channels in cfg as
+// they occur. The returned Streamer is a confluence.Segment that uses a channel-based
+// interface, where requests are sent through an input stream, and responses are
+// received through an output stream.
+func (s *Service) NewStreamer(cfg StreamerConfig) (Streamer, error) {
+	return s.relay.NewStreamer(cfg)
+}
+
 // SetFreeIndexResolver injects the resolver the writer service uses to look up free
 // channel indexes at open time. It must be called before opening writers on free
 // channels; the service layer registers its channel service here at startup.
@@ -201,17 +208,6 @@ func (s *Service) DeleteTimeRange(
 	tr telem.TimeRange,
 ) error {
 	return s.deleter.DeleteTimeRange(ctx, keys, tr)
-}
-
-// ConfigureControlUpdateChannel registers the channel used to propagate control
-// transfers between opened writers.
-func (s *Service) ConfigureControlUpdateChannel(
-	ctx context.Context,
-	ch channel.Key,
-	name string,
-) error {
-	s.controlStateKey = ch
-	return s.cfg.TS.ConfigureControlUpdateChannel(ctx, ch.StorageKey(), name)
 }
 
 // Close closes the Service.

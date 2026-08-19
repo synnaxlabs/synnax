@@ -22,7 +22,7 @@ import {
   FileDragSource,
   fireFileDrop,
   startFileDrag,
-} from "@/platform/import/testutil";
+} from "@/platform/fs/testutil";
 import { Panel } from "@/platform/panel";
 import {
   createPanelWrapper,

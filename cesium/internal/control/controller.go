@@ -161,8 +161,16 @@ func (c GateConfig[R]) Override(other GateConfig[R]) GateConfig[R] {
 func (c *Controller[R]) LeadingState() (state *State) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	if len(c.regions) != 0 && len(c.regions[0].gates) != 0 {
-		state = c.regions[0].curr.state()
+	if len(c.regions) == 0 {
+		return nil
+	}
+	// gates and curr are guarded by the region's lock, not the controller's:
+	// release and update mutate them under it without holding c.mu.
+	first := c.regions[0]
+	first.RLock()
+	defer first.RUnlock()
+	if len(first.gates) != 0 {
+		state = first.curr.state()
 	}
 	return state
 }

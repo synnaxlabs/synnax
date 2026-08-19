@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/api/connectivity"
+	"github.com/synnaxlabs/synnax/pkg/api/control"
 	"github.com/synnaxlabs/synnax/pkg/api/device"
 	"github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
@@ -79,6 +80,8 @@ type Transport struct {
 	FrameIterator freighter.StreamServer[framer.IteratorRequest, framer.IteratorResponse]
 	FrameStreamer freighter.StreamServer[framer.StreamerRequest, framer.StreamerResponse]
 	FrameDelete   freighter.UnaryServer[framer.DeleteRequest, types.Nil]
+	// CONTROL
+	ControlRetrieve freighter.UnaryServer[control.RetrieveRequest, control.RetrieveResponse]
 	// RANGE
 	RangeCreate   freighter.UnaryServer[ranger.CreateRequest, ranger.CreateResponse]
 	RangeRetrieve freighter.UnaryServer[ranger.RetrieveRequest, ranger.RetrieveResponse]
@@ -112,6 +115,7 @@ type Transport struct {
 	ProjectRename    freighter.UnaryServer[project.RenameRequest, types.Nil]
 	ProjectSetLayout freighter.UnaryServer[project.SetLayoutRequest, types.Nil]
 	ProjectExport    freighter.UnaryServer[project.ExportRequest, project.ExportResponse]
+	ProjectImport    freighter.UnaryServer[project.ImportRequest, project.ImportResponse]
 	// SCHEMATIC
 	SchematicCreate   freighter.UnaryServer[schematic.CreateRequest, schematic.CreateResponse]
 	SchematicRetrieve freighter.UnaryServer[schematic.RetrieveRequest, schematic.RetrieveResponse]
@@ -204,6 +208,7 @@ type Layer struct {
 	User         *user.Service
 	Framer       *framer.Service
 	Channel      *channel.Service
+	Control      *control.Service
 	Connectivity *connectivity.Service
 	Ontology     *ontology.Service
 	Range        *ranger.Service
@@ -276,6 +281,9 @@ func (l *Layer) BindTo(t Transport) {
 		t.FrameStreamer,
 		t.FrameDelete,
 
+		// CONTROL
+		t.ControlRetrieve,
+
 		// ONTOLOGY
 		t.OntologyRetrieve,
 		t.OntologyAddChildren,
@@ -314,6 +322,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.ProjectRename,
 		t.ProjectSetLayout,
 		t.ProjectExport,
+		t.ProjectImport,
 
 		// SCHEMATIC
 		t.SchematicCreate,
@@ -443,6 +452,9 @@ func (l *Layer) BindTo(t Transport) {
 	t.FrameStreamer.BindHandler(l.Framer.Stream)
 	t.FrameDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Framer.Delete))
 
+	// CONTROL
+	t.ControlRetrieve.BindHandler(l.Control.Retrieve)
+
 	// ONTOLOGY
 	t.OntologyRetrieve.BindHandler(l.Ontology.Retrieve)
 	t.OntologyAddChildren.BindHandler(
@@ -486,6 +498,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.ProjectRetrieve.BindHandler(l.Project.Retrieve)
 	t.ProjectRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Project.Rename))
 	t.ProjectExport.BindHandler(l.Project.Export)
+	t.ProjectImport.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Project.Import))
 	t.ProjectSetLayout.BindHandler(
 		fgorp.CreateWriteUnaryHandler(db, l.Project.SetLayout),
 	)
@@ -637,6 +650,9 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.Channel, err = channel.NewService(cfg); err != nil {
+		return nil, err
+	}
+	if l.Control, err = control.NewService(cfg); err != nil {
 		return nil, err
 	}
 	if l.Connectivity, err = connectivity.NewService(cfg); err != nil {
