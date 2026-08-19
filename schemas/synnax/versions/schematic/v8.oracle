@@ -12,10 +12,10 @@ import "schemas/x/versions/spatial/v0"
 Key = v0.Key
 
 Node struct {
-    key      string             {
+    key      string     {
         @doc value "is the unique node identifier within the schematic."
     }
-    position spatial.XY         {
+    position spatial.XY {
         @doc value "is the top-left position of the node."
     }
     z_index  int16 = 0 {
@@ -25,43 +25,14 @@ Node struct {
             actions.
         """
     }
-    measured spatial.Dimensions {
-        @doc value "is the rendered size of the node, captured by the Console."
-    }
 
     @doc value  "is a diagram node representing a symbol in the schematic."
     @go marshal
 }
 
-Handle struct {
-    node  string {
-        @doc value "is the node identifier."
-    }
-    param string {
-        @doc value "is the connection point identifier on the node."
-    }
+Handle = v7.Handle
 
-    @doc value  """
-        is a reference to a specific connection point on a specific node. For
-        schematics, param is the symbol handle key (e.g. inlet, outlet).
-    """
-    @go marshal
-}
-
-Edge struct {
-    key    string {
-        @doc value "is the unique edge identifier within the schematic."
-    }
-    source Handle {
-        @doc value "is the source endpoint of the edge."
-    }
-    target Handle {
-        @doc value "is the target endpoint of the edge."
-    }
-
-    @doc value  "is a connection between two nodes in the schematic."
-    @go marshal
-}
+Edge = v7.Edge
 
 Schematic struct {
     key      Key = create {
