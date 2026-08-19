@@ -55,41 +55,11 @@ func compileLogicalOr(
 func compileLogicalAnd(
 	ctx context.Context[parser.ILogicalAndExpressionContext],
 ) (types.Type, error) {
-	ors := validateNonZeroArray(ctx.AST.AllBitwiseOrExpression(), "logical AND")
-	if len(ors) == 1 {
-		return compileBitwiseOr(context.Child(ctx, ors[0]))
-	}
-	return compileLogicalAndImpl(ctx)
-}
-
-func compileBitwiseOr(
-	ctx context.Context[parser.IBitwiseOrExpressionContext],
-) (types.Type, error) {
-	xors := validateNonZeroArray(ctx.AST.AllBitwiseXorExpression(), "bitwise OR")
-	if len(xors) == 1 {
-		return compileBitwiseXor(context.Child(ctx, xors[0]))
-	}
-	return compileBitwiseOrImpl(ctx)
-}
-
-func compileBitwiseXor(
-	ctx context.Context[parser.IBitwiseXorExpressionContext],
-) (types.Type, error) {
-	ands := validateNonZeroArray(ctx.AST.AllBitwiseAndExpression(), "bitwise XOR")
-	if len(ands) == 1 {
-		return compileBitwiseAnd(context.Child(ctx, ands[0]))
-	}
-	return compileBitwiseXorImpl(ctx)
-}
-
-func compileBitwiseAnd(
-	ctx context.Context[parser.IBitwiseAndExpressionContext],
-) (types.Type, error) {
-	eqs := validateNonZeroArray(ctx.AST.AllEqualityExpression(), "bitwise AND")
+	eqs := validateNonZeroArray(ctx.AST.AllEqualityExpression(), "logical AND")
 	if len(eqs) == 1 {
 		return compileEquality(context.Child(ctx, eqs[0]))
 	}
-	return compileBitwiseAndImpl(ctx)
+	return compileLogicalAndImpl(ctx)
 }
 
 func compileEquality(
@@ -105,21 +75,11 @@ func compileEquality(
 func compileRelational(
 	ctx context.Context[parser.IRelationalExpressionContext],
 ) (types.Type, error) {
-	shifts := validateNonZeroArray(ctx.AST.AllShiftExpression(), "relational")
-	if len(shifts) == 1 {
-		return compileShift(context.Child(ctx, shifts[0]))
-	}
-	return compileBinaryRelational(ctx)
-}
-
-func compileShift(
-	ctx context.Context[parser.IShiftExpressionContext],
-) (types.Type, error) {
-	adds := validateNonZeroArray(ctx.AST.AllAdditiveExpression(), "shift")
+	adds := validateNonZeroArray(ctx.AST.AllAdditiveExpression(), "relational")
 	if len(adds) == 1 {
 		return compileAdditive(context.Child(ctx, adds[0]))
 	}
-	return compileShiftImpl(ctx)
+	return compileBinaryRelational(ctx)
 }
 
 func compileAdditive(

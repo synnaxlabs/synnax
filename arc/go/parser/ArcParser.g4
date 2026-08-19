@@ -384,19 +384,7 @@ logicalOrExpression
     ;
 
 logicalAndExpression
-    : bitwiseOrExpression (AND bitwiseOrExpression)*
-    ;
-
-bitwiseOrExpression
-    : bitwiseXorExpression (PIPE bitwiseXorExpression)*
-    ;
-
-bitwiseXorExpression
-    : bitwiseAndExpression (CARET bitwiseAndExpression)*
-    ;
-
-bitwiseAndExpression
-    : equalityExpression (AMP equalityExpression)*
+    : equalityExpression (AND equalityExpression)*
     ;
 
 equalityExpression
@@ -404,11 +392,7 @@ equalityExpression
     ;
 
 relationalExpression
-    : shiftExpression ((LT | GT | LEQ | GEQ) shiftExpression)*
-    ;
-
-shiftExpression
-    : additiveExpression ((LSHIFT | RSHIFT) additiveExpression)*
+    : additiveExpression ((LT | GT | LEQ | GEQ) additiveExpression)*
     ;
 
 additiveExpression
@@ -427,7 +411,6 @@ powerExpression
 unaryExpression
     : MINUS unaryExpression
     | NOT unaryExpression
-    | TILDE unaryExpression
     | postfixExpression
     ;
 

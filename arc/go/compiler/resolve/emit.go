@@ -115,16 +115,11 @@ func (r *Resolver) EmitStateStoreSeries(w *wasm.Writer, wID int, elemType types.
 }
 
 var opToArithName = map[string]string{
-	"+":  "add",
-	"-":  "sub",
-	"*":  "mul",
-	"/":  "div",
-	"%":  "mod",
-	"&":  "band",
-	"|":  "bor",
-	"^":  "bxor",
-	"<<": "shl",
-	">>": "shr",
+	"+": "add",
+	"-": "sub",
+	"*": "mul",
+	"/": "div",
+	"%": "mod",
 }
 
 // EmitSeriesArithmetic emits a call to a series arithmetic function.
@@ -314,15 +309,6 @@ func (r *Resolver) EmitSeriesNegate(w *wasm.Writer, wID int, elemType types.Type
 		Outputs: types.Params{{Type: types.I32()}},
 	})
 	r.EmitImportCallWithSuffix(w, wID, "series", "negate", ct, suffixForType(elemType))
-}
-
-// EmitSeriesBitNot emits a call to series.bnot for the given element type.
-func (r *Resolver) EmitSeriesBitNot(w *wasm.Writer, wID int, elemType types.Type) {
-	ct := types.Function(types.FunctionProperties{
-		Inputs:  types.Params{{Type: types.I32()}},
-		Outputs: types.Params{{Type: types.I32()}},
-	})
-	r.EmitImportCallWithSuffix(w, wID, "series", "bnot", ct, suffixForType(elemType))
 }
 
 // EmitSeriesLogical emits a call to a series logical operation. A scalar

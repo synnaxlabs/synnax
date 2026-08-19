@@ -88,35 +88,6 @@ var boolScalarLogicalOperations = []Operation{
 	{Name: "OrScalar", Op: "||"},
 }
 
-// Bitwise operations on integer element types (series op series -> same type).
-var bitwiseOperations = []Operation{
-	{Name: "BitAnd", Op: "&"},
-	{Name: "BitOr", Op: "|"},
-	{Name: "BitXor", Op: "^"},
-	{Name: "ShiftLeft", Op: "<<"},
-	{Name: "ShiftRight", Op: ">>"},
-}
-
-// Bitwise scalar operations (series op scalar -> same type).
-var bitwiseScalarOps = []Operation{
-	{Name: "BitAndScalar", Op: "&"},
-	{Name: "BitOrScalar", Op: "|"},
-	{Name: "BitXorScalar", Op: "^"},
-	{Name: "ShiftLeftScalar", Op: "<<"},
-	{Name: "ShiftRightScalar", Op: ">>"},
-}
-
-// Reverse bitwise scalar operations (scalar op series). Only the
-// non-commutative shifts need reverse forms; &, |, and ^ reuse the forward
-// scalar kernels.
-var reverseBitwiseScalarOps = []Operation{
-	{Name: "ReverseShiftLeftScalar", Op: "<<"},
-	{Name: "ReverseShiftRightScalar", Op: ">>"},
-}
-
-// Bitwise complement (~) on integer element types.
-var bitNotOps = []UnaryOperation{{Name: "BitNot", Op: "^"}}
-
 var reductionOperations = []ReductionOperation{
 	{Name: "Avg"},
 	{Name: "Min"},
@@ -605,29 +576,6 @@ func main() {
 		"Type":       boolType,
 		"Operations": boolScalarLogicalOperations,
 	}))
-
-	// Generate bitwise operations for integer types only
-	for _, typ := range types {
-		if typ.IsFloat {
-			continue
-		}
-		lo.Must0(tmpl.Execute(&buf, map[string]any{
-			"Type":       typ,
-			"Operations": bitwiseOperations,
-		}))
-		lo.Must0(scalarArithTmpl.Execute(&buf, map[string]any{
-			"Type":       typ,
-			"Operations": bitwiseScalarOps,
-		}))
-		lo.Must0(reverseScalarArithTmpl.Execute(&buf, map[string]any{
-			"Type":       typ,
-			"Operations": reverseBitwiseScalarOps,
-		}))
-		lo.Must0(unaryTmpl.Execute(&buf, map[string]any{
-			"Type":     typ,
-			"UnaryOps": bitNotOps,
-		}))
-	}
 
 	// Generate Negate operation for signed and float types only
 	negateOp := []UnaryOperation{{Name: "Negate", Op: "-"}}

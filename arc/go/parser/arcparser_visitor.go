@@ -208,23 +208,11 @@ type ArcParserVisitor interface {
 	// Visit a parse tree produced by ArcParser#logicalAndExpression.
 	VisitLogicalAndExpression(ctx *LogicalAndExpressionContext) interface{}
 
-	// Visit a parse tree produced by ArcParser#bitwiseOrExpression.
-	VisitBitwiseOrExpression(ctx *BitwiseOrExpressionContext) interface{}
-
-	// Visit a parse tree produced by ArcParser#bitwiseXorExpression.
-	VisitBitwiseXorExpression(ctx *BitwiseXorExpressionContext) interface{}
-
-	// Visit a parse tree produced by ArcParser#bitwiseAndExpression.
-	VisitBitwiseAndExpression(ctx *BitwiseAndExpressionContext) interface{}
-
 	// Visit a parse tree produced by ArcParser#equalityExpression.
 	VisitEqualityExpression(ctx *EqualityExpressionContext) interface{}
 
 	// Visit a parse tree produced by ArcParser#relationalExpression.
 	VisitRelationalExpression(ctx *RelationalExpressionContext) interface{}
-
-	// Visit a parse tree produced by ArcParser#shiftExpression.
-	VisitShiftExpression(ctx *ShiftExpressionContext) interface{}
 
 	// Visit a parse tree produced by ArcParser#additiveExpression.
 	VisitAdditiveExpression(ctx *AdditiveExpressionContext) interface{}

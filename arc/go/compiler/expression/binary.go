@@ -14,168 +14,7 @@ import (
 	"github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/errors"
 )
-
-func compileBitwiseChain[N antlr.ParserRuleContext](
-	ctx context.Context[N],
-	n int,
-	opAt func(i int) string,
-	compileChild func(i int, hint types.Type, hasHint bool) (types.Type, error),
-) (types.Type, error) {
-	resultType, err := compileChild(0, types.Type{}, false)
-	if err != nil {
-		return types.Type{}, err
-	}
-	firstIsSeries := resultType.Kind == types.KindSeries
-	var elemType types.Type
-	if firstIsSeries {
-		elemType = *resultType.Elem
-	}
-	hintType := resultType
-	if resultType.Kind == types.KindChan {
-		hintType = resultType.Unwrap()
-	}
-	for i := 1; i < n; i++ {
-		op := opAt(i - 1)
-		operandHint := hintType
-		if firstIsSeries {
-			operandHint = elemType
-		}
-		operandType, err := compileChild(i, operandHint, true)
-		if err != nil {
-			return types.Type{}, err
-		}
-		secondIsSeries := operandType.Kind == types.KindSeries
-		if firstIsSeries || secondIsSeries {
-			seriesElem := elemType
-			if !firstIsSeries {
-				seriesElem = *operandType.Elem
-			}
-			if !seriesElem.IsInteger() {
-				return types.Type{}, errors.Newf(
-					"bitwise operators require integer series elements, got %s",
-					seriesElem,
-				)
-			}
-		}
-		if firstIsSeries {
-			if err := ctx.Resolver.EmitSeriesArithmetic(
-				ctx.Writer,
-				ctx.WriterID,
-				op,
-				elemType,
-				!secondIsSeries,
-			); err != nil {
-				return types.Type{}, err
-			}
-		} else if secondIsSeries {
-			secondElemType := *operandType.Elem
-			if err := ctx.Resolver.EmitSeriesReverseArithmetic(
-				ctx.Writer,
-				ctx.WriterID,
-				op,
-				secondElemType,
-			); err != nil {
-				return types.Type{}, err
-			}
-			resultType = operandType
-			elemType = secondElemType
-			firstIsSeries = true
-		} else {
-			if err := ctx.Writer.WriteBinaryOpInferred(op, hintType); err != nil {
-				return types.Type{}, err
-			}
-		}
-	}
-	if firstIsSeries {
-		return resultType, nil
-	}
-	return hintType, nil
-}
-
-func compileBitwiseOrImpl(
-	ctx context.Context[parser.IBitwiseOrExpressionContext],
-) (types.Type, error) {
-	xors := ctx.AST.AllBitwiseXorExpression()
-	return compileBitwiseChain(
-		ctx,
-		len(xors),
-		func(int) string { return "|" },
-		func(i int, hint types.Type, hasHint bool) (types.Type, error) {
-			child := context.Child(ctx, xors[i])
-			if hasHint {
-				child = child.WithHint(hint)
-			}
-			return compileBitwiseXor(child)
-		},
-	)
-}
-
-func compileBitwiseXorImpl(
-	ctx context.Context[parser.IBitwiseXorExpressionContext],
-) (types.Type, error) {
-	ands := ctx.AST.AllBitwiseAndExpression()
-	return compileBitwiseChain(
-		ctx,
-		len(ands),
-		func(int) string { return "^" },
-		func(i int, hint types.Type, hasHint bool) (types.Type, error) {
-			child := context.Child(ctx, ands[i])
-			if hasHint {
-				child = child.WithHint(hint)
-			}
-			return compileBitwiseAnd(child)
-		},
-	)
-}
-
-func compileBitwiseAndImpl(
-	ctx context.Context[parser.IBitwiseAndExpressionContext],
-) (types.Type, error) {
-	eqs := ctx.AST.AllEqualityExpression()
-	return compileBitwiseChain(
-		ctx,
-		len(eqs),
-		func(int) string { return "&" },
-		func(i int, hint types.Type, hasHint bool) (types.Type, error) {
-			child := context.Child(ctx, eqs[i])
-			if hasHint {
-				child = child.WithHint(hint)
-			}
-			return compileEquality(child)
-		},
-	)
-}
-
-func compileShiftImpl(
-	ctx context.Context[parser.IShiftExpressionContext],
-) (types.Type, error) {
-	adds := ctx.AST.AllAdditiveExpression()
-	var operators []string
-	for _, child := range ctx.AST.GetChildren() {
-		if termNode, ok := child.(antlr.TerminalNode); ok {
-			switch termNode.GetSymbol().GetTokenType() {
-			case parser.ArcLexerLSHIFT:
-				operators = append(operators, "<<")
-			case parser.ArcLexerRSHIFT:
-				operators = append(operators, ">>")
-			}
-		}
-	}
-	return compileBitwiseChain(
-		ctx,
-		len(adds),
-		func(i int) string { return operators[i] },
-		func(i int, hint types.Type, hasHint bool) (types.Type, error) {
-			child := context.Child(ctx, adds[i])
-			if hasHint {
-				child = child.WithHint(hint)
-			}
-			return compileAdditive(child)
-		},
-	)
-}
 
 func compileBinaryAdditive(
 	ctx context.Context[parser.IAdditiveExpressionContext],
@@ -359,8 +198,8 @@ func compileBinaryMultiplicative(
 func compileBinaryRelational(
 	ctx context.Context[parser.IRelationalExpressionContext],
 ) (types.Type, error) {
-	shifts := ctx.AST.AllShiftExpression()
-	leftType, err := compileShift(context.Child(ctx, shifts[0]))
+	adds := ctx.AST.AllAdditiveExpression()
+	leftType, err := compileAdditive(context.Child(ctx, adds[0]))
 	if err != nil {
 		return types.Type{}, err
 	}
@@ -381,7 +220,7 @@ func compileBinaryRelational(
 		operandHint = elemType
 	}
 
-	_, err = compileShift(context.Child(ctx, shifts[1]).WithHint(operandHint))
+	_, err = compileAdditive(context.Child(ctx, adds[1]).WithHint(operandHint))
 	if err != nil {
 		return types.Type{}, err
 	}

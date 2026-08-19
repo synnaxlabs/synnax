@@ -2412,49 +2412,6 @@ TEST(BinaryOpTest, PowChanChanI64) {
     EXPECT_EQ(v, 1024);
 }
 
-/// @brief ^ operator is bitwise xor on integers.
-TEST(BinaryOpTest, XorConstConstI64) {
-    const auto client = new_test_client();
-    const auto v = call_func<int64_t>(client, R"arc(
-func xor_ii() i64 { return 12 ^ 10 })arc");
-    EXPECT_EQ(v, 6);
-}
-
-/// @brief & operator is bitwise and on integers.
-TEST(BinaryOpTest, BitAndConstConstI64) {
-    const auto client = new_test_client();
-    const auto v = call_func<int64_t>(client, R"arc(
-func band_ii() i64 { return 12 & 10 })arc");
-    EXPECT_EQ(v, 8);
-}
-
-/// @brief | operator is bitwise or on integers.
-TEST(BinaryOpTest, BitOrConstConstI64) {
-    const auto client = new_test_client();
-    const auto v = call_func<int64_t>(client, R"arc(
-func bor_ii() i64 { return 12 | 10 })arc");
-    EXPECT_EQ(v, 14);
-}
-
-/// @brief ~ operator is bitwise complement on integers.
-TEST(BinaryOpTest, BitNotConstI64) {
-    const auto client = new_test_client();
-    const auto v = call_func<int64_t>(client, R"arc(
-func bnot_i() i64 { return ~i64(1) })arc");
-    EXPECT_EQ(v, -2);
-}
-
-/// @brief ~ operator accepts a channel operand.
-TEST(BinaryOpTest, BitNotChanU8) {
-    const auto client = new_test_client();
-    const auto v = call_func<uint8_t>(
-        client,
-        R"arc(func bnot_ch(x u8) u8 { return ~x })arc",
-        {static_cast<uint8_t>(5)}
-    );
-    EXPECT_EQ(v, 250);
-}
-
 /// @brief a bool function returns a bool literal as 1.
 TEST(BoolFuncTest, ReturnsTrueLiteral) {
     const auto client = new_test_client();

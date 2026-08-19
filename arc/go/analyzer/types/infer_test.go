@@ -231,28 +231,6 @@ var _ = Describe("Type Inference", func() {
 			Entry("logical not", "not (temp_sensor > 100)", types.KindBool),
 		)
 
-		DescribeTable("bitwise expressions",
-			func(bCtx SpecContext, expr string, expectedKind types.Kind) {
-				t := inferExprType(bCtx, testResolver, expr)
-				Expect(t.Kind).To(Equal(expectedKind))
-			},
-			Entry("bitwise and", "i32_ch & 12", types.KindI32),
-			Entry("bitwise or", "i32_ch | 12", types.KindI32),
-			Entry("bitwise xor", "i32_ch ^ 12", types.KindI32),
-			Entry("bitwise and i64", "i64_ch & 255", types.KindI64),
-			Entry("bitwise or i64", "i64_ch | 255", types.KindI64),
-			Entry("bitwise xor i64", "i64_ch ^ 255", types.KindI64),
-			Entry("left shift", "i32_ch << 2", types.KindI32),
-			Entry("right shift", "i32_ch >> 2", types.KindI32),
-			Entry("left shift i64", "i64_ch << 4", types.KindI64),
-			Entry("right shift i64", "i64_ch >> 4", types.KindI64),
-			Entry("chained bitwise and", "i32_ch & 12 & 8", types.KindI32),
-			Entry("chained bitwise xor", "i32_ch ^ 12 ^ 8", types.KindI32),
-			Entry("chained shifts", "i32_ch << 2 >> 1", types.KindI32),
-			Entry("bitwise not", "~i32_ch", types.KindI32),
-			Entry("bitwise not i64", "~i64_ch", types.KindI64),
-		)
-
 		DescribeTable("series-producing logical and unary expressions",
 			func(bCtx SpecContext, expr string, expectedElem types.Kind) {
 				t := inferExprType(bCtx, testResolver, expr)
@@ -267,10 +245,6 @@ var _ = Describe("Type Inference", func() {
 			Entry("series and scalar", "(data_series > 100) and true", types.KindBool),
 			Entry("not series", "not (data_series > 100)", types.KindBool),
 			Entry("negate series", "-data_series", types.KindI64),
-			Entry("series bitwise and scalar", "data_series & 12", types.KindI64),
-			Entry("scalar bitwise or series", "1 | data_series", types.KindI64),
-			Entry("series left shift scalar", "data_series << 2", types.KindI64),
-			Entry("series bitwise not", "~data_series", types.KindI64),
 		)
 
 		DescribeTable(
@@ -1074,12 +1048,6 @@ var _ = Describe("Series operand inference", func() {
 		func(bCtx SpecContext, expr string, expected types.Type) {
 			Expect(inferExprType(bCtx, seriesResolver, expr)).To(Equal(expected))
 		},
-		Entry("series on the left of |", "s | 1", types.Series(types.I64())),
-		Entry("series on the right of |", "1 | s", types.Series(types.I64())),
-		Entry("series on the left of ^", "s ^ 1", types.Series(types.I64())),
-		Entry("series on the right of ^", "1 ^ s", types.Series(types.I64())),
-		Entry("series on the left of &", "s & 1", types.Series(types.I64())),
-		Entry("series on the right of &", "1 & s", types.Series(types.I64())),
 		Entry(
 			"series equality yields a bool series",
 			"s == 1",
@@ -1090,47 +1058,5 @@ var _ = Describe("Series operand inference", func() {
 			"s != 1",
 			types.Series(types.Bool()),
 		),
-		Entry(
-			"incompatible | operand keeps the series element type",
-			"s | x",
-			types.Series(types.I64()),
-		),
-		Entry(
-			"incompatible ^ operand keeps the series element type",
-			"s ^ x",
-			types.Series(types.I64()),
-		),
-		Entry(
-			"incompatible & operand keeps the series element type",
-			"s & x",
-			types.Series(types.I64()),
-		),
 	)
-
-	It("should return an invalid type for an empty | node", func(bCtx SpecContext) {
-		node := parser.NewBitwiseOrExpressionContext(nil, nil, 0)
-		ctx := acontext.NewRoot[parser.IBitwiseOrExpressionContext](
-			bCtx, node, NewRoot(nil),
-		)
-		t := atypes.InferBitwiseOr(ctx)
-		Expect(t.IsValid()).To(BeFalse())
-	})
-
-	It("should return an invalid type for an empty ^ node", func(bCtx SpecContext) {
-		node := parser.NewBitwiseXorExpressionContext(nil, nil, 0)
-		ctx := acontext.NewRoot[parser.IBitwiseXorExpressionContext](
-			bCtx, node, NewRoot(nil),
-		)
-		t := atypes.InferBitwiseXor(ctx)
-		Expect(t.IsValid()).To(BeFalse())
-	})
-
-	It("should return an invalid type for an empty & node", func(bCtx SpecContext) {
-		node := parser.NewBitwiseAndExpressionContext(nil, nil, 0)
-		ctx := acontext.NewRoot[parser.IBitwiseAndExpressionContext](
-			bCtx, node, NewRoot(nil),
-		)
-		t := atypes.InferBitwiseAnd(ctx)
-		Expect(t.IsValid()).To(BeFalse())
-	})
 })

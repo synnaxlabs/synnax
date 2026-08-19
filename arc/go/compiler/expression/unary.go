@@ -78,43 +78,6 @@ func compileUnary(
 		return types.Bool(), nil
 	}
 
-	if ctx.AST.TILDE() != nil {
-		innerType, err := compileUnary(context.Child(ctx, ctx.AST.UnaryExpression()))
-		if err != nil {
-			return types.Type{}, err
-		}
-		if innerType.Kind == types.KindSeries {
-			elemType := innerType.Unwrap()
-			if !elemType.IsInteger() {
-				return types.Type{}, errors.Newf(
-					"operator ~ on series requires an integer element type, got %s",
-					elemType,
-				)
-			}
-			ctx.Resolver.EmitSeriesBitNot(ctx.Writer, ctx.WriterID, elemType)
-			return innerType, nil
-		}
-		switch innerType.Kind {
-		case types.KindI8,
-			types.KindI16,
-			types.KindI32,
-			types.KindU8,
-			types.KindU16,
-			types.KindU32:
-			ctx.Writer.WriteI32Const(-1)
-			ctx.Writer.WriteBinaryOp(wasm.OpI32Xor)
-		case types.KindI64, types.KindU64:
-			ctx.Writer.WriteI64Const(-1)
-			ctx.Writer.WriteBinaryOp(wasm.OpI64Xor)
-		default:
-			return types.Type{}, errors.Newf(
-				"operator ~ requires an integer operand, got %s",
-				innerType,
-			)
-		}
-		return innerType, nil
-	}
-
 	if postfix := ctx.AST.PostfixExpression(); postfix != nil {
 		return compilePostfix(context.Child(ctx, postfix))
 	}

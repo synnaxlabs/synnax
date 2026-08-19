@@ -30,7 +30,6 @@ export const tokens = {
     scopes: [
       "keyword.operator.arithmetic.arc",
       "keyword.operator.comparison.arc",
-      "keyword.operator.symbol.arc",
       "keyword.operator.assignment.arc",
       "keyword.operator.assignment.compound.arc",
       "keyword.operator.assignment.declare.arc",

@@ -1106,7 +1106,6 @@ var _ = Describe("Series", func() {
 			},
 			Entry("arithmetic", "create_empty_i32", "series_add_i32"),
 			Entry("comparison", "create_empty_i32", "compare_gt_i32"),
-			Entry("bitwise", "create_empty_i32", "series_band_i32"),
 			Entry("logical and", "create_empty_bool", "and"),
 			Entry("logical or", "create_empty_bool", "or"),
 		)

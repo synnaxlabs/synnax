@@ -1211,8 +1211,6 @@ func (p *printer) isBinaryOperator(tokType int) bool {
 		parser.ArcLexerSLASH, parser.ArcLexerPERCENT, parser.ArcLexerSTARSTAR,
 		parser.ArcLexerEQ, parser.ArcLexerNEQ, parser.ArcLexerLT, parser.ArcLexerGT,
 		parser.ArcLexerLEQ, parser.ArcLexerGEQ, parser.ArcLexerAND, parser.ArcLexerOR,
-		parser.ArcLexerAMP, parser.ArcLexerPIPE, parser.ArcLexerCARET,
-		parser.ArcLexerLSHIFT, parser.ArcLexerRSHIFT,
 		parser.ArcLexerDECLARE, parser.ArcLexerSTATE_DECLARE, parser.ArcLexerASSIGN,
 		parser.ArcLexerARROW, parser.ArcLexerTRANSITION,
 		parser.ArcLexerPLUS_ASSIGN, parser.ArcLexerMINUS_ASSIGN,
@@ -1236,8 +1234,6 @@ func (p *printer) isUnaryMinus(tokType int) bool {
 		parser.ArcLexerPLUS, parser.ArcLexerSTAR, parser.ArcLexerSLASH, parser.ArcLexerPERCENT,
 		parser.ArcLexerEQ, parser.ArcLexerNEQ, parser.ArcLexerLT, parser.ArcLexerGT,
 		parser.ArcLexerLEQ, parser.ArcLexerGEQ, parser.ArcLexerAND, parser.ArcLexerOR,
-		parser.ArcLexerAMP, parser.ArcLexerPIPE, parser.ArcLexerCARET,
-		parser.ArcLexerLSHIFT, parser.ArcLexerRSHIFT,
 		parser.ArcLexerARROW, parser.ArcLexerTRANSITION:
 		return true
 	}

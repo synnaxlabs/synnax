@@ -2446,72 +2446,6 @@ var _ = Describe("Compiler", func() {
 				r := -x
 				return r[1]
 			}`, float64(-2.0)),
-			// Element-wise bitwise operators on integer series
-			Entry("series bitwise and", `{
-				a series i64 := [12, 10]
-				b series i64 := [10, 6]
-				r := a & b
-				return r[1]
-			}`, int64(2)),
-			Entry("series bitwise or", `{
-				a series i64 := [12, 10]
-				b series i64 := [10, 6]
-				r := a | b
-				return r[0]
-			}`, int64(14)),
-			Entry("series bitwise xor", `{
-				a series i64 := [12, 10]
-				b series i64 := [10, 6]
-				r := a ^ b
-				return r[1]
-			}`, int64(12)),
-			Entry("series left shift", `{
-				a series i64 := [1, 2]
-				b series i64 := [4, 3]
-				r := a << b
-				return r[0]
-			}`, int64(16)),
-			Entry("series right shift", `{
-				a series i64 := [16, 8]
-				b series i64 := [2, 3]
-				r := a >> b
-				return r[1]
-			}`, int64(1)),
-			Entry("series bitwise and scalar", `{
-				a series i64 := [12, 10]
-				r := a & 8
-				return r[0]
-			}`, int64(8)),
-			Entry("scalar bitwise or series", `{
-				a series i64 := [12, 10]
-				r := 1 | a
-				return r[1]
-			}`, int64(11)),
-			Entry("series left shift scalar", `{
-				a series i64 := [1, 2]
-				r := a << 3
-				return r[1]
-			}`, int64(16)),
-			Entry("scalar left shift series", `{
-				a series i64 := [1, 3]
-				r := 2 << a
-				return r[1]
-			}`, int64(16)),
-			Entry("scalar right shift series", `{
-				a series i64 := [1, 3]
-				r := 16 >> a
-				return r[1]
-			}`, int64(2)),
-			Entry("series bitwise not", `{
-				a series i64 := [12, 10]
-				r := ~a
-				return r[0]
-			}`, int64(-13)),
-			Entry("series bitwise not i32", `{
-				a series i32 := [12, 10]
-				r := ~a
-				return r[1]
-			}`, int32(-11)),
 		)
 	})
 
@@ -4083,109 +4017,6 @@ var _ = Describe("Compiler", func() {
 		)
 
 		DescribeTable(
-			"bitwise operators",
-			func(ctx SpecContext, body string, expected any) {
-				source := fmt.Sprintf(
-					`func test() %s %s`,
-					inferReturnType(expected),
-					body,
-				)
-				output := MustSucceed(compile(ctx, source, nil))
-				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-				test := mod.ExportedFunction("test")
-				Expect(test).ToNot(BeNil())
-				results := MustSucceed(test.Call(ctx))
-				Expect(results).To(HaveLen(1))
-				assertResult(results[0], expected)
-			},
-			// AND operations
-			Entry("and", `{ return i32(12) & i32(10) }`, int32(8)),
-			Entry("and zero", `{ return i32(12) & i32(0) }`, int32(0)),
-			// OR operations
-			Entry("or", `{ return i32(12) | i32(10) }`, int32(14)),
-			Entry("or zero", `{ return i32(12) | i32(0) }`, int32(12)),
-			// XOR operations
-			Entry("xor", `{ return i32(12) ^ i32(10) }`, int32(6)),
-			Entry("xor zero", `{ return i32(12) ^ i32(0) }`, int32(12)),
-			Entry("xor self", `{ return i32(12) ^ i32(12) }`, int32(0)),
-			// Chained operations
-			Entry("chained and", `{ return i32(15) & i32(12) & i32(9) }`, int32(8)),
-			Entry("chained or", `{ return i32(1) | i32(2) | i32(4) }`, int32(7)),
-			Entry("chained xor", `{ return i32(15) ^ i32(12) ^ i32(9) }`, int32(10)),
-			// Precedence: & binds tighter than ^, ^ binds tighter than |
-			Entry(
-				"and binds tighter than or",
-				`{ return i32(1) | i32(6) & i32(4) }`,
-				int32(5),
-			),
-			Entry(
-				"and binds tighter than xor",
-				`{ return i32(1) ^ i32(6) & i32(4) }`,
-				int32(5),
-			),
-			Entry(
-				"xor binds tighter than or",
-				`{ return i32(1) | i32(6) ^ i32(4) }`,
-				int32(3),
-			),
-			// i64 operands
-			Entry("i64 and", `{ return i64(255) & i64(15) }`, int64(15)),
-			Entry("i64 or", `{ return i64(240) | i64(15) }`, int64(255)),
-			Entry("i64 xor", `{ return i64(255) ^ i64(15) }`, int64(240)),
-			// Shift operations
-			Entry("left shift", `{ return i32(1) << i32(4) }`, int32(16)),
-			Entry("left shift zero", `{ return i32(12) << i32(0) }`, int32(12)),
-			Entry("right shift", `{ return i32(16) >> i32(2) }`, int32(4)),
-			Entry("right shift zero", `{ return i32(12) >> i32(0) }`, int32(12)),
-			Entry("right shift to zero", `{ return i32(1) >> i32(4) }`, int32(0)),
-			Entry(
-				"signed right shift is arithmetic",
-				`{ return i32(-8) >> i32(1) }`,
-				int32(-4),
-			),
-			Entry(
-				"unsigned right shift is logical",
-				`{ return ~u32(0) >> u32(28) }`,
-				uint32(15),
-			),
-			// Chained operations
-			Entry(
-				"chained left shift",
-				`{ return i32(1) << i32(2) << i32(3) }`,
-				int32(32),
-			),
-			Entry(
-				"mixed shift chain",
-				`{ return i32(64) >> i32(2) << i32(1) }`,
-				int32(32),
-			),
-			// Precedence: + binds tighter than <<, << binds tighter than &
-			Entry(
-				"additive binds tighter than left shift",
-				`{ return i32(1) + i32(1) << i32(2) }`,
-				int32(8),
-			),
-			Entry(
-				"left shift binds tighter than and",
-				`{ return i32(2) << i32(1) & i32(3) }`,
-				int32(0),
-			),
-			// i64 shift operands
-			Entry("i64 left shift", `{ return i64(255) << i64(4) }`, int64(4080)),
-			Entry("i64 right shift", `{ return i64(255) >> i64(4) }`, int64(15)),
-			Entry(
-				"i64 signed right shift is arithmetic",
-				`{ return i64(-16) >> i64(2) }`,
-				int64(-4),
-			),
-			Entry(
-				"u64 right shift is logical",
-				`{ return ~u64(0) >> u64(60) }`,
-				uint64(15),
-			),
-		)
-
-		DescribeTable(
 			"unary operators",
 			func(ctx SpecContext, body string, expected any) {
 				source := fmt.Sprintf(
@@ -4240,34 +4071,6 @@ var _ = Describe("Compiler", func() {
 				false,
 			),
 			Entry("not comparison", `{ return not (i32(5) < i32(3)) }`, true),
-			// Bitwise not (integer complement)
-			Entry("bitwise not i32", `{ return ~i32(0) }`, int32(-1)),
-			Entry("bitwise not i32 value", `{
-				x i32 := 12
-				return ~x
-			}`, int32(-13)),
-			Entry("double bitwise not", `{
-				x i32 := 12
-				return ~~x
-			}`, int32(12)),
-			Entry("bitwise not i64", `{ return ~i64(0) }`, int64(-1)),
-			Entry("bitwise not i8", `{ return ~i8(12) }`, int8(-13)),
-			Entry("bitwise not i16", `{ return ~i16(12) }`, int16(-13)),
-			Entry("bitwise not i64 value", `{ return ~i64(12) }`, int64(-13)),
-			Entry("bitwise not u8", `{ return ~u8(12) }`, uint8(243)),
-			Entry("bitwise not u16", `{ return ~u16(12) }`, uint16(65523)),
-			Entry("bitwise not u32", `{ return ~u32(12) }`, uint32(4294967283)),
-			Entry(
-				"bitwise not u64",
-				`{ return ~u64(12) }`,
-				uint64(18446744073709551603),
-			),
-			Entry("bitwise not untyped constant", `{ return ~45 }`, int64(-46)),
-			Entry(
-				"bitwise not untyped equals i64 cast",
-				`{ return ~45 == ~i64(45) }`,
-				true,
-			),
 		)
 
 		DescribeTable("control flow",
@@ -4329,26 +4132,6 @@ var _ = Describe("Compiler", func() {
 				if i32(1) == i32(0) or i32(1) == i32(1) { return i32(1) }
 				return i32(0)
 			}`, int32(1)),
-			Entry("if bitwise and", `{
-				if i32(12) & i32(8) { return i32(1) }
-				return i32(0)
-			}`, int32(1)),
-			Entry("if bitwise or", `{
-				if i32(0) | i32(1) { return i32(1) }
-				return i32(0)
-			}`, int32(1)),
-			Entry("if bitwise xor", `{
-				if i32(12) ^ i32(8) { return i32(1) }
-				return i32(0)
-			}`, int32(1)),
-			Entry("if left shift", `{
-				if i32(1) << i32(4) { return i32(1) }
-				return i32(0)
-			}`, int32(1)),
-			Entry("if right shift", `{
-				if i32(1) >> i32(4) { return i32(1) }
-				return i32(0)
-			}`, int32(0)),
 		)
 
 		DescribeTable("type casting",

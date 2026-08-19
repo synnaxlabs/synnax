@@ -14,7 +14,6 @@ from framework.utils import create_virtual_channels
 from tests.arc.arc import ArcCase
 
 BOOL = sy.DataType.BOOLEAN
-INT32 = sy.DataType.INT32
 INT64 = sy.DataType.INT64
 UINT8 = sy.DataType.UINT8
 
@@ -80,44 +79,6 @@ bool_flow_trigger -> stage {
     bool_flow_trigger and bool_and_11_b -> bool_and_11_out
     bool_flow_trigger or bool_or_10_b -> bool_or_10_out
     bool_flow_trigger or bool_or_11_b -> bool_or_11_out
-}
-
-// ─────────────────────── bitwise operators (i64) ────────────────────
-
-func do_bitwise_i64(a i64) {
-    bool_xor_sym_out = a ^ bool_xor_sym_b
-    bool_xor_sym_zero_out = a ^ bool_xor_sym_zero_b
-    bool_xor_sym_self_out = a ^ bool_xor_sym_self_b
-    bool_xor_neg_out = a ^ bool_xor_neg_b
-    bool_tilde_out = ~a
-    bool_tilde_lit_out = ~12
-    bool_tilde_eq_out = ~12 == ~i64(12)
-}
-bool_i64_trigger -> do_bitwise_i64{}
-
-bool_i64_flow_trigger -> stage {
-    bool_i64_flow_trigger ^ bool_xor_sym_b -> bool_xor_sym_out
-    bool_i64_flow_trigger ^ bool_xor_sym_zero_b -> bool_xor_sym_zero_out
-    bool_i64_flow_trigger ^ bool_xor_sym_self_b -> bool_xor_sym_self_out
-    bool_i64_flow_trigger ^ bool_xor_neg_b -> bool_xor_neg_out
-    ~bool_i64_flow_trigger -> bool_tilde_out
-    ~12 -> bool_tilde_lit_out
-    ~12 == ~i64(12) -> bool_tilde_eq_out
-}
-
-// ─────────────────────── bitwise operators (i32) ────────────────────
-
-func do_bitwise_i32(a i32) {
-    bool_xor_sym_i32_out = a ^ bool_xor_sym_i32_b
-    bool_amp_out = a & bool_amp_b
-    bool_pipe_out = a | bool_pipe_b
-}
-bool_i32_trigger -> do_bitwise_i32{}
-
-bool_i32_flow_trigger -> stage {
-    bool_i32_flow_trigger ^ bool_xor_sym_i32_b -> bool_xor_sym_i32_out
-    bool_i32_flow_trigger & bool_amp_b -> bool_amp_out
-    bool_i32_flow_trigger | bool_pipe_b -> bool_pipe_out
 }
 
 // ─────────────────────── comparisons produce bool ───────────────────
@@ -258,30 +219,6 @@ LOGICAL_A1 = Section(
     ],
 )
 
-BITWISE_I64 = Section(
-    INT64,
-    a_val=12,
-    cases=[
-        Case("xor_sym", b_val=10, expected=6),
-        Case("xor_sym_zero", b_val=0, expected=12),
-        Case("xor_sym_self", b_val=12, expected=0),
-        Case("xor_neg", b_val=-1, expected=-13),
-        Case("tilde", expected=-13),
-        Case("tilde_lit", expected=-13),
-        Case("tilde_eq", expected=1, out_type=BOOL),
-    ],
-)
-
-BITWISE_I32 = Section(
-    INT32,
-    a_val=12,
-    cases=[
-        Case("xor_sym_i32", b_val=10, expected=6),
-        Case("amp", b_val=10, expected=8),
-        Case("pipe", b_val=10, expected=14),
-    ],
-)
-
 COMPARE = Section(
     INT64,
     a_val=12,
@@ -315,8 +252,6 @@ SECTIONS = [
     LITERALS,
     LOGICAL_A0,
     LOGICAL_A1,
-    BITWISE_I64,
-    BITWISE_I32,
     COMPARE,
     IF_A1,
     IF_A0,
@@ -332,7 +267,6 @@ SELECT_CHANNELS: list[tuple[str, sy.DataType]] = [
 FLOW_TRIGGERS: list[tuple[str, sy.DataType]] = [
     ("bool_flow_trigger", BOOL),
     ("bool_i64_flow_trigger", INT64),
-    ("bool_i32_flow_trigger", INT32),
 ]
 
 TRANSITION_CHANNELS: list[tuple[str, sy.DataType]] = [
@@ -349,13 +283,13 @@ def _ch(c: Case, part: str) -> str:
 def _trigger(s: Section) -> str:
     if s.a_type == BOOL:
         return f"bool_a{s.a_val}_trigger"
-    return "bool_i64_trigger" if s.a_type == INT64 else "bool_i32_trigger"
+    return "bool_i64_trigger"
 
 
 def _flow_trigger(s: Section) -> str:
     if s.a_type == BOOL:
         return "bool_flow_trigger"
-    return "bool_i64_flow_trigger" if s.a_type == INT64 else "bool_i32_flow_trigger"
+    return "bool_i64_flow_trigger"
 
 
 class Boolean(ArcCase):
@@ -432,14 +366,6 @@ class Boolean(ArcCase):
         self.log("=== logical operators (a = 1) ===")
         self._drive_func(LOGICAL_A1)
         self._drive_flow(LOGICAL_A1)
-
-        self.log("=== bitwise operators (i64) ===")
-        self._drive_func(BITWISE_I64)
-        self._drive_flow(BITWISE_I64)
-
-        self.log("=== bitwise operators (i32) ===")
-        self._drive_func(BITWISE_I32)
-        self._drive_flow(BITWISE_I32)
 
         self.log("=== comparisons produce bool ===")
         self._drive_func(COMPARE)

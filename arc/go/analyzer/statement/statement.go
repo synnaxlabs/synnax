@@ -556,12 +556,8 @@ func isRangeCall(
 	}
 	postfix := expr.LogicalOrExpression().
 		AllLogicalAndExpression()[0].
-		AllBitwiseOrExpression()[0].
-		AllBitwiseXorExpression()[0].
-		AllBitwiseAndExpression()[0].
 		AllEqualityExpression()[0].
 		AllRelationalExpression()[0].
-		AllShiftExpression()[0].
 		AllAdditiveExpression()[0].
 		AllMultiplicativeExpression()[0].
 		AllPowerExpression()[0].

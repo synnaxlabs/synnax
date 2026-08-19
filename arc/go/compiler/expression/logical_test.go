@@ -308,33 +308,33 @@ var _ = Describe("Logical Operations", func() {
 		expectCompileError,
 		Entry(
 			"first or operand fails",
-			"(f & 1.0) or true",
-			"bitwise operators require integer series elements",
+			"(not f) or true",
+			"logical NOT on series requires a bool element type",
 		),
 		Entry(
 			"first and operand fails",
-			"(f & 1.0) and true",
-			"bitwise operators require integer series elements",
+			"(not f) and true",
+			"logical NOT on series requires a bool element type",
 		),
 		Entry(
 			"series or right operand fails",
-			"b or (f & 1.0)",
-			"bitwise operators require integer series elements",
+			"b or (not f)",
+			"logical NOT on series requires a bool element type",
 		),
 		Entry(
 			"series and right operand fails",
-			"b and (f & 1.0)",
-			"bitwise operators require integer series elements",
+			"b and (not f)",
+			"logical NOT on series requires a bool element type",
 		),
 		Entry(
 			"short-circuit and right operand fails",
-			"true and (f & 1.0)",
-			"bitwise operators require integer series elements",
+			"true and (not f)",
+			"logical NOT on series requires a bool element type",
 		),
 		Entry(
 			"short-circuit or right operand fails",
-			"false or (f & 1.0)",
-			"bitwise operators require integer series elements",
+			"false or (not f)",
+			"logical NOT on series requires a bool element type",
 		),
 	)
 })

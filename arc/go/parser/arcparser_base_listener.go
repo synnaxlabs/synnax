@@ -413,24 +413,6 @@ func (s *BaseArcParserListener) EnterLogicalAndExpression(ctx *LogicalAndExpress
 // ExitLogicalAndExpression is called when production logicalAndExpression is exited.
 func (s *BaseArcParserListener) ExitLogicalAndExpression(ctx *LogicalAndExpressionContext) {}
 
-// EnterBitwiseOrExpression is called when production bitwiseOrExpression is entered.
-func (s *BaseArcParserListener) EnterBitwiseOrExpression(ctx *BitwiseOrExpressionContext) {}
-
-// ExitBitwiseOrExpression is called when production bitwiseOrExpression is exited.
-func (s *BaseArcParserListener) ExitBitwiseOrExpression(ctx *BitwiseOrExpressionContext) {}
-
-// EnterBitwiseXorExpression is called when production bitwiseXorExpression is entered.
-func (s *BaseArcParserListener) EnterBitwiseXorExpression(ctx *BitwiseXorExpressionContext) {}
-
-// ExitBitwiseXorExpression is called when production bitwiseXorExpression is exited.
-func (s *BaseArcParserListener) ExitBitwiseXorExpression(ctx *BitwiseXorExpressionContext) {}
-
-// EnterBitwiseAndExpression is called when production bitwiseAndExpression is entered.
-func (s *BaseArcParserListener) EnterBitwiseAndExpression(ctx *BitwiseAndExpressionContext) {}
-
-// ExitBitwiseAndExpression is called when production bitwiseAndExpression is exited.
-func (s *BaseArcParserListener) ExitBitwiseAndExpression(ctx *BitwiseAndExpressionContext) {}
-
 // EnterEqualityExpression is called when production equalityExpression is entered.
 func (s *BaseArcParserListener) EnterEqualityExpression(ctx *EqualityExpressionContext) {}
 
@@ -442,12 +424,6 @@ func (s *BaseArcParserListener) EnterRelationalExpression(ctx *RelationalExpress
 
 // ExitRelationalExpression is called when production relationalExpression is exited.
 func (s *BaseArcParserListener) ExitRelationalExpression(ctx *RelationalExpressionContext) {}
-
-// EnterShiftExpression is called when production shiftExpression is entered.
-func (s *BaseArcParserListener) EnterShiftExpression(ctx *ShiftExpressionContext) {}
-
-// ExitShiftExpression is called when production shiftExpression is exited.
-func (s *BaseArcParserListener) ExitShiftExpression(ctx *ShiftExpressionContext) {}
 
 // EnterAdditiveExpression is called when production additiveExpression is entered.
 func (s *BaseArcParserListener) EnterAdditiveExpression(ctx *AdditiveExpressionContext) {}

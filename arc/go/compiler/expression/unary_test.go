@@ -200,80 +200,6 @@ var _ = Describe("Unary Operations", func() {
 			OpI32Mul,
 		),
 
-		// Bitwise NOT - integer complement
-		Entry(
-			"bitwise not i32",
-			"~i32(5)",
-			types.I32(),
-			OpI32Const,
-			int32(5),
-			OpI32Const,
-			int32(-1),
-			OpI32Xor,
-		),
-		Entry(
-			"bitwise not i64",
-			"~100",
-			types.I64(),
-			OpI64Const,
-			int64(100),
-			OpI64Const,
-			int64(-1),
-			OpI64Xor,
-		),
-		Entry(
-			"bitwise not i64 cast matches untyped",
-			"~i64(100)",
-			types.I64(),
-			OpI64Const,
-			int64(100),
-			OpI64Const,
-			int64(-1),
-			OpI64Xor,
-		),
-		Entry(
-			"bitwise not u8",
-			"~u8(5)",
-			types.U8(),
-			OpI32Const,
-			int32(5),
-			OpI32Const,
-			int32(-1),
-			OpI32Xor,
-		),
-		Entry(
-			"bitwise not u32",
-			"~u32(5)",
-			types.U32(),
-			OpI32Const,
-			int32(5),
-			OpI32Const,
-			int32(-1),
-			OpI32Xor,
-		),
-		Entry(
-			"bitwise not u64",
-			"~u64(5)",
-			types.U64(),
-			OpI64Const,
-			int64(5),
-			OpI64Const,
-			int64(-1),
-			OpI64Xor,
-		),
-		Entry(
-			"double bitwise not",
-			"~~i32(5)",
-			types.I32(),
-			OpI32Const,
-			int32(5),
-			OpI32Const,
-			int32(-1),
-			OpI32Xor,
-			OpI32Const,
-			int32(-1),
-			OpI32Xor,
-		),
 	)
 
 	DescribeTable("should compile series unary expressions",
@@ -289,12 +215,6 @@ var _ = Describe("Unary Operations", func() {
 			types.Series(types.I32()),
 			OpLocalGet, 0, OpCall, uint32(0),
 		),
-
-		Entry("bitwise not integer series", "~a",
-			[]symbol.Symbol{seriesSymbol("a", types.I64(), 0)},
-			types.Series(types.I64()),
-			OpLocalGet, 0, OpCall, uint32(0),
-		),
 	)
 
 	DescribeTable(
@@ -304,16 +224,6 @@ var _ = Describe("Unary Operations", func() {
 			"logical NOT on a non-bool series",
 			"not s",
 			"logical NOT on series requires a bool element type, got i64",
-		),
-		Entry(
-			"~ on a float operand",
-			"~1.5",
-			"operator ~ requires an integer operand, got f64",
-		),
-		Entry(
-			"~ operand compile error propagates",
-			"~(f & 1.0)",
-			"bitwise operators require integer series elements",
 		),
 	)
 })

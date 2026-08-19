@@ -254,25 +254,6 @@ var _ = Describe("Semantic Tokens", func() {
 			},
 		)
 
-		It(
-			"routes bitwise operators to the operator token type",
-			func(ctx SpecContext) {
-				OpenArcDocument(server, ctx, uri, `x := 12 & ~10 | 3 ^ 1`)
-				tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
-				// :=, &, ~, |, ^
-				Expect(filterByType(tokens, tokenTypeOperator)).To(HaveLen(5))
-			},
-		)
-
-		It(
-			"routes shift operators to the operator token type",
-			func(ctx SpecContext) {
-				OpenArcDocument(server, ctx, uri, `x := 1 << 2 >> 3`)
-				tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
-				// :=, <<, >>
-				Expect(filterByType(tokens, tokenTypeOperator)).To(HaveLen(3))
-			},
-		)
 	})
 
 	Describe("Numeric-literal unit suffixes", func() {

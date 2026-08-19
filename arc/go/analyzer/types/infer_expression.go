@@ -55,110 +55,19 @@ func InferLogicalOr(
 func InferLogicalAnd(
 	ctx context.Context[parser.ILogicalAndExpressionContext],
 ) types.Type {
-	bitwiseOrs := ctx.AST.AllBitwiseOrExpression()
-	if len(bitwiseOrs) > 1 {
-		for _, b := range bitwiseOrs {
-			if InferBitwiseOr(context.Child(ctx, b)).Kind == types.KindSeries {
+	eqs := ctx.AST.AllEqualityExpression()
+	if len(eqs) > 1 {
+		for _, e := range eqs {
+			if InferEquality(context.Child(ctx, e)).Kind == types.KindSeries {
 				return types.Series(types.Bool())
 			}
 		}
 		return types.Bool()
 	}
-	if len(bitwiseOrs) == 1 {
-		return InferBitwiseOr(context.Child(ctx, bitwiseOrs[0]))
-	}
-	return types.Type{}
-}
-
-// InferBitwiseOr types a bitwise '|'. Bitwise ops preserve the integer operand
-// type; a series operand makes the result element-wise.
-func InferBitwiseOr(
-	ctx context.Context[parser.IBitwiseOrExpressionContext],
-) types.Type {
-	xors := ctx.AST.AllBitwiseXorExpression()
-	if len(xors) == 0 {
-		return types.Type{}
-	}
-	if len(xors) == 1 {
-		return InferBitwiseXor(context.Child(ctx, xors[0]))
-	}
-	first := InferBitwiseXor(context.Child(ctx, xors[0]))
-	isSeries := first.Kind == types.KindSeries
-	elemType := first.Unwrap()
-	for i := 1; i < len(xors); i++ {
-		next := InferBitwiseXor(context.Child(ctx, xors[i]))
-		if next.Kind == types.KindSeries {
-			isSeries = true
-		}
-		var early bool
-		if elemType, early = inferBinaryType(elemType, next.Unwrap()); early {
-			break
-		}
-	}
-	if isSeries {
-		return types.Series(elemType)
-	}
-	return elemType
-}
-
-// InferBitwiseXor types a bitwise '^'. See InferBitwiseOr.
-func InferBitwiseXor(
-	ctx context.Context[parser.IBitwiseXorExpressionContext],
-) types.Type {
-	ands := ctx.AST.AllBitwiseAndExpression()
-	if len(ands) == 0 {
-		return types.Type{}
-	}
-	if len(ands) == 1 {
-		return InferBitwiseAnd(context.Child(ctx, ands[0]))
-	}
-	first := InferBitwiseAnd(context.Child(ctx, ands[0]))
-	isSeries := first.Kind == types.KindSeries
-	elemType := first.Unwrap()
-	for i := 1; i < len(ands); i++ {
-		next := InferBitwiseAnd(context.Child(ctx, ands[i]))
-		if next.Kind == types.KindSeries {
-			isSeries = true
-		}
-		var early bool
-		if elemType, early = inferBinaryType(elemType, next.Unwrap()); early {
-			break
-		}
-	}
-	if isSeries {
-		return types.Series(elemType)
-	}
-	return elemType
-}
-
-// InferBitwiseAnd types a bitwise '&'. See InferBitwiseOr.
-func InferBitwiseAnd(
-	ctx context.Context[parser.IBitwiseAndExpressionContext],
-) types.Type {
-	eqs := ctx.AST.AllEqualityExpression()
-	if len(eqs) == 0 {
-		return types.Type{}
-	}
 	if len(eqs) == 1 {
 		return InferEquality(context.Child(ctx, eqs[0]))
 	}
-	first := InferEquality(context.Child(ctx, eqs[0]))
-	isSeries := first.Kind == types.KindSeries
-	elemType := first.Unwrap()
-	for i := 1; i < len(eqs); i++ {
-		next := InferEquality(context.Child(ctx, eqs[i]))
-		if next.Kind == types.KindSeries {
-			isSeries = true
-		}
-		var early bool
-		if elemType, early = inferBinaryType(elemType, next.Unwrap()); early {
-			break
-		}
-	}
-	if isSeries {
-		return types.Series(elemType)
-	}
-	return elemType
+	return types.Type{}
 }
 
 func InferEquality(ctx context.Context[parser.IEqualityExpressionContext]) types.Type {
@@ -182,47 +91,19 @@ func InferEquality(ctx context.Context[parser.IEqualityExpressionContext]) types
 func InferRelational(
 	ctx context.Context[parser.IRelationalExpressionContext],
 ) types.Type {
-	shifts := ctx.AST.AllShiftExpression()
-	if len(shifts) > 1 {
-		for _, s := range shifts {
-			if InferShift(context.Child(ctx, s)).Kind == types.KindSeries {
+	additives := ctx.AST.AllAdditiveExpression()
+	if len(additives) > 1 {
+		for _, a := range additives {
+			if InferAdditive(context.Child(ctx, a)).Kind == types.KindSeries {
 				return types.Series(types.Bool())
 			}
 		}
 		return types.Bool()
 	}
-	if len(shifts) == 1 {
-		return InferShift(context.Child(ctx, shifts[0]))
-	}
-	return types.Type{}
-}
-
-// InferShift types a bitwise shift. See InferBitwiseOr.
-func InferShift(ctx context.Context[parser.IShiftExpressionContext]) types.Type {
-	additives := ctx.AST.AllAdditiveExpression()
-	if len(additives) == 0 {
-		return types.Type{}
-	}
 	if len(additives) == 1 {
 		return InferAdditive(context.Child(ctx, additives[0]))
 	}
-	first := InferAdditive(context.Child(ctx, additives[0]))
-	isSeries := first.Kind == types.KindSeries
-	elemType := first.Unwrap()
-	for i := 1; i < len(additives); i++ {
-		next := InferAdditive(context.Child(ctx, additives[i]))
-		if next.Kind == types.KindSeries {
-			isSeries = true
-		}
-		var early bool
-		if elemType, early = inferBinaryType(elemType, next.Unwrap()); early {
-			break
-		}
-	}
-	if isSeries {
-		return types.Series(elemType)
-	}
-	return elemType
+	return types.Type{}
 }
 
 func inferBinaryType(elemType, nextElem types.Type) (types.Type, bool) {

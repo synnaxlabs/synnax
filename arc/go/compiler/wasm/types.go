@@ -145,42 +145,6 @@ func binaryOpcode(op string, t types.Type) (Opcode, error) {
 		}
 		return OpI32RemS, nil
 
-	case "&":
-		if is64bit {
-			return OpI64And, nil
-		}
-		return OpI32And, nil
-
-	case "^":
-		if is64bit {
-			return OpI64Xor, nil
-		}
-		return OpI32Xor, nil
-
-	case "|":
-		if is64bit {
-			return OpI64Or, nil
-		}
-		return OpI32Or, nil
-
-	case "<<":
-		if is64bit {
-			return OpI64Shl, nil
-		}
-		return OpI32Shl, nil
-
-	case ">>":
-		if strings.HasPrefix(t.String(), "u") {
-			if is64bit {
-				return OpI64ShrU, nil
-			}
-			return OpI32ShrU, nil
-		}
-		if is64bit {
-			return OpI64ShrS, nil
-		}
-		return OpI32ShrS, nil
-
 	case "==":
 		if isFloat {
 			if is64bit {

@@ -99,26 +99,6 @@ func NewSymbols() []*symbol.Symbol {
 		symbol.InternalHostFunc("or", seriesBinIn, resultOut),
 		symbol.InternalHostFunc("and_scalar", scalarArithIn, resultOut),
 		symbol.InternalHostFunc("or_scalar", scalarArithIn, resultOut),
-		symbol.InternalHostFunc("element_band", scalarArithIn, resultOut),
-		symbol.InternalHostFunc("element_bor", scalarArithIn, resultOut),
-		symbol.InternalHostFunc("element_bxor", scalarArithIn, resultOut),
-		symbol.InternalHostFunc("element_shl", scalarArithIn, resultOut),
-		symbol.InternalHostFunc("element_shr", scalarArithIn, resultOut),
-		symbol.InternalHostFunc("element_rband", rScalarIn, resultOut),
-		symbol.InternalHostFunc("element_rbor", rScalarIn, resultOut),
-		symbol.InternalHostFunc("element_rbxor", rScalarIn, resultOut),
-		symbol.InternalHostFunc("element_rshl", rScalarIn, resultOut),
-		symbol.InternalHostFunc("element_rshr", rScalarIn, resultOut),
-		symbol.InternalHostFunc("series_band", seriesBinIn, resultOut),
-		symbol.InternalHostFunc("series_bor", seriesBinIn, resultOut),
-		symbol.InternalHostFunc("series_bxor", seriesBinIn, resultOut),
-		symbol.InternalHostFunc("series_shl", seriesBinIn, resultOut),
-		symbol.InternalHostFunc("series_shr", seriesBinIn, resultOut),
-		symbol.InternalHostFunc(
-			"bnot",
-			types.Params{{Name: "handle", Type: i32}},
-			resultOut,
-		),
 		symbol.InternalHostFunc(
 			"create_empty",
 			types.Params{{Name: "len", Type: i32}},
@@ -351,190 +331,11 @@ type seriesOps[T any] struct {
 	negate     func(telem.Series, *telem.Series) // nil for unsigned types
 }
 
-// bitwiseOps bundles the op package bitwise kernels for a single integer type.
-type bitwiseOps[T any] struct {
-	bandScalar func(telem.Series, T, *telem.Series)
-	borScalar  func(telem.Series, T, *telem.Series)
-	bxorScalar func(telem.Series, T, *telem.Series)
-	shlScalar  func(telem.Series, T, *telem.Series)
-	shrScalar  func(telem.Series, T, *telem.Series)
-	rShlScalar func(telem.Series, T, *telem.Series)
-	rShrScalar func(telem.Series, T, *telem.Series)
-	band       func(telem.Series, telem.Series, *telem.Series)
-	bor        func(telem.Series, telem.Series, *telem.Series)
-	bxor       func(telem.Series, telem.Series, *telem.Series)
-	shl        func(telem.Series, telem.Series, *telem.Series)
-	shr        func(telem.Series, telem.Series, *telem.Series)
-	bnot       func(telem.Series, *telem.Series)
-}
-
-// bindBitwiseSeries registers the series-to-series bitwise host functions.
-func bindBitwiseSeries[T any](
-	builder wazero.HostModuleBuilder,
-	s *ProgramState,
-	suffix string,
-	ops bitwiseOps[T],
-) wazero.HostModuleBuilder {
-	for _, entry := range []struct {
-		name string
-		fn   func(telem.Series, telem.Series, *telem.Series)
-	}{
-		{"series_band_", ops.band},
-		{"series_bor_", ops.bor},
-		{"series_bxor_", ops.bxor},
-		{"series_shl_", ops.shl},
-		{"series_shr_", ops.shr},
-	} {
-		builder = bindSeriesBinary(
-			builder,
-			s,
-			entry.name+suffix,
-			"bitwise operation",
-			telem.UnknownT,
-			entry.fn,
-		)
-	}
-	return builder
-}
-
-// bindBitNot registers bnot_<suffix>, the element-wise bitwise complement.
-func bindBitNot(
-	builder wazero.HostModuleBuilder,
-	s *ProgramState,
-	suffix string,
-	fn func(telem.Series, *telem.Series),
-) wazero.HostModuleBuilder {
-	return builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, handle uint32) uint32 {
-			ser, ok := s.Get(handle)
-			if !ok {
-				return 0
-			}
-			result := telem.Series{DataType: ser.DataType}
-			fn(ser, &result)
-			return s.Store(result)
-		}).Export("bnot_" + suffix)
-}
-
-// bindBitwiseI32 registers the bitwise host functions for integer types that
-// map to i32 in WASM. The commutative reverse forms reuse the forward scalar
-// kernels; only the shifts have dedicated reverse kernels.
-func bindBitwiseI32[T i32Scalar](
-	builder wazero.HostModuleBuilder,
-	s *ProgramState,
-	suffix string,
-	ops bitwiseOps[T],
-) wazero.HostModuleBuilder {
-	for _, entry := range []struct {
-		name string
-		fn   func(telem.Series, T, *telem.Series)
-	}{
-		{"element_band_", ops.bandScalar},
-		{"element_bor_", ops.borScalar},
-		{"element_bxor_", ops.bxorScalar},
-		{"element_shl_", ops.shlScalar},
-		{"element_shr_", ops.shrScalar},
-	} {
-		fn := entry.fn
-		builder = builder.NewFunctionBuilder().
-			WithFunc(func(_ context.Context, handle, scalar uint32) uint32 {
-				ser, ok := s.Get(handle)
-				if !ok {
-					return 0
-				}
-				result := telem.Series{DataType: ser.DataType}
-				fn(ser, T(scalar), &result)
-				return s.Store(result)
-			}).Export(entry.name + suffix)
-	}
-	for _, entry := range []struct {
-		name string
-		fn   func(telem.Series, T, *telem.Series)
-	}{
-		{"element_rband_", ops.bandScalar},
-		{"element_rbor_", ops.borScalar},
-		{"element_rbxor_", ops.bxorScalar},
-		{"element_rshl_", ops.rShlScalar},
-		{"element_rshr_", ops.rShrScalar},
-	} {
-		fn := entry.fn
-		builder = builder.NewFunctionBuilder().
-			WithFunc(func(_ context.Context, scalar, handle uint32) uint32 {
-				ser, ok := s.Get(handle)
-				if !ok {
-					return 0
-				}
-				result := telem.Series{DataType: ser.DataType}
-				fn(ser, T(scalar), &result)
-				return s.Store(result)
-			}).Export(entry.name + suffix)
-	}
-	builder = bindBitwiseSeries(builder, s, suffix, ops)
-	return bindBitNot(builder, s, suffix, ops.bnot)
-}
-
-// bindBitwiseI64 registers the bitwise host functions for integer types that
-// map to i64 in WASM.
-func bindBitwiseI64[T uint64 | int64](
-	builder wazero.HostModuleBuilder,
-	s *ProgramState,
-	suffix string,
-	ops bitwiseOps[T],
-) wazero.HostModuleBuilder {
-	for _, entry := range []struct {
-		name string
-		fn   func(telem.Series, T, *telem.Series)
-	}{
-		{"element_band_", ops.bandScalar},
-		{"element_bor_", ops.borScalar},
-		{"element_bxor_", ops.bxorScalar},
-		{"element_shl_", ops.shlScalar},
-		{"element_shr_", ops.shrScalar},
-	} {
-		fn := entry.fn
-		builder = builder.NewFunctionBuilder().
-			WithFunc(func(_ context.Context, handle uint32, scalar uint64) uint32 {
-				ser, ok := s.Get(handle)
-				if !ok {
-					return 0
-				}
-				result := telem.Series{DataType: ser.DataType}
-				fn(ser, T(scalar), &result)
-				return s.Store(result)
-			}).Export(entry.name + suffix)
-	}
-	for _, entry := range []struct {
-		name string
-		fn   func(telem.Series, T, *telem.Series)
-	}{
-		{"element_rband_", ops.bandScalar},
-		{"element_rbor_", ops.borScalar},
-		{"element_rbxor_", ops.bxorScalar},
-		{"element_rshl_", ops.rShlScalar},
-		{"element_rshr_", ops.rShrScalar},
-	} {
-		fn := entry.fn
-		builder = builder.NewFunctionBuilder().
-			WithFunc(func(_ context.Context, scalar uint64, handle uint32) uint32 {
-				ser, ok := s.Get(handle)
-				if !ok {
-					return 0
-				}
-				result := telem.Series{DataType: ser.DataType}
-				fn(ser, T(scalar), &result)
-				return s.Store(result)
-			}).Export(entry.name + suffix)
-	}
-	builder = bindBitwiseSeries(builder, s, suffix, ops)
-	return bindBitNot(builder, s, suffix, ops.bnot)
-}
-
 func bindI32Type[T i32Scalar](
 	builder wazero.HostModuleBuilder,
 	s *ProgramState,
 	suffix string,
 	ops seriesOps[T],
-	bw bitwiseOps[T],
 ) wazero.HostModuleBuilder {
 	dt := ops.dt
 	builder = bindCreateEmpty(builder, s, suffix, dt)
@@ -561,7 +362,6 @@ func bindI32Type[T i32Scalar](
 	builder = bindSeriesOps(builder, s, suffix, ops)
 	builder = bindCompareOps(builder, s, suffix, ops)
 	builder = bindCompareScalarI32(builder, s, suffix, ops)
-	builder = bindBitwiseI32(builder, s, suffix, bw)
 	if ops.negate != nil {
 		builder = bindNegate(builder, s, suffix, ops.negate)
 	}
@@ -775,7 +575,6 @@ func bindI64Type[T uint64 | int64](
 	suffix string,
 	dt telem.DataType,
 	ops seriesOps[T],
-	bw bitwiseOps[T],
 ) wazero.HostModuleBuilder {
 	builder = bindCreateEmpty(builder, s, suffix, dt)
 	builder = builder.NewFunctionBuilder().
@@ -888,7 +687,6 @@ func bindI64Type[T uint64 | int64](
 
 	builder = bindSeriesOps(builder, s, suffix, ops)
 	builder = bindCompareOps(builder, s, suffix, ops)
-	builder = bindBitwiseI64(builder, s, suffix, bw)
 	if ops.negate != nil {
 		builder = bindNegate(builder, s, suffix, ops.negate)
 	}
@@ -1040,15 +838,6 @@ func bindU8(
 		geScalar: op.GreaterThanOrEqualScalarU8,
 		leScalar: op.LessThanOrEqualScalarU8,
 		eqScalar: op.EqualScalarU8, neScalar: op.NotEqualScalarU8,
-	}, bitwiseOps[uint8]{
-		bandScalar: op.BitAndScalarU8, borScalar: op.BitOrScalarU8,
-		bxorScalar: op.BitXorScalarU8, shlScalar: op.ShiftLeftScalarU8,
-		shrScalar:  op.ShiftRightScalarU8,
-		rShlScalar: op.ReverseShiftLeftScalarU8,
-		rShrScalar: op.ReverseShiftRightScalarU8,
-		band:       op.BitAndU8, bor: op.BitOrU8, bxor: op.BitXorU8,
-		shl: op.ShiftLeftU8, shr: op.ShiftRightU8,
-		bnot: op.BitNotU8,
 	})
 }
 
@@ -1072,15 +861,6 @@ func bindU16(
 		geScalar: op.GreaterThanOrEqualScalarU16,
 		leScalar: op.LessThanOrEqualScalarU16,
 		eqScalar: op.EqualScalarU16, neScalar: op.NotEqualScalarU16,
-	}, bitwiseOps[uint16]{
-		bandScalar: op.BitAndScalarU16, borScalar: op.BitOrScalarU16,
-		bxorScalar: op.BitXorScalarU16, shlScalar: op.ShiftLeftScalarU16,
-		shrScalar:  op.ShiftRightScalarU16,
-		rShlScalar: op.ReverseShiftLeftScalarU16,
-		rShrScalar: op.ReverseShiftRightScalarU16,
-		band:       op.BitAndU16, bor: op.BitOrU16, bxor: op.BitXorU16,
-		shl: op.ShiftLeftU16, shr: op.ShiftRightU16,
-		bnot: op.BitNotU16,
 	})
 }
 
@@ -1104,15 +884,6 @@ func bindU32(
 		geScalar: op.GreaterThanOrEqualScalarU32,
 		leScalar: op.LessThanOrEqualScalarU32,
 		eqScalar: op.EqualScalarU32, neScalar: op.NotEqualScalarU32,
-	}, bitwiseOps[uint32]{
-		bandScalar: op.BitAndScalarU32, borScalar: op.BitOrScalarU32,
-		bxorScalar: op.BitXorScalarU32, shlScalar: op.ShiftLeftScalarU32,
-		shrScalar:  op.ShiftRightScalarU32,
-		rShlScalar: op.ReverseShiftLeftScalarU32,
-		rShrScalar: op.ReverseShiftRightScalarU32,
-		band:       op.BitAndU32, bor: op.BitOrU32, bxor: op.BitXorU32,
-		shl: op.ShiftLeftU32, shr: op.ShiftRightU32,
-		bnot: op.BitNotU32,
 	})
 }
 
@@ -1137,15 +908,6 @@ func bindI8(
 		leScalar: op.LessThanOrEqualScalarI8,
 		eqScalar: op.EqualScalarI8, neScalar: op.NotEqualScalarI8,
 		negate: op.NegateI8,
-	}, bitwiseOps[int8]{
-		bandScalar: op.BitAndScalarI8, borScalar: op.BitOrScalarI8,
-		bxorScalar: op.BitXorScalarI8, shlScalar: op.ShiftLeftScalarI8,
-		shrScalar:  op.ShiftRightScalarI8,
-		rShlScalar: op.ReverseShiftLeftScalarI8,
-		rShrScalar: op.ReverseShiftRightScalarI8,
-		band:       op.BitAndI8, bor: op.BitOrI8, bxor: op.BitXorI8,
-		shl: op.ShiftLeftI8, shr: op.ShiftRightI8,
-		bnot: op.BitNotI8,
 	})
 }
 
@@ -1170,15 +932,6 @@ func bindI16(
 		leScalar: op.LessThanOrEqualScalarI16,
 		eqScalar: op.EqualScalarI16, neScalar: op.NotEqualScalarI16,
 		negate: op.NegateI16,
-	}, bitwiseOps[int16]{
-		bandScalar: op.BitAndScalarI16, borScalar: op.BitOrScalarI16,
-		bxorScalar: op.BitXorScalarI16, shlScalar: op.ShiftLeftScalarI16,
-		shrScalar:  op.ShiftRightScalarI16,
-		rShlScalar: op.ReverseShiftLeftScalarI16,
-		rShrScalar: op.ReverseShiftRightScalarI16,
-		band:       op.BitAndI16, bor: op.BitOrI16, bxor: op.BitXorI16,
-		shl: op.ShiftLeftI16, shr: op.ShiftRightI16,
-		bnot: op.BitNotI16,
 	})
 }
 
@@ -1203,15 +956,6 @@ func bindI32(
 		leScalar: op.LessThanOrEqualScalarI32,
 		eqScalar: op.EqualScalarI32, neScalar: op.NotEqualScalarI32,
 		negate: op.NegateI32,
-	}, bitwiseOps[int32]{
-		bandScalar: op.BitAndScalarI32, borScalar: op.BitOrScalarI32,
-		bxorScalar: op.BitXorScalarI32, shlScalar: op.ShiftLeftScalarI32,
-		shrScalar:  op.ShiftRightScalarI32,
-		rShlScalar: op.ReverseShiftLeftScalarI32,
-		rShrScalar: op.ReverseShiftRightScalarI32,
-		band:       op.BitAndI32, bor: op.BitOrI32, bxor: op.BitXorI32,
-		shl: op.ShiftLeftI32, shr: op.ShiftRightI32,
-		bnot: op.BitNotI32,
 	})
 }
 
@@ -1235,15 +979,6 @@ func bindU64(
 		geScalar: op.GreaterThanOrEqualScalarU64,
 		leScalar: op.LessThanOrEqualScalarU64,
 		eqScalar: op.EqualScalarU64, neScalar: op.NotEqualScalarU64,
-	}, bitwiseOps[uint64]{
-		bandScalar: op.BitAndScalarU64, borScalar: op.BitOrScalarU64,
-		bxorScalar: op.BitXorScalarU64, shlScalar: op.ShiftLeftScalarU64,
-		shrScalar:  op.ShiftRightScalarU64,
-		rShlScalar: op.ReverseShiftLeftScalarU64,
-		rShrScalar: op.ReverseShiftRightScalarU64,
-		band:       op.BitAndU64, bor: op.BitOrU64, bxor: op.BitXorU64,
-		shl: op.ShiftLeftU64, shr: op.ShiftRightU64,
-		bnot: op.BitNotU64,
 	})
 }
 
@@ -1268,15 +1003,6 @@ func bindI64(
 		leScalar: op.LessThanOrEqualScalarI64,
 		eqScalar: op.EqualScalarI64, neScalar: op.NotEqualScalarI64,
 		negate: op.NegateI64,
-	}, bitwiseOps[int64]{
-		bandScalar: op.BitAndScalarI64, borScalar: op.BitOrScalarI64,
-		bxorScalar: op.BitXorScalarI64, shlScalar: op.ShiftLeftScalarI64,
-		shrScalar:  op.ShiftRightScalarI64,
-		rShlScalar: op.ReverseShiftLeftScalarI64,
-		rShrScalar: op.ReverseShiftRightScalarI64,
-		band:       op.BitAndI64, bor: op.BitOrI64, bxor: op.BitXorI64,
-		shl: op.ShiftLeftI64, shr: op.ShiftRightI64,
-		bnot: op.BitNotI64,
 	})
 }
 

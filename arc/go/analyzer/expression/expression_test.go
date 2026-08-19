@@ -107,51 +107,6 @@ var _ = Describe("Expressions", func() {
 					c := a or b
 				}
 			`),
-			Entry("bitwise AND on integers", `
-				func testFunc() {
-					a i32 := 12
-					b i32 := 10
-					c := a & b
-				}
-			`),
-			Entry("bitwise OR on integers", `
-				func testFunc() {
-					a i32 := 12
-					b i32 := 10
-					c := a | b
-				}
-			`),
-			Entry("bitwise XOR on integers", `
-				func testFunc() {
-					a i32 := 12
-					b i32 := 10
-					c := a ^ b
-				}
-			`),
-			Entry("bitwise AND on untyped integer constants", `
-				func testFunc() {
-					c := 12 & 10
-				}
-			`),
-			Entry("left shift on integers", `
-				func testFunc() {
-					a i32 := 1
-					b i32 := 4
-					c := a << b
-				}
-			`),
-			Entry("right shift on integers", `
-				func testFunc() {
-					a i32 := 16
-					b i32 := 2
-					c := a >> b
-				}
-			`),
-			Entry("left shift on untyped integer constants", `
-				func testFunc() {
-					c := 1 << 4
-				}
-			`),
 			Entry("multiple additions", `
 				func testFunc() {
 					a i32 := 1
@@ -303,143 +258,6 @@ var _ = Describe("Expressions", func() {
 				}
 			`, "integer", "or"),
 		)
-
-		DescribeTable("invalid bitwise operations on non-integers",
-			func(ctx SpecContext, code, typeName, operator string) {
-				expectOperatorTypeError(ctx, code, typeName, operator)
-			},
-			Entry("AND on bool", `
-				func testFunc() {
-					x bool := true
-					y bool := false
-					z := x & y
-				}
-			`, "bool", "&"),
-			Entry("OR on bool", `
-				func testFunc() {
-					x bool := true
-					y bool := false
-					z := x | y
-				}
-			`, "bool", "|"),
-			Entry("AND on f64", `
-				func testFunc() {
-					x f64 := 1.0
-					y f64 := 2.0
-					z := x & y
-				}
-			`, "f64", "&"),
-			Entry("OR on f64", `
-				func testFunc() {
-					x f64 := 1.0
-					y f64 := 2.0
-					z := x | y
-				}
-			`, "f64", "|"),
-			Entry("XOR on bool", `
-				func testFunc() {
-					x bool := true
-					y bool := false
-					z := x ^ y
-				}
-			`, "bool", "^"),
-			Entry("XOR on f64", `
-				func testFunc() {
-					x f64 := 1.0
-					y f64 := 2.0
-					z := x ^ y
-				}
-			`, "f64", "^"),
-			Entry("AND on untyped float constants", `
-				func testFunc() {
-					z := 1.5 & 2.5
-				}
-			`, "float", "&"),
-			Entry("left shift on bool", `
-				func testFunc() {
-					x bool := true
-					y bool := false
-					z := x << y
-				}
-			`, "bool", "<<"),
-			Entry("right shift on bool", `
-				func testFunc() {
-					x bool := true
-					y bool := false
-					z := x >> y
-				}
-			`, "bool", ">>"),
-			Entry("left shift on f64", `
-				func testFunc() {
-					x f64 := 1.0
-					y f64 := 2.0
-					z := x << y
-				}
-			`, "f64", "<<"),
-			Entry("right shift on f64", `
-				func testFunc() {
-					x f64 := 1.0
-					y f64 := 2.0
-					z := x >> y
-				}
-			`, "f64", ">>"),
-			Entry("left shift on untyped float constants", `
-				func testFunc() {
-					z := 1.5 << 2.5
-				}
-			`, "float", "<<"),
-			Entry("AND on f64 series", `
-				func testFunc() {
-					x series f64 := [1.0, 2.0]
-					y series f64 := [3.0, 4.0]
-					z := x & y
-				}
-			`, "f64", "&"),
-			Entry("left shift on f64 series", `
-				func testFunc() {
-					x series f64 := [1.0, 2.0]
-					y series f64 := [3.0, 4.0]
-					z := x << y
-				}
-			`, "f64", "<<"),
-		)
-
-		Describe("Xor transition warning", func() {
-			It("Should warn that ^ is now bitwise xor", func(ctx SpecContext) {
-				ast := MustSucceed(parser.Parse(`
-					func testFunc() {
-						a i32 := 12
-						b i32 := 10
-						c := a ^ b
-					}
-				`))
-				aCtx := context.NewRoot(ctx, ast, NewRoot(nil))
-				analyzer.AnalyzeProgram(aCtx)
-				Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
-				warnings := aCtx.Diagnostics.Warnings()
-				Expect(warnings).To(HaveLen(1))
-				Expect(warnings[0].Message).To(
-					Equal("^ is now bitwise xor; use ** for exponent"))
-			})
-
-			It(
-				"Should not warn on bitwise expressions without ^",
-				func(ctx SpecContext) {
-					ast := MustSucceed(parser.Parse(`
-					func testFunc() {
-						a i32 := 12
-						b i32 := 10
-						c := a & b | a
-					}
-				`))
-					aCtx := context.NewRoot(ctx, ast, NewRoot(nil))
-					analyzer.AnalyzeProgram(aCtx)
-					Expect(
-						aCtx.Diagnostics.Empty(),
-					).To(BeTrue(), aCtx.Diagnostics.String())
-				},
-			)
-		})
 
 		DescribeTable("type mismatch errors",
 			func(ctx SpecContext, code, expectedErrSubstring string) {
@@ -639,47 +457,6 @@ var _ = Describe("Expressions", func() {
 				`),
 			)
 
-			DescribeTable("valid series bitwise operations",
-				func(ctx SpecContext, code string) { expectSuccess(ctx, code, nil) },
-				Entry("series and series", `
-					func testFunc() {
-						a series i64 := [12, 10]
-						b series i64 := [10, 6]
-						c := a & b
-					}
-				`),
-				Entry("series or scalar", `
-					func testFunc() {
-						a series i64 := [12, 10]
-						c := a | 1
-					}
-				`),
-				Entry("scalar xor series", `
-					func testFunc() {
-						a series i64 := [12, 10]
-						c := 3 ^ a
-					}
-				`),
-				Entry("series left shift series", `
-					func testFunc() {
-						a series i64 := [1, 2]
-						b series i64 := [4, 3]
-						c := a << b
-					}
-				`),
-				Entry("series right shift scalar", `
-					func testFunc() {
-						a series i64 := [16, 8]
-						c := a >> 2
-					}
-				`),
-				Entry("bitwise not series", `
-					func testFunc() {
-						a series i64 := [12, 10]
-						c := ~a
-					}
-				`),
-			)
 		})
 	})
 
@@ -750,29 +527,6 @@ var _ = Describe("Expressions", func() {
 					y := -x
 				}
 			`),
-			Entry("bitwise not on integer", `
-				func testFunc() {
-					x i32 := 5
-					y := ~x
-				}
-			`),
-			Entry("double bitwise not", `
-				func testFunc() {
-					x i32 := 5
-					y := ~~x
-				}
-			`),
-			Entry("bitwise not on unsigned integer", `
-				func testFunc() {
-					x u32 := 5
-					y := ~x
-				}
-			`),
-			Entry("bitwise not on untyped integer constant", `
-				func testFunc() {
-					y := ~1
-				}
-			`),
 		)
 
 		DescribeTable("invalid unary operations",
@@ -803,35 +557,6 @@ var _ = Describe("Expressions", func() {
 					y := not x
 				}
 			`, "operator 'not' requires boolean operand"),
-			Entry("bitwise not on bool", `
-				func testFunc() {
-					x bool := true
-					y := ~x
-				}
-			`, "operator ~ requires integer operand"),
-			Entry("bitwise not on f64 series", `
-				func testFunc() {
-					x series f64 := [1.0, 2.0]
-					y := ~x
-				}
-			`, "operator ~ requires integer operand"),
-			Entry("bitwise not on float", `
-				func testFunc() {
-					x f64 := 1.0
-					y := ~x
-				}
-			`, "operator ~ requires integer operand"),
-			Entry("bitwise not on string", `
-				func testFunc() {
-					x str := "hello"
-					y := ~x
-				}
-			`, "operator ~ requires integer operand"),
-			Entry("bitwise not on untyped float constant", `
-				func testFunc() {
-					y := ~1.5
-				}
-			`, "operator ~ requires integer operand, received float"),
 		)
 	})
 
@@ -1545,41 +1270,6 @@ var _ = Describe("Expressions", func() {
 					z := x or y
 				}
 			`, "cannot use u8 in or operation"),
-			Entry("bool in &", `
-				func testFunc() {
-					x bool := true
-					y bool := false
-					z := x & y
-				}
-			`, "cannot use bool in & operation"),
-			Entry("bool in |", `
-				func testFunc() {
-					x bool := true
-					y bool := false
-					z := x | y
-				}
-			`, "cannot use bool in | operation"),
-			Entry("bool in ^", `
-				func testFunc() {
-					x bool := true
-					y bool := false
-					z := x ^ y
-				}
-			`, "cannot use bool in ^ operation"),
-			Entry("bool in <<", `
-				func testFunc() {
-					x bool := true
-					y bool := false
-					z := x << y
-				}
-			`, "cannot use bool in << operation"),
-			Entry("bool in >>", `
-				func testFunc() {
-					x bool := true
-					y bool := false
-					z := x >> y
-				}
-			`, "cannot use bool in >> operation"),
 		)
 	})
 
@@ -1608,11 +1298,6 @@ var _ = Describe("Expressions", func() {
 			Entry("parenthesized expression", `(42) -> out`, false),
 			Entry("comparison expression", `1 > 0 -> out`, false),
 			Entry("logical expression", `1 and 0 -> out`, false),
-			Entry("bitwise not expression", `~1 -> out`, false),
-			Entry("bitwise expression", `1 & 0 -> out`, false),
-			Entry("bitwise xor expression", `1 ^ 0 -> out`, false),
-			Entry("left shift expression", `1 << 0 -> out`, false),
-			Entry("right shift expression", `1 >> 0 -> out`, false),
 			Entry("numeric literal with unit suffix", `5m -> out`, true),
 		)
 

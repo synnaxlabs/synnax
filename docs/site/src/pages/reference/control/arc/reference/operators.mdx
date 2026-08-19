@@ -2,8 +2,8 @@
 layout: "@/layouts/Reference.astro"
 title: "Operators"
 description:
-  "Arc operator reference for arithmetic, comparison, logical, bitwise, assignment, and
-  flow operators"
+  "Arc operator reference for arithmetic, comparison, logical, assignment, and flow
+  operators"
 prev: "Variables"
 prevURL: "/reference/control/arc/reference/variables"
 next: "Flow"
@@ -100,21 +100,6 @@ safe := b != 0 and (a / b) > 10
 
 <Divider.Divider x />
 
-## Bitwise Operators
-
-Bitwise operators take integer operands and return the operand type.
-
-| Operator | Name        | Example    | Result |
-| -------- | ----------- | ---------- | ------ |
-| `&`      | Bitwise AND | `12 & 10`  | `8`    |
-| `\|`     | Bitwise OR  | `12 \| 10` | `14`   |
-| `~`      | Bitwise NOT | `~12`      | `-13`  |
-| `^`      | Bitwise XOR | `12 ^ 10`  | `6`    |
-| `<<`     | Left shift  | `1 << 4`   | `16`   |
-| `>>`     | Right shift | `16 >> 4`  | `1`    |
-
-<Divider.Divider x />
-
 ## Assignment Operators
 
 | Operator | Name                | Example  | Equivalent  |
@@ -139,20 +124,16 @@ Bitwise operators take integer operands and return the operand type.
 
 Operators listed from highest to lowest precedence.
 
-| Precedence  | Operators               | Associativity |
-| ----------- | ----------------------- | ------------- |
-| 1 (highest) | `-` (unary), `not`, `~` | Right         |
-| 2           | `**`                    | Right         |
-| 3           | `*`, `/`, `%`           | Left          |
-| 4           | `+`, `-`                | Left          |
-| 5           | `<<`, `>>`              | Left          |
-| 6           | `<`, `>`, `<=`, `>=`    | Left          |
-| 7           | `==`, `!=`              | Left          |
-| 8           | `&`                     | Left          |
-| 9           | `^`                     | Left          |
-| 10          | `\|`                    | Left          |
-| 11          | `and`                   | Left          |
-| 12 (lowest) | `or`                    | Left          |
+| Precedence  | Operators            | Associativity |
+| ----------- | -------------------- | ------------- |
+| 1 (highest) | `-` (unary), `not`   | Right         |
+| 2           | `**`                 | Right         |
+| 3           | `*`, `/`, `%`        | Left          |
+| 4           | `+`, `-`             | Left          |
+| 5           | `<`, `>`, `<=`, `>=` | Left          |
+| 6           | `==`, `!=`           | Left          |
+| 7           | `and`                | Left          |
+| 8 (lowest)  | `or`                 | Left          |
 
 ### Precedence Examples
 
@@ -166,9 +147,6 @@ Operators listed from highest to lowest precedence.
 // Comparison before logical
 a > 5 and b < 10 // (a > 5) and (b < 10)
 
-// Bitwise binds looser than comparison; parenthesize
-is_set := (flags & 4) == 4
-
 // Use parentheses for clarity
 (a + b) * c
 ```
@@ -177,8 +155,7 @@ is_set := (flags & 4) == 4
 
 ## Series Operators
 
-Arithmetic, comparison, and logical operators work element-wise on series, as do bitwise
-operators on integer series.
+Arithmetic, comparison, and logical operators work element-wise on series.
 
 ```arc
 data := [1.0, 2.0, 3.0]

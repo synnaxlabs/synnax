@@ -28,7 +28,6 @@ import (
 
 func isBool(t basetypes.Type) bool    { return t.IsBool() }
 func isNumeric(t basetypes.Type) bool { return t.IsNumeric() }
-func isInteger(t basetypes.Type) bool { return t.IsInteger() }
 
 // resolveConstraint replaces an unresolved constant's type variable with its
 // constraint so operand checks can classify it. Concrete types pass through.
@@ -122,24 +121,6 @@ func Analyze(ctx context.Context[parser.IExpressionContext]) {
 	if logicalOr := ctx.AST.LogicalOrExpression(); logicalOr != nil {
 		analyzeLogicalOr(context.Child(ctx, logicalOr))
 	}
-}
-
-// isBitwiseNotOperand reports whether t is a valid ~ operand: an integer, an
-// integer channel or series, or an untyped integer constant.
-func isBitwiseNotOperand(t basetypes.Type) bool {
-	return isInteger(resolveConstraint(t.UnwrapChan().Unwrap()))
-}
-
-func getShiftOperator(ctx antlr.ParserRuleContext) string {
-	if shiftCtx, ok := ctx.(parser.IShiftExpressionContext); ok {
-		if len(shiftCtx.AllLSHIFT()) > 0 {
-			return "<<"
-		}
-		if len(shiftCtx.AllRSHIFT()) > 0 {
-			return ">>"
-		}
-	}
-	return "shift"
 }
 
 func getEqualityOperator(ctx antlr.ParserRuleContext) string {
@@ -300,39 +281,11 @@ func analyzeLogicalOr(ctx context.Context[parser.ILogicalOrExpressionContext]) {
 }
 
 func analyzeLogicalAnd(ctx context.Context[parser.ILogicalAndExpressionContext]) {
-	bitwiseOrs := ctx.AST.AllBitwiseOrExpression()
-	for _, bitwiseOr := range bitwiseOrs {
-		analyzeBitwiseOr(context.Child(ctx, bitwiseOr))
-	}
-	validateType(ctx, bitwiseOrs, "and", types.InferBitwiseOr, isBool)
-}
-
-func analyzeBitwiseOr(ctx context.Context[parser.IBitwiseOrExpressionContext]) {
-	bitwiseXors := ctx.AST.AllBitwiseXorExpression()
-	for _, bitwiseXor := range bitwiseXors {
-		analyzeBitwiseXor(context.Child(ctx, bitwiseXor))
-	}
-	validateType(ctx, bitwiseXors, "|", types.InferBitwiseXor, isInteger)
-}
-
-func analyzeBitwiseXor(ctx context.Context[parser.IBitwiseXorExpressionContext]) {
-	bitwiseAnds := ctx.AST.AllBitwiseAndExpression()
-	for _, bitwiseAnd := range bitwiseAnds {
-		analyzeBitwiseAnd(context.Child(ctx, bitwiseAnd))
-	}
-	validateType(ctx, bitwiseAnds, "^", types.InferBitwiseAnd, isInteger)
-	if len(bitwiseAnds) > 1 {
-		ctx.Diagnostics.Add(diagnostics.Warningf(ctx.AST,
-			"^ is now bitwise xor; use ** for exponent"))
-	}
-}
-
-func analyzeBitwiseAnd(ctx context.Context[parser.IBitwiseAndExpressionContext]) {
 	equalities := ctx.AST.AllEqualityExpression()
 	for _, equality := range equalities {
 		analyzeEquality(context.Child(ctx, equality))
 	}
-	validateType(ctx, equalities, "&", types.InferEquality, isInteger)
+	validateType(ctx, equalities, "and", types.InferEquality, isBool)
 }
 
 func analyzeEquality(ctx context.Context[parser.IEqualityExpressionContext]) {
@@ -350,20 +303,6 @@ func analyzeEquality(ctx context.Context[parser.IEqualityExpressionContext]) {
 }
 
 func analyzeRelational(ctx context.Context[parser.IRelationalExpressionContext]) {
-	shifts := ctx.AST.AllShiftExpression()
-	for _, shift := range shifts {
-		analyzeShift(context.Child(ctx, shift))
-	}
-	validateType(
-		ctx,
-		shifts,
-		getRelationalOperator(ctx.AST),
-		types.InferShift,
-		isNumeric,
-	)
-}
-
-func analyzeShift(ctx context.Context[parser.IShiftExpressionContext]) {
 	additives := ctx.AST.AllAdditiveExpression()
 	for _, additive := range additives {
 		analyzeAdditive(context.Child(ctx, additive))
@@ -371,9 +310,9 @@ func analyzeShift(ctx context.Context[parser.IShiftExpressionContext]) {
 	validateType(
 		ctx,
 		additives,
-		getShiftOperator(ctx.AST),
+		getRelationalOperator(ctx.AST),
 		types.InferAdditive,
-		isInteger,
+		isNumeric,
 	)
 }
 
@@ -461,17 +400,6 @@ func analyzeUnary(ctx context.Context[parser.IUnaryExpressionContext]) {
 					diagnostics.Errorf(
 						ctx.AST,
 						"operator 'not' requires boolean operand, received %s",
-						operandType,
-					),
-				)
-				return
-			}
-		} else if ctx.AST.TILDE() != nil {
-			if !isBitwiseNotOperand(operandType) {
-				ctx.Diagnostics.Add(
-					diagnostics.Errorf(
-						ctx.AST,
-						"operator ~ requires integer operand, received %s",
 						operandType,
 					),
 				)

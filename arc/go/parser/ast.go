@@ -36,24 +36,12 @@ func isNegatedLiteral(node antlr.ParserRuleContext) bool {
 		ands := ctx.AllLogicalAndExpression()
 		return len(ands) == 1 && isNegatedLiteral(ands[0])
 	case ILogicalAndExpressionContext:
-		ors := ctx.AllBitwiseOrExpression()
-		return len(ors) == 1 && isNegatedLiteral(ors[0])
-	case IBitwiseOrExpressionContext:
-		xors := ctx.AllBitwiseXorExpression()
-		return len(xors) == 1 && isNegatedLiteral(xors[0])
-	case IBitwiseXorExpressionContext:
-		ands := ctx.AllBitwiseAndExpression()
-		return len(ands) == 1 && isNegatedLiteral(ands[0])
-	case IBitwiseAndExpressionContext:
 		eqs := ctx.AllEqualityExpression()
 		return len(eqs) == 1 && isNegatedLiteral(eqs[0])
 	case IEqualityExpressionContext:
 		rels := ctx.AllRelationalExpression()
 		return len(rels) == 1 && isNegatedLiteral(rels[0])
 	case IRelationalExpressionContext:
-		shifts := ctx.AllShiftExpression()
-		return len(shifts) == 1 && isNegatedLiteral(shifts[0])
-	case IShiftExpressionContext:
 		adds := ctx.AllAdditiveExpression()
 		return len(adds) == 1 && isNegatedLiteral(adds[0])
 	case IAdditiveExpressionContext:
@@ -80,24 +68,12 @@ func isLiteral(node antlr.ParserRuleContext) bool {
 		ands := ctx.AllLogicalAndExpression()
 		return len(ands) == 1 && isLiteral(ands[0])
 	case ILogicalAndExpressionContext:
-		ors := ctx.AllBitwiseOrExpression()
-		return len(ors) == 1 && isLiteral(ors[0])
-	case IBitwiseOrExpressionContext:
-		xors := ctx.AllBitwiseXorExpression()
-		return len(xors) == 1 && isLiteral(xors[0])
-	case IBitwiseXorExpressionContext:
-		ands := ctx.AllBitwiseAndExpression()
-		return len(ands) == 1 && isLiteral(ands[0])
-	case IBitwiseAndExpressionContext:
 		eqs := ctx.AllEqualityExpression()
 		return len(eqs) == 1 && isLiteral(eqs[0])
 	case IEqualityExpressionContext:
 		rels := ctx.AllRelationalExpression()
 		return len(rels) == 1 && isLiteral(rels[0])
 	case IRelationalExpressionContext:
-		shifts := ctx.AllShiftExpression()
-		return len(shifts) == 1 && isLiteral(shifts[0])
-	case IShiftExpressionContext:
 		adds := ctx.AllAdditiveExpression()
 		return len(adds) == 1 && isLiteral(adds[0])
 	case IAdditiveExpressionContext:
@@ -141,21 +117,6 @@ func GetLiteralNode(node antlr.ParserRuleContext) ILiteralContext {
 			return GetLiteralNode(ands[0])
 		}
 	case ILogicalAndExpressionContext:
-		ors := ctx.AllBitwiseOrExpression()
-		if len(ors) == 1 {
-			return GetLiteralNode(ors[0])
-		}
-	case IBitwiseOrExpressionContext:
-		xors := ctx.AllBitwiseXorExpression()
-		if len(xors) == 1 {
-			return GetLiteralNode(xors[0])
-		}
-	case IBitwiseXorExpressionContext:
-		ands := ctx.AllBitwiseAndExpression()
-		if len(ands) == 1 {
-			return GetLiteralNode(ands[0])
-		}
-	case IBitwiseAndExpressionContext:
 		eqs := ctx.AllEqualityExpression()
 		if len(eqs) == 1 {
 			return GetLiteralNode(eqs[0])
@@ -166,11 +127,6 @@ func GetLiteralNode(node antlr.ParserRuleContext) ILiteralContext {
 			return GetLiteralNode(rels[0])
 		}
 	case IRelationalExpressionContext:
-		shifts := ctx.AllShiftExpression()
-		if len(shifts) == 1 {
-			return GetLiteralNode(shifts[0])
-		}
-	case IShiftExpressionContext:
 		adds := ctx.AllAdditiveExpression()
 		if len(adds) == 1 {
 			return GetLiteralNode(adds[0])
@@ -235,24 +191,12 @@ func isNumericLiteral(node antlr.ParserRuleContext) bool {
 		ands := ctx.AllLogicalAndExpression()
 		return len(ands) == 1 && isNumericLiteral(ands[0])
 	case ILogicalAndExpressionContext:
-		ors := ctx.AllBitwiseOrExpression()
-		return len(ors) == 1 && isNumericLiteral(ors[0])
-	case IBitwiseOrExpressionContext:
-		xors := ctx.AllBitwiseXorExpression()
-		return len(xors) == 1 && isNumericLiteral(xors[0])
-	case IBitwiseXorExpressionContext:
-		ands := ctx.AllBitwiseAndExpression()
-		return len(ands) == 1 && isNumericLiteral(ands[0])
-	case IBitwiseAndExpressionContext:
 		eqs := ctx.AllEqualityExpression()
 		return len(eqs) == 1 && isNumericLiteral(eqs[0])
 	case IEqualityExpressionContext:
 		rels := ctx.AllRelationalExpression()
 		return len(rels) == 1 && isNumericLiteral(rels[0])
 	case IRelationalExpressionContext:
-		shifts := ctx.AllShiftExpression()
-		return len(shifts) == 1 && isNumericLiteral(shifts[0])
-	case IShiftExpressionContext:
 		adds := ctx.AllAdditiveExpression()
 		return len(adds) == 1 && isNumericLiteral(adds[0])
 	case IAdditiveExpressionContext:
@@ -318,34 +262,18 @@ func GetPrimaryExpression(expr IExpressionContext) IPrimaryExpressionContext {
 		return nil
 	}
 	ands := logicalOr.AllLogicalAndExpression()[0]
-	if len(ands.AllBitwiseOrExpression()) != 1 {
+	if len(ands.AllEqualityExpression()) != 1 {
 		return nil
 	}
-	bitOr := ands.AllBitwiseOrExpression()[0]
-	if len(bitOr.AllBitwiseXorExpression()) != 1 {
-		return nil
-	}
-	bitXor := bitOr.AllBitwiseXorExpression()[0]
-	if len(bitXor.AllBitwiseAndExpression()) != 1 {
-		return nil
-	}
-	bitAnd := bitXor.AllBitwiseAndExpression()[0]
-	if len(bitAnd.AllEqualityExpression()) != 1 {
-		return nil
-	}
-	eq := bitAnd.AllEqualityExpression()[0]
+	eq := ands.AllEqualityExpression()[0]
 	if len(eq.AllRelationalExpression()) != 1 {
 		return nil
 	}
 	rel := eq.AllRelationalExpression()[0]
-	if len(rel.AllShiftExpression()) != 1 {
+	if len(rel.AllAdditiveExpression()) != 1 {
 		return nil
 	}
-	shift := rel.AllShiftExpression()[0]
-	if len(shift.AllAdditiveExpression()) != 1 {
-		return nil
-	}
-	add := shift.AllAdditiveExpression()[0]
+	add := rel.AllAdditiveExpression()[0]
 	if len(add.AllMultiplicativeExpression()) != 1 {
 		return nil
 	}

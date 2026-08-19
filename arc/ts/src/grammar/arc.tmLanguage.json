@@ -240,10 +240,6 @@
           "match": "=>"
         },
         {
-          "name": "keyword.operator.symbol.arc",
-          "match": "<<|>>|[&|^~]"
-        },
-        {
           "name": "keyword.operator.assignment.declare.arc",
           "match": ":="
         },
