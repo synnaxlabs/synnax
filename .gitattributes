@@ -1,9 +1,9 @@
-# Force LF on checkout everywhere: Windows runners default to autocrlf=true,
-# and gci rejects CRLF files as unformatted.
+# Force LF on checkout everywhere: Windows runners default to autocrlf=true, and gci
+# rejects CRLF files as unformatted.
 * text=auto eol=lf
 
-# Oracle-generated outputs: collapse in GitHub diffs and exclude from
-# language statistics.
+# Oracle-generated outputs: collapse in GitHub diffs and exclude from language
+# statistics.
 *.gen.* linguist-generated
 *_gen.go linguist-generated
 *_gen_test.go linguist-generated
