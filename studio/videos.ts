@@ -32,4 +32,7 @@ export default manifest.define([
     script: "scripts/ui-overview-palette-command.ts",
   },
   { id: "console/line-plots/data-tab", script: "scripts/line-plot-data.ts" },
+  { id: "console/channels/create", script: "scripts/channels-create.ts" },
+  { id: "console/ranges/palette-create", script: "scripts/ranges-palette-create.ts" },
+  { id: "console/users/register", script: "scripts/users-register.ts" },
 ]);

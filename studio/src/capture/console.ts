@@ -225,12 +225,14 @@ export const fillField = async (
   await session.type(value);
 };
 
-/** clickButton clicks the button with the given accessible name. */
+/** clickButton clicks the button whose accessible name is exactly `label`. */
 export const clickButton = async (
   session: CaptureSession,
   label: string,
 ): Promise<void> => {
-  await session.click(session.page.getByRole("button", { name: label }).first());
+  await session.click(
+    session.page.getByRole("button", { name: label, exact: true }).first(),
+  );
 };
 
 /** tab returns the mosaic tab with the given title. */
@@ -295,6 +297,16 @@ export const commandPalette = async (
   await session.type(command);
   await session.hold(400);
   session.setSpeed(1);
-  await session.press("Enter");
+  // Click the exactly-matching command: fuzzy ranking can put a different
+  // command first (e.g. "Create calculated channel" above "Create channel"),
+  // so Enter on the top result is not safe.
+  const item = page
+    .locator(".pluto-list__item")
+    .filter({ has: page.getByText(command, { exact: true }) })
+    .first();
+  await session.waitFor(item);
+  await session.click(item.getByText(command, { exact: true }).first(), {
+    text: true,
+  });
   session.endZoom();
 };

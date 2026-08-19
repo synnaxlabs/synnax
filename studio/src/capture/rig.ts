@@ -161,6 +161,9 @@ export class CaptureSession {
       `localStorage.setItem(${JSON.stringify(DEV_PORT_KEY)}, ${JSON.stringify(String(opts.corePort))});`,
     );
     const hideRules = [
+      // The renderer blinks the caret on wall time, ~6x fast against the
+      // stepped virtual clock; a solid caret reads normally at any rate.
+      "* { caret-animation: manual !important; }",
       ...(opts.hideCaret ? ["* { caret-color: transparent !important; }"] : []),
       ...(opts.hideNotifications
         ? [".pluto-notification, .console-notifications { display: none !important; }"]
