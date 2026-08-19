@@ -10,6 +10,7 @@
 import {
   AUTO_ZOOM_AMOUNT,
   RECT_ZOOM_MAX,
+  RECT_ZOOM_MIN,
   ZOOM_END_MARGIN_S,
   ZOOM_IGNORE_TAIL_S,
   ZOOM_MERGE_GAP_S,
@@ -78,6 +79,7 @@ export const plan = (tl: Timeline): Segment[] => {
   for (const c of clicks(tl)) {
     if (c.zoom === false) continue;
     if (c.tick >= frames - ZOOM_IGNORE_TAIL_S * fps) continue;
+    if (c.rect != null && fitAmount(c.rect, width, height) < RECT_ZOOM_MIN) continue;
     if (overrides.some((o) => c.tick >= o.tick && c.tick <= o.endTick)) continue;
     auto.push({
       start: Math.max(0, Math.round(c.tick - ZOOM_PRE_S * fps)),

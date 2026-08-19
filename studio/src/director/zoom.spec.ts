@@ -147,6 +147,15 @@ describe("zoom.plan", () => {
     expect(segments[0].focus[0].tick).toEqual(1800);
   });
 
+  it("should skip clicks whose target rect is too wide to frame", () => {
+    const wide: Rect = { x: 60, y: 900, width: 1800, height: 40 };
+    const tl = timeline([
+      { type: "pointerdown", tick: 300, x: 960, y: 920, button: "left", rect: wide },
+      { type: "pointerup", tick: 306, x: 960, y: 920, button: "left" },
+    ]);
+    expect(plan(tl)).toHaveLength(0);
+  });
+
   it("should carry click rects onto segment focuses", () => {
     const rect = { x: 450, y: 350, width: 100, height: 100 };
     const tl = timeline([

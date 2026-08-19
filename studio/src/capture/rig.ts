@@ -272,11 +272,25 @@ export class CaptureSession {
 
   private async resolve(
     target: Locator | Point,
+    text = false,
   ): Promise<{ point: Point; rect?: Rect; cursor?: CursorKind }> {
     if ("x" in target && typeof target.x === "number") return { point: target };
     const locator = target as Locator;
-    const box = await locator.boundingBox();
+    let box = await locator.boundingBox();
     if (box == null) throw new Error("capture target has no bounding box");
+    if (text) {
+      // A text element can stretch far past its glyphs (flex-grown rows), so
+      // measure the rendered text itself and aim there.
+      const glyphs = await locator
+        .evaluate((el) => {
+          const range = document.createRange();
+          range.selectNodeContents(el);
+          const r = range.getBoundingClientRect();
+          return { x: r.x, y: r.y, width: r.width, height: r.height };
+        })
+        .catch(() => null);
+      if (glyphs != null && glyphs.width > 0) box = glyphs;
+    }
     const style = await locator
       .evaluate((el) => getComputedStyle(el).cursor)
       .catch(() => "default");
@@ -305,15 +319,15 @@ export class CaptureSession {
    * screen first, then the real mouse move dispatches so hover state appears at
    * arrival, matching the synthesized cursor's arrival in post.
    */
-  async moveTo(target: Locator | Point): Promise<Point> {
-    let { point: to, rect, cursor } = await this.resolve(target);
+  async moveTo(target: Locator | Point, opts?: { text?: boolean }): Promise<Point> {
+    let { point: to, rect, cursor } = await this.resolve(target, opts?.text);
     const duration = this.travelTicks(to);
     for (let i = 0; i < duration; i++) await this.tick();
     // Layout can shift while travel ticks elapse (drawer/dialog animations), so
     // re-resolve locators right before input dispatch; raw mouse events land on
     // coordinates, not elements, and stale ones hit the wrong target.
     if (!("x" in target && typeof target.x === "number"))
-      ({ point: to, rect, cursor } = await this.resolve(target));
+      ({ point: to, rect, cursor } = await this.resolve(target, opts?.text));
     this.events.push({ type: "move", tick: this.frame, ...to, duration, rect, cursor });
     await this.page.mouse.move(to.x, to.y);
     this.cursor = to;
@@ -345,10 +359,14 @@ export class CaptureSession {
   /**
    * click travels to the target, presses, and releases. Pass `zoom: false`
    * when the click swaps out the whole view, so the camera does not punch
-   * into content that is about to disappear.
+   * into content that is about to disappear. Pass `text: true` to aim at the
+   * target's rendered text instead of its element box.
    */
-  async click(target: Locator | Point, opts?: { zoom?: boolean }): Promise<void> {
-    await this.pressRelease(await this.moveTo(target), "left", opts?.zoom);
+  async click(
+    target: Locator | Point,
+    opts?: { zoom?: boolean; text?: boolean },
+  ): Promise<void> {
+    await this.pressRelease(await this.moveTo(target, opts), "left", opts?.zoom);
   }
 
   /** rightClick travels to the target and opens its context menu. */

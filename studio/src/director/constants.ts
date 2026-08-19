@@ -80,19 +80,26 @@ export const ZOOM_RECT_MARGIN_PX = 96;
 /** Ceiling for zoom amounts derived from element rects (authored or auto). */
 export const RECT_ZOOM_MAX = 2.5;
 
+/**
+ * Floor for rect-derived zoom during auto segments. A click whose target rect
+ * fits only below this creates no zoom: near-full-width targets are mostly
+ * empty space, so punching into them frames nothing.
+ */
+export const RECT_ZOOM_MIN = 1.4;
+
 /** Minimum-jerk travel duration model: T = MIN + SCALE * sqrt(d / diagonal). */
 export const TRAVEL_MIN_S = 0.25;
 export const TRAVEL_SCALE_S = 0.35;
 export const TRAVEL_MAX_S = 1.1;
 
 /** Isotropic blur (px per dsf unit) per unit of zoom-amount change per frame. */
-export const BLUR_ZOOM_GAIN = 14;
+export const BLUR_ZOOM_GAIN = 4;
 
 /** Directional blur as a fraction of the crop's per-frame travel in output px. */
-export const BLUR_TRAVEL_GAIN = 0.25;
+export const BLUR_TRAVEL_GAIN = 0.08;
 
 /** Per-axis motion blur ceiling, in output px per dsf unit. */
-export const BLUR_MAX_PX = 12;
+export const BLUR_MAX_PX = 3;
 
 /** Blur radii at or below this (output px per dsf unit) are dropped entirely. */
 export const BLUR_MIN_PX = 0.4;

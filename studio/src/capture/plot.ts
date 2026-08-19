@@ -20,7 +20,9 @@ export const showVisualizationToolbar = async (
   const { page } = session;
   const y1 = page.locator("label").filter({ hasText: "Y1" }).first();
   if (await y1.isVisible().catch(() => false)) return;
-  await session.click(page.locator(".console-main-nav__item").last());
+  await session.click(page.locator(".console-main-nav__item").last(), {
+    zoom: false,
+  });
   await session.waitFor(y1);
 };
 
@@ -60,8 +62,14 @@ export const addChannels = async (
     .locator("label")
     .filter({ hasText: axis })
     .locator("..")
-    .locator(".pluto-dialog__trigger");
-  await session.click(trigger.first());
+    .locator(".pluto-dialog__trigger")
+    .first();
+  // Wide rows are mostly empty space: click their left-aligned text so the
+  // cursor lands where a person aims and the camera gets a rect worth framing.
+  const placeholder = trigger.getByText(/Select channel/).first();
+  if (await placeholder.isVisible().catch(() => false))
+    await session.click(placeholder);
+  else await session.click(trigger);
   const input = page.locator("input[placeholder*='Search']");
   await session.waitFor(input);
   if (search != null) await session.type(search);
@@ -71,7 +79,9 @@ export const addChannels = async (
       .filter({ hasText: channel })
       .first();
     await session.waitFor(item);
-    await session.click(item);
+    await session.click(item.getByText(channel, { exact: true }).first(), {
+      text: true,
+    });
   }
   await session.press("Escape");
 };
