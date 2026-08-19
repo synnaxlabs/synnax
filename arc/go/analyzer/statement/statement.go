@@ -472,9 +472,20 @@ func analyzeStatefulVariable(ctx context.Context[parser.IStatefulVariableContext
 	}
 }
 
+// analyzeCondition validates an if or else-if condition. Numeric conditions are
+// deprecated: a future release will only accept bool.
+func analyzeCondition(ctx context.Context[parser.IExpressionContext]) {
+	expression.Analyze(ctx)
+	if atypes.InferFromExpression(ctx).IsNumeric() {
+		ctx.Diagnostics.Add(diagnostics.Warningf(ctx.AST,
+			"numeric conditions are deprecated; use an explicit comparison like x != 0",
+		))
+	}
+}
+
 func analyzeIfStatement(ctx context.Context[parser.IIfStatementContext]) {
 	if expr := ctx.AST.Expression(); expr != nil {
-		expression.Analyze(context.Child(ctx, expr))
+		analyzeCondition(context.Child(ctx, expr))
 	}
 
 	if block := ctx.AST.Block(); block != nil {
@@ -483,7 +494,7 @@ func analyzeIfStatement(ctx context.Context[parser.IIfStatementContext]) {
 
 	for _, elseIfClause := range ctx.AST.AllElseIfClause() {
 		if expr := elseIfClause.Expression(); expr != nil {
-			expression.Analyze(context.Child(ctx, expr))
+			analyzeCondition(context.Child(ctx, expr))
 		}
 		if block := elseIfClause.Block(); block != nil {
 			AnalyzeBlock(context.Child(ctx, block))

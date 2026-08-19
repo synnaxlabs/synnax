@@ -628,27 +628,51 @@ var _ = Describe("Statement", func() {
 		})
 
 		DescribeTable(
-			"numeric conditions are accepted without warnings",
-			func(bCtx SpecContext, code string) {
+			"numeric condition deprecation warnings",
+			func(bCtx SpecContext, code string, warningCount int) {
 				stmt := MustSucceed(parser.ParseStatement(code))
 				ctx := context.NewRoot(bCtx, stmt, NewRoot(nil))
 				statement.Analyze(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-				Expect(*ctx.Diagnostics).To(BeEmpty())
+				warnings := ctx.Diagnostics.Warnings()
+				Expect(warnings).To(HaveLen(warningCount))
+				for _, w := range warnings {
+					Expect(w.Message).To(Equal(
+						"numeric conditions are deprecated; use an explicit " +
+							"comparison like x != 0",
+					))
+				}
 			},
-			Entry("integer literal condition", `if 1 { x := 42 }`),
-			Entry("float literal condition", `if 1.5 { x := 42 }`),
+			Entry("integer literal condition", `if 1 { x := 42 }`, 1),
+			Entry("float literal condition", `if 1.5 { x := 42 }`, 1),
 			Entry(
 				"numeric else-if condition",
 				`if false { x := 1 } else if 2 { y := 2 }`,
+				1,
 			),
-			Entry("bool literal condition", `if true { x := 42 }`),
-			Entry("comparison condition", `if 1 > 0 { x := 42 }`),
+			Entry(
+				"numeric if and else-if conditions",
+				`if 1 { x := 1 } else if 2 { y := 2 }`,
+				2,
+			),
+			Entry("bool literal condition", `if true { x := 42 }`, 0),
+			Entry("comparison condition", `if 1 > 0 { x := 42 }`, 0),
 		)
 
-		It("should accept a numeric variable condition", func(bCtx SpecContext) {
+		It("should warn on a numeric variable condition", func(bCtx SpecContext) {
 			block := MustSucceed(parser.ParseBlock(`{
 				x := 1
+				if x { y := 2 }
+			}`))
+			ctx := context.NewRoot(bCtx, block, NewRoot(nil))
+			statement.AnalyzeBlock(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			Expect(ctx.Diagnostics.Warnings()).To(HaveLen(1))
+		})
+
+		It("should not warn on a bool variable condition", func(bCtx SpecContext) {
+			block := MustSucceed(parser.ParseBlock(`{
+				x := true
 				if x { y := 2 }
 			}`))
 			ctx := context.NewRoot(bCtx, block, NewRoot(nil))
