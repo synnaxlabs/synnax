@@ -125,8 +125,8 @@ Dimensions struct {
         @doc value "is the height in pixels."
     }
 
-    @doc value "is a 2D size with width and height values."
-    @go omit
+    @doc value  "is a 2D size with width and height values."
+    @go marshal
 }
 
 Viewport struct {

@@ -71,6 +71,9 @@ type StickyUnits = versions.StickyUnits
 // configurable units (pixels or decimal fractions).
 type StickyXY = versions.StickyXY
 
+// Dimensions is a 2D size with width and height values.
+type Dimensions = versions.Dimensions
+
 // Viewport is the camera state of a viewport.
 type Viewport = versions.Viewport
 

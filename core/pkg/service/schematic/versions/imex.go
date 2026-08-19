@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v0"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v7"
+	v8 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v8"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
@@ -44,7 +45,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 		}
 		var doc legacy.Export
 		if doc, err = imex.Decode[legacy.Export](ctx, env); err == nil {
-			sch = v7.SchematicFromConsole(doc)
+			sch, err = v8.MigrateSchematic(ctx, v7.SchematicFromConsole(doc))
 		}
 	default:
 		// Console states embed the document inline: ride the storage lift, which
@@ -59,9 +60,13 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 			break
 		}
 		snapshot, _ := body["snapshot"].(bool)
-		sch, err = v7.MigrateSchematic(ctx, v0.Schematic{
+		var s7 v7.Schematic
+		if s7, err = v7.MigrateSchematic(ctx, v0.Schematic{
 			Name: env.Name, Snapshot: snapshot, Data: body,
-		})
+		}); err != nil {
+			break
+		}
+		sch, err = v8.MigrateSchematic(ctx, s7)
 	}
 	if err != nil {
 		return Schematic{}, err
