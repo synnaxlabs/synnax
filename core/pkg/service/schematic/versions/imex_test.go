@@ -32,7 +32,21 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		return out
 	}
 
-	It("Should decode a server-exported envelope", func(ctx SpecContext) {
+	It("Should decode a current-version envelope", func(ctx SpecContext) {
+		sch := decode(ctx, "testdata/import_v8.json")
+		Expect(sch.Snapshot).To(BeTrue())
+		Expect(sch.Nodes).To(Equal([]versions.Node{
+			{Key: "n1", Position: spatial.XY{X: 1, Y: 2}, ZIndex: 4},
+		}))
+		Expect(sch.Edges).To(Equal([]versions.Edge{{
+			Key:    "e1",
+			Source: versions.Handle{Node: "n1", Param: "out"},
+			Target: versions.Handle{Node: "n2", Param: "in"},
+		}}))
+		Expect(config(sch, "n1")).To(HaveKeyWithValue("variant", "valve"))
+	})
+
+	It("Should lift a v7 envelope, dropping measured", func(ctx SpecContext) {
 		sch := decode(ctx, "testdata/import_v7.json")
 		Expect(sch.Snapshot).To(BeTrue())
 		Expect(sch.Nodes).To(Equal([]versions.Node{
