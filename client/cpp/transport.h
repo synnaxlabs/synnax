@@ -13,6 +13,7 @@
 #include "client/cpp/auth/auth.h"
 #include "client/cpp/channel/channel.h"
 #include "client/cpp/connection/checker.h"
+#include "client/cpp/control/control.h"
 #include "client/cpp/device/device.h"
 #include "client/cpp/framer/framer.h"
 #include "client/cpp/rack/rack.h"
@@ -64,5 +65,6 @@ struct Transport {
     std::unique_ptr<view::RetrieveClient> view_retrieve;
     std::unique_ptr<view::DeleteClient> view_delete;
     std::unique_ptr<connection::CheckClient> connectivity_check;
+    std::shared_ptr<control::RetrieveClient> control_retrieve;
 };
 }

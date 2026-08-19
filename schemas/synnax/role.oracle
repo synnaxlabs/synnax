@@ -46,4 +46,5 @@ Role struct {
     @go migrate
     @ontology type "role"
     @retrieve
+    @search
 }

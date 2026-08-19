@@ -14,12 +14,10 @@ package framer
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
@@ -80,8 +78,7 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Framer *framer.Service
-	// Channel is used to resolve channel metadata and to create the node's control
-	// update channel.
+	// Channel is used to resolve channel metadata.
 	//
 	// [REQUIRED]
 	Channel *channel.Service
@@ -89,11 +86,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
-	// HostProvider identifies the host node, used to name and lease the node's control
-	// update channel.
-	//
-	// [REQUIRED]
-	HostProvider cluster.HostProvider
 	// Instrumentation is used for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -108,7 +100,6 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "framer", c.Framer)
 	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "status", c.Status)
-	validate.NotNil(v, "host_provider", c.HostProvider)
 	return v.Error()
 }
 
@@ -118,7 +109,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Status = override.Nil(c.Status, other.Status)
-	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
 	return c
 }
 
@@ -134,8 +124,7 @@ type Service struct {
 }
 
 // OpenService opens a framer Service from the provided configuration. All fields are
-// required. It wires up calculation-backed streaming and iteration, and configures the
-// host node's control update channel.
+// required. It wires up calculation-backed streaming and iteration.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
@@ -174,9 +163,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Framer:          cfg.Framer,
 		Channel:         cfg.Channel,
 	}); !ok(err, nil) {
-		return nil, err
-	}
-	if err = s.configureControlUpdates(ctx); err != nil {
 		return nil, err
 	}
 	return s, nil
@@ -239,23 +225,3 @@ func (s *Service) DeleteTimeRange(
 // Close releases the resources held by the Service and its underlying streaming,
 // iteration, and calculation sub-services.
 func (s *Service) Close() error { return s.closer.Close() }
-
-// configureControlUpdates creates the host node's control update channel (if it does
-// not already exist) and registers it with the distribution framer so control state
-// changes are streamed to clients.
-func (s *Service) configureControlUpdates(ctx context.Context) error {
-	name := fmt.Sprintf("sy_node_%v_control", s.cfg.HostProvider.HostKey())
-	controlCh := channel.Channel{
-		Name:        name,
-		Leaseholder: s.cfg.HostProvider.HostKey(),
-		Virtual:     true,
-		DataType:    telem.StringT,
-		Internal:    true,
-	}
-	if err := s.cfg.Channel.NewWriter(nil).Create(
-		ctx, &controlCh, channel.RetrieveIfNameExists(),
-	); err != nil {
-		return err
-	}
-	return s.cfg.Framer.ConfigureControlUpdateChannel(ctx, controlCh.Key(), name)
-}

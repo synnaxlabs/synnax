@@ -11,8 +11,11 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { act, render, type RenderResult } from "@testing-library/react";
 import { type ReactElement } from "react";
 
-import { Session } from "@/session";
-import { type ConsolePreloadedState, createConsoleWrapper } from "@/testutil";
+import {
+  type ConsolePreloadedState,
+  createConsoleWrapper,
+  withSelectedProject,
+} from "@/testutil";
 
 export const client = createTestClient();
 
@@ -25,13 +28,7 @@ export const ACTIVE_PROJECT = await client.projects.create({
 // production they mount inside the project guard).
 export const withActiveProject = (
   state: ConsolePreloadedState = {},
-): ConsolePreloadedState => ({
-  ...state,
-  [Session.Project.SLICE_NAME]: {
-    ...Session.Project.ZERO_SLICE_STATE,
-    selected: ACTIVE_PROJECT.key,
-  },
-});
+): ConsolePreloadedState => withSelectedProject(ACTIVE_PROJECT.key, state);
 
 // renderBar mounts ui against a real client so access-gated nav items and the user/
 // connection badges resolve through the production query path, and returns the render

@@ -42,6 +42,11 @@
     min-height: 6rem;
     padding: 0 2rem;
     border-radius: var(--pluto-border-radius-medium);
+
+    &.pluto--square {
+        width: 6rem;
+        padding: 0;
+    }
 }
 
 .console-shell__island:empty {

@@ -60,6 +60,18 @@ describe("role", () => {
       expect(nonInternalRoles.every((r) => r.internal !== true)).toBe(true);
       expect(nonInternalRoles.find((r) => r.key === created.key)).toBeDefined();
     });
+
+    it("should retrieve roles by search term", async () => {
+      const prefix = `searchable-role-${id.create()}`;
+      const names = [`${prefix}-1`, `${prefix}-2`];
+      await client.access.roles.create(names.map((name) => ({ name })));
+      await expect
+        .poll(async () => {
+          const results = await client.access.roles.retrieve({ searchTerm: prefix });
+          return results.map((r) => r.name).sort();
+        })
+        .toEqual(names);
+    });
   });
 
   describe("delete", () => {

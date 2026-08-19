@@ -4,8 +4,8 @@ title: "Calculated Channels"
 description: "Process live telemetry with calculated channels."
 prev: "Channels"
 prevURL: "/reference/console/channels"
-next: "Workspaces"
-nextURL: "/reference/console/workspaces"
+next: "Projects"
+nextURL: "/reference/console/projects"
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
@@ -16,30 +16,32 @@ import { Table } from "@/components";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Calculated channels derive real-time data from existing
-[channels](/reference/console/channels). They enable live data processing and analysis,
-such as:
+Calculated channels compute values from other [channels](/reference/console/channels) in
+real time:
 
-- Scaling, converting or filtering raw data
-- Implementing sensor voting algorithms
-- Creating channels to conditionally trigger alarms or warnings.
+- Scale, convert, or filter raw data
+- Implement sensor voting algorithms
+- Trigger alarms or warnings from a condition
 
 <Divider.Divider x />
 
-## Creating Calculated Channels
+## Calculated Channels
 
-To create a calculated channel, open the Search and Command Palette and run the "Create
-Calculated Channel" command.
+### Create
 
-- Click the search bar at the top and type `>` to open the palette.
-- Alternatively, press `Ctrl+Shift+P` (Windows) / `Cmd+Shift+P` (macOS).
+Create a calculated channel with the "Create Calculated Channel" command in the
+[Command Palette](/reference/console/ui-overview#search-and-command-palette).
 
 <Video client:only="react" id="console/calculated-channels/create" />
 
-### Channel Parameters
+### Edit
 
-When creating a calculated channel, you will be prompted to fill in the following
-fields:
+To edit a calculated channel, right-click it in the Channels Toolbar and select "Edit
+Calculation" from the context menu:
+
+<Video client:only="react" id="console/calculated-channels/edit" />
+
+### Parameters
 
 <table>
   <thead>
@@ -69,8 +71,8 @@ fields:
         <td>
           Post-processing operation applied to the expression result. Options include{" "}
           <code>min</code>, <code>max</code>, <code>avg</code> for{" "}
-          <a href="#operations">running aggregations</a>, and <code>derivative</code>{" "}
-          for rate of change.
+          <a href="#post-processing-operations">running aggregations</a>, and{" "}
+          <code>derivative</code> for rate of change.
         </td>
       }
     </tr>
@@ -99,131 +101,20 @@ fields:
 
 <Divider.Divider x />
 
-## Writing Expressions
+## Post-Processing Operations
 
-Calculated channels use the Arc language for expressions. Arc is a domain-specific
-language designed for real-time telemetry processing.
-
-### Basic Syntax
-
-#### Channel References
-
-Reference channels directly by name without any prefix or special syntax:
-
-```arc
-return temperature
-return sensor_a + sensor_b
-return voltage * current
-```
-
-Channel names are automatically detected and used as inputs to the calculation.
-
-#### Return Statement
-
-Every expression must end with a `return` statement:
-
-```arc
-return pressure * 1.5
-```
-
-#### Variables
-
-Use `:=` to declare intermediate variables:
-
-```arc
-scaled := pressure * 2.5
-offset := scaled + 10
-return offset
-```
-
-### Operators
-
-Arc supports standard operators for calculations:
-
-**Arithmetic:** `+`, `-`, `*`, `/`, `%`, `**`
-
-```arc
-return(temp_1 + temp_2 + temp_3) / 3 // Average
-```
-
-**Comparison:** <code style={{fontVariantLigatures: 'none'}}>==</code>, <code
-style={{fontVariantLigatures: 'none'}}>!=</code>, `<`, `>`, <code
-style={{fontVariantLigatures: 'none'}}>&lt;=</code>, <code
-style={{fontVariantLigatures: 'none'}}>&gt;=</code>
-
-```arc
-return pressure > 100 // Returns true or false (bool)
-```
-
-**Logical:** `and`, `or`, `not`
-
-```arc
-return temp > 100 and pressure > 50
-```
-
-**Bitwise:** `&`, `|`, `~`, `^`, `<<`, `>>` on integer operands
-
-### Conditionals
-
-Use `if` statements with curly braces for conditional logic:
-
-```arc
-if (temperature > 100) {
-    return true
-} else {
-    return false
-}
-```
-
-Multi-condition example:
-
-```arc
-if (temp > 100 and pressure > 50) {
-    return 2
-} else if (temp > 50) {
-    return 1
-} else {
-    return 0
-}
-```
-
-### Data Types
-
-The calculated channel's data type is automatically inferred from the Arc expression's
-return value. The system analyzes your expression to determine the appropriate data type
-(e.g., `float64`, `int32`, etc.).
-
-<Divider.Divider x />
-
-## Editing Calculations
-
-To edit a calculated channel, right-click it in the Channels Toolbar and select "Edit
-Calculation" from the context menu:
-
-<Video client:only="react" id="console/calculated-channels/edit" />
-
-<Divider.Divider x />
-
-## Operations
-
-Operations are optional post-processing steps that apply aggregations to your calculated
-channel. They enable stateful computations like running minimums, maximums, and
-averages.
-
-### How Operations Work
-
-Operations process the expression result before writing to the output channel:
+Operations are optional post-processing steps that apply a running aggregation, such as
+a minimum, maximum, or average.
 
 <CodeBlock hideCopyButton>
   <code>
     {`Expression Result → Operation → Output Channel
-                       ↑
-                  Reset Channel`}
+                      ↑
+                Reset Channel`}
   </code>
 </CodeBlock>
 
-The operation maintains internal state across executions, outputting a single aggregated
-value rather than processing individual samples.
+The operation keeps state across executions and outputs a single aggregated value.
 
 {/* [SCREENSHOT NEEDED] Operation configuration UI (type/window/reset channel) */}
 
@@ -237,10 +128,6 @@ value rather than processing individual samples.
     </tr>
   </thead>
   <tbody>
-    <tr>
-      <td>`none`</td>
-      <td>No operation (default). Passes expression result directly to output.</td>
-    </tr>
     <tr>
       <td>`min`</td>
       <td>Running minimum. Tracks the smallest value seen since the last reset.</td>
@@ -269,69 +156,34 @@ value rather than processing individual samples.
   reset.
 </Note.Note>
 
-### Reset Mechanisms
-
-Operations can reset their state through three mechanisms (any can trigger a reset):
-
-1. **Duration-based (Window)** -> Resets after a specified time duration based on input
-   timestamps
-2. **Signal-based (Reset Channel)** -> Resets when a `uint8` channel receives value `1`
-3. **Never** -> Set duration to 0 and omit reset channel for a continuous operation
-
 ### Example Configurations
 
-**Running average over 10 seconds:**
+| Use case                   | Operation    | Window | Reset Channel      |
+| -------------------------- | ------------ | ------ | ------------------ |
+| Rolling 10-second average  | `avg`        | `10s`  | none               |
+| Maximum until manual reset | `max`        | `0s`   | `manual_reset_btn` |
+| Minimum, time or signal    | `min`        | `60s`  | `cycle_complete`   |
+| Rate of change             | `derivative` | n/a    | n/a                |
 
-- **Operation** -> `avg`
-- **Window** -> `10` seconds
-- **Reset Channel** -> (none)
-
-The average resets every 10 seconds based on data timestamps.
-
-**Maximum until manual reset:**
-
-- **Operation** -> `max`
-- **Window** -> `0` (no duration reset)
-- **Reset Channel** -> `manual_reset_button`
-
-The maximum runs indefinitely until the reset channel triggers.
-
-**Minimum with both reset types:**
-
-- **Operation** -> `min`
-- **Window** -> `60` seconds
-- **Reset Channel** -> `cycle_complete`
-
-The minimum resets either after 60 seconds OR when the reset channel triggers—whichever
-comes first.
+A reset fires when the window expires or the reset channel receives `1`, whichever comes
+first. Set the window to `0` and omit the reset channel for an operation that never
+resets.
 
 <Divider.Divider x />
 
 ## Reset Channels
 
-Reset channels provide signal-based control over operation state and must have data type
-`uint8`. When a reset channel receives a value of `1`, the associated operation clears
-its accumulated state and restarts.
+A reset channel provides signal-based control over operation state and must have the
+data type `uint8`. When it receives `1`, the operation clears its state and restarts.
 
 {/* [VIDEO NEEDED] Demonstration of reset channel triggering and operation resetting */}
 
-### Use Cases
+- **Manual**: write to a virtual `uint8` channel from a schematic button or control
+  panel.
+- **Periodic**: use a timer or sequence to generate reset pulses.
+- **Conditional**: use a calculated channel that outputs `1` when a condition is met.
 
-**Manual Reset Button:**
-
-Create a virtual `uint8` channel that you can write to from a schematic button or
-control panel to manually reset the calculation.
-
-**Periodic Reset Signal:**
-
-Use a timer or sequence to generate periodic reset pulses for regular operation resets.
-
-**Conditional Reset Logic:**
-
-Create a calculated channel that outputs `1` when a certain condition is met (e.g.,
-"cycle complete" flag from another system).
-
-### Behavior Example
+### Reset Example
 
 ```
 Time:           0s → 5s  → 10s → 10.1s (reset=1) → 15s → 20s
@@ -344,71 +196,86 @@ from the current input (75) and continues tracking the new maximum.
 
 <Divider.Divider x />
 
-## Examples
+## Writing Expressions
 
-### Simple Operations
+Expressions are written in Arc, a language for real-time telemetry processing. The
+output data type is inferred from the return value.
 
-**Scaling a sensor:**
+### Channel References
 
-```arc
-return pressure * 1.5
-```
-
-**Adding an offset:**
+Reference channels directly by name without any prefix or special syntax:
 
 ```arc
-return temperature + 273.15 // Convert Celsius to Kelvin
-```
-
-**Power calculation:**
-
-```arc
+return temperature
+return sensor_a + sensor_b
 return voltage * current
 ```
 
-### Multi-Channel Calculations
+Every expression must end with a `return` statement.
 
-**Sum of multiple sensors:**
+### Variables
+
+Use `:=` to declare intermediate variables:
 
 ```arc
-return sensor_1 + sensor_2 + sensor_3
+scaled := pressure * 2.5
+offset := scaled + 10
+return offset
 ```
 
-**Average (in expression):**
+### Operators
+
+**Arithmetic:** `+`, `-`, `*`, `/`, `%`
+
+**Comparison:** <code style={{fontVariantLigatures: 'none'}}>==</code>, <code
+style={{fontVariantLigatures: 'none'}}>!=</code>, `<`, `>`, <code
+style={{fontVariantLigatures: 'none'}}>&lt;=</code>, <code
+style={{fontVariantLigatures: 'none'}}>&gt;=</code>
+
+**Logical:** `and`, `or`, `not`
+
+A comparison returns `true` or `false`.
+
+### Conditionals
+
+Use `if` statements with curly braces for conditional logic:
 
 ```arc
-return(temp_1 + temp_2 + temp_3) / 3
-```
-
-**Differential measurement:**
-
-```arc
-return inlet_pressure - outlet_pressure
-```
-
-### Conditional Logic
-
-**Threshold detection:**
-
-```arc
-if (pressure > 100) {
-    return 1 // High alarm
+if (temperature > 100) {
+    return 1
 } else {
-    return 0 // Normal
+    return 0
 }
 ```
 
-**Multi-level thresholds:**
+Multi-condition example:
 
 ```arc
 if (temp > 100 and pressure > 50) {
-    return 2 // Critical
+    return 2
 } else if (temp > 50) {
-    return 1 // Warning
+    return 1
 } else {
-    return 0 // Normal
+    return 0
 }
 ```
+
+<Divider.Divider x />
+
+## Examples
+
+### Common Expressions
+
+| Use case                  | Expression                                |
+| ------------------------- | ----------------------------------------- |
+| Scale a sensor            | `return pressure * 1.5`                   |
+| Convert Celsius to Kelvin | `return temperature + 273.15`             |
+| Power                     | `return voltage * current`                |
+| Sum sensors               | `return sensor_1 + sensor_2 + sensor_3`   |
+| Average                   | `return (temp_1 + temp_2 + temp_3) / 3`   |
+| Differential pressure     | `return inlet_pressure - outlet_pressure` |
+
+### Conditional Logic
 
 **Safe division (avoid divide-by-zero):**
 
@@ -439,72 +306,30 @@ compensated := raw_pressure - temp_correction
 return compensated
 ```
 
-### Using Operations
-
-**Running maximum with manual reset:**
-
-- **Expression** -> `return pressure`
-- **Operation** -> `max`
-- **Window** -> `0` (no duration reset)
-- **Reset Channel** -> `reset_button`
-
-This tracks the maximum pressure value until the reset button is triggered.
-
-**10-second rolling average:**
-
-- **Expression** -> `return temperature`
-- **Operation** -> `avg`
-- **Window** -> `10` seconds
-- **Reset Channel** -> (none)
-
-This computes the average temperature over 10-second windows.
-
-**Rate of pressure change:**
-
-- **Expression** -> `return pressure`
-- **Operation** -> `derivative`
-
-This outputs the rate of pressure change in units per second. For example, if pressure
-increases from 100 to 150 over 2 seconds, the output is 25.0.
-
 <Divider.Divider x />
 
 ## How Calculated Channels Work
 
-Calculated channels are [virtual](/reference/concepts/channels#virtual-channels),
-meaning their data is computed on-demand rather than stored permanently to disk. This
-section explains how they work under the hood.
+Calculated channels are [virtual](/reference/concepts/channels#virtual-channels): their
+data is computed on demand and never stored to disk.
 
 ### On-Demand Computation
 
-Calculated channels don't run continuously in the background. Instead, they only execute
-when someone actively reads or streams the channel. When you start visualizing a
-calculated channel in a line plot or request its data through the API, Synnax
-automatically activates the calculation. When you stop streaming, the calculation
-pauses.
-
-This on-demand approach conserves system resources: calculations only consume CPU and
-memory when their results are actually needed.
+A calculated channel runs only while something reads or streams it. Opening a line plot
+or requesting its data through the API activates the calculation, and stopping the
+stream pauses it. Nothing runs in the background, so a calculation uses CPU and memory
+only while its results are needed.
 
 ### Historical Evaluation
 
-Calculated channels can be evaluated historically, allowing you to query past data as if
-the calculation had been running at that time. For this to work:
+A calculated channel can be queried historically, as if it had been running at that
+time. Two conditions apply:
 
-- **All input channels** must have data available in the time range you're querying
-- **Simple expressions** (like `return pressure * 1.5`) work reliably with historical
-  data
-- **Operations** (min, max, avg) with time-based windows may have limitations with
-  historical queries
+- Every input channel must have data in the queried time range.
+- Operations with time-based windows may not behave as they do live.
 
-**Example:** If your calculation depends on `sensor_1` and `sensor_2`, you can query
-historical data for any time range where both sensors have recorded data. The
-calculation will be applied to the historical data as if it had been running
-continuously.
-
-**Nested calculations** also work historically. If `calc_2` depends on `calc_1`, and
-`calc_1` depends on persisted channels, you can query `calc_2` historically as long as
-the underlying data exists.
+Nested calculations work historically too, as long as the channels at the bottom of the
+chain are persisted.
 
 ### Nested Calculations
 
@@ -515,14 +340,9 @@ chains:
 sensor_raw → temp_celsius → temp_fahrenheit → temp_status
 ```
 
-When data arrives at `sensor_raw`, it automatically propagates through the chain:
-
-1. `temp_celsius` calculates and outputs its result
-2. `temp_fahrenheit` receives that output and calculates its result
-3. `temp_status` receives that output and produces the final result
-
-There's no limit to nesting depth, but keep in mind that each level adds computation
-time. Design your calculations thoughtfully to balance clarity and performance.
+Data arriving at `sensor_raw` propagates through the chain, each channel calculating
+from the output of the one before it. Nesting has no depth limit, but each level adds
+computation time.
 
 ### Handling Different Arrival Rates
 
@@ -552,28 +372,7 @@ The calculation produces **10 output samples**:
 1. `pressure`'s last value (34) repeats for positions 6-10
 2. Elementwise addition: `[50, 52, 54, 56, 58, 59, 60, 61, 62, 63]`
 
-**What this means for different rates:**
-
-If `temperature` updates at 100 Hz and `pressure` at 10 Hz, when a frame arrives with
-100 `temperature` samples and 10 `pressure` samples, the calculated channel produces
-**100 output samples**. `pressure`'s 10th value is used for output samples 11-100.
-
-**Note:** This is not interpolation; it's a last-value-hold. The system doesn't create
-new `pressure` values; it reuses the most recent one.
-
-<Divider.Divider x />
-
-## Channel Naming
-
-**Important** -> Arc identifiers can only contain letters, digits, and underscores, and
-must start with a letter or underscore. Channel names with special characters (like
-dashes, spaces, or dots) **cannot be directly referenced** in Arc expressions.
-
-**Best Practice** -> When creating channels that will be used in Arc calculated
-channels, use underscores instead of special characters:
-
-- ✅ `sensor_1`, `temp_reading`, `channel_a`
-- ❌ `sensor-1`, `temp reading`, `channel.a`
-
-For complex calculations involving loops or tables, consider breaking them into multiple
-calculated channels.
+If `temperature` updates at 100 Hz and `pressure` at 10 Hz, a frame with 100
+`temperature` samples and 10 `pressure` samples produces **100 output samples**, where
+`pressure`'s 10th value fills samples 11 to 100. This is a hold, not interpolation. No
+new `pressure` values are created.

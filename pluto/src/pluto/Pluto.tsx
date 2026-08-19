@@ -73,7 +73,7 @@ export const Provider = ({
                     <Code.Provider languages={ARC_LANGUAGES}>
                       <CanDisableTelem {...telem}>
                         <Staleness.Provider {...staleness}>
-                          <Control.StateProvider>{children}</Control.StateProvider>
+                          <Control.Colors>{children}</Control.Colors>
                         </Staleness.Provider>
                       </CanDisableTelem>
                     </Code.Provider>
