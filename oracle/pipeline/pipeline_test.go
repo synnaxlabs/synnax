@@ -12,13 +12,13 @@ package pipeline_test
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 	"sync"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/pipeline"
 	"github.com/synnaxlabs/oracle/plugin"
+	. "github.com/synnaxlabs/oracle/testutil"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
@@ -503,20 +503,13 @@ var _ = Describe("pipeline.DiscoverSchemas", func() {
 	})
 
 	It("returns a wrapped error when a schema subdirectory cannot be read", func() {
-		if os.Geteuid() == 0 {
-			Skip("filesystem permissions are bypassed when running as root")
-		}
-		if runtime.GOOS == "windows" {
-			Skip("chmod cannot remove directory read permission on Windows")
-		}
 		repoRoot := MustSucceed(os.MkdirTemp("", "discover"))
-		locked := filepath.Join(repoRoot, "schemas", "locked")
-		Expect(os.MkdirAll(locked, 0o755)).To(Succeed())
-		Expect(os.Chmod(locked, 0o000)).To(Succeed())
 		DeferCleanup(func() {
-			Expect(os.Chmod(locked, 0o755)).To(Succeed())
 			Expect(os.RemoveAll(repoRoot)).To(Succeed())
 		})
+		locked := filepath.Join(repoRoot, "schemas", "locked")
+		Expect(os.MkdirAll(locked, 0o755)).To(Succeed())
+		DenyDirRead(locked)
 
 		Expect(pipeline.DiscoverSchemas(repoRoot)).Error().
 			To(MatchError(ContainSubstring("walk schema directory")))

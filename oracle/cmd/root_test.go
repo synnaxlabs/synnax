@@ -14,7 +14,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -22,6 +21,7 @@ import (
 	"github.com/synnaxlabs/oracle/format"
 	"github.com/synnaxlabs/oracle/pipeline"
 	"github.com/synnaxlabs/oracle/plugin"
+	. "github.com/synnaxlabs/oracle/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -243,26 +243,13 @@ var _ = Describe("fmt command with explicit file arguments", Ordered, func() {
 var _ = Describe("fmt command discovery error", Ordered, func() {
 	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
-		if os.Geteuid() == 0 {
-			Skip("filesystem permissions are bypassed when running as root")
-		}
-		if runtime.GOOS == "windows" {
-			Skip("chmod cannot remove directory read permission on Windows")
-		}
 		repoDir, cleanup := setupMiniRepo("0.53.4", map[string]string{
 			"synnax/user.oracle": "User struct {\n    key uuid\n}\n",
 		})
+		DeferCleanup(cleanup)
 		locked := filepath.Join(repoDir, "schemas", "locked")
 		Expect(os.MkdirAll(locked, 0o755)).To(Succeed())
-		Expect(os.Chmod(locked, 0o000)).To(Succeed())
-		DeferCleanup(func() {
-			if locked != "" {
-				Expect(os.Chmod(locked, 0o755)).To(Succeed())
-			}
-			if cleanup != nil {
-				cleanup()
-			}
-		})
+		DenyDirRead(locked)
 	})
 
 	It("propagates the recursive-discovery error when no arguments are given", func() {
