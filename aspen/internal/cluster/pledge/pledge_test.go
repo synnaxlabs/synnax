@@ -256,7 +256,7 @@ var _ = Describe("PledgeServer", func() {
 						)).To(Equal(pledge.Response{}))
 					}
 					tCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-					defer cancel()
+					DeferCleanup(cancel)
 					// A generous request timeout keeps the long climb over the
 					// polluted keys from timing out under parallel suite load.
 					res := MustSucceed(
