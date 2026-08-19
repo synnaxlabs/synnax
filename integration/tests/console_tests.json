@@ -38,13 +38,16 @@
         { "case": "console/range/range_explorer" },
         { "case": "console/range/range_details" },
         { "case": "console/schematic/schematic_lifecycle" },
+        { "case": "console/schematic/set_output" },
+        { "case": "console/schematic/hold_to_actuate" },
         { "case": "console/schematic/alignment" },
         { "case": "console/schematic/edit_props" },
         { "case": "console/schematic/select_state_indicator" },
         { "case": "console/table/table_lifecycle" },
         { "case": "console/task/ni_analog_read_forms" },
         { "case": "console/task/ni_analog_write_forms" },
-        { "case": "console/task/ni_counter_read_forms" }
+        { "case": "console/task/ni_counter_read_forms" },
+        { "case": "console/task/no_device" }
       ]
     },
     {

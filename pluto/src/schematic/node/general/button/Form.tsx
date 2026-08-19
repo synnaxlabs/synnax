@@ -28,6 +28,7 @@ type ButtonTelemFormT = Omit<BaseButton.UseProps, "aetherKey"> & {
 
 export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } = Base.useField<ButtonTelemFormT>(path);
+  const mode = Base.useFieldValue<BaseButton.Mode>("mode", { optional: true });
   const sinkP = zod.parse(telem.sinkPipelinePropsZ, value.sink?.props, {
     label: "sink pipeline",
   });
@@ -72,7 +73,9 @@ export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
         <Input.Item label="Channel" grow padHelpText={false}>
           <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
         </Input.Item>
-        <Form.ActivationDelayField />
+        {/* The delay gates single-shot actuation (fire, pulse). Momentary's
+            hold is the actuation, so the field is hidden there. */}
+        {mode !== "momentary" && <Form.ActivationDelayField />}
         <Form.ControlChipField />
       </Flex.Box>
       <Base.Field<BaseButton.Mode> path="mode" label="Mode" optional>

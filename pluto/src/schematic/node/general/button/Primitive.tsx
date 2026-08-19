@@ -39,25 +39,34 @@ export const Button = ({
   color,
   size,
   level,
+  mode = "fire",
   onClickDelay: delay,
 }: ButtonProps): ReactElement => {
   const style = useMemo<CSSProperties>(
     () => ({ [CSS.var("symbol-color")]: symbolColorVar(color) }),
     [color],
   );
+  // The activation delay gates Base.Button's onClick, so single-shot actuation
+  // (fire's release write, pulse's press write) routes through it. An undelayed
+  // pulse keeps its raw press edge. Momentary always acts on raw press/release:
+  // the hold is the actuation, so a hold delay has no meaning there.
+  const delayed = (delay ?? 0) > 0;
+  let handlers: Pick<ButtonProps, "onClick" | "onMouseDown" | "onMouseUp">;
+  if (mode === "momentary") handlers = { onMouseDown, onMouseUp };
+  else if (mode === "pulse")
+    handlers = delayed ? { onClick: onMouseDown } : { onMouseDown };
+  else handlers = { onClick };
   return (
     <Primitive.Div orientation={orientation}>
       <Base.Button
         variant="filled"
         className={CSS.cx(CSS.B("symbol-colored"), CSS.B("symbol-button"))}
         style={style}
-        onClick={onClick}
-        onMouseDown={onMouseDown}
-        onMouseUp={onMouseUp}
+        {...handlers}
         size={size}
         level={level}
         direction={label?.direction}
-        onClickDelay={delay}
+        onClickDelay={mode === "momentary" ? 0 : delay}
       >
         {label?.label ?? ""}
       </Base.Button>

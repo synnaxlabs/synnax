@@ -9,7 +9,6 @@
 
 from typing import Any
 
-import synnax as sy
 from console.schematic.symbol import Symbol
 
 
@@ -25,6 +24,7 @@ class Valve(Symbol):
         state_channel: str,
         command_channel: str,
         show_control_chip: bool = True,
+        activation_delay: float | None = None,
         symbol_type: str = "Generic",
         rotatable: bool = True,
     ):
@@ -35,6 +35,8 @@ class Valve(Symbol):
             state_channel: Channel name for valve state
             command_channel: Channel name for valve commands
             show_control_chip: Whether to show the control chip (optional)
+            activation_delay: Milliseconds the valve must be held before it
+                actuates (optional)
             symbol_type: The type of symbol (default: "Valve")
             rotatable: Whether the symbol can be rotated (default: True)
         """
@@ -42,6 +44,7 @@ class Valve(Symbol):
         self.state_channel = state_channel
         self.command_channel = command_channel
         self.show_control_chip = show_control_chip
+        self.activation_delay = activation_delay
 
     def _apply_properties(self) -> None:
         """Apply valve configuration after being added to schematic."""
@@ -49,6 +52,7 @@ class Valve(Symbol):
             state_channel=self.state_channel,
             command_channel=self.command_channel,
             show_control_chip=self.show_control_chip,
+            activation_delay=self.activation_delay,
         )
 
     def set_properties(
@@ -57,6 +61,7 @@ class Valve(Symbol):
         state_channel: str | None = None,
         command_channel: str | None = None,
         show_control_chip: bool | None = None,
+        activation_delay: float | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Set Valve properties including channel settings."""
@@ -77,6 +82,11 @@ class Valve(Symbol):
                 input_field="Command Channel", channel_name=command_channel
             )
             applied_properties["command_channel"] = command_channel
+
+        if activation_delay is not None:
+            self.layout.fill_input_field("Activation delay", str(activation_delay))
+            self.page.keyboard.press("Enter")
+            applied_properties["activation_delay"] = activation_delay
 
         if show_control_chip is not None:
             chip_toggle = (
@@ -132,13 +142,6 @@ class Valve(Symbol):
         """Press button."""
         self._disable_edit_mode()
         self.click()
-
-    def press_and_hold(self, delay: sy.TimeSpan = sy.TimeSpan.SECOND) -> None:
-        """Click and hold the button for the specified duration."""
-        self._disable_edit_mode()
-        self.page.mouse.down()
-        self.page.wait_for_timeout(int(delay.milliseconds()))
-        self.page.mouse.up()
 
     def open(self) -> None:
         """Press if closed, do nothing if open"""

@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { color } from "@synnaxlabs/x";
-import { render } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Button } from "@/schematic/node/general/button/Primitive";
 
@@ -51,5 +51,118 @@ describe("button symbol", () => {
     expect(getButton(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
       "",
     );
+  });
+
+  describe("handler routing", () => {
+    it("should actuate fire mode through onClick, not the raw handlers", () => {
+      const onClick = vi.fn();
+      const onMouseUp = vi.fn();
+      const { container } = render(
+        <Button mode="fire" onClick={onClick} onMouseUp={onMouseUp} />,
+      );
+      const btn = getButton(container);
+      fireEvent.mouseUp(btn);
+      expect(onMouseUp).not.toHaveBeenCalled();
+      fireEvent.click(btn);
+      expect(onClick).toHaveBeenCalledTimes(1);
+    });
+
+    it("should actuate momentary mode on raw press and release", () => {
+      const onClick = vi.fn();
+      const onMouseDown = vi.fn();
+      const onMouseUp = vi.fn();
+      const { container } = render(
+        <Button
+          mode="momentary"
+          onClick={onClick}
+          onMouseDown={onMouseDown}
+          onMouseUp={onMouseUp}
+        />,
+      );
+      const btn = getButton(container);
+      fireEvent.mouseDown(btn);
+      expect(onMouseDown).toHaveBeenCalledTimes(1);
+      fireEvent.mouseUp(btn);
+      expect(onMouseUp).toHaveBeenCalledTimes(1);
+      fireEvent.click(btn);
+      expect(onClick).not.toHaveBeenCalled();
+    });
+
+    it("should actuate an undelayed pulse on the raw press edge", () => {
+      const onMouseDown = vi.fn();
+      const { container } = render(<Button mode="pulse" onMouseDown={onMouseDown} />);
+      fireEvent.mouseDown(getButton(container));
+      expect(onMouseDown).toHaveBeenCalledTimes(1);
+    });
+
+    describe("activation delay", () => {
+      beforeEach(() => {
+        vi.useFakeTimers();
+      });
+
+      afterEach(() => {
+        vi.useRealTimers();
+      });
+
+      it("should swallow a fire-mode click shorter than the delay", () => {
+        const onClick = vi.fn();
+        const { container } = render(
+          <Button mode="fire" onClick={onClick} onClickDelay={500} />,
+        );
+        const btn = getButton(container);
+        fireEvent.mouseDown(btn);
+        fireEvent.mouseUp(document);
+        fireEvent.click(btn);
+        vi.advanceTimersByTime(1000);
+        expect(onClick).not.toHaveBeenCalled();
+      });
+
+      it("should fire after the delay while the button stays held", () => {
+        const onClick = vi.fn();
+        const { container } = render(
+          <Button mode="fire" onClick={onClick} onClickDelay={500} />,
+        );
+        fireEvent.mouseDown(getButton(container));
+        vi.advanceTimersByTime(499);
+        expect(onClick).not.toHaveBeenCalled();
+        vi.advanceTimersByTime(1);
+        expect(onClick).toHaveBeenCalledTimes(1);
+      });
+
+      it("should gate a delayed pulse behind the hold", () => {
+        const onMouseDown = vi.fn();
+        const { container } = render(
+          <Button mode="pulse" onMouseDown={onMouseDown} onClickDelay={500} />,
+        );
+        const btn = getButton(container);
+        fireEvent.mouseDown(btn);
+        expect(onMouseDown).not.toHaveBeenCalled();
+        vi.advanceTimersByTime(500);
+        expect(onMouseDown).toHaveBeenCalledTimes(1);
+      });
+
+      it("should swallow a pulse click shorter than the delay", () => {
+        const onMouseDown = vi.fn();
+        const { container } = render(
+          <Button mode="pulse" onMouseDown={onMouseDown} onClickDelay={500} />,
+        );
+        const btn = getButton(container);
+        fireEvent.mouseDown(btn);
+        fireEvent.mouseUp(document);
+        vi.advanceTimersByTime(1000);
+        expect(onMouseDown).not.toHaveBeenCalled();
+      });
+
+      it("should ignore the delay for momentary mode", () => {
+        const onMouseDown = vi.fn();
+        const { container } = render(
+          <Button mode="momentary" onMouseDown={onMouseDown} onClickDelay={500} />,
+        );
+        const btn = getButton(container);
+        fireEvent.mouseDown(btn);
+        expect(onMouseDown).toHaveBeenCalledTimes(1);
+        expect(btn.style.getPropertyValue("--pluto-btn-delay")).toBe("");
+      });
+    });
   });
 });

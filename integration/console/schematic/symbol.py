@@ -8,6 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import Any
 
 from playwright.sync_api import FloatRect, Locator, Page
@@ -181,6 +183,23 @@ class Symbol(ABC):
     def press(self) -> None:
         """Press/activate the symbol if applicable. Default implementation does nothing."""
         pass
+
+    @contextmanager
+    def hold(self) -> Iterator[None]:
+        """Press and hold the symbol, releasing on exit."""
+        self._disable_edit_mode()
+        pos = self.position
+        self.page.mouse.move(box_center_x(pos), box_center_y(pos))
+        self.page.mouse.down()
+        try:
+            yield
+        finally:
+            self.page.mouse.up()
+
+    def press_and_hold(self, delay: sy.TimeSpan = sy.TimeSpan.SECOND) -> None:
+        """Press the symbol, hold for ``delay``, then release."""
+        with self.hold():
+            self.page.wait_for_timeout(int(delay.milliseconds))
 
     def move(self, *, delta_x: int, delta_y: int) -> None:
         """Move the symbol by the specified number of pixels using drag"""

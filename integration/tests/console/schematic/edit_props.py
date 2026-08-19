@@ -207,13 +207,13 @@ class EditProps(ConsoleCase):
         self.log("2.2 Edited")
         button.set_properties(
             channel_name=CHANNEL_NAME,
-            activation_delay=4.2,
             show_control_chip=False,
             mode="Momentary",
         )
+        # Momentary hides the activation delay field: the hold is the
+        # actuation, so no delay applies and the property is not read back.
         expected_edited_props: PropertyDict = {
             "channel": CHANNEL_NAME,
-            "activation_delay": 4.2,
             "show_control_chip": False,
             "mode": "Momentary",
         }
