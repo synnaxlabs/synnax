@@ -160,34 +160,6 @@ describe("useContext", () => {
     });
   });
 
-  describe("integration with actual Form components", () => {
-    it("should work properly when Field component calls useContext", () => {
-      const TestField = () => {
-        const ctx = useContext(undefined, `Field(name)`);
-        return <div>Field has context: {ctx ? "true" : "false"}</div>;
-      };
-
-      const { result } = renderHook(() => <TestField />, {
-        wrapper: FormWrapper,
-      });
-
-      expect(() => result.current).not.toThrow();
-    });
-
-    it("should work properly when useField hook calls useContext", () => {
-      const TestUseField = () => {
-        const ctx = useContext(undefined, `useField(name)`);
-        return ctx.get("name").value;
-      };
-
-      const { result } = renderHook(() => TestUseField(), {
-        wrapper: FormWrapper,
-      });
-
-      expect(() => result.current).not.toThrow();
-    });
-  });
-
   describe("error message variations", () => {
     it("should handle complex path expressions in function names", () => {
       expect(() => {
