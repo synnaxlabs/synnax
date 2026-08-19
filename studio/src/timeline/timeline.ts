@@ -54,6 +54,8 @@ export const pointerDownEventZ = z.object({
   button: z.enum(["left", "right", "middle"]).default("left"),
   /** Rect of the clicked element; the director frames zooms on it. */
   rect: rectZ.optional(),
+  /** False suppresses the auto-zoom this click would trigger. */
+  zoom: z.boolean().optional(),
 });
 
 export const pointerUpEventZ = z.object({

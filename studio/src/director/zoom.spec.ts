@@ -136,6 +136,17 @@ describe("zoom.plan", () => {
     expect(() => plan(tl)).toThrow("requires a rect");
   });
 
+  it("should skip clicks that opted out of auto-zoom", () => {
+    const tl = timeline([
+      { type: "pointerdown", tick: 300, x: 500, y: 400, button: "left", zoom: false },
+      { type: "pointerup", tick: 306, x: 500, y: 400, button: "left" },
+      ...click(1800),
+    ]);
+    const segments = plan(tl);
+    expect(segments).toHaveLength(1);
+    expect(segments[0].focus[0].tick).toEqual(1800);
+  });
+
   it("should carry click rects onto segment focuses", () => {
     const rect = { x: 450, y: 350, width: 100, height: 100 };
     const tl = timeline([

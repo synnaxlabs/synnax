@@ -76,6 +76,7 @@ export const plan = (tl: Timeline): Segment[] => {
   const auto: Segment[] = [];
 
   for (const c of clicks(tl)) {
+    if (c.zoom === false) continue;
     if (c.tick >= frames - ZOOM_IGNORE_TAIL_S * fps) continue;
     if (overrides.some((o) => c.tick >= o.tick && c.tick <= o.endTick)) continue;
     auto.push({

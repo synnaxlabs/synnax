@@ -150,6 +150,23 @@ export const closeToolbar = async (session: CaptureSession): Promise<void> => {
 };
 
 /**
+ * createComponent clicks a component button (e.g. "Line plot") in the "Create
+ * component" selector tab, as recorded input.
+ */
+export const createComponent = async (
+  session: CaptureSession,
+  title: string,
+): Promise<void> => {
+  const { page } = session;
+  const button = page
+    .locator(".console-layout-selector__frame")
+    .getByRole("button", { name: title })
+    .first();
+  await session.waitFor(button);
+  await session.click(button, { zoom: false });
+};
+
+/**
  * clearPaletteInput empties the palette input when it retains the previous
  * query; the palette keeps its text across opens, so typing without clearing
  * appends to the stale query and searches for garbage.

@@ -322,13 +322,18 @@ export class CaptureSession {
     return to;
   }
 
-  private async pressRelease(at: Point, button: "left" | "right"): Promise<void> {
+  private async pressRelease(
+    at: Point,
+    button: "left" | "right",
+    zoom?: boolean,
+  ): Promise<void> {
     this.events.push({
       type: "pointerdown",
       tick: this.frame,
       ...at,
       button,
       rect: this.cursorRect,
+      ...(zoom === false && { zoom }),
     });
     await this.page.mouse.down({ button });
     await this.hold(80);
@@ -337,9 +342,13 @@ export class CaptureSession {
     await this.tick();
   }
 
-  /** click travels to the target, presses, and releases. */
-  async click(target: Locator | Point): Promise<void> {
-    await this.pressRelease(await this.moveTo(target), "left");
+  /**
+   * click travels to the target, presses, and releases. Pass `zoom: false`
+   * when the click swaps out the whole view, so the camera does not punch
+   * into content that is about to disappear.
+   */
+  async click(target: Locator | Point, opts?: { zoom?: boolean }): Promise<void> {
+    await this.pressRelease(await this.moveTo(target), "left", opts?.zoom);
   }
 
   /** rightClick travels to the target and opens its context menu. */
