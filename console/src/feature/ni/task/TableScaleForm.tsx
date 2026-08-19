@@ -68,16 +68,21 @@ export const TableScaleForm = ({ prefix }: TableScaleFormProps): ReactElement =>
   ) => {
     const preScaledValues = value[raw] as number[] | undefined;
     const scaledValues = value[scaledKey] as number[] | undefined;
-    const hasScaled = scaledValues != null;
-    const hasPreScaled = preScaledValues != null;
-    if (hasScaled && hasPreScaled)
-      if (preScaledValues.length !== scaledValues.length)
-        preScaled.setStatus({
-          variant: "error",
-          message: `Pre-scaled ${preScaledValues.length} values and scaled ${scaledValues.length} values must be the same length`,
-        });
-    if (hasPreScaled) preScaled.onChange(preScaledValues);
-    if (hasScaled) scaled.onChange(scaledValues);
+    if (
+      preScaledValues != null &&
+      scaledValues != null &&
+      preScaledValues.length !== scaledValues.length
+    ) {
+      // Loading the pair would pad the shorter column with zeros, giving the scale
+      // points the CSV never held.
+      preScaled.setStatus({
+        variant: "error",
+        message: `Pre-scaled ${preScaledValues.length} values and scaled ${scaledValues.length} values must be the same length`,
+      });
+      return;
+    }
+    if (preScaledValues != null) preScaled.onChange(preScaledValues);
+    if (scaledValues != null) scaled.onChange(scaledValues);
   };
 
   const handleFileChange = (value: z.infer<typeof tableSchema>, name: string) => {

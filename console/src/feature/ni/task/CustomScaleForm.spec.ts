@@ -215,6 +215,19 @@ describe("CustomScaleForm", () => {
       expect(table.cell(2, 1).value).toBe("30");
     });
 
+    it("should reject a CSV whose columns hold a different number of values", async () => {
+      const csvPath = join(dir, "ragged.csv");
+      await writeFile(csvPath, "raw_col,scaled_col\n1,10\n2,\n3,30\n");
+      openMock.mockResolvedValue(csvPath);
+      await renderWithScale(NI.Task.createScale("table"));
+      await screen.findByText("Table CSV");
+      fireEvent.click(screen.getByText("Select file"));
+      await screen.findByText(
+        "Pre-scaled 3 values and scaled 2 values must be the same length",
+      );
+      expect(getInputTable("Values").rows).toHaveLength(0);
+    });
+
     it("should show the values loaded from a CSV", async () => {
       const csvPath = join(dir, "table3.csv");
       await writeFile(csvPath, "raw_col,scaled_col\n1,10\n2,20\n3,30\n");
