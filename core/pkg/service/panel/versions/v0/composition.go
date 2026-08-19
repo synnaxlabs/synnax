@@ -44,15 +44,27 @@ var CompositionMigrations = []migrate.Migration{
 }
 
 // migratableLayoutTypes maps the Console layout types whose layout key is the key of a
-// backing core document to that document's ontology resource type. Tabs of any other
-// layout type (inline app views, modals) have no server-side document to reference and
-// are dropped by the migration.
+// backing core document to that document's ontology resource type.
 var migratableLayoutTypes = map[string]ontology.ResourceType{
 	"arc":       ontology.ResourceTypeArc,
 	"lineplot":  ontology.ResourceTypeLineplot,
 	"log":       ontology.ResourceTypeLog,
+	"overview":  ontology.ResourceTypeRange,
 	"schematic": ontology.ResourceTypeSchematic,
 	"table":     ontology.ResourceTypeTable,
+}
+
+// viewLayoutTypes maps the legacy Console layout types that render inline app views
+// (no backing document) to the view type the current Console renders them as in a
+// panel. Both legacy new-tab selectors collapse into the current selector picker.
+var viewLayoutTypes = map[string]string{
+	"docs":                  "docs",
+	"arc_explorer":          "arc_explorer",
+	"range_explorer":        "range_explorer",
+	"status_explorer":       "status_explorer",
+	"taskSelector":          "taskSelector",
+	"layoutSelector":        "selector",
+	"visualizationSelector": "selector",
 }
 
 // legacyLayout is the subset of the Console's persisted layout record consumed by the
@@ -113,12 +125,13 @@ type stagedLayout struct {
 // migrateProjectLayouts converts the legacy layout blobs the project migration stages
 // under projectv1.LegacyLayoutKVPrefix into panels, deleting each staged entry as it is
 // consumed, so this migration never reads the project layout field directly. Every
-// window mosaic that references at least one live visualization document becomes a
-// panel parented under the project. Tabs whose layout entry is missing, whose layout
-// type has no backing document, or whose document no longer exists are dropped; splits
-// that lose a side collapse into the surviving child. Blobs that cannot be parsed are
-// skipped, since the Console wrote them best-effort and an unreadable layout must not
-// block the upgrade.
+// window mosaic that retains at least one convertible tab becomes a panel parented
+// under the project: document-backed tabs become resource tabs, and app views with a
+// current equivalent become view tabs. Tabs whose layout entry is missing, whose type
+// has no conversion, or whose document no longer exists are dropped; splits that lose a
+// side collapse into the surviving child. Blobs that cannot be parsed are skipped,
+// since the Console wrote them best-effort and an unreadable layout must not block the
+// upgrade.
 func migrateProjectLayouts(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -289,6 +302,13 @@ func convertNode(
 		}
 		resourceType, ok := migratableLayoutTypes[layout.Type]
 		if !ok {
+			if viewType, ok := viewLayoutTypes[layout.Type]; ok {
+				tabs = append(tabs, Tab{Variant: ViewTab{
+					TabBase: TabBase{Key: uuid.New()},
+					View:    View{Type: viewType},
+				}})
+				continue
+			}
 			tab, err := convertTaskTab(ctx, tx, taskKeyCandidates(slice, t.TabKey))
 			if err != nil {
 				return nil, err

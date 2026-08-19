@@ -115,11 +115,18 @@ var _ = Describe("Composition migrations", func() {
 		switch v := n.Variant.(type) {
 		case v0.LeafNode:
 			for i, t := range v.Tabs {
-				rt, ok := t.Variant.(v0.ResourceTab)
-				Expect(ok).To(BeTrue())
-				Expect(rt.Key).ToNot(Equal(uuid.Nil))
-				rt.Key = uuid.Nil
-				v.Tabs[i] = v0.Tab{Variant: rt}
+				switch tv := t.Variant.(type) {
+				case v0.ResourceTab:
+					Expect(tv.Key).ToNot(Equal(uuid.Nil))
+					tv.Key = uuid.Nil
+					v.Tabs[i] = v0.Tab{Variant: tv}
+				case v0.ViewTab:
+					Expect(tv.Key).ToNot(Equal(uuid.Nil))
+					tv.Key = uuid.Nil
+					v.Tabs[i] = v0.Tab{Variant: tv}
+				default:
+					Fail("unexpected tab variant")
+				}
 			}
 			n.Variant = v
 		case v0.SplitNode:
@@ -145,6 +152,9 @@ var _ = Describe("Composition migrations", func() {
 		return v0.Tab{Variant: v0.ResourceTab{
 			Resource: ontology.ID{Type: t, Key: key},
 		}}
+	}
+	appViewTab := func(viewType string) v0.Tab {
+		return v0.Tab{Variant: v0.ViewTab{View: v0.View{Type: viewType}}}
 	}
 	leaf := func(tabs ...v0.Tab) *v0.Node {
 		return &v0.Node{Variant: v0.LeafNode{Tabs: tabs}}
@@ -202,8 +212,7 @@ var _ = Describe("Composition migrations", func() {
 									"key": 3,
 									"tabs": []any{
 										mosaicTab(logKey),
-										// Inline app view: no backing resource,
-										// dropped.
+										// Inline app view: becomes a docs view tab.
 										mosaicTab("docs"),
 										// Viz whose resource was deleted: dropped.
 										mosaicTab(staleKey),
@@ -265,7 +274,10 @@ var _ = Describe("Composition migrations", func() {
 					First:     *leaf(resourceTab(ontology.ResourceTypeLineplot, lpKey)),
 					Last:      *leaf(resourceTab(ontology.ResourceTypeSchematic, scKey)),
 				}},
-				Last: *leaf(resourceTab(ontology.ResourceTypeLog, logKey)),
+				Last: *leaf(
+					resourceTab(ontology.ResourceTypeLog, logKey),
+					appViewTab("docs"),
+				),
 			}}))
 
 			tableWin := findPanel(panels, "Table Window")
@@ -364,15 +376,15 @@ var _ = Describe("Composition migrations", func() {
 					"main": map[string]any{
 						"root": map[string]any{
 							"key":  1,
-							"tabs": []any{mosaicTab("docs")},
+							"tabs": []any{mosaicTab("mystery")},
 						},
 					},
 				},
 				"layouts": map[string]any{
-					"docs": map[string]any{
-						"key":      "docs",
-						"type":     "docs",
-						"name":     "Documentation",
+					"mystery": map[string]any{
+						"key":      "mystery",
+						"type":     "mystery_view",
+						"name":     "Mystery",
 						"location": "mosaic",
 					},
 				},
@@ -406,18 +418,18 @@ var _ = Describe("Composition migrations", func() {
 							"key": 1,
 							"tabs": []any{
 								mosaicTab(legacy),
-								// Inline app view: not a task, dropped.
-								mosaicTab("docs"),
+								// App view without a current equivalent: dropped.
+								mosaicTab("mystery"),
 							},
 						},
 					},
 				},
 				"layouts": map[string]any{
 					legacy: vizLayout(legacy, "ni_analog_read"),
-					"docs": map[string]any{
-						"key":      "docs",
-						"type":     "docs",
-						"name":     "Documentation",
+					"mystery": map[string]any{
+						"key":      "mystery",
+						"type":     "mystery_view",
+						"name":     "Mystery",
 						"location": "mosaic",
 					},
 				},
@@ -511,6 +523,106 @@ var _ = Describe("Composition migrations", func() {
 			}))
 		},
 	)
+
+	// Regression: range overviews are mosaic tabs keyed by the range's key, so they
+	// must convert into range resource tabs like the other document-backed layouts.
+	It(
+		"Should convert range overview tabs into range resource tabs",
+		func(ctx SpecContext) {
+			db := DeferClose(gorp.Wrap(memkv.New()))
+			rngKey, staleKey := uuid.NewString(), uuid.NewString()
+			seedResources(ctx, db, ontology.ID{
+				Type: ontology.ResourceTypeRange, Key: rngKey,
+			})
+			stageLayout(ctx, db, project.Project{
+				Key:  uuid.New(),
+				Name: "Ops",
+				Layout: msgpack.EncodedJSON{
+					"mosaics": map[string]any{
+						"main": map[string]any{
+							"root": map[string]any{
+								"key": 1,
+								"tabs": []any{
+									mosaicTab(rngKey),
+									// Overview whose range was deleted: dropped.
+									mosaicTab(staleKey),
+								},
+							},
+						},
+					},
+					"layouts": map[string]any{
+						rngKey:   vizLayout(rngKey, "overview"),
+						staleKey: vizLayout(staleKey, "overview"),
+					},
+				},
+			})
+
+			openPanelTable(ctx, db)
+			runComposition(ctx, db)
+			panels := collectPanels(ctx, db)
+			Expect(panels).To(HaveLen(1))
+			root := panels[0].Root
+			zeroTabKeys(&root)
+			Expect(root).To(Equal(
+				*leaf(resourceTab(ontology.ResourceTypeRange, rngKey)),
+			))
+		},
+	)
+
+	// Regression: app views (docs, explorers, selectors) have no backing document but
+	// the current Console renders them as panel view tabs, so they must convert
+	// instead of being dropped.
+	It("Should convert app view tabs into view tabs", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		legacyTypes := []string{
+			"docs",
+			"arc_explorer",
+			"range_explorer",
+			"status_explorer",
+			"taskSelector",
+			"layoutSelector",
+			"visualizationSelector",
+		}
+		tabs := make([]any, len(legacyTypes))
+		layouts := map[string]any{}
+		for i, t := range legacyTypes {
+			tabs[i] = mosaicTab(t)
+			layouts[t] = map[string]any{
+				"key":      t,
+				"type":     t,
+				"name":     t,
+				"location": "mosaic",
+			}
+		}
+		stageLayout(ctx, db, project.Project{
+			Key:  uuid.New(),
+			Name: "Ops",
+			Layout: msgpack.EncodedJSON{
+				"mosaics": map[string]any{
+					"main": map[string]any{
+						"root": map[string]any{"key": 1, "tabs": tabs},
+					},
+				},
+				"layouts": layouts,
+			},
+		})
+
+		openPanelTable(ctx, db)
+		runComposition(ctx, db)
+		panels := collectPanels(ctx, db)
+		Expect(panels).To(HaveLen(1))
+		root := panels[0].Root
+		zeroTabKeys(&root)
+		Expect(root).To(Equal(*leaf(
+			appViewTab("docs"),
+			appViewTab("arc_explorer"),
+			appViewTab("range_explorer"),
+			appViewTab("status_explorer"),
+			appViewTab("taskSelector"),
+			appViewTab("selector"),
+			appViewTab("selector"),
+		)))
+	})
 
 	It(
 		"Should strip resource tabs the type whitelist rejects",
