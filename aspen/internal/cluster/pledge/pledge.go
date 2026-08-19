@@ -7,24 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package pledge provides a system for pledging a node to a jury of Candidates. The
-// pledge uses quorum consensus to assign the node a unique Name.
+// Package pledge provides a system for pledging a node to a jury of candidates. The
+// pledge uses quorum consensus to assign the node a unique name.
 //
-// To pledge a new node to a jury, call Pledge() with a set of peer addresses. To
-// register a node as a candidate, use Arbitrate().
+// To pledge a new node to a jury, call Pledge with a set of peer addresses. To
+// register a node as a candidate, use Arbitrate.
 //
 // Vocabulary:
 //
-//	Pledge - Used as both a verb and noun. A "PledgeServer" is a node that has
-//	'pledged' itself to the cluster. 'Pledging' is the entire process of
-//	contacting a peer, proposing an Name to a jury, and returning it to the pledge.
-//	Responsible - A node that is responsible for coordinating the Pledge process.
-//	A responsible node is the first peer that accepts the Pledge request from
-//	the pledge node.
-//	Candidates - A pool of nodes that can be selected to form a jury that can
-//	arbitrate a Pledge.
-//	Jury - A quorum (numCandidates/2 + 1) of Candidates that arbitrate a
-//	Pledge. All jurors must accept the Pledge for the node to be inducted.
+//   - Pledge: Used as both a verb and a noun. A PledgeServer is a node that has pledged
+//     itself to the cluster. Pledging is the entire process of contacting a peer,
+//     proposing a name to a jury, and returning it to the pledging node.
+//
+//   - Responsible: A node responsible for coordinating the pledge process. The
+//     responsible node is the first peer that accepts the pledge request from the
+//     pledging node.
+//
+//   - Candidate: A node in the pool of nodes that can be selected to form a jury that
+//     arbitrates a pledge.
+//
+//   - Jury: A quorum (numCandidates/2 + 1) of candidates that arbitrate a pledge. All
+//     jurors must accept the pledge for the node to be inducted.
 //
 // RFC-2 provides details on how the pledging algorithm is implemented.
 package pledge
@@ -47,22 +50,19 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-var (
-	// errQuorumUnreachable is returned when a quorum jury cannot be safely assembled.
-	errQuorumUnreachable = errors.New("quorum unreachable")
-	// errProposalRejected is an internal error returned when a juror rejects a pledge
-	// proposal from a responsible node.
-	errProposalRejected = errors.New("proposal rejected")
-)
+// errProposalRejected is an internal error returned when a juror rejects a pledge
+// proposal from a responsible node.
 
-// Pledge pledges a new node to the cluster. This node, called the Pledge, submits a
-// request for id assignment to a peer in peers. If the cluster approves the request,
-// the node will be assigned an Name and registered to arbitrate in future pledge (see
-// the Arbitrate function for more on how this works). keys of nodes in the cluster are
-// guaranteed to be unique, but are not guaranteed to be sequential. Pledge will
-// continue to contact peers at a scaling interval (defined in cfg.RetryScale and
-// cfg.RetryInterval) until the cluster approves request or the provided context is
-// cancelled. To see the required configuration parameters, see the Config struct.
+var errProposalRejected = errors.New("proposal rejected")
+
+// Pledge pledges a new node to the cluster. This node, called the pledge, submits a
+// request for ID assignment to a peer in peers. If the cluster approves the request,
+// the node will be assigned an name and registered to arbitrate in future pledge (see
+// [Arbitrate] for more on how this works). Keys of nodes in the cluster are guaranteed
+// to be unique, but are not guaranteed to be sequential. Pledge will continue to
+// contact peers at a scaling interval (defined in [Config.RetryScale] and
+// [Config.RetryInterval]) until the cluster approves request or the provided context is
+// cancelled.
 func Pledge(ctx context.Context, cfgs ...Config) (Response, error) {
 	if ctx.Err() != nil {
 		return Response{}, ctx.Err()
@@ -111,10 +111,11 @@ func Pledge(ctx context.Context, cfgs ...Config) (Response, error) {
 				// If the pledge node has been inducted successfully, allow it to
 				// arbitrate in future pledges.
 				cfg.ClusterKey = res.ClusterKey
-				return res, arbitrate(cfg)
+				arbitrate(cfg)
+				return res, nil
 			}
 			if ctx.Err() != nil {
-				return res, errors.Combine(ctx.Err(), err)
+				return Response{}, errors.Combine(ctx.Err(), err)
 			}
 			cfg.L.Warn(
 				"failed to pledge, retrying",
@@ -132,9 +133,8 @@ func Pledge(ctx context.Context, cfgs ...Config) (Response, error) {
 // Arbitrate registers a node to arbitrate future pledges. When processing a pledge
 // request, the node will act as responsible for the pledge and submit proposed keys to
 // a jury of candidate nodes. The responsible node will continue to propose keys until
-// cfg.MaxProposals is reached. When processing a responisble's proposal, the node will
-// act a juror, and decide if it approves of the proposed Name or not. To see the
-// required configuration parameters, see the Config struct.
+// [Config.MaxProposals] is reached. When processing a responsible node's proposal, the
+// node will act a juror, and decide if it approves of the proposed name or not.
 func Arbitrate(cfgs ...Config) error {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
@@ -142,10 +142,11 @@ func Arbitrate(cfgs ...Config) error {
 	}
 	cfg.R.Prod("pledge", cfg)
 	cfg.L.Debug("registering node as pledge arbitrator", cfg.Report().ZapFields()...)
-	return arbitrate(cfg)
+	arbitrate(cfg)
+	return nil
 }
 
-func arbitrate(cfg Config) error {
+func arbitrate(cfg Config) {
 	j := &juror{Config: cfg}
 	cfg.TransportServer.BindHandler(
 		func(ctx context.Context, req Request) (Response, error) {
@@ -155,7 +156,6 @@ func arbitrate(cfg Config) error {
 			return Response{}, j.verdict(ctx, req)
 		},
 	)
-	return nil
 }
 
 type responsible struct {
@@ -168,7 +168,7 @@ func (r *responsible) propose(ctx context.Context) (res Response, err error) {
 	r.L.Info("responsible received pledge. starting proposal process.")
 
 	ctx, span := r.T.Prod(ctx, "responsible.propose")
-	defer func() { _ = span.EndWith(err) }()
+	defer func() { err = span.EndWith(err) }()
 
 	res.ClusterKey = r.ClusterKey
 
@@ -183,10 +183,10 @@ func (r *responsible) propose(ctx context.Context) (res Response, err error) {
 		// provide a consistent view through the lifetime of the proposal.
 		r.refreshCandidates()
 
-		// Add the proposed Name unconditionally. Quorum juror's store each approved
+		// Add the proposed name unconditionally. Quorum juror's store each approved
 		// request. If one node in the quorum is unreachable, other Candidates may have
 		// already approved the request. This means that if we retry the request without
-		// incrementing the proposed Name, we'll get a rejection from the candidate that
+		// incrementing the proposed name, we'll get a rejection from the candidate that
 		// approved the request last time. This will result in marginally higher keys
 		// being assigned, but it's better than adding a lot of extra logic to the
 		// proposal process.
@@ -217,8 +217,8 @@ func (r *responsible) propose(ctx context.Context) (res Response, err error) {
 
 		r.L.Debug("quorum accepted pledge", logKey)
 
-		// If no candidate returned an error, it means we reached a quorum approval,
-		// and we can safely return the new Name to the caller.
+		// If no candidate returned an error, it means we reached a quorum approval, and
+		// we can safely return the new Name to the caller.
 		return res, nil
 	}
 	r.L.Error(
@@ -226,7 +226,7 @@ func (r *responsible) propose(ctx context.Context) (res Response, err error) {
 		zap.Uint("numProposals", propC),
 		zap.Error(err),
 	)
-	return res, err
+	return Response{}, err
 }
 
 func (r *responsible) refreshCandidates() { r.candidateSnapshot = r.Candidates() }
@@ -236,7 +236,7 @@ func (r *responsible) buildQuorum() (node.Group, error) {
 	size := len(presentCandidates)/2 + 1
 	healthy := presentCandidates.WhereState(node.StateHealthy)
 	if len(healthy) < size {
-		return node.Group{}, errQuorumUnreachable
+		return node.Group{}, errors.New("quorum unreachable")
 	}
 	return xrand.SubMap(healthy, size), nil
 }
@@ -269,8 +269,8 @@ func (r *responsible) consultQuorum(
 			if err == nil {
 				return nil
 			}
-			// If any node returns an error, we need to retry the entire responsible,
-			// so we need to cancel all running requests.
+			// If any node returns an error, we need to retry the entire responsible, so
+			// we need to cancel all running requests.
 			defer cancel()
 			mu.Lock()
 			defer mu.Unlock()
@@ -283,7 +283,8 @@ func (r *responsible) consultQuorum(
 				)
 			} else if !errors.Is(err, context.Canceled) {
 				infraErr = err
-				r.L.Error("failed to reach juror",
+				r.L.Error(
+					"failed to reach juror",
 					zap.Uint32("key", uint32(key)),
 					zap.Stringer("address", n.Address),
 				)
@@ -293,9 +294,9 @@ func (r *responsible) consultQuorum(
 	}
 	err := wg.Wait()
 	// The first error to cancel the round makes the sibling requests fail with
-	// context.Canceled, so the error errgroup surfaces is racy. Report why the
-	// round actually failed: a real infrastructure error, then a rejection, so
-	// that MaxProposals accounting sees mixed rounds deterministically.
+	// context.Canceled, so the error errgroup surfaces is racy. Report why the round
+	// actually failed: a real infrastructure error, then a rejection, so that
+	// MaxProposals accounting sees mixed rounds deterministically.
 	if infraErr != nil {
 		return infraErr
 	}
@@ -316,7 +317,7 @@ func (j *juror) verdict(ctx context.Context, req Request) (err error) {
 		return ctx.Err()
 	}
 	_, span := j.T.Prod(ctx, "juror.verdict")
-	defer func() { _ = span.EndWith(err, errProposalRejected) }()
+	defer func() { err = span.EndWith(err, errProposalRejected) }()
 	logID := zap.Uint32("key", uint32(req.Key))
 	j.L.Debug("juror received proposal. making verdict", logID)
 	j.mu.Lock()
@@ -326,17 +327,15 @@ func (j *juror) verdict(ctx context.Context, req Request) (err error) {
 			"juror rejected proposal. already approved for a different pledge",
 			logID,
 		)
-		err = errProposalRejected
-		return err
+		return errProposalRejected
 	}
 	if req.Key <= highestNodeID(j.Candidates()) {
 		j.L.Warn("juror rejected proposal. id out of range", logID)
-		err = errProposalRejected
-		return err
+		return errProposalRejected
 	}
 	j.approvals = append(j.approvals, req.Key)
 	j.L.Debug("juror approved proposal", logID)
-	return err
+	return nil
 }
 
 func highestNodeID(candidates node.Group) node.Key {
