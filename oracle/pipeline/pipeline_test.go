@@ -12,6 +12,7 @@ package pipeline_test
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -504,6 +505,9 @@ var _ = Describe("pipeline.DiscoverSchemas", func() {
 	It("returns a wrapped error when a schema subdirectory cannot be read", func() {
 		if os.Geteuid() == 0 {
 			Skip("filesystem permissions are bypassed when running as root")
+		}
+		if runtime.GOOS == "windows" {
+			Skip("chmod cannot remove directory read permission on Windows")
 		}
 		repoRoot := MustSucceed(os.MkdirTemp("", "discover"))
 		locked := filepath.Join(repoRoot, "schemas", "locked")

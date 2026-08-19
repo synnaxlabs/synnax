@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -244,6 +245,9 @@ var _ = Describe("fmt command discovery error", Ordered, func() {
 		ShouldNotLeakGoroutines()
 		if os.Geteuid() == 0 {
 			Skip("filesystem permissions are bypassed when running as root")
+		}
+		if runtime.GOOS == "windows" {
+			Skip("chmod cannot remove directory read permission on Windows")
 		}
 		repoDir, cleanup := setupMiniRepo("0.53.4", map[string]string{
 			"synnax/user.oracle": "User struct {\n    key uuid\n}\n",
