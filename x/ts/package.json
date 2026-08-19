@@ -33,6 +33,7 @@
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
+    "fflate": "^0.8.2",
     "nanoid": "^6.0.1",
     "typescript": "catalog:",
     "uuid": "^14.0.1",

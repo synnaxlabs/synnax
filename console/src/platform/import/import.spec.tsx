@@ -33,7 +33,7 @@ interface HarnessProps {
 }
 
 const Inner = ({ onReady }: Pick<HarnessProps, "onReady">): ReactElement => {
-  const run = Import.useImport();
+  const run = Import.use();
   useEffect(() => onReady(run), [onReady, run]);
   return <span>ready</span>;
 };
@@ -47,7 +47,7 @@ const Harness = ({ onReady, onStatuses }: HarnessProps): ReactElement => (
 );
 Harness.displayName = "Harness";
 
-describe("useImport", () => {
+describe("use", () => {
   it("reads each picked file and streams its contents to the Core", async () => {
     const picker = interceptFilePicker();
     const client = createTestClient();
@@ -87,7 +87,7 @@ describe("useImport", () => {
     let run: ((projectKey?: string) => void) | undefined;
     let statuses: Status.NotificationSpec[] = [];
     const { wrapper } = await createConsoleWrapper({
-      client: null,
+      client: createTestClient(),
       preloadedState: { project: { version: 0, selected: "project-1" } },
     });
     render(<Harness onReady={(r) => (run = r)} onStatuses={(s) => (statuses = s)} />, {

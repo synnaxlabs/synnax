@@ -7,43 +7,48 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { join, sep } from "@tauri-apps/api/path";
+import { sep } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";
-import { readDir, readFile, readTextFile } from "@tauri-apps/plugin-fs";
+import { readDir, readFile } from "@tauri-apps/plugin-fs";
 
 import { Session } from "@/session";
 
-export interface FileFilter {
-  name: string;
-  extensions: string[];
-}
-
-export interface PickedFile {
-  /** File's basename, e.g., "manifest.json". */
-  name: string;
-  /**
-   * Path relative to the picked root, e.g., "manifest.json" for top-level or
-   * "sub/foo.json" for nested. For pickFiles this always equals name.
-   */
-  path: string;
-  /** Reads the file's contents as text. */
-  read: () => Promise<string>;
-  /** Reads the file's raw bytes. */
-  readBytes: () => Promise<Uint8Array<ArrayBuffer>>;
-}
-
+/** Options for pickFiles. */
 export interface PickFilesParams {
-  title?: string;
-  filters?: FileFilter[];
+  /** Titles the native dialog. */
+  title: string;
+  /** Restricts the picker to files with this extension, without the leading dot. */
+  extension: string;
+  /** Whether the picker allows multiple file selection. */
   multiple?: boolean;
 }
 
-const browserAccept = (filters?: FileFilter[]): string | undefined => {
-  if (filters == null || filters.length === 0) return undefined;
-  return filters
-    .flatMap(({ extensions }) => extensions.map((ext) => `.${ext}`))
-    .join(",");
-};
+/** A file chosen through a picker, read lazily. */
+export interface PickedFile {
+  /**
+   * Path relative to the picked root in forward-slash form, e.g. "sub/foo.json". For
+   * pickFiles this is just the file's name.
+   */
+  path: string;
+  /**
+   * Reads the file: the File itself in the browser, so uploads stream it from disk;
+   * its bytes on Tauri, where the filesystem plugin reads over IPC. Convert with
+   * toBytes when raw bytes are needed.
+   */
+  read: () => Promise<Uint8Array<ArrayBuffer> | File>;
+}
+
+/** Reads a picked file's contents into raw bytes. */
+export const toBytes = async (
+  data: Uint8Array<ArrayBuffer> | File,
+): Promise<Uint8Array<ArrayBuffer>> =>
+  data instanceof Uint8Array ? data : new Uint8Array(await data.arrayBuffer());
+
+// The Tauri dialog wants a named filter group; the name is just the dialog's label for
+// the extension.
+const tauriFilters = (extension: string) => [
+  { name: extension.toUpperCase(), extensions: [extension] },
+];
 
 /**
  * Resolves a settle callback after the user appears to have dismissed a file picker but
@@ -59,12 +64,12 @@ const settleOnFocusReturn = (settle: () => void): void => {
 
 const pickFilesTauri = async ({
   title,
-  filters,
+  extension,
   multiple,
 }: PickFilesParams): Promise<PickedFile[] | null> => {
   const result = await open({
     title,
-    filters,
+    filters: tauriFilters(extension),
     multiple: multiple ?? false,
     directory: false,
   });
@@ -72,27 +77,21 @@ const pickFilesTauri = async ({
   const paths = Array.isArray(result) ? result : [result];
   if (paths.length === 0) return null;
   const separator = sep();
-  return paths.map((path) => {
-    const name = path.split(separator).pop() ?? path;
-    return {
-      name,
-      path: name,
-      read: () => readTextFile(path),
-      readBytes: () => readFile(path),
-    };
-  });
+  return paths.map((path) => ({
+    path: path.split(separator).pop() ?? path,
+    read: () => readFile(path),
+  }));
 };
 
 const pickFilesBrowser = ({
-  filters,
+  extension,
   multiple,
 }: PickFilesParams): Promise<PickedFile[] | null> =>
   new Promise((resolve) => {
     const input = document.createElement("input");
     input.type = "file";
     if (multiple) input.multiple = true;
-    const accept = browserAccept(filters);
-    if (accept != null) input.accept = accept;
+    input.accept = `.${extension}`;
     let settled = false;
     const settle = (value: PickedFile[] | null) => {
       if (settled) return;
@@ -103,12 +102,7 @@ const pickFilesBrowser = ({
       const files = input.files;
       if (files == null || files.length === 0) return settle(null);
       settle(
-        Array.from(files).map((file) => ({
-          name: file.name,
-          path: file.name,
-          read: () => file.text(),
-          readBytes: async () => new Uint8Array(await file.arrayBuffer()),
-        })),
+        Array.from(files).map((file) => ({ path: file.name, read: async () => file })),
       );
     });
     input.addEventListener("cancel", () => settle(null));
@@ -117,16 +111,50 @@ const pickFilesBrowser = ({
   });
 
 /**
- * Opens a native file picker and returns the selected files as a uniform { name, read }
- * shape. On Tauri this uses the OS dialog and reads via the filesystem plugin; in the
- * browser it uses an <input type="file"> and reads via File.text(). Returns null if the
- * user cancels or selects nothing.
+ * PickFiles narrows the return by the multiple flag: every selected file with multiple,
+ * the one selected file without.
  */
-export const pickFiles = (params: PickFilesParams): Promise<PickedFile[] | null> =>
-  Session.Runtime.ENGINE === "tauri"
-    ? pickFilesTauri(params)
-    : pickFilesBrowser(params);
+export interface PickFiles {
+  (params: PickFilesParams & { multiple: true }): Promise<PickedFile[] | null>;
+  (params: PickFilesParams & { multiple?: false }): Promise<PickedFile | null>;
+}
 
+/**
+ * Opens a native file picker and returns the chosen file — every chosen file with
+ * multiple — or null if the user cancels or selects nothing. On Tauri this uses the OS
+ * dialog and reads via the filesystem plugin; in the browser it uses an
+ * <input type="file">.
+ */
+export const pickFiles = (async (
+  params: PickFilesParams,
+): Promise<PickedFile | PickedFile[] | null> => {
+  const files =
+    Session.Runtime.ENGINE === "tauri"
+      ? await pickFilesTauri(params)
+      : await pickFilesBrowser(params);
+  if (files == null) return null;
+  return params.multiple === true ? files : files[0];
+}) as PickFiles;
+
+/** Options for pickPath. */
+export interface PickPathParams {
+  /** Titles the native dialog. */
+  title: string;
+}
+
+/**
+ * Opens a native file picker and returns the chosen file's absolute path, or null if
+ * the user cancels. Only the desktop app can produce a path, so this rejects in the
+ * browser; callers that need contents instead of a path use pickFiles, which works in
+ * both runtimes.
+ */
+export const pickPath = async ({ title }: PickPathParams): Promise<string | null> => {
+  if (Session.Runtime.ENGINE !== "tauri")
+    throw new Error("File paths can only be selected in the Synnax desktop app.");
+  return await open({ title, directory: false, multiple: false });
+};
+
+/** A directory chosen through a picker, with its files read lazily. */
 export interface PickedDirectory {
   /** The picked directory's basename. */
   name: string;
@@ -134,8 +162,10 @@ export interface PickedDirectory {
   files: PickedFile[];
 }
 
+/** Options for pickDirectory. */
 export interface PickDirectoryParams {
-  title?: string;
+  /** Titles the native dialog. */
+  title: string;
 }
 
 const pickDirectoryTauri = async ({
@@ -146,23 +176,24 @@ const pickDirectoryTauri = async ({
   const dirPath = result;
   const separator = sep();
   const name = dirPath.split(separator).pop() ?? dirPath;
-  const files: PickedFile[] = [];
-  const walk = async (absolute: string, relative: string): Promise<void> => {
-    for (const entry of await readDir(absolute)) {
-      const fullPath = await join(absolute, entry.name);
-      const relPath = relative === "" ? entry.name : `${relative}/${entry.name}`;
-      if (entry.isDirectory) await walk(fullPath, relPath);
-      else if (entry.isFile)
-        files.push({
-          name: entry.name,
-          path: relPath,
-          read: () => readTextFile(fullPath),
-          readBytes: () => readFile(fullPath),
-        });
-    }
+  // Sibling directories walk concurrently, and results flatten in entry order so the
+  // listing stays deterministic.
+  const walk = async (absolute: string, relative: string): Promise<PickedFile[]> => {
+    const entries = await readDir(absolute);
+    const results = await Promise.all(
+      entries.map(async (entry): Promise<PickedFile[]> => {
+        // Joined by hand: path.join is a Tauri IPC round-trip, and a large tree would
+        // pay one per entry before reading a byte.
+        const fullPath = absolute + separator + entry.name;
+        const relPath = relative === "" ? entry.name : `${relative}/${entry.name}`;
+        if (entry.isDirectory) return await walk(fullPath, relPath);
+        if (entry.isFile) return [{ path: relPath, read: () => readFile(fullPath) }];
+        return [];
+      }),
+    );
+    return results.flat();
   };
-  await walk(dirPath, "");
-  return { name, files };
+  return { name, files: await walk(dirPath, "") };
 };
 
 const pickDirectoryBrowser = (): Promise<PickedDirectory | null> =>
@@ -187,12 +218,7 @@ const pickDirectoryBrowser = (): Promise<PickedDirectory | null> =>
           const rel = file.webkitRelativePath.startsWith(`${rootName}/`)
             ? file.webkitRelativePath.slice(rootName.length + 1)
             : file.webkitRelativePath;
-          return {
-            name: file.name,
-            path: rel,
-            read: () => file.text(),
-            readBytes: async () => new Uint8Array(await file.arrayBuffer()),
-          };
+          return { path: rel, read: async () => file };
         }),
       });
     });
@@ -208,7 +234,7 @@ const pickDirectoryBrowser = (): Promise<PickedDirectory | null> =>
  * relative to the picked root in forward-slash form. Returns null if the user cancels.
  */
 export const pickDirectory = (
-  params: PickDirectoryParams = {},
+  params: PickDirectoryParams,
 ): Promise<PickedDirectory | null> =>
   Session.Runtime.ENGINE === "tauri"
     ? pickDirectoryTauri(params)

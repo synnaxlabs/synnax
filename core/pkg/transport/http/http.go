@@ -258,6 +258,11 @@ func Bind(layer *api.Layer, router *http.Router) {
 			"/api/v1/project/export",
 			http.WithResponseEncoders(zip.Codec),
 		),
+		ProjectImport: http.NewUnaryServer[project.ImportRequest, project.ImportResponse](
+			router,
+			"/api/v1/project/import",
+			http.WithRequestDecoders(zip.Codec),
+		),
 
 		// SCHEMATIC
 		SchematicCreate: http.NewUnaryServer[schematic.CreateRequest, schematic.CreateResponse](
