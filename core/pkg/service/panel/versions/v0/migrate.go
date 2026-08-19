@@ -9,16 +9,7 @@
 
 package v0
 
-import (
-	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/migrate"
-)
+import "github.com/synnaxlabs/x/gorp"
 
-// codecMigration re-encodes stored panels from MessagePack to Orc.
-var codecMigration = gorp.CodecMigration[Key, Panel]("msgpack_to_orc")
-
-// Migrations is the ordered set of chain migrations introduced at this version. The
-// migrations that adopt other services' staged legacy data live in
-// CompositionMigrations: they cannot run in this chain because the producing services
-// open after the panel table.
-var Migrations = []migrate.Migration{codecMigration}
+// Migration re-encodes stored panels from MessagePack to Orc.
+var Migration = gorp.CodecMigration[Key, Panel]("msgpack_to_orc")

@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
@@ -35,7 +36,7 @@ var _ = Describe("Composition migrations", func() {
 		return MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[v0.Key, v0.Panel]{
 				DB:         db,
-				Migrations: v0.Migrations,
+				Migrations: []migrate.Migration{v0.Migration},
 			},
 		))
 	}
