@@ -33,11 +33,11 @@ export const Scale = ({
   className,
 }: RenderProps): ReactElement => {
   const containerStyle = useMemo<CSSProperties>(
-    () => ({ ...CONTAINER_STYLE, [CSS.var("symbol-color")]: symbolColorVar(c) }),
+    () => ({ ...CONTAINER_STYLE, [CSS.variable("symbol-color")]: symbolColorVar(c) }),
     [c],
   );
   return (
-    <div className={CSS(CSS.B("symbol-colored"), className)} style={containerStyle}>
+    <div className={CSS.cls(CSS.B("symbol-colored"), className)} style={containerStyle}>
       <svg width="40" height="64" style={{ position: "absolute" }}>
         <rect
           x={BAR_LEFT}
