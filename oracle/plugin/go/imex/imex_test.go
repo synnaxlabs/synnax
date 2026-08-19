@@ -401,7 +401,7 @@ Symbol struct {
 					3: logChain(true),
 				})
 				Expect(p.Generate(req)).Error().To(MatchError(
-					ContainSubstring("versions/v3/migrate.go"),
+					ContainSubstring(filepath.FromSlash("versions/v3/migrate.go")),
 				))
 			},
 		)

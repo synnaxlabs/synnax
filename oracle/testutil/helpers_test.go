@@ -11,6 +11,8 @@ package testutil_test
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -392,6 +394,15 @@ var _ = Describe("MustGenerate", func() {
 		source := fmt.Sprintf(multipleStructsTemplate, domainDirectives["go"])
 		resp := MustGenerate(ctx, source, "multi", loader, p)
 		Expect(resp.Files).To(HaveLen(2))
+	})
+})
+
+var _ = Describe("DenyDirRead", func() {
+	It("should make directory listings fail", func() {
+		locked := filepath.Join(GinkgoT().TempDir(), "locked")
+		Expect(os.Mkdir(locked, 0o755)).To(Succeed())
+		DenyDirRead(locked)
+		Expect(os.ReadDir(locked)).Error().To(MatchError(os.ErrPermission))
 	})
 })
 
