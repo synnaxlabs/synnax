@@ -187,7 +187,7 @@ const clearPaletteInput = async (
 export const searchPalette = async (
   session: CaptureSession,
   query: string,
-  { typeSpeed = 1.5 }: CommandPaletteOptions = {},
+  { typeSpeed = 1 }: CommandPaletteOptions = {},
 ): Promise<void> => {
   const { page } = session;
   await session.click(page.locator(".console-palette button").first());
@@ -280,7 +280,7 @@ export interface CommandPaletteOptions {
 export const commandPalette = async (
   session: CaptureSession,
   command: string,
-  { typeSpeed = 1.5 }: CommandPaletteOptions = {},
+  { typeSpeed = 1 }: CommandPaletteOptions = {},
 ): Promise<void> => {
   const { page } = session;
   await session.click(page.locator(".console-palette button").first());

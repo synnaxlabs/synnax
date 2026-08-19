@@ -46,8 +46,14 @@ export const AUTO_ZOOM_AMOUNT = 2.0;
 /** Seconds of zoom lead-in before the click that triggered the segment. */
 export const ZOOM_PRE_S = 0.3;
 
+/**
+ * Ceiling on how far before its click a zoom may start when anchored to the
+ * cursor's approach, so a long hover does not hold the zoom absurdly early.
+ */
+export const ZOOM_LEAD_MAX_S = 1.5;
+
 /** Seconds the zoom holds after the triggering click. */
-export const ZOOM_POST_S = 2.5;
+export const ZOOM_POST_S = 1.2;
 
 /** Segments closer than this (seconds) merge into one. */
 export const ZOOM_MERGE_GAP_S = 2.5;

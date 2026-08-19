@@ -66,7 +66,7 @@ describe("zoom.plan", () => {
     expect(segments).toHaveLength(2);
     expect(segments[0].amount).toEqual(AUTO_ZOOM_AMOUNT);
     expect(segments[0].start).toEqual(300 - 0.3 * FPS);
-    expect(segments[0].end).toEqual(300 + 2.5 * FPS);
+    expect(segments[0].end).toEqual(300 + 1.2 * FPS);
   });
 
   it("should merge clicks closer than the merge gap into one segment", () => {
@@ -74,7 +74,7 @@ describe("zoom.plan", () => {
     const segments = plan(tl);
     expect(segments).toHaveLength(1);
     expect(segments[0].focus).toHaveLength(2);
-    expect(segments[0].end).toEqual(400 + 2.5 * FPS);
+    expect(segments[0].end).toEqual(400 + 1.2 * FPS);
   });
 
   it("should ignore clicks in the final second", () => {
@@ -145,6 +145,30 @@ describe("zoom.plan", () => {
     const segments = plan(tl);
     expect(segments).toHaveLength(1);
     expect(segments[0].focus[0].tick).toEqual(1800);
+  });
+
+  it("should anchor the zoom start at the cursor's approach", () => {
+    const tl = timeline([
+      { type: "move", tick: 280, x: 500, y: 400, duration: 40 },
+      ...click(300),
+    ]);
+    expect(plan(tl)[0].start).toEqual(240);
+  });
+
+  it("should cap the approach anchor at the maximum lead", () => {
+    const tl = timeline([
+      { type: "move", tick: 280, x: 500, y: 400, duration: 200 },
+      ...click(300),
+    ]);
+    expect(plan(tl)[0].start).toEqual(300 - 1.5 * FPS);
+  });
+
+  it("should ignore moves that arrive somewhere else", () => {
+    const tl = timeline([
+      { type: "move", tick: 280, x: 900, y: 700, duration: 40 },
+      ...click(300),
+    ]);
+    expect(plan(tl)[0].start).toEqual(300 - 0.3 * FPS);
   });
 
   it("should skip clicks whose target rect is too wide to frame", () => {

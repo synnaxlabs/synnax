@@ -72,6 +72,8 @@ export const addChannels = async (
   else await session.click(trigger);
   const input = page.locator("input[placeholder*='Search']");
   await session.waitFor(input);
+  // Let the dropdown land before typing so the viewer can register it.
+  await session.hold(600);
   if (search != null) await session.type(search);
   for (const channel of channels) {
     const item = page

@@ -27,7 +27,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.hold(1000);
 
     await capture.addChannels(session, "Y1", fixture.channels, { search: "demo" });
-    await session.hold(5000);
+    await session.hold(4000);
   } finally {
     await fixture.stop();
   }

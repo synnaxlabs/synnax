@@ -450,7 +450,7 @@ export class CaptureSession {
   }
 
   /** type enters text at a human cadence, one key per interval. */
-  async type(text: string, msPerChar = 55): Promise<void> {
+  async type(text: string, msPerChar = 120): Promise<void> {
     for (const char of text) {
       this.events.push({ type: "key", tick: this.frame, key: char });
       await this.page.keyboard.type(char);
