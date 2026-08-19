@@ -57,10 +57,7 @@ class ReadTaskMigrationVerify(ReadTaskCase):
         assert len(tasks) == 1, (
             f"Expected exactly 1 task named '{self.task_name}', got {len(tasks)}"
         )
-        raw = tasks[0]
-        typed = self.task_class(**raw.config)
-        typed.set_internal(raw)
-        return typed
+        return self.task_class(tasks[0])
 
     def run(self) -> None:
         self.test_task_config()

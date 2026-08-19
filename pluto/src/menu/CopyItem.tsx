@@ -40,6 +40,7 @@ export const CopyItem = ({
       tooltip={null}
       gap={gap}
       propagateClick
+      role="menuitem"
       {...rest}
       onClick={handleClick}
     />

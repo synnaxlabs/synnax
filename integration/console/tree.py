@@ -53,20 +53,30 @@ class Tree:
         """Locate a tree item by its ID.
 
         A windowed tree renumbers its rows whenever the window moves, so an index-bound
-        locator points at another item after any scroll. An ID-bound one does not.
+        locator points at another item after any scroll. An ID-bound one does not. A
+        resource grouped under several expanded parents (a user under each of its
+        roles) mounts once per parent with the same ID; any mount is the same
+        resource, so this resolves to the first.
 
         :param item_id: The item ID (e.g., 'channel:42').
         :returns: The Locator for the item.
         """
-        return self.page.locator(f"div[id='{item_id}']")
+        return self.page.locator(f"div[id='{item_id}']").first
 
     def _mounted(self, prefix: str) -> list[tuple[str, str]]:
-        """The mounted rows for a prefix, as (ID, text) pairs."""
+        """The mounted rows for a prefix, as (ID, text) pairs, deduplicated by ID."""
         rows: list[list[str]] = self.page.locator(f"div[id^='{prefix}']").evaluate_all(
             "(els) => els.filter((el) => el.checkVisibility())"
             ".map((el) => [el.id, el.innerText.trim()])"
         )
-        return [(item_id, text) for item_id, text in rows]
+        seen: set[str] = set()
+        deduped: list[tuple[str, str]] = []
+        for item_id, text in rows:
+            if item_id in seen:
+                continue
+            seen.add(item_id)
+            deduped.append((item_id, text))
+        return deduped
 
     def find_by_prefix(self, prefix: str) -> list[Locator]:
         """Find all visible tree items with the given ID prefix.

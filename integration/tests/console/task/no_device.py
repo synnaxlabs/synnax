@@ -69,7 +69,7 @@ class NoDevice(HardwareCase, ConsoleCase):
         level = status["level"]
 
         level_expected = "disabled"
-        msg_expected = "Task has not been configured"
+        msg_expected = "NI analog read task has not been deployed"
 
         assert level_expected == level, (
             f"Task status level <{level}> should be <{level_expected}>"
