@@ -238,6 +238,41 @@ var _ = Describe("PledgeServer", func() {
 				Expect(err).To(MatchError(context.DeadlineExceeded))
 			})
 		})
+		Context("Jurors hold approvals for keys from failed pledges", func() {
+			It("Should retry past rejected keys without consuming the proposal budget",
+				func(ctx SpecContext) {
+					nodes := make(node.Group)
+					provisionCandidates(2, net, nodes, nil, nil)
+					client := net.UnaryClient()
+					// Approve keys 2 through 21 on the first juror, as a pledge that
+					// failed partway would leave behind. The 20 keys exceed
+					// MaxProposals, so counting the rejected re-proposals would
+					// exhaust every retry's budget before it reaches a fresh key.
+					for k := node.Key(2); k <= 21; k++ {
+						MustSucceed(client.Send(
+							ctx,
+							nodes[0].Address,
+							pledge.Request{Key: k},
+						))
+					}
+					tCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+					defer cancel()
+					// A generous request timeout keeps the long climb over the
+					// polluted keys from timing out under parallel suite load.
+					res := MustSucceed(
+						pledge.Pledge(tCtx, baseConfig(net), pledge.Config{
+							Instrumentation: ins.Child("rejections-uncounted"),
+							Peers:           nodes.Addresses(),
+							Candidates:      allCandidates(nodes),
+						}, pledge.BlazingFastConfig, pledge.Config{
+							RequestTimeout: time.Second,
+						}),
+					)
+					Expect(res.Key).To(BeNumerically(">=", node.Key(22)))
+				},
+			)
+		})
+
 		Describe("Cancelling a pledge", func() {
 			It(
 				"Should stop all operations and return a cancellation error",
