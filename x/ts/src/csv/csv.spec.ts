@@ -122,6 +122,14 @@ describe("csv", () => {
       expect(csv.parseBlock("1,10,100\n2")).toEqual([["1", "10", "100"], ["2"]]);
     });
 
+    it("should keep a newline inside a quoted field", () => {
+      expect(csv.parseBlock('"a\nb",c')).toEqual([["a\nb", "c"]]);
+    });
+
+    it("should split on commas when the only tab is inside a quoted field", () => {
+      expect(csv.parseBlock('"a\tb",c')).toEqual([["a\tb", "c"]]);
+    });
+
     it("should return no rows for empty text", () => {
       expect(csv.parseBlock("")).toEqual([]);
     });
@@ -146,6 +154,11 @@ describe("csv", () => {
         ["a,b", 'say "hi"'],
         ["1", "2"],
       ];
+      expect(csv.parseBlock(csv.formatBlock(rows))).toEqual(rows);
+    });
+
+    it("should round-trip a field holding a newline", () => {
+      const rows = [["a\nb", "c"]];
       expect(csv.parseBlock(csv.formatBlock(rows))).toEqual(rows);
     });
   });

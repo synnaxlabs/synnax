@@ -41,37 +41,51 @@ const maybeEscapeField = (field: string): string => {
 
 const TAB = "\t";
 
+const delimiterOf = (data: string): string => {
+  let quoted = false;
+  for (const char of data)
+    if (char === '"') quoted = !quoted;
+    else if (char === TAB && !quoted) return TAB;
+  return ",";
+};
+
 /**
  * Parses a headerless delimited block, the form a spreadsheet puts on the clipboard,
- * into rows of fields. A line holding a tab splits on tabs, otherwise on commas, so a
- * spreadsheet's tab-delimited fields survive the commas inside them. Quoted fields keep
- * their delimiters and unescape doubled quotes.
- * @returns One entry per line, each holding the line's fields. Ragged lines stay
- * ragged; empty lines are dropped.
+ * into rows of fields. The block splits on tabs when it holds one outside a quoted
+ * field, otherwise on commas, so a spreadsheet's tab-delimited fields survive the
+ * commas inside them. A quoted field keeps its delimiters and its newlines, and
+ * doubled quotes unescape.
+ * @returns One entry per row, each holding the row's fields. Ragged rows stay ragged;
+ * rows holding nothing but empty fields are dropped.
  */
-export const parseBlock = (data: string): string[][] =>
-  data
-    .split(/\r?\n/)
-    .filter((line) => line.trim().length > 0)
-    .map((line) => parseLine(line, line.includes(TAB) ? TAB : ","));
-
-const parseLine = (line: string, delimiter: string): string[] => {
-  const fields: string[] = [];
+export const parseBlock = (data: string): string[][] => {
+  const delimiter = delimiterOf(data);
+  const rows: string[][] = [];
+  let fields: string[] = [];
   let field = "";
   let quoted = false;
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
-    if (quoted && char === '"' && line[i + 1] === '"') {
+  const endField = () => {
+    fields.push(field.trim());
+    field = "";
+  };
+  const endRow = () => {
+    endField();
+    if (fields.some((f) => f.length > 0)) rows.push(fields);
+    fields = [];
+  };
+  for (let i = 0; i < data.length; i++) {
+    const char = data[i];
+    if (quoted && char === '"' && data[i + 1] === '"') {
       field += '"';
       i++;
     } else if (char === '"') quoted = !quoted;
-    else if (char === delimiter && !quoted) {
-      fields.push(field.trim());
-      field = "";
-    } else field += char;
+    else if (quoted) field += char;
+    else if (char === delimiter) endField();
+    else if (char === "\n") endRow();
+    else if (char !== "\r") field += char;
   }
-  fields.push(field.trim());
-  return fields;
+  endRow();
+  return rows;
 };
 
 /**
