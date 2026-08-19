@@ -10,9 +10,9 @@
 import { capture, fixtures } from "@/index";
 
 /**
- * Docs `console/users/register`: run "Register user" from the palette, fill
- * the form and pick a role, and submit; the new user appears under its role
- * in the open Users toolbar.
+ * Docs `console/users/register`: click the "+" action in the Users toolbar,
+ * fill the form and pick a role, and submit; the new user appears under its
+ * role in the toolbar.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   const fixture = await fixtures.sineTelemetry();
@@ -28,7 +28,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     session.startRecording();
     await session.hold(1000);
 
-    await capture.commandPalette(session, "Register user");
+    await capture.clickToolbarCreate(session);
     const first = page.getByPlaceholder("Richard").first();
     await session.waitFor(first);
     await session.hold(600);

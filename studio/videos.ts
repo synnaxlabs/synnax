@@ -33,6 +33,7 @@ export default manifest.define([
   },
   { id: "console/line-plots/data-tab", script: "scripts/line-plot-data.ts" },
   { id: "console/channels/create", script: "scripts/channels-create.ts" },
+  { id: "console/ranges/toolbar-create", script: "scripts/ranges-toolbar-create.ts" },
   { id: "console/ranges/palette-create", script: "scripts/ranges-palette-create.ts" },
   { id: "console/users/register", script: "scripts/users-register.ts" },
 ]);

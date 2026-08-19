@@ -10,9 +10,9 @@
 import { capture, fixtures } from "@/index";
 
 /**
- * Docs `console/channels/create`: click the "+" action in the Channels
- * toolbar, fill the dialog (name, data type, index), and submit; the new
- * channel appears in the toolbar.
+ * Docs `console/ranges/toolbar-create`: click the "+" action in the Ranges
+ * toolbar, name the range in the dialog (From/To arrive pre-filled), and save
+ * it to the Core; the new range appears in the toolbar.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   const fixture = await fixtures.sineTelemetry();
@@ -21,7 +21,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     const project = `Docs Videos ${Date.now().toString(36)}`;
     await capture.login(session, { username: "synnax", password: "seldon" }, project);
 
-    await capture.openToolbar(session, "channel");
+    await capture.openToolbar(session, "range");
     await capture.resizeToolbar(session, 400);
     await session.moveTo({ x: 756, y: 500 });
 
@@ -34,26 +34,14 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.hold(600);
 
     await session.click(name);
-    await session.type("pressure_pt_01");
-    await session.hold(400);
-
-    await session.click(page.getByText("Select channel", { exact: true }).first(), {
-      text: true,
-    });
-    const index = page
-      .locator(".pluto-list__item:not(.pluto-tree__item)")
-      .filter({ hasText: "demo_time" })
-      .first();
-    await session.waitFor(index);
-    await session.click(index.getByText("demo_time", { exact: true }).first(), {
-      text: true,
-    });
+    await session.type("Hotfire 12");
     await session.hold(600);
 
-    await capture.clickButton(session, "Create");
+    await capture.clickButton(session, "Save to Core");
+    await session.waitForHidden(name);
     const created = page
       .locator(".console-nav__drawer")
-      .getByText("pressure_pt_01", { exact: true })
+      .getByText("Hotfire 12", { exact: true })
       .first();
     await session.waitFor(created);
     await session.hold(2200);

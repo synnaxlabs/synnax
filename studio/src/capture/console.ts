@@ -150,6 +150,18 @@ export const closeToolbar = async (session: CaptureSession): Promise<void> => {
 };
 
 /**
+ * clickToolbarCreate clicks the "+" create action in the open toolbar's
+ * header, as recorded input. The create action is always the last header
+ * action.
+ */
+export const clickToolbarCreate = async (session: CaptureSession): Promise<void> => {
+  const action = session.page
+    .locator(".console-nav__drawer .console-toolbar__action")
+    .last();
+  await session.click(action);
+};
+
+/**
  * createComponent clicks a component button (e.g. "Line plot") in the "Create
  * component" selector tab, as recorded input.
  */
