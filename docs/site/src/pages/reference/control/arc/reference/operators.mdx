@@ -126,8 +126,8 @@ Operators listed from highest to lowest precedence.
 
 | Precedence  | Operators            | Associativity |
 | ----------- | -------------------- | ------------- |
-| 1 (highest) | `-` (unary), `not`   | Right         |
-| 2           | `^`                  | Right         |
+| 1 (highest) | `^`                  | Right         |
+| 2           | `-` (unary), `not`   | Right         |
 | 3           | `*`, `/`, `%`        | Left          |
 | 4           | `+`, `-`             | Left          |
 | 5           | `<`, `>`, `<=`, `>=` | Left          |
@@ -138,8 +138,8 @@ Operators listed from highest to lowest precedence.
 ### Precedence Examples
 
 ```arc
-// Unary minus binds tighter than exponentiation
--2 ^ 2 // (-2) ^ 2 = 4; write -(2 ^ 2) for -4
+// Exponentiation binds tighter than unary minus
+-2 ^ 2 // -(2 ^ 2) = -4; write (-2) ^ 2 for 4
 
 // Multiplication before addition
 2 + 3 * 4 // 2 + (3 * 4) = 14

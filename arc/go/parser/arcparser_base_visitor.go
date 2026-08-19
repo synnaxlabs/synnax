@@ -288,11 +288,11 @@ func (v *BaseArcParserVisitor) VisitMultiplicativeExpression(ctx *Multiplicative
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseArcParserVisitor) VisitPowerExpression(ctx *PowerExpressionContext) interface{} {
+func (v *BaseArcParserVisitor) VisitUnaryExpression(ctx *UnaryExpressionContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseArcParserVisitor) VisitUnaryExpression(ctx *UnaryExpressionContext) interface{} {
+func (v *BaseArcParserVisitor) VisitPowerExpression(ctx *PowerExpressionContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

@@ -220,11 +220,11 @@ type ArcParserListener interface {
 	// EnterMultiplicativeExpression is called when entering the multiplicativeExpression production.
 	EnterMultiplicativeExpression(c *MultiplicativeExpressionContext)
 
-	// EnterPowerExpression is called when entering the powerExpression production.
-	EnterPowerExpression(c *PowerExpressionContext)
-
 	// EnterUnaryExpression is called when entering the unaryExpression production.
 	EnterUnaryExpression(c *UnaryExpressionContext)
+
+	// EnterPowerExpression is called when entering the powerExpression production.
+	EnterPowerExpression(c *PowerExpressionContext)
 
 	// EnterPostfixExpression is called when entering the postfixExpression production.
 	EnterPostfixExpression(c *PostfixExpressionContext)
@@ -460,11 +460,11 @@ type ArcParserListener interface {
 	// ExitMultiplicativeExpression is called when exiting the multiplicativeExpression production.
 	ExitMultiplicativeExpression(c *MultiplicativeExpressionContext)
 
-	// ExitPowerExpression is called when exiting the powerExpression production.
-	ExitPowerExpression(c *PowerExpressionContext)
-
 	// ExitUnaryExpression is called when exiting the unaryExpression production.
 	ExitUnaryExpression(c *UnaryExpressionContext)
+
+	// ExitPowerExpression is called when exiting the powerExpression production.
+	ExitPowerExpression(c *PowerExpressionContext)
 
 	// ExitPostfixExpression is called when exiting the postfixExpression production.
 	ExitPostfixExpression(c *PostfixExpressionContext)

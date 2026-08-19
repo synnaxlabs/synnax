@@ -26,7 +26,7 @@ func validateNonZeroArray[T any](exprs []T, opName string) []T {
 	return exprs
 }
 
-func validateNonZero(expr parser.IUnaryExpressionContext, opName string) {
+func validateNonZero(expr parser.IPostfixExpressionContext, opName string) {
 	if expr == nil {
 		panic(errors.Newf("cannot compile an empty %s expression", opName))
 	}
@@ -95,9 +95,9 @@ func compileAdditive(
 func compileMultiplicative(
 	ctx context.Context[parser.IMultiplicativeExpressionContext],
 ) (types.Type, error) {
-	pows := validateNonZeroArray(ctx.AST.AllPowerExpression(), "multiplicative")
-	if len(pows) == 1 {
-		return compilePower(context.Child(ctx, pows[0]))
+	unaries := validateNonZeroArray(ctx.AST.AllUnaryExpression(), "multiplicative")
+	if len(unaries) == 1 {
+		return compileUnary(context.Child(ctx, unaries[0]))
 	}
 	return compileBinaryMultiplicative(ctx)
 }
@@ -105,20 +105,20 @@ func compileMultiplicative(
 func compilePower(
 	ctx context.Context[parser.IPowerExpressionContext],
 ) (types.Type, error) {
-	unary := ctx.AST.UnaryExpression()
-	validateNonZero(unary, "power")
+	postfix := ctx.AST.PostfixExpression()
+	validateNonZero(postfix, "power")
 
-	baseType, err := compileUnary(context.Child(ctx, unary))
+	baseType, err := compilePostfix(context.Child(ctx, postfix))
 	if err != nil {
 		return types.Type{}, err
 	}
 
-	if ctx.AST.CARET() == nil || ctx.AST.PowerExpression() == nil {
+	if ctx.AST.CARET() == nil || ctx.AST.UnaryExpression() == nil {
 		return baseType, nil
 	}
 
-	_, err = compilePower(
-		context.Child(ctx, ctx.AST.PowerExpression()).WithHint(baseType.Unwrap()),
+	_, err = compileUnary(
+		context.Child(ctx, ctx.AST.UnaryExpression()).WithHint(baseType.Unwrap()),
 	)
 	if err != nil {
 		return types.Type{}, err

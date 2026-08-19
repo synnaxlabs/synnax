@@ -400,18 +400,18 @@ additiveExpression
     ;
 
 multiplicativeExpression
-    : powerExpression ((STAR | SLASH | PERCENT) powerExpression)*
-    ;
-
-// ^ is right-associative; the base is unary, so -2 ^ 2 parses as (-2) ^ 2
-powerExpression
-    : unaryExpression (CARET powerExpression)?
+    : unaryExpression ((STAR | SLASH | PERCENT) unaryExpression)*
     ;
 
 unaryExpression
     : MINUS unaryExpression
     | NOT unaryExpression
-    | postfixExpression
+    | powerExpression
+    ;
+
+// ^ binds tighter than unary minus and is right-associative: -2 ^ 2 is -(2 ^ 2).
+powerExpression
+    : postfixExpression (CARET unaryExpression)?
     ;
 
 postfixExpression

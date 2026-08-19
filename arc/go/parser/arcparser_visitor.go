@@ -220,11 +220,11 @@ type ArcParserVisitor interface {
 	// Visit a parse tree produced by ArcParser#multiplicativeExpression.
 	VisitMultiplicativeExpression(ctx *MultiplicativeExpressionContext) interface{}
 
-	// Visit a parse tree produced by ArcParser#powerExpression.
-	VisitPowerExpression(ctx *PowerExpressionContext) interface{}
-
 	// Visit a parse tree produced by ArcParser#unaryExpression.
 	VisitUnaryExpression(ctx *UnaryExpressionContext) interface{}
+
+	// Visit a parse tree produced by ArcParser#powerExpression.
+	VisitPowerExpression(ctx *PowerExpressionContext) interface{}
 
 	// Visit a parse tree produced by ArcParser#postfixExpression.
 	VisitPostfixExpression(ctx *PostfixExpressionContext) interface{}

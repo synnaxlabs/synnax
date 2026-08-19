@@ -78,7 +78,7 @@ func arcparserParserInit() {
 		"integerType", "floatType", "channelType", "seriesType", "expression",
 		"logicalOrExpression", "logicalAndExpression", "equalityExpression",
 		"relationalExpression", "additiveExpression", "multiplicativeExpression",
-		"powerExpression", "unaryExpression", "postfixExpression", "indexOrSlice",
+		"unaryExpression", "powerExpression", "postfixExpression", "indexOrSlice",
 		"functionCallSuffix", "primaryExpression", "typeCast", "literal", "numericLiteral",
 		"seriesLiteral", "booleanLiteral", "expressionList",
 	}
@@ -157,7 +157,7 @@ func arcparserParserInit() {
 		9, 64, 1, 65, 1, 65, 1, 65, 5, 65, 671, 8, 65, 10, 65, 12, 65, 674, 9,
 		65, 1, 66, 1, 66, 1, 66, 5, 66, 679, 8, 66, 10, 66, 12, 66, 682, 9, 66,
 		1, 67, 1, 67, 1, 67, 5, 67, 687, 8, 67, 10, 67, 12, 67, 690, 9, 67, 1,
-		68, 1, 68, 1, 68, 3, 68, 695, 8, 68, 1, 69, 1, 69, 1, 69, 1, 69, 1, 69,
+		68, 1, 68, 1, 68, 1, 68, 1, 68, 3, 68, 697, 8, 68, 1, 69, 1, 69, 1, 69,
 		3, 69, 702, 8, 69, 1, 70, 1, 70, 1, 70, 5, 70, 707, 8, 70, 10, 70, 12,
 		70, 710, 9, 70, 1, 71, 1, 71, 1, 71, 1, 71, 1, 71, 1, 71, 3, 71, 718, 8,
 		71, 1, 71, 1, 71, 3, 71, 722, 8, 71, 1, 71, 3, 71, 725, 8, 71, 1, 72, 1,
@@ -194,7 +194,7 @@ func arcparserParserInit() {
 		0, 0, 114, 623, 1, 0, 0, 0, 116, 625, 1, 0, 0, 0, 118, 634, 1, 0, 0, 0,
 		120, 636, 1, 0, 0, 0, 122, 641, 1, 0, 0, 0, 124, 643, 1, 0, 0, 0, 126,
 		651, 1, 0, 0, 0, 128, 659, 1, 0, 0, 0, 130, 667, 1, 0, 0, 0, 132, 675,
-		1, 0, 0, 0, 134, 683, 1, 0, 0, 0, 136, 691, 1, 0, 0, 0, 138, 701, 1, 0,
+		1, 0, 0, 0, 134, 683, 1, 0, 0, 0, 136, 696, 1, 0, 0, 0, 138, 698, 1, 0,
 		0, 0, 140, 703, 1, 0, 0, 0, 142, 724, 1, 0, 0, 0, 144, 726, 1, 0, 0, 0,
 		146, 740, 1, 0, 0, 0, 148, 742, 1, 0, 0, 0, 150, 752, 1, 0, 0, 0, 152,
 		755, 1, 0, 0, 0, 154, 762, 1, 0, 0, 0, 156, 768, 1, 0, 0, 0, 158, 770,
@@ -397,48 +397,48 @@ func arcparserParserInit() {
 		0, 0, 681, 133, 1, 0, 0, 0, 682, 680, 1, 0, 0, 0, 683, 688, 3, 136, 68,
 		0, 684, 685, 7, 9, 0, 0, 685, 687, 3, 136, 68, 0, 686, 684, 1, 0, 0, 0,
 		687, 690, 1, 0, 0, 0, 688, 686, 1, 0, 0, 0, 688, 689, 1, 0, 0, 0, 689,
-		135, 1, 0, 0, 0, 690, 688, 1, 0, 0, 0, 691, 694, 3, 138, 69, 0, 692, 693,
-		5, 45, 0, 0, 693, 695, 3, 136, 68, 0, 694, 692, 1, 0, 0, 0, 694, 695, 1,
-		0, 0, 0, 695, 137, 1, 0, 0, 0, 696, 697, 5, 41, 0, 0, 697, 702, 3, 138,
-		69, 0, 698, 699, 5, 54, 0, 0, 699, 702, 3, 138, 69, 0, 700, 702, 3, 140,
-		70, 0, 701, 696, 1, 0, 0, 0, 701, 698, 1, 0, 0, 0, 701, 700, 1, 0, 0, 0,
-		702, 139, 1, 0, 0, 0, 703, 708, 3, 146, 73, 0, 704, 707, 3, 142, 71, 0,
-		705, 707, 3, 144, 72, 0, 706, 704, 1, 0, 0, 0, 706, 705, 1, 0, 0, 0, 707,
-		710, 1, 0, 0, 0, 708, 706, 1, 0, 0, 0, 708, 709, 1, 0, 0, 0, 709, 141,
-		1, 0, 0, 0, 710, 708, 1, 0, 0, 0, 711, 712, 5, 59, 0, 0, 712, 713, 3, 122,
-		61, 0, 713, 714, 5, 60, 0, 0, 714, 725, 1, 0, 0, 0, 715, 717, 5, 59, 0,
-		0, 716, 718, 3, 122, 61, 0, 717, 716, 1, 0, 0, 0, 717, 718, 1, 0, 0, 0,
-		718, 719, 1, 0, 0, 0, 719, 721, 5, 62, 0, 0, 720, 722, 3, 122, 61, 0, 721,
-		720, 1, 0, 0, 0, 721, 722, 1, 0, 0, 0, 722, 723, 1, 0, 0, 0, 723, 725,
-		5, 60, 0, 0, 724, 711, 1, 0, 0, 0, 724, 715, 1, 0, 0, 0, 725, 143, 1, 0,
-		0, 0, 726, 728, 5, 55, 0, 0, 727, 729, 3, 74, 37, 0, 728, 727, 1, 0, 0,
-		0, 728, 729, 1, 0, 0, 0, 729, 730, 1, 0, 0, 0, 730, 731, 5, 56, 0, 0, 731,
-		145, 1, 0, 0, 0, 732, 741, 3, 150, 75, 0, 733, 741, 3, 62, 31, 0, 734,
-		741, 5, 68, 0, 0, 735, 736, 5, 55, 0, 0, 736, 737, 3, 122, 61, 0, 737,
-		738, 5, 56, 0, 0, 738, 741, 1, 0, 0, 0, 739, 741, 3, 148, 74, 0, 740, 732,
-		1, 0, 0, 0, 740, 733, 1, 0, 0, 0, 740, 734, 1, 0, 0, 0, 740, 735, 1, 0,
-		0, 0, 740, 739, 1, 0, 0, 0, 741, 147, 1, 0, 0, 0, 742, 743, 3, 106, 53,
-		0, 743, 744, 5, 55, 0, 0, 744, 745, 3, 122, 61, 0, 745, 746, 5, 56, 0,
-		0, 746, 149, 1, 0, 0, 0, 747, 753, 3, 152, 76, 0, 748, 753, 5, 67, 0, 0,
-		749, 753, 5, 66, 0, 0, 750, 753, 3, 154, 77, 0, 751, 753, 3, 156, 78, 0,
-		752, 747, 1, 0, 0, 0, 752, 748, 1, 0, 0, 0, 752, 749, 1, 0, 0, 0, 752,
-		750, 1, 0, 0, 0, 752, 751, 1, 0, 0, 0, 753, 151, 1, 0, 0, 0, 754, 756,
-		5, 41, 0, 0, 755, 754, 1, 0, 0, 0, 755, 756, 1, 0, 0, 0, 756, 757, 1, 0,
-		0, 0, 757, 760, 7, 10, 0, 0, 758, 759, 4, 76, 0, 0, 759, 761, 5, 68, 0,
-		0, 760, 758, 1, 0, 0, 0, 760, 761, 1, 0, 0, 0, 761, 153, 1, 0, 0, 0, 762,
-		764, 5, 59, 0, 0, 763, 765, 3, 158, 79, 0, 764, 763, 1, 0, 0, 0, 764, 765,
-		1, 0, 0, 0, 765, 766, 1, 0, 0, 0, 766, 767, 5, 60, 0, 0, 767, 155, 1, 0,
-		0, 0, 768, 769, 7, 11, 0, 0, 769, 157, 1, 0, 0, 0, 770, 775, 3, 122, 61,
-		0, 771, 772, 5, 61, 0, 0, 772, 774, 3, 122, 61, 0, 773, 771, 1, 0, 0, 0,
-		774, 777, 1, 0, 0, 0, 775, 773, 1, 0, 0, 0, 775, 776, 1, 0, 0, 0, 776,
-		779, 1, 0, 0, 0, 777, 775, 1, 0, 0, 0, 778, 780, 5, 61, 0, 0, 779, 778,
-		1, 0, 0, 0, 779, 780, 1, 0, 0, 0, 780, 159, 1, 0, 0, 0, 91, 163, 176, 185,
-		189, 194, 201, 213, 217, 222, 227, 231, 235, 244, 248, 254, 260, 268, 272,
-		281, 290, 294, 300, 304, 309, 314, 318, 320, 330, 334, 341, 346, 350, 352,
-		361, 365, 369, 374, 378, 388, 392, 404, 409, 419, 428, 439, 451, 458, 462,
-		473, 477, 481, 490, 494, 500, 513, 517, 527, 537, 556, 566, 570, 594, 602,
-		606, 610, 617, 621, 630, 634, 639, 648, 656, 664, 672, 680, 688, 694, 701,
-		706, 708, 717, 721, 724, 728, 740, 752, 755, 760, 764, 775, 779,
+		135, 1, 0, 0, 0, 690, 688, 1, 0, 0, 0, 691, 692, 5, 41, 0, 0, 692, 697,
+		3, 136, 68, 0, 693, 694, 5, 54, 0, 0, 694, 697, 3, 136, 68, 0, 695, 697,
+		3, 138, 69, 0, 696, 691, 1, 0, 0, 0, 696, 693, 1, 0, 0, 0, 696, 695, 1,
+		0, 0, 0, 697, 137, 1, 0, 0, 0, 698, 701, 3, 140, 70, 0, 699, 700, 5, 45,
+		0, 0, 700, 702, 3, 136, 68, 0, 701, 699, 1, 0, 0, 0, 701, 702, 1, 0, 0,
+		0, 702, 139, 1, 0, 0, 0, 703, 708, 3, 146, 73, 0, 704, 707, 3, 142, 71,
+		0, 705, 707, 3, 144, 72, 0, 706, 704, 1, 0, 0, 0, 706, 705, 1, 0, 0, 0,
+		707, 710, 1, 0, 0, 0, 708, 706, 1, 0, 0, 0, 708, 709, 1, 0, 0, 0, 709,
+		141, 1, 0, 0, 0, 710, 708, 1, 0, 0, 0, 711, 712, 5, 59, 0, 0, 712, 713,
+		3, 122, 61, 0, 713, 714, 5, 60, 0, 0, 714, 725, 1, 0, 0, 0, 715, 717, 5,
+		59, 0, 0, 716, 718, 3, 122, 61, 0, 717, 716, 1, 0, 0, 0, 717, 718, 1, 0,
+		0, 0, 718, 719, 1, 0, 0, 0, 719, 721, 5, 62, 0, 0, 720, 722, 3, 122, 61,
+		0, 721, 720, 1, 0, 0, 0, 721, 722, 1, 0, 0, 0, 722, 723, 1, 0, 0, 0, 723,
+		725, 5, 60, 0, 0, 724, 711, 1, 0, 0, 0, 724, 715, 1, 0, 0, 0, 725, 143,
+		1, 0, 0, 0, 726, 728, 5, 55, 0, 0, 727, 729, 3, 74, 37, 0, 728, 727, 1,
+		0, 0, 0, 728, 729, 1, 0, 0, 0, 729, 730, 1, 0, 0, 0, 730, 731, 5, 56, 0,
+		0, 731, 145, 1, 0, 0, 0, 732, 741, 3, 150, 75, 0, 733, 741, 3, 62, 31,
+		0, 734, 741, 5, 68, 0, 0, 735, 736, 5, 55, 0, 0, 736, 737, 3, 122, 61,
+		0, 737, 738, 5, 56, 0, 0, 738, 741, 1, 0, 0, 0, 739, 741, 3, 148, 74, 0,
+		740, 732, 1, 0, 0, 0, 740, 733, 1, 0, 0, 0, 740, 734, 1, 0, 0, 0, 740,
+		735, 1, 0, 0, 0, 740, 739, 1, 0, 0, 0, 741, 147, 1, 0, 0, 0, 742, 743,
+		3, 106, 53, 0, 743, 744, 5, 55, 0, 0, 744, 745, 3, 122, 61, 0, 745, 746,
+		5, 56, 0, 0, 746, 149, 1, 0, 0, 0, 747, 753, 3, 152, 76, 0, 748, 753, 5,
+		67, 0, 0, 749, 753, 5, 66, 0, 0, 750, 753, 3, 154, 77, 0, 751, 753, 3,
+		156, 78, 0, 752, 747, 1, 0, 0, 0, 752, 748, 1, 0, 0, 0, 752, 749, 1, 0,
+		0, 0, 752, 750, 1, 0, 0, 0, 752, 751, 1, 0, 0, 0, 753, 151, 1, 0, 0, 0,
+		754, 756, 5, 41, 0, 0, 755, 754, 1, 0, 0, 0, 755, 756, 1, 0, 0, 0, 756,
+		757, 1, 0, 0, 0, 757, 760, 7, 10, 0, 0, 758, 759, 4, 76, 0, 0, 759, 761,
+		5, 68, 0, 0, 760, 758, 1, 0, 0, 0, 760, 761, 1, 0, 0, 0, 761, 153, 1, 0,
+		0, 0, 762, 764, 5, 59, 0, 0, 763, 765, 3, 158, 79, 0, 764, 763, 1, 0, 0,
+		0, 764, 765, 1, 0, 0, 0, 765, 766, 1, 0, 0, 0, 766, 767, 5, 60, 0, 0, 767,
+		155, 1, 0, 0, 0, 768, 769, 7, 11, 0, 0, 769, 157, 1, 0, 0, 0, 770, 775,
+		3, 122, 61, 0, 771, 772, 5, 61, 0, 0, 772, 774, 3, 122, 61, 0, 773, 771,
+		1, 0, 0, 0, 774, 777, 1, 0, 0, 0, 775, 773, 1, 0, 0, 0, 775, 776, 1, 0,
+		0, 0, 776, 779, 1, 0, 0, 0, 777, 775, 1, 0, 0, 0, 778, 780, 5, 61, 0, 0,
+		779, 778, 1, 0, 0, 0, 779, 780, 1, 0, 0, 0, 780, 159, 1, 0, 0, 0, 91, 163,
+		176, 185, 189, 194, 201, 213, 217, 222, 227, 231, 235, 244, 248, 254, 260,
+		268, 272, 281, 290, 294, 300, 304, 309, 314, 318, 320, 330, 334, 341, 346,
+		350, 352, 361, 365, 369, 374, 378, 388, 392, 404, 409, 419, 428, 439, 451,
+		458, 462, 473, 477, 481, 490, 494, 500, 513, 517, 527, 537, 556, 566, 570,
+		594, 602, 606, 610, 617, 621, 630, 634, 639, 648, 656, 664, 672, 680, 688,
+		696, 701, 706, 708, 717, 721, 724, 728, 740, 752, 755, 760, 764, 775, 779,
 	}
 	deserializer := antlr.NewATNDeserializer(nil)
 	staticData.atn = deserializer.Deserialize(staticData.serializedATN)
@@ -620,8 +620,8 @@ const (
 	ArcParserRULE_relationalExpression     = 65
 	ArcParserRULE_additiveExpression       = 66
 	ArcParserRULE_multiplicativeExpression = 67
-	ArcParserRULE_powerExpression          = 68
-	ArcParserRULE_unaryExpression          = 69
+	ArcParserRULE_unaryExpression          = 68
+	ArcParserRULE_powerExpression          = 69
 	ArcParserRULE_postfixExpression        = 70
 	ArcParserRULE_indexOrSlice             = 71
 	ArcParserRULE_functionCallSuffix       = 72
@@ -13026,8 +13026,8 @@ type IMultiplicativeExpressionContext interface {
 	GetParser() antlr.Parser
 
 	// Getter signatures
-	AllPowerExpression() []IPowerExpressionContext
-	PowerExpression(i int) IPowerExpressionContext
+	AllUnaryExpression() []IUnaryExpressionContext
+	UnaryExpression(i int) IUnaryExpressionContext
 	AllSTAR() []antlr.TerminalNode
 	STAR(i int) antlr.TerminalNode
 	AllSLASH() []antlr.TerminalNode
@@ -13071,20 +13071,20 @@ func NewMultiplicativeExpressionContext(parser antlr.Parser, parent antlr.Parser
 
 func (s *MultiplicativeExpressionContext) GetParser() antlr.Parser { return s.parser }
 
-func (s *MultiplicativeExpressionContext) AllPowerExpression() []IPowerExpressionContext {
+func (s *MultiplicativeExpressionContext) AllUnaryExpression() []IUnaryExpressionContext {
 	children := s.GetChildren()
 	len := 0
 	for _, ctx := range children {
-		if _, ok := ctx.(IPowerExpressionContext); ok {
+		if _, ok := ctx.(IUnaryExpressionContext); ok {
 			len++
 		}
 	}
 
-	tst := make([]IPowerExpressionContext, len)
+	tst := make([]IUnaryExpressionContext, len)
 	i := 0
 	for _, ctx := range children {
-		if t, ok := ctx.(IPowerExpressionContext); ok {
-			tst[i] = t.(IPowerExpressionContext)
+		if t, ok := ctx.(IUnaryExpressionContext); ok {
+			tst[i] = t.(IUnaryExpressionContext)
 			i++
 		}
 	}
@@ -13092,11 +13092,11 @@ func (s *MultiplicativeExpressionContext) AllPowerExpression() []IPowerExpressio
 	return tst
 }
 
-func (s *MultiplicativeExpressionContext) PowerExpression(i int) IPowerExpressionContext {
+func (s *MultiplicativeExpressionContext) UnaryExpression(i int) IUnaryExpressionContext {
 	var t antlr.RuleContext
 	j := 0
 	for _, ctx := range s.GetChildren() {
-		if _, ok := ctx.(IPowerExpressionContext); ok {
+		if _, ok := ctx.(IUnaryExpressionContext); ok {
 			if j == i {
 				t = ctx.(antlr.RuleContext)
 				break
@@ -13109,7 +13109,7 @@ func (s *MultiplicativeExpressionContext) PowerExpression(i int) IPowerExpressio
 		return nil
 	}
 
-	return t.(IPowerExpressionContext)
+	return t.(IUnaryExpressionContext)
 }
 
 func (s *MultiplicativeExpressionContext) AllSTAR() []antlr.TerminalNode {
@@ -13174,7 +13174,7 @@ func (p *ArcParser) MultiplicativeExpression() (localctx IMultiplicativeExpressi
 	p.EnterOuterAlt(localctx, 1)
 	{
 		p.SetState(683)
-		p.PowerExpression()
+		p.UnaryExpression()
 	}
 	p.SetState(688)
 	p.GetErrorHandler().Sync(p)
@@ -13197,7 +13197,7 @@ func (p *ArcParser) MultiplicativeExpression() (localctx IMultiplicativeExpressi
 		}
 		{
 			p.SetState(685)
-			p.PowerExpression()
+			p.UnaryExpression()
 		}
 
 		p.SetState(690)
@@ -13206,166 +13206,6 @@ func (p *ArcParser) MultiplicativeExpression() (localctx IMultiplicativeExpressi
 			goto errorExit
 		}
 		_la = p.GetTokenStream().LA(1)
-	}
-
-errorExit:
-	if p.HasError() {
-		v := p.GetError()
-		localctx.SetException(v)
-		p.GetErrorHandler().ReportError(p, v)
-		p.GetErrorHandler().Recover(p, v)
-		p.SetError(nil)
-	}
-	p.ExitRule()
-	return localctx
-	goto errorExit // Trick to prevent compiler error if the label is not used
-}
-
-// IPowerExpressionContext is an interface to support dynamic dispatch.
-type IPowerExpressionContext interface {
-	antlr.ParserRuleContext
-
-	// GetParser returns the parser.
-	GetParser() antlr.Parser
-
-	// Getter signatures
-	UnaryExpression() IUnaryExpressionContext
-	CARET() antlr.TerminalNode
-	PowerExpression() IPowerExpressionContext
-
-	// IsPowerExpressionContext differentiates from other interfaces.
-	IsPowerExpressionContext()
-}
-
-type PowerExpressionContext struct {
-	antlr.BaseParserRuleContext
-	parser antlr.Parser
-}
-
-func NewEmptyPowerExpressionContext() *PowerExpressionContext {
-	var p = new(PowerExpressionContext)
-	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = ArcParserRULE_powerExpression
-	return p
-}
-
-func InitEmptyPowerExpressionContext(p *PowerExpressionContext) {
-	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = ArcParserRULE_powerExpression
-}
-
-func (*PowerExpressionContext) IsPowerExpressionContext() {}
-
-func NewPowerExpressionContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *PowerExpressionContext {
-	var p = new(PowerExpressionContext)
-
-	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
-
-	p.parser = parser
-	p.RuleIndex = ArcParserRULE_powerExpression
-
-	return p
-}
-
-func (s *PowerExpressionContext) GetParser() antlr.Parser { return s.parser }
-
-func (s *PowerExpressionContext) UnaryExpression() IUnaryExpressionContext {
-	var t antlr.RuleContext
-	for _, ctx := range s.GetChildren() {
-		if _, ok := ctx.(IUnaryExpressionContext); ok {
-			t = ctx.(antlr.RuleContext)
-			break
-		}
-	}
-
-	if t == nil {
-		return nil
-	}
-
-	return t.(IUnaryExpressionContext)
-}
-
-func (s *PowerExpressionContext) CARET() antlr.TerminalNode {
-	return s.GetToken(ArcParserCARET, 0)
-}
-
-func (s *PowerExpressionContext) PowerExpression() IPowerExpressionContext {
-	var t antlr.RuleContext
-	for _, ctx := range s.GetChildren() {
-		if _, ok := ctx.(IPowerExpressionContext); ok {
-			t = ctx.(antlr.RuleContext)
-			break
-		}
-	}
-
-	if t == nil {
-		return nil
-	}
-
-	return t.(IPowerExpressionContext)
-}
-
-func (s *PowerExpressionContext) GetRuleContext() antlr.RuleContext {
-	return s
-}
-
-func (s *PowerExpressionContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
-	return antlr.TreesStringTree(s, ruleNames, recog)
-}
-
-func (s *PowerExpressionContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(ArcParserListener); ok {
-		listenerT.EnterPowerExpression(s)
-	}
-}
-
-func (s *PowerExpressionContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(ArcParserListener); ok {
-		listenerT.ExitPowerExpression(s)
-	}
-}
-
-func (s *PowerExpressionContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case ArcParserVisitor:
-		return t.VisitPowerExpression(s)
-
-	default:
-		return t.VisitChildren(s)
-	}
-}
-
-func (p *ArcParser) PowerExpression() (localctx IPowerExpressionContext) {
-	localctx = NewPowerExpressionContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 136, ArcParserRULE_powerExpression)
-	var _la int
-
-	p.EnterOuterAlt(localctx, 1)
-	{
-		p.SetState(691)
-		p.UnaryExpression()
-	}
-	p.SetState(694)
-	p.GetErrorHandler().Sync(p)
-	if p.HasError() {
-		goto errorExit
-	}
-	_la = p.GetTokenStream().LA(1)
-
-	if _la == ArcParserCARET {
-		{
-			p.SetState(692)
-			p.Match(ArcParserCARET)
-			if p.HasError() {
-				// Recognition error - abort rule
-				goto errorExit
-			}
-		}
-		{
-			p.SetState(693)
-			p.PowerExpression()
-		}
-
 	}
 
 errorExit:
@@ -13392,7 +13232,7 @@ type IUnaryExpressionContext interface {
 	MINUS() antlr.TerminalNode
 	UnaryExpression() IUnaryExpressionContext
 	NOT() antlr.TerminalNode
-	PostfixExpression() IPostfixExpressionContext
+	PowerExpression() IPowerExpressionContext
 
 	// IsUnaryExpressionContext differentiates from other interfaces.
 	IsUnaryExpressionContext()
@@ -13454,10 +13294,10 @@ func (s *UnaryExpressionContext) NOT() antlr.TerminalNode {
 	return s.GetToken(ArcParserNOT, 0)
 }
 
-func (s *UnaryExpressionContext) PostfixExpression() IPostfixExpressionContext {
+func (s *UnaryExpressionContext) PowerExpression() IPowerExpressionContext {
 	var t antlr.RuleContext
 	for _, ctx := range s.GetChildren() {
-		if _, ok := ctx.(IPostfixExpressionContext); ok {
+		if _, ok := ctx.(IPowerExpressionContext); ok {
 			t = ctx.(antlr.RuleContext)
 			break
 		}
@@ -13467,7 +13307,7 @@ func (s *UnaryExpressionContext) PostfixExpression() IPostfixExpressionContext {
 		return nil
 	}
 
-	return t.(IPostfixExpressionContext)
+	return t.(IPowerExpressionContext)
 }
 
 func (s *UnaryExpressionContext) GetRuleContext() antlr.RuleContext {
@@ -13502,18 +13342,18 @@ func (s *UnaryExpressionContext) Accept(visitor antlr.ParseTreeVisitor) interfac
 
 func (p *ArcParser) UnaryExpression() (localctx IUnaryExpressionContext) {
 	localctx = NewUnaryExpressionContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 138, ArcParserRULE_unaryExpression)
-	p.SetState(701)
+	p.EnterRule(localctx, 136, ArcParserRULE_unaryExpression)
+	p.SetState(696)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
 	}
 
-	switch p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 77, p.GetParserRuleContext()) {
+	switch p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 76, p.GetParserRuleContext()) {
 	case 1:
 		p.EnterOuterAlt(localctx, 1)
 		{
-			p.SetState(696)
+			p.SetState(691)
 			p.Match(ArcParserMINUS)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -13521,14 +13361,14 @@ func (p *ArcParser) UnaryExpression() (localctx IUnaryExpressionContext) {
 			}
 		}
 		{
-			p.SetState(697)
+			p.SetState(692)
 			p.UnaryExpression()
 		}
 
 	case 2:
 		p.EnterOuterAlt(localctx, 2)
 		{
-			p.SetState(698)
+			p.SetState(693)
 			p.Match(ArcParserNOT)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -13536,19 +13376,179 @@ func (p *ArcParser) UnaryExpression() (localctx IUnaryExpressionContext) {
 			}
 		}
 		{
-			p.SetState(699)
+			p.SetState(694)
 			p.UnaryExpression()
 		}
 
 	case 3:
 		p.EnterOuterAlt(localctx, 3)
 		{
-			p.SetState(700)
-			p.PostfixExpression()
+			p.SetState(695)
+			p.PowerExpression()
 		}
 
 	case antlr.ATNInvalidAltNumber:
 		goto errorExit
+	}
+
+errorExit:
+	if p.HasError() {
+		v := p.GetError()
+		localctx.SetException(v)
+		p.GetErrorHandler().ReportError(p, v)
+		p.GetErrorHandler().Recover(p, v)
+		p.SetError(nil)
+	}
+	p.ExitRule()
+	return localctx
+	goto errorExit // Trick to prevent compiler error if the label is not used
+}
+
+// IPowerExpressionContext is an interface to support dynamic dispatch.
+type IPowerExpressionContext interface {
+	antlr.ParserRuleContext
+
+	// GetParser returns the parser.
+	GetParser() antlr.Parser
+
+	// Getter signatures
+	PostfixExpression() IPostfixExpressionContext
+	CARET() antlr.TerminalNode
+	UnaryExpression() IUnaryExpressionContext
+
+	// IsPowerExpressionContext differentiates from other interfaces.
+	IsPowerExpressionContext()
+}
+
+type PowerExpressionContext struct {
+	antlr.BaseParserRuleContext
+	parser antlr.Parser
+}
+
+func NewEmptyPowerExpressionContext() *PowerExpressionContext {
+	var p = new(PowerExpressionContext)
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
+	p.RuleIndex = ArcParserRULE_powerExpression
+	return p
+}
+
+func InitEmptyPowerExpressionContext(p *PowerExpressionContext) {
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
+	p.RuleIndex = ArcParserRULE_powerExpression
+}
+
+func (*PowerExpressionContext) IsPowerExpressionContext() {}
+
+func NewPowerExpressionContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *PowerExpressionContext {
+	var p = new(PowerExpressionContext)
+
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
+
+	p.parser = parser
+	p.RuleIndex = ArcParserRULE_powerExpression
+
+	return p
+}
+
+func (s *PowerExpressionContext) GetParser() antlr.Parser { return s.parser }
+
+func (s *PowerExpressionContext) PostfixExpression() IPostfixExpressionContext {
+	var t antlr.RuleContext
+	for _, ctx := range s.GetChildren() {
+		if _, ok := ctx.(IPostfixExpressionContext); ok {
+			t = ctx.(antlr.RuleContext)
+			break
+		}
+	}
+
+	if t == nil {
+		return nil
+	}
+
+	return t.(IPostfixExpressionContext)
+}
+
+func (s *PowerExpressionContext) CARET() antlr.TerminalNode {
+	return s.GetToken(ArcParserCARET, 0)
+}
+
+func (s *PowerExpressionContext) UnaryExpression() IUnaryExpressionContext {
+	var t antlr.RuleContext
+	for _, ctx := range s.GetChildren() {
+		if _, ok := ctx.(IUnaryExpressionContext); ok {
+			t = ctx.(antlr.RuleContext)
+			break
+		}
+	}
+
+	if t == nil {
+		return nil
+	}
+
+	return t.(IUnaryExpressionContext)
+}
+
+func (s *PowerExpressionContext) GetRuleContext() antlr.RuleContext {
+	return s
+}
+
+func (s *PowerExpressionContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
+	return antlr.TreesStringTree(s, ruleNames, recog)
+}
+
+func (s *PowerExpressionContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(ArcParserListener); ok {
+		listenerT.EnterPowerExpression(s)
+	}
+}
+
+func (s *PowerExpressionContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(ArcParserListener); ok {
+		listenerT.ExitPowerExpression(s)
+	}
+}
+
+func (s *PowerExpressionContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
+	switch t := visitor.(type) {
+	case ArcParserVisitor:
+		return t.VisitPowerExpression(s)
+
+	default:
+		return t.VisitChildren(s)
+	}
+}
+
+func (p *ArcParser) PowerExpression() (localctx IPowerExpressionContext) {
+	localctx = NewPowerExpressionContext(p, p.GetParserRuleContext(), p.GetState())
+	p.EnterRule(localctx, 138, ArcParserRULE_powerExpression)
+	var _la int
+
+	p.EnterOuterAlt(localctx, 1)
+	{
+		p.SetState(698)
+		p.PostfixExpression()
+	}
+	p.SetState(701)
+	p.GetErrorHandler().Sync(p)
+	if p.HasError() {
+		goto errorExit
+	}
+	_la = p.GetTokenStream().LA(1)
+
+	if _la == ArcParserCARET {
+		{
+			p.SetState(699)
+			p.Match(ArcParserCARET)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+		{
+			p.SetState(700)
+			p.UnaryExpression()
+		}
+
 	}
 
 errorExit:

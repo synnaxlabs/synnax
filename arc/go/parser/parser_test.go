@@ -103,9 +103,9 @@ var _ = Describe("Parser", func() {
 					relational     = equality.RelationalExpression(0)
 					additive       = relational.AdditiveExpression(0)
 					multiplicative = additive.MultiplicativeExpression(0)
-					power          = multiplicative.PowerExpression(0)
-					unary          = power.UnaryExpression()
-					postfix        = unary.PostfixExpression()
+					unary          = multiplicative.UnaryExpression(0)
+					power          = unary.PowerExpression()
+					postfix        = power.PostfixExpression()
 					primary        = postfix.PrimaryExpression()
 					literal        = primary.Literal()
 				)
@@ -180,21 +180,21 @@ var _ = Describe("Parser", func() {
 				Expect(additive.AllMultiplicativeExpression()).To(HaveLen(2))
 				// First term is just "2"
 				first := additive.MultiplicativeExpression(0)
-				Expect(first.AllPowerExpression()).To(HaveLen(1))
+				Expect(first.AllUnaryExpression()).To(HaveLen(1))
 				// Second term is "3 * 4"
 				second := additive.MultiplicativeExpression(1)
-				Expect(second.AllPowerExpression()).To(HaveLen(2))
+				Expect(second.AllUnaryExpression()).To(HaveLen(2))
 				Expect(second.STAR(0)).NotTo(BeNil())
 			})
 
 			It("Should parse exponentiation with right associativity", func() {
 				expr := mustParseExpression("2 ^ 3 ^ 2")
 				// Should be parsed as 2 ^ (3 ^ 2)
-				power := getMultiplicativeExpression(expr).PowerExpression(0)
+				power := getPowerExpression(expr)
 				Expect(power).NotTo(BeNil())
 				Expect(power.CARET()).NotTo(BeNil())
 				// The right side should be another power expression
-				rightPower := power.PowerExpression()
+				rightPower := power.UnaryExpression().PowerExpression()
 				Expect(rightPower).NotTo(BeNil())
 				Expect(rightPower.CARET()).NotTo(BeNil())
 			})
@@ -203,14 +203,14 @@ var _ = Describe("Parser", func() {
 		Context("Unary Operations", func() {
 			It("Should parse unary minus", func() {
 				expr := mustParseExpression("-42")
-				unary := getPowerExpression(expr).UnaryExpression()
+				unary := getUnaryExpression(expr)
 				Expect(unary.MINUS()).NotTo(BeNil())
 				Expect(unary.UnaryExpression()).NotTo(BeNil())
 			})
 
 			It("Should parse logical NOT", func() {
 				expr := mustParseExpression("not true")
-				unary := getPowerExpression(expr).UnaryExpression()
+				unary := getUnaryExpression(expr)
 				Expect(unary.NOT()).NotTo(BeNil())
 			})
 		})
@@ -910,16 +910,16 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 				// 2 ^ 3 ^ 2 ^ 1 should be 2 ^ (3 ^ (2 ^ 1))
 				expr := mustParseExpression("2 ^ 3 ^ 2 ^ 1")
 
-				power := getMultiplicativeExpression(expr).PowerExpression(0)
+				power := getPowerExpression(expr)
 				Expect(power.CARET()).NotTo(BeNil())
 
 				// Right side should be another power expression
-				rightPower := power.PowerExpression()
+				rightPower := power.UnaryExpression().PowerExpression()
 				Expect(rightPower).NotTo(BeNil())
 				Expect(rightPower.CARET()).NotTo(BeNil())
 
 				// And that should have another power expression
-				rightRightPower := rightPower.PowerExpression()
+				rightRightPower := rightPower.UnaryExpression().PowerExpression()
 				Expect(rightRightPower).NotTo(BeNil())
 				Expect(rightRightPower.CARET()).NotTo(BeNil())
 			})
@@ -2143,11 +2143,15 @@ func getPrimaryLiteral(expr parser.IExpressionContext) parser.ILiteralContext {
 func getPostfixExpression(
 	expr parser.IExpressionContext,
 ) parser.IPostfixExpressionContext {
-	return getPowerExpression(expr).UnaryExpression().PostfixExpression()
+	return getPowerExpression(expr).PostfixExpression()
 }
 
 func getPowerExpression(expr parser.IExpressionContext) parser.IPowerExpressionContext {
-	return getMultiplicativeExpression(expr).PowerExpression(0)
+	return getUnaryExpression(expr).PowerExpression()
+}
+
+func getUnaryExpression(expr parser.IExpressionContext) parser.IUnaryExpressionContext {
+	return getMultiplicativeExpression(expr).UnaryExpression(0)
 }
 
 func getMultiplicativeExpression(

@@ -78,8 +78,8 @@ func compileUnary(
 		return types.Bool(), nil
 	}
 
-	if postfix := ctx.AST.PostfixExpression(); postfix != nil {
-		return compilePostfix(context.Child(ctx, postfix))
+	if power := ctx.AST.PowerExpression(); power != nil {
+		return compilePower(context.Child(ctx, power))
 	}
 	return types.Type{}, errors.New("unknown unary expression")
 }

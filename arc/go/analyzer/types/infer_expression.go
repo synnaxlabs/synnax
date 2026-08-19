@@ -212,17 +212,17 @@ func InferAdditive(ctx context.Context[parser.IAdditiveExpressionContext]) types
 func InferMultiplicative(
 	ctx context.Context[parser.IMultiplicativeExpressionContext],
 ) types.Type {
-	powers := ctx.AST.AllPowerExpression()
-	if len(powers) == 0 {
+	unaries := ctx.AST.AllUnaryExpression()
+	if len(unaries) == 0 {
 		return types.Type{}
 	}
-	if len(powers) > 1 {
-		firstType := InferPower(context.Child(ctx, powers[0]))
+	if len(unaries) > 1 {
+		firstType := InferFromUnaryExpression(context.Child(ctx, unaries[0]))
 		isSeries := firstType.Kind == types.KindSeries
 		elemType := firstType.Unwrap()
 
-		for i := 1; i < len(powers); i++ {
-			nextType := InferPower(context.Child(ctx, powers[i]))
+		for i := 1; i < len(unaries); i++ {
+			nextType := InferFromUnaryExpression(context.Child(ctx, unaries[i]))
 			if nextType.Kind == types.KindSeries {
 				isSeries = true
 				nextElem := nextType.Unwrap()
@@ -250,22 +250,22 @@ func InferMultiplicative(
 		ctx.TypeMap[ctx.AST] = resultType
 		return resultType
 	}
-	resultType := InferPower(context.Child(ctx, powers[0]))
+	resultType := InferFromUnaryExpression(context.Child(ctx, unaries[0]))
 	ctx.TypeMap[ctx.AST] = resultType
 	return resultType
 }
 
 func InferPower(ctx context.Context[parser.IPowerExpressionContext]) types.Type {
-	if unary := ctx.AST.UnaryExpression(); unary != nil {
-		baseType := InferFromUnaryExpression(context.Child(ctx, unary))
+	if postfix := ctx.AST.PostfixExpression(); postfix != nil {
+		baseType := InferPostfix(context.Child(ctx, postfix))
 
 		// If no power operator, return base type
-		if ctx.AST.CARET() == nil || ctx.AST.PowerExpression() == nil {
+		if ctx.AST.CARET() == nil || ctx.AST.UnaryExpression() == nil {
 			return baseType
 		}
 
 		// Recursively infer exponent type (right-associative)
-		_ = InferPower(context.Child(ctx, ctx.AST.PowerExpression()))
+		_ = InferFromUnaryExpression(context.Child(ctx, ctx.AST.UnaryExpression()))
 
 		// Power operation returns the unwrapped base type
 		// (e.g., chan f32 ^ i32 = f32, f64 ^ f64 = f64)
@@ -283,13 +283,13 @@ func InferFromUnaryExpression(
 			context.Child(ctx, ctx.AST.UnaryExpression()),
 		).UnwrapChan()
 	}
-	if postfix := ctx.AST.PostfixExpression(); postfix != nil {
-		return inferPostfixType(context.Child(ctx, postfix))
+	if power := ctx.AST.PowerExpression(); power != nil {
+		return InferPower(context.Child(ctx, power))
 	}
 	return types.Type{}
 }
 
-func inferPostfixType(
+func InferPostfix(
 	ctx context.Context[parser.IPostfixExpressionContext],
 ) types.Type {
 	if primary := ctx.AST.PrimaryExpression(); primary != nil {

@@ -437,17 +437,17 @@ func (s *BaseArcParserListener) EnterMultiplicativeExpression(ctx *Multiplicativ
 // ExitMultiplicativeExpression is called when production multiplicativeExpression is exited.
 func (s *BaseArcParserListener) ExitMultiplicativeExpression(ctx *MultiplicativeExpressionContext) {}
 
-// EnterPowerExpression is called when production powerExpression is entered.
-func (s *BaseArcParserListener) EnterPowerExpression(ctx *PowerExpressionContext) {}
-
-// ExitPowerExpression is called when production powerExpression is exited.
-func (s *BaseArcParserListener) ExitPowerExpression(ctx *PowerExpressionContext) {}
-
 // EnterUnaryExpression is called when production unaryExpression is entered.
 func (s *BaseArcParserListener) EnterUnaryExpression(ctx *UnaryExpressionContext) {}
 
 // ExitUnaryExpression is called when production unaryExpression is exited.
 func (s *BaseArcParserListener) ExitUnaryExpression(ctx *UnaryExpressionContext) {}
+
+// EnterPowerExpression is called when production powerExpression is entered.
+func (s *BaseArcParserListener) EnterPowerExpression(ctx *PowerExpressionContext) {}
+
+// ExitPowerExpression is called when production powerExpression is exited.
+func (s *BaseArcParserListener) ExitPowerExpression(ctx *PowerExpressionContext) {}
 
 // EnterPostfixExpression is called when production postfixExpression is entered.
 func (s *BaseArcParserListener) EnterPostfixExpression(ctx *PostfixExpressionContext) {}

@@ -72,12 +72,6 @@ func getSignedIntegerLiteral(node antlr.ParserRuleContext) (int, bool) {
 		sign    = 1
 		current = node
 	)
-	if power, ok := current.(parser.IPowerExpressionContext); ok {
-		if power.CARET() != nil {
-			return 0, false
-		}
-		current = power.UnaryExpression()
-	}
 	if unary, ok := current.(parser.IUnaryExpressionContext); ok {
 		if unary.MINUS() != nil {
 			sign = -1
@@ -86,6 +80,12 @@ func getSignedIntegerLiteral(node antlr.ParserRuleContext) (int, bool) {
 			// NOT doesn't make sense for integer exponent
 			return 0, false
 		}
+	}
+	if power, ok := current.(parser.IPowerExpressionContext); ok {
+		if power.CARET() != nil {
+			return 0, false
+		}
+		current = power.PostfixExpression()
 	}
 	lit := parser.GetLiteralNode(current)
 	if lit == nil {
@@ -341,35 +341,35 @@ func analyzeAdditive(ctx context.Context[parser.IAdditiveExpressionContext]) {
 func analyzeMultiplicative(
 	ctx context.Context[parser.IMultiplicativeExpressionContext],
 ) {
-	powers := ctx.AST.AllPowerExpression()
-	for _, power := range powers {
-		analyzePower(context.Child(ctx, power))
+	unaries := ctx.AST.AllUnaryExpression()
+	for _, unary := range unaries {
+		analyzeUnary(context.Child(ctx, unary))
 	}
-	validateType[parser.IPowerExpressionContext](
+	validateType[parser.IUnaryExpressionContext](
 		ctx,
-		powers,
+		unaries,
 		getMultiplicativeOperator(ctx.AST),
-		types.InferPower,
+		types.InferFromUnaryExpression,
 		isNumeric,
 	)
 }
 
 func analyzePower(ctx context.Context[parser.IPowerExpressionContext]) {
-	if unary := ctx.AST.UnaryExpression(); unary != nil {
-		analyzeUnary(context.Child(ctx, unary))
+	if postfix := ctx.AST.PostfixExpression(); postfix != nil {
+		analyzePostfix(context.Child(ctx, postfix))
 	}
-	power := ctx.AST.PowerExpression()
-	if power != nil {
-		analyzePower(context.Child(ctx, power))
+	exponent := ctx.AST.UnaryExpression()
+	if exponent != nil {
+		analyzeUnary(context.Child(ctx, exponent))
 	}
 
-	if ctx.AST.CARET() != nil && power != nil {
-		baseType := types.InferFromUnaryExpression(context.Child(ctx, ctx.AST.UnaryExpression())).
+	if ctx.AST.CARET() != nil && exponent != nil {
+		baseType := types.InferPostfix(context.Child(ctx, ctx.AST.PostfixExpression())).
 			Unwrap()
-		expType := types.InferPower(context.Child(ctx, power)).Unwrap()
+		expType := types.InferFromUnaryExpression(context.Child(ctx, exponent)).Unwrap()
 
 		if baseType.Unit != nil || expType.Unit != nil {
-			_, isLiteral := getSignedIntegerLiteral(power)
+			_, isLiteral := getSignedIntegerLiteral(exponent)
 			if err := units.ValidatePowerOp(baseType, expType, isLiteral); err != nil {
 				ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 				return
@@ -408,8 +408,8 @@ func analyzeUnary(ctx context.Context[parser.IUnaryExpressionContext]) {
 		}
 		return
 	}
-	if postfix := ctx.AST.PostfixExpression(); postfix != nil {
-		analyzePostfix(context.Child(ctx, postfix))
+	if power := ctx.AST.PowerExpression(); power != nil {
+		analyzePower(context.Child(ctx, power))
 	}
 }
 

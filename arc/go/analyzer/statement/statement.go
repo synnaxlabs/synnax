@@ -560,8 +560,8 @@ func isRangeCall(
 		AllRelationalExpression()[0].
 		AllAdditiveExpression()[0].
 		AllMultiplicativeExpression()[0].
-		AllPowerExpression()[0].
-		UnaryExpression().
+		AllUnaryExpression()[0].
+		PowerExpression().
 		PostfixExpression()
 	if postfix == nil {
 		return nil, false

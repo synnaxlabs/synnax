@@ -255,8 +255,8 @@ LogicalOp ::= 'and' | 'or'
 
 **Precedence** (highest to lowest):
 
-1. `-`, `not` (unary, right-associative)
-2. `^` (right-associative)
+1. `^` (right-associative)
+2. `-`, `not` (unary, right-associative)
 3. `*`, `/`, `%` (left-associative)
 4. `+`, `-` (left-associative)
 5. `<`, `>`, `<=`, `>=`
@@ -269,7 +269,7 @@ Examples:
 ```arc
 func example{}(){
     power := 2 ^ 8 // 256
-    neg := -2 ^ 2 // 4: parses as (-2) ^ 2
+    neg := -2 ^ 2 // -4: parses as -(2 ^ 2)
     remainder := 10 % 3 // 1
     in_range := temp >= 20 and temp <= 30 // bool
     ready := in_range and not fault
