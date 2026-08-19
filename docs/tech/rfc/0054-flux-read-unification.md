@@ -19,7 +19,7 @@ remaining program. This RFC completes that cutover and amends it in three places
    classification then applies unchanged: enumerable lists patch membership locally on
    change events, search lists stay refetch-maintained with cancellation.
 3. **Domain query definitions become worker-safe and are bound twice**: `Flux` (React)
-   mints suspense hooks and selectors from them. A lowercase `flux` aether binding mints
+   mints suspense hooks and selectors from them. A lowercase `flux` Aether binding mints
    reactive reads for worker components, killing the hand-rolled lifecycle code that
    currently leaves worker visuals blind to deletes and renames.
 
@@ -44,7 +44,7 @@ cancellation, so a stale response can overwrite a newer one, and a virtualizer
 fetch-more can swallow a pending search inside the shared debounce. These defects are
 the visible flashing in remote selection dialogs.
 
-On the aether side, the worker constructs its own full client, but nothing on the worker
+On the Aether side, the worker constructs its own full client, but nothing on the worker
 uses `onChange` or `getCached`. Every read is retrieve-once, guarded by per-source
 `valid` flags and generation counters that re-implement query lifecycle by hand. Channel
 metadata is fetched on both threads through both caches for the same component, and a
@@ -102,7 +102,7 @@ strategy can later replace.
    encodes pagination.
 5. **Freshness classification is universal**: The three rules of RFC 0047 §5.1 govern
    lists exactly as they govern every other read.
-6. **Definitions are written once and bound twice**: React and aether consume the same
+6. **Definitions are written once and bound twice**: React and Aether consume the same
    per-domain definition through thin, lifecycle-native bindings.
 7. **The client surface is the only cache API** (RFC 0047 P1, P4, reaffirmed): Flux on
    either thread holds no cache and no lifecycle.
@@ -271,17 +271,17 @@ status keys, search and fetch-more stop sharing one debounce, the virtualizer's
 measurement gap is bridged, and a reopened dialog reconciles its input with the query it
 left behind.
 
-### 5.5 The aether binding
+### 5.5 The Aether binding
 
 **The definition split.** Each domain's definition moves to a worker-safe module
 (lowercase namespace, no React imports), following the existing casing law that
 lowercase means worker-legal. The React `queries.ts` files mint hooks from the
 definition; the worker imports the definition itself.
 
-**The binding.** A lowercase `flux` module gives aether components the same
+**The binding.** A lowercase `flux` module gives Aether components the same
 boilerplate-kill React gets: subscribe on mount, unsubscribe on teardown, dedupe by
 deep-equal query, initial value from `getCached` with a fetch on miss, and a change push
-the component answers with `requestRender`. No suspense and no `Result`: aether's
+the component answers with `requestRender`. No suspense and no `Result`: Aether's
 lifecycle is `afterUpdate`/`afterDelete`, and its degradation paths are its own. The
 three consumers with hand-rolled lifecycles migrate onto it: the control controller's
 bare channel retrieves, the telem remote sources' `valid`/generation bookkeeping, and
@@ -315,7 +315,7 @@ query cache by design.
 
 ## 6 Implementation phases
 
-- **Phase 1: The definition split and the aether binding.** Mechanical relocation of
+- **Phase 1: The definition split and the Aether binding.** Mechanical relocation of
   definitions to worker-safe modules with React hooks re-minted on top, then the
   lowercase binding and the three worker migrations. Additive and green throughout;
   isolates the only wire-adjacent risk (worker bundle composition) from behavior
@@ -359,7 +359,7 @@ client-and-pluto internal, so no migration or compatibility window is needed.
    document truth; deletion is a pushed state so a hold can never mask it, and RFC 0047
    §5.3 already serves the cache during gaps. The trade is one refetch window of
    possible staleness.
-4. **Raw client reads on aether, rejected**: It pushed subscription lifecycle onto every
+4. **Raw client reads on Aether, rejected**: It pushed subscription lifecycle onto every
    worker component, which is exactly the boilerplate the `valid`-flag code proves
    nobody writes correctly by hand.
 5. **A shared cross-thread cache, rejected**: `getCached` is synchronous; sharing forces

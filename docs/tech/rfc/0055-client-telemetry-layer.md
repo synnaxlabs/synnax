@@ -256,12 +256,12 @@ in flight instead of starting a second one.
 
 ### 4.6 The Pluto side: Bindings replace the wrapper client
 
-`pluto/src/telem/client/` is deleted: `Core`, `NoopClient`, the telem aether provider's
-wrapper, and the frame cache all go. The telem aether provider opens a Feed from the
+`pluto/src/telem/client/` is deleted: `Core`, `NoopClient`, the telem Aether provider's
+wrapper, and the frame cache all go. The telem Aether provider opens a Feed from the
 current client with the GL series transform and closes it when the client identity
 changes, so the transform lives with the thread that renders. The `prevCore` deadlock
 and the NoopClient that throws `NotFoundError` into every symbol mounting during login
-both disappear structurally. The close stays fire-and-forget, because the aether
+both disappear structurally. The close stays fire-and-forget, because the Aether
 lifecycle hooks are synchronous, and reports its failures to the status aggregator.
 
 What Pluto keeps is a lowercase, worker-safe lifecycle binding in the `flux.Retrieve`
@@ -400,7 +400,7 @@ leaves the lie on screen: the customer's frozen valve would render identically. 
 data" treatment is the smallest scope at which the redesign reaches the operator.
 
 **A main-thread GL transform, rejected**: Only the worker-side Feed carries the GL
-transform: aether-cached series arrive render-ready, main-thread Feeds serve full
+transform: Aether-cached series arrive render-ready, main-thread Feeds serve full
 fidelity. Applying it on both threads would lossily downcast `float64` for exactly the
 consumers (export, analysis) that need raw values, and the two caches share no memory
 regardless.

@@ -233,7 +233,7 @@ Python gets the retrieve and nothing else. A live mirror on `Controller`, stream
 sequential assignment from the visualization palette and the user's legend overrides
 (`pluto/src/telem/control/aether/state.ts:186,125`), and it drops the tracker, the
 client, the transfer observer, and the `get` accessors. It is renamed `Control.Colors`
-in React and `control.Colors` in aether, since the namespace already carries "control".
+in React and `control.Colors` in Aether, since the namespace already carries "control".
 
 Assignment stays sequential rather than hashing the subject key. The palette holds 14
 colors, so a hash collides between two subjects with about even odds by the fifth
