@@ -21,6 +21,7 @@ import json
 import os
 import shutil
 import tempfile
+import zipfile
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -33,7 +34,11 @@ from console.schematic import Schematic
 from console.schematic.symbol_toolbar import SymbolToolbar
 from console.table import Table
 from framework.run_dir import resolve_results_path
-from framework.utils import assert_envelope, get_core_fixture_path
+from framework.utils import (
+    assert_envelope,
+    get_core_fixture_path,
+    named_envelope_copy,
+)
 from x import random_name
 
 
@@ -144,6 +149,16 @@ REJECTIONS = [
     ("arc/versions/testdata/import_unrecognized_versionless.json", "not an Arc"),
 ]
 
+# Frozen symbol group bundles: the legacy directory shape released Consoles
+# exported (version 1 manifest listing its members) and the current server
+# export (version 2 manifest beside member envelopes). Both hold the same two
+# members.
+GROUP_GOLDENS = [
+    ("group_v1", "schematic/symbol/versions/testdata/import_group_v1"),
+    ("group_v2", "schematic/symbol/versions/testdata/import_group_v2"),
+]
+GROUP_MEMBERS = ["Inlet", "Outlet"]
+
 SYMBOL_REJECTIONS = [
     ("schematic/symbol/versions/testdata/import_bad_version.json", VERSION_REJECTION),
     ("schematic/symbol/versions/testdata/import_unrecognized.json", "not a symbol"),
@@ -158,6 +173,7 @@ class ImportGoldens(ConsoleCase):
 
     def run(self) -> None:
         self.suffix = random_name()
+        self._symbol_groups: list[str] = []
         for golden in GOLDENS:
             self.test_import_golden(golden)
         for label, relative_path in ARC_GOLDENS:
@@ -166,14 +182,17 @@ class ImportGoldens(ConsoleCase):
         for relative_path, error_text in REJECTIONS:
             self.test_rejection(relative_path, error_text)
         self.test_import_symbols()
+        self.test_import_symbol_groups()
 
     def teardown(self) -> None:
-        if self._symbol_group is not None:
-            with self._try_to("delete symbol group"):
+        groups: list[str] = getattr(self, "_symbol_groups", [])
+        leftover = [g for g in (self._symbol_group, *groups) if g]
+        for name in leftover:
+            with self._try_to(f"delete symbol group {name}"):
                 toolbar = SymbolToolbar(self.console.layout)
                 toolbar.show()
-                if toolbar.group_exists(self._symbol_group):
-                    toolbar.delete_group(self._symbol_group)
+                if toolbar.group_exists(name):
+                    toolbar.delete_group(name)
         super().teardown()
 
     def test_import_golden(self, golden: Golden) -> None:
@@ -208,31 +227,9 @@ class ImportGoldens(ConsoleCase):
         assert page.is_pane_visible, f"{golden.label}: round-tripped pane not visible"
         page.close()
 
-    @contextmanager
-    def _named_copy(self, path: str, name: str) -> Iterator[str]:
-        """Temp copy of ``path`` named ``{name}.json``.
-
-        An envelope's ``name`` header wins over the filename fallback, and
-        several goldens share one header name ("Server Typed"), so a
-        name-carrying envelope gets its header rewritten to ``name``. A
-        versionless state (no header) keeps the untouched golden bytes and
-        takes the filename-fallback path.
-        """
-        with open(path, "r", encoding="utf-8") as f:
-            envelope = json.load(f)
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            tmp_path = os.path.join(tmp_dir, f"{name}.json")
-            if envelope.get("name"):
-                envelope["name"] = name
-                with open(tmp_path, "w", encoding="utf-8") as f:
-                    json.dump(envelope, f)
-            else:
-                shutil.copyfile(path, tmp_path)
-            yield tmp_path
-
     def _import_as(self, path: str, name: str) -> None:
         """Import ``path`` so the resulting page is named ``name``."""
-        with self._named_copy(path, name) as tmp_path:
+        with named_envelope_copy(path, name) as tmp_path:
             self.console.pages.import_file(tmp_path, name)
 
     def test_import_arc_golden(self, label: str, relative_path: str) -> None:
@@ -240,7 +237,7 @@ class ImportGoldens(ConsoleCase):
         self.log(f"Importing arc golden: {label}")
         name = f"{label}_{self.suffix}"
         path = get_core_fixture_path(relative_path)
-        with self._named_copy(path, name) as tmp_path:
+        with named_envelope_copy(path, name) as tmp_path:
             self.console.layout.choose_import_file(tmp_path)
         self.console.arc.wait_for_item(name)
         tab = self.console.layout.get_tab(name)
@@ -305,6 +302,72 @@ class ImportGoldens(ConsoleCase):
 
         toolbar.delete_group(self._symbol_group)
         self._symbol_group = None
+        schematic.close()
+
+    @contextmanager
+    def _group_bundle(self, directory: str, name: str) -> Iterator[str]:
+        """Zip of a bundle directory with its manifest renamed to ``name``.
+
+        A bundle's manifest name becomes the imported group's name, and the
+        Core is long-lived across runs, so every import takes a unique name.
+        """
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            zip_path = os.path.join(tmp_dir, f"{name}.zip")
+            with zipfile.ZipFile(zip_path, "w") as zf:
+                for file_name in sorted(os.listdir(directory)):
+                    path = os.path.join(directory, file_name)
+                    if file_name == "manifest.json":
+                        with open(path, "r", encoding="utf-8") as f:
+                            manifest = json.load(f)
+                        manifest["name"] = name
+                        zf.writestr(file_name, json.dumps(manifest))
+                    else:
+                        zf.write(path, file_name)
+            yield zip_path
+
+    def _import_group_as(
+        self, toolbar: SymbolToolbar, directory: str, name: str
+    ) -> None:
+        """Import a bundle directory as a group named ``name`` and verify it."""
+        with self._group_bundle(directory, name) as zip_path:
+            toolbar.import_group(zip_path)
+        if not self.console.notifications.wait_for(f'Imported symbol group "{name}"'):
+            raise AssertionError(
+                f"Import of group {name!r} did not surface a success notification"
+            )
+        self.console.notifications.close_all()
+        self._symbol_groups.append(name)
+        for member in GROUP_MEMBERS:
+            assert toolbar.symbol_exists(member, select_group=name), (
+                f"Symbol {member!r} should appear in imported group {name!r}"
+            )
+
+    def test_import_symbol_groups(self) -> None:
+        """Import the group bundle goldens and round-trip the current format."""
+        self.log("Importing symbol group goldens")
+        schematic = self.console.pages.create(Schematic, f"group_goldens_{self.suffix}")
+        self._cleanup_pages.append(schematic.page_name)
+        toolbar = SymbolToolbar(self.console.layout)
+        toolbar.show()
+        self.console.notifications.close_all()
+
+        for label, relative_path in GROUP_GOLDENS:
+            self.log(f"Importing group golden: {label}")
+            self._import_group_as(
+                toolbar, get_core_fixture_path(relative_path), f"{label}_{self.suffix}"
+            )
+
+        self.log("Round-tripping symbol group")
+        zip_path = toolbar.export_group(f"group_v2_{self.suffix}")
+        self.console.notifications.close_all()
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            with zipfile.ZipFile(zip_path) as zf:
+                zf.extractall(tmp_dir)
+            self._import_group_as(toolbar, tmp_dir, f"group_rt_{self.suffix}")
+
+        for name in list(self._symbol_groups):
+            toolbar.delete_group(name)
+            self._symbol_groups.remove(name)
         schematic.close()
 
     def test_rejection(self, relative_path: str, error_text: str) -> None:

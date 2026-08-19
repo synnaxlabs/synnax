@@ -33,11 +33,13 @@ const SELECT_ALL_END = Number.MAX_SAFE_INTEGER;
 type Mode = "selectAll" | "clearSelection" | "togglePause" | "default";
 
 const TRIGGER_CONFIG: Triggers.ModeConfig<Mode> = {
-  selectAll: [["Control", "A"]],
-  clearSelection: [Triggers.ESCAPE],
-  togglePause: [PAUSE_TRIGGER],
-  default: [],
   defaultMode: "default",
+  modes: {
+    selectAll: [["Control", "A"]],
+    clearSelection: [Triggers.ESCAPE],
+    togglePause: [PAUSE_TRIGGER],
+    default: [],
+  },
 };
 
 const FLATTENED_TRIGGERS = Triggers.flattenConfig(TRIGGER_CONFIG);

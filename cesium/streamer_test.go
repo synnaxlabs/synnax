@@ -12,7 +12,6 @@ package cesium_test
 import (
 	"context"
 	"io"
-	"runtime"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -49,17 +48,13 @@ var _ = Describe("Streamer Behavior", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
 			var (
-				db         *cesium.DB
-				fs         fs.FS
-				controlKey cesium.ChannelKey = 5
+				db *cesium.DB
+				fs fs.FS
 			)
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
 				fs = openFS()
 				db = mustOpenDBOnFS(ctx, fs)
-				Expect(
-					db.ConfigureControlUpdateChannel(ctx, controlKey, "cesium_control"),
-				).To(Succeed())
 			})
 
 			Describe("Happy Path", func() {
@@ -363,57 +358,6 @@ var _ = Describe("Streamer Behavior", func() {
 						)
 						Expect(closer.Close()).To(Succeed())
 						Expect(w.Close()).To(Succeed())
-					},
-				)
-			})
-
-			Describe("Control Updates", func() {
-				It(
-					"Should forward control updates to the streamer",
-					func(ctx SpecContext) {
-						var basic3 cesium.ChannelKey = 6
-						Expect(db.CreateChannel(
-							ctx,
-							cesium.Channel{
-								Key:      basic3,
-								Name:     "Schrodinger",
-								DataType: telem.TimestampT,
-								IsIndex:  true,
-							},
-						)).To(Succeed())
-						_, o, closer := openStreamer(ctx, db, cesium.StreamerConfig{
-							Channels:    []cesium.ChannelKey{controlKey},
-							SendOpenAck: true,
-						})
-						// Do a best effort schedule for the streamer to boot up
-						Eventually(o.Outlet()).Should(Receive())
-						runtime.Gosched()
-						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-							Channels:       []cesium.ChannelKey{basic3},
-							ControlSubject: control.Subject{Name: "Writer"},
-							Start:          10 * telem.SecondTS,
-						}))
-						var r cesium.StreamerResponse
-						// Move this into an eventual closure, as we may be getting
-						// latent control updates from other tests, so we just assert on
-						// updates
-						// until we get one that matches.
-						Eventually(func(g Gomega) {
-							g.Eventually(o.Outlet()).Should(Receive(&r))
-							g.Expect(r.Frame.Count()).To(Equal(1))
-							u := MustSucceed(
-								cesium.DecodeControlUpdate(r.Frame.SeriesAt(0)),
-							)
-							g.Expect(u.Transfers).To(HaveLen(1))
-							first := u.Transfers[0]
-							g.Expect(first.Occurred()).To(BeTrue())
-							g.Expect(first.IsAcquire()).To(BeTrue())
-						}).Should(Succeed())
-
-						Expect(w.Close()).To(Succeed())
-						Eventually(o.Outlet()).Should(Receive(&r))
-						Expect(r.Frame.Count()).To(Equal(1))
-						Expect(closer.Close()).To(Succeed())
 					},
 				)
 			})

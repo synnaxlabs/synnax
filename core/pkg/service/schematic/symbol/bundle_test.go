@@ -384,6 +384,30 @@ var _ = Describe("ImportGroup", func() {
 		})
 	})
 
+	Describe("Golden bundles", func() {
+		loadBundle := func(dir string) zip.Files {
+			GinkgoHelper()
+			entries := MustSucceed(os.ReadDir(dir))
+			files := make(zip.Files, len(entries))
+			for _, entry := range entries {
+				files[entry.Name()] = MustSucceed(
+					os.ReadFile(dir + "/" + entry.Name()),
+				)
+			}
+			return files
+		}
+		It("Should import the frozen legacy Console bundle", func(ctx SpecContext) {
+			g := importGroup(ctx, loadBundle("versions/testdata/import_group_v1"))
+			Expect(g.Name).To(Equal("Legacy Group"))
+			Expect(childNames(ctx, g)).To(ConsistOf("Inlet", "Outlet"))
+		})
+		It("Should import the frozen server bundle", func(ctx SpecContext) {
+			g := importGroup(ctx, loadBundle("versions/testdata/import_group_v2"))
+			Expect(g.Name).To(Equal("Server Group"))
+			Expect(childNames(ctx, g)).To(ConsistOf("Inlet", "Outlet"))
+		})
+	})
+
 	DescribeTable("Should reject an invalid bundle",
 		func(ctx SpecContext, files zip.Files, reason string) {
 			Expect(svc.ImportGroup(ctx, tx, files)).Error().To(SatisfyAll(

@@ -32,7 +32,9 @@ type (
 	WriterRequest    = cesium.WriterRequest
 	WriterResponse   = cesium.WriterResponse
 	WriterCommand    = cesium.WriterCommand
-	ControlDigest    = cesium.ControlUpdate
+	ControlUpdate    = cesium.ControlUpdate
+	ControlState     = cesium.ControlState
+	ControlTransfer  = cesium.ControlTransfer
 	IteratorConfig   = cesium.IteratorConfig
 	Iterator         = cesium.Iterator
 	StreamIterator   = cesium.StreamIterator

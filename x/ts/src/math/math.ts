@@ -71,6 +71,10 @@ export const abs = <V extends Numeric>(a: V): V => {
   return (a < 0 ? -a : a) as V;
 };
 
+/** @returns zero, represented as a bigint when the given value is one. */
+export const zero = <V extends Numeric>(like: V): V =>
+  (typeof like === "bigint" ? 0n : 0) as V;
+
 /** @returns the multiplication of a and b, coercing b to the type of a if necessary. */
 export const mult = multiCoercedOp((a, b) => a * b);
 

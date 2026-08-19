@@ -55,12 +55,12 @@ export type UseSingleProps<K extends record.Key> = optional.Optional<
   UseSingleInternalProps<K>,
   "allowNone"
 > &
-  Pick<UseHoverProps<K>, "initialHover">;
+  Pick<UseHoverProps<K>, "initialHover" | "enableTriggers">;
 
 /** Props for {@link useMultiple}. */
 export interface UseMultipleProps<K extends record.Key> extends Pick<
   UseHoverProps<K>,
-  "initialHover"
+  "initialHover" | "enableTriggers"
 > {
   /** Whether the user can deselect the last remaining entry. Defaults to true. */
   allowNone?: boolean;
@@ -109,6 +109,7 @@ export const useSingle = <K extends record.Key>({
   value,
   closeDialogOnSelect = false,
   initialHover,
+  enableTriggers,
   autoSelectOnNone = false,
 }: UseSingleProps<K>): UseReturn<K> => {
   const valueRef = useSyncedRef(value);
@@ -144,7 +145,12 @@ export const useSingle = <K extends record.Key>({
     [onChange],
   );
 
-  const hover = useHover({ data, onSelect: handleSelect, initialHover });
+  const hover = useHover({
+    data,
+    onSelect: handleSelect,
+    initialHover,
+    enableTriggers,
+  });
   return { onSelect: handleSelect, setSelected, clear, ...hover };
 };
 
@@ -158,6 +164,7 @@ export const useMultiple = <K extends record.Key>({
   replaceOnSingle = false,
   onChange,
   initialHover,
+  enableTriggers,
   allowNone = true,
   closeDialogOnSelect = false,
   autoSelectOnNone = false,
@@ -227,6 +234,6 @@ export const useMultiple = <K extends record.Key>({
     (keys: K[]): void => onChange(keys, { clicked: null, clickedIndex: 0 }),
     [onChange],
   );
-  const hover = useHover({ data, onSelect, initialHover });
+  const hover = useHover({ data, onSelect, initialHover, enableTriggers });
   return { onSelect, setSelected, clear, ...hover };
 };

@@ -102,7 +102,7 @@ export const prepareNode = ({
     // In this case we do need to go around the node.
     const targetNodeEdge = box.loc(targetBox, location.swap(orientationToTravelIn));
     if (Math.abs(nodeEdge - targetNodeEdge) < STUMP_LENGTH)
-      orientationToTravelIn = location.swap(orientationToTravelIn) as location.Outer;
+      orientationToTravelIn = location.swap(orientationToTravelIn);
   }
   return {
     direction: swappedSourceDirection,

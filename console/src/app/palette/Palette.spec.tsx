@@ -12,6 +12,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { describe, expect, it } from "vitest";
 
 import { Palette } from "@/app/palette";
+import { Command as FeatureCommand } from "@/feature/command";
 import { Docs } from "@/feature/docs";
 import { Modals } from "@/platform/modals";
 import { createConsoleWrapper, resolveFocusedTab, selectTestProject } from "@/testutil";
@@ -43,7 +44,36 @@ const openPalette = async (): Promise<HTMLInputElement> => {
   });
 };
 
+/** Presses the codes as a chord, holding every key down before releasing them. */
+const pressChord = async (...codes: string[]): Promise<HTMLInputElement> => {
+  await act(async () => {
+    codes.forEach((code) => fireEvent.keyDown(window, { code }));
+  });
+  await act(async () => {
+    codes.forEach((code) => fireEvent.keyUp(window, { code }));
+  });
+  return await waitFor(() => {
+    const input = document.querySelector<HTMLInputElement>(
+      ".console-palette__input input",
+    );
+    if (input == null) throw new Error("palette input not found");
+    return input;
+  });
+};
+
 describe("Palette", () => {
+  it("should open in command mode from its keyboard trigger", async () => {
+    await renderAppPalette();
+    const input = await pressChord("ControlLeft", "ShiftLeft", "KeyP");
+    expect(input.value).toBe(FeatureCommand.PREFIX);
+  });
+
+  it("should open in search mode from its keyboard trigger", async () => {
+    await renderAppPalette();
+    const input = await pressChord("ControlLeft", "KeyP");
+    expect(input.value).toBe("");
+  });
+
   it("should run a command selected through the command palette", async () => {
     const { store, client } = await renderAppPalette();
     const input = await openPalette();

@@ -223,6 +223,37 @@ class SymbolToolbar:
             button.click()
         fc_info.value.set_files(path)
 
+    def import_group(self, zip_path: str) -> None:
+        """Import a symbol group bundle zip through the import-group modal.
+
+        Only drives the modal and file chooser; callers assert the outcome via
+        ``group_exists`` or the notifications client.
+
+        :param zip_path: Path to the bundle zip to import.
+        """
+        button = self.toolbar.get_by_role(
+            "button", name="Import symbol group", exact=True
+        )
+        button.wait_for(state="visible", timeout=5000)
+        button.dispatch_event("click")
+        zone = self.layout.dialog.get_by_text("Drop a .zip or folder here")
+        self.layout.wait_for_visible(zone)
+        with self.page.expect_file_chooser() as fc_info:
+            zone.click()
+        fc_info.value.set_files(zip_path)
+
+    def export_group(self, name: str) -> str:
+        """Export a symbol group via context menu and return the saved zip path."""
+        self.show()
+        group_btn = self._group_tab(name)
+        self.layout.wait_for_visible(group_btn)
+        self.ctx_menu.open_on(group_btn)
+        with self.page.expect_download(timeout=10000) as download_info:
+            self.ctx_menu.click_option("Export")
+        zip_path = resolve_results_path(f"{name}_export.zip")
+        download_info.value.save_as(zip_path)
+        return zip_path
+
     def export_symbol(self, name: str) -> dict[str, Any]:
         """Export a symbol via context menu and return the JSON content."""
         symbol = self.get_symbol(name)

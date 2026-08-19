@@ -92,10 +92,9 @@ const MultiConfig = ({ nodes }: MultiElementPropertiesProps): ReactElement => {
               xy.translation(box.topLeft(nodeElBox), pos),
               1 / viewport.zoom,
             );
-            const match = el.className.match(/react-flow__handle-(\w+)/);
-            if (match == null)
+            const orientation = el.className.match(/react-flow__handle-(\w+)/)?.[1];
+            if (orientation == null || !location.isOuter(orientation))
               throw new Error(`[arc] - cannot find handle orientation`);
-            const orientation = location.construct(match[1]) as location.Outer;
             return new Diagram.HandleLayout(dist, orientation);
           });
           return new Diagram.NodeLayout(node.key, nodeBox, handles);

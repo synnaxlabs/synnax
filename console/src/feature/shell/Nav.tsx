@@ -11,6 +11,7 @@ import { Flex, OS } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Shell } from "@/platform/shell";
+import { Theme } from "@/platform/theme";
 import { Version } from "@/platform/version";
 import { Window } from "@/platform/window";
 import { Session } from "@/session";
@@ -42,6 +43,9 @@ export const Nav = ({ connection }: NavProps): ReactElement => {
         )}
       </Flex.Box>
       <Flex.Box x align="center" gap="medium">
+        <Shell.Island square>
+          <Theme.Toggle size="medium" textColor={9} />
+        </Shell.Island>
         <Shell.Connection cluster={connection} />
         {chrome && os === "Windows" && (
           <Shell.Island data-tauri-drag-region>

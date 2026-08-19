@@ -11,7 +11,6 @@ package channel_test
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -27,7 +26,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -77,17 +75,6 @@ func openService(ctx context.Context, node mock.Node) *channel.Service {
 		Search:       searchIdx,
 		Status:       statusSvc,
 	}))
-	controlCh := channel.Channel{
-		Name:        fmt.Sprintf("sy_node_%v_control", node.Cluster.HostKey()),
-		Leaseholder: node.Cluster.HostKey(),
-		Virtual:     true,
-		DataType:    telem.StringT,
-		Internal:    true,
-	}
-	Expect(channelSvc.NewWriter(nil).Create(ctx, &controlCh)).To(Succeed())
-	Expect(node.Framer.ConfigureControlUpdateChannel(
-		ctx, controlCh.Key(), controlCh.Name,
-	)).To(Succeed())
 	return channelSvc
 }
 

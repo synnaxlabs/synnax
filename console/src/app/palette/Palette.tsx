@@ -30,9 +30,8 @@ export const SEARCH_TRIGGER: Triggers.Trigger = ["Control", "P"];
 export const COMMAND_TRIGGER: Triggers.Trigger = ["Control", "Shift", "P"];
 
 const TRIGGER_CONFIG: Triggers.ModeConfig<"search" | "command"> = {
-  command: [COMMAND_TRIGGER],
-  search: [SEARCH_TRIGGER],
   defaultMode: "command",
+  modes: { command: [COMMAND_TRIGGER], search: [SEARCH_TRIGGER] },
 };
 
 export const TooltipContent = (): ReactElement => (

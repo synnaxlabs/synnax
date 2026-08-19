@@ -70,7 +70,7 @@ export const construct: Construct = <T extends numeric.Value>(
       b.lower = lower;
       b.upper = upper;
     } else {
-      b.lower = (typeof lower === "bigint" ? 0n : 0) as T;
+      b.lower = math.zero(lower);
       b.upper = lower;
     }
   else if (Array.isArray(lower)) {
@@ -162,7 +162,7 @@ export const overlapsWith = <T extends numeric.Value>(
 /** @returns the span of the given bounds i.e. upper - lower. */
 export const span = <T extends numeric.Value>(a: Crude<T>): T => {
   const _a = construct<T>(a);
-  return (_a.upper - _a.lower) as T;
+  return math.sub(_a.upper, _a.lower);
 };
 
 /** @returns true if both the lower and upper bounds are 0, false otherwise. */
@@ -226,11 +226,9 @@ export const min = (bounds: Crude[]): Bounds => ({
  */
 export const linspace = <T extends numeric.Value = number>(bounds: Crude<T>): T[] => {
   const _bounds = construct(bounds);
-  const isBigInt = typeof _bounds.lower === "bigint";
-  return Array.from({ length: Number(span(bounds)) }, (_, i) => {
-    if (isBigInt) return ((_bounds.lower as bigint) + BigInt(i)) as T;
-    return (_bounds.lower as number) + i;
-  }) as T[];
+  return Array.from({ length: Number(span(bounds)) }, (_, i) =>
+    math.add(_bounds.lower, i),
+  );
 };
 
 /**
@@ -386,20 +384,18 @@ export const distance = <T extends numeric.Value = number>(
 ): T => {
   const _bounds = bounds.map((b) => construct<T>(b));
 
-  if (a === b) return (typeof a === "bigint" ? 0n : 0) as T;
+  if (a === b) return math.zero(a);
 
   const interval = a < b ? construct([a, b]) : construct([b, a]);
 
-  let totalDistance: T = (typeof a === "bigint" ? 0n : 0) as T;
+  let totalDistance: T = math.zero(a);
 
   for (const bound of _bounds) {
     const overlapLower = bound.lower > interval.lower ? bound.lower : interval.lower;
     const overlapUpper = bound.upper < interval.upper ? bound.upper : interval.upper;
 
     if (overlapLower < overlapUpper) {
-      const overlapSpan = (overlapUpper - overlapLower) as T;
-      // @ts-expect-error - typescript doesn't recognize that totalDistance is a number
-      totalDistance = (totalDistance + overlapSpan) as T;
+      totalDistance = math.add(totalDistance, math.sub(overlapUpper, overlapLower));
     }
   }
 

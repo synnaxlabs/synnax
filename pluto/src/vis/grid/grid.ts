@@ -92,10 +92,10 @@ export const position = (key: string, grid: Grid, container: box.Box): xy.XY => 
   const axis = grid[key];
   if (axis == null) return xy.ZERO;
   const loc = location.construct(axis.loc);
-  const axes = regions(loc as location.Outer, grid);
+  const axes = regions(loc, grid);
 
   const filterLoc = location.construct(direction.swap(location.direction(loc)));
-  const otherAxes = regions(filterLoc as location.Outer, grid);
+  const otherAxes = regions(filterLoc, grid);
   const index = axes.findIndex(({ key: k }) => k === key);
 
   const offset = axes.slice(0, index).reduce((acc, { size }) => acc + size, 0);

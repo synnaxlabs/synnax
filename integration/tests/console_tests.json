@@ -29,6 +29,7 @@
       "pool_size": 6,
       "tests": [
         { "case": "console/log/log_lifecycle" },
+        { "case": "console/pages/file_drop" },
         { "case": "console/pages/import_goldens" },
         { "case": "console/pages/open_close" },
         { "case": "console/pages/rename_synchronization" },
@@ -92,6 +93,8 @@
       "tests": [
         { "case": "console/documentation" },
         { "case": "console/layout/keyboard_shortcuts" },
+        { "case": "console/panel/panel_lifecycle" },
+        { "case": "console/panel/panel_tabs" },
         { "case": "console/layout/mosaic_operations" }
       ]
     }

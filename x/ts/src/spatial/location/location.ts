@@ -18,7 +18,6 @@ import {
   type CornerLocation,
   cornerLocationZ,
   type Direction,
-  DIRECTIONS,
   directionZ,
   type Location,
   LOCATIONS,
@@ -68,6 +67,8 @@ export type Corner = CornerLocation;
 /** One corner, as a single camel-case word. */
 export type CornerString = "topLeft" | "topRight" | "bottomLeft" | "bottomRight";
 
+const OUTER_SET = new Set<string>(OUTER_LOCATIONS);
+
 const SWAPPED: Record<Location, Location> = {
   top: "bottom",
   right: "left",
@@ -86,21 +87,25 @@ const ROTATIONS: Record<Outer, Record<AngularDirection, Outer>> = {
 export const crudeZ = z.union([
   directionZ,
   z.enum([...OUTER_LOCATIONS, ...CENTER_LOCATIONS]),
-  z.instanceof(String),
 ]);
 /** A location, or a direction standing for its first location. */
 export type Crude = z.infer<typeof crudeZ>;
 
 /** Resolves a {@link Crude} to a location. "x" becomes "left" and "y" becomes "top". */
-export const construct = (cl: Crude): Location => {
-  if (cl instanceof String) return cl as Location;
-  if (!DIRECTIONS.includes(cl as Direction)) return cl as Location;
+export function construct(cl: Direction | Outer): Outer;
+export function construct(cl: Crude): Location;
+export function construct(cl: Crude): Location {
   if (cl === "x") return "left";
-  return "top";
-};
+  if (cl === "y") return "top";
+  return cl;
+}
 
 /** @returns the location opposite the given one. "center" is its own opposite. */
-export const swap = (cl: Crude): Location => SWAPPED[construct(cl)];
+export function swap(cl: Direction | Outer): Outer;
+export function swap(cl: Crude): Location;
+export function swap(cl: Crude): Location {
+  return SWAPPED[construct(cl)];
+}
 
 /** @returns the edge a quarter turn from the given one, in the given direction. */
 export const rotate = (loc: Outer, dir: AngularDirection): Outer => ROTATIONS[loc][dir];
@@ -169,6 +174,9 @@ export const xyMatches = (a: XY, l: Partial<XY> | Location): boolean => {
 /** @returns the XY location's two axes as a tuple. */
 export const xyCouple = (a: XY): [Location, Location] => [a.x, a.y];
 
+/** @returns whether the value names an edge. */
+export const isOuter = (v: string): v is Outer => OUTER_SET.has(v);
+
 /** @returns whether the location sits on the horizontal axis. */
 export const isX = (a: Crude): a is XLocation | CenterLocation =>
   direction(construct(a)) === "x";
@@ -199,13 +207,13 @@ export const constructXY = (x: Crude | XY, y?: Crude): XY => {
       `[XYLocation] - encountered two locations with the same direction: ${parsedX.toString()} - ${parsedY.toString()}`,
     );
   const xy = { ...CENTER };
-  if (parsedX === "center")
-    if (isX(parsedY)) [xy.x, xy.y] = [parsedY, parsedX];
-    else [xy.x, xy.y] = [parsedX, parsedY];
-  else if (parsedY === "center")
-    if (isX(parsedX)) [xy.x, xy.y] = [parsedX, parsedY];
-    else [xy.x, xy.y] = [parsedY, parsedX];
-  else if (isX(parsedX)) [xy.x, xy.y] = [parsedX, parsedY as YLocation];
-  else [xy.x, xy.y] = [parsedY as XLocation, parsedX];
+  if (parsedX !== "center") {
+    if (isX(parsedX)) xy.x = parsedX;
+    else xy.y = parsedX;
+  }
+  if (parsedY !== "center") {
+    if (isX(parsedY)) xy.x = parsedY;
+    else xy.y = parsedY;
+  }
   return xy;
 };

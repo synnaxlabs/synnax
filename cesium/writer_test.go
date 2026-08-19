@@ -40,17 +40,13 @@ var _ = Describe("Writer Behavior", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
 			var (
-				db         *cesium.DB
-				fs         fs.FS
-				controlKey = GenerateChannelKey()
+				db *cesium.DB
+				fs fs.FS
 			)
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
 				fs = openFS()
 				db = mustOpenDBOnFS(ctx, fs)
-				Expect(db.ConfigureControlUpdateChannel(
-					ctx, controlKey, "sy_cesium_control",
-				)).To(Succeed())
 			})
 
 			Describe("Happy Path", func() {

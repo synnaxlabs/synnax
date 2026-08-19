@@ -14,6 +14,8 @@ import {
   useRef,
 } from "react";
 
+import { record } from "@synnaxlabs/x";
+
 import { useSyncedRef } from "@/hooks";
 import { useContext } from "@/portal/Context";
 
@@ -106,17 +108,14 @@ export const Out = ({
   useLayoutEffect(() => {
     const hostEl = host.current;
     if (hostEl == null) return;
-    const bound = Object.entries(DELEGATED_EVENTS).map(
-      ([reactName, { name, capture }]) => {
+    const bound = record
+      .entries(DELEGATED_EVENTS)
+      .map(([reactName, { name, capture }]) => {
         const listener = (ev: Event): void =>
-          (
-            handlers.current[reactName as keyof HostHandlers] as
-              ((e: Event) => void) | undefined
-          )?.(ev);
+          (handlers.current[reactName] as ((e: Event) => void) | undefined)?.(ev);
         hostEl.addEventListener(name, listener, capture);
         return () => hostEl.removeEventListener(name, listener, capture);
-      },
-    );
+      });
     return () => bound.forEach((unbind) => unbind());
   }, []);
   // Attachment is fully imperative: the hosted element never appears in JSX,

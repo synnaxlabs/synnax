@@ -63,12 +63,10 @@ export const getIconButtons = (
   container: ParentNode,
   icon: string,
 ): HTMLButtonElement[] =>
-  Array.from(container.querySelectorAll(`.pluto-icon--${icon}`)).flatMap(
-    (el) => {
-      const button = el.closest("button");
-      return button == null ? [] : [button];
-    },
-  );
+  Array.from(container.querySelectorAll(`.pluto-icon--${icon}`)).flatMap((el) => {
+    const button = el.closest("button");
+    return button == null ? [] : [button];
+  });
 
 /** Like queryIconButton, but throws when no button wraps the icon. */
 export const getIconButton = (

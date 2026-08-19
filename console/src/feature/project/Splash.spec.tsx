@@ -9,8 +9,9 @@
 
 import { type Synnax } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { Triggers } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Project } from "@/feature/project";
@@ -90,6 +91,82 @@ describe("project/Splash", () => {
 
       await screen.findByText("No matching projects");
       expect(screen.queryByText("No projects")).toBeNull();
+    });
+  });
+
+  describe("keyboard navigation", () => {
+    it("should select the hovered project when Enter is pressed", async () => {
+      const name = uniqueName("kb_enter");
+      const proj = await client.projects.create({ name, layout: {} });
+      const { wrapper, store } = await createConsoleWrapper({ client });
+      render(
+        <Triggers.Provider>
+          <Project.Splash />
+        </Triggers.Provider>,
+        { wrapper },
+      );
+
+      const search = await screen.findByPlaceholderText("Search projects...");
+      fireEvent.change(search, { target: { value: name } });
+      await screen.findByText(name);
+
+      fireEvent.keyDown(search, { code: "Enter" });
+      await waitFor(() => {
+        const active = Session.Project.selectOptionalSelected(store.getState());
+        expect(active).toEqual(proj.key);
+      });
+    });
+
+    it("should move the hover with the arrow keys before selecting", async () => {
+      const prefix = uniqueName("kb_arrows");
+      const a = await client.projects.create({ name: `${prefix}_a`, layout: {} });
+      const b = await client.projects.create({ name: `${prefix}_b`, layout: {} });
+      const { wrapper, store } = await createConsoleWrapper({ client });
+      render(
+        <Triggers.Provider>
+          <Project.Splash />
+        </Triggers.Provider>,
+        { wrapper },
+      );
+
+      const search = await screen.findByPlaceholderText("Search projects...");
+      fireEvent.change(search, { target: { value: prefix } });
+      const elA = await screen.findByText(a.name);
+      const elB = await screen.findByText(b.name);
+      const aIsFirst =
+        (elA.compareDocumentPosition(elB) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+      const second = aIsFirst ? b : a;
+
+      fireEvent.keyDown(search, { code: "ArrowDown" });
+      fireEvent.keyUp(search, { code: "ArrowDown" });
+      fireEvent.keyDown(search, { code: "Enter" });
+      await waitFor(() => {
+        const active = Session.Project.selectOptionalSelected(store.getState());
+        expect(active).toEqual(second.key);
+      });
+    });
+
+    it("should not select a project while a modal is open", async () => {
+      const name = uniqueName("kb_modal");
+      await client.projects.create({ name, layout: {} });
+      const { wrapper, store } = await createConsoleWrapper({ client });
+      render(
+        <Triggers.Provider>
+          <Project.Splash />
+          <Modals.Stack />
+        </Triggers.Provider>,
+        { wrapper },
+      );
+
+      const search = await screen.findByPlaceholderText("Search projects...");
+      fireEvent.change(search, { target: { value: name } });
+      await screen.findByText(name);
+
+      fireEvent.click(screen.getByText("New project"));
+      await screen.findByPlaceholderText("Name");
+      fireEvent.keyDown(document.body, { code: "Enter" });
+      await act(async () => {});
+      expect(Session.Project.selectOptionalSelected(store.getState())).toBeUndefined();
     });
   });
 

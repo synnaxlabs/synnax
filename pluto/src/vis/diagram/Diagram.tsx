@@ -456,7 +456,7 @@ export const create = ({
 
     const triggerRef = useRef<HTMLDivElement>(null);
     Triggers.use({
-      triggers: triggers.zoomReset,
+      triggers: triggers.modes.zoomReset,
       callback: useCallback(
         ({ stage, cursor }: Triggers.UseEvent) => {
           const reg = triggerRef.current;
@@ -468,9 +468,10 @@ export const create = ({
     });
 
     const triggerProps = useMemo<Partial<ReactFlowProps>>(() => {
-      const selectTriggers = Triggers.purgeMouse(triggers.select)[0] ?? null;
-      const panTriggers = Triggers.purgeMouse(triggers.pan)[0] ?? null;
-      const zoomTriggers = Triggers.purgeMouse(triggers.zoom)[0] ?? null;
+      const { select, pan, zoom } = triggers.modes;
+      const selectTriggers = Triggers.purgeMouse(select)[0] ?? null;
+      const panTriggers = Triggers.purgeMouse(pan)[0] ?? null;
+      const zoomTriggers = Triggers.purgeMouse(zoom)[0] ?? null;
       return {
         selectionOnDrag: selectTriggers == null,
         panOnDrag: panTriggers == null,

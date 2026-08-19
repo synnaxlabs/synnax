@@ -220,10 +220,10 @@ export const xyLoc = (b: Crude, l: location.XY): xy.XY => {
  * side of the box i.e. the x coordinate of the left side, the y coordinate of the
  * top side, etc.
  */
-export const loc = (b: Crude, loc: location.Location): number => {
+export const loc = (b: Crude, loc: location.Outer): number => {
   const b_ = construct(b);
   const f = location.xyCouple(b_.root).includes(loc) ? Math.min : Math.max;
-  return location.X_LOCATIONS.includes(loc as location.X)
+  return location.direction(loc) === "x"
     ? f(b_.one.x, b_.two.x)
     : f(b_.one.y, b_.two.y);
 };
@@ -321,19 +321,14 @@ export const yBounds = (b: Crude): bounds.Bounds => {
 
 export const reRoot = (b: Box, corner: location.Corner): Box => copy(b, corner);
 
-export const edgePoints = (b: Crude, loc: location.Location): [xy.XY, xy.XY] => {
+export const edgePoints = (b: Crude, loc: location.Outer): [xy.XY, xy.XY] => {
   const b_ = construct(b);
-  const x = location.X_LOCATIONS.includes(loc as location.X)
-    ? "x"
-    : location.Y_LOCATIONS.includes(loc as location.Y)
-      ? "y"
-      : null;
-  if (x === null) throw new Error(`Invalid location: ${loc}`);
+  const dir = location.direction(loc);
   const f = loc === "top" || loc === "left" ? Math.min : Math.max;
   const one = { ...b_.one };
   const two = { ...b_.two };
-  one[x] = f(b_.one[x], b_.two[x]);
-  two[x] = f(b_.one[x], b_.two[x]);
+  one[dir] = f(b_.one[dir], b_.two[dir]);
+  two[dir] = f(b_.one[dir], b_.two[dir]);
   return [one, two];
 };
 

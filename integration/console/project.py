@@ -283,6 +283,7 @@ class ProjectClient(ResourceClient):
         :param name: Name of the project to select.
         """
         self.on_splash()
+        self._search_splash(name)
         item = (
             self.layout.page.locator(".console-project-splash__list")
             .get_by_text(name, exact=True)
@@ -292,6 +293,17 @@ class ProjectClient(ResourceClient):
         item.click(timeout=5000)
         self._wait_for_app()
         self._active_project = name
+
+    def _search_splash(self, name: str) -> None:
+        """Filter the Splash list to ``name``: a shared core can hold enough
+        projects to push it below the list's fold, where it never reports
+        visible."""
+        search = self.layout.page.get_by_placeholder("Search projects...")
+        try:
+            search.wait_for(state="visible", timeout=2000)
+        except PlaywrightTimeoutError:
+            return
+        search.fill(name)
 
     def on_splash(self) -> bool:
         """Report whether the project Splash screen is showing.
@@ -326,8 +338,11 @@ class ProjectClient(ResourceClient):
             list_container.wait_for(state="visible", timeout=2000)
         except PlaywrightTimeoutError:
             return False
+        self._search_splash(name)
         item = list_container.get_by_text(name, exact=True)
-        if item.count() == 0:
+        try:
+            item.first.wait_for(state="visible", timeout=3000)
+        except PlaywrightTimeoutError:
             return False
         item.first.click(timeout=5000)
         self._active_project = name

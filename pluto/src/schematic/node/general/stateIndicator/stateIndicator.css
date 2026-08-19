@@ -12,24 +12,13 @@
 .pluto-state-indicator {
     display: flex;
     flex-direction: row;
-    border: 1px solid var(--pluto-gray-l6);
+    border: var(--pluto-border);
+    border-color: var(--pluto-symbol-display);
     border-radius: var(--pluto-border-radius);
-    background: var(--pluto-gray-l1);
+    border-width: 2px;
     padding: 0;
     align-items: center;
     justify-content: center;
-    transition:
-        border-color 0.15s ease-in-out,
-        background 0.15s ease-in-out;
-
-    &.pluto--colored {
-        border-color: var(--pluto-symbol-display);
-        background: color-mix(
-            in oklab,
-            var(--pluto-symbol-display) 8%,
-            var(--pluto-gray-l1)
-        );
-    }
 
     & .pluto-state-indicator__content {
         padding: 0.5rem 1.5rem;

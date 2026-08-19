@@ -15,6 +15,7 @@ import {
   type record,
   TimeSpan,
 } from "@synnaxlabs/x";
+import { z } from "zod";
 
 import { openSugaredKV, type SugaredKV } from "@/session/persist/kv";
 import { Runtime } from "@/session/runtime";
@@ -35,10 +36,6 @@ export interface Context {
 
 const contextsEqual = (a: Context, b: Context): boolean =>
   a.cluster === b.cluster && a.project === b.project;
-
-interface SlotPointer {
-  slot: number;
-}
 
 export interface KVOpener {
   (base: string): SugaredKV;
@@ -110,6 +107,14 @@ const HISTORY_LENGTH = 4;
 const nextSlot = (s: number): number => (s + 1) % HISTORY_LENGTH;
 const prevSlot = (s: number): number => (s - 1 + HISTORY_LENGTH) % HISTORY_LENGTH;
 
+const slotPointerZ = z.object({
+  slot: z
+    .number()
+    .int()
+    .min(0)
+    .max(HISTORY_LENGTH - 1),
+});
+
 /**
  * A group of slices stored under one key prefix, with a bounded ring of slots
  * behind a pointer key. Owns how the group's bytes round-trip: ring advancement,
@@ -177,8 +182,8 @@ class Partition<S extends object> {
   }
 
   private async readSlot(): Promise<number> {
-    const stored = (await this.db.get(this.slotKey())) as SlotPointer | null;
-    return stored?.slot ?? 0;
+    const stored = slotPointerZ.safeParse(await this.db.get(this.slotKey()));
+    return stored.success ? stored.data.slot : 0;
   }
 
   /** @throws {Error} if the pointer cannot be written. */

@@ -92,7 +92,7 @@ export const Controls = memo(({ hasAnnotations }: ControlsProps): ReactElement =
           tooltip={
             <Text.Text level="small" color={11}>
               Reset zoom
-              <Triggers.Text trigger={triggers.zoomReset[0]} el="span" />
+              <Triggers.Text trigger={triggers.modes.zoomReset[0]} el="span" />
             </Text.Text>
           }
           size="small"

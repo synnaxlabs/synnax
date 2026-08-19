@@ -9,6 +9,7 @@
 
 import { z } from "zod";
 
+import { math } from "@/math";
 import { type numeric } from "@/numeric";
 import { bounds } from "@/spatial/bounds";
 import { box } from "@/spatial/box";
@@ -43,21 +44,23 @@ interface TypedOperation<T extends numeric.Value = number> extends Operation<T> 
   type: "translate" | "magnify" | "scale" | "invert" | "clamp" | "re-bound";
 }
 
+const typed = <T extends numeric.Value>(
+  type: TypedOperation<T>["type"],
+  op: Operation<T>,
+): TypedOperation<T> => Object.assign(op, { type });
+
 const curriedTranslate =
   <T extends numeric.Value>(translate: T): Operation<T> =>
   (currScale, type, v, reverse) => {
     if (type === "dimension") return [currScale, v];
-    return [
-      currScale,
-      (reverse ? v - translate : (v as number) + (translate as number)) as T,
-    ];
+    return [currScale, reverse ? math.sub(v, translate) : math.add(v, translate)];
   };
 
 const curriedMagnify =
   <T extends numeric.Value>(magnify: T): Operation<T> =>
   (currScale, _type, v, reverse) => [
     currScale,
-    (reverse ? v / magnify : v * magnify) as T,
+    reverse ? math.div(v, magnify) : math.mult(v, magnify),
   ];
 
 const curriedScale =
@@ -66,12 +69,11 @@ const curriedScale =
     if (currScale === null) return [bound, v];
     const { lower: prevLower, upper: prevUpper } = currScale;
     const { lower: nextLower, upper: nextUpper } = bound;
-    const prevRange = (prevUpper - prevLower) as T;
-    const nextRange = (nextUpper - nextLower) as T;
-    if (type === "dimension") return [bound, (v * (nextRange / prevRange)) as T];
-    // @ts-expect-error - typescript can't do the math correctly
-    const nextV = ((v - prevLower) * (nextRange / prevRange) + nextLower) as T;
-    return [bound, nextV];
+    const prevRange = math.sub(prevUpper, prevLower);
+    const nextRange = math.sub(nextUpper, nextLower);
+    const ratio = math.div(nextRange, prevRange);
+    if (type === "dimension") return [bound, math.mult(v, ratio)];
+    return [bound, math.add(math.mult(math.sub(v, prevLower), ratio), nextLower)];
   };
 
 const curriedReBound =
@@ -84,7 +86,7 @@ const curriedInvert =
     if (currScale === null) throw new Error("cannot invert without bounds");
     if (type === "dimension") return [currScale, v];
     const { lower, upper } = currScale;
-    return [currScale, (upper - (v - lower)) as T];
+    return [currScale, math.sub(upper, math.sub(v, lower))];
   };
 
 const curriedClamp =
@@ -137,8 +139,7 @@ export class Scale<T extends numeric.Value = number> {
   /** @returns a copy whose next operation translates by value. */
   translate(value: T): Scale<T> {
     const next = this.new();
-    const f = curriedTranslate(value) as TypedOperation<T>;
-    f.type = "translate";
+    const f = typed<T>("translate", curriedTranslate(value));
     next.ops.push(f);
     return next;
   }
@@ -146,8 +147,7 @@ export class Scale<T extends numeric.Value = number> {
   /** @returns a copy whose next operation multiplies by value. */
   magnify(value: T): Scale<T> {
     const next = this.new();
-    const f = curriedMagnify(value) as TypedOperation<T>;
-    f.type = "magnify";
+    const f = typed<T>("magnify", curriedMagnify(value));
     next.ops.push(f);
     return next;
   }
@@ -169,8 +169,7 @@ export class Scale<T extends numeric.Value = number> {
   scale(upperOrBound: T | bounds.Bounds<T>, upper?: T): Scale<T> {
     const b = bounds.construct<T>(upperOrBound, upper);
     const next = this.new();
-    const f = curriedScale<T>(b) as TypedOperation<T>;
-    f.type = "scale";
+    const f = typed<T>("scale", curriedScale<T>(b));
     next.ops.push(f);
     return next;
   }
@@ -190,8 +189,7 @@ export class Scale<T extends numeric.Value = number> {
   clamp(lowerOrBound: T | bounds.Bounds<T>, upper?: T): Scale<T> {
     const b = bounds.construct(lowerOrBound, upper);
     const next = this.new();
-    const f = curriedClamp(b) as TypedOperation<T>;
-    f.type = "clamp";
+    const f = typed<T>("clamp", curriedClamp(b));
     next.ops.push(f);
     return next;
   }
@@ -210,15 +208,13 @@ export class Scale<T extends numeric.Value = number> {
   reBound(lowerOrBound: T | bounds.Bounds<T>, upper?: T): Scale<T> {
     const b = bounds.construct(lowerOrBound, upper);
     const next = this.new();
-    const f = curriedReBound(b) as TypedOperation<T>;
-    f.type = "re-bound";
+    const f = typed<T>("re-bound", curriedReBound(b));
     next.ops.push(f);
     return next;
   }
 
   invert(): Scale<T> {
-    const f = curriedInvert() as TypedOperation<T>;
-    f.type = "invert";
+    const f = typed<T>("invert", curriedInvert());
     const next = this.new();
     next.ops.push(f);
     return next;

@@ -88,8 +88,10 @@ export const keys = <T extends Record<Key, unknown>>(obj: T): Array<keyof T> =>
 export const map = <T extends Record<Key, unknown>, U>(
   obj: T,
   fn: (value: T[keyof T], key: keyof T) => U,
-): Record<Key, U> =>
-  Object.fromEntries(entries(obj).map(([key, value]) => [key, fn(value, key)]));
+): { [K in keyof T]: U } =>
+  Object.fromEntries(entries(obj).map(([key, value]) => [key, fn(value, key)])) as {
+    [K in keyof T]: U;
+  };
 
 /**
  * @param obj - The record object to purge

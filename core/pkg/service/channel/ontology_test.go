@@ -111,14 +111,12 @@ var _ = Describe("Ontology", Ordered, func() {
 				Expect(closer.Close()).To(Succeed())
 			}()
 			values := slices.Collect(n)
-			Expect(len(values)).To(BeNumerically(">", 4))
+			Expect(len(values)).To(BeNumerically(">=", 3))
 			names := lo.Map(
 				values,
 				func(v ontology.Resource, _ int) string { return v.Name },
 			)
-			Expect(names).To(
-				ContainElements("sy_node_1_control", "SG01", "SG02", "SG03"),
-			)
+			Expect(names).To(ContainElements("SG01", "SG02", "SG03"))
 		})
 	})
 	Describe("OnChange", func() {

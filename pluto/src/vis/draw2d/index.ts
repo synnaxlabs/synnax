@@ -54,7 +54,7 @@ export interface Draw2DCircleProps {
 
 export interface Draw2DContainerProps {
   region: box.Box;
-  bordered?: boolean | location.Location | location.Location[];
+  bordered?: boolean | location.Outer | location.Outer[];
   rounded?: boolean;
   borderColor?: ColorSpec;
   borderRadius?: number;
@@ -94,7 +94,7 @@ export interface Draw2DBorderProps {
   color?: ColorSpec;
   width?: number;
   radius?: number;
-  location?: true | location.Location | location.Location[];
+  location?: true | location.Outer | location.Outer[];
 }
 
 export interface Draw2DTextContainerProps

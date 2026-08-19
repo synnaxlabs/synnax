@@ -15,14 +15,16 @@ import { Triggers } from "@/triggers";
 type Mode = "copy" | "paste" | "clear" | "all" | "undo" | "redo" | "default";
 
 const CONFIG: Triggers.ModeConfig<Mode> = {
-  all: [["Control", "A"]],
-  copy: [["Control", "C"]],
-  paste: [["Control", "V"]],
-  clear: [Triggers.ESCAPE],
-  undo: [Triggers.UNDO],
-  redo: [Triggers.REDO],
-  default: [],
   defaultMode: "default",
+  modes: {
+    all: [["Control", "A"]],
+    copy: [["Control", "C"]],
+    paste: [["Control", "V"]],
+    clear: [Triggers.ESCAPE],
+    undo: [Triggers.UNDO],
+    redo: [Triggers.REDO],
+    default: [],
+  },
 };
 
 const FLATTENED_CONFIG = Triggers.flattenConfig(CONFIG);

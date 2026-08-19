@@ -58,12 +58,7 @@ export const Value = ({
   );
   return (
     <Primitive.Div
-      className={CSS.cx(
-        CSS.B("value"),
-        CSS.B("symbol-colored"),
-        symbolColor != null && CSS.M("colored"),
-        className,
-      )}
+      className={CSS.cx(CSS.B("value"), CSS.B("symbol-colored"), className)}
       style={style}
     >
       <div className={CSS.BE("value", "content")} style={contentStyle}>

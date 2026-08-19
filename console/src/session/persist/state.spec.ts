@@ -230,6 +230,19 @@ describe("Persist.open", () => {
       expect(await store.length()).toBe(15);
     });
 
+    it("should fall back to the first slot when the slot pointer is corrupt", async () => {
+      const store = new kv.MockAsync();
+      const driver = await createDriver(store);
+      await enter(driver, CTX);
+      await edit(driver, "16.2.0");
+      // A pointer naming no slot in the ring reads slot 0, so the partition keeps
+      // its state instead of composing from zero off a key that does not exist.
+      for (const slot of ["one", 4, -1, 1.5, null]) {
+        await store.set("global.slot", { slot });
+        expect((await openPersist(store)).initialState?.cluster).toEqual(STATE.cluster);
+      }
+    });
+
     it("should keep the last version loadable when a state write fails", async () => {
       const store = new FailingKV();
       const driver = await createDriver(store);

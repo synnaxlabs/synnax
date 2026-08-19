@@ -32,10 +32,40 @@ class KeyboardShortcuts(ConsoleCase):
 
     def run(self) -> None:
         """Run all keyboard shortcut tests."""
+        self.test_palette_triggers()
         self.test_close_with_cmd_w()
         self.test_rename_with_cmd_e()
         self.test_new_tab_with_cmd_t()
         self.test_toolbar_toggle_shortcuts()
+
+    def test_palette_triggers(self) -> None:
+        """Control+Shift+P opens the command palette; Control+P opens search.
+
+        The palette helpers open the palette by clicking its button, so these
+        two triggers are otherwise never exercised.
+        """
+        self.log("test_palette_triggers: Opening the palette by keyboard")
+        palette_input = self.page.locator(
+            ".console-palette__input input[role='textbox']"
+        )
+
+        self.page.keyboard.press("Control+Shift+P")
+        palette_input.wait_for(state="visible", timeout=5000)
+        assert palette_input.input_value() == ">", (
+            "the command trigger should prefill the command prefix, got "
+            f"{palette_input.input_value()!r}"
+        )
+        self.page.keyboard.press("Escape")
+        palette_input.wait_for(state="hidden", timeout=5000)
+
+        self.page.keyboard.press("Control+P")
+        palette_input.wait_for(state="visible", timeout=5000)
+        assert palette_input.input_value() == "", (
+            "the search trigger should open the palette empty, got "
+            f"{palette_input.input_value()!r}"
+        )
+        self.page.keyboard.press("Escape")
+        palette_input.wait_for(state="hidden", timeout=5000)
 
     def test_close_with_cmd_w(self) -> None:
         """Should close active tab with Cmd+W."""

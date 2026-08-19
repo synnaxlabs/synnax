@@ -55,11 +55,13 @@ export { getCellColumn } from "@/table/Indicator";
 type TriggerMode = "clear" | "undo" | "redo" | "default";
 
 const TRIGGERS_CONFIG: Triggers.ModeConfig<TriggerMode> = {
-  clear: [["Delete"], ["Backspace"]],
-  undo: [Triggers.UNDO],
-  redo: [Triggers.REDO],
-  default: [],
   defaultMode: "default",
+  modes: {
+    clear: [["Delete"], ["Backspace"]],
+    undo: [Triggers.UNDO],
+    redo: [Triggers.REDO],
+    default: [],
+  },
 };
 
 const FLATTENED_TRIGGERS_CONFIG = Triggers.flattenConfig(TRIGGERS_CONFIG);

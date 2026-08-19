@@ -19,9 +19,11 @@ import { Triggers } from "@/triggers";
 import { type Viewport } from "@/viewport";
 
 const MEASURE_TRIGGERS: Triggers.ModeConfig<measure.Mode> = {
-  one: [["1"]],
-  two: [["2"]],
   defaultMode: "one",
+  modes: {
+    one: [["1"]],
+    two: [["2"]],
+  },
 };
 
 const REDUCED_MEASURE_TRIGGERS = Triggers.flattenConfig(MEASURE_TRIGGERS);

@@ -191,8 +191,13 @@ const assertLabel =
     f(s, a as PayloadAction<T & LabelPayload>);
   };
 
+/** The keys of {@link WindowProps} whose value is a boolean. */
+type BooleanProp = {
+  [K in keyof WindowProps]-?: NonNullable<WindowProps[K]> extends boolean ? K : never;
+}[keyof WindowProps];
+
 const assignBool = <T extends MaybeKeyPayload & MaybeBooleanPayload>(
-  prop: keyof WindowProps,
+  prop: BooleanProp,
   def_: boolean = false,
 ): ((s: SliceState, a: PayloadAction<T>) => void) =>
   assertLabel<T>((s, a) => {
@@ -201,7 +206,7 @@ const assignBool = <T extends MaybeKeyPayload & MaybeBooleanPayload>(
     if (win == null) return;
     if (a.payload.value != null) v = a.payload.value;
     else {
-      const existing = win[prop] as boolean | undefined;
+      const existing = win[prop];
       if (existing != null) v = !existing;
     }
     s.windows[a.payload.label] = { ...win, [prop]: v };

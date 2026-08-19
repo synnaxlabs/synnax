@@ -131,8 +131,7 @@ describe("Triggers", () => {
         it("should select the matching mode with the highest complexity", () => {
           const config: Triggers.ModeConfig<"a" | "b"> = {
             defaultMode: "a",
-            a: [["Shift"]],
-            b: [["Shift", "Control"]],
+            modes: { a: [["Shift"]], b: [["Shift", "Control"]] },
           };
           expect(Triggers.determineMode(config, [["Shift", "Control"]])).toEqual("b");
           expect(Triggers.determineMode(config, [["Shift"]])).toEqual("a");
@@ -140,8 +139,7 @@ describe("Triggers", () => {
         it("should correctly match loose trigers", () => {
           const config: Triggers.ModeConfig<"a" | "b"> = {
             defaultMode: "a",
-            a: [["Shift"]],
-            b: [["Shift", "Control"]],
+            modes: { a: [["Shift"]], b: [["Shift", "Control"]] },
           };
           expect(
             Triggers.determineMode(config, [["Shift", "Control"]], { loose: true }),

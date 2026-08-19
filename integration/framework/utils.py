@@ -15,9 +15,14 @@ WebSocket handling, color conversion, etc.) belong in the ``x`` package
 located at ``x/py/``.
 """
 
+import json
 import os
 import re
+import shutil
+import tempfile
 import uuid
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import Any
 
 import synnax as sy
@@ -45,6 +50,32 @@ def get_core_fixture_path(relative: str) -> str:
     if not os.path.exists(path):
         raise FileNotFoundError(f"Core golden file not found: {path}")
     return path
+
+
+@contextmanager
+def named_envelope_copy(path: str, name: str) -> Iterator[str]:
+    """Temp copy of ``path`` named ``{name}.json``.
+
+    An envelope's ``name`` header wins over the filename fallback, and several
+    goldens share one header name, so a name-carrying envelope gets its header
+    rewritten to ``name``. A versionless state (no header) keeps the untouched
+    golden bytes and takes the filename-fallback path.
+
+    :param path: Path of the envelope to copy.
+    :param name: Name the import must produce.
+    :returns: A context manager yielding the temp copy's path.
+    """
+    with open(path, "r", encoding="utf-8") as f:
+        envelope = json.load(f)
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = os.path.join(tmp_dir, f"{name}.json")
+        if envelope.get("name"):
+            envelope["name"] = name
+            with open(tmp_path, "w", encoding="utf-8") as f:
+                json.dump(envelope, f)
+        else:
+            shutil.copyfile(path, tmp_path)
+        yield tmp_path
 
 
 def get_fixture_path(filename: str) -> str:

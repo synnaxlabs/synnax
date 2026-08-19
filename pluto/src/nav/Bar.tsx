@@ -69,7 +69,7 @@ const createContent =
       className={CSS.cx(
         CSS.BE("navbar", "content"),
         pos === "absolute-center" ? CSS.M(pos) : CSS.align(pos),
-        pos !== "" && bordered && CSS.bordered(pos),
+        pos !== "" && pos !== "absolute-center" && bordered && CSS.bordered(pos),
         className,
       )}
       align="center"

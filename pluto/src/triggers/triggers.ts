@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { compare, type xy } from "@synnaxlabs/x";
+import { compare, record, type xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { useMemoCompare } from "@/memo";
@@ -335,9 +335,12 @@ const _looseCompare: compare.Comparator<Trigger> = (a, b) =>
   a.every((k) => b.includes(k)) ? compare.EQUAL : compare.LESS_THAN;
 
 /** ModeConfig is a mapping of modes to triggers along with a default mode. */
-export type ModeConfig<M extends string | number | symbol> = Record<M, Trigger[]> & {
+export interface ModeConfig<M extends string | number | symbol> {
+  /** The mode to fall back on when no mode's triggers match. */
   defaultMode: M;
-};
+  /** The triggers that select each mode. */
+  modes: Record<M, Trigger[]>;
+}
 
 /**
  * DetermineMode determines the mode that should be used given the provided triggers.
@@ -352,10 +355,10 @@ export const determineMode = <K extends string | number | symbol>(
   triggers: Trigger[],
   opts?: MatchOptions,
 ): K => {
-  const e = Object.entries(config).filter(
-    ([k]) => k !== "defaultMode",
-  ) as unknown as Array<[K, Trigger[]]>;
-  const flat = e.map(([k, v]) => v.map((t) => [k, t])).flat() as Array<[K, Trigger]>;
+  const flat = record
+    .entries(config.modes)
+    .map(([k, v]) => v.map((t): [K, Trigger] => [k, t]))
+    .flat();
   const complexitySorted = flat.sort(([, a], [, b]) => b.length - a.length);
   const match_ = complexitySorted.find(([, v]) => match([v], triggers, opts));
   if (match_ != null) return match_[0];
@@ -373,11 +376,11 @@ export const compareModeConfigs = <K extends string | number | symbol>(
   if (a == null && b == null) return true;
   if (a == null || b == null) return false;
   if (a.defaultMode !== b.defaultMode) return false;
-  const aKeys = Object.keys(a) as K[];
-  const bKeys = Object.keys(b) as K[];
-  if (aKeys.length !== bKeys.length) return false;
-  if (a.defaultMode !== b.defaultMode) return false;
-  return aKeys.every((k) => compare.unorderedPrimitiveArrays(a[k], b[k]) === 0);
+  const aKeys = record.keys(a.modes);
+  if (aKeys.length !== record.keys(b.modes).length) return false;
+  return aKeys.every(
+    (k) => compare.unorderedPrimitiveArrays(a.modes[k], b.modes[k]) === 0,
+  );
 };
 
 /**
@@ -387,10 +390,10 @@ export const compareModeConfigs = <K extends string | number | symbol>(
 export const flattenConfig = <K extends string | number | symbol>(
   config: ModeConfig<K>,
 ): Trigger[] => {
-  const e = Object.entries(config).filter(
-    ([k]) => k !== "defaultMode",
-  ) as unknown as Array<[K, Trigger[]]>;
-  return e.map(([, v]) => v).flat();
+  return record
+    .entries(config.modes)
+    .map(([, v]) => v)
+    .flat();
 };
 
 /** @returns a memoized flattened config, only recomputing when the config changes. */

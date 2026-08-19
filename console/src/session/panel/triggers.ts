@@ -20,9 +20,9 @@ import { useGetTabIsFocused } from "@/session/panel/selectors";
  */
 export const useGetTabTriggersActive = (): (() => boolean) => {
   const getIsFocused = useGetTabIsFocused();
-  const modals = Modals.useStore("useGetTabTriggersActive");
+  const getIsAnyModalOpen = Modals.useGetIsAnyOpen();
   return useCallback(
-    () => getIsFocused() && !modals.isAnyOpen(),
-    [getIsFocused, modals],
+    () => getIsFocused() && !getIsAnyModalOpen(),
+    [getIsFocused, getIsAnyModalOpen],
   );
 };

@@ -78,13 +78,13 @@ export const createInjectKeyMiddleware = <StoreState>(
   actionCreators: KeyActionMatcher | KeyActionMatcher[],
 ): Middleware<{}, Drift.StoreState & StoreState> => {
   const creators = Array.isArray(actionCreators) ? actionCreators : [actionCreators];
+  const matches = (action: unknown): action is PayloadAction<OptionalKeyParams> =>
+    creators.some((creator) => creator.match(action));
   return (store) => (next) => (action) => {
-    const payload = (action as PayloadAction<OptionalKeyParams>).payload;
-    if (!creators.some((creator) => creator.match(action)) || payload.windowKey != null)
-      return next(action);
+    if (!matches(action) || action.payload.windowKey != null) return next(action);
     const windowKey = Drift.selectWindowKey(store.getState());
     if (windowKey == null) return;
-    payload.windowKey = windowKey;
+    action.payload.windowKey = windowKey;
     return next(action);
   };
 };

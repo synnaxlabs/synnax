@@ -12,12 +12,12 @@ import { type PropsWithChildren, type ReactElement } from "react";
 import { Aether } from "@/aether";
 import { control } from "@/telem/control/aether";
 
-export interface StateProviderProps extends PropsWithChildren {}
+export interface ColorsProps extends PropsWithChildren {}
 
-export const StateProvider = ({ children }: StateProviderProps): ReactElement => {
+export const Colors = ({ children }: ColorsProps): ReactElement => {
   const [{ path }] = Aether.use({
-    type: control.StateProvider.TYPE,
-    schema: control.stateProviderStateZ,
+    type: control.Colors.TYPE,
+    schema: control.colorsStateZ,
     initialState: {},
   });
   return <Aether.Composite path={path}>{children}</Aether.Composite>;

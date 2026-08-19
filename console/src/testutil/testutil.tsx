@@ -12,11 +12,12 @@ import {
   type access,
   type ontology,
   panel,
+  type project,
   type Synnax as Client,
   type SynnaxParams,
 } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
-import { Access, Status, Synnax } from "@synnaxlabs/pluto";
+import { Access, Status, Synnax, Triggers } from "@synnaxlabs/pluto";
 import { type aether, eraser } from "@synnaxlabs/pluto/ether";
 import { deep, id } from "@synnaxlabs/x";
 import {
@@ -155,6 +156,19 @@ export const CaptureStatuses = ({ onStatuses }: CaptureStatusesProps): null => {
 
 export type ConsolePreloadedState = Partial<Session.State>;
 
+// withSelectedProject seeds the selected project for surfaces that production mounts
+// inside Project.Guard.
+export const withSelectedProject = (
+  key: project.Key,
+  state: ConsolePreloadedState = {},
+): ConsolePreloadedState => ({
+  ...state,
+  [Session.Project.SLICE_NAME]: {
+    ...Session.Project.ZERO_SLICE_STATE,
+    selected: key,
+  },
+});
+
 export interface ConsoleTestProviderOptions {
   preloadedState?: ConsolePreloadedState;
   /** Label of the window the store believes it runs in; defaults to main. */
@@ -189,9 +203,11 @@ const composeConsole = (
 ): FC<PropsWithChildren> => {
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <SynnaxWrapper>
-      <Provider store={store}>
-        <Session.Modals.Context>{children}</Session.Modals.Context>
-      </Provider>
+      <Triggers.Provider>
+        <Provider store={store}>
+          <Session.Modals.Context>{children}</Session.Modals.Context>
+        </Provider>
+      </Triggers.Provider>
     </SynnaxWrapper>
   );
   return Wrapper;

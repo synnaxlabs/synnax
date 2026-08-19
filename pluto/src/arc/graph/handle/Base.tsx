@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv, type location } from "@synnaxlabs/x";
+import { type location } from "@synnaxlabs/x";
 import {
   Handle,
   type HandleProps,
@@ -21,8 +21,15 @@ export interface BaseProps extends Omit<HandleProps, "position"> {
   location: location.Outer;
 }
 
-export const locationToRFPosition = (location: location.Outer) =>
-  Position[caseconv.capitalize(location) as keyof typeof Position];
+const RF_POSITIONS: Record<location.Outer, Position> = {
+  top: Position.Top,
+  right: Position.Right,
+  bottom: Position.Bottom,
+  left: Position.Left,
+};
+
+export const locationToRFPosition = (location: location.Outer): Position =>
+  RF_POSITIONS[location];
 
 export const Base = ({ location, className, ...props }: BaseProps) => {
   try {

@@ -44,12 +44,7 @@ export const Setpoint = ({
   );
   return (
     <Primitive.Div
-      className={CSS.cx(
-        CSS.B("setpoint"),
-        CSS.B("symbol-colored"),
-        symbolColor != null && CSS.M("colored"),
-        className,
-      )}
+      className={CSS.cx(CSS.B("setpoint"), CSS.B("symbol-colored"), className)}
       orientation={orientation}
       style={mergedStyle}
     >

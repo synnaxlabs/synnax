@@ -156,10 +156,12 @@ const filterInRegion = (
 };
 
 const UNDO_REDO_CONFIG: ModeConfig<"undo" | "redo" | "default"> = {
-  undo: [UNDO],
-  redo: [REDO],
-  default: [],
   defaultMode: "default",
+  modes: {
+    undo: [UNDO],
+    redo: [REDO],
+    default: [],
+  },
 };
 const UNDO_REDO_TRIGGERS = flattenConfig(UNDO_REDO_CONFIG);
 

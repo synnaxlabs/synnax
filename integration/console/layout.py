@@ -912,6 +912,49 @@ class LayoutClient:
         """
         return str(self.page.evaluate("navigator.clipboard.readText()"))
 
+    def drop_files(self, paths: list[str], target: Locator | None = None) -> None:
+        """Drop OS files or directories onto ``target`` (default: the mosaic).
+
+        Synthetic ``DataTransfer`` drops carry no file-system entries, so the
+        drag is dispatched through CDP, which produces a native drag whose
+        dropped items resolve real ``FileSystemEntry`` objects.
+
+        :param paths: Absolute paths of the files or directories to drop.
+        :param target: Locator to drop onto; the mosaic when omitted.
+        """
+        if target is None:
+            target = self.page.locator(".console-mosaic").first
+        target.wait_for(state="visible", timeout=5000)
+        box = target.bounding_box()
+        if box is None:
+            raise AssertionError("drop target has no bounding box")
+        x = box["x"] + box["width"] / 2
+        y = box["y"] + box["height"] / 2
+        cdp = self.page.context.new_cdp_session(self.page)
+        try:
+            # Copy, link, and move together present as effectAllowed "all",
+            # matching a real OS file drag; a copy-only mask reads "copy" and
+            # the app does not recognize the drag as a file drag.
+            data = {"items": [], "files": paths, "dragOperationsMask": 19}
+
+            def send(event_type: str) -> None:
+                cdp.send(
+                    "Input.dispatchDragEvent",
+                    {"type": event_type, "x": x, "y": y, "data": data},
+                )
+
+            send("dragEnter")
+            send("dragOver")
+            # The drop is accepted only once React commits the file-drag state,
+            # signalled by the mosaic's drag shield appearing.
+            self.page.locator(".pluto-mosaic__shield").first.wait_for(
+                state="visible", timeout=5000
+            )
+            send("dragOver")
+            send("drop")
+        finally:
+            cdp.detach()
+
     def show_toolbar(self, shortcut_key: str, item_prefix: str) -> None:
         """Show a navigation toolbar using keyboard shortcut.
 

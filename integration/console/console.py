@@ -20,6 +20,7 @@ from console.labels import LabelClient
 from console.layout import LayoutClient
 from console.notifications import NotificationsClient
 from console.pages import PagesClient
+from console.panels import PanelsClient
 from console.project import ProjectClient
 from console.range import Client as RangesClient
 from console.statuses import StatusesClient
@@ -50,6 +51,7 @@ class Console:
     tasks: TaskClient
     project: ProjectClient
     pages: PagesClient
+    panels: PanelsClient
     page: Page
 
     def __init__(self, page: Page, client: sy.Synnax):
@@ -65,6 +67,7 @@ class Console:
         self.channels = ChannelClient(self.layout, self.client)
         self.project = ProjectClient(self.layout)
         self.pages = PagesClient(self.layout, self.client, self.project)
+        self.panels = PanelsClient(self.layout)
         self.ranges = RangesClient(self.layout, self.pages)
         self.statuses = StatusesClient(self.layout)
         self.tasks = TaskClient(self.layout)
