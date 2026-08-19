@@ -246,14 +246,14 @@ var _ = Describe("PledgeServer", func() {
 					client := net.UnaryClient()
 					// Approve keys 2 through 21 on the first juror, as a pledge that
 					// failed partway would leave behind. The 20 keys exceed
-					// MaxProposals, so counting the rejected re-proposals would
-					// exhaust every retry's budget before it reaches a fresh key.
+					// MaxProposals, so counting the rejected re-proposals would exhaust
+					// every retry's budget before it reaches a fresh key.
 					for k := node.Key(2); k <= 21; k++ {
-						MustSucceed(client.Send(
+						Expect(client.Send(
 							ctx,
 							nodes[0].Address,
 							pledge.Request{Key: k},
-						))
+						)).To(Equal(pledge.Response{}))
 					}
 					tCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 					defer cancel()

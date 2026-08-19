@@ -41,46 +41,62 @@ type (
 	TransportServer = freighter.UnaryServer[Request, Response]
 )
 
-// Config is used for configuring a pledge based membership network. It implements
-// the config.ServiceConfig interface.
+// Config is used for configuring a pledge based membership network.
 type Config struct {
+	// Instrumentation is used for logging, tracing, and metrics.
+	//
+	// [OPTIONAL] - Defaults to alamos.NoopInstrumentation.
 	alamos.Instrumentation
 	// TransportClient is used for sending pledge information over the network.
-	// [Required]
+	//
+	// [REQUIRED]
 	TransportClient TransportClient
 	// TransportServer is used for receiving pledge information over the network.
-	// [Required]
+	//
+	// [REQUIRED]
 	TransportServer TransportServer
 	// Candidates is a group of nodes to contact as candidates for the formation
 	// of a jury.
-	// [Required]
+	//
+	// [REQUIRED]
 	Candidates func() node.Group
 	// Peers is a set of addresses a pledge can contact.
-	// [Required]
+	//
+	// [OPTIONAL] - Defaults to an empty slice.
 	Peers []address.Address
 	// RequestTimeout is the timeout for a peer to respond to a pledge or proposal
-	// request. If the request is not responded to before the timeout, a new jury
-	// will be formed and the request will be retried.
+	// request. If the request is not responded to before the timeout, a new jury will
+	// be formed and the request will be retried.
+	//
+	// [OPTIONAL] - Defaults to 5 seconds.
 	RequestTimeout time.Duration
 	// RetryInterval sets the initial retry interval for a Pledge to a peer.
+	//
+	// [OPTIONAL] - Defaults to 1 second.
 	RetryInterval time.Duration
-	// MaxProposals is the maximum number of failed quorum consultations a
-	// responsible node will tolerate before giving up. Proposals rejected by a
-	// juror retry with a higher key and do not count against this limit.
+	// MaxProposals is the maximum number of failed quorum consultations a responsible
+	// node will tolerate before giving up. Proposals rejected by a juror retry with a
+	// higher key and do not count against this limit.
+	//
+	// [OPTIONAL] - Defaults to 10.
 	MaxProposals int
-	// PledgeInterval scale sets how quickly the time in-between retries will
-	// increase during a Pledge to a peer. For example, a value of 2 would result
-	// in a retry interval of 1,2, 4, 8, 16, 32, 64, ... seconds.
+	// PledgeInterval scale sets how quickly the time in-between retries will increase
+	// during a Pledge to a peer. For example, a value of 2 would result in a retry
+	// interval of 1,2, 4, 8, 16, 32, 64, ... seconds.
+	//
+	// [OPTIONAL] - Defaults to 1.25.
 	RetryScale float64
-	// ClusterKey is a unique key for the cluster. This value is consistent across
-	// all nodes in the cluster.
-	// [Required]
+	// ClusterKey is a unique key for the cluster. This value is consistent across all
+	// nodes in the cluster.
+	//
+	// [OPTIONAL] - Required when arbitrating. A pledging node learns the key from
+	// the pledge response.
 	ClusterKey uuid.UUID
 }
 
 var _ config.Config[Config] = Config{}
 
-// Override implements the config.ServiceConfig interface.
+// Override implements the config.Config interface.
 func (cfg Config) Override(other Config) Config {
 	cfg.TransportClient = override.Nil(cfg.TransportClient, other.TransportClient)
 	cfg.TransportServer = override.Nil(cfg.TransportServer, other.TransportServer)
@@ -99,27 +115,28 @@ func (cfg Config) Override(other Config) Config {
 	return cfg
 }
 
-// Validate implements the config.ServiceConfig interface.
+// Validate implements the config.Config interface.
 func (cfg Config) Validate() error {
 	v := validate.New("pledge")
 	validate.NotNil(v, "transport_client", cfg.TransportClient)
 	validate.NotNil(v, "transport_server", cfg.TransportServer)
 	validate.Positive(v, "request_timeout", cfg.RequestTimeout)
+	validate.Positive(v, "retry_interval", cfg.RetryInterval)
 	validate.GreaterThanEq(v, "retry_scale", cfg.RetryScale, 1)
-	validate.NonZero(v, "max_proposals", cfg.MaxProposals)
+	validate.Positive(v, "max_proposals", cfg.MaxProposals)
 	validate.NotNil(v, "candidates", cfg.Candidates)
 	return v.Error()
 }
 
-// Report implements the alamos.ReportProvider interface. Assumes the Config is valid.
+// Report implements the alamos.ReportProvider interface.
 func (cfg Config) Report() alamos.Report {
 	report := make(alamos.Report)
 	report["cluster_key"] = cfg.ClusterKey.String()
 	report["transport_client"] = cfg.TransportClient.Report()
 	report["transport_server"] = cfg.TransportServer.Report()
 	report["request_timeout"] = cfg.RequestTimeout
-	report["pledge_retry_interval"] = cfg.RetryInterval
-	report["pledge_retry_scale"] = cfg.RetryScale
+	report["retry_interval"] = cfg.RetryInterval
+	report["retry_scale"] = cfg.RetryScale
 	report["max_proposals"] = cfg.MaxProposals
 	report["peers"] = cfg.Peers
 	return report
@@ -132,17 +149,16 @@ var (
 		RetryInterval:  1 * time.Second,
 		RetryScale:     1.25,
 		MaxProposals:   10,
-		Peers:          []address.Address{},
 	}
-	// FastConfig is DefaultConfig with shortened timeouts and retry intervals for
-	// rapid pledges on low-latency networks.
+	// FastConfig is DefaultConfig with shortened timeouts and retry intervals for rapid
+	// pledges on low-latency networks.
 	FastConfig = DefaultConfig.Override(Config{
 		RequestTimeout: 50 * time.Millisecond,
 		RetryInterval:  10 * time.Millisecond,
 		RetryScale:     1.125,
 	})
-	// BlazingFastConfig is DefaultConfig with near-instant timeouts and retry
-	// intervals for in-memory transports in tests.
+	// BlazingFastConfig is DefaultConfig with near-instant timeouts and retry intervals
+	// for in-memory transports in tests.
 	BlazingFastConfig = DefaultConfig.Override(Config{
 		RequestTimeout: 5 * time.Millisecond,
 		RetryInterval:  1 * time.Microsecond,
