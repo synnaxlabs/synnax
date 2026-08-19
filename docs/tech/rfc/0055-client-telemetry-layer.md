@@ -1,4 +1,4 @@
-# 56 Client telemetry layer
+# 55 Client telemetry layer
 
 - **Author**: Emiliano Bonilla
 - **Date**: 2026-08-06
@@ -57,22 +57,22 @@ The audit showed this is not one bug but the layer's character:
    (`pluto/src/vis/line/aether/line.ts:285-289`). Every other symbol drops telemetry
    errors and keeps drawing.
 
-No RFC governs this layer: RFC 0013 sketched its ancestor, RFC 0055 fenced telemetry
+No RFC governs this layer: RFC 0013 sketched its ancestor, RFC 0054 fenced telemetry
 reads out of scope, and the package README's Caching, Batching, and Concurrency sections
 are empty. The query cache (RFC 0047) has since matured beneath it, duplicating
 everything the batcher does except cross-call coalescing.
 
 ## 2 Vocabulary
 
-- **Feed**: the stateful frame consumer a caller opens over the framer transport: cached
+- **Feed**: The stateful frame consumer a caller opens over the framer transport: cached
   historical reads plus durable multiplexed subscriptions.
-- **Frame cache**: per-channel rolling buffers of `Series`, split into a dynamic leading
+- **Frame cache**: Per-channel rolling buffers of `Series`, split into a dynamic leading
   buffer receiving live writes and static historical buffers.
-- **MultiplexedStreamer**: maps N subscriptions onto one shared hardened streamer
+- **MultiplexedStreamer**: Maps N subscriptions onto one shared hardened streamer
   carrying the union of all demand.
-- **Demand set**: the union of keys across live subscriptions; the client-side intent
+- **Demand set**: The union of keys across live subscriptions; the client-side intent
   the socket key set must converge to.
-- **Data-plane status**: per-key state describing the flow of data (resolving, live,
+- **Data-plane status**: Per-key state describing the flow of data (resolving, live,
   stalled, erroring), never document truths like "channel does not exist".
 
 ## 3 Principles
@@ -86,7 +86,7 @@ everything the batcher does except cross-call coalescing.
    becomes that key's status, not an exception unwinding a batch or a loop.
 3. **The frame cache serves data, not metadata**: It may read channel records
    internally, but its public surface is key-addressed and data-plane only. Consumers
-   get metadata from the query cache through `client.channels` and flux, the one live,
+   get metadata from the query cache through `client.channels` and Flux, the one live,
    signal-invalidated copy of every channel record (RFC 0047).
 4. **Anomalies are loud**: Alignment regressions, data-type changes, and dropped frames
    reset buffers and log; they never silently discard samples. Failed lookups are never
@@ -254,24 +254,24 @@ re-enters the demand that triggered it. The `demand` returned by `createStreamer
 memoizes the open before the opener body runs, so the re-entrant demand joins the open
 in flight instead of starting a second one.
 
-### 4.6 The pluto side: bindings replace the wrapper client
+### 4.6 The Pluto side: Bindings replace the wrapper client
 
-`pluto/src/telem/client/` is deleted: `Core`, `NoopClient`, the telem aether provider's
-wrapper, and the frame cache all go. The telem aether provider opens a Feed from the
+`pluto/src/telem/client/` is deleted: `Core`, `NoopClient`, the telem Aether provider's
+wrapper, and the frame cache all go. The telem Aether provider opens a Feed from the
 current client with the GL series transform and closes it when the client identity
 changes, so the transform lives with the thread that renders. The `prevCore` deadlock
 and the NoopClient that throws `NotFoundError` into every symbol mounting during login
-both disappear structurally. The close stays fire-and-forget, because the aether
+both disappear structurally. The close stays fire-and-forget, because the Aether
 lifecycle hooks are synchronous, and reports its failures to the status aggregator.
 
-What pluto keeps is a lowercase, worker-safe lifecycle binding in the `flux.Retrieve`
+What Pluto keeps is a lowercase, worker-safe lifecycle binding in the `flux.Retrieve`
 shape: created in `afterUpdate`, deduped when props are unchanged, torn down in
 `afterDelete`, calling `requestRender` on delivery. Telem sources become thin
 compositions of two such bindings: a `flux.Retrieve` over the channel query definition
-for metadata (the RFC 0055 §5.5 migration, killing the hand-rolled `valid` flags) and a
+for metadata (the RFC 0054 §5.5 migration, killing the hand-rolled `valid` flags) and a
 Feed subscription for data. A null client renders as disconnected status through the
-binding. The metadata half waits on the binding itself, which the RFC 0055 read
-unification introduces; until then the sources keep the hand-rolled flags (phase 4).
+binding. The metadata half waits on the binding itself, which the RFC 0054 read
+unification introduces; until then the sources keep the hand-rolled flags (Phase 4).
 
 ### 4.7 Status surface
 
@@ -282,7 +282,7 @@ merge this with the metadata query's verdict (missing, deleted, disconnected) an
 one status to the component layer.
 
 The `Subscription` status surface ships with the module and stays unconsumed until
-phase 5. A source's only sink today is an adder that appends to the notification list,
+Phase 5. A source's only sink today is an adder that appends to the notification list,
 and the transitions above are normal operation, so a twenty-channel plot would raise
 forty notifications on mount and twenty more on every reconnect. The plumbing lands with
 its destination: one new visual treatment on schematic symbols, a "no data" state
@@ -296,25 +296,25 @@ module.
 
 ## 5 Implementation phases
 
-- **Phase 1: additive substrate.** The subscription, cache, and reader machinery in
-  `client/ts` with full spec coverage against a live core, and cross-call coalescing at
+- **Phase 1: Additive substrate.** The subscription, cache, and reader machinery in
+  `client/ts` with full spec coverage against a live Core, and cross-call coalescing at
   the query table fetch seam. Nothing consumes the new module yet; the tree stays green
   and the machinery reviews as one unit.
-- **Phase 2: atomic pluto cutover.** Telem sources and log sources rewritten onto the
+- **Phase 2: Atomic Pluto cutover.** Telem sources and log sources rewritten onto the
   new module; deletion of `pluto/src/telem/client/`, `NoopClient`,
   `DebouncedBatchRetriever`, and `createDebouncedBatchRetriever`; spec migration. No
-  coexistence window. The sources keep their hand-rolled `valid` flags until phase 4.
-- **Phase 3: the framer merge and the cycle severing.** The module moves into `framer`
+  coexistence window. The sources keep their hand-rolled `valid` flags until Phase 4.
+- **Phase 3: The framer merge and the cycle severing.** The module moves into `framer`
   as the `Feed` with `openFeed` on `framer.Client`; `Synnax` drops its auto-built
-  instance and the construction-site transform option; the pluto telem provider opens
+  instance and the construction-site transform option; the Pluto telem provider opens
   its own Feed with the GL transform; `channel.Retriever`, `ClusterRetriever`, and the
   query cache's structural stream interfaces are deleted per §4.5.
-- **Phase 4: flux metadata bindings.** Telem sources resolve channels through the
+- **Phase 4: Flux metadata bindings.** Telem sources resolve channels through the
   `flux.Retrieve` binding instead of a direct `channels.retrieve` call, which deletes
   the hand-rolled `valid` flags and closes the §1 no-retry defect. Blocked on the
-  worker-safe `flux.Retrieve` binding, which lands with the RFC 0055 read unification.
-- **Phase 5: symbol status treatment.** The "no data" visual state and status plumbing
-  into schematic symbols. Split from phase 3 so rendering regressions bisect separately.
+  worker-safe `flux.Retrieve` binding, which lands with the RFC 0054 read unification.
+- **Phase 5: Symbol status treatment.** The "no data" visual state and status plumbing
+  into schematic symbols. Split from Phase 3 so rendering regressions bisect separately.
 
 **Compatibility.** No schema or persisted format changes, but one payload semantic does:
 a streamed series now carries the time range the index established for its write group,
@@ -353,8 +353,8 @@ These exports leave the public client surface: `channel.Retriever`,
 
 ## 7 Resolved decisions
 
-**Redesign in place inside pluto, rejected**: Metadata caching and connection lifecycle
-are now client-owned, so keeping the machinery in pluto means re-duplicating both or
+**Redesign in place inside Pluto, rejected**: Metadata caching and connection lifecycle
+are now client-owned, so keeping the machinery in Pluto means re-duplicating both or
 reaching down through the boundary. The trade is real (`client/ts` grows a stateful
 subsystem), but the machinery belongs beside the transport it consumes.
 
@@ -400,7 +400,7 @@ leaves the lie on screen: the customer's frozen valve would render identically. 
 data" treatment is the smallest scope at which the redesign reaches the operator.
 
 **A main-thread GL transform, rejected**: Only the worker-side Feed carries the GL
-transform: aether-cached series arrive render-ready, main-thread Feeds serve full
+transform: Aether-cached series arrive render-ready, main-thread Feeds serve full
 fidelity. Applying it on both threads would lossily downcast `float64` for exactly the
 consumers (export, analysis) that need raw values, and the two caches share no memory
 regardless.

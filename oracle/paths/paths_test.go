@@ -42,9 +42,9 @@ var _ = Describe("Paths", func() {
 		It("Should fall back to walking up for a .git entry", func() {
 			// An empty .git directory is not a valid repository, so `git rev-parse`
 			// fails and RepoRoot falls back to the directory walk.
+			dir := GinkgoT().TempDir()
 			origWd := MustSucceed(os.Getwd())
 			DeferCleanup(func() { Expect(os.Chdir(origWd)).To(Succeed()) })
-			dir := GinkgoT().TempDir()
 			Expect(os.MkdirAll(filepath.Join(dir, ".git"), 0o755)).To(Succeed())
 			nested := filepath.Join(dir, "a", "b")
 			Expect(os.MkdirAll(nested, 0o755)).To(Succeed())
@@ -54,9 +54,10 @@ var _ = Describe("Paths", func() {
 		})
 
 		It("Should error outside any git repository", func() {
+			dir := GinkgoT().TempDir()
 			origWd := MustSucceed(os.Getwd())
 			DeferCleanup(func() { Expect(os.Chdir(origWd)).To(Succeed()) })
-			Expect(os.Chdir(GinkgoT().TempDir())).To(Succeed())
+			Expect(os.Chdir(dir)).To(Succeed())
 			Expect(paths.RepoRoot()).Error().
 				To(MatchError(ContainSubstring("no .git entry found")))
 		})

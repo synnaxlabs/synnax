@@ -13,6 +13,9 @@ import (
 	"context"
 	"go/parser"
 	"go/token"
+	"os"
+	"os/exec"
+	"runtime"
 	"strings"
 
 	"github.com/onsi/ginkgo/v2"
@@ -114,6 +117,33 @@ func MustContentOf(resp *plugin.Response, pathSuffix string) string {
 	gomega.Expect(content).
 		NotTo(gomega.BeEmpty(), "no file found with suffix: %s", pathSuffix)
 	return content
+}
+
+// DenyDirRead revokes read permission on dir so directory listings fail, and registers
+// a DeferCleanup that restores access. It skips the calling spec when running as root
+// on Unix, where permission checks are bypassed.
+func DenyDirRead(dir string) {
+	ginkgo.GinkgoHelper()
+	if runtime.GOOS == "windows" {
+		// chmod cannot remove read permission on Windows; deny the Everyone SID
+		// (S-1-1-0) list-directory access via an ACL entry instead.
+		gomega.Expect(
+			exec.Command("icacls", dir, "/deny", "*S-1-1-0:(RD)").Run(),
+		).To(gomega.Succeed())
+		ginkgo.DeferCleanup(func() {
+			gomega.Expect(
+				exec.Command("icacls", dir, "/remove:d", "*S-1-1-0").Run(),
+			).To(gomega.Succeed())
+		})
+		return
+	}
+	if os.Geteuid() == 0 {
+		ginkgo.Skip("filesystem permissions are bypassed when running as root")
+	}
+	gomega.Expect(os.Chmod(dir, 0o000)).To(gomega.Succeed())
+	ginkgo.DeferCleanup(func() {
+		gomega.Expect(os.Chmod(dir, 0o755)).To(gomega.Succeed())
+	})
 }
 
 // ContentExpectation provides fluent assertions for generated content.

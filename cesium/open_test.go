@@ -22,6 +22,19 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+var _ = Describe("Options", func() {
+	It("Should reject a non-positive slow consumer timeout", func(ctx SpecContext) {
+		Expect(cesium.Open(
+			ctx,
+			"",
+			cesium.WithFS(fs.NewMem()),
+			cesium.WithSlowConsumerTimeout(0),
+		)).Error().To(MatchError(
+			ContainSubstring("slow_consumer_timeout: must be positive"),
+		))
+	})
+})
+
 var _ = Describe("Open", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {

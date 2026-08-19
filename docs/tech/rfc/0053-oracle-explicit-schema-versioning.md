@@ -2,9 +2,9 @@
 
 - **Author**: Patrick Dotson
 - **Date**: 2026-08-11
-- **Related**: [RFC 0033 - Oracle migrations](0033-oracle-migrations.md),
+- **Related**: [RFC 0033 - Oracle migration system](0033-oracle-migrations.md),
   [RFC 0042 - Core structure refactor](0042-core-structure-refactor.md),
-  [RFC 0048 - Oracle predecessor-chain versioning](0048-oracle-predecessor-chain-versioning.md)
+  [RFC 0048 - Oracle predecessor-chain type versioning](0048-oracle-predecessor-chain-versioning.md)
 
 ## 0 Summary
 
@@ -169,7 +169,7 @@ field-marshal injection, and the analyzer ban on marshal tags in live schemas.
   files and the §2.4 gates.
 - **RFC 0042**: §5.6 is superseded. Cross-resource compatibility is written into each
   version file as explicit pins, propagated by the pin-currency gate.
-- **RFC 0048**: §4.0's two-tier baseline collapses into the chain, and §6.2a's rejection
+- **RFC 0048**: §4.0's two-tier baseline collapses into the chain, and §6.3's rejection
   of transcribed history is superseded by §2.6. Everything else stands.
 
 ## 3 Implementation phases

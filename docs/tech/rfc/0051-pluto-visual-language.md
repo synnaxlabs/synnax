@@ -1,9 +1,9 @@
-# 50 - Pluto Visual Language
+# 51 Pluto visual language
 
-**Feature Name**: Pluto Visual Language <br /> **Status**: Implemented <br /> **Start
-Date**: 2026-07-29 <br /> **Authors**: Emiliano Bonilla <br />
+- **Author**: Emiliano Bonilla
+- **Date**: 2026-07-29
 
-# 0 - Summary
+## 0 Summary
 
 This RFC re-architects the three systems that decide how every surface, control, and
 corner in Pluto and Console looks.
@@ -26,9 +26,9 @@ generated from the theme spec: `tiny`, `small`, `medium`, `large`, and `huge`, r
 Channel values, tier colors, and step sizes are tunable. The band roles, state rules,
 axes, tiers, and the ladder are the contract.
 
-# 1 - Motivation
+## 1 Motivation
 
-## 1.1 - The gray ramp
+### 1.1 The gray ramp
 
 A census of the pre-redesign ramp found structural problems, not value problems:
 
@@ -50,7 +50,7 @@ A census of the pre-redesign ramp found structural problems, not value problems:
 6. **Known bugs.** `theming/css.ts` generates the l9 alpha variants from l11, and
    `telem/control/Chip.tsx` references a nonexistent `--pluto-gray-l12`.
 
-## 1.2 - Clickables
+### 1.2 Clickables
 
 1. **The variant enum mixes three unrelated kinds of thing.** `filled | outlined | text`
    are an emphasis ladder; `preview` is an interactivity mode never written literally
@@ -58,7 +58,7 @@ A census of the pre-redesign ramp found structural problems, not value problems:
    eight edit-in-place Input sites whose CSS already half-lives in `input/Input.css`.
 2. **Four selection languages plus six strays.** A control tier, a subtle tier for tabs,
    a list-row tier inlined in `list/Item.css`, and then raw one-offs: `menu/Item.css`,
-   the console nav rail, the arc create modal, table alphas, DateTime day cells
+   the Console nav rail, the Arc create modal, table alphas, DateTime day cells
    selecting by variant swap, and Steps expressing progress via `disabled`.
 3. **`ghost` is a naming collision with the entire industry.** Everywhere else, ghost
    names a transparent low-emphasis variant (our `text`), and reveal-on-hover is a row
@@ -66,10 +66,11 @@ A census of the pre-redesign ramp found structural problems, not value problems:
    `KeyValueEditor.css` without the focus-visible reveal (keyboard-invisible delete
    buttons), and a third way in `label/Edit.css`.
 4. **Nested interactives work by eight unnamed mechanisms**, re-derived per site:
-   default stopPropagation, `propagateClick`, `preventClick`, per-site stopPropagation,
-   dblclick shields, a CSS `:active:not(:has())` exclusion, pointer-events, and
-   preventDefault-keep-drag. The pack z-index rules are `button`-tag-qualified, so
-   div-chassis Buttons silently miss them and have no built-in keyboard activation.
+   default `stopPropagation`, `propagateClick`, `preventClick`, per-site
+   `stopPropagation`, dblclick shields, a CSS `:active:not(:has())` exclusion,
+   `pointer-events`, and `preventDefault`-keep-drag. The pack z-index rules are
+   `button`-tag-qualified, so div-chassis Buttons silently miss them and have no
+   built-in keyboard activation.
 5. **Console re-derives house styles in CSS.** The quiet l9-to-l11 button four times,
    the pinned create-row three times, three competing toolbar-button definitions with
    one class declared in two files, filter chips byte-identical in three files, and a
@@ -79,7 +80,7 @@ A census of the pre-redesign ramp found structural problems, not value problems:
    zero CSS), and `Button.Toggle`'s `checkedVariant`/`uncheckedVariant` pair (both
    default outlined; paint comes from the checked class).
 
-## 1.3 - Corner radii
+### 1.3 Corner radii
 
 An audit found roughly 13 distinct corner sizes reached through two parallel unit
 systems: the px-emitted `--pluto-border-radius` token (frozen at 4px) and rem literals
@@ -94,27 +95,27 @@ Tailwind, Material 3, Radix Themes, Fluent 2, and Primer all use a small named l
 with roughly 1.5x steps. We align with Primer's shape, extended by the steps the audit
 showed in real use.
 
-# 2 - Vocabulary
+## 2 Vocabulary
 
-- **Slot**: one of the 12 ramp positions. **Band**: a contiguous group of slots sharing
+- **Slot**: One of the 12 ramp positions. **Band**: A contiguous group of slots sharing
   a role family.
-- **Surface**: a background something sits on (canvas, pane, dialog, chrome). **Fill**:
-  the background of an interactive component itself.
-- **Variant-var protocol**: the Button convention where variants set `--pluto-bg`,
+- **Surface**: A background something sits on (canvas, pane, dialog, chrome). **Fill**:
+  The background of an interactive component itself.
+- **Variant-var protocol**: The Button convention where variants set `--pluto-bg`,
   `--pluto-hover-bg`, `--pluto-active-bg` (and border equivalents) and shared rules swap
   them on hover and press.
-- **Variant**: the rest-state emphasis of a control's chassis, chosen statically at the
-  call site. **Tier**: the token set that paints the `selected` state for one family of
+- **Variant**: The rest-state emphasis of a control's chassis, chosen statically at the
+  call site. **Tier**: The token set that paints the `selected` state for one family of
   controls.
-- **Chassis**: the Button-rendered shell of a composite control (an input's frame, a
+- **Chassis**: The Button-rendered shell of a composite control (an input's frame, a
   tab, a tag, a list row), possibly rendered as a non-`button` element. An **interactive
   container** is a chassis that contains other interactive elements.
-- **Reveal**: the container-owned behavior that hides marked child actions until the
+- **Reveal**: The container-owned behavior that hides marked child actions until the
   container is hovered or the action is keyboard-focused.
 
-# 3 - Principles
+## 3 Principles
 
-## 3.1 - The gray ramp
+### 3.1 The gray ramp
 
 1. **One slot, one role.** A consumer that wants a different look moves to the slot
    whose role matches, never bends a slot's value.
@@ -132,7 +133,7 @@ showed in real use.
    legally sit on, placeholders included. Disabled text is exempt and becomes an alpha
    token rather than a slot.
 
-## 3.2 - Clickables
+### 3.2 Clickables
 
 1. **Two axes, never conflated.** Variant answers "how loud is this control at rest, as
    an action." A tier answers "what does on look like for this family." Every selectable
@@ -144,11 +145,11 @@ showed in real use.
    tier is a token set plus one rule mapping tokens onto the protocol.
 4. **The container owns nesting.** Conflict handling and keyboard contracts are
    properties of the container pattern, not per-call-site inventions.
-5. **Console composes; Pluto defines.** Console-only idioms get one named console
+5. **Console composes; Pluto defines.** Console-only idioms get one named Console
    definition built from Pluto parts. Pluto's vocabulary grows only for general-purpose
    needs.
 
-## 3.3 - Corner radii
+### 3.3 Corner radii
 
 1. **One ladder.** Every chrome corner speaks a named step or derives from one via
    `calc`.
@@ -160,9 +161,9 @@ showed in real use.
    (checkbox indicators, stadium pills, 50% circles, the schematic vessel percent
    system) are not ladder steps.
 
-# 4 - The gray ramp
+## 4 The gray ramp
 
-## 4.0 - The band table
+### 4.0 The band table
 
 | Slot | Band    | Role                                           |
 | ---- | ------- | ---------------------------------------------- |
@@ -179,10 +180,10 @@ showed in real use.
 | l10  | Text    | Primary body text                              |
 | l11  | Text    | Emphatic text (headings, selected rows)        |
 
-Selection lives off the gray ramp entirely; see 5.2. Disabled text is
+Selection lives off the gray ramp entirely; see §5.2. Disabled text is
 `--pluto-text-disabled` (l9 at 45% alpha), not a slot.
 
-## 4.1 - Value model
+### 4.1 Value model
 
 Values are generated in OKLCH from four sliders: floor lightness, per-slot chroma, band
 step sizes, and text anchors. Even perceptual steps inside a band, deliberate jumps
@@ -200,7 +201,7 @@ Dark surface and fill steps run 3.6 to 4.0 OKLab points, light steps 1.9 to 2.7,
 clears 4.5:1 against every surface in both themes, and the 22-point text chasms
 redistribute to steps that all land above AA.
 
-## 4.2 - Deleting the `contrast` prop
+### 4.2 Deleting the `contrast` prop
 
 With non-overlapping bands, a component's fixed slots work on every legal surface, so
 per-surface indexing machinery is unnecessary. The `contrast` prop, the `contrast-1/2/3`
@@ -208,7 +209,7 @@ CSS blocks, and the dead emitted classes are deleted; call sites migrate to noth
 escape hatch survives: the `Menu.background`-style context, kept for chrome that must
 know it sits on elevated l2.
 
-## 4.3 - Press policy
+### 4.3 Press policy
 
 Press is one ramp step past hover on the fill. The fill band is exposed as three tokens
 (`--pluto-fill-rest`, `--pluto-fill-hover`, `--pluto-fill-press`, mapping l3, l4, l5)
@@ -217,46 +218,46 @@ chrome steps it toward the canvas so its controls recess instead of lighten. Tex
 shadow variants rest transparent and join the band at hover. All seven old press
 vocabularies collapse into this rule; components with no press feedback gain it.
 
-## 4.4 - Focus model
+### 4.4 Focus model
 
 Two treatments, one geometry each:
 
-1. **Editing focus** (text fields, `:focus-within`, always on): the existing border swap
+1. **Editing focus** (text fields, `:focus-within`, always on): The existing border swap
    to primary plus the inset 0.5px shadow. `flush` inputs keep suppressing it.
-2. **Keyboard focus** (everything else, `:focus-visible` only): one rule,
+2. **Keyboard focus** (everything else, `:focus-visible` only): One rule,
    `outline: 1px solid var(--pluto-primary-z); outline-offset: 2px`. The gap is
    transparent, so the painted-gap halos die along with their guessed gap colors.
 
-## 4.5 - Migration map
+### 4.5 Migration map
 
 Old slots map to new slots by the role the site was actually using:
 
-| Old slot (role as used)       | New slot            |
-| ----------------------------- | ------------------- |
-| l0, l1, l2 as surfaces        | same                |
-| l1, l2 as component rest fill | l3                  |
-| l2, l3 as hover fill          | l4                  |
-| l3, l4 as pressed fill        | l5                  |
-| any slot as selected fill     | 5.2 selection tiers |
-| l4, l5 as border              | l6 or l7            |
-| l6, l7 as border              | l7 or l8            |
-| l7, l8 as text or icon        | l9                  |
-| l9 as secondary text          | l9                  |
-| l10, l11 as text              | same                |
+| Old slot (role as used)       | New slot             |
+| ----------------------------- | -------------------- |
+| l0, l1, l2 as surfaces        | same                 |
+| l1, l2 as component rest fill | l3                   |
+| l2, l3 as hover fill          | l4                   |
+| l3, l4 as pressed fill        | l5                   |
+| any slot as selected fill     | §5.2 selection tiers |
+| l4, l5 as border              | l6 or l7             |
+| l6, l7 as border              | l7 or l8             |
+| l7, l8 as text or icon        | l9                   |
+| l9 as secondary text          | l9                   |
+| l10, l11 as text              | same                 |
 
 Alpha variants follow their base slot.
 
-# 5 - Clickable vocabulary
+## 5 Clickable vocabulary
 
-## 5.1 - The emphasis ladder
+### 5.1 The emphasis ladder
 
 `Button.Variant = "filled" | "outlined" | "text"`. Default stays `outlined`.
 
-- `filled`: the primary action. Keeps its custom-color machinery and the press-and-hold
+- `filled`: The primary action. Keeps its custom-color machinery and the press-and-hold
   delay overlay.
-- `outlined`: the standard control. The only variant whose rest fill reads the theme
+- `outlined`: The standard control. The only variant whose rest fill reads the theme
   fill band.
-- `text`: the quiet action, transparent at rest. This is what the industry calls ghost;
+- `text`: The quiet action, transparent at rest. This is what the industry calls ghost;
   we keep the name `text` (roughly 130 call sites, Material precedent).
 
 `preview` becomes a boolean modifier on Button and Input, implying today's behavior:
@@ -272,7 +273,7 @@ chassis whose checked state speaks the control tier; the variant never swaps. Da
 day cells migrate from variant-swap selection to a real selected state, and Steps stops
 expressing progress through `disabled`.
 
-## 5.2 - Selection tiers
+### 5.2 Selection tiers
 
 Selection is a dedicated token family, not a gray slot. Three token sets live in
 `theming/theme.css` beside the fill band, each with `bg`, `hover-bg`, `active-bg`,
@@ -296,11 +297,11 @@ One shared rule per tier re-points the six protocol vars. `select/Button.css` an
 per-widget. Context overrides re-point tier tokens only; `panel/Mosaic.css`'s monochrome
 re-point of the overlaid leaf is the sanctioned example.
 
-Strays migrate: `menu/Item.css` and the console nav rail fill speak the list tier (the
-rail keeps its primary indicator ornament), and the arc create modal speaks the control
+Strays migrate: `menu/Item.css` and the Console nav rail fill speak the list tier (the
+rail keeps its primary indicator ornament), and the Arc create modal speaks the control
 tier. Table cells are an exception and keep their own selection paint.
 
-## 5.3 - Reveal
+### 5.3 Reveal
 
 The `ghost` prop and class are retired; the name is not reused. Reveal replaces them as
 a two-sided contract. The child action carries a marker, a `reveal` boolean on Button
@@ -311,7 +312,7 @@ trigger: hidden at rest, revealed on container hover and on the marked child's o
 Sites: list-row delete and favorite actions, KeyValueEditor rows, label editor rows, and
 the row-selection checkboxes previously using `ghost={!selected}`.
 
-## 5.4 - The interactive container pattern
+### 5.4 The interactive container pattern
 
 The div-chassis Button with manually restored semantics is the named pattern. No DOM
 restructure: ARIA has no legal nested-button DOM, and the alternatives (sibling plus
@@ -319,29 +320,29 @@ draft `aria-actions`, grid-role rework) either lack support or live on the defer
 list.
 
 The conflict zoo shrinks to three sanctioned mechanisms. **Child wins by default**:
-every Button stops propagation, so manual `stopPropagation` on Buttons migrates to
+Every Button stops propagation, so manual `stopPropagation` on Buttons migrates to
 nothing. **Parent yields or child shares, deliberately**: `preventClick` dead-zones a
 container that must yield to its children (selected tab, Boolean label), and
 `propagateClick` lets a child share its click with the row (menu items, metadata rows).
-**Non-Button nested controls shield themselves**: native inputs, drag handles, and
-editables keep explicit stopPropagation.
+**Non-Button nested controls shield themselves**: Native inputs, drag handles, and
+editables keep explicit `stopPropagation`.
 
 The chassis owns keyboard activation: a focusable Button rendered as a non-`button`
 element activates on Enter/Space from the component, and Tabs' hand-rolled handler
-migrates onto it. Each archetype declares a focus contract: tab (roving tabIndex, Delete
-closes), row (container focusable, revealed actions reachable via focus-visible), tag
-and input-shell (shell not focusable, inner control is). `el="div"` is Pluto-internal;
-console reaches the pattern only through named components. The pack z-index rules drop
-their `button` tag qualification so div-chassis members participate.
+migrates onto it. Each archetype declares a focus contract: tab (roving `tabIndex`,
+Delete closes), row (container focusable, revealed actions reachable via focus-visible),
+tag and input-shell (shell not focusable, inner control is). `el="div"` is
+Pluto-internal; the Console reaches the pattern only through named components. The pack
+z-index rules drop their `button` tag qualification so div-chassis members participate.
 
 **Inline glyph actions.** The micro-buttons nested inside chassis (tab close, tag close,
 the legend visibility toggle) are a named sub-pattern: a small square `text` Button with
 fill feedback suppressed and all feedback on the glyph (l9 rest, l11 hover, `error-z`
-press when destructive), `tabIndex -1`, revealed via 5.3, keyboard path on the parent.
+press when destructive), `tabIndex -1`, revealed via §5.3, keyboard path on the parent.
 Not a variant and not a tier. One shared definition replaces the chromeless `!important`
 blocks in `tabs/Tabs.css` and `tag/Tag.css`.
 
-## 5.5 - Checkbox and switch
+### 5.5 Checkbox and switch
 
 Checked paint stays their own primary-fill language, outside the tiers: a checked
 checkbox is form data, not selection. The label-chassis DOM share (`el="label"` +
@@ -349,24 +350,24 @@ checkbox is form data, not selection. The label-chassis DOM share (`el="label"` 
 contract. In selectable rows the row speaks the list tier while the checkbox speaks
 checkbox language; there is no double-painting.
 
-## 5.6 - Console consolidation
+### 5.6 Console consolidation
 
-One named definition per idiom, at the console platform layer:
+One named definition per idiom, at the Console platform layer:
 
-- **Quiet button** (l9 text, l11 on hover): the four CSS copies die.
-- **Pinned create-row** (button dressed as the terminal list row): the three geometry
+- **Quiet button** (l9 text, l11 on hover): The four CSS copies die.
+- **Pinned create-row** (button dressed as the terminal list row): The three geometry
   copies die.
-- **Toolbar button**: the `ToolbarButton` / `CopyLinkToolbarButton` twins collapse into
+- **Toolbar button**: The `ToolbarButton` / `CopyLinkToolbarButton` twins collapse into
   the `Toolbar.Action` family; the double-declared `.console-toolbar-button` class dies.
-- **Filter chips**: one class replaces three byte-identical copies.
-- The arc toolbar adopts `Empty.Action` instead of its hand-rolled copy.
+- **Filter chips**: One class replaces three byte-identical copies.
+- The Arc toolbar adopts `Empty.Action` instead of its hand-rolled copy.
 
-Feature wrappers with real logic (TareButton, EnableDisableButton, StartStopButton,
-ConfigureButton) stay where they are.
+Feature wrappers with real logic (`TareButton`, `EnableDisableButton`,
+`StartStopButton`, `ConfigureButton`) stay where they are.
 
-# 6 - Radius scale
+## 6 Radius scale
 
-## 6.1 - Tokens
+### 6.1 Tokens
 
 `theme.sizes.border.radius` is a five-field object of rem multiples emitted by
 `toCSSVars` as:
@@ -384,14 +385,14 @@ The bare token remains the theme default, so `pluto--rounded`, the roughly 50 ex
 `var()` sites, and the canvas renderer keep reading "the default" without naming a step.
 The canvas mirror computes `Math.round(radius.tiny * base)` px.
 
-## 6.2 - API
+### 6.2 API
 
 `rounded?: boolean | number | Component.Size` on `Flex.Box`. `true` applies the default
 class and a size name applies `pluto--rounded-<size>`. Both are class-based, so pack
 corner inheritance and seam-squaring rules can still override them; the number form
 stays an inline `${n}rem` escape hatch for derived one-offs.
 
-## 6.3 - Role assignment
+### 6.3 Role assignment
 
 | Step   | Roles                                                                    |
 | ------ | ------------------------------------------------------------------------ |
@@ -405,7 +406,7 @@ Filled buttons deliberately sit one step above other button variants; the fill c
 enough visual mass that the rounder corner reads as character rather than inconsistency.
 This is the only shape distinction between variants of one control.
 
-# 7 - Implementation
+## 7 Implementation
 
 Landed as a single-branch cutover, no coexistence. The ramps and token families are
 generated into `theming/base/theme.ts` and `theming/theme.css`; every CSS literal and
@@ -413,17 +414,17 @@ numeric `rounded` prop migrates to a step. The keyboard-focus rule is declared b
 adopting component rather than one global selector, so opting a component in stays a
 local change. The propagation and activation matrix gains spec coverage.
 
-The kill list is everything named dead in 1.2, plus the three reveal CSS copies,
+The kill list is everything named dead in §1.2, plus the three reveal CSS copies,
 Button's `--shadow` block, the six stray selection rules, the duplicated quiet-button,
 create-row, toolbar-button, and filter-chip definitions, `--pluto-pack-br`, the
 `CSS.rounded` and `CSS.sharp` helpers, and the `0.66666rem` hack.
 
 Deliberate pixel changes beyond the token swap: tooltip and Monaco hover 8px to 6px,
-mosaic create button 9px to 6px, arc type chip and gradient-stop marker 3px to 4px, nav
+mosaic create button 9px to 6px, Arc type chip and gradient-stop marker 3px to 4px, nav
 connection badge 4px to 6px. All changes are internal to the monorepo; no persisted
 data, wire format, or external API is touched.
 
-# 8 - What This RFC Does Not Cover
+## 8 What this RFC does not cover
 
 - Where color returns to the UI, and a possible warmer light theme.
 - The deferred a11y program: listbox and tree ARIA, roving rows, dialog focus traps,
@@ -433,56 +434,56 @@ data, wire format, or external API is touched.
   symbol, macOS traffic lights).
 - Dialog, menu-frame, and list behavior; only their selection paint is in scope.
 
-# 9 - Resolved Decisions
+## 9 Resolved decisions
 
-## 9.1 - The gray ramp
+### 9.1 The gray ramp
 
-- **Deep re-architecture over values-only retune.** A retune inherits the role
+- **Deep re-architecture over values-only retune**: A retune inherits the role
   conflicts; every slot keeps colliding consumers. The cost is a large one-time
   migration.
-- **Selection left the gray ramp.** The interview locked pressed and selected merged at
+- **Selection left the gray ramp**: The interview locked pressed and selected merged at
   l5. On real controls a selected toggle in gray l5 was indistinguishable from a pressed
   one and read as disabled beside its unselected siblings. Selection became the tinted
   tier family, at the price of one more token family to maintain.
-- **Contrast prop deleted, not fixed.** Fixing it means maintaining a Spectrum-style
+- **Contrast prop deleted, not fixed**: Fixing it means maintaining a Spectrum-style
   contrast-indexed token matrix nobody else in our reference set carries.
-- **Floor stays below the industry cluster.** Linear sits at OKLab L 0.139 and Radix
+- **Floor stays below the industry cluster**: Linear sits at OKLab L 0.139 and Radix
   slate at 0.179; we float l0 at ~0.115. Lifting to their levels reads brighter but
   sacrifices the dark-cockpit character and viz color pop.
-- **Whisper tint over assertive tint.** Primer's chroma 0.014+ visibly colors the UI and
+- **Whisper tint over assertive tint**: Primer's chroma 0.014+ visibly colors the UI and
   competes with schematic and channel colors, which need neutral backdrops to pop.
-- **No transform on press.** Linear ships `scale(0.97)`; fractional scaling shimmers
+- **No transform on press**: Linear ships `scale(0.97)`; fractional scaling shimmers
   0.5px hairline borders, and press stays purely in the color system.
 
-## 9.2 - Clickables
+### 9.2 Clickables
 
 - **Growing the fused variant enum** (rungs for selected-tab, quiet, and so on):
-  rejected. Encoding a runtime state as a variant forces variant-swapping (the DateTime
+  Rejected. Encoding a runtime state as a variant forces variant-swapping (the DateTime
   fossil) and cannot express selected-hover and selected-press without a cross-product
   leak (Carbon's `danger--tertiary`). The cost is that a selected tab visually sits
   between filled and outlined, so readers hold two loudness scales.
-- **Collapsing to fewer selection tiers** (tabs adopt the control tier): rejected. It
+- **Collapsing to fewer selection tiers** (tabs adopt the control tier): Rejected. It
   would re-litigate two approved looks to fix the one unapproved tier, and the industry
   deliberately keeps toggle, tab, and list selection as distinct languages.
-- **Renaming `text` to `ghost`** for industry alignment: rejected. Roughly 130 call
+- **Renaming `text` to `ghost`** for industry alignment: Rejected. Roughly 130 call
   sites of churn, and reusing a name that meant something else here for years plants a
   second confusion.
-- **Reveal as a Button prop under a new name**: rejected as the defining mechanism.
+- **Reveal as a Button prop under a new name**: Rejected as the defining mechanism.
   Ownership had to move to the container to make the keyboard reveal structural.
-- **DOM restructure for nested interactives**: rejected for now. `aria-actions` is a
+- **DOM restructure for nested interactives**: Rejected for now. `aria-actions` is a
   draft and the grid rework lives on the deferred a11y list. By strict ARIA the div
   chassis is a workaround, and we are hardening it rather than replacing it.
-- **Table selection as a fourth tier**: rejected. Migrating table cells would force the
+- **Table selection as a fourth tier**: Rejected. Migrating table cells would force the
   Button chassis onto a grid whose focus, spanning, and edit semantics it does not
   model.
 
-## 9.3 - Corner radii
+### 9.3 Corner radii
 
-- **Rem over px.** A px ladder preserved 4px on a clean grid but froze corners while
+- **Rem over px**: A px ladder preserved 4px on a clean grid but froze corners while
   every other dimension scales, and the codebase already contained a hand-rolled scaling
   4px. The cost is one off-grid fraction (2/3rem), confined to the theme spec.
-- **4px kept.** A pure 0.5rem-grid ladder (3/6/9/12) was rejected: 4px is the
+- **4px kept**: A pure 0.5rem-grid ladder (3/6/9/12) was rejected: 4px is the
   established control radius, and keeping it is worth the fractional rem step.
-- **Size names over role names.** Role-named tokens (control/chip/card/panel) would
+- **Size names over role names**: Role-named tokens (control/chip/card/panel) would
   self-document but would be the only role-named size tokens in the system and would
-  fight the `Component.Size` vocabulary. The role map lives in 6.3 instead.
+  fight the `Component.Size` vocabulary. The role map lives in §6.3 instead.
