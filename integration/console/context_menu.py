@@ -9,8 +9,20 @@
 
 """Context menu helper for Console UI automation."""
 
+import time
+
 from playwright.sync_api import Locator, Page
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+
+# Menu items may carry a keyboard-trigger badge whose letters join the label in
+# textContent ("Rename" renders as "RenameE"), so label matching must strip it.
+_ITEM_LABELS_JS = """(els) => els.map((el) => {
+    const clone = el.cloneNode(true);
+    clone
+        .querySelectorAll(".pluto-trigger-indicator")
+        .forEach((badge) => badge.remove());
+    return (clone.textContent ?? "").trim();
+})"""
 
 
 class ContextMenu:
@@ -47,18 +59,42 @@ class ContextMenu:
         """Return the first visible context menu locator."""
         return self.page.get_by_role("menu").first
 
+    def _find_option(self, text: str, *, exact: bool) -> Locator | None:
+        """Resolve a menu item by its label, ignoring any trigger-key badge.
+
+        Args:
+            text: The label of the menu option to find.
+            exact: Whether to match the label exactly or as a substring.
+
+        Returns:
+            Locator for the matching menu item, or None when absent.
+        """
+        items = self._visible_menu().get_by_role("menuitem")
+        labels: list[str] = items.evaluate_all(_ITEM_LABELS_JS)
+        for index, label in enumerate(labels):
+            matches = (label == text) if exact else (text in label)
+            if matches:
+                return items.nth(index)
+        return None
+
     def click_option(self, text: str, *, exact: bool = True) -> None:
         """Click a menu option by searching within the context menu.
 
-        After clicking, waits for the context menu to be hidden.
+        Waits up to 5s for the option to appear, then waits for the context
+        menu to be hidden after clicking.
 
         Args:
             text: The text of the menu option to click.
             exact: Whether to match text exactly.
         """
         menu = self._visible_menu()
-        option = menu.get_by_text(text, exact=exact).first
-        option.wait_for(state="visible", timeout=5000)
+        deadline = time.monotonic() + 5
+        option = self._find_option(text, exact=exact)
+        while option is None:
+            if time.monotonic() >= deadline:
+                raise AssertionError(f"context menu offers no option {text!r}")
+            self.page.wait_for_timeout(100)
+            option = self._find_option(text, exact=exact)
         # Fixed-position menus may extend beyond the viewport, causing
         # both click() and click(force=True) to fail. dispatch_event
         # fires the click via the DOM and does not require the element
@@ -90,11 +126,8 @@ class ContextMenu:
         Returns:
             True if the option is visible and not disabled.
         """
-        menu = self._visible_menu()
-        option = menu.get_by_text(text, exact=exact).first
-        cnt = option.count()
-        vis = option.is_visible() if cnt > 0 else False
-        if cnt == 0 or not vis:
+        option = self._find_option(text, exact=exact)
+        if option is None or not option.is_visible():
             return False
         option_class = option.get_attribute("class") or ""
         return "disabled" not in option_class.lower()

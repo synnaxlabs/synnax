@@ -799,7 +799,9 @@ class LayoutClient:
             tab_name: Name of the tab to focus
         """
         self.close_left_toolbar()
-        tab = self.get_tab(tab_name)
+        # Focus is a session action, not a panel write, so it must work on tabs
+        # without a close button (a user who cannot write the panel).
+        tab = self.get_read_only_tab(tab_name)
         tab.wait_for(state="visible", timeout=5000)
         tab.click()
         self.ctx_menu.action(tab.locator("p"), "Focus", exact=False)

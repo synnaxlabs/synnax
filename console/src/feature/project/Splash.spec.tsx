@@ -29,9 +29,6 @@ describe("project/Splash", () => {
     it("should hide the project list and create action when there is no client", async () => {
       await renderWithConsole(<Project.Splash />);
       expect(screen.getByText("Projects")).toBeDefined();
-      expect(
-        screen.getByText("You do not have permission to create a project."),
-      ).toBeDefined();
       expect(screen.queryByText("New project")).toBeNull();
     });
 

@@ -70,7 +70,10 @@ class RoleEngineerPermissions(RoleCase):
         )
         table = self.console.pages.create(Table, TABLE_NAME)
         self._cleanup_pages.append(table.page_name)
-        self.console.layout.get_by_text("enable editing.").wait_for(
-            state="visible", timeout=10000
+        # A fresh table starts editable, so the toolbar shows the cell form when
+        # a cell is selected and the selection prompt otherwise.
+        editing_surface = self.console.layout.get_by_text("Variant", exact=True).or_(
+            self.console.layout.get_by_text("No cell selected")
         )
+        editing_surface.first.wait_for(state="visible", timeout=10000)
         self.console.layout.hide_visualization_toolbar()

@@ -22,7 +22,6 @@ import {
   Project as PProject,
   Select,
   Status,
-  Text,
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
@@ -95,7 +94,7 @@ export const Splash = (): ReactElement => {
           empty
           className={CSS.cls(CSS.BE("shell", "list"), CSS.BE("project-splash", "list"))}
         >
-          <Header.Header gap="small" x className={CSS.BE("project-splash", "header")}>
+          <Header.Header gap="small" x>
             <Header.Title level="h4" color={11}>
               <Icon.Project />
               Projects
@@ -128,7 +127,10 @@ export const Splash = (): ReactElement => {
           {hasRetrievePermission && data.length > 0 ? (
             <List.Items
               grow
-              className={CSS.BE("project-splash", "items")}
+              className={CSS.cls(
+                CSS.BE("shell", "items"),
+                CSS.BE("project-splash", "items"),
+              )}
               onContextMenu={menuProps.open}
             >
               {listItem}
@@ -143,14 +145,10 @@ export const Splash = (): ReactElement => {
               <Status.Summary status={status} />
             </Flex.Box>
           )}
-          {hasCreatePermission ? (
+          {hasCreatePermission && (
             <Button.CreateListItem size="large" onClick={() => openCreate()}>
               New project
             </Button.CreateListItem>
-          ) : (
-            <Text.Text color={9} className={CSS.BE("project-splash", "denied")}>
-              You do not have permission to create a project.
-            </Text.Text>
           )}
         </Flex.Box>
       </Select.Frame>

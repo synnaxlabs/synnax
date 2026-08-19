@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Errors, type Flux, Icon, Panel } from "@synnaxlabs/pluto";
+import { Errors, Flux, Icon, Panel } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { isNotFound } from "@/feature/panel/Mosaic";
@@ -93,18 +93,25 @@ const ToolbarIcon = (props: Icon.IconProps): ReactElement => {
   const tabKey = Session.Panel.useSelectFocusedTab(panelKey);
   if (panelKey == null || tabKey == null) return <Icon.Component {...props} />;
   return (
-    <Panel.Scope.Provider value={panelKey}>
-      <Panel.TabScope.Provider value={tabKey}>
-        <Errors.SuspenseBoundary
-          key={`${panelKey}:${tabKey}`}
-          loading={<Icon.Component {...props} />}
-          FallbackComponent={IconFallback}
-        >
+    <Errors.SuspenseBoundary
+      key={`${panelKey}:${tabKey}`}
+      loading={<Icon.Component {...props} />}
+      FallbackComponent={IconFallback}
+    >
+      <Panel.Suspended panelKey={panelKey}>
+        <Panel.TabScope.Provider value={tabKey}>
           <FocusedTabIcon {...props} />
-        </Errors.SuspenseBoundary>
-      </Panel.TabScope.Provider>
-    </Panel.Scope.Provider>
+        </Panel.TabScope.Provider>
+      </Panel.Suspended>
+    </Errors.SuspenseBoundary>
   );
+};
+
+// The mosaic shows the tombstone for a missing panel, so the toolbar goes quiet.
+const PanelFallback = (props: Errors.FallbackProps): ReactElement => {
+  if (!isNotFound(props.error) && !Flux.DeletedError.matches(props.error))
+    return <Errors.Fallback {...props} />;
+  return <EmptyContent />;
 };
 
 const Wrapper = () => {
@@ -112,12 +119,19 @@ const Wrapper = () => {
   const tabKey = Session.Panel.useSelectFocusedTab(panelKey);
   if (panelKey == null || tabKey == null) return <EmptyContent />;
   return (
-    <Panel.Scope.Provider value={panelKey}>
-      <Panel.TabScope.Provider value={tabKey}>
-        {/* Keyed so a latched error boundary never survives a tab switch. */}
-        <Content key={`${panelKey}:${tabKey}`} />
-      </Panel.TabScope.Provider>
-    </Panel.Scope.Provider>
+    // Keyed so a latched error boundary never survives a tab switch. Suspended
+    // retrieves the panel itself: the toolbar renders outside the mosaic, so it
+    // cannot rely on the mosaic having cached the panel first.
+    <Errors.SuspenseBoundary
+      key={`${panelKey}:${tabKey}`}
+      FallbackComponent={PanelFallback}
+    >
+      <Panel.Suspended panelKey={panelKey}>
+        <Panel.TabScope.Provider value={tabKey}>
+          <Content />
+        </Panel.TabScope.Provider>
+      </Panel.Suspended>
+    </Errors.SuspenseBoundary>
   );
 };
 
