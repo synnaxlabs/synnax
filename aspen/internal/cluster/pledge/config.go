@@ -23,12 +23,21 @@ import (
 )
 
 type (
+	// Request is the payload exchanged during a pledge. A zero Key asks the receiving
+	// peer to act as responsible for the pledge; a non-zero Key proposes that key to
+	// the receiving juror.
 	Request struct {
-		Key        node.Key
+		// Key is the proposed node key, or zero for an initial pledge request.
+		Key node.Key
+		// ClusterKey is the unique key of the cluster the node is pledging to.
 		ClusterKey uuid.UUID
 	}
-	Response        = Request
+	// Response is returned to a successful pledge, carrying the assigned node key and
+	// the key of the cluster the node was inducted into.
+	Response = Request
+	// TransportClient sends pledge requests and proposals to peers.
 	TransportClient = freighter.UnaryClient[Request, Response]
+	// TransportServer receives pledge requests and proposals from peers.
 	TransportServer = freighter.UnaryServer[Request, Response]
 )
 
@@ -117,6 +126,7 @@ func (cfg Config) Report() alamos.Report {
 }
 
 var (
+	// DefaultConfig is the default configuration for pledging and arbitrating.
 	DefaultConfig = Config{
 		RequestTimeout: 5 * time.Second,
 		RetryInterval:  1 * time.Second,
@@ -124,11 +134,15 @@ var (
 		MaxProposals:   10,
 		Peers:          []address.Address{},
 	}
+	// FastConfig is DefaultConfig with shortened timeouts and retry intervals for
+	// rapid pledges on low-latency networks.
 	FastConfig = DefaultConfig.Override(Config{
 		RequestTimeout: 50 * time.Millisecond,
 		RetryInterval:  10 * time.Millisecond,
 		RetryScale:     1.125,
 	})
+	// BlazingFastConfig is DefaultConfig with near-instant timeouts and retry
+	// intervals for in-memory transports in tests.
 	BlazingFastConfig = DefaultConfig.Override(Config{
 		RequestTimeout: 5 * time.Millisecond,
 		RetryInterval:  1 * time.Microsecond,
