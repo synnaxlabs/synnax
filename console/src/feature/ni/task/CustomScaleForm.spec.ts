@@ -228,6 +228,18 @@ describe("CustomScaleForm", () => {
       expect(getInputTable("Values").rows).toHaveLength(0);
     });
 
+    it("should flag a stored scale whose columns are unpaired", async () => {
+      await renderWithScale({
+        ...(NI.Task.createScale("table") as Extract<NI.Task.Scale, { type: "table" }>),
+        preScaledVals: [1, 2, 3],
+        scaledVals: [10, 20],
+      });
+      await screen.findByText(
+        "Pre-scaled 3 values and scaled 2 values must be the same length",
+      );
+      expect(getInputTable("Values").rows).toHaveLength(3);
+    });
+
     it("should show the values loaded from a CSV", async () => {
       const csvPath = join(dir, "table3.csv");
       await writeFile(csvPath, "raw_col,scaled_col\n1,10\n2,20\n3,30\n");

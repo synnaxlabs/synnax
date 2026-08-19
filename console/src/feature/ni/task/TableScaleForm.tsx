@@ -24,6 +24,15 @@ const createRow = (rows: number[][]): number[] => {
   return [last == null ? 0 : last[0] + 1, 0];
 };
 
+/**
+ * @returns The error to show when the two columns hold a different number of values, or
+ * null when they pair up.
+ */
+const lengthMismatch = (preScaled: number[], scaled: number[]): string | null =>
+  preScaled.length === scaled.length
+    ? null
+    : `Pre-scaled ${preScaled.length} values and scaled ${scaled.length} values must be the same length`;
+
 export interface TableScaleFormProps {
   /** The form path of the table scale. */
   prefix: string;
@@ -68,18 +77,14 @@ export const TableScaleForm = ({ prefix }: TableScaleFormProps): ReactElement =>
   ) => {
     const preScaledValues = value[raw] as number[] | undefined;
     const scaledValues = value[scaledKey] as number[] | undefined;
-    if (
-      preScaledValues != null &&
-      scaledValues != null &&
-      preScaledValues.length !== scaledValues.length
-    ) {
-      // Loading the pair would pad the shorter column with zeros, giving the scale
-      // points the CSV never held.
-      preScaled.setStatus({
-        variant: "error",
-        message: `Pre-scaled ${preScaledValues.length} values and scaled ${scaledValues.length} values must be the same length`,
-      });
-      return;
+    if (preScaledValues != null && scaledValues != null) {
+      const message = lengthMismatch(preScaledValues, scaledValues);
+      if (message != null) {
+        // Loading the pair would pad the shorter column with zeros, giving the scale
+        // points the CSV never held.
+        preScaled.setStatus({ variant: "error", message });
+        return;
+      }
     }
     if (preScaledValues != null) preScaled.onChange(preScaledValues);
     if (scaledValues != null) scaled.onChange(scaledValues);
@@ -118,6 +123,9 @@ export const TableScaleForm = ({ prefix }: TableScaleFormProps): ReactElement =>
   const { preview } = preScaled;
   const status =
     preScaled.status.variant !== "success" ? preScaled.status : scaled.status;
+  // A scale stored with unpaired columns renders zeros for the values it never held, so
+  // name the problem before an edit commits them.
+  const mismatch = lengthMismatch(preScaled.value, scaled.value);
   return (
     <>
       {preview !== true && (
@@ -157,8 +165,8 @@ export const TableScaleForm = ({ prefix }: TableScaleFormProps): ReactElement =>
       <Input.Item
         label="Values"
         padHelpText
-        helpText={status.message}
-        status={status.variant}
+        helpText={mismatch ?? status.message}
+        status={mismatch != null ? "error" : status.variant}
       >
         <Input.Table
           columns={COLUMNS}
