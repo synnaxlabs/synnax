@@ -394,9 +394,8 @@ export const distance = <T extends numeric.Value = number>(
     const overlapLower = bound.lower > interval.lower ? bound.lower : interval.lower;
     const overlapUpper = bound.upper < interval.upper ? bound.upper : interval.upper;
 
-    if (overlapLower < overlapUpper) {
+    if (overlapLower < overlapUpper)
       totalDistance = math.add(totalDistance, math.sub(overlapUpper, overlapLower));
-    }
   }
 
   return totalDistance;

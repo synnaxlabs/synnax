@@ -12,7 +12,6 @@
 Designed for multiple inheritance with TestCase subclasses.
 """
 
-
 import synnax as sy
 from framework.models import SynnaxConnection
 from framework.test_case import TestCase

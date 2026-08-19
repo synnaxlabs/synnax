@@ -100,7 +100,10 @@
   "channels": {
     "x1": 0,
     "x2": 0,
-    "y1": ["{{channel:sy_node_1_metrics_cpu_percentage}}", "{{channel:sy_node_1_metrics_mem_percentage}}"],
+    "y1": [
+      "{{channel:sy_node_1_metrics_cpu_percentage}}",
+      "{{channel:sy_node_1_metrics_mem_percentage}}"
+    ],
     "y2": [],
     "y3": [],
     "y4": []

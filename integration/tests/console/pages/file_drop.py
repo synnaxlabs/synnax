@@ -45,9 +45,7 @@ class FileDrop(ConsoleCase):
         for name in self._cleanup_projects:
             try:
                 matches = self.client.projects.retrieve(search_term=name)
-                self.client.projects.delete(
-                    [p.key for p in matches if p.name == name]
-                )
+                self.client.projects.delete([p.key for p in matches if p.name == name])
             except Exception as e:
                 self.log(f"Failed to delete project {name}: {e}")
         super().teardown()

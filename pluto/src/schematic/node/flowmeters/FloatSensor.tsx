@@ -25,7 +25,10 @@ export const FloatSensor = ({
   scale = 1,
   ...rest
 }: Props): ReactElement => (
-  <Primitive.Div {...rest} className={CSS.cls(CSS.B("flowmeter-FloatSensor"), className)}>
+  <Primitive.Div
+    {...rest}
+    className={CSS.cls(CSS.B("flowmeter-FloatSensor"), className)}
+  >
     <Handle.Rectangle
       orientation={orientation}
       left={4}

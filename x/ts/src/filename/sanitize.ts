@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 // Matches the path separators, the characters Windows reserves, and the control
-// characters Windows forbids. eslint-disable-next-line no-control-regex
+// characters Windows forbids.
+// eslint-disable-next-line no-control-regex
 const UNSAFE_FILE_NAME_CHARS = /[/\\<>:"|?*\x00-\x1f]/gu;
 const TRAILING_DOTS_AND_SPACES = /[. ]+$/;
 // Matches the device names Windows refuses to open a file under, bare or carrying an

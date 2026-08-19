@@ -207,13 +207,13 @@ export const constructXY = (x: Crude | XY, y?: Crude): XY => {
       `[XYLocation] - encountered two locations with the same direction: ${parsedX.toString()} - ${parsedY.toString()}`,
     );
   const xy = { ...CENTER };
-  if (parsedX !== "center") {
+  if (parsedX !== "center")
     if (isX(parsedX)) xy.x = parsedX;
     else xy.y = parsedX;
-  }
-  if (parsedY !== "center") {
+
+  if (parsedY !== "center")
     if (isX(parsedY)) xy.x = parsedY;
     else xy.y = parsedY;
-  }
+
   return xy;
 };
