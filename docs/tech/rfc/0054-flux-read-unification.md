@@ -340,7 +340,8 @@ client-and-pluto internal, so no migration or compatibility window is needed.
 - **The ordered-retrieval Core program**: Exposing `OrderBy` and after-cursor pagination
   through the service layer, API, schemas, and clients, backed by Gorp's sorted indexes
   (RFC 0034). Deferred; the fill primitive is designed for it to slot into.
-- **Cache parity in the Python, Go, or C++ clients**:
+- **Cache parity in the Python, Go, or C++ clients**: The cache and both read idioms
+  ship in `client/ts` only.
 - **Telemetry reads**: The telem client, its frame cache, and its streamer are out of
   scope.
 - **Multiplayer presence and conflict resolution** (RFC 0041 remains the seam).
