@@ -25,7 +25,7 @@ export const Orifice = ({
   scale = 1,
   ...rest
 }: Props): ReactElement => (
-  <Primitive.Div {...rest} className={CSS.cx(CSS.B("flowmeter-Orifice"), className)}>
+  <Primitive.Div {...rest} className={CSS.cls(CSS.B("flowmeter-Orifice"), className)}>
     <Handle.Rectangle
       orientation={orientation}
       left={4}

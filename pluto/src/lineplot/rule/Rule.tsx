@@ -146,13 +146,13 @@ export const Rule = ({
   const content = (
     <div ref={ref} className={CSS.B("rule")} style={topStyle}>
       <div
-        className={CSS.cx(CSS.BE("rule", "drag-handle"), Cursor.DRAG_CLASS)}
+        className={CSS.cls(CSS.BE("rule", "drag-handle"), Cursor.DRAG_CLASS)}
         onPointerDown={handleDragStart}
       />
       <Flex.Box
         x
         align="center"
-        className={CSS.cx(className, CSS.BE("rule", "tag"))}
+        className={CSS.cls(className, CSS.BE("rule", "tag"))}
         bordered
         onClick={onSelect}
         empty

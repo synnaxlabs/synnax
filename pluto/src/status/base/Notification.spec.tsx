@@ -78,7 +78,7 @@ describe("Notification Component", () => {
     const icon = c.container.querySelector<SVGElement>(
       ".pluto-notification__indicator",
     );
-    expect(icon?.getAttribute("aria-label")).toContain("device");
+    expect(icon?.classList.contains("pluto-icon--device")).toBe(true);
     expect(icon?.style.color).toBe("var(--pluto-error-z)");
   });
 
@@ -92,7 +92,7 @@ describe("Notification Component", () => {
     );
 
     const icon = c.container.querySelector(".pluto-notification__indicator");
-    expect(icon?.getAttribute("aria-label")).toContain("loading");
+    expect(icon?.classList.contains("pluto-icon--loading")).toBe(true);
   });
 
   it("calls silence function when close button is clicked", () => {

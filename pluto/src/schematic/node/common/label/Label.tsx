@@ -64,7 +64,7 @@ const Internal = ({ config, onChange, style: baseStyle, ...rest }: InternalProps
       {...rest}
       style={style}
       alignSelf={align}
-      className={CSS.cx(CSS.BE("symbol", "label"), CSS.dir(dir))}
+      className={CSS.cls(CSS.BE("symbol", "label"), CSS.dir(dir))}
       level={level}
       value={label}
       onChange={handleLabelChange}

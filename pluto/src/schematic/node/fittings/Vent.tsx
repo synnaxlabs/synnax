@@ -24,7 +24,7 @@ export const Vent = ({
   scale,
   ...rest
 }: VentProps): ReactElement => (
-  <Primitive.Div className={CSS.cx(CSS.B("vent"), className)} {...rest}>
+  <Primitive.Div className={CSS.cls(CSS.B("vent"), className)} {...rest}>
     <Handle.Linear orientation={orientation} left={22.7273} right={80} />
     <Primitive.SVG
       color={color}

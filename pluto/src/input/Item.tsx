@@ -104,7 +104,7 @@ export const Item = ({
   return (
     <LabelIDContext value={actuallyShowLabel ? labelID : undefined}>
       <Flex.Box
-        className={CSS.cx(CSS.BE("input", "item"), className)}
+        className={CSS.cls(CSS.BE("input", "item"), className)}
         direction={dir}
         gap={size}
         align={maybeDefaultAlignment(align, dir)}

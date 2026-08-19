@@ -25,7 +25,7 @@ export const VariableArea = ({
 }: Props) => (
   <Primitive.Div
     {...rest}
-    className={CSS.cx(CSS.B("flowmeter-VariableArea"), className)}
+    className={CSS.cls(CSS.B("flowmeter-VariableArea"), className)}
   >
     <Handle.Rectangle
       orientation={orientation}

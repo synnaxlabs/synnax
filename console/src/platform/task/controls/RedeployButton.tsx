@@ -29,7 +29,7 @@ export const RedeployButton = ({
   ...props
 }: RedeployButtonProps): ReactElement => (
   <div
-    className={CSS.cx(
+    className={CSS.cls(
       CSS.B("task-redeploy"),
       visible && CSS.BM("task-redeploy", "visible"),
     )}

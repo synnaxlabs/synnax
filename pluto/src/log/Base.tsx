@@ -248,7 +248,7 @@ export const Base = ({
       <div
         ref={combinedRef}
         tabIndex={0}
-        className={CSS.cx(CSS.B("log"), className)}
+        className={CSS.cls(CSS.B("log"), className)}
         onWheel={(e) => {
           if (e.deltaY < 0 && !scrolling) setHold(true);
           setState((s) => ({ ...s, wheelPos: s.wheelPos - e.deltaY }));

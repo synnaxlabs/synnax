@@ -52,7 +52,7 @@ export const Row = memo(
   }: RowProps): ReactElement => {
     let xCursor = x;
     return (
-      <tr className={CSS.cx(CSS.BE("table", "row"))}>
+      <tr className={CSS.cls(CSS.BE("table", "row"))}>
         {showIndicator && (
           <Indicator
             direction="y"

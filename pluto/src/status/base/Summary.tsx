@@ -52,7 +52,7 @@ export const Summary = ({
   children ??= message;
   const baseText = (
     <BaseText.Text
-      className={CSS.cx(className, !hasDescription && CSS.BE("status", "text"))}
+      className={CSS.cls(className, !hasDescription && CSS.BE("status", "text"))}
       level={level}
       status={variant}
       {...(hasDescription ? {} : rest)}

@@ -68,7 +68,7 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
   const { name, Preview } = spec;
   return (
     <List.Item
-      className={CSS.cx(CSS.BE("schematic-symbols", "button"))}
+      className={CSS.cls(CSS.BE("schematic-symbols", "button"))}
       align="center"
       gap="tiny"
       draggable
@@ -148,7 +148,7 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
 
   return (
     <Select.ListItem
-      className={CSS.cx(CSS.BE("schematic-symbols", "button"))}
+      className={CSS.cls(CSS.BE("schematic-symbols", "button"))}
       align="center"
       gap="tiny"
       draggable

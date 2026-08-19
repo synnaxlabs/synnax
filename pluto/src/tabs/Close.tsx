@@ -17,5 +17,5 @@ export interface CloseProps extends Button.CloseProps {}
 
 /** A close button sized and placed for use inside a {@link Tab}. */
 export const Close = ({ className, ...rest }: CloseProps): ReactElement => (
-  <Button.Close className={CSS.cx(CSS.BE("tabs", "close"), className)} {...rest} />
+  <Button.Close className={CSS.cls(CSS.BE("tabs", "close"), className)} {...rest} />
 );

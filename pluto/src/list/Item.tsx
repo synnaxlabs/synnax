@@ -89,7 +89,7 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
       id={itemKey.toString()}
       variant="text"
       onClick={handleClick}
-      className={CSS.cx(
+      className={CSS.cls(
         className,
         CONTEXT_TARGET,
         selected && CONTEXT_SELECTED,

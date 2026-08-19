@@ -94,7 +94,7 @@ export const toCSSVars = (
     "warning-text": color.hex(theme.colors.warningText),
     "border-color": color.hex(theme.colors.border),
     "base-size": CSS.unitProperty(theme.sizes.base, "px"),
-    "border-radius": `var(${CSS.var(`${addPrefix}border-radius-tiny`)})`,
+    "border-radius": `var(${CSS.variable(`${addPrefix}border-radius-tiny`)})`,
     "border-radius-tiny": CSS.unitProperty(theme.sizes.border.radius.tiny, "rem", true),
     "border-radius-small": CSS.unitProperty(
       theme.sizes.border.radius.small,
@@ -148,7 +148,7 @@ export const toCSSVars = (
   }).reduce<Record<string, number | string | undefined>>(
     (acc, [key, value]) => ({
       ...acc,
-      [CSS.var(addPrefix + key)]: value,
+      [CSS.variable(addPrefix + key)]: value,
     }),
     {},
   );

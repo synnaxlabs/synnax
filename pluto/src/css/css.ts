@@ -18,27 +18,25 @@ import { type Theming } from "@/theming";
 
 const PREFIX = "pluto";
 
-const bem = newBEM(PREFIX);
+export const {
+  /** @returns the class name for a block. */
+  B,
+  /** @returns the class name for an element of the enclosing block. */
+  E,
+  /** @returns the class name for a modifier. */
+  M,
+  /** @returns the class name for an element of the given block. */
+  BE,
+  /** @returns the class name for a modifier of the given block. */
+  BM,
+  /** @returns the class name for a modified element of the given block. */
+  BEM,
+  /** @returns the name of a custom property, including the leading dashes. */
+  variable,
+} = newBEM(PREFIX);
 
 /** Joins class values into a single class name, dropping the falsy ones. */
-export const cx = (...classes: ClassValue[]): string => clsx(...classes);
-
-/** @returns the class name for a block. */
-export const B = bem.B;
-/** @returns the class name for an element of the enclosing block. */
-export const E = bem.E;
-/** @returns the class name for a modifier. */
-export const M = bem.M;
-/** @returns the class name for an element of the given block. */
-export const BE = bem.BE;
-/** @returns the class name for a modifier of the given block. */
-export const BM = bem.BM;
-/** @returns the class name for a modified element of the given block. */
-export const BEM = bem.BEM;
-
-const cssVar = bem.var;
-/** @returns the name of a custom property, including the leading dashes. */
-export { cssVar as var };
+export const cls = (...classes: ClassValue[]): string => clsx(...classes);
 
 export const visible = (visible: boolean): string => M(visible ? "visible" : "hidden");
 

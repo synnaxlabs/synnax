@@ -51,7 +51,7 @@ export const Handle = ({
       {...rest}
       type="source"
       onClick={stopPropagation}
-      className={CSS.cx(CSS.B("handle"), CSS.BE("handle", rest.id))}
+      className={CSS.cls(CSS.B("handle"), CSS.BE("handle", rest.id))}
       style={mergedStyle}
     />
   );

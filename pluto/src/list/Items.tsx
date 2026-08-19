@@ -88,7 +88,8 @@ const BaseItems = <
   const boxStyle = useMemo(
     () => ({
       height: minHeight,
-      [CSS.var("list-item-height")]: itemHeight != null ? `${itemHeight}px` : undefined,
+      [CSS.variable("list-item-height")]:
+        itemHeight != null ? `${itemHeight}px` : undefined,
       ...style,
     }),
     [minHeight, itemHeight, style],
@@ -99,7 +100,7 @@ const BaseItems = <
     <Flex.Box
       gap={0}
       ref={ref}
-      className={CSS.cx(
+      className={CSS.cls(
         className,
         CSS.BE("list", "items"),
         isVirtual && CSS.BEM("list", "items", "virtual"),

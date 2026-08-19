@@ -24,7 +24,7 @@ export const ISOFilter = ({
   scale,
   ...rest
 }: ISOFilterProps): ReactElement => (
-  <Primitive.Div className={CSS.cx(CSS.B("iso-filter"), className)} {...rest}>
+  <Primitive.Div className={CSS.cls(CSS.B("iso-filter"), className)} {...rest}>
     <Handle.Linear orientation={orientation} left={5} right={95} />
     <Primitive.SVG
       dimensions={DIMENSIONS}

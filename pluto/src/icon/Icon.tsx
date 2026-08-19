@@ -56,7 +56,7 @@ const createSubIcon = (
         cx={SUB_SIZE / 2}
         cy={SUB_SIZE / 2}
       />
-      <Icon className={CSS.cx(CSS.B("sub"), CSS.M(key))} size={SUB_SIZE} />
+      <Icon className={CSS.cls(CSS.B("sub"), CSS.M(key))} size={SUB_SIZE} />
     </g>
   );
 };
@@ -92,7 +92,7 @@ export const wrapSVGIcon = (
     c = parseColor(c);
     return (
       <Base
-        className={CSS.cx(CSS.B("icon"), pClassName, className, typeClass)}
+        className={CSS.cls(CSS.B("icon"), pClassName, className, typeClass)}
         aria-hidden={rest["aria-label"] == null ? true : undefined}
         color={c}
         {...rest}
@@ -120,7 +120,7 @@ const STACK_COPY_STYLE = { fontSize: BASE_SIZE };
 export const createStacked = (Base: FC): FC => {
   const Stacked = ({ className, color: c, ...rest }: IconProps) => (
     <svg
-      className={CSS.cx(CSS.B("icon"), CSS.BM("icon", "stacked"), className)}
+      className={CSS.cls(CSS.B("icon"), CSS.BM("icon", "stacked"), className)}
       viewBox={`0 0 ${BASE_SIZE} ${BASE_SIZE}`}
       height="1em"
       width="1em"
@@ -170,7 +170,7 @@ export const createComposite = (
     c = parseColor(c);
     return (
       <svg
-        className={CSS.cx(CSS.B("icon"), CSS.BM("icon", "composite"))}
+        className={CSS.cls(CSS.B("icon"), CSS.BM("icon", "composite"))}
         viewBox="0 0 24 24"
         height="1em"
         width="1em"

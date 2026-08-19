@@ -43,7 +43,7 @@ export const Status = ({
 
   return (
     <Button.Button
-      className={CSS.cx(CSS.B("task-status"), className)}
+      className={CSS.cls(CSS.B("task-status"), className)}
       el="div"
       variant="text"
       direction={expanded ? "y" : "x"}

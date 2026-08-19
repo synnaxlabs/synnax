@@ -25,7 +25,7 @@ export const Toolbar = ({ className, ...rest }: ToolbarProps): ReactElement => {
       background={1}
       justify="between"
       align="center"
-      className={CSS.cx(CSS.BE("view", "toolbar"), className)}
+      className={CSS.cls(CSS.BE("view", "toolbar"), className)}
       {...rest}
     />
   );

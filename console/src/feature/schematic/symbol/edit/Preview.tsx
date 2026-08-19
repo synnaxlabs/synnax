@@ -229,7 +229,7 @@ export const Preview = ({
       >
         <Flex.Box
           ref={themeContainerRef}
-          className={CSS.cx(
+          className={CSS.cls(
             CSS.B("schematic-preview-theme-container"),
             fileDropEnabled && CSS.M("hidden"),
           )}

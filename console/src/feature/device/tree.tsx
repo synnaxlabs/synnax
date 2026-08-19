@@ -107,7 +107,7 @@ const Content = ({ resource, className, icon: _icon, ...rest }: Tree.ContentProp
   const location =
     typeof resource.data?.location === "string" ? resource.data.location : "";
   return (
-    <PTree.Item className={CSS.cx(className, CSS.B("device-ontology-item"))} {...rest}>
+    <PTree.Item className={CSS.cls(className, CSS.B("device-ontology-item"))} {...rest}>
       <Flex.Box x grow align="center" className={CSS.B("name-location")}>
         {icon(resource)}
         <Text.MaybeEditable

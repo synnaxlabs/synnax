@@ -60,7 +60,7 @@ export const Actuator = ({
   return (
     <Toggle.Button
       ref={setContainer}
-      className={CSS.cx(
+      className={CSS.cls(
         CSS.BM("symbol", "custom"),
         CSS.B("custom-actuator"),
         orientation != null && CSS.loc(orientation),

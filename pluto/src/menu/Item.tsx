@@ -38,7 +38,7 @@ export const Item = ({
       overflow="nowrap"
       onClick={handleClick}
       variant="text"
-      className={CSS.cx(CSS.B("menu-item"), CSS.selected(_selected), className)}
+      className={CSS.cls(CSS.B("menu-item"), CSS.selected(_selected), className)}
       size={size}
       gap={gap}
       propagateClick

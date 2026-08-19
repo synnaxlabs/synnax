@@ -73,7 +73,7 @@ export const SingleTrigger = <K extends record.Key>({
     <Dialog.Trigger
       variant="outlined"
       gap="small"
-      className={CSS.cx(CSS.dropRegion(canDrop(dragging)))}
+      className={CSS.cls(CSS.dropRegion(canDrop(dragging)))}
       disabled={disabled}
       {...dropProps}
       {...rest}

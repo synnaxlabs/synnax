@@ -59,7 +59,7 @@ export const Tank = ({
       width,
       height,
       borderRadius: cssBorderRadius,
-      [CSS.var("symbol-color")]: symbolColorVar(colorVal),
+      [CSS.variable("symbol-color")]: symbolColorVar(colorVal),
       backgroundColor: backgroundCSS,
       borderWidth: strokeWidth,
     }),
@@ -67,7 +67,7 @@ export const Tank = ({
   );
   return (
     <Primitive.Div
-      className={CSS.cx(className, CSS.B("tank"), CSS.B("symbol-colored"))}
+      className={CSS.cls(className, CSS.B("tank"), CSS.B("symbol-colored"))}
       style={style}
     >
       <Handle.Boundary refreshDeps={refreshDeps} orientation="left">

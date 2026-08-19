@@ -78,6 +78,34 @@ def named_envelope_copy(path: str, name: str) -> Iterator[str]:
         yield tmp_path
 
 
+# A placeholder standing alone as a JSON value carries quotes that must go with
+# it ('"{{channel:x}}"' -> 1048581); one embedded in a string keeps its quotes
+# ('"y1---{{channel:x}}"' -> '"y1---1048581"'). Quoted first so the inline form
+# never strands a numeric key inside quotes.
+QUOTED_CHANNEL_PLACEHOLDER = re.compile(r'"\{\{channel:([^}"]+)\}\}"')
+INLINE_CHANNEL_PLACEHOLDER = re.compile(r"\{\{channel:([^}\"]+)\}\}")
+
+
+def resolve_channel_placeholders(client: sy.Synnax, text: str) -> str:
+    """Substitute ``{{channel:<name>}}`` placeholders with live channel keys.
+
+    Fixtures must not pin numeric channel keys: built-in channels shift keys
+    across Core versions as new ones are added.
+
+    :param client: The Synnax client to resolve names through.
+    :param text: Raw fixture JSON text.
+    :returns: The text with each placeholder replaced by the channel's key.
+    :raises QueryError: If a named channel does not exist.
+    """
+
+    def key(m: re.Match[str]) -> str:
+        return str(client.channels.retrieve(m.group(1)).key)
+
+    return INLINE_CHANNEL_PLACEHOLDER.sub(
+        key, QUOTED_CHANNEL_PLACEHOLDER.sub(key, text)
+    )
+
+
 def get_fixture_path(filename: str) -> str:
     """Get the full path for a test fixture file.
 

@@ -52,7 +52,7 @@ export const Primary = (): ReactElement => {
           <Project.Guard>
             <ProjectSideEffect />
             <div
-              className={CSS.cx(
+              className={CSS.cls(
                 CSS.BE("main", "workspace"),
                 fullWidthTop && CSS.M("full-width-top"),
               )}

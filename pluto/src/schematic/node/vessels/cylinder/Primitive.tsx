@@ -50,7 +50,7 @@ export const Cylinder = ({
   return (
     <Primitive.Div
       orientation={orientation}
-      className={CSS.cx(className, CSS.B("cylinder"))}
+      className={CSS.cls(className, CSS.B("cylinder"))}
     >
       <Primitive.SVG
         dimensions={dimensions}

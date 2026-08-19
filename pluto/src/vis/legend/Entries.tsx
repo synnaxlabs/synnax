@@ -85,7 +85,7 @@ const Entry = ({
   return (
     <Flex.Box
       align="center"
-      className={CSS.cx(CSS.B("legend-entry"), className)}
+      className={CSS.cls(CSS.B("legend-entry"), className)}
       gap="small"
       key={key}
       x
@@ -111,7 +111,7 @@ const Entry = ({
       </Flex.Box>
       {allowVisibleChange && onVisibleChange != null && (
         <Button.Button
-          className={CSS.cx(CSS.B("visible-toggle"), CSS.BM("btn", "glyph"))}
+          className={CSS.cls(CSS.B("visible-toggle"), CSS.BM("btn", "glyph"))}
           onClick={() => onVisibleChange(key, !visible)}
           onDoubleClick={stopPropagation}
           size="tiny"

@@ -89,7 +89,7 @@ const ListItem = ({
   const { name, timeRange, parent, labels } = item;
   return (
     <Base.ListItem
-      className={CSS.cx(CSS.BE("range", "list-item"), className)}
+      className={CSS.cls(CSS.BE("range", "list-item"), className)}
       itemKey={itemKey}
       justify="between"
       {...rest}

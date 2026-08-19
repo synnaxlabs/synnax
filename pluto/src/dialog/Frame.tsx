@@ -362,7 +362,7 @@ export const Frame = ({
           {...rest}
           {...{ [PORTAL_ID_ATTR]: id }}
           ref={combinedTargetRef}
-          className={CSS.cx(
+          className={CSS.cls(
             className,
             CSS.BE("dialog", "frame"),
             CSS.visible(visible),

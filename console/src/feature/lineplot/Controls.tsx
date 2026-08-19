@@ -73,7 +73,7 @@ export const Controls = memo(({ hasAnnotations }: ControlsProps): ReactElement =
 
   return (
     <Vis.Controls
-      className={CSS.cx(
+      className={CSS.cls(
         annotationsVisible &&
           hasAnnotations &&
           CSS.BM("controls", "annotations-visible"),
@@ -133,7 +133,7 @@ export const Controls = memo(({ hasAnnotations }: ControlsProps): ReactElement =
           onChange={handleHoldChange}
           tooltipLocation={location.BOTTOM_LEFT}
           size="small"
-          className={CSS.cx(hold && Vis.CONTROLS_PINNED_CLASS)}
+          className={CSS.cls(hold && Vis.CONTROLS_PINNED_CLASS)}
           tooltip={
             <Text.Text level="small" color={11}>
               {`${hold ? "Resume" : "Pause"} live plotting`}

@@ -414,7 +414,7 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
         >
           <List.Items<string, WriteField>
             full="y"
-            className={CSS.cx(menuProps.className, CSS.B("field-list-items"))}
+            className={CSS.cls(menuProps.className, CSS.B("field-list-items"))}
             onContextMenu={menuProps.open}
             emptyContent={EMPTY_CONTENT}
           >

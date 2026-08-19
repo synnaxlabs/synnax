@@ -24,7 +24,7 @@ export const Strainer = ({
   scale,
   ...rest
 }: StrainerProps): ReactElement => (
-  <Primitive.Div {...rest} className={CSS.cx(CSS.B("strainer"), className)}>
+  <Primitive.Div {...rest} className={CSS.cls(CSS.B("strainer"), className)}>
     <Handle.Linear orientation={orientation} left={6.06} right={93.04} />
     <Primitive.SVG
       dimensions={DIMENSIONS}

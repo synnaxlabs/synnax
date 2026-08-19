@@ -44,7 +44,7 @@ export const Header = ({
       location="top"
       size="6rem"
       bordered
-      className={CSS.cx(CSS.BE("modal", "header"), className)}
+      className={CSS.cls(CSS.BE("modal", "header"), className)}
       {...rest}
     >
       <Nav.Bar.Start>

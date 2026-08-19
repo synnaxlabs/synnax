@@ -24,7 +24,7 @@ export const Regulator = ({
   scale,
   ...rest
 }: Props): ReactElement => (
-  <Primitive.Div className={CSS.cx(className, CSS.B("regulator"))} {...rest}>
+  <Primitive.Div className={CSS.cls(className, CSS.B("regulator"))} {...rest}>
     <Handle.Boundary orientation={orientation}>
       <Handle.Handle
         location="left"

@@ -584,10 +584,10 @@ const EditorInternal = ({
       grow
       background={background}
       {...rest}
-      className={CSS.cx(className, CSS.B("editor"))}
+      className={CSS.cls(className, CSS.B("editor"))}
     >
       <Menu.ContextMenu
-        className={CSS.cx(CSS.BE("editor", "context-menu"), className)}
+        className={CSS.cls(CSS.BE("editor", "context-menu"), className)}
         menu={menuContent}
         {...menuProps}
       >

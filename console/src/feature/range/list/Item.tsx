@@ -60,7 +60,7 @@ const Base = ({
 
   return (
     <List.Item
-      className={CSS.cx(CSS.BE("range", "list-item"))}
+      className={CSS.cls(CSS.BE("range", "list-item"))}
       onSelect={handleSelect}
       justify="between"
       selected={selected}

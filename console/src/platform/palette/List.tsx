@@ -109,7 +109,7 @@ export const BaseList = <E extends record.Keyed<string>>({
       virtual
     >
       <Input.Text
-        className={CSS.cx(CSS.BE("palette", "input"))}
+        className={CSS.cls(CSS.BE("palette", "input"))}
         placeholder={inputPlaceholder}
         size="huge"
         flush

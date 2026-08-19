@@ -87,27 +87,27 @@ const Internal = ({
     <>
       <Button
         disabled={hideInner}
-        className={CSS.cx(CSS.dir("y"), hiddenInnerClass)}
+        className={CSS.cls(CSS.dir("y"), hiddenInnerClass)}
         selected={inner === "top"}
         onClick={handleChange({ inner: "top" })}
       />
       <Flex.Box x align="center" justify="center">
         <Button
           disabled={hideInner}
-          className={CSS.cx(hiddenInnerClass)}
+          className={CSS.cls(hiddenInnerClass)}
           selected={inner === "left"}
           onClick={handleChange({ inner: "left" })}
         />
         <Button
           disabled={hideInner}
-          className={CSS.cx(hiddenInnerClass)}
+          className={CSS.cls(hiddenInnerClass)}
           selected={inner === "right"}
           onClick={handleChange({ inner: "right" })}
         />
       </Flex.Box>
       <Button
         disabled={hideInner}
-        className={CSS.cx(CSS.dir("y"), hiddenInnerClass)}
+        className={CSS.cls(CSS.dir("y"), hiddenInnerClass)}
         selected={inner === "bottom"}
         onClick={handleChange({ inner: "bottom" })}
       />
@@ -115,7 +115,7 @@ const Internal = ({
   );
   return (
     <Flex.Box
-      className={CSS.cx(
+      className={CSS.cls(
         className,
         CSS.BE("select-orientation", "inner"),
         showOuterCenter && CSS.M("show-outer-center"),
@@ -138,7 +138,7 @@ export interface ButtonProps extends Omit<BaseButton.ButtonProps, "children"> {
 export const Button = ({ selected, className, ...rest }: ButtonProps): ReactElement => (
   <BaseButton.Button
     variant={selected ? "outlined" : "text"}
-    className={CSS.cx(
+    className={CSS.cls(
       className,
       CSS.BE("select-orientation", "btn"),
       CSS.selected(selected),

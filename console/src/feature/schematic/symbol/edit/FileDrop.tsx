@@ -92,7 +92,7 @@ export const FileDrop = ({
       align="center"
       justify="center"
       bordered
-      className={CSS.cx(
+      className={CSS.cls(
         CSS.B("file-drop"),
         CSS.B("schematic-file-drop"),
         draggingOver && CSS.M("dragging-over"),

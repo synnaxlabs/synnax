@@ -43,7 +43,7 @@ export const Button = ({
   onClickDelay: delay,
 }: ButtonProps): ReactElement => {
   const style = useMemo<CSSProperties>(
-    () => ({ [CSS.var("symbol-color")]: symbolColorVar(color) }),
+    () => ({ [CSS.variable("symbol-color")]: symbolColorVar(color) }),
     [color],
   );
   // The activation delay gates Base.Button's onClick, so single-shot actuation
@@ -60,7 +60,7 @@ export const Button = ({
     <Primitive.Div orientation={orientation}>
       <Base.Button
         variant="filled"
-        className={CSS.cx(CSS.B("symbol-colored"), CSS.B("symbol-button"))}
+        className={CSS.cls(CSS.B("symbol-colored"), CSS.B("symbol-button"))}
         style={style}
         {...handlers}
         size={size}

@@ -46,14 +46,14 @@ export const Select = ({
   );
   const matched = options.find((o) => o.key === value);
   const style = useMemo(
-    () => ({ [CSS.var("symbol-color")]: symbolColorVar(color) }),
+    () => ({ [CSS.variable("symbol-color")]: symbolColorVar(color) }),
     [color],
   );
   const triggerStyle = useMemo(() => ({ minWidth: inlineSize }), [inlineSize]);
   return (
     <Primitive.Div
       orientation={orientation}
-      className={CSS.cx(CSS.B("select-symbol"), CSS.B("symbol-colored"), className)}
+      className={CSS.cls(CSS.B("select-symbol"), CSS.B("symbol-colored"), className)}
       style={style}
     >
       <Handle.Boundary orientation={orientation}>

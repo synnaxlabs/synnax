@@ -103,7 +103,7 @@ const Base = <K extends record.Key>({
   return (
     <BaseDialog.Dialog
       {...rest}
-      className={CSS.cx(CSS.BE("select", "dialog"), className)}
+      className={CSS.cls(CSS.BE("select", "dialog"), className)}
       bordered={false}
     >
       {hasSearch && (

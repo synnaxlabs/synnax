@@ -164,7 +164,7 @@ export const Leaf = ({
   return (
     <Flex.Box
       ref={combinedRef}
-      className={CSS.cx(CSS.BE("mosaic", "leaf"), className)}
+      className={CSS.cls(CSS.BE("mosaic", "leaf"), className)}
       onDragLeave={handleDragLeave}
       empty
       {...haulProps}
@@ -173,7 +173,7 @@ export const Leaf = ({
       {children}
       {mask != null && (
         <div
-          className={CSS.cx(CSS.BE("mosaic", "mask"), CSS.BEM("mosaic", "mask", mask))}
+          className={CSS.cls(CSS.BE("mosaic", "mask"), CSS.BEM("mosaic", "mask", mask))}
         />
       )}
     </Flex.Box>

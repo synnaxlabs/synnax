@@ -92,7 +92,7 @@ const Splash = ({ status }: SplashProps): ReactElement => {
         align="center"
         justify="center"
         gap={8}
-        className={CSS.cx(CSS.BE("connection", "body"), revealed && CSS.M("revealed"))}
+        className={CSS.cls(CSS.BE("connection", "body"), revealed && CSS.M("revealed"))}
       >
         <Status.Orbital core={<PlatformShell.Mark>{core}</PlatformShell.Mark>} />
         {troubled ? (

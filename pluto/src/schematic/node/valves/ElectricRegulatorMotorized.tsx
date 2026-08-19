@@ -24,7 +24,7 @@ export const ElectricRegulatorMotorized = ({
   ...rest
 }: Props): ReactElement => (
   <Primitive.Div
-    className={CSS.cx(className, CSS.B("regulator-motorized"))}
+    className={CSS.cls(className, CSS.B("regulator-motorized"))}
     {...rest}
     orientation={orientation}
   >

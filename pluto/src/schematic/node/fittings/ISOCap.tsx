@@ -24,7 +24,7 @@ export const ISOCap = ({
   scale = 1,
   ...rest
 }: ISOCapProps): ReactElement => (
-  <Primitive.Div className={CSS.cx(CSS.B("cap"), className)} {...rest}>
+  <Primitive.Div className={CSS.cls(CSS.B("cap"), className)} {...rest}>
     <Handle.Boundary orientation={orientation}>
       <Handle.Handle
         location="left"

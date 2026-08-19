@@ -32,7 +32,7 @@ export const Close = ({
     sharp
     tabIndex={-1}
     reveal
-    className={CSS.cx(
+    className={CSS.cls(
       CSS.BM("btn", "close"),
       CSS.BM("btn", "glyph"),
       CSS.M("destructive"),

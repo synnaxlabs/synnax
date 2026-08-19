@@ -33,7 +33,7 @@ export const Light = ({
 }: RenderProps): ReactElement => (
   <Primitive.Div
     orientation={orientation}
-    className={CSS.cx(CSS.B("light"), enabled && CSS.M("enabled"), className)}
+    className={CSS.cls(CSS.B("light"), enabled && CSS.M("enabled"), className)}
   >
     <Handle.Rectangle
       orientation={orientation}

@@ -341,7 +341,7 @@ export const create = ({
     const syncZoomCSSVar = useCallback((zoom: number): void => {
       if (zoomRef.current === zoom) return;
       zoomRef.current = zoom;
-      triggerRef.current?.style.setProperty(CSS.var("diagram-zoom"), `${zoom}`);
+      triggerRef.current?.style.setProperty(CSS.variable("diagram-zoom"), `${zoom}`);
     }, []);
     syncZoomCSSVar(viewport.zoom);
 
@@ -561,7 +561,7 @@ export const create = ({
             {visible && isSized && (
               <ReactFlow
                 {...triggerProps}
-                className={CSS.cx(
+                className={CSS.cls(
                   className,
                   CSS.B("diagram"),
                   CSS.editable(editable),

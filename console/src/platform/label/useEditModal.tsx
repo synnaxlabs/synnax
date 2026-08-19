@@ -77,7 +77,7 @@ const LabelListItem = ({
   return (
     <List.Item
       ref={ref}
-      className={CSS.cx(
+      className={CSS.cls(
         CSS.BE("label", "list-item"),
         isCreate && CSS.M("create"),
         PCSS.visible(visible),

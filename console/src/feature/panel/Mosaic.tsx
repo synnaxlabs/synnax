@@ -208,7 +208,7 @@ const LiveContent = (): ReactElement => {
       y
       full
       empty
-      className={CSS.cx(CSS.B(caseconv.toKebab(tabType)), CSS.BE("panel", "tab"))}
+      className={CSS.cls(CSS.B(caseconv.toKebab(tabType)), CSS.BE("panel", "tab"))}
     >
       <Triggers.Scope active={triggersActive}>
         <Errors.SuspenseBoundary loading={loading} FallbackComponent={ContentFallback}>
@@ -330,7 +330,7 @@ const EmptyContent = ({ onFileDrop }: EmptyContentProps): ReactElement => {
       grow
       align="center"
       justify="center"
-      className={CSS.cx(
+      className={CSS.cls(
         CSS.B("mosaic"),
         CSS.BM("mosaic", "empty"),
         over && CSS.BM("mosaic", "drop-over"),

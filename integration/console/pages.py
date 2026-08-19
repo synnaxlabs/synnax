@@ -11,7 +11,6 @@ import json
 import os
 import random
 import re
-import shutil
 import tempfile
 from typing import Any, TypeVar
 
@@ -26,6 +25,7 @@ from console.page import ConsolePage, PageType
 from console.plot import Plot
 from console.project import ProjectClient
 from framework.run_dir import resolve_results_path
+from framework.utils import resolve_channel_placeholders
 
 T = TypeVar("T", bound=ConsolePage)
 
@@ -546,7 +546,10 @@ class PagesClient(ResourceClient):
         """
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_path = os.path.join(tmp_dir, f"{name}.json")
-            shutil.copyfile(json_path, tmp_path)
+            with open(json_path, "r", encoding="utf-8") as f:
+                text = resolve_channel_placeholders(self.client, f.read())
+            with open(tmp_path, "w", encoding="utf-8") as f:
+                f.write(text)
             self.layout.choose_import_file(tmp_path)
             self.layout.get_tab(name).wait_for(state="visible", timeout=10000)
             if not self.exists(name):

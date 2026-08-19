@@ -27,7 +27,7 @@ export const Centrifugal = ({
 }: CentrifugalProps): ReactElement => (
   <Toggle.Button
     {...rest}
-    className={CSS.cx(CSS.B("pump"), className)}
+    className={CSS.cls(CSS.B("pump"), className)}
     orientation={orientation}
   >
     <Handle.Rectangle

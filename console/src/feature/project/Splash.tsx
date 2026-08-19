@@ -87,14 +87,13 @@ export const Splash = (): ReactElement => {
         getItem={getItem}
         subscribe={subscribe}
         onFetchMore={fetchMore}
-        initialHover={0}
         enableTriggers={() => !getIsAnyModalOpen()}
       >
         <Flex.Box
           y
           grow
           empty
-          className={CSS.cx(CSS.BE("shell", "list"), CSS.BE("project-splash", "list"))}
+          className={CSS.cls(CSS.BE("shell", "list"), CSS.BE("project-splash", "list"))}
         >
           <Header.Header gap="small" x className={CSS.BE("project-splash", "header")}>
             <Header.Title level="h4" color={11}>

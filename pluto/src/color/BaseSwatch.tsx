@@ -79,12 +79,12 @@ export const BaseSwatch = ({
     startDrag([createHaulItem(color.hex(clr))]);
   }, [startDrag, clr]);
   const swatchStyle = useMemo(
-    () => ({ ...style, [CSS.var("swatch", "color")]: color.cssString(value) }),
+    () => ({ ...style, [CSS.variable("swatch", "color")]: color.cssString(value) }),
     [style, value],
   );
   return (
     <Button.Button
-      className={CSS.cx(
+      className={CSS.cls(
         CSS.B("color-swatch"),
         CSS.M(size),
         color.contrast(background, clr) > 1.5 &&

@@ -73,9 +73,9 @@ export const GradientPicker = ({
     onChange(prevValue.current.filter((s) => s.key !== key));
   };
   return (
-    <div className={CSS.cx(PICKER_CLS)}>
+    <div className={CSS.cls(PICKER_CLS)}>
       <div
-        className={CSS.cx(CSS.BE("gradient-picker", "bar"))}
+        className={CSS.cls(CSS.BE("gradient-picker", "bar"))}
         style={barStyle}
         onClick={(e) => {
           const x = stopPosition(e);
@@ -166,7 +166,7 @@ const StopSwatch = ({ stop, onChange, nextStop, onDelete, scale }: StopSwatchPro
   return (
     <Flex.Box
       ref={stopElRef}
-      className={CSS.cx(
+      className={CSS.cls(
         CSS.BE("gradient-picker", "stop"),
         switched && CSS.M("switched"),
       )}
@@ -177,7 +177,7 @@ const StopSwatch = ({ stop, onChange, nextStop, onDelete, scale }: StopSwatchPro
     >
       <Flex.Box
         y
-        className={CSS.cx(CSS.BE("gradient-picker", "drag-region"), Cursor.DRAG_CLASS)}
+        className={CSS.cls(CSS.BE("gradient-picker", "drag-region"), Cursor.DRAG_CLASS)}
         onPointerDown={onDragStart}
         empty
       >

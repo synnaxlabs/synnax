@@ -179,7 +179,7 @@ export const Text = ({
       x
       empty
       align="center"
-      className={CSS.cx(
+      className={CSS.cls(
         CSS.B("input"),
         CSS.M("focus-frozen"),
         flush && CSS.M("flush"),
@@ -216,7 +216,7 @@ export const Text = ({
     >
       {showPlaceholder && (
         <BaseText.Text
-          className={CSS.cx(
+          className={CSS.cls(
             CSS.visible(false),
             CSS.BE("input", "placeholder"),
             centerPlaceholder && CSS.M("centered"),

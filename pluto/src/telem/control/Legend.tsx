@@ -139,7 +139,7 @@ const LegendEntry = ({
   return (
     <Flex.Box
       align="center"
-      className={CSS.cx(CSS.B("legend-entry"))}
+      className={CSS.cls(CSS.B("legend-entry"))}
       gap="small"
       x
       grow

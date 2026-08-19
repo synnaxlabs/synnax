@@ -100,7 +100,7 @@ describe("wrapForm", () => {
     });
     await waitFor(() => expect(screen.getByText("child-form-body")).toBeTruthy());
     expect(findNameInput()).toBeTruthy();
-    expect(container.querySelector("[aria-label='pluto-icon--play']")).toBeTruthy();
+    expect(container.querySelector(".pluto-icon--play")).toBeTruthy();
   });
 
   it("should omit the controls when showControls is false", async () => {
@@ -112,7 +112,7 @@ describe("wrapForm", () => {
       taskKey: tsk.key,
     });
     await waitFor(() => expect(screen.getByText("child-form-body")).toBeTruthy());
-    expect(container.querySelector("[aria-label='pluto-icon--play']")).toBeNull();
+    expect(container.querySelector(".pluto-icon--play")).toBeNull();
   });
 
   it("should keep the controls on the driver status through an autosave", async () => {

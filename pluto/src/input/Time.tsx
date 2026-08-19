@@ -96,7 +96,7 @@ export const Time = ({
     <Text
       ref={ref}
       value={inputValue}
-      className={CSS.cx(CSS.B("input-time"), className)}
+      className={CSS.cls(CSS.B("input-time"), className)}
       type="time"
       step="1"
       onChange={handleChange}

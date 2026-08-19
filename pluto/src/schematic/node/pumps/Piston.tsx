@@ -26,7 +26,7 @@ export const Piston = ({
 }: Props): ReactElement => (
   <Toggle.Button
     {...rest}
-    className={CSS.cx(CSS.B("piston-pump"), className)}
+    className={CSS.cls(CSS.B("piston-pump"), className)}
     orientation={orientation}
   >
     <Handle.Rectangle
@@ -48,18 +48,18 @@ export const Piston = ({
         y1="2"
         x2="62"
         y2="32"
-        className={CSS.cx(CSS.M("detail"), className)}
+        className={CSS.cls(CSS.M("detail"), className)}
       />
       <Primitive.Line
         x1="32"
         y1="62"
         x2="62"
         y2="32"
-        className={CSS.cx(CSS.M("detail"), className)}
+        className={CSS.cls(CSS.M("detail"), className)}
       />
       <Primitive.Path
         d="M 23 32, h 16, m 0 -8, v 16"
-        className={CSS.cx(CSS.M("detail"), className)}
+        className={CSS.cls(CSS.M("detail"), className)}
         strokeLinecap="round"
       />
     </Primitive.SVG>

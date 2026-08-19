@@ -79,7 +79,7 @@ const createHandles = (
         background={2}
         bordered
         borderColor={6}
-        className={CSS.cx(
+        className={CSS.cls(
           CSS.BE("arc", "handles"),
           CSS.BEM("arc", "handles", location),
           center && CSS.BEM("arc", "handles", "center"),

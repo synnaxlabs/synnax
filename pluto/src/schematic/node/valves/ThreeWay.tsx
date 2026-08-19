@@ -25,7 +25,7 @@ export const ThreeWay = ({
 }: Props): ReactElement => (
   <Toggle.Button
     {...rest}
-    className={CSS.cx(CSS.B("three-way-valve"))}
+    className={CSS.cls(CSS.B("three-way-valve"))}
     orientation={orientation}
   >
     <Handle.Boundary orientation={orientation}>

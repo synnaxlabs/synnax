@@ -127,7 +127,7 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
     return (
       <>
         <Flex.Box
-          className={CSS.cx(
+          className={CSS.cls(
             className,
             CSS.B("axis"),
             CSS.B(cssClass),
@@ -141,7 +141,7 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
         >
           {showLabel && (
             <Text.MaybeEditable
-              className={CSS.cx(CSS.BE("axis", "label"), CSS.dir(labelDirection))}
+              className={CSS.cls(CSS.BE("axis", "label"), CSS.dir(labelDirection))}
               value={label}
               onChange={onLabelChange}
               level={labelLevel}

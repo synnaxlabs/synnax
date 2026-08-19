@@ -33,7 +33,7 @@ export const HelpText = ({
   ...rest
 }: HelpTextProps): ReactElement => (
   <Text.Text<"small">
-    className={CSS.cx(CSS.B("input-help-text"), className)}
+    className={CSS.cls(CSS.B("input-help-text"), className)}
     color={9}
     status={status.removeVariants(variant, "success")}
     level="small"

@@ -24,7 +24,7 @@ export const Filter = ({
   scale,
   ...rest
 }: FilterProps): ReactElement => (
-  <Primitive.Div className={CSS.cx(CSS.B("filter"), className)} {...rest}>
+  <Primitive.Div className={CSS.cls(CSS.B("filter"), className)} {...rest}>
     <Handle.Linear orientation={orientation} left={11.5385} right={88.4615} />
     <Primitive.SVG
       dimensions={DIMENSIONS}

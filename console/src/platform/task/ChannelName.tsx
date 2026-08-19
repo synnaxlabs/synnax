@@ -52,7 +52,7 @@ const Name = ({ channel, namePath, name, className, ...rest }: NameProps) => {
   );
   return (
     <Text.MaybeEditable
-      className={CSS.cx(className, CSS.BE("task", "channel-name"))}
+      className={CSS.cls(className, CSS.BE("task", "channel-name"))}
       level="small"
       value={name}
       onChange={handleRename}

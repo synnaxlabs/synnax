@@ -235,7 +235,7 @@ const Internal = ({
   if (!visible) return null;
   return createPortal(
     <Flex.Box
-      className={CSS.cx(CONTEXT_MENU_CLASS, CSS.bordered(), className)}
+      className={CSS.cls(CONTEXT_MENU_CLASS, CSS.bordered(), className)}
       ref={ref}
       role="menu"
       style={menuStyle}

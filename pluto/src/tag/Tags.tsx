@@ -23,7 +23,7 @@ export const Tags = ({
   ...rest
 }: TagsProps) => (
   <Button.Button
-    className={CSS.cx(CSS.B("tags"), className)}
+    className={CSS.cls(CSS.B("tags"), className)}
     el="div"
     variant={variant}
     size={size}

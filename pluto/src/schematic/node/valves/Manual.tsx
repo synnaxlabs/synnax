@@ -28,7 +28,7 @@ export const Manual = ({
   <Toggle.Button
     {...rest}
     orientation={orientation}
-    className={CSS.cx(CSS.B("manual-valve"), className)}
+    className={CSS.cls(CSS.B("manual-valve"), className)}
     enabled={enabled}
   >
     <Handle.Linear

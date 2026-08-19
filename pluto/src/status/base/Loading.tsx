@@ -32,7 +32,7 @@ export const Loading = ({
   <Flex.Box
     center
     grow
-    className={CSS.cx(CSS.BE("status", "loading"), className)}
+    className={CSS.cls(CSS.BE("status", "loading"), className)}
     {...rest}
   >
     {children ?? <Icon.Loading />}

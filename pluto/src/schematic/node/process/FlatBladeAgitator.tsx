@@ -24,7 +24,7 @@ export const FlatBladeAgitator = ({
   scale,
   ...rest
 }: Props): ReactElement => (
-  <Toggle.Button {...rest} className={CSS.cx(CSS.B("agitator"))}>
+  <Toggle.Button {...rest} className={CSS.cls(CSS.B("agitator"))}>
     <Handle.Boundary orientation={orientation}>
       <Handle.Handle
         location="top"

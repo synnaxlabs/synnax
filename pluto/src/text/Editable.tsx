@@ -206,7 +206,7 @@ export const Editable = ({
   return (
     <Text
       ref={combinedRef}
-      className={PCSS.cx(
+      className={PCSS.cls(
         className,
         PCSS.BM("text", "editable"),
         outline && PCSS.M("outline"),

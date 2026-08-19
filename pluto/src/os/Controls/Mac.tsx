@@ -89,7 +89,7 @@ export const MacOS = ({
   <Flex.Box
     gap={1.5}
     x
-    className={CSS.cx(
+    className={CSS.cls(
       CSS.B("macos-controls"),
       !focused && CSS.BM("macos-controls", "blurred"),
       className,
@@ -129,7 +129,7 @@ const TrafficLight = ({
   ...rest
 }: TrafficLightProps): ReactElement => (
   <button
-    className={CSS.cx(CSS.B("macos-control"), CSS.disabled(disabled), className)}
+    className={CSS.cls(CSS.B("macos-control"), CSS.disabled(disabled), className)}
     tabIndex={-1}
     disabled={disabled}
     {...rest}

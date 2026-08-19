@@ -65,7 +65,7 @@ const ArcModeSelectButton = ({
     <Button.Button
       y
       alignSelf="stretch"
-      className={CSS.cx(
+      className={CSS.cls(
         CSS.BE("arc-create-modal", "mode-select-button"),
         PCSS.selected(selected),
       )}

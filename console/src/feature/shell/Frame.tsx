@@ -32,7 +32,7 @@ export const Frame = ({
   connection,
   children,
 }: FrameProps): ReactElement => (
-  <Flex.Box y full empty className={CSS.cx(CSS.B("shell"), className)}>
+  <Flex.Box y full empty className={CSS.cls(CSS.B("shell"), className)}>
     <Nav connection={connection} />
     <Flex.Box
       y
@@ -49,7 +49,7 @@ export const Frame = ({
         <Flex.Box
           y
           empty
-          className={CSS.cx(CSS.BE("shell", "card"), CSS.BE("shell", "frost"))}
+          className={CSS.cls(CSS.BE("shell", "card"), CSS.BE("shell", "frost"))}
           grow={false}
         >
           {children}

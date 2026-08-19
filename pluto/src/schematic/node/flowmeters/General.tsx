@@ -24,7 +24,7 @@ export const General = ({
   scale = 1,
   ...rest
 }: Props) => (
-  <Primitive.Div {...rest} className={CSS.cx(CSS.B("flowmeter-general"), className)}>
+  <Primitive.Div {...rest} className={CSS.cls(CSS.B("flowmeter-general"), className)}>
     <Handle.Rectangle
       orientation={orientation}
       left={4}

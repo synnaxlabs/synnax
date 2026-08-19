@@ -45,7 +45,7 @@ export const Item = (props: ItemProps): ReactElement | null => {
   return (
     <List.Item<status.Key>
       {...props}
-      className={CSS.cx(CSS.BE("status", "list-item"))}
+      className={CSS.cls(CSS.BE("status", "list-item"))}
       justify="between"
       selected={selected}
     >

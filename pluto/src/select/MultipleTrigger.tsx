@@ -178,7 +178,7 @@ export const MultipleTrigger = <
         if (!showAddButton) toggle();
       }}
       {...dropProps}
-      className={CSS.cx(
+      className={CSS.cls(
         CSS.dropRegion(canDrop(dragging)),
         CSS.BE("dialog", "trigger"),
         CSS.BM("variant", variant),

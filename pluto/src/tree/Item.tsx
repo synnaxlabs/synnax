@@ -41,14 +41,14 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
   const { expanded, depth, hasChildren } = useContext("Tree.Item")[index];
   const itemStyle = useMemo(
     () => ({
-      [CSS.var("tree-item-offset")]: `${depth * offsetMultiplier + 1.5}rem`,
+      [CSS.variable("tree-item-offset")]: `${depth * offsetMultiplier + 1.5}rem`,
       ...style,
     }),
     [depth, offsetMultiplier, style],
   );
   return (
     <Select.ListItem
-      className={CSS.cx(
+      className={CSS.cls(
         CSS.BE("tree", "item"),
         depth !== 0 && CSS.M("show-rules"),
         useMargin && CSS.M("margin"),

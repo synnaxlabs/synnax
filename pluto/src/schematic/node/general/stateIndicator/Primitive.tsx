@@ -55,7 +55,7 @@ export const StateIndicator = ({
   const label = matched != null ? matched.name || `Option ${matched.value}` : "Unknown";
   const style = useMemo<CSSProperties>(
     () => ({
-      [CSS.var("symbol-color")]: symbolColorVar(colorVal),
+      [CSS.variable("symbol-color")]: symbolColorVar(colorVal),
       backgroundColor,
       minWidth: inlineSize,
     }),
@@ -63,7 +63,7 @@ export const StateIndicator = ({
   );
   return (
     <Primitive.Div
-      className={CSS.cx(CSS.B("state-indicator"), CSS.B("symbol-colored"), className)}
+      className={CSS.cls(CSS.B("state-indicator"), CSS.B("symbol-colored"), className)}
       style={style}
     >
       <Handle.Rectangle

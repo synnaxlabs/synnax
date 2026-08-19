@@ -144,7 +144,7 @@ export const Fallback = ({
               level={multiline ? "small" : "h5"}
               variant={multiline ? "code" : undefined}
               color={10}
-              className={CSS.cx(
+              className={CSS.cls(
                 CSS.BE("error-fallback", "message"),
                 multiline && CSS.BEM("error-fallback", "message", "multiline"),
               )}

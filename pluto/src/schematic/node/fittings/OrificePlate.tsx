@@ -25,7 +25,7 @@ export const OrificePlate = ({
   scale,
   ...rest
 }: OrificePlateProps): ReactElement => (
-  <Primitive.Div className={CSS.cx(CSS.B("orifice_plate"), className)} {...rest}>
+  <Primitive.Div className={CSS.cls(CSS.B("orifice_plate"), className)} {...rest}>
     <Handle.Linear orientation={orientation} left={3.125} right={96.875} />
     <Primitive.SVG
       color={color}

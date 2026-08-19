@@ -28,7 +28,7 @@ export const Controls = memo((): ReactElement => {
         value={hold}
         onChange={handleHoldChange}
         size="small"
-        className={CSS.cx(hold && Vis.CONTROLS_PINNED_CLASS)}
+        className={CSS.cls(hold && Vis.CONTROLS_PINNED_CLASS)}
         tooltipLocation={location.BOTTOM_LEFT}
         tooltip={
           <Text.Text level="small" color={11}>

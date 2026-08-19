@@ -27,7 +27,7 @@ export const Cavity = ({
 }: CavityProps): ReactElement => (
   <Toggle.Button
     {...rest}
-    className={CSS.cx(CSS.B("cavity-pump"), className)}
+    className={CSS.cls(CSS.B("cavity-pump"), className)}
     orientation={orientation}
   >
     <Handle.Rectangle
@@ -49,20 +49,20 @@ export const Cavity = ({
         y1="2"
         x2="62"
         y2="32"
-        className={CSS.cx(CSS.M("detail"), className)}
+        className={CSS.cls(CSS.M("detail"), className)}
       />
       <Primitive.Line
         x1="32"
         y1="62"
         x2="62"
         y2="32"
-        className={CSS.cx(CSS.M("detail"), className)}
+        className={CSS.cls(CSS.M("detail"), className)}
       />
       <Primitive.Path
         d="M 17 26 C 17 20.6667 23 20.6667 23 26 C 23 31.3333 29 31.3333 29 26 C 29 20.6667 35 20.6667 35 26"
         strokeLinecap="round"
         transform="translate(6, 6)"
-        className={CSS.cx(CSS.M("detail"), className)}
+        className={CSS.cls(CSS.M("detail"), className)}
       />
     </Primitive.SVG>
   </Toggle.Button>

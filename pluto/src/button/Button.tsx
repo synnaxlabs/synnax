@@ -192,15 +192,15 @@ const Base = <E extends ElementType = "button">({
     if (hasCustomColor)
       s = {
         ...s,
-        [CSS.var("btn-color")]: color.rgbString(res.data),
-        [CSS.var("btn-text-color")]: color.rgbCSS(
+        [CSS.variable("btn-color")]: color.rgbString(res.data),
+        [CSS.variable("btn-text-color")]: color.rgbCSS(
           color.pickByContrast(res.data, theme.colors.text, theme.colors.textInverted),
         ),
       };
     if (!parsedDelay.isZero)
       s = {
         ...s,
-        [CSS.var("btn-delay")]: `${parsedDelay.seconds.toString()}s`,
+        [CSS.variable("btn-delay")]: `${parsedDelay.seconds.toString()}s`,
       };
     return s;
   }, [style, hasCustomColor, colorVal, theme, parsedDelay]);
@@ -220,7 +220,7 @@ const Base = <E extends ElementType = "button">({
       el={el}
       defaultEl={defaultEl}
       direction="x"
-      className={CSS.cx(
+      className={CSS.cls(
         CSS.B(MODULE_CLASS),
         preventClick === true && CSS.BM(MODULE_CLASS, "prevent-click"),
         !preview && CSS.disabled(isDisabled),

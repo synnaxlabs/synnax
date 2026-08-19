@@ -53,7 +53,7 @@ export const Tag = ({
   return (
     <Button.Button
       el="div"
-      className={CSS.cx(
+      className={CSS.cls(
         className,
         CSS.B("tag"),
         CSS.M("reveals"),

@@ -30,7 +30,7 @@ export const Divider = ({
   if (padded === true) padded = "center";
   return (
     <Flex.Box
-      className={CSS.cx(
+      className={CSS.cls(
         CSS.B("divider"),
         padded !== false && CSS.BM("divider", "padded"),
         typeof padded === "string" && CSS.loc(padded),

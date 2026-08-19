@@ -160,7 +160,7 @@ export const Text = <E extends Generic.ElementType = "p">({
       direction="x"
       el={parseElement<E>(level, el, defaultEl, variant, href)}
       style={formattedStyle}
-      className={CSS.cx(
+      className={CSS.cls(
         CSS.B("text"),
         variant != null && CSS.BM("text", variant),
         CSS.BM("text", level),

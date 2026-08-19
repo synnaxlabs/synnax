@@ -20,7 +20,7 @@ from console.log import Log
 from console.plot import Plot
 from console.schematic.schematic import Schematic
 from console.table import Table
-from framework.utils import get_fixture_path
+from framework.utils import get_fixture_path, resolve_channel_placeholders
 
 EXPECTED_PAGES = ["Metrics Plot", "Metrics Schematic", "Metrics Log", "Metrics Table"]
 
@@ -164,7 +164,7 @@ class Project(ConsoleCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_path = os.path.join(tmp_dir, f"{file_name}.json")
             with open(tmp_path, "w", encoding="utf-8") as f:
-                json.dump(data, f)
+                f.write(resolve_channel_placeholders(self.client, json.dumps(data)))
             with self.console.layout.page.expect_file_chooser() as fc_info:
                 self.console.layout.command_palette("Import components")
             fc_info.value.set_files(tmp_path)

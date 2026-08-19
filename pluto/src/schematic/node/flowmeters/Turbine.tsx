@@ -25,7 +25,7 @@ export const Turbine = ({
   scale = 1,
   ...rest
 }: Props): ReactElement => (
-  <Primitive.Div {...rest} className={CSS.cx(CSS.B("flowmeter-Turbine"), className)}>
+  <Primitive.Div {...rest} className={CSS.cls(CSS.B("flowmeter-Turbine"), className)}>
     <Handle.Rectangle
       orientation={orientation}
       left={4}
