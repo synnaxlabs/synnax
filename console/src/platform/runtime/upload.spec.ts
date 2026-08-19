@@ -7,16 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-vi.mock("@/platform/runtime/requestStreams", () => ({
-  supportsRequestStreams: vi.fn(() => true),
-}));
+import { describe, expect, it } from "vitest";
 
 import { Runtime } from "@/platform/runtime";
-import { supportsRequestStreams } from "@/platform/runtime/requestStreams";
-
-const supportsMock = vi.mocked(supportsRequestStreams);
 
 const streamOf = (...chunks: string[]): ReadableStream<Uint8Array> =>
   new ReadableStream({
@@ -27,11 +20,6 @@ const streamOf = (...chunks: string[]): ReadableStream<Uint8Array> =>
   });
 
 describe("Runtime.uploadBody", () => {
-  beforeEach(() => {
-    supportsMock.mockReset();
-    supportsMock.mockReturnValue(true);
-  });
-
   it("passes bytes through untouched", async () => {
     const bytes = new TextEncoder().encode("payload");
     await expect(Runtime.uploadBody(bytes)).resolves.toBe(bytes);
@@ -42,20 +30,9 @@ describe("Runtime.uploadBody", () => {
     await expect(Runtime.uploadBody(blob)).resolves.toBe(blob);
   });
 
-  it("passes a stream through where fetch can stream request bodies", async () => {
-    const stream = streamOf("payload");
-    await expect(Runtime.uploadBody(stream)).resolves.toBe(stream);
-  });
-
-  it("buffers a stream into a single Blob where fetch cannot stream", async () => {
-    supportsMock.mockReturnValue(false);
+  it("buffers a stream into a single Blob", async () => {
     const body = await Runtime.uploadBody(streamOf("pay", "load"));
     expect(body).toBeInstanceOf(Blob);
     expect(await (body as Blob).text()).toBe("payload");
-  });
-
-  it("never probes the engine for non-stream bodies", async () => {
-    await Runtime.uploadBody(new TextEncoder().encode("payload"));
-    expect(supportsMock).not.toHaveBeenCalled();
   });
 });

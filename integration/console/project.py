@@ -89,20 +89,23 @@ class ProjectClient(ResourceClient):
     def import_from_directory(self, directory_path: str) -> None:
         """Import a project via the real "Import project" command flow.
 
-        Opens the command palette, fulfills the resulting directory chooser with
-        ``directory_path`` (Playwright walks it and uploads each file with its
-        webkitRelativePath set), then waits for the project selector to display the
-        imported project's name. A bundle directory holds a ``manifest.json`` whose
-        ``name`` names the project; a legacy directory holds ``LAYOUT.json`` and names
-        the project after its basename.
+        The command opens the import modal; its "Select folder" button opens a
+        directory chooser fulfilled with ``directory_path`` (Playwright walks it
+        and uploads each file with its webkitRelativePath set). The Core owns the
+        bundle: a ``manifest.json`` ``name`` names the project; a legacy bundle
+        names it after the folder. Waits for the project selector to display the
+        imported project's name.
         """
         expected_name = os.path.basename(directory_path.rstrip(os.sep))
         manifest_path = os.path.join(directory_path, "manifest.json")
         if os.path.isfile(manifest_path):
             with open(manifest_path, "r", encoding="utf-8") as f:
                 expected_name = json.load(f).get("name") or expected_name
+        self.layout.command_palette("Import project")
         with self.layout.page.expect_file_chooser() as fc_info:
-            self.layout.command_palette("Import project")
+            self.layout.page.get_by_role("button", name="Select folder").click(
+                timeout=5000
+            )
         fc_info.value.set_files(directory_path)
         self.wait_for_active(expected_name)
         self._active_project = expected_name

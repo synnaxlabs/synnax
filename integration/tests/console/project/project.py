@@ -13,8 +13,6 @@ import shutil
 import tempfile
 from typing import Any
 
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
-
 from console.case import ConsoleCase
 from console.log import Log
 from console.plot import Plot
@@ -35,11 +33,20 @@ class Project(ConsoleCase):
         self._cleanup_projects = []
 
     def teardown(self) -> None:
+        # Server-side delete: fast, and immune to UI state a failure leaves
+        # behind (an open modal blocks the context-menu delete, stranding a
+        # duplicate-name project for the retry to trip over).
         for name in self._cleanup_projects:
             try:
-                self.console.project.delete(name)
-            except PlaywrightTimeoutError:
-                pass
+                keys = [
+                    p.key
+                    for p in self.client.projects.retrieve(search_term=name)
+                    if p.name == name
+                ]
+                if len(keys) > 0:
+                    self.client.projects.delete(keys)
+            except Exception as e:
+                self.log(f"Failed to delete project {name}: {e}")
         super().teardown()
 
     def run(self) -> None:

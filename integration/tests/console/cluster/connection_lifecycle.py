@@ -9,6 +9,7 @@
 
 """Warm Core outage and recovery through a severable TCP proxy."""
 
+import synnax as sy
 from console.case import ConsoleCase
 from console.schematic.schematic import Schematic
 from framework.proxy import SeverableProxy
@@ -108,12 +109,12 @@ class ConnectionLifecycle(ConsoleCase):
 
         assert self.recon_channel is not None
         # The channel was created while the link was down; the open toolbar
-        # must adopt it purely through the reconnect refetch.
-        channel_item = self.page.locator("div[id^='channel:']").filter(
-            has_text=self.recon_channel
-        )
-        channel_item.first.wait_for(state="visible", timeout=15000)
+        # must adopt it purely through the reconnect refetch. The tree is
+        # windowed, so sweep it through the helper instead of expecting the
+        # item's row in the viewport.
+        assert console.channels.wait_for_channels(
+            self.recon_channel, timeout=15 * sy.TimeSpan.SECOND
+        ), f"{self.recon_channel} should appear via the reconnect refetch"
         assert console.layout.get_tab(self.page_name).is_visible(), (
             "the workspace should survive the full outage cycle"
         )
-        console.layout.close_left_toolbar()

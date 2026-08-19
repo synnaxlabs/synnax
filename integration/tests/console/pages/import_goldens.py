@@ -289,10 +289,11 @@ class ImportGoldens(ConsoleCase):
         for relative_path, error_text in SYMBOL_REJECTIONS:
             self.log(f"Importing symbol rejection golden: {relative_path}")
             toolbar.import_symbol(get_core_fixture_path(relative_path))
-            if not self.console.notifications.wait_for("Failed to import symbol"):
+            # A per-file failure notification names the file, not the kind.
+            file_name = os.path.basename(relative_path)
+            if not self.console.notifications.wait_for(f"Failed to import {file_name}"):
                 raise AssertionError(
-                    f"Import of {os.path.basename(relative_path)} did not "
-                    "surface a failure notification"
+                    f"Import of {file_name} did not surface a failure notification"
                 )
             if not self.console.notifications.wait_for(error_text):
                 raise AssertionError(
