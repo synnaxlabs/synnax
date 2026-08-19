@@ -76,7 +76,7 @@ export const { use: useGroupID } = Flux.createRetrieve<
   RetrieveGroupQuery,
   ontology.ID | undefined
 >({
-  name: "Project Group",
+  name: "project group",
   retrieve: async ({ client }) => {
     const res = await client.ontology.children.retrieve({ ids: ontology.ROOT_ID });
     return res.find((r) => r.name === "Projects")?.id;
@@ -161,9 +161,8 @@ const findProjectAncestor = async (
 };
 
 /**
- * Retrieves the sibling resources sharing the queried resource's project,
- * excluding the resource itself. Returns an empty list when the resource has no
- * project ancestor.
+ * Retrieves the sibling resources sharing the queried resource's project, excluding the
+ * resource itself. Returns an empty list when the resource has no project ancestor.
  */
 export const retrieveChildren = async (
   client: Synnax,

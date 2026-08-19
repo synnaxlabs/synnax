@@ -16,5 +16,5 @@ export interface DivProps
   extends Omit<ComponentPropsWithRef<"div">, "color" | "onResize">, OrientableProps {}
 
 export const Div = ({ className, ...rest }: DivProps): ReactElement => (
-  <div className={CSS(CSS.B("symbol-primitive"), className)} {...rest} />
+  <div className={CSS.cls(CSS.B("symbol-primitive"), className)} {...rest} />
 );

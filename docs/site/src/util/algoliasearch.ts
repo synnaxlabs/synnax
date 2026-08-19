@@ -24,13 +24,9 @@ const client = algoliasearch(
   process.env.DOCS_ALGOLIA_WRITE_API_KEY ?? "",
 );
 
-// 1. Build a dataset
-
 const purgeImports = (content: string): string =>
   content
-    // Remove import statements
     .replace(/^import\s+.*?;\s*$/gm, "")
-    // Remove export statements
     .replace(/^export\s+.*?;\s*$/gm, "")
     // Remove JSX components (self-closing and with children)
     .replace(/<[A-Z][\w.]*[^>]*\/>/g, "")
@@ -68,10 +64,8 @@ const data = await Promise.all(
     }),
 );
 
-// delete all objects
 await client.clearObjects({ indexName: "docs_site" });
 
-// 2. Send the dataset in JSON format
 const res = await client.saveObjects({ indexName: "docs_site", objects: data });
 
 console.log(`Successfully updated ${res.length} pages`);

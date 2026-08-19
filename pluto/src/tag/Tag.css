@@ -13,7 +13,6 @@
     border: var(--pluto-border-l6);
     border-radius: var(--pluto-border-radius-small);
     width: fit-content;
-    will-change: transform;
     background: var(--pluto-gray-l0);
     max-width: 200px;
     overflow: hidden;

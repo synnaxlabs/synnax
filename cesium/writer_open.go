@@ -339,24 +339,19 @@ func (db *DB) newStreamWriter(
 	}
 
 	if len(controlUpdate.Transfers) > 0 {
-		if err = db.updateControlDigests(ctx, controlUpdate); err != nil {
-			return nil, err
-		}
+		db.controlUpdates.Notify(ctx, controlUpdate)
 	}
 
 	w = &streamWriter{
 		WriterConfig: cfg,
 		internal:     make([]*idxWriter, 0, len(domainWriters)),
 		relay:        db.relay.inlet,
-		virtual: &virtualWriter{
-			internal:  virtualWriters,
-			digestKey: db.mu.digests.key,
-		},
-		keyToIdx: keyToIdx,
-		updateDBControl: func(ctx context.Context, update ControlUpdate) error {
+		virtual:      &virtualWriter{internal: virtualWriters},
+		keyToIdx:     keyToIdx,
+		updateDBControl: func(ctx context.Context, update ControlUpdate) {
 			db.mu.RLock()
 			defer db.mu.RUnlock()
-			return db.updateControlDigests(ctx, update)
+			db.controlUpdates.Notify(ctx, update)
 		},
 	}
 	for _, idx := range domainWriters {

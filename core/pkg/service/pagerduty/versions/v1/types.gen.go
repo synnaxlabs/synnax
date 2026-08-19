@@ -11,14 +11,17 @@
 
 package v1
 
-import config "github.com/synnaxlabs/synnax/pkg/service/task/config/versions/v0"
+import (
+	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v1"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
+)
 
 // Alert maps a Synnax status to a PagerDuty event routing rule.
 type Alert struct {
 	// Key uniquely identifies the alert within the task.
 	Key string `json:"key" msgpack:"key"`
 	// Status is the key of the Synnax status the alert watches.
-	Status string `json:"status" msgpack:"status"`
+	Status status.Key `json:"status" msgpack:"status"`
 	// TreatErrorAsCritical maps the error variant to PagerDuty critical instead of
 	// error.
 	TreatErrorAsCritical bool `json:"treat_error_as_critical" msgpack:"treat_error_as_critical"`
@@ -35,7 +38,7 @@ type Alert struct {
 // TaskConfig configures a PagerDuty alert task, which forwards Synnax status changes to
 // PagerDuty as events.
 type TaskConfig struct {
-	config.BaseStart
+	task.StartConfig
 	// RoutingKey is the PagerDuty Events API v2 routing key.
 	RoutingKey string `json:"routing_key" msgpack:"routing_key"`
 	// Alerts are the alerts the task evaluates.

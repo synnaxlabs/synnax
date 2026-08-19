@@ -56,9 +56,10 @@ export const Window = memo((): ReactElement | null => {
     <Flex.Box
       full
       empty
-      className={CSS(
+      className={CSS.cls(
         CSS.B("main"),
         CSS.M(`os-${os.toLowerCase()}`),
+        isMain && CSS.M("primary"),
         menuProps.className,
       )}
       onDragOver={handleDragOver}

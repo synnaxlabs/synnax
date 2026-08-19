@@ -99,6 +99,7 @@ main() {
         "$ROOT_DIR/alamos/py"
         "$ROOT_DIR/freighter/py"
         "$ROOT_DIR/client/py"
+        "$ROOT_DIR/x/py"
     )
 
     for d in "${PYTHON_DIRS[@]}"; do
@@ -111,6 +112,7 @@ main() {
 
     local NODE_DIRS=(
         "$ROOT_DIR/alamos/ts"
+        "$ROOT_DIR/arc/ts"
         "$ROOT_DIR/client/ts"
         "$ROOT_DIR/drift"
         "$ROOT_DIR/freighter/ts"

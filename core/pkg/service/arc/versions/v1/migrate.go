@@ -12,16 +12,10 @@ package v1
 import (
 	"context"
 
-	v0 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/migrate"
 )
-
-// migrateArc lifts a v0 Arc into the v1 shape, dropping the persisted program status.
-func migrateArc(ctx context.Context, old v0.Arc) (Arc, error) {
-	return autoMigrateArc(ctx, old)
-}
 
 // renameSetStatus rewrites every deprecated set_status flow node in a to status.set.
 func renameSetStatus(_ context.Context, a Arc) (Arc, error) {
@@ -52,7 +46,7 @@ func legacyStatusConfigString(config msgpack.EncodedJSON, key, def string) strin
 // dropProgramStatusMigration lifts stored arcs from v0 to v1, dropping the persisted
 // program status.
 var dropProgramStatusMigration = gorp.NewEntryMigration(
-	"v54_drop_program_status", migrateArc,
+	"v54_drop_program_status", autoMigrateArc,
 )
 
 // renameSetStatusMigration renames legacy set_status graph nodes onto the current node

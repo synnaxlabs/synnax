@@ -16,6 +16,7 @@ import {
   INITIAL_WINDOW_STATE,
   MAIN_WINDOW,
   PRERENDER_WINDOW,
+  resetTransientState,
   type WindowProps,
   type WindowStage,
   type WindowState,
@@ -190,8 +191,13 @@ const assertLabel =
     f(s, a as PayloadAction<T & LabelPayload>);
   };
 
+/** The keys of {@link WindowProps} whose value is a boolean. */
+type BooleanProp = {
+  [K in keyof WindowProps]-?: NonNullable<WindowProps[K]> extends boolean ? K : never;
+}[keyof WindowProps];
+
 const assignBool = <T extends MaybeKeyPayload & MaybeBooleanPayload>(
-  prop: keyof WindowProps,
+  prop: BooleanProp,
   def_: boolean = false,
 ): ((s: SliceState, a: PayloadAction<T>) => void) =>
   assertLabel<T>((s, a) => {
@@ -200,7 +206,7 @@ const assignBool = <T extends MaybeKeyPayload & MaybeBooleanPayload>(
     if (win == null) return;
     if (a.payload.value != null) v = a.payload.value;
     else {
-      const existing = win[prop] as boolean | undefined;
+      const existing = win[prop];
       if (existing != null) v = !existing;
     }
     s.windows[a.payload.label] = { ...win, [prop]: v };
@@ -227,10 +233,17 @@ const maybePositionInCenter = (
   position?: xy.XY,
   size?: dimensions.Dimensions,
 ): xy.XY | undefined => {
-  if (mainWin.position != null && mainWin.size != null && position == null)
+  // Without the new window's size there is nothing to center, so leave placement to
+  // the runtime.
+  if (
+    mainWin.position != null &&
+    mainWin.size != null &&
+    position == null &&
+    size != null
+  )
     return box.topLeft(
       box.positionInCenter(
-        box.construct(xy.ZERO, size ?? xy.ZERO),
+        box.construct(xy.ZERO, size),
         box.construct(mainWin.position, mainWin.size),
       ),
     );
@@ -249,9 +262,12 @@ const reduceCreateWindow = (
   group(s.config.debug, "reducer create window");
 
   const mainWin = s.windows.main;
-  payload.position = maybePositionInCenter(mainWin, payload.position, payload.size);
+  payload.position = maybePositionInCenter(
+    mainWin,
+    payload.position,
+    payload.size ?? s.config.defaultWindowProps.size,
+  );
 
-  // If the window already exists, un-minimize and focus it
   if (key in s.keyLabels) {
     log(s.config.debug, "window already exists, un-minimize and focus it");
     const existingLabel = s.keyLabels[payload.key];
@@ -270,7 +286,6 @@ const reduceCreateWindow = (
   const ordinal = s.nextOrdinal;
   s.nextOrdinal += 1;
 
-  // If we have an available pre-rendered window, use it.
   if (availableLabel != null) {
     log(s.config.debug, "using available pre-rendered window");
     s.windows[availableLabel] = {
@@ -285,7 +300,6 @@ const reduceCreateWindow = (
     s.labelKeys[availableLabel] = payload.key;
     s.keyLabels[payload.key] = availableLabel;
   } else {
-    // If we don't, just create the window directly.
     log(s.config.debug, "creating new window");
     s.windows[label] = {
       ...s.config.defaultWindowProps,
@@ -418,8 +432,13 @@ export const reduceInternalSetInitial = (
   s: SliceState,
   a: PayloadAction<InternalSetInitialPayload>,
 ): void => {
-  s.config = { ...s.config, ...a.payload };
-  s.label = a.payload.label;
+  // configureStore passes every config key, so an option the caller omitted arrives
+  // as an explicit undefined that a spread would write over the default.
+  const { label, enablePrerender, defaultWindowProps, debug } = a.payload;
+  if (enablePrerender != null) s.config.enablePrerender = enablePrerender;
+  if (defaultWindowProps != null) s.config.defaultWindowProps = defaultWindowProps;
+  if (debug != null) s.config.debug = debug;
+  s.label = label;
   if (s.label === MAIN_WINDOW && s.config.enablePrerender) {
     const prerenderLabel = id.create();
     s.windows[prerenderLabel] = {
@@ -515,7 +534,7 @@ export const restoreWindows = (current: SliceState, stored: SliceState): SliceSt
   });
   Object.entries(stored.windows).forEach(([label, win]) => {
     if (label === MAIN_WINDOW || !win.reserved) return;
-    windows[label] = { ...win, focusCount: 0, centerCount: 0, processCount: 0 };
+    windows[label] = resetTransientState(win);
   });
   const labelKeys: Record<string, string> = {};
   const keyLabels: Record<string, string> = {};

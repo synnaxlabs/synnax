@@ -52,7 +52,7 @@ export interface Client {
 /** Reported by remote sources created while the cluster is disconnected. */
 export const DISCONNECTED_STATUS: cstatus.Crude = {
   variant: "warning",
-  message: "cluster disconnected",
+  message: "Core disconnected",
 };
 
 export const streamChannelValuePropsZ = z.object({
@@ -94,13 +94,10 @@ export class StreamChannelValue
 
   cleanup(): void {
     this.generation++;
-    // Start off by stopping telemetry streaming.
     this.removeStreamHandler?.();
     // Set valid to false so if we read again, we know to update the buffer.
     this.valid = false;
-    // Release the leading buffer.
     this.leadingBuffer?.release();
-    // Clear out references.
     this.leadingBuffer = null;
     this.removeStreamHandler = null;
   }
@@ -114,6 +111,7 @@ export class StreamChannelValue
     return this.leadingBuffer.at(-1, true) as number;
   }
 
+  /** Never rejects: a failure invalidates the read and reaches onStatusChange. */
   private async read(): Promise<void> {
     const generation = this.generation;
     this.valid = true;
@@ -149,7 +147,7 @@ export class StreamChannelValue
       if (this.leadingBuffer != null && this.leadingBuffer.length > 0) this.notify();
     } catch (e) {
       this.valid = false;
-      this.onStatusChange?.(cstatus.fromException(e, "failed to stream channel value"));
+      this.onStatusChange?.(cstatus.fromException(e, "Failed to stream channel value"));
     }
   }
 }
@@ -183,7 +181,6 @@ const channelDataSourcePropsZ = z.object({
 
 export type ChannelDataProps = z.input<typeof channelDataSourcePropsZ>;
 
-// ChannelData reads a fixed time range of data from a particular channel or its index.
 export class ChannelData
   extends AbstractSource<typeof channelDataSourcePropsZ>
   implements SeriesSource
@@ -215,16 +212,20 @@ export class ChannelData
     const { channel, timeRange } = this.props;
     // If either of these conditions is true, leave the telem invalid
     // and return an empty array.
-    if (timeRange.span.isZero || channel === 0) return [bounds.ZERO, this.data];
+    if (timeRange.span.isZero || channel === 0) return [bounds.INVALID, this.data];
     if (!this.valid) void this.read();
     const { channel: ch, data } = this;
-    if (ch == null) return [bounds.ZERO, this.data];
+    if (ch == null) return [bounds.INVALID, this.data];
     let b = data.bounds;
-    if (ch.dataType.equals(DataType.TIMESTAMP))
+    if (ch.dataType.equals(DataType.TIMESTAMP)) {
       b = bounds.min([b, timeRange.numericBounds]);
+      // A reversed intersection means the data lies outside the requested range.
+      if (b.lower > b.upper) b = bounds.INVALID;
+    }
     return [b, data];
   }
 
+  /** Never rejects: a failure invalidates the read and reaches onStatusChange. */
   private async read(): Promise<void> {
     const generation = this.generation;
     this.valid = true;
@@ -245,7 +246,7 @@ export class ChannelData
       this.notify();
     } catch (e) {
       this.valid = false;
-      this.onStatusChange?.(cstatus.fromException(e, "failed to read channel data"));
+      this.onStatusChange?.(cstatus.fromException(e, "Failed to read channel data"));
     }
   }
 }
@@ -289,11 +290,11 @@ export class StreamChannelData
 
   value(): [bounds.Bounds, MultiSeries] {
     const { channel, timeSpan } = this.props;
-    if (channel === 0) return [bounds.ZERO, this.data];
+    if (channel === 0) return [bounds.INVALID, this.data];
     if (!this.valid) void this.read();
     const { data, channel: ch } = this;
     const now = this.now();
-    if (ch != null && ch.dataType.isVariable) return [bounds.ZERO, this.data];
+    if (ch != null && ch.dataType.isVariable) return [bounds.INVALID, this.data];
     const filtered = data.series
       .filter((d) => d.timeRange.end.after(now.sub(timeSpan)))
       .map((d) => d.bounds);
@@ -303,6 +304,7 @@ export class StreamChannelData
     return [b, this.data];
   }
 
+  /** Never rejects: a failure invalidates the read and reaches onStatusChange. */
   private async read(): Promise<void> {
     const generation = this.generation;
     this.valid = true;
@@ -348,7 +350,7 @@ export class StreamChannelData
       this.notify();
     } catch (e) {
       this.valid = false;
-      this.onStatusChange?.(cstatus.fromException(e, "failed to stream channel data"));
+      this.onStatusChange?.(cstatus.fromException(e, "Failed to stream channel data"));
     }
   }
 
@@ -430,6 +432,7 @@ export class StreamChannelStringValue
     return this.latest;
   }
 
+  /** Never rejects: a failure invalidates the read and reaches onStatusChange. */
   private async read(): Promise<void> {
     const generation = this.generation;
     this.valid = true;
@@ -466,7 +469,7 @@ export class StreamChannelStringValue
     } catch (e) {
       this.valid = false;
       this.onStatusChange?.(
-        cstatus.fromException(e, "failed to stream channel string value"),
+        cstatus.fromException(e, "Failed to stream channel string value"),
       );
     }
   }

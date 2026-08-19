@@ -94,7 +94,6 @@ class LocalStorageKV implements SugaredKV {
 }
 
 /**
- * Open a new SugaredKV instance.
  * @param dir - The directory to store the key-value store in.
  * @returns A new SugaredKV instance.
  */

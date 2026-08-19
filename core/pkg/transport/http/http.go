@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/api/connectivity"
+	"github.com/synnaxlabs/synnax/pkg/api/control"
 	"github.com/synnaxlabs/synnax/pkg/api/device"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
@@ -129,6 +130,12 @@ func Bind(layer *api.Layer, router *http.Router) {
 		FrameDelete: http.NewUnaryServer[framer.DeleteRequest, types.Nil](
 			router,
 			"/api/v1/frame/delete",
+		),
+
+		// CONTROL
+		ControlRetrieve: http.NewUnaryServer[control.RetrieveRequest, control.RetrieveResponse](
+			router,
+			"/api/v1/control/retrieve",
 		),
 
 		// ONTOLOGY
@@ -246,6 +253,16 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/project/set-layout",
 		),
+		ProjectExport: http.NewUnaryServer[project.ExportRequest, project.ExportResponse](
+			router,
+			"/api/v1/project/export",
+			http.WithResponseEncoders(zip.Codec),
+		),
+		ProjectImport: http.NewUnaryServer[project.ImportRequest, project.ImportResponse](
+			router,
+			"/api/v1/project/import",
+			http.WithRequestDecoders(zip.Codec),
+		),
 
 		// SCHEMATIC
 		SchematicCreate: http.NewUnaryServer[schematic.CreateRequest, schematic.CreateResponse](
@@ -293,7 +310,12 @@ func Bind(layer *api.Layer, router *http.Router) {
 		SchematicSymbolExportGroup: http.NewUnaryServer[symbol.ExportGroupRequest, symbol.ExportGroupResponse](
 			router,
 			"/api/v1/schematic/symbol/group/export",
-			http.WithResponseEncoders(zip.Encoder),
+			http.WithResponseEncoders(zip.Codec),
+		),
+		SchematicSymbolImportGroup: http.NewUnaryServer[symbol.ImportGroupRequest, symbol.ImportGroupResponse](
+			router,
+			"/api/v1/schematic/symbol/group/import",
+			http.WithRequestDecoders(zip.Codec),
 		),
 		SchematicSymbolDeleteGroup: http.NewUnaryServer[symbol.DeleteGroupRequest, types.Nil](
 			router,
@@ -541,7 +563,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 		ImExExport: http.NewUnaryServer[imex.ExportRequest, imex.ExportResponse](
 			router,
 			"/api/v1/imex/export",
-			http.WithResponseEncoders(json.Codec),
+			http.WithResponseEncoders(imex.JSONCodec),
 		),
 	})
 }

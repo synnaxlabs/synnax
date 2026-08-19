@@ -328,7 +328,7 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
   const path = `config.endpoints.${epKey}.fields`;
   const { data, push, remove } = PForm.useFieldList<string, WriteField>(path);
   const [selected, setSelected] = useState<string[]>([]);
-  const isSnapshot = Task.useIsSnapshot();
+  const isPreview = Task.useIsPreview();
 
   const handleAddStatic = useCallback(() => {
     const field: WriteField = {
@@ -382,7 +382,7 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
         <Header.Title weight={500} color={9}>
           Additional fields
         </Header.Title>
-        {!isSnapshot && (
+        {!isPreview && (
           <Header.Actions>
             <Button.Button
               onClick={handleAddStatic}
@@ -414,7 +414,7 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
         >
           <List.Items<string, WriteField>
             full="y"
-            className={CSS(menuProps.className, CSS.B("field-list-items"))}
+            className={CSS.cls(menuProps.className, CSS.B("field-list-items"))}
             onContextMenu={menuProps.open}
             emptyContent={EMPTY_CONTENT}
           >
@@ -426,7 +426,7 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
   );
 };
 
-const EMPTY_CONTENT = <Empty.Action message="No additional fields." action="" />;
+const EMPTY_CONTENT = <Empty.Action message="No additional fields" />;
 
 const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
   const path = `config.endpoints.${epKey}`;
@@ -477,7 +477,7 @@ const Form: FC = () => {
     "config.endpoints",
   );
   const ctx = PForm.useContext();
-  const isSnapshot = Task.useIsSnapshot();
+  const isPreview = Task.useIsPreview();
 
   const handleAddEndpoint = useCallback(() => {
     const ep: WriteEndpoint = { ...writeEndpointZ.parse({}), key: id.create() };
@@ -535,7 +535,7 @@ const Form: FC = () => {
           <Header.Title weight={500} color={10}>
             Endpoints
           </Header.Title>
-          {!isSnapshot && (
+          {!isPreview && (
             <Header.Actions>
               <Button.Button
                 onClick={handleAddEndpoint}
@@ -564,9 +564,9 @@ const Form: FC = () => {
               onContextMenu={menuProps.open}
               emptyContent={
                 <Empty.Action
-                  message="No endpoints."
-                  action="Add an endpoint"
-                  onClick={isSnapshot ? undefined : handleAddEndpoint}
+                  message="No endpoints"
+                  action={isPreview ? undefined : "Add endpoint"}
+                  onClick={handleAddEndpoint}
                 />
               }
             >
@@ -603,7 +603,7 @@ const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({
 }) => {
   const cfg = WRITE_SCHEMAS.config.parse(config ?? {});
   if (deviceKey != null) cfg.device = deviceKey;
-  return { name: "HTTP Write Task", type: WRITE_TYPE, config: cfg };
+  return { name: "HTTP write task", type: WRITE_TYPE, config: cfg };
 };
 
 const retrieveChannel = async (
@@ -704,7 +704,7 @@ export const useCreateWrite = Task.createUseCreate({
 
 export const WriteSelectable = Selector.createSelectable({
   type: WRITE_TYPE,
-  title: "HTTP Write Task",
+  title: "HTTP write task",
   icon: <Icon.Logo.HTTP />,
   useOnSelect: useCreateWrite,
 });

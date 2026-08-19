@@ -27,21 +27,23 @@ export const CoefficientsField = ({
   label,
   ...rest
 }: CoefficientsFieldProps): React.ReactElement => {
-  const { value, onChange } = Form.useField<number[]>(path);
+  const { value, onChange, preview } = Form.useField<number[]>(path);
   const handleChange = (index: number, next: number) =>
     onChange(value.map((coeff, i) => (i === index ? next : coeff)));
   return (
     <Flex.Box y gap="small" className={CSS.B("coefficients")} {...rest}>
       <Text.Text level="small" justify="between" color={9}>
         {label}
-        <Button.Button
-          onClick={() => onChange([...value, 0])}
-          variant="filled"
-          tooltip={`Add ${label.toLowerCase()}`}
-          size="small"
-        >
-          <Icon.Add />
-        </Button.Button>
+        {!preview && (
+          <Button.Button
+            onClick={() => onChange([...value, 0])}
+            variant="filled"
+            tooltip={`Add ${label.toLowerCase()}`}
+            size="small"
+          >
+            <Icon.Add />
+          </Button.Button>
+        )}
       </Text.Text>
       <Flex.Box y gap="small">
         {value.map((coeff, i) => (
@@ -50,11 +52,12 @@ export const CoefficientsField = ({
             key={i}
             align="center"
             gap="small"
-            className={CSS(CSS.B("coefficient-row"), PCSS.M("reveals"))}
+            className={CSS.cls(CSS.B("coefficient-row"), PCSS.M("reveals"))}
           >
             <Input.Numeric
               value={coeff}
               onChange={(next) => handleChange(i, next)}
+              preview={preview}
               startContent={
                 <Text.Text level="small" color={9}>
                   c{i}
@@ -62,15 +65,17 @@ export const CoefficientsField = ({
               }
               grow
             />
-            <Button.Button
-              variant="text"
-              reveal
-              size="small"
-              tooltip={`Remove c${i}`}
-              onClick={() => onChange(value.filter((_, j) => j !== i))}
-            >
-              <Icon.Close />
-            </Button.Button>
+            {!preview && (
+              <Button.Button
+                variant="text"
+                reveal
+                size="small"
+                tooltip={`Remove c${i}`}
+                onClick={() => onChange(value.filter((_, j) => j !== i))}
+              >
+                <Icon.Close />
+              </Button.Button>
+            )}
           </Flex.Box>
         ))}
       </Flex.Box>

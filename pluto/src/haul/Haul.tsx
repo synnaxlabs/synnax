@@ -299,9 +299,25 @@ export const useDrag = ({ type, key }: UseDragProps): UseDragReturn => {
   const source: Item = useMemo(() => ({ key, type }), [key, type]);
   const ctx = useContext();
   if (ctx == null) return { startDrag: () => {}, onDragEnd: () => {} };
-  const { start, end } = ctx;
+  const { start, end, stateRef } = ctx;
   return {
-    startDrag: useCallback((items, f) => start(source, items, f), [start, source]),
+    startDrag: useCallback(
+      (items, f) => {
+        start(source, items, f);
+        // A source that unmounts mid-drag fires `dragend` on a detached node, which
+        // never reaches here. Mouse events resume only once a drag is over, so the
+        // first one ends a drag its own source cannot.
+        document.addEventListener(
+          "mousemove",
+          (e) => {
+            if (stateRef.current.items.length === 0) return;
+            end(xy.construct({ x: e.screenX, y: e.screenY }));
+          },
+          { once: true },
+        );
+      },
+      [start, end, stateRef, source],
+    ),
     onDragEnd: (e: DragEvent | MouseEvent) =>
       end(xy.construct({ x: e.screenX, y: e.screenY })),
   };

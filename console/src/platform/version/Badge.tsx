@@ -50,7 +50,7 @@ export const Badge = (): ReactElement | null => {
         weight={500}
       >
         {updateAvailable ? <Icon.Download /> : <Icon.Warning />}
-        {updateAvailable ? "Update Available" : "Version Mismatch"}
+        {updateAvailable ? "Update available" : "Version mismatch"}
       </Button.Button>
     </Tooltip.Dialog>
   );

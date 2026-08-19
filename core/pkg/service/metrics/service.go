@@ -151,7 +151,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 	idx := channel.Channel{
 		Name:     namePrefix + "time",
-		DataType: telem.TimeStampT,
+		DataType: telem.TimestampT,
 		IsIndex:  true,
 	}
 	var metricsChannels []channel.Channel

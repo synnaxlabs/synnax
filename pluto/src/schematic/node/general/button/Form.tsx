@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
+import { zod } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
@@ -27,8 +28,13 @@ type ButtonTelemFormT = Omit<BaseButton.UseProps, "aetherKey"> & {
 
 export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } = Base.useField<ButtonTelemFormT>(path);
-  const sinkP = telem.sinkPipelinePropsZ.parse(value.sink?.props);
-  const sink = control.setChannelValuePropsZ.parse(sinkP.segments.setter.props);
+  const mode = Base.useFieldValue<BaseButton.Mode>("mode", { optional: true });
+  const sinkP = zod.parse(telem.sinkPipelinePropsZ, value.sink?.props, {
+    label: "sink pipeline",
+  });
+  const sink = zod.parse(control.setChannelValuePropsZ, sinkP.segments.setter.props, {
+    label: "setter sink",
+  });
 
   const handleSinkChange = (v: channel.Key): void => {
     v ??= 0;
@@ -67,7 +73,9 @@ export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
         <Input.Item label="Channel" grow padHelpText={false}>
           <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
         </Input.Item>
-        <Form.ActivationDelayField />
+        {/* The delay gates single-shot actuation (fire, pulse). Momentary's
+            hold is the actuation, so the field is hidden there. */}
+        {mode !== "momentary" && <Form.ActivationDelayField />}
         <Form.ControlChipField />
       </Flex.Box>
       <Base.Field<BaseButton.Mode> path="mode" label="Mode" optional>

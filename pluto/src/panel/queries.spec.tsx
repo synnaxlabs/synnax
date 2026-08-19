@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label, type ontology, panel, project, query } from "@synnaxlabs/client";
+import { type ontology, panel, project, query, ranger } from "@synnaxlabs/client";
 import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
-import { uuid } from "@synnaxlabs/x";
+import { TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import {
   act,
   render,
@@ -156,9 +156,8 @@ describe("Panel queries", () => {
   });
 
   describe("useEnsure", () => {
-    // Single-hook bootstrap component so the suspending useEnsure is
-    // not followed by additional hooks; that shape trips a React 19
-    // concurrent-replay warning.
+    // Single-hook bootstrap component so the suspending useEnsure is not followed by
+    // additional hooks; that shape trips a React 19 concurrent-replay warning.
     it("populates the cache so downstream selectors resolve", async () => {
       const created = await createPanel();
       const Bootstrap = (): ReactElement => {
@@ -1512,12 +1511,12 @@ describe("Panel queries", () => {
   });
 
   describe("useCloseResourceTabs", () => {
-    const createLabel = async (): Promise<ontology.ID> => {
-      const created = await client.labels.create({
-        name: `label-${uuid.create()}`,
-        color: "#000000",
+    const createRange = async (): Promise<ontology.ID> => {
+      const created = await client.ranges.create({
+        name: `range-${uuid.create()}`,
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
       });
-      return label.ontologyID(created.key);
+      return ranger.ontologyID(created.key);
     };
 
     const insert = async (
@@ -1536,7 +1535,7 @@ describe("Panel queries", () => {
 
     it("closes tabs for the given resources and leaves others open", async () => {
       const created = await createPanel();
-      const [doomed, survivor] = [await createLabel(), await createLabel()];
+      const [doomed, survivor] = [await createRange(), await createRange()];
       const [doomedTab, survivorTab] = [
         newResourceTab(doomed),
         newResourceTab(survivor),
@@ -1563,7 +1562,7 @@ describe("Panel queries", () => {
 
     it("leaves tabs open when a resource is deleted remotely", async () => {
       const created = await createPanel();
-      const resource = await createLabel();
+      const resource = await createRange();
       const tab = newResourceTab(resource);
       const { result } = await loadAndUse(created.key, () => ({
         retrieve: Panel.use({ key: created.key }),
@@ -1583,7 +1582,7 @@ describe("Panel queries", () => {
         { wrapper },
       );
       await act(async () => {
-        await writer.labels.delete(resource.key);
+        await writer.ranges.delete(resource.key);
       });
 
       await waitFor(() => expect(deleted).toContain(resource.key));
@@ -1592,12 +1591,12 @@ describe("Panel queries", () => {
   });
 
   describe("useMoveTabToPanel", () => {
-    const createLabel = async (): Promise<ontology.ID> => {
-      const created = await client.labels.create({
-        name: `label-${uuid.create()}`,
-        color: "#000000",
+    const createRange = async (): Promise<ontology.ID> => {
+      const created = await client.ranges.create({
+        name: `range-${uuid.create()}`,
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
       });
-      return label.ontologyID(created.key);
+      return ranger.ontologyID(created.key);
     };
 
     const loadPair = async (source: panel.Key, destination: panel.Key) => {
@@ -1651,7 +1650,7 @@ describe("Panel queries", () => {
     // the caller must select is the one that was already open, not the one it sent.
     it("hands back the open tab when the destination already shows the resource", async () => {
       const [source, destination] = [await createPanel(), await createPanel()];
-      const resource = await createLabel();
+      const resource = await createRange();
       const [sent, open] = [newResourceTab(resource), newResourceTab(resource)];
       const { result } = await loadPair(source.key, destination.key);
       await insert(result.current.dispatch, source.key, sent);

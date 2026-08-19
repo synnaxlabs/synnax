@@ -381,9 +381,7 @@ describe("distribute", () => {
         ),
       ];
       const outputs = distributeNodes(inputs, "x");
-      // Total space: 400 - 100 = 300
-      // Middle width: 100
-      // Gap size: (300 - 100) / 2 = 100
+      // Total space: 400 - 100 = 300 Middle width: 100 Gap size: (300 - 100) / 2 = 100
       expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
         { x: 0, y: 0 }, // First stays at 0
         { x: 200, y: 0 }, // Middle: 100 (first right) + 100 (gap) = 200
@@ -410,9 +408,7 @@ describe("distribute", () => {
         ),
       ];
       const outputs = distributeNodes(inputs, "x");
-      // Total space: 300 - 50 = 250
-      // Middle width: 100
-      // Gap size: (250 - 100) / 2 = 75
+      // Total space: 300 - 50 = 250 Middle width: 100 Gap size: (250 - 100) / 2 = 75
       expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
         { x: 0, y: 0 }, // First stays
         { x: 125, y: 0 }, // 50 (first right) + 75 (gap) = 125
@@ -444,9 +440,8 @@ describe("distribute", () => {
         ),
       ];
       const outputs = distributeNodes(inputs, "x");
-      // Total space: 600 - 100 = 500
-      // Middle widths: 100 + 100 = 200
-      // Gap size: (500 - 200) / 3 = 100
+      // Total space: 600 - 100 = 500 Middle widths: 100 + 100 = 200 Gap size: (500 -
+      // 200) / 3 = 100
       expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
         { x: 0, y: 0 }, // First stays
         { x: 200, y: 0 }, // 100 + 100 = 200
@@ -497,10 +492,8 @@ describe("distribute", () => {
         ),
       ];
       const outputs = distributeNodes(inputs, "x");
-      // Total space: 100 - 100 = 0
-      // Middle width: 100
-      // Gap: (0 - 100) / 2 = -50
-      // Middle node: 100 (first right) + (-50) = 50
+      // Total space: 100 - 100 = 0 Middle width: 100 Gap: (0 - 100) / 2 = -50 Middle
+      // node: 100 (first right) + (-50) = 50
       expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
         { x: 0, y: 0 }, // First stays at 0
         { x: 50, y: 0 }, // 100 (first right) + (-50 gap) = 50
@@ -528,9 +521,8 @@ describe("distribute", () => {
         ), // Rightmost
       ];
       const outputs = distributeNodes(inputs, "x");
-      // Sorted by x: n2 (x=0), n1 (x=50), n3 (x=100)
-      // Total space: 100 - 100 = 0, Gap: (0 - 100) / 2 = -50
-      // Middle (n1) at: 100 + (-50) = 50
+      // Sorted by x: n2 (x=0), n1 (x=50), n3 (x=100) Total space: 100 - 100 = 0, Gap:
+      // (0 - 100) / 2 = -50 Middle (n1) at: 100 + (-50) = 50
       const n1 = outputs.find((o) => o.key === "n1")!;
       const n2 = outputs.find((o) => o.key === "n2")!;
       const n3 = outputs.find((o) => o.key === "n3")!;
@@ -561,9 +553,7 @@ describe("distribute", () => {
         ),
       ];
       const outputs = distributeNodes(inputs, "y");
-      // Total space: 400 - 100 = 300
-      // Middle height: 100
-      // Gap size: (300 - 100) / 2 = 100
+      // Total space: 400 - 100 = 300 Middle height: 100 Gap size: (300 - 100) / 2 = 100
       expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
         { x: 0, y: 0 }, // First stays at 0
         { x: 0, y: 200 }, // Middle: 100 (first bottom) + 100 (gap) = 200
@@ -590,9 +580,7 @@ describe("distribute", () => {
         ),
       ];
       const outputs = distributeNodes(inputs, "y");
-      // Total space: 300 - 50 = 250
-      // Middle height: 100
-      // Gap size: (250 - 100) / 2 = 75
+      // Total space: 300 - 50 = 250 Middle height: 100 Gap size: (250 - 100) / 2 = 75
       expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
         { x: 0, y: 0 }, // First stays
         { x: 0, y: 125 }, // 50 (first bottom) + 75 (gap) = 125
@@ -642,10 +630,8 @@ describe("distribute", () => {
         ),
       ];
       const outputs = distributeNodes(inputs, "y");
-      // Total space: 100 - 100 = 0
-      // Middle height: 100
-      // Gap: (0 - 100) / 2 = -50
-      // Middle node: 100 (first bottom) + (-50) = 50
+      // Total space: 100 - 100 = 0 Middle height: 100 Gap: (0 - 100) / 2 = -50 Middle
+      // node: 100 (first bottom) + (-50) = 50
       expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
         { x: 0, y: 0 }, // First stays at 0
         { x: 0, y: 50 }, // 100 (first bottom) + (-50 gap) = 50
@@ -768,8 +754,7 @@ describe("rotateNodesAroundCenter", () => {
     ];
     const outputs = rotateNodesAroundCenter(inputs, "counterclockwise");
 
-    // Group center: x=150, y=50
-    // n1 center (50,50) relative to group center: (-100, 0)
+    // Group center: x=150, y=50 n1 center (50,50) relative to group center: (-100, 0)
     // After 90° CCW: (0, 100) absolute: (150, 150), top-left: (100, 100)
     expect(box.topLeft(outputs[0].box)).toEqual({ x: 100, y: 100 });
 

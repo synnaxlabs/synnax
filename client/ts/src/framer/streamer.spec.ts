@@ -275,13 +275,11 @@ describe("Streamer", () => {
         });
         try {
           const startTime = Date.now();
-          // Write data rapidly
           for (let i = 0; i < 10; i++) {
             await writer.write(ch.key, new Float64Array([i]));
             await sleep.sleep(TimeSpan.milliseconds(5));
           }
 
-          // Read frames - should be throttled
           const receivedFrames: Frame[] = [];
           const timeout = Date.now() + 500;
           while (Date.now() < timeout)
@@ -340,7 +338,6 @@ describe("Streamer", () => {
         try {
           await writer.write(ch.key, new Float64Array([1, 2, 3, 4, 5, 6]));
           const d = await streamer.read();
-          // Should be downsampled to [1, 3, 5] and throttled
           expect(Array.from(d.get(ch.key))).toEqual([1, 3, 5]);
         } finally {
           await writer.close();
@@ -351,14 +348,12 @@ describe("Streamer", () => {
 
     describe("calculations", () => {
       test("basic calculated channel streaming", async () => {
-        // Create a timestamp index channel
         const timeChannel = await client.channels.create({
           name: id.create(),
           isIndex: true,
           dataType: DataType.TIMESTAMP,
         });
 
-        // Create source channels with the timestamp index
         const [channelA, channelB] = await client.channels.create([
           {
             name: id.create(),
@@ -372,7 +367,6 @@ describe("Streamer", () => {
           },
         ]);
 
-        // Create calculated channel that adds the two source channels
         const calcChannel = await client.channels.create({
           name: id.create(),
           dataType: DataType.FLOAT64,
@@ -380,11 +374,9 @@ describe("Streamer", () => {
           expression: `return ${channelA.name} + ${channelB.name}`,
         });
 
-        // Set up streamer to listen for calculated results
         const streamer = await client.openStreamer(calcChannel.key);
         await sleep.sleep(TimeSpan.milliseconds(10));
 
-        // Write test data
         const startTime = TimeStamp.now();
         const writer = await client.openWriter({
           start: startTime,
@@ -399,10 +391,8 @@ describe("Streamer", () => {
             [channelB.key]: new Float64Array([2.5]),
           });
 
-          // Read from streamer
           const frame = await streamer.read();
 
-          // Verify calculated results
           const calcData = Array.from(frame.get(calcChannel.key));
           expect(calcData).toEqual([5.0]);
         } finally {
@@ -412,21 +402,18 @@ describe("Streamer", () => {
       });
 
       test("calculated channel with constant", async () => {
-        // Create an index channel for timestamps
         const timeChannel = await client.channels.create({
           name: id.create(),
           isIndex: true,
           dataType: DataType.TIMESTAMP,
         });
 
-        // Create base channel with index
         const baseChannel = await client.channels.create({
           name: id.create(),
           dataType: DataType.FLOAT64,
           index: timeChannel.key,
         });
 
-        // Create calculated channel that adds 5
         const calcChannel = await client.channels.create({
           name: id.create(),
           dataType: DataType.FLOAT64,
@@ -465,21 +452,18 @@ describe("Streamer", () => {
       });
 
       test("calculated channel with multiple operations", async () => {
-        // Create timestamp channel
         const timeChannel = await client.channels.create({
           name: id.create(),
           isIndex: true,
           dataType: DataType.TIMESTAMP,
         });
 
-        // Create source channels
         const names = [id.create(), id.create()];
         const [channelA, channelB] = await client.channels.create([
           { name: names[0], dataType: DataType.FLOAT64, index: timeChannel.key },
           { name: names[1], dataType: DataType.FLOAT64, index: timeChannel.key },
         ]);
 
-        // Create calculated channel with multiple operations
         const calcChannel = await client.channels.create({
           name: id.create(),
           dataType: DataType.FLOAT64,
@@ -963,6 +947,77 @@ describe("Streamer", () => {
 
       await hardened.update([2, 3]);
       expect(openerMock).toHaveBeenCalledTimes(2);
+    });
+
+    it("should not leak a stream when an update races a reconnect", async () => {
+      const streamer1 = new MockStreamer();
+      const fr1 = new Frame({ 1: new Series([1]) });
+      streamer1.responses = [
+        [fr1, null],
+        [fr1, new Unreachable({ message: "down" })],
+      ];
+      const streamer2 = new MockStreamer();
+      streamer2.read = async () => await new Promise<never>(() => {});
+      const pendingOpens: ((s: Streamer) => void)[] = [];
+      let opens = 0;
+      const onDrop = vi.fn();
+      const hardened = await HardenedStreamer.open(
+        async () => {
+          opens++;
+          if (opens === 1) return streamer1;
+          return await new Promise<Streamer>((resolve) => pendingOpens.push(resolve));
+        },
+        { channels: [1] },
+        { maxInterval: TimeSpan.milliseconds(5), jitter: 0 },
+        undefined,
+        onDrop,
+      );
+      expect(await hardened.read()).toEqual(fr1);
+      // Age the stream past stableAfter so the reconnect skips the backoff sleep.
+      await sleep.sleep(TimeSpan.milliseconds(10));
+      void hardened.read().catch(() => {});
+      await expect.poll(() => opens).toBe(2);
+      const updateP = hardened.update([1, 2]);
+      await sleep.sleep(TimeSpan.milliseconds(20));
+      expect(opens).toBe(2);
+      pendingOpens[0](streamer2);
+      await updateP;
+      expect(streamer2.updateMock).toHaveBeenCalledWith([1, 2]);
+      expect(opens).toBe(2);
+      expect(onDrop).toHaveBeenCalledTimes(1);
+      hardened.close();
+      expect(streamer1.closeMock).toHaveBeenCalled();
+      expect(streamer2.closeMock).toHaveBeenCalled();
+    });
+
+    it("should reject every joiner when a shared reconnect fails", async () => {
+      const streamer1 = new MockStreamer();
+      const fr1 = new Frame({ 1: new Series([1]) });
+      streamer1.responses = [
+        [fr1, null],
+        [fr1, new Unreachable({ message: "down" })],
+      ];
+      const pendingOpens: ((e: Error) => void)[] = [];
+      let opens = 0;
+      const hardened = await HardenedStreamer.open(
+        async () => {
+          opens++;
+          if (opens === 1) return streamer1;
+          return await new Promise<Streamer>((_, reject) => pendingOpens.push(reject));
+        },
+        { channels: [1] },
+        { maxInterval: TimeSpan.milliseconds(5), jitter: 0 },
+      );
+      expect(await hardened.read()).toEqual(fr1);
+      await sleep.sleep(TimeSpan.milliseconds(10));
+      const readP = hardened.read().catch((e: unknown) => e);
+      await expect.poll(() => opens).toBe(2);
+      const updateP = hardened.update([1, 2]).catch((e: unknown) => e);
+      const denied = new AccessDeniedError("no permission to stream");
+      pendingOpens[0](denied);
+      expect(await readP).toBe(denied);
+      expect(await updateP).toBe(denied);
+      hardened.close();
     });
   });
 

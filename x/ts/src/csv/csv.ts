@@ -10,8 +10,6 @@
 /**
  * formatValue correctly formats the given value into a string that is safe to use as a
  * field in a CSV file.
- *
- * @param value - The value to format.
  * @returns The string to use as a field in a CSV file.
  */
 export const formatValue = (value: unknown): string => {

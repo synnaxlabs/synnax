@@ -13,6 +13,7 @@ package panel
 
 import "github.com/synnaxlabs/synnax/pkg/service/panel/versions"
 
+// TabKey uniquely identifies a tab within a panel.
 type TabKey = versions.TabKey
 
 // TabBase carries the identity shared by every tab variant.
@@ -74,5 +75,5 @@ type SplitNode = versions.SplitNode
 // Key is a unique identifier for a panel, represented as a UUID.
 type Key = versions.Key
 
-// Panel is a project-owned tab holding a tree of visualization tabs.
+// Panel is a project-owned tree of visualization tabs.
 type Panel = versions.Panel

@@ -194,7 +194,7 @@ const FieldList = ({ epKey }: FieldListProps) => {
   const { data: allData, push, remove } = PForm.useFieldList<string, ReadField>(path);
   const [selected, setSelected] = useState<string[]>([]);
   const ctx = PForm.useContext();
-  const isSnapshot = Task.useIsSnapshot();
+  const isPreview = Task.useIsPreview();
 
   const allFields = PForm.useFieldValue<ReadField[]>(path);
   const indexKeys = new Set(allFields.filter(isTimingField).map((f) => f.key));
@@ -254,7 +254,7 @@ const FieldList = ({ epKey }: FieldListProps) => {
             <Header.Title weight={500} color={9}>
               Fields
             </Header.Title>
-            {!isSnapshot && (
+            {!isPreview && (
               <Header.Actions empty align="end">
                 <Button.Button
                   onClick={handleAdd}
@@ -270,9 +270,9 @@ const FieldList = ({ epKey }: FieldListProps) => {
         }
         emptyContent={
           <Empty.Action
-            message="No fields."
-            action="Add a field"
-            onClick={isSnapshot ? undefined : handleAdd}
+            message="No fields"
+            action={isPreview ? undefined : "Add field"}
+            onClick={handleAdd}
           />
         }
         listItem={listItem}
@@ -423,7 +423,7 @@ const Form: FC = () => {
     "config.endpoints",
   );
   const ctx = PForm.useContext();
-  const isSnapshot = Task.useIsSnapshot();
+  const isPreview = Task.useIsPreview();
 
   const handleAddEndpoint = useCallback(() => {
     const ep: ReadEndpoint = { ...http.readEndpointZ.parse({}), key: id.create() };
@@ -479,7 +479,7 @@ const Form: FC = () => {
           <Header.Title weight={500} color={10}>
             Endpoints
           </Header.Title>
-          {!isSnapshot && (
+          {!isPreview && (
             <Header.Actions>
               <Button.Button
                 onClick={handleAddEndpoint}
@@ -508,9 +508,9 @@ const Form: FC = () => {
               onContextMenu={menuProps.open}
               emptyContent={
                 <Empty.Action
-                  message="No endpoints."
-                  action="Add an endpoint"
-                  onClick={isSnapshot ? undefined : handleAddEndpoint}
+                  message="No endpoints"
+                  action={isPreview ? undefined : "Add endpoint"}
+                  onClick={handleAddEndpoint}
                 />
               }
             >
@@ -547,7 +547,7 @@ const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
 }) => {
   const cfg = READ_SCHEMAS.config.parse(config ?? {});
   if (deviceKey != null) cfg.device = deviceKey;
-  return { name: "HTTP Read Task", type: READ_TYPE, config: cfg };
+  return { name: "HTTP read task", type: READ_TYPE, config: cfg };
 };
 
 const retrieveChannel = async (
@@ -632,7 +632,6 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
           continue;
         }
 
-        // create a new channel
         const dt = new DataType(field.dataType);
         const chName = primitive.isNonZero(field.name)
           ? field.name
@@ -669,7 +668,7 @@ export const useCreateRead = Task.createUseCreate({
 
 export const ReadSelectable = Selector.createSelectable({
   type: READ_TYPE,
-  title: "HTTP Read Task",
+  title: "HTTP read task",
   icon: <Icon.Logo.HTTP />,
   useOnSelect: useCreateRead,
 });

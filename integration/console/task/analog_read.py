@@ -37,19 +37,19 @@ ANALOG_READ_CHANNEL_TYPES: dict[str, type[Analog]] = {
     "Accelerometer": Accelerometer,
     "Bridge": Bridge,
     "Current": Current,
-    "Force Bridge Table": ForceBridgeTable,
-    "Force Bridge Two-Point Linear": ForceBridgeTwoPointLinear,
+    "Force bridge table": ForceBridgeTable,
+    "Force bridge two-point linear": ForceBridgeTwoPointLinear,
     "Force IEPE": ForceIEPE,
     "Microphone": Microphone,
-    "Pressure Bridge Table": PressureBridgeTable,
-    "Pressure Bridge Two-Point Linear": PressureBridgeTwoPointLinear,
+    "Pressure bridge table": PressureBridgeTable,
+    "Pressure bridge two-point linear": PressureBridgeTwoPointLinear,
     "Resistance": Resistance,
     "RTD": RTD,
-    "Strain Gauge": StrainGauge,
-    "Temperature Built-In Sensor": TemperatureBuiltInSensor,
+    "Strain gauge": StrainGauge,
+    "Temperature built-in sensor": TemperatureBuiltInSensor,
     "Thermocouple": Thermocouple,
-    "Torque Bridge Table": TorqueBridgeTable,
-    "Torque Bridge Two-Point Linear": TorqueBridgeTwoPointLinear,
+    "Torque bridge table": TorqueBridgeTable,
+    "Torque bridge two-point linear": TorqueBridgeTwoPointLinear,
     "Velocity IEPE": VelocityIEPE,
     "Voltage": Voltage,
 }
@@ -58,7 +58,7 @@ ANALOG_READ_CHANNEL_TYPES: dict[str, type[Analog]] = {
 class AnalogRead(NITask):
     """NI Analog Read/Input Task automation interface."""
 
-    page_type: str = "NI Analog Read Task"
+    page_type = "NI analog read task"
     pluto_label: str = ".console-task-configure--ni_analog_read"
 
     def add_channel(
@@ -129,7 +129,7 @@ class AnalogRead(NITask):
         )
 
         if sample_rate is not None:
-            self.layout.fill_input_field("Sample Rate", str(sample_rate))
+            self.layout.fill_input_field("Sample rate", str(sample_rate))
 
         if stream_rate is not None:
-            self.layout.fill_input_field("Stream Rate", str(stream_rate))
+            self.layout.fill_input_field("Stream rate", str(stream_rate))

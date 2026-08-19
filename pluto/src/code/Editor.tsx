@@ -268,17 +268,17 @@ const useRenameAvailable = (
       return;
     }
     // Resolve the language features service once — it is stable across the editor's
-    // lifetime. Checks scheduled before it resolves run once it lands.
-    let features: ILanguageFeaturesService | null = null;
-    const featuresPromise = import("@codingame/monaco-vscode-api/services").then(
-      ({ getService, ILanguageFeaturesService }) =>
-        getService(ILanguageFeaturesService),
-    );
-    featuresPromise
-      .then((s) => (features = s))
-      .catch((err: unknown) => {
-        console.error("failed to resolve language features service", err);
-      });
+    // lifetime. Checks scheduled before it resolves run once it lands. A failed
+    // import is logged here, once, and leaves every later check unavailable.
+    const featuresPromise: Promise<ILanguageFeaturesService | null> =
+      import("@codingame/monaco-vscode-api/services")
+        .then(({ getService, ILanguageFeaturesService }) =>
+          getService(ILanguageFeaturesService),
+        )
+        .catch((err: unknown) => {
+          console.error("failed to resolve language features service", err);
+          return null;
+        });
 
     let abort: AbortController | null = null;
     const run = () => {
@@ -291,19 +291,27 @@ const useRenameAvailable = (
         setRenameable(false);
         return;
       }
-      const exec = (svc: ILanguageFeaturesService) =>
-        checkRenameAvailable(monaco, svc, model, position, ctrl.signal)
-          .then((r) => {
-            if (!ctrl.signal.aborted) setRenameable(r);
-          })
-          .catch(() => {
-            if (!ctrl.signal.aborted) setRenameable(false);
-          });
-      if (features != null) void exec(features);
-      else
-        void featuresPromise.then((svc) => {
-          if (!ctrl.signal.aborted) void exec(svc);
-        });
+      void (async () => {
+        try {
+          const features = await featuresPromise;
+          if (ctrl.signal.aborted) return;
+          if (features == null) return setRenameable(false);
+          const available = await checkRenameAvailable(
+            monaco,
+            features,
+            model,
+            position,
+            ctrl.signal,
+          );
+          if (!ctrl.signal.aborted) setRenameable(available);
+        } catch (err) {
+          // An abandoned check cancels its provider token, so only a live failure
+          // is worth reporting.
+          if (ctrl.signal.aborted) return;
+          setRenameable(false);
+          console.error("failed to check rename availability", err);
+        }
+      })();
     };
     const debounced = debounce.debounce(run, RENAME_CHECK_DEBOUNCE);
     const cursorDispose = editor.onDidChangeCursorPosition(debounced);
@@ -358,7 +366,6 @@ const use = ({
     if (containerRef.current == null) return;
     const container = containerRef.current;
 
-    // Create model with custom URI if this is a block
     let model: Monaco.editor.ITextModel | null = null;
     if (customURI != null) {
       const uri = monaco.Uri.parse(customURI);
@@ -577,10 +584,10 @@ const EditorInternal = ({
       grow
       background={background}
       {...rest}
-      className={CSS(className, CSS.B("editor"))}
+      className={CSS.cls(className, CSS.B("editor"))}
     >
       <Menu.ContextMenu
-        className={CSS(CSS.BE("editor", "context-menu"), className)}
+        className={CSS.cls(CSS.BE("editor", "context-menu"), className)}
         menu={menuContent}
         {...menuProps}
       >

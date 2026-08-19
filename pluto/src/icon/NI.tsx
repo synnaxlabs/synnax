@@ -16,7 +16,7 @@ export const NI = wrapSVGIcon(
       xmlns="http://www.w3.org/2000/svg"
       viewBox="0 0 78 51"
       {...rest}
-      className={CSS(className, "logo")}
+      className={CSS.cls(className, "logo")}
       stroke="currentColor"
       fill="currentColor"
     >

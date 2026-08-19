@@ -25,13 +25,9 @@ const SCALE_FACTOR = 2;
  * characters.
  */
 export class MonospacedAtlas {
-  // A canvas buffer that holds rendered characters.
   private readonly atlas: OffscreenCanvas;
-  // Cached dimensions of a character.
   private readonly charDims: dimensions.Dimensions;
-  // A map of characters to their index in the atlas.
   private readonly charMap: Map<string, number>;
-  // The default characters to include in the atlas.
   private static readonly DEFAULT_CHARS =
     "0123456789.:-°µmsNa∞ᴇABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz%";
 

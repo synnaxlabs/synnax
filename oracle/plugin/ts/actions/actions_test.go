@@ -47,10 +47,6 @@ var _ = Describe("TS Actions Plugin", func() {
 		It("Should require ts/types", func() {
 			Expect(p.Requires()).To(Equal([]string{"ts/types"}))
 		})
-
-		It("Should have a no-op Check", func() {
-			Expect(p.Check(nil)).To(Succeed())
-		})
 	})
 
 	Describe("Generate", func() {
@@ -105,8 +101,10 @@ var _ = Describe("TS Actions Plugin", func() {
 							"export type Action",
 							"export const setValue = (payload: z.input<typeof setValuePayloadZ>): Action",
 							"export const increment = (payload: z.input<typeof incrementPayloadZ>): Action",
-							"setValue: setValuePayloadZ.parse(payload),",
-							"increment: incrementPayloadZ.parse(payload),",
+							"setValue: zod.parse(setValuePayloadZ, payload, {",
+							`label: "counter set_value action payload",`,
+							"increment: zod.parse(incrementPayloadZ, payload, {",
+							`label: "counter increment action payload",`,
 							"export type HandlerResult = actions.HandlerResult<Action>;",
 							"export type ReduceAllResult = actions.ReduceAllResult<Counter, Action>;",
 							"export interface Handlers {",
@@ -170,6 +168,46 @@ var _ = Describe("TS Actions Plugin", func() {
 							"export const scopedActionZ = actions.scopedZ(keyZ, actionZ);",
 							"export const dispatchReqZ = actions.dispatchReqZ(keyZ, actionZ);",
 						)
+				},
+			)
+
+			It(
+				"Should lowercase a multi-word type name in parse-error labels",
+				func(ctx SpecContext) {
+					source := `
+					@ts output "client/ts/src/lineplot"
+
+					LinePlot struct {
+						key uuid
+
+						action Rename {
+							name string
+						}
+					}
+				`
+					resp := MustGenerate(ctx, source, "lineplot", loader, p)
+					ExpectContent(resp, "actions.gen.ts").
+						ToContain(`label: "line plot rename action payload",`)
+				},
+			)
+
+			It(
+				"Should keep a proper-noun type name unchanged in parse-error labels",
+				func(ctx SpecContext) {
+					source := `
+					@ts output "client/ts/src/arc"
+
+					Arc struct {
+						key uuid
+
+						action Rename {
+							name string
+						}
+					}
+				`
+					resp := MustGenerate(ctx, source, "arc", loader, p)
+					ExpectContent(resp, "actions.gen.ts").
+						ToContain(`label: "Arc rename action payload",`)
 				},
 			)
 

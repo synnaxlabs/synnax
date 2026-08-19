@@ -193,7 +193,6 @@ describe("Status", () => {
     });
 
     it("should paginate results", async () => {
-      // Create several statuses
       const keys = [];
       for (let i = 0; i < 5; i++) {
         const key = `paginate-${i}-${Date.now()}`;
@@ -207,7 +206,6 @@ describe("Status", () => {
         });
       }
 
-      // Retrieve with limit
       const page1 = await client.statuses.retrieve({
         keys,
         limit: 2,
@@ -223,7 +221,6 @@ describe("Status", () => {
       expect(page1).toHaveLength(2);
       expect(page2).toHaveLength(2);
 
-      // Ensure no overlap
       const page1Keys = page1.map((s) => s.key);
       const page2Keys = page2.map((s) => s.key);
       expect(page1Keys.some((k) => page2Keys.includes(k))).toBe(false);
@@ -286,7 +283,6 @@ describe("Status", () => {
 
       await client.statuses.delete(keys);
 
-      // Try to retrieve them - should get empty or error
       const results = await client.statuses.retrieve({ keys }).catch(() => []);
       expect(results).toHaveLength(0);
     });
@@ -294,10 +290,8 @@ describe("Status", () => {
     it("should be idempotent", async () => {
       const key = "idempotent-delete";
 
-      // Delete a non-existent status - should not throw
       await expect(client.statuses.delete(key)).resolves.not.toThrow();
 
-      // Create and delete
       await client.statuses.set({
         name: "Idempotent",
         key,
@@ -308,7 +302,6 @@ describe("Status", () => {
 
       await client.statuses.delete(key);
 
-      // Delete again - should not throw
       await expect(client.statuses.delete(key)).resolves.not.toThrow();
     });
   });

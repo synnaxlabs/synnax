@@ -34,7 +34,7 @@ export type UseFieldOptions<
   onChange?: (value: O, extra: ContextValue<Z> & { path: string }) => void;
 };
 
-/** Return type for the @link useField hook */
+/** Return value for {@link useField}. Spread it onto an input. */
 export interface UseFieldReturn<I, O = I> extends FieldState<I> {
   onChange: (value: O) => void;
   setStatus: (status: status.Crude) => void;
@@ -62,10 +62,12 @@ interface UseField {
 }
 
 /**
- * Hook for managing a particular field in a form.
+ * Binds one field of the enclosing form, re-rendering the caller only when that field
+ * changes. The return value satisfies {@link Input.Control}, so it spreads onto any
+ * input.
  *
- * @param props - The props for the hook
- * @param props.path - The path to the field in the form.
+ * @example const { value, onChange } = Form.useField<string>("name");
+ * @throws {Error} if the path holds no value and `optional` is not set.
  */
 export const useField = (<I, O = I>(
   path: string,
@@ -141,6 +143,7 @@ export interface UseFieldState {
   ): FieldState<O>;
 }
 
+/** Reads a field's value together with its status and required flag. */
 export const useFieldState = (<I, O = I, Z extends z.ZodType = z.ZodType>(
   path: string,
   opts?: GetOptions<O> & ContextOptions<Z>,
@@ -153,24 +156,32 @@ export const useFieldState = (<I, O = I, Z extends z.ZodType = z.ZodType>(
   );
 }) as UseFieldState;
 
+/** Reads just a field's value. Use it to render from a field the caller does not edit. */
 export const useFieldValue = (<I, O = I, Z extends z.ZodType = z.ZodType>(
   path: string,
   opts?: GetOptions<O> & ContextOptions<Z>,
 ): O | null => useFieldState(path, opts)?.value ?? null) as UseFieldValue;
 
+/** @returns whether the field at the path passed its last validation. */
 export const useFieldValid = (path: string): boolean =>
   useFieldState(path, { optional: true })?.status?.variant === "success";
 
+/** Edits for a form field holding an array of keyed entries. */
 export interface FieldListUtils<K extends record.Key, E extends record.Keyed<K>> {
+  /** Appends entries, optionally re-sorting after. */
   push: (value: E | E[], sort?: compare.Comparator<E>) => void;
+  /** Inserts entries at an index. */
   add: (value: E | E[], start: number) => void;
+  /** Drops the named entries. @returns the keys that remain. */
   remove: (keys: K | K[]) => K[];
+  /** Drops everything but the named entries. @returns the keys that remain. */
   keepOnly: (keys: K | K[]) => K[];
   set: (values: state.SetArg<E[]>) => void;
   value(): E[];
   sort?: (compareFn: compare.Comparator<E>) => void;
 }
 
+/** Builds {@link FieldListUtils} over a form context, outside of a React render. */
 export const fieldListUtils = <K extends record.Key, E extends record.Keyed<K>>(
   ctx: ContextValue<any>,
   path: string,
@@ -209,6 +220,7 @@ export const fieldListUtils = <K extends record.Key, E extends record.Keyed<K>>(
   },
 });
 
+/** @returns edits for an array field, without subscribing to its contents. */
 export const useFieldListUtils = <K extends record.Key, E extends record.Keyed<K>>(
   path: string,
   opts?: ContextOptions<z.ZodType>,
@@ -221,6 +233,10 @@ export interface UseFieldListReturn<
   data: K[];
 }
 
+/**
+ * Binds an array field, returning its keys alongside the edits. Feed `data` straight
+ * into a {@link List.Frame}.
+ */
 export const useFieldList = <
   K extends record.Key,
   E extends record.Keyed<K>,

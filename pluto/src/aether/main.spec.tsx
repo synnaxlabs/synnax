@@ -137,11 +137,10 @@ class EchoOnUpdateLeaf extends aether.Leaf<typeof exampleProps> {
   afterUpdate(): void {
     if (this.echoed) return;
     this.echoed = true;
-    // Defer the push so it lands outside the synchronous mock-worker round-
-    // trip — the property the pre-mount state-update path needs to test. A
-    // real Worker.postMessage delivers on a macrotask; queueMicrotask is a
-    // microtask, but either satisfies "outside the current render" which is
-    // what this fixture exists to exercise.
+    // Defer the push so it lands outside the synchronous mock-worker round- trip — the
+    // property the pre-mount state-update path needs to test. A real Worker.postMessage
+    // delivers on a macrotask; queueMicrotask is a microtask, but either satisfies
+    // "outside the current render" which is what this fixture exists to exercise.
     queueMicrotask(() => this.setState({ x: this.state.x + 1 }));
   }
   afterDelete(): void {}
@@ -731,11 +730,10 @@ describe("Aether Main", () => {
       expect(leaf.state.x).toBe(1);
     });
     it("should ignore type prop changes after the first render", async () => {
-      // The `type` prop is component identity, not a normal prop: it is read
-      // once at register time and ignored on subsequent renders. Consumers
-      // pass module-level constants here in all real usage; changing it would
-      // mean "I want a different worker component", which is what unmount +
-      // remount is for.
+      // The `type` prop is component identity, not a normal prop: it is read once at
+      // register time and ignored on subsequent renders. Consumers pass module-level
+      // constants here in all real usage; changing it would mean "I want a different
+      // worker component", which is what unmount + remount is for.
       const [Provider, root] = await newProvider();
       const C = ({ type }: { type: string }) => {
         Aether.use({

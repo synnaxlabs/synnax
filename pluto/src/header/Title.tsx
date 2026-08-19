@@ -14,17 +14,13 @@ import { CSS } from "@/css";
 import { useContext } from "@/header/Header";
 import { Text } from "@/text";
 
+/** Props for {@link Title}. */
 export interface TitleProps extends Omit<Text.TextProps, "divided" | "level"> {
+  /** Overrides the level the enclosing {@link Header} sets. */
   level?: text.Level;
 }
 
-/**
- * Renders the title for the header component.
- *
- * @param props - The component props. The props for this component are identical
- * to the {@link Typography.TextWithIcon} component, except that the 'level', and
- * 'divider' props are inherited from the parent {@link Header} component.
- */
+/** The title of a {@link Header}. It takes its type scale step from the header. */
 export const Title = ({
   className,
   level: propsLevel,
@@ -33,7 +29,7 @@ export const Title = ({
   const { level } = useContext();
   return (
     <Text.Text
-      className={CSS(CSS.BE("header", "text"), className)}
+      className={CSS.cls(CSS.BE("header", "text"), className)}
       level={propsLevel ?? level}
       gap={1.5}
       {...rest}

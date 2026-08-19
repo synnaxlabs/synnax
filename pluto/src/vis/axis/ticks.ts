@@ -35,13 +35,9 @@ export type TickFactoryProps = z.input<typeof tickFactoryProps>;
 type ParsedTickFactoryProps = z.infer<typeof tickFactoryProps>;
 
 export interface TickFactoryRenderParams {
-  /**
-   * Scale takes a value in decimal space and returns the corresponding data value.
-   */
+  /** Scale takes a value in decimal space and returns the corresponding data value. */
   decimalToDataScale: scale.Scale;
-  /**
-   * Size is the length of the axis in pixels.
-   */
+  /** Size is the length of the axis in pixels. */
   size: number;
 }
 

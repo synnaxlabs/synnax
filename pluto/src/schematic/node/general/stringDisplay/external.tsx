@@ -27,18 +27,18 @@ export const defaultConfig = (): Config => ({
   color: color.ZERO,
   level: "p",
   inlineSize: 100,
-  label: Label.defaultConfig("String Display"),
+  label: Label.defaultConfig("String display"),
   ...Staleness.ZERO_CONFIG,
   telem: telem.streamChannelStringValue({ channel: 0 }),
 });
 
 const Preview = ({ color, level }: Config): ReactElement => (
-  <StringDisplay color={color} level={level} value="Hello World!" />
+  <StringDisplay color={color} level={level} value="Hello world!" />
 );
 
 export const spec: Spec<typeof VARIANT, Config> = {
   key: VARIANT,
-  name: "String Display",
+  name: "String display",
   Form: StringDisplayForm,
   Node: Symbol,
   Preview,

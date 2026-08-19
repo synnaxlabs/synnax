@@ -7,15 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type log } from "@synnaxlabs/client";
+import { type log, type Synnax as Client } from "@synnaxlabs/client";
+import { RoleClients } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Properties } from "@/feature/log/toolbar/Properties";
 import { client, renderLog } from "@/feature/log/toolbar/testutil";
 
-const renderProperties = async (overrides: Partial<log.New> = {}) => {
-  const { key, result } = await renderLog(Properties, { log: overrides });
+const roles = new RoleClients(client);
+
+const renderProperties = async (overrides: Partial<log.New> = {}, as?: Client) => {
+  const { key, result } = await renderLog(Properties, { log: overrides, as });
   const checkboxes = () =>
     result.container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
   // The switches render in document order: index 0 is Show Receipt Timestamp, the last
@@ -30,9 +33,9 @@ const renderProperties = async (overrides: Partial<log.New> = {}) => {
 describe("log/toolbar/Properties", () => {
   it("renders the property controls", async () => {
     await renderProperties();
-    expect(await screen.findByText("Show Channel Names")).toBeDefined();
-    expect(screen.getByText("Receipt Timestamp Precision")).toBeDefined();
-    expect(screen.getByText("Show Receipt Timestamp")).toBeDefined();
+    expect(await screen.findByText("Show channel names")).toBeDefined();
+    expect(screen.getByText("Receipt timestamp precision")).toBeDefined();
+    expect(screen.getByText("Show receipt timestamp")).toBeDefined();
   });
 
   it("reflects showChannelNames from the server", async () => {
@@ -69,5 +72,17 @@ describe("log/toolbar/Properties", () => {
     await waitFor(async () =>
       expect((await client.logs.retrieve(key)).hideReceiptTimestamp).toBe(true),
     );
+  });
+});
+
+describe("log/toolbar/Properties permissions", () => {
+  it("should freeze every control for a viewer", async () => {
+    const { showChannelNames, showReceiptTimestamp } = await renderProperties(
+      {},
+      await roles.get("Viewer"),
+    );
+    await screen.findByText("Show channel names");
+    await waitFor(() => expect(showChannelNames().disabled).toBe(true));
+    expect(showReceiptTimestamp().disabled).toBe(true);
   });
 });

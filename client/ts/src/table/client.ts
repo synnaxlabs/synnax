@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor } from "@synnaxlabs/x";
+import { array, type destructor, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -128,7 +128,9 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ta
     opts: query.WriteOptions<Table[]> = {},
   ): Promise<Table | Table[]> {
     const isMany = Array.isArray(tables);
-    const optimistic = array.toArray(tables).map((t) => tableZ.parse(t));
+    const optimistic = array
+      .toArray(tables)
+      .map((t) => zod.parse(tableZ, t, { label: "table" }));
     const res = await query.optimistic({
       rollbacks: [this.store.set(optimistic)],
       onOptimistic: () => opts.onOptimistic?.(optimistic),
@@ -158,10 +160,9 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ta
   }
 
   /**
-   * Applies actions to the cached table and sends them to the server,
-   * recording an undoable entry. Returns false without side effects when the
-   * table isn't cached. Rolls back the local apply and rethrows on send
-   * failure.
+   * Applies actions to the cached table and sends them to the server, recording an
+   * undoable entry. Returns false without side effects when the table isn't cached.
+   * Rolls back the local apply and rethrows on send failure.
    */
   async dispatch(
     key: Key,
@@ -210,9 +211,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ta
     return this.dispatcher.onUndoStateChange(callback, key);
   }
 
-  /**
-   * Stages actions committed atomically as one undoable entry.
-   */
+  /** Stages actions committed atomically as one undoable entry. */
   beginTransaction(key: Key, kind?: string): actions.Transaction<Action> {
     return this.dispatcher.transaction(key, this.dispatchSender(key), kind);
   }

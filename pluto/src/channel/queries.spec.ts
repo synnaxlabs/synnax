@@ -941,9 +941,8 @@ describe("queries", () => {
         dataType: DataType.FLOAT32,
         virtual: true,
       });
-      // A second client creates ch2 so this client's record store holds only
-      // ch1: a cached partial answer must not suppress the fetch of the full
-      // one.
+      // A second client creates ch2 so this client's record store holds only ch1: a
+      // cached partial answer must not suppress the fetch of the full one.
       const ch2 = await createTestClient().channels.create({
         name: id.create(),
         dataType: DataType.INT32,

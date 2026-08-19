@@ -128,9 +128,16 @@ interface EmptyActionContentProps {
   onAdd: () => void;
 }
 
-const EmptyActionContent = ({ onAdd }: EmptyActionContentProps) => (
-  <Empty.Action message="No alerts." action="Add an alert" onClick={onAdd} />
-);
+const EmptyActionContent = ({ onAdd }: EmptyActionContentProps) => {
+  const isPreview = Task.useIsPreview();
+  return (
+    <Empty.Action
+      message="No alerts"
+      action={isPreview ? undefined : "Add alert"}
+      onClick={onAdd}
+    />
+  );
+};
 
 const AlertListItem = (props: List.ItemProps<string>) => {
   const { itemKey } = props;
@@ -164,6 +171,7 @@ interface AlertContextMenuProps extends PMenu.ContextMenuMenuProps {
 }
 
 const AlertContextMenu = ({ keys, onRemove, onSetEnabled }: AlertContextMenuProps) => {
+  const isPreview = Task.useIsPreview();
   const canRemove = keys.length > 0;
   const alerts = PForm.useFieldValue<AlertConfig[]>("config.alerts").filter((a) =>
     keys.includes(a.key),
@@ -172,32 +180,37 @@ const AlertContextMenu = ({ keys, onRemove, onSetEnabled }: AlertContextMenuProp
   const canEnable = alerts.some(({ disabled }) => disabled);
   return (
     <ContextMenu.Menu>
-      {canEnable && (
-        <PMenu.Item itemKey="enable" onClick={() => onSetEnabled(keys, true)}>
-          <Icon.Enable />
-          Enable
-        </PMenu.Item>
+      {!isPreview && (
+        <>
+          {canEnable && (
+            <PMenu.Item itemKey="enable" onClick={() => onSetEnabled(keys, true)}>
+              <Icon.Enable />
+              Enable
+            </PMenu.Item>
+          )}
+          {canDisable && (
+            <PMenu.Item itemKey="disable" onClick={() => onSetEnabled(keys, false)}>
+              <Icon.Disable />
+              Disable
+            </PMenu.Item>
+          )}
+          <PMenu.Divider />
+          {canRemove && (
+            <PMenu.Item itemKey="remove" onClick={() => onRemove(keys)}>
+              <Icon.Close />
+              Remove
+            </PMenu.Item>
+          )}
+          <PMenu.Divider />
+        </>
       )}
-      {canDisable && (
-        <PMenu.Item itemKey="disable" onClick={() => onSetEnabled(keys, false)}>
-          <Icon.Disable />
-          Disable
-        </PMenu.Item>
-      )}
-      <PMenu.Divider />
-      {canRemove && (
-        <PMenu.Item itemKey="remove" onClick={() => onRemove(keys)}>
-          <Icon.Close />
-          Remove
-        </PMenu.Item>
-      )}
-      <PMenu.Divider />
       <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>
   );
 };
 
 const Form: FC = () => {
+  const isPreview = Task.useIsPreview();
   const { data, push, remove } = PForm.useFieldList<string, AlertConfig>(
     "config.alerts",
   );
@@ -244,16 +257,18 @@ const Form: FC = () => {
           <Header.Title weight={500} color={10}>
             Alerts
           </Header.Title>
-          <Header.Actions>
-            <Button.Button
-              onClick={handleAdd}
-              variant="filled"
-              tooltip="Add alert"
-              size="small"
-            >
-              <Icon.Add />
-            </Button.Button>
-          </Header.Actions>
+          {!isPreview && (
+            <Header.Actions>
+              <Button.Button
+                onClick={handleAdd}
+                variant="filled"
+                tooltip="Add alert"
+                size="small"
+              >
+                <Icon.Add />
+              </Button.Button>
+            </Header.Actions>
+          )}
         </Header.Header>
         <PMenu.ContextMenu {...menuProps} menu={alertContextMenu}>
           <Select.Frame<string, AlertConfig>
@@ -284,7 +299,7 @@ const Form: FC = () => {
         {selected.length > 0 ? (
           <AlertDetails itemKey={selected[0]} />
         ) : (
-          <Empty.Action message="No alert selected." grow />
+          <Empty.Action message="No alert selected" grow />
         )}
       </Flex.Box>
     </Flex.Box>
@@ -294,7 +309,7 @@ const Form: FC = () => {
 const getInitialValues: Task.GetInitialValues<AlertSchemas> = ({ config }) => {
   const parsed = ALERT_SCHEMAS.config.safeParse(config ?? {});
   return {
-    name: "PagerDuty Alert Task",
+    name: "PagerDuty alert task",
     type: ALERT_TYPE,
     config: parsed.success ? parsed.data : ALERT_SCHEMAS.config.parse({}),
   };
@@ -321,7 +336,7 @@ export const useCreateAlert = Task.createUseCreate({
 
 export const AlertSelectable = Selector.createSelectable({
   type: ALERT_TYPE,
-  title: "PagerDuty Alert",
+  title: "PagerDuty alert task",
   icon: <Icon.Logo.PagerDuty />,
   useOnSelect: useCreateAlert,
 });

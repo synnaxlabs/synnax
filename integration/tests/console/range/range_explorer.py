@@ -57,7 +57,7 @@ class RangeExplorer(ConsoleCase):
             self.range_b_name, persisted=True, labels=[self.label_b_name]
         )
 
-        self.console.ranges.open_explorer()
+        self.console.ranges.explorer.open()
 
     def teardown(self) -> None:
         names = [
@@ -96,52 +96,52 @@ class RangeExplorer(ConsoleCase):
         """Test creating a child range via explorer context menu."""
         self.log("Testing: Create child range from explorer context menu")
         self.child_range_name = f"ExplorerChild_{self.suffix}"
-        self.console.ranges.create_child_range_from_explorer(
+        self.console.ranges.explorer.create_child_range(
             self.range_a_name, self.child_range_name
         )
-        assert self.console.ranges.exists_in_explorer(self.child_range_name), (
+        assert self.console.ranges.explorer.exists(self.child_range_name), (
             f"Child range '{self.child_range_name}' should exist in explorer"
         )
 
     def test_favorite_multiple_ranges(self) -> None:
         """Test favoriting multiple ranges via multi-select context menu."""
         self.log("Testing: Favorite multiple ranges")
-        self.console.ranges.favorite_explorer_ranges(
+        self.console.ranges.explorer.favorite_many(
             [self.range_b_name, self.range_c_name]
         )
 
-        assert self.console.ranges.exists_in_toolbar(self.range_b_name), (
+        assert self.console.ranges.toolbar.exists(self.range_b_name), (
             f"'{self.range_b_name}' should appear in toolbar after favoriting"
         )
-        assert self.console.ranges.exists_in_toolbar(self.range_c_name), (
+        assert self.console.ranges.toolbar.exists(self.range_c_name), (
             f"'{self.range_c_name}' should appear in toolbar after favoriting"
         )
 
     def test_unfavorite_range(self) -> None:
         """Test unfavoriting a single range via explorer context menu."""
         self.log("Testing: Unfavorite range from explorer")
-        self.console.ranges.open_explorer()
-        self.console.ranges.unfavorite_from_explorer(self.range_b_name)
+        self.console.ranges.explorer.open()
+        self.console.ranges.explorer.unfavorite(self.range_b_name)
 
-        assert self.console.ranges.exists_in_toolbar(self.range_c_name), (
+        assert self.console.ranges.toolbar.exists(self.range_c_name), (
             f"'{self.range_c_name}' should still be in toolbar"
         )
 
     def test_unfavorite_multiple_ranges(self) -> None:
         """Test unfavoriting multiple ranges via multi-select context menu."""
         self.log("Testing: Unfavorite multiple ranges")
-        self.console.ranges.open_explorer()
-        self.console.ranges.favorite_explorer_ranges([self.range_b_name])
+        self.console.ranges.explorer.open()
+        self.console.ranges.explorer.favorite_many([self.range_b_name])
 
-        self.console.ranges.unfavorite_explorer_ranges(
+        self.console.ranges.explorer.unfavorite_many(
             [self.range_b_name, self.range_c_name]
         )
 
     def test_copy_link(self) -> None:
         """Test copying link to a range via explorer context menu."""
         self.log("Testing: Copy link from explorer")
-        self.console.ranges.open_explorer()
-        self.console.ranges.copy_link_from_explorer(self.range_a_name)
+        self.console.ranges.explorer.open()
+        self.console.ranges.explorer.copy_link(self.range_a_name)
 
         clipboard = self.console.layout.read_clipboard()
         assert len(clipboard) > 0, "Clipboard should not be empty after copying link"
@@ -149,10 +149,8 @@ class RangeExplorer(ConsoleCase):
     def test_delete_multiple_ranges(self) -> None:
         """Test deleting multiple ranges via multi-select context menu."""
         self.log("Testing: Delete multiple ranges")
-        self.console.ranges.open_explorer()
-        self.console.ranges.delete_explorer_ranges(
-            [self.range_d_name, self.range_e_name]
-        )
+        self.console.ranges.explorer.open()
+        self.console.ranges.explorer.delete_many([self.range_d_name, self.range_e_name])
 
         for name in [self.range_d_name, self.range_e_name]:
             try:
@@ -164,27 +162,27 @@ class RangeExplorer(ConsoleCase):
     def test_search_ranges(self) -> None:
         """Test searching ranges by name in the explorer."""
         self.log("Testing: Search ranges in explorer")
-        self.console.ranges.open_explorer()
+        self.console.ranges.explorer.open()
 
-        self.console.ranges.search_explorer(self.range_a_name)
+        self.console.ranges.explorer.search(self.range_a_name)
 
-        assert self.console.ranges.exists_in_explorer(self.range_a_name), (
+        assert self.console.ranges.explorer.exists(self.range_a_name), (
             f"'{self.range_a_name}' should be visible when searching for it"
         )
 
-        self.console.ranges.clear_explorer_search()
-        assert self.console.ranges.exists_in_explorer(self.range_b_name), (
+        self.console.ranges.explorer.clear_search()
+        assert self.console.ranges.explorer.exists(self.range_b_name), (
             f"'{self.range_b_name}' should be visible after clearing search"
         )
 
     def test_filter_by_labels(self) -> None:
         """Test filtering ranges by label in the explorer."""
         self.log("Testing: Filter ranges by label")
-        self.console.ranges.open_explorer()
-        self.console.ranges.select_explorer_label_filter(self.label_a_name)
+        self.console.ranges.explorer.open()
+        self.console.ranges.explorer.select_label_filter(self.label_a_name)
 
-        assert self.console.ranges.exists_in_explorer(self.range_a_name), (
+        assert self.console.ranges.explorer.exists(self.range_a_name), (
             f"'{self.range_a_name}' should be visible when filtering by its label"
         )
 
-        self.console.ranges.wait_for_removed_from_explorer(self.range_b_name)
+        self.console.ranges.explorer.wait_for_removed(self.range_b_name)

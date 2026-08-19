@@ -28,9 +28,9 @@ export const CreateListItem = ({
 }: CreateListItemProps): ReactElement => (
   <Button.Button
     variant="text"
-    color={9}
+    textColor={9}
     justify="start"
-    className={CSS(CSS.B("create-list-item"), CSS.M(size), className)}
+    className={CSS.cls(CSS.B("create-list-item"), CSS.M(size), className)}
     {...rest}
   >
     <Icon.Add />

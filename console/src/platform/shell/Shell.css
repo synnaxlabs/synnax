@@ -18,6 +18,24 @@
     background: transparent;
 }
 
+/* Shrink guard: a long list would otherwise compress the header. */
+.console-shell__list .pluto-header {
+    padding: 2.5rem 3rem;
+    flex-shrink: 0;
+}
+
+.console-shell__list .console-shell__items {
+    overflow-y: auto;
+    min-height: 0;
+    padding: 1.5rem;
+}
+
+.console-shell__list .pluto-list__item {
+    min-height: 9rem;
+    padding: 2rem 3rem;
+    border-radius: var(--pluto-border-radius-medium);
+}
+
 /* The one frosted-glass recipe; shape stays with each surface that wears it. */
 .console-shell__frost {
     background: color-mix(in srgb, var(--pluto-gray-l0) 45%, transparent);
@@ -42,6 +60,11 @@
     min-height: 6rem;
     padding: 0 2rem;
     border-radius: var(--pluto-border-radius-medium);
+
+    &.pluto--square {
+        width: 6rem;
+        padding: 0;
+    }
 }
 
 .console-shell__island:empty {

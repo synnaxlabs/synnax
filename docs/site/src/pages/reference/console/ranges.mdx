@@ -3,13 +3,13 @@ layout: "@/layouts/Reference.astro"
 title: "Ranges"
 heading: "Ranges"
 description: "Create, view, and manage ranges using the Console"
-prev: "Workspaces"
-prevURL: "/reference/console/workspaces"
+prev: "Projects"
+prevURL: "/reference/console/projects"
 next: "Line Plots"
 nextURL: "/reference/console/line-plots"
 ---
 
-import { Text, Divider, Triggers, Icon } from "@synnaxlabs/pluto";
+import { Divider, Icon } from "@synnaxlabs/pluto";
 import { Video, Image } from "@/components/media/Media";
 import Diagram from "@/components/diagram/Diagram.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
@@ -27,28 +27,18 @@ can be used to correlate metadata with channel telemetry.
 
 ## Creating a Range
 
-There are several ways to create ranges in the Synnax Console.
-
-### Using the Ranges Toolbar
-
-The simplest way to create a new range is by clicking the **create** button in the
-Ranges Toolbar. This will open a dialog where you can fill in the required fields.
+Click the `Create` button in the Ranges Toolbar and fill in the dialog, or run the
+`Create a range` command in the
+[Command Palette](/reference/console/ui-overview#search-and-command-palette).
 
 <Video client:only="react" id="console/ranges/toolbar-create" />
-
-### Using the Command Palette
-
-You can also create a range using the command palette. To open the palette, click on the
-search bar at the top and type ">", or press `Cmd+Shift+P` on macOS or `Ctrl+Shift+P` on
-Windows.
 
 <Video client:only="react" id="console/ranges/palette-create" />
 
 ### From a Plot Region
 
-You can also create a range by selecting a region on a plot. This is particularly useful
-when you want to annotate a particular event. The range creation dialog will
-automatically populate the `From` and `To` fields with the selected region.
+Select a region on a plot to annotate an event. The creation dialog fills the `From` and
+`To` fields with the selected region.
 
 <Video client:only="react" id="console/ranges/plot-create" />
 
@@ -56,37 +46,36 @@ automatically populate the `From` and `To` fields with the selected region.
 
 ## Finding Existing Ranges
 
-There are two primary ways to search for existing ranges in the Console: the Ranges
-Toolbar and Search and Command Palette.
+### Ranges Toolbar
 
-### Using the Ranges Toolbar
-
-The Ranges Toolbar is located on the left side of the Console, and can be used to browse
-all of your Core's ranges.
+The Ranges Toolbar on the left side of the Console shows the ranges you have favorited.
+Click a range to load it.
 
 <Video client:only="react" id="console/ranges/resources" />
 
-We can load a specific range into our Ranges Toolbar by clicking on it.
+### Range Explorer
 
-### Search and Command Palette
+The Range Explorer lists every range on your Core in a full tab, with search and label
+filters. Search for it in the
+[Search Palette](/reference/console/ui-overview#search-and-command-palette), or open it
+from the Ranges Toolbar.
 
-The Search and Command Palette is located in the top center of the console, and can be
-used to search for resources and execute commands. We can find a permanently saved range
-just by typing its name into the palette.
+<Video client:only="react" id="console/ranges/explorer" />
+
+### Search Palette
+
+Type the name of a range into the
+[Search Palette](/reference/console/ui-overview#search-and-command-palette).
 
 <Video client:only="react" id="console/ranges/palette" />
-
-Use the arrow keys to navigate the results, and press <Icon.Keyboard.Return /> to load
-the range you're interested in. You can also hover and click using your mouse.
 
 <Divider.Divider x />
 
 ## Child Ranges
 
-[Child ranges](/reference/concepts/ranges#child-ranges) are a way to further segment a
-range into smaller, specific intervals. The easiest way to create a child range is by
-specifying the parent range field in the range creation dialog. You can also create a
-child by clicking on the **Add Child Range** button in the range overview page.
+[Child ranges](/reference/concepts/ranges#child-ranges) segment a range into smaller
+intervals. Set the parent range field in the creation dialog, or click `Add Child Range`
+in the range overview page.
 
 <Video client:only="react" id="console/ranges/create-child" />
 
@@ -94,9 +83,7 @@ child by clicking on the **Add Child Range** button in the range overview page.
 
 ## Metadata
 
-You can also attach arbitrary metadata to a range, including links to external
-resources. To add a new field, simply click on a cell in the metadata section of the
-range overview page.
+Arbitrary metadata can be attached to a range, including links to external resources.
 
 <Video client:only="react" id="console/ranges/add-meta-data" />
 
@@ -104,7 +91,6 @@ range overview page.
 
 ## Labels
 
-Labels are an effective way to categorize and filter ranges. You can add a label to a
-range by clicking on the **Add Label** button in the range overview page.
+Labels categorize and filter ranges.
 
 <Video client:only="react" id="console/ranges/add-label" />

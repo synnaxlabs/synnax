@@ -15,7 +15,7 @@ import { Command } from "@/platform/command";
 
 const ConnectServerCommand = Command.create({
   key: "http_connect_server",
-  name: "Connect an HTTP server",
+  name: "Connect HTTP server",
   icon: <Icon.Logo.HTTP />,
   useOnSelect: useConnectModal,
   useVisible: () => Access.useCreateGranted(device.TYPE_ONTOLOGY_ID),

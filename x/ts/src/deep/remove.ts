@@ -17,7 +17,6 @@ export const remove = <V>(obj: V, path: string): void => {
   let i = 0;
   while (i < parts.length) {
     if (i === parts.length - 1) {
-      // Last part - perform deletion
       const lastPart = parts[i];
 
       if (Array.isArray(result)) {
@@ -42,10 +41,8 @@ export const remove = <V>(obj: V, path: string): void => {
       return;
     }
 
-    // Not the last part - navigate deeper
     let found = false;
 
-    // First try to match with keyed items in arrays
     if (Array.isArray(result) && result.length > 0) {
       const first = result[0];
       if (typeof first === "object" && "key" in first)
@@ -55,7 +52,6 @@ export const remove = <V>(obj: V, path: string): void => {
           const item = result.find((o) => o.key === candidateKey);
           if (item != null) {
             if (i + j === parts.length) {
-              // This is the item to remove
               const objIndex = result.findIndex((o) => o.key === candidateKey);
               if (objIndex !== -1) result.splice(objIndex, 1);
 
@@ -70,7 +66,6 @@ export const remove = <V>(obj: V, path: string): void => {
     }
 
     if (!found)
-      // Try to match properties with periods in objects
       for (let j = parts.length - i; j >= 1; j--) {
         const candidateKey = parts.slice(i, i + j).join(SEPARATOR);
         if (
@@ -80,7 +75,6 @@ export const remove = <V>(obj: V, path: string): void => {
           candidateKey in result
         ) {
           if (i + j === parts.length) {
-            // This is the property to remove
             delete result[candidateKey];
             return;
           }
@@ -92,7 +86,6 @@ export const remove = <V>(obj: V, path: string): void => {
       }
 
     if (!found) {
-      // Try normal property access
       const next = defaultGetter(result, parts[i]);
       if (next == null) return;
       result = next as record.Unknown;

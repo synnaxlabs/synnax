@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/x",
-  "version": "0.56.2",
+  "version": "0.57.0",
   "type": "module",
   "description": "Common Utilities for Synnax Labs",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/x/ts",
@@ -23,8 +23,6 @@
   },
   "dependencies": {
     "async-mutex": "catalog:",
-    "nanoid": "^6.0.1",
-    "uuid": "^14.0.1",
     "zod": "catalog:"
   },
   "devDependencies": {
@@ -35,10 +33,21 @@
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
+    "fflate": "^0.8.2",
+    "nanoid": "^6.0.1",
     "typescript": "catalog:",
+    "uuid": "^14.0.1",
     "vite": "catalog:",
     "vitest": "catalog:"
   },
+  "files": [
+    "dist",
+    "src",
+    "!**/*.spec.*",
+    "!**/*.bench.*",
+    "!**/mock/**",
+    "!dist/eslint.config.*"
+  ],
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",

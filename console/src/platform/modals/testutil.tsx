@@ -14,7 +14,6 @@ import { type aether } from "@synnaxlabs/pluto/ether";
 import { deep } from "@synnaxlabs/x";
 import {
   act,
-  fireEvent,
   render,
   renderHook,
   type RenderHookResult,
@@ -121,18 +120,21 @@ export interface RenderModalOpenerOptions {
   additionalRegistry?: aether.ComponentRegistry;
 }
 
-export interface ModalOpenerHandle<R> extends RenderResult {
+export interface ModalOpenerHandle<R> {
   store: TestStore;
+  /** The DOM root modals portal into. */
+  baseElement: HTMLElement;
   /** The value returned by the most recent opener invocation. */
   result: () => R | undefined;
   /** Invokes the opener again (e.g. after the modal was closed). */
   reopen: () => void;
+  unmount: () => void;
 }
 
 /**
- * Renders a modal-opener hook inside the full console provider stack with a mounted
- * {@link Modals.Stack}, invokes the opener with args, and returns the render result,
- * backing store, and the opener's return value (a promise for prompt-style hooks).
+ * Mounts a modal-opener hook inside the full console provider stack with a live
+ * {@link Modals.Stack}, invokes the opener with args, and returns the backing store
+ * plus the opener's return value (a promise for prompt-style hooks).
  */
 export const renderModalOpener = async <Args extends unknown[], R>(
   useOpen: () => (...args: Args) => R,
@@ -140,33 +142,39 @@ export const renderModalOpener = async <Args extends unknown[], R>(
   options: RenderModalOpenerOptions = {},
 ): Promise<ModalOpenerHandle<R>> => {
   const { client = null, preloadedState, store, additionalRegistry } = options;
-  const { wrapper, store: resolvedStore } = await createConsoleWrapper({
+  const { wrapper: Console, store: resolvedStore } = await createConsoleWrapper({
     client,
     preloadedState,
     store,
     additionalRegistry,
   });
-  const box: { current?: R } = {};
-  const Harness = (): ReactElement => {
-    const open = useOpen();
-    return <button onClick={() => (box.current = open(...args))}>open modal</button>;
-  };
-  Harness.displayName = "ModalOpenerHarness";
-  const rendered = render(
-    <Triggers.Provider>
-      <Harness />
-      <Modals.Stack />
-    </Triggers.Provider>,
-    { wrapper },
+  const wrapper = ({ children }: PropsWithChildren): ReactElement => (
+    <Console>
+      <Triggers.Provider>
+        {children}
+        <Modals.Stack />
+      </Triggers.Provider>
+    </Console>
   );
-  const reopen = () =>
-    fireEvent.click(screen.getByRole("button", { name: "open modal" }));
-  // Modal content that suspends is discarded when it does so inside a synchronous act
-  // scope, so the opening click needs an awaited one.
+  const { result, unmount } = renderHook(useOpen, { wrapper });
+  const box: { current?: R } = {};
+  const reopen = () => {
+    act(() => {
+      box.current = result.current(...args);
+    });
+  };
+  // Modal content that suspends is discarded when it opens inside a synchronous act
+  // scope, so the first open needs an awaited one.
   await act(async () => {
-    reopen();
+    box.current = result.current(...args);
   });
-  return { ...rendered, store: resolvedStore, result: () => box.current, reopen };
+  return {
+    store: resolvedStore,
+    baseElement: document.body,
+    result: () => box.current,
+    reopen,
+    unmount,
+  };
 };
 
 export interface OpenModalOptions<P> {

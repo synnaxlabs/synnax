@@ -13,10 +13,16 @@ import { Button } from "@/button";
 import { CSS } from "@/css";
 import { useContext } from "@/menu/Menu";
 
+/** Props for {@link CopyItem}. */
 export interface CopyItemProps extends Button.CopyProps {
+  /** The key given to the enclosing menu's `onChange`. */
   itemKey: string;
 }
 
+/**
+ * A menu entry that copies text to the clipboard and swaps its icon to a check. It
+ * takes its level, gap, and background from the enclosing {@link Menu}.
+ */
 export const CopyItem = ({
   className,
   itemKey,
@@ -29,11 +35,12 @@ export const CopyItem = ({
       level={level}
       overflow="nowrap"
       variant="text"
-      className={CSS(CSS.B("menu-item"), className)}
+      className={CSS.cls(CSS.B("menu-item"), className)}
       background={background}
       tooltip={null}
       gap={gap}
       propagateClick
+      role="menuitem"
       {...rest}
       onClick={handleClick}
     />

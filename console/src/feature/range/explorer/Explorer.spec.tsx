@@ -7,7 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, ranger } from "@synnaxlabs/client";
+import {
+  group,
+  label,
+  NotFoundError,
+  panel,
+  project,
+  ranger,
+  type Synnax as Client,
+  view,
+} from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -20,6 +29,10 @@ import { enableEditing, findToolbarIconButton } from "@/platform/view/testutil";
 import { Session } from "@/session";
 import {
   createConsoleWrapper,
+  createTestClientWithGrants,
+  getBySelector,
+  type Grants,
+  queryIconButton,
   resolveFocusedTab,
   selectTestProject,
   type TestStore,
@@ -35,8 +48,8 @@ const expectFocusedRange = async (store: TestStore, key: string): Promise<void> 
   expect(tab.resource.key).toBe(key);
 };
 
-const renderExplorer = async (): Promise<{ store: TestStore }> => {
-  const { wrapper, store } = await createConsoleWrapper({ client });
+const renderExplorer = async (as: Client = client): Promise<{ store: TestStore }> => {
+  const { wrapper, store } = await createConsoleWrapper({ client: as });
   await selectTestProject(store, client);
   render(
     <>
@@ -45,7 +58,7 @@ const renderExplorer = async (): Promise<{ store: TestStore }> => {
     </>,
     { wrapper },
   );
-  await screen.findByText("All Ranges");
+  await screen.findByText("All ranges");
   return { store };
 };
 
@@ -205,6 +218,69 @@ describe("range/Explorer", () => {
           NotFoundError.matches(e),
         );
       });
+    });
+  });
+});
+
+describe("range/Explorer permissions", () => {
+  const createEditor = async (grants: Grants = {}) =>
+    await createTestClientWithGrants(client, {
+      ...grants,
+      retrieve: [
+        ranger.TYPE_ONTOLOGY_ID,
+        view.TYPE_ONTOLOGY_ID,
+        label.TYPE_ONTOLOGY_ID,
+        group.TYPE_ONTOLOGY_ID,
+        project.TYPE_ONTOLOGY_ID,
+        panel.TYPE_ONTOLOGY_ID,
+      ],
+      update: [view.TYPE_ONTOLOGY_ID, ...(grants.update ?? [])],
+      create: [view.TYPE_ONTOLOGY_ID, ...(grants.create ?? [])],
+    });
+
+  it("should withhold the create button from a subject who cannot create ranges", async () => {
+    await renderExplorer(await createEditor({}));
+    await enableEditing();
+    await waitFor(() =>
+      expect(
+        queryIconButton(getBySelector(document.body, ".console-controls"), "add"),
+      ).toBeTruthy(),
+    );
+    expect(
+      queryIconButton(getBySelector(document.body, ".console-view__toolbar"), "add"),
+    ).toBeNull();
+  });
+
+  it("should offer the create button to a subject who may create ranges", async () => {
+    await renderExplorer(await createEditor({ create: [ranger.TYPE_ONTOLOGY_ID] }));
+    await enableEditing();
+    expect(await findToolbarIconButton("add")).toBeTruthy();
+  });
+
+  describe("context menu", () => {
+    it("should offer reads but no writes to a subject with no range grants", async () => {
+      const rng = await createTestRange(client);
+      await renderExplorer(await createEditor({}));
+      fireEvent.contextMenu(await revealRange(rng.name));
+      expect(await screen.findByText("View details")).toBeTruthy();
+      expect(screen.queryByText("Rename")).toBeNull();
+      expect(screen.queryByText("Create child range")).toBeNull();
+      expect(screen.queryByText("Delete")).toBeNull();
+    });
+
+    it("should offer every write to a subject granted them", async () => {
+      const rng = await createTestRange(client);
+      await renderExplorer(
+        await createEditor({
+          create: [ranger.TYPE_ONTOLOGY_ID],
+          update: [ranger.TYPE_ONTOLOGY_ID],
+          delete: [ranger.TYPE_ONTOLOGY_ID],
+        }),
+      );
+      fireEvent.contextMenu(await revealRange(rng.name));
+      expect(await screen.findByText("Rename")).toBeTruthy();
+      expect(await screen.findByText("Create child range")).toBeTruthy();
+      expect(await screen.findByText("Delete")).toBeTruthy();
     });
   });
 });

@@ -11,7 +11,6 @@ package pagerduty
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -20,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/change"
-	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/validate"
@@ -30,43 +28,14 @@ import (
 // AlertTaskType is the type identifier for PagerDuty alert tasks.
 const AlertTaskType = "pagerduty_alert"
 
-// AlertConfig is the configuration for a single alert, mapping a Synnax status to a
-// PagerDuty alert.
-type AlertConfig struct {
-	// Status is the Synnax status key to alert on.
-	Status string `json:"status" msgpack:"status"`
-	// TreatErrorAsCritical controls whether error status variant maps to "critical"
-	// (true) or "error" (false) severity in PagerDuty.
-	TreatErrorAsCritical bool `json:"treat_error_as_critical" msgpack:"treat_error_as_critical"`
-	// Component of the source machine responsible for the event, for example "mysql" or
-	// "eth0".
-	Component string `json:"component" msgpack:"component"`
-	// Group is a logical grouping of components of a service, for example "app-stack".
-	Group string `json:"group" msgpack:"group"`
-	// Class is the class/type of the event, for example "ping failure" or "cpu load".
-	Class string `json:"class" msgpack:"class"`
-	// Enabled controls whether this specific alert is active.
-	Enabled bool `json:"enabled" msgpack:"enabled"`
-}
-
-// AlertTaskConfig is the configuration for a PagerDuty alert task.
-type AlertTaskConfig struct {
-	// RoutingKey is the 32-character Integration Key for an integration on a service
-	// or on a global ruleset.
-	RoutingKey string `json:"routing_key" msgpack:"routing_key"`
-	// AutoStart controls whether the task starts automatically when configured.
-	AutoStart bool `json:"auto_start" msgpack:"auto_start"`
-	// Alerts is the list of alert configurations to send.
-	Alerts []AlertConfig `json:"alerts" msgpack:"alerts"`
-}
-
-// Validate validates the alert task configuration.
-func (c AlertTaskConfig) Validate() error {
-	v := validate.New("pagerduty.alert_task_config")
+// validateConfig checks the deploy-time constraints on a task config: a real
+// routing key and at least one enabled alert.
+func validateConfig(c TaskConfig) error {
+	v := validate.New("pagerduty.task_config")
 	v.Ternary("routing_key", len(c.RoutingKey) != 32, "must be exactly 32 characters")
 	var hasEnabled bool
 	for _, a := range c.Alerts {
-		if a.Enabled {
+		if !a.Disabled {
 			hasEnabled = true
 			break
 		}
@@ -75,29 +44,15 @@ func (c AlertTaskConfig) Validate() error {
 	return v.Error()
 }
 
-// MsgpackEncodedJSON converts the config into a binary.MsgpackEncodedJSON suitable
-// for use as a task.Task.Config value.
-func (c AlertTaskConfig) MsgpackEncodedJSON() (msgpack.EncodedJSON, error) {
-	b, err := json.Marshal(c)
-	if err != nil {
-		return nil, err
-	}
-	var m msgpack.EncodedJSON
-	if err := json.Unmarshal(b, &m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
 type alertTask struct {
 	factoryCfg FactoryConfig
 	task       task.Task
-	cfg        AlertTaskConfig
+	cfg        TaskConfig
 	// status is the authority on this instance's current status.
 	status     *driver.StatusHandler
 	disconnect observe.Disconnect
-	// alertsByStatus maps status keys to their AlertConfig for O(1) lookup.
-	alertsByStatus map[string]AlertConfig
+	// alertsByStatus maps status keys to their enabled Alert for O(1) lookup.
+	alertsByStatus map[status.Key]Alert
 }
 
 var _ driver.Task = (*alertTask)(nil)
@@ -120,9 +75,9 @@ func (t *alertTask) start(ctx context.Context, cmdKey string) error {
 		t.ackCurrent(ctx, cmdKey, true)
 		return nil
 	}
-	t.alertsByStatus = make(map[string]AlertConfig, len(t.cfg.Alerts))
+	t.alertsByStatus = make(map[status.Key]Alert, len(t.cfg.Alerts))
 	for _, a := range t.cfg.Alerts {
-		if a.Enabled {
+		if !a.Disabled {
 			t.alertsByStatus[a.Status] = a
 		}
 	}
@@ -176,14 +131,14 @@ func (t *alertTask) ackCurrent(ctx context.Context, cmdKey string, running bool)
 
 func (t *alertTask) handleStatusChange(
 	ctx context.Context,
-	reader gorp.TxReader[string, status.Status[any]],
+	reader gorp.TxReader[status.Key, status.Status[any]],
 ) {
 	for ch := range reader {
 		if ch.Variant == change.VariantDelete {
 			continue
 		}
 		alertCfg, ok := t.alertsByStatus[ch.Key]
-		if !ok || !alertCfg.Enabled {
+		if !ok {
 			continue
 		}
 		s := ch.Value
@@ -202,7 +157,7 @@ func (t *alertTask) handleStatusChange(
 
 func (t *alertTask) buildTriggerEvent(
 	s status.Status[any],
-	alertCfg AlertConfig,
+	alertCfg Alert,
 ) pagerduty.V2Event {
 	summary := s.Message
 	if s.Description != "" {
@@ -226,7 +181,7 @@ func (t *alertTask) buildTriggerEvent(
 	}
 }
 
-func (t *alertTask) buildResolveEvent(statusKey string) pagerduty.V2Event {
+func (t *alertTask) buildResolveEvent(statusKey status.Key) pagerduty.V2Event {
 	return pagerduty.V2Event{
 		RoutingKey: t.cfg.RoutingKey,
 		Action:     "resolve",

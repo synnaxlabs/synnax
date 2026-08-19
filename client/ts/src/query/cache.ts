@@ -27,10 +27,9 @@ import { type Data, type Params } from "@/query/types";
 
 export interface CacheParams {
   /**
-   * Opens the raw frame streamer used to receive change signals; reconnect
-   * hardening is applied internally. Null constructs a detached cache: purely
-   * local tables and no change stream. Used for clients constructed with
-   * `cache: false`.
+   * Opens the raw frame streamer used to receive change signals; reconnect hardening is
+   * applied internally. Null constructs a detached cache: purely local tables and no
+   * change stream. Used for clients constructed with `cache: false`.
    */
   openStreamer: framer.StreamOpener | null;
   /** Retry behavior for change-stream reconnect attempts. */
@@ -45,9 +44,8 @@ export interface CacheParams {
    */
   onStreamDenied?: (error: Error) => void;
   /**
-   * Receives errors that have no caller to throw to: listener fan-out,
-   * streamer frame handling, and background reconciliation. Defaults to
-   * console logging.
+   * Receives errors that have no caller to throw to: listener fan-out, streamer frame
+   * handling, and background reconciliation. Defaults to console logging.
    */
   onError?: (error: Error) => void;
 }
@@ -89,14 +87,12 @@ interface SpaceLifecycle {
 }
 
 /**
- * The client's local mirror of cluster state: keyed tables, the change-stream
- * loop, connection epochs, and reconciliation. Holds zero domain knowledge —
- * domain clients create their tables here and expose typed query spaces.
- * Always present on a client; a null {@link CacheParams.openStreamer} stands
- * in for "disabled" or "not yet connected" rather than a null cache.
- *
- * The change stream opens lazily: nothing touches the network until the
- * first {@link ensureStreaming} call. All tables and listeners must be
+ * The client's local mirror of cluster state: keyed tables, the change-stream loop,
+ * connection epochs, and reconciliation. Holds zero domain knowledge — domain clients
+ * create their tables here and expose typed query spaces. Always present on a client; a
+ * null {@link CacheParams.openStreamer} stands in for "disabled" or "not yet connected"
+ * rather than a null cache. The change stream opens lazily: nothing touches the network
+ * until the first {@link ensureStreaming} call. All tables and listeners must be
  * declared before streaming starts.
  */
 export class Cache {
@@ -122,10 +118,9 @@ export class Cache {
   }
 
   /**
-   * Creates a table owned by this cache and returns it, binding its declared
-   * mirror listeners. Must be called before streaming starts; creating after
-   * {@link ensureStreaming} throws, as the new table's channels would never
-   * be streamed.
+   * Creates a table owned by this cache and returns it, binding its declared mirror
+   * listeners. Must be called before streaming starts; creating after {@link
+   * ensureStreaming} throws, as the new table's channels would never be streamed.
    */
   createTable<Key extends record.Key, Value extends state.State>(
     config: TableConfig<Key, Value>,
@@ -144,11 +139,10 @@ export class Cache {
   }
 
   /**
-   * Creates a table materialized from another table owned by this cache.
-   * Composed entries are replaced on source and watch events, so entry
-   * identity changes exactly when composition changes; misses on read fetch
-   * through the source. Resets with the cache. No stream listeners of its own,
-   * so it may be created at any time.
+   * Creates a table materialized from another table owned by this cache. Composed
+   * entries are replaced on source and watch events, so entry identity changes exactly
+   * when composition changes; misses on read fetch through the source. Resets with the
+   * cache. No stream listeners of its own, so it may be created at any time.
    */
   derive<Key extends record.Key, Value extends Keyed<Key>, Composed extends Keyed<Key>>(
     config: DerivedConfig<Key, Value, Composed>,

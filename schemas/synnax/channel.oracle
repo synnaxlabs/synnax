@@ -12,10 +12,10 @@ import "schemas/synnax/status"
 import "schemas/x/control"
 import "schemas/x/telem"
 
-@ts output  "client/ts/src/channel"
-@py output  "client/py/synnax/channel"
 @cpp output "client/cpp/channel"
 @pb
+@py output  "client/py/synnax/channel"
+@ts output  "client/ts/src/channel"
 
 Key uint32 {
     @doc value    """
@@ -23,32 +23,31 @@ Key uint32 {
         key (first 12 bits) and a local key (last 20 bits), enabling distributed
         assignment while maintaining global uniqueness.
     """
-    @go output    "core/pkg/service/channel"
     @go hand
+    @go output    "core/pkg/service/channel"
     @ts to_number
 }
 
 LocalKey uint20 {
+    @cpp omit
     @doc value """
         is a 20-bit unsigned integer representing the locally-unique portion of a
         channel key within a node. Combined with a node.Key to form the global channel
         Key.
     """
-    @go output "core/pkg/service/channel"
     @go hand
+    @go output "core/pkg/service/channel"
     @py omit
-    @cpp omit
 }
 
 Name = string {
-    @go version        0
     @doc value         """
-        is a human-readable name for a channel. Must start with a letter or
-        underscore and contain only letters, digits, and underscores. Names are
-        not guaranteed to be unique across channels.
+        is a human-readable name for a channel. Must start with a letter or underscore
+        and contain only letters, digits, and underscores. Names are not guaranteed to
+        be unique across channels.
     """
-    @validate required
     @go output         "core/pkg/service/channel"
+    @validate required
 }
 
 OperationType enum {
@@ -58,32 +57,38 @@ OperationType enum {
     none       = "none"
     derivative = "derivative"
 
-    @go version 0
-    @doc value  "is the type of aggregation operation to apply to channel data over time."
-    @go output  "core/pkg/service/channel"
+    @doc value """
+        is the type of aggregation operation to apply to channel data over time.
+    """
+    @go output "core/pkg/service/channel"
     @pb
 }
 
 Operation struct {
     type          OperationType  {
-        @doc value "is the aggregation operation type: min, max, avg, or none."
+        @doc value """
+            is the aggregation operation type: min, max, avg, derivative, or none.
+        """
     }
     reset_channel Key = 0 {
         @doc value """
-            is the channel key that triggers reset of the aggregation. If 0,
-            duration-based reset is used.
+            is the key of a channel that resets the aggregation when it receives a
+            sample. If 0, no reset channel is used.
         """
     }
     duration      telem.TimeSpan = 0 {
-        @doc value "is the time window for aggregation when reset_channel is 0."
+        @doc value """
+            is the interval at which the aggregation resets. If 0, the aggregation is
+            not reset on a timer.
+        """
     }
 
-    @go version 0
     @doc value  """
-        defines an aggregation operation applied to channel data. Operations
-        calculate min, max, or average values over a time duration or triggered
-        by a reset channel.
+        defines an aggregation operation applied to channel data. Operations calculate
+        min, max, average, or derivative values over a time duration or triggered by a
+        reset channel.
     """
+    @go marshal
     @go output  "core/pkg/service/channel"
     @pb
 }
@@ -106,9 +111,9 @@ Channel struct {
     }
     is_index    bool                {
         @doc value """
-            is true if this channel is an index channel. Index channels must
-            have int64 values (TIMESTAMP data type) written in ascending order,
-            and are most commonly unix nanosecond timestamps.
+            is true if this channel is an index channel. Index channels must have int64
+            values (TIMESTAMP data type) written in ascending order, and are most
+            commonly Unix nanosecond timestamps.
         """
         @filter
     }
@@ -116,10 +121,7 @@ Channel struct {
         @doc value "is the locally-unique portion of this channel's key."
     }
     local_index LocalKey            {
-        @doc value """
-            is the channel used to index this channel's values, associating
-            each value with a timestamp.
-        """
+        @doc value "is the locally-unique portion of the index channel's key."
     }
     virtual     bool                {
         @doc value """
@@ -129,12 +131,14 @@ Channel struct {
     }
     concurrency control.Concurrency {
         @doc value """
-            sets the policy for concurrent writes to the channel's data. Only
-            virtual channels can have a policy of shared concurrency.
+            sets the policy for concurrent writes to the channel's data. Only virtual
+            channels can have a policy of shared concurrency.
         """
     }
     internal    bool                {
-        @doc value "is true if this is a system channel hidden from normal user queries."
+        @doc value """
+            is true if this is a system channel hidden from normal user queries.
+        """
         @filter
     }
     operations  Operation[]         {
@@ -142,28 +146,27 @@ Channel struct {
     }
     expression  string              {
         @doc value """
-            is an Arc expression for calculated channels. If set, the channel
-            is automatically configured as virtual.
+            is an Arc expression for calculated channels. If set, the channel is
+            automatically configured as virtual.
         """
     }
 
+    @cpp hand
     @doc value     """
         is an internal representation of a channel containing all storage and
-        cluster-routing metadata. This type is used internally by the server;
-        clients should use APIChannel instead.
+        cluster-routing metadata. This type is used internally by the server; clients
+        should use APIChannel instead.
     """
-    @go output     "core/pkg/service/channel"
     @go marshal
     @go migrate
-    @go version    0
+    @go output     "core/pkg/service/channel"
+    @ontology type "channel"
+    @pb
+    @py hand
     @retrieve
     @retrieve key  "Key"
     @search
-    @ontology type "channel"
-    @py hand
     @ts hand
-    @cpp hand
-    @pb
 }
 
 Status = status.Status<nil> {
@@ -174,8 +177,7 @@ Status = status.Status<nil> {
 APIChannel struct {
     key         Key = 0 {
         @doc value """
-            is the unique identifier for this channel, automatically assigned
-            by Synnax.
+            is the unique identifier for this channel, automatically assigned by Synnax.
         """
         @key
     }
@@ -189,69 +191,73 @@ APIChannel struct {
     }
     data_type   telem.DataType      {
         @doc value """
-            is the data type of samples stored in this channel (e.g., Float64,
-            Int32, TimeStamp).
+            is the data type of samples stored in this channel (e.g., float64, int32,
+            timestamp).
         """
     }
     is_index    bool = false {
         @doc value """
-            is true if this is an index channel. Index channels must have int64
-            values (TIMESTAMP data type) written in ascending order, and are
-            most commonly unix nanosecond timestamps.
+            is true if this is an index channel. Index channels must have int64 values
+            (TIMESTAMP data type) written in ascending order, and are most commonly Unix
+            nanosecond timestamps.
         """
     }
     index       Key = 0 {
         @doc value """
-            is the channel used to index this channel's values, associating
-            each value with a timestamp.
+            is the channel used to index this channel's values, associating each value
+            with a timestamp.
         """
     }
     alias       string?             {
-        @doc value "is an optional alternate name for the channel within a specific context."
+        @doc value """
+            is an optional alternate name for the channel within a specific context.
+        """
     }
     virtual     bool = false {
-        @doc value """
-            is true if this channel does not store data in the database but can
-            still be used for streaming purposes.
-        """
         @cpp name  "is_virtual"
+        @doc value """
+            is true if this channel does not store data in the database but can still be
+            used for streaming purposes.
+        """
     }
     internal    bool = false {
-        @doc value "is true if this is a system channel hidden from normal user queries."
+        @doc value """
+            is true if this is a system channel hidden from normal user queries.
+        """
     }
     expression  string = "" {
         @doc value """
-            is an Arc expression for calculated channels. If set, the channel
-            is automatically configured as virtual.
+            is an Arc expression for calculated channels. If set, the channel is
+            automatically configured as virtual.
         """
     }
     operations  Operation[] = [] {
         @doc value """
-            contains optional aggregation operations (min, max, avg) applied to
-            channel data over time or triggered by a reset channel.
+            contains optional aggregation operations (min, max, avg, derivative) applied
+            to channel data over time or triggered by a reset channel.
         """
     }
     concurrency control.Concurrency = control.ConcurrencyExclusive {
         @doc value """
-            sets the policy for concurrent writes to the channel's data. Only
-            virtual channels can have a policy of shared concurrency.
+            sets the policy for concurrent writes to the channel's data. Only virtual
+            channels can have a policy of shared concurrency.
         """
     }
     status      Status?             {
         @doc value "is the current operational status of the channel."
     }
 
-    @doc value     """
-        is a logical collection of samples emitted by or representing values
-        from a single source. Channels are the fundamental unit of telemetry
-        storage and streaming in Synnax.
-    """
-    @go output     "core/pkg/api/channel"
+    @cpp name      "Channel"
     @create
+    @doc value     """
+        is a logical collection of samples emitted by or representing values from a
+        single source. Channels are the fundamental unit of telemetry storage and
+        streaming in Synnax.
+    """
+    @go name       "Channel"
+    @go output     "core/pkg/api/channel"
     @ontology type "channel"
+    @pb name       "Channel"
     @py name       "Payload"
     @ts name       "Payload"
-    @pb name       "Channel"
-    @go name       "Channel"
-    @cpp name      "Channel"
 }

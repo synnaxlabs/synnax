@@ -12,24 +12,15 @@ from re import search as re_search
 from playwright.sync_api import Locator, expect
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
-from console.context_menu import ContextMenu
-from console.layout import LayoutClient
-from console.notifications import NotificationsClient
-from console.tree import Tree
+from console.base import ResourceClient
 from x.color import Color
 
 _MODAL_SELECTOR = ".console-label__edit"
 _LABEL_ITEM_SELECTOR = ".console-label__list-item"
 
 
-class LabelClient:
+class LabelClient(ResourceClient):
     """Console label client for managing labels via the UI."""
-
-    def __init__(self, layout: LayoutClient):
-        self.layout = layout
-        self.ctx_menu = ContextMenu(layout.page)
-        self.notifications = NotificationsClient(layout.page)
-        self.tree = Tree(layout.page)
 
     def create(self, name: str, *, color: str | None = None) -> None:
         """Create a new label.
@@ -39,7 +30,7 @@ class LabelClient:
             color: Optional hex color code (e.g., "#FF0000") to set for the new label.
         """
         self._open_edit_modal()
-        add_button = self.layout.page.locator(".console-label__add-btn")
+        add_button = self.layout.page.locator("button.console-label__create")
         add_button.click()
 
         create_form = self.layout.page.locator(
@@ -50,7 +41,7 @@ class LabelClient:
             color_swatch = create_form.locator(".pluto-color-swatch").first
             self._set_color_via_picker(color_swatch, color)
 
-        name_input = create_form.locator("input[placeholder='Label Name']")
+        name_input = create_form.locator("input[placeholder='Name']")
         name_input.fill(name)
 
         save_button = create_form.locator("button:has(svg.pluto-icon--check)")
@@ -82,7 +73,7 @@ class LabelClient:
         for item in items_locator.all():
             if not item.is_visible():
                 continue
-            name_input = item.locator("input[placeholder='Label Name']").first
+            name_input = item.locator("input[placeholder='Name']").first
             if name_input.count() == 0:
                 continue
             if name_input.input_value().strip() == name.strip():
@@ -122,7 +113,7 @@ class LabelClient:
         if label_item is None:
             raise ValueError(f"Label '{old_name}' not found")
 
-        name_input = label_item.locator("input[placeholder='Label Name']").first
+        name_input = label_item.locator("input[placeholder='Name']").first
 
         name_input.click()
         self.layout.select_all_and_type(new_name)
@@ -160,7 +151,7 @@ class LabelClient:
 
         label_item.hover()
 
-        delete_button = label_item.locator("button.console-label__delete")
+        delete_button = label_item.locator("button:has(svg.pluto-icon--delete)")
         delete_button.wait_for(state="visible", timeout=5000)
 
         element_id = label_item.get_attribute("id")
@@ -183,7 +174,7 @@ class LabelClient:
         items = self._find_label_items()
         for item in items:
             if item.is_visible():
-                name_input = item.locator("input[placeholder='Label Name']").first
+                name_input = item.locator("input[placeholder='Name']").first
                 if name_input.count() > 0:
                     name = name_input.input_value()
                     if name:
@@ -226,7 +217,7 @@ class LabelClient:
         color_picker.wait_for(state="hidden", timeout=2000)
 
     def _open_edit_modal(self) -> None:
-        self.layout.open_modal("Edit Labels", _MODAL_SELECTOR)
+        self.layout.open_modal("Edit labels", _MODAL_SELECTOR)
 
     def _close_edit_modal(self) -> None:
         self.layout.close_modal(_MODAL_SELECTOR)
@@ -240,9 +231,7 @@ class LabelClient:
         except PlaywrightTimeoutError:
             return None
         item = items_locator.filter(
-            has=self.layout.page.locator(
-                f"input[placeholder='Label Name'][value='{name}']"
-            )
+            has=self.layout.page.locator(f"input[placeholder='Name'][value='{name}']")
         ).first
         try:
             item.wait_for(state="visible", timeout=5000)
@@ -270,7 +259,7 @@ class LabelClient:
         all_names = []
         for item in items:
             if item.is_visible():
-                inp = item.locator("input[placeholder='Label Name']").first
+                inp = item.locator("input[placeholder='Name']").first
                 if inp.count() > 0:
                     current_name = inp.input_value()
                     if current_name:

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, type ontology, schematic } from "@synnaxlabs/client";
+import { group, imex, type ontology, schematic } from "@synnaxlabs/client";
 import {
   Access,
   Button,
@@ -30,11 +30,6 @@ import { id, uuid } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
 
 import { Symbol } from "@/feature/schematic/symbol";
-import { useExportGroup } from "@/feature/schematic/symbol/export";
-import {
-  useImport as useImportSymbol,
-  useImportGroup,
-} from "@/feature/schematic/symbol/import";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
@@ -71,7 +66,7 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
   const { name, Preview } = spec;
   return (
     <List.Item
-      className={CSS(CSS.BE("schematic-symbols", "button"))}
+      className={CSS.cls(CSS.BE("schematic-symbols", "button"))}
       align="center"
       gap="tiny"
       draggable
@@ -151,7 +146,7 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
 
   return (
     <Select.ListItem
-      className={CSS(CSS.BE("schematic-symbols", "button"))}
+      className={CSS.cls(CSS.BE("schematic-symbols", "button"))}
       align="center"
       gap="tiny"
       draggable
@@ -188,11 +183,11 @@ const RemoteSymbolListContextMenu = ({
   const item = List.useItem<schematic.symbol.Key, schematic.symbol.Symbol>(firstKey);
   const confirmDelete = Modals.useConfirmDelete({
     type: "Symbol",
-    title: "Schematic.Symbols.Delete",
+    title: "Schematic.Symbol.Delete",
     icon: "Schematic",
   });
   const openEdit = Symbol.Edit.useModal();
-  const exportSymbol = Export.use();
+  const exportSymbol = Export.useResource();
   const del = Schematic.Symbol.useDelete({
     beforeUpdate: async () => {
       if (item == null) return false;
@@ -239,7 +234,7 @@ const RemoteListEmptyContent = ({
   const createSymbol = useCreateSymbol(groupKey);
   return (
     <Empty.Action
-      message="No symbols found."
+      message="No symbols found"
       action="Create symbol"
       onClick={createSymbol}
     />
@@ -331,8 +326,8 @@ const Actions = ({ symbolGroupID, selectedGroup }: ActionsProps): ReactElement =
   const rename = Modals.useRename();
   const handleError = Status.useErrorHandler();
   const openEdit = Symbol.Edit.useModal();
-  const importSymbol = useImportSymbol(selectedGroup);
-  const importGroup = useImportGroup();
+  const importSymbol = Symbol.useImport();
+  const importGroup = Symbol.useImportGroup();
   const hasCreateGroupPermission = Access.useCreateGranted(group.TYPE_ONTOLOGY_ID);
   const hasCreateSymbolPermission = Access.useCreateGranted(
     schematic.symbol.TYPE_ONTOLOGY_ID,
@@ -343,7 +338,7 @@ const Actions = ({ symbolGroupID, selectedGroup }: ActionsProps): ReactElement =
       const result = await rename({
         initialValue: "",
         allowEmpty: false,
-        title: "Schematic.Symbols.Group.Create",
+        title: "Schematic.Symbol.Group.Create",
         icon: <Icon.Group />,
       });
       if (result == null || result.length === 0) return;
@@ -400,7 +395,7 @@ const Actions = ({ symbolGroupID, selectedGroup }: ActionsProps): ReactElement =
             size="small"
             tooltip="Import symbol"
             disabled={!isRemoteGroup}
-            onClick={importSymbol}
+            onClick={() => importSymbol(selectedGroup)}
           >
             <ImportSymbolIcon />
           </Button.Button>
@@ -420,7 +415,7 @@ const GroupListContextMenu = ({
   const firstKey = keys[0];
   const isRemoteGroup = group.keyZ.safeParse(firstKey).success;
   const item = List.useItem<group.Key, group.Group>(firstKey);
-  const exportGroup = useExportGroup();
+  const exportGroup = Export.use();
   const deleteSymbolGroup = Symbol.useDeleteGroup();
 
   if (!isRemoteGroup) return null;
@@ -430,7 +425,13 @@ const GroupListContextMenu = ({
       <Menu.Divider />
       <Export.ContextMenuItem
         onClick={() => {
-          if (item != null) exportGroup(item);
+          if (item != null)
+            exportGroup({
+              stream: (client) =>
+                client.schematics.symbols.exportGroup(item.key, imex.JSON_OPTIONS),
+              name: item.name,
+              extension: "zip",
+            });
         }}
       />
       <Menu.Divider />

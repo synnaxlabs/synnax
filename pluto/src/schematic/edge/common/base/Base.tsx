@@ -33,14 +33,14 @@ export const Base = ({
       return { ...baseStyle, stroke };
     return {
       ...baseStyle,
-      [CSS.var("symbol-color")]: symbolColorVar(stroke),
+      [CSS.variable("symbol-color")]: symbolColorVar(stroke),
       stroke: "var(--pluto-symbol-display)",
     };
   }, [stroke, baseStyle]);
   return (
     <BaseEdge
       {...props}
-      className={CSS(CSS.B("symbol-colored"), className)}
+      className={CSS.cls(CSS.B("symbol-colored"), className)}
       interactionWidth={INTERACTION_WIDTH}
       style={style}
     />

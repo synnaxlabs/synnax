@@ -29,7 +29,7 @@ describe("Docs Commands", () => {
     });
     store.dispatch(Session.Project.select(proj.key));
     await openCommandPalette();
-    await selectCommand("Read the documentation");
+    await selectCommand("Read documentation");
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "view") throw new Error("expected a view tab");
     expect(tab.type).toBe(Docs.TAB_TYPE);

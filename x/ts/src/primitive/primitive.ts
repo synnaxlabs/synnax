@@ -65,11 +65,10 @@ export const isStringer = (value: unknown): boolean =>
  * Hashable is a duck-typed protocol for class instances that can produce a stable,
  * canonical string representation of themselves. Implementers commit to: (1) the
  * returned string uniquely identifies the value's logical content, and (2) two
- * instances representing the same logical value return equal strings.
- *
- * Used by cache-key derivation paths (e.g. flux queryCache) so non-primitive query
- * fields hash to a stable identifier rather than relying on enumerable own-property
- * iteration, which is fragile for class instances.
+ * instances representing the same logical value return equal strings. Used by cache-key
+ * derivation paths (e.g. flux queryCache) so non-primitive query fields hash to a
+ * stable identifier rather than relying on enumerable own-property iteration, which is
+ * fragile for class instances.
  */
 export interface Hashable {
   /** @returns a stable, canonical string representation of the value. */
@@ -83,24 +82,16 @@ export const isHashable = (value: unknown): value is Hashable =>
   "hash" in value &&
   typeof value.hash === "function";
 
-/**
- * Type representing zero values for each primitive type
- */
+/** Type representing zero values for each primitive type */
 export type ZeroValue = "" | 0 | 0n | false | null | undefined;
 
-/**
- * Type representing non-zero values for each primitive type
- */
+/** Type representing non-zero values for each primitive type */
 export type NonZeroValue = Exclude<Value, ZeroValue>;
 
 /**
- * @returns true if the given primitive is the zero value for its type.
- * For strings value == ""
- * For numbers value == 0
- * For bigints value == 0n
- * For booleans value == false
- * For objects value == null
- * For undefined returns true
+ * @returns true if the given primitive is the zero value for its type. For strings
+ * value == "" For numbers value == 0 For bigints value == 0n For booleans value ==
+ * false For objects value == null For undefined returns true
  */
 export const isZero = <V extends Value>(value: V): value is V & ZeroValue => {
   if (isStringer(value)) return value?.toString().length === 0;
@@ -122,20 +113,17 @@ export const isZero = <V extends Value>(value: V): value is V & ZeroValue => {
   }
 };
 
-/**
- * Type predicate function that narrows to non-zero values
- */
+/** Type predicate function that narrows to non-zero values */
 export const isNonZero = <V extends Value>(value: V): value is V & NonZeroValue =>
   !isZero(value);
 
 /**
- * @returns true if the given value is a JavaScript primitive: `null`, `undefined`,
- * or a value whose `typeof` is not `"object"` or `"function"`. Returns false for
- * objects (including arrays), functions, and class instances.
- *
- * Complements {@link isZero} and {@link isNonZero}, which check for the zero value
- * of a known primitive type. Use `is` when you have an `unknown` value and want to
- * decide whether to render it inline vs. recurse into it.
+ * @returns true if the given value is a JavaScript primitive: `null`, `undefined`, or a
+ * value whose `typeof` is not `"object"` or `"function"`. Returns false for objects
+ * (including arrays), functions, and class instances. Complements {@link isZero} and
+ * {@link isNonZero}, which check for the zero value of a known primitive type. Use `is`
+ * when you have an `unknown` value and want to decide whether to render it inline vs.
+ * recurse into it.
  */
 export const is = (value: unknown): boolean =>
   value == null || (typeof value !== "object" && typeof value !== "function");

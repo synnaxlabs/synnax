@@ -107,9 +107,8 @@ const EDITABLE_PROPS: ReactFlowProps = {
   connectionRadius: 30,
 };
 
-// The canvas stays navigable outside edit mode: Shift+drag pans, scroll and
-// pinch zoom, and selection is fully off so Shift can never start a
-// rubber-band box.
+// The canvas stays navigable outside edit mode: Shift+drag pans, scroll and pinch zoom,
+// and selection is fully off so Shift can never start a rubber-band box.
 const NOT_EDITABLE_PROPS: ReactFlowProps = {
   connectionRadius: 0,
   nodesDraggable: false,
@@ -186,6 +185,7 @@ export interface DiagramProps
 }
 
 const DELETE_KEY_CODES: Triggers.Trigger = ["Backspace", "Delete"];
+const FIT_VIEW_DEBOUNCE = TimeSpan.milliseconds(50);
 
 export const create = ({
   node: nodeRenderer,
@@ -312,7 +312,7 @@ export const create = ({
     const { fitView } = useReactFlow();
     const debouncedFitView = useDebouncedCallback(
       (args: diagram.FitViewOptions) => void fitView(args),
-      TimeSpan.milliseconds(50),
+      FIT_VIEW_DEBOUNCE,
       [fitView],
     );
 
@@ -341,7 +341,7 @@ export const create = ({
     const syncZoomCSSVar = useCallback((zoom: number): void => {
       if (zoomRef.current === zoom) return;
       zoomRef.current = zoom;
-      triggerRef.current?.style.setProperty(CSS.var("diagram-zoom"), `${zoom}`);
+      triggerRef.current?.style.setProperty(CSS.variable("diagram-zoom"), `${zoom}`);
     }, []);
     syncZoomCSSVar(viewport.zoom);
 
@@ -456,7 +456,7 @@ export const create = ({
 
     const triggerRef = useRef<HTMLDivElement>(null);
     Triggers.use({
-      triggers: triggers.zoomReset,
+      triggers: triggers.modes.zoomReset,
       callback: useCallback(
         ({ stage, cursor }: Triggers.UseEvent) => {
           const reg = triggerRef.current;
@@ -468,9 +468,10 @@ export const create = ({
     });
 
     const triggerProps = useMemo<Partial<ReactFlowProps>>(() => {
-      const selectTriggers = Triggers.purgeMouse(triggers.select)[0] ?? null;
-      const panTriggers = Triggers.purgeMouse(triggers.pan)[0] ?? null;
-      const zoomTriggers = Triggers.purgeMouse(triggers.zoom)[0] ?? null;
+      const { select, pan, zoom } = triggers.modes;
+      const selectTriggers = Triggers.purgeMouse(select)[0] ?? null;
+      const panTriggers = Triggers.purgeMouse(pan)[0] ?? null;
+      const zoomTriggers = Triggers.purgeMouse(zoom)[0] ?? null;
       return {
         selectionOnDrag: selectTriggers == null,
         panOnDrag: panTriggers == null,
@@ -560,7 +561,7 @@ export const create = ({
             {visible && isSized && (
               <ReactFlow
                 {...triggerProps}
-                className={CSS(
+                className={CSS.cls(
                   className,
                   CSS.B("diagram"),
                   CSS.editable(editable),

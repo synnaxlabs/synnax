@@ -428,8 +428,7 @@ export const materialChange = (prev: Status, next: Status): boolean =>
   !deep.equal(comparable(prev), comparable(next));
 
 /**
- * Folds the event and stamps the status time when the result is worth
- * publishing.
+ * Folds the event and stamps the status time when the result is worth publishing.
  * @returns the next status and whether observers should be notified.
  */
 export const advance = (

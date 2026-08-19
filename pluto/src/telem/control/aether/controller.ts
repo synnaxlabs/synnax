@@ -22,7 +22,6 @@ import { StreamClosed, Unreachable } from "@synnaxlabs/freighter";
 import {
   color,
   compare,
-  control as xcontrol,
   type CrudeSeries,
   type destructor,
   errors,
@@ -32,11 +31,13 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
 import { type theming } from "@/ether";
+import { flux } from "@/flux/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { telem } from "@/telem/aether";
 import { AbstractSink } from "@/telem/aether/telem";
-import { StateProvider } from "@/telem/control/aether/state";
+import { Colors } from "@/telem/control/aether/colors";
+import { retrieveDefinition, type RetrieveQuery } from "@/telem/control/aether/queries";
 
 export const statusZ = z.enum(["acquired", "released", "overridden", "failed"]);
 export type Status = z.infer<typeof statusZ>;
@@ -56,7 +57,7 @@ export const controllerMethodsZ = {
 interface InternalState {
   client: Synnax | null;
   instrumentation: Instrumentation;
-  stateProv: StateProvider;
+  colors: Colors;
   addStatus: status.Adder;
   runAsync: status.ErrorHandler;
   theme: theming.Theme;
@@ -96,11 +97,14 @@ export class Controller
     i.instrumentation = alamos.useInstrumentation(ctx);
     i.addStatus = status.useAdder(ctx);
     i.runAsync = status.useErrorHandler(ctx);
-    const nextClient = synnax.use(ctx);
-    const nextStateProv = StateProvider.use(ctx);
-    i.stateProv = nextStateProv;
+    i.colors = Colors.use(ctx);
     i.telemCtx = telem.useChildContext(ctx, this, i.telemCtx);
-    i.client = nextClient;
+    i.client = synnax.use(ctx);
+  }
+
+  /** The cluster this controller is bound to, or null while disconnected. */
+  get client(): Synnax | null {
+    return this.internal.client;
   }
 
   afterDelete(): void {
@@ -149,7 +153,7 @@ export class Controller
     const { client, addStatus } = this.internal;
     if (client == null)
       return addStatus({
-        message: `Cannot acquire control on ${this.state.name} because no Core has been connected.`,
+        message: `Failed to acquire control on ${this.state.name}: no Core is connected.`,
         variant: "warning",
       });
 
@@ -174,7 +178,7 @@ export class Controller
       const e = errors.fromUnknown(err);
       addStatus({
         variant: "error",
-        message: `${this.state.name} failed to acquire control`,
+        message: `Failed to acquire control on ${this.state.name}`,
         description: e.message,
       });
     }
@@ -186,7 +190,7 @@ export class Controller
     } catch (err) {
       const e = errors.fromUnknown(err);
       this.internal.addStatus({
-        message: `${this.state.name} failed to release control: ${e.message}`,
+        message: `Failed to release control on ${this.state.name}: ${e.message}`,
         variant: "error",
       });
     } finally {
@@ -261,7 +265,7 @@ export class Controller
           return sink as T;
         }
         case AuthoritySource.TYPE: {
-          const source = new AuthoritySource(this, this.internal.stateProv, spec.props);
+          const source = new AuthoritySource(this, i.colors, i.runAsync, spec.props);
           this.registry.set(source, null);
           return source as T;
         }
@@ -408,49 +412,51 @@ export class AuthoritySource
   implements telem.StatusSource<typeof authoritySourceDetailsZ>, AetherControllerTelem
 {
   static readonly TYPE = "controlled-status-source";
-  private readonly prov: StateProvider;
-  private valid = false;
-  private stopListening?: destructor.Destructor;
+  private readonly colors: Colors;
   private readonly controller: Controller;
+  private readonly retrieve: flux.Retrieve<RetrieveQuery, control.KeyedState>;
+  private readonly stopListening: destructor.Destructor;
   schema = authoritySourceProps;
 
-  constructor(controller: Controller, prov: StateProvider, props: unknown) {
+  constructor(
+    controller: Controller,
+    colors: Colors,
+    runAsync: status.ErrorHandler,
+    props: unknown,
+  ) {
     super(props);
-    this.prov = prov;
+    this.colors = colors;
     this.controller = controller;
+    this.retrieve = new flux.Retrieve({
+      definition: retrieveDefinition,
+      onChange: () => this.notify?.(),
+      onError: (error) =>
+        runAsync(async () => {
+          throw error;
+        }, "failed to retrieve control state"),
+    });
+    this.stopListening = colors.onChange(() => this.notify?.());
   }
 
   async needsControlOf(): Promise<channel.Key[]> {
     return [];
   }
 
-  private maybeRevalidate(): void {
-    if (this.valid) return;
-    const { channel: ch } = this.props;
-    this.stopListening?.();
-    const filter = xcontrol.filterTransfersByChannelKey(ch);
-    this.stopListening = this.prov.onChange((t) => {
-      if (t.length > 0 && filter(t).length === 0) return;
-      this.notify?.();
-    });
-    this.valid = true;
-  }
-
   value(): cstatus.Status<typeof authoritySourceDetailsZ> {
-    this.maybeRevalidate();
-
     const time = TimeStamp.now();
-    if (this.props.channel === 0)
+    const { channel: key } = this.props;
+    if (key === 0)
       return cstatus.create<typeof authoritySourceDetailsZ>({
         name: this.controller.key,
         key: this.controller.key,
         variant: "disabled",
-        message: "No Channel",
+        message: "No channel",
         time,
         details: { valid: false, authority: 0 },
       });
 
-    const state = this.prov.get(this.props.channel);
+    this.retrieve.update(this.controller.client, { key });
+    const state = this.retrieve.value;
 
     if (state == null)
       return cstatus.create<typeof authoritySourceDetailsZ>({
@@ -468,13 +474,18 @@ export class AuthoritySource
       variant: state.subject.key === this.controller.key ? "success" : "error",
       message: `Controlled by ${state.subject.name}`,
       time,
-      details: { valid: true, color: state.subjectColor, authority: state.authority },
+      details: {
+        valid: true,
+        color: this.colors.get(state.subject.key),
+        authority: state.authority,
+      },
     });
   }
 
   cleanup(): void {
     this.controller.deleteTelem(this);
-    this.stopListening?.();
+    this.stopListening();
+    this.retrieve.close();
   }
 }
 

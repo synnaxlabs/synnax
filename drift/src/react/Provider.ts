@@ -14,10 +14,7 @@ import { Provider, type ProviderProps as BaseProps } from "react-redux";
 import { type Enhancers } from "@/configureStore";
 import { type StoreState } from "@/state";
 
-/**
- * Overrides the default react-redux Provider to allow for a promise based
- * store.
- */
+/** Overrides the default react-redux Provider to allow for a promise based store. */
 export interface ProviderProps<
   S extends StoreState,
   A extends Action = UnknownAction,
@@ -28,11 +25,9 @@ export interface ProviderProps<
 }
 
 /**
- * Replaces the default react-redux Provider with a drift compatible one that
- * waits for the store to be ready before rendering. To understand why this is
- * necessary, see the configureStore documentation.
- *
- * @param props - The props to pass to the Provider.
+ * Replaces the default react-redux Provider with a drift compatible one that waits for
+ * the store to be ready before rendering. To understand why this is necessary, see the
+ * configureStore documentation.
  * @param props.store - A promise that resolves to the store.
  */
 export const DriftProvider = <
@@ -51,7 +46,6 @@ export const DriftProvider = <
     throw error;
   }
   if (store == null) {
-    // if the store isn't a promise, then it's already ready
     if (!(storeOrPromise instanceof Promise)) setStore(storeOrPromise);
     else storeOrPromise.then(setStore).catch(setError);
     return emptyContent;

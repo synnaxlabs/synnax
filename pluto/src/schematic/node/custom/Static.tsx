@@ -49,7 +49,7 @@ export const Static = ({
       <Note.Note variant="warning" className={className}>
         <Text.Text level="p" status="warning">
           <Icon.Warning />
-          Missing Custom Symbol
+          Missing custom symbol
         </Text.Text>
       </Note.Note>
     );
@@ -58,7 +58,7 @@ export const Static = ({
     <Primitive.Div
       ref={setContainer}
       orientation={orientation}
-      className={CSS(CSS.BM("symbol", "custom"), CSS.B("custom-static"), className)}
+      className={CSS.cls(CSS.BM("symbol", "custom"), CSS.B("custom-static"), className)}
     >
       <Handle.Boundary orientation={orientation}>
         {handles.map((handle) => (

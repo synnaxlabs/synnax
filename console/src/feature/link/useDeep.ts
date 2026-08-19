@@ -48,7 +48,6 @@ export const useDeep = (
     try {
       dispatch(Drift.focusWindow({}));
 
-      // Processing URL, making sure is has valid form
       if (urls.length === 0 || !urls[0].startsWith(Link.PREFIX))
         throw new Error(INCORRECT_FORMAT_ERROR_MESSAGE);
       const urlParts = urls[0].slice(Link.PREFIX.length).split("/");
@@ -66,7 +65,7 @@ export const useDeep = (
         throw new Error(`Resource type "${resource}" is unknown to Synnax`);
       await handle({ client, key: resourceKey });
     } catch (e) {
-      handleError(e, `Failed to open ${(strings.naturalLanguageJoin(urls), "link")}`);
+      handleError(e, `Failed to open ${strings.naturalLanguageJoin(urls, "link")}`);
     }
   };
 

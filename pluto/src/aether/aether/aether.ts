@@ -161,9 +161,8 @@ export type CallersFromSchema<T> = {
  * membership (parent, depth, deletion) and the context-propagation machinery: a node
  * publishes context values to its descendants via {@link Context.set} and subscribes to
  * values published by its ancestors via {@link Context.get}. {@link Leaf} layers typed
- * state and invocable methods on top; {@link Composite} adds a children registry.
- *
- * The context internals are members of this shared base so a node can reach its parent's
+ * state and invocable methods on top; {@link Composite} adds a children registry. The
+ * context internals are members of this shared base so a node can reach its parent's
  * and subscribers' state directly. A childless node (a pure {@link Leaf}) never gains
  * descendants, so its provider-side {@link ctxSubscribers} stays empty; only nodes that
  * own children ({@link Composite}s) ever accumulate subscribers.
@@ -424,13 +423,11 @@ export abstract class Node implements Component {
 
 /**
  * Base class for childless aether components. The corresponding React component must
- * not have descendants that use Aether — use {@link Composite} for those.
- *
- * Subclasses define a Zod {@link schema} for their state and override
- * {@link afterUpdate} / {@link afterDelete} for lifecycle behavior. To expose invocable
- * methods, set {@link methods} to a {@link MethodsSchema} and `implements
- * HandlersFromSchema<typeof schema>` — method names on the class must match keys in the
- * schema.
+ * not have descendants that use Aether — use {@link Composite} for those. Subclasses
+ * define a Zod {@link schema} for their state and override {@link afterUpdate} / {@link
+ * afterDelete} for lifecycle behavior. To expose invocable methods, set {@link methods}
+ * to a {@link MethodsSchema} and `implements HandlersFromSchema<typeof schema>` —
+ * method names on the class must match keys in the schema.
  *
  * @example
  * ```typescript

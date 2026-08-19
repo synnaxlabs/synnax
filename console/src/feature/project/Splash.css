@@ -9,10 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-project-splash__header {
-    padding: 2.5rem 3rem;
-}
-
 /* The card already frames it, so the input sheds its own box. The padding lands
    the search icon on the header's 3rem gutter. */
 .pluto-input.console-project-splash__search.console-project-splash__search {
@@ -24,12 +20,6 @@
     flex-shrink: 0;
 }
 
-.console-project-splash__items.console-project-splash__items {
-    overflow-y: auto;
-    min-height: 0;
-    padding: 1.5rem;
-}
-
 .console-project-splash__items .pluto-list__virtualizer {
     display: flex;
     flex-direction: column;
@@ -37,13 +27,5 @@
 }
 
 .console-project-splash__items .pluto-list__item {
-    min-height: 9rem;
-    padding: 2rem 3rem;
-    border-radius: var(--pluto-border-radius-medium);
     gap: 2rem;
-}
-
-.console-project-splash__denied {
-    padding: 3rem;
-    text-align: center;
 }

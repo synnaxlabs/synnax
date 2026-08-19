@@ -9,7 +9,6 @@
 
 from typing import Any, Literal
 
-import synnax as sy
 from console.schematic.symbol import Symbol
 
 ButtonMode = Literal["Fire", "Momentary", "Pulse"]
@@ -35,7 +34,8 @@ class Button(Symbol):
         Args:
             label: Display label for the symbol
             channel_name: Channel name for the button
-            activation_delay: Delay before activation in seconds (optional)
+            activation_delay: Milliseconds the button must be held before it
+                fires (optional)
             show_control_chip: Whether to show the control chip (optional)
             mode: Button mode - "Fire", "Momentary", or "Pulse" (optional)
             symbol_type: The type of symbol (default: "Button")
@@ -71,11 +71,11 @@ class Button(Symbol):
             self.set_label(channel_name)
 
         # Navigate to Properties > Control tab
-        self.page.get_by_text("Properties").click()
+        self.open_properties_tab()
         self.page.get_by_text("Control").last.click()
 
         if channel_name is not None:
-            self.set_channel(input_field="Output channel", channel_name=channel_name)
+            self.set_channel(input_field="Channel", channel_name=channel_name)
             applied_properties["channel"] = channel_name
 
         if activation_delay is not None:
@@ -96,7 +96,7 @@ class Button(Symbol):
             applied_properties["show_control_chip"] = show_control_chip
 
         if mode is not None:
-            self.page.get_by_text(mode).click()
+            self.page.get_by_role("button", name=mode, exact=True).click()
             applied_properties["mode"] = mode
 
         return applied_properties
@@ -107,22 +107,24 @@ class Button(Symbol):
 
         props: dict[str, Any] = {
             "channel": "",
-            "activation_delay": -1.0,
             "show_control_chip": False,
             "mode": "",
         }
 
         # Channel name
         channel_display = (
-            self.page.locator("text=Output channel").locator("..").locator("button")
+            self.page.locator('text="Channel"').locator("..").locator("button")
         )
         if channel_display.count() > 0:
             props["channel"] = channel_display.inner_text().strip()
 
-        # Activation delay
-        props["activation_delay"] = float(
-            self.layout.get_input_field("Activation delay")
-        )
+        # Activation delay; the form hides the field for momentary mode, where
+        # the hold is the actuation.
+        delay_field = self.page.locator("text=Activation delay")
+        if delay_field.count() > 0:
+            props["activation_delay"] = float(
+                self.layout.get_input_field("Activation delay")
+            )
 
         # Show control chip
         chip_toggle = (
@@ -140,7 +142,7 @@ class Button(Symbol):
                 button = self.page.get_by_text(option).first
                 if button.count() > 0:
                     class_name = button.get_attribute("class") or ""
-                    if "pluto-btn--filled" in class_name:
+                    if "pluto--selected" in class_name:
                         props["mode"] = option
                         break
             except Exception as e:
@@ -152,10 +154,3 @@ class Button(Symbol):
         """Press button."""
         self._disable_edit_mode()
         self.click()
-
-    def press_and_hold(self, delay: sy.TimeSpan = sy.TimeSpan.SECOND) -> None:
-        """Click and hold the button for the specified duration."""
-        self._disable_edit_mode()
-        self.page.mouse.down()
-        self.page.wait_for_timeout(int(delay.milliseconds()))
-        self.page.mouse.up()

@@ -30,10 +30,10 @@ describe("EnableDisableButton", () => {
     expect(form.current?.get("enabled").value).toBe(false);
   });
 
-  it("should be disabled when the task is a snapshot", async () => {
+  it("should be disabled when the form is in preview", async () => {
     const { form } = await renderInTaskForm(
       <Task.EnableDisableButton path="enabled" />,
-      { values: { enabled: true, snapshot: true } },
+      { values: { enabled: true }, mode: "preview" },
     );
     fireEvent.click(screen.getByRole("button"));
     expect(form.current?.get("enabled").value).toBe(true);

@@ -31,6 +31,39 @@ export const fireDragEvent = (
   fireEvent(target, event);
 };
 
+/**
+ * Fires a pointer down event at the given cursor position on target. jsdom has no
+ * PointerEvent, so testing-library falls back to a plain Event and the coordinates in
+ * the init are lost; they are defined on the event instead.
+ */
+export const firePointerDown = (target: Element, cursor: xy.XY): void => {
+  const event = createEvent.pointerDown(target);
+  Object.defineProperties(event, {
+    clientX: { value: cursor.x },
+    clientY: { value: cursor.y },
+    screenX: { value: cursor.x },
+    screenY: { value: cursor.y },
+  });
+  fireEvent(target, event);
+};
+
+/**
+ * Gives every element a fixed box in jsdom, which otherwise reports zero for all of
+ * them. A virtualized list measures its scroll container this way, so without it no
+ * item is ever inside the window.
+ */
+export const mockGeometry = (width: number, height: number): void => {
+  Element.prototype.getBoundingClientRect = mockBoundingClientRect(0, 0, width, height);
+  Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
+    configurable: true,
+    get: () => height,
+  });
+  Object.defineProperty(HTMLElement.prototype, "offsetWidth", {
+    configurable: true,
+    get: () => width,
+  });
+};
+
 export const mockBoundingClientRect = (
   top: number,
   left: number,

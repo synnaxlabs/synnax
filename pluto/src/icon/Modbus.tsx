@@ -15,7 +15,7 @@ export const Modbus = wrapSVGIcon(
     <svg
       xmlns="http://www.w3.org/2000/svg"
       viewBox="0 0 52 60"
-      className={CSS(className, "logo")}
+      className={CSS.cls(className, "logo")}
       {...rest}
       stroke="currentColor"
       fill="currentColor"

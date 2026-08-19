@@ -39,13 +39,12 @@ const NotEditableContent = (): ReactElement => {
   const name = Schematic.useName();
   return (
     <Empty.Action
-      x
-      message={`${name} is not editable.${canEdit ? " To make changes," : ""}`}
+      message={`${name} is not editable`}
       action={
         canEdit
           ? controlState === "acquired"
-            ? "release control and enable editing."
-            : "enable editing."
+            ? "Release control and enable editing"
+            : "Enable editing"
           : undefined
       }
       onClick={() => {
@@ -98,8 +97,12 @@ const Internal = (): ReactElement => {
             )}
           </Breadcrumb.Breadcrumb>
           <Flex.Box x align="center" empty>
-            <Flex.Box x empty className={CSS.BE("schematic", "toolbar", "actions")}>
-              <Export.ToolbarButton getID={() => schematic.ontologyID(key)} />
+            <Flex.Box
+              x
+              gap="small"
+              className={CSS.BE("schematic", "toolbar", "actions")}
+            >
+              <Export.ToolbarButton id={schematic.ontologyID(key)} />
               <Cluster.CopyLinkToolbarButton
                 name={name}
                 ontologyID={schematic.ontologyID(key)}

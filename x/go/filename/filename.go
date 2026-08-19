@@ -10,6 +10,7 @@
 package filename
 
 import (
+	"path/filepath"
 	"regexp"
 	"strings"
 	"unicode/utf8"
@@ -43,9 +44,9 @@ var (
 // Sanitize turns a user-supplied name into a file name that writes to disk on any
 // platform, carrying extension. It replaces every character a file name cannot hold
 // with an underscore, drops trailing dots and spaces, prefixes an underscore to a
-// Windows device name, and shortens the name until it and extension together fit the
-// longest path element a filesystem takes. Pass an empty extension for a name that
-// carries none.
+// Windows device name or a name starting with a dot, and shortens the name until it
+// and extension together fit the longest path element a filesystem takes. Pass an
+// empty extension for a name that carries none.
 //
 // A name that sanitizes to nothing, such as one holding dots and spaces alone, comes
 // back as a single underscore.
@@ -66,7 +67,8 @@ func Sanitize(name, extension string) (string, error) {
 		)
 	}
 	name = fit(unsafeChars.ReplaceAllString(name, "_"), budget)
-	if reservedNames.MatchString(name) {
+	// A leading dot hides the file on Unix-like systems, so it gets a prefix too.
+	if reservedNames.MatchString(name) || strings.HasPrefix(name, ".") {
 		// Hold a byte back for the prefix so the whole name still fits.
 		name = "_" + fit(name, budget-1)
 	}
@@ -74,6 +76,15 @@ func Sanitize(name, extension string) (string, error) {
 		name = placeholder
 	}
 	return name + extension, nil
+}
+
+// WithSuffix inserts suffix between name's base and extension, shortening the base
+// until the result fits the longest path element a filesystem takes. name must carry
+// extension, as Sanitize returns it; pass an empty extension for a name without one.
+func WithSuffix(name, suffix, extension string) string {
+	base := strings.TrimSuffix(name, extension)
+	base = fit(base, maxLength-len(suffix)-len(extension))
+	return base + suffix + extension
 }
 
 // fit shortens name to maxBytes bytes, cutting on a rune boundary, and drops the
@@ -88,6 +99,16 @@ func fit(name string, maxBytes int) string {
 		name = name[:len(name)-size]
 	}
 	return strings.TrimRight(name, ". ")
+}
+
+// Stem strips name's directory segments and trailing extension. Both path separators
+// are cut, so a name built on any platform resolves the same way. An empty name stays
+// empty.
+func Stem(name string) string {
+	if i := strings.LastIndexAny(name, `/\`); i >= 0 {
+		name = name[i+1:]
+	}
+	return strings.TrimSuffix(name, filepath.Ext(name))
 }
 
 // Fold reduces name to the form two file names must be compared in: case-folded and

@@ -102,7 +102,7 @@ export const Login = (): ReactElement => {
 
   return (
     <Shell.Frame
-      className={CSS(CSS.B("login"), CSS.M(`step-${step}`))}
+      className={CSS.cls(CSS.B("login"), CSS.M(`step-${step}`))}
       connection={step === "login" ? target : undefined}
     >
       {step === "clusters" ? (
@@ -156,7 +156,7 @@ export const Login = (): ReactElement => {
                   full="x"
                   justify="center"
                 >
-                  Log In
+                  Log in
                   <Icon.Arrow.Right />
                 </Button.Button>
               </Flex.Box>

@@ -50,6 +50,7 @@ export class HardenedStreamer implements Streamer {
   private readonly stableAfter: TimeSpan;
   private openedAt = TimeStamp.now();
   private closed = false;
+  private reconnecting: Promise<void> | null = null;
 
   constructor(
     opener: StreamOpener,
@@ -88,12 +89,10 @@ export class HardenedStreamer implements Streamer {
 
   /**
    * Opens a new hardened streamer with the given configuration.
-   * @param opener - The function to use for opening streamers
-   * @param config - The configuration for the streamer
-   * @param breakerConfig - Retry behavior for reconnect attempts. Defaults to
-   * retrying forever on capped, jittered exponential backoff.
-   * @param onReopen - Called after every successful reconnect (not the initial
-   * open). Frames may have been dropped between the failure and the reopen.
+   * @param breakerConfig - Retry behavior for reconnect attempts. Defaults to retrying
+   * forever on capped, jittered exponential backoff.
+   * @param onReopen - Called after every successful reconnect (not the initial open).
+   * Frames may have been dropped between the failure and the reopen.
    * @param onDrop - Called when the stream fails and reconnection begins.
    * @returns A promise that resolves to a new hardened streamer
    */
@@ -119,10 +118,9 @@ export class HardenedStreamer implements Streamer {
   }
 
   private async runStreamer(notifyReopen: boolean = true): Promise<void> {
-    // A long-lived stream that dropped is a fresh incident: reconnect
-    // immediately. A short-lived one is a failing cycle (e.g. a server that
-    // accepts streams and instantly ends them): keep backing off, or the
-    // loop dials hot.
+    // A long-lived stream that dropped is a fresh incident: reconnect immediately. A
+    // short-lived one is a failing cycle (e.g. a server that accepts streams and
+    // instantly ends them): keep backing off, or the loop dials hot.
     if (notifyReopen)
       if (TimeStamp.since(this.openedAt).greaterThan(this.stableAfter))
         this.breaker.reset();
@@ -169,6 +167,18 @@ export class HardenedStreamer implements Streamer {
     return this.current;
   }
 
+  // A failure during an in-flight reconnect joins it; a second run would open a
+  // competing stream and leak the loser.
+  private async reconnect(error: Error): Promise<void> {
+    if (this.reconnecting == null) {
+      this.onDrop?.(error);
+      this.reconnecting = this.runStreamer().finally(() => {
+        this.reconnecting = null;
+      });
+    }
+    await this.reconnecting;
+  }
+
   async update(channels: channel.Params): Promise<void> {
     if (this.closed) throw new EOF();
     this.config.channels = channels;
@@ -176,8 +186,7 @@ export class HardenedStreamer implements Streamer {
       await this.wrapped.update(channels);
     } catch (e) {
       if (this.closed || EOF.matches(e)) throw errors.fromUnknown(e);
-      this.onDrop?.(errors.fromUnknown(e));
-      await this.runStreamer();
+      await this.reconnect(errors.fromUnknown(e));
       return await this.update(channels);
     }
   }
@@ -199,8 +208,7 @@ export class HardenedStreamer implements Streamer {
       if (this.closed) throw new EOF();
       // an EOF the client did not ask for is a drop: the server ended the
       // stream, so reconnect like any other failure
-      this.onDrop?.(errors.fromUnknown(e));
-      await this.runStreamer();
+      await this.reconnect(errors.fromUnknown(e));
       return await this.read();
     }
   }
@@ -237,12 +245,9 @@ export class ObservableStreamer<V = Frame>
 
   /**
    * Creates a new observable streamer.
-   * @param streamer - The streamer to wrap
    * @param transform - An optional transform function to apply to each frame
-   * @param onDead - Called when the stream ends on a failure the wrapped streamer
-   * will not recover from. No frames follow.
-   * @template V - The type of the transformed value. Only relevant if transform is
-   * provided. Defaults to Frame.
+   * @param onDead - Called when the stream ends on a failure the wrapped streamer will
+   * not recover from. No frames follow.
    */
   constructor(
     streamer: Streamer,

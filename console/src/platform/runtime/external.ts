@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/platform/runtime/download";
-export * from "@/platform/runtime/externalLinks";
 export * from "@/platform/runtime/files";
+export * from "@/platform/runtime/upload";
+export * from "@/platform/runtime/useDownload";
+export * from "@/platform/runtime/useExternalLinkHandler";

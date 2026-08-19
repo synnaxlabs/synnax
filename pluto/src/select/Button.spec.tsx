@@ -80,14 +80,23 @@ describe("Select.Button", () => {
         </Select.Buttons>,
       );
 
-    it("should mark every button as a preview", () => {
+    it("should render only the selected option as a preview", () => {
       const c = renderButtons(true);
       expect(c.getByText("Option 1").closest("button")?.classList).toContain(
         "pluto-btn--preview",
       );
-      expect(c.getByText("Option 2").closest("button")?.classList).toContain(
-        "pluto-btn--preview",
+      expect(c.queryByText("Option 2")).toBeNull();
+    });
+
+    it("should render None when nothing is selected", () => {
+      const c = render(
+        <Select.Buttons keys={[1, 2]} value={undefined} onChange={vi.fn()} preview>
+          <Select.Button itemKey={1}>Option 1</Select.Button>
+          <Select.Button itemKey={2}>Option 2</Select.Button>
+        </Select.Buttons>,
       );
+      expect(c.getByText("None")).toBeTruthy();
+      expect(c.queryByText("Option 1")).toBeNull();
     });
 
     it("should not mark any button when preview is unset", () => {
@@ -100,7 +109,7 @@ describe("Select.Button", () => {
     it("should swallow clicks while previewing", () => {
       const onChange = vi.fn();
       const c = renderButtons(true, onChange);
-      fireEvent.click(c.getByText("Option 2"));
+      fireEvent.click(c.getByText("Option 1"));
       expect(onChange).not.toHaveBeenCalled();
     });
   });

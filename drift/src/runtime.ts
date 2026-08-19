@@ -13,9 +13,7 @@ import { type dimensions, type xy } from "@synnaxlabs/x";
 import { type StoreState } from "@/state";
 import { type WindowProps } from "@/window";
 
-/**
- * An event emitted by drift to communicate state changes.
- */
+/** An event emitted by drift to communicate state changes. */
 export interface Event<S extends StoreState, A extends Action = UnknownAction> {
   /** The key of the window that emitted the event */
   emitter: string;
@@ -52,44 +50,30 @@ export interface MainChecker {
   isMain: () => boolean;
 }
 
-/**
- * Communicator allows for event communication between windows.
- */
+/** Communicator allows for event communication between windows. */
 export interface Communicator<S extends StoreState, A extends Action = UnknownAction>
   extends Sender<S, A>, Receiver<S, A>, MainChecker {}
 
-/**
- * Properties represents the runtime properties of a window.
- */
+/** Properties represents the runtime properties of a window. */
 export interface Properties {
-  /**
-   * @returns the key of the window.
-   */
+  /** @returns the key of the window. */
   label: () => string;
-  /**
-   * Calls the provided function with the current window is closing.
-   */
+  /** Calls the provided function with the current window is closing. */
   onCloseRequested: (cb: () => void) => void;
   listLabels: () => Promise<string[]>;
   getProps: () => Promise<Omit<WindowProps, "key">>;
 }
 
-/**
- * Manager is used to manage the windows in the application.
- */
+/** Manager is used to manage the windows in the application. */
 export interface Manager {
   /**
    * Creates a new window with the given properties. The window should not be shown
    * until the ready() method is called.
    */
   create: (label: string, props: Omit<WindowProps, "key">) => Promise<void>;
-  /**
-   * Closes the window with the given key.
-   */
+  /** Closes the window with the given key. */
   close: (label: string) => Promise<void>;
-  /**
-   * Focuses the window with the given key.
-   */
+  /** Focuses the window with the given key. */
   focus: () => Promise<void>;
   setMinimized: (value: boolean) => Promise<void>;
   setMaximized: (value: boolean) => Promise<void>;

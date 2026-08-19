@@ -32,10 +32,9 @@ export type FileEncoding = "JSON" | "ZIP";
  */
 export interface FileOptions<P extends z.ZodType = z.ZodType> {
   /**
-   * The wire encoding of the transferred bytes.
-   *
-   * On upload it describes the request body and is sent as Content-Type; the body has a
-   * single representation, so pass a single encoding.
+   * The wire encoding of the transferred bytes. On upload it describes the request body
+   * and is sent as Content-Type; the body has a single representation, so pass a single
+   * encoding.
    */
   encoding: FileEncoding;
   /**
@@ -59,7 +58,6 @@ export interface FileOptions<P extends z.ZodType = z.ZodType> {
 export interface FileTransport extends Transport {
   /**
    * Streams body to target as the request body and decodes the typed response.
-   *
    * @param target - The target route to send the request to.
    * @param body - The request body, streamed to the server without buffering when it is
    * a ReadableStream or Blob.
@@ -80,9 +78,6 @@ export interface FileTransport extends Transport {
    * Sends the typed request req to target and returns the response body as a byte
    * stream the caller can pipe wherever it likes (a file, a download, an in-memory
    * sink) without buffering the whole payload.
-   *
-   * @param target - The target route to send the request to.
-   * @param req - The typed request payload.
    * @param reqSchema - The schema to validate and encode the request with.
    * @param options - The transfer options, including the desired response encoding.
    * @returns the response body as a ReadableStream of bytes.

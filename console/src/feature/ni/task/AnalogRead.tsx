@@ -110,7 +110,7 @@ const getInitialValues: Task.GetInitialValues<AnalogReadSchemas> = ({
   const cfg = analogReadConfigZ.parse(config ?? {});
   if (config == null && deviceKey != null)
     cfg.channels = [{ ...createAIChannel(), device: deviceKey, key: id.create() }];
-  return { name: "NI Analog Read Task", type: ANALOG_READ_TYPE, config: cfg };
+  return { name: "NI analog read task", type: ANALOG_READ_TYPE, config: cfg };
 };
 
 const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
@@ -118,8 +118,7 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
   config,
 ) => {
   const devices = unique.unique(config.channels.map((c) => c.device));
-  if (devices.length === 0)
-    throw new Error("No devices selected in task configuration");
+  if (devices.length === 0) throw new Error("No devices selected");
   let rackKey: rack.Key | undefined;
   const allDevices = await client.devices.retrieve({
     keys: devices,
@@ -130,7 +129,7 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
     const first = allDevices[0];
     const mismatched = allDevices.filter((d) => d.rack !== first.rack);
     throw new Error(
-      `All devices must be on the same driver: ${first.name} and ${strings.naturalLanguageJoin(mismatched.map((d) => d.name))} are on different racks`,
+      `All devices must be on the same rack: ${first.name} and ${strings.naturalLanguageJoin(mismatched.map((d) => d.name))} are on different racks`,
     );
   }
   for (const dev of allDevices) {
@@ -161,7 +160,6 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
       const toCreate: AIChannel[] = [];
       for (const channel of config.channels) {
         if (channel.device !== dev.key) continue;
-        // check if the channel is in properties
         const exKey = dev.properties.analogInput.channels[channel.port.toString()];
         if (primitive.isZero(exKey)) toCreate.push(channel);
         else
@@ -194,7 +192,7 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
       c.channel = dev.properties.analogInput.channels[c.port.toString()];
     });
   }
-  if (rackKey == null) throw new Error("No devices selected in task configuration");
+  if (rackKey == null) throw new Error("No devices selected");
   return [config, rackKey];
 };
 
@@ -214,7 +212,7 @@ export const useCreateAnalogRead = Task.createUseCreate({
 
 export const AnalogReadSelectable = Selector.createSelectable({
   type: ANALOG_READ_TYPE,
-  title: "NI Analog Read Task",
+  title: "NI analog read task",
   icon: <Icon.Logo.NI />,
   useOnSelect: useCreateAnalogRead,
 });

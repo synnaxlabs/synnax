@@ -14,14 +14,8 @@ import z from "zod";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
-import {
-  DELETE_CHANNEL_NAME,
-  type Key,
-  keyZ,
-  ontologyID,
-  SET_CHANNEL_NAME,
-} from "@/status/payload";
-import { type New, type Status, statusZ } from "@/status/types.gen";
+import { DELETE_CHANNEL_NAME, ontologyID, SET_CHANNEL_NAME } from "@/status/payload";
+import { type Key, keyZ, type New, type Status, statusZ } from "@/status/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 const setReqZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
@@ -317,7 +311,7 @@ export class Client extends query.Retriever<
    */
   private ensureLabel(rel: ontology.Relationship): void {
     if (rel.to.type !== "label" || this.cfg.labels.store.has(rel.to.key)) return;
-    void this.cfg.labels
+    this.cfg.labels
       .retrieve(rel.to.key)
       .catch((exc: unknown) =>
         this.cfg.cache.onError(

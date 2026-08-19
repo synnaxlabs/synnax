@@ -7,8 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, ontology, ranger } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import {
+  group,
+  label,
+  ontology,
+  ranger,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
+import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -18,11 +24,13 @@ import { renderOntologyTree } from "@/platform/tree/treeTestutil";
 import {
   awaitTextEditingElement,
   commitTextEdit,
+  createTestClientWithGrants,
   uniqueName,
   withControlHeld,
 } from "@/testutil";
 
 const client = createTestClient();
+const roles = new RoleClients(client);
 
 interface MixedSelection {
   parentID: ontology.ID;
@@ -30,7 +38,7 @@ interface MixedSelection {
   range: ranger.Range;
 }
 
-const setupMixedSelection = async (): Promise<MixedSelection> => {
+const setupMixedSelection = async (as: Client = client): Promise<MixedSelection> => {
   const parent = await client.groups.create({
     parent: ontology.ROOT_ID,
     name: uniqueName("parent"),
@@ -42,7 +50,7 @@ const setupMixedSelection = async (): Promise<MixedSelection> => {
   });
   const range = await createTestRange(client);
   await client.ontology.addChildren(parentID, ranger.ontologyID(range.key));
-  await renderOntologyTree({ client, root: parentID });
+  await renderOntologyTree({ client: as, projectClient: client, root: parentID });
   await screen.findByText(child.name);
   await screen.findByText(range.name);
   fireEvent.click(getTreeRow(child.name));
@@ -81,5 +89,32 @@ describe("Tree.MultipleSelectionContextMenu", () => {
       expect(keys).toContain(child.key);
       expect(keys).toContain(range.key);
     });
+  });
+});
+
+describe("Tree.MultipleSelectionContextMenu permissions", () => {
+  it("should withhold grouping from a viewer", async () => {
+    await setupMixedSelection(await roles.get("Viewer"));
+    await screen.findByText("Reload Console");
+    expect(screen.queryByText("Group selection")).toBeNull();
+  });
+
+  it("should withhold grouping from a subject who cannot create groups", async () => {
+    const writer = await createTestClientWithGrants(client, {
+      retrieve: [
+        group.TYPE_ONTOLOGY_ID,
+        ranger.TYPE_ONTOLOGY_ID,
+        label.TYPE_ONTOLOGY_ID,
+      ],
+      update: [group.TYPE_ONTOLOGY_ID, ranger.TYPE_ONTOLOGY_ID],
+    });
+    await setupMixedSelection(writer);
+    await screen.findByText("Reload Console");
+    expect(screen.queryByText("Group selection")).toBeNull();
+  });
+
+  it("should offer grouping to an engineer", async () => {
+    await setupMixedSelection(await roles.get("Engineer"));
+    expect(await screen.findByText("Group selection")).toBeTruthy();
   });
 });

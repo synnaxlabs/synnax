@@ -14,20 +14,28 @@ import {
   ontology,
   rack,
 } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Device } from "@/feature/device";
 import { createTestDevice } from "@/platform/device/testutil";
 import { findButton } from "@/platform/modals/testutil";
+import { renderTreeContextMenu } from "@/platform/tree/menuTestutil";
+import { createResource } from "@/platform/tree/testutil";
 import {
   openTreeRowContextMenu,
   renderOntologyTree,
 } from "@/platform/tree/treeTestutil";
-import { awaitTextEditingElement, commitTextEdit, uniqueName } from "@/testutil";
+import {
+  assertDefined,
+  awaitTextEditingElement,
+  commitTextEdit,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
+const roles = new RoleClients(client);
 
 const createDeviceGroup = async (
   ...devices: { key: string; rack: number }[]
@@ -88,5 +96,21 @@ describe("device/ontology", () => {
         NotFoundError.matches(e),
       );
     });
+  });
+});
+
+describe("permission to write the device", () => {
+  it("should withhold rename, grouping, and delete from a viewer", async () => {
+    const dev = await createTestDevice(client);
+    const Item = Device.TREE_ITEMS.device;
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client: await roles.get("Viewer"),
+      resources: [createResource(deviceClient.ontologyID(dev.key), dev.name)],
+    });
+    expect(await screen.findByText("Copy properties")).toBeTruthy();
+    expect(screen.queryByText("Rename")).toBeNull();
+    expect(screen.queryByText("Group selection")).toBeNull();
+    expect(screen.queryByText("Delete")).toBeNull();
   });
 });

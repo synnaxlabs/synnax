@@ -44,15 +44,16 @@ export const useSelectorDropProps = ({
   nodeKey,
   tabKeys,
 }: UseSelectorDropPropsParams): UseSelectorDropPropsReturn => {
-  const { onDrop, onCreate } = useContext("Mosaic.useSelectorDropProps");
+  const { onDrop, onCreate, disabled } = useContext("Mosaic.useSelectorDropProps");
   const canDrop: Haul.CanDrop = useCallback(
     ({ items }) => {
+      if (disabled) return false;
       if (filterTabCreateHaulItems(items).length > 0) return true;
       const dropped = filterTabDropHaulItems(items).map(({ key }) => key);
       if (dropped.length === 0) return false;
       return tabKeys.length === 0 || tabKeys.some((key) => !dropped.includes(key));
     },
-    [tabKeys],
+    [tabKeys, disabled],
   );
   const handleDrop = useCallback(
     ({ items, index }: Tabs.SelectorOnDropParams): Haul.Item[] => {

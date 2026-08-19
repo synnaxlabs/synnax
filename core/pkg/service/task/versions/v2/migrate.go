@@ -59,8 +59,8 @@ var resourceSchema = zyn.Object(map[string]zyn.Schema{
 })
 
 // hashConfig is a frozen copy of the config hash as of this version: xxhash64 of the
-// JSON encoding as 16 lowercase hex characters. encoding/json sorts map keys, so
-// equal configs hash equally.
+// JSON encoding as 16 lowercase hex characters. encoding/json sorts map keys, so equal
+// configs hash equally.
 func hashConfig(config msgpack.EncodedJSON) (string, error) {
 	if config == nil {
 		config = msgpack.EncodedJSON{}
@@ -140,8 +140,8 @@ func migrateKeysToUUID(
 	return nil
 }
 
-// legacyKeyFromOntology parses a legacy uint64 task key out of an ontology key
-// string, returning false when the string is not a legacy key.
+// legacyKeyFromOntology parses a legacy uint64 task key out of an ontology key string,
+// returning false when the string is not a legacy key.
 func legacyKeyFromOntology(key string) (v1.Key, bool) {
 	n, err := strconv.ParseUint(key, 10, 64)
 	if err != nil {
@@ -150,10 +150,10 @@ func legacyKeyFromOntology(key string) (v1.Key, bool) {
 	return v1.Key(n), true
 }
 
-// rewriteStatuses re-keys every task status row from "task:<legacy>" to
-// "task:<uuid>" and rewrites the task and rack references inside its details. A
-// status row whose task has no live record (already deleted pre-migration) is
-// deleted rather than left stuck under its legacy key forever.
+// rewriteStatuses re-keys every task status row from "task:<legacy>" to "task:<uuid>"
+// and rewrites the task and rack references inside its details. A status row whose task
+// has no live record (already deleted pre-migration) is deleted rather than left stuck
+// under its legacy key forever.
 func rewriteStatuses(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -319,9 +319,8 @@ func rewriteRelationships(ctx context.Context, tx gorp.Tx, keys map[v1.Key]Key) 
 	return nil
 }
 
-// collectEntries drains a reader into a slice of the entries matching keep.
-// Mutating a gorp table while iterating it is unsafe, so callers gather first and
-// write after.
+// collectEntries drains a reader into a slice of the entries matching keep. Mutating a
+// Gorp table while iterating it is unsafe, so callers gather first and write after.
 func collectEntries[K gorp.Key, E gorp.Entry[K]](
 	ctx context.Context,
 	r gorp.Reader[K, E],

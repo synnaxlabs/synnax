@@ -84,7 +84,7 @@ const MetaDataListItem = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const { update: handleDelete } = Ranger.useDeleteKV();
   const { form, save } = Ranger.useKVPairForm({
-    query: null,
+    query: isCreate ? null : { rangeKey, key: itemKey },
     autoSave: !isCreate,
     initialValues: initialValues ?? {
       key: "",
@@ -107,7 +107,7 @@ const MetaDataListItem = ({
   }, [isCreate, visible]);
   return (
     <List.Item
-      className={CSS(
+      className={CSS.cls(
         CSS.BE("metadata", "list-item"),
         isCreate && CSS.M("create"),
         PCSS.visible(visible),

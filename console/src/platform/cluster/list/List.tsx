@@ -51,7 +51,7 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
       if (!allNames.includes(name)) return true;
       addStatus({
         variant: "error",
-        message: `Cannot rename Core to ${name}`,
+        message: `Failed to rename Core to ${name}`,
         description: `A Core with name "${name}" already exists.`,
       });
       return false;
@@ -159,7 +159,7 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
     <Select.Frame data={keys} value={value} onChange={onChange} itemHeight={54}>
       <Flex.Box y bordered grow empty {...rest}>
         <Menu.ContextMenu menu={contextMenu} {...menuProps} />
-        <Header.Header gap="small" x className={CSS.BE("cluster-list", "header")}>
+        <Header.Header gap="small" x>
           <Header.Title level="h4" color={11}>
             <Icon.Cluster />
             Cores
@@ -169,12 +169,12 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
           empty
           onContextMenu={menuProps.open}
           grow
-          className={CSS.BE("cluster-list", "items")}
+          className={CSS.cls(CSS.BE("shell", "items"), CSS.BE("cluster-list", "items"))}
         >
           {keys.length === 0 ? (
             <Empty.Action
-              message="No Cores added."
-              action="Add a Core"
+              message="No Cores"
+              action="Add Core"
               onClick={() => openConnect()}
             />
           ) : (

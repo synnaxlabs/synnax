@@ -67,7 +67,7 @@ const PERSIST_SCOPES: Persist.Scopes<State> = {
 };
 
 const PERSIST_MIGRATORS: Persist.SliceMigrators<State> = {
-  [Status.SLICE_NAME]: (raw) => Status.migrateSlice(raw as Status.AnySliceState),
+  [Status.SLICE_NAME]: Status.migrateSlice,
 };
 
 const getPersistContext = (state: State): Persist.Context => ({
@@ -171,6 +171,7 @@ export type Store = BaseStore<State, Action>;
 
 const DEFAULT_WINDOW_PROPS: Omit<Drift.WindowProps, "key"> = {
   visible: IS_DEV,
+  size: { width: 800, height: 600 },
   minSize: { width: 625, height: 375 },
 };
 

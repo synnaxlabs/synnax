@@ -7,8 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { panel, project, schematic } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import {
+  group,
+  panel,
+  project,
+  schematic,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
+import {
+  type BuiltInRole,
+  createTestClient,
+  RoleClients,
+} from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
 import { Icon, Menu } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
@@ -22,7 +32,14 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "web" }));
+
+vi.mock("@/session/runtime/runtime", async (importOriginal) => {
+  const { mockRuntimeEngine } = await import("@/testutil/runtime");
+  return await mockRuntimeEngine(importOriginal, mocks);
+});
 
 import { Panel as PanelFeature } from "@/feature/panel";
 import { Modals } from "@/platform/modals";
@@ -33,9 +50,14 @@ import {
   primePanel,
 } from "@/platform/panel/testutil";
 import { Session } from "@/session";
-import { awaitTextEditingElement, uniqueName } from "@/testutil";
+import {
+  awaitTextEditingElement,
+  createTestClientWithGrants,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
+const roles = new RoleClients(client);
 
 const resourceTab = (): panel.Tab => ({
   variant: "resource",
@@ -80,6 +102,10 @@ const renderMenu = (wrapper: FC<PropsWithChildren>, keys: string[]) =>
   );
 
 describe("Panel.TabMenuItems", () => {
+  beforeEach(() => {
+    mocks.engine = "web";
+  });
+
   describe("rename", () => {
     it("offers rename for a resource tab", async () => {
       const tab = resourceTab();
@@ -166,7 +192,16 @@ describe("Panel.TabMenuItems", () => {
   });
 
   describe("move to new window", () => {
+    it("hides the item in the browser, which cannot open a window", async () => {
+      const tab = resourceTab();
+      const { wrapper } = await setup([tab], tab.key);
+      renderMenu(wrapper, [tab.key]);
+      await waitFor(() => expect(screen.getByText("Move to panel")).toBeTruthy());
+      expect(screen.queryByText("Move to new window")).toBeNull();
+    });
+
     it("mints a panel holding the tab and opens a window showing it", async () => {
+      mocks.engine = "tauri";
       const moved = resourceTab();
       const stays = resourceTab();
       const existing = await createServerPanel(client, {
@@ -286,5 +321,69 @@ describe("Panel.TabMenuItems", () => {
         expect(panel.findTab(src.root, front.key)).toBeDefined();
       });
     });
+  });
+});
+
+describe("Panel.TabMenuItems permissions", () => {
+  const setupAs = async (
+    as: Client,
+    tab: panel.Tab,
+  ): Promise<FC<PropsWithChildren>> => {
+    const existing = await createServerPanel(client, { variant: "leaf", tabs: [tab] });
+    const { key } = await client.projects.create({
+      name: uniqueName("project"),
+      layout: {},
+    });
+    const { wrapper } = await createPanelWrapper({
+      client: as,
+      project: key,
+      panelKey: existing.key,
+      tabKey: tab.key,
+    });
+    await primePanel(wrapper, existing.key);
+    return wrapper;
+  };
+
+  beforeEach(() => {
+    mocks.engine = "tauri";
+  });
+
+  it.each<BuiltInRole>(["Viewer", "Operator"])(
+    "should withhold rename and both moves from a %s",
+    async (role) => {
+      const tab = resourceTab();
+      const wrapper = await setupAs(await roles.get(role), tab);
+      renderMenu(wrapper, [tab.key]);
+      await waitFor(() => expect(screen.getByText("Reload Console")).toBeTruthy());
+      expect(screen.queryByText("Rename")).toBeNull();
+      expect(screen.queryByText("Move to panel")).toBeNull();
+      expect(screen.queryByText("Move to new window")).toBeNull();
+    },
+  );
+
+  it("should offer rename and both moves to an engineer", async () => {
+    const tab = resourceTab();
+    const wrapper = await setupAs(await roles.get("Engineer"), tab);
+    renderMenu(wrapper, [tab.key]);
+    expect(await screen.findByText("Rename")).toBeTruthy();
+    expect(await screen.findByText("Move to panel")).toBeTruthy();
+    expect(await screen.findByText("Move to new window")).toBeTruthy();
+  });
+
+  it("should withhold the tear-off from a subject who cannot create panels", async () => {
+    const tab = resourceTab();
+    const editor = await createTestClientWithGrants(client, {
+      retrieve: [
+        panel.TYPE_ONTOLOGY_ID,
+        project.TYPE_ONTOLOGY_ID,
+        schematic.TYPE_ONTOLOGY_ID,
+        group.TYPE_ONTOLOGY_ID,
+      ],
+      update: [panel.TYPE_ONTOLOGY_ID, schematic.TYPE_ONTOLOGY_ID],
+    });
+    const wrapper = await setupAs(editor, tab);
+    renderMenu(wrapper, [tab.key]);
+    expect(await screen.findByText("Move to panel")).toBeTruthy();
+    expect(screen.queryByText("Move to new window")).toBeNull();
   });
 });

@@ -33,7 +33,9 @@ const newUnary = (): Unary => new Unary({ dynamicBufferSize: 100 });
 
 describe("Unary", () => {
   describe("read with a live leading buffer", () => {
-    it("should include the buffer and clip the trailing gap at its start", () => {
+    // The buffer's samples carry provisional leading alignments that cannot pair
+    // with fetched data on another channel, so it never claims coverage.
+    it("should include the buffer and still report the full gap", () => {
       const u = newUnary();
       u.writeDynamic(stamped(10, 13, [1, 2, 3], LEADING_ALIGNMENT));
       const { series, gaps } = u.read(
@@ -42,18 +44,22 @@ describe("Unary", () => {
       expect(series.series).toHaveLength(1);
       expect(series.series[0]).toBe(u.leadingBuffer);
       expect(gaps).toHaveLength(1);
-      expect(gaps[0].start).toEqual(TimeStamp.seconds(5));
-      expect(gaps[0].end).toEqual(TimeStamp.seconds(10));
+      expect(gaps[0].equals(TimeStamp.seconds(5).range(TimeStamp.seconds(15)))).toBe(
+        true,
+      );
     });
 
-    it("should drop gaps that start at or after the buffer start", () => {
+    it("should report a gap over the buffer's own span", () => {
       const u = newUnary();
       u.writeDynamic(stamped(10, 13, [1, 2, 3], LEADING_ALIGNMENT));
       const { series, gaps } = u.read(
         TimeStamp.seconds(12).range(TimeStamp.seconds(20)),
       );
       expect(series.series).toHaveLength(1);
-      expect(gaps).toHaveLength(0);
+      expect(gaps).toHaveLength(1);
+      expect(gaps[0].equals(TimeStamp.seconds(12).range(TimeStamp.seconds(20)))).toBe(
+        true,
+      );
     });
 
     it("should exclude the buffer when the read ends before it starts", () => {
@@ -67,7 +73,7 @@ describe("Unary", () => {
       );
     });
 
-    it("should truncate a gap that straddles the buffer start", () => {
+    it("should compute gaps from fetched entries alone", () => {
       const u = newUnary();
       u.writeStatic(stamped(0, 4, [1, 2, 3, 4], 0n));
       u.writeDynamic(stamped(10, 13, [5, 6, 7], LEADING_ALIGNMENT));
@@ -78,7 +84,7 @@ describe("Unary", () => {
       expect(series.series[1]).toBe(u.leadingBuffer);
       expect(gaps).toHaveLength(1);
       expect(gaps[0].start).toEqual(TimeStamp.seconds(4));
-      expect(gaps[0].end).toEqual(TimeStamp.seconds(10));
+      expect(gaps[0].end).toEqual(TimeStamp.seconds(20));
     });
   });
 
@@ -104,6 +110,32 @@ describe("Unary", () => {
       const { series } = u.read(TimeStamp.seconds(10).range(TimeStamp.seconds(13)));
       expect(series.series).toHaveLength(1);
       expect(series.series[0].alignment).toEqual(LEADING_ALIGNMENT);
+    });
+  });
+
+  describe("flushDynamic", () => {
+    it("should move the leading buffer to static without claiming coverage", () => {
+      const u = newUnary();
+      u.writeDynamic(stamped(10, 13, [1, 2, 3], LEADING_ALIGNMENT));
+      u.flushDynamic();
+      expect(u.leadingBuffer).toBeNull();
+      const { series, gaps } = u.read(
+        TimeStamp.seconds(5).range(TimeStamp.seconds(20)),
+      );
+      expect(series.series).toHaveLength(1);
+      expect(Array.from(series.series[0])).toEqual([1, 2, 3]);
+      expect(gaps).toHaveLength(1);
+      expect(gaps[0].equals(TimeStamp.seconds(5).range(TimeStamp.seconds(20)))).toBe(
+        true,
+      );
+    });
+
+    it("should be a no-op when there is no leading buffer", () => {
+      const u = newUnary();
+      u.flushDynamic();
+      expect(u.leadingBuffer).toBeNull();
+      const { gaps } = u.read(TimeStamp.seconds(5).range(TimeStamp.seconds(20)));
+      expect(gaps).toHaveLength(1);
     });
   });
 });

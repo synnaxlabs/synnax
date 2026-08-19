@@ -10,24 +10,24 @@
 import { type ontology } from "@synnaxlabs/client";
 import { Button, Icon } from "@synnaxlabs/pluto";
 
-import { use } from "@/platform/export/use";
+import { useResource } from "@/platform/export/use";
 
 export interface ToolbarButtonProps extends Omit<
   Button.ButtonProps,
-  "onClick" | "children"
+  "onClick" | "children" | "id"
 > {
-  /** Resolves the ontology ID to export, evaluated when the button is clicked. */
-  getID: () => ontology.ID;
+  /** The ontology ID to export. */
+  id: ontology.ID;
 }
 
-export const ToolbarButton = ({ getID, ...rest }: ToolbarButtonProps) => {
-  const handleExport = use();
+export const ToolbarButton = ({ id, ...rest }: ToolbarButtonProps) => {
+  const handleExport = useResource();
   return (
     <Button.Button
       tooltip="Export layout"
       size="medium"
       variant="text"
-      onClick={() => handleExport(getID())}
+      onClick={() => handleExport(id)}
       {...rest}
     >
       <Icon.Export />

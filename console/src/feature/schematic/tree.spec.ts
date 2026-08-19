@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError, project, ranger, schematic } from "@synnaxlabs/client";
+import { RoleClients } from "@synnaxlabs/client/testutil";
 import { Status } from "@synnaxlabs/pluto";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -19,6 +20,9 @@ import {
   renderSchematicTree,
   testProjectKey,
 } from "@/feature/schematic/testutil";
+import { renderTreeContextMenu } from "@/platform/tree/menuTestutil";
+
+const roles = new RoleClients(client);
 import { findButton } from "@/platform/modals/testutil";
 import { createTestRange } from "@/platform/range/testutil";
 import {
@@ -30,6 +34,7 @@ import {
 import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
 import { Session } from "@/session";
 import {
+  assertDefined,
   awaitTextEditingElement,
   captureBrowserDownloads,
   commitTextEdit,
@@ -91,8 +96,7 @@ describe("Schematic.useRangeSnapshot", () => {
       expect(
         result.current.notifications.statuses.some(
           (st) =>
-            st.variant === "error" &&
-            st.message === "Cannot snapshot schematics without an active range",
+            st.variant === "error" && st.message === "Failed to snapshot schematics",
         ),
       ).toBe(true),
     );
@@ -145,8 +149,7 @@ describe("Schematic.useRangeSnapshot", () => {
     await waitFor(() =>
       expect(
         result.current.notifications.statuses.some(
-          (st) =>
-            st.variant === "success" && st.message.includes("Successfully snapshotted"),
+          (st) => st.variant === "success" && st.message.includes("Snapshotted"),
         ),
       ).toBe(true),
     );
@@ -211,5 +214,22 @@ describe("Schematic TreeContextMenu", () => {
     await waitFor(() => expect(downloads.anchors).toHaveLength(1));
     expect(downloads.anchors[0].download).toBe(`${s.name}.json`);
     result.unmount();
+  });
+});
+
+describe("permission to write the schematic", () => {
+  it("should withhold rename, grouping, copying, and delete from a viewer", async () => {
+    const s = await createSchematic();
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client: await roles.get("Viewer"),
+      resources: [
+        createResource(schematic.ontologyID(s.key), s.name, { snapshot: false }),
+      ],
+    });
+    expect(await screen.findByText("Copy properties")).toBeTruthy();
+    expect(screen.queryByText("Rename")).toBeNull();
+    expect(screen.queryByText("Group selection")).toBeNull();
+    expect(screen.queryByText("Delete")).toBeNull();
   });
 });

@@ -8,124 +8,92 @@
 // included in the file licenses/APL.txt.
 
 import { type Store } from "@reduxjs/toolkit";
-import { type ontology, type project, type Synnax as Client } from "@synnaxlabs/client";
+import {
+  DisconnectedError,
+  imex,
+  type ontology,
+  project,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
 import { type Mosaic, Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { ingestServer } from "@/platform/import/import";
-import { ingestBatch } from "@/platform/import/ingestBatch";
-import { type DirectoryIngester } from "@/platform/import/ingester";
-import { Panel } from "@/platform/panel";
+import { FS } from "@/platform/fs";
+import { type BundleImporter } from "@/platform/import/import";
+import { useImportBatch } from "@/platform/import/useImportBatch";
+import { isZipFile, zipFiles } from "@/platform/import/zip";
+import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
 
-// DataTransferItem handles stop resolving once the drop handler returns, so the entries
-// are taken before anything is awaited.
-const captureEntries = (dataTransfer: DataTransfer): FileSystemEntry[] =>
-  Array.from(dataTransfer.items)
-    .filter((item) => item.kind === "file")
-    .map((item) => item.webkitGetAsEntry())
-    .filter((entry) => entry != null);
-
-// The DOM entry types carry isFile and isDirectory as plain booleans, so narrowing to
-// the reading APIs takes a guard.
-const isFile = (entry: FileSystemEntry): entry is FileSystemFileEntry => entry.isFile;
-
-const isDirectory = (entry: FileSystemEntry): entry is FileSystemDirectoryEntry =>
-  entry.isDirectory;
-
-const readFile = async (entry: FileSystemFileEntry): Promise<File> =>
-  await new Promise((resolve, reject) => entry.file(resolve, reject));
-
-const readDirectory = async (entry: FileSystemDirectoryEntry): Promise<File[]> => {
-  const reader = entry.createReader();
-  const files: File[] = [];
-  while (true) {
-    const entries = await new Promise<FileSystemEntry[]>((resolve, reject) => {
-      reader.readEntries(resolve, reject);
-    });
-    if (entries.length === 0) break;
-    for (const child of entries) if (isFile(child)) files.push(await readFile(child));
-  }
-  return files;
-};
-
-const readJSON = async (file: File): Promise<unknown> => JSON.parse(await file.text());
-
-interface IngestContext {
+interface ImportContext {
   client: Client | null;
-  ingestDirectory: DirectoryIngester;
+  importBundle: BundleImporter;
   projectKey: project.Key;
   store: Store;
 }
 
-// Returns the resource the entry created, or nothing for a directory: a project import
-// brings its own panels, so it opens no tab here.
-const ingestEntry = async (
+// Returns the resource the entry created, or nothing for a bundle: a project import
+// brings its own panels, so it opens no tab here. A dropped directory is zipped with
+// its files' relative paths; the Core owns the bundle format.
+const importEntry = async (
   entry: FileSystemEntry,
-  { client, ingestDirectory, projectKey, store }: IngestContext,
+  { client, importBundle, projectKey, store }: ImportContext,
 ): Promise<void | ontology.ID> => {
-  if (isDirectory(entry)) {
-    const files = await readDirectory(entry);
-    const parsed = await Promise.all(
-      files.map(async (file) => ({ name: file.name, data: await readJSON(file) })),
+  if (FS.isDirectoryEntry(entry)) {
+    const bundle = await Runtime.uploadBody(
+      zipFiles(await FS.readDirectoryFiles(entry)),
     );
-    return await ingestDirectory(entry.name, parsed, { client, store });
+    return await importBundle(entry.name, bundle, { client, store });
   }
-  if (!isFile(entry)) return;
-  const file = await readFile(entry);
-  if (file.type !== "application/json") throw new Error("not a JSON file");
-  return await ingestServer(await readJSON(file), {
-    client,
-    projectKey,
+  if (!FS.isFileEntry(entry)) return;
+  const file = await FS.readEntryFile(entry);
+  if (isZipFile(file.name))
+    return await importBundle(file.name, file, { client, store });
+  if (!file.name.toLowerCase().endsWith(".json")) throw new Error("not a JSON file");
+  if (client == null) throw new DisconnectedError();
+  return await client.imex.import(file, {
+    ...imex.JSON_OPTIONS,
     fileName: file.name,
+    parent: project.ontologyID(projectKey),
   });
 };
 
 export interface UseFileDropParams {
-  /** Ingests a dropped directory. Injected by the composition root. */
-  ingestDirectory: DirectoryIngester;
+  /**
+   * Imports a dropped directory or .zip as a bundle. Injected by the composition root.
+   */
+  importBundle: BundleImporter;
 }
 
-/**
- * A drop the mosaic reports, or one with no leaf to place into: the Console has no
- * panel open, so the tabs open in a panel created for them.
- */
-export interface FileDropProps extends Partial<Mosaic.OnFileDropProps> {
-  event: Mosaic.OnFileDropProps["event"];
-}
-
-export type FileDrop = (props: FileDropProps) => void;
+export type FileDrop = (props: Mosaic.OnFileDropProps) => void;
 
 /**
  * Returns a file drop handler that imports every dropped JSON file and directory
  * concurrently, then opens the resources they created as one batch of tabs in the leaf
  * the drop landed on. A file that fails is reported on its own.
  */
-export const useFileDrop = ({ ingestDirectory }: UseFileDropParams): FileDrop => {
+export const useFileDrop = ({ importBundle }: UseFileDropParams): FileDrop => {
   const client = Synnax.use();
   const store = Session.useStore();
-  const openTabs = Panel.useOpenTabs();
   const handleError = Status.useErrorHandler();
+  const importBatch = useImportBatch();
   return useCallback(
-    ({ nodeKey, location, event }: FileDropProps) => {
-      const entries = captureEntries(event.dataTransfer);
+    ({ nodeKey, location, event }: Mosaic.OnFileDropProps) => {
+      const entries = FS.captureEntries(event.dataTransfer);
       // A dropped project selects itself once imported, so every file in the drop takes
       // the project open when it landed instead of whichever one wins the race.
       const projectKey = Session.Project.selectSelected(store.getState());
-      const placement =
-        nodeKey != null && location != null ? { leaf: nodeKey, location } : undefined;
+      const placement = { leaf: nodeKey, location };
       handleError(
         async () =>
-          await ingestBatch({
+          await importBatch({
             items: entries,
-            ingest: async (entry) =>
-              await ingestEntry(entry, { client, ingestDirectory, projectKey, store }),
-            handleError,
-            openTabs,
+            importItem: async (entry) =>
+              await importEntry(entry, { client, importBundle, projectKey, store }),
             placement,
           }),
       );
     },
-    [client, ingestDirectory, openTabs, store, handleError],
+    [client, importBundle, importBatch, store, handleError],
   );
 };

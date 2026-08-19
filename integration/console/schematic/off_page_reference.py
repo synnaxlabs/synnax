@@ -29,7 +29,7 @@ class OffPageReference(Symbol):
             label: Display label for the symbol
             page_name: Name of the target schematic page to navigate to
         """
-        super().__init__(label, symbol_type="Off Page", rotatable=False)
+        super().__init__(label, symbol_type="Off page", rotatable=False)
         self._page_name = page_name
 
     def set_label(self, label: str) -> None:
@@ -42,7 +42,7 @@ class OffPageReference(Symbol):
         selected_node = self.page.locator(".react-flow__node.selected")
         selected_node.wait_for(state="visible", timeout=5000)
         self.layout.show_visualization_toolbar()
-        self.page.get_by_text("Properties").click()
+        self.open_properties_tab()
         self.layout.fill_input_field("Label", label)
         self.label = label
 
@@ -67,11 +67,11 @@ class OffPageReference(Symbol):
         self.click()
         applied_properties: dict[str, Any] = {}
 
-        self.page.get_by_text("Properties").click()
+        self.open_properties_tab()
 
         if page_name is not None:
             # Use specific CSS class selector — click_btn("Page") matches
-            # "Off Page" text elsewhere on the page.
+            # "Off page" text elsewhere on the page.
             page_trigger = self.page.locator(
                 ".pluto-symbol-form__page-field button"
             ).first

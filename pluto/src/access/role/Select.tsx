@@ -35,7 +35,7 @@ const listItemRenderProp = Component.renderProp(
         y
         gap="small"
         {...rest}
-        className={CSS(className, CSS.BE("access-role", "item"))}
+        className={CSS.cls(className, CSS.BE("access-role", "item"))}
       >
         <Text.Text level="p">{name}</Text.Text>
         {item?.description != null && (

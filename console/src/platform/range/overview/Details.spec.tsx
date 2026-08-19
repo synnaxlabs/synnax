@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { panel, ranger } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { panel, ranger, type Synnax as Client } from "@synnaxlabs/client";
+import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { TimeRange } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -27,19 +27,20 @@ import {
 } from "@/testutil";
 
 const client = createTestClient();
+const roles = new RoleClients(client);
 
 const createRange = async (): Promise<ranger.Range> => await createTestRange(client);
 
 const buttonWithIcon = (label: string): HTMLElement => {
   const button = screen
     .getAllByRole("button")
-    .find((b) => b.querySelector(`svg[aria-label*='${label}']`));
+    .find((b) => b.querySelector(`svg.pluto-icon--${label}`));
   if (button == null) throw new Error(`button with icon ${label} not found`);
   return button;
 };
 
-const renderDetails = async (rangeKey: string) => {
-  const { wrapper, store } = await createConsoleWrapper({ client });
+const renderDetails = async (rangeKey: string, as: Client = client) => {
+  const { wrapper, store } = await createConsoleWrapper({ client: as });
   const result = await renderSuspended(
     <>
       <Range.Details rangeKey={rangeKey} />
@@ -150,5 +151,18 @@ describe("Range.Details", () => {
     const copied = writeText.mock.calls[0][0];
     expect(copied).toContain("client.ranges.retrieve");
     expect(copied).toContain(range.key);
+  });
+
+  describe("without permission to write the range", () => {
+    it("should put the name field in preview rather than leaving it editable", async () => {
+      const range = await createRange();
+      const viewer = await roles.get("Viewer");
+      await renderDetails(range.key, viewer);
+      await waitFor(() => {
+        const name = screen.getByText(range.name);
+        expect(name.closest(".pluto-btn--preview")).not.toBeNull();
+      });
+      expect(screen.queryByDisplayValue(range.name)).toBeNull();
+    });
   });
 });

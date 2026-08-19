@@ -15,10 +15,19 @@ import {
   query,
   UnexpectedError,
 } from "@synnaxlabs/client";
-import { array, compare, deep, type optional, type record, verbs } from "@synnaxlabs/x";
+import {
+  array,
+  compare,
+  deep,
+  type optional,
+  type record,
+  verbs,
+  zod,
+} from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 import { type z } from "zod";
 
+import { Access } from "@/access";
 import { Flux } from "@/flux";
 import { Scope, TabScope } from "@/panel/scope";
 import { Synnax } from "@/synnax";
@@ -70,6 +79,15 @@ export interface KeyParams {
   key: panel.Key;
 }
 
+/**
+ * Reports whether the subject may restructure the panel. Every mosaic gesture, from
+ * closing a tab to resizing a split, reduces to one dispatch against the panel
+ * document, so a single update grant answers all of them.
+ */
+export const useCanEdit = Scope.bindHook(({ key }: KeyParams): boolean =>
+  Access.useUpdateGranted(panel.ontologyID(key)),
+);
+
 export interface TabContentParams {
   key: panel.Key;
   tabKey: panel.TabKey;
@@ -117,7 +135,6 @@ export const useNodeVariant = Scope.bindHook(
   ),
 );
 
-// useLeafNode selects the leaf node at the given path, including its tab keys.
 export const useLeafNode = Scope.bindHook(
   createSelector<Omit<panel.LeafNode, "tabs"> & { tabs: panel.TabKey[] }, NodeParams>(
     ({ root }, { nodeKey }) => {
@@ -152,9 +169,8 @@ const tabKeysOf = (root: panel.Node): string[] => {
   return tabKeys.sort();
 };
 
-// useTabKeys selects every leaf's tab keys, array-equal compared so the mosaic
-// root re-renders only when tab membership changes, not on a resize or a content
-// change.
+// useTabKeys selects every leaf's tab keys, array-equal compared so the mosaic root
+// re-renders only when tab membership changes, not on a resize or a content change.
 export const useTabKeys = Scope.bindHook(
   createSelector<string[]>(
     ({ root }) => tabKeysOf(root),
@@ -162,7 +178,6 @@ export const useTabKeys = Scope.bindHook(
   ),
 );
 
-// useRoot selects the panel's raw stored tree root.
 export const useRoot = Scope.bindHook(createSelector(({ root }) => root));
 
 export const useName = Scope.bindHook(createSelector(({ name }) => name));
@@ -236,7 +251,10 @@ export const createSelectTabArgs =
   <Z extends z.ZodType>(schema: Z): (() => z.output<Z>) =>
   () => {
     const args = useTabArgs({});
-    return useMemo(() => schema.parse(args), [args, schema]);
+    return useMemo(
+      () => zod.parse(schema, args, { label: "view arguments" }),
+      [args, schema],
+    );
   };
 
 export interface ListParams extends Pick<panel.RetrieveRequest, "offset" | "limit"> {}

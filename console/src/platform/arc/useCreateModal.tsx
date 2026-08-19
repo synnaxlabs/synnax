@@ -41,7 +41,7 @@ const MODE_KEYS: arc.Mode[] = ["text", "graph"];
 
 const NAME_INPUT_PROPS: Partial<Input.TextProps> = {
   autoFocus: true,
-  placeholder: "Automation Name",
+  placeholder: "Name",
   level: "h2",
   variant: "text",
   selectOnFocus: true,
@@ -64,7 +64,8 @@ const ArcModeSelectButton = ({
   return (
     <Button.Button
       y
-      className={CSS(
+      alignSelf="stretch"
+      className={CSS.cls(
         CSS.BE("arc-create-modal", "mode-select-button"),
         PCSS.selected(selected),
       )}
@@ -103,11 +104,11 @@ export const useCreateModal = Modals.createPrompt<CreateModalResult, CreateModal
 
     return (
       <Modals.Frame className={CSS.B("arc-create-modal")}>
-        <Modals.Header icon={<Icon.Arc />}>Arc.Create Automation</Modals.Header>
+        <Modals.Header icon={<Icon.Arc />}>Arc.Create</Modals.Header>
         <Modals.Body>
           <Form.Form<typeof Arc.formSchema> {...form}>
             <Form.TextField path="name" required inputProps={NAME_INPUT_PROPS} />
-            <Form.Field<arc.Mode> path="mode" label="Editor Mode" full="x">
+            <Form.Field<arc.Mode> path="mode" label="Editor mode" full="x">
               {({ value, onChange }) => (
                 <Select.Buttons
                   value={value}
@@ -121,13 +122,13 @@ export const useCreateModal = Modals.createPrompt<CreateModalResult, CreateModal
                     itemKey="text"
                     icon={<Icon.Text />}
                     title="Text"
-                    description="Text-based editor that is best for complex automations such as control sequences"
+                    description="Best for complex automations such as control sequences"
                   />
                   <ArcModeSelectButton
                     itemKey="graph"
                     icon={<Icon.Schematic />}
                     title="Graph"
-                    description="Visual, block-based editor that is best for simple automations such as alarms"
+                    description="Best for simple automations such as alarms"
                   />
                 </Select.Buttons>
               )}

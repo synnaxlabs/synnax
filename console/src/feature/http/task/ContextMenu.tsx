@@ -25,13 +25,13 @@ export const ContextMenu = ({
   onDelete,
   onRename,
 }: ContextMenuProps) => {
-  const isSnapshot = Task.useIsSnapshot();
+  const isPreview = Task.useIsPreview();
   const canAct = keys.length > 0;
   const canDuplicate = onDuplicate != null;
   const canRename = onRename != null && keys.length === 1;
   return (
     <Base.Menu>
-      {!isSnapshot && canAct && (
+      {!isPreview && canAct && (
         <>
           {canRename && <Base.RenameItem onClick={() => onRename(keys[0])} />}
           {canDuplicate && (

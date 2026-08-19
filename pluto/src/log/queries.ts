@@ -38,10 +38,9 @@ export const useName = Scope.bindHook(createSelector(({ name }) => name));
 
 export const useChannels = Scope.bindHook(createSelector(({ channels }) => channels));
 
-// useChannelKeys returns the ordered channel keys, re-rendering only
-// when the set or order of channels changes, not when an entry's display
-// config is edited. Iterate the toolbar list off this and read each row via
-// useChannelEntry.
+// useChannelKeys returns the ordered channel keys, re-rendering only when the set or
+// order of channels changes, not when an entry's display config is edited. Iterate the
+// toolbar list off this and read each row via useChannelEntry.
 export const useChannelKeys = Scope.bindHook(
   createSelector(
     ({ channels }) => channels.map((e) => e.channel),
@@ -53,10 +52,9 @@ export interface ChannelEntryParams extends KeyParams {
   channel: channel.Key;
 }
 
-// useChannelEntry returns the entry for a single channel, or null when
-// the channel has no entry. Structural sharing keeps the entry reference
-// stable across dispatches that don't touch it, so editing one channel does
-// not re-render the rows of the others.
+// useChannelEntry returns the entry for a single channel, or null when the channel has
+// no entry. Structural sharing keeps the entry reference stable across dispatches that
+// don't touch it, so editing one channel does not re-render the rows of the others.
 export const useChannelEntry = Scope.bindHook(
   createSelector<log.ChannelEntry | null, ChannelEntryParams>(
     ({ channels }, { channel }) => channels.find((e) => e.channel === channel) ?? null,

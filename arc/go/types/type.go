@@ -261,7 +261,7 @@ func FromTelem(t telem.DataType) Type {
 		return F64()
 	case telem.StringT, telem.JSONT, telem.UUIDT:
 		return String()
-	case telem.TimeStampT:
+	case telem.TimestampT:
 		return TimeStamp()
 	default:
 		return Type{Kind: KindInvalid}

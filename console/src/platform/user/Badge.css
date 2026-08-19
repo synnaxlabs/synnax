@@ -9,28 +9,14 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-cluster-dropdown {
-    > button {
-        border-top-right-radius: 0 !important;
-        border-bottom-right-radius: 0;
-        max-width: 175px;
-
-        > :nth-child(2) {
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-    }
-}
-
-.console-cluster-list {
-    width: 400px;
-    overflow-y: auto;
-    .pluto-list__item {
-        min-height: 10rem;
-    }
-}
-
 .console-user-badge__dialog {
-    padding: 1rem;
-    width: 200px;
+    width: 260px;
+
+    .console-user-badge__body {
+        padding: 1.5rem 2rem;
+    }
+
+    .console-user-badge__actions {
+        padding: 1rem;
+    }
 }

@@ -9,7 +9,7 @@
 
 import { ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { color, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { color, testutil, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import {
   createElement,
@@ -292,7 +292,6 @@ describe("queries", () => {
       });
       await waitFor(() => expect(result.current.data).toHaveLength(1));
       expect(result.current.data).not.toContain(r2.key);
-      // add a new range with the label
       const r3 = await client.ranges.create({
         name: "Labeled Range",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
@@ -588,7 +587,6 @@ describe("queries", () => {
         parent: parentRange,
       });
 
-      // Test grandparent's children
       const { result: grandparentResult } = renderHook(() => Ranger.useListChildren(), {
         wrapper,
       });
@@ -602,7 +600,6 @@ describe("queries", () => {
       expect(grandparentResult.current.data).toContain(parentRange.key);
       expect(grandparentResult.current.data).not.toContain(childRange.key);
 
-      // Test parent's children
       const { result: parentResult } = renderHook(() => Ranger.useListChildren(), {
         wrapper,
       });
@@ -1052,6 +1049,38 @@ describe("queries", () => {
       await waitFor(() => {
         expect(result.current.form.value().parent).toEqual(parent2.key);
       });
+    });
+  });
+
+  describe("useKVPairForm", () => {
+    it("should not write back a pair deleted while an autosave was pending", async () => {
+      const rng = await client.ranges.create({
+        name: "kv_delete_race",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      await rng.kv.set("test_key", "initial");
+      // The metadata list warms this answer space in production.
+      await client.ranges.kv.retrieve(rng.key);
+      const { result } = renderHook(
+        () =>
+          Ranger.useKVPairForm({
+            query: { rangeKey: rng.key, key: "test_key" },
+            autoSave: true,
+            // Holds the save open long enough for the delete to overtake it.
+            autoSaveDebounce: TimeSpan.milliseconds(500),
+            initialValues: { key: "test_key", value: "initial", range: rng.key },
+          }),
+        { wrapper },
+      );
+      act(() => {
+        result.current.form.set("value", "edited");
+      });
+      await act(async () => {
+        await rng.kv.delete("test_key");
+      });
+      await testutil.expectAlways(async () => {
+        expect(await rng.kv.list()).not.toHaveProperty("test_key");
+      }, 800);
     });
   });
 

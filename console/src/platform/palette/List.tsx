@@ -109,7 +109,7 @@ export const BaseList = <E extends record.Keyed<string>>({
       virtual
     >
       <Input.Text
-        className={CSS(CSS.BE("palette", "input"))}
+        className={CSS.cls(CSS.BE("palette", "input"))}
         placeholder={inputPlaceholder}
         size="huge"
         flush
@@ -127,6 +127,7 @@ export const BaseList = <E extends record.Keyed<string>>({
         bordered
         borderColor={8}
         displayItems={10}
+        animateHeight
       >
         {listItem}
       </Base.Items>

@@ -7,8 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, type panel, task } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import {
+  NotFoundError,
+  type panel,
+  type Synnax as Client,
+  task,
+} from "@synnaxlabs/client";
+import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { type record, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, assert, describe, expect, it } from "vitest";
@@ -32,10 +37,12 @@ import {
   createConsoleWrapper,
   getIconButton,
   openContextMenu,
+  queryIconButton,
   uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();
+const roles = new RoleClients(client);
 
 interface CreateTaskOptions {
   config?: Record<string, unknown>;
@@ -88,8 +95,8 @@ const createTask = async ({
   return t;
 };
 
-const renderToolbar = async () => {
-  const { wrapper, store } = await createConsoleWrapper({ client });
+const renderToolbar = async (as: Client = client) => {
+  const { wrapper, store } = await createConsoleWrapper({ client: as });
   const created = await createSelectedPanel(store, client);
   render(
     <Task.RegistryProvider registry={Task.REGISTRY}>
@@ -128,7 +135,7 @@ describe("task/Toolbar", () => {
     const t = await createTask();
     await renderToolbar();
     expect(await screen.findByText(t.name)).toBeTruthy();
-    expect((await screen.findAllByText("NI Analog Read Task")).length).toBeGreaterThan(
+    expect((await screen.findAllByText("NI analog read task")).length).toBeGreaterThan(
       0,
     );
   });
@@ -136,7 +143,7 @@ describe("task/Toolbar", () => {
   it("withholds the empty message until the task list answers", async () => {
     const t = await createTask();
     await renderToolbar();
-    expect(screen.queryByText("No existing tasks.")).toBeNull();
+    expect(screen.queryByText("No tasks")).toBeNull();
     await screen.findByText(t.name);
   });
 
@@ -306,6 +313,42 @@ describe("task/Toolbar", () => {
         });
         expect(children.some((c) => c.id.type === "task")).toBe(true);
       });
+    });
+  });
+
+  describe("permission to command tasks", () => {
+    const createStoppedTask = async () => await createTask({ running: false });
+
+    it("withholds the start/stop button and its items from a viewer", async () => {
+      const t = await createStoppedTask();
+      const viewer = await roles.get("Viewer");
+      await renderToolbar(viewer);
+      await screen.findByText(t.name);
+      expect(queryIconButton(document.body, "play")).toBeNull();
+      await openContextMenu(t.name);
+      expect(screen.queryByText("Start")).toBeNull();
+      expect(screen.queryByText("Stop")).toBeNull();
+    });
+
+    it("withholds Edit configuration from an operator", async () => {
+      const t = await createStoppedTask();
+      const operator = await roles.get("Operator");
+      await renderToolbar(operator);
+      await screen.findByText(t.name);
+      await openContextMenuUntil(t.name, "Start");
+      expect(screen.queryByText("Edit configuration")).toBeNull();
+    });
+
+    it("offers the start/stop button and its items to an operator", async () => {
+      const t = await createStoppedTask();
+      const operator = await roles.get("Operator");
+      await renderToolbar(operator);
+      await screen.findByText(t.name);
+      await waitFor(() =>
+        expect(queryIconButton(document.body, "play")).not.toBeNull(),
+      );
+      await openContextMenu(t.name);
+      expect(await screen.findByText("Start")).toBeTruthy();
     });
   });
 });

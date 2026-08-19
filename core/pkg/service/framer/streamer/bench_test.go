@@ -165,7 +165,7 @@ func (e *benchStreamerEnv) createIndexedChannels(
 ) (*channel.Channel, []*channel.Channel) {
 	indexCh := &channel.Channel{
 		Name:     prefix + "_time",
-		DataType: telem.TimeStampT,
+		DataType: telem.TimestampT,
 		IsIndex:  true,
 	}
 	if err := e.channelWriter.Create(e.ctx, indexCh); err != nil {

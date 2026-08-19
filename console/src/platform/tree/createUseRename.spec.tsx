@@ -10,7 +10,7 @@
 import { channel, DataType, ontology } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Channel as PChannel, List, Text } from "@synnaxlabs/pluto";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
@@ -38,23 +38,6 @@ const useRename = Tree.createUseRename({
   convertKey: Number,
 });
 
-interface HarnessProps {
-  props: Tree.ContextMenuProps;
-  itemID: string;
-  name: string;
-}
-
-const RenameHarness = ({ props, itemID, name }: HarnessProps): ReactElement => {
-  const rename = useRename(props);
-  return (
-    <>
-      <button onClick={rename}>rename</button>
-      <Text.MaybeEditable id={itemID} value={name} onChange={() => {}} />
-    </>
-  );
-};
-RenameHarness.displayName = "RenameHarness";
-
 const createChannel = async () =>
   await client.channels.create({
     name: uniqueName("ch"),
@@ -62,7 +45,13 @@ const createChannel = async () =>
     isIndex: true,
   });
 
-const setup = async (ch: channel.Channel): Promise<string> => {
+interface Harness {
+  /** ID of the tree item the rename puts into edit mode. */
+  itemID: string;
+  rename: () => Promise<void>;
+}
+
+const setup = async (ch: channel.Channel): Promise<Harness> => {
   const otgID = channel.ontologyID(ch.key);
   const itemID = List.itemNameID(ontology.idToString(otgID));
   const store = await createTestStore();
@@ -72,28 +61,38 @@ const setup = async (ch: channel.Channel): Promise<string> => {
     state: createState([createResource(otgID, ch.name)]),
   };
   const { wrapper: Console } = await createConsoleWrapper({ client, store });
-  const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
-    <Console>{children}</Console>
+  // The editable item is the surface the rename drives, so it mounts alongside the
+  // hook exactly as the tree mounts it in production.
+  const wrapper = ({ children }: PropsWithChildren): ReactElement => (
+    <Console>
+      {children}
+      <Text.MaybeEditable id={itemID} value={ch.name} onChange={() => {}} />
+    </Console>
   );
-  render(<RenameHarness props={props} itemID={itemID} name={ch.name} />, {
-    wrapper: Wrapper,
-  });
-  return itemID;
+  const { result } = renderHook(() => useRename(props), { wrapper });
+  return {
+    itemID,
+    rename: async () => {
+      await act(async () => {
+        result.current();
+      });
+    },
+  };
 };
 
 describe("createUseRename", () => {
   it("should start editing the resource's tree item when invoked", async () => {
     const ch = await createChannel();
-    const itemID = await setup(ch);
-    fireEvent.click(screen.getByText("rename"));
+    const { itemID, rename } = await setup(ch);
+    await rename();
     await awaitTextEditing(itemID);
   });
 
   it("should rename the resource on the cluster once the edit is committed", async () => {
     const ch = await createChannel();
-    const itemID = await setup(ch);
+    const { itemID, rename } = await setup(ch);
     const newName = uniqueName("renamed");
-    fireEvent.click(screen.getByText("rename"));
+    await rename();
     const el = await awaitTextEditing(itemID);
     await act(async () => {
       commitTextEdit(el, newName);
@@ -106,8 +105,8 @@ describe("createUseRename", () => {
 
   it("should not rename when the edit is escaped", async () => {
     const ch = await createChannel();
-    const itemID = await setup(ch);
-    fireEvent.click(screen.getByText("rename"));
+    const { itemID, rename } = await setup(ch);
+    await rename();
     const el = await awaitTextEditing(itemID);
     await act(async () => {
       el.textContent = "should-not-apply";

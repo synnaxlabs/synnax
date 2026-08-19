@@ -30,13 +30,13 @@ const ROUTING_KEY_PLACEHOLDER = "R022XIJR9M266DX570EVE6EXP1AFBN6D";
 
 // Drafts carry no key; the created row mints its own.
 const ZERO_DRAFT: task.New<PagerDuty.Task.AlertSchemas> = {
-  name: "PagerDuty Alert Task",
+  name: "PagerDuty alert task",
   type: PagerDuty.Task.ALERT_TYPE,
   config: PagerDuty.Task.ALERT_SCHEMAS.config.parse({}),
 };
 
 const addAlert = async (): Promise<void> => {
-  fireEvent.click(await screen.findByText("Add an alert"));
+  fireEvent.click(await screen.findByText("Add alert"));
   await screen.findByText("New alert");
 };
 
@@ -52,15 +52,15 @@ const createAlertConfig = (
 describe("PagerDuty Alert form", () => {
   it("should show the empty state and add + select an alert", async () => {
     await renderAlert();
-    await screen.findByText("No alerts.");
-    expect(screen.getByText("No alert selected.")).toBeTruthy();
+    await screen.findByText("No alerts");
+    expect(screen.getByText("No alert selected")).toBeTruthy();
     expect(screen.getByPlaceholderText(ROUTING_KEY_PLACEHOLDER)).toBeTruthy();
     await addAlert();
     expect(screen.getByText("Treat error as critical")).toBeTruthy();
     expect(screen.getByPlaceholderText("engine-1")).toBeTruthy();
     expect(screen.getByPlaceholderText("engines")).toBeTruthy();
     expect(screen.getByPlaceholderText("engine-failure")).toBeTruthy();
-    expect(screen.queryByText("No alert selected.")).toBeNull();
+    expect(screen.queryByText("No alert selected")).toBeNull();
   });
 
   it("should disable and re-enable alerts through the context menu", async () => {
@@ -83,8 +83,8 @@ describe("PagerDuty Alert form", () => {
     await addAlert();
     fireEvent.contextMenu(screen.getByText("New alert"));
     fireEvent.click(await screen.findByText("Remove"));
-    await screen.findByText("No alerts.");
-    expect(screen.getByText("No alert selected.")).toBeTruthy();
+    await screen.findByText("No alerts");
+    expect(screen.getByText("No alert selected")).toBeTruthy();
   });
 
   it("should seed the form from the task row's config", async () => {
@@ -108,7 +108,7 @@ describe("PagerDuty Alert form", () => {
       ROUTING_KEY_PLACEHOLDER,
     );
     expect(input.value).toBe("too_short");
-    expect(screen.queryByText("No alerts.")).toBeNull();
+    expect(screen.queryByText("No alerts")).toBeNull();
   });
 
   describe("deploying against a live cluster", () => {

@@ -12,7 +12,6 @@
 package panel
 
 import (
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/union"
@@ -70,7 +69,7 @@ type InsertTabsPayload struct {
 // RemoveTabPayload removes the tab with the given key. If the containing leaf becomes
 // empty and has a sibling, the reducer collapses the parent split.
 type RemoveTabPayload struct {
-	Key uuid.UUID `json:"key" msgpack:"key"`
+	Key TabKey `json:"key" msgpack:"key"`
 }
 
 // MoveTabPayload moves a tab to a position within the panel. When location is an edge,
@@ -80,7 +79,7 @@ type RemoveTabPayload struct {
 // Cross-panel moves are RemoveTab on the source plus InsertTabs on the destination (two
 // dispatches; not atomic).
 type MoveTabPayload struct {
-	Key        uuid.UUID         `json:"key" msgpack:"key"`
+	Key        TabKey            `json:"key" msgpack:"key"`
 	TargetLeaf int32             `json:"target_leaf" msgpack:"target_leaf"`
 	Index      *int32            `json:"index,omitempty" msgpack:"index,omitempty"`
 	Location   *spatial.Location `json:"location,omitempty" msgpack:"location,omitempty"`
@@ -91,7 +90,7 @@ type MoveTabPayload struct {
 // bottom. The tab must share its leaf with at least one other tab; splitting the only
 // tab in a leaf is a no-op.
 type SplitTabPayload struct {
-	Key       uuid.UUID         `json:"key" msgpack:"key"`
+	Key       TabKey            `json:"key" msgpack:"key"`
 	Direction spatial.Direction `json:"direction" msgpack:"direction"`
 }
 
@@ -107,7 +106,7 @@ type ResizeSplitPayload struct {
 // in the panel. Used to fill a freshly inserted selector tab once the user picks a
 // visualization.
 type SetTabResourcePayload struct {
-	Key      uuid.UUID   `json:"key" msgpack:"key"`
+	Key      TabKey      `json:"key" msgpack:"key"`
 	Resource ontology.ID `json:"resource" msgpack:"resource"`
 }
 
@@ -115,8 +114,8 @@ type SetTabResourcePayload struct {
 // swapping it in place without changing the tab's identity or position. Clears any
 // resource set on the tab.
 type SetTabViewPayload struct {
-	Key  uuid.UUID `json:"key" msgpack:"key"`
-	View View      `json:"view" msgpack:"view"`
+	Key  TabKey `json:"key" msgpack:"key"`
+	View View   `json:"view" msgpack:"view"`
 }
 
 // Action is a discriminated union for all Panel mutations. Type names

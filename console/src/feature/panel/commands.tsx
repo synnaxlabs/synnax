@@ -22,9 +22,10 @@ const useOpenNewWindow = () => {
 
 const OpenWindowCommand = Command.create({
   key: "panel_open_window",
-  name: "Open a new window",
+  name: "Open new window",
   icon: <Icon.OpenInNewWindow />,
   useOnSelect: useOpenNewWindow,
+  useVisible: () => Session.Runtime.ENGINE === "tauri",
 });
 
 export const COMMANDS = [OpenWindowCommand];

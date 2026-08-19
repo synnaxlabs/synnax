@@ -66,7 +66,7 @@ RotationType = Literal[
 class Schematic(ConsolePage):
     """Schematic page management interface"""
 
-    page_type: str = "Schematic"
+    page_type = "Schematic"
     pluto_label: str = ".react-flow__pane"
 
     def __init__(
@@ -162,24 +162,24 @@ class Schematic(ConsolePage):
         if len(symbols) < 2:
             raise ValueError("At least 2 symbols are required for alignment")
 
-        alignment_icon_map = {
-            "vertical": "pluto-icon--align-y-center",
-            "horizontal": "pluto-icon--align-x-center",
-            "left": "pluto-icon--align-left",
-            "right": "pluto-icon--align-right",
-            "top": "pluto-icon--align-top",
-            "bottom": "pluto-icon--align-bottom",
+        alignment_labels = {
+            "vertical": "Align symbols vertically",
+            "horizontal": "Align symbols horizontally",
+            "left": "Align symbols left",
+            "right": "Align symbols right",
+            "top": "Align symbols top",
+            "bottom": "Align symbols bottom",
         }
-
-        icon_label = alignment_icon_map[alignment]
 
         symbols[0].click()
         for symbol in symbols[1:]:
             symbol.meta_click()
 
-        alignment_button = self.page.locator(f"button svg[aria-label='{icon_label}']")
+        alignment_button = self.page.get_by_role(
+            "button", name=alignment_labels[alignment], exact=True
+        )
         alignment_button.wait_for(state="visible", timeout=2000)
-        alignment_button.locator("..").click()
+        alignment_button.click()
 
         # Deselect all symbols
         for symbol in symbols:
@@ -206,22 +206,19 @@ class Schematic(ConsolePage):
         if len(symbols) < 3:
             raise ValueError("At least 3 symbols are required for distribution")
 
-        icon_label = (
-            "pluto-icon--distribute-x"
+        label = (
+            "Distribute symbol spacing horizontally"
             if distribution == "horizontal"
-            else "pluto-icon--distribute-y"
+            else "Distribute symbol spacing vertically"
         )
 
         symbols[0].click()
         for symbol in symbols[1:]:
             symbol.meta_click()
 
-        # Click the distribution button
-        distribution_button = self.page.locator(
-            f"button svg[aria-label='{icon_label}']"
-        )
+        distribution_button = self.page.get_by_role("button", name=label, exact=True)
         distribution_button.wait_for(state="visible", timeout=2000)
-        distribution_button.locator("..").click()
+        distribution_button.click()
         for symbol in symbols:
             symbol.meta_click()
 
@@ -245,29 +242,17 @@ class Schematic(ConsolePage):
         if len(symbols) < 1:
             raise ValueError("At least 1 symbol is required for rotation")
 
-        # Map direction names to icon aria-labels
-        if group:
-            rotation_icon_map = {
-                "clockwise": "pluto-icon--rotate-around-center-cw",
-                "counterclockwise": "pluto-icon--rotate-around-center-ccw",
-            }
-        else:
-            rotation_icon_map = {
-                "clockwise": "pluto-icon--rotate-group-cw",
-                "counterclockwise": "pluto-icon--rotate-group-ccw",
-            }
-
-        icon_label = rotation_icon_map[direction]
+        subject = "selection" if group else "symbols"
+        label = f"Rotate {subject} {direction}"
 
         # Select all symbols
         symbols[0].click()
         for symbol in symbols[1:]:
             symbol.meta_click()
 
-        # Click the rotation button
-        rotation_button = self.page.locator(f"button svg[aria-label='{icon_label}']")
+        rotation_button = self.page.get_by_role("button", name=label, exact=True)
         rotation_button.wait_for(state="visible", timeout=2000)
-        rotation_button.locator("..").click()
+        rotation_button.click()
 
         # Wait for rotation animation/processing
         self.page.wait_for_timeout(100)
@@ -350,7 +335,7 @@ class Schematic(ConsolePage):
         An edge must be selected first (see select_edge).
 
         Args:
-            variant: The display name of the edge variant (e.g. "Electric Signal").
+            variant: The display name of the edge variant (e.g. "Electric signal").
         """
         self.layout.show_visualization_toolbar()
         self.page.get_by_text("Properties", exact=True).first.click()
@@ -399,111 +384,75 @@ class Schematic(ConsolePage):
                 if current_state != show_control_legend:
                     legend_toggle.click()
 
+    # The control and edit toggles name themselves by the action they offer, so
+    # the visible label doubles as the state: a "Release control" button means
+    # control is acquired, a "Disable editing" button means editing is on.
+
+    def has_control_toggle(self) -> bool:
+        """Report whether the control acquisition toggle is offered.
+
+        The toggle is gated on framer create, so a user without it never sees one.
+
+        :returns: True when the toggle is present in either state.
+        """
+        acquire = self.page.get_by_role("button", name="Acquire control", exact=True)
+        release = self.page.get_by_role("button", name="Release control", exact=True)
+        return acquire.count() > 0 or release.count() > 0
+
     def get_control_status(self) -> bool:
         """Get whether control is currently acquired for this schematic."""
-        control_button = (
-            self.page.locator(".console-controls button")
-            .filter(has=self.page.locator("svg.pluto-icon--circle"))
-            .first
-        )
-
-        if control_button.count() > 0:
-            class_attr = control_button.get_attribute("class") or ""
-            has_filled = "pluto-btn--filled" in class_attr
-            return has_filled
-
-        return False
+        release = self.page.get_by_role("button", name="Release control", exact=True)
+        return release.count() > 0
 
     def acquire_control(self) -> None:
         """Acquire control of the schematic if not already acquired."""
-        if not self.get_control_status():
-            control_button = (
-                self.page.locator(".console-controls button.pluto-btn--outlined")
-                .filter(has=self.page.locator("svg.pluto-icon--circle"))
-                .first
-            )
-            if control_button.count() > 0:
-                control_button.click()
-                self.page.wait_for_selector(
-                    ".console-controls button.pluto-btn--filled", timeout=2000
-                )
+        acquire = self.page.get_by_role("button", name="Acquire control", exact=True)
+        if acquire.count() > 0:
+            acquire.click()
+            self.page.get_by_role(
+                "button", name="Release control", exact=True
+            ).wait_for(state="visible", timeout=2000)
             sy.sleep(0.1)  # Wait for Core update
 
     def release_control(self) -> None:
         """Release control of the schematic if currently acquired."""
-        if self.get_control_status():
-            control_button = (
-                self.page.locator(".console-controls button.pluto-btn--filled")
-                .filter(has=self.page.locator("svg.pluto-icon--circle"))
-                .first
-            )
-            if control_button.count() > 0:
-                control_button.click()
-                self.page.wait_for_selector(
-                    ".console-controls button.pluto-btn--outlined", timeout=5000
-                )
+        release = self.page.get_by_role("button", name="Release control", exact=True)
+        if release.count() > 0:
+            release.click()
+            self.page.get_by_role(
+                "button", name="Acquire control", exact=True
+            ).wait_for(state="visible", timeout=5000)
             sy.sleep(0.1)  # Wait for Core update
 
     def fit_view(self) -> None:
         """Fit the schematic view to its contents."""
-        fit_button = (
-            self.page.locator(".console-controls button")
-            .filter(has=self.page.locator("svg.pluto-icon--expand"))
-            .first
-        )
-        if fit_button.count() > 0:
-            fit_button.click()
+        fit = self.page.get_by_role("button", name="Fit view to contents", exact=True)
+        if fit.count() > 0:
+            fit.click()
 
     def get_edit_status(self) -> bool:
         """Get whether edit is currently enabled for this schematic."""
-        edit_button = (
-            self.page.locator(".console-controls button")
-            .filter(has=self.page.locator("svg.pluto-icon--edit"))
-            .first
-        )
-
-        if edit_button.count() == 0:
-            edit_button = (
-                self.page.locator(".console-controls button")
-                .filter(has=self.page.locator("svg.pluto-icon--edit-off"))
-                .first
-            )
-
-        if edit_button.count() > 0:
-            class_attr = edit_button.get_attribute("class") or ""
-            has_filled = "pluto-btn--filled" in class_attr
-            return has_filled
-
-        return False
+        disable = self.page.get_by_role("button", name="Disable editing", exact=True)
+        return disable.count() > 0
 
     def enable_edit(self) -> None:
         """Enable edit for the schematic if not already enabled."""
-        if not self.get_edit_status():
-            edit_button = (
-                self.page.locator(".console-controls button.pluto-btn--outlined")
-                .filter(has=self.page.locator("svg.pluto-icon--edit"))
-                .first
-            )
-            if edit_button.count() > 0:
-                edit_button.click()
-                self.page.wait_for_selector(
-                    ".console-controls button.pluto-btn--filled", timeout=2000
-                )
+        enable = self.page.get_by_role("button", name="Enable editing", exact=True)
+        if enable.count() > 0:
+            enable.click()
+            self.page.get_by_role(
+                "button", name="Disable editing", exact=True
+            ).wait_for(state="visible", timeout=2000)
         sy.sleep(0.1)
 
     def disable_edit(self) -> None:
         """Disable edit for the schematic if currently enabled."""
-        if self.get_edit_status():
-            edit_button = (
-                self.page.locator(".console-controls button.pluto-btn--filled")
-                .filter(has=self.page.locator("svg.pluto-icon--edit-off"))
-                .first
+        disable = self.page.get_by_role("button", name="Disable editing", exact=True)
+        if disable.count() > 0:
+            disable.click()
+            self.page.get_by_role("button", name="Enable editing", exact=True).wait_for(
+                state="visible", timeout=2000
             )
-            if edit_button.count() > 0:
-                edit_button.click()
-                self.page.wait_for_selector(
-                    ".console-controls button.pluto-btn--outlined", timeout=2000
-                )
         sy.sleep(0.1)
 
     def get_properties(self) -> SchematicProperties:

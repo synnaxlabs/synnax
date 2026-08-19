@@ -19,6 +19,7 @@
 
 .console-schematic__symbol-create-layout {
     overflow: hidden;
+
     .console-schematic__create-symbol-content {
         padding: 2rem;
     }
@@ -31,7 +32,7 @@
     }
 
     .console-schematic__name {
-        padding: 2rem 2rem 0 2rem;
+        padding: 2rem 2rem 0;
     }
 
     .console-schematic__states,
@@ -44,6 +45,7 @@
         overflow: hidden;
         max-height: 100%;
         max-width: 100%;
+
         & > div {
             height: 100%;
             max-width: 100%;
@@ -59,11 +61,13 @@
         transition:
             border-color 0.2s ease-in,
             background-color 0.2s ease-in;
+
         &.console--dragging-over {
             background-color: var(--pluto-gray-l4);
             border-color: var(--pluto-primary-z);
             border-width: 1px;
         }
+
         &.console--enabled:hover {
             background-color: var(--pluto-gray-l4);
             border-color: var(--pluto-gray-l7);
@@ -76,6 +80,7 @@
             width: auto;
             height: auto;
             overflow: visible;
+
             * {
                 pointer-events: all;
                 cursor: pointer;
@@ -101,6 +106,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
+
         &:hover {
             transform: scale(1.1) translate(-50%, -50%);
         }

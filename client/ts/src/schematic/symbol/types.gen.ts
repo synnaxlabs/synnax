@@ -69,7 +69,7 @@ export const specZ = z.object({
   svg: z.string().min(1),
   /** states contains available visual states with regional styling configurations. */
   states: stateZ.array().default(() => []),
-  /** variant is the symbol variant or category identifier (e.g., 'sensor', 'valve'). */
+  /** variant is the symbol variant: 'static' or 'actuator'. */
   variant: z.string().min(1),
   /** handles contains connection points for linking to other diagram elements. */
   handles: handleZ.array().default(() => []),

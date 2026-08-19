@@ -12,13 +12,12 @@ package imex
 import (
 	"context"
 	"maps"
-	"path/filepath"
 	"slices"
-	"strings"
 	"sync"
 
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/filename"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -115,6 +114,14 @@ func notFoundError[T ~string](typ T, kind string) error {
 	)
 }
 
+// ExporterRegistered reports whether an Exporter is registered for t.
+func (s *Service) ExporterRegistered(t ontology.ResourceType) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	_, ok := s.exporters[t]
+	return ok
+}
+
 // ResolveType returns the registration type string Import will route envelope to. A
 // non-empty envelope.Type passes through; a typeless envelope's body is offered to
 // every Importer's Match in sorted type order, first claim winning. It returns a
@@ -132,16 +139,6 @@ func (s *Service) ResolveType(envelope Envelope) (string, error) {
 		}
 	}
 	return "", newFieldError("type", "file does not match any known resource format")
-}
-
-// baseName strips fileName's directory segments and trailing extension. Both separators
-// are cut: the name arrives on the wire, so a client can send a path built on a
-// platform other than the Core's. An empty fileName stays empty.
-func baseName(fileName string) string {
-	if i := strings.LastIndexAny(fileName, `/\`); i >= 0 {
-		fileName = fileName[i+1:]
-	}
-	return strings.TrimSuffix(fileName, filepath.Ext(fileName))
 }
 
 // Import routes envelope to its Importer, persists it on tx, and returns the created
@@ -172,7 +169,7 @@ func (s *Service) Import(
 		return ontology.ID{}, notFoundError(envelope.Type, "importer")
 	}
 	if envelope.Name == "" {
-		envelope.Name = baseName(opts.FileName)
+		envelope.Name = filename.Stem(opts.FileName)
 	}
 	if envelope.Name == "" {
 		return ontology.ID{}, newFieldError("name", "name must be a non-empty string")

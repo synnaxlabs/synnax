@@ -12,7 +12,7 @@ package cesium_test
 import (
 	"context"
 	"io"
-	"runtime"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -49,17 +49,13 @@ var _ = Describe("Streamer Behavior", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
 			var (
-				db         *cesium.DB
-				fs         fs.FS
-				controlKey cesium.ChannelKey = 5
+				db *cesium.DB
+				fs fs.FS
 			)
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
 				fs = openFS()
 				db = mustOpenDBOnFS(ctx, fs)
-				Expect(
-					db.ConfigureControlUpdateChannel(ctx, controlKey, "cesium_control"),
-				).To(Succeed())
 			})
 
 			Describe("Happy Path", func() {
@@ -73,7 +69,7 @@ var _ = Describe("Streamer Behavior", func() {
 							cesium.Channel{
 								Key:      basic1,
 								Name:     "Planck",
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 						)).To(Succeed())
@@ -111,7 +107,7 @@ var _ = Describe("Streamer Behavior", func() {
 							cesium.Channel{
 								Key:      key,
 								Name:     "Curie",
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 						)).To(Succeed())
@@ -153,7 +149,7 @@ var _ = Describe("Streamer Behavior", func() {
 						cesium.Channel{
 							Key:      basic2,
 							Name:     "Bohr",
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						},
 					)).To(Succeed())
@@ -228,7 +224,7 @@ var _ = Describe("Streamer Behavior", func() {
 							cesium.Channel{
 								Key:      idx,
 								Name:     "Noether",
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 							cesium.Channel{
@@ -276,7 +272,7 @@ var _ = Describe("Streamer Behavior", func() {
 							cesium.Channel{
 								Key:      idx,
 								Name:     "Hopper",
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 							cesium.Channel{
@@ -325,7 +321,7 @@ var _ = Describe("Streamer Behavior", func() {
 							cesium.Channel{
 								Key:      idx,
 								Name:     "Franklin",
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 							cesium.Channel{
@@ -363,57 +359,6 @@ var _ = Describe("Streamer Behavior", func() {
 						)
 						Expect(closer.Close()).To(Succeed())
 						Expect(w.Close()).To(Succeed())
-					},
-				)
-			})
-
-			Describe("Control Updates", func() {
-				It(
-					"Should forward control updates to the streamer",
-					func(ctx SpecContext) {
-						var basic3 cesium.ChannelKey = 6
-						Expect(db.CreateChannel(
-							ctx,
-							cesium.Channel{
-								Key:      basic3,
-								Name:     "Schrodinger",
-								DataType: telem.TimeStampT,
-								IsIndex:  true,
-							},
-						)).To(Succeed())
-						_, o, closer := openStreamer(ctx, db, cesium.StreamerConfig{
-							Channels:    []cesium.ChannelKey{controlKey},
-							SendOpenAck: true,
-						})
-						// Do a best effort schedule for the streamer to boot up
-						Eventually(o.Outlet()).Should(Receive())
-						runtime.Gosched()
-						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-							Channels:       []cesium.ChannelKey{basic3},
-							ControlSubject: control.Subject{Name: "Writer"},
-							Start:          10 * telem.SecondTS,
-						}))
-						var r cesium.StreamerResponse
-						// Move this into an eventual closure, as we may be getting
-						// latent control updates from other tests, so we just assert on
-						// updates
-						// until we get one that matches.
-						Eventually(func(g Gomega) {
-							g.Eventually(o.Outlet()).Should(Receive(&r))
-							g.Expect(r.Frame.Count()).To(Equal(1))
-							u := MustSucceed(
-								cesium.DecodeControlUpdate(r.Frame.SeriesAt(0)),
-							)
-							g.Expect(u.Transfers).To(HaveLen(1))
-							first := u.Transfers[0]
-							g.Expect(first.Occurred()).To(BeTrue())
-							g.Expect(first.IsAcquire()).To(BeTrue())
-						}).Should(Succeed())
-
-						Expect(w.Close()).To(Succeed())
-						Eventually(o.Outlet()).Should(Receive(&r))
-						Expect(r.Frame.Count()).To(Equal(1))
-						Expect(closer.Close()).To(Succeed())
 					},
 				)
 			})
@@ -501,7 +446,7 @@ var _ = Describe("Streamer Behavior", func() {
 							cesium.Channel{
 								Key:      key,
 								Name:     "Noether",
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 						)).To(Succeed())
@@ -543,8 +488,9 @@ var _ = Describe("Streamer Behavior", func() {
 						// Writing past the relay's total buffered capacity would force
 						// the writer to block until the relay times out and drops
 						// frames for the stalled consumer, so undersized buffering
-						// surfaces as missing
-						// frames in the drain below.
+						// surfaces as missing frames in the drain below. The long
+						// slow-consumer timeout keeps the relay from dropping a frame
+						// when a scheduling stall delays the drain.
 						const frameCount int64 = 2 * bufferSize
 						subFS := MustSucceed(fs.Sub("slow-consumer"))
 						subDB := mustOpenDBOnFS(
@@ -552,6 +498,7 @@ var _ = Describe("Streamer Behavior", func() {
 							subFS,
 							cesium.WithRelayBufferSize(bufferSize),
 							cesium.WithStreamBufferSize(bufferSize),
+							cesium.WithSlowConsumerTimeout(10*time.Second),
 						)
 						key := GenerateChannelKey()
 						Expect(subDB.CreateChannel(
@@ -597,7 +544,7 @@ var _ = Describe("Streamer Behavior", func() {
 						Expect(subDB.CreateChannel(ctx, cesium.Channel{
 							Key:      key,
 							Name:     "Einstein",
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						})).To(Succeed())
 						Expect(subDB.Close()).To(Succeed())

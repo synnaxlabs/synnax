@@ -67,12 +67,11 @@ const handlers: Handlers = {
       targets: [payload.key],
     };
   },
-  // The inverse of SetNodeInputs is imperfect for keys the action newly
-  // introduces: SetNodeInputs only merges, so it cannot remove keys that did
-  // not previously exist. The inverse here restores values for keys that DID
-  // exist before the merge; keys added by the action remain on undo as phantom
-  // fields. A future ReplaceNodeInputs action can close the gap by enabling
-  // wholesale replacement.
+  // The inverse of SetNodeInputs is imperfect for keys the action newly introduces:
+  // SetNodeInputs only merges, so it cannot remove keys that did not previously exist.
+  // The inverse here restores values for keys that DID exist before the merge; keys
+  // added by the action remain on undo as phantom fields. A future ReplaceNodeInputs
+  // action can close the gap by enabling wholesale replacement.
   setNodeInputs: (state, payload) => {
     const existingRaw = state.graph.inputs[payload.key];
     if (existingRaw == null) {

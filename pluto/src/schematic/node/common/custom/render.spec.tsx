@@ -1093,10 +1093,9 @@ describe("Custom.useRender", () => {
     });
   });
 
-  // The symbol editor's form mutates its value object in place rather than
-  // producing a new reference on every change, so the same spec object is
-  // passed across rerenders. The diff must detect changes by value, not by
-  // object identity.
+  // The symbol editor's form mutates its value object in place rather than producing a
+  // new reference on every change, so the same spec object is passed across rerenders.
+  // The diff must detect changes by value, not by object identity.
   describe("in-place spec mutation", () => {
     it("should update dimensions when the internal scale is mutated in place", () => {
       const container = document.createElement("div");

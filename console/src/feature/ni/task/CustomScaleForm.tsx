@@ -8,9 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { Flex, Form, Icon, Input, Select, state } from "@synnaxlabs/pluto";
-import { binary, deep, type record } from "@synnaxlabs/x";
-import { type DialogFilter } from "@tauri-apps/plugin-dialog";
-import { type FC, useRef } from "react";
+import { binary, deep, record } from "@synnaxlabs/x";
+import { type FC } from "react";
 import { z } from "zod";
 
 import { CoefficientsField } from "@/feature/ni/task/CoefficientsField";
@@ -29,7 +28,7 @@ const SelectCustomScaleTypeField = Form.buildSelectField<
 >({
   fieldKey: "type",
   fieldProps: {
-    label: "Custom Scaling",
+    label: "Custom scaling",
     onChange: (value, { get, set, path }) => {
       const prevType = get<ScaleType>(path).value;
       if (prevType === value) return;
@@ -85,9 +84,7 @@ const UNIT_SYMBOLS = {
   FootPounds: "ft·lb",
 } as const satisfies Record<Units, string>;
 
-const unitsData = (Object.entries(UNIT_SYMBOLS) as [Units, string][]).map(
-  ([key, name]) => ({ key, name }),
-);
+const unitsData = record.entries(UNIT_SYMBOLS).map(([key, name]) => ({ key, name }));
 
 const UnitsField = Form.buildSelectField<Units, record.KeyedNamed<Units>>({
   fieldKey: "units",
@@ -99,7 +96,7 @@ const UnitsField = Form.buildSelectField<Units, record.KeyedNamed<Units>>({
   },
 });
 
-const FILTERS: DialogFilter[] = [{ name: "CSV", extensions: ["csv"] }];
+const tableSchema = z.record(z.string(), z.array(z.unknown()));
 
 export interface CustomScaleFormProps {
   prefix: string;
@@ -107,8 +104,8 @@ export interface CustomScaleFormProps {
 
 const CustomScaleUnitsFields = ({ prefix }: { prefix: string }) => (
   <Flex.Box x>
-    <UnitsField fieldKey="preScaledUnits" label="Prescaled Units" path={prefix} grow />
-    <Form.TextField fieldKey="scaledUnits" label="Scaled Units" path={prefix} grow />
+    <UnitsField fieldKey="preScaledUnits" label="Prescaled units" path={prefix} grow />
+    <Form.TextField fieldKey="scaledUnits" label="Scaled units" path={prefix} grow />
   </Flex.Box>
 );
 
@@ -133,19 +130,19 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
       <Flex.Box x>
         <Form.NumericField
           fieldKey="preScaledMin"
-          label="Pre-Scaled Min"
+          label="Pre-scaled min"
           path={prefix}
           grow
         />
         <Form.NumericField
           fieldKey="preScaledMax"
-          label="Pre-Scaled Max"
+          label="Pre-scaled max"
           path={prefix}
         />
       </Flex.Box>
       <Flex.Box x>
-        <Form.NumericField fieldKey="scaledMin" label="Scaled Min" path={prefix} grow />
-        <Form.NumericField fieldKey="scaledMax" label="Scaled Max" path={prefix} />
+        <Form.NumericField fieldKey="scaledMin" label="Scaled min" path={prefix} grow />
+        <Form.NumericField fieldKey="scaledMax" label="Scaled max" path={prefix} />
       </Flex.Box>
     </>
   ),
@@ -154,11 +151,11 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
       <CustomScaleUnitsFields prefix={prefix} />
       <CoefficientsField
         path={`${prefix}.forwardCoeffs`}
-        label="Forward Coefficients"
+        label="Forward coefficients"
       />
       <CoefficientsField
         path={`${prefix}.reverseCoeffs`}
-        label="Reverse Coefficients"
+        label="Reverse coefficients"
       />
     </>
   ),
@@ -172,17 +169,23 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
       [],
       `${prefix}.colOptions`,
     );
-    const [path, setPath] = state.usePersisted<string>("", `${prefix}.path`);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const tableSchema = z.record(z.string(), z.array(z.unknown()));
+    const [fileName, setFileName] = state.usePersisted<string>("", `${prefix}.path`);
+    // The parsed table persists beside the form state, so a column change after a
+    // remount recomputes the values without re-reading the file.
+    const [table, setTable] = state.usePersisted<Record<string, unknown[]>>(
+      {},
+      `${prefix}.table`,
+    );
     const preScaledField = Form.useField<number[]>(`${prefix}.preScaledVals`);
     const scaledField = Form.useField<number[]>(`${prefix}.scaledVals`);
-    const currValueRef = useRef<Record<string, unknown[]>>({});
 
-    const updateValue = () => {
-      const value = currValueRef.current;
-      const preScaledValues = value[rawCol] as number[] | undefined;
-      const scaledValues = value[scaledCol] as number[] | undefined;
+    const applyColumns = (
+      value: Record<string, unknown[]>,
+      raw: string,
+      scaled: string,
+    ) => {
+      const preScaledValues = value[raw] as number[] | undefined;
+      const scaledValues = value[scaled] as number[] | undefined;
       const hasScaled = scaledValues != null;
       const hasPreScaled = preScaledValues != null;
       if (hasScaled && hasPreScaled)
@@ -195,45 +198,48 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
       if (hasScaled) scaledField.onChange(scaledValues);
     };
 
-    const handleFileContentsChange = (
-      value: z.infer<typeof tableSchema>,
-      path: string,
-    ) => {
-      setPath(path);
-      currValueRef.current = value;
+    const handleFileChange = (value: z.infer<typeof tableSchema>, name: string) => {
+      setFileName(name);
+      setTable(value);
       const keys = Object.keys(value).filter(
         (key) =>
           Array.isArray(value[key]) && value[key].every((v) => isFinite(Number(v))),
       );
       setColOptions(keys.map((key) => ({ key, name: key })));
-      if (keys.length > 0) setRawCol(keys[0]);
-      if (keys.length > 1) setScaledCol(keys[1]);
-      updateValue();
+      const raw = keys.length > 0 ? keys[0] : rawCol;
+      const scaled = keys.length > 1 ? keys[1] : scaledCol;
+      if (keys.length > 0) setRawCol(raw);
+      if (keys.length > 1) setScaledCol(scaled);
+      applyColumns(value, raw, scaled);
     };
 
     const handleRawColChange = (value: string) => {
       setRawCol(value);
-      updateValue();
+      applyColumns(table, value, scaledCol);
     };
 
     const handleScaledColChange = (value: string) => {
       setScaledCol(value);
-      updateValue();
+      applyColumns(table, rawCol, value);
     };
+
+    if (preScaledField.preview) return <CustomScaleUnitsFields prefix={prefix} />;
 
     return (
       <>
         <CustomScaleUnitsFields prefix={prefix} />
         <Input.Item label="Table CSV" padHelpText>
-          <FS.InputFileContents<typeof tableSchema>
-            initialPath={path}
-            onChange={handleFileContentsChange}
-            filters={FILTERS}
+          <FS.InputFile<typeof tableSchema>
+            value={fileName}
+            onChange={handleFileChange}
+            title="Select a table CSV"
+            extension="csv"
+            schema={tableSchema}
             decoder={binary.CSV_CODEC}
           />
         </Input.Item>
         <Flex.Box x>
-          <Input.Item label="Raw Column" padHelpText grow>
+          <Input.Item label="Raw column" padHelpText grow>
             <Select.Static
               resourceName="raw column"
               value={rawCol}
@@ -241,7 +247,7 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
               data={colOptions}
             />
           </Input.Item>
-          <Input.Item label="Scaled Column" padHelpText grow>
+          <Input.Item label="Scaled column" padHelpText grow>
             <Select.Static
               resourceName="scaled column"
               value={scaledCol}

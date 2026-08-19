@@ -23,13 +23,16 @@ vi.mock("@/session/runtime/runtime", async (importOriginal) => {
   return await mockRuntimeEngine(importOriginal, mocks);
 });
 
+vi.mock("@tauri-apps/api/path", () => ({ sep: vi.fn(() => "/") }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 // The Tauri fs plugin is an unmockable IPC seam in jsdom; route it to the real node
 // filesystem so the specs exercise genuine file reads.
 vi.mock("@tauri-apps/plugin-fs", async () => {
   const { readFile } = await import("node:fs/promises");
   return {
+    readDir: vi.fn(),
     readFile: vi.fn(async (path: string) => new Uint8Array(await readFile(path))),
+    readTextFile: vi.fn(),
   };
 });
 
@@ -41,6 +44,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { NI } from "@/feature/ni";
 import { renderNITaskForm } from "@/feature/ni/task/testutil";
 import { findDialogTriggerByText, selectFromDropdown } from "@/platform/task/testutil";
+import { fakePickedFile, interceptFilePicker } from "@/testutil";
 
 const openMock = vi.mocked(open);
 
@@ -48,7 +52,7 @@ const client = createTestClient();
 
 // Drafts carry no key; the created row mints its own.
 const ZERO_DRAFT: task.New<NI.Task.AnalogReadSchemas> = {
-  name: "NI Analog Read Task",
+  name: "NI analog read task",
   type: NI.Task.ANALOG_READ_TYPE,
   config: NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
 };
@@ -95,13 +99,13 @@ const renderWithScale = async (customScale: NI.Task.Scale) => {
 describe("CustomScaleForm", () => {
   it("should swap the scale fields when a different scale type is selected", async () => {
     await renderWithScale(NI.Task.createScale("none"));
-    await screen.findByText("Custom Scaling");
+    await screen.findByText("Custom scaling");
     expect(screen.queryByText("Slope")).toBeNull();
     await selectFromDropdown("None", "Linear");
     await waitFor(() => expect(screen.getByText("Slope")).toBeTruthy());
     expect(screen.getByText("Y-Intercept")).toBeTruthy();
     await selectFromDropdown("Linear", "Map");
-    await waitFor(() => expect(screen.getByText("Pre-Scaled Min")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Pre-scaled min")).toBeTruthy());
     expect(screen.queryByText("Slope")).toBeNull();
   });
 
@@ -127,5 +131,22 @@ describe("CustomScaleForm", () => {
     await findDialogTriggerByText("col_b");
     await selectFromDropdown("col_b", "col_c");
     await findDialogTriggerByText("col_c");
+  });
+
+  it("should load a table CSV in the browser runtime", async () => {
+    mocks.engine = "web";
+    openMock.mockClear();
+    const picker = interceptFilePicker();
+    await renderWithScale(NI.Task.createScale("table"));
+    await screen.findByText("Table CSV");
+    fireEvent.click(screen.getByText("Select file"));
+    await waitFor(() => expect(picker.lastInput()).toBeDefined());
+    picker.selectFiles([
+      fakePickedFile("browser.csv", "web_raw,web_scaled\n1,10\n2,20\n"),
+    ]);
+    await findDialogTriggerByText("web_raw");
+    await findDialogTriggerByText("web_scaled");
+    expect(screen.getByText(/browser\.csv/)).toBeTruthy();
+    expect(openMock).not.toHaveBeenCalled();
   });
 });

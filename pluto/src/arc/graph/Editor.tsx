@@ -182,7 +182,7 @@ export const Editor = ({
     <Scope.Provider value={key}>
       <Diagram
         ref={ref}
-        className={CSS(className, CSS.B("arc"))}
+        className={CSS.cls(className, CSS.B("arc"))}
         fitViewOptions={FIT_VIEW_OPTIONS}
         snapGrid={SNAP_GRID}
         snapToGrid

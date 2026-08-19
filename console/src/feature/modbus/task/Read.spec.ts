@@ -25,7 +25,7 @@ const client = createTestClient();
 
 // Drafts carry no key; the created row mints its own.
 const ZERO_DRAFT: task.New<Modbus.Task.ReadSchemas> = {
-  name: "Modbus Read Task",
+  name: "Modbus read task",
   type: Modbus.Task.READ_TYPE,
   config: Modbus.Task.READ_SCHEMAS.config.parse({}),
 };

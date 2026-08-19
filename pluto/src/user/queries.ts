@@ -57,7 +57,7 @@ export const { use: useGroupID } = Flux.createRetrieve<
   UseRetrieveGroupParams,
   ontology.ID | undefined
 >({
-  name: "User Group",
+  name: "user group",
   retrieve: async ({ client }) => {
     const res = await client.ontology.children.retrieve({ ids: ontology.ROOT_ID });
     return res.find((r) => r.name === "Users")?.id;
@@ -84,7 +84,7 @@ const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
 };
 
 export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
-  name: "User",
+  name: "user",
   schema: formSchema,
   initialValues: ZERO_FORM_VALUES,
   retrieve: async ({ client, query: { key } }) => ({
@@ -137,6 +137,10 @@ export const { use, useResult, createResultSelector } = Flux.createRetrieve<
   },
 });
 
+export const useResultKey = createResultSelector(({ key }) => key);
+
 export const useResultUsername = createResultSelector(({ username }) => username);
 
 export const useResultFirstName = createResultSelector(({ firstName }) => firstName);
+
+export const useResultLastName = createResultSelector(({ lastName }) => lastName);

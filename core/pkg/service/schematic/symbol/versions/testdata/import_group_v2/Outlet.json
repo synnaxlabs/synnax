@@ -1,0 +1,35 @@
+{
+  "version": 2,
+  "type": "schematic_symbol",
+  "key": "66666666-7777-8888-9999-aaaaaaaaaaaa",
+  "name": "Outlet",
+  "data": {
+    "svg": "<svg><circle/></svg>",
+    "states": [
+      {
+        "key": "base",
+        "name": "Base",
+        "regions": [
+          {
+            "key": "r1",
+            "name": "Body",
+            "selectors": ["#body"],
+            "stroke_color": "#0000ff",
+            "fill_color": "#ffff00"
+          }
+        ]
+      }
+    ],
+    "variant": "sensor",
+    "handles": [
+      {
+        "key": "h1",
+        "position": { "x": 1, "y": 0.5 },
+        "orientation": "right"
+      }
+    ],
+    "scale": 2,
+    "scale_stroke": false,
+    "preview_viewport": { "position": { "x": 4, "y": 5 }, "zoom": 6 }
+  }
+}

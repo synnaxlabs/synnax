@@ -13,6 +13,7 @@ import { useCallback, useMemo, useState } from "react";
 
 import { type FrameProps, type GetItem } from "@/list/Frame";
 
+/** Return value for {@link useStaticData}. Spread it into a {@link Frame}. */
 export interface UseStaticDataReturn<
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
@@ -21,6 +22,7 @@ export interface UseStaticDataReturn<
   retrieve: state.Setter<RetrieveParams, Partial<RetrieveParams>>;
 }
 
+/** Query the caller passes to `retrieve` to narrow the data. */
 export interface RetrieveParams {
   searchTerm?: string;
   offset?: number;
@@ -32,10 +34,17 @@ export interface UseStaticDataParams<
   E extends record.Keyed<K> = record.Keyed<K>,
 > {
   data: readonly E[];
+  /** Drops any item this rejects, before search and sort. */
   filter?: (item: E, params: RetrieveParams) => boolean;
   sort?: compare.Comparator<E>;
 }
 
+/**
+ * Backs a {@link Frame} with an in-memory array, adding fuzzy search over every field
+ * of the entry.
+ *
+ * @example <List.Frame {...List.useStaticData({ data: MODES })}>
+ */
 export const useStaticData = <
   K extends record.Key = record.Key,
   E extends record.Keyed<K> = record.Keyed<K>,

@@ -34,13 +34,11 @@ const RENDER_KEY = "render";
 /**
  * Toggleable provider stack for Synnax test utilities. Each provider defaults to `true`
  * (mounted with harness defaults) except `render`, which is off until a recorder is
- * requested. Set a provider to `false` to drop it from the tree, or pass a config object
- * to override its initial state.
- *
- * The providers form a fixed nesting order (`alamos → status → synnax → theming →
- * telem → staleness → render`); disabling one mounts the next directly under the
- * previous enabled provider. A component that reads context from a provider it disabled
- * will not find it.
+ * requested. Set a provider to `false` to drop it from the tree, or pass a config
+ * object to override its initial state. The providers form a fixed nesting order
+ * (`alamos → status → synnax → theming → telem → staleness → render`); disabling one
+ * mounts the next directly under the previous enabled provider. A component that reads
+ * context from a provider it disabled will not find it.
  */
 export interface ProviderOptions {
   /** Alamos instrumentation provider. Defaults on. */

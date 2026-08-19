@@ -7,7 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, ranger } from "@synnaxlabs/client";
+import {
+  label,
+  lineplot,
+  NotFoundError,
+  panel,
+  project,
+  ranger,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -22,7 +30,9 @@ import {
   awaitTextEditing,
   commitTextEdit,
   createConsoleWrapper,
+  createTestClientWithGrants,
   getIconButton,
+  type Grants,
   openContextMenu,
   resolveFocusedTab,
   selectTestProject,
@@ -56,13 +66,16 @@ const toState = (rng: ranger.Range): Session.Range.State =>
 interface RenderToolbarOptions {
   ranges?: Session.Range.State[];
   active?: string;
+  /** The client the toolbar renders against; defaults to the root client. */
+  as?: Client;
 }
 
 const renderToolbar = async ({
   ranges = [],
   active,
+  as = client,
 }: RenderToolbarOptions = {}): Promise<{ store: TestStore }> => {
-  const { wrapper, store } = await createConsoleWrapper({ client });
+  const { wrapper, store } = await createConsoleWrapper({ client: as });
   await selectTestProject(store, client);
   render(
     <>
@@ -80,8 +93,8 @@ const renderToolbar = async ({
 describe("range/Toolbar", () => {
   it("shows the empty state and opens the Range Explorer from it", async () => {
     const { store } = await renderToolbar();
-    expect(await screen.findByText("No favorited ranges.")).toBeTruthy();
-    fireEvent.click(await screen.findByText("Open Range Explorer"));
+    expect(await screen.findByText("No favorited ranges")).toBeTruthy();
+    fireEvent.click(await screen.findByText("Open range explorer"));
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "view")
       throw new Error("focused tab is not the range explorer view");
@@ -150,11 +163,11 @@ describe("range/Toolbar", () => {
       expect((await client.ranges.retrieve(created.key)).name).toBe(rng.name);
     });
 
-    it("persists a local range to the cluster via Save to Synnax", async () => {
+    it("persists a local range to the cluster via Save to Core", async () => {
       const local = createLocalRangeState(uniqueRangeName("save"));
       const { store } = await renderToolbar({ ranges: [local] });
       await openContextMenu(local.name);
-      fireEvent.click(await screen.findByText("Save to Synnax"));
+      fireEvent.click(await screen.findByText("Save to Core"));
       await waitFor(() =>
         expect(Session.Range.selectState(store.getState(), local.key)?.persisted).toBe(
           true,
@@ -236,5 +249,55 @@ describe("Range.fetchIfNotInState", () => {
     expect(Session.Range.selectState(store.getState(), created.key)?.persisted).toBe(
       true,
     );
+  });
+});
+
+describe("range/ContextMenu permissions", () => {
+  const createSubject = async (grants: Grants) =>
+    await createTestClientWithGrants(client, {
+      ...grants,
+      retrieve: [
+        ranger.TYPE_ONTOLOGY_ID,
+        lineplot.TYPE_ONTOLOGY_ID,
+        label.TYPE_ONTOLOGY_ID,
+        project.TYPE_ONTOLOGY_ID,
+        panel.TYPE_ONTOLOGY_ID,
+      ],
+    });
+
+  it("should withhold every write from a subject with no grants", async () => {
+    const rng = await createTestRange(client);
+    await renderToolbar({ ranges: [toState(rng)], as: await createSubject({}) });
+    await openContextMenu(rng.name);
+    expect(await screen.findByText("Set as active range")).toBeTruthy();
+    expect(screen.queryByText("Rename")).toBeNull();
+    expect(screen.queryByText("Create child range")).toBeNull();
+    expect(screen.queryByText("Add to new plot")).toBeNull();
+    expect(screen.queryByText("Delete")).toBeNull();
+  });
+
+  it("should withhold the plot items from a subject who may only write ranges", async () => {
+    const rng = await createTestRange(client);
+    await renderToolbar({
+      ranges: [toState(rng)],
+      as: await createSubject({
+        create: [ranger.TYPE_ONTOLOGY_ID],
+        update: [ranger.TYPE_ONTOLOGY_ID],
+      }),
+    });
+    await openContextMenu(rng.name);
+    expect(await screen.findByText("Rename")).toBeTruthy();
+    expect(await screen.findByText("Create child range")).toBeTruthy();
+    expect(screen.queryByText("Add to new plot")).toBeNull();
+  });
+
+  it("should offer the plot item to a subject who may create plots", async () => {
+    const rng = await createTestRange(client);
+    await renderToolbar({
+      ranges: [toState(rng)],
+      as: await createSubject({ create: [lineplot.TYPE_ONTOLOGY_ID] }),
+    });
+    await openContextMenu(rng.name);
+    expect(await screen.findByText("Add to new plot")).toBeTruthy();
   });
 });

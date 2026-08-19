@@ -50,7 +50,7 @@ export const clickAndSettle = async (text: string): Promise<void> => {
 
 /** Queries container for a rendered pluto icon by its name, or null. */
 export const queryIcon = (container: ParentNode, icon: string): Element | null =>
-  container.querySelector(`[aria-label="pluto-icon--${icon}"]`);
+  container.querySelector(`.pluto-icon--${icon}`);
 
 /** Returns the closest button wrapping the given pluto icon, or null. */
 export const queryIconButton = (
@@ -63,12 +63,10 @@ export const getIconButtons = (
   container: ParentNode,
   icon: string,
 ): HTMLButtonElement[] =>
-  Array.from(container.querySelectorAll(`[aria-label="pluto-icon--${icon}"]`)).flatMap(
-    (el) => {
-      const button = el.closest("button");
-      return button == null ? [] : [button];
-    },
-  );
+  Array.from(container.querySelectorAll(`.pluto-icon--${icon}`)).flatMap((el) => {
+    const button = el.closest("button");
+    return button == null ? [] : [button];
+  });
 
 /** Like queryIconButton, but throws when no button wraps the icon. */
 export const getIconButton = (
@@ -79,6 +77,12 @@ export const getIconButton = (
   if (button == null) throw new Error(`no button wrapping icon ${icon}`);
   return button;
 };
+
+/** Like getIconButton, but waits for the button to appear. */
+export const findIconButton = async (
+  container: ParentNode,
+  icon: string,
+): Promise<HTMLButtonElement> => await waitFor(() => getIconButton(container, icon));
 
 /**
  * Returns the pluto toggle button in container. Toggles carry no accessible name, and
@@ -179,13 +183,19 @@ export const getCompositeIconButton = (
   container: ParentNode,
   icons: string[],
 ): HTMLButtonElement => {
-  const buttons = Array.from(container.querySelectorAll("button"));
-  const btn = buttons.find((b) =>
-    icons.every((i) => b.querySelector(`[aria-label="pluto-icon--${i}"]`) != null),
-  );
+  const [btn] = getCompositeIconButtons(container, icons);
   if (btn == null) throw new Error(`no button with icons ${icons.join(", ")}`);
   return btn;
 };
+
+/** Like getCompositeIconButton, but returns every match instead of throwing on none. */
+export const getCompositeIconButtons = (
+  container: ParentNode,
+  icons: string[],
+): HTMLButtonElement[] =>
+  Array.from(container.querySelectorAll("button")).filter((b) =>
+    icons.every((i) => b.querySelector(`.pluto-icon--${i}`) != null),
+  );
 
 /**
  * Finds the checkbox input of the pluto switch field labeled with labelText. Pluto

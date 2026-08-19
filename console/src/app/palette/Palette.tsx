@@ -30,9 +30,8 @@ export const SEARCH_TRIGGER: Triggers.Trigger = ["Control", "P"];
 export const COMMAND_TRIGGER: Triggers.Trigger = ["Control", "Shift", "P"];
 
 const TRIGGER_CONFIG: Triggers.ModeConfig<"search" | "command"> = {
-  command: [COMMAND_TRIGGER],
-  search: [SEARCH_TRIGGER],
   defaultMode: "command",
+  modes: { command: [COMMAND_TRIGGER], search: [SEARCH_TRIGGER] },
 };
 
 export const TooltipContent = (): ReactElement => (
@@ -44,7 +43,7 @@ export const TooltipContent = (): ReactElement => (
       </Flex.Box>
     </Flex.Box>
     <Flex.Box x justify="between" align="center">
-      <Text.Text level="small">Command Palette</Text.Text>
+      <Text.Text level="small">Command palette</Text.Text>
       <Flex.Box x gap="tiny">
         <Triggers.Text trigger={COMMAND_TRIGGER} level="small" />
       </Flex.Box>
@@ -94,7 +93,7 @@ export const Palette = (): ReactElement => {
       >
         <Button.Button
           onClick={() => setVisible(true)}
-          className={CSS(CSS.BE("palette", "btn"))}
+          className={CSS.cls(CSS.BE("palette", "btn"))}
           variant="outlined"
           align="center"
           justify="center"

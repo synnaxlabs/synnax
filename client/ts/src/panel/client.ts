@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, primitive } from "@synnaxlabs/x";
+import { array, type destructor, primitive, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -150,7 +150,9 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
     opts: query.WriteOptions<Panel[]> = {},
   ): Promise<Panel | Panel[]> {
     const isMany = Array.isArray(panels);
-    const optimistic = array.toArray(panels).map((p) => panelZ.parse(p));
+    const optimistic = array
+      .toArray(panels)
+      .map((p) => zod.parse(panelZ, p, { label: "panel" }));
     const res = await query.optimistic({
       rollbacks: [this.store.set(optimistic)],
       onOptimistic: () => opts.onOptimistic?.(optimistic),
@@ -186,10 +188,9 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
   }
 
   /**
-   * Applies actions to the cached panel and sends them to the server,
-   * recording an undoable entry. Returns false without side effects when the
-   * panel isn't cached. Rolls back the local apply and rethrows on send
-   * failure.
+   * Applies actions to the cached panel and sends them to the server, recording an
+   * undoable entry. Returns false without side effects when the panel isn't cached.
+   * Rolls back the local apply and rethrows on send failure.
    */
   async dispatch(
     key: Key,

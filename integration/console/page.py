@@ -16,27 +16,25 @@ from playwright.sync_api import FloatRect, Locator, Page, ViewportSize
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 import synnax as sy
-from console.context_menu import ContextMenu
 from console.layout import LayoutClient
-from console.notifications import NotificationsClient
-from console.tree import Tree
 from framework.run_dir import resolve_results_path
+from framework.utils import read_latest_value
 
 PageType = Literal[
-    "Control Sequence",
-    "Line Plot",
+    "Control sequence",
+    "Line plot",
     "Schematic",
     "Log",
     "Table",
-    "NI Analog Read Task",
-    "NI Analog Write Task",
-    "NI Counter Read Task",
-    "NI Digital Read Task",
-    "NI Digital Write Task",
-    "LabJack Read Task",
-    "LabJack Write Task",
-    "OPC UA Read Task",
-    "OPC UA Write Task",
+    "NI analog read task",
+    "NI analog write task",
+    "NI counter read task",
+    "NI digital read task",
+    "NI digital write task",
+    "LabJack read task",
+    "LabJack write task",
+    "OPC UA read task",
+    "OPC UA write task",
 ]
 
 
@@ -47,7 +45,7 @@ class ConsolePage:
     page: Page
     layout: LayoutClient
     page_name: str
-    page_type: str
+    page_type: PageType
     pluto_label: str
     tab_locator: Locator | None = None
     pane_locator: Locator | None = None
@@ -113,9 +111,9 @@ class ConsolePage:
         self.layout = layout
         self.page_name = page_name
         self.pane_locator = pane_locator
-        self.ctx_menu = ContextMenu(layout.page)
-        self.notifications = NotificationsClient(layout.page)
-        self.tree = Tree(layout.page)
+        self.ctx_menu = layout.ctx_menu
+        self.notifications = layout.notifications
+        self.tree = layout.tree
 
     def _get_tab(self) -> Locator:
         """Get the tab locator for this page."""
@@ -128,6 +126,8 @@ class ConsolePage:
         """
         tab = self._get_tab()
         tab.wait_for(state="visible", timeout=5000)
+        # The close button reveals on tab hover; the tab icon covers it until then.
+        tab.hover()
         close_button = tab.get_by_label("Close", exact=True)
         close_button.wait_for(state="visible", timeout=5000)
         close_button.click()
@@ -297,7 +297,7 @@ class ConsolePage:
             The copied link from clipboard (empty string if clipboard access fails).
         """
         self.layout.show_visualization_toolbar()
-        link_button = self.page.locator(".pluto-icon--link").locator("..")
+        link_button = self.page.get_by_role("button", name="Copy link", exact=True)
         try:
             self.notifications.close_all()
             link_button.click(timeout=5000)
@@ -314,8 +314,9 @@ class ConsolePage:
             The exported JSON content as a dictionary.
         """
         self.layout.show_visualization_toolbar()
-        export_button = self.page.locator(".pluto-icon--export").locator("..")
-        self.page.evaluate("delete window.showSaveFilePicker")
+        export_button = self.page.get_by_role(
+            "button", name="Export layout", exact=True
+        )
 
         with self.page.expect_download(timeout=5000) as download_info:
             try:
@@ -333,23 +334,4 @@ class ConsolePage:
 
     def get_value(self, channel_name: str) -> float | None:
         """Get the latest data value for any channel using the synnax client"""
-        try:
-            # Retry with short delays for CI resource constraints
-            for attempt in range(3):
-                latest_value = self.client.read_latest(channel_name)
-                if latest_value is not None and len(latest_value) > 0:
-                    return float(latest_value)
-
-                # If read_latest is empty, read recent time range
-                now = sy.TimeStamp.now()
-                recent_range = sy.TimeRange(now - sy.TimeSpan.SECOND * 3, now)
-                frame = self.client.read(recent_range, channel_name)
-                if len(frame) > 0:
-                    return float(frame[-1])
-                if attempt < 2:
-                    sy.sleep(0.2)
-
-            return None
-
-        except Exception as e:
-            raise RuntimeError(f'Could not get value for channel "{channel_name}": {e}')
+        return read_latest_value(self.client, channel_name)

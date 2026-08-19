@@ -267,7 +267,6 @@ describe("ReadFrameAdapter", () => {
 
           const result = adapter.adapt(inputFrame);
 
-          // Data types should be preserved
           expect(result.get(timeCh.key).dataType).toEqual(DataType.TIMESTAMP);
           expect(result.get(dataCh.key).dataType).toEqual(DataType.FLOAT32);
         });
@@ -294,7 +293,6 @@ describe("ReadFrameAdapter", () => {
         });
 
         it("should handle partial matches in key mode", () => {
-          // Frame has some matching and some extra channels
           const ts = TimeStamp.now().valueOf();
           const inputFrame = new Frame({
             [timeCh.key]: new Series([ts]),
@@ -325,7 +323,6 @@ describe("ReadFrameAdapter", () => {
       let nameAdapter: ReadAdapter;
 
       beforeAll(async () => {
-        // Create adapter with channel names (triggers key-to-name mapping)
         nameAdapter = await ReadAdapter.open(retrieveChannels, [
           timeCh.name,
           dataCh.name,
@@ -334,7 +331,6 @@ describe("ReadFrameAdapter", () => {
 
       describe("hot path - exact match, only convert", () => {
         it("should convert channel keys to names when all channels match", () => {
-          // HOT PATH: Frame has exactly the channels in adapter
           const ts = TimeStamp.now().valueOf();
           const inputFrame = new Frame({
             [timeCh.key]: new Series([ts]),
@@ -343,7 +339,6 @@ describe("ReadFrameAdapter", () => {
 
           const result = nameAdapter.adapt(inputFrame);
 
-          // Output should have names instead of keys (one allocation for conversion)
           expect(result.columns).toHaveLength(2);
           expect(result.has(timeCh.name)).toBe(true);
           expect(result.has(dataCh.name)).toBe(true);
@@ -395,7 +390,6 @@ describe("ReadFrameAdapter", () => {
 
           const result = nameAdapter.adapt(inputFrame);
 
-          // Should filter extraCh and convert remaining keys to names
           expect(result.columns).toHaveLength(2);
           expect(result.has(timeCh.name)).toBe(true);
           expect(result.has(dataCh.name)).toBe(true);
@@ -481,7 +475,6 @@ describe("ReadFrameAdapter", () => {
 
         const result = testAdapter.adapt(inputFrame);
 
-        // Verify all values preserved
         expect(result.get(timeCh.key).at(0)).toEqual(ts);
         expect(result.get(timeCh.key).at(1)).toEqual(ts + 1000n);
         expect(result.get(dataCh.key).at(0)).toEqual(1.5);
@@ -500,14 +493,12 @@ describe("ReadFrameAdapter", () => {
 
         const result = adapter.adapt(inputFrame);
 
-        // Lengths should be preserved for included channels
         expect(result.get(timeCh.key)).toHaveLength(3);
         expect(result.get(dataCh.key)).toHaveLength(3);
       });
 
       it("should preserve series order", () => {
         const ts = TimeStamp.now().valueOf();
-        // Create frame with explicit column order
         const inputFrame = new Frame(
           [dataCh.key, timeCh.key],
           [new Series([1.0, 2.0, 3.0]), new Series([ts, ts + 1000n, ts + 2000n])],
@@ -515,7 +506,6 @@ describe("ReadFrameAdapter", () => {
 
         const result = adapter.adapt(inputFrame);
 
-        // Order should be preserved (dataCh first, then timeCh)
         expect(result.columns[0]).toEqual(dataCh.key);
         expect(result.columns[1]).toEqual(timeCh.key);
       });
@@ -523,26 +513,21 @@ describe("ReadFrameAdapter", () => {
 
     describe("state management", () => {
       it("should handle multiple sequential updates correctly", async () => {
-        // Start with NAME mode to enable filtering
         const newAdapter = await ReadAdapter.open(retrieveChannels, [timeCh.name]);
 
-        // Initial state: only timeCh registered
         const ts = TimeStamp.now().valueOf();
         const inputFrame = new Frame({
           [timeCh.key]: new Series([ts]),
           [dataCh.key]: new Series([1.5]),
         });
 
-        // Should filter out dataCh and convert timeCh key to name
         let result = newAdapter.adapt(inputFrame);
         expect(result.columns).toHaveLength(1);
         expect(result.has(timeCh.name)).toBe(true);
         expect(result.has(dataCh.name)).toBe(false);
 
-        // Update to include dataCh
         await newAdapter.update([timeCh.name, dataCh.name]);
 
-        // Should now include both channels (converted to names)
         result = newAdapter.adapt(inputFrame);
         expect(result.columns).toHaveLength(2);
         expect(result.has(timeCh.name)).toBe(true);

@@ -30,6 +30,7 @@ type Base<V extends Variant> = {
   time: TimeStamp;
 };
 
+/** A status before it is stamped with a key, a time, and a name. */
 export type Crude<
   DetailsSchema extends z.ZodType = z.ZodNever,
   V extends Variant = Variant,
@@ -39,11 +40,9 @@ export type Crude<
 /**
  * Interface that errors may optionally implement to provide richer rendering when
  * passed to {@link fromException}. Implementers return a partial {@link Crude} spec
- * whose fields override the defaults derived from the underlying `Error`.
- *
- * This is a duck-typed contract: `fromException` checks for the presence of a
- * `toStatus` method via the `in` operator, so there is no need to import this
- * interface to use it.
+ * whose fields override the defaults derived from the underlying `Error`. This is a
+ * duck-typed contract: `fromException` checks for the presence of a `toStatus` method
+ * via the `in` operator, so there is no need to import this interface to use it.
  */
 export interface Custom {
   toStatus(): Partial<Crude<z.ZodRecord, "error">>;
@@ -73,6 +72,7 @@ const safeToStatus = (exc: unknown): z.infer<typeof customReturnZ> | undefined =
   return parsed.success ? parsed.data : undefined;
 };
 
+/** Details a status built by {@link fromException} carries. */
 export const exceptionDetailsSchema = z
   .object({
     stack: z.string(),
@@ -92,6 +92,10 @@ const causeChain = (err: Error): string | undefined => {
   return parts.join(": ");
 };
 
+/**
+ * Turns any thrown value into an error status, flattening its cause chain into the
+ * description and keeping the error and its stack in the details.
+ */
 export const fromException = (
   exc: unknown,
   message?: string,
@@ -122,14 +126,12 @@ export const fromException = (
 };
 
 /**
- * Converts an exception-shaped status (one built via {@link fromException}) back
- * into a thrown-shaped {@link Error}. The returned error carries the status's
- * wrapped message, copies `name` and `stack` from the inner error preserved on
- * `details.error`, and stashes the full status on `cause` for callers that need
- * the rich shape.
- *
- * Use this when bridging the status pipeline back into a context that expects
- * a real Error — typically before `throw`-ing across an error boundary.
+ * Converts an exception-shaped status (one built via {@link fromException}) back into a
+ * thrown-shaped {@link Error}. The returned error carries the status's wrapped message,
+ * copies `name` and `stack` from the inner error preserved on `details.error`, and
+ * stashes the full status on `cause` for callers that need the rich shape. Use this
+ * when bridging the status pipeline back into a context that expects a real Error —
+ * typically before `throw`-ing across an error boundary.
  */
 export const toError = (
   s: Status<typeof exceptionDetailsSchema, z.ZodLiteral<"error">>,
@@ -141,6 +143,7 @@ export const toError = (
   return err;
 };
 
+/** Stamps a {@link Crude} status with a fresh key and the current time. */
 export const create = <
   DetailsSchema extends z.ZodType = z.ZodNever,
   V extends Variant = Variant,
@@ -163,6 +166,7 @@ export const create = <
 export const detailsOf = (status: Status): record.Unknown | undefined =>
   (status as { details?: record.Unknown }).details;
 
+/** @returns the variant when it is one of the kept ones, else undefined. */
 export const keepVariants = (
   variant?: Variant,
   keep: Variant | Variant[] = [],
@@ -175,6 +179,7 @@ export const keepVariants = (
   return keep === variant ? variant : undefined;
 };
 
+/** @returns the variant unless it is one of the removed ones. */
 export const removeVariants = (
   variant?: Variant,
   remove: Variant | Variant[] = [],
@@ -187,6 +192,7 @@ export const removeVariants = (
   return remove === variant ? undefined : variant;
 };
 
+/** Options for {@link toString}. */
 export interface ToStringOptions {
   includeTimestamp?: boolean;
   includeName?: boolean;
@@ -207,6 +213,7 @@ const renderDescription = (description: string): string => {
   }
 };
 
+/** Renders a status as readable text, pretty-printing a JSON description. */
 export const toString = <Details extends z.ZodType = z.ZodNever>(
   stat: Status<Details>,
   options: ToStringOptions = {},

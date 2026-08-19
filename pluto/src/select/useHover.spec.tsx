@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, render } from "@testing-library/react";
+import { fireEvent, renderHook } from "@testing-library/react";
+import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Dialog } from "@/dialog";
@@ -16,67 +17,109 @@ import { Select } from "@/select";
 import { Triggers } from "@/triggers";
 
 describe("useHover", () => {
+  const DATA = ["alpha", "bravo", "charlie"];
+
+  interface RenderHoverOptions {
+    initialHover?: number;
+    enableTriggers?: Triggers.Condition;
+    dialog?: boolean;
+  }
+
   const renderHover = (
     data: string[],
     onSelect: (key: string) => void,
-    initialHover?: number,
+    { initialHover, enableTriggers, dialog = true }: RenderHoverOptions = {},
   ) => {
-    const C = () => {
-      const { hover } = Select.useHover({
-        data,
-        onSelect,
-        initialHover,
-      });
-      return <div>{hover}</div>;
-    };
-    return render(
-      <Dialog.Frame visible>
+    const wrapper = ({ children }: PropsWithChildren): ReactElement => {
+      const content = (
         <List.Frame data={data}>
-          <Triggers.Provider>
-            <C />
-          </Triggers.Provider>
+          <Triggers.Provider>{children}</Triggers.Provider>
         </List.Frame>
-      </Dialog.Frame>,
+      );
+      return dialog ? <Dialog.Frame visible>{content}</Dialog.Frame> : content;
+    };
+    return renderHook(
+      () => Select.useHover({ data, onSelect, initialHover, enableTriggers }),
+      { wrapper },
     );
   };
 
-  it("should shift the hover position of the list when the down arrow is pressed", () => {
-    const onSelect = vi.fn();
-    const data = ["1", "2", "3"];
-    const c = renderHover(data, onSelect);
+  const keyDown = (code: string): void => {
+    fireEvent.keyDown(window, { code });
+  };
+  const keyUp = (code: string): void => {
+    fireEvent.keyUp(window, { code });
+  };
 
-    fireEvent.keyDown(c.container, { code: "ArrowDown" });
-    expect(c.getByText("1")).toBeTruthy();
+  it("should shift the hover position of the list when the down arrow is pressed", () => {
+    const { result } = renderHover(DATA, vi.fn());
+    keyDown("ArrowDown");
+    expect(result.current.hover).toBe("alpha");
   });
 
   it("should accept an initial hover value", () => {
-    const onSelect = vi.fn();
-    const data = ["1", "2", "3"];
-    const c = renderHover(data, onSelect, 1);
-
-    expect(c.getByText("2")).toBeTruthy();
+    const { result } = renderHover(DATA, vi.fn(), { initialHover: 1 });
+    expect(result.current.hover).toBe("bravo");
   });
 
   it("should shift the hover position of the list when the up arrow is pressed", () => {
-    const onSelect = vi.fn();
-    const data = ["1", "2", "3"];
-    const c = renderHover(data, onSelect, 1);
-    fireEvent.keyDown(c.container, { code: "ArrowUp" });
-    expect(c.getByText("1")).toBeTruthy();
+    const { result } = renderHover(DATA, vi.fn(), { initialHover: 1 });
+    keyDown("ArrowUp");
+    expect(result.current.hover).toBe("alpha");
   });
 
   it("should select the item when the enter key is pressed", () => {
     const onSelect = vi.fn();
-    const data = ["1", "2", "3"];
-    const c = renderHover(data, onSelect, 1);
-    fireEvent.keyDown(c.container, { code: "Enter" });
-    expect(onSelect).toHaveBeenCalledWith("2");
+    renderHover(DATA, onSelect, { initialHover: 1 });
+    keyDown("Enter");
+    expect(onSelect).toHaveBeenCalledWith("bravo");
   });
 
   it("should move the hover index to 0 when the initial hover is beyond the length of the list", () => {
-    const onSelect = vi.fn();
-    const data = ["1", "2", "3"];
-    const c = renderHover(data, onSelect, 10);
-    expect(c.getByText("1")).toBeTruthy();
+    const { result } = renderHover(DATA, vi.fn(), { initialHover: 10 });
+    expect(result.current.hover).toBe("alpha");
+  });
+
+  describe("enableTriggers", () => {
+    it("should ignore keyboard triggers outside a dialog by default", () => {
+      const onSelect = vi.fn();
+      const { result } = renderHover(DATA, onSelect, {
+        initialHover: 0,
+        dialog: false,
+      });
+      keyDown("ArrowDown");
+      expect(result.current.hover).toBe("alpha");
+      keyDown("Enter");
+      expect(onSelect).not.toHaveBeenCalled();
+    });
+
+    it("should answer keyboard triggers outside a dialog when enabled", () => {
+      const onSelect = vi.fn();
+      const { result } = renderHover(DATA, onSelect, {
+        initialHover: 0,
+        dialog: false,
+        enableTriggers: true,
+      });
+      keyDown("ArrowDown");
+      keyUp("ArrowDown");
+      expect(result.current.hover).toBe("bravo");
+      keyDown("Enter");
+      expect(onSelect).toHaveBeenCalledWith("bravo");
+    });
+
+    it("should resolve a condition getter when the trigger fires", () => {
+      let enabled = false;
+      const { result } = renderHover(DATA, vi.fn(), {
+        initialHover: 0,
+        dialog: false,
+        enableTriggers: () => enabled,
+      });
+      keyDown("ArrowDown");
+      keyUp("ArrowDown");
+      expect(result.current.hover).toBe("alpha");
+      enabled = true;
+      keyDown("ArrowDown");
+      expect(result.current.hover).toBe("bravo");
+    });
   });
 });

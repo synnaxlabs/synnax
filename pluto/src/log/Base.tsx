@@ -33,11 +33,13 @@ const SELECT_ALL_END = Number.MAX_SAFE_INTEGER;
 type Mode = "selectAll" | "clearSelection" | "togglePause" | "default";
 
 const TRIGGER_CONFIG: Triggers.ModeConfig<Mode> = {
-  selectAll: [["Control", "A"]],
-  clearSelection: [Triggers.ESCAPE],
-  togglePause: [PAUSE_TRIGGER],
-  default: [],
   defaultMode: "default",
+  modes: {
+    selectAll: [["Control", "A"]],
+    clearSelection: [Triggers.ESCAPE],
+    togglePause: [PAUSE_TRIGGER],
+    default: [],
+  },
 };
 
 const FLATTENED_TRIGGERS = Triggers.flattenConfig(TRIGGER_CONFIG);
@@ -62,7 +64,7 @@ export const Base = ({
   channels,
   emptyContent = (
     <Status.Summary center level="h3" variant="disabled" hideIcon>
-      Empty Log
+      No log entries
     </Status.Summary>
   ),
   color,
@@ -163,6 +165,7 @@ export const Base = ({
   }, [selectedLines]);
 
   const addStatus = Status.useAdder();
+  const handleError = Status.useErrorHandler();
   const notifyCopied = useCallback(
     (count: number) =>
       addStatus({
@@ -179,8 +182,11 @@ export const Base = ({
       "text/plain": new Blob([selectedText], { type: "text/plain" }),
     });
     const count = selectedLines.length;
-    void navigator.clipboard.write([item]).then(() => notifyCopied(count));
-  }, [selectedText, selectedLines.length, buildCopyHTML, notifyCopied]);
+    handleError(async () => {
+      await navigator.clipboard.write([item]);
+      notifyCopied(count);
+    }, "Failed to copy to clipboard");
+  }, [selectedText, selectedLines.length, buildCopyHTML, notifyCopied, handleError]);
 
   Triggers.use({
     triggers: FLATTENED_TRIGGERS,
@@ -242,7 +248,7 @@ export const Base = ({
       <div
         ref={combinedRef}
         tabIndex={0}
-        className={CSS(CSS.B("log"), className)}
+        className={CSS.cls(CSS.B("log"), className)}
         onWheel={(e) => {
           if (e.deltaY < 0 && !scrolling) setHold(true);
           setState((s) => ({ ...s, wheelPos: s.wheelPos - e.deltaY }));

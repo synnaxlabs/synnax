@@ -13,21 +13,20 @@
     flex-shrink: 0;
 }
 
+/* Reveals with clip-path rather than width so the fill never runs layout, and never
+   scales, which would distort the overlay's corner radius. */
 @keyframes delay {
     0% {
-        width: 0%;
-        -webkit-backdrop-filter: brightness(0.6);
-        backdrop-filter: brightness(0.6);
+        clip-path: inset(0 100% 0 0);
+        background-color: rgb(0 0 0 / 40%);
     }
     99% {
-        width: 100%;
-        -webkit-backdrop-filter: brightness(0.6);
-        backdrop-filter: brightness(0.6);
+        clip-path: inset(0 0 0 0);
+        background-color: rgb(0 0 0 / 40%);
     }
     100% {
-        width: 100%;
-        -webkit-backdrop-filter: brightness(1);
-        backdrop-filter: brightness(1);
+        clip-path: inset(0 0 0 0);
+        background-color: transparent;
     }
 }
 
@@ -145,16 +144,14 @@
         &::after {
             content: "";
             position: absolute;
-            top: 0;
-            left: 0;
-            height: 100%;
-            width: 0%;
+            inset: 0;
             z-index: 1;
             border-radius: var(--pluto-border-radius);
+            clip-path: inset(0 100% 0 0);
         }
         &:active::after {
             animation: delay var(--pluto-btn-delay) linear;
-            width: 100%;
+            clip-path: inset(0 0 0 0);
         }
     }
 
@@ -256,6 +253,18 @@
         }
     }
 
+    &.pluto--selected {
+        --pluto-bg: var(--pluto-selected-bg);
+        --pluto-hover-bg: var(--pluto-selected-hover-bg);
+        --pluto-active-bg: var(--pluto-selected-active-bg);
+        --pluto-border-color: var(--pluto-selected-border-color);
+        --pluto-hover-border-color: var(--pluto-selected-border-color);
+        --pluto-active-border-color: var(--pluto-selected-border-color);
+        color: var(--pluto-selected-color);
+    }
+
+    /* Placed after the selected block so a preview strips the selected chassis
+       too: the value reads as plain text, never as a still-active control. */
     &.pluto-btn--preview {
         cursor: default;
         pointer-events: none;
@@ -268,6 +277,10 @@
         --pluto-border-color: transparent;
         --pluto-hover-border-color: transparent;
         --pluto-active-border-color: transparent;
+
+        &.pluto--selected {
+            color: var(--pluto-text-color);
+        }
 
         &:focus-visible {
             outline: none;
@@ -284,16 +297,6 @@
         &.pluto--status-error {
             color: var(--pluto-error-p1);
         }
-    }
-
-    &.pluto--selected {
-        --pluto-bg: var(--pluto-selected-bg);
-        --pluto-hover-bg: var(--pluto-selected-hover-bg);
-        --pluto-active-bg: var(--pluto-selected-active-bg);
-        --pluto-border-color: var(--pluto-selected-border-color);
-        --pluto-hover-border-color: var(--pluto-selected-border-color);
-        --pluto-active-border-color: var(--pluto-selected-border-color);
-        color: var(--pluto-selected-color);
     }
 
     /* Inline glyph action: a chassis-nested micro-button (tab close, tag close).

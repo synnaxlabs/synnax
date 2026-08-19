@@ -85,7 +85,7 @@ class BaseWriteChannel(BaseModel):
         return hash(self.key)
 
 
-class ScanConfig(task.BaseScanConfig):
+class ScanConfig(task.ScanConfig):
     """Configures an EtherCAT scan task."""
 
     def __hash__(self) -> int:
@@ -105,8 +105,8 @@ class ManualReadChannel(BaseReadChannel, PDOAddress):
     type: Literal["manual"] = "manual"
 
 
-# Is a single EtherCAT read channel (TxPDO, slave to master). The type
-# field selects how the PDO entry is addressed.
+# Is a single EtherCAT read channel (TxPDO, slave to master). The type field
+# selects how the PDO entry is addressed.
 ReadChannel = Annotated[
     Union[AutomaticReadChannel, ManualReadChannel],
     Field(discriminator="type"),
@@ -126,15 +126,15 @@ class ManualWriteChannel(BaseWriteChannel, PDOAddress):
     type: Literal["manual"] = "manual"
 
 
-# Is a single EtherCAT write channel (RxPDO, master to slave). The type
-# field selects how the PDO entry is addressed.
+# Is a single EtherCAT write channel (RxPDO, master to slave). The type field
+# selects how the PDO entry is addressed.
 WriteChannel = Annotated[
     Union[AutomaticWriteChannel, ManualWriteChannel],
     Field(discriminator="type"),
 ]
 
 
-class ReadConfig(task.BaseReadConfig):
+class ReadConfig(task.ReadConfig):
     """Configures an EtherCAT read task. Each channel addresses a PDO entry on its own
     slave; all slaves must share one network interface.
 
@@ -148,13 +148,13 @@ class ReadConfig(task.BaseReadConfig):
         return hash(self.key)
 
 
-class WriteConfig(task.BasePersistConfig):
+class WriteConfig(task.PersistConfig):
     """Configures an EtherCAT write task. Each channel addresses a PDO entry on its own
     slave; all slaves must share one network interface.
 
     Attributes:
-        state_rate: Is the rate at which output state is reported to Synnax, in hertz.
-        execution_rate: Is the rate at which commands are applied to the bus, in hertz.
+        state_rate: Is the rate at which output state is reported to Synnax, in Hertz.
+        execution_rate: Is the rate at which commands are applied to the bus, in Hertz.
         channels: Are the channels the task drives.
     """
 

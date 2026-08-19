@@ -56,12 +56,26 @@ export const INITIAL_PRERENDER_WINDOW_STATE: WindowState = {
   visible: false,
 };
 
+/**
+ * Clears how the window was presented and where it was in its lifecycle when its
+ * process ended. Identity and geometry survive.
+ */
+export const resetTransientState = (window: WindowState): WindowState => ({
+  ...window,
+  stage: "creating",
+  processCount: 0,
+  focusCount: 0,
+  centerCount: 0,
+  focus: undefined,
+  minimized: undefined,
+  fullscreen: undefined,
+  error: undefined,
+});
+
 /** State of a window managed by drift  */
 export interface WindowState extends WindowProps, WindowStateExtensionProps {}
 
-/**
- * The properties to provide when creating a window.
- */
+/** The properties to provide when creating a window. */
 export interface WindowProps {
   /* A unique key for the window. If not provided, a unique key will be created. */
   key: string;

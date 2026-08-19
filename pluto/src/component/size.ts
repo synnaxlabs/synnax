@@ -9,8 +9,15 @@
 
 import { z } from "zod";
 
+/** Every size step, from smallest to largest. */
 export const SIZES = ["tiny", "small", "medium", "large", "huge"] as const;
+/** Schema for a {@link Size}. */
 export const size = z.enum(SIZES);
+/**
+ * The shared size scale. Components map it onto their own height, padding, and text
+ * level, so a row of components at one size lines up.
+ */
 export type Size = z.infer<typeof size>;
 
+/** @returns true if the value is one of {@link SIZES}. */
 export const isSize = (value: unknown): value is Size => size.safeParse(value).success;

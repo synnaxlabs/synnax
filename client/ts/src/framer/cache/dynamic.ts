@@ -97,10 +97,8 @@ export class Dynamic {
   }
 
   /**
-   * Writes the given arrays to the cache.
-   *
-   * @returns a list of buffers that were filled by the cache during the write. If
-   * the current buffer is able to fit all writes, no buffers will be returned.
+   * @returns a list of buffers that were filled by the cache during the write. If the
+   * current buffer is able to fit all writes, no buffers will be returned.
    */
   write(series: MultiSeries): WriteResponse {
     const res: WriteResponse = {
@@ -179,8 +177,7 @@ export class Dynamic {
     if (this.curr != null) {
       const resolved = transform.resolveDataType(series.dataType);
       if (!this.curr.dataType.equals(resolved)) {
-        // The channel's data type changed (e.g. a calculated channel was
-        // reconfigured).
+        // The channel's data type changed (e.g. a calculated channel was reconfigured).
         ins.L.warn("buffer data type changed, resetting", {
           prev: this.curr.dataType.toString(),
           next: resolved.toString(),
@@ -259,6 +256,20 @@ export class Dynamic {
     if (this.totalWrites < MAX_DEF_WRITES) return DEF_SIZE;
     const size = math.roundToNearestMagnitude(this.avgRate * dynamicBufferSize.seconds);
     return Math.round(Math.max(Math.min(size, MAX_SIZE), MIN_SIZE));
+  }
+
+  /**
+   * Flushes the leading buffer, stamping its end with the last stamped write or
+   * the wall clock.
+   * @returns the flushed buffer, or null when there is none.
+   */
+  flush(): Series | null {
+    const res: WriteResponse = {
+      flushed: new MultiSeries([]),
+      allocated: new MultiSeries([]),
+    };
+    this.flushCurr(res);
+    return res.flushed.series[0] ?? null;
   }
 
   /** Closes the cache. It must not be used afterwards. */

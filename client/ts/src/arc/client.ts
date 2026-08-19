@@ -12,7 +12,15 @@ import {
   type StreamClient,
   type UnaryClient,
 } from "@synnaxlabs/freighter";
-import { array, deep, type destructor, errors, id, primitive } from "@synnaxlabs/x";
+import {
+  array,
+  deep,
+  type destructor,
+  errors,
+  id,
+  primitive,
+  zod,
+} from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { actions } from "@/actions";
@@ -158,7 +166,7 @@ export class Client extends query.Retriever<
     // table hydrates if-absent, and hydrate() decides when a fresh network
     // doc replaces the cached one.
     const store = cache.createTable<Key, Arc>({
-      name: "arcs",
+      name: "Arcs",
       hydrate: "if-absent",
       fetch: async (keys) =>
         await this.execRetrieve({ keys, ignoreNotFoundError: true }),
@@ -174,7 +182,7 @@ export class Client extends query.Retriever<
     });
     cache.listen(dispatcher.listener(SET_CHANNEL_NAME, scopedActionZ));
     const single = cache.queries<SingleRetrieveParams, Arc, Key, Arc>({
-      name: "arc",
+      name: "Arc",
       table: store,
       fetch: async (q) => [(await this.fetchSingle(q)).key],
       compose: (records) => records[0],
@@ -183,7 +191,7 @@ export class Client extends query.Retriever<
       single: true,
     });
     super(cache, {
-      name: "arc",
+      name: "Arc",
       table: store,
       request: {
         schema: retrieveMultiParamsZ,
@@ -206,7 +214,7 @@ export class Client extends query.Retriever<
       ],
     });
     this.taskAnswers = cache.queries<Key, task.Task | null, task.Key, task.Task>({
-      name: "arc task",
+      name: "Arc task",
       table: composedTasks,
       fetch: async (q) => {
         const tsk = await this.fetchTask(q);
@@ -241,7 +249,9 @@ export class Client extends query.Retriever<
     opts: query.WriteOptions<Arc[]> = {},
   ): Promise<Arc | Arc[]> {
     const isMany = Array.isArray(arcs);
-    const optimistic = array.toArray(arcs).map((a) => arcZ.parse(a));
+    const optimistic = array
+      .toArray(arcs)
+      .map((a) => zod.parse(arcZ, a, { label: "Arc" }));
     const res = await query.optimistic({
       rollbacks: [this.store.set(optimistic)],
       onOptimistic: () => opts.onOptimistic?.(optimistic),
@@ -347,10 +357,9 @@ export class Client extends query.Retriever<
   }
 
   /**
-   * Applies actions to the cached arc and sends them to the server,
-   * recording an undoable entry. Returns false without side effects when the
-   * arc isn't cached. Rolls back the local apply and rethrows on send
-   * failure.
+   * Applies actions to the cached arc and sends them to the server, recording an
+   * undoable entry. Returns false without side effects when the arc isn't cached. Rolls
+   * back the local apply and rethrows on send failure.
    */
   async dispatch(
     key: Key,
@@ -399,9 +408,7 @@ export class Client extends query.Retriever<
     return this.dispatcher.onUndoStateChange(callback, key);
   }
 
-  /**
-   * Stages actions committed atomically as one undoable entry.
-   */
+  /** Stages actions committed atomically as one undoable entry. */
   beginTransaction(key: Key, kind?: string): actions.Transaction<Action> {
     return this.dispatcher.transaction(key, this.dispatchSender(key), kind);
   }

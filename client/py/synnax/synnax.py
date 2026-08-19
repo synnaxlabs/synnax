@@ -187,7 +187,7 @@ class Synnax(framer.Client):
             ontology=self.ontology,
             tasks=self.tasks,
         )
-        self.control = control.Client(self, ch_retriever)
+        self.control = control.Client(self, ch_retriever, self._transport.unary)
         self.users = user.Client(self._transport.unary)
         self.statuses = status.Client(self._transport.unary)
         self.arcs = arc.Client(self._transport.unary)

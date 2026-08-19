@@ -79,7 +79,7 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
             [f"examples.opcua.{t.script}" for t in TASKS],
         )
         for t in TASKS:
-            self.console.tasks.wait_for_task(t.name)
+            self.console.tasks.wait_for(t.name)
         for proc in procs:
             proc.terminate()
 
@@ -112,15 +112,21 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         self.test_delete_task()
 
     def assert_data_saving(self, name: str, expected: bool) -> None:
-        """Verify data saving state via the Python client, with polling."""
+        """Verify data saving state via the Python client, with polling.
+
+        The config stores the inverted dataSavingDisabled flag.
+        """
         for _ in range(10):
             task = self.client.tasks.retrieve(names=[name])[0]
-            actual = task.config.get("dataSaving", task.config.get("data_saving"))
+            disabled = task.config.get(
+                "dataSavingDisabled", task.config.get("data_saving_disabled")
+            )
+            actual = None if disabled is None else not disabled
             if actual == expected:
                 return
             sy.sleep(0.5)
         assert actual == expected, (
-            f"Task '{name}' data_saving should be {expected}, got {actual}"
+            f"Task '{name}' data saving should be {expected}, got {actual}"
         )
 
     def test_play_pause(self) -> None:
@@ -128,23 +134,23 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
 
         self.log("Testing: Individual task stop/start")
         for name in TASK_NAMES:
-            self.console.tasks.stop_task(name)
+            self.console.tasks.stop(name)
 
         sy.sleep(0.1)
 
         for name in TASK_NAMES:
-            self.console.tasks.start_task(name)
+            self.console.tasks.start(name)
 
         self.log("Testing: Group task stop/start")
         # Set one task to stopped (1 stopped, 3 running)
-        self.console.tasks.stop_task(TASK_NAMES[2])
-        self.console.tasks.stop_tasks(TASK_NAMES)
+        self.console.tasks.stop(TASK_NAMES[2])
+        self.console.tasks.stop_many(TASK_NAMES)
 
         sy.sleep(0.1)
 
         # Set one task to running (1 running, 3 stopped)
-        self.console.tasks.start_task(TASK_NAMES[1])
-        self.console.tasks.start_tasks(TASK_NAMES)
+        self.console.tasks.start(TASK_NAMES[1])
+        self.console.tasks.start_many(TASK_NAMES)
 
     def test_data_saving(self) -> None:
         """Enable and disable data saving (individually and in groups)."""
@@ -170,7 +176,7 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
 
         # Set one read task to data saving disabled (1 disabled, rest enabled)
         self.console.tasks.disable_data_saving(read_names[2])
-        self.console.tasks.disable_data_saving_tasks(TASK_NAMES)
+        self.console.tasks.disable_data_saving_many(TASK_NAMES)
         for name in read_names:
             self.assert_data_saving(name, False)
 
@@ -178,7 +184,7 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
 
         # Set one read task to data saving enabled (1 enabled, rest disabled)
         self.console.tasks.enable_data_saving(read_names[1])
-        self.console.tasks.enable_data_saving_tasks(TASK_NAMES)
+        self.console.tasks.enable_data_saving_many(TASK_NAMES)
         for name in read_names:
             self.assert_data_saving(name, True)
 
@@ -186,7 +192,7 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         """Export a task via context menu and verify the JSON content."""
         t = TASKS[0]
         self.log(f"Testing: Export task '{t.name}'")
-        exported = self.console.tasks.export_task(t.name)
+        exported = self.console.tasks.export(t.name)
         assert_envelope(exported, envelope_type=t.type, min_version=1, name=t.name)
         assert "channels" in exported, "Exported JSON should contain 'channels'"
         assert len(exported["channels"]) > 0, "Exported channels should not be empty"
@@ -198,7 +204,7 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
             toolbar_link = self.console.tasks.copy_link(t.name)
             task = self.client.tasks.retrieve(names=[t.name])[0]
             assert_link_format(toolbar_link, "task", str(task.key))
-            self.console.tasks.open_task_config(t.name)
+            self.console.tasks.open_config(t.name)
             pane = self.console.page.locator(f".console-task-configure--{t.type}")
             task_page = TaskPage(
                 self.console.layout, self.client, t.name, pane_locator=pane
@@ -215,7 +221,7 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         """Open a task configuration via the search palette."""
         name = TASKS[3].name
         self.log(f"Testing: Open task config via search palette for '{name}'")
-        task_page = self.console.project.open_from_search(TaskPage, name)
+        task_page = self.console.pages.open_from_search(TaskPage, name)
         assert task_page.page_name == name, (
             f"Opened page name should be '{name}', got '{task_page.page_name}'"
         )
@@ -228,10 +234,10 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         self.console.ranges.set_active(RANGE_NAME)
 
         self.log("Testing: Snapshot single task to active range")
-        self.console.tasks.snapshot_tasks([TASK_NAMES[0]], RANGE_NAME)
+        self.console.tasks.snapshot([TASK_NAMES[0]], RANGE_NAME)
 
         self.log("Testing: Snapshot multiple tasks to active range")
-        self.console.tasks.snapshot_tasks(TASK_NAMES[1:], RANGE_NAME)
+        self.console.tasks.snapshot(TASK_NAMES[1:], RANGE_NAME)
 
     def test_rename_channel_sync(self) -> None:
         """Rename channels from toolbar, verify in task config; rename back from task config, verify in toolbar."""
@@ -240,7 +246,7 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         renamed_names = ["renamed_float_0", "renamed_float_1"]
 
         self.log("Testing: Channel rename synchronization with task config")
-        self.console.tasks.open_task_config(t.name)
+        self.console.tasks.open_config(t.name)
         pane = self.console.page.locator(f".console-task-configure--{t.type}")
         pane.wait_for(state="visible", timeout=10000)
 
@@ -275,10 +281,10 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         new_name = "Renamed Read Task"
         self._cleanup_tasks.append(new_name)
 
-        self.console.tasks.open_task_config(old_name)
+        self.console.tasks.open_config(old_name)
 
         self.log(f"Testing: Rename task '{old_name}' to '{new_name}'")
-        self.console.tasks.rename_task(old_name, new_name)
+        self.console.tasks.rename(old_name, new_name)
 
         self.log("Testing: Verify rename synchronization")
         self.console.layout.get_tab(new_name).wait_for(state="visible", timeout=5000)
@@ -293,13 +299,13 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         remaining = TASK_NAMES[1:] + ["Renamed Read Task"]
 
         self.log("Testing: Stop all tasks before deletion")
-        self.console.tasks.stop_tasks(remaining)
+        self.console.tasks.stop_many(remaining)
 
         single = remaining[0]
         rest = remaining[1:]
 
         self.log(f"Testing: Delete single task '{single}'")
-        self.console.tasks.delete_task(single)
+        self.console.tasks.delete(single)
 
         self.log("Testing: Delete multiple tasks")
-        self.console.tasks.delete_tasks(rest)
+        self.console.tasks.delete_many(rest)

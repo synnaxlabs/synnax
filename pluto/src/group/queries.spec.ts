@@ -66,7 +66,6 @@ describe("Group queries", () => {
       expect(result.current.data).toContain(group1.key);
       expect(result.current.data).toContain(group2.key);
 
-      // Check we can retrieve the full group data
       const retrievedGroup1 = result.current.getItem(group1.key);
       expect(retrievedGroup1?.name).toBe("group1");
       const retrievedGroup2 = result.current.getItem(group2.key);
@@ -174,7 +173,6 @@ describe("Group queries", () => {
         expect(result.current.data).toHaveLength(2);
       });
 
-      // Check the actual group names via getItem
       const groupItems = result.current.data.map((key) => result.current.getItem(key));
       const names = groupItems.map((g) => g?.name).filter(Boolean);
       // With offset 1 and limit 2, we should get items at index 1 and 2
@@ -211,7 +209,6 @@ describe("Group queries", () => {
         expect(result.current.data).toHaveLength(1);
       });
 
-      // Create a new group which should trigger an update
       await act(async () => {
         await client.groups.create({
           parent: group.ontologyID(parent.key),
@@ -453,7 +450,6 @@ describe("Group queries", () => {
         expect(result.current.data).toHaveLength(0);
       });
 
-      // Move the group from parent1 to parent2
       await act(async () => {
         await client.ontology.moveChildren(
           group.ontologyID(parent1.key),
@@ -503,7 +499,6 @@ describe("Group queries", () => {
         expect(result.current.data[0]).toBe(g.key);
       });
 
-      // Move the group from parent1 to parent2
       await act(async () => {
         await client.ontology.moveChildren(
           group.ontologyID(parent1.key),

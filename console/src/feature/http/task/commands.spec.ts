@@ -29,8 +29,8 @@ describe("HTTP.Task Commands", () => {
       client,
     });
     store.dispatch(Session.Project.select(proj.key));
-    await openCommandPalette("Create an HTTP Read");
-    await selectCommand("Create an HTTP Read Task");
+    await openCommandPalette("Create HTTP Read");
+    await selectCommand("Create HTTP read task");
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
     expect(tab.resource.type).toBe(task.TYPE_ONTOLOGY_ID.type);
@@ -48,8 +48,8 @@ describe("HTTP.Task Commands", () => {
       client,
     });
     store.dispatch(Session.Project.select(proj.key));
-    await openCommandPalette("Create an HTTP Write");
-    await selectCommand("Create an HTTP Write Task");
+    await openCommandPalette("Create HTTP Write");
+    await selectCommand("Create HTTP write task");
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
     expect(tab.resource.type).toBe(task.TYPE_ONTOLOGY_ID.type);

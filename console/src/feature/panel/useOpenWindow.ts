@@ -9,10 +9,13 @@
 
 import { type panel } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
+import { type Triggers } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { Session } from "@/session";
+
+export const OPEN_WINDOW_TRIGGER: Triggers.Trigger = ["Control", "O"];
 
 export interface OpenWindow {
   (key?: panel.Key, props?: Omit<Drift.WindowProps, "key">): void;
@@ -30,9 +33,8 @@ export const useOpenWindow = (): OpenWindow => {
     (key, props) => {
       const windowKey = id.create();
       dispatch(Drift.createWindow({ ...props, key: windowKey }));
-      // Seeds the identity title at creation, before the new window's own
-      // synchronizer can run, so a claimed pre-render never shows Tauri's
-      // default title.
+      // Seeds the identity title at creation, before the new window's own synchronizer
+      // can run, so a claimed pre-render never shows Tauri's default title.
       const ordinal = Drift.selectWindowAttribute(
         store.getState(),
         windowKey,

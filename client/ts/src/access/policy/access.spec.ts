@@ -25,7 +25,6 @@ const client = createTestClient();
 describe("policy", () => {
   describe("retrieve", () => {
     it("should filter by internal flag when retrieving policies", async () => {
-      // Create a non-internal policy
       const created = await client.access.policies.create({
         name: "test-non-internal",
         objects: [],
@@ -40,7 +39,6 @@ describe("policy", () => {
       expect(internalPolicies.every((p) => p.internal === true)).toBe(true);
       expect(internalPolicies.find((p) => p.key === created.key)).toBeUndefined();
 
-      // Retrieve only non-internal policies
       const nonInternalPolicies = await client.access.policies.retrieve({
         internal: false,
       });

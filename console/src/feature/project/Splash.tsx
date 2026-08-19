@@ -22,7 +22,6 @@ import {
   Project as PProject,
   Select,
   Status,
-  Text,
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
@@ -76,6 +75,7 @@ export const Splash = (): ReactElement => {
     [getItem],
   );
   const menuProps = Menu.useContextMenu();
+  const getIsAnyModalOpen = Session.Modals.useGetIsAnyOpen();
 
   return (
     <Shell.Frame className={CSS.B("project-splash")} connection={activeCluster}>
@@ -86,22 +86,28 @@ export const Splash = (): ReactElement => {
         getItem={getItem}
         subscribe={subscribe}
         onFetchMore={fetchMore}
+        enableTriggers={() => !getIsAnyModalOpen()}
       >
         <Flex.Box
           y
           grow
           empty
-          className={CSS(CSS.BE("shell", "list"), CSS.BE("project-splash", "list"))}
+          className={CSS.cls(CSS.BE("shell", "list"), CSS.BE("project-splash", "list"))}
         >
-          <Header.Header gap="small" x className={CSS.BE("project-splash", "header")}>
+          <Header.Header gap="small" x>
             <Header.Title level="h4" color={11}>
               <Icon.Project />
               Projects
             </Header.Title>
             <Header.Actions>
-              <PButton.Button variant="text" color={9} size="medium" onClick={logout}>
+              <PButton.Button
+                variant="text"
+                textColor={9}
+                size="medium"
+                onClick={logout}
+              >
                 <Icon.Logout />
-                Log Out
+                Log out
               </PButton.Button>
             </Header.Actions>
           </Header.Header>
@@ -121,7 +127,10 @@ export const Splash = (): ReactElement => {
           {hasRetrievePermission && data.length > 0 ? (
             <List.Items
               grow
-              className={CSS.BE("project-splash", "items")}
+              className={CSS.cls(
+                CSS.BE("shell", "items"),
+                CSS.BE("project-splash", "items"),
+              )}
               onContextMenu={menuProps.open}
             >
               {listItem}
@@ -129,23 +138,17 @@ export const Splash = (): ReactElement => {
           ) : answered ? (
             <Empty.Action
               grow
-              message={
-                searchTerm === "" ? "No projects created." : "No matching projects."
-              }
+              message={searchTerm === "" ? "No projects" : "No matching projects"}
             />
           ) : (
             <Flex.Box grow center>
               <Status.Summary status={status} />
             </Flex.Box>
           )}
-          {hasCreatePermission ? (
+          {hasCreatePermission && (
             <Button.CreateListItem size="large" onClick={() => openCreate()}>
-              New Project
+              New project
             </Button.CreateListItem>
-          ) : (
-            <Text.Text color={9} className={CSS.BE("project-splash", "denied")}>
-              You do not have permission to create a project.
-            </Text.Text>
           )}
         </Flex.Box>
       </Select.Frame>
