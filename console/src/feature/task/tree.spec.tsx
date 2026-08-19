@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { group, NotFoundError, ontology, type task } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { List, Text } from "@synnaxlabs/pluto";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import {
@@ -27,6 +27,7 @@ import { Task } from "@/feature/task";
 import { Modals } from "@/platform/modals";
 import { findLastButton } from "@/platform/modals/testutil";
 import { type Tree } from "@/platform/tree";
+import { renderTreeContextMenu } from "@/platform/tree/menuTestutil";
 import {
   createBaseProps,
   createExecutingHandleError,
@@ -47,6 +48,7 @@ import {
 } from "@/testutil";
 
 const client = createTestClient();
+const roles = new RoleClients(client);
 
 const Item = Task.TREE_ITEMS.task;
 const { ContextMenu: Menu } = Item;
@@ -227,5 +229,19 @@ describe("task ontology", () => {
         expect(children.some((c) => c.id.type === "task")).toBe(true);
       });
     });
+  });
+});
+
+describe("permission to write the task", () => {
+  it("should withhold rename, grouping, and delete from a viewer", async () => {
+    const t = await createTask();
+    await renderTreeContextMenu(Menu, {
+      client: await roles.get("Viewer"),
+      resources: [createResource(t.ontologyID, t.name, { snapshot: false })],
+    });
+    expect(await screen.findByText("Export")).toBeTruthy();
+    expect(screen.queryByText("Rename")).toBeNull();
+    expect(screen.queryByText("Group selection")).toBeNull();
+    expect(screen.queryByText("Delete")).toBeNull();
   });
 });

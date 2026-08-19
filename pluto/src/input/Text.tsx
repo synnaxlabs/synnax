@@ -23,6 +23,8 @@ import { type InputProps, type Variant } from "@/input/types";
 import { Text as BaseText } from "@/text";
 import { type Tooltip } from "@/tooltip";
 
+const DATE_INPUT_TYPES = new Set(["date", "time", "datetime-local"]);
+
 export interface TextProps
   extends
     InputProps<string>,
@@ -157,12 +159,19 @@ export const Text = ({
   const ariaLabelledBy = useLabelledBy(rest);
 
   const showPlaceholder =
+    preview !== true &&
     (value == null || value.length === 0) &&
     tempValue == null &&
     placeholder != null &&
     typeof placeholder !== "string";
 
   tabIndex ??= preview ? -1 : undefined;
+
+  // A native date input formats its value for display, so a preview keeps the
+  // element. Every other type renders static text: an input cannot shrink to its
+  // content, which strands end content far from the value.
+  const staticPreview =
+    preview === true && !DATE_INPUT_TYPES.has((rest as { type?: string }).type ?? "");
 
   const outerProps: Flex.BoxProps = {
     style,
@@ -234,26 +243,36 @@ export const Text = ({
           {startContent}
         </BaseText.Text>
       )}
-      <Generic.Element<"textarea" | "input">
-        el={area ? "textarea" : "input"}
-        ref={combinedRef}
-        value={tempValue ?? value}
-        role="textbox"
-        onChange={handleChange}
-        autoCapitalize="off"
-        autoComplete="off"
-        autoCorrect="off"
-        onFocus={handleFocus}
-        onKeyDown={handleKeyDown}
-        tabIndex={tabIndex}
-        onMouseUp={handleMouseUp}
-        onBlur={handleBlur}
-        disabled={disabled}
-        placeholder={typeof placeholder === "string" ? placeholder : undefined}
-        style={inputStyle}
-        {...rest}
-        aria-labelledby={ariaLabelledBy}
-      />
+      {staticPreview ? (
+        <BaseText.Text
+          className={CSS.BE("input", "preview-value")}
+          level={level ?? SIZE_TEXT_LEVELS[size]}
+          overflow={area ? undefined : "nowrap"}
+        >
+          {value}
+        </BaseText.Text>
+      ) : (
+        <Generic.Element<"textarea" | "input">
+          el={area ? "textarea" : "input"}
+          ref={combinedRef}
+          value={tempValue ?? value}
+          role="textbox"
+          onChange={handleChange}
+          autoCapitalize="off"
+          autoComplete="off"
+          autoCorrect="off"
+          onFocus={handleFocus}
+          onKeyDown={handleKeyDown}
+          tabIndex={tabIndex}
+          onMouseUp={handleMouseUp}
+          onBlur={handleBlur}
+          disabled={disabled}
+          placeholder={typeof placeholder === "string" ? placeholder : undefined}
+          style={inputStyle}
+          {...rest}
+          aria-labelledby={ariaLabelledBy}
+        />
+      )}
       {endContent != null && (
         <BaseText.Text
           className={CSS.BE("input", "end-content")}

@@ -10,8 +10,10 @@
 """Test that Viewer role has read-only permissions and cannot actuate controls."""
 
 import synnax as sy
+from console.plot import Plot
 from console.schematic import Setpoint, Valve
 from console.schematic.schematic import Schematic
+from console.table import Table
 from tests.console.user.role_case import RoleCase
 from x import random_name
 
@@ -20,10 +22,12 @@ F64_INDEX = f"viewer_perm_f64_idx_{random_name()}"
 VALVE_CHANNEL = f"viewer_perm_vlv_{random_name()}"
 VALVE_INDEX = f"viewer_perm_vlv_idx_{random_name()}"
 SCHEMATIC_NAME = "viewer_perm_schematic"
+PLOT_NAME = "viewer_perm_plot"
+TABLE_NAME = "viewer_perm_table"
 
 
 class RoleViewerPermissions(RoleCase):
-    """Test that Viewer role is read-only and cannot create or actuate."""
+    """Viewer holds retrieve on everything and no write anywhere."""
 
     role_name = "Viewer"
 
@@ -53,8 +57,23 @@ class RoleViewerPermissions(RoleCase):
         self.subscribe([F64_CHANNEL, VALVE_CHANNEL])
         super().setup()
 
-    def test_owner_creates_schematic(self) -> None:
-        """As Owner: create a schematic with f64 setpoint and boolean button."""
+    def run(self) -> None:
+        self.owner_creates_and_actuates()
+        self.login_as_role()
+        self.assert_badge_names_role()
+        self.assert_users_toolbar_hidden()
+        self.creation_commands_are_hidden()
+        self.mosaic_is_static()
+        self.tab_menu_offers_no_writes()
+        self.visualizations_are_read_only()
+        self.viewer_cannot_actuate()
+
+    def owner_creates_and_actuates(self) -> None:
+        """As Owner: build the pages, prove control works, leave the tabs open."""
+        table = self.console.pages.create(Table, TABLE_NAME)
+        self._cleanup_pages.append(table.page_name)
+        plot = self.console.pages.create(Plot, PLOT_NAME)
+        self._cleanup_pages.append(plot.page_name)
         schematic = self.console.pages.create(Schematic, SCHEMATIC_NAME)
         self._cleanup_pages.append(schematic.page_name)
 
@@ -82,28 +101,55 @@ class RoleViewerPermissions(RoleCase):
         valve.press()
         self.wait_for_eq(VALVE_CHANNEL, 0)
 
-    def run(self) -> None:
-        self.test_owner_creates_schematic()
+    def creation_commands_are_hidden(self) -> None:
+        for command in (
+            "Create project",
+            "Create line plot",
+            "Create channel",
+            "Create schematic",
+            "Create range",
+        ):
+            self.assert_command_hidden(command)
 
-        self.login_as_role()
-        self.assert_users_toolbar_hidden()
-        self.assert_command_hidden("Create project")
-        self.assert_command_hidden("Create line plot")
-        self.assert_command_hidden("Create channel")
-
-        self.test_viewer_can_view_schematic()
-        self.test_viewer_cannot_actuate()
-
-    def test_viewer_can_view_schematic(self) -> None:
-        """Viewer should be able to open and view an existing schematic."""
-        self.log("Testing: Viewer can view schematic")
-        self._viewer_schematic = self.console.pages.open_from_search(
-            Schematic, SCHEMATIC_NAME
+    def mosaic_is_static(self) -> None:
+        self.console.layout.get_read_only_tab(SCHEMATIC_NAME).wait_for(
+            state="visible", timeout=10000
+        )
+        assert not self.console.layout.tab_is_closable(SCHEMATIC_NAME), (
+            "tab offers a close button to a Viewer, who cannot write the panel"
+        )
+        assert self.console.layout.mosaic_is_static(), (
+            "mosaic offers a structural write to a Viewer"
         )
 
-    def test_viewer_cannot_actuate(self) -> None:
-        """Viewer should not be able to send commands via schematic controls."""
-        schematic = self._viewer_schematic
+    def tab_menu_offers_no_writes(self) -> None:
+        """Renaming or moving a tab rewrites the panel, which a Viewer cannot."""
+        for option in ("Rename", "Move to panel", "Move to new window"):
+            assert not self.console.layout.tab_menu_has_option(
+                SCHEMATIC_NAME, option
+            ), f"tab menu offers {option!r} to a Viewer, who cannot write the panel"
+
+    def visualizations_are_read_only(self) -> None:
+        """Editing a plot or a table is a write on it, which a Viewer cannot."""
+        self.console.layout.select_tab(PLOT_NAME)
+        self.console.layout.show_visualization_toolbar()
+        assert self.console.layout.get_by_text("Axes", exact=True).count() == 0, (
+            "line plot offers its editing tabs to a Viewer, who cannot write it"
+        )
+        self.console.layout.select_tab(TABLE_NAME)
+        self.console.layout.get_by_text(f"{TABLE_NAME} is not editable").wait_for(
+            state="visible", timeout=10000
+        )
+        self.console.layout.hide_visualization_toolbar()
+        self.console.layout.select_tab(SCHEMATIC_NAME)
+
+    def viewer_cannot_actuate(self) -> None:
+        """A Viewer holds no framer create, so control affordances are gone."""
+        schematic = self.console.pages.bind_open(Schematic, SCHEMATIC_NAME)
+
+        assert not schematic.has_control_toggle(), (
+            "schematic offers control acquisition to a Viewer, who cannot write framer"
+        )
 
         self.log("Testing: Viewer tries to send f64 value")
         setpoint = schematic.find_symbol(

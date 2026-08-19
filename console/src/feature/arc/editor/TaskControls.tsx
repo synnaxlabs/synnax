@@ -15,6 +15,7 @@ import { primitive } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { CSS } from "@/platform/css";
+import { Framer } from "@/platform/framer";
 import { Task } from "@/platform/task";
 
 const INITIAL_RACK_QUERY: rack.RetrieveParams = { integration: "arc" };
@@ -27,6 +28,7 @@ export const TaskControls = () => {
     name,
   );
   const drifted = Arc.useDrifted({ arcKey: key });
+  const canControl = Framer.useCanCommand();
   const { update: setRack } = Arc.useSetRack();
 
   const handleRackChange = useCallback(
@@ -40,6 +42,7 @@ export const TaskControls = () => {
       status={taskStatus}
       running={running}
       drifted={drifted}
+      hideActions={!canControl}
       disabled={!primitive.isNonZero(taskRack)}
       onDeploy={onStart}
       onStop={onStop}

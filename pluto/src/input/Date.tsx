@@ -83,9 +83,11 @@ export const Date = ({
   className,
   showDragHandle = true,
   children,
+  preview,
   ...rest
 }: DateProps): ReactElement => {
   const { value: inputValue, onChange: handleChange } = useDate({ value, onChange });
+  if (preview === true) showDragHandle = false;
   return (
     <Text
       ref={ref}
@@ -93,6 +95,7 @@ export const Date = ({
       className={CSS.cls(CSS.B("input-date"), className)}
       onChange={handleChange}
       type="date"
+      preview={preview}
       {...rest}
     >
       {showDragHandle && (

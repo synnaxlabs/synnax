@@ -9,7 +9,6 @@
 
 """Shared base for role permission tests."""
 
-import synnax as sy
 from console.case import ConsoleCase
 from x import random_name
 
@@ -48,19 +47,24 @@ class RoleCase(ConsoleCase):
         user_badge.wait_for(state="visible", timeout=10000)
         return username
 
+    def assert_badge_names_role(self) -> None:
+        """Assert the user badge reports ``role_name`` for the current session."""
+        self.log("Checking the user badge names the role")
+        role = self.console.access.get_current_role()
+        assert role == self.role_name, (
+            f"badge shows role {role!r}, expected {self.role_name!r}"
+        )
+
     def assert_users_toolbar_hidden(self) -> None:
         """Assert the Users toolbar does not open for the current user.
 
-        The toolbar is gated on update permission for users; its "u" hotkey is
-        suppressed when hidden, so pressing it must not reveal role items.
+        The toolbar is gated on update permission for users, so only an Owner
+        sees it.
         """
         self.log("Checking the Users toolbar stays hidden")
-        self.page.keyboard.press("u")
-        sy.sleep(0.5)
-        role_elements = self.page.locator("div[id^='role:']")
-        visible = role_elements.count() > 0 and role_elements.first.is_visible()
-        assert not visible, f"Users toolbar is visible to {self.role_name}"
-        self.console.layout.press_escape()
+        assert not self.console.access.users_toolbar_visible(), (
+            f"Users toolbar is visible to {self.role_name}"
+        )
 
     def assert_command_available(self, command: str) -> None:
         """Assert a command palette entry is offered to the current user."""

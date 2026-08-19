@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { log, NotFoundError, project } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -19,6 +19,7 @@ import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
 import { assertDefined, resolveFocusedTab, uniqueName } from "@/testutil";
 
 const client = createTestClient();
+const roles = new RoleClients(client);
 
 const Item = Log.TREE_ITEMS.log;
 
@@ -86,5 +87,20 @@ describe("log ontology service", () => {
     const res = logResource("abc", "l");
     const items = Item.haulItems(res);
     expect(items).toHaveLength(1);
+  });
+});
+
+describe("permission to write the log", () => {
+  it("should withhold rename and delete from a viewer, keeping the read actions", async () => {
+    const l = await createLog();
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client: await roles.get("Viewer"),
+      resources: [logResource(l.key, l.name)],
+    });
+    expect(await screen.findByText("Copy properties")).toBeTruthy();
+    expect(screen.getByText("Export")).toBeTruthy();
+    expect(screen.queryByText("Rename")).toBeNull();
+    expect(screen.queryByText("Delete")).toBeNull();
   });
 });

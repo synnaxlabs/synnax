@@ -82,7 +82,7 @@ export const Field = <I = string | number, O = I>({
       helpText={helpText}
       status={field.status.variant}
       label={label}
-      required={field.required}
+      required={field.required && field.preview !== true}
       className={CSS.cls(
         className,
         CSS.BE("field", path.split(".").join("-")),

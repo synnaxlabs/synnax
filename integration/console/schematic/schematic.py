@@ -388,6 +388,17 @@ class Schematic(ConsolePage):
     # the visible label doubles as the state: a "Release control" button means
     # control is acquired, a "Disable editing" button means editing is on.
 
+    def has_control_toggle(self) -> bool:
+        """Report whether the control acquisition toggle is offered.
+
+        The toggle is gated on framer create, so a user without it never sees one.
+
+        :returns: True when the toggle is present in either state.
+        """
+        acquire = self.page.get_by_role("button", name="Acquire control", exact=True)
+        release = self.page.get_by_role("button", name="Release control", exact=True)
+        return acquire.count() > 0 or release.count() > 0
+
     def get_control_status(self) -> bool:
         """Get whether control is currently acquired for this schematic."""
         release = self.page.get_by_role("button", name="Release control", exact=True)

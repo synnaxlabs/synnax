@@ -97,6 +97,23 @@ class PagesClient(ResourceClient):
                     raise
         return page_class.from_open_page(self.layout, self.client, name)
 
+    def bind_open(self, page_class: type[T], name: str) -> T:
+        """Bind a wrapper to a tab that is already open, without opening one.
+
+        Opening a page writes the panel document, so a user without panel write
+        can only reach a view someone else left open. This focuses that tab and
+        wraps its pane.
+
+        :param page_class: The page class to instantiate.
+        :param name: Name of the already-open tab.
+        :returns: Instance of ``page_class`` wrapping the open page.
+        """
+        self.layout.get_read_only_tab(name).wait_for(state="visible", timeout=10000)
+        self.layout.focus(name)
+        pane = self.layout.page.locator(page_class.pluto_label)
+        pane.first.wait_for(state="visible", timeout=5000)
+        return page_class(self.layout, self.client, name, pane_locator=pane.first)
+
     def open_from_search(self, page_class: type[T], name: str) -> T:
         """Open an existing page by searching its name in the command palette.
 

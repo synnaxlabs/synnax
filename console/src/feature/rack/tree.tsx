@@ -89,7 +89,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const hasUpdatePermission = Access.useUpdateGranted(ontologyIDs);
   const hasArcCreatePermission = Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
   const hasDeletePermission = Access.useDeleteGranted(ontologyIDs);
-  const hasTaskUpdatePermission = Access.useUpdateGranted(task.TYPE_ONTOLOGY_ID);
+  const hasTaskCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
   const handleDelete = useDelete(props);
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
@@ -117,7 +117,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
               Create Arc automation
             </Menu.Item>
           )}
-          {hasTaskUpdatePermission && <NIScannerItem rackKey={rackKey} />}
+          {hasTaskCreatePermission && <NIScannerItem rackKey={rackKey} />}
         </>
       )}
       <Menu.Divider />

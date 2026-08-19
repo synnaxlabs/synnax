@@ -194,7 +194,7 @@ const FieldList = ({ epKey }: FieldListProps) => {
   const { data: allData, push, remove } = PForm.useFieldList<string, ReadField>(path);
   const [selected, setSelected] = useState<string[]>([]);
   const ctx = PForm.useContext();
-  const isSnapshot = Task.useIsSnapshot();
+  const isPreview = Task.useIsPreview();
 
   const allFields = PForm.useFieldValue<ReadField[]>(path);
   const indexKeys = new Set(allFields.filter(isTimingField).map((f) => f.key));
@@ -254,7 +254,7 @@ const FieldList = ({ epKey }: FieldListProps) => {
             <Header.Title weight={500} color={9}>
               Fields
             </Header.Title>
-            {!isSnapshot && (
+            {!isPreview && (
               <Header.Actions empty align="end">
                 <Button.Button
                   onClick={handleAdd}
@@ -271,8 +271,8 @@ const FieldList = ({ epKey }: FieldListProps) => {
         emptyContent={
           <Empty.Action
             message="No fields"
-            action="Add field"
-            onClick={isSnapshot ? undefined : handleAdd}
+            action={isPreview ? undefined : "Add field"}
+            onClick={handleAdd}
           />
         }
         listItem={listItem}
@@ -423,7 +423,7 @@ const Form: FC = () => {
     "config.endpoints",
   );
   const ctx = PForm.useContext();
-  const isSnapshot = Task.useIsSnapshot();
+  const isPreview = Task.useIsPreview();
 
   const handleAddEndpoint = useCallback(() => {
     const ep: ReadEndpoint = { ...http.readEndpointZ.parse({}), key: id.create() };
@@ -479,7 +479,7 @@ const Form: FC = () => {
           <Header.Title weight={500} color={10}>
             Endpoints
           </Header.Title>
-          {!isSnapshot && (
+          {!isPreview && (
             <Header.Actions>
               <Button.Button
                 onClick={handleAddEndpoint}
@@ -509,8 +509,8 @@ const Form: FC = () => {
               emptyContent={
                 <Empty.Action
                   message="No endpoints"
-                  action="Add endpoint"
-                  onClick={isSnapshot ? undefined : handleAddEndpoint}
+                  action={isPreview ? undefined : "Add endpoint"}
+                  onClick={handleAddEndpoint}
                 />
               }
             >

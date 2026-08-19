@@ -8,7 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { ranger } from "@synnaxlabs/client";
-import { Flex, Form, Input, List, Ranger, Select, Tag, Telem } from "@synnaxlabs/pluto";
+import {
+  Access,
+  Flex,
+  Form,
+  Input,
+  List,
+  Ranger,
+  Select,
+  Tag,
+  Telem,
+} from "@synnaxlabs/pluto";
 import { type NumericTimeRange } from "@synnaxlabs/x";
 import { memo, type MouseEvent, useMemo } from "react";
 
@@ -43,6 +53,7 @@ const Base = ({
       timeRange: item.timeRange.numeric,
     };
   }, [item]);
+  const canEdit = Access.useUpdateGranted(ranger.ontologyID(itemKey));
   const { form } = Ranger.useForm({
     query: null,
     initialValues,
@@ -87,6 +98,7 @@ const Base = ({
                 <Ranger.SelectStage
                   {...Ranger.wrapNumericTimeRangeToStage({ value, onChange })}
                   variant="floating"
+                  disabled={!canEdit}
                   triggerProps={{ variant: "text", iconOnly: true }}
                 />
               )}

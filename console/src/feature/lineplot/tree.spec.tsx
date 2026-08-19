@@ -14,12 +14,16 @@ import {
   ontology,
   project as clientProject,
 } from "@synnaxlabs/client";
+import { RoleClients } from "@synnaxlabs/client/testutil";
 import { List, Text } from "@synnaxlabs/pluto";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { LinePlot } from "@/feature/lineplot";
 import { client, createPreloadedState, project } from "@/feature/lineplot/testutil";
+import { renderTreeContextMenu } from "@/platform/tree/menuTestutil";
+
+const roles = new RoleClients(client);
 import { Modals } from "@/platform/modals";
 import { findButton, findLastButton } from "@/platform/modals/testutil";
 import { type Tree } from "@/platform/tree";
@@ -33,6 +37,7 @@ import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
 import { Session } from "@/session";
 import { createCluster, createClusterState } from "@/session/cluster/testutil";
 import {
+  assertDefined,
   awaitTextEditing,
   captureBrowserDownloads,
   commitTextEdit,
@@ -216,5 +221,20 @@ describe("lineplot/ontology", () => {
       expect(items).toHaveLength(1);
       expect(items[0].key).toContain("lineplot:11111111-1111-1111-1111-111111111111");
     });
+  });
+});
+
+describe("permission to write the line plot", () => {
+  it("should withhold rename, grouping, and delete from a viewer", async () => {
+    const plot = await createLinePlot();
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client: await roles.get("Viewer"),
+      resources: [createResource(clientLineplot.ontologyID(plot.key), plot.name)],
+    });
+    expect(await screen.findByText("Copy properties")).toBeTruthy();
+    expect(screen.queryByText("Rename")).toBeNull();
+    expect(screen.queryByText("Group selection")).toBeNull();
+    expect(screen.queryByText("Delete")).toBeNull();
   });
 });

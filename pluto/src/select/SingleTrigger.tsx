@@ -43,6 +43,7 @@ export const SingleTrigger = <K extends record.Key>({
   iconOnly = false,
   hideCaret = false,
   renderIcon,
+  preview,
   ...rest
 }: SingleTriggerProps) => {
   const allSelected = useSelected<K>();
@@ -77,11 +78,12 @@ export const SingleTrigger = <K extends record.Key>({
       disabled={disabled}
       {...dropProps}
       {...rest}
+      preview={preview}
       hideCaret={hideCaret || iconOnly}
       textColor={name == null ? 8 : undefined}
     >
       {resolvedIcon}
-      {!iconOnly && (name ?? placeholder)}
+      {!iconOnly && (name ?? (preview === true ? "None" : placeholder))}
     </Dialog.Trigger>
   );
 };

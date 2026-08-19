@@ -7,8 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, panel } from "@synnaxlabs/client";
-import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
+import { access, type ontology, panel, project, user } from "@synnaxlabs/client";
+import {
+  createPanelParent,
+  createTestClient,
+  createTestClientWithPolicy,
+} from "@synnaxlabs/client/testutil";
 import { type record, uuid } from "@synnaxlabs/x";
 import {
   act,
@@ -23,6 +27,7 @@ import { assert, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import { Errors } from "@/errors";
 import { Haul } from "@/haul";
 import { Panel } from "@/panel";
+import { Tabs } from "@/tabs";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -957,6 +962,99 @@ describe("Panel.Mosaic", () => {
         drop(leaves[1]);
       });
       expect(onSelect).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("without update permission", () => {
+    let readOnly: FC<PropsWithChildren>;
+
+    beforeEach(async () => {
+      const viewer = await createTestClientWithPolicy(client, {
+        name: uuid.create(),
+        objects: [
+          panel.TYPE_ONTOLOGY_ID,
+          project.TYPE_ONTOLOGY_ID,
+          user.TYPE_ONTOLOGY_ID,
+          access.role.TYPE_ONTOLOGY_ID,
+          access.policy.TYPE_ONTOLOGY_ID,
+        ],
+        actions: ["retrieve"],
+      });
+      readOnly = await createAsyncSynnaxWrapper({ client: viewer });
+    });
+
+    const renderReadOnly = async (
+      props: Omit<Panel.MosaicProps, "children"> & { panelKey: panel.Key },
+    ): Promise<RenderResult> => {
+      wrapper = readOnly;
+      return await renderMosaic(props);
+    };
+
+    it("should offer no close button on any tab", async () => {
+      const a = resourceTab();
+      const b = resourceTab();
+      const p = await createPanel(a, b);
+      const utils = await renderReadOnly({ panelKey: p.key });
+      await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
+      expect(utils.queryAllByLabelText("Close")).toHaveLength(0);
+    });
+
+    it("should offer no add button on any leaf", async () => {
+      const p = await createPanel(resourceTab());
+      const utils = await renderReadOnly({ panelKey: p.key });
+      await waitFor(() => expect(utils.container.textContent).toContain("lineplot:"));
+      expect(utils.queryByLabelText("pluto-icon--add")).toBeNull();
+    });
+
+    it("should leave every tab undraggable", async () => {
+      const a = resourceTab();
+      const p = await createPanel(a);
+      const utils = await renderReadOnly({
+        panelKey: p.key,
+        tabName: () => <TabKeyNameProbe />,
+      });
+      await waitFor(() => expect(utils.getByText(`name:${a.key}`)).toBeTruthy());
+      const tab = utils.getByText(`name:${a.key}`).closest(Tabs.KEY_SELECTOR);
+      assert(tab != null);
+      expect(tab.getAttribute("draggable")).not.toBe("true");
+    });
+
+    it("should offer no resize handle between split panes", async () => {
+      const a = resourceTab();
+      const b = resourceTab();
+      const p = await createPanel(a, b);
+      await client.panels.dispatch(p.key, [
+        panel.splitTab({ key: b.key, direction: "x" }),
+      ]);
+      const utils = await renderReadOnly({ panelKey: p.key });
+      await waitFor(() =>
+        expect(utils.container.querySelectorAll(".pluto-mosaic__leaf")).toHaveLength(2),
+      );
+      expect(utils.container.querySelectorAll(".pluto-resize__handle")).toHaveLength(0);
+    });
+
+    it("should offer neither close nor split in the tab context menu", async () => {
+      const a = resourceTab();
+      const p = await createPanel(a, resourceTab());
+      const utils = await renderReadOnly({
+        panelKey: p.key,
+        tabName: () => <TabKeyNameProbe />,
+        contextMenu: () => (
+          <>
+            <Panel.CloseTabMenuItem />
+            <Panel.SplitTabMenuItems />
+          </>
+        ),
+      });
+      await waitFor(() => expect(utils.getByText(`name:${a.key}`)).toBeTruthy());
+      await act(async () => {
+        fireEvent.contextMenu(utils.getByText(`name:${a.key}`));
+      });
+      await waitFor(() =>
+        expect(document.querySelector(".pluto-menu-context")).toBeTruthy(),
+      );
+      expect(document.body.textContent).not.toContain("Close");
+      expect(document.body.textContent).not.toContain("Split horizontally");
     });
   });
 });

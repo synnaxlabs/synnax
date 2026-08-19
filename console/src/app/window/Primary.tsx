@@ -9,7 +9,7 @@
 
 import "@/app/window/Primary.css";
 
-import { Access, Flex, OS } from "@synnaxlabs/pluto";
+import { Flex, OS } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Link } from "@/app/link";
@@ -24,7 +24,6 @@ import { CSS } from "@/platform/css";
 import { Session } from "@/session";
 
 const SideEffect = (): null => {
-  Access.useLoadPermissions({});
   Device.useListenForChanges();
   Link.useDeep();
   Triggers.use();

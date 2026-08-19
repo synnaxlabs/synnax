@@ -9,6 +9,7 @@
 
 import { NotFoundError, user } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -199,6 +200,63 @@ describe("queries", () => {
       expect(result.current).not.toBeNull();
       expect(result.current?.key).toEqual(role.key);
       expect(result.current?.description).toEqual("Valid description");
+    });
+  });
+
+  describe("useResultForUser", () => {
+    const createUser = async (prefix: string) =>
+      await client.users.create({
+        username: `${prefix}-${id.create()}`,
+        firstName: "Test",
+        lastName: "User",
+        password: "password123",
+      });
+
+    it("should return the roles assigned to the user", async () => {
+      const role = await client.access.roles.create({
+        name: `assigned-${id.create()}`,
+        description: "Assigned role",
+      });
+      const u = await createUser("for-user");
+      await client.access.roles.assign({ user: u.key, role: role.key });
+
+      const { result } = renderHook(() => Role.useResultForUser({ user: u.key }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.data).toHaveLength(1));
+      expect(result.current.data?.[0].name).toEqual(role.name);
+    });
+
+    it("should return an empty list for a user holding no role", async () => {
+      const u = await createUser("roleless");
+
+      const { result } = renderHook(() => Role.useResultForUser({ user: u.key }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.data).toEqual([]);
+    });
+
+    it("should pick up a role assigned by another client", async () => {
+      const remote = createTestClient();
+      const u = await createUser("late-assign");
+
+      const { result } = renderHook(() => Role.useResultForUser({ user: u.key }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.data).toEqual([]));
+      const role = await remote.access.roles.create({
+        name: `late-${id.create()}`,
+        description: "Late role",
+      });
+      await remote.access.roles.assign({ user: u.key, role: role.key });
+      await waitFor(() => expect(result.current.data).toHaveLength(1));
+      expect(result.current.data?.[0].key).toEqual(role.key);
+    });
+
+    it("should not read at all when the query is null", async () => {
+      const { result } = renderHook(() => Role.useResultForUser(null), { wrapper });
+      expect(result.current.data).toBeUndefined();
     });
   });
 

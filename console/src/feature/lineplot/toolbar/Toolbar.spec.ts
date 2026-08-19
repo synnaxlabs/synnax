@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Synnax as Client } from "@synnaxlabs/client";
+import { RoleClients } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -20,11 +22,14 @@ import { getSwitch } from "@/platform/modals/testutil";
 import { Session } from "@/session";
 import { getIconButton, uniqueName } from "@/testutil";
 
-const renderToolbar = async (name = uniqueName("plot")) => ({
+const roles = new RoleClients(client);
+
+const renderToolbar = async (name = uniqueName("plot"), as?: Client) => ({
   name,
   ...(await renderLinePlot(LinePlot.Toolbar, {
     linePlot: { name },
     preloadedState: (key) => createPreloadedState(key),
+    as,
   })),
 });
 
@@ -95,5 +100,21 @@ describe("lineplot/toolbar/Toolbar", () => {
       const plot = await client.lineplots.retrieve(key);
       expect(plot.legend.hidden).toBe(true);
     });
+  });
+});
+
+describe("lineplot/toolbar/Toolbar permissions", () => {
+  it("should withhold the editing tabs from a viewer", async () => {
+    const { name } = await renderToolbar(undefined, await roles.get("Viewer"));
+    expect(await screen.findByText(name)).toBeTruthy();
+    expect(screen.queryByText("Axes")).toBeNull();
+    expect(screen.queryByText("Lines")).toBeNull();
+    expect(screen.queryByText("Data")).toBeNull();
+  });
+
+  it("should withhold the editing controls from a viewer", async () => {
+    const { name } = await renderToolbar(undefined, await roles.get("Viewer"));
+    expect(await screen.findByText(`${name} is not editable`)).toBeTruthy();
+    expect(screen.queryByText("Y2")).toBeNull();
   });
 });

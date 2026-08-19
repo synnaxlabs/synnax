@@ -170,6 +170,48 @@ class AccessClient(ResourceClient):
             return user_badge.inner_text().strip()
         return None
 
+    def get_current_role(self) -> str | None:
+        """Get the role name shown in the user badge dialog.
+
+        Opens the badge dialog, reads the role, and closes it again.
+
+        :returns: The role name, or None if the badge shows none.
+        """
+        badge = self.layout.page.locator(
+            ".pluto-dialog__trigger:has(.pluto-icon--user)"
+        )
+        if badge.count() == 0 or not badge.is_visible():
+            return None
+        badge.click()
+        role = self.layout.page.locator(".console-user-badge__roles")
+        try:
+            role.wait_for(state="visible", timeout=5000)
+            return role.inner_text().strip()
+        except PlaywrightTimeoutError:
+            return None
+        finally:
+            self.layout.press_escape()
+
+    # -------------------------------------------------------------------------
+    # Permission probes
+    # -------------------------------------------------------------------------
+
+    def users_toolbar_visible(self) -> bool:
+        """Report whether the Users toolbar opens for the current user.
+
+        The toolbar is gated on user update, so only an Owner sees it. Leaves
+        the toolbar closed.
+        """
+        self.layout.press_key(self.SHORTCUT_KEY)
+        roles = self.layout.page.locator(f"div[id^='{self.ROLE_ITEM_PREFIX}']")
+        try:
+            roles.first.wait_for(state="visible", timeout=2000)
+            return True
+        except PlaywrightTimeoutError:
+            return False
+        finally:
+            self.layout.press_escape()
+
     # -------------------------------------------------------------------------
     # User Registration (with role selection)
     # -------------------------------------------------------------------------

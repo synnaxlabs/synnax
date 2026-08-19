@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, project, schematic } from "@synnaxlabs/client";
+import {
+  type ontology,
+  project,
+  schematic,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import {
   Haul,
@@ -28,7 +33,7 @@ import {
 
 import { Schematic } from "@/feature/schematic";
 import { Modals } from "@/platform/modals";
-import { createResourceTab } from "@/platform/panel/testutil";
+import { createResourceTab, primePanel } from "@/platform/panel/testutil";
 import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 import {
@@ -98,6 +103,8 @@ export interface RenderSchematicOptions {
   sessionState?: Partial<Session.Schematic.State>;
   /** Extra aether components merged over the default console test registry. */
   additionalRegistry?: aether.ComponentRegistry;
+  /** The client the component renders against; defaults to the root client. */
+  as?: Client;
 }
 
 /**
@@ -112,11 +119,12 @@ export const renderSchematic = async (
     schematic: overrides,
     sessionState,
     additionalRegistry,
+    as = client,
   }: RenderSchematicOptions = {},
 ) => {
   const created = await createSchematic(overrides);
   const { wrapper: Wrapper, store } = await createConsoleWrapper({
-    client,
+    client: as,
     preloadedState: createPreloadedState(created.key, sessionState),
     additionalRegistry,
   });
@@ -125,6 +133,7 @@ export const renderSchematic = async (
     client,
     schematic.ontologyID(created.key),
   );
+  await primePanel(Wrapper, panelKey);
   const result = render(
     <PlutoPanel.Scope.Provider value={panelKey}>
       <PlutoPanel.TabScope.Provider value={tabKey}>

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError, user } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -18,6 +18,7 @@ import { createResource } from "@/platform/tree/testutil";
 import { assertDefined, clickAndSettle, uniqueName } from "@/testutil";
 
 const client = createTestClient();
+const roles = new RoleClients(client);
 
 const Item = User.TREE_ITEMS.user;
 
@@ -95,5 +96,20 @@ describe("user ontology service", () => {
     expect(items).toHaveLength(1);
     expect(items[0].key).toBe("u1");
     expect(Item.haulItems(createResource(user.ontologyID("u2"), "u2"))).toHaveLength(0);
+  });
+});
+
+describe("permission to write the user", () => {
+  it("should withhold rename, role assignment, and delete from a viewer", async () => {
+    const u = await createUser();
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client: await roles.get("Viewer"),
+      resources: [userResource(u.key, u.username)],
+    });
+    expect(await screen.findByText("Copy properties")).toBeTruthy();
+    expect(screen.queryByText("Rename")).toBeNull();
+    expect(screen.queryByText("Change Role")).toBeNull();
+    expect(screen.queryByText("Delete")).toBeNull();
   });
 });
