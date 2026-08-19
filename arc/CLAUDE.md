@@ -15,7 +15,7 @@ functions. Language spec: `arc/docs/spec.md`.
 
 ## Language Gotchas
 
-- Logical operators (`and`/`or`/`not`) take `bool` only. Exponentiation is `**`; there
+- Logical operators (`and`/`or`/`not`) take `bool` only. `^` is exponentiation; there
   are no bitwise operators.
 - Stage flows run concurrently each cycle; no same-tick read-after-write; first truthy
   `=>` transition in line order wins; stage entry ignores pre-activation channel writes.

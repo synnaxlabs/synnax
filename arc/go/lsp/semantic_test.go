@@ -253,7 +253,6 @@ var _ = Describe("Semantic Tokens", func() {
 				Expect(filterByType(tokens, tokenTypeNumber)).To(BeEmpty())
 			},
 		)
-
 	})
 
 	Describe("Numeric-literal unit suffixes", func() {

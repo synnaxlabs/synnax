@@ -199,7 +199,6 @@ var _ = Describe("Unary Operations", func() {
 			int32(3),
 			OpI32Mul,
 		),
-
 	)
 
 	DescribeTable("should compile series unary expressions",
