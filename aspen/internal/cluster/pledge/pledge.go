@@ -92,10 +92,7 @@ func Pledge(ctx context.Context, cfgs ...Config) (Response, error) {
 		case dur := <-t.C:
 			cfg.L.Info("pledging to peer", zap.Stringer("address", addr))
 
-			reqCtx, cancel := context.WithTimeout(
-				context.Background(),
-				cfg.RequestTimeout,
-			)
+			reqCtx, cancel := context.WithTimeout(ctx, cfg.RequestTimeout)
 
 			res, err = cfg.TransportClient.Send(reqCtx, addr, Request{Key: 0})
 

@@ -203,7 +203,7 @@ var _ = Describe("PledgeServer", func() {
 				)
 				provisionCandidates(numCandidates, net, nodes, nil, nil)
 				candidates := allCandidates(nodes)
-				tCtx, cancel := context.WithTimeout(ctx, 150*time.Millisecond)
+				tCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 				DeferCleanup(cancel)
 				res := MustSucceed(pledge.Pledge(tCtx, baseConfig(net), pledge.Config{
 					Instrumentation: ins.Child("cluster-state-synchronized"),
@@ -234,7 +234,7 @@ var _ = Describe("PledgeServer", func() {
 					}
 				)
 				nodes = provisionCandidates(10, net, nodes, candidates, nil)
-				tCtx, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
+				tCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 				DeferCleanup(cancel)
 				res := MustSucceed(pledge.Pledge(
 					tCtx,
@@ -267,7 +267,7 @@ var _ = Describe("PledgeServer", func() {
 				provisionCandidates(10, net, nodes, func(i int) func() node.Group {
 					return lo.Ternary(i%2 == 0, extraCandidates, allCandidates)
 				}, nil)
-				tCtx, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
+				tCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 				DeferCleanup(cancel)
 				res := MustSucceed(pledge.Pledge(
 					tCtx,
