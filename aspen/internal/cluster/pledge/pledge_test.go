@@ -39,27 +39,26 @@ func baseConfigWithAddr(
 	n *mock.Network[pledge.Request, pledge.Response],
 ) (pledge.Config, address.Address) {
 	server := n.UnaryServer("")
-	cfg := pledge.Config{
+	return pledge.Config{
 		TransportServer: server,
 		TransportClient: n.UnaryClient(),
-	}
-	return cfg, server.Address
+	}, server.Address
 }
 
 func provisionCandidates(
 	n int,
 	net *mock.Network[pledge.Request, pledge.Response],
 	nodes node.Group,
-	candidates func(i int) func() node.Group,
-	nodeState func(i int) node.State,
+	candidates func(int) func() node.Group,
+	nodeState func(int) node.State,
 ) node.Group {
 	if candidates == nil {
-		candidates = func(i int) func() node.Group {
+		candidates = func(int) func() node.Group {
 			return func() node.Group { return nodes }
 		}
 	}
 	if nodeState == nil {
-		nodeState = func(i int) node.State { return node.StateHealthy }
+		nodeState = func(int) node.State { return node.StateHealthy }
 	}
 	for i := range n {
 		cfg, addr := baseConfigWithAddr(net)
@@ -72,15 +71,10 @@ func provisionCandidates(
 	return nodes
 }
 
-// maxProposals is the proposal budget the budget specs configure. Kept small so a
-// miscounted round is cheap to detect.
 const maxProposals = 3
 
-// jurorFailure is the failure provisionFailingJuror returns on every proposal.
 const jurorFailure = "juror unreachable"
 
-// provisionFailingJuror returns a server that fails every proposal it receives. It
-// stands in for a juror that is listed as a healthy candidate but is unreachable.
 func provisionFailingJuror(
 	n *mock.Network[pledge.Request, pledge.Response],
 ) *mock.UnaryServer[pledge.Request, pledge.Response] {
@@ -93,8 +87,6 @@ func provisionFailingJuror(
 	return server
 }
 
-// arbitrateResponsible registers a node that acts as responsible over candidates with a
-// budget of maxProposals, and returns its address.
 func arbitrateResponsible(
 	n *mock.Network[pledge.Request, pledge.Response],
 	ins alamos.Instrumentation,
@@ -110,8 +102,6 @@ func arbitrateResponsible(
 	return addr
 }
 
-// sendPledge asks the responsible at addr to run a pledge, bounding it so a responsible
-// that never exhausts its budget fails the spec instead of hanging it.
 func sendPledge(
 	ctx context.Context,
 	n *mock.Network[pledge.Request, pledge.Response],
@@ -122,12 +112,11 @@ func sendPledge(
 	return n.UnaryClient().Send(tCtx, addr, pledge.Request{Key: 0})
 }
 
-// countRequests returns the number of requests the network delivered to target.
 func countRequests(
 	n *mock.Network[pledge.Request, pledge.Response],
 	target address.Address,
 ) int {
-	count := 0
+	var count int
 	for _, entry := range n.Entries() {
 		if entry.Target == target {
 			count++
@@ -173,12 +162,15 @@ var _ = Describe("PledgeServer", func() {
 						// with coarse timer resolution (notably on Windows), where the
 						// retry ticker's first tick can fire after the deadline,
 						// yielding zero attempts.
-						handler = func(_ context.Context, req pledge.Request) (pledge.Response, error) {
+						handler = func(
+							context.Context,
+							pledge.Request,
+						) (pledge.Response, error) {
 							count++
 							if count >= 2*numTransports {
 								cancel()
 							}
-							return req, errors.New("pledge failed")
+							return pledge.Response{}, errors.New("pledge failed")
 						}
 					)
 					for range numTransports {
@@ -190,7 +182,8 @@ var _ = Describe("PledgeServer", func() {
 						Instrumentation: ins.Child("no-nodes-responding"),
 						Peers:           peers,
 						Candidates:      func() node.Group { return node.Group{} },
-					}, pledge.BlazingFastConfig)).Error().To(MatchError(context.Canceled))
+					}, pledge.BlazingFastConfig)).Error().
+						To(MatchError(context.Canceled))
 					entries := net.Entries()
 					Expect(len(entries)).To(BeNumerically(">=", 2*numTransports))
 					for i, entry := range entries {
@@ -203,7 +196,7 @@ var _ = Describe("PledgeServer", func() {
 
 	Describe("Responsible", func() {
 		Context("Cluster State is Synchronized", func() {
-			It("Should correctly assign an Name", func(ctx SpecContext) {
+			It("Should correctly assign a name", func(ctx SpecContext) {
 				var (
 					nodes         = make(node.Group)
 					numCandidates = 10
@@ -211,7 +204,7 @@ var _ = Describe("PledgeServer", func() {
 				provisionCandidates(numCandidates, net, nodes, nil, nil)
 				candidates := allCandidates(nodes)
 				tCtx, cancel := context.WithTimeout(ctx, 150*time.Millisecond)
-				defer cancel()
+				DeferCleanup(cancel)
 				res := MustSucceed(pledge.Pledge(tCtx, baseConfig(net), pledge.Config{
 					Instrumentation: ins.Child("cluster-state-synchronized"),
 					Peers:           nodes.Addresses(),
@@ -242,7 +235,7 @@ var _ = Describe("PledgeServer", func() {
 				)
 				nodes = provisionCandidates(10, net, nodes, candidates, nil)
 				tCtx, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
-				defer cancel()
+				DeferCleanup(cancel)
 				res := MustSucceed(pledge.Pledge(
 					tCtx,
 					baseConfig(net),
@@ -256,7 +249,7 @@ var _ = Describe("PledgeServer", func() {
 			})
 		})
 		Context("One juror are aware of a new node", func() {
-			It("Should assign the correct Name", func(ctx SpecContext) {
+			It("Should assign the correct name", func(ctx SpecContext) {
 				var (
 					nodes           = make(node.Group)
 					allCandidates   = func() node.Group { return nodes }
@@ -275,7 +268,7 @@ var _ = Describe("PledgeServer", func() {
 					return lo.Ternary(i%2 == 0, extraCandidates, allCandidates)
 				}, nil)
 				tCtx, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
-				defer cancel()
+				DeferCleanup(cancel)
 				res := MustSucceed(pledge.Pledge(
 					tCtx,
 					baseConfig(net),
@@ -305,8 +298,8 @@ var _ = Describe("PledgeServer", func() {
 					},
 				)
 				tCtx, cancel := context.WithTimeout(ctx, 20*time.Millisecond)
-				defer cancel()
-				_, err := pledge.Pledge(
+				DeferCleanup(cancel)
+				Expect(pledge.Pledge(
 					tCtx,
 					baseConfig(net),
 					pledge.Config{
@@ -314,8 +307,7 @@ var _ = Describe("PledgeServer", func() {
 						Candidates: allCandidates(nodes),
 					},
 					pledge.BlazingFastConfig,
-				)
-				Expect(err).To(MatchError(context.DeadlineExceeded))
+				)).Error().To(MatchError(context.DeadlineExceeded))
 			})
 		})
 		Context("Proposal budget", func() {
@@ -337,8 +329,8 @@ var _ = Describe("PledgeServer", func() {
 					}
 					tCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 					DeferCleanup(cancel)
-					// A generous request timeout keeps the long climb over the
-					// polluted keys from timing out under parallel suite load.
+					// A generous request timeout keeps the long climb over the polluted
+					// keys from timing out under parallel suite load.
 					res := MustSucceed(
 						pledge.Pledge(tCtx, baseConfig(net), pledge.Config{
 							Instrumentation: ins.Child("rejections-uncounted"),
@@ -413,12 +405,44 @@ var _ = Describe("PledgeServer", func() {
 					provisionCandidates(numCandidates, net, nodes, nil, nil)
 					tCtx, cancel := context.WithCancel(ctx)
 					cancel()
-					res, err := pledge.Pledge(tCtx, baseConfig(net), pledge.Config{
+					Expect(pledge.Pledge(tCtx, baseConfig(net), pledge.Config{
 						Peers:      nodes.Addresses(),
 						Candidates: allCandidates(nodes),
-					})
-					Expect(err).To(MatchError(context.Canceled))
-					Expect(res.Key).To(Equal(node.Key(0)))
+					})).Error().To(MatchError(context.Canceled))
+				},
+			)
+			It(
+				"Should stop the responsible proposing once its context is cancelled",
+				func(ctx SpecContext) {
+					tCtx, cancel := context.WithCancel(ctx)
+					DeferCleanup(cancel)
+					juror := net.UnaryServer("")
+					juror.BindHandler(
+						func(context.Context, pledge.Request) (pledge.Response, error) {
+							cancel()
+							return pledge.Response{}, errors.New(jurorFailure)
+						},
+					)
+					jurors := node.Group{1: {
+						Key:     1,
+						Address: juror.Address,
+						State:   node.StateHealthy,
+					}}
+					addr := arbitrateResponsible(
+						net,
+						ins.Child("responsible-cancelled"),
+						allCandidates(jurors),
+					)
+					// errors.Combine keeps the round's failure primary and attaches the
+					// cancellation as a secondary, which errors.Is skips.
+					Expect(net.UnaryClient().Send(
+						tCtx,
+						addr,
+						pledge.Request{Key: 0},
+					)).Error().To(MatchError(ContainSubstring(jurorFailure)))
+					// The cancellation lands during the first round, so the responsible
+					// abandons the remaining budget instead of spending it.
+					Expect(countRequests(net, juror.Address)).To(Equal(1))
 				},
 			)
 		})
@@ -428,7 +452,7 @@ var _ = Describe("PledgeServer", func() {
 				var (
 					mu         sync.Mutex
 					nodes      = make(node.Group)
-					candidates = func(i int) func() node.Group {
+					candidates = func(int) func() node.Group {
 						return func() node.Group {
 							mu.Lock()
 							defer mu.Unlock()
@@ -440,7 +464,7 @@ var _ = Describe("PledgeServer", func() {
 				)
 				provisionCandidates(numCandidates, net, nodes, candidates, nil)
 				tCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-				defer cancel()
+				DeferCleanup(cancel)
 				var wg sync.WaitGroup
 				ids := make([]node.Key, numPledges)
 				for i := range numPledges {
