@@ -7,44 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, type dimensions, xy } from "@synnaxlabs/x";
+import { box, xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
-import { type Config } from "@/schematic/node/general/scale/config";
+import { type Config, DEFAULT_DIMENSIONS } from "@/schematic/node/general/scale/config";
 import { type NodeProps } from "@/schematic/node/spec";
 import { Scale as BaseScale } from "@/vis/scale";
-
-const DEFAULT_DIMENSIONS: dimensions.Dimensions = { width: 60, height: 160 };
 
 export const Symbol = ({
   nodeKey,
   position,
   onConfigChange,
   selected,
-  config: {
-    label,
-    dimensions: dims = DEFAULT_DIMENSIONS,
-    color,
-    telem,
-    bounds,
-    style,
-    side,
-    level = "small",
-  },
+  config: { label, dimensions: dims = DEFAULT_DIMENSIONS, indicator },
 }: NodeProps<Config>): ReactElement => {
   BaseScale.use({
+    ...indicator,
     aetherKey: nodeKey,
     box: box.construct(position ?? xy.ZERO, dims),
-    telem,
-    bounds,
-    color,
     direction: "y",
-    style,
-    side,
-    level,
   });
   return (
     <Grid.Grid

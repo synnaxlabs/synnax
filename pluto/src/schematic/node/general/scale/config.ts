@@ -7,27 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, color, dimensions, text, xy } from "@synnaxlabs/x";
+import { dimensions, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Label } from "@/schematic/node/common/label";
-import { telem } from "@/telem/aether";
-import { scale } from "@/vis/scale/aether";
+import { Scale } from "@/schematic/node/common/scale";
 
 export const VARIANT = "scale" as const;
 
-export const sideZ = z.enum(["left", "right"]);
-export type Side = z.infer<typeof sideZ>;
+export const DEFAULT_DIMENSIONS: dimensions.Dimensions = { width: 60, height: 160 };
 
 export const configZ = Label.labeledConfigZ.extend({
   variant: z.literal(VARIANT),
   position: xy.xyZ.optional(),
-  telem: telem.stringSourceSpecZ.optional(),
-  bounds: bounds.boundsZ().optional(),
-  color: color.crudeZ.optional(),
-  style: scale.styleZ.optional(),
-  side: sideZ.optional(),
   dimensions: dimensions.dimensionsZ.optional(),
-  level: text.levelZ.optional(),
+  indicator: Scale.configZ.default(() => Scale.defaultConfig()),
 });
 export type Config = z.infer<typeof configZ>;

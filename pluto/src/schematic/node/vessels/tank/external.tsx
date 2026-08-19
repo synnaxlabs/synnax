@@ -7,13 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, color } from "@synnaxlabs/x";
+import { color } from "@synnaxlabs/x";
 
 import { Component } from "@/component";
 import { Border } from "@/schematic/node/common/border";
 import { Label } from "@/schematic/node/common/label";
+import { Scale } from "@/schematic/node/common/scale";
 import { type Spec } from "@/schematic/node/spec";
-import { type Config, VARIANT } from "@/schematic/node/vessels/tank/config";
+import {
+  type Config,
+  FILL_DEFAULTS,
+  VARIANT,
+} from "@/schematic/node/vessels/tank/config";
 import { TankForm } from "@/schematic/node/vessels/tank/Form";
 import { Tank } from "@/schematic/node/vessels/tank/Primitive";
 import { Symbol } from "@/schematic/node/vessels/tank/Symbol";
@@ -29,16 +34,16 @@ export const defaultConfig = (t: Theming.Theme): Config => ({
   label: Label.defaultConfig("Tank"),
   dimensions: { width: 125, height: 200 },
   borderRadius: Border.DEFAULT_RADIUS,
-  fillColor: color.hex(t.colors.visualization.palettes.default[0]),
-  bounds: bounds.construct(0, 100),
-  showScale: false,
-  scaleSide: "left",
+  fill: Scale.defaultConfig({
+    ...FILL_DEFAULTS,
+    color: color.hex(t.colors.visualization.palettes.default[0]),
+  }),
 });
 
 export const spec: Spec<typeof VARIANT, Config> = {
   key: VARIANT,
   name: "Tank",
-  Form: () => <TankForm showFill />,
+  Form: () => <TankForm showFillTab />,
   Node: Symbol,
   Preview: Component.removeProps(Tank, ["dimensions"]),
   defaultConfig,

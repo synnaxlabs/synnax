@@ -7,17 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, color, dimensions, xy } from "@synnaxlabs/x";
+import { color, dimensions, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Border } from "@/schematic/node/common/border";
 import { Label } from "@/schematic/node/common/label";
-import { telem } from "@/telem/aether";
+import { Scale } from "@/schematic/node/common/scale";
 
 export const VARIANT = "tank" as const;
-
-export const sideZ = z.enum(["left", "right"]);
-export type Side = z.infer<typeof sideZ>;
 
 export const configZ = Label.labeledConfigZ.extend({
   variant: z.literal(VARIANT),
@@ -26,12 +23,15 @@ export const configZ = Label.labeledConfigZ.extend({
   backgroundColor: color.crudeZ.optional(),
   dimensions: dimensions.dimensionsZ.optional(),
   borderRadius: Border.radiusZ.optional(),
-  // A live fill level is rendered only when telem is set, so existing tanks without
-  // telemetry render unchanged.
-  telem: telem.stringSourceSpecZ.optional(),
-  bounds: bounds.boundsZ().optional(),
-  fillColor: color.crudeZ.optional(),
-  showScale: z.boolean().optional(),
-  scaleSide: sideZ.optional(),
+  // The fill is rendered only when its telem is set, so a tank without telemetry, and
+  // one stored before the fill existed, render unchanged.
+  fill: Scale.configZ.optional(),
 });
 export type Config = z.infer<typeof configZ>;
+
+/** Fill defaults for a tank, which draws its own wall and reads best with no scale. */
+export const FILL_DEFAULTS: Partial<Scale.Config> = {
+  showCaret: false,
+  showScale: false,
+  side: "left",
+};

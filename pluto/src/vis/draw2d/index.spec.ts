@@ -223,6 +223,29 @@ describe("Draw2D", () => {
     });
   });
 
+  describe("border", () => {
+    const REGION = box.construct(xy.construct(0, 0), { width: 10, height: 10 });
+
+    it("should start a path before stroking", () => {
+      const [d, fake] = create();
+      d.border({ region: REGION, color: "#ff0000" });
+      expect(fake.beginPath.mock.invocationCallOrder[0]).toBeLessThan(
+        fake.stroke.mock.invocationCallOrder[0],
+      );
+    });
+
+    it("should not stroke a path an earlier element left behind", () => {
+      const [d, fake] = create();
+      d.container({ region: REGION, borderColor: "#ff0000" });
+      fake.beginPath.mockClear();
+      fake.stroke.mockClear();
+      d.border({ region: REGION, color: "#00ff00" });
+      expect(fake.beginPath.mock.invocationCallOrder[0]).toBeLessThan(
+        fake.stroke.mock.invocationCallOrder[0],
+      );
+    });
+  });
+
   describe("circle", () => {
     it("should draw a full circle when no angle is given", () => {
       const [d, fake] = create();

@@ -13,6 +13,7 @@ import { type ReactElement } from "react";
 import { Border } from "@/schematic/node/common/border";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
+import { type Scale } from "@/schematic/node/common/scale";
 import { type NodeProps } from "@/schematic/node/spec";
 import { type Config } from "@/schematic/node/vessels/tank/config";
 import { Tank } from "@/schematic/node/vessels/tank/Primitive";
@@ -41,38 +42,26 @@ const innerCornerRadii = (
   };
 };
 
-interface FillProps extends Pick<
-  Config,
-  "telem" | "bounds" | "fillColor" | "showScale" | "scaleSide" | "borderRadius"
-> {
+interface FillProps extends Pick<Config, "borderRadius"> {
   nodeKey: string;
   position?: xy.XY;
   dimensions: dimensions.Dimensions;
+  fill: Scale.Config;
 }
 
 const Fill = ({
   nodeKey,
   position,
   dimensions: dims,
-  telem,
-  bounds,
-  fillColor,
-  showScale,
-  scaleSide,
+  fill,
   borderRadius,
 }: FillProps): null => {
   BaseScale.use({
+    ...fill,
     aetherKey: nodeKey,
     box: box.construct(position ?? xy.ZERO, dims),
-    telem,
-    bounds,
-    color: fillColor,
     direction: "y",
-    style: "fill",
-    showScale: showScale ?? false,
-    side: scaleSide ?? "left",
     externalScale: true,
-    showTrack: false,
     inset: STROKE_WIDTH,
     cornerRadii: innerCornerRadii(borderRadius, dims),
   });
@@ -91,11 +80,7 @@ export const Symbol = ({
     color,
     dimensions = Border.DEFAULT_DIMENSIONS,
     borderRadius,
-    telem,
-    bounds,
-    fillColor,
-    showScale,
-    scaleSide,
+    fill,
   },
 }: NodeProps<Config>): ReactElement => (
   <Grid.Grid
@@ -106,16 +91,12 @@ export const Symbol = ({
     onResize={(dimensions) => onConfigChange({ dimensions })}
   >
     <Label.Label config={label} onChange={onConfigChange} />
-    {telem != null && (
+    {fill?.telem != null && (
       <Fill
         nodeKey={nodeKey}
         position={position}
         dimensions={dimensions}
-        telem={telem}
-        bounds={bounds}
-        fillColor={fillColor}
-        showScale={showScale}
-        scaleSide={scaleSide}
+        fill={fill}
         borderRadius={borderRadius}
       />
     )}

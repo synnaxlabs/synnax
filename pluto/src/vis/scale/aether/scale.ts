@@ -19,10 +19,6 @@ import { type Element } from "@/vis/diagram/aether/Diagram";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
 
-/** The way the live value is indicated against the scale. */
-export const styleZ = z.enum(["fill", "caret"]);
-export type Style = z.infer<typeof styleZ>;
-
 /** The side of the bar on which tick marks and labels are drawn. */
 export const sideZ = z.enum(["left", "right", "top", "bottom"]);
 export type Side = z.infer<typeof sideZ>;
@@ -41,17 +37,24 @@ export const scaleStateZ = z.object({
   telem: telem.stringSourceSpecZ.default(telem.noopStringSourceSpec),
   bounds: bounds.boundsZ().default(bounds.construct(0, 100)),
   color: color.colorZ.default(color.ZERO),
+  // Colors the bar outline, the spine, and the tick marks. Zero uses the theme.
+  axisColor: color.colorZ.default(color.ZERO),
+  // Colors the tick labels. Zero uses the theme.
+  textColor: color.colorZ.default(color.ZERO),
   direction: direction.directionZ.default("y"),
-  style: styleZ.default("fill"),
+  // Fills the bar up to the value. Independent of the caret, so a symbol can show
+  // either, both, or neither.
+  showFill: z.boolean().default(true),
+  // Draws a caret at the value against the scale, with a readout box beside it.
+  showCaret: z.boolean().default(true),
   showScale: z.boolean().default(true),
   side: sideZ.default("right"),
+  // Appended to the readout, after the value.
+  units: z.string().default(""),
   // When true the scale is drawn outside box, beyond a small gap (used by symbols that
   // provide their own container, like a tank). When false a gutter is reserved inside
   // box alongside the bar for the scale.
   externalScale: z.boolean().default(false),
-  // When true a rounded outline is drawn around the bar. Symbols that already render
-  // their own container (a tank) pass false.
-  showTrack: z.boolean().default(true),
   borderRadius: z.number().default(2),
   // Inset of the fill region within box, used to keep the fill inside a stroked wall.
   inset: z.number().default(0),
@@ -69,6 +72,8 @@ const MINOR_TICK_LENGTH = 3;
 const MINOR_TICK_SPACING = 14;
 const TICK_LABEL_GAP = 3;
 const CARET_SIZE = 5;
+// Space between the value and its units in the readout.
+const UNITS_GAP = 4;
 // Gap between the outer box edge and the external scale's spine (a tank), so the scale
 // reads as its own axis separate from the container.
 const EXTERNAL_GAP = 10;
@@ -80,8 +85,8 @@ interface InternalState {
   stopListening?: () => void;
   requestRender: render.Requestor | null;
   fillColor: color.Color;
-  trackColor: color.Color;
-  tickColor: color.Color;
+  axisColor: color.Color;
+  textColor: color.Color;
   tickFactory: TickFactory;
   minorTickFactory: TickFactory;
   ticks: Tick[];
@@ -109,8 +114,9 @@ export class Scale
     i.fillColor = color.isZero(this.state.color)
       ? i.theme.colors.visualization.palettes.default[0]
       : this.state.color;
-    i.trackColor = i.theme.colors.gray.l5;
-    i.tickColor = i.theme.colors.gray.l8;
+    const { axisColor, textColor } = this.state;
+    i.axisColor = color.isZero(axisColor) ? i.theme.colors.gray.l8 : axisColor;
+    i.textColor = color.isZero(textColor) ? i.theme.colors.gray.l10 : textColor;
     i.tickLevel = this.state.level;
 
     const { lower, upper } = this.state.bounds;
@@ -151,6 +157,16 @@ export class Scale
     return len - this.state.inset * 2;
   }
 
+  /** True when the bar is outlined. A caller drawing its own container passes false. */
+  private get showTrack(): boolean {
+    return this.state.showFill && !this.state.externalScale;
+  }
+
+  /** -1 when ticks and the caret point left or up of the bar, 1 when right or down. */
+  private get outward(): number {
+    return this.state.side === "left" || this.state.side === "top" ? -1 : 1;
+  }
+
   /** The region occupied by the bar (fill + track), excluding the scale gutter. */
   private get barRegion(): box.Box {
     const { box: b, side, showScale, externalScale, inset } = this.state;
@@ -174,6 +190,25 @@ export class Scale
     });
   }
 
+  /**
+   * Across-axis coordinate of the scale spine, where the ticks and the caret sit. In
+   * external mode it is anchored to the outer box edge plus a gap so the scale reads as
+   * its own axis clear of the container; otherwise it sits at the bar edge.
+   */
+  private scaleEdge(bar: box.Box): number {
+    const { direction: d, side, externalScale } = this.state;
+    const region = externalScale ? this.state.box : bar;
+    const edge =
+      d === "y"
+        ? side === "left"
+          ? box.left(region)
+          : box.right(region)
+        : side === "top"
+          ? box.top(region)
+          : box.bottom(region);
+    return externalScale ? edge + this.outward * EXTERNAL_GAP : edge;
+  }
+
   render({ viewportScale = scale.XY.IDENTITY }): void {
     const { internal: i } = this;
     const region = i.render.upper2d.applyScale(viewportScale);
@@ -181,30 +216,24 @@ export class Scale
 
     const bar = this.barRegion;
     const valueText = i.telem.value();
-    const value = Number(valueText);
-    const clamped = bounds.clamp(this.state.bounds, value);
     const { lower, upper } = this.state.bounds;
     const range = upper - lower;
-    const ratio = range === 0 ? 0 : (clamped - lower) / range;
+    const ratio =
+      range === 0
+        ? 0
+        : (bounds.clamp(this.state.bounds, Number(valueText)) - lower) / range;
 
-    if (this.state.showTrack && !this.state.externalScale)
+    if (this.state.showFill) this.renderFill(draw, bar, ratio);
+    // Drawn after the fill so the outline stays crisp at the fill edges.
+    if (this.showTrack)
       draw.border({
         region: bar,
-        color: i.trackColor,
+        color: i.axisColor,
         radius: this.state.borderRadius,
         width: 1,
       });
-
-    if (this.state.style === "fill") this.renderFill(draw, bar, ratio);
-    else this.renderCaret(draw, bar, ratio);
-
-    if (this.state.showScale) {
-      this.renderTicks(draw, bar);
-      if (this.state.externalScale) {
-        this.renderScaleCaret(draw, bar, ratio);
-        this.renderValueBox(draw, bar, ratio, valueText);
-      }
-    }
+    if (this.state.showScale) this.renderTicks(draw, bar);
+    if (this.state.showCaret) this.renderCaret(draw, bar, ratio, valueText);
   }
 
   private renderFill(draw: Draw2D, bar: box.Box, ratio: number): void {
@@ -249,48 +278,24 @@ export class Scale
     });
   }
 
-  private renderCaret(draw: Draw2D, bar: box.Box, ratio: number): void {
+  // Draws a caret at the value on the tick side of the spine with its point aimed at
+  // the spine, and an altimeter-style readout box beyond it.
+  private renderCaret(
+    draw: Draw2D,
+    bar: box.Box,
+    ratio: number,
+    valueText: string,
+  ): void {
     const ctx = draw.canvas;
-    const { side } = this.state;
+    const { outward: dir } = this;
+    const edge = this.scaleEdge(bar);
     const pos = this.valuePosition(bar, ratio);
     ctx.beginPath();
     if (this.state.direction === "y") {
-      const x = side === "left" ? box.left(bar) : box.right(bar);
-      const dir = side === "left" ? -1 : 1;
-      ctx.moveTo(x, pos);
-      ctx.lineTo(x + dir * CARET_SIZE, pos - CARET_SIZE);
-      ctx.lineTo(x + dir * CARET_SIZE, pos + CARET_SIZE);
-    } else {
-      const y = side === "top" ? box.top(bar) : box.bottom(bar);
-      const dir = side === "top" ? -1 : 1;
-      ctx.moveTo(pos, y);
-      ctx.lineTo(pos - CARET_SIZE, y + dir * CARET_SIZE);
-      ctx.lineTo(pos + CARET_SIZE, y + dir * CARET_SIZE);
-    }
-    ctx.closePath();
-    ctx.fillStyle = color.hex(this.internal.fillColor);
-    ctx.fill();
-  }
-
-  // Draws a caret on the external scale at the current value, sitting on the tick side of
-  // the spine with its point aimed at the spine.
-  private renderScaleCaret(draw: Draw2D, bar: box.Box, ratio: number): void {
-    const { side, direction: d } = this.state;
-    const outer = this.state.box;
-    const ctx = draw.canvas;
-    const pos = this.valuePosition(bar, ratio);
-    ctx.beginPath();
-    if (d === "y") {
-      const dir = side === "left" ? -1 : 1;
-      const edge =
-        (side === "left" ? box.left(outer) : box.right(outer)) + dir * EXTERNAL_GAP;
       ctx.moveTo(edge, pos);
       ctx.lineTo(edge + dir * CARET_SIZE, pos - CARET_SIZE);
       ctx.lineTo(edge + dir * CARET_SIZE, pos + CARET_SIZE);
     } else {
-      const dir = side === "top" ? -1 : 1;
-      const edge =
-        (side === "top" ? box.top(outer) : box.bottom(outer)) + dir * EXTERNAL_GAP;
       ctx.moveTo(pos, edge);
       ctx.lineTo(pos - CARET_SIZE, edge + dir * CARET_SIZE);
       ctx.lineTo(pos + CARET_SIZE, edge + dir * CARET_SIZE);
@@ -298,45 +303,40 @@ export class Scale
     ctx.closePath();
     ctx.fillStyle = color.hex(this.internal.fillColor);
     ctx.fill();
+    this.renderValueBox(draw, edge, pos, valueText);
   }
 
-  // Draws a readout box with the current value next to the caret, on the outer side of
-  // the scale (altimeter style).
   private renderValueBox(
     draw: Draw2D,
-    bar: box.Box,
-    ratio: number,
+    edge: number,
+    pos: number,
     valueText: string,
   ): void {
     if (valueText.length === 0) return;
-    const { side, direction: d } = this.state;
+    const { units, direction: d } = this.state;
     const { theme, tickLevel, fillColor } = this.internal;
-    const outer = this.state.box;
-    const pos = this.valuePosition(bar, ratio);
     const ctx = draw.canvas;
     ctx.font = fontString(theme, { level: tickLevel, code: true });
-    const td = ctx.textDimensions(valueText, { useAtlas: true });
-    const width = td.width + 8;
-    const height = td.height + 4;
-    const dir = side === "left" || side === "top" ? -1 : 1;
-    let region: box.Box;
-    if (d === "y") {
-      const edge =
-        (side === "left" ? box.left(outer) : box.right(outer)) + dir * EXTERNAL_GAP;
-      const inner = edge + dir * CARET_SIZE;
-      region = box.construct(
-        xy.construct(dir < 0 ? inner - width : inner, pos - height / 2),
-        { width, height },
-      );
-    } else {
-      const edge =
-        (side === "top" ? box.top(outer) : box.bottom(outer)) + dir * EXTERNAL_GAP;
-      const inner = edge + dir * CARET_SIZE;
-      region = box.construct(
-        xy.construct(pos - width / 2, dir < 0 ? inner - height : inner),
-        { width, height },
-      );
-    }
+    const value = ctx.textDimensions(valueText, { useAtlas: true });
+    // The units are drawn separately so they sit tighter than a monospace space.
+    const unitsWidth =
+      units.length === 0
+        ? 0
+        : ctx.textDimensions(units, { useAtlas: true }).width + UNITS_GAP;
+    const width = value.width + unitsWidth + 8;
+    const height = value.height + 6;
+    const { outward: dir } = this;
+    const inner = edge + dir * CARET_SIZE;
+    const region =
+      d === "y"
+        ? box.construct(
+            xy.construct(dir < 0 ? inner - width : inner, pos - height / 2),
+            { width, height },
+          )
+        : box.construct(
+            xy.construct(pos - width / 2, dir < 0 ? inner - height : inner),
+            { width, height },
+          );
     draw.container({
       region,
       rounded: true,
@@ -345,16 +345,21 @@ export class Scale
       borderWidth: 1,
       backgroundColor: theme.colors.gray.l1,
     });
-    draw.text({
-      text: valueText,
-      position: xy.translateY(box.center(region), 1),
-      level: tickLevel,
-      justify: "center",
-      align: "middle",
-      shade: 11,
-      code: true,
-      useAtlas: true,
-    });
+    const center = xy.translateY(box.center(region), 1);
+    const left = center.x - (value.width + unitsWidth) / 2;
+    const text = (text: string, x: number): void =>
+      draw.text({
+        text,
+        position: xy.construct(x, center.y),
+        level: tickLevel,
+        justify: "left",
+        align: "middle",
+        shade: 11,
+        code: true,
+        useAtlas: true,
+      });
+    text(valueText, left);
+    if (units.length > 0) text(units, left + value.width + UNITS_GAP);
   }
 
   /** Screen coordinate of the value along the value axis. */
@@ -364,22 +369,16 @@ export class Scale
   }
 
   private renderTicks(draw: Draw2D, bar: box.Box): void {
-    const { ticks, minorTicks, tickLevel, tickColor } = this.internal;
-    const { side, externalScale, direction: d } = this.state;
-    const outer = this.state.box;
+    const { ticks, minorTicks, tickLevel, axisColor, textColor } = this.internal;
+    const { direction: d } = this.state;
+    const { outward: dir } = this;
+    const edge = this.scaleEdge(bar);
     const line = (start: xy.XY, end: xy.XY): void =>
-      draw.line({ stroke: tickColor, lineWidth: 1, lineDash: 0, start, end });
-    // Ticks always point outward (away from the bar). In external mode the scale is
-    // anchored to the outer box edge plus a gap so it sits clear of the container as its
-    // own axis, joined by a spine; otherwise it sits at the bar edge in the gutter.
+      draw.line({ stroke: axisColor, lineWidth: 1, lineDash: 0, start, end });
+    // Without a track, the ticks need a spine of their own to sit against.
+    const showSpine = !this.showTrack;
     if (d === "y") {
-      const dir = side === "left" ? -1 : 1;
-      const edge = externalScale
-        ? (side === "left" ? box.left(outer) : box.right(outer)) + dir * EXTERNAL_GAP
-        : side === "left"
-          ? box.left(bar)
-          : box.right(bar);
-      if (externalScale)
+      if (showSpine)
         line(xy.construct(edge, box.top(bar)), xy.construct(edge, box.bottom(bar)));
       minorTicks.forEach(({ position }) => {
         const y = box.bottom(bar) - position;
@@ -392,7 +391,7 @@ export class Scale
           text: label,
           position: xy.construct(edge + dir * (TICK_LENGTH + TICK_LABEL_GAP), y),
           level: tickLevel,
-          shade: 10,
+          color: textColor,
           align: "middle",
           justify: dir > 0 ? "left" : "right",
           code: true,
@@ -400,13 +399,7 @@ export class Scale
         });
       });
     } else {
-      const dir = side === "top" ? -1 : 1;
-      const edge = externalScale
-        ? (side === "top" ? box.top(outer) : box.bottom(outer)) + dir * EXTERNAL_GAP
-        : side === "top"
-          ? box.top(bar)
-          : box.bottom(bar);
-      if (externalScale)
+      if (showSpine)
         line(xy.construct(box.left(bar), edge), xy.construct(box.right(bar), edge));
       minorTicks.forEach(({ position }) => {
         const x = box.left(bar) + position;
@@ -419,7 +412,7 @@ export class Scale
           text: label,
           position: xy.construct(x, edge + dir * (TICK_LENGTH + TICK_LABEL_GAP)),
           level: tickLevel,
-          shade: 10,
+          color: textColor,
           align: dir > 0 ? "top" : "bottom",
           justify: "center",
           code: true,
