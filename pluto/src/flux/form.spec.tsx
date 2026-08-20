@@ -477,6 +477,34 @@ describe("useForm", () => {
     });
   });
 
+  it("should run one save at a time", async () => {
+    const events: string[] = [];
+    const gates = [Promise.withResolvers<void>(), Promise.withResolvers<void>()];
+    let calls = 0;
+    const { result } = renderHook(
+      () =>
+        Flux.createForm<Params, typeof formSchema>({
+          initialValues: { key: "", name: "John Doe", age: 25 },
+          schema: formSchema,
+          name: "test",
+          update: async () => {
+            const index = calls++;
+            events.push(`start ${index}`);
+            await gates[index].promise;
+            events.push(`end ${index}`);
+          },
+        })({ query: null }),
+      { wrapper: Wrapper },
+    );
+    const first = result.current.saveAsync({ signal: controller.signal });
+    const second = result.current.saveAsync({ signal: controller.signal });
+    gates[0].resolve();
+    await first;
+    gates[1].resolve();
+    await second;
+    expect(events).toEqual(["start 0", "end 0", "start 1", "end 1"]);
+  });
+
   describe("autoSave = true", () => {
     it("should call update when any form values are modified", async () => {
       const update = vi.fn();
