@@ -1,1 +1,1 @@
-{ "version": 1, "type": "test", "name": "member" }
+{ "version": 2, "type": "log", "name": "member", "channels": [] }
