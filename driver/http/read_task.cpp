@@ -343,6 +343,23 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
     return res;
 }
 
+std::vector<Request> build_requests(
+    const device::ConnectionConfig &conn,
+    const std::vector<::synnax::http::ReadEndpoint> &endpoints
+) {
+    std::vector<Request> requests;
+    requests.reserve(endpoints.size());
+    for (const auto &ep: endpoints) {
+        auto req_cfg = request_config(ep);
+        const std::string body = has_request_body(req_cfg.method) ? ep.body : "";
+        if (!body.empty()) req_cfg.request_content_type = "application/json";
+        auto req = device::build_request(conn, req_cfg);
+        req.body = body;
+        requests.push_back(std::move(req));
+    }
+    return requests;
+}
+
 std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
@@ -357,15 +374,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     );
     if (conn_err) return {common::ConfigureResult{}, conn_err};
 
-    std::vector<Request> requests;
-    requests.reserve(cfg.endpoints.size());
-    for (const auto &ep: cfg.endpoints) {
-        auto req_cfg = request_config(ep);
-        if (!ep.body.empty()) req_cfg.request_content_type = "application/json";
-        auto req = device::build_request(conn, req_cfg);
-        req.body = ep.body;
-        requests.push_back(std::move(req));
-    }
+    auto requests = build_requests(conn, cfg.endpoints);
 
     const bool auto_start = cfg.auto_start;
     auto source = std::make_unique<ReadTaskSource>(

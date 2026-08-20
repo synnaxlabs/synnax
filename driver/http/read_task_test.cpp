@@ -40,15 +40,7 @@ std::pair<std::unique_ptr<ReadTaskSource>, std::shared_ptr<Processor>> make_sour
     auto conn_parser = x::json::Parser(conn_json);
     auto conn = device::ConnectionConfig(conn_parser);
 
-    std::vector<Request> requests;
-    requests.reserve(cfg.endpoints.size());
-    for (const auto &ep: cfg.endpoints) {
-        auto req_cfg = request_config(ep);
-        if (!ep.body.empty()) req_cfg.request_content_type = "application/json";
-        auto req = device::build_request(conn, req_cfg);
-        req.body = ep.body;
-        requests.push_back(std::move(req));
-    }
+    auto requests = build_requests(conn, cfg.endpoints);
 
     auto processor = std::make_shared<Processor>();
     return {
@@ -3320,6 +3312,56 @@ TEST(HTTPReadTask, POSTSetsContentTypeJSON) {
     auto ct = reqs[0].headers.find("Content-Type");
     ASSERT_NE(ct, reqs[0].headers.end());
     EXPECT_EQ(ct->second, "application/json");
+}
+
+/// @brief it should drop a body stored on a GET endpoint rather than send it or
+/// set a content type for it.
+TEST(HTTPReadTask, GETDropsStoredBody) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::GET,
+                .path = "/api/data",
+                .status_code = 200,
+                .response_body = R"({"value": 42.0})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    ReadTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.data_saving_disabled = true;
+    cfg.auto_start = false;
+    cfg.rate = x::telem::Rate(10000);
+
+    ReadField field;
+    field.pointer = "/value";
+    field.channel = 1;
+
+    ReadEndpoint ep;
+    ep.method = "GET";
+    ep.path = "/api/data";
+    ep.body = R"({"query": "latest"})";
+    ep.fields = {field};
+
+    cfg.endpoints = {ep};
+    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
+
+    auto [source, processor] = make_source(cfg, server.base_url());
+
+    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
+    breaker.start();
+    x::telem::Frame fr;
+    auto res = source->read(breaker, fr);
+    breaker.stop();
+    ASSERT_NIL(res.error);
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    EXPECT_EQ(reqs[0].body, "");
+    EXPECT_EQ(reqs[0].headers.count("Content-Type"), 0u);
 }
 
 /// @brief it should include per-endpoint headers in the HTTP request.

@@ -165,7 +165,10 @@ const MethodSelect: FC<{ path: string; epPath: string }> = ({ path, epPath }) =>
   const handleChange = useCallback(
     (method: ReadMethod) => {
       set(path, method);
-      if (method === "POST") set(`${epPath}.body`, "");
+      // GET carries no request body. Clearing it here keeps a body typed under POST
+      // from staying in the saved config, where it would set a content type on a
+      // request that sends nothing.
+      if (method !== "POST") set(`${epPath}.body`, "");
     },
     [set, path, epPath],
   );
