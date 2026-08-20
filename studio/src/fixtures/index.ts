@@ -8,5 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/fixtures/cluster";
+export * from "@/fixtures/control";
 export * from "@/fixtures/core";
 export * from "@/fixtures/telemetry";
