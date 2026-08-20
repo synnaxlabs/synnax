@@ -75,11 +75,14 @@ export const contextMenu = async (
   option: string,
 ): Promise<void> => {
   const { page } = session;
-  await session.rightClick(target);
+  // No zoom: the menu opens beside its target and both must stay visible.
+  await session.rightClick(target, { zoom: false });
   const menu = page.locator(".pluto-menu-context").first();
   await session.waitFor(menu);
   await session.hold(300);
-  await session.click(menu.getByText(option, { exact: true }).first());
+  await session.click(menu.getByText(option, { exact: true }).first(), {
+    zoom: false,
+  });
 };
 
 /**

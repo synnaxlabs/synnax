@@ -373,8 +373,11 @@ export class CaptureSession {
   }
 
   /** rightClick travels to the target and opens its context menu. */
-  async rightClick(target: Locator | Point): Promise<void> {
-    await this.pressRelease(await this.moveTo(target), "right");
+  async rightClick(
+    target: Locator | Point,
+    opts?: { zoom?: boolean; text?: boolean },
+  ): Promise<void> {
+    await this.pressRelease(await this.moveTo(target, opts), "right", opts?.zoom);
   }
 
   /**

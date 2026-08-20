@@ -31,9 +31,15 @@ export default manifest.define([
     id: "console/ui-overview/palette-command",
     script: "scripts/ui-overview-palette-command.ts",
   },
+  {
+    id: "console/ui-overview/visualization-toolbar",
+    script: "scripts/ui-overview-visualization-toolbar.ts",
+  },
   { id: "console/line-plots/data-tab", script: "scripts/line-plot-data.ts" },
   { id: "console/channels/create", script: "scripts/channels-create.ts" },
   { id: "console/ranges/toolbar-create", script: "scripts/ranges-toolbar-create.ts" },
   { id: "console/ranges/palette-create", script: "scripts/ranges-palette-create.ts" },
+  { id: "console/ranges/resources", script: "scripts/ranges-resources.ts" },
+  { id: "console/ranges/palette", script: "scripts/ranges-palette.ts" },
   { id: "console/users/register", script: "scripts/users-register.ts" },
 ]);
