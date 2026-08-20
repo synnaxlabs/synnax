@@ -47,9 +47,38 @@ export default manifest.define([
   { id: "console/line-plots/pan", script: "scripts/line-plot-pan.ts" },
   { id: "console/line-plots/select", script: "scripts/line-plot-select.ts" },
   { id: "console/line-plots/slope", script: "scripts/line-plot-slope.ts" },
+  {
+    id: "console/ui-overview/multiple-tabs",
+    script: "scripts/ui-overview-multiple-tabs.ts",
+  },
+  {
+    id: "console/ui-overview/close-toolbars",
+    script: "scripts/ui-overview-close-toolbars.ts",
+  },
+  {
+    id: "console/ui-overview/documentation",
+    script: "scripts/ui-overview-documentation.ts",
+  },
   { id: "console/tables/create", script: "scripts/table-create.ts" },
   { id: "console/logs/example", script: "scripts/log-example.ts" },
   { id: "console/schematics/create", script: "scripts/schematic-create.ts" },
+  {
+    id: "console/schematics/connections",
+    script: "scripts/schematic-connections.ts",
+  },
+  {
+    id: "console/schematics/align-items",
+    script: "scripts/schematic-align-items.ts",
+  },
+  {
+    id: "console/schematics/change-color",
+    script: "scripts/schematic-change-color.ts",
+  },
+  { id: "console/schematics/value", script: "scripts/schematic-value.ts" },
+  {
+    id: "console/schematics/symbol-create-group",
+    script: "scripts/schematic-symbol-create-group.ts",
+  },
   { id: "console/channels/create", script: "scripts/channels-create.ts" },
   { id: "console/channels/alias", script: "scripts/channels-alias.ts" },
   {
@@ -71,5 +100,14 @@ export default manifest.define([
   {
     id: "console/users/modal-change-role",
     script: "scripts/users-modal-change-role.ts",
+  },
+  {
+    id: "console/users/drag-change-role",
+    script: "scripts/users-drag-change-role.ts",
+  },
+  { id: "console/ranges/plot-create", script: "scripts/ranges-plot-create.ts" },
+  {
+    id: "control/arc/get-started/create-automation",
+    script: "scripts/arc-create-automation.ts",
   },
 ]);
