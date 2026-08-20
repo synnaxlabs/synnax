@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/cesium"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"go.uber.org/zap/zapcore"
@@ -436,14 +437,12 @@ var _ = Describe("Garbage collection", Ordered, func() {
 					"Should log the failure and keep trying",
 					func(ctx SpecContext) {
 						ins, logs := ObservedInstrumentation(zapcore.ErrorLevel)
-						faulty := OpenFaultyFS(
+						faulty := WrapFS(
 							openFS(),
-							func(op FaultOp, name string) error {
-								if op == FaultOpRename && name == "1.domain" {
-									return ErrFault
-								}
-								return nil
-							},
+							Options{Fail: []Failure{{
+								Op:   FaultOpRename,
+								Name: "1.domain",
+							}}},
 						)
 						failing := MustOpen(cesium.Open(ctx, "",
 							cesium.WithGCConfig(cesium.GCConfig{

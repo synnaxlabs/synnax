@@ -16,8 +16,8 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium/internal/domain"
-	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/io/fs"
+	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -1105,15 +1105,9 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 			})
 
 			Context("Faulty file system", func() {
-				var (
-					faulty *FaultyFS
-					fault  Fault
-				)
+				var faulty *FaultyFS
 				BeforeEach(func(ctx SpecContext) {
-					fault = func(FaultOp, string) error { return nil }
-					faulty = OpenFaultyFS(fs, func(op FaultOp, name string) error {
-						return fault(op, name)
-					})
+					faulty = WrapFS(fs, Options{})
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              faulty,
 						FileSize:        9 * telem.Byte,
@@ -1137,63 +1131,56 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					)).To(Succeed())
 				})
 
-				failOn := func(target FaultOp, name string) {
-					fault = func(op FaultOp, opName string) error {
-						if op == target && opName == name {
-							return ErrFault
-						}
-						return nil
-					}
-				}
-
 				// A rewrite that keeps its handles open blocks every later rename of
-				// the
-				// file on Windows, which stops collection for good.
-				assertNoLeakedHandles := func(ctx SpecContext) {
-					GinkgoHelper()
-					Expect(db.GarbageCollect(ctx)).To(MatchError(ErrFault))
-					open := faulty.OpenFiles()
-					Expect(db.GarbageCollect(ctx)).To(MatchError(ErrFault))
-					Expect(faulty.OpenFiles()).To(Equal(open))
+				// the file on Windows, which stops collection for good.
+				DescribeTable(
+					"Should keep no handles when the rewrite fails",
+					func(ctx SpecContext, op FaultOp, name string) {
+						faulty.SetOptions(Options{
+							Fail: []Failure{{Op: op, Name: name}},
+						})
+						Expect(
+							db.GarbageCollect(ctx),
+						).To(MatchError(ErrFault))
+						open := faulty.OpenFiles()
+						Expect(
+							db.GarbageCollect(ctx),
+						).To(MatchError(ErrFault))
+						Expect(faulty.OpenFiles()).To(Equal(open))
 
-					By("Collecting once the fault clears")
-					fault = func(FaultOp, string) error { return nil }
-					Expect(db.GarbageCollect(ctx)).To(Succeed())
-					Expect(MustSucceed(fs.Stat("1.domain")).Size()).To(Equal(int64(6)))
-				}
-
-				It(
-					"Should keep no handles when reading the live data fails",
-					func(ctx SpecContext) {
-						failOn(FaultOpReadAt, "1.domain")
-						assertNoLeakedHandles(ctx)
+						By("Collecting once the fault clears")
+						faulty.SetOptions(Options{})
+						Expect(db.GarbageCollect(ctx)).To(Succeed())
+						Expect(
+							MustSucceed(fs.Stat("1.domain")).Size(),
+						).To(Equal(int64(6)))
 					},
-				)
-
-				It(
-					"Should keep no handles when writing the copy fails",
-					func(ctx SpecContext) {
-						failOn(FaultOpWrite, "1.domain_gc")
-						assertNoLeakedHandles(ctx)
-					},
+					Entry(
+						"reading the live data",
+						FaultOpReadAt,
+						"1.domain",
+					),
+					Entry("writing the copy", FaultOpWrite, "1.domain_gc"),
 				)
 
 				It("Should surface a failed rename", func(ctx SpecContext) {
-					failOn(FaultOpRename, "1.domain")
+					faulty.SetOptions(Options{
+						Fail: []Failure{{
+							Op:   FaultOpRename,
+							Name: "1.domain",
+						}},
+					})
 					Expect(db.GarbageCollect(ctx)).To(MatchError(ErrFault))
 				})
 
 				It("Should surface a failed rejuvenation", func(ctx SpecContext) {
-					var renamed bool
-					fault = func(op FaultOp, name string) error {
-						if op == FaultOpRename {
-							renamed = true
-						}
-						if renamed && op == FaultOpStat && name == "1.domain" {
-							return ErrFault
-						}
-						return nil
-					}
+					faulty.SetOptions(Options{
+						Fail: []Failure{{
+							Op:    FaultOpStat,
+							Name:  "1.domain",
+							After: FaultOpRename,
+						}},
+					})
 					Expect(db.GarbageCollect(ctx)).To(MatchError(ErrFault))
 				})
 			})
