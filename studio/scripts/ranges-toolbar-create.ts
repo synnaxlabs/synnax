@@ -32,6 +32,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     const name = page.getByPlaceholder("Name").first();
     await session.waitFor(name);
     await session.hold(600);
+    await session.zoom(page.locator(".console-modal").first());
 
     await session.click(name);
     await session.type("Hotfire 12");
@@ -39,6 +40,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
 
     await capture.clickButton(session, "Save to Core");
     await session.waitForHidden(name);
+    session.endZoom();
     const created = page
       .locator(".console-nav__drawer")
       .getByText("Hotfire 12", { exact: true })

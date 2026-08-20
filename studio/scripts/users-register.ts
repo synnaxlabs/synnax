@@ -32,6 +32,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     const first = page.getByPlaceholder("Richard").first();
     await session.waitFor(first);
     await session.hold(600);
+    await session.zoom(page.locator(".console-modal").first());
 
     await session.click(first);
     await session.type("Grace");
@@ -46,11 +47,17 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.click(page.getByText("Select role", { exact: true }).first(), {
       text: true,
     });
+    // The list order is not deterministic; filter through the auto-focused
+    // search so the role is at the top before clicking it.
+    await session.waitFor(page.getByPlaceholder("Search roles...").first());
+    await session.hold(400);
+    await session.type("Operator");
     const role = page
       .locator(".pluto-list__item:not(.pluto-tree__item)")
       .filter({ hasText: "Operator" })
       .first();
     await session.waitFor(role);
+    await session.hold(400);
     await session.click(role.getByText("Operator", { exact: true }).first(), {
       text: true,
     });
@@ -58,6 +65,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
 
     await capture.clickButton(session, "Register");
     await session.waitForHidden(first);
+    session.endZoom();
     await session.hold(800);
 
     // The toolbar groups users by role and the groups start collapsed; expand
