@@ -88,6 +88,8 @@ export interface UserSpec {
   password?: string;
   firstName?: string;
   lastName?: string;
+  /** Name of a built-in role to assign; a user without one stays hidden. */
+  role?: string;
 }
 
 /** seedUsers registers users on the cluster so user-management shots have rows. */
@@ -97,7 +99,18 @@ export const seedUsers = async (
 ): Promise<void> => {
   const client = connect(opts);
   try {
-    await client.users.create(specs.map((s) => ({ password: "seldon-demo", ...s })));
+    const users = await client.users.create(
+      specs.map(({ role: _role, ...s }) => ({ password: "seldon-demo", ...s })),
+    );
+    const roles = await client.access.roles.retrieve({});
+    await Promise.all(
+      specs.map(async ({ role }, i) => {
+        if (role == null) return;
+        const match = roles.find((r) => r.name === role);
+        if (match == null) throw new Error(`role ${role} not found`);
+        await client.access.roles.assign({ role: match.key, user: users[i].key });
+      }),
+    );
   } finally {
     client.close();
   }

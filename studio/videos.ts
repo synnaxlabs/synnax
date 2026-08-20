@@ -37,6 +37,7 @@ export default manifest.define([
   },
   { id: "console/line-plots/data-tab", script: "scripts/line-plot-data.ts" },
   { id: "console/channels/create", script: "scripts/channels-create.ts" },
+  { id: "console/channels/alias", script: "scripts/channels-alias.ts" },
   { id: "console/ranges/toolbar-create", script: "scripts/ranges-toolbar-create.ts" },
   { id: "console/ranges/palette-create", script: "scripts/ranges-palette-create.ts" },
   { id: "console/ranges/resources", script: "scripts/ranges-resources.ts" },
@@ -45,4 +46,8 @@ export default manifest.define([
   { id: "console/ranges/add-meta-data", script: "scripts/ranges-add-meta-data.ts" },
   { id: "console/ranges/add-label", script: "scripts/ranges-add-label.ts" },
   { id: "console/users/register", script: "scripts/users-register.ts" },
+  {
+    id: "console/users/modal-change-role",
+    script: "scripts/users-modal-change-role.ts",
+  },
 ]);
