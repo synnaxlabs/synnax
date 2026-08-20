@@ -505,6 +505,45 @@ describe("useForm", () => {
     expect(events).toEqual(["start 0", "end 0", "start 1", "end 1"]);
   });
 
+  it("should drop a queued save when the form re-points at another record", async () => {
+    const cats: Record<string, z.infer<typeof formSchema>> = {
+      "1": { key: "1", name: "Apple Cat", age: 30 },
+      "2": { key: "2", name: "Banana Cat", age: 12 },
+    };
+    const saved: string[] = [];
+    let enter = (): void => {};
+    let release = (): void => {};
+    const entered = new Promise<void>((resolve) => (enter = resolve));
+    const held = new Promise<void>((resolve) => (release = resolve));
+    const useForm = Flux.createForm<Params, typeof formSchema>({
+      initialValues: { key: "", name: "", age: 0 },
+      schema: formSchema,
+      name: "test",
+      retrieve: async ({ query: { key } }) => cats[key as string],
+      // Holds the first save open past the re-point, so the second one queues.
+      update: async ({ value }) => {
+        saved.push(value().name);
+        if (saved.length > 1) return;
+        enter();
+        await held;
+      },
+    });
+    const { result, rerender } = await renderHookSuspended(
+      ({ key }: { key: string }) => useForm({ query: { key } }),
+      { wrapper: Wrapper, initialProps: { key: "1" } },
+    );
+    const first = result.current.saveAsync({ signal: controller.signal });
+    await entered;
+    const second = result.current.saveAsync({ signal: controller.signal });
+    await act(async () => {
+      rerender({ key: "2" });
+    });
+    await act(async () => release());
+    expect(await first).toBe(true);
+    expect(await second).toBe(false);
+    expect(saved).toEqual(["Apple Cat"]);
+  });
+
   describe("autoSave = true", () => {
     it("should call update when any form values are modified", async () => {
       const update = vi.fn();

@@ -289,19 +289,21 @@ export const createForm = <
     );
 
     // Saves of one record run one at a time. A caller that reads the form, awaits the
-    // cluster, then writes back (a task deploy resolving its rack) leaves a window an
-    // autosave fires in; concurrent writes reach the cluster in either order, so the
+    // Core, then writes back (a task deploy resolving its rack) leaves a window an
+    // autosave fires in; concurrent writes reach the Core in either order, so the
     // pre-write values can land last and undo the save.
     const pendingSave = useRef<Promise<unknown>>(null);
     const saveAsync = useCallback(
       async (opts: query.FetchOptions = {}): Promise<boolean> => {
-        const save = (pendingSave.current ?? Promise.resolve()).then(
-          async () => await runSave(opts),
+        const issuedFor = memoQuery;
+        const save = (pendingSave.current ?? Promise.resolve()).then(async () =>
+          // A queued save reads the live form, which now holds another record.
+          readQuery.current === issuedFor ? await runSave(opts) : false,
         );
         pendingSave.current = save.catch(() => {});
         return await save;
       },
-      [runSave],
+      [runSave, memoQuery],
     );
     const save = useCallback(
       (opts?: query.FetchOptions) => void saveAsync(opts),
