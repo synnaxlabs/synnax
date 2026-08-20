@@ -1598,7 +1598,7 @@ TEST(ArcTests, testChannelConfigParamReadWrite) {
             "    if counter < read_val {\n"
             "        counter = read_val\n"
             "    }\n"
-            "    if input and not prev {\n"
+            "    if input != 0 and prev == 0 {\n"
             "        counter = counter + 1.0\n"
             "    }\n"
             "    counter_ch = counter\n"

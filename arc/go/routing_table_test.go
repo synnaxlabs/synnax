@@ -575,7 +575,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				    }
 				}
 
-				func check_pressure(p f32) u8 {
+				func check_pressure(p f32) bool {
 				    return p > 100
 				}
 
@@ -640,7 +640,7 @@ var _ = Describe("Routing Table Runtime", func() {
 			"Should use select to route a boolean channel into different sequence stages",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
-					"flag":     {types.U8(), 100},
+					"flag":     {types.Bool(), 100},
 					"open_cmd": {types.U8(), 200},
 					"shut_cmd": {types.U8(), 300},
 				})
@@ -661,7 +661,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				        1 -> shut_cmd
 				    }
 				}`, resolver,
-					channels.Digest{Key: 100, DataType: telem.Uint8T},
+					channels.Digest{Key: 100, DataType: telem.BooleanT},
 					channels.Digest{Key: 200, DataType: telem.Uint8T},
 					channels.Digest{Key: 300, DataType: telem.Uint8T},
 				)
@@ -669,7 +669,7 @@ var _ = Describe("Routing Table Runtime", func() {
 
 				// Tick 1: flag=1 (truthy). select routes to "true" output,
 				// activating open_valve.
-				h.Ingest(100, telem.NewSeriesV[uint8](1))
+				h.Ingest(100, telem.NewSeriesV[bool](true))
 				h.Tick(ctx, telem.Millisecond)
 				h.channelState.ClearReads()
 
@@ -688,7 +688,7 @@ var _ = Describe("Routing Table Runtime", func() {
 
 				// Tick 2: flag=0 (falsy). select routes to "false" output,
 				// activating shut_valve.
-				h.Ingest(100, telem.NewSeriesV[uint8](0))
+				h.Ingest(100, telem.NewSeriesV[bool](false))
 				h.Tick(ctx, 2*telem.Millisecond)
 				h.channelState.ClearReads()
 
@@ -711,7 +711,7 @@ var _ = Describe("Routing Table Runtime", func() {
 	Describe("Routing with select{}", func() {
 		It("Should use select to route a boolean channel", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
-				"flag":     {types.U8(), 100},
+				"flag":     {types.Bool(), 100},
 				"open_cmd": {types.U8(), 200},
 				"shut_cmd": {types.U8(), 300},
 			})
@@ -733,13 +733,13 @@ var _ = Describe("Routing Table Runtime", func() {
 					}
 				}
 			`, resolver,
-				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 100, DataType: telem.BooleanT},
 				channels.Digest{Key: 200, DataType: telem.Uint8T},
 				channels.Digest{Key: 300, DataType: telem.Uint8T},
 			)
 			defer h.Close(ctx)
 
-			h.Ingest(100, telem.NewSeriesV[uint8](1))
+			h.Ingest(100, telem.NewSeriesV[bool](true))
 			h.Tick(ctx, telem.Millisecond)
 			h.channelState.ClearReads()
 

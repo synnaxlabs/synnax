@@ -864,6 +864,24 @@ TEST(StateTest, IsSeriesTruthy_Uint8Series) {
     EXPECT_TRUE(Node::is_series_truthy(one_series));
 }
 
+/// @brief Test that is_series_truthy works with bool series
+TEST(StateTest, IsSeriesTruthy_BoolSeries) {
+    x::telem::Series false_series(false);
+    EXPECT_FALSE(Node::is_series_truthy(false_series));
+
+    x::telem::Series true_series(true);
+    EXPECT_TRUE(Node::is_series_truthy(true_series));
+}
+
+/// @brief Test that is_series_truthy uses the last element of a bool series
+TEST(StateTest, IsSeriesTruthy_BoolSeriesLastElement) {
+    x::telem::Series ends_false(std::vector<uint8_t>{1, 1, 0}, x::telem::BOOLEAN_T);
+    EXPECT_FALSE(Node::is_series_truthy(ends_false));
+
+    x::telem::Series ends_true(std::vector<uint8_t>{0, 0, 1}, x::telem::BOOLEAN_T);
+    EXPECT_TRUE(Node::is_series_truthy(ends_true));
+}
+
 /// @brief Test that is_series_truthy works with int64 series
 TEST(StateTest, IsSeriesTruthy_Int64Series) {
     x::telem::Series zero_series(static_cast<int64_t>(0));

@@ -43,7 +43,7 @@ var (
 	symbolName = "select"
 	symbolDoc  = doc.New(
 		doc.Paragraph(
-			"Routes input values to 'true' or 'false' outputs. Values equal to 1 are routed to the true output; all others to false.",
+			"Routes a boolean input to 'true' or 'false' outputs. `true` values are routed to the true output; `false` to the false output.",
 		),
 		doc.Divider(),
 		doc.Code(
@@ -63,7 +63,7 @@ func NewSymbols() []*symbol.Symbol {
 			Exec: symbol.ExecFlow,
 			Type: types.Function(types.FunctionProperties{
 				Inputs: types.Params{
-					{Name: ir.DefaultOutputParam, Type: types.U8()},
+					{Name: ir.DefaultOutputParam, Type: types.Bool()},
 				},
 				Outputs: types.Params{
 					{Name: TrueOutputParam, Type: types.U8()},

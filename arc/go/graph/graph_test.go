@@ -1445,7 +1445,7 @@ var _ = Describe("Graph", func() {
 							{Name: "channel", Type: types.Chan(types.U8())},
 						},
 						Outputs: types.Params{
-							{Name: ir.DefaultOutputParam, Type: types.U8()},
+							{Name: ir.DefaultOutputParam, Type: types.Bool()},
 						},
 					},
 				},

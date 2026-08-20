@@ -76,10 +76,16 @@ var operations = []Operation{
 // Modulo operations - uses % for integers, math.Mod for floats
 var moduloIntOp = Operation{Name: "Modulo", Op: "%"}
 
-// Logical operations only for uint8 (boolean) types
-var logicalOperations = []Operation{
-	{Name: "And", Op: "&"},
-	{Name: "Or", Op: "|"},
+// Logical operations for the boolean type.
+var boolLogicalOperations = []Operation{
+	{Name: "And", Op: "&&"},
+	{Name: "Or", Op: "||"},
+}
+
+// Scalar logical operations for the boolean type (series op scalar -> bool).
+var boolScalarLogicalOperations = []Operation{
+	{Name: "AndScalar", Op: "&&"},
+	{Name: "OrScalar", Op: "||"},
 }
 
 var reductionOperations = []ReductionOperation{
@@ -555,18 +561,20 @@ func main() {
 		}
 	}
 
-	// Generate logical operations for uint8 only
-	uint8Type := TypeInfo{Name: "U8", GoType: "uint8", Size: 1, IsUnsigned: true}
+	// Generate logical operations (and, or, not) for the boolean type.
+	boolType := TypeInfo{Name: "", GoType: "bool", Size: 1}
 	lo.Must0(tmpl.Execute(&buf, map[string]any{
-		"Type":       uint8Type,
-		"Operations": logicalOperations,
+		"Type":       boolType,
+		"Operations": boolLogicalOperations,
 	}))
-
-	// Generate Not operation for uint8 only
-	notOp := []UnaryOperation{{Name: "Not", Op: "^"}}
+	boolNotOp := []UnaryOperation{{Name: "Not", Op: "!"}}
 	lo.Must0(unaryTmpl.Execute(&buf, map[string]any{
-		"Type":     uint8Type,
-		"UnaryOps": notOp,
+		"Type":     boolType,
+		"UnaryOps": boolNotOp,
+	}))
+	lo.Must0(scalarArithTmpl.Execute(&buf, map[string]any{
+		"Type":       boolType,
+		"Operations": boolScalarLogicalOperations,
 	}))
 
 	// Generate Negate operation for signed and float types only

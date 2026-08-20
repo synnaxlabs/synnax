@@ -63,6 +63,8 @@ sample_to_wasm(const x::telem::SampleValue &val, const types::Type &type) {
         case types::Kind::I64:
         case types::Kind::U64:
             return wasmtime::Val(static_cast<int64_t>(as_double));
+        case types::Kind::Bool:
+            return wasmtime::Val(static_cast<int32_t>(as_double != 0 ? 1 : 0));
         default:
             return wasmtime::Val(static_cast<int32_t>(as_double));
     }
@@ -71,6 +73,7 @@ sample_to_wasm(const x::telem::SampleValue &val, const types::Type &type) {
 /// @brief Convert json value to wasmtime::Val using the declared type.
 inline wasmtime::Val json_to_wasm(const x::json::json &val, const types::Type &type) {
     if (val.is_null()) return wasmtime::Val(0);
+    if (val.is_boolean()) return wasmtime::Val(val.get<bool>() ? 1 : 0);
     const auto as_double = val.get<double>();
     switch (type.kind) {
         case types::Kind::F64:
@@ -115,6 +118,8 @@ sample_from_wasm(const wasmtime::Val &val, const types::Type &type) {
             return x::telem::SampleValue(val.f64());
         case types::Kind::String:
             return x::telem::SampleValue(val.i32());
+        case types::Kind::Bool:
+            return x::telem::SampleValue(static_cast<uint8_t>(val.i32() != 0 ? 1 : 0));
         default:
             return x::telem::SampleValue(0);
     }
@@ -158,6 +163,8 @@ sample_from_bits(const uint64_t bits, const types::Type &type) {
         case types::Kind::String:
             // String outputs are i32 handles in WASM
             return x::telem::SampleValue(static_cast<int32_t>(bits));
+        case types::Kind::Bool:
+            return x::telem::SampleValue(static_cast<uint8_t>(bits != 0 ? 1 : 0));
         default:
             return x::telem::SampleValue(static_cast<int32_t>(0));
     }

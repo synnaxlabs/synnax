@@ -41,7 +41,7 @@ input. The chain executes whenever the leftmost source fires.
 
 ```arc channels="valve_cmd, sensor, output"
 stage active {
-    1 -> valve_cmd                  // keeps valve open every cycle
+    true -> valve_cmd               // keeps valve open every cycle
     sensor -> filter{} -> output    // processes every sample
 }
 ```
@@ -130,7 +130,7 @@ sequence main {
 
 sequence abort {
     stage safed {
-        0 -> all_valves_cmd
+        false -> all_valves_cmd
     }
 }
 ```
@@ -175,9 +175,8 @@ sensor -> demux{} -> { high: alarm{}, low: logger{} }
 
 ### Select
 
-`select` is the built-in boolean router. It takes a `u8` input and exposes two outputs,
-`true` and `false`. Values equal to `1` are routed to `true`; all other values are
-routed to `false`.
+`select` is the built-in boolean router. It takes a `bool` input and exposes two
+outputs, `true` and `false`.
 
 ```arc channels="flag" bodies="open_valve, shut_valve"
 flag -> select{} -> {
@@ -189,16 +188,19 @@ flag -> select{} -> {
 `select` is part of the ambient prelude, so it needs no `import`. It is also available
 under its qualified name `selector.select` if you prefer to be explicit.
 
-| Output  | Type | Fires when             |
-| ------- | ---- | ---------------------- |
-| `true`  | `u8` | input value is `1`     |
-| `false` | `u8` | input value is not `1` |
+| Output  | Type | Fires when       |
+| ------- | ---- | ---------------- |
+| `true`  | `u8` | input is `true`  |
+| `false` | `u8` | input is `false` |
+
+Each output emits `1` when its branch fires; downstream nodes typically use the
+activation, not the value.
 
 A routing table may bind only the branches it cares about. Omitting `false` is valid:
 
 ```arc channels="flag, alarm_cmd"
 flag -> select{} -> {
-    true: stage { 1 -> alarm_cmd }
+    true: true -> alarm_cmd
 }
 ```
 
@@ -209,13 +211,13 @@ outputs can drive a routing table: declare the branches your logic needs as outp
 the matching one in the function body, and route each output by name.
 
 ```arc channels="tank_pressure, open_vent" bodies="pressurize, safe_state"
-func decide_stage{low f64, high f64} (value f64) (vent u8, press u8, abort u8) {
+func decide_stage{low f64, high f64} (value f64) (vent bool, press bool, abort bool) {
     if (value < low) {
-        vent = 1
+        vent = true
     } else if (value <= high) {
-        press = 1
+        press = true
     } else {
-        abort = 1
+        abort = true
     }
 }
 
@@ -270,8 +272,12 @@ while the branch is active:
 
 ```arc channels="flag, vent_cmd, log"
 flag -> select{} -> {
-    true:  stage { 1 -> vent_cmd, "venting" -> log },
-    false: stage { 0 -> vent_cmd }
+    true:  stage {
+        "venting" -> log,
+        true -> vent_cmd,
+        pressure < 15 => shutdown
+    },
+    false: false -> vent_cmd
 }
 ```
 
@@ -282,9 +288,9 @@ An anonymous `sequence { ... }` written directly as a case body. Its items run i
 ```arc channels="sensor, cooler_cmd"
 sensor -> decide_stage{low=30.0, high=80.0} -> {
     abort: sequence {
-        1 -> cooler_cmd
+        true -> cooler_cmd
         time.wait{2s}
-        0 -> cooler_cmd
+        false -> cooler_cmd
     }
 }
 ```
@@ -297,7 +303,7 @@ A single routing table may freely mix all of the above:
 sensor -> decide_stage{low=30.0, high=80.0} -> {
     vent:  open_vent,                            // single target
     press: "nominal" -> log,                     // chain
-    abort: stage { 1 -> cooler_cmd }             // inline body
+    abort: stage { true -> cooler_cmd }          // inline body
 }
 ```
 

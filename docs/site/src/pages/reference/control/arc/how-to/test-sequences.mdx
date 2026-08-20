@@ -27,17 +27,17 @@ A minimal sequence with idle, active, and complete states:
 sequence main {
     stage idle {
         // Wait for operator to start
-        0 -> press_vlv_cmd
+        false -> press_vlv_cmd
         op_cmd => next
     }
 
     stage active {
-        1 -> press_vlv_cmd
+        true -> press_vlv_cmd
         ox_pt_1 > 500 => next
     }
 
     stage complete {
-        0 -> press_vlv_cmd
+        false -> press_vlv_cmd
     }
 }
 
@@ -50,8 +50,8 @@ stops.
 
 <Note.Note variant="info">
 The entry point `start_cmd => main` triggers the sequence when the channel
-receives a truthy value (non-zero). Create `start_cmd` as a `u8` virtual
-channel in Synnax, then wire it to a button in your Console schematic.
+receives a truthy value (`true`, or a non-zero numeric). Create `start_cmd` as a `bool`
+virtual channel in Synnax, then wire it to a button in your Console schematic.
 </Note.Note>
 
 <Divider.Divider x />
@@ -61,25 +61,27 @@ channel in Synnax, then wire it to a button in your Console schematic.
 Use `time.wait` to add delays between stages:
 
 ```arc channels="press_vlv_cmd, ox_pt_1, start_cmd", bodies="main"
+import time
+
 sequence main {
     stage pressurize {
-        1 -> press_vlv_cmd
+        true -> press_vlv_cmd
         ox_pt_1 > 500 => next
     }
 
     stage hold {
         // Keep valve open, wait 30 seconds
-        1 -> press_vlv_cmd
+        true -> press_vlv_cmd
         time.wait{duration=30s} => next
     }
 
     stage depressurize {
-        0 -> press_vlv_cmd
+        false -> press_vlv_cmd
         ox_pt_1 < 50 => next
     }
 
     stage complete {
-        0 -> press_vlv_cmd
+        false -> press_vlv_cmd
     }
 }
 
@@ -96,6 +98,8 @@ Real test sequences need abort capability. List abort conditions first in each s
 (line order determines priority):
 
 ```arc channels="ox_pt_1, abort_btn, press_vlv_cmd, fuel_vlv_cmd, igniter_cmd, start_cmd, emergency_stop", bodies="abort, main"
+import time
+
 sequence main {
     stage pressurize {
         // Abort checks first
@@ -103,33 +107,33 @@ sequence main {
         abort_btn => abort // operator abort
 
         // Automation next
-        1 -> press_vlv_cmd
+        true -> press_vlv_cmd
         ox_pt_1 > 500 => next
     }
 
     stage hold {
         ox_pt_1 > 700 => abort
         abort_btn => abort
-        1 -> press_vlv_cmd
+        true -> press_vlv_cmd
         time.wait{duration=30s} => next
     }
 
     stage depressurize {
         abort_btn => abort
-        0 -> press_vlv_cmd
+        false -> press_vlv_cmd
         ox_pt_1 < 50 => next
     }
 
     stage complete {
-        0 -> press_vlv_cmd
+        false -> press_vlv_cmd
     }
 }
 
 sequence abort {
     stage safing {
-        0 -> press_vlv_cmd
-        0 -> fuel_vlv_cmd
-        0 -> igniter_cmd
+        false -> press_vlv_cmd
+        false -> fuel_vlv_cmd
+        false -> igniter_cmd
     }
 }
 
@@ -153,6 +157,8 @@ first one listed wins. Safety conditions should always have priority.
 Advance based on multiple conditions being satisfied:
 
 ```arc channels="ox_pt_1, fuel_pt_1, abort_btn, press_vlv_cmd",bodies="abort, timeout"
+import time
+
 sequence main {
     stage verify {
         // Check all systems ready
@@ -164,7 +170,7 @@ sequence main {
     stage pressurize {
         ox_pt_1 > 700 => abort
         abort_btn => abort
-        1 -> press_vlv_cmd
+        true -> press_vlv_cmd
         ox_pt_1 > 500 => next
     }
 
@@ -174,7 +180,7 @@ sequence main {
 
     stage timeout {
         // Handle timeout condition
-        0 -> press_vlv_cmd
+        false -> press_vlv_cmd
     }
 }
 ```
@@ -191,10 +197,12 @@ multiple conditions, an inline stage keeps the procedure readable without forcin
 step into its own named stage:
 
 ```arc channels="vent_vlv_cmd, press_vlv_cmd, tank_pressure, abort_btn, start_btn, emergency_stop", bodies="abort,timeout,prime"
+import time
+
 sequence prime {
     // Straight-line setup
-    0 -> vent_vlv_cmd
-    1 -> press_vlv_cmd
+    false -> vent_vlv_cmd
+    true -> press_vlv_cmd
 
     // Inline gate:
     // Group advacnement conditions
@@ -206,20 +214,20 @@ sequence prime {
     }
 
     // Procedure resumes
-    0 -> press_vlv_cmd
+    false -> press_vlv_cmd
 }
 
 sequence abort {
     stage safed {
-        0 -> press_vlv_cmd
-        1 -> vent_vlv_cmd
+        false -> press_vlv_cmd
+        true -> vent_vlv_cmd
     }
 }
 
 sequence timeout {
     stage safed {
-        0 -> press_vlv_cmd
-        1 -> vent_vlv_cmd
+        false -> press_vlv_cmd
+        true -> vent_vlv_cmd
     }
 }
 
@@ -242,14 +250,16 @@ a multi-exit gate.
 Control the pressurization rate to avoid thermal shock or mechanical stress:
 
 ```arc channels="ox_pt_1, ox_rate_high, abort_btn", bodies="abort"
-func rate_monitor{dt_ms f64, max_rate f64} (value f64) u8 {
+import time
+
+func rate_monitor{dt_ms f64, max_rate f64} (value f64) bool {
     prev $= 0.0
     d := value - prev
     prev = value
 
     dt_s := dt_ms / 1000.0
     if dt_s <= 0 {
-        return 0
+        return false
     }
 
     rate := d / dt_s
@@ -258,10 +268,7 @@ func rate_monitor{dt_ms f64, max_rate f64} (value f64) u8 {
         rate = 0.0 - rate
     }
 
-    if rate > max_rate {
-        return 1
-    }
-    return 0
+    return rate > max_rate
 }
 
 sequence main {
@@ -288,6 +295,8 @@ The rate monitor triggers an abort if pressure rises faster than 100 psi/second.
 A realistic rocket engine test sequence with all the patterns combined:
 
 ```arc channels="ox_pt_1, fuel_pt_1, abort_btn, ox_rate, ox_press_vlv_cmd, fuel_press_vlv_cmd, igniter_cmd, chamber_tc_1, ox_main_vlv_cmd, fuel_main_vlv_cmd, ox_vent_vlv_cmd, fuel_vent_vlv_cmd, start_cmd, emergency_stop",bodies="abort, ignition_fail, main"
+import time
+
 // Rate monitoring
 func pressure_rate{dt_ms f64} (value f64) f64 {
     prev $= 0.0
@@ -315,7 +324,7 @@ sequence main {
         ox_pt_1 -> pressure_rate{dt_ms=50.0} -> ox_rate
         ox_rate > 100 => abort
         abort_btn => abort
-        1 -> ox_press_vlv_cmd
+        true -> ox_press_vlv_cmd
         ox_pt_1 > 500 => next
     }
     // Stage 3: Pressurize fuel
@@ -323,8 +332,8 @@ sequence main {
         ox_pt_1 > 650 => abort
         fuel_pt_1 > 450 => abort
         abort_btn => abort
-        1 -> ox_press_vlv_cmd // maintain ox pressure
-        1 -> fuel_press_vlv_cmd
+        true -> ox_press_vlv_cmd // maintain ox pressure
+        true -> fuel_press_vlv_cmd
         fuel_pt_1 > 350 => next
     }
     // Stage 4: Pre-fire hold
@@ -334,8 +343,8 @@ sequence main {
         ox_pt_1 < 400 => abort // pressure decay = leak
         fuel_pt_1 < 250 => abort
         abort_btn => abort
-        1 -> ox_press_vlv_cmd
-        1 -> fuel_press_vlv_cmd
+        true -> ox_press_vlv_cmd
+        true -> fuel_press_vlv_cmd
         time.wait{duration=5s} => next
     }
     // Stage 5: Ignition
@@ -343,9 +352,9 @@ sequence main {
         ox_pt_1 > 650 => abort
         fuel_pt_1 > 450 => abort
         abort_btn => abort
-        1 -> ox_press_vlv_cmd
-        1 -> fuel_press_vlv_cmd
-        1 -> igniter_cmd
+        true -> ox_press_vlv_cmd
+        true -> fuel_press_vlv_cmd
+        true -> igniter_cmd
         // Wait for combustion confirmation
         chamber_tc_1 > 500 => next
         // Ignition timeout
@@ -357,51 +366,51 @@ sequence main {
         fuel_pt_1 > 500 => abort
         chamber_tc_1 > 2000 => abort
         abort_btn => abort
-        1 -> ox_press_vlv_cmd
-        1 -> fuel_press_vlv_cmd
-        1 -> ox_main_vlv_cmd
-        1 -> fuel_main_vlv_cmd
-        0 -> igniter_cmd
+        true -> ox_press_vlv_cmd
+        true -> fuel_press_vlv_cmd
+        true -> ox_main_vlv_cmd
+        true -> fuel_main_vlv_cmd
+        false -> igniter_cmd
         time.wait{duration=10s} => next
     }
     // Stage 7: Shutdown
     stage shutdown {
         // Controlled shutdown sequence
-        0 -> ox_main_vlv_cmd
-        0 -> fuel_main_vlv_cmd
+        false -> ox_main_vlv_cmd
+        false -> fuel_main_vlv_cmd
         time.wait{duration=1s} => next
     }
     // Stage 8: Depressurize
     stage depress {
-        0 -> ox_press_vlv_cmd
-        0 -> fuel_press_vlv_cmd
-        1 -> ox_vent_vlv_cmd
-        1 -> fuel_vent_vlv_cmd
+        false -> ox_press_vlv_cmd
+        false -> fuel_press_vlv_cmd
+        true -> ox_vent_vlv_cmd
+        true -> fuel_vent_vlv_cmd
         ox_pt_1 < 20 and fuel_pt_1 < 20 => next
     }
     // Stage 9: Complete
     stage complete {
-        0 -> ox_vent_vlv_cmd
-        0 -> fuel_vent_vlv_cmd
+        false -> ox_vent_vlv_cmd
+        false -> fuel_vent_vlv_cmd
     }
     // Stage: Ignition failure
     stage ignition_fail {
-        0 -> igniter_cmd
-        1 => abort
+        false -> igniter_cmd
+        true => abort
     }
 }
 
 sequence abort {
     stage safing {
         // Close all valves immediately
-        0 -> ox_press_vlv_cmd
-        0 -> fuel_press_vlv_cmd
-        0 -> ox_main_vlv_cmd
-        0 -> fuel_main_vlv_cmd
-        0 -> igniter_cmd
+        false -> ox_press_vlv_cmd
+        false -> fuel_press_vlv_cmd
+        false -> ox_main_vlv_cmd
+        false -> fuel_main_vlv_cmd
+        false -> igniter_cmd
         // Open vents
-        1 -> ox_vent_vlv_cmd
-        1 -> fuel_vent_vlv_cmd
+        true -> ox_vent_vlv_cmd
+        true -> fuel_vent_vlv_cmd
     }
 }
 // Entry points

@@ -46,7 +46,12 @@ U64         : 'u64';
 F32         : 'f32';
 F64         : 'f64';
 STR         : 'str';
+BOOL        : 'bool';
 SERIES      : 'series';
+
+// Boolean literals
+TRUE        : 'true';
+FALSE       : 'false';
 
 // =============================================================================
 // Operators

@@ -58,6 +58,8 @@ var _ = Describe("ConvertLiteralValue", func() {
 		Entry("float64", float64(2.5), math.Float64bits(2.5)),
 		Entry("telem.TimeStamp", telem.TimeStamp(9), uint64(9)),
 		Entry("telem.TimeSpan", telem.TimeSpan(10), uint64(10)),
+		Entry("bool true", true, uint64(1)),
+		Entry("bool false", false, uint64(0)),
 	)
 
 	DescribeTable("unsupported types return an error instead of panicking",
@@ -65,7 +67,7 @@ var _ = Describe("ConvertLiteralValue", func() {
 			_, err := wasm.ConvertLiteralValue(v)
 			Expect(err).To(HaveOccurred())
 		},
-		Entry("bool", true),
+		Entry("string", "x"),
 	)
 })
 
@@ -1352,43 +1354,43 @@ trigger_ch -> emit_period{period=1s}
 
 	Describe("Series Comparison Operations", func() {
 		DescribeTable("comparison operators",
-			expectOutput[uint8],
-			Entry("less than", "series_lt", types.U8(), `{
+			expectOutput[bool],
+			Entry("less than", "series_lt", types.Bool(), `{
 				a series f64 := [1.0, 5.0, 3.0]
 				b series f64 := [2.0, 4.0, 3.0]
-				c series u8 := a < b
+				c := a < b
 				return c[0]
-			}`, nil, uint8(1)),
-			Entry("greater than", "series_gt", types.U8(), `{
+			}`, nil, true),
+			Entry("greater than", "series_gt", types.Bool(), `{
 				a series f64 := [1.0, 5.0, 3.0]
 				b series f64 := [2.0, 4.0, 3.0]
-				c series u8 := a > b
+				c := a > b
 				return c[1]
-			}`, nil, uint8(1)),
-			Entry("equal", "series_eq", types.U8(), `{
+			}`, nil, true),
+			Entry("equal", "series_eq", types.Bool(), `{
 				a series f64 := [1.0, 5.0, 3.0]
 				b series f64 := [2.0, 4.0, 3.0]
-				c series u8 := a == b
+				c := a == b
 				return c[2]
-			}`, nil, uint8(1)),
-			Entry("not equal", "series_ne", types.U8(), `{
+			}`, nil, true),
+			Entry("not equal", "series_ne", types.Bool(), `{
 				a series f64 := [1.0, 5.0, 3.0]
 				b series f64 := [1.0, 4.0, 3.0]
-				c series u8 := a != b
+				c := a != b
 				return c[1]
-			}`, nil, uint8(1)),
-			Entry("less than or equal", "series_le", types.U8(), `{
+			}`, nil, true),
+			Entry("less than or equal", "series_le", types.Bool(), `{
 				a series f64 := [1.0, 5.0, 3.0]
 				b series f64 := [2.0, 4.0, 3.0]
-				c series u8 := a <= b
+				c := a <= b
 				return c[2]
-			}`, nil, uint8(1)),
-			Entry("greater than or equal", "series_ge", types.U8(), `{
+			}`, nil, true),
+			Entry("greater than or equal", "series_ge", types.Bool(), `{
 				a series f64 := [1.0, 5.0, 3.0]
 				b series f64 := [2.0, 4.0, 3.0]
-				c series u8 := a >= b
+				c := a >= b
 				return c[1]
-			}`, nil, uint8(1)),
+			}`, nil, true),
 		)
 	})
 
@@ -3352,7 +3354,7 @@ trigger_ch -> emit_period{period=1s}
 
 				// Original example: func count_rising{counter chan f32}(input u8) {
 				//     prev u8 $= input
-				//     if input != 0 && prev == 0 { counter = counter + 1.0 }
+				//     if input != 0 and prev == 0 { counter = counter + 1.0 }
 				//     prev = input
 				// }
 				g := arc.Graph{

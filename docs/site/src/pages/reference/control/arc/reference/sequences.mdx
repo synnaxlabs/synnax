@@ -55,15 +55,15 @@ A sequence item is one of:
 
 ```arc channels="vent_vlv_cmd, press_vlv_cmd, tank_pressure", bodies="abort"
 sequence prime {
-    0 -> vent_vlv_cmd              // write
-    1 -> press_vlv_cmd             // write
+    false -> vent_vlv_cmd          // write
+    true -> press_vlv_cmd          // write
     time.wait{5s}                   // wait
     tank_pressure > 500             // condition gate
     stage hold {                    // stage
         time.wait{30s} => next
         tank_pressure > 700 => abort
     }
-    0 -> press_vlv_cmd             // write
+    false -> press_vlv_cmd         // write
 }
 ```
 
@@ -102,11 +102,11 @@ the sequence is already active.
 
 ### Triggering Sequences
 
-Entry point channels are typically `u8` virtual channels:
+Entry point channels are typically `bool` virtual channels:
 
-1. Create a `u8` virtual channel in Synnax (e.g., `start_cmd`)
+1. Create a `bool` virtual channel in Synnax (e.g., `start_cmd`)
 2. Wire the channel to a button in Console
-3. When clicked, the button writes `1` to the channel
+3. When clicked, the button writes `true` to the channel
 4. Arc sees the truthy value and triggers the sequence
 
 ### Anonymous Top-Level Sequences
@@ -116,10 +116,10 @@ load:
 
 ```arc channels="vent_vlv_cmd, press_vlv_cmd"
 sequence {
-    0 -> vent_vlv_cmd
-    1 -> press_vlv_cmd
+    false -> vent_vlv_cmd
+    true -> press_vlv_cmd
     time.wait{5s}
-    0 -> press_vlv_cmd
+    false -> press_vlv_cmd
 }
 ```
 
@@ -134,12 +134,12 @@ usual.
 
 ```arc channels="press_vlv_cmd, tank_pressure"
 sequence press {
-    1 -> press_vlv_cmd
+    true -> press_vlv_cmd
     stage {
         tank_pressure > 500 => next
         time.wait{30s} => abort
     }
-    0 -> press_vlv_cmd
+    false -> press_vlv_cmd
 }
 ```
 
@@ -152,8 +152,8 @@ authority 200
 
 sequence main {
     stage idle {
-        0 -> press_vlv_cmd
-        0 -> vent_vlv_cmd
+        false -> press_vlv_cmd
+        false -> vent_vlv_cmd
         start_btn => pressurize
     }
 
@@ -163,8 +163,8 @@ sequence main {
         fuel_pt_1 > 500 => abort
         abort_btn => abort
         // Control
-        1 -> press_vlv_cmd
-        0 -> vent_vlv_cmd
+        true -> press_vlv_cmd
+        false -> vent_vlv_cmd
         // Progress
         ox_pt_1 > 500 => hold
     }
@@ -172,27 +172,27 @@ sequence main {
     stage hold {
         ox_pt_1 > 700 => abort
         abort_btn => abort
-        1 -> press_vlv_cmd
+        true -> press_vlv_cmd
         time.wait{duration=5s} => vent
     }
 
     stage vent {
-        0 -> press_vlv_cmd
-        1 -> vent_vlv_cmd
+        false -> press_vlv_cmd
+        true -> vent_vlv_cmd
         ox_pt_1 < 50 => complete
     }
 
     stage complete {
-        0 -> press_vlv_cmd
-        0 -> vent_vlv_cmd
+        false -> press_vlv_cmd
+        false -> vent_vlv_cmd
     }
 }
 
 sequence abort {
     stage safed {
-        0 -> press_vlv_cmd
-        0 -> vent_vlv_cmd
-        1 -> vent_vlv_cmd
+        false -> press_vlv_cmd
+        false -> vent_vlv_cmd
+        true -> vent_vlv_cmd
     }
 }
 // Entry points

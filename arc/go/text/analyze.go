@@ -2072,7 +2072,7 @@ func analyzeOutputRoutingTable(
 	)
 
 	for _, entry := range ctx.AST.AllRoutingEntry() {
-		outputName := entry.IDENTIFIER(0).GetText()
+		outputName := entry.RoutingKey().GetText()
 		if !sourceNode.Outputs.Has(outputName) {
 			ctx.Diagnostics.Add(diagnostics.Errorf(
 				entry,
@@ -2089,8 +2089,8 @@ func analyzeOutputRoutingTable(
 		}
 
 		var targetParamName string
-		if len(entry.AllIDENTIFIER()) > 1 {
-			targetParamName = entry.IDENTIFIER(1).GetText()
+		if entry.IDENTIFIER() != nil {
+			targetParamName = entry.IDENTIFIER().GetText()
 		}
 
 		edgeKinds := routingEntryEdgeKinds(entry)
