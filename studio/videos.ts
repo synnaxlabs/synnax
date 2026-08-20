@@ -37,6 +37,8 @@ export default manifest.define([
   },
   { id: "console/line-plots/toolbar", script: "scripts/line-plot-toolbar.ts" },
   { id: "console/line-plots/data-tab", script: "scripts/line-plot-data.ts" },
+  { id: "console/line-plots/lines-tab", script: "scripts/line-plot-lines.ts" },
+  { id: "console/line-plots/axes-tab", script: "scripts/line-plot-axes.ts" },
   {
     id: "console/line-plots/properties-tab",
     script: "scripts/line-plot-properties.ts",
