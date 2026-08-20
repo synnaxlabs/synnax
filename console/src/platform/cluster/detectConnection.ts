@@ -28,7 +28,15 @@ const DEV_CONNECTION: ConnectionParams = {
  */
 export const DEV_PORT_KEY = "synnax-dev-connection-port";
 
-const devConnection = (): ConnectionParams => {
+/**
+ * DEV_DETACH_KEY is a localStorage key that drops the dev connection, so the dev
+ * Console starts on the Cores list like the desktop build. The same tooling uses
+ * it to record the connection flow, which the browser build otherwise skips.
+ */
+export const DEV_DETACH_KEY = "synnax-dev-connection-detach";
+
+const devConnection = (): ConnectionParams | null => {
+  if (localStorage.getItem(DEV_DETACH_KEY) != null) return null;
   const port = Number(localStorage.getItem(DEV_PORT_KEY));
   if (!Number.isInteger(port) || port <= 0) return DEV_CONNECTION;
   return { ...DEV_CONNECTION, port };
