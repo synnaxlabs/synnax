@@ -111,3 +111,6 @@ var codecMigration = gorp.CodecMigration[Key, Device]("msgpack_to_orc")
 func NewMigrations(cfg MigrationConfig) []migrate.Migration {
 	return []migrate.Migration{newMigration(cfg), codecMigration}
 }
+
+// NormalizeKeys re-keys Device rows stored under the pre-v0.54 key format.
+var NormalizeKeys = gorp.NormalizeKeysMigration[Key, Device]("Device")

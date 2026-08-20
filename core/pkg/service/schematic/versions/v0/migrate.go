@@ -13,3 +13,6 @@ import "github.com/synnaxlabs/x/gorp"
 
 // Migration re-encodes stored schematics from MessagePack to Orc.
 var Migration = gorp.CodecMigration[Key, Schematic]("msgpack_to_orc")
+
+// NormalizeKeys re-keys Schematic rows stored under the pre-v0.54 key format.
+var NormalizeKeys = gorp.NormalizeKeysMigration[Key, Schematic]("Schematic")

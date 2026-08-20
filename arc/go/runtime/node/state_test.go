@@ -1778,7 +1778,7 @@ var _ = Describe("ProgramState", func() {
 								Type:  types.F32(),
 								Value: float32(0),
 							},
-							{Name: "reset", Type: types.U8(), Value: uint8(0)},
+							{Name: "reset", Type: types.Bool(), Value: false},
 						},
 						Outputs: types.Params{
 							{Name: ir.DefaultOutputParam, Type: types.F32()},

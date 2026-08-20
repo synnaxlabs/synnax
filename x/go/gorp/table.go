@@ -126,13 +126,10 @@ func OpenTable[K Key, E Entry[K]](
 	ctx context.Context,
 	cfg TableConfig[K, E],
 ) (*Table[K, E], error) {
-	wrapped := make([]migrate.Migration, 0, len(cfg.Migrations)+1)
-	wrapped = append(wrapped, normalizeKeysMigration[K, E]())
-	wrapped = append(wrapped, cfg.Migrations...)
 	if err := Migrate(ctx, MigrateConfig{
 		DB:              cfg.DB,
 		Namespace:       types.Name[E](),
-		Migrations:      wrapped,
+		Migrations:      cfg.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); err != nil {
 		return nil, err
@@ -284,12 +281,24 @@ func (t *Table[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, e
 	return wrapReader[K, E](t.db, t.keyPrefix).OpenNexter(ctx)
 }
 
-func normalizeKeysMigration[K Key, E Entry[K]]() migrate.Migration {
+// normalizeKeysMigrationKey names every key-normalization migration in the applied
+// set, which OpenTable scopes per entry type. Released stores already record it.
+const normalizeKeysMigrationKey = "normalize_keys"
+
+// NormalizeKeysMigration returns a migration that moves entries stored under the
+// pre-v0.54 key prefix msgpack(legacyTypeName) to the current prefix and key encoding,
+// decoding each row as E to recover its key. E is the frozen shape that wrote those
+// rows and legacyTypeName the name the writing release reported for it; state both,
+// never derive them from the head type. Tables first stored by v0.54 or later hold no
+// such rows and must not run it.
+func NormalizeKeysMigration[K Key, E Entry[K]](
+	legacyTypeName string,
+) migrate.Migration {
 	return NewMigration(
-		"normalize_keys",
+		normalizeKeysMigrationKey,
 		func(ctx context.Context, tx Tx, _ alamos.Instrumentation) (err error) {
 			kc := newKeyCodec[K, E](nil)
-			oldPrefix, err := msgpack.Codec.Encode(ctx, types.Name[E]())
+			oldPrefix, err := msgpack.Codec.Encode(ctx, legacyTypeName)
 			if err != nil {
 				return err
 			}
@@ -307,7 +316,8 @@ func normalizeKeysMigration[K Key, E Entry[K]]() migrate.Migration {
 				if err = tx.Decode(ctx, rawValue, &entry); err != nil {
 					return errors.Wrapf(
 						err,
-						"normalize_keys: failed to decode entry at old prefix key %x",
+						"%s: failed to decode entry at old prefix key %x",
+						normalizeKeysMigrationKey,
 						itr.Key(),
 					)
 				}

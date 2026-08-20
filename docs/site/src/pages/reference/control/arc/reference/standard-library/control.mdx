@@ -78,8 +78,8 @@ and `0` releases control.
 // Sets every channel the program writes to
 trigger -> control.set_authority{value=255}
 
-// Sets one channel; value=0 releases control
-trigger -> control.set_authority{value=255, channel=press_vlv_cmd}
+// Releases control of single channel
+trigger -> control.set_authority{value=0, channel=press_vlv_cmd}
 
 // Sets each channel to a different authority
 stage emergency {
@@ -90,7 +90,9 @@ stage emergency {
 
 ## Relationship to Manual Control
 
-Default `authority` for a task when not declared is `255`
+<Note.Note variant="info">
+  The default `authority` for a task that declares none is `255`.
+</Note.Note>
 
 [Schematics](/reference/console/schematics) and other manual controls obey the same
 authority rules as an Arc task. Equal authority goes to whichever task, schematic, or

@@ -17,6 +17,12 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/control"
+	xmsgpack "github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/gorp"
+	gorptestutil "github.com/synnaxlabs/x/gorp/testutil"
+	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/migrate"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/vmihailenco/msgpack/v5"
@@ -362,4 +368,37 @@ var _ = Describe("Operation", func() {
 			)
 		})
 	})
+})
+
+var _ = Describe("NormalizeKeys", func() {
+	It(
+		"Should lift a Channel row stored under the pre-v0.54 key format",
+		func(ctx SpecContext) {
+			kvDB := memkv.New()
+			db := DeferClose(gorp.Wrap(kvDB, gorp.WithCodec(xmsgpack.Codec)))
+			e := v0.Channel{
+				LocalKey:    2,
+				Leaseholder: 1,
+				Name:        "pt_1",
+				DataType:    telem.Float32T,
+			}
+			legacy := gorptestutil.SetPreV54Row(
+				ctx,
+				kvDB,
+				"Channel",
+				e.GorpKey(),
+				e,
+			)
+			table := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Channel]{
+				DB:         db,
+				Migrations: []migrate.Migration{v0.NormalizeKeys},
+			}))
+			var res v0.Channel
+			Expect(table.NewRetrieve().
+				Where(gorp.MatchKeys[v0.Key, v0.Channel](e.GorpKey())).
+				Entry(&res).Exec(ctx, db)).To(Succeed())
+			Expect(res).To(Equal(e))
+			Expect(db.Get(ctx, legacy)).Error().To(MatchError(query.ErrNotFound))
+		},
+	)
 })
