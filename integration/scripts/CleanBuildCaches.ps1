@@ -14,10 +14,15 @@
 # - Otherwise: `bazel clean` first (largest consumer), then oldest Go/binary files
 #   until MinFreeGB is available.
 #
-# Usage: CleanBuildCaches.ps1 [-MinFreeGB 35]
+# Usage: CleanBuildCaches.ps1 [-MinFreeGB 35] [-BazelOutputRoot C:/tmp]
+#
+# BazelOutputRoot is the build's --output_user_root override. Both it and the default
+# root are cleaned; if this did not match the build, its output tree would never be
+# cleaned and would grow unbounded.
 
 param(
-    [int]$MinFreeGB = 35
+    [int]$MinFreeGB = 35,
+    [string]$BazelOutputRoot = "C:/tmp"
 )
 
 # Best-effort cleanup — must never fail the build
@@ -72,36 +77,42 @@ if (Test-EnoughSpace) {
 }
 
 # --- Below threshold: Bazel is the largest consumer, so clean it first ---
+# The driver build overrides the output root to C:/tmp; other bazel calls use the
+# default root. Clean both so neither leaks.
 Write-Output "Bazel clean:"
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-$bazelBase = $null
+$bazelRoots = @($BazelOutputRoot)
 if (Test-Path $repoRoot) {
-    try {
-        Push-Location $repoRoot
-        $bazelBase = (bazel info output_user_root 2>$null)
-        Pop-Location
-    } catch { Pop-Location }
-}
-if (-not $bazelBase) { $bazelBase = "C:\_bazel" }
-if ((Test-Path $bazelBase) -and (Test-Path $repoRoot)) {
-    $beforeBazel = [math]::Round(
-        ((Get-ChildItem -Recurse -File $bazelBase -ErrorAction SilentlyContinue |
-            Measure-Object -Property Length -Sum).Sum / 1MB), 0)
     Push-Location $repoRoot
-    $bazelOutput = bazel clean 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        Write-Output "  bazel clean failed (exit $LASTEXITCODE): $bazelOutput"
-    }
+    $defaultRoot = (bazel info output_user_root 2>$null)
     Pop-Location
-    $afterBazel = [math]::Round(
-        ((Get-ChildItem -Recurse -File $bazelBase -ErrorAction SilentlyContinue |
-            Measure-Object -Property Length -Sum).Sum / 1MB), 0)
-    $freedBazel = $beforeBazel - $afterBazel
-    $script:totalFreed += $freedBazel
-    Write-Output ("  {0,-35} {1,6}MB -> {2,6}MB  (freed {3}MB)" -f `
-        "bazel clean", $beforeBazel, $afterBazel, $freedBazel)
+    if ($defaultRoot) { $bazelRoots += $defaultRoot }
+}
+$bazelRoots = $bazelRoots | Where-Object { $_ } | Select-Object -Unique
+if (Test-Path $repoRoot) {
+    foreach ($root in $bazelRoots) {
+        if (-not (Test-Path $root)) {
+            Write-Output ("  {0,-35} skipped (not found)" -f $root)
+            continue
+        }
+        $before = [math]::Round(
+            ((Get-ChildItem -Recurse -File $root -ErrorAction SilentlyContinue |
+                Measure-Object -Property Length -Sum).Sum / 1MB), 0)
+        Push-Location $repoRoot
+        $out = bazel --output_user_root=$root clean 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Output "  clean failed for $root (exit $LASTEXITCODE): $out"
+        }
+        Pop-Location
+        $after = [math]::Round(
+            ((Get-ChildItem -Recurse -File $root -ErrorAction SilentlyContinue |
+                Measure-Object -Property Length -Sum).Sum / 1MB), 0)
+        $script:totalFreed += ($before - $after)
+        Write-Output ("  {0,-35} {1,6}MB -> {2,6}MB  (freed {3}MB)" -f `
+            $root, $before, $after, ($before - $after))
+    }
 } else {
-    Write-Output ("  {0,-35} skipped (not found)" -f "bazel clean")
+    Write-Output ("  {0,-35} skipped (repo not found)" -f "bazel clean")
 }
 Write-Output ""
 

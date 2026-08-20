@@ -18,6 +18,10 @@ echo Cleaning up synnax directories...
 if exist "%USERPROFILE%\synnax-binaries" rmdir /s /q "%USERPROFILE%\synnax-binaries" && echo Removed synnax-binaries directory from %USERPROFILE% || echo No synnax-binaries directory found in %USERPROFILE%
 if exist "%USERPROFILE%\synnax-data" rmdir /s /q "%USERPROFILE%\synnax-data" && echo Removed synnax-data directory from %USERPROFILE% || echo No synnax-data directory found in %USERPROFILE%
 
+rem A force-killed Core never removes its cache workdir (UserCacheDir\synnax), so one
+rem orphaned dir per run leaks here. Clear it to stop unbounded disk growth.
+if exist "%LOCALAPPDATA%\synnax" rmdir /s /q "%LOCALAPPDATA%\synnax" && echo Removed synnax cache directory from %LOCALAPPDATA% || echo No synnax cache directory found in %LOCALAPPDATA%
+
 rem Clean up any existing binaries directory (current working directory)
 if exist ".\binaries" (
     echo 🧹 Cleaning existing binaries directory...
