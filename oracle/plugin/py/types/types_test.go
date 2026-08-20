@@ -1968,7 +1968,8 @@ var _ = Describe("Python Union Generation", func() {
 		`
 			resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
 			content := MustContentOf(resp, "types_gen.py")
-			Expect(content).To(ContainSubstring("class AITempBuiltinChannel(BaseModel):"))
+			Expect(content).
+				To(ContainSubstring("class AITempBuiltinChannel(BaseModel):"))
 			Expect(content).To(ContainSubstring("class AIVoltageChannel(BaseAIChan):"))
 		},
 	)

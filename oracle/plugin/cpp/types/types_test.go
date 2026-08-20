@@ -2097,7 +2097,8 @@ var _ = Describe("C++ Union Generation", func() {
 			resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
 			content := MustContentOf(resp, "types.gen.h")
 			Expect(content).To(ContainSubstring("struct AITempBuiltinChannel {"))
-			Expect(content).To(ContainSubstring("struct AIVoltageChannel : public BaseAIChan {"))
+			Expect(content).
+				To(ContainSubstring("struct AIVoltageChannel : public BaseAIChan {"))
 		},
 	)
 

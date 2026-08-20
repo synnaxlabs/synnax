@@ -3724,9 +3724,10 @@ Mode enum {
 				GinkgoHelper()
 				typ := table.MustGet(union)
 				form := typ.Form.(resolution.UnionForm)
-				i := slices.IndexFunc(form.Variants, func(v resolution.UnionVariant) bool {
-					return v.Name == variant
-				})
+				i := slices.IndexFunc(
+					form.Variants,
+					func(v resolution.UnionVariant) bool { return v.Name == variant },
+				)
 				Expect(i).To(BeNumerically(">=", 0))
 				fields := resolution.UnifiedVariantFields(typ, form.Variants[i], table)
 				names := make([]string, len(fields))
@@ -3736,7 +3737,7 @@ Mode enum {
 				return names
 			}
 
-			It("Should let a variant omit a field from the union's bases", func(ctx SpecContext) {
+			It("Should let a variant omit a union base field", func(ctx SpecContext) {
 				source := `
 					Base struct {
 						name string
@@ -3759,7 +3760,7 @@ Mode enum {
 					To(Equal([]string{"name", "units"}))
 			})
 
-			It("Should let a variant omit a field from its own extends", func(ctx SpecContext) {
+			It("Should let a variant omit its own base field", func(ctx SpecContext) {
 				source := `
 					Mixin struct {
 						min float32
@@ -3774,10 +3775,11 @@ Mode enum {
 				`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
-				Expect(variantFieldNames(table, "test.Chan", "a")).To(Equal([]string{"min"}))
+				Expect(variantFieldNames(table, "test.Chan", "a")).
+					To(Equal([]string{"min"}))
 			})
 
-			It("Should error when a variant omits a field it does not inherit", func(ctx SpecContext) {
+			It("Should error on omitting an uninherited field", func(ctx SpecContext) {
 				source := `
 					Base struct { name string }
 
@@ -3794,7 +3796,7 @@ Mode enum {
 				))
 			})
 
-			It("Should error when a variant omits the discriminator", func(ctx SpecContext) {
+			It("Should error when omitting the discriminator", func(ctx SpecContext) {
 				source := `
 					Chan union on type {
 						a {

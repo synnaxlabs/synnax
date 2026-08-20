@@ -679,7 +679,8 @@ func (p *Plugin) processUnion(
 			if pform, ok := payload.Form.(resolution.StructForm); ok &&
 				len(pform.OmittedFields) > 0 {
 				return messageData{}, errors.Newf(
-					"union %q variant %q omits inherited field(s) %v, which protobuf cannot express; drop @pb or the omission",
+					"union %q variant %q omits inherited field(s) %v, which "+
+						"protobuf cannot express; drop @pb or the omission",
 					entry.Name, v.Name, pform.OmittedFields,
 				)
 			}
