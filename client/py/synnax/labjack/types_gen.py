@@ -186,7 +186,6 @@ class ThermocoupleReadChannel(BaseReadChannel):
     type: Literal["thermocouple"] = "thermocouple"
     port: str = "AIN0"
     thermocouple_type: ThermocoupleType = "K"
-    pos_chan: int = Field(default=0, ge=-2147483648, le=2147483647)
     neg_chan: int = Field(default=199, ge=-2147483648, le=2147483647)
     cjc_source: str = "TEMPERATURE_DEVICE_K"
     cjc_slope: float = 1

@@ -133,8 +133,9 @@ describe("LabJack Read", () => {
     fireEvent.click(await findChannelListItem("AIN0"));
     await waitFor(() => expect(screen.getByText("Thermocouple type")).toBeTruthy());
     expect(screen.getByText("Temperature units")).toBeTruthy();
-    expect(screen.getByText("Positive channel")).toBeTruthy();
     expect(screen.getByText("Negative channel")).toBeTruthy();
+    // The port selector is the only control for the positive lead.
+    expect(screen.queryByText("Positive channel")).toBeNull();
     expect(screen.getByText("CJC source")).toBeTruthy();
     expect(screen.getByText("CJC slope")).toBeTruthy();
     expect(screen.getByText("CJC offset")).toBeTruthy();

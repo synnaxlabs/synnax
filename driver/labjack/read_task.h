@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <charconv>
 #include <map>
 #include <set>
 #include <string>
@@ -84,6 +85,18 @@ inline long resolve_tc_type(x::json::Parser &parser, const std::string &tc_type)
     return v->second;
 }
 
+/// @brief resolves the AIN index a port names, e.g. 3 for "AIN3".
+inline int resolve_ain_index(x::json::Parser &parser, const std::string &port) {
+    if (port.rfind(AIN_PREFIX, 0) == 0) {
+        int index = 0;
+        const char *last = port.data() + port.size();
+        const auto res = std::from_chars(port.data() + AIN_PREFIX.size(), last, index);
+        if (res.ec == std::errc{} && res.ptr == last) return index;
+    }
+    parser.field_err("port", "Invalid port: " + port);
+    return 0;
+}
+
 /// @brief resolves the CJC modbus address for the configured CJC source.
 inline int resolve_cjc_addr(x::json::Parser &parser, const std::string &cjc_source) {
     if (cjc_source == DEVICE_CJC_SOURCE) return LJM_TEMPERATURE_DEVICE_K_ADDRESS;
@@ -145,7 +158,7 @@ struct ThermocoupleChan final : InputChan {
     // Lookup table: TC_INDEX_LUT[ x - 60001] = AIN_EF_INDEX
     const long type;
 
-    ///@brief the AIN port the thermocouple's positive lead is wired to.
+    ///@brief the AIN index the thermocouple's positive lead is wired to.
     const int pos_chan;
 
     ///@brief the AIN port of the negative lead on T7 devices. 199 is single ended.
@@ -177,7 +190,7 @@ struct ThermocoupleChan final : InputChan {
     ):
         InputChan(cfg),
         type(resolve_tc_type(parser, cfg.thermocouple_type)),
-        pos_chan(cfg.pos_chan),
+        pos_chan(resolve_ain_index(parser, cfg.port)),
         neg_chan(cfg.neg_chan),
         cjc_addr(resolve_cjc_addr(parser, cfg.cjc_source)),
         cjc_slope(cfg.cjc_slope),

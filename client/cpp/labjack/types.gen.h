@@ -195,8 +195,6 @@ struct ThermocoupleReadChannel : public BaseReadChannel {
     std::string type = "thermocouple";
     /// @brief thermocouple_type selects the thermocouple alloy type.
     std::string thermocouple_type = THERMOCOUPLE_TYPE_K;
-    /// @brief pos_chan is the AIN port the thermocouple's positive lead is wired to.
-    std::int32_t pos_chan = 0;
     /// @brief neg_chan is the AIN port of the thermocouple's negative lead on T7
     /// devices.
     /// 199 selects single-ended.

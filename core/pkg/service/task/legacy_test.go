@@ -82,7 +82,8 @@ func asFloat(v any) (float64, bool) {
 // whose released export carried them. The current schema has no field to hold the
 // value.
 var legacyDiscarded = map[string]set.Set[string]{
-	// Only thermocouples ever read pos_chan; the driver ignored it on analog channels.
+	// Only thermocouples ever read pos_chan, and the rewrite folds its value into the
+	// port they now read from.
 	"labjack_read": set.New("pos_chan"),
 	// Digital channels carried a type tag with one possible value.
 	"ni_digital_read":  set.New("type"),

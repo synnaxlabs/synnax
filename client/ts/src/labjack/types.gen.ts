@@ -183,12 +183,10 @@ export interface DigitalReadChannel extends z.infer<typeof digitalReadChannelZ> 
 /** ThermocoupleReadChannel reads temperature from a thermocouple. */
 export const thermocoupleReadChannelZ = baseReadChannelZ.extend({
   type: z.literal("thermocouple"),
-  /** port is unused; the read port is derived from pos_chan. */
+  /** port is the AIN port the thermocouple's positive lead is wired to. */
   port: z.string().default("AIN0"),
   /** thermocoupleType selects the thermocouple alloy type. */
   thermocoupleType: thermocoupleTypeZ.default("K"),
-  /** posChan is the AIN port the thermocouple's positive lead is wired to. */
-  posChan: z.int32().default(0),
   /**
    * negChan is the AIN port of the thermocouple's negative lead on T7 devices. 199
    * selects single-ended.

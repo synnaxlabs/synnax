@@ -63,7 +63,7 @@ TEST(TestReadChannelParse, testDIChan) {
 /// @brief it should parse thermocouple channel configuration.
 TEST(TestReadChannelParse, testTCChan) {
     const x::json::json cfg{
-        {"port", "AIN0"},
+        {"port", "AIN3"},
         {"disabled", false},
         {"key", "8hYJO9zt6eS"},
         {"channel", 0},
@@ -71,7 +71,6 @@ TEST(TestReadChannelParse, testTCChan) {
         {"range", 0},
         {"scale", {{"type", "linear"}, {"slope", 1}, {"offset", 2}}},
         {"thermocouple_type", "K"},
-        {"pos_chan", 0},
         {"neg_chan", 199},
         {"units", "K"},
         {"cjc_source", "TEMPERATURE_DEVICE_K"},
@@ -83,11 +82,11 @@ TEST(TestReadChannelParse, testTCChan) {
     ASSERT_NIL(p.error());
     const auto tc_chan = dynamic_cast<ThermocoupleChan *>(chan.get());
     ASSERT_NE(tc_chan, nullptr);
-    ASSERT_EQ(tc_chan->port, "AIN0_EF_READ_A");
+    ASSERT_EQ(tc_chan->port, "AIN3_EF_READ_A");
     ASSERT_EQ(tc_chan->enabled, true);
     ASSERT_EQ(tc_chan->synnax_key, 0);
     ASSERT_EQ(tc_chan->type, LJM_ttK);
-    ASSERT_EQ(tc_chan->pos_chan, 0);
+    ASSERT_EQ(tc_chan->pos_chan, 3);
     ASSERT_EQ(tc_chan->neg_chan, 199);
     ASSERT_EQ(tc_chan->units, LJM_KELVIN);
     ASSERT_EQ(tc_chan->cjc_addr, LJM_TEMPERATURE_DEVICE_K_ADDRESS);
@@ -170,7 +169,6 @@ x::json::json basic_read_task_config() {
                {"range", 0},
                {"scale", {{"type", "linear"}, {"slope", 1}, {"offset", 2}}},
                {"thermocouple_type", "K"},
-               {"pos_chan", 0},
                {"neg_chan", 199},
                {"units", "K"},
                {"cjc_source", "TEMPERATURE_DEVICE_K"},
@@ -379,7 +377,6 @@ protected:
                   {"range", 0},
                   {"scale", {{"type", "none"}}},
                   {"thermocouple_type", "K"},
-                  {"pos_chan", 0},
                   {"neg_chan", 199},
                   {"units", "K"},
                   {"cjc_source", "TEMPERATURE_DEVICE_K"},

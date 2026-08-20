@@ -52,7 +52,6 @@ differential configurations.
 | `port`     | string | Yes      | -       | Port location (e.g., `AIN0`, `AIN1`)                                    |
 | `range`    | number | No       | `10.0`  | Voltage range (±range volts)                                            |
 | `neg_chan` | number | No       | `199`   | Negative channel for differential measurements (199 = single-ended/GND) |
-| `pos_chan` | number | No       | `0`     | Positive channel number (e.g., 0 for AIN0)                              |
 
 </ChannelType>
 
@@ -71,14 +70,13 @@ Reads temperature from a thermocouple with cold junction compensation (CJC).
 | Parameter           | Type   | Required | Default                | Description                                                             |
 | ------------------- | ------ | -------- | ---------------------- | ----------------------------------------------------------------------- |
 | `channel`           | number | Yes      | -                      | Synnax channel key                                                      |
-| `port`              | string | Yes      | -                      | Port location (e.g., `AIN0`, `AIN1`)                                    |
+| `port`              | string | Yes      | -                      | AIN port the positive lead is wired to (e.g., `AIN0`, `AIN1`)           |
 | `thermocouple_type` | enum   | Yes      | -                      | `B`, `E`, `J`, `K`, `N`, `R`, `S`, `T`, `C`                             |
 | `units`             | enum   | No       | `C`                    | Temperature units (`K`, `C`, `F`)                                       |
 | `cjc_source`        | string | No       | `TEMPERATURE_DEVICE_K` | CJC source: `TEMPERATURE_DEVICE_K`, `TEMPERATURE_AIR_K`, or `AIN#`      |
 | `cjc_slope`         | number | No       | `1.0`                  | CJC voltage to temperature slope (K/V)                                  |
 | `cjc_offset`        | number | No       | `0.0`                  | CJC temperature offset (K)                                              |
 | `neg_chan`          | number | No       | `199`                  | Negative channel for differential measurements (199 = single-ended/GND) |
-| `pos_chan`          | number | No       | `0`                    | Positive channel number (e.g., 0 for AIN0)                              |
 
 **CJC Configuration Examples:**
 
@@ -182,14 +180,12 @@ task = labjack.ReadTask(
             port="AIN0",
             range=10.0,
             neg_chan=199,  # Single-ended
-            pos_chan=0,
         ),
         labjack.AnalogReadChannel(
             channel=ai_1.key,
             port="AIN1",
             range=10.0,
             neg_chan=199,  # Single-ended
-            pos_chan=1,
         ),
         labjack.DigitalReadChannel(
             channel=di_4.key,
@@ -298,7 +294,6 @@ const task = await client.tasks.create({
         port: "AIN0",
         range: 10.0,
         neg_chan: 199,
-        pos_chan: 0,
       },
       {
         type: "analog",
@@ -306,7 +301,6 @@ const task = await client.tasks.create({
         port: "AIN1",
         range: 10.0,
         neg_chan: 199,
-        pos_chan: 1,
       },
       {
         type: "digital",
