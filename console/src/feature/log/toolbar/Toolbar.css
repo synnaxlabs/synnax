@@ -22,8 +22,7 @@
     }
 
     .console-log__toolbar-channels {
-        padding-top: 2rem;
-        padding-bottom: 2rem;
+        padding: 2rem 1rem;
         overflow: auto;
 
         .console-log__channel-row {

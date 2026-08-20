@@ -138,6 +138,7 @@ export const Split = ({
     onStart: handleStart,
     onMove: handleMove,
     onEnd: handleEnd,
+    preventDefault: true,
   });
 
   const offset = math.closeTo(rendered, HALF_SPLIT, DELTA) ? DELTA : 0;
