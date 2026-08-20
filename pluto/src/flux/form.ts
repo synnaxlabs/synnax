@@ -285,7 +285,7 @@ export const createForm = <
           return false;
         }
       },
-      [name, memoQuery, beforeSave, afterSave, beforeValidate],
+      [client, name, memoQuery, beforeSave, afterSave, beforeValidate],
     );
 
     // Saves of one record run one at a time. A caller that reads the form, awaits the
