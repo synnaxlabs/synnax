@@ -95,6 +95,19 @@ const ANIMATION_STEPPER = `(() => {
 })();`;
 
 /**
+ * The virtual clock's performance shim records no entries, so Monaco reads
+ * `undefined` back from its own measures and throws inside a timer, killing
+ * the tick. An empty result becomes one zero-length entry.
+ */
+const PERFORMANCE_ENTRIES = `(() => {
+  const base = performance.getEntriesByName.bind(performance);
+  performance.getEntriesByName = (...args) => {
+    const entries = base(...args);
+    return entries.length > 0 ? entries : [{ duration: 0, startTime: 0 }];
+  };
+})();`;
+
+/**
  * CaptureSession drives the Console under a stepped virtual clock, saving one
  * lossless PNG per tick while recording and logging every synthetic input event
  * to the timeline. Actions dispatch real Playwright input; the on-screen cursor
@@ -157,6 +170,7 @@ export class CaptureSession {
     const page = await context.newPage();
     await page.clock.install({ time: CLOCK_EPOCH });
     await page.addInitScript(ANIMATION_STEPPER);
+    await page.addInitScript(PERFORMANCE_ENTRIES);
     await page.addInitScript(
       `localStorage.setItem(${JSON.stringify(DEV_PORT_KEY)}, ${JSON.stringify(String(opts.corePort))});`,
     );

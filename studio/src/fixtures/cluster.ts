@@ -83,6 +83,30 @@ export const seedLabels = async (
   }
 };
 
+export interface CalculatedSpec {
+  name: string;
+  /** Arc expression, e.g. `return demo_pressure * 2`. */
+  expression: string;
+}
+
+/**
+ * seedCalculatedChannels creates virtual calculated channels, for shots that
+ * start from one that already exists.
+ */
+export const seedCalculatedChannels = async (
+  specs: CalculatedSpec[],
+  opts: ClusterOptions = {},
+): Promise<void> => {
+  const client = connect(opts);
+  try {
+    await client.channels.create(
+      specs.map((spec) => ({ ...spec, virtual: true, dataType: "float32" })),
+    );
+  } finally {
+    client.close();
+  }
+};
+
 export interface UserSpec {
   username: string;
   password?: string;

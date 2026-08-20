@@ -48,6 +48,14 @@ export default manifest.define([
   { id: "console/schematics/create", script: "scripts/schematic-create.ts" },
   { id: "console/channels/create", script: "scripts/channels-create.ts" },
   { id: "console/channels/alias", script: "scripts/channels-alias.ts" },
+  {
+    id: "console/calculated-channels/create",
+    script: "scripts/calculated-channels-create.ts",
+  },
+  {
+    id: "console/calculated-channels/edit",
+    script: "scripts/calculated-channels-edit.ts",
+  },
   { id: "console/ranges/toolbar-create", script: "scripts/ranges-toolbar-create.ts" },
   { id: "console/ranges/palette-create", script: "scripts/ranges-palette-create.ts" },
   { id: "console/ranges/resources", script: "scripts/ranges-resources.ts" },
