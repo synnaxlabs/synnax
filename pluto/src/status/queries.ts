@@ -55,9 +55,7 @@ export const { useUpdate: useSet } = Flux.createUpdate<SetParams>({
     onOptimisticComplete,
   }) => {
     const onOptimistic = async () => await onOptimisticComplete(data);
-    if (Array.isArray(statuses))
-      await client.statuses.set(statuses, { parent, onOptimistic });
-    else await client.statuses.set(statuses, { parent, onOptimistic });
+    await client.statuses.set(statuses, { parent, onOptimistic });
     return data;
   },
 });

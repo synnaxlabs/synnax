@@ -179,6 +179,7 @@ export class Client extends query.Retriever<
   ): Promise<Status<DetailsSchema>>;
   async set(status: New, opts?: SetOptions): Promise<Status>;
   async set(statuses: New[], opts?: SetOptions): Promise<Status[]>;
+  async set(statuses: New | New[], opts?: SetOptions): Promise<Status | Status[]>;
   async set<DetailsSchema extends z.ZodType = z.ZodNever>(
     statuses: New<DetailsSchema> | New<DetailsSchema>[],
     opts: SetOptions & { detailsSchema?: DetailsSchema } = {},
