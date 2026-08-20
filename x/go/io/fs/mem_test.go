@@ -15,13 +15,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Mem", func() {
 	It("Should advance the modification time on every write", func() {
-		fs := xfs.NewMem()
+		fs := fs.NewMem()
 		var prev time.Time
 		for range 100 {
 			f := MustSucceed(fs.Open("f.txt", os.O_CREATE|os.O_WRONLY|os.O_TRUNC))
