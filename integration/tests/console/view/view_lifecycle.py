@@ -97,8 +97,11 @@ class ViewLifecycle(ConsoleCase):
                 self._delete_status(name)
             # Labels need the browser, which a failed setup may never have launched.
             if hasattr(self, "console"):
-                self.console.labels.delete(self.label_a_name)
-                self.console.labels.delete(self.label_b_name)
+                for name in [self.label_a_name, self.label_b_name]:
+                    try:
+                        self.console.labels.delete(name)
+                    except Exception as e:
+                        self.log(f"Failed to delete label '{name}': {e}")
         finally:
             super().teardown()
 
