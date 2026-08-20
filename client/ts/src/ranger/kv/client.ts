@@ -67,8 +67,8 @@ export class Client {
       }));
       if (typeof valueOrOpts === "object") opts = valueOrOpts;
     }
-    // Pair.key is the bare key; the table is keyed by createPairKey, so
-    // keyed-object set would mis-key entries.
+    // Pair.key is the bare key; the table is keyed by createPairKey, so keyed-object
+    // set would mis-key entries.
     const apply = () => pairs.map((p) => this.pairs.set(createPairKey(p), p));
     await query.optimistic({
       rollbacks: apply(),

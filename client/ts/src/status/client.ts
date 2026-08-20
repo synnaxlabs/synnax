@@ -184,8 +184,8 @@ export class Client extends query.Retriever<
     opts: SetOptions & { detailsSchema?: DetailsSchema } = {},
   ): Promise<Status<DetailsSchema> | Status<DetailsSchema>[]> {
     const isMany = Array.isArray(statuses);
-    // Filling the schema defaults up front gives every status a key, so the cache
-    // can hold it before the Core answers.
+    // Filling the schema defaults up front gives every status a key, so the cache can
+    // hold it before the Core answers.
     const schema = statusZ<DetailsSchema>({ details: opts.detailsSchema });
     const normalized = array
       .toArray(statuses)

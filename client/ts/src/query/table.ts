@@ -348,9 +348,9 @@ export class Table<
   }
 
   /**
-   * Removes entries and notifies subscribers, retaining no corpses: the undo of a
-   * write the record never survived, not a deletion. A reader finds the key unknown
-   * rather than deleted.
+   * Removes entries and notifies subscribers, retaining no corpses: the undo of a write
+   * the record never survived, not a deletion. A reader finds the key unknown rather
+   * than deleted.
    * @returns A rollback that restores the removed entries
    */
   evict(key: Key | Key[]): destructor.Destructor {

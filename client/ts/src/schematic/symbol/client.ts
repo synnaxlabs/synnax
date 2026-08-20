@@ -268,8 +268,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
     const drop = () => [
       this.store.delete(memberKeys),
       this.cfg.groupStore.delete(key),
-      // Both the relationships to the group's children and the one naming the group
-      // as its parent's child: the group and every symbol in it are gone.
+      // Both the relationships to the group's children and the one naming the group as
+      // its parent's child: the group and every symbol in it are gone.
       rels.delete(
         (r) =>
           r.type === ontology.PARENT_OF_RELATIONSHIP_TYPE &&

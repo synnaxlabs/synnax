@@ -18,8 +18,8 @@ import { status } from "@/status";
 import { createTestClient, expectLive } from "@/testutil";
 
 const client = createTestClient();
-// A second client with its own cache: this client learns of its writes only
-// through the cluster's change streams.
+// A second client with its own cache: this client learns of its writes only through the
+// cluster's change streams.
 const remote = createTestClient();
 
 describe("Status", () => {

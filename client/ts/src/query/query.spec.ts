@@ -593,8 +593,8 @@ describe("Answers", () => {
       table.evict("a");
       expect(handler).toHaveBeenLastCalledWith(undefined);
       expect(answers.getCached(qA)).toBeUndefined();
-      // The record was never deleted, so the answer refetches instead of
-      // rejecting the way a tombstoned one does.
+      // The record was never deleted, so the answer refetches instead of rejecting the
+      // way a tombstoned one does.
       expect(await answers.retrieve(qA)).toEqual(7);
       expect(fetch).toHaveBeenCalledOnce();
     });
