@@ -12,11 +12,11 @@ package testutil
 import (
 	"context"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/kv"
-	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil"
 )
 
 // SetPreV54Row writes a raw row in the key format releases before v0.54 used:
@@ -29,13 +29,14 @@ func SetPreV54Row(
 	typeName string,
 	key, value any,
 ) []byte {
-	GinkgoHelper()
-	prefix := MustSucceed(msgpack.Codec.Encode(ctx, typeName))
-	encodedKey := MustSucceed(msgpack.Codec.Encode(ctx, key))
+	ginkgo.GinkgoHelper()
+	prefix := testutil.MustSucceed(msgpack.Codec.Encode(ctx, typeName))
+	encodedKey := testutil.MustSucceed(msgpack.Codec.Encode(ctx, key))
 	fullKey := make([]byte, 0, len(prefix)+len(encodedKey))
 	fullKey = append(fullKey, prefix...)
 	fullKey = append(fullKey, encodedKey...)
-	Expect(kvDB.Set(ctx, fullKey, MustSucceed(msgpack.Codec.Encode(ctx, value)))).
-		To(Succeed())
+	gomega.Expect(
+		kvDB.Set(ctx, fullKey, testutil.MustSucceed(msgpack.Codec.Encode(ctx, value))),
+	).To(gomega.Succeed())
 	return fullKey
 }
