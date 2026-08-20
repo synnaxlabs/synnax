@@ -163,8 +163,9 @@ void write_reset(
     const std::vector<uint8_t> &data,
     const std::vector<int64_t> &timestamps
 ) {
-    reset.output(0) =
-        x::mem::make_local_shared<x::telem::Series>(data, x::telem::BOOLEAN_T);
+    reset.output(
+        0
+    ) = x::mem::make_local_shared<x::telem::Series>(data, x::telem::BOOLEAN_T);
     reset.output_time(0) = x::mem::make_local_shared<x::telem::Series>(timestamps);
 }
 }
