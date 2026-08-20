@@ -18,10 +18,13 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   try {
     const project = `Docs Videos ${Date.now().toString(36)}`;
     await capture.login(session, { username: "synnax", password: "seldon" }, project);
+    await capture.clearPanel(session);
 
     session.startRecording();
-    await session.hold(800);
+    await session.hold(1200);
 
+    await capture.clickPanelCreate(session);
+    await session.hold(800);
     await capture.createComponent(session, "Line plot");
     await session.waitFor(session.page.locator(".pluto-line-plot").first());
     await session.hold(1000);

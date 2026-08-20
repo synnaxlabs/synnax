@@ -165,6 +165,42 @@ export const clickToolbarCreate = async (session: CaptureSession): Promise<void>
 };
 
 /**
+ * clearPanel closes every open mosaic tab, leaving the panel on its empty
+ * state. Run before recording so a create shot starts from nothing.
+ */
+export const clearPanel = async (session: CaptureSession): Promise<void> => {
+  const { page } = session;
+  // Scoped to the mosaic: the window's panel bar renders tabs of its own.
+  const tab = page.locator(".console-mosaic .pluto-tabs__tab").first();
+  const menu = page.locator(".pluto-menu-context");
+  while (await tab.isVisible().catch(() => false)) {
+    // Panel tabs carry no close button; closing runs through the tab menu.
+    await tab.click({ button: "right", timeout: 5000 });
+    await session.waitFor(menu.first());
+    // Prefix match: the item's text carries its shortcut indicator too.
+    await menu
+      .getByText(/^Close/)
+      .first()
+      .click({ timeout: 5000 });
+    await session.settle(300);
+  }
+  await session.waitFor(page.getByText("No components open").first());
+};
+
+/**
+ * clickPanelCreate clicks the "+" in the panel's tab bar, opening the "Create
+ * component" selector, as recorded input.
+ */
+export const clickPanelCreate = async (session: CaptureSession): Promise<void> => {
+  const { page } = session;
+  // No zoom: the click swaps the panel to the selector, so the camera stays wide.
+  await session.click(page.locator(".pluto-panel-mosaic__create").first(), {
+    zoom: false,
+  });
+  await session.waitFor(page.locator(".console-layout-selector__frame").first());
+};
+
+/**
  * createComponent clicks a component button (e.g. "Line plot") in the "Create
  * component" selector tab, as recorded input.
  */

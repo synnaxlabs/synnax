@@ -10,9 +10,9 @@
 import { capture, fixtures } from "@/index";
 
 /**
- * Docs `console/tables/create`: pick Table in the component selector, select a
- * cell, switch it to a value, and bind a channel; the cell starts showing live
- * telemetry.
+ * Docs `console/tables/create`: from an empty panel, open the component
+ * selector with "+" and pick Table, then select a cell, switch it to a value,
+ * and bind a channel; the cell starts showing live telemetry.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   const fixture = await fixtures.sineTelemetry();
@@ -20,11 +20,14 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     const { page } = session;
     const project = `Docs Videos ${Date.now().toString(36)}`;
     await capture.login(session, { username: "synnax", password: "seldon" }, project);
+    await capture.clearPanel(session);
     await session.moveTo({ x: 756, y: 500 });
 
     session.startRecording();
-    await session.hold(1000);
+    await session.hold(1200);
 
+    await capture.clickPanelCreate(session);
+    await session.hold(800);
     await capture.createComponent(session, "Table");
     const cell = page.locator(".pluto-table__cell").first();
     await session.waitFor(cell);

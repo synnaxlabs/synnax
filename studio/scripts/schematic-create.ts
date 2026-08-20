@@ -10,18 +10,22 @@
 import { capture } from "@/index";
 
 /**
- * Docs `console/schematics/create`: pick Schematic in the component selector;
- * an empty canvas opens in edit mode with the symbol library below it.
+ * Docs `console/schematics/create`: from an empty panel, open the component
+ * selector with "+" and pick Schematic; an empty canvas opens in edit mode
+ * with the symbol library below it.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   const { page } = session;
   const project = `Docs Videos ${Date.now().toString(36)}`;
   await capture.login(session, { username: "synnax", password: "seldon" }, project);
+  await capture.clearPanel(session);
   await session.moveTo({ x: 756, y: 500 });
 
   session.startRecording();
-  await session.hold(1000);
+  await session.hold(1200);
 
+  await capture.clickPanelCreate(session);
+  await session.hold(800);
   await capture.createComponent(session, "Schematic");
   await session.waitFor(page.locator(".pluto-diagram").first());
   await session.hold(1000);
