@@ -344,6 +344,23 @@ export class Table<
   delete(
     key: Key | Key[] | ((value: Value, key: Key) => boolean),
   ): destructor.Destructor {
+    return this.remove(key, true);
+  }
+
+  /**
+   * Removes entries and notifies subscribers, retaining no corpses: the undo of a
+   * write the record never survived, not a deletion. A reader finds the key unknown
+   * rather than deleted.
+   * @returns A rollback that restores the removed entries
+   */
+  evict(key: Key | Key[]): destructor.Destructor {
+    return this.remove(key, false);
+  }
+
+  private remove(
+    key: Key | Key[] | ((value: Value, key: Key) => boolean),
+    tombstone: boolean,
+  ): destructor.Destructor {
     const toDelete: Array<{ key: Key; value?: Value }> = [];
 
     if (typeof key === "function")
@@ -359,7 +376,8 @@ export class Table<
     this.batch(() =>
       toDelete.forEach(({ key: k, value }) => {
         this.entries.delete(k);
-        if (value != null) this.tombstones.set(k, new Deleted(value, TimeStamp.now()));
+        if (tombstone && value != null)
+          this.tombstones.set(k, new Deleted(value, TimeStamp.now()));
         this.notify({ variant: "delete", key: k });
       }),
     );

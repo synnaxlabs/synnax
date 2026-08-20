@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { color, id, TimeStamp, uuid } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import z from "zod";
 
 import { group } from "@/group";
@@ -18,6 +18,9 @@ import { status } from "@/status";
 import { createTestClient, expectLive } from "@/testutil";
 
 const client = createTestClient();
+// A second client with its own cache: this client learns of its writes only
+// through the cluster's change streams.
+const remote = createTestClient();
 
 describe("Status", () => {
   describe("set", () => {
@@ -185,9 +188,32 @@ describe("Status", () => {
           },
         }),
       ).rejects.toThrow("write failed");
-      expect(query.isLive(client.statuses.getCached(crude.key as status.Key))).toBe(
-        false,
-      );
+      expect(client.statuses.getCached(crude.key as status.Key)).toBeUndefined();
+    });
+
+    it("should leave no corpse behind when the write fails", async () => {
+      const crude = createCrude();
+      const key = crude.key as status.Key;
+      // A second client owns the record, so this one's cache never held it.
+      await remote.statuses.set(crude);
+      const handler = vi.fn();
+      const off = client.statuses.onChange(key, handler);
+      try {
+        await expect(
+          client.statuses.set(
+            { ...crude, message: "replacement" },
+            {
+              onOptimistic: () => {
+                throw new Error("write failed");
+              },
+            },
+          ),
+        ).rejects.toThrow("write failed");
+        expect(client.statuses.getCached(key)).toBeUndefined();
+        expect((await client.statuses.retrieve(key)).message).toEqual(crude.message);
+      } finally {
+        off();
+      }
     });
 
     it("should restore the previous status when the write fails", async () => {

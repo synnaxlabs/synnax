@@ -756,7 +756,11 @@ export class Space<
       teardown.push(
         table.subscribe((event) => {
           if (event.variant === "set") query.state = { variant: "ready", keys: [key] };
-          else query.state = { variant: "deleted", key };
+          else
+            query.state =
+              table.status(key) === "tombstoned"
+                ? { variant: "deleted", key }
+                : { variant: "unfetched" };
           this.touch(query);
         }, key),
       );

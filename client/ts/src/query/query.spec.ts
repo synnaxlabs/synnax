@@ -580,6 +580,25 @@ describe("Answers", () => {
       expect(expectDeleted(answers.getCached(qA)).corpse).toEqual(4);
     });
 
+    it("returns a subscribed exact-key answer to unfetched when its entry is evicted", async () => {
+      const table = newTable();
+      table.set("a", rec("a", 4));
+      const fetch = vi.fn(async () => {
+        table.set("a", rec("a", 7));
+        return ["a"];
+      });
+      const answers = singleSpace(table, fetch);
+      const handler = vi.fn();
+      answers.onChange(qA, handler);
+      table.evict("a");
+      expect(handler).toHaveBeenLastCalledWith(undefined);
+      expect(answers.getCached(qA)).toBeUndefined();
+      // The record was never deleted, so the answer refetches instead of
+      // rejecting the way a tombstoned one does.
+      expect(await answers.retrieve(qA)).toEqual(7);
+      expect(fetch).toHaveBeenCalledOnce();
+    });
+
     it("does not seed when the table has no entry for the key", () => {
       const table = newTable();
       const answers = singleSpace(table, async () => ["a"]);
