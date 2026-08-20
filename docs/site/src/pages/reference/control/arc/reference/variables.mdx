@@ -134,7 +134,7 @@ Track how many times a condition has occurred.
 <Arc.Tabs client:load>
 
 <Fragment slot="flow">
-```arc
+```arc channels="value, threshold"
 stage {
     count $= 0
     // Triggered on new `value`
@@ -169,7 +169,7 @@ Sum values over time.
 <Arc.Tabs client:load>
 
 <Fragment slot="flow">
-```arc
+```arc channels="value"
 stage accumulate {
     total $= 0.0
     // Triggered on new `value`
@@ -200,12 +200,12 @@ Compare the current value to the previous one.
 <Arc.Tabs client:load>
 
 <Fragment slot="flow">
-```arc
+```arc channels="value, delta"
 sequence phase_delta {
     prev $= 0.0
     // Triggered on new `value`
     value - prev -> delta
-    value -> previous
+    value -> prev
 }
 ```
 </Fragment>
@@ -233,7 +233,7 @@ Track the highest value seen.
 <Arc.Tabs client:load>
 
 <Fragment slot="flow">
-```arc
+```arc channels="value"
 stage running_max {
     max $= 0.0
     // Triggered on new `value`
@@ -269,7 +269,7 @@ Maintain an on/off state.
 
 <Fragment slot="flow">
 
-```arc
+```arc channels="trigger"
 stage toggle {
     state $= false
 
@@ -278,7 +278,6 @@ stage toggle {
         true: true -> state,
         false: false -> state
     }
-
 }
 ```
 

@@ -39,7 +39,6 @@ stage pressurize {
     // Continuous flows (run every cycle)
     true -> press_vlv_cmd
     sensor -> controller{}
-
 }
 ```
 
@@ -98,16 +97,13 @@ All flow statements in a stage run concurrently:
 
 ```arc channels="sensor, ox_pt_1, fuel_pt_1, abort_btn, pressure", bodies="abort"
 stage pressurize {
-
     // ALL of these run simultaneously
-
     ox_pt_1 > 600 => abort   // monitor
     fuel_pt_1 > 400 => abort // monitor
     abort_btn => abort       // listen
     pressure > 500 => next   // advance
 
     sensor -> controller{target=500} // control loop
-
 }
 ```
 
@@ -118,7 +114,6 @@ listed wins:
 
 ```arc channels="ox_pt_1, fuel_pt_1, abort_btn, pressure", bodies="abort"
 stage pressurize {
-
     // Safety conditions first (higher priority)
     ox_pt_1 > 600 => abort   // 1st priority
     fuel_pt_1 > 400 => abort // 2nd priority
