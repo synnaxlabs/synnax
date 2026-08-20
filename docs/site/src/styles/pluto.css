@@ -36,6 +36,26 @@
     }
 }
 
+article .pluto-tabs__selector {
+    margin: 1rem 1rem 1rem;
+    --pluto-height-medium: 6.5rem;
+    --pluto-tabs-tab-height: 5.5rem;
+
+    .pluto-tabs__tab {
+        padding: 0 2.5rem;
+        gap: 1.5rem;
+
+        @media (max-width: 800px) {
+            padding: 0 1.5rem;
+            gap: 1rem;
+        }
+
+        :is(.pluto-text, .pluto-icon) {
+            margin: 0;
+        }
+    }
+}
+
 /* Tree component */
 .pluto-tree {
     max-height: calc(100vh - 15rem);
