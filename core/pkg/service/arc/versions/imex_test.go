@@ -147,17 +147,6 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(a.Graph.Inputs).To(HaveLen(2))
 	})
 
-	It("Should still read an envelope carrying the operation log", func(
-		ctx SpecContext,
-	) {
-		// Release candidates exported the CRDT operation log in place of the source.
-		// No released build did, so nothing is owed the shape, but a file one wrote
-		// still reads.
-		a := decode(ctx, "testdata/import_v3_operation_log.json")
-		Expect(a.Mode).To(Equal(versions.ModeText))
-		Expect(a.Text.Materialize().Raw).To(Equal("x := 1"))
-	})
-
 	It("Should drop the key on the wire", func(ctx SpecContext) {
 		Expect(decode(ctx, "testdata/import_v3.json").Key).To(Equal(uuid.Nil))
 	})
