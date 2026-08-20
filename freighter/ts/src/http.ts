@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { binary, errors, type url } from "@synnaxlabs/x";
+import { binary, errors, runtime, type url } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { Unreachable } from "@/errors";
@@ -96,6 +96,34 @@ const appendQueryParams = (
   return `${target}?${search.toString()}`;
 };
 
+/* * Reports whether this engine implements streaming request bodies. */
+const detectRequestStreams = (): boolean => {
+  let duplexRead = false;
+  try {
+    const request = new Request("http://request.streams.probe", {
+      method: "POST",
+      body: new ReadableStream(),
+      get duplex() {
+        duplexRead = true;
+        return "half";
+      },
+    } as RequestInit);
+    return duplexRead && !request.headers.has(CONTENT_TYPE_HEADER_KEY);
+  } catch {
+    return false;
+  }
+};
+
+// Browsers implement streaming request bodies but send them only over HTTP/2 or HTTP/3,
+// and the negotiated protocol is unknowable before the request goes out. Everywhere
+// else a stream rides HTTP/1.1 chunked, which is what the Core speaks.
+const STREAMS_REQUEST_BODIES = runtime.RUNTIME === "node" && detectRequestStreams();
+
+const toSendableBody = async (body: UploadBody): Promise<UploadBody> => {
+  if (STREAMS_REQUEST_BODIES || !(body instanceof ReadableStream)) return body;
+  return await new Response(body).blob();
+};
+
 /**
  * HTTPClientFactory provides a POST and GET implementation of the Unary protocol.
  * @param url - The base URL of the API.
@@ -176,7 +204,7 @@ export class HTTPClient
         // is not yet in the lib's RequestInit type.
         const init: RequestInit & { duplex: "half" } = {
           method: "POST",
-          body,
+          body: await toSendableBody(body),
           headers: {
             ...this.defaultHeaders,
             [CONTENT_TYPE_HEADER_KEY]: ENCODING_CONTENT_TYPES[options.encoding],

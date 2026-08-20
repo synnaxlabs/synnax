@@ -9,7 +9,7 @@
 
 import { log as clientLog } from "@synnaxlabs/client";
 import { box, color, TimeStamp } from "@synnaxlabs/x";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Log, logStateZ } from "@/log/aether/Log";
 import {
@@ -164,6 +164,50 @@ describe("log/aether/Log", () => {
       expect(log.scrollState.offset).toBe(entries.length);
       expect(log.scrollState.offsetRef).toBe(entries.length);
       expect(log.scrollState.scrollRef).toBe(100);
+    });
+
+    it("should not carry scrollback state into a later log", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      // A log mounted already paused runs the scrollback branch on its first update.
+      setup(entries, REGION_500, { scrolling: true, empty: false });
+      const { log } = setup(entries);
+      expect(log.scrollState).toEqual({
+        offset: 0,
+        offsetRef: 0,
+        scrollRef: 0,
+        awayFromEnd: false,
+      });
+    });
+
+    it("should stay paused while new entries arrive after a pause at the newest entry", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { log, source, updateState } = setup(entries);
+      updateState({ scrolling: false, empty: false });
+      updateState({ scrolling: true, empty: false });
+      source.push(...Array.from({ length: 20 }, (_, i) => makeEntry(100 + i)));
+      updateState({ scrolling: true, empty: false });
+      expect(log.state.scrolling).toBe(true);
+      expect(log.scrollState.offset).toBe(100);
+    });
+
+    it("should stay paused when the pause begins at the newest entry", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { log, updateState } = setup(entries);
+      updateState({ scrolling: false, empty: false });
+      updateState({ scrolling: true, empty: false });
+      updateState({ scrolling: true, empty: false });
+      expect(log.state.scrolling).toBe(true);
+    });
+
+    it("should resume once the viewport returns to the newest entry", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { log, updateState } = setup(entries);
+      updateState({ scrolling: false, empty: false });
+      updateState({ scrolling: true, empty: false, wheelPos: 0 });
+      updateState({ scrolling: true, empty: false, wheelPos: 300 });
+      expect(log.state.scrolling).toBe(true);
+      updateState({ scrolling: true, empty: false, wheelPos: 0 });
+      expect(log.state.scrolling).toBe(false);
     });
   });
 
@@ -936,28 +980,122 @@ describe("log/aether/Log", () => {
   });
 
   describe("render scrollbar", () => {
-    it("should render scrollbar when scrolling with many entries", () => {
+    const SCROLLBAR_WIDTH = 6;
+    // The log never sits at the top left of the window, and the thumb is positioned in
+    // canvas coordinates, so an offset region is the case that matters.
+    const REGION_OFFSET = box.construct({ x: 20, y: 200 }, { width: 400, height: 500 });
+
+    // The thumb is the only rounded rect drawn at the scrollbar width; selection bands
+    // are unrounded and span the full region.
+    const findThumb = (recorder: ReturnType<typeof canvasTest.record>) => {
+      const call = recorder.lower2d.calls.findLast(
+        ({ op, args }) => op === "roundRect" && args[2] === SCROLLBAR_WIDTH,
+      );
+      if (call == null) return null;
+      const [x, y, width, height] = call.args as number[];
+      return { x, y, width, height };
+    };
+
+    // Enters scrollback pinned to the bottom, then scrolls up by wheelPos.
+    const scrollTo = (
+      updateState: (o: Record<string, unknown>) => void,
+      wheelPos: number,
+    ): void => {
+      updateState({ scrolling: false, empty: false });
+      updateState({ scrolling: true, empty: false, wheelPos: 0 });
+      if (wheelPos !== 0) updateState({ scrolling: true, empty: false, wheelPos });
+    };
+
+    it("should not draw a thumb while the log is live", () => {
+      const entries = Array.from({ length: 500 }, (_, i) => makeEntry(i));
+      const { log, recorder } = setup(entries);
+      log.render();
+      expect(findThumb(recorder)).toBeNull();
+    });
+
+    it("should not draw a thumb when the log has no entries", () => {
+      const { log, recorder, updateState } = setup([]);
+      updateState({ scrolling: true, empty: true });
+      recorder.clear();
+      log.render();
+      expect(findThumb(recorder)).toBeNull();
+    });
+
+    it("should not draw a thumb when the content barely overflows", () => {
+      const { log, recorder, updateState } = setup(
+        Array.from({ length: 33 }, (_, i) => makeEntry(i)),
+      );
+      scrollTo(updateState, 0);
+      recorder.clear();
+      log.render();
+      // 33 lines at a 15px line height is 495px against a 500px region.
+      expect(log.totalHeight).toBeLessThan(box.height(REGION_500));
+      expect(findThumb(recorder)).toBeNull();
+    });
+
+    it("should size the thumb to the visible fraction of the content", () => {
       const entries = Array.from({ length: 200 }, (_, i) => makeEntry(i));
-      const { log, updateState } = setup(entries);
+      const { log, recorder, updateState } = setup(entries);
+      scrollTo(updateState, 0);
+      recorder.clear();
+      log.render();
+      const regHeight = box.height(REGION_500);
+      const thumb = findThumb(recorder);
+      assert(thumb != null);
+      expect(thumb.height).toBeCloseTo((regHeight / log.totalHeight) * regHeight);
+    });
 
-      updateState({
-        region: REGION_500,
-        wheelPos: 0,
-        scrolling: false,
-        empty: true,
-        visible: true,
-      });
+    it("should floor the thumb height when the content dwarfs the region", () => {
+      const entries = Array.from({ length: 5000 }, (_, i) => makeEntry(i));
+      const { log, recorder, updateState } = setup(entries);
+      scrollTo(updateState, 0);
+      recorder.clear();
+      log.render();
+      const regHeight = box.height(REGION_500);
+      expect((regHeight / log.totalHeight) * regHeight).toBeLessThan(32);
+      const thumb = findThumb(recorder);
+      assert(thumb != null);
+      expect(thumb.height).toBe(32);
+    });
 
-      updateState({
-        region: REGION_500,
-        wheelPos: 100,
-        scrolling: true,
-        empty: false,
-        visible: true,
-      });
+    it("should pin the thumb to the bottom of the region at the newest entry", () => {
+      const entries = Array.from({ length: 200 }, (_, i) => makeEntry(i));
+      const { log, recorder, updateState } = setup(entries, REGION_OFFSET);
+      scrollTo(updateState, 0);
+      recorder.clear();
+      log.render();
+      const thumb = findThumb(recorder);
+      assert(thumb != null);
+      expect(thumb.y + thumb.height).toBeCloseTo(box.bottom(REGION_OFFSET));
+      expect(thumb.x + thumb.width).toBeCloseTo(box.right(REGION_OFFSET));
+    });
 
-      const result = log.render();
-      expect(result).toBeTypeOf("function");
+    it("should pin the thumb to the top of the region at the oldest entry", () => {
+      const entries = Array.from({ length: 200 }, (_, i) => makeEntry(i));
+      const { log, recorder, updateState } = setup(entries, REGION_OFFSET);
+      scrollTo(updateState, 100_000);
+      recorder.clear();
+      log.render();
+      expect(log.scrollState.offset).toBe(log.visibleLineCount);
+      const thumb = findThumb(recorder);
+      assert(thumb != null);
+      expect(thumb.y).toBeCloseTo(box.top(REGION_OFFSET));
+    });
+
+    it("should keep the thumb inside the region while scrolling up", () => {
+      const entries = Array.from({ length: 200 }, (_, i) => makeEntry(i));
+      const { log, recorder, updateState } = setup(entries, REGION_OFFSET);
+      updateState({ scrolling: false, empty: false });
+      updateState({ scrolling: true, empty: false, wheelPos: 0 });
+      for (let wheelPos = 100; wheelPos <= 5000; wheelPos += 100) {
+        updateState({ scrolling: true, empty: false, wheelPos });
+        recorder.clear();
+        log.render();
+        const thumb = findThumb(recorder);
+        assert(thumb != null);
+        expect(thumb.y).toBeGreaterThanOrEqual(box.top(REGION_OFFSET));
+        expect(thumb.y + thumb.height).toBeLessThanOrEqual(box.bottom(REGION_OFFSET));
+      }
     });
   });
 

@@ -676,8 +676,7 @@ func analyzeOutputRoutingTable(
 	for _, entry := range ctx.AST.AllRoutingEntry() {
 		outputName := entry.RoutingKey().GetText()
 
-		outputType, exists := fnType.Type.Outputs.Get(outputName)
-		if !exists {
+		if _, exists := fnType.Type.Outputs.Get(outputName); !exists {
 			ctx.Diagnostics.Add(diagnostics.Errorf(
 				entry,
 				"func '%s' does not have output '%s'",
@@ -710,26 +709,88 @@ func analyzeOutputRoutingTable(
 			}
 		}
 
-		// First node's source is the select-output type; subsequent nodes
-		// chain from the previous node's output.
 		flowNodes := entry.AllFlowNode()
-		nodeSourceType := outputType.Type
+		if len(flowNodes) == 0 {
+			continue
+		}
+
+		// A routing key only gates its entry, so a bare target would never
+		// receive a value. The entry must define its own source. Output types
+		// stay unconstrained on purpose: a future syntax can still opt into
+		// passing the routed value along.
+		if len(flowNodes) == 1 && targetParamName == "" &&
+			!isInlineBody(flowNodes[0]) {
+			ctx.Diagnostics.Add(diagnostics.Errorf(
+				entry,
+				"routing entry '%s' must be a full statement (e.g. '%s: true => next')",
+				outputName,
+				outputName,
+			))
+			continue
+		}
+
+		// The first node is the head of the entry's flow statement: it is
+		// analyzed with no upstream and feeds the rest of the chain.
+		var nodeSourceType types.Type
 		for i, flowNode := range flowNodes {
 			isLastNode := i == len(flowNodes)-1
+			child := context.Child(ctx, flowNode)
+			if i == 0 {
+				analyzeNode(child, nil, false)
+				if isLastNode {
+					checkEntryHeadParamMapping(child, nextFuncType, targetParamName)
+				} else {
+					nodeSourceType = inferFlowNodeOutputType(child)
+				}
+				continue
+			}
 			var targetParam *string
 			if isLastNode && targetParamName != "" {
 				targetParam = &targetParamName
 			}
 			analyzeRoutingTargetWithParam(
-				context.Child(ctx, flowNode),
+				child,
 				nodeSourceType,
 				nextFuncType,
 				targetParam,
 			)
 			if !isLastNode {
-				nodeSourceType = inferFlowNodeOutputType(context.Child(ctx, flowNode))
+				nodeSourceType = inferFlowNodeOutputType(child)
 			}
 		}
+	}
+}
+
+// isInlineBody reports whether the flow node is an inline stage or sequence
+// declaration, which is a self-contained routing target.
+func isInlineBody(node parser.IFlowNodeContext) bool {
+	return node.StageDeclaration() != nil || node.SequenceDeclaration() != nil
+}
+
+// checkEntryHeadParamMapping type-checks a single-node routing entry's head
+// against the parameter it maps to on the func after the table.
+func checkEntryHeadParamMapping(
+	ctx context.Context[parser.IFlowNodeContext],
+	nextFuncType types.Type,
+	targetParamName string,
+) {
+	if targetParamName == "" {
+		return
+	}
+	param, exists := nextFuncType.Inputs.Get(targetParamName)
+	if !exists {
+		return
+	}
+	headType := inferFlowNodeOutputType(ctx)
+	if err := atypes.Check(ctx.Constraints, headType, param.Type, ctx.AST,
+		"routing table parameter mapping"); err != nil {
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.AST,
+			"type mismatch: output type %s does not match target parameter %s type %s",
+			headType,
+			targetParamName,
+			param.Type,
+		))
 	}
 }
 
