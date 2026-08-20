@@ -21,6 +21,7 @@ import { INDICATOR_SIZE } from "@/table/Indicator";
 import { telemTest } from "@/telem/aether/test";
 import { mockBoundingClientRect } from "@/testutil/dom";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { Triggers } from "@/triggers";
 import { canvasTest } from "@/vis/render/test";
 import { Value } from "@/vis/value";
 import { value } from "@/vis/value/aether";
@@ -275,6 +276,88 @@ describe("Table", () => {
       await expectDrawnAt(ORIGIN);
       scrollTo(scroller, { x: 10, y: 20 });
       await expectDrawnAt({ x: ORIGIN.x - 10, y: ORIGIN.y - 20 });
+    });
+  });
+
+  describe("undo and redo triggers", () => {
+    // The shortcut used to be filtered by the table's own region, so it only fired
+    // while the pointer happened to sit over the table. Undo is a tab-wide action;
+    // the pointer is parked far outside the table here to hold that line.
+    const pressUndo = (): void => {
+      fireEvent.mouseMove(window, { clientX: 5000, clientY: 5000 });
+      fireEvent.keyDown(window, { key: "Control", code: "ControlLeft" });
+      fireEvent.keyDown(window, { code: "KeyZ" });
+      fireEvent.keyUp(window, { code: "KeyZ" });
+      fireEvent.keyUp(window, { key: "Control", code: "ControlLeft" });
+    };
+
+    const createTextTable = async (): Promise<table.Key> => {
+      const project = await client.projects.create({ name: "undo", layout: {} });
+      const created = await client.tables.create(project.key, {
+        name: "undo_table",
+        rows: [{ size: ROW_SIZE, cells: ["a"] }],
+        columns: [{ size: COL_SIZE }],
+        cells: { a: { key: "a", variant: "text", props: { value: "before" } } },
+      });
+      await loadTable(wrapper, created.key);
+      return created.key;
+    };
+
+    it("should undo an edit while the pointer sits outside the table", async () => {
+      const textKey = await createTextTable();
+      // Without a Triggers.Provider the context's listen is a no-op, so every
+      // shortcut assertion below would pass no matter what the table binds.
+      const c = render(
+        <Triggers.Provider>
+          <Table.Suspended tableKey={textKey}>
+            <Table.Table editable visible />
+          </Table.Suspended>
+        </Triggers.Provider>,
+        { wrapper },
+      );
+      const { result } = renderHook(() => Table.useDispatch(), { wrapper });
+      await waitFor(() => expect(c.getByText("before")).toBeTruthy());
+      await act(async () => {
+        await result.current.dispatchAsync({
+          key: textKey,
+          actions: [
+            table.setCell({
+              cell: { key: "a", variant: "text", props: { value: "after" } },
+            }),
+          ],
+        });
+      });
+      await waitFor(() => expect(c.getByText("after")).toBeTruthy());
+      act(pressUndo);
+      await waitFor(() => expect(c.getByText("before")).toBeTruthy());
+    });
+
+    it("should withhold undo from a table that is not editable", async () => {
+      const textKey = await createTextTable();
+      const c = render(
+        <Triggers.Provider>
+          <Table.Suspended tableKey={textKey}>
+            <Table.Table visible />
+          </Table.Suspended>
+        </Triggers.Provider>,
+        { wrapper },
+      );
+      const { result } = renderHook(() => Table.useDispatch(), { wrapper });
+      await waitFor(() => expect(c.getByText("before")).toBeTruthy());
+      await act(async () => {
+        await result.current.dispatchAsync({
+          key: textKey,
+          actions: [
+            table.setCell({
+              cell: { key: "a", variant: "text", props: { value: "after" } },
+            }),
+          ],
+        });
+      });
+      await waitFor(() => expect(c.getByText("after")).toBeTruthy());
+      act(pressUndo);
+      await act(async () => {});
+      expect(c.getByText("after")).toBeTruthy();
     });
   });
 

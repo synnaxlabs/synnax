@@ -95,13 +95,17 @@ const RangeAnnotationContextMenu = ({
 interface ContextMenuContentProps {
   csvLines: DownloadLine[];
   linePlotRef: RefObject<Base.FrameRef | null>;
+  editable: boolean;
 }
 
 const ContextMenuContent = ({
   csvLines,
   linePlotRef,
+  editable,
 }: ContextMenuContentProps): ReactElement => {
   const name = Base.useName({});
+  const { undo, canUndo } = Base.useUndo({});
+  const { redo, canRedo } = Base.useRedo({});
   const { box: selection } = Session.LinePlot.useSelectSelection();
   const openCreateRange = Range.useCreateModal();
   const handleError = Status.useErrorHandler();
@@ -126,6 +130,17 @@ const ContextMenuContent = ({
     }, "Failed to download region as CSV");
   return (
     <ContextMenu.Menu>
+      {editable && (
+        <>
+          <Menu.UndoRedoItems
+            undo={undo}
+            redo={redo}
+            canUndo={canUndo}
+            canRedo={canRedo}
+          />
+          <Menu.Divider />
+        </>
+      )}
       {!box.areaIsZero(selection) && (
         <>
           <Menu.CopyItem
@@ -277,8 +292,14 @@ const Internal = (): ReactElement => {
   );
 
   const menuRenderProp = useCallback(
-    () => <ContextMenuContent csvLines={csvLines} linePlotRef={linePlotRef} />,
-    [csvLines],
+    () => (
+      <ContextMenuContent
+        csvLines={csvLines}
+        linePlotRef={linePlotRef}
+        editable={hasUpdatePermission}
+      />
+    ),
+    [csvLines, hasUpdatePermission],
   );
 
   return (

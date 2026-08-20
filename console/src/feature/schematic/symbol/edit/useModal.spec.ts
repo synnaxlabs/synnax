@@ -22,7 +22,11 @@ import {
   getPreviewTransformWrapper,
   SYMBOL_FILE_DROP_PROMPT,
 } from "@/feature/schematic/testutil";
-import { findButton, renderModalOpener } from "@/platform/modals/testutil";
+import {
+  findButton,
+  pressSaveTrigger,
+  renderModalOpener,
+} from "@/platform/modals/testutil";
 import {
   fakePickedFile,
   findDialogTrigger,
@@ -39,6 +43,17 @@ afterEach(() => {
 // normalizeSVG's computed-style pass requires; a shapeless SVG exercises the same
 // production load path without touching that jsdom hole.
 const SHAPELESS_SVG = '<svg viewBox="0 0 100 100"><g id="grp"></g></svg>';
+
+// The triggers provider identifies a key by KeyboardEvent.code and treats a modifier
+// as a held key rather than an event flag. Control stays down for the whole sequence:
+// releasing and re-pressing it inside the provider's double-press window would register
+// as a double tap and stop matching the plain Control shortcut.
+const CONTROL = { key: "Control", code: "ControlLeft" };
+
+const pressKey = (code: string): void => {
+  fireEvent.keyDown(window, { code });
+  fireEvent.keyUp(window, { code });
+};
 
 const createParentGroup = async (): Promise<group.Group> => {
   const root = await client.schematics.symbols.retrieveGroup();
@@ -102,6 +117,19 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
     });
 
+    it("creates the symbol on the shortcut its footer advertises", async () => {
+      const { grp, picker } = await openCreateModal();
+      await loadSVG(picker);
+      const name = uniqueName("triggered_symbol");
+      fireEvent.change(findNameInput(), { target: { value: name } });
+      // The footer has always advertised the shortcut, but nothing bound it, so the
+      // keys did nothing and the symbol was never written.
+      pressSaveTrigger();
+      await waitFor(async () =>
+        expect(await childNames(group.ontologyID(grp.key))).toContain(name),
+      );
+    });
+
     it("persists the symbol under a forced key when createKey is provided", async () => {
       const createKey = uuid.create();
       const { picker } = await openCreateModal(createKey);
@@ -135,12 +163,14 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       const { picker } = await openCreateModal();
       await loadSVG(picker);
       await screen.findByText("100%");
-      fireEvent.keyDown(window, { key: "=", ctrlKey: true });
+      fireEvent.keyDown(window, CONTROL);
+      pressKey("Equal");
       expect(await screen.findByText("120%")).toBeDefined();
-      fireEvent.keyDown(window, { key: "0", ctrlKey: true });
+      pressKey("Digit0");
       expect(await screen.findByText("100%")).toBeDefined();
-      fireEvent.keyDown(window, { key: "-", ctrlKey: true });
+      pressKey("Minus");
       expect(await screen.findByText("83%")).toBeDefined();
+      fireEvent.keyUp(window, CONTROL);
     });
 
     it("pans the preview while shift-dragging", async () => {

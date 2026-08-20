@@ -11,7 +11,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { findButton, openModal } from "@/platform/modals/testutil";
+import { findButton, openModal, pressSaveTrigger } from "@/platform/modals/testutil";
 import { User } from "@/platform/user";
 import { uniqueName } from "@/testutil";
 
@@ -38,5 +38,25 @@ describe("User.useAssignRoleModal", () => {
     await waitFor(() =>
       expect(findButton("Assign").className).not.toContain("pluto--disabled"),
     );
+  });
+
+  it("should submit on the shortcut its footer advertises", async () => {
+    const client = createTestClient();
+    const subject = await client.users.create({
+      username: uniqueName("user"),
+      password: "password123",
+    });
+    await openModal(User.useAssignRoleModal, {
+      client,
+      params: { userKey: subject.key },
+    });
+    await waitFor(() =>
+      expect(findButton("Assign").className).not.toContain("pluto--disabled"),
+    );
+    // The footer advertises the shortcut, so it has to reach the same submit path the
+    // button does. Submitting with no role selected fails validation, and that error
+    // is the proof the keys got there rather than falling on the floor.
+    pressSaveTrigger();
+    expect(await screen.findByText("Invalid UUID")).toBeTruthy();
   });
 });

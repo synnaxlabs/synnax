@@ -31,7 +31,7 @@ import { AddCountControl } from "@/table/AddCountControl";
 import { table as aetherTable } from "@/table/aether";
 import { Cell } from "@/table/cells";
 import { useClipboard } from "@/table/clipboard";
-import { DefaultContextMenu } from "@/table/ContextMenu";
+import { DefaultContextMenu, ERASE_TRIGGER } from "@/table/ContextMenu";
 import { ColumnIndicators, INDICATOR_SIZE } from "@/table/Indicator";
 import {
   cellsInRegion,
@@ -52,19 +52,7 @@ import { Canvas } from "@/vis/canvas";
 
 export { getCellColumn } from "@/table/Indicator";
 
-type TriggerMode = "clear" | "undo" | "redo" | "default";
-
-const TRIGGERS_CONFIG: Triggers.ModeConfig<TriggerMode> = {
-  defaultMode: "default",
-  modes: {
-    clear: [["Delete"], ["Backspace"]],
-    undo: [Triggers.UNDO],
-    redo: [Triggers.REDO],
-    default: [],
-  },
-};
-
-const FLATTENED_TRIGGERS_CONFIG = Triggers.flattenConfig(TRIGGERS_CONFIG);
+const ERASE_TRIGGERS: Triggers.Trigger[] = [ERASE_TRIGGER, ["Backspace"]];
 
 const NAV_KEYS = new Set<Triggers.Key>([
   "Tab",
@@ -298,21 +286,26 @@ export const Table = ({
   const rowsRef = useSyncedRef(rows);
   const tableElRef = useRef<HTMLTableElement>(null);
 
+  // Erase stays bound to the table's own region so Delete pressed elsewhere in the tab
+  // cannot wipe cells. Undo and redo are tab-wide, matching the other visualizations.
   Triggers.use({
-    triggers: FLATTENED_TRIGGERS_CONFIG,
+    triggers: ERASE_TRIGGERS,
     region: tableElRef,
     enabled: enableTriggers,
     callback: useCallback(
-      ({ triggers, stage }: Triggers.UseEvent) => {
-        if (stage !== "start" || !editable) return;
-        const mode = Triggers.determineMode(TRIGGERS_CONFIG, triggers);
-        if (mode === "clear") {
-          if (selected.length === 0) return;
-          eraseSelected(selected);
-        } else if (mode === "undo") undo();
-        else if (mode === "redo") redo();
+      ({ stage }: Triggers.UseEvent) => {
+        if (stage !== "start" || !editable || selected.length === 0) return;
+        eraseSelected(selected);
       },
-      [editable, selected, eraseSelected, undo, redo],
+      [editable, selected, eraseSelected],
+    ),
+  });
+  Triggers.useUndoRedo({
+    undo,
+    redo,
+    enabled: useCallback(
+      () => editable && Triggers.resolveCondition(enableTriggers),
+      [editable, enableTriggers],
     ),
   });
 

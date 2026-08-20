@@ -9,7 +9,7 @@
 
 import "@/platform/modals/Header.css";
 
-import { Breadcrumb, Button, Dialog, Icon, Nav } from "@synnaxlabs/pluto";
+import { Breadcrumb, Button, Dialog, Icon, Nav, Triggers } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
@@ -65,6 +65,7 @@ export const Header = ({
             size="small"
             variant="text"
             textColor={9}
+            tooltip={<Triggers.Text trigger={Triggers.ESCAPE} level="small" />}
           >
             <Icon.Close />
           </Button.Button>

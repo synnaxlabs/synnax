@@ -121,6 +121,7 @@ const LabelListItem = ({
             size="small"
             onClick={() => save()}
             trigger={visible ? ["Enter"] : undefined}
+            triggerIndicator
           >
             <Icon.Check />
           </Button.Button>

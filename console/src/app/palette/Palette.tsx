@@ -15,7 +15,6 @@ import {
   Flex,
   Icon,
   Text,
-  Tooltip,
   Triggers,
   useCombinedStateAndRef,
 } from "@synnaxlabs/pluto";
@@ -81,37 +80,39 @@ export const Palette = (): ReactElement => {
   const List = value.startsWith(FeatureCommand.PREFIX) ? Command.List : Search.List;
 
   return (
-    <Tooltip.Dialog location="right" hide={visible}>
-      <TooltipContent />
-      <Dialog.Frame
-        visible={visible}
-        onVisibleChange={setVisible}
-        className={CSS.B("palette")}
-        location="bottom"
-        variant="modal"
-        bordered={false}
+    <Dialog.Frame
+      visible={visible}
+      onVisibleChange={setVisible}
+      className={CSS.B("palette")}
+      location="bottom"
+      variant="modal"
+      bordered={false}
+    >
+      <Button.Button
+        onClick={() => setVisible(true)}
+        className={CSS.cls(CSS.BE("palette", "btn"))}
+        variant="outlined"
+        align="center"
+        justify="center"
+        textColor={9}
+        gap="small"
+        full="x"
+        // Dialog.Frame drops the ref and swallows onPointerEnter, so the tooltip
+        // belongs on the button rather than around the frame.
+        tooltip={<TooltipContent />}
+        tooltipLocation="right"
+        hideTooltip={visible}
       >
-        <Button.Button
-          onClick={() => setVisible(true)}
-          className={CSS.cls(CSS.BE("palette", "btn"))}
-          variant="outlined"
-          align="center"
-          justify="center"
-          textColor={9}
-          gap="small"
-          full="x"
-        >
-          <Icon.Search />
-        </Button.Button>
-        <Dialog.Dialog
-          className={CSS.BE("palette", "content")}
-          bordered={false}
-          pack
-          rounded="small"
-        >
-          <List value={value} inputPlaceholder={inputPlaceholder} onChange={setValue} />
-        </Dialog.Dialog>
-      </Dialog.Frame>
-    </Tooltip.Dialog>
+        <Icon.Search />
+      </Button.Button>
+      <Dialog.Dialog
+        className={CSS.BE("palette", "content")}
+        bordered={false}
+        pack
+        rounded="small"
+      >
+        <List value={value} inputPlaceholder={inputPlaceholder} onChange={setValue} />
+      </Dialog.Dialog>
+    </Dialog.Frame>
   );
 };

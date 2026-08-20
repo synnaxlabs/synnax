@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 
 import { HTTP } from "@/feature/http";
 import { createHTTPDevice } from "@/feature/http/testutil";
-import { renderModalOpener } from "@/platform/modals/testutil";
+import { pressSaveTrigger, renderModalOpener } from "@/platform/modals/testutil";
 import { getSwitchInput } from "@/testutil";
 
 const client = createTestClient();
@@ -92,5 +92,15 @@ describe("useConnectModal", () => {
     await waitFor(() => expect(getSwitchInput("Expected value")).toBeTruthy());
     fireEvent.click(getSwitchInput("Validate response body"));
     await waitFor(() => expect(screen.queryByPlaceholderText("/status")).toBeNull());
+  });
+
+  // The footer has always advertised Ctrl+Enter, but nothing bound it, so the keys
+  // did nothing. Submitting with no rack chosen fails validation, and that error is
+  // the proof the shortcut reached the same save path the Connect button uses.
+  it("should submit on the shortcut its footer advertises", async () => {
+    await renderModalOpener(HTTP.Device.useConnectModal, [{}], { client });
+    await screen.findByRole("dialog");
+    pressSaveTrigger();
+    expect(await screen.findByText(/rack is required/i)).toBeTruthy();
   });
 });

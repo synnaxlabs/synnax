@@ -13,8 +13,12 @@ import { type ReactElement } from "react";
 
 import { Button } from "@/button";
 import { Icon } from "@/icon";
+import { Triggers } from "@/triggers";
+import { Viewport as BaseViewport } from "@/viewport";
 import { diagram } from "@/vis/diagram/aether";
 import { useContext } from "@/vis/diagram/Context";
+
+const FIT_VIEW_TRIGGER = BaseViewport.ZOOM_DEFAULT_TRIGGERS.modes.zoomReset[0];
 
 export interface FitViewProps extends Omit<
   Button.ToggleProps,
@@ -30,7 +34,11 @@ export const FitView = ({ onClick, ...rest }: FitViewProps): ReactElement => {
         void fitView(diagram.FIT_VIEW_OPTIONS);
         onClick?.(e);
       }}
-      tooltip="Fit view to contents"
+      tooltip={
+        <Triggers.Text trigger={FIT_VIEW_TRIGGER} level="small">
+          Fit view to contents
+        </Triggers.Text>
+      }
       tooltipLocation={location.BOTTOM_LEFT}
       size="small"
       {...rest}

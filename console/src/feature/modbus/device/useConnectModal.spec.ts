@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 
 import { Modbus } from "@/feature/modbus";
 import { createModbusDevice } from "@/feature/modbus/testutil";
-import { renderModalOpener } from "@/platform/modals/testutil";
+import { pressSaveTrigger, renderModalOpener } from "@/platform/modals/testutil";
 
 const client = createTestClient();
 
@@ -35,5 +35,15 @@ describe("Modbus.Device.useConnectModal", () => {
     await screen.findByDisplayValue(dev.name);
     expect(screen.getByDisplayValue("modbus-existing.local")).toBeTruthy();
     expect(screen.getByDisplayValue("1502")).toBeTruthy();
+  });
+
+  // The footer has always advertised Ctrl+Enter, but nothing bound it, so the keys
+  // did nothing. Submitting with no rack chosen fails validation, and that error is
+  // the proof the shortcut reached the same save path the Connect button uses.
+  it("should submit on the shortcut its footer advertises", async () => {
+    await renderModalOpener(Modbus.Device.useConnectModal, [{}], { client });
+    await screen.findByRole("dialog");
+    pressSaveTrigger();
+    expect(await screen.findByText(/rack is required/i)).toBeTruthy();
   });
 });

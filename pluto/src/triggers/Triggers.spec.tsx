@@ -1390,4 +1390,37 @@ describe("Triggers", () => {
       });
     });
   });
+
+  describe("Text", () => {
+    it("should print a word key the way the physical key prints it", () => {
+      const c = render(<Triggers.Text trigger={["Escape"]} />);
+      // The bare enum name ("Escape") leaking through is the regression: the cap has
+      // to read like the key, and it is a square that a full word overflows.
+      expect(c.getByText(/^esc$/i)).toBeTruthy();
+      expect(c.queryByText("Escape")).toBeNull();
+    });
+
+    it("should print the delete key as its own label", () => {
+      const c = render(<Triggers.Text trigger={["Delete"]} />);
+      expect(c.getByText(/^delete$/i)).toBeTruthy();
+    });
+
+    it("should print punctuation keys as the symbol on the key", () => {
+      const c = render(<Triggers.Text trigger={["Control", "Equal"]} />);
+      expect(c.getByText("=")).toBeTruthy();
+      expect(c.queryByText("Equal")).toBeNull();
+    });
+
+    it("should print the minus key as its symbol", () => {
+      const c = render(<Triggers.Text trigger={["Control", "Minus"]} />);
+      expect(c.getByText("-")).toBeTruthy();
+      expect(c.queryByText("Minus")).toBeNull();
+    });
+
+    it("should render a label passed as children beside the keycaps", () => {
+      const c = render(<Triggers.Text trigger={["Escape"]}>Close</Triggers.Text>);
+      expect(c.getByText("Close")).toBeTruthy();
+      expect(c.getByText(/^esc$/i)).toBeTruthy();
+    });
+  });
 });

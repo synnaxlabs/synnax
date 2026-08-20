@@ -22,6 +22,7 @@ import {
   findButton,
   getSwitch,
   type ModalOpenerHandle,
+  pressSaveTrigger,
   renderModalOpener,
 } from "@/platform/modals/testutil";
 
@@ -100,6 +101,27 @@ describe("DeleteModal", () => {
 
       await act(async () => {
         fireEvent.click(findButton("Delete"));
+      });
+      await waitFor(() =>
+        expect(
+          screen.queryByText("Are you sure you want to delete this data?"),
+        ).toBeNull(),
+      );
+      await waitFor(async () => {
+        const after = await client.read(TimeRange.MAX, data.key);
+        expect(after.length).toEqual(0);
+      });
+    });
+
+    it("should delete on the shortcut the confirm step advertises", async () => {
+      const { data } = await createWrittenPair();
+      await openModal(client);
+      await selectChannel(data.name);
+      await goToConfirmStep();
+      // The first step has always bound the shortcut; the confirm step did not, so
+      // the keyboard flow dead-ended on the last, destructive press.
+      await act(async () => {
+        pressSaveTrigger();
       });
       await waitFor(() =>
         expect(

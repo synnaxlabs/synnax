@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { panel, query } from "@synnaxlabs/client";
-import { Access, Icon, Menu, Panel, Synnax } from "@synnaxlabs/pluto";
+import { Access, Icon, Menu, Panel, Synnax, Triggers } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
 import { useMovePicker } from "@/feature/panel/MovePicker";
@@ -49,7 +49,7 @@ const FocusItem = (): ReactElement => {
     <Menu.Item
       itemKey="focus"
       onClick={handleFocus}
-      triggerIndicator={Panel.OVERLAY_TRIGGER}
+      triggerIndicator={isOverlaid ? Triggers.ESCAPE : Panel.OVERLAY_TRIGGER}
     >
       {isOverlaid ? <Icon.Collapse /> : <Icon.Focus />}
       {isOverlaid ? "Exit focus" : "Focus"}

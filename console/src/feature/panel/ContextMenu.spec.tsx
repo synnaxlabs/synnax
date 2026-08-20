@@ -180,6 +180,29 @@ describe("Panel.TabMenuItems", () => {
     });
   });
 
+  describe("focus hints", () => {
+    const hintOf = (label: string): string => {
+      const item = screen.getByText(label).closest("button");
+      const hint = item?.querySelector('[aria-label="trigger-indicator"]');
+      return hint?.textContent?.toLowerCase() ?? "";
+    };
+
+    it("names the key that performs the action the entry offers", async () => {
+      const front = resourceTab();
+      const { wrapper } = await setup([front], front.key);
+      renderMenu(wrapper, [front.key]);
+      await waitFor(() => expect(screen.getByText("Focus")).toBeTruthy());
+      // Control+L only enters focus mode, so the entry that leaves it has to name
+      // Escape instead. Advertising Control+L there would be a lie.
+      expect(hintOf("Focus")).toContain("l");
+      await act(async () => {
+        fireEvent.click(screen.getByText("Focus"));
+      });
+      await waitFor(() => expect(screen.getByText("Exit focus")).toBeTruthy());
+      expect(hintOf("Exit focus")).toContain("esc");
+    });
+  });
+
   describe("no tab", () => {
     it("offers only a console reload when the menu resolved no tab", async () => {
       const tab = resourceTab();

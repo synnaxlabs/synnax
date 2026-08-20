@@ -10,7 +10,16 @@
 import "@/feature/schematic/symbol/edit/Edit.css";
 
 import { type schematic } from "@synnaxlabs/client";
-import { Button, Flex, Form, Icon, Schematic, Text, Theming } from "@synnaxlabs/pluto";
+import {
+  Button,
+  Flex,
+  Form,
+  Icon,
+  Schematic,
+  Text,
+  Theming,
+  Triggers,
+} from "@synnaxlabs/pluto";
 import { box, id, type xy } from "@synnaxlabs/x";
 import {
   type ReactElement,
@@ -24,6 +33,18 @@ import {
 import { FileDrop } from "@/feature/schematic/symbol/edit/FileDrop";
 import { HandleOverlay } from "@/feature/schematic/symbol/edit/Handles";
 import { CSS } from "@/platform/css";
+
+const ZOOM_TRIGGERS: Triggers.ModeConfig<"in" | "out" | "reset" | "default"> = {
+  defaultMode: "default",
+  modes: {
+    in: [["Control", "Equal"]],
+    out: [["Control", "Minus"]],
+    reset: [["Control", "0"]],
+    default: [],
+  },
+};
+
+const FLATTENED_ZOOM_TRIGGERS = Triggers.flattenConfig(ZOOM_TRIGGERS);
 
 interface PreviewProps {
   selectedState: string;
@@ -89,25 +110,20 @@ export const Preview = ({
 
   const handleMouseUp = () => setIsDragging(false);
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (!spec.svg) return;
-
-      if ((e.ctrlKey || e.metaKey) && e.key === "0") {
-        e.preventDefault();
-        handleResetZoom();
-      } else if ((e.ctrlKey || e.metaKey) && e.key === "=") {
-        e.preventDefault();
-        handleZoomIn();
-      } else if ((e.ctrlKey || e.metaKey) && e.key === "-") {
-        e.preventDefault();
-        handleZoomOut();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [spec.svg]);
+  Triggers.use({
+    triggers: FLATTENED_ZOOM_TRIGGERS,
+    enabled: Boolean(spec.svg),
+    callback: useCallback(
+      ({ triggers, stage }: Triggers.UseEvent) => {
+        if (stage !== "start") return;
+        const mode = Triggers.determineMode(ZOOM_TRIGGERS, triggers);
+        if (mode === "in") handleZoomIn();
+        else if (mode === "out") handleZoomOut();
+        else if (mode === "reset") handleResetZoom();
+      },
+      [handleZoomIn, handleZoomOut, handleResetZoom],
+    ),
+  });
 
   const onMount = (svgElement: SVGSVGElement) => {
     svgElementRef.current = svgElement;
@@ -254,16 +270,36 @@ export const Preview = ({
                 {isDarkMode ? <Icon.DarkMode /> : <Icon.LightMode />}
               </Button.Button>
               <Flex.Box pack x>
-                <Button.Button onClick={handleZoomOut} size="small" tooltip="Zoom out">
+                <Button.Button
+                  onClick={handleZoomOut}
+                  size="small"
+                  tooltip={
+                    <Triggers.Text trigger={ZOOM_TRIGGERS.modes.out[0]} level="small">
+                      Zoom out
+                    </Triggers.Text>
+                  }
+                >
                   <Icon.Subtract />
                 </Button.Button>
-                <Button.Button onClick={handleZoomIn} size="small" tooltip="Zoom in">
+                <Button.Button
+                  onClick={handleZoomIn}
+                  size="small"
+                  tooltip={
+                    <Triggers.Text trigger={ZOOM_TRIGGERS.modes.in[0]} level="small">
+                      Zoom in
+                    </Triggers.Text>
+                  }
+                >
                   <Icon.Add />
                 </Button.Button>
                 <Button.Button
                   onClick={handleResetZoom}
                   size="small"
-                  tooltip="Reset zoom"
+                  tooltip={
+                    <Triggers.Text trigger={ZOOM_TRIGGERS.modes.reset[0]} level="small">
+                      Reset zoom
+                    </Triggers.Text>
+                  }
                 >
                   <Icon.Expand />
                 </Button.Button>

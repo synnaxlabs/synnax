@@ -15,7 +15,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Errors } from "@/errors";
 import { Table } from "@/table";
-import { DefaultContextMenu, type DefaultContextMenuProps } from "@/table/ContextMenu";
+import {
+  DefaultContextMenu,
+  type DefaultContextMenuProps,
+  ERASE_TRIGGER,
+} from "@/table/ContextMenu";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -76,6 +80,31 @@ describe("table DefaultContextMenu", () => {
       />,
       { wrapper },
     );
+
+  it("offers undo and redo to an editor", async () => {
+    renderMenu({ editable: true });
+    expect(await screen.findByText("Undo")).toBeDefined();
+    expect(screen.getByText("Redo")).toBeDefined();
+  });
+
+  it("withholds undo and redo from a read-only table", async () => {
+    renderMenu({ editable: false, onCenteredChange: vi.fn() });
+    // Positive control first: the menu really rendered, so the absence below is
+    // the read-only gate rather than an empty menu.
+    expect(await screen.findByText("Center table")).toBeDefined();
+    expect(screen.queryByText("Undo")).toBeNull();
+    expect(screen.queryByText("Redo")).toBeNull();
+  });
+
+  it("advertises the erase shortcut the table binds", async () => {
+    renderMenu({ editable: true, selected: ["a"] });
+    const item = (await screen.findByText("Erase cell")).closest("button");
+    const hint = item?.querySelector('[aria-label="trigger-indicator"]');
+    // The item never binds the key itself, so a hint that drifted from the trigger
+    // Table registers would advertise a key that does nothing. Keycaps follow the
+    // host platform's casing, so the comparison ignores it.
+    expect(hint?.textContent?.toLowerCase()).toContain(ERASE_TRIGGER[0].toLowerCase());
+  });
 
   it("omits the centering item when onCenteredChange is not provided", () => {
     renderMenu();

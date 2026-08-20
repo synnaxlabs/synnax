@@ -116,6 +116,9 @@ interface NodeProps
   emptyContent?: ReactNode;
 }
 
+/** Creates a new tab. Bound by the embedding app; shown on the create button. */
+export const CREATE_TAB_TRIGGER: Triggers.Trigger = ["Control", "T"];
+
 const Leaf = memo(
   ({
     nodeKey,
@@ -157,6 +160,7 @@ const Leaf = memo(
                   size="small"
                   onClick={handleAdd}
                   className={CSS.BE("panel-mosaic", "create")}
+                  tooltip={<Triggers.Text trigger={CREATE_TAB_TRIGGER} level="small" />}
                 >
                   <Icon.Add color={9} />
                 </Button.Button>
@@ -199,8 +203,8 @@ const Node = memo(({ nodeKey, ...rest }: NodeProps): ReactElement => {
 });
 Node.displayName = "Panel.Mosaic.Node";
 
-/** Toggles a tab's overlaid (focused) state. Bound by the embedding app;
- * shown on the overlaid leaf's exit affordances. */
+/** Enters a tab's overlaid (focused) state. Escape is the way out, so the exit
+ * affordances hint that instead. Bound by the embedding app. */
 export const OVERLAY_TRIGGER: Triggers.Trigger = ["Control", "L"];
 
 interface OverlaidLeafProps extends Pick<TabProps, "tabName" | "onClose" | "canEdit"> {
@@ -224,11 +228,7 @@ const OverlaidLeaf = ({
         size="small"
         onClick={onStopOverlay}
         className={CSS.BE("panel-mosaic", "overlaid-exit")}
-        tooltip={
-          <Triggers.Text trigger={OVERLAY_TRIGGER} level="small">
-            Exit focus
-          </Triggers.Text>
-        }
+        tooltip={<Triggers.Text trigger={Triggers.ESCAPE} level="small" />}
       >
         <Icon.Collapse />
         Exit focus

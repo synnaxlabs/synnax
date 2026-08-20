@@ -83,6 +83,8 @@ export const KEYS = [
   "CapsLock",
   "Escape",
   "Space",
+  "Equal",
+  "Minus",
   "PageUp",
   "PageDown",
   "End",
