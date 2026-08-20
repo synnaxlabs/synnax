@@ -47,6 +47,11 @@ These come from user review and are not open for reinterpretation.
   list order is nondeterministic.
 - **Rows measured by text.** Clicks on flex-grown rows pass `{ text: true }`,
   or the cursor lands on the row box instead of the glyphs.
+- **Never touch what the rig injects, and leave no scaffolding.** The rig hides
+  the notification feed and pins the caret through one injected stylesheet.
+  Rewriting it from a script unhides environment noise (the Core reports clock
+  skew and an unknown embedded driver status on every capture). Inspect the DOM
+  in a throwaway file you delete, never in the shot.
 
 ## Traps
 
