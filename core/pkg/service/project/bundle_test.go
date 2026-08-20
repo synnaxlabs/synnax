@@ -16,6 +16,8 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	text "github.com/synnaxlabs/arc/text/versions/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
@@ -92,6 +94,16 @@ func createTask(ctx SpecContext, name string) task.Task {
 		Expect(taskSvc.NewWriter(nil).Delete(ctx, t.Key, false)).To(Succeed())
 	})
 	return t
+}
+
+func createArc(ctx SpecContext, name, source string) arc.Arc {
+	GinkgoHelper()
+	a := arc.Arc{Name: name, Mode: arc.ModeText, Text: text.Text{Raw: source}}
+	Expect(arcSvc.NewWriter(nil).Create(ctx, &a)).To(Succeed())
+	DeferCleanup(func(ctx SpecContext) {
+		Expect(arcSvc.NewWriter(nil).Delete(ctx, a.Key)).To(Succeed())
+	})
+	return a
 }
 
 func createPanel(
@@ -241,6 +253,27 @@ var _ = Describe("Export", func() {
 			HaveKeyWithValue("resource", "Sequence.json"),
 		))
 		Expect(members).To(ConsistOf(t.OntologyID(), p.OntologyID()))
+	})
+
+	It("Should export the Arcs a panel's tabs reference beside it", func(
+		ctx SpecContext,
+	) {
+		proj := createProject(ctx, "Panel Arcs")
+		a := createArc(ctx, "Startup", "x := 1")
+		p := createPanel(
+			ctx, "Controls", proj.OntologyID(), leaf(resourceTab(a.OntologyID())),
+		)
+		files, members := MustSucceed2(svc.Export(ctx, proj.Key, xjson.Codec))
+		Expect(files).To(HaveKey("Startup.json"))
+		Expect(decode(files["Startup.json"])).To(SatisfyAll(
+			HaveKeyWithValue("type", "arc"),
+			HaveKeyWithValue("text", map[string]any{"raw": "x := 1"}),
+		))
+		root := decode(files["Controls.json"])["root"].(map[string]any)
+		Expect(root["tabs"]).To(ConsistOf(
+			HaveKeyWithValue("resource", "Startup.json"),
+		))
+		Expect(members).To(ConsistOf(a.OntologyID(), p.OntologyID()))
 	})
 
 	It("Should place a task referenced by two panels once", func(ctx SpecContext) {
@@ -535,6 +568,30 @@ var _ = Describe("Import", func() {
 			Entry(&res).
 			Exec(ctx, tx)).To(Succeed())
 		Expect(res.Name).To(Equal("Sequence"))
+	})
+
+	It("Should leave imported Arcs unparented", func(ctx SpecContext) {
+		src := createProject(ctx, "Panel Arcs")
+		a := createArc(ctx, "Startup", "x := 1")
+		createPanel(
+			ctx, "Controls", src.OntologyID(), leaf(resourceTab(a.OntologyID())),
+		)
+		files, _ := MustSucceed2(svc.Export(ctx, src.Key, xjson.Codec))
+		proj := importProject(ctx, files)
+		children := childrenOf(ctx, project.OntologyID(proj.Key))
+		Expect(children).To(HaveLen(1))
+		Expect(children[0].ID.Type).To(Equal(ontology.ResourceTypePanel))
+		newArcID := firstTabResource(retrievePanel(ctx, children[0].ID))
+		Expect(newArcID.Type).To(Equal(ontology.ResourceTypeArc))
+		Expect(newArcID).ToNot(Equal(a.OntologyID()))
+		key := MustSucceed(uuid.Parse(newArcID.Key))
+		var res arc.Arc
+		Expect(arcSvc.NewRetrieve().
+			Where(arc.MatchKeys(key)).
+			Entry(&res).
+			Exec(ctx, tx)).To(Succeed())
+		Expect(res.Name).To(Equal("Startup"))
+		Expect(res.Text.Materialize().Raw).To(Equal("x := 1"))
 	})
 
 	It("Should ignore files that are not members", func(ctx SpecContext) {
