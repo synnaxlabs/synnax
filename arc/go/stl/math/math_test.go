@@ -50,7 +50,7 @@ func makeMathGraph(nodeType string, dt types.Type) graph.Graph {
 	}
 }
 
-func makeMathGraphWithReset(nodeType string, dt types.Type) graph.Graph {
+func makeMathGraphWithReset(nodeType string, dt, resetDt types.Type) graph.Graph {
 	return graph.Graph{
 		Nodes: []graph.Node{
 			{Key: "input"},
@@ -79,7 +79,7 @@ func makeMathGraphWithReset(nodeType string, dt types.Type) graph.Graph {
 			},
 			{
 				Key:     "reset_signal",
-				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.Bool()}},
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: resetDt}},
 			},
 		},
 	}
@@ -117,7 +117,7 @@ func openMathWithReset(
 	dt types.Type,
 	inputs types.Params,
 ) mathSetup {
-	g := makeMathGraphWithReset(nodeType, dt)
+	g := makeMathGraphWithReset(nodeType, dt, types.Bool())
 	analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 	Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 	s := node.New(analyzed)
@@ -699,6 +699,12 @@ var _ = Describe("Max", func() {
 		nextChanged(ctx, s.n)
 		expectOutput[int64](s.state, 50)
 		expectOutputTime(s.state, 6*telem.SecondTS)
+	})
+	It("Should reject a non-boolean reset signal", func(ctx SpecContext) {
+		g := makeMathGraphWithReset("max", types.I64(), types.U8())
+		_, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
+		Expect(diagnostics.Ok()).To(BeFalse())
+		Expect(diagnostics.String()).To(ContainSubstring("type mismatch"))
 	})
 })
 
