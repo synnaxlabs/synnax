@@ -537,10 +537,18 @@ export class Client extends query.Retriever<
     rename();
   }
 
-  async delete(key: Key | Key[]): Promise<void> {
+  async delete(key: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keys = array.toArray(key);
-    await this.writer.delete(keys);
-    this.store.delete(keys);
+    const drop = () => [
+      this.cfg.ontology.cache.deleteRelationships(ontologyID(keys)),
+      this.store.delete(keys),
+    ];
+    await query.optimistic({
+      rollbacks: drop(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () => await this.writer.delete(keys),
+    });
+    drop();
   }
 
   async retrieve(params: Key | Name): Promise<Range>;
@@ -760,18 +768,40 @@ export class Client extends query.Retriever<
     return await this.createAliasClient(range).list();
   }
 
-  async setAlias(range: Key, channel: channel.Key, aliasName: string): Promise<void> {
-    await this.createAliasClient(range).set({ [channel]: aliasName });
+  async setAlias(
+    range: Key,
+    channel: channel.Key,
+    aliasName: string,
+    opts: query.WriteOptions = {},
+  ): Promise<void> {
     const entry: alias.Alias = { range, channel, alias: aliasName };
-    this.aliases.set(alias.createKey(entry), entry);
+    const set = () => [this.aliases.set(alias.createKey(entry), entry)];
+    await query.optimistic({
+      rollbacks: set(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
+        await this.createAliasClient(range).set({ [channel]: aliasName }),
+    });
+    set();
   }
 
-  async deleteAlias(range: Key, channels: channel.Key | channel.Key[]): Promise<void> {
+  async deleteAlias(
+    range: Key,
+    channels: channel.Key | channel.Key[],
+    opts: query.WriteOptions = {},
+  ): Promise<void> {
     const channelsArr = array.toArray(channels);
-    await this.createAliasClient(range).delete(channelsArr);
-    this.aliases.delete(
-      channelsArr.map((channel) => alias.createKey({ range, channel })),
-    );
+    const drop = () => [
+      this.aliases.delete(
+        channelsArr.map((channel) => alias.createKey({ range, channel })),
+      ),
+    ];
+    await query.optimistic({
+      rollbacks: drop(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () => await this.createAliasClient(range).delete(channelsArr),
+    });
+    drop();
   }
 
   sugarOne(payload: Payload): Range {

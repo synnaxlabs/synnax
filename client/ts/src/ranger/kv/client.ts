@@ -11,7 +11,7 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type query } from "@/query";
+import { query } from "@/query";
 import { createPairKey } from "@/ranger/kv/payload";
 import { type Pair, pairZ } from "@/ranger/kv/types.gen";
 import { type Key, keyZ } from "@/ranger/types.gen";
@@ -49,37 +49,59 @@ export class Client {
     return await this.get([]);
   }
 
-  async set(key: string, value: string): Promise<void>;
-  async set(kv: Record<string, string>): Promise<void>;
-  async set(key: string | Record<string, string>, value: string = ""): Promise<void> {
+  async set(key: string, value: string, opts?: query.WriteOptions): Promise<void>;
+  async set(kv: Record<string, string>, opts?: query.WriteOptions): Promise<void>;
+  async set(
+    key: string | Record<string, string>,
+    valueOrOpts: string | query.WriteOptions = "",
+    opts: query.WriteOptions = {},
+  ): Promise<void> {
     let pairs: Pair[];
-    if (typeof key == "string") pairs = [{ range: this.rangeKey, key, value }];
-    else
+    if (typeof key === "string")
+      pairs = [{ range: this.rangeKey, key, value: valueOrOpts as string }];
+    else {
       pairs = Object.entries(key).map(([k, v]) => ({
         range: this.rangeKey,
         key: k,
         value: v,
       }));
-
-    await this.client.send(
-      "/range/kv/set",
-      { range: this.rangeKey, pairs },
-      setReqZ,
-      z.unknown(),
-    );
+      if (typeof valueOrOpts === "object") opts = valueOrOpts;
+    }
     // Pair.key is the bare key; the table is keyed by createPairKey, so
     // keyed-object set would mis-key entries.
-    pairs.forEach((p) => this.pairs.set(createPairKey(p), p));
+    const apply = () => pairs.map((p) => this.pairs.set(createPairKey(p), p));
+    await query.optimistic({
+      rollbacks: apply(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
+        await this.client.send(
+          "/range/kv/set",
+          { range: this.rangeKey, pairs },
+          setReqZ,
+          z.unknown(),
+        ),
+    });
+    apply();
   }
 
-  async delete(key: string | string[]): Promise<void> {
+  async delete(key: string | string[], opts: query.WriteOptions = {}): Promise<void> {
     const keys = array.toArray(key);
-    await this.client.send(
-      "/range/kv/delete",
-      { range: this.rangeKey, keys },
-      deleteReqZ,
-      z.unknown(),
-    );
-    this.pairs.delete(keys.map((k) => createPairKey({ range: this.rangeKey, key: k })));
+    const drop = () => [
+      this.pairs.delete(
+        keys.map((k) => createPairKey({ range: this.rangeKey, key: k })),
+      ),
+    ];
+    await query.optimistic({
+      rollbacks: drop(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
+        await this.client.send(
+          "/range/kv/delete",
+          { range: this.rangeKey, keys },
+          deleteReqZ,
+          z.unknown(),
+        ),
+    });
+    drop();
   }
 }

@@ -260,26 +260,34 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
    * transaction, so a failure leaves the group and its symbols untouched. A child that
    * is not a symbol survives: the Core moves it to the permanent symbol group.
    */
-  async deleteGroup(key: group.Key): Promise<void> {
+  async deleteGroup(key: group.Key, opts: query.WriteOptions = {}): Promise<void> {
     const groupID = group.ontologyID(key);
     const rels = this.cfg.ontology.cache.relationships;
     // Read the members before the delete drops the relationships naming them.
     const memberKeys = rels.get((r) => matchChildRel(r, groupID)).map((r) => r.to.key);
-    await this.cfg.unary.send(
-      "/schematic/symbol/group/delete",
-      { key },
-      deleteGroupReqZ,
-      emptyResZ,
-    );
-    this.store.delete(memberKeys);
-    this.cfg.groupStore.delete(key);
-    // Both the relationships to the group's children and the one naming the group as
-    // its parent's child: the group and every symbol in it are gone.
-    rels.delete(
-      (r) =>
-        r.type === ontology.PARENT_OF_RELATIONSHIP_TYPE &&
-        (ontology.idsEqual(r.from, groupID) || ontology.idsEqual(r.to, groupID)),
-    );
+    const drop = () => [
+      this.store.delete(memberKeys),
+      this.cfg.groupStore.delete(key),
+      // Both the relationships to the group's children and the one naming the group
+      // as its parent's child: the group and every symbol in it are gone.
+      rels.delete(
+        (r) =>
+          r.type === ontology.PARENT_OF_RELATIONSHIP_TYPE &&
+          (ontology.idsEqual(r.from, groupID) || ontology.idsEqual(r.to, groupID)),
+      ),
+    ];
+    await query.optimistic({
+      rollbacks: drop(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
+        await this.cfg.unary.send(
+          "/schematic/symbol/group/delete",
+          { key },
+          deleteGroupReqZ,
+          emptyResZ,
+        ),
+    });
+    drop();
   }
 
   async retrieveGroup(): Promise<group.Group> {
