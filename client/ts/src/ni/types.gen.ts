@@ -834,7 +834,7 @@ export const aiStrainGaugeChannelZ = baseAIChannelZ
 export interface AIStrainGaugeChannel extends z.infer<typeof aiStrainGaugeChannelZ> {}
 
 /** AITempBuiltinChannel reads temperature from the device's built-in sensor. */
-export const aiTempBuiltinChannelZ = baseAIChannelZ.extend({
+export const aiTempBuiltinChannelZ = baseAIChannelZ.omit({ port: true }).extend({
   type: z.literal("ai_temp_builtin"),
   /** units are the units of the temperature measurement. */
   units: temperatureUnitsZ.default("DegC"),

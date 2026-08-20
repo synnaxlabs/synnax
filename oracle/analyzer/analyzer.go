@@ -1383,13 +1383,7 @@ func collectInlineVariant(
 			)
 		}
 		for _, fo := range body.AllFieldOmit() {
-			d := diagnostics.Errorf(
-				fo,
-				"union %s variant %q: field omissions are not supported in inline variant bodies",
-				unionName,
-				variantName,
-			)
-			c.report(d)
+			form.OmittedFields = append(form.OmittedFields, fo.IDENT().GetText())
 		}
 		for _, a := range body.AllActionDef() {
 			d := diagnostics.Errorf(
@@ -1812,6 +1806,11 @@ func validateExtends(c *analysisCtx, typ resolution.Type) {
 			allParentFields.Add(f.Name)
 		}
 	}
+	// A synthetic union-variant payload may omit a field the union's bases
+	// contribute, and those bases are not visible here. validateUnion checks it.
+	if typ.Synthetic {
+		return
+	}
 	for _, omitted := range form.OmittedFields {
 		if !allParentFields.Contains(omitted) {
 			d := diagnostics.Errorf(nil,
@@ -2109,6 +2108,55 @@ func validateUnion(c *analysisCtx, typ resolution.Type) {
 				break
 			}
 		}
+		validateVariantOmissions(c, typ, form, variant, variantType, baseFields)
+	}
+}
+
+// validateVariantOmissions checks that every field a variant drops with `-name` is
+// one it actually inherits, from the union's bases or the variant's own extends.
+func validateVariantOmissions(
+	c *analysisCtx,
+	typ resolution.Type,
+	form resolution.UnionForm,
+	variant resolution.UnionVariant,
+	variantType resolution.Type,
+	baseFields set.Set[string],
+) {
+	variantForm, ok := variantType.Form.(resolution.StructForm)
+	if !ok || len(variantForm.OmittedFields) == 0 {
+		return
+	}
+	inherited := baseFields.Copy()
+	for _, ext := range variantForm.Extends {
+		parent, ok := ext.Resolve(c.table)
+		if !ok {
+			continue
+		}
+		for _, f := range resolution.UnifiedFields(parent, c.table) {
+			inherited.Add(f.Name)
+		}
+	}
+	for _, omitted := range variantForm.OmittedFields {
+		if omitted == form.Discriminator {
+			c.report(diagnostics.Errorf(
+				nil,
+				"union %s variant %q: cannot omit the discriminator field %q, which is owned by the union",
+				typ.Name,
+				variant.Name,
+				form.Discriminator,
+			))
+			continue
+		}
+		if inherited.Contains(omitted) {
+			continue
+		}
+		c.report(diagnostics.Errorf(
+			nil,
+			"union %s variant %q: cannot omit field %q, which the variant does not inherit",
+			typ.Name,
+			variant.Name,
+			omitted,
+		))
 	}
 }
 

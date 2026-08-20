@@ -273,9 +273,11 @@ func (aic AIChannel) EncodeOrc(w *orc.Writer) error {
 		w.Float64(float64(v.LeadWireResistance))
 	case AITempBuiltinChannel:
 		w.String("ai_temp_builtin")
-		if err := v.BaseAIChannel.EncodeOrc(w); err != nil {
-			return err
-		}
+		w.String(v.Key)
+		w.String(v.Name)
+		w.Bool(v.Disabled)
+		w.Uint32(uint32(v.Channel))
+		w.String(v.Device)
 		w.String(string(v.Units))
 	case AIThermocoupleChannel:
 		w.String("ai_thermocouple")
@@ -976,7 +978,23 @@ func (aic *AIChannel) DecodeOrc(r *orc.Reader) error {
 		aic.Variant = v
 	case "ai_temp_builtin":
 		var v AITempBuiltinChannel
-		if err := v.BaseAIChannel.DecodeOrc(r); err != nil {
+		if v.Key, err = r.String(); err != nil {
+			return err
+		}
+		if v.Name, err = r.String(); err != nil {
+			return err
+		}
+		if v.Disabled, err = r.Bool(); err != nil {
+			return err
+		}
+		{
+			rawV, err := r.Uint32()
+			if err != nil {
+				return err
+			}
+			v.Channel = channel.Key(rawV)
+		}
+		if v.Device, err = r.String(); err != nil {
 			return err
 		}
 		{

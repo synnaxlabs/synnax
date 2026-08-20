@@ -614,6 +614,7 @@ AIChannel union on type extends BaseAIChannel {
         @doc value "reads strain from a strain gauge."
     }
     ai_temp_builtin {
+        -port
         units TemperatureUnits = deg_c {
             @doc value "are the units of the temperature measurement."
         }

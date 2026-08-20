@@ -1657,7 +1657,16 @@ func (a AIStrainGaugeChannel) Validate() error {
 
 // AITempBuiltinChannel reads temperature from the device's built-in sensor.
 type AITempBuiltinChannel struct {
-	BaseAIChannel
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name string `json:"name" msgpack:"name"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled bool `json:"disabled" msgpack:"disabled"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+	// Device is the key of the device the channel belongs to.
+	Device device.Key `json:"device" msgpack:"device"`
 	// Units are the units of the temperature measurement.
 	Units TemperatureUnits `json:"units" msgpack:"units"`
 }

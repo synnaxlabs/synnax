@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/typemap"
 	"github.com/synnaxlabs/oracle/plugin/output"
+	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
@@ -602,7 +603,9 @@ func buildUnionCodec(
 		var inlineFields []resolution.Field
 		if v.Inline {
 			pform := payload.Form.(resolution.StructForm)
-			for _, ext := range pform.Extends {
+			inherited, declared := resolver.VariantBases(form, v, table)
+			embeds = embeds[:0]
+			for _, ext := range inherited {
 				parent, ok := ext.Resolve(table)
 				if !ok {
 					return concreteCodec{}, errors.Newf(
@@ -611,10 +614,9 @@ func buildUnionCodec(
 				}
 				embeds = append(embeds, naming.GetGoName(parent))
 			}
-			inlineFields = declaredFields(
-				append(slices.Clone(form.Extends), pform.Extends...),
-				pform.Fields,
-				table,
+			inlineFields = append(
+				slices.Clone(declared),
+				declaredFields(inherited, pform.Fields, table)...,
 			)
 		} else {
 			embeds = append(embeds, naming.GetGoName(payload))

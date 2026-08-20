@@ -844,8 +844,18 @@ struct AIStrainGaugeChannel : public BaseAIChannel,
 };
 
 /// @brief AITempBuiltinChannel reads temperature from the device's built-in sensor.
-struct AITempBuiltinChannel : public BaseAIChannel {
+struct AITempBuiltinChannel {
     std::string type = "ai_temp_builtin";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key = "";
+    /// @brief name is the human-readable channel name.
+    std::string name = "";
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    bool disabled = false;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    ::synnax::channel::Key channel = ::synnax::channel::Key(0);
+    /// @brief device is the key of the device the channel belongs to.
+    ::synnax::device::Key device = "";
     /// @brief units are the units of the temperature measurement.
     std::string units = TEMPERATURE_UNITS_DEG_C;
 

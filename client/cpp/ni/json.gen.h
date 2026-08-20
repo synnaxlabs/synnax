@@ -1106,7 +1106,14 @@ inline x::json::json AIStrainGaugeChannel::to_json() const {
 
 inline AITempBuiltinChannel AITempBuiltinChannel::parse(x::json::Parser parser) {
     AITempBuiltinChannel result;
-    static_cast<BaseAIChannel &>(result) = BaseAIChannel::parse(parser);
+    result.key = parser.field<std::string>("key", "");
+    result.name = parser.field<std::string>("name", "");
+    result.disabled = parser.field<bool>("disabled", false);
+    result.channel = parser.field<::synnax::channel::Key>(
+        "channel",
+        ::synnax::channel::Key(0)
+    );
+    result.device = parser.field<::synnax::device::Key>("device", "");
     result.units = parser.field<std::string>("units", "DegC");
     result.type = parser.field<std::string>("type");
     return result;
@@ -1114,8 +1121,11 @@ inline AITempBuiltinChannel AITempBuiltinChannel::parse(x::json::Parser parser) 
 
 inline x::json::json AITempBuiltinChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseAIChannel::to_json().items())
-        j[k] = v;
+    j["key"] = this->key;
+    j["name"] = this->name;
+    j["disabled"] = this->disabled;
+    j["channel"] = this->channel;
+    j["device"] = this->device;
     j["units"] = this->units;
     j["type"] = this->type;
     return j;

@@ -18,6 +18,23 @@ import {
   createNextDOChannel,
 } from "@/feature/ni/task/createChannel";
 
+// AI channels are a discriminated union and the built-in temperature sensor variant
+// carries no port, so the specs reach for one through these.
+const portOf = (channel: NI.Task.AIChannel): number | undefined =>
+  "port" in channel ? channel.port : undefined;
+
+const aiChannel = (
+  key: string,
+  port: number,
+  type: NI.Task.AIChannelType = "ai_voltage",
+  extra: { channel?: number } = {},
+): NI.Task.AIChannel => {
+  const channel = NI.Task.createAIChannel(type);
+  if (!("port" in channel)) throw new Error(`${type} carries no port`);
+  channel.port = port;
+  return { ...channel, key, ...extra };
+};
+
 describe("createChannel", () => {
   describe("createNextDIChannel", () => {
     it("should create a new DI channel with line 0 when no channels exist", () => {
@@ -79,61 +96,59 @@ describe("createChannel", () => {
     it("should create a new AI channel with port 0 when no channels exist", () => {
       const channels: NI.Task.AIChannel[] = [];
       const result = createNextAIChannel(channels);
-      expect(result.port).toBe(0);
+      expect(portOf(result)).toBe(0);
       expect(result.key).toBeDefined();
       expect(result.channel).toBe(0);
     });
 
     it("should create a new AI channel with the next available port number", () => {
-      const channels: NI.Task.AIChannel[] = [
-        { ...NI.Task.createAIChannel(), key: "1", port: 0 },
-        { ...NI.Task.createAIChannel(), key: "2", port: 1 },
-      ];
+      const channels = [aiChannel("1", 0), aiChannel("2", 1)];
       const result = createNextAIChannel(channels);
-      expect(result.port).toBe(2);
+      expect(portOf(result)).toBe(2);
       expect(result.key).toBeDefined();
     });
 
     it("should copy properties from the specified index channel", () => {
-      const channels: NI.Task.AIChannel[] = [
-        { ...NI.Task.createAIChannel("ai_accel"), key: "1", port: 0, channel: 3 },
-        { ...NI.Task.createAIChannel("ai_bridge"), key: "2", port: 1 },
+      const channels = [
+        aiChannel("1", 0, "ai_accel", { channel: 3 }),
+        aiChannel("2", 1, "ai_bridge"),
       ];
       const result = createNextAIChannel(channels, "1");
       expect(result.type).toBe("ai_accel");
       expect(result.key).not.toBe("1");
       expect(result.key).not.toBe("2");
       expect(result.key.length).toBeGreaterThan(0);
-      expect(result.port).toBe(2);
+      expect(portOf(result)).toBe(2);
       expect(result.channel).not.toBe(3);
     });
 
     it("should correctly increment port when duplicating with multiple existing channels", () => {
-      const channels: NI.Task.AIChannel[] = [
-        { ...NI.Task.createAIChannel(), key: "1", port: 0 },
-        { ...NI.Task.createAIChannel(), key: "2", port: 1 },
-        { ...NI.Task.createAIChannel(), key: "3", port: 2 },
-        { ...NI.Task.createAIChannel(), key: "4", port: 3 },
+      const channels = [
+        aiChannel("1", 0),
+        aiChannel("2", 1),
+        aiChannel("3", 2),
+        aiChannel("4", 3),
       ];
       const firstDuplicate = createNextAIChannel(channels, "1");
-      expect(firstDuplicate.port).toBe(4);
+      expect(portOf(firstDuplicate)).toBe(4);
 
       const channelsWithFirstDuplicate = [...channels, firstDuplicate];
       const secondDuplicate = createNextAIChannel(channelsWithFirstDuplicate, "1");
-      expect(secondDuplicate.port).toBe(5);
+      expect(portOf(secondDuplicate)).toBe(5);
 
       const thirdDuplicate = createNextAIChannel(channelsWithFirstDuplicate, "3");
-      expect(thirdDuplicate.port).toBe(5);
+      expect(portOf(thirdDuplicate)).toBe(5);
     });
 
     it("should handle non-sequential ports correctly", () => {
-      const channels: NI.Task.AIChannel[] = [
-        { ...NI.Task.createAIChannel(), key: "1", port: 0 },
-        { ...NI.Task.createAIChannel(), key: "2", port: 2 },
-        { ...NI.Task.createAIChannel(), key: "3", port: 5 },
-      ];
+      const channels = [aiChannel("1", 0), aiChannel("2", 2), aiChannel("3", 5)];
       const result = createNextAIChannel(channels, "1");
-      expect(result.port).toBe(1);
+      expect(portOf(result)).toBe(1);
+    });
+
+    it("should give the built-in temperature sensor no port", () => {
+      const result = createNextAIChannel([NI.Task.createAIChannel("ai_temp_builtin")]);
+      expect(portOf(result)).toBeUndefined();
     });
   });
 

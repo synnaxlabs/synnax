@@ -1370,7 +1370,7 @@ export const AIChannelForm = ({ type, prefix }: AIChannelFormProps) => {
     <>
       <Flex.Box x wrap>
         <Select path={`${prefix}.device`} />
-        <PortField path={prefix} />
+        {type !== "ai_temp_builtin" && <PortField path={prefix} />}
       </Flex.Box>
       <Divider.Divider x padded="bottom" />
       <Form prefix={prefix} />

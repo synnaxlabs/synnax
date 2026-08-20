@@ -232,8 +232,12 @@ var _ = Describe("Codec", func() {
 				LeadWireResistance:    6.5,
 			}}),
 			Entry("ai_temp_builtin variant", v2.AIChannel{Variant: v2.AITempBuiltinChannel{
-				BaseAIChannel: fullyPopulatedBaseAIChannel,
-				Units:         v2.TemperatureUnits("DegC"),
+				Key:      "test_1",
+				Name:     "test_2",
+				Disabled: true,
+				Channel:  channel.Key(5),
+				Device:   "test_5",
+				Units:    v2.TemperatureUnits("DegC"),
 			}}),
 			Entry("ai_thermocouple variant", v2.AIChannel{Variant: v2.AIThermocoupleChannel{
 				BaseAIChannel:    fullyPopulatedBaseAIChannel,
@@ -2220,8 +2224,12 @@ func FuzzDecodeAIChannel(f *testing.F) {
 	}
 	{
 		seed := v2.AIChannel{Variant: v2.AITempBuiltinChannel{
-			BaseAIChannel: fullyPopulatedBaseAIChannel,
-			Units:         v2.TemperatureUnits("DegC"),
+			Key:      "test_1",
+			Name:     "test_2",
+			Disabled: true,
+			Channel:  channel.Key(5),
+			Device:   "test_5",
+			Units:    v2.TemperatureUnits("DegC"),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

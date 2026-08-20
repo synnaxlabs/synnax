@@ -673,6 +673,17 @@ func (p *Plugin) processUnion(
 
 	oneof := &oneofData{Name: "variant"}
 	for _, v := range form.Variants {
+		// The union's bases are one shared message field, not per-variant, so a
+		// variant cannot drop a field from them.
+		if payload, ok := v.Type.Resolve(data.table); ok {
+			if pform, ok := payload.Form.(resolution.StructForm); ok &&
+				len(pform.OmittedFields) > 0 {
+				return messageData{}, errors.Newf(
+					"union %q variant %q omits inherited field(s) %v, which protobuf cannot express; drop @pb or the omission",
+					entry.Name, v.Name, pform.OmittedFields,
+				)
+			}
+		}
 		protoType, err := p.typeToProto(v.Type, data)
 		if err != nil {
 			return messageData{}, errors.Wrapf(

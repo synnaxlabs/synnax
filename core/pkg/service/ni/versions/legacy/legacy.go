@@ -62,6 +62,14 @@ var fixedUnits = set.New(
 	"ao_voltage",
 )
 
+// deleteBuiltinTempPort drops the port of a built-in temperature channel. The sensor
+// is not wired to a port, and the Driver reads it at a fixed location.
+func deleteBuiltinTempPort(ch msgpack.EncodedJSON) {
+	if ch["type"] == "ai_temp_builtin" {
+		delete(ch, "port")
+	}
+}
+
 // deleteFixedUnits drops the units of a channel whose type accepts only one. It runs
 // after any type rename, so it sees the current spelling.
 func deleteFixedUnits(ch msgpack.EncodedJSON) {
@@ -91,6 +99,7 @@ func analogRead(config msgpack.EncodedJSON) {
 			ch["type"] = "ai_freq_voltage"
 		}
 		deleteFixedUnits(ch)
+		deleteBuiltinTempPort(ch)
 		rewriteChargeUnits(ch)
 		rewriteStrainValues(ch)
 		collapseCJC(ch)

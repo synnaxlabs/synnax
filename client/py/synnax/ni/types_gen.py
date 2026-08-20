@@ -985,10 +985,15 @@ class AIStrainGaugeChannel(BaseAIChannel, MinMaxVal, VoltageExcitation, CustomSc
     lead_wire_resistance: float = 0
 
 
-class AITempBuiltinChannel(BaseAIChannel):
+class AITempBuiltinChannel(BaseModel):
     """Reads temperature from the device's built-in sensor."""
 
     type: Literal["ai_temp_builtin"] = "ai_temp_builtin"
+    key: str = ""
+    name: str = ""
+    disabled: bool = False
+    channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    device: device_.Key = ""
     units: TemperatureUnits = "DegC"
 
 

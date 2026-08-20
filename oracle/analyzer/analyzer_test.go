@@ -3717,6 +3717,99 @@ Mode enum {
 			Expect(names).To(Equal([]string{"key", "createdAt", "updatedAt", "aField"}))
 		})
 
+		Describe("Variant Field Omission", func() {
+			variantFieldNames := func(
+				table *resolution.Table, union, variant string,
+			) []string {
+				GinkgoHelper()
+				typ := table.MustGet(union)
+				form := typ.Form.(resolution.UnionForm)
+				i := slices.IndexFunc(form.Variants, func(v resolution.UnionVariant) bool {
+					return v.Name == variant
+				})
+				Expect(i).To(BeNumerically(">=", 0))
+				fields := resolution.UnifiedVariantFields(typ, form.Variants[i], table)
+				names := make([]string, len(fields))
+				for i, f := range fields {
+					names[i] = f.Name
+				}
+				return names
+			}
+
+			It("Should let a variant omit a field from the union's bases", func(ctx SpecContext) {
+				source := `
+					Base struct {
+						name string
+						port uint8
+					}
+
+					Chan union on type extends Base {
+						wired { gain float32 }
+						builtin {
+							-port
+							units string
+						}
+					}
+				`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue())
+				Expect(variantFieldNames(table, "test.Chan", "wired")).
+					To(Equal([]string{"name", "port", "gain"}))
+				Expect(variantFieldNames(table, "test.Chan", "builtin")).
+					To(Equal([]string{"name", "units"}))
+			})
+
+			It("Should let a variant omit a field from its own extends", func(ctx SpecContext) {
+				source := `
+					Mixin struct {
+						min float32
+						max float32
+					}
+
+					Chan union on type {
+						a extends Mixin {
+							-max
+						}
+					}
+				`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue())
+				Expect(variantFieldNames(table, "test.Chan", "a")).To(Equal([]string{"min"}))
+			})
+
+			It("Should error when a variant omits a field it does not inherit", func(ctx SpecContext) {
+				source := `
+					Base struct { name string }
+
+					Chan union on type extends Base {
+						a {
+							-port
+						}
+					}
+				`
+				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(
+					`union Chan variant "a": cannot omit field "port", which the variant does not inherit`,
+				))
+			})
+
+			It("Should error when a variant omits the discriminator", func(ctx SpecContext) {
+				source := `
+					Chan union on type {
+						a {
+							-type
+						}
+					}
+				`
+				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(
+					`union Chan variant "a": cannot omit the discriminator field "type", which is owned by the union`,
+				))
+			})
+		})
+
 		It(
 			"UnifiedVariantFields should return nil for a non-union type",
 			func(ctx SpecContext) {

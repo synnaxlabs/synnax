@@ -10,6 +10,9 @@
 package resolver
 
 import (
+	"slices"
+
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/set"
 )
@@ -180,4 +183,48 @@ func CanUseInheritance(form resolution.StructForm, table *resolution.Table) bool
 		return false
 	}
 	return !HasFieldConflicts(form.Extends, table)
+}
+
+// VariantBases splits the types a union variant would inherit, its union's bases
+// followed by its own, into the ones it still inherits and the fields it must
+// declare itself. A base whose field the variant drops with `-name` cannot be
+// inherited, because no target language can remove a member from an inherited type,
+// so that base's remaining fields are returned for the variant to declare.
+func VariantBases(
+	form resolution.UnionForm,
+	v resolution.UnionVariant,
+	table *resolution.Table,
+) (inherited []resolution.TypeRef, declared []resolution.Field) {
+	payload, ok := v.Type.Resolve(table)
+	if !ok || !v.Inline {
+		return form.Extends, nil
+	}
+	pform, ok := payload.Form.(resolution.StructForm)
+	if !ok {
+		return form.Extends, nil
+	}
+	bases := append(slices.Clone(form.Extends), pform.Extends...)
+	if len(pform.OmittedFields) == 0 {
+		return bases, nil
+	}
+	drop := set.New(pform.OmittedFields...)
+	for _, ref := range bases {
+		base, ok := ref.Resolve(table)
+		if !ok {
+			continue
+		}
+		fields := resolution.UnifiedFields(base, table)
+		if !lo.SomeBy(fields, func(f resolution.Field) bool {
+			return drop.Contains(f.Name)
+		}) {
+			inherited = append(inherited, ref)
+			continue
+		}
+		for _, f := range fields {
+			if !drop.Contains(f.Name) {
+				declared = append(declared, f)
+			}
+		}
+	}
+	return inherited, declared
 }

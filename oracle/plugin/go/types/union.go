@@ -108,17 +108,21 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 		DiscJSONName:  casing.FieldSnake(form.Discriminator),
 	}
 
-	var baseEmbeds []embeddedType
-	for _, ext := range form.Extends {
-		parent, ok := ext.Resolve(data.table)
-		if !ok {
-			continue
+	embedBases := func(refs []resolution.TypeRef) []embeddedType {
+		var out []embeddedType
+		for _, ext := range refs {
+			parent, ok := ext.Resolve(data.table)
+			if !ok {
+				continue
+			}
+			out = append(
+				out,
+				embeddedType{ref: ext, rendered: resolveExtendsType(ext, parent, data)},
+			)
 		}
-		baseEmbeds = append(
-			baseEmbeds,
-			embeddedType{ref: ext, rendered: resolveExtendsType(ext, parent, data)},
-		)
+		return out
 	}
+	baseEmbeds := embedBases(form.Extends)
 
 	for _, v := range form.Variants {
 		vd := unionVariantData{
@@ -133,27 +137,15 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 		if v.Inline {
 			if payload, ok := v.Type.Resolve(data.table); ok {
 				pform := payload.Form.(resolution.StructForm)
-				for _, ext := range pform.Extends {
-					if parent, ok := ext.Resolve(data.table); ok {
-						embeds = append(
-							embeds,
-							embeddedType{
-								ref:      ext,
-								rendered: resolveExtendsType(ext, parent, data),
-							},
-						)
-					}
-				}
-				inlineFields = pform.Fields
+				inherited, declared := resolver.VariantBases(form, v, data.table)
+				embeds = embedBases(inherited)
+				inlineFields = append(slices.Clone(declared), pform.Fields...)
 				// A field that only restates an inherited default keeps the
 				// embedded parent's declaration and contributes a fill alone.
-				inherited := append(
-					slices.Clone(form.Extends), pform.Extends...,
-				)
 				defaultOnly := resolver.DefaultOnlyOverrides(
 					inherited, pform.Fields, data.table,
 				)
-				for _, f := range pform.Fields {
+				for _, f := range inlineFields {
 					if !defaultOnly.Contains(f.Name) {
 						vd.Fields = append(vd.Fields, processField(f, data))
 					}

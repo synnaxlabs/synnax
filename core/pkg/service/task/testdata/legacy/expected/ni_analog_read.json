@@ -302,7 +302,6 @@
       "disabled": false,
       "key": "ch-ai-temp-builtin",
       "name": "fixture_ai_temp_builtin",
-      "port": 17,
       "type": "ai_temp_builtin",
       "units": "DegR"
     },

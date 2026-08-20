@@ -1948,6 +1948,32 @@ var _ = Describe("Python Union Generation", func() {
 	)
 
 	It(
+		"Should flatten a base a variant omits a field from",
+		func(ctx SpecContext) {
+			source := `
+			@py output "out"
+
+			BaseAIChan struct {
+				port int32
+				enabled bool
+			}
+
+			AIChannel union on type extends BaseAIChan {
+				ai_voltage { minVal float64 }
+				ai_temp_builtin {
+					-port
+					units string
+				}
+			}
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+			content := MustContentOf(resp, "types_gen.py")
+			Expect(content).To(ContainSubstring("class AITempBuiltinChannel(BaseModel):"))
+			Expect(content).To(ContainSubstring("class AIVoltageChannel(BaseAIChan):"))
+		},
+	)
+
+	It(
 		"Should inherit the union base and the payload in every variant, not flatten",
 		func(ctx SpecContext) {
 			source := `

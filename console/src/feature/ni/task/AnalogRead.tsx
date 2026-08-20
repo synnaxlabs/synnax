@@ -16,6 +16,10 @@ import { enrich } from "@/feature/ni/device/enrich";
 import * as Device from "@/feature/ni/device/types";
 import { AIChannelForm } from "@/feature/ni/task/AIChannelForm";
 import { createNextAIChannel } from "@/feature/ni/task/createChannel";
+import {
+  getAIChannelDeviceKey,
+  getAIChannelSuffix,
+} from "@/feature/ni/task/getAIChannelDeviceKey";
 import { SelectAIChannelTypeField } from "@/feature/ni/task/SelectAIChannelTypeField";
 import {
   AI_CHANNEL_TYPE_ICONS,
@@ -160,7 +164,8 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
       const toCreate: AIChannel[] = [];
       for (const channel of config.channels) {
         if (channel.device !== dev.key) continue;
-        const exKey = dev.properties.analogInput.channels[channel.port.toString()];
+        const exKey =
+          dev.properties.analogInput.channels[getAIChannelDeviceKey(channel)];
         if (primitive.isZero(exKey)) toCreate.push(channel);
         else
           try {
@@ -174,22 +179,24 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
         modified = true;
         const channels = await client.channels.create(
           toCreate.map((c) => ({
-            name: primitive.isNonZero(c.name) ? c.name : `${identifier}_ai_${c.port}`,
+            name: primitive.isNonZero(c.name)
+              ? c.name
+              : `${identifier}_ai_${getAIChannelSuffix(c)}`,
             dataType: "float32",
             index: dev.properties.analogInput.index,
           })),
         );
-        channels.forEach(
-          (c, i) =>
-            (dev.properties.analogInput.channels[toCreate[i].port.toString()] = c.key),
-        );
+        channels.forEach((c, i) => {
+          const key = getAIChannelDeviceKey(toCreate[i]);
+          dev.properties.analogInput.channels[key] = c.key;
+        });
       }
     } finally {
       if (modified) await client.devices.create(dev, Device.SCHEMAS);
     }
     config.channels.forEach((c) => {
       if (c.device !== dev.key) return;
-      c.channel = dev.properties.analogInput.channels[c.port.toString()];
+      c.channel = dev.properties.analogInput.channels[getAIChannelDeviceKey(c)];
     });
   }
   if (rackKey == null) throw new Error("No devices selected");

@@ -54,10 +54,20 @@ const createAnalogChannel = <C extends AnalogChannel>(
     if (channel == null) return { ...deep.copy(zeroChannel), key };
     template = deep.copy(channel);
   }
-  const existingPorts = new Set(channels.map(({ port }) => port));
+  return { ...template, key, ...nextPort(channels, template), ...override };
+};
+
+// nextPort assigns the lowest port no channel is using. A channel type with no port,
+// such as a built-in sensor, gets none.
+const nextPort = <C extends AnalogChannel>(
+  channels: C[],
+  template: C,
+): { port?: number } => {
+  if (!("port" in template)) return {};
+  const existing = new Set(channels.flatMap((c) => ("port" in c ? [c.port] : [])));
   let port = 0;
-  while (existingPorts.has(port)) port++;
-  return { ...template, key, port, ...override };
+  while (existing.has(port)) port++;
+  return { port };
 };
 
 export const createNextAIChannel = (channels: AIChannel[], key?: string): AIChannel =>

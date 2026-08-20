@@ -143,6 +143,7 @@ func (r *renderer) renderStruct(t resolution.Type, f resolution.StructForm) {
 	}
 	r.line(head + " {")
 	r.indent++
+	r.renderOmissions(f.OmittedFields)
 	for _, field := range f.Fields {
 		r.renderField(t.Name, field)
 	}
@@ -158,6 +159,13 @@ func (r *renderer) renderStruct(t resolution.Type, f resolution.StructForm) {
 	r.renderDomains(t.Domains, r.extraTypeLines(t.Name))
 	r.indent--
 	r.line("}")
+}
+
+// renderOmissions writes the `-name` lines that drop inherited fields.
+func (r *renderer) renderOmissions(names []string) {
+	for _, name := range names {
+		r.line("-" + name)
+	}
 }
 
 func (r *renderer) renderField(typeName string, f resolution.Field) {
@@ -247,6 +255,7 @@ func (r *renderer) renderVariant(typeName string, v resolution.UnionVariant) {
 				}
 				r.line(head + " {")
 				r.indent++
+				r.renderOmissions(sf.OmittedFields)
 				for _, field := range sf.Fields {
 					r.renderField(typeName, field)
 				}
