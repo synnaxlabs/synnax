@@ -36,7 +36,7 @@ describe("Border", () => {
     });
 
     it("should emit identical horizontal and vertical sequences for symmetric inputs", () => {
-      const [horizontal, vertical] = Border.cssRadius(border.construct(15))
+      const [horizontal, vertical] = Border.cssRadius(border.constructRadius(15))
         .split("/")
         .map((s) => s.trim());
       expect(horizontal).toBe(vertical);
@@ -44,7 +44,9 @@ describe("Border", () => {
     });
 
     it("should serialize a zero radius", () => {
-      expect(Border.cssRadius(border.construct(0))).toBe("0% 0% 0% 0% / 0% 0% 0% 0%");
+      expect(Border.cssRadius(border.constructRadius(0))).toBe(
+        "0% 0% 0% 0% / 0% 0% 0% 0%",
+      );
     });
   });
 
@@ -79,7 +81,7 @@ describe("Border", () => {
     });
 
     it("DEFAULT_RADIUS should apply to every corner", () => {
-      const radius = border.construct(Border.DEFAULT_RADIUS);
+      const radius = border.constructRadius(Border.DEFAULT_RADIUS);
       expect(radius.topLeft).toEqual(Border.DEFAULT_RADIUS);
       expect(Border.cssRadius(radius)).toBe("50% 50% 50% 50% / 10% 10% 10% 10%");
     });

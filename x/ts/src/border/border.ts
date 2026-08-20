@@ -32,18 +32,18 @@ const numberCornersZ = z.object({
   bottomRight: z.number(),
 });
 
-/** Zod schema for {@link Crude}. */
-export const crudeZ = z.union([z.number(), xy.xyZ, numberCornersZ, radiusZ]);
+/** Zod schema for {@link CrudeRadius}. */
+export const crudeRadiusZ = z.union([z.number(), xy.xyZ, numberCornersZ, radiusZ]);
 
 /** A {@link Radius} in any of its shorthand forms. */
-export type Crude = z.infer<typeof crudeZ>;
+export type CrudeRadius = z.infer<typeof crudeRadiusZ>;
 
 /**
  * @constructs Radius
  * @param radius - A scalar or a single {x, y} applied to every corner, or per-corner
  * numbers or {x, y} pairs.
  */
-export const construct = (radius: Crude): Radius => {
+export const constructRadius = (radius: CrudeRadius): Radius => {
   if (typeof radius === "number" || "x" in radius) {
     const corner = xy.construct(radius);
     return {

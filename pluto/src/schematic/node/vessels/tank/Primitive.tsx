@@ -34,7 +34,7 @@ export const Tank = ({
   backgroundColor,
   strokeWidth = 2,
 }: RenderProps): ReactElement => {
-  const detailedRadius = border.construct(borderRadius);
+  const detailedRadius = border.constructRadius(borderRadius);
   const hasCornerBoundaries = boxBorderRadius == null;
   const { width, height } = dimensions;
   const refreshDeps = useMemo(

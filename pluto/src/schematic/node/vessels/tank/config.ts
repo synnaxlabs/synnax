@@ -21,7 +21,7 @@ export const configZ = Label.labeledConfigZ.extend({
   color: color.crudeZ.optional(),
   backgroundColor: color.crudeZ.optional(),
   dimensions: dimensions.dimensionsZ.optional(),
-  borderRadius: border.crudeZ.optional(),
+  borderRadius: border.crudeRadiusZ.optional(),
   // The fill is rendered only when its telem is set, so a tank without telemetry, and
   // one stored before the fill existed, render unchanged.
   fill: Scale.configZ.optional(),

@@ -57,13 +57,16 @@ export const controllerMethodsZ = {
   release: z.function({ input: z.tuple([]), output: z.void() }),
 };
 
-/** Opens the writer a {@link Controller} commands through. */
-export type WriterFactory = (
+/**
+ * Opens the writer a {@link Controller} commands through. The client is an argument
+ * rather than a binding because a Controller resolves its own only after construction.
+ */
+export type OpenWriter = (
   client: Synnax,
   config: framer.WriterConfig,
 ) => Promise<framer.Writer>;
 
-export const openWriter: WriterFactory = async (client, config) =>
+const defaultOpenWriter: OpenWriter = async (client, config) =>
   await client.openWriter(config);
 
 interface InternalState {
@@ -101,16 +104,16 @@ export class Controller
   methods = controllerMethodsZ;
 
   private readonly registry = new Map<AetherControllerTelem, null>();
-  private readonly openWriter: WriterFactory;
+  private readonly openWriter: OpenWriter;
   private writer?: framer.Writer;
   private acquirePromise?: Promise<void>;
 
   constructor(
     props: aether.ComponentConstructorProps,
-    writerFactory: WriterFactory = openWriter,
+    openWriter: OpenWriter = defaultOpenWriter,
   ) {
     super(props);
-    this.openWriter = writerFactory;
+    this.openWriter = openWriter;
   }
 
   afterUpdate(ctx: aether.Context): void {

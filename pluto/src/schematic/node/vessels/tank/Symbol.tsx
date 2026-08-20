@@ -30,7 +30,7 @@ const cornerRadii = (
   borderRadius: Config["borderRadius"],
   dims: dimensions.Dimensions,
 ): border.Radius => {
-  const detailed = border.construct(borderRadius ?? Border.DEFAULT_RADIUS);
+  const detailed = border.constructRadius(borderRadius ?? Border.DEFAULT_RADIUS);
   const radius = (corner: xy.XY): xy.XY =>
     xy.construct(
       Math.max(0, (corner.x / 100) * dims.width - OVERLAP),

@@ -17,7 +17,7 @@ export const VARIANT = "cylinder" as const;
 export const configZ = Label.labeledConfigZ.extend({
   variant: z.literal(VARIANT),
   dimensions: dimensions.dimensionsZ.optional(),
-  borderRadius: border.crudeZ.optional(),
+  borderRadius: border.crudeRadiusZ.optional(),
   color: color.crudeZ.optional(),
   backgroundColor: color.crudeZ.optional(),
 });

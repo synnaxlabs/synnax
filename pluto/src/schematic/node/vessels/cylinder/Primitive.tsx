@@ -30,7 +30,7 @@ export const Cylinder = ({
   orientation = "left",
   scale,
 }: RenderProps): ReactElement => {
-  const detailedRadius = border.construct(borderRadius);
+  const detailedRadius = border.constructRadius(borderRadius);
   const refreshDeps = useMemo(
     () => [dimensions, borderRadius, detailedRadius, orientation],
     [

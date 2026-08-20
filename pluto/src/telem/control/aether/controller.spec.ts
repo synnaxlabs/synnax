@@ -22,9 +22,9 @@ import {
   authoritySource,
   Controller,
   controllerStateZ,
+  type OpenWriter,
   type SetChannelValue,
   setChannelValue,
-  type WriterFactory,
 } from "@/telem/control/aether/controller";
 import { renderAether } from "@/testutil/renderAether";
 
@@ -92,12 +92,12 @@ const hold = async (key: channel.Key, subject: string): Promise<Holder> => {
 
 /** Mounts a controller against the test cluster with a status source bound to the
  * channel, and waits for the client's change stream. */
-const setup = async (key: channel.Key, factory?: WriterFactory) => {
+const setup = async (key: channel.Key, openWriter?: OpenWriter) => {
   const h = renderAether(Colors, {
     state: {},
     synnax: { props: TEST_CLIENT_PARAMS },
     registry:
-      factory == null ? { [Controller.TYPE]: Controller } : registryWith(factory),
+      openWriter == null ? { [Controller.TYPE]: Controller } : registryWith(openWriter),
     children: {
       [CONTROLLER_KEY]: {
         type: Controller.TYPE,
@@ -141,7 +141,7 @@ const statusesOf = (h: { providers: { status: status.Aggregator | null } }): str
   h.providers.status?.state.statuses.map(({ message }) => message) ?? [];
 
 interface Intercept {
-  factory: WriterFactory;
+  openWriter: OpenWriter;
   openCount: () => number;
   writeCount: () => number;
 }
@@ -156,7 +156,7 @@ const interceptWrites = (
 ): Intercept => {
   let opens = 0;
   let writes = 0;
-  const factory: WriterFactory = async (client, config) => {
+  const openWriter: OpenWriter = async (client, config) => {
     opens += 1;
     const w = await client.openWriter(config);
     const write = w.write.bind(w);
@@ -169,14 +169,14 @@ const interceptWrites = (
       },
     });
   };
-  return { factory, openCount: () => opens, writeCount: () => writes };
+  return { openWriter, openCount: () => opens, writeCount: () => writes };
 };
 
-/** Binds every Controller the harness mounts to `factory`. */
-const registryWith = (factory: WriterFactory): aether.ComponentRegistry => ({
+/** Binds every Controller the harness mounts to `openWriter`. */
+const registryWith = (openWriter: OpenWriter): aether.ComponentRegistry => ({
   [Controller.TYPE]: class extends Controller {
     constructor(props: aether.ComponentConstructorProps) {
-      super(props, factory);
+      super(props, openWriter);
     }
   },
 });
@@ -206,8 +206,8 @@ describe("control/aether/Controller", SUITE, () => {
 
   it("should open a single writer when acquire is called twice", async () => {
     const ch = await createIndexed();
-    const { factory, openCount } = interceptWrites();
-    const { controller, source } = await setup(ch.key, factory);
+    const { openWriter, openCount } = interceptWrites();
+    const { controller, source } = await setup(ch.key, openWriter);
     controller.create(setChannelValue({ channel: ch.key }));
     controller.acquire();
     controller.acquire();
@@ -267,10 +267,10 @@ describe("control/aether/Controller", SUITE, () => {
 
   it("should reopen the writer and replay the write on a closed stream", async () => {
     const ch = await createIndexed();
-    const { factory, openCount, writeCount } = interceptWrites((attempt) =>
+    const { openWriter, openCount, writeCount } = interceptWrites((attempt) =>
       attempt === 1 ? new StreamClosed() : null,
     );
-    const { controller, source } = await setup(ch.key, factory);
+    const { controller, source } = await setup(ch.key, openWriter);
     controller.create(setChannelValue({ channel: ch.key }));
     controller.acquire();
     await expect.poll(() => source.value().variant, POLL).toEqual("success");
@@ -281,10 +281,10 @@ describe("control/aether/Controller", SUITE, () => {
 
   it("should propagate a write error that is not retryable", async () => {
     const ch = await createIndexed();
-    const { factory, openCount, writeCount } = interceptWrites(
+    const { openWriter, openCount, writeCount } = interceptWrites(
       () => new ValidationError("bad frame"),
     );
-    const { controller, source } = await setup(ch.key, factory);
+    const { controller, source } = await setup(ch.key, openWriter);
     controller.create(setChannelValue({ channel: ch.key }));
     controller.acquire();
     await expect.poll(() => source.value().variant, POLL).toEqual("success");

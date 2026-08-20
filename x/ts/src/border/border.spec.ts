@@ -15,7 +15,7 @@ describe("border", () => {
   describe("construct", () => {
     describe("scalar number form", () => {
       it("should expand a scalar to identical XY values for every corner", () => {
-        expect(border.construct(8)).toEqual({
+        expect(border.constructRadius(8)).toEqual({
           topLeft: { x: 8, y: 8 },
           topRight: { x: 8, y: 8 },
           bottomLeft: { x: 8, y: 8 },
@@ -24,7 +24,7 @@ describe("border", () => {
       });
 
       it("should preserve a scalar of zero across every corner", () => {
-        const r = border.construct(0);
+        const r = border.constructRadius(0);
         expect(r.topLeft).toEqual({ x: 0, y: 0 });
         expect(r.topRight).toEqual({ x: 0, y: 0 });
         expect(r.bottomLeft).toEqual({ x: 0, y: 0 });
@@ -34,7 +34,7 @@ describe("border", () => {
 
     describe("directional {x, y} form", () => {
       it("should apply the same XY to every corner", () => {
-        const r = border.construct({ x: 25, y: 50 });
+        const r = border.constructRadius({ x: 25, y: 50 });
         expect(r.topLeft).toEqual({ x: 25, y: 50 });
         expect(r.topRight).toEqual({ x: 25, y: 50 });
         expect(r.bottomLeft).toEqual({ x: 25, y: 50 });
@@ -42,7 +42,7 @@ describe("border", () => {
       });
 
       it("should not flip x and y", () => {
-        const r = border.construct({ x: 1, y: 99 });
+        const r = border.constructRadius({ x: 1, y: 99 });
         expect(r.topLeft.x).toBe(1);
         expect(r.topLeft.y).toBe(99);
       });
@@ -51,7 +51,7 @@ describe("border", () => {
     describe("per-corner number form", () => {
       it("should expand each corner number into a symmetric XY pair", () => {
         expect(
-          border.construct({
+          border.constructRadius({
             topLeft: 1,
             topRight: 2,
             bottomLeft: 3,
@@ -74,17 +74,17 @@ describe("border", () => {
           bottomLeft: { x: 5, y: 6 },
           bottomRight: { x: 7, y: 8 },
         };
-        expect(border.construct(radius)).toEqual(radius);
+        expect(border.constructRadius(radius)).toEqual(radius);
       });
     });
   });
 
   describe("crudeZ", () => {
     it("should accept every supported input form", () => {
-      expect(() => border.crudeZ.parse(5)).not.toThrow();
-      expect(() => border.crudeZ.parse({ x: 1, y: 2 })).not.toThrow();
+      expect(() => border.crudeRadiusZ.parse(5)).not.toThrow();
+      expect(() => border.crudeRadiusZ.parse({ x: 1, y: 2 })).not.toThrow();
       expect(() =>
-        border.crudeZ.parse({
+        border.crudeRadiusZ.parse({
           topLeft: 1,
           topRight: 2,
           bottomLeft: 3,
@@ -92,7 +92,7 @@ describe("border", () => {
         }),
       ).not.toThrow();
       expect(() =>
-        border.crudeZ.parse({
+        border.crudeRadiusZ.parse({
           topLeft: { x: 1, y: 1 },
           topRight: { x: 2, y: 2 },
           bottomLeft: { x: 3, y: 3 },
@@ -103,12 +103,12 @@ describe("border", () => {
 
     it("should reject inputs missing required corners", () => {
       expect(() =>
-        border.crudeZ.parse({ topLeft: 1, topRight: 2, bottomLeft: 3 }),
+        border.crudeRadiusZ.parse({ topLeft: 1, topRight: 2, bottomLeft: 3 }),
       ).toThrow();
     });
 
     it("should reject string inputs", () => {
-      expect(() => border.crudeZ.parse("8px")).toThrow();
+      expect(() => border.crudeRadiusZ.parse("8px")).toThrow();
     });
   });
 
