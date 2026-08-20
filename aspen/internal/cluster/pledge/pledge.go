@@ -70,6 +70,9 @@ func Pledge(ctx context.Context, cfgs ...Config) (Response, error) {
 	if err != nil {
 		return Response{}, err
 	}
+	if err = cfg.validatePeers(); err != nil {
+		return Response{}, err
+	}
 
 	cfg.R.Prod("pledge", cfg)
 	cfg.L.Debug("beginning pledge process", cfg.Report().ZapFields()...)
@@ -177,7 +180,7 @@ func (r *responsible) propose(ctx context.Context) (res Response, err error) {
 		// provide a consistent view through the lifetime of the proposal.
 		r.refreshCandidates()
 
-		// Add the proposed key unconditionally. Quorum juror's store each approved
+		// Add the proposed key unconditionally. Quorum jurors store each approved
 		// request. If one node in the quorum is unreachable, other Candidates may have
 		// already approved the request. This means that if we retry the request without
 		// incrementing the proposed key, we'll get a rejection from the candidate that

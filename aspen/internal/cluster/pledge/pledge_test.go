@@ -144,6 +144,11 @@ var _ = Describe("Pledge", func() {
 		It("Should return a validation error from Arbitrate", func() {
 			Expect(pledge.Arbitrate(pledge.Config{})).To(missingRequiredFields)
 		})
+		It("Should reject a Pledge with no peers", func(ctx SpecContext) {
+			Expect(pledge.Pledge(ctx, baseConfig(net), pledge.Config{
+				Candidates: allCandidates(node.Group{}),
+			})).Error().To(MatchError(ContainSubstring("peers: must be non-empty")))
+		})
 	})
 
 	Describe("Pledging node", func() {
@@ -196,7 +201,7 @@ var _ = Describe("Pledge", func() {
 
 	Describe("Responsible", func() {
 		Context("Cluster state is synchronized", func() {
-			It("Should correctly assign a name", func(ctx SpecContext) {
+			It("Should correctly assign a key", func(ctx SpecContext) {
 				var (
 					nodes         = make(node.Group)
 					numCandidates = 10
@@ -217,7 +222,7 @@ var _ = Describe("Pledge", func() {
 			})
 		})
 		Context("Responsible is missing candidates", func() {
-			It("Should correctly assign a name", func(ctx SpecContext) {
+			It("Should correctly assign a key", func(ctx SpecContext) {
 				var (
 					nodes      = make(node.Group)
 					candidates = func(i int) func() node.Group {
@@ -249,7 +254,7 @@ var _ = Describe("Pledge", func() {
 			})
 		})
 		Context("One juror is aware of a new node", func() {
-			It("Should assign the correct name", func(ctx SpecContext) {
+			It("Should assign the correct key", func(ctx SpecContext) {
 				var (
 					nodes           = make(node.Group)
 					allCandidates   = func() node.Group { return nodes }

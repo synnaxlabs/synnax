@@ -45,7 +45,7 @@ type (
 type Config struct {
 	// Instrumentation is used for logging, tracing, and metrics.
 	//
-	// [OPTIONAL] - Defaults to alamos.NoopInstrumentation.
+	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
 	// TransportClient is used for sending pledge information over the network.
 	//
@@ -76,7 +76,8 @@ type Config struct {
 	RetryInterval time.Duration
 	// MaxProposals is the maximum number of failed quorum consultations a responsible
 	// node will tolerate before giving up. Proposals rejected by a juror retry with a
-	// higher key and do not count against this limit.
+	// higher key and do not count against this limit, so the total number of rounds is
+	// bounded only by cancellation of the pledge request.
 	//
 	// [OPTIONAL] - Defaults to 10.
 	MaxProposals uint
@@ -125,6 +126,14 @@ func (cfg Config) Validate() error {
 	validate.GreaterThanEq(v, "retry_scale", cfg.RetryScale, 1)
 	validate.Positive(v, "max_proposals", cfg.MaxProposals)
 	validate.NotNil(v, "candidates", cfg.Candidates)
+	return v.Error()
+}
+
+// validatePeers validates the fields Validate cannot, as arbitrating nodes share the
+// same Config and need no peers.
+func (cfg Config) validatePeers() error {
+	v := validate.New("pledge")
+	validate.NotEmptySlice(v, "peers", cfg.Peers)
 	return v.Error()
 }
 
