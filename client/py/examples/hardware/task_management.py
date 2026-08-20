@@ -85,10 +85,10 @@ original_task = sy.modbus.ReadTask(
     stream_rate=sy.Rate.HZ * 10,
     channels=[
         sy.modbus.InputRegisterReadChannel(
-            type="register_input", channel=input_reg_0.key, address=0, data_type="uint8"
+            channel=input_reg_0.key, address=0, data_type="uint8"
         ),
         sy.modbus.InputRegisterReadChannel(
-            type="register_input", channel=input_reg_1.key, address=1, data_type="uint8"
+            channel=input_reg_1.key, address=1, data_type="uint8"
         ),
     ],
 )
