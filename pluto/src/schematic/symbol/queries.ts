@@ -177,6 +177,19 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   },
 });
 
+export type DeleteGroupParams = group.Key;
+
+export const { useUpdate: useDeleteGroup } = Flux.createUpdate<DeleteGroupParams>({
+  name: GROUP_RESOURCE_NAME,
+  verbs: verbs.DELETE,
+  update: async ({ client, data, onOptimisticComplete }) => {
+    await client.schematics.symbols.deleteGroup(data, {
+      onOptimistic: async () => await onOptimisticComplete(data),
+    });
+    return data;
+  },
+});
+
 export const { use: useGroup, useResult: useResultGroup } = Flux.createRetrieve<
   {},
   group.Group

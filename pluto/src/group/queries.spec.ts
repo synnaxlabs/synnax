@@ -334,6 +334,32 @@ describe("Group queries", () => {
         client.ontology.retrieve(group.ontologyID(testGroup.key)),
       ).rejects.toThrow();
     });
+
+    it("should run afterOptimistic before the delete commits", async () => {
+      const testGroup = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: "optimistic-delete",
+      });
+      const order: string[] = [];
+      const { result } = renderHook(
+        () =>
+          Group.useDelete({
+            afterOptimistic: ({ data }) => {
+              order.push(`optimistic:${data.key}`);
+            },
+            afterSuccess: () => {
+              order.push("success");
+            },
+          }),
+        { wrapper },
+      );
+
+      await act(async () => {
+        await result.current.updateAsync({ key: testGroup.key });
+      });
+
+      expect(order).toEqual([`optimistic:${testGroup.key}`, "success"]);
+    });
   });
 
   describe("Flux store integration", () => {
