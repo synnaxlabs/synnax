@@ -10,6 +10,8 @@
 package stable_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
@@ -770,5 +772,95 @@ var _ = Describe("Variable duration", func() {
 			output := s.Node("stable").Output(0)
 			Expect(telem.UnmarshalSeries[uint8](*output)).To(Equal([]uint8{7}))
 		},
+	)
+})
+
+// newTypedState builds a source -> stable_for graph where every param is t,
+// so the emitted output must preserve t's full-width value.
+func newTypedState(ctx context.Context, t types.Type) *node.ProgramState {
+	g := graph.Graph{
+		Nodes: []graph.Node{{Key: "source"}, {Key: "stable"}},
+		Inputs: map[string]msgpack.EncodedJSON{
+			"source": {"type": "source"},
+			"stable": {"type": "stable_for"},
+		},
+		Edges: graph.Edges{{Edge: ir.Edge{
+			Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
+			Target: ir.Handle{Node: "stable", Param: ir.DefaultInputParam},
+		}}},
+		Functions: []ir.Function{
+			{Key: "source", Outputs: types.Params{
+				{Name: ir.DefaultOutputParam, Type: t},
+			}},
+			{
+				Key:     "stable_for",
+				Inputs:  types.Params{{Name: ir.DefaultInputParam, Type: t}},
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: t}},
+			},
+		},
+	}
+	analyzed, diags := graph.Analyze(ctx, g, NewGraphRoot(nil))
+	Expect(diags.Ok()).To(BeTrue())
+	return node.New(analyzed)
+}
+
+var _ = Describe("StableFor type preservation", func() {
+	DescribeTable(
+		"Should debounce and emit the full-width value for any input type",
+		func(ctx SpecContext, t types.Type, input telem.Series) {
+			var clock telem.TimeStamp
+			module := stable.NewHost(stable.WithNow(
+				func() telem.TimeStamp { return clock },
+			))
+			state := newTypedState(ctx, t)
+			cfg := node.Config{
+				Node: ir.Node{
+					Type: "stable_for",
+					Inputs: types.Params{
+						{
+							Name:  "duration",
+							Type:  types.TimeSpan(),
+							Value: telem.SecondTS,
+						},
+					},
+				},
+				State: state.Node("stable"),
+			}
+			source := state.Node("source")
+			n := MustSucceed(module.Create(ctx, cfg))
+
+			clock = 0
+			*source.Output(0) = input
+			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+			fired := make(set.Set[int])
+			n.Next(
+				node.Context{Context: ctx, MarkChanged: func(i int) { fired.Add(i) }},
+			)
+			Expect(fired.Contains(0)).To(BeFalse())
+
+			clock = telem.SecondTS * 2
+			*source.Output(0) = telem.Series{DataType: input.DataType}
+			*source.OutputTime(0) = telem.NewSeriesSecondsTSV()
+			fired = make(set.Set[int])
+			n.Next(
+				node.Context{Context: ctx, MarkChanged: func(i int) { fired.Add(i) }},
+			)
+			Expect(fired.Contains(0)).To(BeTrue())
+
+			out := state.Node("stable").Output(0)
+			Expect(out.DataType).To(Equal(input.DataType))
+			Expect(out.Data).To(Equal(input.Data))
+		},
+		Entry("u8", types.U8(), telem.NewSeriesV[uint8](42)),
+		Entry("u16", types.U16(), telem.NewSeriesV[uint16](50_000)),
+		Entry("u32", types.U32(), telem.NewSeriesV[uint32](3_000_000_000)),
+		Entry("u64", types.U64(), telem.NewSeriesV[uint64](18_000_000_000_000_000_000)),
+		Entry("i8", types.I8(), telem.NewSeriesV[int8](-42)),
+		Entry("i16", types.I16(), telem.NewSeriesV[int16](-1_000)),
+		Entry("i32", types.I32(), telem.NewSeriesV[int32](-100_000)),
+		Entry("i64", types.I64(), telem.NewSeriesV[int64](-5_000_000_000)),
+		Entry("f32", types.F32(), telem.NewSeriesV[float32](4.321)),
+		Entry("f64", types.F64(), telem.NewSeriesV[float64](4.321)),
+		Entry("bool", types.Bool(), telem.NewSeriesV[bool](true)),
 	)
 })

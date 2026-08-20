@@ -94,7 +94,7 @@ Expressions can include comparisons:
 pressure > 500 -> pressure_high
 ```
 
-Now `pressure_high` outputs 1 when pressure exceeds 500, 0 otherwise.
+Now `pressure_high` outputs `true` when pressure exceeds 500, `false` otherwise.
 
 You can combine channels:
 
@@ -293,12 +293,9 @@ Good when:
 Inside a function body, reading a channel returns its latest value immediately:
 
 ```arc
-func check_limits{sensor chan f64, limit f64} () u8 {
+func check_limits{sensor chan f64, limit f64} () bool {
     value := sensor // reads latest value, doesn't block
-    if value > limit {
-        return 1
-    }
-    return 0
+    return value > limit
 }
 ```
 
@@ -414,7 +411,8 @@ pressure -> fmt_pressure{} -> pressure_status
 
 Each time `pressure` updates, `pressure_status` receives a string like
 `"Pressure: 523.70 psi"`. Format specs are validated against the placeholder type at
-compile time, so a `.2f` against an integer is caught before the program runs.
+compile time, so a `.2f` against an integer is caught before the program runs. A `bool`
+placeholder renders as `true` or `false`.
 
 Format strings are useful for writing diagnostic outputs:
 
@@ -468,6 +466,6 @@ Each stage feeds the next. When `pressure_raw` updates:
 1. `volts_to_psi` converts to psi
 2. `ema` smooths the result
 3. `rate` computes how fast the smoothed value is changing
-4. The comparison outputs 1 if pressure exceeds 800
+4. The comparison outputs `true` if pressure exceeds 800
 
 The raw value flows through the entire pipeline automatically.

@@ -42,6 +42,10 @@ template<>
 struct WasmType<int16_t> {
     using type = int32_t;
 };
+template<>
+struct WasmType<bool> {
+    using type = uint32_t;
+};
 
 /// Module is the unit of STL organization. Each module groups related host
 /// functions and optionally provides a node factory. Modules that create nodes

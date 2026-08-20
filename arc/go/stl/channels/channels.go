@@ -110,6 +110,7 @@ func NewHost(
 	builder = bindI32[int32](builder, cs, "i32")
 	builder = bindI64[uint64](builder, cs, "u64")
 	builder = bindI64[int64](builder, cs, "i64")
+	builder = bindBool(builder, cs)
 	builder = bindF32(builder, cs)
 	builder = bindF64(builder, cs)
 	builder = bindStr(builder, cs, stringState)
@@ -347,6 +348,29 @@ func bindI64[T i64Compatible](
 			appendFixedWriteSample(cs, chID, T(val))
 			cs.writeIndexedTimestamp(chID)
 		}).Export("write_" + suffix)
+	return builder
+}
+
+func bindBool(
+	builder wazero.HostModuleBuilder,
+	cs *ProgramState,
+) wazero.HostModuleBuilder {
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, chID uint32) uint32 {
+			series, ok := cs.ReadValue(chID)
+			if !ok || series.Len() == 0 {
+				return 0
+			}
+			if telem.ValueAt[bool](series, -1) {
+				return 1
+			}
+			return 0
+		}).Export("read_bool")
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, chID, val uint32) {
+			appendFixedWriteSample(cs, chID, val != 0)
+			cs.writeIndexedTimestamp(chID)
+		}).Export("write_bool")
 	return builder
 }
 

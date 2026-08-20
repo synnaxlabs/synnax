@@ -125,6 +125,11 @@ func (w *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 // ConvertLiteralValue converts a literal value to uint64 for WASM function calls.
 func ConvertLiteralValue(v any) (uint64, error) {
 	switch val := v.(type) {
+	case bool:
+		if val {
+			return 1, nil
+		}
+		return 0, nil
 	case int8:
 		return uint64(val), nil
 	case int16:

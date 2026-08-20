@@ -82,6 +82,16 @@ func EmitCast[ASTNode antlr.ParserRuleContext](
 		if from.Kind == types.KindString {
 			return nil
 		}
+		if from.Kind == types.KindBool {
+			return ctx.Resolver.EmitFixedImportCall(
+				ctx,
+				ctx.Writer,
+				ctx.WriterID,
+				ctx.Scope,
+				"strings",
+				"from_bool",
+			)
+		}
 		return ctx.Resolver.EmitNumericToString(
 			ctx,
 			ctx.Writer,

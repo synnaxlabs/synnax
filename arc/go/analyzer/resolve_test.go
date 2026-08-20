@@ -249,4 +249,43 @@ var _ = Describe("ResolveNodeTypes", func() {
 		Expect(analyzer.ResolveNodeTypes(nodes, edges, cs, diag)).To(BeTrue())
 		Expect(nodes[1].Inputs[0].Type).To(Equal(types.F32()))
 	})
+
+	DescribeTable("stable.for input types",
+		func(input types.Type, wantOK bool) {
+			nodes := ir.Nodes{
+				{
+					Key:     "source",
+					Type:    "on",
+					Outputs: types.Params{{Name: "output", Type: input}},
+				},
+				{
+					Key:  "stable",
+					Type: "stable_for",
+					Inputs: types.Params{
+						{Name: ir.DefaultInputParam, Type: input},
+						{Name: "duration", Type: types.TimeSpan(), Value: int64(1)},
+					},
+					Outputs: types.Params{
+						{Name: ir.DefaultOutputParam, Type: input},
+					},
+				},
+			}
+			edges := ir.Edges{{
+				Source: ir.Handle{Node: "source", Param: "output"},
+				Target: ir.Handle{Node: "stable", Param: ir.DefaultInputParam},
+			}}
+			Expect(
+				analyzer.ResolveNodeTypes(nodes, edges, cs, diag),
+			).To(Equal(wantOK))
+			if !wantOK {
+				Expect(diag.String()).To(
+					ContainSubstring("must be a numeric or bool type"),
+				)
+			}
+		},
+		Entry("accepts f64", types.F64(), true),
+		Entry("accepts bool", types.Bool(), true),
+		Entry("rejects str", types.String(), false),
+		Entry("rejects series str", types.Series(types.String()), false),
+	)
 })

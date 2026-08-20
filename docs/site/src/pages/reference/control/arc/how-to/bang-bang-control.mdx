@@ -24,11 +24,8 @@ value is too low, off when it's too high. It's commonly used for temperature con
 Turn a heater on when temperature drops below a setpoint:
 
 ```arc channels="tank_temp, heater_cmd"
-func on_off{setpoint f64} (value f64) u8 {
-    if value < setpoint {
-        return 1
-    }
-    return 0
+func on_off{setpoint f64} (value f64) bool {
+    return value < setpoint
 }
 
 tank_temp -> on_off{setpoint=50.0} -> heater_cmd
@@ -45,20 +42,20 @@ Add a deadband to prevent rapid switching:
 
 ```arc channels="tank_temp, heater_cmd"
 func bang_bang{
-    low f64, // turn on below this
+    low f64,  // turn on below this
     high f64, // turn off above this
-} (value f64) u8 {
-    state $= 0
+} (value f64) bool {
+    state $= false
 
-    if state == 0 {
+    if not state {
         // Output is off, turn on if below low threshold
         if value < low {
-            state = 1
+            state = true
         }
     } else {
         // Output is on, turn off if above high threshold
         if value > high {
-            state = 0
+            state = false
         }
     }
 
@@ -78,33 +75,35 @@ rises above 52°C. The 4°C deadband prevents cycling.
 A complete heater controller with enable and safety limits:
 
 ```arc channels="t, en, tank_temp, heater_enable, heater_cmd"
+import time
+
 func heater_control{
     setpoint f64,
     deadband f64, // half the total deadband (±)
     max_temp f64, // safety cutoff
-} (temp f64, enable u8) u8 {
-    state $= 0
+} (temp f64, enable bool) bool {
+    state $= false
     // Safety cutoff
     if temp > max_temp {
-        state = 0
-        return 0
+        state = false
+        return false
     }
     // Check if enabled
-    if enable == 0 {
-        state = 0
-        return 0
+    if not enable {
+        state = false
+        return false
     }
     // Bang-bang control
     low := setpoint - deadband
     high := setpoint + deadband
 
-    if state == 0 {
+    if not state {
         if temp < low {
-            state = 1
+            state = true
         }
     } else {
         if temp > high {
-            state = 0
+            state = false
         }
     }
 
@@ -113,32 +112,32 @@ func heater_control{
 // Use interval and channel inputs for multi-input control
 func heater_ctrl{
     temp chan f64,
-    enable chan u8,
+    enable chan bool,
     setpoint f64,
     deadband f64,
     max_temp f64,
-} () u8 {
-    state $= 0
+} () bool {
+    state $= false
     t := temp
     en := enable
 
     if t > max_temp {
-        state = 0 return 0
+        state = false return false
     }
-    if en == 0 {
-        state = 0 return 0
+    if not en {
+        state = false return false
     }
 
     low := setpoint - deadband
     high := setpoint + deadband
 
-    if state == 0 {
+    if not state {
         if t < low {
-            state = 1
+            state = true
         }
     } else {
         if t > high {
-            state = 0
+            state = false
         }
     }
     return state
@@ -163,35 +162,37 @@ the setpoint.
 Cooling works the same way with inverted logic:
 
 ```arc channels="t, en, tank_temp, cooler_enable, cooler_cmd"
+import time
+
 func cooler_control{
     setpoint f64,
     deadband f64,
     min_temp f64, // don't cool below this
-} (temp f64, enable u8) u8 {
-    state $= 0
+} (temp f64, enable bool) bool {
+    state $= false
     // Safety limit
     if temp < min_temp {
-        state = 0
-        return 0
+        state = false
+        return false
     }
 
-    if enable == 0 {
-        state = 0
-        return 0
+    if not enable {
+        state = false
+        return false
     }
 
     high := setpoint + deadband
     low := setpoint - deadband
 
-    if state == 0 {
+    if not state {
         // Cooler is off, turn on if above high threshold
         if temp > high {
-            state = 1
+            state = true
         }
     } else {
         // Cooler is on, turn off if below low threshold
         if temp < low {
-            state = 0
+            state = false
         }
     }
 
@@ -200,32 +201,32 @@ func cooler_control{
 // Similar pattern with channel inputs
 func cooler_ctrl{
     temp chan f64,
-    enable chan u8,
+    enable chan bool,
     setpoint f64,
     deadband f64,
     min_temp f64,
-} () u8 {
-    state $= 0
+} () bool {
+    state $= false
     t := temp
     en := enable
 
     if t < min_temp {
-        state = 0 return 0
+        state = false return false
     }
-    if en == 0 {
-        state = 0 return 0
+    if not en {
+        state = false return false
     }
 
     high := setpoint + deadband
     low := setpoint - deadband
 
-    if state == 0 {
+    if not state {
         if t > high {
-            state = 1
+            state = true
         }
     } else {
         if t < low {
-            state = 0
+            state = false
         }
     }
     return state
@@ -247,32 +248,34 @@ time.interval{period=50ms} -> cooler_ctrl{
 Maintain tank pressure by controlling a fill valve:
 
 ```arc channels="p, en, tank_pressure, press_enable, valve_cmd"
+import time
+
 func pressure_regulator{target f64, deadband f64, max_pressure f64} (
     pressure f64,
-    enable u8,
-) u8 {
-    valve_state $= 0
+    enable bool,
+) bool {
+    valve_state $= false
     // Over-pressure protection
     if pressure > max_pressure {
-        valve_state = 0
-        return 0
+        valve_state = false
+        return false
     }
 
-    if enable == 0 {
-        valve_state = 0
-        return 0
+    if not enable {
+        valve_state = false
+        return false
     }
 
     low := target - deadband
     high := target + deadband
 
-    if valve_state == 0 {
+    if not valve_state {
         if pressure < low {
-            valve_state = 1
+            valve_state = true
         }
     } else {
         if pressure > high {
-            valve_state = 0
+            valve_state = false
         }
     }
 
@@ -281,32 +284,32 @@ func pressure_regulator{target f64, deadband f64, max_pressure f64} (
 
 func pressure_ctrl{
     pressure chan f64,
-    enable chan u8,
+    enable chan bool,
     target f64,
     deadband f64,
     max_pressure f64,
-} () u8 {
-    state $= 0
+} () bool {
+    state $= false
     p := pressure
     en := enable
 
     if p > max_pressure {
-        state = 0 return 0
+        state = false return false
     }
-    if en == 0 {
-        state = 0 return 0
+    if not en {
+        state = false return false
     }
 
     low := target - deadband
     high := target + deadband
 
-    if state == 0 {
+    if not state {
         if p < low {
-            state = 1
+            state = true
         }
     } else {
         if p > high {
-            state = 0
+            state = false
         }
     }
     return state
@@ -328,90 +331,93 @@ time.interval{period=50ms} -> pressure_ctrl{
 Some systems have both heating and cooling (or filling and venting):
 
 ```arc channels="t, en, tank_temp, temp_enable, heater_cmd, cooler_cmd"
+import time
+
 func dual_control{setpoint f64, heat_deadband f64, cool_deadband f64} (
     value f64,
-    enable u8,
-) (heat u8, cool u8) {
-    heat_state $= 0
-    cool_state $= 0
+    enable bool,
+) (heat bool, cool bool) {
+    heat_state $= false
+    cool_state $= false
 
-    if enable == 0 {
-        heat_state = 0
-        cool_state = 0
-        heat = 0
-        cool = 0
+    if not enable {
+        heat_state = false
+        cool_state = false
+        heat = false
+        cool = false
         return
     }
     // Heating control (below setpoint)
     heat_on := setpoint - heat_deadband
     heat_off := setpoint
 
-    if heat_state == 0 {
+    if not heat_state {
         if value < heat_on {
-            heat_state = 1
+            heat_state = true
         }
     } else {
         if value > heat_off {
-            heat_state = 0
+            heat_state = false
         }
     }
     // Cooling control (above setpoint)
     cool_off := setpoint
     cool_on := setpoint + cool_deadband
 
-    if cool_state == 0 {
+    if not cool_state {
         if value > cool_on {
-            cool_state = 1
+            cool_state = true
         }
     } else {
         if value < cool_off {
-            cool_state = 0
+            cool_state = false
         }
     }
 
     heat = heat_state
     cool = cool_state
 }
+
 // For dual outputs, use separate control functions
-func heat_control{temp chan f64, enable chan u8, setpoint f64, deadband f64} () u8 {
-    state $= 0
+func heat_control{temp chan f64, enable chan bool, setpoint f64, deadband f64} () bool {
+    state $= false
     t := temp
     en := enable
 
-    if en == 0 {
-        state = 0 return 0
+    if not en {
+        state = false return false
     }
 
     low := setpoint - deadband
-    if state == 0 {
+    if not state {
         if t < low {
-            state = 1
+            state = true
         }
     } else {
         if t > setpoint {
-            state = 0
+            state = false
         }
     }
     return state
 }
 
-func cool_control{temp chan f64, enable chan u8, setpoint f64, deadband f64} () u8 {
-    state $= 0
+func cool_control{temp chan f64, enable chan bool, setpoint f64, deadband f64} () bool {
+    state $= false
     t := temp
     en := enable
 
-    if en == 0 {
-        state = 0 return 0
+    if not en {
+        state = false return false
     }
 
     high := setpoint + deadband
-    if state == 0 {
+    if not state {
         if t > high {
-            state = 1
+            state = true
         }
     } else {
         if t < setpoint {
-            state = 0
+            state = false
         }
     }
     return state
@@ -444,21 +450,23 @@ time.interval{period=50ms} -> cool_control{
 For consistent timing, use an interval to trigger the control loop:
 
 ```arc channels="value, tank_temp, heater_cmd"
-func bang_bang_controller{sensor chan f64, output chan f64, low f64, high f64} () {
-    state $= 0
+import time
+
+func bang_bang_controller{sensor chan f64, output chan bool, low f64, high f64} () {
+    state $= false
     value := sensor
 
-    if state == 0 {
+    if not state {
         if value < low {
-            state = 1
+            state = true
         }
     } else {
         if value > high {
-            state = 0
+            state = false
         }
     }
 
-    output = f64(state)
+    output = state
 }
 // Run control loop at 20Hz (50ms)
 time.interval{period=50ms} -> bang_bang_controller{
@@ -479,6 +487,8 @@ data arrives.
 Use bang-bang control during specific sequence stages:
 
 ```arc channels="tank_temp, heater_cmd, tank_pressure, valve_cmd, start_cmd", bodies="main"
+import time
+
 sequence main {
     stage preheat {
         // Maintain temperature while pressurizing
@@ -505,8 +515,8 @@ sequence main {
     }
 
     stage complete {
-        0 -> heater_cmd
-        0 -> valve_cmd
+        false -> heater_cmd
+        false -> valve_cmd
     }
 }
 

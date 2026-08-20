@@ -71,6 +71,31 @@ func Analyze(ctx context.Context[parser.IFlowStatementContext]) {
 	for _, routingTable := range ctx.AST.AllRoutingTable() {
 		analyzeRoutingTable(context.Child(ctx, routingTable))
 	}
+	warnNumericTransitions(ctx)
+}
+
+// warnNumericTransitions flags a numeric condition feeding a `=>` transition.
+// Numeric truthiness is deprecated: a future release will only accept bool.
+func warnNumericTransitions[T antlr.ParserRuleContext](ctx context.Context[T]) {
+	children := ctx.AST.GetChildren()
+	for i, child := range children {
+		op, ok := child.(parser.IFlowOperatorContext)
+		if !ok || i == 0 || op.TRANSITION() == nil {
+			continue
+		}
+		// Function nodes are skipped: resolving their output reports its own
+		// errors, so asking again would duplicate them.
+		node, ok := children[i-1].(parser.IFlowNodeContext)
+		if !ok || node.Function() != nil {
+			continue
+		}
+		if !inferFlowNodeOutputType(context.Child(ctx, node)).IsNumeric() {
+			continue
+		}
+		ctx.Diagnostics.Add(diagnostics.Warningf(node,
+			"numeric conditions are deprecated; use an explicit comparison like x != 0",
+		))
+	}
 }
 
 func analyzeNode(
@@ -391,6 +416,28 @@ func flowSourceType(
 		srcValueType := srcSym.Type.Unwrap()
 		return srcValueType, fmt.Sprintf("%s value type %s", srcName, srcValueType)
 	}
+	if prevFn := prevNode.Function(); prevFn != nil {
+		// Resolve without ctx.Resolve: the call node already resolved this
+		// name, and resolving it again would duplicate deprecation warnings.
+		head, tail := parser.FunctionNameParts(prevFn)
+		fnName := head
+		fnSym, err := ctx.Scope.Resolve(ctx, head)
+		if err == nil && tail != "" {
+			fnName = head + "." + tail
+			fnSym, err = fnSym.Resolve(ctx, tail)
+		}
+		if err != nil || fnSym.Kind != symbol.KindFunction {
+			return types.Type{}, ""
+		}
+		// A polymorphic func has one output type shared by all of its calls;
+		// checking it here would lock it to this sink's type for every call.
+		out, ok := fnSym.Type.Outputs.Get(ir.DefaultOutputParam)
+		if ok && out.Type.Kind != types.KindVariable {
+			return out.Type, fmt.Sprintf(
+				"func %s output type %s", fnName, out.Type,
+			)
+		}
+	}
 	return types.Type{}, ""
 }
 
@@ -552,6 +599,10 @@ func analyzeRoutingTable(ctx context.Context[parser.IRoutingTableContext]) {
 		}
 	}
 
+	for _, entry := range ctx.AST.AllRoutingEntry() {
+		warnNumericTransitions(context.Child(ctx, entry))
+	}
+
 	if len(nodesBefore) == 0 && len(nodesAfter) > 0 {
 		analyzeInputRoutingTable(ctx, nodesAfter)
 	} else if len(nodesBefore) > 0 {
@@ -623,7 +674,7 @@ func analyzeOutputRoutingTable(
 
 	// Analyze each routing entry
 	for _, entry := range ctx.AST.AllRoutingEntry() {
-		outputName := entry.IDENTIFIER(0).GetText()
+		outputName := entry.RoutingKey().GetText()
 
 		outputType, exists := fnType.Type.Outputs.Get(outputName)
 		if !exists {
@@ -637,8 +688,8 @@ func analyzeOutputRoutingTable(
 		}
 
 		var targetParamName string
-		if len(entry.AllIDENTIFIER()) > 1 {
-			targetParamName = entry.IDENTIFIER(1).GetText()
+		if entry.IDENTIFIER() != nil {
+			targetParamName = entry.IDENTIFIER().GetText()
 
 			if nextFunc == nil {
 				ctx.Diagnostics.Add(diagnostics.Errorf(

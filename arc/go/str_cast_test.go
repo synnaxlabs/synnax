@@ -78,6 +78,8 @@ var _ = Describe("str() typecast end-to-end runtime", func() {
 		Entry("explicit u32(42)", "str(u32(42))", "42"),
 		Entry("explicit u8(255)", "str(u8(255))", "255"),
 		Entry("string literal", `str("hello")`, "hello"),
+		Entry("bool literal true", "str(true)", "true"),
+		Entry("bool literal false", "str(false)", "false"),
 	)
 
 	It(
@@ -221,6 +223,22 @@ var _ = Describe("str() typecast end-to-end runtime", func() {
 			telem.Uint32T,
 			func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[uint32](4000000000)) },
 			"4000000000",
+		),
+		Entry(
+			"bool channel true",
+			"bool",
+			types.Bool(),
+			telem.BooleanT,
+			func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[bool](true)) },
+			"true",
+		),
+		Entry(
+			"bool channel false",
+			"bool",
+			types.Bool(),
+			telem.BooleanT,
+			func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[bool](false)) },
+			"false",
 		),
 	)
 

@@ -95,6 +95,10 @@ func NewSymbols() []*symbol.Symbol {
 		symbol.InternalHostFunc("compare_le_scalar", scalarArithIn, resultOut),
 		symbol.InternalHostFunc("compare_eq_scalar", scalarArithIn, resultOut),
 		symbol.InternalHostFunc("compare_ne_scalar", scalarArithIn, resultOut),
+		symbol.InternalHostFunc("and", seriesBinIn, resultOut),
+		symbol.InternalHostFunc("or", seriesBinIn, resultOut),
+		symbol.InternalHostFunc("and_scalar", scalarArithIn, resultOut),
+		symbol.InternalHostFunc("or_scalar", scalarArithIn, resultOut),
 		symbol.InternalHostFunc(
 			"create_empty",
 			types.Params{{Name: "len", Type: i32}},
@@ -120,7 +124,7 @@ func NewSymbols() []*symbol.Symbol {
 			resultOut,
 		),
 		symbol.InternalHostFunc(
-			"not_u8",
+			"not",
 			types.Params{{Name: "handle", Type: i32}},
 			resultOut,
 		),
@@ -172,6 +176,7 @@ func NewHost(
 	builder = bindI64(builder, s)
 	builder = bindF32(builder, s)
 	builder = bindF64(builder, s)
+	builder = bindBool(builder, s)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, handle uint32) uint64 {
 			if ser, ok := s.Get(handle); ok {
@@ -210,14 +215,84 @@ func NewHost(
 			if !ok {
 				return 0
 			}
-			result := telem.Series{DataType: telem.Uint8T}
-			op.NotU8(ser, &result)
+			result := telem.Series{DataType: telem.BooleanT}
+			op.Not(ser, &result)
 			return s.Store(result)
-		}).Export("not_u8")
+		}).Export("not")
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
 	}
 	return h, nil
+}
+
+// bindCreateEmpty registers create_empty_<suffix>, the allocator shared by
+// every series element type.
+func bindCreateEmpty(
+	builder wazero.HostModuleBuilder,
+	s *ProgramState,
+	suffix string,
+	dt telem.DataType,
+) wazero.HostModuleBuilder {
+	return builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, length uint32) uint32 {
+			return s.Store(telem.MakeSeries(dt, int(length)))
+		}).Export("create_empty_" + suffix)
+}
+
+// bindBool registers the series operations valid on a bool series: allocation,
+// element access, and indexing. Bool series arise from element-wise comparisons
+// and support no arithmetic.
+func bindBool(
+	builder wazero.HostModuleBuilder,
+	s *ProgramState,
+) wazero.HostModuleBuilder {
+	builder = bindCreateEmpty(builder, s, "bool", telem.BooleanT)
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, handle, index, value uint32) uint32 {
+			if ser, ok := s.Get(handle); ok && int64(index) < ser.Len() {
+				telem.SetValueAt[bool](ser, int(index), value != 0)
+			}
+			return handle
+		}).Export("set_element_bool")
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, handle, index uint32) uint32 {
+			if ser, ok := s.Get(handle); ok && int64(index) < ser.Len() &&
+				telem.ValueAt[bool](ser, int(index)) {
+				return 1
+			}
+			return 0
+		}).Export("index_bool")
+	for _, entry := range []struct {
+		name string
+		fn   func(telem.Series, telem.Series, *telem.Series)
+	}{
+		{"and", op.And},
+		{"or", op.Or},
+	} {
+		builder = bindSeriesBinary(
+			builder, s, entry.name, "logical operation", telem.BooleanT, entry.fn,
+		)
+	}
+	for _, entry := range []struct {
+		name string
+		fn   func(telem.Series, bool, *telem.Series)
+	}{
+		{"and_scalar", op.AndScalar},
+		{"or_scalar", op.OrScalar},
+	} {
+		fn := entry.fn
+		builder = builder.NewFunctionBuilder().
+			WithFunc(func(_ context.Context, handle, scalar uint32) uint32 {
+				ser, ok := s.Get(handle)
+				if !ok {
+					return 0
+				}
+				result := telem.Series{DataType: telem.BooleanT}
+				fn(ser, scalar != 0, &result)
+				return s.Store(result)
+			}).Export(entry.name)
+	}
+	return builder
 }
 
 // i32Scalar is used for types that map to i32 in WASM.
@@ -263,10 +338,7 @@ func bindI32Type[T i32Scalar](
 	ops seriesOps[T],
 ) wazero.HostModuleBuilder {
 	dt := ops.dt
-	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, length uint32) uint32 {
-			return s.Store(telem.MakeSeries(dt, int(length)))
-		}).Export("create_empty_" + suffix)
+	builder = bindCreateEmpty(builder, s, suffix, dt)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, handle, index, value uint32) uint32 {
 			if ser, ok := s.Get(handle); ok {
@@ -392,12 +464,41 @@ func bindCompareScalarI32[T i32Scalar](
 				if !ok {
 					return 0
 				}
-				result := telem.Series{DataType: telem.Uint8T}
+				result := telem.Series{DataType: telem.BooleanT}
 				fn(ser, T(scalar), &result)
 				return s.Store(result)
 			}).Export(entry.name + suffix)
 	}
 	return builder
+}
+
+// bindSeriesBinary registers a host function that takes two series handles and
+// stores the result of fn. UnknownT as resultDT keeps the left operand's type.
+func bindSeriesBinary(
+	builder wazero.HostModuleBuilder,
+	s *ProgramState,
+	name, opName string,
+	resultDT telem.DataType,
+	fn func(telem.Series, telem.Series, *telem.Series),
+) wazero.HostModuleBuilder {
+	return builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, h1, h2 uint32) uint32 {
+			s1, ok1 := s.Get(h1)
+			s2, ok2 := s.Get(h2)
+			if !ok1 || !ok2 {
+				return 0
+			}
+			if s1.Len() != s2.Len() {
+				panic("arc panic: series length mismatch in " + opName)
+			}
+			dt := resultDT
+			if dt == telem.UnknownT {
+				dt = s1.DataType
+			}
+			result := telem.Series{DataType: dt}
+			fn(s1, s2, &result)
+			return s.Store(result)
+		}).Export(name)
 }
 
 func bindSeriesOps[T any](
@@ -417,22 +518,9 @@ func bindSeriesOps[T any](
 		{"series_div_", ops.div, "division"},
 		{"series_mod_", ops.mod, "modulo"},
 	} {
-		fn := entry.fn
-		opName := entry.op
-		builder = builder.NewFunctionBuilder().
-			WithFunc(func(_ context.Context, h1, h2 uint32) uint32 {
-				s1, ok1 := s.Get(h1)
-				s2, ok2 := s.Get(h2)
-				if !ok1 || !ok2 {
-					return 0
-				}
-				if s1.Len() != s2.Len() {
-					panic("arc panic: series length mismatch in " + opName)
-				}
-				result := telem.Series{DataType: s1.DataType}
-				fn(s1, s2, &result)
-				return s.Store(result)
-			}).Export(entry.name + suffix)
+		builder = bindSeriesBinary(
+			builder, s, entry.name+suffix, entry.op, telem.UnknownT, entry.fn,
+		)
 	}
 	return builder
 }
@@ -454,21 +542,9 @@ func bindCompareOps[T any](
 		{"compare_eq_", ops.eq},
 		{"compare_ne_", ops.ne},
 	} {
-		fn := entry.fn
-		builder = builder.NewFunctionBuilder().
-			WithFunc(func(_ context.Context, h1, h2 uint32) uint32 {
-				s1, ok1 := s.Get(h1)
-				s2, ok2 := s.Get(h2)
-				if !ok1 || !ok2 {
-					return 0
-				}
-				if s1.Len() != s2.Len() {
-					panic("arc panic: series length mismatch in comparison")
-				}
-				result := telem.Series{DataType: telem.Uint8T}
-				fn(s1, s2, &result)
-				return s.Store(result)
-			}).Export(entry.name + suffix)
+		builder = bindSeriesBinary(
+			builder, s, entry.name+suffix, "comparison", telem.BooleanT, entry.fn,
+		)
 	}
 	return builder
 }
@@ -500,10 +576,7 @@ func bindI64Type[T uint64 | int64](
 	dt telem.DataType,
 	ops seriesOps[T],
 ) wazero.HostModuleBuilder {
-	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, length uint32) uint32 {
-			return s.Store(telem.MakeSeries(dt, int(length)))
-		}).Export("create_empty_" + suffix)
+	builder = bindCreateEmpty(builder, s, suffix, dt)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, handle, index uint32, value uint64) uint32 {
 			if ser, ok := s.Get(handle); ok {
@@ -606,7 +679,7 @@ func bindI64Type[T uint64 | int64](
 				if !ok {
 					return 0
 				}
-				result := telem.Series{DataType: telem.Uint8T}
+				result := telem.Series{DataType: telem.BooleanT}
 				fn(ser, T(scalar), &result)
 				return s.Store(result)
 			}).Export(entry.name + suffix)
@@ -628,10 +701,7 @@ func bindFloatType[T float32 | float64](
 	dt telem.DataType,
 	ops seriesOps[T],
 ) wazero.HostModuleBuilder {
-	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, length uint32) uint32 {
-			return s.Store(telem.MakeSeries(dt, int(length)))
-		}).Export("create_empty_" + suffix)
+	builder = bindCreateEmpty(builder, s, suffix, dt)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, handle, index uint32, value T) uint32 {
 			if ser, ok := s.Get(handle); ok {
@@ -734,7 +804,7 @@ func bindFloatType[T float32 | float64](
 				if !ok {
 					return 0
 				}
-				result := telem.Series{DataType: telem.Uint8T}
+				result := telem.Series{DataType: telem.BooleanT}
 				fn(ser, scalar, &result)
 				return s.Store(result)
 			}).Export(entry.name + suffix)

@@ -37,7 +37,7 @@ stage pressurize {
     abort_btn => abort
 
     // Continuous flows (run every cycle)
-    1 -> press_vlv_cmd
+    true -> press_vlv_cmd
     sensor -> controller{}
 
 }
@@ -75,7 +75,7 @@ sequence controller {
         stop_cmd => stop
     }
     stage stop {
-        0 -> valve_cmd
+        false -> valve_cmd
         time.wait{duration=250ms} => yield
     }
     stage yield {
@@ -144,9 +144,9 @@ parent stage is entered.
 stage fire {
     chamber_temp > 2000 => abort
     sequence {
-        1 -> igniter_cmd
+        true -> igniter_cmd
         time.wait{200ms}
-        1 -> ox_main_vlv_cmd
+        true -> ox_main_vlv_cmd
     }
 }
 ```

@@ -125,6 +125,10 @@ func castAndEmitConst[ASTNode antlr.ParserRuleContext](
 		if s, ok := v.(string); ok {
 			cast = s
 		}
+	case types.KindBool:
+		if b, ok := v.(bool); ok {
+			cast = b
+		}
 	case types.KindI8, types.KindI16, types.KindI32, types.KindU8, types.KindU16,
 		types.KindU32:
 		if n, ok := asInt64(v); ok {

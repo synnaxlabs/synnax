@@ -79,7 +79,7 @@ func controller{
     setpoint f64,      // literal or channel
     sensor chan f64,   // channel reference
     output chan f64,   // channel reference
-} (enable u8) f64 {
+} (enable bool) f64 {
     value := sensor
     if enable {
         output = value - setpoint
@@ -228,7 +228,7 @@ Functions can also reference global channels by name:
 ```arc channels="ox_pt_1, alarm_status"
 func monitor() {
     if ox_pt_1 > 500 {
-        alarm_status = 1
+        alarm_status = true
     }
 }
 ```

@@ -32,12 +32,12 @@ inline const std::string false_param = "false";
 inline constexpr size_t TRUE_OUTPUT_IDX = 0;
 inline constexpr size_t FALSE_OUTPUT_IDX = 1;
 
-/// @brief Select routes a u8 input to its "true" or "false" output based on
-/// value: input samples equal to 1 produce samples on the "true" output,
-/// all others produce samples on the "false" output. Both outputs emit a
-/// value of 1 for each matched sample — the output value signals "this
-/// route fired" rather than echoing the input — so the output can drive
-/// a truthy-gated transition whether the matched route is true or false.
+/// @brief Select routes a boolean input to its "true" or "false" outputs:
+/// true values produce samples on the "true" output; false values produce
+/// samples on the "false" output. Both outputs emit a value of 1 for each
+/// matched sample — the output value signals "this route fired" rather than
+/// echoing the input — so the output can drive a truthy-gated transition
+/// whether the matched route is true or false.
 class Select : public runtime::node::Node {
     runtime::state::Node state;
     size_t input_idx;

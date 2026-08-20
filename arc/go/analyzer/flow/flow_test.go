@@ -106,7 +106,7 @@ var resolver = []symbol.Symbol{
 	{
 		Name: "start_cmd",
 		Kind: symbol.KindChannel,
-		Type: types.Chan(types.U8()),
+		Type: types.Chan(types.Bool()),
 	},
 }
 
@@ -1373,9 +1373,7 @@ sequence main {
 				ctx := context.NewRoot(bCtx, ast, NewRoot(customResolver))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-				Expect(
-					(*ctx.Diagnostics)[0].Message,
-				).To(ContainSubstring("type mismatch"))
+				Expect(ctx.Diagnostics.String()).To(ContainSubstring("type mismatch"))
 			},
 		)
 
@@ -1423,7 +1421,7 @@ sequence main {
 					{
 						Name: "flag",
 						Kind: symbol.KindChannel,
-						Type: types.Chan(types.U8()),
+						Type: types.Chan(types.Bool()),
 					},
 					{
 						Name: "log_str",
@@ -1444,7 +1442,11 @@ sequence main {
 
 		It("Should accept select{} with => chain bodies", func(bCtx SpecContext) {
 			customResolver := StaticResolver{
-				{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8())},
+				{
+					Name: "flag",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.Bool()),
+				},
 				{
 					Name: "log_str",
 					Kind: symbol.KindChannel,
@@ -2549,7 +2551,7 @@ sequence main {
 					{
 						Name: "inner_flag",
 						Kind: symbol.KindChannel,
-						Type: types.Chan(types.U8()),
+						Type: types.Chan(types.Bool()),
 					},
 					{
 						Name: "log_str",
@@ -2576,7 +2578,7 @@ sequence main {
 					{
 						Name: "outer_flag",
 						Kind: symbol.KindChannel,
-						Type: types.Chan(types.U8()),
+						Type: types.Chan(types.Bool()),
 					},
 					{
 						Name: "inner_flag",
@@ -3019,7 +3021,7 @@ sequence main {
 			"Should compile sequences with stage targets and mixed flow operators",
 			func(bCtx SpecContext) {
 				ast := MustSucceed(parser.Parse(`
-			func threshold{} (val f32) u8 {
+			func threshold{} (val f32) bool {
 			    return val > 100
 			}
 
@@ -3051,6 +3053,68 @@ sequence main {
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			},
+		)
+	})
+
+	Describe("Numeric transition deprecation", func() {
+		DescribeTable(
+			"warns when a numeric condition feeds =>",
+			func(bCtx SpecContext, source string, warningCount int) {
+				customResolver := StaticResolver{
+					{
+						Name: "u8_gate",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.U8()),
+					},
+					{
+						Name: "bool_gate",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.Bool()),
+					},
+				}
+				ast := MustSucceed(parser.Parse(source))
+				ctx := context.NewRoot(bCtx, ast, NewRoot(customResolver))
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				warnings := ctx.Diagnostics.Warnings()
+				Expect(warnings).To(HaveLen(warningCount))
+				for _, w := range warnings {
+					Expect(w.Message).To(Equal(
+						"numeric conditions are deprecated; use an explicit " +
+							"comparison like x != 0",
+					))
+				}
+			},
+			Entry(
+				"numeric channel gate",
+				`sequence main {
+					stage first { u8_gate => next }
+					stage second {}
+				}`,
+				1,
+			),
+			Entry(
+				"bool channel gate",
+				`sequence main {
+					stage first { bool_gate => next }
+					stage second {}
+				}`,
+				0,
+			),
+			Entry(
+				"comparison gate",
+				`sequence main {
+					stage first { u8_gate > 1 => next }
+					stage second {}
+				}`,
+				0,
+			),
+			Entry(
+				"numeric top-level entry",
+				`u8_gate => main
+				sequence main { stage first {} }`,
+				1,
+			),
 		)
 	})
 })
@@ -3173,7 +3237,11 @@ var _ = Describe("Trigger in select routing branches", func() {
 		"Should accept a select branch chaining time.now into an i64 channel",
 		func(bCtx SpecContext) {
 			customResolver := StaticResolver{
-				{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8())},
+				{
+					Name: "flag",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.Bool()),
+				},
 				{
 					Name: "i64_ch",
 					Kind: symbol.KindChannel,
@@ -3199,6 +3267,8 @@ var _ = Describe("Flow Sink Type Compatibility", func() {
 		{Name: "num_f64", Kind: symbol.KindChannel, Type: types.Chan(types.F64())},
 		{Name: "sink_f64", Kind: symbol.KindChannel, Type: types.Chan(types.F64())},
 		{Name: "num_i64", Kind: symbol.KindChannel, Type: types.Chan(types.I64())},
+		{Name: "num_u8", Kind: symbol.KindChannel, Type: types.Chan(types.U8())},
+		{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.Bool())},
 	}
 
 	type mismatchCase struct {
@@ -3244,6 +3314,30 @@ var _ = Describe("Flow Sink Type Compatibility", func() {
 				"does not match channel log_str value type str",
 			},
 		}),
+		Entry("bool function output into a u8 channel", mismatchCase{
+			source: "func check() bool { return true }\n\ncheck{} -> num_u8",
+			line:   2,
+			substrings: []string{
+				"func check output type bool",
+				"does not match channel num_u8 value type u8",
+			},
+		}),
+		Entry("bool channel into a u8 channel", mismatchCase{
+			source: "flag -> num_u8",
+			line:   0,
+			substrings: []string{
+				"flag value type bool",
+				"does not match channel num_u8 value type u8",
+			},
+		}),
+		Entry("qualified func output into a bool channel", mismatchCase{
+			source: "import time\ntime.wait{duration=1s} -> flag",
+			line:   1,
+			substrings: []string{
+				"func time.wait output type u8",
+				"does not match channel flag value type bool",
+			},
+		}),
 	)
 
 	DescribeTable("Should accept a source whose type matches the channel sink",
@@ -3255,6 +3349,26 @@ var _ = Describe("Flow Sink Type Compatibility", func() {
 		},
 		Entry("value variable to matching channel", "z := 3\n\nz -> num_i64"),
 		Entry("channel to matching channel", "num_f64 -> sink_f64"),
+		Entry(
+			"bool function output to matching bool channel",
+			"func check() bool { return true }\n\ncheck{} -> flag",
+		),
+		Entry(
+			"qualified func output to a matching u8 channel",
+			"import time\ntime.wait{duration=1s} -> num_u8",
+		),
+	)
+
+	It(
+		"Should report an unknown qualified func source without a sink mismatch",
+		func(bCtx SpecContext) {
+			ast := MustSucceed(parser.Parse("import time\ntime.nosuch{} -> num_u8"))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, sinkResolver...))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect(ctx.Diagnostics.String()).To(ContainSubstring("nosuch"))
+			Expect(ctx.Diagnostics.String()).ToNot(ContainSubstring("does not match"))
+		},
 	)
 
 	Describe("Writing to a channelRead variable", func() {

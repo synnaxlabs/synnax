@@ -114,7 +114,7 @@ class StageRouting(ArcCase):
     subscribe_channels = ["routing_stage_log"]
 
     def setup(self) -> None:
-        create_indexed_pair(self.client, "routing_flag", sy.DataType.UINT8)
+        create_indexed_pair(self.client, "routing_flag", sy.DataType.BOOLEAN)
         create_indexed_pair(self.client, "routing_sensor", sy.DataType.FLOAT64)
         create_virtual_channel(self.client, "routing_stage_log", sy.DataType.STRING)
         create_virtual_channel(self.client, "next_cmd", sy.DataType.UINT8)
