@@ -59,7 +59,12 @@ echo "Cleaning up synnax directories..."
 # A force-killed Core never removes its cache workdir (UserCacheDir/synnax), so one
 # orphaned dir per run leaks here. Clear it to stop unbounded disk growth.
 SYNNAX_CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/synnax"
-[ -d "$SYNNAX_CACHE_DIR" ] && rm -rf "$SYNNAX_CACHE_DIR" && echo "Removed synnax cache directory: $SYNNAX_CACHE_DIR" || echo "No synnax cache directory found at $SYNNAX_CACHE_DIR"
+if [ -d "$SYNNAX_CACHE_DIR" ]; then
+    rm -rf "$SYNNAX_CACHE_DIR"
+    echo "Removed synnax cache directory: $SYNNAX_CACHE_DIR"
+else
+    echo "No synnax cache directory found at $SYNNAX_CACHE_DIR"
+fi
 
 # Check if directories still exist after cleanup
 echo "Verifying directory cleanup..."

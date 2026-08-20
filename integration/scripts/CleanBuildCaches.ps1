@@ -116,6 +116,16 @@ if (Test-Path $repoRoot) {
 }
 Write-Output ""
 
+# --- Docker (unbounded image/layer growth, largest consumer on some bots) ---
+Write-Output "Docker prune:"
+if (Get-Command docker -ErrorAction SilentlyContinue) {
+    docker system prune -af 2>&1 | Out-Null
+    Write-Output "  done"
+} else {
+    Write-Output "  skipped (docker not found)"
+}
+Write-Output ""
+
 # --- Check if we already have enough space after bazel clean ---
 if (Test-EnoughSpace) {
     $freeMB = Get-DiskFreeMB
