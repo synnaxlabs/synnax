@@ -8,16 +8,16 @@
 // included in the file licenses/APL.txt.
 
 // Package pledge provides a system for pledging a node to a jury of candidates. The
-// pledge uses quorum consensus to assign the node a unique name.
+// pledge uses quorum consensus to assign the node a unique key.
 //
 // To pledge a new node to a jury, call Pledge with a set of peer addresses. To
 // register a node as a candidate, use Arbitrate.
 //
 // Vocabulary:
 //
-//   - Pledge: Used as both a verb and a noun. A PledgeServer is a node that has pledged
+//   - Pledge: Used as both a verb and a noun. A pledge is a node that has pledged
 //     itself to the cluster. Pledging is the entire process of contacting a peer,
-//     proposing a name to a jury, and returning it to the pledging node.
+//     proposing a key to a jury, and returning it to the pledging node.
 //
 //   - Responsible: A node responsible for coordinating the pledge process. The
 //     responsible node is the first peer that accepts the pledge request from the
@@ -55,8 +55,8 @@ import (
 var errProposalRejected = errors.New("proposal rejected")
 
 // Pledge pledges a new node to the cluster. This node, called the pledge, submits a
-// request for ID assignment to a peer in peers. If the cluster approves the request,
-// the node will be assigned an name and registered to arbitrate in future pledge (see
+// request for key assignment to a peer in peers. If the cluster approves the request,
+// the node will be assigned a key and registered to arbitrate in future pledges (see
 // [Arbitrate] for more on how this works). Keys of nodes in the cluster are guaranteed
 // to be unique, but are not guaranteed to be sequential. Pledge will continue to
 // contact peers at a scaling interval (defined in [Config.RetryScale] and
@@ -100,7 +100,7 @@ func Pledge(ctx context.Context, cfgs ...Config) (Response, error) {
 			if err == nil {
 				cfg.L.Info(
 					"pledge successful",
-					zap.Uint32("assigned_host", uint32(res.Key)),
+					zap.Uint32("assigned_key", uint32(res.Key)),
 					zap.Stringer("cluster_key", res.ClusterKey),
 				)
 
@@ -128,7 +128,7 @@ func Pledge(ctx context.Context, cfgs ...Config) (Response, error) {
 // request, the node will act as responsible for the pledge and submit proposed keys to
 // a jury of candidate nodes. The responsible node will continue to propose keys until
 // [Config.MaxProposals] is reached. When processing a responsible node's proposal, the
-// node will act a juror, and decide if it approves of the proposed name or not.
+// node will act as a juror, and decide if it approves of the proposed key or not.
 func Arbitrate(cfgs ...Config) error {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
@@ -177,14 +177,14 @@ func (r *responsible) propose(ctx context.Context) (res Response, err error) {
 		// provide a consistent view through the lifetime of the proposal.
 		r.refreshCandidates()
 
-		// Add the proposed name unconditionally. Quorum juror's store each approved
+		// Add the proposed key unconditionally. Quorum juror's store each approved
 		// request. If one node in the quorum is unreachable, other Candidates may have
 		// already approved the request. This means that if we retry the request without
-		// incrementing the proposed name, we'll get a rejection from the candidate that
+		// incrementing the proposed key, we'll get a rejection from the candidate that
 		// approved the request last time. This will result in marginally higher keys
 		// being assigned, but it's better than adding a lot of extra logic to the
 		// proposal process.
-		res.Key = r.idToPropose()
+		res.Key = r.keyToPropose()
 
 		quorum, qErr := r.buildQuorum()
 		if qErr != nil {
@@ -196,7 +196,7 @@ func (r *responsible) propose(ctx context.Context) (res Response, err error) {
 		r.L.Debug("responsible proposing", logKey, zap.Int("quorumCount", len(quorum)))
 
 		// If any node returns an error, it means we need to retry the responsible with
-		// a new Name.
+		// a new key.
 		if err = r.consultQuorum(ctx, res.Key, quorum); err != nil {
 			// A rejection means the key is stale, and the retry proposes a higher one,
 			// so it makes progress. Only infrastructure failures count against
@@ -214,7 +214,7 @@ func (r *responsible) propose(ctx context.Context) (res Response, err error) {
 		r.L.Debug("quorum accepted pledge", logKey)
 
 		// If no candidate returned an error, it means we reached a quorum approval, and
-		// we can safely return the new Name to the caller.
+		// we can safely return the new key to the caller.
 		return res, nil
 	}
 	r.L.Error(
@@ -237,9 +237,9 @@ func (r *responsible) buildQuorum() (node.Group, error) {
 	return xrand.SubMap(healthy, size), nil
 }
 
-func (r *responsible) idToPropose() node.Key {
+func (r *responsible) keyToPropose() node.Key {
 	if r.proposedKey == 0 {
-		r.proposedKey = highestNodeID(r.candidateSnapshot) + 1
+		r.proposedKey = highestNodeKey(r.candidateSnapshot) + 1
 	} else {
 		r.proposedKey++
 	}
@@ -314,27 +314,27 @@ func (j *juror) verdict(ctx context.Context, req Request) (err error) {
 	}
 	_, span := j.T.Prod(ctx, "juror.verdict")
 	defer func() { err = span.EndWith(err, errProposalRejected) }()
-	logID := zap.Uint32("key", uint32(req.Key))
-	j.L.Debug("juror received proposal. making verdict", logID)
+	logKey := zap.Uint32("key", uint32(req.Key))
+	j.L.Debug("juror received proposal. making verdict", logKey)
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	if slices.Contains(j.approvals, req.Key) {
 		j.L.Warn(
 			"juror rejected proposal. already approved for a different pledge",
-			logID,
+			logKey,
 		)
 		return errProposalRejected
 	}
-	if req.Key <= highestNodeID(j.Candidates()) {
-		j.L.Warn("juror rejected proposal. id out of range", logID)
+	if req.Key <= highestNodeKey(j.Candidates()) {
+		j.L.Warn("juror rejected proposal. key out of range", logKey)
 		return errProposalRejected
 	}
 	j.approvals = append(j.approvals, req.Key)
-	j.L.Debug("juror approved proposal", logID)
+	j.L.Debug("juror approved proposal", logKey)
 	return nil
 }
 
-func highestNodeID(candidates node.Group) node.Key {
+func highestNodeKey(candidates node.Group) node.Key {
 	return lo.Max(lo.Keys(candidates))
 }
 

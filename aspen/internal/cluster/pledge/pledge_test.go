@@ -109,7 +109,7 @@ func sendPledge(
 ) (pledge.Response, error) {
 	tCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	DeferCleanup(cancel)
-	return n.UnaryClient().Send(tCtx, addr, pledge.Request{Key: 0})
+	return n.UnaryClient().Send(tCtx, addr, pledge.Request{})
 }
 
 func countRequests(
@@ -125,7 +125,7 @@ func countRequests(
 	return count
 }
 
-var _ = Describe("PledgeServer", func() {
+var _ = Describe("Pledge", func() {
 	var net *mock.Network[pledge.Request, pledge.Response]
 	BeforeEach(func() {
 		net = mock.NewNetwork[pledge.Request, pledge.Response]()
@@ -146,14 +146,14 @@ var _ = Describe("PledgeServer", func() {
 		})
 	})
 
-	Describe("PledgeServer", func() {
-		Context("No nodes Responding", func() {
+	Describe("Pledging node", func() {
+		Context("No nodes responding", func() {
 			It(
 				"Should submit round robin proposals at scaled intervals",
 				func(ctx SpecContext) {
 					const numTransports = 4
 					tCtx, cancel := context.WithCancel(ctx)
-					defer cancel()
+					DeferCleanup(cancel)
 					var (
 						peers []address.Address
 						count int
@@ -195,7 +195,7 @@ var _ = Describe("PledgeServer", func() {
 	})
 
 	Describe("Responsible", func() {
-		Context("Cluster State is Synchronized", func() {
+		Context("Cluster state is synchronized", func() {
 			It("Should correctly assign a name", func(ctx SpecContext) {
 				var (
 					nodes         = make(node.Group)
@@ -216,8 +216,8 @@ var _ = Describe("PledgeServer", func() {
 				Expect(res.Key).To(BeNumerically(">=", node.Key(10)))
 			})
 		})
-		Context("Responsible is Missing UniqueLeaseholders", func() {
-			It("Should correctly assign an Name", func(ctx SpecContext) {
+		Context("Responsible is missing candidates", func() {
+			It("Should correctly assign a name", func(ctx SpecContext) {
 				var (
 					nodes      = make(node.Group)
 					candidates = func(i int) func() node.Group {
@@ -248,7 +248,7 @@ var _ = Describe("PledgeServer", func() {
 				Expect(res.Key).To(BeNumerically(">=", node.Key(10)))
 			})
 		})
-		Context("One juror are aware of a new node", func() {
+		Context("One juror is aware of a new node", func() {
 			It("Should assign the correct name", func(ctx SpecContext) {
 				var (
 					nodes           = make(node.Group)
@@ -282,8 +282,8 @@ var _ = Describe("PledgeServer", func() {
 				Expect(res.Key).To(BeNumerically(">=", node.Key(11)))
 			})
 		})
-		Context("Too Few Healthy UniqueLeaseholders To Form a Quorum", func() {
-			It("Should return an errQuorumUnreachable", func(ctx SpecContext) {
+		Context("Too few healthy candidates to form a quorum", func() {
+			It("Should return a quorum unreachable error", func(ctx SpecContext) {
 				var (
 					numCandidates = 10
 					nodes         = make(node.Group)
@@ -447,7 +447,7 @@ var _ = Describe("PledgeServer", func() {
 			)
 		})
 
-		Context("Concurrent Pledges", func() {
+		Context("Concurrent pledges", func() {
 			It("Should assign unique keys to all pledges", func(ctx SpecContext) {
 				var (
 					mu         sync.Mutex
