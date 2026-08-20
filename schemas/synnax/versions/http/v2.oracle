@@ -76,7 +76,7 @@ EnumEntry struct {
 }
 
 ReadField struct {
-    key         string = "" {
+    key         string = create {
         @doc value "uniquely identifies the field within the endpoint."
         @key
     }
@@ -110,7 +110,7 @@ ReadField struct {
 }
 
 ReadEndpoint struct {
-    key          string = "" {
+    key          string = create {
         @doc value "uniquely identifies the endpoint within the task."
         @key
     }
@@ -215,7 +215,7 @@ ChannelField struct {
 }
 
 BaseWriteField struct {
-    key     string = "" {
+    key     string = create {
         @doc value "uniquely identifies the field within the endpoint."
         @key
     }
@@ -259,7 +259,7 @@ WriteField union on type extends BaseWriteField {
 }
 
 WriteEndpoint struct {
-    key          string = "" {
+    key          string = create {
         @doc value "uniquely identifies the endpoint within the task."
         @key
     }

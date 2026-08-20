@@ -13,7 +13,7 @@ import "schemas/synnax/versions/task/v2"
 import "schemas/x/versions/telem/v0"
 
 BaseChannel struct {
-    key       string = "" {
+    key       string = create {
         @doc value "uniquely identifies the channel within the task."
         @key
     }

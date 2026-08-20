@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 from typing import Annotated, Literal, Union
+from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
@@ -48,7 +49,7 @@ class BaseReadChannel(BaseModel):
         device: Is the key of the slave device the channel reads from.
     """
 
-    key: str = ""
+    key: str = Field(default_factory=lambda: str(uuid4()))
     name: str = ""
     disabled: bool = False
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
@@ -72,7 +73,7 @@ class BaseWriteChannel(BaseModel):
         device: Is the key of the slave device the channel writes to.
     """
 
-    key: str = ""
+    key: str = Field(default_factory=lambda: str(uuid4()))
     name: str = ""
     disabled: bool = False
     cmd_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)

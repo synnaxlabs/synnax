@@ -213,7 +213,7 @@ inline x::json::json CustomScale::to_json() const {
 
 inline BaseAIChannel BaseAIChannel::parse(x::json::Parser parser) {
     return BaseAIChannel{
-        .key = parser.field<std::string>("key", ""),
+        .key = parser.field<std::string>("key"),
         .name = parser.field<std::string>("name", ""),
         .disabled = parser.field<bool>("disabled", false),
         .channel = parser.field<::synnax::channel::Key>(
@@ -256,7 +256,7 @@ inline x::json::json ZIndex::to_json() const {
 
 inline BaseCIChannel BaseCIChannel::parse(x::json::Parser parser) {
     return BaseCIChannel{
-        .key = parser.field<std::string>("key", ""),
+        .key = parser.field<std::string>("key"),
         .name = parser.field<std::string>("name", ""),
         .disabled = parser.field<bool>("disabled", false),
         .channel = parser.field<::synnax::channel::Key>(
@@ -281,7 +281,7 @@ inline x::json::json BaseCIChannel::to_json() const {
 
 inline BaseAOChannel BaseAOChannel::parse(x::json::Parser parser) {
     return BaseAOChannel{
-        .key = parser.field<std::string>("key", ""),
+        .key = parser.field<std::string>("key"),
         .disabled = parser.field<bool>("disabled", false),
         .cmd_channel = parser.field<::synnax::channel::Key>(
             "cmd_channel",
@@ -311,7 +311,7 @@ inline x::json::json BaseAOChannel::to_json() const {
 
 inline DIChannel DIChannel::parse(x::json::Parser parser) {
     return DIChannel{
-        .key = parser.field<std::string>("key", ""),
+        .key = parser.field<std::string>("key"),
         .name = parser.field<std::string>("name", ""),
         .disabled = parser.field<bool>("disabled", false),
         .channel = parser.field<::synnax::channel::Key>(
@@ -336,7 +336,7 @@ inline x::json::json DIChannel::to_json() const {
 
 inline DOChannel DOChannel::parse(x::json::Parser parser) {
     return DOChannel{
-        .key = parser.field<std::string>("key", ""),
+        .key = parser.field<std::string>("key"),
         .disabled = parser.field<bool>("disabled", false),
         .cmd_channel = parser.field<::synnax::channel::Key>(
             "cmd_channel",
@@ -1106,7 +1106,7 @@ inline x::json::json AIStrainGaugeChannel::to_json() const {
 
 inline AITempBuiltinChannel AITempBuiltinChannel::parse(x::json::Parser parser) {
     AITempBuiltinChannel result;
-    result.key = parser.field<std::string>("key", "");
+    result.key = parser.field<std::string>("key");
     result.name = parser.field<std::string>("name", "");
     result.disabled = parser.field<bool>("disabled", false);
     result.channel = parser.field<::synnax::channel::Key>(

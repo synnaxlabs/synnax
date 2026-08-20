@@ -33,7 +33,7 @@ struct WriteConfig;
 /// @brief BaseChannel carries the fields every OPC UA channel shares.
 struct BaseChannel {
     /// @brief key uniquely identifies the channel within the task.
-    std::string key = "";
+    std::string key;
     /// @brief name is the human-readable channel name.
     std::string name = "";
     /// @brief disabled is true when the channel is excluded from the task.

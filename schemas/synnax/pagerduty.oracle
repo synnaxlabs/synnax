@@ -15,7 +15,7 @@ import "schemas/synnax/task"
 @ts output "client/ts/src/pagerduty"
 
 Alert struct {
-    key                     string = "" {
+    key                     string = create {
         @doc value "uniquely identifies the alert within the task."
         @key
     }

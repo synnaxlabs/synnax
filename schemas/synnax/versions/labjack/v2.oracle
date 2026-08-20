@@ -70,7 +70,7 @@ Scale union on type {
 }
 
 BaseReadChannel struct {
-    key      string = "" {
+    key      string = create {
         @doc value "uniquely identifies the channel within the task."
         @key
     }
@@ -158,7 +158,7 @@ ReadChannel union on type extends BaseReadChannel {
 }
 
 BaseWriteChannel struct {
-    key                string = "" {
+    key                string = create {
         @doc value "uniquely identifies the channel within the task."
         @key
     }

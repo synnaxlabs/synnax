@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 from typing import Annotated, Literal, Union
+from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
@@ -62,7 +63,7 @@ class BaseReadChannel(BaseModel):
         port: Is the physical port the channel reads from (e.g. 'AIN0', 'DIO4').
     """
 
-    key: str = ""
+    key: str = Field(default_factory=lambda: str(uuid4()))
     name: str = ""
     disabled: bool = False
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
@@ -85,7 +86,7 @@ class BaseWriteChannel(BaseModel):
         port: Is the physical port the channel writes to (e.g. 'DAC0', 'DIO4').
     """
 
-    key: str = ""
+    key: str = Field(default_factory=lambda: str(uuid4()))
     disabled: bool = False
     cmd_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     state_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)

@@ -18,7 +18,7 @@ import "schemas/x/telem"
 @ts output  "client/ts/src/opcua"
 
 BaseChannel struct {
-    key       string = "" {
+    key       string = create {
         @doc value "uniquely identifies the channel within the task."
         @key
     }

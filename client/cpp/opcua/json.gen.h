@@ -26,7 +26,7 @@ namespace synnax::opcua {
 
 inline BaseChannel BaseChannel::parse(x::json::Parser parser) {
     return BaseChannel{
-        .key = parser.field<std::string>("key", ""),
+        .key = parser.field<std::string>("key"),
         .name = parser.field<std::string>("name", ""),
         .disabled = parser.field<bool>("disabled", false),
         .node_id = parser.field<std::string>("node_id", ""),

@@ -246,7 +246,7 @@ struct Sensitivity {
 /// @brief BaseAIChannel carries the fields every NI analog input channel shares.
 struct BaseAIChannel {
     /// @brief key uniquely identifies the channel within the task.
-    std::string key = "";
+    std::string key;
     /// @brief name is the human-readable channel name.
     std::string name = "";
     /// @brief disabled is true when the channel is excluded from acquisition.
@@ -265,7 +265,7 @@ struct BaseAIChannel {
 /// @brief BaseCIChannel carries the fields every NI counter input channel shares.
 struct BaseCIChannel {
     /// @brief key uniquely identifies the channel within the task.
-    std::string key = "";
+    std::string key;
     /// @brief name is the human-readable channel name.
     std::string name = "";
     /// @brief disabled is true when the channel is excluded from acquisition.
@@ -284,7 +284,7 @@ struct BaseCIChannel {
 /// @brief BaseAOChannel carries the fields every NI analog output channel shares.
 struct BaseAOChannel {
     /// @brief key uniquely identifies the channel within the task.
-    std::string key = "";
+    std::string key;
     /// @brief disabled is true when the channel is excluded from the task.
     bool disabled = false;
     /// @brief cmd_channel is the Synnax channel commands are read from.
@@ -305,7 +305,7 @@ struct BaseAOChannel {
 /// @brief DIChannel is a digital input channel the task acquires from.
 struct DIChannel {
     /// @brief key uniquely identifies the channel within the task.
-    std::string key = "";
+    std::string key;
     /// @brief name is the human-readable channel name.
     std::string name = "";
     /// @brief disabled is true when the channel is excluded from acquisition.
@@ -324,7 +324,7 @@ struct DIChannel {
 /// @brief DOChannel is a digital output channel the task drives.
 struct DOChannel {
     /// @brief key uniquely identifies the channel within the task.
-    std::string key = "";
+    std::string key;
     /// @brief disabled is true when the channel is excluded from the task.
     bool disabled = false;
     /// @brief cmd_channel is the Synnax channel commands are read from.
@@ -846,7 +846,7 @@ struct AIStrainGaugeChannel : public BaseAIChannel,
 struct AITempBuiltinChannel {
     std::string type = "ai_temp_builtin";
     /// @brief key uniquely identifies the channel within the task.
-    std::string key = "";
+    std::string key;
     /// @brief name is the human-readable channel name.
     std::string name = "";
     /// @brief disabled is true when the channel is excluded from acquisition.

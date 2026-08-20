@@ -68,7 +68,7 @@ inline x::json::json EnumEntry::to_json() const {
 
 inline ReadField ReadField::parse(x::json::Parser parser) {
     return ReadField{
-        .key = parser.field<std::string>("key", ""),
+        .key = parser.field<std::string>("key"),
         .name = parser.field<std::string>("name", ""),
         .disabled = parser.field<bool>("disabled", false),
         .channel = parser.field<::synnax::channel::Key>(
@@ -103,7 +103,7 @@ inline x::json::json ReadField::to_json() const {
 
 inline ReadEndpoint ReadEndpoint::parse(x::json::Parser parser) {
     return ReadEndpoint{
-        .key = parser.field<std::string>("key", ""),
+        .key = parser.field<std::string>("key"),
         .method = parser.field<std::string>("method", "GET"),
         .path = parser.field<std::string>("path", ""),
         .headers = parser.field<std::vector<Header>>("headers", std::vector<Header>{}),
@@ -192,7 +192,7 @@ inline x::json::json ChannelField::to_json() const {
 
 inline BaseWriteField BaseWriteField::parse(x::json::Parser parser) {
     return BaseWriteField{
-        .key = parser.field<std::string>("key", ""),
+        .key = parser.field<std::string>("key"),
         .pointer = parser.field<std::string>("pointer", ""),
     };
 }
@@ -206,7 +206,7 @@ inline x::json::json BaseWriteField::to_json() const {
 
 inline WriteEndpoint WriteEndpoint::parse(x::json::Parser parser) {
     return WriteEndpoint{
-        .key = parser.field<std::string>("key", ""),
+        .key = parser.field<std::string>("key"),
         .disabled = parser.field<bool>("disabled", false),
         .method = parser.field<std::string>("method", "POST"),
         .path = parser.field<std::string>("path", ""),

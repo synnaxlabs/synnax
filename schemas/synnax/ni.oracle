@@ -460,7 +460,7 @@ CustomScale struct {
 }
 
 BaseAIChannel struct {
-    key      string = "" {
+    key      string = create {
         @doc value "uniquely identifies the channel within the task."
         @key
     }
@@ -912,7 +912,7 @@ ZIndex struct {
 }
 
 BaseCIChannel struct {
-    key      string = "" {
+    key      string = create {
         @doc value "uniquely identifies the channel within the task."
         @key
     }
@@ -1201,7 +1201,7 @@ WaveType enum {
 }
 
 BaseAOChannel struct {
-    key                string = "" {
+    key                string = create {
         @doc value "uniquely identifies the channel within the task."
         @key
     }
@@ -1260,7 +1260,7 @@ AOChannel union on type extends BaseAOChannel {
 }
 
 DIChannel struct {
-    key      string = "" {
+    key      string = create {
         @doc value "uniquely identifies the channel within the task."
         @key
     }
@@ -1285,7 +1285,7 @@ DIChannel struct {
 }
 
 DOChannel struct {
-    key                string = "" {
+    key                string = create {
         @doc value "uniquely identifies the channel within the task."
         @key
     }

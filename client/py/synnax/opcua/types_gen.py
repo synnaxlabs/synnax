@@ -11,6 +11,8 @@
 
 from __future__ import annotations
 
+from uuid import uuid4
+
 from pydantic import BaseModel, Field
 
 from synnax import channel as channel_
@@ -31,7 +33,7 @@ class BaseChannel(BaseModel):
         data_type: Is the data type of the Synnax channel.
     """
 
-    key: str = ""
+    key: str = Field(default_factory=lambda: str(uuid4()))
     name: str = ""
     disabled: bool = False
     node_id: str = ""

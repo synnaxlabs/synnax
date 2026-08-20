@@ -11,7 +11,7 @@ import "schemas/synnax/versions/status/v1"
 import "schemas/synnax/versions/task/v2"
 
 Alert struct {
-    key                     string = "" {
+    key                     string = create {
         @doc value "uniquely identifies the alert within the task."
         @key
     }
