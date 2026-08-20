@@ -821,9 +821,8 @@ CIMeasMethod enum {
 }
 
 CIFreqUnits enum {
-    hz      = "Hz"
-    seconds = "Seconds"
-    ticks   = "Ticks"
+    hz    = "Hz"
+    ticks = "Ticks"
 
     @doc value "are the unit options for a counter frequency channel."
 }

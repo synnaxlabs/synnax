@@ -520,9 +520,8 @@ const (
 type CIFreqUnits = v2.CIFreqUnits
 
 const (
-	CIFreqUnitsHz      CIFreqUnits = v2.CIFreqUnitsHz
-	CIFreqUnitsSeconds CIFreqUnits = v2.CIFreqUnitsSeconds
-	CIFreqUnitsTicks   CIFreqUnits = v2.CIFreqUnitsTicks
+	CIFreqUnitsHz    CIFreqUnits = v2.CIFreqUnitsHz
+	CIFreqUnitsTicks CIFreqUnits = v2.CIFreqUnitsTicks
 )
 
 // CITimeUnits are the units of a counter time measurement (period, pulse width, ...).

@@ -27,15 +27,20 @@ const LastVersion imex.Version = 1
 var AnalogRead = legacy.Rewrite{Post: analogRead}
 
 // CounterRead converts the released counter read shape: an optional task-level
-// device the schema no longer stores, and a measurement method spelling the Python
+// device the schema no longer stores, a measurement method spelling the Python
 // client wrote on frequency and period channels that the Driver's own table never
-// knew.
+// knew, and a frequency unit NI-DAQmx rejects.
 var CounterRead = legacy.Rewrite{Post: func(config msgpack.EncodedJSON) {
 	pushDownDevice(config)
 	legacy.EachChild(config, "channels", func(ch msgpack.EncodedJSON) {
 		t := ch["type"]
 		if (t == "ci_frequency" || t == "ci_period") && ch["meas_method"] == "DynAvg" {
 			ch["meas_method"] = "DynamicAvg"
+		}
+		// NI-DAQmx measures a frequency in hertz or in ticks. A task storing seconds
+		// never configured, so hertz is the only reading that can run.
+		if t == "ci_frequency" && ch["units"] == "Seconds" {
+			ch["units"] = "Hz"
 		}
 	})
 }}

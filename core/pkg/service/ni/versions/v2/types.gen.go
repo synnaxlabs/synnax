@@ -2813,16 +2813,15 @@ func (c CIMeasMethod) IsValid() bool {
 type CIFreqUnits string
 
 const (
-	CIFreqUnitsHz      CIFreqUnits = "Hz"
-	CIFreqUnitsSeconds CIFreqUnits = "Seconds"
-	CIFreqUnitsTicks   CIFreqUnits = "Ticks"
+	CIFreqUnitsHz    CIFreqUnits = "Hz"
+	CIFreqUnitsTicks CIFreqUnits = "Ticks"
 )
 
 // IsValid reports whether c is one of the defined CIFreqUnits
 // values.
 func (c CIFreqUnits) IsValid() bool {
 	switch c {
-	case CIFreqUnitsHz, CIFreqUnitsSeconds, CIFreqUnitsTicks:
+	case CIFreqUnitsHz, CIFreqUnitsTicks:
 		return true
 	default:
 		return false

@@ -267,14 +267,42 @@ var _ = Describe("CounterRead", func() {
 				"channels": []any{map[string]any{
 					"type":        "ci_frequency",
 					"meas_method": "DynamicAvg",
-					"units":       "Seconds",
+					"units":       "Ticks",
 				}},
 			},
 			msgpack.EncodedJSON{
 				"channels": []any{map[string]any{
 					"type":        "ci_frequency",
 					"meas_method": "DynamicAvg",
-					"units":       "Seconds",
+					"units":       "Ticks",
+				}},
+			},
+		),
+		Entry("rewrites seconds to hertz on a frequency channel",
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":  "ci_frequency",
+					"units": "Seconds",
+				}},
+			},
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":  "ci_frequency",
+					"units": "Hz",
+				}},
+			},
+		),
+		Entry("keeps seconds on a period channel",
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":  "ci_period",
+					"units": "Seconds",
+				}},
+			},
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":  "ci_period",
+					"units": "Seconds",
 				}},
 			},
 		),

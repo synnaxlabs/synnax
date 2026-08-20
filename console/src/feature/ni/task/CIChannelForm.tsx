@@ -34,12 +34,10 @@ import {
   type CITwoEdgeSepUnits,
 } from "@/feature/ni/task/types";
 
-// DAQmx accepts only hertz and ticks on a frequency channel, so the schema's Seconds
-// is left out. Partial, not Record, because of it.
 const CI_FREQ_UNITS_NAMES = {
   Hz: "Hz",
   Ticks: "Ticks",
-} as const satisfies Partial<Record<CIFreqUnits, string>>;
+} as const satisfies Record<CIFreqUnits, string>;
 
 const CI_TIME_UNITS_NAMES = {
   Seconds: "Seconds",
