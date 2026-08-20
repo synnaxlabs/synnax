@@ -10,3 +10,4 @@
 export * from "@/capture/console";
 export * from "@/capture/plot";
 export * from "@/capture/rig";
+export * from "@/capture/schematic";
