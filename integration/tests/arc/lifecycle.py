@@ -30,12 +30,12 @@ func check_high_pressure(p f32) bool {
 }
 
 press_pt -> check_high_pressure{} -> stable.for{500ms} -> select{} -> {
-    true: status.set{
+    true: true -> status.set{
         key_or_name="lifecycle_press_alarm",
         variant="warning",
         message="Pressure stable above 25 PSI"
     },
-    false: status.set{
+    false: true -> status.set{
         key_or_name="lifecycle_press_normal",
         variant="warning",
         message="Pressure below 25 PSI"

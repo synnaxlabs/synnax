@@ -25,20 +25,6 @@ body {
     color: var(--pluto-gray-l10);
 }
 
-::-webkit-scrollbar {
-    width: 1rem;
-    height: 1rem;
-}
-
-::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-    background: var(--pluto-gray-l6);
-    border-radius: var(--pluto-border-radius);
-}
-
 #root {
     height: 100%;
     width: 100%;
@@ -56,4 +42,28 @@ body {
 
 * {
     box-sizing: border-box;
+
+    /* WebKit resolves scrollbar pseudo-element styles once and never re-matches them,
+       so the reveal sets this on the scrolling element. Redeclared per element so only
+       the hovered element and its ancestors reveal, not everything under them. */
+    --pluto-scrollbar-thumb: transparent;
+
+    &:hover,
+    &:focus-within {
+        --pluto-scrollbar-thumb: var(--pluto-gray-l6);
+    }
+}
+
+::-webkit-scrollbar {
+    width: 1rem;
+    height: 1rem;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--pluto-scrollbar-thumb);
+    border-radius: var(--pluto-border-radius);
 }

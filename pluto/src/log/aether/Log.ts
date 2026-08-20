@@ -9,6 +9,7 @@
 
 import { log } from "@synnaxlabs/client";
 import {
+  bounds,
   box,
   color,
   type destructor,
@@ -63,6 +64,10 @@ export const logStateZ = log.logZ
   });
 
 const SCROLLBAR_RENDER_THRESHOLD = 0.98;
+const SCROLLBAR_WIDTH = 6;
+// Floor on the thumb so it stays visible at the 100k entry cap, where the
+// proportional height falls below a pixel.
+const SCROLLBAR_MIN_HEIGHT = 32;
 const CANVAS: render.Canvas2DVariant = "lower2d";
 const CONTENT_PADDING = 6;
 
@@ -99,12 +104,15 @@ interface ScrollbackState {
   offset: number;
   offsetRef: number;
   scrollRef: number;
+  // Whether the viewport has moved off the newest entry since the pause began.
+  awayFromEnd: boolean;
 }
 
 const ZERO_SCROLLBACK: ScrollbackState = {
   offset: 0,
   offsetRef: 0,
   scrollRef: 0,
+  awayFromEnd: false,
 };
 
 const muteColor = (c: color.Crude, theme: theming.Theme): color.Color => {
@@ -123,7 +131,8 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
   static readonly z = logStateZ;
   schema = Log.z;
   entries: LogEntry[] = [];
-  scrollState: ScrollbackState = ZERO_SCROLLBACK;
+  // Copied, not shared: the scrollback branch mutates this in place.
+  scrollState: ScrollbackState = { ...ZERO_SCROLLBACK };
   // Render key for requestRender — allocated once, not per call.
   private renderKey: string = "";
 
@@ -212,6 +221,7 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
         offset: off,
         offsetRef: off,
         scrollRef: this.state.wheelPos,
+        awayFromEnd: false,
       };
     } else if (scrolling) {
       // Adjust viewport offset based on wheel delta from the snapshot reference.
@@ -227,8 +237,10 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
         scrollState.offset = visCount;
         this.setState((s) => ({ ...s, wheelPos: this.prevState.wheelPos }));
       }
-      // Auto-resume live mode when scrolled back to the bottom.
-      if (scrollState.offset >= this.entries.length)
+      // Auto-resume live mode when the viewport is back on the newest entry. A pause
+      // taken at the bottom starts there, so it takes a return or a downward scroll.
+      if (scrollState.offset < this.entries.length) scrollState.awayFromEnd = true;
+      else if (scrollState.awayFromEnd || dist < 0)
         this.setState((s) => ({ ...s, scrolling: false }));
     }
 
@@ -314,30 +326,38 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     const clearScissor = renderCtx.scissor(reg, xy.ZERO, [CANVAS]);
     this.renderSelection(draw2d, sliceStart, slice.length, lh);
     this.renderElements(draw2d, slice, lh);
-    this.renderScrollbar(draw2d, lh);
+    this.renderScrollbar(draw2d);
     clearScissor();
     const eraseRegion = box.copy(this.state.region);
     return ({ canvases }) =>
       renderCtx.erase(eraseRegion, this.state.overshoot, ...canvases);
   }
 
-  private renderScrollbar(draw2d: Draw2D, lh: number): void {
+  private renderScrollbar(draw2d: Draw2D): void {
     if (!this.state.scrolling) return;
     const reg = this.state.region;
-    const totalHeight = Math.ceil(this.entries.length * lh);
     const regHeight = box.height(reg);
-    const scrollbarHeight = (regHeight / totalHeight) * regHeight;
-    if (scrollbarHeight >= regHeight * SCROLLBAR_RENDER_THRESHOLD) return;
-    let scrollbarYPos = box.bottom(reg) - scrollbarHeight;
-    if (this.state.scrolling) {
-      const distFromEnd = this.entries.length - this.scrollState.offset;
-      scrollbarYPos -= (distFromEnd / this.entries.length) * regHeight;
-    }
-    if (scrollbarYPos < 0) scrollbarYPos = box.top(reg);
+    const { totalHeight } = this;
+    if (totalHeight <= 0) return;
+    const proportionalHeight = (regHeight / totalHeight) * regHeight;
+    if (proportionalHeight >= regHeight * SCROLLBAR_RENDER_THRESHOLD) return;
+    const height = bounds.clamp(
+      { lower: SCROLLBAR_MIN_HEIGHT, upper: regHeight },
+      proportionalHeight,
+    );
+    // The thumb travels the track less its own height, over the entries that sit
+    // outside the viewport.
+    const scrollRange = this.entries.length - this.visibleLineCount;
+    const distFromEnd = this.entries.length - this.scrollState.offset;
+    const progress =
+      scrollRange <= 0
+        ? 0
+        : bounds.clamp({ lower: 0, upper: 1 }, distFromEnd / scrollRange);
+    const y = box.bottom(reg) - height - progress * (regHeight - height);
     draw2d.container({
       region: box.construct(
-        { x: box.right(reg) - 6, y: scrollbarYPos },
-        { width: 6, height: scrollbarHeight },
+        { x: box.right(reg) - SCROLLBAR_WIDTH, y },
+        { width: SCROLLBAR_WIDTH, height },
       ),
       bordered: false,
       backgroundColor: (t: theming.Theme) => t.colors.gray.l6,

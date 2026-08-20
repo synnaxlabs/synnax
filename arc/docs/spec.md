@@ -505,15 +505,22 @@ FlowOperator ::= '->'       // continuous flow
 
 RoutingTable ::= '{' RoutingEntry (',' RoutingEntry)* '}'
 
-RoutingEntry ::= RoutingKey ':' FlowNode ('->' FlowNode)* (':' Identifier)?
+RoutingEntry ::= RoutingKey ':' FlowNode (('->' | '=>') FlowNode)* (':' Identifier)?
 
 RoutingKey ::= Identifier | 'true' | 'false'
 
 FlowNode ::= Identifier           // channel, variable, stage, or sequence name
            | FunctionInvocation   // func{...}
            | Expression           // inline computation
+           | StageDeclaration     // inline stage body
+           | SequenceDeclaration  // inline sequence body
            | 'next'               // next stage (sequences only)
 ```
+
+An output routing entry's case body must be a full flow statement (at least two nodes)
+or an inline stage/sequence body. The routed output only decides that the entry runs; it
+feeds no value into it. A trailing `: Identifier` maps the entry's own result to an
+input of the function after the table.
 
 ### Simple Pipelines
 
@@ -523,12 +530,12 @@ sensor -> filter{threshold=50.0} -> controller{} -> actuator
 
 ### Output Routing Tables
 
-Route named outputs to different targets:
+Branch on named outputs; the output that fires runs its entry:
 
 ```arc
 sensor -> demux{} -> {
-    high: alarm{},
-    low: logger{}
+    high: true => alarm,
+    low: true => all_clear
 }
 ```
 
@@ -550,8 +557,8 @@ Map multiple sources to named input parameters:
     temp1: a,
     temp2: b
 } -> averager{} -> threshold{} -> {
-    above: alarm{},
-    below: logger{}
+    above: true => alarm,
+    below: true => all_clear
 }
 ```
 
@@ -569,13 +576,13 @@ pressure > 100 or emergency -> shutdown{} // logical (emergency is a chan bool)
 
 ### Selecting on a Boolean
 
-`select{}` routes a `bool` input by value using the `true` and `false` routing keys.
-Each output is `u8` and emits `1` when its branch fires.
+`select{}` runs the `true` or `false` entry for each `bool` input. No value flows into
+the entry; each case body is a full flow statement.
 
 ```arc
 pressure > 500.0 -> select{} -> {
-    true: alarm{},
-    false: all_clear{}
+    true: true => alarm,
+    false: true => all_clear
 }
 ```
 
