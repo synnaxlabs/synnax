@@ -65,6 +65,24 @@ export const seedRanges = async (
   }
 };
 
+export interface LabelSpec {
+  name: string;
+  color: string;
+}
+
+/** seedLabels creates labels on the cluster for label-selection shots. */
+export const seedLabels = async (
+  specs: LabelSpec[],
+  opts: ClusterOptions = {},
+): Promise<void> => {
+  const client = connect(opts);
+  try {
+    await client.labels.create(specs);
+  } finally {
+    client.close();
+  }
+};
+
 export interface UserSpec {
   username: string;
   password?: string;
