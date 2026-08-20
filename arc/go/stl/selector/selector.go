@@ -43,12 +43,12 @@ var (
 	symbolName = "select"
 	symbolDoc  = doc.New(
 		doc.Paragraph(
-			"Routes a boolean input to 'true' or 'false' outputs. `true` values are routed to the true output; `false` to the false output.",
+			"Triggers the 'true' or 'false' routing entry for each boolean input.",
 		),
 		doc.Divider(),
 		doc.Code(
 			"arc",
-			"flag -> select{} -> {\n    true: open_valve,\n    false: shut_valve\n}",
+			"flag -> select{} -> {\n    true: true -> open_valve,\n    false: true -> shut_valve\n}",
 		),
 	)
 )

@@ -29,8 +29,8 @@ sequence main {
     stage select_hold {
         "select_hold" -> routing_stage_log
         routing_flag -> select{} -> {
-            true: select_on,
-            false: select_off
+            true: true => select_on,
+            false: true => select_off
         }
     }
     stage select_on {
@@ -45,9 +45,9 @@ sequence main {
     stage decide_stage_hold {
         "decide_stage_hold" -> routing_stage_log
         routing_sensor -> decide_stage{low=30.0, high=80.0} -> {
-            vent: decide_stage_vent,
-            press: decide_stage_press,
-            abort: decide_stage_abort
+            vent: true => decide_stage_vent,
+            press: true => decide_stage_press,
+            abort: true => decide_stage_abort
         }
     }
     stage decide_stage_vent {
@@ -75,8 +75,8 @@ sequence main {
     stage arrow_body_hold {
         "arrow_body_hold" -> routing_stage_log
         routing_flag -> select{} -> {
-            true: 1 => arrow_on,
-            false: 1 => arrow_off
+            true: true => arrow_on,
+            false: true => arrow_off
         }
     }
     stage arrow_on {

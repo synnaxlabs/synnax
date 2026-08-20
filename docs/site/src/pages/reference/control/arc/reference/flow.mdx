@@ -161,48 +161,37 @@ variables from function bodies.
 ## Routing Tables
 
 A **routing table** is a brace-delimited map written on either end of a flow operator.
-It either gathers several sources into one function's inputs, or fans one function's
-outputs out to several destinations. Routing is how an Arc flow branches: a value is
-sent to one of several named destinations instead of running through an `if`/`else`.
+An input table gathers several sources into one function's inputs. An output table
+branches the flow: the output that fires decides which entry runs, instead of an
+`if`/`else`.
 
-```arc channels="sensor_1, sensor_2, sensor"
+```arc channels="sensor_1, sensor_2, sensor, log"
 // Input routing: many sources -> one function
 { sensor_1: a, sensor_2: b } -> average{}
 
-// Output routing: one function -> many destinations
-sensor -> demux{} -> { high: alarm{}, low: logger{} }
+// Output routing: the fired output picks the entry that runs
+sensor -> demux{} -> { high: "high" -> log, low: "low" -> log }
 ```
 
 ### Select
 
-`select` is the built-in boolean router. It takes a `bool` input and exposes two
-outputs, `true` and `false`.
+`select` is the built-in decision point: it takes a boolean input and runs the matching
+entry, `true` or `false`.
 
-```arc channels="flag" bodies="open_valve, shut_valve"
+```arc channels="flag, press_valve, vent_valve" bodies="shutdown_sequence"
 flag -> select{} -> {
-    true: open_valve,
-    false: shut_valve
+    true: true -> press_valve,
+    false: true -> vent_valve
+}
+
+// Omitting a branch is valid
+flag -> select{} -> {
+    true: true => shutdown_sequence
 }
 ```
 
-`select` is part of the ambient prelude, so it needs no `import`. It is also available
-under its qualified name `selector.select` if you prefer to be explicit.
-
-| Output  | Type | Fires when       |
-| ------- | ---- | ---------------- |
-| `true`  | `u8` | input is `true`  |
-| `false` | `u8` | input is `false` |
-
-Each output emits `1` when its branch fires; downstream nodes typically use the
-activation, not the value.
-
-A routing table may bind only the branches it cares about. Omitting `false` is valid:
-
-```arc channels="flag, alarm_cmd"
-flag -> select{} -> {
-    true: true -> alarm_cmd
-}
-```
+A branch only decides that its entry runs. No value flows from `select` into the entry:
+each entry is a full flow statement that defines its own source.
 
 ### Custom Routing
 
@@ -222,9 +211,9 @@ func decide_stage{low f64, high f64} (value f64) (vent bool, press bool, abort b
 }
 
 tank_pressure -> decide_stage{low=10.0, high=80.0} -> {
-    vent:  open_vent,   // channel: receives the routed value
-    press: pressurize,  // activate sequence: `pressurize`
-    abort: safe_state   // activate sequence: `safe_state`
+    vent:  true -> open_vent,  // write a channel
+    press: true => pressurize, // activate sequence: `pressurize`
+    abort: true => safe_state  // activate sequence: `safe_state`
 }
 ```
 
@@ -232,26 +221,10 @@ Output names are arbitrary identifiers declared with the function's
 [named outputs](/reference/control/arc/reference/functions#multiple-named-outputs), and
 the routing table keys must match them exactly.
 
-### Case Body Forms
+### Case Bodies
 
-The right side of an output routing entry, the **case body**, is not limited to a single
-channel. It accepts any of the following.
-
-#### Single Target
-
-A channel, stage, or sequence name:
-
-```arc channels="flag, shut_cmd" bodies="open_valves"
-flag -> select{} -> {
-    true: open_valves,     // sequence name: activates the sequence
-    false: shut_cmd        // channel: receives the routed value
-}
-```
-
-#### Flow-Node Chains
-
-A case body can be a chain of flow nodes joined with `->`, exactly like a top-level
-flow. The routed output feeds the first node, and types are threaded through the chain:
+The right side of an output routing entry, the **case body**, is a full flow statement
+or an inline body. A bare target (`true: next`, `false: shut_cmd`) is an error.
 
 ```arc channels="flag, log_str, sensor, log_num"
 flag -> select{} -> {
@@ -301,8 +274,8 @@ A single routing table may freely mix all of the above:
 
 ```arc channels="sensor, log, cooler_cmd, open_vent"
 sensor -> decide_stage{low=30.0, high=80.0} -> {
-    vent:  open_vent,                            // single target
-    press: "nominal" -> log,                     // chain
+    vent:  true -> open_vent,                    // flow statement
+    press: "nominal" -> log,                     // flow statement
     abort: stage { true -> cooler_cmd }          // inline body
 }
 ```
@@ -349,15 +322,14 @@ func demux{threshold f64} (value f64) (high f64, low f64) {
 }
 
 sensor -> demux{threshold=50.0} -> {
-    high: high_out,
-    low: low_out
+    high: true => high_out,
+    low: true => low_out
 }
 ```
 
-Each entry is `output: destination`. The key on the left is one of the function's named
-outputs; the right side is where that output is routed. Only the outputs the function
-actually writes on a given cycle propagate. In the example above, a reading of `75.0`
-writes `high_out` and leaves `low_out` untouched.
+Each entry is `output: flow statement`. The key is one of the function's named outputs;
+the body runs when the function sets that output. A reading of `75.0` runs the `high`
+entry and leaves `low` untouched.
 
 <Divider.Divider x />
 
