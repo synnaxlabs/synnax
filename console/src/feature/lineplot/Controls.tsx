@@ -72,13 +72,7 @@ export const Controls = memo(({ hasAnnotations }: ControlsProps): ReactElement =
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
 
   return (
-    <Vis.Controls
-      className={CSS.cls(
-        annotationsVisible &&
-          hasAnnotations &&
-          CSS.BM("controls", "annotations-visible"),
-      )}
-    >
+    <Vis.Controls>
       <Flex.Box x gap="small">
         <Viewport.SelectMode
           value={mode}
