@@ -13,6 +13,7 @@ import { Flex } from "@/flex";
 import { Form as Base } from "@/form";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
+import { Orientation } from "@/schematic/node/common/orientation";
 import { Scale } from "@/schematic/node/common/scale";
 import { DEFAULT_DIMENSIONS } from "@/schematic/node/general/scale/config";
 import { Tabs } from "@/tabs";
@@ -31,18 +32,25 @@ export const ScaleForm = (): ReactElement => (
             <Base.NumericField
               path="dimensions.width"
               label="Width"
+              padHelpText={false}
               defaultValue={DEFAULT_DIMENSIONS.width}
               inputProps={Form.DIMENSIONS_INPUT_PROPS}
             />
             <Base.NumericField
               path="dimensions.height"
               label="Height"
+              padHelpText={false}
               defaultValue={DEFAULT_DIMENSIONS.height}
               inputProps={Form.DIMENSIONS_INPUT_PROPS}
             />
-            <Scale.Form path="indicator" />
+            <Scale.DisplayFields path="indicator" />
+          </Flex.Box>
+          <Flex.Box x>
+            <Form.ColorField path="color" label="Fill color" />
+            <Scale.StyleFields path="indicator" />
           </Flex.Box>
         </Flex.Box>
+        <Orientation.Field path="" hideInner />
       </Form.Wrapper>
     </Tabs.Content>
     <Tabs.Content itemKey="telemetry">

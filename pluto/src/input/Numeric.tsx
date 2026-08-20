@@ -78,6 +78,9 @@ export const Numeric = ({
   const [isValueValid, setIsValueValid, isValueValidRef] =
     useCombinedStateAndRef<boolean>(true);
   const valueRef = useSyncedRef(value);
+  // Bounds can move while the input is focused, so the commit paths read them from a
+  // ref instead of a closure.
+  const boundsRef = useSyncedRef(propsBounds);
 
   const updateActualValue = useCallback(() => {
     // This just means we never actually modified the input
@@ -97,7 +100,7 @@ export const Numeric = ({
     } catch {
       v = null;
     }
-    if (v != null) onChange?.(bounds.clamp(propsBounds, v));
+    if (v != null) onChange?.(bounds.clamp(boundsRef.current, v));
     else
       setInternalValue(
         emptyValue != null && valueRef.current === emptyValue
@@ -132,7 +135,7 @@ export const Numeric = ({
 
   const onDragChange = useCallback(
     (value: number) => {
-      const next = bounds.clamp(propsBounds, Math.round(value));
+      const next = bounds.clamp(boundsRef.current, Math.round(value));
       // A gated input parks the drag in the internal value, so the text tracks the
       // pointer and the release commits through the same blur path typing uses.
       if (onlyChangeOnBlur) {

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { type notation, primitive, type text } from "@synnaxlabs/x";
+import { location, type notation, primitive, type text } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
@@ -23,20 +23,26 @@ import {
   createTelem,
   defaultConfig,
   parseTelem,
-  type Side,
   type TelemProps,
 } from "@/schematic/node/common/scale/config";
 import { Select } from "@/select";
 import { type telem } from "@/telem/aether";
+import { Staleness } from "@/vis/staleness";
 
-const BOUND_INPUT_PROPS: Partial<Input.NumericProps> = { step: 10 };
-const PRECISION_BOUNDS = { lower: 0, upper: 10 };
+const PRECISION_INPUT_PROPS: Partial<Input.NumericProps> = {
+  bounds: { lower: 0, upper: 10 },
+};
 const WINDOW_SIZE_BOUNDS = { lower: 1, upper: 100 };
 
-const SIDE_KEYS = ["left", "right"] as const;
+const NotationSelect = Component.renderProp(
+  ({ value, onChange }: Input.Control<notation.Notation>): ReactElement => (
+    <Notation.Select value={value} onChange={onChange} />
+  ),
+);
+
 const SideSelect = Component.renderProp(
-  ({ value, onChange }: Input.Control<Side>): ReactElement => (
-    <Select.Buttons value={value} onChange={onChange} keys={SIDE_KEYS}>
+  ({ value, onChange }: Input.Control<location.X>): ReactElement => (
+    <Select.Buttons value={value} onChange={onChange} keys={location.X_LOCATIONS}>
       <Select.Button itemKey="left">Left</Select.Button>
       <Select.Button itemKey="right">Right</Select.Button>
     </Select.Buttons>
@@ -65,7 +71,7 @@ export const TelemForm = ({
   const { set } = Base.useContext();
   const config = Base.useField<Config | undefined>(path, { optional: true })?.value;
   const props = parseTelem(config?.telem);
-  const setTelem = (telem?: telem.StringSourceSpec): void => {
+  const setTelem = (telem?: telem.NumberSourceSpec): void => {
     if (config != null) return set(field(path, "telem"), telem);
     if (telem != null) set(path, defaultConfig({ ...defaults, telem }));
   };
@@ -86,38 +92,27 @@ export const TelemForm = ({
           />
         </Input.Item>
         {config != null && (
-          <>
-            <Base.NumericField
-              path={field(path, "bounds.lower")}
-              label="Min value"
-              inputProps={BOUND_INPUT_PROPS}
-              padHelpText={false}
-            />
-            <Base.NumericField
-              path={field(path, "bounds.upper")}
-              label="Max value"
-              inputProps={BOUND_INPUT_PROPS}
-              padHelpText={false}
-            />
-          </>
+          <NodeForm.BoundsFields path={field(path, "bounds")} padHelpText={false} />
         )}
       </Flex.Box>
       {config != null && (
         <Flex.Box x>
-          <Input.Item label="Notation">
-            <Notation.Select
-              value={props.notation}
-              onChange={(notation: notation.Notation) => handleChange({ notation })}
-            />
-          </Input.Item>
-          <Input.Item label="Precision" align="start">
-            <Input.Numeric
-              value={props.precision}
-              bounds={PRECISION_BOUNDS}
-              onChange={(precision) => handleChange({ precision })}
-            />
-          </Input.Item>
+          <Base.Field<notation.Notation>
+            path={field(path, "notation")}
+            label="Notation"
+            padHelpText={false}
+          >
+            {NotationSelect}
+          </Base.Field>
+          <Base.NumericField
+            path={field(path, "precision")}
+            label="Precision"
+            align="start"
+            padHelpText={false}
+            inputProps={PRECISION_INPUT_PROPS}
+          />
           <NodeForm.UnitsField path={field(path, "units")} />
+          <Staleness.Fields path={path} />
           <Input.Item label="Averaging window" align="start" grow>
             <Input.Numeric
               value={props.windowSize}
@@ -131,23 +126,40 @@ export const TelemForm = ({
   );
 };
 
-export const Form = ({ path }: FormProps): ReactElement => (
-  <Flex.Box x>
-    <NodeForm.ColorField path={field(path, "color")} />
-    <NodeForm.ColorField path={field(path, "axisColor")} label="Scale color" />
-    <NodeForm.ColorField path={field(path, "textColor")} label="Text color" />
-    <Base.SwitchField path={field(path, "showFill")} label="Fill" />
-    <Base.SwitchField path={field(path, "showCaret")} label="Value" />
-    <Base.SwitchField path={field(path, "showScale")} label="Scale" />
-    <Base.Field<Side> path={field(path, "side")} label="Side" padHelpText={false}>
+/** Which parts of the scale are drawn, and which side its axis sits on. */
+export const DisplayFields = ({ path }: FormProps): ReactElement => (
+  <>
+    <Base.SwitchField path={field(path, "showFill")} label="Fill" padHelpText={false} />
+    <Base.SwitchField
+      path={field(path, "showCaret")}
+      label="Value"
+      padHelpText={false}
+    />
+    <Base.SwitchField
+      path={field(path, "showScale")}
+      label="Scale"
+      padHelpText={false}
+    />
+    <Base.Field<location.X> path={field(path, "side")} label="Side" padHelpText={false}>
       {SideSelect}
     </Base.Field>
+  </>
+);
+
+/**
+ * Colors of the scale and its labels, and the text size. The fill color is the symbol's
+ * own, so the caller renders it against whichever path holds it.
+ */
+export const StyleFields = ({ path }: FormProps): ReactElement => (
+  <>
+    <NodeForm.ColorField path={field(path, "axisColor")} label="Scale color" />
+    <NodeForm.ColorField path={field(path, "textColor")} label="Text color" />
     <Base.Field<text.Level>
       path={field(path, "level")}
-      label="Size"
+      label="Text size"
       padHelpText={false}
     >
       {NodeForm.SelectTextLevel}
     </Base.Field>
-  </Flex.Box>
+  </>
 );

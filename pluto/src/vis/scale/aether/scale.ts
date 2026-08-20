@@ -7,7 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, box, color, direction, scale, text, xy } from "@synnaxlabs/x";
+import {
+  border,
+  bounds,
+  box,
+  color,
+  direction,
+  location,
+  notation,
+  scale,
+  text,
+  xy,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -18,23 +29,11 @@ import { newTickFactory, type Tick, type TickFactory } from "@/vis/axis/ticks";
 import { type Element } from "@/vis/diagram/aether/Diagram";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
+import { staleness } from "@/vis/staleness/aether";
 
-/** The side of the bar on which tick marks and labels are drawn. */
-export const sideZ = z.enum(["left", "right", "top", "bottom"]);
-export type Side = z.infer<typeof sideZ>;
-
-/** Per-corner elliptical radii in pixels, mirroring CSS border-radius. */
-export const cornerRadiiZ = z.object({
-  topLeft: xy.xyZ,
-  topRight: xy.xyZ,
-  bottomLeft: xy.xyZ,
-  bottomRight: xy.xyZ,
-});
-export type CornerRadii = z.infer<typeof cornerRadiiZ>;
-
-export const scaleStateZ = z.object({
+export const scaleStateZ = staleness.configZ.extend({
   box: box.box,
-  telem: telem.stringSourceSpecZ.default(telem.noopStringSourceSpec),
+  telem: telem.numberSourceSpecZ.default(telem.noopNumericSourceSpec),
   bounds: bounds.boundsZ().default(bounds.construct(0, 100)),
   color: color.colorZ.default(color.ZERO),
   // Colors the bar outline, the spine, and the tick marks. Zero uses the theme.
@@ -48,19 +47,24 @@ export const scaleStateZ = z.object({
   // Draws a caret at the value against the scale, with a readout box beside it.
   showCaret: z.boolean().default(true),
   showScale: z.boolean().default(true),
-  side: sideZ.default("right"),
+  // The side of the bar on which tick marks and labels are drawn.
+  side: location.outerZ.default("right"),
   // Appended to the readout, after the value.
   units: z.string().default(""),
+  // Colors the fill, the caret, and the readout once the source stops sending. Zero
+  // uses the theme.
+  stalenessColor: color.colorZ.default(color.ZERO),
+  // Formatting of the readout value.
+  notation: notation.notationZ.default("standard"),
+  precision: z.number().default(2),
   // When true the scale is drawn outside box, beyond a small gap (used by symbols that
   // provide their own container, like a tank). When false a gutter is reserved inside
   // box alongside the bar for the scale.
   externalScale: z.boolean().default(false),
   borderRadius: z.number().default(2),
-  // Inset of the fill region within box, used to keep the fill inside a stroked wall.
-  inset: z.number().default(0),
-  // Per-corner radii used to clip the fill to a rounded container (a tank). When unset
-  // the fill uses the uniform borderRadius above.
-  cornerRadii: cornerRadiiZ.optional(),
+  // Per-corner pixel radii used to clip the fill to a rounded container (a tank).
+  // When unset the fill uses the uniform borderRadius above.
+  cornerRadii: border.radiusZ.optional(),
   level: text.levelZ.default("small"),
 });
 
@@ -81,7 +85,9 @@ const EXTERNAL_GAP = 10;
 interface InternalState {
   theme: theming.Theme;
   render: render.Context;
-  telem: telem.StringSource;
+  telem: telem.NumberSource;
+  staleness: staleness.Registration;
+  stale: boolean;
   stopListening?: () => void;
   requestRender: render.Requestor | null;
   fillColor: color.Color;
@@ -107,8 +113,18 @@ export class Scale
     i.render = render.Context.use(ctx);
     i.theme = theming.use(ctx);
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
+    i.staleness = staleness.useInternalRegistration(
+      ctx,
+      i.staleness,
+      this,
+      i.telem,
+      () => this.requestRender(),
+    );
     i.stopListening?.();
-    i.stopListening = i.telem.onChange(() => this.requestRender());
+    i.stopListening = i.telem.onChange(() => {
+      i.staleness.received();
+      this.requestRender();
+    });
     i.requestRender = render.useOptionalRequestor(ctx);
 
     i.fillColor = color.isZero(this.state.color)
@@ -138,6 +154,7 @@ export class Scale
   afterDelete(): void {
     const { internal: i } = this;
     i.stopListening?.();
+    i.staleness?.cleanup();
     i.telem.cleanup?.();
     if (i.requestRender == null)
       i.render.erase(box.construct(this.state.box), xy.ZERO, ...CANVAS_VARIANTS);
@@ -153,8 +170,7 @@ export class Scale
   /** Length of the bar along the value axis in pixels. */
   private get alongLength(): number {
     const b = this.state.box;
-    const len = this.state.direction === "y" ? box.height(b) : box.width(b);
-    return len - this.state.inset * 2;
+    return this.state.direction === "y" ? box.height(b) : box.width(b);
   }
 
   /** True when the bar is outlined. A caller drawing its own container passes false. */
@@ -169,7 +185,7 @@ export class Scale
 
   /** The region occupied by the bar (fill + track), excluding the scale gutter. */
   private get barRegion(): box.Box {
-    const { box: b, side, showScale, externalScale, inset } = this.state;
+    const { box: b, side, showScale, externalScale } = this.state;
     const gutter = showScale && !externalScale ? GUTTER : 0;
     let left = box.left(b);
     let top = box.top(b);
@@ -184,10 +200,7 @@ export class Scale
       top += gutter;
       height -= gutter;
     }
-    return box.construct(xy.construct(left + inset, top + inset), {
-      width: width - inset * 2,
-      height: height - inset * 2,
-    });
+    return box.construct(xy.construct(left, top), { width, height });
   }
 
   /**
@@ -211,20 +224,24 @@ export class Scale
 
   render({ viewportScale = scale.XY.IDENTITY }): void {
     const { internal: i } = this;
-    const region = i.render.upper2d.applyScale(viewportScale);
-    const draw = new Draw2D(region, i.theme);
+    const draw = new Draw2D(i.render.upper2d.applyScale(viewportScale), i.theme);
 
     const bar = this.barRegion;
-    const valueText = i.telem.value();
+    const value = i.telem.value();
     const { lower, upper } = this.state.bounds;
     const range = upper - lower;
     const ratio =
-      range === 0
+      range === 0 || Number.isNaN(value)
         ? 0
-        : (bounds.clamp(this.state.bounds, Number(valueText)) - lower) / range;
+        : (bounds.clamp(this.state.bounds, value) - lower) / range;
 
-    if (this.state.showFill) this.renderFill(draw, bar, ratio);
-    // Drawn after the fill so the outline stays crisp at the fill edges.
+    if (this.state.showFill) {
+      // The fill goes on the lower canvas so a symbol's own container paints over it.
+      // Both edges then quantize independently without opening a seam, which is only
+      // visible at a device pixel ratio of 1.
+      const lowerDraw = new Draw2D(i.render.lower2d.applyScale(viewportScale), i.theme);
+      this.renderFill(lowerDraw, bar, ratio);
+    }
     if (this.showTrack)
       draw.border({
         region: bar,
@@ -233,12 +250,12 @@ export class Scale
         width: 1,
       });
     if (this.state.showScale) this.renderTicks(draw, bar);
-    if (this.state.showCaret) this.renderCaret(draw, bar, ratio, valueText);
+    if (this.state.showCaret) this.renderCaret(draw, bar, ratio, this.valueText(value));
   }
 
   private renderFill(draw: Draw2D, bar: box.Box, ratio: number): void {
-    const { fillColor } = this.internal;
     const { borderRadius } = this.state;
+    const fillColor = this.valueColor;
     let region: box.Box;
     if (this.state.direction === "y") {
       const height = box.height(bar) * ratio;
@@ -278,6 +295,22 @@ export class Scale
     });
   }
 
+  /**
+   * Color of the parts that carry the value: the fill, the caret, and the readout. It
+   * turns to the staleness color once the source stops sending.
+   */
+  private get valueColor(): color.Color {
+    const { fillColor, stale, theme } = this.internal;
+    return stale ? staleness.resolveColor(this.state.stalenessColor, theme) : fillColor;
+  }
+
+  /** The caret readout. Empty when the source has no value yet. */
+  private valueText(value: number): string {
+    if (Number.isNaN(value)) return "";
+    const { precision } = this.state;
+    return notation.stringifyNumber(value, precision, this.state.notation);
+  }
+
   // Draws a caret at the value on the tick side of the spine with its point aimed at
   // the spine, and an altimeter-style readout box beyond it.
   private renderCaret(
@@ -301,7 +334,7 @@ export class Scale
       ctx.lineTo(pos + CARET_SIZE, edge + dir * CARET_SIZE);
     }
     ctx.closePath();
-    ctx.fillStyle = color.hex(this.internal.fillColor);
+    ctx.fillStyle = color.hex(this.valueColor);
     ctx.fill();
     this.renderValueBox(draw, edge, pos, valueText);
   }
@@ -314,7 +347,8 @@ export class Scale
   ): void {
     if (valueText.length === 0) return;
     const { units, direction: d } = this.state;
-    const { theme, tickLevel, fillColor } = this.internal;
+    const { theme, tickLevel, stale } = this.internal;
+    const valueColor = this.valueColor;
     const ctx = draw.canvas;
     ctx.font = fontString(theme, { level: tickLevel, code: true });
     const value = ctx.textDimensions(valueText, { useAtlas: true });
@@ -341,7 +375,7 @@ export class Scale
       region,
       rounded: true,
       borderRadius: 2,
-      borderColor: fillColor,
+      borderColor: valueColor,
       borderWidth: 1,
       backgroundColor: theme.colors.gray.l1,
     });
@@ -355,6 +389,7 @@ export class Scale
         justify: "left",
         align: "middle",
         shade: 11,
+        color: stale ? valueColor : undefined,
         code: true,
         useAtlas: true,
       });

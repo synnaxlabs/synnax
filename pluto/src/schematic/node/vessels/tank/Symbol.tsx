@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, type dimensions, xy } from "@synnaxlabs/x";
+import { border, box, type dimensions, xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Border } from "@/schematic/node/common/border";
@@ -18,27 +18,29 @@ import { type NodeProps } from "@/schematic/node/spec";
 import { type Config } from "@/schematic/node/vessels/tank/config";
 import { Tank } from "@/schematic/node/vessels/tank/Primitive";
 import { Scale as BaseScale } from "@/vis/scale";
-import { type scale } from "@/vis/scale/aether";
 
 const STROKE_WIDTH = 2;
+// The canvas fill and the DOM wall round to device pixels independently, so the fill is
+// aimed at the middle of the stroke. Half the stroke absorbs the difference.
+const OVERLAP = STROKE_WIDTH / 2;
 
-// innerCornerRadii converts the tank's percentage-based CSS border radius into the
-// per-corner pixel radii of the interior wall, so the fill clips to the rounded tank.
-const innerCornerRadii = (
+// Converts the tank's percentage-based CSS border radius into the pixel radii of the
+// curve the fill is clipped to, inset by the same overlap.
+const cornerRadii = (
   borderRadius: Config["borderRadius"],
   dims: dimensions.Dimensions,
-): scale.CornerRadii => {
-  const detailed = Border.parseRadius(borderRadius ?? Border.DEFAULT_RADIUS);
-  const inner = (corner: xy.XY): xy.XY =>
+): border.Radius => {
+  const detailed = border.construct(borderRadius ?? Border.DEFAULT_RADIUS);
+  const radius = (corner: xy.XY): xy.XY =>
     xy.construct(
-      Math.max(0, (corner.x / 100) * dims.width - STROKE_WIDTH),
-      Math.max(0, (corner.y / 100) * dims.height - STROKE_WIDTH),
+      Math.max(0, (corner.x / 100) * dims.width - OVERLAP),
+      Math.max(0, (corner.y / 100) * dims.height - OVERLAP),
     );
   return {
-    topLeft: inner(detailed.topLeft),
-    topRight: inner(detailed.topRight),
-    bottomLeft: inner(detailed.bottomLeft),
-    bottomRight: inner(detailed.bottomRight),
+    topLeft: radius(detailed.topLeft),
+    topRight: radius(detailed.topRight),
+    bottomLeft: radius(detailed.bottomLeft),
+    bottomRight: radius(detailed.bottomRight),
   };
 };
 
@@ -59,11 +61,13 @@ const Fill = ({
   BaseScale.use({
     ...fill,
     aetherKey: nodeKey,
-    box: box.construct(position ?? xy.ZERO, dims),
+    box: box.construct(xy.translate(position ?? xy.ZERO, OVERLAP), {
+      width: dims.width - OVERLAP * 2,
+      height: dims.height - OVERLAP * 2,
+    }),
     direction: "y",
     externalScale: true,
-    inset: STROKE_WIDTH,
-    cornerRadii: innerCornerRadii(borderRadius, dims),
+    cornerRadii: cornerRadii(borderRadius, dims),
   });
   return null;
 };

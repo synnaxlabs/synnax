@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, dimensions, xy } from "@synnaxlabs/x";
+import { border, color, dimensions, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { Border } from "@/schematic/node/common/border";
 import { Label } from "@/schematic/node/common/label";
 import { Scale } from "@/schematic/node/common/scale";
 
@@ -22,7 +21,7 @@ export const configZ = Label.labeledConfigZ.extend({
   color: color.crudeZ.optional(),
   backgroundColor: color.crudeZ.optional(),
   dimensions: dimensions.dimensionsZ.optional(),
-  borderRadius: Border.radiusZ.optional(),
+  borderRadius: border.crudeZ.optional(),
   // The fill is rendered only when its telem is set, so a tank without telemetry, and
   // one stored before the fill existed, render unchanged.
   fill: Scale.configZ.optional(),

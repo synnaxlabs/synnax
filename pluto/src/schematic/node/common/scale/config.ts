@@ -8,67 +8,54 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { bounds, color, type notation, text } from "@synnaxlabs/x";
+import { bounds, color, location, notation, text } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { telem } from "@/telem/aether";
-
-export const sideZ = z.enum(["left", "right"]);
-export type Side = z.infer<typeof sideZ>;
+import { Staleness } from "@/vis/staleness";
 
 /** Stored shape of a live scale indicator, shared by every symbol that renders one. */
 export const configZ = z.object({
-  telem: telem.stringSourceSpecZ.optional(),
+  ...Staleness.configZ.shape,
+  telem: telem.numberSourceSpecZ.optional(),
   bounds: bounds.boundsZ().default(() => bounds.construct(0, 100)),
   color: color.crudeZ.default(color.ZERO),
   axisColor: color.crudeZ.default(color.ZERO),
   textColor: color.crudeZ.default(color.ZERO),
   units: z.string().default(""),
+  notation: notation.notationZ.default("standard"),
+  precision: z.number().default(2),
   showFill: z.boolean().default(true),
   showCaret: z.boolean().default(true),
   showScale: z.boolean().default(true),
-  side: sideZ.default("right"),
+  side: location.xZ.default("right"),
   level: text.levelZ.default("small"),
 });
 export type Config = z.infer<typeof configZ>;
 
 export const defaultConfig = (overrides: Partial<Config> = {}): Config =>
-  configZ.parse(overrides);
+  configZ.parse({ ...Staleness.ZERO_CONFIG, ...overrides });
 
-const CONNECTIONS: telem.Connection[] = [
-  { from: "valueStream", to: "rollingAverage" },
-  { from: "rollingAverage", to: "stringifier" },
-];
+const CONNECTIONS: telem.Connection[] = [{ from: "valueStream", to: "rollingAverage" }];
 
 export interface TelemProps {
   channel: channel.Key;
-  precision: number;
-  notation: notation.Notation;
   windowSize: number;
 }
 
-const DEFAULT_TELEM_PROPS: TelemProps = {
-  channel: 0,
-  precision: 2,
-  notation: "standard",
-  windowSize: 1,
-};
+const DEFAULT_TELEM_PROPS: TelemProps = { channel: 0, windowSize: 1 };
 
 export const createTelem = (
   props: Partial<TelemProps> = {},
-): telem.StringSourceSpec => {
-  const { channel, precision, notation, windowSize } = {
-    ...DEFAULT_TELEM_PROPS,
-    ...props,
-  };
-  return telem.sourcePipeline("string", {
+): telem.NumberSourceSpec => {
+  const { channel, windowSize } = { ...DEFAULT_TELEM_PROPS, ...props };
+  return telem.sourcePipeline("number", {
     connections: CONNECTIONS,
     segments: {
       valueStream: telem.streamChannelValue({ channel }),
       rollingAverage: telem.rollingAverage({ windowSize }),
-      stringifier: telem.stringifyNumber({ precision, notation }),
     },
-    outlet: "stringifier",
+    outlet: "rollingAverage",
   });
 };
 
@@ -77,24 +64,17 @@ export const createTelem = (
  * pipeline the form writes falls back to the defaults, so an unrecognized shape edits
  * cleanly instead of throwing.
  */
-export const parseTelem = (spec?: telem.StringSourceSpec): TelemProps => {
+export const parseTelem = (spec?: telem.NumberSourceSpec): TelemProps => {
   const pipeline = telem.sourcePipelinePropsZ.safeParse(spec?.props);
   if (!pipeline.success) return DEFAULT_TELEM_PROPS;
   const { segments } = pipeline.data;
   const stream = telem.streamChannelValuePropsZ.safeParse(segments.valueStream?.props);
-  const stringifier = telem.stringifyNumberProps.safeParse(segments.stringifier?.props);
   const average = telem.rollingAverageProps.safeParse(segments.rollingAverage?.props);
   return {
     channel:
       stream.success && typeof stream.data.channel === "number"
         ? stream.data.channel
         : DEFAULT_TELEM_PROPS.channel,
-    precision: stringifier.success
-      ? (stringifier.data.precision ?? DEFAULT_TELEM_PROPS.precision)
-      : DEFAULT_TELEM_PROPS.precision,
-    notation: stringifier.success
-      ? stringifier.data.notation
-      : DEFAULT_TELEM_PROPS.notation,
     windowSize: average.success
       ? (average.data.windowSize ?? DEFAULT_TELEM_PROPS.windowSize)
       : DEFAULT_TELEM_PROPS.windowSize,

@@ -32,7 +32,13 @@ const FillForm = (): ReactElement => {
   return (
     <Form.Wrapper y empty>
       <Scale.TelemForm path="fill" defaults={FILL_DEFAULTS} allowNone />
-      {telem != null && <Scale.Form path="fill" />}
+      {telem != null && (
+        <Flex.Box x>
+          <Scale.DisplayFields path="fill" />
+          <Form.ColorField path="fill.color" label="Fill color" />
+          <Scale.StyleFields path="fill" />
+        </Flex.Box>
+      )}
     </Form.Wrapper>
   );
 };

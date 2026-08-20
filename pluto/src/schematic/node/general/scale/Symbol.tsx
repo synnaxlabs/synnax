@@ -22,10 +22,11 @@ export const Symbol = ({
   position,
   onConfigChange,
   selected,
-  config: { label, dimensions: dims = DEFAULT_DIMENSIONS, indicator },
+  config: { label, color, dimensions: dims = DEFAULT_DIMENSIONS, indicator },
 }: NodeProps<Config>): ReactElement => {
   BaseScale.use({
     ...indicator,
+    color,
     aetherKey: nodeKey,
     box: box.construct(position ?? xy.ZERO, dims),
     direction: "y",

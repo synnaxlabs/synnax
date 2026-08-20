@@ -9,7 +9,7 @@
 
 import "@/schematic/node/vessels/tank/tank.css";
 
-import { color } from "@synnaxlabs/x";
+import { border, color } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
@@ -34,7 +34,7 @@ export const Tank = ({
   backgroundColor,
   strokeWidth = 2,
 }: RenderProps): ReactElement => {
-  const detailedRadius = Border.parseRadius(borderRadius);
+  const detailedRadius = border.construct(borderRadius);
   const hasCornerBoundaries = boxBorderRadius == null;
   const { width, height } = dimensions;
   const refreshDeps = useMemo(

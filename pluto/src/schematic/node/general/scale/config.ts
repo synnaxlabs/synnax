@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { dimensions, xy } from "@synnaxlabs/x";
+import { color, dimensions, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Label } from "@/schematic/node/common/label";
@@ -21,6 +21,9 @@ export const configZ = Label.labeledConfigZ.extend({
   variant: z.literal(VARIANT),
   position: xy.xyZ.optional(),
   dimensions: dimensions.dimensionsZ.optional(),
+  // The fill is what the symbol reads as, so its color is the symbol's own rather than
+  // one of the indicator's. The toolbar recolors a selection through this key.
+  color: color.crudeZ.default(color.ZERO),
   indicator: Scale.configZ.default(() => Scale.defaultConfig()),
 });
 export type Config = z.infer<typeof configZ>;

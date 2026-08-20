@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x";
+
 import { Label } from "@/schematic/node/common/label";
 import { Scale as BaseScale } from "@/schematic/node/common/scale";
 import {
@@ -25,6 +27,7 @@ export const defaultConfig = (): Config => ({
   variant: VARIANT,
   orientation: "left",
   dimensions: { ...DEFAULT_DIMENSIONS },
+  color: color.ZERO,
   label: Label.defaultConfig("Scale"),
   indicator: BaseScale.defaultConfig({ telem: BaseScale.createTelem() }),
 });
