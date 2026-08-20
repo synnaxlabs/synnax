@@ -265,24 +265,32 @@ func (db *DB) DeleteTimeRange(
 func (db *DB) garbageCollect(ctx context.Context, maxGoRoutine uint) error {
 	_, span := db.T.Debug(ctx, "garbage_collect")
 	defer span.End()
-	db.mu.RLock()
 	var (
 		sem          = semaphore.NewWeighted(int64(maxGoRoutine))
 		sCtx, cancel = signal.WithCancel(ctx)
 	)
 	defer cancel()
-	for _, uDB := range db.mu.dbs.unary {
-		if err := sem.Acquire(ctx, 1); err != nil {
-			db.mu.RUnlock()
-			return err
+	// Every routine started here must be awaited, even when the fan-out is cut short: a
+	// collection that outlives this call holds a resource open on its unary DB, failing
+	// a concurrent Close.
+	err := func() error {
+		db.mu.RLock()
+		defer db.mu.RUnlock()
+		for _, uDB := range db.mu.dbs.unary {
+			if err := sem.Acquire(ctx, 1); err != nil {
+				return err
+			}
+			sCtx.Go(func(_ctx context.Context) error {
+				defer sem.Release(1)
+				return uDB.GarbageCollect(_ctx)
+			},
+				signal.RecoverWithErrOnPanic(),
+				signal.WithKeyf("garbage_collect_%v", uDB.Channel()),
+			)
 		}
-		sCtx.Go(func(_ctx context.Context) error {
-			defer sem.Release(1)
-			return uDB.GarbageCollect(_ctx)
-		}, signal.RecoverWithErrOnPanic(), signal.WithKeyf("garbage_collect_%v", uDB.Channel()))
-	}
-	db.mu.RUnlock()
-	return sCtx.Wait()
+		return nil
+	}()
+	return errors.Combine(err, sCtx.Wait())
 }
 
 func (db *DB) startGC(sCtx signal.Context, opts *options) {
