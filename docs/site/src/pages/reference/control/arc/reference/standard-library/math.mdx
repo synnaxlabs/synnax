@@ -46,7 +46,6 @@ the window periodically.
 />
 
 ```arc channels="sensor, output"
-// `flow` only
 sensor -> math.avg{} -> output
 
 // Reset by sample count or time window
@@ -71,7 +70,6 @@ Computes the rate of change of input values with respect to time. The output is 
 />
 
 ```arc channels="sensor, rate_output"
-// `flow` only
 sensor -> math.derivative{} -> rate_output
 ```
 
@@ -105,7 +103,6 @@ the window periodically.
 />
 
 ```arc channels="sensor, output"
-// `flow` only
 sensor -> math.max{} -> output
 
 // Reset by sample count or time window
@@ -143,7 +140,6 @@ the window periodically.
 />
 
 ```arc channels="sensor, output"
-// `flow` only
 sensor -> math.min{} -> output
 
 // Reset by sample count or time window

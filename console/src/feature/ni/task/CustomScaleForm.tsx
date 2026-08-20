@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex, Form, Icon, Input, Select, state } from "@synnaxlabs/pluto";
-import { binary, deep, type record } from "@synnaxlabs/x";
+import { Flex, Form, Icon, type Select } from "@synnaxlabs/pluto";
+import { deep, type record } from "@synnaxlabs/x";
 import { type FC } from "react";
-import { z } from "zod";
 
 import { CoefficientsField } from "@/feature/ni/task/CoefficientsField";
 import { selectData } from "@/feature/ni/task/selectData";
+import { TableScaleForm } from "@/feature/ni/task/TableScaleForm";
 import {
   createScale,
   type Scale,
@@ -21,7 +21,6 @@ import {
   type ScaleType,
   type Units,
 } from "@/feature/ni/task/types";
-import { FS } from "@/platform/fs";
 
 const SelectCustomScaleTypeField = Form.buildSelectField<
   ScaleType,
@@ -95,8 +94,6 @@ const UnitsField = Form.buildSelectField<Units, record.KeyedNamed<Units>>({
   },
 });
 
-const tableSchema = z.record(z.string(), z.array(z.unknown()));
-
 export interface CustomScaleFormProps {
   prefix: string;
 }
@@ -158,106 +155,12 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
       />
     </>
   ),
-  table: ({ prefix }) => {
-    const [rawCol, setRawCol] = state.usePersisted<string>("Raw", `${prefix}.rawCol`);
-    const [scaledCol, setScaledCol] = state.usePersisted<string>(
-      "Scaled",
-      `${prefix}.scaledCol`,
-    );
-    const [colOptions, setColOptions] = state.usePersisted<record.KeyedNamed<string>[]>(
-      [],
-      `${prefix}.colOptions`,
-    );
-    const [fileName, setFileName] = state.usePersisted<string>("", `${prefix}.path`);
-    // The parsed table persists beside the form state, so a column change after a
-    // remount recomputes the values without re-reading the file.
-    const [table, setTable] = state.usePersisted<Record<string, unknown[]>>(
-      {},
-      `${prefix}.table`,
-    );
-    const preScaledField = Form.useField<number[]>(`${prefix}.preScaledVals`);
-    const scaledField = Form.useField<number[]>(`${prefix}.scaledVals`);
-
-    const applyColumns = (
-      value: Record<string, unknown[]>,
-      raw: string,
-      scaled: string,
-    ) => {
-      const preScaledValues = value[raw] as number[] | undefined;
-      const scaledValues = value[scaled] as number[] | undefined;
-      const hasScaled = scaledValues != null;
-      const hasPreScaled = preScaledValues != null;
-      if (hasScaled && hasPreScaled)
-        if (preScaledValues.length !== scaledValues.length)
-          preScaledField.setStatus({
-            variant: "error",
-            message: `Pre-scaled ${preScaledValues.length} values and scaled ${scaledValues.length} values must be the same length`,
-          });
-      if (hasPreScaled) preScaledField.onChange(preScaledValues);
-      if (hasScaled) scaledField.onChange(scaledValues);
-    };
-
-    const handleFileChange = (value: z.infer<typeof tableSchema>, name: string) => {
-      setFileName(name);
-      setTable(value);
-      const keys = Object.keys(value).filter(
-        (key) =>
-          Array.isArray(value[key]) && value[key].every((v) => isFinite(Number(v))),
-      );
-      setColOptions(keys.map((key) => ({ key, name: key })));
-      const raw = keys.length > 0 ? keys[0] : rawCol;
-      const scaled = keys.length > 1 ? keys[1] : scaledCol;
-      if (keys.length > 0) setRawCol(raw);
-      if (keys.length > 1) setScaledCol(scaled);
-      applyColumns(value, raw, scaled);
-    };
-
-    const handleRawColChange = (value: string) => {
-      setRawCol(value);
-      applyColumns(table, value, scaledCol);
-    };
-
-    const handleScaledColChange = (value: string) => {
-      setScaledCol(value);
-      applyColumns(table, rawCol, value);
-    };
-
-    if (preScaledField.preview) return <CustomScaleUnitsFields prefix={prefix} />;
-
-    return (
-      <>
-        <CustomScaleUnitsFields prefix={prefix} />
-        <Input.Item label="Table CSV" padHelpText>
-          <FS.InputFile<typeof tableSchema>
-            value={fileName}
-            onChange={handleFileChange}
-            title="Select a table CSV"
-            extension="csv"
-            schema={tableSchema}
-            decoder={binary.CSV_CODEC}
-          />
-        </Input.Item>
-        <Flex.Box x>
-          <Input.Item label="Raw column" padHelpText grow>
-            <Select.Static
-              resourceName="raw column"
-              value={rawCol}
-              onChange={handleRawColChange}
-              data={colOptions}
-            />
-          </Input.Item>
-          <Input.Item label="Scaled column" padHelpText grow>
-            <Select.Static
-              resourceName="scaled column"
-              value={scaledCol}
-              onChange={handleScaledColChange}
-              data={colOptions}
-            />
-          </Input.Item>
-        </Flex.Box>
-      </>
-    );
-  },
+  table: ({ prefix }) => (
+    <>
+      <CustomScaleUnitsFields prefix={prefix} />
+      <TableScaleForm prefix={prefix} />
+    </>
+  ),
   none: () => null,
 };
 

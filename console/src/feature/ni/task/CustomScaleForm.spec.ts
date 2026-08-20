@@ -43,8 +43,17 @@ import { open } from "@tauri-apps/plugin-dialog";
 
 import { NI } from "@/feature/ni";
 import { renderNITaskForm } from "@/feature/ni/task/testutil";
-import { findDialogTriggerByText, selectFromDropdown } from "@/platform/task/testutil";
-import { fakePickedFile, interceptFilePicker } from "@/testutil";
+import {
+  commitFieldInput,
+  findDialogTriggerByText,
+  selectFromDropdown,
+} from "@/platform/task/testutil";
+import {
+  fakePickedFile,
+  getIconButton,
+  getInputTable,
+  interceptFilePicker,
+} from "@/testutil";
 
 const openMock = vi.mocked(open);
 
@@ -148,5 +157,100 @@ describe("CustomScaleForm", () => {
     await findDialogTriggerByText("web_scaled");
     expect(screen.getByText(/browser\.csv/)).toBeTruthy();
     expect(openMock).not.toHaveBeenCalled();
+  });
+
+  describe("manual entry", () => {
+    it("should append rows with an increasing pre-scaled value", async () => {
+      await renderWithScale(NI.Task.createScale("table"));
+      await screen.findByText("Values");
+      expect(getInputTable("Values").rows).toHaveLength(0);
+      fireEvent.click(getInputTable("Values").add);
+      await waitFor(() => expect(getInputTable("Values").rows).toHaveLength(1));
+      fireEvent.click(getInputTable("Values").add);
+      await waitFor(() => expect(getInputTable("Values").rows).toHaveLength(2));
+      const table = getInputTable("Values");
+      expect(table.cell(0, 0).value).toBe("0");
+      expect(table.cell(1, 0).value).toBe("1");
+    });
+
+    it("should keep an edited pair in the table", async () => {
+      await renderWithScale({
+        ...(NI.Task.createScale("table") as Extract<NI.Task.Scale, { type: "table" }>),
+        preScaledVals: [1, 2],
+        scaledVals: [10, 20],
+      });
+      await screen.findByText("Values");
+      commitFieldInput(getInputTable("Values").cell(1, 1), "25");
+      await waitFor(() => expect(getInputTable("Values").cell(1, 1).value).toBe("25"));
+      expect(getInputTable("Values").cell(0, 1).value).toBe("10");
+    });
+
+    it("should remove the row whose button is clicked", async () => {
+      await renderWithScale({
+        ...(NI.Task.createScale("table") as Extract<NI.Task.Scale, { type: "table" }>),
+        preScaledVals: [1, 2, 3],
+        scaledVals: [10, 20, 30],
+      });
+      await screen.findByText("Values");
+      fireEvent.click(getIconButton(getInputTable("Values").rows[1], "close"));
+      await waitFor(() => expect(getInputTable("Values").rows).toHaveLength(2));
+      const table = getInputTable("Values");
+      expect(table.cell(0, 0).value).toBe("1");
+      expect(table.cell(1, 0).value).toBe("3");
+    });
+
+    it("should fill the table from a pasted block", async () => {
+      await renderWithScale(NI.Task.createScale("table"));
+      await screen.findByText("Values");
+      fireEvent.click(getInputTable("Values").add);
+      await waitFor(() => expect(getInputTable("Values").rows).toHaveLength(1));
+      const cell = getInputTable("Values").cell(0, 0);
+      fireEvent.focus(cell);
+      fireEvent.paste(cell, {
+        clipboardData: { getData: () => "1\t10\n2\t20\n3\t30" },
+      });
+      await waitFor(() => expect(getInputTable("Values").rows).toHaveLength(3));
+      const table = getInputTable("Values");
+      expect(table.cell(2, 0).value).toBe("3");
+      expect(table.cell(2, 1).value).toBe("30");
+    });
+
+    it("should reject a CSV whose columns hold a different number of values", async () => {
+      const csvPath = join(dir, "ragged.csv");
+      await writeFile(csvPath, "raw_col,scaled_col\n1,10\n2,\n3,30\n");
+      openMock.mockResolvedValue(csvPath);
+      await renderWithScale(NI.Task.createScale("table"));
+      await screen.findByText("Table CSV");
+      fireEvent.click(screen.getByText("Select file"));
+      await screen.findByText(
+        "Pre-scaled 3 values and scaled 2 values must be the same length",
+      );
+      expect(getInputTable("Values").rows).toHaveLength(0);
+    });
+
+    it("should flag a stored scale whose columns are unpaired", async () => {
+      await renderWithScale({
+        ...(NI.Task.createScale("table") as Extract<NI.Task.Scale, { type: "table" }>),
+        preScaledVals: [1, 2, 3],
+        scaledVals: [10, 20],
+      });
+      await screen.findByText(
+        "Pre-scaled 3 values and scaled 2 values must be the same length",
+      );
+      expect(getInputTable("Values").rows).toHaveLength(3);
+    });
+
+    it("should show the values loaded from a CSV", async () => {
+      const csvPath = join(dir, "table3.csv");
+      await writeFile(csvPath, "raw_col,scaled_col\n1,10\n2,20\n3,30\n");
+      openMock.mockResolvedValue(csvPath);
+      await renderWithScale(NI.Task.createScale("table"));
+      await screen.findByText("Table CSV");
+      fireEvent.click(screen.getByText("Select file"));
+      await waitFor(() => expect(getInputTable("Values").rows).toHaveLength(3));
+      const table = getInputTable("Values");
+      expect(table.cell(0, 0).value).toBe("1");
+      expect(table.cell(2, 1).value).toBe("30");
+    });
   });
 });

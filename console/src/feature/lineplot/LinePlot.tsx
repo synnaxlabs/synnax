@@ -104,6 +104,7 @@ const ContextMenuContent = ({
   const name = Base.useName({});
   const { box: selection } = Session.LinePlot.useSelectSelection();
   const openCreateRange = Range.useCreateModal();
+  const hasRangeCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
   const handleError = Status.useErrorHandler();
   const downloadAsCSV = useDownloadAsCSV();
   const getTimeRange = useCallback(async (): Promise<TimeRange> => {
@@ -156,9 +157,11 @@ const ContextMenuContent = ({
             <Icon.TypeScript /> Copy TypeScript time range
           </Menu.CopyItem>
           <Menu.Divider />
-          <Menu.Item itemKey="range" onClick={handleCreateRange}>
-            <Ranger.CreateIcon /> Create range from selection
-          </Menu.Item>
+          {hasRangeCreatePermission && (
+            <Menu.Item itemKey="range" onClick={handleCreateRange}>
+              <Ranger.CreateIcon /> Create range from selection
+            </Menu.Item>
+          )}
           <Menu.Divider />
           <Menu.Item itemKey="download" onClick={handleDownloadCSV}>
             <Icon.CSV /> Download region as CSV

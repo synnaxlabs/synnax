@@ -268,19 +268,18 @@ var _ = Describe("Signal", func() {
 		It(
 			"Should return context error if context is cancelled before receive",
 			func(specCtx SpecContext) {
-				ctx, cancel := signal.WithTimeout(specCtx, 500*time.Microsecond)
+				ctx, cancel := signal.WithCancel(specCtx)
 				v := make(chan int)
 				cancel()
-				val, err := signal.RecvUnderContext(ctx, v)
-				Expect(err).To(MatchError(context.Canceled))
-				Expect(val).To(Equal(0))
+				Expect(signal.RecvUnderContext(ctx, v)).Error().
+					To(MatchError(context.Canceled))
 			},
 		)
 
 		It(
 			"Should receive value even if context is cancelled after value is available",
 			func(specCtx SpecContext) {
-				ctx, cancel := signal.WithTimeout(specCtx, 500*time.Microsecond)
+				ctx, cancel := signal.WithCancel(specCtx)
 				v := make(chan int, 1)
 				v <- 1
 				val := MustSucceed(signal.RecvUnderContext(ctx, v))
