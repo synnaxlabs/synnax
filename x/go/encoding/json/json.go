@@ -27,12 +27,14 @@ var Codec = NewCodec()
 type codec struct {
 	// indent is the per-level indentation for encoded output; empty means compact.
 	indent string
+	// escapeHTML is whether <, >, and & are escaped in encoded string values.
+	escapeHTML bool
 }
 
 // NewCodec returns a JSON implementation of http.FileCodec configured with the given
 // options.
 func NewCodec(opts ...Option) http.FileCodec {
-	c := &codec{}
+	c := &codec{escapeHTML: true}
 	for _, opt := range opts {
 		opt(c)
 	}
@@ -45,6 +47,15 @@ type Option func(*codec)
 // WithIndent encodes each level of nesting with the given indentation and appends a
 // trailing newline, for files a user reads. Decoding is unaffected.
 func WithIndent(indent string) Option { return func(c *codec) { c.indent = indent } }
+
+// WithoutHTMLEscaping writes <, >, and & literally rather than as \u003c, \u003e, and
+// \u0026, for files a user reads: JSON holding markup or source is unreadable escaped.
+// U+2028 and U+2029 stay escaped, which the standard library does unconditionally.
+// Decoding is unaffected, so output encoded either way reads back the same.
+//
+// The escape only guards bytes placed into an HTML document without a parse, so drop it
+// only where that cannot happen.
+func WithoutHTMLEscaping() Option { return func(c *codec) { c.escapeHTML = false } }
 
 func (*codec) ContentType() string { return "application/json" }
 
@@ -64,7 +75,7 @@ func (*codec) DecodeStream(_ context.Context, r io.Reader, value any) error {
 }
 
 func (c *codec) Encode(ctx context.Context, value any) ([]byte, error) {
-	if c.indent == "" {
+	if c.indent == "" && c.escapeHTML {
 		b, err := json.Marshal(value)
 		if err != nil {
 			return nil, encoding.SugarEncodingError(value, err)
@@ -75,12 +86,17 @@ func (c *codec) Encode(ctx context.Context, value any) ([]byte, error) {
 	if err := c.EncodeStream(ctx, &buf, value); err != nil {
 		return nil, err
 	}
+	if c.indent == "" {
+		// json.Encoder always terminates with a newline; compact output carries none.
+		return bytes.TrimSuffix(buf.Bytes(), []byte("\n")), nil
+	}
 	return buf.Bytes(), nil
 }
 
 func (c *codec) EncodeStream(_ context.Context, w io.Writer, value any) error {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", c.indent)
+	enc.SetEscapeHTML(c.escapeHTML)
 	if err := enc.Encode(value); err != nil {
 		return encoding.SugarEncodingError(value, err)
 	}

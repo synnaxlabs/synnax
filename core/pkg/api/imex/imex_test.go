@@ -187,6 +187,11 @@ var _ = Describe("ResolveEncoding", func() {
 		b := MustSucceed(enc.Encode(ctx, map[string]int{"value": 1}))
 		Expect(string(b)).To(Equal("{\n  \"value\": 1\n}\n"))
 	})
+	It("Should write markup literally rather than escaped", func(ctx SpecContext) {
+		enc := MustSucceed(apiimex.ResolveEncoding(apiimex.EncodingJSON))
+		b := MustSucceed(enc.Encode(ctx, map[string]string{"svg": `<svg id="a"/>`}))
+		Expect(string(b)).To(ContainSubstring(`"<svg id=\"a\"/>"`))
+	})
 	It("Should reject an unsupported encoding", func() {
 		Expect(apiimex.ResolveEncoding("YAML")).Error().To(SatisfyAll(
 			MatchError(ContainSubstring("encoding")),

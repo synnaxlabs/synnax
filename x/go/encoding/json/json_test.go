@@ -23,6 +23,10 @@ type toEncode struct {
 	Value int
 }
 
+type markup struct {
+	Value string
+}
+
 var _ = Describe("Codec", func() {
 	Describe("ContentType", func() {
 		It("Should report the JSON content type", func() {
@@ -83,6 +87,55 @@ var _ = Describe("NewCodec", func() {
 		b := MustSucceed(json.NewCodec().Encode(ctx, toEncode{1}))
 		Expect(string(b)).To(Equal(`{"Value":1}`))
 	})
+	Describe("WithoutHTMLEscaping", func() {
+		plain := json.NewCodec(json.WithoutHTMLEscaping())
+
+		It("Should write <, >, and & literally", func(ctx SpecContext) {
+			b := MustSucceed(plain.Encode(ctx, markup{`<a href="x">1 & 2</a>`}))
+			Expect(string(b)).To(Equal(`{"Value":"<a href=\"x\">1 & 2</a>"}`))
+		})
+
+		It("Should escape them by default", func(ctx SpecContext) {
+			b := MustSucceed(json.Codec.Encode(ctx, markup{"<&>"}))
+			Expect(string(b)).To(Equal(`{"Value":"\u003c\u0026\u003e"}`))
+		})
+
+		It("Should leave compact output without a trailing newline", func(
+			ctx SpecContext,
+		) {
+			Expect(MustSucceed(plain.Encode(ctx, toEncode{1}))).
+				To(Equal([]byte(`{"Value":1}`)))
+		})
+
+		It("Should still escape the line and paragraph separators", func(
+			ctx SpecContext,
+		) {
+			b := MustSucceed(plain.Encode(ctx, markup{"a\u2028b\u2029c"}))
+			Expect(string(b)).To(Equal(`{"Value":"a\u2028b\u2029c"}`))
+		})
+
+		It("Should decode to the same value as the escaping codec", func(
+			ctx SpecContext,
+		) {
+			original := markup{`<svg viewBox="0 0 1 1"/>`}
+			var escaped, literal markup
+			Expect(json.Codec.Decode(
+				ctx, MustSucceed(json.Codec.Encode(ctx, original)), &escaped,
+			)).To(Succeed())
+			Expect(plain.Decode(
+				ctx, MustSucceed(plain.Encode(ctx, original)), &literal,
+			)).To(Succeed())
+			Expect(literal).To(Equal(escaped))
+			Expect(literal).To(Equal(original))
+		})
+
+		It("Should compose with WithIndent", func(ctx SpecContext) {
+			c := json.NewCodec(json.WithIndent("  "), json.WithoutHTMLEscaping())
+			Expect(string(MustSucceed(c.Encode(ctx, markup{"<x>"})))).
+				To(Equal("{\n  \"Value\": \"<x>\"\n}\n"))
+		})
+	})
+
 	Describe("WithIndent", func() {
 		pretty := json.NewCodec(json.WithIndent("  "))
 		Describe("ContentType", func() {
