@@ -7,13 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 
-import { runCapture, runRender } from "@/cli/pipeline";
+import { runCapture, runRender, STUDIO_PORT } from "@/cli/pipeline";
 import { type Entry, filter, type Manifest, videoName } from "@/manifest";
 
 const usage = `usage: pnpm batch [filter] [options]
@@ -28,7 +30,9 @@ options are unchanged since their last successful production are skipped.
   --list            print matching entries and exit
   --url <url>       Console URL (default http://localhost:5173)
   --core-bin <path> synnax binary for the ephemeral cores
-  --port <n>        core port for the ephemeral cores (default 9095)`;
+  --port <n>        core port for the ephemeral cores (default 9095)
+  --jobs <n>        entries to produce concurrently (default 1); worker i gets
+                    port + i, and its log prints when the entry finishes`;
 
 const ROOT = path.resolve(import.meta.dirname, "../..");
 const OUT_ROOT = path.join(ROOT, "out");
@@ -125,6 +129,76 @@ const produceEntry = async ({
   await writeFile(p.stamp, JSON.stringify(stamp, null, 2));
 };
 
+interface Options {
+  url: string;
+  draft: boolean;
+  keepFrames: boolean;
+  coreBin?: string;
+}
+
+interface Result {
+  ok: boolean;
+  log: string;
+}
+
+/**
+ * runChild produces one entry in a child process. Each capture points its
+ * fixtures at its core through a process-wide environment variable, so workers
+ * must not share a process.
+ */
+const runChild = async (id: string, port: number, opts: Options): Promise<Result> => {
+  const args = [
+    ...process.execArgv,
+    fileURLToPath(import.meta.url),
+    id,
+    "--exact",
+    "--force",
+    "--url",
+    opts.url,
+    "--port",
+    String(port),
+  ];
+  if (opts.draft) args.push("--draft");
+  if (opts.keepFrames) args.push("--keep-frames");
+  if (opts.coreBin != null) args.push("--core-bin", opts.coreBin);
+  return await new Promise<Result>((resolve) => {
+    const proc = spawn(process.execPath, args, { stdio: ["ignore", "pipe", "pipe"] });
+    let log = "";
+    proc.stdout.on("data", (chunk: Buffer) => (log += chunk.toString()));
+    proc.stderr.on("data", (chunk: Buffer) => (log += chunk.toString()));
+    proc.on("exit", (code) => resolve({ ok: code === 0, log }));
+  });
+};
+
+interface PoolResult {
+  produced: number;
+  failed: string[];
+}
+
+const runPool = async (
+  entries: Entry[],
+  jobs: number,
+  basePort: number,
+  opts: Options,
+): Promise<PoolResult> => {
+  const queue = [...entries];
+  const failed: string[] = [];
+  let produced = 0;
+  const worker = async (index: number): Promise<void> => {
+    while (queue.length > 0) {
+      const entry = queue.shift();
+      if (entry == null) return;
+      console.log(`${entry.id}: started on port ${basePort + index}`);
+      const { ok, log } = await runChild(entry.id, basePort + index, opts);
+      process.stdout.write(log);
+      if (ok) produced++;
+      else failed.push(entry.id);
+    }
+  };
+  await Promise.all(Array.from({ length: jobs }, async (_, i) => await worker(i)));
+  return { produced, failed };
+};
+
 const main = async (): Promise<void> => {
   const { values, positionals } = parseArgs({
     allowPositionals: true,
@@ -133,9 +207,11 @@ const main = async (): Promise<void> => {
       force: { type: "boolean", default: false },
       "keep-frames": { type: "boolean", default: false },
       list: { type: "boolean", default: false },
+      exact: { type: "boolean", default: false },
       url: { type: "string", default: "http://localhost:5173" },
       "core-bin": { type: "string" },
       port: { type: "string" },
+      jobs: { type: "string" },
       help: { type: "boolean", default: false },
     },
   });
@@ -146,7 +222,9 @@ const main = async (): Promise<void> => {
   const manifest = (await import(path.join(ROOT, "videos.ts"))) as {
     default: Manifest;
   };
-  const entries = filter(manifest.default, positionals[0]);
+  const entries = values.exact
+    ? manifest.default.filter((e) => e.id === positionals[0])
+    : filter(manifest.default, positionals[0]);
   if (entries.length === 0) {
     console.error(`no manifest entries match "${positionals[0] ?? ""}"`);
     process.exit(1);
@@ -159,6 +237,7 @@ const main = async (): Promise<void> => {
   const failed: string[] = [];
   let skipped = 0;
   let produced = 0;
+  const stale: Entry[] = [];
   for (const entry of entries) {
     const p = paths(entry);
     const hash = await entryHash(entry, values.draft);
@@ -170,22 +249,38 @@ const main = async (): Promise<void> => {
       skipped++;
       continue;
     }
-    console.log(`${entry.id}:`);
-    try {
-      await produceEntry({
-        entry,
-        url: values.url,
-        draft: values.draft,
-        keepFrames: values["keep-frames"],
-        coreBin: values["core-bin"],
-        ...(values.port != null && { port: Number(values.port) }),
-      });
-      produced++;
-    } catch (err) {
-      console.error(`${entry.id}: FAILED`, err);
-      failed.push(entry.id);
-    }
+    stale.push(entry);
   }
+
+  const jobs = Math.max(1, Number(values.jobs ?? 1));
+  const basePort = values.port != null ? Number(values.port) : STUDIO_PORT;
+  if (jobs > 1) {
+    const result = await runPool(stale, jobs, basePort, {
+      url: values.url,
+      draft: values.draft,
+      keepFrames: values["keep-frames"],
+      coreBin: values["core-bin"],
+    });
+    produced = result.produced;
+    failed.push(...result.failed);
+  } else
+    for (const entry of stale) {
+      console.log(`${entry.id}:`);
+      try {
+        await produceEntry({
+          entry,
+          url: values.url,
+          draft: values.draft,
+          keepFrames: values["keep-frames"],
+          coreBin: values["core-bin"],
+          ...(values.port != null && { port: Number(values.port) }),
+        });
+        produced++;
+      } catch (err) {
+        console.error(`${entry.id}: FAILED`, err);
+        failed.push(entry.id);
+      }
+    }
 
   const failures = failed.length > 0 ? `:\n  ${failed.join("\n  ")}` : "";
   console.log(

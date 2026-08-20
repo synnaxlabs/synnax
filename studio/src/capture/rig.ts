@@ -400,7 +400,11 @@ export class CaptureSession {
    * minimum-jerk profile the director renders), so drag interactions follow the
    * cursor on screen.
    */
-  async drag(from: Locator | Point, to: Locator | Point): Promise<void> {
+  async drag(
+    from: Locator | Point,
+    to: Locator | Point,
+    opts?: { zoom?: boolean },
+  ): Promise<void> {
     const start = await this.moveTo(from);
     this.events.push({
       type: "pointerdown",
@@ -408,6 +412,7 @@ export class CaptureSession {
       ...start,
       button: "left",
       rect: this.cursorRect,
+      ...(opts?.zoom === false && { zoom: opts.zoom }),
     });
     await this.page.mouse.down();
     await this.hold(120);

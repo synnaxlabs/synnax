@@ -7,7 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Locator, type Page } from "playwright";
+
 import { type CaptureSession } from "@/capture/rig";
+
+/**
+ * control returns a visualization control button (zoom, pan, selection, rule,
+ * ...) by the name of the icon it carries. The buttons have no accessible
+ * name of their own.
+ */
+export const control = (page: Page, icon: string): Locator =>
+  page.locator(`.console-controls button:has(.pluto-icon--${icon})`).first();
 
 /**
  * showVisualizationToolbar opens the bottom visualization drawer if it is not
