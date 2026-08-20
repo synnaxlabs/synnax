@@ -160,7 +160,7 @@ describe("HTTP Read form", () => {
           fields: [
             createReadField("f1", "/temperature"),
             createReadField("f2", "/label", { dataType: "string" }),
-            createReadField("tf", "/ts", { timestampFormat: "unix_sec" }),
+            createReadField("tf", "/ts", { timeFormat: "unix_sec" }),
           ],
         },
       ]);

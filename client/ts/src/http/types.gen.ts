@@ -104,10 +104,10 @@ export const readFieldZ = z.object({
   /** dataType is the data type of the extracted value. */
   dataType: z.string().default("float64"),
   /**
-   * timestampFormat is the encoding of the JSON value when the target channel holds
+   * timeFormat is the encoding of the JSON value when the target channel holds
    * timestamps. Required for timestamp channels.
    */
-  timestampFormat: timeFormatZ.optional(),
+  timeFormat: timeFormatZ.optional(),
   /** enumValues maps string labels in the response to numeric channel values. */
   enumValues: enumEntryZ.array().default(() => []),
 });

@@ -125,6 +125,8 @@ var legacyRenames = map[string]string{
 	"subindex":    "sub_index",
 	"cmd_key":     "cmd_channel",
 	"state_key":   "state_channel",
+	// HTTP read spelled the timestamp encoding differently from its write side.
+	"timestamp_format": "time_format",
 }
 
 // legacyCollapsed maps a legacy key to the stored key its value folds into. The fold

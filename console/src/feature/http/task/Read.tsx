@@ -90,7 +90,7 @@ const ReadEndpointListItem = (props: List.ItemProps<string>) => {
 
 const readEndpointListItem = Component.renderProp(ReadEndpointListItem);
 
-const isTimingField = (f: ReadField): boolean => f.timestampFormat != null;
+const isTimingField = (f: ReadField): boolean => f.timeFormat != null;
 
 interface FieldListItemProps extends Task.ChannelListItemProps {
   epKey: string;
@@ -315,7 +315,7 @@ const TimingToggle: FC<{ path: string }> = ({ path }) => {
         const indexF: ReadField = {
           ...http.readFieldZ.parse({}),
           key: id.create(),
-          timestampFormat: "unix_sec",
+          timeFormat: "unix_sec",
         };
         set(`${path}.fields`, [...fields, indexF]);
         set(`${path}.index`, indexF.key);
@@ -351,7 +351,7 @@ const TimingToggle: FC<{ path: string }> = ({ path }) => {
             grow
           />
           <TimeFormatField
-            path={`${path}.fields.${indexField.key}.timestampFormat`}
+            path={`${path}.fields.${indexField.key}.timeFormat`}
             label="Format"
           />
         </>

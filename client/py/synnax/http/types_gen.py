@@ -142,8 +142,8 @@ class ReadField(BaseModel):
         channel: Is the Synnax channel the extracted value is written to.
         pointer: Is the JSON Pointer to the value within the response body.
         data_type: Is the data type of the extracted value.
-        timestamp_format: Is the encoding of the JSON value when the target channel
-            holds timestamps. Required for timestamp channels.
+        time_format: Is the encoding of the JSON value when the target channel holds
+            timestamps. Required for timestamp channels.
         enum_values: Maps string labels in the response to numeric channel values.
     """
 
@@ -153,7 +153,7 @@ class ReadField(BaseModel):
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     pointer: str = ""
     data_type: telem.DataType = telem.DataType("float64")
-    timestamp_format: TimeFormat | None = None
+    time_format: TimeFormat | None = None
     enum_values: list[EnumEntry] = Field(default_factory=list)
 
     def __hash__(self) -> int:

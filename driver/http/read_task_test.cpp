@@ -1014,7 +1014,7 @@ TEST(HTTPReadTask, SoftwareTimingIndex) {
 }
 
 /// @brief it should extract timestamps from the JSON response when the index
-/// channel is listed as an explicit field with a timestamp_format.
+/// channel is listed as an explicit field with a time_format.
 TEST(HTTPReadTask, ExplicitIndexFieldTimestamp) {
     mock::Server server(
         mock::ServerConfig{
@@ -1042,7 +1042,7 @@ TEST(HTTPReadTask, ExplicitIndexFieldTimestamp) {
     ReadField index_field;
     index_field.pointer = "/timestamp";
     index_field.channel = 100;
-    index_field.timestamp_format = "unix_sec";
+    index_field.time_format = "unix_sec";
 
     ReadEndpoint ep;
     ep.method = "GET";
@@ -1223,7 +1223,7 @@ protected:
     }
 };
 
-/// @brief it should error when a TIMESTAMP_T channel has no timestamp_format.
+/// @brief it should error when a TIMESTAMP_T channel has no time_format.
 TEST_F(HTTPReadTaskParseTest, TimestampChannelMissingFormat) {
     auto idx = ASSERT_NIL_P(
         client->channels
@@ -1331,7 +1331,7 @@ TEST_F(HTTPReadTaskParseTest, SameEndpointSharedIndexAsField) {
                   {
                       {"pointer", "/timestamp"},
                       {"channel", idx.key},
-                      {"timestamp_format", "unix_sec"},
+                      {"time_format", "unix_sec"},
                   },
               }},
          }}},
@@ -1381,7 +1381,7 @@ TEST_F(HTTPReadTaskParseTest, SameEndpointSharedIndexSoftwareTiming) {
     EXPECT_TRUE(cfg.software_timed_indexes.count(idx.key));
 }
 
-/// @brief it should silently ignore timestamp_format on a non-timestamp channel.
+/// @brief it should silently ignore time_format on a non-timestamp channel.
 TEST_F(HTTPReadTaskParseTest, TimestampFormatOnNonTimestamp) {
     auto idx = ASSERT_NIL_P(
         client->channels
@@ -1406,7 +1406,7 @@ TEST_F(HTTPReadTaskParseTest, TimestampFormatOnNonTimestamp) {
               {{
                   {"pointer", "/value"},
                   {"channel", ch.key},
-                  {"timestamp_format", "unix_sec"},
+                  {"time_format", "unix_sec"},
               }}},
          }}},
     };

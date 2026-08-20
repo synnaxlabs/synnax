@@ -48,12 +48,12 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
                         " is used multiple times"
                 );
 
-            if (field.timestamp_format.has_value())
+            if (field.time_format.has_value())
                 if (auto [fmt, fmt_err] = x::json::parse_time_format(
-                        *field.timestamp_format
+                        *field.time_format
                     );
                     fmt_err)
-                    parser.field_err("endpoints.fields.timestamp_format", fmt_err);
+                    parser.field_err("endpoints.fields.time_format", fmt_err);
 
             std::set<std::string> labels;
             for (const auto &entry: field.enum_values)
@@ -117,11 +117,11 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
                 continue;
             }
 
-            if (dt == x::telem::TIMESTAMP_T && !field.timestamp_format.has_value()) {
+            if (dt == x::telem::TIMESTAMP_T && !field.time_format.has_value()) {
                 parser.field_err(
                     "endpoints",
                     "channel " + ch.name +
-                        " is a timestamp channel but has no timestamp_format"
+                        " is a timestamp channel but has no time_format"
                 );
                 continue;
             }
@@ -171,9 +171,9 @@ ReadTaskSource::ReadTaskSource(
             GroupField gf;
             gf.channel = field.channel;
             gf.pointer = x::json::json::json_pointer(field.pointer);
-            if (field.timestamp_format.has_value())
+            if (field.time_format.has_value())
                 if (auto [fmt, fmt_err] = x::json::parse_time_format(
-                        *field.timestamp_format
+                        *field.time_format
                     );
                     !fmt_err)
                     gf.time_format = fmt;

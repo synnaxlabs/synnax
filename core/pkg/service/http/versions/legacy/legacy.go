@@ -44,11 +44,13 @@ func listify(config msgpack.EncodedJSON) {
 	})
 }
 
-// read flips the legacy field polarity on read endpoints.
+// read flips the legacy field polarity on read endpoints and renames the timestamp
+// format, which the write side always spelled time_format.
 func read(config msgpack.EncodedJSON) {
 	legacy.EachChild(config, "endpoints", func(ep msgpack.EncodedJSON) {
 		legacy.EachChild(ep, "fields", func(f msgpack.EncodedJSON) {
 			legacy.FlipBool(f, "enabled", "disabled")
+			legacy.RenameKey(f, "timestamp_format", "time_format")
 		})
 	})
 }

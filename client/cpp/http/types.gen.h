@@ -125,10 +125,10 @@ struct ReadField {
     std::string pointer = "";
     /// @brief data_type is the data type of the extracted value.
     ::x::telem::DataType data_type = ::x::telem::DataType("float64");
-    /// @brief timestamp_format is the encoding of the JSON value when the target
-    /// channel
-    /// holds timestamps. Required for timestamp channels.
-    std::optional<std::string> timestamp_format;
+    /// @brief time_format is the encoding of the JSON value when the target channel
+    /// holds
+    /// timestamps. Required for timestamp channels.
+    std::optional<std::string> time_format;
     /// @brief enum_values maps string labels in the response to numeric channel values.
     std::vector<EnumEntry> enum_values;
 

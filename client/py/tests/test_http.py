@@ -149,7 +149,7 @@ class TestHTTPReadTask:
                 },
             },
             {
-                "name": "field_with_timestamp_format",
+                "name": "field_with_time_format",
                 "data": {
                     "device": "http-device-key",
                     "rate": 1.0,
@@ -167,7 +167,7 @@ class TestHTTPReadTask:
                                     "pointer": "/timestamp",
                                     "channel": 100,
                                     "data_type": "timestamp",
-                                    "timestamp_format": "unix_sec",
+                                    "time_format": "unix_sec",
                                     "disabled": False,
                                 },
                                 {
@@ -241,7 +241,7 @@ class TestHTTPReadTask:
         assert field.disabled is False
         assert field.data_type == "float64"
         assert field.name == ""
-        assert field.timestamp_format is None
+        assert field.time_format is None
         assert field.enum_values == []
 
     def test_read_endpoint_defaults(self):

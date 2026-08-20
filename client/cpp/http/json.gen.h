@@ -80,9 +80,7 @@ inline ReadField ReadField::parse(x::json::Parser parser) {
             "data_type",
             ::x::telem::DataType("float64")
         ),
-        .timestamp_format = parser.field<std::optional<std::string>>(
-            "timestamp_format"
-        ),
+        .time_format = parser.field<std::optional<std::string>>("time_format"),
         .enum_values = parser.field<std::vector<EnumEntry>>(
             "enum_values",
             std::vector<EnumEntry>{}
@@ -98,7 +96,7 @@ inline x::json::json ReadField::to_json() const {
     j["channel"] = this->channel;
     j["pointer"] = this->pointer;
     j["data_type"] = this->data_type;
-    j["timestamp_format"] = this->timestamp_format;
+    j["time_format"] = this->time_format;
     j["enum_values"] = x::json::to_array(this->enum_values);
     return j;
 }
