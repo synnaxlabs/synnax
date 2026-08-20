@@ -8,9 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { ResizeObserver } from "@juggle/resize-observer";
+import { configure } from "@testing-library/react";
 import { afterAll, beforeAll, vi } from "vitest";
 
 import { installTestWebSocket } from "@/testutil/websocket";
+
+// Live-core round-trips share the single test cluster with the rest of the suite, so
+// allow more than the 1s waitFor default.
+configure({ asyncUtilTimeout: 5000 });
 
 class MockIntersectionObserver {
   observe = vi.fn();
