@@ -44,6 +44,7 @@ export default manifest.define([
     script: "scripts/line-plot-properties.ts",
   },
   { id: "console/tables/create", script: "scripts/table-create.ts" },
+  { id: "console/logs/example", script: "scripts/log-example.ts" },
   { id: "console/schematics/create", script: "scripts/schematic-create.ts" },
   { id: "console/channels/create", script: "scripts/channels-create.ts" },
   { id: "console/channels/alias", script: "scripts/channels-alias.ts" },
