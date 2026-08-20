@@ -16,7 +16,6 @@
     background: var(--pluto-gray-l0);
     max-width: 200px;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
     box-shadow: var(--pluto-shadow-lift);
     position: relative;
