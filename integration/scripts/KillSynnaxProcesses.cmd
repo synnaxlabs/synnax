@@ -29,18 +29,18 @@ if exist "%LOCALAPPDATA%\synnax" (
 
 rem Clean up any existing binaries directory (current working directory)
 if exist ".\binaries" (
-    echo 🧹 Cleaning existing binaries directory...
+    echo Cleaning existing binaries directory...
     rmdir /s /q ".\binaries"
 ) else (
-    echo 🧹 No existing binaries directory to clean
+    echo No existing binaries directory to clean
 )
 
 rem Also clean up synnax-binaries if it exists (for consistency with other OS patterns)
 if exist "%USERPROFILE%\synnax-binaries" (
-    echo 🧹 Cleaning synnax-binaries directory from %USERPROFILE%...
+    echo Cleaning synnax-binaries directory from %USERPROFILE%...
     rmdir /s /q "%USERPROFILE%\synnax-binaries"
 ) else (
-    echo 🧹 No synnax-binaries directory found in %USERPROFILE%
+    echo No synnax-binaries directory found in %USERPROFILE%
 )
 
 rem Clean up any existing desktop binaries
@@ -53,34 +53,34 @@ echo Verifying cleanup...
 set "cleanup_failed=false"
 
 if exist ".\binaries" (
-    echo ❌ ERROR: binaries directory still exists after cleanup
+    echo ERROR: binaries directory still exists after cleanup
     set "cleanup_failed=true"
 )
 
 if exist "%USERPROFILE%\synnax-binaries" (
-    echo ❌ ERROR: synnax-binaries directory still exists in %USERPROFILE% after cleanup
+    echo ERROR: synnax-binaries directory still exists in %USERPROFILE% after cleanup
     set "cleanup_failed=true"
 )
 
 if exist "%USERPROFILE%\synnax-data" (
-    echo ❌ ERROR: synnax-data directory still exists in %USERPROFILE% after cleanup
+    echo ERROR: synnax-data directory still exists in %USERPROFILE% after cleanup
     set "cleanup_failed=true"
 )
 
 rem Check if any desktop synnax executables still exist
 dir "%USERPROFILE%\Desktop\synnax*.exe" >nul 2>nul
 if %errorlevel% equ 0 (
-    echo ❌ ERROR: synnax executables still exist on desktop after cleanup:
+    echo ERROR: synnax executables still exist on desktop after cleanup:
     dir "%USERPROFILE%\Desktop\synnax*.exe"
     set "cleanup_failed=true"
 )
 
 if "%cleanup_failed%"=="true" (
-    echo ❌ Cleanup verification failed
+    echo Cleanup verification failed
     exit /b 1
 ) else (
-    echo ✅ Cleanup verification passed - all directories and files removed
+    echo Cleanup verification passed - all directories and files removed
 )
 
-echo ✅ Synnax process cleanup completed
+echo Synnax process cleanup completed
 exit /b 0
