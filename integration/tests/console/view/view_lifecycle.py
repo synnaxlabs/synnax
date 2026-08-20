@@ -85,18 +85,22 @@ class ViewLifecycle(ConsoleCase):
         self.console.statuses.create(self.status_b_name, labels=[self.label_b_name])
 
     def teardown(self) -> None:
-        for name in self.view_names:
-            views = self.client.views.retrieve(search_term=name)
-            keys = [v.key for v in views if v.name == name]
-            if len(keys) > 0:
-                self.client.views.delete(keys)
-        for name in [self.range_a_name, self.range_b_name, self.range_n_name]:
-            self._delete_range(name)
-        for name in [self.status_a_name, self.status_b_name, self.status_n_name]:
-            self._delete_status(name)
-        self.console.labels.delete(self.label_a_name)
-        self.console.labels.delete(self.label_b_name)
-        super().teardown()
+        try:
+            for name in self.view_names:
+                views = self.client.views.retrieve(search_term=name)
+                keys = [v.key for v in views if v.name == name]
+                if len(keys) > 0:
+                    self.client.views.delete(keys)
+            for name in [self.range_a_name, self.range_b_name, self.range_n_name]:
+                self._delete_range(name)
+            for name in [self.status_a_name, self.status_b_name, self.status_n_name]:
+                self._delete_status(name)
+            # Labels need the browser, which a failed setup may never have launched.
+            if hasattr(self, "console"):
+                self.console.labels.delete(self.label_a_name)
+                self.console.labels.delete(self.label_b_name)
+        finally:
+            super().teardown()
 
     def _delete_range(self, name: str) -> None:
         keys = [r.key for r in self.client.ranges.search(name) if r.name == name]
