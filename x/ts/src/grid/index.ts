@@ -7,8 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { within } from "@testing-library/react";
-
-/** Returns the KeyValueEditor's entry rows, without the heading row. */
-export const getKVRows = (container: HTMLElement): HTMLElement[] =>
-  within(container).getAllByRole("row").slice(1);
+export * as grid from "@/grid/grid";
