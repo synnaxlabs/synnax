@@ -466,6 +466,38 @@ describe("Panel queries", () => {
       const fetched = await client.panels.retrieve(target.key);
       expect(fetched.name).toEqual("after-rename");
     });
+
+    it("should run afterOptimistic against the renamed panel", async () => {
+      const target = await client.panels.create({
+        name: "before-optimistic-rename",
+        parent: defaultParent,
+      });
+      const order: string[] = [];
+      const { result } = renderHook(
+        () =>
+          Panel.useRename({
+            // The client applies the rename before it calls back, so the cached
+            // panel already carries the new name here.
+            afterOptimistic: ({ client: c, data }) => {
+              const cached = c.panels.getCached(data.key);
+              order.push(`optimistic:${query.isLive(cached) ? cached.name : ""}`);
+            },
+            afterSuccess: () => {
+              order.push("success");
+            },
+          }),
+        { wrapper },
+      );
+
+      await act(async () => {
+        await result.current.updateAsync({
+          key: target.key,
+          name: "after-optimistic-rename",
+        });
+      });
+
+      expect(order).toEqual(["optimistic:after-optimistic-rename", "success"]);
+    });
   });
 
   describe("useDelete", () => {
