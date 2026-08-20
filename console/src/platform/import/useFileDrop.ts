@@ -22,7 +22,6 @@ import { FS } from "@/platform/fs";
 import { type BundleImporter } from "@/platform/import/import";
 import { useImportBatch } from "@/platform/import/useImportBatch";
 import { isZipFile, zipFiles } from "@/platform/import/zip";
-import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
 
 interface ImportContext {
@@ -40,9 +39,7 @@ const importEntry = async (
   { client, importBundle, projectKey, store }: ImportContext,
 ): Promise<void | ontology.ID> => {
   if (FS.isDirectoryEntry(entry)) {
-    const bundle = await Runtime.uploadBody(
-      zipFiles(await FS.readDirectoryFiles(entry)),
-    );
+    const bundle = zipFiles(await FS.readDirectoryFiles(entry));
     return await importBundle(entry.name, bundle, { client, store });
   }
   if (!FS.isFileEntry(entry)) return;
