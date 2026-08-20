@@ -76,6 +76,10 @@
         max-width: 25rem;
     }
 
+    .console-field-data-type {
+        width: 22rem;
+    }
+
     .console-static-field-value {
         width: 120px;
     }

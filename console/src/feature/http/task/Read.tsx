@@ -154,7 +154,12 @@ const HIDDEN_DATA_TYPES = [
 
 const renderTelemSelectDataType = Component.renderProp(
   (p: Telem.SelectDataTypeProps) => (
-    <Telem.SelectDataType {...p} hideDataTypes={HIDDEN_DATA_TYPES} location="bottom" />
+    <Telem.SelectDataType
+      {...p}
+      className={CSS.B("field-data-type")}
+      hideDataTypes={HIDDEN_DATA_TYPES}
+      location="bottom"
+    />
   ),
 );
 
