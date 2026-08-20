@@ -24,10 +24,7 @@ seconds should sound an alarm. Arc makes these patterns straightforward.
 The simplest alarm compares a value to a threshold.
 
 ```arc channels="tank_pressure, pressure_high, tank_level, tank_level_low"
-// Threshold low
 tank_level < 10.0 -> status.set{ ... }
-
-// Threshold high
 tank_pressure > 9000.0 -> status.set{ ... }
 ```
 
