@@ -107,10 +107,13 @@ describe("Label.Select permissions", () => {
 
   it("should withhold the new-label action from a subject who cannot create labels", async () => {
     const name = await renderPicker(await createSubject({}));
-    // The listed label proves the picker resolved its data, so the missing action is
-    // the gate rather than a list still in flight.
+    // The listed label proves the picker resolved its data, so the missing action
+    // is the gate and not a list still in flight.
     await screen.findByText(name);
     expect(screen.queryByText("New label")).toBeNull();
+    // A footer that renders null still counts as a footer, which moves the border
+    // off the list onto an empty wrapper.
+    expect(document.querySelector(".pluto-select__body")).toBeNull();
   });
 
   it("should offer the new-label action to a subject who may create labels", async () => {

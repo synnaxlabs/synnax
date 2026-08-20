@@ -10,7 +10,7 @@
 import { label, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { mockBoundingClientRect } from "@synnaxlabs/pluto/testutil";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Label } from "@/platform/label";
@@ -114,9 +114,12 @@ describe("Label.useEditModal", () => {
     );
     fireEvent.click(await findAddButton());
     const name = uniqueName("label");
-    const nameInput = screen.getByPlaceholderText<HTMLInputElement>("Name");
+    // Every listed label renders its own name input, so the create form's has to be
+    // reached through its row.
+    const createItem = getCreateItem();
+    const nameInput = within(createItem).getByPlaceholderText<HTMLInputElement>("Name");
     fireEvent.change(nameInput, { target: { value: name } });
-    fireEvent.click(getIconButton(document.body, "check"));
+    fireEvent.click(getIconButton(createItem, "check"));
     await waitFor(async () => {
       const found = await client.labels.retrieve({ names: [name] });
       expect(found.length).toBe(1);
@@ -137,8 +140,8 @@ describe("Label.useEditModal permissions", () => {
   it("should withhold the delete button from a subject who cannot delete labels", async () => {
     const { name } = await createLabel();
     await openEditModal(await createSubject({ create: [label.TYPE_ONTOLOGY_ID] }));
-    // The create grant resolving proves the permission queries have answered, so the
-    // missing delete button is the gate and not a still-pending retrieve.
+    // The create grant resolving proves the permission queries answered, so the
+    // missing delete button is the gate and not a check still in flight.
     await findAddButton();
     expect(queryIconButton(await findLabelRow(name), "delete")).toBeNull();
   });
