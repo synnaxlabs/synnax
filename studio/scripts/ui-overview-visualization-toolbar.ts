@@ -44,7 +44,8 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.hold(600);
 
     // The input selects its text on focus, so typing replaces the old title.
-    await session.click(title);
+    // No zoom: the plot must stay in frame so the rename shows up live.
+    await session.click(title, { zoom: false });
     await session.type("Coolant Loop");
     await session.waitFor(capture.tab(page, "Coolant Loop"));
     await session.hold(2600);

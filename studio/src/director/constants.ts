@@ -35,7 +35,7 @@ export const CLICK_SHRINK_SCALE = 0.8;
 export const CLICK_SHRINK_S = 0.13;
 
 /** Camera spring for both zoom amount and framing center. */
-export const CAMERA_SPRING: SpringParams = { stiffness: 200, damping: 40, mass: 2.25 };
+export const CAMERA_SPRING: SpringParams = { stiffness: 130, damping: 42, mass: 3 };
 
 /** Camera simulation step in seconds. */
 export const CAMERA_SIM_DT = 0.008;
