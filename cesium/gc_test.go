@@ -22,6 +22,7 @@ import (
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.uber.org/zap/zapcore"
 )
 
 // gcConvergeTimeout bounds how long a spec waits for background garbage
@@ -426,6 +427,74 @@ var _ = Describe("Garbage collection", Ordered, func() {
 								f.SeriesAt(8).Data,
 							).To(Equal(telem.NewSeriesV[int64](3000, 3010, 3020).Data))
 						})
+					},
+				)
+			})
+
+			Context("Failed collection", func() {
+				It(
+					"Should log the failure and keep trying",
+					func(ctx SpecContext) {
+						ins, logs := ObservedInstrumentation(zapcore.ErrorLevel)
+						faulty := OpenFaultyFS(
+							openFS(),
+							func(op FaultOp, name string) error {
+								if op == FaultOpRename && name == "1.domain" {
+									return ErrFault
+								}
+								return nil
+							},
+						)
+						failing := MustOpen(cesium.Open(ctx, "",
+							cesium.WithGCConfig(cesium.GCConfig{
+								MaxGoroutine: 10,
+								TryInterval:  10 * telem.Millisecond.Duration(),
+								Threshold:    math.SmallestNonzeroFloat32,
+							}),
+							cesium.WithFS(faulty),
+							cesium.WithFileSizeCap(89*telem.Byte),
+							cesium.WithInstrumentation(ins)))
+						Expect(failing.CreateChannel(
+							ctx,
+							cesium.Channel{
+								Key:      index,
+								Name:     "Thoreau",
+								DataType: telem.TimestampT,
+								IsIndex:  true,
+							},
+							cesium.Channel{
+								Key:      basic,
+								Name:     "Abbey",
+								DataType: telem.Int64T,
+								Index:    index,
+							},
+						)).To(Succeed())
+						Expect(failing.Write(
+							ctx,
+							10*telem.SecondTS,
+							telem.MultiFrame(
+								[]cesium.ChannelKey{basic, index},
+								[]telem.Series{
+									telem.NewSeriesV[int64](
+										10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
+									),
+									telem.NewSeriesSecondsTSV(
+										10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
+									),
+								},
+							),
+						)).To(Succeed())
+						Expect(failing.DeleteTimeRange(
+							ctx,
+							[]cesium.ChannelKey{basic},
+							(12 * telem.SecondTS).Range(16*telem.SecondTS),
+						)).To(Succeed())
+
+						Eventually(func() int {
+							return logs.FilterMessage(
+								"garbage collection error",
+							).Len()
+						}).Should(BeNumerically(">", 0))
 					},
 				)
 			})

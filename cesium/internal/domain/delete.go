@@ -147,22 +147,22 @@ func (db *DB) Delete(
 		// to exist.
 		if !exact {
 			startDomain += 1
-		} else {
-			// A garbage collection may have moved the domain within its file. The
-			// partial pointers below inherit this offset, so it must be current.
-			start.offset = db.idx.mu.pointers[startDomain].offset
 		}
 	}
 	if db.idx.mu.pointers[endDomain] != end {
-		if endDomain, exact = db.idx.unprotectedSearch(end.TimeRange); exact {
-			end.offset = db.idx.mu.pointers[endDomain].offset
-		}
+		endDomain, _ = db.idx.unprotectedSearch(end.TimeRange)
 	}
 
 	ok, err := validateDelete(startDomain, endDomain, &startOffset, &endOffset, db.idx)
 	if err != nil || !ok {
 		return span.Error(err)
 	}
+
+	// A garbage collection may have moved these domains within their file since the
+	// lookup above. The partial pointers below inherit their offsets, so take the ones
+	// the index holds now.
+	start.offset = db.idx.mu.pointers[startDomain].offset
+	end.offset = db.idx.mu.pointers[endDomain].offset
 
 	// Calculate size of removed pointers.
 	var removedSize int64
@@ -256,9 +256,6 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 
 	var collected bool
 	for fileKey := uint16(1); fileKey <= uint16(db.fc.counter.Value()); fileKey++ {
-		if db.fc.hasWriter(fileKey) {
-			continue
-		}
 		s, err := db.cfg.FS.Stat(fileKeyToName(fileKey))
 		if err != nil {
 			return span.Error(err)

@@ -1103,6 +1103,100 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					Expect(db.GarbageCollect(ctx)).To(MatchError(domain.ErrDBClosed))
 				})
 			})
+
+			Context("Faulty file system", func() {
+				var (
+					faulty *FaultyFS
+					fault  Fault
+				)
+				BeforeEach(func(ctx SpecContext) {
+					fault = func(FaultOp, string) error { return nil }
+					faulty = OpenFaultyFS(fs, func(op FaultOp, name string) error {
+						return fault(op, name)
+					})
+					db = MustSucceed(domain.Open(domain.Config{
+						FS:              faulty,
+						FileSize:        9 * telem.Byte,
+						GCThreshold:     math.SmallestNonzeroFloat32,
+						Instrumentation: PanicLogger(),
+					}))
+					Expect(domain.Write(
+						ctx,
+						db,
+						(10 * telem.SecondTS).Range(19*telem.SecondTS+1),
+						[]byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19},
+					)).To(Succeed())
+					Expect(db.Delete(
+						ctx,
+						telem.TimeRange{
+							Start: 12*telem.SecondTS + 1,
+							End:   16*telem.SecondTS + 1,
+						},
+						fixedOffset(3),
+						fixedOffset(7),
+					)).To(Succeed())
+				})
+
+				failOn := func(target FaultOp, name string) {
+					fault = func(op FaultOp, opName string) error {
+						if op == target && opName == name {
+							return ErrFault
+						}
+						return nil
+					}
+				}
+
+				// A rewrite that keeps its handles open blocks every later rename of
+				// the
+				// file on Windows, which stops collection for good.
+				assertNoLeakedHandles := func(ctx SpecContext) {
+					GinkgoHelper()
+					Expect(db.GarbageCollect(ctx)).To(MatchError(ErrFault))
+					open := faulty.OpenFiles()
+					Expect(db.GarbageCollect(ctx)).To(MatchError(ErrFault))
+					Expect(faulty.OpenFiles()).To(Equal(open))
+
+					By("Collecting once the fault clears")
+					fault = func(FaultOp, string) error { return nil }
+					Expect(db.GarbageCollect(ctx)).To(Succeed())
+					Expect(MustSucceed(fs.Stat("1.domain")).Size()).To(Equal(int64(6)))
+				}
+
+				It(
+					"Should keep no handles when reading the live data fails",
+					func(ctx SpecContext) {
+						failOn(FaultOpReadAt, "1.domain")
+						assertNoLeakedHandles(ctx)
+					},
+				)
+
+				It(
+					"Should keep no handles when writing the copy fails",
+					func(ctx SpecContext) {
+						failOn(FaultOpWrite, "1.domain_gc")
+						assertNoLeakedHandles(ctx)
+					},
+				)
+
+				It("Should surface a failed rename", func(ctx SpecContext) {
+					failOn(FaultOpRename, "1.domain")
+					Expect(db.GarbageCollect(ctx)).To(MatchError(ErrFault))
+				})
+
+				It("Should surface a failed rejuvenation", func(ctx SpecContext) {
+					var renamed bool
+					fault = func(op FaultOp, name string) error {
+						if op == FaultOpRename {
+							renamed = true
+						}
+						if renamed && op == FaultOpStat && name == "1.domain" {
+							return ErrFault
+						}
+						return nil
+					}
+					Expect(db.GarbageCollect(ctx)).To(MatchError(ErrFault))
+				})
+			})
 		})
 	}
 })

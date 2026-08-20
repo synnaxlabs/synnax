@@ -12,6 +12,7 @@ package testutil
 import (
 	"io"
 	"os"
+	"sync/atomic"
 
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -85,4 +86,110 @@ func CopyFS(srcFS, destFS xfs.FS) error {
 	}
 
 	return nil
+}
+
+// ErrFault is the failure a Fault raises in place of the operation it blocks.
+var ErrFault = errors.New("faulty file system")
+
+// FaultOp names a file system operation a FaultyFS can fail.
+type FaultOp string
+
+const (
+	FaultOpOpen   FaultOp = "open"
+	FaultOpReadAt FaultOp = "read_at"
+	FaultOpWrite  FaultOp = "write"
+	FaultOpRename FaultOp = "rename"
+	FaultOpStat   FaultOp = "stat"
+	FaultOpRemove FaultOp = "remove"
+)
+
+// Fault decides whether an operation on name must fail, returning the error to raise in
+// its place. A nil return lets the operation through. Rename passes its old path as
+// name.
+type Fault = func(op FaultOp, name string) error
+
+// FaultyFS wraps an FS to fail the operations its Fault selects. It also counts the
+// file handles open against it, so a test can assert that a failed operation left none
+// behind.
+type FaultyFS struct {
+	xfs.FS
+	fault Fault
+	open  *atomic.Int64
+}
+
+// OpenFaultyFS wraps wrapped so that every operation fault selects fails with the error
+// fault returns. Paths reach fault exactly as the caller passed them.
+func OpenFaultyFS(wrapped xfs.FS, fault Fault) *FaultyFS {
+	return &FaultyFS{FS: wrapped, fault: fault, open: &atomic.Int64{}}
+}
+
+// OpenFiles returns the number of handles opened through the FS and not yet closed.
+func (fs *FaultyFS) OpenFiles() int { return int(fs.open.Load()) }
+
+func (fs *FaultyFS) Open(name string, flag int) (xfs.File, error) {
+	if err := fs.fault(FaultOpOpen, name); err != nil {
+		return nil, err
+	}
+	f, err := fs.FS.Open(name, flag)
+	if err != nil {
+		return nil, err
+	}
+	fs.open.Add(1)
+	return &faultyFile{File: f, fs: fs, name: name}, nil
+}
+
+// Sub returns a FaultyFS over the sub-directory, sharing this FS's fault and handle
+// count. Paths reach the fault relative to the sub-FS.
+func (fs *FaultyFS) Sub(name string) (xfs.FS, error) {
+	sub, err := fs.FS.Sub(name)
+	if err != nil {
+		return nil, err
+	}
+	return &FaultyFS{FS: sub, fault: fs.fault, open: fs.open}, nil
+}
+
+func (fs *FaultyFS) Rename(oldPath, newPath string) error {
+	if err := fs.fault(FaultOpRename, oldPath); err != nil {
+		return err
+	}
+	return fs.FS.Rename(oldPath, newPath)
+}
+
+func (fs *FaultyFS) Stat(name string) (xfs.FileInfo, error) {
+	if err := fs.fault(FaultOpStat, name); err != nil {
+		return nil, err
+	}
+	return fs.FS.Stat(name)
+}
+
+func (fs *FaultyFS) Remove(name string) error {
+	if err := fs.fault(FaultOpRemove, name); err != nil {
+		return err
+	}
+	return fs.FS.Remove(name)
+}
+
+type faultyFile struct {
+	xfs.File
+	fs   *FaultyFS
+	name string
+}
+
+func (f *faultyFile) ReadAt(p []byte, off int64) (int, error) {
+	if err := f.fs.fault(FaultOpReadAt, f.name); err != nil {
+		return 0, err
+	}
+	return f.File.ReadAt(p, off)
+}
+
+func (f *faultyFile) Write(p []byte) (int, error) {
+	if err := f.fs.fault(FaultOpWrite, f.name); err != nil {
+		return 0, err
+	}
+	return f.File.Write(p)
+}
+
+func (f *faultyFile) Close() error {
+	f.fs.open.Add(-1)
+	return f.File.Close()
 }
