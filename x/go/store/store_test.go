@@ -42,5 +42,19 @@ var _ = Describe("Store", func() {
 			s.SetState(ctx, state{value: 2})
 			Expect(changedState.value).To(Equal(2))
 		})
+
+		It("Should commit the state before notifying observers", func(
+			ctx SpecContext,
+		) {
+			s := MustSucceed(store.WrapObservable(store.ObservableConfig[state, state]{
+				Store:     store.New(copyState),
+				Transform: func(_, next state) (state, bool) { return next, true },
+				GoNotify:  new(false),
+			}))
+			var observed state
+			s.OnChange(func(context.Context, state) { observed = s.CopyState() })
+			s.SetState(ctx, state{value: 2})
+			Expect(observed.value).To(Equal(2))
+		})
 	})
 })
