@@ -19,34 +19,31 @@ seconds should sound an alarm. Arc makes these patterns straightforward.
 
 <Divider.Divider x />
 
-## Basic Threshold Alarm
+## Basic Threshold
 
-The simplest alarm compares a value to a threshold:
+The simplest alarm compares a value to a threshold.
 
-```arc channels="tank_pressure, pressure_high"
-func threshold{limit f64} (value f64) bool {
-    return value > limit
-}
-
-tank_pressure -> threshold{limit=600.0} -> pressure_high
-```
-
-When `tank_pressure` exceeds 600, `pressure_high` outputs `true`. Wire this to a warning
-indicator in your Console schematic.
-
-For low alarms, flip the comparison:
-
-```arc channels="tank_level, tank_level_low"
-func low_alarm{limit f64} (value f64) bool {
-    return value < limit
-}
-
-tank_level -> low_alarm{limit=10.0} -> tank_level_low
+```arc channels="tank_pressure, pressure_high, tank_level, tank_level_low"
+tank_level < 10.0 -> status.set{ ... }
+tank_pressure > 9000.0 -> status.set{ ... }
 ```
 
 <Divider.Divider x />
 
-## Deadband Alarm
+## Time-Delayed
+
+A brief spike might be acceptable, but a sustained high value indicates a real problem.
+Debounce the condition with
+[`stable.for`](/reference/control/arc/reference/standard-library/stable) so the alarm
+fires only after it holds:
+
+```arc channels="tank_pressure" bodies="alert_hq"
+tank_pressure > 600 -> stable.for{duration=1s} => alert_hq
+```
+
+<Divider.Divider x />
+
+## Deadband
 
 Simple threshold alarms chatter when values oscillate near the limit. If pressure hovers
 around 600 psi, the alarm toggles on and off rapidly. A deadband prevents this by
@@ -87,7 +84,7 @@ below 580 psi. This 20 psi deadband eliminates chatter.
 
 <Divider.Divider x />
 
-## High and Low Alarm with Deadband
+## High and Low with Deadband
 
 Many sensors need both high and low alarms. Create separate functions for each:
 
@@ -117,7 +114,7 @@ tank_pressure -> low_deadband_alarm{low=100.0, clear=120.0} -> pressure_low
 
 <Divider.Divider x />
 
-## Multi-Condition Alarms
+## Multi-Condition
 
 Some alarms require multiple conditions. An abort alarm might trigger when both inlet
 and outlet pressures are elevated (potential runaway), or when any single pressure
@@ -136,19 +133,11 @@ func combined_alarm{
     p2 := outlet
 
     // Critical: either exceeds maximum
-    if p1 > inlet_crit {
-        return true
-    }
-    if p2 > outlet_crit {
-        return true
-    }
-
+    critical := p1 > inlet_crit or p2 > outlet_crit
     // Combined: both elevated (potential runaway)
-    if p1 > combined_inlet and p2 > combined_outlet {
-        return true
-    }
+    combined := p1 > combined_inlet and p2 > combined_outlet
 
-    return false
+    return critical or combined
 }
 
 time.interval{period=50ms} -> combined_alarm{
@@ -163,37 +152,7 @@ time.interval{period=50ms} -> combined_alarm{
 
 <Divider.Divider x />
 
-## Time-Delayed Alarm
-
-A brief spike might be acceptable, but a sustained high value indicates a real problem.
-Use a counter to require the condition to persist:
-
-```arc channels="tank_pressure, sustained_high"
-func sustained_alarm{
-    limit f64,
-    samples i64, // number of consecutive samples above limit
-} (value f64) bool {
-    count $= 0
-
-    if value > limit {
-        count = count + 1
-    } else {
-        count = 0
-    }
-
-    return count >= samples
-}
-
-// At 50ms intervals, 20 samples = 1 second
-tank_pressure -> sustained_alarm{limit=600.0, samples=20} -> sustained_high
-```
-
-For time-based delays, use the sample rate to calculate the count. At 50ms intervals, 20
-samples equals 1 second of sustained high readings.
-
-<Divider.Divider x />
-
-## Latching Alarm
+## Latching
 
 Some alarms should stay active until manually acknowledged, even if the condition
 clears:
@@ -227,52 +186,56 @@ operator acknowledges it by clicking the button.
 
 <Divider.Divider x />
 
-## Alarm Priority Levels
+## Priority Levels
 
-Different conditions warrant different responses:
+The simplest form maps a reading to a priority level and logs it:
 
-```arc channels="tank_pressure, pressure_warning, pressure_alarm, pressure_critical"
-func priority_alarm{warning f64, alarm f64, critical f64} (value f64) (level i64, warning bool, alarm bool, critical bool) {
-    // Priority levels: 0=normal, 1=warning, 2=alarm, 3=critical
-    level = 0
-    warning = false
-    alarm = false
-    critical = false
-
-    if value > critical {
-        level = 3
-        critical = true
-        alarm = true
-        warning = true
-    } else if value > alarm {
-        level = 2
-        alarm = true
-        warning = true
-    } else if value > warning {
-        level = 1
-        warning = true
+```arc channels="tank_pressure, log_channel"
+func classify{warn f64, critical f64} (value f64) str {
+    if value >= critical {
+        return "Critical"
     }
-}
-// Use separate functions for each priority level
-func warning_check{limit f64} (value f64) bool {
-    return value > limit
-}
-
-func alarm_check{limit f64} (value f64) bool {
-    return value > limit
+    if value >= warn {
+        return "Warning"
+    }
+    return ""
 }
 
-func critical_check{limit f64} (value f64) bool {
-    return value > limit
-}
-
-tank_pressure -> warning_check{limit=500.0} -> pressure_warning
-tank_pressure -> alarm_check{limit=600.0} -> pressure_alarm
-tank_pressure -> critical_check{limit=700.0} -> pressure_critical
+// "" is falsy, so => never fires for nominal readings
+tank_pressure -> classify{warn=600.0, critical=700.0} => log_channel
 ```
 
-Higher priority alarms include all lower levels. A critical condition is also an alarm
-and a warning.
+When each level warrants a different response, demux the value with a
+[custom routing table](/reference/control/arc/reference/flow#custom-routing). A warning
+sets the status, and a critical also triggers the abort stage:
+
+```arc channels="tank_pressure, log_channel" bodies="abort"
+import status
+
+func prioritize{
+    warn f64,
+    crit f64,
+} (value f64) (nominal bool, warning bool, critical bool) {
+    if value < warn {
+        nominal = true
+    } else if value < crit {
+        warning = true
+    } else {
+        critical = true
+    }
+}
+
+stage monitor {
+    tank_pressure -> prioritize{warn=600.0, crit=700.0} -> {
+        // nominal: no-op
+        warning:  "Warning" -> status.set{ ... },
+        critical: sequence {
+            "Critical" -> status.set{ ... },
+            true => abort
+        }
+    }
+}
+```
 
 <Divider.Divider x />
 

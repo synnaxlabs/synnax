@@ -68,7 +68,7 @@ export const Tag = ({
     >
       {icon}
       {closeIcon}
-      <Text.Text el="span" overflow="ellipsis">
+      <Text.Text el="span" overflow="fade">
         {children}
       </Text.Text>
     </Button.Button>

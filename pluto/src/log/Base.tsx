@@ -48,9 +48,6 @@ export interface BaseProps extends UseProps, Omit<Flex.BoxProps, "color"> {
   emptyContent?: ReactElement;
   extraContextMenuItems?: ReactNode;
   enableTriggers?: Triggers.Condition;
-  /** Called when an internal gesture (scroll up, H trigger) changes the pause
-   * state. Controlled callers must reflect the value back through hold. */
-  onHold?: (hold: boolean) => void;
 }
 
 export const Base = ({
@@ -87,6 +84,7 @@ export const Base = ({
     color,
     telem,
     hold,
+    onHold,
   });
 
   const {
