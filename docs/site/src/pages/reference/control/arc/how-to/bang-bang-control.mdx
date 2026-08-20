@@ -24,11 +24,7 @@ value is too low, off when it's too high. It's commonly used for temperature con
 Turn a heater on when temperature drops below a setpoint:
 
 ```arc channels="tank_temp, heater_cmd"
-func on_off{setpoint f64} (value f64) bool {
-    return value < setpoint
-}
-
-tank_temp -> on_off{setpoint=50.0} -> heater_cmd
+tank_temp < 50.0 -> heater_cmd
 ```
 
 This turns the heater on whenever temperature drops below 50°C and off when it rises

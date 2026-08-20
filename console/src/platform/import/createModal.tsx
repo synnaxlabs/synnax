@@ -73,10 +73,7 @@ export const createModal = ({ header, resourceName, useOnImport }: CreateModalAr
           title: `Import ${resourceName}`,
         });
         if (directory == null) return;
-        await importZip(
-          await Runtime.uploadBody(zipFiles(directory.files)),
-          directory.name,
-        );
+        await importZip(zipFiles(directory.files), directory.name);
       }, errorMessage);
 
     const handleDrop = useCallback(
@@ -86,10 +83,7 @@ export const createModal = ({ header, resourceName, useOnImport }: CreateModalAr
             throw new Error("drop a single .zip file or folder");
           const [entry] = entries;
           if (FS.isDirectoryEntry(entry)) {
-            await importZip(
-              await Runtime.uploadBody(zipFiles(await FS.readDirectoryFiles(entry))),
-              entry.name,
-            );
+            await importZip(zipFiles(await FS.readDirectoryFiles(entry)), entry.name);
             return;
           }
           if (!FS.isFileEntry(entry))
