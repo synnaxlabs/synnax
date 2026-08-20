@@ -61,26 +61,27 @@ func log_value(value f64) {
   flow.
 - Parens `()` for the `func` side: inputs passed when you call the function.
 
-```arc
+Here `threshold` is set in the braces and `value` is the trigger:
+
+```arc channels="sensor, filtered"
 func filter{threshold f64} (value f64) f64 {
     if value > threshold {
         return value
     }
     return 0.0
 }
+sensor -> filter{threshold = 0.1} -> filtered
 ```
-
-Here `threshold` is set in the braces and `value` is the trigger.
 
 Input parameters can be literals or channel references:
 
-```arc channels="temp, cmd, setpoint_input, value"
+```arc channels="temp, cmd, enable_cmd, setpoint_input"
 func controller{
-    setpoint f64,      // literal or channel
-    sensor chan f64,   // channel reference
-    output chan f64,   // channel reference
+    setpoint f64,     // literal or channel
+    input chan f64,   // channel reference
+    output chan f64,  // channel reference
 } (enable bool) f64 {
-    value := sensor
+    value := input
     if enable {
         output = value - setpoint
     }
@@ -88,10 +89,10 @@ func controller{
 }
 
 // Static setpoint
-sensor -> controller{setpoint=100.0, sensor=temp, output=cmd}
+enable_cmd -> controller{setpoint=100.0, input=temp, output=cmd}
 
 // Setpoint driven by a channel
-sensor -> controller{setpoint=setpoint_input, sensor=temp, output=cmd}
+enable_cmd -> controller{setpoint=setpoint_input, input=temp, output=cmd}
 ```
 
 ### Optional Inputs
@@ -125,7 +126,7 @@ func double(value f64) f64 {
 ### Single Named Output
 
 ```arc
-func compute(x f64)result f64 {
+func compute(x f64) result f64 {
     result = x * 2
     return result
 }
@@ -213,7 +214,7 @@ time.interval{200ms} -> counter{} -> count2
 
 Functions can read from and write to channels:
 
-```arc channels="value"
+```arc
 func controller{input chan f64, output chan f64, threshold f64} () {
     value := input // read (non-blocking)
     if value > threshold {

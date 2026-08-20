@@ -287,9 +287,14 @@ export class Client extends query.Retriever<
   >(
     device: New<Properties, Make, Model>,
     schemas: DeviceSchemas<Properties, Make, Model>,
+    opts?: query.WriteOptions,
   ): Promise<Device<Properties, Make, Model>>;
 
-  async create(device: New, schemas?: DeviceSchemas): Promise<Device>;
+  async create(
+    device: New,
+    schemas?: DeviceSchemas,
+    opts?: query.WriteOptions,
+  ): Promise<Device>;
 
   async create<
     Properties extends z.ZodType<record.Unknown>,
@@ -298,21 +303,38 @@ export class Client extends query.Retriever<
   >(
     devices: New<Properties, Make, Model>[],
     schemas: DeviceSchemas<Properties, Make, Model>,
+    opts?: query.WriteOptions,
   ): Promise<Device<Properties, Make, Model>[]>;
 
-  async create(devices: New[], schemas?: DeviceSchemas): Promise<Device[]>;
+  async create(
+    devices: New[],
+    schemas?: DeviceSchemas,
+    opts?: query.WriteOptions,
+  ): Promise<Device[]>;
 
   async create(
     devices: New | New[],
     schemas?: DeviceSchemas,
+    opts: query.WriteOptions = {},
   ): Promise<Device | Device[]> {
     const isSingle = !Array.isArray(devices);
-    const res = await this.cfg.unary.send(
-      "/device/create",
-      { devices: array.toArray(devices) },
-      createReqZ(schemas),
-      createResZ(schemas),
-    );
+    // Filling the schema defaults up front hands the cache the same records the request
+    // carries. It is the schema createReqZ already applies.
+    const normalized = array
+      .toArray(devices)
+      .map((device) => deviceZ(schemas).parse(device) as Device);
+    const apply = () => [this.store.set(normalized.map(stripStatus))];
+    const res = await query.optimistic({
+      rollbacks: apply(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
+        await this.cfg.unary.send(
+          "/device/create",
+          { devices: normalized },
+          createReqZ(schemas),
+          createResZ(schemas),
+        ),
+    });
     this.store.set(res.devices.map(stripStatus));
     return isSingle ? res.devices[0] : res.devices;
   }

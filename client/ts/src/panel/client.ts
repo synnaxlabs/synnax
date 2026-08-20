@@ -173,7 +173,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
     return isMany ? res.panels : res.panels[0];
   }
 
-  async rename(key: Key, name: string): Promise<void> {
+  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     const rename = () => [
       query.partialUpdate(this.store, key, { name }),
       this.cfg.ontology.cache.renameResource(ontologyID(key), name),
@@ -182,6 +182,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
     // to other connected clients.
     await query.optimistic({
       rollbacks: rename(),
+      onOptimistic: opts.onOptimistic,
       commit: async () => await this.sendDispatch(key, "", [renameAction({ name })]),
     });
     rename();

@@ -416,6 +416,36 @@ describe("schematic queries", () => {
       const retrieved = await client.schematics.retrieve(schem.key);
       expect(retrieved.name).toBe("renamed_schematic");
     });
+
+    it("runs afterOptimistic against the renamed schematic", async () => {
+      const schem = await createTestSchematic(proj.key);
+      const order: string[] = [];
+
+      const { result } = renderHook(
+        () =>
+          Schematic.useRename({
+            // The client applies the rename before it calls back, so the cached
+            // schematic already carries the new name here.
+            afterOptimistic: ({ client: c, data }) => {
+              const cached = c.schematics.getCached(data.key);
+              order.push(`optimistic:${query.isLive(cached) ? cached.name : ""}`);
+            },
+            afterSuccess: () => {
+              order.push("success");
+            },
+          }),
+        { wrapper: Wrapper },
+      );
+
+      await act(async () => {
+        await result.current.updateAsync({
+          key: schem.key,
+          name: "optimistically_renamed",
+        });
+      });
+
+      expect(order).toEqual(["optimistic:optimistically_renamed", "success"]);
+    });
   });
 
   describe("useDelete", () => {

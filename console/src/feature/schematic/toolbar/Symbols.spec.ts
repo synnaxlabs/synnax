@@ -12,7 +12,6 @@ import {
   group,
   label,
   NotFoundError,
-  type ontology,
   panel,
   project,
   ranger,
@@ -38,6 +37,7 @@ import {
   createTestClientWithGrants,
   getCompositeIconButton,
   getCompositeIconButtons,
+  type Grants,
   removeSaveFilePicker,
   uniqueName,
 } from "@/testutil";
@@ -237,11 +237,11 @@ describe("schematic/toolbar/Symbols permissions", () => {
     channel.TYPE_ONTOLOGY_ID,
   ];
 
-  const createEditor = async (creatable: ontology.ID[] = []) =>
+  const createEditor = async (grants: Grants = {}) =>
     await createTestClientWithGrants(client, {
+      ...grants,
       retrieve: READS,
       update: [schematicClient.TYPE_ONTOLOGY_ID],
-      create: creatable,
     });
 
   it("should withhold the creation actions from an editor who cannot add symbols", async () => {
@@ -258,10 +258,9 @@ describe("schematic/toolbar/Symbols permissions", () => {
   });
 
   it("should offer the creation actions to an editor who may add symbols", async () => {
-    const editor = await createEditor([
-      group.TYPE_ONTOLOGY_ID,
-      schematicClient.symbol.TYPE_ONTOLOGY_ID,
-    ]);
+    const editor = await createEditor({
+      create: [group.TYPE_ONTOLOGY_ID, schematicClient.symbol.TYPE_ONTOLOGY_ID],
+    });
     const { result } = await renderSymbolsToolbar(editor);
     await screen.findByText("Gauge");
     await waitFor(() =>
@@ -272,5 +271,43 @@ describe("schematic/toolbar/Symbols permissions", () => {
     expect(
       getCompositeIconButtons(result.container, ["schematic", "add"]),
     ).toHaveLength(1);
+  });
+
+  const openSymbolMenu = async (as: Client) => {
+    const name = uniqueName("perm_sym");
+    const { grp } = await createRemoteSymbolGroup([name]);
+    await renderSymbolsToolbar(as);
+    fireEvent.click(await screen.findByText(grp.name));
+    fireEvent.contextMenu(await screen.findByText(name));
+  };
+
+  const openGroupMenu = async (as: Client) => {
+    const { grp } = await createRemoteSymbolGroup([]);
+    await renderSymbolsToolbar(as);
+    fireEvent.contextMenu(await screen.findByText(grp.name));
+  };
+
+  it("should withhold the delete item from an editor who cannot delete symbols", async () => {
+    await openSymbolMenu(await createEditor());
+    expect(await screen.findByText("Export")).toBeTruthy();
+    expect(screen.queryByText("Delete")).toBeNull();
+  });
+
+  it("should offer the delete item to an editor who may delete symbols", async () => {
+    await openSymbolMenu(
+      await createEditor({ delete: [schematicClient.symbol.TYPE_ONTOLOGY_ID] }),
+    );
+    expect(await screen.findByText("Delete")).toBeTruthy();
+  });
+
+  it("should withhold the delete item from an editor who cannot delete symbol groups", async () => {
+    await openGroupMenu(await createEditor());
+    expect(await screen.findByText("Export")).toBeTruthy();
+    expect(screen.queryByText("Delete")).toBeNull();
+  });
+
+  it("should offer the delete item to an editor who may delete symbol groups", async () => {
+    await openGroupMenu(await createEditor({ delete: [group.TYPE_ONTOLOGY_ID] }));
+    expect(await screen.findByText("Delete")).toBeTruthy();
   });
 });

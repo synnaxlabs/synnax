@@ -7,111 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { border } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { Border } from "@/schematic/node/common/border";
 
 describe("Border", () => {
-  describe("parseRadius", () => {
-    describe("scalar number form", () => {
-      it("should expand a scalar to identical XY values for every corner", () => {
-        const r = Border.parseRadius(8);
-        expect(r).toEqual({
-          topLeft: { x: 8, y: 8 },
-          topRight: { x: 8, y: 8 },
-          bottomLeft: { x: 8, y: 8 },
-          bottomRight: { x: 8, y: 8 },
-        });
-      });
-
-      it("should preserve a scalar of zero across every corner", () => {
-        const r = Border.parseRadius(0);
-        expect(r.topLeft).toEqual({ x: 0, y: 0 });
-        expect(r.topRight).toEqual({ x: 0, y: 0 });
-        expect(r.bottomLeft).toEqual({ x: 0, y: 0 });
-        expect(r.bottomRight).toEqual({ x: 0, y: 0 });
-      });
-    });
-
-    describe("directional {x, y} form", () => {
-      it("should apply the same XY to every corner without copying", () => {
-        const r = Border.parseRadius({ x: 25, y: 50 });
-        expect(r.topLeft).toEqual({ x: 25, y: 50 });
-        expect(r.topRight).toEqual({ x: 25, y: 50 });
-        expect(r.bottomLeft).toEqual({ x: 25, y: 50 });
-        expect(r.bottomRight).toEqual({ x: 25, y: 50 });
-      });
-
-      it("should not flip x and y", () => {
-        const r = Border.parseRadius({ x: 1, y: 99 });
-        expect(r.topLeft.x).toBe(1);
-        expect(r.topLeft.y).toBe(99);
-      });
-    });
-
-    describe("per-corner number form", () => {
-      it("should expand each corner number into a symmetric XY pair", () => {
-        const r = Border.parseRadius({
-          topLeft: 1,
-          topRight: 2,
-          bottomLeft: 3,
-          bottomRight: 4,
-        });
-        expect(r).toEqual({
-          topLeft: { x: 1, y: 1 },
-          topRight: { x: 2, y: 2 },
-          bottomLeft: { x: 3, y: 3 },
-          bottomRight: { x: 4, y: 4 },
-        });
-      });
-    });
-
-    describe("per-corner XY form", () => {
-      it("should pass through detailed XY values without modification", () => {
-        const detailed = {
-          topLeft: { x: 1, y: 2 },
-          topRight: { x: 3, y: 4 },
-          bottomLeft: { x: 5, y: 6 },
-          bottomRight: { x: 7, y: 8 },
-        };
-        expect(Border.parseRadius(detailed)).toEqual(detailed);
-      });
-    });
-
-    describe("Zod schema", () => {
-      it("should accept every supported input form", () => {
-        expect(() => Border.radiusZ.parse(5)).not.toThrow();
-        expect(() => Border.radiusZ.parse({ x: 1, y: 2 })).not.toThrow();
-        expect(() =>
-          Border.radiusZ.parse({
-            topLeft: 1,
-            topRight: 2,
-            bottomLeft: 3,
-            bottomRight: 4,
-          }),
-        ).not.toThrow();
-        expect(() =>
-          Border.radiusZ.parse({
-            topLeft: { x: 1, y: 1 },
-            topRight: { x: 2, y: 2 },
-            bottomLeft: { x: 3, y: 3 },
-            bottomRight: { x: 4, y: 4 },
-          }),
-        ).not.toThrow();
-      });
-
-      it("should reject inputs missing required corners", () => {
-        expect(() =>
-          Border.radiusZ.parse({ topLeft: 1, topRight: 2, bottomLeft: 3 }),
-        ).toThrow();
-      });
-
-      it("should reject string inputs", () => {
-        expect(() => Border.radiusZ.parse("8px")).toThrow();
-      });
-    });
-  });
-
   describe("cssRadius", () => {
     it("should serialize using the elliptical border-radius syntax", () => {
       const css = Border.cssRadius({
@@ -135,16 +36,17 @@ describe("Border", () => {
     });
 
     it("should emit identical horizontal and vertical sequences for symmetric inputs", () => {
-      const radius = Border.parseRadius(15);
-      const [horizontal, vertical] = Border.cssRadius(radius)
+      const [horizontal, vertical] = Border.cssRadius(border.constructRadius(15))
         .split("/")
         .map((s) => s.trim());
       expect(horizontal).toBe(vertical);
       expect(horizontal).toBe("15% 15% 15% 15%");
     });
 
-    it("should round-trip through parseRadius for a scalar input", () => {
-      expect(Border.cssRadius(Border.parseRadius(0))).toBe("0% 0% 0% 0% / 0% 0% 0% 0%");
+    it("should serialize a zero radius", () => {
+      expect(Border.cssRadius(border.constructRadius(0))).toBe(
+        "0% 0% 0% 0% / 0% 0% 0% 0%",
+      );
     });
   });
 
@@ -178,10 +80,10 @@ describe("Border", () => {
       expect(Border.DEFAULT_DIMENSIONS).toEqual({ width: 40, height: 80 });
     });
 
-    it("DEFAULT_RADIUS should be parseable as an XY", () => {
-      const r = Border.parseRadius(Border.DEFAULT_RADIUS);
-      expect(r.topLeft).toEqual(Border.DEFAULT_RADIUS);
-      expect(Border.cssRadius(r)).toBe("50% 50% 50% 50% / 10% 10% 10% 10%");
+    it("DEFAULT_RADIUS should apply to every corner", () => {
+      const radius = border.constructRadius(Border.DEFAULT_RADIUS);
+      expect(radius.topLeft).toEqual(Border.DEFAULT_RADIUS);
+      expect(Border.cssRadius(radius)).toBe("50% 50% 50% 50% / 10% 10% 10% 10%");
     });
   });
 });

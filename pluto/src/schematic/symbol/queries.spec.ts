@@ -452,6 +452,76 @@ describe("Symbol queries", () => {
     });
   });
 
+  describe("useDeleteGroup", () => {
+    const SYMBOL_DATA: schematic.symbol.New["data"] = {
+      svg: "<svg></svg>",
+      states: [],
+      handles: [],
+      variant: "static",
+      scale: 1,
+      scaleStroke: false,
+      previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
+    };
+
+    const createPopulatedGroup = async () => {
+      const grp = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: "group-to-be-deleted",
+      });
+      const symbol = await client.schematics.symbols.create({
+        name: "symbol-in-group",
+        parent: group.ontologyID(grp.key),
+        data: SYMBOL_DATA,
+      });
+      return { grp, symbol };
+    };
+
+    it("should delete the group and its symbols", async () => {
+      const { grp, symbol } = await createPopulatedGroup();
+
+      const { result } = renderHook(Symbol.useDeleteGroup, { wrapper });
+
+      await act(async () => {
+        await result.current.updateAsync(grp.key);
+      });
+
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+      });
+
+      await expect(
+        client.schematics.symbols.retrieve({ keys: [symbol.key] }),
+      ).rejects.toThrow("not found");
+      await expect(client.groups.retrieve({ key: grp.key })).rejects.toThrow(
+        "not found",
+      );
+    });
+
+    it("should run afterOptimistic before the delete commits", async () => {
+      const { grp } = await createPopulatedGroup();
+      const order: string[] = [];
+
+      const { result } = renderHook(
+        () =>
+          Symbol.useDeleteGroup({
+            afterOptimistic: ({ data }) => {
+              order.push(`optimistic:${data}`);
+            },
+            afterSuccess: () => {
+              order.push("success");
+            },
+          }),
+        { wrapper },
+      );
+
+      await act(async () => {
+        await result.current.updateAsync(grp.key);
+      });
+
+      expect(order).toEqual([`optimistic:${grp.key}`, "success"]);
+    });
+  });
+
   describe("useGroup", () => {
     it("should retrieve the symbol group", async () => {
       const { result } = await renderHookSuspended(() => Symbol.useGroup({}), {

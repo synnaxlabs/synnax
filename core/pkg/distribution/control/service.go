@@ -116,6 +116,8 @@ type Service struct {
 		sync.Mutex
 		// peers holds one entry per remote Core the host currently subscribes to.
 		peers map[node.Key]*peer
+		// closed stops a sync racing Close from opening another subscription.
+		closed bool
 	}
 }
 
@@ -195,6 +197,7 @@ func (s *Service) Close() error {
 	s.disconnectCluster()
 	s.disconnectStorage()
 	s.mu.Lock()
+	s.mu.closed = true
 	for _, p := range s.mu.peers {
 		p.stop()
 	}
@@ -296,34 +299,30 @@ func (s *Service) handleSubscribe(
 func (s *Service) syncPeers(ctx context.Context, sCtx signal.Context) {
 	host := s.cfg.Cluster.HostKey()
 	for _, n := range s.cfg.Cluster.Nodes() {
-		if n.Key == host {
-			continue
-		}
-		s.mu.Lock()
-		_, ok := s.mu.peers[n.Key]
-		s.mu.Unlock()
-		if !ok {
+		if n.Key != host {
 			s.addPeer(ctx, sCtx, n.Key)
 		}
 	}
 }
 
-// addPeer opens a subscription to target and starts reading it. The stream is opened
-// here rather than inside the reader so that the subscription is live before addPeer
+// addPeer opens a subscription to target and starts reading it, doing nothing if the
+// host already subscribes to target or the service is closed. The stream is opened here
+// rather than inside the reader so that the subscription is live before addPeer
 // returns, leaving no window in which a joining peer's transfers go unseen.
 func (s *Service) addPeer(ctx context.Context, sCtx signal.Context, target node.Key) {
 	peerCtx, stop := context.WithCancel(context.WithoutCancel(ctx))
-	stream, err := s.openPeerStream(peerCtx, target)
 	s.mu.Lock()
-	if _, ok := s.mu.peers[target]; ok {
+	_, subscribed := s.mu.peers[target]
+	if subscribed || s.mu.closed {
 		s.mu.Unlock()
-		// A concurrent sync won the race. Cancelling the context tears down the stream
-		// this call opened.
 		stop()
 		return
 	}
+	// The entry is claimed before the stream opens so that a concurrent sync cannot
+	// open a second subscription to the same peer.
 	s.mu.peers[target] = &peer{states: make(map[channel.Key]State), stop: stop}
 	s.mu.Unlock()
+	stream, err := s.openPeerStream(peerCtx, target)
 	sCtx.Go(
 		func(context.Context) error {
 			return s.subscribeToPeer(peerCtx, target, stream, err)
