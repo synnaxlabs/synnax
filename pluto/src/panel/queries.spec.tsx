@@ -476,8 +476,8 @@ describe("Panel queries", () => {
       const { result } = renderHook(
         () =>
           Panel.useRename({
-            // The client applies the rename before it calls back, so the cached
-            // panel already carries the new name here.
+            // The client applies the rename before it calls back, so the cached panel
+            // already carries the new name here.
             afterOptimistic: ({ client: c, data }) => {
               const cached = c.panels.getCached(data.key);
               order.push(`optimistic:${query.isLive(cached) ? cached.name : ""}`);

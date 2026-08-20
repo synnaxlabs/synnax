@@ -318,8 +318,8 @@ export class Client extends query.Retriever<
     opts: query.WriteOptions = {},
   ): Promise<Device | Device[]> {
     const isSingle = !Array.isArray(devices);
-    // Filling the schema defaults up front hands the cache the same records the
-    // request carries. It is the schema createReqZ already applies.
+    // Filling the schema defaults up front hands the cache the same records the request
+    // carries. It is the schema createReqZ already applies.
     const normalized = array
       .toArray(devices)
       .map((device) => deviceZ(schemas).parse(device) as Device);
