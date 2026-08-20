@@ -90,9 +90,9 @@ Calculation" from the context menu:
       <td>Reset Channel (Optional)</td>
       {
         <td>
-          A <code>uint8</code>{" "}
+          A <code>boolean</code>{" "}
           <a href="#reset-channels">channel that triggers operation reset</a> when its
-          value equals 1. Only applies when an operation is selected.
+          value is <code>true</code>. Only applies when an operation is selected.
         </td>
       }
     </tr>
@@ -165,30 +165,31 @@ The operation keeps state across executions and outputs a single aggregated valu
 | Minimum, time or signal    | `min`        | `60s`  | `cycle_complete`   |
 | Rate of change             | `derivative` | n/a    | n/a                |
 
-A reset fires when the window expires or the reset channel receives `1`, whichever comes
-first. Set the window to `0` and omit the reset channel for an operation that never
-resets.
+A reset fires when the window expires or the reset channel receives `true`, whichever
+comes first. Set the window to `0` and omit the reset channel for an operation that
+never resets.
 
 <Divider.Divider x />
 
 ## Reset Channels
 
 A reset channel provides signal-based control over operation state and must have the
-data type `uint8`. When it receives `1`, the operation clears its state and restarts.
+data type `boolean`. When it receives `true`, the operation clears its state and
+restarts.
 
 {/* [VIDEO NEEDED] Demonstration of reset channel triggering and operation resetting */}
 
-- **Manual**: write to a virtual `uint8` channel from a schematic button or control
+- **Manual**: write to a virtual `boolean` channel from a schematic button or control
   panel.
 - **Periodic**: use a timer or sequence to generate reset pulses.
-- **Conditional**: use a calculated channel that outputs `1` when a condition is met.
+- **Conditional**: use a calculated channel that outputs `true` when a condition is met.
 
 ### Reset Example
 
 ```
-Time:           0s → 5s  → 10s → 10.1s (reset=1) → 15s → 20s
-Pressure:       50 → 100 → 75  → 75              → 90  → 110
-Max Operation:  50 → 100 → 100 → (reset to 75)   → 90  → 110
+Time:           0s → 5s  → 10s → 10.1s (reset=true) → 15s → 20s
+Pressure:       50 → 100 → 75  → 75                 → 90  → 110
+Max Operation:  50 → 100 → 100 → (reset to 75)      → 90  → 110
 ```
 
 At 10.1s, the reset channel triggers, clearing the max value. The operation restarts

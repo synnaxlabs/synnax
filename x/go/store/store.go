@@ -144,6 +144,9 @@ func WrapObservable[S, O any](
 func (o *observable[S, O]) SetState(ctx context.Context, state S) {
 	prev := o.CopyState()
 	notify, shouldNotify := o.Transform(prev, state)
+	// The state is committed before observers run so that a handler that reads the
+	// store sees the change it was notified of.
+	o.Store.SetState(ctx, state)
 	if shouldNotify {
 		lo.Ternary(
 			*o.ObservableConfig.GoNotify,
@@ -151,7 +154,6 @@ func (o *observable[S, O]) SetState(ctx context.Context, state S) {
 			o.Notify,
 		)(ctx, notify)
 	}
-	o.Store.SetState(ctx, state)
 }
 
 type Flushable[S any] interface {

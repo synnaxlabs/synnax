@@ -23,6 +23,7 @@ export * from "@/destructor";
 export * from "@/errors";
 export * from "@/filename";
 export * from "@/fmt";
+export * from "@/grid";
 export * from "@/id";
 export * from "@/instance";
 export * from "@/json";

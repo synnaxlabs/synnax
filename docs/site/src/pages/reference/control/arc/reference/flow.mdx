@@ -182,9 +182,9 @@ function body, and route each output by name.
 
 ```arc channels="tank_pressure, open_vent" bodies="pressurize, safe_state"
 func decide_stage{low f64, high f64} (value f64) (vent bool, press bool, abort bool) {
-    if (value < low) {
+    if value < low {
         vent = true
-    } else if (value <= high) {
+    } else if value <= high {
         press = true
     } else {
         abort = true

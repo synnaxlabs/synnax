@@ -13,3 +13,6 @@ import "github.com/synnaxlabs/x/gorp"
 
 // Migration re-encodes stored entries from MessagePack to Orc.
 var Migration = gorp.CodecMigration[Key, Group]("msgpack_to_orc")
+
+// NormalizeKeys re-keys Group rows stored under the pre-v0.54 key format.
+var NormalizeKeys = gorp.NormalizeKeysMigration[Key, Group]("Group")
