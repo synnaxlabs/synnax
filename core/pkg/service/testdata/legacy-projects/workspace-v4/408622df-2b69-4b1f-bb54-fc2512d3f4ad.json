@@ -1,1 +1,48 @@
-{"control":"released","controlAcquireTrigger":0,"edges":[],"editable":false,"fitViewOnResize":false,"key":"408622df-2b69-4b1f-bb54-fc2512d3f4ad","legend":{"position":{"units":{"x":"px","y":"px"},"x":50,"y":50},"visible":false},"nodes":[{"data":{},"id":"jOxfFug4t3L","key":"jOxfFug4t3L","measured":{"height":202,"width":127},"position":{"x":427,"y":33},"selected":false,"type":"custom","zIndex":2}],"props":{"jOxfFug4t3L":{"backgroundColor":[10,10,10,0],"borderRadius":3,"color":[213,213,213,1],"dimensions":{"height":200,"width":125},"key":"box","label":{"align":"center","direction":"x","label":"Box","level":"p","maxInlineSize":150,"orientation":"top"},"orientation":"left","scale":1}},"remoteCreated":true,"snapshot":false,"type":"schematic","version":"3.0.0","viewport":{"position":{"x":-349,"y":260.5},"zoom":1}}
+{
+  "control": "released",
+  "controlAcquireTrigger": 0,
+  "edges": [],
+  "editable": false,
+  "fitViewOnResize": false,
+  "key": "408622df-2b69-4b1f-bb54-fc2512d3f4ad",
+  "legend": {
+    "position": { "units": { "x": "px", "y": "px" }, "x": 50, "y": 50 },
+    "visible": false
+  },
+  "nodes": [
+    {
+      "data": {},
+      "id": "jOxfFug4t3L",
+      "key": "jOxfFug4t3L",
+      "measured": { "height": 202, "width": 127 },
+      "position": { "x": 427, "y": 33 },
+      "selected": false,
+      "type": "custom",
+      "zIndex": 2
+    }
+  ],
+  "props": {
+    "jOxfFug4t3L": {
+      "backgroundColor": [10, 10, 10, 0],
+      "borderRadius": 3,
+      "color": [213, 213, 213, 1],
+      "dimensions": { "height": 200, "width": 125 },
+      "key": "box",
+      "label": {
+        "align": "center",
+        "direction": "x",
+        "label": "Box",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    }
+  },
+  "remoteCreated": true,
+  "snapshot": false,
+  "type": "schematic",
+  "version": "3.0.0",
+  "viewport": { "position": { "x": -349, "y": 260.5 }, "zoom": 1 }
+}

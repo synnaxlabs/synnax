@@ -25,9 +25,9 @@ import (
 )
 
 // The bundles under testdata/legacy-projects are workspace exports written by shipped
-// Console builds. They are the only record of the version 0 format, so they run against
-// the whole service layer: the registry a released Core assembles, with every leaf
-// importer and task config store wired.
+// Console builds, reformatted by the repo formatter. They are the only record of the
+// version 0 format, so they run against the whole service layer: the registry a
+// released Core assembles, with every leaf importer and task config store wired.
 var _ = Describe("Legacy project bundles", func() {
 	openLayer := func(ctx SpecContext) (*service.Layer, *gorp.DB) {
 		GinkgoHelper()

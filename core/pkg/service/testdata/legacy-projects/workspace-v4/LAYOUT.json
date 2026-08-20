@@ -1,1 +1,285 @@
-{"activeTheme":"synnaxDark","altKeyToKey":{},"colorContext":{"frequent":{},"palettes":{"frequent":{"key":"frequent","name":"Frequent","swatches":[]}}},"keyToAltKey":{},"layouts":{"408622df-2b69-4b1f-bb54-fc2512d3f4ad":{"icon":"Schematic","key":"408622df-2b69-4b1f-bb54-fc2512d3f4ad","location":"mosaic","name":"Schematic","type":"schematic","window":{"navTop":true,"showTitle":true},"windowKey":"main"},"6707c5bb-c4ec-45ce-9cc1-ed533511ccd5":{"icon":"Table","key":"6707c5bb-c4ec-45ce-9cc1-ed533511ccd5","location":"mosaic","name":"New Table","type":"table","windowKey":"main"},"a5858dfb-c88f-4a74-b68a-ad84f556f245":{"icon":"Schematic","key":"a5858dfb-c88f-4a74-b68a-ad84f556f245","location":"mosaic","name":"New Schematic","type":"schematic","window":{"navTop":true,"showTitle":true},"windowKey":"main"},"main":{"key":"main","location":"window","name":"Main","type":"main","window":{"navTop":false},"windowKey":"main"}},"mosaics":{"main":{"activeTab":"6707c5bb-c4ec-45ce-9cc1-ed533511ccd5","focused":null,"root":{"direction":"x","first":{"key":2,"selected":"6707c5bb-c4ec-45ce-9cc1-ed533511ccd5","tabs":[{"closable":true,"icon":"Schematic","name":"New Schematic","tabKey":"a5858dfb-c88f-4a74-b68a-ad84f556f245"},{"closable":true,"icon":"Table","name":"New Table","tabKey":"6707c5bb-c4ec-45ce-9cc1-ed533511ccd5"}]},"key":1,"last":{"key":3,"selected":"408622df-2b69-4b1f-bb54-fc2512d3f4ad","size":0.5,"tabs":[{"closable":true,"icon":"Schematic","name":"Schematic","tabKey":"408622df-2b69-4b1f-bb54-fc2512d3f4ad"}]},"size":0.5}}},"nav":{"main":{"drawers":{"bottom":{"activeItem":"visualization","menuItems":["visualization"]},"left":{"activeItem":"resources","menuItems":["resources"]},"right":{"activeItem":null,"menuItems":["range","task"]}}}},"version":"4.0.0","hauling":{"source":{"key":"","type":""},"items":[]},"alreadyCheckedGetStarted":true,"themes":{"synnaxDark":{"key":"synnaxDark","name":"Synnax Dark","colors":{"primary":{"m2":"#041B3D","m1":"#164FA0","z":"#3774D0","p1":"#5E94EE","p2":"#8AB8FF"},"secondary":{"m2":"#2D8F4E","m1":"#38B261","z":"#50C878","p1":"#73D393","p2":"#96DEAE"},"gray":{"l0":"#020202","l1":"#0A0A0A","l2":"#131313","l3":"#1E1E1E","l4":"#2E2E2E","l5":"#444444","l6":"#646464","l7":"#8A8A8A","l8":"#AFAFAF","l9":"#D5D5D5","l10":"#FDFDFD"},"border":"#1E1E1E","error":{"m2":[146,7,14,1],"m1":[195,9,18,1],"z":[245,36,46,1],"p1":[247,85,93,1],"p2":[250,143,148,1]},"warning":{"m2":[153,148,0,1],"m1":[204,197,0,1],"z":[255,247,0,1],"p1":[255,249,77,1],"p2":[255,251,128,1]},"palettes":{"recent":{"key":"recent","name":"Recent","swatches":[]}},"visualization":{"palettes":{"default":["#DC136C","#20A4F3","#7AC74F","#FFC43D","#FE5F55","#8075FF","#D90429","#f7aef8","#f18f01","#791e94","#279af1","#d9fff5","#ff6b6b","#52ffb8"]}},"logo":"var(--pluto-text-color)","white":"#FFFFFF","black":"#000000","text":"#D5D5D5","textInverted":"#020202","textOnPrimary":"#FDFDFD"},"sizes":{"base":6,"border":{"radius":3,"width":1},"schematic":{"elementStrokeWidth":2}},"typography":{"family":"'Inter Variable', sans-serif","codeFamily":"'Geist Mono', monospace","h1":{"size":7,"weight":"500","lineHeight":10.5},"h2":{"size":4.5,"weight":"medium","lineHeight":6.75},"h3":{"size":3.5,"weight":"medium","lineHeight":5.25},"h4":{"size":2.6666,"weight":"medium","lineHeight":3.9999},"h5":{"size":2.333333,"weight":450,"lineHeight":3.4999995000000004},"p":{"size":2.1666666666,"weight":"regular","lineHeight":3},"small":{"size":1.916666,"weight":"regular","lineHeight":2.8749999}}},"synnaxLight":{"key":"synnaxLight","name":"Synnax Light","colors":{"primary":{"m2":"#041B3D","m1":"#164FA0","z":"#3774D0","p1":"#5E94EE","p2":"#8AB8FF"},"secondary":{"m2":"#2D8F4E","m1":"#38B261","z":"#50C878","p1":"#73D393","p2":"#96DEAE"},"gray":{"l0":"#FDFDFD","l1":"#FAFAFA","l2":"#F3F3F3","l3":"#EAEAEA","l4":"#D8D8D8","l5":"#ADADAD","l6":"#878787","l7":"#616161","l8":"#404040","l9":"#1C1C1C","l10":"#050505"},"border":"#EAEAEA","error":{"m2":[146,7,14,1],"m1":[195,9,18,1],"z":[245,36,46,1],"p1":[247,85,93,1],"p2":[250,143,148,1]},"warning":{"m2":[153,148,0,1],"m1":[204,197,0,1],"z":[255,247,0,1],"p1":[255,249,77,1],"p2":[255,251,128,1]},"palettes":{"recent":{"key":"recent","name":"Recent","swatches":[]}},"visualization":{"palettes":{"default":["#DC136C","#20A4F3","#7AC74F","#FFC43D","#FE5F55","#8075FF","#D90429","#f7aef8","#f18f01","#791e94","#279af1","#d9fff5","#ff6b6b","#52ffb8"]}},"logo":"url(#synnax-linear-gradient)","white":"#FFFFFF","black":"#000000","text":"#1C1C1C","textInverted":"#FDFDFD","textOnPrimary":"#FDFDFD"},"sizes":{"base":6,"border":{"radius":3,"width":1},"schematic":{"elementStrokeWidth":2}},"typography":{"family":"'Inter Variable', sans-serif","codeFamily":"'Geist Mono', monospace","h1":{"size":7,"weight":"500","lineHeight":10.5},"h2":{"size":4.5,"weight":"medium","lineHeight":6.75},"h3":{"size":3.5,"weight":"medium","lineHeight":5.25},"h4":{"size":2.6666,"weight":"medium","lineHeight":3.9999},"h5":{"size":2.333333,"weight":450,"lineHeight":3.4999995000000004},"p":{"size":2.1666666666,"weight":"regular","lineHeight":3},"small":{"size":1.916666,"weight":"regular","lineHeight":2.8749999}}}}}
+{
+  "activeTheme": "synnaxDark",
+  "altKeyToKey": {},
+  "colorContext": {
+    "frequent": {},
+    "palettes": {
+      "frequent": { "key": "frequent", "name": "Frequent", "swatches": [] }
+    }
+  },
+  "keyToAltKey": {},
+  "layouts": {
+    "408622df-2b69-4b1f-bb54-fc2512d3f4ad": {
+      "icon": "Schematic",
+      "key": "408622df-2b69-4b1f-bb54-fc2512d3f4ad",
+      "location": "mosaic",
+      "name": "Schematic",
+      "type": "schematic",
+      "window": { "navTop": true, "showTitle": true },
+      "windowKey": "main"
+    },
+    "6707c5bb-c4ec-45ce-9cc1-ed533511ccd5": {
+      "icon": "Table",
+      "key": "6707c5bb-c4ec-45ce-9cc1-ed533511ccd5",
+      "location": "mosaic",
+      "name": "New Table",
+      "type": "table",
+      "windowKey": "main"
+    },
+    "a5858dfb-c88f-4a74-b68a-ad84f556f245": {
+      "icon": "Schematic",
+      "key": "a5858dfb-c88f-4a74-b68a-ad84f556f245",
+      "location": "mosaic",
+      "name": "New Schematic",
+      "type": "schematic",
+      "window": { "navTop": true, "showTitle": true },
+      "windowKey": "main"
+    },
+    "main": {
+      "key": "main",
+      "location": "window",
+      "name": "Main",
+      "type": "main",
+      "window": { "navTop": false },
+      "windowKey": "main"
+    }
+  },
+  "mosaics": {
+    "main": {
+      "activeTab": "6707c5bb-c4ec-45ce-9cc1-ed533511ccd5",
+      "focused": null,
+      "root": {
+        "direction": "x",
+        "first": {
+          "key": 2,
+          "selected": "6707c5bb-c4ec-45ce-9cc1-ed533511ccd5",
+          "tabs": [
+            {
+              "closable": true,
+              "icon": "Schematic",
+              "name": "New Schematic",
+              "tabKey": "a5858dfb-c88f-4a74-b68a-ad84f556f245"
+            },
+            {
+              "closable": true,
+              "icon": "Table",
+              "name": "New Table",
+              "tabKey": "6707c5bb-c4ec-45ce-9cc1-ed533511ccd5"
+            }
+          ]
+        },
+        "key": 1,
+        "last": {
+          "key": 3,
+          "selected": "408622df-2b69-4b1f-bb54-fc2512d3f4ad",
+          "size": 0.5,
+          "tabs": [
+            {
+              "closable": true,
+              "icon": "Schematic",
+              "name": "Schematic",
+              "tabKey": "408622df-2b69-4b1f-bb54-fc2512d3f4ad"
+            }
+          ]
+        },
+        "size": 0.5
+      }
+    }
+  },
+  "nav": {
+    "main": {
+      "drawers": {
+        "bottom": { "activeItem": "visualization", "menuItems": ["visualization"] },
+        "left": { "activeItem": "resources", "menuItems": ["resources"] },
+        "right": { "activeItem": null, "menuItems": ["range", "task"] }
+      }
+    }
+  },
+  "version": "4.0.0",
+  "hauling": { "source": { "key": "", "type": "" }, "items": [] },
+  "alreadyCheckedGetStarted": true,
+  "themes": {
+    "synnaxDark": {
+      "key": "synnaxDark",
+      "name": "Synnax Dark",
+      "colors": {
+        "primary": {
+          "m2": "#041B3D",
+          "m1": "#164FA0",
+          "z": "#3774D0",
+          "p1": "#5E94EE",
+          "p2": "#8AB8FF"
+        },
+        "secondary": {
+          "m2": "#2D8F4E",
+          "m1": "#38B261",
+          "z": "#50C878",
+          "p1": "#73D393",
+          "p2": "#96DEAE"
+        },
+        "gray": {
+          "l0": "#020202",
+          "l1": "#0A0A0A",
+          "l2": "#131313",
+          "l3": "#1E1E1E",
+          "l4": "#2E2E2E",
+          "l5": "#444444",
+          "l6": "#646464",
+          "l7": "#8A8A8A",
+          "l8": "#AFAFAF",
+          "l9": "#D5D5D5",
+          "l10": "#FDFDFD"
+        },
+        "border": "#1E1E1E",
+        "error": {
+          "m2": [146, 7, 14, 1],
+          "m1": [195, 9, 18, 1],
+          "z": [245, 36, 46, 1],
+          "p1": [247, 85, 93, 1],
+          "p2": [250, 143, 148, 1]
+        },
+        "warning": {
+          "m2": [153, 148, 0, 1],
+          "m1": [204, 197, 0, 1],
+          "z": [255, 247, 0, 1],
+          "p1": [255, 249, 77, 1],
+          "p2": [255, 251, 128, 1]
+        },
+        "palettes": { "recent": { "key": "recent", "name": "Recent", "swatches": [] } },
+        "visualization": {
+          "palettes": {
+            "default": [
+              "#DC136C",
+              "#20A4F3",
+              "#7AC74F",
+              "#FFC43D",
+              "#FE5F55",
+              "#8075FF",
+              "#D90429",
+              "#f7aef8",
+              "#f18f01",
+              "#791e94",
+              "#279af1",
+              "#d9fff5",
+              "#ff6b6b",
+              "#52ffb8"
+            ]
+          }
+        },
+        "logo": "var(--pluto-text-color)",
+        "white": "#FFFFFF",
+        "black": "#000000",
+        "text": "#D5D5D5",
+        "textInverted": "#020202",
+        "textOnPrimary": "#FDFDFD"
+      },
+      "sizes": {
+        "base": 6,
+        "border": { "radius": 3, "width": 1 },
+        "schematic": { "elementStrokeWidth": 2 }
+      },
+      "typography": {
+        "family": "'Inter Variable', sans-serif",
+        "codeFamily": "'Geist Mono', monospace",
+        "h1": { "size": 7, "weight": "500", "lineHeight": 10.5 },
+        "h2": { "size": 4.5, "weight": "medium", "lineHeight": 6.75 },
+        "h3": { "size": 3.5, "weight": "medium", "lineHeight": 5.25 },
+        "h4": { "size": 2.6666, "weight": "medium", "lineHeight": 3.9999 },
+        "h5": { "size": 2.333333, "weight": 450, "lineHeight": 3.4999995000000004 },
+        "p": { "size": 2.1666666666, "weight": "regular", "lineHeight": 3 },
+        "small": { "size": 1.916666, "weight": "regular", "lineHeight": 2.8749999 }
+      }
+    },
+    "synnaxLight": {
+      "key": "synnaxLight",
+      "name": "Synnax Light",
+      "colors": {
+        "primary": {
+          "m2": "#041B3D",
+          "m1": "#164FA0",
+          "z": "#3774D0",
+          "p1": "#5E94EE",
+          "p2": "#8AB8FF"
+        },
+        "secondary": {
+          "m2": "#2D8F4E",
+          "m1": "#38B261",
+          "z": "#50C878",
+          "p1": "#73D393",
+          "p2": "#96DEAE"
+        },
+        "gray": {
+          "l0": "#FDFDFD",
+          "l1": "#FAFAFA",
+          "l2": "#F3F3F3",
+          "l3": "#EAEAEA",
+          "l4": "#D8D8D8",
+          "l5": "#ADADAD",
+          "l6": "#878787",
+          "l7": "#616161",
+          "l8": "#404040",
+          "l9": "#1C1C1C",
+          "l10": "#050505"
+        },
+        "border": "#EAEAEA",
+        "error": {
+          "m2": [146, 7, 14, 1],
+          "m1": [195, 9, 18, 1],
+          "z": [245, 36, 46, 1],
+          "p1": [247, 85, 93, 1],
+          "p2": [250, 143, 148, 1]
+        },
+        "warning": {
+          "m2": [153, 148, 0, 1],
+          "m1": [204, 197, 0, 1],
+          "z": [255, 247, 0, 1],
+          "p1": [255, 249, 77, 1],
+          "p2": [255, 251, 128, 1]
+        },
+        "palettes": { "recent": { "key": "recent", "name": "Recent", "swatches": [] } },
+        "visualization": {
+          "palettes": {
+            "default": [
+              "#DC136C",
+              "#20A4F3",
+              "#7AC74F",
+              "#FFC43D",
+              "#FE5F55",
+              "#8075FF",
+              "#D90429",
+              "#f7aef8",
+              "#f18f01",
+              "#791e94",
+              "#279af1",
+              "#d9fff5",
+              "#ff6b6b",
+              "#52ffb8"
+            ]
+          }
+        },
+        "logo": "url(#synnax-linear-gradient)",
+        "white": "#FFFFFF",
+        "black": "#000000",
+        "text": "#1C1C1C",
+        "textInverted": "#FDFDFD",
+        "textOnPrimary": "#FDFDFD"
+      },
+      "sizes": {
+        "base": 6,
+        "border": { "radius": 3, "width": 1 },
+        "schematic": { "elementStrokeWidth": 2 }
+      },
+      "typography": {
+        "family": "'Inter Variable', sans-serif",
+        "codeFamily": "'Geist Mono', monospace",
+        "h1": { "size": 7, "weight": "500", "lineHeight": 10.5 },
+        "h2": { "size": 4.5, "weight": "medium", "lineHeight": 6.75 },
+        "h3": { "size": 3.5, "weight": "medium", "lineHeight": 5.25 },
+        "h4": { "size": 2.6666, "weight": "medium", "lineHeight": 3.9999 },
+        "h5": { "size": 2.333333, "weight": 450, "lineHeight": 3.4999995000000004 },
+        "p": { "size": 2.1666666666, "weight": "regular", "lineHeight": 3 },
+        "small": { "size": 1.916666, "weight": "regular", "lineHeight": 2.8749999 }
+      }
+    }
+  }
+}

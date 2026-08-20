@@ -117,7 +117,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		))
 	})
 
-	// The fixtures below are Arcs a shipped Console exported, kept verbatim.
+	// The fixtures below are Arcs a shipped Console exported.
 	It("Should lift a graph-mode Console export", func(ctx SpecContext) {
 		a := decode(ctx, "testdata/import_console_v0_graph.json")
 		Expect(a.Mode).To(Equal(versions.ModeGraph))

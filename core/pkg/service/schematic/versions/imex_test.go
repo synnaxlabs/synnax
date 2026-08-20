@@ -77,7 +77,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(config(sch, "n1")).To(HaveKeyWithValue("color", "#ff0000"))
 	})
 
-	// The fixtures below are schematics a shipped Console exported, kept verbatim.
+	// The fixtures below are schematics a shipped Console exported.
 	DescribeTable("Should lift a typed Console export through the legacy chain",
 		func(ctx SpecContext, path string, nodes int) {
 			s := decode(ctx, path)

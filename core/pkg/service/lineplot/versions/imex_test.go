@@ -51,7 +51,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(lp.Rules[0].Position).To(Equal(42.0))
 	})
 
-	// The fixtures below are line plots a shipped Console exported, kept verbatim.
+	// The fixtures below are line plots a shipped Console exported.
 	It("Should lift a version 3 Console export", func(ctx SpecContext) {
 		lp := decode(ctx, "testdata/import_console_v3.json")
 		Expect(lp.Channels.Y1).To(Equal([]channel.Key{1048586, 1048587}))

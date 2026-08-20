@@ -320,14 +320,7 @@
         },
         "left": {
           "activeItem": null,
-          "menuItems": [
-            "channel",
-            "range",
-            "workspace",
-            "device",
-            "task",
-            "user"
-          ],
+          "menuItems": ["channel", "range", "workspace", "device", "task", "user"],
           "size": 400,
           "hover": false
         },

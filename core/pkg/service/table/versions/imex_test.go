@@ -60,7 +60,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(props(t.Cells["c1"])).To(HaveKeyWithValue("fooBar", 3.0))
 	})
 
-	// The fixtures below are tables a shipped Console exported, kept verbatim.
+	// The fixtures below are tables a shipped Console exported.
 	It("Should lift a Console export whose rows sit at the top level", func(
 		ctx SpecContext,
 	) {
