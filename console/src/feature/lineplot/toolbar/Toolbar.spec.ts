@@ -9,7 +9,7 @@
 
 import { type Synnax as Client } from "@synnaxlabs/client";
 import { RoleClients } from "@synnaxlabs/client/testutil";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { LinePlot } from "@/feature/lineplot";
@@ -69,6 +69,8 @@ describe("lineplot/toolbar/Toolbar", () => {
     const input = await waitFor(() => screen.getByDisplayValue(name));
     fireEvent.change(input, { target: { value: newName } });
     // The title commits on blur, so a keystroke alone must not reach the server.
+    await act(async () => {});
+    expect((await client.lineplots.retrieve(key)).name).toBe(name);
     fireEvent.blur(input);
     expect(await screen.findByText(newName)).toBeDefined();
     await waitFor(async () => {

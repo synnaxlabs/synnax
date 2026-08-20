@@ -276,6 +276,27 @@ describe("channel/ontology", () => {
       fireEvent.click(await screen.findByText("Edit calculation"));
       expect(await screen.findByDisplayValue(calc.name)).toBeTruthy();
     });
+
+    it("withholds rename and aliasing from an internal channel", async () => {
+      const ch = await createChannel();
+      const rng = await createTestRange(client);
+      assertDefined(Item.ContextMenu);
+      const { store } = await renderTreeContextMenu(Item.ContextMenu, {
+        client,
+        resources: [
+          createResource(channelClient.ontologyID(ch.key), ch.name, {
+            ...ch.payload,
+            internal: true,
+          }),
+        ],
+      });
+      store.dispatch(Session.Range.add(Session.Range.fromClient(rng.payload)));
+      // Delete shares the update permission the rename item needs, so its presence
+      // proves the gate resolved before the absences below are read.
+      expect(await screen.findByText("Delete")).toBeTruthy();
+      expect(screen.queryByText("Rename")).toBeNull();
+      expect(screen.queryByText(/Set alias under/)).toBeNull();
+    });
   });
 });
 

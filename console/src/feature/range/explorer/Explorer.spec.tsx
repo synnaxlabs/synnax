@@ -31,6 +31,7 @@ import { Session } from "@/session";
 import {
   awaitTextEditing,
   commitTextEdit,
+  countEditableText,
   createConsoleWrapper,
   createTestClientWithGrants,
   getBySelector,
@@ -264,6 +265,7 @@ describe("range/Explorer permissions", () => {
       expect(screen.queryByText("Rename")).toBeNull();
       expect(screen.queryByText("Create child range")).toBeNull();
       expect(screen.queryByText("Delete")).toBeNull();
+      expect(countEditableText(List.itemNameID(rng.key))).toBe(0);
     });
 
     it("should offer every write to a subject granted them", async () => {

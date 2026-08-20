@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, ontology, ranger } from "@synnaxlabs/client";
+import { group, NotFoundError, ontology, ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Range } from "@/feature/range";
+import { findButton } from "@/platform/modals/testutil";
 import { createTestRange } from "@/platform/range/testutil";
 import { createResource } from "@/platform/tree/testutil";
 import {
@@ -32,21 +33,26 @@ const client = createTestClient();
 
 const Item = Range.TREE_ITEMS.range;
 
+const createRangeInGroup = async () => {
+  const rng = await createTestRange(client);
+  const grp = await client.groups.create({
+    parent: ontology.ROOT_ID,
+    name: uniqueName("rnggrp"),
+  });
+  await client.ontology.addChildren(
+    group.ontologyID(grp.key),
+    ranger.ontologyID(rng.key),
+  );
+  return { rng, root: group.ontologyID(grp.key) };
+};
+
 describe("range/ontology", () => {
   describe("onSelect", () => {
     it("adds the range to the session slice and places its overview", async () => {
-      const rng = await createTestRange(client);
-      const grp = await client.groups.create({
-        parent: ontology.ROOT_ID,
-        name: uniqueName("rnggrp"),
-      });
-      await client.ontology.addChildren(
-        group.ontologyID(grp.key),
-        ranger.ontologyID(rng.key),
-      );
+      const { rng, root } = await createRangeInGroup();
       const { store } = await renderOntologyTree({
         client,
-        root: group.ontologyID(grp.key),
+        root,
         items: Range.TREE_ITEMS,
       });
       fireEvent.doubleClick(await findTreeRow(rng.name));
@@ -63,18 +69,10 @@ describe("range/ontology", () => {
 
   describe("context menu", () => {
     it("renames the range in place and syncs the favorited copy", async () => {
-      const rng = await createTestRange(client);
-      const grp = await client.groups.create({
-        parent: ontology.ROOT_ID,
-        name: uniqueName("rnggrp"),
-      });
-      await client.ontology.addChildren(
-        group.ontologyID(grp.key),
-        ranger.ontologyID(rng.key),
-      );
+      const { rng, root } = await createRangeInGroup();
       const { store } = await renderOntologyTree({
         client,
-        root: group.ontologyID(grp.key),
+        root,
         items: Range.TREE_ITEMS,
       });
       store.dispatch(Session.Range.add(Session.Range.fromClient(rng.payload)));
@@ -90,6 +88,28 @@ describe("range/ontology", () => {
         expect(Session.Range.selectState(store.getState(), rng.key)?.name).toBe(
           renamed,
         ),
+      );
+    });
+
+    it("drops the favorited copy once the delete lands", async () => {
+      const { rng, root } = await createRangeInGroup();
+      const { store } = await renderOntologyTree({
+        client,
+        root,
+        items: Range.TREE_ITEMS,
+      });
+      store.dispatch(Session.Range.add(Session.Range.fromClient(rng.payload)));
+      await openTreeRowContextMenu(rng.name);
+      fireEvent.click(await screen.findByText("Delete"));
+      await screen.findByText(`Are you sure you want to delete ${rng.name}?`);
+      fireEvent.click(findButton("Delete"));
+      await waitFor(async () => {
+        await expect(client.ranges.retrieve(rng.key)).rejects.toSatisfy((e) =>
+          NotFoundError.matches(e),
+        );
+      });
+      await waitFor(() =>
+        expect(Session.Range.selectState(store.getState(), rng.key)).toBeUndefined(),
       );
     });
   });

@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { query, schematic } from "@synnaxlabs/client";
+import {
+  panel,
+  project,
+  query,
+  schematic,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Flux, Icon, Schematic } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
@@ -33,6 +39,7 @@ import {
   awaitTextEditingElement,
   commitTextEdit,
   countEditableText,
+  createTestClientWithGrants,
   findEditableText,
   renderWithConsole,
   uniqueName,
@@ -172,6 +179,7 @@ describe("Panel tab", () => {
   describe("createEditableTabName", () => {
     const renderName = async (
       mount: (Name: Panel.TabName) => ReactElement = (Name) => <Name />,
+      as: Client = client,
     ) => {
       const resourceKey = uuid.create();
       const tabKey = uuid.create();
@@ -186,9 +194,12 @@ describe("Panel tab", () => {
         ],
       });
       const { wrapper: Base } = await createPanelWrapper({
-        client,
+        client: as,
         panelKey: existing.key,
         tabKey,
+        project: (
+          await client.projects.create({ name: uniqueName("proj"), layout: {} })
+        ).key,
       });
       await primePanel(Base, existing.key);
       const ensureRetrieved = vi.fn();
@@ -228,6 +239,23 @@ describe("Panel tab", () => {
       expect(() => findEditableText(Panel.tabNameID(tabKey))).toThrow();
       fireEvent.doubleClick(screen.getByText("Resolved Name"));
       expect(document.querySelector('[contenteditable="true"]')).toBeNull();
+      expect(rename).not.toHaveBeenCalled();
+    });
+
+    it("renders static text for a subject who cannot update the resource", async () => {
+      const { tabKey, rename } = await renderName(
+        (Name) => <Name />,
+        await createTestClientWithGrants(client, {
+          retrieve: [
+            panel.TYPE_ONTOLOGY_ID,
+            project.TYPE_ONTOLOGY_ID,
+            schematic.TYPE_ONTOLOGY_ID,
+          ],
+        }),
+      );
+      await act(async () => {});
+      expect(countEditableText(Panel.tabNameID(tabKey))).toEqual(0);
+      fireEvent.doubleClick(screen.getByText("Resolved Name"));
       expect(rename).not.toHaveBeenCalled();
     });
 

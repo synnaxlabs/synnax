@@ -11,7 +11,7 @@ import { group, ontology, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Symbol } from "@/schematic/symbol";
 import { renderHookSuspended } from "@/testutil/render";
@@ -415,6 +415,30 @@ describe("Symbol queries", () => {
 
       const retrieved = await client.schematics.symbols.retrieve(symbol.key);
       expect(retrieved.name).toBe("new-name");
+    });
+
+    it("should apply the rename optimistically", async () => {
+      const symbol = await client.schematics.symbols.create({
+        name: "original-name",
+        parent: ontology.ROOT_ID,
+        data: {
+          svg: "<svg></svg>",
+          states: [],
+          handles: [],
+          variant: "static",
+          scale: 1,
+          scaleStroke: false,
+          previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
+        },
+      });
+      const afterOptimistic = vi.fn();
+      const { result } = renderHook(() => Symbol.useRename({ afterOptimistic }), {
+        wrapper,
+      });
+      await act(async () => {
+        await result.current.updateAsync({ key: symbol.key, name: "new-name" });
+      });
+      expect(afterOptimistic).toHaveBeenCalledOnce();
     });
   });
 

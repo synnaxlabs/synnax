@@ -12,7 +12,7 @@ import {
   createTestClient,
   createTestClientWithPolicy,
 } from "@synnaxlabs/client/testutil";
-import { Haul, Mosaic, Panel as PPanel } from "@synnaxlabs/pluto";
+import { CSS as PCSS, Haul, Mosaic, Panel as PPanel } from "@synnaxlabs/pluto";
 import { fireDragEvent } from "@synnaxlabs/pluto/testutil";
 import { uuid } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -31,7 +31,12 @@ import { Modals } from "@/platform/modals";
 import { createPanelWrapper } from "@/platform/panel/testutil";
 import { findModalButton } from "@/platform/tree/menuTestutil";
 import { Session } from "@/session";
-import { getIconButton, type TestStore, uniqueName } from "@/testutil";
+import {
+  countEditableText,
+  getIconButton,
+  type TestStore,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -515,6 +520,7 @@ describe("Panel.Selector", () => {
       });
       await waitFor(() => expect(screen.getByText(pan.name)).toBeTruthy());
       expect(screen.queryByRole("button")).toBeNull();
+      expect(countEditableText(PCSS.B(`tab-${pan.key}`))).toBe(0);
     });
   });
 

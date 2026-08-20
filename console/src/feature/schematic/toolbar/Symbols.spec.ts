@@ -20,6 +20,7 @@ import {
   schematic as schematicClient,
   type Synnax as Client,
 } from "@synnaxlabs/client";
+import { List } from "@synnaxlabs/pluto";
 import { theming } from "@synnaxlabs/pluto/ether";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -35,6 +36,7 @@ import { findButton } from "@/platform/modals/testutil";
 import { Session } from "@/session";
 import {
   captureBrowserDownloads,
+  countEditableText,
   createTestClientWithGrants,
   getCompositeIconButton,
   getCompositeIconButtons,
@@ -196,6 +198,25 @@ describe("Schematic toolbar Symbols", () => {
     });
   });
 
+  it("renames a remote symbol in place through its context menu", async () => {
+    const name = uniqueName("ren_sym");
+    const { grp, symbols } = await createRemoteSymbolGroup([name]);
+    await renderSymbolsToolbar();
+    fireEvent.click(await screen.findByText(grp.name));
+    const label = await screen.findByText(name);
+    fireEvent.contextMenu(label);
+    fireEvent.click(await screen.findByText("Rename"));
+    await waitFor(() => expect(label.getAttribute("contenteditable")).toBe("true"));
+    const renamed = uniqueName("renamed_sym");
+    label.innerText = renamed;
+    fireEvent.keyDown(label, { key: "Enter" });
+    await waitFor(async () =>
+      expect((await client.schematics.symbols.retrieve(symbols[0].key)).name).toBe(
+        renamed,
+      ),
+    );
+  });
+
   it("offers no context menu for built-in symbol groups", async () => {
     await renderSymbolsToolbar();
     fireEvent.contextMenu(await screen.findByText("Valves"));
@@ -255,6 +276,23 @@ describe("schematic/toolbar/Symbols permissions", () => {
     expect(
       getCompositeIconButtons(result.container, ["schematic", "add"]),
     ).toHaveLength(0);
+  });
+
+  it("should withhold symbol and group rename from an editor who cannot update them", async () => {
+    const name = uniqueName("gated_sym");
+    const { grp, symbols } = await createRemoteSymbolGroup([name]);
+    await renderSymbolsToolbar(await createEditor());
+    fireEvent.contextMenu(await screen.findByText(grp.name));
+    // Export is ungated, so its presence proves the menu resolved before the
+    // absences below are read.
+    expect(await screen.findByText("Export")).toBeTruthy();
+    expect(screen.queryByText("Rename")).toBeNull();
+    expect(countEditableText(List.itemNameID(grp.key))).toBe(0);
+    fireEvent.click(await screen.findByText(grp.name));
+    fireEvent.contextMenu(await screen.findByText(name));
+    expect(await screen.findByText("Edit")).toBeTruthy();
+    expect(screen.queryByText("Rename")).toBeNull();
+    expect(countEditableText(List.itemNameID(symbols[0].key))).toBe(0);
   });
 
   it("should offer the creation actions to an editor who may add symbols", async () => {

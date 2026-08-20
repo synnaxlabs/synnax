@@ -7,15 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { arc as clientArc, type Synnax } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/feature/arc";
 import {
   awaitTextEditing,
   commitTextEdit,
+  countEditableText,
   createConsoleWrapper,
+  createTestClientWithGrants,
   uniqueName,
 } from "@/testutil";
 
@@ -28,8 +31,8 @@ const createArc = async () =>
     graph: { nodes: [], edges: [] },
   });
 
-const renderExplorer = async () => {
-  const { wrapper, store } = await createConsoleWrapper({ client });
+const renderExplorer = async (as: Synnax = client) => {
+  const { wrapper, store } = await createConsoleWrapper({ client: as });
   render(<Arc.Explorer.Explorer />, { wrapper });
   return { store };
 };
@@ -57,5 +60,18 @@ describe("arc/Explorer", () => {
     await waitFor(async () =>
       expect((await client.arcs.retrieve(arc.key)).name).toBe(renamed),
     );
+  });
+
+  it("renders the arc name as plain text for a subject who cannot update arcs", async () => {
+    const arc = await createArc();
+    await renderExplorer(
+      await createTestClientWithGrants(client, {
+        retrieve: [clientArc.TYPE_ONTOLOGY_ID],
+      }),
+    );
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: arc.name } });
+    await screen.findByText(arc.name);
+    await act(async () => {});
+    expect(countEditableText(`arc-explorer-text-${arc.key}`)).toBe(0);
   });
 });

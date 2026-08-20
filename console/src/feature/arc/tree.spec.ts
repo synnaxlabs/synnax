@@ -7,17 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc as clientArc, group, ontology } from "@synnaxlabs/client";
+import { arc as clientArc, group, NotFoundError, ontology } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/feature/arc";
+import { findButton } from "@/platform/modals/testutil";
 import {
   findTreeRow,
   openTreeRowContextMenu,
   renderOntologyTree,
 } from "@/platform/tree/treeTestutil";
+import { Session } from "@/session";
 import {
   awaitTextEditingElement,
   commitTextEdit,
@@ -73,6 +75,30 @@ describe("arc/ontology", () => {
         expect((await client.arcs.retrieve(arc.key)).name).toBe(renamed),
       );
       expect(screen.queryByText(/Are you sure you want to rename/)).toBeNull();
+    });
+
+    it("drops the editor state once the delete lands", async () => {
+      const { arc, root } = await createArcInGroup();
+      const { store } = await renderOntologyTree({
+        client,
+        root,
+        items: Arc.TREE_ITEMS,
+      });
+      store.dispatch(Session.Arc.create({ key: arc.key, graph: { editable: false } }));
+      await openTreeRowContextMenu(arc.name);
+      fireEvent.click(await screen.findByText("Delete"));
+      await screen.findByText(`Are you sure you want to delete ${arc.name}?`);
+      fireEvent.click(findButton("Delete"));
+      await waitFor(async () => {
+        await expect(client.arcs.retrieve(arc.key)).rejects.toSatisfy((e) =>
+          NotFoundError.matches(e),
+        );
+      });
+      await waitFor(() =>
+        expect(
+          Session.Arc.selectState({ state: store.getState(), key: arc.key }),
+        ).toEqual(Session.Arc.ZERO_STATE),
+      );
     });
   });
 });

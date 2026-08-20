@@ -57,9 +57,11 @@ const findEditable = (id: string): Element | undefined =>
 export interface AsyncEditOptions {
   /** Replaces the displayed text for the duration of the edit. Use it when the field
    * shows a derived value (e.g. an alias) but the edit targets the underlying one.
-   * Escape restores the displayed text. */
+   * Committing it unchanged counts as a cancel, and the displayed text comes back. */
   initialValue?: string;
 }
+
+type StartEditingEvent = CustomEvent<AsyncEditOptions | undefined>;
 
 /**
  * Starts editing the {@link Editable} carrying the given id, retrying for a second
@@ -82,9 +84,11 @@ export const asyncEdit = (
         else reject(new Error(`Could not find element with id ${id}`));
         return;
       }
-      el.dispatchEvent(new Event(START_EDITING_EVENT_NAME));
-      el.setAttribute("contenteditable", "true");
       const { initialValue } = options ?? {};
+      el.dispatchEvent(
+        new CustomEvent(START_EDITING_EVENT_NAME, { detail: { initialValue } }),
+      );
+      el.setAttribute("contenteditable", "true");
       if (initialValue != null) (el as HTMLElement).innerText = initialValue;
       const handleRenamed = (e: Event): void => {
         el.removeEventListener(ESCAPED_EVENT_NAME, handleEscaped);
@@ -142,6 +146,9 @@ export const Editable = ({
   // trigger it artificially). We track this value as an optimistic update to make sure
   // we don't call onChange twice in quick succession.
   const optimisticValueRef = useSyncedRef(value);
+  // Holds the text asyncEdit swapped in for this edit, so an unchanged commit is
+  // measured against what the user actually saw.
+  const injectedValueRef = useRef<string | null>(null);
 
   // Turns out the writing modes like vertical-rl cause all sorts of problems with
   // elements whose values change. The following section of code forces the browser
@@ -169,12 +176,15 @@ export const Editable = ({
 
   const handleUpdate = (el: HTMLElement, forceEscape = false): void => {
     const innerText = getInnerText(el);
-    if (
-      optimisticValueRef.current === innerText &&
-      (innerText.length > 0 || allowEmpty)
-    ) {
+    const { current: injected } = injectedValueRef;
+    injectedValueRef.current = null;
+    // An injected value replaces the displayed text for the edit, so it is what an
+    // unchanged commit compares against.
+    const previous = injected ?? optimisticValueRef.current;
+    if (previous === innerText && (innerText.length > 0 || allowEmpty)) {
       // An unchanged commit is a cancel: without the event, an awaiting asyncEdit
       // caller would hang forever.
+      if (injected != null) el.innerText = value;
       el.dispatchEvent(new Event(ESCAPED_EVENT_NAME));
       return;
     }
@@ -219,7 +229,10 @@ export const Editable = ({
 
   const refCallback = useCallback((el: HTMLElement) => {
     if (el == null) return;
-    el.addEventListener(START_EDITING_EVENT_NAME, () => setEditable(true));
+    el.addEventListener(START_EDITING_EVENT_NAME, (e) => {
+      injectedValueRef.current = (e as StartEditingEvent).detail?.initialValue ?? null;
+      setEditable(true);
+    });
   }, []);
 
   const combinedRef = useCombinedRefs(propsRef, ref, refCallback);

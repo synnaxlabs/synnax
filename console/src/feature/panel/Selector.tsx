@@ -176,7 +176,6 @@ const TabContent = ({ tabKey, dwell }: TabProps): ReactElement => {
   Panel.useEnsure({ key: tabKey });
   const name = Panel.useName({ key: tabKey });
   const canEdit = Panel.useCanEdit({ key: tabKey });
-  const canRename = Access.useUpdateGranted(panel.ontologyID(tabKey));
   const { update: rename } = Panel.useRename();
   const handleChange = useCallback(
     (name: string) => rename({ key: tabKey, name }),
@@ -218,7 +217,7 @@ const TabContent = ({ tabKey, dwell }: TabProps): ReactElement => {
         id={PCSS.B(`tab-${tabKey}`)}
         value={name}
         onChange={handleChange}
-        disabled={!canEdit || !canRename}
+        disabled={!canEdit}
       />
     </Tabs.Tab>
   );
