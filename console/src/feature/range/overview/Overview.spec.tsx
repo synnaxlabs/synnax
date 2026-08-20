@@ -8,27 +8,39 @@
 // included in the file licenses/APL.txt.
 
 import {
+  label,
   type ontology,
   panel,
+  project,
   query,
   type ranger,
   ranger as rangerClient,
   schematic,
+  type Synnax as Client,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Errors, Flux, Icon, Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ComponentType } from "react";
 import { assert, describe, expect, it, vi } from "vitest";
 
 import { Range } from "@/feature/range";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
-import { createResourceTab } from "@/platform/panel/testutil";
+import { createResourceTab, primePanel } from "@/platform/panel/testutil";
 import { Range as PlatformRange } from "@/platform/range";
 import { createTestRange, uniqueRangeName } from "@/platform/range/testutil";
-import { createConsoleWrapper, getIconButton, uniqueName } from "@/testutil";
+import {
+  createConsoleWrapper,
+  createTestClientWithGrants,
+  getHeaderIconButton,
+  getIconButton,
+  type Grants,
+  queryIconButton,
+  renderSuspended,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -41,6 +53,7 @@ interface RenderOverviewResult {
 const renderOverview = async (
   rangeKey: string,
   FallbackComponent?: ComponentType<Errors.FallbackProps>,
+  as: Client = client,
 ): Promise<RenderOverviewResult> => {
   const onSnapshotClick = vi.fn(async () => {});
   const onSnapshotDelete = vi.fn(async () => {});
@@ -51,12 +64,13 @@ const renderOverview = async (
       onDelete: onSnapshotDelete,
     },
   };
-  const { wrapper } = await createConsoleWrapper({ client });
+  const { wrapper } = await createConsoleWrapper({ client: as });
   const { panelKey, tabKey } = await createResourceTab(
     client,
     rangerClient.ontologyID(rangeKey),
   );
-  render(
+  await primePanel(wrapper, panelKey);
+  await renderSuspended(
     <PlutoPanel.Scope.Provider value={panelKey}>
       <PlutoPanel.TabScope.Provider value={tabKey}>
         <PlatformRange.SnapshotServicesProvider services={services}>
@@ -245,5 +259,39 @@ describe("range/overview tab", () => {
     // the range store.
     const resource = await remote.ontology.retrieve(rng.ontologyID);
     expect(resource.name).toEqual(rng.name);
+  });
+});
+
+describe("range/overview/ChildRanges permissions", () => {
+  const READS = [
+    rangerClient.TYPE_ONTOLOGY_ID,
+    label.TYPE_ONTOLOGY_ID,
+    panel.TYPE_ONTOLOGY_ID,
+    project.TYPE_ONTOLOGY_ID,
+    schematic.TYPE_ONTOLOGY_ID,
+  ];
+
+  const createSubject = async (grants: Grants) =>
+    await createTestClientWithGrants(client, { ...grants, retrieve: READS });
+
+  const renderAs = async (as: Client): Promise<void> => {
+    const rng = await createTestRange(client);
+    const child = await createChildRange(rng);
+    await renderOverview(rng.key, undefined, as);
+    // The listed child proves the section resolved its data before the button is
+    // looked for.
+    await screen.findByText(child.name);
+  };
+
+  it("should withhold the add button from a subject who cannot create ranges", async () => {
+    await renderAs(await createSubject({ update: [rangerClient.TYPE_ONTOLOGY_ID] }));
+    const header = screen.getByText("Child ranges").closest("header");
+    if (header == null) throw new Error("no child ranges header");
+    expect(queryIconButton(header, "add")).toBeNull();
+  });
+
+  it("should offer the add button to a subject who may create ranges", async () => {
+    await renderAs(await createSubject({ create: [rangerClient.TYPE_ONTOLOGY_ID] }));
+    await waitFor(() => expect(getHeaderIconButton("Child ranges")).toBeTruthy());
   });
 });

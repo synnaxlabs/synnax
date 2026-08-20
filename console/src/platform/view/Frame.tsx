@@ -258,7 +258,9 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
     ),
   });
   const canRename = filteredViews.length === 1;
-  const canDelete = filteredViews.length > 0;
+  const canDelete =
+    Access.useDeleteGranted(view.ontologyID(filteredViews.map(({ key }) => key))) &&
+    filteredViews.length > 0;
   return (
     <PlatformContextMenu.Menu>
       {canRename && (
