@@ -287,10 +287,10 @@ var _ = Describe("Codec", func() {
 				BaseAIChannel:    fullyPopulatedBaseAIChannel,
 				MinMaxVal:        fullyPopulatedMinMaxVal,
 				Terminal:         fullyPopulatedTerminal,
+				Sensitivity:      fullyPopulatedSensitivity,
 				CustomScale:      fullyPopulatedCustomScale,
 				Units:            v2.AccelUnits("g"),
-				Sensitivity:      2.5,
-				SensitivityUnits: v2.AccelSensitivityUnits("mVoltsPerG"),
+				SensitivityUnits: v2.AccelChargeSensitivityUnits("PicoCoulombsPerG"),
 			}}),
 			Entry("ai_charge variant", v2.AIChannel{Variant: v2.AIChargeChannel{
 				BaseAIChannel: fullyPopulatedBaseAIChannel,
@@ -2317,10 +2317,10 @@ func FuzzDecodeAIChannel(f *testing.F) {
 			BaseAIChannel:    fullyPopulatedBaseAIChannel,
 			MinMaxVal:        fullyPopulatedMinMaxVal,
 			Terminal:         fullyPopulatedTerminal,
+			Sensitivity:      fullyPopulatedSensitivity,
 			CustomScale:      fullyPopulatedCustomScale,
 			Units:            v2.AccelUnits("g"),
-			Sensitivity:      2.5,
-			SensitivityUnits: v2.AccelSensitivityUnits("mVoltsPerG"),
+			SensitivityUnits: v2.AccelChargeSensitivityUnits("PicoCoulombsPerG"),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

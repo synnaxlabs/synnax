@@ -19,6 +19,7 @@ export const PREFIX = "ni";
 export type Units = ni.Units;
 export type AccelUnits = ni.AccelUnits;
 export type AccelSensitivityUnits = ni.AccelSensitivityUnits;
+export type AccelChargeSensitivityUnits = ni.AccelChargeSensitivityUnits;
 export type ChargeUnits = ni.ChargeUnits;
 export type ForceUnits = ni.ForceUnits;
 export type ElectricalUnits = ni.ElectricalUnits;

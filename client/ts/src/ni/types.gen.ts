@@ -219,6 +219,14 @@ export const WAVE_TYPES = ["Sine", "Triangle", "Square", "Sawtooth"] as const;
 export const waveTypeZ = z.enum(WAVE_TYPES);
 export type WaveType = z.infer<typeof waveTypeZ>;
 
+export const ACCEL_CHARGE_SENSITIVITY_UNITS = [
+  "PicoCoulombsPerG",
+  "PicoCoulombsPerMetersPerSecondSquared",
+  "PicoCoulombsPerInchesPerSecondSquared",
+] as const;
+export const accelChargeSensitivityUnitsZ = z.enum(ACCEL_CHARGE_SENSITIVITY_UNITS);
+export type AccelChargeSensitivityUnits = z.infer<typeof accelChargeSensitivityUnitsZ>;
+
 /** MinMaxVal bounds the expected signal range in scaled units. */
 export const minMaxValZ = z.object({
   /** minVal is the minimum expected value, in scaled units. */
@@ -932,15 +940,14 @@ export interface AIAccel4WireDCVoltageChannel extends z.infer<
 export const aiAccelChargeChannelZ = baseAIChannelZ
   .extend(minMaxValZ.shape)
   .extend(terminalZ.shape)
+  .extend(sensitivityZ.shape)
   .extend(customScaleZ.shape)
   .extend({
     type: z.literal("ai_accel_charge"),
     /** units are the units of the acceleration measurement. */
     units: accelUnitsZ.default("g"),
-    /** sensitivity is the sensitivity of the accelerometer. */
-    sensitivity: z.number().default(0),
     /** sensitivityUnits are the units of the accelerometer sensitivity. */
-    sensitivityUnits: accelSensitivityUnitsZ.default("mVoltsPerG"),
+    sensitivityUnits: accelChargeSensitivityUnitsZ.default("PicoCoulombsPerG"),
   });
 export interface AIAccelChargeChannel extends z.infer<typeof aiAccelChargeChannelZ> {}
 

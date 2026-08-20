@@ -435,6 +435,25 @@ WAVE_TYPE_SAWTOOTH: Literal["Sawtooth"] = "Sawtooth"
 
 WaveType = Literal["Sine", "Triangle", "Square", "Sawtooth"]
 
+ACCEL_CHARGE_SENSITIVITY_UNITS_PICO_COULOMBS_PER_G: Literal["PicoCoulombsPerG"] = (
+    "PicoCoulombsPerG"
+)
+
+ACCEL_CHARGE_SENSITIVITY_UNITS_PICO_COULOMBS_PER_METERS_PER_SECOND_SQUARED: Literal[
+    "PicoCoulombsPerMetersPerSecondSquared"
+] = "PicoCoulombsPerMetersPerSecondSquared"
+
+ACCEL_CHARGE_SENSITIVITY_UNITS_PICO_COULOMBS_PER_INCHES_PER_SECOND_SQUARED: Literal[
+    "PicoCoulombsPerInchesPerSecondSquared"
+] = "PicoCoulombsPerInchesPerSecondSquared"
+
+
+AccelChargeSensitivityUnits = Literal[
+    "PicoCoulombsPerG",
+    "PicoCoulombsPerMetersPerSecondSquared",
+    "PicoCoulombsPerInchesPerSecondSquared",
+]
+
 
 class MinMaxVal(BaseModel):
     """Bounds the expected signal range in scaled units.
@@ -1023,13 +1042,14 @@ class AIAccel4WireDCVoltageChannel(
     use_excit_for_scaling: bool = False
 
 
-class AIAccelChargeChannel(BaseAIChannel, MinMaxVal, Terminal, CustomScale):
+class AIAccelChargeChannel(
+    BaseAIChannel, MinMaxVal, Terminal, Sensitivity, CustomScale
+):
     """Reads acceleration from a charge-mode accelerometer."""
 
     type: Literal["ai_accel_charge"] = "ai_accel_charge"
     units: AccelUnits = "g"
-    sensitivity: float = 0
-    sensitivity_units: AccelSensitivityUnits = "mVoltsPerG"
+    sensitivity_units: AccelChargeSensitivityUnits = "PicoCoulombsPerG"
 
 
 class AIChargeChannel(BaseAIChannel, MinMaxVal, Terminal, CustomScale):

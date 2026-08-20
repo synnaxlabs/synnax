@@ -63,6 +63,39 @@ TEST(ChannelsTest, ParseAIAccelChan) {
     EXPECT_EQ(call["args"]["units"], DAQmx_Val_g);
 }
 
+TEST(ChannelsTest, ParseAIAccelChargeChan) {
+    x::json::json j = {
+        {"type", "ai_accel_charge"},
+        {"key", "ks1VnWdrSVA"},
+        {"port", 0},
+        {"disabled", false},
+        {"name", ""},
+        {"channel", 0},
+        {"terminal_config", "Cfg_Default"},
+        {"min_val", 0},
+        {"max_val", 1},
+        {"sensitivity", 100},
+        {"custom_scale", {{"type", "none"}}},
+        {"units", "g"},
+        {"sensitivity_units", "PicoCoulombsPerG"},
+        {"device", "cDAQ1Mod2"}
+    };
+    x::json::Parser p(j);
+    const auto chan = channel::parse_input(p, "ni_analog_read");
+    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NE(chan, nullptr);
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateAIAccelChargeChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["sensitivity"], 100);
+    EXPECT_EQ(call["args"]["sensitivityUnits"], DAQmx_Val_PicoCoulombsPerG);
+    EXPECT_EQ(call["args"]["units"], DAQmx_Val_g);
+}
+
 TEST(ChannelsTest, ParseAIBridgeChan) {
     x::json::json j = {
         {"type", "ai_bridge"},

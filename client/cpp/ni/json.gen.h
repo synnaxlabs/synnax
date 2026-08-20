@@ -1297,12 +1297,12 @@ inline AIAccelChargeChannel AIAccelChargeChannel::parse(x::json::Parser parser) 
     static_cast<BaseAIChannel &>(result) = BaseAIChannel::parse(parser);
     static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
     static_cast<Terminal &>(result) = Terminal::parse(parser);
+    static_cast<Sensitivity &>(result) = Sensitivity::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
     result.units = parser.field<std::string>("units", "g");
-    result.sensitivity = parser.field<double>("sensitivity", 0);
     result.sensitivity_units = parser.field<std::string>(
         "sensitivity_units",
-        "mVoltsPerG"
+        "PicoCoulombsPerG"
     );
     result.type = parser.field<std::string>("type");
     return result;
@@ -1316,10 +1316,11 @@ inline x::json::json AIAccelChargeChannel::to_json() const {
         j[k] = v;
     for (auto &[k, v]: Terminal::to_json().items())
         j[k] = v;
+    for (auto &[k, v]: Sensitivity::to_json().items())
+        j[k] = v;
     for (auto &[k, v]: CustomScale::to_json().items())
         j[k] = v;
     j["units"] = this->units;
-    j["sensitivity"] = this->sensitivity;
     j["sensitivity_units"] = this->sensitivity_units;
     j["type"] = this->type;
     return j;

@@ -1898,13 +1898,12 @@ type AIAccelChargeChannel struct {
 	BaseAIChannel
 	MinMaxVal
 	Terminal
+	Sensitivity
 	CustomScale
 	// Units are the units of the acceleration measurement.
 	Units AccelUnits `json:"units" msgpack:"units"`
-	// Sensitivity is the sensitivity of the accelerometer.
-	Sensitivity float64 `json:"sensitivity" msgpack:"sensitivity"`
 	// SensitivityUnits are the units of the accelerometer sensitivity.
-	SensitivityUnits AccelSensitivityUnits `json:"sensitivity_units" msgpack:"sensitivity_units"`
+	SensitivityUnits AccelChargeSensitivityUnits `json:"sensitivity_units" msgpack:"sensitivity_units"`
 }
 
 func (AIAccelChargeChannel) isAIChannelVariant() {}
@@ -1915,7 +1914,7 @@ func (a *AIAccelChargeChannel) ApplyDefaults() {
 		a.Units = AccelUnitsG
 	}
 	if a.SensitivityUnits == "" {
-		a.SensitivityUnits = AccelSensitivityUnitsMVoltsPerG
+		a.SensitivityUnits = AccelChargeSensitivityUnitsPicoCoulombsPerG
 	}
 	a.MinMaxVal.ApplyDefaults()
 	a.Terminal.ApplyDefaults()
@@ -4175,4 +4174,25 @@ func (s *ScanConfig) ApplyDefaults() {
 		s.IgnoredModels = []string{"^cRIO.*", "^nown.*"}
 	}
 	s.ScanConfig.ApplyDefaults()
+}
+
+// AccelChargeSensitivityUnits are the units of a charge-mode accelerometer's
+// sensitivity rating.
+type AccelChargeSensitivityUnits string
+
+const (
+	AccelChargeSensitivityUnitsPicoCoulombsPerG                      AccelChargeSensitivityUnits = "PicoCoulombsPerG"
+	AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared AccelChargeSensitivityUnits = "PicoCoulombsPerMetersPerSecondSquared"
+	AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared AccelChargeSensitivityUnits = "PicoCoulombsPerInchesPerSecondSquared"
+)
+
+// IsValid reports whether a is one of the defined AccelChargeSensitivityUnits
+// values.
+func (a AccelChargeSensitivityUnits) IsValid() bool {
+	switch a {
+	case AccelChargeSensitivityUnitsPicoCoulombsPerG, AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared, AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared:
+		return true
+	default:
+		return false
+	}
 }

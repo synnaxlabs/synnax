@@ -159,6 +159,20 @@ var _ = Describe("Service", func() {
 		)
 
 		It(
+			"Should reject a voltage-mode sensitivity unit on a charge accelerometer",
+			func(ctx SpecContext) {
+				Expect(svc.AnalogRead.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+					"channels": []any{map[string]any{
+						"type":              "ai_accel_charge",
+						"sensitivity_units": "mVoltsPerG",
+					}},
+				})).To(MatchError(
+					ContainSubstring("invalid sensitivity_units: mVoltsPerG"),
+				))
+			},
+		)
+
+		It(
 			"Should return the counter read validation error for an invalid channel",
 			func(
 				ctx SpecContext,

@@ -215,6 +215,15 @@ constexpr const char *WAVE_TYPE_TRIANGLE = "Triangle";
 constexpr const char *WAVE_TYPE_SQUARE = "Square";
 constexpr const char *WAVE_TYPE_SAWTOOTH = "Sawtooth";
 
+constexpr const char
+    *ACCEL_CHARGE_SENSITIVITY_UNITS_PICO_COULOMBS_PER_G = "PicoCoulombsPerG";
+constexpr const char
+    *ACCEL_CHARGE_SENSITIVITY_UNITS_PICO_COULOMBS_PER_METERS_PER_SECOND_SQUARED =
+        "PicoCoulombsPerMetersPerSecondSquared";
+constexpr const char
+    *ACCEL_CHARGE_SENSITIVITY_UNITS_PICO_COULOMBS_PER_INCHES_PER_SECOND_SQUARED =
+        "PicoCoulombsPerInchesPerSecondSquared";
+
 /// @brief MinMaxVal bounds the expected signal range in scaled units.
 struct MinMaxVal {
     /// @brief min_val is the minimum expected value, in scaled units.
@@ -938,14 +947,13 @@ struct AIAccel4WireDCVoltageChannel : public BaseAIChannel,
 struct AIAccelChargeChannel : public BaseAIChannel,
                               public MinMaxVal,
                               public Terminal,
+                              public Sensitivity,
                               public CustomScale {
     std::string type = "ai_accel_charge";
     /// @brief units are the units of the acceleration measurement.
     std::string units = ACCEL_UNITS_G;
-    /// @brief sensitivity is the sensitivity of the accelerometer.
-    double sensitivity = 0;
     /// @brief sensitivity_units are the units of the accelerometer sensitivity.
-    std::string sensitivity_units = ACCEL_SENSITIVITY_UNITS_M_VOLTS_PER_G;
+    std::string sensitivity_units = ACCEL_CHARGE_SENSITIVITY_UNITS_PICO_COULOMBS_PER_G;
 
     static AIAccelChargeChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

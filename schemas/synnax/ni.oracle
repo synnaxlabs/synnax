@@ -678,14 +678,11 @@ AIChannel union on type extends BaseAIChannel {
 
         @doc value "reads acceleration from a 4-wire DC-voltage accelerometer."
     }
-    ai_accel_charge extends MinMaxVal, Terminal, CustomScale {
+    ai_accel_charge extends MinMaxVal, Terminal, Sensitivity, CustomScale {
         units             AccelUnits = g {
             @doc value "are the units of the acceleration measurement."
         }
-        sensitivity       float64 = 0 {
-            @doc value "is the sensitivity of the accelerometer."
-        }
-        sensitivity_units AccelSensitivityUnits = m_volts_per_g {
+        sensitivity_units AccelChargeSensitivityUnits = pico_coulombs_per_g {
             @doc value "are the units of the accelerometer sensitivity."
         }
 
@@ -1393,4 +1390,12 @@ ScanConfig struct extends task.ScanConfig {
     @doc value  "configures the NI device scanner task."
     @go marshal
     @go migrate
+}
+
+AccelChargeSensitivityUnits enum {
+    pico_coulombs_per_g                         = "PicoCoulombsPerG"
+    pico_coulombs_per_meters_per_second_squared = "PicoCoulombsPerMetersPerSecondSquared"
+    pico_coulombs_per_inches_per_second_squared = "PicoCoulombsPerInchesPerSecondSquared"
+
+    @doc value "are the units of a charge-mode accelerometer's sensitivity rating."
 }

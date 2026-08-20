@@ -732,3 +732,13 @@ type DigitalWriteConfig = v2.DigitalWriteConfig
 
 // ScanConfig configures the NI device scanner task.
 type ScanConfig = v2.ScanConfig
+
+// AccelChargeSensitivityUnits are the units of a charge-mode accelerometer's
+// sensitivity rating.
+type AccelChargeSensitivityUnits = v2.AccelChargeSensitivityUnits
+
+const (
+	AccelChargeSensitivityUnitsPicoCoulombsPerG                      AccelChargeSensitivityUnits = v2.AccelChargeSensitivityUnitsPicoCoulombsPerG
+	AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared AccelChargeSensitivityUnits = v2.AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared
+	AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared AccelChargeSensitivityUnits = v2.AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared
+)

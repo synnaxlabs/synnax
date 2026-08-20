@@ -19,6 +19,7 @@ import { CoefficientsField } from "@/feature/ni/task/CoefficientsField";
 import { CustomScaleForm } from "@/feature/ni/task/CustomScaleForm";
 import { MinMaxValueFields } from "@/feature/ni/task/MinMaxValueFields";
 import {
+  type AccelChargeSensitivityUnits,
   type AccelSensitivityUnits,
   type AccelUnits,
   type AIChannelType,
@@ -82,6 +83,22 @@ const AccelSensitivityUnitsField = Form.buildSelectField<
     data: [
       { key: "mVoltsPerG", name: "mV/g" },
       { key: "VoltsPerG", name: "V/g" },
+    ],
+  },
+});
+
+const AccelChargeSensitivityUnitsField = Form.buildSelectField<
+  AccelChargeSensitivityUnits,
+  record.KeyedNamed<AccelChargeSensitivityUnits>
+>({
+  fieldKey: "sensitivityUnits",
+  fieldProps: { label: "Sensitivity units" },
+  inputProps: {
+    resourceName: "sensitivity units",
+    data: [
+      { key: "PicoCoulombsPerG", name: "pC/g" },
+      { key: "PicoCoulombsPerMetersPerSecondSquared", name: "pC/(m/s²)" },
+      { key: "PicoCoulombsPerInchesPerSecondSquared", name: "pC/(in/s²)" },
     ],
   },
 });
@@ -452,7 +469,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
         inputProps={{
           showDragHandle: false,
           children: (
-            <AccelSensitivityUnitsField
+            <AccelChargeSensitivityUnitsField
               path={prefix}
               grow
               showLabel={false}

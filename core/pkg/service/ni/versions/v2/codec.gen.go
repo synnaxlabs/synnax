@@ -390,11 +390,13 @@ func (aic AIChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.Terminal.EncodeOrc(w); err != nil {
 			return err
 		}
+		if err := v.Sensitivity.EncodeOrc(w); err != nil {
+			return err
+		}
 		if err := v.CustomScale.EncodeOrc(w); err != nil {
 			return err
 		}
 		w.String(string(v.Units))
-		w.Float64(float64(v.Sensitivity))
 		w.String(string(v.SensitivityUnits))
 	case AIChargeChannel:
 		w.String("ai_charge")
@@ -1165,6 +1167,9 @@ func (aic *AIChannel) DecodeOrc(r *orc.Reader) error {
 		if err := v.Terminal.DecodeOrc(r); err != nil {
 			return err
 		}
+		if err := v.Sensitivity.DecodeOrc(r); err != nil {
+			return err
+		}
 		if err := v.CustomScale.DecodeOrc(r); err != nil {
 			return err
 		}
@@ -1175,15 +1180,12 @@ func (aic *AIChannel) DecodeOrc(r *orc.Reader) error {
 			}
 			v.Units = AccelUnits(rawV)
 		}
-		if v.Sensitivity, err = r.Float64(); err != nil {
-			return err
-		}
 		{
 			rawV, err := r.String()
 			if err != nil {
 				return err
 			}
-			v.SensitivityUnits = AccelSensitivityUnits(rawV)
+			v.SensitivityUnits = AccelChargeSensitivityUnits(rawV)
 		}
 		aic.Variant = v
 	case "ai_charge":
