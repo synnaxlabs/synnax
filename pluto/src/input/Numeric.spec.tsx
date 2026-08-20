@@ -133,4 +133,37 @@ describe("Input.Numeric", () => {
       });
     });
   });
+
+  describe("bounds", () => {
+    it("should clamp a typed value to bounds that moved after mount", () => {
+      const onChange = vi.fn();
+      const c = render(
+        <Input.Numeric
+          value={0}
+          onChange={onChange}
+          bounds={{ lower: 0, upper: 100 }}
+        />,
+      );
+      c.rerender(
+        <Input.Numeric
+          value={0}
+          onChange={onChange}
+          bounds={{ lower: 0, upper: 50 }}
+        />,
+      );
+      const input = c.getByRole("textbox");
+      fireEvent.change(input, { target: { value: "80" } });
+      fireEvent.blur(input);
+      expect(onChange).toHaveBeenCalledWith(50);
+    });
+
+    it("should clamp a dragged value to bounds that moved after mount", () => {
+      const onChange = vi.fn();
+      const rest = { value: 0, onChange, dragScale: UNIT_SCALE };
+      const c = render(<Input.Numeric {...rest} bounds={{ lower: 0, upper: 100 }} />);
+      c.rerender(<Input.Numeric {...rest} bounds={{ lower: 0, upper: 50 }} />);
+      dragTo(dragButtonOf(c), 100);
+      expect(onChange).toHaveBeenLastCalledWith(50);
+    });
+  });
 });

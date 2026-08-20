@@ -223,6 +223,29 @@ describe("Draw2D", () => {
     });
   });
 
+  describe("border", () => {
+    const REGION = box.construct(xy.construct(0, 0), { width: 10, height: 10 });
+
+    it("should start a path before stroking", () => {
+      const [d, fake] = create();
+      d.border({ region: REGION, color: "#ff0000" });
+      expect(fake.beginPath.mock.invocationCallOrder[0]).toBeLessThan(
+        fake.stroke.mock.invocationCallOrder[0],
+      );
+    });
+
+    it("should not stroke a path an earlier element left behind", () => {
+      const [d, fake] = create();
+      d.container({ region: REGION, borderColor: "#ff0000" });
+      fake.beginPath.mockClear();
+      fake.stroke.mockClear();
+      d.border({ region: REGION, color: "#00ff00" });
+      expect(fake.beginPath.mock.invocationCallOrder[0]).toBeLessThan(
+        fake.stroke.mock.invocationCallOrder[0],
+      );
+    });
+  });
+
   describe("circle", () => {
     it("should draw a full circle when no angle is given", () => {
       const [d, fake] = create();
@@ -280,6 +303,49 @@ describe("Draw2D", () => {
       const draw = vi.fn();
       d.list({ length: 0, position: xy.ZERO, itemHeight: 10, width: 100, draw });
       expect(draw).not.toHaveBeenCalled();
+    });
+  });
+});
+
+describe("SugaredOffscreenCanvasRenderingContext2D", () => {
+  describe("roundRect", () => {
+    const zoomed = (): [SugaredOffscreenCanvasRenderingContext2D, FakeContext] => {
+      const fake = createFakeContext();
+      const canvas = new SugaredOffscreenCanvasRenderingContext2D(
+        fake as unknown as OffscreenCanvasRenderingContext2D,
+        new text.AtlasRegistry(),
+        1,
+        scale.XY.IDENTITY,
+      );
+      return [canvas.applyScale(scale.XY.magnify(xy.construct(2))), fake];
+    };
+
+    it("should scale a single radius with the box", () => {
+      const [canvas, fake] = zoomed();
+      canvas.roundRect(0, 0, 100, 200, 8);
+      expect(fake.roundRect).toHaveBeenCalledWith(0, 0, 200, 400, 16);
+    });
+
+    it("should scale a per-corner radius on both axes", () => {
+      const [canvas, fake] = zoomed();
+      canvas.roundRect(0, 0, 100, 200, { x: 10, y: 4 });
+      expect(fake.roundRect).toHaveBeenCalledWith(0, 0, 200, 400, { x: 20, y: 8 });
+    });
+
+    it("should scale every corner when given one radius per corner", () => {
+      const [canvas, fake] = zoomed();
+      canvas.roundRect(0, 0, 100, 200, [
+        { x: 1, y: 2 },
+        { x: 3, y: 4 },
+        { x: 5, y: 6 },
+        { x: 7, y: 8 },
+      ]);
+      expect(fake.roundRect).toHaveBeenCalledWith(0, 0, 200, 400, [
+        { x: 2, y: 4 },
+        { x: 6, y: 8 },
+        { x: 10, y: 12 },
+        { x: 14, y: 16 },
+      ]);
     });
   });
 });
