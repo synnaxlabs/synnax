@@ -110,7 +110,7 @@ public:
             const auto &reset_time = this->state.input_time(*this->reset_idx);
             for (size_t i = 0; i < reset_data->size(); i++) {
                 auto ts = x::telem::TimeStamp(reset_time->at<int64_t>(i));
-                if (ts > this->last_reset_time && reset_data->at<uint8_t>(i) == 1)
+                if (ts > this->last_reset_time && reset_data->at<bool>(i))
                     should_reset = true;
             }
             if (reset_time->size() > 0)
@@ -683,7 +683,7 @@ public:
             reset_idx = ri;
             cfg.state.init_input(
                 ri,
-                x::mem::make_local_shared<x::telem::Series>(static_cast<uint8_t>(0)),
+                x::mem::make_local_shared<x::telem::Series>(false),
                 x::mem::make_local_shared<x::telem::Series>(x::telem::TimeStamp(1))
             );
         }

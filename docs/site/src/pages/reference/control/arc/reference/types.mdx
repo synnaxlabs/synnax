@@ -84,19 +84,19 @@ channel:
 <Arc.Tabs client:load>
 
 <Fragment slot="flow">
-```arc channels="value, ox_pt_1, ox_pt_cmd"
+```arc channels="source_ch, sink_ch"
 sequence {
-  value := ox_pt_1   // binds to ox_pt_1
-  value -> ox_pt_cmd // writes to ox_pt_cmd
+    value := source_ch  // binds to source_ch
+    value -> sink_ch    // writes to sink_ch
 }
 ```
 </Fragment>
 
 <Fragment slot="function">
-```arc channels="value, ox_pt_1, ox_pt_cmd"
-func example{}(){
-  value := ox_pt_1 // read from channel
-  ox_pt_cmd = value // write to channel
+```arc channels="source_ch, sink_ch"
+func example() {
+    value := source_ch  // read from source_ch
+    sink_ch = value     // write to sink_ch
 }
 ```
 </Fragment>
@@ -129,7 +129,7 @@ empty series f64 := [] // empty series (type required)
 ```arc
 length := len(data) // i64: number of elements
 first := data[0] // indexing (0-based)
-subset := data[1: 3] // slicing [start:end)
+subset := data[1:3] // slicing [start:end)
 ```
 
 ### Element-wise Operations
@@ -186,10 +186,10 @@ The compiler enforces dimensional compatibility:
 
 ```arc
 distance f64 m := 10.0
-time f64 s := 2.0
+elapsed f64 s := 2.0
 
 // Division produces a length/time quantity (a velocity)
-speed := distance / time
+speed := distance / elapsed
 
 // Exponentiation produces a squared-length quantity (an area)
 area := distance ^ 2
@@ -280,7 +280,7 @@ Strings support the following operations:
 msg := "Hello"
 greet := msg + " World"  // concatenation
 first := msg[0]          // indexing (returns u8)
-sub := msg[1: 4]         // slicing
+sub := msg[1:4]          // slicing
 length := len(msg)       // length in bytes
 equal := msg == "Hello"  // equality (returns bool)
 ```
