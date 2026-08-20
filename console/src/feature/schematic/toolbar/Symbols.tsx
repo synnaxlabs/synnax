@@ -181,6 +181,7 @@ const RemoteSymbolListContextMenu = ({
 }: RemoteSymbolListContextMenuProps): ReactElement => {
   const firstKey = rest.keys[0];
   const item = List.useItem<schematic.symbol.Key, schematic.symbol.Symbol>(firstKey);
+  const canDelete = Access.useDeleteGranted(schematic.symbol.ontologyID(firstKey));
   const confirmDelete = Modals.useConfirmDelete({
     type: "Symbol",
     title: "Schematic.Symbol.Delete",
@@ -209,7 +210,7 @@ const RemoteSymbolListContextMenu = ({
         onClick={() => exportSymbol(schematic.symbol.ontologyID(firstKey))}
       />
       <Menu.Divider />
-      <ContextMenu.DeleteItem onClick={() => del.update(firstKey)} />
+      {canDelete && <ContextMenu.DeleteItem onClick={() => del.update(firstKey)} />}
       <Menu.Divider />
       <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>
@@ -415,6 +416,7 @@ const GroupListContextMenu = ({
   const firstKey = keys[0];
   const isRemoteGroup = group.keyZ.safeParse(firstKey).success;
   const item = List.useItem<group.Key, group.Group>(firstKey);
+  const canDelete = Access.useDeleteGranted(group.ontologyID(firstKey));
   const exportGroup = Export.use();
   const deleteSymbolGroup = Symbol.useDeleteGroup();
 
@@ -435,11 +437,13 @@ const GroupListContextMenu = ({
         }}
       />
       <Menu.Divider />
-      <ContextMenu.DeleteItem
-        onClick={() => {
-          if (item != null) deleteSymbolGroup(item);
-        }}
-      />
+      {canDelete && (
+        <ContextMenu.DeleteItem
+          onClick={() => {
+            if (item != null) deleteSymbolGroup(item);
+          }}
+        />
+      )}
       <Menu.Divider />
       <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>
