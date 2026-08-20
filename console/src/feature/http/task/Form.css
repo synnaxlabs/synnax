@@ -11,8 +11,15 @@
 
 .console-task-configure--http_read,
 .console-task-configure--http_write {
+    /* Both halves are load-bearing: the list must refuse to shrink, and the detail
+       column must be allowed to, or the list absorbs everything it will not give up. */
     .console-endpoint-list {
         width: 250px;
+        flex-shrink: 0;
+    }
+
+    .console-endpoint-details-pane {
+        min-width: 0;
     }
 
     .console-endpoint-details {

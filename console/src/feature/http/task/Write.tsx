@@ -576,7 +576,7 @@ const Form: FC = () => {
         </Menu.ContextMenu>
       </Flex.Box>
       <Divider.Divider y />
-      <Flex.Box y grow empty>
+      <Flex.Box y grow empty className={CSS.B("endpoint-details-pane")}>
         <Task.Views.DetailsHeader
           path={
             selectedEndpoints.length > 0
