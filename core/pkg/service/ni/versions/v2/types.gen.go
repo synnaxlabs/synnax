@@ -1159,17 +1159,12 @@ type AIVoltageChannel struct {
 	MinMaxVal
 	Terminal
 	CustomScale
-	// Units are the units of the voltage measurement.
-	Units Units `json:"units" msgpack:"units"`
 }
 
 func (AIVoltageChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIVoltageChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = UnitsVolts
-	}
 	a.MinMaxVal.ApplyDefaults()
 	a.Terminal.ApplyDefaults()
 	a.CustomScale.ApplyDefaults()
@@ -1179,7 +1174,6 @@ func (a *AIVoltageChannel) ApplyDefaults() {
 // schema constraints.
 func (a AIVoltageChannel) Validate() error {
 	v := validate.New("AIVoltageChannel")
-	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Exec(a.Terminal.Validate)
 	v.Exec(a.CustomScale.Validate)
 	return v.Error()
@@ -1268,8 +1262,6 @@ type AICurrentChannel struct {
 	MinMaxVal
 	Terminal
 	CustomScale
-	// Units are the units of the current measurement.
-	Units Units `json:"units" msgpack:"units"`
 	// ShuntResistorLoc selects where the shunt resistor is located.
 	ShuntResistorLoc ShuntResistorLocation `json:"shunt_resistor_loc" msgpack:"shunt_resistor_loc"`
 	// ExtShuntResistorVal is the external shunt resistor value, in Ohms.
@@ -1280,9 +1272,6 @@ func (AICurrentChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AICurrentChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = UnitsAmps
-	}
 	if a.ShuntResistorLoc == "" {
 		a.ShuntResistorLoc = ShuntResistorLocationDefault
 	}
@@ -1298,7 +1287,6 @@ func (a *AICurrentChannel) ApplyDefaults() {
 // schema constraints.
 func (a AICurrentChannel) Validate() error {
 	v := validate.New("AICurrentChannel")
-	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Ternaryf("shunt_resistor_loc", !a.ShuntResistorLoc.IsValid(), "invalid shunt_resistor_loc: %v", a.ShuntResistorLoc)
 	v.Exec(a.Terminal.Validate)
 	v.Exec(a.CustomScale.Validate)
@@ -1442,8 +1430,6 @@ type AIMicrophoneChannel struct {
 	Terminal
 	CurrentExcitation
 	CustomScale
-	// Units are the units of the microphone measurement.
-	Units Units `json:"units" msgpack:"units"`
 	// MicSensitivity is the microphone sensitivity, in mV/Pa.
 	MicSensitivity float64 `json:"mic_sensitivity" msgpack:"mic_sensitivity"`
 	// MaxSndPressLevel is the maximum expected sound pressure level, in dB.
@@ -1454,9 +1440,6 @@ func (AIMicrophoneChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIMicrophoneChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = UnitsPascals
-	}
 	a.Terminal.ApplyDefaults()
 	a.CurrentExcitation.ApplyDefaults()
 	a.CustomScale.ApplyDefaults()
@@ -1466,7 +1449,6 @@ func (a *AIMicrophoneChannel) ApplyDefaults() {
 // schema constraints.
 func (a AIMicrophoneChannel) Validate() error {
 	v := validate.New("AIMicrophoneChannel")
-	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Exec(a.Terminal.Validate)
 	v.Exec(a.CurrentExcitation.Validate)
 	v.Exec(a.CustomScale.Validate)
@@ -1569,17 +1551,12 @@ type AIResistanceChannel struct {
 	Resistance
 	CurrentExcitation
 	CustomScale
-	// Units are the units of the resistance measurement.
-	Units Units `json:"units" msgpack:"units"`
 }
 
 func (AIResistanceChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIResistanceChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = UnitsOhms
-	}
 	a.MinMaxVal.ApplyDefaults()
 	a.Resistance.ApplyDefaults()
 	a.CurrentExcitation.ApplyDefaults()
@@ -1590,7 +1567,6 @@ func (a *AIResistanceChannel) ApplyDefaults() {
 // schema constraints.
 func (a AIResistanceChannel) Validate() error {
 	v := validate.New("AIResistanceChannel")
-	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Exec(a.Resistance.Validate)
 	v.Exec(a.CurrentExcitation.Validate)
 	v.Exec(a.CustomScale.Validate)
@@ -1643,8 +1619,6 @@ type AIStrainGaugeChannel struct {
 	MinMaxVal
 	VoltageExcitation
 	CustomScale
-	// Units are the units of the strain measurement.
-	Units Units `json:"units" msgpack:"units"`
 	// StrainConfig selects the strain-gauge bridge configuration.
 	StrainConfig StrainConfig `json:"strain_config" msgpack:"strain_config"`
 	// GageFactor is the gauge factor of the strain gauge.
@@ -1663,9 +1637,6 @@ func (AIStrainGaugeChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIStrainGaugeChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = UnitsStrain
-	}
 	if a.StrainConfig == "" {
 		a.StrainConfig = StrainConfigFullBridgeI
 	}
@@ -1678,7 +1649,6 @@ func (a *AIStrainGaugeChannel) ApplyDefaults() {
 // schema constraints.
 func (a AIStrainGaugeChannel) Validate() error {
 	v := validate.New("AIStrainGaugeChannel")
-	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Ternaryf("strain_config", !a.StrainConfig.IsValid(), "invalid strain_config: %v", a.StrainConfig)
 	v.Exec(a.VoltageExcitation.Validate)
 	v.Exec(a.CustomScale.Validate)
@@ -2001,8 +1971,6 @@ type AICurrentRMSChannel struct {
 	MinMaxVal
 	Terminal
 	CustomScale
-	// Units are the units of the current measurement.
-	Units Units `json:"units" msgpack:"units"`
 	// ShuntResistorLoc selects where the shunt resistor is located.
 	ShuntResistorLoc ShuntResistorLocation `json:"shunt_resistor_loc" msgpack:"shunt_resistor_loc"`
 	// ExtShuntResistorVal is the external shunt resistor value, in Ohms.
@@ -2013,9 +1981,6 @@ func (AICurrentRMSChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AICurrentRMSChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = UnitsAmps
-	}
 	if a.ShuntResistorLoc == "" {
 		a.ShuntResistorLoc = ShuntResistorLocationDefault
 	}
@@ -2031,7 +1996,6 @@ func (a *AICurrentRMSChannel) ApplyDefaults() {
 // schema constraints.
 func (a AICurrentRMSChannel) Validate() error {
 	v := validate.New("AICurrentRMSChannel")
-	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Ternaryf("shunt_resistor_loc", !a.ShuntResistorLoc.IsValid(), "invalid shunt_resistor_loc: %v", a.ShuntResistorLoc)
 	v.Exec(a.Terminal.Validate)
 	v.Exec(a.CustomScale.Validate)
@@ -2087,8 +2051,6 @@ type AIFreqVoltageChannel struct {
 	BaseAIChannel
 	MinMaxVal
 	CustomScale
-	// Units are the units of the frequency measurement.
-	Units Units `json:"units" msgpack:"units"`
 	// ThresholdLevel is the voltage level at which a cycle is counted.
 	ThresholdLevel float64 `json:"threshold_level" msgpack:"threshold_level"`
 	// Hysteresis is the hysteresis applied around the threshold level.
@@ -2099,9 +2061,6 @@ func (AIFreqVoltageChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIFreqVoltageChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = UnitsHz
-	}
 	a.MinMaxVal.ApplyDefaults()
 	a.CustomScale.ApplyDefaults()
 }
@@ -2110,7 +2069,6 @@ func (a *AIFreqVoltageChannel) ApplyDefaults() {
 // schema constraints.
 func (a AIFreqVoltageChannel) Validate() error {
 	v := validate.New("AIFreqVoltageChannel")
-	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Exec(a.CustomScale.Validate)
 	return v.Error()
 }
@@ -2289,17 +2247,12 @@ type AIVoltageRMSChannel struct {
 	MinMaxVal
 	Terminal
 	CustomScale
-	// Units are the units of the voltage measurement.
-	Units Units `json:"units" msgpack:"units"`
 }
 
 func (AIVoltageRMSChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIVoltageRMSChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = UnitsVolts
-	}
 	a.MinMaxVal.ApplyDefaults()
 	a.Terminal.ApplyDefaults()
 	a.CustomScale.ApplyDefaults()
@@ -2309,7 +2262,6 @@ func (a *AIVoltageRMSChannel) ApplyDefaults() {
 // schema constraints.
 func (a AIVoltageRMSChannel) Validate() error {
 	v := validate.New("AIVoltageRMSChannel")
-	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Exec(a.Terminal.Validate)
 	v.Exec(a.CustomScale.Validate)
 	return v.Error()
@@ -2322,8 +2274,6 @@ type AIVoltageWithExcitChannel struct {
 	Terminal
 	VoltageExcitation
 	CustomScale
-	// Units are the units of the voltage measurement.
-	Units Units `json:"units" msgpack:"units"`
 	// BridgeConfig selects the physical bridge wiring.
 	BridgeConfig BridgeConfig `json:"bridge_config" msgpack:"bridge_config"`
 	// UseExcitForScaling is true when the excitation voltage is used to scale the
@@ -2335,9 +2285,6 @@ func (AIVoltageWithExcitChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIVoltageWithExcitChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = UnitsVolts
-	}
 	if a.BridgeConfig == "" {
 		a.BridgeConfig = BridgeConfigFullBridge
 	}
@@ -2351,7 +2298,6 @@ func (a *AIVoltageWithExcitChannel) ApplyDefaults() {
 // schema constraints.
 func (a AIVoltageWithExcitChannel) Validate() error {
 	v := validate.New("AIVoltageWithExcitChannel")
-	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Ternaryf("bridge_config", !a.BridgeConfig.IsValid(), "invalid bridge_config: %v", a.BridgeConfig)
 	v.Exec(a.Terminal.Validate)
 	v.Exec(a.VoltageExcitation.Validate)
@@ -3887,17 +3833,12 @@ type AOCurrentChannel struct {
 	BaseAOChannel
 	MinMaxVal
 	CustomScale
-	// Units are the units of the current output.
-	Units Units `json:"units" msgpack:"units"`
 }
 
 func (AOCurrentChannel) isAOChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AOCurrentChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = UnitsAmps
-	}
 	a.MinMaxVal.ApplyDefaults()
 	a.CustomScale.ApplyDefaults()
 }
@@ -3906,7 +3847,6 @@ func (a *AOCurrentChannel) ApplyDefaults() {
 // schema constraints.
 func (a AOCurrentChannel) Validate() error {
 	v := validate.New("AOCurrentChannel")
-	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Exec(a.CustomScale.Validate)
 	return v.Error()
 }
@@ -3946,17 +3886,12 @@ type AOVoltageChannel struct {
 	BaseAOChannel
 	MinMaxVal
 	CustomScale
-	// Units are the units of the voltage output.
-	Units Units `json:"units" msgpack:"units"`
 }
 
 func (AOVoltageChannel) isAOChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AOVoltageChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = UnitsVolts
-	}
 	a.MinMaxVal.ApplyDefaults()
 	a.CustomScale.ApplyDefaults()
 }
@@ -3965,7 +3900,6 @@ func (a *AOVoltageChannel) ApplyDefaults() {
 // schema constraints.
 func (a AOVoltageChannel) Validate() error {
 	v := validate.New("AOVoltageChannel")
-	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Exec(a.CustomScale.Validate)
 	return v.Error()
 }

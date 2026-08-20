@@ -620,8 +620,6 @@ export const aiVoltageChannelZ = baseAIChannelZ
   .extend(customScaleZ.shape)
   .extend({
     type: z.literal("ai_voltage"),
-    /** units are the units of the voltage measurement. */
-    units: unitsZ.default("Volts"),
   });
 export interface AIVoltageChannel extends z.infer<typeof aiVoltageChannelZ> {}
 
@@ -661,8 +659,6 @@ export const aiCurrentChannelZ = baseAIChannelZ
   .extend(customScaleZ.shape)
   .extend({
     type: z.literal("ai_current"),
-    /** units are the units of the current measurement. */
-    units: unitsZ.default("Amps"),
     /** shuntResistorLoc selects where the shunt resistor is located. */
     shuntResistorLoc: shuntResistorLocationZ.default("Default"),
     /** extShuntResistorVal is the external shunt resistor value, in Ohms. */
@@ -732,8 +728,6 @@ export const aiMicrophoneChannelZ = baseAIChannelZ
   .extend(customScaleZ.shape)
   .extend({
     type: z.literal("ai_microphone"),
-    /** units are the units of the microphone measurement. */
-    units: unitsZ.default("Pascals"),
     /** micSensitivity is the microphone sensitivity, in mV/Pa. */
     micSensitivity: z.number().default(0),
     /** maxSndPressLevel is the maximum expected sound pressure level, in dB. */
@@ -790,8 +784,6 @@ export const aiResistanceChannelZ = baseAIChannelZ
   .extend(customScaleZ.shape)
   .extend({
     type: z.literal("ai_resistance"),
-    /** units are the units of the resistance measurement. */
-    units: unitsZ.default("Ohms"),
   });
 export interface AIResistanceChannel extends z.infer<typeof aiResistanceChannelZ> {}
 
@@ -818,8 +810,6 @@ export const aiStrainGaugeChannelZ = baseAIChannelZ
   .extend(customScaleZ.shape)
   .extend({
     type: z.literal("ai_strain_gauge"),
-    /** units are the units of the strain measurement. */
-    units: unitsZ.default("Strain"),
     /** strainConfig selects the strain-gauge bridge configuration. */
     strainConfig: strainConfigZ.default("FullBridgeI"),
     /** gageFactor is the gauge factor of the strain gauge. */
@@ -973,8 +963,6 @@ export const aiCurrentRMSChannelZ = baseAIChannelZ
   .extend(customScaleZ.shape)
   .extend({
     type: z.literal("ai_current_rms"),
-    /** units are the units of the current measurement. */
-    units: unitsZ.default("Amps"),
     /** shuntResistorLoc selects where the shunt resistor is located. */
     shuntResistorLoc: shuntResistorLocationZ.default("Default"),
     /** extShuntResistorVal is the external shunt resistor value, in Ohms. */
@@ -1008,8 +996,6 @@ export const aiFreqVoltageChannelZ = baseAIChannelZ
   .extend(customScaleZ.shape)
   .extend({
     type: z.literal("ai_freq_voltage"),
-    /** units are the units of the frequency measurement. */
-    units: unitsZ.default("Hz"),
     /** thresholdLevel is the voltage level at which a cycle is counted. */
     thresholdLevel: z.number().default(0),
     /** hysteresis is the hysteresis applied around the threshold level. */
@@ -1108,8 +1094,6 @@ export const aiVoltageRMSChannelZ = baseAIChannelZ
   .extend(customScaleZ.shape)
   .extend({
     type: z.literal("ai_voltage_rms"),
-    /** units are the units of the voltage measurement. */
-    units: unitsZ.default("Volts"),
   });
 export interface AIVoltageRMSChannel extends z.infer<typeof aiVoltageRMSChannelZ> {}
 
@@ -1121,8 +1105,6 @@ export const aiVoltageWithExcitChannelZ = baseAIChannelZ
   .extend(customScaleZ.shape)
   .extend({
     type: z.literal("ai_voltage_with_excit"),
-    /** units are the units of the voltage measurement. */
-    units: unitsZ.default("Volts"),
     /** bridgeConfig selects the physical bridge wiring. */
     bridgeConfig: bridgeConfigZ.default("FullBridge"),
     /**
@@ -1557,8 +1539,6 @@ export const aoCurrentChannelZ = baseAOChannelZ
   .extend(customScaleZ.shape)
   .extend({
     type: z.literal("ao_current"),
-    /** units are the units of the current output. */
-    units: unitsZ.default("Amps"),
   });
 export interface AOCurrentChannel extends z.infer<typeof aoCurrentChannelZ> {}
 
@@ -1582,8 +1562,6 @@ export const aoVoltageChannelZ = baseAOChannelZ
   .extend(customScaleZ.shape)
   .extend({
     type: z.literal("ao_voltage"),
-    /** units are the units of the voltage output. */
-    units: unitsZ.default("Volts"),
   });
 export interface AOVoltageChannel extends z.infer<typeof aoVoltageChannelZ> {}
 

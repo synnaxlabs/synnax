@@ -850,7 +850,6 @@ class AIVoltageChannel(BaseAIChannel, MinMaxVal, Terminal, CustomScale):
     """Reads a voltage."""
 
     type: Literal["ai_voltage"] = "ai_voltage"
-    units: Units = "Volts"
 
 
 class AIAccelChannel(
@@ -874,7 +873,6 @@ class AICurrentChannel(BaseAIChannel, MinMaxVal, Terminal, CustomScale):
     """Reads a current."""
 
     type: Literal["ai_current"] = "ai_current"
-    units: Units = "Amps"
     shunt_resistor_loc: ShuntResistorLocation = "Default"
     ext_shunt_resistor_val: float = 1
 
@@ -913,7 +911,6 @@ class AIMicrophoneChannel(BaseAIChannel, Terminal, CurrentExcitation, CustomScal
     """Reads sound pressure from a microphone."""
 
     type: Literal["ai_microphone"] = "ai_microphone"
-    units: Units = "Pascals"
     mic_sensitivity: float = 0
     max_snd_press_level: float = 0
 
@@ -946,7 +943,6 @@ class AIResistanceChannel(
     """Reads a resistance."""
 
     type: Literal["ai_resistance"] = "ai_resistance"
-    units: Units = "Ohms"
 
 
 class AIRTDChannel(BaseAIChannel, MinMaxVal, Resistance, CurrentExcitation):
@@ -962,7 +958,6 @@ class AIStrainGaugeChannel(BaseAIChannel, MinMaxVal, VoltageExcitation, CustomSc
     """Reads strain from a strain gauge."""
 
     type: Literal["ai_strain_gauge"] = "ai_strain_gauge"
-    units: Units = "Strain"
     strain_config: StrainConfig = "FullBridgeI"
     gage_factor: float = 0
     initial_bridge_voltage: float = 0
@@ -1048,7 +1043,6 @@ class AICurrentRMSChannel(BaseAIChannel, MinMaxVal, Terminal, CustomScale):
     """Reads RMS current."""
 
     type: Literal["ai_current_rms"] = "ai_current_rms"
-    units: Units = "Amps"
     shunt_resistor_loc: ShuntResistorLocation = "Default"
     ext_shunt_resistor_val: float = 1
 
@@ -1067,7 +1061,6 @@ class AIFreqVoltageChannel(BaseAIChannel, MinMaxVal, CustomScale):
     """Reads frequency from a voltage signal."""
 
     type: Literal["ai_freq_voltage"] = "ai_freq_voltage"
-    units: Units = "Hz"
     threshold_level: float = 0
     hysteresis: float = 0
 
@@ -1117,7 +1110,6 @@ class AIVoltageRMSChannel(BaseAIChannel, MinMaxVal, Terminal, CustomScale):
     """Reads RMS voltage."""
 
     type: Literal["ai_voltage_rms"] = "ai_voltage_rms"
-    units: Units = "Volts"
 
 
 class AIVoltageWithExcitChannel(
@@ -1126,7 +1118,6 @@ class AIVoltageWithExcitChannel(
     """Reads a voltage with excitation."""
 
     type: Literal["ai_voltage_with_excit"] = "ai_voltage_with_excit"
-    units: Units = "Volts"
     bridge_config: BridgeConfig = "FullBridge"
     use_excit_for_scaling: bool = False
 
@@ -1326,7 +1317,6 @@ class AOCurrentChannel(BaseAOChannel, MinMaxVal, CustomScale):
     """Drives a current output."""
 
     type: Literal["ao_current"] = "ao_current"
-    units: Units = "Amps"
 
 
 class AOFuncGenChannel(BaseAOChannel):
@@ -1343,7 +1333,6 @@ class AOVoltageChannel(BaseAOChannel, MinMaxVal, CustomScale):
     """Drives a voltage output."""
 
     type: Literal["ao_voltage"] = "ao_voltage"
-    units: Units = "Volts"
 
 
 # Is a single NI analog output channel. The type field selects the output mode and

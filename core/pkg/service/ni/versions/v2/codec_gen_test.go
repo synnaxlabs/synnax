@@ -118,7 +118,6 @@ var _ = Describe("Codec", func() {
 				MinMaxVal:     fullyPopulatedMinMaxVal,
 				Terminal:      fullyPopulatedTerminal,
 				CustomScale:   fullyPopulatedCustomScale,
-				Units:         v2.Units("Volts"),
 			}}),
 			Entry("ai_accel variant", v2.AIChannel{Variant: v2.AIAccelChannel{
 				BaseAIChannel:     fullyPopulatedBaseAIChannel,
@@ -143,9 +142,8 @@ var _ = Describe("Codec", func() {
 				MinMaxVal:           fullyPopulatedMinMaxVal,
 				Terminal:            fullyPopulatedTerminal,
 				CustomScale:         fullyPopulatedCustomScale,
-				Units:               v2.Units("Volts"),
 				ShuntResistorLoc:    v2.ShuntResistorLocation("Default"),
-				ExtShuntResistorVal: 3.5,
+				ExtShuntResistorVal: 2.5,
 			}}),
 			Entry("ai_force_bridge_table variant", v2.AIChannel{Variant: v2.AIForceBridgeTableChannel{
 				BaseAIChannel:     fullyPopulatedBaseAIChannel,
@@ -182,9 +180,8 @@ var _ = Describe("Codec", func() {
 				Terminal:          fullyPopulatedTerminal,
 				CurrentExcitation: fullyPopulatedCurrentExcitation,
 				CustomScale:       fullyPopulatedCustomScale,
-				Units:             v2.Units("Volts"),
-				MicSensitivity:    2.5,
-				MaxSndPressLevel:  3.5,
+				MicSensitivity:    1.5,
+				MaxSndPressLevel:  2.5,
 			}}),
 			Entry("ai_pressure_bridge_table variant", v2.AIChannel{Variant: v2.AIPressureBridgeTableChannel{
 				BaseAIChannel:     fullyPopulatedBaseAIChannel,
@@ -212,7 +209,6 @@ var _ = Describe("Codec", func() {
 				Resistance:        fullyPopulatedResistance,
 				CurrentExcitation: fullyPopulatedCurrentExcitation,
 				CustomScale:       fullyPopulatedCustomScale,
-				Units:             v2.Units("Volts"),
 			}}),
 			Entry("ai_rtd variant", v2.AIChannel{Variant: v2.AIRTDChannel{
 				BaseAIChannel:     fullyPopulatedBaseAIChannel,
@@ -228,13 +224,12 @@ var _ = Describe("Codec", func() {
 				MinMaxVal:             fullyPopulatedMinMaxVal,
 				VoltageExcitation:     fullyPopulatedVoltageExcitation,
 				CustomScale:           fullyPopulatedCustomScale,
-				Units:                 v2.Units("Volts"),
 				StrainConfig:          v2.StrainConfig("FullBridgeI"),
-				GageFactor:            3.5,
-				InitialBridgeVoltage:  4.5,
-				NominalGageResistance: 5.5,
-				PoissonRatio:          6.5,
-				LeadWireResistance:    7.5,
+				GageFactor:            2.5,
+				InitialBridgeVoltage:  3.5,
+				NominalGageResistance: 4.5,
+				PoissonRatio:          5.5,
+				LeadWireResistance:    6.5,
 			}}),
 			Entry("ai_temp_builtin variant", v2.AIChannel{Variant: v2.AITempBuiltinChannel{
 				BaseAIChannel: fullyPopulatedBaseAIChannel,
@@ -309,9 +304,8 @@ var _ = Describe("Codec", func() {
 				MinMaxVal:           fullyPopulatedMinMaxVal,
 				Terminal:            fullyPopulatedTerminal,
 				CustomScale:         fullyPopulatedCustomScale,
-				Units:               v2.Units("Volts"),
 				ShuntResistorLoc:    v2.ShuntResistorLocation("Default"),
-				ExtShuntResistorVal: 3.5,
+				ExtShuntResistorVal: 2.5,
 			}}),
 			Entry("ai_force_bridge_polynomial variant", v2.AIChannel{Variant: v2.AIForceBridgePolynomialChannel{
 				BaseAIChannel:     fullyPopulatedBaseAIChannel,
@@ -327,9 +321,8 @@ var _ = Describe("Codec", func() {
 				BaseAIChannel:  fullyPopulatedBaseAIChannel,
 				MinMaxVal:      fullyPopulatedMinMaxVal,
 				CustomScale:    fullyPopulatedCustomScale,
-				Units:          v2.Units("Volts"),
-				ThresholdLevel: 2.5,
-				Hysteresis:     3.5,
+				ThresholdLevel: 1.5,
+				Hysteresis:     2.5,
 			}}),
 			Entry("ai_pressure_bridge_polynomial variant", v2.AIChannel{Variant: v2.AIPressureBridgePolynomialChannel{
 				BaseAIChannel:     fullyPopulatedBaseAIChannel,
@@ -377,7 +370,6 @@ var _ = Describe("Codec", func() {
 				MinMaxVal:     fullyPopulatedMinMaxVal,
 				Terminal:      fullyPopulatedTerminal,
 				CustomScale:   fullyPopulatedCustomScale,
-				Units:         v2.Units("Volts"),
 			}}),
 			Entry("ai_voltage_with_excit variant", v2.AIChannel{Variant: v2.AIVoltageWithExcitChannel{
 				BaseAIChannel:      fullyPopulatedBaseAIChannel,
@@ -385,9 +377,8 @@ var _ = Describe("Codec", func() {
 				Terminal:           fullyPopulatedTerminal,
 				VoltageExcitation:  fullyPopulatedVoltageExcitation,
 				CustomScale:        fullyPopulatedCustomScale,
-				Units:              v2.Units("Volts"),
 				BridgeConfig:       v2.BridgeConfig("FullBridge"),
-				UseExcitForScaling: true,
+				UseExcitForScaling: false,
 			}}),
 		)
 	})
@@ -406,7 +397,6 @@ var _ = Describe("Codec", func() {
 				BaseAOChannel: fullyPopulatedBaseAOChannel,
 				MinMaxVal:     fullyPopulatedMinMaxVal,
 				CustomScale:   fullyPopulatedCustomScale,
-				Units:         v2.Units("Volts"),
 			}}),
 			Entry("ao_func_gen variant", v2.AOChannel{Variant: v2.AOFuncGenChannel{
 				BaseAOChannel: fullyPopulatedBaseAOChannel,
@@ -419,7 +409,6 @@ var _ = Describe("Codec", func() {
 				BaseAOChannel: fullyPopulatedBaseAOChannel,
 				MinMaxVal:     fullyPopulatedMinMaxVal,
 				CustomScale:   fullyPopulatedCustomScale,
-				Units:         v2.Units("Volts"),
 			}}),
 		)
 	})
@@ -452,7 +441,6 @@ var _ = Describe("Codec", func() {
 						MinMaxVal:     fullyPopulatedMinMaxVal,
 						Terminal:      fullyPopulatedTerminal,
 						CustomScale:   fullyPopulatedCustomScale,
-						Units:         v2.Units("Volts"),
 					}},
 				},
 			}),
@@ -513,7 +501,6 @@ var _ = Describe("Codec", func() {
 						BaseAOChannel: fullyPopulatedBaseAOChannel,
 						MinMaxVal:     fullyPopulatedMinMaxVal,
 						CustomScale:   fullyPopulatedCustomScale,
-						Units:         v2.Units("Volts"),
 					}},
 				},
 			}),
@@ -1358,7 +1345,6 @@ func BenchmarkEncodeDecodeAIChannel(b *testing.B) {
 		MinMaxVal:     fullyPopulatedMinMaxVal,
 		Terminal:      fullyPopulatedTerminal,
 		CustomScale:   fullyPopulatedCustomScale,
-		Units:         v2.Units("Volts"),
 	}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -1380,7 +1366,6 @@ func BenchmarkEncodeDecodeAOChannel(b *testing.B) {
 		BaseAOChannel: fullyPopulatedBaseAOChannel,
 		MinMaxVal:     fullyPopulatedMinMaxVal,
 		CustomScale:   fullyPopulatedCustomScale,
-		Units:         v2.Units("Volts"),
 	}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -1416,7 +1401,6 @@ func BenchmarkEncodeDecodeAnalogReadConfig(b *testing.B) {
 				MinMaxVal:     fullyPopulatedMinMaxVal,
 				Terminal:      fullyPopulatedTerminal,
 				CustomScale:   fullyPopulatedCustomScale,
-				Units:         v2.Units("Volts"),
 			}},
 		},
 	}
@@ -1455,7 +1439,6 @@ func BenchmarkEncodeDecodeAnalogWriteConfig(b *testing.B) {
 				BaseAOChannel: fullyPopulatedBaseAOChannel,
 				MinMaxVal:     fullyPopulatedMinMaxVal,
 				CustomScale:   fullyPopulatedCustomScale,
-				Units:         v2.Units("Volts"),
 			}},
 		},
 	}
@@ -2032,7 +2015,6 @@ func FuzzDecodeAIChannel(f *testing.F) {
 			MinMaxVal:     fullyPopulatedMinMaxVal,
 			Terminal:      fullyPopulatedTerminal,
 			CustomScale:   fullyPopulatedCustomScale,
-			Units:         v2.Units("Volts"),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2078,9 +2060,8 @@ func FuzzDecodeAIChannel(f *testing.F) {
 			MinMaxVal:           fullyPopulatedMinMaxVal,
 			Terminal:            fullyPopulatedTerminal,
 			CustomScale:         fullyPopulatedCustomScale,
-			Units:               v2.Units("Volts"),
 			ShuntResistorLoc:    v2.ShuntResistorLocation("Default"),
-			ExtShuntResistorVal: 3.5,
+			ExtShuntResistorVal: 2.5,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2145,9 +2126,8 @@ func FuzzDecodeAIChannel(f *testing.F) {
 			Terminal:          fullyPopulatedTerminal,
 			CurrentExcitation: fullyPopulatedCurrentExcitation,
 			CustomScale:       fullyPopulatedCustomScale,
-			Units:             v2.Units("Volts"),
-			MicSensitivity:    2.5,
-			MaxSndPressLevel:  3.5,
+			MicSensitivity:    1.5,
+			MaxSndPressLevel:  2.5,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2196,7 +2176,6 @@ func FuzzDecodeAIChannel(f *testing.F) {
 			Resistance:        fullyPopulatedResistance,
 			CurrentExcitation: fullyPopulatedCurrentExcitation,
 			CustomScale:       fullyPopulatedCustomScale,
-			Units:             v2.Units("Volts"),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2226,13 +2205,12 @@ func FuzzDecodeAIChannel(f *testing.F) {
 			MinMaxVal:             fullyPopulatedMinMaxVal,
 			VoltageExcitation:     fullyPopulatedVoltageExcitation,
 			CustomScale:           fullyPopulatedCustomScale,
-			Units:                 v2.Units("Volts"),
 			StrainConfig:          v2.StrainConfig("FullBridgeI"),
-			GageFactor:            3.5,
-			InitialBridgeVoltage:  4.5,
-			NominalGageResistance: 5.5,
-			PoissonRatio:          6.5,
-			LeadWireResistance:    7.5,
+			GageFactor:            2.5,
+			InitialBridgeVoltage:  3.5,
+			NominalGageResistance: 4.5,
+			PoissonRatio:          5.5,
+			LeadWireResistance:    6.5,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2370,9 +2348,8 @@ func FuzzDecodeAIChannel(f *testing.F) {
 			MinMaxVal:           fullyPopulatedMinMaxVal,
 			Terminal:            fullyPopulatedTerminal,
 			CustomScale:         fullyPopulatedCustomScale,
-			Units:               v2.Units("Volts"),
 			ShuntResistorLoc:    v2.ShuntResistorLocation("Default"),
-			ExtShuntResistorVal: 3.5,
+			ExtShuntResistorVal: 2.5,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2402,9 +2379,8 @@ func FuzzDecodeAIChannel(f *testing.F) {
 			BaseAIChannel:  fullyPopulatedBaseAIChannel,
 			MinMaxVal:      fullyPopulatedMinMaxVal,
 			CustomScale:    fullyPopulatedCustomScale,
-			Units:          v2.Units("Volts"),
-			ThresholdLevel: 2.5,
-			Hysteresis:     3.5,
+			ThresholdLevel: 1.5,
+			Hysteresis:     2.5,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2487,7 +2463,6 @@ func FuzzDecodeAIChannel(f *testing.F) {
 			MinMaxVal:     fullyPopulatedMinMaxVal,
 			Terminal:      fullyPopulatedTerminal,
 			CustomScale:   fullyPopulatedCustomScale,
-			Units:         v2.Units("Volts"),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2502,9 +2477,8 @@ func FuzzDecodeAIChannel(f *testing.F) {
 			Terminal:           fullyPopulatedTerminal,
 			VoltageExcitation:  fullyPopulatedVoltageExcitation,
 			CustomScale:        fullyPopulatedCustomScale,
-			Units:              v2.Units("Volts"),
 			BridgeConfig:       v2.BridgeConfig("FullBridge"),
-			UseExcitForScaling: true,
+			UseExcitForScaling: false,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2540,7 +2514,6 @@ func FuzzDecodeAOChannel(f *testing.F) {
 			BaseAOChannel: fullyPopulatedBaseAOChannel,
 			MinMaxVal:     fullyPopulatedMinMaxVal,
 			CustomScale:   fullyPopulatedCustomScale,
-			Units:         v2.Units("Volts"),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2567,7 +2540,6 @@ func FuzzDecodeAOChannel(f *testing.F) {
 			BaseAOChannel: fullyPopulatedBaseAOChannel,
 			MinMaxVal:     fullyPopulatedMinMaxVal,
 			CustomScale:   fullyPopulatedCustomScale,
-			Units:         v2.Units("Volts"),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2617,7 +2589,6 @@ func FuzzDecodeAnalogReadConfig(f *testing.F) {
 					MinMaxVal:     fullyPopulatedMinMaxVal,
 					Terminal:      fullyPopulatedTerminal,
 					CustomScale:   fullyPopulatedCustomScale,
-					Units:         v2.Units("Volts"),
 				}},
 			},
 		}
@@ -2709,7 +2680,6 @@ func FuzzDecodeAnalogWriteConfig(f *testing.F) {
 					BaseAOChannel: fullyPopulatedBaseAOChannel,
 					MinMaxVal:     fullyPopulatedMinMaxVal,
 					CustomScale:   fullyPopulatedCustomScale,
-					Units:         v2.Units("Volts"),
 				}},
 			},
 		}

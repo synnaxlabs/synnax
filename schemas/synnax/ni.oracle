@@ -486,10 +486,6 @@ BaseAIChannel struct {
 
 AIChannel union on type extends BaseAIChannel {
     ai_voltage extends MinMaxVal, Terminal, CustomScale {
-        units Units = volts {
-            @doc value "are the units of the voltage measurement."
-        }
-
         @doc value "reads a voltage."
     }
     ai_accel extends MinMaxVal, Terminal, Sensitivity, CurrentExcitation, CustomScale {
@@ -510,9 +506,6 @@ AIChannel union on type extends BaseAIChannel {
         @doc value "reads a generic bridge-based sensor."
     }
     ai_current extends MinMaxVal, Terminal, CustomScale {
-        units                  Units = amps {
-            @doc value "are the units of the current measurement."
-        }
         shunt_resistor_loc     ShuntResistorLocation = default {
             @doc value "selects where the shunt resistor is located."
         }
@@ -553,9 +546,6 @@ AIChannel union on type extends BaseAIChannel {
         @doc value "reads force from an IEPE sensor."
     }
     ai_microphone extends Terminal, CurrentExcitation, CustomScale {
-        units               Units = pascals {
-            @doc value "are the units of the microphone measurement."
-        }
         mic_sensitivity     float64 = 0 {
             @doc value "is the microphone sensitivity, in mV/Pa."
         }
@@ -586,10 +576,6 @@ AIChannel union on type extends BaseAIChannel {
         @doc value "reads pressure from a bridge with two-point linear calibration."
     }
     ai_resistance extends MinMaxVal, Resistance, CurrentExcitation, CustomScale {
-        units Units = ohms {
-            @doc value "are the units of the resistance measurement."
-        }
-
         @doc value "reads a resistance."
     }
     ai_rtd extends MinMaxVal, Resistance, CurrentExcitation {
@@ -606,9 +592,6 @@ AIChannel union on type extends BaseAIChannel {
         @doc value "reads temperature from an RTD."
     }
     ai_strain_gauge extends MinMaxVal, VoltageExcitation, CustomScale {
-        units                   Units = strain {
-            @doc value "are the units of the strain measurement."
-        }
         strain_config           StrainConfig = full_bridge_i {
             @doc value "selects the strain-gauge bridge configuration."
         }
@@ -716,9 +699,6 @@ AIChannel union on type extends BaseAIChannel {
         @doc value "reads a raw charge."
     }
     ai_current_rms extends MinMaxVal, Terminal, CustomScale {
-        units                  Units = amps {
-            @doc value "are the units of the current measurement."
-        }
         shunt_resistor_loc     ShuntResistorLocation = default {
             @doc value "selects where the shunt resistor is located."
         }
@@ -739,9 +719,6 @@ AIChannel union on type extends BaseAIChannel {
         @doc value "reads force from a bridge with polynomial calibration."
     }
     ai_freq_voltage extends MinMaxVal, CustomScale {
-        units           Units = hz {
-            @doc value "are the units of the frequency measurement."
-        }
         threshold_level float64 = 0 {
             @doc value "is the voltage level at which a cycle is counted."
         }
@@ -807,16 +784,9 @@ AIChannel union on type extends BaseAIChannel {
         @doc value "reads torque from a bridge with polynomial calibration."
     }
     ai_voltage_rms extends MinMaxVal, Terminal, CustomScale {
-        units Units = volts {
-            @doc value "are the units of the voltage measurement."
-        }
-
         @doc value "reads RMS voltage."
     }
     ai_voltage_with_excit extends MinMaxVal, Terminal, VoltageExcitation, CustomScale {
-        units                 Units = volts {
-            @doc value "are the units of the voltage measurement."
-        }
         bridge_config         BridgeConfig = full_bridge {
             @doc value "selects the physical bridge wiring."
         }
@@ -1263,10 +1233,6 @@ BaseAOChannel struct {
 
 AOChannel union on type extends BaseAOChannel {
     ao_current extends MinMaxVal, CustomScale {
-        units Units = amps {
-            @doc value "are the units of the current output."
-        }
-
         @doc value "drives a current output."
     }
     ao_func_gen {
@@ -1286,10 +1252,6 @@ AOChannel union on type extends BaseAOChannel {
         @doc value "drives a function-generator output."
     }
     ao_voltage extends MinMaxVal, CustomScale {
-        units Units = volts {
-            @doc value "are the units of the voltage output."
-        }
-
         @doc value "drives a voltage output."
     }
 

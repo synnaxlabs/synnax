@@ -627,8 +627,6 @@ struct AIVoltageChannel : public BaseAIChannel,
                           public Terminal,
                           public CustomScale {
     std::string type = "ai_voltage";
-    /// @brief units are the units of the voltage measurement.
-    std::string units = UNITS_VOLTS;
 
     static AIVoltageChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -671,8 +669,6 @@ struct AICurrentChannel : public BaseAIChannel,
                           public Terminal,
                           public CustomScale {
     std::string type = "ai_current";
-    /// @brief units are the units of the current measurement.
-    std::string units = UNITS_AMPS;
     /// @brief shunt_resistor_loc selects where the shunt resistor is located.
     std::string shunt_resistor_loc = SHUNT_RESISTOR_LOCATION_DEFAULT;
     /// @brief ext_shunt_resistor_val is the external shunt resistor value, in Ohms.
@@ -740,8 +736,6 @@ struct AIMicrophoneChannel : public BaseAIChannel,
                              public CurrentExcitation,
                              public CustomScale {
     std::string type = "ai_microphone";
-    /// @brief units are the units of the microphone measurement.
-    std::string units = UNITS_PASCALS;
     /// @brief mic_sensitivity is the microphone sensitivity, in mV/Pa.
     double mic_sensitivity = 0;
     /// @brief max_snd_press_level is the maximum expected sound pressure level, in dB.
@@ -794,8 +788,6 @@ struct AIResistanceChannel : public BaseAIChannel,
                              public CurrentExcitation,
                              public CustomScale {
     std::string type = "ai_resistance";
-    /// @brief units are the units of the resistance measurement.
-    std::string units = UNITS_OHMS;
 
     static AIResistanceChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -824,8 +816,6 @@ struct AIStrainGaugeChannel : public BaseAIChannel,
                               public VoltageExcitation,
                               public CustomScale {
     std::string type = "ai_strain_gauge";
-    /// @brief units are the units of the strain measurement.
-    std::string units = UNITS_STRAIN;
     /// @brief strain_config selects the strain-gauge bridge configuration.
     std::string strain_config = STRAIN_CONFIG_FULL_BRIDGE_I;
     /// @brief gage_factor is the gauge factor of the strain gauge.
@@ -980,8 +970,6 @@ struct AICurrentRMSChannel : public BaseAIChannel,
                              public Terminal,
                              public CustomScale {
     std::string type = "ai_current_rms";
-    /// @brief units are the units of the current measurement.
-    std::string units = UNITS_AMPS;
     /// @brief shunt_resistor_loc selects where the shunt resistor is located.
     std::string shunt_resistor_loc = SHUNT_RESISTOR_LOCATION_DEFAULT;
     /// @brief ext_shunt_resistor_val is the external shunt resistor value, in Ohms.
@@ -1014,8 +1002,6 @@ struct AIFreqVoltageChannel : public BaseAIChannel,
                               public MinMaxVal,
                               public CustomScale {
     std::string type = "ai_freq_voltage";
-    /// @brief units are the units of the frequency measurement.
-    std::string units = UNITS_HZ;
     /// @brief threshold_level is the voltage level at which a cycle is counted.
     double threshold_level = 0;
     /// @brief hysteresis is the hysteresis applied around the threshold level.
@@ -1107,8 +1093,6 @@ struct AIVoltageRMSChannel : public BaseAIChannel,
                              public Terminal,
                              public CustomScale {
     std::string type = "ai_voltage_rms";
-    /// @brief units are the units of the voltage measurement.
-    std::string units = UNITS_VOLTS;
 
     static AIVoltageRMSChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -1121,8 +1105,6 @@ struct AIVoltageWithExcitChannel : public BaseAIChannel,
                                    public VoltageExcitation,
                                    public CustomScale {
     std::string type = "ai_voltage_with_excit";
-    /// @brief units are the units of the voltage measurement.
-    std::string units = UNITS_VOLTS;
     /// @brief bridge_config selects the physical bridge wiring.
     std::string bridge_config = BRIDGE_CONFIG_FULL_BRIDGE;
     /// @brief use_excit_for_scaling is true when the excitation voltage is used to
@@ -1418,8 +1400,6 @@ CIChannel parse_ci_channel(x::json::Parser parser);
 /// @brief AOCurrentChannel drives a current output.
 struct AOCurrentChannel : public BaseAOChannel, public MinMaxVal, public CustomScale {
     std::string type = "ao_current";
-    /// @brief units are the units of the current output.
-    std::string units = UNITS_AMPS;
 
     static AOCurrentChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -1444,8 +1424,6 @@ struct AOFuncGenChannel : public BaseAOChannel {
 /// @brief AOVoltageChannel drives a voltage output.
 struct AOVoltageChannel : public BaseAOChannel, public MinMaxVal, public CustomScale {
     std::string type = "ao_voltage";
-    /// @brief units are the units of the voltage output.
-    std::string units = UNITS_VOLTS;
 
     static AOVoltageChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
