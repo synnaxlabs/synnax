@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Dialog, Label } from "@synnaxlabs/pluto";
+import { label } from "@synnaxlabs/client";
+import { Access, Dialog, Label } from "@synnaxlabs/pluto";
 
 import { Button } from "@/platform/button";
 import { useEditModal } from "@/platform/label/useEditModal";
@@ -25,6 +26,8 @@ const useAdd = (): (() => void) => {
 
 const CreateButton = () => {
   const onClick = useAdd();
+  const hasCreatePermission = Access.useCreateGranted(label.TYPE_ONTOLOGY_ID);
+  if (!hasCreatePermission) return null;
   return (
     <Button.CreateListItem size="small" onClick={onClick}>
       New label

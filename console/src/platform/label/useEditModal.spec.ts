@@ -16,6 +16,10 @@ import { Label } from "@/platform/label";
 import { openModal } from "@/platform/modals/testutil";
 import { getIconButton, uniqueName } from "@/testutil";
 
+// The add button renders only once the create-permission query resolves.
+const findAddButton = async (): Promise<HTMLButtonElement> =>
+  await waitFor(() => getAddButton());
+
 const getAddButton = (): HTMLButtonElement => {
   const btn = document.querySelector<HTMLButtonElement>(".console-label__create");
   if (btn == null) throw new Error("create button not found");
@@ -43,7 +47,7 @@ describe("Label.useEditModal", () => {
     );
     expect(screen.getByText("Edit")).toBeTruthy();
     expect(getCreateItem().className).toContain("pluto--hidden");
-    fireEvent.click(getAddButton());
+    fireEvent.click(await findAddButton());
     await waitFor(() => {
       const item = getCreateItem();
       expect(item.className).toContain("pluto--visible");
@@ -56,7 +60,7 @@ describe("Label.useEditModal", () => {
     await waitFor(() =>
       expect(screen.getByPlaceholderText("Search labels...")).toBeTruthy(),
     );
-    fireEvent.click(getAddButton());
+    fireEvent.click(await findAddButton());
     await waitFor(() => expect(getCreateItem().className).toContain("pluto--visible"));
     const swatch = document.querySelector<HTMLElement>(".pluto-color-swatch");
     if (swatch == null) throw new Error("color swatch not found");
@@ -84,7 +88,7 @@ describe("Label.useEditModal", () => {
     await waitFor(() =>
       expect(screen.getByPlaceholderText("Search labels...")).toBeTruthy(),
     );
-    fireEvent.click(getAddButton());
+    fireEvent.click(await findAddButton());
     const name = uniqueName("label");
     const nameInput = screen.getByPlaceholderText<HTMLInputElement>("Name");
     fireEvent.change(nameInput, { target: { value: name } });
