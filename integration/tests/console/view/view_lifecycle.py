@@ -49,7 +49,6 @@ class ViewLifecycle(ConsoleCase):
     view_names: list[str]
 
     def setup(self) -> None:
-        super().setup()
         self.suffix = random_name()
         self.label_a_name = f"ViewLabelA_{self.suffix}"
         self.label_b_name = f"ViewLabelB_{self.suffix}"
@@ -60,6 +59,7 @@ class ViewLifecycle(ConsoleCase):
         self.status_b_name = f"ViewStatusB_{self.suffix}"
         self.status_n_name = f"ViewStatusN_{self.suffix}"
         self.view_names = []
+        super().setup()
 
         # The Python client has no label client, so the labels and the labeled
         # resources go through the Console. Unlabeled ones take the fast path.

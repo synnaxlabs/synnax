@@ -453,7 +453,10 @@ All matching is case-insensitive substring.
         type=int,
         default=0,
         metavar="MS",
-        help="Delay each Playwright action by MS milliseconds (sets PLAYWRIGHT_CONSOLE_SLOW_MO environment variable)",
+        help=(
+            "Delay each Playwright action by MS milliseconds "
+            "(sets PLAYWRIGHT_CONSOLE_SLOW_MO environment variable)"
+        ),
     )
     parser.add_argument(
         "--driver",
