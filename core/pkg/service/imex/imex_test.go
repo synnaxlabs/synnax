@@ -27,6 +27,21 @@ type wirePayload struct {
 	Bar  string `json:"bar,omitempty"`
 }
 
+// bodyExported is a resource whose portable body differs from its stored shape.
+type bodyExported struct {
+	Secret string `json:"secret"`
+}
+
+// portableBody is the shape bodyExported serializes as.
+type portableBody struct {
+	Name  string `json:"name"`
+	Shape string `json:"shape"`
+}
+
+func (bodyExported) ExportBody() any {
+	return portableBody{Name: "portable", Shape: "portable"}
+}
+
 var _ = Describe("ImEx", func() {
 	Describe("Envelope", func() {
 		Describe("UnmarshalJSON", func() {
@@ -278,6 +293,18 @@ var _ = Describe("ImEx", func() {
 				})).To(Succeed())
 				Expect(env.Type).To(Equal("map_type"))
 				Expect(env.Name).To(Equal("map_name"))
+			})
+
+			It("Should reduce a BodyExporter through its ExportBody", func() {
+				env := imex.Envelope{Version: 2, Type: "arc"}
+				Expect(imex.Encode(&env, bodyExported{Secret: "hidden"})).
+					To(Succeed())
+				b := MustSucceed(json.Marshal(env))
+				var round map[string]any
+				Expect(json.Unmarshal(b, &round)).To(Succeed())
+				Expect(round).ToNot(HaveKey("secret"))
+				Expect(round["name"]).To(Equal("portable"))
+				Expect(round["shape"]).To(Equal("portable"))
 			})
 
 			It("Should drop a top-level key field from the encoded body", func() {
