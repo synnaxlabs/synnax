@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { label, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { mockBoundingClientRect } from "@synnaxlabs/pluto/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
@@ -14,17 +15,25 @@ import { describe, expect, it } from "vitest";
 
 import { Label } from "@/platform/label";
 import { openModal } from "@/platform/modals/testutil";
-import { getIconButton, uniqueName } from "@/testutil";
+import {
+  createTestClientWithGrants,
+  getBySelector,
+  getIconButton,
+  type Grants,
+  queryIconButton,
+  uniqueName,
+} from "@/testutil";
+
+const client = createTestClient();
 
 // The add button renders only once the create-permission query resolves.
 const findAddButton = async (): Promise<HTMLButtonElement> =>
-  await waitFor(() => getAddButton());
+  await waitFor(() =>
+    getBySelector<HTMLButtonElement>(document.body, ".console-label__create"),
+  );
 
-const getAddButton = (): HTMLButtonElement => {
-  const btn = document.querySelector<HTMLButtonElement>(".console-label__create");
-  if (btn == null) throw new Error("create button not found");
-  return btn;
-};
+const queryAddButton = (): HTMLButtonElement | null =>
+  document.body.querySelector<HTMLButtonElement>(".console-label__create");
 
 const getCreateItem = (): HTMLElement => {
   const item = document.querySelector<HTMLElement>(
@@ -34,9 +43,24 @@ const getCreateItem = (): HTMLElement => {
   return item;
 };
 
-const openEditModal = async () => {
-  const client = createTestClient();
-  return { ...(await openModal(Label.useEditModal, { client })), client };
+const openEditModal = async (as: Client = client) =>
+  await openModal(Label.useEditModal, { client: as });
+
+// Narrows the paginated list down to the one label the test created and returns its
+// row, the only handle on that label's own delete button.
+const findLabelRow = async (name: string): Promise<HTMLElement> => {
+  const search = await screen.findByPlaceholderText("Search labels...");
+  fireEvent.change(search, { target: { value: name } });
+  // The search input carries the term as its own value, so the row must be picked
+  // out of every input displaying the name.
+  return await waitFor(() => {
+    const row = screen
+      .getAllByDisplayValue(name)
+      .map((el) => el.closest<HTMLElement>(".console-label__list-item"))
+      .find((el) => el != null);
+    if (row == null) throw new Error(`no list item for label ${name}`);
+    return row;
+  });
 };
 
 describe("Label.useEditModal", () => {
@@ -84,7 +108,7 @@ describe("Label.useEditModal", () => {
   });
 
   it("should persist a new label to the cluster from the create form", async () => {
-    const { client } = await openEditModal();
+    await openEditModal();
     await waitFor(() =>
       expect(screen.getByPlaceholderText("Search labels...")).toBeTruthy(),
     );
@@ -97,5 +121,33 @@ describe("Label.useEditModal", () => {
       const found = await client.labels.retrieve({ names: [name] });
       expect(found.length).toBe(1);
     });
+  });
+});
+
+describe("Label.useEditModal permissions", () => {
+  const createSubject = async (grants: Grants) =>
+    await createTestClientWithGrants(client, {
+      ...grants,
+      retrieve: [label.TYPE_ONTOLOGY_ID],
+    });
+
+  const createLabel = async () =>
+    await client.labels.create({ name: uniqueName("label"), color: "#0000FF" });
+
+  it("should withhold the delete button from a subject who cannot delete labels", async () => {
+    const { name } = await createLabel();
+    await openEditModal(await createSubject({ create: [label.TYPE_ONTOLOGY_ID] }));
+    // The create grant resolving proves the permission queries have answered, so the
+    // missing delete button is the gate and not a still-pending retrieve.
+    await findAddButton();
+    expect(queryIconButton(await findLabelRow(name), "delete")).toBeNull();
+  });
+
+  it("should offer the delete button to a subject who may delete labels", async () => {
+    const { name } = await createLabel();
+    await openEditModal(await createSubject({ delete: [label.TYPE_ONTOLOGY_ID] }));
+    const row = await findLabelRow(name);
+    await waitFor(() => expect(queryIconButton(row, "delete")).toBeTruthy());
+    expect(queryAddButton()).toBeNull();
   });
 });
