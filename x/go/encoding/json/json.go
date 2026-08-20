@@ -51,7 +51,8 @@ func WithIndent(indent string) Option { return func(c *codec) { c.indent = inden
 // WithoutHTMLEscaping writes <, >, and & literally rather than as \u003c, \u003e, and
 // \u0026, for files a user reads: JSON holding markup or source is unreadable escaped.
 // U+2028 and U+2029 stay escaped, which the standard library does unconditionally.
-// Decoding is unaffected, so output encoded either way reads back the same.
+// Decoding is unaffected, so output encoded either way reads back the same. Encoding
+// runs through a streaming encoder, which terminates its output with a newline.
 //
 // The escape only guards bytes placed into an HTML document without a parse, so drop it
 // only where that cannot happen.
@@ -85,10 +86,6 @@ func (c *codec) Encode(ctx context.Context, value any) ([]byte, error) {
 	var buf bytes.Buffer
 	if err := c.EncodeStream(ctx, &buf, value); err != nil {
 		return nil, err
-	}
-	if c.indent == "" {
-		// json.Encoder always terminates with a newline; compact output carries none.
-		return bytes.TrimSuffix(buf.Bytes(), []byte("\n")), nil
 	}
 	return buf.Bytes(), nil
 }

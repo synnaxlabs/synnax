@@ -92,7 +92,7 @@ var _ = Describe("NewCodec", func() {
 
 		It("Should write <, >, and & literally", func(ctx SpecContext) {
 			b := MustSucceed(plain.Encode(ctx, markup{`<a href="x">1 & 2</a>`}))
-			Expect(string(b)).To(Equal(`{"Value":"<a href=\"x\">1 & 2</a>"}`))
+			Expect(string(b)).To(Equal(`{"Value":"<a href=\"x\">1 & 2</a>"}` + "\n"))
 		})
 
 		It("Should escape them by default", func(ctx SpecContext) {
@@ -100,18 +100,11 @@ var _ = Describe("NewCodec", func() {
 			Expect(string(b)).To(Equal(`{"Value":"\u003c\u0026\u003e"}`))
 		})
 
-		It("Should leave compact output without a trailing newline", func(
-			ctx SpecContext,
-		) {
-			Expect(MustSucceed(plain.Encode(ctx, toEncode{1}))).
-				To(Equal([]byte(`{"Value":1}`)))
-		})
-
 		It("Should still escape the line and paragraph separators", func(
 			ctx SpecContext,
 		) {
 			b := MustSucceed(plain.Encode(ctx, markup{"a\u2028b\u2029c"}))
-			Expect(string(b)).To(Equal(`{"Value":"a\u2028b\u2029c"}`))
+			Expect(string(b)).To(Equal(`{"Value":"a\u2028b\u2029c"}` + "\n"))
 		})
 
 		It("Should decode to the same value as the escaping codec", func(
