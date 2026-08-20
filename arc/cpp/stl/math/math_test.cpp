@@ -114,7 +114,7 @@ private:
         if (with_reset) {
             types::Param reset_output;
             reset_output.name = ir::default_output_param;
-            reset_output.type = types::Type{.kind = types::Kind::U8};
+            reset_output.type = types::Type{.kind = types::Kind::Bool};
 
             ir::Node reset_node;
             reset_node.key = "reset_signal";
@@ -123,7 +123,7 @@ private:
 
             types::Param reset_input;
             reset_input.name = "reset";
-            reset_input.type = types::Type{.kind = types::Kind::U8};
+            reset_input.type = types::Type{.kind = types::Kind::Bool};
             target_node.inputs.push_back(reset_input);
             ir.nodes[1] = target_node;
 
@@ -163,7 +163,8 @@ void write_reset(
     const std::vector<uint8_t> &data,
     const std::vector<int64_t> &timestamps
 ) {
-    reset.output(0) = x::mem::make_local_shared<x::telem::Series>(data);
+    reset.output(0) =
+        x::mem::make_local_shared<x::telem::Series>(data, x::telem::BOOLEAN_T);
     reset.output_time(0) = x::mem::make_local_shared<x::telem::Series>(timestamps);
 }
 }
@@ -684,7 +685,7 @@ TEST(MathMaxTest, SumsAlignmentFromResetSignal) {
     );
 
     auto reset = setup.make_reset_node();
-    auto reset_series = x::telem::Series(static_cast<uint8_t>(0));
+    auto reset_series = x::telem::Series(false);
     reset_series.alignment = x::telem::Alignment(75);
     reset_series.time_range = x::telem::TimeRange(
         x::telem::TimeStamp(25 * sec),

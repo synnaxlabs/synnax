@@ -79,7 +79,7 @@ func makeMathGraphWithReset(nodeType string, dt types.Type) graph.Graph {
 			},
 			{
 				Key:     "reset_signal",
-				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.Bool()}},
 			},
 		},
 	}
@@ -449,7 +449,7 @@ var _ = Describe("Avg", func() {
 		resetNode := s.state.Node("reset_signal")
 		*s.inputNode.Output(0) = telem.NewSeriesV(10.0, 20.0, 30.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
-		*resetNode.Output(0) = telem.NewSeriesV[uint8](0)
+		*resetNode.Output(0) = telem.NewSeriesV[bool](false)
 		*resetNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
 		nextChanged(ctx, s.n)
 		expectOutput[float64](s.state, 20.0)
@@ -457,7 +457,7 @@ var _ = Describe("Avg", func() {
 
 		*s.inputNode.Output(0) = telem.NewSeriesV(100.0, 200.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(4, 5)
-		*resetNode.Output(0) = telem.NewSeriesV[uint8](1)
+		*resetNode.Output(0) = telem.NewSeriesV[bool](true)
 		*resetNode.OutputTime(0) = telem.NewSeriesSecondsTSV(4)
 		nextChanged(ctx, s.n)
 		expectOutput[float64](s.state, 150.0)
@@ -557,7 +557,7 @@ var _ = Describe("Min", func() {
 		resetNode := s.state.Node("reset_signal")
 		*s.inputNode.Output(0) = telem.NewSeriesV[int32](50, 10, 70)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
-		*resetNode.Output(0) = telem.NewSeriesV[uint8](0)
+		*resetNode.Output(0) = telem.NewSeriesV[bool](false)
 		*resetNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
 		nextChanged(ctx, s.n)
 		expectOutput[int32](s.state, 10)
@@ -565,7 +565,7 @@ var _ = Describe("Min", func() {
 
 		*s.inputNode.Output(0) = telem.NewSeriesV[int32](80, 40, 60)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(4, 5, 6)
-		*resetNode.Output(0) = telem.NewSeriesV[uint8](1)
+		*resetNode.Output(0) = telem.NewSeriesV[bool](true)
 		*resetNode.OutputTime(0) = telem.NewSeriesSecondsTSV(4)
 		nextChanged(ctx, s.n)
 		expectOutput[int32](s.state, 40)
@@ -649,7 +649,7 @@ var _ = Describe("Max", func() {
 		resetNode := s.state.Node("reset_signal")
 		*s.inputNode.Output(0) = telem.NewSeriesV(10.0, 50.0, 30.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
-		*resetNode.Output(0) = telem.NewSeriesV[uint8](0)
+		*resetNode.Output(0) = telem.NewSeriesV[bool](false)
 		*resetNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
 		nextChanged(ctx, s.n)
 		expectOutput[float64](s.state, 50.0)
@@ -657,7 +657,7 @@ var _ = Describe("Max", func() {
 
 		*s.inputNode.Output(0) = telem.NewSeriesV(25.0, 15.0, 70.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(4, 5, 6)
-		*resetNode.Output(0) = telem.NewSeriesV[uint8](1)
+		*resetNode.Output(0) = telem.NewSeriesV[bool](true)
 		*resetNode.OutputTime(0) = telem.NewSeriesSecondsTSV(4)
 		nextChanged(ctx, s.n)
 		expectOutput[float64](s.state, 70.0)
@@ -686,7 +686,7 @@ var _ = Describe("Max", func() {
 
 		*s.inputNode.Output(0) = telem.NewSeriesV[int64](10, 20, 30)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
-		*resetNode.Output(0) = telem.NewSeriesV[uint8](0)
+		*resetNode.Output(0) = telem.NewSeriesV[bool](false)
 		*resetNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
 		nextChanged(ctx, s.n)
 		expectOutput[int64](s.state, 20)
@@ -694,7 +694,7 @@ var _ = Describe("Max", func() {
 
 		*s.inputNode.Output(0) = telem.NewSeriesV[int64](40, 50, 60)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(4, 5, 6)
-		*resetNode.Output(0) = telem.NewSeriesV[uint8](1, 0)
+		*resetNode.Output(0) = telem.NewSeriesV[bool](true, false)
 		*resetNode.OutputTime(0) = telem.NewSeriesSecondsTSV(4, 5)
 		nextChanged(ctx, s.n)
 		expectOutput[int64](s.state, 50)
@@ -737,7 +737,7 @@ var _ = Describe("Alignment", func() {
 		*s.inputNode.Output(0) = inputSeries
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(50, 100, 150)
 
-		resetSeries := telem.NewSeriesV[uint8](0)
+		resetSeries := telem.NewSeriesV[bool](false)
 		resetSeries.Alignment = 75
 		resetSeries.TimeRange = telem.TimeRange{
 			Start: 25 * telem.SecondTS,
