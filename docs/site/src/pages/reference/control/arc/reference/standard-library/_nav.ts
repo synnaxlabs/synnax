@@ -30,6 +30,11 @@ export const STANDARD_LIBRARY_NAV: PageNavNode = {
       name: "`ranges`",
     },
     {
+      key: "/reference/control/arc/reference/standard-library/select",
+      href: "/reference/control/arc/reference/standard-library/select",
+      name: "`select`",
+    },
+    {
       key: "/reference/control/arc/reference/standard-library/status",
       href: "/reference/control/arc/reference/standard-library/status",
       name: "`status`",

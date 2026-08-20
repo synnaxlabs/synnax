@@ -3,7 +3,7 @@ layout: "@/layouts/Reference.astro"
 title: "Flow"
 description:
   "Arc flow reference: continuous and conditional flow operators, transitions,
-  expressions in flows, routing tables, the select built-in, and inline case bodies"
+  expressions in flows, routing tables, and inline case bodies"
 prev: "Operators"
 prevURL: "/reference/control/arc/reference/operators"
 next: "Sequences"
@@ -173,31 +173,12 @@ branches the flow: the output that fires decides which entry runs, instead of an
 sensor -> demux{} -> { high: "high" -> log, low: "low" -> log }
 ```
 
-### Select
-
-`select` is the built-in decision point: it takes a boolean input and runs the matching
-entry, `true` or `false`.
-
-```arc channels="flag, press_valve, vent_valve" bodies="shutdown_sequence"
-flag -> select{} -> {
-    true: true -> press_valve,
-    false: true -> vent_valve
-}
-
-// Omitting a branch is valid
-flag -> select{} -> {
-    true: true => shutdown_sequence
-}
-```
-
-A branch only decides that its entry runs. No value flows from `select` into the entry:
-each entry is a full flow statement that defines its own source.
-
 ### Custom Routing
 
-`select` is just a function with two named outputs. Any function with multiple named
-outputs can drive a routing table: declare the branches your logic needs as outputs, set
-the matching one in the function body, and route each output by name.
+[`select`](/reference/control/arc/reference/standard-library/select) is just a function
+with two named outputs. Any function with multiple named outputs can drive a routing
+table: declare the branches your logic needs as outputs, set the matching one in the
+function body, and route each output by name.
 
 ```arc channels="tank_pressure, open_vent" bodies="pressurize, safe_state"
 func decide_stage{low f64, high f64} (value f64) (vent bool, press bool, abort bool) {
@@ -243,7 +224,7 @@ sensor -> demux{} -> {
 An anonymous `stage { ... }` written directly as a case body. Its flows run in parallel
 while the branch is active:
 
-```arc channels="flag, vent_cmd, log"
+```arc channels="flag, vent_cmd, log, pressure" bodies="shutdown"
 flag -> select{} -> {
     true:  stage {
         "venting" -> log,
@@ -312,7 +293,7 @@ is an error.
 An output routing table follows a function invocation and maps each named output to a
 destination:
 
-```arc bodies="high_out, low_out"
+```arc channels="sensor" bodies="high_out, low_out"
 func demux{threshold f64} (value f64) (high f64, low f64) {
     if value > threshold {
         high = value
