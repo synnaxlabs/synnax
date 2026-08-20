@@ -142,7 +142,10 @@ describe("task/Toolbar", () => {
 
   it("withholds the empty message until the task list answers", async () => {
     const t = await createTask();
-    await renderToolbar();
+    // The task cache hangs off the client, so a client an earlier test left holding a
+    // live empty list would answer the toolbar before the fetch. A fresh client is
+    // cold, which is the cold-start state this guard exists for.
+    await renderToolbar(createTestClient());
     expect(screen.queryByText("No tasks")).toBeNull();
     await screen.findByText(t.name);
   });
