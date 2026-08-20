@@ -11,6 +11,7 @@ package gorp_test
 
 import (
 	"context"
+	"strconv"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -461,4 +462,189 @@ var _ = Describe("Table", func() {
 			})
 		})
 	})
+})
+
+// reKeyedEntry is the head shape of a table whose key type changed from the int32 its
+// legacy rows store to a string.
+type reKeyedEntry struct {
+	ID   string
+	Data string
+}
+
+func (r reKeyedEntry) GorpKey() string { return r.ID }
+
+func (reKeyedEntry) SetOptions() []any { return nil }
+
+func (reKeyedEntry) CustomTypeName() string { return "reKeyedEntry" }
+
+// legacyReKeyedEntry is the frozen shape that wrote reKeyedEntry's legacy rows.
+type legacyReKeyedEntry struct {
+	ID   int32
+	Data string
+}
+
+func (l legacyReKeyedEntry) GorpKey() int32 { return l.ID }
+
+func (legacyReKeyedEntry) SetOptions() []any { return nil }
+
+func (legacyReKeyedEntry) CustomTypeName() string { return "reKeyedEntry" }
+
+// renamedEntry is the head shape of a table renamed from oldNameEntry.
+type renamedEntry struct {
+	ID   int32
+	Data string
+}
+
+func (r renamedEntry) GorpKey() int32 { return r.ID }
+
+func (renamedEntry) SetOptions() []any { return nil }
+
+func (renamedEntry) CustomTypeName() string { return "renamedEntry" }
+
+// oldNameEntry is the frozen shape that wrote renamedEntry's legacy rows under its
+// previous type name.
+type oldNameEntry struct {
+	ID   int32
+	Data string
+}
+
+func (o oldNameEntry) GorpKey() int32 { return o.ID }
+
+func (oldNameEntry) SetOptions() []any { return nil }
+
+func (oldNameEntry) CustomTypeName() string { return "oldNameEntry" }
+
+var _ = Describe("NormalizeKeysMigration", func() {
+	var (
+		kvs kv.DB
+		db  *gorp.DB
+	)
+	BeforeEach(func() {
+		kvs = memkv.New()
+		db = gorp.Wrap(kvs, gorp.WithCodec(msgpack.Codec))
+	})
+	AfterEach(func() {
+		Expect(db.Close()).To(Succeed())
+	})
+
+	writeLegacyRow := func(ctx context.Context, typeName string, key, value any) {
+		GinkgoHelper()
+		oldPrefix := MustSucceed(msgpack.Codec.Encode(ctx, typeName))
+		encodedKey := MustSucceed(msgpack.Codec.Encode(ctx, key))
+		fullKey := make([]byte, 0, len(oldPrefix)+len(encodedKey))
+		fullKey = append(fullKey, oldPrefix...)
+		fullKey = append(fullKey, encodedKey...)
+		encodedValue := MustSucceed(msgpack.Codec.Encode(ctx, value))
+		Expect(kvs.Set(ctx, fullKey, encodedValue)).To(Succeed())
+	}
+
+	It(
+		"Should fail loudly when the head type cannot decode a legacy row",
+		func(ctx SpecContext) {
+			writeLegacyRow(
+				ctx,
+				"reKeyedEntry",
+				int32(7),
+				legacyReKeyedEntry{ID: 7, Data: "old"},
+			)
+			Expect(gorp.OpenTable(
+				ctx, gorp.TableConfig[string, reKeyedEntry]{DB: db},
+			)).Error().To(MatchError(
+				ContainSubstring("normalize_keys: failed to decode entry"),
+			))
+		},
+	)
+
+	It(
+		"Should normalize legacy rows with the frozen shape via the override",
+		func(ctx SpecContext) {
+			writeLegacyRow(
+				ctx,
+				"reKeyedEntry",
+				int32(7),
+				legacyReKeyedEntry{ID: 7, Data: "old"},
+			)
+			lift := gorp.NewMigration(
+				"lift_re_keyed",
+				func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+					iter, err := gorp.WrapReader[int32, legacyReKeyedEntry](tx).
+						OpenIterator(gorp.IterOptions{})
+					if err != nil {
+						return err
+					}
+					var lifted []legacyReKeyedEntry
+					for iter.First(); iter.Valid(); iter.Next() {
+						lifted = append(lifted, *iter.Value(ctx))
+					}
+					if err := iter.Close(); err != nil {
+						return err
+					}
+					for _, l := range lifted {
+						if err := gorp.WrapWriter[int32, legacyReKeyedEntry](tx).
+							Delete(ctx, l.ID); err != nil {
+							return err
+						}
+						if err := gorp.WrapWriter[string, reKeyedEntry](tx).Set(
+							ctx,
+							reKeyedEntry{ID: strconv.Itoa(int(l.ID)), Data: l.Data},
+						); err != nil {
+							return err
+						}
+					}
+					return nil
+				},
+			)
+			table := MustSucceed(gorp.OpenTable(
+				ctx,
+				gorp.TableConfig[string, reKeyedEntry]{
+					DB: db,
+					NormalizeKeys: gorp.NormalizeKeysMigration[
+						int32, legacyReKeyedEntry,
+					](gorp.NormalizeKeysMigrationKey),
+					Migrations: []migrate.Migration{lift},
+				},
+			))
+			defer func() { Expect(table.Close()).To(Succeed()) }()
+			var res reKeyedEntry
+			Expect(table.NewRetrieve().
+				Where(gorp.MatchKeys[string, reKeyedEntry]("7")).
+				Entry(&res).Exec(ctx, db)).To(Succeed())
+			Expect(res.Data).To(Equal("old"))
+		},
+	)
+
+	It(
+		"Should normalize rows of a renamed type as a chain step",
+		func(ctx SpecContext) {
+			writeLegacyRow(
+				ctx,
+				"oldNameEntry",
+				int32(3),
+				oldNameEntry{ID: 3, Data: "renamed"},
+			)
+			table := MustSucceed(gorp.OpenTable(
+				ctx,
+				gorp.TableConfig[int32, renamedEntry]{
+					DB: db,
+					Migrations: []migrate.Migration{
+						gorp.NormalizeKeysMigration[int32, oldNameEntry](
+							"normalize_old_name_entry_keys",
+						),
+						gorp.NewEntryMigration(
+							"lift_old_name_entries",
+							func(_ context.Context, o oldNameEntry) (renamedEntry, error) {
+								return renamedEntry(o), nil
+							},
+						),
+					},
+				},
+			))
+			defer func() { Expect(table.Close()).To(Succeed()) }()
+			var res renamedEntry
+			Expect(table.NewRetrieve().
+				Where(gorp.MatchKeys[int32, renamedEntry](3)).
+				Entry(&res).Exec(ctx, db)).To(Succeed())
+			Expect(res.Data).To(Equal("renamed"))
+		},
+	)
 })
