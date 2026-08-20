@@ -78,8 +78,6 @@ export const Numeric = ({
   const [isValueValid, setIsValueValid, isValueValidRef] =
     useCombinedStateAndRef<boolean>(true);
   const valueRef = useSyncedRef(value);
-  // Bounds can move while the input is focused, so the commit paths read them from a
-  // ref instead of a closure.
   const boundsRef = useSyncedRef(propsBounds);
 
   const updateActualValue = useCallback(() => {

@@ -228,8 +228,6 @@ export class Draw2D {
     location,
   }: Draw2DBorderProps): void {
     const ctx = this.canvas;
-    // The canvas path is shared by every element drawn on it, so a stroke that does not
-    // start its own path also re-strokes whatever the previous element left behind.
     ctx.beginPath();
     ctx.strokeStyle = color.hex(this.resolveColor(colorVal, this.theme.colors.border));
     ctx.lineWidth = width ?? ctx.hairlineWidth;
