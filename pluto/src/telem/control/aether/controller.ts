@@ -108,6 +108,9 @@ export class Controller
   private readonly openWriter: OpenWriter;
   private writer?: framer.Writer;
   private acquirePromise?: Promise<void>;
+  /** Set while an acquisition the user asked for is in flight. The disabled bar does
+   * not apply to it: taking control is what clears the bar. */
+  private acquireExplicit = false;
 
   constructor(
     props: aether.ComponentConstructorProps,
@@ -158,6 +161,7 @@ export class Controller
   }
 
   acquire(): void {
+    this.acquireExplicit = true;
     this.internal.runAsync(() => this.doAcquire(), "failed to acquire control");
   }
 
@@ -172,6 +176,7 @@ export class Controller
       await this.acquirePromise;
     } finally {
       this.acquirePromise = undefined;
+      this.acquireExplicit = false;
     }
   }
 
@@ -198,6 +203,9 @@ export class Controller
         authorities: this.state.authority,
         autoIndex: true,
       });
+      // disabled can turn on while the writer opens. afterUpdate cannot catch that,
+      // because the status is not acquired yet.
+      if (!this.acquireExplicit && this.state.disabled) return await this.doRelease();
       this.setState((p) => ({ ...p, status: "acquired" }));
     } catch (err) {
       this.setState((p) => ({ ...p, status: "failed" }));

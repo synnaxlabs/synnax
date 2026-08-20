@@ -172,6 +172,28 @@ const interceptWrites = (
   return { openWriter, openCount: () => opens, writeCount: () => writes };
 };
 
+/**
+ * A writer factory whose open blocks until `finishOpen` is called, counting the writes
+ * that reach the Core. Lets a test change state while an acquisition is in flight.
+ */
+const gateWriter = () => {
+  let finishOpen!: () => void;
+  const gate = new Promise<void>((resolve) => (finishOpen = resolve));
+  let writes = 0;
+  const openWriter: OpenWriter = async (client, config) => {
+    await gate;
+    const w = await client.openWriter(config);
+    const write = w.write.bind(w);
+    return Object.assign(Object.create(w) as framer.Writer, {
+      write: async (...args: Parameters<typeof write>) => {
+        writes += 1;
+        return await write(...args);
+      },
+    });
+  };
+  return { openWriter, finishOpen: () => finishOpen(), writeCount: () => writes };
+};
+
 /** Binds every Controller the harness mounts to `openWriter`. */
 const registryWith = (openWriter: OpenWriter): aether.ComponentRegistry => ({
   [Controller.TYPE]: class extends Controller {
@@ -324,6 +346,34 @@ describe("control/aether/Controller", SUITE, () => {
     await controller.set({ [ch.key]: [1] });
     expect(openCount()).toEqual(0);
     expect(controller.state.status).not.toEqual("acquired");
+  });
+
+  it("should stand down when a write's writer opens after it was disabled", async () => {
+    const ch = await createIndexed();
+    const { openWriter, finishOpen, writeCount } = gateWriter();
+    const { controller, setState } = await setup(ch.key, openWriter);
+    controller.create(setChannelValue({ channel: ch.key }));
+    await expect.poll(() => controller.state.needsControlOf, POLL).toContain(ch.key);
+    const write = controller.set({ [ch.key]: [1] });
+    setState({ disabled: true });
+    finishOpen();
+    await write;
+    expect(writeCount()).toEqual(0);
+    expect(controller.state.status).toEqual("released");
+  });
+
+  it("should keep a writer the user asks for while a write is acquiring", async () => {
+    const ch = await createIndexed();
+    const { openWriter, finishOpen } = gateWriter();
+    const { controller, setState } = await setup(ch.key, openWriter);
+    controller.create(setChannelValue({ channel: ch.key }));
+    await expect.poll(() => controller.state.needsControlOf, POLL).toContain(ch.key);
+    const write = controller.set({ [ch.key]: [1] });
+    setState({ disabled: true });
+    controller.acquire();
+    finishOpen();
+    await write;
+    await expect.poll(() => controller.state.status, POLL).toEqual("acquired");
   });
 
   it("should keep control while it is not disabled", async () => {
