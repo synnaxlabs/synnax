@@ -441,7 +441,7 @@ TEST(ChannelsTest, ParseAIStrainGaugeChan) {
         {"voltage_excit_source", "Internal"},
         {"voltage_excit_val", 0},
         {"custom_scale", {{"type", "none"}}},
-        {"strain_config", "full-bridge-I"},
+        {"strain_config", "HalfBridgeII"},
         {"gage_factor", 0},
         {"initial_bridge_voltage", 0},
         {"nominal_gage_resistance", 0},
@@ -461,7 +461,7 @@ TEST(ChannelsTest, ParseAIStrainGaugeChan) {
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["physicalChannel"], "cDAQ1Mod2/ai0");
-    EXPECT_EQ(call["args"]["strainConfig"], DAQmx_Val_FullBridgeI);
+    EXPECT_EQ(call["args"]["strainConfig"], DAQmx_Val_HalfBridgeII);
     EXPECT_EQ(call["args"]["minVal"], 0);
     EXPECT_EQ(call["args"]["maxVal"], 1);
     EXPECT_EQ(call["args"]["gageFactor"], 0);
