@@ -130,4 +130,12 @@ export default manifest.define([
     id: "control/arc/get-started/create-automation",
     script: "scripts/arc-create-automation.ts",
   },
+  {
+    id: "device-drivers/task/command-palette",
+    script: "scripts/task-command-palette.ts",
+  },
+  {
+    id: "device-drivers/task/layout-selector",
+    script: "scripts/task-layout-selector.ts",
+  },
 ]);
