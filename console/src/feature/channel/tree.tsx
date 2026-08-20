@@ -183,7 +183,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         </Menu.Item>
       )}
       <Menu.Divider />
-      {singleResource && hasUpdatePermission && (
+      {singleResource && hasUpdatePermission && allowRename(first) && (
         <ContextMenu.RenameItem onClick={handleRename} />
       )}
       {hasUpdatePermission && (
@@ -200,7 +200,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         (singleResource || showDeleteAlias) &&
         (hasAliasCreatePermission || hasAliasDeletePermission) && (
           <>
-            {singleResource && hasAliasCreatePermission && (
+            {singleResource && hasAliasCreatePermission && allowRename(first) && (
               <Menu.Item itemKey="alias" onClick={handleSetAlias}>
                 <Icon.Rename />
                 Set alias under {activeRange.name}

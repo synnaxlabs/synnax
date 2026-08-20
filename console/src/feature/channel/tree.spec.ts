@@ -219,6 +219,29 @@ describe("channel/ontology", () => {
       });
     });
 
+    it("renames the real channel name while an alias is shown", async () => {
+      const ch = await createChannel();
+      const root = await createChannelGroup(ch);
+      const rng = await createTestRange(client);
+      const { store } = await renderChannelTree(root);
+      store.dispatch(Session.Range.add(Session.Range.fromClient(rng.payload)));
+      const alias = uniqueName("alias");
+      await client.ranges.setAlias(rng.key, ch.key, alias);
+      await screen.findByText(alias);
+      await openTreeRowContextMenu(alias);
+      fireEvent.click(await screen.findByText("Rename"));
+      // The row shows the alias, but the edit targets the channel's real name.
+      const editor = await awaitTextEditingElement();
+      expect(editor.innerText).toBe(ch.name);
+      const renamed = uniqueName("renamed");
+      commitTextEdit(editor, renamed);
+      await waitFor(async () =>
+        expect((await client.channels.retrieve(ch.key)).name).toBe(renamed),
+      );
+      // The alias comes back once the edit closes.
+      expect(await screen.findByText(alias)).toBeTruthy();
+    });
+
     it("sets and removes an alias under the active range", async () => {
       const ch = await createChannel();
       const root = await createChannelGroup(ch);

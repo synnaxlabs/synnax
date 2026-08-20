@@ -22,6 +22,7 @@ import {
 import { type NumericTimeRange } from "@synnaxlabs/x";
 import { memo, type MouseEvent, useMemo } from "react";
 
+import { useRename } from "@/feature/range/useRename";
 import { CSS } from "@/platform/css";
 import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
@@ -54,6 +55,7 @@ const Base = ({
     };
   }, [item]);
   const canEdit = Access.useUpdateGranted(ranger.ontologyID(itemKey));
+  const { update: rename } = useRename();
   const { form } = Ranger.useForm({
     query: null,
     initialValues,
@@ -108,6 +110,8 @@ const Base = ({
               parent={parent}
               showParent={showParent}
               overflow="nowrap"
+              nameID={List.itemNameID(itemKey)}
+              onRename={canEdit ? (name) => rename({ key: itemKey, name }) : undefined}
             />
           </Flex.Box>
         </Flex.Box>

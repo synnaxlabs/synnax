@@ -53,6 +53,14 @@ const START_EDITING_EVENT_NAME = "start-editing";
 const findEditable = (id: string): Element | undefined =>
   Array.from(document.getElementsByClassName(BASE_CLASS)).find((el) => el.id === id);
 
+/** Options for {@link asyncEdit}. */
+export interface AsyncEditOptions {
+  /** Replaces the displayed text for the duration of the edit. Use it when the field
+   * shows a derived value (e.g. an alias) but the edit targets the underlying one.
+   * Escape restores the displayed text. */
+  initialValue?: string;
+}
+
 /**
  * Starts editing the {@link Editable} carrying the given id, retrying for a second
  * while it mounts. Use it to rename a resource the same gesture just created.
@@ -60,7 +68,10 @@ const findEditable = (id: string): Element | undefined =>
  * @returns the final text and whether the user committed it. A rejected promise means
  * no such element appeared.
  */
-export const asyncEdit = (id: string): Promise<[string, boolean]> =>
+export const asyncEdit = (
+  id: string,
+  options?: AsyncEditOptions,
+): Promise<[string, boolean]> =>
   new Promise((resolve, reject) => {
     let currRetry = 0;
     const tryEdit = (): void => {
@@ -73,19 +84,25 @@ export const asyncEdit = (id: string): Promise<[string, boolean]> =>
       }
       el.dispatchEvent(new Event(START_EDITING_EVENT_NAME));
       el.setAttribute("contenteditable", "true");
-      el.addEventListener(RENAMED_EVENT_NAME, (e) =>
-        resolve([getInnerText(e.target as HTMLElement), true]),
-      );
-      el.addEventListener(ESCAPED_EVENT_NAME, (e) =>
-        resolve([getInnerText(e.target as HTMLElement), false]),
-      );
+      const { initialValue } = options ?? {};
+      if (initialValue != null) (el as HTMLElement).innerText = initialValue;
+      const handleRenamed = (e: Event): void => {
+        el.removeEventListener(ESCAPED_EVENT_NAME, handleEscaped);
+        resolve([getInnerText(e.target as HTMLElement), true]);
+      };
+      const handleEscaped = (e: Event): void => {
+        el.removeEventListener(RENAMED_EVENT_NAME, handleRenamed);
+        resolve([getInnerText(e.target as HTMLElement), false]);
+      };
+      el.addEventListener(RENAMED_EVENT_NAME, handleRenamed, { once: true });
+      el.addEventListener(ESCAPED_EVENT_NAME, handleEscaped, { once: true });
     };
     tryEdit();
   });
 
 /** Starts editing the {@link Editable} carrying the given id, discarding the result. */
-export const edit = (id: string): void => {
-  asyncEdit(id).catch(console.error);
+export const edit = (id: string, options?: AsyncEditOptions): void => {
+  asyncEdit(id, options).catch(console.error);
 };
 
 const getInnerText = (el: HTMLElement): string => el.innerText.trim();
@@ -155,8 +172,12 @@ export const Editable = ({
     if (
       optimisticValueRef.current === innerText &&
       (innerText.length > 0 || allowEmpty)
-    )
+    ) {
+      // An unchanged commit is a cancel: without the event, an awaiting asyncEdit
+      // caller would hang forever.
+      el.dispatchEvent(new Event(ESCAPED_EVENT_NAME));
       return;
+    }
     if (forceEscape || (innerText.length === 0 && !allowEmpty)) {
       el.innerText = value;
       el.dispatchEvent(new Event(ESCAPED_EVENT_NAME));

@@ -11,6 +11,7 @@ import "@/feature/arc/list/List.css";
 
 import { type arc } from "@synnaxlabs/client";
 import {
+  Arc as PArc,
   Flex,
   type Flux,
   Icon,
@@ -47,7 +48,7 @@ export const List = ({
   const [value, setValue] = useState<arc.Key[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const menuProps = Menu.useContextMenu();
-  const { update: handleRename } = Arc.useRename(getItem);
+  const { update: handleRename } = PArc.useRename();
 
   const contextMenu = useCallback<NonNullable<Menu.ContextMenuProps["menu"]>>(
     (props) => (

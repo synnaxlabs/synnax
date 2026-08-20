@@ -257,7 +257,9 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
       [getItem, confirm],
     ),
   });
-  const canRename = filteredViews.length === 1;
+  const canRename =
+    Access.useUpdateGranted(view.ontologyID(filteredViews.map(({ key }) => key))) &&
+    filteredViews.length === 1;
   const canDelete = filteredViews.length > 0;
   return (
     <PlatformContextMenu.Menu>
@@ -282,6 +284,7 @@ const contextMenu = Component.renderProp(ContextMenu);
 const Item = ({ itemKey }: List.ItemProps<view.Key>): ReactElement | null => {
   const item = List.useItem<view.Key, View>(itemKey);
   const { update: rename } = PView.useRename();
+  const canRename = Access.useUpdateGranted(view.ontologyID(itemKey));
   const handleRename = useCallback(
     (name: string) => rename({ key: itemKey, name }),
     [itemKey, rename],
@@ -296,7 +299,7 @@ const Item = ({ itemKey }: List.ItemProps<view.Key>): ReactElement | null => {
           value={name}
           allowDoubleClick={false}
           color={9}
-          onChange={handleRename}
+          onChange={canRename && item.static !== true ? handleRename : undefined}
           className={CSS.BE("view", "view-item")}
         />
       </Select.Button>

@@ -77,10 +77,8 @@ export interface ChangeKeyPayload {
   newKey: string;
 }
 
-const checkName = (state: SliceState, name: string, key?: string) => {
-  if (Object.values(state.clusters).some((c) => c.name === name && c.key !== key))
-    throw new Error(`A cluster with the name ${name} already exists.`);
-};
+const nameTaken = (state: SliceState, name: string, key: string): boolean =>
+  Object.values(state.clusters).some((c) => c.name === name && c.key !== key);
 
 /**
  *  Purges any duplicate clusters with the exact same host, port, secure, username, and
@@ -121,9 +119,12 @@ const { actions, reducer } = createSlice({
     clearSelected: (state) => {
       state.selected = undefined;
     },
+    // Duplicate names are user input, so the reducer drops them instead of throwing;
+    // the list surfaces the error before dispatching.
     rename: (state, { payload: { key, name } }: PayloadAction<RenamePayload>) => {
-      checkName(state, name);
-      state.clusters[key].name = name;
+      const cluster = state.clusters[key];
+      if (cluster == null || nameTaken(state, name, key)) return;
+      cluster.name = name;
     },
     changeKey: (
       state,

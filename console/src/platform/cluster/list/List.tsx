@@ -23,7 +23,7 @@ import {
 import { type ReactElement, useCallback, useMemo, useState } from "react";
 
 import { Button } from "@/platform/button";
-import { Item } from "@/platform/cluster/list/Item";
+import { Item, nameID } from "@/platform/cluster/list/Item";
 import { useConnectModal } from "@/platform/cluster/useConnectModal";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
@@ -46,9 +46,8 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
   const handleError = Status.useErrorHandler();
 
   const validateName = useCallback(
-    (name: string): boolean => {
-      const allNames = allClusters.map((c) => c.name);
-      if (!allNames.includes(name)) return true;
+    (key: string, name: string): boolean => {
+      if (!allClusters.some((c) => c.name === name && c.key !== key)) return true;
       addStatus({
         variant: "error",
         message: `Failed to rename Core to ${name}`,
@@ -67,7 +66,7 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
     dispatch(Session.Cluster.remove(key));
   };
 
-  const handleRename = (key: string): void => Text.edit(`cluster-dropdown-${key}`);
+  const handleRename = (key: string): void => Text.edit(nameID(key));
 
   const handleLink = Link.useCopyToClipboard();
 

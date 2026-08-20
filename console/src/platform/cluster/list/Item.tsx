@@ -16,8 +16,11 @@ import { memo, type ReactElement } from "react";
 import { CSS } from "@/platform/css";
 import { Session } from "@/session";
 
+/** DOM id of a row's editable name, so {@link Text.edit} can target it. */
+export const nameID = (key: string): string => `cluster-${key}`;
+
 interface ListItemProps extends List.ItemProps<string> {
-  validateName: (name: string) => boolean;
+  validateName: (key: string, name: string) => boolean;
   item: Session.Cluster.Cluster;
   loading: boolean;
 }
@@ -40,7 +43,13 @@ const Base = ({
   const dispatch = Session.useDispatch();
   const { selected, onSelect } = Select.useItemState(rest.itemKey);
   const handleChange = (value: string) => {
-    if (!validateName(value) || item == null) return;
+    if (item == null) return;
+    if (!validateName(item.key, value)) {
+      // The editable already committed the rejected text; put the old name back.
+      const el = document.getElementById(nameID(item.key));
+      if (el != null) el.innerText = item.name;
+      return;
+    }
     dispatch(Session.Cluster.rename({ key: item.key, name: value }));
   };
   const status = Synnax.useCheckConnection({
@@ -66,7 +75,7 @@ const Base = ({
     >
       <Flex.Box y>
         <Text.MaybeEditable
-          id={`cluster-dropdown-${item.key}`}
+          id={nameID(item.key)}
           weight={500}
           value={item.name}
           onChange={handleChange}

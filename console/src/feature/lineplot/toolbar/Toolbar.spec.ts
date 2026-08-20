@@ -68,6 +68,8 @@ describe("lineplot/toolbar/Toolbar", () => {
     const newName = uniqueName("renamed");
     const input = await waitFor(() => screen.getByDisplayValue(name));
     fireEvent.change(input, { target: { value: newName } });
+    // The title commits on blur, so a keystroke alone must not reach the server.
+    fireEvent.blur(input);
     expect(await screen.findByText(newName)).toBeDefined();
     await waitFor(async () => {
       const remote = await client.lineplots.retrieve(key);

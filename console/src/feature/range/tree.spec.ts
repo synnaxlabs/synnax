@@ -9,15 +9,24 @@
 
 import { group, ontology, ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { fireEvent, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Range } from "@/feature/range";
 import { createTestRange } from "@/platform/range/testutil";
 import { createResource } from "@/platform/tree/testutil";
-import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
+import {
+  findTreeRow,
+  openTreeRowContextMenu,
+  renderOntologyTree,
+} from "@/platform/tree/treeTestutil";
 import { Session } from "@/session";
-import { resolveFocusedTab, uniqueName } from "@/testutil";
+import {
+  awaitTextEditingElement,
+  commitTextEdit,
+  resolveFocusedTab,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -49,6 +58,39 @@ describe("range/ontology", () => {
       const tab = await resolveFocusedTab(store, client);
       if (tab.variant !== "resource") throw new Error("expected a resource tab");
       expect(tab.resource.key).toBe(rng.key);
+    });
+  });
+
+  describe("context menu", () => {
+    it("renames the range in place and syncs the favorited copy", async () => {
+      const rng = await createTestRange(client);
+      const grp = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: uniqueName("rnggrp"),
+      });
+      await client.ontology.addChildren(
+        group.ontologyID(grp.key),
+        ranger.ontologyID(rng.key),
+      );
+      const { store } = await renderOntologyTree({
+        client,
+        root: group.ontologyID(grp.key),
+        items: Range.TREE_ITEMS,
+      });
+      store.dispatch(Session.Range.add(Session.Range.fromClient(rng.payload)));
+      await openTreeRowContextMenu(rng.name);
+      fireEvent.click(await screen.findByText("Rename"));
+      const editor = await awaitTextEditingElement();
+      const renamed = uniqueName("renamed");
+      commitTextEdit(editor, renamed);
+      await waitFor(async () =>
+        expect((await client.ranges.retrieve(rng.key)).name).toBe(renamed),
+      );
+      await waitFor(() =>
+        expect(Session.Range.selectState(store.getState(), rng.key)?.name).toBe(
+          renamed,
+        ),
+      );
     });
   });
 

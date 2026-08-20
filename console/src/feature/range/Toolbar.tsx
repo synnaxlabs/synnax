@@ -14,7 +14,6 @@ import {
   Access,
   Component,
   Flex,
-  type Flux,
   Haul,
   Icon,
   List as BaseList,
@@ -26,10 +25,11 @@ import {
   Text,
   Tooltip,
 } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { ContextMenu } from "@/feature/range/ContextMenu";
 import { Explorer } from "@/feature/range/explorer";
+import { useRename } from "@/feature/range/useRename";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { type Nav } from "@/platform/nav";
@@ -92,26 +92,6 @@ const List = (): ReactElement => {
       </BaseList.Items>
     </Select.Frame>
   );
-};
-
-export const useRename = () => {
-  const getRangeState = Session.Range.useGetState();
-  const dispatch = Session.useDispatch();
-  return Ranger.useRename({
-    beforeUpdate: useCallback(
-      async ({ data, rollbacks }: Flux.BeforeUpdateParams<Ranger.RenameParams>) => {
-        const { key, name } = data;
-        const rng = getRangeState(key);
-        if (rng == null) return data;
-        const oldName = rng.name;
-        if (!rng.persisted) return false;
-        dispatch(Session.Range.rename({ key, name }));
-        rollbacks.push(() => dispatch(Session.Range.rename({ key, name: oldName })));
-        return data;
-      },
-      [getRangeState],
-    ),
-  });
 };
 
 const listItem = Component.renderProp((props: BaseList.ItemProps<string>) => {
