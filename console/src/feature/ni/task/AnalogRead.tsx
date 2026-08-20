@@ -29,6 +29,7 @@ import {
   ANALOG_READ_TYPE,
   analogReadConfigZ,
   type AnalogReadSchemas,
+  channelPort,
   createAIChannel,
   deployAnalogReadConfigZ,
 } from "@/feature/ni/task/types";
@@ -63,7 +64,7 @@ const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
   return (
     <Task.Views.ListAndDetailsChannelItem
       {...rest}
-      port={"port" in value ? value.port : ""}
+      port={channelPort(value) ?? ""}
       canTare={canTare}
       onTare={onTare}
       path={path}

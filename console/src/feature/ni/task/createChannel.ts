@@ -13,6 +13,7 @@ import {
   type AIChannel,
   type AnalogChannel,
   type AOChannel,
+  channelPort,
   type CIChannel,
   createAIChannel,
   createAOChannel,
@@ -63,8 +64,8 @@ const nextPort = <C extends AnalogChannel>(
   channels: C[],
   template: C,
 ): { port?: number } => {
-  if (!("port" in template)) return {};
-  const existing = new Set(channels.flatMap((c) => ("port" in c ? [c.port] : [])));
+  if (channelPort(template) == null) return {};
+  const existing = new Set(channels.map(channelPort).filter((p) => p != null));
   let port = 0;
   while (existing.has(port)) port++;
   return { port };

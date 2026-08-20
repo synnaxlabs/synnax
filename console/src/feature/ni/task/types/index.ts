@@ -243,6 +243,13 @@ export const AO_CHANNEL_TYPE_ICONS: Record<AOChannelType, Icon.FC> = {
 
 export type AnalogChannel = AIChannel | AOChannel;
 
+/**
+ * Returns the port an analog channel reads or drives, or null when its type has none.
+ * The built-in temperature sensor is not wired to a port.
+ */
+export const channelPort = (channel: AnalogChannel): number | null =>
+  "port" in channel ? channel.port : null;
+
 export type DIChannel = ni.DIChannel;
 export const createDIChannel = (): DIChannel =>
   ni.diChannelZ.parse({ type: "digital_input" });
