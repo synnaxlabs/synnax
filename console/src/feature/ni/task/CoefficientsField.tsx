@@ -10,9 +10,6 @@
 import { Form, Input } from "@synnaxlabs/pluto";
 import { type ReactElement, useMemo } from "react";
 
-// The row gutter names each coefficient, so the lone column needs no heading.
-const COLUMNS: Input.TableColumn[] = [{}];
-
 export interface CoefficientsFieldProps {
   path: string;
   label: string;
@@ -38,12 +35,13 @@ export const CoefficientsField = ({
       padHelpText
     >
       <Input.Table
-        columns={COLUMNS}
         value={rows}
-        onChange={(next) => onChange(next.map(([coeff]) => coeff))}
+        onChange={(next) => onChange(next.map(([coeff]) => Number(coeff)))}
         rowLabel={(index) => `c${index}`}
         preview={preview}
-      />
+      >
+        <Input.TableColumn />
+      </Input.Table>
     </Input.Item>
   );
 };

@@ -16,12 +16,10 @@ import { FS } from "@/platform/fs";
 
 const tableSchema = z.record(z.string(), z.array(z.unknown()));
 
-const COLUMNS = [{ name: "Pre-scaled" }, { name: "Scaled" }];
-
 /** Keeps the appended row's pre-scaled value above the one before it. */
-const createRow = (rows: number[][]): number[] => {
+const createRow = (rows: Input.TableCell[][]): Input.TableCell[] => {
   const last = rows.at(-1);
-  return [last == null ? 0 : last[0] + 1, 0];
+  return [last == null ? 0 : Number(last[0]) + 1, 0];
 };
 
 /**
@@ -115,9 +113,9 @@ export const TableScaleForm = ({ prefix }: TableScaleFormProps): ReactElement =>
     applyColumns(table, rawCol, value);
   };
 
-  const handleRowsChange = (next: number[][]) => {
-    preScaled.onChange(next.map(([raw]) => raw));
-    scaled.onChange(next.map(([, value]) => value));
+  const handleRowsChange = (next: Input.TableCell[][]) => {
+    preScaled.onChange(next.map(([raw]) => Number(raw)));
+    scaled.onChange(next.map(([, value]) => Number(value)));
   };
 
   const { preview } = preScaled;
@@ -169,12 +167,14 @@ export const TableScaleForm = ({ prefix }: TableScaleFormProps): ReactElement =>
         status={mismatch != null ? "error" : status.variant}
       >
         <Input.Table
-          columns={COLUMNS}
           value={rows}
           onChange={handleRowsChange}
           createRow={createRow}
           preview={preview}
-        />
+        >
+          <Input.TableColumn name="Pre-scaled" />
+          <Input.TableColumn name="Scaled" />
+        </Input.Table>
       </Input.Item>
     </>
   );
