@@ -223,7 +223,9 @@ var _ = Describe("Hover", func() {
 
 			Expect(hover).ToNot(BeNil())
 			Expect(HoverContents(hover)).To(ContainSubstring("#### select"))
-			Expect(HoverContents(hover)).To(ContainSubstring("Routes a boolean input"))
+			Expect(HoverContents(hover)).To(
+				ContainSubstring("Triggers the 'true' or 'false' routing entry"),
+			)
 		})
 
 		It("should provide hover for 'stable.for' function", func(ctx SpecContext) {

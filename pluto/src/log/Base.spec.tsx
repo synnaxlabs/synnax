@@ -85,6 +85,13 @@ const getLogDiv = (container: HTMLElement): HTMLElement => {
 const getAetherInitialState = (): Record<string, unknown> =>
   mockAetherUse.mock.calls[0][0].initialState;
 
+// Simulates a worker-pushed state change, which reaches the main thread through
+// onAetherChange alone — local setState never fires it.
+const pushAetherState = (overrides: Record<string, unknown>): void => {
+  const { calls } = mockAetherUse.mock;
+  calls[calls.length - 1][0].onAetherChange({ ...DEFAULT_STATE, ...overrides });
+};
+
 describe("log/Base", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -206,6 +213,30 @@ describe("log/Base", () => {
       fireEvent.keyDown(document.body, { code: "KeyH" });
       fireEvent.keyUp(document.body, { code: "KeyH" });
       expect(onHold).toHaveBeenCalledWith(true);
+    });
+
+    it("should call onHold when the worker resumes on its own", () => {
+      setupAether({ empty: false, scrolling: true });
+      const onHold = vi.fn();
+      renderLog({ hold: true, onHold });
+      pushAetherState({ scrolling: false });
+      expect(onHold).toHaveBeenCalledExactlyOnceWith(false);
+    });
+
+    it("should not call onHold when the worker echoes the current hold state", () => {
+      setupAether({ empty: false, scrolling: true });
+      const onHold = vi.fn();
+      renderLog({ hold: true, onHold });
+      pushAetherState({ scrolling: true });
+      expect(onHold).not.toHaveBeenCalled();
+    });
+
+    it("should not call onHold on a worker push when hold is uncontrolled", () => {
+      setupAether({ empty: false, scrolling: true });
+      const onHold = vi.fn();
+      renderLog({ onHold });
+      pushAetherState({ scrolling: false });
+      expect(onHold).not.toHaveBeenCalled();
     });
 
     it("should not call onHold on the H trigger when enableTriggers returns false", () => {
