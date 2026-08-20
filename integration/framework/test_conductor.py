@@ -449,6 +449,13 @@ All matching is case-insensitive substring.
         help="Run Playwright Console tests in headed mode (sets PLAYWRIGHT_CONSOLE_HEADED environment variable)",
     )
     parser.add_argument(
+        "--slow-mo",
+        type=int,
+        default=0,
+        metavar="MS",
+        help="Delay each Playwright action by MS milliseconds (sets PLAYWRIGHT_CONSOLE_SLOW_MO environment variable)",
+    )
+    parser.add_argument(
         "--driver",
         "-d",
         help="Driver rack name to use for driver tests (sets SYNNAX_DRIVER_RACK environment variable)",
@@ -457,6 +464,7 @@ All matching is case-insensitive substring.
     args = parser.parse_args()
 
     os.environ["PLAYWRIGHT_CONSOLE_HEADED"] = "1" if args.headed else "0"
+    os.environ["PLAYWRIGHT_CONSOLE_SLOW_MO"] = str(args.slow_mo)
     if args.driver:
         os.environ["SYNNAX_DRIVER_RACK"] = args.driver
 
