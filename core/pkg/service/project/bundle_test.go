@@ -19,6 +19,7 @@ import (
 	text "github.com/synnaxlabs/arc/text/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -441,6 +442,19 @@ func firstTabResource(p panel.Panel) ontology.ID {
 	return r.Resource
 }
 
+// tabResources returns the ontology ID behind every resource tab in the leaf, in tab
+// order.
+func tabResources(l panel.LeafNode) []ontology.ID {
+	GinkgoHelper()
+	ids := make([]ontology.ID, 0, len(l.Tabs))
+	for _, t := range l.Tabs {
+		if r, ok := t.Variant.(panel.ResourceTab); ok {
+			ids = append(ids, r.Resource)
+		}
+	}
+	return ids
+}
+
 func childOfType(
 	children []ontology.Resource, t ontology.ResourceType,
 ) ontology.Resource {
@@ -461,6 +475,154 @@ var _ = Describe("Import", func() {
 		GinkgoHelper()
 		return MustSucceed(svc.Import(ctx, tx, files, "Fallback.zip"))
 	}
+
+	Describe("A whole bundle directory", func() {
+		// The fixture is a bundle as the Console writes one to disk: nested group
+		// directories, panels referencing members across them, an Arc and a task that
+		// only a panel tab pulls in, suffixed name collisions, and a stray file.
+		bundle := func() zip.Files {
+			GinkgoHelper()
+			return LoadBundle("testdata/test-stand-alpha")
+		}
+
+		named := func(
+			children []ontology.Resource, name string,
+		) ontology.Resource {
+			GinkgoHelper()
+			for _, c := range children {
+				if c.Name == name {
+					return c
+				}
+			}
+			Fail("no child named " + name)
+			return ontology.Resource{}
+		}
+
+		It("Should name the project after the manifest", func(ctx SpecContext) {
+			Expect(importProject(ctx, bundle()).Name).To(Equal("Test Stand Alpha"))
+		})
+
+		It("Should recreate the root members and the group directories", func(
+			ctx SpecContext,
+		) {
+			proj := importProject(ctx, bundle())
+			children := childrenOf(ctx, project.OntologyID(proj.Key))
+			Expect(children).To(ConsistOf(
+				HaveField("Name", "Event Log"),
+				HaveField("Name", "Duplicate"),
+				HaveField("Name", "manifest"),
+				HaveField("Name", "Overview"),
+				HaveField("Name", "Subsystems"),
+			))
+			Expect(named(children, "Subsystems").ID.Type).
+				To(Equal(ontology.ResourceTypeGroup))
+		})
+
+		It("Should recreate every nested directory as a group", func(
+			ctx SpecContext,
+		) {
+			proj := importProject(ctx, bundle())
+			subsystems := named(
+				childrenOf(ctx, project.OntologyID(proj.Key)), "Subsystems",
+			)
+			inner := childrenOf(ctx, subsystems.ID)
+			Expect(inner).To(ConsistOf(
+				HaveField("Name", "Propulsion"),
+				HaveField("Name", "Avionics"),
+			))
+			Expect(childrenOf(ctx, named(inner, "Propulsion").ID)).To(ConsistOf(
+				HaveField("Name", "Chamber Log"),
+				HaveField("Name", "Duplicate"),
+				HaveField("Name", "Propulsion View"),
+			))
+			Expect(childrenOf(ctx, named(inner, "Avionics").ID)).To(ConsistOf(
+				HaveField("Name", "Telemetry Log"),
+			))
+		})
+
+		It("Should resolve a panel tab that crosses a directory", func(
+			ctx SpecContext,
+		) {
+			proj := importProject(ctx, bundle())
+			children := childrenOf(ctx, project.OntologyID(proj.Key))
+			overview := retrievePanel(ctx, named(children, "Overview").ID)
+			first, ok := overview.Root.Variant.(panel.SplitNode)
+			Expect(ok).To(BeTrue())
+			leafNode, ok := first.First.Variant.(panel.LeafNode)
+			Expect(ok).To(BeTrue())
+			Expect(leafNode.Tabs).To(HaveLen(3))
+			chamber := childrenOf(ctx, named(childrenOf(
+				ctx, named(children, "Subsystems").ID,
+			), "Propulsion").ID)
+			Expect(tabResources(leafNode)).To(ContainElements(
+				named(children, "Event Log").ID,
+				named(chamber, "Chamber Log").ID,
+			))
+		})
+
+		It("Should keep a view tab's type and args", func(ctx SpecContext) {
+			proj := importProject(ctx, bundle())
+			overview := retrievePanel(ctx, named(
+				childrenOf(ctx, project.OntologyID(proj.Key)), "Overview",
+			).ID)
+			split, ok := overview.Root.Variant.(panel.SplitNode)
+			Expect(ok).To(BeTrue())
+			leafNode, ok := split.First.Variant.(panel.LeafNode)
+			Expect(ok).To(BeTrue())
+			v, ok := leafNode.Tabs[2].Variant.(panel.ViewTab)
+			Expect(ok).To(BeTrue())
+			Expect(v.Type).To(Equal("docs"))
+			Expect(v.Args).To(HaveKeyWithValue(
+				"url", "/reference/console/panels",
+			))
+		})
+
+		It("Should create the Arc a panel tab pulls in, unparented", func(
+			ctx SpecContext,
+		) {
+			proj := importProject(ctx, bundle())
+			overview := retrievePanel(ctx, named(
+				childrenOf(ctx, project.OntologyID(proj.Key)), "Overview",
+			).ID)
+			split, ok := overview.Root.Variant.(panel.SplitNode)
+			Expect(ok).To(BeTrue())
+			last, ok := split.Last.Variant.(panel.LeafNode)
+			Expect(ok).To(BeTrue())
+			refs := tabResources(last)
+			Expect(refs).To(HaveLen(2))
+			arcID := refs[0]
+			Expect(arcID.Type).To(Equal(ontology.ResourceTypeArc))
+			var a arc.Arc
+			Expect(arcSvc.NewRetrieve().
+				Where(arc.MatchKeys(MustSucceed(uuid.Parse(arcID.Key)))).
+				Entry(&a).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(a.Name).To(Equal("Startup Sequence"))
+			Expect(a.Text.Materialize().Raw).
+				To(Equal("stage chamber_pressure -> ok\n"))
+			Expect(refs[1].Type).To(Equal(ontology.ResourceTypeTask))
+		})
+
+		It("Should ignore the stray non-member file", func(ctx SpecContext) {
+			files := bundle()
+			Expect(files).To(HaveKey("README.md"))
+			proj := importProject(ctx, files)
+			Expect(childrenOf(ctx, project.OntologyID(proj.Key))).To(HaveLen(5))
+		})
+
+		It("Should report every resource kind the bundle creates", func(
+			ctx SpecContext,
+		) {
+			Expect(svc.ImportObjects(ctx, bundle())).To(ConsistOf(
+				ontology.ID{Type: ontology.ResourceTypeProject},
+				ontology.ID{Type: ontology.ResourceTypeLog},
+				ontology.ID{Type: ontology.ResourceTypeArc},
+				ontology.ID{Type: ontology.ResourceTypeTask},
+				ontology.ID{Type: ontology.ResourceTypePanel},
+				ontology.ID{Type: ontology.ResourceTypeGroup},
+			))
+		})
+	})
 
 	It("Should import an exported bundle back as an equal project", func(
 		ctx SpecContext,

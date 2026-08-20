@@ -1,0 +1,181 @@
+{
+  "key": "0a3f2c14-8f31-4f0f-9c5a-6a6f1d2b3c44",
+  "version": "1.0.0",
+  "remoteCreated": true,
+  "title": {
+    "level": "h4",
+    "visible": true
+  },
+  "legend": {
+    "visible": true,
+    "position": {
+      "x": 50,
+      "y": 50,
+      "root": {
+        "x": "left",
+        "y": "top"
+      },
+      "units": {
+        "x": "px",
+        "y": "px"
+      }
+    }
+  },
+  "channels": {
+    "x1": 65540,
+    "x2": 0,
+    "y1": [
+      65541,
+      65542
+    ],
+    "y2": [],
+    "y3": [],
+    "y4": []
+  },
+  "ranges": {
+    "x1": [
+      "recent"
+    ],
+    "x2": []
+  },
+  "viewport": {
+    "renderTrigger": 0,
+    "zoom": {
+      "width": 1,
+      "height": 1
+    },
+    "pan": {
+      "x": 0,
+      "y": 0
+    }
+  },
+  "lines": [
+    {
+      "key": "y1---x1---recent---65540---65541",
+      "color": "#dc136c",
+      "strokeWidth": 3,
+      "downsample": 2,
+      "label": "chamber_pressure"
+    }
+  ],
+  "axes": {
+    "renderTrigger": 4,
+    "hasHadChannelSet": true,
+    "axes": {
+      "x1": {
+        "key": "x1",
+        "label": "Time",
+        "labelDirection": "x",
+        "labelLevel": "small",
+        "bounds": {
+          "lower": 0,
+          "upper": 0
+        },
+        "autoBounds": {
+          "lower": true,
+          "upper": true
+        },
+        "tickSpacing": 75
+      },
+      "x2": {
+        "key": "x2",
+        "label": "",
+        "labelDirection": "x",
+        "labelLevel": "small",
+        "bounds": {
+          "lower": 0,
+          "upper": 0
+        },
+        "autoBounds": {
+          "lower": true,
+          "upper": true
+        },
+        "tickSpacing": 75
+      },
+      "y1": {
+        "key": "y1",
+        "label": "Pressure (psi)",
+        "labelDirection": "y",
+        "labelLevel": "small",
+        "bounds": {
+          "lower": 0,
+          "upper": 0
+        },
+        "autoBounds": {
+          "lower": true,
+          "upper": true
+        },
+        "tickSpacing": 75
+      },
+      "y2": {
+        "key": "y2",
+        "label": "",
+        "labelDirection": "y",
+        "labelLevel": "small",
+        "bounds": {
+          "lower": 0,
+          "upper": 0
+        },
+        "autoBounds": {
+          "lower": true,
+          "upper": true
+        },
+        "tickSpacing": 75
+      },
+      "y3": {
+        "key": "y3",
+        "label": "",
+        "labelDirection": "y",
+        "labelLevel": "small",
+        "bounds": {
+          "lower": 0,
+          "upper": 0
+        },
+        "autoBounds": {
+          "lower": true,
+          "upper": true
+        },
+        "tickSpacing": 75
+      },
+      "y4": {
+        "key": "y4",
+        "label": "",
+        "labelDirection": "y",
+        "labelLevel": "small",
+        "bounds": {
+          "lower": 0,
+          "upper": 0
+        },
+        "autoBounds": {
+          "lower": true,
+          "upper": true
+        },
+        "tickSpacing": 75
+      }
+    }
+  },
+  "rules": [
+    {
+      "key": "r1",
+      "label": "Redline",
+      "color": "#FC3D21",
+      "axis": "y1",
+      "lineWidth": 2,
+      "lineDash": 4,
+      "units": "psi",
+      "position": 950
+    }
+  ],
+  "selection": {
+    "box": {
+      "one": {
+        "x": 0,
+        "y": 0
+      },
+      "two": {
+        "x": 0,
+        "y": 0
+      }
+    }
+  }
+}

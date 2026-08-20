@@ -117,6 +117,36 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		))
 	})
 
+	// The fixtures below are Arcs a shipped Console exported, kept verbatim.
+	It("Should lift a graph-mode Console export", func(ctx SpecContext) {
+		a := decode(ctx, "testdata/import_console_v0_graph.json")
+		Expect(a.Mode).To(Equal(versions.ModeGraph))
+		Expect(a.Graph.Nodes).To(HaveLen(2))
+		Expect(a.Graph.Nodes[0].Key).To(Equal("Etvr8fqkCw7"))
+		Expect(a.Graph.Nodes[0].Position.X).To(Equal(467.0))
+		Expect(a.Graph.Inputs).To(HaveLen(2))
+	})
+
+	It("Should lift a text-mode Console export with no source yet", func(
+		ctx SpecContext,
+	) {
+		a := decode(ctx, "testdata/import_console_v0_text.json")
+		Expect(a.Mode).To(Equal(versions.ModeText))
+		Expect(a.Text.Materialize().Raw).To(BeEmpty())
+		Expect(a.Graph.Nodes).To(BeEmpty())
+	})
+
+	It("Should lift the Console state that added graph selection", func(
+		ctx SpecContext,
+	) {
+		a := decode(ctx, "testdata/import_v1_state.json")
+		Expect(a.Mode).To(Equal(versions.ModeGraph))
+		Expect(a.Graph.Nodes).To(HaveLen(2))
+		Expect(a.Graph.Nodes[0].Key).To(Equal("nA"))
+		Expect(a.Graph.Edges).To(HaveLen(1))
+		Expect(a.Graph.Inputs).To(HaveLen(2))
+	})
+
 	It("Should still read an envelope carrying the operation log", func(
 		ctx SpecContext,
 	) {

@@ -51,6 +51,50 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(lp.Rules[0].Position).To(Equal(42.0))
 	})
 
+	// The fixtures below are line plots a shipped Console exported, kept verbatim.
+	It("Should lift a version 3 Console export", func(ctx SpecContext) {
+		lp := decode(ctx, "testdata/import_console_v3.json")
+		Expect(lp.Channels.Y1).To(Equal([]channel.Key{1048586, 1048587}))
+		Expect(lp.Ranges.X1).To(Equal([]string{"recent"}))
+		Expect(lp.Lines).To(HaveLen(2))
+		Expect(lp.Lines[0].Label).To(HaveValue(Equal("stream_write_data_1")))
+		Expect(lp.Lines[0].StrokeWidth).To(Equal(2.0))
+		// A v3 export nests the six axes under axes.axes; the flat shape came later.
+		Expect(lp.Axes.Y1.TickSpacing).To(Equal(75.0))
+		// autoBounds inverts: a bound the Console computed is not a manual one.
+		Expect(lp.Axes.Y1.ManualBounds).To(Equal(versions.ManualBounds{}))
+		Expect(lp.Legend.Hidden).To(BeFalse())
+	})
+
+	It("Should ignore the keys a Console export carries beyond the schema", func(
+		ctx SpecContext,
+	) {
+		// The file holds plots, mode, toolbar, selection, and control, none of which
+		// survive into the stored shape.
+		lp := decode(ctx, "testdata/import_console_v2_extra_keys.json")
+		Expect(lp.Title.Level).To(Equal(text.Level("h4")))
+		Expect(lp.Channels.Y1).To(BeEmpty())
+		Expect(lp.Lines).To(BeEmpty())
+	})
+
+	It("Should lift the Console state that added the sticky legend", func(
+		ctx SpecContext,
+	) {
+		lp := decode(ctx, "testdata/import_v1_state.json")
+		Expect(lp.Channels.X1).To(Equal(channel.Key(65540)))
+		Expect(lp.Channels.Y1).To(Equal([]channel.Key{65541, 65542}))
+		Expect(lp.Ranges.X1).To(Equal([]string{"recent"}))
+		Expect(lp.Axes.Y1.Label).To(Equal("Pressure (psi)"))
+		// autoBounds inverts: a bound the Console computed is not a manual one.
+		Expect(lp.Axes.Y1.ManualBounds).To(Equal(versions.ManualBounds{}))
+		Expect(lp.Lines).To(HaveLen(1))
+		Expect(lp.Lines[0].StrokeWidth).To(Equal(3.0))
+		Expect(lp.Lines[0].Downsample).To(BeEquivalentTo(2))
+		Expect(lp.Rules).To(HaveLen(1))
+		Expect(lp.Rules[0].Position).To(Equal(950.0))
+		Expect(lp.Title.Visible).To(BeTrue())
+	})
+
 	It("Should drop the key on the wire", func(ctx SpecContext) {
 		Expect(decode(ctx, "testdata/import_v5.json").Key).To(Equal(uuid.Nil))
 	})

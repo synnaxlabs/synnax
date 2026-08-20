@@ -1,0 +1,65 @@
+{
+  "key": "3e9d8c7b-6a5f-4e3d-2c1b-0a9f8e7d6c5b",
+  "version": "1.0.0",
+  "remoteCreated": true,
+  "mode": "graph",
+  "text": {
+    "raw": ""
+  },
+  "graph": {
+    "editable": true,
+    "fitViewOnResize": false,
+    "viewport": {
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "zoom": 1
+    },
+    "selected": [
+      "nA"
+    ],
+    "nodes": [
+      {
+        "key": "nA",
+        "position": {
+          "x": -234,
+          "y": 296
+        },
+        "zIndex": 100,
+        "selected": true
+      },
+      {
+        "key": "nB",
+        "position": {
+          "x": 467,
+          "y": 610
+        },
+        "zIndex": 100,
+        "selected": false
+      }
+    ],
+    "edges": [
+      {
+        "key": "eA",
+        "source": {
+          "node": "nA",
+          "param": "out"
+        },
+        "target": {
+          "node": "nB",
+          "param": "in"
+        }
+      }
+    ],
+    "props": {
+      "nA": {
+        "key": "stage",
+        "key_or_name": "chamber_pressure"
+      },
+      "nB": {
+        "key": "on"
+      }
+    }
+  }
+}

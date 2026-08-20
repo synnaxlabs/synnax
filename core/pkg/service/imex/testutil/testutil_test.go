@@ -10,6 +10,8 @@
 package testutil_test
 
 import (
+	"encoding/json"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -47,5 +49,23 @@ var _ = Describe("WireRoundTrip", func() {
 		Expect(out.Type).To(Equal("test"))
 		Expect(out.Name).To(Equal("roundtrip"))
 		Expect(MustSucceed(imex.Decode[resource](ctx, out))).To(Equal(r))
+	})
+})
+
+var _ = Describe("LoadBundle", func() {
+	It("Should read every file in the tree keyed by path from the root", func() {
+		Expect(LoadBundle("testdata/bundle")).To(SatisfyAll(
+			HaveLen(3),
+			HaveKey("manifest.json"),
+			HaveKey("nested dir/member.json"),
+			HaveKey("README.md"),
+		))
+	})
+
+	It("Should read a member's bytes verbatim", func(ctx SpecContext) {
+		files := LoadBundle("testdata/bundle")
+		var env imex.Envelope
+		Expect(json.Unmarshal(files["nested dir/member.json"], &env)).To(Succeed())
+		Expect(env.Name).To(Equal("member"))
 	})
 })
