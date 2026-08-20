@@ -1,0 +1,54 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "`select`"
+description:
+  "Arc standard library reference for the select built-in: routing a boolean to a true
+  or false entry"
+prev: "`ranges`"
+prevURL: "/reference/control/arc/reference/standard-library/ranges"
+next: "`status`"
+nextURL: "/reference/control/arc/reference/standard-library/status"
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+import Params from "@/components/params/Params.astro";
+
+export const components = mdxOverrides;
+
+<Note.Note variant="info">
+  `select` is a built-in, not a module member: it is available in the global namespace
+  and needs no `import`.
+</Note.Note>
+
+<Params
+  fn="select"
+  input="bool"
+  output={{
+    description:
+      "Two named outputs, `true` and `false`. The matching output triggers its routing entry.",
+  }}
+/>
+
+```arc channels="flag, press_valve, vent_valve" bodies="shutdown_sequence"
+flag -> select{} -> {
+    true: true -> press_valve,
+    false: true -> vent_valve
+}
+
+// Omitting a branch is valid:
+flag -> select{} -> {
+    true: true => shutdown_sequence
+}
+```
+
+An [output routing](/reference/control/arc/reference/flow#output-routing) entry can also
+hold an [inline body](/reference/control/arc/reference/flow#case-bodies).
+
+<Divider.Divider x />
+
+## Custom Routing
+
+For more than two branches, a
+[custom routing table](/reference/control/arc/reference/flow#custom-routing) can be
+defined using a function with multiple named outputs.

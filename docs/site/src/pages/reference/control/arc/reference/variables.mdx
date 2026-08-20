@@ -172,7 +172,7 @@ Sum values over time.
 ```arc
 stage accumulate {
     total $= 0.0
-    // Triggred on new `value`
+    // Triggered on new `value`
     value + total -> total
 }
 ```
@@ -273,7 +273,7 @@ Maintain an on/off state.
 stage toggle {
     state $= false
 
-    // Blocked on new `trigger`
+    // Triggered on new `trigger`
     trigger -> not state -> select{} -> {
         true: true -> state,
         false: false -> state
