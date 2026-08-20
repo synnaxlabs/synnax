@@ -11,6 +11,13 @@ build --action_env=PATH
 # Enable platform-specific configs
 build --enable_platform_specific_config
 
+# Each external repo is a symlink into the shared repo contents cache, and Bazel deletes
+# a cache entry that goes 14 days without a fetch. A repo that every build reuses is
+# never re-fetched, so the collector can delete the target of a live symlink and leave
+# the repo half-present. Build machines hold an output base for weeks, which is long
+# enough to hit this. Collect duplicate entries only.
+common --repo_contents_cache_gc_max_age=0
+
 # The remote cache can return an action-cache hit whose output blobs have been evicted
 # from the CAS, so a later action fails to fetch them ("Failed to fetch blobs because of
 # a remote cache error"). Retry the build when that happens, and download all outputs

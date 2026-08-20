@@ -20,6 +20,7 @@ on:
       - MODULE.bazel
       - MODULE.bazel.lock
       - scripts/check_clang_format.sh
+      - scripts/run_bazel.sh
       - scripts/sanitizers/**
       - x/cpp/**
       - x/go/**/*.pb.go
@@ -36,6 +37,7 @@ on:
       - MODULE.bazel
       - MODULE.bazel.lock
       - scripts/check_clang_format.sh
+      - scripts/run_bazel.sh
       - scripts/sanitizers/**
       - x/cpp/**
       - x/go/**/*.pb.go
@@ -104,6 +106,6 @@ jobs:
       - name: Test (Windows)
         if: matrix.os == 'windows-build-bot'
         run: |
-          bazel --output_user_root=C:/tmp test --test_output=all //x/cpp/... \
+          scripts/run_bazel.sh test --test_output=all //x/cpp/... \
             --remote_cache=${{ env.BAZEL_REMOTE_CACHE }} --remote_cache_compression=true
         shell: bash
