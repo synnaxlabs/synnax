@@ -87,7 +87,7 @@ inline long resolve_tc_type(x::json::Parser &parser, const std::string &tc_type)
 
 /// @brief resolves the AIN index a port names, e.g. 3 for "AIN3".
 inline int resolve_ain_index(x::json::Parser &parser, const std::string &port) {
-    if (port.rfind(AIN_PREFIX, 0) == 0) {
+    if (port.starts_with(AIN_PREFIX)) {
         int index = 0;
         const char *last = port.data() + port.size();
         const auto res = std::from_chars(port.data() + AIN_PREFIX.size(), last, index);

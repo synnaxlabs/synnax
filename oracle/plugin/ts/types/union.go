@@ -168,7 +168,7 @@ func omitClause(
 	var keys []string
 	for _, f := range resolution.UnifiedFields(resolved, table) {
 		if omitted.Contains(f.Name) {
-			keys = append(keys, casing.CamelAcronym(f.Name)+": true")
+			keys = append(keys, camelCase(f.Name)+": true")
 		}
 	}
 	if len(keys) == 0 {

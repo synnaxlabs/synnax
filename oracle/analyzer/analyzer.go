@@ -1796,6 +1796,11 @@ func validateExtends(c *analysisCtx, typ resolution.Type) {
 		return
 	}
 
+	// A synthetic union-variant payload may omit a field the union's bases
+	// contribute, and those bases are not visible here. validateUnion checks it.
+	if typ.Synthetic {
+		return
+	}
 	allParentFields := make(set.Set[string])
 	for _, extendsRef := range form.Extends {
 		parent, ok := extendsRef.Resolve(c.table)
@@ -1805,11 +1810,6 @@ func validateExtends(c *analysisCtx, typ resolution.Type) {
 		for _, f := range resolution.UnifiedFields(parent, c.table) {
 			allParentFields.Add(f.Name)
 		}
-	}
-	// A synthetic union-variant payload may omit a field the union's bases
-	// contribute, and those bases are not visible here. validateUnion checks it.
-	if typ.Synthetic {
-		return
 	}
 	for _, omitted := range form.OmittedFields {
 		if !allParentFields.Contains(omitted) {

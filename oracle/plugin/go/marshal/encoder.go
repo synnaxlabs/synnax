@@ -599,12 +599,11 @@ func buildUnionCodec(
 				entry.Name, v.Name, v.Type.Name)
 		}
 		variantType := casing.VariantTypeName(goName, v.Name)
-		embeds := append([]string{}, baseEmbeds...)
+		var embeds []string
 		var inlineFields []resolution.Field
 		if v.Inline {
 			pform := payload.Form.(resolution.StructForm)
 			inherited, declared := resolver.VariantBases(form, v, table)
-			embeds = embeds[:0]
 			for _, ext := range inherited {
 				parent, ok := ext.Resolve(table)
 				if !ok {
@@ -619,7 +618,7 @@ func buildUnionCodec(
 				declaredFields(inherited, pform.Fields, table)...,
 			)
 		} else {
-			embeds = append(embeds, naming.GetGoName(payload))
+			embeds = append(slices.Clone(baseEmbeds), naming.GetGoName(payload))
 		}
 		enc = append(enc,
 			fmt.Sprintf("\tcase %s:", variantType),

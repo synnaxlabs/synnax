@@ -13,12 +13,12 @@ import { type AIChannel } from "@/feature/ni/task/types";
 const BUILT_IN_TEMP_KEY = "boardTempSensor";
 
 /**
- * getAIChannelDeviceKey returns the key an analog input channel's Synnax channel is
- * stored under in its device's properties.
+ * Returns the key an analog input channel's Synnax channel is stored under in its
+ * device's properties.
  */
 export const getAIChannelDeviceKey = (channel: AIChannel): string =>
   channel.type === "ai_temp_builtin" ? BUILT_IN_TEMP_KEY : channel.port.toString();
 
-/** getAIChannelSuffix names an analog input channel that the user left unnamed. */
+/** Names an analog input channel that the user left unnamed. */
 export const getAIChannelSuffix = (channel: AIChannel): string =>
   channel.type === "ai_temp_builtin" ? "temp" : channel.port.toString();

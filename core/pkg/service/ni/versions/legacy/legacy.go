@@ -51,9 +51,9 @@ var AnalogWrite = legacy.Rewrite{Post: func(config msgpack.EncodedJSON) {
 	legacy.EachChild(config, "channels", deleteFixedUnits)
 }}
 
-// fixedUnits are the channel types NI-DAQmx accepts one engineering unit for. The
+// fixedUnitTypes are the channel types NI-DAQmx accepts one engineering unit for. The
 // schema stores no units for them and the driver passes the constant.
-var fixedUnits = set.New(
+var fixedUnitTypes = set.New(
 	"ai_current",
 	"ai_current_rms",
 	"ai_freq_voltage",
@@ -78,7 +78,7 @@ func deleteBuiltinTempPort(ch msgpack.EncodedJSON) {
 // deleteFixedUnits drops the units of a channel whose type accepts only one. It runs
 // after any type rename, so it sees the current spelling.
 func deleteFixedUnits(ch msgpack.EncodedJSON) {
-	if t, ok := ch["type"].(string); ok && fixedUnits.Contains(t) {
+	if t, ok := ch["type"].(string); ok && fixedUnitTypes.Contains(t) {
 		delete(ch, "units")
 	}
 }
