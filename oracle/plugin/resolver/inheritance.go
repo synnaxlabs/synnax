@@ -189,7 +189,9 @@ func CanUseInheritance(form resolution.StructForm, table *resolution.Table) bool
 // followed by its own, into the ones it still inherits and the fields it must
 // declare itself. A base whose field the variant drops with `-name` cannot be
 // inherited, because no target language can remove a member from an inherited type,
-// so that base's remaining fields are returned for the variant to declare.
+// so that base's remaining fields are returned for the variant to declare. A name an
+// inherited base or the variant itself already supplies wins over the flattened base's
+// copy, which is dropped.
 func VariantBases(
 	form resolution.UnionForm,
 	v resolution.UnionVariant,
@@ -208,22 +210,38 @@ func VariantBases(
 		return bases, nil
 	}
 	drop := set.New(pform.OmittedFields...)
+	// taken holds every name the variant already receives: the fields it declares
+	// itself, plus everything a base it still inherits contributes. A flattened
+	// base's field under one of those names is dropped rather than declared again,
+	// since a name arriving twice shadows silently in every target language.
+	taken := set.New(lo.Map(pform.Fields, func(f resolution.Field, _ int) string {
+		return f.Name
+	})...)
+	var flattened [][]resolution.Field
 	for _, ref := range bases {
 		base, ok := ref.Resolve(table)
 		if !ok {
 			continue
 		}
 		fields := resolution.UnifiedFields(base, table)
-		if !lo.SomeBy(fields, func(f resolution.Field) bool {
+		if lo.SomeBy(fields, func(f resolution.Field) bool {
 			return drop.Contains(f.Name)
 		}) {
-			inherited = append(inherited, ref)
+			flattened = append(flattened, fields)
 			continue
 		}
+		inherited = append(inherited, ref)
 		for _, f := range fields {
-			if !drop.Contains(f.Name) {
-				declared = append(declared, f)
+			taken.Add(f.Name)
+		}
+	}
+	for _, fields := range flattened {
+		for _, f := range fields {
+			if drop.Contains(f.Name) || taken.Contains(f.Name) {
+				continue
 			}
+			taken.Add(f.Name)
+			declared = append(declared, f)
 		}
 	}
 	return inherited, declared
