@@ -10,8 +10,6 @@
 package versions_test
 
 import (
-	"context"
-
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -29,30 +27,11 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kv"
+	gorptestutil "github.com/synnaxlabs/x/gorp/testutil"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
-
-// setPreV54Row writes a raw KV row in the key format releases before v0.54 used:
-// msgpack(typeName) + msgpack(key), with an msgpack-encoded value.
-func setPreV54Row(
-	ctx context.Context,
-	kvDB kv.DB,
-	typeName string,
-	key, value any,
-) []byte {
-	GinkgoHelper()
-	prefix := MustSucceed(msgpack.Codec.Encode(ctx, typeName))
-	encodedKey := MustSucceed(msgpack.Codec.Encode(ctx, key))
-	fullKey := make([]byte, 0, len(prefix)+len(encodedKey))
-	fullKey = append(fullKey, prefix...)
-	fullKey = append(fullKey, encodedKey...)
-	Expect(kvDB.Set(ctx, fullKey, MustSucceed(msgpack.Codec.Encode(ctx, value)))).
-		To(Succeed())
-	return fullKey
-}
 
 var _ = Describe("Pre-v0.54 task key normalization", func() {
 	It(
@@ -92,14 +71,20 @@ var _ = Describe("Pre-v0.54 task key normalization", func() {
 			Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
 
 			legacyKey := v0.Key(uint64(testRack.Key)<<32 | 42)
-			legacyRow := setPreV54Row(ctx, kvDB, "Task", uint64(legacyKey), v0.Task{
-				Key:  legacyKey,
-				Name: "Ancient Task",
-				Type: pagerduty.AlertTaskType,
-				Config: msgpack.EncodedJSON{
-					"routing_key": "rk-ancient",
+			legacyRow := gorptestutil.SetPreV54Row(
+				ctx,
+				kvDB,
+				"Task",
+				uint64(legacyKey),
+				v0.Task{
+					Key:  legacyKey,
+					Name: "Ancient Task",
+					Type: pagerduty.AlertTaskType,
+					Config: msgpack.EncodedJSON{
+						"routing_key": "rk-ancient",
+					},
 				},
-			})
+			)
 
 			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
 			configs := MustSucceed(config.NewRegistry(pd.Stores()...))

@@ -10,7 +10,6 @@
 package versions_test
 
 import (
-	"context"
 	"encoding/json"
 
 	"github.com/google/uuid"
@@ -22,30 +21,11 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kv"
+	gorptestutil "github.com/synnaxlabs/x/gorp/testutil"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
-
-// setPreV54Row writes a raw KV row in the key format releases before v0.54 used:
-// msgpack(typeName) + msgpack(key), with an msgpack-encoded value.
-func setPreV54Row(
-	ctx context.Context,
-	kvDB kv.DB,
-	typeName string,
-	key, value any,
-) []byte {
-	GinkgoHelper()
-	prefix := MustSucceed(msgpack.Codec.Encode(ctx, typeName))
-	encodedKey := MustSucceed(msgpack.Codec.Encode(ctx, key))
-	fullKey := make([]byte, 0, len(prefix)+len(encodedKey))
-	fullKey = append(fullKey, prefix...)
-	fullKey = append(fullKey, encodedKey...)
-	Expect(kvDB.Set(ctx, fullKey, MustSucceed(msgpack.Codec.Encode(ctx, value)))).
-		To(Succeed())
-	return fullKey
-}
 
 var _ = Describe("Pre-v0.54 workspace key normalization", func() {
 	It(
@@ -55,11 +35,17 @@ var _ = Describe("Pre-v0.54 workspace key normalization", func() {
 			db := DeferClose(gorp.Wrap(kvDB))
 			wsKey := uuid.New()
 			layout := msgpack.EncodedJSON{"mosaic": "tree"}
-			legacyRow := setPreV54Row(ctx, kvDB, "Workspace", wsKey, v0.Workspace{
-				Key:    wsKey,
-				Name:   "Ops",
-				Layout: layout,
-			})
+			legacyRow := gorptestutil.SetPreV54Row(
+				ctx,
+				kvDB,
+				"Workspace",
+				wsKey,
+				v0.Workspace{
+					Key:    wsKey,
+					Name:   "Ops",
+					Layout: layout,
+				},
+			)
 
 			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 			table := MustOpen(gorp.OpenTable(

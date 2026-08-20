@@ -28,6 +28,11 @@ import (
 	"github.com/synnaxlabs/x/types"
 )
 
+// normalizeEntryKeys is the key-normalization step an entry table pins in its chain.
+func normalizeEntryKeys() migrate.Migration {
+	return gorp.NormalizeKeysMigration[int32, entry]("entry")
+}
+
 var _ = Describe("Table", func() {
 	var (
 		db  *gorp.DB
@@ -134,7 +139,7 @@ var _ = Describe("Table", func() {
 
 	Describe("Zero-migration case", func() {
 		It(
-			"Should run key re-encoding only when no migrations are provided",
+			"Should preserve stored entries when no migrations are provided",
 			func(ctx SpecContext) {
 				testDB := OpenGorpMsgpackDB()
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
@@ -149,9 +154,9 @@ var _ = Describe("Table", func() {
 		)
 	})
 
-	Describe("Idempotent key migration", func() {
+	Describe("Idempotent migration", func() {
 		It(
-			"Should run key re-encoding even when versioned migrations are at latest",
+			"Should preserve entries written after the chain is fully applied",
 			func(ctx SpecContext) {
 				testDB := OpenGorpMsgpackDB()
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
@@ -174,7 +179,7 @@ var _ = Describe("Table", func() {
 	})
 
 	Describe("Migration ordering", func() {
-		It("Should run user migrations after normalize_keys", func(ctx SpecContext) {
+		It("Should run chain migrations in order", func(ctx SpecContext) {
 			testKV := memkv.New()
 			testDB := gorp.Wrap(testKV, gorp.WithCodec(msgpack.Codec))
 			defer func() { Expect(testDB.Close()).To(Succeed()) }()
@@ -206,7 +211,7 @@ var _ = Describe("Table", func() {
 
 			MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{
 				DB:         testDB,
-				Migrations: []migrate.Migration{userMigration},
+				Migrations: []migrate.Migration{normalizeEntryKeys(), userMigration},
 			}))
 			Expect(sawEntry).To(BeTrue(),
 				"user migration should see entries under new prefix, "+
@@ -236,7 +241,10 @@ var _ = Describe("Table", func() {
 				writeOldFormatEntry(ctx, codec, entry{ID: 42, Data: "old format"})
 
 				table := MustSucceed(
-					gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{DB: db}),
+					gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{
+						DB:         db,
+						Migrations: []migrate.Migration{normalizeEntryKeys()},
+					}),
 				)
 				Expect(table.Close()).To(Succeed())
 
@@ -261,7 +269,10 @@ var _ = Describe("Table", func() {
 				Expect(iter.Close()).To(Succeed())
 
 				table := MustSucceed(
-					gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{DB: db}),
+					gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{
+						DB:         db,
+						Migrations: []migrate.Migration{normalizeEntryKeys()},
+					}),
 				)
 				Expect(table.Close()).To(Succeed())
 
@@ -281,7 +292,10 @@ var _ = Describe("Table", func() {
 				}
 
 				table := MustSucceed(
-					gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{DB: db}),
+					gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{
+						DB:         db,
+						Migrations: []migrate.Migration{normalizeEntryKeys()},
+					}),
 				)
 				Expect(table.Close()).To(Succeed())
 
@@ -301,7 +315,10 @@ var _ = Describe("Table", func() {
 				).To(Succeed())
 
 				table := MustSucceed(
-					gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{DB: db}),
+					gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{
+						DB:         db,
+						Migrations: []migrate.Migration{normalizeEntryKeys()},
+					}),
 				)
 				Expect(table.Close()).To(Succeed())
 
@@ -324,7 +341,10 @@ var _ = Describe("Table", func() {
 					Entry(&newEntry).Exec(ctx, db)).To(Succeed())
 
 				table := MustSucceed(
-					gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{DB: db}),
+					gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{
+						DB:         db,
+						Migrations: []migrate.Migration{normalizeEntryKeys()},
+					}),
 				)
 				Expect(table.Close()).To(Succeed())
 
@@ -514,6 +534,19 @@ func (oldNameEntry) SetOptions() []any { return nil }
 
 func (oldNameEntry) CustomTypeName() string { return "oldNameEntry" }
 
+// retypedNameEntry keeps its fields and its key, but reports a type name its legacy
+// rows were never written under.
+type retypedNameEntry struct {
+	ID   int32
+	Data string
+}
+
+func (r retypedNameEntry) GorpKey() int32 { return r.ID }
+
+func (retypedNameEntry) SetOptions() []any { return nil }
+
+func (retypedNameEntry) CustomTypeName() string { return "retypedName" }
+
 var _ = Describe("NormalizeKeysMigration", func() {
 	var (
 		kvs kv.DB
@@ -539,7 +572,7 @@ var _ = Describe("NormalizeKeysMigration", func() {
 	}
 
 	It(
-		"Should fail loudly when the head type cannot decode a legacy row",
+		"Should fail loudly when the pinned shape cannot decode a legacy row",
 		func(ctx SpecContext) {
 			writeLegacyRow(
 				ctx,
@@ -548,7 +581,15 @@ var _ = Describe("NormalizeKeysMigration", func() {
 				legacyReKeyedEntry{ID: 7, Data: "old"},
 			)
 			Expect(gorp.OpenTable(
-				ctx, gorp.TableConfig[string, reKeyedEntry]{DB: db},
+				ctx,
+				gorp.TableConfig[string, reKeyedEntry]{
+					DB: db,
+					Migrations: []migrate.Migration{
+						gorp.NormalizeKeysMigration[string, reKeyedEntry](
+							"reKeyedEntry",
+						),
+					},
+				},
 			)).Error().To(MatchError(
 				ContainSubstring("normalize_keys: failed to decode entry"),
 			))
@@ -556,7 +597,7 @@ var _ = Describe("NormalizeKeysMigration", func() {
 	)
 
 	It(
-		"Should normalize legacy rows with the frozen shape via the override",
+		"Should normalize legacy rows with the frozen shape",
 		func(ctx SpecContext) {
 			writeLegacyRow(
 				ctx,
@@ -598,10 +639,12 @@ var _ = Describe("NormalizeKeysMigration", func() {
 				ctx,
 				gorp.TableConfig[string, reKeyedEntry]{
 					DB: db,
-					NormalizeKeys: gorp.NormalizeKeysMigration[
-						int32, legacyReKeyedEntry,
-					](gorp.NormalizeKeysMigrationKey),
-					Migrations: []migrate.Migration{lift},
+					Migrations: []migrate.Migration{
+						gorp.NormalizeKeysMigration[int32, legacyReKeyedEntry](
+							"reKeyedEntry",
+						),
+						lift,
+					},
 				},
 			))
 			defer func() { Expect(table.Close()).To(Succeed()) }()
@@ -628,7 +671,7 @@ var _ = Describe("NormalizeKeysMigration", func() {
 					DB: db,
 					Migrations: []migrate.Migration{
 						gorp.NormalizeKeysMigration[int32, oldNameEntry](
-							"normalize_old_name_entry_keys",
+							"oldNameEntry",
 						),
 						gorp.NewEntryMigration(
 							"lift_old_name_entries",
@@ -645,6 +688,35 @@ var _ = Describe("NormalizeKeysMigration", func() {
 				Where(gorp.MatchKeys[int32, renamedEntry](3)).
 				Entry(&res).Exec(ctx, db)).To(Succeed())
 			Expect(res.Data).To(Equal("renamed"))
+		},
+	)
+
+	It(
+		"Should read the legacy prefix from the name, not the frozen shape",
+		func(ctx SpecContext) {
+			writeLegacyRow(
+				ctx,
+				"originalName",
+				int32(11),
+				retypedNameEntry{ID: 11, Data: "renamed in place"},
+			)
+			table := MustSucceed(gorp.OpenTable(
+				ctx,
+				gorp.TableConfig[int32, retypedNameEntry]{
+					DB: db,
+					Migrations: []migrate.Migration{
+						gorp.NormalizeKeysMigration[int32, retypedNameEntry](
+							"originalName",
+						),
+					},
+				},
+			))
+			defer func() { Expect(table.Close()).To(Succeed()) }()
+			var res retypedNameEntry
+			Expect(table.NewRetrieve().
+				Where(gorp.MatchKeys[int32, retypedNameEntry](11)).
+				Entry(&res).Exec(ctx, db)).To(Succeed())
+			Expect(res.Data).To(Equal("renamed in place"))
 		},
 	)
 })

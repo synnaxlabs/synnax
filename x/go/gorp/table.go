@@ -39,13 +39,6 @@ type TableConfig[K Key, E Entry[K]] struct {
 	// Migrations is the ordered set of versioned migrations to run before the Table is
 	// usable. Already-applied migrations are skipped.
 	Migrations []migrate.Migration
-	// NormalizeKeys overrides the key-normalization migration prepended to the chain.
-	// Set it when the head entry type cannot decode rows stored under the pre-v0.54
-	// key format (for example, the key type changed): build the override with
-	// NormalizeKeysMigration over the frozen shape that wrote those rows, keyed
-	// NormalizeKeysMigrationKey so already-normalized stores skip it. Nil runs the
-	// default, which decodes with the head type.
-	NormalizeKeys migrate.Migration
 	// Indexes is the set of secondary indexes to register on this table. Each index is
 	// populated at open time from the current table contents, then kept in sync via the
 	// table's observer pipeline for the lifetime of the table. See NewLookupIndex and
@@ -133,17 +126,10 @@ func OpenTable[K Key, E Entry[K]](
 	ctx context.Context,
 	cfg TableConfig[K, E],
 ) (*Table[K, E], error) {
-	normalize := cfg.NormalizeKeys
-	if normalize == nil {
-		normalize = NormalizeKeysMigration[K, E](NormalizeKeysMigrationKey)
-	}
-	wrapped := make([]migrate.Migration, 0, len(cfg.Migrations)+1)
-	wrapped = append(wrapped, normalize)
-	wrapped = append(wrapped, cfg.Migrations...)
 	if err := Migrate(ctx, MigrateConfig{
 		DB:              cfg.DB,
 		Namespace:       types.Name[E](),
-		Migrations:      wrapped,
+		Migrations:      cfg.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); err != nil {
 		return nil, err
@@ -295,23 +281,24 @@ func (t *Table[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, e
 	return wrapReader[K, E](t.db, t.keyPrefix).OpenNexter(ctx)
 }
 
-// NormalizeKeysMigrationKey is the applied-set key of the key-normalization migration
-// OpenTable prepends by default. A TableConfig.NormalizeKeys override reuses it so
-// stores the default already normalized skip the override.
-const NormalizeKeysMigrationKey = "normalize_keys"
+// normalizeKeysMigrationKey names every key-normalization migration in the applied
+// set, which OpenTable scopes per entry type. Released stores already record it.
+const normalizeKeysMigrationKey = "normalize_keys"
 
 // NormalizeKeysMigration returns a migration that moves entries stored under the
-// pre-v0.54 msgpack type-name key prefix to the current prefix and key encoding,
-// decoding each row as E to recover its key. E must be a shape that can decode every
-// stored row; when the head type cannot (renamed type, changed key type), build the
-// migration with the frozen shape that wrote the rows. key names the migration in the
-// applied set.
-func NormalizeKeysMigration[K Key, E Entry[K]](key string) migrate.Migration {
+// pre-v0.54 key prefix msgpack(legacyTypeName) to the current prefix and key encoding,
+// decoding each row as E to recover its key. E is the frozen shape that wrote those
+// rows and legacyTypeName the name the writing release reported for it; state both,
+// never derive them from the head type. Tables first stored by v0.54 or later hold no
+// such rows and must not run it.
+func NormalizeKeysMigration[K Key, E Entry[K]](
+	legacyTypeName string,
+) migrate.Migration {
 	return NewMigration(
-		key,
+		normalizeKeysMigrationKey,
 		func(ctx context.Context, tx Tx, _ alamos.Instrumentation) (err error) {
 			kc := newKeyCodec[K, E](nil)
-			oldPrefix, err := msgpack.Codec.Encode(ctx, types.Name[E]())
+			oldPrefix, err := msgpack.Codec.Encode(ctx, legacyTypeName)
 			if err != nil {
 				return err
 			}
@@ -330,7 +317,7 @@ func NormalizeKeysMigration[K Key, E Entry[K]](key string) migrate.Migration {
 					return errors.Wrapf(
 						err,
 						"%s: failed to decode entry at old prefix key %x",
-						key,
+						normalizeKeysMigrationKey,
 						itr.Key(),
 					)
 				}

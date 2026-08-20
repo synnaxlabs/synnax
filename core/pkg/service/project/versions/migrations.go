@@ -10,21 +10,20 @@
 package versions
 
 import (
+	"slices"
+
 	v0 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v1"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/migrate"
 )
 
 // MigrationsConfig configures the stored-project migration chain.
 type MigrationsConfig = v1.MigrationsConfig
 
-// NewMigrations returns the ordered migration chain for stored projects. The chain
-// opens by normalizing pre-v0.54 workspace keys: no table opens with the Workspace
-// shape, so the default normalization never reaches those rows.
+// NewMigrations returns the ordered migration chain for stored projects.
 func NewMigrations(cfg MigrationsConfig) []migrate.Migration {
-	return append([]migrate.Migration{
-		gorp.NormalizeKeysMigration[v0.Key, v0.Workspace]("normalize_workspace_keys"),
-		v0.Migration,
-	}, v1.NewMigrations(cfg)...)
+	return slices.Concat(
+		[]migrate.Migration{v0.NormalizeKeys, v0.Migration},
+		v1.NewMigrations(cfg),
+	)
 }
