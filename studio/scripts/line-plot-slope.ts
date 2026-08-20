@@ -23,7 +23,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await capture.createComponent(session, "Line plot");
     await session.waitFor(page.locator(".pluto-line-plot").first());
     await capture.addChannels(session, "Y1", fixture.channels, { search: "demo" });
-    await capture.hideVisualizationToolbar(session);
+    await capture.hideBottomToolbar(session);
     // The measurement pins to data on screen, so stop the rolling window first.
     // A hold snapshots the axis as it turns on, so wait for real samples first;
     // otherwise it pins the empty hour-wide default window.

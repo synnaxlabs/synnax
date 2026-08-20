@@ -38,7 +38,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await capture.createComponent(session, "Line plot");
     await session.waitFor(page.locator(".pluto-line-plot").first());
     await capture.addChannels(session, "Y1", fixture.channels, { search: "demo" });
-    await capture.hideVisualizationToolbar(session);
+    await capture.hideBottomToolbar(session);
     await session.settleWall(20000);
     await session.settle(1000);
     // Off the plot: the cursor draws a crosshair and a value tooltip on it.

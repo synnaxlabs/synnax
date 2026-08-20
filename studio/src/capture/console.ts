@@ -146,6 +146,20 @@ export const resizeToolbar = async (
   await session.settle(300);
 };
 
+/**
+ * hideBottomToolbar closes the bottom visualization drawer, so a shot starts on
+ * an unobstructed visualization. No-op when it is already closed.
+ */
+export const hideBottomToolbar = async (session: CaptureSession): Promise<void> => {
+  const { page } = session;
+  const drawer = page
+    .locator(".console-nav__drawer.pluto--visible.pluto--location-bottom")
+    .first();
+  if (!(await drawer.isVisible().catch(() => false))) return;
+  await session.click(page.locator(".console-main-nav__item").last(), { zoom: false });
+  await session.waitForHidden(drawer);
+};
+
 /** closeToolbar closes the open side toolbar by clicking its selected nav icon. */
 export const closeToolbar = async (session: CaptureSession): Promise<void> => {
   const { page } = session;

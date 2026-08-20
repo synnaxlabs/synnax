@@ -58,7 +58,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await capture.createComponent(session, "Line plot");
     await session.waitFor(page.locator(".pluto-line-plot").first());
     await capture.addChannels(session, "Y1", fixture.channels, { search: "demo" });
-    await capture.hideVisualizationToolbar(session);
+    await capture.hideBottomToolbar(session);
     // Live telemetry buffers on wall time: fill the rolling window before the
     // first frame so the plot never records as an empty grid.
     await session.settleWall(24000);

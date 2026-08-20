@@ -23,7 +23,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await capture.commandPalette(session, "Create line plot");
     await session.waitFor(session.page.locator(".pluto-line-plot").first());
     await capture.addChannels(session, "Y1", fixture.channels, { search: "demo" });
-    await capture.hideVisualizationToolbar(session);
+    await capture.hideBottomToolbar(session);
     await session.settleWall(32000);
     await session.settle(1000);
     await session.moveTo({ x: 756, y: 500 });
