@@ -14,7 +14,7 @@ import { z } from "zod";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { task } from "@/task";
-import { createTestClient } from "@/testutil";
+import { createTestClient, waitForStreamLive } from "@/testutil";
 
 const client = createTestClient();
 
@@ -777,7 +777,14 @@ describe("Task", async () => {
         type: "pagerduty_alert",
       });
       const params = { key: t.key };
-      const off = client.tasks.onChange(params, vi.fn());
+      // The optimistic status is transient: a real one from the cluster replaces it, so
+      // it has to be captured as it is delivered rather than read back later.
+      const loading: Array<NonNullable<task.Task["status"]>> = [];
+      const off = client.tasks.onChange(params, (cached) => {
+        if (!query.isLive(cached)) return;
+        const { status } = cached;
+        if (status?.variant === "loading") loading.push(status);
+      });
       try {
         await client.tasks.retrieve(params);
         await client.statuses.set({
@@ -803,17 +810,9 @@ describe("Task", async () => {
           })
           .toBe("deadbeef");
         await client.tasks.executeCommand({ task: t.key, type: "stop" });
-        await expect
-          .poll(() => {
-            const cached = client.tasks.getCached(params);
-            if (!query.isLive(cached)) return undefined;
-            return cached.status?.variant;
-          })
-          .toBe("loading");
-        const cached = client.tasks.getCached(params);
-        if (!query.isLive(cached)) throw new Error("expected live cached task");
-        expect(cached.status?.details.configHash).toBe("deadbeef");
-        expect(cached.status?.details.rack).toBe(testRack.key);
+        await expect.poll(() => loading.length).toBeGreaterThan(0);
+        expect(loading[0].details.configHash).toBe("deadbeef");
+        expect(loading[0].details.rack).toBe(testRack.key);
       } finally {
         off();
       }
@@ -826,7 +825,9 @@ describe("Task", async () => {
         type: "pagerduty_alert",
       });
       const remote = createTestClient();
-      await remote.connect();
+      // The set signal is the only thing that refreshes a reading client's cache, so a
+      // write before its stream goes live is never seen.
+      await waitForStreamLive(remote.connection);
       const params = { key: t.key };
       const off = remote.tasks.onChange(params, vi.fn());
       try {
@@ -850,7 +851,7 @@ describe("Task", async () => {
 
     it("merges a metadata-only set signal into a cached task", async () => {
       const remote = createTestClient();
-      await remote.connect();
+      await waitForStreamLive(remote.connection);
       const t = await testRack.createTask({
         name: `set-merge-${id.create()}`,
         config: { routingKey: "dog" },
@@ -878,7 +879,7 @@ describe("Task", async () => {
 
     it("fetches an uncached task moved onto a subscribed rack", async () => {
       const remote = createTestClient();
-      await remote.connect();
+      await waitForStreamLive(remote.connection);
       const source = await client.racks.create({ name: `set-move-src-${id.create()}` });
       const dest = await client.racks.create({ name: `set-move-dest-${id.create()}` });
       const t = await source.createTask({
