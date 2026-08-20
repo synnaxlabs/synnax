@@ -18,19 +18,15 @@ export interface ToggleItemProps extends Omit<
   "itemKey" | "onClick" | "children"
 > {}
 
-export const ToggleItem = ({
-  disabled,
-  ...rest
-}: ToggleItemProps): ReactElement | null => {
-  const { key, status, acquire, release, disabled: barred } = useContext();
+export const ToggleItem = (props: ToggleItemProps): ReactElement | null => {
+  const { key, status, acquire, release } = useContext();
   if (key === "") return null;
   const acquired = status === "acquired";
   return (
     <Item
       itemKey="control-toggle"
       onClick={() => (acquired ? release() : acquire())}
-      disabled={disabled || barred}
-      {...rest}
+      {...props}
     >
       <Icon.Control />
       {acquired ? "Release control" : "Take control"}

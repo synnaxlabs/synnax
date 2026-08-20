@@ -47,8 +47,9 @@ export const controllerStateZ = z.object({
   authority: z.number().default(0),
   status: statusZ.optional(),
   needsControlOf: channel.keyZ.array().default([]),
-  // Bars the controller from holding write authority. It gives up any control it holds
-  // and refuses to take more until this clears.
+  // Bars the controller from writing or taking control on its own. It gives up any
+  // control it holds. An explicit acquire is still honored, so a caller that sets this
+  // owns what taking control means for its own state.
   disabled: z.boolean().default(false),
 });
 
@@ -157,7 +158,6 @@ export class Controller
   }
 
   acquire(): void {
-    if (this.state.disabled) return;
     this.internal.runAsync(() => this.doAcquire(), "failed to acquire control");
   }
 
@@ -198,7 +198,6 @@ export class Controller
         authorities: this.state.authority,
         autoIndex: true,
       });
-      if (this.state.disabled) return await this.doRelease();
       this.setState((p) => ({ ...p, status: "acquired" }));
     } catch (err) {
       this.setState((p) => ({ ...p, status: "failed" }));
@@ -241,6 +240,7 @@ export class Controller
   }
 
   private async withRetry(fn: () => Promise<void>): Promise<void> {
+    if (this.state.disabled) return;
     if (this.writer == null) await this.doAcquire();
     try {
       await fn();
