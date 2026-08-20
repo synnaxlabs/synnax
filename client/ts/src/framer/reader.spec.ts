@@ -695,6 +695,8 @@ describe("Reader", () => {
       const nonEmptyValues = firstDataRow.filter((v) => v !== "");
       expect(nonEmptyValues.length).toBeGreaterThan(0);
     });
+    // Writing and streaming 100k samples outlasts the default budget on a loaded
+    // runner, so this spec carries its own.
     it("should handle large dense and sparse indexes with correct ordering and merging", async () => {
       const denseSamples = 100_000;
       const sparseStep = 1_000;
@@ -825,6 +827,6 @@ describe("Reader", () => {
       expect(chunkCount).toBeGreaterThan(1);
       expect(totalRows).toBe(denseSamples);
       expect(sparseRows).toBe(sparseSamples);
-    });
+    }, 60_000);
   });
 });
