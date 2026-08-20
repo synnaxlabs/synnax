@@ -63,8 +63,8 @@ var errProposalRejected = errors.New("proposal rejected")
 // [Config.RetryInterval]) until the cluster approves request or the provided context is
 // cancelled.
 func Pledge(ctx context.Context, cfgs ...Config) (Response, error) {
-	if err := ctx.Err(); err != nil {
-		return Response{}, err
+	if ctx.Err() != nil {
+		return Response{}, ctx.Err()
 	}
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
@@ -168,8 +168,8 @@ func (r *responsible) propose(ctx context.Context) (res Response, err error) {
 
 	var propC uint
 	for propC < r.MaxProposals {
-		if ctxErr := ctx.Err(); ctxErr != nil {
-			err = errors.Combine(err, ctxErr)
+		if ctx.Err() != nil {
+			err = errors.Combine(err, ctx.Err())
 			break
 		}
 
