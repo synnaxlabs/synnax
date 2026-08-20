@@ -14,8 +14,8 @@ import { type Transport } from "@/transport";
 /**
  * The set of body types accepted by FileTransport.upload. A Blob, which a File is,
  * names bytes the engine owns and can send straight from disk. A ReadableStream
- * produces bytes on demand, and reaches the wire unbuffered only where the engine
- * sends streaming request bodies. Bytes are sent as-is.
+ * produces bytes on demand, and reaches the wire unbuffered only where the engine sends
+ * streaming request bodies. Bytes are sent as-is.
  */
 export type UploadBody = ReadableStream<Uint8Array> | Blob | Uint8Array<ArrayBuffer>;
 
@@ -59,9 +59,8 @@ export interface FileTransport extends Transport {
   /**
    * Streams body to target as the request body and decodes the typed response.
    * @param target - The target route to send the request to.
-   * @param body - The request body. A Blob never enters client memory; a
-   * ReadableStream reaches the wire unbuffered only where the engine sends streaming
-   * request bodies.
+   * @param body - The request body. A Blob never enters client memory; a ReadableStream
+   * reaches the wire unbuffered only where the engine sends streaming request bodies.
    * @param options - The transfer options, including the encoding of body.
    * @param resSchema - The schema to validate the decoded response against.
    * @returns the decoded response.

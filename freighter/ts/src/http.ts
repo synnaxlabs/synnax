@@ -96,11 +96,7 @@ const appendQueryParams = (
   return `${target}?${search.toString()}`;
 };
 
-/**
- * Reports whether this engine implements streaming request bodies. Reading `duplex`
- * proves the option is understood; a Content-Type on the built request means the
- * stream was coerced to a plain object instead of being taken as a body.
- */
+/* * Reports whether this engine implements streaming request bodies. */
 const detectRequestStreams = (): boolean => {
   let duplexRead = false;
   try {
@@ -118,17 +114,11 @@ const detectRequestStreams = (): boolean => {
   }
 };
 
-// Browsers implement streaming request bodies but send them only over HTTP/2 or
-// HTTP/3, and the negotiated protocol is unknowable before the request goes out.
-// Everywhere else a stream rides HTTP/1.1 chunked, which is what the Core speaks.
+// Browsers implement streaming request bodies but send them only over HTTP/2 or HTTP/3,
+// and the negotiated protocol is unknowable before the request goes out. Everywhere
+// else a stream rides HTTP/1.1 chunked, which is what the Core speaks.
 const STREAMS_REQUEST_BODIES = runtime.RUNTIME === "node" && detectRequestStreams();
 
-/**
- * Adapts body to a form this engine can send. A stream passes through where the engine
- * streams request bodies, so its bytes never gather in memory; elsewhere it collects
- * into a Blob, which the engine owns and may back with disk. Blobs and bytes are
- * already sendable.
- */
 const toSendableBody = async (body: UploadBody): Promise<UploadBody> => {
   if (STREAMS_REQUEST_BODIES || !(body instanceof ReadableStream)) return body;
   return await new Response(body).blob();
