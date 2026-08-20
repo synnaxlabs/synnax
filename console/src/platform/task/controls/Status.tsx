@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { status } from "@synnaxlabs/client";
-import { Button, Flex, Icon, Telem, Text } from "@synnaxlabs/pluto";
+import { Button, Flex, Icon, Status as PStatus, Telem, Text } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
 import { CSS } from "@/platform/css";
@@ -35,7 +35,6 @@ export const Status = ({
   ...props
 }: ExpandableStatusProps): ReactElement => {
   const hasDescription = Boolean(stat.description);
-  const statusIcon = stat.variant === "loading" ? <Icon.Loading /> : <Icon.Circle />;
   const message = stat.message || fallbackMessage;
   const ExpansionIcon = expanded ? Icon.Collapse : Icon.Expand;
 
@@ -60,8 +59,8 @@ export const Status = ({
         className={CSS.BE("task-status", "message")}
       >
         <Flex.Box x gap="small" className={CSS.BE("task-status", "message-content")}>
-          <Text.Text level="p" status={stat.variant}>
-            {statusIcon}
+          <Text.Text level="p">
+            <PStatus.Indicator variant={stat.variant} />
           </Text.Text>
           <Text.Text
             level="p"
