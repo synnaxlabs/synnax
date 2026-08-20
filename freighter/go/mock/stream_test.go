@@ -51,12 +51,16 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 			stream freighter.ServerStream[test.Request, test.Response],
 		) error {
 			defer close(returned)
-			return stream.Send(test.Response{ID: 1})
+			if err := stream.Send(test.Response{ID: 1}); err != nil {
+				return err
+			}
+			return stream.Send(test.Response{ID: 2})
 		})
 		streamCtx, cancel := context.WithCancel(ctx)
-		// The response fills the buffer, so the closing error the handler emits on
-		// return has nowhere to go until the client cancels.
-		MustSucceed(dialer.Stream(streamCtx, "localhost:0"))
+		stream := MustSucceed(dialer.Stream(streamCtx, "localhost:0"))
+		Expect(stream.Receive()).To(Equal(test.Response{ID: 1}))
+		// The client leaves the second response in the buffer, so the closing error
+		// the handler emits on return has nowhere to go until the client cancels.
 		Eventually(returned).Should(BeClosed())
 		cancel()
 	})
