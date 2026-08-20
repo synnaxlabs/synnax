@@ -7,12 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package versions
+package v0
 
-import (
-	v0 "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
-	"github.com/synnaxlabs/x/migrate"
-)
+import "github.com/synnaxlabs/x/gorp"
 
-// Migrations is the ordered migration chain for stored labels.
-var Migrations = []migrate.Migration{v0.NormalizeKeys, v0.Migration}
+// NormalizeKeys re-keys Status rows stored under the pre-v0.54 key format.
+var NormalizeKeys = gorp.NormalizeKeysMigration[Key, Status[any]]("Status")

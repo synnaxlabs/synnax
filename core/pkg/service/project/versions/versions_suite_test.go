@@ -7,12 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package versions
+package versions_test
 
 import (
-	v0 "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
-	"github.com/synnaxlabs/x/migrate"
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
-// Migrations is the ordered migration chain for stored labels.
-var Migrations = []migrate.Migration{v0.NormalizeKeys, v0.Migration}
+func TestVersions(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Project Versions Suite")
+}
+
+var _ = ShouldNotLeakGoroutinesPerSpec()
