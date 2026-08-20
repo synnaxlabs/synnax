@@ -480,6 +480,8 @@ describe("useForm", () => {
   it("should run one save at a time", async () => {
     const events: string[] = [];
     const gates = [Promise.withResolvers<void>(), Promise.withResolvers<void>()];
+    let enter = (): void => {};
+    const entered = new Promise<void>((resolve) => (enter = resolve));
     let calls = 0;
     const { result } = renderHook(
       () =>
@@ -490,6 +492,7 @@ describe("useForm", () => {
           update: async () => {
             const index = calls++;
             events.push(`start ${index}`);
+            enter();
             await gates[index].promise;
             events.push(`end ${index}`);
           },
@@ -497,12 +500,68 @@ describe("useForm", () => {
       { wrapper: Wrapper },
     );
     const first = result.current.saveAsync({ signal: controller.signal });
+    // Issued once the first is running, so it queues instead of joining it.
+    await entered;
     const second = result.current.saveAsync({ signal: controller.signal });
     gates[0].resolve();
     await first;
     gates[1].resolve();
     await second;
     expect(events).toEqual(["start 0", "end 0", "start 1", "end 1"]);
+  });
+
+  // Holds the first save open, so every save issued after it queues behind it.
+  const renderHeldForm = () => {
+    const saved: string[] = [];
+    let enter = (): void => {};
+    let release = (): void => {};
+    const entered = new Promise<void>((resolve) => (enter = resolve));
+    const held = new Promise<void>((resolve) => (release = resolve));
+    const { result } = renderHook(
+      () =>
+        Flux.createForm<Params, typeof formSchema>({
+          initialValues: { key: "", name: "John Doe", age: 25 },
+          schema: formSchema,
+          name: "test",
+          update: async ({ get }) => {
+            saved.push(get<string>("name").value);
+            if (saved.length > 1) return;
+            enter();
+            await held;
+          },
+        })({ query: null }),
+      { wrapper: Wrapper },
+    );
+    return { result, saved, entered, release };
+  };
+
+  it("should join a queued save rather than write twice", async () => {
+    const { result, saved, entered, release } = renderHeldForm();
+    const running = result.current.saveAsync({ signal: controller.signal });
+    await entered;
+    act(() => result.current.form.set("name", "Jane"));
+    const queued = result.current.saveAsync({ signal: controller.signal });
+    act(() => result.current.form.set("name", "Janet"));
+    const joined = result.current.saveAsync({ signal: controller.signal });
+    await act(async () => release());
+    expect(await running).toBe(true);
+    expect(await queued).toBe(true);
+    expect(await joined).toBe(true);
+    expect(saved).toEqual(["John Doe", "Janet"]);
+  });
+
+  it("should queue a save issued under another signal rather than join", async () => {
+    const { result, saved, entered, release } = renderHeldForm();
+    const other = new AbortController();
+    const running = result.current.saveAsync({ signal: controller.signal });
+    await entered;
+    const queued = result.current.saveAsync({ signal: controller.signal });
+    const separate = result.current.saveAsync({ signal: other.signal });
+    await act(async () => release());
+    expect(await running).toBe(true);
+    expect(await queued).toBe(true);
+    expect(await separate).toBe(true);
+    expect(saved).toHaveLength(3);
   });
 
   it("should drop a queued save when the form re-points at another record", async () => {
@@ -601,7 +660,7 @@ describe("useForm", () => {
       });
     });
 
-    it("should update once per change when no debounce is set", async () => {
+    it("should batch a burst of changes into one update by default", async () => {
       const update = vi.fn();
       const { result } = renderHook(
         () =>
@@ -618,8 +677,12 @@ describe("useForm", () => {
         result.current.form.set("name", "Ja");
         result.current.form.set("name", "Jane");
       });
-      await waitFor(() => expect(update).toHaveBeenCalledTimes(3));
-      expect(update).toHaveBeenLastCalledWith("Jane");
+      await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
+      await testutil.expectAlways(
+        () => expect(update).toHaveBeenCalledTimes(1),
+        SETTLE,
+      );
+      expect(update).toHaveBeenCalledWith("Jane");
     });
   });
 
