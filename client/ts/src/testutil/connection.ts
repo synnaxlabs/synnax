@@ -31,3 +31,17 @@ export const waitForStatus = async (
     });
   });
 };
+
+/**
+ * Resolves once the handle's change stream is live, so every later cluster write
+ * reaches the client's cache.
+ */
+export const waitForStreamLive = async (
+  handle: connection.Handle,
+  timeout?: TimeSpan,
+): Promise<connection.Status> =>
+  await waitForStatus(
+    handle,
+    ({ variant, details }) => variant === "success" && details.streamLive,
+    timeout,
+  );

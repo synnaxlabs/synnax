@@ -18,6 +18,7 @@ import {
   type SeverableProxy,
   TEST_CLIENT_PARAMS,
   waitForStatus,
+  waitForStreamLive,
 } from "@/testutil";
 
 interface ProxiedClient {
@@ -76,10 +77,7 @@ describe("downtime", () => {
         client.projects.create({ name: "unreachable", layout: {} }),
       ).rejects.toThrow(DisconnectedError);
       await proxy.restore();
-      const status = await waitForStatus(
-        client.connection,
-        ({ variant, details }) => variant === "success" && details.streamLive,
-      );
+      const status = await waitForStreamLive(client.connection);
       expect(status.details.clusterKey).toBe(firstKey);
       // A fresh write proves the unary path recovered, not just the check loop.
       const recovered = await client.projects.create({ name: "recovered", layout: {} });
@@ -133,10 +131,7 @@ describe("downtime", () => {
       await proxy.restore();
       const created = await inFlight;
       expect(created.name).toBe("blip");
-      await waitForStatus(
-        client.connection,
-        ({ variant, details }) => variant === "success" && details.streamLive,
-      );
+      await waitForStreamLive(client.connection);
       expect(internal.map(chainOf)).toEqual([]);
     } finally {
       await client.close();
