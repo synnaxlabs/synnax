@@ -22,12 +22,13 @@
 #include "client/cpp/task/json.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
+#include "x/cpp/uuid/uuid.h"
 
 namespace synnax::labjack {
 
 inline BaseReadChannel BaseReadChannel::parse(x::json::Parser parser) {
     return BaseReadChannel{
-        .key = parser.field<std::string>("key"),
+        .key = parser.field<std::string>("key", x::uuid::create().to_string()),
         .name = parser.field<std::string>("name", ""),
         .disabled = parser.field<bool>("disabled", false),
         .channel = parser.field<::synnax::channel::Key>(
@@ -50,7 +51,7 @@ inline x::json::json BaseReadChannel::to_json() const {
 
 inline BaseWriteChannel BaseWriteChannel::parse(x::json::Parser parser) {
     return BaseWriteChannel{
-        .key = parser.field<std::string>("key"),
+        .key = parser.field<std::string>("key", x::uuid::create().to_string()),
         .disabled = parser.field<bool>("disabled", false),
         .cmd_channel = parser.field<::synnax::channel::Key>(
             "cmd_channel",

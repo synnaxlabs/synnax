@@ -21,12 +21,13 @@
 #include "client/cpp/task/json.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
+#include "x/cpp/uuid/uuid.h"
 
 namespace synnax::opcua {
 
 inline BaseChannel BaseChannel::parse(x::json::Parser parser) {
     return BaseChannel{
-        .key = parser.field<std::string>("key"),
+        .key = parser.field<std::string>("key", x::uuid::create().to_string()),
         .name = parser.field<std::string>("name", ""),
         .disabled = parser.field<bool>("disabled", false),
         .node_id = parser.field<std::string>("node_id", ""),
