@@ -436,7 +436,7 @@ const Form: FC = () => {
     setSelectedEndpoints([ep.key]);
   }, [push]);
 
-  const handleDeleteEndpoints = useCallback(
+  const handleRemoveEndpoints = useCallback(
     (keys: string[]) => {
       remove(keys);
       setSelectedEndpoints([]);
@@ -470,11 +470,11 @@ const Form: FC = () => {
     (p: Menu.ContextMenuMenuProps) => (
       <ContextMenu
         keys={p.keys}
-        onDelete={handleDeleteEndpoints}
+        onRemove={handleRemoveEndpoints}
         onDuplicate={handleDuplicateEndpoints}
       />
     ),
-    [handleDeleteEndpoints, handleDuplicateEndpoints],
+    [handleRemoveEndpoints, handleDuplicateEndpoints],
   );
 
   return (

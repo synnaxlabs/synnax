@@ -37,8 +37,19 @@
             padding: 2rem 0 0;
         }
 
-        .console-channel-list {
+        /* This pane is the only scroller. Its lists grow with their content and
+           hand the overflow up; pluto's paint containment would clip it instead. */
+        .console-channel-list,
+        .console-additional-fields {
             overflow: visible;
+            flex-shrink: 0;
+        }
+
+        .console-field-list-items,
+        .console-channel-list .pluto-list__items {
+            overflow: visible;
+            contain: layout;
+            height: auto;
         }
 
         .pluto-header__actions {
@@ -82,9 +93,5 @@
 
     .console-static-field-value {
         width: 120px;
-    }
-
-    .console-field-list-items {
-        overflow: visible;
     }
 }
