@@ -15,20 +15,84 @@ import { PortField } from "@/feature/ni/device/PortField";
 import { Select as SelectDevice } from "@/feature/ni/device/Select";
 import { CustomScaleForm } from "@/feature/ni/task/CustomScaleForm";
 import { MinMaxValueFields } from "@/feature/ni/task/MinMaxValueFields";
+import { selectData } from "@/feature/ni/task/selectData";
 import {
+  type CIAngularPositionUnits,
   type CIAngularVelocityUnits,
   type CIChannelType,
   type CICountDirection,
   type CIDecodingType,
   type CIEdge,
   type CIFreqUnits,
+  type CILinearPositionUnits,
   type CILinearVelocityUnits,
   type CIMeasMethod,
   type CIPeriodUnits,
   type CIPulseWidthUnits,
   type CISemiPeriodUnits,
+  type CITimeUnits,
   type CITwoEdgeSepUnits,
 } from "@/feature/ni/task/types";
+
+// DAQmx accepts only hertz and ticks on a frequency channel, so the schema's Seconds
+// is left out. Partial, not Record, because of it.
+const CI_FREQ_UNITS_NAMES = {
+  Hz: "Hz",
+  Ticks: "Ticks",
+} as const satisfies Partial<Record<CIFreqUnits, string>>;
+
+const CI_TIME_UNITS_NAMES = {
+  Seconds: "Seconds",
+  Ticks: "Ticks",
+} as const satisfies Record<CITimeUnits, string>;
+
+const CI_EDGE_NAMES = {
+  Rising: "Rising",
+  Falling: "Falling",
+} as const satisfies Record<CIEdge, string>;
+
+const CI_COUNT_DIRECTION_NAMES = {
+  CountUp: "Count up",
+  CountDown: "Count down",
+  ExternallyControlled: "Externally controlled",
+} as const satisfies Record<CICountDirection, string>;
+
+const CI_MEAS_METHOD_NAMES = {
+  LowFreq1Ctr: "One counter (low frequency)",
+  HighFreq2Ctr: "Two counters (high frequency)",
+  LargeRng2Ctr: "Two counters (large range)",
+  DynamicAvg: "Dynamic averaging",
+} as const satisfies Record<CIMeasMethod, string>;
+
+const CI_DECODING_TYPE_NAMES = {
+  X1: "X1",
+  X2: "X2",
+  X4: "X4",
+  TwoPulse: "Two pulse",
+} as const satisfies Record<CIDecodingType, string>;
+
+const CI_LINEAR_VELOCITY_UNITS_NAMES = {
+  "m/s": "m/s",
+  "in/s": "in/s",
+} as const satisfies Record<CILinearVelocityUnits, string>;
+
+const CI_ANGULAR_VELOCITY_UNITS_NAMES = {
+  RPM: "RPM",
+  "Radians/s": "Radians/s",
+  "Degrees/s": "Degrees/s",
+} as const satisfies Record<CIAngularVelocityUnits, string>;
+
+const CI_LINEAR_POSITION_UNITS_NAMES = {
+  Meters: "Meters",
+  Inches: "Inches",
+  Ticks: "Ticks",
+} as const satisfies Record<CILinearPositionUnits, string>;
+
+const CI_ANGULAR_POSITION_UNITS_NAMES = {
+  Degrees: "Degrees",
+  Radians: "Radians",
+  Ticks: "Ticks",
+} as const satisfies Record<CIAngularPositionUnits, string>;
 
 interface FormProps {
   prefix: string;
@@ -39,10 +103,7 @@ const UnitsField = Form.buildSelectField<CIFreqUnits, record.KeyedNamed<CIFreqUn
   fieldProps: { label: "Units" },
   inputProps: {
     resourceName: "units",
-    data: [
-      { key: "Hz", name: "Hz" },
-      { key: "Ticks", name: "Ticks" },
-    ],
+    data: selectData(CI_FREQ_UNITS_NAMES),
   },
 });
 
@@ -54,10 +115,7 @@ const PeriodUnitsField = Form.buildSelectField<
   fieldProps: { label: "Units" },
   inputProps: {
     resourceName: "units",
-    data: [
-      { key: "Seconds", name: "Seconds" },
-      { key: "Ticks", name: "Ticks" },
-    ],
+    data: selectData(CI_TIME_UNITS_NAMES),
   },
 });
 
@@ -69,10 +127,7 @@ const PulseWidthUnitsField = Form.buildSelectField<
   fieldProps: { label: "Scaled units" },
   inputProps: {
     resourceName: "scaled units",
-    data: [
-      { key: "Seconds", name: "Seconds" },
-      { key: "Ticks", name: "Ticks" },
-    ],
+    data: selectData(CI_TIME_UNITS_NAMES),
   },
 });
 
@@ -84,10 +139,7 @@ const SemiPeriodUnitsField = Form.buildSelectField<
   fieldProps: { label: "Scaled units" },
   inputProps: {
     resourceName: "scaled units",
-    data: [
-      { key: "Seconds", name: "Seconds" },
-      { key: "Ticks", name: "Ticks" },
-    ],
+    data: selectData(CI_TIME_UNITS_NAMES),
   },
 });
 
@@ -99,10 +151,7 @@ const TwoEdgeSepUnitsField = Form.buildSelectField<
   fieldProps: { label: "Scaled units" },
   inputProps: {
     resourceName: "scaled units",
-    data: [
-      { key: "Seconds", name: "Seconds" },
-      { key: "Ticks", name: "Ticks" },
-    ],
+    data: selectData(CI_TIME_UNITS_NAMES),
   },
 });
 
@@ -111,10 +160,7 @@ const EdgeField = Form.buildSelectField<CIEdge, record.KeyedNamed<CIEdge>>({
   fieldProps: { label: "Starting edge" },
   inputProps: {
     resourceName: "starting edge",
-    data: [
-      { key: "Rising", name: "Rising" },
-      { key: "Falling", name: "Falling" },
-    ],
+    data: selectData(CI_EDGE_NAMES),
   },
 });
 
@@ -123,10 +169,7 @@ const StartingEdgeField = Form.buildSelectField<CIEdge, record.KeyedNamed<CIEdge
   fieldProps: { label: "Starting edge" },
   inputProps: {
     resourceName: "starting edge",
-    data: [
-      { key: "Rising", name: "Rising" },
-      { key: "Falling", name: "Falling" },
-    ],
+    data: selectData(CI_EDGE_NAMES),
   },
 });
 
@@ -135,10 +178,7 @@ const ActiveEdgeField = Form.buildSelectField<CIEdge, record.KeyedNamed<CIEdge>>
   fieldProps: { label: "Active edge" },
   inputProps: {
     resourceName: "active edge",
-    data: [
-      { key: "Rising", name: "Rising" },
-      { key: "Falling", name: "Falling" },
-    ],
+    data: selectData(CI_EDGE_NAMES),
   },
 });
 
@@ -150,11 +190,7 @@ const CountDirectionField = Form.buildSelectField<
   fieldProps: { label: "Count direction" },
   inputProps: {
     resourceName: "count direction",
-    data: [
-      { key: "CountUp", name: "Count up" },
-      { key: "CountDown", name: "Count down" },
-      { key: "ExternallyControlled", name: "Externally controlled" },
-    ],
+    data: selectData(CI_COUNT_DIRECTION_NAMES),
   },
 });
 
@@ -172,12 +208,7 @@ const MeasMethodField = Form.buildSelectField<
   fieldProps: { label: "Measurement method" },
   inputProps: {
     resourceName: "measurement method",
-    data: [
-      { key: "LowFreq1Ctr", name: "One counter (low frequency)" },
-      { key: "HighFreq2Ctr", name: "Two counters (high frequency)" },
-      { key: "LargeRng2Ctr", name: "Two counters (large range)" },
-      { key: "DynamicAvg", name: "Dynamic averaging" },
-    ],
+    data: selectData(CI_MEAS_METHOD_NAMES),
   },
 });
 
@@ -227,10 +258,7 @@ const FirstEdgeField = Form.buildSelectField<CIEdge, record.KeyedNamed<CIEdge>>(
   fieldProps: { label: "Edge 1" },
   inputProps: {
     resourceName: "edge 1",
-    data: [
-      { key: "Rising", name: "Rising" },
-      { key: "Falling", name: "Falling" },
-    ],
+    data: selectData(CI_EDGE_NAMES),
   },
 });
 
@@ -239,10 +267,7 @@ const SecondEdgeField = Form.buildSelectField<CIEdge, record.KeyedNamed<CIEdge>>
   fieldProps: { label: "Edge 2" },
   inputProps: {
     resourceName: "edge 2",
-    data: [
-      { key: "Rising", name: "Rising" },
-      { key: "Falling", name: "Falling" },
-    ],
+    data: selectData(CI_EDGE_NAMES),
   },
 });
 
@@ -274,12 +299,7 @@ const DecodingTypeField = Form.buildSelectField<
   fieldProps: { label: "Decoding type" },
   inputProps: {
     resourceName: "decoding type",
-    data: [
-      { key: "X1", name: "X1" },
-      { key: "X2", name: "X2" },
-      { key: "X4", name: "X4" },
-      { key: "TwoPulse", name: "Two pulse" },
-    ],
+    data: selectData(CI_DECODING_TYPE_NAMES),
   },
 });
 
@@ -291,10 +311,7 @@ const LinearVelocityUnitsField = Form.buildSelectField<
   fieldProps: { label: "Scaled units" },
   inputProps: {
     resourceName: "scaled units",
-    data: [
-      { key: "m/s", name: "m/s" },
-      { key: "in/s", name: "in/s" },
-    ],
+    data: selectData(CI_LINEAR_VELOCITY_UNITS_NAMES),
   },
 });
 
@@ -306,11 +323,7 @@ const AngularVelocityUnitsField = Form.buildSelectField<
   fieldProps: { label: "Scaled units" },
   inputProps: {
     resourceName: "scaled units",
-    data: [
-      { key: "RPM", name: "RPM" },
-      { key: "Radians/s", name: "Radians/s" },
-      { key: "Degrees/s", name: "Degrees/s" },
-    ],
+    data: selectData(CI_ANGULAR_VELOCITY_UNITS_NAMES),
   },
 });
 
@@ -396,34 +409,26 @@ const TerminalZField: FC<{ path: string; grow?: boolean; disabled?: boolean }> =
 );
 
 const LinearPositionUnitsField = Form.buildSelectField<
-  string,
-  record.KeyedNamed<string>
+  CILinearPositionUnits,
+  record.KeyedNamed<CILinearPositionUnits>
 >({
   fieldKey: "units",
   fieldProps: { label: "Units" },
   inputProps: {
     resourceName: "units",
-    data: [
-      { key: "Meters", name: "Meters" },
-      { key: "Inches", name: "Inches" },
-      { key: "Ticks", name: "Ticks" },
-    ],
+    data: selectData(CI_LINEAR_POSITION_UNITS_NAMES),
   },
 });
 
 const AngularPositionUnitsField = Form.buildSelectField<
-  string,
-  record.KeyedNamed<string>
+  CIAngularPositionUnits,
+  record.KeyedNamed<CIAngularPositionUnits>
 >({
   fieldKey: "units",
   fieldProps: { label: "Units" },
   inputProps: {
     resourceName: "units",
-    data: [
-      { key: "Degrees", name: "Degrees" },
-      { key: "Radians", name: "Radians" },
-      { key: "Ticks", name: "Ticks" },
-    ],
+    data: selectData(CI_ANGULAR_POSITION_UNITS_NAMES),
   },
 });
 

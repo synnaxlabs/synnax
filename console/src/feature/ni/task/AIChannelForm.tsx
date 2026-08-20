@@ -18,19 +18,28 @@ import { Select } from "@/feature/ni/device/Select";
 import { CoefficientsField } from "@/feature/ni/task/CoefficientsField";
 import { CustomScaleForm } from "@/feature/ni/task/CustomScaleForm";
 import { MinMaxValueFields } from "@/feature/ni/task/MinMaxValueFields";
+import { selectData } from "@/feature/ni/task/selectData";
 import {
   type AccelChargeSensitivityUnits,
   type AccelSensitivityUnits,
   type AccelUnits,
   type AIChannelType,
+  type BridgeConfig,
   type ChargeUnits,
   type CJC,
   type CJCType,
   type ElectricalUnits,
+  type ExcitationSource,
+  type ForceSensitivityUnits,
   type ForceUnits,
   type PressureUnits,
+  type ResistanceConfig,
+  type RTDType,
   type ShuntResistorLoc,
+  type StrainConfig,
   type TemperatureUnits,
+  type TerminalConfig,
+  type ThermocoupleType,
   type TorqueUnits,
   type VelocitySensitivityUnits,
   type VelocityUnits,
@@ -41,20 +50,31 @@ interface FormProps {
   prefix: string;
 }
 
-const TerminalConfigField = Form.buildSelectField<string, record.KeyedNamed>({
+const TERMINAL_CONFIG_NAMES = {
+  RSE: "Referenced single ended",
+  NRSE: "Non-referenced single ended",
+  Diff: "Differential",
+  PseudoDiff: "Pseudo-Differential",
+  Cfg_Default: "Default",
+} as const satisfies Record<TerminalConfig, string>;
+
+const TerminalConfigField = Form.buildSelectField<
+  TerminalConfig,
+  record.KeyedNamed<TerminalConfig>
+>({
   fieldKey: "terminalConfig",
   fieldProps: { label: "Terminal configuration" },
   inputProps: {
     resourceName: "terminal configuration",
-    data: [
-      { key: "RSE", name: "Referenced single ended" },
-      { key: "NRSE", name: "Non-referenced single ended" },
-      { key: "Diff", name: "Differential" },
-      { key: "PseudoDiff", name: "Pseudo-Differential" },
-      { key: "Cfg_Default", name: "Default" },
-    ],
+    data: selectData(TERMINAL_CONFIG_NAMES),
   },
 });
+
+const ACCEL_UNITS_NAMES = {
+  g: "g",
+  MetersPerSecondSquared: "m/s²",
+  InchesPerSecondSquared: "in/s²",
+} as const satisfies Record<AccelUnits, string>;
 
 const AccelUnitsField = Form.buildSelectField<
   AccelUnits,
@@ -64,13 +84,14 @@ const AccelUnitsField = Form.buildSelectField<
   fieldProps: { label: "Acceleration units" },
   inputProps: {
     resourceName: "acceleration units",
-    data: [
-      { key: "g", name: "g" },
-      { key: "MetersPerSecondSquared", name: "m/s²" },
-      { key: "InchesPerSecondSquared", name: "in/s²" },
-    ],
+    data: selectData(ACCEL_UNITS_NAMES),
   },
 });
+
+const ACCEL_SENSITIVITY_UNITS_NAMES = {
+  mVoltsPerG: "mV/g",
+  VoltsPerG: "V/g",
+} as const satisfies Record<AccelSensitivityUnits, string>;
 
 const AccelSensitivityUnitsField = Form.buildSelectField<
   AccelSensitivityUnits,
@@ -80,12 +101,15 @@ const AccelSensitivityUnitsField = Form.buildSelectField<
   fieldProps: { label: "Sensitivity units" },
   inputProps: {
     resourceName: "sensitivity units",
-    data: [
-      { key: "mVoltsPerG", name: "mV/g" },
-      { key: "VoltsPerG", name: "V/g" },
-    ],
+    data: selectData(ACCEL_SENSITIVITY_UNITS_NAMES),
   },
 });
+
+const ACCEL_CHARGE_SENSITIVITY_UNITS_NAMES = {
+  PicoCoulombsPerG: "pC/g",
+  PicoCoulombsPerMetersPerSecondSquared: "pC/(m/s²)",
+  PicoCoulombsPerInchesPerSecondSquared: "pC/(in/s²)",
+} as const satisfies Record<AccelChargeSensitivityUnits, string>;
 
 const AccelChargeSensitivityUnitsField = Form.buildSelectField<
   AccelChargeSensitivityUnits,
@@ -95,39 +119,51 @@ const AccelChargeSensitivityUnitsField = Form.buildSelectField<
   fieldProps: { label: "Sensitivity units" },
   inputProps: {
     resourceName: "sensitivity units",
-    data: [
-      { key: "PicoCoulombsPerG", name: "pC/g" },
-      { key: "PicoCoulombsPerMetersPerSecondSquared", name: "pC/(m/s²)" },
-      { key: "PicoCoulombsPerInchesPerSecondSquared", name: "pC/(in/s²)" },
-    ],
+    data: selectData(ACCEL_CHARGE_SENSITIVITY_UNITS_NAMES),
   },
 });
 
-const ExcitSourceField = Form.buildSelectField<string, record.KeyedNamed>({
+const EXCIT_SOURCE_NAMES = {
+  Internal: "Internal",
+  External: "External",
+  None: "None",
+} as const satisfies Record<ExcitationSource, string>;
+
+const ExcitSourceField = Form.buildSelectField<
+  ExcitationSource,
+  record.KeyedNamed<ExcitationSource>
+>({
   fieldKey: "excitSource",
   fieldProps: { label: "Excitation source" },
   inputProps: {
     resourceName: "excitation source",
-    data: [
-      { key: "Internal", name: "Internal" },
-      { key: "External", name: "External" },
-      { key: "None", name: "None" },
-    ],
+    data: selectData(EXCIT_SOURCE_NAMES),
   },
 });
 
-const BridgeConfigField = Form.buildSelectField<string, record.KeyedNamed<string>>({
+const BRIDGE_CONFIG_NAMES = {
+  FullBridge: "Full bridge",
+  HalfBridge: "Half bridge",
+  QuarterBridge: "Quarter bridge",
+} as const satisfies Record<BridgeConfig, string>;
+
+const BridgeConfigField = Form.buildSelectField<
+  BridgeConfig,
+  record.KeyedNamed<BridgeConfig>
+>({
   fieldKey: "bridgeConfig",
   fieldProps: { label: "Bridge configuration" },
   inputProps: {
     resourceName: "bridge configuration",
-    data: [
-      { key: "FullBridge", name: "Full bridge" },
-      { key: "HalfBridge", name: "Half bridge" },
-      { key: "QuarterBridge", name: "Quarter bridge" },
-    ],
+    data: selectData(BRIDGE_CONFIG_NAMES),
   },
 });
+
+const SHUNT_RESISTOR_LOC_NAMES = {
+  Default: "Default",
+  Internal: "Internal",
+  External: "External",
+} as const satisfies Record<ShuntResistorLoc, string>;
 
 const ShuntResistorLocField = Form.buildSelectField<
   ShuntResistorLoc,
@@ -137,41 +173,47 @@ const ShuntResistorLocField = Form.buildSelectField<
   fieldProps: { label: "Shunt resistor location" },
   inputProps: {
     resourceName: "shunt resistor location",
-    data: [
-      { key: "Default", name: "Default" },
-      { key: "Internal", name: "Internal" },
-      { key: "External", name: "External" },
-    ],
+    data: selectData(SHUNT_RESISTOR_LOC_NAMES),
   },
 });
 
-const ResistanceConfigField = Form.buildSelectField<string, record.KeyedNamed<string>>({
+const RESISTANCE_CONFIG_NAMES = {
+  "2Wire": "2-Wire",
+  "3Wire": "3-Wire",
+  "4Wire": "4-Wire",
+} as const satisfies Record<ResistanceConfig, string>;
+
+const ResistanceConfigField = Form.buildSelectField<
+  ResistanceConfig,
+  record.KeyedNamed<ResistanceConfig>
+>({
   fieldKey: "resistanceConfig",
   fieldProps: { label: "Resistance configuration" },
   inputProps: {
     resourceName: "resistance configuration",
-    data: [
-      { key: "2Wire", name: "2-Wire" },
-      { key: "3Wire", name: "3-Wire" },
-      { key: "4Wire", name: "4-Wire" },
-    ],
+    data: selectData(RESISTANCE_CONFIG_NAMES),
   },
 });
 
-const StrainConfig = Form.buildSelectField({
+const STRAIN_CONFIG_NAMES = {
+  FullBridgeI: "Full bridge I",
+  FullBridgeII: "Full bridge II",
+  FullBridgeIII: "Full bridge III",
+  HalfBridgeI: "Half bridge I",
+  HalfBridgeII: "Half bridge II",
+  QuarterBridgeI: "Quarter bridge I",
+  QuarterBridgeII: "Quarter bridge II",
+} as const satisfies Record<StrainConfig, string>;
+
+const StrainConfigField = Form.buildSelectField<
+  StrainConfig,
+  record.KeyedNamed<StrainConfig>
+>({
   fieldKey: "strainConfig",
   fieldProps: { label: "Strain configuration" },
   inputProps: {
     resourceName: "strain configuration",
-    data: [
-      { key: "FullBridgeI", name: "Full bridge I" },
-      { key: "FullBridgeII", name: "Full bridge II" },
-      { key: "FullBridgeIII", name: "Full bridge III" },
-      { key: "HalfBridgeI", name: "Half bridge I" },
-      { key: "HalfBridgeII", name: "Half bridge II" },
-      { key: "QuarterBridgeI", name: "Quarter bridge I" },
-      { key: "QuarterBridgeII", name: "Quarter bridge II" },
-    ],
+    data: selectData(STRAIN_CONFIG_NAMES),
   },
 });
 
@@ -181,6 +223,12 @@ const SensitivityField = Form.buildNumericField({
   inputProps: {},
 });
 
+const FORCE_UNITS_NAMES = {
+  Newtons: "Newtons",
+  Pounds: "Pounds",
+  KilogramForce: "Kilograms",
+} as const satisfies Record<ForceUnits, string>;
+
 const ForceUnitsField = Form.buildSelectField<
   ForceUnits,
   record.KeyedNamed<ForceUnits>
@@ -189,13 +237,14 @@ const ForceUnitsField = Form.buildSelectField<
   fieldProps: { label: "Force units" },
   inputProps: {
     resourceName: "force units",
-    data: [
-      { key: "Newtons", name: "Newtons" },
-      { key: "Pounds", name: "Pounds" },
-      { key: "KilogramForce", name: "Kilograms" },
-    ],
+    data: selectData(FORCE_UNITS_NAMES),
   },
 });
+
+const ELECTRICAL_UNITS_NAMES = {
+  VoltsPerVolt: "V/V",
+  mVoltsPerVolt: "mV/V",
+} as const satisfies Record<ElectricalUnits, string>;
 
 const ElectricalUnitsField = Form.buildSelectField<
   ElectricalUnits,
@@ -205,12 +254,14 @@ const ElectricalUnitsField = Form.buildSelectField<
   fieldProps: { label: "Electrical units" },
   inputProps: {
     resourceName: "electrical units",
-    data: [
-      { key: "VoltsPerVolt", name: "V/V" },
-      { key: "mVoltsPerVolt", name: "mV/V" },
-    ],
+    data: selectData(ELECTRICAL_UNITS_NAMES),
   },
 });
+
+const CHARGE_UNITS_NAMES = {
+  Coulombs: "Coulombs",
+  PicoCoulombs: "Picocoulombs",
+} as const satisfies Record<ChargeUnits, string>;
 
 const ChargeUnitsField = Form.buildSelectField<
   ChargeUnits,
@@ -220,12 +271,15 @@ const ChargeUnitsField = Form.buildSelectField<
   fieldProps: { label: "Charge units" },
   inputProps: {
     resourceName: "charge units",
-    data: [
-      { key: "Coulombs", name: "Coulombs" },
-      { key: "PicoCoulombs", name: "Picocoulombs" },
-    ],
+    data: selectData(CHARGE_UNITS_NAMES),
   },
 });
+
+const PRESSURE_UNITS_NAMES = {
+  Pascals: "Pascals",
+  PoundsPerSquareInch: "PSI",
+  Bar: "Bar",
+} as const satisfies Record<PressureUnits, string>;
 
 const PressureUnitsField = Form.buildSelectField<
   PressureUnits,
@@ -235,12 +289,16 @@ const PressureUnitsField = Form.buildSelectField<
   fieldProps: { label: "Pressure units" },
   inputProps: {
     resourceName: "pressure units",
-    data: [
-      { key: "Pascals", name: "Pascals" },
-      { key: "PoundsPerSquareInch", name: "PSI" },
-    ],
+    data: selectData(PRESSURE_UNITS_NAMES),
   },
 });
+
+const TEMPERATURE_UNITS_NAMES = {
+  DegC: "Celsius",
+  DegF: "Fahrenheit",
+  Kelvins: "Kelvin",
+  DegR: "Rankine",
+} as const satisfies Record<TemperatureUnits, string>;
 
 const TemperatureUnitsField = Form.buildSelectField<
   TemperatureUnits,
@@ -250,32 +308,39 @@ const TemperatureUnitsField = Form.buildSelectField<
   fieldProps: { label: "Temperature units" },
   inputProps: {
     resourceName: "temperature units",
-    data: [
-      { key: "DegC", name: "Celsius" },
-      { key: "DegF", name: "Fahrenheit" },
-      { key: "Kelvins", name: "Kelvin" },
-      { key: "DegR", name: "Rankine" },
-    ],
+    data: selectData(TEMPERATURE_UNITS_NAMES),
   },
 });
 
-const ThermocoupleTypeField = Form.buildSelectField({
+const THERMOCOUPLE_TYPE_NAMES = {
+  B: "B",
+  E: "E",
+  J: "J",
+  K: "K",
+  N: "N",
+  R: "R",
+  S: "S",
+  T: "T",
+} as const satisfies Record<ThermocoupleType, string>;
+
+const ThermocoupleTypeField = Form.buildSelectField<
+  ThermocoupleType,
+  record.KeyedNamed<ThermocoupleType>
+>({
   fieldKey: "thermocoupleType",
   fieldProps: { label: "Thermocouple type" },
   inputProps: {
     resourceName: "thermocouple type",
-    data: [
-      { key: "B", name: "B" },
-      { key: "E", name: "E" },
-      { key: "J", name: "J" },
-      { key: "K", name: "K" },
-      { key: "N", name: "N" },
-      { key: "R", name: "R" },
-      { key: "S", name: "S" },
-      { key: "T", name: "T" },
-    ],
+    data: selectData(THERMOCOUPLE_TYPE_NAMES),
   },
 });
+
+const TORQUE_UNITS_NAMES = {
+  NewtonMeters: "Newton meters",
+  InchOunces: "Inch ounces",
+  InchPounds: "Inch pounds",
+  FootPounds: "Foot pounds",
+} as const satisfies Record<TorqueUnits, string>;
 
 const TorqueUnitsField = Form.buildSelectField<
   TorqueUnits,
@@ -285,39 +350,42 @@ const TorqueUnitsField = Form.buildSelectField<
   fieldProps: { label: "Torque units" },
   inputProps: {
     resourceName: "torque units",
-    data: [
-      { key: "NewtonMeters", name: "Newton meters" },
-      { key: "InchOunces", name: "Inch ounces" },
-      { key: "FootPounds", name: "Foot pounds" },
-    ],
+    data: selectData(TORQUE_UNITS_NAMES),
   },
 });
 
-const ForceSensitivityUnitsField = Form.buildSelectField({
+const FORCE_SENSITIVITY_UNITS_NAMES = {
+  mVoltsPerNewton: "mV/N",
+  mVoltsPerPound: "mV/lb",
+} as const satisfies Record<ForceSensitivityUnits, string>;
+
+const ForceSensitivityUnitsField = Form.buildSelectField<
+  ForceSensitivityUnits,
+  record.KeyedNamed<ForceSensitivityUnits>
+>({
   fieldKey: "sensitivityUnits",
   fieldProps: { label: "Sensitivity units" },
   inputProps: {
     resourceName: "sensitivity units",
-    data: [
-      { key: "mVoltsPerNewton", name: "mV/N" },
-      { key: "mVoltsPerPound", name: "mV/lb" },
-    ],
+    data: selectData(FORCE_SENSITIVITY_UNITS_NAMES),
   },
 });
 
-const RTDTypeField = Form.buildSelectField({
+const R_T_D_TYPE_NAMES = {
+  Pt3750: "Pt3750",
+  Pt3851: "Pt3851",
+  Pt3911: "Pt3911",
+  Pt3916: "Pt3916",
+  Pt3920: "Pt3920",
+  Pt3928: "Pt3928",
+} as const satisfies Record<RTDType, string>;
+
+const RTDTypeField = Form.buildSelectField<RTDType, record.KeyedNamed<RTDType>>({
   fieldKey: "rtdType",
   fieldProps: { label: "RTD type" },
   inputProps: {
     resourceName: "RTD type",
-    data: [
-      { key: "Pt3750", name: "Pt3750" },
-      { key: "Pt3851", name: "Pt3851" },
-      { key: "Pt3911", name: "Pt3911" },
-      { key: "Pt3916", name: "Pt3916" },
-      { key: "Pt3920", name: "Pt3920" },
-      { key: "Pt3928", name: "Pt3928" },
-    ],
+    data: selectData(R_T_D_TYPE_NAMES),
   },
 });
 
@@ -346,6 +414,11 @@ const CJCSourceField = Form.buildSelectField<CJCType, PSelect.StaticEntry<CJCTyp
   },
 });
 
+const VELOCITY_UNITS_NAMES = {
+  MetersPerSecond: "m/s",
+  InchesPerSecond: "in/s",
+} as const satisfies Record<VelocityUnits, string>;
+
 const VelocityUnitsField = Form.buildSelectField<
   VelocityUnits,
   record.KeyedNamed<VelocityUnits>
@@ -354,12 +427,14 @@ const VelocityUnitsField = Form.buildSelectField<
   fieldProps: { label: "Velocity units" },
   inputProps: {
     resourceName: "velocity units",
-    data: [
-      { key: "MetersPerSecond", name: "m/s" },
-      { key: "InchesPerSecond", name: "in/s" },
-    ],
+    data: selectData(VELOCITY_UNITS_NAMES),
   },
 });
+
+const VELOCITY_SENSITIVITY_UNITS_NAMES = {
+  MillivoltsPerMillimeterPerSecond: "mV/mm/s",
+  MilliVoltsPerInchPerSecond: "mV/in/s",
+} as const satisfies Record<VelocitySensitivityUnits, string>;
 
 const VelocitySensitivityUnitsField = Form.buildSelectField<
   VelocitySensitivityUnits,
@@ -369,10 +444,7 @@ const VelocitySensitivityUnitsField = Form.buildSelectField<
   fieldProps: { label: "Sensitivity units" },
   inputProps: {
     resourceName: "sensitivity units",
-    data: [
-      { key: "MillivoltsPerMillimeterPerSecond", name: "mV/mm/s" },
-      { key: "MilliVoltsPerInchPerSecond", name: "mV/in/s" },
-    ],
+    data: selectData(VELOCITY_SENSITIVITY_UNITS_NAMES),
   },
 });
 
@@ -1009,7 +1081,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
   ai_strain_gauge: ({ prefix }) => (
     <>
       <MinMaxValueFields path={prefix} />
-      <StrainConfig path={prefix} />
+      <StrainConfigField path={prefix} />
       <Flex.Box x>
         <ExcitSourceField
           path={prefix}
