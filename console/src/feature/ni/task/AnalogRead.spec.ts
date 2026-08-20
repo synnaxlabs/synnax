@@ -82,6 +82,23 @@ describe("AnalogRead", () => {
     await findDialogTriggerByText(dev.name);
   });
 
+  it("should show NA in the port cell of the portless built-in temperature channel", async () => {
+    const dev = await createNIDevice(client);
+    await renderAnalogRead({
+      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+      channels: [
+        createChannel("ai_voltage", 3, { device: dev.key }),
+        {
+          ...NI.Task.createAIChannel("ai_temp_builtin"),
+          key: id.create(),
+          device: dev.key,
+        },
+      ],
+    });
+    await waitFor(() => expect(screen.getByText("3")).toBeTruthy());
+    expect(screen.getByText("NA")).toBeTruthy();
+  });
+
   it("should render the detail form for every channel type as it is selected", async () => {
     const cases: [NI.Task.AIChannelType, string][] = [
       ["ai_accel", "Current excitation source"],

@@ -52,6 +52,10 @@ interface ChannelListItemProps extends Task.ChannelListItemProps {
   onTare: (channelKey: channel.Key) => void;
 }
 
+// What the port cell shows for a channel type that reads from no port. Two characters,
+// matching the column's own width.
+const NO_PORT = "NA";
+
 const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
   const path = `config.channels.${rest.itemKey}`;
   const value = PForm.useFieldValue<AIChannel>(path);
@@ -64,7 +68,7 @@ const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
   return (
     <Task.Views.ListAndDetailsChannelItem
       {...rest}
-      port={channelPort(value) ?? ""}
+      port={channelPort(value) ?? NO_PORT}
       canTare={canTare}
       onTare={onTare}
       path={path}
