@@ -12,7 +12,6 @@ import { Component, Flex, Icon } from "@synnaxlabs/pluto";
 import { errors, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { enrich } from "@/feature/ni/device/enrich";
 import { Select } from "@/feature/ni/device/Select";
 import * as Device from "@/feature/ni/device/types";
 import { createNextDIChannel } from "@/feature/ni/task/createChannel";
@@ -84,7 +83,6 @@ const onConfigure: Task.OnConfigure<typeof digitalReadConfigZ> = async (
     schemas: Device.SCHEMAS,
   });
   PlatformDevice.checkConfigured(dev);
-  dev.properties = enrich(dev.model, dev.properties);
   let modified = false;
   let shouldCreateIndex = primitive.isZero(dev.properties.digitalInput.index);
   if (!shouldCreateIndex)
