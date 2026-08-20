@@ -13,7 +13,7 @@ import { z } from "zod";
 
 import { device } from "@/device";
 import { query } from "@/query";
-import { createTestClient } from "@/testutil";
+import { createTestClient, expectLive } from "@/testutil";
 
 const client = createTestClient();
 
@@ -66,6 +66,68 @@ describe("Device", async () => {
       expect(retrieved.status?.message).toBe("Custom device status");
       expect(retrieved.status?.description).toBe("Device is connected");
       expect(retrieved.status?.details?.device).toBe(d.key);
+    });
+  });
+
+  describe("optimistic create", () => {
+    const WRITE_FAILED = new Error("write failed");
+    const fail = () => {
+      throw WRITE_FAILED;
+    };
+
+    const createNew = (): device.New => ({
+      key: id.create(),
+      rack: testRack.key,
+      location: "Dev1",
+      name: "optimistic",
+      make: "ni",
+      model: "dog",
+      properties: { cat: "dog" },
+    });
+
+    it("should cache the device before the write commits", async () => {
+      const dev = createNew();
+      let duringWrite: query.Cached<device.Device> | undefined;
+      await client.devices.create(dev, undefined, {
+        onOptimistic: () => {
+          duringWrite = client.devices.getCached(dev.key);
+        },
+      });
+      expect(expectLive(duringWrite).name).toEqual(dev.name);
+    });
+
+    it("should cache every device of a batch before the write commits", async () => {
+      const first = createNew();
+      const second = createNew();
+      let duringWrite: Array<query.Cached<device.Device> | undefined> = [];
+      await client.devices.create([first, second], undefined, {
+        onOptimistic: () => {
+          duringWrite = [first, second].map(({ key }) => client.devices.getCached(key));
+        },
+      });
+      expect(duringWrite.map((d) => expectLive(d).key)).toEqual([
+        first.key,
+        second.key,
+      ]);
+    });
+
+    it("should drop the optimistic device when the write fails", async () => {
+      const dev = createNew();
+      await expect(
+        client.devices.create(dev, undefined, { onOptimistic: fail }),
+      ).rejects.toBe(WRITE_FAILED);
+      expect(client.devices.getCached(dev.key)).toBeUndefined();
+    });
+
+    it("should restore the previous device when the write fails", async () => {
+      const dev = createNew();
+      const created = await client.devices.create(dev);
+      await expect(
+        client.devices.create({ ...dev, name: "replacement" }, undefined, {
+          onOptimistic: fail,
+        }),
+      ).rejects.toBe(WRITE_FAILED);
+      expect(expectLive(client.devices.getCached(dev.key)).name).toEqual(created.name);
     });
   });
 

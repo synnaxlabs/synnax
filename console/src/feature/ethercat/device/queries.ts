@@ -73,7 +73,7 @@ export const { useUpdate: useToggleEnabled } = Flux.createUpdate<
 >({
   name: "toggle enabled",
   verbs: verbs.UPDATE,
-  update: async ({ data, client }) => {
+  update: async ({ data, client, onOptimisticComplete }) => {
     const keys = array.toArray(data.keys);
 
     const devices = await client.devices.retrieve({
@@ -89,6 +89,8 @@ export const { useUpdate: useToggleEnabled } = Flux.createUpdate<
       properties: { ...dev.properties, enabled: enabledValue },
     }));
 
-    return await client.devices.create(updated, SLAVE_SCHEMAS);
+    return await client.devices.create(updated, SLAVE_SCHEMAS, {
+      onOptimistic: async () => await onOptimisticComplete(updated),
+    });
   },
 });

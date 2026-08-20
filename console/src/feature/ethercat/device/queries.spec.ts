@@ -368,5 +368,33 @@ describe("EtherCAT Device queries", () => {
       expect(updated.map(({ key }) => key)).toEqual([dev.key]);
       expect(updated[0].properties.enabled).toBe(false);
     });
+
+    it("should run afterOptimistic before the write commits", async () => {
+      const dev = await createSlaveDevice(rack.key, {
+        name: "Optimistic Toggle Device",
+        network: "eth0",
+        enabled: true,
+      });
+      const order: string[] = [];
+
+      const { result } = renderHook(
+        () =>
+          EtherCAT.Device.useToggleEnabled({
+            afterOptimistic: ({ data }) => {
+              order.push(`optimistic:${data[0].properties.enabled}`);
+            },
+            afterSuccess: () => {
+              order.push("success");
+            },
+          }),
+        { wrapper },
+      );
+
+      await act(async () => {
+        await result.current.updateAsync({ keys: dev.key });
+      });
+
+      expect(order).toEqual(["optimistic:false", "success"]);
+    });
   });
 });
