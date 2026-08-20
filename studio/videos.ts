@@ -79,6 +79,19 @@ export default manifest.define([
     id: "console/schematics/symbol-create-group",
     script: "scripts/schematic-symbol-create-group.ts",
   },
+  {
+    id: "console/schematics/symbol-import-svg",
+    script: "scripts/schematic-symbol-import-svg.ts",
+  },
+  { id: "console/schematics/download", script: "scripts/schematic-download.ts" },
+  { id: "console/schematics/upload", script: "scripts/schematic-upload.ts" },
+  { id: "console/schematics/snapshot", script: "scripts/schematic-snapshot.ts" },
+  { id: "console/schematics/valve", script: "scripts/schematic-valve.ts" },
+  {
+    id: "console/ui-overview/cluster-toolbar",
+    script: "scripts/ui-overview-cluster-toolbar.ts",
+  },
+  { id: "console/clusters/connect", script: "scripts/clusters-connect.ts" },
   { id: "console/channels/create", script: "scripts/channels-create.ts" },
   { id: "console/channels/alias", script: "scripts/channels-alias.ts" },
   {
