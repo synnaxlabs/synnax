@@ -166,30 +166,13 @@ time.interval{period=50ms} -> combined_alarm{
 ## Time-Delayed Alarm
 
 A brief spike might be acceptable, but a sustained high value indicates a real problem.
-Use a counter to require the condition to persist:
+Debounce the condition with
+[`stable.for`](/reference/control/arc/reference/standard-library/stable) so the alarm
+fires only after it holds:
 
-```arc channels="tank_pressure, sustained_high"
-func sustained_alarm{
-    limit f64,
-    samples i64, // number of consecutive samples above limit
-} (value f64) bool {
-    count $= 0
-
-    if value > limit {
-        count = count + 1
-    } else {
-        count = 0
-    }
-
-    return count >= samples
-}
-
-// At 50ms intervals, 20 samples = 1 second
-tank_pressure -> sustained_alarm{limit=600.0, samples=20} -> sustained_high
+```arc channels="tank_pressure" bodies="alert_hq"
+tank_pressure > 600 -> stable.for{duration=1s} -> alert_hq
 ```
-
-For time-based delays, use the sample rate to calculate the count. At 50ms intervals, 20
-samples equals 1 second of sustained high readings.
 
 <Divider.Divider x />
 
