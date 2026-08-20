@@ -47,12 +47,27 @@ export const controllerStateZ = z.object({
   authority: z.number().default(0),
   status: statusZ.optional(),
   needsControlOf: channel.keyZ.array().default([]),
+  // Bars the controller from holding write authority. It gives up any control it holds
+  // and refuses to take more until this clears.
+  disabled: z.boolean().default(false),
 });
 
 export const controllerMethodsZ = {
   acquire: z.function({ input: z.tuple([]), output: z.void() }),
   release: z.function({ input: z.tuple([]), output: z.void() }),
 };
+
+/**
+ * Opens the writer a {@link Controller} commands through. The client is an argument
+ * rather than a binding because a Controller resolves its own only after construction.
+ */
+export type OpenWriter = (
+  client: Synnax,
+  config: framer.WriterConfig,
+) => Promise<framer.Writer>;
+
+const defaultOpenWriter: OpenWriter = async (client, config) =>
+  await client.openWriter(config);
 
 interface InternalState {
   client: Synnax | null;
@@ -89,8 +104,17 @@ export class Controller
   methods = controllerMethodsZ;
 
   private readonly registry = new Map<AetherControllerTelem, null>();
+  private readonly openWriter: OpenWriter;
   private writer?: framer.Writer;
   private acquirePromise?: Promise<void>;
+
+  constructor(
+    props: aether.ComponentConstructorProps,
+    openWriter: OpenWriter = defaultOpenWriter,
+  ) {
+    super(props);
+    this.openWriter = openWriter;
+  }
 
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
@@ -100,6 +124,7 @@ export class Controller
     i.colors = Colors.use(ctx);
     i.telemCtx = telem.useChildContext(ctx, this, i.telemCtx);
     i.client = synnax.use(ctx);
+    if (this.state.disabled && this.state.status === "acquired") this.release();
   }
 
   /** The cluster this controller is bound to, or null while disconnected. */
@@ -132,6 +157,7 @@ export class Controller
   }
 
   acquire(): void {
+    if (this.state.disabled) return;
     this.internal.runAsync(() => this.doAcquire(), "failed to acquire control");
   }
 
@@ -166,12 +192,13 @@ export class Controller
           variant: "warning",
         });
 
-      this.writer = await client.openWriter({
+      this.writer = await this.openWriter(client, {
         channels: needsControlOf,
         controlSubject: { key: this.key, name: this.state.name },
         authorities: this.state.authority,
         autoIndex: true,
       });
+      if (this.state.disabled) return await this.doRelease();
       this.setState((p) => ({ ...p, status: "acquired" }));
     } catch (err) {
       this.setState((p) => ({ ...p, status: "failed" }));

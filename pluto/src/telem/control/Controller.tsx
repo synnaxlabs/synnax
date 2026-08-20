@@ -30,6 +30,8 @@ export interface ContextValue {
   acquire: () => void;
   release: () => void;
   status: control.Status;
+  /** True while the controller is barred from holding control. */
+  disabled: boolean;
 }
 
 const [Context, useContext] = context.create<ContextValue>({
@@ -39,6 +41,7 @@ const [Context, useContext] = context.create<ContextValue>({
     acquire: () => {},
     release: () => {},
     status: "released",
+    disabled: false,
   },
   displayName: "Control.Context",
 });
@@ -47,9 +50,10 @@ export { useContext };
 export const Controller = ({
   children,
   onStatusChange,
+  disabled = false,
   ...props
 }: ControllerProps): ReactElement => {
-  const memoProps = useMemoDeepEqual(props);
+  const memoProps = useMemoDeepEqual({ ...props, disabled });
   const [{ path }, { status, needsControlOf }, setState, methods] = Aether.use({
     type: control.Controller.TYPE,
     schema: control.controllerStateZ,
@@ -71,8 +75,9 @@ export const Controller = ({
       acquire: methods.acquire,
       release: methods.release,
       status: status ?? "released",
+      disabled,
     }),
-    [key, needsControlOf, methods.acquire, methods.release, status],
+    [key, needsControlOf, methods.acquire, methods.release, status, disabled],
   );
   return (
     <Context value={value}>

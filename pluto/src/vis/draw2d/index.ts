@@ -228,6 +228,7 @@ export class Draw2D {
     location,
   }: Draw2DBorderProps): void {
     const ctx = this.canvas;
+    ctx.beginPath();
     ctx.strokeStyle = color.hex(this.resolveColor(colorVal, this.theme.colors.border));
     ctx.lineWidth = width ?? ctx.hairlineWidth;
     radius ??= Math.round(this.theme.sizes.border.radius.tiny * this.theme.sizes.base);

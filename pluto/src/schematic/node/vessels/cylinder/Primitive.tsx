@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
+import { border, color } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
@@ -30,7 +30,7 @@ export const Cylinder = ({
   orientation = "left",
   scale,
 }: RenderProps): ReactElement => {
-  const detailedRadius = Border.parseRadius(borderRadius);
+  const detailedRadius = border.constructRadius(borderRadius);
   const refreshDeps = useMemo(
     () => [dimensions, borderRadius, detailedRadius, orientation],
     [

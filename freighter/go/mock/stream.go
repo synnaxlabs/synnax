@@ -252,7 +252,12 @@ func (s *ServerStream[RQ, RS]) exec(
 		errPayload = errors.Encode(ctx, freighter.EOF, true)
 	}
 	close(s.serverClosed)
-	s.responses <- message[RS]{error: errPayload}
+	// A client that abandons the stream stops receiving, so the final error can have
+	// nowhere to go. Drop it rather than parking this goroutine for good.
+	select {
+	case s.responses <- message[RS]{error: errPayload}:
+	case <-s.ctx.Done():
+	}
 }
 
 type ClientStream[RQ, RS freighter.Payload] struct {
