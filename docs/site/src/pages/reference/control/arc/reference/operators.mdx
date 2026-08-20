@@ -32,8 +32,8 @@ export const components = mdxOverrides;
 Integer division truncates toward zero:
 
 ```arc
-result := 10 / 3 // 3 (not 3.333)
-result := -10 / 3 // -3
+positive := 10 / 3 // 3 (not 3.333)
+negative := -10 / 3 // -3
 ```
 
 Float division produces a float:
@@ -188,3 +188,17 @@ msg := "Hello"
 greeting := msg + " World" // "Hello World"
 is_empty := msg == "" // false
 ```
+
+<Divider.Divider x />
+
+## Truthiness
+
+Contexts that test a value accept more than `bool`: the
+[`=>` conditional flow operator](/reference/control/arc/reference/flow), `if`
+conditions, and `for` conditions.
+
+| Type    | Truthy when |
+| ------- | ----------- |
+| `bool`  | `true`      |
+| numeric | Non-zero    |
+| `str`   | Non-empty   |
