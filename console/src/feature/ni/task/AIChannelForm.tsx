@@ -288,15 +288,6 @@ const ForceSensitivityUnitsField = Form.buildSelectField({
   },
 });
 
-const SoundPressureUnitsField = Form.buildSelectField({
-  fieldKey: "units",
-  fieldProps: { label: "Sound pressure units" },
-  inputProps: {
-    resourceName: "sound pressure units",
-    data: [{ key: "Pascals", name: "Pascals" }],
-  },
-});
-
 const RTDTypeField = Form.buildSelectField({
   fieldKey: "rtdType",
   fieldProps: { label: "RTD type" },
@@ -763,7 +754,6 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
   ai_microphone: ({ prefix }) => (
     <>
       <TerminalConfigField path={prefix} />
-      <SoundPressureUnitsField path={prefix} />
       <Divider.Divider x padded="bottom" />
       <Flex.Box x>
         <Form.NumericField

@@ -126,7 +126,6 @@ var _ = Describe("AnalogRead", func() {
 				"channels": []any{map[string]any{
 					"type":          "ai_strain_gauge",
 					"strain_config": "HalfBridgeII",
-					"units":         "Strain",
 				}},
 			},
 		),
@@ -142,7 +141,6 @@ var _ = Describe("AnalogRead", func() {
 				"channels": []any{map[string]any{
 					"type":          "ai_strain_gauge",
 					"strain_config": "QuarterBridgeI",
-					"units":         "Strain",
 				}},
 			},
 		),

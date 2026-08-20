@@ -109,7 +109,6 @@ TEST(ChannelsTest, ParseAICurrentChan) {
         {"min_val", 0},
         {"max_val", 1},
         {"custom_scale", {{"type", "none"}}},
-        {"units", "Amps"},
         {"shunt_resistor_loc", "Default"},
         {"ext_shunt_resistor_val", 1},
         {"device", "cdaq1Mod2"}
@@ -260,7 +259,6 @@ TEST(ChannelsTest, ParseAIMicrophoneChan) {
         {"current_excit_source", "Internal"},
         {"current_excit_val", 0},
         {"custom_scale", {{"type", "none"}}},
-        {"units", "Pascals"},
         {"mic_sensitivity", 0},
         {"max_snd_press_level", 0},
         {"device", "cdaq1Mod2"}
@@ -410,7 +408,6 @@ TEST(ChannelsTest, ParseAIStrainGaugeChan) {
         {"voltage_excit_source", "Internal"},
         {"voltage_excit_val", 0},
         {"custom_scale", {{"type", "none"}}},
-        {"units", "Strain"},
         {"strain_config", "full-bridge-I"},
         {"gage_factor", 0},
         {"initial_bridge_voltage", 0},
@@ -690,7 +687,6 @@ TEST(ChannelsTest, ParseAIVoltageChan) {
         {"min_val", 0},
         {"max_val", 1},
         {"custom_scale", {{"type", "none"}}},
-        {"units", "Volts"},
         {"device", "cdaq1Mod2"}
     };
     x::json::Parser p(j);
@@ -721,8 +717,7 @@ TEST(ChannelsTest, ParseAOVoltageChan) {
         {"state_channel", 0},
         {"min_val", 0},
         {"max_val", 1},
-        {"custom_scale", {{"type", "none"}}},
-        {"units", "Volts"}
+        {"custom_scale", {{"type", "none"}}}
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_output(p, "ni_analog_write");

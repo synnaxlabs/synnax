@@ -89,6 +89,27 @@ var legacyDiscarded = map[string]set.Set[string]{
 	"ni_digital_write": set.New("type"),
 }
 
+// legacyVariantDiscarded lists the keys a rewrite drops on purpose from one union
+// variant, keyed by the variant's type tag. It scopes a drop that legacyDiscarded
+// would apply to every variant of the task type. NI-DAQmx accepts one unit for each
+// of these channels, so the schema carries no units field and the driver passes the
+// constant.
+var legacyVariantDiscarded = map[string]set.Set[string]{
+	"ai_current":      set.New("units"),
+	"ai_current_rms":  set.New("units"),
+	"ai_freq_voltage": set.New("units"),
+	// The spelling released Drivers accepted, renamed by the rewrite.
+	"ai_frequency_voltage":  set.New("units"),
+	"ai_microphone":         set.New("units"),
+	"ai_resistance":         set.New("units"),
+	"ai_strain_gauge":       set.New("units"),
+	"ai_voltage":            set.New("units"),
+	"ai_voltage_rms":        set.New("units"),
+	"ai_voltage_with_excit": set.New("units"),
+	"ao_current":            set.New("units"),
+	"ao_voltage":            set.New("units"),
+}
+
 // The three tables below map a legacy key to where its value lands in the stored
 // config. Each is consulted only when the key is absent under its own name, so a type
 // that kept the legacy spelling is unaffected.
@@ -178,6 +199,10 @@ func expectNoDroppedKeys(path string, legacy, stored any, discarded set.Set[stri
 				}
 			}
 			if discarded.Contains(sk) {
+				continue
+			}
+			if variant, ok := leg["type"].(string); ok &&
+				legacyVariantDiscarded[variant].Contains(sk) {
 				continue
 			}
 			liftedInto, lifted := legacyLifted[sk]

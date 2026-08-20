@@ -134,10 +134,10 @@ var _ = Describe("Service", func() {
 			) {
 				Expect(svc.AnalogRead.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
 					"channels": []any{map[string]any{
-						"type":  "ai_voltage",
-						"units": "BOGUS",
+						"type":            "ai_voltage",
+						"terminal_config": "BOGUS",
 					}},
-				})).To(MatchError(ContainSubstring("invalid units: BOGUS")))
+				})).To(MatchError(ContainSubstring("invalid terminal_config: BOGUS")))
 			},
 		)
 
@@ -148,10 +148,13 @@ var _ = Describe("Service", func() {
 			) {
 				Expect(svc.AnalogWrite.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
 					"channels": []any{map[string]any{
-						"type":  "ao_voltage",
-						"units": "BOGUS",
+						"type": "ao_voltage",
+						"custom_scale": map[string]any{
+							"type":             "linear",
+							"pre_scaled_units": "BOGUS",
+						},
 					}},
-				})).To(MatchError(ContainSubstring("invalid units: BOGUS")))
+				})).To(MatchError(ContainSubstring("invalid pre_scaled_units: BOGUS")))
 			},
 		)
 

@@ -95,6 +95,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Instrumentation:    cfg.Instrumentation,
 			Type:               "ni_analog_write",
 			Version:            legacy.LastVersion + 1,
+			Legacy:             &legacy.AnalogWrite,
 			SetEntryKey:        (*AnalogWriteConfig).SetKey,
 			ApplyEntryDefaults: (*AnalogWriteConfig).ApplyDefaults,
 			ValidateEntry:      (*AnalogWriteConfig).Validate,
