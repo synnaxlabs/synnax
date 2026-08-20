@@ -110,3 +110,6 @@ var codecMigration = gorp.CodecMigration[Key, Task]("msgpack_to_orc")
 func NewMigrations(cfg MigrationConfig) []migrate.Migration {
 	return []migrate.Migration{newMigration(cfg), codecMigration}
 }
+
+// NormalizeKeys re-keys Task rows stored under the pre-v0.54 key format.
+var NormalizeKeys = gorp.NormalizeKeysMigration[Key, Task]("Task")

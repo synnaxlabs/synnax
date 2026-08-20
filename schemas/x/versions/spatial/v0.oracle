@@ -34,6 +34,18 @@ XY struct {
     @go marshal
 }
 
+Dimensions struct {
+    width  float64 {
+        @doc value "is the width in pixels."
+    }
+    height float64 {
+        @doc value "is the height in pixels."
+    }
+
+    @doc value  "is a 2D size with width and height values."
+    @go marshal
+}
+
 Direction enum {
     x = "x"
     y = "y"

@@ -330,6 +330,18 @@ var keywordDocs = map[string]string{
 		doc.TitleWithKind("string", "Type"),
 		doc.Paragraph("Immutable UTF-8 encoded string."),
 	).Render(),
+	parser.LiteralBOOL: doc.New(
+		doc.TitleWithKind(parser.LiteralBOOL, "Type"),
+		doc.Paragraph("Boolean: true or false"),
+	).Render(),
+	parser.LiteralTRUE: doc.New(
+		doc.TitleWithKind(parser.LiteralTRUE, "Constant"),
+		doc.Paragraph("Boolean true"),
+	).Render(),
+	parser.LiteralFALSE: doc.New(
+		doc.TitleWithKind(parser.LiteralFALSE, "Constant"),
+		doc.Paragraph("Boolean false"),
+	).Render(),
 	"timestamp": doc.New(
 		doc.TitleWithKind("timestamp", "Type"),
 		doc.Paragraph("Point in time represented as nanoseconds since Unix epoch."),

@@ -69,9 +69,9 @@ func on_critical{} (value f32) {
 }
 // Dataflow: OX pressure -> classifier -> status handlers
 ox_pt_1 -> classify_pressure{15, 40} -> {
-    safe_out: on_safe{},
-    warning_out: on_warning{},
-    critical_out: on_critical{}
+    safe_out: 1 -> on_safe{},
+    warning_out: 1 -> on_warning{},
+    critical_out: 1 -> on_critical{}
 }
 
 start_tpc_cmd => main

@@ -103,6 +103,8 @@ func (t Type) String() string {
 		base = "f32"
 	case KindF64:
 		base = "f64"
+	case KindBool:
+		return "bool"
 	case KindString:
 		return "str"
 	case KindChan:
@@ -175,11 +177,13 @@ func (t Type) IsNumeric() bool {
 	}
 }
 
-// IsInteger returns true if the type is an integer type (signed or unsigned).
+// IsInteger returns true if the type is an integer type (signed or unsigned) or an
+// untyped integer constant.
 func (t Type) IsInteger() bool {
 	switch t.Kind {
 	case KindU8, KindU16, KindU32, KindU64,
-		KindI8, KindI16, KindI32, KindI64:
+		KindI8, KindI16, KindI32, KindI64,
+		KindIntegerConstant:
 		return true
 	default:
 		return false
@@ -219,8 +223,10 @@ func (t Type) IsFloat() bool {
 	}
 }
 
-// IsBool returns true if the type is a boolean type (u8).
-func (t Type) IsBool() bool { return t.Unwrap().Kind == KindU8 }
+// IsBool reports whether the type is boolean.
+func (t Type) IsBool() bool {
+	return t.Unwrap().Kind == KindBool
+}
 
 // Unwrap returns the value type of chan/series types, or the type itself otherwise.
 func (t Type) Unwrap() Type {
@@ -255,7 +261,7 @@ func (t Type) Is64Bit() bool {
 // Density returns the size in bytes of the primitive type.
 func (t Type) Density() int {
 	switch t.Kind {
-	case KindU8, KindI8:
+	case KindU8, KindI8, KindBool:
 		return 1
 	case KindU16, KindI16:
 		return 2
@@ -275,6 +281,8 @@ func (t Type) ToTelem() telem.DataType {
 		return telem.TimestampT
 	}
 	switch t.Kind {
+	case KindBool:
+		return telem.BooleanT
 	case KindU8:
 		return telem.Uint8T
 	case KindU16:

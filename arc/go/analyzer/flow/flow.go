@@ -71,6 +71,31 @@ func Analyze(ctx context.Context[parser.IFlowStatementContext]) {
 	for _, routingTable := range ctx.AST.AllRoutingTable() {
 		analyzeRoutingTable(context.Child(ctx, routingTable))
 	}
+	warnNumericTransitions(ctx)
+}
+
+// warnNumericTransitions flags a numeric condition feeding a `=>` transition.
+// Numeric truthiness is deprecated: a future release will only accept bool.
+func warnNumericTransitions[T antlr.ParserRuleContext](ctx context.Context[T]) {
+	children := ctx.AST.GetChildren()
+	for i, child := range children {
+		op, ok := child.(parser.IFlowOperatorContext)
+		if !ok || i == 0 || op.TRANSITION() == nil {
+			continue
+		}
+		// Function nodes are skipped: resolving their output reports its own
+		// errors, so asking again would duplicate them.
+		node, ok := children[i-1].(parser.IFlowNodeContext)
+		if !ok || node.Function() != nil {
+			continue
+		}
+		if !inferFlowNodeOutputType(context.Child(ctx, node)).IsNumeric() {
+			continue
+		}
+		ctx.Diagnostics.Add(diagnostics.Warningf(node,
+			"numeric conditions are deprecated; use an explicit comparison like x != 0",
+		))
+	}
 }
 
 func analyzeNode(
@@ -391,6 +416,28 @@ func flowSourceType(
 		srcValueType := srcSym.Type.Unwrap()
 		return srcValueType, fmt.Sprintf("%s value type %s", srcName, srcValueType)
 	}
+	if prevFn := prevNode.Function(); prevFn != nil {
+		// Resolve without ctx.Resolve: the call node already resolved this
+		// name, and resolving it again would duplicate deprecation warnings.
+		head, tail := parser.FunctionNameParts(prevFn)
+		fnName := head
+		fnSym, err := ctx.Scope.Resolve(ctx, head)
+		if err == nil && tail != "" {
+			fnName = head + "." + tail
+			fnSym, err = fnSym.Resolve(ctx, tail)
+		}
+		if err != nil || fnSym.Kind != symbol.KindFunction {
+			return types.Type{}, ""
+		}
+		// A polymorphic func has one output type shared by all of its calls;
+		// checking it here would lock it to this sink's type for every call.
+		out, ok := fnSym.Type.Outputs.Get(ir.DefaultOutputParam)
+		if ok && out.Type.Kind != types.KindVariable {
+			return out.Type, fmt.Sprintf(
+				"func %s output type %s", fnName, out.Type,
+			)
+		}
+	}
 	return types.Type{}, ""
 }
 
@@ -552,6 +599,10 @@ func analyzeRoutingTable(ctx context.Context[parser.IRoutingTableContext]) {
 		}
 	}
 
+	for _, entry := range ctx.AST.AllRoutingEntry() {
+		warnNumericTransitions(context.Child(ctx, entry))
+	}
+
 	if len(nodesBefore) == 0 && len(nodesAfter) > 0 {
 		analyzeInputRoutingTable(ctx, nodesAfter)
 	} else if len(nodesBefore) > 0 {
@@ -623,10 +674,9 @@ func analyzeOutputRoutingTable(
 
 	// Analyze each routing entry
 	for _, entry := range ctx.AST.AllRoutingEntry() {
-		outputName := entry.IDENTIFIER(0).GetText()
+		outputName := entry.RoutingKey().GetText()
 
-		outputType, exists := fnType.Type.Outputs.Get(outputName)
-		if !exists {
+		if _, exists := fnType.Type.Outputs.Get(outputName); !exists {
 			ctx.Diagnostics.Add(diagnostics.Errorf(
 				entry,
 				"func '%s' does not have output '%s'",
@@ -637,8 +687,8 @@ func analyzeOutputRoutingTable(
 		}
 
 		var targetParamName string
-		if len(entry.AllIDENTIFIER()) > 1 {
-			targetParamName = entry.IDENTIFIER(1).GetText()
+		if entry.IDENTIFIER() != nil {
+			targetParamName = entry.IDENTIFIER().GetText()
 
 			if nextFunc == nil {
 				ctx.Diagnostics.Add(diagnostics.Errorf(
@@ -659,26 +709,88 @@ func analyzeOutputRoutingTable(
 			}
 		}
 
-		// First node's source is the select-output type; subsequent nodes
-		// chain from the previous node's output.
 		flowNodes := entry.AllFlowNode()
-		nodeSourceType := outputType.Type
+		if len(flowNodes) == 0 {
+			continue
+		}
+
+		// A routing key only gates its entry, so a bare target would never
+		// receive a value. The entry must define its own source. Output types
+		// stay unconstrained on purpose: a future syntax can still opt into
+		// passing the routed value along.
+		if len(flowNodes) == 1 && targetParamName == "" &&
+			!isInlineBody(flowNodes[0]) {
+			ctx.Diagnostics.Add(diagnostics.Errorf(
+				entry,
+				"routing entry '%s' must be a full statement (e.g. '%s: true => next')",
+				outputName,
+				outputName,
+			))
+			continue
+		}
+
+		// The first node is the head of the entry's flow statement: it is
+		// analyzed with no upstream and feeds the rest of the chain.
+		var nodeSourceType types.Type
 		for i, flowNode := range flowNodes {
 			isLastNode := i == len(flowNodes)-1
+			child := context.Child(ctx, flowNode)
+			if i == 0 {
+				analyzeNode(child, nil, false)
+				if isLastNode {
+					checkEntryHeadParamMapping(child, nextFuncType, targetParamName)
+				} else {
+					nodeSourceType = inferFlowNodeOutputType(child)
+				}
+				continue
+			}
 			var targetParam *string
 			if isLastNode && targetParamName != "" {
 				targetParam = &targetParamName
 			}
 			analyzeRoutingTargetWithParam(
-				context.Child(ctx, flowNode),
+				child,
 				nodeSourceType,
 				nextFuncType,
 				targetParam,
 			)
 			if !isLastNode {
-				nodeSourceType = inferFlowNodeOutputType(context.Child(ctx, flowNode))
+				nodeSourceType = inferFlowNodeOutputType(child)
 			}
 		}
+	}
+}
+
+// isInlineBody reports whether the flow node is an inline stage or sequence
+// declaration, which is a self-contained routing target.
+func isInlineBody(node parser.IFlowNodeContext) bool {
+	return node.StageDeclaration() != nil || node.SequenceDeclaration() != nil
+}
+
+// checkEntryHeadParamMapping type-checks a single-node routing entry's head
+// against the parameter it maps to on the func after the table.
+func checkEntryHeadParamMapping(
+	ctx context.Context[parser.IFlowNodeContext],
+	nextFuncType types.Type,
+	targetParamName string,
+) {
+	if targetParamName == "" {
+		return
+	}
+	param, exists := nextFuncType.Inputs.Get(targetParamName)
+	if !exists {
+		return
+	}
+	headType := inferFlowNodeOutputType(ctx)
+	if err := atypes.Check(ctx.Constraints, headType, param.Type, ctx.AST,
+		"routing table parameter mapping"); err != nil {
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.AST,
+			"type mismatch: output type %s does not match target parameter %s type %s",
+			headType,
+			targetParamName,
+			param.Type,
+		))
 	}
 }
 

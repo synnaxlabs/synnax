@@ -234,6 +234,29 @@ var _ = Describe("Strings", func() {
 		})
 	})
 
+	Describe("from_bool", func() {
+		DescribeTable("Should format bool values as true or false",
+			func(ctx SpecContext, value int32, expected string) {
+				h := callU32(ctx, "from_bool", testutil.I32(value))
+				Expect(MustBeOk(ss.Get(h))).To(Equal(expected))
+			},
+			Entry("true", int32(1), "true"),
+			Entry("false", int32(0), "false"),
+			Entry("any non-zero is true", int32(7), "true"),
+		)
+	})
+
+	Describe("NewSymbols", func() {
+		It("Should register the from_bool host func", func() {
+			mod := strings.NewSymbols()[0]
+			names := make([]string, 0, len(mod.Children()))
+			for _, child := range mod.Children() {
+				names = append(names, child.Name)
+			}
+			Expect(names).To(ContainElement("from_bool"))
+		})
+	})
+
 	Describe("from_f64", func() {
 		DescribeTable(
 			"Should format f64 values with shortest round-trippable representation",

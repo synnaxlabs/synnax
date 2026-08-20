@@ -39,8 +39,8 @@ var _ = Describe("Routing Table Runtime", func() {
 				})
 				h := newRuntimeHarness(ctx, demuxSource+`
 				sensor -> demux{threshold=50.0} -> {
-					high: high_out,
-					low: low_out
+					high: 1.0 -> high_out,
+					low: 2.0 -> low_out
 				}
 			`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Float64T},
@@ -65,12 +65,14 @@ var _ = Describe("Routing Table Runtime", func() {
 				lowResult := h.Output("demux_0", 1)
 				Expect(lowResult.Len()).To(Equal(int64(0)))
 
+				// The branch only gates the entry: the write carries the entry's
+				// own constant, not the routed value.
 				out, changed := h.Flush()
 				Expect(changed).To(BeTrue())
 				Expect(out.Get(200).Series).To(HaveLen(1))
 				Expect(
 					telem.UnmarshalSeries[float64](out.Get(200).Series[0]),
-				).To(Equal([]float64{75.0}))
+				).To(Equal([]float64{1.0}))
 				Expect(out.Get(300).Series).To(BeEmpty())
 			},
 		)
@@ -85,8 +87,8 @@ var _ = Describe("Routing Table Runtime", func() {
 				})
 				h := newRuntimeHarness(ctx, demuxSource+`
 				sensor -> demux{threshold=50.0} -> {
-					high: high_out,
-					low: low_out
+					high: 1.0 -> high_out,
+					low: 2.0 -> low_out
 				}
 			`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Float64T},
@@ -117,7 +119,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				Expect(out.Get(300).Series).To(HaveLen(1))
 				Expect(
 					telem.UnmarshalSeries[float64](out.Get(300).Series[0]),
-				).To(Equal([]float64{25.0}))
+				).To(Equal([]float64{2.0}))
 			},
 		)
 
@@ -131,8 +133,8 @@ var _ = Describe("Routing Table Runtime", func() {
 				})
 				h := newRuntimeHarness(ctx, demuxSource+`
 				sensor -> demux{threshold=50.0} -> {
-					high: high_out,
-					low: low_out
+					high: 1.0 -> high_out,
+					low: 2.0 -> low_out
 				}
 			`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Float64T},
@@ -157,14 +159,16 @@ var _ = Describe("Routing Table Runtime", func() {
 				).To(Equal([]float64{20.0, 10.0}))
 				Expect(h.OutputTime("demux_0", 1).Len()).To(Equal(int64(2)))
 
+				// Each entry's constant fires once per trigger batch, so the
+				// writes carry one sample regardless of the batch size.
 				out, changed := h.Flush()
 				Expect(changed).To(BeTrue())
 				Expect(
 					telem.UnmarshalSeries[float64](out.Get(200).Series[0]),
-				).To(Equal([]float64{80.0, 90.0}))
+				).To(Equal([]float64{1.0}))
 				Expect(
 					telem.UnmarshalSeries[float64](out.Get(300).Series[0]),
-				).To(Equal([]float64{20.0, 10.0}))
+				).To(Equal([]float64{2.0}))
 			},
 		)
 
@@ -189,9 +193,9 @@ var _ = Describe("Routing Table Runtime", func() {
 				}
 
 				sensor -> classify{} -> {
-				    negative: neg_out,
-				    zero: zero_out,
-				    positive: pos_out
+				    negative: -1 -> neg_out,
+				    zero: 0 -> zero_out,
+				    positive: 1 -> pos_out
 				}`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Int64T},
 					channels.Digest{Key: 200, DataType: telem.Int64T},
@@ -217,13 +221,189 @@ var _ = Describe("Routing Table Runtime", func() {
 				Expect(changed).To(BeTrue())
 				Expect(
 					telem.UnmarshalSeries[int64](out.Get(200).Series[0]),
-				).To(Equal([]int64{-5}))
+				).To(Equal([]int64{-1}))
 				Expect(
 					telem.UnmarshalSeries[int64](out.Get(300).Series[0]),
 				).To(Equal([]int64{0}))
 				Expect(
 					telem.UnmarshalSeries[int64](out.Get(400).Series[0]),
-				).To(Equal([]int64{42}))
+				).To(Equal([]int64{1}))
+			},
+		)
+
+		It(
+			"Should fire entries for mixed bool and u8 outputs in the same tick",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"sensor":   {types.F64(), 100},
+					"flag_out": {types.U8(), 200},
+					"mode_out": {types.U8(), 300},
+				})
+				h := newRuntimeHarness(ctx, `
+				func split{} (value f64) (ok bool, mode u8) {
+				    mode = 2
+				    ok = value > 50.0
+				}
+
+				sensor -> split{} -> {
+				    ok: 1 -> flag_out,
+				    mode: 2 -> mode_out
+				}`, resolver,
+					channels.Digest{Key: 100, DataType: telem.Float64T},
+					channels.Digest{Key: 200, DataType: telem.Uint8T},
+					channels.Digest{Key: 300, DataType: telem.Uint8T},
+				)
+				defer h.Close(ctx)
+
+				// One input sets both outputs, so both entries run in the same
+				// tick regardless of their output types.
+				h.Ingest(100, telem.NewSeriesV(75.0))
+				h.Tick(ctx, telem.Millisecond)
+				h.channelState.ClearReads()
+
+				// mode is written first, so a too-wide bool store clobbers it.
+				Expect(
+					telem.UnmarshalSeries[bool](h.Output("split_0", 0)),
+				).To(Equal([]bool{true}))
+				Expect(
+					telem.UnmarshalSeries[uint8](h.Output("split_0", 1)),
+				).To(Equal([]uint8{2}))
+
+				out, changed := h.Flush()
+				Expect(changed).To(BeTrue())
+				Expect(out.Get(200).Series).To(HaveLen(1))
+				Expect(
+					telem.UnmarshalSeries[uint8](out.Get(200).Series[0]),
+				).To(Equal([]uint8{1}))
+				Expect(out.Get(300).Series).To(HaveLen(1))
+				Expect(
+					telem.UnmarshalSeries[uint8](out.Get(300).Series[0]),
+				).To(Equal([]uint8{2}))
+			},
+		)
+
+		It(
+			"Should fire entries for mixed numeric and string outputs in the same tick",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"sensor":    {types.F64(), 100},
+					"count_out": {types.U8(), 200},
+					"mode_out":  {types.U8(), 300},
+					"total_out": {types.U8(), 400},
+					"ratio_out": {types.U8(), 500},
+					"mean_out":  {types.U8(), 600},
+					"label_out": {types.U8(), 700},
+				})
+				h := newRuntimeHarness(ctx, `
+				func spread{} (value f64) (
+				    count u16,
+				    mode i32,
+				    total i64,
+				    ratio f32,
+				    mean f64,
+				    label str,
+				) {
+				    label = "ok"
+				    mean = value
+				    ratio = 1.5
+				    total = 5000000000
+				    mode = -3
+				    count = 300
+				}
+
+				sensor -> spread{} -> {
+				    count: 1 -> count_out,
+				    mode: 2 -> mode_out,
+				    total: 3 -> total_out,
+				    ratio: 4 -> ratio_out,
+				    mean: 5 -> mean_out,
+				    label: 6 -> label_out
+				}`, resolver,
+					channels.Digest{Key: 100, DataType: telem.Float64T},
+					channels.Digest{Key: 200, DataType: telem.Uint8T},
+					channels.Digest{Key: 300, DataType: telem.Uint8T},
+					channels.Digest{Key: 400, DataType: telem.Uint8T},
+					channels.Digest{Key: 500, DataType: telem.Uint8T},
+					channels.Digest{Key: 600, DataType: telem.Uint8T},
+					channels.Digest{Key: 700, DataType: telem.Uint8T},
+				)
+				defer h.Close(ctx)
+
+				// Values need every byte of their width and are written in reverse
+				// declaration order, so a wrong store width fails the readbacks.
+				h.Ingest(100, telem.NewSeriesV(75.0))
+				h.Tick(ctx, telem.Millisecond)
+				h.channelState.ClearReads()
+
+				Expect(
+					telem.UnmarshalSeries[uint16](h.Output("spread_0", 0)),
+				).To(Equal([]uint16{300}))
+				Expect(
+					telem.UnmarshalSeries[int32](h.Output("spread_0", 1)),
+				).To(Equal([]int32{-3}))
+				Expect(
+					telem.UnmarshalSeries[int64](h.Output("spread_0", 2)),
+				).To(Equal([]int64{5000000000}))
+				Expect(
+					telem.UnmarshalSeries[float32](h.Output("spread_0", 3)),
+				).To(Equal([]float32{1.5}))
+				Expect(
+					telem.UnmarshalSeries[float64](h.Output("spread_0", 4)),
+				).To(Equal([]float64{75.0}))
+				Expect(
+					telem.UnmarshalSeries[string](h.Output("spread_0", 5)),
+				).To(Equal([]string{"ok"}))
+
+				out, changed := h.Flush()
+				Expect(changed).To(BeTrue())
+				for i, key := range []uint32{200, 300, 400, 500, 600, 700} {
+					Expect(out.Get(key).Series).To(HaveLen(1))
+					Expect(
+						telem.UnmarshalSeries[uint8](out.Get(key).Series[0]),
+					).To(Equal([]uint8{uint8(i + 1)}))
+				}
+			},
+		)
+
+		It(
+			"Should fire a transition entry when the output is set to a falsy value",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"sensor":  {types.F64(), 100},
+					"vlv_cmd": {types.U8(), 200},
+				})
+				h := newRuntimeHarness(ctx, `
+				func gate{} (value f64) (level u8) {
+				    level = 0
+				}
+
+				sequence alarm {
+				    stage active {
+				        1 -> vlv_cmd
+				    }
+				}
+
+				sensor -> gate{} -> {
+				    level: true => alarm
+				}`, resolver,
+					channels.Digest{Key: 100, DataType: telem.Float64T},
+					channels.Digest{Key: 200, DataType: telem.Uint8T},
+				)
+				defer h.Close(ctx)
+
+				// gate sets level to 0. Setting the output fires the entry, and
+				// the transition gates on the entry's own constant, so the
+				// falsy output value still activates the sequence.
+				h.Ingest(100, telem.NewSeriesV(25.0))
+				h.Tick(ctx, telem.Millisecond)
+				h.channelState.ClearReads()
+
+				out, changed := h.Flush()
+				Expect(changed).To(BeTrue())
+				Expect(out.Get(200).Series).To(HaveLen(1))
+				Expect(
+					telem.UnmarshalSeries[uint8](out.Get(200).Series[0]),
+				).To(Equal([]uint8{1}))
 			},
 		)
 	})
@@ -242,7 +422,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				}
 
 				sensor -> demux{threshold=50.0} -> {
-				    high: amplify{} -> alarm_out
+				    high: 2.0 -> amplify{} -> alarm_out
 				}`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Float64T},
 					channels.Digest{Key: 200, DataType: telem.Float64T},
@@ -258,17 +438,19 @@ var _ = Describe("Routing Table Runtime", func() {
 					telem.UnmarshalSeries[float64](demuxHigh),
 				).To(Equal([]float64{80.0}))
 
+				// amplify computes from the entry's constant, not the routed
+				// value: 2.0 * 2.0.
 				amplifyResult := h.Output("amplify_0", 0)
 				Expect(
 					telem.UnmarshalSeries[float64](amplifyResult),
-				).To(Equal([]float64{160.0}))
+				).To(Equal([]float64{4.0}))
 				Expect(h.OutputTime("amplify_0", 0).Len()).To(Equal(int64(1)))
 
 				out, changed := h.Flush()
 				Expect(changed).To(BeTrue())
 				Expect(
 					telem.UnmarshalSeries[float64](out.Get(200).Series[0]),
-				).To(Equal([]float64{160.0}))
+				).To(Equal([]float64{4.0}))
 			},
 		)
 
@@ -285,7 +467,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				}
 
 				sensor -> demux{threshold=50.0} -> {
-				    high: amplify{} -> alarm_out
+				    high: 2.0 -> amplify{} -> alarm_out
 				}`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Float64T},
 					channels.Digest{Key: 200, DataType: telem.Float64T},
@@ -308,7 +490,7 @@ var _ = Describe("Routing Table Runtime", func() {
 		)
 
 		It(
-			"Should chain multiple samples through amplify preserving per-sample timestamps",
+			"Should fire the chained function once per multi-sample trigger batch",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"sensor":    {types.F64(), 100},
@@ -320,7 +502,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				}
 
 				sensor -> demux{threshold=50.0} -> {
-				    high: amplify{} -> alarm_out
+				    high: 2.0 -> amplify{} -> alarm_out
 				}`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Float64T},
 					channels.Digest{Key: 200, DataType: telem.Float64T},
@@ -337,17 +519,19 @@ var _ = Describe("Routing Table Runtime", func() {
 				).To(Equal([]float64{80.0, 90.0}))
 				Expect(h.OutputTime("demux_0", 0).Len()).To(Equal(int64(2)))
 
+				// The entry's constant fires once for the batch, so amplify
+				// emits a single sample.
 				amplifyResult := h.Output("amplify_0", 0)
 				Expect(
 					telem.UnmarshalSeries[float64](amplifyResult),
-				).To(Equal([]float64{160.0, 180.0}))
-				Expect(h.OutputTime("amplify_0", 0).Len()).To(Equal(int64(2)))
+				).To(Equal([]float64{4.0}))
+				Expect(h.OutputTime("amplify_0", 0).Len()).To(Equal(int64(1)))
 
 				out, changed := h.Flush()
 				Expect(changed).To(BeTrue())
 				Expect(
 					telem.UnmarshalSeries[float64](out.Get(200).Series[0]),
-				).To(Equal([]float64{160.0, 180.0}))
+				).To(Equal([]float64{4.0}))
 			},
 		)
 
@@ -408,7 +592,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				}
 
 				sensor -> demux{threshold=50.0} -> {
-				    high: alarm
+				    high: true => alarm
 				}`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Float64T},
 					channels.Digest{Key: 200, DataType: telem.Uint8T},
@@ -470,7 +654,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				}
 
 				sensor -> demux{threshold=50.0} -> {
-				    high: alarm
+				    high: true => alarm
 				}`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Float64T},
 					channels.Digest{Key: 200, DataType: telem.Uint8T},
@@ -520,8 +704,8 @@ var _ = Describe("Routing Table Runtime", func() {
 				}
 
 				sensor -> classify{threshold=100.0} -> {
-				    above: open_valve,
-				    below: log_event
+				    above: true => open_valve,
+				    below: true => log_event
 				}`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Float64T},
 					channels.Digest{Key: 200, DataType: telem.Uint8T},
@@ -575,7 +759,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				    }
 				}
 
-				func check_pressure(p f32) u8 {
+				func check_pressure(p f32) bool {
 				    return p > 100
 				}
 
@@ -590,7 +774,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				}
 
 				sensor -> demux{threshold=50.0} -> {
-				    high: pressurize
+				    high: true => pressurize
 				}`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Float64T},
 					channels.Digest{Key: 101, DataType: telem.Float32T},
@@ -640,14 +824,14 @@ var _ = Describe("Routing Table Runtime", func() {
 			"Should use select to route a boolean channel into different sequence stages",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
-					"flag":     {types.U8(), 100},
+					"flag":     {types.Bool(), 100},
 					"open_cmd": {types.U8(), 200},
 					"shut_cmd": {types.U8(), 300},
 				})
 				h := newRuntimeHarness(ctx, `
 				flag -> select{} -> {
-				    true: open_valve,
-				    false: shut_valve
+				    true: true => open_valve,
+				    false: true => shut_valve
 				}
 
 				sequence open_valve {
@@ -661,7 +845,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				        1 -> shut_cmd
 				    }
 				}`, resolver,
-					channels.Digest{Key: 100, DataType: telem.Uint8T},
+					channels.Digest{Key: 100, DataType: telem.BooleanT},
 					channels.Digest{Key: 200, DataType: telem.Uint8T},
 					channels.Digest{Key: 300, DataType: telem.Uint8T},
 				)
@@ -669,7 +853,7 @@ var _ = Describe("Routing Table Runtime", func() {
 
 				// Tick 1: flag=1 (truthy). select routes to "true" output,
 				// activating open_valve.
-				h.Ingest(100, telem.NewSeriesV[uint8](1))
+				h.Ingest(100, telem.NewSeriesV[bool](true))
 				h.Tick(ctx, telem.Millisecond)
 				h.channelState.ClearReads()
 
@@ -688,7 +872,7 @@ var _ = Describe("Routing Table Runtime", func() {
 
 				// Tick 2: flag=0 (falsy). select routes to "false" output,
 				// activating shut_valve.
-				h.Ingest(100, telem.NewSeriesV[uint8](0))
+				h.Ingest(100, telem.NewSeriesV[bool](false))
 				h.Tick(ctx, 2*telem.Millisecond)
 				h.channelState.ClearReads()
 
@@ -711,14 +895,14 @@ var _ = Describe("Routing Table Runtime", func() {
 	Describe("Routing with select{}", func() {
 		It("Should use select to route a boolean channel", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
-				"flag":     {types.U8(), 100},
+				"flag":     {types.Bool(), 100},
 				"open_cmd": {types.U8(), 200},
 				"shut_cmd": {types.U8(), 300},
 			})
 			h := newRuntimeHarness(ctx, `
 				flag -> select{} -> {
-					true: open_valve,
-					false: shut_valve
+					true: true => open_valve,
+					false: true => shut_valve
 				}
 
 				sequence open_valve {
@@ -733,13 +917,13 @@ var _ = Describe("Routing Table Runtime", func() {
 					}
 				}
 			`, resolver,
-				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 100, DataType: telem.BooleanT},
 				channels.Digest{Key: 200, DataType: telem.Uint8T},
 				channels.Digest{Key: 300, DataType: telem.Uint8T},
 			)
 			defer h.Close(ctx)
 
-			h.Ingest(100, telem.NewSeriesV[uint8](1))
+			h.Ingest(100, telem.NewSeriesV[bool](true))
 			h.Tick(ctx, telem.Millisecond)
 			h.channelState.ClearReads()
 
@@ -756,6 +940,97 @@ var _ = Describe("Routing Table Runtime", func() {
 			).To(Equal([]uint8{1}))
 			Expect(out.Get(300).Series).To(BeEmpty())
 		})
+
+		It("Should write the entry's explicit value per branch", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"flag":    {types.Bool(), 100},
+				"vlv_cmd": {types.Bool(), 200},
+			})
+			h := newRuntimeHarness(ctx, `
+				flag -> select{} -> {
+					true: true -> vlv_cmd,
+					false: false -> vlv_cmd
+				}
+			`, resolver,
+				channels.Digest{Key: 100, DataType: telem.BooleanT},
+				channels.Digest{Key: 200, DataType: telem.BooleanT},
+			)
+			defer h.Close(ctx)
+
+			// True branch: the entry writes its own literal true.
+			h.Ingest(100, telem.NewSeriesV[bool](true))
+			h.Tick(ctx, telem.Millisecond)
+			h.channelState.ClearReads()
+
+			out, changed := h.Flush()
+			Expect(changed).To(BeTrue())
+			Expect(out.Get(200).Series).To(HaveLen(1))
+			Expect(
+				telem.UnmarshalSeries[bool](out.Get(200).Series[0]),
+			).To(Equal([]bool{true}))
+
+			// False branch: the entry writes literal false, not the 1-valued
+			// pulse the select node emits to gate the branch.
+			h.Ingest(100, telem.NewSeriesV[bool](false))
+			h.Tick(ctx, 2*telem.Millisecond)
+			h.channelState.ClearReads()
+
+			out2, changed2 := h.Flush()
+			Expect(changed2).To(BeTrue())
+			Expect(out2.Get(200).Series).To(HaveLen(1))
+			Expect(
+				telem.UnmarshalSeries[bool](out2.Get(200).Series[0]),
+			).To(Equal([]bool{false}))
+		})
+
+		It(
+			"Should run an inline body entry without an upstream flow",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"flag":      {types.Bool(), 100},
+					"stage_out": {types.U8(), 200},
+					"seq_out":   {types.U8(), 300},
+				})
+				h := newRuntimeHarness(ctx, `
+				flag -> select{} -> {
+				    true: stage { 1 -> stage_out },
+				    false: sequence { 1 -> seq_out }
+				}
+			`, resolver,
+					channels.Digest{Key: 100, DataType: telem.BooleanT},
+					channels.Digest{Key: 200, DataType: telem.Uint8T},
+					channels.Digest{Key: 300, DataType: telem.Uint8T},
+				)
+				defer h.Close(ctx)
+
+				// True branch activates the inline stage; its body fires on
+				// activation with no upstream flow in the entry.
+				h.Ingest(100, telem.NewSeriesV[bool](true))
+				h.Tick(ctx, telem.Millisecond)
+				h.channelState.ClearReads()
+
+				out, changed := h.Flush()
+				Expect(changed).To(BeTrue())
+				Expect(out.Get(200).Series).To(HaveLen(1))
+				Expect(
+					telem.UnmarshalSeries[uint8](out.Get(200).Series[0]),
+				).To(Equal([]uint8{1}))
+				Expect(out.Get(300).Series).To(BeEmpty())
+
+				// False branch activates the inline sequence the same way.
+				h.Ingest(100, telem.NewSeriesV[bool](false))
+				h.Tick(ctx, 2*telem.Millisecond)
+				h.channelState.ClearReads()
+
+				out2, changed2 := h.Flush()
+				Expect(changed2).To(BeTrue())
+				Expect(out2.Get(200).Series).To(BeEmpty())
+				Expect(out2.Get(300).Series).To(HaveLen(1))
+				Expect(
+					telem.UnmarshalSeries[uint8](out2.Get(300).Series[0]),
+				).To(Equal([]uint8{1}))
+			},
+		)
 	})
 
 	Describe("Routing to Stages", func() {
@@ -781,7 +1056,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				sequence main {
 				    stage first {
 				        sensor -> demux{threshold=50.0} -> {
-				            high: pressurize,
+				            high: true => pressurize,
 				        }
 				    }
 				    stage pressurize {

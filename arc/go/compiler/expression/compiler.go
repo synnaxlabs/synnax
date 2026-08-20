@@ -26,7 +26,7 @@ func validateNonZeroArray[T any](exprs []T, opName string) []T {
 	return exprs
 }
 
-func validateNonZero(expr parser.IUnaryExpressionContext, opName string) {
+func validateNonZero(expr parser.IPostfixExpressionContext, opName string) {
 	if expr == nil {
 		panic(errors.Newf("cannot compile an empty %s expression", opName))
 	}
@@ -95,9 +95,9 @@ func compileAdditive(
 func compileMultiplicative(
 	ctx context.Context[parser.IMultiplicativeExpressionContext],
 ) (types.Type, error) {
-	pows := validateNonZeroArray(ctx.AST.AllPowerExpression(), "multiplicative")
-	if len(pows) == 1 {
-		return compilePower(context.Child(ctx, pows[0]))
+	unaries := validateNonZeroArray(ctx.AST.AllUnaryExpression(), "multiplicative")
+	if len(unaries) == 1 {
+		return compileUnary(context.Child(ctx, unaries[0]))
 	}
 	return compileBinaryMultiplicative(ctx)
 }
@@ -105,20 +105,20 @@ func compileMultiplicative(
 func compilePower(
 	ctx context.Context[parser.IPowerExpressionContext],
 ) (types.Type, error) {
-	unary := ctx.AST.UnaryExpression()
-	validateNonZero(unary, "power")
+	postfix := ctx.AST.PostfixExpression()
+	validateNonZero(postfix, "power")
 
-	baseType, err := compileUnary(context.Child(ctx, unary))
+	baseType, err := compilePostfix(context.Child(ctx, postfix))
 	if err != nil {
 		return types.Type{}, err
 	}
 
-	if ctx.AST.CARET() == nil || ctx.AST.PowerExpression() == nil {
+	if ctx.AST.CARET() == nil || ctx.AST.UnaryExpression() == nil {
 		return baseType, nil
 	}
 
-	_, err = compilePower(
-		context.Child(ctx, ctx.AST.PowerExpression()).WithHint(baseType.Unwrap()),
+	_, err = compileUnary(
+		context.Child(ctx, ctx.AST.UnaryExpression()).WithHint(baseType.Unwrap()),
 	)
 	if err != nil {
 		return types.Type{}, err
@@ -138,30 +138,28 @@ func compilePostfix(
 	head, tail := parser.PrimaryNameParts(primary)
 	funcName := parser.PrimaryName(primary)
 	if len(funcCalls) > 0 && funcName != "" {
-		if funcName != "true" && funcName != "false" {
-			// len(), series.len(), and string.len() are language-level builtins
-			// that require compiler dispatch rather than normal function resolution.
-			// len() is polymorphic, dispatching to series.len or string.len based
-			// on argument type. The qualified forms restrict to a specific type.
-			if funcName == "len" || funcName == "series.len" ||
-				funcName == "string.len" {
-				return compileBuiltinLen(ctx, funcCalls[0], funcName)
-			}
+		// len(), series.len(), and string.len() are language-level builtins
+		// that require compiler dispatch rather than normal function resolution.
+		// len() is polymorphic, dispatching to series.len or string.len based
+		// on argument type. The qualified forms restrict to a specific type.
+		if funcName == "len" || funcName == "series.len" ||
+			funcName == "string.len" {
+			return compileBuiltinLen(ctx, funcCalls[0], funcName)
+		}
 
-			scope, err := ctx.Scope.Resolve(ctx, head)
-			if err == nil && tail != "" {
-				scope, err = scope.Resolve(ctx, tail)
+		scope, err := ctx.Scope.Resolve(ctx, head)
+		if err == nil && tail != "" {
+			scope, err = scope.Resolve(ctx, tail)
+		}
+		if err == nil && scope.Kind == symbol.KindFunction {
+			if scope.Exec == symbol.ExecFlow {
+				return types.Type{}, errors.Newf(
+					"function '%s' cannot be called inside a func block. Use it as a flow statement instead: %s{}",
+					funcName,
+					funcName,
+				)
 			}
-			if err == nil && scope.Kind == symbol.KindFunction {
-				if scope.Exec == symbol.ExecFlow {
-					return types.Type{}, errors.Newf(
-						"function '%s' cannot be called inside a func block. Use it as a flow statement instead: %s{}",
-						funcName,
-						funcName,
-					)
-				}
-				return compileFunctionCallExpr(ctx, funcName, scope, funcCalls[0])
-			}
+			return compileFunctionCallExpr(ctx, funcName, scope, funcCalls[0])
 		}
 	}
 
@@ -355,16 +353,7 @@ func compilePrimary(
 		return compileIdentifier(ctx, head, tail)
 	}
 	if id := ctx.AST.IDENTIFIER(); id != nil {
-		text := id.GetText()
-		if text == "true" {
-			ctx.Writer.WriteI32Const(1)
-			return types.U8(), nil
-		}
-		if text == "false" {
-			ctx.Writer.WriteI32Const(0)
-			return types.U8(), nil
-		}
-		return compileIdentifier(ctx, text, "")
+		return compileIdentifier(ctx, id.GetText(), "")
 	}
 	if ctx.AST.LPAREN() != nil && ctx.AST.Expression() != nil {
 		return Compile(context.Child(ctx, ctx.AST.Expression()))
@@ -434,6 +423,16 @@ func emitLiteralValue[T antlr.ParserRuleContext](
 			return errors.Newf("unexpected default value type %T for f64", defaultVal)
 		}
 		ctx.Writer.WriteF64Const(v)
+	case types.KindBool:
+		v, ok := defaultVal.(bool)
+		if !ok {
+			return errors.Newf("unexpected default value type %T for bool", defaultVal)
+		}
+		if v {
+			ctx.Writer.WriteI32Const(1)
+		} else {
+			ctx.Writer.WriteI32Const(0)
+		}
 	case types.KindString:
 		str, ok := defaultVal.(string)
 		if !ok {

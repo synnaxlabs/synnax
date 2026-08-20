@@ -79,7 +79,7 @@ func controller{
     setpoint f64,      // literal or channel
     sensor chan f64,   // channel reference
     output chan f64,   // channel reference
-} (enable u8) f64 {
+} (enable bool) f64 {
     value := sensor
     if enable {
         output = value - setpoint
@@ -133,12 +133,11 @@ func compute(x f64)result f64 {
 
 ### Multiple Named Outputs
 
-A function may declare more than one named output. Each output is set in the body and
-routed to its own destination at the call site. Use
-[routing tables](/reference/control/arc/reference/flow#output-routing) to connect
-multiple outputs:
+A function may declare more than one named output. Each output keys a branch at the call
+site: setting an output runs its
+[routing table](/reference/control/arc/reference/flow#output-routing) entry.
 
-```arc channels="sensor"
+```arc channels="sensor, log"
 func split(value f64) (high f64, low f64) {
     if value > 50.0 {
         high = value
@@ -148,8 +147,8 @@ func split(value f64) (high f64, low f64) {
 }
 
 sensor -> split{} -> {
-    high: alarm{},
-    low: logger{}
+    high: "high" -> log,
+    low: "low" -> log
 }
 ```
 
@@ -228,7 +227,7 @@ Functions can also reference global channels by name:
 ```arc channels="ox_pt_1, alarm_status"
 func monitor() {
     if ox_pt_1 > 500 {
-        alarm_status = 1
+        alarm_status = true
     }
 }
 ```

@@ -5512,7 +5512,7 @@ func ModuloU8(lhs, rhs telem.Series, output *telem.Series) {
 	}
 }
 
-func AndU8(lhs, rhs telem.Series, output *telem.Series) {
+func And(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
 	maxLen := lhsLen
@@ -5521,20 +5521,20 @@ func AndU8(lhs, rhs telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	lhsData := unsafe.CastSlice[uint8, uint8](lhs.Data)
-	rhsData := unsafe.CastSlice[uint8, uint8](rhs.Data)
-	outData := unsafe.CastSlice[uint8, uint8](output.Data)
+	lhsData := unsafe.CastSlice[uint8, bool](lhs.Data)
+	rhsData := unsafe.CastSlice[uint8, bool](rhs.Data)
+	outData := unsafe.CastSlice[uint8, bool](output.Data)
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
-			outData[i] = lhsData[i] & rhsData[i]
+			outData[i] = lhsData[i] && rhsData[i]
 		}
 		return
 	}
 
-	var lhsLast, rhsLast uint8
+	var lhsLast, rhsLast bool
 	if lhsLen > 0 {
 		lhsLast = lhsData[lhsLen-1]
 	}
@@ -5553,11 +5553,11 @@ func AndU8(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
-		outData[i] = lhsVal & rhsVal
+		outData[i] = lhsVal && rhsVal
 	}
 }
 
-func OrU8(lhs, rhs telem.Series, output *telem.Series) {
+func Or(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
 	maxLen := lhsLen
@@ -5566,20 +5566,20 @@ func OrU8(lhs, rhs telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	lhsData := unsafe.CastSlice[uint8, uint8](lhs.Data)
-	rhsData := unsafe.CastSlice[uint8, uint8](rhs.Data)
-	outData := unsafe.CastSlice[uint8, uint8](output.Data)
+	lhsData := unsafe.CastSlice[uint8, bool](lhs.Data)
+	rhsData := unsafe.CastSlice[uint8, bool](rhs.Data)
+	outData := unsafe.CastSlice[uint8, bool](output.Data)
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
-			outData[i] = lhsData[i] | rhsData[i]
+			outData[i] = lhsData[i] || rhsData[i]
 		}
 		return
 	}
 
-	var lhsLast, rhsLast uint8
+	var lhsLast, rhsLast bool
 	if lhsLen > 0 {
 		lhsLast = lhsData[lhsLen-1]
 	}
@@ -5598,19 +5598,43 @@ func OrU8(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
-		outData[i] = lhsVal | rhsVal
+		outData[i] = lhsVal || rhsVal
 	}
 }
 
-func NotU8(input telem.Series, output *telem.Series) {
+func Not(input telem.Series, output *telem.Series) {
 	inputLen := input.Len()
 	output.Resize(inputLen)
 
-	inData := unsafe.CastSlice[uint8, uint8](input.Data)
-	outData := unsafe.CastSlice[uint8, uint8](output.Data)
+	inData := unsafe.CastSlice[uint8, bool](input.Data)
+	outData := unsafe.CastSlice[uint8, bool](output.Data)
 
 	for i := int64(0); i < inputLen; i++ {
-		outData[i] = ^inData[i]
+		outData[i] = !inData[i]
+	}
+}
+
+func AndScalar(series telem.Series, scalar bool, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := unsafe.CastSlice[uint8, bool](series.Data)
+	outData := unsafe.CastSlice[uint8, bool](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] && scalar
+	}
+}
+
+func OrScalar(series telem.Series, scalar bool, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := unsafe.CastSlice[uint8, bool](series.Data)
+	outData := unsafe.CastSlice[uint8, bool](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] || scalar
 	}
 }
 

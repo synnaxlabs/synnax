@@ -85,9 +85,9 @@ describe("Cursor.useDrag", () => {
     return c.getByTestId("target");
   };
 
-  const down = (el: HTMLElement, init: PointerInit): void => {
-    fireEvent.pointerDown(el, pointerInit(init));
-  };
+  // fireEvent returns false when a listener cancelled the event's default action.
+  const down = (el: HTMLElement, init: PointerInit): boolean =>
+    !fireEvent.pointerDown(el, pointerInit(init));
   const move = (init: PointerInit): void => {
     fireEvent.pointerMove(window, pointerInit(init));
   };
@@ -303,6 +303,23 @@ describe("Cursor.useDrag", () => {
       move({ x: 2, y: 0 });
       up({ x: 2, y: 0 });
       expect(onEnd).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("preventDefault", () => {
+    it("should leave the press's default action alone by default", () => {
+      const el = renderTarget({});
+      expect(down(el, { x: 0, y: 0 })).toBe(false);
+    });
+
+    it("should cancel the press's default action when asked", () => {
+      const el = renderTarget({ preventDefault: true });
+      expect(down(el, { x: 0, y: 0 })).toBe(true);
+    });
+
+    it("should not cancel a press it ignores", () => {
+      const el = renderTarget({ preventDefault: true });
+      expect(down(el, { button: 2, x: 0, y: 0 })).toBe(false);
     });
   });
 

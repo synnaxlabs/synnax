@@ -41,6 +41,7 @@ const (
 	KindSequence
 	KindStage
 	KindVarRef
+	KindBool
 )
 
 // ChanDirection indicates read/write direction for channel-typed parameters.

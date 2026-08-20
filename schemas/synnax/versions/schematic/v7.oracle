@@ -12,10 +12,10 @@ import "schemas/x/versions/spatial/v0"
 Key = v0.Key
 
 Node struct {
-    key      string     {
+    key      string             {
         @doc value "is the unique node identifier within the schematic."
     }
-    position spatial.XY {
+    position spatial.XY         {
         @doc value "is the top-left position of the node."
     }
     z_index  int16 = 0 {
@@ -24,6 +24,9 @@ Node struct {
             above lower values. Set by the user via send-to-back / bring-to-front
             actions.
         """
+    }
+    measured spatial.Dimensions {
+        @doc value "is the rendered size of the node, captured by the Console."
     }
 
     @doc value  "is a diagram node representing a symbol in the schematic."

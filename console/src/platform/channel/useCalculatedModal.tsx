@@ -9,7 +9,7 @@
 
 import "@/platform/channel/CalculatedModal.css";
 
-import { channel, status, TimeSpan } from "@synnaxlabs/client";
+import { channel, DataType, status, TimeSpan } from "@synnaxlabs/client";
 import {
   Arc,
   Button,
@@ -34,6 +34,10 @@ import { Triggers } from "@/platform/triggers";
 export interface CalculatedModalParams {
   channelKey?: channel.Key;
 }
+
+const BOOLEAN_QUERY: Partial<Channel.RetrieveMultipleQuery> = {
+  dataTypes: [DataType.BOOLEAN],
+};
 
 const NAME_INPUT_PROPS: Partial<Input.TextProps> = {
   autoFocus: true,
@@ -127,13 +131,14 @@ export const useCalculatedModal = Modals.create<CalculatedModalParams>(
                   <Form.Field<channel.Key>
                     path="operations.0.resetChannel"
                     label="Reset channel"
-                    helpText="Resets the calculation when this channel is triggered."
+                    helpText="Resets the calculation when this boolean channel is triggered."
                     grow
                   >
                     {({ value, onChange }) => (
                       <Channel.SelectSingle
                         value={value}
                         onChange={(v: channel.Key | undefined) => onChange(v ?? 0)}
+                        initialQuery={BOOLEAN_QUERY}
                         grow
                         allowNone
                       />

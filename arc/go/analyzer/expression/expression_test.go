@@ -11,6 +11,7 @@ package expression_test
 
 import (
 	stdcontext "context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -21,7 +22,6 @@ import (
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
-	"go.lsp.dev/protocol"
 )
 
 // expectOperatorTypeError validates that code fails with an error mentioning
@@ -37,10 +37,10 @@ func expectOperatorTypeError(
 	ctx := context.NewRoot(specCtx, ast, NewRoot(nil))
 	analyzer.AnalyzeProgram(ctx)
 	Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-	Expect(*ctx.Diagnostics).To(HaveLen(1))
-	Expect((*ctx.Diagnostics)[0].Severity).To(Equal(protocol.DiagnosticSeverityError))
-	Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(typeName))
-	Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(operator))
+	errs := ctx.Diagnostics.Errors()
+	Expect(errs).To(HaveLen(1))
+	Expect(errs[0].Message).To(ContainSubstring(typeName))
+	Expect(errs[0].Message).To(ContainSubstring(operator))
 }
 
 var _ = Describe("Expressions", func() {
@@ -96,15 +96,15 @@ var _ = Describe("Expressions", func() {
 			`),
 			Entry("logical AND on booleans", `
 				func testFunc() {
-					a u8 := 0
-					b u8 := 1
+					a bool := false
+					b bool := true
 					c := a and b
 				}
 			`),
 			Entry("logical OR on booleans", `
 				func testFunc() {
-					a u8 := 0
-					b u8 := 1
+					a bool := false
+					b bool := true
 					c := a or b
 				}
 			`),
@@ -234,6 +234,30 @@ var _ = Describe("Expressions", func() {
 					z := x or y
 				}
 			`, "i32", "or"),
+			Entry("AND on i32 series", `
+				func testFunc() {
+					x series i32 := [1, 2, 3]
+					y series i32 := [4, 5, 6]
+					z := x and y
+				}
+			`, "i32", "and"),
+			Entry("OR on i32 series", `
+				func testFunc() {
+					x series i32 := [1, 2, 3]
+					y series i32 := [4, 5, 6]
+					z := x or y
+				}
+			`, "i32", "or"),
+			Entry("AND on untyped integer constants", `
+				func testFunc() {
+					z := 1 and 0
+				}
+			`, "integer", "and"),
+			Entry("OR on untyped integer constants", `
+				func testFunc() {
+					z := 1 or 0
+				}
+			`, "integer", "or"),
 		)
 
 		DescribeTable("type mismatch errors",
@@ -403,6 +427,36 @@ var _ = Describe("Expressions", func() {
 					}
 				`),
 			)
+
+			DescribeTable("valid series logical operations",
+				func(ctx SpecContext, code string) { expectSuccess(ctx, code, nil) },
+				Entry("series and series", `
+					func testFunc() {
+						a series f64 := [1.0, 5.0, 10.0]
+						b series f64 := [3.0, 3.0, 3.0]
+						c := (a > b) and (a < 20.0)
+					}
+				`),
+				Entry("series or series", `
+					func testFunc() {
+						a series f64 := [1.0, 5.0, 10.0]
+						b series f64 := [3.0, 3.0, 3.0]
+						c := (a > b) or (a < b)
+					}
+				`),
+				Entry("series and scalar", `
+					func testFunc() {
+						a series f64 := [1.0, 5.0, 10.0]
+						c := (a > 3.0) and true
+					}
+				`),
+				Entry("not series", `
+					func testFunc() {
+						a series f64 := [1.0, 5.0, 10.0]
+						c := not (a > 3.0)
+					}
+				`),
+			)
 		})
 	})
 
@@ -423,7 +477,7 @@ var _ = Describe("Expressions", func() {
 			`),
 			Entry("logical not on boolean", `
 				func testFunc() {
-					x u8 := 1
+					x bool := true
 					y := not x
 				}
 			`),
@@ -442,7 +496,7 @@ var _ = Describe("Expressions", func() {
 			`),
 			Entry("double not", `
 				func testFunc() {
-					x u8 := 1
+					x bool := true
 					y := not not x
 				}
 			`),
@@ -458,6 +512,18 @@ var _ = Describe("Expressions", func() {
 			Entry("negation on unsigned integer", `
 				func testFunc() {
 					x u32 := 5
+					y := -x
+				}
+			`),
+			Entry("logical not on bool series", `
+				func testFunc() {
+					a series f64 := [1.0, 5.0, 10.0]
+					y := not (a > 3.0)
+				}
+			`),
+			Entry("negation on signed series", `
+				func testFunc() {
+					x series i64 := [1, 2, 3]
 					y := -x
 				}
 			`),
@@ -485,6 +551,12 @@ var _ = Describe("Expressions", func() {
 					y := not x
 				}
 			`, "boolean operand"),
+			Entry("not on non-bool series", `
+				func testFunc() {
+					x series i64 := [1, 2, 3]
+					y := not x
+				}
+			`, "operator 'not' requires boolean operand"),
 		)
 	})
 
@@ -572,9 +644,9 @@ var _ = Describe("Expressions", func() {
 			`),
 			Entry("chained logical operations", `
 				func testFunc() {
-					a u8 := 1
-					b u8 := 0
-					c u8 := 1
+					a bool := true
+					b bool := false
+					c bool := true
 					result := a and b or c
 					result2 := a or b and c
 				}
@@ -584,8 +656,8 @@ var _ = Describe("Expressions", func() {
 					x i32 := 10
 					y i32 := 20
 					z i32 := 30
-					a u8 := x < y
-					b u8 := y > z
+					a := x < y
+					b := y > z
 					result := a and b or (x + y == z)
 				}
 			`),
@@ -1147,7 +1219,7 @@ var _ = Describe("Expressions", func() {
 				ID:   20006,
 			}}),
 			Entry("comparison", `
-				func testFunc() u8 {
+				func testFunc() bool {
 					return sensor > 100
 				}
 			`, []symbol.Symbol{{
@@ -1178,6 +1250,26 @@ var _ = Describe("Expressions", func() {
 				}
 			`, resolver, "cannot use f32 in and operation")
 			},
+		)
+
+		DescribeTable("cross-family operand errors",
+			func(ctx SpecContext, code, expectedMsg string) {
+				expectFailure(ctx, code, nil, expectedMsg)
+			},
+			Entry("integer in and", `
+				func testFunc() {
+					x u8 := 1
+					y u8 := 2
+					z := x and y
+				}
+			`, "cannot use u8 in and operation"),
+			Entry("integer in or", `
+				func testFunc() {
+					x u8 := 1
+					y u8 := 2
+					z := x or y
+				}
+			`, "cannot use u8 in or operation"),
 		)
 	})
 
@@ -1313,6 +1405,12 @@ var _ = Describe("Expressions", func() {
 					y := x^2s
 				}
 			`, "dimensionless"),
+			Entry("dimensioned base with chained power exponent", `
+				func testFunc() {
+					x f64 m := 5m
+					y := x^2^2
+				}
+			`, "literal integer exponent"),
 		)
 	})
 
@@ -1455,7 +1553,157 @@ var _ = Describe("Expressions", func() {
 					y := u8(x)
 				}
 			`),
+			Entry("bool to str", `
+				func testFunc() {
+					x bool := true
+					y := str(x)
+				}
+			`),
 		)
+
+		DescribeTable(
+			"experimental warnings on bool to numeric casts",
+			func(ctx SpecContext, target string, warningCount int) {
+				code := fmt.Sprintf(`
+				func testFunc() {
+					x bool := true
+					y := %s(x)
+				}
+			`, target)
+				ast := MustSucceed(parser.Parse(code))
+				aCtx := context.NewRoot(ctx, ast, buildExpressionRoot(nil))
+				analyzer.AnalyzeProgram(aCtx)
+				Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
+				warnings := aCtx.Diagnostics.Warnings()
+				Expect(warnings).To(HaveLen(warningCount))
+				for _, w := range warnings {
+					Expect(w.Message).To(ContainSubstring("is experimental"))
+				}
+			},
+			Entry("u8 is the blessed target", "u8", 0),
+			Entry("str is not numeric", "str", 0),
+			Entry("i32", "i32", 1),
+			Entry("i64", "i64", 1),
+			Entry("u16", "u16", 1),
+			Entry("f32", "f32", 1),
+			Entry("f64", "f64", 1),
+		)
+
+		DescribeTable("rejected boolean conversions",
+			func(ctx SpecContext, code string) {
+				expectFailure(ctx, code, nil, "boolean conversions are not supported")
+			},
+			Entry("bool() of a typed numeric", `
+				func testFunc() {
+					x i32 := 1
+					y := bool(x)
+				}
+			`),
+			Entry("bool() of an integer literal", `
+				func testFunc() {
+					y := bool(1)
+				}
+			`),
+			Entry("bool() of a float literal", `
+				func testFunc() {
+					y := bool(1.23)
+				}
+			`),
+			Entry("bool() of a bool", `
+				func testFunc() {
+					x bool := true
+					y := bool(x)
+				}
+			`),
+			Entry("bool() of a string", `
+				func testFunc() {
+					x str := "hello"
+					y := bool(x)
+				}
+			`),
+		)
+
+		DescribeTable("accepted bool to numeric casts",
+			func(ctx SpecContext, code string) {
+				expectSuccess(ctx, code, nil)
+			},
+			Entry("bool to u8", `
+				func testFunc() {
+					x bool := true
+					y := u8(x)
+				}
+			`),
+			Entry("bool to f64", `
+				func testFunc() {
+					x bool := true
+					y := f64(x)
+				}
+			`),
+		)
+
+		It(
+			"Should reject the outer cast of a nested boolean conversion",
+			func(ctx SpecContext) {
+				ast := MustSucceed(parser.Parse(`
+					func testFunc() {
+						y := str(bool(1))
+					}
+				`))
+				aCtx := context.NewRoot(ctx, ast, NewRoot(nil))
+				analyzer.AnalyzeProgram(aCtx)
+				Expect(aCtx.Diagnostics.Ok()).To(BeFalse())
+				errs := aCtx.Diagnostics.Errors()
+				Expect(errs).To(HaveLen(2))
+				Expect(errs[0].Message).To(
+					ContainSubstring("boolean conversions are not supported"),
+				)
+				Expect(errs[1].Message).To(
+					ContainSubstring("cannot cast invalid to str"),
+				)
+			},
+		)
+
+		Context("in flow statements", func() {
+			flowChannels := []symbol.Symbol{{
+				Kind: symbol.KindChannel,
+				Name: "sensor",
+				Type: types.Chan(types.F64()),
+				ID:   21001,
+			}, {
+				Kind: symbol.KindChannel,
+				Name: "flag_in",
+				Type: types.Chan(types.Bool()),
+				ID:   21002,
+			}, {
+				Kind: symbol.KindChannel,
+				Name: "flag_out",
+				Type: types.Chan(types.Bool()),
+				ID:   21003,
+			}, {
+				Kind: symbol.KindChannel,
+				Name: "log_out",
+				Type: types.Chan(types.String()),
+				ID:   21004,
+			}}
+
+			DescribeTable("rejected boolean conversions",
+				func(ctx SpecContext, code string) {
+					expectFailure(
+						ctx,
+						code,
+						flowChannels,
+						"boolean conversions are not supported",
+					)
+				},
+				Entry("bool() of a literal", `bool(1) -> flag_out`),
+				Entry("bool() of a channel", `bool(sensor) -> flag_out`),
+				Entry("bool() nested in str()", `str(bool(sensor)) -> log_out`),
+			)
+
+			It("Should allow str() of a bool channel", func(ctx SpecContext) {
+				expectSuccess(ctx, `str(flag_in) -> log_out`, flowChannels)
+			})
+		})
 	})
 
 	Describe("IsLiteral and GetLiteral Edge Cases", func() {
