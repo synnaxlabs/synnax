@@ -10,7 +10,10 @@
 package mock_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/mock"
 	"github.com/synnaxlabs/freighter/test"
@@ -35,5 +38,26 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 		address.Address,
 	) {
 		return server, client, "localhost:0"
+	})
+
+	It("Should release the handler when the client stops receiving", func(
+		ctx SpecContext,
+	) {
+		ShouldNotLeakGoroutines()
+		abandoned, dialer := mock.NewStreamPair[test.Request, test.Response](1, 1)
+		returned := make(chan struct{})
+		abandoned.BindHandler(func(
+			_ context.Context,
+			stream freighter.ServerStream[test.Request, test.Response],
+		) error {
+			defer close(returned)
+			return stream.Send(test.Response{ID: 1})
+		})
+		streamCtx, cancel := context.WithCancel(ctx)
+		// The response fills the buffer, so the closing error the handler emits on
+		// return has nowhere to go until the client cancels.
+		MustSucceed(dialer.Stream(streamCtx, "localhost:0"))
+		Eventually(returned).Should(BeClosed())
+		cancel()
 	})
 })
