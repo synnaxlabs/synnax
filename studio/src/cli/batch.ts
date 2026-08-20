@@ -32,7 +32,8 @@ options are unchanged since their last successful production are skipped.
   --core-bin <path> synnax binary for the ephemeral cores
   --port <n>        core port for the ephemeral cores (default 9095)
   --jobs <n>        entries to produce concurrently (default 1); worker i gets
-                    port + i, and its log prints when the entry finishes`;
+                    port + i, and its log prints when the entry finishes.
+                    Entries pinning a port produce first, one at a time`;
 
 const ROOT = path.resolve(import.meta.dirname, "../..");
 const OUT_ROOT = path.join(ROOT, "out");
@@ -101,7 +102,7 @@ const produceEntry = async ({
       theme,
       core: "ephemeral",
       coreBin,
-      port,
+      port: entry.port ?? port,
       hideCaret: entry.hideCaret ?? false,
       ...(entry.width != null && { width: entry.width }),
       ...(entry.height != null && { height: entry.height }),
@@ -254,33 +255,36 @@ const main = async (): Promise<void> => {
 
   const jobs = Math.max(1, Number(values.jobs ?? 1));
   const basePort = values.port != null ? Number(values.port) : STUDIO_PORT;
-  if (jobs > 1) {
-    const result = await runPool(stale, jobs, basePort, {
+  // Pinned entries all want one port, so they cannot run beside each other.
+  const pooled = jobs > 1 ? stale.filter((e) => e.port == null) : [];
+  const serial = stale.filter((e) => !pooled.includes(e));
+  for (const entry of serial) {
+    console.log(`${entry.id}:`);
+    try {
+      await produceEntry({
+        entry,
+        url: values.url,
+        draft: values.draft,
+        keepFrames: values["keep-frames"],
+        coreBin: values["core-bin"],
+        ...(values.port != null && { port: Number(values.port) }),
+      });
+      produced++;
+    } catch (err) {
+      console.error(`${entry.id}: FAILED`, err);
+      failed.push(entry.id);
+    }
+  }
+  if (pooled.length > 0) {
+    const result = await runPool(pooled, jobs, basePort, {
       url: values.url,
       draft: values.draft,
       keepFrames: values["keep-frames"],
       coreBin: values["core-bin"],
     });
-    produced = result.produced;
+    produced += result.produced;
     failed.push(...result.failed);
-  } else
-    for (const entry of stale) {
-      console.log(`${entry.id}:`);
-      try {
-        await produceEntry({
-          entry,
-          url: values.url,
-          draft: values.draft,
-          keepFrames: values["keep-frames"],
-          coreBin: values["core-bin"],
-          ...(values.port != null && { port: Number(values.port) }),
-        });
-        produced++;
-      } catch (err) {
-        console.error(`${entry.id}: FAILED`, err);
-        failed.push(entry.id);
-      }
-    }
+  }
 
   const failures = failed.length > 0 ? `:\n  ${failed.join("\n  ")}` : "";
   console.log(

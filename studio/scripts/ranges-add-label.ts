@@ -21,8 +21,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   ]);
   await fixtures.seedRanges(["Hotfire 09"]);
   const { page } = session;
-  const project = `Docs Videos ${Date.now().toString(36)}`;
-  await capture.login(session, { username: "synnax", password: "seldon" }, project);
+  await capture.login(session, { username: "synnax", password: "seldon" });
 
   await capture.searchPalette(session, "Hotfire 09");
   const trigger = page.getByText("Select labels", { exact: true }).first();

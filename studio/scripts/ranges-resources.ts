@@ -17,8 +17,7 @@ import { capture, fixtures } from "@/index";
 export default async (session: capture.CaptureSession): Promise<void> => {
   await fixtures.seedRanges(["Hotfire 09", "Coldflow 22", "Burst Test 04"]);
   const { page } = session;
-  const project = `Docs Videos ${Date.now().toString(36)}`;
-  await capture.login(session, { username: "synnax", password: "seldon" }, project);
+  await capture.login(session, { username: "synnax", password: "seldon" });
 
   await capture.openToolbar(session, "range");
   await capture.resizeToolbar(session, 400);
@@ -28,10 +27,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.hold(1000);
 
   // The link swaps the mosaic to the explorer tab, so the camera stays wide.
-  await session.click(
-    page.getByText("Open range explorer", { exact: true }).first(),
-    { text: true, zoom: false },
-  );
+  await session.click(page.getByText("Open range explorer", { exact: true }).first(), {
+    text: true,
+    zoom: false,
+  });
   const row = page.getByText("Hotfire 09", { exact: true }).first();
   await session.waitFor(row);
   await session.hold(800);

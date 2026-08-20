@@ -17,6 +17,14 @@ export interface Credentials {
 }
 
 /**
+ * PROJECT names the project every capture works in. It is on screen in the
+ * panel bar, the resources tree, and the project badge, so it reads as a real
+ * user's project. Every capture gets its own empty core, so it needs no
+ * uniquifier.
+ */
+export const PROJECT = "Test Stand";
+
+/**
  * login fills the Console login form, passes the projects screen (selecting or
  * creating `project`), and waits for the workspace shell. Runs before recording
  * starts, so it fills fields directly instead of typing.
@@ -24,7 +32,7 @@ export interface Credentials {
 export const login = async (
   session: CaptureSession,
   { username, password }: Credentials,
-  project = "Docs Videos",
+  project = PROJECT,
 ): Promise<void> => {
   const { page } = session;
   await session.waitFor(page.locator(".pluto-field__username input"));

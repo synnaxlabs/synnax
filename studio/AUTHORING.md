@@ -94,6 +94,8 @@ sits over the thing it just changed.
 Each capture spawns its own in-memory core and refuses to start if the port is
 taken, so concurrent runs need distinct ports (`--port`). One Console dev
 server serves every worker: the rig points each browser at its own core through
-a localStorage override. Do not edit `videos.ts`, `src/capture/*`, or
+a localStorage override. An entry that puts the address on screen sets
+`port: 9090` in `videos.ts` instead; those produce one at a time, ahead of the
+pool, and need 9090 free. Do not edit `videos.ts`, `src/capture/*`, or
 `src/cli/*` while another worker is running; write your own script file, and
 report a helper you need rather than adding it to a shared module.

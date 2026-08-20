@@ -18,8 +18,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   const fixture = await fixtures.sineTelemetry();
   try {
     const { page } = session;
-    const project = `Docs Videos ${Date.now().toString(36)}`;
-    await capture.login(session, { username: "synnax", password: "seldon" }, project);
+    await capture.login(session, { username: "synnax", password: "seldon" });
 
     await capture.createComponent(session, "Line plot");
     await session.waitFor(page.locator(".pluto-line-plot").first());
@@ -33,9 +32,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await capture.showVisualizationToolbar(session);
     await session.hold(1000);
 
-    const drawer = page
-      .locator(".console-nav__drawer.pluto--location-bottom")
-      .first();
+    const drawer = page.locator(".console-nav__drawer.pluto--location-bottom").first();
     await session.click(drawer.getByText("Properties", { exact: true }).first(), {
       text: true,
     });

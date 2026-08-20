@@ -87,11 +87,18 @@ export default manifest.define([
   { id: "console/schematics/upload", script: "scripts/schematic-upload.ts" },
   { id: "console/schematics/snapshot", script: "scripts/schematic-snapshot.ts" },
   { id: "console/schematics/valve", script: "scripts/schematic-valve.ts" },
+  // Both shots put the Core's address on screen, so they run on the port the
+  // docs quote.
   {
     id: "console/ui-overview/cluster-toolbar",
     script: "scripts/ui-overview-cluster-toolbar.ts",
+    port: 9090,
   },
-  { id: "console/clusters/connect", script: "scripts/clusters-connect.ts" },
+  {
+    id: "console/clusters/connect",
+    script: "scripts/clusters-connect.ts",
+    port: 9090,
+  },
   { id: "console/channels/create", script: "scripts/channels-create.ts" },
   { id: "console/channels/alias", script: "scripts/channels-alias.ts" },
   {

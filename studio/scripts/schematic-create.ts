@@ -16,8 +16,7 @@ import { capture } from "@/index";
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   const { page } = session;
-  const project = `Docs Videos ${Date.now().toString(36)}`;
-  await capture.login(session, { username: "synnax", password: "seldon" }, project);
+  await capture.login(session, { username: "synnax", password: "seldon" });
   await capture.clearPanel(session);
   await session.moveTo({ x: 756, y: 500 });
 

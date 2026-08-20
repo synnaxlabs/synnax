@@ -21,8 +21,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await fixtures.seedCalculatedChannels([
       { name: "pressure_doubled", expression: `return ${fixture.channels[0]} * 2` },
     ]);
-    const project = `Docs Videos ${Date.now().toString(36)}`;
-    await capture.login(session, { username: "synnax", password: "seldon" }, project);
+    await capture.login(session, { username: "synnax", password: "seldon" });
 
     await capture.openToolbar(session, "channel");
     await capture.resizeToolbar(session, 400);

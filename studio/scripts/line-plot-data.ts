@@ -16,8 +16,7 @@ import { capture, fixtures } from "@/index";
 export default async (session: capture.CaptureSession): Promise<void> => {
   const fixture = await fixtures.sineTelemetry();
   try {
-    const project = `Docs Videos ${Date.now().toString(36)}`;
-    await capture.login(session, { username: "synnax", password: "seldon" }, project);
+    await capture.login(session, { username: "synnax", password: "seldon" });
     await capture.clearPanel(session);
 
     session.startRecording();

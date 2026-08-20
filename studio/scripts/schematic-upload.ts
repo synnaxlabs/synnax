@@ -26,7 +26,7 @@ const FIXTURES = path.join(tmpdir(), "synnax-studio-schematic-upload");
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   const { page } = session;
-  const project = `Docs Videos ${Date.now().toString(36)}`;
+  const project = capture.PROJECT;
   await capture.login(session, { username: "synnax", password: "seldon" }, project);
 
   await capture.createComponent(session, "Schematic");

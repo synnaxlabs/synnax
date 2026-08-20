@@ -18,8 +18,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await fixtures.seedStaticTelemetry({ channels: ["digital_input_1"], samples: 200 });
   await fixtures.seedRanges(["Hotfire 09"]);
   const { page } = session;
-  const project = `Docs Videos ${Date.now().toString(36)}`;
-  await capture.login(session, { username: "synnax", password: "seldon" }, project);
+  await capture.login(session, { username: "synnax", password: "seldon" });
 
   // Aliases belong to the active range, so activate one before recording.
   await capture.searchPalette(session, "Hotfire 09");

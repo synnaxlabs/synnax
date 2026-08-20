@@ -35,6 +35,12 @@ export const entryZ = z.object({
   target: z.string().optional(),
   /** Hides the text caret during capture. */
   hideCaret: z.boolean().optional(),
+  /**
+   * Pins the capture's core to this port, overriding the port the run assigns.
+   * For shots that put the address on screen: the docs show 9090. Pinned
+   * entries produce one at a time, since they cannot take a free port.
+   */
+  port: z.int().positive().optional(),
 });
 export type Entry = z.infer<typeof entryZ>;
 

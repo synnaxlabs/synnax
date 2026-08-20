@@ -19,8 +19,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     { username: "grace", firstName: "Grace", lastName: "Hopper", role: "Viewer" },
   ]);
   const { page } = session;
-  const project = `Docs Videos ${Date.now().toString(36)}`;
-  await capture.login(session, { username: "synnax", password: "seldon" }, project);
+  await capture.login(session, { username: "synnax", password: "seldon" });
 
   await capture.openToolbar(session, "user");
   await capture.resizeToolbar(session, 400);

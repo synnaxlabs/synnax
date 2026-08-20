@@ -16,7 +16,7 @@ import { capture } from "@/index";
 export default async (session: capture.CaptureSession): Promise<void> => {
   // A fresh project per capture keeps the workspace empty and the shot clean;
   // prior runs' visualizations persist inside a reused project.
-  const project = `Docs Videos ${Date.now().toString(36)}`;
+  const project = capture.PROJECT;
   await capture.login(session, { username: "synnax", password: "seldon" }, project);
 
   session.startRecording();

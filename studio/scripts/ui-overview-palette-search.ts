@@ -18,8 +18,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   const fixture = await fixtures.sineTelemetry();
   try {
     await fixtures.seedRanges(["Tank Fill", "Hotfire"]);
-    const project = `Docs Videos ${Date.now().toString(36)}`;
-    await capture.login(session, { username: "synnax", password: "seldon" }, project);
+    await capture.login(session, { username: "synnax", password: "seldon" });
 
     await capture.commandPalette(session, "Create line plot");
     await session.waitFor(session.page.locator(".pluto-line-plot").first());
