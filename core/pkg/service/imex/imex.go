@@ -182,9 +182,9 @@ func Decode[T any](ctx context.Context, e Envelope) (T, error) {
 }
 
 // BodyExporter is implemented by a resource whose portable body differs from its stored
-// shape — an Arc, whose file carries the materialized source rather than the
-// operation log that reconstructs it. Encode reduces ExportBody's return in place of
-// the receiver.
+// shape — an Arc, whose file carries the materialized source rather than the operation
+// log that reconstructs it. Encode reduces ExportBody's return in place of the
+// receiver.
 type BodyExporter interface {
 	// ExportBody returns the value to reduce in place of the receiver. It must be a
 	// struct or a map[string]any, the same forms Encode takes.
