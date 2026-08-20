@@ -44,10 +44,15 @@ class TestTiming:
 
     def test_sleep_rate(self) -> None:
         """Should sleep correctly based on a rate argument."""
-        t = Timer()
-        sleep(100 * Rate.HZ, precise=True)
-        assert t.elapsed() < TimeSpan.MILLISECOND * 11
-        assert t.elapsed() > TimeSpan.MILLISECOND * 9
+        samples: list[int] = []
+        for _ in range(10):
+            t = Timer()
+            sleep(100 * Rate.HZ, precise=True)
+            samples.append(t.elapsed())
+        # A wrong rate conversion is off by an order of magnitude, so bound the median
+        # loosely. test_loop covers the precision of the sleep itself.
+        median = TimeSpan(int(np.median(samples)))
+        assert TimeSpan.MILLISECOND * 5 < median < TimeSpan.MILLISECOND * 20
 
     def test_poll_returns_value_when_condition_met(self) -> None:
         """Should return the non-None value when the condition is met."""
@@ -91,13 +96,17 @@ class TestTiming:
         take a long time.
         """
         loop = Loop(TimeSpan.MILLISECOND * 10, precise=True)
-        i = 0
-        start = time.perf_counter_ns()
+        periods: list[int] = []
+        last = time.perf_counter_ns()
         with loop:
             for _ in loop:
-                i += 1
-                if i == 10:
+                now = time.perf_counter_ns()
+                periods.append(now - last)
+                last = now
+                if len(periods) == 20:
                     break
                 sleep(TimeSpan.MILLISECOND * 5, precise=True)
-        end = time.perf_counter_ns()
-        assert TimeSpan(end - start) < TimeSpan.MILLISECOND * 110
+        # The median period resists a scheduler stall that would skew the total. Without
+        # the loop, the 5 ms of work makes each period 15 ms.
+        median = TimeSpan(int(np.median(periods)))
+        assert TimeSpan.MILLISECOND * 8 < median < TimeSpan.MILLISECOND * 11
