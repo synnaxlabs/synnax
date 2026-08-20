@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/project/versions/legacy"
 	"github.com/synnaxlabs/x/encoding/zip"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
 
 func layoutFile(layouts map[string]map[string]any, mosaics map[string]any) []byte {
@@ -90,15 +89,12 @@ var _ = Describe("Members", func() {
 		)).To(BeEmpty())
 	})
 
-	It("Should reject a layout whose component file is missing", func(
+	It("Should skip a layout whose component file is missing", func(
 		ctx SpecContext,
 	) {
 		Expect(legacy.Members(
 			ctx, imexSvc, layoutFile(logLayouts, nil), zip.Files{},
-		)).Error().To(SatisfyAll(
-			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring(`data for layout "k1" not found`)),
-		))
+		)).To(BeEmpty())
 	})
 
 	It("Should reject an undecodable layout slice", func(ctx SpecContext) {

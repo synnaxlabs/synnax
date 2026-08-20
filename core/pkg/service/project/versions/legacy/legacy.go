@@ -29,7 +29,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/spatial"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // LayoutFileName is the tiling file every stable release wrote at the root of a project
@@ -84,8 +83,9 @@ type Member struct {
 }
 
 // Members locates and decodes the component file behind each importable layout record
-// in layoutData, in layout-key order. A record whose file the bundle does not hold is a
-// validation error.
+// in layoutData, in layout-key order. A record whose file the bundle does not hold is
+// skipped: released Consoles wrote layouts whose component file the export never
+// produced, and the tabs referencing one drop with it.
 func Members(
 	ctx context.Context,
 	svc *imex.Service,
@@ -102,9 +102,9 @@ func Members(
 		if !importableTypes.Contains(l.Type) {
 			continue
 		}
-		path, err := findComponent(ctx, files, key, l)
-		if err != nil {
-			return nil, err
+		path, ok := findComponent(ctx, files, key, l)
+		if !ok {
+			continue
 		}
 		var env imex.Envelope
 		if err := json.Codec.Decode(ctx, files[path], &env); err != nil {
@@ -121,18 +121,19 @@ func Members(
 }
 
 // findComponent matches a layout record to a file named after the layout or its key, or
-// one whose body carries the matching key or name.
+// one whose body carries the matching key or name. It reports false when the bundle
+// holds no such file.
 func findComponent(
 	ctx context.Context,
 	files zip.Files,
 	key string,
 	l layout,
-) (string, error) {
+) (string, bool) {
 	paths := slices.Sorted(maps.Keys(files))
 	for _, path := range paths {
 		base := path[strings.LastIndexByte(path, '/')+1:]
 		if base == l.Name+".json" || base == key+".json" {
-			return path, nil
+			return path, true
 		}
 	}
 	for _, path := range paths {
@@ -144,12 +145,10 @@ func findComponent(
 			continue
 		}
 		if body["key"] == key || body["name"] == l.Name {
-			return path, nil
+			return path, true
 		}
 	}
-	return "", errors.Wrapf(
-		validate.ErrValidation, "data for layout %q not found", key,
-	)
+	return "", false
 }
 
 // mainWindowKey is the key the Console used for the main window's mosaic.
