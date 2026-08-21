@@ -68,36 +68,43 @@ export const List = ({
         value={value}
         onFetchMore={fetchMore}
       >
-        {enableSearch && (
-          <Flex.Box x bordered className={CSS.BE("arc-list", "search")} background={1}>
-            <Input.Text
-              size="large"
-              level="h4"
-              variant="text"
-              value={searchTerm}
-              placeholder={
-                <>
-                  <Icon.Search />
-                  Search Arcs...
-                </>
-              }
-              onChange={(value) => {
-                setSearchTerm(value);
-                search(value);
-              }}
-            />
-          </Flex.Box>
-        )}
-        <PList.Items<arc.Key> onContextMenu={menuProps.open}>
-          {({ key, ...rest }) => (
-            <Item
-              key={key}
-              {...rest}
-              textIdPrefix={textIdPrefix}
-              onRename={(name) => handleRename({ key, name })}
-            />
+        <Flex.Box y full="y" empty>
+          {enableSearch && (
+            <Flex.Box
+              x
+              bordered
+              className={CSS.BE("arc-list", "search")}
+              background={1}
+            >
+              <Input.Text
+                size="large"
+                level="h4"
+                variant="text"
+                value={searchTerm}
+                placeholder={
+                  <>
+                    <Icon.Search />
+                    Search Arcs...
+                  </>
+                }
+                onChange={(value) => {
+                  setSearchTerm(value);
+                  search(value);
+                }}
+              />
+            </Flex.Box>
           )}
-        </PList.Items>
+          <PList.Items<arc.Key> grow onContextMenu={menuProps.open}>
+            {({ key, ...rest }) => (
+              <Item
+                key={key}
+                {...rest}
+                textIdPrefix={textIdPrefix}
+                onRename={(name) => handleRename({ key, name })}
+              />
+            )}
+          </PList.Items>
+        </Flex.Box>
       </Select.Frame>
     </Menu.ContextMenu>
   );
