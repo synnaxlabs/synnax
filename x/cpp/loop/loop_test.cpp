@@ -32,9 +32,13 @@ void log_timer_resolution() {
 #ifdef _WIN32
     using Query = LONG(WINAPI *)(PULONG, PULONG, PULONG);
     const auto ntdll = GetModuleHandleW(L"ntdll.dll");
+// C4191 fires on every GetProcAddress cast; the signature is fixed by the ntdll ABI.
+#pragma warning(push)
+#pragma warning(disable : 4191)
     const auto query = reinterpret_cast<Query>(
         GetProcAddress(ntdll, "NtQueryTimerResolution")
     );
+#pragma warning(pop)
     if (query == nullptr) {
         std::cout << "timer resolution: NtQueryTimerResolution unavailable\n";
         return;
