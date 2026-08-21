@@ -428,9 +428,7 @@ def assert_sample_rate(
                 f"tolerance is ±{RATE_TOLERANCE:.0%}"
             )
     if len(set(counts)) > 1:
-        raise AssertionError(
-            f"{prefix}Channels have different sample counts: {counts}"
-        )
+        raise AssertionError(f"{prefix}Channels have different sample counts: {counts}")
 
 
 def delete_channels(client: sy.Synnax, keys: list[int]) -> None:
