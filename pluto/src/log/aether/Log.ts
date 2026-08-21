@@ -43,6 +43,7 @@ export const logStateZ = log.logZ
     region: box.box,
     wheelPos: z.number(),
     scrolling: z.boolean(),
+    resumedAt: z.number().default(0),
     empty: z.boolean(),
     visible: z.boolean(),
     // channelNames: server-side display names (fetched fresh, never persisted)
@@ -241,7 +242,11 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
       // taken at the bottom starts there, so it takes a return or a downward scroll.
       if (scrollState.offset < this.entries.length) scrollState.awayFromEnd = true;
       else if (scrollState.awayFromEnd || dist < 0)
-        this.setState((s) => ({ ...s, scrolling: false }));
+        this.setState((s) => ({
+          ...s,
+          scrolling: false,
+          resumedAt: performance.now(),
+        }));
     }
 
     this.entries = this.internal.telem.value();
