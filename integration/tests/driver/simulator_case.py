@@ -39,7 +39,10 @@ def _listener_pids(port: int) -> list[int]:
         return [
             conn.pid
             for conn in psutil.net_connections(kind="tcp")
-            if conn.status == "LISTEN" and conn.laddr.port == port and conn.pid
+            if conn.status == "LISTEN"
+            and conn.laddr
+            and conn.laddr.port == port
+            and conn.pid
         ]
     except psutil.AccessDenied:
         # macOS hides other processes' sockets from non-root users.
