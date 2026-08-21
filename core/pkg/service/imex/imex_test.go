@@ -207,6 +207,20 @@ var _ = Describe("ImEx", func() {
 			)
 
 			It(
+				"Should emit markup literally, leaving escaping to the encoder",
+				func() {
+					env := imex.Envelope{Version: 1, Type: "log"}
+					Expect(imex.Encode(
+						&env, wirePayload{Name: "n", Bar: `<svg id="a"/>`},
+					)).To(Succeed())
+					Expect(string(MustSucceed(env.MarshalJSON()))).
+						To(ContainSubstring(`"<svg id=\"a\"/>"`))
+					Expect(string(MustSucceed(json.Marshal(env)))).
+						To(ContainSubstring(`"\u003csvg id=\"a\"/\u003e"`))
+				},
+			)
+
+			It(
 				"Should error when marshaling a hand-constructed envelope with no body",
 				func() {
 					// Hand-constructed envelopes have a nil body. MarshalJSON refuses

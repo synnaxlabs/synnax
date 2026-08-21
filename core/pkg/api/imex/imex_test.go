@@ -192,6 +192,16 @@ var _ = Describe("ResolveEncoding", func() {
 		b := MustSucceed(enc.Encode(ctx, map[string]string{"svg": `<svg id="a"/>`}))
 		Expect(string(b)).To(ContainSubstring(`"<svg id=\"a\"/>"`))
 	})
+	It("Should write markup in an envelope body literally", func(ctx SpecContext) {
+		enc := MustSucceed(apiimex.ResolveEncoding(apiimex.EncodingJSON))
+		type symbol struct {
+			SVG string `json:"svg"`
+		}
+		env := imex.Envelope{Version: 1, Type: "symbol", Name: "valve"}
+		Expect(imex.Encode(&env, symbol{SVG: `<svg id="a"/>`})).To(Succeed())
+		Expect(string(MustSucceed(enc.Encode(ctx, env)))).
+			To(ContainSubstring(`"<svg id=\"a\"/>"`))
+	})
 	It("Should reject an unsupported encoding", func() {
 		Expect(apiimex.ResolveEncoding("YAML")).Error().To(SatisfyAll(
 			MatchError(ContainSubstring("encoding")),

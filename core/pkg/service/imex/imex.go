@@ -102,14 +102,21 @@ type Envelope struct {
 
 // MarshalJSON emits the body built by Encode. It returns an error when the envelope has
 // no body, so a service that returns an empty Envelope from Export fails loudly instead
-// of sending null.
+// of sending null. The body keeps <, >, and & literal: the encoder that embeds this
+// output can add escapes but never remove them, so the choice belongs to it.
 func (e Envelope) MarshalJSON() ([]byte, error) {
 	if e.body == nil {
 		return nil, errors.New(
 			"envelope has no body; build one with Encode before marshaling",
 		)
 	}
-	return json.Marshal(e.body)
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(e.body); err != nil {
+		return nil, err
+	}
+	return bytes.TrimRight(buf.Bytes(), "\n"), nil
 }
 
 // UnmarshalJSON reads a flat JSON object, promoting the headers and retaining the bytes

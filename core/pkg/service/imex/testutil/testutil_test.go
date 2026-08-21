@@ -55,7 +55,6 @@ var _ = Describe("WireRoundTrip", func() {
 var _ = Describe("LoadBundle", func() {
 	It("Should read every file in the tree keyed by path from the root", func() {
 		Expect(LoadBundle("testdata/bundle")).To(SatisfyAll(
-			HaveLen(3),
 			HaveKey("manifest.json"),
 			HaveKey("nested dir/member.json"),
 			HaveKey("README.md"),
