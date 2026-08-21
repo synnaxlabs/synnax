@@ -98,38 +98,3 @@ class AnalogRead(NITask):
             channel_class=ANALOG_READ_CHANNEL_TYPES[chan_type],
             **kwargs,
         )
-
-    def set_parameters(
-        self,
-        *,
-        task_name: str | None = None,
-        data_saving: bool | None = None,
-        auto_start: bool | None = None,
-        **kwargs: Any,
-    ) -> None:
-        """
-        Set the parameters for the NI AI task.
-
-        Args:
-            task_name: The name of the task.
-            sample_rate: The sample rate for the AI task.
-            stream_rate: The stream rate for the AI task.
-            data_saving: Whether to save data to the core.
-            auto_start: Whether to start the task automatically.
-            **kwargs: Additional parameters.
-        """
-        sample_rate = kwargs.pop("sample_rate", None)
-        stream_rate = kwargs.pop("stream_rate", None)
-
-        super().set_parameters(
-            task_name=task_name,
-            data_saving=data_saving,
-            auto_start=auto_start,
-            **kwargs,
-        )
-
-        if sample_rate is not None:
-            self.layout.fill_input_field("Sample rate", str(sample_rate))
-
-        if stream_rate is not None:
-            self.layout.fill_input_field("Stream rate", str(stream_rate))

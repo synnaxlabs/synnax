@@ -15,7 +15,7 @@ import random
 import socket
 from pathlib import Path
 
-from asyncua import Server, ua
+from asyncua import Client, Server, ua
 from asyncua.crypto.cert_gen import setup_self_signed_certificate
 from asyncua.crypto.validator import CertificateValidator, CertificateValidatorOptions
 from asyncua.server.user_managers import User, UserRole
@@ -30,6 +30,7 @@ ARRAY_COUNT = 5
 DEFAULT_ARRAY_SIZE = 5
 FLOAT_COUNT = 5
 BOOL_COUNT = 5
+COMMAND_COUNT = 3
 DEFAULT_RATE = 50  # Hz
 BOOL_OFFSET = 0.2  # seconds between each boolean transition
 
@@ -97,7 +98,7 @@ async def create_bool_variables(myobj, idx):
 async def create_command_variables(myobj, idx):
     """Create writable command variables for testing write operations."""
     commands = []
-    for i in range(3):  # Create 3 command channels
+    for i in range(COMMAND_COUNT):
         cmd = await myobj.add_variable(idx, f"command_{i}", 0.0, ua.VariantType.Float)
         await cmd.set_writable()
         commands.append(cmd)
@@ -340,6 +341,13 @@ class OPCUASim(DeviceSim):
     port = 4841
     device_name = "OPC UA Server"
     endpoint = f"opc.tcp://{host}:{port}/freeopcua/server/"
+    channel_names = (
+        *(f"my_array_{i}" for i in range(ARRAY_COUNT)),
+        "my_time_array",
+        *(f"my_float_{i}" for i in range(FLOAT_COUNT)),
+        *(f"my_bool_{i}" for i in range(BOOL_COUNT)),
+        *(f"command_{i}" for i in range(COMMAND_COUNT)),
+    )
 
     def __init__(
         self,
@@ -356,11 +364,23 @@ class OPCUASim(DeviceSim):
         self.user_manager = user_manager
         self.max_sessions = max_sessions
 
-    def start(self) -> None:
-        super().start()
-        # Allow OPCUA Server time to startup
-        # so server doesn't reject the Core for trying to connect too many times
-        sy.sleep(5)
+    def _wait_for_ready(self) -> None:
+        """Poll until the server answers a GetEndpoints request. The socket accepts
+        connections before the server is initialized, so the TCP check is too early."""
+        super()._wait_for_ready()
+        timer = sy.Timer()
+        while True:
+            try:
+                client = Client(self.endpoint, timeout=1)
+                asyncio.run(client.connect_and_get_server_endpoints())
+                return
+            except Exception as e:
+                if timer.elapsed() > self.startup_timeout:
+                    raise RuntimeError(
+                        f"Server on {self.endpoint} not answering discovery after "
+                        f"{self.startup_timeout}"
+                    ) from e
+                sy.sleep(0.1)
 
     async def _run_server(self) -> None:
         await run_server(
