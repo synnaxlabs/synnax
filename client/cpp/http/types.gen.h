@@ -96,7 +96,7 @@ struct EnumEntry {
 /// @brief BaseWriteField carries the fields every write body field shares.
 struct BaseWriteField {
     /// @brief key uniquely identifies the field within the endpoint.
-    std::string key = "";
+    std::string key;
     /// @brief pointer is the JSON Pointer where the value is placed in the body.
     std::string pointer = "";
 
@@ -114,7 +114,7 @@ struct ScanConfig : public ::synnax::task::ScanConfig {
 /// @brief ReadField is a single value extracted from an endpoint's JSON response.
 struct ReadField {
     /// @brief key uniquely identifies the field within the endpoint.
-    std::string key = "";
+    std::string key;
     /// @brief name is the human-readable field name.
     std::string name = "";
     /// @brief disabled is true when the field is excluded from polling.
@@ -125,10 +125,10 @@ struct ReadField {
     std::string pointer = "";
     /// @brief data_type is the data type of the extracted value.
     ::x::telem::DataType data_type = ::x::telem::DataType("float64");
-    /// @brief timestamp_format is the encoding of the JSON value when the target
-    /// channel
-    /// holds timestamps. Required for timestamp channels.
-    std::optional<std::string> timestamp_format;
+    /// @brief time_format is the encoding of the JSON value when the target channel
+    /// holds
+    /// timestamps. Required for timestamp channels.
+    std::optional<std::string> time_format;
     /// @brief enum_values maps string labels in the response to numeric channel values.
     std::vector<EnumEntry> enum_values;
 
@@ -199,7 +199,7 @@ WriteField parse_write_field(x::json::Parser parser);
 /// @brief ReadEndpoint is a single HTTP endpoint polled by a read task.
 struct ReadEndpoint {
     /// @brief key uniquely identifies the endpoint within the task.
-    std::string key = "";
+    std::string key;
     /// @brief method is the HTTP method used to poll the endpoint.
     std::string method = METHOD_GET;
     /// @brief path is the URL path appended to the device's base URL.
@@ -224,7 +224,7 @@ struct ReadEndpoint {
 /// @brief WriteEndpoint is a single HTTP endpoint written to by a write task.
 struct WriteEndpoint {
     /// @brief key uniquely identifies the endpoint within the task.
-    std::string key = "";
+    std::string key;
     /// @brief disabled is true when the endpoint is excluded from the task.
     bool disabled = false;
     /// @brief method is the HTTP method used to send the request.

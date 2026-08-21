@@ -114,10 +114,10 @@ func (MapScale) isScaleVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (m *MapScale) ApplyDefaults() {
-	if m.PreScaledMax == 0 {
+	if m.PreScaledMin == 0 && m.PreScaledMax == 0 {
 		m.PreScaledMax = 1
 	}
-	if m.ScaledMax == 0 {
+	if m.ScaledMin == 0 && m.ScaledMax == 0 {
 		m.ScaledMax = 1
 	}
 }
@@ -291,8 +291,6 @@ type ThermocoupleReadChannel struct {
 	BaseReadChannel
 	// ThermocoupleType selects the thermocouple alloy type.
 	ThermocoupleType ThermocoupleType `json:"thermocouple_type" msgpack:"thermocouple_type"`
-	// PosChan is the AIN port the thermocouple's positive lead is wired to.
-	PosChan int32 `json:"pos_chan" msgpack:"pos_chan"`
 	// NegChan is the AIN port of the thermocouple's negative lead on T7 devices. 199
 	// selects single-ended.
 	NegChan int32 `json:"neg_chan" msgpack:"neg_chan"`

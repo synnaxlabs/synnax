@@ -89,7 +89,7 @@ interface RenderState {
   prevOrientation: location.Outer | undefined;
   prevSvg: string | undefined;
   prevScale: number | undefined;
-  prevScaleStroke: boolean | undefined;
+  prevStrokeScaled: boolean | undefined;
   prevState: schematic.symbol.State | undefined;
   prevStateOverrides: schematic.symbol.State[] | undefined;
 }
@@ -101,7 +101,7 @@ const createRenderState = (): RenderState => ({
   prevOrientation: undefined,
   prevSvg: undefined,
   prevScale: undefined,
-  prevScaleStroke: undefined,
+  prevStrokeScaled: undefined,
   prevState: undefined,
   prevStateOverrides: undefined,
 });
@@ -170,12 +170,12 @@ const applyScale = (
   );
 };
 
-const applyScaleStroke = (state: RenderState, scaleStroke: boolean) => {
+const applyStrokeScaled = (state: RenderState, strokeScaled: boolean) => {
   if (state.svgElement == null) return;
   const pathElements = state.svgElement.querySelectorAll(
     "path, circle, rect, line, ellipse, polygon, polyline",
   );
-  if (!scaleStroke)
+  if (!strokeScaled)
     pathElements.forEach((el) =>
       el.setAttribute("vector-effect", "non-scaling-stroke"),
     );
@@ -200,7 +200,7 @@ const runRender = (
   const orientationDiffers = state.prevOrientation !== orientation;
   const svgDiffers = state.prevSvg !== spec.svg;
   const scaleDiffers = state.prevScale !== spec.scale;
-  const scaleStrokeDiffers = state.prevScaleStroke !== spec.scaleStroke;
+  const strokeScaledDiffers = state.prevStrokeScaled !== spec.strokeScaled;
 
   const stateIndex = activeState === "active" ? 1 : 0;
   const currState = stateOverrides?.[stateIndex] ?? spec.states[stateIndex];
@@ -213,7 +213,7 @@ const runRender = (
     !orientationDiffers &&
     !svgDiffers &&
     !scaleDiffers &&
-    !scaleStrokeDiffers &&
+    !strokeScaledDiffers &&
     !stateDiffers &&
     !stateOverridesDiffers
   )
@@ -233,13 +233,13 @@ const runRender = (
   if (rebuilt || scaleDiffers || externalScaleDiffers || orientationDiffers)
     applyScale(state, orientation, spec.scale, externalScale);
 
-  if (rebuilt || scaleStrokeDiffers) applyScaleStroke(state, spec.scaleStroke);
+  if (rebuilt || strokeScaledDiffers) applyStrokeScaled(state, spec.strokeScaled);
 
   state.prevExternalScale = externalScale;
   state.prevOrientation = orientation;
   state.prevSvg = spec.svg;
   state.prevScale = spec.scale;
-  state.prevScaleStroke = spec.scaleStroke;
+  state.prevStrokeScaled = spec.strokeScaled;
   state.prevStateOverrides = deep.copy(stateOverrides);
 };
 

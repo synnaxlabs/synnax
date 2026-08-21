@@ -25,14 +25,14 @@ For task lifecycle management, see the
 
 ## Task Configuration Reference
 
-| Parameter     | Type    | Required | Default | Description                                                          |
-| ------------- | ------- | -------- | ------- | -------------------------------------------------------------------- |
-| `name`        | string  | Yes      | -       | Human-readable task name                                             |
-| `device`      | string  | Yes      | -       | Key of the HTTP server device                                        |
-| `rate`        | number  | Yes      | -       | Polling rate (Hz)                                                    |
-| `data_saving` | boolean | No       | `true`  | Enable permanent storage in Synnax                                   |
-| `auto_start`  | boolean | No       | `false` | Automatically start task after configuration or on Driver bootup     |
-| `endpoints`   | array   | Yes      | -       | List of [endpoint configurations](#endpoint-configuration-reference) |
+| Parameter              | Type    | Required | Default | Description                                                          |
+| ---------------------- | ------- | -------- | ------- | -------------------------------------------------------------------- |
+| `name`                 | string  | Yes      | -       | Human-readable task name                                             |
+| `device`               | string  | Yes      | -       | Key of the HTTP server device                                        |
+| `rate`                 | number  | Yes      | -       | Polling rate (Hz)                                                    |
+| `data_saving_disabled` | boolean | No       | `false` | Stream data without saving it permanently in Synnax                  |
+| `auto_start`           | boolean | No       | `false` | Automatically start task after configuration or on Driver bootup     |
+| `endpoints`            | array   | Yes      | -       | List of [endpoint configurations](#endpoint-configuration-reference) |
 
 <Divider.Divider x />
 
@@ -66,15 +66,15 @@ For example, given this response:
 
 A pointer of `/temperature` extracts `23.5`, and `/sensors/pressure` extracts `101.3`.
 
-| Parameter          | Type    | Required | Default     | Description                                                                                                    |
-| ------------------ | ------- | -------- | ----------- | -------------------------------------------------------------------------------------------------------------- |
-| `pointer`          | string  | Yes      | -           | JSON Pointer path to the value (e.g., `/temperature`)                                                          |
-| `channel`          | number  | Yes      | -           | Synnax channel key to write the extracted value to                                                             |
-| `data_type`        | string  | No       | `"float64"` | Data type of the channel                                                                                       |
-| `name`             | string  | No       | -           | Human-readable name for the field                                                                              |
-| `enabled`          | boolean | No       | `true`      | Whether this field is active                                                                                   |
-| `timestamp_format` | string  | No       | -           | [Timestamp format](#timestamp-handling) (required when the channel data type is `TIMESTAMP`)                   |
-| `enum_values`      | array   | No       | -           | String-to-number mapping for enum fields (e.g., `[{"label": "OFF", "value": 0}, {"label": "ON", "value": 1}]`) |
+| Parameter     | Type    | Required | Default     | Description                                                                                                    |
+| ------------- | ------- | -------- | ----------- | -------------------------------------------------------------------------------------------------------------- |
+| `pointer`     | string  | Yes      | -           | JSON Pointer path to the value (e.g., `/temperature`)                                                          |
+| `channel`     | number  | Yes      | -           | Synnax channel key to write the extracted value to                                                             |
+| `data_type`   | string  | No       | `"float64"` | Data type of the channel                                                                                       |
+| `name`        | string  | No       | -           | Human-readable name for the field                                                                              |
+| `disabled`    | boolean | No       | `false`     | Excludes the field from polling                                                                                |
+| `time_format` | string  | No       | -           | [Timestamp format](#timestamp-handling) (required when the channel data type is `TIMESTAMP`)                   |
+| `enum_values` | array   | No       | -           | String-to-number mapping for enum fields (e.g., `[{"label": "OFF", "value": 0}, {"label": "ON", "value": 1}]`) |
 
 <Details>
 <Text.Text slot="summary" level="p"><Icon.Details /> Enum Values</Text.Text>
@@ -102,8 +102,7 @@ If the response value does not match any key in the map, the driver reports an e
 
 By default, the driver automatically generates timestamps for each poll cycle using
 software timing. If your HTTP response includes a timestamp field, you can extract it
-directly by setting `timestamp_format` on a field whose channel data type is
-`TIMESTAMP`.
+directly by setting `time_format` on a field whose channel data type is `TIMESTAMP`.
 
 <Details>
 <Text.Text slot="summary" level="p"><Icon.Details /> Supported Timestamp Formats</Text.Text>
@@ -122,12 +121,12 @@ directly by setting `timestamp_format` on a field whose channel data type is
 <Text.Text slot="summary" level="p"><Icon.Details /> Software vs. Hardware Timing</Text.Text>
 
 **Software timing** (default): The Driver generates a timestamp at each poll cycle. All
-fields that share the same index channel are written atomically. No `timestamp_format`
-is needed on any field.
+fields that share the same index channel are written atomically. No `time_format` is
+needed on any field.
 
 **Hardware timing**: If your response includes a timestamp, create a `TIMESTAMP` channel
-as the index and add a field that extracts it with a `timestamp_format`. Other fields
-using that index channel will be grouped with the extracted timestamp.
+as the index and add a field that extracts it with a `time_format`. Other fields using
+that index channel will be grouped with the extracted timestamp.
 
 </Details>
 
@@ -183,7 +182,6 @@ task = http.ReadTask(
     name="HTTP Read Task",
     device=dev.key,
     rate=1,  # Poll at 1 Hz
-    data_saving=True,
     endpoints=[
         http.ReadEndpoint(
             method="GET",
@@ -256,7 +254,6 @@ task = http.ReadTask(
     name="Multi-Endpoint Read",
     device=dev.key,
     rate=1,
-    data_saving=True,
     endpoints=[
         http.ReadEndpoint(
             method="GET",
@@ -316,7 +313,6 @@ task = http.ReadTask(
     name="Enum Read",
     device=dev.key,
     rate=1,
-    data_saving=True,
     endpoints=[
         http.ReadEndpoint(
             method="GET",

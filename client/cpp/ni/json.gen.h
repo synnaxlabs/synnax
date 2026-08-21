@@ -22,6 +22,7 @@
 #include "client/cpp/task/json.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
+#include "x/cpp/uuid/uuid.h"
 
 namespace synnax::ni {
 
@@ -213,7 +214,7 @@ inline x::json::json CustomScale::to_json() const {
 
 inline BaseAIChannel BaseAIChannel::parse(x::json::Parser parser) {
     return BaseAIChannel{
-        .key = parser.field<std::string>("key", ""),
+        .key = parser.field<std::string>("key", x::uuid::create().to_string()),
         .name = parser.field<std::string>("name", ""),
         .disabled = parser.field<bool>("disabled", false),
         .channel = parser.field<::synnax::channel::Key>(
@@ -238,7 +239,7 @@ inline x::json::json BaseAIChannel::to_json() const {
 
 inline ZIndex ZIndex::parse(x::json::Parser parser) {
     return ZIndex{
-        .z_index_enable = parser.field<bool>("z_index_enable", false),
+        .z_index_enabled = parser.field<bool>("z_index_enabled", false),
         .z_index_val = parser.field<double>("z_index_val", 0),
         .z_index_phase = parser.field<std::string>("z_index_phase", "AHighBHigh"),
         .terminal_z = parser.field<std::string>("terminal_z", ""),
@@ -247,7 +248,7 @@ inline ZIndex ZIndex::parse(x::json::Parser parser) {
 
 inline x::json::json ZIndex::to_json() const {
     x::json::json j;
-    j["z_index_enable"] = this->z_index_enable;
+    j["z_index_enabled"] = this->z_index_enabled;
     j["z_index_val"] = this->z_index_val;
     j["z_index_phase"] = this->z_index_phase;
     j["terminal_z"] = this->terminal_z;
@@ -256,7 +257,7 @@ inline x::json::json ZIndex::to_json() const {
 
 inline BaseCIChannel BaseCIChannel::parse(x::json::Parser parser) {
     return BaseCIChannel{
-        .key = parser.field<std::string>("key", ""),
+        .key = parser.field<std::string>("key", x::uuid::create().to_string()),
         .name = parser.field<std::string>("name", ""),
         .disabled = parser.field<bool>("disabled", false),
         .channel = parser.field<::synnax::channel::Key>(
@@ -281,7 +282,7 @@ inline x::json::json BaseCIChannel::to_json() const {
 
 inline BaseAOChannel BaseAOChannel::parse(x::json::Parser parser) {
     return BaseAOChannel{
-        .key = parser.field<std::string>("key", ""),
+        .key = parser.field<std::string>("key", x::uuid::create().to_string()),
         .disabled = parser.field<bool>("disabled", false),
         .cmd_channel = parser.field<::synnax::channel::Key>(
             "cmd_channel",
@@ -311,7 +312,7 @@ inline x::json::json BaseAOChannel::to_json() const {
 
 inline DIChannel DIChannel::parse(x::json::Parser parser) {
     return DIChannel{
-        .key = parser.field<std::string>("key", ""),
+        .key = parser.field<std::string>("key", x::uuid::create().to_string()),
         .name = parser.field<std::string>("name", ""),
         .disabled = parser.field<bool>("disabled", false),
         .channel = parser.field<::synnax::channel::Key>(
@@ -336,7 +337,7 @@ inline x::json::json DIChannel::to_json() const {
 
 inline DOChannel DOChannel::parse(x::json::Parser parser) {
     return DOChannel{
-        .key = parser.field<std::string>("key", ""),
+        .key = parser.field<std::string>("key", x::uuid::create().to_string()),
         .disabled = parser.field<bool>("disabled", false),
         .cmd_channel = parser.field<::synnax::channel::Key>(
             "cmd_channel",
@@ -685,7 +686,6 @@ inline AIVoltageChannel AIVoltageChannel::parse(x::json::Parser parser) {
     static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
     static_cast<Terminal &>(result) = Terminal::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
-    result.units = parser.field<std::string>("units", "Volts");
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -700,7 +700,6 @@ inline x::json::json AIVoltageChannel::to_json() const {
         j[k] = v;
     for (auto &[k, v]: CustomScale::to_json().items())
         j[k] = v;
-    j["units"] = this->units;
     j["type"] = this->type;
     return j;
 }
@@ -777,7 +776,6 @@ inline AICurrentChannel AICurrentChannel::parse(x::json::Parser parser) {
     static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
     static_cast<Terminal &>(result) = Terminal::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
-    result.units = parser.field<std::string>("units", "Amps");
     result.shunt_resistor_loc = parser.field<std::string>(
         "shunt_resistor_loc",
         "Default"
@@ -797,7 +795,6 @@ inline x::json::json AICurrentChannel::to_json() const {
         j[k] = v;
     for (auto &[k, v]: CustomScale::to_json().items())
         j[k] = v;
-    j["units"] = this->units;
     j["shunt_resistor_loc"] = this->shunt_resistor_loc;
     j["ext_shunt_resistor_val"] = this->ext_shunt_resistor_val;
     j["type"] = this->type;
@@ -917,7 +914,6 @@ inline AIMicrophoneChannel AIMicrophoneChannel::parse(x::json::Parser parser) {
     static_cast<Terminal &>(result) = Terminal::parse(parser);
     static_cast<CurrentExcitation &>(result) = CurrentExcitation::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
-    result.units = parser.field<std::string>("units", "Pascals");
     result.mic_sensitivity = parser.field<double>("mic_sensitivity", 0);
     result.max_snd_press_level = parser.field<double>("max_snd_press_level", 0);
     result.type = parser.field<std::string>("type");
@@ -934,7 +930,6 @@ inline x::json::json AIMicrophoneChannel::to_json() const {
         j[k] = v;
     for (auto &[k, v]: CustomScale::to_json().items())
         j[k] = v;
-    j["units"] = this->units;
     j["mic_sensitivity"] = this->mic_sensitivity;
     j["max_snd_press_level"] = this->max_snd_press_level;
     j["type"] = this->type;
@@ -1024,7 +1019,6 @@ inline AIResistanceChannel AIResistanceChannel::parse(x::json::Parser parser) {
     static_cast<Resistance &>(result) = Resistance::parse(parser);
     static_cast<CurrentExcitation &>(result) = CurrentExcitation::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
-    result.units = parser.field<std::string>("units", "Ohms");
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -1041,7 +1035,6 @@ inline x::json::json AIResistanceChannel::to_json() const {
         j[k] = v;
     for (auto &[k, v]: CustomScale::to_json().items())
         j[k] = v;
-    j["units"] = this->units;
     j["type"] = this->type;
     return j;
 }
@@ -1082,7 +1075,6 @@ inline AIStrainGaugeChannel AIStrainGaugeChannel::parse(x::json::Parser parser) 
     static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
     static_cast<VoltageExcitation &>(result) = VoltageExcitation::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
-    result.units = parser.field<std::string>("units", "Strain");
     result.strain_config = parser.field<std::string>("strain_config", "FullBridgeI");
     result.gage_factor = parser.field<double>("gage_factor", 0);
     result.initial_bridge_voltage = parser.field<double>("initial_bridge_voltage", 0);
@@ -1103,7 +1095,6 @@ inline x::json::json AIStrainGaugeChannel::to_json() const {
         j[k] = v;
     for (auto &[k, v]: CustomScale::to_json().items())
         j[k] = v;
-    j["units"] = this->units;
     j["strain_config"] = this->strain_config;
     j["gage_factor"] = this->gage_factor;
     j["initial_bridge_voltage"] = this->initial_bridge_voltage;
@@ -1116,7 +1107,14 @@ inline x::json::json AIStrainGaugeChannel::to_json() const {
 
 inline AITempBuiltinChannel AITempBuiltinChannel::parse(x::json::Parser parser) {
     AITempBuiltinChannel result;
-    static_cast<BaseAIChannel &>(result) = BaseAIChannel::parse(parser);
+    result.key = parser.field<std::string>("key", x::uuid::create().to_string());
+    result.name = parser.field<std::string>("name", "");
+    result.disabled = parser.field<bool>("disabled", false);
+    result.channel = parser.field<::synnax::channel::Key>(
+        "channel",
+        ::synnax::channel::Key(0)
+    );
+    result.device = parser.field<::synnax::device::Key>("device", "");
     result.units = parser.field<std::string>("units", "DegC");
     result.type = parser.field<std::string>("type");
     return result;
@@ -1124,8 +1122,11 @@ inline AITempBuiltinChannel AITempBuiltinChannel::parse(x::json::Parser parser) 
 
 inline x::json::json AITempBuiltinChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseAIChannel::to_json().items())
-        j[k] = v;
+    j["key"] = this->key;
+    j["name"] = this->name;
+    j["disabled"] = this->disabled;
+    j["channel"] = this->channel;
+    j["device"] = this->device;
     j["units"] = this->units;
     j["type"] = this->type;
     return j;
@@ -1276,7 +1277,7 @@ AIAccel4WireDCVoltageChannel::parse(x::json::Parser parser) {
         "sensitivity_units",
         "mVoltsPerG"
     );
-    result.use_excit_for_scaling = parser.field<bool>("use_excit_for_scaling", false);
+    result.scaled_by_excitation = parser.field<bool>("scaled_by_excitation", false);
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -1297,7 +1298,7 @@ inline x::json::json AIAccel4WireDCVoltageChannel::to_json() const {
         j[k] = v;
     j["units"] = this->units;
     j["sensitivity_units"] = this->sensitivity_units;
-    j["use_excit_for_scaling"] = this->use_excit_for_scaling;
+    j["scaled_by_excitation"] = this->scaled_by_excitation;
     j["type"] = this->type;
     return j;
 }
@@ -1307,12 +1308,12 @@ inline AIAccelChargeChannel AIAccelChargeChannel::parse(x::json::Parser parser) 
     static_cast<BaseAIChannel &>(result) = BaseAIChannel::parse(parser);
     static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
     static_cast<Terminal &>(result) = Terminal::parse(parser);
+    static_cast<Sensitivity &>(result) = Sensitivity::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
     result.units = parser.field<std::string>("units", "g");
-    result.sensitivity = parser.field<double>("sensitivity", 0);
     result.sensitivity_units = parser.field<std::string>(
         "sensitivity_units",
-        "mVoltsPerG"
+        "PicoCoulombsPerG"
     );
     result.type = parser.field<std::string>("type");
     return result;
@@ -1326,10 +1327,11 @@ inline x::json::json AIAccelChargeChannel::to_json() const {
         j[k] = v;
     for (auto &[k, v]: Terminal::to_json().items())
         j[k] = v;
+    for (auto &[k, v]: Sensitivity::to_json().items())
+        j[k] = v;
     for (auto &[k, v]: CustomScale::to_json().items())
         j[k] = v;
     j["units"] = this->units;
-    j["sensitivity"] = this->sensitivity;
     j["sensitivity_units"] = this->sensitivity_units;
     j["type"] = this->type;
     return j;
@@ -1367,7 +1369,6 @@ inline AICurrentRMSChannel AICurrentRMSChannel::parse(x::json::Parser parser) {
     static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
     static_cast<Terminal &>(result) = Terminal::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
-    result.units = parser.field<std::string>("units", "Amps");
     result.shunt_resistor_loc = parser.field<std::string>(
         "shunt_resistor_loc",
         "Default"
@@ -1387,7 +1388,6 @@ inline x::json::json AICurrentRMSChannel::to_json() const {
         j[k] = v;
     for (auto &[k, v]: CustomScale::to_json().items())
         j[k] = v;
-    j["units"] = this->units;
     j["shunt_resistor_loc"] = this->shunt_resistor_loc;
     j["ext_shunt_resistor_val"] = this->ext_shunt_resistor_val;
     j["type"] = this->type;
@@ -1434,7 +1434,6 @@ inline AIFreqVoltageChannel AIFreqVoltageChannel::parse(x::json::Parser parser) 
     static_cast<BaseAIChannel &>(result) = BaseAIChannel::parse(parser);
     static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
-    result.units = parser.field<std::string>("units", "Hz");
     result.threshold_level = parser.field<double>("threshold_level", 0);
     result.hysteresis = parser.field<double>("hysteresis", 0);
     result.type = parser.field<std::string>("type");
@@ -1449,7 +1448,6 @@ inline x::json::json AIFreqVoltageChannel::to_json() const {
         j[k] = v;
     for (auto &[k, v]: CustomScale::to_json().items())
         j[k] = v;
-    j["units"] = this->units;
     j["threshold_level"] = this->threshold_level;
     j["hysteresis"] = this->hysteresis;
     j["type"] = this->type;
@@ -1601,7 +1599,6 @@ inline AIVoltageRMSChannel AIVoltageRMSChannel::parse(x::json::Parser parser) {
     static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
     static_cast<Terminal &>(result) = Terminal::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
-    result.units = parser.field<std::string>("units", "Volts");
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -1616,7 +1613,6 @@ inline x::json::json AIVoltageRMSChannel::to_json() const {
         j[k] = v;
     for (auto &[k, v]: CustomScale::to_json().items())
         j[k] = v;
-    j["units"] = this->units;
     j["type"] = this->type;
     return j;
 }
@@ -1629,9 +1625,8 @@ AIVoltageWithExcitChannel::parse(x::json::Parser parser) {
     static_cast<Terminal &>(result) = Terminal::parse(parser);
     static_cast<VoltageExcitation &>(result) = VoltageExcitation::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
-    result.units = parser.field<std::string>("units", "Volts");
     result.bridge_config = parser.field<std::string>("bridge_config", "FullBridge");
-    result.use_excit_for_scaling = parser.field<bool>("use_excit_for_scaling", false);
+    result.scaled_by_excitation = parser.field<bool>("scaled_by_excitation", false);
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -1648,9 +1643,8 @@ inline x::json::json AIVoltageWithExcitChannel::to_json() const {
         j[k] = v;
     for (auto &[k, v]: CustomScale::to_json().items())
         j[k] = v;
-    j["units"] = this->units;
     j["bridge_config"] = this->bridge_config;
-    j["use_excit_for_scaling"] = this->use_excit_for_scaling;
+    j["scaled_by_excitation"] = this->scaled_by_excitation;
     j["type"] = this->type;
     return j;
 }
@@ -1659,6 +1653,7 @@ inline CIFrequencyChannel CIFrequencyChannel::parse(x::json::Parser parser) {
     CIFrequencyChannel result;
     static_cast<BaseCIChannel &>(result) = BaseCIChannel::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
+    static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
     result.min_val = parser.field<double>("min_val", 2);
     result.max_val = parser.field<double>("max_val", 100);
     result.units = parser.field<std::string>("units", "Hz");
@@ -1676,6 +1671,8 @@ inline x::json::json CIFrequencyChannel::to_json() const {
     for (auto &[k, v]: BaseCIChannel::to_json().items())
         j[k] = v;
     for (auto &[k, v]: CustomScale::to_json().items())
+        j[k] = v;
+    for (auto &[k, v]: MinMaxVal::to_json().items())
         j[k] = v;
     j["min_val"] = this->min_val;
     j["max_val"] = this->max_val;
@@ -1716,6 +1713,7 @@ inline CIPeriodChannel CIPeriodChannel::parse(x::json::Parser parser) {
     CIPeriodChannel result;
     static_cast<BaseCIChannel &>(result) = BaseCIChannel::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
+    static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
     result.min_val = parser.field<double>("min_val", 0.000001);
     result.max_val = parser.field<double>("max_val", 0.100000);
     result.units = parser.field<std::string>("units", "Seconds");
@@ -1734,6 +1732,8 @@ inline x::json::json CIPeriodChannel::to_json() const {
         j[k] = v;
     for (auto &[k, v]: CustomScale::to_json().items())
         j[k] = v;
+    for (auto &[k, v]: MinMaxVal::to_json().items())
+        j[k] = v;
     j["min_val"] = this->min_val;
     j["max_val"] = this->max_val;
     j["units"] = this->units;
@@ -1750,6 +1750,7 @@ inline CIPulseWidthChannel CIPulseWidthChannel::parse(x::json::Parser parser) {
     CIPulseWidthChannel result;
     static_cast<BaseCIChannel &>(result) = BaseCIChannel::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
+    static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
     result.min_val = parser.field<double>("min_val", 0.000001);
     result.max_val = parser.field<double>("max_val", 0.100000);
     result.units = parser.field<std::string>("units", "Seconds");
@@ -1765,6 +1766,8 @@ inline x::json::json CIPulseWidthChannel::to_json() const {
         j[k] = v;
     for (auto &[k, v]: CustomScale::to_json().items())
         j[k] = v;
+    for (auto &[k, v]: MinMaxVal::to_json().items())
+        j[k] = v;
     j["min_val"] = this->min_val;
     j["max_val"] = this->max_val;
     j["units"] = this->units;
@@ -1778,6 +1781,7 @@ inline CISemiPeriodChannel CISemiPeriodChannel::parse(x::json::Parser parser) {
     CISemiPeriodChannel result;
     static_cast<BaseCIChannel &>(result) = BaseCIChannel::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
+    static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
     result.min_val = parser.field<double>("min_val", 0.000001);
     result.max_val = parser.field<double>("max_val", 0.100000);
     result.units = parser.field<std::string>("units", "Seconds");
@@ -1792,6 +1796,8 @@ inline x::json::json CISemiPeriodChannel::to_json() const {
         j[k] = v;
     for (auto &[k, v]: CustomScale::to_json().items())
         j[k] = v;
+    for (auto &[k, v]: MinMaxVal::to_json().items())
+        j[k] = v;
     j["min_val"] = this->min_val;
     j["max_val"] = this->max_val;
     j["units"] = this->units;
@@ -1804,6 +1810,7 @@ inline CITwoEdgeSepChannel CITwoEdgeSepChannel::parse(x::json::Parser parser) {
     CITwoEdgeSepChannel result;
     static_cast<BaseCIChannel &>(result) = BaseCIChannel::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
+    static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
     result.min_val = parser.field<double>("min_val", 0.000001);
     result.max_val = parser.field<double>("max_val", 1);
     result.units = parser.field<std::string>("units", "Seconds");
@@ -1821,6 +1828,8 @@ inline x::json::json CITwoEdgeSepChannel::to_json() const {
         j[k] = v;
     for (auto &[k, v]: CustomScale::to_json().items())
         j[k] = v;
+    for (auto &[k, v]: MinMaxVal::to_json().items())
+        j[k] = v;
     j["min_val"] = this->min_val;
     j["max_val"] = this->max_val;
     j["units"] = this->units;
@@ -1836,6 +1845,7 @@ inline CIVelocityLinearChannel CIVelocityLinearChannel::parse(x::json::Parser pa
     CIVelocityLinearChannel result;
     static_cast<BaseCIChannel &>(result) = BaseCIChannel::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
+    static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
     result.min_val = parser.field<double>("min_val", 0);
     result.max_val = parser.field<double>("max_val", 1);
     result.units = parser.field<std::string>("units", "m/s");
@@ -1853,6 +1863,8 @@ inline x::json::json CIVelocityLinearChannel::to_json() const {
         j[k] = v;
     for (auto &[k, v]: CustomScale::to_json().items())
         j[k] = v;
+    for (auto &[k, v]: MinMaxVal::to_json().items())
+        j[k] = v;
     j["min_val"] = this->min_val;
     j["max_val"] = this->max_val;
     j["units"] = this->units;
@@ -1869,6 +1881,7 @@ CIVelocityAngularChannel::parse(x::json::Parser parser) {
     CIVelocityAngularChannel result;
     static_cast<BaseCIChannel &>(result) = BaseCIChannel::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
+    static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
     result.min_val = parser.field<double>("min_val", 0);
     result.max_val = parser.field<double>("max_val", 1);
     result.units = parser.field<std::string>("units", "RPM");
@@ -1885,6 +1898,8 @@ inline x::json::json CIVelocityAngularChannel::to_json() const {
     for (auto &[k, v]: BaseCIChannel::to_json().items())
         j[k] = v;
     for (auto &[k, v]: CustomScale::to_json().items())
+        j[k] = v;
+    for (auto &[k, v]: MinMaxVal::to_json().items())
         j[k] = v;
     j["min_val"] = this->min_val;
     j["max_val"] = this->max_val;
@@ -1968,6 +1983,7 @@ inline CIDutyCycleChannel CIDutyCycleChannel::parse(x::json::Parser parser) {
     CIDutyCycleChannel result;
     static_cast<BaseCIChannel &>(result) = BaseCIChannel::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
+    static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
     result.min_val = parser.field<double>("min_val", 2);
     result.max_val = parser.field<double>("max_val", 10000);
     result.active_edge = parser.field<std::string>("active_edge", "Rising");
@@ -1982,6 +1998,8 @@ inline x::json::json CIDutyCycleChannel::to_json() const {
         j[k] = v;
     for (auto &[k, v]: CustomScale::to_json().items())
         j[k] = v;
+    for (auto &[k, v]: MinMaxVal::to_json().items())
+        j[k] = v;
     j["min_val"] = this->min_val;
     j["max_val"] = this->max_val;
     j["active_edge"] = this->active_edge;
@@ -1995,7 +2013,6 @@ inline AOCurrentChannel AOCurrentChannel::parse(x::json::Parser parser) {
     static_cast<BaseAOChannel &>(result) = BaseAOChannel::parse(parser);
     static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
-    result.units = parser.field<std::string>("units", "Amps");
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -2008,7 +2025,6 @@ inline x::json::json AOCurrentChannel::to_json() const {
         j[k] = v;
     for (auto &[k, v]: CustomScale::to_json().items())
         j[k] = v;
-    j["units"] = this->units;
     j["type"] = this->type;
     return j;
 }
@@ -2041,7 +2057,6 @@ inline AOVoltageChannel AOVoltageChannel::parse(x::json::Parser parser) {
     static_cast<BaseAOChannel &>(result) = BaseAOChannel::parse(parser);
     static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
-    result.units = parser.field<std::string>("units", "Volts");
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -2054,7 +2069,6 @@ inline x::json::json AOVoltageChannel::to_json() const {
         j[k] = v;
     for (auto &[k, v]: CustomScale::to_json().items())
         j[k] = v;
-    j["units"] = this->units;
     j["type"] = this->type;
     return j;
 }

@@ -19,7 +19,7 @@
       "port": 0,
       "terminal": "/Dev1/PFI0",
       "type": "ci_frequency",
-      "units": "Seconds"
+      "units": "Hz"
     },
     {
       "channel": 3111,

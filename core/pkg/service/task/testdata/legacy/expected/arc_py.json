@@ -5,6 +5,6 @@
   "data_saving_disabled": false,
   "execution_mode": "AUTO",
   "hash": "",
-  "lock_memory": false,
+  "memory_locked": false,
   "rt_priority": 47
 }

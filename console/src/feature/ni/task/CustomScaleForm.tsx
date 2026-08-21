@@ -8,10 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { Flex, Form, Icon, type Select } from "@synnaxlabs/pluto";
-import { deep, record } from "@synnaxlabs/x";
+import { deep, type record } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { CoefficientsField } from "@/feature/ni/task/CoefficientsField";
+import { selectData } from "@/feature/ni/task/selectData";
 import { TableScaleForm } from "@/feature/ni/task/TableScaleForm";
 import {
   createScale,
@@ -83,15 +84,13 @@ const UNIT_SYMBOLS = {
   FootPounds: "ft·lb",
 } as const satisfies Record<Units, string>;
 
-const unitsData = record.entries(UNIT_SYMBOLS).map(([key, name]) => ({ key, name }));
-
 const UnitsField = Form.buildSelectField<Units, record.KeyedNamed<Units>>({
   fieldKey: "units",
   fieldProps: { label: "Units", style: { width: "19rem" } },
   inputProps: {
     resourceName: "units",
     allowNone: false,
-    data: unitsData,
+    data: selectData(UNIT_SYMBOLS),
   },
 });
 

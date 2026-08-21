@@ -113,7 +113,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
       handles: [],
       variant: "static",
       scale: 1,
-      scaleStroke: false,
+      strokeScaled: false,
       previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
     },
     parent: ontology.ROOT_ID,

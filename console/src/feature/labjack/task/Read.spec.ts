@@ -68,6 +68,21 @@ describe("LabJack Read", () => {
     await waitFor(() => expect(screen.getByText(`Configure ${dev.name}`)).toBeTruthy());
   });
 
+  it("should address each channel of a config built without explicit keys", async () => {
+    const dev = await createLabJackDevice(client);
+    // A client that leaves the key to the schema, the way every generated client and
+    // every documented example does.
+    const channels = ["alpha", "bravo", "charlie"].map((name, i) => ({
+      ...LabJack.Task.createReadChannel("analog"),
+      port: `AIN${i}`,
+      name,
+    }));
+    const draft = await createDraft(client, createConfig(dev.key, channels));
+    await renderRead({ client, taskKey: draft.key });
+    for (const name of ["alpha", "bravo", "charlie"])
+      await waitFor(() => expect(screen.getAllByText(name)).toHaveLength(1));
+  });
+
   it("should render channel ports using their model aliases when available", async () => {
     const dev = await createLabJackDevice(client);
     const draft = await createDraft(
@@ -133,8 +148,9 @@ describe("LabJack Read", () => {
     fireEvent.click(await findChannelListItem("AIN0"));
     await waitFor(() => expect(screen.getByText("Thermocouple type")).toBeTruthy());
     expect(screen.getByText("Temperature units")).toBeTruthy();
-    expect(screen.getByText("Positive channel")).toBeTruthy();
     expect(screen.getByText("Negative channel")).toBeTruthy();
+    // The port selector is the only control for the positive lead.
+    expect(screen.queryByText("Positive channel")).toBeNull();
     expect(screen.getByText("CJC source")).toBeTruthy();
     expect(screen.getByText("CJC slope")).toBeTruthy();
     expect(screen.getByText("CJC offset")).toBeTruthy();

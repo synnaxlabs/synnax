@@ -38,10 +38,25 @@ class TestTaskClient:
         assert res.key == task.key
 
     def test_retrieve_by_type(self, client: sy.Synnax):
+        # Task types are a fixed, registered set, so the filter cannot be made unique
+        # the way the name and model tests do. Assert membership instead of identity.
         task = client.tasks.create(type="labjack_scan")
-        res = client.tasks.retrieve(type="labjack_scan")
-        assert res.type == "labjack_scan"
-        assert res.key == task.key
+        res = client.tasks.retrieve(types=["labjack_scan"])
+        assert all(t.type == "labjack_scan" for t in res)
+        assert task.key in {t.key for t in res}
+
+    def test_retrieve_without_status(self, client: sy.Synnax):
+        """Should leave the status unset when it is not asked for."""
+        task = client.tasks.create(name=str(uuid4()), type="pagerduty_alert")
+        assert client.tasks.retrieve(key=task.key).status is None
+
+    def test_retrieve_with_status(self, client: sy.Synnax):
+        """Should attach a parsed status when asked for one."""
+        task = client.tasks.create(name=str(uuid4()), type="pagerduty_alert")
+        res = client.tasks.retrieve(key=task.key, include_status=True)
+        assert isinstance(res.status, sy.task.Status)
+        assert res.status.details is not None
+        assert res.status.details.task == task.key
 
     def test_execute_command_sync(self, client: sy.Synnax):
         def driver(ev: threading.Event):
@@ -69,6 +84,19 @@ class TestTaskClient:
         ev.wait()
         tsk.execute_command_sync("test", {"key": "value"})
         t.join()
+
+    def test_execute_command_without_args_sends_empty_object(self, client: sy.Synnax):
+        """Should send an empty object for args instead of null."""
+        tsk = client.tasks.create(name="test", type="pagerduty_alert")
+        with client.open_streamer("sy_task_cmd") as s:
+            key = tsk.execute_command("test")
+            for _ in range(10):
+                f = s.read(timeout=1)
+                assert f is not None, "timed out waiting for the command"
+                matches = [c for c in f["sy_task_cmd"] if c["key"] == key]
+                if len(matches) > 0:
+                    break
+            assert matches[0]["args"] == {}
 
     def test_task_configure_saves_without_ack(self, client: sy.Synnax):
         """Should save the task without waiting for a driver acknowledgement."""

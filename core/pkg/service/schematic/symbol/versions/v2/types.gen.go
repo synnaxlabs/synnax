@@ -79,8 +79,8 @@ type Spec struct {
 	Handles []Handle `json:"handles,omitzero" msgpack:"handles,omitzero"`
 	// Scale is the symbol scale factor.
 	Scale float64 `json:"scale" msgpack:"scale"`
-	// ScaleStroke indicates whether stroke width scales with the symbol size.
-	ScaleStroke bool `json:"scale_stroke" msgpack:"scale_stroke"`
+	// StrokeScaled is true when stroke width scales with the symbol size.
+	StrokeScaled bool `json:"stroke_scaled" msgpack:"stroke_scaled"`
 	// PreviewViewport is an optional viewport configuration for symbol preview
 	// rendering.
 	PreviewViewport *spatial.Viewport `json:"preview_viewport,omitempty" msgpack:"preview_viewport,omitempty"`

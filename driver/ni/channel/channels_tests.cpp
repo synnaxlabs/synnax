@@ -63,6 +63,39 @@ TEST(ChannelsTest, ParseAIAccelChan) {
     EXPECT_EQ(call["args"]["units"], DAQmx_Val_g);
 }
 
+TEST(ChannelsTest, ParseAIAccelChargeChan) {
+    x::json::json j = {
+        {"type", "ai_accel_charge"},
+        {"key", "ks1VnWdrSVA"},
+        {"port", 0},
+        {"disabled", false},
+        {"name", ""},
+        {"channel", 0},
+        {"terminal_config", "Cfg_Default"},
+        {"min_val", 0},
+        {"max_val", 1},
+        {"sensitivity", 100},
+        {"custom_scale", {{"type", "none"}}},
+        {"units", "g"},
+        {"sensitivity_units", "PicoCoulombsPerG"},
+        {"device", "cDAQ1Mod2"}
+    };
+    x::json::Parser p(j);
+    const auto chan = channel::parse_input(p, "ni_analog_read");
+    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NE(chan, nullptr);
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateAIAccelChargeChan");
+    ASSERT_EQ(calls.size(), 1);
+    const auto &call = calls[0];
+    EXPECT_EQ(call["args"]["sensitivity"], 100);
+    EXPECT_EQ(call["args"]["sensitivityUnits"], DAQmx_Val_PicoCoulombsPerG);
+    EXPECT_EQ(call["args"]["units"], DAQmx_Val_g);
+}
+
 TEST(ChannelsTest, ParseAIBridgeChan) {
     x::json::json j = {
         {"type", "ai_bridge"},
@@ -109,7 +142,6 @@ TEST(ChannelsTest, ParseAICurrentChan) {
         {"min_val", 0},
         {"max_val", 1},
         {"custom_scale", {{"type", "none"}}},
-        {"units", "Amps"},
         {"shunt_resistor_loc", "Default"},
         {"ext_shunt_resistor_val", 1},
         {"device", "cdaq1Mod2"}
@@ -260,7 +292,6 @@ TEST(ChannelsTest, ParseAIMicrophoneChan) {
         {"current_excit_source", "Internal"},
         {"current_excit_val", 0},
         {"custom_scale", {{"type", "none"}}},
-        {"units", "Pascals"},
         {"mic_sensitivity", 0},
         {"max_snd_press_level", 0},
         {"device", "cdaq1Mod2"}
@@ -410,8 +441,7 @@ TEST(ChannelsTest, ParseAIStrainGaugeChan) {
         {"voltage_excit_source", "Internal"},
         {"voltage_excit_val", 0},
         {"custom_scale", {{"type", "none"}}},
-        {"units", "Strain"},
-        {"strain_config", "full-bridge-I"},
+        {"strain_config", "HalfBridgeII"},
         {"gage_factor", 0},
         {"initial_bridge_voltage", 0},
         {"nominal_gage_resistance", 0},
@@ -431,7 +461,7 @@ TEST(ChannelsTest, ParseAIStrainGaugeChan) {
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["physicalChannel"], "cDAQ1Mod2/ai0");
-    EXPECT_EQ(call["args"]["strainConfig"], DAQmx_Val_FullBridgeI);
+    EXPECT_EQ(call["args"]["strainConfig"], DAQmx_Val_HalfBridgeII);
     EXPECT_EQ(call["args"]["minVal"], 0);
     EXPECT_EQ(call["args"]["maxVal"], 1);
     EXPECT_EQ(call["args"]["gageFactor"], 0);
@@ -690,7 +720,6 @@ TEST(ChannelsTest, ParseAIVoltageChan) {
         {"min_val", 0},
         {"max_val", 1},
         {"custom_scale", {{"type", "none"}}},
-        {"units", "Volts"},
         {"device", "cdaq1Mod2"}
     };
     x::json::Parser p(j);
@@ -721,8 +750,7 @@ TEST(ChannelsTest, ParseAOVoltageChan) {
         {"state_channel", 0},
         {"min_val", 0},
         {"max_val", 1},
-        {"custom_scale", {{"type", "none"}}},
-        {"units", "Volts"}
+        {"custom_scale", {{"type", "none"}}}
     };
     x::json::Parser p(j);
     const auto chan = channel::parse_output(p, "ni_analog_write");
@@ -1396,7 +1424,7 @@ TEST(ChannelsTest, ParseCILinearPositionChanMeters) {
         {"decoding_type", "X4"},
         {"dist_per_pulse", 0.001},
         {"initial_pos", 0.0},
-        {"z_index_enable", true},
+        {"z_index_enabled", true},
         {"z_index_val", 0.0},
         {"z_index_phase", "AHighBHigh"},
         {"terminal_a", "PFI0"},
@@ -1442,7 +1470,7 @@ TEST(ChannelsTest, ParseCILinearPositionChanInches) {
         {"decoding_type", "X2"},
         {"dist_per_pulse", 0.01},
         {"initial_pos", 5.0},
-        {"z_index_enable", false},
+        {"z_index_enabled", false},
         {"z_index_val", 0.0},
         {"z_index_phase", "AHighBLow"},
         {"terminal_a", ""},
@@ -1487,7 +1515,7 @@ TEST(ChannelsTest, ParseCIAngularPositionChanDegrees) {
         {"decoding_type", "X4"},
         {"pulses_per_rev", 24},
         {"initial_angle", 0.0},
-        {"z_index_enable", true},
+        {"z_index_enabled", true},
         {"z_index_val", 0.0},
         {"z_index_phase", "AHighBHigh"},
         {"terminal_a", "PFI10"},
@@ -1533,7 +1561,7 @@ TEST(ChannelsTest, ParseCIAngularPositionChanRadians) {
         {"decoding_type", "X1"},
         {"pulses_per_rev", 100},
         {"initial_angle", 1.57},
-        {"z_index_enable", false},
+        {"z_index_enabled", false},
         {"z_index_val", 0.0},
         {"z_index_phase", "ALowBLow"},
         {"terminal_a", ""},

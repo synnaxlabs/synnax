@@ -18,14 +18,14 @@ import "schemas/x/telem"
 @ts output  "client/ts/src/modbus"
 
 RegisterValue struct {
-    data_type  telem.DataType = "uint8" {
+    data_type     telem.DataType = "uint8" {
         @doc value "is the data type the register contents are interpreted as."
         @ts type   "string"
     }
-    swap_bytes bool = false {
+    bytes_swapped bool = false {
         @doc value "is true when the byte order within each 16-bit word is swapped."
     }
-    swap_words bool = false {
+    words_swapped bool = false {
         @doc value "is true when the word order of multi-register values is swapped."
     }
 
@@ -34,7 +34,7 @@ RegisterValue struct {
 }
 
 BaseReadChannel struct {
-    key      string = "" {
+    key      string = create {
         @doc value "uniquely identifies the channel within the task."
         @key
     }
@@ -85,7 +85,7 @@ ReadChannel union on type extends BaseReadChannel {
 }
 
 BaseWriteChannel struct {
-    key      string = "" {
+    key      string = create {
         @doc value "uniquely identifies the channel within the task."
         @key
     }

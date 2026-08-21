@@ -52,14 +52,14 @@ Before creating a write task, ensure you have:
 
 ## Task Configuration Reference
 
-| Parameter        | Type    | Required | Default | Description                                      |
-| ---------------- | ------- | -------- | ------- | ------------------------------------------------ |
-| `name`           | string  | Yes      | -       | Human-readable task name                         |
-| `execution_rate` | number  | Yes      | -       | Rate (Hz) at which commands are sent to hardware |
-| `state_rate`     | number  | No       | `1`     | Rate (Hz) at which state channels are updated    |
-| `data_saving`    | boolean | No       | `false` | Enable permanent storage in Synnax               |
-| `auto_start`     | boolean | No       | `false` | Automatically start task after configuration     |
-| `channels`       | array   | Yes      | -       | List of output channel configurations            |
+| Parameter              | Type    | Required | Default | Description                                         |
+| ---------------------- | ------- | -------- | ------- | --------------------------------------------------- |
+| `name`                 | string  | Yes      | -       | Human-readable task name                            |
+| `execution_rate`       | number  | Yes      | -       | Rate (Hz) at which commands are sent to hardware    |
+| `state_rate`           | number  | No       | `1`     | Rate (Hz) at which state channels are updated       |
+| `data_saving_disabled` | boolean | No       | `false` | Stream data without saving it permanently in Synnax |
+| `auto_start`           | boolean | No       | `false` | Automatically start task after configuration        |
+| `channels`             | array   | Yes      | -       | List of output channel configurations               |
 
 <Divider.Divider x />
 
@@ -115,9 +115,9 @@ Writes data to an RxPDO using explicit CoE addressing.
 | `type`          | string | Yes      | -       | Must be `"manual"`                                   |
 | `device`        | string | Yes      | -       | Device key                                           |
 | `index`         | number | Yes      | -       | CoE object index (e.g., `0x6040`)                    |
-| `subIndex`      | number | Yes      | -       | CoE object subindex (typically `0`)                  |
-| `bitLength`     | number | Yes      | -       | Data width in bits (8, 16, 32, 64)                   |
-| `dataType`      | string | Yes      | -       | Synnax data type (`uint8`, `int16`, `float32`, etc.) |
+| `sub_index`     | number | Yes      | -       | CoE object subindex (typically `0`)                  |
+| `bit_length`    | number | Yes      | -       | Data width in bits (8, 16, 32, 64)                   |
+| `data_type`     | string | Yes      | -       | Synnax data type (`uint8`, `int16`, `float32`, etc.) |
 | `cmd_channel`   | number | Yes      | -       | Synnax command channel key                           |
 | `state_channel` | number | Yes      | -       | Synnax state channel key                             |
 
@@ -225,7 +225,6 @@ task = ethercat.WriteTask(
     name="EtherCAT Write Task",
     execution_rate=100,  # Send commands at 100 Hz
     state_rate=20,       # Update state at 20 Hz
-    data_saving=True,
     channels=[
         ethercat.AutomaticWriteChannel(
             device=dev.key,
@@ -314,7 +313,6 @@ task = ethercat.WriteTask(
     name="EtherCAT Manual Write",
     execution_rate=100,
     state_rate=20,
-    data_saving=True,
     channels=[
         ethercat.ManualWriteChannel(
             device=dev.key,
@@ -376,84 +374,95 @@ import { Synnax, TimeStamp } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Retrieve EtherCAT device
-const dev = await client.devices.retrieve({ name: "Servo Drive" });
+const [dev] = await client.devices.retrieve({ names: ["Servo Drive"] });
 
 // Create command time index
-const cmdTime = await client.channels.create({
-  name: "ec_cmd_time",
-  isIndex: true,
-  dataType: "timestamp",
-  retrieveIfNameExists: true,
-});
+const cmdTime = await client.channels.create(
+  {
+    name: "ec_cmd_time",
+    isIndex: true,
+    dataType: "timestamp",
+  },
+  { retrieveIfNameExists: true },
+);
 
 // Create command channels
-const controlCmd = await client.channels.create({
-  name: "control_word_cmd",
-  index: cmdTime.key,
-  dataType: "uint16",
-  retrieveIfNameExists: true,
-});
+const controlCmd = await client.channels.create(
+  {
+    name: "control_word_cmd",
+    index: cmdTime.key,
+    dataType: "uint16",
+  },
+  { retrieveIfNameExists: true },
+);
 
-const targetPosCmd = await client.channels.create({
-  name: "target_position_cmd",
-  index: cmdTime.key,
-  dataType: "int32",
-  retrieveIfNameExists: true,
-});
+const targetPosCmd = await client.channels.create(
+  {
+    name: "target_position_cmd",
+    index: cmdTime.key,
+    dataType: "int32",
+  },
+  { retrieveIfNameExists: true },
+);
 
 // Create state time index
-const stateTime = await client.channels.create({
-  name: "ec_state_time",
-  isIndex: true,
-  dataType: "timestamp",
-  retrieveIfNameExists: true,
-});
+const stateTime = await client.channels.create(
+  {
+    name: "ec_state_time",
+    isIndex: true,
+    dataType: "timestamp",
+  },
+  { retrieveIfNameExists: true },
+);
 
 // Create state channels
-const controlState = await client.channels.create({
-  name: "control_word_state",
-  index: stateTime.key,
-  dataType: "uint16",
-  retrieveIfNameExists: true,
-});
+const controlState = await client.channels.create(
+  {
+    name: "control_word_state",
+    index: stateTime.key,
+    dataType: "uint16",
+  },
+  { retrieveIfNameExists: true },
+);
 
-const targetPosState = await client.channels.create({
-  name: "target_position_state",
-  index: stateTime.key,
-  dataType: "int32",
-  retrieveIfNameExists: true,
-});
+const targetPosState = await client.channels.create(
+  {
+    name: "target_position_state",
+    index: stateTime.key,
+    dataType: "int32",
+  },
+  { retrieveIfNameExists: true },
+);
 
 // Create and configure task using automatic mode
 const task = await client.tasks.create({
   name: "EtherCAT Write Task",
+  rack: dev.rack,
   type: "ethercat_write",
-  config: JSON.stringify({
-    device: dev.key,
-    execution_rate: 100, // Send commands at 100 Hz
-    state_rate: 20, // Update state at 20 Hz
-    data_saving: true,
+  config: {
+    executionRate: 100, // Send commands at 100 Hz
+    stateRate: 20, // Update state at 20 Hz
     channels: [
       {
         type: "automatic",
         device: dev.key,
         pdo: "control_word",
-        cmd_channel: controlCmd.key,
-        state_channel: controlState.key,
+        cmdChannel: controlCmd.key,
+        stateChannel: controlState.key,
       },
       {
         type: "automatic",
         device: dev.key,
         pdo: "target_position",
-        cmd_channel: targetPosCmd.key,
-        state_channel: targetPosState.key,
+        cmdChannel: targetPosCmd.key,
+        stateChannel: targetPosState.key,
       },
     ],
-  }),
+  },
 });
 
 // Start task
-await task.executeCommandSync("start");
+await task.start();
 
 // Write commands
 const writer = await client.openWriter({
@@ -477,7 +486,7 @@ console.log(`Control State: ${frame.get("control_word_state").at(-1)}`);
 console.log(`Target Position State: ${frame.get("target_position_state").at(-1)}`);
 
 // Stop task
-await task.executeCommandSync("stop");
+await task.stop();
 await writer.close();
 await streamer.close();
 ```
@@ -493,49 +502,56 @@ import { Synnax, TimeStamp } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Retrieve EtherCAT device
-const dev = await client.devices.retrieve({ name: "Servo Drive" });
+const [dev] = await client.devices.retrieve({ names: ["Servo Drive"] });
 
 // Create command time index
-const cmdTime = await client.channels.create({
-  name: "ec_cmd_time",
-  isIndex: true,
-  dataType: "timestamp",
-  retrieveIfNameExists: true,
-});
+const cmdTime = await client.channels.create(
+  {
+    name: "ec_cmd_time",
+    isIndex: true,
+    dataType: "timestamp",
+  },
+  { retrieveIfNameExists: true },
+);
 
 // Create command channel
-const controlCmd = await client.channels.create({
-  name: "control_word_cmd",
-  index: cmdTime.key,
-  dataType: "uint16",
-  retrieveIfNameExists: true,
-});
+const controlCmd = await client.channels.create(
+  {
+    name: "control_word_cmd",
+    index: cmdTime.key,
+    dataType: "uint16",
+  },
+  { retrieveIfNameExists: true },
+);
 
 // Create state time index
-const stateTime = await client.channels.create({
-  name: "ec_state_time",
-  isIndex: true,
-  dataType: "timestamp",
-  retrieveIfNameExists: true,
-});
+const stateTime = await client.channels.create(
+  {
+    name: "ec_state_time",
+    isIndex: true,
+    dataType: "timestamp",
+  },
+  { retrieveIfNameExists: true },
+);
 
 // Create state channel
-const controlState = await client.channels.create({
-  name: "control_word_state",
-  index: stateTime.key,
-  dataType: "uint16",
-  retrieveIfNameExists: true,
-});
+const controlState = await client.channels.create(
+  {
+    name: "control_word_state",
+    index: stateTime.key,
+    dataType: "uint16",
+  },
+  { retrieveIfNameExists: true },
+);
 
 // Create task using manual mode with CoE addressing
 const task = await client.tasks.create({
   name: "EtherCAT Manual Write",
+  rack: dev.rack,
   type: "ethercat_write",
-  config: JSON.stringify({
-    device: dev.key,
-    execution_rate: 100,
-    state_rate: 20,
-    data_saving: true,
+  config: {
+    executionRate: 100,
+    stateRate: 20,
     channels: [
       {
         type: "manual",
@@ -544,15 +560,15 @@ const task = await client.tasks.create({
         subIndex: 0,
         bitLength: 16,
         dataType: "uint16",
-        cmd_channel: controlCmd.key,
-        state_channel: controlState.key,
+        cmdChannel: controlCmd.key,
+        stateChannel: controlState.key,
       },
     ],
-  }),
+  },
 });
 
 // Start and write
-await task.executeCommandSync("start");
+await task.start();
 
 const writer = await client.openWriter({
   start: TimeStamp.now(),
@@ -560,7 +576,7 @@ const writer = await client.openWriter({
 });
 await writer.write({ control_word_cmd: 0x000f });
 
-await task.executeCommandSync("stop");
+await task.stop();
 await writer.close();
 ```
 
@@ -570,7 +586,7 @@ await writer.close();
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```typescript
-import { Synnax } from "@synnaxlabs/client";
+import { ethercat, Synnax } from "@synnaxlabs/client";
 
 const client = new Synnax();
 
@@ -578,18 +594,19 @@ const client = new Synnax();
 const task = await client.tasks.retrieve({ name: "EtherCAT Write Task" });
 
 // Parse current configuration
-const config = JSON.parse(task.config);
+const config = ethercat.writeConfigZ.parse(task.config);
 
 // Update task-level settings
-config.execution_rate = 200; // Increase to 200 Hz
-config.state_rate = 50; // Increase state rate
+config.executionRate = 200; // Increase to 200 Hz
+config.stateRate = 50; // Increase state rate
 
 // Apply changes
 await client.tasks.create({
   key: task.key,
+  rack: task.rack,
   name: task.name,
   type: task.type,
-  config: JSON.stringify(config),
+  config,
 });
 ```
 
