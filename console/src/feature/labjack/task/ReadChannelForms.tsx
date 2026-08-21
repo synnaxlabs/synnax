@@ -191,14 +191,6 @@ export const FORMS: Record<ReadChannelType, FC<FormProps>> = {
       <Flex.Box x>
         <ThermocoupleTypeField path={path} grow />
         <TemperatureUnitsField path={path} grow />
-      </Flex.Box>
-      <Flex.Box x>
-        <PForm.NumericField
-          fieldKey="posChan"
-          path={path}
-          label="Positive channel"
-          grow
-        />
         <PForm.NumericField
           fieldKey="negChan"
           path={path}

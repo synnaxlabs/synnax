@@ -50,7 +50,7 @@ const DEFAULT_STATE = {
   scrolling: false,
   empty: true,
   visible: true,
-  hideChannelNames: false,
+  channelNamesHidden: false,
   timestampPrecision: 0,
   channelNames: {},
   channels: [],
@@ -373,9 +373,9 @@ describe("log/Base", () => {
   });
 
   describe("props forwarding", () => {
-    it("should pass hideChannelNames to aether state", () => {
-      renderLog({ hideChannelNames: true });
-      expect(getAetherInitialState().hideChannelNames).toBe(true);
+    it("should pass channelNamesHidden to aether state", () => {
+      renderLog({ channelNamesHidden: true });
+      expect(getAetherInitialState().channelNamesHidden).toBe(true);
     });
 
     it("should pass timestampPrecision to aether state", () => {

@@ -71,6 +71,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Instrumentation:    cfg.Instrumentation,
 			Type:               Type,
 			Version:            legacy.LastVersion + 1,
+			Legacy:             &legacy.Config,
 			SetEntryKey:        (*Config).SetKey,
 			ApplyEntryDefaults: (*Config).ApplyDefaults,
 			ValidateEntry:      (*Config).Validate,

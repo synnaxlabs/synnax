@@ -88,7 +88,7 @@ const AlertDetails = ({ itemKey }: AlertDetailsProps) => {
           {selectStatusRenderProp}
         </PForm.Field>
         <PForm.SwitchField
-          path={`${path}.treatErrorAsCritical`}
+          path={`${path}.errorsCritical`}
           label="Treat error as critical"
         />
       </Flex.Box>

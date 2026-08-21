@@ -11,26 +11,26 @@ import "schemas/synnax/versions/status/v1"
 import "schemas/synnax/versions/task/v2"
 
 Alert struct {
-    key                     string = "" {
+    key             string = create {
         @doc value "uniquely identifies the alert within the task."
         @key
     }
-    status                  status.Key = "" {
+    status          status.Key = "" {
         @doc value "is the key of the Synnax status the alert watches."
     }
-    treat_error_as_critical bool = false {
-        @doc value "maps the error variant to PagerDuty critical instead of error."
+    errors_critical bool = false {
+        @doc value "is true when the error variant maps to PagerDuty critical."
     }
-    component               string = "" {
+    component       string = "" {
         @doc value "is the PagerDuty component attached to triggered events."
     }
-    group                   string = "" {
+    group           string = "" {
         @doc value "is the PagerDuty group attached to triggered events."
     }
-    class                   string = "" {
+    class           string = "" {
         @doc value "is the PagerDuty class attached to triggered events."
     }
-    disabled                bool = false {
+    disabled        bool = false {
         @doc value "is true when the alert is excluded from the task."
     }
 

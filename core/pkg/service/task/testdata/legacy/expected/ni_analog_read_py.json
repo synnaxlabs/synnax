@@ -31,8 +31,7 @@
       "name": "",
       "port": 1,
       "threshold_level": 0.5,
-      "type": "ai_freq_voltage",
-      "units": "Hz"
+      "type": "ai_freq_voltage"
     },
     {
       "a": 0.001129241,
@@ -88,8 +87,7 @@
       "name": "",
       "port": 4,
       "terminal_config": "RSE",
-      "type": "ai_voltage_rms",
-      "units": "Volts"
+      "type": "ai_voltage_rms"
     }
   ],
   "data_saving_disabled": false,

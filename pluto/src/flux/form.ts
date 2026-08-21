@@ -237,6 +237,16 @@ export const createForm = <
         form.set(path, value, { ...options, ...DEFAULT_SET_OPTIONS }),
       [form],
     );
+    // A listener carries what the Core holds, which an edit waiting on its autosave has
+    // already moved past. Writing it back would revert the edit, and the save that
+    // follows would persist the pre-edit value.
+    const listenerSet = useCallback(
+      (path: string, value: unknown, options?: Form.SetOptions) => {
+        if (form.get(path, { optional: true })?.touched === true) return;
+        noNotifySet(path, value, options);
+      },
+      [form, noNotifySet],
+    );
 
     // Form state is built once, so a query pointing at a different record has
     // to replace it.
@@ -350,12 +360,12 @@ export const createForm = <
           client,
           query: memoQuery,
           ...form,
-          set: noNotifySet,
+          set: listenerSet,
           abandon,
         }),
       );
       return () => listeners.cleanup();
-    }, [client, memoQuery, form, noNotifySet, abandon]);
+    }, [client, memoQuery, form, listenerSet, abandon]);
 
     return { form, save, saveAsync, ...result };
   };

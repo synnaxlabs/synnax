@@ -520,9 +520,8 @@ const (
 type CIFreqUnits = versions.CIFreqUnits
 
 const (
-	CIFreqUnitsHz      CIFreqUnits = versions.CIFreqUnitsHz
-	CIFreqUnitsSeconds CIFreqUnits = versions.CIFreqUnitsSeconds
-	CIFreqUnitsTicks   CIFreqUnits = versions.CIFreqUnitsTicks
+	CIFreqUnitsHz    CIFreqUnits = versions.CIFreqUnitsHz
+	CIFreqUnitsTicks CIFreqUnits = versions.CIFreqUnitsTicks
 )
 
 // CITimeUnits are the units of a counter time measurement (period, pulse width, ...).
@@ -732,3 +731,13 @@ type DigitalWriteConfig = versions.DigitalWriteConfig
 
 // ScanConfig configures the NI device scanner task.
 type ScanConfig = versions.ScanConfig
+
+// AccelChargeSensitivityUnits are the units of a charge-mode accelerometer's
+// sensitivity rating.
+type AccelChargeSensitivityUnits = versions.AccelChargeSensitivityUnits
+
+const (
+	AccelChargeSensitivityUnitsPicoCoulombsPerG                      AccelChargeSensitivityUnits = versions.AccelChargeSensitivityUnitsPicoCoulombsPerG
+	AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared AccelChargeSensitivityUnits = versions.AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared
+	AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared AccelChargeSensitivityUnits = versions.AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared
+)

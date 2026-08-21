@@ -33,7 +33,7 @@ struct WriteConfig;
 /// @brief BaseChannel carries the fields every OPC UA channel shares.
 struct BaseChannel {
     /// @brief key uniquely identifies the channel within the task.
-    std::string key = "";
+    std::string key;
     /// @brief name is the human-readable channel name.
     std::string name = "";
     /// @brief disabled is true when the channel is excluded from the task.
@@ -60,9 +60,8 @@ struct ScanConfig : public ::synnax::task::ScanConfig {
 struct ReadChannel : public BaseChannel {
     /// @brief channel is the Synnax channel that samples are written to.
     ::synnax::channel::Key channel = ::synnax::channel::Key(0);
-    /// @brief use_as_index is true when the channel's Synnax channel is the task's
-    /// index.
-    bool use_as_index = false;
+    /// @brief is_index is true when the channel's Synnax channel is the task's index.
+    bool is_index = false;
 
     static ReadChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

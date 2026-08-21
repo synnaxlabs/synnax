@@ -102,14 +102,21 @@ type Envelope struct {
 
 // MarshalJSON emits the body built by Encode. It returns an error when the envelope has
 // no body, so a service that returns an empty Envelope from Export fails loudly instead
-// of sending null.
+// of sending null. The body keeps <, >, and & literal: the encoder that embeds this
+// output can add escapes but never remove them, so the choice belongs to it.
 func (e Envelope) MarshalJSON() ([]byte, error) {
 	if e.body == nil {
 		return nil, errors.New(
 			"envelope has no body; build one with Encode before marshaling",
 		)
 	}
-	return json.Marshal(e.body)
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(e.body); err != nil {
+		return nil, err
+	}
+	return bytes.TrimRight(buf.Bytes(), "\n"), nil
 }
 
 // UnmarshalJSON reads a flat JSON object, promoting the headers and retaining the bytes
@@ -181,20 +188,35 @@ func Decode[T any](ctx context.Context, e Envelope) (T, error) {
 	return t, nil
 }
 
+// BodyExporter is implemented by a resource whose portable body differs from its stored
+// shape — an Arc, whose file carries the materialized source rather than the operation
+// log that reconstructs it. Encode reduces ExportBody's return in place of the
+// receiver.
+type BodyExporter interface {
+	// ExportBody returns the value to reduce in place of the receiver. It must be a
+	// struct or a map[string]any, the same forms Encode takes.
+	ExportBody() any
+}
+
 // Encode reduces data to a flat map and stamps it onto env as the body, merging in the
 // Version, Type, and Name headers. data wins for `type` and `name`; both must end up
 // non-empty. A top-level `key` is always dropped — importers mint a fresh one. On any
 // error env is left untouched.
 //
 // data may be a map[string]any, which is merged flat; any other value must be a struct.
+// A BodyExporter is reduced through ExportBody instead of directly.
 func Encode[T any](env *Envelope, data T) error {
+	value := any(data)
+	if b, ok := value.(BodyExporter); ok {
+		value = b.ExportBody()
+	}
 	// The map branch exists only for the task exporter, whose config is an opaque
 	// object it merges flat rather than a Go struct. Once task configs are strongly
 	// typed, this assertion (and its test) can go: every caller passes a struct.
-	body, ok := any(data).(map[string]any)
+	body, ok := value.(map[string]any)
 	if !ok {
 		var err error
-		if body, err = structToMap(data); err != nil {
+		if body, err = structToMap(value); err != nil {
 			return errors.Wrap(err, "encode envelope")
 		}
 	}

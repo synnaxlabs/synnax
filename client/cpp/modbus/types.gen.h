@@ -36,12 +36,12 @@ struct WriteConfig;
 struct RegisterValue {
     /// @brief data_type is the data type the register contents are interpreted as.
     ::x::telem::DataType data_type = ::x::telem::DataType("uint8");
-    /// @brief swap_bytes is true when the byte order within each 16-bit word is
+    /// @brief bytes_swapped is true when the byte order within each 16-bit word is
     /// swapped.
-    bool swap_bytes = false;
-    /// @brief swap_words is true when the word order of multi-register values is
+    bool bytes_swapped = false;
+    /// @brief words_swapped is true when the word order of multi-register values is
     /// swapped.
-    bool swap_words = false;
+    bool words_swapped = false;
 
     static RegisterValue parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -50,7 +50,7 @@ struct RegisterValue {
 /// @brief BaseReadChannel carries the fields every Modbus read channel shares.
 struct BaseReadChannel {
     /// @brief key uniquely identifies the channel within the task.
-    std::string key = "";
+    std::string key;
     /// @brief name is the human-readable channel name.
     std::string name = "";
     /// @brief disabled is true when the channel is excluded from acquisition.
@@ -67,7 +67,7 @@ struct BaseReadChannel {
 /// @brief BaseWriteChannel carries the fields every Modbus write channel shares.
 struct BaseWriteChannel {
     /// @brief key uniquely identifies the channel within the task.
-    std::string key = "";
+    std::string key;
     /// @brief name is the human-readable channel name.
     std::string name = "";
     /// @brief disabled is true when the channel is excluded from the task.

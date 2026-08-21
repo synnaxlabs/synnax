@@ -110,9 +110,9 @@ type ReadField struct {
 	Pointer string `json:"pointer" msgpack:"pointer"`
 	// DataType is the data type of the extracted value.
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
-	// TimestampFormat is the encoding of the JSON value when the target channel holds
+	// TimeFormat is the encoding of the JSON value when the target channel holds
 	// timestamps. Required for timestamp channels.
-	TimestampFormat *TimeFormat `json:"timestamp_format,omitempty" msgpack:"timestamp_format,omitempty"`
+	TimeFormat *TimeFormat `json:"time_format,omitempty" msgpack:"time_format,omitempty"`
 	// EnumValues maps string labels in the response to numeric channel values.
 	EnumValues []EnumEntry `json:"enum_values,omitzero" msgpack:"enum_values,omitzero"`
 }

@@ -66,11 +66,11 @@ export const useTimestampPrecision = Scope.bindHook(
 );
 
 export const useIsHidingChannelNames = Scope.bindHook(
-  createSelector(({ hideChannelNames }) => hideChannelNames),
+  createSelector(({ channelNamesHidden }) => channelNamesHidden),
 );
 
 export const useIsHidingReceiptTimestamp = Scope.bindHook(
-  createSelector(({ hideReceiptTimestamp }) => hideReceiptTimestamp),
+  createSelector(({ receiptTimestampHidden }) => receiptTimestampHidden),
 );
 
 export const {

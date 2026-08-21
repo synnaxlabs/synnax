@@ -36,6 +36,16 @@ const (
 	manifestType    = "project"
 )
 
+// unreachedTypes are the resource types a bundle can hold that the walk over the
+// project's ontology descendants never reaches: a task parents under its rack's task
+// group and an Arc parents nowhere. A panel tab is the only way one enters a bundle,
+// and an import leaves each where its importer put it rather than under the directory
+// that held it.
+var unreachedTypes = set.New(
+	ontology.ResourceTypeTask,
+	ontology.ResourceTypeArc,
+)
+
 // Export serializes the project identified by key and its ontology descendants as a
 // bundle: one envelope per member document and panel, group children as directories,
 // and a manifest naming the project at the root. It also returns the ontology ID of
@@ -44,12 +54,13 @@ const (
 // extension every file takes.
 //
 // A child that is not a panel, a group, or a type the leaf registry exports is skipped,
-// along with every panel tab that references it. The tasks a panel's tabs reference
-// export into the panel's directory. A member with multiple parents in the project
-// keeps its first placement and is skipped on later encounters, and a group with no
-// exported descendants is dropped. Two members of one directory that resolve to one
-// file name, or a member claiming a reserved root file name, keep distinct names
-// through a numeric suffix. It returns query.ErrNotFound if no project has key.
+// along with every panel tab that references it. The tasks and Arcs a panel's tabs
+// reference export into the panel's directory, since the walk never reaches them
+// otherwise. A member with multiple parents in the project keeps its first placement
+// and is skipped on later encounters, and a group with no exported descendants is
+// dropped. Two members of one directory that resolve to one file name, or a member
+// claiming a reserved root file name, keep distinct names through a numeric suffix. It
+// returns query.ErrNotFound if no project has key.
 func (s *Service) Export(
 	ctx context.Context,
 	key Key,
@@ -196,7 +207,7 @@ func (w *bundleWalk) directory(
 				panel: p,
 				path:  prefix + fileName,
 			})
-			if err = w.panelTasks(ctx, p, prefix, claims); err != nil {
+			if err = w.panelRefs(ctx, p, prefix, claims); err != nil {
 				return err
 			}
 		case w.svc.cfg.ImEx.ExporterRegistered(child.ID.Type):
@@ -229,22 +240,20 @@ func (w *bundleWalk) retrievePanel(
 	return p, err
 }
 
-// panelTasks places the tasks p's resource tabs reference into the panel's directory.
-// Tasks are not ontology descendants of the project, so the walk pulls them in from the
-// panel document itself. A task that no longer exists is skipped, along with the tab
-// that references it.
-func (w *bundleWalk) panelTasks(
+// panelRefs places the resources p's resource tabs reference, and that the directory
+// walk cannot reach, into the panel's directory. A reference to a resource that no
+// longer exists is skipped, along with the tab that holds it.
+func (w *bundleWalk) panelRefs(
 	ctx context.Context,
 	p panel.Panel,
 	prefix string,
 	claims *imex.Claims,
 ) error {
-	if !w.svc.cfg.ImEx.ExporterRegistered(ontology.ResourceTypeTask) {
-		return nil
-	}
-	var tasks []ontology.Resource
-	for _, id := range panel.TaskRefs(p.Root) {
-		if w.visited.Contains(id) {
+	var members []ontology.Resource
+	for _, id := range panel.ResourceRefs(p.Root) {
+		if w.visited.Contains(id) ||
+			!unreachedTypes.Contains(id.Type) ||
+			!w.svc.cfg.ImEx.ExporterRegistered(id.Type) {
 			continue
 		}
 		var res ontology.Resource
@@ -257,16 +266,16 @@ func (w *bundleWalk) panelTasks(
 			}
 			return err
 		}
-		tasks = append(tasks, res)
+		members = append(members, res)
 	}
-	imex.SortResources(tasks)
-	for _, t := range tasks {
-		fileName, err := filename.Sanitize(t.Name, w.ext)
+	imex.SortResources(members)
+	for _, m := range members {
+		fileName, err := filename.Sanitize(m.Name, w.ext)
 		if err != nil {
 			return err
 		}
-		w.visited.Add(t.ID)
-		w.refs[t.ID] = prefix + claims.Claim(fileName, w.ext)
+		w.visited.Add(m.ID)
+		w.refs[m.ID] = prefix + claims.Claim(fileName, w.ext)
 	}
 	return nil
 }
@@ -348,9 +357,9 @@ func (s *Service) Import(
 		}
 		refs[m.path] = id
 		dir := path.Dir(m.path)
-		// A task parents under its rack's task group, never the project: it entered
-		// the bundle through a panel reference, so it stays where its importer put it.
-		if dir == "." || id.Type == ontology.ResourceTypeTask {
+		// An unreached type entered the bundle through a panel reference, so it stays
+		// where its importer put it rather than under the directory that held it.
+		if dir == "." || unreachedTypes.Contains(id.Type) {
 			continue
 		}
 		if err = otgWriter.DeleteRelationships(ctx, ontology.Relationship{

@@ -35,9 +35,9 @@ var (
 		Address:  6,
 	}
 	fullyPopulatedRegisterValue = v1.RegisterValue{
-		DataType:  telem.DataType("test_1"),
-		SwapBytes: false,
-		SwapWords: true,
+		DataType:     telem.DataType("test_1"),
+		BytesSwapped: false,
+		WordsSwapped: true,
 	}
 	fullyPopulatedBaseWriteChannel = v1.BaseWriteChannel{
 		Key:      "test_1",
@@ -184,9 +184,9 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", fullyPopulatedRegisterValue),
 			Entry("zero values", v1.RegisterValue{
-				DataType:  telem.DataType(""),
-				SwapBytes: false,
-				SwapWords: false,
+				DataType:     telem.DataType(""),
+				BytesSwapped: false,
+				WordsSwapped: false,
 			}),
 		)
 	})
@@ -704,9 +704,9 @@ func FuzzDecodeRegisterValue(f *testing.F) {
 	}
 	{
 		seed := v1.RegisterValue{
-			DataType:  telem.DataType(""),
-			SwapBytes: false,
-			SwapWords: false,
+			DataType:     telem.DataType(""),
+			BytesSwapped: false,
+			WordsSwapped: false,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
