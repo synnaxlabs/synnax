@@ -13,6 +13,7 @@ import warnings
 warnings.filterwarnings("ignore", message=".*keepalive ping.*")
 warnings.filterwarnings("ignore", message=".*timed out while closing connection.*")
 
+import os
 import sys
 import traceback
 from abc import ABC, abstractmethod
@@ -111,9 +112,10 @@ class TestCase(ABC):
         self.client = synnax_connection.create_client()
         self.writer = Writer(self.client)
 
+        stream_logs = os.environ.get("TC_LOGS", "0") == "1"
         self.log_client = LogClient(
             name=self.name,
-            mode=LogMode.BUFFERED,
+            mode=LogMode.REALTIME if stream_logs else LogMode.BUFFERED,
             persistent_sinks=[
                 SynnaxChannelSink(self.client, self._ch_log),
             ],
@@ -170,7 +172,7 @@ class TestCase(ABC):
             raise
 
     def log(self, message: str) -> None:
-        """Log a message. Buffered by default; dumped by conductor on failure."""
+        """Log a message. Buffered and dumped on failure unless `tc --logs` is set."""
         self.log_client.info(message)
 
     def _start_client_threads(self) -> None:

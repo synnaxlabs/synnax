@@ -33,6 +33,8 @@ PageType = Literal[
     "NI digital write task",
     "LabJack read task",
     "LabJack write task",
+    "Modbus read task",
+    "Modbus write task",
     "OPC UA read task",
     "OPC UA write task",
 ]

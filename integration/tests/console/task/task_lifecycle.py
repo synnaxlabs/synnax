@@ -55,6 +55,21 @@ TASKS = [
 
 READ_TASKS = [t for t in TASKS if "read" in t.type]
 TASK_NAMES = [t.name for t in TASKS]
+# Channels the example scripts create: data channels, then their indexes.
+EXAMPLE_CHANNELS = [
+    [
+        "my_float_0",
+        "my_float_1",
+        "my_array_0",
+        "my_array_1",
+        "my_bool_0",
+        "my_bool_1",
+        "opcua_cmd_0",
+        "opcua_cmd_1",
+        "opcua_cmd_2",
+    ],
+    ["opcua_time", "opcua_array_time", "opcua_bool_time", "opcua_cmd_time"],
+]
 
 
 class TaskLifecycle(SimulatorCase, ConsoleCase):
@@ -92,6 +107,12 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
                     self.client.tasks.delete([t.key for t in tasks])
             except (sy.NotFoundError, TypeError):
                 pass
+        with self._try_to("delete example channels"):
+            for names in EXAMPLE_CHANNELS:
+                try:
+                    self.client.channels.delete(names)
+                except sy.NotFoundError:
+                    pass
         try:
             rng = self.client.ranges.retrieve(name=RANGE_NAME)
             self.client.ranges.delete(rng.key)
@@ -135,9 +156,6 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         self.log("Testing: Individual task stop/start")
         for name in TASK_NAMES:
             self.console.tasks.stop(name)
-
-        sy.sleep(0.1)
-
         for name in TASK_NAMES:
             self.console.tasks.start(name)
 
@@ -145,9 +163,6 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         # Set one task to stopped (1 stopped, 3 running)
         self.console.tasks.stop(TASK_NAMES[2])
         self.console.tasks.stop_many(TASK_NAMES)
-
-        sy.sleep(0.1)
-
         # Set one task to running (1 running, 3 stopped)
         self.console.tasks.start(TASK_NAMES[1])
         self.console.tasks.start_many(TASK_NAMES)
@@ -162,15 +177,10 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
             self.console.tasks.disable_data_saving(name)
         for name in read_names:
             self.assert_data_saving(name, False)
-
-        sy.sleep(0.1)
-
         for name in read_names:
             self.console.tasks.enable_data_saving(name)
         for name in read_names:
             self.assert_data_saving(name, True)
-
-        sy.sleep(0.1)
 
         self.log("Testing: Group data saving disable/enable")
 
@@ -179,9 +189,6 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         self.console.tasks.disable_data_saving_many(TASK_NAMES)
         for name in read_names:
             self.assert_data_saving(name, False)
-
-        sy.sleep(0.1)
-
         # Set one read task to data saving enabled (1 enabled, rest disabled)
         self.console.tasks.enable_data_saving(read_names[1])
         self.console.tasks.enable_data_saving_many(TASK_NAMES)
@@ -266,7 +273,6 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
             editable.wait_for(state="visible", timeout=3000)
             self.console.layout.select_all_and_type(new_name)
             self.console.layout.press_enter()
-            sy.sleep(0.5)
 
         self.log("Testing: Verify original channel names in channels toolbar")
         assert self.console.channels.wait_for_channels(original_names), (
