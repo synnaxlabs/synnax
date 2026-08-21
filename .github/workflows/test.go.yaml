@@ -66,11 +66,13 @@ jobs:
           CGO_ENABLED: "0"
         run: |
           ./custom-gcl config verify
-          for goos in linux windows; do
-            echo "::group::GOOS=$goos"
-            GOOS=$goos ./custom-gcl run
-            echo "::endgroup::"
-          done
+          echo "::group::GOOS=linux"
+          GOOS=linux ./custom-gcl run
+          echo "::endgroup::"
+          echo "::group::GOOS=windows"
+          # A throwaway cache keeps the shared setup-go cache down to one GOOS.
+          GOOS=windows GOCACHE="$RUNNER_TEMP/gocache-windows" ./custom-gcl run
+          echo "::endgroup::"
 
   test:
     name: Test (${{ matrix.os }})
