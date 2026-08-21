@@ -93,19 +93,7 @@ class TaskClient(ResourceClient):
         )
         self.layout.select_all_and_type(new_name)
         self.layout.press_enter()
-        self._handle_rename_confirmation()
         self.get_item(new_name).wait_for(state="visible", timeout=5000)
-
-    def _handle_rename_confirmation(self) -> None:
-        """Handle the rename confirmation dialog if the task is running."""
-        try:
-            rename_btn = self.layout.page.get_by_role(
-                "button", name="Rename", exact=True
-            )
-            rename_btn.wait_for(state="visible", timeout=2000)
-            rename_btn.click()
-        except PlaywrightTimeoutError:
-            pass
 
     def delete(self, name: str) -> None:
         """Delete a task via context menu in the task toolbar.
@@ -257,7 +245,6 @@ class TaskClient(ResourceClient):
         action = "Enable data saving" if enable else "Disable data saving"
         opposite = "Disable data saving" if enable else "Enable data saving"
         self.show_toolbar()
-        self.layout.page.wait_for_timeout(300)
         item = self.get_item(name)
         item.wait_for(state="visible", timeout=5000)
         item.click()

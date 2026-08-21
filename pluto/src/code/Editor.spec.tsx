@@ -217,6 +217,7 @@ const createFakeMonaco = () => {
     }),
     setTheme: vi.fn(),
     addKeybindingRule: vi.fn(),
+    InjectedTextCursorStops: { Both: 0, Right: 1, Left: 2, None: 3 },
   };
   return {
     editor,
@@ -630,6 +631,8 @@ describe("Editor", () => {
             after: {
               content: PLACEHOLDER,
               inlineClassName: "pluto-editor__placeholder",
+              // None keeps a click from parking the caret after the placeholder.
+              cursorStops: 3,
             },
           },
         },

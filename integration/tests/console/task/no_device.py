@@ -80,7 +80,7 @@ class NoDevice(HardwareCase, ConsoleCase):
 
     def configure_without_channels(self, ni_ai: AnalogRead) -> None:
         """Configure without defining channels"""
-        ni_ai.configure()
+        ni_ai.deploy(expect=None)
 
         # Assert error notification
         notifications = self.console.notifications.check(timeout=5)
@@ -115,10 +115,8 @@ class NoDevice(HardwareCase, ConsoleCase):
             dev_name="usb_6000",
         )
 
-        self.log("Configuring task")
-        ni_ai.configure()
-        self.log("Running task")
-        ni_ai.run()
+        self.log("Deploying task")
+        ni_ai.deploy(expect=None)
 
         # Status assertions
         status = ni_ai.status()
@@ -132,7 +130,7 @@ class NoDevice(HardwareCase, ConsoleCase):
             msg = status["msg"]
 
         level_expected = "warning"
-        msg_expected = f"{rack_name} is not running"
+        msg_expected = f"Synnax Driver on {rack_name} not running"
 
         assert msg_expected in msg, f"<{msg}> should be <{msg_expected}>"
         assert level_expected == level, f"<{level}> should be <{level_expected}>"

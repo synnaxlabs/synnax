@@ -7,6 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <iomanip>
+#include <iostream>
+#include <thread>
+
 #include "gtest/gtest.h"
 #include "nlohmann/json.hpp"
 
@@ -19,6 +23,20 @@
 #include "driver/pipeline/mock/pipeline.h"
 
 namespace driver::opcua {
+/// @brief Allowed relative error of a task's achieved sample rate.
+constexpr double RATE_TOLERANCE = 0.10;
+/// @brief Wall time each rate runs for.
+const auto RATE_SPAN = 1 * x::telem::SECOND;
+
+/// @brief Logs the rate a task held and checks it against the tolerance.
+void expect_rate(const double measured, const int rate_hz) {
+    const double error = (measured - rate_hz) / rate_hz * 100;
+    std::cout << std::fixed << std::setprecision(1);
+    std::cout << rate_hz << " Hz: " << measured << " Hz measured (" << error << "%)\n";
+    EXPECT_NEAR(measured, rate_hz, rate_hz * RATE_TOLERANCE)
+        << "at " << rate_hz << " Hz";
+}
+
 class TestReadTask : public ::testing::Test {
 protected:
     synnax::task::Task task;
@@ -1197,5 +1215,28 @@ TEST(OPCReadTaskConfig, testOPCDriverSetsAutoCommitTrue) {
     // Verify that writer_config has enable_auto_commit set to true
     auto writer_cfg = cfg->writer_config();
     ASSERT_TRUE(writer_cfg.enable_auto_commit);
+}
+
+/// @brief it should hold each configured sample rate over time.
+TEST_F(TestReadTask, testHoldsSampleRate) {
+    for (const int rate_hz: {25, 50, 100}) {
+        this->task_cfg_json["sample_rate"] = rate_hz;
+        this->task_cfg_json["stream_rate"] = rate_hz;
+        this->mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
+
+        const auto rt = create_task();
+        rt->start("start_cmd");
+        ASSERT_EVENTUALLY_GE(this->mock_factory->writes->size(), 1);
+        std::this_thread::sleep_for(RATE_SPAN.chrono());
+        rt->stop("stop_cmd", true);
+
+        expect_rate(
+            pipeline::mock::measured_rate(
+                *this->mock_factory->writes,
+                this->index_channel.key
+            ),
+            rate_hz
+        );
+    }
 }
 }

@@ -209,6 +209,17 @@ describe("log/aether/Log", () => {
       updateState({ scrolling: true, empty: false, wheelPos: 0 });
       expect(log.state.scrolling).toBe(false);
     });
+
+    it("should stamp resumedAt only when it resumes on its own", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { log, updateState } = setup(entries);
+      updateState({ scrolling: false, empty: false });
+      updateState({ scrolling: true, empty: false, wheelPos: 0 });
+      updateState({ scrolling: true, empty: false, wheelPos: 300 });
+      expect(log.state.resumedAt).toBe(0);
+      updateState({ scrolling: true, empty: false, wheelPos: 0 });
+      expect(log.state.resumedAt).toBeGreaterThan(0);
+    });
   });
 
   describe("entries", () => {

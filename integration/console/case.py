@@ -10,6 +10,7 @@
 import os
 import random
 from typing import cast
+from urllib.request import urlopen
 from uuid import uuid4
 
 from playwright.sync_api import (
@@ -116,10 +117,11 @@ class ConsoleCase(TestCase):
         host = self.synnax_connection.server_address
         port = self.synnax_connection.port
 
+        # A plain request finds the Console's port without a page load in the browser.
+        with urlopen(f"http://{host}:{port}/", timeout=5) as res:
+            if b"core built without embedded console" in res.read().lower():
+                port = 5173
         self.page.goto(f"http://{host}:{port}/{query}", timeout=20000)
-        if "core built without embedded console" in self.page.content().lower():
-            port = 5173
-            self.page.goto(f"http://{host}:{port}/{query}", timeout=15000)
 
         self.log(f"Console found on port {port}")
         self.console = Console(self.page, self.client)

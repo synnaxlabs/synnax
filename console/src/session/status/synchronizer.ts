@@ -8,36 +8,27 @@
 // included in the file licenses/APL.txt.
 
 import { Status } from "@synnaxlabs/pluto";
-import { destructor } from "@synnaxlabs/x";
 import { useMemo } from "react";
 
-import {
-  type Action,
-  filterFavoritesToKeys,
-  removeFavorites,
-} from "@/session/status/slice";
-import { type Synchronizer } from "@/session/synchronizer";
+import { type Action, removeFavorites, type StoreState } from "@/session/status/slice";
+import { Synchronizer } from "@/session/synchronizer";
 
-const useSyncStatuses: Synchronizer.Use<unknown, Action> = () => {
+// Statuses the cluster raises while connected surface as notifications. Nothing is
+// repaired at a boundary: a notification missed during a gap has no state behind it.
+const useForwardStatuses: Synchronizer.Use<StoreState, Action> = () => {
   const addStatus = Status.useAdder();
   return useMemo(
-    () => ({
-      reconcile: async ({ client, store }) => {
-        const statuses = await client.statuses.retrieve({});
-        store.dispatch(filterFavoritesToKeys(statuses.map(({ key }) => key)));
-      },
-      listen: ({ client, store }) => {
-        const removeOnSet = client.statuses.onSet(addStatus);
-        const removeOnDelete = client.statuses.onDelete((key) =>
-          store.dispatch(removeFavorites(key)),
-        );
-        return () => destructor.unwind(removeOnSet, removeOnDelete);
-      },
-    }),
+    () => ({ listen: ({ client }) => client.statuses.onSet(addStatus) }),
     [addStatus],
   );
 };
 
-export const SYNCHRONIZERS: Synchronizer.Synchronizers<unknown, Action> = [
-  { name: "sync statuses", use: useSyncStatuses },
+export const SYNCHRONIZERS: Synchronizer.Synchronizers<StoreState, Action> = [
+  Synchronizer.createRemover<StoreState, Action>({
+    name: "remove deleted status favorites",
+    domain: (client) => client.statuses,
+    selectKeys: (state: StoreState) => state.status.favorites,
+    remove: (keys) => removeFavorites(keys),
+  }),
+  { name: "forward statuses to notifications", use: useForwardStatuses },
 ];

@@ -1,0 +1,15 @@
+{
+  "version": 0,
+  "type": "panel",
+  "name": "Propulsion View",
+  "root": {
+    "variant": "leaf",
+    "tabs": [
+      {
+        "key": "53369442-5c85-480c-9304-681367eb732d",
+        "variant": "resource",
+        "resource": "Subsystems/Propulsion/Chamber Log.json"
+      }
+    ]
+  }
+}

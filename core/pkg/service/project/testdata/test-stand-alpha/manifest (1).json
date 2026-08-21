@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "type": "log",
+  "name": "manifest",
+  "channels": [],
+  "timestamp_precision": 2,
+  "hide_channel_names": false,
+  "hide_receipt_timestamp": true
+}

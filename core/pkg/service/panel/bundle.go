@@ -16,6 +16,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/panel/versions"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/spatial"
@@ -65,7 +66,7 @@ func EncodeBundle(p Panel, refs map[ontology.ID]string) (imex.Envelope, error) {
 		return imex.Envelope{}, err
 	}
 	env := imex.Envelope{
-		Version: 0,
+		Version: versions.Latest,
 		Type:    string(ontology.ResourceTypePanel),
 		Name:    p.Name,
 	}
@@ -77,13 +78,19 @@ func EncodeBundle(p Panel, refs map[ontology.ID]string) (imex.Envelope, error) {
 
 // DecodeBundle deserializes a project-bundle member produced by EncodeBundle. Where the
 // bundle tree holds a member path, the returned tree holds the ontology.ID refs maps
-// that path to; a path refs does not hold is a validation error naming it. The returned
-// panel carries no key or parent; the caller assigns both.
+// that path to; a path refs does not hold is a validation error naming it. A version
+// above versions.Latest is a path-scoped validation error. The returned panel carries
+// no key or parent; the caller assigns both.
 func DecodeBundle(
 	ctx context.Context,
 	env imex.Envelope,
 	refs map[string]ontology.ID,
 ) (Panel, error) {
+	if env.Version > versions.Latest {
+		return Panel{}, imex.NewErrUnsupportedVersion(
+			string(ontology.ResourceTypePanel), env.Version, versions.Latest,
+		)
+	}
 	body, err := imex.Decode[bundleBody](ctx, env)
 	if err != nil {
 		return Panel{}, err
@@ -147,26 +154,27 @@ func resolveBundleNode(node any, refs map[string]ontology.ID) (any, error) {
 	return m, nil
 }
 
-// TaskRefs returns the ID of every task the tree's resource tabs reference, each once.
-func TaskRefs(root Node) []ontology.ID {
+// ResourceRefs returns the ID of every resource the tree's resource tabs reference,
+// each once. Order is unspecified.
+func ResourceRefs(root Node) []ontology.ID {
 	ids := set.New[ontology.ID]()
-	collectTaskRefs(root, ids)
+	collectResourceRefs(root, ids)
 	return lo.Keys(ids)
 }
 
-// collectTaskRefs adds the ID of every task the tree's resource tabs reference to ids.
-func collectTaskRefs(n Node, ids set.Set[ontology.ID]) {
+// collectResourceRefs adds the ID of every resource the tree's resource tabs reference
+// to ids.
+func collectResourceRefs(n Node, ids set.Set[ontology.ID]) {
 	switch v := n.Variant.(type) {
 	case LeafNode:
 		for _, t := range v.Tabs {
-			if r, ok := t.Variant.(ResourceTab); ok &&
-				r.Resource.Type == ontology.ResourceTypeTask {
+			if r, ok := t.Variant.(ResourceTab); ok {
 				ids.Add(r.Resource)
 			}
 		}
 	case SplitNode:
-		collectTaskRefs(v.First, ids)
-		collectTaskRefs(v.Last, ids)
+		collectResourceRefs(v.First, ids)
+		collectResourceRefs(v.Last, ids)
 	}
 }
 
