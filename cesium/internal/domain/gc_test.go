@@ -1137,13 +1137,9 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					"Should keep no handles when the rewrite fails",
 					func(ctx SpecContext, fail Option) {
 						faulty.SetOptions(fail)
-						Expect(
-							db.GarbageCollect(ctx),
-						).To(MatchError(ErrFault))
+						Expect(db.GarbageCollect(ctx)).To(MatchError(ErrFault))
 						open := faulty.OpenFiles()
-						Expect(
-							db.GarbageCollect(ctx),
-						).To(MatchError(ErrFault))
+						Expect(db.GarbageCollect(ctx)).To(MatchError(ErrFault))
 						Expect(faulty.OpenFiles()).To(Equal(open))
 
 						By("Collecting once the fault clears")
@@ -1153,10 +1149,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 							MustSucceed(fs.Stat("1.domain")).Size(),
 						).To(Equal(int64(6)))
 					},
-					Entry(
-						"reading the live data",
-						WithFailReadAt("1.domain"),
-					),
+					Entry("reading the live data", WithFailReadAt("1.domain")),
 					Entry("writing the copy", WithFailWrite("1.domain_gc")),
 				)
 

@@ -14,7 +14,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	. "github.com/synnaxlabs/x/testutil"
@@ -37,6 +36,7 @@ var _ = Describe("FaultyFS", func() {
 		Expect(f.Close()).To(Succeed())
 		Expect(fs.Rename("a.bin", "b.bin")).To(Succeed())
 		Expect(MustSucceed(fs.Stat("b.bin")).Size()).To(Equal(int64(5)))
+		Expect(MustSucceed(fs.List(""))).To(HaveLen(1))
 		Expect(fs.Remove("b.bin")).To(Succeed())
 		Expect(MustSucceed(fs.Exists("b.bin"))).To(BeFalse())
 	})
@@ -94,15 +94,6 @@ var _ = Describe("FaultyFS", func() {
 			func(fs *FaultyFS, _ xfs.File) error { return fs.Remove("a.bin") },
 		),
 	)
-
-	It("Should raise the error the options name", func() {
-		errCustom := errors.New("custom")
-		fs, f := openWrapped()
-		DeferClose(f)
-		fs.SetOptions(WithFailStat("a.bin"), WithFailErr(errCustom))
-		_, err := fs.Stat("a.bin")
-		Expect(err).To(MatchError(errCustom))
-	})
 
 	It("Should fail an operation on every path when the failure names none", func() {
 		fs, f := openWrapped()

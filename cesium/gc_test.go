@@ -438,7 +438,9 @@ var _ = Describe("Garbage collection", Ordered, func() {
 					func(ctx SpecContext) {
 						ins, logs := ObservedInstrumentation(zapcore.ErrorLevel)
 						faulty := WrapFS(openFS(), WithFailRename("1.domain"))
-						failing := MustOpen(cesium.Open(ctx, "",
+						failing := MustOpen(cesium.Open(
+							ctx,
+							"",
 							cesium.WithGCConfig(cesium.GCConfig{
 								MaxGoroutine: 10,
 								TryInterval:  10 * telem.Millisecond.Duration(),
@@ -446,7 +448,8 @@ var _ = Describe("Garbage collection", Ordered, func() {
 							}),
 							cesium.WithFS(faulty),
 							cesium.WithFileSizeCap(89*telem.Byte),
-							cesium.WithInstrumentation(ins)))
+							cesium.WithInstrumentation(ins),
+						))
 						Expect(failing.CreateChannel(
 							ctx,
 							cesium.Channel{
@@ -484,9 +487,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 						)).To(Succeed())
 
 						Eventually(func() int {
-							return logs.FilterMessage(
-								"garbage collection error",
-							).Len()
+							return logs.FilterMessage("garbage collection error").Len()
 						}).Should(BeNumerically(">", 0))
 					},
 				)
