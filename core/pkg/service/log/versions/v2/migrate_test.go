@@ -68,8 +68,8 @@ var _ = Describe("MigrateLog", func() {
 		Expect(out.Key).To(Equal(old.Key))
 		Expect(out.Name).To(Equal("my-log"))
 		Expect(out.TimestampPrecision).To(Equal(int32(2)))
-		Expect(out.HideChannelNames).To(BeTrue())
-		Expect(out.HideReceiptTimestamp).To(BeFalse())
+		Expect(out.ChannelNamesHidden).To(BeTrue())
+		Expect(out.ReceiptTimestampHidden).To(BeFalse())
 		Expect(out.Channels).To(HaveLen(1))
 		Expect(out.Channels[0].Channel).To(BeEquivalentTo(42))
 		Expect(out.Channels[0].Color).To(Equal(color.MustFromHex("#ff0000")))
@@ -241,8 +241,8 @@ var _ = Describe("MigrateLog", func() {
 			Expect(out.Channels[1].Channel).To(BeEquivalentTo(5))
 			Expect(out.Channels[1].Color).To(Equal(color.Color{}))
 			Expect(out.TimestampPrecision).To(Equal(int32(1)))
-			Expect(out.HideChannelNames).To(BeFalse())
-			Expect(out.HideReceiptTimestamp).To(BeTrue())
+			Expect(out.ChannelNamesHidden).To(BeFalse())
+			Expect(out.ReceiptTimestampHidden).To(BeTrue())
 		})
 
 		It(
@@ -334,8 +334,8 @@ var _ = Describe("MigrateLog", func() {
 				Expect(got.Channels).To(HaveLen(1))
 				Expect(got.Channels[0].Channel).To(BeEquivalentTo(42))
 				Expect(got.Channels[0].Color).To(Equal(color.MustFromHex("#ff0000")))
-				Expect(got.HideChannelNames).To(BeTrue())
-				Expect(got.HideReceiptTimestamp).To(BeFalse())
+				Expect(got.ChannelNamesHidden).To(BeTrue())
+				Expect(got.ReceiptTimestampHidden).To(BeFalse())
 			},
 		)
 	})

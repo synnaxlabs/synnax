@@ -8,7 +8,7 @@
     {
       "key": "alert-stamped",
       "status": "stamped_status_channel",
-      "treat_error_as_critical": true,
+      "errors_critical": true,
       "component": "stamped-component",
       "group": "stamped-group",
       "class": "stamped-class",

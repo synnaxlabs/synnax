@@ -76,32 +76,32 @@ EnumEntry struct {
 }
 
 ReadField struct {
-    key              string = "" {
+    key         string = create {
         @doc value "uniquely identifies the field within the endpoint."
         @key
     }
-    name             string = "" {
+    name        string = "" {
         @doc value "is the human-readable field name."
     }
-    disabled         bool = false {
+    disabled    bool = false {
         @doc value "is true when the field is excluded from polling."
     }
-    channel          channel.Key = 0 {
+    channel     channel.Key = 0 {
         @doc value "is the Synnax channel the extracted value is written to."
     }
-    pointer          string = "" {
+    pointer     string = "" {
         @doc value "is the JSON Pointer to the value within the response body."
     }
-    data_type        telem.DataType = "float64" {
+    data_type   telem.DataType = "float64" {
         @doc value "is the data type of the extracted value."
     }
-    timestamp_format TimeFormat?    {
+    time_format TimeFormat?    {
         @doc value """
             is the encoding of the JSON value when the target channel holds timestamps.
             Required for timestamp channels.
         """
     }
-    enum_values      EnumEntry[]    {
+    enum_values EnumEntry[]    {
         @doc value "maps string labels in the response to numeric channel values."
     }
 
@@ -110,7 +110,7 @@ ReadField struct {
 }
 
 ReadEndpoint struct {
-    key          string = "" {
+    key          string = create {
         @doc value "uniquely identifies the endpoint within the task."
         @key
     }
@@ -215,7 +215,7 @@ ChannelField struct {
 }
 
 BaseWriteField struct {
-    key     string = "" {
+    key     string = create {
         @doc value "uniquely identifies the field within the endpoint."
         @key
     }
@@ -259,7 +259,7 @@ WriteField union on type extends BaseWriteField {
 }
 
 WriteEndpoint struct {
-    key          string = "" {
+    key          string = create {
         @doc value "uniquely identifies the endpoint within the task."
         @key
     }

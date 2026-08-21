@@ -75,8 +75,9 @@ struct TaskConfig : public ::synnax::task::PersistConfig {
     std::int32_t rt_priority = 47;
     /// @brief cpu_affinity pins the loop to a CPU core. -1 selects automatically.
     std::int32_t cpu_affinity = -1;
-    /// @brief lock_memory locks the runtime's memory to prevent paging.
-    bool lock_memory = false;
+    /// @brief memory_locked is true when the runtime's memory is locked to prevent
+    /// paging.
+    bool memory_locked = false;
 
     static TaskConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

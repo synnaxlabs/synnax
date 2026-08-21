@@ -32,7 +32,7 @@
       }
     ],
     "scale": 1,
-    "scale_stroke": true,
+    "stroke_scaled": true,
     "preview_viewport": {
       "position": {
         "x": 1,

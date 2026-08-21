@@ -37,22 +37,22 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v1.Alert{
-				Key:                  "test_1",
-				Status:               "test_2",
-				TreatErrorAsCritical: true,
-				Component:            "test_4",
-				Group:                "test_5",
-				Class:                "test_6",
-				Disabled:             true,
+				Key:            "test_1",
+				Status:         "test_2",
+				ErrorsCritical: true,
+				Component:      "test_4",
+				Group:          "test_5",
+				Class:          "test_6",
+				Disabled:       true,
 			}),
 			Entry("zero values", v1.Alert{
-				Key:                  "",
-				Status:               "",
-				TreatErrorAsCritical: false,
-				Component:            "",
-				Group:                "",
-				Class:                "",
-				Disabled:             false,
+				Key:            "",
+				Status:         "",
+				ErrorsCritical: false,
+				Component:      "",
+				Group:          "",
+				Class:          "",
+				Disabled:       false,
 			}),
 		)
 	})
@@ -75,13 +75,13 @@ var _ = Describe("Codec", func() {
 				RoutingKey: "test_3",
 				Alerts: []v1.Alert{
 					{
-						Key:                  "test_5",
-						Status:               "test_6",
-						TreatErrorAsCritical: true,
-						Component:            "test_8",
-						Group:                "test_9",
-						Class:                "test_10",
-						Disabled:             true,
+						Key:            "test_5",
+						Status:         "test_6",
+						ErrorsCritical: true,
+						Component:      "test_8",
+						Group:          "test_9",
+						Class:          "test_10",
+						Disabled:       true,
 					},
 				},
 			}),
@@ -104,13 +104,13 @@ var _ = Describe("Codec", func() {
 
 func BenchmarkEncodeDecodeAlert(b *testing.B) {
 	seed := v1.Alert{
-		Key:                  "test_1",
-		Status:               "test_2",
-		TreatErrorAsCritical: true,
-		Component:            "test_4",
-		Group:                "test_5",
-		Class:                "test_6",
-		Disabled:             true,
+		Key:            "test_1",
+		Status:         "test_2",
+		ErrorsCritical: true,
+		Component:      "test_4",
+		Group:          "test_5",
+		Class:          "test_6",
+		Disabled:       true,
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -136,13 +136,13 @@ func BenchmarkEncodeDecodeTaskConfig(b *testing.B) {
 		RoutingKey: "test_3",
 		Alerts: []v1.Alert{
 			{
-				Key:                  "test_5",
-				Status:               "test_6",
-				TreatErrorAsCritical: true,
-				Component:            "test_8",
-				Group:                "test_9",
-				Class:                "test_10",
-				Disabled:             true,
+				Key:            "test_5",
+				Status:         "test_6",
+				ErrorsCritical: true,
+				Component:      "test_8",
+				Group:          "test_9",
+				Class:          "test_10",
+				Disabled:       true,
 			},
 		},
 	}
@@ -164,13 +164,13 @@ func BenchmarkEncodeDecodeTaskConfig(b *testing.B) {
 func FuzzDecodeAlert(f *testing.F) {
 	{
 		seed := v1.Alert{
-			Key:                  "test_1",
-			Status:               "test_2",
-			TreatErrorAsCritical: true,
-			Component:            "test_4",
-			Group:                "test_5",
-			Class:                "test_6",
-			Disabled:             true,
+			Key:            "test_1",
+			Status:         "test_2",
+			ErrorsCritical: true,
+			Component:      "test_4",
+			Group:          "test_5",
+			Class:          "test_6",
+			Disabled:       true,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -180,13 +180,13 @@ func FuzzDecodeAlert(f *testing.F) {
 	}
 	{
 		seed := v1.Alert{
-			Key:                  "",
-			Status:               "",
-			TreatErrorAsCritical: false,
-			Component:            "",
-			Group:                "",
-			Class:                "",
-			Disabled:             false,
+			Key:            "",
+			Status:         "",
+			ErrorsCritical: false,
+			Component:      "",
+			Group:          "",
+			Class:          "",
+			Disabled:       false,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -226,13 +226,13 @@ func FuzzDecodeTaskConfig(f *testing.F) {
 			RoutingKey: "test_3",
 			Alerts: []v1.Alert{
 				{
-					Key:                  "test_5",
-					Status:               "test_6",
-					TreatErrorAsCritical: true,
-					Component:            "test_8",
-					Group:                "test_9",
-					Class:                "test_10",
-					Disabled:             true,
+					Key:            "test_5",
+					Status:         "test_6",
+					ErrorsCritical: true,
+					Component:      "test_8",
+					Group:          "test_9",
+					Class:          "test_10",
+					Disabled:       true,
 				},
 			},
 		}
