@@ -70,9 +70,7 @@ func failOn(op FaultOp, names []string) FaultyFSOption {
 }
 
 // WithFailOpen fails Open on each of the given paths. With no path, every Open fails.
-func WithFailOpen(names ...string) FaultyFSOption {
-	return failOn(FaultOpOpen, names)
-}
+func WithFailOpen(names ...string) FaultyFSOption { return failOn(FaultOpOpen, names) }
 
 // WithFailReadAt fails ReadAt on each of the given paths. With no path, every ReadAt
 // fails.
@@ -93,9 +91,7 @@ func WithFailRename(names ...string) FaultyFSOption {
 }
 
 // WithFailStat fails Stat on each of the given paths. With no path, every Stat fails.
-func WithFailStat(names ...string) FaultyFSOption {
-	return failOn(FaultOpStat, names)
-}
+func WithFailStat(names ...string) FaultyFSOption { return failOn(FaultOpStat, names) }
 
 // WithFailRemove fails Remove on each of the given paths. With no path, every Remove
 // fails.
@@ -105,9 +101,7 @@ func WithFailRemove(names ...string) FaultyFSOption {
 
 // WithFailAfter holds every failure back until op has run at least once, so a test can
 // fail the second half of a sequence.
-func WithFailAfter(
-	op FaultOp,
-) FaultyFSOption {
+func WithFailAfter(op FaultOp) FaultyFSOption {
 	return func(o *options) { o.after = op }
 }
 

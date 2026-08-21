@@ -23,7 +23,7 @@ import (
 func openWrapped() (*FaultyFS, xfs.File) {
 	fs := WrapFaultyFS(OpenMem())
 	f := MustSucceed(fs.Open("a.bin", os.O_CREATE|os.O_RDWR))
-	MustSucceed(f.Write([]byte("hello")))
+	Expect(f.Write([]byte("hello"))).To(Equal(5))
 	return fs, f
 }
 
@@ -31,7 +31,7 @@ var _ = Describe("FaultyFS", func() {
 	It("Should pass every operation through when nothing fails", func() {
 		fs, f := openWrapped()
 		buf := make([]byte, 5)
-		MustSucceed(f.ReadAt(buf, 0))
+		Expect(f.ReadAt(buf, 0)).To(Equal(5))
 		Expect(string(buf)).To(Equal("hello"))
 		Expect(f.Close()).To(Succeed())
 		Expect(fs.Rename("a.bin", "b.bin")).To(Succeed())
@@ -76,9 +76,7 @@ var _ = Describe("FaultyFS", func() {
 		Entry(
 			"rename",
 			WithFailRename("a.bin"),
-			func(fs *FaultyFS, _ xfs.File) error {
-				return fs.Rename("a.bin", "b.bin")
-			},
+			func(fs *FaultyFS, _ xfs.File) error { return fs.Rename("a.bin", "b.bin") },
 		),
 		Entry(
 			"stat",
@@ -99,26 +97,23 @@ var _ = Describe("FaultyFS", func() {
 		fs, f := openWrapped()
 		DeferClose(f)
 		fs.SetOptions(WithFailStat())
-		_, err := fs.Stat("anything.bin")
-		Expect(err).To(MatchError(ErrFault))
+		Expect(fs.Stat("anything.bin")).Error().To(MatchError(ErrFault))
 	})
 
 	It("Should hold a failure back until the operation it follows has run", func() {
 		fs, f := openWrapped()
 		DeferClose(f)
 		fs.SetOptions(WithFailStat("a.bin"), WithFailAfter(FaultOpRemove))
-		MustSucceed(fs.Stat("a.bin"))
+		Expect(MustSucceed(fs.Stat("a.bin")).Name()).To(Equal("a.bin"))
 		Expect(fs.Remove("b.bin")).To(Succeed())
-		_, err := fs.Stat("a.bin")
-		Expect(err).To(MatchError(ErrFault))
+		Expect(fs.Stat("a.bin")).Error().To(MatchError(ErrFault))
 	})
 
 	It("Should stop failing once its options are cleared", func() {
 		fs, f := openWrapped()
 		DeferClose(f)
 		fs.SetOptions(WithFailStat("a.bin"))
-		_, err := fs.Stat("a.bin")
-		Expect(err).To(MatchError(ErrFault))
+		Expect(fs.Stat("a.bin")).Error().To(MatchError(ErrFault))
 		fs.SetOptions()
 		Expect(MustSucceed(fs.Stat("a.bin")).Size()).To(Equal(int64(5)))
 	})
@@ -136,7 +131,6 @@ var _ = Describe("FaultyFS", func() {
 		f := MustSucceed(sub.Open("b.bin", os.O_CREATE|os.O_RDWR))
 		Expect(fs.OpenFiles()).To(Equal(1))
 		Expect(f.Close()).To(Succeed())
-		_, err := sub.Open("a.bin", os.O_CREATE)
-		Expect(err).To(MatchError(ErrFault))
+		Expect(sub.Open("a.bin", os.O_CREATE)).Error().To(MatchError(ErrFault))
 	})
 })
