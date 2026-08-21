@@ -31,22 +31,29 @@ func TestDriver(t *testing.T) {
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
-var _ = BeforeSuite(func() {
+// Process #1 compiles the mock Driver once and hands its directory to the others.
+// Linking it is the suite's largest memory and disk cost, so it runs once rather than
+// once per parallel process.
+var _ = SynchronizedBeforeSuite(func() []byte {
 	ShouldNotLeakGoroutines()
-	tmpDir := GinkgoT().TempDir()
+	dir := MustSucceed(os.MkdirTemp("", "mockdriver"))
+	// Ginkgo holds this until every other process finishes, so no process reads the
+	// binary after it is removed.
+	DeferCleanup(func() { Expect(os.RemoveAll(dir)).To(Succeed()) })
 	driverName := "driver"
 	if runtime.GOOS == "windows" {
 		driverName = "driver.exe"
 	}
-	binaryPath := filepath.Join(tmpDir, driverName)
 	cmd := exec.Command(
-		"go", "build", "-o", binaryPath,
+		"go", "build", "-o", filepath.Join(dir, driverName),
 		"./testdata/mockdriver",
 	)
 	cmd.Dir = MustSucceed(os.Getwd())
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	Expect(cmd.Run()).To(Succeed())
-	mockFS = os.DirFS(tmpDir)
+	return []byte(dir)
+}, func(dir []byte) {
+	mockFS = os.DirFS(string(dir))
 	ShouldNotLeakGoroutines()
 })
