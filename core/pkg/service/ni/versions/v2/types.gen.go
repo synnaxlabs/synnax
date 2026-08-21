@@ -638,17 +638,17 @@ func (MapScale) isScaleVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (m *MapScale) ApplyDefaults() {
-	if m.PreScaledMax == 0 {
-		m.PreScaledMax = 1
-	}
-	if m.ScaledMax == 0 {
-		m.ScaledMax = 1
-	}
 	if m.PreScaledUnits == "" {
 		m.PreScaledUnits = UnitsVolts
 	}
 	if m.ScaledUnits == "" {
 		m.ScaledUnits = "Volts"
+	}
+	if m.PreScaledMin == 0 && m.PreScaledMax == 0 {
+		m.PreScaledMax = 1
+	}
+	if m.ScaledMin == 0 && m.ScaledMax == 0 {
+		m.ScaledMax = 1
 	}
 }
 
@@ -865,7 +865,7 @@ type MinMaxVal struct {
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (m *MinMaxVal) ApplyDefaults() {
-	if m.MaxVal == 0 {
+	if m.MinVal == 0 && m.MaxVal == 0 {
 		m.MaxVal = 1
 	}
 }
@@ -1057,13 +1057,13 @@ type TwoPointLin struct {
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (t *TwoPointLin) ApplyDefaults() {
-	if t.SecondElectricalVal == 0 {
-		t.SecondElectricalVal = 1
-	}
 	if t.ElectricalUnits == "" {
 		t.ElectricalUnits = ElectricalUnitsMVoltsPerVolt
 	}
-	if t.SecondPhysicalVal == 0 {
+	if t.FirstElectricalVal == 0 && t.SecondElectricalVal == 0 {
+		t.SecondElectricalVal = 1
+	}
+	if t.FirstPhysicalVal == 0 && t.SecondPhysicalVal == 0 {
 		t.SecondPhysicalVal = 1
 	}
 }

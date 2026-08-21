@@ -259,16 +259,20 @@ Scale union on type {
     }
     map {
         pre_scaled_min   float64 = 0 {
-            @doc value "is the lower bound of the raw input range."
+            @default group "pre_scaled"
+            @doc value     "is the lower bound of the raw input range."
         }
         pre_scaled_max   float64 = 1 {
-            @doc value "is the upper bound of the raw input range."
+            @default group "pre_scaled"
+            @doc value     "is the upper bound of the raw input range."
         }
         scaled_min       float64 = 0 {
-            @doc value "is the lower bound of the scaled output range."
+            @default group "scaled"
+            @doc value     "is the lower bound of the scaled output range."
         }
         scaled_max       float64 = 1 {
-            @doc value "is the upper bound of the scaled output range."
+            @default group "scaled"
+            @doc value     "is the upper bound of the scaled output range."
         }
         pre_scaled_units Units = volts {
             @doc value "are the units of the raw value before scaling."
@@ -321,10 +325,12 @@ Scale union on type {
 
 MinMaxVal struct {
     min_val float64 = 0 {
-        @doc value "is the minimum expected value, in scaled units."
+        @default group "range"
+        @doc value     "is the minimum expected value, in scaled units."
     }
     max_val float64 = 1 {
-        @doc value "is the maximum expected value, in scaled units."
+        @default group "range"
+        @doc value     "is the maximum expected value, in scaled units."
     }
 
     @doc value  "bounds the expected signal range in scaled units."
@@ -428,19 +434,23 @@ Table struct {
 
 TwoPointLin struct {
     first_electrical_val  float64 = 0 {
-        @doc value "is the first electrical calibration point."
+        @default group "electrical"
+        @doc value     "is the first electrical calibration point."
     }
     second_electrical_val float64 = 1 {
-        @doc value "is the second electrical calibration point."
+        @default group "electrical"
+        @doc value     "is the second electrical calibration point."
     }
     electrical_units      ElectricalUnits = m_volts_per_volt {
         @doc value "are the units of the electrical calibration points."
     }
     first_physical_val    float64 = 0 {
-        @doc value "is the physical value at the first electrical point."
+        @default group "physical"
+        @doc value     "is the physical value at the first electrical point."
     }
     second_physical_val   float64 = 1 {
-        @doc value "is the physical value at the second electrical point."
+        @default group "physical"
+        @doc value     "is the physical value at the second electrical point."
     }
 
     @doc value  """

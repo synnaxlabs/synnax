@@ -127,6 +127,46 @@ var _ = Describe("Service", func() {
 			Expect(data["rate"]).To(BeNumerically("==", 0.2))
 		})
 
+		It("Should keep a deliberate zero on a grouped default", func(
+			ctx SpecContext,
+		) {
+			key := uuid.New()
+			Expect(svc.AnalogRead.Write(ctx, nil, key, msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":    "ai_voltage",
+					"min_val": -10,
+					"max_val": 0,
+					"custom_scale": map[string]any{
+						"type":       "map",
+						"scaled_min": -5,
+						"scaled_max": 0,
+					},
+				}},
+			})).To(Succeed())
+			data := MustSucceed(svc.AnalogRead.Read(ctx, nil, key))
+			ch := data["channels"].([]any)[0].(map[string]any)
+			Expect(ch["min_val"]).To(BeNumerically("==", -10))
+			Expect(ch["max_val"]).To(BeNumerically("==", 0))
+			scale := ch["custom_scale"].(map[string]any)
+			Expect(scale["scaled_min"]).To(BeNumerically("==", -5))
+			Expect(scale["scaled_max"]).To(BeNumerically("==", 0))
+			// The untouched pre-scaled pair is all zero, so its group still fills.
+			Expect(scale["pre_scaled_max"]).To(BeNumerically("==", 1))
+		})
+
+		It("Should fill a grouped default when every member is zero", func(
+			ctx SpecContext,
+		) {
+			key := uuid.New()
+			Expect(svc.AnalogRead.Write(ctx, nil, key, msgpack.EncodedJSON{
+				"channels": []any{map[string]any{"type": "ai_voltage"}},
+			})).To(Succeed())
+			data := MustSucceed(svc.AnalogRead.Read(ctx, nil, key))
+			ch := data["channels"].([]any)[0].(map[string]any)
+			Expect(ch["min_val"]).To(BeNumerically("==", 0))
+			Expect(ch["max_val"]).To(BeNumerically("==", 1))
+		})
+
 		It(
 			"Should return the analog read validation error for an invalid channel",
 			func(

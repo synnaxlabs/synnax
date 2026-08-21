@@ -52,16 +52,20 @@ Scale union on type {
     }
     map {
         pre_scaled_min float64 = 0 {
-            @doc value "is the lower bound of the raw input range."
+            @default group "pre_scaled"
+            @doc value     "is the lower bound of the raw input range."
         }
         pre_scaled_max float64 = 1 {
-            @doc value "is the upper bound of the raw input range."
+            @default group "pre_scaled"
+            @doc value     "is the upper bound of the raw input range."
         }
         scaled_min     float64 = 0 {
-            @doc value "is the lower bound of the scaled output range."
+            @default group "scaled"
+            @doc value     "is the lower bound of the scaled output range."
         }
         scaled_max     float64 = 1 {
-            @doc value "is the upper bound of the scaled output range."
+            @default group "scaled"
+            @doc value     "is the upper bound of the scaled output range."
         }
 
         @doc value "maps a raw range linearly onto a scaled range."

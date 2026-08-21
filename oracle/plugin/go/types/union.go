@@ -82,6 +82,9 @@ type unionVariantData struct {
 	DefaultFills     []defaultFillData
 	EnumChecks       []enumCheckData
 	ConstraintChecks []constraintCheckData
+	// DefaultGroups is the variant's inline fields grouped by `@default group`, each
+	// filled as a unit.
+	DefaultGroups []defaultGroupData
 	// NeedsApplyDefaults and NeedsValidate report whether the variant emits the
 	// respective method.
 	NeedsApplyDefaults bool
@@ -149,9 +152,11 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 					if !defaultOnly.Contains(f.Name) {
 						vd.Fields = append(vd.Fields, processField(f, data))
 					}
-					vd.DefaultFills = append(
-						vd.DefaultFills,
-						goDefaultFills(f, data)...)
+					if defaultGroupName(f) == "" {
+						vd.DefaultFills = append(
+							vd.DefaultFills,
+							goDefaultFills(f, data)...)
+					}
 					if validateSkip(f, data) {
 						continue
 					}
@@ -162,6 +167,7 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 						vd.ConstraintChecks,
 						goConstraintChecks(f, data)...)
 				}
+				vd.DefaultGroups = goDefaultGroups(inlineFields, data)
 			}
 		} else {
 			embeds = append(
@@ -190,7 +196,7 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 			validateSkip,
 		)
 		vd.NeedsApplyDefaults = len(vd.DefaultRecurse) > 0 ||
-			len(vd.DefaultFills) > 0
+			len(vd.DefaultFills) > 0 || len(vd.DefaultGroups) > 0
 		vd.NeedsValidate = len(vd.ValidateRecurse) > 0 ||
 			len(vd.EnumChecks) > 0 || len(vd.ConstraintChecks) > 0
 		if vd.NeedsApplyDefaults {

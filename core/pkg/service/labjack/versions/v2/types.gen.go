@@ -114,10 +114,10 @@ func (MapScale) isScaleVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (m *MapScale) ApplyDefaults() {
-	if m.PreScaledMax == 0 {
+	if m.PreScaledMin == 0 && m.PreScaledMax == 0 {
 		m.PreScaledMax = 1
 	}
-	if m.ScaledMax == 0 {
+	if m.ScaledMin == 0 && m.ScaledMax == 0 {
 		m.ScaledMax = 1
 	}
 }

@@ -362,6 +362,7 @@ func analyze(c *analysisCtx) {
 	checkDefaultInvariant(c)
 	checkIdentDefaultResolves(c)
 	checkUnionDefaultConstructible(c)
+	checkDefaultGroups(c)
 	synthesizeCreateTypes(c)
 }
 
