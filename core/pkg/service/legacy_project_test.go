@@ -145,9 +145,9 @@ var _ = Describe("Legacy project bundles", func() {
 		It("Should reject the bundle, naming the layout it cannot resolve", func(
 			ctx SpecContext,
 		) {
-			// The layout names an ni_analog_write task whose component file the
-			// export never wrote. A member the bundle does not hold is a broken
-			// bundle, so the import fails rather than dropping it quietly.
+			// The layout names an ni_analog_write task whose component file the export
+			// never wrote. A member the bundle does not hold is a broken bundle, so the
+			// import fails rather than dropping it quietly.
 			l, db := openLayer(ctx)
 			tx := DeferClose(db.OpenTx())
 			Expect(l.Project.Import(
