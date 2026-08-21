@@ -453,6 +453,15 @@ need from v0.56 before you upgrade; importing those files still works.
 
 Comparisons return `bool` rather than `u8`, and `and`, `or`, and `not` require boolean
 operands. Programs that did arithmetic on the result of a comparison need updating.
+`select{}` now requires the input to be a `bool` (`trigger != 0 -> select{}`)
+
+#### Calculated channel reset channels must be `boolean`
+
+A reset channel on a `min`, `max`, or `avg` operation must now be a `boolean` channel. A
+calculation that resets on a `uint8` channel survives the upgrade but no longer
+compiles, and the Console reports it as `invalid expression`. The data type of an
+existing channel cannot be changed, so create a new `boolean` channel or calc channel
+(`return (u8_chan != 0)`).
 
 #### Arc routing entries must be complete flow statements
 
