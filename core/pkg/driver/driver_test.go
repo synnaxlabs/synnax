@@ -12,10 +12,12 @@ package driver_test
 import (
 	"bytes"
 	"context"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"testing/fstest"
 	"time"
 
@@ -218,7 +220,7 @@ var _ = Describe("Open", func() {
 					ParentDirname:   GinkgoT().TempDir(),
 					StartTimeout:    200 * time.Millisecond,
 					StopTimeout:     200 * time.Millisecond,
-				})).Error().To(MatchError(ContainSubstring("timed out")))
+				})).Error().To(MatchError(fs.ErrNotExist))
 			},
 		)
 
@@ -236,7 +238,7 @@ var _ = Describe("Open", func() {
 					ParentDirname:   filepath.Join(blocker, "sub"),
 					StartTimeout:    200 * time.Millisecond,
 					StopTimeout:     200 * time.Millisecond,
-				})).Error().To(MatchError(ContainSubstring("timed out")))
+				})).Error().To(MatchError(syscall.ENOTDIR))
 			},
 		)
 	})
@@ -279,17 +281,20 @@ var _ = Describe("restart", func() {
 		defer func() { Expect(os.Unsetenv("MOCK_CRASH_COUNT_FILE")).To(Succeed()) }()
 		logger, buffer := newTestLogger()
 		d, err := driver.Open(ctx, driver.Config{
-			Instrumentation:     alamos.New("test", alamos.WithLogger(logger)),
-			FS:                  mockFS,
-			Insecure:            new(true),
-			Address:             "localhost:9090",
-			ParentDirname:       GinkgoT().TempDir(),
-			StartTimeout:        2 * time.Second,
+			Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+			FS:              mockFS,
+			Insecure:        new(true),
+			Address:         "localhost:9090",
+			ParentDirname:   GinkgoT().TempDir(),
+			// The Driver never starts, so Open returns as soon as the policy gives up.
+			// StartTimeout only has to outlast three subprocess launches on a loaded
+			// machine; it is never actually waited out.
+			StartTimeout:        time.Minute,
 			StopTimeout:         500 * time.Millisecond,
 			RestartBaseInterval: time.Millisecond,
 			RestartMaxRetries:   2,
 		})
-		Expect(err).To(MatchError(ContainSubstring("timed out")))
+		Expect(err).To(MatchError(ContainSubstring("exceeded restart limit")))
 		Expect(d).To(BeNil())
 		Expect(buffer.String()).To(ContainSubstring("exceeded restart limit"))
 	})

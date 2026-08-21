@@ -940,5 +940,46 @@ describe("useForm", () => {
         expect(result.current.form.get("name").touched).toBe(false);
       });
     });
+
+    it("should keep an edit waiting on its autosave when a listener writes the pre-edit value", async () => {
+      const initialValues = { key: "1", name: "Initial Name", age: 25 };
+      let saved: string | undefined;
+      const update = vi.fn(
+        async ({ value }: { value: () => z.infer<typeof formSchema> }) => {
+          saved = value().name;
+        },
+      );
+      let listenerSet!: (path: string, value: unknown) => void;
+
+      const useForm = Flux.createForm<Params, typeof formSchema>({
+        initialValues: { key: "1", name: "", age: 0 },
+        schema: formSchema,
+        name: "test",
+        retrieve: async () => initialValues,
+        update,
+        mountListeners: ({ set }) => {
+          listenerSet = set;
+          return () => {};
+        },
+      });
+
+      const { result } = await renderHookSuspended(
+        () =>
+          useForm({
+            query: { key: "1" },
+            autoSave: true,
+            autoSaveDebounce: DEBOUNCE,
+          }),
+        { wrapper: Wrapper },
+      );
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+
+      act(() => result.current.form.set("name", "Edited Name"));
+      act(() => listenerSet("name", "Initial Name"));
+
+      await waitFor(() => expect(update).toHaveBeenCalled());
+      expect(saved).toEqual("Edited Name");
+      expect(result.current.form.value().name).toEqual("Edited Name");
+    });
   });
 });

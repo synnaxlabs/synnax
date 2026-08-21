@@ -9,7 +9,7 @@
 
 from typing import Any
 
-from playwright.sync_api import Locator, Page
+from playwright.sync_api import Locator, Page, expect
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 import synnax as sy
@@ -116,29 +116,21 @@ class NotificationsClient:
             return False
 
     def close_all(self) -> int:
-        """Close all visible notifications.
+        """Silence every visible notification at once and wait for them to clear.
 
-        :returns: Number of notifications closed.
+        :returns: Number of notifications silenced.
         """
-        closed_count = 0
-        max_attempts = 10
-
-        for _ in range(max_attempts):
-            if len(self._all().all()) == 0:
-                break
-
-            if self.close(0):
-                closed_count += 1
-            else:
-                sy.sleep(0.1)
-
-        if closed_count > 0:
+        buttons = self._all().get_by_role("button", name="Silence", exact=True)
+        count = buttons.count()
+        # Last to first: a silenced toast unmounts and shifts the indexes after it.
+        for i in reversed(range(count)):
+            buttons.nth(i).dispatch_event("click")
+        if count > 0:
             try:
-                self._all().first.wait_for(state="hidden", timeout=2000)
-            except PlaywrightTimeoutError:
+                expect(buttons).to_have_count(0, timeout=2000)
+            except AssertionError:
                 pass
-
-        return closed_count
+        return count
 
     def close_connection(self) -> bool:
         """Close the 'Connected to...' notification if present.

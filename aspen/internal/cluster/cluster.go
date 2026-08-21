@@ -64,16 +64,14 @@ func Open(ctx context.Context, configs ...Config) (c *Cluster, err error) {
 
 	sCtx, cancel := signal.WithCancel(cfg.T.Transfer(ctx, context.Background()))
 
-	c = &Cluster{
-		Store:    cfg.Gossip.Store,
-		shutdown: signal.NewHardShutdown(sCtx, cancel),
-		Config:   cfg,
-	}
+	shutdown := signal.NewHardShutdown(sCtx, cancel)
 	defer func() {
 		if err != nil {
-			err = errors.Combine(err, c.shutdown.Close())
+			err = errors.Combine(err, shutdown.Close())
 		}
 	}()
+
+	c = &Cluster{Store: cfg.Gossip.Store, shutdown: shutdown, Config: cfg}
 
 	// Attempt to open the Cluster store from kv. It's ok if we don't find it.
 	state, err := tryLoadPersistedState(ctx, cfg)
@@ -115,7 +113,7 @@ func Open(ctx context.Context, configs ...Config) (c *Cluster, err error) {
 		// initial view of the Cluster.
 		c.L.Info("gossiping initial state through peer addresses")
 		if err = c.gossipInitialState(ctx); err != nil {
-			return c, err
+			return nil, err
 		}
 	} else {
 		// If our store isn't valid, and we haven't received peers, assume we're
@@ -129,7 +127,7 @@ func Open(ctx context.Context, configs ...Config) (c *Cluster, err error) {
 		)
 		c.Pledge.ClusterKey = c.Key()
 		if err = pledge_.Arbitrate(c.Pledge); err != nil {
-			return c, err
+			return nil, err
 		}
 	}
 
@@ -220,18 +218,26 @@ func (c *Cluster) goFlushStore(sCtx signal.Context) {
 			Encoder:     c.Codec,
 		}
 		flush.FlushSync(sCtx, c.CopyState())
-		c.OnChange(func(_ context.Context, change Change) {
+		// The store notifies observers from a goroutine it does not track, so the
+		// handler only rings this channel. The flush itself runs in the routine
+		// below, which shutdown waits for before the storage engine closes.
+		notify := make(chan struct{}, 1)
+		c.OnChange(func(context.Context, Change) {
 			select {
-			case <-sCtx.Done():
-				return
+			case notify <- struct{}{}:
 			default:
-				flush.Flush(sCtx, change.State)
 			}
 		})
 		sCtx.Go(func(ctx context.Context) error {
-			<-ctx.Done()
-			flush.FlushSync(ctx, c.CopyState())
-			return ctx.Err()
+			for {
+				select {
+				case <-ctx.Done():
+					flush.FlushSync(ctx, c.CopyState())
+					return ctx.Err()
+				case <-notify:
+					flush.Flush(ctx, c.CopyState())
+				}
+			}
 		},
 			signal.WithKey("flush"),
 			signal.WithRetryOnPanic(),

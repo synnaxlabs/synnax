@@ -616,7 +616,10 @@ export class Space<
     const promise = this.config.fetch(query.params, options).then(
       (keys) => {
         this.settle(query, loading, { variant: "ready", keys });
-        return this.composedOf(query, keys);
+        // The settle drains membership changes that raced the fetch, so the answer
+        // comes off the query: the keys the fetch returned are already stale.
+        const { state } = query;
+        return this.composedOf(query, state.variant === "ready" ? state.keys : keys);
       },
       (reason: unknown) => {
         const error = errors.fromUnknown(reason);

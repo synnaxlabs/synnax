@@ -22,6 +22,7 @@ class SeverableProxy:
         self._lock = threading.Lock()
         self._sockets: set[socket.socket] = set()
         self._listener: socket.socket | None = None
+        self._severed = False
         self.port = self._listen(0)
 
     def _listen(self, port: int) -> int:
@@ -29,6 +30,8 @@ class SeverableProxy:
         listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         listener.bind(("127.0.0.1", port))
         listener.listen()
+        with self._lock:
+            self._severed = False
         self._listener = listener
         threading.Thread(
             target=self._accept_loop, args=(listener,), daemon=True
@@ -48,9 +51,19 @@ class SeverableProxy:
             except OSError:
                 downstream.close()
                 continue
+            # create_connection leaves its connect timeout on the socket, where
+            # it would expire on a quiet stream and drop a healthy link.
+            upstream.settimeout(None)
             with self._lock:
-                self._sockets.add(downstream)
-                self._sockets.add(upstream)
+                live = not self._severed
+                if live:
+                    self._sockets.add(downstream)
+                    self._sockets.add(upstream)
+            # A sever took its snapshot before this pair was registered, so
+            # nothing else will ever close it.
+            if not live:
+                self._drop(downstream, upstream)
+                continue
             threading.Thread(
                 target=self._pump, args=(downstream, upstream), daemon=True
             ).start()
@@ -86,6 +99,7 @@ class SeverableProxy:
         if listener is not None:
             listener.close()
         with self._lock:
+            self._severed = True
             socks, self._sockets = list(self._sockets), set()
         for s in socks:
             try:

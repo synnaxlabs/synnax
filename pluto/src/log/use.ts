@@ -14,6 +14,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
 } from "react";
 import { type z } from "zod";
 
@@ -33,6 +34,7 @@ export interface UseProps
         | "scrollback"
         | "empty"
         | "scrolling"
+        | "resumedAt"
         | "wheelPos"
         | "selectionStart"
         | "selectionEnd"
@@ -113,12 +115,14 @@ export const use = ({
   });
 
   const holdRef = useSyncedRef(hold);
-  // The worker resumes on its own once the user has scrolled back to the bottom. It
-  // pushes for other reasons too, so only a value that disagrees with hold is a change.
+  const resumedAtRef = useRef(0);
+  // The worker stamps resumedAt when it resumes on its own. Its pushes can still echo
+  // a stale scrolling value after a hold change, so the stamp is the only signal.
   const handleAetherChange = useCallback(
-    ({ scrolling }: LogState) => {
-      const { current: hold } = holdRef;
-      if (hold != null && scrolling !== hold) onHold?.(scrolling);
+    ({ resumedAt }: LogState) => {
+      if (resumedAt <= resumedAtRef.current) return;
+      resumedAtRef.current = resumedAt;
+      if (holdRef.current != null) onHold?.(false);
     },
     [onHold],
   );

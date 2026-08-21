@@ -48,6 +48,7 @@ const DEFAULT_STATE = {
   region: { one: { x: 0, y: 0 }, two: { x: 400, y: 500 } },
   wheelPos: 0,
   scrolling: false,
+  resumedAt: 0,
   empty: true,
   visible: true,
   channelNamesHidden: false,
@@ -219,7 +220,7 @@ describe("log/Base", () => {
       setupAether({ empty: false, scrolling: true });
       const onHold = vi.fn();
       renderLog({ hold: true, onHold });
-      pushAetherState({ scrolling: false });
+      pushAetherState({ scrolling: false, resumedAt: 1 });
       expect(onHold).toHaveBeenCalledExactlyOnceWith(false);
     });
 
@@ -231,11 +232,45 @@ describe("log/Base", () => {
       expect(onHold).not.toHaveBeenCalled();
     });
 
+    it("should not call onHold when the worker echoes the previous hold state", () => {
+      setupAether({ empty: false, scrolling: true });
+      const onHold = vi.fn();
+      renderLog({ hold: false, onHold });
+      pushAetherState({ scrolling: true });
+      expect(onHold).not.toHaveBeenCalled();
+    });
+
+    it("should not call onHold when a stale push still shows the log live", () => {
+      setupAether({ empty: false, scrolling: false });
+      const onHold = vi.fn();
+      renderLog({ hold: true, onHold });
+      pushAetherState({ scrolling: false });
+      expect(onHold).not.toHaveBeenCalled();
+    });
+
+    it("should call onHold once per resume", () => {
+      setupAether({ empty: false, scrolling: true });
+      const onHold = vi.fn();
+      renderLog({ hold: true, onHold });
+      pushAetherState({ scrolling: false, resumedAt: 1 });
+      pushAetherState({ scrolling: false, resumedAt: 1 });
+      expect(onHold).toHaveBeenCalledExactlyOnceWith(false);
+    });
+
+    it("should ignore a resume stamp older than the last one seen", () => {
+      setupAether({ empty: false, scrolling: true });
+      const onHold = vi.fn();
+      renderLog({ hold: true, onHold });
+      pushAetherState({ scrolling: false, resumedAt: 2 });
+      pushAetherState({ scrolling: false, resumedAt: 1 });
+      expect(onHold).toHaveBeenCalledExactlyOnceWith(false);
+    });
+
     it("should not call onHold on a worker push when hold is uncontrolled", () => {
       setupAether({ empty: false, scrolling: true });
       const onHold = vi.fn();
       renderLog({ onHold });
-      pushAetherState({ scrolling: false });
+      pushAetherState({ scrolling: false, resumedAt: 1 });
       expect(onHold).not.toHaveBeenCalled();
     });
 
