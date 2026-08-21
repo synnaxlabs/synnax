@@ -66,7 +66,7 @@ func createBaseSymbol(name string, doc doc.Doc) *symbol.Symbol {
 					Value: telem.TimeSpanZero,
 				},
 				{Name: countInputParam, Type: types.I64(), Value: 0},
-				{Name: resetInputParam, Type: types.U8(), Value: 0},
+				{Name: resetInputParam, Type: types.Bool(), Value: false},
 			},
 			Outputs: types.Params{
 				{
@@ -286,7 +286,7 @@ func (h *Host) Create(_ context.Context, nodeCfg node.Config) (node.Node, error)
 		}
 		nodeCfg.State.InitInput(
 			resetIdx,
-			telem.NewSeriesV[uint8](0),
+			telem.NewSeriesV[bool](false),
 			telem.NewSeriesV[telem.TimeStamp](1),
 		)
 	}
@@ -354,7 +354,7 @@ func (r *avgNode) Next(ctx node.Context) {
 		resetTime := r.InputTime(r.resetIdx)
 		for i := int64(0); i < resetData.Len(); i++ {
 			ts := telem.ValueAt[telem.TimeStamp](resetTime, int(i))
-			if ts > r.lastResetTime && telem.ValueAt[uint8](resetData, int(i)) == 1 {
+			if ts > r.lastResetTime && telem.ValueAt[bool](resetData, int(i)) {
 				shouldReset = true
 				break
 			}

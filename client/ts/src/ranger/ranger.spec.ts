@@ -347,6 +347,212 @@ describe("range", () => {
       });
     });
   });
+
+  describe("optimistic writes", () => {
+    const WRITE_FAILED = new Error("write failed");
+    const fail = () => {
+      throw WRITE_FAILED;
+    };
+
+    const createRange = async () =>
+      await client.ranges.create({
+        name: `optimistic-${id.create()}`,
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+
+    const createChannel = async () =>
+      await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+
+    describe("delete", () => {
+      it("should drop the range from the cache before the write commits", async () => {
+        const rng = await createRange();
+        let duringWrite: query.Cached<ranger.Range> | undefined;
+        await client.ranges.delete(rng.key, {
+          onOptimistic: () => {
+            duringWrite = client.ranges.getCached(rng.key);
+          },
+        });
+        expect(query.isLive(duringWrite)).toBe(false);
+      });
+
+      it("should restore the range when the write fails", async () => {
+        const rng = await createRange();
+        await expect(
+          client.ranges.delete(rng.key, { onOptimistic: fail }),
+        ).rejects.toBe(WRITE_FAILED);
+        expect(expectLive(client.ranges.getCached(rng.key)).name).toEqual(rng.name);
+      });
+
+      it("should restore the range's children entry when the write fails", async () => {
+        const parent = await createRange();
+        const child = await client.ranges.create({
+          name: `optimistic-child-${id.create()}`,
+          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+          parent: { key: parent.key },
+        });
+        expect(await client.ranges.children.retrieve(parent.key)).toHaveLength(1);
+        await expect(
+          client.ranges.delete(child.key, { onOptimistic: fail }),
+        ).rejects.toBe(WRITE_FAILED);
+        const cached = expectLive(client.ranges.children.getCached(parent.key));
+        expect(cached.map((c) => c.key)).toEqual([child.key]);
+      });
+    });
+
+    describe("setAlias", () => {
+      it("should cache the alias before the write commits", async () => {
+        const rng = await createRange();
+        const ch = await createChannel();
+        const key = ranger.alias.createKey({ range: rng.key, channel: ch.key });
+        let duringWrite: ranger.alias.Alias | undefined;
+        await client.ranges.setAlias(rng.key, ch.key, "optimistic-alias", {
+          onOptimistic: () => {
+            duringWrite = client.ranges.aliases.get(key);
+          },
+        });
+        expect(duringWrite?.alias).toEqual("optimistic-alias");
+      });
+
+      it("should drop the alias when the write fails", async () => {
+        const rng = await createRange();
+        const ch = await createChannel();
+        const key = ranger.alias.createKey({ range: rng.key, channel: ch.key });
+        await expect(
+          client.ranges.setAlias(rng.key, ch.key, "optimistic-alias", {
+            onOptimistic: fail,
+          }),
+        ).rejects.toBe(WRITE_FAILED);
+        expect(client.ranges.aliases.get(key)).toBeUndefined();
+      });
+    });
+
+    describe("deleteAlias", () => {
+      it("should drop the alias before the write commits", async () => {
+        const rng = await createRange();
+        const ch = await createChannel();
+        const key = ranger.alias.createKey({ range: rng.key, channel: ch.key });
+        await client.ranges.setAlias(rng.key, ch.key, "optimistic-alias");
+        let duringWrite: ranger.alias.Alias | undefined;
+        await client.ranges.deleteAlias(rng.key, ch.key, {
+          onOptimistic: () => {
+            duringWrite = client.ranges.aliases.get(key);
+          },
+        });
+        expect(duringWrite).toBeUndefined();
+      });
+
+      it("should restore the alias when the write fails", async () => {
+        const rng = await createRange();
+        const ch = await createChannel();
+        const key = ranger.alias.createKey({ range: rng.key, channel: ch.key });
+        await client.ranges.setAlias(rng.key, ch.key, "optimistic-alias");
+        await expect(
+          client.ranges.deleteAlias(rng.key, ch.key, { onOptimistic: fail }),
+        ).rejects.toBe(WRITE_FAILED);
+        expect(client.ranges.aliases.get(key)?.alias).toEqual("optimistic-alias");
+      });
+    });
+
+    describe("kv", () => {
+      const cachedPairs = (key: ranger.Key): ranger.kv.Pair[] =>
+        expectLive(client.ranges.kv.getCached(key));
+
+      // An unsubscribed query never patches its membership, so every spec here
+      // holds a subscription for as long as it reads the cached pairs.
+      const openRange = async () => {
+        const rng = await createRange();
+        const off = client.ranges.kv.onChange(rng.key, vi.fn());
+        await client.ranges.kv.retrieve(rng.key);
+        return { rng, off };
+      };
+
+      it("should cache a pair before the write commits", async () => {
+        const { rng, off } = await openRange();
+        try {
+          let duringWrite: ranger.kv.Pair[] = [];
+          await rng.kv.set("foo", "bar", {
+            onOptimistic: () => {
+              duringWrite = cachedPairs(rng.key);
+            },
+          });
+          expect(duringWrite).toEqual([{ range: rng.key, key: "foo", value: "bar" }]);
+        } finally {
+          off();
+        }
+      });
+
+      it("should cache a keyed-object set before the write commits", async () => {
+        const { rng, off } = await openRange();
+        try {
+          let duringWrite: ranger.kv.Pair[] = [];
+          await rng.kv.set(
+            { foo: "bar", baz: "qux" },
+            {
+              onOptimistic: () => {
+                duringWrite = cachedPairs(rng.key);
+              },
+            },
+          );
+          expect(duringWrite).toEqual([
+            { range: rng.key, key: "foo", value: "bar" },
+            { range: rng.key, key: "baz", value: "qux" },
+          ]);
+        } finally {
+          off();
+        }
+      });
+
+      it("should restore the previous pairs when the set fails", async () => {
+        const { rng, off } = await openRange();
+        try {
+          await rng.kv.set("foo", "bar");
+          await expect(
+            rng.kv.set("foo", "replacement", { onOptimistic: fail }),
+          ).rejects.toBe(WRITE_FAILED);
+          expect(cachedPairs(rng.key)).toEqual([
+            { range: rng.key, key: "foo", value: "bar" },
+          ]);
+        } finally {
+          off();
+        }
+      });
+
+      it("should drop a pair before the delete commits", async () => {
+        const { rng, off } = await openRange();
+        try {
+          await rng.kv.set("foo", "bar");
+          let duringWrite: ranger.kv.Pair[] = [];
+          await rng.kv.delete("foo", {
+            onOptimistic: () => {
+              duringWrite = cachedPairs(rng.key);
+            },
+          });
+          expect(duringWrite).toEqual([]);
+        } finally {
+          off();
+        }
+      });
+
+      it("should restore a pair when the delete fails", async () => {
+        const { rng, off } = await openRange();
+        try {
+          await rng.kv.set("foo", "bar");
+          await expect(rng.kv.delete("foo", { onOptimistic: fail })).rejects.toBe(
+            WRITE_FAILED,
+          );
+          expect(cachedPairs(rng.key)).toEqual([
+            { range: rng.key, key: "foo", value: "bar" },
+          ]);
+        } finally {
+          off();
+        }
+      });
+    });
+  });
 });
 
 // A second client with its own cache: its writes reach the first client only
