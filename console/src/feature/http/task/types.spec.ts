@@ -190,7 +190,7 @@ describe("HTTP Task Types", () => {
       expect(result.success).toBe(false);
     });
 
-    it("should validate a field with optional timestampFormat", () => {
+    it("should validate a field with optional timeFormat", () => {
       const config = {
         device: "dev-001",
         rate: 1,
@@ -203,17 +203,17 @@ describe("HTTP Task Types", () => {
               {
                 ...readField,
                 pointer: "/ts",
-                timestampFormat: "iso8601",
+                timeFormat: "iso8601",
               },
             ],
           },
         ],
       };
       const result = HTTP.Task.READ_SCHEMAS.config.parse(config);
-      expect(result.endpoints[0].fields[0].timestampFormat).toBe("iso8601");
+      expect(result.endpoints[0].fields[0].timeFormat).toBe("iso8601");
     });
 
-    it("should reject an invalid timestampFormat", () => {
+    it("should reject an invalid timeFormat", () => {
       const config = {
         device: "dev-001",
         rate: 1,
@@ -228,7 +228,7 @@ describe("HTTP Task Types", () => {
                 channel: 1,
                 disabled: false,
                 key: "f1",
-                timestampFormat: "invalid_format",
+                timeFormat: "invalid_format",
               },
             ],
           },

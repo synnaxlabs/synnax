@@ -170,25 +170,6 @@ if index < len(data) {
 }
 ```
 
-### Channel Errors
-
-| Error         | Cause                                                         |
-| ------------- | ------------------------------------------------------------- |
-| Type mismatch | Writing wrong type to channel (if not caught at compile time) |
-
-<Divider.Divider x />
-
-## Error Severity Levels
-
-| Level   | Description                             |
-| ------- | --------------------------------------- |
-| Error   | Prevents compilation or stops execution |
-| Warning | Potential problem, compiles anyway      |
-| Info    | Informational message                   |
-| Hint    | Suggested improvement                   |
-
-The text editor shows errors inline with severity indicators.
-
 <Divider.Divider x />
 
 ## Error Isolation
@@ -226,7 +207,7 @@ func debug_controller(value f64) f64 {
     error := value - setpoint
 
     // Write to channel for visibility
-    debug_log = f"Error is: {error}"
+    debug_error = f"Error is: {error}"
     return error * gain
 }
 ```

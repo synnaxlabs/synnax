@@ -1,0 +1,48 @@
+{
+  "version": 0,
+  "type": "panel",
+  "name": "Overview",
+  "root": {
+    "variant": "split",
+    "direction": "x",
+    "size": 0.6,
+    "first": {
+      "variant": "leaf",
+      "tabs": [
+        {
+          "key": "68013e03-a91e-47ab-a93f-b873ddfaabc9",
+          "variant": "resource",
+          "resource": "Event Log.json"
+        },
+        {
+          "key": "aedf3d75-f792-4789-b071-698fbfeb9409",
+          "variant": "resource",
+          "resource": "Subsystems/Propulsion/Chamber Log.json"
+        },
+        {
+          "key": "142e5d69-1569-46e8-a5f3-57721e509e4a",
+          "variant": "view",
+          "type": "docs",
+          "args": {
+            "url": "/reference/console/panels"
+          }
+        }
+      ]
+    },
+    "last": {
+      "variant": "leaf",
+      "tabs": [
+        {
+          "key": "05e9bb74-879d-4672-bb3b-556aa24fe888",
+          "variant": "resource",
+          "resource": "Startup Sequence.json"
+        },
+        {
+          "key": "bbe65ce1-fb67-4de4-b998-4d4b825f8239",
+          "variant": "resource",
+          "resource": "Ground Station Poll.json"
+        }
+      ]
+    }
+  }
+}

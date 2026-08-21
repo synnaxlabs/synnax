@@ -401,6 +401,35 @@ var _ = Describe("ImportGroup", func() {
 			Expect(g.Name).To(Equal("Legacy Group"))
 			Expect(childNames(ctx, g)).To(ConsistOf("Inlet", "Outlet"))
 		})
+		It("Should import a group bundle a shipped Console wrote", func(
+			ctx SpecContext,
+		) {
+			// The manifest declares membership through a symbols list naming each file,
+			// and each file's name carries the symbol's key as a suffix.
+			g := importGroup(
+				ctx, loadBundle("versions/testdata/import_group_console_v1"),
+			)
+			Expect(g.Name).To(Equal("custom symbols"))
+			Expect(childNames(ctx, g)).To(ConsistOf("1801287"))
+		})
+		It("Should carry a Console symbol's whole spec", func(ctx SpecContext) {
+			g := importGroup(
+				ctx, loadBundle("versions/testdata/import_group_console_v1"),
+			)
+			var symbols []symbol.Symbol
+			Expect(svc.NewRetrieve().Entries(&symbols).Exec(ctx, tx)).To(Succeed())
+			var imported symbol.Symbol
+			for _, sym := range symbols {
+				if sym.Name == "1801287" {
+					imported = sym
+				}
+			}
+			Expect(imported.Data.Variant).To(Equal("static"))
+			Expect(imported.Data.SVG).To(HavePrefix("<svg"))
+			Expect(imported.Data.States).To(HaveLen(1))
+			Expect(imported.Data.PreviewViewport).ToNot(BeNil())
+			Expect(g.Name).To(Equal("custom symbols"))
+		})
 		It("Should import the frozen server bundle", func(ctx SpecContext) {
 			g := importGroup(ctx, loadBundle("versions/testdata/import_group_v2"))
 			Expect(g.Name).To(Equal("Server Group"))

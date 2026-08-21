@@ -42,7 +42,7 @@ interface IsIndexItemProps {
 
 const IsIndexItem = ({ path }: IsIndexItemProps): ReactElement => (
   <PForm.SwitchField
-    path={`${path}.useAsIndex`}
+    path={`${path}.isIndex`}
     label="Use as Index"
     hideIfNull
     x
@@ -98,7 +98,7 @@ const convertHaulItemToChannel = ({ data }: HaulItem): ReadChannel => ({
   nodeId: data.nodeId,
   channel: 0,
   disabled: false,
-  useAsIndex: false,
+  isIndex: false,
   dataType: data.dataType,
   name: "",
 });
@@ -137,7 +137,7 @@ const determineIndexChannel = async ({
   device,
   taskName,
 }: DetermineIndexChannelParams): Promise<channel.Key> => {
-  const indexChannelInTaskConfig = config.channels.find(({ useAsIndex }) => useAsIndex);
+  const indexChannelInTaskConfig = config.channels.find(({ isIndex }) => isIndex);
   if (indexChannelInTaskConfig) {
     const existingIndex = getChannelByNodeID(
       device.properties,

@@ -39,38 +39,38 @@ describe("log/toolbar/Properties", () => {
   });
 
   it("reflects showChannelNames from the server", async () => {
-    const { showChannelNames } = await renderProperties({ hideChannelNames: true });
+    const { showChannelNames } = await renderProperties({ channelNamesHidden: true });
     await waitFor(() => expect(showChannelNames().checked).toBe(false));
   });
 
   it("reflects showReceiptTimestamp from the server", async () => {
     const { showReceiptTimestamp } = await renderProperties({
-      hideReceiptTimestamp: true,
+      receiptTimestampHidden: true,
     });
     await waitFor(() => expect(showReceiptTimestamp().checked).toBe(false));
   });
 
   it("toggles showChannelNames through the server", async () => {
     const { key, showChannelNames } = await renderProperties({
-      hideChannelNames: false,
+      channelNamesHidden: false,
     });
     await waitFor(() => expect(showChannelNames().disabled).toBe(false));
     fireEvent.click(showChannelNames());
     await waitFor(() => expect(showChannelNames().checked).toBe(false));
     await waitFor(async () =>
-      expect((await client.logs.retrieve(key)).hideChannelNames).toBe(true),
+      expect((await client.logs.retrieve(key)).channelNamesHidden).toBe(true),
     );
   });
 
   it("toggles showReceiptTimestamp through the server", async () => {
     const { key, showReceiptTimestamp } = await renderProperties({
-      hideReceiptTimestamp: false,
+      receiptTimestampHidden: false,
     });
     await waitFor(() => expect(showReceiptTimestamp().disabled).toBe(false));
     fireEvent.click(showReceiptTimestamp());
     await waitFor(() => expect(showReceiptTimestamp().checked).toBe(false));
     await waitFor(async () =>
-      expect((await client.logs.retrieve(key)).hideReceiptTimestamp).toBe(true),
+      expect((await client.logs.retrieve(key)).receiptTimestampHidden).toBe(true),
     );
   });
 });

@@ -431,7 +431,7 @@ TEST(StateTest, InitInput_SeedsConnectedInput) {
 
     arc::types::Param reset_output;
     reset_output.name = "output";
-    reset_output.type = arc::types::Type{.kind = arc::types::Kind::U8};
+    reset_output.type = arc::types::Type{.kind = arc::types::Kind::Bool};
 
     arc::types::Param input_data;
     input_data.name = "data";
@@ -439,7 +439,7 @@ TEST(StateTest, InitInput_SeedsConnectedInput) {
 
     arc::types::Param input_reset;
     input_reset.name = "reset";
-    input_reset.type = arc::types::Type{.kind = arc::types::Kind::U8};
+    input_reset.type = arc::types::Type{.kind = arc::types::Kind::Bool};
 
     arc::ir::Node data_producer;
     data_producer.key = "data_producer";
@@ -494,7 +494,7 @@ TEST(StateTest, InitInput_SeedsConnectedInput) {
     // After init_input, the reset input has seed data so refresh_inputs succeeds.
     consumer_node.init_input(
         1,
-        x::mem::make_local_shared<x::telem::Series>(static_cast<uint8_t>(0)),
+        x::mem::make_local_shared<x::telem::Series>(false),
         x::mem::make_local_shared<x::telem::Series>(x::telem::TimeStamp(1))
     );
 
@@ -502,7 +502,7 @@ TEST(StateTest, InitInput_SeedsConnectedInput) {
     EXPECT_EQ(consumer_node.input(0)->size(), 2);
     EXPECT_EQ(consumer_node.input(0)->at<float>(0), 1.0f);
     EXPECT_EQ(consumer_node.input(1)->size(), 1);
-    EXPECT_EQ(consumer_node.input(1)->at<uint8_t>(0), 0);
+    EXPECT_EQ(consumer_node.input(1)->at<bool>(0), false);
 }
 
 /// @brief init_input data gets overwritten when the real source produces data.

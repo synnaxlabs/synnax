@@ -9,8 +9,9 @@
 
 import "@/platform/label/Edit.css";
 
-import { type label, type query } from "@synnaxlabs/client";
+import { label, type query } from "@synnaxlabs/client";
 import {
+  Access,
   Button,
   Color,
   Component,
@@ -62,6 +63,7 @@ const LabelListItem = ({
   });
   const inputRef = useRef<HTMLInputElement>(null);
   const { update: handleDelete } = Label.useDelete();
+  const canDelete = Access.useDeleteGranted(label.ontologyID(itemKey));
   useEffect(() => {
     if (isCreate && visible) inputRef.current?.focus();
   }, [isCreate, visible]);
@@ -130,14 +132,16 @@ const LabelListItem = ({
           </Button.Button>
         </Flex.Box>
       ) : (
-        <Button.Button
-          variant="outlined"
-          size="small"
-          reveal
-          onClick={() => handleDelete(itemKey)}
-        >
-          <Icon.Delete />
-        </Button.Button>
+        canDelete && (
+          <Button.Button
+            variant="outlined"
+            size="small"
+            reveal
+            onClick={() => handleDelete(itemKey)}
+          >
+            <Icon.Delete />
+          </Button.Button>
+        )
       )}
     </List.Item>
   );
@@ -150,6 +154,7 @@ export const useEditModal = Modals.create(() => {
   const { fetchMore, search } = List.usePager({ retrieve, pageSize: 15 });
   const [newFormVisible, setNewFormVisible] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const hasCreatePermission = Access.useCreateGranted(label.TYPE_ONTOLOGY_ID);
   return (
     <Modals.Frame y className={CSS.BE("label", "edit")}>
       <Modals.Header icon={<Icon.Label />}>Label.Edit</Modals.Header>
@@ -198,7 +203,7 @@ export const useEditModal = Modals.create(() => {
           >
             {listItem}
           </List.Items>
-          {!newFormVisible && (
+          {!newFormVisible && hasCreatePermission && (
             <PlatformButton.CreateListItem
               onClick={() => setNewFormVisible(true)}
               className={CSS.BE("label", "create")}

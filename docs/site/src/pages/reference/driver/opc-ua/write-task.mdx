@@ -60,7 +60,7 @@ parameters, and single-value commands.
 | ------------- | ------- | -------- | ------- | --------------------------------------- |
 | `cmd_channel` | number  | Yes      | -       | Synnax command channel key              |
 | `node_id`     | string  | Yes      | -       | OPC UA NodeId (e.g., `ns=2;s=Setpoint`) |
-| `enabled`     | boolean | No       | `true`  | Enable or disable writing to this node  |
+| `disabled`    | boolean | No       | `false` | Excludes the node from the task         |
 
 **NodeId Format Examples:**
 
@@ -85,7 +85,7 @@ multi-value setpoints.
 | ------------- | ------- | -------- | ------- | ------------------------------------------- |
 | `cmd_channel` | number  | Yes      | -       | Synnax command channel key                  |
 | `node_id`     | string  | Yes      | -       | OPC UA NodeId pointing to an array variable |
-| `enabled`     | boolean | No       | `true`  | Enable or disable writing to this node      |
+| `disabled`    | boolean | No       | `false` | Excludes the node from the task             |
 
 **Note** -> The channel data type must match the array element type on the server.
 
@@ -233,52 +233,59 @@ import { Synnax, TimeStamp } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Retrieve OPC UA server device
-const dev = await client.devices.retrieve({ name: "my_opc_server" });
+const [dev] = await client.devices.retrieve({ names: ["my_opc_server"] });
 
 // Create command time index
-const cmdTime = await client.channels.create({
-  name: "opc_cmd_time",
-  isIndex: true,
-  dataType: "timestamp",
-  retrieveIfNameExists: true,
-});
+const cmdTime = await client.channels.create(
+  {
+    name: "opc_cmd_time",
+    isIndex: true,
+    dataType: "timestamp",
+  },
+  { retrieveIfNameExists: true },
+);
 
 // Create command channels
-const setpointCmd = await client.channels.create({
-  name: "temperature_setpoint_cmd",
-  index: cmdTime.key,
-  dataType: "float32",
-  retrieveIfNameExists: true,
-});
+const setpointCmd = await client.channels.create(
+  {
+    name: "temperature_setpoint_cmd",
+    index: cmdTime.key,
+    dataType: "float32",
+  },
+  { retrieveIfNameExists: true },
+);
 
-const valveCmd = await client.channels.create({
-  name: "valve_control_cmd",
-  index: cmdTime.key,
-  dataType: "uint8",
-  retrieveIfNameExists: true,
-});
+const valveCmd = await client.channels.create(
+  {
+    name: "valve_control_cmd",
+    index: cmdTime.key,
+    dataType: "uint8",
+  },
+  { retrieveIfNameExists: true },
+);
 
 // Create and configure task
 const task = await client.tasks.create({
   name: "OPC UA Write Task",
+  rack: dev.rack,
   type: "opc_write",
-  config: JSON.stringify({
+  config: {
     device: dev.key,
     channels: [
       {
-        cmd_channel: setpointCmd.key,
-        node_id: "ns=2;s=TemperatureSetpoint",
+        cmdChannel: setpointCmd.key,
+        nodeId: "ns=2;s=TemperatureSetpoint",
       },
       {
-        cmd_channel: valveCmd.key,
-        node_id: "ns=2;s=ValveControl",
+        cmdChannel: valveCmd.key,
+        nodeId: "ns=2;s=ValveControl",
       },
     ],
-  }),
+  },
 });
 
 // Start task
-await task.executeCommandSync("start");
+await task.start();
 
 // Send commands
 const writer = await client.openWriter({
@@ -303,7 +310,7 @@ await writer.write({
 });
 
 // Stop task
-await task.executeCommandSync("stop");
+await task.stop();
 await writer.close();
 ```
 
@@ -313,27 +320,30 @@ await writer.close();
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```typescript
+import { opcua } from "@synnaxlabs/client";
+
 // Retrieve existing task
 const task = await client.tasks.retrieve({ name: "OPC UA Write Task" });
 
 // Parse and update configuration
-const config = JSON.parse(task.config);
+const config = opcua.writeConfigZ.parse(task.config);
 
 // Update task-level configuration
-config.auto_start = true;
+config.autoStart = true;
 
 // Update first channel configuration
-config.channels[0].node_id = "ns=2;s=TemperatureSetpoint2";
+config.channels[0].nodeId = "ns=2;s=TemperatureSetpoint2";
 
 // Update second channel configuration
-config.channels[1].node_id = "ns=2;s=ValveControl2";
+config.channels[1].nodeId = "ns=2;s=ValveControl2";
 
 // Apply changes
 await client.tasks.create({
   key: task.key,
+  rack: task.rack,
   name: task.name,
   type: task.type,
-  config: JSON.stringify(config),
+  config,
 });
 ```
 

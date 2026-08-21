@@ -29,8 +29,8 @@ const logEnvelope = (name: string) => ({
     },
   ],
   timestamp_precision: 1,
-  hide_channel_names: false,
-  hide_receipt_timestamp: true,
+  channel_names_hidden: false,
+  receipt_timestamp_hidden: true,
 });
 
 const toBlob = (value: unknown): Blob => new Blob([JSON.stringify(value)]);

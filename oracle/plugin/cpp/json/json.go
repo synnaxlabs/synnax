@@ -390,6 +390,13 @@ func (p *Plugin) processField(
 
 	isSelfRef := field.Optional && isSelfReference(field.Type, parent, data.table)
 
+	// A string minted by the create sentinel needs the UUID header, which the
+	// std::string mapping does not bring in.
+	if defaultIdent(field) == "create" &&
+		resolution.PrimitiveBase(field.Type, data.table) == "string" {
+		data.AddInternal("x/cpp/uuid/uuid.h")
+	}
+
 	parseExpr := p.parseExprForField(field, cppType, data, isSelfRef)
 	toJSONExpr := p.toJSONExprForField(field, data, isSelfRef)
 
@@ -1067,7 +1074,7 @@ func (p *Plugin) toJSONExprForField(
 // hasRenderableDefault reports whether the field declares a default the parse
 // expression can honor. Struct and array defaults count (their branches render them);
 // identifier defaults count only when they resolve to an enum variant, a boolean
-// literal, or the create sentinel on a UUID field.
+// literal, or the create sentinel on a UUID or string field.
 func hasRenderableDefault(field resolution.Field, table *resolution.Table) bool {
 	if field.Default == nil {
 		return false
@@ -1136,11 +1143,15 @@ func jsonDefaultLiteral(field resolution.Field, table *resolution.Table) string 
 		if v.IdentValue == "true" || v.IdentValue == "false" {
 			return v.IdentValue
 		}
-		// The create sentinel mints a fresh UUID on parse, matching the TS
-		// (uuid.create) and Python (uuid4) generators.
-		if v.IdentValue == "create" &&
-			resolution.PrimitiveBase(field.Type, table) == "uuid" {
-			return "x::uuid::create()"
+		// The create sentinel mints a fresh identifier on parse, matching the TS
+		// (id.create) and Python (uuid4) generators.
+		if v.IdentValue == "create" {
+			switch resolution.PrimitiveBase(field.Type, table) {
+			case "uuid":
+				return "x::uuid::create()"
+			case "string":
+				return "x::uuid::create().to_string()"
+			}
 		}
 		// A union default renders in the union parse branch, not as a parser.field
 		// fallback, so report it renderable without a literal here.

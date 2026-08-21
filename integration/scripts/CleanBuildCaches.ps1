@@ -72,36 +72,56 @@ if (Test-EnoughSpace) {
 }
 
 # --- Below threshold: Bazel is the largest consumer, so clean it first ---
+# The runner bazelrc pins --output_base=C:/_bazel, so `bazel clean` frees it.
 Write-Output "Bazel clean:"
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-$bazelBase = $null
 if (Test-Path $repoRoot) {
-    try {
-        Push-Location $repoRoot
-        $bazelBase = (bazel info output_user_root 2>$null)
-        Pop-Location
-    } catch { Pop-Location }
-}
-if (-not $bazelBase) { $bazelBase = "C:\_bazel" }
-if ((Test-Path $bazelBase) -and (Test-Path $repoRoot)) {
-    $beforeBazel = [math]::Round(
-        ((Get-ChildItem -Recurse -File $bazelBase -ErrorAction SilentlyContinue |
-            Measure-Object -Property Length -Sum).Sum / 1MB), 0)
     Push-Location $repoRoot
-    $bazelOutput = bazel clean 2>&1
+    $outputBase = (bazel info output_base 2>$null)
+    $before = 0
+    if ($outputBase -and (Test-Path $outputBase)) {
+        $before = [math]::Round(
+            ((Get-ChildItem -Recurse -File $outputBase -ErrorAction SilentlyContinue |
+                Measure-Object -Property Length -Sum).Sum / 1MB), 0)
+    }
+    $out = bazel clean 2>&1
     if ($LASTEXITCODE -ne 0) {
-        Write-Output "  bazel clean failed (exit $LASTEXITCODE): $bazelOutput"
+        Write-Output "  clean failed (exit $LASTEXITCODE): $out"
     }
     Pop-Location
-    $afterBazel = [math]::Round(
-        ((Get-ChildItem -Recurse -File $bazelBase -ErrorAction SilentlyContinue |
-            Measure-Object -Property Length -Sum).Sum / 1MB), 0)
-    $freedBazel = $beforeBazel - $afterBazel
-    $script:totalFreed += $freedBazel
+    $after = 0
+    if ($outputBase -and (Test-Path $outputBase)) {
+        $after = [math]::Round(
+            ((Get-ChildItem -Recurse -File $outputBase -ErrorAction SilentlyContinue |
+                Measure-Object -Property Length -Sum).Sum / 1MB), 0)
+    }
+    $label = if ($outputBase) { $outputBase } else { "output_base" }
+    $script:totalFreed += ($before - $after)
     Write-Output ("  {0,-35} {1,6}MB -> {2,6}MB  (freed {3}MB)" -f `
-        "bazel clean", $beforeBazel, $afterBazel, $freedBazel)
+        $label, $before, $after, ($before - $after))
 } else {
-    Write-Output ("  {0,-35} skipped (not found)" -f "bazel clean")
+    Write-Output ("  {0,-35} skipped (repo not found)" -f "bazel clean")
+}
+Write-Output ""
+
+# --- C:/tmp: Bazel install/server files that `bazel clean` leaves behind ---
+if (Test-Path "C:/tmp") {
+    $tmpBefore = [math]::Round(
+        ((Get-ChildItem -Recurse -File "C:/tmp" -ErrorAction SilentlyContinue |
+            Measure-Object -Property Length -Sum).Sum / 1MB), 0)
+    Remove-Item -Recurse -Force "C:/tmp" -ErrorAction SilentlyContinue
+    $script:totalFreed += $tmpBefore
+    Write-Output ("  {0,-35} freed {1}MB" -f "C:/tmp", $tmpBefore)
+}
+Write-Output ""
+
+# --- Docker (unbounded image/layer growth, largest consumer on some bots) ---
+Write-Output "Docker prune:"
+if (Get-Command docker -ErrorAction SilentlyContinue) {
+    docker system prune -af 2>&1 | Out-Null
+    Write-Output "  done"
+} else {
+    Write-Output "  skipped (docker not found)"
 }
 Write-Output ""
 

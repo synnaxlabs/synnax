@@ -112,6 +112,7 @@ const ChannelRow = ({
       justify="between"
       gap="large"
       className={CSS.BE("log", "channel-row")}
+      preventClick
     >
       <Flex.Box x align="center" grow>
         <Channel.SelectSingle

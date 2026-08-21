@@ -142,3 +142,6 @@ func ReadLegacyMappings(ctx context.Context, tx gorp.Tx) ([]LegacyUserMapping, e
 func DeleteLegacyMappings(ctx context.Context, tx gorp.Tx) error {
 	return tx.Delete(ctx, legacyMappingKVKey)
 }
+
+// NormalizeKeys re-keys Policy rows stored under the pre-v0.54 key format.
+var NormalizeKeys = gorp.NormalizeKeysMigration[Key, Policy]("Policy")

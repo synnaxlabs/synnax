@@ -39,6 +39,7 @@ const retrieveRequestZ = z.object({
   includeLabels: z.boolean().optional(),
   hasLabels: label.keyZ.array().optional(),
   variants: z.string().array().optional(),
+  ignoreNotFoundError: z.boolean().optional(),
 });
 const retrieveMultiParamsZ = retrieveRequestZ.or(query.keyListZ(keyZ));
 
@@ -63,7 +64,7 @@ const retrieveResponseZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
       .default(() => []),
   });
 
-export interface SetOptions {
+export interface SetOptions extends query.WriteOptions {
   parent?: ontology.ID;
 }
 
@@ -179,22 +180,35 @@ export class Client extends query.Retriever<
   ): Promise<Status<DetailsSchema>>;
   async set(status: New, opts?: SetOptions): Promise<Status>;
   async set(statuses: New[], opts?: SetOptions): Promise<Status[]>;
+  async set(statuses: New | New[], opts?: SetOptions): Promise<Status | Status[]>;
   async set<DetailsSchema extends z.ZodType = z.ZodNever>(
     statuses: New<DetailsSchema> | New<DetailsSchema>[],
     opts: SetOptions & { detailsSchema?: DetailsSchema } = {},
   ): Promise<Status<DetailsSchema> | Status<DetailsSchema>[]> {
     const isMany = Array.isArray(statuses);
-    const res = await this.cfg.unary.send(
-      "/status/set",
-      {
-        statuses: array.toArray(statuses) as z.input<
-          ReturnType<typeof setReqZ<DetailsSchema>>
-        >["statuses"],
-        parent: opts.parent,
-      },
-      setReqZ(opts.detailsSchema),
-      setResZ(opts.detailsSchema),
-    );
+    // Filling the schema defaults up front gives every status a key, so the cache can
+    // hold it before the Core answers.
+    const schema = statusZ<DetailsSchema>({ details: opts.detailsSchema });
+    const normalized = array
+      .toArray(statuses)
+      .map((status) => schema.parse(status)) as Status<DetailsSchema>[];
+    const apply = () => [this.store.set(normalized)];
+    const res = await query.optimistic({
+      rollbacks: apply(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
+        await this.cfg.unary.send(
+          "/status/set",
+          {
+            statuses: normalized as z.input<
+              ReturnType<typeof setReqZ<DetailsSchema>>
+            >["statuses"],
+            parent: opts.parent,
+          },
+          setReqZ(opts.detailsSchema),
+          setResZ(opts.detailsSchema),
+        ),
+    });
     const created = res.statuses as Status<DetailsSchema>[];
     this.store.set(created);
     return isMany ? created : created[0];

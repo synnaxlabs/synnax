@@ -2904,6 +2904,44 @@ var _ = Describe("Go Union Generation", func() {
 	)
 
 	It(
+		"Should flatten a base a variant omits a field from",
+		func(ctx SpecContext) {
+			source := `
+			@go output "out"
+
+			BaseAIChan struct {
+				port int32
+				enabled bool
+			}
+			Range struct {
+				minVal float64
+				maxVal float64
+			}
+
+			AIChannel union on type extends BaseAIChan {
+				ai_voltage extends Range {}
+				ai_temp_builtin extends Range {
+					-port
+					-maxVal
+					units string
+				}
+			}
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+			content := MustContentOf(resp, "types.gen.go")
+			Expect(content).To(ContainSubstring(
+				"type AITempBuiltinChannel struct {\n" +
+					"\tEnabled bool `json:\"enabled\" msgpack:\"enabled\"`\n" +
+					"\tMinVal float64 `json:\"min_val\" msgpack:\"min_val\"`\n" +
+					"\tUnits string `json:\"units\" msgpack:\"units\"`\n",
+			))
+			Expect(content).To(ContainSubstring(
+				"type AIVoltageChannel struct {\n\tBaseAIChan\n\tRange\n",
+			))
+		},
+	)
+
+	It(
 		"Should embed the shared base and the payload in every variant struct",
 		func(ctx SpecContext) {
 			source := `

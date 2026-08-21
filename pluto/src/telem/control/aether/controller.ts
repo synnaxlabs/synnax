@@ -47,12 +47,28 @@ export const controllerStateZ = z.object({
   authority: z.number().default(0),
   status: statusZ.optional(),
   needsControlOf: channel.keyZ.array().default([]),
+  // Bars the controller from writing or taking control on its own. It gives up any
+  // control it holds. An explicit acquire is still honored, so a caller that sets this
+  // owns what taking control means for its own state.
+  disabled: z.boolean().default(false),
 });
 
 export const controllerMethodsZ = {
   acquire: z.function({ input: z.tuple([]), output: z.void() }),
   release: z.function({ input: z.tuple([]), output: z.void() }),
 };
+
+/**
+ * Opens the writer a {@link Controller} commands through. The client is an argument
+ * rather than a binding because a Controller resolves its own only after construction.
+ */
+export type OpenWriter = (
+  client: Synnax,
+  config: framer.WriterConfig,
+) => Promise<framer.Writer>;
+
+const defaultOpenWriter: OpenWriter = async (client, config) =>
+  await client.openWriter(config);
 
 interface InternalState {
   client: Synnax | null;
@@ -89,8 +105,20 @@ export class Controller
   methods = controllerMethodsZ;
 
   private readonly registry = new Map<AetherControllerTelem, null>();
+  private readonly openWriter: OpenWriter;
   private writer?: framer.Writer;
   private acquirePromise?: Promise<void>;
+  /** Set while an acquisition the user asked for is in flight. The disabled bar does
+   * not apply to it: taking control is what clears the bar. */
+  private acquireExplicit = false;
+
+  constructor(
+    props: aether.ComponentConstructorProps,
+    openWriter: OpenWriter = defaultOpenWriter,
+  ) {
+    super(props);
+    this.openWriter = openWriter;
+  }
 
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
@@ -100,6 +128,7 @@ export class Controller
     i.colors = Colors.use(ctx);
     i.telemCtx = telem.useChildContext(ctx, this, i.telemCtx);
     i.client = synnax.use(ctx);
+    if (this.state.disabled && this.state.status === "acquired") this.release();
   }
 
   /** The cluster this controller is bound to, or null while disconnected. */
@@ -132,6 +161,7 @@ export class Controller
   }
 
   acquire(): void {
+    this.acquireExplicit = true;
     this.internal.runAsync(() => this.doAcquire(), "failed to acquire control");
   }
 
@@ -146,6 +176,7 @@ export class Controller
       await this.acquirePromise;
     } finally {
       this.acquirePromise = undefined;
+      this.acquireExplicit = false;
     }
   }
 
@@ -166,12 +197,15 @@ export class Controller
           variant: "warning",
         });
 
-      this.writer = await client.openWriter({
+      this.writer = await this.openWriter(client, {
         channels: needsControlOf,
         controlSubject: { key: this.key, name: this.state.name },
         authorities: this.state.authority,
         autoIndex: true,
       });
+      // disabled can turn on while the writer opens. afterUpdate cannot catch that,
+      // because the status is not acquired yet.
+      if (!this.acquireExplicit && this.state.disabled) return await this.doRelease();
       this.setState((p) => ({ ...p, status: "acquired" }));
     } catch (err) {
       this.setState((p) => ({ ...p, status: "failed" }));
@@ -214,6 +248,7 @@ export class Controller
   }
 
   private async withRetry(fn: () => Promise<void>): Promise<void> {
+    if (this.state.disabled) return;
     if (this.writer == null) await this.doAcquire();
     try {
       await fn();

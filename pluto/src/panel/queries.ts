@@ -286,8 +286,9 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   verbs: verbs.RENAME,
   update: async ({ client, data, onOptimisticComplete }) => {
     const { key, name } = data;
-    await onOptimisticComplete(data);
-    await client.panels.rename(key, name);
+    await client.panels.rename(key, name, {
+      onOptimistic: async () => await onOptimisticComplete(data),
+    });
     return data;
   },
 });

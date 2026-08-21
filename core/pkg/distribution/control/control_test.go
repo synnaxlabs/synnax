@@ -314,7 +314,7 @@ var _ = Describe("Control", func() {
 			// The service has been retrying against an unbound address since it opened.
 			// Binding the peer lets the next attempt through.
 			net.New(peerAddr, 1).SubscribeServer().BindHandler(func(
-				_ context.Context,
+				streamCtx context.Context,
 				stream control.SubscribeStream,
 			) error {
 				if err := stream.Send(control.SubscribeResponse{
@@ -322,7 +322,7 @@ var _ = Describe("Control", func() {
 				}); err != nil {
 					return err
 				}
-				<-ctx.Done()
+				<-streamCtx.Done()
 				return nil
 			})
 			Eventually(updates).Should(Receive(WithTransform(
@@ -341,7 +341,7 @@ var _ = Describe("Control", func() {
 			updates := collect(svc)
 			var opens atomic.Int32
 			net.New(peerAddr, 1).SubscribeServer().BindHandler(func(
-				_ context.Context,
+				streamCtx context.Context,
 				stream control.SubscribeStream,
 			) error {
 				// The first open sends one state and ends, dropping the stream. The
@@ -358,7 +358,7 @@ var _ = Describe("Control", func() {
 				if opens.Load() == 1 {
 					return nil
 				}
-				<-ctx.Done()
+				<-streamCtx.Done()
 				return nil
 			})
 			Eventually(updates).Should(Receive(WithTransform(

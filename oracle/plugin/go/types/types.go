@@ -790,7 +790,9 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 		if !genMethods {
 			continue
 		}
-		sd.DefaultFills = append(sd.DefaultFills, goDefaultFills(field, data)...)
+		if defaultGroupName(field) == "" {
+			sd.DefaultFills = append(sd.DefaultFills, goDefaultFills(field, data)...)
+		}
 		if step, ok := goRecurseStep(field, data, defaultsHasOwn, neverSkip); ok {
 			sd.DefaultRecurse = append(sd.DefaultRecurse, step)
 		}
@@ -806,6 +808,9 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 		if step, ok := goRecurseStep(field, data, validateHasOwn, validateSkip); ok {
 			sd.ValidateRecurse = append(sd.ValidateRecurse, step)
 		}
+	}
+	if genMethods {
+		sd.DefaultGroups = goDefaultGroups(fields, data)
 	}
 	if len(sd.EnumChecks) > 0 || len(sd.ConstraintChecks) > 0 ||
 		len(sd.ValidateRecurse) > 0 {
@@ -1029,6 +1034,7 @@ type structData struct {
 	ExtendsTypes     []string
 	ExtraFields      []string
 	DefaultFills     []defaultFillData
+	DefaultGroups    []defaultGroupData
 	DefaultRecurse   []recurseStepData
 	EnumChecks       []enumCheckData
 	ConstraintChecks []constraintCheckData
@@ -1264,13 +1270,20 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 }
 {{end -}}
 {{- $s := .}}
-{{- if or .DefaultFills .DefaultRecurse}}
+{{- if or .DefaultFills .DefaultGroups .DefaultRecurse}}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func ({{$s.Receiver}} *{{$s.Name}}) ApplyDefaults() {
 {{- range $s.DefaultFills}}
 	if {{$s.Receiver}}.{{.GoName}} == {{.ZeroLit}} {
 		{{$s.Receiver}}.{{.GoName}} = {{.Expr}}
+	}
+{{- end}}
+{{- range $s.DefaultGroups}}
+	if {{range $i, $m := .Members}}{{if $i}} && {{end}}{{$s.Receiver}}.{{$m.GoName}} == {{$m.ZeroLit}}{{end}} {
+{{- range .Fills}}
+		{{$s.Receiver}}.{{.GoName}} = {{.Expr}}
+{{- end}}
 	}
 {{- end}}
 {{- range $s.DefaultRecurse}}
@@ -1381,6 +1394,13 @@ func ({{$vt.Receiver}} *{{$vt.TypeName}}) ApplyDefaults() {
 {{- range $vt.DefaultFills}}
 	if {{$vt.Receiver}}.{{.GoName}} == {{.ZeroLit}} {
 		{{$vt.Receiver}}.{{.GoName}} = {{.Expr}}
+	}
+{{- end}}
+{{- range $vt.DefaultGroups}}
+	if {{range $i, $m := .Members}}{{if $i}} && {{end}}{{$vt.Receiver}}.{{$m.GoName}} == {{$m.ZeroLit}}{{end}} {
+{{- range .Fills}}
+		{{$vt.Receiver}}.{{.GoName}} = {{.Expr}}
+{{- end}}
 	}
 {{- end}}
 {{- range $vt.DefaultRecurse}}

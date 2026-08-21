@@ -11,6 +11,8 @@
 
 from __future__ import annotations
 
+from uuid import uuid4
+
 from pydantic import BaseModel, Field
 
 from synnax import channel as channel_
@@ -31,7 +33,7 @@ class BaseChannel(BaseModel):
         data_type: Is the data type of the Synnax channel.
     """
 
-    key: str = ""
+    key: str = Field(default_factory=lambda: str(uuid4()))
     name: str = ""
     disabled: bool = False
     node_id: str = ""
@@ -54,11 +56,11 @@ class ReadChannel(BaseChannel):
 
     Attributes:
         channel: Is the Synnax channel that samples are written to.
-        use_as_index: Is true when the channel's Synnax channel is the task's index.
+        is_index: Is true when the channel's Synnax channel is the task's index.
     """
 
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    use_as_index: bool = False
+    is_index: bool = False
 
     def __hash__(self) -> int:
         return hash(self.key)

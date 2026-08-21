@@ -53,7 +53,7 @@ export const taskConfigZ = task.persistConfigZ.extend({
   executionMode: executionModeZ.default("AUTO"),
   rtPriority: z.int32().default(47),
   cpuAffinity: z.int32().default(-1),
-  lockMemory: z.boolean().default(false),
+  memoryLocked: z.boolean().default(false),
 });
 export interface TaskConfig extends z.infer<typeof taskConfigZ> {}
 

@@ -19,7 +19,7 @@
 }
 
 .pluto-tabs__content:hover .console-controls,
-.console-controls:focus-within,
+.console-controls:has(:focus-visible),
 .console-controls:has(.console-controls--pinned) {
     opacity: 1;
 }
@@ -37,7 +37,7 @@
 }
 
 .pluto-tabs__content:not(:hover)
-    .console-controls:has(.console-controls--pinned):not(:focus-within) {
+    .console-controls:has(.console-controls--pinned):not(:has(:focus-visible)) {
     & > *,
     & :has(.console-controls--pinned) > * {
         opacity: 0;
