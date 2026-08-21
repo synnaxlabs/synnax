@@ -45,6 +45,19 @@ class TestTaskClient:
         assert all(t.type == "labjack_scan" for t in res)
         assert task.key in {t.key for t in res}
 
+    def test_retrieve_without_status(self, client: sy.Synnax):
+        """Should leave the status unset when it is not asked for."""
+        task = client.tasks.create(name=str(uuid4()), type="pagerduty_alert")
+        assert client.tasks.retrieve(key=task.key).status is None
+
+    def test_retrieve_with_status(self, client: sy.Synnax):
+        """Should attach a parsed status when asked for one."""
+        task = client.tasks.create(name=str(uuid4()), type="pagerduty_alert")
+        res = client.tasks.retrieve(key=task.key, include_status=True)
+        assert isinstance(res.status, sy.task.Status)
+        assert res.status.details is not None
+        assert res.status.details.task == task.key
+
     def test_execute_command_sync(self, client: sy.Synnax):
         def driver(ev: threading.Event):
             with client.open_streamer("sy_task_cmd") as s:

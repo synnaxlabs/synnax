@@ -441,6 +441,8 @@ class Client:
         key: Key | str | None = None,
         name: str | None = None,
         type: str | None = None,
+        *,
+        include_status: bool = False,
     ) -> Task: ...
 
     @overload
@@ -452,6 +454,8 @@ class Client:
         names: list[str] | None = None,
         keys: list[Key | str] | None = None,
         types: list[str] | None = None,
+        *,
+        include_status: bool = False,
     ) -> list[Task]: ...
 
     def retrieve(
@@ -462,7 +466,14 @@ class Client:
         names: list[str] | None = None,
         keys: list[Key | str] | None = None,
         types: list[str] | None = None,
+        *,
+        include_status: bool = False,
     ) -> list[Task] | Task:
+        """Retrieves tasks matching the given filters.
+
+        :param include_status: Whether to populate each task's status. Tasks come
+            back with a null status when false.
+        """
         is_single = check_for_none(names, keys, types)
         res = self._client.send(
             "/task/retrieve",
@@ -470,6 +481,7 @@ class Client:
                 keys=override(key, keys),
                 names=override(name, names),
                 types=override(type, types),
+                include_status=include_status,
             ),
             _RetrieveResponse,
         )
@@ -488,7 +500,21 @@ class Client:
         return sug[0] if is_single else sug
 
     def sugar(self, tasks: list[Payload]) -> list[Task]:
-        return [Task(**t.model_dump(), _frame_client=self._frame_client) for t in tasks]
+        return [
+            Task(
+                key=t.key,
+                rack=t.rack,
+                name=t.name,
+                type=t.type,
+                config=t.config,
+                config_hash=t.config_hash,
+                internal=t.internal,
+                snapshot=t.snapshot,
+                status=t.status,
+                _frame_client=self._frame_client,
+            )
+            for t in tasks
+        ]
 
     def list(self, rack: int | None = None) -> list[Task]:
         """Lists all tasks on a rack. If no rack is specified, lists all tasks on the

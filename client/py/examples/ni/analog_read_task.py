@@ -89,9 +89,9 @@ task = ni.AnalogReadTask(
             port=0,
             units="DegC",
             thermocouple_type="J",
-            cjc_source="BuiltIn",
-            cjc_val=None,
-            cjc_port=None,
+            min_val=-50.0,
+            max_val=500.0,
+            cjc=ni.BuiltInCJC(),
         ),
     ],
 )
