@@ -270,6 +270,26 @@ public:
     }
 };
 
+/// @brief Returns the sample rate the captured frames' own index timestamps imply,
+/// the way the integration suite derives a running task's rate. Returns 0 when fewer
+/// than two samples were written.
+inline double measured_rate(
+    const std::vector<x::telem::Frame> &writes,
+    const synnax::channel::Key index_key
+) {
+    std::vector<x::telem::TimeStamp> stamps;
+    for (const auto &fr: writes) {
+        if (!fr.contains(index_key)) continue;
+        for (size_t i = 0; i < fr.length(); i++)
+            stamps.push_back(
+                fr.at<x::telem::TimeStamp>(index_key, static_cast<int>(i))
+            );
+    }
+    if (stamps.size() < 2) return 0;
+    const auto span = x::telem::TimeSpan(stamps.back() - stamps.front());
+    return static_cast<double>(stamps.size() - 1) / span.seconds();
+}
+
 // Mock implementation of pipeline::Sink for testing.
 class Sink : public pipeline::Sink {
 public:
