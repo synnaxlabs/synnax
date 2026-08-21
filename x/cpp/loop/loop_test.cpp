@@ -10,6 +10,10 @@
 #include <iomanip>
 #include <iostream>
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 #include "gtest/gtest.h"
 
 #include "x/cpp/loop/loop.h"
@@ -20,6 +24,29 @@ namespace x::loop {
 constexpr double RATE_TOLERANCE = 0;
 /// @brief Wall time each rate is measured over.
 constexpr int SPAN_SECONDS = 1;
+
+/// @brief Logs the timer resolution a sleep on this machine rounds up to. Windows
+/// defaults to 15.625 ms, but any process raising it changes what every other process
+/// measures, so the rates below only mean something next to this number.
+void log_timer_resolution() {
+#ifdef _WIN32
+    using Query = LONG(WINAPI *)(PULONG, PULONG, PULONG);
+    const auto ntdll = GetModuleHandleW(L"ntdll.dll");
+    const auto query = reinterpret_cast<Query>(
+        GetProcAddress(ntdll, "NtQueryTimerResolution")
+    );
+    if (query == nullptr) {
+        std::cout << "timer resolution: NtQueryTimerResolution unavailable\n";
+        return;
+    }
+    ULONG min_100ns = 0, max_100ns = 0, current_100ns = 0;
+    query(&min_100ns, &max_100ns, &current_100ns);
+    std::cout << std::fixed << std::setprecision(4);
+    std::cout << "timer resolution: " << current_100ns / 10000.0 << " ms current, "
+              << max_100ns / 10000.0 << " ms best, " << min_100ns / 10000.0
+              << " ms default\n";
+#endif
+}
 
 /// @brief Calls wait count times and returns the rate measured from the first return
 /// to the last, the same way the integration tests measure a task's sample rate.
@@ -121,6 +148,7 @@ TEST(LoopTest, testWaitBreaker) {
 
 /// @brief it should hold each configured rate over time on the sleep path.
 TEST(LoopTest, testWaitHoldsRate) {
+    log_timer_resolution();
     const int rates[] =
         {50, 100, 150, 199, 200, 201, 250, 400, 450, 500, 550, 1000, 2000};
     for (const int rate_hz: rates) {
@@ -131,6 +159,7 @@ TEST(LoopTest, testWaitHoldsRate) {
 
 /// @brief it should hold each configured rate over time on the breaker path.
 TEST(LoopTest, testWaitBreakerHoldsRate) {
+    log_timer_resolution();
     auto brk = breaker::Breaker(breaker::default_config("test"));
     brk.start();
     for (const int rate_hz: {5, 10, 20, 50}) {
