@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -24,7 +25,6 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
-	"golang.org/x/sync/semaphore"
 )
 
 type GCConfig struct {
@@ -265,23 +265,25 @@ func (db *DB) DeleteTimeRange(
 func (db *DB) garbageCollect(ctx context.Context, maxGoRoutine uint) error {
 	_, span := db.T.Debug(ctx, "garbage_collect")
 	defer span.End()
-	db.mu.RLock()
-	var (
-		sem          = semaphore.NewWeighted(int64(maxGoRoutine))
-		sCtx, cancel = signal.WithCancel(ctx)
-	)
+	sCtx, cancel := signal.WithCancel(ctx)
 	defer cancel()
+	db.mu.RLock()
+	pending := make(chan unary.DB, len(db.mu.dbs.unary))
 	for _, uDB := range db.mu.dbs.unary {
-		if err := sem.Acquire(ctx, 1); err != nil {
-			db.mu.RUnlock()
-			return err
-		}
-		sCtx.Go(func(_ctx context.Context) error {
-			defer sem.Release(1)
-			return uDB.GarbageCollect(_ctx)
-		}, signal.RecoverWithErrOnPanic(), signal.WithKeyf("garbage_collect_%v", uDB.Channel()))
+		pending <- uDB
 	}
 	db.mu.RUnlock()
+	close(pending)
+	for i := range min(int(maxGoRoutine), len(pending)) {
+		sCtx.Go(func(ctx context.Context) error {
+			for uDB := range pending {
+				if err := uDB.GarbageCollect(ctx); err != nil {
+					return err
+				}
+			}
+			return nil
+		}, signal.RecoverWithErrOnPanic(), signal.WithKeyf("garbage_collect_%d", i))
+	}
 	return sCtx.Wait()
 }
 

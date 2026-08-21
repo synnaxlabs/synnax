@@ -172,6 +172,28 @@ const interceptWrites = (
   return { openWriter, openCount: () => opens, writeCount: () => writes };
 };
 
+/**
+ * A writer factory whose open blocks until `finishOpen` is called, counting the writes
+ * that reach the Core. Lets a test change state while an acquisition is in flight.
+ */
+const gateWriter = () => {
+  let finishOpen!: () => void;
+  const gate = new Promise<void>((resolve) => (finishOpen = resolve));
+  let writes = 0;
+  const openWriter: OpenWriter = async (client, config) => {
+    await gate;
+    const w = await client.openWriter(config);
+    const write = w.write.bind(w);
+    return Object.assign(Object.create(w) as framer.Writer, {
+      write: async (...args: Parameters<typeof write>) => {
+        writes += 1;
+        return await write(...args);
+      },
+    });
+  };
+  return { openWriter, finishOpen: () => finishOpen(), writeCount: () => writes };
+};
+
 /** Binds every Controller the harness mounts to `openWriter`. */
 const registryWith = (openWriter: OpenWriter): aether.ComponentRegistry => ({
   [Controller.TYPE]: class extends Controller {
@@ -304,16 +326,54 @@ describe("control/aether/Controller", SUITE, () => {
     await expect.poll(() => source.value().message, POLL).toEqual("Uncontrolled");
   });
 
-  it("should release a writer that opened after it was disabled", async () => {
+  it("should take control when asked explicitly while disabled", async () => {
     const ch = await createIndexed();
     const { controller, source, setState } = await setup(ch.key);
     controller.create(setChannelValue({ channel: ch.key }));
-    // Disabling before the writer opens leaves nothing for afterUpdate to release, so
-    // only the check the acquire runs on its own way out catches this.
-    controller.acquire();
     setState({ disabled: true });
-    await expect.poll(() => controller.state.status, POLL).toEqual("released");
-    await expect.poll(() => source.value().message, POLL).toEqual("Uncontrolled");
+    controller.acquire();
+    await expect.poll(() => source.value().variant, POLL).toEqual("success");
+    expect(controller.state.status).toEqual("acquired");
+  });
+
+  it("should refuse to open a writer for a write while disabled", async () => {
+    const ch = await createIndexed();
+    const { openWriter, openCount } = interceptWrites();
+    const { controller, setState } = await setup(ch.key, openWriter);
+    controller.create(setChannelValue({ channel: ch.key }));
+    await expect.poll(() => controller.state.needsControlOf, POLL).toContain(ch.key);
+    setState({ disabled: true });
+    await controller.set({ [ch.key]: [1] });
+    expect(openCount()).toEqual(0);
+    expect(controller.state.status).not.toEqual("acquired");
+  });
+
+  it("should stand down when a write's writer opens after it was disabled", async () => {
+    const ch = await createIndexed();
+    const { openWriter, finishOpen, writeCount } = gateWriter();
+    const { controller, setState } = await setup(ch.key, openWriter);
+    controller.create(setChannelValue({ channel: ch.key }));
+    await expect.poll(() => controller.state.needsControlOf, POLL).toContain(ch.key);
+    const write = controller.set({ [ch.key]: [1] });
+    setState({ disabled: true });
+    finishOpen();
+    await write;
+    expect(writeCount()).toEqual(0);
+    expect(controller.state.status).toEqual("released");
+  });
+
+  it("should keep a writer the user asks for while a write is acquiring", async () => {
+    const ch = await createIndexed();
+    const { openWriter, finishOpen } = gateWriter();
+    const { controller, setState } = await setup(ch.key, openWriter);
+    controller.create(setChannelValue({ channel: ch.key }));
+    await expect.poll(() => controller.state.needsControlOf, POLL).toContain(ch.key);
+    const write = controller.set({ [ch.key]: [1] });
+    setState({ disabled: true });
+    controller.acquire();
+    finishOpen();
+    await write;
+    await expect.poll(() => controller.state.status, POLL).toEqual("acquired");
   });
 
   it("should keep control while it is not disabled", async () => {

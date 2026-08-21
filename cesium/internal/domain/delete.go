@@ -158,6 +158,12 @@ func (db *DB) Delete(
 		return span.Error(err)
 	}
 
+	// A garbage collection may have moved these domains within their file since the
+	// lookup above. The partial pointers below inherit their offsets, so take the ones
+	// the index holds now.
+	start.offset = db.idx.mu.pointers[startDomain].offset
+	end.offset = db.idx.mu.pointers[endDomain].offset
+
 	// Calculate size of removed pointers.
 	var removedSize int64
 	for i := startDomain; i <= endDomain; i++ {
@@ -248,17 +254,22 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 		return span.Error(err)
 	}
 
+	var collected bool
 	for fileKey := uint16(1); fileKey <= uint16(db.fc.counter.Value()); fileKey++ {
-		if db.fc.hasWriter(fileKey) {
-			continue
-		}
 		s, err := db.cfg.FS.Stat(fileKeyToName(fileKey))
 		if err != nil {
 			return span.Error(err)
 		}
-		if err = db.garbageCollectFile(fileKey, s.Size()); err != nil {
+		fileCollected, err := db.garbageCollectFile(fileKey, s.Size())
+		if err != nil {
 			return span.Error(err)
 		}
+		collected = collected || fileCollected
+	}
+
+	// No file moved, so the index still matches what is on disk.
+	if !collected {
+		return nil
 	}
 
 	db.idx.mu.Lock()
@@ -270,12 +281,14 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 	return persist()
 }
 
-func (db *DB) garbageCollectFile(key uint16, size int64) error {
+// garbageCollectFile rewrites key's file to drop its tombstones, reporting whether it
+// rewrote anything.
+func (db *DB) garbageCollectFile(key uint16, size int64) (bool, error) {
 	// Atomically remove this file from the writer pool so that no writer can open
 	// on it during GC. If the file has an active writer, skip it.
 	canGC, wasUnopened := db.fc.prepareForGC(key)
 	if !canGC {
-		return nil
+		return false, nil
 	}
 
 	var (
@@ -308,7 +321,7 @@ func (db *DB) garbageCollectFile(key uint16, size int64) error {
 		// If there's any open file handles on the file, we cannot garbage collect.
 		if len(rs.open) > 0 {
 			restore()
-			return nil
+			return false, nil
 		}
 		// Otherwise, we continue with garbage collection while holding the mutex lock
 		// to prevent more readers from being created.
@@ -325,49 +338,48 @@ func (db *DB) garbageCollectFile(key uint16, size int64) error {
 	}
 	db.idx.mu.RUnlock()
 
-	// Decide whether we should GC
-	if tombstoneSize < int64(db.cfg.GCThreshold*float32(db.cfg.FileSize)) {
+	// Decide whether we should GC. A file without tombstones has nothing to reclaim, so
+	// rewriting it is pure churn.
+	if tombstoneSize <= 0 ||
+		tombstoneSize < int64(db.cfg.GCThreshold*float32(db.cfg.FileSize)) {
 		restore()
+		return false, nil
+	}
+
+	// Copy the live pointers into the copy file. Both handles must be closed before the
+	// rename below: Windows refuses to rename a file that is still open.
+	if err := func() (err error) {
+		r, err := db.cfg.FS.Open(name, os.O_RDONLY)
+		if err != nil {
+			return err
+		}
+		defer func() { err = errors.Combine(err, r.Close()) }()
+
+		w, err := db.cfg.FS.Open(copyName, os.O_WRONLY|os.O_CREATE)
+		if err != nil {
+			return err
+		}
+		defer func() { err = errors.Combine(err, w.Close()) }()
+
+		for _, ptr := range ptrs {
+			buf := make([]byte, ptr.size)
+			if _, err = r.ReadAt(buf, int64(ptr.offset)); err != nil {
+				return err
+			}
+
+			n, err := w.Write(buf)
+			if err != nil {
+				return err
+			}
+
+			if newOffset != ptr.offset {
+				offsetDeltaMap[ptr.TimeRange] = ptr.offset - newOffset
+			}
+			newOffset += uint32(n)
+		}
 		return nil
-	}
-
-	// Open a reader on the old file.
-	r, err := db.cfg.FS.Open(name, os.O_RDONLY)
-	if err != nil {
-		return err
-	}
-
-	// Open a writer to the copy file.
-	w, err := db.cfg.FS.Open(copyName, os.O_WRONLY|os.O_CREATE)
-	if err != nil {
-		return err
-	}
-
-	// Find all pointers stored in the old file, and write them to the new file.
-	for _, ptr := range ptrs {
-		buf := make([]byte, ptr.size)
-		_, err = r.ReadAt(buf, int64(ptr.offset))
-		if err != nil {
-			return err
-		}
-
-		n, err := w.Write(buf)
-		if err != nil {
-			return err
-		}
-
-		if newOffset != ptr.offset {
-			offsetDeltaMap[ptr.TimeRange] = ptr.offset - newOffset
-		}
-		newOffset += uint32(n)
-	}
-
-	if err = r.Close(); err != nil {
-		return err
-	}
-
-	if err = w.Close(); err != nil {
-		return err
+	}(); err != nil {
+		return false, err
 	}
 
 	// Update the file and index while holding the mutex lock. Note: the index might be
@@ -396,19 +408,19 @@ func (db *DB) garbageCollectFile(key uint16, size int64) error {
 			}
 		}
 
-		if err = db.cfg.FS.Rename(name, name+"_temp"); err != nil {
+		if err := db.cfg.FS.Rename(name, name+"_temp"); err != nil {
 			return err
 		}
 		return db.cfg.FS.Rename(copyName, name)
 	}(); err != nil {
-		return err
+		return false, err
 	}
 
-	if err = db.fc.rejuvenate(key); err != nil {
-		return err
+	if err := db.fc.rejuvenate(key); err != nil {
+		return false, err
 	}
 
-	return db.cfg.FS.Remove(name + "_temp")
+	return true, db.cfg.FS.Remove(name + "_temp")
 }
 
 func resolvePointerOffset(

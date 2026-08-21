@@ -41,18 +41,19 @@ const renderItem = (
 };
 
 describe("Control.Menu.ToggleItem", () => {
-  it("should offer control while the controller is not disabled", () => {
+  it("should offer control", () => {
     const item = renderItem(<Control.Menu.ToggleItem />);
     expect(item.textContent).toContain("Take control");
     expect(item.getAttribute("aria-disabled")).toBeNull();
   });
 
-  it("should bar control while the controller is disabled", () => {
+  it("should still offer control while the controller is disabled", () => {
     const item = renderItem(<Control.Menu.ToggleItem />, { disabled: true });
-    expect(item.getAttribute("aria-disabled")).toEqual("true");
+    expect(item.textContent).toContain("Take control");
+    expect(item.getAttribute("aria-disabled")).toBeNull();
   });
 
-  it("should stay barred when only the caller disables it", () => {
+  it("should bar control when the caller disables it", () => {
     const item = renderItem(<Control.Menu.ToggleItem disabled />);
     expect(item.getAttribute("aria-disabled")).toEqual("true");
   });

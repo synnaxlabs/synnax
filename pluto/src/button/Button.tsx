@@ -75,6 +75,9 @@ const resolveTriggerIndicator = (
   return undefined;
 };
 
+const FOCUSABLE =
+  'a[href], button, input, select, textarea, [contenteditable="true"], [tabindex]';
+
 /**
  * Use is a basic button component.
  * @param props - Props for the component, which are passed down to the underlying
@@ -155,8 +158,15 @@ const Base = <E extends ElementType = "button">({
 
   const handleMouseDown = (e: any) => {
     // Preventing default on mousedown cancels a native dragstart, so skip it for
-    // draggable buttons (e.g. roving-tabindex tabs that are also drag sources).
-    if (tabIndex == -1 && draggable !== true) e.preventDefault();
+    // draggable buttons (e.g. roving-tabindex tabs that are also drag sources). The
+    // cancelled default also moves focus, so skip it when a focusable descendant owns
+    // the press: the chassis is not the element the browser would focus.
+    if (
+      tabIndex == -1 &&
+      draggable !== true &&
+      (e.target as HTMLElement).closest(FOCUSABLE) === e.currentTarget
+    )
+      e.preventDefault();
     onMouseDown?.(e);
     if (isDisabled || preview === true || parsedDelay.isZero) return;
     document.addEventListener(
