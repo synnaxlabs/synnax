@@ -38,14 +38,14 @@ channel, providing acknowledgment that the command was executed.
 
 ## Task Configuration Reference
 
-| Parameter     | Type    | Required | Default | Description                                   |
-| ------------- | ------- | -------- | ------- | --------------------------------------------- |
-| `device`      | string  | Yes      | -       | Device key to write to                        |
-| `name`        | string  | Yes      | -       | Human-readable task name                      |
-| `state_rate`  | number  | Yes      | -       | Rate (Hz) at which state channels are updated |
-| `data_saving` | boolean | No       | `false` | Enable permanent storage in Synnax            |
-| `auto_start`  | boolean | No       | `false` | Automatically start task after configuration  |
-| `channels`    | array   | Yes      | -       | List of analog output channel configurations  |
+| Parameter              | Type    | Required | Default | Description                                         |
+| ---------------------- | ------- | -------- | ------- | --------------------------------------------------- |
+| `device`               | string  | Yes      | -       | Device key to write to                              |
+| `name`                 | string  | Yes      | -       | Human-readable task name                            |
+| `state_rate`           | number  | Yes      | -       | Rate (Hz) at which state channels are updated       |
+| `data_saving_disabled` | boolean | No       | `false` | Stream data without saving it permanently in Synnax |
+| `auto_start`           | boolean | No       | `false` | Automatically start task after configuration        |
+| `channels`             | array   | Yes      | -       | List of analog output channel configurations        |
 
 <Divider.Divider x />
 
@@ -61,8 +61,8 @@ channel, providing acknowledgment that the command was executed.
 | `cmd_channel`   | number | Yes      | -       | Synnax command channel key |
 | `state_channel` | number | Yes      | -       | Synnax state channel key   |
 | `port`          | number | Yes      | -       | Physical port              |
-| `min_val`       | number | No       | `-10.0` | Minimum voltage (Volts)    |
-| `max_val`       | number | No       | `10.0`  | Maximum voltage (Volts)    |
+| `min_val`       | number | No       | `0`     | Minimum voltage (Volts)    |
+| `max_val`       | number | No       | `1`     | Maximum voltage (Volts)    |
 | `custom_scale`  | object | No       | -       | Custom scaling             |
 
 </ChannelType>
@@ -75,8 +75,8 @@ channel, providing acknowledgment that the command was executed.
 | `cmd_channel`   | number | Yes      | -       | Synnax command channel key |
 | `state_channel` | number | Yes      | -       | Synnax state channel key   |
 | `port`          | number | Yes      | -       | Physical port              |
-| `min_val`       | number | No       | `0.004` | Minimum current (Amps)     |
-| `max_val`       | number | No       | `0.02`  | Maximum current (Amps)     |
+| `min_val`       | number | No       | `0`     | Minimum current (Amps)     |
+| `max_val`       | number | No       | `1`     | Maximum current (Amps)     |
 | `custom_scale`  | object | No       | -       | Custom scaling             |
 
 </ChannelType>
@@ -151,7 +151,6 @@ task = ni.AnalogWriteTask(
     name="Analog Write Task",
     device=c_dev.key,
     state_rate=sy.Rate.HZ * 20,
-    data_saving=True,
     channels=[
         ni.AOCurrentChannel(
             cmd_channel=current_cmd.key,
@@ -219,59 +218,67 @@ import { Synnax, TimeStamp, Rate } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Retrieve device
-const cDev = await client.devices.retrieve({ name: "Mod1_Current" });
+const [cDev] = await client.devices.retrieve({ names: ["Mod1_Current"] });
 
 // Create command and state time indices
-const aoCmdTime = await client.channels.create({
-  name: "ao_cmd_time",
-  isIndex: true,
-  dataType: "timestamp",
-  retrieveIfNameExists: true,
-});
-const aoStateTime = await client.channels.create({
-  name: "ao_state_time",
-  isIndex: true,
-  dataType: "timestamp",
-  retrieveIfNameExists: true,
-});
+const aoCmdTime = await client.channels.create(
+  {
+    name: "ao_cmd_time",
+    isIndex: true,
+    dataType: "timestamp",
+  },
+  { retrieveIfNameExists: true },
+);
+const aoStateTime = await client.channels.create(
+  {
+    name: "ao_state_time",
+    isIndex: true,
+    dataType: "timestamp",
+  },
+  { retrieveIfNameExists: true },
+);
 
 // Create command and state channels
-const currentCmd = await client.channels.create({
-  name: "current_cmd",
-  index: aoCmdTime.key,
-  dataType: "float32",
-  retrieveIfNameExists: true,
-});
-const currentState = await client.channels.create({
-  name: "current_state",
-  index: aoStateTime.key,
-  dataType: "float32",
-  retrieveIfNameExists: true,
-});
+const currentCmd = await client.channels.create(
+  {
+    name: "current_cmd",
+    index: aoCmdTime.key,
+    dataType: "float32",
+  },
+  { retrieveIfNameExists: true },
+);
+const currentState = await client.channels.create(
+  {
+    name: "current_state",
+    index: aoStateTime.key,
+    dataType: "float32",
+  },
+  { retrieveIfNameExists: true },
+);
 
 // Create and configure task
 const task = await client.tasks.create({
   name: "Analog Write Task",
+  rack: cDev.rack,
   type: "ni_analog_write",
-  config: JSON.stringify({
+  config: {
     device: cDev.key,
-    state_rate: 20,
-    data_saving: true,
+    stateRate: 20,
     channels: [
       {
         type: "ao_current",
-        cmd_channel: currentCmd.key,
-        state_channel: currentState.key,
+        cmdChannel: currentCmd.key,
+        stateChannel: currentState.key,
         port: 0,
-        min_val: 0.004,
-        max_val: 0.02,
+        minVal: 0.004,
+        maxVal: 0.02,
       },
     ],
-  }),
+  },
 });
 
 // Start task
-await task.executeCommandSync("start");
+await task.start();
 
 // Write command
 const writer = await client.openWriter({
@@ -286,10 +293,10 @@ await writer.write({
 // Read state
 const streamer = await client.openStreamer(["current_state"]);
 const frame = await streamer.read();
-console.log(`State: ${frame["current_state"]}`);
+console.log(`State: ${frame.get("current_state").at(-1)}`);
 
 // Stop task
-await task.executeCommandSync("stop");
+await task.stop();
 await writer.close();
 await streamer.close();
 ```
@@ -300,27 +307,31 @@ await streamer.close();
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```typescript
+import { ni } from "@synnaxlabs/client";
+
 // Retrieve existing task
 const task = await client.tasks.retrieve({ name: "Analog Write Task" });
 
 // Parse and update configuration
-const config = JSON.parse(task.config);
+const config = ni.analogWriteConfigZ.parse(task.config);
 
 // Update task-level configuration
-config.auto_start = true;
-config.state_rate = 50;
+config.autoStart = true;
+config.stateRate = 50;
 
 // Update channel-level configuration
-config.channels[0].port = 1;
-config.channels[0].min_val = 0.002;
-config.channels[0].max_val = 0.01;
+const current = config.channels[0] as ni.AOCurrentChannel;
+current.port = 1;
+current.minVal = 0.002;
+current.maxVal = 0.01;
 
 // Apply changes
 await client.tasks.create({
   key: task.key,
+  rack: task.rack,
   name: task.name,
   type: task.type,
-  config: JSON.stringify(config),
+  config,
 });
 ```
 
