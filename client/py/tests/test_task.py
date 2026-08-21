@@ -38,10 +38,12 @@ class TestTaskClient:
         assert res.key == task.key
 
     def test_retrieve_by_type(self, client: sy.Synnax):
+        # Task types are a fixed, registered set, so the filter cannot be made unique
+        # the way the name and model tests do. Assert membership instead of identity.
         task = client.tasks.create(type="labjack_scan")
-        res = client.tasks.retrieve(type="labjack_scan")
-        assert res.type == "labjack_scan"
-        assert res.key == task.key
+        res = client.tasks.retrieve(types=["labjack_scan"])
+        assert all(t.type == "labjack_scan" for t in res)
+        assert task.key in {t.key for t in res}
 
     def test_execute_command_sync(self, client: sy.Synnax):
         def driver(ev: threading.Event):
