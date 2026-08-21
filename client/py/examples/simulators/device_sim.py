@@ -114,7 +114,12 @@ class DeviceSim(Simulator):
         )
 
     def stop(self, timeout: sy.TimeSpan = 5 * sy.TimeSpan.SECOND) -> None:
-        """Terminate the server subprocess."""
+        """Terminate the server subprocess and wait until its port stops accepting
+        connections.
+
+        :raises RuntimeError: If something still accepts connections on the port
+            after the subprocess is gone.
+        """
         self._running = False
         if self.process is None:
             return
@@ -132,7 +137,21 @@ class DeviceSim(Simulator):
             self.log(f"Error terminating server: {e}")
         finally:
             self.process = None
-            sy.sleep(1)
+        self._wait_for_port_closed(timeout)
+
+    def _wait_for_port_closed(self, timeout: sy.TimeSpan) -> None:
+        timer = sy.Timer()
+        while timer.elapsed() < timeout:
+            try:
+                with socket.create_connection((self.host, self.port), timeout=0.5):
+                    pass
+            except OSError:
+                return
+            sy.sleep(0.05)
+        raise RuntimeError(
+            f"Port {self.port} still accepts connections {timeout} after the server "
+            "process stopped"
+        )
 
     def _subprocess_entry(self) -> None:
         """Entry point for the subprocess."""

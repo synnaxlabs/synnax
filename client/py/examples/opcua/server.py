@@ -15,7 +15,7 @@ import random
 import socket
 from pathlib import Path
 
-from asyncua import Server, ua
+from asyncua import Client, Server, ua
 from asyncua.crypto.cert_gen import setup_self_signed_certificate
 from asyncua.crypto.validator import CertificateValidator, CertificateValidatorOptions
 from asyncua.server.user_managers import User, UserRole
@@ -364,11 +364,23 @@ class OPCUASim(DeviceSim):
         self.user_manager = user_manager
         self.max_sessions = max_sessions
 
-    def start(self) -> None:
-        super().start()
-        # Allow OPCUA Server time to startup
-        # so server doesn't reject the Core for trying to connect too many times
-        sy.sleep(5)
+    def _wait_for_ready(self) -> None:
+        """Poll until the server answers a GetEndpoints request. The socket accepts
+        connections before the server is initialized, so the TCP check is too early."""
+        super()._wait_for_ready()
+        timer = sy.Timer()
+        while True:
+            try:
+                client = Client(self.endpoint, timeout=1)
+                asyncio.run(client.connect_and_get_server_endpoints())
+                return
+            except Exception as e:
+                if timer.elapsed() > self.startup_timeout:
+                    raise RuntimeError(
+                        f"Server on {self.endpoint} not answering discovery after "
+                        f"{self.startup_timeout}"
+                    ) from e
+                sy.sleep(0.1)
 
     async def _run_server(self) -> None:
         await run_server(

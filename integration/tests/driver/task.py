@@ -18,6 +18,7 @@ WriteTaskCase: Write-specific lifecycle (command sending).
 import os
 import sys
 from abc import abstractmethod
+from collections.abc import Callable
 from contextlib import ExitStack
 
 from pydantic import ValidationError
@@ -26,6 +27,10 @@ import synnax as sy
 from framework.test_case import TestCase
 
 _STATUS_CHANNEL = "sy_status_set"
+# Allowed relative error between a task's measured and configured sample rate. Wide
+# because the runners host the Core, the Driver, the Console, Playwright, and the
+# Python sims at once, and a 1 s window leaves little time to reach steady state.
+RATE_TOLERANCE = 0.20
 
 # ── Channel creation helpers ─────────────────────────────────────
 
@@ -349,19 +354,33 @@ def assert_sample_counts_in_range(
 
 
 def collect_samples(
-    client: sy.Synnax, channel_keys: list[int], duration: sy.TimeSpan
+    client: sy.Synnax,
+    channel_keys: list[int],
+    duration: sy.TimeSpan,
+    frame_size: int,
 ) -> sy.TimeStamp:
-    """Wait for a running task's first frame, settle, then hold for ``duration``.
+    """Wait until a running task streams two consecutive frames of ``frame_size``
+    samples, then hold for ``duration``.
 
     Returns the hold's start. Count after the task stops: Cesium commits per
     channel, so a live read can catch one channel a frame ahead of another.
     """
+    timer = sy.Timer()
+    full_frames = 0
     with client.open_streamer(channel_keys) as streamer:
-        if streamer.read(timeout=30) is None:
-            raise AssertionError("Task did not start — no data received")
-    sy.sleep(1)
+        while full_frames < 2:
+            frame = streamer.read(timeout=15)
+            if frame is None:
+                raise AssertionError("Task did not start — no data received")
+            batch = min((len(frame[k]) for k in channel_keys if k in frame), default=0)
+            full_frames = full_frames + 1 if batch >= frame_size else 0
+            if timer.elapsed() > 15 * sy.TimeSpan.SECOND:
+                raise AssertionError(
+                    f"Task never streamed two consecutive frames of {frame_size} "
+                    f"samples, last frame had {batch}"
+                )
     start = sy.TimeStamp.now()
-    sy.sleep(duration.seconds * 1.25)
+    sy.sleep(duration.seconds)
     return start
 
 
@@ -371,19 +390,47 @@ def assert_sample_rate(
     channel_keys: list[int],
     start: sy.TimeStamp,
     sample_rate: float,
-    duration: sy.TimeSpan,
     strict: bool = True,
     task_name: str = "",
+    log: Callable[[str], None] = print,
 ) -> None:
-    """Assert each channel holds ``sample_rate * duration`` samples since ``start``."""
-    assert_sample_counts_in_range(
-        client,
-        channel_keys=channel_keys,
-        time_range=sy.TimeRange(start, sy.TimeStamp.now()),
-        expected_samples=int(sample_rate * duration.seconds),
-        strict=strict,
-        task_name=task_name,
-    )
+    """Assert each channel's samples since ``start`` run at ``sample_rate``, measured
+    from the samples' own timestamps up to the last one recorded. Every channel must
+    hold the same number of samples. Non-strict only requires samples to exist.
+    Logs the measured rate and its error for each channel."""
+    prefix = f"{task_name}: " if task_name else ""
+    time_range = sy.TimeRange(start, sy.TimeStamp.now())
+    counts: list[int] = []
+    timestamps: dict[int, sy.Series] = {}
+    for key in channel_keys:
+        ch = client.channels.retrieve(key)
+        count = len(ch.read(time_range))
+        counts.append(count)
+        if count < (2 if strict else 1):
+            raise AssertionError(
+                f"{prefix}Channel '{ch.name}' has {count} samples since steady state"
+            )
+        if not strict:
+            continue
+        if ch.index not in timestamps:
+            timestamps[ch.index] = client.channels.retrieve(ch.index).read(time_range)
+        times = timestamps[ch.index]
+        span = sy.TimeSpan(int(times[-1]) - int(times[0]))
+        measured = (count - 1) / span.seconds
+        error = (measured - sample_rate) / sample_rate
+        log(
+            f"{prefix}Channel '{ch.name}': {measured:.1f} Hz measured, "
+            f"{sample_rate:g} Hz expected ({error:+.1%})"
+        )
+        if abs(error) > RATE_TOLERANCE:
+            raise AssertionError(
+                f"{prefix}Channel '{ch.name}' rate is off by {error:+.1%}, "
+                f"tolerance is ±{RATE_TOLERANCE:.0%}"
+            )
+    if len(set(counts)) > 1:
+        raise AssertionError(
+            f"{prefix}Channels have different sample counts: {counts}"
+        )
 
 
 def delete_channels(client: sy.Synnax, keys: list[int]) -> None:
@@ -557,13 +604,9 @@ class ReadTaskCase(TaskCase):
 
         self.test_task_exists()
         self.test_start_and_stop()
-        sy.sleep(1)
         self.test_disable_data_saving()
-        sy.sleep(1)
         self.test_enable_data_saving()
-        sy.sleep(1)
         self.test_reconfigure_rate()
-        sy.sleep(1)
         self.test_survives_channel_deletion()
 
     def test_start_and_stop(self) -> None:
@@ -630,15 +673,16 @@ class ReadTaskCase(TaskCase):
     ) -> None:
         """Assert that the task collects the expected number of samples."""
         channel_keys = self._channel_keys(task)
+        frame_size = int(task.config.sample_rate / task.config.stream_rate)
         with task.run():
-            start = collect_samples(self.client, channel_keys, duration)
+            start = collect_samples(self.client, channel_keys, duration, frame_size)
         assert_sample_rate(
             self.client,
             channel_keys=channel_keys,
             start=start,
             sample_rate=task.config.sample_rate,
-            duration=duration,
             strict=strict,
+            log=self.log,
         )
 
     def assert_no_samples_persisted(

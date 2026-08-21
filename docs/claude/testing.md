@@ -60,7 +60,8 @@ The `-tags=console` build tag activates `core/pkg/console/enabled.go`
 - `tc console/channel/calc` — file + sequence + case filter (3-part)
 - `tc -f modbus` — global filter across all test files
 - Options: `--headed` (Playwright headed mode), `--slow-mo <ms>` (delay per Playwright
-  action), `-d <rack>` (driver rack name)
+  action), `-d <rack>` (driver rack name), `--logs` (stream case logs as they happen
+  instead of only after a failure)
 
 ### Organization
 

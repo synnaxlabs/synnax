@@ -124,15 +124,16 @@ class ConsoleTaskCase(SimulatorCase, ConsoleCase):
     def assert_sample_count(self, page: TaskPage, keys: list[int]) -> None:
         """Hold the running task, stop it from the form, then count the samples on
         ``keys``, as the driver read task tests do."""
-        start = collect_samples(self.client, keys, self.TASK_DURATION)
+        frame_size = int(self.SAMPLE_RATE / self.STREAM_RATE)
+        start = collect_samples(self.client, keys, self.TASK_DURATION, frame_size)
         self.stop(page)
         assert_sample_rate(
             self.client,
             channel_keys=keys,
             start=start,
             sample_rate=float(self.SAMPLE_RATE),
-            duration=self.TASK_DURATION,
             task_name=page.page_name,
+            log=self.log,
         )
 
     def send_commands(self, page: TaskPage, task: sy.Task) -> None:
