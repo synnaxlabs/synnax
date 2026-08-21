@@ -64,8 +64,6 @@ func Open(ctx context.Context, configs ...Config) (c *Cluster, err error) {
 
 	sCtx, cancel := signal.WithCancel(cfg.T.Transfer(ctx, context.Background()))
 
-	// shutdown is held in a local because the cleanup below runs on error paths that
-	// return a nil Cluster.
 	shutdown := signal.NewHardShutdown(sCtx, cancel)
 	defer func() {
 		if err != nil {
