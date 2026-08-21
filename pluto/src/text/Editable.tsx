@@ -28,7 +28,10 @@ import { triggerReflow } from "@/util/reflow";
 
 /** Props for {@link Editable}. */
 export type EditableProps = Omit<TextProps<"p">, "children" | "onChange"> &
-  Input.Control<string> & {
+  Omit<Input.Control<string>, "onChange"> & {
+    /** Receives the committed text. Return false to reject it, reverting the field to
+     * value; the field otherwise holds the committed text until value catches up. */
+    onChange: (value: string) => void | boolean;
     /** Lifts the editing flag out of the component so a parent can drive it. */
     useEditableState?: state.PureUse<boolean>;
     /** Whether a double click starts editing. Defaults to true. */
@@ -149,6 +152,10 @@ export const Editable = ({
   // Holds the text asyncEdit swapped in for this edit, so an unchanged commit is
   // measured against what the user actually saw.
   const injectedValueRef = useRef<string | null>(null);
+  // Holds the text this field committed and the value it replaced. Exiting an edit
+  // repaints from value, which still carries the old text until the caller's write
+  // lands, so the committed text stands in until value moves off what it replaced.
+  const committedRef = useRef<{ text: string; replaced: string } | null>(null);
 
   // Turns out the writing modes like vertical-rl cause all sorts of problems with
   // elements whose values change. The following section of code forces the browser
@@ -189,10 +196,20 @@ export const Editable = ({
       return;
     }
     if (forceEscape || (innerText.length === 0 && !allowEmpty)) {
+      committedRef.current = null;
       el.innerText = value;
       el.dispatchEvent(new Event(ESCAPED_EVENT_NAME));
     } else {
-      onChange?.(innerText);
+      // An injected edit targets a value other than the one shown, so value never
+      // becomes the committed text and must repaint as it always did.
+      committedRef.current =
+        injected == null ? { text: innerText, replaced: value } : null;
+      if (onChange?.(innerText) === false) {
+        committedRef.current = null;
+        el.innerText = value;
+        el.dispatchEvent(new Event(ESCAPED_EVENT_NAME));
+        return;
+      }
       optimisticValueRef.current = innerText;
       el.dispatchEvent(new Event(RENAMED_EVENT_NAME));
     }
@@ -225,7 +242,15 @@ export const Editable = ({
     selection?.addRange(range);
   }, [editable]);
 
-  if (ref.current !== null && !editable) ref.current.innerHTML = value;
+  if (ref.current !== null && !editable) {
+    const { current: committed } = committedRef;
+    if (committed != null && value === committed.replaced)
+      ref.current.innerHTML = committed.text;
+    else {
+      committedRef.current = null;
+      ref.current.innerHTML = value;
+    }
+  }
 
   const refCallback = useCallback((el: HTMLElement) => {
     if (el == null) return;

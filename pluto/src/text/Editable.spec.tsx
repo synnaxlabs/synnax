@@ -109,6 +109,74 @@ describe("Editable", () => {
     });
   });
 
+  describe("repainting after a commit", () => {
+    it("should keep the committed text while the value prop is stale", () => {
+      const c = render(<Editable value="Hello" onChange={vi.fn()} />);
+      const text = c.getByText("Hello");
+      fireEvent.dblClick(text);
+      text.innerText = "World";
+      fireEvent.keyDown(text, { key: "Enter" });
+      expect(text.innerHTML).toBe("World");
+      c.rerender(<Editable value="Hello" onChange={vi.fn()} />);
+      expect(text.innerHTML).toBe("World");
+    });
+
+    it("should adopt the value once the write lands", () => {
+      const c = render(<Editable value="Hello" onChange={vi.fn()} />);
+      const text = c.getByText("Hello");
+      fireEvent.dblClick(text);
+      text.innerText = "World";
+      fireEvent.keyDown(text, { key: "Enter" });
+      c.rerender(<Editable value="World" onChange={vi.fn()} />);
+      expect(text.innerHTML).toBe("World");
+    });
+
+    it("should show the value again when the write rolls back", () => {
+      const c = render(<Editable value="Hello" onChange={vi.fn()} />);
+      const text = c.getByText("Hello");
+      fireEvent.dblClick(text);
+      text.innerText = "World";
+      fireEvent.keyDown(text, { key: "Enter" });
+      c.rerender(<Editable value="World" onChange={vi.fn()} />);
+      c.rerender(<Editable value="Hello" onChange={vi.fn()} />);
+      expect(text.innerHTML).toBe("Hello");
+    });
+
+    it("should repaint a remote rename that beats the commit", () => {
+      const c = render(<Editable value="Hello" onChange={vi.fn()} />);
+      const text = c.getByText("Hello");
+      fireEvent.dblClick(text);
+      text.innerText = "World";
+      fireEvent.keyDown(text, { key: "Enter" });
+      c.rerender(<Editable value="Elsewhere" onChange={vi.fn()} />);
+      expect(text.innerHTML).toBe("Elsewhere");
+    });
+    it("should revert when the handler rejects the committed text", () => {
+      const onChange = vi.fn<(value: string) => boolean>(() => false);
+      const c = render(<Editable value="Hello" onChange={onChange} />);
+      const text = c.getByText("Hello");
+      fireEvent.dblClick(text);
+      text.innerText = "Taken";
+      fireEvent.keyDown(text, { key: "Enter" });
+      expect(onChange).toHaveBeenCalledWith("Taken");
+      expect(text.innerText).toBe("Hello");
+      c.rerender(<Editable value="Hello" onChange={onChange} />);
+      expect(text.innerHTML).toBe("Hello");
+    });
+
+    it("should resolve asyncEdit as a cancel when the handler rejects", async () => {
+      const c = render(<Editable id="rejected" value="Hello" onChange={() => false} />);
+      const text = c.getByText("Hello");
+      let promise!: Promise<[string, boolean]>;
+      act(() => {
+        promise = asyncEdit("rejected");
+      });
+      text.innerText = "Taken";
+      fireEvent.keyDown(text, { key: "Enter" });
+      await expect(promise).resolves.toEqual(["Hello", false]);
+    });
+  });
+
   describe("escaping", () => {
     it("should not call onChange when Escape is pressed", () => {
       const onChange = vi.fn();

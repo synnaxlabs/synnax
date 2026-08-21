@@ -42,9 +42,10 @@ const Base = ({
 }: ListItemProps): ReactElement | null => {
   const dispatch = Session.useDispatch();
   const { selected, onSelect } = Select.useItemState(rest.itemKey);
-  const handleChange = (value: string) => {
-    if (item == null || !validateName(item.key, value)) return;
+  const handleChange = (value: string): boolean => {
+    if (item == null || !validateName(item.key, value)) return false;
     dispatch(Session.Cluster.rename({ key: item.key, name: value }));
+    return true;
   };
   const status = Synnax.useCheckConnection({
     host: item.host,
