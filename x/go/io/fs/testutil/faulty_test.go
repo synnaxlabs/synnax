@@ -21,7 +21,7 @@ import (
 
 // openWrapped returns a faultless FS holding one file, "a.bin", containing "hello".
 func openWrapped() (*FaultyFS, xfs.File) {
-	fs := WrapFS(OpenMem())
+	fs := WrapFaultyFS(OpenMem())
 	f := MustSucceed(fs.Open("a.bin", os.O_CREATE|os.O_RDWR))
 	MustSucceed(f.Write([]byte("hello")))
 	return fs, f
@@ -43,7 +43,7 @@ var _ = Describe("FaultyFS", func() {
 
 	DescribeTable(
 		"Should raise the fault in place of the operation",
-		func(opt Option, run func(fs *FaultyFS, f xfs.File) error) {
+		func(opt FaultyFSOption, run func(fs *FaultyFS, f xfs.File) error) {
 			fs, f := openWrapped()
 			DeferClose(f)
 			fs.SetOptions(opt)
@@ -131,7 +131,7 @@ var _ = Describe("FaultyFS", func() {
 	})
 
 	It("Should carry its failures and handle count into a sub FS", func() {
-		fs := WrapFS(OpenMem(), WithFailOpen("a.bin"))
+		fs := WrapFaultyFS(OpenMem(), WithFailOpen("a.bin"))
 		sub := MustSucceed(fs.Sub("nested"))
 		f := MustSucceed(sub.Open("b.bin", os.O_CREATE|os.O_RDWR))
 		Expect(fs.OpenFiles()).To(Equal(1))

@@ -437,7 +437,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 					"Should log the failure and keep trying",
 					func(ctx SpecContext) {
 						ins, logs := ObservedInstrumentation(zapcore.ErrorLevel)
-						faulty := WrapFS(openFS(), WithFailRename("1.domain"))
+						faulty := WrapFaultyFS(openFS(), WithFailRename("1.domain"))
 						failing := MustOpen(cesium.Open(
 							ctx,
 							"",

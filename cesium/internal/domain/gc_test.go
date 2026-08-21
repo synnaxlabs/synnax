@@ -1107,7 +1107,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 			Context("Faulty file system", func() {
 				var faulty *FaultyFS
 				BeforeEach(func(ctx SpecContext) {
-					faulty = WrapFS(fs)
+					faulty = WrapFaultyFS(fs)
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              faulty,
 						FileSize:        9 * telem.Byte,
@@ -1135,7 +1135,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 				// the file on Windows, which stops collection for good.
 				DescribeTable(
 					"Should keep no handles when the rewrite fails",
-					func(ctx SpecContext, fail Option) {
+					func(ctx SpecContext, fail FaultyFSOption) {
 						faulty.SetOptions(fail)
 						Expect(db.GarbageCollect(ctx)).To(MatchError(ErrFault))
 						open := faulty.OpenFiles()
