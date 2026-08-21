@@ -9,7 +9,10 @@
 
 #pragma once
 
+#include <algorithm>
+#include <array>
 #include <atomic>
+#include <vector>
 
 #include "client/cpp/synnax.h"
 
@@ -270,12 +273,51 @@ public:
     }
 };
 
-/// @brief Returns the sample rate the captured frames' own index timestamps imply,
-/// the way the integration suite derives a running task's rate. Returns 0 when fewer
-/// than two samples were written.
-inline double measured_rate(
+/// @brief Rates a task rate test sweeps. 199 through 201 bracket the threshold where
+/// the loop timer stops sleeping between samples and spins instead.
+inline constexpr std::array<int, 9> RATE_SWEEP =
+    {25, 50, 100, 150, 199, 200, 201, 250, 500};
+
+/// @brief How well a task held its rate, derived from the samples' own index
+/// timestamps.
+struct RateStats {
+    /// @brief Average rate across every sample.
+    double hz = 0;
+    /// @brief Samples written.
+    size_t samples = 0;
+    /// @brief 99th percentile deviation of one sample spacing from the ideal.
+    x::telem::TimeSpan p99_dev = x::telem::TimeSpan::ZERO();
+    /// @brief Worst deviation of one sample spacing from the ideal.
+    x::telem::TimeSpan max_dev = x::telem::TimeSpan::ZERO();
+};
+
+/// @brief Returns the rate and spacing quality a run of sample timestamps implies.
+/// Rate is 0 when fewer than two samples were taken.
+inline RateStats rate_stats(
+    const std::vector<x::telem::TimeStamp> &stamps,
+    const x::telem::TimeSpan period
+) {
+    if (stamps.size() < 2) return {};
+    std::vector<x::telem::TimeSpan> devs;
+    devs.reserve(stamps.size() - 1);
+    for (size_t i = 1; i < stamps.size(); i++)
+        devs.push_back(x::telem::TimeSpan(stamps[i] - stamps[i - 1]).delta(period));
+    std::sort(devs.begin(), devs.end());
+    const auto span = x::telem::TimeSpan(stamps.back() - stamps.front());
+    return {
+        .hz = static_cast<double>(stamps.size() - 1) / span.seconds(),
+        .samples = stamps.size(),
+        .p99_dev = devs[std::min(devs.size() - 1, devs.size() * 99 / 100)],
+        .max_dev = devs.back(),
+    };
+}
+
+/// @brief Returns the rate and spacing quality the captured frames' own index
+/// timestamps imply, the way the integration suite derives a running task's rate.
+inline RateStats measured_rate(
     const std::vector<x::telem::Frame> &writes,
-    const synnax::channel::Key index_key
+    const synnax::channel::Key index_key,
+    const x::telem::TimeSpan period
 ) {
     std::vector<x::telem::TimeStamp> stamps;
     for (const auto &fr: writes) {
@@ -285,9 +327,7 @@ inline double measured_rate(
                 fr.at<x::telem::TimeStamp>(index_key, static_cast<int>(i))
             );
     }
-    if (stamps.size() < 2) return 0;
-    const auto span = x::telem::TimeSpan(stamps.back() - stamps.front());
-    return static_cast<double>(stamps.size() - 1) / span.seconds();
+    return rate_stats(stamps, period);
 }
 
 // Mock implementation of pipeline::Sink for testing.

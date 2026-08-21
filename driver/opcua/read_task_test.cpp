@@ -24,16 +24,21 @@
 
 namespace driver::opcua {
 /// @brief Allowed relative error of a task's achieved sample rate.
-constexpr double RATE_TOLERANCE = 0.10;
+constexpr double RATE_TOLERANCE = 0.01;
 /// @brief Wall time each rate runs for.
 const auto RATE_SPAN = 1 * x::telem::SECOND;
 
-/// @brief Logs the rate a task held and checks it against the tolerance.
-void expect_rate(const double measured, const int rate_hz) {
-    const double error = (measured - rate_hz) / rate_hz * 100;
+/// @brief Logs the rate and sample spacing a task held and checks the rate against
+/// the tolerance.
+void expect_rate(const pipeline::mock::RateStats &stats, const int rate_hz) {
+    const double error = (stats.hz - rate_hz) / rate_hz * 100;
     std::cout << std::fixed << std::setprecision(1);
-    std::cout << rate_hz << " Hz: " << measured << " Hz measured (" << error << "%)\n";
-    EXPECT_NEAR(measured, rate_hz, rate_hz * RATE_TOLERANCE)
+    std::cout << rate_hz << " Hz: " << stats.hz << " Hz measured (" << error << "%), ";
+    std::cout << std::setprecision(3);
+    std::cout << "jitter p99 " << stats.p99_dev.milliseconds() << " ms max "
+              << stats.max_dev.milliseconds() << " ms, " << stats.samples
+              << " samples\n";
+    EXPECT_NEAR(stats.hz, rate_hz, rate_hz * RATE_TOLERANCE)
         << "at " << rate_hz << " Hz";
 }
 
@@ -1219,7 +1224,7 @@ TEST(OPCReadTaskConfig, testOPCDriverSetsAutoCommitTrue) {
 
 /// @brief it should hold each configured sample rate over time.
 TEST_F(TestReadTask, testHoldsSampleRate) {
-    for (const int rate_hz: {25, 50, 100}) {
+    for (const int rate_hz: pipeline::mock::RATE_SWEEP) {
         this->task_cfg_json["sample_rate"] = rate_hz;
         this->task_cfg_json["stream_rate"] = rate_hz;
         this->mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
@@ -1233,7 +1238,8 @@ TEST_F(TestReadTask, testHoldsSampleRate) {
         expect_rate(
             pipeline::mock::measured_rate(
                 *this->mock_factory->writes,
-                this->index_channel.key
+                this->index_channel.key,
+                x::telem::Rate(rate_hz).period()
             ),
             rate_hz
         );

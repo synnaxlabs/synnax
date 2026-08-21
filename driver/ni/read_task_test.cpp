@@ -9,6 +9,9 @@
 
 #include <algorithm>
 #include <atomic>
+#include <iomanip>
+#include <iostream>
+#include <thread>
 #include <utility>
 
 #include "gtest/gtest.h"
@@ -24,6 +27,25 @@
 
 /// @brief it should correctly parse a basic analog read task.
 namespace driver::ni {
+/// @brief Allowed relative error of a measured sample rate.
+constexpr double RATE_TOLERANCE = 0.01;
+/// @brief Wall time each rate runs for.
+const auto RATE_SPAN = 1 * x::telem::SECOND;
+
+/// @brief Logs the rate and sample spacing a task held and checks the rate against
+/// the tolerance.
+void expect_rate(const pipeline::mock::RateStats &stats, const int rate_hz) {
+    const double error = (stats.hz - rate_hz) / rate_hz * 100;
+    std::cout << std::fixed << std::setprecision(1);
+    std::cout << rate_hz << " Hz: " << stats.hz << " Hz measured (" << error << "%), ";
+    std::cout << std::setprecision(3);
+    std::cout << "jitter p99 " << stats.p99_dev.milliseconds() << " ms max "
+              << stats.max_dev.milliseconds() << " ms, " << stats.samples
+              << " samples\n";
+    EXPECT_NEAR(stats.hz, rate_hz, rate_hz * RATE_TOLERANCE)
+        << "at " << rate_hz << " Hz";
+}
+
 x::json::json base_analog_config() {
     return {
         {"data_saving_disabled", true},
@@ -712,7 +734,9 @@ protected:
         .index = index_channel.key,
     };
 
-    void parse_config() {
+    static constexpr auto DEVICE_KEY = "130227d9-02aa-47e4-b370-0d590add1bc1";
+
+    void create_resources() {
         client = std::make_shared<synnax::Synnax>(new_test_client());
 
         ASSERT_NIL(client->channels.create(index_channel));
@@ -723,7 +747,7 @@ protected:
         auto rack = ASSERT_NIL_P(client->racks.create("digital_rack"));
 
         auto dev = synnax::device::Device{
-            .key = "130227d9-02aa-47e4-b370-0d590add1bc1",
+            .key = DEVICE_KEY,
             .rack = rack.key,
             .location = "dev1",
             .make = "ni",
@@ -737,12 +761,16 @@ protected:
             .name = "digital_task",
             .type = "ni_digital_read",
         };
+    }
+
+    void parse_config(const int rate_hz = 25) {
+        if (client == nullptr) create_resources();
 
         x::json::json j{
             {"data_saving_disabled", false},
-            {"sample_rate", 25},
-            {"stream_rate", 25},
-            {"device", dev.key},
+            {"sample_rate", rate_hz},
+            {"stream_rate", rate_hz},
+            {"device", DEVICE_KEY},
             {"channels",
              x::json::json::array({{
                  {"key", "hCzuNC9glqc"},
@@ -854,6 +882,37 @@ TEST_F(DigitalReadTest, testNoSkewWarningsDuringNormalOperation) {
         }
     }
     rt->stop(false);
+}
+
+/// @brief it should hold each configured sample rate over time. Digital reads without
+/// a timing source are software timed, so this covers the loop timer through a task.
+TEST_F(DigitalReadTest, testHoldsSampleRate) {
+    for (const int rate_hz: pipeline::mock::RATE_SWEEP) {
+        parse_config(rate_hz);
+        auto rt = create_task(
+            std::make_unique<hardware::mock::Reader<uint8_t>>(
+                std::vector{x::errors::NIL},
+                std::vector{x::errors::NIL},
+                std::vector<hardware::mock::Reader<uint8_t>::ReadResponse>{
+                    {.data = {1}}
+                }
+            )
+        );
+
+        rt->start("start_cmd");
+        ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
+        std::this_thread::sleep_for(RATE_SPAN.chrono());
+        rt->stop("stop_cmd", true);
+
+        expect_rate(
+            pipeline::mock::measured_rate(
+                *mock_factory->writes,
+                index_channel.key,
+                x::telem::Rate(rate_hz).period()
+            ),
+            rate_hz
+        );
+    }
 }
 
 /// @brief Verify device locations are extracted from channels after configuration

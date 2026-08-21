@@ -9,13 +9,20 @@
 
 #define _USE_MATH_DEFINES
 #include <cmath>
+#include <iomanip>
+#include <iostream>
 #include <random>
+#include <vector>
 
 #include "gtest/gtest.h"
 
 #include "driver/common/sample_clock.h"
+#include "driver/pipeline/mock/pipeline.h"
 
 namespace driver::common {
+/// @brief Allowed relative error of a measured rate.
+constexpr double RATE_TOLERANCE = 0.01;
+
 /// @brief it should correctly use the system clock to time samples.
 TEST(TestSampleClock, testSoftwareTimedSampleClock) {
     auto clock = SoftwareTimedSampleClock(x::telem::HERTZ * 250);
@@ -26,6 +33,31 @@ TEST(TestSampleClock, testSoftwareTimedSampleClock) {
     now = x::telem::TimeStamp::now();
     const auto end = clock.end();
     ASSERT_GE(end, now);
+}
+
+/// @brief it should hold each configured rate over time. Every software timed task
+/// shares this clock, and the timestamps it returns are the ones they write.
+TEST(TestSampleClock, testSoftwareTimedSampleClockHoldsRate) {
+    for (const int rate_hz: pipeline::mock::RATE_SWEEP) {
+        auto clock = SoftwareTimedSampleClock(x::telem::Rate(rate_hz));
+        x::breaker::Breaker b;
+        std::vector<x::telem::TimeStamp> stamps;
+        stamps.reserve(rate_hz);
+        for (int i = 0; i < rate_hz; i++)
+            stamps.push_back(clock.wait(b));
+        const auto stats = pipeline::mock::rate_stats(
+            stamps,
+            x::telem::Rate(rate_hz).period()
+        );
+        std::cout << std::fixed << std::setprecision(1);
+        std::cout << rate_hz << " Hz: " << stats.hz << " Hz measured ("
+                  << (stats.hz - rate_hz) / rate_hz * 100 << "%), ";
+        std::cout << std::setprecision(3);
+        std::cout << "jitter p99 " << stats.p99_dev.milliseconds() << " ms max "
+                  << stats.max_dev.milliseconds() << " ms\n";
+        EXPECT_NEAR(stats.hz, rate_hz, rate_hz * RATE_TOLERANCE)
+            << "at " << rate_hz << " Hz";
+    }
 }
 
 /// @brief it should correctly rely on steady sample spacing to time samples.

@@ -7,8 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <iomanip>
 #include <iostream>
+#include <thread>
+#include <vector>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -21,7 +24,7 @@
 
 namespace x::loop {
 /// @brief Allowed relative error of a measured rate.
-constexpr double RATE_TOLERANCE = 0.05;
+constexpr double RATE_TOLERANCE = 0.01;
 /// @brief Wall time each rate is measured over.
 constexpr int SPAN_SECONDS = 1;
 
@@ -52,25 +55,59 @@ void log_timer_resolution() {
 #endif
 }
 
-/// @brief Calls wait count times and returns the rate measured from the first return
-/// to the last, the same way the integration tests measure a task's sample rate.
+/// @brief Stats from one rate sweep.
+struct RateStats {
+    /// @brief Average rate from the first return to the last.
+    double hz;
+    /// @brief Waits that returned late.
+    int overruns;
+    /// @brief 99th percentile deviation of a period from the ideal.
+    telem::TimeSpan p99_dev;
+    /// @brief Worst deviation of a period from the ideal.
+    telem::TimeSpan max_dev;
+};
+
+/// @brief Calls wait count times and measures the rate the same way the integration
+/// tests measure a task's sample rate, plus per-period jitter and overruns.
 template<typename Wait>
-double measure_rate(Wait &wait, const int count) {
+RateStats measure_rate(Wait &wait, const int count, const telem::TimeSpan period) {
+    std::vector<hs_clock::time_point> wakes;
+    wakes.reserve(count);
+    int overruns = 0;
     wait();
-    const auto first = hs_clock::now();
-    for (int i = 1; i < count; i++)
-        wait();
-    return (count - 1) / telem::TimeSpan(hs_clock::now() - first).seconds();
+    wakes.push_back(hs_clock::now());
+    for (int i = 1; i < count; i++) {
+        if (!wait().second) overruns++;
+        wakes.push_back(hs_clock::now());
+    }
+    std::vector<telem::TimeSpan> devs;
+    devs.reserve(count - 1);
+    for (size_t i = 1; i < wakes.size(); i++)
+        devs.push_back(telem::TimeSpan(wakes[i] - wakes[i - 1]).delta(period));
+    std::sort(devs.begin(), devs.end());
+    const auto span = telem::TimeSpan(wakes.back() - wakes.front());
+    return {
+        .hz = (count - 1) / span.seconds(),
+        .overruns = overruns,
+        .p99_dev = devs[std::min(devs.size() - 1, devs.size() * 99 / 100)],
+        .max_dev = devs.back(),
+    };
 }
 
-/// @brief Logs the rate wait holds at rate_hz and checks it against the tolerance.
+/// @brief Logs the rate, jitter, and overruns wait holds at rate_hz and checks the
+/// rate against the tolerance.
 template<typename Wait>
 void expect_rate(Wait wait, const int rate_hz) {
-    const double measured = measure_rate(wait, rate_hz * SPAN_SECONDS);
-    const double error = (measured - rate_hz) / rate_hz * 100;
+    const auto period = telem::Rate(rate_hz).period();
+    const auto stats = measure_rate(wait, rate_hz * SPAN_SECONDS, period);
+    const double error = (stats.hz - rate_hz) / rate_hz * 100;
     std::cout << std::fixed << std::setprecision(1);
-    std::cout << rate_hz << " Hz: " << measured << " Hz measured (" << error << "%)\n";
-    EXPECT_NEAR(measured, rate_hz, rate_hz * RATE_TOLERANCE)
+    std::cout << rate_hz << " Hz: " << stats.hz << " Hz measured (" << error << "%), ";
+    std::cout << std::setprecision(3);
+    std::cout << "jitter p99 " << stats.p99_dev.milliseconds() << " ms max "
+              << stats.max_dev.milliseconds() << " ms, overruns " << stats.overruns
+              << "\n";
+    EXPECT_NEAR(stats.hz, rate_hz, rate_hz * RATE_TOLERANCE)
         << "at " << rate_hz << " Hz";
 }
 
@@ -155,9 +192,9 @@ TEST(LoopTest, testWaitHoldsRate) {
     log_timer_resolution();
     // 199 through 201 bracket the 5 ms high_rate() threshold, where a late wake used
     // to cost 20% of the rate on one side and nothing on the other.
-    for (const int rate_hz: {50, 100, 199, 200, 201, 500, 1000}) {
+    for (const int rate_hz: {25, 50, 100, 150, 199, 200, 201, 250, 500, 1000}) {
         Timer timer{telem::Rate(rate_hz)};
-        expect_rate([&] { timer.wait(); }, rate_hz);
+        expect_rate([&] { return timer.wait(); }, rate_hz);
     }
 }
 
@@ -168,9 +205,37 @@ TEST(LoopTest, testWaitBreakerHoldsRate) {
     brk.start();
     for (const int rate_hz: {5, 10, 20, 50}) {
         Timer timer{telem::Rate(rate_hz)};
-        expect_rate([&] { timer.wait(brk); }, rate_hz);
+        expect_rate([&] { return timer.wait(brk); }, rate_hz);
     }
     brk.stop();
+}
+
+/// @brief it should land a single wait closer to its deadline than the threshold
+/// that selects the sleep path. The anchor corrects the average, not one wake, so
+/// each wait gets a fresh timer.
+TEST(LoopTest, testWaitOvershoot) {
+    log_timer_resolution();
+    std::cout << std::fixed << std::setprecision(3);
+    for (const int ms: {5, 10, 15}) {
+        const auto period = telem::MILLISECOND * ms;
+        auto min_dev = telem::TimeSpan::max();
+        auto max_dev = telem::TimeSpan::ZERO();
+        auto total = telem::TimeSpan::ZERO();
+        constexpr int reps = 20;
+        for (int i = 0; i < reps; i++) {
+            Timer timer{period};
+            const auto start = hs_clock::now();
+            timer.wait();
+            const auto dev = telem::TimeSpan(hs_clock::now() - start).delta(period);
+            min_dev = std::min(min_dev, dev);
+            max_dev = std::max(max_dev, dev);
+            total += dev;
+        }
+        std::cout << ms << " ms period: min " << min_dev.milliseconds()
+                  << " ms off, mean " << (total / reps).milliseconds()
+                  << " ms off, max " << max_dev.milliseconds() << " ms off\n";
+        EXPECT_LT(max_dev, HIGH_RES_THRESHOLD) << "at a " << ms << " ms period";
+    }
 }
 
 /// @brief it should not stretch the next wait after the breaker interrupts a sleep.
