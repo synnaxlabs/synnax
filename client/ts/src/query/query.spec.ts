@@ -891,7 +891,8 @@ describe("Answers", () => {
       const pending = answers.retrieve({ min: 3 });
       table.set("a", rec("a", 5));
       release([]);
-      await pending;
+      // A caller that writes the awaited answer back loses the record.
+      expect(await pending).toEqual([rec("a", 5)]);
       expect(answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
       // patching the answer without announcing it leaves subscribers blind
       expect(handler).toHaveBeenLastCalledWith([rec("a", 5)]);
@@ -909,7 +910,7 @@ describe("Answers", () => {
       const pending = answers.retrieve({ min: 3 });
       table.set("a", rec("a", 1));
       release(["a"]);
-      await pending;
+      expect(await pending).toEqual([]);
       expect(answers.getCached({ min: 3 })).toEqual([]);
     });
 
