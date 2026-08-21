@@ -29,14 +29,14 @@ var _ = Describe("Pool", func() {
 			Expect(conn.CanonicalTarget()).To(Equal("passthrough:///localhost:12345"))
 		})
 
-		It("Should prepend the target prefix to the address", func() {
+		It("Should lead the prefixed address with the scheme", func() {
 			pool := DeferClose(fgrpc.OpenPool(
-				"unix",
+				"scoped",
 				grpc.WithTransportCredentials(insecure.NewCredentials()),
 			))
-			conn := MustSucceed(pool.Acquire("run/synnax.sock"))
+			conn := MustSucceed(pool.Acquire("localhost:12345"))
 			Expect(conn.CanonicalTarget()).To(
-				Equal("passthrough:///unix/run/synnax.sock"),
+				Equal("passthrough:///scoped/localhost:12345"),
 			)
 		})
 	})
