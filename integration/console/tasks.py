@@ -87,18 +87,12 @@ class TaskClient(ResourceClient):
         item = self.get_item(old_name)
         item.wait_for(state="visible", timeout=5000)
         item.click()
-        running = self._is_running(item)
         self.ctx_menu.action(item, "Rename")
         self.layout.page.locator("[contenteditable='true']").first.wait_for(
             state="visible", timeout=5000
         )
         self.layout.select_all_and_type(new_name)
         self.layout.press_enter()
-        if running:
-            # Renaming a running task asks for confirmation.
-            self.layout.page.get_by_role("button", name="Rename", exact=True).click(
-                timeout=5000
-            )
         self.get_item(new_name).wait_for(state="visible", timeout=5000)
 
     def delete(self, name: str) -> None:
@@ -251,7 +245,6 @@ class TaskClient(ResourceClient):
         action = "Enable data saving" if enable else "Disable data saving"
         opposite = "Disable data saving" if enable else "Enable data saving"
         self.show_toolbar()
-        self.layout.page.wait_for_timeout(300)
         item = self.get_item(name)
         item.wait_for(state="visible", timeout=5000)
         item.click()

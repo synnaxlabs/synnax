@@ -156,9 +156,6 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         self.log("Testing: Individual task stop/start")
         for name in TASK_NAMES:
             self.console.tasks.stop(name)
-
-        sy.sleep(0.1)
-
         for name in TASK_NAMES:
             self.console.tasks.start(name)
 
@@ -166,9 +163,6 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         # Set one task to stopped (1 stopped, 3 running)
         self.console.tasks.stop(TASK_NAMES[2])
         self.console.tasks.stop_many(TASK_NAMES)
-
-        sy.sleep(0.1)
-
         # Set one task to running (1 running, 3 stopped)
         self.console.tasks.start(TASK_NAMES[1])
         self.console.tasks.start_many(TASK_NAMES)
@@ -183,15 +177,10 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
             self.console.tasks.disable_data_saving(name)
         for name in read_names:
             self.assert_data_saving(name, False)
-
-        sy.sleep(0.1)
-
         for name in read_names:
             self.console.tasks.enable_data_saving(name)
         for name in read_names:
             self.assert_data_saving(name, True)
-
-        sy.sleep(0.1)
 
         self.log("Testing: Group data saving disable/enable")
 
@@ -200,9 +189,6 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         self.console.tasks.disable_data_saving_many(TASK_NAMES)
         for name in read_names:
             self.assert_data_saving(name, False)
-
-        sy.sleep(0.1)
-
         # Set one read task to data saving enabled (1 enabled, rest disabled)
         self.console.tasks.enable_data_saving(read_names[1])
         self.console.tasks.enable_data_saving_many(TASK_NAMES)
@@ -287,7 +273,6 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
             editable.wait_for(state="visible", timeout=3000)
             self.console.layout.select_all_and_type(new_name)
             self.console.layout.press_enter()
-            sy.sleep(0.5)
 
         self.log("Testing: Verify original channel names in channels toolbar")
         assert self.console.channels.wait_for_channels(original_names), (

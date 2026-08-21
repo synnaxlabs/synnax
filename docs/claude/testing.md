@@ -76,8 +76,9 @@ helpers), `case.py` (base `ConsoleCase` with Playwright setup).
 ### Environment dependencies
 
 - Console tests: only the Synnax server (most tests).
-- Driver tests: hardware simulators (OPC UA, Modbus, ...). Task lifecycle and the
-  OPC UA task tests need `OPCUASim`; the Modbus task tests need `ModbusSim`.
+- Driver tests: hardware simulators (OPC UA, Modbus, ...). The Console OPC UA and Modbus
+  task tests run from `driver_tests.json` to balance job time; they and task lifecycle
+  need `OPCUASim` or `ModbusSim`.
 - NI form tests may fail with notification overlays when no driver is connected.
 
 ### Debugging failures
