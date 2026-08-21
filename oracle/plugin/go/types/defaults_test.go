@@ -847,3 +847,117 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 		)
 	})
 })
+
+var _ = Describe("Default group generation", func() {
+	var (
+		loader   *MockFileLoader
+		goPlugin *types.Plugin
+	)
+	BeforeEach(func() {
+		loader = NewMockFileLoader()
+		goPlugin = types.New(types.DefaultOptions())
+	})
+
+	It("Should guard a group's fill on every member being zero", func(ctx SpecContext) {
+		source := `
+			@go output "core/pkg/service/x"
+
+			MinMaxVal struct {
+				min_val float64 = 0 { @default group "range" }
+				max_val float64 = 1 { @default group "range" }
+			}
+		`
+		resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+		ExpectContent(resp, "types.gen.go").ToContain(
+			"func (m *MinMaxVal) ApplyDefaults() {",
+			"if m.MinVal == 0 && m.MaxVal == 0 {",
+			"m.MaxVal = 1",
+		)
+	})
+
+	It("Should emit one guard per group", func(ctx SpecContext) {
+		source := `
+			@go output "core/pkg/service/x"
+
+			TwoPointLin struct {
+				first_electrical  float64 = 0 { @default group "electrical" }
+				second_electrical float64 = 1 { @default group "electrical" }
+				first_physical    float64 = 0 { @default group "physical" }
+				second_physical   float64 = 2 { @default group "physical" }
+			}
+		`
+		resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+		ExpectContent(resp, "types.gen.go").ToContain(
+			"if t.FirstElectrical == 0 && t.SecondElectrical == 0 {",
+			"t.SecondElectrical = 1",
+			"if t.FirstPhysical == 0 && t.SecondPhysical == 0 {",
+			"t.SecondPhysical = 2",
+		)
+	})
+
+	It(
+		"Should leave an ungrouped field on the struct filling independently",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Cfg struct {
+				min_val float64 = 0 { @default group "range" }
+				max_val float64 = 1 { @default group "range" }
+				label   string  = "signal"
+			}
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				`if c.Label == "" {`,
+				"if c.MinVal == 0 && c.MaxVal == 0 {",
+			)
+		},
+	)
+
+	It("Should group inline union variant fields", func(ctx SpecContext) {
+		source := `
+			@go output "core/pkg/service/x"
+
+			Units enum {
+				volts = "Volts"
+				amps  = "Amps"
+			}
+
+			Scale union on type {
+				map {
+					pre_scaled_min float64 = 0 { @default group "pre_scaled" }
+					pre_scaled_max float64 = 1 { @default group "pre_scaled" }
+					scaled_min     float64 = 0 { @default group "scaled" }
+					scaled_max     float64 = 1 { @default group "scaled" }
+					units          Units   = volts
+				}
+			}
+		`
+		resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+		ExpectContent(resp, "types.gen.go").ToContain(
+			"func (m *MapScale) ApplyDefaults() {",
+			"m.Units = UnitsVolts",
+			"if m.PreScaledMin == 0 && m.PreScaledMax == 0 {",
+			"m.PreScaledMax = 1",
+			"if m.ScaledMin == 0 && m.ScaledMax == 0 {",
+			"m.ScaledMax = 1",
+		)
+	})
+
+	It(
+		"Should omit a group whose members all default to zero",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Cfg struct {
+				lower float64 = 0 { @default group "range" }
+				upper float64 = 0 { @default group "range" }
+			}
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToNotContain("ApplyDefaults")
+		},
+	)
+})

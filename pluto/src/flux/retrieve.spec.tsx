@@ -30,7 +30,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { assert, describe, expect, it, vi } from "vitest";
+import { assert, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { aetherTest } from "@/aether/test";
 import { Errors } from "@/errors";
@@ -43,6 +43,13 @@ import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
 const Wrapper = createSynnaxWrapper({ client });
+
+// The client brings its change stream up in the background, and the connection epoch
+// advance that lands with it discards every settled failure a test is holding. Let the
+// advance land before the first test rather than under one.
+beforeAll(async () => {
+  await waitFor(() => expect(client.connection.status.details.epoch).toBe(1));
+});
 
 /** Mounts the real provider against a live cluster reached through `port`. */
 const createLiveWrapper = (port: number): FC<PropsWithChildren> => {

@@ -62,7 +62,7 @@ var _ = Describe("ImEx", func() {
 						{Channel: channel.Key(1), Color: color.MustFromHex("#ff0000")},
 					},
 					TimestampPrecision: 2,
-					HideChannelNames:   true,
+					ChannelNamesHidden: true,
 				})
 				env := MustSucceed(imexSvc.Export(ctx, l.OntologyID()))
 				Expect(env.Version).To(Equal(versions.Latest))
@@ -72,7 +72,7 @@ var _ = Describe("ImEx", func() {
 				decoded := MustSucceed(imex.Decode[log.Log](ctx, WireRoundTrip(env)))
 				Expect(decoded.Name).To(Equal("exported"))
 				Expect(decoded.TimestampPrecision).To(Equal(int32(2)))
-				Expect(decoded.HideChannelNames).To(BeTrue())
+				Expect(decoded.ChannelNamesHidden).To(BeTrue())
 				Expect(decoded.Channels).To(HaveLen(1))
 				Expect(decoded.Channels[0].Channel).To(Equal(channel.Key(1)))
 			},
@@ -176,8 +176,8 @@ var _ = Describe("ImEx", func() {
 				_, res := importAndRetrieve(ctx, v1Fixture)
 				Expect(res.Name).To(Equal("Test Log V1"))
 				Expect(res.TimestampPrecision).To(Equal(int32(1)))
-				Expect(res.HideChannelNames).To(BeFalse())
-				Expect(res.HideReceiptTimestamp).To(BeTrue())
+				Expect(res.ChannelNamesHidden).To(BeFalse())
+				Expect(res.ReceiptTimestampHidden).To(BeTrue())
 				Expect(res.Channels).To(HaveLen(2))
 				Expect(res.Channels[0].Channel).To(Equal(channel.Key(1)))
 				Expect(res.Channels[0].Color).To(Equal(color.MustFromHex("#ff0000")))
@@ -194,7 +194,7 @@ var _ = Describe("ImEx", func() {
 				_, res := importAndRetrieve(ctx, v2Fixture)
 				Expect(res.Name).To(Equal("Test Log V2"))
 				Expect(res.TimestampPrecision).To(Equal(int32(1)))
-				Expect(res.HideChannelNames).To(BeFalse())
+				Expect(res.ChannelNamesHidden).To(BeFalse())
 				Expect(res.Channels).To(HaveLen(2))
 				Expect(res.Channels[0].Channel).To(Equal(channel.Key(1)))
 				Expect(res.Channels[0].Color).To(Equal(color.MustFromHex("#7f1d1d")))
@@ -341,8 +341,8 @@ var _ = Describe("ImEx", func() {
 						{Channel: channel.Key(1), Alias: "first", Precision: 4},
 						{Channel: channel.Key(2), Alias: "second"},
 					},
-					TimestampPrecision:   1,
-					HideReceiptTimestamp: true,
+					TimestampPrecision:     1,
+					ReceiptTimestampHidden: true,
 				})
 				env := MustSucceed(imexSvc.Export(ctx, original.OntologyID()))
 				id := MustSucceed(

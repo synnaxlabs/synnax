@@ -10,10 +10,13 @@
 package arc_test
 
 import (
+	"encoding/json"
+
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/ir"
+	text "github.com/synnaxlabs/arc/text/versions/v1"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions"
@@ -53,6 +56,26 @@ var _ = Describe("ImEx", func() {
 			Expect(decoded.Name).To(Equal("exported"))
 			Expect(decoded.Mode).To(Equal(arc.ModeText))
 		})
+
+		It("Should carry the source text rather than its operation log",
+			func(ctx SpecContext) {
+				a := arc.Arc{
+					Name: "sourced",
+					Mode: arc.ModeText,
+					Text: text.Text{Raw: "x := 1"},
+				}
+				Expect(svc.NewWriter(nil).Create(ctx, &a)).To(Succeed())
+				env := MustSucceed(svc.Export(ctx, arc.OntologyID(a.Key)))
+				var body map[string]any
+				Expect(json.Unmarshal(MustSucceed(json.Marshal(env)), &body)).
+					To(Succeed())
+				Expect(body["text"]).To(Equal(map[string]any{"raw": "x := 1"}))
+				Expect(body).To(SatisfyAll(
+					Not(HaveKey("program")),
+					Not(HaveKey("status")),
+				))
+			},
+		)
 
 		It("Should return not found for a missing key", func(ctx SpecContext) {
 			id := ontology.ID{Type: ontology.ResourceTypeArc, Key: uuid.NewString()}

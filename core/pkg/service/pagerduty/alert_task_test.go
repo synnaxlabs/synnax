@@ -262,12 +262,12 @@ var _ = Describe("AlertTask", func() {
 	})
 
 	Describe("Severity Mapping", func() {
-		It("Should map error to critical when TreatErrorAsCritical is true",
+		It("Should map error to critical when ErrorsCritical is true",
 			func(ctx context.Context) {
 				tsk := configureAndStart(ctx, validConfig(
 					pd.Alert{
-						Status:               "critical-error",
-						TreatErrorAsCritical: true,
+						Status:         "critical-error",
+						ErrorsCritical: true,
 					},
 				))
 				defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()
@@ -283,12 +283,12 @@ var _ = Describe("AlertTask", func() {
 			},
 		)
 
-		It("Should map error to error when TreatErrorAsCritical is false",
+		It("Should map error to error when ErrorsCritical is false",
 			func(ctx context.Context) {
 				tsk := configureAndStart(ctx, validConfig(
 					pd.Alert{
-						Status:               "normal-error",
-						TreatErrorAsCritical: false,
+						Status:         "normal-error",
+						ErrorsCritical: false,
 					},
 				))
 				defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()

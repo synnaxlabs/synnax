@@ -20,3 +20,9 @@ var Migrations = []migrate.Migration{v0.Migration}
 // CompositionMigrations is the ordered set of migrations the service layer runs after
 // every service table is open, concatenating each version's contribution.
 var CompositionMigrations = v0.CompositionMigrations
+
+// Latest is the portable schema version stamped on a panel bundle member and the
+// highest version an import accepts. It tracks the stored schema version, which the
+// bundle body mirrors: the same tree, with each resource reference rewritten to a
+// bundle path.
+const Latest = v0.Version

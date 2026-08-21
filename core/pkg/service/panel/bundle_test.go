@@ -19,6 +19,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
+	"github.com/synnaxlabs/synnax/pkg/service/panel/versions"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -45,13 +46,15 @@ var _ = Describe("EncodeBundle", func() {
 	It("Should stamp the panel envelope headers", func() {
 		p := panel.Panel{Name: "Controls", Root: leafNode()}
 		env := MustSucceed(panel.EncodeBundle(p, nil))
-		Expect(env.Version).To(Equal(imex.Version(0)))
+		Expect(env.Version).To(Equal(versions.Latest))
 		Expect(env.Type).To(Equal("panel"))
 		Expect(env.Name).To(Equal("Controls"))
 		body := encodedBody(env)
 		Expect(body).To(HaveKeyWithValue("type", "panel"))
 		Expect(body).To(HaveKeyWithValue("name", "Controls"))
-		Expect(body).To(HaveKeyWithValue("version", BeNumerically("==", 0)))
+		Expect(body).To(HaveKeyWithValue(
+			"version", BeNumerically("==", versions.Latest),
+		))
 	})
 
 	It("Should rewrite resource references to bundle paths", func() {
@@ -220,6 +223,21 @@ var _ = Describe("DecodeBundle", func() {
 		))
 	})
 
+	It("Should reject a version newer than the panel schema", func(
+		ctx SpecContext,
+	) {
+		env := imex.Envelope{
+			Version: versions.Latest + 1, Type: "panel", Name: "Controls",
+		}
+		Expect(imex.Encode(&env, map[string]any{
+			"root": map[string]any{"variant": "leaf", "tabs": []any{}},
+		})).To(Succeed())
+		Expect(panel.DecodeBundle(ctx, WireRoundTrip(env), nil)).Error().To(SatisfyAll(
+			MatchError(ContainSubstring("panel version 1")),
+			MatchError(ContainSubstring("newer than this Core supports")),
+		))
+	})
+
 	It("Should reject a resource tab without a path", func(ctx SpecContext) {
 		env := imex.Envelope{Version: 0, Type: "panel", Name: "Controls"}
 		Expect(imex.Encode(&env, map[string]any{
@@ -239,7 +257,7 @@ var _ = Describe("DecodeBundle", func() {
 	})
 })
 
-var _ = Describe("TaskRefs", func() {
+var _ = Describe("ResourceRefs", func() {
 	taskID := func() ontology.ID {
 		return ontology.ID{Type: ontology.ResourceTypeTask, Key: uuid.NewString()}
 	}
@@ -250,18 +268,18 @@ var _ = Describe("TaskRefs", func() {
 		}}
 	}
 
-	It("Should collect every task the tree's resource tabs reference", func() {
-		first, second := taskID(), taskID()
+	It("Should collect every resource the tree's resource tabs reference", func() {
+		task, plot := taskID(), uuid.New()
 		root := splitNode(
 			spatial.DirectionX,
 			0.5,
-			leafNode(taskTab(first), tab(uuid.New())),
-			leafNode(taskTab(second), viewTab(uuid.New(), "docs")),
+			leafNode(taskTab(task), tab(plot)),
+			leafNode(viewTab(uuid.New(), "docs")),
 		)
-		Expect(panel.TaskRefs(root)).To(ConsistOf(first, second))
+		Expect(panel.ResourceRefs(root)).To(ConsistOf(task, tabResource(plot)))
 	})
 
-	It("Should return a task referenced by two tabs once", func() {
+	It("Should return a resource referenced by two tabs once", func() {
 		id := taskID()
 		root := splitNode(
 			spatial.DirectionX,
@@ -269,11 +287,11 @@ var _ = Describe("TaskRefs", func() {
 			leafNode(taskTab(id)),
 			leafNode(taskTab(id)),
 		)
-		Expect(panel.TaskRefs(root)).To(ConsistOf(id))
+		Expect(panel.ResourceRefs(root)).To(ConsistOf(id))
 	})
 
-	It("Should return nothing for a tree without task tabs", func() {
-		Expect(panel.TaskRefs(leafNode(tab(uuid.New())))).To(BeEmpty())
+	It("Should return nothing for a tree of view tabs", func() {
+		Expect(panel.ResourceRefs(leafNode(viewTab(uuid.New(), "docs")))).To(BeEmpty())
 	})
 })
 

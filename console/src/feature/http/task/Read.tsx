@@ -90,7 +90,7 @@ const ReadEndpointListItem = (props: List.ItemProps<string>) => {
 
 const readEndpointListItem = Component.renderProp(ReadEndpointListItem);
 
-const isTimingField = (f: ReadField): boolean => f.timestampFormat != null;
+const isTimingField = (f: ReadField): boolean => f.timeFormat != null;
 
 interface FieldListItemProps extends Task.ChannelListItemProps {
   epKey: string;
@@ -170,7 +170,10 @@ const MethodSelect: FC<{ path: string; epPath: string }> = ({ path, epPath }) =>
   const handleChange = useCallback(
     (method: ReadMethod) => {
       set(path, method);
-      if (method === "POST") set(`${epPath}.body`, "");
+      // GET carries no request body. Clearing it here keeps a body typed under POST
+      // from staying in the saved config, where it would set a content type on a
+      // request that sends nothing.
+      if (method !== "POST") set(`${epPath}.body`, "");
     },
     [set, path, epPath],
   );
@@ -320,7 +323,7 @@ const TimingToggle: FC<{ path: string }> = ({ path }) => {
         const indexF: ReadField = {
           ...http.readFieldZ.parse({}),
           key: id.create(),
-          timestampFormat: "unix_sec",
+          timeFormat: "unix_sec",
         };
         set(`${path}.fields`, [...fields, indexF]);
         set(`${path}.index`, indexF.key);
@@ -356,7 +359,7 @@ const TimingToggle: FC<{ path: string }> = ({ path }) => {
             grow
           />
           <TimeFormatField
-            path={`${path}.fields.${indexField.key}.timestampFormat`}
+            path={`${path}.fields.${indexField.key}.timeFormat`}
             label="Format"
           />
         </>

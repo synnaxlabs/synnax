@@ -7,7 +7,7 @@
       "group": "fixture-group-fluids",
       "key": "alert-overpressure",
       "status": "fixture_status_channel_a",
-      "treat_error_as_critical": true
+      "errors_critical": true
     },
     {
       "class": "fixture-class-leak",
@@ -16,7 +16,7 @@
       "group": "fixture-group-pneumatics",
       "key": "alert-secondary",
       "status": "fixture_status_channel_b",
-      "treat_error_as_critical": true
+      "errors_critical": true
     }
   ],
   "auto_start": true,

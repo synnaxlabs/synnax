@@ -421,8 +421,14 @@ func extractLive(source string) (*liveContent, error) {
 		lc.extras[name] = ex
 		addType := func(line string) { ex.typeLines = append(ex.typeLines, line) }
 
-		collectField := func(fd parser.IFieldDefContext, into *declExtras) {
-			fieldName := fd.IDENT().GetText()
+		// collectField records a field's live-only domain lines under keyPrefix +
+		// field name, the same key renderField looks them up by.
+		collectField := func(
+			fd parser.IFieldDefContext,
+			into *declExtras,
+			keyPrefix string,
+		) {
+			fieldName := keyPrefix + fd.IDENT().GetText()
 			add := func(line string) {
 				into.fieldLines[fieldName] = append(
 					into.fieldLines[fieldName], line,
@@ -447,7 +453,7 @@ func extractLive(source string) (*liveContent, error) {
 					break
 				}
 				for _, fd := range body.AllFieldDef() {
-					collectField(fd, ex)
+					collectField(fd, ex, "")
 				}
 				for _, d := range body.AllDomain() {
 					liveOwned(d, addType)
@@ -493,6 +499,16 @@ func extractLive(source string) (*liveContent, error) {
 			if body := def.UnionDef().UnionBody(); body != nil {
 				for _, d := range body.AllDomain() {
 					liveOwned(d, addType)
+				}
+				for _, v := range body.AllUnionVariant() {
+					iv, ok := v.(*parser.InlineVariantContext)
+					if !ok || iv.StructBody() == nil {
+						continue
+					}
+					prefix := iv.VariantName().GetText() + "."
+					for _, fd := range iv.StructBody().AllFieldDef() {
+						collectField(fd, ex, prefix)
+					}
 				}
 			}
 		}

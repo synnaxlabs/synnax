@@ -36,8 +36,8 @@ export const logStateZ = log.logZ
   .pick({
     channels: true,
     timestampPrecision: true,
-    hideChannelNames: true,
-    hideReceiptTimestamp: true,
+    channelNamesHidden: true,
+    receiptTimestampHidden: true,
   })
   .extend({
     region: box.box,
@@ -415,7 +415,7 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     });
   }
 
-  // hideChannelNames is read from state (O(1)) rather than derived by scanning all
+  // channelNamesHidden is read from state (O(1)) rather than derived by scanning all
   // entries (O(n)). The render loop below is already O(n) over visible entries — adding
   // a second O(n) scan here just to answer a yes/no question would double the per-frame
   // work at up to 60fps.
@@ -425,11 +425,11 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     line: string;
     channelKey: string;
   } {
-    const { hideChannelNames, hideReceiptTimestamp, channelDataTypes } = this.state;
+    const { channelNamesHidden, receiptTimestampHidden, channelDataTypes } = this.state;
     const { tsLen, configs } = this.internal;
     const chKeyStr = String(entry.channelKey);
     const cfg = configs[chKeyStr];
-    const ts = !hideReceiptTimestamp
+    const ts = !receiptTimestampHidden
       ? new TimeStamp(entry.timestamp).toString("preciseTime", "local").slice(0, tsLen)
       : "";
     let value = entry.value;
@@ -452,9 +452,10 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     const name = displayNames[chKeyStr] ?? chKeyStr;
     const pad = namePadding[chKeyStr] ?? "";
     let prefix: string;
-    if (!hideReceiptTimestamp && !hideChannelNames) prefix = `${ts} [${name}]${pad}  `;
-    else if (!hideReceiptTimestamp) prefix = `${ts}  `;
-    else if (!hideChannelNames) prefix = `[${name}]${pad}  `;
+    if (!receiptTimestampHidden && !channelNamesHidden)
+      prefix = `${ts} [${name}]${pad}  `;
+    else if (!receiptTimestampHidden) prefix = `${ts}  `;
+    else if (!channelNamesHidden) prefix = `[${name}]${pad}  `;
     else prefix = "";
     // Continuation lines (\n) keep the prefix's alignment width as whitespace.
     if (entry.continuation) prefix = " ".repeat(prefix.length);

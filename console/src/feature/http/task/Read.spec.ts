@@ -160,7 +160,7 @@ describe("HTTP Read form", () => {
           fields: [
             createReadField("f1", "/temperature"),
             createReadField("f2", "/label", { dataType: "string" }),
-            createReadField("tf", "/ts", { timestampFormat: "unix_sec" }),
+            createReadField("tf", "/ts", { timeFormat: "unix_sec" }),
           ],
         },
       ]);
@@ -230,6 +230,45 @@ describe("HTTP Read form", () => {
         HTTP.Task.READ_SCHEMAS,
       );
       expect(created.config.endpoints[0].fields[0].channel).toBe(dataCh.key);
+    });
+
+    it("should drop a request body left over from POST when the method switches to GET", async () => {
+      const dev = await createHTTPDevice(client);
+      const config = createReadConfig(dev.key, [
+        {
+          ...http.readEndpointZ.parse({}),
+          key: "ep1",
+          path: "/switched",
+          method: "POST",
+          body: '{"query": "latest"}',
+          fields: [createReadField("f1", "/temperature")],
+        },
+        {
+          ...http.readEndpointZ.parse({}),
+          key: "ep2",
+          path: "/kept",
+          method: "POST",
+          body: '{"query": "kept"}',
+          fields: [createReadField("f2", "/pressure")],
+        },
+      ]);
+      const draft = await createDraft(client, config);
+      const { container } = await renderRead({ client, taskKey: draft.key });
+      fireEvent.click(await screen.findByText(/\/switched/));
+      await screen.findByDisplayValue('{"query": "latest"}');
+      fireEvent.click(screen.getByRole("button", { name: "GET" }));
+      await waitFor(() =>
+        expect(screen.queryByDisplayValue('{"query": "latest"}')).toBeNull(),
+      );
+      const created = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        HTTP.Task.READ_SCHEMAS,
+      );
+      const endpoints = created.config.endpoints;
+      expect(endpoints.find((e) => e.key === "ep1")?.body).toBe("");
+      expect(endpoints.find((e) => e.key === "ep2")?.body).toBe('{"query": "kept"}');
     });
 
     it("should recover the index from an existing data channel when the stored index is gone", async () => {

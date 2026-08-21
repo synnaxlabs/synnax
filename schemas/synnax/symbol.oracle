@@ -95,8 +95,8 @@ Spec struct {
     scale            float64 = 1 {
         @doc value "is the symbol scale factor."
     }
-    scale_stroke     bool = false {
-        @doc value "indicates whether stroke width scales with the symbol size."
+    stroke_scaled    bool = false {
+        @doc value "is true when stroke width scales with the symbol size."
     }
     preview_viewport spatial.Viewport? {
         @doc value "is an optional viewport configuration for symbol preview rendering."

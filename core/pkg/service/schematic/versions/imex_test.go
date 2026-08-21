@@ -77,6 +77,70 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(config(sch, "n1")).To(HaveKeyWithValue("color", "#ff0000"))
 	})
 
+	// The fixtures below are schematics a shipped Console exported.
+	DescribeTable("Should lift a typed Console export through the legacy chain",
+		func(ctx SpecContext, path string, nodes int) {
+			s := decode(ctx, path)
+			Expect(s.Nodes).To(HaveLen(nodes))
+			Expect(s.Snapshot).To(BeFalse())
+			// The Console's per-node render state — id, type, selected, measured — does
+			// not survive: a stored node keeps only key, position, and z-index.
+			for _, n := range s.Nodes {
+				Expect(n.Key).ToNot(BeEmpty())
+			}
+		},
+		Entry("version 3", "testdata/import_console_v3_typed.json", 3),
+		Entry("version 4, which added authority",
+			"testdata/import_console_v4_typed.json", 0),
+		Entry("version 5, which added mode and toolbar",
+			"testdata/import_console_v5_typed.json", 2),
+	)
+
+	It("Should keep each node's element config keyed by node", func(
+		ctx SpecContext,
+	) {
+		s := decode(ctx, "testdata/import_console_v3_typed.json")
+		Expect(s.Configs).To(SatisfyAll(
+			HaveKey("fTQJC5PIv7u"),
+			HaveKey("0hBxSpgF0u6"),
+			HaveKey("KJl7SWknO4T"),
+		))
+	})
+
+	It("Should carry a node's position and stacking order", func(ctx SpecContext) {
+		s := decode(ctx, "testdata/import_console_v5_typed.json")
+		Expect(s.Nodes[0].Key).To(Equal("eoK9e4MhHgb"))
+		Expect(s.Nodes[0].Position.X).To(Equal(169.0))
+		Expect(s.Nodes[0].Position.Y).To(Equal(474.0))
+		Expect(s.Nodes[0].ZIndex).To(BeEquivalentTo(2))
+	})
+
+	// The Console wrote state versions 0 through 5. The fixtures below reproduce the
+	// two earliest, whose schemas came out of the Console source at the release that
+	// wrote them.
+	It("Should lift the earliest Console state", func(ctx SpecContext) {
+		s := decode(ctx, "testdata/import_v0_state.json")
+		Expect(s.Nodes).To(HaveLen(2))
+		Expect(s.Nodes[0].Key).To(Equal("n1"))
+		Expect(s.Nodes[0].Position.X).To(Equal(120.0))
+		Expect(s.Nodes[0].ZIndex).To(BeEquivalentTo(2))
+		Expect(s.Edges).To(HaveLen(1))
+		Expect(s.Edges[0].Source.Node).To(Equal("n1"))
+		Expect(s.Edges[0].Source.Param).To(Equal("outlet"))
+		Expect(s.Edges[0].Target.Param).To(Equal("inlet"))
+		Expect(s.Configs).To(HaveKey("n1"))
+		Expect(s.Snapshot).To(BeFalse())
+	})
+
+	It("Should lift the Console state that added a legend", func(ctx SpecContext) {
+		// A legend is Console render state, so it reaches no stored field; the rest of
+		// the document must survive the version bump untouched.
+		s := decode(ctx, "testdata/import_v1_state.json")
+		Expect(s.Nodes).To(HaveLen(2))
+		Expect(s.Edges).To(HaveLen(1))
+		Expect(s.Configs).To(SatisfyAll(HaveKey("n1"), HaveKey("n2")))
+	})
+
 	It("Should drop the key on the wire", func(ctx SpecContext) {
 		Expect(decode(ctx, "testdata/import_v7.json").Key).To(Equal(uuid.Nil))
 	})

@@ -49,7 +49,7 @@ var _ = Describe("Codec", func() {
 				ExecutionMode: v3.ExecutionMode("AUTO"),
 				RtPriority:    8,
 				CPUAffinity:   9,
-				LockMemory:    true,
+				MemoryLocked:  true,
 			}),
 			Entry("zero values", v3.Config{
 				PersistConfig: task.PersistConfig{
@@ -61,7 +61,7 @@ var _ = Describe("Codec", func() {
 				ExecutionMode: v3.ExecutionMode(""),
 				RtPriority:    0,
 				CPUAffinity:   0,
-				LockMemory:    false,
+				MemoryLocked:  false,
 			}),
 		)
 	})
@@ -81,7 +81,7 @@ func BenchmarkEncodeDecodeConfig(b *testing.B) {
 		ExecutionMode: v3.ExecutionMode("AUTO"),
 		RtPriority:    8,
 		CPUAffinity:   9,
-		LockMemory:    true,
+		MemoryLocked:  true,
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -113,7 +113,7 @@ func FuzzDecodeConfig(f *testing.F) {
 			ExecutionMode: v3.ExecutionMode("AUTO"),
 			RtPriority:    8,
 			CPUAffinity:   9,
-			LockMemory:    true,
+			MemoryLocked:  true,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -132,7 +132,7 @@ func FuzzDecodeConfig(f *testing.F) {
 			ExecutionMode: v3.ExecutionMode(""),
 			RtPriority:    0,
 			CPUAffinity:   0,
-			LockMemory:    false,
+			MemoryLocked:  false,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

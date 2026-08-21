@@ -176,7 +176,7 @@
       "terminal_z": "/Dev1/PFI10",
       "type": "ci_position_linear",
       "units": "Inches",
-      "z_index_enable": true,
+      "z_index_enabled": true,
       "z_index_phase": "ALowBHigh",
       "z_index_val": 0.5
     },
@@ -198,7 +198,7 @@
       "terminal_z": "/Dev1/PFI13",
       "type": "ci_position_angular",
       "units": "Radians",
-      "z_index_enable": true,
+      "z_index_enabled": true,
       "z_index_phase": "AHighBLow",
       "z_index_val": 1.5
     },
