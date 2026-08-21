@@ -187,24 +187,27 @@ Arc programs can declare variables and channel aliases inside sequences, stages,
 the top level. What a variable does follows from how you initialize it:
 
 ```arc
-// constant: a held value, reset when its scope is entered
-gain := 2 * 3
+stage setup {
+    // constant: a held value, reset when its scope is entered
+    gain := 2 * 3
 
-// stateful: keeps its value across entries into its scope
-count $= 0
+    // stateful: keeps its value across entries into its scope
+    count $= 0
 
-// reactive: recomputes whenever raw updates
-scaled := raw * 2
+    // reactive: recomputes whenever raw updates
+    scaled := raw * 2
 
-// channel alias: reads and writes pass through to the channel
-c := chan_long_name
+    // channel alias: reads and writes pass through to the channel
+    c := chan_long_name
+}
 ```
 
 A constant resets every time its scope is entered, which suits setup inside a stage. A
 stateful variable keeps its value across entries, which is what counters, accumulators,
-and edge detection need. A reactive variable recomputes on every new sample from the
-channels it reads. A channel alias gives a long channel name a short one. Reassigning
-the alias points it at a different channel.
+and edge detection need. Only a stage or a sequence can hold one, because a top-level
+variable never leaves its scope. A reactive variable recomputes on every new sample from
+the channels it reads. A channel alias gives a long channel name a short one.
+Reassigning the alias points it at a different channel.
 
 Variables work the same way on a Core and on a Driver.
 
@@ -224,27 +227,35 @@ marks its own runs while it executes:
 ```arc
 import ranges
 
-stage burn {
-    key $= ranges.create("Burn", "#3bc454")
-    burn_complete => next
+sequence burn {
+    range_key := ""
+
+    stage ignite {
+        range_key := ranges.create{name="Burn", color="#3bc454"}
+        burn_complete => next
+    }
+
+    stage done {
+        ranges.end{key=range_key}
+    }
 }
-ranges.end(key)
 ```
 
-`ranges.create` takes an optional color and an optional parent range, so a sequence can
-nest each phase under the run it belongs to. `ranges.end` closes an open range at the
-current time. Both work on a Core and on a Driver.
+`ranges.create` takes an optional parent range and an optional color, so a sequence can
+nest each phase under the run it belongs to. It outputs the key of the new range.
+`ranges.end` closes an open range at the current time. Both work on a Core and on a
+Driver.
 
 #### Explicit routing
 
-A routing table used to accept a bare target, as in `select{...} -> { false: next }`.
-That form looked like the routed value was passed into the entry. It was not. Every
-entry in a routing table is now a complete flow statement that names its own source:
+A routing table used to accept a bare target, as in `select{} -> { false: next }`. That
+form looked like the routed value was passed into the entry. It was not. Every entry in
+a routing table is now a complete flow statement that names its own source:
 
 ```arc
-select{high: pressure > 500, low: pressure < 100} -> {
-    high: true => vent
-    low: "low pressure" -> log
+pressure > 500.0 -> select{} -> {
+    true: true => vent,
+    false: "low pressure" -> log
 }
 ```
 
@@ -257,8 +268,7 @@ longer compile, so the error surfaces when you deploy, not while the program run
 Pressing enter after a comma inserts a new line instead of accepting a highlighted
 suggestion. The dot is now the only character that opens completions on its own, and
 `Ctrl + Space` still opens the full list anywhere. `f"` and backticks auto-close like
-ordinary quotes. Function calls accept named arguments in the parenthesis form, so
-`clamp(value=x, max=50.0)` binds the same way `filter{threshold=50.0}` does.
+ordinary quotes.
 
 The Arc editor's deploy controls now behave like a hardware task's, described below.
 
