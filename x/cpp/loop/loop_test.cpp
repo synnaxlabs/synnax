@@ -121,7 +121,7 @@ TEST(LoopTest, testWaitBreaker) {
 
 /// @brief it should hold each configured rate over time on the sleep path.
 TEST(LoopTest, testWaitHoldsRate) {
-    for (const int rate_hz: {50, 100, 150, 200, 500}) {
+    for (const int rate_hz: {50, 100, 150, 200, 250, 400, 450, 500, 550, 1000, 2000}) {
         Timer timer{telem::Rate(rate_hz)};
         expect_rate([&] { timer.wait(); }, rate_hz);
     }
