@@ -24,6 +24,17 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+// specTimeout bounds every spec in this file. Aspen retries pledges until its context
+// is cancelled, so a node that never joins would otherwise hang until the suite ends.
+const specTimeout = 30 * time.Second
+
+// fastPledgeConfig keeps the pledge retry interval flat. The default scale grows it by
+// 25% per failed pledge, so a node that loses early rounds under load waits minutes.
+var fastPledgeConfig = aspen.PropagationConfig{
+	PledgeRetryInterval: 10 * time.Millisecond,
+	PledgeRetryScale:    1,
+}
+
 var _ = Describe("Membership", Serial, Ordered, func() {
 	Describe("Bootstrap Cluster", func() {
 		It("Should correctly bootstrap a cluster", func(ctx SpecContext) {
@@ -46,7 +57,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 			Expect(db.Cluster.Host().State).To(Equal(aspen.NodeStateHealthy))
 
 			Expect(db.Close()).To(Succeed())
-		})
+		}, SpecTimeout(specTimeout))
 
 		It(
 			"Should correctly bootstrap a cluster with peers provided",
@@ -65,6 +76,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 				By("Assigning a valid Name of 1")
 				Expect(db.Cluster.HostKey()).To(Equal(aspen.NodeKey(1)))
 			},
+			SpecTimeout(specTimeout),
 		)
 
 		It(
@@ -107,6 +119,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 				By("Safely closing the database")
 				Expect(db.Close()).To(Succeed())
 			},
+			SpecTimeout(specTimeout),
 		)
 	})
 
@@ -126,7 +139,10 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 					go func(i int) {
 						defer GinkgoRecover()
 						defer wg.Done()
-						opts := []aspen.Option{aspen.InMemory()}
+						opts := []aspen.Option{
+							aspen.InMemory(),
+							aspen.WithPropagationConfig(fastPledgeConfig),
+						}
 						if i == 0 {
 							opts = append(opts, aspen.Bootstrap())
 						}
@@ -151,6 +167,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 					Expect(db.Close()).To(Succeed())
 				}
 			},
+			SpecTimeout(specTimeout),
 		)
 	})
 
@@ -222,6 +239,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 						Expect(builder.Nodes[3].DB.Close()).To(Succeed())
 						Expect(db.Close()).To(Succeed())
 					},
+					SpecTimeout(specTimeout),
 				)
 			})
 		})
