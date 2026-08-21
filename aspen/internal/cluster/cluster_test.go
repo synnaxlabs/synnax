@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/node"
+	"github.com/synnaxlabs/freighter/mock"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
@@ -46,6 +47,48 @@ var _ = Describe("Cluster", func() {
 			Expect(builder.Close()).To(Succeed())
 			shutdown()
 			Expect(clusterCtx.Err()).To(MatchError(context.Canceled))
+		})
+	})
+
+	Describe("Open", func() {
+		// isolatedConfig puts both transports on their own in-memory networks, so the
+		// host has no reachable peer.
+		isolatedConfig := func() cluster.Config {
+			gossipNet := mock.NewNetwork[gossip.Message, gossip.Message]()
+			pledgeNet := mock.NewNetwork[pledge.Request, pledge.Response]()
+			gossipServer := gossipNet.UnaryServer("")
+			return cluster.Config{
+				HostAddress: gossipServer.Address,
+				Gossip: gossip.Config{
+					TransportClient: gossipNet.UnaryClient(),
+					TransportServer: gossipServer,
+				},
+				Pledge: pledge.Config{
+					TransportClient: pledgeNet.UnaryClient(),
+					TransportServer: pledgeNet.UnaryServer(gossipServer.Address),
+				},
+			}
+		}
+
+		It("Should return an error when the host cannot reach any peer", func(
+			ctx SpecContext,
+		) {
+			cfg := isolatedConfig()
+			cfg.Pledge.Peers = []address.Address{"unreachable"}
+			openCtx, cancel := context.WithTimeout(ctx, 20*time.Millisecond)
+			defer cancel()
+			Expect(cluster.Open(openCtx, cluster.FastConfig, cfg)).Error().
+				To(MatchError(context.DeadlineExceeded))
+		})
+
+		It("Should return an error when the pledge config is invalid", func(
+			ctx SpecContext,
+		) {
+			cfg := isolatedConfig()
+			cfg.Pledge.RetryScale = 0.5
+			Expect(cluster.Open(ctx, cluster.FastConfig, cfg)).Error().To(MatchError(
+				ContainSubstring("retry_scale: must be greater than or equal to 1"),
+			))
 		})
 	})
 
