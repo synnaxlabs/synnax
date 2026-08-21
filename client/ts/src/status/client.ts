@@ -39,6 +39,7 @@ const retrieveRequestZ = z.object({
   includeLabels: z.boolean().optional(),
   hasLabels: label.keyZ.array().optional(),
   variants: z.string().array().optional(),
+  ignoreNotFoundError: z.boolean().optional(),
 });
 const retrieveMultiParamsZ = retrieveRequestZ.or(query.keyListZ(keyZ));
 

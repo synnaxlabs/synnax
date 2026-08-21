@@ -60,7 +60,7 @@ export const use = <S, A extends Action>(
       handleError(async () => {
         for (const synchronizer of entriesRef.current)
           try {
-            await synchronizer.reconcile(params);
+            await synchronizer.reconcile?.(params);
           } catch (err) {
             console.error(`${synchronizer.name} reconcile failed`, err);
           }

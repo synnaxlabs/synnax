@@ -23,6 +23,7 @@ import (
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -161,6 +162,9 @@ type RetrieveRequest struct {
 	Offset int `json:"offset" msgpack:"offset"`
 	// IncludeLabels sets whether to fetch labels for the retrieved statuses.
 	IncludeLabels bool `json:"include_labels" msgpack:"include_labels"`
+	// IgnoreNotFoundError returns the statuses that do exist instead of an error when
+	// one or more of Keys names a status that does not.
+	IgnoreNotFoundError bool `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 }
 
 type RetrieveResponse struct {
@@ -193,7 +197,11 @@ func (s *Service) Retrieve(
 	if len(req.Keys) != 0 {
 		q = q.Where(status.MatchKeys[any](req.Keys...))
 	}
-	if err := q.Entries(&resStatuses).Exec(ctx, nil); err != nil {
+	err := q.Entries(&resStatuses).Exec(ctx, nil)
+	if req.IgnoreNotFoundError && err != nil {
+		err = errors.Skip(err, query.ErrNotFound)
+	}
+	if err != nil {
 		return RetrieveResponse{}, err
 	}
 	res := RetrieveResponse{Statuses: resStatuses}
