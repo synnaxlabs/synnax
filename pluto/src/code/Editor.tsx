@@ -167,10 +167,11 @@ const PLACEHOLDER_RANGE: Monaco.IRange = {
   endColumn: 1,
 };
 
-// showIfCollapsed is load-bearing: the range is empty, so monaco renders nothing
-// without it.
+// showIfCollapsed is load-bearing: the range is empty, so monaco renders nothing without
+// it. Injected text takes a cursor stop on both sides by default, letting a click park
+// the caret after the placeholder, so the placeholder takes neither stop.
 const renderPlaceholder =
-  (content: string): EditorExtension =>
+  (content: string, mon: Pick<typeof Monaco, "editor">): EditorExtension =>
   (editor) => {
     const model = editor.getModel();
     if (model == null) return { dispose: () => {} };
@@ -179,7 +180,11 @@ const renderPlaceholder =
       range: PLACEHOLDER_RANGE,
       options: {
         showIfCollapsed: true,
-        after: { content, inlineClassName: CSS.BE("editor", "placeholder") },
+        after: {
+          content,
+          inlineClassName: CSS.BE("editor", "placeholder"),
+          cursorStops: mon.editor.InjectedTextCursorStops.None,
+        },
       },
     };
     let shown = false;
@@ -403,7 +408,7 @@ const use = ({
 
     const builtins: EditorExtension[] = [];
     if (placeholderRef.current != null)
-      builtins.push(renderPlaceholder(placeholderRef.current));
+      builtins.push(renderPlaceholder(placeholderRef.current, monaco));
     if (autoFocusRef.current) builtins.push(focusNextFrame);
     const extensionDisposables = [...(resolvedExtensions ?? []), ...builtins].map(
       (ext) => ext(editor),
