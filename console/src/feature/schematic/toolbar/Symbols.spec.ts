@@ -283,8 +283,8 @@ describe("schematic/toolbar/Symbols permissions", () => {
     const { grp, symbols } = await createRemoteSymbolGroup([name]);
     await renderSymbolsToolbar(await createEditor());
     fireEvent.contextMenu(await screen.findByText(grp.name));
-    // Export is ungated, so its presence proves the menu resolved before the
-    // absences below are read.
+    // Export is ungated, so its presence proves the menu resolved before the absences
+    // below are read.
     expect(await screen.findByText("Export")).toBeTruthy();
     expect(screen.queryByText("Rename")).toBeNull();
     expect(countEditableText(List.itemNameID(grp.key))).toBe(0);

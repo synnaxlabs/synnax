@@ -164,8 +164,8 @@ describe("OPCUA.Write", () => {
       as: await createChannelReadOnlyClient(client),
     });
     fireEvent.contextMenu(await screen.findByText(new RegExp(ch.nodeName)));
-    // Remove is ungated, so its presence proves the menu resolved before the
-    // absence below is read.
+    // Remove is ungated, so its presence proves the menu resolved before the absence
+    // below is read.
     expect(await screen.findByText("Remove")).toBeTruthy();
     expect(screen.queryByText("Rename")).toBeNull();
   });

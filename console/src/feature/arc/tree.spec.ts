@@ -48,7 +48,7 @@ const createArcInGroup = async () => {
 
 describe("arc/ontology", () => {
   describe("onSelect", () => {
-    it("should open the arc as a tab when the row is double-clicked", async () => {
+    it("should open the Arc as a tab when the row is double-clicked", async () => {
       const { arc, root } = await createArcInGroup();
       const { store } = await renderOntologyTree({
         client,
@@ -63,7 +63,7 @@ describe("arc/ontology", () => {
   });
 
   describe("context menu", () => {
-    it("renames the arc in place without a confirmation prompt", async () => {
+    it("renames the Arc in place without a confirmation prompt", async () => {
       const { arc, root } = await createArcInGroup();
       await renderOntologyTree({ client, root, items: Arc.TREE_ITEMS });
       await openTreeRowContextMenu(arc.name);

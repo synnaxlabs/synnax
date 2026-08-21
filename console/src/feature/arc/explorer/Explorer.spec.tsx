@@ -38,7 +38,7 @@ const renderExplorer = async (as: Synnax = client) => {
 };
 
 describe("arc/Explorer", () => {
-  it("surfaces arcs matching the search term and hides the rest", async () => {
+  it("surfaces Arcs matching the search term and hides the rest", async () => {
     const a = await createArc();
     const b = await createArc();
     await renderExplorer();
@@ -48,7 +48,7 @@ describe("arc/Explorer", () => {
     expect(screen.queryByText(b.name)).toBeNull();
   });
 
-  it("renames an arc through the context menu inline editor", async () => {
+  it("renames an Arc through the context menu inline editor", async () => {
     const arc = await createArc();
     await renderExplorer();
     fireEvent.change(screen.getByRole("textbox"), { target: { value: arc.name } });
@@ -62,7 +62,7 @@ describe("arc/Explorer", () => {
     );
   });
 
-  it("renders the arc name as plain text for a subject who cannot update arcs", async () => {
+  it("renders the arc name as plain text for a subject who cannot update Arcs", async () => {
     const arc = await createArc();
     await renderExplorer(
       await createTestClientWithGrants(client, {
