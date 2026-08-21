@@ -28,6 +28,11 @@ const telem::TimeSpan MEDIUM_RES_THRESHOLD = telem::Rate(20).period();
 /// @brief Base resolution for sleep calibration.
 const telem::TimeSpan RESOLUTION = (100 * telem::MICROSECOND);
 
+/// @brief blocks the calling thread for at least dur, using the platform's
+/// finest-grained blocking wait.
+/// @param dur the duration to sleep for.
+void sleep_for(const telem::TimeSpan &dur);
+
 class Timer {
 public:
     Timer() = default;
@@ -59,7 +64,7 @@ public:
         if (this->high_rate())
             this->precise_sleep(remaining);
         else
-            std::this_thread::sleep_for(remaining.chrono());
+            sleep_for(remaining);
         // Anchor to the deadline so a late wake shortens the next sleep instead of
         // stretching every period. An early wake keeps the wake time.
         last = std::min(deadline, hs_clock::now());
@@ -78,7 +83,7 @@ public:
         if (this->high_rate())
             this->precise_sleep(remaining);
         else if (this->medium_rate())
-            std::this_thread::sleep_for(remaining.chrono());
+            sleep_for(remaining);
         else
             breaker.wait_for(remaining);
         last = std::min(deadline, hs_clock::now());
@@ -96,7 +101,7 @@ private:
         while (dur > sleep_estimate_) {
             auto start = hs_clock::now();
             if (start >= end) break;
-            std::this_thread::sleep_for(RESOLUTION.chrono());
+            sleep_for(RESOLUTION);
             const auto curr_end = hs_clock::now();
             const auto elapsed_ns = std::chrono::duration_cast<nanos>(curr_end - start)
                                         .count();

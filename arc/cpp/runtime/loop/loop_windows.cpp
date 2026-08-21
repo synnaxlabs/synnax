@@ -12,25 +12,14 @@
 #include "absl/log/log.h"
 #include <windows.h>
 
-// timeBeginPeriod/timeEndPeriod from winmm.lib. We declare them manually instead of
-// including <timeapi.h> because WIN32_LEAN_AND_MEAN (set by the build) excludes
-// multimedia headers and their transitive type dependencies.
-extern "C" {
-__declspec(dllimport) UINT WINAPI timeBeginPeriod(UINT uPeriod);
-__declspec(dllimport) UINT WINAPI timeEndPeriod(UINT uPeriod);
-}
-
 #include "x/cpp/loop/loop.h"
+#include "x/cpp/loop/waitable_timer.h"
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/thread/rt/rt.h"
 
 #include "arc/cpp/runtime/loop/loop.h"
 
 namespace arc::runtime::loop {
-#ifndef CREATE_WAITABLE_TIMER_HIGH_RESOLUTION
-#define CREATE_WAITABLE_TIMER_HIGH_RESOLUTION 0x00000002
-#endif
-
 class WindowsLoop final : public Loop {
     static constexpr DWORD MAX_HANDLES = MAXIMUM_WAIT_OBJECTS;
 
@@ -124,66 +113,25 @@ public:
     }
 
 private:
-    // Try CREATE_WAITABLE_TIMER_HIGH_RESOLUTION first for sub-millisecond precision
-    // without global side effects. Falls back to a standard timer with
-    // timeBeginPeriod(1) on pre-Windows 10 1803 systems. Both use one-shot re-arming
-    // instead of periodic mode because the periodic lPeriod parameter doesn't benefit
-    // from the high-resolution mechanism.
     x::errors::Error create_waitable_timer() {
-        this->timer_event_ = CreateWaitableTimerExW(
-            NULL,
-            NULL,
-            CREATE_WAITABLE_TIMER_HIGH_RESOLUTION,
-            TIMER_ALL_ACCESS
-        );
-        if (this->timer_event_ != NULL) {
-            this->high_res_timer_ = true;
-            VLOG(1) << "[arc.loop] using high-resolution waitable timer";
-        } else {
-            this->timer_event_ = CreateWaitableTimer(NULL, FALSE, NULL);
-            if (this->timer_event_ == NULL)
-                return x::errors::Error(
-                    "Failed to create waitable timer: " + std::to_string(GetLastError())
-                );
-            timeBeginPeriod(1);
-            this->used_time_begin_period_ = true;
-            VLOG(1) << "[arc.loop] using standard waitable timer with "
-                    << "timeBeginPeriod(1) fallback";
+        this->waitable_timer_ = std::make_unique<x::loop::WaitableTimer>();
+        if (auto err = this->waitable_timer_->error()) {
+            this->waitable_timer_.reset();
+            return err;
         }
-
-        if (!this->arm_timer()) {
-            CloseHandle(this->timer_event_);
-            this->timer_event_ = NULL;
+        if (!this->waitable_timer_->arm(this->config_.interval)) {
+            this->waitable_timer_.reset();
             return x::errors::Error(
                 "Failed to set waitable timer: " + std::to_string(GetLastError())
             );
         }
-
         this->timer_enabled_ = true;
         return x::errors::NIL;
     }
 
-    bool arm_timer() const {
-        LARGE_INTEGER due_time;
-        const int64_t interval_100ns = this->config_.interval.nanoseconds() /
-                                       timing::WINDOWS_TIMER_UNIT.nanoseconds();
-        due_time.QuadPart = -interval_100ns;
-        return SetWaitableTimer(this->timer_event_, &due_time, 0, NULL, NULL, FALSE);
-    }
-
     void close_handles() {
         this->timer_.reset();
-
-        if (this->timer_event_ != NULL) {
-            CancelWaitableTimer(this->timer_event_);
-            CloseHandle(this->timer_event_);
-            this->timer_event_ = NULL;
-        }
-
-        if (this->used_time_begin_period_) {
-            timeEndPeriod(1);
-            this->used_time_begin_period_ = false;
-        }
+        this->waitable_timer_.reset();
 
         if (this->wake_event_ != NULL) {
             CloseHandle(this->wake_event_);
@@ -202,7 +150,8 @@ private:
             const DWORD result = WaitForMultipleObjects(count, handles, FALSE, 0);
             if (result < WAIT_OBJECT_0 + count) {
                 const auto reason = this->classify_result(result, handles);
-                if (reason == WakeReason::Timer) this->arm_timer();
+                if (reason == WakeReason::Timer)
+                    this->waitable_timer_->arm(this->config_.interval);
                 return reason;
             }
             if (result == WAIT_FAILED) {
@@ -243,7 +192,8 @@ private:
             return WakeReason::Shutdown;
         }
         const auto reason = this->classify_result(result, handles);
-        if (reason == WakeReason::Timer) this->arm_timer();
+        if (reason == WakeReason::Timer)
+            this->waitable_timer_->arm(this->config_.interval);
         return reason;
     }
 
@@ -264,7 +214,8 @@ private:
             const DWORD result = WaitForMultipleObjects(count, handles, FALSE, 0);
             if (result < WAIT_OBJECT_0 + count) {
                 const auto reason = this->classify_result(result, handles);
-                if (reason == WakeReason::Timer) this->arm_timer();
+                if (reason == WakeReason::Timer)
+                    this->waitable_timer_->arm(this->config_.interval);
                 return reason;
             }
         }
@@ -278,7 +229,8 @@ private:
         if (result == WAIT_TIMEOUT) return WakeReason::Timeout;
         if (result < WAIT_OBJECT_0 + count) {
             const auto reason = this->classify_result(result, handles);
-            if (reason == WakeReason::Timer) this->arm_timer();
+            if (reason == WakeReason::Timer)
+                this->waitable_timer_->arm(this->config_.interval);
             return reason;
         }
         return WakeReason::Shutdown;
@@ -287,7 +239,7 @@ private:
     /// @brief Classifies which handle was signaled to determine wake reason.
     WakeReason classify_result(const DWORD result, const HANDLE *handles) const {
         const DWORD index = result - WAIT_OBJECT_0;
-        if (this->timer_enabled_ && handles[index] == this->timer_event_)
+        if (this->timer_enabled_ && handles[index] == this->waitable_timer_->handle())
             return WakeReason::Timer;
         if (handles[index] == this->watched_handle_) return WakeReason::Input;
         return WakeReason::Shutdown;
@@ -297,18 +249,16 @@ private:
         DWORD count = 0;
         if (this->wake_event_ != NULL) handles[count++] = this->wake_event_;
         if (this->watched_handle_ != NULL) handles[count++] = this->watched_handle_;
-        if (this->timer_enabled_) handles[count++] = this->timer_event_;
+        if (this->timer_enabled_) handles[count++] = this->waitable_timer_->handle();
         return count;
     }
 
     Config config_;
     std::shared_ptr<x::thread::rt::Handle> rt_handle_;
     HANDLE wake_event_ = NULL;
-    HANDLE timer_event_ = NULL;
     HANDLE watched_handle_ = NULL;
     bool timer_enabled_ = false;
-    bool high_res_timer_ = false;
-    bool used_time_begin_period_ = false;
+    std::unique_ptr<x::loop::WaitableTimer> waitable_timer_;
     std::unique_ptr<::x::loop::Timer> timer_;
 };
 
