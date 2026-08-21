@@ -1171,12 +1171,8 @@ AIChannel parse_ai_channel(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const AIChannel &value);
 
 /// @brief CIFrequencyChannel measures signal frequency.
-struct CIFrequencyChannel : public BaseCIChannel, public CustomScale {
+struct CIFrequencyChannel : public BaseCIChannel, public CustomScale, public MinMaxVal {
     std::string type = "ci_frequency";
-    /// @brief min_val is the minimum expected frequency.
-    double min_val = 2;
-    /// @brief max_val is the maximum expected frequency.
-    double max_val = 100;
     /// @brief units are the units of the frequency measurement.
     std::string units = CI_FREQ_UNITS_HZ;
     /// @brief edge selects the edge the counter responds to.
@@ -1190,6 +1186,11 @@ struct CIFrequencyChannel : public BaseCIChannel, public CustomScale {
     std::int32_t divisor = 4;
     /// @brief terminal is the terminal the counter signal is wired to.
     std::string terminal = "";
+
+    CIFrequencyChannel() {
+        this->min_val = 2;
+        this->max_val = 100;
+    }
 
     static CIFrequencyChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -1212,12 +1213,8 @@ struct CIEdgeCountChannel : public BaseCIChannel {
 };
 
 /// @brief CIPeriodChannel measures signal period.
-struct CIPeriodChannel : public BaseCIChannel, public CustomScale {
+struct CIPeriodChannel : public BaseCIChannel, public CustomScale, public MinMaxVal {
     std::string type = "ci_period";
-    /// @brief min_val is the minimum expected period, in the selected units.
-    double min_val = 0.000001;
-    /// @brief max_val is the maximum expected period, in the selected units.
-    double max_val = 0.100000;
     /// @brief units are the units of the period measurement.
     std::string units = CI_TIME_UNITS_SECONDS;
     /// @brief starting_edge selects the edge that starts a period measurement.
@@ -1232,17 +1229,20 @@ struct CIPeriodChannel : public BaseCIChannel, public CustomScale {
     /// @brief terminal is the terminal the counter signal is wired to.
     std::string terminal = "";
 
+    CIPeriodChannel() {
+        this->min_val = 0.000001;
+        this->max_val = 0.100000;
+    }
+
     static CIPeriodChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
 /// @brief CIPulseWidthChannel measures pulse width.
-struct CIPulseWidthChannel : public BaseCIChannel, public CustomScale {
+struct CIPulseWidthChannel : public BaseCIChannel,
+                             public CustomScale,
+                             public MinMaxVal {
     std::string type = "ci_pulse_width";
-    /// @brief min_val is the minimum expected pulse width, in the selected units.
-    double min_val = 0.000001;
-    /// @brief max_val is the maximum expected pulse width, in the selected units.
-    double max_val = 0.100000;
     /// @brief units are the units of the pulse-width measurement.
     std::string units = CI_TIME_UNITS_SECONDS;
     /// @brief starting_edge selects the edge that starts a pulse-width measurement.
@@ -1250,33 +1250,39 @@ struct CIPulseWidthChannel : public BaseCIChannel, public CustomScale {
     /// @brief terminal is the terminal the counter signal is wired to.
     std::string terminal = "";
 
+    CIPulseWidthChannel() {
+        this->min_val = 0.000001;
+        this->max_val = 0.100000;
+    }
+
     static CIPulseWidthChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
 /// @brief CISemiPeriodChannel measures semi-period.
-struct CISemiPeriodChannel : public BaseCIChannel, public CustomScale {
+struct CISemiPeriodChannel : public BaseCIChannel,
+                             public CustomScale,
+                             public MinMaxVal {
     std::string type = "ci_semi_period";
-    /// @brief min_val is the minimum expected semi-period, in the selected units.
-    double min_val = 0.000001;
-    /// @brief max_val is the maximum expected semi-period, in the selected units.
-    double max_val = 0.100000;
     /// @brief units are the units of the semi-period measurement.
     std::string units = CI_TIME_UNITS_SECONDS;
     /// @brief terminal is the terminal the counter signal is wired to.
     std::string terminal = "";
+
+    CISemiPeriodChannel() {
+        this->min_val = 0.000001;
+        this->max_val = 0.100000;
+    }
 
     static CISemiPeriodChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
 /// @brief CITwoEdgeSepChannel measures the separation between two edges.
-struct CITwoEdgeSepChannel : public BaseCIChannel, public CustomScale {
+struct CITwoEdgeSepChannel : public BaseCIChannel,
+                             public CustomScale,
+                             public MinMaxVal {
     std::string type = "ci_two_edge_sep";
-    /// @brief min_val is the minimum expected separation, in the selected units.
-    double min_val = 0.000001;
-    /// @brief max_val is the maximum expected separation, in the selected units.
-    double max_val = 1;
     /// @brief units are the units of the two-edge-separation measurement.
     std::string units = CI_TIME_UNITS_SECONDS;
     /// @brief first_edge selects the edge that starts the measurement.
@@ -1288,17 +1294,20 @@ struct CITwoEdgeSepChannel : public BaseCIChannel, public CustomScale {
     /// @brief second_terminal is the terminal the second edge's signal is wired to.
     std::string second_terminal = "";
 
+    CITwoEdgeSepChannel() {
+        this->min_val = 0.000001;
+        this->max_val = 1;
+    }
+
     static CITwoEdgeSepChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
 /// @brief CIVelocityLinearChannel measures linear velocity from an encoder.
-struct CIVelocityLinearChannel : public BaseCIChannel, public CustomScale {
+struct CIVelocityLinearChannel : public BaseCIChannel,
+                                 public CustomScale,
+                                 public MinMaxVal {
     std::string type = "ci_velocity_linear";
-    /// @brief min_val is the minimum expected velocity.
-    double min_val = 0;
-    /// @brief max_val is the maximum expected velocity.
-    double max_val = 1;
     /// @brief units are the units of the velocity measurement.
     std::string units = CI_LINEAR_VELOCITY_UNITS_M_PER_S;
     /// @brief decoding_type selects the encoder decoding type.
@@ -1310,17 +1319,20 @@ struct CIVelocityLinearChannel : public BaseCIChannel, public CustomScale {
     /// @brief terminal_b is the terminal for encoder channel B.
     std::string terminal_b = "";
 
+    CIVelocityLinearChannel() {
+        this->min_val = 0;
+        this->max_val = 1;
+    }
+
     static CIVelocityLinearChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
 /// @brief CIVelocityAngularChannel measures angular velocity from an encoder.
-struct CIVelocityAngularChannel : public BaseCIChannel, public CustomScale {
+struct CIVelocityAngularChannel : public BaseCIChannel,
+                                  public CustomScale,
+                                  public MinMaxVal {
     std::string type = "ci_velocity_angular";
-    /// @brief min_val is the minimum expected velocity.
-    double min_val = 0;
-    /// @brief max_val is the maximum expected velocity.
-    double max_val = 1;
     /// @brief units are the units of the velocity measurement.
     std::string units = CI_ANGULAR_VELOCITY_UNITS_RPM;
     /// @brief decoding_type selects the encoder decoding type.
@@ -1331,6 +1343,11 @@ struct CIVelocityAngularChannel : public BaseCIChannel, public CustomScale {
     std::string terminal_a = "";
     /// @brief terminal_b is the terminal for encoder channel B.
     std::string terminal_b = "";
+
+    CIVelocityAngularChannel() {
+        this->min_val = 0;
+        this->max_val = 1;
+    }
 
     static CIVelocityAngularChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -1381,16 +1398,17 @@ struct CIPositionAngularChannel : public BaseCIChannel,
 };
 
 /// @brief CIDutyCycleChannel measures the duty cycle of a signal.
-struct CIDutyCycleChannel : public BaseCIChannel, public CustomScale {
+struct CIDutyCycleChannel : public BaseCIChannel, public CustomScale, public MinMaxVal {
     std::string type = "ci_duty_cycle";
-    /// @brief min_val is the minimum expected duty-cycle frequency.
-    double min_val = 2;
-    /// @brief max_val is the maximum expected duty-cycle frequency.
-    double max_val = 10000;
     /// @brief active_edge selects the edge the counter responds to.
     std::string active_edge = CI_EDGE_RISING;
     /// @brief terminal is the terminal the counter signal is wired to.
     std::string terminal = "";
+
+    CIDutyCycleChannel() {
+        this->min_val = 2;
+        this->max_val = 10000;
+    }
 
     static CIDutyCycleChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

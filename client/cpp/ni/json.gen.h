@@ -1653,6 +1653,7 @@ inline CIFrequencyChannel CIFrequencyChannel::parse(x::json::Parser parser) {
     CIFrequencyChannel result;
     static_cast<BaseCIChannel &>(result) = BaseCIChannel::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
+    static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
     result.min_val = parser.field<double>("min_val", 2);
     result.max_val = parser.field<double>("max_val", 100);
     result.units = parser.field<std::string>("units", "Hz");
@@ -1670,6 +1671,8 @@ inline x::json::json CIFrequencyChannel::to_json() const {
     for (auto &[k, v]: BaseCIChannel::to_json().items())
         j[k] = v;
     for (auto &[k, v]: CustomScale::to_json().items())
+        j[k] = v;
+    for (auto &[k, v]: MinMaxVal::to_json().items())
         j[k] = v;
     j["min_val"] = this->min_val;
     j["max_val"] = this->max_val;
@@ -1710,6 +1713,7 @@ inline CIPeriodChannel CIPeriodChannel::parse(x::json::Parser parser) {
     CIPeriodChannel result;
     static_cast<BaseCIChannel &>(result) = BaseCIChannel::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
+    static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
     result.min_val = parser.field<double>("min_val", 0.000001);
     result.max_val = parser.field<double>("max_val", 0.100000);
     result.units = parser.field<std::string>("units", "Seconds");
@@ -1728,6 +1732,8 @@ inline x::json::json CIPeriodChannel::to_json() const {
         j[k] = v;
     for (auto &[k, v]: CustomScale::to_json().items())
         j[k] = v;
+    for (auto &[k, v]: MinMaxVal::to_json().items())
+        j[k] = v;
     j["min_val"] = this->min_val;
     j["max_val"] = this->max_val;
     j["units"] = this->units;
@@ -1744,6 +1750,7 @@ inline CIPulseWidthChannel CIPulseWidthChannel::parse(x::json::Parser parser) {
     CIPulseWidthChannel result;
     static_cast<BaseCIChannel &>(result) = BaseCIChannel::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
+    static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
     result.min_val = parser.field<double>("min_val", 0.000001);
     result.max_val = parser.field<double>("max_val", 0.100000);
     result.units = parser.field<std::string>("units", "Seconds");
@@ -1759,6 +1766,8 @@ inline x::json::json CIPulseWidthChannel::to_json() const {
         j[k] = v;
     for (auto &[k, v]: CustomScale::to_json().items())
         j[k] = v;
+    for (auto &[k, v]: MinMaxVal::to_json().items())
+        j[k] = v;
     j["min_val"] = this->min_val;
     j["max_val"] = this->max_val;
     j["units"] = this->units;
@@ -1772,6 +1781,7 @@ inline CISemiPeriodChannel CISemiPeriodChannel::parse(x::json::Parser parser) {
     CISemiPeriodChannel result;
     static_cast<BaseCIChannel &>(result) = BaseCIChannel::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
+    static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
     result.min_val = parser.field<double>("min_val", 0.000001);
     result.max_val = parser.field<double>("max_val", 0.100000);
     result.units = parser.field<std::string>("units", "Seconds");
@@ -1786,6 +1796,8 @@ inline x::json::json CISemiPeriodChannel::to_json() const {
         j[k] = v;
     for (auto &[k, v]: CustomScale::to_json().items())
         j[k] = v;
+    for (auto &[k, v]: MinMaxVal::to_json().items())
+        j[k] = v;
     j["min_val"] = this->min_val;
     j["max_val"] = this->max_val;
     j["units"] = this->units;
@@ -1798,6 +1810,7 @@ inline CITwoEdgeSepChannel CITwoEdgeSepChannel::parse(x::json::Parser parser) {
     CITwoEdgeSepChannel result;
     static_cast<BaseCIChannel &>(result) = BaseCIChannel::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
+    static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
     result.min_val = parser.field<double>("min_val", 0.000001);
     result.max_val = parser.field<double>("max_val", 1);
     result.units = parser.field<std::string>("units", "Seconds");
@@ -1815,6 +1828,8 @@ inline x::json::json CITwoEdgeSepChannel::to_json() const {
         j[k] = v;
     for (auto &[k, v]: CustomScale::to_json().items())
         j[k] = v;
+    for (auto &[k, v]: MinMaxVal::to_json().items())
+        j[k] = v;
     j["min_val"] = this->min_val;
     j["max_val"] = this->max_val;
     j["units"] = this->units;
@@ -1830,6 +1845,7 @@ inline CIVelocityLinearChannel CIVelocityLinearChannel::parse(x::json::Parser pa
     CIVelocityLinearChannel result;
     static_cast<BaseCIChannel &>(result) = BaseCIChannel::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
+    static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
     result.min_val = parser.field<double>("min_val", 0);
     result.max_val = parser.field<double>("max_val", 1);
     result.units = parser.field<std::string>("units", "m/s");
@@ -1847,6 +1863,8 @@ inline x::json::json CIVelocityLinearChannel::to_json() const {
         j[k] = v;
     for (auto &[k, v]: CustomScale::to_json().items())
         j[k] = v;
+    for (auto &[k, v]: MinMaxVal::to_json().items())
+        j[k] = v;
     j["min_val"] = this->min_val;
     j["max_val"] = this->max_val;
     j["units"] = this->units;
@@ -1863,6 +1881,7 @@ CIVelocityAngularChannel::parse(x::json::Parser parser) {
     CIVelocityAngularChannel result;
     static_cast<BaseCIChannel &>(result) = BaseCIChannel::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
+    static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
     result.min_val = parser.field<double>("min_val", 0);
     result.max_val = parser.field<double>("max_val", 1);
     result.units = parser.field<std::string>("units", "RPM");
@@ -1879,6 +1898,8 @@ inline x::json::json CIVelocityAngularChannel::to_json() const {
     for (auto &[k, v]: BaseCIChannel::to_json().items())
         j[k] = v;
     for (auto &[k, v]: CustomScale::to_json().items())
+        j[k] = v;
+    for (auto &[k, v]: MinMaxVal::to_json().items())
         j[k] = v;
     j["min_val"] = this->min_val;
     j["max_val"] = this->max_val;
@@ -1962,6 +1983,7 @@ inline CIDutyCycleChannel CIDutyCycleChannel::parse(x::json::Parser parser) {
     CIDutyCycleChannel result;
     static_cast<BaseCIChannel &>(result) = BaseCIChannel::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
+    static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
     result.min_val = parser.field<double>("min_val", 2);
     result.max_val = parser.field<double>("max_val", 10000);
     result.active_edge = parser.field<std::string>("active_edge", "Rising");
@@ -1975,6 +1997,8 @@ inline x::json::json CIDutyCycleChannel::to_json() const {
     for (auto &[k, v]: BaseCIChannel::to_json().items())
         j[k] = v;
     for (auto &[k, v]: CustomScale::to_json().items())
+        j[k] = v;
+    for (auto &[k, v]: MinMaxVal::to_json().items())
         j[k] = v;
     j["min_val"] = this->min_val;
     j["max_val"] = this->max_val;

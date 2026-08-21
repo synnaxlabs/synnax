@@ -940,11 +940,11 @@ BaseCIChannel struct {
 }
 
 CIChannel union on type extends BaseCIChannel {
-    ci_frequency extends CustomScale {
-        min_val     float64 = 2 {
+    ci_frequency extends CustomScale, MinMaxVal {
+        min_val     = 2 {
             @doc value "is the minimum expected frequency."
         }
-        max_val     float64 = 100 {
+        max_val     = 100 {
             @doc value "is the maximum expected frequency."
         }
         units       CIFreqUnits = hz {
@@ -986,11 +986,11 @@ CIChannel union on type extends BaseCIChannel {
 
         @doc value "counts signal edges."
     }
-    ci_period extends CustomScale {
-        min_val       float64 = 0.000001 {
+    ci_period extends CustomScale, MinMaxVal {
+        min_val       = 0.000001 {
             @doc value "is the minimum expected period, in the selected units."
         }
-        max_val       float64 = 0.1 {
+        max_val       = 0.1 {
             @doc value "is the maximum expected period, in the selected units."
         }
         units         CITimeUnits = seconds {
@@ -1016,11 +1016,11 @@ CIChannel union on type extends BaseCIChannel {
 
         @doc value "measures signal period."
     }
-    ci_pulse_width extends CustomScale {
-        min_val       float64 = 0.000001 {
+    ci_pulse_width extends CustomScale, MinMaxVal {
+        min_val       = 0.000001 {
             @doc value "is the minimum expected pulse width, in the selected units."
         }
-        max_val       float64 = 0.1 {
+        max_val       = 0.1 {
             @doc value "is the maximum expected pulse width, in the selected units."
         }
         units         CITimeUnits = seconds {
@@ -1035,11 +1035,11 @@ CIChannel union on type extends BaseCIChannel {
 
         @doc value "measures pulse width."
     }
-    ci_semi_period extends CustomScale {
-        min_val  float64 = 0.000001 {
+    ci_semi_period extends CustomScale, MinMaxVal {
+        min_val  = 0.000001 {
             @doc value "is the minimum expected semi-period, in the selected units."
         }
-        max_val  float64 = 0.1 {
+        max_val  = 0.1 {
             @doc value "is the maximum expected semi-period, in the selected units."
         }
         units    CITimeUnits = seconds {
@@ -1051,11 +1051,11 @@ CIChannel union on type extends BaseCIChannel {
 
         @doc value "measures semi-period."
     }
-    ci_two_edge_sep extends CustomScale {
-        min_val         float64 = 0.000001 {
+    ci_two_edge_sep extends CustomScale, MinMaxVal {
+        min_val         = 0.000001 {
             @doc value "is the minimum expected separation, in the selected units."
         }
-        max_val         float64 = 1 {
+        max_val         = 1 {
             @doc value "is the maximum expected separation, in the selected units."
         }
         units           CITimeUnits = seconds {
@@ -1076,11 +1076,11 @@ CIChannel union on type extends BaseCIChannel {
 
         @doc value "measures the separation between two edges."
     }
-    ci_velocity_linear extends CustomScale {
-        min_val        float64 = 0 {
+    ci_velocity_linear extends CustomScale, MinMaxVal {
+        min_val        {
             @doc value "is the minimum expected velocity."
         }
-        max_val        float64 = 1 {
+        max_val        {
             @doc value "is the maximum expected velocity."
         }
         units          CILinearVelocityUnits = m_per_s {
@@ -1101,11 +1101,11 @@ CIChannel union on type extends BaseCIChannel {
 
         @doc value "measures linear velocity from an encoder."
     }
-    ci_velocity_angular extends CustomScale {
-        min_val        float64 = 0 {
+    ci_velocity_angular extends CustomScale, MinMaxVal {
+        min_val        {
             @doc value "is the minimum expected velocity."
         }
-        max_val        float64 = 1 {
+        max_val        {
             @doc value "is the maximum expected velocity."
         }
         units          CIAngularVelocityUnits = rpm {
@@ -1170,11 +1170,11 @@ CIChannel union on type extends BaseCIChannel {
 
         @doc value "measures angular position from an encoder."
     }
-    ci_duty_cycle extends CustomScale {
-        min_val     float64 = 2 {
+    ci_duty_cycle extends CustomScale, MinMaxVal {
+        min_val     = 2 {
             @doc value "is the minimum expected duty-cycle frequency."
         }
-        max_val     float64 = 10000 {
+        max_val     = 10000 {
             @doc value "is the maximum expected duty-cycle frequency."
         }
         active_edge CIEdge = rising {

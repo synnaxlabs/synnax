@@ -167,6 +167,36 @@ var _ = Describe("Service", func() {
 			Expect(ch["max_val"]).To(BeNumerically("==", 1))
 		})
 
+		It("Should keep a deliberate zero on a counter channel range", func(
+			ctx SpecContext,
+		) {
+			key := uuid.New()
+			Expect(svc.CounterRead.Write(ctx, nil, key, msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":    "ci_velocity_linear",
+					"min_val": -10,
+					"max_val": 0,
+				}},
+			})).To(Succeed())
+			data := MustSucceed(svc.CounterRead.Read(ctx, nil, key))
+			ch := data["channels"].([]any)[0].(map[string]any)
+			Expect(ch["min_val"]).To(BeNumerically("==", -10))
+			Expect(ch["max_val"]).To(BeNumerically("==", 0))
+		})
+
+		It("Should fill a counter channel range when both bounds are zero", func(
+			ctx SpecContext,
+		) {
+			key := uuid.New()
+			Expect(svc.CounterRead.Write(ctx, nil, key, msgpack.EncodedJSON{
+				"channels": []any{map[string]any{"type": "ci_frequency"}},
+			})).To(Succeed())
+			data := MustSucceed(svc.CounterRead.Read(ctx, nil, key))
+			ch := data["channels"].([]any)[0].(map[string]any)
+			Expect(ch["min_val"]).To(BeNumerically("==", 2))
+			Expect(ch["max_val"]).To(BeNumerically("==", 100))
+		})
+
 		It(
 			"Should return the analog read validation error for an invalid channel",
 			func(

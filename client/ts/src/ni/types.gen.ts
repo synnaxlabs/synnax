@@ -1264,25 +1264,28 @@ export const AI_CHANNEL_SCHEMAS: {
 };
 
 /** CIFrequencyChannel measures signal frequency. */
-export const ciFrequencyChannelZ = baseCIChannelZ.extend(customScaleZ.shape).extend({
-  type: z.literal("ci_frequency"),
-  /** minVal is the minimum expected frequency. */
-  minVal: z.number().default(2),
-  /** maxVal is the maximum expected frequency. */
-  maxVal: z.number().default(100),
-  /** units are the units of the frequency measurement. */
-  units: ciFreqUnitsZ.default("Hz"),
-  /** edge selects the edge the counter responds to. */
-  edge: ciEdgeZ.default("Rising"),
-  /** measMethod selects the measurement method. */
-  measMethod: ciMeasMethodZ.default("DynamicAvg"),
-  /** measTime is the averaging window for high-frequency measurement, in seconds. */
-  measTime: z.number().default(0.000006),
-  /** divisor is the counter divisor for large-range measurement. */
-  divisor: z.int32().default(4),
-  /** terminal is the terminal the counter signal is wired to. */
-  terminal: z.string().default(""),
-});
+export const ciFrequencyChannelZ = baseCIChannelZ
+  .extend(customScaleZ.shape)
+  .extend(minMaxValZ.shape)
+  .extend({
+    type: z.literal("ci_frequency"),
+    /** minVal is the minimum expected frequency. */
+    minVal: z.number().default(2),
+    /** maxVal is the maximum expected frequency. */
+    maxVal: z.number().default(100),
+    /** units are the units of the frequency measurement. */
+    units: ciFreqUnitsZ.default("Hz"),
+    /** edge selects the edge the counter responds to. */
+    edge: ciEdgeZ.default("Rising"),
+    /** measMethod selects the measurement method. */
+    measMethod: ciMeasMethodZ.default("DynamicAvg"),
+    /** measTime is the averaging window for high-frequency measurement, in seconds. */
+    measTime: z.number().default(0.000006),
+    /** divisor is the counter divisor for large-range measurement. */
+    divisor: z.int32().default(4),
+    /** terminal is the terminal the counter signal is wired to. */
+    terminal: z.string().default(""),
+  });
 export interface CIFrequencyChannel extends z.infer<typeof ciFrequencyChannelZ> {}
 
 /** CIEdgeCountChannel counts signal edges. */
@@ -1300,80 +1303,93 @@ export const ciEdgeCountChannelZ = baseCIChannelZ.extend({
 export interface CIEdgeCountChannel extends z.infer<typeof ciEdgeCountChannelZ> {}
 
 /** CIPeriodChannel measures signal period. */
-export const ciPeriodChannelZ = baseCIChannelZ.extend(customScaleZ.shape).extend({
-  type: z.literal("ci_period"),
-  /** minVal is the minimum expected period, in the selected units. */
-  minVal: z.number().default(0.000001),
-  /** maxVal is the maximum expected period, in the selected units. */
-  maxVal: z.number().default(0.1),
-  /** units are the units of the period measurement. */
-  units: ciTimeUnitsZ.default("Seconds"),
-  /** startingEdge selects the edge that starts a period measurement. */
-  startingEdge: ciEdgeZ.default("Rising"),
-  /** measMethod selects the measurement method. */
-  measMethod: ciMeasMethodZ.default("DynamicAvg"),
-  /** measTime is the averaging window for high-frequency measurement, in seconds. */
-  measTime: z.number().default(0.001),
-  /** divisor is the counter divisor for large-range measurement. */
-  divisor: z.int32().default(4),
-  /** terminal is the terminal the counter signal is wired to. */
-  terminal: z.string().default(""),
-});
+export const ciPeriodChannelZ = baseCIChannelZ
+  .extend(customScaleZ.shape)
+  .extend(minMaxValZ.shape)
+  .extend({
+    type: z.literal("ci_period"),
+    /** minVal is the minimum expected period, in the selected units. */
+    minVal: z.number().default(0.000001),
+    /** maxVal is the maximum expected period, in the selected units. */
+    maxVal: z.number().default(0.1),
+    /** units are the units of the period measurement. */
+    units: ciTimeUnitsZ.default("Seconds"),
+    /** startingEdge selects the edge that starts a period measurement. */
+    startingEdge: ciEdgeZ.default("Rising"),
+    /** measMethod selects the measurement method. */
+    measMethod: ciMeasMethodZ.default("DynamicAvg"),
+    /** measTime is the averaging window for high-frequency measurement, in seconds. */
+    measTime: z.number().default(0.001),
+    /** divisor is the counter divisor for large-range measurement. */
+    divisor: z.int32().default(4),
+    /** terminal is the terminal the counter signal is wired to. */
+    terminal: z.string().default(""),
+  });
 export interface CIPeriodChannel extends z.infer<typeof ciPeriodChannelZ> {}
 
 /** CIPulseWidthChannel measures pulse width. */
-export const ciPulseWidthChannelZ = baseCIChannelZ.extend(customScaleZ.shape).extend({
-  type: z.literal("ci_pulse_width"),
-  /** minVal is the minimum expected pulse width, in the selected units. */
-  minVal: z.number().default(0.000001),
-  /** maxVal is the maximum expected pulse width, in the selected units. */
-  maxVal: z.number().default(0.1),
-  /** units are the units of the pulse-width measurement. */
-  units: ciTimeUnitsZ.default("Seconds"),
-  /** startingEdge selects the edge that starts a pulse-width measurement. */
-  startingEdge: ciEdgeZ.default("Rising"),
-  /** terminal is the terminal the counter signal is wired to. */
-  terminal: z.string().default(""),
-});
+export const ciPulseWidthChannelZ = baseCIChannelZ
+  .extend(customScaleZ.shape)
+  .extend(minMaxValZ.shape)
+  .extend({
+    type: z.literal("ci_pulse_width"),
+    /** minVal is the minimum expected pulse width, in the selected units. */
+    minVal: z.number().default(0.000001),
+    /** maxVal is the maximum expected pulse width, in the selected units. */
+    maxVal: z.number().default(0.1),
+    /** units are the units of the pulse-width measurement. */
+    units: ciTimeUnitsZ.default("Seconds"),
+    /** startingEdge selects the edge that starts a pulse-width measurement. */
+    startingEdge: ciEdgeZ.default("Rising"),
+    /** terminal is the terminal the counter signal is wired to. */
+    terminal: z.string().default(""),
+  });
 export interface CIPulseWidthChannel extends z.infer<typeof ciPulseWidthChannelZ> {}
 
 /** CISemiPeriodChannel measures semi-period. */
-export const ciSemiPeriodChannelZ = baseCIChannelZ.extend(customScaleZ.shape).extend({
-  type: z.literal("ci_semi_period"),
-  /** minVal is the minimum expected semi-period, in the selected units. */
-  minVal: z.number().default(0.000001),
-  /** maxVal is the maximum expected semi-period, in the selected units. */
-  maxVal: z.number().default(0.1),
-  /** units are the units of the semi-period measurement. */
-  units: ciTimeUnitsZ.default("Seconds"),
-  /** terminal is the terminal the counter signal is wired to. */
-  terminal: z.string().default(""),
-});
+export const ciSemiPeriodChannelZ = baseCIChannelZ
+  .extend(customScaleZ.shape)
+  .extend(minMaxValZ.shape)
+  .extend({
+    type: z.literal("ci_semi_period"),
+    /** minVal is the minimum expected semi-period, in the selected units. */
+    minVal: z.number().default(0.000001),
+    /** maxVal is the maximum expected semi-period, in the selected units. */
+    maxVal: z.number().default(0.1),
+    /** units are the units of the semi-period measurement. */
+    units: ciTimeUnitsZ.default("Seconds"),
+    /** terminal is the terminal the counter signal is wired to. */
+    terminal: z.string().default(""),
+  });
 export interface CISemiPeriodChannel extends z.infer<typeof ciSemiPeriodChannelZ> {}
 
 /** CITwoEdgeSepChannel measures the separation between two edges. */
-export const ciTwoEdgeSepChannelZ = baseCIChannelZ.extend(customScaleZ.shape).extend({
-  type: z.literal("ci_two_edge_sep"),
-  /** minVal is the minimum expected separation, in the selected units. */
-  minVal: z.number().default(0.000001),
-  /** maxVal is the maximum expected separation, in the selected units. */
-  maxVal: z.number().default(1),
-  /** units are the units of the two-edge-separation measurement. */
-  units: ciTimeUnitsZ.default("Seconds"),
-  /** firstEdge selects the edge that starts the measurement. */
-  firstEdge: ciEdgeZ.default("Rising"),
-  /** secondEdge selects the edge that stops the measurement. */
-  secondEdge: ciEdgeZ.default("Falling"),
-  /** firstTerminal is the terminal the first edge's signal is wired to. */
-  firstTerminal: z.string().default(""),
-  /** secondTerminal is the terminal the second edge's signal is wired to. */
-  secondTerminal: z.string().default(""),
-});
+export const ciTwoEdgeSepChannelZ = baseCIChannelZ
+  .extend(customScaleZ.shape)
+  .extend(minMaxValZ.shape)
+  .extend({
+    type: z.literal("ci_two_edge_sep"),
+    /** minVal is the minimum expected separation, in the selected units. */
+    minVal: z.number().default(0.000001),
+    /** maxVal is the maximum expected separation, in the selected units. */
+    maxVal: z.number().default(1),
+    /** units are the units of the two-edge-separation measurement. */
+    units: ciTimeUnitsZ.default("Seconds"),
+    /** firstEdge selects the edge that starts the measurement. */
+    firstEdge: ciEdgeZ.default("Rising"),
+    /** secondEdge selects the edge that stops the measurement. */
+    secondEdge: ciEdgeZ.default("Falling"),
+    /** firstTerminal is the terminal the first edge's signal is wired to. */
+    firstTerminal: z.string().default(""),
+    /** secondTerminal is the terminal the second edge's signal is wired to. */
+    secondTerminal: z.string().default(""),
+  });
 export interface CITwoEdgeSepChannel extends z.infer<typeof ciTwoEdgeSepChannelZ> {}
 
 /** CIVelocityLinearChannel measures linear velocity from an encoder. */
 export const ciVelocityLinearChannelZ = baseCIChannelZ
   .extend(customScaleZ.shape)
+  .extend(minMaxValZ.shape)
   .extend({
     type: z.literal("ci_velocity_linear"),
     /** minVal is the minimum expected velocity. */
@@ -1398,6 +1414,7 @@ export interface CIVelocityLinearChannel extends z.infer<
 /** CIVelocityAngularChannel measures angular velocity from an encoder. */
 export const ciVelocityAngularChannelZ = baseCIChannelZ
   .extend(customScaleZ.shape)
+  .extend(minMaxValZ.shape)
   .extend({
     type: z.literal("ci_velocity_angular"),
     /** minVal is the minimum expected velocity. */
@@ -1466,17 +1483,20 @@ export interface CIPositionAngularChannel extends z.infer<
 > {}
 
 /** CIDutyCycleChannel measures the duty cycle of a signal. */
-export const ciDutyCycleChannelZ = baseCIChannelZ.extend(customScaleZ.shape).extend({
-  type: z.literal("ci_duty_cycle"),
-  /** minVal is the minimum expected duty-cycle frequency. */
-  minVal: z.number().default(2),
-  /** maxVal is the maximum expected duty-cycle frequency. */
-  maxVal: z.number().default(10000),
-  /** activeEdge selects the edge the counter responds to. */
-  activeEdge: ciEdgeZ.default("Rising"),
-  /** terminal is the terminal the counter signal is wired to. */
-  terminal: z.string().default(""),
-});
+export const ciDutyCycleChannelZ = baseCIChannelZ
+  .extend(customScaleZ.shape)
+  .extend(minMaxValZ.shape)
+  .extend({
+    type: z.literal("ci_duty_cycle"),
+    /** minVal is the minimum expected duty-cycle frequency. */
+    minVal: z.number().default(2),
+    /** maxVal is the maximum expected duty-cycle frequency. */
+    maxVal: z.number().default(10000),
+    /** activeEdge selects the edge the counter responds to. */
+    activeEdge: ciEdgeZ.default("Rising"),
+    /** terminal is the terminal the counter signal is wired to. */
+    terminal: z.string().default(""),
+  });
 export interface CIDutyCycleChannel extends z.infer<typeof ciDutyCycleChannelZ> {}
 
 export const CI_CHANNEL_TYPES = [

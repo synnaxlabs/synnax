@@ -1185,7 +1185,7 @@ AIChannel = Annotated[
 ]
 
 
-class CIFrequencyChannel(BaseCIChannel, CustomScale):
+class CIFrequencyChannel(BaseCIChannel, CustomScale, MinMaxVal):
     """Measures signal frequency."""
 
     type: Literal["ci_frequency"] = "ci_frequency"
@@ -1209,7 +1209,7 @@ class CIEdgeCountChannel(BaseCIChannel):
     terminal: str = ""
 
 
-class CIPeriodChannel(BaseCIChannel, CustomScale):
+class CIPeriodChannel(BaseCIChannel, CustomScale, MinMaxVal):
     """Measures signal period."""
 
     type: Literal["ci_period"] = "ci_period"
@@ -1223,7 +1223,7 @@ class CIPeriodChannel(BaseCIChannel, CustomScale):
     terminal: str = ""
 
 
-class CIPulseWidthChannel(BaseCIChannel, CustomScale):
+class CIPulseWidthChannel(BaseCIChannel, CustomScale, MinMaxVal):
     """Measures pulse width."""
 
     type: Literal["ci_pulse_width"] = "ci_pulse_width"
@@ -1234,7 +1234,7 @@ class CIPulseWidthChannel(BaseCIChannel, CustomScale):
     terminal: str = ""
 
 
-class CISemiPeriodChannel(BaseCIChannel, CustomScale):
+class CISemiPeriodChannel(BaseCIChannel, CustomScale, MinMaxVal):
     """Measures semi-period."""
 
     type: Literal["ci_semi_period"] = "ci_semi_period"
@@ -1244,7 +1244,7 @@ class CISemiPeriodChannel(BaseCIChannel, CustomScale):
     terminal: str = ""
 
 
-class CITwoEdgeSepChannel(BaseCIChannel, CustomScale):
+class CITwoEdgeSepChannel(BaseCIChannel, CustomScale, MinMaxVal):
     """Measures the separation between two edges."""
 
     type: Literal["ci_two_edge_sep"] = "ci_two_edge_sep"
@@ -1257,7 +1257,7 @@ class CITwoEdgeSepChannel(BaseCIChannel, CustomScale):
     second_terminal: str = ""
 
 
-class CIVelocityLinearChannel(BaseCIChannel, CustomScale):
+class CIVelocityLinearChannel(BaseCIChannel, CustomScale, MinMaxVal):
     """Measures linear velocity from an encoder."""
 
     type: Literal["ci_velocity_linear"] = "ci_velocity_linear"
@@ -1270,7 +1270,7 @@ class CIVelocityLinearChannel(BaseCIChannel, CustomScale):
     terminal_b: str = ""
 
 
-class CIVelocityAngularChannel(BaseCIChannel, CustomScale):
+class CIVelocityAngularChannel(BaseCIChannel, CustomScale, MinMaxVal):
     """Measures angular velocity from an encoder."""
 
     type: Literal["ci_velocity_angular"] = "ci_velocity_angular"
@@ -1307,7 +1307,7 @@ class CIPositionAngularChannel(BaseCIChannel, CustomScale, ZIndex):
     terminal_b: str = ""
 
 
-class CIDutyCycleChannel(BaseCIChannel, CustomScale):
+class CIDutyCycleChannel(BaseCIChannel, CustomScale, MinMaxVal):
     """Measures the duty cycle of a signal."""
 
     type: Literal["ci_duty_cycle"] = "ci_duty_cycle"

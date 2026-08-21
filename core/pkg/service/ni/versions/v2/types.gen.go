@@ -3055,10 +3055,7 @@ type CIChannelVariant interface {
 type CIFrequencyChannel struct {
 	BaseCIChannel
 	CustomScale
-	// MinVal is the minimum expected frequency.
-	MinVal float64 `json:"min_val" msgpack:"min_val"`
-	// MaxVal is the maximum expected frequency.
-	MaxVal float64 `json:"max_val" msgpack:"max_val"`
+	MinMaxVal
 	// Units are the units of the frequency measurement.
 	Units CIFreqUnits `json:"units" msgpack:"units"`
 	// Edge selects the edge the counter responds to.
@@ -3077,12 +3074,6 @@ func (CIFrequencyChannel) isCIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CIFrequencyChannel) ApplyDefaults() {
-	if c.MinVal == 0 {
-		c.MinVal = 2
-	}
-	if c.MaxVal == 0 {
-		c.MaxVal = 100
-	}
 	if c.Units == "" {
 		c.Units = CIFreqUnitsHz
 	}
@@ -3098,7 +3089,12 @@ func (c *CIFrequencyChannel) ApplyDefaults() {
 	if c.Divisor == 0 {
 		c.Divisor = 4
 	}
+	if c.MinVal == 0 && c.MaxVal == 0 {
+		c.MinVal = 2
+		c.MaxVal = 100
+	}
 	c.CustomScale.ApplyDefaults()
+	c.MinMaxVal.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -3150,10 +3146,7 @@ func (c CIEdgeCountChannel) Validate() error {
 type CIPeriodChannel struct {
 	BaseCIChannel
 	CustomScale
-	// MinVal is the minimum expected period, in the selected units.
-	MinVal float64 `json:"min_val" msgpack:"min_val"`
-	// MaxVal is the maximum expected period, in the selected units.
-	MaxVal float64 `json:"max_val" msgpack:"max_val"`
+	MinMaxVal
 	// Units are the units of the period measurement.
 	Units CITimeUnits `json:"units" msgpack:"units"`
 	// StartingEdge selects the edge that starts a period measurement.
@@ -3172,12 +3165,6 @@ func (CIPeriodChannel) isCIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CIPeriodChannel) ApplyDefaults() {
-	if c.MinVal == 0 {
-		c.MinVal = 1e-06
-	}
-	if c.MaxVal == 0 {
-		c.MaxVal = 0.1
-	}
 	if c.Units == "" {
 		c.Units = CITimeUnitsSeconds
 	}
@@ -3193,7 +3180,12 @@ func (c *CIPeriodChannel) ApplyDefaults() {
 	if c.Divisor == 0 {
 		c.Divisor = 4
 	}
+	if c.MinVal == 0 && c.MaxVal == 0 {
+		c.MinVal = 1e-06
+		c.MaxVal = 0.1
+	}
 	c.CustomScale.ApplyDefaults()
+	c.MinMaxVal.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -3211,10 +3203,7 @@ func (c CIPeriodChannel) Validate() error {
 type CIPulseWidthChannel struct {
 	BaseCIChannel
 	CustomScale
-	// MinVal is the minimum expected pulse width, in the selected units.
-	MinVal float64 `json:"min_val" msgpack:"min_val"`
-	// MaxVal is the maximum expected pulse width, in the selected units.
-	MaxVal float64 `json:"max_val" msgpack:"max_val"`
+	MinMaxVal
 	// Units are the units of the pulse-width measurement.
 	Units CITimeUnits `json:"units" msgpack:"units"`
 	// StartingEdge selects the edge that starts a pulse-width measurement.
@@ -3227,19 +3216,18 @@ func (CIPulseWidthChannel) isCIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CIPulseWidthChannel) ApplyDefaults() {
-	if c.MinVal == 0 {
-		c.MinVal = 1e-06
-	}
-	if c.MaxVal == 0 {
-		c.MaxVal = 0.1
-	}
 	if c.Units == "" {
 		c.Units = CITimeUnitsSeconds
 	}
 	if c.StartingEdge == "" {
 		c.StartingEdge = CIEdgeRising
 	}
+	if c.MinVal == 0 && c.MaxVal == 0 {
+		c.MinVal = 1e-06
+		c.MaxVal = 0.1
+	}
 	c.CustomScale.ApplyDefaults()
+	c.MinMaxVal.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -3256,10 +3244,7 @@ func (c CIPulseWidthChannel) Validate() error {
 type CISemiPeriodChannel struct {
 	BaseCIChannel
 	CustomScale
-	// MinVal is the minimum expected semi-period, in the selected units.
-	MinVal float64 `json:"min_val" msgpack:"min_val"`
-	// MaxVal is the maximum expected semi-period, in the selected units.
-	MaxVal float64 `json:"max_val" msgpack:"max_val"`
+	MinMaxVal
 	// Units are the units of the semi-period measurement.
 	Units CITimeUnits `json:"units" msgpack:"units"`
 	// Terminal is the terminal the counter signal is wired to.
@@ -3270,16 +3255,15 @@ func (CISemiPeriodChannel) isCIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CISemiPeriodChannel) ApplyDefaults() {
-	if c.MinVal == 0 {
-		c.MinVal = 1e-06
-	}
-	if c.MaxVal == 0 {
-		c.MaxVal = 0.1
-	}
 	if c.Units == "" {
 		c.Units = CITimeUnitsSeconds
 	}
+	if c.MinVal == 0 && c.MaxVal == 0 {
+		c.MinVal = 1e-06
+		c.MaxVal = 0.1
+	}
 	c.CustomScale.ApplyDefaults()
+	c.MinMaxVal.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -3295,10 +3279,7 @@ func (c CISemiPeriodChannel) Validate() error {
 type CITwoEdgeSepChannel struct {
 	BaseCIChannel
 	CustomScale
-	// MinVal is the minimum expected separation, in the selected units.
-	MinVal float64 `json:"min_val" msgpack:"min_val"`
-	// MaxVal is the maximum expected separation, in the selected units.
-	MaxVal float64 `json:"max_val" msgpack:"max_val"`
+	MinMaxVal
 	// Units are the units of the two-edge-separation measurement.
 	Units CITimeUnits `json:"units" msgpack:"units"`
 	// FirstEdge selects the edge that starts the measurement.
@@ -3315,12 +3296,6 @@ func (CITwoEdgeSepChannel) isCIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CITwoEdgeSepChannel) ApplyDefaults() {
-	if c.MinVal == 0 {
-		c.MinVal = 1e-06
-	}
-	if c.MaxVal == 0 {
-		c.MaxVal = 1
-	}
 	if c.Units == "" {
 		c.Units = CITimeUnitsSeconds
 	}
@@ -3330,7 +3305,12 @@ func (c *CITwoEdgeSepChannel) ApplyDefaults() {
 	if c.SecondEdge == "" {
 		c.SecondEdge = CIEdgeFalling
 	}
+	if c.MinVal == 0 && c.MaxVal == 0 {
+		c.MinVal = 1e-06
+		c.MaxVal = 1
+	}
 	c.CustomScale.ApplyDefaults()
+	c.MinMaxVal.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -3348,10 +3328,7 @@ func (c CITwoEdgeSepChannel) Validate() error {
 type CIVelocityLinearChannel struct {
 	BaseCIChannel
 	CustomScale
-	// MinVal is the minimum expected velocity.
-	MinVal float64 `json:"min_val" msgpack:"min_val"`
-	// MaxVal is the maximum expected velocity.
-	MaxVal float64 `json:"max_val" msgpack:"max_val"`
+	MinMaxVal
 	// Units are the units of the velocity measurement.
 	Units CILinearVelocityUnits `json:"units" msgpack:"units"`
 	// DecodingType selects the encoder decoding type.
@@ -3368,9 +3345,6 @@ func (CIVelocityLinearChannel) isCIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CIVelocityLinearChannel) ApplyDefaults() {
-	if c.MaxVal == 0 {
-		c.MaxVal = 1
-	}
 	if c.Units == "" {
 		c.Units = CILinearVelocityUnitsMPerS
 	}
@@ -3380,7 +3354,11 @@ func (c *CIVelocityLinearChannel) ApplyDefaults() {
 	if c.DistPerPulse == 0 {
 		c.DistPerPulse = 0.001
 	}
+	if c.MinVal == 0 && c.MaxVal == 0 {
+		c.MaxVal = 1
+	}
 	c.CustomScale.ApplyDefaults()
+	c.MinMaxVal.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -3397,10 +3375,7 @@ func (c CIVelocityLinearChannel) Validate() error {
 type CIVelocityAngularChannel struct {
 	BaseCIChannel
 	CustomScale
-	// MinVal is the minimum expected velocity.
-	MinVal float64 `json:"min_val" msgpack:"min_val"`
-	// MaxVal is the maximum expected velocity.
-	MaxVal float64 `json:"max_val" msgpack:"max_val"`
+	MinMaxVal
 	// Units are the units of the velocity measurement.
 	Units CIAngularVelocityUnits `json:"units" msgpack:"units"`
 	// DecodingType selects the encoder decoding type.
@@ -3417,9 +3392,6 @@ func (CIVelocityAngularChannel) isCIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CIVelocityAngularChannel) ApplyDefaults() {
-	if c.MaxVal == 0 {
-		c.MaxVal = 1
-	}
 	if c.Units == "" {
 		c.Units = CIAngularVelocityUnitsRpm
 	}
@@ -3429,7 +3401,11 @@ func (c *CIVelocityAngularChannel) ApplyDefaults() {
 	if c.PulsesPerRev == 0 {
 		c.PulsesPerRev = 24
 	}
+	if c.MinVal == 0 && c.MaxVal == 0 {
+		c.MaxVal = 1
+	}
 	c.CustomScale.ApplyDefaults()
+	c.MinMaxVal.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -3540,10 +3516,7 @@ func (c CIPositionAngularChannel) Validate() error {
 type CIDutyCycleChannel struct {
 	BaseCIChannel
 	CustomScale
-	// MinVal is the minimum expected duty-cycle frequency.
-	MinVal float64 `json:"min_val" msgpack:"min_val"`
-	// MaxVal is the maximum expected duty-cycle frequency.
-	MaxVal float64 `json:"max_val" msgpack:"max_val"`
+	MinMaxVal
 	// ActiveEdge selects the edge the counter responds to.
 	ActiveEdge CIEdge `json:"active_edge" msgpack:"active_edge"`
 	// Terminal is the terminal the counter signal is wired to.
@@ -3554,16 +3527,15 @@ func (CIDutyCycleChannel) isCIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CIDutyCycleChannel) ApplyDefaults() {
-	if c.MinVal == 0 {
-		c.MinVal = 2
-	}
-	if c.MaxVal == 0 {
-		c.MaxVal = 10000
-	}
 	if c.ActiveEdge == "" {
 		c.ActiveEdge = CIEdgeRising
 	}
+	if c.MinVal == 0 && c.MaxVal == 0 {
+		c.MinVal = 2
+		c.MaxVal = 10000
+	}
 	c.CustomScale.ApplyDefaults()
+	c.MinMaxVal.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

@@ -1944,8 +1944,9 @@ func (cic CIChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.CustomScale.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.Float64(float64(v.MinVal))
-		w.Float64(float64(v.MaxVal))
+		if err := v.MinMaxVal.EncodeOrc(w); err != nil {
+			return err
+		}
 		w.String(string(v.Units))
 		w.String(string(v.Edge))
 		w.String(string(v.MeasMethod))
@@ -1969,8 +1970,9 @@ func (cic CIChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.CustomScale.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.Float64(float64(v.MinVal))
-		w.Float64(float64(v.MaxVal))
+		if err := v.MinMaxVal.EncodeOrc(w); err != nil {
+			return err
+		}
 		w.String(string(v.Units))
 		w.String(string(v.StartingEdge))
 		w.String(string(v.MeasMethod))
@@ -1985,8 +1987,9 @@ func (cic CIChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.CustomScale.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.Float64(float64(v.MinVal))
-		w.Float64(float64(v.MaxVal))
+		if err := v.MinMaxVal.EncodeOrc(w); err != nil {
+			return err
+		}
 		w.String(string(v.Units))
 		w.String(string(v.StartingEdge))
 		w.String(v.Terminal)
@@ -1998,8 +2001,9 @@ func (cic CIChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.CustomScale.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.Float64(float64(v.MinVal))
-		w.Float64(float64(v.MaxVal))
+		if err := v.MinMaxVal.EncodeOrc(w); err != nil {
+			return err
+		}
 		w.String(string(v.Units))
 		w.String(v.Terminal)
 	case CITwoEdgeSepChannel:
@@ -2010,8 +2014,9 @@ func (cic CIChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.CustomScale.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.Float64(float64(v.MinVal))
-		w.Float64(float64(v.MaxVal))
+		if err := v.MinMaxVal.EncodeOrc(w); err != nil {
+			return err
+		}
 		w.String(string(v.Units))
 		w.String(string(v.FirstEdge))
 		w.String(string(v.SecondEdge))
@@ -2025,8 +2030,9 @@ func (cic CIChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.CustomScale.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.Float64(float64(v.MinVal))
-		w.Float64(float64(v.MaxVal))
+		if err := v.MinMaxVal.EncodeOrc(w); err != nil {
+			return err
+		}
 		w.String(string(v.Units))
 		w.String(string(v.DecodingType))
 		w.Float64(float64(v.DistPerPulse))
@@ -2040,8 +2046,9 @@ func (cic CIChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.CustomScale.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.Float64(float64(v.MinVal))
-		w.Float64(float64(v.MaxVal))
+		if err := v.MinMaxVal.EncodeOrc(w); err != nil {
+			return err
+		}
 		w.String(string(v.Units))
 		w.String(string(v.DecodingType))
 		w.Float64(float64(v.PulsesPerRev))
@@ -2089,8 +2096,9 @@ func (cic CIChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.CustomScale.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.Float64(float64(v.MinVal))
-		w.Float64(float64(v.MaxVal))
+		if err := v.MinMaxVal.EncodeOrc(w); err != nil {
+			return err
+		}
 		w.String(string(v.ActiveEdge))
 		w.String(v.Terminal)
 	default:
@@ -2114,10 +2122,7 @@ func (cic *CIChannel) DecodeOrc(r *orc.Reader) error {
 		if err := v.CustomScale.DecodeOrc(r); err != nil {
 			return err
 		}
-		if v.MinVal, err = r.Float64(); err != nil {
-			return err
-		}
-		if v.MaxVal, err = r.Float64(); err != nil {
+		if err := v.MinMaxVal.DecodeOrc(r); err != nil {
 			return err
 		}
 		{
@@ -2185,10 +2190,7 @@ func (cic *CIChannel) DecodeOrc(r *orc.Reader) error {
 		if err := v.CustomScale.DecodeOrc(r); err != nil {
 			return err
 		}
-		if v.MinVal, err = r.Float64(); err != nil {
-			return err
-		}
-		if v.MaxVal, err = r.Float64(); err != nil {
+		if err := v.MinMaxVal.DecodeOrc(r); err != nil {
 			return err
 		}
 		{
@@ -2230,10 +2232,7 @@ func (cic *CIChannel) DecodeOrc(r *orc.Reader) error {
 		if err := v.CustomScale.DecodeOrc(r); err != nil {
 			return err
 		}
-		if v.MinVal, err = r.Float64(); err != nil {
-			return err
-		}
-		if v.MaxVal, err = r.Float64(); err != nil {
+		if err := v.MinMaxVal.DecodeOrc(r); err != nil {
 			return err
 		}
 		{
@@ -2262,10 +2261,7 @@ func (cic *CIChannel) DecodeOrc(r *orc.Reader) error {
 		if err := v.CustomScale.DecodeOrc(r); err != nil {
 			return err
 		}
-		if v.MinVal, err = r.Float64(); err != nil {
-			return err
-		}
-		if v.MaxVal, err = r.Float64(); err != nil {
+		if err := v.MinMaxVal.DecodeOrc(r); err != nil {
 			return err
 		}
 		{
@@ -2287,10 +2283,7 @@ func (cic *CIChannel) DecodeOrc(r *orc.Reader) error {
 		if err := v.CustomScale.DecodeOrc(r); err != nil {
 			return err
 		}
-		if v.MinVal, err = r.Float64(); err != nil {
-			return err
-		}
-		if v.MaxVal, err = r.Float64(); err != nil {
+		if err := v.MinMaxVal.DecodeOrc(r); err != nil {
 			return err
 		}
 		{
@@ -2329,10 +2322,7 @@ func (cic *CIChannel) DecodeOrc(r *orc.Reader) error {
 		if err := v.CustomScale.DecodeOrc(r); err != nil {
 			return err
 		}
-		if v.MinVal, err = r.Float64(); err != nil {
-			return err
-		}
-		if v.MaxVal, err = r.Float64(); err != nil {
+		if err := v.MinMaxVal.DecodeOrc(r); err != nil {
 			return err
 		}
 		{
@@ -2367,10 +2357,7 @@ func (cic *CIChannel) DecodeOrc(r *orc.Reader) error {
 		if err := v.CustomScale.DecodeOrc(r); err != nil {
 			return err
 		}
-		if v.MinVal, err = r.Float64(); err != nil {
-			return err
-		}
-		if v.MaxVal, err = r.Float64(); err != nil {
+		if err := v.MinMaxVal.DecodeOrc(r); err != nil {
 			return err
 		}
 		{
@@ -2481,10 +2468,7 @@ func (cic *CIChannel) DecodeOrc(r *orc.Reader) error {
 		if err := v.CustomScale.DecodeOrc(r); err != nil {
 			return err
 		}
-		if v.MinVal, err = r.Float64(); err != nil {
-			return err
-		}
-		if v.MaxVal, err = r.Float64(); err != nil {
+		if err := v.MinMaxVal.DecodeOrc(r); err != nil {
 			return err
 		}
 		{

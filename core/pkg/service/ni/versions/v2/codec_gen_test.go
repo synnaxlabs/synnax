@@ -659,14 +659,13 @@ var _ = Describe("Codec", func() {
 			Entry("ci_frequency variant", v2.CIChannel{Variant: v2.CIFrequencyChannel{
 				BaseCIChannel: fullyPopulatedBaseCIChannel,
 				CustomScale:   fullyPopulatedCustomScale,
-				MinVal:        1.5,
-				MaxVal:        2.5,
+				MinMaxVal:     fullyPopulatedMinMaxVal,
 				Units:         v2.CIFreqUnits("Hz"),
 				Edge:          v2.CIEdge("Rising"),
 				MeasMethod:    v2.CIMeasMethod("LowFreq1Ctr"),
-				MeasTime:      6.5,
-				Divisor:       8,
-				Terminal:      "test_8",
+				MeasTime:      4.5,
+				Divisor:       6,
+				Terminal:      "test_6",
 			}}),
 			Entry("ci_edge_count variant", v2.CIChannel{Variant: v2.CIEdgeCountChannel{
 				BaseCIChannel:  fullyPopulatedBaseCIChannel,
@@ -678,64 +677,58 @@ var _ = Describe("Codec", func() {
 			Entry("ci_period variant", v2.CIChannel{Variant: v2.CIPeriodChannel{
 				BaseCIChannel: fullyPopulatedBaseCIChannel,
 				CustomScale:   fullyPopulatedCustomScale,
-				MinVal:        1.5,
-				MaxVal:        2.5,
+				MinMaxVal:     fullyPopulatedMinMaxVal,
 				Units:         v2.CITimeUnits("Seconds"),
 				StartingEdge:  v2.CIEdge("Rising"),
 				MeasMethod:    v2.CIMeasMethod("LowFreq1Ctr"),
-				MeasTime:      6.5,
-				Divisor:       8,
-				Terminal:      "test_8",
+				MeasTime:      4.5,
+				Divisor:       6,
+				Terminal:      "test_6",
 			}}),
 			Entry("ci_pulse_width variant", v2.CIChannel{Variant: v2.CIPulseWidthChannel{
 				BaseCIChannel: fullyPopulatedBaseCIChannel,
 				CustomScale:   fullyPopulatedCustomScale,
-				MinVal:        1.5,
-				MaxVal:        2.5,
+				MinMaxVal:     fullyPopulatedMinMaxVal,
 				Units:         v2.CITimeUnits("Seconds"),
 				StartingEdge:  v2.CIEdge("Rising"),
-				Terminal:      "test_5",
+				Terminal:      "test_3",
 			}}),
 			Entry("ci_semi_period variant", v2.CIChannel{Variant: v2.CISemiPeriodChannel{
 				BaseCIChannel: fullyPopulatedBaseCIChannel,
 				CustomScale:   fullyPopulatedCustomScale,
-				MinVal:        1.5,
-				MaxVal:        2.5,
+				MinMaxVal:     fullyPopulatedMinMaxVal,
 				Units:         v2.CITimeUnits("Seconds"),
-				Terminal:      "test_4",
+				Terminal:      "test_2",
 			}}),
 			Entry("ci_two_edge_sep variant", v2.CIChannel{Variant: v2.CITwoEdgeSepChannel{
 				BaseCIChannel:  fullyPopulatedBaseCIChannel,
 				CustomScale:    fullyPopulatedCustomScale,
-				MinVal:         1.5,
-				MaxVal:         2.5,
+				MinMaxVal:      fullyPopulatedMinMaxVal,
 				Units:          v2.CITimeUnits("Seconds"),
 				FirstEdge:      v2.CIEdge("Rising"),
 				SecondEdge:     v2.CIEdge("Rising"),
-				FirstTerminal:  "test_6",
-				SecondTerminal: "test_7",
+				FirstTerminal:  "test_4",
+				SecondTerminal: "test_5",
 			}}),
 			Entry("ci_velocity_linear variant", v2.CIChannel{Variant: v2.CIVelocityLinearChannel{
 				BaseCIChannel: fullyPopulatedBaseCIChannel,
 				CustomScale:   fullyPopulatedCustomScale,
-				MinVal:        1.5,
-				MaxVal:        2.5,
+				MinMaxVal:     fullyPopulatedMinMaxVal,
 				Units:         v2.CILinearVelocityUnits("m/s"),
 				DecodingType:  v2.CIDecodingType("X1"),
-				DistPerPulse:  5.5,
-				TerminalA:     "test_6",
-				TerminalB:     "test_7",
+				DistPerPulse:  3.5,
+				TerminalA:     "test_4",
+				TerminalB:     "test_5",
 			}}),
 			Entry("ci_velocity_angular variant", v2.CIChannel{Variant: v2.CIVelocityAngularChannel{
 				BaseCIChannel: fullyPopulatedBaseCIChannel,
 				CustomScale:   fullyPopulatedCustomScale,
-				MinVal:        1.5,
-				MaxVal:        2.5,
+				MinMaxVal:     fullyPopulatedMinMaxVal,
 				Units:         v2.CIAngularVelocityUnits("RPM"),
 				DecodingType:  v2.CIDecodingType("X1"),
-				PulsesPerRev:  5.5,
-				TerminalA:     "test_6",
-				TerminalB:     "test_7",
+				PulsesPerRev:  3.5,
+				TerminalA:     "test_4",
+				TerminalB:     "test_5",
 			}}),
 			Entry("ci_position_linear variant", v2.CIChannel{Variant: v2.CIPositionLinearChannel{
 				BaseCIChannel: fullyPopulatedBaseCIChannel,
@@ -762,10 +755,9 @@ var _ = Describe("Codec", func() {
 			Entry("ci_duty_cycle variant", v2.CIChannel{Variant: v2.CIDutyCycleChannel{
 				BaseCIChannel: fullyPopulatedBaseCIChannel,
 				CustomScale:   fullyPopulatedCustomScale,
-				MinVal:        1.5,
-				MaxVal:        2.5,
+				MinMaxVal:     fullyPopulatedMinMaxVal,
 				ActiveEdge:    v2.CIEdge("Rising"),
-				Terminal:      "test_4",
+				Terminal:      "test_2",
 			}}),
 		)
 	})
@@ -812,14 +804,13 @@ var _ = Describe("Codec", func() {
 					{Variant: v2.CIFrequencyChannel{
 						BaseCIChannel: fullyPopulatedBaseCIChannel,
 						CustomScale:   fullyPopulatedCustomScale,
-						MinVal:        7.5,
-						MaxVal:        8.5,
+						MinMaxVal:     fullyPopulatedMinMaxVal,
 						Units:         v2.CIFreqUnits("Hz"),
 						Edge:          v2.CIEdge("Rising"),
 						MeasMethod:    v2.CIMeasMethod("LowFreq1Ctr"),
-						MeasTime:      12.5,
-						Divisor:       14,
-						Terminal:      "test_14",
+						MeasTime:      10.5,
+						Divisor:       12,
+						Terminal:      "test_12",
 					}},
 				},
 			}),
@@ -1550,14 +1541,13 @@ func BenchmarkEncodeDecodeCIChannel(b *testing.B) {
 	seed := v2.CIChannel{Variant: v2.CIFrequencyChannel{
 		BaseCIChannel: fullyPopulatedBaseCIChannel,
 		CustomScale:   fullyPopulatedCustomScale,
-		MinVal:        1.5,
-		MaxVal:        2.5,
+		MinMaxVal:     fullyPopulatedMinMaxVal,
 		Units:         v2.CIFreqUnits("Hz"),
 		Edge:          v2.CIEdge("Rising"),
 		MeasMethod:    v2.CIMeasMethod("LowFreq1Ctr"),
-		MeasTime:      6.5,
-		Divisor:       8,
-		Terminal:      "test_8",
+		MeasTime:      4.5,
+		Divisor:       6,
+		Terminal:      "test_6",
 	}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -1608,14 +1598,13 @@ func BenchmarkEncodeDecodeCounterReadConfig(b *testing.B) {
 			{Variant: v2.CIFrequencyChannel{
 				BaseCIChannel: fullyPopulatedBaseCIChannel,
 				CustomScale:   fullyPopulatedCustomScale,
-				MinVal:        7.5,
-				MaxVal:        8.5,
+				MinMaxVal:     fullyPopulatedMinMaxVal,
 				Units:         v2.CIFreqUnits("Hz"),
 				Edge:          v2.CIEdge("Rising"),
 				MeasMethod:    v2.CIMeasMethod("LowFreq1Ctr"),
-				MeasTime:      12.5,
-				Divisor:       14,
-				Terminal:      "test_14",
+				MeasTime:      10.5,
+				Divisor:       12,
+				Terminal:      "test_12",
 			}},
 		},
 	}
@@ -3000,14 +2989,13 @@ func FuzzDecodeCIChannel(f *testing.F) {
 		seed := v2.CIChannel{Variant: v2.CIFrequencyChannel{
 			BaseCIChannel: fullyPopulatedBaseCIChannel,
 			CustomScale:   fullyPopulatedCustomScale,
-			MinVal:        1.5,
-			MaxVal:        2.5,
+			MinMaxVal:     fullyPopulatedMinMaxVal,
 			Units:         v2.CIFreqUnits("Hz"),
 			Edge:          v2.CIEdge("Rising"),
 			MeasMethod:    v2.CIMeasMethod("LowFreq1Ctr"),
-			MeasTime:      6.5,
-			Divisor:       8,
-			Terminal:      "test_8",
+			MeasTime:      4.5,
+			Divisor:       6,
+			Terminal:      "test_6",
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3033,14 +3021,13 @@ func FuzzDecodeCIChannel(f *testing.F) {
 		seed := v2.CIChannel{Variant: v2.CIPeriodChannel{
 			BaseCIChannel: fullyPopulatedBaseCIChannel,
 			CustomScale:   fullyPopulatedCustomScale,
-			MinVal:        1.5,
-			MaxVal:        2.5,
+			MinMaxVal:     fullyPopulatedMinMaxVal,
 			Units:         v2.CITimeUnits("Seconds"),
 			StartingEdge:  v2.CIEdge("Rising"),
 			MeasMethod:    v2.CIMeasMethod("LowFreq1Ctr"),
-			MeasTime:      6.5,
-			Divisor:       8,
-			Terminal:      "test_8",
+			MeasTime:      4.5,
+			Divisor:       6,
+			Terminal:      "test_6",
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3052,11 +3039,10 @@ func FuzzDecodeCIChannel(f *testing.F) {
 		seed := v2.CIChannel{Variant: v2.CIPulseWidthChannel{
 			BaseCIChannel: fullyPopulatedBaseCIChannel,
 			CustomScale:   fullyPopulatedCustomScale,
-			MinVal:        1.5,
-			MaxVal:        2.5,
+			MinMaxVal:     fullyPopulatedMinMaxVal,
 			Units:         v2.CITimeUnits("Seconds"),
 			StartingEdge:  v2.CIEdge("Rising"),
-			Terminal:      "test_5",
+			Terminal:      "test_3",
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3068,10 +3054,9 @@ func FuzzDecodeCIChannel(f *testing.F) {
 		seed := v2.CIChannel{Variant: v2.CISemiPeriodChannel{
 			BaseCIChannel: fullyPopulatedBaseCIChannel,
 			CustomScale:   fullyPopulatedCustomScale,
-			MinVal:        1.5,
-			MaxVal:        2.5,
+			MinMaxVal:     fullyPopulatedMinMaxVal,
 			Units:         v2.CITimeUnits("Seconds"),
-			Terminal:      "test_4",
+			Terminal:      "test_2",
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3083,13 +3068,12 @@ func FuzzDecodeCIChannel(f *testing.F) {
 		seed := v2.CIChannel{Variant: v2.CITwoEdgeSepChannel{
 			BaseCIChannel:  fullyPopulatedBaseCIChannel,
 			CustomScale:    fullyPopulatedCustomScale,
-			MinVal:         1.5,
-			MaxVal:         2.5,
+			MinMaxVal:      fullyPopulatedMinMaxVal,
 			Units:          v2.CITimeUnits("Seconds"),
 			FirstEdge:      v2.CIEdge("Rising"),
 			SecondEdge:     v2.CIEdge("Rising"),
-			FirstTerminal:  "test_6",
-			SecondTerminal: "test_7",
+			FirstTerminal:  "test_4",
+			SecondTerminal: "test_5",
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3101,13 +3085,12 @@ func FuzzDecodeCIChannel(f *testing.F) {
 		seed := v2.CIChannel{Variant: v2.CIVelocityLinearChannel{
 			BaseCIChannel: fullyPopulatedBaseCIChannel,
 			CustomScale:   fullyPopulatedCustomScale,
-			MinVal:        1.5,
-			MaxVal:        2.5,
+			MinMaxVal:     fullyPopulatedMinMaxVal,
 			Units:         v2.CILinearVelocityUnits("m/s"),
 			DecodingType:  v2.CIDecodingType("X1"),
-			DistPerPulse:  5.5,
-			TerminalA:     "test_6",
-			TerminalB:     "test_7",
+			DistPerPulse:  3.5,
+			TerminalA:     "test_4",
+			TerminalB:     "test_5",
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3119,13 +3102,12 @@ func FuzzDecodeCIChannel(f *testing.F) {
 		seed := v2.CIChannel{Variant: v2.CIVelocityAngularChannel{
 			BaseCIChannel: fullyPopulatedBaseCIChannel,
 			CustomScale:   fullyPopulatedCustomScale,
-			MinVal:        1.5,
-			MaxVal:        2.5,
+			MinMaxVal:     fullyPopulatedMinMaxVal,
 			Units:         v2.CIAngularVelocityUnits("RPM"),
 			DecodingType:  v2.CIDecodingType("X1"),
-			PulsesPerRev:  5.5,
-			TerminalA:     "test_6",
-			TerminalB:     "test_7",
+			PulsesPerRev:  3.5,
+			TerminalA:     "test_4",
+			TerminalB:     "test_5",
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3173,10 +3155,9 @@ func FuzzDecodeCIChannel(f *testing.F) {
 		seed := v2.CIChannel{Variant: v2.CIDutyCycleChannel{
 			BaseCIChannel: fullyPopulatedBaseCIChannel,
 			CustomScale:   fullyPopulatedCustomScale,
-			MinVal:        1.5,
-			MaxVal:        2.5,
+			MinMaxVal:     fullyPopulatedMinMaxVal,
 			ActiveEdge:    v2.CIEdge("Rising"),
-			Terminal:      "test_4",
+			Terminal:      "test_2",
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3271,14 +3252,13 @@ func FuzzDecodeCounterReadConfig(f *testing.F) {
 				{Variant: v2.CIFrequencyChannel{
 					BaseCIChannel: fullyPopulatedBaseCIChannel,
 					CustomScale:   fullyPopulatedCustomScale,
-					MinVal:        7.5,
-					MaxVal:        8.5,
+					MinMaxVal:     fullyPopulatedMinMaxVal,
 					Units:         v2.CIFreqUnits("Hz"),
 					Edge:          v2.CIEdge("Rising"),
 					MeasMethod:    v2.CIMeasMethod("LowFreq1Ctr"),
-					MeasTime:      12.5,
-					Divisor:       14,
-					Terminal:      "test_14",
+					MeasTime:      10.5,
+					Divisor:       12,
+					Terminal:      "test_12",
 				}},
 			},
 		}
