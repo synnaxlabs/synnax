@@ -295,14 +295,13 @@ const Item = ({ itemKey }: List.ItemProps<view.Key>): ReactElement | null => {
   const { name } = item;
   return (
     <Flex.Box pack>
-      <Select.Button itemKey={itemKey} size="small" justify="between">
+      <Select.Button itemKey={itemKey} size="small" justify="between" square={false}>
         <Text.MaybeEditable
           id={List.itemNameID(itemKey)}
           value={name}
           allowDoubleClick={false}
           color={9}
           onChange={canRename && item.static !== true ? handleRename : undefined}
-          className={CSS.BE("view", "view-item")}
         />
       </Select.Button>
     </Flex.Box>
