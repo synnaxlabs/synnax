@@ -13,7 +13,7 @@ from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from typing import Literal
 
-from playwright.sync_api import Locator, Page
+from playwright.sync_api import Locator, Page, expect
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 import synnax as sy
@@ -475,22 +475,39 @@ class LayoutClient:
         :param reopen: Re-opens the dropdown. Called before a retry when the dialog
             closed before the item was found (e.g. a re-render dismissed it).
         """
-        sy.sleep(0.3)
         target = self.dialog.get_by_role("option", name=text, exact=exact)
+        generic = self.dialog.locator("input[placeholder*='Search']")
+        specific = (
+            self.dialog.locator(f"input[placeholder*='{placeholder}']")
+            if placeholder is not None
+            else generic
+        )
+        loaded = self.dialog.get_by_role("option").or_(
+            self.dialog.locator(".pluto-list__items--empty")
+        )
+        loading = self.dialog.locator(".pluto-icon--loading")
 
-        def apply_search() -> None:
-            search_input = None
-            if placeholder is not None:
-                search_input = self.page.locator(f"input[placeholder*='{placeholder}']")
-            if search_input is None or search_input.count() == 0:
-                search_input = self.page.locator("input[placeholder*='Search']")
-            if search_input.count() > 0:
-                search_input.wait_for(state="attached", timeout=5000)
-                if search_input.input_value() != text:
-                    search_input.fill(text)
-                sy.sleep(0.2)
+        def apply_search(refill: bool = False) -> None:
+            # The dropdown renders its search input and options together, so either
+            # one appearing means it is open.
+            generic.or_(target).first.wait_for(state="visible", timeout=5000)
+            # Type only once the first page has settled: a search that races the
+            # initial answer is overwritten by it.
+            loaded.first.wait_for(state="visible", timeout=5000)
+            expect(loading).to_have_count(0, timeout=5000)
+            search_input = specific if specific.count() > 0 else generic
+            if search_input.count() == 0:
+                return
+            if refill:
+                search_input.fill("")
+            if search_input.input_value() != text:
+                search_input.fill(text)
+            sy.sleep(0.1)
 
-        apply_search()
+        try:
+            apply_search()
+        except (PlaywrightTimeoutError, AssertionError):
+            pass  # The retry loop below waits again and runs the recovery path.
         last_recovery_error: Exception | None = None
         for _ in range(5):
             try:
@@ -502,12 +519,12 @@ class LayoutClient:
                 try:
                     # Toasts overlap the dropdown and swallow the click.
                     self.notifications.close_all()
-                    dialog = self.dialog
-                    if reopen is not None and dialog.count() == 0:
+                    if reopen is not None and self.dialog.count() == 0:
                         reopen()
                         apply_search()
                     else:
-                        sy.sleep(1)
+                        # A fresh search replaces a list a late answer overwrote.
+                        apply_search(refill=True)
                 except Exception as e:
                     # A failed recovery consumes this retry instead of aborting.
                     last_recovery_error = e
