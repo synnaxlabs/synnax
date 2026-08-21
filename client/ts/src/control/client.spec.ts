@@ -10,7 +10,11 @@
 import { DataType, id, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
+import { type channel } from "@/channel";
+import { type RetrieveMultipleParams } from "@/control/client";
+import { type KeyedState } from "@/control/state";
 import { NotFoundError } from "@/errors";
+import { query } from "@/query";
 import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
@@ -21,6 +25,9 @@ const createVirtual = async () =>
     dataType: DataType.FLOAT64,
     virtual: true,
   });
+
+const keysOf = (states: query.Cached<KeyedState[]> | undefined): channel.Key[] =>
+  query.isLive<KeyedState[]>(states) ? states.map(({ key }) => key) : [];
 
 describe("control client", () => {
   describe("retrieve", () => {
@@ -77,6 +84,65 @@ describe("control client", () => {
         expect(await client.control.retrieve([])).toHaveLength(0);
       } finally {
         await w.close();
+      }
+    });
+  });
+
+  describe("onChange", () => {
+    it("should deliver a live transfer when no keys are given", async () => {
+      const ch = await createVirtual();
+      const all: RetrieveMultipleParams = {};
+      const off = client.control.onChange(all, () => {});
+      try {
+        await client.control.retrieve(all);
+        const w = await client.openWriter({
+          start: TimeStamp.now(),
+          channels: [ch.key],
+          controlSubject: { key: "helena", name: "helena" },
+        });
+        try {
+          await expect
+            .poll(() => keysOf(client.control.getCached(all)))
+            .toContain(ch.key);
+        } finally {
+          await w.close();
+        }
+      } finally {
+        off();
+      }
+    });
+
+    it("should not deliver a live transfer for an empty key set", async () => {
+      const ch = await createVirtual();
+      const none: channel.Key[] = [];
+      const all: RetrieveMultipleParams = {};
+      const delivered: channel.Key[][] = [];
+      const offNone = client.control.onChange(none, (states) =>
+        delivered.push(keysOf(states)),
+      );
+      const offAll = client.control.onChange(all, () => {});
+      try {
+        expect(await client.control.retrieve(none)).toHaveLength(0);
+        await client.control.retrieve(all);
+        const w = await client.openWriter({
+          start: TimeStamp.now(),
+          channels: [ch.key],
+          controlSubject: { key: "missoula", name: "missoula" },
+        });
+        try {
+          // The unfiltered query witnesses the transfer landing in the table, which
+          // rechecks every subscribed query in the same batch.
+          await expect
+            .poll(() => keysOf(client.control.getCached(all)))
+            .toContain(ch.key);
+          expect(keysOf(client.control.getCached(none))).toEqual([]);
+          expect(delivered.flat()).toEqual([]);
+        } finally {
+          await w.close();
+        }
+      } finally {
+        offNone();
+        offAll();
       }
     });
   });

@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type channel } from "@/channel";
@@ -61,8 +60,7 @@ export class Client extends query.Retriever<
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (state, req) =>
-          !primitive.isNonZero(req.keys) || req.keys.includes(state.key),
+        matches: (state, req) => req.keys == null || req.keys.includes(state.key),
       },
     });
     this.cfg = cfg;
