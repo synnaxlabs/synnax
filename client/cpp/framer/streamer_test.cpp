@@ -9,7 +9,6 @@
 
 #include <chrono>
 #include <future>
-#include <thread>
 
 #include "gtest/gtest.h"
 
@@ -215,9 +214,6 @@ void test_downsample(
         synnax::framer::StreamerConfig{channels, downsample_factor}
     ));
 
-    // Sleep for 5 milliseconds to allow for the streamer to bootstrap.
-    std::this_thread::sleep_for(std::chrono::milliseconds(5));
-
     auto frame = x::telem::Frame(1);
     frame.emplace(data.key, x::telem::Series(raw_data));
     ASSERT_NIL(writer.write(frame));
@@ -348,8 +344,6 @@ void test_downsample_string(
     auto streamer = ASSERT_NIL_P(client.telem.open_streamer(
         synnax::framer::StreamerConfig{channels, downsample_factor}
     ));
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
     auto frame = x::telem::Frame(
         virtual_channel.key,
