@@ -14,6 +14,12 @@
         font-weight: 450;
     }
 
+    /* A flex item will not shrink below its content, so a long name overflows the row
+       and clips instead of ellipsizing. */
+    & .console-range-list-item__name {
+        min-width: 0;
+    }
+
     & .save-button {
         position: absolute;
         top: 1rem;

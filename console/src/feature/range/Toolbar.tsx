@@ -112,12 +112,18 @@ const listItem = Component.renderProp((props: BaseList.ItemProps<string>) => {
           </Text.Text>
         </Tooltip.Dialog>
       )}
-      <Flex.Box x align="center" gap="small">
+      <Flex.Box
+        x
+        align="center"
+        gap="small"
+        className={CSS.BE("range-list-item", "name")}
+      >
         <Ranger.StageIcon timeRange={timeRange} />
         <Text.MaybeEditable
           id={`text-${key}`}
           level="p"
           value={name}
+          overflow="ellipsis"
           onChange={
             hasUpdatePermission ? (name) => onRename.update({ key, name }) : undefined
           }
