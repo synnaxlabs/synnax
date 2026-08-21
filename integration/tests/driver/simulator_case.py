@@ -23,13 +23,35 @@ Usage:
 """
 
 import os
+import subprocess
 from multiprocessing.process import BaseProcess
 
+import psutil
 from examples.simulators.device_sim import DeviceSim
 
 import synnax as sy
 from framework.hardware_case import HardwareCase
 from framework.models import SynnaxConnection
+
+
+def _listener_pids(port: int) -> list[int]:
+    try:
+        return [
+            conn.pid
+            for conn in psutil.net_connections(kind="tcp")
+            if conn.status == "LISTEN" and conn.laddr.port == port and conn.pid
+        ]
+    except psutil.AccessDenied:
+        # macOS hides other processes' sockets from non-root users.
+        try:
+            out = subprocess.run(
+                ["lsof", "-nP", f"-iTCP:{port}", "-sTCP:LISTEN", "-t"],
+                capture_output=True,
+                text=True,
+            ).stdout
+        except OSError:
+            return []
+        return [int(pid) for pid in out.split()]
 
 
 class SimulatorCase(HardwareCase):
@@ -61,6 +83,7 @@ class SimulatorCase(HardwareCase):
             name = sim_cls.device_name
             existing = self.sims.get(name)
             sim = existing if existing is not None else sim_cls(rate=self.SAMPLE_RATE)
+            self._free_port(sim)
             sim.start()
             self.sims[name] = sim
             self._connect_device_for(sim_cls)
@@ -122,6 +145,17 @@ class SimulatorCase(HardwareCase):
             self.sim = None
         finally:
             super().teardown()
+
+    def _free_port(self, sim: DeviceSim) -> None:
+        """Kill a stale process, usually left by a killed run, on the sim's port."""
+        for pid in _listener_pids(sim.port):
+            try:
+                proc = psutil.Process(pid)
+                proc.kill()
+                proc.wait(timeout=5)
+                self.log(f"Killed stale PID {pid} on port {sim.port}")
+            except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
+                self.log(f"Could not kill PID {pid} on port {sim.port}: {e}")
 
     def _connect_device_for(self, sim_cls: type[DeviceSim]) -> None:
         """Get or create the hardware device for a given simulator class."""
