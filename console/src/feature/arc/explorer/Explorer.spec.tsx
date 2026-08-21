@@ -62,7 +62,7 @@ describe("arc/Explorer", () => {
     );
   });
 
-  it("renders the arc name as plain text for a subject who cannot update Arcs", async () => {
+  it("renders the Arc name as plain text for a subject who cannot update Arcs", async () => {
     const arc = await createArc();
     await renderExplorer(
       await createTestClientWithGrants(client, {
