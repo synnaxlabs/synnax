@@ -985,15 +985,14 @@ var _ = Describe("Legacy import", func() {
 		Expect(tasks).To(HaveLen(2))
 	})
 
-	It("Should skip a layout whose component file is missing", func(
+	It("Should reject a layout whose component file is missing", func(
 		ctx SpecContext,
 	) {
-		// Released Consoles wrote layouts whose component file the export never
-		// produced, so the layout drops rather than failing the whole bundle.
 		files := zip.Files{"LAYOUT.json": legacyLayoutFile(logLayout)}
-		proj := MustSucceed(svc.Import(ctx, tx, files, "Legacy.zip"))
-		Expect(proj.Name).To(Equal("Legacy"))
-		Expect(childrenOf(ctx, project.OntologyID(proj.Key))).To(BeEmpty())
+		Expect(svc.Import(ctx, tx, files, "Legacy.zip")).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(`data for layout "k1" not found`)),
+		))
 	})
 
 	It("Should list the legacy members' types for access checks", func(

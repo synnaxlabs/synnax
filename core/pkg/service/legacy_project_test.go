@@ -142,39 +142,19 @@ var _ = Describe("Legacy project bundles", func() {
 	Describe("A version 5 layout whose task file the export dropped", func() {
 		const path = "testdata/legacy-projects/missing-member-v5"
 
-		It("Should import the members the bundle does hold", func(ctx SpecContext) {
-			// The layout names an ni_analog_write task whose component file the
-			// export never wrote. The task drops; the rest of the bundle lands.
-			l, p := importBundle(ctx, path, "Dropped.zip")
-			children := childrenOf(ctx, l, project.OntologyID(p.Key))
-			Expect(typesOf(children)).To(ContainElements(
-				ontology.ResourceTypeSchematic,
-				ontology.ResourceTypeLineplot,
-			))
-		})
-
-		It("Should leave the dropped member out of the panel's tabs", func(
+		It("Should reject the bundle, naming the layout it cannot resolve", func(
 			ctx SpecContext,
 		) {
-			l, p := importBundle(ctx, path, "Dropped.zip")
-			children := childrenOf(ctx, l, project.OntologyID(p.Key))
-			var panelID ontology.ID
-			for _, c := range children {
-				if c.ID.Type == ontology.ResourceTypePanel {
-					panelID = c.ID
-				}
-			}
-			Expect(panelID.Key).ToNot(BeEmpty())
-			keys := MustSucceed(panel.KeysFromOntologyIDs([]ontology.ID{panelID}))
-			var pnl panel.Panel
-			Expect(l.Panel.NewRetrieve().
-				Where(panel.MatchKeys(keys...)).
-				Entry(&pnl).
-				Exec(ctx, nil)).To(Succeed())
-			refs := panel.ResourceRefs(pnl.Root)
-			Expect(refs).ToNot(BeEmpty())
-			Expect(typesOf(children)).ToNot(ContainElement(
-				ontology.ResourceTypeTask,
+			// The layout names an ni_analog_write task whose component file the
+			// export never wrote. A member the bundle does not hold is a broken
+			// bundle, so the import fails rather than dropping it quietly.
+			l, db := openLayer(ctx)
+			tx := DeferClose(db.OpenTx())
+			Expect(l.Project.Import(
+				ctx, tx, LoadBundle(path), "Dropped.zip",
+			)).Error().To(SatisfyAll(
+				MatchError(ContainSubstring("98dbf43a")),
+				MatchError(ContainSubstring("not found")),
 			))
 		})
 	})
