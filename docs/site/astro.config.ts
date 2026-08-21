@@ -47,6 +47,13 @@ export default defineConfig({
     "/reference/console/requirements": "/reference/console/get-started",
     "/reference/console/workspaces": "/reference/console/projects",
     "/reference/driver/timing": "/reference/driver/task-basics",
+    "/reference/driver/http/get-started": "/reference/driver/http/connect-server",
+    "/reference/driver/labjack/get-started":
+      "/reference/driver/labjack/configure-device",
+    "/reference/driver/modbus/get-started": "/reference/driver/modbus/connect-server",
+    "/reference/driver/ni/get-started": "/reference/driver/ni/configure-device",
+    "/reference/driver/opc-ua/get-started": "/reference/driver/opc-ua/connect-server",
+    "/reference/driver/pagerduty/get-started": "/reference/driver/pagerduty/alert-task",
     // Python client redirects
     "/reference/python-client": "/reference/client/quick-start",
     "/reference/python-client/get-started": "/reference/client/quick-start",

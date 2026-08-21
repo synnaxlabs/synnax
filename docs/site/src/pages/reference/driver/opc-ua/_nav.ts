@@ -14,11 +14,6 @@ export const OPC_UA_NAV: PageNavNode = {
   name: "OPC UA",
   children: [
     {
-      key: "/reference/driver/opc-ua/get-started",
-      href: "/reference/driver/opc-ua/get-started",
-      name: "Get Started",
-    },
-    {
       key: "/reference/driver/opc-ua/connect-server",
       href: "/reference/driver/opc-ua/connect-server",
       name: "Connect to a Server",

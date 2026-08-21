@@ -1,9 +1,9 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "PagerDuty Alert Task"
-description: "Learn how to configure PagerDuty alert tasks in Synnax."
-prev: "Get Started"
-prevURL: "/reference/driver/pagerduty/get-started"
+description: "Learn how to send PagerDuty alerts from Synnax when statuses change."
+prev: "OPC UA Write Task"
+prevURL: "/reference/driver/opc-ua/write-task"
 ---
 
 import { Divider, Icon, Text } from "@synnaxlabs/pluto";
@@ -14,7 +14,47 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
+The PagerDuty integration watches status keys and opens or resolves PagerDuty incidents
+when they change. Error, warning, and info variants send an event with the matching
+severity. Success resolves the open incident. Events are deduplicated by status key, so
+repeated changes update the existing incident.
+
+The integration runs on the Synnax Core, not on the Driver, so the Core must reach
+`events.pagerduty.com` over HTTPS.
+
 For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lifecycle).
+
+<Divider.Divider x />
+
+## Prerequisites
+
+1. A [PagerDuty](https://www.pagerduty.com/) account.
+2. A PagerDuty service with an Events API v2 integration. In PagerDuty, open `Services`
+   -> `Service Directory`, select the service, then `Integrations` -> `Add Integration`
+   -> `Events API v2`.
+3. The 32-character integration key (routing key) from that integration.
+
+<Divider.Divider x />
+
+## Severity Mapping
+
+| Synnax Status Variant | PagerDuty Severity                                           |
+| --------------------- | ------------------------------------------------------------ |
+| Error                 | `error`, or `critical` when the alert sets `errors_critical` |
+| Warning               | `warning`                                                    |
+| Info                  | `info`                                                       |
+| Success               | Resolves incident                                            |
+
+<Divider.Divider x />
+
+## Supported Operating Systems
+
+| Platform                      | Status      |
+| ----------------------------- | ----------- |
+| <Icon.Logo.Windows /> Windows | ✓ Supported |
+| <Icon.Logo.Linux /> Linux     | ✓ Supported |
+| <Icon.Logo.Apple /> macOS     | ✓ Supported |
+| <Icon.Logo.Docker /> Docker   | ✓ Supported |
 
 <Divider.Divider x />
 
