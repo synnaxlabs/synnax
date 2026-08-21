@@ -9,7 +9,7 @@ nextURL: "/reference/driver/labjack/write-task"
 ---
 
 import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
-import { Video, Image } from "@/components/media/Media";
+import { Video } from "@/components/media/Media";
 import { Fragment } from "react";
 import Details from "@/components/details/Details.astro";
 import ChannelType from "@/components/details/ChannelType.astro";
@@ -18,21 +18,18 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-For task lifecycle management, see the
-[Task Basics](/reference/driver/task-basics#how-to) page.
+For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lifecycle).
 
 <Divider.Divider x />
 
 ## Task Configuration Reference
 
-| Parameter              | Type    | Required | Default       | Description                                                   |
-| ---------------------- | ------- | -------- | ------------- | ------------------------------------------------------------- |
-| `name`                 | string  | Yes      | -             | Human-readable task name                                      |
-| `sample_rate`          | number  | Yes      | -             | Samples per second (Hz)                                       |
-| `stream_rate`          | number  | No       | `sample_rate` | Rate data is streamed to Synnax (Hz), must be ≤ `sample_rate` |
-| `data_saving_disabled` | boolean | No       | `false`       | Stream data without saving it permanently in Synnax           |
-| `auto_start`           | boolean | No       | `false`       | Automatically start task after configuration                  |
-| `channels`             | array   | Yes      | -             | List of input channel configurations                          |
+| Parameter     | Type   | Required | Default | Description                                                   |
+| ------------- | ------ | -------- | ------- | ------------------------------------------------------------- |
+| `device`      | string | Yes      | -       | Key of the LabJack device                                     |
+| `sample_rate` | number | No       | `10`    | Samples per second (Hz)                                       |
+| `stream_rate` | number | No       | `5`     | Rate data is streamed to Synnax (Hz), must be ≤ `sample_rate` |
+| `channels`    | array  | Yes      | -       | List of input channel configurations                          |
 
 <Divider.Divider x />
 
@@ -72,7 +69,7 @@ Reads temperature from a thermocouple with cold junction compensation (CJC).
 | ------------------- | ------ | -------- | ---------------------- | ----------------------------------------------------------------------- |
 | `channel`           | number | Yes      | -                      | Synnax channel key                                                      |
 | `port`              | string | Yes      | -                      | AIN port the positive lead is wired to (e.g., `AIN0`, `AIN1`)           |
-| `thermocouple_type` | enum   | Yes      | -                      | `B`, `E`, `J`, `K`, `N`, `R`, `S`, `T`, `C`                             |
+| `thermocouple_type` | enum   | No       | `K`                    | `B`, `E`, `J`, `K`, `N`, `R`, `S`, `T`, `C`                             |
 | `units`             | enum   | No       | `K`                    | Temperature units (`K`, `C`, `F`)                                       |
 | `cjc_source`        | string | No       | `TEMPERATURE_DEVICE_K` | CJC source: `TEMPERATURE_DEVICE_K`, `TEMPERATURE_AIR_K`, or `AIN#`      |
 | `cjc_slope`         | number | No       | `1.0`                  | CJC voltage to temperature slope (K/V)                                  |
@@ -106,15 +103,10 @@ Reads digital state (0 or 1) from a specified digital I/O line.
 
 ## Important Rules
 
-- **Sample rates** -> All channels in a task sample at the same rate. Create separate
-  tasks for different rates.
-- **Thermocouple performance** -> Tasks with thermocouple channels have reduced maximum
-  sample rates due to LJM thermocouple processing.
-- **One running task per channel** -> A channel can only receive live data from one task
-  at a time.
-- **Stream rate optimization** -> For low-rate tasks (< 50 Hz), set the stream rate to
-  the sample rate. For high-rate tasks, keep stream rate less than 50 Hz for better
-  performance.
+- **Thermocouple performance** -> Thermocouple channels lower the maximum sample rate
+  because LJM processes them outside the stream.
+- **Stream rate** -> For sample rates under 50 Hz, set the stream rate equal to the
+  sample rate. Above that, keep the stream rate under 50 Hz.
 
 <Divider.Divider x />
 

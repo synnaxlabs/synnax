@@ -8,31 +8,25 @@ prev: "Connect to a Server"
 prevURL: "/reference/driver/http/connect-server"
 ---
 
-import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
-import { Video, Image } from "@/components/media/Media";
+import { Divider, Icon, Text } from "@synnaxlabs/pluto";
+import { Video } from "@/components/media/Media";
 import { Fragment } from "react";
 import Details from "@/components/details/Details.astro";
-import ChannelType from "@/components/details/ChannelType.astro";
-import DetailsGroup from "@/components/details/Group.astro";
 import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-For task lifecycle management, see the
-[Task Basics](/reference/driver/task-basics#how-to) page.
+For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lifecycle).
 
 <Divider.Divider x />
 
 ## Task Configuration Reference
 
-| Parameter              | Type    | Required | Default | Description                                                          |
-| ---------------------- | ------- | -------- | ------- | -------------------------------------------------------------------- |
-| `name`                 | string  | Yes      | -       | Human-readable task name                                             |
-| `device`               | string  | Yes      | -       | Key of the HTTP server device                                        |
-| `rate`                 | number  | Yes      | -       | Polling rate (Hz)                                                    |
-| `data_saving_disabled` | boolean | No       | `false` | Stream data without saving it permanently in Synnax                  |
-| `auto_start`           | boolean | No       | `false` | Automatically start task after configuration or on Driver bootup     |
-| `endpoints`            | array   | Yes      | -       | List of [endpoint configurations](#endpoint-configuration-reference) |
+| Parameter   | Type   | Required | Default | Description                                                          |
+| ----------- | ------ | -------- | ------- | -------------------------------------------------------------------- |
+| `device`    | string | Yes      | -       | Key of the HTTP server device                                        |
+| `rate`      | number | No       | `1`     | Polling rate (Hz)                                                    |
+| `endpoints` | array  | Yes      | -       | List of [endpoint configurations](#endpoint-configuration-reference) |
 
 <Divider.Divider x />
 
@@ -41,14 +35,15 @@ For task lifecycle management, see the
 Each endpoint defines an HTTP request to poll and a set of fields to extract from its
 JSON response.
 
-| Parameter      | Type   | Required | Default | Description                                                        |
-| -------------- | ------ | -------- | ------- | ------------------------------------------------------------------ |
-| `method`       | string | No       | `"GET"` | HTTP method                                                        |
-| `path`         | string | Yes      | -       | URL path relative to the device base URL (e.g., `/api/v1/data`)    |
-| `headers`      | object | No       | -       | Additional request headers                                         |
-| `query_params` | object | No       | -       | Query parameters                                                   |
-| `body`         | string | No       | -       | Request body (for POST or other methods that accept a body)        |
-| `fields`       | array  | Yes      | -       | [Fields to extract](#field-extraction-reference) from the response |
+| Parameter      | Type   | Required | Default | Description                                                                        |
+| -------------- | ------ | -------- | ------- | ---------------------------------------------------------------------------------- |
+| `method`       | string | No       | `"GET"` | HTTP method                                                                        |
+| `path`         | string | Yes      | -       | URL path relative to the device base URL (e.g., `/api/v1/data`)                    |
+| `headers`      | array  | No       | -       | Additional request headers as `{name, value}` pairs                                |
+| `query_params` | array  | No       | -       | Query parameters as `{parameter, value}` pairs                                     |
+| `body`         | string | No       | -       | Request body (for POST or other methods that accept a body)                        |
+| `index`        | string | No       | -       | Key of the field whose channel indexes the others. Empty stamps samples on arrival |
+| `fields`       | array  | Yes      | -       | [Fields to extract](#field-extraction-reference) from the response                 |
 
 <Divider.Divider x />
 
@@ -80,7 +75,7 @@ A pointer of `/temperature` extracts `23.5`, and `/sensors/pressure` extracts `1
 <Text.Text slot="summary" level="p"><Icon.Details /> Enum Values</Text.Text>
 
 When the HTTP response contains string values that represent discrete states, use
-`enum_values` to map them to numbers. The driver converts matching strings to their
+`enum_values` to map them to numbers. The Driver converts matching strings to their
 numeric equivalents before writing to the channel.
 
 ```python
@@ -92,7 +87,7 @@ http.ReadField(
 )
 ```
 
-If the response value does not match any key in the map, the driver reports an error.
+If the response value does not match any key in the map, the Driver reports an error.
 
 </Details>
 
@@ -100,7 +95,7 @@ If the response value does not match any key in the map, the driver reports an e
 
 ## Timestamp Handling
 
-By default, the driver automatically generates timestamps for each poll cycle using
+By default, the Driver automatically generates timestamps for each poll cycle using
 software timing. If your HTTP response includes a timestamp field, you can extract it
 directly by setting `time_format` on a field whose channel data type is `TIMESTAMP`.
 

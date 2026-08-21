@@ -4,51 +4,35 @@ title: "NI Digital Write Task"
 description: "Learn how to send digital commands to NI devices with Synnax."
 prev: "Digital Read Task"
 prevURL: "/reference/driver/ni/digital-read-task"
+next: "OPC UA"
+nextURL: "/reference/driver/opc-ua/connect-server"
 ---
 
-import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
-import { Video, Image } from "@/components/media/Media";
+import { Divider, Icon, Text } from "@synnaxlabs/pluto";
+import { Video } from "@/components/media/Media";
 import { Fragment } from "react";
 import Details from "@/components/details/Details.astro";
 import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-For task lifecycle management, see the
-[Task Basics](/reference/driver/task-basics#how-to) page.
-
-<Divider.Divider x />
-
-## How Commands Work
-
-Write tasks use **command** and **state** channels:
-
-- **Command channels** (`_cmd`): Write values here to set digital outputs (1 = high, 0 =
-  low)
-- **State channels** (`_state`): Reflect the current output state
-- **Command time channels** (`_cmd_time`): Index channels storing command timestamps
-
-When you write to a command channel, the task processes it and updates the state
-channel, providing acknowledgment that the command was executed.
+For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lifecycle).
 
 <Divider.Divider x />
 
 ## Task Configuration Reference
 
-| Parameter              | Type    | Required | Default | Description                                         |
-| ---------------------- | ------- | -------- | ------- | --------------------------------------------------- |
-| `device`               | string  | Yes      | -       | Device key to write to                              |
-| `name`                 | string  | Yes      | -       | Human-readable task name                            |
-| `state_rate`           | number  | Yes      | -       | Rate (Hz) at which state channels are updated       |
-| `data_saving_disabled` | boolean | No       | `false` | Stream data without saving it permanently in Synnax |
-| `auto_start`           | boolean | No       | `false` | Automatically start task after configuration        |
-| `channels`             | array   | Yes      | -       | List of digital output channel configurations       |
+| Parameter    | Type   | Required | Default | Description                                   |
+| ------------ | ------ | -------- | ------- | --------------------------------------------- |
+| `device`     | string | Yes      | -       | Device key to write to                        |
+| `state_rate` | number | No       | `10`    | Rate (Hz) at which state channels are updated |
+| `channels`   | array  | Yes      | -       | List of digital output channel configurations |
 
 <Divider.Divider x />
 
-## Channel Configuration
+## Channel Configuration Reference
 
-[DO Channel NI-DAQmx C API Reference](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatedochan.html)
+[DO Channel NI-DAQmx C API Reference](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__digital__output__channels_1ga4c427c02d6bd600f95455e07da8e41e4.html)
 
 | Parameter       | Type   | Required | Default | Description                           |
 | --------------- | ------ | -------- | ------- | ------------------------------------- |
@@ -61,11 +45,7 @@ channel, providing acknowledgment that the command was executed.
 
 ## Important Rules
 
-- **Command/State pairs** -> Each digital output requires both a command and state
-  channel.
 - **One task per module** -> Only one running task can claim a module at a time.
-- **State rate** -> Higher state rates provide faster feedback but consume more
-  resources.
 
 <Divider.Divider x />
 
@@ -150,7 +130,7 @@ do_1_0_state = client.channels.create(
 
 # Create and configure task
 task = ni.DigitalWriteTask(
-    name="Digital Write Task",
+    name="NI Digital Write Task",
     device=digital_dev.key,
     state_rate=sy.Rate.HZ * 20,
     channels=[
@@ -205,7 +185,7 @@ with task.run():
 
 ```python
 # Retrieve existing task
-task = client.tasks.retrieve(name="Digital Write Task")
+task = client.tasks.retrieve(name="NI Digital Write Task")
 task = ni.DigitalWriteTask(internal=task)
 
 # Update task-level configuration
@@ -322,7 +302,7 @@ const do10State = await client.channels.create(
 
 // Create and configure task
 const task = await client.tasks.create({
-  name: "Digital Write Task",
+  name: "NI Digital Write Task",
   rack: digitalDev.rack,
   type: "ni_digital_write",
   config: {
@@ -392,7 +372,7 @@ await streamer.close();
 import { ni } from "@synnaxlabs/client";
 
 // Retrieve existing task
-const task = await client.tasks.retrieve({ name: "Digital Write Task" });
+const task = await client.tasks.retrieve({ name: "NI Digital Write Task" });
 
 // Parse and update configuration
 const config = ni.digitalWriteConfigZ.parse(task.config);

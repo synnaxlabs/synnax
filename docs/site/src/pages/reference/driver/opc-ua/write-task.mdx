@@ -4,10 +4,12 @@ title: "OPC UA Write Task"
 description: "Learn how to send commands to OPC UA servers with Synnax."
 prev: "Read Task"
 prevURL: "/reference/driver/opc-ua/read-task"
+next: "PagerDuty"
+nextURL: "/reference/driver/pagerduty/alert-task"
 ---
 
 import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
-import { Video, Image } from "@/components/media/Media";
+import { Video } from "@/components/media/Media";
 import { Fragment } from "react";
 import Details from "@/components/details/Details.astro";
 import ChannelType from "@/components/details/ChannelType.astro";
@@ -16,37 +18,22 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-For task lifecycle management, see the
-[Task Basics](/reference/driver/task-basics#how-to) page.
-
-<Divider.Divider x />
-
-## How Commands Work
-
-OPC UA write tasks use **command channels** to send values to the server:
-
-- **Command channels** -> Write values here to send commands to the OPC UA server
-- **Command time channels** (`_cmd_time`): Index channels storing command timestamps
-
-OPC UA write tasks do not create separate state channels. To read back the current
-state, configure a [read task](/reference/driver/opc-ua/read-task) for the same node.
+For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lifecycle).
 
 <Divider.Divider x />
 
 ## Task Configuration Reference
 
-| Parameter    | Type    | Required | Default | Description                                  |
-| ------------ | ------- | -------- | ------- | -------------------------------------------- |
-| `name`       | string  | Yes      | -       | Human-readable task name                     |
-| `device`     | string  | Yes      | -       | Key of the OPC UA server device              |
-| `auto_start` | boolean | No       | `false` | Automatically start task after configuration |
-| `channels`   | array   | Yes      | -       | List of output channel configurations        |
+| Parameter  | Type   | Required | Default | Description                           |
+| ---------- | ------ | -------- | ------- | ------------------------------------- |
+| `device`   | string | Yes      | -       | Key of the OPC UA server device       |
+| `channels` | array  | Yes      | -       | List of output channel configurations |
 
 <Divider.Divider x />
 
 ## Channel Configuration Reference
 
-[OPC UA Write Service Specification](https://reference.opcfoundation.org/Core/Part4/v104/docs/5.10.4)
+[OPC UA Write Service Specification](https://reference.opcfoundation.org/specs/OPC-10000-4/5.11.4)
 
 <DetailsGroup>
 
@@ -69,10 +56,6 @@ parameters, and single-value commands.
 - GUID: `ns=2;g=12345678-1234-1234-1234-123456789012`
 - Opaque: `ns=2;b=aGVsbG8=`
 
-**Note** -> Configuring a write task creates only command channels (`_cmd` and
-`_cmd_time`). If you need state feedback, configure a corresponding
-[read task](/reference/driver/opc-ua/read-task) to monitor the same nodes.
-
 </ChannelType>
 
 <ChannelType>
@@ -87,7 +70,9 @@ multi-value setpoints.
 | `node_id`     | string  | Yes      | -       | OPC UA NodeId pointing to an array variable |
 | `disabled`    | boolean | No       | `false` | Excludes the node from the task             |
 
-**Note** -> The channel data type must match the array element type on the server.
+<Note.Note variant="info">
+  The channel data type must match the array element type on the server.
+</Note.Note>
 
 </ChannelType>
 
@@ -97,10 +82,6 @@ multi-value setpoints.
 
 ## Important Rules
 
-- **Direct write** -> Commands are written directly to the OPC UA server without state
-  feedback channels.
-- **One running task per node** -> A node can only be controlled by one write task at a
-  time.
 - **Node permissions** -> The OPC UA server must allow write access to the specified
   nodes.
 - **Data type matching** -> Ensure Synnax channel data types match the OPC UA node data
