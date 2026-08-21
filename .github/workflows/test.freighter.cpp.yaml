@@ -21,6 +21,7 @@ on:
       - MODULE.bazel
       - MODULE.bazel.lock
       - scripts/check_clang_format.sh
+      - scripts/run_bazel.sh
       - scripts/sanitizers/**
       - x/cpp/**
       - x/go/**/*.pb.go
@@ -38,6 +39,7 @@ on:
       - MODULE.bazel
       - MODULE.bazel.lock
       - scripts/check_clang_format.sh
+      - scripts/run_bazel.sh
       - scripts/sanitizers/**
       - x/cpp/**
       - x/go/**/*.pb.go
@@ -107,5 +109,6 @@ jobs:
         if: matrix.os == 'windows-build-bot'
         run: |
           export MSYS_NO_PATHCONV=1
-          bazel --output_user_root=C:/tmp test $BAZEL_REMOTE_CACHE_FLAGS --test_output=all //freighter/cpp/...
+          scripts/run_bazel.sh test $BAZEL_REMOTE_CACHE_FLAGS --test_output=all \
+            //freighter/cpp/...
         shell: bash
