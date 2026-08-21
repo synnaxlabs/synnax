@@ -6,7 +6,7 @@ prev: "Get Started"
 prevURL: "/reference/driver/pagerduty/get-started"
 ---
 
-import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
+import { Divider, Icon, Text } from "@synnaxlabs/pluto";
 import { Video } from "@/components/media/Media";
 import { Fragment } from "react";
 import Details from "@/components/details/Details.astro";
@@ -14,19 +14,16 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-For task lifecycle management, see the
-[Task Basics](/reference/driver/task-basics#how-to) page.
+For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lifecycle).
 
 <Divider.Divider x />
 
 ## Task Configuration Reference
 
-| Parameter     | Type    | Required | Default | Description                                                    |
-| ------------- | ------- | -------- | ------- | -------------------------------------------------------------- |
-| `name`        | string  | Yes      | -       | Human-readable task name                                       |
-| `routing_key` | string  | Yes      | -       | 32-character PagerDuty Events API v2 Integration Key           |
-| `auto_start`  | boolean | No       | `false` | Automatically start the task after configuration               |
-| `alerts`      | array   | Yes      | -       | List of [alert configurations](#alert-configuration-reference) |
+| Parameter     | Type   | Required | Default | Description                                                    |
+| ------------- | ------ | -------- | ------- | -------------------------------------------------------------- |
+| `routing_key` | string | Yes      | -       | 32-character PagerDuty Events API v2 Integration Key           |
+| `alerts`      | array  | Yes      | -       | List of [alert configurations](#alert-configuration-reference) |
 
 <Divider.Divider x />
 
@@ -91,7 +88,7 @@ alert_task = sy.pagerduty.AlertTask(
     ],
 )
 
-# Configure the task on the server
+# Configure the task with Synnax
 client.tasks.configure(alert_task)
 
 # Start the task - it will watch for status changes

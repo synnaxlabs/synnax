@@ -4,10 +4,12 @@ title: "LabJack Write Task"
 description: "Learn how to send commands to LabJack devices with Synnax."
 prev: "Read Task"
 prevURL: "/reference/driver/labjack/read-task"
+next: "Modbus"
+nextURL: "/reference/driver/modbus/get-started"
 ---
 
-import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
-import { Video, Image } from "@/components/media/Media";
+import { Divider, Icon, Text } from "@synnaxlabs/pluto";
+import { Video } from "@/components/media/Media";
 import { Fragment } from "react";
 import Details from "@/components/details/Details.astro";
 import ChannelType from "@/components/details/ChannelType.astro";
@@ -16,33 +18,17 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-For task lifecycle management, see the
-[Task Basics](/reference/driver/task-basics#how-to) page.
-
-<Divider.Divider x />
-
-## How Commands Work
-
-Write tasks use **command** and **state** channels:
-
-- **Command channels** (`_cmd`): Write values here to set outputs
-- **State channels** (`_state`): Reflect the current output state
-- **Command time channels** (`_cmd_time`): Index channels storing command timestamps
-
-When you write to a command channel, the task processes it and updates the state
-channel, providing acknowledgment that the command was executed.
+For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lifecycle).
 
 <Divider.Divider x />
 
 ## Task Configuration Reference
 
-| Parameter              | Type    | Required | Default | Description                                         |
-| ---------------------- | ------- | -------- | ------- | --------------------------------------------------- |
-| `name`                 | string  | Yes      | -       | Human-readable task name                            |
-| `state_rate`           | number  | No       | `20`    | Rate (Hz) at which state channels are updated       |
-| `data_saving_disabled` | boolean | No       | `false` | Stream data without saving it permanently in Synnax |
-| `auto_start`           | boolean | No       | `false` | Automatically start task after configuration        |
-| `channels`             | array   | Yes      | -       | List of output channel configurations               |
+| Parameter    | Type   | Required | Default | Description                                   |
+| ------------ | ------ | -------- | ------- | --------------------------------------------- |
+| `device`     | string | Yes      | -       | Key of the LabJack device                     |
+| `state_rate` | number | No       | `10`    | Rate (Hz) at which state channels are updated |
+| `channels`   | array  | Yes      | -       | List of output channel configurations         |
 
 <Divider.Divider x />
 
@@ -59,7 +45,7 @@ Writes analog voltage to a specified output terminal (DAC).
 | --------------- | ------ | -------- | ------- | ------------------------------------ |
 | `cmd_channel`   | number | Yes      | -       | Synnax command channel key           |
 | `state_channel` | number | Yes      | -       | Synnax state channel key             |
-| `port`          | string | Yes      | -       | Port location (e.g., `DAC0`, `DAC1`) |
+| `port`          | string | No       | `DAC0`  | Port location (e.g., `DAC0`, `DAC1`) |
 
 </ChannelType>
 
@@ -72,21 +58,11 @@ Writes digital state (0 or 1) to a specified digital I/O line.
 | --------------- | ------ | -------- | ------- | ------------------------------------ |
 | `cmd_channel`   | number | Yes      | -       | Synnax command channel key           |
 | `state_channel` | number | Yes      | -       | Synnax state channel key             |
-| `port`          | string | Yes      | -       | Port location (e.g., `DIO4`, `FIO5`) |
+| `port`          | string | No       | `DIO4`  | Port location (e.g., `DIO4`, `FIO5`) |
 
 </ChannelType>
 
 </DetailsGroup>
-
-<Divider.Divider x />
-
-## Important Rules
-
-- **Command/State pairs** -> Each output requires both a command and state channel.
-- **State rate** -> Higher state rates provide faster feedback but consume more
-  resources.
-- **One running task per channel** -> A channel can only send commands to one task at a
-  time.
 
 <Divider.Divider x />
 

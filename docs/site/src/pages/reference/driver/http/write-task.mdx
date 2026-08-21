@@ -4,42 +4,28 @@ title: "HTTP Write Task"
 description: "Learn how to send commands to HTTP endpoints with Synnax."
 prev: "Read Task"
 prevURL: "/reference/driver/http/read-task"
+next: "LabJack"
+nextURL: "/reference/driver/labjack/get-started"
 ---
 
-import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
-import { Video, Image } from "@/components/media/Media";
+import { Divider, Icon, Text } from "@synnaxlabs/pluto";
+import { Video } from "@/components/media/Media";
 import { Fragment } from "react";
 import Details from "@/components/details/Details.astro";
 import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-For task lifecycle management, see the
-[Task Basics](/reference/driver/task-basics#how-to) page.
-
-<Divider.Divider x />
-
-## How Commands Work
-
-HTTP Write Tasks use **command channels** to send values to HTTP endpoints:
-
-- When a value is written to a command channel, the driver sends an HTTP request to the
-  corresponding endpoint.
-- The channel value is placed in the JSON request body at a location specified by a JSON
-  Pointer.
-- Each endpoint has exactly one command channel that drives it, plus optional static and
-  generated fields that are included in every request.
+For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lifecycle).
 
 <Divider.Divider x />
 
 ## Task Configuration Reference
 
-| Parameter    | Type    | Required | Default | Description                                                          |
-| ------------ | ------- | -------- | ------- | -------------------------------------------------------------------- |
-| `name`       | string  | Yes      | -       | Human-readable task name                                             |
-| `device`     | string  | Yes      | -       | Key of the HTTP server device                                        |
-| `auto_start` | boolean | No       | `false` | Automatically start task after configuration                         |
-| `endpoints`  | array   | Yes      | -       | List of [endpoint configurations](#endpoint-configuration-reference) |
+| Parameter   | Type   | Required | Default | Description                                                          |
+| ----------- | ------ | -------- | ------- | -------------------------------------------------------------------- |
+| `device`    | string | Yes      | -       | Key of the HTTP server device                                        |
+| `endpoints` | array  | Yes      | -       | List of [endpoint configurations](#endpoint-configuration-reference) |
 
 <Divider.Divider x />
 
@@ -52,8 +38,8 @@ receives a value, the Driver builds the JSON body and sends the request.
 | -------------- | ------- | -------- | -------- | ----------------------------------------------------------------------- |
 | `method`       | string  | No       | `"POST"` | HTTP method (`POST`, `PUT`, `PATCH`, or any method that accepts a body) |
 | `path`         | string  | Yes      | -        | URL path relative to the device base URL (e.g., `/api/v1/setpoint`)     |
-| `headers`      | object  | No       | -        | Additional request headers                                              |
-| `query_params` | object  | No       | -        | Query parameters                                                        |
+| `headers`      | array   | No       | -        | Additional request headers as `{name, value}` pairs                     |
+| `query_params` | array   | No       | -        | Query parameters as `{parameter, value}` pairs                          |
 | `disabled`     | boolean | No       | `false`  | Excludes the endpoint from the task                                     |
 | `channel`      | object  | Yes      | -        | [Command channel field](#field-types-reference) configuration           |
 | `fields`       | array   | No       | `[]`     | Additional [static or generated fields](#field-types-reference)         |
@@ -69,12 +55,12 @@ Pointer location in the body.
 <Text.Text slot="summary" level="p"><Icon.Details /> Channel Field (required)</Text.Text>
 
 The channel field is the primary field on each endpoint. Its value comes from a Synnax
-command channel — when a value is written to the channel, the driver places it in the
+command channel — when a value is written to the channel, the Driver places it in the
 request body at the specified pointer.
 
 | Parameter     | Type   | Required | Default     | Description                                                                                                    |
 | ------------- | ------ | -------- | ----------- | -------------------------------------------------------------------------------------------------------------- |
-| `pointer`     | string | Yes      | -           | JSON Pointer where the value goes (e.g., `/value`)                                                             |
+| `pointer`     | string | No       | `""`        | JSON Pointer where the value goes (e.g., `/value`). Empty sends the bare value as the body                     |
 | `json_type`   | string | No       | `"number"`  | JSON type to serialize as: `number`, `string`, `boolean`                                                       |
 | `channel`     | number | Yes      | -           | Synnax command channel key                                                                                     |
 | `data_type`   | string | No       | `"float64"` | Data type of the channel                                                                                       |
@@ -104,6 +90,27 @@ http.ChannelField(
     json_type="string",
     channel=source_cmd.key,
     enum_values=[{"label": "OFF", "value": 0}, {"label": "ON", "value": 1}],
+)
+```
+
+</Details>
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Details /> Static Fields</Text.Text>
+
+Static fields place a fixed value in every request.
+
+| Parameter   | Type   | Required | Default    | Description                                              |
+| ----------- | ------ | -------- | ---------- | -------------------------------------------------------- |
+| `pointer`   | string | No       | `""`       | JSON Pointer where the value goes (e.g., `/unit`)        |
+| `json_type` | string | No       | `"number"` | JSON type to serialize as: `number`, `string`, `boolean` |
+| `value`     | any    | Yes      | -          | Fixed JSON value placed at the pointer                   |
+
+```python
+http.StaticWriteField(
+    pointer="/unit",
+    json_type="string",
+    value="psi",
 )
 ```
 
