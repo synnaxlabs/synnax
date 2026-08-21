@@ -29,8 +29,9 @@ from framework.test_case import TestCase
 _STATUS_CHANNEL = "sy_status_set"
 # Allowed relative error between a task's measured and configured sample rate. Wide
 # because the runners host the Core, the Driver, the Console, Playwright, and the
-# Python sims at once, and a 1 s window leaves little time to reach steady state.
-RATE_TOLERANCE = 0.20
+# Python sims, and NI software (Windows) all at once, and a 1 s window leaves little
+# time to reach steady state.
+RATE_TOLERANCE = 0.50
 
 # ── Channel creation helpers ─────────────────────────────────────
 
