@@ -143,8 +143,9 @@ func (r *renderer) renderStruct(t resolution.Type, f resolution.StructForm) {
 	}
 	r.line(head + " {")
 	r.indent++
+	r.renderOmissions(f.OmittedFields)
 	for _, field := range f.Fields {
-		r.renderField(t.Name, field)
+		r.renderField(t.Name, "", field)
 	}
 	if r.opts.ExtraBodyBlocks != nil {
 		for _, block := range r.opts.ExtraBodyBlocks(t.Name) {
@@ -160,7 +161,17 @@ func (r *renderer) renderStruct(t resolution.Type, f resolution.StructForm) {
 	r.line("}")
 }
 
-func (r *renderer) renderField(typeName string, f resolution.Field) {
+// renderOmissions writes the `-name` lines that drop inherited fields.
+func (r *renderer) renderOmissions(names []string) {
+	for _, name := range names {
+		r.line("-" + name)
+	}
+}
+
+// renderField renders one field. keyPrefix scopes the extra-line lookup: struct fields
+// pass "", inline union variant fields pass "<variant>." so two variants declaring the
+// same field name keep their own annotations.
+func (r *renderer) renderField(typeName, keyPrefix string, f resolution.Field) {
 	head := f.Name + " " + r.ref(f.Type)
 	if f.Optional {
 		head += "?"
@@ -169,7 +180,8 @@ func (r *renderer) renderField(typeName string, f resolution.Field) {
 		head += " = " + r.value(*f.Default)
 	}
 	exprs := append(
-		r.keptExpressions(f.Domains), r.extraFieldLines(typeName, f.Name)...,
+		r.keptExpressions(f.Domains),
+		r.extraFieldLines(typeName, keyPrefix+f.Name)...,
 	)
 	if len(exprs) == 0 {
 		r.line(head)
@@ -247,8 +259,9 @@ func (r *renderer) renderVariant(typeName string, v resolution.UnionVariant) {
 				}
 				r.line(head + " {")
 				r.indent++
+				r.renderOmissions(sf.OmittedFields)
 				for _, field := range sf.Fields {
-					r.renderField(typeName, field)
+					r.renderField(typeName, v.Name+".", field)
 				}
 				if len(exprs) > 0 {
 					r.line("")

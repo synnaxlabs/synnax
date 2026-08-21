@@ -646,6 +646,132 @@ describe("queries", () => {
     });
   });
 
+  describe("useDelete", () => {
+    it("should delete a range", async () => {
+      const rng = await client.ranges.create({
+        name: "delete_hook",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      const { result } = renderHook(() => Ranger.useDelete(), { wrapper });
+      await act(async () => {
+        await result.current.updateAsync(rng.key);
+      });
+      await expect(client.ranges.retrieve(rng.key)).rejects.toThrow();
+    });
+
+    it("should run afterOptimistic before the delete commits", async () => {
+      const rng = await client.ranges.create({
+        name: "delete_hook_optimistic",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      const order: string[] = [];
+      const { result } = renderHook(
+        () =>
+          Ranger.useDelete({
+            afterOptimistic: ({ data }) => {
+              order.push(`optimistic:${data as ranger.Key}`);
+            },
+            afterSuccess: () => {
+              order.push("success");
+            },
+          }),
+        { wrapper },
+      );
+      await act(async () => {
+        await result.current.updateAsync(rng.key);
+      });
+      expect(order).toEqual([`optimistic:${rng.key}`, "success"]);
+    });
+  });
+
+  describe("useUpdateKV", () => {
+    it("should set a pair on the range", async () => {
+      const rng = await client.ranges.create({
+        name: "set_kv_hook",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      const { result } = renderHook(() => Ranger.useUpdateKV(), { wrapper });
+      await act(async () => {
+        await result.current.updateAsync({
+          rangeKey: rng.key,
+          range: rng.key,
+          key: "foo",
+          value: "bar",
+        });
+      });
+      expect(await rng.kv.list()).toEqual({ foo: "bar" });
+    });
+
+    it("should run afterOptimistic before the set commits", async () => {
+      const rng = await client.ranges.create({
+        name: "set_kv_hook_optimistic",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      const order: string[] = [];
+      const { result } = renderHook(
+        () =>
+          Ranger.useUpdateKV({
+            afterOptimistic: ({ data }) => {
+              order.push(`optimistic:${data.key}`);
+            },
+            afterSuccess: () => {
+              order.push("success");
+            },
+          }),
+        { wrapper },
+      );
+      await act(async () => {
+        await result.current.updateAsync({
+          rangeKey: rng.key,
+          range: rng.key,
+          key: "foo",
+          value: "bar",
+        });
+      });
+      expect(order).toEqual(["optimistic:foo", "success"]);
+    });
+  });
+
+  describe("useDeleteKV", () => {
+    it("should delete a pair from the range", async () => {
+      const rng = await client.ranges.create({
+        name: "delete_kv_hook",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      await rng.kv.set("foo", "bar");
+      const { result } = renderHook(() => Ranger.useDeleteKV(), { wrapper });
+      await act(async () => {
+        await result.current.updateAsync({ rangeKey: rng.key, key: "foo" });
+      });
+      expect(await rng.kv.list()).toEqual({});
+    });
+
+    it("should run afterOptimistic before the delete commits", async () => {
+      const rng = await client.ranges.create({
+        name: "delete_kv_hook_optimistic",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      await rng.kv.set("foo", "bar");
+      const order: string[] = [];
+      const { result } = renderHook(
+        () =>
+          Ranger.useDeleteKV({
+            afterOptimistic: ({ data }) => {
+              order.push(`optimistic:${data.key}`);
+            },
+            afterSuccess: () => {
+              order.push("success");
+            },
+          }),
+        { wrapper },
+      );
+      await act(async () => {
+        await result.current.updateAsync({ rangeKey: rng.key, key: "foo" });
+      });
+      expect(order).toEqual(["optimistic:foo", "success"]);
+    });
+  });
+
   describe("useForm", () => {
     it("should create a new range", async () => {
       const timeRange = TimeStamp.now().spanRange(TimeSpan.minutes(5));

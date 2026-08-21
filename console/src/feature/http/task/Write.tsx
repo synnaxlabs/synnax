@@ -276,6 +276,7 @@ const FieldListItem = (props: List.ItemProps<string> & { epKey: string }) => {
           onChange={handleJSONTypeChange}
           data={JSON_TYPE_DATA}
           resourceName="type"
+          className={CSS.B("field-data-type")}
         />
       )}
       {fieldType === "static" && jsonType === "string" && (
@@ -311,6 +312,7 @@ const FieldListItem = (props: List.ItemProps<string> & { epKey: string }) => {
           onChange={handleGeneratorChange}
           data={GENERATOR_DATA}
           resourceName="generator"
+          variant="floating"
         />
       )}
       <Text.Text level="small" color={9}>
@@ -353,7 +355,7 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
     setSelected([field.key]);
   }, [push]);
 
-  const handleDelete = useCallback(
+  const handleRemove = useCallback(
     (keys: string[]) => {
       remove(keys);
       setSelected([]);
@@ -371,13 +373,13 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
   const menuProps = Menu.useContextMenu();
   const menuRenderProp = useCallback(
     (p: Menu.ContextMenuMenuProps) => (
-      <ContextMenu keys={p.keys} onDelete={handleDelete} />
+      <ContextMenu keys={p.keys} onRemove={handleRemove} />
     ),
-    [handleDelete],
+    [handleRemove],
   );
 
   return (
-    <Flex.Box y grow empty>
+    <Flex.Box y grow empty className={CSS.B("additional-fields")}>
       <Header.Header>
         <Header.Title weight={500} color={9}>
           Additional fields
@@ -485,7 +487,7 @@ const Form: FC = () => {
     setSelectedEndpoints([ep.key]);
   }, [push]);
 
-  const handleDeleteEndpoints = useCallback(
+  const handleRemoveEndpoints = useCallback(
     (keys: string[]) => {
       remove(keys);
       setSelectedEndpoints([]);
@@ -520,12 +522,12 @@ const Form: FC = () => {
     (p: Menu.ContextMenuMenuProps) => (
       <ContextMenu
         keys={p.keys}
-        onDelete={handleDeleteEndpoints}
+        onRemove={handleRemoveEndpoints}
         onDuplicate={handleDuplicateEndpoints}
         onRename={handleRenameChannel}
       />
     ),
-    [handleDeleteEndpoints, handleDuplicateEndpoints, handleRenameChannel],
+    [handleRemoveEndpoints, handleDuplicateEndpoints, handleRenameChannel],
   );
 
   return (
@@ -576,7 +578,7 @@ const Form: FC = () => {
         </Menu.ContextMenu>
       </Flex.Box>
       <Divider.Divider y />
-      <Flex.Box y grow empty>
+      <Flex.Box y grow empty className={CSS.B("endpoint-details-pane")}>
         <Task.Views.DetailsHeader
           path={
             selectedEndpoints.length > 0

@@ -415,18 +415,18 @@ var _ = Describe("Writer", func() {
 				l := log.Log{Name: "test"}
 				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
 				Expect(svc.NewWriter(tx).Dispatch(ctx, l.Key, "d1", []log.Action{
-					log.NewSetHideChannelNamesAction(log.SetHideChannelNamesPayload{
-						HideChannelNames: true,
+					log.NewSetChannelNamesHiddenAction(log.SetChannelNamesHiddenPayload{
+						ChannelNamesHidden: true,
 					}),
-					log.NewSetHideReceiptTimestampAction(
-						log.SetHideReceiptTimestampPayload{
-							HideReceiptTimestamp: true,
+					log.NewSetReceiptTimestampHiddenAction(
+						log.SetReceiptTimestampHiddenPayload{
+							ReceiptTimestampHidden: true,
 						},
 					),
 				})).To(Succeed())
 				res := retrieve(ctx, l.Key)
-				Expect(res.HideChannelNames).To(BeTrue())
-				Expect(res.HideReceiptTimestamp).To(BeTrue())
+				Expect(res.ChannelNamesHidden).To(BeTrue())
+				Expect(res.ReceiptTimestampHidden).To(BeTrue())
 			})
 		})
 

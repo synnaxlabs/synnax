@@ -50,6 +50,12 @@ needing broader context:
   see Architectural Principles below.
 - **Naming**: functions that populate data (fixtures, initial records) are `create*`,
   never `seed*`.
+- **Booleans are adjectival predicates about their subject**, never imperatives:
+  `disabled`, `snapshot`, `data_saving_disabled`, `channel_names_hidden`, not
+  `disable_data_saving` or `hide_channel_names`. Drop an `is_`/`has_` prefix unless the
+  bare name is taken. Config obeys this as strictly as state; a verb phrase is for
+  call-site-only surfaces alone (keyword arguments, CLI flags). Schema booleans always
+  default to `false`, so the name states the non-default condition.
 - 🚨 **THE NAMESPACE CARRIES THE CONTEXT — NEVER REPEAT IT IN AN IDENTIFIER.** Claude
   sessions violate this constantly. Before naming any type, function, hook, or constant,
   strip the package/module name from the identifier:

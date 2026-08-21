@@ -3268,6 +3268,43 @@ var _ = Describe("TS Union Generation", func() {
 	)
 
 	It(
+		"Should omit a base field a variant drops",
+		func(ctx SpecContext) {
+			source := `
+			@ts output "out"
+
+			BaseAIChan struct {
+				port int32
+				enabled bool
+			}
+			Range struct {
+				minVal float64
+				maxVal float64
+			}
+
+			AIChannel union on type extends BaseAIChan {
+				ai_voltage extends Range {}
+				ai_temp_builtin extends Range {
+					-port
+					-maxVal
+					units string
+				}
+			}
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+			content := MustContentOf(resp, "types.gen.ts")
+			Expect(content).To(ContainSubstring(
+				"export const aiTempBuiltinChannelZ = baseAIChanZ" +
+					".omit({ port: true })" +
+					".extend(rangeZ.omit({ maxVal: true }).shape)",
+			))
+			Expect(content).To(ContainSubstring(
+				"export const aiVoltageChannelZ = baseAIChanZ.extend(rangeZ.shape)",
+			))
+		},
+	)
+
+	It(
 		"Should compose the union base and payload via extend, not flatten",
 		func(ctx SpecContext) {
 			source := `

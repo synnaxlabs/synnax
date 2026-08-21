@@ -113,7 +113,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
       handles: [],
       variant: "static",
       scale: 1,
-      scaleStroke: false,
+      strokeScaled: false,
       previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
     },
     parent: ontology.ROOT_ID,
@@ -171,6 +171,19 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   verbs: verbs.DELETE,
   update: async ({ client, data, onOptimisticComplete }) => {
     await client.schematics.symbols.delete(data, {
+      onOptimistic: async () => await onOptimisticComplete(data),
+    });
+    return data;
+  },
+});
+
+export type DeleteGroupParams = group.Key;
+
+export const { useUpdate: useDeleteGroup } = Flux.createUpdate<DeleteGroupParams>({
+  name: GROUP_RESOURCE_NAME,
+  verbs: verbs.DELETE,
+  update: async ({ client, data, onOptimisticComplete }) => {
+    await client.schematics.symbols.deleteGroup(data, {
       onOptimistic: async () => await onOptimisticComplete(data),
     });
     return data;

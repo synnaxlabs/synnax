@@ -67,7 +67,7 @@ describe("OPC UA Read Task Config Validation", () => {
       nodeName: `n${i}`,
       channel: 0,
       disabled: false,
-      useAsIndex: false,
+      isIndex: false,
       dataType: "float32",
       name: "",
       ...overrides,
@@ -92,7 +92,7 @@ describe("OPC UA Read Task Config Validation", () => {
 
   it("should reject multiple channels marked as index", () => {
     const result = OPCUA.Task.deployReadConfigZ.safeParse(
-      createConfig([{ useAsIndex: true }, { useAsIndex: true }]),
+      createConfig([{ isIndex: true }, { isIndex: true }]),
     );
     expect(result.success).toBe(false);
     expect(

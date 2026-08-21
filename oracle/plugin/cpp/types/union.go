@@ -81,7 +81,8 @@ func (p *Plugin) processUnion(
 				DefaultValue: fmt.Sprintf("%q", v.Name),
 			}},
 		}
-		for _, ext := range form.Extends {
+		inherited, declared := resolver.VariantBases(form, v, data.table)
+		for _, ext := range inherited {
 			if parent, ok := ext.Resolve(data.table); ok {
 				sd.ExtendsTypes = append(
 					sd.ExtendsTypes,
@@ -92,21 +93,12 @@ func (p *Plugin) processUnion(
 		if payload, ok := v.Type.Resolve(data.table); ok {
 			if v.Inline {
 				pform := payload.Form.(resolution.StructForm)
-				for _, ext := range pform.Extends {
-					if parent, ok := ext.Resolve(data.table); ok {
-						sd.ExtendsTypes = append(sd.ExtendsTypes,
-							p.resolveExtendsType(ext, parent, data))
-					}
-				}
 				// A field that only restates an inherited default keeps the base's
 				// member; the new default moves into a generated constructor.
-				inherited := append(
-					slices.Clone(form.Extends), pform.Extends...,
-				)
 				defaultOnly := resolver.DefaultOnlyOverrides(
 					inherited, pform.Fields, data.table,
 				)
-				for _, f := range pform.Fields {
+				for _, f := range append(slices.Clone(declared), pform.Fields...) {
 					fd := p.processField(f, payload, data)
 					if !defaultOnly.Contains(f.Name) {
 						sd.Fields = append(sd.Fields, fd)

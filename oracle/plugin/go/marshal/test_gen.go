@@ -784,8 +784,10 @@ func (b *testValueBuilder) unionExpr(
 	b.depth++
 	defer func() { b.depth-- }()
 
+	inherited, declared := resolver.VariantBases(form, v, b.table)
+
 	var embeds []string
-	for _, ext := range form.Extends {
+	for _, ext := range inherited {
 		parent, ok := ext.Resolve(b.table)
 		if !ok {
 			continue
@@ -815,38 +817,9 @@ func (b *testValueBuilder) unionExpr(
 				v.Name,
 			)
 		}
-		for _, ext := range pform.Extends {
-			parent, ok := ext.Resolve(b.table)
-			if !ok {
-				continue
-			}
-			if varName, ok := b.sharedVars[parent.QualifiedName]; ok &&
-				b.mode == modeFullyPopulated {
-				embeds = append(embeds, naming.GetGoName(parent)+": "+varName)
-				continue
-			}
-			parentGoType, err := b.goTypeName(parent)
-			if err != nil {
-				return "", err
-			}
-			parentExprs, err := b.buildStructFieldExprs(parent)
-			if err != nil {
-				return "", err
-			}
-			embeds = append(
-				embeds,
-				naming.GetGoName(
-					parent,
-				)+": "+b.formatComposite(
-					parentGoType,
-					parentExprs,
-				),
-			)
-		}
-		fieldExprs, err := b.buildFieldExprs(declaredFields(
-			append(slices.Clone(form.Extends), pform.Extends...),
-			pform.Fields,
-			b.table,
+		fieldExprs, err := b.buildFieldExprs(append(
+			slices.Clone(declared),
+			declaredFields(inherited, pform.Fields, b.table)...,
 		))
 		if err != nil {
 			return "", err

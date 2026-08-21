@@ -41,7 +41,7 @@ const createReadChannel = (
     nodeName,
     channel: 0,
     disabled: false,
-    useAsIndex: false,
+    isIndex: false,
     dataType: "float32",
     name: "",
     ...overrides,
@@ -112,7 +112,7 @@ describe("OPCUA.Read", () => {
 
   it("should use the flagged timestamp channel as the index and reuse it on redeploy", async () => {
     const dev = await createOPCDevice(client);
-    const tsChannel = createReadChannel({ useAsIndex: true, dataType: "timestamp" });
+    const tsChannel = createReadChannel({ isIndex: true, dataType: "timestamp" });
     const dataChannel = createReadChannel();
     const draft = await createDraft(
       client,

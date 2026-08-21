@@ -76,8 +76,8 @@ var _ = Describe("Codec", func() {
 					NodeName: "test_5",
 					DataType: telem.DataType("test_6"),
 				},
-				Channel:    channel.Key(8),
-				UseAsIndex: false,
+				Channel: channel.Key(8),
+				IsIndex: false,
 			}),
 			Entry("zero values", v1.ReadChannel{
 				BaseChannel: v1.BaseChannel{
@@ -88,8 +88,8 @@ var _ = Describe("Codec", func() {
 					NodeName: "",
 					DataType: telem.DataType(""),
 				},
-				Channel:    channel.Key(0),
-				UseAsIndex: false,
+				Channel: channel.Key(0),
+				IsIndex: false,
 			}),
 		)
 	})
@@ -129,8 +129,8 @@ var _ = Describe("Codec", func() {
 							NodeName: "test_14",
 							DataType: telem.DataType("test_15"),
 						},
-						Channel:    channel.Key(17),
-						UseAsIndex: true,
+						Channel: channel.Key(17),
+						IsIndex: true,
 					},
 				},
 			}),
@@ -326,8 +326,8 @@ func BenchmarkEncodeDecodeReadChannel(b *testing.B) {
 			NodeName: "test_5",
 			DataType: telem.DataType("test_6"),
 		},
-		Channel:    channel.Key(8),
-		UseAsIndex: false,
+		Channel: channel.Key(8),
+		IsIndex: false,
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -370,8 +370,8 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 					NodeName: "test_14",
 					DataType: telem.DataType("test_15"),
 				},
-				Channel:    channel.Key(17),
-				UseAsIndex: true,
+				Channel: channel.Key(17),
+				IsIndex: true,
 			},
 		},
 	}
@@ -545,8 +545,8 @@ func FuzzDecodeReadChannel(f *testing.F) {
 				NodeName: "test_5",
 				DataType: telem.DataType("test_6"),
 			},
-			Channel:    channel.Key(8),
-			UseAsIndex: false,
+			Channel: channel.Key(8),
+			IsIndex: false,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -564,8 +564,8 @@ func FuzzDecodeReadChannel(f *testing.F) {
 				NodeName: "",
 				DataType: telem.DataType(""),
 			},
-			Channel:    channel.Key(0),
-			UseAsIndex: false,
+			Channel: channel.Key(0),
+			IsIndex: false,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -622,8 +622,8 @@ func FuzzDecodeReadConfig(f *testing.F) {
 						NodeName: "test_14",
 						DataType: telem.DataType("test_15"),
 					},
-					Channel:    channel.Key(17),
-					UseAsIndex: true,
+					Channel: channel.Key(17),
+					IsIndex: true,
 				},
 			},
 		}

@@ -94,10 +94,10 @@ var (
 		Device:   "test_6",
 	}
 	fullyPopulatedZIndex = v2.ZIndex{
-		ZIndexEnable: true,
-		ZIndexVal:    2.5,
-		ZIndexPhase:  v2.ZIndexPhase("AHighBHigh"),
-		TerminalZ:    "test_4",
+		ZIndexEnabled: true,
+		ZIndexVal:     2.5,
+		ZIndexPhase:   v2.ZIndexPhase("AHighBHigh"),
+		TerminalZ:     "test_4",
 	}
 )
 
@@ -118,7 +118,6 @@ var _ = Describe("Codec", func() {
 				MinMaxVal:     fullyPopulatedMinMaxVal,
 				Terminal:      fullyPopulatedTerminal,
 				CustomScale:   fullyPopulatedCustomScale,
-				Units:         v2.Units("Volts"),
 			}}),
 			Entry("ai_accel variant", v2.AIChannel{Variant: v2.AIAccelChannel{
 				BaseAIChannel:     fullyPopulatedBaseAIChannel,
@@ -143,9 +142,8 @@ var _ = Describe("Codec", func() {
 				MinMaxVal:           fullyPopulatedMinMaxVal,
 				Terminal:            fullyPopulatedTerminal,
 				CustomScale:         fullyPopulatedCustomScale,
-				Units:               v2.Units("Volts"),
 				ShuntResistorLoc:    v2.ShuntResistorLocation("Default"),
-				ExtShuntResistorVal: 3.5,
+				ExtShuntResistorVal: 2.5,
 			}}),
 			Entry("ai_force_bridge_table variant", v2.AIChannel{Variant: v2.AIForceBridgeTableChannel{
 				BaseAIChannel:     fullyPopulatedBaseAIChannel,
@@ -182,9 +180,8 @@ var _ = Describe("Codec", func() {
 				Terminal:          fullyPopulatedTerminal,
 				CurrentExcitation: fullyPopulatedCurrentExcitation,
 				CustomScale:       fullyPopulatedCustomScale,
-				Units:             v2.Units("Volts"),
-				MicSensitivity:    2.5,
-				MaxSndPressLevel:  3.5,
+				MicSensitivity:    1.5,
+				MaxSndPressLevel:  2.5,
 			}}),
 			Entry("ai_pressure_bridge_table variant", v2.AIChannel{Variant: v2.AIPressureBridgeTableChannel{
 				BaseAIChannel:     fullyPopulatedBaseAIChannel,
@@ -212,7 +209,6 @@ var _ = Describe("Codec", func() {
 				Resistance:        fullyPopulatedResistance,
 				CurrentExcitation: fullyPopulatedCurrentExcitation,
 				CustomScale:       fullyPopulatedCustomScale,
-				Units:             v2.Units("Volts"),
 			}}),
 			Entry("ai_rtd variant", v2.AIChannel{Variant: v2.AIRTDChannel{
 				BaseAIChannel:     fullyPopulatedBaseAIChannel,
@@ -228,17 +224,20 @@ var _ = Describe("Codec", func() {
 				MinMaxVal:             fullyPopulatedMinMaxVal,
 				VoltageExcitation:     fullyPopulatedVoltageExcitation,
 				CustomScale:           fullyPopulatedCustomScale,
-				Units:                 v2.Units("Volts"),
 				StrainConfig:          v2.StrainConfig("FullBridgeI"),
-				GageFactor:            3.5,
-				InitialBridgeVoltage:  4.5,
-				NominalGageResistance: 5.5,
-				PoissonRatio:          6.5,
-				LeadWireResistance:    7.5,
+				GageFactor:            2.5,
+				InitialBridgeVoltage:  3.5,
+				NominalGageResistance: 4.5,
+				PoissonRatio:          5.5,
+				LeadWireResistance:    6.5,
 			}}),
 			Entry("ai_temp_builtin variant", v2.AIChannel{Variant: v2.AITempBuiltinChannel{
-				BaseAIChannel: fullyPopulatedBaseAIChannel,
-				Units:         v2.TemperatureUnits("DegC"),
+				Key:      "test_1",
+				Name:     "test_2",
+				Disabled: true,
+				Channel:  channel.Key(5),
+				Device:   "test_5",
+				Units:    v2.TemperatureUnits("DegC"),
 			}}),
 			Entry("ai_thermocouple variant", v2.AIChannel{Variant: v2.AIThermocoupleChannel{
 				BaseAIChannel:    fullyPopulatedBaseAIChannel,
@@ -286,16 +285,16 @@ var _ = Describe("Codec", func() {
 				CustomScale:        fullyPopulatedCustomScale,
 				Units:              v2.AccelUnits("g"),
 				SensitivityUnits:   v2.AccelSensitivityUnits("mVoltsPerG"),
-				UseExcitForScaling: true,
+				ScaledByExcitation: true,
 			}}),
 			Entry("ai_accel_charge variant", v2.AIChannel{Variant: v2.AIAccelChargeChannel{
 				BaseAIChannel:    fullyPopulatedBaseAIChannel,
 				MinMaxVal:        fullyPopulatedMinMaxVal,
 				Terminal:         fullyPopulatedTerminal,
+				Sensitivity:      fullyPopulatedSensitivity,
 				CustomScale:      fullyPopulatedCustomScale,
 				Units:            v2.AccelUnits("g"),
-				Sensitivity:      2.5,
-				SensitivityUnits: v2.AccelSensitivityUnits("mVoltsPerG"),
+				SensitivityUnits: v2.AccelChargeSensitivityUnits("PicoCoulombsPerG"),
 			}}),
 			Entry("ai_charge variant", v2.AIChannel{Variant: v2.AIChargeChannel{
 				BaseAIChannel: fullyPopulatedBaseAIChannel,
@@ -309,9 +308,8 @@ var _ = Describe("Codec", func() {
 				MinMaxVal:           fullyPopulatedMinMaxVal,
 				Terminal:            fullyPopulatedTerminal,
 				CustomScale:         fullyPopulatedCustomScale,
-				Units:               v2.Units("Volts"),
 				ShuntResistorLoc:    v2.ShuntResistorLocation("Default"),
-				ExtShuntResistorVal: 3.5,
+				ExtShuntResistorVal: 2.5,
 			}}),
 			Entry("ai_force_bridge_polynomial variant", v2.AIChannel{Variant: v2.AIForceBridgePolynomialChannel{
 				BaseAIChannel:     fullyPopulatedBaseAIChannel,
@@ -327,9 +325,8 @@ var _ = Describe("Codec", func() {
 				BaseAIChannel:  fullyPopulatedBaseAIChannel,
 				MinMaxVal:      fullyPopulatedMinMaxVal,
 				CustomScale:    fullyPopulatedCustomScale,
-				Units:          v2.Units("Volts"),
-				ThresholdLevel: 2.5,
-				Hysteresis:     3.5,
+				ThresholdLevel: 1.5,
+				Hysteresis:     2.5,
 			}}),
 			Entry("ai_pressure_bridge_polynomial variant", v2.AIChannel{Variant: v2.AIPressureBridgePolynomialChannel{
 				BaseAIChannel:     fullyPopulatedBaseAIChannel,
@@ -377,7 +374,6 @@ var _ = Describe("Codec", func() {
 				MinMaxVal:     fullyPopulatedMinMaxVal,
 				Terminal:      fullyPopulatedTerminal,
 				CustomScale:   fullyPopulatedCustomScale,
-				Units:         v2.Units("Volts"),
 			}}),
 			Entry("ai_voltage_with_excit variant", v2.AIChannel{Variant: v2.AIVoltageWithExcitChannel{
 				BaseAIChannel:      fullyPopulatedBaseAIChannel,
@@ -385,9 +381,8 @@ var _ = Describe("Codec", func() {
 				Terminal:           fullyPopulatedTerminal,
 				VoltageExcitation:  fullyPopulatedVoltageExcitation,
 				CustomScale:        fullyPopulatedCustomScale,
-				Units:              v2.Units("Volts"),
 				BridgeConfig:       v2.BridgeConfig("FullBridge"),
-				UseExcitForScaling: true,
+				ScaledByExcitation: false,
 			}}),
 		)
 	})
@@ -406,7 +401,6 @@ var _ = Describe("Codec", func() {
 				BaseAOChannel: fullyPopulatedBaseAOChannel,
 				MinMaxVal:     fullyPopulatedMinMaxVal,
 				CustomScale:   fullyPopulatedCustomScale,
-				Units:         v2.Units("Volts"),
 			}}),
 			Entry("ao_func_gen variant", v2.AOChannel{Variant: v2.AOFuncGenChannel{
 				BaseAOChannel: fullyPopulatedBaseAOChannel,
@@ -419,7 +413,6 @@ var _ = Describe("Codec", func() {
 				BaseAOChannel: fullyPopulatedBaseAOChannel,
 				MinMaxVal:     fullyPopulatedMinMaxVal,
 				CustomScale:   fullyPopulatedCustomScale,
-				Units:         v2.Units("Volts"),
 			}}),
 		)
 	})
@@ -452,7 +445,6 @@ var _ = Describe("Codec", func() {
 						MinMaxVal:     fullyPopulatedMinMaxVal,
 						Terminal:      fullyPopulatedTerminal,
 						CustomScale:   fullyPopulatedCustomScale,
-						Units:         v2.Units("Volts"),
 					}},
 				},
 			}),
@@ -513,7 +505,6 @@ var _ = Describe("Codec", func() {
 						BaseAOChannel: fullyPopulatedBaseAOChannel,
 						MinMaxVal:     fullyPopulatedMinMaxVal,
 						CustomScale:   fullyPopulatedCustomScale,
-						Units:         v2.Units("Volts"),
 					}},
 				},
 			}),
@@ -668,14 +659,13 @@ var _ = Describe("Codec", func() {
 			Entry("ci_frequency variant", v2.CIChannel{Variant: v2.CIFrequencyChannel{
 				BaseCIChannel: fullyPopulatedBaseCIChannel,
 				CustomScale:   fullyPopulatedCustomScale,
-				MinVal:        1.5,
-				MaxVal:        2.5,
+				MinMaxVal:     fullyPopulatedMinMaxVal,
 				Units:         v2.CIFreqUnits("Hz"),
 				Edge:          v2.CIEdge("Rising"),
 				MeasMethod:    v2.CIMeasMethod("LowFreq1Ctr"),
-				MeasTime:      6.5,
-				Divisor:       8,
-				Terminal:      "test_8",
+				MeasTime:      4.5,
+				Divisor:       6,
+				Terminal:      "test_6",
 			}}),
 			Entry("ci_edge_count variant", v2.CIChannel{Variant: v2.CIEdgeCountChannel{
 				BaseCIChannel:  fullyPopulatedBaseCIChannel,
@@ -687,64 +677,58 @@ var _ = Describe("Codec", func() {
 			Entry("ci_period variant", v2.CIChannel{Variant: v2.CIPeriodChannel{
 				BaseCIChannel: fullyPopulatedBaseCIChannel,
 				CustomScale:   fullyPopulatedCustomScale,
-				MinVal:        1.5,
-				MaxVal:        2.5,
+				MinMaxVal:     fullyPopulatedMinMaxVal,
 				Units:         v2.CITimeUnits("Seconds"),
 				StartingEdge:  v2.CIEdge("Rising"),
 				MeasMethod:    v2.CIMeasMethod("LowFreq1Ctr"),
-				MeasTime:      6.5,
-				Divisor:       8,
-				Terminal:      "test_8",
+				MeasTime:      4.5,
+				Divisor:       6,
+				Terminal:      "test_6",
 			}}),
 			Entry("ci_pulse_width variant", v2.CIChannel{Variant: v2.CIPulseWidthChannel{
 				BaseCIChannel: fullyPopulatedBaseCIChannel,
 				CustomScale:   fullyPopulatedCustomScale,
-				MinVal:        1.5,
-				MaxVal:        2.5,
+				MinMaxVal:     fullyPopulatedMinMaxVal,
 				Units:         v2.CITimeUnits("Seconds"),
 				StartingEdge:  v2.CIEdge("Rising"),
-				Terminal:      "test_5",
+				Terminal:      "test_3",
 			}}),
 			Entry("ci_semi_period variant", v2.CIChannel{Variant: v2.CISemiPeriodChannel{
 				BaseCIChannel: fullyPopulatedBaseCIChannel,
 				CustomScale:   fullyPopulatedCustomScale,
-				MinVal:        1.5,
-				MaxVal:        2.5,
+				MinMaxVal:     fullyPopulatedMinMaxVal,
 				Units:         v2.CITimeUnits("Seconds"),
-				Terminal:      "test_4",
+				Terminal:      "test_2",
 			}}),
 			Entry("ci_two_edge_sep variant", v2.CIChannel{Variant: v2.CITwoEdgeSepChannel{
 				BaseCIChannel:  fullyPopulatedBaseCIChannel,
 				CustomScale:    fullyPopulatedCustomScale,
-				MinVal:         1.5,
-				MaxVal:         2.5,
+				MinMaxVal:      fullyPopulatedMinMaxVal,
 				Units:          v2.CITimeUnits("Seconds"),
 				FirstEdge:      v2.CIEdge("Rising"),
 				SecondEdge:     v2.CIEdge("Rising"),
-				FirstTerminal:  "test_6",
-				SecondTerminal: "test_7",
+				FirstTerminal:  "test_4",
+				SecondTerminal: "test_5",
 			}}),
 			Entry("ci_velocity_linear variant", v2.CIChannel{Variant: v2.CIVelocityLinearChannel{
 				BaseCIChannel: fullyPopulatedBaseCIChannel,
 				CustomScale:   fullyPopulatedCustomScale,
-				MinVal:        1.5,
-				MaxVal:        2.5,
+				MinMaxVal:     fullyPopulatedMinMaxVal,
 				Units:         v2.CILinearVelocityUnits("m/s"),
 				DecodingType:  v2.CIDecodingType("X1"),
-				DistPerPulse:  5.5,
-				TerminalA:     "test_6",
-				TerminalB:     "test_7",
+				DistPerPulse:  3.5,
+				TerminalA:     "test_4",
+				TerminalB:     "test_5",
 			}}),
 			Entry("ci_velocity_angular variant", v2.CIChannel{Variant: v2.CIVelocityAngularChannel{
 				BaseCIChannel: fullyPopulatedBaseCIChannel,
 				CustomScale:   fullyPopulatedCustomScale,
-				MinVal:        1.5,
-				MaxVal:        2.5,
+				MinMaxVal:     fullyPopulatedMinMaxVal,
 				Units:         v2.CIAngularVelocityUnits("RPM"),
 				DecodingType:  v2.CIDecodingType("X1"),
-				PulsesPerRev:  5.5,
-				TerminalA:     "test_6",
-				TerminalB:     "test_7",
+				PulsesPerRev:  3.5,
+				TerminalA:     "test_4",
+				TerminalB:     "test_5",
 			}}),
 			Entry("ci_position_linear variant", v2.CIChannel{Variant: v2.CIPositionLinearChannel{
 				BaseCIChannel: fullyPopulatedBaseCIChannel,
@@ -771,10 +755,9 @@ var _ = Describe("Codec", func() {
 			Entry("ci_duty_cycle variant", v2.CIChannel{Variant: v2.CIDutyCycleChannel{
 				BaseCIChannel: fullyPopulatedBaseCIChannel,
 				CustomScale:   fullyPopulatedCustomScale,
-				MinVal:        1.5,
-				MaxVal:        2.5,
+				MinMaxVal:     fullyPopulatedMinMaxVal,
 				ActiveEdge:    v2.CIEdge("Rising"),
-				Terminal:      "test_4",
+				Terminal:      "test_2",
 			}}),
 		)
 	})
@@ -821,14 +804,13 @@ var _ = Describe("Codec", func() {
 					{Variant: v2.CIFrequencyChannel{
 						BaseCIChannel: fullyPopulatedBaseCIChannel,
 						CustomScale:   fullyPopulatedCustomScale,
-						MinVal:        7.5,
-						MaxVal:        8.5,
+						MinMaxVal:     fullyPopulatedMinMaxVal,
 						Units:         v2.CIFreqUnits("Hz"),
 						Edge:          v2.CIEdge("Rising"),
 						MeasMethod:    v2.CIMeasMethod("LowFreq1Ctr"),
-						MeasTime:      12.5,
-						Divisor:       14,
-						Terminal:      "test_14",
+						MeasTime:      10.5,
+						Divisor:       12,
+						Terminal:      "test_12",
 					}},
 				},
 			}),
@@ -1343,10 +1325,10 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", fullyPopulatedZIndex),
 			Entry("zero values", v2.ZIndex{
-				ZIndexEnable: false,
-				ZIndexVal:    0,
-				ZIndexPhase:  v2.ZIndexPhase(""),
-				TerminalZ:    "",
+				ZIndexEnabled: false,
+				ZIndexVal:     0,
+				ZIndexPhase:   v2.ZIndexPhase(""),
+				TerminalZ:     "",
 			}),
 		)
 	})
@@ -1358,7 +1340,6 @@ func BenchmarkEncodeDecodeAIChannel(b *testing.B) {
 		MinMaxVal:     fullyPopulatedMinMaxVal,
 		Terminal:      fullyPopulatedTerminal,
 		CustomScale:   fullyPopulatedCustomScale,
-		Units:         v2.Units("Volts"),
 	}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -1380,7 +1361,6 @@ func BenchmarkEncodeDecodeAOChannel(b *testing.B) {
 		BaseAOChannel: fullyPopulatedBaseAOChannel,
 		MinMaxVal:     fullyPopulatedMinMaxVal,
 		CustomScale:   fullyPopulatedCustomScale,
-		Units:         v2.Units("Volts"),
 	}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -1416,7 +1396,6 @@ func BenchmarkEncodeDecodeAnalogReadConfig(b *testing.B) {
 				MinMaxVal:     fullyPopulatedMinMaxVal,
 				Terminal:      fullyPopulatedTerminal,
 				CustomScale:   fullyPopulatedCustomScale,
-				Units:         v2.Units("Volts"),
 			}},
 		},
 	}
@@ -1455,7 +1434,6 @@ func BenchmarkEncodeDecodeAnalogWriteConfig(b *testing.B) {
 				BaseAOChannel: fullyPopulatedBaseAOChannel,
 				MinMaxVal:     fullyPopulatedMinMaxVal,
 				CustomScale:   fullyPopulatedCustomScale,
-				Units:         v2.Units("Volts"),
 			}},
 		},
 	}
@@ -1563,14 +1541,13 @@ func BenchmarkEncodeDecodeCIChannel(b *testing.B) {
 	seed := v2.CIChannel{Variant: v2.CIFrequencyChannel{
 		BaseCIChannel: fullyPopulatedBaseCIChannel,
 		CustomScale:   fullyPopulatedCustomScale,
-		MinVal:        1.5,
-		MaxVal:        2.5,
+		MinMaxVal:     fullyPopulatedMinMaxVal,
 		Units:         v2.CIFreqUnits("Hz"),
 		Edge:          v2.CIEdge("Rising"),
 		MeasMethod:    v2.CIMeasMethod("LowFreq1Ctr"),
-		MeasTime:      6.5,
-		Divisor:       8,
-		Terminal:      "test_8",
+		MeasTime:      4.5,
+		Divisor:       6,
+		Terminal:      "test_6",
 	}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -1621,14 +1598,13 @@ func BenchmarkEncodeDecodeCounterReadConfig(b *testing.B) {
 			{Variant: v2.CIFrequencyChannel{
 				BaseCIChannel: fullyPopulatedBaseCIChannel,
 				CustomScale:   fullyPopulatedCustomScale,
-				MinVal:        7.5,
-				MaxVal:        8.5,
+				MinMaxVal:     fullyPopulatedMinMaxVal,
 				Units:         v2.CIFreqUnits("Hz"),
 				Edge:          v2.CIEdge("Rising"),
 				MeasMethod:    v2.CIMeasMethod("LowFreq1Ctr"),
-				MeasTime:      12.5,
-				Divisor:       14,
-				Terminal:      "test_14",
+				MeasTime:      10.5,
+				Divisor:       12,
+				Terminal:      "test_12",
 			}},
 		},
 	}
@@ -2032,7 +2008,6 @@ func FuzzDecodeAIChannel(f *testing.F) {
 			MinMaxVal:     fullyPopulatedMinMaxVal,
 			Terminal:      fullyPopulatedTerminal,
 			CustomScale:   fullyPopulatedCustomScale,
-			Units:         v2.Units("Volts"),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2078,9 +2053,8 @@ func FuzzDecodeAIChannel(f *testing.F) {
 			MinMaxVal:           fullyPopulatedMinMaxVal,
 			Terminal:            fullyPopulatedTerminal,
 			CustomScale:         fullyPopulatedCustomScale,
-			Units:               v2.Units("Volts"),
 			ShuntResistorLoc:    v2.ShuntResistorLocation("Default"),
-			ExtShuntResistorVal: 3.5,
+			ExtShuntResistorVal: 2.5,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2145,9 +2119,8 @@ func FuzzDecodeAIChannel(f *testing.F) {
 			Terminal:          fullyPopulatedTerminal,
 			CurrentExcitation: fullyPopulatedCurrentExcitation,
 			CustomScale:       fullyPopulatedCustomScale,
-			Units:             v2.Units("Volts"),
-			MicSensitivity:    2.5,
-			MaxSndPressLevel:  3.5,
+			MicSensitivity:    1.5,
+			MaxSndPressLevel:  2.5,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2196,7 +2169,6 @@ func FuzzDecodeAIChannel(f *testing.F) {
 			Resistance:        fullyPopulatedResistance,
 			CurrentExcitation: fullyPopulatedCurrentExcitation,
 			CustomScale:       fullyPopulatedCustomScale,
-			Units:             v2.Units("Volts"),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2226,13 +2198,12 @@ func FuzzDecodeAIChannel(f *testing.F) {
 			MinMaxVal:             fullyPopulatedMinMaxVal,
 			VoltageExcitation:     fullyPopulatedVoltageExcitation,
 			CustomScale:           fullyPopulatedCustomScale,
-			Units:                 v2.Units("Volts"),
 			StrainConfig:          v2.StrainConfig("FullBridgeI"),
-			GageFactor:            3.5,
-			InitialBridgeVoltage:  4.5,
-			NominalGageResistance: 5.5,
-			PoissonRatio:          6.5,
-			LeadWireResistance:    7.5,
+			GageFactor:            2.5,
+			InitialBridgeVoltage:  3.5,
+			NominalGageResistance: 4.5,
+			PoissonRatio:          5.5,
+			LeadWireResistance:    6.5,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2242,8 +2213,12 @@ func FuzzDecodeAIChannel(f *testing.F) {
 	}
 	{
 		seed := v2.AIChannel{Variant: v2.AITempBuiltinChannel{
-			BaseAIChannel: fullyPopulatedBaseAIChannel,
-			Units:         v2.TemperatureUnits("DegC"),
+			Key:      "test_1",
+			Name:     "test_2",
+			Disabled: true,
+			Channel:  channel.Key(5),
+			Device:   "test_5",
+			Units:    v2.TemperatureUnits("DegC"),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2326,7 +2301,7 @@ func FuzzDecodeAIChannel(f *testing.F) {
 			CustomScale:        fullyPopulatedCustomScale,
 			Units:              v2.AccelUnits("g"),
 			SensitivityUnits:   v2.AccelSensitivityUnits("mVoltsPerG"),
-			UseExcitForScaling: true,
+			ScaledByExcitation: true,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2339,10 +2314,10 @@ func FuzzDecodeAIChannel(f *testing.F) {
 			BaseAIChannel:    fullyPopulatedBaseAIChannel,
 			MinMaxVal:        fullyPopulatedMinMaxVal,
 			Terminal:         fullyPopulatedTerminal,
+			Sensitivity:      fullyPopulatedSensitivity,
 			CustomScale:      fullyPopulatedCustomScale,
 			Units:            v2.AccelUnits("g"),
-			Sensitivity:      2.5,
-			SensitivityUnits: v2.AccelSensitivityUnits("mVoltsPerG"),
+			SensitivityUnits: v2.AccelChargeSensitivityUnits("PicoCoulombsPerG"),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2370,9 +2345,8 @@ func FuzzDecodeAIChannel(f *testing.F) {
 			MinMaxVal:           fullyPopulatedMinMaxVal,
 			Terminal:            fullyPopulatedTerminal,
 			CustomScale:         fullyPopulatedCustomScale,
-			Units:               v2.Units("Volts"),
 			ShuntResistorLoc:    v2.ShuntResistorLocation("Default"),
-			ExtShuntResistorVal: 3.5,
+			ExtShuntResistorVal: 2.5,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2402,9 +2376,8 @@ func FuzzDecodeAIChannel(f *testing.F) {
 			BaseAIChannel:  fullyPopulatedBaseAIChannel,
 			MinMaxVal:      fullyPopulatedMinMaxVal,
 			CustomScale:    fullyPopulatedCustomScale,
-			Units:          v2.Units("Volts"),
-			ThresholdLevel: 2.5,
-			Hysteresis:     3.5,
+			ThresholdLevel: 1.5,
+			Hysteresis:     2.5,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2487,7 +2460,6 @@ func FuzzDecodeAIChannel(f *testing.F) {
 			MinMaxVal:     fullyPopulatedMinMaxVal,
 			Terminal:      fullyPopulatedTerminal,
 			CustomScale:   fullyPopulatedCustomScale,
-			Units:         v2.Units("Volts"),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2502,9 +2474,8 @@ func FuzzDecodeAIChannel(f *testing.F) {
 			Terminal:           fullyPopulatedTerminal,
 			VoltageExcitation:  fullyPopulatedVoltageExcitation,
 			CustomScale:        fullyPopulatedCustomScale,
-			Units:              v2.Units("Volts"),
 			BridgeConfig:       v2.BridgeConfig("FullBridge"),
-			UseExcitForScaling: true,
+			ScaledByExcitation: false,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2540,7 +2511,6 @@ func FuzzDecodeAOChannel(f *testing.F) {
 			BaseAOChannel: fullyPopulatedBaseAOChannel,
 			MinMaxVal:     fullyPopulatedMinMaxVal,
 			CustomScale:   fullyPopulatedCustomScale,
-			Units:         v2.Units("Volts"),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2567,7 +2537,6 @@ func FuzzDecodeAOChannel(f *testing.F) {
 			BaseAOChannel: fullyPopulatedBaseAOChannel,
 			MinMaxVal:     fullyPopulatedMinMaxVal,
 			CustomScale:   fullyPopulatedCustomScale,
-			Units:         v2.Units("Volts"),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2617,7 +2586,6 @@ func FuzzDecodeAnalogReadConfig(f *testing.F) {
 					MinMaxVal:     fullyPopulatedMinMaxVal,
 					Terminal:      fullyPopulatedTerminal,
 					CustomScale:   fullyPopulatedCustomScale,
-					Units:         v2.Units("Volts"),
 				}},
 			},
 		}
@@ -2709,7 +2677,6 @@ func FuzzDecodeAnalogWriteConfig(f *testing.F) {
 					BaseAOChannel: fullyPopulatedBaseAOChannel,
 					MinMaxVal:     fullyPopulatedMinMaxVal,
 					CustomScale:   fullyPopulatedCustomScale,
-					Units:         v2.Units("Volts"),
 				}},
 			},
 		}
@@ -3022,14 +2989,13 @@ func FuzzDecodeCIChannel(f *testing.F) {
 		seed := v2.CIChannel{Variant: v2.CIFrequencyChannel{
 			BaseCIChannel: fullyPopulatedBaseCIChannel,
 			CustomScale:   fullyPopulatedCustomScale,
-			MinVal:        1.5,
-			MaxVal:        2.5,
+			MinMaxVal:     fullyPopulatedMinMaxVal,
 			Units:         v2.CIFreqUnits("Hz"),
 			Edge:          v2.CIEdge("Rising"),
 			MeasMethod:    v2.CIMeasMethod("LowFreq1Ctr"),
-			MeasTime:      6.5,
-			Divisor:       8,
-			Terminal:      "test_8",
+			MeasTime:      4.5,
+			Divisor:       6,
+			Terminal:      "test_6",
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3055,14 +3021,13 @@ func FuzzDecodeCIChannel(f *testing.F) {
 		seed := v2.CIChannel{Variant: v2.CIPeriodChannel{
 			BaseCIChannel: fullyPopulatedBaseCIChannel,
 			CustomScale:   fullyPopulatedCustomScale,
-			MinVal:        1.5,
-			MaxVal:        2.5,
+			MinMaxVal:     fullyPopulatedMinMaxVal,
 			Units:         v2.CITimeUnits("Seconds"),
 			StartingEdge:  v2.CIEdge("Rising"),
 			MeasMethod:    v2.CIMeasMethod("LowFreq1Ctr"),
-			MeasTime:      6.5,
-			Divisor:       8,
-			Terminal:      "test_8",
+			MeasTime:      4.5,
+			Divisor:       6,
+			Terminal:      "test_6",
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3074,11 +3039,10 @@ func FuzzDecodeCIChannel(f *testing.F) {
 		seed := v2.CIChannel{Variant: v2.CIPulseWidthChannel{
 			BaseCIChannel: fullyPopulatedBaseCIChannel,
 			CustomScale:   fullyPopulatedCustomScale,
-			MinVal:        1.5,
-			MaxVal:        2.5,
+			MinMaxVal:     fullyPopulatedMinMaxVal,
 			Units:         v2.CITimeUnits("Seconds"),
 			StartingEdge:  v2.CIEdge("Rising"),
-			Terminal:      "test_5",
+			Terminal:      "test_3",
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3090,10 +3054,9 @@ func FuzzDecodeCIChannel(f *testing.F) {
 		seed := v2.CIChannel{Variant: v2.CISemiPeriodChannel{
 			BaseCIChannel: fullyPopulatedBaseCIChannel,
 			CustomScale:   fullyPopulatedCustomScale,
-			MinVal:        1.5,
-			MaxVal:        2.5,
+			MinMaxVal:     fullyPopulatedMinMaxVal,
 			Units:         v2.CITimeUnits("Seconds"),
-			Terminal:      "test_4",
+			Terminal:      "test_2",
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3105,13 +3068,12 @@ func FuzzDecodeCIChannel(f *testing.F) {
 		seed := v2.CIChannel{Variant: v2.CITwoEdgeSepChannel{
 			BaseCIChannel:  fullyPopulatedBaseCIChannel,
 			CustomScale:    fullyPopulatedCustomScale,
-			MinVal:         1.5,
-			MaxVal:         2.5,
+			MinMaxVal:      fullyPopulatedMinMaxVal,
 			Units:          v2.CITimeUnits("Seconds"),
 			FirstEdge:      v2.CIEdge("Rising"),
 			SecondEdge:     v2.CIEdge("Rising"),
-			FirstTerminal:  "test_6",
-			SecondTerminal: "test_7",
+			FirstTerminal:  "test_4",
+			SecondTerminal: "test_5",
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3123,13 +3085,12 @@ func FuzzDecodeCIChannel(f *testing.F) {
 		seed := v2.CIChannel{Variant: v2.CIVelocityLinearChannel{
 			BaseCIChannel: fullyPopulatedBaseCIChannel,
 			CustomScale:   fullyPopulatedCustomScale,
-			MinVal:        1.5,
-			MaxVal:        2.5,
+			MinMaxVal:     fullyPopulatedMinMaxVal,
 			Units:         v2.CILinearVelocityUnits("m/s"),
 			DecodingType:  v2.CIDecodingType("X1"),
-			DistPerPulse:  5.5,
-			TerminalA:     "test_6",
-			TerminalB:     "test_7",
+			DistPerPulse:  3.5,
+			TerminalA:     "test_4",
+			TerminalB:     "test_5",
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3141,13 +3102,12 @@ func FuzzDecodeCIChannel(f *testing.F) {
 		seed := v2.CIChannel{Variant: v2.CIVelocityAngularChannel{
 			BaseCIChannel: fullyPopulatedBaseCIChannel,
 			CustomScale:   fullyPopulatedCustomScale,
-			MinVal:        1.5,
-			MaxVal:        2.5,
+			MinMaxVal:     fullyPopulatedMinMaxVal,
 			Units:         v2.CIAngularVelocityUnits("RPM"),
 			DecodingType:  v2.CIDecodingType("X1"),
-			PulsesPerRev:  5.5,
-			TerminalA:     "test_6",
-			TerminalB:     "test_7",
+			PulsesPerRev:  3.5,
+			TerminalA:     "test_4",
+			TerminalB:     "test_5",
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3195,10 +3155,9 @@ func FuzzDecodeCIChannel(f *testing.F) {
 		seed := v2.CIChannel{Variant: v2.CIDutyCycleChannel{
 			BaseCIChannel: fullyPopulatedBaseCIChannel,
 			CustomScale:   fullyPopulatedCustomScale,
-			MinVal:        1.5,
-			MaxVal:        2.5,
+			MinMaxVal:     fullyPopulatedMinMaxVal,
 			ActiveEdge:    v2.CIEdge("Rising"),
-			Terminal:      "test_4",
+			Terminal:      "test_2",
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3293,14 +3252,13 @@ func FuzzDecodeCounterReadConfig(f *testing.F) {
 				{Variant: v2.CIFrequencyChannel{
 					BaseCIChannel: fullyPopulatedBaseCIChannel,
 					CustomScale:   fullyPopulatedCustomScale,
-					MinVal:        7.5,
-					MaxVal:        8.5,
+					MinMaxVal:     fullyPopulatedMinMaxVal,
 					Units:         v2.CIFreqUnits("Hz"),
 					Edge:          v2.CIEdge("Rising"),
 					MeasMethod:    v2.CIMeasMethod("LowFreq1Ctr"),
-					MeasTime:      12.5,
-					Divisor:       14,
-					Terminal:      "test_14",
+					MeasTime:      10.5,
+					Divisor:       12,
+					Terminal:      "test_12",
 				}},
 			},
 		}
@@ -4286,10 +4244,10 @@ func FuzzDecodeZIndex(f *testing.F) {
 	}
 	{
 		seed := v2.ZIndex{
-			ZIndexEnable: false,
-			ZIndexVal:    0,
-			ZIndexPhase:  v2.ZIndexPhase(""),
-			TerminalZ:    "",
+			ZIndexEnabled: false,
+			ZIndexVal:     0,
+			ZIndexPhase:   v2.ZIndexPhase(""),
+			TerminalZ:     "",
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

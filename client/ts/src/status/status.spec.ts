@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, TimeStamp, uuid } from "@synnaxlabs/x";
+import { color, id, TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import z from "zod";
 
@@ -15,7 +15,7 @@ import { group } from "@/group";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { status } from "@/status";
-import { createTestClient } from "@/testutil";
+import { createTestClient, expectLive } from "@/testutil";
 
 const client = createTestClient();
 
@@ -107,6 +107,124 @@ describe("Status", () => {
 
       const statusResource = resources.find((r) => r.id.key === "child-status");
       expect(statusResource).toBeDefined();
+    });
+  });
+
+  describe("optimistic set", () => {
+    const createCrude = (overrides: Partial<status.Crude> = {}): status.Crude => ({
+      key: `optimistic-${id.create()}`,
+      name: "Optimistic Status",
+      variant: "info",
+      message: "Optimistic message",
+      time: TimeStamp.now(),
+      ...overrides,
+    });
+
+    it("should cache the status before the write commits", async () => {
+      const crude = createCrude();
+      let duringWrite: query.Cached<status.Status> | undefined;
+      await client.statuses.set(crude, {
+        onOptimistic: () => {
+          duringWrite = client.statuses.getCached(crude.key as status.Key);
+        },
+      });
+      expect(expectLive(duringWrite).message).toEqual(crude.message);
+    });
+
+    it("should cache every status of a batch before the write commits", async () => {
+      const first = createCrude();
+      const second = createCrude();
+      let duringWrite: Array<query.Cached<status.Status> | undefined> = [];
+      await client.statuses.set([first, second], {
+        onOptimistic: () => {
+          duringWrite = [first, second].map(({ key }) =>
+            client.statuses.getCached(key as status.Key),
+          );
+        },
+      });
+      expect(duringWrite.map((s) => expectLive(s).message)).toEqual([
+        first.message,
+        second.message,
+      ]);
+    });
+
+    it("should stamp a key and a time onto a status that carries neither", async () => {
+      const message = `unkeyed-${id.create()}`;
+      const created = await client.statuses.set({ variant: "info", message });
+      expect(created.key).not.toHaveLength(0);
+      expect(created.time.valueOf()).toBeGreaterThan(0n);
+      expect(expectLive(client.statuses.getCached(created.key)).message).toEqual(
+        message,
+      );
+    });
+
+    it("should keep the details of a schema-parametrized status", async () => {
+      const detailsSchema = z.object({ count: z.number() });
+      const crude = createCrude();
+      let duringWrite: query.Cached<status.Status<typeof detailsSchema>> | undefined;
+      await client.statuses.set<typeof detailsSchema>(
+        { ...crude, details: { count: 5 } },
+        {
+          detailsSchema,
+          onOptimistic: () => {
+            duringWrite = client.statuses.getCached(
+              crude.key as status.Key,
+            ) as query.Cached<status.Status<typeof detailsSchema>>;
+          },
+        },
+      );
+      expect(expectLive(duringWrite).details).toEqual({ count: 5 });
+    });
+
+    it("should drop the optimistic status when the write fails", async () => {
+      const crude = createCrude();
+      await expect(
+        client.statuses.set(crude, {
+          onOptimistic: () => {
+            throw new Error("write failed");
+          },
+        }),
+      ).rejects.toThrow("write failed");
+      expect(client.statuses.getCached(crude.key as status.Key)).toBeUndefined();
+    });
+
+    it("should leave no corpse behind when the write fails", async () => {
+      const crude = createCrude();
+      const key = crude.key as status.Key;
+      await client.statuses.set(crude);
+      // Another client owns the record, and this one neither streams nor subscribes, so
+      // nothing puts the record in its cache before the rollback.
+      const observer = createTestClient();
+      await expect(
+        observer.statuses.set(
+          { ...crude, message: "replacement" },
+          {
+            onOptimistic: () => {
+              throw new Error("write failed");
+            },
+          },
+        ),
+      ).rejects.toThrow("write failed");
+      expect(observer.statuses.getCached(key)).toBeUndefined();
+      expect((await observer.statuses.retrieve(key)).message).toEqual(crude.message);
+    });
+
+    it("should restore the previous status when the write fails", async () => {
+      const crude = createCrude();
+      const created = await client.statuses.set(crude);
+      await expect(
+        client.statuses.set(
+          { ...crude, message: "replacement" },
+          {
+            onOptimistic: () => {
+              throw new Error("write failed");
+            },
+          },
+        ),
+      ).rejects.toThrow("write failed");
+      expect(expectLive(client.statuses.getCached(created.key)).message).toEqual(
+        created.message,
+      );
     });
   });
 

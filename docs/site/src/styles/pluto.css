@@ -120,9 +120,13 @@ article .pluto-tabs__selector {
             }
         }
 
-        &.pluto--selected .pluto-text {
-            color: var(--pluto-text-color);
-            font-weight: 500;
+        &.pluto--selected {
+            box-shadow: inset 3px 0 0 0 var(--pluto-primary-z);
+
+            & .pluto-text {
+                color: var(--pluto-text-color);
+                font-weight: 500;
+            }
         }
 
         &:not(.pluto--has-children):not(.pluto--selected) {

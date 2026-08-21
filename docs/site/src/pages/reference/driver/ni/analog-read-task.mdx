@@ -25,14 +25,14 @@ For task lifecycle management, see the
 
 ## Task Configuration Reference
 
-| Parameter     | Type    | Required | Default       | Description                                                   |
-| ------------- | ------- | -------- | ------------- | ------------------------------------------------------------- |
-| `name`        | string  | Yes      | -             | Human-readable task name                                      |
-| `sample_rate` | number  | Yes      | -             | Samples per second (Hz), determined by module                 |
-| `stream_rate` | number  | No       | `sample_rate` | Rate data is streamed to Synnax (Hz), must be ≤ `sample_rate` |
-| `data_saving` | boolean | No       | `false`       | Enable permanent storage in Synnax                            |
-| `auto_start`  | boolean | No       | `false`       | Automatically start task after configuration                  |
-| `channels`    | array   | Yes      | -             | List of analog input channel configurations                   |
+| Parameter              | Type    | Required | Default       | Description                                                   |
+| ---------------------- | ------- | -------- | ------------- | ------------------------------------------------------------- |
+| `name`                 | string  | Yes      | -             | Human-readable task name                                      |
+| `sample_rate`          | number  | Yes      | -             | Samples per second (Hz), determined by module                 |
+| `stream_rate`          | number  | No       | `sample_rate` | Rate data is streamed to Synnax (Hz), must be ≤ `sample_rate` |
+| `data_saving_disabled` | boolean | No       | `false`       | Stream data without saving it permanently in Synnax           |
+| `auto_start`           | boolean | No       | `false`       | Automatically start task after configuration                  |
+| `channels`             | array   | Yes      | -             | List of analog input channel configurations                   |
 
 <Divider.Divider x />
 
@@ -62,20 +62,19 @@ For task lifecycle management, see the
 <ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Bridge /> Bridge ([`ai_bridge`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaibridgechan.html))</Text.Text>
 
-| Parameter                   | Type   | Required | Default       | Description                                 |
-| --------------------------- | ------ | -------- | ------------- | ------------------------------------------- |
-| `channel`                   | number | Yes      | -             | Synnax channel key                          |
-| `device`                    | string | Yes      | -             | Device identifier                           |
-| `port`                      | number | Yes      | -             | Physical port                               |
-| `min_val`                   | number | No       | `0`           | Minimum value                               |
-| `max_val`                   | number | No       | `1`           | Maximum value                               |
-| `terminal_config`           | enum   | No       | `Cfg_Default` | Terminal configuration                      |
-| `units`                     | enum   | Yes      | -             | `mVoltsPerVolt`, `VoltsPerVolt`             |
-| `bridge_config`             | enum   | Yes      | -             | `FullBridge`, `HalfBridge`, `QuarterBridge` |
-| `voltage_excit_source`      | enum   | Yes      | -             | `Internal`, `External`, `None`              |
-| `voltage_excit_val`         | number | Yes      | -             | Excitation voltage (Volts)                  |
-| `nominal_bridge_resistance` | number | Yes      | -             | Nominal resistance (Ohms), must be &gt; 0   |
-| `custom_scale`              | object | No       | -             | Custom scaling                              |
+| Parameter                   | Type   | Required | Default | Description                                 |
+| --------------------------- | ------ | -------- | ------- | ------------------------------------------- |
+| `channel`                   | number | Yes      | -       | Synnax channel key                          |
+| `device`                    | string | Yes      | -       | Device identifier                           |
+| `port`                      | number | Yes      | -       | Physical port                               |
+| `min_val`                   | number | No       | `0`     | Minimum value                               |
+| `max_val`                   | number | No       | `1`     | Maximum value                               |
+| `units`                     | enum   | Yes      | -       | `mVoltsPerVolt`, `VoltsPerVolt`             |
+| `bridge_config`             | enum   | Yes      | -       | `FullBridge`, `HalfBridge`, `QuarterBridge` |
+| `voltage_excit_source`      | enum   | Yes      | -       | `Internal`, `External`, `None`              |
+| `voltage_excit_val`         | number | Yes      | -       | Excitation voltage (Volts)                  |
+| `nominal_bridge_resistance` | number | Yes      | -       | Nominal resistance (Ohms), must be &gt; 0   |
+| `custom_scale`              | object | No       | -       | Custom scaling                              |
 
 </ChannelType>
 
@@ -88,9 +87,8 @@ For task lifecycle management, see the
 | `device`                 | string | Yes      | -             | Device identifier                    |
 | `port`                   | number | Yes      | -             | Physical port                        |
 | `min_val`                | number | No       | `0`           | Minimum current (Amps)               |
-| `max_val`                | number | No       | `0.02`        | Maximum current (Amps)               |
+| `max_val`                | number | No       | `1`           | Maximum current (Amps)               |
 | `terminal_config`        | enum   | No       | `Cfg_Default` | Terminal configuration               |
-| `units`                  | enum   | No       | `Amps`        | `Amps`                               |
 | `shunt_resistor_loc`     | enum   | Yes      | -             | `Default`, `Internal`, `External`    |
 | `ext_shunt_resistor_val` | number | No       | -             | External shunt resistor value (Ohms) |
 | `custom_scale`           | object | No       | -             | Custom scaling                       |
@@ -100,50 +98,48 @@ For task lifecycle management, see the
 <ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Units.Force /> Force Bridge Table ([`ai_force_bridge_table`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaiforcebridgetablechan.html))</Text.Text>
 
-| Parameter                   | Type   | Required | Default       | Description                                        |
-| --------------------------- | ------ | -------- | ------------- | -------------------------------------------------- |
-| `channel`                   | number | Yes      | -             | Synnax channel key                                 |
-| `device`                    | string | Yes      | -             | Device identifier                                  |
-| `port`                      | number | Yes      | -             | Physical port                                      |
-| `min_val`                   | number | No       | `0`           | Minimum force                                      |
-| `max_val`                   | number | No       | `100`         | Maximum force                                      |
-| `terminal_config`           | enum   | No       | `Cfg_Default` | Terminal configuration                             |
-| `units`                     | enum   | Yes      | -             | Force units (`Newtons`, `Pounds`, `KilogramForce`) |
-| `bridge_config`             | enum   | Yes      | -             | `FullBridge`, `HalfBridge`, `QuarterBridge`        |
-| `voltage_excit_source`      | enum   | Yes      | -             | `Internal`, `External`, `None`                     |
-| `voltage_excit_val`         | number | Yes      | -             | Excitation voltage (Volts)                         |
-| `nominal_bridge_resistance` | number | Yes      | -             | Nominal resistance (Ohms)                          |
-| `electrical_vals`           | array  | Yes      | -             | Electrical values for table                        |
-| `physical_vals`             | array  | Yes      | -             | Physical values for table                          |
-| `electrical_units`          | enum   | Yes      | -             | Electrical units                                   |
-| `physical_units`            | enum   | Yes      | -             | Physical units                                     |
-| `custom_scale`              | object | No       | -             | Custom scaling                                     |
+| Parameter                   | Type   | Required | Default | Description                                        |
+| --------------------------- | ------ | -------- | ------- | -------------------------------------------------- |
+| `channel`                   | number | Yes      | -       | Synnax channel key                                 |
+| `device`                    | string | Yes      | -       | Device identifier                                  |
+| `port`                      | number | Yes      | -       | Physical port                                      |
+| `min_val`                   | number | No       | `0`     | Minimum force                                      |
+| `max_val`                   | number | No       | `1`     | Maximum force                                      |
+| `units`                     | enum   | Yes      | -       | Force units (`Newtons`, `Pounds`, `KilogramForce`) |
+| `bridge_config`             | enum   | Yes      | -       | `FullBridge`, `HalfBridge`, `QuarterBridge`        |
+| `voltage_excit_source`      | enum   | Yes      | -       | `Internal`, `External`, `None`                     |
+| `voltage_excit_val`         | number | Yes      | -       | Excitation voltage (Volts)                         |
+| `nominal_bridge_resistance` | number | Yes      | -       | Nominal resistance (Ohms)                          |
+| `electrical_vals`           | array  | Yes      | -       | Electrical values for table                        |
+| `physical_vals`             | array  | Yes      | -       | Physical values for table                          |
+| `electrical_units`          | enum   | Yes      | -       | Electrical units                                   |
+| `physical_units`            | enum   | Yes      | -       | Physical units                                     |
+| `custom_scale`              | object | No       | -       | Custom scaling                                     |
 
 </ChannelType>
 
 <ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Units.Force /> Force Bridge Two-Point Linear ([`ai_force_bridge_two_point_lin`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaiforcebridgetwopointlinchan.html))</Text.Text>
 
-| Parameter                   | Type   | Required | Default       | Description                                        |
-| --------------------------- | ------ | -------- | ------------- | -------------------------------------------------- |
-| `channel`                   | number | Yes      | -             | Synnax channel key                                 |
-| `device`                    | string | Yes      | -             | Device identifier                                  |
-| `port`                      | number | Yes      | -             | Physical port                                      |
-| `min_val`                   | number | No       | `0`           | Minimum force                                      |
-| `max_val`                   | number | No       | `100`         | Maximum force                                      |
-| `terminal_config`           | enum   | No       | `Cfg_Default` | Terminal configuration                             |
-| `units`                     | enum   | Yes      | -             | Force units (`Newtons`, `Pounds`, `KilogramForce`) |
-| `bridge_config`             | enum   | Yes      | -             | `FullBridge`, `HalfBridge`, `QuarterBridge`        |
-| `voltage_excit_source`      | enum   | Yes      | -             | `Internal`, `External`, `None`                     |
-| `voltage_excit_val`         | number | Yes      | -             | Excitation voltage (Volts)                         |
-| `nominal_bridge_resistance` | number | Yes      | -             | Nominal resistance (Ohms)                          |
-| `first_electrical_val`      | number | Yes      | -             | First electrical value                             |
-| `second_electrical_val`     | number | Yes      | -             | Second electrical value                            |
-| `electrical_units`          | enum   | Yes      | -             | Electrical units                                   |
-| `first_physical_val`        | number | Yes      | -             | First physical value                               |
-| `second_physical_val`       | number | Yes      | -             | Second physical value                              |
-| `physical_units`            | enum   | Yes      | -             | Physical units                                     |
-| `custom_scale`              | object | No       | -             | Custom scaling                                     |
+| Parameter                   | Type   | Required | Default | Description                                        |
+| --------------------------- | ------ | -------- | ------- | -------------------------------------------------- |
+| `channel`                   | number | Yes      | -       | Synnax channel key                                 |
+| `device`                    | string | Yes      | -       | Device identifier                                  |
+| `port`                      | number | Yes      | -       | Physical port                                      |
+| `min_val`                   | number | No       | `0`     | Minimum force                                      |
+| `max_val`                   | number | No       | `1`     | Maximum force                                      |
+| `units`                     | enum   | Yes      | -       | Force units (`Newtons`, `Pounds`, `KilogramForce`) |
+| `bridge_config`             | enum   | Yes      | -       | `FullBridge`, `HalfBridge`, `QuarterBridge`        |
+| `voltage_excit_source`      | enum   | Yes      | -       | `Internal`, `External`, `None`                     |
+| `voltage_excit_val`         | number | Yes      | -       | Excitation voltage (Volts)                         |
+| `nominal_bridge_resistance` | number | Yes      | -       | Nominal resistance (Ohms)                          |
+| `first_electrical_val`      | number | Yes      | -       | First electrical value                             |
+| `second_electrical_val`     | number | Yes      | -       | Second electrical value                            |
+| `electrical_units`          | enum   | Yes      | -       | Electrical units                                   |
+| `first_physical_val`        | number | Yes      | -       | First physical value                               |
+| `second_physical_val`       | number | Yes      | -       | Second physical value                              |
+| `physical_units`            | enum   | Yes      | -       | Physical units                                     |
+| `custom_scale`              | object | No       | -       | Custom scaling                                     |
 
 </ChannelType>
 
@@ -156,7 +152,7 @@ For task lifecycle management, see the
 | `device`               | string | Yes      | -             | Device identifier                                  |
 | `port`                 | number | Yes      | -             | Physical port                                      |
 | `min_val`              | number | No       | `0`           | Minimum force                                      |
-| `max_val`              | number | No       | `100`         | Maximum force                                      |
+| `max_val`              | number | No       | `1`           | Maximum force                                      |
 | `terminal_config`      | enum   | No       | `Cfg_Default` | Terminal configuration                             |
 | `units`                | enum   | Yes      | -             | Force units (`Newtons`, `Pounds`, `KilogramForce`) |
 | `sensitivity`          | number | Yes      | -             | Sensor sensitivity                                 |
@@ -180,7 +176,6 @@ For task lifecycle management, see the
 | `max_snd_press_level`  | number | Yes      | -             | Maximum sound pressure level   |
 | `current_excit_source` | enum   | Yes      | -             | `Internal`, `External`, `None` |
 | `current_excit_val`    | number | Yes      | -             | Excitation current (Amps)      |
-| `units`                | enum   | No       | `Pascals`     | `Pascals`                      |
 | `custom_scale`         | object | No       | -             | Custom scaling                 |
 
 </ChannelType>
@@ -188,114 +183,106 @@ For task lifecycle management, see the
 <ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Units.Pressure /> Pressure Bridge Table ([`ai_pressure_bridge_table`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaipressurebridgetablechan.html))</Text.Text>
 
-| Parameter                   | Type   | Required | Default       | Description                                 |
-| --------------------------- | ------ | -------- | ------------- | ------------------------------------------- |
-| `channel`                   | number | Yes      | -             | Synnax channel key                          |
-| `device`                    | string | Yes      | -             | Device identifier                           |
-| `port`                      | number | Yes      | -             | Physical port                               |
-| `min_val`                   | number | No       | `0`           | Minimum pressure                            |
-| `max_val`                   | number | No       | `100`         | Maximum pressure                            |
-| `terminal_config`           | enum   | No       | `Cfg_Default` | Terminal configuration                      |
-| `units`                     | enum   | Yes      | -             | Pressure units (`Pascals`, `PSI`, `Bar`)    |
-| `bridge_config`             | enum   | Yes      | -             | `FullBridge`, `HalfBridge`, `QuarterBridge` |
-| `voltage_excit_source`      | enum   | Yes      | -             | `Internal`, `External`, `None`              |
-| `voltage_excit_val`         | number | Yes      | -             | Excitation voltage (Volts)                  |
-| `nominal_bridge_resistance` | number | Yes      | -             | Nominal resistance (Ohms)                   |
-| `electrical_vals`           | array  | Yes      | -             | Electrical values for table                 |
-| `physical_vals`             | array  | Yes      | -             | Physical values for table                   |
-| `electrical_units`          | enum   | Yes      | -             | Electrical units                            |
-| `physical_units`            | enum   | Yes      | -             | Physical units                              |
-| `custom_scale`              | object | No       | -             | Custom scaling                              |
+| Parameter                   | Type   | Required | Default               | Description                                 |
+| --------------------------- | ------ | -------- | --------------------- | ------------------------------------------- |
+| `channel`                   | number | Yes      | -                     | Synnax channel key                          |
+| `device`                    | string | Yes      | -                     | Device identifier                           |
+| `port`                      | number | Yes      | -                     | Physical port                               |
+| `min_val`                   | number | No       | `0`                   | Minimum pressure                            |
+| `max_val`                   | number | No       | `1`                   | Maximum pressure                            |
+| `units`                     | enum   | No       | `PoundsPerSquareInch` | `Pascals`, `PoundsPerSquareInch`, `Bar`     |
+| `bridge_config`             | enum   | Yes      | -                     | `FullBridge`, `HalfBridge`, `QuarterBridge` |
+| `voltage_excit_source`      | enum   | Yes      | -                     | `Internal`, `External`, `None`              |
+| `voltage_excit_val`         | number | Yes      | -                     | Excitation voltage (Volts)                  |
+| `nominal_bridge_resistance` | number | Yes      | -                     | Nominal resistance (Ohms)                   |
+| `electrical_vals`           | array  | Yes      | -                     | Electrical values for table                 |
+| `physical_vals`             | array  | Yes      | -                     | Physical values for table                   |
+| `electrical_units`          | enum   | Yes      | -                     | Electrical units                            |
+| `physical_units`            | enum   | Yes      | -                     | Physical units                              |
+| `custom_scale`              | object | No       | -                     | Custom scaling                              |
 
 </ChannelType>
 
 <ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Units.Pressure /> Pressure Bridge Two-Point Linear ([`ai_pressure_bridge_two_point_lin`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaipressurebridgetwopointlinchan.html))</Text.Text>
 
-| Parameter                   | Type   | Required | Default       | Description                                 |
-| --------------------------- | ------ | -------- | ------------- | ------------------------------------------- |
-| `channel`                   | number | Yes      | -             | Synnax channel key                          |
-| `device`                    | string | Yes      | -             | Device identifier                           |
-| `port`                      | number | Yes      | -             | Physical port                               |
-| `min_val`                   | number | No       | `0`           | Minimum pressure                            |
-| `max_val`                   | number | No       | `100`         | Maximum pressure                            |
-| `terminal_config`           | enum   | No       | `Cfg_Default` | Terminal configuration                      |
-| `units`                     | enum   | Yes      | -             | Pressure units (`Pascals`, `PSI`, `Bar`)    |
-| `bridge_config`             | enum   | Yes      | -             | `FullBridge`, `HalfBridge`, `QuarterBridge` |
-| `voltage_excit_source`      | enum   | Yes      | -             | `Internal`, `External`, `None`              |
-| `voltage_excit_val`         | number | Yes      | -             | Excitation voltage (Volts)                  |
-| `nominal_bridge_resistance` | number | Yes      | -             | Nominal resistance (Ohms)                   |
-| `first_electrical_val`      | number | Yes      | -             | First electrical value                      |
-| `second_electrical_val`     | number | Yes      | -             | Second electrical value                     |
-| `electrical_units`          | enum   | Yes      | -             | Electrical units                            |
-| `first_physical_val`        | number | Yes      | -             | First physical value                        |
-| `second_physical_val`       | number | Yes      | -             | Second physical value                       |
-| `physical_units`            | enum   | Yes      | -             | Physical units                              |
-| `custom_scale`              | object | No       | -             | Custom scaling                              |
+| Parameter                   | Type   | Required | Default               | Description                                 |
+| --------------------------- | ------ | -------- | --------------------- | ------------------------------------------- |
+| `channel`                   | number | Yes      | -                     | Synnax channel key                          |
+| `device`                    | string | Yes      | -                     | Device identifier                           |
+| `port`                      | number | Yes      | -                     | Physical port                               |
+| `min_val`                   | number | No       | `0`                   | Minimum pressure                            |
+| `max_val`                   | number | No       | `1`                   | Maximum pressure                            |
+| `units`                     | enum   | No       | `PoundsPerSquareInch` | `Pascals`, `PoundsPerSquareInch`, `Bar`     |
+| `bridge_config`             | enum   | Yes      | -                     | `FullBridge`, `HalfBridge`, `QuarterBridge` |
+| `voltage_excit_source`      | enum   | Yes      | -                     | `Internal`, `External`, `None`              |
+| `voltage_excit_val`         | number | Yes      | -                     | Excitation voltage (Volts)                  |
+| `nominal_bridge_resistance` | number | Yes      | -                     | Nominal resistance (Ohms)                   |
+| `first_electrical_val`      | number | Yes      | -                     | First electrical value                      |
+| `second_electrical_val`     | number | Yes      | -                     | Second electrical value                     |
+| `electrical_units`          | enum   | Yes      | -                     | Electrical units                            |
+| `first_physical_val`        | number | Yes      | -                     | First physical value                        |
+| `second_physical_val`       | number | Yes      | -                     | Second physical value                       |
+| `physical_units`            | enum   | Yes      | -                     | Physical units                              |
+| `custom_scale`              | object | No       | -                     | Custom scaling                              |
 
 </ChannelType>
 
 <ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Units.Resistance /> Resistance ([`ai_resistance`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateairesistancechan.html))</Text.Text>
 
-| Parameter              | Type   | Required | Default       | Description                    |
-| ---------------------- | ------ | -------- | ------------- | ------------------------------ |
-| `channel`              | number | Yes      | -             | Synnax channel key             |
-| `device`               | string | Yes      | -             | Device identifier              |
-| `port`                 | number | Yes      | -             | Physical port                  |
-| `min_val`              | number | No       | `0`           | Minimum resistance (Ohms)      |
-| `max_val`              | number | No       | `1000`        | Maximum resistance (Ohms)      |
-| `terminal_config`      | enum   | No       | `Cfg_Default` | Terminal configuration         |
-| `units`                | enum   | No       | `Ohms`        | `Ohms`                         |
-| `resistance_config`    | enum   | Yes      | -             | `2Wire`, `3Wire`, `4Wire`      |
-| `current_excit_source` | enum   | Yes      | -             | `Internal`, `External`, `None` |
-| `current_excit_val`    | number | Yes      | -             | Excitation current (Amps)      |
-| `custom_scale`         | object | No       | -             | Custom scaling                 |
+| Parameter              | Type   | Required | Default | Description                    |
+| ---------------------- | ------ | -------- | ------- | ------------------------------ |
+| `channel`              | number | Yes      | -       | Synnax channel key             |
+| `device`               | string | Yes      | -       | Device identifier              |
+| `port`                 | number | Yes      | -       | Physical port                  |
+| `min_val`              | number | No       | `0`     | Minimum resistance (Ohms)      |
+| `max_val`              | number | No       | `1`     | Maximum resistance (Ohms)      |
+| `resistance_config`    | enum   | Yes      | -       | `2Wire`, `3Wire`, `4Wire`      |
+| `current_excit_source` | enum   | Yes      | -       | `Internal`, `External`, `None` |
+| `current_excit_val`    | number | Yes      | -       | Excitation current (Amps)      |
+| `custom_scale`         | object | No       | -       | Custom scaling                 |
 
 </ChannelType>
 
 <ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Units.Temperature /> RTD ([`ai_rtd`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateairtdchan.html))</Text.Text>
 
-| Parameter              | Type   | Required | Default       | Description                                                          |
-| ---------------------- | ------ | -------- | ------------- | -------------------------------------------------------------------- |
-| `channel`              | number | Yes      | -             | Synnax channel key                                                   |
-| `device`               | string | Yes      | -             | Device identifier                                                    |
-| `port`                 | number | Yes      | -             | Physical port                                                        |
-| `min_val`              | number | No       | `0`           | Minimum temperature                                                  |
-| `max_val`              | number | No       | `100`         | Maximum temperature                                                  |
-| `terminal_config`      | enum   | No       | `Cfg_Default` | Terminal configuration                                               |
-| `units`                | enum   | No       | `DegC`        | `DegC`, `DegF`, `Kelvins`, `DegR`                                    |
-| `rtd_type`             | enum   | Yes      | -             | `Pt3750`, `Pt3851`, `Pt3911`, `Pt3916`, `Pt3920`, `Pt3928`, `Custom` |
-| `resistance_config`    | enum   | Yes      | -             | `2Wire`, `3Wire`, `4Wire`                                            |
-| `current_excit_source` | enum   | Yes      | -             | `Internal`, `External`, `None`                                       |
-| `current_excit_val`    | number | Yes      | -             | Excitation current (Amps)                                            |
-| `r_0`                  | number | No       | -             | Resistance at 0°C (for custom RTD)                                   |
-| `custom_scale`         | object | No       | -             | Custom scaling                                                       |
+| Parameter              | Type   | Required | Default    | Description                                                |
+| ---------------------- | ------ | -------- | ---------- | ---------------------------------------------------------- |
+| `channel`              | number | Yes      | -          | Synnax channel key                                         |
+| `device`               | string | Yes      | -          | Device identifier                                          |
+| `port`                 | number | Yes      | -          | Physical port                                              |
+| `min_val`              | number | No       | `0`        | Minimum temperature                                        |
+| `max_val`              | number | No       | `1`        | Maximum temperature                                        |
+| `units`                | enum   | No       | `DegC`     | `DegC`, `DegF`, `Kelvins`, `DegR`                          |
+| `rtd_type`             | enum   | No       | `Pt3750`   | `Pt3750`, `Pt3851`, `Pt3911`, `Pt3916`, `Pt3920`, `Pt3928` |
+| `r0`                   | number | No       | `0`        | Sensor resistance at 0 degrees Celsius (Ohms)              |
+| `resistance_config`    | enum   | No       | `2Wire`    | `2Wire`, `3Wire`, `4Wire`                                  |
+| `current_excit_source` | enum   | No       | `Internal` | `Internal`, `External`, `None`                             |
+| `current_excit_val`    | number | No       | `0`        | Excitation current (Amps)                                  |
 
 </ChannelType>
 
 <ChannelType>
 <Text.Text slot="summary"><Icon.Units.Strain /> Strain Gauge ([`ai_strain_gauge`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaistraingagechan.html))</Text.Text>
 
-| Parameter                 | Type   | Required | Default       | Description                                                                                                        |
-| ------------------------- | ------ | -------- | ------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `channel`                 | number | Yes      | -             | Synnax channel key                                                                                                 |
-| `device`                  | string | Yes      | -             | Device identifier                                                                                                  |
-| `port`                    | number | Yes      | -             | Physical port                                                                                                      |
-| `min_val`                 | number | No       | `0`           | Minimum strain                                                                                                     |
-| `max_val`                 | number | No       | `1`           | Maximum strain                                                                                                     |
-| `terminal_config`         | enum   | No       | `Cfg_Default` | Terminal configuration                                                                                             |
-| `units`                   | enum   | No       | `Strain`      | `Strain`                                                                                                           |
-| `strain_config`           | enum   | Yes      | -             | `FullBridgeI`, `FullBridgeII`, `FullBridgeIII`, `HalfBridgeI`, `HalfBridgeII`, `QuarterBridgeI`, `QuarterBridgeII` |
-| `voltage_excit_source`    | enum   | Yes      | -             | `Internal`, `External`, `None`                                                                                     |
-| `voltage_excit_val`       | number | Yes      | -             | Excitation voltage (Volts)                                                                                         |
-| `gage_factor`             | number | Yes      | -             | Gage factor                                                                                                        |
-| `initial_bridge_voltage`  | number | Yes      | -             | Initial bridge voltage                                                                                             |
-| `nominal_gage_resistance` | number | Yes      | -             | Nominal gage resistance (Ohms)                                                                                     |
-| `poisson_ratio`           | number | Yes      | -             | Poisson's ratio                                                                                                    |
-| `lead_wire_resistance`    | number | Yes      | -             | Lead wire resistance (Ohms)                                                                                        |
-| `custom_scale`            | object | No       | -             | Custom scaling                                                                                                     |
+| Parameter                 | Type   | Required | Default | Description                                                                                                        |
+| ------------------------- | ------ | -------- | ------- | ------------------------------------------------------------------------------------------------------------------ |
+| `channel`                 | number | Yes      | -       | Synnax channel key                                                                                                 |
+| `device`                  | string | Yes      | -       | Device identifier                                                                                                  |
+| `port`                    | number | Yes      | -       | Physical port                                                                                                      |
+| `min_val`                 | number | No       | `0`     | Minimum strain                                                                                                     |
+| `max_val`                 | number | No       | `1`     | Maximum strain                                                                                                     |
+| `strain_config`           | enum   | Yes      | -       | `FullBridgeI`, `FullBridgeII`, `FullBridgeIII`, `HalfBridgeI`, `HalfBridgeII`, `QuarterBridgeI`, `QuarterBridgeII` |
+| `voltage_excit_source`    | enum   | Yes      | -       | `Internal`, `External`, `None`                                                                                     |
+| `voltage_excit_val`       | number | Yes      | -       | Excitation voltage (Volts)                                                                                         |
+| `gage_factor`             | number | Yes      | -       | Gage factor                                                                                                        |
+| `initial_bridge_voltage`  | number | Yes      | -       | Initial bridge voltage                                                                                             |
+| `nominal_gage_resistance` | number | Yes      | -       | Nominal gage resistance (Ohms)                                                                                     |
+| `poisson_ratio`           | number | Yes      | -       | Poisson's ratio                                                                                                    |
+| `lead_wire_resistance`    | number | Yes      | -       | Lead wire resistance (Ohms)                                                                                        |
+| `custom_scale`            | object | No       | -       | Custom scaling                                                                                                     |
 
 </ChannelType>
 
@@ -306,7 +293,6 @@ For task lifecycle management, see the
 | --------- | ------ | -------- | ------- | --------------------------------- |
 | `channel` | number | Yes      | -       | Synnax channel key                |
 | `device`  | string | Yes      | -       | Device identifier                 |
-| `port`    | number | Yes      | -       | Physical port                     |
 | `units`   | enum   | No       | `DegC`  | `DegC`, `DegF`, `Kelvins`, `DegR` |
 
 </ChannelType>
@@ -314,67 +300,64 @@ For task lifecycle management, see the
 <ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Units.Temperature /> Thermocouple ([`ai_thermocouple`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaithrmcplchan.html))</Text.Text>
 
-| Parameter           | Type   | Required | Default         | Description                                                                                                                                    |
-| ------------------- | ------ | -------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `channel`           | number | Yes      | -               | Synnax channel key                                                                                                                             |
-| `device`            | string | Yes      | -               | Device identifier                                                                                                                              |
-| `port`              | number | Yes      | -               | Physical port                                                                                                                                  |
-| `min_val`           | number | No       | `0`             | Minimum temperature                                                                                                                            |
-| `max_val`           | number | No       | `100`           | Maximum temperature                                                                                                                            |
-| `units`             | enum   | No       | `DegC`          | `DegC`, `DegF`, `Kelvins`, `DegR`                                                                                                              |
-| `thermocouple_type` | enum   | Yes      | -               | `J`, `K`, `N`, `R`, `S`, `T`, `B`, `E`                                                                                                         |
-| `cjc`               | object | No       | built-in sensor | Cold junction compensation. One of `{"source": "built_in"}`, `{"source": "const_val", "val": <temp>}`, or `{"source": "chan", "port": <port>}` |
-| `custom_scale`      | object | No       | -               | Custom scaling                                                                                                                                 |
+| Parameter           | Type   | Required | Default    | Description                                                                                                                                    |
+| ------------------- | ------ | -------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `channel`           | number | Yes      | -          | Synnax channel key                                                                                                                             |
+| `device`            | string | Yes      | -          | Device identifier                                                                                                                              |
+| `port`              | number | Yes      | -          | Physical port                                                                                                                                  |
+| `min_val`           | number | No       | `0`        | Minimum temperature                                                                                                                            |
+| `max_val`           | number | No       | `1`        | Maximum temperature                                                                                                                            |
+| `units`             | enum   | No       | `DegC`     | `DegC`, `DegF`, `Kelvins`, `DegR`                                                                                                              |
+| `thermocouple_type` | enum   | Yes      | -          | `J`, `K`, `N`, `R`, `S`, `T`, `B`, `E`                                                                                                         |
+| `cjc`               | object | No       | `built_in` | Cold junction compensation. One of `{"source": "built_in"}`, `{"source": "const_val", "val": <temp>}`, or `{"source": "chan", "port": <port>}` |
 
 </ChannelType>
 
 <ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Units.Torque /> Torque Bridge Table ([`ai_torque_bridge_table`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaitorquebridgetablechan.html))</Text.Text>
 
-| Parameter                   | Type   | Required | Default       | Description                                               |
-| --------------------------- | ------ | -------- | ------------- | --------------------------------------------------------- |
-| `channel`                   | number | Yes      | -             | Synnax channel key                                        |
-| `device`                    | string | Yes      | -             | Device identifier                                         |
-| `port`                      | number | Yes      | -             | Physical port                                             |
-| `min_val`                   | number | No       | `0`           | Minimum torque                                            |
-| `max_val`                   | number | No       | `100`         | Maximum torque                                            |
-| `terminal_config`           | enum   | No       | `Cfg_Default` | Terminal configuration                                    |
-| `units`                     | enum   | Yes      | -             | Torque units (`NewtonMeters`, `InchPounds`, `FootPounds`) |
-| `bridge_config`             | enum   | Yes      | -             | `FullBridge`, `HalfBridge`, `QuarterBridge`               |
-| `voltage_excit_source`      | enum   | Yes      | -             | `Internal`, `External`, `None`                            |
-| `voltage_excit_val`         | number | Yes      | -             | Excitation voltage (Volts)                                |
-| `nominal_bridge_resistance` | number | Yes      | -             | Nominal resistance (Ohms)                                 |
-| `electrical_vals`           | array  | Yes      | -             | Electrical values for table                               |
-| `physical_vals`             | array  | Yes      | -             | Physical values for table                                 |
-| `electrical_units`          | enum   | Yes      | -             | Electrical units                                          |
-| `physical_units`            | enum   | Yes      | -             | Physical units                                            |
-| `custom_scale`              | object | No       | -             | Custom scaling                                            |
+| Parameter                   | Type   | Required | Default        | Description                                              |
+| --------------------------- | ------ | -------- | -------------- | -------------------------------------------------------- |
+| `channel`                   | number | Yes      | -              | Synnax channel key                                       |
+| `device`                    | string | Yes      | -              | Device identifier                                        |
+| `port`                      | number | Yes      | -              | Physical port                                            |
+| `min_val`                   | number | No       | `0`            | Minimum torque                                           |
+| `max_val`                   | number | No       | `1`            | Maximum torque                                           |
+| `units`                     | enum   | No       | `NewtonMeters` | `NewtonMeters`, `InchPounds`, `FootPounds`, `InchOunces` |
+| `bridge_config`             | enum   | Yes      | -              | `FullBridge`, `HalfBridge`, `QuarterBridge`              |
+| `voltage_excit_source`      | enum   | Yes      | -              | `Internal`, `External`, `None`                           |
+| `voltage_excit_val`         | number | Yes      | -              | Excitation voltage (Volts)                               |
+| `nominal_bridge_resistance` | number | Yes      | -              | Nominal resistance (Ohms)                                |
+| `electrical_vals`           | array  | Yes      | -              | Electrical values for table                              |
+| `physical_vals`             | array  | Yes      | -              | Physical values for table                                |
+| `electrical_units`          | enum   | Yes      | -              | Electrical units                                         |
+| `physical_units`            | enum   | Yes      | -              | Physical units                                           |
+| `custom_scale`              | object | No       | -              | Custom scaling                                           |
 
 </ChannelType>
 
 <ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Units.Torque /> Torque Bridge Two-Point Linear ([`ai_torque_bridge_two_point_lin`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaitorquebridgetwopointlinchan.html))</Text.Text>
 
-| Parameter                   | Type   | Required | Default       | Description                                               |
-| --------------------------- | ------ | -------- | ------------- | --------------------------------------------------------- |
-| `channel`                   | number | Yes      | -             | Synnax channel key                                        |
-| `device`                    | string | Yes      | -             | Device identifier                                         |
-| `port`                      | number | Yes      | -             | Physical port                                             |
-| `min_val`                   | number | No       | `0`           | Minimum torque                                            |
-| `max_val`                   | number | No       | `100`         | Maximum torque                                            |
-| `terminal_config`           | enum   | No       | `Cfg_Default` | Terminal configuration                                    |
-| `units`                     | enum   | Yes      | -             | Torque units (`NewtonMeters`, `InchPounds`, `FootPounds`) |
-| `bridge_config`             | enum   | Yes      | -             | `FullBridge`, `HalfBridge`, `QuarterBridge`               |
-| `voltage_excit_source`      | enum   | Yes      | -             | `Internal`, `External`, `None`                            |
-| `voltage_excit_val`         | number | Yes      | -             | Excitation voltage (Volts)                                |
-| `nominal_bridge_resistance` | number | Yes      | -             | Nominal resistance (Ohms)                                 |
-| `first_electrical_val`      | number | Yes      | -             | First electrical value                                    |
-| `second_electrical_val`     | number | Yes      | -             | Second electrical value                                   |
-| `electrical_units`          | enum   | Yes      | -             | Electrical units                                          |
-| `first_physical_val`        | number | Yes      | -             | First physical value                                      |
-| `second_physical_val`       | number | Yes      | -             | Second physical value                                     |
-| `physical_units`            | enum   | Yes      | -             | Physical units                                            |
-| `custom_scale`              | object | No       | -             | Custom scaling                                            |
+| Parameter                   | Type   | Required | Default        | Description                                              |
+| --------------------------- | ------ | -------- | -------------- | -------------------------------------------------------- |
+| `channel`                   | number | Yes      | -              | Synnax channel key                                       |
+| `device`                    | string | Yes      | -              | Device identifier                                        |
+| `port`                      | number | Yes      | -              | Physical port                                            |
+| `min_val`                   | number | No       | `0`            | Minimum torque                                           |
+| `max_val`                   | number | No       | `1`            | Maximum torque                                           |
+| `units`                     | enum   | No       | `NewtonMeters` | `NewtonMeters`, `InchPounds`, `FootPounds`, `InchOunces` |
+| `bridge_config`             | enum   | Yes      | -              | `FullBridge`, `HalfBridge`, `QuarterBridge`              |
+| `voltage_excit_source`      | enum   | Yes      | -              | `Internal`, `External`, `None`                           |
+| `voltage_excit_val`         | number | Yes      | -              | Excitation voltage (Volts)                               |
+| `nominal_bridge_resistance` | number | Yes      | -              | Nominal resistance (Ohms)                                |
+| `first_electrical_val`      | number | Yes      | -              | First electrical value                                   |
+| `second_electrical_val`     | number | Yes      | -              | Second electrical value                                  |
+| `electrical_units`          | enum   | Yes      | -              | Electrical units                                         |
+| `first_physical_val`        | number | Yes      | -              | First physical value                                     |
+| `second_physical_val`       | number | Yes      | -              | Second physical value                                    |
+| `physical_units`            | enum   | Yes      | -              | Physical units                                           |
+| `custom_scale`              | object | No       | -              | Custom scaling                                           |
 
 </ChannelType>
 
@@ -406,10 +389,9 @@ For task lifecycle management, see the
 | `channel`         | number | Yes      | -             | Synnax channel key                                                          |
 | `device`          | string | Yes      | -             | Device identifier                                                           |
 | `port`            | number | Yes      | -             | Physical port                                                               |
-| `min_val`         | number | No       | `-10.0`       | Minimum voltage (Volts)                                                     |
-| `max_val`         | number | No       | `10.0`        | Maximum voltage (Volts)                                                     |
+| `min_val`         | number | No       | `0`           | Minimum voltage (Volts)                                                     |
+| `max_val`         | number | No       | `1`           | Maximum voltage (Volts)                                                     |
 | `terminal_config` | enum   | No       | `Cfg_Default` | Terminal configuration (`Cfg_Default`, `RSE`, `NRSE`, `Diff`, `PseudoDiff`) |
-| `units`           | enum   | No       | `Volts`       | `Volts`                                                                     |
 | `custom_scale`    | object | No       | -             | Custom scaling                                                              |
 
 </ChannelType>
@@ -484,7 +466,6 @@ task = ni.AnalogReadTask(
     name="Analog Read Task",
     sample_rate=sy.Rate.HZ * 100,
     stream_rate=sy.Rate.HZ * 25,
-    data_saving=True,
     channels=[
         ni.AIVoltageChannel(
             channel=voltage_chan.key,
@@ -571,66 +552,74 @@ import { Synnax } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Retrieve devices
-const vDev = await client.devices.retrieve({ name: "Mod1_Voltage" });
-const cDev = await client.devices.retrieve({ name: "Mod2_Current" });
-const tcDev = await client.devices.retrieve({ name: "Mod1_TC" });
+const [vDev] = await client.devices.retrieve({ names: ["Mod1_Voltage"] });
+const [cDev] = await client.devices.retrieve({ names: ["Mod2_Current"] });
+const [tcDev] = await client.devices.retrieve({ names: ["Mod1_TC"] });
 
 // Create index and data channels
-const aiTime = await client.channels.create({
-  name: "ai_time",
-  isIndex: true,
-  dataType: "timestamp",
-  retrieveIfNameExists: true,
-});
+const aiTime = await client.channels.create(
+  {
+    name: "ai_time",
+    isIndex: true,
+    dataType: "timestamp",
+  },
+  { retrieveIfNameExists: true },
+);
 
-const voltageChan = await client.channels.create({
-  name: "voltage_chan",
-  index: aiTime.key,
-  dataType: "float32",
-  retrieveIfNameExists: true,
-});
+const voltageChan = await client.channels.create(
+  {
+    name: "voltage_chan",
+    index: aiTime.key,
+    dataType: "float32",
+  },
+  { retrieveIfNameExists: true },
+);
 
-const currentChan = await client.channels.create({
-  name: "current_chan",
-  index: aiTime.key,
-  dataType: "float32",
-  retrieveIfNameExists: true,
-});
+const currentChan = await client.channels.create(
+  {
+    name: "current_chan",
+    index: aiTime.key,
+    dataType: "float32",
+  },
+  { retrieveIfNameExists: true },
+);
 
-const tempChan = await client.channels.create({
-  name: "temp_chan",
-  index: aiTime.key,
-  dataType: "float32",
-  retrieveIfNameExists: true,
-});
+const tempChan = await client.channels.create(
+  {
+    name: "temp_chan",
+    index: aiTime.key,
+    dataType: "float32",
+  },
+  { retrieveIfNameExists: true },
+);
 
 // Create and configure task
 const task = await client.tasks.create({
   name: "Analog Read Task",
+  rack: vDev.rack,
   type: "ni_analog_read",
-  config: JSON.stringify({
-    sample_rate: 100,
-    stream_rate: 25,
-    data_saving: true,
+  config: {
+    sampleRate: 100,
+    streamRate: 25,
     channels: [
       {
         type: "ai_voltage",
         channel: voltageChan.key,
         device: vDev.key,
         port: 0,
-        min_val: -10.0,
-        max_val: 10.0,
-        terminal_config: "Diff",
+        minVal: -10.0,
+        maxVal: 10.0,
+        terminalConfig: "Diff",
       },
       {
         type: "ai_current",
         channel: currentChan.key,
         device: cDev.key,
         port: 0,
-        min_val: 0.004,
-        max_val: 0.02,
-        shunt_resistor_loc: "Internal",
-        ext_shunt_resistor_val: 249.0,
+        minVal: 0.004,
+        maxVal: 0.02,
+        shuntResistorLoc: "Internal",
+        extShuntResistorVal: 249.0,
       },
       {
         type: "ai_thermocouple",
@@ -638,15 +627,15 @@ const task = await client.tasks.create({
         device: tcDev.key,
         port: 0,
         units: "DegC",
-        thermocouple_type: "J",
+        thermocoupleType: "J",
         cjc: { source: "built_in" },
       },
     ],
-  }),
+  },
 });
 
 // Start task
-await task.executeCommandSync("start");
+await task.start();
 
 // Read data
 const streamer = await client.openStreamer([
@@ -660,7 +649,7 @@ for (let i = 0; i < 10; i++) {
 }
 
 // Stop task
-await task.executeCommandSync("stop");
+await task.stop();
 await streamer.close();
 ```
 
@@ -670,36 +659,42 @@ await streamer.close();
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```typescript
+import { ni } from "@synnaxlabs/client";
+
 // Retrieve existing task
 const task = await client.tasks.retrieve({ name: "Analog Read Task" });
 
-// Parse and update configuration
-const config = JSON.parse(task.config);
+// Parse the configuration into its typed form
+const config = ni.analogReadConfigZ.parse(task.config);
 
 // Update task-level configuration
-config.auto_start = true;
-config.stream_rate = 50;
+config.autoStart = true;
+config.streamRate = 50;
 
 // Update voltage channel configuration
-config.channels[0].port = 1;
-config.channels[0].min_val = -5.0;
-config.channels[0].max_val = 5.0;
+const voltage = config.channels[0] as ni.AIVoltageChannel;
+voltage.port = 1;
+voltage.minVal = -5.0;
+voltage.maxVal = 5.0;
 
 // Update current channel configuration
-config.channels[1].port = 2;
-config.channels[1].min_val = 0.002;
-config.channels[1].max_val = 0.01;
+const current = config.channels[1] as ni.AICurrentChannel;
+current.port = 2;
+current.minVal = 0.002;
+current.maxVal = 0.01;
 
 // Update thermocouple channel configuration
-config.channels[2].port = 3;
-config.channels[2].thermocouple_type = "K";
+const thermocouple = config.channels[2] as ni.AIThermocoupleChannel;
+thermocouple.port = 3;
+thermocouple.thermocoupleType = "K";
 
 // Apply changes
 await client.tasks.create({
   key: task.key,
+  rack: task.rack,
   name: task.name,
   type: task.type,
-  config: JSON.stringify(config),
+  config,
 });
 ```
 

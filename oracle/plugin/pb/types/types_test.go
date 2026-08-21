@@ -1044,6 +1044,29 @@ var _ = Describe("Protobuf Union Generation", func() {
 		},
 	)
 
+	It(
+		"Should error when a variant omits a field from a shared base",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/hw/ni"
+			@pb
+
+			BaseAIChan struct { port int32 }
+
+			AIChannel union on type extends BaseAIChan {
+				ai_temp_builtin {
+					-port
+				}
+			}
+		`
+			req := MustGenerateRequest(ctx, source, "ni", loader)
+			_, err := p.Generate(req)
+			Expect(err).To(MatchError(ContainSubstring(
+				`union "AIChannel" variant "ai_temp_builtin" omits inherited field(s) [port], which protobuf cannot express`,
+			)))
+		},
+	)
+
 	It("Should generate messages for inline variant payloads", func(ctx SpecContext) {
 		source := `
 			@go output "core/pkg/hw/panel"

@@ -82,11 +82,36 @@ func asFloat(v any) (float64, bool) {
 // whose released export carried them. The current schema has no field to hold the
 // value.
 var legacyDiscarded = map[string]set.Set[string]{
-	// Only thermocouples ever read pos_chan; the driver ignored it on analog channels.
+	// Only thermocouples ever read pos_chan, and the rewrite folds its value into the
+	// port they now read from.
 	"labjack_read": set.New("pos_chan"),
 	// Digital channels carried a type tag with one possible value.
 	"ni_digital_read":  set.New("type"),
 	"ni_digital_write": set.New("type"),
+}
+
+// legacyVariantDiscarded lists the keys a rewrite drops on purpose from one union
+// variant, keyed by the variant's type tag. It scopes a drop that legacyDiscarded
+// would apply to every variant of the task type. NI-DAQmx accepts one unit for each
+// of the units channels, so the schema carries no units field and the driver passes
+// the constant.
+var legacyVariantDiscarded = map[string]set.Set[string]{
+	// The built-in temperature sensor is not wired to a port. The Driver reads it
+	// at a fixed location, so the schema carries no port.
+	"ai_temp_builtin": set.New("port"),
+	"ai_current":      set.New("units"),
+	"ai_current_rms":  set.New("units"),
+	"ai_freq_voltage": set.New("units"),
+	// The spelling released Drivers accepted, renamed by the rewrite.
+	"ai_frequency_voltage":  set.New("units"),
+	"ai_microphone":         set.New("units"),
+	"ai_resistance":         set.New("units"),
+	"ai_strain_gauge":       set.New("units"),
+	"ai_voltage":            set.New("units"),
+	"ai_voltage_rms":        set.New("units"),
+	"ai_voltage_with_excit": set.New("units"),
+	"ao_current":            set.New("units"),
+	"ao_voltage":            set.New("units"),
 }
 
 // The three tables below map a legacy key to where its value lands in the stored
@@ -100,6 +125,16 @@ var legacyRenames = map[string]string{
 	"subindex":    "sub_index",
 	"cmd_key":     "cmd_channel",
 	"state_key":   "state_channel",
+	// HTTP read spelled the timestamp encoding differently from its write side.
+	"timestamp_format": "time_format",
+	// These were named for the act the Driver performs; the schema stores the state.
+	"swap_bytes":              "bytes_swapped",
+	"swap_words":              "words_swapped",
+	"use_as_index":            "is_index",
+	"use_excit_for_scaling":   "scaled_by_excitation",
+	"z_index_enable":          "z_index_enabled",
+	"lock_memory":             "memory_locked",
+	"treat_error_as_critical": "errors_critical",
 }
 
 // legacyCollapsed maps a legacy key to the stored key its value folds into. The fold
@@ -178,6 +213,10 @@ func expectNoDroppedKeys(path string, legacy, stored any, discarded set.Set[stri
 				}
 			}
 			if discarded.Contains(sk) {
+				continue
+			}
+			if variant, ok := leg["type"].(string); ok &&
+				legacyVariantDiscarded[variant].Contains(sk) {
 				continue
 			}
 			liftedInto, lifted := legacyLifted[sk]

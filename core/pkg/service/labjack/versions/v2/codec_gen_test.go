@@ -111,13 +111,12 @@ var _ = Describe("Codec", func() {
 			Entry("thermocouple variant", v2.ReadChannel{Variant: v2.ThermocoupleReadChannel{
 				BaseReadChannel:  fullyPopulatedBaseReadChannel,
 				ThermocoupleType: v2.ThermocoupleType("J"),
-				PosChan:          3,
-				NegChan:          4,
-				CjcSource:        "test_4",
-				CjcSlope:         5.5,
-				CjcOffset:        6.5,
+				NegChan:          3,
+				CjcSource:        "test_3",
+				CjcSlope:         4.5,
+				CjcOffset:        5.5,
 				Units:            v2.TemperatureUnits("C"),
-				Scale:            v2.Scale{Variant: v2.LinearScale{Slope: 9.5, Offset: 10.5}},
+				Scale:            v2.Scale{Variant: v2.LinearScale{Slope: 8.5, Offset: 9.5}},
 			}}),
 		)
 	})
@@ -610,13 +609,12 @@ func FuzzDecodeReadChannel(f *testing.F) {
 		seed := v2.ReadChannel{Variant: v2.ThermocoupleReadChannel{
 			BaseReadChannel:  fullyPopulatedBaseReadChannel,
 			ThermocoupleType: v2.ThermocoupleType("J"),
-			PosChan:          3,
-			NegChan:          4,
-			CjcSource:        "test_4",
-			CjcSlope:         5.5,
-			CjcOffset:        6.5,
+			NegChan:          3,
+			CjcSource:        "test_3",
+			CjcSlope:         4.5,
+			CjcOffset:        5.5,
 			Units:            v2.TemperatureUnits("C"),
-			Scale:            v2.Scale{Variant: v2.LinearScale{Slope: 9.5, Offset: 10.5}},
+			Scale:            v2.Scale{Variant: v2.LinearScale{Slope: 8.5, Offset: 9.5}},
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

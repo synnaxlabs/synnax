@@ -17,8 +17,8 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
-// The read and write stores wire no rewrite, so their released camelCase shape
-// converts through the bare era pass; these specs pin the OPC spellings against it.
+// The write store wires no rewrite, so its released camelCase shape converts through
+// the bare era pass; these specs pin the OPC spellings against each path.
 var _ = Describe("Era normalization", func() {
 	It("Should convert the released read channel shape", func() {
 		in := msgpack.EncodedJSON{
@@ -31,14 +31,14 @@ var _ = Describe("Era normalization", func() {
 				"enabled":    false,
 			}},
 		}
-		Expect(tasklegacy.Rewrite{}.Apply(in)).To(Equal(msgpack.EncodedJSON{
+		Expect(legacy.Read.Apply(in)).To(Equal(msgpack.EncodedJSON{
 			"data_saving_disabled": false,
 			"channels": []any{map[string]any{
-				"node_id":      "NS=2;S=fixture.node",
-				"node_name":    "Fixture Node",
-				"data_type":    "float32",
-				"use_as_index": false,
-				"disabled":     true,
+				"node_id":   "NS=2;S=fixture.node",
+				"node_name": "Fixture Node",
+				"data_type": "float32",
+				"is_index":  false,
+				"disabled":  true,
 			}},
 		}))
 	})
