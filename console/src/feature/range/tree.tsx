@@ -76,11 +76,9 @@ const useDelete = Tree.createUseDelete({
   description: "Deleting a range also deletes its child ranges.",
   query: Ranger.useDelete,
   convertKey: String,
-  // Dropping the favorite only once the server confirms keeps a rejected delete from
-  // losing it: re-adding a range also re-selects it, so a rollback cannot restore the
-  // slice faithfully.
-  afterSuccess: ({ data, store }) => {
+  beforeUpdate: async ({ data, store }) => {
     store.dispatch(Session.Range.remove({ keys: array.toArray(data) }));
+    return data;
   },
 });
 

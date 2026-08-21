@@ -123,6 +123,13 @@ const focusedKey = (
   return undefined;
 };
 
+/**
+ * @returns a getter for the key of the line plot the user is looking at: the focused
+ * tab of the window's selected panel, when that tab shows a line plot. Returns
+ * undefined for every other focused tab, and while the panel is absent from the cache.
+ * Use it in a handler, which needs the answer only when it runs; a component gating on
+ * the answer needs {@link useSelectFocusedKey} to re-render when focus moves.
+ */
 export const useGetFocusedKey = (): (() => client.Key | undefined) => {
   const getSelectedPanel = Panel.useGetSelected();
   const getFocusedTabKey = Panel.useGetFocusedTab();
@@ -133,6 +140,9 @@ export const useGetFocusedKey = (): (() => client.Key | undefined) => {
   );
 };
 
-/** @returns the key of the focused line plot, or undefined when none is focused. */
+/**
+ * @returns the key of the focused line plot, as {@link useGetFocusedKey}, re-rendering
+ * when the selected panel or its focused tab changes.
+ */
 export const useSelectFocusedKey = (): client.Key | undefined =>
   focusedKey(Synnax.use(), Panel.useSelectSelected(), Panel.useSelectFocusedTab());

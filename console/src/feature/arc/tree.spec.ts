@@ -77,7 +77,7 @@ describe("arc/ontology", () => {
       expect(screen.queryByText(/Are you sure you want to rename/)).toBeNull();
     });
 
-    it("drops the editor state once the delete lands", async () => {
+    it("drops the editor state when the Arc is deleted", async () => {
       const { arc, root } = await createArcInGroup();
       const { store } = await renderOntologyTree({
         client,

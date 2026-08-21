@@ -30,10 +30,9 @@ const useDelete = Tree.createUseDelete({
   type: "Arc",
   query: Arc.useDelete,
   convertKey: String,
-  // Dropping the editor state only once the server confirms keeps a rejected delete
-  // from discarding a graph the Arc still has.
-  afterSuccess: ({ data, store }) => {
+  beforeUpdate: async ({ data, store }) => {
     store.dispatch(Session.Arc.remove({ keys: array.toArray(data) }));
+    return data;
   },
 });
 

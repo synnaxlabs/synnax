@@ -91,7 +91,7 @@ describe("range/ontology", () => {
       );
     });
 
-    it("drops the favorited copy once the delete lands", async () => {
+    it("drops the favorited copy when the range is deleted", async () => {
       const { rng, root } = await createRangeInGroup();
       const { store } = await renderOntologyTree({
         client,
