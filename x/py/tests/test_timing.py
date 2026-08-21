@@ -43,14 +43,12 @@ class TestTiming:
         assert sum(accumulated_precise) < sum(accumulated_standard)
 
     def test_sleep_rate(self) -> None:
-        """Should sleep correctly based on a rate argument."""
+        """Should convert a rate argument into the equivalent sleep duration."""
         samples: list[int] = []
         for _ in range(10):
             t = Timer()
             sleep(100 * Rate.HZ, precise=True)
             samples.append(t.elapsed())
-        # A wrong rate conversion is off by an order of magnitude, so bound the median
-        # loosely. test_loop covers the precision of the sleep itself.
         median = TimeSpan(int(np.median(samples)))
         assert TimeSpan.MILLISECOND * 5 < median < TimeSpan.MILLISECOND * 20
 
@@ -106,7 +104,5 @@ class TestTiming:
                 if len(periods) == 20:
                     break
                 sleep(TimeSpan.MILLISECOND * 5, precise=True)
-        # The median period resists a scheduler stall that would skew the total. Without
-        # the loop, the 5 ms of work makes each period 15 ms.
         median = TimeSpan(int(np.median(periods)))
         assert TimeSpan.MILLISECOND * 8 < median < TimeSpan.MILLISECOND * 11
