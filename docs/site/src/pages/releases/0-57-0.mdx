@@ -18,18 +18,21 @@ export const components = mdxOverrides;
 
 <Video client:only="react" id="releases/0-57-0/panels" themed={false} />
 
-Synnax v0.57 introduces projects and panels in the Console, and every screen has been
-redesigned. Schematics gain live fill levels and graduated scales. Synnax now has a
-boolean data type, and Arc programs can declare variables and create ranges. Hardware
-tasks save as you edit them and deploy when you start them. A Core can serve several
-networks at once. The release also includes a large set of performance improvements and
-bug fixes.
+Synnax v0.57 rebuilds how you organize work in the Console. Projects replace workspaces,
+and each project holds a set of panels you switch between instantly. We redesigned the
+Console around them, extended collaborative editing to every visualization, and gave
+schematics live fill levels and graduated scales.
+
+Behind the Console, we added a boolean data type, gave Arc variables and range creation,
+and reworked how hardware tasks save and deploy. A Core can now serve several networks
+at once. We also spent a large part of this cycle on quality: big clusters load faster,
+a lost connection recovers on its own, and the bug fix list is long.
 
 <Divider.Divider x />
 
 ### Projects and Panels
 
-Workspaces are now called projects, and the Console always works inside one. Your
+We renamed workspaces to projects, and the Console now always works inside one. Your
 existing workspaces carry over the first time you start the new Core, including the one
 you had open.
 
@@ -41,8 +44,9 @@ from the selector in the top-left corner or from the Projects toolbar.
 
 A project is a set of panels, and each panel holds its own arrangement of tabs. Keep one
 panel for the stand you are running and another for the plots you review afterward. Move
-between them from the strip at the top of the window. Nothing reloads when you switch.
-Plots keep their history and schematics keep streaming while you look at another panel.
+between them from the strip at the top of the window. Switching is instant, and nothing
+reloads. Plots keep their history and schematics keep streaming while you look at
+another panel.
 
 Panels are saved with the project on the Core. They open the same way on every machine,
 and a change one person makes appears live for everyone else. Each window layout in an
@@ -56,7 +60,9 @@ order is yours alone and never re-sorts itself. A new panel goes on the end, and
 renaming one leaves it where it is.
 
 On desktop, a tab can still be torn off into its own window, and `Ctrl + O` opens a
-second window on the panel you are in. Closing a tab now selects the tab beside it.
+second window on the panel you are in. That is how you put a schematic on the wall
+display and a plot on the desk at the same time. Closing a tab now selects the tab
+beside it.
 
 #### Sharing a project
 
@@ -65,9 +71,10 @@ panels and every schematic, plot, log, table, and task inside them. Drag it onto
 Console or run `Import project` to bring the whole arrangement back. Projects exported
 by earlier versions still import.
 
-Import and export are much more reliable in this release. A large project no longer has
-to fit in Console memory. An import that fails part way through now leaves nothing
-behind instead of a half-built project.
+Import and export got a lot of attention this release, and they are far more reliable
+for it. A large project no longer has to fit in Console memory, so size is not a limit.
+An import that fails part way through leaves nothing behind instead of a half-built
+project.
 
 To share a project with someone on the same Core, right-click it in the Projects toolbar
 and choose `Copy link`.
@@ -78,53 +85,59 @@ and choose `Copy link`.
 
 <Image client:only="react" id="releases/0-57-0/visual-language" themed={false} />
 
-Every screen in the Console has been redesigned, down to the context menus. The same
-button now looks the same everywhere it appears. Hover, press, and focus states stay
-visible instead of blending into the surface behind them. Secondary text, placeholders,
-and disabled controls are legible in both the light and dark themes.
+We redesigned the Console from the ground up, down to the context menus, for consistency
+and clarity. The interface is nearly colorless by design, so the only color on screen
+comes from your data: a plot series, a valve state, a status. Underneath it, every
+visualization is now edited live, large clusters stay fast, and the Console recovers on
+its own when something goes wrong.
 
-#### Logging in and choosing a project
+#### Everything is edited live
 
-The login screen lists every Core you have saved with its own connection indicator, so
-you know which ones are reachable before you type a password. Selecting a different Core
-clears the form. After you log in, a splash screen lets you pick or create a project. It
-works entirely from the keyboard.
+We brought schematics and tables into collaborative editing in v0.56. Line plots, logs,
+Arc programs, and panels join them in v0.57. Each change is sent as you make it, rather
+than saved as a whole document when you finish. A channel added to a plot or a symbol
+moved on a schematic appears in everybody else's Console as it happens, with no reload.
 
-Window controls, the version badge, a theme toggle, and connection status sit along the
-top edge of the window. On Windows, the caption buttons match the rest of the operating
-system, including the restore glyph on a maximized window.
+Two people editing the same thing no longer overwrite each other. Their changes are
+merged, so the last save no longer wins. In Arc, that merge happens character by
+character, so two people can type in the same program at once. Undo stays yours: it
+reverses your own edit, not the last one that arrived, and skips an edit somebody else
+has already changed.
 
 #### Roles and permissions
 
-A Viewer or an Operator now sees a Console built for that role. Every control that
-writes checks the permission behind it. Controls your role does not hold are hidden or
-disabled. You see a missing permission before you press a button, not as an error
-afterward. Operators keep the ability to start and stop tasks. The badge in the
-top-right corner names who you are and the role you hold.
+A Viewer or an Operator now sees a Console built for that role. We went through every
+control that writes and put a permission check behind it. Controls your role does not
+hold are hidden or disabled, so you see a missing permission before you press a button,
+not as an error afterward. Operators keep the ability to start and stop tasks.
 
-#### Clearer errors and connection status
+#### Speed and reliability
 
-When the Console cannot reach a Core, it now says so. The message names the Core and its
-address and says whether it is reachable. It shows when the next retry happens, with a
-button to retry now. Opening a page while the Core was unreachable used to produce a
-crash screen with a stack trace.
+A large tree, such as a channel list with thousands of entries, now draws only what is
+on screen, so scrolling and expanding stay smooth on a cluster of any size. Switching
+panels is immediate, because the panel you left stays loaded.
 
-Real crashes still show a crash screen. It now names the Core you were connected to and
-the page that failed, so a screenshot is enough to act on.
+When the Console cannot reach a Core, it tells you plainly: the Core's name and address,
+whether it is reachable, and when the next retry happens. Losing a connection no longer
+empties the Console. It keeps what it has, shows what is wrong, and catches up the views
+that fell behind once the Core returns. An expired password prompts you to enter it
+again instead of closing your layout. If someone deletes a schematic while you have it
+open, the tab stays put and tells you what happened. A crash screen now names the Core
+and the page that failed, so a screenshot is enough for us to act on.
 
-#### Theme and wording
-
-The Console follows your operating system's light and dark setting again. To pin one
-theme, use the `Enable/Disable theme sync with system` command. All Console text moved
-to sentence case. Error messages are now full sentences that name what failed.
+Line plot y-axes are calculated from the samples on screen. A spike that has scrolled
+out of view no longer flattens the data in front of you, and a channel whose values are
+all negative is no longer cut off at zero. A rolling plot that stopped streaming and
+started again no longer leaves a permanent gap. Values in a table stay with their cells
+while the table scrolls.
 
 <Divider.Divider x />
 
 ### Fill Levels and Scales
 
-<Video client:only="react" id="releases/0-57-0/tank-fill" themed={false} />
+<Image client:only="react" id="releases/0-57-0/tank-fill" themed={false} />
 
-Tanks can now show a live fill level. Bind a channel and set the bounds, and the level
+Tanks can now show a live fill level. Bind a channel, set the bounds, and the tank
 tracks the value. A graduated scale can be drawn along the outside wall, with major and
 minor ticks, a caret at the current value, and a readout box. Tanks with no channel
 bound look exactly as they did.
@@ -140,15 +153,15 @@ different from one reporting closed. Staleness is measured from when data last a
 not from the timestamp on the sample. A channel that keeps sending the same value stays
 live.
 
-Where two wires cross, the wire on top now hops over the one underneath. Dense
-schematics are much easier to trace. Selected symbols resize by dragging their handles,
-and the arrow keys nudge a symbol after a single click.
+Where two wires cross, the wire on top now hops over the one underneath. It is a small
+change that makes a dense schematic much easier to read. Selected symbols resize by
+dragging their handles, and the arrow keys nudge a symbol after a single click.
 
 <Divider.Divider x />
 
 ### Boolean Channels
 
-Synnax now has a `boolean` data type. Digital signals such as valve states, limit
+Synnax finally has a `boolean` data type. Digital signals such as valve states, limit
 switches, and coils were stored as `uint8`. Nothing downstream could tell a two-state
 signal from a count.
 
@@ -159,11 +172,14 @@ booleans. Each sample takes one bit, so streaming a boolean channel uses about a
 of the network bandwidth it used to.
 
 Hardware tasks still create their digital channels as `uint8`. Moving the Driver
-integrations onto the new type is the next step.
+integrations onto the new type is next on our list.
 
 <Divider.Divider x />
 
 ### Arc
+
+Variables, real booleans, and range creation all land in Arc this release. We also
+tightened up routing and made a pass over the editor.
 
 #### Variables
 
@@ -248,46 +264,12 @@ The Arc editor's deploy controls now behave like a hardware task's, described be
 
 <Divider.Divider x />
 
-### A Faster, Steadier Console
-
-#### Everything is edited live
-
-Schematics and tables became collaborative in v0.56. Line plots, logs, Arc programs, and
-panels join them in v0.57. Every visualization in Synnax is now edited live.
-
-Each change is sent as you make it, rather than saved as a whole document when you
-finish. A channel added to a plot or a symbol moved on a schematic appears in everybody
-else's Console as it happens, with no reload. Two people editing the same thing no
-longer overwrite each other. Their changes are merged, so the last save no longer wins.
-In Arc, that merge happens character by character, so two people can type in the same
-program at once.
-
-Undo stays yours. It reverses your own edit, not the last one that arrived, and skips an
-edit somebody else has already changed.
-
-#### Speed and recovery
-
-A large tree, such as a channel list with thousands of entries, now draws only what is
-on screen. Scrolling and expanding stay smooth on a cluster of any size. Switching
-panels is immediate, because the panel you left stays loaded.
-
-If someone deletes a schematic while you have it open, the tab stays where it is and
-tells you what happened. Losing the connection to a Core no longer empties the Console.
-It keeps what it has, shows what is wrong, and catches up the views that fell behind
-once the Core returns. An expired password prompts you to enter it again. It no longer
-logs you out and closes your layout.
-
-Line plot y-axes are calculated from the samples on screen. A spike that has scrolled
-out of view no longer flattens the data in front of you, and a channel whose values are
-all negative is no longer cut off at zero. A rolling plot that stopped streaming and
-started again no longer leaves a permanent gap. Values in a table stay with their cells
-while the table scrolls.
-
-<Divider.Divider x />
-
 ### Tasks
 
-<Video client:only="react" id="releases/0-57-0/task-deploy" themed={false} />
+<Image client:only="react" id="releases/0-57-0/task-deploy" themed={false} />
+
+We reworked the whole task lifecycle this release: how a configuration is saved, when it
+reaches hardware, and when a device is claimed.
 
 #### Save as you edit, deploy on start
 
@@ -356,7 +338,7 @@ handled by the node it happened to be connected to.
 
 ### Serving a Core on Several Networks
 
-A Core can listen on several addresses at once, each with its own TLS certificate. A
+A Core can now listen on several addresses at once, each with its own TLS certificate. A
 Core on a test stand can be reachable on the lab network with a certificate your
 organization issued, and over Tailscale with a certificate Tailscale issues. You do not
 need a second Core or a proxy in front of it.
@@ -396,6 +378,13 @@ single-address deployments are unchanged.
   as a single file.
 - Scrollbars appear on hover instead of taking up space permanently.
 - Crash reports name what failed and point at real source lines.
+- The login screen shows a connection indicator for every saved Core, so you know which
+  ones are reachable before you type a password.
+- The Console follows your operating system's light and dark setting again, and
+  `Enable/Disable theme sync with system` pins one theme.
+- Console text is sentence case throughout, and error messages are full sentences that
+  name what failed.
+- On Windows, the caption buttons match the rest of the operating system.
 
 #### Arc
 
@@ -470,11 +459,5 @@ warning; the old cold junction fields do not.
 
 A task key no longer encodes its rack, and the rack is a plain field. Code that derived
 a rack from a task key must read `rack` instead. Existing tasks migrate automatically.
-
-#### The telemetry client moved into the client library
-
-Pluto's telemetry client is now `framer.Feed` in `@synnaxlabs/client`, opened with
-`client.openFeed()`. This only affects custom tooling built on Pluto's telemetry
-internals.
 
 </Release>
