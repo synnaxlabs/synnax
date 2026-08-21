@@ -20,7 +20,6 @@ export * from "@/feature/range/overview";
 export * from "@/feature/range/search";
 export * from "@/feature/range/Toolbar";
 export * from "@/feature/range/tree";
-export * from "@/feature/range/useRename";
 export * from "@/platform/range/external";
 
 export const TABS: Panel.Tabs = {

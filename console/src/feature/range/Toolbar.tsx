@@ -29,7 +29,6 @@ import { type ReactElement } from "react";
 
 import { ContextMenu } from "@/feature/range/ContextMenu";
 import { Explorer } from "@/feature/range/explorer";
-import { useRename } from "@/feature/range/useRename";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { type Nav } from "@/platform/nav";
@@ -99,7 +98,7 @@ const listItem = Component.renderProp((props: BaseList.ItemProps<string>) => {
   const entry = Session.Range.useSelectState(itemKey);
   const isLocal = entry != null && !entry.persisted;
   const labels = Ranger.useLabels(isLocal ? null : itemKey) ?? [];
-  const onRename = useRename();
+  const onRename = Session.Range.useRename();
   const hasUpdatePermission = Access.useUpdateGranted(ranger.ontologyID(itemKey));
   if (entry == null || entry.variant === "dynamic") return null;
   const { key, name, timeRange, persisted } = entry;

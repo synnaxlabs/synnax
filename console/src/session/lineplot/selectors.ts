@@ -109,19 +109,30 @@ const selectAnnotationsVisible = (params: KeyedSelectorParams): boolean =>
 
 export const useSelectAnnotationsVisible = createSelector(selectAnnotationsVisible);
 
+const focusedKey = (
+  synnax: ReturnType<typeof Synnax.use>,
+  panelKey: panel.Key | undefined,
+  tabKey: panel.TabKey | undefined,
+): client.Key | undefined => {
+  if (panelKey == null || tabKey == null) return undefined;
+  const cached = synnax?.panels.getCached(panelKey);
+  if (!query.isLive(cached)) return undefined;
+  const tab = panel.findTab(cached.root, tabKey);
+  if (tab?.variant === "resource" && tab.resource.type === "lineplot")
+    return tab.resource.key;
+  return undefined;
+};
+
 export const useGetFocusedKey = (): (() => client.Key | undefined) => {
   const getSelectedPanel = Panel.useGetSelected();
   const getFocusedTabKey = Panel.useGetFocusedTab();
   const synnax = Synnax.use();
-  return useCallback(() => {
-    const panelKey = getSelectedPanel();
-    const tabKey = getFocusedTabKey();
-    if (panelKey == null || tabKey == null) return undefined;
-    const cached = synnax?.panels.getCached(panelKey);
-    if (!query.isLive(cached)) return undefined;
-    const tab = panel.findTab(cached.root, tabKey);
-    if (tab?.variant === "resource" && tab.resource.type === "lineplot")
-      return tab.resource.key;
-    return undefined;
-  }, [getSelectedPanel, getFocusedTabKey, synnax]);
+  return useCallback(
+    () => focusedKey(synnax, getSelectedPanel(), getFocusedTabKey()),
+    [getSelectedPanel, getFocusedTabKey, synnax],
+  );
 };
+
+/** @returns the key of the focused line plot, or undefined when none is focused. */
+export const useSelectFocusedKey = (): client.Key | undefined =>
+  focusedKey(Synnax.use(), Panel.useSelectSelected(), Panel.useSelectFocusedTab());
