@@ -22,7 +22,8 @@ golangci-lint built-in formatters (gofmt, gofumpt, gci, goimports, golines, swag
 configured in the root `.golangci.yaml`), 88-char lines, standard Go idioms. Imports
 grouped: stdlib, then all others (gci). Format with `golangci-lint fmt` in the module,
 check with `golangci-lint fmt --diff`. `golangci-lint run` (CI) also fails on
-unformatted files.
+unformatted files. CI lints each module for both `GOOS=linux` and `GOOS=windows`, so
+reproduce a Windows-only failure with `GOOS=windows CGO_ENABLED=0 golangci-lint run`.
 
 ## Packages & Naming
 
