@@ -18,15 +18,30 @@ interface RenderProps extends Pick<Config, "indicator"> {
   className?: string;
 }
 
-const CONTAINER_STYLE: CSSProperties = { width: 40, height: 64, position: "relative" };
+// Authored at the size the picker shows: neighbors get 0.75 from Primitive.Div, a
+// chassis this one cannot take because it forces fill: none over the bar and caret.
+const WIDTH = 30;
+const HEIGHT = 48;
+const CONTAINER_STYLE: CSSProperties = {
+  width: WIDTH,
+  height: HEIGHT,
+  position: "relative",
+};
 
-const PREVIEW_RATIO = 0.6;
-const BAR_LEFT = 5;
-const BAR_RIGHT = 19;
-const BAR_TOP = 4;
-const BAR_BOTTOM = 60;
-const VALUE_Y = BAR_BOTTOM - (BAR_BOTTOM - BAR_TOP) * PREVIEW_RATIO;
-const TICK_YS = [BAR_TOP, VALUE_Y, BAR_BOTTOM];
+const BAR_LEFT = 4;
+const BAR_RIGHT = 16;
+const BAR_TOP = 3;
+const BAR_BOTTOM = 45;
+const TICK_LENGTH = 3;
+const CARET_SIZE = 3;
+const TICK_RATIOS = [0, 0.5, 1];
+// Kept off every tick ratio so the caret can never sit under a tick.
+const VALUE_RATIO = 0.75;
+
+const alongBar = (ratio: number): number => BAR_BOTTOM - (BAR_BOTTOM - BAR_TOP) * ratio;
+
+const VALUE_Y = alongBar(VALUE_RATIO);
+const TICK_YS = TICK_RATIOS.map(alongBar);
 
 const AXIS_FALLBACK = "var(--pluto-gray-l8)";
 
@@ -41,7 +56,7 @@ export const Scale = ({
   const axis = color.isZero(axisColor) ? AXIS_FALLBACK : color.hex(axisColor);
   return (
     <div className={CSS.cls(CSS.B("symbol-colored"), className)} style={containerStyle}>
-      <svg width="40" height="64" style={{ position: "absolute" }}>
+      <svg width={WIDTH} height={HEIGHT} style={{ position: "absolute" }}>
         {showFill && (
           <>
             <rect
@@ -74,23 +89,23 @@ export const Scale = ({
             strokeWidth={1}
           />
         )}
-        {showCaret && (
-          <path
-            d={`M ${BAR_RIGHT} ${VALUE_Y} L ${BAR_RIGHT + 5} ${VALUE_Y - 5} L ${BAR_RIGHT + 5} ${VALUE_Y + 5} Z`}
-            fill="var(--pluto-symbol-display)"
-          />
-        )}
         {TICK_YS.map((y) => (
           <line
             key={y}
             x1={BAR_RIGHT}
             y1={y}
-            x2={BAR_RIGHT + 4}
+            x2={BAR_RIGHT + TICK_LENGTH}
             y2={y}
             stroke={axis}
             strokeWidth={1}
           />
         ))}
+        {showCaret && (
+          <path
+            d={`M ${BAR_RIGHT} ${VALUE_Y} L ${BAR_RIGHT + CARET_SIZE} ${VALUE_Y - CARET_SIZE} L ${BAR_RIGHT + CARET_SIZE} ${VALUE_Y + CARET_SIZE} Z`}
+            fill="var(--pluto-symbol-display)"
+          />
+        )}
       </svg>
     </div>
   );

@@ -245,7 +245,7 @@ export const Base = ({
     <Menu.ContextMenu className={menuClassName} menu={menuContent} {...menuProps}>
       <div
         ref={combinedRef}
-        tabIndex={0}
+        tabIndex={-1}
         className={CSS.cls(CSS.B("log"), className)}
         onWheel={(e) => {
           if (e.deltaY < 0 && !scrolling) setHold(true);
