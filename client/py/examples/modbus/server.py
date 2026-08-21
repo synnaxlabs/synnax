@@ -65,6 +65,7 @@ class ModbusSim(DeviceSim):
     host = "127.0.0.1"
     port = 5020
     device_name = "Modbus TCP Test Server"
+    channel_names = (f"{device_name.replace(' ', '_')}_time",)
 
     async def _run_server(self) -> None:
         await run_server(self.host, self.port, rate=self.rate)

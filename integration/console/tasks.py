@@ -87,25 +87,19 @@ class TaskClient(ResourceClient):
         item = self.get_item(old_name)
         item.wait_for(state="visible", timeout=5000)
         item.click()
+        running = self._is_running(item)
         self.ctx_menu.action(item, "Rename")
         self.layout.page.locator("[contenteditable='true']").first.wait_for(
             state="visible", timeout=5000
         )
         self.layout.select_all_and_type(new_name)
         self.layout.press_enter()
-        self._handle_rename_confirmation()
-        self.get_item(new_name).wait_for(state="visible", timeout=5000)
-
-    def _handle_rename_confirmation(self) -> None:
-        """Handle the rename confirmation dialog if the task is running."""
-        try:
-            rename_btn = self.layout.page.get_by_role(
-                "button", name="Rename", exact=True
+        if running:
+            # Renaming a running task asks for confirmation.
+            self.layout.page.get_by_role("button", name="Rename", exact=True).click(
+                timeout=5000
             )
-            rename_btn.wait_for(state="visible", timeout=2000)
-            rename_btn.click()
-        except PlaywrightTimeoutError:
-            pass
+        self.get_item(new_name).wait_for(state="visible", timeout=5000)
 
     def delete(self, name: str) -> None:
         """Delete a task via context menu in the task toolbar.

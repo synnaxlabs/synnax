@@ -24,6 +24,22 @@
       ]
     },
     {
+      "sequence_name": "opcua",
+      "tests": [
+        { "case": "console/task/opcua_read_task" },
+        { "case": "console/task/opcua_write_task" },
+        { "case": "console/task/opcua_invalid" }
+      ]
+    },
+    {
+      "sequence_name": "modbus",
+      "tests": [
+        { "case": "console/task/modbus_read_task" },
+        { "case": "console/task/modbus_write_task" },
+        { "case": "console/task/modbus_invalid" }
+      ]
+    },
+    {
       "sequence_name": "pages",
       "sequence_order": "asynchronous",
       "pool_size": 6,

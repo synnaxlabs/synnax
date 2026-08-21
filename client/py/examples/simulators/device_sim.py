@@ -35,12 +35,14 @@ class DeviceSim(Simulator):
     - port: TCP port the server listens on (used for readiness check)
     - startup_timeout: max time to wait for the server to accept connections
     - device_name: name used for Synnax device registration
+    - channel_names: names of the Synnax channels that carry the device's data
     """
 
     host: str
     port: int
     startup_timeout: sy.TimeSpan = 10 * sy.TimeSpan.SECOND
     device_name: str
+    channel_names: tuple[str, ...] = ()
 
     def __init__(self, rate: sy.Rate = 50 * sy.Rate.HZ, verbose: bool = False):
         super().__init__(verbose=verbose)

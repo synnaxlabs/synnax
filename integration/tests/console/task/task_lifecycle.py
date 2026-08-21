@@ -55,6 +55,21 @@ TASKS = [
 
 READ_TASKS = [t for t in TASKS if "read" in t.type]
 TASK_NAMES = [t.name for t in TASKS]
+# Channels the example scripts create: data channels, then their indexes.
+EXAMPLE_CHANNELS = [
+    [
+        "my_float_0",
+        "my_float_1",
+        "my_array_0",
+        "my_array_1",
+        "my_bool_0",
+        "my_bool_1",
+        "opcua_cmd_0",
+        "opcua_cmd_1",
+        "opcua_cmd_2",
+    ],
+    ["opcua_time", "opcua_array_time", "opcua_bool_time", "opcua_cmd_time"],
+]
 
 
 class TaskLifecycle(SimulatorCase, ConsoleCase):
@@ -92,6 +107,12 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
                     self.client.tasks.delete([t.key for t in tasks])
             except (sy.NotFoundError, TypeError):
                 pass
+        with self._try_to("delete example channels"):
+            for names in EXAMPLE_CHANNELS:
+                try:
+                    self.client.channels.delete(names)
+                except sy.NotFoundError:
+                    pass
         try:
             rng = self.client.ranges.retrieve(name=RANGE_NAME)
             self.client.ranges.delete(rng.key)

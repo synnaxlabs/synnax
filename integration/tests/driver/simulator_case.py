@@ -64,6 +64,7 @@ class SimulatorCase(HardwareCase):
             sim.start()
             self.sims[name] = sim
             self._connect_device_for(sim_cls)
+            self._reclaim_channels(sim_cls)
         first_cls = self.sim_classes[0]
         self.sim = self.sims[first_cls.device_name]
         self.device_name = first_cls.device_name
@@ -133,3 +134,12 @@ class SimulatorCase(HardwareCase):
             self.track_test_devices([existing])
         except sy.NotFoundError:
             self.create_test_devices([device_instance])
+
+    def _reclaim_channels(self, sim_cls: type[DeviceSim]) -> None:
+        """Delete channels an earlier test left behind under the sim's names."""
+        if not sim_cls.channel_names:
+            return
+        try:
+            self.client.channels.delete(list(sim_cls.channel_names))
+        except sy.NotFoundError:
+            pass

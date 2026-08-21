@@ -30,6 +30,7 @@ ARRAY_COUNT = 5
 DEFAULT_ARRAY_SIZE = 5
 FLOAT_COUNT = 5
 BOOL_COUNT = 5
+COMMAND_COUNT = 3
 DEFAULT_RATE = 50  # Hz
 BOOL_OFFSET = 0.2  # seconds between each boolean transition
 
@@ -97,7 +98,7 @@ async def create_bool_variables(myobj, idx):
 async def create_command_variables(myobj, idx):
     """Create writable command variables for testing write operations."""
     commands = []
-    for i in range(3):  # Create 3 command channels
+    for i in range(COMMAND_COUNT):
         cmd = await myobj.add_variable(idx, f"command_{i}", 0.0, ua.VariantType.Float)
         await cmd.set_writable()
         commands.append(cmd)
@@ -340,6 +341,13 @@ class OPCUASim(DeviceSim):
     port = 4841
     device_name = "OPC UA Server"
     endpoint = f"opc.tcp://{host}:{port}/freeopcua/server/"
+    channel_names = (
+        *(f"my_array_{i}" for i in range(ARRAY_COUNT)),
+        "my_time_array",
+        *(f"my_float_{i}" for i in range(FLOAT_COUNT)),
+        *(f"my_bool_{i}" for i in range(BOOL_COUNT)),
+        *(f"command_{i}" for i in range(COMMAND_COUNT)),
+    )
 
     def __init__(
         self,
