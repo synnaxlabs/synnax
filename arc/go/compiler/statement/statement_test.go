@@ -1042,52 +1042,6 @@ var _ = Describe("Statement Compiler", func() {
 
 	Describe("Series Literals with Inferred Variables and Literal Coercion", func() {
 		It(
-			"Should compile inferred int variable with exact-integer float literal",
-			func(bCtx SpecContext) {
-				// a := 5 creates an i64 variable
-				// 12.0 is an exact integer float that should coerce to i64
-				// Result: series[i64] with elements [5, 12]
-				block := MustSucceed(parser.ParseBlock(`{
-				a := 5
-				x := [a, 12.0]
-			}`))
-				aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
-				analyzer.AnalyzeBlock(aCtx)
-				Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
-
-				ctx := context.NewRoot(
-					bCtx,
-					aCtx.Scope,
-					aCtx.TypeMap,
-					resolve.NewResolver(),
-				)
-				diverged := MustSucceed(
-					statement.CompileBlock(context.Child(ctx, block)),
-				)
-				Expect(diverged).To(BeFalse())
-
-				Expect(FinalizeContext(ctx)).To(MatchOpcodes(
-					// a := 5
-					OpI64Const, int64(5),
-					OpLocalSet, 0,
-					// x := [a, 12.0] - create series[i64] with 2 elements
-					OpI32Const, int32(2),
-					OpCall, uint32(0),
-					// set element 0 = a
-					OpI32Const, int32(0),
-					OpLocalGet, 0,
-					OpCall, uint32(1),
-					// set element 1 = 12 (12.0 coerced to i64)
-					OpI32Const, int32(1),
-					OpI64Const, int64(12),
-					OpCall, uint32(1),
-					// store series in x
-					OpLocalSet, 1,
-				))
-			},
-		)
-
-		It(
 			"Should compile inferred float variable with int literal",
 			func(bCtx SpecContext) {
 				// a := 12.0 creates an f64 variable
@@ -1129,60 +1083,6 @@ var _ = Describe("Statement Compiler", func() {
 					OpCall, uint32(1),
 					// store series in x
 					OpLocalSet, 1,
-				))
-			},
-		)
-
-		It(
-			"Should compile multiple inferred variables with mixed literals",
-			func(bCtx SpecContext) {
-				// a := 5, b := 10 creates i64 variables
-				// 15.0 is an exact integer float that should coerce to i64
-				// Result: series[i64] with elements [5, 10, 15]
-				block := MustSucceed(parser.ParseBlock(`{
-				a := 5
-				b := 10
-				x := [a, b, 15.0]
-			}`))
-				aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
-				analyzer.AnalyzeBlock(aCtx)
-				Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
-
-				ctx := context.NewRoot(
-					bCtx,
-					aCtx.Scope,
-					aCtx.TypeMap,
-					resolve.NewResolver(),
-				)
-				diverged := MustSucceed(
-					statement.CompileBlock(context.Child(ctx, block)),
-				)
-				Expect(diverged).To(BeFalse())
-
-				Expect(FinalizeContext(ctx)).To(MatchOpcodes(
-					// a := 5
-					OpI64Const, int64(5),
-					OpLocalSet, 0,
-					// b := 10
-					OpI64Const, int64(10),
-					OpLocalSet, 1,
-					// x := [a, b, 15.0] - create series[i64] with 3 elements
-					OpI32Const, int32(3),
-					OpCall, uint32(0),
-					// set element 0 = a
-					OpI32Const, int32(0),
-					OpLocalGet, 0,
-					OpCall, uint32(1),
-					// set element 1 = b
-					OpI32Const, int32(1),
-					OpLocalGet, 1,
-					OpCall, uint32(1),
-					// set element 2 = 15 (15.0 coerced to i64)
-					OpI32Const, int32(2),
-					OpI64Const, int64(15),
-					OpCall, uint32(1),
-					// store series in x
-					OpLocalSet, 2,
 				))
 			},
 		)

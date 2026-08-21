@@ -299,7 +299,13 @@ func (s *System) unifyTypeVariableWithVisited(
 			)
 		}
 	} else if tv.Constraint.Kind == types.KindExactIntegerFloatConstant {
-		if !checkType.IsNumeric() {
+		// As an operand, an exact-integer float literal is a float like any other;
+		// only assignment to a declared integer type accepts it.
+		accepts := checkType.IsNumeric()
+		if source.Kind == KindCompatible {
+			accepts = checkType.IsFloat()
+		}
+		if !accepts {
 			return errors.Wrapf(
 				ErrConstraintViolation,
 				"%v does not satisfy exact integer float constraint",

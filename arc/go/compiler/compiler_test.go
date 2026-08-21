@@ -1152,10 +1152,10 @@ var _ = Describe("Compiler", func() {
 			Expect(results).To(ConsistOf(uint64(math.Float32bits(5.5))))
 		})
 
-		It("Should compile decimal literal with i32 variable", func(ctx SpecContext) {
+		It("Should compile integer literal with i32 variable", func(ctx SpecContext) {
 			output := MustSucceed(compile(ctx, `
 			func compare(x i32) bool {
-				return x > 5.0
+				return x > 5
 			}
 			`, nil))
 
@@ -1334,11 +1334,11 @@ var _ = Describe("Compiler", func() {
 		)
 
 		It(
-			"Should allow float literals in comparisons with i64",
+			"Should allow integer literals in comparisons with i64",
 			func(ctx SpecContext) {
 				output := MustSucceed(compile(ctx, `
 			func isPositive(x i64) bool {
-				return x > 0.0
+				return x > 0
 			}
 			`, nil))
 

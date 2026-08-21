@@ -540,11 +540,9 @@ func constraintAccepts(constraint *types.Type, concreteType types.Type) bool {
 		return true
 	}
 	switch constraint.Kind {
-	case types.KindNumericConstant,
-		types.KindIntegerConstant,
-		types.KindExactIntegerFloatConstant:
+	case types.KindNumericConstant, types.KindIntegerConstant:
 		return concreteType.IsNumeric()
-	case types.KindFloatConstant:
+	case types.KindFloatConstant, types.KindExactIntegerFloatConstant:
 		return concreteType.IsFloat()
 	default:
 		return types.Equal(*constraint, concreteType)

@@ -1400,4 +1400,87 @@ var _ = Describe("Function Analyzer", func() {
 			)
 		})
 	})
+
+	Describe("Variable Type Checking", func() {
+		logResolver := []symbol.Symbol{
+			{
+				Name: "log",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.String()),
+				ID:   1,
+			},
+		}
+		It(
+			"should reject a float literal compared to an inferred integer variable",
+			func(bCtx SpecContext) {
+				analyzeExpectError(bCtx, `
+					func my_func{}() {
+						a := 34
+						b := 42.0 < a
+						log = str(b)
+					}
+				`, logResolver, ContainSubstring("type mismatch"))
+			},
+		)
+		It(
+			"should reject an inferred float variable compared to an int variable",
+			func(bCtx SpecContext) {
+				analyzeExpectError(bCtx, `
+					func my_func{}() {
+						x := 34.
+						y := 42
+						log = str(y < x)
+					}
+				`, logResolver, ContainSubstring("type mismatch"))
+			},
+		)
+		It(
+			"should reject an inferred integer variable compared to a float literal",
+			func(bCtx SpecContext) {
+				analyzeExpectError(bCtx, `
+					func my_func{}() {
+						a := 34
+						b := a < 42.0
+						log = str(b)
+					}
+				`, logResolver, ContainSubstring("type mismatch"))
+			},
+		)
+		It(
+			"should reject an inferred integer variable added to a float literal",
+			func(bCtx SpecContext) {
+				analyzeExpectError(bCtx, `
+					func my_func{}() {
+						a := 34
+						b := 42.0 + a
+						log = str(b)
+					}
+				`, logResolver, ContainSubstring("type mismatch"))
+			},
+		)
+		It(
+			"should reject a float literal added to an inferred integer variable",
+			func(bCtx SpecContext) {
+				analyzeExpectError(bCtx, `
+					func my_func{}() {
+						a := 34
+						b := a + 42.0
+						log = str(b)
+					}
+				`, logResolver, ContainSubstring("type mismatch"))
+			},
+		)
+		It(
+			"should accept an integer literal compared to an inferred integer variable",
+			func(bCtx SpecContext) {
+				analyzeExpectSuccess(bCtx, `
+					func my_func{}() {
+						a := 34
+						b := 42 < a
+						log = str(b)
+					}
+				`, logResolver)
+			},
+		)
+	})
 })

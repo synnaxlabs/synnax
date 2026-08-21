@@ -481,6 +481,75 @@ var _ = Describe("Analyzer Integration", func() {
 		})
 	})
 
+	Describe("Variable Type Checking Across Contexts", func() {
+		// A function body and a sequence body both route their declarations through
+		// the statement analyzer, so the same code must type-check the same way in
+		// both.
+		inFunction := func(body string) string { return "func f() {" + body + "}" }
+		inSequence := func(body string) string {
+			return "sequence main {" + body + "\nstage s1 {}\n}"
+		}
+		DescribeTable(
+			"Should reject a type mismatch in both contexts",
+			func(bCtx SpecContext, body string) {
+				fn := analyzeAndExpectErrorWithResolver(bCtx, inFunction(body), nil)
+				Expect(fn.Diagnostics.String()).To(ContainSubstring("type mismatch"))
+				seq := analyzeAndExpectErrorWithResolver(bCtx, inSequence(body), nil)
+				Expect(seq.Diagnostics.String()).To(ContainSubstring("type mismatch"))
+			},
+			Entry("inferred integer variable and inferred float variable", `
+				x := 34.
+				y := 42
+				b := y < x
+			`),
+			Entry("inferred float variable and inferred integer variable", `
+				x := 34.
+				y := 42
+				b := x < y
+			`),
+			Entry("exact-integer float literal and inferred integer variable", `
+				a := 34
+				b := 42.0 < a
+			`),
+			Entry("inferred integer variable and exact-integer float literal", `
+				a := 34
+				b := a < 42.0
+			`),
+			Entry("float literal added to an inferred integer variable", `
+				a := 34
+				b := a + 42.0
+			`),
+			Entry("fractional float literal and inferred integer variable", `
+				a := 34
+				b := 42.5 < a
+			`),
+		)
+		DescribeTable(
+			"Should accept compatible types in both contexts",
+			func(bCtx SpecContext, body string) {
+				analyzeAndExpectWithResolver(bCtx, inFunction(body), nil)
+				analyzeAndExpectWithResolver(bCtx, inSequence(body), nil)
+			},
+			Entry("integer literal and inferred integer variable", `
+				a := 34
+				b := a < 42
+			`),
+			Entry("integer literal and inferred float variable", `
+				a := 34.0
+				b := a < 42
+			`),
+			Entry("float literal and inferred float variable", `
+				a := 34.0
+				b := a < 42.0
+			`),
+			Entry("two inferred integer variables", `
+				a := 34
+				b := 42
+				c := a < b
+			`),
+		)
+	})
+
 	Describe("Channel Propagation Through Function Calls", func() {
 		It(
 			"Should propagate callee channels to caller when callee is declared first",

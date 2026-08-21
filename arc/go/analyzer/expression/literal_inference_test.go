@@ -71,14 +71,26 @@ var _ = Describe("Literal Type Inference", func() {
 		)
 
 		It(
-			"Should allow comparison of i32 variable with exact-integer float literal",
+			"Should reject comparison of i32 variable with exact-integer float literal",
 			func(ctx SpecContext) {
-				expectSuccess(ctx, `
+				expectFailure(ctx, `
 				func testFunc() {
 					x i32 := 10
 					z := x > 5.0
 				}
-			`, nil)
+			`, nil, "type mismatch")
+			},
+		)
+
+		It(
+			"Should reject comparison of exact-integer float literal with i32 variable",
+			func(ctx SpecContext) {
+				expectFailure(ctx, `
+				func testFunc() {
+					x i32 := 10
+					z := 5.0 < x
+				}
+			`, nil, "type mismatch")
 			},
 		)
 
