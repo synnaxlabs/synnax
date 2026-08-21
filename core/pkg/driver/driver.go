@@ -230,8 +230,8 @@ const restartScale = 1.1
 // On startup, Open launches the subprocess and two goroutines that pipe its stdout and
 // stderr through PipeToLogger. A third goroutine waits for the process to exit. All
 // three run under an isolated signal context. Open blocks until the subprocess prints
-// "started successfully" or the StartTimeout expires. If startup fails, Open cleans up
-// the process and returns (nil, err).
+// "started successfully", the supervisor stops retrying, or the StartTimeout expires.
+// If startup fails, Open cleans up the process and returns (nil, err).
 //
 // On shutdown, Close cancels the supervisor context. The subprocess is launched via
 // exec.CommandContext, so the cancellation asks it to stop gracefully (a STOP write via
@@ -248,6 +248,11 @@ type Driver struct {
 	// started is closed once the subprocess prints "started successfully". Open blocks
 	// on this channel to know when startup is complete.
 	started chan struct{}
+	// failed receives the supervisor's terminal error once it stops relaunching the
+	// subprocess. Open selects on it so a Driver that gives up reports why instead of
+	// waiting out the remaining StartTimeout. Buffered so the send never blocks after
+	// a successful start, when nothing receives.
+	failed chan error
 	// shutdown cancels the supervisor context and waits for its goroutines to exit.
 	// Canceling the context stops the running subprocess (see setupCmd), so Close needs
 	// nothing more than this. Nil when the Driver is disabled.
@@ -268,7 +273,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
 	if err != nil {
 		return nil, err
 	}
-	d := &Driver{cfg: cfg, started: make(chan struct{})}
+	d := &Driver{cfg: cfg, started: make(chan struct{}), failed: make(chan error, 1)}
 	if !d.enabled() {
 		if !*cfg.Enabled {
 			cfg.L.Info("embedded Driver disabled")
@@ -308,36 +313,21 @@ func (d *Driver) start(ctx context.Context) error {
 		return err
 	}
 	sCtx.Go(func(ctx context.Context) error {
-		// startedOnce is shared across restarts so d.started is closed exactly once, by
-		// whichever run first reports a successful start. A per-run Once would let a
-		// restarted run close the already-closed channel and panic.
-		startedOnce := &sync.Once{}
-		for {
-			action, err := d.runOnce(ctx, policy, startedOnce)
-			// A canceled context means Close initiated shutdown. Stop quietly
-			// regardless of the action, so a restart decision that raced the cancel
-			// never relaunches.
-			if ctx.Err() != nil {
-				return nil
-			}
-			switch action {
-			case restart.Restart:
-				continue
-			case restart.GiveUp:
-				d.cfg.L.Error(
-					"embedded Driver exceeded restart limit; giving up",
-					zap.Error(err),
-				)
-				return err
-			default:
-				// restart.Stop: a launch failure (an expected exit was caught above).
-				return err
-			}
-		}
+		err := d.supervise(ctx, policy)
+		d.failed <- err
+		return err
 	})
-	if _, err = signal.RecvUnderContext(ctx, d.started); err != nil {
+	select {
+	case <-d.started:
+		return nil
+	case err := <-d.failed:
+		if err == nil {
+			err = errors.New("embedded Driver stopped before it finished starting")
+		}
+		return errors.Combine(err, d.Close())
+	case <-ctx.Done():
 		closeErr := d.Close()
-		if errors.Is(err, context.DeadlineExceeded) {
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 			return errors.Combine(
 				errors.New(
 					"timed out waiting for embedded Driver to start. This occurs either because the Driver could not reach the Core or a task took an unusual amount of time to start. Check logs above categorized 'driver' for more information.",
@@ -346,11 +336,39 @@ func (d *Driver) start(ctx context.Context) error {
 			)
 		}
 		return errors.Combine(
-			errors.Wrap(err, "failed to start embedded Driver"),
+			errors.Wrap(ctx.Err(), "failed to start embedded Driver"),
 			closeErr,
 		)
 	}
-	return nil
+}
+
+// supervise relaunches the Driver subprocess until the restart policy stops allowing
+// it or ctx is canceled. It returns the error that ended supervision, or nil when ctx
+// cancellation (a Close) ended it.
+func (d *Driver) supervise(ctx context.Context, policy *restart.Policy) error {
+	// startedOnce is shared across restarts so d.started is closed exactly once, by
+	// whichever run first reports a successful start. A per-run Once would let a
+	// restarted run close the already-closed channel and panic.
+	startedOnce := &sync.Once{}
+	for {
+		action, err := d.runOnce(ctx, policy, startedOnce)
+		// A canceled context means Close initiated shutdown. Stop quietly regardless
+		// of the action, so a restart decision that raced the cancel never relaunches.
+		if ctx.Err() != nil {
+			return nil
+		}
+		switch action {
+		case restart.Restart:
+			continue
+		case restart.GiveUp:
+			err = errors.Wrap(err, "embedded Driver exceeded restart limit")
+			d.cfg.L.Error("giving up on embedded Driver", zap.Error(err))
+			return err
+		default:
+			// restart.Stop: a launch failure (an expected exit was caught above).
+			return err
+		}
+	}
 }
 
 // runOnce launches the Driver subprocess, pipes its output, and blocks until it exits.

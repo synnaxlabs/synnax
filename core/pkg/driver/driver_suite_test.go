@@ -22,7 +22,10 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var mockFS fs.FS
+var (
+	mockFS     fs.FS
+	mockBinDir string
+)
 
 func TestDriver(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -31,22 +34,31 @@ func TestDriver(t *testing.T) {
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
-var _ = BeforeSuite(func() {
+// Process #1 compiles the mock Driver once and hands its directory to the others.
+// Linking it is the suite's largest memory and disk cost, so it runs once rather than
+// once per parallel process.
+var _ = SynchronizedBeforeSuite(func() []byte {
 	ShouldNotLeakGoroutines()
-	tmpDir := GinkgoT().TempDir()
+	dir := MustSucceed(os.MkdirTemp("", "mockdriver"))
 	driverName := "driver"
 	if runtime.GOOS == "windows" {
 		driverName = "driver.exe"
 	}
-	binaryPath := filepath.Join(tmpDir, driverName)
 	cmd := exec.Command(
-		"go", "build", "-o", binaryPath,
+		"go", "build", "-o", filepath.Join(dir, driverName),
 		"./testdata/mockdriver",
 	)
 	cmd.Dir = MustSucceed(os.Getwd())
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	Expect(cmd.Run()).To(Succeed())
-	mockFS = os.DirFS(tmpDir)
+	return []byte(dir)
+}, func(dir []byte) {
+	mockBinDir = string(dir)
+	mockFS = os.DirFS(mockBinDir)
 	ShouldNotLeakGoroutines()
+})
+
+var _ = SynchronizedAfterSuite(func() {}, func() {
+	Expect(os.RemoveAll(mockBinDir)).To(Succeed())
 })
