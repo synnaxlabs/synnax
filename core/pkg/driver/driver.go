@@ -250,8 +250,8 @@ type Driver struct {
 	started chan struct{}
 	// failed receives the supervisor's terminal error once it stops relaunching the
 	// subprocess. Open selects on it so a Driver that gives up reports why instead of
-	// waiting out the remaining StartTimeout. Buffered so the send never blocks after
-	// a successful start, when nothing receives.
+	// waiting out the remaining StartTimeout. Buffered so the send never blocks after a
+	// successful start, when nothing receives.
 	failed chan error
 	// shutdown cancels the supervisor context and waits for its goroutines to exit.
 	// Canceling the context stops the running subprocess (see setupCmd), so Close needs
@@ -342,8 +342,8 @@ func (d *Driver) start(ctx context.Context) error {
 	}
 }
 
-// supervise relaunches the Driver subprocess until the restart policy stops allowing
-// it or ctx is canceled. It returns the error that ended supervision, or nil when ctx
+// supervise relaunches the Driver subprocess until the restart policy stops allowing it
+// or ctx is canceled. It returns the error that ended supervision, or nil when ctx
 // cancellation (a Close) ended it.
 func (d *Driver) supervise(ctx context.Context, policy *restart.Policy) error {
 	// startedOnce is shared across restarts so d.started is closed exactly once, by
@@ -352,8 +352,8 @@ func (d *Driver) supervise(ctx context.Context, policy *restart.Policy) error {
 	startedOnce := &sync.Once{}
 	for {
 		action, err := d.runOnce(ctx, policy, startedOnce)
-		// A canceled context means Close initiated shutdown. Stop quietly regardless
-		// of the action, so a restart decision that raced the cancel never relaunches.
+		// A canceled context means Close initiated shutdown. Stop quietly regardless of
+		// the action, so a restart decision that raced the cancel never relaunches.
 		if ctx.Err() != nil {
 			return nil
 		}

@@ -286,9 +286,9 @@ var _ = Describe("restart", func() {
 			Insecure:        new(true),
 			Address:         "localhost:9090",
 			ParentDirname:   GinkgoT().TempDir(),
-			// The Driver never starts, so Open returns as soon as the policy gives
-			// up. StartTimeout only has to outlast three subprocess launches on a
-			// loaded machine; it is never actually waited out.
+			// The Driver never starts, so Open returns as soon as the policy gives up.
+			// StartTimeout only has to outlast three subprocess launches on a loaded
+			// machine; it is never actually waited out.
 			StartTimeout:        time.Minute,
 			StopTimeout:         500 * time.Millisecond,
 			RestartBaseInterval: time.Millisecond,
