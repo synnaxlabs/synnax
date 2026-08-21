@@ -47,7 +47,8 @@
         { "case": "console/task/ni_analog_read_forms" },
         { "case": "console/task/ni_analog_write_forms" },
         { "case": "console/task/ni_counter_read_forms" },
-        { "case": "console/task/no_device" }
+        { "case": "console/task/no_device" },
+        { "case": "console/view/view_lifecycle" }
       ]
     },
     {
