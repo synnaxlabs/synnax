@@ -1107,7 +1107,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 			Context("Faulty file system", func() {
 				var faulty *FaultyFS
 				BeforeEach(func(ctx SpecContext) {
-					faulty = WrapFS(fs, Options{})
+					faulty = WrapFS(fs)
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              faulty,
 						FileSize:        9 * telem.Byte,
@@ -1135,10 +1135,8 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 				// the file on Windows, which stops collection for good.
 				DescribeTable(
 					"Should keep no handles when the rewrite fails",
-					func(ctx SpecContext, op FaultOp, name string) {
-						faulty.SetOptions(Options{
-							Fail: []Failure{{Op: op, Name: name}},
-						})
+					func(ctx SpecContext, fail Option) {
+						faulty.SetOptions(fail)
 						Expect(
 							db.GarbageCollect(ctx),
 						).To(MatchError(ErrFault))
@@ -1149,7 +1147,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 						Expect(faulty.OpenFiles()).To(Equal(open))
 
 						By("Collecting once the fault clears")
-						faulty.SetOptions(Options{})
+						faulty.SetOptions()
 						Expect(db.GarbageCollect(ctx)).To(Succeed())
 						Expect(
 							MustSucceed(fs.Stat("1.domain")).Size(),
@@ -1157,30 +1155,21 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					},
 					Entry(
 						"reading the live data",
-						FaultOpReadAt,
-						"1.domain",
+						WithFailReadAt("1.domain"),
 					),
-					Entry("writing the copy", FaultOpWrite, "1.domain_gc"),
+					Entry("writing the copy", WithFailWrite("1.domain_gc")),
 				)
 
 				It("Should surface a failed rename", func(ctx SpecContext) {
-					faulty.SetOptions(Options{
-						Fail: []Failure{{
-							Op:   FaultOpRename,
-							Name: "1.domain",
-						}},
-					})
+					faulty.SetOptions(WithFailRename("1.domain"))
 					Expect(db.GarbageCollect(ctx)).To(MatchError(ErrFault))
 				})
 
 				It("Should surface a failed rejuvenation", func(ctx SpecContext) {
-					faulty.SetOptions(Options{
-						Fail: []Failure{{
-							Op:    FaultOpStat,
-							Name:  "1.domain",
-							After: FaultOpRename,
-						}},
-					})
+					faulty.SetOptions(
+						WithFailStat("1.domain"),
+						WithFailAfter(FaultOpRename),
+					)
 					Expect(db.GarbageCollect(ctx)).To(MatchError(ErrFault))
 				})
 			})

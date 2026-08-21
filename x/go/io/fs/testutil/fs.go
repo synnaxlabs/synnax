@@ -91,42 +91,32 @@ func CopyFS(srcFS, destFS xfs.FS) error {
 			if err := CopyFS(subSrcFS, subDestFS); err != nil {
 				return err
 			}
-		} else {
-			// Copy file from source to destination.
-			srcFile, err := srcFS.Open(item.Name(), os.O_RDONLY)
-			if err != nil {
-				return err
-			}
+			continue
+		}
 
-			destFile, err := destFS.Open(
-				item.Name(),
-				os.O_CREATE|os.O_WRONLY|os.O_TRUNC,
-			)
-			if err != nil {
-				return errors.Combine(err, srcFile.Close())
-			}
+		// Copy file from source to destination.
+		srcFile, err := srcFS.Open(item.Name(), os.O_RDONLY)
+		if err != nil {
+			return err
+		}
+		destFile, err := destFS.Open(
+			item.Name(),
+			os.O_CREATE|os.O_WRONLY|os.O_TRUNC,
+		)
+		if err != nil {
+			return errors.Combine(err, srcFile.Close())
+		}
 
-			if _, err := io.Copy(destFile, srcFile); err != nil {
-				srcErr := srcFile.Close()
-				dstErr := destFile.Close()
-				return errors.Combine(err, errors.Combine(srcErr, dstErr))
-			}
+		if _, err := io.Copy(destFile, srcFile); err != nil {
+			return errors.Combine(err, errors.Join(srcFile.Close(), destFile.Close()))
+		}
 
-			if err := destFile.Sync(); err != nil {
-				srcErr := srcFile.Close()
-				dstErr := destFile.Close()
-				return errors.Combine(err, errors.Combine(srcErr, dstErr))
-			}
-			err = srcFile.Close()
-			if err != nil {
-				return errors.Combine(err, destFile.Close())
-			}
-			err = destFile.Close()
-			if err != nil {
-				return err
-			}
+		if err := destFile.Sync(); err != nil {
+			return errors.Combine(err, errors.Join(srcFile.Close(), destFile.Close()))
+		}
+		if err := errors.Join(srcFile.Close(), destFile.Close()); err != nil {
+			return err
 		}
 	}
-
 	return nil
 }

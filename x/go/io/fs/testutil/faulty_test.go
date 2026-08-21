@@ -22,7 +22,7 @@ import (
 
 // openWrapped returns a faultless FS holding one file, "a.bin", containing "hello".
 func openWrapped() (*FaultyFS, xfs.File) {
-	fs := WrapFS(OpenMem(), Options{})
+	fs := WrapFS(OpenMem())
 	f := MustSucceed(fs.Open("a.bin", os.O_CREATE|os.O_RDWR))
 	MustSucceed(f.Write([]byte("hello")))
 	return fs, f
@@ -43,15 +43,15 @@ var _ = Describe("FaultyFS", func() {
 
 	DescribeTable(
 		"Should raise the fault in place of the operation",
-		func(op FaultOp, run func(fs *FaultyFS, f xfs.File) error) {
+		func(opt Option, run func(fs *FaultyFS, f xfs.File) error) {
 			fs, f := openWrapped()
 			DeferClose(f)
-			fs.SetOptions(Options{Fail: []Failure{{Op: op, Name: "a.bin"}}})
+			fs.SetOptions(opt)
 			Expect(run(fs, f)).To(MatchError(ErrFault))
 		},
 		Entry(
 			"open",
-			FaultOpOpen,
+			WithFailOpen("a.bin"),
 			func(fs *FaultyFS, _ xfs.File) error {
 				_, err := fs.Open("a.bin", os.O_RDONLY)
 				return err
@@ -59,7 +59,7 @@ var _ = Describe("FaultyFS", func() {
 		),
 		Entry(
 			"read at",
-			FaultOpReadAt,
+			WithFailReadAt("a.bin"),
 			func(_ *FaultyFS, f xfs.File) error {
 				_, err := f.ReadAt(make([]byte, 5), 0)
 				return err
@@ -67,7 +67,7 @@ var _ = Describe("FaultyFS", func() {
 		),
 		Entry(
 			"write",
-			FaultOpWrite,
+			WithFailWrite("a.bin"),
 			func(_ *FaultyFS, f xfs.File) error {
 				_, err := f.Write([]byte("more"))
 				return err
@@ -75,14 +75,14 @@ var _ = Describe("FaultyFS", func() {
 		),
 		Entry(
 			"rename",
-			FaultOpRename,
+			WithFailRename("a.bin"),
 			func(fs *FaultyFS, _ xfs.File) error {
 				return fs.Rename("a.bin", "b.bin")
 			},
 		),
 		Entry(
 			"stat",
-			FaultOpStat,
+			WithFailStat("a.bin"),
 			func(fs *FaultyFS, _ xfs.File) error {
 				_, err := fs.Stat("a.bin")
 				return err
@@ -90,7 +90,7 @@ var _ = Describe("FaultyFS", func() {
 		),
 		Entry(
 			"remove",
-			FaultOpRemove,
+			WithFailRemove("a.bin"),
 			func(fs *FaultyFS, _ xfs.File) error { return fs.Remove("a.bin") },
 		),
 	)
@@ -99,10 +99,7 @@ var _ = Describe("FaultyFS", func() {
 		errCustom := errors.New("custom")
 		fs, f := openWrapped()
 		DeferClose(f)
-		fs.SetOptions(Options{
-			Fail: []Failure{{Op: FaultOpStat, Name: "a.bin"}},
-			Err:  errCustom,
-		})
+		fs.SetOptions(WithFailStat("a.bin"), WithFailErr(errCustom))
 		_, err := fs.Stat("a.bin")
 		Expect(err).To(MatchError(errCustom))
 	})
@@ -110,7 +107,7 @@ var _ = Describe("FaultyFS", func() {
 	It("Should fail an operation on every path when the failure names none", func() {
 		fs, f := openWrapped()
 		DeferClose(f)
-		fs.SetOptions(Options{Fail: []Failure{{Op: FaultOpStat}}})
+		fs.SetOptions(WithFailStat())
 		_, err := fs.Stat("anything.bin")
 		Expect(err).To(MatchError(ErrFault))
 	})
@@ -118,11 +115,7 @@ var _ = Describe("FaultyFS", func() {
 	It("Should hold a failure back until the operation it follows has run", func() {
 		fs, f := openWrapped()
 		DeferClose(f)
-		fs.SetOptions(Options{Fail: []Failure{{
-			Op:    FaultOpStat,
-			Name:  "a.bin",
-			After: FaultOpRemove,
-		}}})
+		fs.SetOptions(WithFailStat("a.bin"), WithFailAfter(FaultOpRemove))
 		MustSucceed(fs.Stat("a.bin"))
 		Expect(fs.Remove("b.bin")).To(Succeed())
 		_, err := fs.Stat("a.bin")
@@ -132,10 +125,10 @@ var _ = Describe("FaultyFS", func() {
 	It("Should stop failing once its options are cleared", func() {
 		fs, f := openWrapped()
 		DeferClose(f)
-		fs.SetOptions(Options{Fail: []Failure{{Op: FaultOpStat, Name: "a.bin"}}})
+		fs.SetOptions(WithFailStat("a.bin"))
 		_, err := fs.Stat("a.bin")
 		Expect(err).To(MatchError(ErrFault))
-		fs.SetOptions(Options{})
+		fs.SetOptions()
 		Expect(MustSucceed(fs.Stat("a.bin")).Size()).To(Equal(int64(5)))
 	})
 
@@ -147,10 +140,7 @@ var _ = Describe("FaultyFS", func() {
 	})
 
 	It("Should carry its failures and handle count into a sub FS", func() {
-		fs := WrapFS(
-			OpenMem(),
-			Options{Fail: []Failure{{Op: FaultOpOpen, Name: "a.bin"}}},
-		)
+		fs := WrapFS(OpenMem(), WithFailOpen("a.bin"))
 		sub := MustSucceed(fs.Sub("nested"))
 		f := MustSucceed(sub.Open("b.bin", os.O_CREATE|os.O_RDWR))
 		Expect(fs.OpenFiles()).To(Equal(1))

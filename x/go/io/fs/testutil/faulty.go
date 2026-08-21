@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// ErrFault is the error a wrapped FS raises when Options names no other.
+// ErrFault is the error a wrapped FS raises when WithFailErr names no other.
 var ErrFault = errors.New("faulty file system")
 
 // FaultOp names a file system operation a wrapped FS can fail.
@@ -33,27 +33,68 @@ const (
 	FaultOpRemove FaultOp = "remove"
 )
 
-// Failure makes one operation fail.
-type Failure struct {
-	// Op is the operation that fails. Rename matches on its old path.
-	Op FaultOp
-	// Name is the path Op fails on. An empty Name fails Op on every path.
-	Name string
-	// After holds the failure back until this operation has run at least once,
-	// letting a test fail the second half of a sequence. A zero After fails Op
-	// straight away.
-	After FaultOp
+// Option selects an operation a wrapped FS fails.
+type Option func(*options)
+
+type options struct {
+	// fail holds the paths that fail, keyed by operation. An empty set fails its
+	// operation on every path.
+	fail map[FaultOp]set.Set[string]
+	// err replaces every failed operation. Defaults to ErrFault.
+	err error
+	// after holds every failure back until this operation has run.
+	after FaultOp
 }
 
-// Options selects the operations a wrapped FS fails. A zero Options fails nothing.
-type Options struct {
-	// Fail lists the failures the FS raises.
-	Fail []Failure
-	// Err replaces every failed operation. Defaults to ErrFault.
-	Err error
+func newOptions(opts ...Option) options {
+	o := options{fail: make(map[FaultOp]set.Set[string])}
+	for _, opt := range opts {
+		opt(&o)
+	}
+	return o
 }
 
-// FaultyFS wraps an FS to fail the operations its Options select. It also counts the
+func failOn(op FaultOp, names []string) Option {
+	return func(o *options) {
+		existing, ok := o.fail[op]
+		if !ok {
+			existing = make(set.Set[string])
+			o.fail[op] = existing
+		}
+		existing.Add(names...)
+	}
+}
+
+// WithFailOpen fails Open on each of the given paths. With no path, every Open fails.
+func WithFailOpen(names ...string) Option { return failOn(FaultOpOpen, names) }
+
+// WithFailReadAt fails ReadAt on each of the given paths. With no path, every ReadAt
+// fails.
+func WithFailReadAt(names ...string) Option { return failOn(FaultOpReadAt, names) }
+
+// WithFailWrite fails Write on each of the given paths. With no path, every Write
+// fails.
+func WithFailWrite(names ...string) Option { return failOn(FaultOpWrite, names) }
+
+// WithFailRename fails Rename on each of the given old paths. With no path, every
+// Rename fails.
+func WithFailRename(names ...string) Option { return failOn(FaultOpRename, names) }
+
+// WithFailStat fails Stat on each of the given paths. With no path, every Stat fails.
+func WithFailStat(names ...string) Option { return failOn(FaultOpStat, names) }
+
+// WithFailRemove fails Remove on each of the given paths. With no path, every Remove
+// fails.
+func WithFailRemove(names ...string) Option { return failOn(FaultOpRemove, names) }
+
+// WithFailErr raises err in place of ErrFault.
+func WithFailErr(err error) Option { return func(o *options) { o.err = err } }
+
+// WithFailAfter holds every failure back until op has run at least once, so a test can
+// fail the second half of a sequence.
+func WithFailAfter(op FaultOp) Option { return func(o *options) { o.after = op } }
+
+// FaultyFS wraps an FS to fail the operations its options select. It also counts the
 // file handles open against it, so a test can assert that a failed operation left none
 // behind.
 type FaultyFS struct {
@@ -63,26 +104,27 @@ type FaultyFS struct {
 }
 
 type faultState struct {
-	sync.RWMutex
-	opts Options
-	ran  set.Set[FaultOp]
+	sync.Mutex
+	opts options
+	// ran holds every operation the FS has seen, backing WithFailAfter.
+	ran set.Set[FaultOp]
 }
 
-// WrapFS wraps fs so that every operation opts selects fails. Paths reach opts exactly
-// as the caller passed them.
-func WrapFS(fs xfs.FS, opts Options) *FaultyFS {
+// WrapFS wraps fs so that every operation opts selects fails. Paths reach the options
+// exactly as the caller passed them.
+func WrapFS(fs xfs.FS, opts ...Option) *FaultyFS {
 	return &FaultyFS{
 		FS:   fs,
 		open: &atomic.Int64{},
-		mu:   &faultState{opts: opts, ran: make(set.Set[FaultOp])},
+		mu:   &faultState{opts: newOptions(opts...), ran: make(set.Set[FaultOp])},
 	}
 }
 
-// SetOptions replaces the failures the FS raises. Passing a zero Options clears them.
-func (fs *FaultyFS) SetOptions(opts Options) {
+// SetOptions replaces the failures the FS raises. Passing no option clears them.
+func (fs *FaultyFS) SetOptions(opts ...Option) {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
-	fs.mu.opts = opts
+	fs.mu.opts = newOptions(opts...)
 }
 
 // OpenFiles returns the number of handles opened through the FS and not yet closed.
@@ -94,19 +136,17 @@ func (fs *FaultyFS) fault(op FaultOp, name string) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 	fs.mu.ran.Add(op)
-	for _, f := range fs.mu.opts.Fail {
-		if f.Op != op || (f.Name != "" && f.Name != name) {
-			continue
-		}
-		if f.After != "" && !fs.mu.ran.Contains(f.After) {
-			continue
-		}
-		if fs.mu.opts.Err != nil {
-			return fs.mu.opts.Err
-		}
-		return ErrFault
+	if fs.mu.opts.after != "" && !fs.mu.ran.Contains(fs.mu.opts.after) {
+		return nil
 	}
-	return nil
+	names, ok := fs.mu.opts.fail[op]
+	if !ok || (len(names) > 0 && !names.Contains(name)) {
+		return nil
+	}
+	if fs.mu.opts.err != nil {
+		return fs.mu.opts.err
+	}
+	return ErrFault
 }
 
 func (fs *FaultyFS) Sub(name string) (xfs.FS, error) {
