@@ -85,6 +85,19 @@ class TestTaskClient:
         tsk.execute_command_sync("test", {"key": "value"})
         t.join()
 
+    def test_execute_command_without_args_sends_empty_object(self, client: sy.Synnax):
+        """Should send an empty object for args instead of null."""
+        tsk = client.tasks.create(name="test", type="pagerduty_alert")
+        with client.open_streamer("sy_task_cmd") as s:
+            key = tsk.execute_command("test")
+            for _ in range(10):
+                f = s.read(timeout=1)
+                assert f is not None, "timed out waiting for the command"
+                matches = [c for c in f["sy_task_cmd"] if c["key"] == key]
+                if len(matches) > 0:
+                    break
+            assert matches[0]["args"] == {}
+
     def test_task_configure_saves_without_ack(self, client: sy.Synnax):
         """Should save the task without waiting for a driver acknowledgement."""
         tsk = sy.Task(

@@ -26,7 +26,7 @@ from synnax.framer import Client as FrameClient
 from synnax.ontology.payload import ID
 from synnax.rack import Client as RackClient
 from synnax.rack import Rack
-from synnax.task.types_gen import Key, Payload, Status, ontology_id
+from synnax.task.types_gen import Command, Key, Payload, Status, ontology_id
 from synnax.telem import TimeSpan, TimeStamp
 from x.lists import check_for_none, normalize, override
 
@@ -182,21 +182,16 @@ class Task:
         :return: The unique key assigned to the command.
         """
         w = self._frame_client.open_writer(TimeStamp.now(), _TASK_CMD_CHANNEL)
-        key = str(uuid4())
-        w.write(
-            _TASK_CMD_CHANNEL,
-            [
-                {
-                    "task": str(self.key),
-                    "type": type_,
-                    "key": key,
-                    "config_hash": self.config_hash,
-                    "args": args,
-                }
-            ],
+        cmd = Command(
+            task=self.key,
+            type=type_,
+            key=str(uuid4()),
+            config_hash=self.config_hash,
+            args=args or {},
         )
+        w.write(_TASK_CMD_CHANNEL, [cmd.model_dump(mode="json")])
         w.close()
-        return str(key)
+        return cmd.key
 
     def execute_command_sync(
         self,
