@@ -607,13 +607,13 @@ class ZIndex(BaseModel):
     """Configures the Z-index reset behavior of an encoder.
 
     Attributes:
-        z_index_enable: Is true when the encoder's Z index resets the count.
+        z_index_enabled: Is true when the encoder's Z index resets the count.
         z_index_val: Is the value the measurement resets to when the Z index is active.
         z_index_phase: Selects the A/B states at which the Z index is active.
         terminal_z: Is the terminal the Z index signal is wired to.
     """
 
-    z_index_enable: bool = False
+    z_index_enabled: bool = False
     z_index_val: float = 0
     z_index_phase: ZIndexPhase = "AHighBHigh"
     terminal_z: str = ""
@@ -1043,7 +1043,7 @@ class AIAccel4WireDCVoltageChannel(
     type: Literal["ai_accel_4_wire_dc_voltage"] = "ai_accel_4_wire_dc_voltage"
     units: AccelUnits = "g"
     sensitivity_units: AccelSensitivityUnits = "mVoltsPerG"
-    use_excit_for_scaling: bool = False
+    scaled_by_excitation: bool = False
 
 
 class AIAccelChargeChannel(
@@ -1143,7 +1143,7 @@ class AIVoltageWithExcitChannel(
 
     type: Literal["ai_voltage_with_excit"] = "ai_voltage_with_excit"
     bridge_config: BridgeConfig = "FullBridge"
-    use_excit_for_scaling: bool = False
+    scaled_by_excitation: bool = False
 
 
 # Is a single NI analog input channel. The type field selects the measurement mode

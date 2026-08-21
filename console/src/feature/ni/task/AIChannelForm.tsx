@@ -522,7 +522,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
         />
       </Flex.Box>
       <Form.SwitchField
-        path={`${prefix}.useExcitForScaling`}
+        path={`${prefix}.scaledByExcitation`}
         label="Use excitation for scaling"
       />
       <Divider.Divider x padded="bottom" />
@@ -1422,7 +1422,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
         />
       </Flex.Box>
       <Form.SwitchField
-        path={`${prefix}.useExcitForScaling`}
+        path={`${prefix}.scaledByExcitation`}
         label="Use excitation for scaling"
       />
       <Divider.Divider x padded="bottom" />

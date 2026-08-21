@@ -25,8 +25,7 @@ class Alert(BaseModel):
     Attributes:
         key: Uniquely identifies the alert within the task.
         status: Is the key of the Synnax status the alert watches.
-        treat_error_as_critical: Maps the error variant to PagerDuty critical instead of
-            error.
+        errors_critical: Is true when the error variant maps to PagerDuty critical.
         component: Is the PagerDuty component attached to triggered events.
         group: Is the PagerDuty group attached to triggered events.
         class_: Is the PagerDuty class attached to triggered events.
@@ -37,7 +36,7 @@ class Alert(BaseModel):
 
     key: str = Field(default_factory=lambda: str(uuid4()))
     status: status_.Key = ""
-    treat_error_as_critical: bool = False
+    errors_critical: bool = False
     component: str = ""
     group: str = ""
     class_: str = Field(default="", alias="class")

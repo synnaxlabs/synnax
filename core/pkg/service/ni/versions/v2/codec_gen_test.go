@@ -94,10 +94,10 @@ var (
 		Device:   "test_6",
 	}
 	fullyPopulatedZIndex = v2.ZIndex{
-		ZIndexEnable: true,
-		ZIndexVal:    2.5,
-		ZIndexPhase:  v2.ZIndexPhase("AHighBHigh"),
-		TerminalZ:    "test_4",
+		ZIndexEnabled: true,
+		ZIndexVal:     2.5,
+		ZIndexPhase:   v2.ZIndexPhase("AHighBHigh"),
+		TerminalZ:     "test_4",
 	}
 )
 
@@ -285,7 +285,7 @@ var _ = Describe("Codec", func() {
 				CustomScale:        fullyPopulatedCustomScale,
 				Units:              v2.AccelUnits("g"),
 				SensitivityUnits:   v2.AccelSensitivityUnits("mVoltsPerG"),
-				UseExcitForScaling: true,
+				ScaledByExcitation: true,
 			}}),
 			Entry("ai_accel_charge variant", v2.AIChannel{Variant: v2.AIAccelChargeChannel{
 				BaseAIChannel:    fullyPopulatedBaseAIChannel,
@@ -382,7 +382,7 @@ var _ = Describe("Codec", func() {
 				VoltageExcitation:  fullyPopulatedVoltageExcitation,
 				CustomScale:        fullyPopulatedCustomScale,
 				BridgeConfig:       v2.BridgeConfig("FullBridge"),
-				UseExcitForScaling: false,
+				ScaledByExcitation: false,
 			}}),
 		)
 	})
@@ -1334,10 +1334,10 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", fullyPopulatedZIndex),
 			Entry("zero values", v2.ZIndex{
-				ZIndexEnable: false,
-				ZIndexVal:    0,
-				ZIndexPhase:  v2.ZIndexPhase(""),
-				TerminalZ:    "",
+				ZIndexEnabled: false,
+				ZIndexVal:     0,
+				ZIndexPhase:   v2.ZIndexPhase(""),
+				TerminalZ:     "",
 			}),
 		)
 	})
@@ -2312,7 +2312,7 @@ func FuzzDecodeAIChannel(f *testing.F) {
 			CustomScale:        fullyPopulatedCustomScale,
 			Units:              v2.AccelUnits("g"),
 			SensitivityUnits:   v2.AccelSensitivityUnits("mVoltsPerG"),
-			UseExcitForScaling: true,
+			ScaledByExcitation: true,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2486,7 +2486,7 @@ func FuzzDecodeAIChannel(f *testing.F) {
 			VoltageExcitation:  fullyPopulatedVoltageExcitation,
 			CustomScale:        fullyPopulatedCustomScale,
 			BridgeConfig:       v2.BridgeConfig("FullBridge"),
-			UseExcitForScaling: false,
+			ScaledByExcitation: false,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -4264,10 +4264,10 @@ func FuzzDecodeZIndex(f *testing.F) {
 	}
 	{
 		seed := v2.ZIndex{
-			ZIndexEnable: false,
-			ZIndexVal:    0,
-			ZIndexPhase:  v2.ZIndexPhase(""),
-			TerminalZ:    "",
+			ZIndexEnabled: false,
+			ZIndexVal:     0,
+			ZIndexPhase:   v2.ZIndexPhase(""),
+			TerminalZ:     "",
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

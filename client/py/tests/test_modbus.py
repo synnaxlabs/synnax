@@ -38,8 +38,8 @@ class TestModbusReadTask:
                             "address": 0,
                             "channel": 1234,
                             "data_type": "float32",
-                            "swap_bytes": False,
-                            "swap_words": False,
+                            "bytes_swapped": False,
+                            "words_swapped": False,
                             "string_length": 0,
                         },
                     ],
@@ -61,8 +61,8 @@ class TestModbusReadTask:
                             "address": 100,
                             "channel": 5678,
                             "data_type": "uint32",
-                            "swap_bytes": True,
-                            "swap_words": False,
+                            "bytes_swapped": True,
+                            "words_swapped": False,
                             "string_length": 0,
                         },
                     ],
@@ -122,8 +122,8 @@ class TestModbusReadTask:
                             "address": 0,
                             "channel": 1000,
                             "data_type": "float32",
-                            "swap_bytes": False,
-                            "swap_words": False,
+                            "bytes_swapped": False,
+                            "words_swapped": False,
                             "string_length": 0,
                         },
                         {
@@ -133,8 +133,8 @@ class TestModbusReadTask:
                             "address": 50,
                             "channel": 2000,
                             "data_type": "int16",
-                            "swap_bytes": False,
-                            "swap_words": False,
+                            "bytes_swapped": False,
+                            "words_swapped": False,
                             "string_length": 0,
                         },
                         {
@@ -324,8 +324,8 @@ class TestModbusWriteTask:
                             "address": 100,
                             "channel": 5678,
                             "data_type": "float32",
-                            "swap_bytes": False,
-                            "swap_words": True,
+                            "bytes_swapped": False,
+                            "words_swapped": True,
                         },
                     ],
                 },
@@ -357,8 +357,8 @@ class TestModbusWriteTask:
                             "address": 0,
                             "channel": 3000,
                             "data_type": "int16",
-                            "swap_bytes": False,
-                            "swap_words": False,
+                            "bytes_swapped": False,
+                            "words_swapped": False,
                         },
                         {
                             "type": "holding_register",
@@ -367,8 +367,8 @@ class TestModbusWriteTask:
                             "address": 10,
                             "channel": 4000,
                             "data_type": "uint32",
-                            "swap_bytes": True,
-                            "swap_words": False,
+                            "bytes_swapped": True,
+                            "words_swapped": False,
                         },
                     ],
                 },
@@ -502,8 +502,8 @@ class TestModbusWriteTask:
                     address=10,
                     channel=5678,
                     data_type="int16",
-                    swap_bytes=True,
-                    swap_words=False,
+                    bytes_swapped=True,
+                    words_swapped=False,
                     disabled=True,
                 ),
             ],
@@ -534,8 +534,8 @@ class TestModbusWriteTask:
             if isinstance(orig_ch, sy.modbus.HoldingRegisterWriteChannel):
                 assert isinstance(retr_ch, sy.modbus.HoldingRegisterWriteChannel)
                 assert retr_ch.data_type == orig_ch.data_type
-                assert retr_ch.swap_bytes == orig_ch.swap_bytes
-                assert retr_ch.swap_words == orig_ch.swap_words
+                assert retr_ch.bytes_swapped == orig_ch.bytes_swapped
+                assert retr_ch.words_swapped == orig_ch.words_swapped
 
 
 @pytest.mark.modbus

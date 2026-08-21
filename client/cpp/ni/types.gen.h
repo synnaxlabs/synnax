@@ -606,8 +606,8 @@ struct Resistance {
 
 /// @brief ZIndex configures the Z-index reset behavior of an encoder.
 struct ZIndex {
-    /// @brief z_index_enable is true when the encoder's Z index resets the count.
-    bool z_index_enable = false;
+    /// @brief z_index_enabled is true when the encoder's Z index resets the count.
+    bool z_index_enabled = false;
     /// @brief z_index_val is the value the measurement resets to when the Z index is
     /// active.
     double z_index_val = 0;
@@ -943,10 +943,10 @@ struct AIAccel4WireDCVoltageChannel : public BaseAIChannel,
     std::string units = ACCEL_UNITS_G;
     /// @brief sensitivity_units are the units of the accelerometer sensitivity.
     std::string sensitivity_units = ACCEL_SENSITIVITY_UNITS_M_VOLTS_PER_G;
-    /// @brief use_excit_for_scaling is true when the excitation voltage is used to
-    /// scale
-    /// the reading.
-    bool use_excit_for_scaling = false;
+    /// @brief scaled_by_excitation is true when the excitation voltage is used to scale
+    /// the
+    /// reading.
+    bool scaled_by_excitation = false;
 
     static AIAccel4WireDCVoltageChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -1124,10 +1124,10 @@ struct AIVoltageWithExcitChannel : public BaseAIChannel,
     std::string type = "ai_voltage_with_excit";
     /// @brief bridge_config selects the physical bridge wiring.
     std::string bridge_config = BRIDGE_CONFIG_FULL_BRIDGE;
-    /// @brief use_excit_for_scaling is true when the excitation voltage is used to
-    /// scale
-    /// the reading.
-    bool use_excit_for_scaling = false;
+    /// @brief scaled_by_excitation is true when the excitation voltage is used to scale
+    /// the
+    /// reading.
+    bool scaled_by_excitation = false;
 
     static AIVoltageWithExcitChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

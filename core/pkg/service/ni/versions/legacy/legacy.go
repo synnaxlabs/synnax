@@ -42,6 +42,7 @@ var CounterRead = legacy.Rewrite{Post: func(config msgpack.EncodedJSON) {
 		if t == "ci_frequency" && ch["units"] == "Seconds" {
 			ch["units"] = "Hz"
 		}
+		legacy.RenameKey(ch, "z_index_enable", "z_index_enabled")
 	})
 }}
 
@@ -108,6 +109,7 @@ func analogRead(config msgpack.EncodedJSON) {
 		rewriteChargeUnits(ch)
 		rewriteStrainValues(ch)
 		collapseCJC(ch)
+		legacy.RenameKey(ch, "use_excit_for_scaling", "scaled_by_excitation")
 	})
 }
 

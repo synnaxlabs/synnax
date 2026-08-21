@@ -349,8 +349,8 @@ const InitialAngleField = Form.buildNumericField({
   inputProps: {},
 });
 
-const ZIndexEnableField: FC<{ path: string; grow?: boolean }> = ({ path }) => (
-  <Form.SwitchField path={`${path}.zIndexEnable`} label="Z index enable" />
+const ZIndexEnabledField: FC<{ path: string; grow?: boolean }> = ({ path }) => (
+  <Form.SwitchField path={`${path}.zIndexEnabled`} label="Z index enable" />
 );
 
 const ZIndexValField: FC<{ path: string; grow?: boolean; disabled?: boolean }> = ({
@@ -441,10 +441,10 @@ const useMeasMethodVisibility = (prefix: string) => {
 };
 
 const useZIndexFieldsDisabled = (prefix: string) => {
-  const zIndexEnable = Form.useFieldValue<boolean>(`${prefix}.zIndexEnable`, {
+  const zIndexEnabled = Form.useFieldValue<boolean>(`${prefix}.zIndexEnabled`, {
     optional: true,
   });
-  return !zIndexEnable;
+  return !zIndexEnabled;
 };
 
 const CHANNEL_FORMS: Record<CIChannelType, FC<FormProps>> = {
@@ -611,7 +611,7 @@ const CHANNEL_FORMS: Record<CIChannelType, FC<FormProps>> = {
         </Flex.Box>
         <Divider.Divider x padded="bottom" />
         <Flex.Box x>
-          <ZIndexEnableField path={prefix} grow />
+          <ZIndexEnabledField path={prefix} grow />
           <ZIndexValField path={prefix} grow disabled={zIndexFieldsDisabled} />
           <ZIndexPhaseField path={prefix} grow disabled={zIndexFieldsDisabled} />
           <TerminalZField path={prefix} grow disabled={zIndexFieldsDisabled} />
@@ -638,7 +638,7 @@ const CHANNEL_FORMS: Record<CIChannelType, FC<FormProps>> = {
         </Flex.Box>
         <Divider.Divider x padded="bottom" />
         <Flex.Box x>
-          <ZIndexEnableField path={prefix} grow />
+          <ZIndexEnabledField path={prefix} grow />
           <ZIndexValField path={prefix} grow disabled={zIndexFieldsDisabled} />
           <ZIndexPhaseField path={prefix} grow disabled={zIndexFieldsDisabled} />
           <TerminalZField path={prefix} grow disabled={zIndexFieldsDisabled} />

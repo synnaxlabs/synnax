@@ -44,10 +44,10 @@ BaseChannel struct {
 }
 
 ReadChannel struct extends BaseChannel {
-    channel      channel.Key = 0 {
+    channel  channel.Key = 0 {
         @doc value "is the Synnax channel that samples are written to."
     }
-    use_as_index bool = false {
+    is_index bool = false {
         @doc value "is true when the channel's Synnax channel is the task's index."
     }
 

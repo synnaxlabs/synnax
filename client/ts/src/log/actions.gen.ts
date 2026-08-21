@@ -169,20 +169,22 @@ export type SetTimestampPrecisionPayload = z.infer<
   typeof setTimestampPrecisionPayloadZ
 >;
 
-/** SetHideChannelNames controls whether channel names are hidden. */
-export const setHideChannelNamesPayloadZ = z.object({
-  hideChannelNames: z.boolean(),
+/** SetChannelNamesHidden sets whether channel names are hidden. */
+export const setChannelNamesHiddenPayloadZ = z.object({
+  channelNamesHidden: z.boolean(),
 });
 
-export type SetHideChannelNamesPayload = z.infer<typeof setHideChannelNamesPayloadZ>;
+export type SetChannelNamesHiddenPayload = z.infer<
+  typeof setChannelNamesHiddenPayloadZ
+>;
 
-/** SetHideReceiptTimestamp controls whether the receipt timestamp column is hidden. */
-export const setHideReceiptTimestampPayloadZ = z.object({
-  hideReceiptTimestamp: z.boolean(),
+/** SetReceiptTimestampHidden sets whether the receipt timestamp column is hidden. */
+export const setReceiptTimestampHiddenPayloadZ = z.object({
+  receiptTimestampHidden: z.boolean(),
 });
 
-export type SetHideReceiptTimestampPayload = z.infer<
-  typeof setHideReceiptTimestampPayloadZ
+export type SetReceiptTimestampHiddenPayload = z.infer<
+  typeof setReceiptTimestampHiddenPayloadZ
 >;
 
 export const actionZ = z.discriminatedUnion("type", [
@@ -225,12 +227,12 @@ export const actionZ = z.discriminatedUnion("type", [
     setTimestampPrecision: setTimestampPrecisionPayloadZ,
   }),
   z.object({
-    type: z.literal("set_hide_channel_names"),
-    setHideChannelNames: setHideChannelNamesPayloadZ,
+    type: z.literal("set_channel_names_hidden"),
+    setChannelNamesHidden: setChannelNamesHiddenPayloadZ,
   }),
   z.object({
-    type: z.literal("set_hide_receipt_timestamp"),
-    setHideReceiptTimestamp: setHideReceiptTimestampPayloadZ,
+    type: z.literal("set_receipt_timestamp_hidden"),
+    setReceiptTimestampHidden: setReceiptTimestampHiddenPayloadZ,
   }),
 ]);
 
@@ -352,21 +354,21 @@ export const setTimestampPrecision = (
   }),
 });
 
-export const setHideChannelNames = (
-  payload: z.input<typeof setHideChannelNamesPayloadZ>,
+export const setChannelNamesHidden = (
+  payload: z.input<typeof setChannelNamesHiddenPayloadZ>,
 ): Action => ({
-  type: "set_hide_channel_names",
-  setHideChannelNames: zod.parse(setHideChannelNamesPayloadZ, payload, {
-    label: "log set_hide_channel_names action payload",
+  type: "set_channel_names_hidden",
+  setChannelNamesHidden: zod.parse(setChannelNamesHiddenPayloadZ, payload, {
+    label: "log set_channel_names_hidden action payload",
   }),
 });
 
-export const setHideReceiptTimestamp = (
-  payload: z.input<typeof setHideReceiptTimestampPayloadZ>,
+export const setReceiptTimestampHidden = (
+  payload: z.input<typeof setReceiptTimestampHiddenPayloadZ>,
 ): Action => ({
-  type: "set_hide_receipt_timestamp",
-  setHideReceiptTimestamp: zod.parse(setHideReceiptTimestampPayloadZ, payload, {
-    label: "log set_hide_receipt_timestamp action payload",
+  type: "set_receipt_timestamp_hidden",
+  setReceiptTimestampHidden: zod.parse(setReceiptTimestampHiddenPayloadZ, payload, {
+    label: "log set_receipt_timestamp_hidden action payload",
   }),
 });
 
@@ -413,13 +415,13 @@ export interface Handlers {
     state: Draft<Log>,
     payload: SetTimestampPrecisionPayload,
   ) => HandlerResult;
-  setHideChannelNames: (
+  setChannelNamesHidden: (
     state: Draft<Log>,
-    payload: SetHideChannelNamesPayload,
+    payload: SetChannelNamesHiddenPayload,
   ) => HandlerResult;
-  setHideReceiptTimestamp: (
+  setReceiptTimestampHidden: (
     state: Draft<Log>,
-    payload: SetHideReceiptTimestampPayload,
+    payload: SetReceiptTimestampHiddenPayload,
   ) => HandlerResult;
 }
 
@@ -457,10 +459,13 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.swapChannel(state, action.swapChannel);
       case "set_timestamp_precision":
         return handlers.setTimestampPrecision(state, action.setTimestampPrecision);
-      case "set_hide_channel_names":
-        return handlers.setHideChannelNames(state, action.setHideChannelNames);
-      case "set_hide_receipt_timestamp":
-        return handlers.setHideReceiptTimestamp(state, action.setHideReceiptTimestamp);
+      case "set_channel_names_hidden":
+        return handlers.setChannelNamesHidden(state, action.setChannelNamesHidden);
+      case "set_receipt_timestamp_hidden":
+        return handlers.setReceiptTimestampHidden(
+          state,
+          action.setReceiptTimestampHidden,
+        );
     }
   });
 

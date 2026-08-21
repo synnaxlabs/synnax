@@ -66,7 +66,7 @@ export const useModal = Modals.create<ModalParams>(
           previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
           handles: [],
           variant: "static",
-          scaleStroke: false,
+          strokeScaled: false,
           states: [{ key: "base", name: "Base", regions: [] }],
           scale: 1,
         },
@@ -235,7 +235,7 @@ export const useModal = Modals.create<ModalParams>(
                         )}
                       </Form.Field>
                       <Form.SwitchField
-                        path="data.scaleStroke"
+                        path="data.strokeScaled"
                         label="Scale stroke"
                         align="start"
                       />

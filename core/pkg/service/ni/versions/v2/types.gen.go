@@ -1869,9 +1869,9 @@ type AIAccel4WireDCVoltageChannel struct {
 	Units AccelUnits `json:"units" msgpack:"units"`
 	// SensitivityUnits are the units of the accelerometer sensitivity.
 	SensitivityUnits AccelSensitivityUnits `json:"sensitivity_units" msgpack:"sensitivity_units"`
-	// UseExcitForScaling is true when the excitation voltage is used to scale the
+	// ScaledByExcitation is true when the excitation voltage is used to scale the
 	// reading.
-	UseExcitForScaling bool `json:"use_excit_for_scaling" msgpack:"use_excit_for_scaling"`
+	ScaledByExcitation bool `json:"scaled_by_excitation" msgpack:"scaled_by_excitation"`
 }
 
 func (AIAccel4WireDCVoltageChannel) isAIChannelVariant() {}
@@ -2284,9 +2284,9 @@ type AIVoltageWithExcitChannel struct {
 	CustomScale
 	// BridgeConfig selects the physical bridge wiring.
 	BridgeConfig BridgeConfig `json:"bridge_config" msgpack:"bridge_config"`
-	// UseExcitForScaling is true when the excitation voltage is used to scale the
+	// ScaledByExcitation is true when the excitation voltage is used to scale the
 	// reading.
-	UseExcitForScaling bool `json:"use_excit_for_scaling" msgpack:"use_excit_for_scaling"`
+	ScaledByExcitation bool `json:"scaled_by_excitation" msgpack:"scaled_by_excitation"`
 }
 
 func (AIVoltageWithExcitChannel) isAIChannelVariant() {}
@@ -2990,8 +2990,8 @@ func (z ZIndexPhase) IsValid() bool {
 
 // ZIndex configures the Z-index reset behavior of an encoder.
 type ZIndex struct {
-	// ZIndexEnable is true when the encoder's Z index resets the count.
-	ZIndexEnable bool `json:"z_index_enable" msgpack:"z_index_enable"`
+	// ZIndexEnabled is true when the encoder's Z index resets the count.
+	ZIndexEnabled bool `json:"z_index_enabled" msgpack:"z_index_enabled"`
 	// ZIndexVal is the value the measurement resets to when the Z index is active.
 	ZIndexVal float64 `json:"z_index_val" msgpack:"z_index_val"`
 	// ZIndexPhase selects the A/B states at which the Z index is active.

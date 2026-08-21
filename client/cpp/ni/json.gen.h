@@ -239,7 +239,7 @@ inline x::json::json BaseAIChannel::to_json() const {
 
 inline ZIndex ZIndex::parse(x::json::Parser parser) {
     return ZIndex{
-        .z_index_enable = parser.field<bool>("z_index_enable", false),
+        .z_index_enabled = parser.field<bool>("z_index_enabled", false),
         .z_index_val = parser.field<double>("z_index_val", 0),
         .z_index_phase = parser.field<std::string>("z_index_phase", "AHighBHigh"),
         .terminal_z = parser.field<std::string>("terminal_z", ""),
@@ -248,7 +248,7 @@ inline ZIndex ZIndex::parse(x::json::Parser parser) {
 
 inline x::json::json ZIndex::to_json() const {
     x::json::json j;
-    j["z_index_enable"] = this->z_index_enable;
+    j["z_index_enabled"] = this->z_index_enabled;
     j["z_index_val"] = this->z_index_val;
     j["z_index_phase"] = this->z_index_phase;
     j["terminal_z"] = this->terminal_z;
@@ -1277,7 +1277,7 @@ AIAccel4WireDCVoltageChannel::parse(x::json::Parser parser) {
         "sensitivity_units",
         "mVoltsPerG"
     );
-    result.use_excit_for_scaling = parser.field<bool>("use_excit_for_scaling", false);
+    result.scaled_by_excitation = parser.field<bool>("scaled_by_excitation", false);
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -1298,7 +1298,7 @@ inline x::json::json AIAccel4WireDCVoltageChannel::to_json() const {
         j[k] = v;
     j["units"] = this->units;
     j["sensitivity_units"] = this->sensitivity_units;
-    j["use_excit_for_scaling"] = this->use_excit_for_scaling;
+    j["scaled_by_excitation"] = this->scaled_by_excitation;
     j["type"] = this->type;
     return j;
 }
@@ -1626,7 +1626,7 @@ AIVoltageWithExcitChannel::parse(x::json::Parser parser) {
     static_cast<VoltageExcitation &>(result) = VoltageExcitation::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
     result.bridge_config = parser.field<std::string>("bridge_config", "FullBridge");
-    result.use_excit_for_scaling = parser.field<bool>("use_excit_for_scaling", false);
+    result.scaled_by_excitation = parser.field<bool>("scaled_by_excitation", false);
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -1644,7 +1644,7 @@ inline x::json::json AIVoltageWithExcitChannel::to_json() const {
     for (auto &[k, v]: CustomScale::to_json().items())
         j[k] = v;
     j["bridge_config"] = this->bridge_config;
-    j["use_excit_for_scaling"] = this->use_excit_for_scaling;
+    j["scaled_by_excitation"] = this->scaled_by_excitation;
     j["type"] = this->type;
     return j;
 }

@@ -11,7 +11,7 @@
       "name": "fixture_opc_array_flow",
       "node_id": "NS=3;S=fixture.array.flow",
       "node_name": "FixtureFlowNode",
-      "use_as_index": false
+      "is_index": false
     }
   ],
   "data_saving_disabled": false,

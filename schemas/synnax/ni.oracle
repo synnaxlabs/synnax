@@ -665,13 +665,13 @@ AIChannel union on type extends BaseAIChannel {
         @doc value "reads velocity from an IEPE sensor."
     }
     ai_accel_4_wire_dc_voltage extends MinMaxVal, Terminal, Sensitivity, VoltageExcitation, CustomScale {
-        units                 AccelUnits = g {
+        units                AccelUnits = g {
             @doc value "are the units of the acceleration measurement."
         }
-        sensitivity_units     AccelSensitivityUnits = m_volts_per_g {
+        sensitivity_units    AccelSensitivityUnits = m_volts_per_g {
             @doc value "are the units of the accelerometer sensitivity."
         }
-        use_excit_for_scaling bool = false {
+        scaled_by_excitation bool = false {
             @doc value """
                 is true when the excitation voltage is used to scale the reading.
             """
@@ -785,10 +785,10 @@ AIChannel union on type extends BaseAIChannel {
         @doc value "reads RMS voltage."
     }
     ai_voltage_with_excit extends MinMaxVal, Terminal, VoltageExcitation, CustomScale {
-        bridge_config         BridgeConfig = full_bridge {
+        bridge_config        BridgeConfig = full_bridge {
             @doc value "selects the physical bridge wiring."
         }
-        use_excit_for_scaling bool = false {
+        scaled_by_excitation bool = false {
             @doc value """
                 is true when the excitation voltage is used to scale the reading.
             """
@@ -894,16 +894,16 @@ ZIndexPhase enum {
 }
 
 ZIndex struct {
-    z_index_enable bool = false {
+    z_index_enabled bool = false {
         @doc value "is true when the encoder's Z index resets the count."
     }
-    z_index_val    float64 = 0 {
+    z_index_val     float64 = 0 {
         @doc value "is the value the measurement resets to when the Z index is active."
     }
-    z_index_phase  ZIndexPhase = a_high_b_high {
+    z_index_phase   ZIndexPhase = a_high_b_high {
         @doc value "selects the A/B states at which the Z index is active."
     }
-    terminal_z     string = "" {
+    terminal_z      string = "" {
         @doc value "is the terminal the Z index signal is wired to."
     }
 

@@ -205,22 +205,22 @@ Measures angular velocity (rotational speed) using a quadrature encoder.
 
 Tracks linear position using a quadrature encoder.
 
-| Parameter        | Type    | Required | Default      | Description                                        |
-| ---------------- | ------- | -------- | ------------ | -------------------------------------------------- |
-| `channel`        | number  | Yes      | -            | Synnax channel key                                 |
-| `device`         | string  | Yes      | -            | Device identifier                                  |
-| `port`           | number  | Yes      | -            | Counter port (0-indexed)                           |
-| `units`          | enum    | No       | `Meters`     | `Meters`, `Inches`                                 |
-| `decoding_type`  | enum    | No       | `X4`         | `X1`, `X2`, `X4`, `TwoPulse`                       |
-| `dist_per_pulse` | number  | No       | `0.000001`   | Distance traveled per encoder pulse                |
-| `initial_pos`    | number  | No       | `0.0`        | Starting position                                  |
-| `terminalA`      | string  | No       | -            | PFI terminal for encoder A signal                  |
-| `terminalB`      | string  | No       | -            | PFI terminal for encoder B signal                  |
-| `z_index_enable` | boolean | No       | `false`      | Enable Z-index signal                              |
-| `z_index_val`    | number  | No       | `0`          | Position value when Z-index pulse occurs           |
-| `z_index_phase`  | enum    | No       | `AHighBHigh` | `AHighBHigh`, `AHighBLow`, `ALowBHigh`, `ALowBLow` |
-| `terminalZ`      | string  | No       | -            | PFI terminal for Z-index signal                    |
-| `custom_scale`   | object  | No       | -            | Custom scaling                                     |
+| Parameter         | Type    | Required | Default      | Description                                        |
+| ----------------- | ------- | -------- | ------------ | -------------------------------------------------- |
+| `channel`         | number  | Yes      | -            | Synnax channel key                                 |
+| `device`          | string  | Yes      | -            | Device identifier                                  |
+| `port`            | number  | Yes      | -            | Counter port (0-indexed)                           |
+| `units`           | enum    | No       | `Meters`     | `Meters`, `Inches`                                 |
+| `decoding_type`   | enum    | No       | `X4`         | `X1`, `X2`, `X4`, `TwoPulse`                       |
+| `dist_per_pulse`  | number  | No       | `0.000001`   | Distance traveled per encoder pulse                |
+| `initial_pos`     | number  | No       | `0.0`        | Starting position                                  |
+| `terminalA`       | string  | No       | -            | PFI terminal for encoder A signal                  |
+| `terminalB`       | string  | No       | -            | PFI terminal for encoder B signal                  |
+| `z_index_enabled` | boolean | No       | `false`      | Enable Z-index signal                              |
+| `z_index_val`     | number  | No       | `0`          | Position value when Z-index pulse occurs           |
+| `z_index_phase`   | enum    | No       | `AHighBHigh` | `AHighBHigh`, `AHighBLow`, `ALowBHigh`, `ALowBLow` |
+| `terminalZ`       | string  | No       | -            | PFI terminal for Z-index signal                    |
+| `custom_scale`    | object  | No       | -            | Custom scaling                                     |
 
 </ChannelType>
 
@@ -229,22 +229,22 @@ Tracks linear position using a quadrature encoder.
 
 Tracks angular position (rotation angle) using a quadrature encoder.
 
-| Parameter        | Type    | Required | Default      | Description                                        |
-| ---------------- | ------- | -------- | ------------ | -------------------------------------------------- |
-| `channel`        | number  | Yes      | -            | Synnax channel key                                 |
-| `device`         | string  | Yes      | -            | Device identifier                                  |
-| `port`           | number  | Yes      | -            | Counter port (0-indexed)                           |
-| `units`          | enum    | No       | `Degrees`    | `Degrees`, `Radians`                               |
-| `decoding_type`  | enum    | No       | `X4`         | `X1`, `X2`, `X4`, `TwoPulse`                       |
-| `pulses_per_rev` | number  | No       | `24`         | Number of encoder pulses per revolution            |
-| `initial_angle`  | number  | No       | `0.0`        | Starting angle                                     |
-| `terminalA`      | string  | No       | -            | PFI terminal for encoder A signal                  |
-| `terminalB`      | string  | No       | -            | PFI terminal for encoder B signal                  |
-| `z_index_enable` | boolean | No       | `false`      | Enable Z-index signal                              |
-| `z_index_val`    | number  | No       | `0`          | Angle value when Z-index pulse occurs              |
-| `z_index_phase`  | enum    | No       | `AHighBHigh` | `AHighBHigh`, `AHighBLow`, `ALowBHigh`, `ALowBLow` |
-| `terminalZ`      | string  | No       | -            | PFI terminal for Z-index signal                    |
-| `custom_scale`   | object  | No       | -            | Custom scaling                                     |
+| Parameter         | Type    | Required | Default      | Description                                        |
+| ----------------- | ------- | -------- | ------------ | -------------------------------------------------- |
+| `channel`         | number  | Yes      | -            | Synnax channel key                                 |
+| `device`          | string  | Yes      | -            | Device identifier                                  |
+| `port`            | number  | Yes      | -            | Counter port (0-indexed)                           |
+| `units`           | enum    | No       | `Degrees`    | `Degrees`, `Radians`                               |
+| `decoding_type`   | enum    | No       | `X4`         | `X1`, `X2`, `X4`, `TwoPulse`                       |
+| `pulses_per_rev`  | number  | No       | `24`         | Number of encoder pulses per revolution            |
+| `initial_angle`   | number  | No       | `0.0`        | Starting angle                                     |
+| `terminalA`       | string  | No       | -            | PFI terminal for encoder A signal                  |
+| `terminalB`       | string  | No       | -            | PFI terminal for encoder B signal                  |
+| `z_index_enabled` | boolean | No       | `false`      | Enable Z-index signal                              |
+| `z_index_val`     | number  | No       | `0`          | Angle value when Z-index pulse occurs              |
+| `z_index_phase`   | enum    | No       | `AHighBHigh` | `AHighBHigh`, `AHighBLow`, `ALowBHigh`, `ALowBLow` |
+| `terminalZ`       | string  | No       | -            | PFI terminal for Z-index signal                    |
+| `custom_scale`    | object  | No       | -            | Custom scaling                                     |
 
 </ChannelType>
 
@@ -366,7 +366,7 @@ task = ni.CounterReadTask(
             decoding_type="X4",
             pulses_per_rev=1024,
             initial_angle=0.0,
-            z_index_enable=False,
+            z_index_enabled=False,
         ),
     ],
 )
@@ -409,7 +409,7 @@ task.config.channels[1].terminal = "PFI1"
 # Update angular position channel configuration
 task.config.channels[2].pulses_per_rev = 2048
 task.config.channels[2].initial_angle = 90.0
-task.config.channels[2].z_index_enable = True
+task.config.channels[2].z_index_enabled = True
 task.config.channels[2].terminalA = "PFI7"
 task.config.channels[2].terminalB = "PFI8"
 task.config.channels[2].terminalZ = "PFI9"
@@ -502,7 +502,7 @@ const task = await client.tasks.create({
         decoding_type: "X4",
         pulses_per_rev: 1024,
         initial_angle: 0.0,
-        z_index_enable: false,
+        z_index_enabled: false,
       },
     ],
   }),
@@ -557,7 +557,7 @@ config.channels[1].terminal = "PFI1";
 // Update angular position channel configuration
 config.channels[2].pulses_per_rev = 2048;
 config.channels[2].initial_angle = 90.0;
-config.channels[2].z_index_enable = true;
+config.channels[2].z_index_enabled = true;
 config.channels[2].terminalA = "PFI7";
 config.channels[2].terminalB = "PFI8";
 config.channels[2].terminalZ = "PFI9";

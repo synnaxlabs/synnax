@@ -35,14 +35,14 @@ For task lifecycle management, see the
 Each alert maps a Synnax status key to a PagerDuty event. At least one alert must be
 enabled.
 
-| Parameter                 | Type    | Required | Default | Description                                                           |
-| ------------------------- | ------- | -------- | ------- | --------------------------------------------------------------------- |
-| `status`                  | string  | Yes      | -       | The Synnax status key to watch                                        |
-| `enabled`                 | boolean | No       | `true`  | Whether this alert is active                                          |
-| `treat_error_as_critical` | boolean | No       | `false` | Map error variant to `critical` PagerDuty severity instead of `error` |
-| `component`               | string  | No       | `""`    | Component of the source machine (e.g., `"engine-1"`)                  |
-| `group`                   | string  | No       | `""`    | Logical grouping of components (e.g., `"engines"`)                    |
-| `class`                   | string  | No       | `""`    | Class/type of the event (e.g., `"engine-failure"`)                    |
+| Parameter         | Type    | Required | Default | Description                                                           |
+| ----------------- | ------- | -------- | ------- | --------------------------------------------------------------------- |
+| `status`          | string  | Yes      | -       | The Synnax status key to watch                                        |
+| `enabled`         | boolean | No       | `true`  | Whether this alert is active                                          |
+| `errors_critical` | boolean | No       | `false` | Map error variant to `critical` PagerDuty severity instead of `error` |
+| `component`       | string  | No       | `""`    | Component of the source machine (e.g., `"engine-1"`)                  |
+| `group`           | string  | No       | `""`    | Logical grouping of components (e.g., `"engines"`)                    |
+| `class`           | string  | No       | `""`    | Class/type of the event (e.g., `"engine-failure"`)                    |
 
 <Divider.Divider x />
 
@@ -84,7 +84,7 @@ alert_task = sy.pagerduty.AlertTask(
         sy.pagerduty.AlertConfig(
             status=STATUS_KEY,
             enabled=True,
-            treat_error_as_critical=True,
+            errors_critical=True,
             component="engine-1",
             group="engines",
         ),

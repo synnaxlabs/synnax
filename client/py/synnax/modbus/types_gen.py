@@ -27,13 +27,13 @@ class RegisterValue(BaseModel):
 
     Attributes:
         data_type: Is the data type the register contents are interpreted as.
-        swap_bytes: Is true when the byte order within each 16-bit word is swapped.
-        swap_words: Is true when the word order of multi-register values is swapped.
+        bytes_swapped: Is true when the byte order within each 16-bit word is swapped.
+        words_swapped: Is true when the word order of multi-register values is swapped.
     """
 
     data_type: telem.DataType = telem.DataType("uint8")
-    swap_bytes: bool = False
-    swap_words: bool = False
+    bytes_swapped: bool = False
+    words_swapped: bool = False
 
 
 class BaseReadChannel(BaseModel):

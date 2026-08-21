@@ -60,9 +60,8 @@ struct ScanConfig : public ::synnax::task::ScanConfig {
 struct ReadChannel : public BaseChannel {
     /// @brief channel is the Synnax channel that samples are written to.
     ::synnax::channel::Key channel = ::synnax::channel::Key(0);
-    /// @brief use_as_index is true when the channel's Synnax channel is the task's
-    /// index.
-    bool use_as_index = false;
+    /// @brief is_index is true when the channel's Synnax channel is the task's index.
+    bool is_index = false;
 
     static ReadChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

@@ -38,7 +38,7 @@ export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
 
 export const readChannelZ = baseChannelZ.extend({
   channel: channel.keyZ.default(0),
-  useAsIndex: z.boolean().default(false),
+  isIndex: z.boolean().default(false),
 });
 export interface ReadChannel extends z.infer<typeof readChannelZ> {}
 

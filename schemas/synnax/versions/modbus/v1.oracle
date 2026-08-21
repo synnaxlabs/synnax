@@ -13,13 +13,13 @@ import "schemas/synnax/versions/task/v2"
 import "schemas/x/versions/telem/v0"
 
 RegisterValue struct {
-    data_type  telem.DataType = "uint8" {
+    data_type     telem.DataType = "uint8" {
         @doc value "is the data type the register contents are interpreted as."
     }
-    swap_bytes bool = false {
+    bytes_swapped bool = false {
         @doc value "is true when the byte order within each 16-bit word is swapped."
     }
-    swap_words bool = false {
+    words_swapped bool = false {
         @doc value "is true when the word order of multi-register values is swapped."
     }
 

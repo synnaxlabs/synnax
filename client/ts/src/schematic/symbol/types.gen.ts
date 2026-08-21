@@ -75,8 +75,8 @@ export const specZ = z.object({
   handles: handleZ.array().default(() => []),
   /** scale is the symbol scale factor. */
   scale: z.number().default(1),
-  /** scaleStroke indicates whether stroke width scales with the symbol size. */
-  scaleStroke: z.boolean().default(false),
+  /** strokeScaled is true when stroke width scales with the symbol size. */
+  strokeScaled: z.boolean().default(false),
   /**
    * previewViewport is an optional viewport configuration for symbol preview rendering.
    */

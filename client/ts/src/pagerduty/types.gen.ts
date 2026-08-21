@@ -21,10 +21,8 @@ export const alertZ = z.object({
   key: z.string().default(id.create),
   /** status is the key of the Synnax status the alert watches. */
   status: status.keyZ.default(""),
-  /**
-   * treatErrorAsCritical maps the error variant to PagerDuty critical instead of error.
-   */
-  treatErrorAsCritical: z.boolean().default(false),
+  /** errorsCritical is true when the error variant maps to PagerDuty critical. */
+  errorsCritical: z.boolean().default(false),
   /** component is the PagerDuty component attached to triggered events. */
   component: z.string().default(""),
   /** group is the PagerDuty group attached to triggered events. */

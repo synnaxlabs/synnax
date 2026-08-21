@@ -328,7 +328,7 @@ class NICounterReadForms(NIRackCase):
             decoding_type="X4",
             dist_per_pulse=0.001,
             initial_pos=0,
-            z_index_enable=True,
+            z_index_enabled=True,
             z_index_val=0,
             z_index_phase="A high B high",
         )
@@ -340,7 +340,7 @@ class NICounterReadForms(NIRackCase):
             decoding_type="X2",
             dist_per_pulse=0.01,
             initial_pos=5,
-            z_index_enable=False,
+            z_index_enabled=False,
         )
         ni_ci.add_channel(
             name="LinearPosition_3",
@@ -349,7 +349,7 @@ class NICounterReadForms(NIRackCase):
             units="Ticks",
             decoding_type="X1",
             dist_per_pulse=0.005,
-            z_index_enable=True,
+            z_index_enabled=True,
             z_index_val=10,
             z_index_phase="A low B low",
         )
@@ -369,7 +369,7 @@ class NICounterReadForms(NIRackCase):
             decoding_type="X4",
             pulses_per_rev=24,
             initial_angle=0,
-            z_index_enable=True,
+            z_index_enabled=True,
             z_index_val=0,
             z_index_phase="A high B high",
         )
@@ -381,7 +381,7 @@ class NICounterReadForms(NIRackCase):
             decoding_type="X2",
             pulses_per_rev=100,
             initial_angle=1.57,
-            z_index_enable=False,
+            z_index_enabled=False,
         )
         ni_ci.add_channel(
             name="AngularPosition_3",
@@ -390,7 +390,7 @@ class NICounterReadForms(NIRackCase):
             units="Ticks",
             decoding_type="Two pulse",
             pulses_per_rev=360,
-            z_index_enable=True,
+            z_index_enabled=True,
             z_index_val=90,
             z_index_phase="A high B low",
         )

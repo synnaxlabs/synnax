@@ -29,7 +29,7 @@ TEST(TaskConfigParsing, DefaultLoopConfig) {
     EXPECT_EQ(task_cfg.loop.mode, ::arc::runtime::loop::ExecutionMode::AUTO);
     EXPECT_EQ(task_cfg.loop.rt_priority, ::arc::runtime::loop::DEFAULT_RT_PRIORITY);
     EXPECT_EQ(task_cfg.loop.cpu_affinity, ::arc::runtime::loop::CPU_AFFINITY_AUTO);
-    EXPECT_FALSE(task_cfg.loop.lock_memory);
+    EXPECT_FALSE(task_cfg.loop.memory_locked);
 }
 
 TEST(TaskConfigParsing, ExplicitExecutionMode) {
@@ -108,15 +108,15 @@ TEST(TaskConfigParsing, CpuAffinityNone) {
     EXPECT_EQ(task_cfg.loop.cpu_affinity, ::arc::runtime::loop::CPU_AFFINITY_NONE);
 }
 
-TEST(TaskConfigParsing, LockMemory) {
+TEST(TaskConfigParsing, MemoryLocked) {
     nlohmann::json cfg{
         {"arc_key", "12345678-1234-5678-1234-567812345678"},
-        {"lock_memory", true}
+        {"memory_locked", true}
     };
     auto parser = x::json::Parser(nlohmann::to_string(cfg));
     arc::TaskConfig task_cfg(parser);
     ASSERT_TRUE(parser.ok());
-    EXPECT_TRUE(task_cfg.loop.lock_memory);
+    EXPECT_TRUE(task_cfg.loop.memory_locked);
 }
 
 TEST(TaskConfigParsing, FullLoopConfig) {
@@ -125,7 +125,7 @@ TEST(TaskConfigParsing, FullLoopConfig) {
         {"execution_mode", "RT_EVENT"},
         {"rt_priority", 80},
         {"cpu_affinity", 7},
-        {"lock_memory", true}
+        {"memory_locked", true}
     };
     auto parser = x::json::Parser(nlohmann::to_string(cfg));
     arc::TaskConfig task_cfg(parser);
@@ -133,7 +133,7 @@ TEST(TaskConfigParsing, FullLoopConfig) {
     EXPECT_EQ(task_cfg.loop.mode, ::arc::runtime::loop::ExecutionMode::RT_EVENT);
     EXPECT_EQ(task_cfg.loop.rt_priority, 80);
     EXPECT_EQ(task_cfg.loop.cpu_affinity, 7);
-    EXPECT_TRUE(task_cfg.loop.lock_memory);
+    EXPECT_TRUE(task_cfg.loop.memory_locked);
 }
 
 TEST(ArcTests, testCalcDoubling) {

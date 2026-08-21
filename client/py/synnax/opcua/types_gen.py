@@ -56,11 +56,11 @@ class ReadChannel(BaseChannel):
 
     Attributes:
         channel: Is the Synnax channel that samples are written to.
-        use_as_index: Is true when the channel's Synnax channel is the task's index.
+        is_index: Is true when the channel's Synnax channel is the task's index.
     """
 
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    use_as_index: bool = False
+    is_index: bool = False
 
     def __hash__(self) -> int:
         return hash(self.key)

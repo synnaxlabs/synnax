@@ -362,8 +362,8 @@ export interface BaseAIChannel extends z.infer<typeof baseAIChannelZ> {}
 
 /** ZIndex configures the Z-index reset behavior of an encoder. */
 export const zIndexZ = z.object({
-  /** zIndexEnable is true when the encoder's Z index resets the count. */
-  zIndexEnable: z.boolean().default(false),
+  /** zIndexEnabled is true when the encoder's Z index resets the count. */
+  zIndexEnabled: z.boolean().default(false),
   /** zIndexVal is the value the measurement resets to when the Z index is active. */
   zIndexVal: z.number().default(0),
   /** zIndexPhase selects the A/B states at which the Z index is active. */
@@ -928,10 +928,10 @@ export const aiAccel4WireDCVoltageChannelZ = baseAIChannelZ
     /** sensitivityUnits are the units of the accelerometer sensitivity. */
     sensitivityUnits: accelSensitivityUnitsZ.default("mVoltsPerG"),
     /**
-     * useExcitForScaling is true when the excitation voltage is used to scale the
+     * scaledByExcitation is true when the excitation voltage is used to scale the
      * reading.
      */
-    useExcitForScaling: z.boolean().default(false),
+    scaledByExcitation: z.boolean().default(false),
   });
 export interface AIAccel4WireDCVoltageChannel extends z.infer<
   typeof aiAccel4WireDCVoltageChannelZ
@@ -1116,10 +1116,10 @@ export const aiVoltageWithExcitChannelZ = baseAIChannelZ
     /** bridgeConfig selects the physical bridge wiring. */
     bridgeConfig: bridgeConfigZ.default("FullBridge"),
     /**
-     * useExcitForScaling is true when the excitation voltage is used to scale the
+     * scaledByExcitation is true when the excitation voltage is used to scale the
      * reading.
      */
-    useExcitForScaling: z.boolean().default(false),
+    scaledByExcitation: z.boolean().default(false),
   });
 export interface AIVoltageWithExcitChannel extends z.infer<
   typeof aiVoltageWithExcitChannelZ

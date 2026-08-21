@@ -127,6 +127,14 @@ var legacyRenames = map[string]string{
 	"state_key":   "state_channel",
 	// HTTP read spelled the timestamp encoding differently from its write side.
 	"timestamp_format": "time_format",
+	// These were named for the act the Driver performs; the schema stores the state.
+	"swap_bytes":              "bytes_swapped",
+	"swap_words":              "words_swapped",
+	"use_as_index":            "is_index",
+	"use_excit_for_scaling":   "scaled_by_excitation",
+	"z_index_enable":          "z_index_enabled",
+	"lock_memory":             "memory_locked",
+	"treat_error_as_critical": "errors_critical",
 }
 
 // legacyCollapsed maps a legacy key to the stored key its value folds into. The fold

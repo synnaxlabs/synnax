@@ -330,7 +330,7 @@ inline x::errors::Error apply(
     if (scale_err) return scale_err;
     const ExcitationConfig excitation_config = ExcitationConfig(
         ch,
-        ch.use_excit_for_scaling
+        ch.scaled_by_excitation
     );
     const auto max_val = ch.max_val;
     const auto min_val = ch.min_val;
@@ -1303,7 +1303,7 @@ inline x::errors::Error apply(
     auto [scale, scale_err] = make_scale(ch.custom_scale);
     if (scale_err) return scale_err;
     const auto bridge_config = parse_bridge_config(ch.bridge_config);
-    const ExcitationConfig excitation_config(ch, ch.use_excit_for_scaling);
+    const ExcitationConfig excitation_config(ch, ch.scaled_by_excitation);
     const auto max_val = ch.max_val;
     const auto min_val = ch.min_val;
     const auto terminal_config = parse_terminal_config(ch.terminal_config);
@@ -1422,7 +1422,7 @@ inline x::errors::Error apply(
     auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
-    const auto z_index_enable = ch.z_index_enable;
+    const auto z_index_enable = ch.z_index_enabled;
     const auto z_index_phase = get_ci_z_index_phase(ch.z_index_phase);
     const auto z_index_val = ch.z_index_val;
     auto [key, key_err] = scale->apply(dmx);
@@ -1678,7 +1678,7 @@ inline x::errors::Error apply(
     auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
-    const auto z_index_enable = ch.z_index_enable;
+    const auto z_index_enable = ch.z_index_enabled;
     const auto z_index_phase = get_ci_z_index_phase(ch.z_index_phase);
     const auto z_index_val = ch.z_index_val;
     auto [key, key_err] = scale->apply(dmx);

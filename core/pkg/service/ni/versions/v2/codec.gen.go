@@ -380,7 +380,7 @@ func (aic AIChannel) EncodeOrc(w *orc.Writer) error {
 		}
 		w.String(string(v.Units))
 		w.String(string(v.SensitivityUnits))
-		w.Bool(v.UseExcitForScaling)
+		w.Bool(v.ScaledByExcitation)
 	case AIAccelChargeChannel:
 		w.String("ai_accel_charge")
 		if err := v.BaseAIChannel.EncodeOrc(w); err != nil {
@@ -579,7 +579,7 @@ func (aic AIChannel) EncodeOrc(w *orc.Writer) error {
 			return err
 		}
 		w.String(string(v.BridgeConfig))
-		w.Bool(v.UseExcitForScaling)
+		w.Bool(v.ScaledByExcitation)
 	default:
 		return errors.Newf("AIChannel: nil or unknown variant %T", aic.Variant)
 	}
@@ -1170,7 +1170,7 @@ func (aic *AIChannel) DecodeOrc(r *orc.Reader) error {
 			}
 			v.SensitivityUnits = AccelSensitivityUnits(rawV)
 		}
-		if v.UseExcitForScaling, err = r.Bool(); err != nil {
+		if v.ScaledByExcitation, err = r.Bool(); err != nil {
 			return err
 		}
 		aic.Variant = v
@@ -1480,7 +1480,7 @@ func (aic *AIChannel) DecodeOrc(r *orc.Reader) error {
 			}
 			v.BridgeConfig = BridgeConfig(rawV)
 		}
-		if v.UseExcitForScaling, err = r.Bool(); err != nil {
+		if v.ScaledByExcitation, err = r.Bool(); err != nil {
 			return err
 		}
 		aic.Variant = v
@@ -3381,7 +3381,7 @@ func (wc *WriteConfig) DecodeOrc(r *orc.Reader) error {
 
 // EncodeOrc writes the value to w in the Orc binary format.
 func (zi ZIndex) EncodeOrc(w *orc.Writer) error {
-	w.Bool(zi.ZIndexEnable)
+	w.Bool(zi.ZIndexEnabled)
 	w.Float64(float64(zi.ZIndexVal))
 	w.String(string(zi.ZIndexPhase))
 	w.String(zi.TerminalZ)
@@ -3391,7 +3391,7 @@ func (zi ZIndex) EncodeOrc(w *orc.Writer) error {
 // DecodeOrc reads the value from r in the Orc binary format.
 func (zi *ZIndex) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if zi.ZIndexEnable, err = r.Bool(); err != nil {
+	if zi.ZIndexEnabled, err = r.Bool(); err != nil {
 		return err
 	}
 	if zi.ZIndexVal, err = r.Float64(); err != nil {
