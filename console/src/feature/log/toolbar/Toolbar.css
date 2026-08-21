@@ -28,9 +28,6 @@
         .console-log__channel-row {
             padding: 0.25rem 3rem 0.25rem 1rem;
             min-height: unset;
-            cursor: default;
-
-            --pluto-hover-bg: transparent;
 
             .console-log__channel-select {
                 flex: 4;

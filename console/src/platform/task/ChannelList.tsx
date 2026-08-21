@@ -111,12 +111,7 @@ const ContextMenu = <C extends Channel>({
       {!isPreview && (
         <>
           <Menu.Divider />
-          {canRemove && (
-            <Menu.Item itemKey="remove" onClick={handleRemove}>
-              <Icon.Close />
-              Remove
-            </Menu.Item>
-          )}
+          {canRemove && <PlatformContextMenu.RemoveItem onClick={handleRemove} />}
           <Menu.Divider />
         </>
       )}

@@ -30,8 +30,6 @@ export interface ContextValue {
   acquire: () => void;
   release: () => void;
   status: control.Status;
-  /** True while the controller is barred from holding control. */
-  disabled: boolean;
 }
 
 const [Context, useContext] = context.create<ContextValue>({
@@ -41,7 +39,6 @@ const [Context, useContext] = context.create<ContextValue>({
     acquire: () => {},
     release: () => {},
     status: "released",
-    disabled: false,
   },
   displayName: "Control.Context",
 });
@@ -75,9 +72,8 @@ export const Controller = ({
       acquire: methods.acquire,
       release: methods.release,
       status: status ?? "released",
-      disabled,
     }),
-    [key, needsControlOf, methods.acquire, methods.release, status, disabled],
+    [key, needsControlOf, methods.acquire, methods.release, status],
   );
   return (
     <Context value={value}>

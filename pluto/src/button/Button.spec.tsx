@@ -225,6 +225,24 @@ describe("Button", () => {
       const c = render(<Button.Button preventClick>Hello</Button.Button>);
       expect(c.getByText("Hello").className).toContain("pluto-btn--prevent-click");
     });
+
+    it("should cancel the press default on the chassis itself", () => {
+      const c = render(
+        <Button.Button preventClick el="div">
+          Hello
+        </Button.Button>,
+      );
+      expect(fireEvent.mouseDown(c.getByText("Hello"))).toBe(false);
+    });
+
+    it("should leave the press default alone for a focusable descendant", () => {
+      const c = render(
+        <Button.Button preventClick el="div">
+          <input aria-label="alias" />
+        </Button.Button>,
+      );
+      expect(fireEvent.mouseDown(c.getByLabelText("alias"))).toBe(true);
+    });
   });
 
   describe("disabled", () => {
