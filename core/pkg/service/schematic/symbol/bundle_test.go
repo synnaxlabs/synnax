@@ -404,8 +404,8 @@ var _ = Describe("ImportGroup", func() {
 		It("Should import a group bundle a shipped Console wrote", func(
 			ctx SpecContext,
 		) {
-			// The manifest declares membership through a symbols list naming each
-			// file, and each file's name carries the symbol's key as a suffix.
+			// The manifest declares membership through a symbols list naming each file,
+			// and each file's name carries the symbol's key as a suffix.
 			g := importGroup(
 				ctx, loadBundle("versions/testdata/import_group_console_v1"),
 			)
