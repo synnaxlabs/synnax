@@ -83,8 +83,8 @@ var _ = Describe("DecodeImExEnvelope", func() {
 			s := decode(ctx, path)
 			Expect(s.Nodes).To(HaveLen(nodes))
 			Expect(s.Snapshot).To(BeFalse())
-			// The Console's per-node render state — id, type, selected, measured —
-			// does not survive: a stored node keeps only key, position, and z-index.
+			// The Console's per-node render state — id, type, selected, measured — does
+			// not survive: a stored node keeps only key, position, and z-index.
 			for _, n := range s.Nodes {
 				Expect(n.Key).ToNot(BeEmpty())
 			}
@@ -133,8 +133,8 @@ var _ = Describe("DecodeImExEnvelope", func() {
 	})
 
 	It("Should lift the Console state that added a legend", func(ctx SpecContext) {
-		// A legend is Console render state, so it reaches no stored field; the rest
-		// of the document must survive the version bump untouched.
+		// A legend is Console render state, so it reaches no stored field; the rest of
+		// the document must survive the version bump untouched.
 		s := decode(ctx, "testdata/import_v1_state.json")
 		Expect(s.Nodes).To(HaveLen(2))
 		Expect(s.Edges).To(HaveLen(1))
