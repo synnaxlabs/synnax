@@ -16,10 +16,10 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium/internal/channel"
-	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/io/fs"
+	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -380,6 +380,127 @@ var _ = Describe("Garbage Collection", func() {
 						fifth.Data,
 					).To(Equal(telem.NewSeriesV[int64](50, 51, 52, 53, 54, 55, 56).Data))
 				})
+			})
+
+			Describe("Collecting while deleting", func() {
+				BeforeEach(func(ctx SpecContext) {
+					fs := openFS()
+					indexFS = MustSucceed(fs.Sub("index"))
+					indexDB = MustSucceed(unary.Open(ctx, unary.Config{
+						FS:        indexFS,
+						MetaCodec: json.Codec,
+						Channel: channel.Channel{
+							Name:     "Peattie",
+							Key:      indexKey,
+							DataType: telem.TimestampT,
+							IsIndex:  true,
+							Index:    indexKey,
+						},
+						FileSize:        3600 * telem.Byte,
+						GCThreshold:     math.SmallestNonzeroFloat32,
+						Instrumentation: PanicLogger(),
+					}))
+					dataFS = MustSucceed(fs.Sub("data"))
+					dataDB = MustSucceed(unary.Open(ctx, unary.Config{
+						FS:        dataFS,
+						MetaCodec: json.Codec,
+						Channel: channel.Channel{
+							Name:     "Eiseley",
+							Key:      dataKey,
+							DataType: telem.Int64T,
+							Index:    indexKey,
+						},
+						FileSize:        3600 * telem.Byte,
+						GCThreshold:     math.SmallestNonzeroFloat32,
+						Instrumentation: PanicLogger(),
+					}))
+					dataDB.SetIndex(indexDB.Index())
+				})
+				AfterEach(func() {
+					Expect(indexDB.Close()).To(Succeed())
+					Expect(dataDB.Close()).To(Succeed())
+				})
+
+				// Collection moves the surviving domains to the front of their file. A
+				// delete that read its domain before the move must not write the offset
+				// it read back into the index, or the samples it keeps point at the
+				// wrong bytes.
+				Specify(
+					"Should keep the surviving samples readable",
+					func(ctx SpecContext) {
+						const (
+							domains     = 40
+							perDomain   = 10
+							deleteStart = 3
+							deleteEnd   = 7
+						)
+						expected := make([]int64, 0, domains*perDomain)
+						for i := range domains {
+							var (
+								data       []int64
+								timestamps []telem.TimeStamp
+							)
+							for j := range perDomain {
+								data = append(data, int64(i*100+j))
+								timestamps = append(
+									timestamps,
+									telem.TimeStamp(10*i+10+j),
+								)
+							}
+							start := telem.TimeStamp(10*i+10) * telem.SecondTS
+							Expect(unary.Write(
+								ctx,
+								indexDB,
+								start,
+								telem.NewSeriesSecondsTSV(timestamps...),
+							)).To(Succeed())
+							Expect(unary.Write(
+								ctx,
+								dataDB,
+								start,
+								telem.NewSeriesV(data...),
+							)).To(Succeed())
+							expected = append(expected, data[:deleteStart]...)
+							expected = append(expected, data[deleteEnd:]...)
+						}
+
+						var (
+							stop      = make(chan struct{})
+							collected = make(chan struct{})
+						)
+						go func() {
+							defer GinkgoRecover()
+							defer close(collected)
+							for {
+								select {
+								case <-stop:
+									return
+								default:
+								}
+								Expect(dataDB.GarbageCollect(ctx)).To(Succeed())
+							}
+						}()
+
+						for i := range domains {
+							start := telem.TimeStamp(10*i+10) * telem.SecondTS
+							Expect(dataDB.Delete(ctx, telem.TimeRange{
+								Start: start + deleteStart*telem.SecondTS,
+								End:   start + deleteEnd*telem.SecondTS,
+							})).To(Succeed())
+						}
+						close(stop)
+						<-collected
+
+						actual := make([]int64, 0, len(expected))
+						f := MustSucceed(dataDB.Read(ctx, telem.TimeRangeMax))
+						for series := range f.Series() {
+							actual = append(
+								actual,
+								telem.UnmarshalSeries[int64](series)...)
+						}
+						Expect(actual).To(Equal(expected))
+					},
+				)
 			})
 		})
 	}
