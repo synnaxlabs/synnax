@@ -334,15 +334,10 @@ describe("Panel queries", () => {
           <Errors.SuspenseBoundary loading={null}>{children}</Errors.SuspenseBoundary>
         </Provider>
       );
-      let rendered!: RenderHookResult<panel.Key[], unknown>;
-      await act(async () => {
-        rendered = await renderHookSuspended(
-          () => Panel.useKeysByProject({ project: key }),
-          {
-            wrapper: suspended,
-          },
-        );
-      });
+      const rendered: RenderHookResult<panel.Key[], unknown> =
+        await renderHookSuspended(() => Panel.useKeysByProject({ project: key }), {
+          wrapper: suspended,
+        });
       await waitFor(() => expect(rendered.result.current).not.toBeNull());
       return rendered;
     };
