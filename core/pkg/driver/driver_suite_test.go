@@ -22,10 +22,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var (
-	mockFS     fs.FS
-	mockBinDir string
-)
+var mockFS fs.FS
 
 func TestDriver(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -40,6 +37,9 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 var _ = SynchronizedBeforeSuite(func() []byte {
 	ShouldNotLeakGoroutines()
 	dir := MustSucceed(os.MkdirTemp("", "mockdriver"))
+	// Ginkgo holds this until every other process finishes, so no process reads the
+	// binary after it is removed.
+	DeferCleanup(func() { Expect(os.RemoveAll(dir)).To(Succeed()) })
 	driverName := "driver"
 	if runtime.GOOS == "windows" {
 		driverName = "driver.exe"
@@ -54,11 +54,6 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	Expect(cmd.Run()).To(Succeed())
 	return []byte(dir)
 }, func(dir []byte) {
-	mockBinDir = string(dir)
-	mockFS = os.DirFS(mockBinDir)
+	mockFS = os.DirFS(string(dir))
 	ShouldNotLeakGoroutines()
-})
-
-var _ = SynchronizedAfterSuite(func() {}, func() {
-	Expect(os.RemoveAll(mockBinDir)).To(Succeed())
 })
