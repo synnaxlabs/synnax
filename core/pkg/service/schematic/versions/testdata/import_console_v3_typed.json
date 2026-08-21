@@ -1,0 +1,139 @@
+{
+  "control": "released",
+  "controlAcquireTrigger": 0,
+  "edges": [],
+  "editable": true,
+  "fitViewOnResize": false,
+  "key": "a5858dfb-c88f-4a74-b68a-ad84f556f245",
+  "legend": {
+    "position": { "units": { "x": "px", "y": "px" }, "x": 50, "y": 50 },
+    "visible": false
+  },
+  "nodes": [
+    {
+      "data": {},
+      "id": "fTQJC5PIv7u",
+      "key": "fTQJC5PIv7u",
+      "measured": { "height": 29, "width": 32 },
+      "position": { "x": 287, "y": 374 },
+      "selected": false,
+      "type": "custom",
+      "zIndex": 4
+    },
+    {
+      "data": {},
+      "id": "KJl7SWknO4T",
+      "key": "KJl7SWknO4T",
+      "measured": { "height": 18, "width": 31 },
+      "position": { "x": 304, "y": 545 },
+      "selected": false,
+      "type": "custom",
+      "zIndex": 24
+    },
+    {
+      "data": {},
+      "id": "0hBxSpgF0u6",
+      "key": "0hBxSpgF0u6",
+      "measured": { "height": 33, "width": 31 },
+      "position": { "x": 221, "y": 248 },
+      "selected": false,
+      "type": "custom",
+      "zIndex": 24
+    }
+  ],
+  "props": {
+    "0hBxSpgF0u6": {
+      "color": [213, 213, 213, 1],
+      "key": "crossJunction",
+      "label": {
+        "align": "center",
+        "direction": "x",
+        "label": "",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "KJl7SWknO4T": {
+      "color": [213, 213, 213, 1],
+      "key": "tJunction",
+      "label": {
+        "align": "center",
+        "direction": "x",
+        "label": "",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "fTQJC5PIv7u": {
+      "control": { "show": true },
+      "key": "switch",
+      "label": {
+        "align": "center",
+        "direction": "x",
+        "label": "Switch",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": null,
+      "sink": {
+        "props": {
+          "connections": [{ "from": "setpoint", "to": "setter" }],
+          "inlet": "setpoint",
+          "segments": {
+            "setpoint": {
+              "props": { "falsy": 0, "truthy": 1 },
+              "type": "boolean-numeric-converter-sink",
+              "valueType": "boolean",
+              "variant": "sink"
+            },
+            "setter": {
+              "props": { "channel": 0 },
+              "type": "controlled-numeric-telem-sink",
+              "valueType": "number",
+              "variant": "sink"
+            }
+          }
+        },
+        "type": "sink-pipeline",
+        "valueType": "boolean",
+        "variant": "sink"
+      },
+      "source": {
+        "props": {
+          "connections": [{ "from": "valueStream", "to": "threshold" }],
+          "outlet": "threshold",
+          "segments": {
+            "threshold": {
+              "props": { "trueBound": { "lower": 0.9, "upper": 1.1 } },
+              "type": "boolean-source",
+              "valueType": "boolean",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 0 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "boolean",
+        "variant": "source"
+      }
+    }
+  },
+  "remoteCreated": true,
+  "snapshot": false,
+  "type": "schematic",
+  "version": "3.0.0",
+  "viewport": { "position": { "x": -136, "y": -11 }, "zoom": 1 }
+}

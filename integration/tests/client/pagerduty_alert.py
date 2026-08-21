@@ -83,7 +83,7 @@ class PagerDutyAlert(TestCase):
                 alerts=[
                     sy.pagerduty.Alert(
                         status=self.status_key,
-                        treat_error_as_critical=True,
+                        errors_critical=True,
                         component="integration-test",
                         group="ci",
                         class_="test_alert",

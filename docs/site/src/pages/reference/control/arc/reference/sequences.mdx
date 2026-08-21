@@ -45,25 +45,29 @@ sequence {
 
 A sequence item is one of:
 
-| Item            | Syntax                | Description                                   |
-| --------------- | --------------------- | --------------------------------------------- |
-| Write           | `expr -> chan`        | Write once, advance                           |
-| Wait            | `time.wait{duration}` | Pause for the duration, advance               |
-| Condition gate  | `expr`                | Pause until the expression is truthy, advance |
-| Stage           | `stage name? { ... }` | Enter stage; advance when a transition fires  |
-| Nested sequence | `sequence { ... }`    | Run nested items in order                     |
+| Item           | Syntax                | Description                                   |
+| -------------- | --------------------- | --------------------------------------------- |
+| Condition gate | `expr => next`        | Pause until the expression is truthy, advance |
+| Write          | `expr -> chan`        | Write once, advance                           |
+| Wait           | `time.wait{duration}` | Pause for the duration, advance               |
+| Sequence       | `sequence { ... }`    | Run nested items in order                     |
+| Stage          | `stage { ... }`       | Enter stage; advance when a transition fires  |
+
+Stages and sequences can be named. A named item is a valid `=> name` target for its
+siblings; an anonymous one can only be reached in order.
 
 ```arc channels="vent_vlv_cmd, press_vlv_cmd, tank_pressure", bodies="abort"
 sequence prime {
-    false -> vent_vlv_cmd          // write
-    true -> press_vlv_cmd          // write
-    time.wait{5s}                   // wait
-    tank_pressure > 500             // condition gate
-    stage hold {                    // stage
-        time.wait{30s} => next
+    true -> vent_vlv_cmd              // write
+    tank_pressure < 50 => next        // condition gate
+    false -> vent_vlv_cmd             // write
+    time.wait{5s}                     // wait
+    stage pressurize {                // stage
         tank_pressure > 700 => abort
+        true -> press_vlv_cmd
+        tank_pressure > 500 => next
     }
-    false -> press_vlv_cmd         // write
+    false -> press_vlv_cmd            // write
 }
 ```
 
@@ -132,7 +136,7 @@ An anonymous `stage { ... }` used as a sequence item acts as a multi-exit gate.
 [transition targets](/reference/control/arc/reference/flow#transition-targets) jump as
 usual.
 
-```arc channels="press_vlv_cmd, tank_pressure"
+```arc channels="press_vlv_cmd, tank_pressure", bodies="abort"
 sequence press {
     true -> press_vlv_cmd
     stage {
@@ -191,7 +195,6 @@ sequence main {
 sequence abort {
     stage safed {
         false -> press_vlv_cmd
-        false -> vent_vlv_cmd
         true -> vent_vlv_cmd
     }
 }

@@ -259,16 +259,20 @@ Scale union on type {
     }
     map {
         pre_scaled_min   float64 = 0 {
-            @doc value "is the lower bound of the raw input range."
+            @default group "pre_scaled"
+            @doc value     "is the lower bound of the raw input range."
         }
         pre_scaled_max   float64 = 1 {
-            @doc value "is the upper bound of the raw input range."
+            @default group "pre_scaled"
+            @doc value     "is the upper bound of the raw input range."
         }
         scaled_min       float64 = 0 {
-            @doc value "is the lower bound of the scaled output range."
+            @default group "scaled"
+            @doc value     "is the lower bound of the scaled output range."
         }
         scaled_max       float64 = 1 {
-            @doc value "is the upper bound of the scaled output range."
+            @default group "scaled"
+            @doc value     "is the upper bound of the scaled output range."
         }
         pre_scaled_units Units = volts {
             @doc value "are the units of the raw value before scaling."
@@ -321,10 +325,12 @@ Scale union on type {
 
 MinMaxVal struct {
     min_val float64 = 0 {
-        @doc value "is the minimum expected value, in scaled units."
+        @default group "range"
+        @doc value     "is the minimum expected value, in scaled units."
     }
     max_val float64 = 1 {
-        @doc value "is the maximum expected value, in scaled units."
+        @default group "range"
+        @doc value     "is the maximum expected value, in scaled units."
     }
 
     @doc value  "bounds the expected signal range in scaled units."
@@ -428,19 +434,23 @@ Table struct {
 
 TwoPointLin struct {
     first_electrical_val  float64 = 0 {
-        @doc value "is the first electrical calibration point."
+        @default group "electrical"
+        @doc value     "is the first electrical calibration point."
     }
     second_electrical_val float64 = 1 {
-        @doc value "is the second electrical calibration point."
+        @default group "electrical"
+        @doc value     "is the second electrical calibration point."
     }
     electrical_units      ElectricalUnits = m_volts_per_volt {
         @doc value "are the units of the electrical calibration points."
     }
     first_physical_val    float64 = 0 {
-        @doc value "is the physical value at the first electrical point."
+        @default group "physical"
+        @doc value     "is the physical value at the first electrical point."
     }
     second_physical_val   float64 = 1 {
-        @doc value "is the physical value at the second electrical point."
+        @default group "physical"
+        @doc value     "is the physical value at the second electrical point."
     }
 
     @doc value  """
@@ -460,7 +470,7 @@ CustomScale struct {
 }
 
 BaseAIChannel struct {
-    key      string = "" {
+    key      string = create {
         @doc value "uniquely identifies the channel within the task."
         @key
     }
@@ -486,10 +496,6 @@ BaseAIChannel struct {
 
 AIChannel union on type extends BaseAIChannel {
     ai_voltage extends MinMaxVal, Terminal, CustomScale {
-        units Units = volts {
-            @doc value "are the units of the voltage measurement."
-        }
-
         @doc value "reads a voltage."
     }
     ai_accel extends MinMaxVal, Terminal, Sensitivity, CurrentExcitation, CustomScale {
@@ -510,9 +516,6 @@ AIChannel union on type extends BaseAIChannel {
         @doc value "reads a generic bridge-based sensor."
     }
     ai_current extends MinMaxVal, Terminal, CustomScale {
-        units                  Units = amps {
-            @doc value "are the units of the current measurement."
-        }
         shunt_resistor_loc     ShuntResistorLocation = default {
             @doc value "selects where the shunt resistor is located."
         }
@@ -553,9 +556,6 @@ AIChannel union on type extends BaseAIChannel {
         @doc value "reads force from an IEPE sensor."
     }
     ai_microphone extends Terminal, CurrentExcitation, CustomScale {
-        units               Units = pascals {
-            @doc value "are the units of the microphone measurement."
-        }
         mic_sensitivity     float64 = 0 {
             @doc value "is the microphone sensitivity, in mV/Pa."
         }
@@ -586,10 +586,6 @@ AIChannel union on type extends BaseAIChannel {
         @doc value "reads pressure from a bridge with two-point linear calibration."
     }
     ai_resistance extends MinMaxVal, Resistance, CurrentExcitation, CustomScale {
-        units Units = ohms {
-            @doc value "are the units of the resistance measurement."
-        }
-
         @doc value "reads a resistance."
     }
     ai_rtd extends MinMaxVal, Resistance, CurrentExcitation {
@@ -606,9 +602,6 @@ AIChannel union on type extends BaseAIChannel {
         @doc value "reads temperature from an RTD."
     }
     ai_strain_gauge extends MinMaxVal, VoltageExcitation, CustomScale {
-        units                   Units = strain {
-            @doc value "are the units of the strain measurement."
-        }
         strain_config           StrainConfig = full_bridge_i {
             @doc value "selects the strain-gauge bridge configuration."
         }
@@ -631,6 +624,7 @@ AIChannel union on type extends BaseAIChannel {
         @doc value "reads strain from a strain gauge."
     }
     ai_temp_builtin {
+        -port
         units TemperatureUnits = deg_c {
             @doc value "are the units of the temperature measurement."
         }
@@ -681,13 +675,13 @@ AIChannel union on type extends BaseAIChannel {
         @doc value "reads velocity from an IEPE sensor."
     }
     ai_accel_4_wire_dc_voltage extends MinMaxVal, Terminal, Sensitivity, VoltageExcitation, CustomScale {
-        units                 AccelUnits = g {
+        units                AccelUnits = g {
             @doc value "are the units of the acceleration measurement."
         }
-        sensitivity_units     AccelSensitivityUnits = m_volts_per_g {
+        sensitivity_units    AccelSensitivityUnits = m_volts_per_g {
             @doc value "are the units of the accelerometer sensitivity."
         }
-        use_excit_for_scaling bool = false {
+        scaled_by_excitation bool = false {
             @doc value """
                 is true when the excitation voltage is used to scale the reading.
             """
@@ -695,14 +689,11 @@ AIChannel union on type extends BaseAIChannel {
 
         @doc value "reads acceleration from a 4-wire DC-voltage accelerometer."
     }
-    ai_accel_charge extends MinMaxVal, Terminal, CustomScale {
+    ai_accel_charge extends MinMaxVal, Terminal, Sensitivity, CustomScale {
         units             AccelUnits = g {
             @doc value "are the units of the acceleration measurement."
         }
-        sensitivity       float64 = 0 {
-            @doc value "is the sensitivity of the accelerometer."
-        }
-        sensitivity_units AccelSensitivityUnits = m_volts_per_g {
+        sensitivity_units AccelChargeSensitivityUnits = pico_coulombs_per_g {
             @doc value "are the units of the accelerometer sensitivity."
         }
 
@@ -716,9 +707,6 @@ AIChannel union on type extends BaseAIChannel {
         @doc value "reads a raw charge."
     }
     ai_current_rms extends MinMaxVal, Terminal, CustomScale {
-        units                  Units = amps {
-            @doc value "are the units of the current measurement."
-        }
         shunt_resistor_loc     ShuntResistorLocation = default {
             @doc value "selects where the shunt resistor is located."
         }
@@ -739,9 +727,6 @@ AIChannel union on type extends BaseAIChannel {
         @doc value "reads force from a bridge with polynomial calibration."
     }
     ai_freq_voltage extends MinMaxVal, CustomScale {
-        units           Units = hz {
-            @doc value "are the units of the frequency measurement."
-        }
         threshold_level float64 = 0 {
             @doc value "is the voltage level at which a cycle is counted."
         }
@@ -807,20 +792,13 @@ AIChannel union on type extends BaseAIChannel {
         @doc value "reads torque from a bridge with polynomial calibration."
     }
     ai_voltage_rms extends MinMaxVal, Terminal, CustomScale {
-        units Units = volts {
-            @doc value "are the units of the voltage measurement."
-        }
-
         @doc value "reads RMS voltage."
     }
     ai_voltage_with_excit extends MinMaxVal, Terminal, VoltageExcitation, CustomScale {
-        units                 Units = volts {
-            @doc value "are the units of the voltage measurement."
-        }
-        bridge_config         BridgeConfig = full_bridge {
+        bridge_config        BridgeConfig = full_bridge {
             @doc value "selects the physical bridge wiring."
         }
-        use_excit_for_scaling bool = false {
+        scaled_by_excitation bool = false {
             @doc value """
                 is true when the excitation voltage is used to scale the reading.
             """
@@ -853,9 +831,8 @@ CIMeasMethod enum {
 }
 
 CIFreqUnits enum {
-    hz      = "Hz"
-    seconds = "Seconds"
-    ticks   = "Ticks"
+    hz    = "Hz"
+    ticks = "Ticks"
 
     @doc value "are the unit options for a counter frequency channel."
 }
@@ -927,16 +904,16 @@ ZIndexPhase enum {
 }
 
 ZIndex struct {
-    z_index_enable bool = false {
+    z_index_enabled bool = false {
         @doc value "is true when the encoder's Z index resets the count."
     }
-    z_index_val    float64 = 0 {
+    z_index_val     float64 = 0 {
         @doc value "is the value the measurement resets to when the Z index is active."
     }
-    z_index_phase  ZIndexPhase = a_high_b_high {
+    z_index_phase   ZIndexPhase = a_high_b_high {
         @doc value "selects the A/B states at which the Z index is active."
     }
-    terminal_z     string = "" {
+    terminal_z      string = "" {
         @doc value "is the terminal the Z index signal is wired to."
     }
 
@@ -945,7 +922,7 @@ ZIndex struct {
 }
 
 BaseCIChannel struct {
-    key      string = "" {
+    key      string = create {
         @doc value "uniquely identifies the channel within the task."
         @key
     }
@@ -970,12 +947,14 @@ BaseCIChannel struct {
 }
 
 CIChannel union on type extends BaseCIChannel {
-    ci_frequency extends CustomScale {
+    ci_frequency extends CustomScale, MinMaxVal {
         min_val     float64 = 2 {
-            @doc value "is the minimum expected frequency."
+            @default group "range"
+            @doc value     "is the minimum expected frequency."
         }
         max_val     float64 = 100 {
-            @doc value "is the maximum expected frequency."
+            @default group "range"
+            @doc value     "is the maximum expected frequency."
         }
         units       CIFreqUnits = hz {
             @doc value "are the units of the frequency measurement."
@@ -1016,12 +995,14 @@ CIChannel union on type extends BaseCIChannel {
 
         @doc value "counts signal edges."
     }
-    ci_period extends CustomScale {
+    ci_period extends CustomScale, MinMaxVal {
         min_val       float64 = 0.000001 {
-            @doc value "is the minimum expected period, in the selected units."
+            @default group "range"
+            @doc value     "is the minimum expected period, in the selected units."
         }
         max_val       float64 = 0.1 {
-            @doc value "is the maximum expected period, in the selected units."
+            @default group "range"
+            @doc value     "is the maximum expected period, in the selected units."
         }
         units         CITimeUnits = seconds {
             @doc value "are the units of the period measurement."
@@ -1046,12 +1027,14 @@ CIChannel union on type extends BaseCIChannel {
 
         @doc value "measures signal period."
     }
-    ci_pulse_width extends CustomScale {
+    ci_pulse_width extends CustomScale, MinMaxVal {
         min_val       float64 = 0.000001 {
-            @doc value "is the minimum expected pulse width, in the selected units."
+            @default group "range"
+            @doc value     "is the minimum expected pulse width, in the selected units."
         }
         max_val       float64 = 0.1 {
-            @doc value "is the maximum expected pulse width, in the selected units."
+            @default group "range"
+            @doc value     "is the maximum expected pulse width, in the selected units."
         }
         units         CITimeUnits = seconds {
             @doc value "are the units of the pulse-width measurement."
@@ -1065,12 +1048,14 @@ CIChannel union on type extends BaseCIChannel {
 
         @doc value "measures pulse width."
     }
-    ci_semi_period extends CustomScale {
+    ci_semi_period extends CustomScale, MinMaxVal {
         min_val  float64 = 0.000001 {
-            @doc value "is the minimum expected semi-period, in the selected units."
+            @default group "range"
+            @doc value     "is the minimum expected semi-period, in the selected units."
         }
         max_val  float64 = 0.1 {
-            @doc value "is the maximum expected semi-period, in the selected units."
+            @default group "range"
+            @doc value     "is the maximum expected semi-period, in the selected units."
         }
         units    CITimeUnits = seconds {
             @doc value "are the units of the semi-period measurement."
@@ -1081,12 +1066,14 @@ CIChannel union on type extends BaseCIChannel {
 
         @doc value "measures semi-period."
     }
-    ci_two_edge_sep extends CustomScale {
+    ci_two_edge_sep extends CustomScale, MinMaxVal {
         min_val         float64 = 0.000001 {
-            @doc value "is the minimum expected separation, in the selected units."
+            @default group "range"
+            @doc value     "is the minimum expected separation, in the selected units."
         }
         max_val         float64 = 1 {
-            @doc value "is the maximum expected separation, in the selected units."
+            @default group "range"
+            @doc value     "is the maximum expected separation, in the selected units."
         }
         units           CITimeUnits = seconds {
             @doc value "are the units of the two-edge-separation measurement."
@@ -1106,12 +1093,14 @@ CIChannel union on type extends BaseCIChannel {
 
         @doc value "measures the separation between two edges."
     }
-    ci_velocity_linear extends CustomScale {
+    ci_velocity_linear extends CustomScale, MinMaxVal {
         min_val        float64 = 0 {
-            @doc value "is the minimum expected velocity."
+            @default group "range"
+            @doc value     "is the minimum expected velocity."
         }
         max_val        float64 = 1 {
-            @doc value "is the maximum expected velocity."
+            @default group "range"
+            @doc value     "is the maximum expected velocity."
         }
         units          CILinearVelocityUnits = m_per_s {
             @doc value "are the units of the velocity measurement."
@@ -1131,12 +1120,14 @@ CIChannel union on type extends BaseCIChannel {
 
         @doc value "measures linear velocity from an encoder."
     }
-    ci_velocity_angular extends CustomScale {
+    ci_velocity_angular extends CustomScale, MinMaxVal {
         min_val        float64 = 0 {
-            @doc value "is the minimum expected velocity."
+            @default group "range"
+            @doc value     "is the minimum expected velocity."
         }
         max_val        float64 = 1 {
-            @doc value "is the maximum expected velocity."
+            @default group "range"
+            @doc value     "is the maximum expected velocity."
         }
         units          CIAngularVelocityUnits = rpm {
             @doc value "are the units of the velocity measurement."
@@ -1200,12 +1191,14 @@ CIChannel union on type extends BaseCIChannel {
 
         @doc value "measures angular position from an encoder."
     }
-    ci_duty_cycle extends CustomScale {
+    ci_duty_cycle extends CustomScale, MinMaxVal {
         min_val     float64 = 2 {
-            @doc value "is the minimum expected duty-cycle frequency."
+            @default group "range"
+            @doc value     "is the minimum expected duty-cycle frequency."
         }
         max_val     float64 = 10000 {
-            @doc value "is the maximum expected duty-cycle frequency."
+            @default group "range"
+            @doc value     "is the maximum expected duty-cycle frequency."
         }
         active_edge CIEdge = rising {
             @doc value "selects the edge the counter responds to."
@@ -1234,7 +1227,7 @@ WaveType enum {
 }
 
 BaseAOChannel struct {
-    key                string = "" {
+    key                string = create {
         @doc value "uniquely identifies the channel within the task."
         @key
     }
@@ -1263,10 +1256,6 @@ BaseAOChannel struct {
 
 AOChannel union on type extends BaseAOChannel {
     ao_current extends MinMaxVal, CustomScale {
-        units Units = amps {
-            @doc value "are the units of the current output."
-        }
-
         @doc value "drives a current output."
     }
     ao_func_gen {
@@ -1286,10 +1275,6 @@ AOChannel union on type extends BaseAOChannel {
         @doc value "drives a function-generator output."
     }
     ao_voltage extends MinMaxVal, CustomScale {
-        units Units = volts {
-            @doc value "are the units of the voltage output."
-        }
-
         @doc value "drives a voltage output."
     }
 
@@ -1301,7 +1286,7 @@ AOChannel union on type extends BaseAOChannel {
 }
 
 DIChannel struct {
-    key      string = "" {
+    key      string = create {
         @doc value "uniquely identifies the channel within the task."
         @key
     }
@@ -1326,7 +1311,7 @@ DIChannel struct {
 }
 
 DOChannel struct {
-    key                string = "" {
+    key                string = create {
         @doc value "uniquely identifies the channel within the task."
         @key
     }
@@ -1431,4 +1416,12 @@ ScanConfig struct extends task.ScanConfig {
     @doc value  "configures the NI device scanner task."
     @go marshal
     @go migrate
+}
+
+AccelChargeSensitivityUnits enum {
+    pico_coulombs_per_g                         = "PicoCoulombsPerG"
+    pico_coulombs_per_meters_per_second_squared = "PicoCoulombsPerMetersPerSecondSquared"
+    pico_coulombs_per_inches_per_second_squared = "PicoCoulombsPerInchesPerSecondSquared"
+
+    @doc value "are the units of a charge-mode accelerometer's sensitivity rating."
 }

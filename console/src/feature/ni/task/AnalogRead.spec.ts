@@ -17,8 +17,6 @@ import { NI } from "@/feature/ni";
 import {
   awaitStatusDescription,
   createNIDevice,
-  getCoefficientInput,
-  getCoefficientsField,
   renderNITaskForm,
 } from "@/feature/ni/task/testutil";
 import {
@@ -29,7 +27,7 @@ import {
   getLabeledInput,
   selectFromDropdown,
 } from "@/platform/task/testutil";
-import { getIconButton, uniqueName } from "@/testutil";
+import { getIconButton, getInputTable, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -80,6 +78,23 @@ describe("AnalogRead", () => {
       expect(screen.getByText("Terminal configuration")).toBeTruthy(),
     );
     await findDialogTriggerByText(dev.name);
+  });
+
+  it("should show NA in the port cell of the portless built-in temperature channel", async () => {
+    const dev = await createNIDevice(client);
+    await renderAnalogRead({
+      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+      channels: [
+        createChannel("ai_voltage", 3, { device: dev.key }),
+        {
+          ...NI.Task.createAIChannel("ai_temp_builtin"),
+          key: id.create(),
+          device: dev.key,
+        },
+      ],
+    });
+    await waitFor(() => expect(screen.getByText("3")).toBeTruthy());
+    expect(screen.getByText("NA")).toBeTruthy();
   });
 
   it("should render the detail form for every channel type as it is selected", async () => {
@@ -256,18 +271,17 @@ describe("AnalogRead", () => {
         ],
       });
       await screen.findByText("Forward coefficients");
-      const forward = getCoefficientsField("Forward coefficients");
+      const forward = getInputTable("Forward coefficients");
       expect(forward.rows).toHaveLength(3);
       fireEvent.click(getIconButton(forward.rows[1], "close"));
       await waitFor(() =>
-        expect(getCoefficientsField("Forward coefficients").rows).toHaveLength(2),
+        expect(getInputTable("Forward coefficients").rows).toHaveLength(2),
       );
-      fireEvent.click(getCoefficientsField("Reverse coefficients").add);
+      fireEvent.click(getInputTable("Reverse coefficients").add);
       await waitFor(() =>
-        expect(getCoefficientsField("Reverse coefficients").rows).toHaveLength(1),
+        expect(getInputTable("Reverse coefficients").rows).toHaveLength(1),
       );
-      const [reverseRow] = getCoefficientsField("Reverse coefficients").rows;
-      commitFieldInput(getCoefficientInput(reverseRow), "7.5");
+      commitFieldInput(getInputTable("Reverse coefficients").cell(0), "7.5");
 
       await deployAndAwaitTask(client, container, draft.key);
       const created = await client.tasks.retrieve({

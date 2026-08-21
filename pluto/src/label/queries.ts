@@ -97,8 +97,10 @@ export type DeleteParams = label.Key | label.Key[];
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   name: RESOURCE_NAME,
   verbs: verbs.DELETE,
-  update: async ({ client, data }) => {
-    await client.labels.delete(data);
+  update: async ({ client, data, onOptimisticComplete }) => {
+    await client.labels.delete(data, {
+      onOptimistic: async () => await onOptimisticComplete(data),
+    });
     return data;
   },
 });

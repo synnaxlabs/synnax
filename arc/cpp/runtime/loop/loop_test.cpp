@@ -361,11 +361,11 @@ TEST(ConfigOutputTest, NonHybridModeOmitsSpinDuration) {
     EXPECT_EQ(os.str().find("spin duration"), std::string::npos);
 }
 
-TEST(ConfigOutputTest, RTEventShowsRtPriorityAndLockMemory) {
+TEST(ConfigOutputTest, RTEventShowsRtPriorityAndMemoryLocked) {
     Config cfg;
     cfg.mode = ExecutionMode::RT_EVENT;
     cfg.rt_priority = 80;
-    cfg.lock_memory = true;
+    cfg.memory_locked = true;
     std::ostringstream os;
     os << cfg;
     EXPECT_NE(os.str().find("rt priority"), std::string::npos);

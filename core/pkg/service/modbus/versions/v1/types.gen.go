@@ -25,10 +25,10 @@ import (
 type RegisterValue struct {
 	// DataType is the data type the register contents are interpreted as.
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
-	// SwapBytes is true when the byte order within each 16-bit word is swapped.
-	SwapBytes bool `json:"swap_bytes" msgpack:"swap_bytes"`
-	// SwapWords is true when the word order of multi-register values is swapped.
-	SwapWords bool `json:"swap_words" msgpack:"swap_words"`
+	// BytesSwapped is true when the byte order within each 16-bit word is swapped.
+	BytesSwapped bool `json:"bytes_swapped" msgpack:"bytes_swapped"`
+	// WordsSwapped is true when the word order of multi-register values is swapped.
+	WordsSwapped bool `json:"words_swapped" msgpack:"words_swapped"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.

@@ -18,6 +18,7 @@ from console.range.surface import (
     Surface,
 )
 from console.range.toolbar import Toolbar
+from console.views import ViewsClient
 
 
 class Explorer(Surface):
@@ -30,6 +31,7 @@ class Explorer(Surface):
         ".console-range-explorer .pluto-list__items:not(.console-view__views)"
     )
     SEARCH_INPUT_PLACEHOLDER = "Search ranges..."
+    STATIC_VIEW_NAME = "All ranges"
     # The explorer list must stay the same height at the bottom for longer than a page
     # fetch before it counts as fully paged in.
     SCROLL_SETTLE = 1500 * sy.TimeSpan.MILLISECOND
@@ -37,13 +39,14 @@ class Explorer(Surface):
     def __init__(self, layout: LayoutClient, toolbar: Toolbar):
         super().__init__(layout)
         self.toolbar = toolbar
+        self.views = ViewsClient(
+            layout, self.SEARCH_INPUT_PLACEHOLDER, self.STATIC_VIEW_NAME
+        )
 
     def open(self) -> None:
         """Open the Range Explorer page (shows all ranges)."""
         self.layout.command_palette("Open range explorer")
-        self.layout.page.get_by_text("All ranges").wait_for(
-            state="visible", timeout=5000
-        )
+        self.views.wait_for_static_view()
 
     def get_item(self, name: str) -> Locator:
         """Get a range item locator from the explorer by name."""
@@ -210,72 +213,23 @@ class Explorer(Surface):
         modal.wait_for(state="visible", timeout=5000)
         self.fill_create_modal(child_name)
 
-    def enable_editing(self) -> None:
-        """Enable editing mode in the explorer to show search/filter
-        controls."""
-        search_input = self.layout.page.locator(
-            f"input[placeholder='{self.SEARCH_INPUT_PLACEHOLDER}']"
-        )
-        if search_input.is_visible():
-            return
-        edit_button = self.layout.page.get_by_role(
-            "button", name="Enable editing", exact=True
-        ).first
-        edit_button.click()
-        search_input.wait_for(state="visible", timeout=5000)
-
     def search(self, term: str) -> None:
         """Type a search term in the explorer search input.
 
         :param term: The search string to type.
         """
-        self.enable_editing()
-        search_input = self.layout.page.get_by_placeholder(
-            self.SEARCH_INPUT_PLACEHOLDER
-        )
-        search_input.fill(term)
-        search_input.dispatch_event(
-            "input",
-            {"bubbles": True, "data": term, "inputType": "insertText"},
-        )
+        self.views.search(term)
 
     def clear_search(self) -> None:
         """Clear the explorer search input."""
-        self.search("")
-
-    def open_label_filter(self) -> Locator:
-        """Open the label filter dropdown in the explorer.
-
-        :returns: Locator for the visible filter dialog.
-        """
-        self.enable_editing()
-        filter_button = self.layout.page.get_by_role(
-            "button", name="Filter", exact=True
-        ).first
-        filter_button.click()
-        dialog = self.layout.dialog
-        dialog.wait_for(state="visible", timeout=5000)
-        return dialog
+        self.views.clear_search()
 
     def select_label_filter(self, label_name: str) -> None:
         """Select a label in the explorer's label filter dropdown.
 
-        The filter is a two-level dialog:
-        1. Filter button → first dialog with "Select labels" trigger
-        2. "Select labels" → second dialog with label list
-
         :param label_name: The name of the label to select.
         """
-        filter_dialog = self.open_label_filter()
-        select_labels_trigger = filter_dialog.get_by_text("Select labels")
-        select_labels_trigger.click()
-        item = (
-            self.layout.dialog.get_by_role("option").filter(has_text=label_name).first
-        )
-        item.wait_for(state="visible", timeout=5000)
-        item.click()
-        self.layout.press_escape()
-        self.layout.press_escape()
+        self.views.select_filter("Select labels", label_name)
 
     def clear_label_filter(self, label_name: str) -> None:
         """Remove a label from the active filter by clicking its chip close
@@ -283,9 +237,4 @@ class Explorer(Surface):
 
         :param label_name: The name of the label chip to remove.
         """
-        remove_btn = self.layout.page.get_by_role(
-            "button", name=f"Remove {label_name}", exact=True
-        ).first
-        remove_btn.wait_for(state="visible", timeout=5000)
-        remove_btn.dispatch_event("click")
-        remove_btn.wait_for(state="hidden", timeout=5000)
+        self.views.clear_filter(label_name)

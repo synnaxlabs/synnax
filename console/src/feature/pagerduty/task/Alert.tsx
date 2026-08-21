@@ -88,7 +88,7 @@ const AlertDetails = ({ itemKey }: AlertDetailsProps) => {
           {selectStatusRenderProp}
         </PForm.Field>
         <PForm.SwitchField
-          path={`${path}.treatErrorAsCritical`}
+          path={`${path}.errorsCritical`}
           label="Treat error as critical"
         />
       </Flex.Box>
@@ -195,12 +195,7 @@ const AlertContextMenu = ({ keys, onRemove, onSetEnabled }: AlertContextMenuProp
             </PMenu.Item>
           )}
           <PMenu.Divider />
-          {canRemove && (
-            <PMenu.Item itemKey="remove" onClick={() => onRemove(keys)}>
-              <Icon.Close />
-              Remove
-            </PMenu.Item>
-          )}
+          {canRemove && <ContextMenu.RemoveItem onClick={() => onRemove(keys)} />}
           <PMenu.Divider />
         </>
       )}

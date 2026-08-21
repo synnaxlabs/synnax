@@ -128,24 +128,23 @@ executing, but the configuration will remain saved.
 
 ```python
 import synnax as sy
+from synnax import ni
 
 client = sy.Synnax()
 
-# Retrieve your task
-task = client.tasks.retrieve(name="My Analog Read Task")
+# Retrieve your task. Wrap it in the class for its integration to get the
+# start, stop, and run methods along with a parsed configuration.
+task = ni.AnalogReadTask(internal=client.tasks.retrieve(name="My Analog Read Task"))
 
-# Option 1: Use run() context manager (Recommended)
-# Automatically starts and stops the task, even if
-# an exception occurs
+# Option 1: Use the run() context manager (recommended). It starts the task on
+# entry and stops it on exit, even if an exception occurs.
 with task.run():
-    # task.start() called under the hood
     with client.open_streamer(["ai_0", "ai_1"]) as streamer:
         for i in range(100):
             frame = streamer.read()
-# task.stop() called under the hood
 
-# Option 2: Start task and leave it running
-# Task continues running even after the script exits
+# Option 2: Start the task and leave it running. The task keeps running after
+# the script exits.
 task.start()
 
 # Later, you can stop it with:
@@ -184,8 +183,8 @@ analog_read_tasks = [t for t in all_tasks if t.type == "ni_analog_read"]
 #   labjack_read, labjack_write,
 #   modbus_read, modbus_write,
 #   opc_read, opc_write,
+#   http_read, http_write,
 #   pagerduty_alert,
-
 ```
 
 </Details>
@@ -195,7 +194,7 @@ analog_read_tasks = [t for t in all_tasks if t.type == "ni_analog_read"]
 
 ```python
 import synnax as sy
-from synnax import modbus, ni, labjack, opcua
+from synnax import modbus
 
 client = sy.Synnax()
 
@@ -217,7 +216,6 @@ copied_task.config.auto_start = True
 
 # Apply the changes
 client.tasks.configure(copied_task)
-
 ```
 
 </Details>
@@ -227,16 +225,17 @@ client.tasks.configure(copied_task)
 
 ```python
 import synnax as sy
+from synnax import modbus
 
 client = sy.Synnax()
 
-# Retrieve task
-task = client.tasks.retrieve(name="My Example Task")
+# Retrieve the task and wrap it in the class for its integration.
+task = modbus.ReadTask(internal=client.tasks.retrieve(name="My Example Task"))
 
-# Stop task if running
+# Stop the task if it is running
 task.stop()
 
-# Delete task
+# Delete the task
 client.tasks.delete(task.key)
 ```
 
@@ -313,6 +312,7 @@ const analogReadTasks = allTasks.filter((t) => t.type === "ni_analog_read");
 //   labjack_read, labjack_write,
 //   modbus_read, modbus_write,
 //   opc_read, opc_write,
+//   http_read, http_write,
 //   pagerduty_alert,
 ```
 
@@ -337,15 +337,15 @@ const copiedTask = await client.tasks.copy(
 );
 
 // Modify the configuration
-const config = JSON.parse(copiedTask.config);
-config.auto_start = true;
+const config = { ...(copiedTask.config as Record<string, unknown>), autoStart: true };
 
-// Update the task (create with key updates existing task)
+// Update the task. Creating with an existing key updates that task.
 await client.tasks.create({
   key: copiedTask.key,
+  rack: copiedTask.rack,
   name: copiedTask.name,
   type: copiedTask.type,
-  config: JSON.stringify(config),
+  config,
 });
 ```
 

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach } from "vitest";
 
 /**
@@ -196,6 +196,31 @@ export const getCompositeIconButtons = (
   Array.from(container.querySelectorAll("button")).filter((b) =>
     icons.every((i) => b.querySelector(`.pluto-icon--${i}`) != null),
   );
+
+/** A handle on the pluto input table inside an input item. */
+export interface InputTable {
+  /** The button that appends a row. */
+  add: HTMLButtonElement;
+  /** The body rows, top to bottom. */
+  rows: HTMLElement[];
+  /** The numeric input of the given row and column. */
+  cell: (row: number, col?: number) => HTMLInputElement;
+}
+
+/** Finds the pluto input table inside the input item labeled with labelText. */
+export const getInputTable = (labelText: string): InputTable => {
+  const table = getBySelector<HTMLElement>(
+    getInputItem(labelText),
+    ".pluto-input__table",
+  );
+  const [header, ...rows] = Array.from(table.querySelectorAll<HTMLElement>("tr"));
+  return {
+    add: getIconButton(header, "add"),
+    rows,
+    cell: (row, col = 0) =>
+      within(rows[row]).getAllByRole<HTMLInputElement>("textbox")[col],
+  };
+};
 
 /**
  * Finds the checkbox input of the pluto switch field labeled with labelText. Pluto

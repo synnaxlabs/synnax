@@ -104,7 +104,7 @@ var _ = Describe("ImEx", func() {
 				Expect(res.Name).To(Equal("Server Symbol"))
 				Expect(res.Data.SVG).To(Equal("<svg><rect/></svg>"))
 				Expect(res.Data.Variant).To(Equal("valve"))
-				Expect(res.Data.ScaleStroke).To(BeTrue())
+				Expect(res.Data.StrokeScaled).To(BeTrue())
 				Expect(res.Data.States).To(HaveLen(1))
 				region := res.Data.States[0].Regions[0]
 				Expect(
@@ -126,7 +126,7 @@ var _ = Describe("ImEx", func() {
 				Expect(res.Name).To(Equal("Console Symbol"))
 				Expect(res.Data.Variant).To(Equal("sensor"))
 				Expect(res.Data.Scale).To(Equal(2.0))
-				Expect(res.Data.ScaleStroke).To(BeTrue())
+				Expect(res.Data.StrokeScaled).To(BeTrue())
 				Expect(res.Data.States).To(HaveLen(1))
 				region := res.Data.States[0].Regions[0]
 				Expect(
@@ -217,9 +217,9 @@ var _ = Describe("ImEx", func() {
 				original := symbol.Symbol{
 					Name: "round-trip",
 					Data: symbol.Spec{
-						SVG:         "<svg/>",
-						Variant:     "valve",
-						ScaleStroke: true,
+						SVG:          "<svg/>",
+						Variant:      "valve",
+						StrokeScaled: true,
 					},
 				}
 				Expect(svc.NewWriter(nil).Create(ctx, &original, proj.OntologyID())).

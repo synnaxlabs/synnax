@@ -171,7 +171,7 @@ func (t *alertTask) buildTriggerEvent(
 		Payload: &pagerduty.V2Payload{
 			Summary:   summary,
 			Source:    s.Name,
-			Severity:  mapSeverity(s.Variant, alertCfg.TreatErrorAsCritical),
+			Severity:  mapSeverity(s.Variant, alertCfg.ErrorsCritical),
 			Timestamp: s.Time.Time().Format(time.RFC3339),
 			Component: alertCfg.Component,
 			Group:     alertCfg.Group,
@@ -189,10 +189,10 @@ func (t *alertTask) buildResolveEvent(statusKey status.Key) pagerduty.V2Event {
 	}
 }
 
-func mapSeverity(variant status.Variant, treatErrorAsCritical bool) string {
+func mapSeverity(variant status.Variant, errorsCritical bool) string {
 	switch variant {
 	case status.VariantError:
-		if treatErrorAsCritical {
+		if errorsCritical {
 			return "critical"
 		}
 		return "error"

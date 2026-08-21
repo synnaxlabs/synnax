@@ -83,8 +83,8 @@ TaskConfig struct extends task.PersistConfig {
     cpu_affinity   int32 = -1 {
         @doc value "pins the loop to a CPU core. -1 selects automatically."
     }
-    lock_memory    bool = false {
-        @doc value "locks the runtime's memory to prevent paging."
+    memory_locked  bool = false {
+        @doc value "is true when the runtime's memory is locked to prevent paging."
     }
 
     @doc value  "configures an Arc task, which runs a compiled Arc module."

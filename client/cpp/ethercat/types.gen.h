@@ -49,7 +49,7 @@ struct PDOAddress {
 /// @brief BaseReadChannel carries the fields every EtherCAT read channel shares.
 struct BaseReadChannel {
     /// @brief key uniquely identifies the channel within the task.
-    std::string key = "";
+    std::string key;
     /// @brief name is the human-readable channel name.
     std::string name = "";
     /// @brief disabled is true when the channel is excluded from acquisition.
@@ -66,7 +66,7 @@ struct BaseReadChannel {
 /// @brief BaseWriteChannel carries the fields every EtherCAT write channel shares.
 struct BaseWriteChannel {
     /// @brief key uniquely identifies the channel within the task.
-    std::string key = "";
+    std::string key;
     /// @brief name is the human-readable channel name.
     std::string name = "";
     /// @brief disabled is true when the channel is excluded from the task.

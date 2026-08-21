@@ -33,8 +33,12 @@ class ConsoleCase(TestCase):
     Console TestCase implementation using Playwright
 
     Environment Variables:
-    - PLAYWRIGHT_CONSOLE_HEADED: Run in headed mode (default: False)
-      Can be set via command line: --console-headed or -ch
+    - PLAYWRIGHT_CONSOLE_HEADED: Run in headed mode (default: False).
+      Set by the ``--headed`` flag.
+    - PLAYWRIGHT_CONSOLE_SLOW_MO: Delay between Playwright actions in ms (default: 0).
+      Set by the ``--slow-mo MS`` flag.
+
+    Per-case ``headed`` and ``slow_mo`` parameters override the environment.
     """
 
     browser: Browser
@@ -65,7 +69,8 @@ class ConsoleCase(TestCase):
     def _launch_browser(self) -> None:
         env_headed = os.environ.get("PLAYWRIGHT_CONSOLE_HEADED", "0") == "1"
         headed = self.params.get("headed", env_headed)
-        slow_mo = self.params.get("slow_mo", 0)
+        env_slow_mo = int(os.environ.get("PLAYWRIGHT_CONSOLE_SLOW_MO", "0"))
+        slow_mo = self.params.get("slow_mo", env_slow_mo)
         default_timeout = self.params.get("default_timeout", 15000)  # 15s
         default_nav_timeout = self.params.get("default_nav_timeout", 15000)  # 15s
 

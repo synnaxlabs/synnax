@@ -15,7 +15,7 @@ import { Task } from "@/platform/task";
 
 export interface ContextMenuProps {
   keys: string[];
-  onDelete: (keys: string[]) => void;
+  onRemove: (keys: string[]) => void;
   onDuplicate?: (keys: string[]) => void;
   onRename?: (key: string) => void;
 }
@@ -23,7 +23,7 @@ export interface ContextMenuProps {
 export const ContextMenu = ({
   keys,
   onDuplicate,
-  onDelete,
+  onRemove,
   onRename,
 }: ContextMenuProps) => {
   const isPreview = Task.useIsPreview();
@@ -43,7 +43,7 @@ export const ContextMenu = ({
             </Menu.Item>
           )}
           <Menu.Divider />
-          <Base.DeleteItem onClick={() => onDelete(keys)} />
+          <Base.RemoveItem onClick={() => onRemove(keys)} />
           <Menu.Divider />
         </>
       )}

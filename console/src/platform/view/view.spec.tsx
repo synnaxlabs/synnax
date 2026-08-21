@@ -31,6 +31,7 @@ import {
   getBySelector,
   getIconButton,
   type Grants,
+  openContextMenu,
   queryIconButton,
   uniqueName,
 } from "@/testutil";
@@ -219,5 +220,44 @@ describe("View permissions", () => {
         queryIconButton(getBySelector(document.body, ".console-controls"), "add"),
       ).toBeTruthy(),
     );
+  });
+
+  describe("context menu", () => {
+    const createView = async (): Promise<string> => {
+      const { name } = await client.views.create({
+        name: uniqueName("view"),
+        type: "channel",
+        query: {},
+      });
+      return name;
+    };
+
+    it("should withhold the delete item from a subject who cannot delete views", async () => {
+      const name = await createView();
+      await renderHarness(
+        await createSubject({
+          update: [view.TYPE_ONTOLOGY_ID],
+          create: [view.TYPE_ONTOLOGY_ID],
+        }),
+      );
+      await enableEditing();
+      // The create button appearing proves the grant queries have answered, so the
+      // missing delete item is the gate rather than a check still in flight.
+      await waitFor(() =>
+        expect(
+          queryIconButton(getBySelector(document.body, ".console-controls"), "add"),
+        ).toBeTruthy(),
+      );
+      await openContextMenu(name);
+      expect(await screen.findByText("Rename")).toBeTruthy();
+      expect(screen.queryByText("Delete")).toBeNull();
+    });
+
+    it("should offer the delete item to a subject who may delete views", async () => {
+      const name = await createView();
+      await renderHarness(await createSubject({ delete: [view.TYPE_ONTOLOGY_ID] }));
+      await openContextMenu(name);
+      expect(await screen.findByText("Delete")).toBeTruthy();
+    });
   });
 });

@@ -110,15 +110,15 @@ describe("HTTP Write form", () => {
     await findDialogTriggerByText("Timestamp (s)");
   });
 
-  it("should delete additional fields through a context menu without a duplicate option", async () => {
+  it("should remove additional fields through a context menu without a duplicate option", async () => {
     await renderWrite();
     await addEndpoint();
     fireEvent.click(getHeaderIconButton("Additional fields", "add"));
     const pointer = await screen.findByPlaceholderText("field");
     fireEvent.contextMenu(pointer);
-    await screen.findByText("Delete");
+    await screen.findByText("Remove");
     expect(screen.queryByText("Duplicate")).toBeNull();
-    fireEvent.click(screen.getByText("Delete"));
+    fireEvent.click(screen.getByText("Remove"));
     await waitFor(() => expect(screen.queryByText("static")).toBeNull());
   });
 

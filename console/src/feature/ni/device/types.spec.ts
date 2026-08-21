@@ -28,7 +28,7 @@ testPropertiesSchema("NI", NI.Device.propertiesZ, NI.Device.ZERO_PROPERTIES, [
     },
   ],
   [
-    "partially populated analogOutput (shallow merge from enriched.json)",
+    "partially populated analogOutput",
     {
       identifier: "Dev1",
       analogInput: { portCount: 4, index: 0, channels: {} },

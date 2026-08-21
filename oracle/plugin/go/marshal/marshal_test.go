@@ -1231,6 +1231,44 @@ var _ = Describe("Union Codecs", func() {
 	)
 
 	It(
+		"Should inline a base a variant omits a field from",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/test"
+			@go marshal
+
+			BaseAIChan struct {
+				port uint8
+				enabled bool
+			}
+
+			AIChannel union on type extends BaseAIChan {
+				ai_voltage { minVal float64 }
+				ai_temp_builtin {
+					-port
+					units string
+				}
+			}
+
+			Test struct {
+				chan AIChannel
+			}
+		`
+			resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+			content := ExpectContent(resp, "codec.gen.go")
+			content.ToBeValidGoSource()
+			content.ToContain(
+				"case AITempBuiltinChannel:",
+				"w.Bool(v.Enabled)",
+				"v.Enabled, err = r.Bool()",
+			)
+			ExpectContent(resp, "codec_gen_test.go").
+				ToBeValidGoSource().
+				ToContain("Enabled:")
+		},
+	)
+
+	It(
 		"Should encode a variant's restated base default only once",
 		func(ctx SpecContext) {
 			source := `

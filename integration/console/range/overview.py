@@ -216,9 +216,13 @@ class Overview(Surface):
         """Open the labels dropdown in the range overview and return the
         dialog."""
         labels_row = self.layout.page.get_by_text("Labels", exact=True).locator("..")
+        # The add button only renders once a label is set. Before that, the
+        # placeholder is the trigger.
         add_button = labels_row.locator("button").last
-        add_button.wait_for(state="visible", timeout=2000)
-        add_button.click()
+        placeholder = labels_row.locator(".pluto-select-multiple-trigger-placeholder")
+        trigger = add_button.or_(placeholder).first
+        trigger.wait_for(state="visible", timeout=2000)
+        trigger.click()
         dropdown = self.layout.dialog
         dropdown.wait_for(state="visible", timeout=5000)
         return dropdown

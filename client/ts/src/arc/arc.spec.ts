@@ -15,7 +15,12 @@ import { AccessDeniedError } from "@/errors";
 import { query } from "@/query";
 import { status } from "@/status";
 import { task } from "@/task";
-import { createTestClient, createTestClientWithPolicy, expectLive } from "@/testutil";
+import {
+  createTestClient,
+  createTestClientWithPolicy,
+  expectLive,
+  waitForStreamLive,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -257,10 +262,12 @@ describe("arc", () => {
   });
 
   describe("task sync", () => {
-    // The writing client's task cache still holds the pre-dispatch copy, so
-    // assertions read through a fresh client to reach the Core.
+    // The writing client's task cache still holds the pre-dispatch copy, so assertions
+    // read through a fresh client to reach the Core. That client learns of a rewrite
+    // through the task set signal, so its stream must be live first.
     it("rewrites the task config when a dispatch changes the content", async () => {
       const fresh = createTestClient();
+      await waitForStreamLive(fresh.connection);
       const rack = await client.racks.create({ name: `rack-${id.create()}` });
       const created = await client.arcs.create(newTextArc(`sync-${id.create()}`));
       const deployed = await client.arcs.setRack(created.key, rack.key);
@@ -268,13 +275,16 @@ describe("arc", () => {
       const gen = new crdt.Text(2);
       const ops = gen.insert(0, "x -> y").map((op) => arc.insertChar(op));
       await client.arcs.dispatch(created.key, ops);
+      await expect
+        .poll(async () => (await fresh.tasks.retrieve(deployed.key)).configHash)
+        .not.toEqual(deployed.configHash);
       const synced = await fresh.tasks.retrieve(deployed.key);
       expect(synced.config.hash).not.toEqual(deployed.config.hash);
-      expect(synced.configHash).not.toEqual(deployed.configHash);
     });
 
     it("restores the deployed config when an edit is undone", async () => {
       const fresh = createTestClient();
+      await waitForStreamLive(fresh.connection);
       const rack = await client.racks.create({ name: `rack-${id.create()}` });
       const created = await client.arcs.create(newTextArc(`undo-${id.create()}`));
       const deployed = await client.arcs.setRack(created.key, rack.key);
@@ -282,9 +292,15 @@ describe("arc", () => {
       const gen = new crdt.Text(2);
       const [op] = gen.insert(0, "x");
       await client.arcs.dispatch(created.key, [arc.insertChar(op)]);
+      // Waiting for the edit to reach the task keeps the undo assertion from passing
+      // against a config the insert has not touched yet.
+      await expect
+        .poll(async () => (await fresh.tasks.retrieve(deployed.key)).configHash)
+        .not.toEqual(deployed.configHash);
       await client.arcs.dispatch(created.key, [arc.deleteChar({ id: op.id })]);
-      const synced = await fresh.tasks.retrieve(deployed.key);
-      expect(synced.configHash).toEqual(deployed.configHash);
+      await expect
+        .poll(async () => (await fresh.tasks.retrieve(deployed.key)).configHash)
+        .toEqual(deployed.configHash);
     });
   });
 });
