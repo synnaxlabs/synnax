@@ -9,7 +9,7 @@
 
 import "@/platform/vis/Controls.css";
 
-import { Flex } from "@synnaxlabs/pluto";
+import { Flex, stopPropagation } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
@@ -26,6 +26,7 @@ export const Controls = ({ className, ...rest }: ControlsProps): ReactElement =>
     role="toolbar"
     className={CSS.cls(CSS.B("controls"), className)}
     gap="small"
+    onDoubleClick={stopPropagation}
     {...rest}
   />
 );

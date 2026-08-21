@@ -127,7 +127,7 @@ describe("HTTP Read form", () => {
     fireEvent.click(await screen.findByText("Duplicate"));
     await waitFor(() => expect(screen.getAllByText(/\/api\/v1/)).toHaveLength(2));
     fireEvent.contextMenu(screen.getAllByText(/\/api\/v1/)[0]);
-    fireEvent.click(await screen.findByText("Delete"));
+    fireEvent.click(await screen.findByText("Remove"));
     await waitFor(() => expect(screen.getAllByText(/\/api\/v1/)).toHaveLength(1));
   });
 

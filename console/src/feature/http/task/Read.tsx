@@ -154,7 +154,12 @@ const HIDDEN_DATA_TYPES = [
 
 const renderTelemSelectDataType = Component.renderProp(
   (p: Telem.SelectDataTypeProps) => (
-    <Telem.SelectDataType {...p} hideDataTypes={HIDDEN_DATA_TYPES} location="bottom" />
+    <Telem.SelectDataType
+      {...p}
+      className={CSS.B("field-data-type")}
+      hideDataTypes={HIDDEN_DATA_TYPES}
+      location="bottom"
+    />
   ),
 );
 
@@ -434,7 +439,7 @@ const Form: FC = () => {
     setSelectedEndpoints([ep.key]);
   }, [push]);
 
-  const handleDeleteEndpoints = useCallback(
+  const handleRemoveEndpoints = useCallback(
     (keys: string[]) => {
       remove(keys);
       setSelectedEndpoints([]);
@@ -468,11 +473,11 @@ const Form: FC = () => {
     (p: Menu.ContextMenuMenuProps) => (
       <ContextMenu
         keys={p.keys}
-        onDelete={handleDeleteEndpoints}
+        onRemove={handleRemoveEndpoints}
         onDuplicate={handleDuplicateEndpoints}
       />
     ),
-    [handleDeleteEndpoints, handleDuplicateEndpoints],
+    [handleRemoveEndpoints, handleDuplicateEndpoints],
   );
 
   return (
@@ -523,7 +528,7 @@ const Form: FC = () => {
         </Menu.ContextMenu>
       </Flex.Box>
       <Divider.Divider y />
-      <Flex.Box y grow empty>
+      <Flex.Box y grow empty className={CSS.B("endpoint-details-pane")}>
         <Task.Views.DetailsHeader
           path={
             selectedEndpoints.length > 0

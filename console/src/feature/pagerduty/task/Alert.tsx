@@ -195,12 +195,7 @@ const AlertContextMenu = ({ keys, onRemove, onSetEnabled }: AlertContextMenuProp
             </PMenu.Item>
           )}
           <PMenu.Divider />
-          {canRemove && (
-            <PMenu.Item itemKey="remove" onClick={() => onRemove(keys)}>
-              <Icon.Close />
-              Remove
-            </PMenu.Item>
-          )}
+          {canRemove && <ContextMenu.RemoveItem onClick={() => onRemove(keys)} />}
           <PMenu.Divider />
         </>
       )}
