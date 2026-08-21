@@ -31,7 +31,7 @@ _STATUS_CHANNEL = "sy_status_set"
 # because the runners host the Core, the Driver, the Console, Playwright, and the
 # Python sims, and NI software (Windows) all at once, and a 1 s window leaves little
 # time to reach steady state.
-RATE_TOLERANCE = 0.50
+RATE_TOLERANCE = 0.20
 
 # ── Channel creation helpers ─────────────────────────────────────
 

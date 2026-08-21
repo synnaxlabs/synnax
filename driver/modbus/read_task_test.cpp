@@ -7,6 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <iomanip>
+#include <iostream>
+#include <thread>
+
 #include "gtest/gtest.h"
 
 #include "client/cpp/testutil/testutil.h"
@@ -20,6 +24,20 @@
 #include "driver/pipeline/mock/pipeline.h"
 
 namespace driver::modbus {
+/// @brief Allowed relative error of a task's achieved sample rate.
+constexpr double RATE_TOLERANCE = 0.10;
+/// @brief Wall time each rate runs for.
+const auto RATE_SPAN = 1 * x::telem::SECOND;
+
+/// @brief Logs the rate a task held and checks it against the tolerance.
+void expect_rate(const double measured, const int rate_hz) {
+    const double error = (measured - rate_hz) / rate_hz * 100;
+    std::cout << std::fixed << std::setprecision(1);
+    std::cout << rate_hz << " Hz: " << measured << " Hz measured (" << error << "%)\n";
+    EXPECT_NEAR(measured, rate_hz, rate_hz * RATE_TOLERANCE)
+        << "at " << rate_hz << " Hz";
+}
+
 /// @brief Test fixture for Modbus read task tests.
 class ModbusReadTest : public ::testing::Test {
 protected:
@@ -914,5 +932,59 @@ TEST_F(ModbusReadTest, testAutoStartFalse) {
     // Stop the task to clean up
     synnax::task::Command stop_cmd{.task = task.key, .type = "stop"};
     configured_task->exec(stop_cmd);
+}
+
+/// @brief it should hold each configured sample rate over time.
+TEST_F(ModbusReadTest, testHoldsSampleRate) {
+    mock::SlaveConfig slave_cfg;
+    slave_cfg.input_registers[0] = 42;
+    slave_cfg.host = "127.0.0.1";
+    slave_cfg.port = 1502;
+    auto slave = mock::Slave(slave_cfg);
+    ASSERT_NIL(slave.start());
+    x::defer::defer stop_slave([&slave] { slave.stop(); });
+
+    const auto data_channel = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("rate_input"),
+        x::telem::UINT16_T,
+        index_channel.key,
+        false
+    ));
+
+    for (const int rate_hz: {25, 50, 100}) {
+        auto cfg = create_base_config();
+        cfg["sample_rate"] = rate_hz;
+        cfg["stream_rate"] = rate_hz;
+        cfg["channels"].push_back(
+            create_channel_config("input_register", data_channel, 0)
+        );
+        auto p = x::json::Parser(cfg);
+        auto task_cfg = std::make_unique<ReadTaskConfig>(client, p);
+        ASSERT_NIL(p.error());
+
+        auto factory = std::make_shared<pipeline::mock::WriterFactory>();
+        auto devs = std::make_shared<device::Manager>();
+        auto task = common::ReadTask(
+            synnax::task::Task{
+                .rack = rack.key,
+                .name = "rate_test",
+                .type = "modbus_read",
+            },
+            ctx,
+            x::breaker::default_config("rate_test"),
+            std::make_unique<ReadTaskSource>(devs, std::move(*task_cfg)),
+            factory
+        );
+
+        task.start("start_cmd");
+        ASSERT_EVENTUALLY_GE(factory->writes->size(), 1);
+        std::this_thread::sleep_for(RATE_SPAN.chrono());
+        task.stop("stop_cmd", true);
+
+        expect_rate(
+            pipeline::mock::measured_rate(*factory->writes, index_channel.key),
+            rate_hz
+        );
+    }
 }
 }
