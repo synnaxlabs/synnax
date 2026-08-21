@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/node"
+	"github.com/synnaxlabs/freighter/mock"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
@@ -46,6 +47,31 @@ var _ = Describe("Cluster", func() {
 			Expect(builder.Close()).To(Succeed())
 			shutdown()
 			Expect(clusterCtx.Err()).To(MatchError(context.Canceled))
+		})
+	})
+
+	Describe("Open", func() {
+		It("Should return an error when the host cannot reach any peer", func(
+			ctx SpecContext,
+		) {
+			gossipNet := mock.NewNetwork[gossip.Message, gossip.Message]()
+			pledgeNet := mock.NewNetwork[pledge.Request, pledge.Response]()
+			gossipServer := gossipNet.UnaryServer("")
+			pledgeServer := pledgeNet.UnaryServer(gossipServer.Address)
+			openCtx, cancel := context.WithTimeout(ctx, 20*time.Millisecond)
+			defer cancel()
+			Expect(cluster.Open(openCtx, cluster.FastConfig, cluster.Config{
+				HostAddress: gossipServer.Address,
+				Gossip: gossip.Config{
+					TransportClient: gossipNet.UnaryClient(),
+					TransportServer: gossipServer,
+				},
+				Pledge: pledge.Config{
+					TransportClient: pledgeNet.UnaryClient(),
+					TransportServer: pledgeServer,
+					Peers:           []address.Address{"unreachable"},
+				},
+			})).Error().To(MatchError(context.DeadlineExceeded))
 		})
 	})
 

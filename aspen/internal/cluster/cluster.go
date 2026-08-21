@@ -64,16 +64,16 @@ func Open(ctx context.Context, configs ...Config) (c *Cluster, err error) {
 
 	sCtx, cancel := signal.WithCancel(cfg.T.Transfer(ctx, context.Background()))
 
-	c = &Cluster{
-		Store:    cfg.Gossip.Store,
-		shutdown: signal.NewHardShutdown(sCtx, cancel),
-		Config:   cfg,
-	}
+	// shutdown is held in a local because the cleanup below runs on error paths that
+	// return a nil Cluster.
+	shutdown := signal.NewHardShutdown(sCtx, cancel)
 	defer func() {
 		if err != nil {
-			err = errors.Combine(err, c.shutdown.Close())
+			err = errors.Combine(err, shutdown.Close())
 		}
 	}()
+
+	c = &Cluster{Store: cfg.Gossip.Store, shutdown: shutdown, Config: cfg}
 
 	// Attempt to open the Cluster store from kv. It's ok if we don't find it.
 	state, err := tryLoadPersistedState(ctx, cfg)
@@ -115,7 +115,7 @@ func Open(ctx context.Context, configs ...Config) (c *Cluster, err error) {
 		// initial view of the Cluster.
 		c.L.Info("gossiping initial state through peer addresses")
 		if err = c.gossipInitialState(ctx); err != nil {
-			return c, err
+			return nil, err
 		}
 	} else {
 		// If our store isn't valid, and we haven't received peers, assume we're
@@ -129,7 +129,7 @@ func Open(ctx context.Context, configs ...Config) (c *Cluster, err error) {
 		)
 		c.Pledge.ClusterKey = c.Key()
 		if err = pledge_.Arbitrate(c.Pledge); err != nil {
-			return c, err
+			return nil, err
 		}
 	}
 
