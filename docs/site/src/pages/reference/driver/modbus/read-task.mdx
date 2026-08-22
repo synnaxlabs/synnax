@@ -8,8 +8,8 @@ prev: "Connect to a Server"
 prevURL: "/reference/driver/modbus/connect-server"
 ---
 
-import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
-import { Video, Image } from "@/components/media/Media";
+import { Divider, Icon, Text } from "@synnaxlabs/pluto";
+import { Video } from "@/components/media/Media";
 import { Fragment } from "react";
 import Details from "@/components/details/Details.astro";
 import ChannelType from "@/components/details/ChannelType.astro";
@@ -18,22 +18,18 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-For task lifecycle management, see the
-[Task Basics](/reference/driver/task-basics#how-to) page.
+For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lifecycle).
 
 <Divider.Divider x />
 
 ## Task Configuration Reference
 
-| Parameter              | Type    | Required | Default       | Description                                                   |
-| ---------------------- | ------- | -------- | ------------- | ------------------------------------------------------------- |
-| `name`                 | string  | Yes      | -             | Human-readable task name                                      |
-| `device`               | string  | Yes      | -             | Key of the Modbus server device                               |
-| `sample_rate`          | number  | Yes      | -             | Samples per second (Hz)                                       |
-| `stream_rate`          | number  | No       | `sample_rate` | Rate data is streamed to Synnax (Hz), must be ≤ `sample_rate` |
-| `data_saving_disabled` | boolean | No       | `false`       | Stream data without saving it permanently in Synnax           |
-| `auto_start`           | boolean | No       | `false`       | Automatically start task after configuration                  |
-| `channels`             | array   | Yes      | -             | List of input channel configurations                          |
+| Parameter     | Type   | Required | Default | Description                                                   |
+| ------------- | ------ | -------- | ------- | ------------------------------------------------------------- |
+| `device`      | string | Yes      | -       | Key of the Modbus server device                               |
+| `sample_rate` | number | No       | `10`    | Samples per second (Hz)                                       |
+| `stream_rate` | number | No       | `5`     | Rate data is streamed to Synnax (Hz), must be ≤ `sample_rate` |
+| `channels`    | array  | Yes      | -       | List of input channel configurations                          |
 
 <Divider.Divider x />
 
@@ -47,19 +43,20 @@ For task lifecycle management, see the
 Reads from 16-bit read/write registers (Function Code 03). Typically used for
 configuration parameters and analog outputs that can also be read back.
 
-| Parameter       | Type    | Required | Default | Description                                                         |
-| --------------- | ------- | -------- | ------- | ------------------------------------------------------------------- |
-| `channel`       | number  | Yes      | -       | Synnax channel key                                                  |
-| `address`       | number  | Yes      | -       | Modbus register address (0-65535)                                   |
-| `data_type`     | string  | No       | `uint8` | Data type: `uint8`, `int16`, `uint16`, `int32`, `uint32`, `float32` |
-| `bytes_swapped` | boolean | No       | `false` | Swap byte order within 16-bit words                                 |
-| `words_swapped` | boolean | No       | `false` | Swap word order for 32-bit+ values                                  |
-| `string_length` | number  | No       | `0`     | Register count to read as a string. `0` reads a number              |
+| Parameter       | Type    | Required | Default | Description                                                                                                         |
+| --------------- | ------- | -------- | ------- | ------------------------------------------------------------------------------------------------------------------- |
+| `channel`       | number  | Yes      | -       | Synnax channel key                                                                                                  |
+| `address`       | number  | Yes      | -       | Modbus register address (0-65535)                                                                                   |
+| `data_type`     | string  | No       | `uint8` | Data type: `int8`, `uint8`, `int16`, `uint16`, `int32`, `uint32`, `int64`, `uint64`, `float32`, `float64`, `string` |
+| `bytes_swapped` | boolean | No       | `false` | Swap byte order within 16-bit words                                                                                 |
+| `words_swapped` | boolean | No       | `false` | Swap word order for 32-bit+ values                                                                                  |
+| `string_length` | number  | No       | `0`     | Register count to read as a string. `0` reads a number                                                              |
 
 **Data Type Sizes:**
 
-- `int16`/`uint16`: 1 register (2 bytes)
+- `int8`/`uint8`/`int16`/`uint16`: 1 register (2 bytes)
 - `int32`/`uint32`/`float32`: 2 registers (4 bytes)
+- `int64`/`uint64`/`float64`: 4 registers (8 bytes)
 
 </ChannelType>
 
@@ -69,19 +66,20 @@ configuration parameters and analog outputs that can also be read back.
 Reads from 16-bit read-only registers (Function Code 04). Typically used for analog
 sensor values like temperature, pressure, or flow.
 
-| Parameter       | Type    | Required | Default | Description                                                         |
-| --------------- | ------- | -------- | ------- | ------------------------------------------------------------------- |
-| `channel`       | number  | Yes      | -       | Synnax channel key                                                  |
-| `address`       | number  | Yes      | -       | Modbus register address (0-65535)                                   |
-| `data_type`     | string  | No       | `uint8` | Data type: `uint8`, `int16`, `uint16`, `int32`, `uint32`, `float32` |
-| `bytes_swapped` | boolean | No       | `false` | Swap byte order within 16-bit words                                 |
-| `words_swapped` | boolean | No       | `false` | Swap word order for 32-bit+ values                                  |
-| `string_length` | number  | No       | `0`     | Register count to read as a string. `0` reads a number              |
+| Parameter       | Type    | Required | Default | Description                                                                                                         |
+| --------------- | ------- | -------- | ------- | ------------------------------------------------------------------------------------------------------------------- |
+| `channel`       | number  | Yes      | -       | Synnax channel key                                                                                                  |
+| `address`       | number  | Yes      | -       | Modbus register address (0-65535)                                                                                   |
+| `data_type`     | string  | No       | `uint8` | Data type: `int8`, `uint8`, `int16`, `uint16`, `int32`, `uint32`, `int64`, `uint64`, `float32`, `float64`, `string` |
+| `bytes_swapped` | boolean | No       | `false` | Swap byte order within 16-bit words                                                                                 |
+| `words_swapped` | boolean | No       | `false` | Swap word order for 32-bit+ values                                                                                  |
+| `string_length` | number  | No       | `0`     | Register count to read as a string. `0` reads a number                                                              |
 
 **Data Type Sizes:**
 
-- `int16`/`uint16`: 1 register (2 bytes)
+- `int8`/`uint8`/`int16`/`uint16`: 1 register (2 bytes)
 - `int32`/`uint32`/`float32`: 2 registers (4 bytes)
+- `int64`/`uint64`/`float64`: 4 registers (8 bytes)
 
 </ChannelType>
 
@@ -121,17 +119,12 @@ sensor inputs (e.g., limit switches, proximity sensors).
 
 ## Important Rules
 
-- **Sample rates** -> All channels in a task sample at the same rate. Create separate
-  tasks for different rates.
-- **Software timing** -> Modbus tasks use software timing with ~100 µs precision (may
-  degrade under heavy load).
-- **One running task per channel** -> A channel can only receive live data from one task
-  at a time.
-- **Stream rate optimization** -> For low-rate tasks (< 50 Hz), set the stream rate to
-  the sample rate. For high-rate tasks, keep the stream rate less than 50 Hz for better
-  performance.
-- **Byte/word order** -> Ensure swap settings match your server configuration for
-  multi-register data types.
+- **Software timing** -> Samples are timestamped in software with ~100 µs precision,
+  which degrades under heavy load.
+- **Byte/word order** -> Swap settings must match the server for multi-register data
+  types.
+- **Stream rate** -> For sample rates under 50 Hz, set the stream rate equal to the
+  sample rate. Above that, keep the stream rate under 50 Hz.
 
 <Divider.Divider x />
 

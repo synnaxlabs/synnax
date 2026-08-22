@@ -545,10 +545,10 @@ class LayoutClient:
         """
         if isinstance(selector, str):
             element = self.page.get_by_text(selector, exact=True).first
-            element.click(timeout=500)
+            element.click(timeout=5000)
         else:
             with self._bring_to_front(selector) as el:
-                el.click(timeout=500, force=True)
+                el.click(timeout=5000, force=True)
 
         sy.sleep(0.1)
 
@@ -560,10 +560,10 @@ class LayoutClient:
         """
         if isinstance(selector, str):
             element = self.page.get_by_text(selector, exact=True).first
-            element.click(timeout=500, modifiers=["ControlOrMeta"])
+            element.click(timeout=5000, modifiers=["ControlOrMeta"])
         else:
             with self._bring_to_front(selector) as el:
-                el.click(timeout=500, modifiers=["ControlOrMeta"])
+                el.click(timeout=5000, modifiers=["ControlOrMeta"])
 
         sy.sleep(0.1)
 

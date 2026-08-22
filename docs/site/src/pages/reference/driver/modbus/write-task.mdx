@@ -4,10 +4,12 @@ title: "Modbus Write Task"
 description: "Learn how to send commands to Modbus TCP devices with Synnax."
 prev: "Read Task"
 prevURL: "/reference/driver/modbus/read-task"
+next: "National Instruments"
+nextURL: "/reference/driver/ni/configure-device"
 ---
 
-import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
-import { Video, Image } from "@/components/media/Media";
+import { Divider, Icon, Text } from "@synnaxlabs/pluto";
+import { Video } from "@/components/media/Media";
 import { Fragment } from "react";
 import Details from "@/components/details/Details.astro";
 import ChannelType from "@/components/details/ChannelType.astro";
@@ -16,31 +18,16 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-For task lifecycle management, see the
-[Task Basics](/reference/driver/task-basics#how-to) page.
-
-<Divider.Divider x />
-
-## How Commands Work
-
-Modbus Write Tasks use **command channels** to send values to the server:
-
-- **Command channels** -> Write values here to send commands to the Modbus server
-- **Command time channels** (`_cmd_time`): Index channels storing command timestamps
-
-Modbus write tasks do not create separate state channels. To read back the current
-state, configure a [read task](/reference/driver/modbus/read-task) for the same address.
+For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lifecycle).
 
 <Divider.Divider x />
 
 ## Task Configuration Reference
 
-| Parameter    | Type    | Required | Default | Description                                  |
-| ------------ | ------- | -------- | ------- | -------------------------------------------- |
-| `name`       | string  | Yes      | -       | Human-readable task name                     |
-| `device`     | string  | Yes      | -       | Key of the Modbus server device              |
-| `auto_start` | boolean | No       | `false` | Automatically start task after configuration |
-| `channels`   | array   | Yes      | -       | List of output channel configurations        |
+| Parameter  | Type   | Required | Default | Description                           |
+| ---------- | ------ | -------- | ------- | ------------------------------------- |
+| `device`   | string | Yes      | -       | Key of the Modbus server device       |
+| `channels` | array  | Yes      | -       | List of output channel configurations |
 
 <Divider.Divider x />
 
@@ -54,18 +41,19 @@ state, configure a [read task](/reference/driver/modbus/read-task) for the same 
 Writes to 16-bit read/write registers (Function Code 06/16). Typically used for
 setpoints, control values, and configuration parameters.
 
-| Parameter       | Type    | Required | Default | Description                                                |
-| --------------- | ------- | -------- | ------- | ---------------------------------------------------------- |
-| `channel`       | number  | Yes      | -       | Synnax command channel key                                 |
-| `address`       | number  | Yes      | -       | Modbus register address (0-65535)                          |
-| `data_type`     | enum    | No       | `uint8` | Data type: `int16`, `uint16`, `int32`, `uint32`, `float32` |
-| `bytes_swapped` | boolean | No       | `false` | Swap byte order within 16-bit words                        |
-| `words_swapped` | boolean | No       | `false` | Swap word order for 32-bit+ values                         |
+| Parameter       | Type    | Required | Default | Description                                                                                               |
+| --------------- | ------- | -------- | ------- | --------------------------------------------------------------------------------------------------------- |
+| `channel`       | number  | Yes      | -       | Synnax command channel key                                                                                |
+| `address`       | number  | Yes      | -       | Modbus register address (0-65535)                                                                         |
+| `data_type`     | enum    | No       | `uint8` | Data type: `int8`, `uint8`, `int16`, `uint16`, `int32`, `uint32`, `int64`, `uint64`, `float32`, `float64` |
+| `bytes_swapped` | boolean | No       | `false` | Swap byte order within 16-bit words                                                                       |
+| `words_swapped` | boolean | No       | `false` | Swap word order for 32-bit+ values                                                                        |
 
 **Data Type Sizes:**
 
-- `int16`/`uint16`: 1 register (2 bytes)
+- `int8`/`uint8`/`int16`/`uint16`: 1 register (2 bytes)
 - `int32`/`uint32`/`float32`: 2 registers (4 bytes)
+- `int64`/`uint64`/`float64`: 4 registers (8 bytes)
 
 </ChannelType>
 
@@ -90,10 +78,6 @@ control signals like relay states and valve positions.
 
 ## Important Rules
 
-- **Direct write** -> Commands are written directly to the Modbus server without state
-  feedback channels.
-- **One running task per register** -> A register/coil can only be controlled by one
-  task at a time.
 - **Byte/word order** -> Ensure swap settings match your server configuration for
   multi-register data types.
 - **Read-only registers** -> Input Registers and Discrete Inputs cannot be written to.

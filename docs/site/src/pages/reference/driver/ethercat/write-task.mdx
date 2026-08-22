@@ -4,10 +4,12 @@ title: "EtherCAT Write Task"
 description: "Learn how to send commands to EtherCAT devices with Synnax."
 prev: "Read Task"
 prevURL: "/reference/driver/ethercat/read-task"
+next: "HTTP"
+nextURL: "/reference/driver/http/connect-server"
 ---
 
 import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
-import { Video, Image } from "@/components/media/Media";
+import { Video } from "@/components/media/Media";
 import { Fragment } from "react";
 import Details from "@/components/details/Details.astro";
 import ChannelType from "@/components/details/ChannelType.astro";
@@ -16,32 +18,12 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-For task lifecycle management, see the
-[Task Basics](/reference/driver/task-basics#how-to) page.
+For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lifecycle).
 
-<Divider.Divider x />
-
-## How Commands Work
-
-Write tasks use **command** and **state** channels:
-
-- **Command channels** (`_cmd`): Write values here to send commands to the device
-- **State channels** (`_state`): Reflect the current output state from the device
-- **Command time channels** (`_cmd_time`): Index channels storing command timestamps
-
-When you write to a command channel, the task processes the command and sends it to the
-EtherCAT device. The state channel is updated with feedback from the device, providing
-acknowledgment that the command was executed.
-
-<Divider.Divider x />
-
-## Prerequisites
-
-Before creating a write task, ensure you have:
-
-1. [Configured EtherCAT devices](/reference/driver/ethercat/configure-device) discovered
-   on your network.
-2. Identified the RxPDOs (output PDOs) you want to write to each device.
+Before creating a write task,
+[configure your EtherCAT devices](/reference/driver/ethercat/configure-device) and
+identify the RxPDOs (output PDOs) to write to each one. State channels carry feedback
+read back from the device.
 
 <Note.Note variant="warning" className="compact">
   All channels in a task must use devices connected to the **same network interface**.
@@ -52,21 +34,15 @@ Before creating a write task, ensure you have:
 
 ## Task Configuration Reference
 
-| Parameter              | Type    | Required | Default | Description                                         |
-| ---------------------- | ------- | -------- | ------- | --------------------------------------------------- |
-| `name`                 | string  | Yes      | -       | Human-readable task name                            |
-| `execution_rate`       | number  | Yes      | -       | Rate (Hz) at which commands are sent to hardware    |
-| `state_rate`           | number  | No       | `1`     | Rate (Hz) at which state channels are updated       |
-| `data_saving_disabled` | boolean | No       | `false` | Stream data without saving it permanently in Synnax |
-| `auto_start`           | boolean | No       | `false` | Automatically start task after configuration        |
-| `channels`             | array   | Yes      | -       | List of output channel configurations               |
+| Parameter        | Type   | Required | Default | Description                                      |
+| ---------------- | ------ | -------- | ------- | ------------------------------------------------ |
+| `execution_rate` | number | No       | `1000`  | Rate (Hz) at which commands are sent to hardware |
+| `state_rate`     | number | No       | `25`    | Rate (Hz) at which state channels are updated    |
+| `channels`       | array  | Yes      | -       | List of output channel configurations            |
 
 <Divider.Divider x />
 
 ## Channel Configuration Modes
-
-EtherCAT write tasks support two channel configuration modes: **Automatic** and
-**Manual**. Automatic mode is recommended for most users.
 
 ### Automatic Mode (Recommended)
 
@@ -110,16 +86,16 @@ mode when the ESI file is incomplete or when working with non-standard PDO mappi
 
 Writes data to an RxPDO using explicit CoE addressing.
 
-| Parameter       | Type   | Required | Default | Description                                          |
-| --------------- | ------ | -------- | ------- | ---------------------------------------------------- |
-| `type`          | string | Yes      | -       | Must be `"manual"`                                   |
-| `device`        | string | Yes      | -       | Device key                                           |
-| `index`         | number | Yes      | -       | CoE object index (e.g., `0x6040`)                    |
-| `sub_index`     | number | Yes      | -       | CoE object subindex (typically `0`)                  |
-| `bit_length`    | number | Yes      | -       | Data width in bits (8, 16, 32, 64)                   |
-| `data_type`     | string | Yes      | -       | Synnax data type (`uint8`, `int16`, `float32`, etc.) |
-| `cmd_channel`   | number | Yes      | -       | Synnax command channel key                           |
-| `state_channel` | number | Yes      | -       | Synnax state channel key                             |
+| Parameter       | Type   | Required | Default  | Description                                          |
+| --------------- | ------ | -------- | -------- | ---------------------------------------------------- |
+| `type`          | string | Yes      | -        | Must be `"manual"`                                   |
+| `device`        | string | Yes      | -        | Device key                                           |
+| `index`         | number | Yes      | -        | CoE object index (e.g., `0x6040`)                    |
+| `sub_index`     | number | Yes      | -        | CoE object subindex (typically `0`)                  |
+| `bit_length`    | number | No       | `16`     | Data width in bits (8, 16, 32, 64)                   |
+| `data_type`     | string | No       | `uint16` | Synnax data type (`uint8`, `int16`, `float32`, etc.) |
+| `cmd_channel`   | number | Yes      | -        | Synnax command channel key                           |
+| `state_channel` | number | Yes      | -        | Synnax state channel key                             |
 
 </ChannelType>
 
@@ -143,13 +119,10 @@ Writes data to an RxPDO using explicit CoE addressing.
 
 - **Network constraint** -> All channels must use devices from the same network
   interface.
-- **Command/State pairs** -> Each output requires both a command and state channel.
 - **State rate** -> Higher state rates provide faster feedback but increase network
   load. Typically 10-50 Hz is sufficient.
 - **Execution rate** -> Determines how frequently commands are sent to hardware. Higher
   rates provide more responsive control.
-- **One running task per channel** -> A channel can only send commands to one task at a
-  time.
 
 <Divider.Divider x />
 

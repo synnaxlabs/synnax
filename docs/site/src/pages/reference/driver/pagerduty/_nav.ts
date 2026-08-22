@@ -14,11 +14,6 @@ export const PAGERDUTY_NAV: PageNavNode = {
   name: "PagerDuty",
   children: [
     {
-      key: "/reference/driver/pagerduty/get-started",
-      href: "/reference/driver/pagerduty/get-started",
-      name: "Get Started",
-    },
-    {
       key: "/reference/driver/pagerduty/alert-task",
       href: "/reference/driver/pagerduty/alert-task",
       name: "Alert Task",
