@@ -3,10 +3,10 @@
   "sequences": [
     {
       "sequence_name": "project",
-      "sequence_order": "asynchronous",
       "tests": [
         { "case": "console/project/project" },
-        { "case": "console/project/ontology" }
+        { "case": "console/project/ontology" },
+        { "case": "console/pages/file_drop" }
       ]
     },
     {
@@ -29,7 +29,6 @@
       "pool_size": 6,
       "tests": [
         { "case": "console/log/log_lifecycle" },
-        { "case": "console/pages/file_drop" },
         { "case": "console/pages/import_goldens" },
         { "case": "console/pages/open_close" },
         { "case": "console/pages/rename_synchronization" },

@@ -353,7 +353,7 @@ class Schematic(ConsolePage):
                 f"Control Authority must be between 0 and 255, got {authority}"
             )
         self.notifications.close_all()
-        self.layout.click("Control")
+        self.page.get_by_role("tab", name="Control", exact=True).dispatch_event("click")
         self.layout.fill_input_field("Control Authority", str(authority))
 
     def set_properties(
@@ -363,7 +363,7 @@ class Schematic(ConsolePage):
     ) -> None:
         """Set schematic properties."""
         self.notifications.close_all()
-        self.layout.click("Control")
+        self.page.get_by_role("tab", name="Control", exact=True).dispatch_event("click")
 
         if control_authority is not None:
             if control_authority < 0 or control_authority > 255:
@@ -463,7 +463,7 @@ class Schematic(ConsolePage):
         """
         self.layout.show_visualization_toolbar()
         self.notifications.close_all()
-        self.layout.click("Control")
+        self.page.get_by_role("tab", name="Control", exact=True).dispatch_event("click")
 
         control_authority = int(self.layout.get_input_field("Control Authority"))
 

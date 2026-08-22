@@ -114,16 +114,11 @@ class NoDevice(HardwareCase, ConsoleCase):
         self.log("Deploying task")
         ni_ai.deploy(expect=None)
 
-        # Status assertions
-        status = ni_ai.status()
+        # Status assertions. Deploy returns on the click, so the status is still
+        # the pre-deploy one until the Core answers.
+        status = ni_ai.wait_for_status_level(("warning", "error"))
         level = status["level"]
         msg = status["msg"]
-
-        while level == "loading" and self.should_continue:
-            sy.sleep(0.1)
-            status = ni_ai.status()
-            level = status["level"]
-            msg = status["msg"]
 
         level_expected = "warning"
         msg_expected = f"Synnax Driver on {rack_name} not running"
