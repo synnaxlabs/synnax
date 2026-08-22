@@ -116,6 +116,9 @@ class LayoutClient:
     """
 
     MODAL_SELECTOR = "div.pluto-dialog__dialog.pluto--modal.pluto--visible"
+    # Text.Editable carries the class whether or not it is editing; the attribute
+    # is what marks the element that currently takes keystrokes.
+    EDITABLE_SELECTOR = ".pluto-text--editable[contenteditable='true']"
     # Focusing a tab collapses the mosaic to a single overlaid leaf instead of
     # opening a modal dialog.
     FOCUS_SELECTOR = ".pluto-panel-mosaic__overlaid-leaf"
@@ -1127,11 +1130,11 @@ class LayoutClient:
         self.ctx_menu.action(item, "Delete")
         self.confirm_delete()
 
-    def rename_with_modal(self, item: Locator, new_name: str) -> None:
-        """Rename an item via context menu and modal dialog.
+    def rename_in_place(self, item: Locator, new_name: str) -> None:
+        """Rename an item via context menu. The name edits in place.
 
-        Triggers "Rename" from the context menu, fills the Name input
-        in the resulting modal, and clicks Save.
+        Triggers "Rename" from the context menu, which turns the item's name into
+        an editable text element, then types the new name and commits it.
 
         Args:
             item: The Locator for the element to rename.
@@ -1139,11 +1142,11 @@ class LayoutClient:
         """
         item.wait_for(state="visible", timeout=5000)
         self.ctx_menu.action(item, "Rename")
-        modal = self.page.locator(self.MODAL_SELECTOR)
-        modal.wait_for(state="visible", timeout=5000)
-        modal.locator("input[placeholder='Name']").fill(new_name)
-        modal.get_by_role("button", name="Save", exact=True).click(timeout=5000)
-        modal.wait_for(state="hidden", timeout=5000)
+        editable = item.locator(self.EDITABLE_SELECTOR).first
+        editable.wait_for(state="visible", timeout=5000)
+        self.select_all_and_type(new_name)
+        self.press_enter()
+        editable.wait_for(state="hidden", timeout=5000)
 
     def open_modal(self, command: str, selector: str) -> None:
         """Open a modal via command palette.
