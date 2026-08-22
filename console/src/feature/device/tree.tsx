@@ -22,8 +22,8 @@ import {
 import { useMemo } from "react";
 
 import { getContextMenuItems, getIcon, getMake } from "@/feature/device/make";
-import { Core } from "@/platform/core";
 import { ContextMenu } from "@/platform/context-menu";
+import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Group } from "@/platform/group";
 import { Link } from "@/platform/link";

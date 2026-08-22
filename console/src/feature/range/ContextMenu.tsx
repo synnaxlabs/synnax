@@ -13,8 +13,8 @@ import { Access, type Flux, Icon, Menu, Ranger, Synnax, Text } from "@synnaxlabs
 import { array } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { Core } from "@/platform/core";
 import { ContextMenu as Base } from "@/platform/context-menu";
+import { Core } from "@/platform/core";
 import { Link } from "@/platform/link";
 import { Modals } from "@/platform/modals";
 import { Panel } from "@/platform/panel";

@@ -13,6 +13,7 @@ import {
   type table,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { Panel as PlutoPanel, Table as PTable } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
 import { act, render, within } from "@testing-library/react";
@@ -26,8 +27,6 @@ import {
 
 import { Modals } from "@/platform/modals";
 import { createResourceTab, primePanel } from "@/platform/panel/testutil";
-import { MAIN_WINDOW } from "@synnaxlabs/drift";
-
 import { Session } from "@/session";
 import { type ConsolePreloadedState, createConsoleWrapper } from "@/testutil";
 

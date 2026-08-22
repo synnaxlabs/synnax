@@ -23,8 +23,8 @@ import { array, strings } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { Symbol } from "@/feature/schematic/symbol";
-import { Core } from "@/platform/core";
 import { ContextMenu } from "@/platform/context-menu";
+import { Core } from "@/platform/core";
 import { Export } from "@/platform/export";
 import { Group } from "@/platform/group";
 import { Link } from "@/platform/link";

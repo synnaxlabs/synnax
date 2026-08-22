@@ -25,8 +25,8 @@ import {
 import { array } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { Core } from "@/platform/core";
 import { ContextMenu as Base } from "@/platform/context-menu";
+import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Framer } from "@/platform/framer";
 import { Link } from "@/platform/link";

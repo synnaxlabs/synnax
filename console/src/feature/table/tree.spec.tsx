@@ -31,8 +31,8 @@ import {
 } from "@/platform/tree/testutil";
 import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
 import { Session } from "@/session";
-import { documentIn } from "@/session/window/testutil";
 import { createCore, createCoreState } from "@/session/core/testutil";
+import { documentIn } from "@/session/window/testutil";
 import {
   awaitTextEditing,
   captureBrowserDownloads,

@@ -11,8 +11,8 @@ import { type ReactElement } from "react";
 
 import { Arc } from "@/feature/arc";
 import { Channel } from "@/feature/channel";
-import { Core } from "@/feature/core";
 import { Command } from "@/feature/command";
+import { Core } from "@/feature/core";
 import { Device } from "@/feature/device";
 import { Docs } from "@/feature/docs";
 import { Framer } from "@/feature/framer";

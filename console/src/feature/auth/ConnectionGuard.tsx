@@ -30,8 +30,8 @@ import {
 
 import { Login } from "@/feature/auth/Login";
 import { Shell } from "@/feature/shell";
-import { Core } from "@/platform/core";
 import { Connection } from "@/platform/connection";
+import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Shell as PlatformShell } from "@/platform/shell";
 import { Session } from "@/session";

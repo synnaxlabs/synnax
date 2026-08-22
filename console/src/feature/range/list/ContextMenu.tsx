@@ -11,8 +11,8 @@ import { ranger } from "@synnaxlabs/client";
 import { Access, Icon, List, Menu, Ranger, Status } from "@synnaxlabs/pluto";
 
 import { CreateChildRangeIcon } from "@/feature/range/ContextMenu";
-import { Core } from "@/platform/core";
 import { ContextMenu as Base } from "@/platform/context-menu";
+import { Core } from "@/platform/core";
 import { Link } from "@/platform/link";
 import { Modals } from "@/platform/modals";
 import { Panel } from "@/platform/panel";

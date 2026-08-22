@@ -30,8 +30,8 @@ import { useCallback, useMemo } from "react";
 
 import { useOpen } from "@/feature/channel/useOpen";
 import { Channel } from "@/platform/channel";
-import { Core } from "@/platform/core";
 import { ContextMenu } from "@/platform/context-menu";
+import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Group } from "@/platform/group";
 import { Link } from "@/platform/link";

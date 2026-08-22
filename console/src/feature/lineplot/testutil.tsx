@@ -9,6 +9,7 @@
 
 import { lineplot, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { LinePlot as PLinePlot, Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
 import { act, render, within } from "@testing-library/react";
@@ -22,8 +23,6 @@ import {
 
 import { Modals } from "@/platform/modals";
 import { createResourceTab, primePanel } from "@/platform/panel/testutil";
-import { MAIN_WINDOW } from "@synnaxlabs/drift";
-
 import { Session } from "@/session";
 import { type ConsolePreloadedState, createConsoleWrapper } from "@/testutil";
 

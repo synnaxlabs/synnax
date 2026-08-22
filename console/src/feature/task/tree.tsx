@@ -12,8 +12,8 @@ import { Access, Icon, Menu, Mosaic, Task as Base } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
 
 import { useRangeSnapshot } from "@/feature/task/useRangeSnapshot";
-import { Core } from "@/platform/core";
 import { ContextMenu } from "@/platform/context-menu";
+import { Core } from "@/platform/core";
 import { Export } from "@/platform/export";
 import { Group } from "@/platform/group";
 import { Link } from "@/platform/link";

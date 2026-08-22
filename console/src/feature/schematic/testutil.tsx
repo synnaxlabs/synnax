@@ -14,6 +14,7 @@ import {
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import {
   Haul,
   Panel as PlutoPanel,
@@ -35,8 +36,6 @@ import { Schematic } from "@/feature/schematic";
 import { Modals } from "@/platform/modals";
 import { createResourceTab, primePanel } from "@/platform/panel/testutil";
 import { Tree } from "@/platform/tree";
-import { MAIN_WINDOW } from "@synnaxlabs/drift";
-
 import { Session } from "@/session";
 import {
   assertDefined,

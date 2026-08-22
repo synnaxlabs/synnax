@@ -10,8 +10,8 @@
 import { group, ontology } from "@synnaxlabs/client";
 import { Access, Flux, Group, Icon, Menu, Tree as PTree } from "@synnaxlabs/pluto";
 
-import { Core } from "@/platform/core";
 import { ContextMenu } from "@/platform/context-menu";
+import { Core } from "@/platform/core";
 import { Group as PlatformGroup } from "@/platform/group";
 import { Link } from "@/platform/link";
 import { Tree } from "@/platform/tree";

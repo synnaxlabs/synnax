@@ -11,8 +11,8 @@ import { lineplot, ontology } from "@synnaxlabs/client";
 import { Access, Icon, LinePlot as Base, Menu, Mosaic } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 
-import { Core } from "@/platform/core";
 import { ContextMenu } from "@/platform/context-menu";
+import { Core } from "@/platform/core";
 import { Export } from "@/platform/export";
 import { Group } from "@/platform/group";
 import { Link } from "@/platform/link";
