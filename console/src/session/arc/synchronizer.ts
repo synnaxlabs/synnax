@@ -9,12 +9,13 @@
 
 import { type Action, remove, type StoreState } from "@/session/arc/slice";
 import { Synchronizer } from "@/session/synchronizer";
+import { Window } from "@/session/window";
 
 export const SYNCHRONIZERS: Synchronizer.Synchronizers<StoreState, Action> = [
   Synchronizer.createRemover<StoreState, Action>({
     name: "remove deleted arcs",
     domain: (client) => client.arcs,
-    selectKeys: (state: StoreState) => Object.keys(state.arc.arcs),
+    selectKeys: (state: StoreState) => Window.documentKeys(state.arc),
     remove: (keys) => remove({ keys }),
   }),
 ];

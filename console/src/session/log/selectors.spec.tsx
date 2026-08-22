@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { configureStore } from "@reduxjs/toolkit";
 import { Log as PLog } from "@synnaxlabs/pluto";
 import { act, renderHook } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
@@ -15,6 +14,7 @@ import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
 
 import { Log } from "@/session/log";
+import { createSliceStore, inWindow } from "@/session/window/testutil";
 
 const KEY = "log-1";
 
@@ -24,9 +24,11 @@ const customState = Log.stateZ.parse({
 });
 
 const storeWith = (slice: Log.SliceState) =>
-  configureStore({
-    reducer: { [Log.SLICE_NAME]: Log.reducer },
-    preloadedState: { [Log.SLICE_NAME]: slice },
+  createSliceStore({
+    name: Log.SLICE_NAME,
+    reducer: Log.reducer,
+    preloadedState: slice,
+    middleware: Log.MIDDLEWARE,
   });
 
 const wrapperFor = (
@@ -42,7 +44,8 @@ const wrapperFor = (
   return Wrapper;
 };
 
-const createCustomStore = () => storeWith({ version: 0, logs: { [KEY]: customState } });
+const createCustomStore = () =>
+  storeWith({ version: 0, windows: inWindow({ [KEY]: customState }) });
 
 describe("log selector hooks", () => {
   it("should resolve the key from the surrounding scope", () => {

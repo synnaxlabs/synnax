@@ -7,4 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as Window from "@/session/window/external";
+export * from "@/session/window/keyed";
+export * from "@/session/window/removed";

@@ -153,6 +153,7 @@ const { actions, reducer } = createSlice({
       bottom.hover = false;
     }),
   },
+  extraReducers: Window.handleRemoved,
 });
 
 export const {

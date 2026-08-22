@@ -53,10 +53,9 @@ const stateZ = z.object({
  * view state are absent by design: the Core migrates workspaces into projects and
  * panels, so their content arrives from there rather than from local state.
  */
-export interface Seed
-  extends Partial<
-    Core.StoreState & Theme.StoreState & Color.StoreState & Project.StoreState
-  > {}
+export interface Seed extends Partial<
+  Core.StoreState & Theme.StoreState & Color.StoreState & Project.StoreState
+> {}
 
 const themeMode = (activeTheme?: string): Theme.Mode | undefined => {
   const theme = activeTheme?.toLowerCase();
@@ -66,7 +65,9 @@ const themeMode = (activeTheme?: string): Theme.Mode | undefined => {
   return undefined;
 };
 
-const cores = (legacy: z.infer<typeof stateZ>["cluster"]): Core.SliceState | undefined => {
+const cores = (
+  legacy: z.infer<typeof stateZ>["cluster"],
+): Core.SliceState | undefined => {
   if (legacy == null) return undefined;
   const entries = Object.entries(legacy.clusters);
   if (entries.length === 0) return undefined;

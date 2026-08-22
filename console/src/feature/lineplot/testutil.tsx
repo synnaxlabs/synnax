@@ -22,6 +22,8 @@ import {
 
 import { Modals } from "@/platform/modals";
 import { createResourceTab, primePanel } from "@/platform/panel/testutil";
+import { MAIN_WINDOW } from "@synnaxlabs/drift";
+
 import { Session } from "@/session";
 import { type ConsolePreloadedState, createConsoleWrapper } from "@/testutil";
 
@@ -61,7 +63,9 @@ export const createPreloadedState = (
 ): ConsolePreloadedState => ({
   [Session.LinePlot.SLICE_NAME]: {
     ...Session.LinePlot.ZERO_SLICE_STATE,
-    plots: { [key]: { ...Session.LinePlot.ZERO_STATE, ...plotState } },
+    windows: {
+      [MAIN_WINDOW]: { [key]: { ...Session.LinePlot.ZERO_STATE, ...plotState } },
+    },
   },
 });
 

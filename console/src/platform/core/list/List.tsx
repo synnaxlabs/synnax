@@ -23,9 +23,9 @@ import {
 import { type ReactElement, useCallback, useMemo, useState } from "react";
 
 import { Button } from "@/platform/button";
+import { ContextMenu } from "@/platform/context-menu";
 import { Item } from "@/platform/core/list/Item";
 import { useConnectModal } from "@/platform/core/useConnectModal";
-import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Link } from "@/platform/link";
@@ -85,12 +85,12 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
           secure: core.secure,
           name: core.name,
         });
-        if (status.variant === "success") {
+        if (status.variant === "success")
           addStatus({
             variant: "success",
             message: `Connected to ${core.name}`,
           });
-        } else
+        else
           addStatus({
             variant: "error",
             message: `Failed to connect to ${core.name}`,

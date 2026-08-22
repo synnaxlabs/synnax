@@ -279,6 +279,7 @@ const { actions, reducer } = createSlice({
     },
     reset: () => ZERO_SLICE_STATE,
   },
+  extraReducers: Window.handleRemoved,
 });
 
 const {

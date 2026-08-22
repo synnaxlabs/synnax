@@ -11,9 +11,9 @@ Drag-and-drop mosaic dashboards.
 Four strictly-ordered layers; every domain (schematic, range, task, ...) is split across
 them. A layer imports only layers below it — never above:
 
-1. **`session/`** (lowest) — Redux state: slices, selectors, persistence, migrations,
-   plus the synchronizer hooks that keep session state consistent with the cluster. No
-   components or rendering.
+1. **`session/`** (lowest) — Redux state: slices, selectors, persistence, plus the
+   synchronizer hooks that keep session state consistent with the Core. No components or
+   rendering.
 2. **`platform/`** — substrate: high fan-in capabilities other domains depend on.
    Frameworks (ontology, layout, palette, link, export/import, modals) and
    cross-domain-shared widgets/hooks. Never imports `feature/`.
@@ -86,29 +86,60 @@ Hooks from `@synnaxlabs/drift/react`: `useWindowLifecycle({key, onMount, onUnmou
 
 ## State Management
 
-Modular slices (`cluster`, `layout`, `linePlot`, `schematic`, `table`, `workspace`,
-`drift`, ...), each with `SLICE_NAME`, `SliceState`, `ZERO_SLICE_STATE`, and
-`createSlice` reducers. Keep slices focused and independent; side effects go in Redux
-middleware.
+Modular slices (`core`, `nav`, `panels`, `lineplot`, `schematic`, `table`, `project`,
+`drift`, ...), each with `SLICE_NAME`, `sliceStateZ`, `SliceState`, `ZERO_SLICE_STATE`,
+and `createSlice` reducers. Keep slices focused and independent; side effects go in
+Redux middleware.
 
-**Persistence** — main window only: JSON to the user data dir via Tauri fs, last 4
-versions kept, 250ms debounce, automatic v1→v2 migration. Transient state is excluded
-(`layout.**.nav`, `layout.**.hauling`, `palette.activeTheme`). Add migration logic when
-changing state shape.
+Every persisted slice carries `version: z.literal(N)` in its `sliceStateZ`. Schema
+evolution is Zod's job: widen the schema, bump the literal, and give absent fields
+defaults. There is no migrator framework — a stored slice that fails its schema falls
+back to its initial state.
 
-## Layout System (Mosaic)
+**Persistence** (`session/persist/`) — main window only, 250ms debounce. Desktop writes
+`session.json` in the Tauri app data dir; the browser uses an IndexedDB database. Each
+slice lives in exactly one scope, declared with its schema in `PERSIST_SCOPES`:
 
-Tab layouts are a mosaic tree: leaf nodes hold `tabs`, split nodes hold
-`first`/`second` + `direction` + `size`. Tabs contain any visualization, move between
-windows via `moveMosaicTab`, and rearrange via drag-and-drop. **Each window has its own
-independent mosaic.** Per-window navigation drawer state (`activeItem`, `hoveredItem`,
-`expanded`).
+| Scope     | Slices                                                                  |
+| --------- | ----------------------------------------------------------------------- |
+| `global`  | core, color, theme                                                      |
+| `core`    | project                                                                 |
+| `project` | arc, drift, lineplot, log, nav, panels, range, schematic, status, table |
 
-Workspaces are saved layouts (`Layout.setWorkspace`) persisted to disk,
-exportable/importable.
+`haul` and `persist` are declared `transient` and never written. `Persist.open` throws
+when a slice is in none of the four, so adding a slice forces a decision about its
+durability. Each partition keeps a four-slot ring behind a `.slot` pointer, backing
+revert. Switching Core or project flushes the outgoing partitions and hydrates the
+target's without a reload.
+
+`persisted-state.json` is the 0.56 store. It is read once, to seed a fresh install, and
+never written or cleared — a rollback to 0.56 must still find its state.
+
+**Cores are keyed by `host:port`.** The key is the address, so it never changes
+underneath a running session and two entries at one address collapse into one.
+
+## Windows Are Viewports
+
+Panel documents live on the Core; a window is a view onto them, and any number of
+windows may show one panel at once. So everything about _how this window looks at a
+document_ is keyed by window key: `nav`, `panels`, and the per-document view slices
+(`arc`, `lineplot`, `log`, `schematic`, `table`), all shaped
+`windows: Record<windowKey, ...>`.
+
+Building one: take the schema helpers from `session/window/keyed.ts` —
+`createWithDocumentHandler` for a per-document reducer, `createDocumentInitializer` for
+its create, `createInjectKeyMiddleware` to fill `windowKey` on dispatch, and
+`selectDocument` so selectors resolve the current window themselves. Add
+`extraReducers: Window.handleRemoved` or the slice keeps an entry for every window ever
+opened — window keys are minted fresh per open.
 
 ## Live-Core Tests
 
-Live-core specs (cluster, flux query paths, user badges, ...) connect to a real core at
+Live-Core specs (Core, flux query paths, user badges, ...) connect to a real Core at
 `localhost:9090` through the production query path — no store-poking. Check for a
-running core and start one if missing per "Live-Core Tests" in `docs/claude/testing.md`.
+running Core and start one if missing per "Live-Core Tests" in `docs/claude/testing.md`.
+
+Specs over a window-keyed slice build their store with `createSliceStore` from
+`session/window/testutil.ts`, which adds the drift slice the selectors read the current
+window from and runs the slice's own middleware. `inWindow` and `documentIn` write and
+read one window's documents.

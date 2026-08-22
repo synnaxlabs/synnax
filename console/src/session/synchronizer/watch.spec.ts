@@ -9,9 +9,9 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import { Theme } from "@/session/theme";
 import { Project } from "@/session/project";
 import { Synchronizer } from "@/session/synchronizer";
+import { Theme } from "@/session/theme";
 import { createTestStore } from "@/testutil";
 
 describe("Synchronizer.watch", () => {

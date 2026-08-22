@@ -26,21 +26,12 @@ import {
   uniqueName,
 } from "@/testutil";
 
-const CLUSTER_KEY = "local";
+const LOCAL = createCore("Local", { username: "", password: "" });
+const CORE_KEY = LOCAL.key;
 
 const CoreState = (): Session.Core.SliceState => ({
   ...Session.Core.ZERO_SLICE_STATE,
-  cores: {
-    [CLUSTER_KEY]: {
-      key: CLUSTER_KEY,
-      name: "Local",
-      host: "localhost",
-      port: 9090,
-      username: "",
-      password: "",
-      secure: false,
-    },
-  },
+  cores: { [CORE_KEY]: LOCAL },
 });
 
 const renderGuard = async (selected?: string): Promise<TestStore> => {
@@ -72,7 +63,7 @@ const submitCredentials = (username: string, password: string): void => {
 
 describe("auth guard", () => {
   it("should render children when a Core is already selected", async () => {
-    await renderGuard(CLUSTER_KEY);
+    await renderGuard(CORE_KEY);
     expect(screen.getByText("authenticated content")).toBeTruthy();
     expect(screen.queryByText("Log in")).toBeNull();
   });
@@ -87,11 +78,11 @@ describe("auth guard", () => {
     pinLocationOrigin("http://localhost:9090");
     const store = await renderGuard();
     submitCredentials("synnax", "seldon");
-    await waitFor(() => {
-      const key = Session.Core.selectSelectedKey(store.getState());
-      expect(key).toBeDefined();
-      expect(key).not.toBe(CLUSTER_KEY);
-    });
+    // The served address is the key, so logging in lands on the same entry the
+    // session already knew rather than minting a new one.
+    await waitFor(() =>
+      expect(Session.Core.selectSelectedKey(store.getState())).toBe(CORE_KEY),
+    );
     expect(await screen.findByText("authenticated content")).toBeTruthy();
     const state = store.getState();
     const key = Session.Core.selectSelectedKey(state);
@@ -133,14 +124,14 @@ describe("auth guard", () => {
       await screen.findByText("authenticated content", {}, { timeout: 10000 }),
     ).toBeTruthy();
     expect(screen.queryByText(/invalid credentials/i)).toBeNull();
-    // The synchronizer adopts the server-issued key, renaming the failed
-    // login's entry in place rather than minting a duplicate.
+    // The address is the key, so a retry after a rejected login reuses the same
+    // entry rather than minting a duplicate.
     const selected = Session.Core.selectSelectedKey(store.getState());
-    expect(selected).toBeDefined();
-    expect(selected).not.toBe(key);
+    expect(selected).toBe(key);
+    const demoKey = Session.Core.key({ host: "demo.synnaxlabs.com", port: 9090 });
     const keys = Session.Core.selectMany(store.getState())
       .map(({ key: k }) => k)
-      .filter((k) => k !== "DEMO");
+      .filter((k) => k !== demoKey);
     expect(keys).toEqual([selected]);
   });
 
@@ -216,7 +207,7 @@ describe("connection guard permissions", () => {
   const createGuardWrapper = async (): Promise<FC<PropsWithChildren>> => {
     const { wrapper: SessionWrapper } = await createSessionConsoleWrapper({
       client: null,
-      preloadedState: createCoreState([createCore(CLUSTER_KEY)], CLUSTER_KEY),
+      preloadedState: createCoreState([createCore(CORE_KEY)], CORE_KEY),
     });
     const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
       <SessionWrapper>

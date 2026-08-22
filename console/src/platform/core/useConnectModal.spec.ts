@@ -45,10 +45,8 @@ const fillForm = (name: string, host: string, port: string): void => {
 describe("useConnectModal", () => {
   describe("edit mode", () => {
     it("should prefill the form from the edited Core", async () => {
-      await openConnect(
-        [{ coreKey: "c1" }],
-        createCoreState([createCore("c1", { name: "Alpha", host: "alpha.host" })]),
-      );
+      const alpha = createCore("Alpha", { host: "alpha.host" });
+      await openConnect([{ coreKey: alpha.key }], createCoreState([alpha]));
       expect(nameInput().value).toEqual("Alpha");
       expect(screen.getByPlaceholderText<HTMLInputElement>("localhost").value).toEqual(
         "alpha.host",
@@ -100,29 +98,19 @@ describe("useConnectModal", () => {
       );
     });
 
-    it("should update the edited Core, preserve credentials, and adopt the server's key on Save", async () => {
+    it("should rename the edited Core in place and preserve its credentials", async () => {
+      const alpha = createCore("Alpha", { username: "user_u", password: "pass_p" });
       const { store } = await openConnect(
-        [{ coreKey: "c1" }],
-        createCoreState(
-          [
-            createCore("c1", {
-              name: "Alpha",
-              username: "user_u",
-              password: "pass_p",
-            }),
-          ],
-          "c1",
-        ),
+        [{ coreKey: alpha.key }],
+        createCoreState([alpha], alpha.key),
       );
       fireEvent.change(nameInput(), { target: { value: "Alpha_Edited" } });
       fireEvent.click(findButton("Save"));
       await waitFor(() => {
-        expect(Session.Core.selectState(store.getState(), "c1")).toBeUndefined();
-        const edited = Session.Core.selectMany(store.getState()).find(
-          (c) => c.name === "Alpha_Edited",
-        );
-        expect(edited).toBeDefined();
-        expect(edited?.key).not.toEqual("c1");
+        const edited = Session.Core.selectState(store.getState(), alpha.key);
+        expect(edited?.name).toEqual("Alpha_Edited");
+        // The address did not change, so neither did the key it implies.
+        expect(edited?.key).toEqual(alpha.key);
         expect(edited?.username).toEqual("user_u");
         expect(edited?.password).toEqual("pass_p");
       });

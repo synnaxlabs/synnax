@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { configureStore } from "@reduxjs/toolkit";
 import { Table as PTable } from "@synnaxlabs/pluto";
 import { act, renderHook } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
@@ -15,11 +14,19 @@ import { Provider } from "react-redux";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { Table } from "@/session/table";
+import {
+  createSliceStore,
+  documentIn,
+  DRIFT_STATE,
+  inWindow,
+} from "@/session/window/testutil";
 
 const storeWith = (slice: Table.SliceState) =>
-  configureStore({
-    reducer: { [Table.SLICE_NAME]: Table.reducer },
-    preloadedState: { [Table.SLICE_NAME]: slice },
+  createSliceStore({
+    name: Table.SLICE_NAME,
+    reducer: Table.reducer,
+    preloadedState: slice,
+    middleware: Table.MIDDLEWARE,
   });
 
 const KEY = "table-1";
@@ -54,7 +61,7 @@ describe("Table Slice", () => {
   });
 
   const exists = (key: string = KEY): boolean =>
-    Table.selectSliceState(store.getState()).tables[key] != null;
+    documentIn(Table.selectSliceState(store.getState()), key) != null;
 
   describe("create", () => {
     it("should bootstrap session state from ZERO_STATE for the key", () => {
@@ -274,18 +281,21 @@ describe("Table Slice", () => {
 
   describe("purgeSliceState", () => {
     it("should reset the selection on every table in the slice", () => {
-      const state = {
+      const state: Table.StoreState = {
+        ...DRIFT_STATE,
         [Table.SLICE_NAME]: {
-          version: 0 as const,
-          tables: {
+          version: 0,
+          windows: inWindow({
             "table-1": Table.stateZ.parse({ selectedCells: ["a"], lastSelected: "a" }),
             "table-2": Table.stateZ.parse({ selectedCells: ["b"], lastSelected: "b" }),
-          },
+          }),
         },
       };
       const purged = Table.purgeSliceState(state);
-      expect(purged[Table.SLICE_NAME].tables["table-1"].selectedCells).toEqual([]);
-      expect(purged[Table.SLICE_NAME].tables["table-2"].lastSelected).toBeNull();
+      expect(documentIn(purged[Table.SLICE_NAME], "table-1")?.selectedCells).toEqual(
+        [],
+      );
+      expect(documentIn(purged[Table.SLICE_NAME], "table-2")?.lastSelected).toBeNull();
     });
   });
 });

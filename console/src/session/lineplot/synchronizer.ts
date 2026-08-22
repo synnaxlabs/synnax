@@ -9,12 +9,13 @@
 
 import { type Action, remove, type StoreState } from "@/session/lineplot/slice";
 import { Synchronizer } from "@/session/synchronizer";
+import { Window } from "@/session/window";
 
 export const SYNCHRONIZERS: Synchronizer.Synchronizers<StoreState, Action> = [
   Synchronizer.createRemover<StoreState, Action>({
     name: "remove deleted line plots",
     domain: (client) => client.lineplots,
-    selectKeys: (state: StoreState) => Object.keys(state.line.plots),
+    selectKeys: (state: StoreState) => Window.documentKeys(state.line),
     remove: (keys) => remove({ keys }),
   }),
 ];

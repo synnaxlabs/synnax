@@ -35,6 +35,7 @@ import {
 } from "@/platform/tree/testutil";
 import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
 import { Session } from "@/session";
+import { documentIn } from "@/session/window/testutil";
 import { createCore, createCoreState } from "@/session/core/testutil";
 import {
   assertDefined,
@@ -129,7 +130,7 @@ describe("lineplot/ontology", () => {
         );
       });
       expect(
-        Session.LinePlot.selectSliceState(store.getState()).plots[plot.key],
+        documentIn(Session.LinePlot.selectSliceState(store.getState()), plot.key),
       ).toBeUndefined();
     });
 

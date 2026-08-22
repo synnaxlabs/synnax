@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { configureStore } from "@reduxjs/toolkit";
 import { type schematic } from "@synnaxlabs/client";
+import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { color } from "@synnaxlabs/x";
 import { renderHook } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
@@ -16,11 +16,19 @@ import { Provider } from "react-redux";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { Schematic } from "@/session/schematic";
+import {
+  createSliceStore,
+  documentIn,
+  DRIFT_STATE,
+  inWindow,
+} from "@/session/window/testutil";
 
 const storeWith = (slice: Schematic.SliceState) =>
-  configureStore({
-    reducer: { [Schematic.SLICE_NAME]: Schematic.reducer },
-    preloadedState: { [Schematic.SLICE_NAME]: slice },
+  createSliceStore({
+    name: Schematic.SLICE_NAME,
+    reducer: Schematic.reducer,
+    preloadedState: slice,
+    middleware: Schematic.MIDDLEWARE,
   });
 
 const KEY = "schematic-1";
@@ -44,7 +52,8 @@ describe("Schematic Slice", () => {
     return result.current({ key });
   };
 
-  const schematics = () => store.getState()[Schematic.SLICE_NAME].schematics;
+  const schematics = () =>
+    store.getState()[Schematic.SLICE_NAME].windows[MAIN_WINDOW] ?? {};
 
   describe("create", () => {
     it("should bootstrap session state from ZERO_STATE for the key", () => {
@@ -276,20 +285,21 @@ describe("Schematic Slice", () => {
   describe("purgeSliceState", () => {
     it("should release control on every schematic in the slice", () => {
       const state: Schematic.StoreState = {
+        ...DRIFT_STATE,
         [Schematic.SLICE_NAME]: {
           version: 0,
-          schematics: {
+          windows: inWindow({
             "schematic-1": Schematic.stateZ.parse({ control: { status: "acquired" } }),
             "schematic-2": Schematic.stateZ.parse({ control: { status: "acquired" } }),
-          },
+          }),
         },
       };
       const purged = Schematic.purgeSliceState(state);
       expect(
-        purged[Schematic.SLICE_NAME].schematics["schematic-1"].control.status,
+        documentIn(purged[Schematic.SLICE_NAME], "schematic-1")?.control.status,
       ).toBe("released");
       expect(
-        purged[Schematic.SLICE_NAME].schematics["schematic-2"].control.status,
+        documentIn(purged[Schematic.SLICE_NAME], "schematic-2")?.control.status,
       ).toBe("released");
     });
   });

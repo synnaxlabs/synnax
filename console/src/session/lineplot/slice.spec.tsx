@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { configureStore } from "@reduxjs/toolkit";
 import { LinePlot as PLinePlot } from "@synnaxlabs/pluto";
 import { act, renderHook } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
@@ -15,11 +14,19 @@ import { Provider } from "react-redux";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { LinePlot } from "@/session/lineplot";
+import {
+  createSliceStore,
+  documentIn,
+  DRIFT_STATE,
+  inWindow,
+} from "@/session/window/testutil";
 
 const storeWith = (slice: LinePlot.SliceState) =>
-  configureStore({
-    reducer: { [LinePlot.SLICE_NAME]: LinePlot.reducer },
-    preloadedState: { [LinePlot.SLICE_NAME]: slice },
+  createSliceStore({
+    name: LinePlot.SLICE_NAME,
+    reducer: LinePlot.reducer,
+    preloadedState: slice,
+    middleware: LinePlot.MIDDLEWARE,
   });
 
 const KEY = "plot-1";
@@ -388,18 +395,23 @@ describe("LinePlot Slice", () => {
 
   describe("purgeSliceState", () => {
     it("should clear hidden lines on every plot in the slice", () => {
-      const state = {
+      const state: LinePlot.StoreState = {
+        ...DRIFT_STATE,
         [LinePlot.SLICE_NAME]: {
           version: 0 as const,
-          plots: {
+          windows: inWindow({
             "plot-1": LinePlot.stateZ.parse({ hiddenLines: ["l1"] }),
             "plot-2": LinePlot.stateZ.parse({ hiddenLines: ["l2"] }),
-          },
+          }),
         },
       };
       const purged = LinePlot.purgeSliceState(state);
-      expect(purged[LinePlot.SLICE_NAME].plots["plot-1"].hiddenLines).toEqual([]);
-      expect(purged[LinePlot.SLICE_NAME].plots["plot-2"].hiddenLines).toEqual([]);
+      expect(documentIn(purged[LinePlot.SLICE_NAME], "plot-1")?.hiddenLines).toEqual(
+        [],
+      );
+      expect(documentIn(purged[LinePlot.SLICE_NAME], "plot-2")?.hiddenLines).toEqual(
+        [],
+      );
     });
   });
 });

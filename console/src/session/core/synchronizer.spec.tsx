@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { connection, type Synnax as Client } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
 import { Synnax } from "@synnaxlabs/pluto";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -20,11 +19,7 @@ import { SYNCHRONIZERS } from "@/session/core/synchronizer";
 import { createCore, createCoreState } from "@/session/core/testutil";
 import { Synchronizer } from "@/session/synchronizer";
 import { pickSynchronizer } from "@/session/synchronizer/testutil";
-import {
-  createConnectedConsoleWrapper,
-  createConsoleWrapper,
-  renderHookWithConsole,
-} from "@/testutil";
+import { createConnectedConsoleWrapper, createConsoleWrapper } from "@/testutil";
 
 describe("useCloseOnCoreChange", () => {
   const AUX_LABEL = "aux";

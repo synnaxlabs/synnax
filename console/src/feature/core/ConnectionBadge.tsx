@@ -15,8 +15,8 @@ import { location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Clipboard } from "@/platform/clipboard";
-import { Core } from "@/platform/core";
 import { Connection } from "@/platform/connection";
+import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Session } from "@/session";
 

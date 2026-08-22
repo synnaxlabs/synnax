@@ -22,7 +22,7 @@ describe("Link.useCopyToClipboard", () => {
   it("copies a Core link when no ontology ID is given", async () => {
     const { result } = await renderHookWithConsole(() => Link.useCopyToClipboard());
     act(() => result.current({ coreKey: "abc", name: "My Core" }));
-    await waitFor(() => expect(writeText).toHaveBeenCalledWith("synnax://Core/abc"));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith("synnax://core/abc"));
   });
 
   it("appends the ontology type and key when an ID is given", async () => {
@@ -35,7 +35,7 @@ describe("Link.useCopyToClipboard", () => {
       }),
     );
     await waitFor(() =>
-      expect(writeText).toHaveBeenCalledWith("synnax://Core/abc/range/r1"),
+      expect(writeText).toHaveBeenCalledWith("synnax://core/abc/range/r1"),
     );
   });
 });

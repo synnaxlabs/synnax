@@ -110,7 +110,11 @@ describe("createStore", () => {
     // The switch hydrates the project's stored slices over whatever is in the store, so
     // let it settle before making changes that have to survive. Project-scoped slices
     // are only written once the hydrate lands, so nav appearing marks the end of it.
-    await waitForPersisted(db, (p) => p.nav != null, "project swap has not settled yet");
+    await waitForPersisted(
+      db,
+      (p) => p.nav != null,
+      "project swap has not settled yet",
+    );
     store.dispatch(Session.Haul.setHauled(HAULED));
     store.dispatch(Session.Nav.showBottom({ windowKey: MAIN_WINDOW }));
     await waitForPersisted(

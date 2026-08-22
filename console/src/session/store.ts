@@ -35,6 +35,7 @@ import { Schematic } from "@/session/schematic";
 import { Status } from "@/session/status";
 import { Table } from "@/session/table";
 import { Theme } from "@/session/theme";
+import { Window } from "@/session/window";
 
 const PERSIST_EXCLUDE: Array<Persist.ExcludeFn<State>> = [
   ...Panel.PERSIST_EXCLUDE,
@@ -169,7 +170,16 @@ const DEFAULT_WINDOW_PROPS: Omit<Drift.WindowProps, "key"> = {
   minSize: { width: 625, height: 375 },
 };
 
-export const BASE_MIDDLEWARE = [...Nav.MIDDLEWARE, ...Panel.MIDDLEWARE];
+export const BASE_MIDDLEWARE = [
+  Window.removalMiddleware,
+  ...Arc.MIDDLEWARE,
+  ...LinePlot.MIDDLEWARE,
+  ...Log.MIDDLEWARE,
+  ...Nav.MIDDLEWARE,
+  ...Panel.MIDDLEWARE,
+  ...Schematic.MIDDLEWARE,
+  ...Table.MIDDLEWARE,
+];
 
 export interface CreateStoreOptions extends Partial<
   Pick<

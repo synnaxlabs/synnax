@@ -35,6 +35,8 @@ import { Schematic } from "@/feature/schematic";
 import { Modals } from "@/platform/modals";
 import { createResourceTab, primePanel } from "@/platform/panel/testutil";
 import { Tree } from "@/platform/tree";
+import { MAIN_WINDOW } from "@synnaxlabs/drift";
+
 import { Session } from "@/session";
 import {
   assertDefined,
@@ -71,7 +73,9 @@ export const createPreloadedState = (
 ): ConsolePreloadedState => ({
   [Session.Schematic.SLICE_NAME]: {
     ...Session.Schematic.ZERO_SLICE_STATE,
-    schematics: { [key]: { ...Session.Schematic.ZERO_STATE, ...overrides } },
+    windows: {
+      [MAIN_WINDOW]: { [key]: { ...Session.Schematic.ZERO_STATE, ...overrides } },
+    },
   },
 });
 

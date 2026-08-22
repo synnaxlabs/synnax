@@ -10,8 +10,8 @@
 import { waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Core } from "@/feature/core";
 import { renderPalette } from "@/feature/command/testutil";
+import { Core } from "@/feature/core";
 import { Session } from "@/session";
 import { createCore } from "@/session/core/testutil";
 

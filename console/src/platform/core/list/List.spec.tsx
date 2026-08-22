@@ -16,19 +16,19 @@ import { Session } from "@/session";
 import { createCore, createCoreState } from "@/session/core/testutil";
 import { getBySelector, stubClipboardWriteText } from "@/testutil";
 
+const ALPHA = createCore("Alpha");
+const BRAVO = createCore("Bravo", { port: 9099 });
+
 describe("Core List", () => {
   it("should call onChange with the clicked Core's key", async () => {
     const onChange = vi.fn();
     await renderCoreUI(
-      <Core.List value="a" onChange={onChange} />,
-      createCoreState(
-        [createCore("a", { name: "Alpha" }), createCore("b", { name: "Bravo" })],
-        "a",
-      ),
+      <Core.List value={ALPHA.key} onChange={onChange} />,
+      createCoreState([ALPHA, BRAVO], ALPHA.key),
     );
     fireEvent.click(await screen.findByText("Bravo"));
     await waitFor(() => expect(onChange).toHaveBeenCalled());
-    expect(onChange.mock.lastCall?.[0]).toBe("b");
+    expect(onChange.mock.lastCall?.[0]).toBe(BRAVO.key);
   });
 
   it("should open the connect modal from the empty action", async () => {
@@ -46,8 +46,8 @@ describe("Core List", () => {
 
   it("should open the connect modal in edit mode from the context menu", async () => {
     await renderCoreUI(
-      <Core.List value="a" onChange={vi.fn()} />,
-      createCoreState([createCore("a", { name: "Alpha" })], "a"),
+      <Core.List value={ALPHA.key} onChange={vi.fn()} />,
+      createCoreState([ALPHA], ALPHA.key),
     );
     fireEvent.contextMenu(await screen.findByText("Alpha"));
     fireEvent.click(await screen.findByText("Edit"));
@@ -60,51 +60,46 @@ describe("Core List", () => {
   it("should copy a link to the Core from the context menu", async () => {
     const writeText = stubClipboardWriteText();
     await renderCoreUI(
-      <Core.List value="a" onChange={vi.fn()} />,
-      createCoreState([createCore("a", { name: "Alpha" })], "a"),
+      <Core.List value={ALPHA.key} onChange={vi.fn()} />,
+      createCoreState([ALPHA], ALPHA.key),
     );
     fireEvent.contextMenu(await screen.findByText("Alpha"));
     fireEvent.click(await screen.findByText("Copy link"));
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
-    expect(writeText.mock.calls[0][0]).toBe("synnax://Core/a");
+    expect(writeText.mock.calls[0][0]).toBe(`synnax://core/${ALPHA.key}`);
   });
 
   it("should remove a Core and reselect a sibling from the context menu", async () => {
     const onChange = vi.fn();
     const { store } = await renderCoreUI(
-      <Core.List value="a" onChange={onChange} />,
-      createCoreState(
-        [createCore("a", { name: "Alpha" }), createCore("b", { name: "Bravo" })],
-        "a",
-      ),
+      <Core.List value={ALPHA.key} onChange={onChange} />,
+      createCoreState([ALPHA, BRAVO], ALPHA.key),
     );
     fireEvent.contextMenu(await screen.findByText("Alpha"));
     fireEvent.click(await screen.findByText("Remove"));
-    expect(onChange).toHaveBeenCalledWith("b");
-    expect(Session.Core.selectState(store.getState(), "a")).toBeUndefined();
-    expect(Session.Core.selectState(store.getState(), "b")).toBeDefined();
+    expect(onChange).toHaveBeenCalledWith(BRAVO.key);
+    expect(Session.Core.selectState(store.getState(), ALPHA.key)).toBeUndefined();
+    expect(Session.Core.selectState(store.getState(), BRAVO.key)).toBeDefined();
   });
 
-  it("should refresh the connection and adopt the server's Core key from the context menu", async () => {
+  it("should leave the Core's key alone when refreshing the connection", async () => {
     const { store } = await renderCoreUI(
-      <Core.List value="a" onChange={vi.fn()} />,
-      createCoreState([createCore("a", { name: "Alpha" })], "a"),
+      <Core.List value={ALPHA.key} onChange={vi.fn()} />,
+      createCoreState([ALPHA], ALPHA.key),
     );
     fireEvent.contextMenu(await screen.findByText("Alpha"));
     fireEvent.click(await screen.findByText("Refresh connection"));
-    await waitFor(() =>
-      expect(Session.Core.selectState(store.getState(), "a")).toBeUndefined(),
-    );
+    await waitFor(() => expect(screen.queryByText("Refresh connection")).toBeNull());
+    // The address is the key, so a connection tells the session nothing new about it.
     const cores = Session.Core.selectMany(store.getState());
     expect(cores).toHaveLength(1);
-    expect(cores[0].name).toBe("Alpha");
-    expect(cores[0].key).not.toBe("a");
+    expect(cores[0].key).toBe(ALPHA.key);
   });
 
   it("should rename a Core to a new name from the context menu", async () => {
     const { store } = await renderCoreUI(
-      <Core.List value="a" onChange={vi.fn()} />,
-      createCoreState([createCore("a", { name: "Alpha" })], "a"),
+      <Core.List value={ALPHA.key} onChange={vi.fn()} />,
+      createCoreState([ALPHA], ALPHA.key),
     );
     fireEvent.contextMenu(await screen.findByText("Alpha"));
     fireEvent.click(await screen.findByText("Rename"));
@@ -113,17 +108,14 @@ describe("Core List", () => {
     editable.innerText = "Beta";
     fireEvent.keyDown(editable, { key: "Enter" });
     await waitFor(() =>
-      expect(Session.Core.selectState(store.getState(), "a")?.name).toBe("Beta"),
+      expect(Session.Core.selectState(store.getState(), ALPHA.key)?.name).toBe("Beta"),
     );
   });
 
   it("should reject renaming a Core to a name already in use", async () => {
     const { store } = await renderCoreUI(
-      <Core.List value="a" onChange={vi.fn()} />,
-      createCoreState(
-        [createCore("a", { name: "Alpha" }), createCore("b", { name: "Bravo" })],
-        "a",
-      ),
+      <Core.List value={ALPHA.key} onChange={vi.fn()} />,
+      createCoreState([ALPHA, BRAVO], ALPHA.key),
     );
     fireEvent.contextMenu(await screen.findByText("Alpha"));
     fireEvent.click(await screen.findByText("Rename"));
@@ -132,14 +124,14 @@ describe("Core List", () => {
     editable.innerText = "Bravo";
     fireEvent.keyDown(editable, { key: "Enter" });
     await waitFor(() => expect(editable.getAttribute("contenteditable")).toBe("false"));
-    expect(Session.Core.selectState(store.getState(), "a")?.name).toBe("Alpha");
-    expect(Session.Core.selectState(store.getState(), "b")?.name).toBe("Bravo");
+    expect(Session.Core.selectState(store.getState(), ALPHA.key)?.name).toBe("Alpha");
+    expect(Session.Core.selectState(store.getState(), BRAVO.key)?.name).toBe("Bravo");
   });
 
   it("should open the connect modal from the header add button", async () => {
     await renderCoreUI(
-      <Core.List value="a" onChange={vi.fn()} />,
-      createCoreState([createCore("a", { name: "Alpha" })], "a"),
+      <Core.List value={ALPHA.key} onChange={vi.fn()} />,
+      createCoreState([ALPHA], ALPHA.key),
     );
     const addButton = screen
       .getAllByRole("button")

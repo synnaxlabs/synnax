@@ -31,6 +31,7 @@ import {
 } from "@/platform/tree/testutil";
 import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
 import { Session } from "@/session";
+import { documentIn } from "@/session/window/testutil";
 import { createCore, createCoreState } from "@/session/core/testutil";
 import {
   awaitTextEditing,
@@ -118,7 +119,7 @@ describe("table/ontology", () => {
         );
       });
       expect(
-        Session.Table.selectSliceState(store.getState()).tables[t.key],
+        documentIn(Session.Table.selectSliceState(store.getState()), t.key),
       ).toBeUndefined();
     });
 
