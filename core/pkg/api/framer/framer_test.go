@@ -13,8 +13,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
+	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -82,6 +84,44 @@ var _ = Describe("Framer", func() {
 				Keys:   channel.Keys{channel.NewKey(index.Leaseholder, 9999)},
 				Bounds: telem.TimeRangeMax,
 			})).Error().To(MatchError(query.ErrNotFound))
+		})
+
+		Describe("Access control", func() {
+			It("Should deny a subject that cannot retrieve the pulled-in index", func(
+				ctx SpecContext,
+			) {
+				u := createUserGranted(
+					ctx,
+					access.ActionRetrieve,
+					svcframer.OntologyIDs(channel.Keys{data.Key()})...,
+				)
+				Expect(apiSvc.Read(
+					subjectCtx(ctx, u.OntologyID()),
+					apiframer.ReadRequest{
+						Keys:   channel.Keys{data.Key()},
+						Bounds: telem.TimeRangeMax,
+					},
+				)).Error().To(MatchError(access.ErrDenied))
+			})
+
+			It("Should allow a subject granted both the channel and its index", func(
+				ctx SpecContext,
+			) {
+				u := createUserGranted(
+					ctx,
+					access.ActionRetrieve,
+					svcframer.OntologyIDs(channel.Keys{data.Key(), index.Key()})...,
+				)
+				res := MustSucceed(apiSvc.Read(
+					subjectCtx(ctx, u.OntologyID()),
+					apiframer.ReadRequest{
+						Keys:   channel.Keys{data.Key()},
+						Bounds: telem.TimeRangeMax,
+					},
+				))
+				DeferCleanup(func() { Expect(res.Iterator.Close()).To(Succeed()) })
+				Expect(res.Indexes).To(HaveLen(1))
+			})
 		})
 	})
 })

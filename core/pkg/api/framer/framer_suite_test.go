@@ -12,6 +12,7 @@ package framer_test
 import (
 	"testing"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
@@ -21,9 +22,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/security"
 	secmock "github.com/synnaxlabs/synnax/pkg/security/mock"
 	"github.com/synnaxlabs/synnax/pkg/service"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -41,6 +47,8 @@ var (
 	apiSvc        *apiframer.Service
 	framerSvc     *svcframer.Service
 	channelWriter channel.Writer
+	rbacSvc       *rbac.Service
+	userSvc       *user.Service
 	root          user.User
 )
 
@@ -62,6 +70,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	framerSvc = svc.Framer
 	channelWriter = svc.Channel.NewWriter(nil)
+	rbacSvc = svc.RBAC
+	userSvc = svc.User
 	apiSvc = MustSucceed(apiframer.NewService(apiconfig.LayerConfig{
 		Distribution: node.Layer,
 		Service:      svc,
@@ -75,7 +85,39 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 // rootCtx returns a context with the suite's root user installed as the request
 // subject. The root user holds the Owner role, so every access check passes.
 func rootCtx(ctx SpecContext) freighter.Context {
+	return subjectCtx(ctx, root.OntologyID())
+}
+
+// subjectCtx returns a context with the given subject installed, so auth.GetSubject
+// resolves it.
+func subjectCtx(ctx SpecContext, subject ontology.ID) freighter.Context {
 	fCtx := freighter.Context{Context: ctx, Params: freighter.Params{}}
-	fCtx.Set("Subject", root.OntologyID())
+	fCtx.Set("Subject", subject)
 	return fCtx
+}
+
+// createUserGranted creates a user holding a fresh role that permits the given action
+// on the given objects, and nothing else. Writes commit directly, since the enforcers
+// read committed state with no transaction.
+func createUserGranted(
+	ctx SpecContext,
+	action access.Action,
+	objects ...ontology.ID,
+) user.User {
+	u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
+		Username: "api-framer-" + uuid.NewString(),
+	}))
+	roleWriter := rbacSvc.Role.NewWriter(nil, true)
+	r := &role.Role{Name: "api-framer-" + uuid.NewString()}
+	Expect(roleWriter.Create(ctx, r)).To(Succeed())
+	policyWriter := rbacSvc.Policy.NewWriter(nil, true)
+	p := &policy.Policy{
+		Name:    "api-framer-" + uuid.NewString(),
+		Objects: objects,
+		Actions: []access.Action{action},
+	}
+	Expect(policyWriter.Create(ctx, p)).To(Succeed())
+	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
+	Expect(roleWriter.AssignRole(ctx, u.OntologyID(), r.Key)).To(Succeed())
+	return u
 }

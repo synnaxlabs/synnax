@@ -131,11 +131,7 @@ type ReadResponse struct {
 // channels. The caller is the response encoder, which drains the iterator and closes
 // it.
 func (s *Service) Read(ctx context.Context, req ReadRequest) (ReadResponse, error) {
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: framer.OntologyIDs(req.Keys),
-	}); err != nil {
+	if err := s.enforceRetrieve(ctx, req.Keys); err != nil {
 		return ReadResponse{}, err
 	}
 	var channels []channel.Channel
@@ -149,10 +145,15 @@ func (s *Service) Read(ctx context.Context, req ReadRequest) (ReadResponse, erro
 	if err != nil {
 		return ReadResponse{}, err
 	}
-	keys := append(
-		channel.KeysFromChannels(channels),
-		channel.KeysFromChannels(indexes)...,
-	)
+	indexKeys := channel.KeysFromChannels(indexes)
+	// The CSV encoding emits a column for every index, so an index the caller never
+	// named still needs its own check.
+	if len(indexKeys) > 0 {
+		if err = s.enforceRetrieve(ctx, indexKeys); err != nil {
+			return ReadResponse{}, err
+		}
+	}
+	keys := append(channel.KeysFromChannels(channels), indexKeys...)
 	iter, err := s.internal.OpenIterator(ctx, framer.IteratorConfig{
 		Keys:             keys,
 		Bounds:           req.Bounds,
@@ -162,6 +163,16 @@ func (s *Service) Read(ctx context.Context, req ReadRequest) (ReadResponse, erro
 		return ReadResponse{}, err
 	}
 	return ReadResponse{Iterator: iter, Channels: channels, Indexes: indexes}, nil
+}
+
+// enforceRetrieve reports whether the request's subject may retrieve every given
+// channel.
+func (s *Service) enforceRetrieve(ctx context.Context, keys channel.Keys) error {
+	return s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionRetrieve,
+		Objects: framer.OntologyIDs(keys),
+	})
 }
 
 // retrieveMissingIndexes returns the records of every index channel the given channels
