@@ -13,7 +13,7 @@
     {
       "sequence_name": "lifecycle",
       "sequence_order": "asynchronous",
-      "pool_size": 6,
+      "pool_size": 3,
       "tests": [
         { "case": "console/label/label_lifecycle" },
         { "case": "console/rack/rack_lifecycle" },
@@ -26,7 +26,7 @@
     {
       "sequence_name": "pages",
       "sequence_order": "asynchronous",
-      "pool_size": 6,
+      "pool_size": 3,
       "tests": [
         { "case": "console/log/log_lifecycle" },
         { "case": "console/pages/import_goldens" },
@@ -53,7 +53,7 @@
     {
       "sequence_name": "channel",
       "sequence_order": "asynchronous",
-      "pool_size": 6,
+      "pool_size": 3,
       "tests": [
         { "case": "console/channel/alias_synchronization" },
         { "case": "console/channel/channel_lifecycle" },
@@ -77,7 +77,7 @@
     {
       "sequence_name": "user",
       "sequence_order": "asynchronous",
-      "pool_size": 6,
+      "pool_size": 3,
       "tests": [
         { "case": "console/user/register" },
         { "case": "console/user/assign_role" },
@@ -102,7 +102,7 @@
     {
       "sequence_name": "other",
       "sequence_order": "asynchronous",
-      "pool_size": 6,
+      "pool_size": 3,
       "tests": [
         { "case": "console/documentation" },
         { "case": "console/layout/keyboard_shortcuts" },
