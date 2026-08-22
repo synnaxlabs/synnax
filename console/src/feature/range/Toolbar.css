@@ -36,8 +36,8 @@
 }
 
 .console-range-list-item-labels {
-    overflow-x: auto;
-    overflow-y: hidden;
+    overflow: auto hidden;
     height: fit-content;
+
     --pluto-focus-ring-offset: var(--pluto-focus-ring-inset);
 }
