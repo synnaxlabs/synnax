@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, TimeStamp, uuid } from "@synnaxlabs/x";
+import { id, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { assert, beforeAll, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { ontology } from "@/ontology";
 import { query } from "@/query";
+import { rack } from "@/rack";
+import { type status } from "@/status";
 import { task } from "@/task";
 import { createTestClient, waitForStreamLive } from "@/testutil";
 
@@ -709,6 +711,23 @@ describe("Task", async () => {
     });
   });
 
+  // A rack with no Driver goes down within seconds of its creation, and the client
+  // reads that state, so tests that need one state or the other must say which.
+  const setRackStatus = async (
+    key: number,
+    variant: status.Variant,
+    message: string,
+  ) => {
+    await client.statuses.set({
+      key: rack.statusKey(key),
+      name: "Rack Status",
+      variant,
+      message,
+      time: TimeStamp.now(),
+      details: { rack: key },
+    });
+  };
+
   describe("onChange", () => {
     it("merges a status keyed by details.task into a subscribed single query", async () => {
       const t = await testRack.createTask({
@@ -809,11 +828,75 @@ describe("Task", async () => {
             return cached.status?.details.configHash;
           })
           .toBe("deadbeef");
+        await setRackStatus(testRack.key, "success", "Driver is running");
         await client.tasks.executeCommand({ task: t.key, type: "stop" });
         await expect.poll(() => loading.length).toBeGreaterThan(0);
         expect(loading[0].details.configHash).toBe("deadbeef");
         expect(loading[0].details.rack).toBe(testRack.key);
       } finally {
+        off();
+      }
+    });
+
+    it("stands the rack's problem in for a wait its Driver cannot answer", async () => {
+      const down = await client.racks.create({ name: `down-${id.create()}` });
+      const t = await down.createTask({
+        name: `down-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const params = { key: t.key };
+      const off = client.tasks.onChange(params, vi.fn());
+      try {
+        await client.tasks.retrieve(params);
+        await setRackStatus(down.key, "warning", "no Driver here");
+        await client.tasks.executeCommand({ task: t.key, type: "start" });
+        await expect
+          .poll(() => {
+            const cached = client.tasks.getCached(params);
+            if (!query.isLive(cached)) return undefined;
+            return cached.status;
+          })
+          .toMatchObject({
+            variant: "warning",
+            message: "no Driver here",
+            details: { running: false },
+          });
+      } finally {
+        off();
+      }
+    });
+
+    it("gives up on a command no Driver answers", async () => {
+      const t = await testRack.createTask({
+        name: `deadline-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const params = { key: t.key };
+      let seeLoading = (): void => {};
+      const loading = new Promise<void>((resolve) => (seeLoading = resolve));
+      const off = client.tasks.onChange(params, (cached) => {
+        if (query.isLive(cached) && cached.status?.variant === "loading") seeLoading();
+      });
+      try {
+        await client.tasks.retrieve(params);
+        await setRackStatus(testRack.key, "success", "Driver is running");
+        // Only the deadline is wound forward: the command and its echo still travel
+        // over the live stream, which never waits on a timer.
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+        await client.tasks.executeCommand({ task: t.key, type: "start" });
+        await loading;
+        await vi.advanceTimersByTimeAsync(TimeSpan.seconds(10).milliseconds);
+        const cached = client.tasks.getCached(params);
+        assert(query.isLive(cached));
+        expect(cached.status).toMatchObject({
+          variant: "warning",
+          message: "No response to the start command",
+          details: { running: false },
+        });
+      } finally {
+        vi.useRealTimers();
         off();
       }
     });

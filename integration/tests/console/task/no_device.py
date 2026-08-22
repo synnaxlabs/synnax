@@ -108,17 +108,11 @@ class NoDevice(HardwareCase, ConsoleCase):
         self.log("Deploying task")
         ni_ai.deploy(expect=None)
 
-        # SY-4705: the start command can sit unresolved on a rack with no driver, so
-        # the status stalls on the running message instead of reaching the warning.
-        status = ni_ai.wait_for_status_level(("loading", "warning", "error"))
+        # No Driver answers a start command on this rack, so the Console stands the
+        # rack's own problem in for a wait that would never end.
+        status = ni_ai.wait_for_status_level(("warning", "error"))
         level = status["level"]
         msg = status["msg"]
-
-        if level == "loading":
-            assert "Running start command" in msg, (
-                f"<{msg}> should be <Running start command>"
-            )
-            return
 
         level_expected = "warning"
         msg_expected = f"Synnax Driver on {rack_name} not running"
