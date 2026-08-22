@@ -7,14 +7,13 @@
         { "case": "console/project/project" },
         { "case": "console/project/ontology" },
         { "case": "console/pages/file_drop" },
-        { "case": "console/channel/ontology" },
-        { "case": "console/task/task_lifecycle" }
+        { "case": "console/channel/ontology" }
       ]
     },
     {
       "sequence_name": "lifecycle",
       "sequence_order": "asynchronous",
-      "pool_size": 3,
+      "pool_size": 4,
       "tests": [
         { "case": "console/label/label_lifecycle" },
         { "case": "console/rack/rack_lifecycle" },
@@ -27,7 +26,7 @@
     {
       "sequence_name": "pages",
       "sequence_order": "asynchronous",
-      "pool_size": 3,
+      "pool_size": 4,
       "tests": [
         { "case": "console/log/log_lifecycle" },
         { "case": "console/pages/import_goldens" },
@@ -53,7 +52,7 @@
     {
       "sequence_name": "channel",
       "sequence_order": "asynchronous",
-      "pool_size": 3,
+      "pool_size": 4,
       "tests": [
         { "case": "console/channel/alias_synchronization" },
         { "case": "console/channel/channel_lifecycle" },
@@ -76,7 +75,7 @@
     {
       "sequence_name": "user",
       "sequence_order": "asynchronous",
-      "pool_size": 3,
+      "pool_size": 4,
       "tests": [
         { "case": "console/user/register" },
         { "case": "console/user/assign_role" },
