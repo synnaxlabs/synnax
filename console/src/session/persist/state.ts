@@ -181,9 +181,17 @@ class Partition<S extends object> {
    * schema is dropped, leaving the caller to fall back to its initial state.
    */
   async read(): Promise<Partial<S>> {
-    const slot = await this.readSlot();
-    const data = (await this.db.get(this.stateKey(slot))) as Partial<S> | null;
     const out: Partial<S> = {};
+    const slot = await this.readSlot();
+    // A store the platform will not open at all must not stop the app booting: the
+    // session falls back to its initial state and simply does not persist.
+    let data: Partial<S> | null;
+    try {
+      data = (await this.db.get(this.stateKey(slot))) as Partial<S> | null;
+    } catch (err) {
+      console.error(`failed to read partition ${this.base}`, err);
+      return out;
+    }
     if (data == null) return out;
     this.keys().forEach((key) => {
       const raw = data[key];
@@ -233,8 +241,13 @@ class Partition<S extends object> {
   }
 
   private async readSlot(): Promise<number> {
-    const stored = slotPointerZ.safeParse(await this.db.get(this.slotKey()));
-    return stored.success ? stored.data.slot : 0;
+    try {
+      const stored = slotPointerZ.safeParse(await this.db.get(this.slotKey()));
+      return stored.success ? stored.data.slot : 0;
+    } catch (err) {
+      console.error(`failed to read the slot pointer of partition ${this.base}`, err);
+      return 0;
+    }
   }
 
   /** @throws {Error} if the pointer cannot be written. */
@@ -364,8 +377,9 @@ class Engine<S extends object> {
 
   /** The seed's slices, or nothing when the store already holds a session. */
   private async readSeed(): Promise<Partial<S>> {
-    if (this.seed == null || (await this.db.length()) > 0) return {};
+    if (this.seed == null) return {};
     try {
+      if ((await this.db.length()) > 0) return {};
       return await this.seed();
     } catch (err) {
       console.error("failed to seed the session store", err);

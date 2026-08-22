@@ -352,6 +352,34 @@ describe("Persist.open", () => {
     });
   });
 
+  describe("an unusable store", () => {
+    const broken = (): Persist.SugaredKV => {
+      const fail = async () => {
+        throw new Error("storage is blocked");
+      };
+      return {
+        get: fail,
+        set: fail,
+        delete: fail,
+        length: fail,
+        clear: fail,
+      };
+    };
+
+    it("should still compose the initial state", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const { initialState, middleware } = await Persist.open<MockState>({
+        initial: ZERO_MOCK_STATE,
+        scopes: SCOPES,
+        getContext,
+        openKV: broken,
+      });
+      expect(initialState).toEqual(ZERO_MOCK_STATE);
+      expect(middleware).toBeDefined();
+      errorSpy.mockRestore();
+    });
+  });
+
   describe("scope coverage", () => {
     it("should throw when a slice is in no scope and not transient", async () => {
       await expect(

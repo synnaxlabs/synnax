@@ -117,10 +117,11 @@ class IndexedDBKV implements SugaredKV {
 }
 
 /**
- * @param name - The store's name, without an extension.
+ * @param name - The store's name. Tauri makes it a file in the app data directory,
+ * which holds other stores; IndexedDB databases are already scoped to the origin.
  * @returns A new SugaredKV instance.
  */
 export const openSugaredKV = (name: string): SugaredKV =>
   Runtime.ENGINE === "tauri"
     ? new TauriKV(new LazyStore(`${name}.json`, { autoSave: false, defaults: {} }))
-    : new IndexedDBKV(`synnax-${name}`);
+    : new IndexedDBKV(name);
