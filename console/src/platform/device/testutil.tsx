@@ -25,8 +25,8 @@ export interface CreateTestDeviceOptions extends Partial<
 > {}
 
 /**
- * Creates a rack and a device on the live Core and returns the created device.
- * Names are generated Core-safe unless overridden.
+ * Creates a rack and a device on the live Core and returns the created device. Names
+ * are generated Core-safe unless overridden.
  */
 export const createTestDevice = async (
   client: Synnax,

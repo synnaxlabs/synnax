@@ -103,8 +103,8 @@ const importedGroupsNamed = async (name: string): Promise<ontology.Resource[]> =
 };
 
 /**
- * Creates a group with one symbol on the Core and exports it, returning the
- * group's name, the exported symbol's name, and the bundle's zip bytes.
+ * Creates a group with one symbol on the Core and exports it, returning the group's
+ * name, the exported symbol's name, and the bundle's zip bytes.
  */
 const createExportedBundle = async () => {
   const root = await client.schematics.symbols.retrieveGroup();

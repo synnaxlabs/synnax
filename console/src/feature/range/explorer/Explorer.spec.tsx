@@ -62,8 +62,8 @@ const renderExplorer = async (as: Client = client): Promise<{ store: TestStore }
   return { store };
 };
 
-// The shared Core accumulates ranges across runs, so a fresh range may fall outside
-// the list's first page. Narrow to it through the view search before interacting.
+// The shared Core accumulates ranges across runs, so a fresh range may fall outside the
+// list's first page. Narrow to it through the view search before interacting.
 const revealRange = async (name: string): Promise<HTMLElement> => {
   await enableEditing();
   const search = await waitFor(() =>

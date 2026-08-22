@@ -54,8 +54,8 @@ const BottomToggleButton = (): ReactElement => {
 };
 
 export interface TopProps {
-  /** Renders the trimmed secondary window variant: the controls toggle in place of
-   * the project selector and Core badge. */
+  /** Renders the trimmed secondary window variant: the controls toggle in place of the
+   * project selector and Core badge. */
   secondary?: boolean;
 }
 

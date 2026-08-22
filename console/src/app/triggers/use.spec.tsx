@@ -101,8 +101,8 @@ const renderTriggers = async (ui?: ReactNode) => {
   return { result, store };
 };
 
-// The Core-writing shortcuts need a panel that exists on the Core. The triggers
-// mount above every panel scope, the way the app shell mounts them.
+// The Core-writing shortcuts need a panel that exists on the Core. The triggers mount
+// above every panel scope, the way the app shell mounts them.
 const renderLiveTriggers = async (panelKey: panel.Key) => {
   const { wrapper: Panels, store } = await createPanelWrapper({ client });
   await primePanel(Panels, panelKey);

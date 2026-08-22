@@ -28,8 +28,8 @@ export interface CreateNIDeviceOptions extends Partial<Omit<Device.New, "propert
 }
 
 /**
- * Creates a rack and a configured NI device on the live Core. The device gets a
- * unique identifier so channels created from it never collide across runs.
+ * Creates a rack and a configured NI device on the live Core. The device gets a unique
+ * identifier so channels created from it never collide across runs.
  */
 export const createNIDevice = async (
   client: Synnax,
@@ -50,8 +50,8 @@ export const createNIDevice = async (
     },
     Device.SCHEMAS,
   );
-  // Core metadata is eventually consistent; wait until the device is retrievable
-  // so task configuration flows see it.
+  // Core metadata is eventually consistent; wait until the device is retrievable so
+  // task configuration flows see it.
   await waitFor(async () => {
     await client.devices.retrieve({ key: dev.key, schemas: Device.SCHEMAS });
   });

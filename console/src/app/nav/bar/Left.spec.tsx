@@ -23,8 +23,8 @@ const navState = (window: Partial<Session.Nav.WindowState> = {}) => ({
   },
 });
 
-// Access-gated nav items appear only once their access query resolves against the
-// Core, so wait for the gated "range" item before asserting.
+// Access-gated nav items appear only once their access query resolves against the Core,
+// so wait for the gated "range" item before asserting.
 const findItem = async (
   container: HTMLElement,
   icon: string,

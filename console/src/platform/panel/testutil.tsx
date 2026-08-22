@@ -36,8 +36,8 @@ import {
 export const getMosaicLeaf = (): HTMLElement =>
   getBySelector<HTMLElement>(document, ".pluto-mosaic__leaf");
 
-/** Persists a panel with the given tree to the Core, parented to a throwaway
- * project. */
+/** Persists a panel with the given tree to the Core, parented to a throwaway project.
+ * */
 export const createServerPanel = async (
   client: Synnax,
   root: panel.New["root"],

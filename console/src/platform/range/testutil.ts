@@ -15,8 +15,8 @@ export const uniqueRangeName = (prefix = "range"): string =>
   `${prefix}_${id.create().replace(/-/g, "_")}`;
 
 /**
- * Creates a real range on the connected Core with a unique name and a valid,
- * non-zero time range, so range specs share one place for building fixtures.
+ * Creates a real range on the connected Core with a unique name and a valid, non-zero
+ * time range, so range specs share one place for building fixtures.
  */
 export const createTestRange = async (client: Synnax): Promise<ranger.Range> => {
   const start = TimeStamp.now();

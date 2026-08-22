@@ -15,8 +15,8 @@ import { afterAll, beforeAll, vi } from "vitest";
 
 import { installTestWebSocket } from "@/testutil/websocket";
 
-// Live-core round-trips share the single test Core with the rest of the suite, so
-// allow more than the 1s waitFor default.
+// Live-core round-trips share the single test Core with the rest of the suite, so allow
+// more than the 1s waitFor default.
 configure({ asyncUtilTimeout: 5000 });
 
 // Clients constructed at spec module scope start connecting immediately, so the

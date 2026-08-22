@@ -219,15 +219,15 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     (parent: ontology.ID, resources: ontology.Resource[]) => {
       const next = toNodes(resources, resolveItem);
       const nextKeys = new Set(next.map(({ key }) => key));
-      // A placeholder stands in only until the Core delivers the real resource,
-      // which the answer carries.
+      // A placeholder stands in only until the Core delivers the real resource, which
+      // the answer carries.
       const settled = ontology
         .idToString(resources.map(({ id }) => id))
         .filter(placeholders.hasItem);
       if (settled.length > 0) placeholders.deleteItem(settled);
       // The answer is the authority on its parent's membership. A node it omits
-      // survives only while a placeholder backs it, since an optimistic row the
-      // Core has not heard about yet cannot be in any answer.
+      // survives only while a placeholder backs it, since an optimistic row the Core
+      // has not heard about yet cannot be in any answer.
       const merge = (prevChildren: Base.Node<string>[]): Base.Node<string>[] => [
         ...prevChildren.filter(
           ({ key }) => !nextKeys.has(key) && placeholders.hasItem(key),
