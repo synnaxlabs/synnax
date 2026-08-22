@@ -17,7 +17,6 @@ import {
   Status,
   Synnax,
 } from "@synnaxlabs/pluto";
-import { array } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { CreateChildRangeIcon } from "@/feature/range/ContextMenu";
@@ -74,12 +73,8 @@ const useRename = Tree.createUseRename({
 const useDelete = Tree.createUseDelete({
   type: "Range",
   description: "Deleting a range also deletes its child ranges.",
-  query: Ranger.useDelete,
+  query: Session.Range.useDelete,
   convertKey: String,
-  beforeUpdate: async ({ data, store }) => {
-    store.dispatch(Session.Range.remove({ keys: array.toArray(data) }));
-    return data;
-  },
 });
 
 const TreeContextMenu: Tree.ContextMenu = (props) => {
