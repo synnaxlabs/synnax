@@ -7,6 +7,7 @@
         { "case": "console/project/project" },
         { "case": "console/project/ontology" },
         { "case": "console/pages/file_drop" },
+        { "case": "console/channel/ontology" },
         { "case": "console/task/task_lifecycle" }
       ]
     },
@@ -43,7 +44,6 @@
         { "case": "console/schematic/edit_props" },
         { "case": "console/schematic/select_state_indicator" },
         { "case": "console/table/table_lifecycle" },
-        { "case": "console/task/ni_analog_read_forms" },
         { "case": "console/task/ni_analog_write_forms" },
         { "case": "console/task/ni_counter_read_forms" },
         { "case": "console/task/no_device" },
@@ -60,7 +60,6 @@
         { "case": "console/channel/channel_context_menu" },
         { "case": "console/channel/calculated_channels" },
         { "case": "console/channel/rename_synchronization" },
-        { "case": "console/channel/ontology" },
         { "case": "console/channel/calc_type_cascade" },
         { "case": "console/channel/tree_virtualization" }
       ]
