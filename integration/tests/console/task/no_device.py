@@ -85,23 +85,19 @@ class NoDevice(HardwareCase, ConsoleCase):
         # Assert error notification
         notifications = self.console.notifications.check(timeout=5)
         msg = notifications[0]["message"]
-        msg_expected = "Failed to update Task"
+        msg_expected = "Failed to start task"
         assert msg_expected == msg, (
             f"Notification msg is <{msg}>, should be <{msg_expected}>"
         )
+        desc = notifications[0].get("description")
+        desc_expected = "No devices selected"
+        assert desc_expected == desc, (
+            f"Notification description is <{desc}>, should be <{desc_expected}>"
+        )
 
-        # Assert Task error status
-        status = ni_ai.status()
-        level = status["level"]
-        msg = status["msg"]
-        level_expected = "error"
-        msg_expected = "Failed to update Task"
-        assert level_expected == level, (
-            f"Task status level <{level}> should be <{level_expected}>"
-        )
-        assert msg_expected == msg, (
-            f"Task status msg <{msg}> should be <{msg_expected}>"
-        )
+        # Deploy rejects the config before it writes or starts anything, so the task
+        # keeps the status it had.
+        self.initial_assertion(ni_ai)
 
     def nominal_configuration(
         self, ni_ai: AnalogRead, rack_name: str, dev_name: str
@@ -118,16 +114,14 @@ class NoDevice(HardwareCase, ConsoleCase):
         self.log("Deploying task")
         ni_ai.deploy(expect=None)
 
-        # Status assertions
-        status = ni_ai.status()
+        # SY-4705:
+        # The start command can sit unresolved in the open page. A reload reads the
+        # status back from the Core.
+        self.console.reload()
+
+        status = ni_ai.wait_for_status_level(("warning", "error"))
         level = status["level"]
         msg = status["msg"]
-
-        while level == "loading" and self.should_continue:
-            sy.sleep(0.1)
-            status = ni_ai.status()
-            level = status["level"]
-            msg = status["msg"]
 
         level_expected = "warning"
         msg_expected = f"Synnax Driver on {rack_name} not running"
