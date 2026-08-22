@@ -92,6 +92,16 @@
         &.pluto--status-success {
             color: var(--pluto-text-on-primary);
         }
+        /* The keycap's neutral fill has no contrast against a filled button, so it
+           inverts to a physical white cap instead. Both values are absolute: a
+           theme-relative gray would flip with the theme and vanish. */
+        --pluto-keycap-bg: var(--pluto-white);
+        --pluto-keycap-border-color: var(--pluto-white);
+
+        .pluto-text--keyboard {
+            color: var(--pluto-black);
+        }
+
         --pluto-bg: var(--pluto-primary-z);
         --pluto-hover-bg: var(--pluto-primary-p1);
         --pluto-active-bg: var(--pluto-primary-m1);

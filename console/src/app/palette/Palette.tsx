@@ -33,7 +33,7 @@ const TRIGGER_CONFIG: Triggers.ModeConfig<"search" | "command"> = {
   modes: { command: [COMMAND_TRIGGER], search: [SEARCH_TRIGGER] },
 };
 
-export const TooltipContent = (): ReactElement => (
+const tooltipContent = (
   <Flex.Box gap="small">
     <Flex.Box x justify="between" align="center">
       <Text.Text level="small">Search</Text.Text>
@@ -97,9 +97,7 @@ export const Palette = (): ReactElement => {
         textColor={9}
         gap="small"
         full="x"
-        // Dialog.Frame drops the ref and swallows onPointerEnter, so the tooltip
-        // belongs on the button rather than around the frame.
-        tooltip={<TooltipContent />}
+        tooltip={tooltipContent}
         tooltipLocation="right"
         hideTooltip={visible}
       >
