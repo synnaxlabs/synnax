@@ -114,6 +114,7 @@ class NoDevice(HardwareCase, ConsoleCase):
         self.log("Deploying task")
         ni_ai.deploy(expect=None)
 
+        # SY-4631
         # The start command can sit unresolved in the open page. A reload reads the
         # status back from the Core.
         self.console.reload()
