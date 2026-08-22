@@ -114,8 +114,10 @@ class NoDevice(HardwareCase, ConsoleCase):
         self.log("Deploying task")
         ni_ai.deploy(expect=None)
 
-        # Status assertions. Deploy returns on the click, so the status is still
-        # the pre-deploy one until the Core answers.
+        # The start command can sit unresolved in the open page. A reload reads the
+        # status back from the Core.
+        self.console.reload()
+
         status = ni_ai.wait_for_status_level(("warning", "error"))
         level = status["level"]
         msg = status["msg"]

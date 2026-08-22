@@ -6,7 +6,8 @@
       "tests": [
         { "case": "console/project/project" },
         { "case": "console/project/ontology" },
-        { "case": "console/pages/file_drop" }
+        { "case": "console/pages/file_drop" },
+        { "case": "console/task/task_lifecycle" }
       ]
     },
     {
@@ -19,8 +20,7 @@
         { "case": "console/device/devices_toolbar" },
         { "case": "console/range/range_lifecycle" },
         { "case": "console/status/status_lifecycle" },
-        { "case": "console/schematic/custom_symbols" },
-        { "case": "console/task/task_lifecycle" }
+        { "case": "console/schematic/custom_symbols" }
       ]
     },
     {
