@@ -116,8 +116,8 @@ class LayoutClient:
     """
 
     MODAL_SELECTOR = "div.pluto-dialog__dialog.pluto--modal.pluto--visible"
-    # Text.Editable carries the class whether or not it is editing; the attribute
-    # is what marks the element that currently takes keystrokes.
+    # Text.Editable carries the class whether or not it is editing; the attribute is
+    # what marks the element that currently takes keystrokes.
     EDITABLE_SELECTOR = ".pluto-text--editable[contenteditable='true']"
     # Focusing a tab collapses the mosaic to a single overlaid leaf instead of
     # opening a modal dialog.
@@ -1133,12 +1133,11 @@ class LayoutClient:
     def rename_in_place(self, item: Locator, new_name: str) -> None:
         """Rename an item via context menu. The name edits in place.
 
-        Triggers "Rename" from the context menu, which turns the item's name into
-        an editable text element, then types the new name and commits it.
+        Triggers "Rename" from the context menu, which turns the item's name into an
+        editable text element, then types the new name and commits it.
 
         Args:
-            item: The Locator for the element to rename.
-            new_name: The new name to set.
+            item: The Locator for the element to rename. new_name: The new name to set.
         """
         item.wait_for(state="visible", timeout=5000)
         self.ctx_menu.action(item, "Rename")
