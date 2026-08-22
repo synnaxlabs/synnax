@@ -50,8 +50,8 @@ const PASSWORD_INPUT_PROPS: Partial<Input.TextProps> = {
 };
 
 /**
- * Full-screen login surface. Serves both initial login and credential re-entry
- * after the active Core rejects auth, where submitting resumes its connection.
+ * Full-screen login surface. Serves both initial login and credential re-entry after
+ * the active Core rejects auth, where submitting resumes its connection.
  */
 export const Login = (): ReactElement => {
   const client = Synnax.use();

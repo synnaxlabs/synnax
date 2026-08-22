@@ -78,8 +78,8 @@ describe("auth guard", () => {
     pinLocationOrigin("http://localhost:9090");
     const store = await renderGuard();
     submitCredentials("synnax", "seldon");
-    // The served address is the key, so logging in lands on the same entry the
-    // session already knew rather than minting a new one.
+    // The served address is the key, so logging in lands on the same entry the session
+    // already knew rather than minting a new one.
     await waitFor(() =>
       expect(Session.Core.selectSelectedKey(store.getState())).toBe(CORE_KEY),
     );
@@ -124,8 +124,8 @@ describe("auth guard", () => {
       await screen.findByText("authenticated content", {}, { timeout: 10000 }),
     ).toBeTruthy();
     expect(screen.queryByText(/invalid credentials/i)).toBeNull();
-    // The address is the key, so a retry after a rejected login reuses the same
-    // entry rather than minting a duplicate.
+    // The address is the key, so a retry after a rejected login reuses the same entry
+    // rather than minting a duplicate.
     const selected = Session.Core.selectSelectedKey(store.getState());
     expect(selected).toBe(key);
     const demoKey = Session.Core.key({ host: "demo.synnaxlabs.com", port: 9090 });

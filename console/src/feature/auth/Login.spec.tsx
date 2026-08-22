@@ -10,8 +10,8 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { assert, describe, expect, it, vi } from "vitest";
 
-// A serving Core skips the Core step, and detection reports one for every
-// browser build. The module is the only seam.
+// A serving Core skips the Core step, and detection reports one for every browser
+// build. The module is the only seam.
 vi.mock("@/platform/core/detectConnection", () => ({
   detectConnection: () => null,
 }));

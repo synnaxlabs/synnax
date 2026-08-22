@@ -15,12 +15,12 @@ them. A layer imports only layers below it — never above:
    synchronizer hooks that keep session state consistent with the Core. No components or
    rendering.
 2. **`platform/`** — substrate: high fan-in capabilities other domains depend on.
-   Frameworks (ontology, layout, palette, link, export/import, modals) and
+   Frameworks (tree, mosaic, panel, palette, link, import/export, modals) and
    cross-domain-shared widgets/hooks. Never imports `feature/`.
 3. **`feature/`** — isolated leaves: a domain's full widget (renderer, toolbar,
    controls, `useCreate`) plus its ontology/palette/link glue. Imports platform +
    session, **never a sibling feature** — cross-domain wiring bottoms out in `session/`,
-   the client SDK, or a thin `platform/<domain>/layout.ts` token.
+   the client SDK, or `platform/panel`.
 4. **`app/`** (highest) — composition root: aggregates every domain's exports into
    global registries + the shell chrome. No domain logic.
 
@@ -50,7 +50,7 @@ conditions it alone owns, like whether its content is editable.
 **Everything else mounts as high in the tree as its dependencies allow, inside a named
 `SideEffect` component.** Never a bare hook call in a component that draws — that is
 exactly how the line plot hold trigger was silently dropped for five days. Tree position
-is load-bearing: `App.tsx` sits above the crash screen, `Session.Settled.Provider`
+is load-bearing: `App.tsx` sits above the crash screen, `Session.SettledProvider`
 outlives what it repairs, `ProjectSideEffect` needs a selected project.
 
 **A hotkey spec renders the component that owns the mount**, never `renderHook` on the
@@ -71,67 +71,71 @@ startup. Every action is applied locally then emitted to all windows via Tauri I
 circular propagation; `async-mutex` serializes window operations.
 
 Windows are managed declaratively via Redux: `Drift.createWindow({key, ...})`,
-`Drift.closeWindow`, `Drift.setWindowProps`. Window keys must be unique across all
-windows.
-
-**Pre-rendering**: Drift keeps invisible pre-render windows in the background and reuses
-one on `createWindow`, so new windows appear instantly (`enablePrerender: true`).
-
-**Process registration** blocks window closure during long-running operations:
-`Drift.registerProcess({windowKey, processKey, blocking: true})` /
-`Drift.unregisterProcess`. Always unregister before closing.
-
-Hooks from `@synnaxlabs/drift/react`: `useWindowLifecycle({key, onMount, onUnmount})`,
-`useSelectWindow(key)`.
+`Drift.closeWindow`, `Drift.setWindowProps`. Keys must be unique, and `useOpenWindow`
+mints a fresh one per open. Drift keeps invisible pre-render windows in the background
+and claims one on `createWindow`, so new windows appear instantly.
 
 ## State Management
 
 Modular slices (`core`, `nav`, `panels`, `lineplot`, `schematic`, `table`, `project`,
 `drift`, ...), each with `SLICE_NAME`, `sliceStateZ`, `SliceState`, `ZERO_SLICE_STATE`,
-and `createSlice` reducers. Keep slices focused and independent; side effects go in
-Redux middleware.
+and `createSlice` reducers. Side effects go in middleware.
 
-Every persisted slice carries `version: z.literal(N)` in its `sliceStateZ`. Schema
-evolution is Zod's job: widen the schema, bump the literal, and give absent fields
-defaults. There is no migrator framework — a stored slice that fails its schema falls
-back to its initial state.
+**Cores are keyed by `host:port`** — the key is the address, so it never changes
+underneath a session and two entries at one address collapse into one.
 
-**Persistence** (`session/persist/`) — main window only, 250ms debounce. Desktop writes
-`session.json` in the Tauri app data dir; the browser uses an IndexedDB database. Each
-slice lives in exactly one scope, declared with its schema in `PERSIST_SCOPES`:
+### Persistence (`session/persist/`)
 
-| Scope     | Slices                                                                  |
-| --------- | ----------------------------------------------------------------------- |
-| `global`  | core, color, theme                                                      |
-| `core`    | project                                                                 |
-| `project` | arc, drift, lineplot, log, nav, panels, range, schematic, status, table |
+Main window only, 250ms debounce. Every slice is declared in exactly one scope in
+`PERSIST_SCOPES`, alongside the schema its stored bytes are parsed through:
 
-`haul` and `persist` are declared `transient` and never written. `Persist.open` throws
-when a slice is in none of the four, so adding a slice forces a decision about its
-durability. Each partition keeps a four-slot ring behind a `.slot` pointer, backing
-revert. Switching Core or project flushes the outgoing partitions and hydrates the
-target's without a reload.
+| Scope       | Slices                                                                  |
+| ----------- | ----------------------------------------------------------------------- |
+| `global`    | core, color, theme                                                      |
+| `core`      | project                                                                 |
+| `project`   | arc, drift, lineplot, log, nav, panels, range, schematic, status, table |
+| `transient` | haul, persist — never written                                           |
 
-`persisted-state.json` is the 0.56 store. It is read once, to seed a fresh install, and
-never written or cleared — a rollback to 0.56 must still find its state.
+`Persist.open` throws when a slice is in none of them, so a new slice forces a decision
+about its durability. A stored slice that fails its schema falls back to its initial
+state. There is no migrator framework: to evolve a shape, widen `sliceStateZ`, bump its
+`version: z.literal(N)`, and default the new fields.
 
-**Cores are keyed by `host:port`.** The key is the address, so it never changes
-underneath a running session and two entries at one address collapse into one.
+Each partition keeps a four-slot ring behind a `.slot` pointer, backing revert.
+Switching Core or project flushes the outgoing partitions and hydrates the target's
+without a reload.
+
+### Where it lands
+
+`STORE_NAME` (`"session"`) names both backends, picked by `Runtime.ENGINE`:
+
+- **Tauri** — `session.json` in the app data dir
+  (`~/Library/Application Support/com.synnaxlabs.dev` on macOS,
+  `%APPDATA%\com.synnaxlabs.dev` on Windows).
+- **Browser** — IndexedDB database `synnax-session`, one object store `kv`, partition
+  keys as string keys. **Scoped to the page's origin**, so a Console served from two
+  ports is two independent sessions, and clearing site data wipes it.
+
+IndexedDB, not localStorage: twelve state slots outgrow its few-megabyte cap, and its
+quota errors surface only as a failed write. `localStorage` holds one thing, the
+deep-link ignore flag in `platform/link/markIgnored.ts`; keep it that way.
+
+`persisted-state.json` (Tauri) and the `persisted-state.json:` localStorage prefix
+(browser) are the 0.56 store: read once to seed a fresh install, never written or
+cleared, so a rollback to 0.56 still finds its state.
 
 ## Windows Are Viewports
 
-Panel documents live on the Core; a window is a view onto them, and any number of
-windows may show one panel at once. So everything about _how this window looks at a
-document_ is keyed by window key: `nav`, `panels`, and the per-document view slices
-(`arc`, `lineplot`, `log`, `schematic`, `table`), all shaped
+Panels live on the Core and any number of windows may show one at once, so everything
+about _how this window looks at a document_ is keyed by window: `nav`, `panels`, and the
+per-document view slices (`arc`, `lineplot`, `log`, `schematic`, `table`), all shaped
 `windows: Record<windowKey, ...>`.
 
-Building one: take the schema helpers from `session/window/keyed.ts` —
-`createWithDocumentHandler` for a per-document reducer, `createDocumentInitializer` for
-its create, `createInjectKeyMiddleware` to fill `windowKey` on dispatch, and
-`selectDocument` so selectors resolve the current window themselves. Add
-`extraReducers: Window.handleRemoved` or the slice keeps an entry for every window ever
-opened — window keys are minted fresh per open.
+Build one from `session/window/keyed.ts`: `createWithDocumentHandler` for a per-document
+reducer, `createDocumentInitializer` for its create, `createInjectKeyMiddleware` to fill
+`windowKey` on dispatch, `selectDocument` so selectors resolve the window themselves.
+Window keys are minted fresh per open, so add `extraReducers: Window.handleRemoved` or
+the slice keeps an entry for every window ever opened.
 
 ## Live-Core Tests
 
@@ -139,7 +143,7 @@ Live-Core specs (Core, flux query paths, user badges, ...) connect to a real Cor
 `localhost:9090` through the production query path — no store-poking. Check for a
 running Core and start one if missing per "Live-Core Tests" in `docs/claude/testing.md`.
 
-Specs over a window-keyed slice build their store with `createSliceStore` from
-`session/window/testutil.ts`, which adds the drift slice the selectors read the current
-window from and runs the slice's own middleware. `inWindow` and `documentIn` write and
-read one window's documents.
+Window-keyed slice specs build their store with `createSliceStore` from
+`session/window/testutil.ts` — it adds the drift slice the selectors read the window
+from and runs the slice's middleware. `inWindow` and `documentIn` write and read one
+window's documents.
