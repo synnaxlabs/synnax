@@ -109,13 +109,11 @@ class NoDevice(HardwareCase, ConsoleCase):
         ni_ai.deploy(expect=None)
 
         # No Driver answers a start command on this rack, so the Console stands the
-        # rack's own problem in for a wait that would never end.
-        status = ni_ai.wait_for_status_level(("warning", "error"))
-        level = status["level"]
-        msg = status["msg"]
+        # rack's own problem in for a wait that would never end. The Core stamps a
+        # "status unknown" placeholder while the task saves, so the wait keys on the
+        # message rather than on the level.
+        ni_ai.wait_for_status(f"Synnax Driver on {rack_name} not running")
 
+        level = ni_ai.status()["level"]
         level_expected = "warning"
-        msg_expected = f"Synnax Driver on {rack_name} not running"
-
-        assert msg_expected in msg, f"<{msg}> should be <{msg_expected}>"
         assert level_expected == level, f"<{level}> should be <{level_expected}>"
