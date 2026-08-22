@@ -8,8 +8,8 @@ prev: "Analog Write Task"
 prevURL: "/reference/driver/ni/analog-write-task"
 ---
 
-import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
-import { Video, Image } from "@/components/media/Media";
+import { Divider, Icon, Text } from "@synnaxlabs/pluto";
+import { Video } from "@/components/media/Media";
 import { Fragment } from "react";
 import Details from "@/components/details/Details.astro";
 import ChannelType from "@/components/details/ChannelType.astro";
@@ -18,21 +18,17 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-For task lifecycle management, see the
-[Task Basics](/reference/driver/task-basics#how-to) page.
+For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lifecycle).
 
 <Divider.Divider x />
 
 ## Task Configuration Reference
 
-| Parameter              | Type    | Required | Default       | Description                                                   |
-| ---------------------- | ------- | -------- | ------------- | ------------------------------------------------------------- |
-| `name`                 | string  | Yes      | -             | Human-readable task name                                      |
-| `sample_rate`          | number  | Yes      | -             | Samples per second (Hz), determined by module                 |
-| `stream_rate`          | number  | No       | `sample_rate` | Rate data is streamed to Synnax (Hz), must be ≤ `sample_rate` |
-| `data_saving_disabled` | boolean | No       | `false`       | Stream data without saving it permanently in Synnax           |
-| `auto_start`           | boolean | No       | `false`       | Automatically start task after configuration                  |
-| `channels`             | array   | Yes      | -             | List of counter input channel configurations                  |
+| Parameter     | Type   | Required | Default | Description                                                   |
+| ------------- | ------ | -------- | ------- | ------------------------------------------------------------- |
+| `sample_rate` | number | No       | `10`    | Samples per second (Hz), determined by module                 |
+| `stream_rate` | number | No       | `5`     | Rate data is streamed to Synnax (Hz), must be ≤ `sample_rate` |
+| `channels`    | array  | Yes      | -       | List of counter input channel configurations                  |
 
 <Divider.Divider x />
 
@@ -41,7 +37,7 @@ For task lifecycle management, see the
 <DetailsGroup>
 
 <ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Wave.Square /> Frequency ([`ci_frequency`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecifreqchan.html))</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Wave.Square /> Frequency ([`ci_frequency`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__counter__input__channels_1gad7f76a3c13cd1acceb5015cbb57c5743.html))</Text.Text>
 
 Measures the frequency of digital pulses.
 
@@ -63,7 +59,7 @@ Measures the frequency of digital pulses.
 </ChannelType>
 
 <ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Value /> Edge Count ([`ci_edge_count`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecicountedgeschan.html))</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Value /> Edge Count ([`ci_edge_count`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__counter__input__channels_1ga898d4d3101b616a681bc31199ae37d5f.html))</Text.Text>
 
 Counts rising or falling edges on a digital signal.
 
@@ -80,7 +76,7 @@ Counts rising or falling edges on a digital signal.
 </ChannelType>
 
 <ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Time /> Period ([`ci_period`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateciperiodchan.html))</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Time /> Period ([`ci_period`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__counter__input__channels_1gafff33171661e94431afbd5a0abf4f73e.html))</Text.Text>
 
 Measures the time between edges of a periodic signal.
 
@@ -102,7 +98,7 @@ Measures the time between edges of a periodic signal.
 </ChannelType>
 
 <ChannelType>
-<Text.Text slot="summary" level="p"><Icon.AutoFitWidth /> Pulse Width ([`ci_pulse_width`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecipulsewidthchan.html))</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.AutoFitWidth /> Pulse Width ([`ci_pulse_width`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__counter__input__channels_1gab7c2c214f995c0b0a065940d739b3168.html))</Text.Text>
 
 Measures the width of pulses in a digital signal.
 
@@ -121,7 +117,7 @@ Measures the width of pulses in a digital signal.
 </ChannelType>
 
 <ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Range /> Semi Period ([`ci_semi_period`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecisemiperiodchan.html))</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Range /> Semi Period ([`ci_semi_period`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__counter__input__channels_1ga7ee9e61ab68edc4c6c72e9bc347a623f.html))</Text.Text>
 
 Measures the half-period of a periodic signal.
 
@@ -139,7 +135,7 @@ Measures the half-period of a periodic signal.
 </ChannelType>
 
 <ChannelType>
-<Text.Text slot="summary" level="p"><Icon.AutoFitWidth /> Two Edge Separation ([`ci_two_edge_sep`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecitwoedgesepchan.html))</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.AutoFitWidth /> Two Edge Separation ([`ci_two_edge_sep`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__counter__input__channels_1ga48a4f962e8752504edea1a0de6e39c74.html))</Text.Text>
 
 Measures the time between two different edges of a signal.
 
@@ -160,7 +156,7 @@ Measures the time between two different edges of a signal.
 </ChannelType>
 
 <ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Linear /> Velocity Linear ([`ci_velocity_linear`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecilinvelocitychan.html))</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Linear /> Velocity Linear ([`ci_velocity_linear`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__counter__input__channels_1gaffd68d2994c51dfd10ec8d61f723983f.html))</Text.Text>
 
 Measures linear velocity using a quadrature encoder.
 
@@ -181,7 +177,7 @@ Measures linear velocity using a quadrature encoder.
 </ChannelType>
 
 <ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Rotate /> Velocity Angular ([`ci_velocity_angular`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateciangvelocitychan.html))</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Rotate /> Velocity Angular ([`ci_velocity_angular`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__counter__input__channels_1ga6bf192a1dff614bfb0055bc94149c860.html))</Text.Text>
 
 Measures angular velocity (rotational speed) using a quadrature encoder.
 
@@ -202,7 +198,7 @@ Measures angular velocity (rotational speed) using a quadrature encoder.
 </ChannelType>
 
 <ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Linear /> Position Linear ([`ci_position_linear`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecilinencoderchan.html))</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Linear /> Position Linear ([`ci_position_linear`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__counter__input__channels__position_1ga90a24201a424fd7f4a436f45c726c618.html))</Text.Text>
 
 Tracks linear position using a quadrature encoder.
 
@@ -226,7 +222,7 @@ Tracks linear position using a quadrature encoder.
 </ChannelType>
 
 <ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Rotate /> Position Angular ([`ci_position_angular`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateciangencoderchan.html))</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Rotate /> Position Angular ([`ci_position_angular`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__counter__input__channels__position_1ga942ca714baeb63c64fc0136bf61f3c6b.html))</Text.Text>
 
 Tracks angular position (rotation angle) using a quadrature encoder.
 
@@ -250,7 +246,7 @@ Tracks angular position (rotation angle) using a quadrature encoder.
 </ChannelType>
 
 <ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Wave.Square /> Duty Cycle ([`ci_duty_cycle`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecidutycyclechan.html))</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Wave.Square /> Duty Cycle ([`ci_duty_cycle`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__counter__input__channels_1ga038bacad83c2aa098da70bf6ce810c10.html))</Text.Text>
 
 Measures the duty cycle of a periodic signal.
 
@@ -273,13 +269,10 @@ Measures the duty cycle of a periodic signal.
 
 ## Important Rules
 
-- **Sample rates** -> All channels in a task sample at the same rate. Create separate
-  tasks for different rates.
 - **One task per module** -> Only one running task can claim a module at a time.
-- **Stream rate optimization** -> For low-rate tasks (< 50 Hz), set the stream rate to
-  the sample rate. For high-rate tasks, keep stream the rate < 50 Hz for better
-  performance.
-- **Port validation** -> Counter ports cannot be duplicated within the same task.
+- **Unique ports** -> A counter port can appear only once in a task.
+- **Stream rate** -> For sample rates under 50 Hz, set the stream rate equal to the
+  sample rate. Above that, keep the stream rate under 50 Hz.
 
 <Divider.Divider x />
 
@@ -336,7 +329,7 @@ angular_pos_ch = client.channels.create(
 
 # Create and configure task
 task = ni.CounterReadTask(
-    name="Counter Read Task",
+    name="NI Counter Read Task",
     sample_rate=sy.Rate.HZ * 100,
     stream_rate=sy.Rate.HZ * 25,
     channels=[
@@ -388,7 +381,7 @@ with task.run():
 
 ```python
 # Retrieve existing task
-task = client.tasks.retrieve(name="Counter Read Task")
+task = client.tasks.retrieve(name="NI Counter Read Task")
 task = ni.CounterReadTask(internal=task)
 
 # Update task-level configuration
@@ -474,7 +467,7 @@ const angularPosCh = await client.channels.create(
 
 // Create and configure task
 const task = await client.tasks.create({
-  name: "Counter Read Task",
+  name: "NI Counter Read Task",
   rack: counterDev.rack,
   type: "ni_counter_read",
   config: {
@@ -544,7 +537,7 @@ await streamer.close();
 import { ni } from "@synnaxlabs/client";
 
 // Retrieve existing task
-const task = await client.tasks.retrieve({ name: "Counter Read Task" });
+const task = await client.tasks.retrieve({ name: "NI Counter Read Task" });
 
 // Parse and update configuration
 const config = ni.counterReadConfigZ.parse(task.config);
