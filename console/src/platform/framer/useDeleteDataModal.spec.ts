@@ -118,8 +118,6 @@ describe("DeleteModal", () => {
       await openModal(client);
       await selectChannel(data.name);
       await goToConfirmStep();
-      // The first step has always bound the shortcut; the confirm step did not, so
-      // the keyboard flow dead-ended on the last, destructive press.
       await act(async () => {
         pressSaveTrigger();
       });

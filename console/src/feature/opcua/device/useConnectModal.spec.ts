@@ -54,9 +54,8 @@ describe("OPCUA.Device.useConnectModal", () => {
     await waitFor(() => expect(screen.queryByText("Client certificate")).toBeNull());
   });
 
-  // The footer has always advertised Ctrl+Enter, but nothing bound it, so the keys
-  // did nothing. Submitting with no rack chosen fails validation, and that error is
-  // the proof the shortcut reached the same save path the Connect button uses.
+  // Submitting with no rack chosen fails validation. That error is the proof the keys
+  // reached the same save path the Connect button uses.
   it("should submit on the shortcut its footer advertises", async () => {
     await renderModalOpener(OPCUA.Device.useConnectModal, [{}], { client });
     await screen.findByRole("dialog");

@@ -78,8 +78,8 @@ describe("Palette", () => {
     await renderAppPalette();
     const btn = document.querySelector<HTMLElement>(".console-palette__btn");
     if (btn == null) throw new Error("palette open button not found");
-    // The tooltip used to wrap the dialog frame, which accepts no ref and routes
-    // onPointerEnter into its own context, so hovering never opened it at all.
+    // The tooltip has to wrap the button itself. The dialog frame accepts no ref and
+    // routes onPointerEnter into its own context, so hovering never opens the tip.
     fireEvent.pointerEnter(btn);
     const tip = await waitFor(() => {
       const el = document.querySelector<HTMLElement>(".pluto-tooltip");

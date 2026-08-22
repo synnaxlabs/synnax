@@ -122,8 +122,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       await loadSVG(picker);
       const name = uniqueName("triggered_symbol");
       fireEvent.change(findNameInput(), { target: { value: name } });
-      // The footer has always advertised the shortcut, but nothing bound it, so the
-      // keys did nothing and the symbol was never written.
       pressSaveTrigger();
       await waitFor(async () =>
         expect(await childNames(group.ontologyID(grp.key))).toContain(name),

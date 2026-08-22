@@ -37,9 +37,8 @@ describe("Modbus.Device.useConnectModal", () => {
     expect(screen.getByDisplayValue("1502")).toBeTruthy();
   });
 
-  // The footer has always advertised Ctrl+Enter, but nothing bound it, so the keys
-  // did nothing. Submitting with no rack chosen fails validation, and that error is
-  // the proof the shortcut reached the same save path the Connect button uses.
+  // Submitting with no rack chosen fails validation. That error is the proof the keys
+  // reached the same save path the Connect button uses.
   it("should submit on the shortcut its footer advertises", async () => {
     await renderModalOpener(Modbus.Device.useConnectModal, [{}], { client });
     await screen.findByRole("dialog");

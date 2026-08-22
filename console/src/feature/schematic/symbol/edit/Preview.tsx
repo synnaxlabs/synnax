@@ -34,7 +34,7 @@ import { FileDrop } from "@/feature/schematic/symbol/edit/FileDrop";
 import { HandleOverlay } from "@/feature/schematic/symbol/edit/Handles";
 import { CSS } from "@/platform/css";
 
-const ZOOM_TRIGGERS: Triggers.ModeConfig<"in" | "out" | "reset" | "default"> = {
+export const ZOOM_TRIGGERS: Triggers.ModeConfig<"in" | "out" | "reset" | "default"> = {
   defaultMode: "default",
   modes: {
     in: [["Control", "Equal"]],
@@ -44,7 +44,7 @@ const ZOOM_TRIGGERS: Triggers.ModeConfig<"in" | "out" | "reset" | "default"> = {
   },
 };
 
-const FLATTENED_ZOOM_TRIGGERS = Triggers.flattenConfig(ZOOM_TRIGGERS);
+export const FLATTENED_ZOOM_TRIGGERS = Triggers.flattenConfig(ZOOM_TRIGGERS);
 
 interface PreviewProps {
   selectedState: string;
