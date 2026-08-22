@@ -19,9 +19,10 @@ import { Drift } from "@synnaxlabs/drift";
 import { useDispatch as baseUseDispatch, useStore as baseUseStore } from "react-redux";
 
 import { Arc } from "@/session/arc";
-import { Core } from "@/session/core";
 import { Color } from "@/session/color";
+import { Core } from "@/session/core";
 import { Haul } from "@/session/haul";
+import { Legacy } from "@/session/legacy";
 import { LinePlot } from "@/session/lineplot";
 import { Log } from "@/session/log";
 import { Nav } from "@/session/nav";
@@ -197,6 +198,7 @@ export const createStore = async (opts: CreateStoreOptions = {}): Promise<Store>
       scopes: PERSIST_SCOPES,
       getContext: getPersistContext,
       exclude: PERSIST_EXCLUDE,
+      seed: Legacy.migrate,
       openKV,
     });
     preloadedState ??= persist.initialState;

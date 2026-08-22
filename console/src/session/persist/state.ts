@@ -20,10 +20,10 @@ import { z } from "zod";
 import { openSugaredKV, type SugaredKV } from "@/session/persist/kv";
 import { Runtime } from "@/session/runtime";
 
-// Note that this is a relative path within the tauri standard app data directory.
-// On macOS, this is ~/Library/Application Support/com.synnaxlabs.dev.
-// On Windows, this is %APPDATA%/com.synnaxlabs.dev.
-export const STORE_PATH = "persisted-state.json";
+// On desktop this names session.json inside the tauri app data directory: on macOS
+// ~/Library/Application Support/com.synnaxlabs.dev, on Windows
+// %APPDATA%/com.synnaxlabs.dev. In the browser it names an IndexedDB database.
+export const STORE_NAME = "session";
 
 /**
  * The scope state is persisted under. State partitions into three scopes:
@@ -104,6 +104,12 @@ export interface Config<S extends object> {
   /** getContext reads the partition scope from state. */
   getContext: (state: S) => Context;
   exclude?: Array<ExcludeFn<S>>;
+  /**
+   * Slices to start from the first time the store is opened, carried over from
+   * whatever the previous release left on disk. Consulted only while the store is
+   * still empty, so it never overwrites what this release has written.
+   */
+  seed?: () => Promise<Partial<S>>;
   openKV?: KVOpener;
   debounceInterval?: CrudeTimeSpan;
 }
@@ -246,7 +252,7 @@ class Partition<S extends object> {
 /** Clear the entire store and reload the page. */
 export const hardClearAndReload = () => {
   if (!Runtime.isMainWindow()) return;
-  openSugaredKV(STORE_PATH)
+  openSugaredKV(STORE_NAME)
     .clear()
     .catch((err: unknown) => {
       console.error("failed to clear store during hard reload", err);
@@ -266,6 +272,7 @@ class Engine<S extends object> {
   private readonly scopes: Scopes<S>;
   private readonly getContext: (state: S) => Context;
   private readonly exclude: Array<ExcludeFn<S>>;
+  private readonly seed?: () => Promise<Partial<S>>;
 
   /**
    * Opens an engine over the persisted store and composes the state it holds for the
@@ -282,13 +289,15 @@ class Engine<S extends object> {
     scopes,
     getContext,
     exclude = [],
+    seed,
     openKV = openSugaredKV,
   }: Config<S>) {
     this.initial = deep.copy(initial);
     this.scopes = scopes;
     this.getContext = getContext;
     this.exclude = exclude;
-    this.db = openKV(STORE_PATH);
+    this.seed = seed;
+    this.db = openKV(STORE_NAME);
     this.initialState = deep.copy(initial);
     this.context = getContext(this.initialState);
   }
@@ -342,6 +351,7 @@ class Engine<S extends object> {
   // project, whose partition holds the workspace.
   private async compose(): Promise<void> {
     const state = deep.copy(this.initial);
+    Object.assign(state, await this.readSeed());
     Object.assign(state, await this.global().read());
     const { core } = this.getContext(state);
     if (core != null) Object.assign(state, await this.core(core).read());
@@ -350,6 +360,17 @@ class Engine<S extends object> {
       Object.assign(state, await this.project(context.core, context.project).read());
     this.initialState = state;
     this.context = context;
+  }
+
+  /** The seed's slices, or nothing when the store already holds a session. */
+  private async readSeed(): Promise<Partial<S>> {
+    if (this.seed == null || (await this.db.length()) > 0) return {};
+    try {
+      return await this.seed();
+    } catch (err) {
+      console.error("failed to seed the session store", err);
+      return {};
+    }
   }
 
   private global(): Partition<S> {

@@ -584,11 +584,9 @@ describe("Persist.middleware", () => {
 });
 
 describe("Persist.hardClearAndReload", () => {
-  const PREFIX = `${Persist.STORE_PATH}:`;
   let errorSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
-    localStorage.clear();
     // The reload after clearing is a no-op under jsdom and its failure is swallowed by
     // the production .catch; suppress the expected error log.
     errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -596,16 +594,14 @@ describe("Persist.hardClearAndReload", () => {
 
   afterEach(() => {
     errorSpy.mockRestore();
-    localStorage.clear();
   });
 
-  it("should clear the persisted store scoped to the store path", async () => {
-    await Persist.openSugaredKV(Persist.STORE_PATH).set("global.slot", { slot: 1 });
-    localStorage.setItem("unrelated:key", "keep-me");
+  it("should clear the session store", async () => {
+    const db = Persist.openSugaredKV(Persist.STORE_NAME);
+    await db.set("global.slot", { slot: 1 });
     Persist.hardClearAndReload();
-    await vi.waitFor(() => {
-      expect(localStorage.getItem(`${PREFIX}global.slot`)).toBeNull();
+    await vi.waitFor(async () => {
+      expect(await db.get("global.slot")).toBeNull();
     });
-    expect(localStorage.getItem("unrelated:key")).toBe("keep-me");
   });
 });

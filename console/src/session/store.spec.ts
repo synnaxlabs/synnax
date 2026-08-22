@@ -9,7 +9,7 @@
 
 import { Drift, MAIN_WINDOW } from "@synnaxlabs/drift";
 import { type Haul } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
+import { deep, kv } from "@synnaxlabs/x";
 import { waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -28,32 +28,38 @@ const withoutDrift = (state: Session.State): Partial<Session.State> => {
 };
 
 /**
- * Every payload production has written under the persisted store's path. Partitioning
- * is the engine's business, so this asserts over all of them rather than naming keys.
+ * Every payload production has written into the store the given KV backs.
+ * Partitioning is the engine's business, so this asserts over all of them rather
+ * than naming keys.
  */
-const readPersisted = (): Array<Partial<Session.State>> =>
-  Object.entries(localStorage)
-    .filter(([key]) => key.startsWith(`${Session.Persist.STORE_PATH}:`))
-    .map(([, value]) => JSON.parse(value) as Partial<Session.State>);
+const readPersisted = (db: kv.MockAsync): Array<Partial<Session.State>> =>
+  [...db.store.entries()]
+    .filter(([key]) => !key.endsWith(".slot"))
+    .map(([, value]) => value as Partial<Session.State>);
 
 const waitForPersisted = async (
+  db: kv.MockAsync,
   predicate: (payload: Partial<Session.State>) => boolean,
   message: string,
 ): Promise<void> =>
   await waitFor(() => {
-    if (!readPersisted().some(predicate)) throw new Error(message);
+    if (!readPersisted(db).some(predicate)) throw new Error(message);
   });
+
+const DEMO_KEY = Session.Core.key({ host: "demo.synnaxlabs.com", port: 9090 });
 
 describe("createStore", () => {
+  let db: kv.MockAsync;
+
   beforeEach(() => {
-    localStorage.clear();
+    db = new kv.MockAsync();
   });
 
+  const createStore = async (opts: Session.CreateStoreOptions = {}) =>
+    await Session.createStore({ enablePrerender: false, openKV: () => db, ...opts });
+
   it("initializes every slice to its zero state", async () => {
-    const store = await Session.createStore({
-      enablePersistence: false,
-      enablePrerender: false,
-    });
+    const store = await createStore({ enablePersistence: false });
     expect(Object.keys(store.getState()).sort()).toEqual(
       Object.keys(Session.ZERO_STATE).sort(),
     );
@@ -63,62 +69,58 @@ describe("createStore", () => {
   });
 
   it("routes dispatched actions to their owning slice", async () => {
-    const store = await Session.createStore({
-      enablePersistence: false,
-      enablePrerender: false,
-    });
-    store.dispatch(Session.Core.select("DEMO"));
+    const store = await createStore({ enablePersistence: false });
+    store.dispatch(Session.Core.select(DEMO_KEY));
     store.dispatch(Session.Nav.showBottom({ windowKey: MAIN_WINDOW }));
-    expect(Session.Core.selectSelectedKey(store.getState())).toBe("DEMO");
+    expect(Session.Core.selectSelectedKey(store.getState())).toBe(DEMO_KEY);
     expect(Session.Nav.selectWindowState(store.getState()).bottom.visible).toBe(true);
   });
 
   it("honors an explicit preloadedState", async () => {
-    const store = await Session.createStore({
+    const store = await createStore({
       enablePersistence: false,
-      enablePrerender: false,
       preloadedState: deep.copy({
         ...Session.ZERO_STATE,
         [Session.Core.SLICE_NAME]: {
           ...Session.Core.ZERO_SLICE_STATE,
-          selected: "DEMO",
+          selected: DEMO_KEY,
         },
       }),
     });
-    expect(Session.Core.selectSelectedKey(store.getState())).toBe("DEMO");
+    expect(Session.Core.selectSelectedKey(store.getState())).toBe(DEMO_KEY);
   });
 
   it("persists state and reloads it into a fresh store", async () => {
-    const store = await Session.createStore({ enablePrerender: false });
-    store.dispatch(Session.Core.select("DEMO"));
+    const store = await createStore();
+    store.dispatch(Session.Core.select(DEMO_KEY));
     await waitForPersisted(
-      (p) => p.core?.selected === "DEMO",
+      db,
+      (p) => p.core?.selected === DEMO_KEY,
       "Core selection not persisted yet",
     );
-    const reloaded = await Session.createStore({ enablePrerender: false });
-    expect(Session.Core.selectSelectedKey(reloaded.getState())).toBe("DEMO");
+    const reloaded = await createStore();
+    expect(Session.Core.selectSelectedKey(reloaded.getState())).toBe(DEMO_KEY);
   });
 
-  it("excludes transient haul state from persistence", async () => {
+  it("never writes transient haul state", async () => {
     const projectKey = "6f7cd5f4-4b93-4a35-a55c-72ba9dae2c9d";
-    const store = await Session.createStore({ enablePrerender: false });
-    store.dispatch(Session.Core.select("DEMO"));
+    const store = await createStore();
+    store.dispatch(Session.Core.select(DEMO_KEY));
     store.dispatch(Session.Project.select(projectKey));
     // The switch hydrates the project's stored slices over whatever is in the store, so
     // let it settle before making changes that have to survive. Project-scoped slices
     // are only written once the hydrate lands, so nav appearing marks the end of it.
-    await waitForPersisted((p) => p.nav != null, "project swap has not settled yet");
+    await waitForPersisted(db, (p) => p.nav != null, "project swap has not settled yet");
     store.dispatch(Session.Haul.setHauled(HAULED));
     store.dispatch(Session.Nav.showBottom({ windowKey: MAIN_WINDOW }));
     await waitForPersisted(
+      db,
       (p) => Object.values(p.nav?.windows ?? {})[0]?.bottom.visible === true,
       "nav change not persisted yet",
     );
     expect(store.getState().haul.state).toStrictEqual(HAULED);
-    // The drag rode to disk alongside the nav change that just landed.
-    readPersisted().forEach((p) => {
-      if (p.haul != null) expect(p.haul).toStrictEqual(Session.Haul.ZERO_SLICE_STATE);
-    });
+    // Haul belongs to no partition scope, so the drag never reached any payload.
+    readPersisted(db).forEach((p) => expect(p.haul).toBeUndefined());
   });
 });
 
@@ -199,10 +201,10 @@ describe("reducer", () => {
       Session.Persist.hydrate({
         [Session.Core.SLICE_NAME]: {
           ...Session.Core.ZERO_SLICE_STATE,
-          selected: "DEMO",
+          selected: DEMO_KEY,
         },
       }),
     );
-    expect(Session.Core.selectSelectedKey(next)).toBe("DEMO");
+    expect(Session.Core.selectSelectedKey(next)).toBe(DEMO_KEY);
   });
 });
