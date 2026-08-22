@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-/* One fixed height, so cluster and project surfaces match. The doubled class beats
+/* One fixed height, so Core and project surfaces match. The doubled class beats
    the bordered and background variants. */
 .console-shell__list.console-shell__list {
     width: 100%;

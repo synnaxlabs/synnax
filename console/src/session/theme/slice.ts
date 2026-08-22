@@ -15,7 +15,7 @@ export const SLICE_NAME = "theme";
 export const modeZ = z.enum(["light", "dark", "system"]);
 export type Mode = z.infer<typeof modeZ>;
 
-const sliceStateZ = z
+export const sliceStateZ = z
   .object({
     version: z.literal(0).default(0),
     mode: modeZ.default("system"),

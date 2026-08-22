@@ -127,7 +127,7 @@ describe("range/list/SelectFilters", () => {
 
 describe("range/list/List permissions", () => {
   // A search that matches nothing is the only way to reach the empty state: the shared
-  // cluster accumulates ranges across runs. The term shares no token with the test range
+  // Core accumulates ranges across runs. The term shares no token with the test range
   // names, which search matches word by word.
   const showEmptyState = async (container: HTMLElement): Promise<void> => {
     const rng = await createTestRange(client);

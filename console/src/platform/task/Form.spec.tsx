@@ -272,7 +272,7 @@ describe("wrapForm", () => {
     });
   });
 
-  describe("deploying against a live cluster", () => {
+  describe("deploying against a live Core", () => {
     it("should persist the configured rack and issue a start command", async () => {
       const client = createTestClient();
       const rack = await client.racks.create({ name: uniqueName("rack") });

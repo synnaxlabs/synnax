@@ -28,7 +28,7 @@ export interface CreateNIDeviceOptions extends Partial<Omit<Device.New, "propert
 }
 
 /**
- * Creates a rack and a configured NI device on the live cluster. The device gets a
+ * Creates a rack and a configured NI device on the live Core. The device gets a
  * unique identifier so channels created from it never collide across runs.
  */
 export const createNIDevice = async (
@@ -50,7 +50,7 @@ export const createNIDevice = async (
     },
     Device.SCHEMAS,
   );
-  // Cluster metadata is eventually consistent; wait until the device is retrievable
+  // Core metadata is eventually consistent; wait until the device is retrievable
   // so task configuration flows see it.
   await waitFor(async () => {
     await client.devices.retrieve({ key: dev.key, schemas: Device.SCHEMAS });
@@ -86,7 +86,7 @@ export const renderNITaskForm = async (
 /**
  * Polls the captured statuses until one's message or description matches. Uses
  * expect.poll with an extended timeout because the failing operation round-trips
- * against the live cluster before raising the status.
+ * against the live Core before raising the status.
  */
 export const awaitStatusDescription = async (
   statuses: Status.NotificationSpec[],

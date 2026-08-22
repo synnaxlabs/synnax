@@ -19,19 +19,18 @@ import {
   Synnax,
   type Triggers,
 } from "@synnaxlabs/pluto";
-import { uuid } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { Shell } from "@/feature/shell";
-import { Cluster } from "@/platform/cluster";
+import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Shell as PlatformShell } from "@/platform/shell";
 import { Session } from "@/session";
 
 const LOG_IN_TRIGGER: Triggers.Trigger = ["Enter"];
 
-type Step = "clusters" | "login";
+type Step = "cores" | "login";
 
 const credentialsZ = z.object({
   username: z.string().min(1, "Username is required"),
@@ -52,52 +51,49 @@ const PASSWORD_INPUT_PROPS: Partial<Input.TextProps> = {
 
 /**
  * Full-screen login surface. Serves both initial login and credential re-entry
- * after the active cluster rejects auth, where submitting resumes its connection.
+ * after the active Core rejects auth, where submitting resumes its connection.
  */
 export const Login = (): ReactElement => {
   const client = Synnax.use();
   const connStatus = Synnax.useConnectionStatus();
-  const servingCluster = Cluster.detectConnection();
-  const clusters = Session.Cluster.useSelectMany();
-  const activeKey = Session.Cluster.useSelectSelectedKey();
+  const servingCore = Core.detectConnection();
+  const cores = Session.Core.useSelectMany();
+  const activeKey = Session.Core.useSelectSelectedKey();
   const [selectedKey, setSelectedKey] = useState<string | undefined>(activeKey);
-  const selectedCluster = Session.Cluster.useSelectState(selectedKey);
+  const selectedCore = Session.Core.useSelectState(selectedKey);
   const dispatch = Session.useDispatch();
   const [step, setStep] = useState<Step>(() =>
-    servingCluster != null || activeKey != null ? "login" : "clusters",
+    servingCore != null || activeKey != null ? "login" : "cores",
   );
-  const target = servingCluster ?? selectedCluster;
+  const target = servingCore ?? selectedCore;
 
   const methods = Form.use<typeof credentialsZ>({
     schema: credentialsZ,
-    values: { username: selectedCluster?.username ?? "", password: "" },
+    values: { username: selectedCore?.username ?? "", password: "" },
   });
 
   const handleSubmit = (): void => {
-    const clusterToConnect = servingCluster ?? selectedCluster;
-    if (!methods.validate() || clusterToConnect == null) return;
+    const coreToConnect = servingCore ?? selectedCore;
+    if (!methods.validate() || coreToConnect == null) return;
     const credentials = methods.value();
-    const key =
-      servingCluster == null && selectedCluster != null
-        ? selectedCluster.key
-        : (activeKey ?? uuid.create());
+    const key = Session.Core.key(coreToConnect);
     // A same-credentials resubmit leaves the connection params untouched, so the
     // provider never swaps the client; nudge the existing one to reconnect.
     if (client != null && key === activeKey) client.reauthenticate(credentials);
-    dispatch(Session.Cluster.set({ ...clusterToConnect, key, ...credentials }));
-    dispatch(Session.Cluster.select(key));
+    dispatch(Session.Core.set({ ...coreToConnect, ...credentials }));
+    dispatch(Session.Core.select(key));
   };
 
-  const handleSelectedClusterChange = useCallback(
+  const handleSelectedCoreChange = useCallback(
     (key?: string) => {
       if (key == null) return;
-      const next = clusters.find((c) => c.key === key);
+      const next = cores.find((c) => c.key === key);
       if (next == null) return;
       methods.reset({ username: next.username ?? "", password: "" });
       setSelectedKey(key);
       setStep("login");
     },
-    [methods, clusters],
+    [methods, cores],
   );
 
   return (
@@ -105,19 +101,19 @@ export const Login = (): ReactElement => {
       className={CSS.cls(CSS.B("login"), CSS.M(`step-${step}`))}
       connection={step === "login" ? target : undefined}
     >
-      {step === "clusters" ? (
-        <Cluster.List
+      {step === "cores" ? (
+        <Core.List
           className={CSS.BE("shell", "list")}
           value={undefined}
-          onChange={handleSelectedClusterChange}
+          onChange={handleSelectedCoreChange}
         />
       ) : (
         <Flex.Box y gap="huge" className={CSS.BE("login", "form")} grow>
-          {servingCluster == null && (
+          {servingCore == null && (
             <Button.Button
               variant="text"
               className={CSS.BE("login", "back")}
-              onClick={() => setStep("clusters")}
+              onClick={() => setStep("cores")}
             >
               <Icon.Arrow.Left />
             </Button.Button>

@@ -67,9 +67,9 @@ describe("createStore", () => {
       enablePersistence: false,
       enablePrerender: false,
     });
-    store.dispatch(Session.Cluster.select("DEMO"));
+    store.dispatch(Session.Core.select("DEMO"));
     store.dispatch(Session.Nav.showBottom({ windowKey: MAIN_WINDOW }));
-    expect(Session.Cluster.selectSelectedKey(store.getState())).toBe("DEMO");
+    expect(Session.Core.selectSelectedKey(store.getState())).toBe("DEMO");
     expect(Session.Nav.selectWindowState(store.getState()).bottom.visible).toBe(true);
   });
 
@@ -79,30 +79,30 @@ describe("createStore", () => {
       enablePrerender: false,
       preloadedState: deep.copy({
         ...Session.ZERO_STATE,
-        [Session.Cluster.SLICE_NAME]: {
-          ...Session.Cluster.ZERO_SLICE_STATE,
+        [Session.Core.SLICE_NAME]: {
+          ...Session.Core.ZERO_SLICE_STATE,
           selected: "DEMO",
         },
       }),
     });
-    expect(Session.Cluster.selectSelectedKey(store.getState())).toBe("DEMO");
+    expect(Session.Core.selectSelectedKey(store.getState())).toBe("DEMO");
   });
 
   it("persists state and reloads it into a fresh store", async () => {
     const store = await Session.createStore({ enablePrerender: false });
-    store.dispatch(Session.Cluster.select("DEMO"));
+    store.dispatch(Session.Core.select("DEMO"));
     await waitForPersisted(
-      (p) => p.cluster?.selected === "DEMO",
-      "cluster selection not persisted yet",
+      (p) => p.core?.selected === "DEMO",
+      "Core selection not persisted yet",
     );
     const reloaded = await Session.createStore({ enablePrerender: false });
-    expect(Session.Cluster.selectSelectedKey(reloaded.getState())).toBe("DEMO");
+    expect(Session.Core.selectSelectedKey(reloaded.getState())).toBe("DEMO");
   });
 
   it("excludes transient haul state from persistence", async () => {
     const projectKey = "6f7cd5f4-4b93-4a35-a55c-72ba9dae2c9d";
     const store = await Session.createStore({ enablePrerender: false });
-    store.dispatch(Session.Cluster.select("DEMO"));
+    store.dispatch(Session.Core.select("DEMO"));
     store.dispatch(Session.Project.select(projectKey));
     // The switch hydrates the project's stored slices over whatever is in the store, so
     // let it settle before making changes that have to survive. Project-scoped slices
@@ -197,12 +197,12 @@ describe("reducer", () => {
     const next = Session.reducer(
       Session.ZERO_STATE,
       Session.Persist.hydrate({
-        [Session.Cluster.SLICE_NAME]: {
-          ...Session.Cluster.ZERO_SLICE_STATE,
+        [Session.Core.SLICE_NAME]: {
+          ...Session.Core.ZERO_SLICE_STATE,
           selected: "DEMO",
         },
       }),
     );
-    expect(Session.Cluster.selectSelectedKey(next)).toBe("DEMO");
+    expect(Session.Core.selectSelectedKey(next)).toBe("DEMO");
   });
 });

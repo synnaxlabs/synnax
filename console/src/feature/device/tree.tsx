@@ -22,7 +22,7 @@ import {
 import { useMemo } from "react";
 
 import { getContextMenuItems, getIcon, getMake } from "@/feature/device/make";
-import { Cluster } from "@/platform/cluster";
+import { Core } from "@/platform/core";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Group } from "@/platform/group";
@@ -54,7 +54,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const handleDelete = useDelete(props);
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
-  const handleLink = Cluster.useCopyLinkToClipboard();
+  const handleLink = Core.useCopyLinkToClipboard();
   if (ids.length === 0) return null;
   const C = singleResource ? getContextMenuItems(first.data?.make) : null;
   const customMenuItems = C ? <C {...props} /> : null;

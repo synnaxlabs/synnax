@@ -16,11 +16,11 @@ import { describe, expect, it } from "vitest";
 
 import { User } from "@/platform/user";
 import { Session } from "@/session";
-import { createCluster, createClusterState } from "@/session/cluster/testutil";
+import { createCore, createCoreState } from "@/session/core/testutil";
 import { createConsoleWrapper, renderWithConsole } from "@/testutil";
 
 const createStateWithUser = (username: string, selected = "LOCAL") =>
-  createClusterState([createCluster("LOCAL", { name: "Local", username })], selected);
+  createCoreState([createCore("LOCAL", { name: "Local", username })], selected);
 
 const getTrigger = (container: ParentNode): HTMLElement => {
   const trigger = container.querySelector<HTMLElement>(".pluto-dialog__trigger");
@@ -29,14 +29,14 @@ const getTrigger = (container: ParentNode): HTMLElement => {
 };
 
 describe("User.Badge", () => {
-  it("should fall back to the cluster username when no user is loaded", async () => {
+  it("should fall back to the Core username when no user is loaded", async () => {
     await renderWithConsole(<User.Badge />, {
-      preloadedState: createStateWithUser("cluster-user"),
+      preloadedState: createStateWithUser("Core-user"),
     });
-    expect(screen.getByText("cluster-user")).toBeTruthy();
+    expect(screen.getByText("Core-user")).toBeTruthy();
   });
 
-  it("should prefer the retrieved user's identity over the cluster fallback", async () => {
+  it("should prefer the retrieved user's identity over the Core fallback", async () => {
     const client = createTestClient();
     const { wrapper } = await createConsoleWrapper({
       client,
@@ -77,16 +77,16 @@ describe("User.Badge", () => {
     expect(await screen.findByText(other.auth?.user?.username ?? "")).toBeTruthy();
   });
 
-  it("should log out of the active cluster when Log out is clicked", async () => {
+  it("should log out of the active Core when Log out is clicked", async () => {
     const { store } = await renderWithConsole(<User.Badge />, {
-      preloadedState: createStateWithUser("cluster-user"),
+      preloadedState: createStateWithUser("Core-user"),
     });
-    expect(Session.Cluster.selectSelectedKey(store.getState())).toBe("LOCAL");
-    fireEvent.click(screen.getByText("cluster-user"));
+    expect(Session.Core.selectSelectedKey(store.getState())).toBe("LOCAL");
+    fireEvent.click(screen.getByText("Core-user"));
     const logout = await screen.findByText("Log out");
     fireEvent.click(logout);
     await waitFor(() =>
-      expect(Session.Cluster.selectSelectedKey(store.getState())).toBeUndefined(),
+      expect(Session.Core.selectSelectedKey(store.getState())).toBeUndefined(),
     );
   });
 });

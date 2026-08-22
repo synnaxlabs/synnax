@@ -16,7 +16,7 @@ import { getCurrent, onOpenUrl } from "@tauri-apps/plugin-deep-link";
 import { Link } from "@/platform/link";
 import { Session } from "@/session";
 
-const BASE_LINK = `${Link.PREFIX}<cluster-key>`;
+const BASE_LINK = `${Link.PREFIX}<core-key>`;
 
 const INCORRECT_FORMAT_ERROR_MESSAGE = `Links must be of the form ${BASE_LINK} or ${BASE_LINK}/<resource>/<resource-key>`;
 
@@ -35,7 +35,7 @@ const DEFAULT_DEPS: Deps = {
 };
 
 export const useDeep = (
-  connect: Link.ClusterConnect,
+  connect: Link.CoreConnect,
   handlers: Record<string, Link.Handler>,
   deps: Deps = DEFAULT_DEPS,
 ): void => {
@@ -54,8 +54,8 @@ export const useDeep = (
       if (urlParts.length !== 1 && urlParts.length !== 3)
         throw new Error(INCORRECT_FORMAT_ERROR_MESSAGE);
 
-      const clusterKey = urlParts[0];
-      const client = await connect(clusterKey);
+      const coreKey = urlParts[0];
+      const client = await connect(coreKey);
       if (urlParts.length === 1) return;
 
       const resource = urlParts[1];

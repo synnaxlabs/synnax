@@ -43,6 +43,7 @@ export interface WindowState extends z.output<typeof windowStateZ> {}
 export const ZERO_WINDOW_STATE: WindowState = windowStateZ.parse({});
 
 export const sliceStateZ = z.object({
+  version: z.literal(0).default(0),
   windows: z.record(z.string(), windowStateZ).default({}),
   /**
    * The strip's panel order, shared by every window. Reconciliation appends new

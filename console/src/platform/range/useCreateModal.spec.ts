@@ -76,7 +76,7 @@ describe("Range.useCreateModal", () => {
     expect(Session.Range.selectMultiple(store.getState()).length).toBe(before);
   });
 
-  it("should persist the range to the cluster and favorite it on Save to Core", async () => {
+  it("should persist the range to the Core and favorite it on Save to Core", async () => {
     const name = uniqueRangeName("persisted");
     const { store } = await openModal(
       { name, timeRange: { start: 1, end: 2 } },

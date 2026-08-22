@@ -27,15 +27,15 @@ export const STORE_PATH = "persisted-state.json";
 
 /**
  * The scope state is persisted under. State partitions into three scopes:
- * global, per-cluster, and per-cluster-per-project.
+ * global, per-Core, and per-Core-per-project.
  */
 export interface Context {
-  cluster?: string;
+  core?: string;
   project?: string;
 }
 
 const contextsEqual = (a: Context, b: Context): boolean =>
-  a.cluster === b.cluster && a.project === b.project;
+  a.core === b.core && a.project === b.project;
 
 export interface KVOpener {
   (base: string): SugaredKV;
@@ -46,25 +46,63 @@ export type ExcludeFn<S extends object> = (state: S) => S;
 
 type SliceKey<S extends object> = keyof S & string;
 
-export type SliceMigrators<S extends object> = {
-  [K in keyof S]?: (raw: unknown) => S[K];
+/**
+ * The slices of one partition scope, each under the schema its bytes are parsed
+ * through on read. Declaring the schema beside the scope rather than in a separate
+ * table is what makes an unvalidated persisted slice unrepresentable.
+ */
+export type SliceSchemas<S extends object> = {
+  [K in SliceKey<S>]?: z.ZodType<S[K]>;
 };
 
-/** Slice names belonging to each partition scope. Every persisted slice
- * appears in exactly one scope. */
+/**
+ * Where each slice lives on disk. Every slice of S appears in exactly one scope or
+ * in transient; {@link open} throws when one is missing, so adding a slice to the
+ * store forces a decision about its durability.
+ */
 export interface Scopes<S extends object> {
-  global: Array<SliceKey<S>>;
-  cluster: Array<SliceKey<S>>;
-  project: Array<SliceKey<S>>;
+  global: SliceSchemas<S>;
+  core: SliceSchemas<S>;
+  project: SliceSchemas<S>;
+  /** Slices deliberately never written. */
+  transient: Array<SliceKey<S>>;
 }
+
+const scopeKeys = <S extends object>(scope: SliceSchemas<S>): Array<SliceKey<S>> =>
+  Object.keys(scope) as Array<SliceKey<S>>;
+
+/**
+ * @throws {Error} if a slice of S is in no scope and not declared transient, or is
+ * in more than one scope.
+ */
+const validateScopes = <S extends object>(initial: S, scopes: Scopes<S>): void => {
+  const { global, core, project, transient } = scopes;
+  const declared = [
+    ...scopeKeys(global),
+    ...scopeKeys(core),
+    ...scopeKeys(project),
+    ...transient,
+  ];
+  const seen = new Set<string>();
+  const duplicated = declared.filter((key) => {
+    if (seen.has(key)) return true;
+    seen.add(key);
+    return false;
+  });
+  if (duplicated.length > 0)
+    throw new Error(`slices declared in more than one scope: ${duplicated.join(", ")}`);
+  const missing = Object.keys(initial).filter((key) => !seen.has(key));
+  if (missing.length > 0)
+    throw new Error(
+      `slices in no persistence scope: ${missing.join(", ")}. Add each to a scope with its schema, or to transient.`,
+    );
+};
 
 export interface Config<S extends object> {
   initial: S;
   scopes: Scopes<S>;
   /** getContext reads the partition scope from state. */
   getContext: (state: S) => Context;
-  /** Per-slice migrators applied to each slice as its partition loads. */
-  migrators?: SliceMigrators<S>;
   exclude?: Array<ExcludeFn<S>>;
   openKV?: KVOpener;
   debounceInterval?: CrudeTimeSpan;
@@ -118,36 +156,39 @@ const slotPointerZ = z.object({
 /**
  * A group of slices stored under one key prefix, with a bounded ring of slots
  * behind a pointer key. Owns how the group's bytes round-trip: ring advancement,
- * migration on read, and stepping the pointer back on revert. The slot pointer is
+ * parsing on read, and stepping the pointer back on revert. The slot pointer is
  * unrelated to the schema version each slice carries in its own value.
  */
 class Partition<S extends object> {
   private readonly db: SugaredKV;
   private readonly base: string;
-  private readonly slices: Array<SliceKey<S>>;
-  private readonly migrators: SliceMigrators<S>;
+  private readonly schemas: SliceSchemas<S>;
 
-  constructor(
-    db: SugaredKV,
-    base: string,
-    slices: Array<SliceKey<S>>,
-    migrators: SliceMigrators<S>,
-  ) {
+  constructor(db: SugaredKV, base: string, schemas: SliceSchemas<S>) {
     this.db = db;
     this.base = base;
-    this.slices = slices;
-    this.migrators = migrators;
+    this.schemas = schemas;
   }
 
-  /** Read the slices at the current ring slot, migrated. */
+  /**
+   * Read the slices at the current ring slot. A slice whose stored bytes fail its
+   * schema is dropped, leaving the caller to fall back to its initial state.
+   */
   async read(): Promise<Partial<S>> {
     const slot = await this.readSlot();
     const data = (await this.db.get(this.stateKey(slot))) as Partial<S> | null;
     const out: Partial<S> = {};
     if (data == null) return out;
-    this.slices.forEach((key) => {
-      const migrated = this.migrateSlice(key, data[key]);
-      if (migrated != null) out[key] = migrated as S[typeof key];
+    this.keys().forEach((key) => {
+      const raw = data[key];
+      if (raw == null) return;
+      const parsed = this.schemas[key]?.safeParse(raw);
+      if (parsed?.success !== true)
+        return console.error(
+          `discarding stored slice ${key}: it does not match its schema`,
+          parsed?.error,
+        );
+      out[key] = parsed.data;
     });
     return out;
   }
@@ -156,7 +197,7 @@ class Partition<S extends object> {
   async write(state: S): Promise<void> {
     const slot = nextSlot(await this.readSlot());
     const data: Partial<S> = {};
-    this.slices.forEach((key) => {
+    this.keys().forEach((key) => {
       data[key] = state[key];
     });
     try {
@@ -171,6 +212,10 @@ class Partition<S extends object> {
   /** Step the ring pointer back one slot. */
   async revert(): Promise<void> {
     await this.setSlot(prevSlot(await this.readSlot()));
+  }
+
+  private keys(): Array<SliceKey<S>> {
+    return Object.keys(this.schemas) as Array<SliceKey<S>>;
   }
 
   private stateKey(slot: number): string {
@@ -196,17 +241,6 @@ class Partition<S extends object> {
       });
     }
   }
-
-  private migrateSlice(key: SliceKey<S>, raw: unknown): unknown {
-    const migrator = this.migrators[key];
-    if (migrator == null || raw == null) return raw;
-    try {
-      return migrator(raw);
-    } catch (err) {
-      console.error(`failed to migrate slice ${key}. using its initial state.`, err);
-      return null;
-    }
-  }
 }
 
 /** Clear the entire store and reload the page. */
@@ -224,14 +258,13 @@ export const hardClearAndReload = () => {
 class Engine<S extends object> {
   /** The context {@link initialState} was composed for. */
   context: Context;
-  /** The composed global + cluster + project state read on open. */
+  /** The composed global + Core + project state read on open. */
   initialState: S;
 
   private readonly db: SugaredKV;
   private readonly initial: S;
   private readonly scopes: Scopes<S>;
   private readonly getContext: (state: S) => Context;
-  private readonly migrators: SliceMigrators<S>;
   private readonly exclude: Array<ExcludeFn<S>>;
 
   /**
@@ -248,14 +281,12 @@ class Engine<S extends object> {
     initial,
     scopes,
     getContext,
-    migrators = {},
     exclude = [],
     openKV = openSugaredKV,
   }: Config<S>) {
     this.initial = deep.copy(initial);
     this.scopes = scopes;
     this.getContext = getContext;
-    this.migrators = migrators;
     this.exclude = exclude;
     this.db = openKV(STORE_PATH);
     this.initialState = deep.copy(initial);
@@ -271,28 +302,28 @@ class Engine<S extends object> {
   }
 
   /**
-   * Load the cluster and project (or project-only) slices for the target context,
-   * defaulting unvisited partitions to their initial slices. When includeCluster is
-   * true the target project is re-derived from the loaded cluster partition.
+   * Load the Core and project (or project-only) slices for the target context,
+   * defaulting unvisited partitions to their initial slices. When includeCore is
+   * true the target project is re-derived from the loaded Core partition.
    */
   async loadSwap(
     state: S,
     context: Context,
-    includeCluster: boolean,
+    includeCore: boolean,
   ): Promise<Partial<S>> {
     const out: Partial<S> = {};
     let project = context.project;
-    if (includeCluster) {
-      const clusterSlices =
-        context.cluster == null ? {} : await this.cluster(context.cluster).read();
-      this.fill(out, this.scopes.cluster, clusterSlices);
-      // The target cluster's partition records which project was last active.
+    if (includeCore) {
+      const coreSlices =
+        context.core == null ? {} : await this.core(context.core).read();
+      this.fill(out, this.scopes.core, coreSlices);
+      // The target Core's partition records which project was last active.
       project = this.getContext({ ...state, ...out }).project;
     }
     const projectSlices =
-      context.cluster == null || project == null
+      context.core == null || project == null
         ? {}
-        : await this.project(context.cluster, project).read();
+        : await this.project(context.core, project).read();
     this.fill(out, this.scopes.project, projectSlices);
     return out;
   }
@@ -307,53 +338,43 @@ class Engine<S extends object> {
     await this.db.clear();
   }
 
-  // The global partition names the selected cluster, whose partition names the active
+  // The global partition names the selected Core, whose partition names the active
   // project, whose partition holds the workspace.
   private async compose(): Promise<void> {
     const state = deep.copy(this.initial);
     Object.assign(state, await this.global().read());
-    const { cluster } = this.getContext(state);
-    if (cluster != null) Object.assign(state, await this.cluster(cluster).read());
+    const { core } = this.getContext(state);
+    if (core != null) Object.assign(state, await this.core(core).read());
     const context = this.getContext(state);
-    if (context.cluster != null && context.project != null)
-      Object.assign(state, await this.project(context.cluster, context.project).read());
+    if (context.core != null && context.project != null)
+      Object.assign(state, await this.project(context.core, context.project).read());
     this.initialState = state;
     this.context = context;
   }
 
   private global(): Partition<S> {
-    return new Partition(this.db, "global", this.scopes.global, this.migrators);
+    return new Partition(this.db, "global", this.scopes.global);
   }
 
-  private cluster(key: string): Partition<S> {
-    return new Partition(
-      this.db,
-      `cluster.${key}`,
-      this.scopes.cluster,
-      this.migrators,
-    );
+  private core(key: string): Partition<S> {
+    return new Partition(this.db, `core.${key}`, this.scopes.core);
   }
 
-  private project(cluster: string, project: string): Partition<S> {
-    return new Partition(
-      this.db,
-      `project.${cluster}.${project}`,
-      this.scopes.project,
-      this.migrators,
-    );
+  private project(core: string, project: string): Partition<S> {
+    return new Partition(this.db, `project.${core}.${project}`, this.scopes.project);
   }
 
-  /** The partitions the given context reaches: global, then cluster, then project. */
-  private activePartitions({ cluster, project }: Context): Array<Partition<S>> {
+  /** The partitions the given context reaches: global, then Core, then project. */
+  private activePartitions({ core, project }: Context): Array<Partition<S>> {
     const out = [this.global()];
-    if (cluster == null) return out;
-    out.push(this.cluster(cluster));
-    if (project != null) out.push(this.project(cluster, project));
+    if (core == null) return out;
+    out.push(this.core(core));
+    if (project != null) out.push(this.project(core, project));
     return out;
   }
 
-  private fill(out: Partial<S>, slices: Array<SliceKey<S>>, data: Partial<S>): void {
-    slices.forEach((key) => {
+  private fill(out: Partial<S>, scope: SliceSchemas<S>, data: Partial<S>): void {
+    scopeKeys(scope).forEach((key) => {
       out[key] = data[key] ?? deep.copy(this.initial[key]);
     });
   }
@@ -363,7 +384,7 @@ const PERSIST_DEBOUNCE = TimeSpan.milliseconds(250);
 
 /**
  * Creates a middleware that persists the redux store state to the given engine after an
- * action is dispatched, and swaps the cluster and project partitions when the (cluster,
+ * action is dispatched, and swaps the Core and project partitions when the (Core,
  * project) context changes: the outgoing context flushes under its own keys, the
  * target's partitions load, and a single hydrate action applies them.
  */
@@ -410,7 +431,7 @@ const createMiddleware = <S extends object>(
         const ctx = getContext(state);
         if (!contextsEqual(ctx, current)) {
           const old = current;
-          const includeCluster = ctx.cluster !== old.cluster;
+          const includeCore = ctx.core !== old.core;
           current = ctx;
           swapping = true;
           const gen = ++swapGen;
@@ -419,7 +440,7 @@ const createMiddleware = <S extends object>(
             .persist(state, old)
             .then(async () => {
               if (gen !== swapGen) return;
-              const loaded = await engine.loadSwap(state, ctx, includeCluster);
+              const loaded = await engine.loadSwap(state, ctx, includeCore);
               if (gen !== swapGen) return;
               store.dispatch(hydrate(loaded));
             })
@@ -447,10 +468,12 @@ const passThrough: Middleware<record.Unknown> = () => (next) => (action) =>
  * @param config - The configuration for the engine.
  * @returns The composed state to preload the store with, and the middleware to install
  * on it.
+ * @throws {Error} if a slice is in no scope and not declared transient.
  */
 export const open = async <S extends object>(
   config: Config<S>,
 ): Promise<{ initialState?: S; middleware: Middleware<record.Unknown> }> => {
+  validateScopes(config.initial, config.scopes);
   if (!Runtime.isMainWindow()) return { middleware: passThrough };
   const engine = await Engine.open(config);
   return {

@@ -31,7 +31,7 @@ import {
 import { array } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
-import { Cluster } from "@/platform/cluster";
+import { Core } from "@/platform/core";
 import { ContextMenu } from "@/platform/context-menu";
 import { Export } from "@/platform/export";
 import { Group } from "@/platform/group";
@@ -79,7 +79,7 @@ const TreeContextMenu: Tree.ContextMenu = (props): ReactElement => {
   const firstID = selection.ids[0];
   const createSchematic = Schematic.useCreate({ project: projectKey });
   const importComponent = Import.use();
-  const handleLink = Cluster.useCopyLinkToClipboard();
+  const handleLink = Core.useCopyLinkToClipboard();
   const handleExport = Export.use();
   const handleRename = useRename(props);
   const resources = getResource(ids);

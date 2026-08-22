@@ -9,7 +9,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import { Docs } from "@/session/docs";
+import { Theme } from "@/session/theme";
 import { Project } from "@/session/project";
 import { Synchronizer } from "@/session/synchronizer";
 import { createTestStore } from "@/testutil";
@@ -29,7 +29,7 @@ describe("Synchronizer.watch", () => {
     const store = await createTestStore();
     const onChange = vi.fn();
     Synchronizer.watch(store, (state) => state.project.selected, onChange);
-    store.dispatch(Docs.setLocation({ path: "guide", heading: "intro" }));
+    store.dispatch(Theme.set("dark"));
     expect(onChange).not.toHaveBeenCalled();
   });
 

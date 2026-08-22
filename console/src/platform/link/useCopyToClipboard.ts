@@ -14,7 +14,7 @@ import { Clipboard } from "@/platform/clipboard";
 import { PREFIX } from "@/platform/link/types";
 
 export interface CopyToClipboardParams {
-  clusterKey: string;
+  coreKey: string;
   name: string;
   ontologyID?: ontology.ID;
 }
@@ -26,8 +26,8 @@ export interface CopyToClipboard {
 export const useCopyToClipboard = (): CopyToClipboard => {
   const copy = Clipboard.useCopy();
   return useCallback(
-    ({ clusterKey, name, ontologyID }) => {
-      let url = `${PREFIX}${clusterKey}`;
+    ({ coreKey, name, ontologyID }) => {
+      let url = `${PREFIX}${coreKey}`;
       if (ontologyID != null) url += `/${ontologyID.type}/${ontologyID.key}`;
       return copy(url, `link to ${name}`);
     },

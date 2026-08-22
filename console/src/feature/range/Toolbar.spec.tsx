@@ -163,7 +163,7 @@ describe("range/Toolbar", () => {
       expect((await client.ranges.retrieve(created.key)).name).toBe(rng.name);
     });
 
-    it("persists a local range to the cluster via Save to Core", async () => {
+    it("persists a local range to the Core via Save to Core", async () => {
       const local = createLocalRangeState(uniqueRangeName("save"));
       const { store } = await renderToolbar({ ranges: [local] });
       await openContextMenu(local.name);
@@ -233,7 +233,7 @@ describe("range/Toolbar", () => {
 });
 
 describe("Range.fetchIfNotInState", () => {
-  it("returns the state already in the store without hitting the cluster", async () => {
+  it("returns the state already in the store without hitting the Core", async () => {
     const local = createLocalRangeState(uniqueRangeName("cached"));
     const { store } = await createConsoleWrapper({ client });
     store.dispatch(Session.Range.add(local));
@@ -241,7 +241,7 @@ describe("Range.fetchIfNotInState", () => {
     expect(result.name).toBe(local.name);
   });
 
-  it("fetches a missing range from the cluster and adds it to the store", async () => {
+  it("fetches a missing range from the Core and adds it to the store", async () => {
     const created = await createTestRange(client);
     const { store } = await createConsoleWrapper({ client });
     const result = await Range.fetchIfNotInState(store, client, created.key);

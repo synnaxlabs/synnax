@@ -55,7 +55,7 @@ describe("useDeep", () => {
 
   it("should open a resource link the app was launched from", async () => {
     const { connect, handlers } = await setup({
-      getCurrentURLs: async () => ["synnax://cluster/c1/schematic/s1"],
+      getCurrentURLs: async () => ["synnax://Core/c1/schematic/s1"],
     });
     await waitFor(() => expect(connect).toHaveBeenCalledWith("c1"));
     await waitFor(() =>
@@ -65,9 +65,9 @@ describe("useDeep", () => {
     );
   });
 
-  it("should connect without placing a layout for a cluster-only link", async () => {
+  it("should connect without placing a layout for a Core-only link", async () => {
     const { connect, handlers } = await setup({
-      getCurrentURLs: async () => ["synnax://cluster/c1"],
+      getCurrentURLs: async () => ["synnax://Core/c1"],
     });
     await waitFor(() => expect(connect).toHaveBeenCalledWith("c1"));
     expect(handlers.schematic).not.toHaveBeenCalled();
@@ -78,7 +78,7 @@ describe("useDeep", () => {
     const { connect, handlers, deps, openURL } = await setup();
     await waitFor(() => expect(deps.onOpenURL).toHaveBeenCalled());
     expect(connect).not.toHaveBeenCalled();
-    openURL(["synnax://cluster/c2/range/r9"]);
+    openURL(["synnax://Core/c2/range/r9"]);
     await waitFor(() => expect(connect).toHaveBeenCalledWith("c2"));
     await waitFor(() =>
       expect(handlers.range).toHaveBeenCalledWith(
@@ -97,7 +97,7 @@ describe("useDeep", () => {
 
   it("should connect but place nothing for an unknown resource type", async () => {
     const { connect, handlers } = await setup({
-      getCurrentURLs: async () => ["synnax://cluster/c1/widget/w1"],
+      getCurrentURLs: async () => ["synnax://Core/c1/widget/w1"],
     });
     await waitFor(() => expect(connect).toHaveBeenCalledWith("c1"));
     expect(handlers.schematic).not.toHaveBeenCalled();
@@ -107,19 +107,19 @@ describe("useDeep", () => {
   it("should ignore the next launch link once when the ignore flag is set", async () => {
     PlatformLink.markNextIgnored();
     const first = await setup({
-      getCurrentURLs: async () => ["synnax://cluster/c1/schematic/s1"],
+      getCurrentURLs: async () => ["synnax://Core/c1/schematic/s1"],
     });
     await act(async () => {});
     expect(first.connect).not.toHaveBeenCalled();
     // The flag is single-use: the hook clears it, so a later launch is handled normally.
     const second = await setup({
-      getCurrentURLs: async () => ["synnax://cluster/c1/schematic/s1"],
+      getCurrentURLs: async () => ["synnax://Core/c1/schematic/s1"],
     });
     await waitFor(() => expect(second.connect).toHaveBeenCalledWith("c1"));
   });
 
   it("should be a no-op when the engine is not tauri", async () => {
-    const getCurrentURLs = vi.fn(async () => ["synnax://cluster/c1/schematic/s1"]);
+    const getCurrentURLs = vi.fn(async () => ["synnax://Core/c1/schematic/s1"]);
     const { connect } = await setup({ engine: "web", getCurrentURLs });
     expect(getCurrentURLs).not.toHaveBeenCalled();
     expect(connect).not.toHaveBeenCalled();

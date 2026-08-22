@@ -51,7 +51,7 @@ interface CreateTaskOptions {
   drifted?: boolean;
 }
 
-// The toolbar lists every task on the cluster, so leaked tasks from prior tests slow
+// The toolbar lists every task on the Core, so leaked tasks from prior tests slow
 // each render. Track created resources and remove them after each test.
 const createdTasks: task.Key[] = [];
 const createdRacks: number[] = [];

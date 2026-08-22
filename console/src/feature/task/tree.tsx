@@ -12,7 +12,7 @@ import { Access, Icon, Menu, Mosaic, Task as Base } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
 
 import { useRangeSnapshot } from "@/feature/task/useRangeSnapshot";
-import { Cluster } from "@/platform/cluster";
+import { Core } from "@/platform/core";
 import { ContextMenu } from "@/platform/context-menu";
 import { Export } from "@/platform/export";
 import { Group } from "@/platform/group";
@@ -51,7 +51,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const { ids, rootID } = selection;
   const resources = getResource(ids);
   const handleDelete = useDelete(props);
-  const handleLink = Cluster.useCopyLinkToClipboard();
+  const handleLink = Core.useCopyLinkToClipboard();
   const handleExport = Export.useResource();
   const snap = useRangeSnapshot();
   const range = Session.Range.useSelectState();

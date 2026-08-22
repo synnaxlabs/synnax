@@ -9,6 +9,7 @@
 
 import { createSlice, type PayloadAction, type Reducer } from "@reduxjs/toolkit";
 import { box, deep, type dimensions, id, TimeSpan, xy } from "@synnaxlabs/x";
+import { z } from "zod";
 
 import { group, groupEnd, log } from "@/debug";
 import {
@@ -18,26 +19,33 @@ import {
   PRERENDER_WINDOW,
   resetTransientState,
   type WindowProps,
+  windowPropsZ,
   type WindowStage,
   type WindowState,
+  windowStateZ,
 } from "@/window";
 
-/** The Slice State */
-export interface SliceState {
-  label: string;
-  config: Config;
-  windows: Record<string, WindowState>;
-  labelKeys: Record<string, string>;
-  keyLabels: Record<string, string>;
-  /** The ordinal the next reserved window receives. Only ever increments. */
-  nextOrdinal: number;
-}
+export const configZ = z.object({
+  enablePrerender: z.boolean(),
+  defaultWindowProps: windowPropsZ.partial(),
+  debug: z.boolean(),
+});
 
-export interface Config {
-  enablePrerender: boolean;
-  defaultWindowProps: Omit<WindowProps, "key">;
-  debug: boolean;
-}
+export interface Config extends z.infer<typeof configZ> {}
+
+export const sliceStateZ = z.object({
+  version: z.literal(0).default(0),
+  label: z.string(),
+  config: configZ,
+  windows: z.record(z.string(), windowStateZ),
+  labelKeys: z.record(z.string(), z.string()),
+  keyLabels: z.record(z.string(), z.string()),
+  /** The ordinal the next reserved window receives. Only ever increments. */
+  nextOrdinal: z.number(),
+});
+
+/** The Slice State */
+export interface SliceState extends z.infer<typeof sliceStateZ> {}
 
 /** State of a store with a drift slice */
 export interface StoreState {
@@ -134,6 +142,7 @@ const delayedReload = () =>
   setTimeout(() => window.location.reload(), RELOAD_DELAY.milliseconds);
 
 export const ZERO_SLICE_STATE: SliceState = {
+  version: 0,
   label: MAIN_WINDOW,
   config: {
     enablePrerender: true,

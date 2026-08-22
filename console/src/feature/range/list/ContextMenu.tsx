@@ -11,7 +11,7 @@ import { ranger } from "@synnaxlabs/client";
 import { Access, Icon, List, Menu, Ranger, Status } from "@synnaxlabs/pluto";
 
 import { CreateChildRangeIcon } from "@/feature/range/ContextMenu";
-import { Cluster } from "@/platform/cluster";
+import { Core } from "@/platform/core";
 import { ContextMenu as Base } from "@/platform/context-menu";
 import { Link } from "@/platform/link";
 import { Modals } from "@/platform/modals";
@@ -51,7 +51,7 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
     dispatch(Session.Range.remove({ keys: ranges.map((r) => r.key) }));
   };
   const handleError = Status.useErrorHandler();
-  const handleLink = Cluster.useCopyLinkToClipboard();
+  const handleLink = Core.useCopyLinkToClipboard();
 
   const handleDetails = () => {
     openTab({ variant: "resource", resource: ranger.ontologyID(ranges[0].key) });

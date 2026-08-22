@@ -52,7 +52,7 @@ export const testProjectKey = async (): Promise<string> =>
   (projectKey ??= (await client.projects.create({ name: id.create(), layout: {} }))
     .key);
 
-/** Creates a schematic on the test cluster under a shared test project. */
+/** Creates a schematic on the test Core under a shared test project. */
 export const createSchematic = async (
   overrides: Partial<schematic.New> = {},
 ): Promise<schematic.Schematic> =>
@@ -233,6 +233,6 @@ export const createSymbolPayload = (name: string) => ({
 export const createLegacySymbolFile = (name: string): string =>
   JSON.stringify({ version: 1, ...createSymbolPayload(name) });
 
-/** Returns the names of the resource's ontology children on the test cluster. */
+/** Returns the names of the resource's ontology children on the test Core. */
 export const childNames = async (id: ontology.ID): Promise<string[]> =>
   (await client.ontology.children.retrieve({ ids: id })).map((c) => c.name);

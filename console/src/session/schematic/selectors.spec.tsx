@@ -62,7 +62,7 @@ const wrapperFor = (
 };
 
 const createCustomStore = (): ReturnType<typeof storeWith> =>
-  storeWith({ schematics: { [KEY]: customState } });
+  storeWith({ version: 0, schematics: { [KEY]: customState } });
 
 describe("schematic getters", () => {
   it("should read a schematic's state on demand across dispatches", () => {
@@ -133,7 +133,7 @@ describe("schematic getters", () => {
 
 describe("schematic selector hooks", () => {
   const store = (): ReturnType<typeof storeWith> =>
-    storeWith({ schematics: { [KEY]: customState } });
+    storeWith({ version: 0, schematics: { [KEY]: customState } });
 
   it("should resolve the key from the surrounding scope", () => {
     const { result } = renderHook(() => Schematic.useSelect(), {
@@ -229,7 +229,7 @@ describe("schematic selector hooks", () => {
 
 describe("schematic selector stability under dispatch", () => {
   const store = (): ReturnType<typeof storeWith> =>
-    storeWith({ schematics: { [KEY]: customState } });
+    storeWith({ version: 0, schematics: { [KEY]: customState } });
 
   it("should keep a stable reference when an unrelated field changes", () => {
     const s = store();
@@ -271,6 +271,7 @@ describe("schematic selector stability under dispatch", () => {
 
   it("should re-point the selector when its key dependency changes", () => {
     const s = storeWith({
+      version: 0,
       schematics: {
         [KEY]: customState,
         "schematic-2": Schematic.stateZ.parse({
@@ -340,6 +341,7 @@ const setup = async ({
     client: userClient,
     preloadedState: {
       [Schematic.SLICE_NAME]: {
+        version: 0,
         schematics: { [created.key]: Schematic.stateZ.parse({ editable }) },
       },
     },

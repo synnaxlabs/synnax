@@ -28,7 +28,7 @@ interface Mounted<S, A extends Action> extends Callbacks<S, A> {
  * client-ready and on every epoch bump. Remounts only on client change.
  * @returns whether a full reconcile pass has completed since the last
  * return-to-cold: false until the first pass finishes, reset on client change
- * and on the epoch returning to 0 (cluster replacement).
+ * and on the epoch returning to 0 (Core replacement).
  */
 export const use = <S, A extends Action>(
   synchronizers: Synchronizers<S, A>,
@@ -50,7 +50,7 @@ export const use = <S, A extends Action>(
     setVerified(false);
     const params: Params<S, A> = { client, store };
     // A pass finishing after its cold reset must not count: it verified
-    // against a cluster the client no longer mirrors.
+    // against a Core the client no longer mirrors.
     let generation = 0;
     const destructors = entriesRef.current.flatMap(
       ({ listen }) => listen?.(params) ?? [],

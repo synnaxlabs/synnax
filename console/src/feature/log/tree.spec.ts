@@ -49,7 +49,7 @@ describe("log ontology service", () => {
     expect(screen.getByText("Copy properties")).toBeTruthy();
   });
 
-  it("should delete the log from the cluster after confirmation", async () => {
+  it("should delete the log from the Core after confirmation", async () => {
     const l = await createLog();
     assertDefined(Item.ContextMenu);
     await renderTreeContextMenu(Item.ContextMenu, {

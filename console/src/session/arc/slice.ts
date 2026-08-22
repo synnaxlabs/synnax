@@ -57,8 +57,6 @@ export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-export const PERSIST_EXCLUDE = [];
-
 interface KeyedPayload {
   key: arc.Key;
 }

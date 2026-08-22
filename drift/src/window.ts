@@ -11,7 +11,14 @@ import { dimensions, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 /** Represents the state of a window in it's lifecycle  */
-export type WindowStage = "creating" | "created" | "closing" | "closed" | "reloading";
+export const windowStageZ = z.enum([
+  "creating",
+  "created",
+  "closing",
+  "closed",
+  "reloading",
+]);
+export type WindowStage = z.infer<typeof windowStageZ>;
 
 export const MAIN_WINDOW = "main";
 export const PRERENDER_WINDOW = "prerender";
@@ -41,6 +48,16 @@ export interface WindowStateExtensionProps {
    */
   ordinal?: number;
 }
+
+export const windowStateExtensionPropsZ = z.object({
+  stage: windowStageZ,
+  processCount: z.number(),
+  reserved: z.boolean(),
+  error: z.string().optional(),
+  focusCount: z.number(),
+  centerCount: z.number(),
+  ordinal: z.number().optional(),
+});
 
 export const INITIAL_WINDOW_STATE: WindowStateExtensionProps = {
   stage: "creating",
@@ -138,3 +155,5 @@ export const windowPropsZ = z.object({
   transparent: z.boolean().optional(),
   alwaysOnTop: z.boolean().optional(),
 });
+
+export const windowStateZ = windowPropsZ.extend(windowStateExtensionPropsZ.shape);

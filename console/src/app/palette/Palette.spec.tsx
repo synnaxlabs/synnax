@@ -9,13 +9,13 @@
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { Palette } from "@/app/palette";
 import { Command as FeatureCommand } from "@/feature/command";
 import { Docs } from "@/feature/docs";
 import { Modals } from "@/platform/modals";
-import { createConsoleWrapper, resolveFocusedTab, selectTestProject } from "@/testutil";
+import { createConsoleWrapper, selectTestProject } from "@/testutil";
 
 const renderAppPalette = async () => {
   const client = createTestClient();
@@ -75,15 +75,16 @@ describe("Palette", () => {
   });
 
   it("should run a command selected through the command palette", async () => {
-    const { store, client } = await renderAppPalette();
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    await renderAppPalette();
     const input = await openPalette();
     fireEvent.change(input, { target: { value: ">Read the documentation" } });
     const item = await screen.findByText("Read documentation");
     await act(async () => {
       fireEvent.click(item, { detail: 1 });
     });
-    const tab = await resolveFocusedTab(store, client);
-    if (tab.variant !== "view") throw new Error("expected a view tab");
-    expect(tab.type).toBe(Docs.TAB_TYPE);
+    await waitFor(() => {
+      expect(open).toHaveBeenCalledWith(Docs.URL, "_blank", "noopener,noreferrer");
+    });
   });
 });

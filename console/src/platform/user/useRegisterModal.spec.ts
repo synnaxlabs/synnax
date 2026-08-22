@@ -17,7 +17,7 @@ import { User } from "@/platform/user";
 import { uniqueName } from "@/testutil";
 
 describe("User.useRegisterModal", () => {
-  it("should disable the Register button when no cluster is connected", async () => {
+  it("should disable the Register button when no Core is connected", async () => {
     await openModal(User.useRegisterModal);
     await screen.findByText("Username");
     expect(findButton("Register").className).toContain("pluto--disabled");

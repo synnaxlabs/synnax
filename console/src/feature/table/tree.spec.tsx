@@ -31,7 +31,7 @@ import {
 } from "@/platform/tree/testutil";
 import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
 import { Session } from "@/session";
-import { createCluster, createClusterState } from "@/session/cluster/testutil";
+import { createCore, createCoreState } from "@/session/core/testutil";
 import {
   awaitTextEditing,
   captureBrowserDownloads,
@@ -51,15 +51,15 @@ const createTable = async (): Promise<table.Table> =>
 interface SetupParams {
   tables: table.Table[];
   overrides?: Partial<Tree.BaseProps>;
-  withCluster?: boolean;
+  withCore?: boolean;
 }
 
-const renderMenu = async ({ tables, overrides, withCluster = false }: SetupParams) => {
+const renderMenu = async ({ tables, overrides, withCore = false }: SetupParams) => {
   const ids = tables.map((t) => clientTable.ontologyID(t.key));
   const store = await createTestStore({
     preloadedState: {
       ...createPreloadedState(tables[0].key),
-      ...(withCluster ? createClusterState([createCluster("test")], "test") : {}),
+      ...(withCore ? createCoreState([createCore("test")], "test") : {}),
     },
   });
   const props: Tree.ContextMenuProps = {
@@ -122,7 +122,7 @@ describe("table/ontology", () => {
       ).toBeUndefined();
     });
 
-    it("renames the table on the cluster", async () => {
+    it("renames the table on the Core", async () => {
       const t = await createTable();
       const { itemID } = await renderMenu({ tables: [t] });
       fireEvent.click(await screen.findByText("Rename"));
@@ -149,7 +149,7 @@ describe("table/ontology", () => {
     it("copies a deep link to the clipboard", async () => {
       const writeText = stubClipboardWriteText();
       const t = await createTable();
-      await renderMenu({ tables: [t], withCluster: true });
+      await renderMenu({ tables: [t], withCore: true });
       fireEvent.click(await screen.findByText("Copy link"));
       await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
       expect(writeText.mock.calls[0][0]).toContain(`table/${t.key}`);

@@ -30,7 +30,7 @@ import { useCallback, useMemo } from "react";
 
 import { useOpen } from "@/feature/channel/useOpen";
 import { Channel } from "@/platform/channel";
-import { Cluster } from "@/platform/cluster";
+import { Core } from "@/platform/core";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Group } from "@/platform/group";
@@ -168,7 +168,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
   const handleRename = useRename(props);
 
-  const handleLink = Cluster.useCopyLinkToClipboard();
+  const handleLink = Core.useCopyLinkToClipboard();
   const openCalculated = useEditCalculated();
   const singleResource = resources.length === 1;
 

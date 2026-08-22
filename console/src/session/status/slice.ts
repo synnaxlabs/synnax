@@ -14,7 +14,7 @@ import z from "zod";
 
 export const SLICE_NAME = "status";
 
-const sliceStateZ = z.object({
+export const sliceStateZ = z.object({
   version: z.literal(0).default(0),
   favorites: status.keyZ.array().default([]),
 });
@@ -64,6 +64,3 @@ export const { actions, reducer } = createSlice({
 export const { addFavorites, removeFavorites, toggleFavorite } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
-
-/** Migrates a persisted slice, filling absent fields with their defaults. */
-export const migrateSlice = (state: unknown): SliceState => sliceStateZ.parse(state);

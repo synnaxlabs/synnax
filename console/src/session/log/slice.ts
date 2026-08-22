@@ -103,5 +103,3 @@ export const { actions, reducer } = createSlice({
 export const { create, setSelectedToolbarTab, setHold, remove } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
-
-export const PERSIST_EXCLUDE = [];

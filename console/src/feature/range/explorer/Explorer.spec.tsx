@@ -62,7 +62,7 @@ const renderExplorer = async (as: Client = client): Promise<{ store: TestStore }
   return { store };
 };
 
-// The shared cluster accumulates ranges across runs, so a fresh range may fall outside
+// The shared Core accumulates ranges across runs, so a fresh range may fall outside
 // the list's first page. Narrow to it through the view search before interacting.
 const revealRange = async (name: string): Promise<HTMLElement> => {
   await enableEditing();
@@ -93,7 +93,7 @@ const focusedTabs = (store: TestStore): string[] => {
 };
 
 describe("range/Explorer", () => {
-  it("lists ranges stored on the cluster", async () => {
+  it("lists ranges stored on the Core", async () => {
     const rng = await createTestRange(client);
     await renderExplorer();
     expect(await revealRange(rng.name)).toBeTruthy();
@@ -194,7 +194,7 @@ describe("range/Explorer", () => {
       expect(await screen.findByText("Save locally")).toBeTruthy();
     });
 
-    it("deletes the range from the cluster after confirmation", async () => {
+    it("deletes the range from the Core after confirmation", async () => {
       const rng = await createTestRange(client);
       const { store } = await renderExplorer();
       store.dispatch(

@@ -74,7 +74,7 @@ export const useOpenTabs = (): OpenTabs => {
   const getSelectedProject = Session.Project.useGetSelected();
   const parentTabKey = Panel.useOptionalTabKey();
   const client = Synnax.use();
-  // insertIntoExisting adds the tabs to a panel that is already on the cluster (the
+  // insertIntoExisting adds the tabs to a panel that is already on the Core (the
   // scoped parent or the selected panel), so a remote dispatch is correct.
   const insertIntoExisting = useCallback(
     (panelKey: panel.Key, params: panel.NewTab[], options?: OpenTabOptions) => {

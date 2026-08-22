@@ -28,11 +28,11 @@ import { Session } from "@/session";
 import { type ConsolePreloadedState, renderWithConsole } from "@/testutil";
 
 const PROJECT_KEY = "f5d0a5c8-5a1e-4b1f-9c0e-0b0c1d2e3f40";
-const [CLUSTER_KEY] = Object.keys(Session.Cluster.ZERO_SLICE_STATE.clusters);
+const [CLUSTER_KEY] = Object.keys(Session.Core.ZERO_SLICE_STATE.cores);
 
 const withWorkspace = (): ConsolePreloadedState => ({
-  [Session.Cluster.SLICE_NAME]: {
-    ...Session.Cluster.ZERO_SLICE_STATE,
+  [Session.Core.SLICE_NAME]: {
+    ...Session.Core.ZERO_SLICE_STATE,
     selected: CLUSTER_KEY,
   },
   [Session.Project.SLICE_NAME]: {

@@ -24,7 +24,7 @@ const getItemFor = (item: arc.Arc): List.GetItem<arc.Key, arc.Arc> =>
   );
 
 describe("arc useRename", () => {
-  it("should persist the rename to the cluster", async () => {
+  it("should persist the rename to the Core", async () => {
     const original = await client.arcs.create({
       name: id.create(),
       mode: "graph",

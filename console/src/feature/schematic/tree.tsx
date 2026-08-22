@@ -23,7 +23,7 @@ import { array, strings } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { Symbol } from "@/feature/schematic/symbol";
-import { Cluster } from "@/platform/cluster";
+import { Core } from "@/platform/core";
 import { ContextMenu } from "@/platform/context-menu";
 import { Export } from "@/platform/export";
 import { Group } from "@/platform/group";
@@ -127,7 +127,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const handleCopy = useCopy(props);
   const snapshot = useRangeSnapshot();
   const handleExport = Export.useResource();
-  const handleLink = Cluster.useCopyLinkToClipboard();
+  const handleLink = Core.useCopyLinkToClipboard();
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
   const firstID = ids[0];

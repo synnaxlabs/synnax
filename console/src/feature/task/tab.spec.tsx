@@ -119,7 +119,7 @@ describe("task tab", () => {
     await restore({ client, project: project.key, resource: created.ontologyID });
 
     // Read back through a second client: the restoring client write-throughs its
-    // own cache, so retrieving on it would pass even if the cluster never got it.
+    // own cache, so retrieving on it would pass even if the Core never got it.
     const remote = createTestClient();
     const restored = await remote.tasks.retrieve({
       key: created.key,

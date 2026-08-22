@@ -16,7 +16,7 @@ import { User } from "@/platform/user";
 import { uniqueName } from "@/testutil";
 
 describe("User.useAssignRoleModal", () => {
-  it("should show the custom title and disable Assign when no cluster is connected", async () => {
+  it("should show the custom title and disable Assign when no Core is connected", async () => {
     await openModal(User.useAssignRoleModal, {
       params: { userKey: uniqueName("user"), title: "Change Permissions" },
     });
@@ -24,7 +24,7 @@ describe("User.useAssignRoleModal", () => {
     expect(findButton("Assign").className).toContain("pluto--disabled");
   });
 
-  it("should fall back to the default title and enable Assign against a live cluster", async () => {
+  it("should fall back to the default title and enable Assign against a live Core", async () => {
     const client = createTestClient();
     const subject = await client.users.create({
       username: uniqueName("user"),

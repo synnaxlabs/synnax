@@ -157,7 +157,7 @@ describe("Schematic.useRangeSnapshot", () => {
 });
 
 describe("Schematic TreeContextMenu", () => {
-  it("deletes the schematic from the cluster and session state after confirmation", async () => {
+  it("deletes the schematic from the Core and session state after confirmation", async () => {
     const { schematic: s, result } = await renderSchematicTree();
     fireEvent.contextMenu(await screen.findByText(s.name));
     fireEvent.click(await screen.findByText("Delete"));
@@ -171,7 +171,7 @@ describe("Schematic TreeContextMenu", () => {
     result.unmount();
   });
 
-  it("renames the schematic on the cluster through the inline editor", async () => {
+  it("renames the schematic on the Core through the inline editor", async () => {
     const { schematic: s, result } = await renderSchematicTree();
     fireEvent.contextMenu(await screen.findByText(s.name));
     fireEvent.click(await screen.findByText("Rename"));

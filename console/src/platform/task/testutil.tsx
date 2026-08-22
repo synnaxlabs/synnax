@@ -148,7 +148,7 @@ export interface CreatedPanel {
 }
 
 /**
- * Creates a single-leaf panel doc holding the given tabs on the cluster and selects it
+ * Creates a single-leaf panel doc holding the given tabs on the Core and selects it
  * in the session store, so Panel.useOpenTab and the tab-scoped panel hooks resolve
  * against it through the client's cache.
  */

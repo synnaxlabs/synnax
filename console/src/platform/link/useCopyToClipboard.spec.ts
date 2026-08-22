@@ -19,23 +19,23 @@ describe("Link.useCopyToClipboard", () => {
     writeText = stubClipboardWriteText();
   });
 
-  it("copies a cluster link when no ontology ID is given", async () => {
+  it("copies a Core link when no ontology ID is given", async () => {
     const { result } = await renderHookWithConsole(() => Link.useCopyToClipboard());
-    act(() => result.current({ clusterKey: "abc", name: "My Cluster" }));
-    await waitFor(() => expect(writeText).toHaveBeenCalledWith("synnax://cluster/abc"));
+    act(() => result.current({ coreKey: "abc", name: "My Core" }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith("synnax://Core/abc"));
   });
 
   it("appends the ontology type and key when an ID is given", async () => {
     const { result } = await renderHookWithConsole(() => Link.useCopyToClipboard());
     act(() =>
       result.current({
-        clusterKey: "abc",
+        coreKey: "abc",
         name: "My Range",
         ontologyID: { type: "range", key: "r1" },
       }),
     );
     await waitFor(() =>
-      expect(writeText).toHaveBeenCalledWith("synnax://cluster/abc/range/r1"),
+      expect(writeText).toHaveBeenCalledWith("synnax://Core/abc/range/r1"),
     );
   });
 });

@@ -10,6 +10,7 @@
 import { type MiddlewareAPI } from "@reduxjs/toolkit";
 import { kv, TimeSpan } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 
 const mocks = vi.hoisted((): { engine: "web" | "tauri"; label: string } => ({
   engine: "web",
@@ -28,32 +29,39 @@ vi.mock("@tauri-apps/api/window", () => ({
 import { Persist } from "@/session/persist";
 
 interface MockState {
-  cluster: { selected?: string };
+  core: { selected?: string };
   project: { selected?: string };
   work: { value: string; transient?: string };
 }
 
 const ZERO_MOCK_STATE: MockState = {
-  cluster: {},
+  core: {},
   project: {},
   work: { value: "0.0.0", transient: "zero" },
 };
 
+const selectedZ = z.object({ selected: z.string().optional() });
+const workZ = z.object({
+  value: z.string(),
+  transient: z.string().optional(),
+});
+
 const SCOPES: Persist.Scopes<MockState> = {
-  global: ["cluster"],
-  cluster: ["project"],
-  project: ["work"],
+  global: { core: selectedZ },
+  core: { project: selectedZ },
+  project: { work: workZ },
+  transient: [],
 };
 
 const getContext = (state: MockState): Persist.Context => ({
-  cluster: state.cluster.selected,
+  core: state.core.selected,
   project: state.project.selected,
 });
 
-const CTX: Persist.Context = { cluster: "c1", project: "p1" };
+const CTX: Persist.Context = { core: "c1", project: "p1" };
 
 const STATE: MockState = {
-  cluster: { selected: "c1" },
+  core: { selected: "c1" },
   project: { selected: "p1" },
   work: { value: "16.2.0", transient: "drag" },
 };
@@ -140,18 +148,18 @@ const workIs =
 type Driver = Awaited<ReturnType<typeof createDriver>>;
 
 /**
- * Walks into a context the way production does: the cluster is chosen first, and only
+ * Walks into a context the way production does: the Core is chosen first, and only
  * once its partition has hydrated does the project it names become selectable.
  */
-const enter = async (driver: Driver, { cluster, project }: Persist.Context) => {
-  if (driver.getState().cluster.selected !== cluster) {
+const enter = async (driver: Driver, { core, project }: Persist.Context) => {
+  if (driver.getState().core.selected !== core) {
     driver.dispatch(
-      { type: "cluster/select" },
-      { ...driver.getState(), cluster: { selected: cluster } },
+      { type: "Core/select" },
+      { ...driver.getState(), core: { selected: core } },
     );
     await driver.settle();
   }
-  // The cluster's partition may already name the project, in which case nothing moved.
+  // The Core's partition may already name the project, in which case nothing moved.
   if (project == null || driver.getState().project.selected === project) return;
   driver.dispatch(
     { type: "project/select" },
@@ -181,7 +189,7 @@ describe("Persist.open", () => {
       expect(initialState).toEqual(ZERO_MOCK_STATE);
     });
 
-    it("should compose the global, selected cluster, and active project partitions", async () => {
+    it("should compose the global, selected Core, and active project partitions", async () => {
       const store = new kv.MockAsync();
       const driver = await createDriver(store);
       await enter(driver, CTX);
@@ -189,7 +197,7 @@ describe("Persist.open", () => {
       expect(await driver.composed()).toEqual(STATE);
     });
 
-    it("should stop at the global partition when no cluster was selected", async () => {
+    it("should stop at the global partition when no Core was selected", async () => {
       const store = new kv.MockAsync();
       const driver = await createDriver(store);
       driver.dispatch({ type: "work/edit" }, { ...ZERO_MOCK_STATE, work: STATE.work });
@@ -201,7 +209,7 @@ describe("Persist.open", () => {
   });
 
   describe("partitions", () => {
-    it("should write only the global partition when no cluster is in context", async () => {
+    it("should write only the global partition when no Core is in context", async () => {
       const store = new kv.MockAsync();
       const driver = await createDriver(store);
       driver.dispatch({ type: "work/edit" }, { ...ZERO_MOCK_STATE, work: STATE.work });
@@ -211,12 +219,12 @@ describe("Persist.open", () => {
     it("should skip the project partition when no project is in context", async () => {
       const store = new kv.MockAsync();
       const driver = await createDriver(store);
-      await enter(driver, { cluster: "c1" });
+      await enter(driver, { core: "c1" });
       driver.dispatch(
         { type: "work/edit" },
         { ...driver.getState(), work: { value: "c1-work" } },
       );
-      await driver.flushed((s) => s?.cluster.selected === "c1");
+      await driver.flushed((s) => s?.core.selected === "c1");
       // The project-scoped work never reached disk, so it composes from zero.
       expect((await driver.composed())?.work).toEqual(ZERO_MOCK_STATE.work);
     });
@@ -239,7 +247,7 @@ describe("Persist.open", () => {
       // its state instead of composing from zero off a key that does not exist.
       for (const slot of ["one", 4, -1, 1.5, null]) {
         await store.set("global.slot", { slot });
-        expect((await openPersist(store)).initialState?.cluster).toEqual(STATE.cluster);
+        expect((await openPersist(store)).initialState?.core).toEqual(STATE.core);
       }
     });
 
@@ -265,7 +273,7 @@ describe("Persist.open", () => {
       const driver = await createDriver(store);
       await enter(driver, CTX);
       await edit(driver, "p1-work");
-      await enter(driver, { cluster: "c2", project: "p2" });
+      await enter(driver, { core: "c2", project: "p2" });
       await edit(driver, "p2-work");
       await enter(driver, CTX);
       expect(driver.getState().work.value).toEqual("p1-work");
@@ -300,39 +308,73 @@ describe("Persist.open", () => {
     });
   });
 
-  describe("migrators", () => {
+  describe("schemas", () => {
     const createPersisted = async (store: kv.MockAsync) => {
       const driver = await createDriver(store);
       await enter(driver, CTX);
       await edit(driver, "16.2.0");
     };
 
-    it("should apply a slice migrator as its partition loads", async () => {
+    it("should drop fields the slice's schema does not declare", async () => {
       const store = new kv.MockAsync();
       await createPersisted(store);
       const { initialState } = await openPersist(store, {
-        migrators: {
-          work: (raw) => ({ ...(raw as MockState["work"]), value: "migrated" }),
-        },
+        scopes: { ...SCOPES, project: { work: z.object({ value: z.string() }) } },
       });
-      expect(initialState?.work.value).toEqual("migrated");
+      expect(initialState?.work).toEqual({ value: "16.2.0" });
     });
 
-    it("should fall back to the slice's initial state when its migrator throws", async () => {
+    it("should fall back to the slice's initial state when the stored bytes fail its schema", async () => {
       const store = new kv.MockAsync();
       await createPersisted(store);
       const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
       const { initialState } = await openPersist(store, {
-        migrators: {
-          work: () => {
-            throw new Error("migration failed");
-          },
-        },
+        scopes: { ...SCOPES, project: { work: workZ.refine(() => false) } },
       });
       expect(initialState?.work).toEqual(ZERO_MOCK_STATE.work);
-      expect(initialState?.cluster).toEqual(STATE.cluster);
+      expect(initialState?.core).toEqual(STATE.core);
       expect(errorSpy).toHaveBeenCalled();
       errorSpy.mockRestore();
+    });
+
+    it("should leave the other slices of a partition alone when one fails", async () => {
+      const store = new kv.MockAsync();
+      await createPersisted(store);
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const { initialState } = await openPersist(store, {
+        scopes: {
+          ...SCOPES,
+          global: { core: selectedZ.refine(() => false) },
+        },
+      });
+      expect(initialState?.core).toEqual(ZERO_MOCK_STATE.core);
+      errorSpy.mockRestore();
+    });
+  });
+
+  describe("scope coverage", () => {
+    it("should throw when a slice is in no scope and not transient", async () => {
+      await expect(
+        openPersist(new kv.MockAsync(), {
+          scopes: { ...SCOPES, project: {} },
+        }),
+      ).rejects.toThrow("work");
+    });
+
+    it("should throw when a slice is declared in two scopes", async () => {
+      await expect(
+        openPersist(new kv.MockAsync(), {
+          scopes: { ...SCOPES, global: { core: selectedZ, work: workZ } },
+        }),
+      ).rejects.toThrow("more than one scope");
+    });
+
+    it("should accept a slice declared transient instead of scoped", async () => {
+      await expect(
+        openPersist(new kv.MockAsync(), {
+          scopes: { ...SCOPES, project: {}, transient: ["work"] },
+        }),
+      ).resolves.toBeDefined();
     });
   });
 });
@@ -416,9 +458,9 @@ describe("Persist.middleware", () => {
     const driver = await createDriver(new kv.MockAsync());
     await enter(driver, CTX);
     await edit(driver, "c1-work");
-    await enter(driver, { cluster: "c2", project: "p2" });
-    await enter(driver, { cluster: "c1" });
-    // The cluster's partition names the project whose partition holds the work.
+    await enter(driver, { core: "c2", project: "p2" });
+    await enter(driver, { core: "c1" });
+    // The Core's partition names the project whose partition holds the work.
     expect(driver.dispatched).toHaveBeenLastCalledWith(
       Persist.hydrate({
         project: { selected: "p1" },
@@ -439,13 +481,13 @@ describe("Persist.middleware", () => {
     expect(hydrated).toBeGreaterThan(begin);
   });
 
-  it("should swap only the project partition when the cluster is unchanged", async () => {
+  it("should swap only the project partition when the Core is unchanged", async () => {
     const driver = await createDriver(new kv.MockAsync());
     await enter(driver, CTX);
     await edit(driver, "p1-work");
-    await enter(driver, { cluster: "c1", project: "p2" });
+    await enter(driver, { core: "c1", project: "p2" });
     await enter(driver, CTX);
-    // The cluster-scoped project slice stayed put; only the project's work swapped.
+    // The Core-scoped project slice stayed put; only the project's work swapped.
     expect(driver.dispatched).toHaveBeenLastCalledWith(
       Persist.hydrate({ work: { value: "p1-work", transient: "drag" } }),
     );
@@ -453,7 +495,7 @@ describe("Persist.middleware", () => {
 
   it("should hydrate zero slices for a never-visited context", async () => {
     const driver = await createDriver(new kv.MockAsync());
-    await enter(driver, { cluster: "fresh" });
+    await enter(driver, { core: "fresh" });
     expect(driver.dispatched).toHaveBeenCalledWith(
       Persist.hydrate({
         project: ZERO_MOCK_STATE.project,
@@ -481,11 +523,11 @@ describe("Persist.middleware", () => {
     const staleGate = new Promise<void>((resolve) => (releaseStale = resolve));
     const gateHit = vi.fn();
     const gateDone = vi.fn();
-    // Holds the slow cluster's state read so its swap is still in flight when the next
+    // Holds the slow Core's state read so its swap is still in flight when the next
     // switch starts and finishes. Its slot pointer stays readable so persists pass.
     const gated: Persist.SugaredKV = {
       get: async <V>(key: string): Promise<V | null> => {
-        if (/^cluster\.slow\.\d+$/.test(key)) {
+        if (/^core\.slow\.\d+$/.test(key)) {
           gateHit();
           await staleGate;
           const value = await store.get<V>(key);
@@ -501,13 +543,13 @@ describe("Persist.middleware", () => {
     };
     const driver = await createDriver(store, { openKV: () => gated });
     driver.dispatch(
-      { type: "cluster/select" },
-      { ...driver.getState(), cluster: { selected: "slow" }, project: {} },
+      { type: "Core/select" },
+      { ...driver.getState(), core: { selected: "slow" }, project: {} },
     );
     await vi.waitFor(() => expect(gateHit).toHaveBeenCalled());
     driver.dispatch(
-      { type: "cluster/select" },
-      { ...driver.getState(), cluster: { selected: "c2" }, project: {} },
+      { type: "Core/select" },
+      { ...driver.getState(), core: { selected: "c2" }, project: {} },
     );
     await driver.settle();
     const hydrates = (): number =>
@@ -517,7 +559,7 @@ describe("Persist.middleware", () => {
     expect(hydrates()).toBe(1);
     releaseStale?.();
     // The released read is the stale swap's last async hop, so once it lands the swap
-    // has fully resolved. Its hydrate would clobber the newer cluster's slices.
+    // has fully resolved. Its hydrate would clobber the newer Core's slices.
     await vi.waitFor(() => expect(gateDone).toHaveBeenCalled());
     expect(hydrates()).toBe(1);
   });

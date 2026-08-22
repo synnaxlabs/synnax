@@ -25,8 +25,8 @@ export interface CreateTestDeviceOptions extends Partial<
 > {}
 
 /**
- * Creates a rack and a device on the live cluster and returns the created device.
- * Names are generated cluster-safe unless overridden.
+ * Creates a rack and a device on the live Core and returns the created device.
+ * Names are generated Core-safe unless overridden.
  */
 export const createTestDevice = async (
   client: Synnax,
@@ -63,7 +63,7 @@ export const createDeviceResource = (
   });
 
 export interface RenderMenuItemOptions {
-  /** Client backing the console wrapper; null (default) for cluster-free specs. */
+  /** Client backing the console wrapper; null (default) for Core-free specs. */
   client?: Synnax | null;
 }
 

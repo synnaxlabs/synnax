@@ -32,7 +32,7 @@ import { useCallback, useState } from "react";
 import { useOpenSelector } from "@/feature/task/Selector";
 import { useRangeSnapshot } from "@/feature/task/useRangeSnapshot";
 import { useSetDataSaving } from "@/feature/task/useSetDataSaving";
-import { Cluster } from "@/platform/cluster";
+import { Core } from "@/platform/core";
 import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
@@ -361,7 +361,7 @@ const ContextMenu = ({
   );
 
   const addStatus = Status.useAdder();
-  const copyLinkToClipboard = Cluster.useCopyLinkToClipboard();
+  const copyLinkToClipboard = Core.useCopyLinkToClipboard();
 
   const handleExport = Export.useResource();
   const handleLink = useCallback(

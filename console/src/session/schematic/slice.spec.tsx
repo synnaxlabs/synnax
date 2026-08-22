@@ -275,8 +275,9 @@ describe("Schematic Slice", () => {
 
   describe("purgeSliceState", () => {
     it("should release control on every schematic in the slice", () => {
-      const state = {
+      const state: Schematic.StoreState = {
         [Schematic.SLICE_NAME]: {
+          version: 0,
           schematics: {
             "schematic-1": Schematic.stateZ.parse({ control: { status: "acquired" } }),
             "schematic-2": Schematic.stateZ.parse({ control: { status: "acquired" } }),

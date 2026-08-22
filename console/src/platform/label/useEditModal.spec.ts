@@ -107,7 +107,7 @@ describe("Label.useEditModal", () => {
     expect(getCreateItem().className).toContain("pluto--visible");
   });
 
-  it("should persist a new label to the cluster from the create form", async () => {
+  it("should persist a new label to the Core from the create form", async () => {
     await openEditModal();
     await waitFor(() =>
       expect(screen.getByPlaceholderText("Search labels...")).toBeTruthy(),

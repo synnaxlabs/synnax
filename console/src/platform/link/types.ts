@@ -9,14 +9,14 @@
 
 import { type Synnax } from "@synnaxlabs/client";
 
-// Links have the form synnax://cluster/<cluster-key> for a cluster or
-// synnax://cluster/<cluster-key>/<resource-type>/<resource-key> for another resource
+// Links have the form synnax://core/<core-key> for a Core or
+// synnax://core/<core-key>/<resource-type>/<resource-key> for another resource
 
-export const PREFIX = `synnax://cluster/`;
+export const PREFIX = `synnax://core/`;
 
-// ClusterConnect resolves the cluster identified by key to a connected client,
-// switching the active cluster and awaiting a successful connection if necessary.
-export interface ClusterConnect {
+// CoreConnect resolves the Core identified by key to a connected client,
+// switching the active Core and awaiting a successful connection if necessary.
+export interface CoreConnect {
   (key: string): Promise<Synnax>;
 }
 
@@ -35,6 +35,6 @@ export interface UseHandler {
   (): Handler;
 }
 
-// Registry maps a resource type (the segment after the cluster key in a deep link) to
+// Registry maps a resource type (the segment after the Core key in a deep link) to
 // the hook that produces its Handler.
 export type Registry = Record<string, UseHandler>;

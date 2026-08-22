@@ -206,7 +206,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const loadingListenersRef = useInitializerRef(() => new Set<observe.Handler<void>>());
 
   // Placeholder resources back tree items (e.g. a just-created group awaiting its
-  // inline rename) before the cluster delivers the real resource.
+  // inline rename) before the Core delivers the real resource.
   const placeholders = List.useMapData<string, ontology.Resource>();
 
   const getResourceByKey = useCallback(
@@ -219,7 +219,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     (parent: ontology.ID, resources: ontology.Resource[]) => {
       const next = toNodes(resources, resolveItem);
       const nextKeys = new Set(next.map(({ key }) => key));
-      // A placeholder stands in only until the cluster delivers the real resource,
+      // A placeholder stands in only until the Core delivers the real resource,
       // which the answer carries.
       const settled = ontology
         .idToString(resources.map(({ id }) => id))
@@ -227,7 +227,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       if (settled.length > 0) placeholders.deleteItem(settled);
       // The answer is the authority on its parent's membership. A node it omits
       // survives only while a placeholder backs it, since an optimistic row the
-      // cluster has not heard about yet cannot be in any answer.
+      // Core has not heard about yet cannot be in any answer.
       const merge = (prevChildren: Base.Node<string>[]): Base.Node<string>[] => [
         ...prevChildren.filter(
           ({ key }) => !nextKeys.has(key) && placeholders.hasItem(key),

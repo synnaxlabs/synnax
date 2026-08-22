@@ -36,7 +36,7 @@ import {
 export const getMosaicLeaf = (): HTMLElement =>
   getBySelector<HTMLElement>(document, ".pluto-mosaic__leaf");
 
-/** Persists a panel with the given tree to the cluster, parented to a throwaway
+/** Persists a panel with the given tree to the Core, parented to a throwaway
  * project. */
 export const createServerPanel = async (
   client: Synnax,
@@ -76,7 +76,7 @@ export interface PanelWrapperParams {
   store?: TestStore;
   panelKey?: panel.Key;
   tabKey?: panel.TabKey;
-  /** Project selected in the session. Created on the cluster when omitted. */
+  /** Project selected in the session. Created on the Core when omitted. */
   project?: project.Key;
 }
 

@@ -60,6 +60,7 @@ export interface NewState extends z.input<typeof stateZ> {}
 export const ZERO_STATE = stateZ.parse({});
 
 export const sliceStateZ = z.object({
+  version: z.literal(0).default(0),
   schematics: z.record(z.string(), stateZ).default({}),
 });
 

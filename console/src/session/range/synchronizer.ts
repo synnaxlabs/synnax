@@ -19,7 +19,7 @@ import { type Synchronizer } from "@/session/synchronizer";
 
 const syncRanges: Synchronizer.Callbacks<StoreState, Action> = {
   reconcile: async ({ client, store }) => {
-    // Unpersisted ranges are local-only; only cluster-backed ones can vanish.
+    // Unpersisted ranges are local-only; only Core-backed ones can vanish.
     const keys = store
       .getState()
       .range.ranges.filter(({ persisted }) => persisted)

@@ -11,7 +11,7 @@ import { type ReactElement } from "react";
 
 import { Arc } from "@/feature/arc";
 import { Channel } from "@/feature/channel";
-import { Cluster } from "@/feature/cluster";
+import { Core } from "@/feature/core";
 import { Command } from "@/feature/command";
 import { Device } from "@/feature/device";
 import { Docs } from "@/feature/docs";
@@ -35,7 +35,7 @@ import { type Palette } from "@/platform/palette";
 
 const COMMANDS: Command.Command[] = [
   ...Channel.COMMANDS,
-  ...Cluster.COMMANDS,
+  ...Core.COMMANDS,
   ...Device.COMMANDS,
   ...Docs.COMMANDS,
   ...Framer.COMMANDS,

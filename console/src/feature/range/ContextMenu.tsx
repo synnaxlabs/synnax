@@ -13,7 +13,7 @@ import { Access, type Flux, Icon, Menu, Ranger, Synnax, Text } from "@synnaxlabs
 import { array } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { Cluster } from "@/platform/cluster";
+import { Core } from "@/platform/core";
 import { ContextMenu as Base } from "@/platform/context-menu";
 import { Link } from "@/platform/link";
 import { Modals } from "@/platform/modals";
@@ -126,7 +126,7 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
   const rangeExists = rng != null;
   const del = useDelete();
   const persist = usePersist();
-  const handleLink = Cluster.useCopyLinkToClipboard();
+  const handleLink = Core.useCopyLinkToClipboard();
 
   return (
     <Base.Menu>

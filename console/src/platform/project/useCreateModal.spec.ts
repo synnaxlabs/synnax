@@ -35,7 +35,7 @@ describe("Project.useCreateModal", () => {
     expect(createBtn.className).toContain("pluto--disabled");
   });
 
-  it("creates the project on the cluster, activates it, and closes", async () => {
+  it("creates the project on the Core, activates it, and closes", async () => {
     const { store } = await openModal(Project.useCreateModal, { client });
     const name = `proj-${id.create()}`;
     await submitName(name);

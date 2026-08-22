@@ -10,12 +10,12 @@
 import { type ranger, type Synnax } from "@synnaxlabs/client";
 import { id, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 
-/** Generates a cluster-safe unique range name: letters, digits, and underscores. */
+/** Generates a Core-safe unique range name: letters, digits, and underscores. */
 export const uniqueRangeName = (prefix = "range"): string =>
   `${prefix}_${id.create().replace(/-/g, "_")}`;
 
 /**
- * Creates a real range on the connected cluster with a unique name and a valid,
+ * Creates a real range on the connected Core with a unique name and a valid,
  * non-zero time range, so range specs share one place for building fixtures.
  */
 export const createTestRange = async (client: Synnax): Promise<ranger.Range> => {

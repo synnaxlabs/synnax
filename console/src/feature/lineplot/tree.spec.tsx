@@ -35,7 +35,7 @@ import {
 } from "@/platform/tree/testutil";
 import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
 import { Session } from "@/session";
-import { createCluster, createClusterState } from "@/session/cluster/testutil";
+import { createCore, createCoreState } from "@/session/core/testutil";
 import {
   assertDefined,
   awaitTextEditing,
@@ -56,14 +56,14 @@ const createLinePlot = async (): Promise<lineplot.LinePlot> =>
 interface SetupParams {
   plots: lineplot.LinePlot[];
   overrides?: Partial<Tree.BaseProps>;
-  withCluster?: boolean;
+  withCore?: boolean;
 }
 
-const renderMenu = async ({ plots, overrides, withCluster = false }: SetupParams) => {
+const renderMenu = async ({ plots, overrides, withCore = false }: SetupParams) => {
   const store = await createTestStore({
     preloadedState: {
       ...createPreloadedState(plots[0].key),
-      ...(withCluster ? createClusterState([createCluster("test")], "test") : {}),
+      ...(withCore ? createCoreState([createCore("test")], "test") : {}),
     },
   });
   const Menu = Item.ContextMenu;
@@ -133,7 +133,7 @@ describe("lineplot/ontology", () => {
       ).toBeUndefined();
     });
 
-    it("renames the plot on the cluster", async () => {
+    it("renames the plot on the Core", async () => {
       const plot = await createLinePlot();
       const { itemID } = await renderMenu({ plots: [plot] });
       fireEvent.click(await screen.findByText("Rename"));
@@ -160,7 +160,7 @@ describe("lineplot/ontology", () => {
     it("copies a deep link to the clipboard", async () => {
       const writeText = stubClipboardWriteText();
       const plot = await createLinePlot();
-      await renderMenu({ plots: [plot], withCluster: true });
+      await renderMenu({ plots: [plot], withCore: true });
       fireEvent.click(await screen.findByText("Copy link"));
       await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
       expect(writeText.mock.calls[0][0]).toContain(`lineplot/${plot.key}`);

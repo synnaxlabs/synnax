@@ -115,7 +115,7 @@ describe("LabJack Write", () => {
     await waitFor(() => expect(screen.queryByText("EIO2")).toBeTruthy());
   });
 
-  describe("deploying against a live cluster", () => {
+  describe("deploying against a live Core", () => {
     it("should create command and state channels, update the device, and save the task", async () => {
       const dev = await createLabJackDevice(client);
       const draft = await createDraft(

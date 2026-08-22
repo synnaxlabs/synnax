@@ -14,10 +14,10 @@ import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Auth } from "@/feature/auth";
-import { Cluster } from "@/feature/cluster";
+import { Core } from "@/feature/core";
 import { findButton } from "@/platform/modals/testutil";
 import { Session } from "@/session";
-import { createCluster, createClusterState } from "@/session/cluster/testutil";
+import { createCore, createCoreState } from "@/session/core/testutil";
 import {
   createSessionConsoleWrapper,
   pinLocationOrigin,
@@ -28,9 +28,9 @@ import {
 
 const CLUSTER_KEY = "local";
 
-const clusterState = (): Session.Cluster.SliceState => ({
-  ...Session.Cluster.ZERO_SLICE_STATE,
-  clusters: {
+const CoreState = (): Session.Core.SliceState => ({
+  ...Session.Core.ZERO_SLICE_STATE,
+  cores: {
     [CLUSTER_KEY]: {
       key: CLUSTER_KEY,
       name: "Local",
@@ -50,8 +50,8 @@ const renderGuard = async (selected?: string): Promise<TestStore> => {
     </Auth.Guard>,
     {
       preloadedState: {
-        [Session.Cluster.SLICE_NAME]: {
-          ...clusterState(),
+        [Session.Core.SLICE_NAME]: {
+          ...CoreState(),
           selected,
         },
       },
@@ -71,33 +71,33 @@ const submitCredentials = (username: string, password: string): void => {
 };
 
 describe("auth guard", () => {
-  it("should render children when a cluster is already selected", async () => {
+  it("should render children when a Core is already selected", async () => {
     await renderGuard(CLUSTER_KEY);
     expect(screen.getByText("authenticated content")).toBeTruthy();
     expect(screen.queryByText("Log in")).toBeNull();
   });
 
-  it("should render the login screen when no cluster is selected", async () => {
+  it("should render the login screen when no Core is selected", async () => {
     await renderGuard();
     expect(screen.getAllByText("Log in").length).toBeGreaterThan(0);
     expect(screen.queryByText("authenticated content")).toBeNull();
   });
 
-  it("should select the cluster after a successful login", async () => {
+  it("should select the Core after a successful login", async () => {
     pinLocationOrigin("http://localhost:9090");
     const store = await renderGuard();
     submitCredentials("synnax", "seldon");
     await waitFor(() => {
-      const key = Session.Cluster.selectSelectedKey(store.getState());
+      const key = Session.Core.selectSelectedKey(store.getState());
       expect(key).toBeDefined();
       expect(key).not.toBe(CLUSTER_KEY);
     });
     expect(await screen.findByText("authenticated content")).toBeTruthy();
     const state = store.getState();
-    const key = Session.Cluster.selectSelectedKey(state);
-    if (key == null) throw new Error("no cluster selected");
-    const cluster = Session.Cluster.selectState(state, key);
-    expect(cluster?.username).toBe("synnax");
+    const key = Session.Core.selectSelectedKey(state);
+    if (key == null) throw new Error("no Core selected");
+    const core = Session.Core.selectState(state, key);
+    expect(core?.username).toBe("synnax");
   });
 
   it("should return to the login surface when credentials are rejected", async () => {
@@ -107,7 +107,7 @@ describe("auth guard", () => {
       <Session.SettledProvider>
         <Auth.Guard>
           <Auth.ConnectionGuard>
-            <Cluster.ConnectionBadge />
+            <Core.ConnectionBadge />
             <span>authenticated content</span>
           </Auth.ConnectionGuard>
         </Auth.Guard>
@@ -116,9 +116,9 @@ describe("auth guard", () => {
     );
     submitCredentials("synnax", uniqueName("wrong"));
     await waitFor(() =>
-      expect(Session.Cluster.selectSelectedKey(store.getState())).toBeDefined(),
+      expect(Session.Core.selectSelectedKey(store.getState())).toBeDefined(),
     );
-    const key = Session.Cluster.selectSelectedKey(store.getState());
+    const key = Session.Core.selectSelectedKey(store.getState());
     expect(await screen.findByText(/invalid credentials/i)).toBeTruthy();
     expect(screen.getAllByText("Log in").length).toBeGreaterThan(0);
     expect(screen.queryByText("authenticated content")).toBeNull();
@@ -127,7 +127,7 @@ describe("auth guard", () => {
       () => expect(document.querySelector(".pluto--status-success")).toBeTruthy(),
       { timeout: 10000 },
     );
-    // The login sequence swaps the cluster and project partitions in turn;
+    // The login sequence swaps the Core and project partitions in turn;
     // the workspace settles once the second swap hydrates.
     expect(
       await screen.findByText("authenticated content", {}, { timeout: 10000 }),
@@ -135,24 +135,24 @@ describe("auth guard", () => {
     expect(screen.queryByText(/invalid credentials/i)).toBeNull();
     // The synchronizer adopts the server-issued key, renaming the failed
     // login's entry in place rather than minting a duplicate.
-    const selected = Session.Cluster.selectSelectedKey(store.getState());
+    const selected = Session.Core.selectSelectedKey(store.getState());
     expect(selected).toBeDefined();
     expect(selected).not.toBe(key);
-    const keys = Session.Cluster.selectMany(store.getState())
+    const keys = Session.Core.selectMany(store.getState())
       .map(({ key: k }) => k)
       .filter((k) => k !== "DEMO");
     expect(keys).toEqual([selected]);
   });
 
-  it("should surface connection trouble at a cold start against an unreachable cluster", async () => {
+  it("should surface connection trouble at a cold start against an unreachable Core", async () => {
     const DEAD_KEY = "dead";
     const { wrapper } = await createSessionConsoleWrapper({
       client: null,
       preloadedState: {
-        [Session.Cluster.SLICE_NAME]: {
-          ...Session.Cluster.ZERO_SLICE_STATE,
-          clusters: {
-            [DEAD_KEY]: createCluster(DEAD_KEY, { name: "Dead", port: 9098 }),
+        [Session.Core.SLICE_NAME]: {
+          ...Session.Core.ZERO_SLICE_STATE,
+          cores: {
+            [DEAD_KEY]: createCore(DEAD_KEY, { name: "Dead", port: 9098 }),
           },
           selected: DEAD_KEY,
         },
@@ -179,10 +179,10 @@ describe("auth guard", () => {
     const { wrapper } = await createSessionConsoleWrapper({
       client: null,
       preloadedState: {
-        [Session.Cluster.SLICE_NAME]: {
-          ...Session.Cluster.ZERO_SLICE_STATE,
-          clusters: {
-            [DEAD_KEY]: createCluster(DEAD_KEY, { name: "Dead", port: 9098 }),
+        [Session.Core.SLICE_NAME]: {
+          ...Session.Core.ZERO_SLICE_STATE,
+          cores: {
+            [DEAD_KEY]: createCore(DEAD_KEY, { name: "Dead", port: 9098 }),
           },
           selected: DEAD_KEY,
         },
@@ -216,7 +216,7 @@ describe("connection guard permissions", () => {
   const createGuardWrapper = async (): Promise<FC<PropsWithChildren>> => {
     const { wrapper: SessionWrapper } = await createSessionConsoleWrapper({
       client: null,
-      preloadedState: createClusterState([createCluster(CLUSTER_KEY)], CLUSTER_KEY),
+      preloadedState: createCoreState([createCore(CLUSTER_KEY)], CLUSTER_KEY),
     });
     const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
       <SessionWrapper>

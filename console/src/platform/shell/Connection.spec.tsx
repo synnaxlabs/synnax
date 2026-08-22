@@ -11,7 +11,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Shell } from "@/platform/shell";
-import { CONNECTION_PARAMS } from "@/session/cluster/testutil";
+import { CONNECTION_PARAMS } from "@/session/core/testutil";
 import { createConnectedConsoleWrapper } from "@/testutil";
 
 const CLUSTER = { name: "Local", ...CONNECTION_PARAMS };
@@ -22,7 +22,7 @@ describe("Connection", () => {
       client: null,
       connParams: CONNECTION_PARAMS,
     });
-    render(<Shell.Connection cluster={CLUSTER} />, { wrapper });
+    render(<Shell.Connection core={CLUSTER} />, { wrapper });
     expect(await screen.findByText("Connected")).toBeTruthy();
   });
 
@@ -31,7 +31,7 @@ describe("Connection", () => {
       client: null,
       connParams: CONNECTION_PARAMS,
     });
-    render(<Shell.Connection cluster={{ ...CLUSTER, secure: true }} />, { wrapper });
+    render(<Shell.Connection core={{ ...CLUSTER, secure: true }} />, { wrapper });
     expect(await screen.findByText("Unreachable")).toBeTruthy();
   });
 
@@ -40,7 +40,7 @@ describe("Connection", () => {
       client: null,
       connParams: { ...CONNECTION_PARAMS, password: "not-seldon" },
     });
-    render(<Shell.Connection cluster={CLUSTER} />, { wrapper });
+    render(<Shell.Connection core={CLUSTER} />, { wrapper });
     expect(await screen.findByText("Connected")).toBeTruthy();
     expect(screen.queryByText("Unreachable")).toBeNull();
   });

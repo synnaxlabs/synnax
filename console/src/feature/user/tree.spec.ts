@@ -71,7 +71,7 @@ describe("user ontology service", () => {
     expect(findModalButton("Assign")).toBeTruthy();
   });
 
-  it("should delete the user on the cluster after confirmation", async () => {
+  it("should delete the user on the Core after confirmation", async () => {
     const u = await createUser();
     await renderMenu([userResource(u.key, u.username)]);
     fireEvent.click(await screen.findByText("Delete"));

@@ -13,7 +13,7 @@ import { act, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Session } from "@/session";
-import { Cluster } from "@/session/cluster";
+import { Core } from "@/session/core";
 import { Nav } from "@/session/nav";
 import { Panel } from "@/session/panel";
 import { Project } from "@/session/project";
@@ -24,11 +24,11 @@ const PANEL_KEY = "22222222-2222-4222-8222-222222222222";
 const TAB_KEY = "33333333-3333-4333-8333-333333333333";
 
 describe("useLogout", () => {
-  it("should clear cluster, project, panel session state, and hide nav drawers", async () => {
+  it("should clear Core, project, panel session state, and hide nav drawers", async () => {
     const { result, store } = await renderHookWithConsole(() => Session.useLogout());
 
     act(() => {
-      store.dispatch(Cluster.select("LOCAL"));
+      store.dispatch(Core.select("LOCAL"));
       store.dispatch(Project.select(PROJECT_KEY));
       store.dispatch(Panel.select({ key: PANEL_KEY, windowKey: MAIN_WINDOW }));
       store.dispatch(
@@ -44,7 +44,7 @@ describe("useLogout", () => {
     });
 
     const before = store.getState();
-    expect(Cluster.selectSelectedKey(before)).toBe("LOCAL");
+    expect(Core.selectSelectedKey(before)).toBe("LOCAL");
     expect(Project.selectOptionalSelected(before)).toBe(PROJECT_KEY);
     expect(before[Panel.SLICE_NAME].windows[MAIN_WINDOW].selected).toBe(PANEL_KEY);
     expect(
@@ -60,7 +60,7 @@ describe("useLogout", () => {
     });
 
     const after = store.getState();
-    expect(Cluster.selectSelectedKey(after)).toBeUndefined();
+    expect(Core.selectSelectedKey(after)).toBeUndefined();
     expect(Project.selectOptionalSelected(after)).toBeUndefined();
     expect(Panel.selectSliceState(after)).toEqual(Panel.ZERO_SLICE_STATE);
     expect(after[Nav.SLICE_NAME].windows[MAIN_WINDOW]?.left.selected).toBeUndefined();
@@ -69,7 +69,7 @@ describe("useLogout", () => {
     );
   });
 
-  it("should not restore the project selection when logging back into the same cluster", async () => {
+  it("should not restore the project selection when logging back into the same Core", async () => {
     const db = new kv.MockAsync();
     const store = await Session.createStore({
       runtime: new Drift.NoopRuntime<Session.State, Session.Action>(),
@@ -85,7 +85,7 @@ describe("useLogout", () => {
       );
 
     act(() => {
-      store.dispatch(Cluster.select("LOCAL"));
+      store.dispatch(Core.select("LOCAL"));
     });
     await settle();
     act(() => {
@@ -95,13 +95,13 @@ describe("useLogout", () => {
 
     act(() => result.current());
     await settle();
-    expect(Cluster.selectSelectedKey(store.getState())).toBeUndefined();
+    expect(Core.selectSelectedKey(store.getState())).toBeUndefined();
     expect(Project.selectOptionalSelected(store.getState())).toBeUndefined();
 
-    // Re-entering the cluster hydrates its persistence partition, which must
+    // Re-entering the Core hydrates its persistence partition, which must
     // not carry the pre-logout project selection back in.
     act(() => {
-      store.dispatch(Cluster.select("LOCAL"));
+      store.dispatch(Core.select("LOCAL"));
     });
     await settle();
     expect(Project.selectOptionalSelected(store.getState())).toBeUndefined();

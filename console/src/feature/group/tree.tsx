@@ -10,7 +10,7 @@
 import { group, ontology } from "@synnaxlabs/client";
 import { Access, Flux, Group, Icon, Menu, Tree as PTree } from "@synnaxlabs/pluto";
 
-import { Cluster } from "@/platform/cluster";
+import { Core } from "@/platform/core";
 import { ContextMenu } from "@/platform/context-menu";
 import { Group as PlatformGroup } from "@/platform/group";
 import { Link } from "@/platform/link";
@@ -37,7 +37,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
     root: rootID,
   });
   const createFromSelection = PlatformGroup.useCreateFromSelection();
-  const handleLink = Cluster.useCopyLinkToClipboard();
+  const handleLink = Core.useCopyLinkToClipboard();
   const firstID = ids[0];
   const firstResource = getResource(firstID);
   const rename = useRename(props);

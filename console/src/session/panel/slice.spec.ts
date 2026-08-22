@@ -49,8 +49,9 @@ const OTHER_TAB = uuid.create();
 describe("Panel Slice", () => {
   describe("schemas", () => {
     it("should default the slice state to no windows and an empty order", () => {
-      expect(Panel.sliceStateZ.parse({})).toEqual({ windows: {}, order: [] });
-      expect(Panel.ZERO_SLICE_STATE).toEqual({ windows: {}, order: [] });
+      const zero = { version: 0, windows: {}, order: [] };
+      expect(Panel.sliceStateZ.parse({})).toEqual(zero);
+      expect(Panel.ZERO_SLICE_STATE).toEqual(zero);
     });
 
     it("should default a window to no selection, no panels, and nothing mounted", () => {

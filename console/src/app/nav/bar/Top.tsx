@@ -12,7 +12,7 @@ import { type ReactElement, useCallback } from "react";
 
 import { useBottomActions } from "@/app/nav/bar/bottom";
 import { Toolbars } from "@/app/toolbars";
-import { Cluster } from "@/feature/cluster";
+import { Core } from "@/feature/core";
 import { Docs } from "@/feature/docs";
 import { Panel } from "@/feature/panel";
 import { CSS } from "@/platform/css";
@@ -55,7 +55,7 @@ const BottomToggleButton = (): ReactElement => {
 
 export interface TopProps {
   /** Renders the trimmed secondary window variant: the controls toggle in place of
-   * the project selector and badge cluster. */
+   * the project selector and Core badge. */
   secondary?: boolean;
 }
 
@@ -81,7 +81,7 @@ export const Top = ({ secondary = false }: TopProps): ReactElement => {
             <Version.Badge />
             <Docs.OpenButton />
             <User.Badge />
-            <Cluster.ConnectionBadge />
+            <Core.ConnectionBadge />
           </>
         )}
         <Window.Controls visibleIfOS="Windows" forceOS={os} />

@@ -18,12 +18,13 @@ import { getIconButton, type TestStore } from "@/testutil";
 
 const navState = (window: Partial<Session.Nav.WindowState> = {}) => ({
   [Session.Nav.SLICE_NAME]: {
+    version: 0 as const,
     windows: { [MAIN_WINDOW]: { ...Session.Nav.ZERO_WINDOW_STATE, ...window } },
   },
 });
 
 // Access-gated nav items appear only once their access query resolves against the
-// cluster, so wait for the gated "range" item before asserting.
+// Core, so wait for the gated "range" item before asserting.
 const findItem = async (
   container: HTMLElement,
   icon: string,

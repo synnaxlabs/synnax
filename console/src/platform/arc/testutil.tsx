@@ -18,7 +18,7 @@ export const client = createTestClient();
 
 /**
  * Renders ui together with a live {@link Modals.Stack} inside the full console provider
- * stack backed by a real cluster client, so modal-driven arc flows (create, rename)
+ * stack backed by a real Core client, so modal-driven arc flows (create, rename)
  * actually mount and hit the server. Returns the render result plus the backing store.
  */
 export const renderArc = async (ui: ReactNode) => {
