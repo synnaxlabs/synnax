@@ -85,23 +85,19 @@ class NoDevice(HardwareCase, ConsoleCase):
         # Assert error notification
         notifications = self.console.notifications.check(timeout=5)
         msg = notifications[0]["message"]
-        msg_expected = "Failed to update Task"
+        msg_expected = "Failed to start task"
         assert msg_expected == msg, (
             f"Notification msg is <{msg}>, should be <{msg_expected}>"
         )
+        desc = notifications[0].get("description")
+        desc_expected = "No devices selected"
+        assert desc_expected == desc, (
+            f"Notification description is <{desc}>, should be <{desc_expected}>"
+        )
 
-        # Assert Task error status
-        status = ni_ai.status()
-        level = status["level"]
-        msg = status["msg"]
-        level_expected = "error"
-        msg_expected = "Failed to update Task"
-        assert level_expected == level, (
-            f"Task status level <{level}> should be <{level_expected}>"
-        )
-        assert msg_expected == msg, (
-            f"Task status msg <{msg}> should be <{msg_expected}>"
-        )
+        # Deploy rejects the config before it writes or starts anything, so the task
+        # keeps the status it had.
+        self.initial_assertion(ni_ai)
 
     def nominal_configuration(
         self, ni_ai: AnalogRead, rack_name: str, dev_name: str

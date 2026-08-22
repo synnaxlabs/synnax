@@ -461,8 +461,8 @@ class Schematic(ConsolePage):
         Returns:
             Dict with control_authority and show_control_legend keys.
         """
-        self.notifications.close_all()
         self.layout.show_visualization_toolbar()
+        self.notifications.close_all()
         self.layout.click("Control")
 
         control_authority = int(self.layout.get_input_field("Control Authority"))
