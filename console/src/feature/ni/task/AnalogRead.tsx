@@ -19,7 +19,6 @@ import {
   getAIChannelDeviceKey,
   getAIChannelSuffix,
 } from "@/feature/ni/task/getAIChannelDeviceKey";
-import { SelectAIChannelTypeField } from "@/feature/ni/task/SelectAIChannelTypeField";
 import {
   AI_CHANNEL_TYPE_ICONS,
   AI_CHANNEL_TYPE_NAMES,
@@ -82,12 +81,7 @@ const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
 
 const ChannelDetails = ({ path }: Task.Views.DetailsProps) => {
   const type = PForm.useFieldValue<AIChannelType>(`${path}.type`);
-  return (
-    <>
-      <SelectAIChannelTypeField path={path} inputProps={{ allowNone: false }} />
-      <AIChannelForm type={type} prefix={path} />
-    </>
-  );
+  return <AIChannelForm type={type} prefix={path} />;
 };
 
 const channelDetails = Component.renderProp(ChannelDetails);
