@@ -79,6 +79,7 @@ type Transport struct {
 	FrameIterator freighter.StreamServer[framer.IteratorRequest, framer.IteratorResponse]
 	FrameStreamer freighter.StreamServer[framer.StreamerRequest, framer.StreamerResponse]
 	FrameDelete   freighter.UnaryServer[framer.DeleteRequest, types.Nil]
+	FrameRead     freighter.UnaryServer[framer.ReadRequest, framer.ReadResponse]
 	// RANGE
 	RangeCreate   freighter.UnaryServer[ranger.CreateRequest, ranger.CreateResponse]
 	RangeRetrieve freighter.UnaryServer[ranger.RetrieveRequest, ranger.RetrieveResponse]
@@ -273,6 +274,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.FrameIterator,
 		t.FrameStreamer,
 		t.FrameDelete,
+		t.FrameRead,
 
 		// ONTOLOGY
 		t.OntologyRetrieve,
@@ -438,6 +440,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.FrameIterator.BindHandler(l.Framer.Iterate)
 	t.FrameStreamer.BindHandler(l.Framer.Stream)
 	t.FrameDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Framer.Delete))
+	t.FrameRead.BindHandler(l.Framer.Read)
 
 	// ONTOLOGY
 	t.OntologyRetrieve.BindHandler(l.Ontology.Retrieve)

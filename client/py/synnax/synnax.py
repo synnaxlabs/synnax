@@ -156,6 +156,7 @@ class Synnax(framer.Client):
             stream_client=self._transport.stream,
             async_client=self._transport.stream_async,
             unary_client=self._transport.unary,
+            file_transport=self._transport.file_transport,
             retriever=ch_retriever,
             deleter=deleter,
             instrumentation=instrumentation,

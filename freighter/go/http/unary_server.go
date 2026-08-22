@@ -10,6 +10,12 @@
 package http
 
 import (
+	"bufio"
+	"compress/gzip"
+	"context"
+	"io"
+	"strings"
+
 	"github.com/gofiber/fiber/v3"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
@@ -17,6 +23,8 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/http"
+	"github.com/synnaxlabs/x/set"
+	"go.uber.org/zap"
 )
 
 // unaryServerOptions configures a unary HTTP server. Unary handlers are stateless
@@ -33,6 +41,12 @@ type unaryServerOptions struct {
 	// handler fails. It is separate from responseEncoders because a response encoder
 	// may be specialized to a single payload shape and unable to carry an error.
 	errorEncoders []http.Encoder
+	// streaming writes the response through Encoder.EncodeStream as a chunked body
+	// instead of buffering it. See WithStreamingResponse.
+	streaming bool
+	// compressed holds the content types whose bodies are worth gzipping. See
+	// WithStreamingResponse.
+	compressed set.Set[string]
 }
 
 // UnaryServerOption configures a unary HTTP server.
@@ -58,6 +72,25 @@ func WithErrorEncoders(encoders ...http.Encoder) UnaryServerOption {
 	return func(o *unaryServerOptions) { o.errorEncoders = encoders }
 }
 
+// WithStreamingResponse writes the response body as a chunked stream driven by
+// Encoder.EncodeStream. The route gives up the ability to report a failure that happens
+// after the first byte: the status is committed, so the encoder owns the in-band
+// failure contract. Only use it for responses too large to buffer.
+//
+// Bodies from the given encoders are gzipped when the request accepts that encoding;
+// every other body is written as is. Name only encoders whose output compression
+// meaningfully shrinks, since a body that does not compress pays CPU on both ends for
+// nothing.
+func WithStreamingResponse(compressed ...http.Encoder) UnaryServerOption {
+	return func(o *unaryServerOptions) {
+		o.streaming = true
+		o.compressed = set.New[string]()
+		for _, e := range compressed {
+			o.compressed.Add(e.ContentType())
+		}
+	}
+}
+
 func newUnaryServerOptions(opts []UnaryServerOption) unaryServerOptions {
 	so := unaryServerOptions{
 		requestDecoders:  defaultDecoders,
@@ -71,9 +104,13 @@ func newUnaryServerOptions(opts []UnaryServerOption) unaryServerOptions {
 }
 
 type unaryServer[RQ, RS freighter.Payload] struct {
+	alamos.Instrumentation
 	unaryServerOptions
-	handle freighter.UnaryHandler[RQ, RS]
-	path   string
+	// serverCtx outlives the request, so a streamed body can keep using it after the
+	// fiber context is recycled.
+	serverCtx context.Context
+	handle    freighter.UnaryHandler[RQ, RS]
+	path      string
 	freighter.MiddlewareCollector
 }
 
@@ -132,6 +169,9 @@ func (s *unaryServer[RQ, RS]) fiberHandler(fCtx fiber.Ctx) error {
 	setResponseCtx(fCtx, oMD)
 	fErr := errors.Encode(fCtx.RequestCtx(), err, false)
 	if fErr.Type == errors.TypeNil {
+		if s.streaming {
+			return s.streamAndWrite(fCtx, encoder, res)
+		}
 		return encodeAndWrite(fCtx, encoder, res)
 	}
 	errEncoder, ok := s.resolveErrorEncoder(fCtx)
@@ -191,6 +231,56 @@ func (s *unaryServer[RQ, RS]) resolveResponseEncoder(
 		}
 	}
 	return nil, false
+}
+
+// streamAndWrite writes v as a chunked body, gzipping it when the route names the
+// resolved encoder as compressed and the request accepts that encoding. fasthttp runs
+// the writer after the handler returns and c is recycled by then, so the closure only
+// captures values read here.
+func (s *unaryServer[RQ, RS]) streamAndWrite(
+	c fiber.Ctx,
+	encoder http.Encoder,
+	v any,
+) error {
+	ctx := s.serverCtx
+	var gz *gzip.Writer
+	if s.compressed.Contains(encoder.ContentType()) &&
+		acceptsGzip(c.Get(fiber.HeaderAcceptEncoding)) {
+		var err error
+		// Compression competes with the encoder for CPU on a body large enough to need
+		// streaming, so take the fastest level over the smallest output.
+		if gz, err = gzip.NewWriterLevel(nil, gzip.BestSpeed); err != nil {
+			return err
+		}
+		c.Set(fiber.HeaderContentEncoding, gzipEncoding)
+	}
+	return c.SendStreamWriter(func(w *bufio.Writer) {
+		var dst io.Writer = w
+		if gz != nil {
+			gz.Reset(w)
+			dst = gz
+		}
+		err := encoder.EncodeStream(ctx, dst, v)
+		if gz != nil {
+			err = errors.Combine(err, gz.Close())
+		}
+		// The status is long since committed, so a failure here is only ever a log
+		// line. Encoders that can fail mid-body carry their own in-band contract.
+		if err != nil {
+			s.L.Error("failed to write streamed response", zap.Error(err))
+		}
+	})
+}
+
+const gzipEncoding = "gzip"
+
+func acceptsGzip(header string) bool {
+	for enc := range strings.SplitSeq(header, ",") {
+		if strings.TrimSpace(strings.SplitN(enc, ";", 2)[0]) == gzipEncoding {
+			return true
+		}
+	}
+	return false
 }
 
 func encodeAndWrite(c fiber.Ctx, encoder http.Encoder, v any) error {

@@ -159,7 +159,12 @@ export default class Synnax extends framer.Client {
       );
       return result.map((ch) => ch.payload);
     };
-    super({ stream: transport.stream, unary: transport.unary, retrieveChannels });
+    super({
+      stream: transport.stream,
+      unary: transport.unary,
+      file: transport.file,
+      retrieveChannels,
+    });
     const cache = new query.Cache({
       openStreamer: parsedParams.cache
         ? async (config) => await this.openStreamer(config)

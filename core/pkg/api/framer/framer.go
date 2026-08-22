@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -106,6 +107,87 @@ func (s *Service) Delete(
 	return types.Nil{}, s.internal.DeleteTimeRange(ctx, keys, req.Bounds)
 }
 
+// ReadRequest requests every sample in Bounds for the given channels.
+type ReadRequest struct {
+	Keys             channel.Keys    `json:"keys"              msgpack:"keys"`
+	Bounds           telem.TimeRange `json:"bounds"            msgpack:"bounds"`
+	DownsampleFactor int             `json:"downsample_factor" msgpack:"downsample_factor"`
+}
+
+// ReadResponse is the handle a read encoder drives to produce the response body. It
+// carries an open Iterator the encoder must close. It is never encoded by a
+// general-purpose codec.
+type ReadResponse struct {
+	Iterator *framer.Iterator
+	// Channels holds the records of the requested channels, in no particular order.
+	Channels []channel.Channel
+	// Indexes holds the records of the index channels pulled in to timestamp the
+	// requested channels, excluding any the caller already requested. An encoder that
+	// needs sample timestamps reads them; one that does not ignores them.
+	Indexes []channel.Channel
+}
+
+// Read opens an iterator over the channels and bounds in req, along with their index
+// channels. The caller is the response encoder, which drains the iterator and closes
+// it.
+func (s *Service) Read(ctx context.Context, req ReadRequest) (ReadResponse, error) {
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionRetrieve,
+		Objects: framer.OntologyIDs(req.Keys),
+	}); err != nil {
+		return ReadResponse{}, err
+	}
+	var channels []channel.Channel
+	if err := s.channel.NewRetrieve().
+		Entries(&channels).
+		Where(channel.MatchKeys(req.Keys...)).
+		Exec(ctx, nil); err != nil {
+		return ReadResponse{}, err
+	}
+	indexes, err := s.retrieveMissingIndexes(ctx, channels)
+	if err != nil {
+		return ReadResponse{}, err
+	}
+	keys := append(
+		channel.KeysFromChannels(channels),
+		channel.KeysFromChannels(indexes)...,
+	)
+	iter, err := s.internal.OpenIterator(ctx, framer.IteratorConfig{
+		Keys:             keys,
+		Bounds:           req.Bounds,
+		DownsampleFactor: req.DownsampleFactor,
+	})
+	if err != nil {
+		return ReadResponse{}, err
+	}
+	return ReadResponse{Iterator: iter, Channels: channels, Indexes: indexes}, nil
+}
+
+// retrieveMissingIndexes returns the records of every index channel the given channels
+// are indexed by that is not already among them.
+func (s *Service) retrieveMissingIndexes(
+	ctx context.Context,
+	channels []channel.Channel,
+) ([]channel.Channel, error) {
+	present := set.New(channel.KeysFromChannels(channels)...)
+	var missing channel.Keys
+	for _, ch := range channels {
+		if idx := ch.Index(); idx != 0 && !present.Contains(idx) {
+			missing = append(missing, idx)
+		}
+	}
+	if len(missing) == 0 {
+		return nil, nil
+	}
+	var indexes []channel.Channel
+	err := s.channel.NewRetrieve().
+		Entries(&indexes).
+		Where(channel.MatchKeys(missing.Unique()...)).
+		Exec(ctx, nil)
+	return indexes, err
+}
+
 type (
 	IteratorCommand         = framer.IteratorCommand
 	IteratorResponseVariant = framer.IteratorResponseVariant
@@ -126,6 +208,7 @@ const (
 	IteratorCommandValid        = framer.IteratorCommandValid
 	IteratorCommandError        = framer.IteratorCommandError
 	IteratorCommandSetBounds    = framer.IteratorCommandSetBounds
+	IteratorAutoSpan            = framer.IteratorAutoSpan
 )
 
 const (

@@ -10,7 +10,8 @@
 import json
 import os
 import pathlib
-from collections.abc import Iterable
+from collections.abc import Generator, Iterable
+from contextlib import closing
 from typing import IO, Any
 from urllib.parse import urlencode
 
@@ -45,6 +46,14 @@ def _file_content_type(path: FilePath) -> str:
     return content_type
 
 
+def _stream_body(res: BaseHTTPResponse) -> Generator[bytes, None, None]:
+    """Yields the chunks of res, releasing its connection once the caller is done."""
+    try:
+        yield from res.stream()
+    finally:
+        res.release_conn()
+
+
 class HTTPClient(MiddlewareCollector):
     """
     HTTPClient is a urllib3-backed transport implementing UnaryClient and FileTransport.
@@ -62,6 +71,8 @@ class HTTPClient(MiddlewareCollector):
     - download: a typed request encoded via the codec, with the response streamed
       directly into a destination file path whose extension drives the Accept header
       (FileTransport).
+    - stream: the same request, with the response body handed back in chunks instead of
+      written to disk, and the Accept header given by the caller (FileTransport).
     """
 
     _pool: PoolManager
@@ -148,25 +159,37 @@ class HTTPClient(MiddlewareCollector):
         An empty response body is rejected as an error rather than written as a
         zero-byte file, so dest is left untouched in that case too.
         """
+        with closing(self.stream(target, req, _file_content_type(dest))) as body:
+            stream_to_file(body, dest, allow_empty=False)
+
+    def stream(self, target: str, req: RQ, accept: str) -> Generator[bytes, None, None]:
+        """
+        Sends req to target and yields the response body in chunks as it arrives. accept
+        drives the encoding the server picks for the body.
+
+        The request is issued before the first chunk is pulled, so a transport failure
+        or a server error raises from this call rather than from the iterator.
+        """
         url = self._build_url(target)
+        res_container: list[BaseHTTPResponse | None] = [None]
 
         def finalizer(ctx: Context) -> Context:
             http_res, out_ctx = self._request(
                 ctx,
                 url=url,
                 content_type=self._codec.content_type(),
-                accept=_file_content_type(dest),
+                accept=accept,
                 body=self._codec.encode(req),
                 preload_content=False,
             )
-            try:
-                stream_to_file(http_res.stream(), dest, allow_empty=False)
-                return out_ctx
-            finally:
-                http_res.release_conn()
+            res_container[0] = http_res
+            return out_ctx
 
         in_ctx = Context(url, self._endpoint.protocol, "client")
         self.exec(in_ctx, finalizer)
+        http_res = res_container[0]
+        assert http_res is not None
+        return _stream_body(http_res)
 
     def _build_url(self, target: str, params: dict[str, str] | None = None) -> str:
         url = self._endpoint.child(target).stringify()

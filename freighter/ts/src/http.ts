@@ -33,6 +33,8 @@ export const FREIGHTER_METADATA_PREFIX = "freighterctx";
 const ENCODING_CONTENT_TYPES: Record<FileEncoding, string> = {
   JSON: "application/json",
   ZIP: "application/zip",
+  FRAME: "application/vnd.synnax.frame",
+  CSV: "text/csv",
 };
 
 const UNREACHABLE_CODES = new Set([

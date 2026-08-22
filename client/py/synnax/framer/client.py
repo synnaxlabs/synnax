@@ -13,7 +13,12 @@ import pandas as pd
 
 import synnax.channel.payload as channel
 from alamos import NOOP, Instrumentation
-from freighter import AsyncWebsocketClient, UnaryClient, WebsocketClient
+from freighter import (
+    AsyncWebsocketClient,
+    FileTransport,
+    UnaryClient,
+    WebsocketClient,
+)
 from synnax import ontology
 from synnax.channel.retrieve import Retriever
 from synnax.exceptions import QueryError
@@ -21,6 +26,7 @@ from synnax.framer.adapter import ReadFrameAdapter, WriteFrameAdapter
 from synnax.framer.deleter import Deleter
 from synnax.framer.frame import CrudeFrame, Frame
 from synnax.framer.iterator import AUTO_SPAN, Iterator
+from synnax.framer.reader import Reader
 from synnax.framer.streamer import AsyncStreamer, Streamer
 from synnax.framer.writer import CrudeWriterMode, Writer, WriterMode
 from synnax.telem import (
@@ -46,6 +52,7 @@ class Client:
     _unary_client: UnaryClient
     _channels: Retriever
     _deleter: Deleter
+    _reader: Reader
     instrumentation: Instrumentation
 
     def __init__(
@@ -53,6 +60,7 @@ class Client:
         stream_client: WebsocketClient,
         async_client: AsyncWebsocketClient,
         unary_client: UnaryClient,
+        file_transport: FileTransport,
         retriever: Retriever,
         deleter: Deleter,
         instrumentation: Instrumentation = NOOP,
@@ -62,6 +70,7 @@ class Client:
         self._unary_client = unary_client
         self._channels = retriever
         self._deleter = deleter
+        self._reader = Reader(retriever, file_transport)
         self.instrumentation = instrumentation
 
     def open_writer(
@@ -219,6 +228,7 @@ class Client:
         self,
         tr: TimeRange,
         channels: list[channel.Key] | tuple[channel.Key] | list[str] | tuple[str],
+        downsample_factor: int = 1,
     ) -> Frame: ...
 
     @overload
@@ -226,24 +236,28 @@ class Client:
         self,
         tr: TimeRange,
         channels: channel.Key | str,
+        downsample_factor: int = 1,
     ) -> MultiSeries: ...
 
     def read(
         self,
         tr: TimeRange,
         channels: channel.Params,
+        downsample_factor: int = 1,
     ) -> MultiSeries | Frame:
         """
         Reads telemetry from the channel between the two timestamps.
 
         :param tr: The time range to read from.
         :param channels: The key or name of the channel to read from.
+        :param downsample_factor: Keeps one sample in every downsample_factor. A factor
+        of 1, the default, keeps every sample.
 
         :returns: A tuple where the first item is a numpy array containing the telemetry
         and the second item is the time range occupied by that array.
         """
         normal = channel.normalize_params(channels)
-        frame = self._read_frame(tr, channels)
+        frame = self._reader.read(tr, channels, downsample_factor)
         if len(normal.channels) > 1:
             return frame
         series = frame.get(normal.channels[0], None)
@@ -360,14 +374,3 @@ class Client:
         :param tr: time range to delete data from.
         """
         self._deleter.delete(channels, tr)
-
-    def _read_frame(
-        self,
-        tr: TimeRange,
-        channels: channel.Params,
-    ) -> Frame:
-        aggregate = Frame()
-        with self.open_iterator(tr, channels) as it:
-            for fr in it:
-                aggregate.append(fr)
-        return aggregate

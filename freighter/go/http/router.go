@@ -172,6 +172,8 @@ func NewUnaryServer[RQ, RS freighter.Payload](
 	us := &unaryServer[RQ, RS]{
 		unaryServerOptions: newUnaryServerOptions(opts),
 		path:               path,
+		Instrumentation:    r.cfg.Instrumentation,
+		serverCtx:          r.streamCtx,
 	}
 	r.register(path, http.MethodPost, us, us.fiberHandler)
 	return us

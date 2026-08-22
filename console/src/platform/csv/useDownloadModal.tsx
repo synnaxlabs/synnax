@@ -35,7 +35,6 @@ import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
 export interface DownloadModalParams {
-  channelNames?: Record<channel.Key, string>;
   timeRange: CrudeTimeRange;
   channels: channel.Key[];
   name: string;
@@ -52,7 +51,7 @@ const CHANNEL_SELECT_TRIGGER_PROPS: Select.MultipleTriggerProps<channel.Key> = {
 export interface PromptDownload extends Modals.Prompt<void, DownloadModalParams> {}
 
 export const useDownloadModal = Modals.createPrompt<void, DownloadModalParams>(
-  ({ timeRange, channels, name, channelNames, icon, close }) => {
+  ({ timeRange, channels, name, icon, close }) => {
     const form = Form.use<typeof formSchema>({
       schema: formSchema,
       values: {
@@ -60,7 +59,6 @@ export const useDownloadModal = Modals.createPrompt<void, DownloadModalParams>(
         timeRange: new TimeRange(timeRange).numeric,
         downsampleFactor: 1,
         name,
-        channelNames,
       },
     });
     const footer = (
@@ -146,15 +144,11 @@ const DownloadButton = ({ handleFinish }: DownloadButtonProps) => {
     const timeRange = get<TimeRange>("timeRange").value;
     const channels = get<channel.Key[]>("channels").value;
     const downsampleFactor = get<number>("downsampleFactor").value;
-    const channelNames = get<Record<channel.Key, string>>("channelNames", {
-      optional: true,
-    })?.value;
     const name = get<string>("name").value;
     downloadCSV({
       timeRange,
       channels,
-      channelNames,
-      iteratorConfig: { downsampleFactor },
+      downsampleFactor,
       name,
       onDownloadStart: handleFinish,
     });
@@ -176,7 +170,6 @@ const DownloadButton = ({ handleFinish }: DownloadButtonProps) => {
 
 const formSchema = z.object({
   name: z.string(),
-  channelNames: z.record(channel.keyZ, z.string()).optional(),
   channels: channel.keyZ.array(),
   timeRange: numericTimeRangeZ.refine(({ start, end }) => end >= start, {
     error: "End time must be after start time",

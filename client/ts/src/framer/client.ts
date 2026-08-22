@@ -7,7 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient, type WebSocketClient } from "@synnaxlabs/freighter";
+import {
+  type FileTransport,
+  type UnaryClient,
+  type WebSocketClient,
+} from "@synnaxlabs/freighter";
 import {
   type CrudeSeries,
   type CrudeTimeRange,
@@ -24,7 +28,7 @@ import { Deleter } from "@/framer/deleter";
 import { Feed, type FeedOptions } from "@/framer/feed";
 import { Frame } from "@/framer/frame";
 import { AUTO_SPAN, Iterator, type IteratorConfig } from "@/framer/iterator";
-import { Reader, type ReadRequest } from "@/framer/reader";
+import { Reader, type ReadOptions } from "@/framer/reader";
 import { openStreamer, type Streamer, type StreamerConfig } from "@/framer/streamer";
 import { Writer, type WriterConfig, WriterMode } from "@/framer/writer";
 import { ontology } from "@/ontology";
@@ -35,6 +39,7 @@ export const TYPE_ONTOLOGY_ID = ontologyID("");
 export interface ClientConfig {
   stream: WebSocketClient;
   unary: UnaryClient;
+  file: FileTransport;
   retrieveChannels: ChannelRetriever;
 }
 
@@ -44,10 +49,10 @@ export class Client {
   private readonly reader: Reader;
 
   constructor(cfg: ClientConfig) {
-    const { stream, unary, retrieveChannels } = cfg;
+    const { unary, file, retrieveChannels } = cfg;
     this.cfg = cfg;
     this.deleter = new Deleter(unary);
-    this.reader = new Reader(retrieveChannels, stream);
+    this.reader = new Reader(retrieveChannels, file);
   }
 
   /**
@@ -167,32 +172,47 @@ export class Client {
   async read(
     tr: CrudeTimeRange,
     channel: channel.Key | channel.Name,
+    opts?: ReadOptions,
   ): Promise<MultiSeries>;
-  async read(tr: CrudeTimeRange, channels: channel.Params): Promise<Frame>;
-  async read(request: ReadRequest): Promise<ReadableStream<Uint8Array>>;
   async read(
-    tr: CrudeTimeRange | ReadRequest,
-    channels?: channel.Params,
-  ): Promise<MultiSeries | Frame | ReadableStream<Uint8Array>> {
-    if (!("start" in tr)) return await this.reader.read(tr);
-    const { single } = analyzeParams(channels!);
-    const fr = await this.readFrame(tr, channels!);
+    tr: CrudeTimeRange,
+    channels: channel.Params,
+    opts?: ReadOptions,
+  ): Promise<Frame>;
+  /**
+   * Reads every sample the given channels hold within the time range.
+   *
+   * @param tr - the time range to read.
+   * @param channels - the channels to read, by key or by name.
+   * @param opts - see {@link ReadOptions}.
+   * @returns a MultiSeries when a single channel is given, a Frame otherwise.
+   */
+  async read(
+    tr: CrudeTimeRange,
+    channels: channel.Params,
+    opts?: ReadOptions,
+  ): Promise<MultiSeries | Frame> {
+    const { single } = analyzeParams(channels);
+    const fr = await this.reader.read(tr, channels, opts);
     if (single) return fr.get(channels as channel.Key | channel.Name);
     return fr;
   }
 
-  private async readFrame(
+  /**
+   * Reads every sample the given channels hold within the time range as CSV text. The
+   * Core writes the CSV, so the caller never holds the whole export in memory.
+   *
+   * @param tr - the time range to read.
+   * @param channels - the channels to read, by key or by name.
+   * @param opts - see {@link ReadOptions}.
+   * @returns the CSV as a stream of bytes.
+   */
+  async readCSV(
     tr: CrudeTimeRange,
     channels: channel.Params,
-  ): Promise<Frame> {
-    const i = await this.openIterator(tr, channels);
-    const frame = new Frame();
-    try {
-      for await (const f of i) frame.push(f);
-    } finally {
-      await i.close();
-    }
-    return frame;
+    opts?: ReadOptions,
+  ): Promise<ReadableStream<Uint8Array>> {
+    return await this.reader.readCSV(tr, channels, opts);
   }
 
   async readLatest(

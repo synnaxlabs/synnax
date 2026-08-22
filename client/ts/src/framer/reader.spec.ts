@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, id, runtime, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { DataType, id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
@@ -15,7 +15,7 @@ import { createTestClient, secondsLinspace } from "@/testutil";
 
 const client = createTestClient();
 
-const delimiter = runtime.getOS() === "Windows" ? "\r\n" : "\n";
+const delimiter = "\n";
 
 /** Helper to collect stream into a string */
 const streamToString = async (stream: ReadableStream<Uint8Array>): Promise<string> => {
@@ -72,19 +72,13 @@ describe("Reader", () => {
       });
       await writer.commit();
       await writer.close();
-      const stream = await client.read({
-        channels: [index.key, data1.key, data2.key],
-        timeRange: { start: TimeStamp.seconds(0), end: TimeStamp.seconds(10) },
-        channelNames: {
-          [index.key]: "Time",
-          [data1.key]: "Sensor1",
-          [data2.key]: "Sensor2",
-        },
-        responseType: "csv",
-      });
+      const stream = await client.readCSV(
+        { start: TimeStamp.seconds(0), end: TimeStamp.seconds(10) },
+        [index.key, data1.key, data2.key],
+      );
       const records = await streamToRecords(stream);
       expect(records).toEqual([
-        ["Time", "Sensor1", "Sensor2"],
+        [index.name, data1.name, data2.name],
         ["1000000000", "10", "100"],
         ["2000000000", "20", "200"],
         ["3000000000", "30", "300"],
@@ -142,20 +136,14 @@ describe("Reader", () => {
       });
       await writer2.commit();
       await writer2.close();
-      const stream = await client.read({
-        channels: [data1.key, data2.key], // Just data channels - indexes auto-included
-        timeRange: { start: TimeStamp.seconds(0), end: TimeStamp.seconds(10) },
-        channelNames: {
-          [index1.key]: "Time1",
-          [data1.key]: "Data1",
-          [index2.key]: "Time2",
-          [data2.key]: "Data2",
-        },
-        responseType: "csv",
-      });
+      const stream = await client.readCSV(
+        { start: TimeStamp.seconds(0), end: TimeStamp.seconds(10) },
+        // Just data channels - the Core pulls in their indexes.
+        [data1.key, data2.key],
+      );
       const records = await streamToRecords(stream);
       expect(records).toEqual([
-        ["Time1", "Data1", "Time2", "Data2"],
+        [index1.name, data1.name, index2.name, data2.name],
         ["1000000000", "100", "", ""],
         ["", "", "2000000000", "200"],
         ["3000000000", "300", "", ""],
@@ -191,12 +179,11 @@ describe("Reader", () => {
       });
       await writer.commit();
       await writer.close();
-      const stream = await client.read({
-        channels: [data.key],
-        timeRange: { start: TimeStamp.seconds(0), end: TimeStamp.seconds(10) },
-        responseType: "csv",
-        iteratorConfig: { downsampleFactor: 2 },
-      });
+      const stream = await client.readCSV(
+        { start: TimeStamp.seconds(0), end: TimeStamp.seconds(10) },
+        [data.key],
+        { downsampleFactor: 2 },
+      );
       const records = await streamToRecords(stream);
       expect(records).toEqual([
         [index.name, data.name],
@@ -258,14 +245,13 @@ describe("Reader", () => {
       await writerSlow.commit();
       await writerSlow.close();
 
-      const stream = await client.read({
-        channels: [dataFast.key, dataSlow.key],
-        timeRange: {
+      const stream = await client.readCSV(
+        {
           start: baseTime,
           end: TimeStamp.nanoseconds(6),
         },
-        responseType: "csv",
-      });
+        [dataFast.key, dataSlow.key],
+      );
       const records = await streamToRecords(stream);
       expect(records).toEqual([
         [indexFast.name, dataFast.name, indexSlow.name, dataSlow.name],
@@ -360,11 +346,10 @@ describe("Reader", () => {
       const expectedRows: string[][] = [];
       for (const timeStr of sortedTimes) expectedRows.push(rowsByTime.get(timeStr)!);
 
-      const stream = await client.read({
-        channels: dataKeys,
-        timeRange: { start: TimeStamp.seconds(0), end: TimeStamp.seconds(20) },
-        responseType: "csv",
-      });
+      const stream = await client.readCSV(
+        { start: TimeStamp.seconds(0), end: TimeStamp.seconds(20) },
+        dataKeys,
+      );
       const rows = await streamToRecords(stream);
       // There should be a header and at least the expected number of rows
       expect(rows.length).toBeGreaterThan(1);
@@ -386,11 +371,10 @@ describe("Reader", () => {
         dataType: DataType.FLOAT64,
         index: index.key,
       });
-      const stream = await client.read({
-        channels: [data.key],
-        timeRange: { start: TimeStamp.seconds(0), end: TimeStamp.seconds(10) },
-        responseType: "csv",
-      });
+      const stream = await client.readCSV(
+        { start: TimeStamp.seconds(0), end: TimeStamp.seconds(10) },
+        [data.key],
+      );
       const rows = await streamToRecords(stream);
       expect(rows).toEqual([[index.name, data.name]]);
     });
@@ -419,11 +403,10 @@ describe("Reader", () => {
       });
       await writer.commit();
       await writer.close();
-      const stream = await client.read({
-        channels: [data.key],
-        timeRange: { start: TimeStamp.seconds(0), end: TimeStamp.seconds(100000) },
-        responseType: "csv",
-      });
+      const stream = await client.readCSV(
+        { start: TimeStamp.seconds(0), end: TimeStamp.seconds(100000) },
+        [data.key],
+      );
       const records = await streamToRecords(stream);
       expect(records).toEqual([
         [index.name, data.name],
@@ -469,11 +452,10 @@ describe("Reader", () => {
       });
       await writer.commit();
       await writer.close();
-      const stream = await client.read({
-        channels: [data.key],
-        timeRange: { start: TimeStamp.nanoseconds(3), end: TimeStamp.nanoseconds(103) },
-        responseType: "csv",
-      });
+      const stream = await client.readCSV(
+        { start: TimeStamp.nanoseconds(3), end: TimeStamp.nanoseconds(103) },
+        [data.key],
+      );
       const rows = await streamToRecords(stream);
       expect(rows).toEqual([
         [index.name, data.name],
@@ -538,11 +520,10 @@ describe("Reader", () => {
       });
       await writer2.commit();
       await writer2.close();
-      const stream = await client.read({
-        channels: [data1.key, data2.key],
-        timeRange: { start: TimeStamp.nanoseconds(0), end: TimeStamp.nanoseconds(19) },
-        responseType: "csv",
-      });
+      const stream = await client.readCSV(
+        { start: TimeStamp.nanoseconds(0), end: TimeStamp.nanoseconds(19) },
+        [data1.key, data2.key],
+      );
       const rows = await streamToRecords(stream);
       expect(rows).toEqual([
         [index1.name, data1.name, index2.name, data2.name],
@@ -651,14 +632,13 @@ describe("Reader", () => {
       const totalSamples = samplesPerGroup.reduce((a, b) => a + b, 0);
 
       // Export the data
-      const stream = await client.read({
-        channels: allDataKeys,
-        timeRange: {
+      const stream = await client.readCSV(
+        {
           start: TimeStamp.seconds(999),
           end: TimeStamp.seconds(1100),
         },
-        responseType: "csv",
-      });
+        allDataKeys,
+      );
 
       // Collect all chunks and track streaming behavior
       const reader = stream.getReader();
@@ -782,14 +762,13 @@ describe("Reader", () => {
       await sparseWriter.commit();
       await sparseWriter.close();
 
-      const stream = await client.read({
-        channels: [dataFast.key, dataSlow.key],
-        timeRange: {
+      const stream = await client.readCSV(
+        {
           start: TimeStamp.seconds(0),
           end: start.add(TimeSpan.seconds(denseSamples + 1)),
         },
-        responseType: "csv",
-      });
+        [dataFast.key, dataSlow.key],
+      );
 
       const reader = stream.getReader();
       const decoder = new TextDecoder();

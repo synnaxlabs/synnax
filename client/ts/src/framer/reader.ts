@@ -7,267 +7,198 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type WebSocketClient } from "@synnaxlabs/freighter";
-import { type CrudeTimeRange, csv, runtime } from "@synnaxlabs/x";
+import { type FileEncoding, type FileTransport } from "@synnaxlabs/freighter";
+import { type CrudeTimeRange, errors, TimeRange } from "@synnaxlabs/x";
+import { z } from "zod";
 
 import { type channel } from "@/channel";
+import { keyZ } from "@/channel/types.gen";
 import { UnexpectedError } from "@/errors";
-import { type ChannelRetriever } from "@/framer/adapter";
-import { type Frame } from "@/framer/frame";
-import { Iterator, type IteratorConfig } from "@/framer/iterator";
+import { type ChannelRetriever, ReadAdapter } from "@/framer/adapter";
+import { Frame } from "@/framer/frame";
 
-export interface ReadRequest {
-  channels: channel.Params;
-  timeRange: CrudeTimeRange;
-  channelNames?: Record<channel.Key | channel.Name, string>;
-  responseType: "csv";
-  iteratorConfig?: IteratorConfig;
+const READ_ENDPOINT = "/frame/read";
+
+const reqZ = z.object({
+  keys: keyZ.array(),
+  bounds: TimeRange.z,
+  downsampleFactor: z.int(),
+});
+
+/** Options controlling how the Core resolves a read. */
+export interface ReadOptions {
+  /**
+   * Keeps one sample in every downsampleFactor. A factor of 1, the default, keeps
+   * every sample.
+   */
+  downsampleFactor?: number;
 }
 
+/**
+ * Reader pulls historical telemetry from the Core in a single request per read, letting
+ * the Core encode the response in whichever format the caller asked for.
+ */
 export class Reader {
   private readonly retrieveChannels: ChannelRetriever;
-  private readonly streamClient: WebSocketClient;
+  private readonly file: FileTransport;
 
-  constructor(retrieveChannels: ChannelRetriever, streamClient: WebSocketClient) {
+  constructor(retrieveChannels: ChannelRetriever, file: FileTransport) {
     this.retrieveChannels = retrieveChannels;
-    this.streamClient = streamClient;
+    this.file = file;
   }
 
-  async read(request: ReadRequest): Promise<ReadableStream<Uint8Array>> {
-    const {
-      channels: channelParams,
-      timeRange,
-      channelNames,
-      iteratorConfig,
-    } = request;
-    const channelPayloads = await this.retrieveChannels(channelParams);
-    const allKeys = new Set<channel.Key>();
-    const payloadKeys = new Set<channel.Key>();
-    channelPayloads.forEach((ch) => {
-      allKeys.add(ch.key);
-      payloadKeys.add(ch.key);
-      if (ch.index !== 0) allKeys.add(ch.index);
-    });
-    const missingIndexKeys = allKeys.difference(payloadKeys);
-    if (missingIndexKeys.size > 0) {
-      const indexChannels = await this.retrieveChannels(Array.from(missingIndexKeys));
-      channelPayloads.push(...indexChannels);
-    }
-    const iterator = await Iterator._open(
-      timeRange,
-      Array.from(allKeys),
-      this.retrieveChannels,
-      this.streamClient,
-      iteratorConfig,
+  /**
+   * Reads every sample the given channels hold within tr.
+   *
+   * @param tr - the time range to read.
+   * @param channels - the channels to read, by key or by name. A frame read by name is
+   * keyed by name.
+   * @param opts - see {@link ReadOptions}.
+   * @returns the samples as a frame.
+   */
+  async read(
+    tr: CrudeTimeRange,
+    channels: channel.Params,
+    opts: ReadOptions = {},
+  ): Promise<Frame> {
+    const adapter = await ReadAdapter.open(this.retrieveChannels, channels);
+    const stream = await this.download(Array.from(adapter.keys), tr, "FRAME", opts);
+    const frame = new Frame();
+    for await (const record of readRecords(stream))
+      frame.push(new Frame(adapter.codec.decode(record)));
+    return adapter.adapt(frame);
+  }
+
+  /**
+   * Reads every sample the given channels hold within tr as CSV text. Channels are
+   * grouped by the index channel that timestamps them, and each group contributes its
+   * index column followed by one column per channel. Channels with no index are
+   * excluded.
+   *
+   * @param tr - the time range to read.
+   * @param channels - the channels to read, by key or by name.
+   * @param opts - see {@link ReadOptions}.
+   * @returns the CSV as a stream of bytes the caller pipes wherever it likes.
+   */
+  async readCSV(
+    tr: CrudeTimeRange,
+    channels: channel.Params,
+    opts: ReadOptions = {},
+  ): Promise<ReadableStream<Uint8Array>> {
+    const payloads = await this.retrieveChannels(channels);
+    return await this.download(
+      payloads.map((c) => c.key),
+      tr,
+      "CSV",
+      opts,
     );
-    return createCSVReadableStream({
-      iterator,
-      channelPayloads,
-      headers: channelNames,
-    });
+  }
+
+  private async download(
+    keys: channel.Key[],
+    tr: CrudeTimeRange,
+    encoding: FileEncoding,
+    opts: ReadOptions,
+  ): Promise<ReadableStream<Uint8Array>> {
+    return await this.file.download(
+      READ_ENDPOINT,
+      {
+        keys,
+        bounds: new TimeRange(tr),
+        downsampleFactor: opts.downsampleFactor ?? 1,
+      },
+      reqZ,
+      { encoding },
+    );
   }
 }
 
-interface CreateCSVExportStreamParams {
-  iterator: Iterator;
-  channelPayloads: channel.Payload[];
-  headers?: Record<channel.Key | channel.Name, string>;
-}
+const HEADER_SIZE = 5;
+const TERMINATOR_KIND = 1;
 
-const createCSVReadableStream = ({
-  iterator,
-  channelPayloads,
-  headers,
-}: CreateCSVExportStreamParams): ReadableStream<Uint8Array> => {
-  const delimiter = runtime.getOS() === "Windows" ? "\r\n" : "\n";
-  const encoder = new TextEncoder();
-  let headerWritten = false;
-  let seekDone = false;
-  const groups = groupChannelsByIndex(channelPayloads);
-  const { columns, columnsByIndexKey, emptyGroupStrings } = buildColumnMeta(
-    channelPayloads,
-    groups,
-    headers,
-  );
-  // Use a cursor-based approach instead of having to call .shift() for O(1) access
-  let pendingRecords: RecordEntry[] = [];
-  let pendingCursor = 0;
-  let stagedRecords: RecordEntry[] = [];
-
-  const extractRecordsFromFrame = (frame: Frame): void => {
-    for (const [indexKey] of groups) {
-      const indexSeries = frame.get(indexKey);
-      if (indexSeries.length === 0) continue;
-      const groupColumns = columnsByIndexKey.get(indexKey) ?? [];
-      // Pre-fetch all series for this group to avoid repeated lookups
-      const seriesData = groupColumns.map((col) => frame.get(col.key));
-      for (let i = 0; i < indexSeries.length; i++) {
-        const time = indexSeries.at(i, true) as bigint;
-        const values = seriesData.map((series) => csv.formatValue(series.at(i, true)));
-        stagedRecords.push({ time, values, indexKey });
+/**
+ * Yields the payload of every data record in a frame-encoded read body. The terminator
+ * ends the iteration, throwing the error it carries when the read failed partway. A
+ * body that ends without one was cut short in transit.
+ */
+async function* readRecords(
+  stream: ReadableStream<Uint8Array>,
+): AsyncGenerator<Uint8Array> {
+  const reader = stream.getReader();
+  const chunks: Uint8Array[] = [];
+  let available = 0;
+  let offset = 0;
+  let exhausted = false;
+  // fill reads until the staged chunks hold size bytes, reporting false when the body
+  // ends first.
+  const fill = async (size: number): Promise<boolean> => {
+    while (available < size && !exhausted) {
+      const { value, done } = await reader.read();
+      if (done) exhausted = true;
+      else {
+        chunks.push(value);
+        available += value.length;
       }
     }
+    return available >= size;
   };
-
-  const buildCSVRows = (maxRows: number, flush: boolean = false): string[] => {
-    if (stagedRecords.length > 0) {
-      stagedRecords.sort((a, b) => Number(a.time - b.time));
-      if (pendingCursor > 0) {
-        pendingRecords = pendingRecords.slice(pendingCursor);
-        pendingCursor = 0;
+  // take consumes the next size bytes, splicing across chunks only when one does not
+  // cover them.
+  const take = (size: number): Uint8Array => {
+    if (size === 0) return new Uint8Array(0);
+    const first = chunks[0];
+    if (first.length - offset >= size) {
+      const out = first.subarray(offset, offset + size);
+      offset += size;
+      available -= size;
+      if (offset === first.length) {
+        chunks.shift();
+        offset = 0;
       }
-      pendingRecords = mergeSortedRecords(pendingRecords, stagedRecords);
-      stagedRecords = [];
+      return out;
     }
-    const rows: string[] = [];
-    const pendingLen = pendingRecords.length;
-    while (pendingCursor < pendingLen && rows.length < maxRows) {
-      const minTime = pendingRecords[pendingCursor].time;
-      // Don't output the last timestamp unless flushing - more data might arrive
-      // Optimization: only check if last record has same time (since array is sorted)
-      if (!flush && pendingRecords[pendingLen - 1].time === minTime) break;
-      // Collect all records at this timestamp using cursor (O(1) per record)
-      // Use Map keyed by indexKey for O(1) lookup instead of find()
-      const recordsByGroup = new Map<channel.Key, RecordEntry>();
-      while (
-        pendingCursor < pendingLen &&
-        pendingRecords[pendingCursor].time === minTime
-      ) {
-        const record = pendingRecords[pendingCursor++];
-        recordsByGroup.set(record.indexKey, record);
+    const out = new Uint8Array(size);
+    let filled = 0;
+    while (filled < size) {
+      const chunk = chunks[0];
+      const n = Math.min(size - filled, chunk.length - offset);
+      out.set(chunk.subarray(offset, offset + n), filled);
+      filled += n;
+      offset += n;
+      available -= n;
+      if (offset === chunk.length) {
+        chunks.shift();
+        offset = 0;
       }
-      const rowParts: string[] = [];
-      for (const [indexKey] of groups) {
-        const record = recordsByGroup.get(indexKey);
-        rowParts.push(
-          record?.values.join(",") ?? emptyGroupStrings.get(indexKey) ?? "",
-        );
-      }
-      rows.push(rowParts.join(","));
     }
-    return rows;
+    return out;
   };
-
-  return new ReadableStream<Uint8Array>({
-    async pull(controller): Promise<void> {
-      try {
-        if (!seekDone) {
-          await iterator.seekFirst();
-          seekDone = true;
-        }
-        if (!headerWritten) {
-          const headerRow = columns.map((c) => csv.formatValue(c.header)).join(",");
-          controller.enqueue(encoder.encode(`${headerRow}${delimiter}`));
-          headerWritten = true;
-        }
-        const bufferedCount =
-          pendingRecords.length - pendingCursor + stagedRecords.length;
-        if (bufferedCount < BUFFER_SIZE) {
-          const hasMore = await iterator.next();
-          if (hasMore) extractRecordsFromFrame(iterator.value);
-        }
-        const rows = buildCSVRows(BUFFER_SIZE);
-        if (rows.length > 0)
-          controller.enqueue(encoder.encode(`${rows.join(delimiter)}${delimiter}`));
-        const remainingPending = pendingRecords.length - pendingCursor;
-        if (remainingPending === 0 || stagedRecords.length === 0) {
-          const hasMore = await iterator.next();
-          if (!hasMore) {
-            // Flush remaining records
-            const finalRows = buildCSVRows(Infinity, true);
-            if (finalRows.length > 0)
-              controller.enqueue(
-                encoder.encode(`${finalRows.join(delimiter)}${delimiter}`),
-              );
-            await iterator.close();
-            controller.close();
-            return;
-          }
-          extractRecordsFromFrame(iterator.value);
-        }
-      } catch (error) {
-        await iterator.close();
-        controller.error(error);
+  try {
+    while (true) {
+      if (!(await fill(HEADER_SIZE))) throw new UnexpectedError(TRUNCATED);
+      const header = take(HEADER_SIZE);
+      const kind = header[0];
+      const size = new DataView(
+        header.buffer,
+        header.byteOffset,
+        header.byteLength,
+      ).getUint32(1, true);
+      if (!(await fill(size))) throw new UnexpectedError(TRUNCATED);
+      const payload = take(size);
+      if (kind !== TERMINATOR_KIND) {
+        yield payload;
+        continue;
       }
-    },
-
-    async cancel(): Promise<void> {
-      await iterator.close();
-    },
-  });
-};
-
-const groupChannelsByIndex = (
-  channels: channel.Payload[],
-): Map<channel.Key, channel.Key[]> => {
-  const groupMap = new Map<channel.Key, channel.Key[]>();
-  for (const ch of channels) {
-    if (ch.index === 0) continue;
-    let group = groupMap.get(ch.index);
-    if (group == null) {
-      group = [ch.index];
-      groupMap.set(ch.index, group);
+      if (size === 0) return;
+      throw (
+        errors.decode(
+          errors.payloadZ.parse(JSON.parse(new TextDecoder().decode(payload))),
+        ) ?? new UnexpectedError(TRUNCATED)
+      );
     }
-    if (!ch.isIndex && !group.includes(ch.key)) group.push(ch.key);
+  } finally {
+    reader.releaseLock();
   }
-  return groupMap;
-};
-
-interface ColumnMeta {
-  key: channel.Key;
-  header: string;
 }
 
-interface ColumnMetaResult {
-  columns: ColumnMeta[];
-  columnsByIndexKey: Map<channel.Key, ColumnMeta[]>;
-  emptyGroupStrings: Map<channel.Key, string>;
-}
-
-const buildColumnMeta = (
-  channels: channel.Payload[],
-  groups: Map<channel.Key, channel.Key[]>,
-  headers?: Record<channel.Key | channel.Name, string>,
-): ColumnMetaResult => {
-  const channelMap = new Map(channels.map((ch) => [ch.key, ch]));
-  const columns: ColumnMeta[] = [];
-  const columnsByIndexKey = new Map<channel.Key, ColumnMeta[]>();
-  const emptyGroupStrings = new Map<channel.Key, string>();
-
-  for (const [indexKey, channelKeys] of groups) {
-    const groupColumns: ColumnMeta[] = [];
-    for (const key of channelKeys) {
-      const ch = channelMap.get(key);
-      if (ch == null) throw new UnexpectedError(`Channel ${key} not found`);
-      const meta: ColumnMeta = {
-        key,
-        header: headers?.[key] ?? headers?.[ch.name] ?? ch.name,
-      };
-      columns.push(meta);
-      groupColumns.push(meta);
-    }
-    columnsByIndexKey.set(indexKey, groupColumns);
-    // Pre-compute empty group string for fast row building
-    emptyGroupStrings.set(indexKey, ",".repeat(groupColumns.length - 1));
-  }
-
-  return { columns, columnsByIndexKey, emptyGroupStrings };
-};
-interface RecordEntry {
-  time: bigint;
-  values: string[];
-  indexKey: channel.Key;
-}
-
-const mergeSortedRecords = (a: RecordEntry[], b: RecordEntry[]): RecordEntry[] => {
-  const result: RecordEntry[] = [];
-  let i = 0;
-  let j = 0;
-  while (i < a.length && j < b.length)
-    if (a[i].time <= b[j].time) result.push(a[i++]);
-    else result.push(b[j++]);
-  result.push(...a.slice(i), ...b.slice(j));
-  return result;
-};
-
-const BUFFER_SIZE = 1000;
+const TRUNCATED = "The Core cut the read short before it finished.";

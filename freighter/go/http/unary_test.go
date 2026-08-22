@@ -11,6 +11,7 @@ package http_test
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"io"
 	"net/http"
@@ -39,6 +40,7 @@ var (
 	unaryServerFailingEncoder   freighter.UnaryServer[test.Request, test.Response]
 	unaryServerMsgpackErrors    freighter.UnaryServer[test.Request, test.Response]
 	unaryServerNoErrorEncoders  freighter.UnaryServer[test.Request, test.Response]
+	unaryServerStreaming        freighter.UnaryServer[test.Request, test.Response]
 	unaryClient                 freighter.UnaryClient[test.Request, test.Response]
 	unaryAddr                   address.Address
 	unaryApp                    *fiber.App
@@ -58,6 +60,54 @@ func (failingEncoder) Encode(context.Context, any) ([]byte, error) {
 
 func (failingEncoder) EncodeStream(context.Context, io.Writer, any) error {
 	return errFailingEncoderEncodeFail
+}
+
+// repeatingEncoder is a unary-server response encoder that writes the response message
+// once per byte of its ID, in as many writes. It is used to drive the streaming
+// response path in unary_server.go.
+type repeatingEncoder struct{}
+
+func (repeatingEncoder) ContentType() string { return "application/x-repeat" }
+
+func (e repeatingEncoder) Encode(ctx context.Context, v any) ([]byte, error) {
+	var buf bytes.Buffer
+	err := e.EncodeStream(ctx, &buf, v)
+	return buf.Bytes(), err
+}
+
+func (repeatingEncoder) EncodeStream(_ context.Context, w io.Writer, v any) error {
+	res, ok := v.(test.Response)
+	if !ok {
+		return errors.Newf("repeating encoder cannot encode %T", v)
+	}
+	for range res.ID {
+		if _, err := w.Write([]byte(res.Message)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// echoingEncoder is a unary-server response encoder that writes the response message
+// once. The streaming route leaves it out of WithStreamingResponse, so it drives the
+// uncompressed half of the streaming path.
+type echoingEncoder struct{}
+
+func (echoingEncoder) ContentType() string { return "application/x-echo" }
+
+func (e echoingEncoder) Encode(ctx context.Context, v any) ([]byte, error) {
+	var buf bytes.Buffer
+	err := e.EncodeStream(ctx, &buf, v)
+	return buf.Bytes(), err
+}
+
+func (echoingEncoder) EncodeStream(_ context.Context, w io.Writer, v any) error {
+	res, ok := v.(test.Response)
+	if !ok {
+		return errors.Newf("echoing encoder cannot encode %T", v)
+	}
+	_, err := w.Write([]byte(res.Message))
+	return err
 }
 
 var _ = BeforeSuite(func() {
@@ -106,6 +156,18 @@ var _ = BeforeSuite(func() {
 		"/no-error-encoders",
 		fhttp.WithRequestDecoders(json.Codec),
 		fhttp.WithErrorEncoders(),
+	)
+	unaryServerStreaming = fhttp.NewUnaryServer[test.Request, test.Response](
+		router,
+		"/streaming",
+		fhttp.WithRequestDecoders(json.Codec),
+		fhttp.WithResponseEncoders(repeatingEncoder{}, echoingEncoder{}),
+		fhttp.WithStreamingResponse(repeatingEncoder{}),
+	)
+	unaryServerStreaming.BindHandler(
+		func(_ context.Context, req test.Request) (test.Response, error) {
+			return test.Response(req), nil
+		},
 	)
 	unaryClient = MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response]())
 	router.BindTo(unaryApp)
@@ -593,6 +655,68 @@ var _ = Describe("Unary", func() {
 				Expect(got).To(Equal(test.Response(req)))
 			},
 		)
+	})
+
+	Describe("Streaming Response", func() {
+		const (
+			repeat = "application/x-repeat"
+			echo   = "application/x-echo"
+		)
+		// streamingPost sends req to the streaming route, asking for the given content
+		// encoding, and returns the response.
+		streamingPost := func(
+			ctx context.Context,
+			req test.Request,
+			accept string,
+			acceptEncoding string,
+		) *http.Response {
+			GinkgoHelper()
+			httpReq := MustSucceed(http.NewRequestWithContext(
+				ctx, http.MethodPost, "http://"+unaryAddr.String()+"/streaming",
+				bytes.NewReader(MustSucceed(json.Codec.Encode(ctx, req))),
+			))
+			httpReq.Header.Set(fiber.HeaderContentType, "application/json")
+			httpReq.Header.Set(fiber.HeaderAccept, accept)
+			httpReq.Header.Set(fiber.HeaderAcceptEncoding, acceptEncoding)
+			res := MustSucceed((&http.Client{
+				Transport: &http.Transport{DisableCompression: true},
+			}).Do(httpReq))
+			DeferCleanup(func() { Expect(res.Body.Close()).To(Succeed()) })
+			return res
+		}
+
+		It("should write the encoder's output as a chunked body", func(
+			ctx context.Context,
+		) {
+			res := streamingPost(
+				ctx, test.Request{ID: 3, Message: "ab"}, repeat, "identity",
+			)
+			Expect(res.StatusCode).To(Equal(http.StatusOK))
+			Expect(res.TransferEncoding).To(ConsistOf("chunked"))
+			Expect(res.Header.Get(fiber.HeaderContentEncoding)).To(BeEmpty())
+			Expect(io.ReadAll(res.Body)).To(Equal([]byte("ababab")))
+		})
+
+		It("should gzip a compressed encoder's body when the request accepts it", func(
+			ctx context.Context,
+		) {
+			res := streamingPost(ctx, test.Request{ID: 3, Message: "ab"}, repeat, "gzip")
+			Expect(res.StatusCode).To(Equal(http.StatusOK))
+			Expect(res.Header.Get(fiber.HeaderContentEncoding)).To(Equal("gzip"))
+			r := MustSucceed(gzip.NewReader(res.Body))
+			DeferCleanup(func() { Expect(r.Close()).To(Succeed()) })
+			Expect(io.ReadAll(r)).To(Equal([]byte("ababab")))
+		})
+
+		It("should leave an encoder the route did not name uncompressed", func(
+			ctx context.Context,
+		) {
+			res := streamingPost(ctx, test.Request{ID: 3, Message: "ab"}, echo, "gzip")
+			Expect(res.StatusCode).To(Equal(http.StatusOK))
+			Expect(res.TransferEncoding).To(ConsistOf("chunked"))
+			Expect(res.Header.Get(fiber.HeaderContentEncoding)).To(BeEmpty())
+			Expect(io.ReadAll(res.Body)).To(Equal([]byte("ab")))
+		})
 	})
 
 	Describe("Report", func() {

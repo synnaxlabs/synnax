@@ -130,6 +130,15 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/frame/delete",
 		),
+		FrameRead: http.NewUnaryServer[framer.ReadRequest, framer.ReadResponse](
+			router,
+			"/api/v1/frame/read",
+			http.WithResponseEncoders(framer.FrameEncoder, framer.CSVEncoder),
+			// CSV is decimal text and compresses by 70% or more. A frame body is
+			// binary samples: gzip shrinks it by under 10% and costs more time than
+			// the smaller body saves on all but a slow link.
+			http.WithStreamingResponse(framer.CSVEncoder),
+		),
 
 		// ONTOLOGY
 		OntologyRetrieve: http.NewUnaryServer[ontology.RetrieveRequest, ontology.RetrieveResponse](

@@ -21,9 +21,10 @@ export type UploadBody =
 
 /**
  * The wire encodings a FileTransport can transfer. ZIP carries a flat archive of named
- * files; JSON carries a single value.
+ * files; JSON carries a single value; FRAME and CSV carry telemetry, framed by the
+ * Synnax frame codec and as text respectively.
  */
-export type FileEncoding = "JSON" | "ZIP";
+export type FileEncoding = "JSON" | "ZIP" | "FRAME" | "CSV";
 
 /**
  * Options shared by FileTransport.upload and FileTransport.download. Carries the wire

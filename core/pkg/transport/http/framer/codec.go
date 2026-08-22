@@ -36,6 +36,8 @@ type (
 	StreamerRequest  = framer.StreamerRequest
 	StreamerResponse = framer.StreamerResponse
 	DeleteRequest    = framer.DeleteRequest
+	ReadRequest      = framer.ReadRequest
+	ReadResponse     = framer.ReadResponse
 )
 
 const (
@@ -54,7 +56,11 @@ const (
 	IteratorCommandSetBounds    = framer.IteratorCommandSetBounds
 	IteratorResponseVariantAck  = framer.IteratorResponseVariantAck
 	IteratorResponseVariantData = framer.IteratorResponseVariantData
+	IteratorAutoSpan            = framer.IteratorAutoSpan
 )
+
+// frameContentType is the media type of the binary frame encoding.
+const frameContentType = "application/vnd.synnax.frame"
 
 type Codec struct {
 	*codec.Codec
@@ -344,7 +350,7 @@ func (c *Codec) encodeIteratorResponse(
 // framer codec is stateful (it tracks the channel keys for the active stream).
 func WithCodec(channelResolver codec.ChannelResolver) http.StreamServerOption {
 	return http.WithAdditionalCodec(
-		"application/vnd.synnax.frame",
+		frameContentType,
 		func() encoding.Codec {
 			return &Codec{
 				LowerPerfCodec: json.Codec,
