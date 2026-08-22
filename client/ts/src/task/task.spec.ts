@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { id, TimeStamp, uuid } from "@synnaxlabs/x";
 import { assert, beforeAll, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -867,8 +867,9 @@ describe("Task", async () => {
       }
     });
 
-    it("gives up on a command no Driver answers", async () => {
-      const t = await testRack.createTask({
+    it("gives up on a command no Driver answers", { timeout: 40000 }, async () => {
+      const alive = await client.racks.create({ name: `alive-${id.create()}` });
+      const t = await alive.createTask({
         name: `deadline-${id.create()}`,
         config: {},
         type: "pagerduty_alert",
@@ -879,24 +880,33 @@ describe("Task", async () => {
       const off = client.tasks.onChange(params, (cached) => {
         if (query.isLive(cached) && cached.status?.variant === "loading") seeLoading();
       });
+      // The Core rewrites the statuses of every task on a rack it finds silent, so
+      // the rack is kept alive for the whole wait. The beat also proves unrelated
+      // status traffic neither renews the deadline nor cancels it.
+      const beat = setInterval(() => {
+        void setRackStatus(alive.key, "success", "Driver is running");
+      }, 1000);
       try {
         await client.tasks.retrieve(params);
-        await setRackStatus(testRack.key, "success", "Driver is running");
-        // Only the deadline is wound forward: the command and its echo still travel
-        // over the live stream, which never waits on a timer.
-        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+        await setRackStatus(alive.key, "success", "Driver is running");
         await client.tasks.executeCommand({ task: t.key, type: "start" });
         await loading;
-        await vi.advanceTimersByTimeAsync(TimeSpan.seconds(10).milliseconds);
-        const cached = client.tasks.getCached(params);
-        assert(query.isLive(cached));
-        expect(cached.status).toMatchObject({
-          variant: "warning",
-          message: "No response to the start command",
-          details: { running: false },
-        });
+        await expect
+          .poll(
+            () => {
+              const cached = client.tasks.getCached(params);
+              if (!query.isLive(cached)) return undefined;
+              return cached.status;
+            },
+            { timeout: 30000 },
+          )
+          .toMatchObject({
+            variant: "warning",
+            message: "No response to the start command",
+            details: { running: false },
+          });
       } finally {
-        vi.useRealTimers();
+        clearInterval(beat);
         off();
       }
     });
