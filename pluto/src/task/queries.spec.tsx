@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, ontology, status, task } from "@synnaxlabs/client";
+import { group, ontology, rack, status, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id, uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
@@ -261,10 +261,10 @@ describe("queries", () => {
     });
 
     it("should update task status when a command is executed", async () => {
-      const rack = await client.racks.create({
+      const testRack = await client.racks.create({
         name: "testRack",
       });
-      const testTask = await rack.createTask({
+      const testTask = await testRack.createTask({
         name: "commandTask",
         type: "pagerduty_alert",
         config: {},
@@ -277,6 +277,19 @@ describe("queries", () => {
         result.current.retrieve({});
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
+
+      // A rack with no Driver goes down within seconds of its creation, and a
+      // command on a down rack shows its warning rather than a wait for an answer.
+      await act(async () => {
+        await client.statuses.set(
+          status.create<typeof rack.statusDetailsZ>({
+            key: rack.statusKey(testRack.key),
+            variant: "success",
+            message: "Driver is running",
+            details: { rack: testRack.key },
+          }),
+        );
+      });
 
       const command: task.Command = {
         key: id.create(),
