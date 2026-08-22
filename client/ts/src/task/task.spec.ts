@@ -848,23 +848,24 @@ describe("Task", async () => {
         config: {},
         type: "pagerduty_alert",
       });
-      const params = { key: t.key };
-      const off = client.tasks.onChange(params, vi.fn());
+      const key = task.statusKey(t.key);
+      await client.tasks.retrieve({ key: t.key });
+      await setRackStatus(down.key, "warning", "no Driver here");
+      // The store is watched directly so the assertion reads the write the command
+      // makes. A subscribed query would let a refetch restore the stored status
+      // first, and a poll would only ever see whichever landed last.
+      let seeWrite = (_: status.Status): void => {};
+      const written = new Promise<status.Status>((resolve) => (seeWrite = resolve));
+      const off = client.statuses.store.subscribe((event) => {
+        if (event.variant === "set") seeWrite(event.value);
+      }, key);
       try {
-        await client.tasks.retrieve(params);
-        await setRackStatus(down.key, "warning", "no Driver here");
         await client.tasks.executeCommand({ task: t.key, type: "start" });
-        await expect
-          .poll(() => {
-            const cached = client.tasks.getCached(params);
-            if (!query.isLive(cached)) return undefined;
-            return cached.status;
-          })
-          .toMatchObject({
-            variant: "warning",
-            message: "no Driver here",
-            details: { running: false },
-          });
+        expect(await written).toMatchObject({
+          variant: "warning",
+          message: "no Driver here",
+          details: { running: false },
+        });
       } finally {
         off();
       }
