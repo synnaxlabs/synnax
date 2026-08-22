@@ -27,12 +27,12 @@ $drive = [System.IO.DriveInfo]::new("C")
 $minFreeBytes = [int64]$MinFreeGB * 1GB
 $totalFreed = 0
 
-function Get-DiskFreeMB {
-    return [math]::Round($drive.AvailableFreeSpace / 1MB, 0)
+function Get-DiskFreeGB {
+    return [math]::Round($drive.AvailableFreeSpace / 1GB, 1)
 }
 
-function Get-DiskUsedMB {
-    return [math]::Round(($drive.TotalSize - $drive.AvailableFreeSpace) / 1MB, 0)
+function Get-DiskUsedGB {
+    return [math]::Round(($drive.TotalSize - $drive.AvailableFreeSpace) / 1GB, 1)
 }
 
 function Test-EnoughSpace {
@@ -45,28 +45,27 @@ function Write-DiskSummary {
     $used = [math]::Round(($drive.TotalSize - $drive.AvailableFreeSpace) / 1GB, 1)
     $pct = [math]::Round(
         ($drive.TotalSize - $drive.AvailableFreeSpace) / $drive.TotalSize * 100, 1)
-    Write-Output ("  Disk total:   {0}GB / Used: {1}GB / Free: {2}GB ({3}%)" -f `
+    Write-Output ("  Disk total:   {0} GB / Used: {1} GB / Free: {2} GB ({3}%)" -f `
         $total, $used, $free, $pct)
 }
 
-$diskBefore = Get-DiskUsedMB
-$freeMB = Get-DiskFreeMB
-$minFreeMB = $MinFreeGB * 1024
-Write-Output "=== Build Cache Cleanup (target: ${MinFreeGB}GB free) ==="
-Write-Output "  Current free space: ${freeMB}MB (target: ${minFreeMB}MB)"
+$diskBefore = Get-DiskUsedGB
+$freeGB = Get-DiskFreeGB
+Write-Output "=== Build Cache Cleanup (target: ${MinFreeGB} GB free) ==="
+Write-Output "  Current free space: ${freeGB} GB (target: ${MinFreeGB} GB)"
 Write-Output ""
 
 # --- Above threshold: Keep Bazel cache warm ---
 if (Test-EnoughSpace) {
-    Write-Output "Free space ${freeMB}MB >= target ${minFreeMB}MB - keeping caches warm (no clean)."
+    Write-Output "Free space ${freeGB} GB >= target ${MinFreeGB} GB - keeping caches warm (no clean)."
     Write-Output ""
-    $diskAfter = Get-DiskUsedMB
+    $diskAfter = Get-DiskUsedGB
     $diskFreed = $diskBefore - $diskAfter
     Write-Output "=== Summary ==="
-    Write-Output "  Cache freed:  0MB"
-    Write-Output "  Disk before:  ${diskBefore}MB"
-    Write-Output "  Disk after:   ${diskAfter}MB"
-    Write-Output "  Disk freed:   ${diskFreed}MB"
+    Write-Output "  Cache freed:  0 GB"
+    Write-Output "  Disk before:  ${diskBefore} GB"
+    Write-Output "  Disk after:   ${diskAfter} GB"
+    Write-Output "  Disk freed:   ${diskFreed} GB"
     Write-DiskSummary
     return
 }
@@ -127,22 +126,22 @@ Write-Output ""
 
 # --- Check if we already have enough space after bazel clean ---
 if (Test-EnoughSpace) {
-    $freeMB = Get-DiskFreeMB
-    Write-Output "Free space ${freeMB}MB >= target ${minFreeMB}MB - skipping cache cleanup."
+    $freeGB = Get-DiskFreeGB
+    Write-Output "Free space ${freeGB} GB >= target ${MinFreeGB} GB - skipping cache cleanup."
     Write-Output ""
-    $diskAfter = Get-DiskUsedMB
+    $diskAfter = Get-DiskUsedGB
     $diskFreed = $diskBefore - $diskAfter
     Write-Output "=== Summary ==="
-    Write-Output "  Cache freed:  ${totalFreed}MB"
-    Write-Output "  Disk before:  ${diskBefore}MB"
-    Write-Output "  Disk after:   ${diskAfter}MB"
-    Write-Output "  Disk freed:   ${diskFreed}MB"
+    Write-Output ("  Cache freed:  {0} GB" -f [math]::Round($totalFreed / 1024, 1))
+    Write-Output "  Disk before:  ${diskBefore} GB"
+    Write-Output "  Disk after:   ${diskAfter} GB"
+    Write-Output "  Disk freed:   ${diskFreed} GB"
     Write-DiskSummary
     return
 }
 
 # --- Collect all cache files sorted oldest-first, delete until target met ---
-Write-Output "Deleting oldest cache files until ${MinFreeGB}GB free..."
+Write-Output "Deleting oldest cache files until ${MinFreeGB} GB free..."
 
 $cacheDirs = @(
     "C:\Users\Administrator\AppData\Local\go-build",
@@ -189,18 +188,18 @@ foreach ($dir in $cacheDirs) {
 Write-Output ""
 
 if (-not (Test-EnoughSpace)) {
-    $freeMB = Get-DiskFreeMB
-    Write-Output ("WARNING: Caches exhausted but free space {0}MB < target {1}MB" -f `
-        $freeMB, $minFreeMB)
+    $freeGB = Get-DiskFreeGB
+    Write-Output ("WARNING: Caches exhausted but free space {0} GB < target {1} GB" -f `
+        $freeGB, $MinFreeGB)
     Write-Output ""
 }
 
-$diskAfter = Get-DiskUsedMB
+$diskAfter = Get-DiskUsedGB
 $diskFreed = $diskBefore - $diskAfter
 
 Write-Output "=== Summary ==="
-Write-Output "  Cache freed:  ~${totalFreed}MB"
-Write-Output "  Disk before:  ${diskBefore}MB"
-Write-Output "  Disk after:   ${diskAfter}MB"
-Write-Output "  Disk freed:   ${diskFreed}MB"
+Write-Output ("  Cache freed:  ~{0} GB" -f [math]::Round($totalFreed / 1024, 1))
+Write-Output "  Disk before:  ${diskBefore} GB"
+Write-Output "  Disk after:   ${diskAfter} GB"
+Write-Output "  Disk freed:   ${diskFreed} GB"
 Write-DiskSummary
