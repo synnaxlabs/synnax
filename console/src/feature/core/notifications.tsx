@@ -17,7 +17,7 @@ const isMismatch = (status: Notifications.NotificationProps["status"]): boolean 
   return details.success && details.data.type === Synnax.SERVER_VERSION_MISMATCH;
 };
 
-export const Notification: Notifications.Notification = ({ status, silence }) => {
+const Notification: Notifications.Notification = ({ status, silence }) => {
   const details = Synnax.statusDetailsSchema.safeParse(status.details);
   const oldServer =
     details.success &&

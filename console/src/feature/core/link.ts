@@ -24,9 +24,9 @@ const SWAP_POLL_BREAKER_CONFIG: breaker.Config = {
   maxRetries: Math.ceil(CONNECT_TIMEOUT.milliseconds / SWAP_POLL_INTERVAL.milliseconds),
 };
 
-// ConnectContext supplies connectToCore with everything it needs to observe and
-// mutate connection state without binding to React. Production wires these to the Redux
-// store and the Synnax provider; tests inject controllable stubs.
+// ConnectContext supplies connectToCore with everything it needs to observe and mutate
+// connection state without binding to React. Production wires these to the Redux store
+// and the Synnax provider; tests inject controllable stubs.
 export interface ConnectContext {
   getState: () => State;
   getClient: () => Client | null;
@@ -41,9 +41,8 @@ export interface ConnectContext {
 // its connect() drives the outcome. No client is constructed here, so there is nothing
 // to close.
 //
-// It throws if the Core is unknown, if the provider never swaps clients before the
-// poll exhausts its retries, or with the client's typed rejection when the connection
-// fails.
+// It throws if the Core is unknown, if the provider never swaps clients before the poll
+// exhausts its retries, or with the client's typed rejection when the connection fails.
 export const connectToCore = async (
   key: string,
   { getState, getClient, setActive, poll }: ConnectContext,

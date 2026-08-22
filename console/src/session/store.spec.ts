@@ -9,7 +9,7 @@
 
 import { Drift, MAIN_WINDOW } from "@synnaxlabs/drift";
 import { type Haul } from "@synnaxlabs/pluto";
-import { deep, kv } from "@synnaxlabs/x";
+import { deep } from "@synnaxlabs/x";
 import { waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -32,13 +32,13 @@ const withoutDrift = (state: Session.State): Partial<Session.State> => {
  * Partitioning is the engine's business, so this asserts over all of them rather
  * than naming keys.
  */
-const readPersisted = (db: kv.MockAsync): Array<Partial<Session.State>> =>
+const readPersisted = (db: Session.Persist.MemoryKV): Array<Partial<Session.State>> =>
   [...db.store.entries()]
     .filter(([key]) => !key.endsWith(".slot"))
     .map(([, value]) => value as Partial<Session.State>);
 
 const waitForPersisted = async (
-  db: kv.MockAsync,
+  db: Session.Persist.MemoryKV,
   predicate: (payload: Partial<Session.State>) => boolean,
   message: string,
 ): Promise<void> =>
@@ -49,10 +49,10 @@ const waitForPersisted = async (
 const DEMO_KEY = Session.Core.key({ host: "demo.synnaxlabs.com", port: 9090 });
 
 describe("createStore", () => {
-  let db: kv.MockAsync;
+  let db: Session.Persist.MemoryKV;
 
   beforeEach(() => {
-    db = new kv.MockAsync();
+    db = new Session.Persist.MemoryKV();
   });
 
   const createStore = async (opts: Session.CreateStoreOptions = {}) =>

@@ -9,7 +9,7 @@
 
 import { createSlice } from "@reduxjs/toolkit";
 
-import { beginSwap, endSwap, hydrate } from "@/session/persist/state";
+import { beginSwap, endSwap, hydrate, storeUnavailable } from "@/session/persist/state";
 import { Select } from "@/session/select";
 
 export const SLICE_NAME = "persist";
@@ -21,9 +21,14 @@ export const SLICE_NAME = "persist";
 export interface SliceState {
   /** Whether a partition swap is between flush and hydrate. */
   swapping: boolean;
+  /** Whether the platform refuses to store the session at all. */
+  storeUnavailable: boolean;
 }
 
-export const ZERO_SLICE_STATE: SliceState = { swapping: false };
+export const ZERO_SLICE_STATE: SliceState = {
+  swapping: false,
+  storeUnavailable: false,
+};
 
 export interface StoreState {
   [SLICE_NAME]: SliceState;
@@ -43,6 +48,9 @@ const slice = createSlice({
       })
       .addCase(hydrate, (state) => {
         state.swapping = false;
+      })
+      .addCase(storeUnavailable, (state) => {
+        state.storeUnavailable = true;
       });
   },
 });
@@ -53,3 +61,9 @@ export const selectSwapping = (state: StoreState): boolean =>
   state[SLICE_NAME].swapping;
 
 export const useSelectSwapping = (): boolean => Select.useMemo(selectSwapping, []);
+
+export const selectStoreUnavailable = (state: StoreState): boolean =>
+  state[SLICE_NAME].storeUnavailable;
+
+export const useSelectStoreUnavailable = (): boolean =>
+  Select.useMemo(selectStoreUnavailable, []);

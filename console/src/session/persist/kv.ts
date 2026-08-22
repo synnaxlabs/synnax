@@ -12,11 +12,22 @@ import { LazyStore } from "@tauri-apps/plugin-store";
 
 import { Runtime } from "@/session/runtime";
 
+export interface Entry {
+  key: string;
+  value: unknown;
+}
+
 /**
  * A SugaredKV is a spiced up key-value store that provides a few extra goodies needed
  * for efficient persistence.
  */
 export interface SugaredKV extends kv.Async {
+  /**
+   * Write every entry as one unit. A partition commits its state slot and the pointer
+   * naming it together, so a reader never sees the pointer moved onto a slot whose
+   * bytes did not land.
+   */
+  setMany(entries: Entry[]): Promise<void>;
   /** Get the number of key-value pairs in the store. */
   length(): Promise<number>;
   /** Clear the store of all key-value pairs. */
@@ -35,7 +46,12 @@ class TauriKV implements SugaredKV {
   }
 
   async set<V>(key: string, value: V): Promise<void> {
-    await this.store.set(key, value);
+    await this.setMany([{ key, value }]);
+  }
+
+  async setMany(entries: Entry[]): Promise<void> {
+    for (const { key, value } of entries) await this.store.set(key, value);
+    // One save for the batch: the plugin rewrites the whole file per call.
     await this.store.save();
   }
 
@@ -76,7 +92,19 @@ class IndexedDBKV implements SugaredKV {
   }
 
   async set<V>(key: string, value: V): Promise<void> {
-    await this.run("readwrite", (store) => store.put(value, key));
+    await this.setMany([{ key, value }]);
+  }
+
+  async setMany(entries: Entry[]): Promise<void> {
+    const db = await this.open();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(OBJECT_STORE, "readwrite");
+      const store = tx.objectStore(OBJECT_STORE);
+      entries.forEach(({ key, value }) => store.put(value, key));
+      tx.oncomplete = () => resolve();
+      tx.onabort = tx.onerror = () =>
+        reject(new Error(`${this.name} write failed`, { cause: tx.error }));
+    });
   }
 
   async delete(key: string): Promise<void> {
@@ -113,6 +141,35 @@ class IndexedDBKV implements SugaredKV {
       request.onerror = () =>
         reject(new Error(`${this.name} operation failed`, { cause: request.error }));
     });
+  }
+}
+
+/** An in-memory SugaredKV. Nothing survives a reload; for specs. */
+export class MemoryKV implements SugaredKV {
+  readonly store = new Map<string, unknown>();
+
+  async get<V>(key: string): Promise<V | null> {
+    return (this.store.get(key) as V) ?? null;
+  }
+
+  async set<V>(key: string, value: V): Promise<void> {
+    this.store.set(key, value);
+  }
+
+  async setMany(entries: Entry[]): Promise<void> {
+    entries.forEach(({ key, value }) => this.store.set(key, value));
+  }
+
+  async delete(key: string): Promise<void> {
+    this.store.delete(key);
+  }
+
+  async length(): Promise<number> {
+    return this.store.size;
+  }
+
+  async clear(): Promise<void> {
+    this.store.clear();
   }
 }
 

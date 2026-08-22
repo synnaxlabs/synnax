@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { Drift, MAIN_WINDOW } from "@synnaxlabs/drift";
-import { kv } from "@synnaxlabs/x";
 import { act, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -70,7 +69,7 @@ describe("useLogout", () => {
   });
 
   it("should not restore the project selection when logging back into the same Core", async () => {
-    const db = new kv.MockAsync();
+    const db = new Session.Persist.MemoryKV();
     const store = await Session.createStore({
       runtime: new Drift.NoopRuntime<Session.State, Session.Action>(),
       enablePrerender: false,

@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createAction, type Middleware, type PayloadAction } from "@reduxjs/toolkit";
+import {
+  createAction,
+  type Middleware,
+  type MiddlewareAPI,
+  type PayloadAction,
+} from "@reduxjs/toolkit";
 import {
   type CrudeTimeSpan,
   debounce,
@@ -137,12 +142,19 @@ export const matchHydrate = <S extends object>(
 export const beginSwap = createAction("persist/beginSwap");
 /** Clears the swap mark when a failed swap will never hydrate. */
 export const endSwap = createAction("persist/endSwap");
+/**
+ * Marks the store unwritable. The platform refuses it outright — a cross-origin
+ * frame, private browsing on an older engine, an exhausted quota — so the session
+ * runs but will not survive a reload.
+ */
+export const storeUnavailable = createAction("persist/storeUnavailable");
 export type Action = ReturnType<
   | typeof revertState
   | typeof clearState
   | typeof hydrate
   | typeof beginSwap
   | typeof endSwap
+  | typeof storeUnavailable
 >;
 
 /** Slots kept per partition before the ring wraps. */
@@ -183,15 +195,7 @@ class Partition<S extends object> {
   async read(): Promise<Partial<S>> {
     const out: Partial<S> = {};
     const slot = await this.readSlot();
-    // A store the platform will not open at all must not stop the app booting: the
-    // session falls back to its initial state and simply does not persist.
-    let data: Partial<S> | null;
-    try {
-      data = (await this.db.get(this.stateKey(slot))) as Partial<S> | null;
-    } catch (err) {
-      console.error(`failed to read partition ${this.base}`, err);
-      return out;
-    }
+    const data = (await this.db.get(this.stateKey(slot))) as Partial<S> | null;
     if (data == null) return out;
     this.keys().forEach((key) => {
       const raw = data[key];
@@ -207,7 +211,11 @@ class Partition<S extends object> {
     return out;
   }
 
-  /** Write the state's slices into the next ring slot and advance the pointer. */
+  /**
+   * Write the state's slices into the next ring slot and advance the pointer onto it,
+   * as one unit.
+   * @throws {Error} if the store rejects the write.
+   */
   async write(state: S): Promise<void> {
     const slot = nextSlot(await this.readSlot());
     const data: Partial<S> = {};
@@ -215,17 +223,21 @@ class Partition<S extends object> {
       data[key] = state[key];
     });
     try {
-      await this.db.set(this.stateKey(slot), data);
+      await this.db.setMany([
+        { key: this.stateKey(slot), value: data },
+        { key: this.slotKey(), value: { slot } },
+      ]);
     } catch (err) {
-      console.error(`failed to write partition ${this.base} at slot ${slot}`, err);
-      return;
+      throw new Error(`failed to write partition ${this.base} at slot ${slot}`, {
+        cause: err,
+      });
     }
-    await this.setSlot(slot);
   }
 
   /** Step the ring pointer back one slot. */
   async revert(): Promise<void> {
-    await this.setSlot(prevSlot(await this.readSlot()));
+    const slot = prevSlot(await this.readSlot());
+    await this.db.setMany([{ key: this.slotKey(), value: { slot } }]);
   }
 
   private keys(): Array<SliceKey<S>> {
@@ -240,25 +252,10 @@ class Partition<S extends object> {
     return `${this.base}.slot`;
   }
 
+  /** Bad or absent bytes read as slot zero; a store that refuses the read throws. */
   private async readSlot(): Promise<number> {
-    try {
-      const stored = slotPointerZ.safeParse(await this.db.get(this.slotKey()));
-      return stored.success ? stored.data.slot : 0;
-    } catch (err) {
-      console.error(`failed to read the slot pointer of partition ${this.base}`, err);
-      return 0;
-    }
-  }
-
-  /** @throws {Error} if the pointer cannot be written. */
-  private async setSlot(slot: number): Promise<void> {
-    try {
-      await this.db.set(this.slotKey(), { slot });
-    } catch (err) {
-      throw new Error(`failed to bump slot pointer of partition ${this.base}`, {
-        cause: err,
-      });
-    }
+    const stored = slotPointerZ.safeParse(await this.db.get(this.slotKey()));
+    return stored.success ? stored.data.slot : 0;
   }
 }
 
@@ -279,6 +276,8 @@ class Engine<S extends object> {
   context: Context;
   /** The composed global + Core + project state read on open. */
   initialState: S;
+  /** Whether the store refused every read on open. */
+  unusable = false;
 
   private readonly db: SugaredKV;
   private readonly initial: S;
@@ -364,15 +363,23 @@ class Engine<S extends object> {
   // project, whose partition holds the workspace.
   private async compose(): Promise<void> {
     const state = deep.copy(this.initial);
-    Object.assign(state, await this.readSeed());
-    Object.assign(state, await this.global().read());
-    const { core } = this.getContext(state);
-    if (core != null) Object.assign(state, await this.core(core).read());
-    const context = this.getContext(state);
-    if (context.core != null && context.project != null)
-      Object.assign(state, await this.project(context.core, context.project).read());
+    try {
+      Object.assign(state, await this.readSeed());
+      Object.assign(state, await this.global().read());
+      const { core } = this.getContext(state);
+      if (core != null) Object.assign(state, await this.core(core).read());
+      const context = this.getContext(state);
+      if (context.core != null && context.project != null)
+        Object.assign(state, await this.project(context.core, context.project).read());
+      this.context = context;
+    } catch (err) {
+      // A platform that refuses storage outright must not stop the app booting. The
+      // session runs from its initial state; the middleware tells the user it will
+      // not be saved.
+      console.error("failed to read the session store", err);
+      this.unusable = true;
+    }
     this.initialState = state;
-    this.context = context;
   }
 
   /** The seed's slices, or nothing when the store already holds a session. */
@@ -430,15 +437,23 @@ const createMiddleware = <S extends object>(
 ): Middleware<record.Unknown> => {
   let current = engine.context;
   let swapping = false;
+  let announced = false;
+  const announceUnavailable = (store: MiddlewareAPI) => {
+    if (announced) return;
+    announced = true;
+    store.dispatch(storeUnavailable());
+  };
   // Concurrent switches race: a slow stale swap hydrating last would clobber
   // the newer context's slices, so only the latest generation may hydrate.
   let swapGen = 0;
   return (store) => {
+    if (engine.unusable) announceUnavailable(store);
     const debouncedPersist = debounce.debounce(() => {
       if (swapping) return;
-      engine
-        .persist(store.getState() as S, current)
-        .catch((e: unknown) => console.error("Failed to persist state", e));
+      engine.persist(store.getState() as S, current).catch((e: unknown) => {
+        console.error("failed to persist state", e);
+        announceUnavailable(store);
+      });
     }, debounceInterval);
     return (next) => (action) => {
       const result = next(action);
