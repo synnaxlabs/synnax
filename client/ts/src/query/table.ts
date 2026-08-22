@@ -148,6 +148,8 @@ export class Table<
   private readonly batchSubscribers = new Set<BatchSubscriber<Key, Value>>();
   private readonly keyedSubscribers = new Map<Key, Set<TableSubscriber<Key, Value>>>();
   private batching: TableEvent<Key, Value>[] | null = null;
+  /** One set per in-flight fetch, collecting the keys written under it. */
+  private readonly fetchWrites = new Set<Set<Key>>();
   private readonly onError: (error: Error) => void;
   private readonly equal: (a: Value, b: Value, key: Key) => boolean;
   private readonly fetchEntries?: (keys: Key[]) => Promise<Array<Keyed<Key, Value>>>;
@@ -308,9 +310,10 @@ export class Table<
   /**
    * Resolves the given keys to records: serves cached entries and fetches the misses
    * through the table's fetch, hydrating results under the declared mode. With refresh,
-   * every key is fetched regardless of presence. Returns the table's entries for the
-   * found keys in input order, deduplicated; keys the cluster no longer has are
-   * omitted. Tables without a fetch serve cached entries only.
+   * every key is fetched regardless of presence. A key written while the fetch was in
+   * flight keeps that newer value. Returns the table's entries for the found keys in
+   * input order, deduplicated; keys the cluster no longer has are omitted. Tables
+   * without a fetch serve cached entries only.
    */
   async retrieve(keys: Key[], opts: { refresh?: boolean } = {}): Promise<Value[]> {
     if (this.fetchBatcher != null) {
@@ -318,10 +321,20 @@ export class Table<
         opts.refresh === true ? keys : keys.filter((key) => !this.entries.has(key));
       if (misses.length > 0) {
         const gen = this.gen;
-        const fetched = await this.fetchBatcher.enqueue(misses);
-        if (gen === this.gen && fetched.length > 0)
-          if (opts.refresh === true) this.set(fetched);
-          else this.ingest(fetched);
+        const written = new Set<Key>();
+        this.fetchWrites.add(written);
+        let fetched: Array<Keyed<Key, Value>>;
+        try {
+          fetched = await this.fetchBatcher.enqueue(misses);
+        } finally {
+          this.fetchWrites.delete(written);
+        }
+        // A write landing mid-fetch is newer than the fetched record, so hydrating
+        // that key would revert it.
+        const fresh = fetched.filter(({ key }) => !written.has(key));
+        if (gen === this.gen && fresh.length > 0)
+          if (opts.refresh === true) this.set(fresh);
+          else this.ingest(fresh);
       }
     }
     const seen = new Set<Key>();
@@ -484,6 +497,7 @@ export class Table<
   }
 
   private notify(event: TableEvent<Key, Value>) {
+    this.fetchWrites.forEach((written) => written.add(event.key));
     if (this.batching != null) {
       this.batching.push(event);
       return;

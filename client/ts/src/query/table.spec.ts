@@ -1400,6 +1400,21 @@ describe("Table", () => {
       expect(fetch).toHaveBeenCalledTimes(2);
     });
 
+    it("should keep an entry written mid-refresh over the fetched record", async () => {
+      let release: (entries: Item[]) => void = () => {};
+      const fetch = vi.fn(
+        async () => await new Promise<Item[]>((resolve) => (release = resolve)),
+      );
+      const table = fetchTable(fetch);
+      table.set([item("a", "original")]);
+      const pending = table.retrieve(["a"], { refresh: true });
+      await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+      table.set([item("a", "renamed")]);
+      release([item("a", "original")]);
+      await pending;
+      expect(table.get("a")).toEqual(item("a", "renamed"));
+    });
+
     it("should hydrate only the caller's own keys from a shared window", async () => {
       let release: (entries: Item[]) => void = () => {};
       let windowKeys: string[] = [];
