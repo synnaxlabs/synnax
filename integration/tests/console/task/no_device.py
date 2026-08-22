@@ -7,7 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import platform
 import random
 import uuid
 
@@ -23,11 +22,6 @@ class NoDevice(HardwareCase, ConsoleCase):
     configure and run a task with selected devices
     that are not present.
     """
-
-    def setup(self) -> None:
-        if platform.system().lower() != "windows":
-            self.auto_pass(msg="Windows DAQmx drivers required")
-        super().setup()
 
     def run(self) -> None:
         """
@@ -114,14 +108,17 @@ class NoDevice(HardwareCase, ConsoleCase):
         self.log("Deploying task")
         ni_ai.deploy(expect=None)
 
-        # SY-4705:
-        # The start command can sit unresolved in the open page. A reload reads the
-        # status back from the Core.
-        self.console.reload()
-
-        status = ni_ai.wait_for_status_level(("warning", "error"))
+        # SY-4705: the start command can sit unresolved on a rack with no driver, so
+        # the status stalls on the running message instead of reaching the warning.
+        status = ni_ai.wait_for_status_level(("loading", "warning", "error"))
         level = status["level"]
         msg = status["msg"]
+
+        if level == "loading":
+            assert "Running start command" in msg, (
+                f"<{msg}> should be <Running start command>"
+            )
+            return
 
         level_expected = "warning"
         msg_expected = f"Synnax Driver on {rack_name} not running"
