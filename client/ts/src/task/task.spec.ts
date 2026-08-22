@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, TimeStamp, uuid } from "@synnaxlabs/x";
+import { id, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { assert, beforeAll, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -19,6 +19,9 @@ import { task } from "@/task";
 import { createTestClient, waitForStreamLive } from "@/testutil";
 
 const client = createTestClient();
+
+// Mirrors the deadline the task client gives an unanswered command.
+const COMMAND_DEADLINE = TimeSpan.seconds(10);
 
 describe("Task", async () => {
   const testRack = await client.racks.create({ name: "test" });
@@ -867,46 +870,39 @@ describe("Task", async () => {
       }
     });
 
-    it("gives up on a command no Driver answers", { timeout: 40000 }, async () => {
+    it("gives up on a command no Driver answers", async () => {
       const alive = await client.racks.create({ name: `alive-${id.create()}` });
       const t = await alive.createTask({
         name: `deadline-${id.create()}`,
         config: {},
         type: "pagerduty_alert",
       });
-      const params = { key: t.key };
+      const key = task.statusKey(t.key);
+      // The status store is watched directly, leaving no subscribed query behind:
+      // winding the clock forward would otherwise reach the cache streamer's
+      // reconcile, whose refetch replaces the very status under test.
       let seeLoading = (): void => {};
       const loading = new Promise<void>((resolve) => (seeLoading = resolve));
-      const off = client.tasks.onChange(params, (cached) => {
-        if (query.isLive(cached) && cached.status?.variant === "loading") seeLoading();
-      });
-      // The Core rewrites the statuses of every task on a rack it finds silent, so
-      // the rack is kept alive for the whole wait. The beat also proves unrelated
-      // status traffic neither renews the deadline nor cancels it.
-      const beat = setInterval(() => {
-        void setRackStatus(alive.key, "success", "Driver is running");
-      }, 1000);
+      const off = client.statuses.store.subscribe((event) => {
+        if (event.variant === "set" && event.value.variant === "loading") seeLoading();
+      }, key);
       try {
-        await client.tasks.retrieve(params);
+        await client.tasks.retrieve({ key: t.key });
         await setRackStatus(alive.key, "success", "Driver is running");
+        vi.useFakeTimers({
+          toFake: ["setTimeout", "clearTimeout"],
+          shouldAdvanceTime: true,
+        });
         await client.tasks.executeCommand({ task: t.key, type: "start" });
         await loading;
-        await expect
-          .poll(
-            () => {
-              const cached = client.tasks.getCached(params);
-              if (!query.isLive(cached)) return undefined;
-              return cached.status;
-            },
-            { timeout: 30000 },
-          )
-          .toMatchObject({
-            variant: "warning",
-            message: "No response to the start command",
-            details: { running: false },
-          });
+        await vi.advanceTimersByTimeAsync(COMMAND_DEADLINE.milliseconds);
+        expect(client.statuses.store.get(key)).toMatchObject({
+          variant: "warning",
+          message: "No response to the start command",
+          details: { running: false },
+        });
       } finally {
-        clearInterval(beat);
+        vi.useRealTimers();
         off();
       }
     });
