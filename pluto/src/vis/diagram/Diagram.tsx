@@ -315,7 +315,6 @@ export const create = ({
       FIT_VIEW_DEBOUNCE,
       [fitView],
     );
-    // Replaces React Flow's fitView prop, which ignores content outside a node's box (labels).
     const handleInit = useCallback(
       () => fitView(fitViewOptions),
       [fitView, fitViewOptions],
