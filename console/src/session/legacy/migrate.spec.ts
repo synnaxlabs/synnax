@@ -141,15 +141,84 @@ describe("Legacy.migrate", () => {
     expect(await Legacy.migrate(read)).toEqual({});
   });
 
-  it("should carry what it can when a branch fails validation", async () => {
+  it("should carry the other branches when one fails validation", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const [read] = createReader({
       ...FULL,
       "console-persisted-state.3": { ...BLOB, cluster: { clusters: "corrupt" } },
     });
-    expect(await Legacy.migrate(read)).toEqual({});
+    const seed = await Legacy.migrate(read);
+    expect(seed.core).toBeUndefined();
+    expect(seed.theme?.mode).toBe("light");
+    expect(seed.color).toBeDefined();
+    expect(seed.project?.selected).toBe(WORKSPACE_KEY);
     expect(errorSpy).toHaveBeenCalled();
     errorSpy.mockRestore();
+  });
+
+  it("should keep the Cores it can read when one record fails validation", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const [read] = createReader({
+      ...FULL,
+      "console-persisted-state.3": {
+        ...BLOB,
+        cluster: {
+          activeCluster: null,
+          clusters: { ...BLOB.cluster.clusters, broken: { name: "Broken" } },
+        },
+      },
+    });
+    const { core } = await Legacy.migrate(read);
+    expect(Object.keys(core?.cores ?? {}).sort()).toEqual(
+      ["DEMO", LOCAL_LEGACY_KEY].sort(),
+    );
+    expect(errorSpy).toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
+  it("should carry a Core whose parameters sat under props", async () => {
+    const [read] = createReader({
+      ...FULL,
+      "console-persisted-state.3": {
+        ...BLOB,
+        cluster: {
+          activeCluster: LOCAL_LEGACY_KEY,
+          clusters: {
+            [LOCAL_LEGACY_KEY]: {
+              key: LOCAL_LEGACY_KEY,
+              name: "Local",
+              props: {
+                host: "localhost",
+                port: "9090",
+                username: "synnax",
+                password: "seldon",
+                secure: false,
+              },
+            },
+          },
+        },
+      },
+    });
+    const { core } = await Legacy.migrate(read);
+    expect(core?.cores[LOCAL_LEGACY_KEY]).toMatchObject({
+      name: "Local",
+      host: "localhost",
+      port: 9090,
+      username: "synnax",
+      password: "seldon",
+    });
+    expect(core?.selected).toBe(LOCAL_LEGACY_KEY);
+  });
+
+  it("should carry the workspace selection when it is stored as a workspace", async () => {
+    const [read] = createReader({
+      ...FULL,
+      "console-persisted-state.3": {
+        ...BLOB,
+        workspace: { active: { key: WORKSPACE_KEY, name: "My Workspace" } },
+      },
+    });
+    expect((await Legacy.migrate(read)).project?.selected).toBe(WORKSPACE_KEY);
   });
 
   it("should leave the slices it does not carry at their defaults", async () => {
