@@ -47,9 +47,18 @@ span.pluto-text {
         padding-inline: 0.4em;
         justify-content: center;
         background: var(--pluto-keycap-bg, var(--pluto-gray-l2));
-        border: var(--pluto-border-width) solid
-            var(--pluto-keycap-border-color, var(--pluto-border-color));
+
+        /* Geometry off the color chain: a blank border color voids the shorthand, and
+           the zeroed width then shifts every cap in a right-aligned row. */
+        border: var(--pluto-border-width) solid;
+        border-color: var(--pluto-keycap-border-color, var(--pluto-border-color));
         border-radius: var(--pluto-border-radius);
+
+        /* An icon already fits inside the square, so padding it moves nothing and
+           only widens the row's intrinsic size, knocking the caps off whole pixels. */
+        &:has(> .pluto-icon) {
+            padding-inline: 0;
+        }
 
         &.pluto-text--p {
             height: var(--pluto-p-line-height);

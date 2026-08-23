@@ -169,6 +169,12 @@
         margin-left: auto;
     }
 
+    /* Cap content that outgrows the square sizes the row past the caps themselves, so
+       pin them to the row's right edge and every hint ends on the same edge. */
+    .pluto-trigger-indicator > .pluto-text {
+        justify-content: flex-end;
+    }
+
     &.pluto--square {
         padding: 0;
         & .pluto-icon {
@@ -238,11 +244,15 @@
 
     &.pluto-btn--text {
         /* Grounded, not inherited: custom props cascade, so an undeclared bg
-           would repaint a host row's selection fill inside the nested button. */
+           would repaint a host row's selection fill inside the nested button. An
+           undeclared state border color is worse: the shared hover and active rules
+           below blank --pluto-border-color for the whole subtree. */
         --pluto-bg: transparent;
         --pluto-hover-bg: var(--pluto-fill-hover);
         --pluto-active-bg: var(--pluto-fill-press);
         --pluto-border-color: var(--pluto-gray-l0);
+        --pluto-hover-border-color: var(--pluto-gray-l0);
+        --pluto-active-border-color: var(--pluto-gray-l0);
 
         /* A shade reads as de-emphasis, so hover restores full text color. A crude
            color is semantic and sets an inline style, which this cannot override. */
