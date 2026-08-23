@@ -11,10 +11,10 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { Persist } from "@/session/persist";
 
-// Runtime.ENGINE resolves to "web" under jsdom, so openSugaredKV returns a
-// localStorage-backed store. The suite exercises that implementation end to end.
-describe("openSugaredKV (LocalStorageKV)", () => {
-  beforeEach(() => localStorage.clear());
+// Runtime.ENGINE resolves to "web" under jsdom, so openSugaredKV returns an
+// IndexedDB-backed store. The suite exercises that implementation end to end.
+describe("openSugaredKV (IndexedDBKV)", () => {
+  beforeEach(async () => await Persist.openSugaredKV("base").clear());
 
   it("should round-trip a value through JSON serialization", async () => {
     const kv = Persist.openSugaredKV("base");
@@ -42,6 +42,13 @@ describe("openSugaredKV (LocalStorageKV)", () => {
     await other.set("c", 3);
     await expect(kv.length()).resolves.toBe(2);
     await expect(other.length()).resolves.toBe(1);
+  });
+
+  it("should list every key it holds", async () => {
+    const kv = Persist.openSugaredKV("base");
+    await kv.set("a", 1);
+    await kv.set("b", 2);
+    await expect(kv.keys().then((keys) => keys.sort())).resolves.toEqual(["a", "b"]);
   });
 
   it("should clear only keys scoped to its base", async () => {

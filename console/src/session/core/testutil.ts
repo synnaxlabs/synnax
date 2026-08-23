@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Core, keyed, SLICE_NAME } from "@/session/core/slice";
+import { uuid } from "@synnaxlabs/x";
+
+import { type Core, SLICE_NAME } from "@/session/core/slice";
 import { type ConsolePreloadedState } from "@/testutil";
 
 /** Connection parameters for the local test core every live-core spec runs against. */
@@ -19,8 +21,12 @@ export const CONNECTION_PARAMS: Omit<Core, "key" | "name"> = {
   secure: false,
 };
 
-export const createCore = (name: string, overrides: Partial<Core> = {}): Core =>
-  keyed({ name, ...CONNECTION_PARAMS, ...overrides });
+export const createCore = (name: string, overrides: Partial<Core> = {}): Core => ({
+  key: uuid.create(),
+  name,
+  ...CONNECTION_PARAMS,
+  ...overrides,
+});
 
 export const createCoreState = (
   cores: Core[],

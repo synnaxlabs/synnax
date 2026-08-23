@@ -20,6 +20,9 @@ const BASE: Omit<Core.Core, "key"> = {
   secure: false,
 };
 
+const ALPHA: Core.Core = { ...BASE, key: "alpha", name: "Alpha" };
+const BRAVO: Core.Core = { ...BASE, key: "bravo", name: "Bravo", port: 9091 };
+
 const reduce = (state: Core.SliceState, action: Core.Action): Core.SliceState =>
   Core.reducer(state, action);
 
@@ -28,108 +31,119 @@ const withCores = (...cores: Core.Core[]): Core.SliceState => ({
   cores: Object.fromEntries(cores.map((c) => [c.key, c])),
 });
 
-describe("Core.key", () => {
-  it("should key a Core by its host and port", () => {
-    expect(Core.key({ host: "example.com", port: 9090 })).toBe("example.com:9090");
-  });
-
-  it("should give two Cores at the same address the same key", () => {
-    expect(Core.keyed({ ...BASE, name: "A" }).key).toBe(
-      Core.keyed({ ...BASE, name: "B" }).key,
-    );
-  });
-
-  it("should separate Cores that differ only in port", () => {
-    expect(Core.keyed(BASE).key).not.toBe(Core.keyed({ ...BASE, port: 9091 }).key);
-  });
-});
-
 describe("set", () => {
-  it("should add a Core under the key its address implies", () => {
+  it("should generate a key for a Core the user has just added", () => {
     const state = reduce(Core.ZERO_SLICE_STATE, Core.set(BASE));
-    expect(state.cores["example.com:9090"]).toMatchObject({ name: "My Core" });
+    const added = Object.values(state.cores).find((c) => c.name === BASE.name);
+    expect(added?.key).toBeTruthy();
   });
 
-  it("should replace the entry at the same address rather than add a twin", () => {
-    let state = reduce(Core.ZERO_SLICE_STATE, Core.set(BASE));
-    state = reduce(state, Core.set({ ...BASE, name: "Renamed" }));
+  it("should keep two Cores at one address apart", () => {
+    let state = reduce(Core.ZERO_SLICE_STATE, Core.set({ ...BASE, name: "A" }));
+    state = reduce(state, Core.set({ ...BASE, name: "B" }));
     const atAddress = Object.values(state.cores).filter(
       ({ host, port }) => host === BASE.host && port === BASE.port,
     );
-    expect(atAddress).toHaveLength(1);
-    expect(atAddress[0].name).toBe("Renamed");
+    expect(atAddress).toHaveLength(2);
   });
 
-  it("should keep Cores that differ only in the secure flag apart from nothing", () => {
-    let state = reduce(Core.ZERO_SLICE_STATE, Core.set(BASE));
-    state = reduce(state, Core.set({ ...BASE, secure: true }));
-    expect(state.cores["example.com:9090"].secure).toBe(true);
-  });
-
-  it("should move the entry when an edit changes the address", () => {
-    let state = reduce(Core.ZERO_SLICE_STATE, Core.set(BASE));
-    state = reduce(
-      state,
-      Core.set({ ...BASE, port: 9091, prevKey: "example.com:9090" }),
+  it("should replace the Core stored under an explicit key", () => {
+    const state = reduce(
+      withCores(ALPHA),
+      Core.set({ ...BASE, key: ALPHA.key, name: "Renamed" }),
     );
-    expect(state.cores["example.com:9090"]).toBeUndefined();
-    expect(state.cores["example.com:9091"]).toBeDefined();
+    expect(Object.keys(state.cores)).toEqual([ALPHA.key]);
+    expect(state.cores[ALPHA.key].name).toBe("Renamed");
   });
 
-  it("should follow the selection when an edit moves the selected Core", () => {
-    let state = reduce(Core.ZERO_SLICE_STATE, Core.set(BASE));
-    state = reduce(state, Core.select("example.com:9090"));
-    state = reduce(
-      state,
-      Core.set({ ...BASE, port: 9091, prevKey: "example.com:9090" }),
+  it("should keep the key when an edit changes the address", () => {
+    const state = reduce(
+      withCores(ALPHA),
+      Core.set({ ...ALPHA, port: 9099, key: ALPHA.key }),
     );
-    expect(state.selected).toBe("example.com:9091");
+    expect(state.cores[ALPHA.key].port).toBe(9099);
+  });
+
+  it("should keep the cached cluster when an edit carries none", () => {
+    const state = reduce(
+      withCores({ ...ALPHA, clusterKey: "cluster-1" }),
+      Core.set({ ...BASE, key: ALPHA.key, name: "Renamed" }),
+    );
+    expect(state.cores[ALPHA.key].clusterKey).toBe("cluster-1");
+  });
+});
+
+describe("setClusterKey", () => {
+  it("should cache the cluster a Core connected to", () => {
+    const state = reduce(
+      withCores(ALPHA),
+      Core.setClusterKey({ key: ALPHA.key, clusterKey: "cluster-1" }),
+    );
+    expect(state.cores[ALPHA.key].clusterKey).toBe("cluster-1");
+  });
+
+  it("should replace the cluster when the address serves another one", () => {
+    const state = reduce(
+      withCores({ ...ALPHA, clusterKey: "cluster-1" }),
+      Core.setClusterKey({ key: ALPHA.key, clusterKey: "cluster-2" }),
+    );
+    expect(state.cores[ALPHA.key].clusterKey).toBe("cluster-2");
+  });
+
+  it("should drop a cluster key for a missing Core", () => {
+    const state = reduce(
+      Core.ZERO_SLICE_STATE,
+      Core.setClusterKey({ key: "nowhere", clusterKey: "cluster-1" }),
+    );
+    expect(state.cores.nowhere).toBeUndefined();
+  });
+});
+
+describe("defaults", () => {
+  it("should start with the local and demo Cores under their own keys", () => {
+    expect(Object.keys(Core.ZERO_SLICE_STATE.cores).sort()).toEqual(
+      [Core.DEMO_KEY, Core.LOCAL_KEY].sort(),
+    );
   });
 });
 
 describe("remove", () => {
   it("should remove a single Core by key", () => {
-    const alpha = Core.keyed({ ...BASE, name: "Alpha" });
-    const state = reduce(withCores(alpha), Core.remove(alpha.key));
-    expect(state.cores[alpha.key]).toBeUndefined();
+    const state = reduce(withCores(ALPHA), Core.remove(ALPHA.key));
+    expect(state.cores[ALPHA.key]).toBeUndefined();
   });
 
   it("should remove multiple Cores by key", () => {
-    const alpha = Core.keyed({ ...BASE, name: "Alpha" });
-    const beta = Core.keyed({ ...BASE, name: "Beta", port: 9091 });
-    const state = reduce(withCores(alpha, beta), Core.remove([alpha.key, beta.key]));
+    const state = reduce(withCores(ALPHA, BRAVO), Core.remove([ALPHA.key, BRAVO.key]));
     expect(Object.keys(state.cores)).toHaveLength(0);
   });
 
   it("should leave the defaults untouched when removing a missing key", () => {
-    const state = reduce(Core.ZERO_SLICE_STATE, Core.remove("nowhere:1"));
+    const state = reduce(Core.ZERO_SLICE_STATE, Core.remove("nowhere"));
     expect(Object.keys(state.cores)).toEqual(Object.keys(Core.ZERO_SLICE_STATE.cores));
   });
 
   it("should clear the selection when the selected Core is removed", () => {
-    const alpha = Core.keyed({ ...BASE, name: "Alpha" });
-    let state = reduce(withCores(alpha), Core.select(alpha.key));
-    state = reduce(state, Core.remove(alpha.key));
+    let state = reduce(withCores(ALPHA), Core.select(ALPHA.key));
+    state = reduce(state, Core.remove(ALPHA.key));
     expect(state.selected).toBeUndefined();
   });
 
   it("should keep the selection when a different Core is removed", () => {
-    const alpha = Core.keyed({ ...BASE, name: "Alpha" });
-    const beta = Core.keyed({ ...BASE, name: "Beta", port: 9091 });
-    let state = reduce(withCores(alpha, beta), Core.select(alpha.key));
-    state = reduce(state, Core.remove(beta.key));
-    expect(state.selected).toBe(alpha.key);
+    let state = reduce(withCores(ALPHA, BRAVO), Core.select(ALPHA.key));
+    state = reduce(state, Core.remove(BRAVO.key));
+    expect(state.selected).toBe(ALPHA.key);
   });
 });
 
 describe("select / clearSelected", () => {
   it("should set the selected key", () => {
-    const state = reduce(Core.ZERO_SLICE_STATE, Core.select("example.com:9090"));
-    expect(state.selected).toBe("example.com:9090");
+    const state = reduce(Core.ZERO_SLICE_STATE, Core.select(Core.DEMO_KEY));
+    expect(state.selected).toBe(Core.DEMO_KEY);
   });
 
   it("should clear the selected key", () => {
-    let state = reduce(Core.ZERO_SLICE_STATE, Core.select("example.com:9090"));
+    let state = reduce(Core.ZERO_SLICE_STATE, Core.select(Core.DEMO_KEY));
     state = reduce(state, Core.clearSelected());
     expect(state.selected).toBeUndefined();
   });
@@ -137,31 +151,27 @@ describe("select / clearSelected", () => {
 
 describe("rename", () => {
   it("should rename a Core in place", () => {
-    const alpha = Core.keyed({ ...BASE, name: "Alpha" });
     const state = reduce(
-      withCores(alpha),
-      Core.rename({ key: alpha.key, name: "Renamed" }),
+      withCores(ALPHA),
+      Core.rename({ key: ALPHA.key, name: "Renamed" }),
     );
-    expect(state.cores[alpha.key].name).toBe("Renamed");
+    expect(state.cores[ALPHA.key].name).toBe("Renamed");
   });
 
   it("should drop a rename to a name owned by another Core", () => {
-    const alpha = Core.keyed({ ...BASE, name: "Alpha" });
-    const beta = Core.keyed({ ...BASE, name: "Beta", port: 9091 });
     const state = reduce(
-      withCores(alpha, beta),
-      Core.rename({ key: alpha.key, name: "Beta" }),
+      withCores(ALPHA, BRAVO),
+      Core.rename({ key: ALPHA.key, name: BRAVO.name }),
     );
-    expect(state.cores[alpha.key].name).toBe("Alpha");
+    expect(state.cores[ALPHA.key].name).toBe(ALPHA.name);
   });
 
   it("should keep a rename to the Core's own name", () => {
-    const alpha = Core.keyed({ ...BASE, name: "Alpha" });
     const state = reduce(
-      withCores(alpha),
-      Core.rename({ key: alpha.key, name: "Alpha" }),
+      withCores(ALPHA),
+      Core.rename({ key: ALPHA.key, name: ALPHA.name }),
     );
-    expect(state.cores[alpha.key].name).toBe("Alpha");
+    expect(state.cores[ALPHA.key].name).toBe(ALPHA.name);
   });
 
   it("should drop a rename of a missing Core", () => {

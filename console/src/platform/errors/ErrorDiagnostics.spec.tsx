@@ -18,8 +18,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Boundary } from "@/platform/errors/Boundary";
 import { ErrorDiagnostics } from "@/platform/errors/ErrorDiagnostics";
 import { Session } from "@/session";
-
-const LOCAL_KEY = Session.Core.key({ host: "localhost", port: 9090 });
 import {
   createConsoleWrapper,
   createTestStore,
@@ -74,7 +72,7 @@ describe("ErrorDiagnostics", () => {
 
   it("appends the connected Core to any error", async () => {
     const store = await createTestStore();
-    void act(() => store.dispatch(Session.Core.select(LOCAL_KEY)));
+    void act(() => store.dispatch(Session.Core.select(Session.Core.LOCAL_KEY)));
     await renderBoundary(store, <Throw error={new Error("boom")} />);
     expect(messageText()).toBe("boom\nCore: Local (localhost:9090)");
   });
@@ -98,7 +96,7 @@ describe("ErrorDiagnostics", () => {
   it("appends the crashed panel's name and key", async () => {
     const client = createTestClient();
     const { wrapper, store } = await createConsoleWrapper({ client });
-    void act(() => store.dispatch(Session.Core.select(LOCAL_KEY)));
+    void act(() => store.dispatch(Session.Core.select(Session.Core.LOCAL_KEY)));
     const doc = panel.panelZ.parse({
       name: "fridge_schem",
       root: { variant: "leaf", tabs: [] },
@@ -122,7 +120,7 @@ describe("ErrorDiagnostics", () => {
 
   it("replaces the crash page when a flux read failed on an unreachable Core", async () => {
     const store = await createTestStore();
-    void act(() => store.dispatch(Session.Core.select(LOCAL_KEY)));
+    void act(() => store.dispatch(Session.Core.select(Session.Core.LOCAL_KEY)));
     const error = new Error("Failed to retrieve channel group", {
       cause: new Unreachable(),
     });
@@ -134,7 +132,7 @@ describe("ErrorDiagnostics", () => {
 
   it("finds an unreachable Core nested under a status-shaped cause", async () => {
     const store = await createTestStore();
-    void act(() => store.dispatch(Session.Core.select(LOCAL_KEY)));
+    void act(() => store.dispatch(Session.Core.select(Session.Core.LOCAL_KEY)));
     const error = status.toError(
       status.fromException(new Unreachable(), "Failed to retrieve channel group"),
     );
@@ -145,7 +143,7 @@ describe("ErrorDiagnostics", () => {
 
   it("keeps the crash page for a failure the Core answered", async () => {
     const store = await createTestStore();
-    void act(() => store.dispatch(Session.Core.select(LOCAL_KEY)));
+    void act(() => store.dispatch(Session.Core.select(Session.Core.LOCAL_KEY)));
     await renderBoundary(store, <Throw error={retrieveNotFoundError()} />);
     expect(screen.queryByText("localhost:9090")).toBeNull();
     expect(messageText()).toBe(

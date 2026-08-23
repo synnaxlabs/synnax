@@ -81,8 +81,10 @@ Modular slices (`core`, `nav`, `panels`, `lineplot`, `schematic`, `table`, `proj
 `drift`, ...), each with `SLICE_NAME`, `sliceStateZ`, `SliceState`, `ZERO_SLICE_STATE`,
 and `createSlice` reducers. Side effects go in middleware.
 
-**Cores are keyed by `host:port`** — the key is the address, so it never changes
-underneath a session and two entries at one address collapse into one.
+**A Core record's key is opaque** — `LOCAL`, `DEMO`, `SERVED` for the Core serving a
+browser Console, a generated UUID for the rest — so editing an address never moves an
+entry. Stored state is partitioned by the **cluster key** the record caches on connect,
+so two records reaching one cluster share its state.
 
 ### Persistence (`session/persist/`)
 
@@ -101,9 +103,12 @@ about its durability. A stored slice that fails its schema falls back to its ini
 state. There is no migrator framework: to evolve a shape, widen `sliceStateZ`, bump its
 `version: z.literal(N)`, and default the new fields.
 
-Each partition keeps a four-slot ring behind a `.slot` pointer, backing revert.
-Switching Core or project flushes the outgoing partitions and hydrates the target's
-without a reload.
+Each partition keeps a four-slot ring behind a `.slot` pointer, backing revert. A
+partition whose slices did not change is left alone, so the ring holds sessions rather
+than the last second of writes, and `revertState` steps back only the innermost
+partition holding history. Switching Core or project flushes the outgoing partitions and
+hydrates the target's without a reload. `Persist.purge` deletes a cluster's partitions
+once no Core record names it.
 
 ### Where it lands
 
@@ -112,9 +117,9 @@ without a reload.
 - **Tauri** — `session.json` in the app data dir
   (`~/Library/Application Support/com.synnaxlabs.dev` on macOS,
   `%APPDATA%\com.synnaxlabs.dev` on Windows).
-- **Browser** — IndexedDB database `synnax-session`, one object store `kv`, partition
-  keys as string keys. **Scoped to the page's origin**, so a Console served from two
-  ports is two independent sessions, and clearing site data wipes it.
+- **Browser** — IndexedDB database `session`, one object store `kv`, partition keys as
+  string keys. **Scoped to the page's origin**, so a Console served from two ports is
+  two independent sessions, and clearing site data wipes it.
 
 IndexedDB, not localStorage: twelve state slots outgrow its few-megabyte cap, and its
 quota errors surface only as a failed write. `localStorage` holds one thing, the

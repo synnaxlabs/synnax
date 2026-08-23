@@ -72,12 +72,13 @@ const cores = (
   const entries = Object.entries(legacy.clusters);
   if (entries.length === 0) return undefined;
   const out: Core.SliceState = { ...Core.ZERO_SLICE_STATE, cores: {} };
-  entries.forEach(([legacyKey, { port, ...rest }]) => {
-    const core = Core.keyed({ ...rest, port: Number(port) });
-    out.cores[core.key] = core;
-    // The old key was generated, so the selection has to be followed across.
-    if (legacyKey === legacy.activeCluster) out.selected = core.key;
+  // The old keys were generated too, so they carry over as they are.
+  entries.forEach(([key, { port, ...rest }]) => {
+    out.cores[key] = { ...rest, key, port: Number(port) };
   });
+  const { activeCluster } = legacy;
+  if (activeCluster != null && out.cores[activeCluster] != null)
+    out.selected = activeCluster;
   return out;
 };
 

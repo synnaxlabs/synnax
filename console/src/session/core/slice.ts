@@ -9,13 +9,18 @@
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { synnaxParamsZ } from "@synnaxlabs/client";
-import { array } from "@synnaxlabs/x";
+import { array, uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const coreZ = synnaxParamsZ
   .extend({
     key: z.string(),
     name: z.string().min(1, { message: "Name is required" }),
+    /**
+     * The cluster the Core last connected to. Cached so a session opens the cluster's
+     * stored state before a connection is up; absent until the first connection.
+     */
+    clusterKey: z.string().optional(),
   })
   .omit({
     cache: true,
@@ -25,39 +30,42 @@ export const coreZ = synnaxParamsZ
   });
 export interface Core extends z.infer<typeof coreZ> {}
 
+/** The local Core a desktop session starts with. */
+export const LOCAL_KEY = "LOCAL";
+
+/** The public demo Core. */
+export const DEMO_KEY = "DEMO";
+
 /**
- * The key a Core is stored and partitioned under. A Core is its address: the same
- * host and port is the same Core no matter what the user named it, and an address
- * never changes underneath a running session the way a generated key did.
+ * The Core serving a browser Console. Stored state is scoped to the page's origin and
+ * a served Console's address is that origin, so a session sees one served Core.
  */
-export const key = ({ host, port }: Pick<Core, "host" | "port">): string =>
-  `${host}:${port}`;
+export const SERVED_KEY = "SERVED";
 
-/** Stamps a Core with the key its address implies. */
-export const keyed = (core: Omit<Core, "key">): Core => ({ ...core, key: key(core) });
-
-const LOCAL: Core = keyed({
+const LOCAL: Core = {
+  key: LOCAL_KEY,
   name: "Local",
   host: "localhost",
   port: 9090,
   username: "synnax",
   password: "seldon",
   secure: false,
-});
+};
 
-const DEMO: Core = keyed({
+const DEMO: Core = {
+  key: DEMO_KEY,
   name: "Demo",
   host: "demo.synnaxlabs.com",
   port: 9090,
   username: "synnax",
   password: "seldon",
   secure: true,
-});
+};
 
 export const sliceStateZ = z.object({
   version: z.literal(0).default(0),
   selected: z.string().optional(),
-  cores: z.record(z.string(), coreZ).default({ [LOCAL.key]: LOCAL, [DEMO.key]: DEMO }),
+  cores: z.record(z.string(), coreZ).default({ [LOCAL_KEY]: LOCAL, [DEMO_KEY]: DEMO }),
 });
 export interface SliceState extends z.infer<typeof sliceStateZ> {}
 
@@ -70,8 +78,8 @@ export interface StoreState {
 }
 
 export interface SetPayload extends Omit<Core, "key"> {
-  /** The key the Core is stored under today, when its address is being changed. */
-  prevKey?: string;
+  /** The key to store under. A Core the user has just added gets a generated one. */
+  key?: string;
 }
 
 export type SelectPayload = string;
@@ -83,6 +91,11 @@ export interface RenamePayload {
   name: string;
 }
 
+export interface SetClusterKeyPayload {
+  key: string;
+  clusterKey: string;
+}
+
 const nameTaken = (state: SliceState, name: string, key: string): boolean =>
   Object.values(state.cores).some((c) => c.name === name && c.key !== key);
 
@@ -90,12 +103,19 @@ const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
   reducers: {
-    set: (state, { payload: { prevKey, ...core } }: PayloadAction<SetPayload>) => {
-      const next = keyed(core);
-      // Editing an address moves the entry rather than leaving a stale twin behind.
-      if (prevKey != null && prevKey !== next.key) delete state.cores[prevKey];
-      state.cores[next.key] = next;
-      if (state.selected === prevKey) state.selected = next.key;
+    set: {
+      prepare: ({ key, ...core }: SetPayload) => ({
+        payload: { ...core, key: key ?? uuid.create() },
+      }),
+      reducer: (state, { payload }: PayloadAction<Core>) => {
+        // A cluster key is learned from a connection, so an edit that carries none
+        // keeps what the record already cached.
+        const prev = state.cores[payload.key];
+        state.cores[payload.key] = {
+          ...payload,
+          clusterKey: payload.clusterKey ?? prev?.clusterKey,
+        };
+      },
     },
     remove: (state, { payload: keys }: PayloadAction<RemovePayload>) => {
       const removed = array.toArray(keys);
@@ -116,10 +136,17 @@ const { actions, reducer } = createSlice({
       if (core == null || nameTaken(state, name, key)) return;
       core.name = name;
     },
+    setClusterKey: (
+      state,
+      { payload: { key, clusterKey } }: PayloadAction<SetClusterKeyPayload>,
+    ) => {
+      const core = state.cores[key];
+      if (core != null) core.clusterKey = clusterKey;
+    },
   },
 });
 
-export const { set, select, clearSelected, remove, rename } = actions;
+export const { set, select, clearSelected, remove, rename, setClusterKey } = actions;
 
 export { reducer };
 

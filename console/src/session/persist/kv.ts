@@ -30,6 +30,8 @@ export interface SugaredKV extends kv.Async {
   setMany(entries: Entry[]): Promise<void>;
   /** Get the number of key-value pairs in the store. */
   length(): Promise<number>;
+  /** Every key the store holds, in no particular order. */
+  keys(): Promise<string[]>;
   /** Clear the store of all key-value pairs. */
   clear(): Promise<void>;
 }
@@ -62,6 +64,10 @@ class TauriKV implements SugaredKV {
 
   async length(): Promise<number> {
     return await this.store.length();
+  }
+
+  async keys(): Promise<string[]> {
+    return await this.store.keys();
   }
 
   async clear(): Promise<void> {
@@ -115,6 +121,13 @@ class IndexedDBKV implements SugaredKV {
     return await this.run("readonly", (store) => store.count());
   }
 
+  async keys(): Promise<string[]> {
+    return await this.run(
+      "readonly",
+      (store) => store.getAllKeys() as IDBRequest<string[]>,
+    );
+  }
+
   async clear(): Promise<void> {
     await this.run("readwrite", (store) => store.clear());
   }
@@ -166,6 +179,10 @@ export class MemoryKV implements SugaredKV {
 
   async length(): Promise<number> {
     return this.store.size;
+  }
+
+  async keys(): Promise<string[]> {
+    return Array.from(this.store.keys());
   }
 
   async clear(): Promise<void> {

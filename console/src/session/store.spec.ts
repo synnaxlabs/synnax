@@ -46,7 +46,9 @@ const waitForPersisted = async (
     if (!readPersisted(db).some(predicate)) throw new Error(message);
   });
 
-const DEMO_KEY = Session.Core.key({ host: "demo.synnaxlabs.com", port: 9090 });
+// State partitions by the cluster a Core connects to, which a spec has to supply
+// itself: nothing here connects.
+const CLUSTER_KEY = "9a1f7b2c-0d3e-4f56-8a9b-0c1d2e3f4a5b";
 
 describe("createStore", () => {
   let db: Session.Persist.MemoryKV;
@@ -70,9 +72,11 @@ describe("createStore", () => {
 
   it("routes dispatched actions to their owning slice", async () => {
     const store = await createStore({ enablePersistence: false });
-    store.dispatch(Session.Core.select(DEMO_KEY));
+    store.dispatch(Session.Core.select(Session.Core.DEMO_KEY));
     store.dispatch(Session.Nav.showBottom({ windowKey: MAIN_WINDOW }));
-    expect(Session.Core.selectSelectedKey(store.getState())).toBe(DEMO_KEY);
+    expect(Session.Core.selectSelectedKey(store.getState())).toBe(
+      Session.Core.DEMO_KEY,
+    );
     expect(Session.Nav.selectWindowState(store.getState()).bottom.visible).toBe(true);
   });
 
@@ -83,29 +87,81 @@ describe("createStore", () => {
         ...Session.ZERO_STATE,
         [Session.Core.SLICE_NAME]: {
           ...Session.Core.ZERO_SLICE_STATE,
-          selected: DEMO_KEY,
+          selected: Session.Core.DEMO_KEY,
         },
       }),
     });
-    expect(Session.Core.selectSelectedKey(store.getState())).toBe(DEMO_KEY);
+    expect(Session.Core.selectSelectedKey(store.getState())).toBe(
+      Session.Core.DEMO_KEY,
+    );
   });
 
   it("persists state and reloads it into a fresh store", async () => {
     const store = await createStore();
-    store.dispatch(Session.Core.select(DEMO_KEY));
+    store.dispatch(Session.Core.select(Session.Core.DEMO_KEY));
     await waitForPersisted(
       db,
-      (p) => p.core?.selected === DEMO_KEY,
+      (p) => p.core?.selected === Session.Core.DEMO_KEY,
       "Core selection not persisted yet",
     );
     const reloaded = await createStore();
-    expect(Session.Core.selectSelectedKey(reloaded.getState())).toBe(DEMO_KEY);
+    expect(Session.Core.selectSelectedKey(reloaded.getState())).toBe(
+      Session.Core.DEMO_KEY,
+    );
+  });
+
+  /** Walks into a Core and project the way production does, and edits window state. */
+  const enterAndEdit = async (
+    store: Session.Store,
+    core: string,
+    clusterKey: string,
+  ): Promise<void> => {
+    store.dispatch(Session.Core.select(core));
+    store.dispatch(Session.Core.setClusterKey({ key: core, clusterKey }));
+    store.dispatch(Session.Project.select("6f7cd5f4-4b93-4a35-a55c-72ba9dae2c9d"));
+    await waitForPersisted(db, (p) => p.project != null, "Core swap has not settled");
+    store.dispatch(Session.Nav.showBottom({ windowKey: MAIN_WINDOW }));
+    await waitForPersisted(db, (p) => p.nav != null, "project state not persisted");
+  };
+
+  const clusterKeys = async (clusterKey: string): Promise<string[]> =>
+    (await db.keys()).filter((key) => key.includes(clusterKey));
+
+  it("purges a removed Core's stored state", async () => {
+    const store = await createStore();
+    await enterAndEdit(store, Session.Core.DEMO_KEY, CLUSTER_KEY);
+    expect((await clusterKeys(CLUSTER_KEY)).length).toBeGreaterThan(0);
+    store.dispatch(Session.Core.remove(Session.Core.DEMO_KEY));
+    await waitFor(async () => expect(await clusterKeys(CLUSTER_KEY)).toHaveLength(0));
+  });
+
+  it("keeps a cluster's state while another Core still names it", async () => {
+    const store = await createStore();
+    store.dispatch(
+      Session.Core.setClusterKey({
+        key: Session.Core.LOCAL_KEY,
+        clusterKey: CLUSTER_KEY,
+      }),
+    );
+    await enterAndEdit(store, Session.Core.DEMO_KEY, CLUSTER_KEY);
+    expect((await clusterKeys(CLUSTER_KEY)).length).toBeGreaterThan(0);
+    store.dispatch(Session.Core.remove(Session.Core.DEMO_KEY));
+    // The local Core reaches the same cluster, so its state outlives the removal.
+    await waitFor(async () =>
+      expect((await clusterKeys(CLUSTER_KEY)).length).toBeGreaterThan(0),
+    );
   });
 
   it("never writes transient haul state", async () => {
     const projectKey = "6f7cd5f4-4b93-4a35-a55c-72ba9dae2c9d";
     const store = await createStore();
-    store.dispatch(Session.Core.select(DEMO_KEY));
+    store.dispatch(Session.Core.select(Session.Core.DEMO_KEY));
+    store.dispatch(
+      Session.Core.setClusterKey({
+        key: Session.Core.DEMO_KEY,
+        clusterKey: CLUSTER_KEY,
+      }),
+    );
     store.dispatch(Session.Project.select(projectKey));
     // The switch hydrates the project's stored slices over whatever is in the store, so
     // let it settle before making changes that have to survive. Project-scoped slices
@@ -205,10 +261,10 @@ describe("reducer", () => {
       Session.Persist.hydrate({
         [Session.Core.SLICE_NAME]: {
           ...Session.Core.ZERO_SLICE_STATE,
-          selected: DEMO_KEY,
+          selected: Session.Core.DEMO_KEY,
         },
       }),
     );
-    expect(Session.Core.selectSelectedKey(next)).toBe(DEMO_KEY);
+    expect(Session.Core.selectSelectedKey(next)).toBe(Session.Core.DEMO_KEY);
   });
 });

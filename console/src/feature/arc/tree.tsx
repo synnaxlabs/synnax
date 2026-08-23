@@ -11,8 +11,8 @@ import { arc, query, task } from "@synnaxlabs/client";
 import { Access, Arc, Icon, Menu, Task } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 
-import { Core } from "@/platform/core";
 import { ContextMenu } from "@/platform/context-menu";
+import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Framer } from "@/platform/framer";
 import { Link } from "@/platform/link";

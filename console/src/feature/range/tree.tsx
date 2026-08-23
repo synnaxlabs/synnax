@@ -20,8 +20,8 @@ import {
 import { useCallback } from "react";
 
 import { CreateChildRangeIcon } from "@/feature/range/ContextMenu";
-import { Core } from "@/platform/core";
 import { ContextMenu } from "@/platform/context-menu";
+import { Core } from "@/platform/core";
 import { Link } from "@/platform/link";
 import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";

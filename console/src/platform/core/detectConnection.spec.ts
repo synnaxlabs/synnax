@@ -17,6 +17,7 @@ vi.mock("@/session/runtime/runtime", async (importOriginal) => {
 });
 
 import { Core } from "@/platform/core";
+import { Session } from "@/session";
 import { pinLocationOrigin } from "@/testutil";
 
 describe("detectConnection", () => {
@@ -37,6 +38,7 @@ describe("detectConnection", () => {
   it("should parse an insecure origin with an explicit port", () => {
     pinLocationOrigin("http://example.com:8080");
     expect(Core.detectConnection()).toEqual({
+      key: Session.Core.SERVED_KEY,
       name: "Core",
       host: "example.com",
       port: 8080,
@@ -47,6 +49,7 @@ describe("detectConnection", () => {
   it("should default an https origin without a port to 443 and mark it secure", () => {
     pinLocationOrigin("https://example.com");
     expect(Core.detectConnection()).toEqual({
+      key: Session.Core.SERVED_KEY,
       name: "Core",
       host: "example.com",
       port: 443,
@@ -57,6 +60,7 @@ describe("detectConnection", () => {
   it("should default an http origin without a port to 80", () => {
     pinLocationOrigin("http://example.com");
     expect(Core.detectConnection()).toEqual({
+      key: Session.Core.SERVED_KEY,
       name: "Core",
       host: "example.com",
       port: 80,

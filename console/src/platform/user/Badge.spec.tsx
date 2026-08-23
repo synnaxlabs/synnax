@@ -19,10 +19,10 @@ import { Session } from "@/session";
 import { createCore, createCoreState } from "@/session/core/testutil";
 import { createConsoleWrapper, renderWithConsole } from "@/testutil";
 
-const createStateWithUser = (username: string) => {
-  const core = createCore("Local", { username });
-  return createCoreState([core], core.key);
-};
+const CORE_KEY = "core-key";
+
+const createStateWithUser = (username: string) =>
+  createCoreState([createCore("Local", { key: CORE_KEY, username })], CORE_KEY);
 
 const getTrigger = (container: ParentNode): HTMLElement => {
   const trigger = container.querySelector<HTMLElement>(".pluto-dialog__trigger");
@@ -83,9 +83,7 @@ describe("User.Badge", () => {
     const { store } = await renderWithConsole(<User.Badge />, {
       preloadedState: createStateWithUser("Core-user"),
     });
-    expect(Session.Core.selectSelectedKey(store.getState())).toBe(
-      Session.Core.key({ host: "localhost", port: 9090 }),
-    );
+    expect(Session.Core.selectSelectedKey(store.getState())).toBe(CORE_KEY);
     fireEvent.click(screen.getByText("Core-user"));
     const logout = await screen.findByText("Log out");
     fireEvent.click(logout);

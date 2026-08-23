@@ -78,6 +78,11 @@ class FailingKV extends Persist.MemoryKV {
       throw new Error("disk full");
     await super.setMany(entries);
   }
+
+  override async delete(key: string): Promise<void> {
+    if (this.failOn?.test(key) === true) throw new Error("disk full");
+    await super.delete(key);
+  }
 }
 
 const openPersist = async (
@@ -230,13 +235,26 @@ describe("Persist.open", () => {
       expect((await driver.composed())?.work).toEqual(ZERO_MOCK_STATE.work);
     });
 
-    it("should bound each partition to four slots", async () => {
+    it("should bound a partition to four slots", async () => {
       const store = new Persist.MemoryKV();
       const driver = await createDriver(store);
       await enter(driver, CTX);
       for (let i = 0; i < 10; i++) await edit(driver, `16.2.${i}`);
-      // Four ring entries plus a slot pointer for each of the three partitions.
-      expect(await store.length()).toBe(15);
+      // Four ring entries plus the slot pointer.
+      expect(
+        (await store.keys()).filter((k) => k.startsWith("project.c1.p1.")),
+      ).toHaveLength(5);
+    });
+
+    it("should leave a partition alone while its slices hold still", async () => {
+      const store = new Persist.MemoryKV();
+      const driver = await createDriver(store);
+      await enter(driver, CTX);
+      for (let i = 0; i < 10; i++) await edit(driver, `16.2.${i}`);
+      // Every edit is project-scoped, so the global ring still holds its one write.
+      expect(
+        (await store.keys()).filter((k) => k.startsWith("global.")).sort(),
+      ).toEqual(["global.0", "global.slot"]);
     });
 
     it("should fall back to the first slot when the slot pointer is corrupt", async () => {
@@ -382,6 +400,7 @@ describe("Persist.open", () => {
         setMany: fail,
         delete: fail,
         length: fail,
+        keys: fail,
         clear: fail,
       };
     };
@@ -487,9 +506,57 @@ describe("Persist.middleware", () => {
     await edit(driver, "edited");
   });
 
+  it("should delete a Core's partitions on a purge action", async () => {
+    const store = new Persist.MemoryKV();
+    const driver = await createDriver(store);
+    await enter(driver, CTX);
+    await edit(driver, "16.2.0");
+    driver.dispatch(Persist.purge("c1"));
+    await vi.waitFor(async () =>
+      expect((await store.keys()).filter((k) => k.includes("c1"))).toHaveLength(0),
+    );
+    // The Core the global partition names outlives the state stored under it.
+    expect(await store.get("global.0")).toEqual({ core: { selected: "c1" } });
+  });
+
+  it("should purge behind the swap that leaves the purged Core", async () => {
+    const store = new Persist.MemoryKV();
+    const driver = await createDriver(store);
+    await enter(driver, CTX);
+    await edit(driver, "16.2.0");
+    // Production dispatches both in one tick: the switch flushes c1's partitions on
+    // its way out, so a purge that ran first would find the keys written back.
+    driver.dispatch(
+      { type: "Core/select" },
+      { ...driver.getState(), core: { selected: "c2" }, project: {} },
+    );
+    driver.dispatch(Persist.purge("c1"));
+    await driver.settle();
+    await vi.waitFor(async () =>
+      expect((await store.keys()).filter((k) => k.includes("c1"))).toHaveLength(0),
+    );
+  });
+
+  it("should report a failed purge instead of throwing", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const store = new FailingKV();
+    const driver = await createDriver(store);
+    await enter(driver, CTX);
+    await edit(driver, "16.2.0");
+    store.failOn = /^core\.c1\./;
+    driver.dispatch(Persist.purge("c1"));
+    await vi.waitFor(() =>
+      expect(errorSpy).toHaveBeenCalledWith(
+        "failed to purge stored Core state",
+        expect.anything(),
+      ),
+    );
+    errorSpy.mockRestore();
+  });
+
   // The revert and clear branches reload the window, which jsdom cannot perform; the
   // production code swallows that failure via .catch, so we suppress the expected log.
-  it("should revert every active partition one version on a revertState action", async () => {
+  it("should revert the innermost partition one version on a revertState action", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const store = new Persist.MemoryKV();
     const driver = await createDriver(store);
@@ -628,6 +695,7 @@ describe("Persist.middleware", () => {
       setMany: async (entries) => await store.setMany(entries),
       delete: async (key) => await store.delete(key),
       length: async () => await store.length(),
+      keys: async () => await store.keys(),
       clear: async () => await store.clear(),
     };
     const driver = await createDriver(store, { openKV: () => gated });

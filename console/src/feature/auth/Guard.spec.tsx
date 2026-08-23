@@ -78,10 +78,12 @@ describe("auth guard", () => {
     pinLocationOrigin("http://localhost:9090");
     const store = await renderGuard();
     submitCredentials("synnax", "seldon");
-    // The served address is the key, so logging in lands on the same entry the session
-    // already knew rather than minting a new one.
+    // A session sees one served Core, so every login lands on that one entry rather
+    // than minting another.
     await waitFor(() =>
-      expect(Session.Core.selectSelectedKey(store.getState())).toBe(CORE_KEY),
+      expect(Session.Core.selectSelectedKey(store.getState())).toBe(
+        Session.Core.SERVED_KEY,
+      ),
     );
     expect(await screen.findByText("authenticated content")).toBeTruthy();
     const state = store.getState();
@@ -124,15 +126,14 @@ describe("auth guard", () => {
       await screen.findByText("authenticated content", {}, { timeout: 10000 }),
     ).toBeTruthy();
     expect(screen.queryByText(/invalid credentials/i)).toBeNull();
-    // The address is the key, so a retry after a rejected login reuses the same entry
-    // rather than minting a duplicate.
+    // A retry after a rejected login reuses the served entry rather than minting a
+    // duplicate.
     const selected = Session.Core.selectSelectedKey(store.getState());
     expect(selected).toBe(key);
-    const demoKey = Session.Core.key({ host: "demo.synnaxlabs.com", port: 9090 });
-    const keys = Session.Core.selectMany(store.getState())
+    const added = Session.Core.selectMany(store.getState())
       .map(({ key: k }) => k)
-      .filter((k) => k !== demoKey);
-    expect(keys).toEqual([selected]);
+      .filter((k) => k !== Session.Core.LOCAL_KEY && k !== Session.Core.DEMO_KEY);
+    expect(added).toEqual([selected]);
   });
 
   it("should surface connection trouble at a cold start against an unreachable Core", async () => {
@@ -143,7 +144,7 @@ describe("auth guard", () => {
         [Session.Core.SLICE_NAME]: {
           ...Session.Core.ZERO_SLICE_STATE,
           cores: {
-            [DEAD_KEY]: createCore(DEAD_KEY, { name: "Dead", port: 9098 }),
+            [DEAD_KEY]: createCore("Dead", { key: DEAD_KEY, port: 9098 }),
           },
           selected: DEAD_KEY,
         },
@@ -173,7 +174,7 @@ describe("auth guard", () => {
         [Session.Core.SLICE_NAME]: {
           ...Session.Core.ZERO_SLICE_STATE,
           cores: {
-            [DEAD_KEY]: createCore(DEAD_KEY, { name: "Dead", port: 9098 }),
+            [DEAD_KEY]: createCore("Dead", { key: DEAD_KEY, port: 9098 }),
           },
           selected: DEAD_KEY,
         },
@@ -207,7 +208,11 @@ describe("connection guard permissions", () => {
   const createGuardWrapper = async (): Promise<FC<PropsWithChildren>> => {
     const { wrapper: SessionWrapper } = await createSessionConsoleWrapper({
       client: null,
-      preloadedState: createCoreState([createCore(CORE_KEY)], CORE_KEY),
+      // The connection guard needs credentials, which LOCAL deliberately lacks.
+      preloadedState: createCoreState(
+        [createCore("Local", { key: CORE_KEY })],
+        CORE_KEY,
+      ),
     });
     const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
       <SessionWrapper>

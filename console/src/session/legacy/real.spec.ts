@@ -73,13 +73,13 @@ const STORE: Record<string, unknown> = {
 const read = async (key: string) => STORE[key] ?? null;
 
 describe("Legacy.migrate over a real 0.56 store", () => {
-  it("should carry both Cores across, rekeyed by address", async () => {
+  it("should carry both Cores across under the keys they already had", async () => {
     const { core } = await Legacy.migrate(read);
     expect(Object.keys(core?.cores ?? {}).sort()).toEqual([
-      "demo.synnaxlabs.com:9090",
-      "localhost:9090",
+      "8edeb842-40e9-4a55-87e9-5f0937b4654a",
+      "DEMO",
     ]);
-    expect(core?.cores["localhost:9090"]).toMatchObject({
+    expect(core?.cores["8edeb842-40e9-4a55-87e9-5f0937b4654a"]).toMatchObject({
       name: "Local",
       username: "synnax",
       password: "seldon",

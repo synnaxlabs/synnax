@@ -50,6 +50,23 @@ export const useGetState = (): ((key?: string) => Core | undefined) => {
   return useCallback((key?: string) => selectState(store.getState(), key), [store]);
 };
 
+/** The cluster the given (or selected) Core last connected to. */
+export const selectClusterKey = (state: StoreState, key?: string): string | undefined =>
+  selectState(state, key)?.clusterKey;
+
+/**
+ * Whether no Core outside the excluded keys still names the cluster. The cluster's
+ * stored state is unreachable once true.
+ */
+export const selectIsClusterOrphaned = (
+  state: StoreState,
+  clusterKey: string,
+  except: string[],
+): boolean =>
+  !Object.values(selectSliceState(state).cores).some(
+    (c) => !except.includes(c.key) && c.clusterKey === clusterKey,
+  );
+
 export const selectMany = (state: StoreState, keys?: string[]): Core[] =>
   Select.byKeys(state.core.cores, keys);
 

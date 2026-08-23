@@ -10,12 +10,14 @@
 import { Drift } from "@synnaxlabs/drift";
 import { useRef } from "react";
 
-import { type Action, type StoreState } from "@/session/core/slice";
+import { selectIsClusterOrphaned, selectState } from "@/session/core/selectors";
+import { type Action, setClusterKey, type StoreState } from "@/session/core/slice";
 import { Modals } from "@/session/modals";
+import { Persist } from "@/session/persist";
 import { type Synchronizer } from "@/session/synchronizer";
 
 interface RequiredStoreState extends StoreState, Drift.StoreState {}
-type RequiredAction = Action | Drift.Action;
+type RequiredAction = Action | Drift.Action | Persist.Action;
 
 const discard = (
   store: Synchronizer.Store<Drift.StoreState, Drift.Action>,
@@ -43,7 +45,32 @@ const useCloseOnChange = (): Synchronizer.Callbacks<Drift.StoreState, Drift.Acti
   };
 };
 
+/**
+ * Caches the cluster the selected Core connected to, which is what its stored state is
+ * partitioned under. A Core whose address now serves a different cluster leaves its old
+ * partition behind, so the state goes with it unless another Core still names it.
+ */
+const useCacheClusterKey = (): Synchronizer.Callbacks<
+  RequiredStoreState,
+  RequiredAction
+> => ({
+  reconcile: ({ client, store }) => {
+    const { clusterKey } = client.connection.status.details;
+    if (clusterKey === "") return;
+    const state = store.getState();
+    const core = selectState(state);
+    if (core == null || core.clusterKey === clusterKey) return;
+    const stale = core.clusterKey;
+    store.dispatch(setClusterKey({ key: core.key, clusterKey }));
+    if (stale != null && selectIsClusterOrphaned(state, stale, [core.key]))
+      store.dispatch(Persist.purge(stale));
+  },
+});
+
 export const SYNCHRONIZERS: Synchronizer.Synchronizers<
   RequiredStoreState,
   RequiredAction
-> = [{ name: "close windows on Core change", use: useCloseOnChange }];
+> = [
+  { name: "cache the connected cluster's key", use: useCacheClusterKey },
+  { name: "close windows on Core change", use: useCloseOnChange },
+];

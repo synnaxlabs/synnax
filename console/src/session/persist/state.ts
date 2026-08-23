@@ -143,6 +143,11 @@ export const beginSwap = createAction("persist/beginSwap");
 /** Clears the swap mark when a failed swap will never hydrate. */
 export const endSwap = createAction("persist/endSwap");
 /**
+ * Deletes everything stored under a Core partition key: the partition itself and the
+ * project partitions beneath it. Dispatched when nothing can reach that state again.
+ */
+export const purge = createAction<string>("persist/purge");
+/**
  * Marks the store unwritable. The platform refuses it outright — a cross-origin
  * frame, private browsing on an older engine, an exhausted quota — so the session
  * runs but will not survive a reload.
@@ -154,6 +159,7 @@ export type Action = ReturnType<
   | typeof hydrate
   | typeof beginSwap
   | typeof endSwap
+  | typeof purge
   | typeof storeUnavailable
 >;
 
@@ -181,6 +187,8 @@ class Partition<S extends object> {
   private readonly db: SugaredKV;
   private readonly base: string;
   private readonly schemas: SliceSchemas<S>;
+  /** The slices last known to be in the ring, so an idle partition is left alone. */
+  private committed: Partial<S> | null = null;
 
   constructor(db: SugaredKV, base: string, schemas: SliceSchemas<S>) {
     this.db = db;
@@ -194,8 +202,9 @@ class Partition<S extends object> {
    */
   async read(): Promise<Partial<S>> {
     const out: Partial<S> = {};
-    const slot = await this.readSlot();
+    const slot = (await this.readSlot()) ?? 0;
     const data = (await this.db.get(this.stateKey(slot))) as Partial<S> | null;
+    this.committed = out;
     if (data == null) return out;
     this.keys().forEach((key) => {
       const raw = data[key];
@@ -213,15 +222,19 @@ class Partition<S extends object> {
 
   /**
    * Write the state's slices into the next ring slot and advance the pointer onto it,
-   * as one unit.
+   * as one unit. A partition whose slices match the ones already committed is left
+   * alone, so the ring holds sessions the user can revert to rather than the last
+   * second of writes.
    * @throws {Error} if the store rejects the write.
    */
   async write(state: S): Promise<void> {
-    const slot = nextSlot(await this.readSlot());
     const data: Partial<S> = {};
     this.keys().forEach((key) => {
       data[key] = state[key];
     });
+    if (this.committed != null && deep.equal(this.committed, data)) return;
+    const stored = await this.readSlot();
+    const slot = stored == null ? 0 : nextSlot(stored);
     try {
       await this.db.setMany([
         { key: this.stateKey(slot), value: data },
@@ -232,12 +245,19 @@ class Partition<S extends object> {
         cause: err,
       });
     }
+    this.committed = data;
   }
 
-  /** Step the ring pointer back one slot. */
-  async revert(): Promise<void> {
-    const slot = prevSlot(await this.readSlot());
+  /**
+   * Step the ring pointer back one slot.
+   * @returns false when the slot behind holds nothing, leaving the pointer alone.
+   */
+  async revert(): Promise<boolean> {
+    const slot = prevSlot((await this.readSlot()) ?? 0);
+    if ((await this.db.get(this.stateKey(slot))) == null) return false;
+    this.committed = null;
     await this.db.setMany([{ key: this.slotKey(), value: { slot } }]);
+    return true;
   }
 
   private keys(): Array<SliceKey<S>> {
@@ -252,10 +272,14 @@ class Partition<S extends object> {
     return `${this.base}.slot`;
   }
 
-  /** Bad or absent bytes read as slot zero; a store that refuses the read throws. */
-  private async readSlot(): Promise<number> {
+  /**
+   * The slot the pointer names, or null when the ring has never been written or the
+   * pointer is corrupt.
+   * @throws {Error} if the store refuses the read.
+   */
+  private async readSlot(): Promise<number | null> {
     const stored = slotPointerZ.safeParse(await this.db.get(this.slotKey()));
-    return stored.success ? stored.data.slot : 0;
+    return stored.success ? stored.data.slot : null;
   }
 }
 
@@ -280,6 +304,7 @@ class Engine<S extends object> {
   unusable = false;
 
   private readonly db: SugaredKV;
+  private readonly partitions = new Map<string, Partition<S>>();
   private readonly initial: S;
   private readonly scopes: Scopes<S>;
   private readonly getContext: (state: S) => Context;
@@ -349,14 +374,36 @@ class Engine<S extends object> {
     return out;
   }
 
-  /** Step every active partition back one version. */
+  /**
+   * Step the innermost active partition holding history back one version. Only that
+   * one moves: the partitions outside it name the session's context, and stepping
+   * those back would move the session somewhere else instead of undoing its state.
+   */
   async revert(context: Context): Promise<void> {
-    for (const partition of this.activePartitions(context)) await partition.revert();
+    for (const partition of this.activePartitions(context).reverse())
+      if (await partition.revert()) return;
   }
 
   /** Clear the entire store. */
   async clear(): Promise<void> {
+    this.partitions.clear();
     await this.db.clear();
+  }
+
+  /**
+   * Delete the Core partition stored under the key, and every project partition under
+   * it.
+   * @throws {Error} if the store refuses the read or a delete.
+   */
+  async purge(core: string): Promise<void> {
+    const owned = (base: string): boolean =>
+      base === `core.${core}` || base.startsWith(`project.${core}.`);
+    const stale = (await this.db.keys()).filter((key) =>
+      owned(key.slice(0, key.lastIndexOf("."))),
+    );
+    for (const key of stale) await this.db.delete(key);
+    for (const base of this.partitions.keys())
+      if (owned(base)) this.partitions.delete(base);
   }
 
   // The global partition names the selected Core, whose partition names the active
@@ -395,15 +442,26 @@ class Engine<S extends object> {
   }
 
   private global(): Partition<S> {
-    return new Partition(this.db, "global", this.scopes.global);
+    return this.partition("global", this.scopes.global);
   }
 
   private core(key: string): Partition<S> {
-    return new Partition(this.db, `core.${key}`, this.scopes.core);
+    return this.partition(`core.${key}`, this.scopes.core);
   }
 
   private project(core: string, project: string): Partition<S> {
-    return new Partition(this.db, `project.${core}.${project}`, this.scopes.project);
+    return this.partition(`project.${core}.${project}`, this.scopes.project);
+  }
+
+  // Partitions are held rather than rebuilt so each one remembers what it committed
+  // and can skip a write that would change nothing.
+  private partition(base: string, schemas: SliceSchemas<S>): Partition<S> {
+    let partition = this.partitions.get(base);
+    if (partition == null) {
+      partition = new Partition(this.db, base, schemas);
+      this.partitions.set(base, partition);
+    }
+    return partition;
   }
 
   /** The partitions the given context reaches: global, then Core, then project. */
@@ -446,6 +504,9 @@ const createMiddleware = <S extends object>(
   // Concurrent switches race: a slow stale swap hydrating last would clobber
   // the newer context's slices, so only the latest generation may hydrate.
   let swapGen = 0;
+  // A swap flushes the partition it leaves, so a purge of that partition has to
+  // wait behind it or the keys come back.
+  let swap: Promise<unknown> = Promise.resolve();
   return (store) => {
     if (engine.unusable) announceUnavailable(store);
     const debouncedPersist = debounce.debounce(() => {
@@ -473,7 +534,14 @@ const createMiddleware = <S extends object>(
           .catch((err: unknown) => {
             console.error("failed to clear state", err);
           });
-      else if (type === hydrate.type) {
+      else if (type === purge.type) {
+        const { payload } = action as PayloadAction<string>;
+        swap = swap
+          .then(async () => await engine.purge(payload))
+          .catch((err: unknown) => {
+            console.error("failed to purge stored Core state", err);
+          });
+      } else if (type === hydrate.type) {
         current = getContext(state);
         swapping = false;
         debouncedPersist();
@@ -486,7 +554,7 @@ const createMiddleware = <S extends object>(
           swapping = true;
           const gen = ++swapGen;
           store.dispatch(beginSwap());
-          engine
+          swap = engine
             .persist(state, old)
             .then(async () => {
               if (gen !== swapGen) return;

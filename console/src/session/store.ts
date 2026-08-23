@@ -69,8 +69,11 @@ const PERSIST_SCOPES: Persist.Scopes<State> = {
   transient: [Haul.SLICE_NAME, Persist.SLICE_NAME],
 };
 
+// A Core's state is partitioned by the cluster it connects to, not by the record the
+// user picked: two records aimed at one cluster share a partition, and a Core that has
+// never connected has no partition to open.
 const getPersistContext = (state: State): Persist.Context => ({
-  core: state[Core.SLICE_NAME].selected,
+  core: Core.selectClusterKey(state),
   project: state[Project.SLICE_NAME].selected,
 });
 
@@ -173,6 +176,7 @@ const DEFAULT_WINDOW_PROPS: Omit<Drift.WindowProps, "key"> = {
 export const BASE_MIDDLEWARE = [
   Window.removalMiddleware,
   ...Arc.MIDDLEWARE,
+  ...Core.MIDDLEWARE,
   ...LinePlot.MIDDLEWARE,
   ...Log.MIDDLEWARE,
   ...Nav.MIDDLEWARE,

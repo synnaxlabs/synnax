@@ -11,10 +11,11 @@ import { Session } from "@/session";
 
 export interface ConnectionParams extends Pick<
   Session.Core.Core,
-  "name" | "host" | "port" | "secure"
+  "key" | "name" | "host" | "port" | "secure"
 > {}
 
 const DEV_CONNECTION: ConnectionParams = {
+  key: Session.Core.SERVED_KEY,
   name: "Core",
   host: "localhost",
   port: 9090,
@@ -27,6 +28,7 @@ export const detectConnection = (): ConnectionParams | null => {
   if (IS_DEV) return DEV_CONNECTION;
   const url = new URL(window.location.origin);
   return {
+    key: Session.Core.SERVED_KEY,
     name: "Core",
     host: url.hostname,
     port: url.port ? parseInt(url.port, 10) : url.protocol === "https:" ? 443 : 80,

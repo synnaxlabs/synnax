@@ -12,14 +12,38 @@ import { Drift } from "@synnaxlabs/drift";
 import { Synnax } from "@synnaxlabs/pluto";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { Session } from "@/session";
 import { SYNCHRONIZERS } from "@/session/core/synchronizer";
 import { createCore, createCoreState } from "@/session/core/testutil";
 import { Synchronizer } from "@/session/synchronizer";
 import { pickSynchronizer } from "@/session/synchronizer/testutil";
-import { createConnectedConsoleWrapper, createConsoleWrapper } from "@/testutil";
+import {
+  createConnectedConsoleWrapper,
+  createConsoleWrapper,
+  createTestStore,
+} from "@/testutil";
+
+// A single core reports a single Core key, so the swap is staged with a
+// client carrying the connection the synchronizer reads and nothing else.
+const createClient = (clusterKey: string): Client =>
+  ({
+    connection: {
+      status: {
+        ...connection.DEFAULT_STATUS,
+        variant: "success",
+        message: "Connected",
+        details: {
+          ...connection.DEFAULT_STATUS.details,
+          authenticated: true,
+          clusterKey,
+          epoch: 1,
+        },
+      },
+      onChange: () => () => {},
+    },
+  }) as unknown as Client;
 
 describe("useCloseOnCoreChange", () => {
   const AUX_LABEL = "aux";
@@ -48,26 +72,6 @@ describe("useCloseOnCoreChange", () => {
     Synchronizer.use(SYNCHRONIZERS);
     return { modals, status: Synnax.useConnectionStatus() };
   };
-
-  // A single core reports a single Core key, so the swap is staged with a
-  // client carrying the connection the synchronizer reads and nothing else.
-  const createClient = (clusterKey: string): Client =>
-    ({
-      connection: {
-        status: {
-          ...connection.DEFAULT_STATUS,
-          variant: "success",
-          message: "Connected",
-          details: {
-            ...connection.DEFAULT_STATUS.details,
-            authenticated: true,
-            clusterKey,
-            epoch: 1,
-          },
-        },
-        onChange: () => () => {},
-      },
-    }) as unknown as Client;
 
   const useCloseSync = () => {
     const modals = Session.Modals.useStore("useCloseOnCoreChange spec");
@@ -139,5 +143,62 @@ describe("useCloseOnCoreChange", () => {
       expect(Drift.selectWindow(store.getState(), AUX_KEY)).toBeNull(),
     );
     expect(result.current.modals.isAnyOpen()).toBe(false);
+  });
+});
+
+describe("useCacheClusterKey", () => {
+  const CLUSTER_A = "cluster-a";
+  const CLUSTER_B = "cluster-b";
+
+  const useCacheSync = () =>
+    Synchronizer.use(
+      pickSynchronizer(SYNCHRONIZERS, "cache the connected cluster's key"),
+    );
+
+  /** Mounts the synchronizer against a client reporting the given cluster. */
+  const renderCacheSync = async (cores: Session.Core.Core[], clusterKey: string) => {
+    const store = await createTestStore({
+      preloadedState: createCoreState(cores, cores[0].key),
+    });
+    const dispatch = vi.spyOn(store, "dispatch");
+    const { wrapper: Console } = await createConsoleWrapper({ client: null, store });
+    const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
+      <Console>
+        <Synnax.TestProvider client={createClient(clusterKey)}>
+          {children}
+        </Synnax.TestProvider>
+      </Console>
+    );
+    Wrapper.displayName = "CacheClusterKeyWrapper";
+    const { result } = renderHook(useCacheSync, { wrapper: Wrapper });
+    await waitFor(() => expect(result.current).toBe(true));
+    const cached = async (key: string): Promise<void> =>
+      await waitFor(() =>
+        expect(Session.Core.selectState(store.getState(), key)?.clusterKey).toBe(
+          clusterKey,
+        ),
+      );
+    return { store, dispatch, cached };
+  };
+
+  it("should cache the cluster the selected Core connected to", async () => {
+    const core = createCore("Local");
+    const { cached } = await renderCacheSync([core], CLUSTER_A);
+    await cached(core.key);
+  });
+
+  it("should purge the old cluster when the address serves another one", async () => {
+    const core = createCore("Local", { clusterKey: CLUSTER_A });
+    const { dispatch, cached } = await renderCacheSync([core], CLUSTER_B);
+    await cached(core.key);
+    expect(dispatch).toHaveBeenCalledWith(Session.Persist.purge(CLUSTER_A));
+  });
+
+  it("should keep the old cluster while another Core still names it", async () => {
+    const core = createCore("Local", { clusterKey: CLUSTER_A });
+    const twin = createCore("Twin", { clusterKey: CLUSTER_A });
+    const { dispatch, cached } = await renderCacheSync([core, twin], CLUSTER_B);
+    await cached(core.key);
+    expect(dispatch).not.toHaveBeenCalledWith(Session.Persist.purge(CLUSTER_A));
   });
 });

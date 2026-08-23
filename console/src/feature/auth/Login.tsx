@@ -76,7 +76,7 @@ export const Login = (): ReactElement => {
     const coreToConnect = servingCore ?? selectedCore;
     if (!methods.validate() || coreToConnect == null) return;
     const credentials = methods.value();
-    const key = Session.Core.key(coreToConnect);
+    const { key } = coreToConnect;
     // A same-credentials resubmit leaves the connection params untouched, so the
     // provider never swaps the client; nudge the existing one to reconnect.
     if (client != null && key === activeKey) client.reauthenticate(credentials);

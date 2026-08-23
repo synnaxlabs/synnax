@@ -67,27 +67,26 @@ const FULL: Record<string, unknown> = {
 };
 
 describe("Legacy.migrate", () => {
-  it("should carry every Core across, keyed by address", async () => {
+  it("should carry every Core across under the key it already had", async () => {
     const [read] = createReader(FULL);
     const { core } = await Legacy.migrate(read);
-    expect(Object.keys(core?.cores ?? {}).sort()).toEqual([
-      "demo.synnaxlabs.com:9090",
-      "localhost:9090",
-    ]);
-    expect(core?.cores["localhost:9090"]).toMatchObject({
+    expect(Object.keys(core?.cores ?? {}).sort()).toEqual(
+      ["DEMO", LOCAL_LEGACY_KEY].sort(),
+    );
+    expect(core?.cores[LOCAL_LEGACY_KEY]).toMatchObject({
       name: "Local",
       username: "synnax",
       password: "seldon",
     });
   });
 
-  it("should follow the selection from the generated key onto the address", async () => {
+  it("should carry the selection across", async () => {
     const [read] = createReader(FULL);
     const { core } = await Legacy.migrate(read);
-    expect(core?.selected).toBe("localhost:9090");
+    expect(core?.selected).toBe(LOCAL_LEGACY_KEY);
   });
 
-  it("should collapse Cores that shared an address", async () => {
+  it("should keep Cores that shared an address apart", async () => {
     const [read] = createReader({
       ...FULL,
       "console-persisted-state.3": {
@@ -102,7 +101,7 @@ describe("Legacy.migrate", () => {
       },
     });
     const { core } = await Legacy.migrate(read);
-    expect(Object.keys(core?.cores ?? {})).toEqual(["localhost:9090"]);
+    expect(Object.keys(core?.cores ?? {}).sort()).toEqual(["a", "b"]);
   });
 
   it("should map the active theme onto a mode", async () => {
@@ -128,7 +127,7 @@ describe("Legacy.migrate", () => {
       "console-version": { version: 1 },
       "console-persisted-state.1": BLOB,
     });
-    expect((await Legacy.migrate(read)).core?.selected).toBe("localhost:9090");
+    expect((await Legacy.migrate(read)).core?.selected).toBe(LOCAL_LEGACY_KEY);
     expect(spy).toHaveBeenCalledWith("console-persisted-state.1");
   });
 

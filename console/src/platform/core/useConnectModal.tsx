@@ -91,7 +91,7 @@ export const useConnectModal = Modals.create<ConnectModalParams>(
           dispatch(
             Session.Core.set({
               ...data,
-              prevKey: coreKey,
+              key: coreKey,
               username: existing.username,
               password: existing.password,
             }),
