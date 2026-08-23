@@ -85,6 +85,35 @@ class TestTaskClient:
         tsk.execute_command_sync("test", {"key": "value"})
         t.join()
 
+    def test_execute_command_sync_timeout_is_a_deadline(
+        self, client: sy.Synnax
+    ) -> None:
+        """A status answering nothing must not renew the wait for an answer."""
+        tsk = client.tasks.create(name="test", type="pagerduty_alert")
+        stop = threading.Event()
+
+        def noise() -> None:
+            while not stop.is_set():
+                client.statuses.set(
+                    sy.Status(
+                        key=str(uuid4()),
+                        variant=sy.status.VARIANT_INFO,
+                        message="unrelated",
+                    )
+                )
+                sy.sleep(0.1)
+
+        t = threading.Thread(target=noise)
+        t.start()
+        try:
+            timer = sy.Timer()
+            with pytest.raises(TimeoutError):
+                tsk.execute_command_sync("test", timeout=1)
+            assert timer.elapsed() < 5 * sy.TimeSpan.SECOND
+        finally:
+            stop.set()
+            t.join()
+
     def test_execute_command_without_args_sends_empty_object(self, client: sy.Synnax):
         """Should send an empty object for args instead of null."""
         tsk = client.tasks.create(name="test", type="pagerduty_alert")

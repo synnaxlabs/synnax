@@ -29,6 +29,7 @@ from synnax.rack import Rack
 from synnax.task.types_gen import Command, Key, Payload, Status, ontology_id
 from synnax.telem import TimeSpan, TimeStamp
 from x.lists import check_for_none, normalize, override
+from x.timing import Timer
 
 
 class _CreateRequest(BaseModel):
@@ -207,10 +208,15 @@ class Task:
         :param timeout: The maximum time to wait for the driver to acknowledge the
         command before a timeout occurs.
         """
+        span = TimeSpan.from_seconds(timeout)
         with self._frame_client.open_streamer([_TASK_STATE_CHANNEL]) as s:
             key = self.execute_command(type_, args)
+            timer = Timer()
             while True:
-                frame = s.read(TimeSpan.from_seconds(timeout).seconds)
+                # The channel carries every status in the cluster, so the wait is a
+                # deadline: a frame answering some other command must not renew it.
+                remaining = span - timer.elapsed()
+                frame = s.read(remaining) if remaining > TimeSpan.ZERO else None
                 if frame is None:
                     raise TimeoutError(
                         f"timed out waiting for driver to acknowledge {type_} command"

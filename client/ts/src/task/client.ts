@@ -27,10 +27,15 @@ import { z } from "zod";
 import { type framer } from "@/framer";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
-import { type Key as RackKey, keyZ as rackKeyZ } from "@/rack/types.gen";
+import {
+  type Key as RackKey,
+  keyZ as rackKeyZ,
+  ontologyID as rackOntologyID,
+} from "@/rack/types.gen";
 import { type ranger } from "@/ranger";
 import { status } from "@/status";
 import {
+  type Command,
   commandZ,
   type Key,
   keyZ,
@@ -77,6 +82,14 @@ export const drifted = (task: DriftedParams): boolean => {
 // status of a task to loading.
 // Issue: https://linear.app/synnax/issue/SY-2723/fix-handling-of-non-startstop-commands-loading-indicators-in-tasks
 const LOADING_COMMANDS = ["start", "stop"];
+
+// The rack monitor marks a rack whose Driver is alive with one of these.
+const HEALTHY_RACK_VARIANTS: status.Variant[] = ["success", "info"];
+
+/** How long a command waits for the Driver before the wait is called off. */
+const COMMAND_DEADLINE = TimeSpan.seconds(10);
+
+const STATUS_NAME = "Task Status";
 
 const retrieveSnapshottedTo = async (taskKey: Key, ontologyClient: ontology.Client) => {
   const parents = await ontologyClient.parents.retrieve({ ids: ontologyID(taskKey) });
@@ -402,6 +415,7 @@ export class Client extends query.Retriever<
   /** The task record table; injected into sibling clients at wiring. */
   readonly store: query.Table<Key, Omit<Task, "status">>;
   private readonly cfg: ClientConfig;
+  private readonly commandDeadlines = new Map<Key, ReturnType<typeof setTimeout>>();
 
   constructor(cfg: ClientConfig) {
     const { cache, statusStore } = cfg;
@@ -441,28 +455,15 @@ export class Client extends query.Retriever<
       schema: commandZ,
       onChange: (commands) =>
         statusStore.batch(() =>
-          commands.forEach((changed) =>
-            statusStore.set(statusKey(changed.task), (prev) => {
-              if (prev == null || !LOADING_COMMANDS.includes(changed.type)) return prev;
-              // Carry the last known deploy info forward: zeroing it would make this
-              // optimistic status claim the task deployed with an empty config/rack.
-              const latest = this.latestStatusOf(changed.task);
-              return status.create<StatusDetailsZodObject>({
-                key: statusKey(changed.task),
-                name: "Task Status",
-                variant: "loading",
-                message: `Running ${changed.type} command...`,
-                details: {
-                  task: changed.task,
-                  running: true,
-                  cmd: "",
-                  configHash: latest?.details.configHash ?? "",
-                  rack: latest?.details.rack ?? 0,
-                  data: {},
-                },
-              });
-            }),
-          ),
+          commands.forEach((changed) => {
+            if (!LOADING_COMMANDS.includes(changed.type)) return;
+            const key = statusKey(changed.task);
+            if (statusStore.get(key) == null) return;
+            const optimistic = this.optimisticStatus(changed);
+            statusStore.set(key, optimistic);
+            if (optimistic.variant === "loading")
+              this.armCommandDeadline(changed, optimistic);
+          }),
         ),
     });
     const composed = cache.derive<Key, Omit<Task, "status">, Task>({
@@ -644,6 +645,78 @@ export class Client extends query.Retriever<
     const payload = cached.payload;
     if (st == null) return this.sugar(payload);
     return this.sugar({ ...payload, status: st });
+  }
+
+  // Every domain's statuses share one store, so a rack's status sits beside its
+  // tasks' under the rack's ontology ID.
+  private downRackStatus(rack: RackKey | undefined): status.Status | undefined {
+    if (rack == null || primitive.isZero(rack)) return undefined;
+    const stat = this.cfg.statusStore.get(ontology.idToString(rackOntologyID(rack)));
+    if (stat == null || HEALTHY_RACK_VARIANTS.includes(stat.variant)) return undefined;
+    return stat;
+  }
+
+  /**
+   * Builds the status shown while a command is in flight. A rack whose Driver is down
+   * answers nothing, so its warning stands in for a wait that would never end.
+   */
+  private optimisticStatus(cmd: Command): Status {
+    // Carry the last known deploy info forward: zeroing it would make this
+    // optimistic status claim the task deployed with an empty config/rack.
+    const latest = this.latestStatusOf(cmd.task);
+    const key = statusKey(cmd.task);
+    const details = {
+      task: cmd.task,
+      cmd: "",
+      configHash: latest?.details.configHash ?? "",
+      rack: latest?.details.rack ?? 0,
+      data: {},
+    };
+    const down = this.downRackStatus(this.store.get(cmd.task)?.rack);
+    if (down == null)
+      return status.create<StatusDetailsZodObject>({
+        key,
+        name: STATUS_NAME,
+        variant: "loading",
+        message: `Running ${cmd.type} command...`,
+        details: { ...details, running: true },
+      });
+    return status.create<StatusDetailsZodObject>({
+      key,
+      name: STATUS_NAME,
+      variant: "warning",
+      message: down.message,
+      description: down.description,
+      details: { ...details, running: false },
+    });
+  }
+
+  // Nothing else retires the loading status: a task on a silent rack waits on the
+  // Core's next dead-rack alert, which dampens to once a minute.
+  private armCommandDeadline(cmd: Command, optimistic: Status): void {
+    const { statusStore } = this.cfg;
+    const key = statusKey(cmd.task);
+    clearTimeout(this.commandDeadlines.get(cmd.task));
+    this.commandDeadlines.set(
+      cmd.task,
+      setTimeout(() => {
+        this.commandDeadlines.delete(cmd.task);
+        // Any later write replaced the exact object this deadline was armed for.
+        if (statusStore.get(key) !== optimistic) return;
+        statusStore.set(
+          key,
+          status.create<StatusDetailsZodObject>({
+            key,
+            name: STATUS_NAME,
+            variant: "warning",
+            message: `No response to the ${cmd.type} command`,
+            description: `The Driver did not respond within ${COMMAND_DEADLINE.toString()}.`,
+            // Nothing answered, so the command is taken to have had no effect.
+            details: { ...optimistic.details, running: cmd.type === "stop" },
+          }),
+        );
+      }, COMMAND_DEADLINE.milliseconds),
+    );
   }
 
   // A task's status may live under the "task:<key>" row or under any status
@@ -905,7 +978,7 @@ interface ExecuteCommandsSyncInternalParams<StatusData extends z.ZodType = z.Zod
 const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
   frameClient,
   commands,
-  timeout = TimeSpan.seconds(10),
+  timeout = COMMAND_DEADLINE,
   statusDataZ,
   name: taskName,
 }: ExecuteCommandsSyncInternalParams<StatusData>): Promise<Status<StatusData>[]> => {
