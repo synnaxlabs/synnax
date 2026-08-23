@@ -18,6 +18,7 @@ import {
   Schematic,
   Text,
   Theming,
+  TimeSpan,
   Triggers,
 } from "@synnaxlabs/pluto";
 import { box, id, type xy } from "@synnaxlabs/x";
@@ -45,6 +46,11 @@ const ZOOM_TRIGGERS: Triggers.ModeConfig<"in" | "out" | "reset" | "default"> = {
 };
 
 export const FLATTENED_ZOOM_TRIGGERS = Triggers.flattenConfig(ZOOM_TRIGGERS);
+
+const MIN_ZOOM = 0.1;
+const MAX_ZOOM = 5;
+const ZOOM_STEP = 1.2;
+const ZOOM_REPEAT = TimeSpan.milliseconds(70);
 
 interface PreviewProps {
   selectedState: string;
@@ -82,14 +88,27 @@ export const Preview = ({
     pan.onChange({ x: 0, y: 0 });
   };
 
-  const handleZoomIn = () => zoom.onChange(Math.min(zoom.value * 1.2, 5));
-  const handleZoomOut = () => zoom.onChange(Math.max(zoom.value / 1.2, 0.1));
+  // A held chord steps on an interval, so the step reads the live zoom and setter
+  // rather than the ones captured when the hold started.
+  const zoomRef = useRef(zoom.value);
+  zoomRef.current = zoom.value;
+  const setZoomRef = useRef(zoom.onChange);
+  setZoomRef.current = zoom.onChange;
+  const stepZoom = useCallback(
+    (factor: number) =>
+      setZoomRef.current(
+        Math.min(Math.max(zoomRef.current * factor, MIN_ZOOM), MAX_ZOOM),
+      ),
+    [],
+  );
+
+  const handleZoomIn = useCallback(() => stepZoom(ZOOM_STEP), [stepZoom]);
+  const handleZoomOut = useCallback(() => stepZoom(1 / ZOOM_STEP), [stepZoom]);
   const handleResetZoom = () => resetViewport();
 
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    zoom.onChange(Math.max(0.1, Math.min(5, zoom.value * delta)));
+    stepZoom(e.deltaY > 0 ? 0.9 : 1.1);
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -110,18 +129,31 @@ export const Preview = ({
 
   const handleMouseUp = () => setIsDragging(false);
 
+  const repeat = useRef<ReturnType<typeof setInterval>>(null);
+  const stopRepeat = useCallback(() => {
+    if (repeat.current == null) return;
+    clearInterval(repeat.current);
+    repeat.current = null;
+  }, []);
+  useEffect(() => stopRepeat, [stopRepeat]);
+
   Triggers.use({
     triggers: FLATTENED_ZOOM_TRIGGERS,
     enabled: Boolean(spec.svg),
     callback: useCallback(
       ({ triggers, stage }: Triggers.UseEvent) => {
+        if (stage === "end") return stopRepeat();
         if (stage !== "start") return;
         const mode = Triggers.determineMode(ZOOM_TRIGGERS, triggers);
-        if (mode === "in") handleZoomIn();
-        else if (mode === "out") handleZoomOut();
-        else if (mode === "reset") handleResetZoom();
+        if (mode === "reset") return handleResetZoom();
+        if (mode !== "in" && mode !== "out") return;
+        const step = mode === "in" ? handleZoomIn : handleZoomOut;
+        step();
+        // A held chord keeps zooming, the way a held arrow key keeps scrolling.
+        stopRepeat();
+        repeat.current = setInterval(step, ZOOM_REPEAT.milliseconds);
       },
-      [handleZoomIn, handleZoomOut, handleResetZoom],
+      [handleZoomIn, handleZoomOut, handleResetZoom, stopRepeat],
     ),
   });
 

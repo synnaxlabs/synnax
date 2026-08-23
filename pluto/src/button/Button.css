@@ -196,9 +196,13 @@
             transform: translate(45%, -45%);
             z-index: 10;
             transition: opacity 0.1s ease-in-out;
+            /* The badge floats clear of the button, over the page, so it keeps the
+               page's own cap colors. A filled button inverts its caps to read against
+               the fill, which here would leave a black glyph on the dark badge. */
             & .pluto-text--keyboard {
                 background: var(--pluto-gray-l0);
                 border-color: var(--pluto-gray-l7);
+                color: var(--pluto-text-color);
             }
         }
         &:hover .pluto-trigger-indicator {

@@ -54,8 +54,8 @@ describe("User.useAssignRoleModal", () => {
       expect(findButton("Assign").className).not.toContain("pluto--disabled"),
     );
     // The footer advertises the shortcut, so it has to reach the same submit path the
-    // button does. Submitting with no role selected fails validation, and that error
-    // is the proof the keys got there rather than falling on the floor.
+    // button does. Submitting with no role selected fails validation, and that error is
+    // the proof the keys got there rather than falling on the floor.
     pressSaveTrigger();
     expect(await screen.findByText("Invalid UUID")).toBeTruthy();
   });

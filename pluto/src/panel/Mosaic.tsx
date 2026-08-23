@@ -243,9 +243,18 @@ const OverlaidLeaf = ({
 /** Closes the focused tab. Bound by the embedding app; shown on the close menu item. */
 export const CLOSE_TRIGGER: Triggers.Trigger = ["Control", "W"];
 
+/** Props for {@link CloseTabMenuItem}. */
+export interface CloseTabMenuItemProps {
+  /** Shows the {@link CLOSE_TRIGGER} hint. The app binds the trigger and chooses the
+   * tab it acts on, so only the app knows whether this tab is that tab. */
+  triggerIndicator?: boolean;
+}
+
 /** CloseTabMenuItem closes the context menu's tab. Hidden from a viewer who cannot
  * write the panel. Must render inside the tab context menu passed to {@link Mosaic}. */
-export const CloseTabMenuItem = (): ReactElement | null => {
+export const CloseTabMenuItem = ({
+  triggerIndicator = false,
+}: CloseTabMenuItemProps = {}): ReactElement | null => {
   const tabKey = TabScope.use();
   const dispatch = useSingleDispatch();
   const canEdit = useCanEdit({});
@@ -255,7 +264,11 @@ export const CloseTabMenuItem = (): ReactElement | null => {
   );
   if (!canEdit) return null;
   return (
-    <Menu.Item itemKey="close" onClick={handleClose} triggerIndicator={CLOSE_TRIGGER}>
+    <Menu.Item
+      itemKey="close"
+      onClick={handleClose}
+      triggerIndicator={triggerIndicator && CLOSE_TRIGGER}
+    >
       <Icon.Close />
       Close
     </Menu.Item>

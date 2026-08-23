@@ -44,8 +44,8 @@ afterEach(() => {
 // production load path without touching that jsdom hole.
 const SHAPELESS_SVG = '<svg viewBox="0 0 100 100"><g id="grp"></g></svg>';
 
-// The triggers provider identifies a key by KeyboardEvent.code and treats a modifier
-// as a held key rather than an event flag. Control stays down for the whole sequence:
+// The triggers provider identifies a key by KeyboardEvent.code and treats a modifier as
+// a held key rather than an event flag. Control stays down for the whole sequence:
 // releasing and re-pressing it inside the provider's double-press window would register
 // as a double tap and stop matching the plain Control shortcut.
 const CONTROL = { key: "Control", code: "ControlLeft" };
