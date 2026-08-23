@@ -199,8 +199,8 @@ export const openModal = async <P,>(
 
 /**
  * Presses the Ctrl+Enter save shortcut through the triggers provider. The provider
- * identifies keys by KeyboardEvent.code and treats a modifier as a held key rather
- * than an event flag, and a button's trigger fires on release.
+ * identifies keys by KeyboardEvent.code and treats a modifier as a held key rather than
+ * an event flag, and a button's trigger fires on release.
  */
 export const pressSaveTrigger = (): void => {
   fireEvent.keyDown(window, { key: "Control", code: "ControlLeft" });

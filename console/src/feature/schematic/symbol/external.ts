@@ -8,6 +8,9 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/feature/schematic/symbol/edit";
+// Named, not a star: the browser-zoom suppression in app/triggers needs the
+// flattened chords, while ZOOM_TRIGGERS stays private to the preview.
+export { FLATTENED_ZOOM_TRIGGERS } from "@/feature/schematic/symbol/edit/triggers";
 export * from "@/feature/schematic/symbol/MissingForm";
 export * from "@/feature/schematic/symbol/SelectVariant";
 export * from "@/feature/schematic/symbol/tree";

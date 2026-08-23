@@ -28,7 +28,7 @@ const PREVENT_DEFAULT_ON: Triggers.Trigger[] = [
   PPanel.CLOSE_TRIGGER,
   // The symbol editor binds the zoom chords itself, so the browser must not also
   // zoom the whole Console when they fire.
-  ...Schematic.Symbol.Edit.FLATTENED_ZOOM_TRIGGERS,
+  ...Schematic.Symbol.FLATTENED_ZOOM_TRIGGERS,
 ];
 
 export const PROVIDER_PROPS: Triggers.ProviderProps = {

@@ -33,19 +33,11 @@ import {
 
 import { FileDrop } from "@/feature/schematic/symbol/edit/FileDrop";
 import { HandleOverlay } from "@/feature/schematic/symbol/edit/Handles";
+import {
+  FLATTENED_ZOOM_TRIGGERS,
+  ZOOM_TRIGGERS,
+} from "@/feature/schematic/symbol/edit/triggers";
 import { CSS } from "@/platform/css";
-
-const ZOOM_TRIGGERS: Triggers.ModeConfig<"in" | "out" | "reset" | "default"> = {
-  defaultMode: "default",
-  modes: {
-    in: [["Control", "Equal"]],
-    out: [["Control", "Minus"]],
-    reset: [["Control", "0"]],
-    default: [],
-  },
-};
-
-export const FLATTENED_ZOOM_TRIGGERS = Triggers.flattenConfig(ZOOM_TRIGGERS);
 
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 5;
@@ -71,7 +63,9 @@ export const Preview = ({
 }: PreviewProps): ReactElement | null => {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgWrapperRef = useRef<HTMLDivElement>(null);
-  const themeContainerRef = useRef<HTMLDivElement>(null);
+  // State, not a ref: the theme provider takes the element as a prop, and a ref
+  // filled after the first render would never re-render it into place.
+  const [themeContainer, setThemeContainer] = useState<HTMLDivElement | null>(null);
   const spec = Form.useFieldValue<schematic.symbol.Spec>("data");
   const pan = Form.useField<xy.XY>("data.previewViewport.position");
   const zoom = Form.useField<number>("data.previewViewport.zoom");
@@ -272,11 +266,11 @@ export const Preview = ({
       enabled={fileDropEnabled}
     >
       <Theming.Provider
-        el={themeContainerRef.current}
+        el={themeContainer}
         theme={Theming.SYNNAX_THEMES[isDarkMode ? "synnaxDark" : "synnaxLight"]}
       >
         <Flex.Box
-          ref={themeContainerRef}
+          ref={setThemeContainer}
           className={CSS.cls(
             CSS.B("schematic-preview-theme-container"),
             fileDropEnabled && CSS.M("hidden"),

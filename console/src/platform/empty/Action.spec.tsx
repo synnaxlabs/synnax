@@ -25,8 +25,8 @@ describe("Empty.Action", () => {
         onClick={vi.fn()}
       />,
     );
-    // An empty state is where a new user looks first, so it is the best place to
-    // teach the shortcut the action also answers to.
+    // An empty state is where a new user looks first, so it is the best place to teach
+    // the shortcut the action also answers to.
     expect(c.getByText("Create component")).toBeTruthy();
     expect(keycaps(c.container)).toBe(2);
   });
@@ -44,8 +44,8 @@ describe("Empty.Action", () => {
   });
 
   it("should withhold the hint when the action itself is withheld", () => {
-    // A viewer gets no action link, so a bare shortcut floating under the message
-    // would advertise something they cannot do.
+    // A viewer gets no action link, so a bare shortcut floating under the message would
+    // advertise something they cannot do.
     const c = render(
       <Empty.Action message="No components open" trigger={["Control", "T"]} />,
     );
