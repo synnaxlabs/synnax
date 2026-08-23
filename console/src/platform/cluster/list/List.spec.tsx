@@ -134,6 +134,25 @@ describe("cluster List", () => {
     await waitFor(() => expect(editable.getAttribute("contenteditable")).toBe("false"));
     expect(Session.Cluster.selectState(store.getState(), "a")?.name).toBe("Alpha");
     expect(Session.Cluster.selectState(store.getState(), "b")?.name).toBe("Bravo");
+    expect(editable.innerText).toBe("Alpha");
+  });
+
+  it("should accept renaming a cluster to the name it already has", async () => {
+    const { store } = await renderClusterUI(
+      <Cluster.List value="a" onChange={vi.fn()} />,
+      createClusterState(
+        [createCluster("a", { name: "Alpha" }), createCluster("b", { name: "Bravo" })],
+        "a",
+      ),
+    );
+    fireEvent.contextMenu(await screen.findByText("Alpha"));
+    fireEvent.click(await screen.findByText("Rename"));
+    const editable = screen.getByText("Alpha");
+    await waitFor(() => expect(editable.getAttribute("contenteditable")).toBe("true"));
+    editable.innerText = "Alpha ";
+    fireEvent.keyDown(editable, { key: "Enter" });
+    await waitFor(() => expect(editable.getAttribute("contenteditable")).toBe("false"));
+    expect(Session.Cluster.selectState(store.getState(), "a")?.name).toBe("Alpha");
   });
 
   it("should open the connect modal from the header add button", async () => {

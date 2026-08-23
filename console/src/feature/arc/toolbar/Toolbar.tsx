@@ -57,7 +57,7 @@ const Content = () => {
   const { data, getItem, subscribe, retrieve, answered } = Arc.useList({});
   const { fetchMore } = List.usePager({ retrieve, pageSize: 1e3 });
 
-  const { update: handleRename } = PlatformArc.useRename(getItem);
+  const { update: handleRename } = Arc.useRename();
 
   const handleEdit = useCallback(
     (key: arc.Key) => openTab({ variant: "resource", resource: arc.ontologyID(key) }),

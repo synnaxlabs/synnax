@@ -207,10 +207,10 @@ class StatusesClient(ResourceClient):
         self._toolbar_ctx_menu_action(name, "Unfavorite")
 
     def rename_from_toolbar(self, old_name: str, new_name: str) -> None:
-        """Rename a status via context menu and modal in the toolbar."""
+        """Rename a status via context menu in the toolbar. The name edits in place."""
         self.show_toolbar()
         item = self.get_toolbar_item(old_name)
-        self.layout.rename_with_modal(item, new_name)
+        self.layout.rename_in_place(item, new_name)
 
     def delete_from_toolbar(self, name: str) -> None:
         """Delete a status via context menu in the toolbar."""

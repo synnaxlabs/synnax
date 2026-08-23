@@ -14,7 +14,6 @@ import {
   Access,
   Component,
   Flex,
-  type Flux,
   Haul,
   Icon,
   List as BaseList,
@@ -26,7 +25,7 @@ import {
   Text,
   Tooltip,
 } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { ContextMenu } from "@/feature/range/ContextMenu";
 import { Explorer } from "@/feature/range/explorer";
@@ -94,32 +93,12 @@ const List = (): ReactElement => {
   );
 };
 
-export const useRename = () => {
-  const getRangeState = Session.Range.useGetState();
-  const dispatch = Session.useDispatch();
-  return Ranger.useRename({
-    beforeUpdate: useCallback(
-      async ({ data, rollbacks }: Flux.BeforeUpdateParams<Ranger.RenameParams>) => {
-        const { key, name } = data;
-        const rng = getRangeState(key);
-        if (rng == null) return data;
-        const oldName = rng.name;
-        if (!rng.persisted) return false;
-        dispatch(Session.Range.rename({ key, name }));
-        rollbacks.push(() => dispatch(Session.Range.rename({ key, name: oldName })));
-        return data;
-      },
-      [getRangeState],
-    ),
-  });
-};
-
 const listItem = Component.renderProp((props: BaseList.ItemProps<string>) => {
   const { itemKey } = props;
   const entry = Session.Range.useSelectState(itemKey);
   const isLocal = entry != null && !entry.persisted;
   const labels = Ranger.useLabels(isLocal ? null : itemKey) ?? [];
-  const onRename = useRename();
+  const onRename = Session.Range.useRename();
   const hasUpdatePermission = Access.useUpdateGranted(ranger.ontologyID(itemKey));
   if (entry == null || entry.variant === "dynamic") return null;
   const { key, name, timeRange, persisted } = entry;
@@ -133,12 +112,18 @@ const listItem = Component.renderProp((props: BaseList.ItemProps<string>) => {
           </Text.Text>
         </Tooltip.Dialog>
       )}
-      <Flex.Box x align="center" gap="small">
+      <Flex.Box
+        x
+        align="center"
+        gap="small"
+        className={CSS.BE("range-list-item", "name")}
+      >
         <Ranger.StageIcon timeRange={timeRange} />
         <Text.MaybeEditable
           id={`text-${key}`}
           level="p"
           value={name}
+          overflow="fade"
           onChange={
             hasUpdatePermission ? (name) => onRename.update({ key, name }) : undefined
           }

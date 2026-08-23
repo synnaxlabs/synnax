@@ -110,6 +110,14 @@ describe("range/Toolbar", () => {
     expect(screen.getByText("L")).toBeTruthy();
   });
 
+  it("fades a range name too long for the toolbar", async () => {
+    const rng = createLocalRangeState(uniqueRangeName("a-very-long-range-name"));
+    await renderToolbar({ ranges: [rng] });
+    const name = await screen.findByText(rng.name);
+    expect(name.className).toContain("pluto-text--overflow-fade");
+    expect(name.closest(".console-range-list-item__name")).not.toBeNull();
+  });
+
   it("sets the clicked range as active", async () => {
     const rng = toState(await createTestRange(client));
     const { store } = await renderToolbar({ ranges: [rng] });
@@ -213,6 +221,33 @@ describe("range/Toolbar", () => {
       await waitFor(async () =>
         expect((await client.ranges.retrieve(created.key)).name).toBe(renamed),
       );
+    });
+
+    it("renames a local range without reaching the Core", async () => {
+      const local = createLocalRangeState(uniqueRangeName("local"));
+      const { store } = await renderToolbar({ ranges: [local] });
+      await openContextMenu(local.name);
+      fireEvent.click(await screen.findByText("Rename"));
+      const editor = await awaitTextEditing(`text-${local.key}`);
+      const renamed = uniqueRangeName("renamed");
+      commitTextEdit(editor, renamed);
+      await waitFor(() =>
+        expect(Session.Range.selectState(store.getState(), local.key)?.name).toBe(
+          renamed,
+        ),
+      );
+      await expect(client.ranges.retrieve(local.key)).rejects.toThrow(NotFoundError);
+    });
+
+    it("withholds the active-plot item when the focused tab is not a plot", async () => {
+      const { store } = await renderToolbar();
+      fireEvent.click(await screen.findByText("Open range explorer"));
+      await resolveFocusedTab(store, client);
+      const rng = await createTestRange(client);
+      store.dispatch(Session.Range.add([toState(rng)]));
+      await openContextMenu(rng.name);
+      expect(await screen.findByText("Add to new plot")).toBeTruthy();
+      expect(screen.queryByText("Add to active plot")).toBeNull();
     });
 
     it("opens the create modal for a child range", async () => {

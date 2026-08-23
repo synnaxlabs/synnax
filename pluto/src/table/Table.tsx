@@ -562,6 +562,7 @@ export const Table = ({
                           y={yPos}
                           size={row.size}
                           editable={editable}
+                          last={rowIndex === rows.length - 1}
                           showIndicator={showIndicators}
                           onSelect={handleRowSelect}
                           onResize={handleRowResize}

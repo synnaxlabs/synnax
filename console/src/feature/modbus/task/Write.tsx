@@ -11,6 +11,7 @@ import "@/feature/modbus/task/Task.css";
 
 import { channel, NotFoundError } from "@synnaxlabs/client";
 import {
+  Access,
   Component,
   Flex,
   Form as PForm,
@@ -128,7 +129,8 @@ const listItem = Component.renderProp(ChannelListItem);
 interface ContextMenuItemProps extends Task.ContextMenuItemProps<WriteChannel> {}
 
 const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => {
-  if (keys.length !== 1) return null;
+  const canRename = Access.useUpdateGranted(channel.TYPE_ONTOLOGY_ID);
+  if (keys.length !== 1 || !canRename) return null;
   const key = keys[0];
   const cmdChannel = channels.find((ch) => ch.key === key)?.channel;
   if (cmdChannel == null) return null;
