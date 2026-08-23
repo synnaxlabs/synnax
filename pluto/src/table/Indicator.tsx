@@ -25,11 +25,15 @@ const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 /** Pixel size of an indicator strip, mirroring --pluto-table-indicator-size. */
 export const INDICATOR_SIZE = 4.5 * 6;
 
-// getCellColumn maps a 0-based column index to a spreadsheet-style letter
-// ("A", "B", "C", ...). Defined here so consumers building UI chrome (e.g.,
-// breadcrumb labels in a toolbar) can label cells using the same convention
-// the table renders.
-export const getCellColumn = (index: number): string => ALPHABET[index];
+// getCellColumn maps a 0-based column index to a spreadsheet-style label ("A", "B",
+// ... "Z", "AA", "AB", ...). Exported so consumers labeling cells outside the table
+// (toolbar breadcrumbs, menu items) use the same convention the table renders.
+export const getCellColumn = (index: number): string => {
+  let label = "";
+  for (let i = index; i >= 0; i = Math.floor(i / ALPHABET.length) - 1)
+    label = ALPHABET[i % ALPHABET.length] + label;
+  return label;
+};
 
 export interface ColumnIndicatorsProps {
   columns: number[];
@@ -127,7 +131,7 @@ export const Indicator = ({
     ),
   });
   const style = useMemo(() => ({ [direction.dimension(dir)]: value }), [dir, value]);
-  const label = dir === "x" ? ALPHABET[index] : index + 1;
+  const label = dir === "x" ? getCellColumn(index) : index + 1;
   return (
     <td
       id={`resizer-${dir}-${index}`}
