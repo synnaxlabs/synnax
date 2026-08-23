@@ -19,12 +19,12 @@ import { CONNECTION_PARAMS, createCore } from "@/session/core/testutil";
 import { type State } from "@/session/store";
 import { createConnectedConsoleWrapper } from "@/testutil";
 
-const createState = (clusterKeys: string[], selected: string | null): State => ({
+const createState = (coreKeys: string[], selected: string | null): State => ({
   ...Session.ZERO_STATE,
   [Session.Core.SLICE_NAME]: {
     ...Session.Core.ZERO_SLICE_STATE,
     selected: selected ?? undefined,
-    cores: Object.fromEntries(clusterKeys.map((k) => [k, createCore(k)])),
+    cores: Object.fromEntries(coreKeys.map((k) => [k, createCore(k)])),
   },
 });
 
@@ -114,26 +114,21 @@ describe("connectToCore", () => {
 
 describe("useLink", () => {
   it("should resolve the active Core's managed client", async () => {
-    const c = createTestClient();
-    const {
-      details: { clusterKey },
-    } = await c.connect();
+    const core = createCore("Local");
     const { wrapper } = await createConnectedConsoleWrapper({
       client: null,
       connParams: CONNECTION_PARAMS,
       preloadedState: {
         [Session.Core.SLICE_NAME]: {
           ...Session.Core.ZERO_SLICE_STATE,
-          selected: clusterKey,
-          cores: {
-            [clusterKey]: createCore(clusterKey, { name: "Local" }),
-          },
+          selected: core.key,
+          cores: { [core.key]: core },
         },
       },
     });
     const { result } = renderHook(() => Core.useLink(), { wrapper });
     await waitFor(async () => {
-      const resolved = await result.current(clusterKey);
+      const resolved = await result.current(core.key);
       expect(resolved).not.toBeNull();
     });
   });

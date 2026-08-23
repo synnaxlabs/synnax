@@ -42,13 +42,13 @@ describe("Session.Context", () => {
   });
 });
 
-const CLUSTER_KEY = "local";
+const CORE_KEY = "local";
 
 const createCoreState = (): Session.Core.SliceState => ({
   ...Session.Core.ZERO_SLICE_STATE,
   cores: {
-    [CLUSTER_KEY]: {
-      key: CLUSTER_KEY,
+    [CORE_KEY]: {
+      key: CORE_KEY,
       name: "Local",
       host: "localhost",
       port: 9090,
@@ -57,7 +57,7 @@ const createCoreState = (): Session.Core.SliceState => ({
       secure: false,
     },
   },
-  selected: CLUSTER_KEY,
+  selected: CORE_KEY,
 });
 
 /**

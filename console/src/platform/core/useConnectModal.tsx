@@ -102,7 +102,7 @@ export const useConnectModal = Modals.create<ConnectModalParams>(
 
     return (
       <Modals.Frame className={CSS.B("connect-core")}>
-        <Modals.Header icon={<Icon.Cluster />}>Connect a Core</Modals.Header>
+        <Modals.Header icon={<Icon.Core />}>Connect a Core</Modals.Header>
         <Form.Form<typeof formSchema> {...methods}>
           <Modals.Body gap="tiny" align="stretch">
             <Form.TextField

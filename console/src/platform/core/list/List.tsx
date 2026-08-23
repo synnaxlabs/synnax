@@ -153,7 +153,7 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
         <Menu.ContextMenu menu={contextMenu} {...menuProps} />
         <Header.Header gap="small" x>
           <Header.Title level="h4" color={11}>
-            <Icon.Cluster />
+            <Icon.Core />
             Cores
           </Header.Title>
         </Header.Header>
