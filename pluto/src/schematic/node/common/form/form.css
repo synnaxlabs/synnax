@@ -43,3 +43,36 @@
 .pluto-label-form__wrap-width {
     max-width: 125px;
 }
+
+/* Sub-tabs sit in a rail on the left so the form keeps its full height. */
+.pluto-symbol-form-tabs {
+    height: 100%;
+
+    & > .pluto-tabs__selector {
+        width: 20rem;
+        height: 100% !important;
+        padding: 1.5rem;
+        flex-shrink: 0;
+        overflow-y: auto;
+        border-right: var(--pluto-border-l6);
+        --pluto-tabs-tab-width: 100%;
+
+        .pluto-tabs__tab {
+            flex: none;
+            width: 100%;
+            max-width: none;
+            height: var(--pluto-height-small);
+            justify-content: flex-start;
+        }
+    }
+
+    & > .pluto-tabs__content {
+        min-width: 0;
+        overflow: hidden;
+    }
+
+    /* The square widget would otherwise stretch to the column width. */
+    .pluto-select-orientation {
+        justify-self: start;
+    }
+}

@@ -12,13 +12,11 @@ import { zod } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
-import { Flex } from "@/flex";
 import { Form } from "@/form";
 import { Input } from "@/input";
 import { type Control } from "@/schematic/node/common/control";
 import { ActivationDelayField } from "@/schematic/node/common/form/ActivationDelay";
 import { ControlChipField } from "@/schematic/node/common/form/Control";
-import { Wrapper } from "@/schematic/node/common/form/Wrapper";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { Staleness } from "@/vis/staleness";
@@ -93,23 +91,25 @@ export const ChannelForm = ({ path, omit = [] }: ChannelFormProps): ReactElement
   };
 
   return (
-    <Wrapper y empty>
-      <Flex.Box x grow>
-        <Input.Item label="State channel" grow padHelpText={false}>
+    <Form.Sections x>
+      <Form.Section title="State">
+        <Input.Item label="State channel" padHelpText={false}>
           <Channel.SelectSingle
             value={source.channel as number}
             onChange={handleSourceChange}
           />
         </Input.Item>
-        <Input.Item label="Command channel" grow padHelpText={false}>
+      </Form.Section>
+      <Form.Section title="Command">
+        <Input.Item label="Command channel" padHelpText={false}>
           <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
         </Input.Item>
-      </Flex.Box>
-      <Flex.Box x grow>
-        {!omit.includes("onClickDelay") && <ActivationDelayField grow />}
+        {!omit.includes("onClickDelay") && <ActivationDelayField />}
         <ControlChipField />
+      </Form.Section>
+      <Form.Section title="Staleness">
         <Staleness.Fields />
-      </Flex.Box>
-    </Wrapper>
+      </Form.Section>
+    </Form.Sections>
   );
 };

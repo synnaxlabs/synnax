@@ -26,8 +26,8 @@ interface FormProps {
   omit?: string[];
 }
 
-export const Form = ({ path, omit = [] }: FormProps): ReactElement => (
-  <Flex.Box x align="stretch">
+export const TextFields = ({ path, omit = [] }: FormProps): ReactElement => (
+  <>
     <Base.TextField
       path={`${path}.label`}
       label="Label"
@@ -40,7 +40,7 @@ export const Form = ({ path, omit = [] }: FormProps): ReactElement => (
       className={CSS.BE("label-form", "wrap-width")}
       path={`${path}.maxInlineSize`}
       hideIfNull
-      label="Label wrap width"
+      label="Wrap width"
       inputProps={{ endContent: "px", dragScale: { x: 1, y: 0.5 } }}
       padHelpText={false}
     />
@@ -48,15 +48,20 @@ export const Form = ({ path, omit = [] }: FormProps): ReactElement => (
       hideIfNull
       visible={!omit.includes("level")}
       path={`${path}.level`}
-      label="Label size"
+      label="Size"
       padHelpText={false}
     >
       {({ value, onChange }) => <Select.Text.Level value={value} onChange={onChange} />}
     </Base.Field>
+  </>
+);
+
+export const PlacementFields = ({ path, omit = [] }: FormProps): ReactElement => (
+  <>
     <Base.Field<Flex.Alignment>
       visible={!omit.includes("align")}
       path={`${path}.align`}
-      label="Label alignment"
+      label="Alignment"
       padHelpText={false}
       hideIfNull
     >
@@ -67,7 +72,7 @@ export const Form = ({ path, omit = [] }: FormProps): ReactElement => (
     <Base.Field<direction.Direction>
       visible={!omit.includes("direction")}
       path={`${path}.direction`}
-      label="Label direction"
+      label="Direction"
       padHelpText={false}
       hideIfNull
     >
@@ -75,5 +80,12 @@ export const Form = ({ path, omit = [] }: FormProps): ReactElement => (
         <Direction.Select value={value} onChange={onChange} yDirection="down" />
       )}
     </Base.Field>
+  </>
+);
+
+export const Form = (props: FormProps): ReactElement => (
+  <Flex.Box x align="stretch">
+    <TextFields {...props} />
+    <PlacementFields {...props} />
   </Flex.Box>
 );

@@ -1,0 +1,103 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* Stacked: one grid for every section, so every label shares the first column, which
+   fits the widest label, and every control fills the second. */
+.pluto-form-sections.pluto--direction-y {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 2rem 4rem;
+    align-items: start;
+    align-content: start;
+
+    & > .pluto-form-section {
+        display: contents;
+    }
+
+    & > .pluto-form-section + .pluto-form-section > .pluto-form-section__header {
+        margin-top: 2.5rem;
+    }
+}
+
+/* Side by side: each section is a column with its own label grid. */
+.pluto-form-sections.pluto--direction-x {
+    display: flex;
+    align-items: stretch;
+    height: 100%;
+    overflow-x: auto;
+
+    & > .pluto-form-section,
+    & > .pluto-form-sections {
+        width: 66rem;
+        flex-shrink: 0;
+        padding: 1.5rem 2rem;
+        border-right: var(--pluto-border-l6);
+        gap: 1.5rem 3rem;
+        align-content: start;
+        overflow-y: auto;
+    }
+
+    & > .pluto-form-section {
+        display: grid;
+        grid-template-columns: max-content minmax(0, 1fr);
+        align-items: start;
+    }
+
+    & > .pluto-form-sections {
+        & > .pluto-form-section + .pluto-form-section > .pluto-form-section__header {
+            margin-top: 1.5rem;
+        }
+    }
+
+    .pluto-form-section__header::after {
+        display: none;
+    }
+}
+
+.pluto-form-section {
+    .pluto-input__switch {
+        justify-content: flex-start;
+    }
+
+    & > :not(.pluto-input__item) {
+        grid-column: 1 / -1;
+    }
+
+    /* A row of fields inside a section dissolves; each field becomes a row. */
+    & > .pluto-flex:not(.pluto-input__item):has(> .pluto-input__item) {
+        display: contents;
+    }
+
+    .pluto-form-section__header {
+        margin-bottom: 0.5rem;
+
+        &::after {
+            content: "";
+            flex-grow: 1;
+            height: var(--pluto-border-width);
+            background: var(--pluto-gray-l6);
+        }
+    }
+
+    .pluto-input__item {
+        display: contents;
+
+        & > .pluto-input-label {
+            height: var(--pluto-height-medium);
+            display: flex;
+            align-items: center;
+        }
+
+        & .pluto-input-help-text:empty {
+            display: none;
+        }
+    }
+}

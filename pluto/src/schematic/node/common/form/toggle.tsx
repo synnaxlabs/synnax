@@ -9,6 +9,7 @@
 
 import { type ReactElement } from "react";
 
+import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Form } from "@/form";
 import { ColorField } from "@/schematic/node/common/form/Color";
@@ -31,8 +32,8 @@ export const ToggleForm = ({
   hideInnerOrientation,
   omit,
 }: ToggleFormProps): ReactElement => (
-  <Tabs.Frame initialValue="style">
-    <Tabs.Selector>
+  <Tabs.Frame initialValue="style" x className={CSS.B("symbol-form-tabs")}>
+    <Tabs.Selector y>
       <Tabs.Tab itemKey="style">Style</Tabs.Tab>
       <Tabs.Tab itemKey="control">Control</Tabs.Tab>
       {actions != null && (
@@ -44,10 +45,10 @@ export const ToggleForm = ({
         </>
       )}
     </Tabs.Selector>
-    <Tabs.Content itemKey="style">
+    <Tabs.Content itemKey="style" grow>
       <StyleForm hideInnerOrientation={hideInnerOrientation} />
     </Tabs.Content>
-    <Tabs.Content itemKey="control">
+    <Tabs.Content itemKey="control" grow>
       <Toggle.ChannelForm path="" omit={omit} />
     </Tabs.Content>
   </Tabs.Frame>

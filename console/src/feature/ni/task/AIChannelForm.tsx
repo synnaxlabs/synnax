@@ -46,7 +46,6 @@ import {
   type VelocityUnits,
 } from "@/feature/ni/task/types";
 import { CSS } from "@/platform/css";
-import { Form as PlatformForm } from "@/platform/form";
 
 interface FormProps {
   prefix: string;
@@ -1398,22 +1397,22 @@ const UNSCALED_TYPES = new Set<AIChannelType>([
 ]);
 
 export const AIChannelForm = ({ type, prefix }: AIChannelFormProps) => {
-  const Form = CHANNEL_FORMS[type];
+  const TypeForm = CHANNEL_FORMS[type];
   return (
-    <PlatformForm.Sections>
-      <PlatformForm.Section title="Source">
+    <Form.Sections>
+      <Form.Section title="Source">
         <Select path={`${prefix}.device`} />
         {type !== "ai_temp_builtin" && <PortField path={prefix} />}
-      </PlatformForm.Section>
-      <PlatformForm.Section title="Signal">
+      </Form.Section>
+      <Form.Section title="Signal">
         <SelectAIChannelTypeField path={prefix} inputProps={{ allowNone: false }} />
-        <Form prefix={prefix} />
-      </PlatformForm.Section>
+        <TypeForm prefix={prefix} />
+      </Form.Section>
       {!UNSCALED_TYPES.has(type) && (
-        <PlatformForm.Section title="Scale">
+        <Form.Section title="Scale">
           <CustomScaleForm prefix={prefix} />
-        </PlatformForm.Section>
+        </Form.Section>
       )}
-    </PlatformForm.Sections>
+    </Form.Sections>
   );
 };

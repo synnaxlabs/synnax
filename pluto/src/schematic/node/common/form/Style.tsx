@@ -10,12 +10,10 @@
 import { type ReactElement } from "react";
 
 import { Errors } from "@/errors";
-import { Flex } from "@/flex";
 import { Form } from "@/form";
 import { Custom } from "@/schematic/node/common/custom";
 import { ColorField } from "@/schematic/node/common/form/Color";
 import { ScaleField } from "@/schematic/node/common/form/Scale";
-import { Wrapper } from "@/schematic/node/common/form/Wrapper";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { type FormProps } from "@/schematic/node/spec";
@@ -35,31 +33,39 @@ export const StyleForm = ({
   const hasStateOverrides =
     Form.useFieldValue<string>("stateOverrides", { optional: true }) != null;
   return (
-    <Wrapper x align="stretch" empty>
-      <Flex.Box y grow>
-        <Label.Form omit={omit} path="label" />
-        <Flex.Box x grow>
-          {!hasStateOverrides && <ColorField path="color" optional />}
-          <Form.SwitchField
-            path="normallyOpen"
-            label="Normally open"
-            padHelpText={false}
-            hideIfNull
-            optional
-          />
-          <ScaleField path="scale" />
-        </Flex.Box>
-      </Flex.Box>
+    <Form.Sections x>
+      <Form.Section title="Label">
+        <Label.TextFields omit={omit} path="label" />
+      </Form.Section>
+      <Form.Section title="Label placement">
+        <Label.PlacementFields omit={omit} path="label" />
+      </Form.Section>
+      <Form.Section title="Appearance">
+        {!hasStateOverrides && <ColorField path="color" optional />}
+        <Form.SwitchField
+          path="normallyOpen"
+          label="Normally open"
+          padHelpText={false}
+          hideIfNull
+          optional
+        />
+        <ScaleField path="scale" />
+      </Form.Section>
       {hasStateOverrides && (
-        <Errors.SuspenseBoundary>
-          <Custom.StateOverrideForm />
-        </Errors.SuspenseBoundary>
+        <Form.Section title="State overrides">
+          <Errors.SuspenseBoundary>
+            <Custom.StateOverrideForm />
+          </Errors.SuspenseBoundary>
+        </Form.Section>
       )}
-      <Orientation.Field
-        path=""
-        hideInner={hideInnerOrientation}
-        hideOuter={hideOuterOrientation}
-      />
-    </Wrapper>
+      <Form.Section title="Orientation">
+        <Orientation.Field
+          path=""
+          hideInner={hideInnerOrientation}
+          hideOuter={hideOuterOrientation}
+          showLabel={false}
+        />
+      </Form.Section>
+    </Form.Sections>
   );
 };
