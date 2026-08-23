@@ -51,6 +51,7 @@ export const use = (): void => {
   const openWindow = Panel.useOpenWindow();
   const closeWindowTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const createTabEnabled = useSelectorVisible();
+  const canEditPanel = PlatformPanel.useCanEditActive();
   const openSelector = Selector.useOpenTab();
   Triggers.use({
     triggers: OVERLAY_TRIGGERS,
@@ -95,7 +96,7 @@ export const use = (): void => {
         if (modals.isAnyOpen()) return modals.closeTop();
         const panelKey = getSelectedPanel();
         const focused = getFocusedTab();
-        if (panelKey != null && focused != null) {
+        if (canEditPanel && panelKey != null && focused != null) {
           if (getIsOverlaid()) sessionDispatch(Session.Panel.stopOverlaying({}));
           dispatch({
             key: panelKey,
@@ -117,6 +118,7 @@ export const use = (): void => {
         getFocusedTab,
         getIsOverlaid,
         modals,
+        canEditPanel,
       ],
     ),
   });

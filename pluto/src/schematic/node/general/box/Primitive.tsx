@@ -16,10 +16,10 @@ interface RenderProps extends Omit<schematic.BoxNodeConfig, "variant"> {
   className?: string;
 }
 
-export const Box = (props: RenderProps): ReactElement => (
+export const Box = ({ borderRadius, ...rest }: RenderProps): ReactElement => (
   <TankPrimitive
-    {...props}
-    dimensions={props.dimensions ?? { width: 25, height: 50 }}
-    boxBorderRadius={props.borderRadius ?? 0}
+    {...rest}
+    dimensions={rest.dimensions ?? { width: 25, height: 50 }}
+    boxBorderRadius={borderRadius ?? 0}
   />
 );

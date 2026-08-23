@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor, type record } from "@synnaxlabs/x";
+import { type destructor, type record, zod } from "@synnaxlabs/x";
 import z from "zod";
 
 import { NotFoundError, ValidationError } from "@/errors";
@@ -187,7 +187,7 @@ export abstract class Retriever<
       serverFields,
       watch,
     }) as Retrieves<Params, D | D[]>;
-    this.normalizeRequest = (p) => schema.parse(p);
+    this.normalizeRequest = (p) => zod.parse(schema, p, { label: `${name} query` });
     if (single != null) {
       this.singleSpace = single.space as Retrieves<Params, D | D[]>;
       const singleSchema = single.schema;
@@ -196,11 +196,19 @@ export abstract class Retriever<
       this.trySingle = (p) => {
         const res = singleSchema.safeParse(p);
         if (res.success) return { query: res.data };
-        if (isBareKey(p) || (typeof p === "object" && p !== null && "key" in p))
+        if (isBareKey(p) || (typeof p === "object" && p !== null && "key" in p)) {
+          const cause = new zod.ParseError({
+            issues: res.error.issues,
+            input: p,
+            label: `${name} single query params`,
+            cause: res.error,
+          });
           throw new ValidationError(
             `${name} params address a single key but do not match the ` +
-              `single-query schema: ${res.error.issues.map((i) => i.message).join("; ")}`,
+              `single-query schema.\n${cause.message}`,
+            { cause },
           );
+        }
         return null;
       };
     } else {
@@ -286,9 +294,8 @@ export abstract class Retriever<
   }
 
   /**
-   * Returns the cached answer to the given query without touching the network,
-   * or undefined when nothing is cached. May be stale for unsubscribed
-   * queries.
+   * Returns the cached answer to the given query without touching the network, or
+   * undefined when nothing is cached. May be stale for unsubscribed queries.
    */
   getCached(params: K | SingleInput): Cached<D> | undefined;
   getCached(params: K[] | z.input<Z>): Cached<D[]> | undefined;

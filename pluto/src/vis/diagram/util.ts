@@ -61,9 +61,9 @@ export const resolveEndpoint = (
   const handles = [...(handleBounds?.source ?? []), ...(handleBounds?.target ?? [])];
   const handle = handleKey ? handles.find((h) => h.id === handleKey) : handles[0];
   if (handle == null) return null;
-  const { x, y, width: w, height: h } = handle;
+  const { x, y, width: w, height: h, position: orientation } = handle;
+  if (!location.isOuter(orientation)) return null;
   const origin = xy.translate(positionAbsolute, { x, y });
-  const orientation = handle.position as location.Outer;
   switch (orientation) {
     case "top":
       return { position: xy.translateX(origin, w / 2), orientation };
@@ -127,17 +127,15 @@ export class NodeLayout {
 
   static fromFlow(key: string, flow: ReactFlowInstance): NodeLayout {
     const nodeBox = selectNodeBox(flow, key);
-    // grab all child elements with the class 'react-flow__handle'
     const nodeEl = selectNode(key);
     const handleEls = nodeEl.getElementsByClassName("react-flow__handle");
     const nodeElBox = box.construct(nodeEl);
     const handles = Array.from(handleEls).map((el) => {
       const pos = box.center(box.construct(el));
       const dist = xy.translation(box.topLeft(nodeElBox), pos);
-      const match = el.className.match(/react-flow__handle-(\w+)/);
-      if (match == null)
+      const orientation = el.className.match(/react-flow__handle-(\w+)/)?.[1];
+      if (orientation == null || !location.isOuter(orientation))
         throw new Error(`[schematic] - cannot find handle orientation`);
-      const orientation = location.construct(match[0]) as location.Outer;
       return new HandleLayout(dist, orientation);
     });
     return new NodeLayout(key, nodeBox, handles);

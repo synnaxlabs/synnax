@@ -149,8 +149,16 @@
           "match": "\\b(if|else|return|for|break|continue)\\b"
         },
         {
-          "name": "keyword.operator.logical.arc",
+          "name": "keyword.operator.word.arc",
           "match": "\\b(and|or|not)\\b"
+        },
+        {
+          "comment": "Routing-table key (`true:` in a select's outputs) names an output, not a boolean literal. Matched without a scope so it renders as plain text.",
+          "match": "\\b(true|false)\\b(?=\\s*:)"
+        },
+        {
+          "name": "constant.language.boolean.arc",
+          "match": "\\b(true|false)\\b"
         },
         {
           "name": "keyword.other.arc",
@@ -221,7 +229,7 @@
       "patterns": [
         {
           "name": "support.type.primitive.arc",
-          "match": "\\b(i8|i16|i32|i64|u8|u16|u32|u64|f32|f64|str)\\b"
+          "match": "\\b(i8|i16|i32|i64|u8|u16|u32|u64|f32|f64|str|bool)\\b"
         },
         {
           "name": "support.type.composite.arc",
@@ -257,7 +265,7 @@
         },
         {
           "name": "keyword.operator.arithmetic.arc",
-          "match": "\\*\\*|[+\\-*/%]|\\^"
+          "match": "[+\\-*/%^]"
         }
       ]
     },
@@ -354,7 +362,7 @@
       "patterns": [
         {
           "name": "meta.stage.invocation.arc",
-          "begin": "\\b(?!(?:i8|i16|i32|i64|u8|u16|u32|u64|f32|f64|str|series|chan|if|else|return|func|sequence|stage)\\b)(\\w+)\\{",
+          "begin": "\\b(?!(?:i8|i16|i32|i64|u8|u16|u32|u64|f32|f64|str|bool|series|chan|if|else|return|func|sequence|stage)\\b)(\\w+)\\{",
           "beginCaptures": {
             "1": {
               "name": "entity.name.function.arc"

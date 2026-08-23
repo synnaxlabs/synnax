@@ -1866,8 +1866,8 @@ func labeler(x i64) (label str, value i64) {
     value = x * 2
 }
 )arc" + input_name +
-        " -> labeler{} -> {label: " + label_out_name + ", value: " + value_out_name +
-        "}";
+        " -> labeler{} -> {label: \"ok\" -> " + label_out_name + ", value: 0 -> " +
+        value_out_name + "}";
 
     auto str_st = std::make_shared<stl::strings::State>();
     auto series_st = std::make_shared<stl::series::State>();
@@ -2410,6 +2410,46 @@ TEST(BinaryOpTest, PowChanChanI64) {
         {static_cast<int64_t>(2), static_cast<int64_t>(10)}
     );
     EXPECT_EQ(v, 1024);
+}
+
+/// @brief a bool function returns a bool literal as 1.
+TEST(BoolFuncTest, ReturnsTrueLiteral) {
+    const auto client = new_test_client();
+    const auto v = call_func<uint8_t>(client, R"arc(
+func btrue() bool { return true })arc");
+    EXPECT_EQ(v, 1);
+}
+
+/// @brief not negates a bool parameter.
+TEST(BoolFuncTest, NegatesBoolParam) {
+    const auto client = new_test_client();
+    const auto v = call_func<uint8_t>(
+        client,
+        R"arc(func bneg(x bool) bool { return not x })arc",
+        {static_cast<uint8_t>(1)}
+    );
+    EXPECT_EQ(v, 0);
+}
+
+/// @brief a comparison yields a bool result.
+TEST(BoolFuncTest, ComparisonReturnsBool) {
+    const auto client = new_test_client();
+    const auto v = call_func<uint8_t>(client, R"arc(
+func cmp() bool { return 3 > 2 })arc");
+    EXPECT_EQ(v, 1);
+}
+
+/// @brief a series comparison yields a bool series with readable elements.
+TEST(BoolFuncTest, SeriesComparisonYieldsBoolSeries) {
+    const auto client = new_test_client();
+    const auto v = call_func<uint8_t>(client, R"arc(
+func series_lt() bool {
+    a series f64 := [1.0, 5.0, 3.0]
+    b series f64 := [2.0, 4.0, 3.0]
+    c := a < b
+    return c[0]
+})arc");
+    EXPECT_EQ(v, 1);
 }
 
 /// @brief for i := range(5) sums 0..4.

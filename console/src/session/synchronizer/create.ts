@@ -39,8 +39,11 @@ export interface Params<S, A extends Action> {
  * listen once per client, tearing it down on client swap or unmount.
  */
 export interface Callbacks<S, A extends Action> {
-  /** Idempotent boundary repair. Pulls state at call time. */
-  reconcile: (params: Params<S, A>) => void | Promise<void>;
+  /**
+   * Idempotent boundary repair. Pulls state at call time. Absent only for a
+   * synchronizer holding no session state to repair.
+   */
+  reconcile?: (params: Params<S, A>) => void | Promise<void>;
   /** Mounts steady-state subscriptions: client feeds and store watches. */
   listen?: (params: Params<S, A>) => destructor.Destructor;
 }

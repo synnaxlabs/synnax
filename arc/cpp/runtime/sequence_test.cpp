@@ -632,6 +632,76 @@ TEST(StatefulFlowVariablesTest, PersistsAWrittenStatefulAcrossStageReEntries) {
 }
 
 TEST(
+    StatefulFlowVariablesTest,
+    FoldsAnUnwrittenBoolStatefulsInitialValueIntoFlowReads
+) {
+    Sequence h(
+        R"(
+    sequence main {
+        x bool $= true
+        stage s1 {
+            x -> %out%
+        }
+    }
+    %start_cmd% => main)",
+        {{"start_cmd", x::telem::UINT8_T}, {"out", x::telem::BOOLEAN_T}}
+    );
+
+    h.trigger("start_cmd");
+    const auto out = h.flush();
+    EXPECT_EQ(last<std::uint8_t>(out, h.key("out")), 1);
+}
+
+TEST(StatefulFlowVariablesTest, PersistsAToggledBoolStatefulAcrossStageReEntries) {
+    Sequence h(
+        R"(
+    sequence main {
+        x bool $= false
+        stage s1 {
+            x = not(x)
+            x -> %out%
+            %go2% => s2
+        }
+        stage s2 {
+            %go1% => s1
+        }
+    }
+    %start_cmd% => main)",
+        {{"start_cmd", x::telem::UINT8_T},
+         {"out", x::telem::BOOLEAN_T},
+         {"go2", x::telem::UINT8_T},
+         {"go1", x::telem::UINT8_T}}
+    );
+
+    h.trigger("start_cmd");
+    auto out = h.flush();
+    EXPECT_EQ(last<std::uint8_t>(out, h.key("out")), 1);
+    h.trigger("go2");
+    h.trigger("go1");
+    out = h.flush();
+    EXPECT_EQ(last<std::uint8_t>(out, h.key("out")), 0);
+}
+
+TEST(StatefulFlowVariablesTest, InterpolatesAToggledBoolStateful) {
+    Sequence h(
+        R"(
+    sequence main {
+        flag bool $= false
+        stage s1 {
+            flag = not(flag)
+            f"flag={flag}" -> %out%
+        }
+    }
+    %start_cmd% => main)",
+        {{"start_cmd", x::telem::UINT8_T}, {"out", x::telem::STRING_T}}
+    );
+
+    h.trigger("start_cmd");
+    const auto out = h.flush();
+    EXPECT_EQ(last<std::string>(out, h.key("out")), "flag=true");
+}
+
+TEST(
     VariableInitializationOnDeclarationTest,
     InitializesAVariableDeclaredInASequenceBody
 ) {

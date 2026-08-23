@@ -16,8 +16,8 @@
 #include <vector>
 
 #include "client/cpp/channel/types.gen.h"
-#include "client/cpp/device/types.gen.h"
-#include "client/cpp/task/config/types.gen.h"
+#include "client/cpp/device/key.h"
+#include "client/cpp/task/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
 
@@ -33,12 +33,12 @@ struct WriteConfig;
 /// @brief BaseChannel carries the fields every OPC UA channel shares.
 struct BaseChannel {
     /// @brief key uniquely identifies the channel within the task.
-    std::string key = "";
+    std::string key;
     /// @brief name is the human-readable channel name.
     std::string name = "";
     /// @brief disabled is true when the channel is excluded from the task.
     bool disabled = false;
-    /// @brief node_id is the OPC UA node id the channel is bound to.
+    /// @brief node_id is the OPC UA node ID the channel is bound to.
     std::string node_id = "";
     /// @brief node_name is the browse name of the OPC UA node.
     std::string node_name = "";
@@ -50,7 +50,7 @@ struct BaseChannel {
 };
 
 /// @brief ScanConfig configures an OPC UA scan task.
-struct ScanConfig : public ::synnax::task::config::BaseScan {
+struct ScanConfig : public ::synnax::task::ScanConfig {
 
     static ScanConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -60,9 +60,8 @@ struct ScanConfig : public ::synnax::task::config::BaseScan {
 struct ReadChannel : public BaseChannel {
     /// @brief channel is the Synnax channel that samples are written to.
     ::synnax::channel::Key channel = ::synnax::channel::Key(0);
-    /// @brief use_as_index is true when the channel's Synnax channel is the task's
-    /// index.
-    bool use_as_index = false;
+    /// @brief is_index is true when the channel's Synnax channel is the task's index.
+    bool is_index = false;
 
     static ReadChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -78,7 +77,7 @@ struct WriteChannel : public BaseChannel {
 };
 
 /// @brief ReadConfig configures an OPC UA read task.
-struct ReadConfig : public ::synnax::task::config::BaseRead {
+struct ReadConfig : public ::synnax::task::ReadConfig {
     /// @brief device is the key of the device representing the OPC UA server.
     ::synnax::device::Key device = "";
     /// @brief array_mode is true when each read returns an array of samples per node.
@@ -99,7 +98,7 @@ struct ReadConfig : public ::synnax::task::config::BaseRead {
 };
 
 /// @brief WriteConfig configures an OPC UA write task.
-struct WriteConfig : public ::synnax::task::config::BaseWrite {
+struct WriteConfig : public ::synnax::task::WriteConfig {
     /// @brief channels are the OPC UA nodes the task drives.
     std::vector<WriteChannel> channels;
 

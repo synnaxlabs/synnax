@@ -11,6 +11,7 @@ import "@/platform/range/overview/Details.css";
 
 import { ranger } from "@synnaxlabs/client";
 import {
+  Access,
   Button,
   Divider,
   Flex,
@@ -26,8 +27,8 @@ import { type FC, type ReactElement, useCallback } from "react";
 
 import { Cluster } from "@/platform/cluster";
 import { CSS } from "@/platform/css";
-import { CSV } from "@/platform/csv";
 import { Errors } from "@/platform/errors";
+import { Framer } from "@/platform/framer";
 import { Label } from "@/platform/label";
 import { Panel } from "@/platform/panel";
 import { FavoriteButton } from "@/platform/range/FavoriteButton";
@@ -44,7 +45,7 @@ const Internal = ({ rangeKey }: ParentRangeButtonProps): ReactElement | null => 
   return (
     <Flex.Box x gap="small" align="center">
       <Text.Text weight={450} color={9}>
-        Child Range of
+        Child range of
       </Text.Text>
       <Button.Button
         color={9}
@@ -75,6 +76,9 @@ export interface DetailsProps {
 export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   const range = Ranger.use({ key: rangeKey });
   const now = TimeStamp.now().nanoseconds;
+  // The form saves on every edit, so a subject who cannot write the range gets it
+  // read-only rather than a field that reverts once the save is refused.
+  const canEdit = Access.useUpdateGranted(ranger.ontologyID(rangeKey));
   const { form, status } = Ranger.useForm({
     query: { key: rangeKey },
     initialValues: {
@@ -84,6 +88,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
       labels: [],
     },
     autoSave: true,
+    mode: canEdit ? "normal" : "preview",
   });
 
   const handleLink = Cluster.useCopyLinkToClipboard();
@@ -111,7 +116,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
     [name, rangeKey],
   );
 
-  const promptDownloadCSVModal = CSV.useDownloadModal();
+  const promptDownloadCSVModal = Framer.useDownloadCSVModal();
 
   if (status.variant === "error")
     return (
@@ -144,10 +149,10 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
           <Flex.Box x className={CSS.BE("range-overview", "actions")} gap="small">
             <Button.Copy
               text={getPythonCode}
-              tooltip={`Copy Python code to retrieve ${name}`}
+              tooltip={`Copy Python code for ${name}`}
               tooltipLocation="bottom"
               variant="text"
-              successMessage={`Copied Python code to retrieve ${name} to clipboard`}
+              successMessage={`Copied Python code for ${name} to clipboard`}
               textColor={9}
             >
               <Icon.Python />
@@ -155,16 +160,16 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
             <Button.Copy
               variant="text"
               text={getTypeScriptCode}
-              tooltip={`Copy TypeScript code to retrieve ${name}`}
+              tooltip={`Copy TypeScript code for ${name}`}
               tooltipLocation="bottom"
-              successMessage={`Copied TypeScript code to retrieve ${name} to clipboard`}
+              successMessage={`Copied TypeScript code for ${name} to clipboard`}
               textColor={9}
             >
               <Icon.TypeScript />
             </Button.Copy>
             <Divider.Divider y />
             <Button.Button
-              tooltip={`Download data for ${name} as a CSV`}
+              tooltip={`Download data for ${name} as CSV`}
               tooltipLocation="bottom"
               variant="text"
               textColor={9}

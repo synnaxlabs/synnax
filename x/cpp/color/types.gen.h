@@ -11,7 +11,6 @@
 
 #pragma once
 
-#include <cstdint>
 #include <optional>
 #include <string>
 #include <utility>
@@ -23,28 +22,7 @@
 
 namespace x::color {
 
-struct Color;
 struct Stop;
-
-/// @brief Color is an RGBA color with RGB as 0-255 and alpha as 0-1.
-struct Color {
-    /// @brief r is the red component (0-255).
-    std::uint8_t r = 0;
-    /// @brief g is the green component (0-255).
-    std::uint8_t g = 0;
-    /// @brief b is the blue component (0-255).
-    std::uint8_t b = 0;
-    /// @brief a is the alpha component (0-1).
-    double a = 0;
-
-    static Color parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::x::color::pb::Color;
-    [[nodiscard]] std::pair<::x::color::pb::Color, x::errors::Error> to_proto() const;
-    static std::pair<Color, x::errors::Error>
-    from_proto(const ::x::color::pb::Color &pb);
-};
 
 /// @brief Stop is a single color stop in a gradient.
 struct Stop {

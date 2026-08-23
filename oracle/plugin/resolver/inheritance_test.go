@@ -33,6 +33,31 @@ func analyze(
 	return form, table
 }
 
+// analyzeUnion resolves source into a table and returns the named union's form and
+// one of its variants.
+func analyzeUnion(
+	ctx context.Context,
+	source, union, variant string,
+) (resolution.UnionForm, resolution.UnionVariant, *resolution.Table) {
+	GinkgoHelper()
+	table := MustGenerateRequest(ctx, source, "test", NewMockFileLoader()).Resolutions
+	typ := MustBeOk(table.Get("test." + union))
+	form, ok := typ.Form.(resolution.UnionForm)
+	Expect(ok).To(BeTrue(), "%s is not a union", union)
+	v, ok := form.Variant(variant)
+	Expect(ok).To(BeTrue(), "%s has no variant %s", union, variant)
+	return form, v, table
+}
+
+// fieldNames lists the names of fields, for asserting on what a variant declares.
+func fieldNames(fields []resolution.Field) []string {
+	names := make([]string, len(fields))
+	for i, f := range fields {
+		names[i] = f.Name
+	}
+	return names
+}
+
 var _ = Describe("Inheritance", func() {
 	Describe("InheritedFields", func() {
 		It("Should return the fields of a single parent", func(ctx SpecContext) {
@@ -126,6 +151,69 @@ var _ = Describe("Inheritance", func() {
 				}
 			`, "Solo")
 			Expect(resolver.InheritedFields(form.Extends, table)).To(BeEmpty())
+		})
+	})
+
+	Describe("HasFieldConflicts", func() {
+		var (
+			table   *resolution.Table
+			keyed   = resolution.TypeRef{Name: "test.Keyed"}
+			named   = resolution.TypeRef{Name: "test.Named"}
+			alsoKey = resolution.TypeRef{Name: "test.AlsoKeyed"}
+			missing = resolution.TypeRef{Name: "test.Missing"}
+		)
+
+		structType := func(name string, fields ...string) resolution.Type {
+			form := resolution.StructForm{}
+			for _, f := range fields {
+				form.Fields = append(form.Fields, resolution.Field{
+					Name: f,
+					Type: resolution.TypeRef{Name: "string"},
+				})
+			}
+			return resolution.Type{
+				Name:          name,
+				Namespace:     "test",
+				QualifiedName: "test." + name,
+				Form:          form,
+			}
+		}
+
+		BeforeEach(func() {
+			table = resolution.NewTable()
+			for _, t := range []resolution.Type{
+				structType("Keyed", "key"),
+				structType("Named", "name"),
+				structType("AlsoKeyed", "key"),
+			} {
+				Expect(table.Add(t)).To(Succeed())
+			}
+		})
+
+		DescribeTable("Should detect overlapping fields across parents",
+			func(extends []resolution.TypeRef, want bool) {
+				Expect(resolver.HasFieldConflicts(extends, table)).To(Equal(want))
+			},
+			Entry("no parents", nil, false),
+			Entry("single parent", []resolution.TypeRef{keyed}, false),
+			Entry("disjoint parents", []resolution.TypeRef{keyed, named}, false),
+			Entry("conflicting parents", []resolution.TypeRef{keyed, alsoKey}, true),
+			Entry("unresolvable parent skipped",
+				[]resolution.TypeRef{keyed, missing}, false),
+		)
+	})
+
+	Describe("HasDomainOmissions", func() {
+		It("Should report a field that drops an inherited domain", func() {
+			form := resolution.StructForm{Fields: []resolution.Field{
+				{Name: "key", OmittedDomains: []string{"validate"}},
+			}}
+			Expect(resolver.HasDomainOmissions(form)).To(BeTrue())
+		})
+
+		It("Should report false when no field omits a domain", func() {
+			form := resolution.StructForm{Fields: []resolution.Field{{Name: "key"}}}
+			Expect(resolver.HasDomainOmissions(form)).To(BeFalse())
 		})
 	})
 
@@ -399,6 +487,113 @@ var _ = Describe("Inheritance", func() {
 				}
 			`, "Child")
 			Expect(resolver.CanUseInheritance(form, table)).To(BeFalse())
+		})
+	})
+
+	Describe("VariantBases", func() {
+		It("Should inherit every base when the variant drops nothing", func(
+			ctx SpecContext,
+		) {
+			form, v, table := analyzeUnion(ctx, `
+				@go output "pkg/test"
+
+				Base struct {
+					port string = ""
+					name string = ""
+				}
+
+				Extra struct {
+					scale float64 = 1
+				}
+
+				Chan union on type extends Base, Extra {
+					builtin {
+						units string = "c"
+					}
+				}
+			`, "Chan", "builtin")
+			inherited, declared := resolver.VariantBases(form, v, table)
+			Expect(inherited).To(HaveLen(2))
+			Expect(declared).To(BeEmpty())
+		})
+
+		It("Should declare the other fields of a base it drops a field from", func(
+			ctx SpecContext,
+		) {
+			form, v, table := analyzeUnion(ctx, `
+				@go output "pkg/test"
+
+				Base struct {
+					port string = ""
+					name string = ""
+				}
+
+				Extra struct {
+					scale float64 = 1
+				}
+
+				Chan union on type extends Base, Extra {
+					builtin {
+						-port
+						units string = "c"
+					}
+				}
+			`, "Chan", "builtin")
+			inherited, declared := resolver.VariantBases(form, v, table)
+			Expect(inherited).To(HaveLen(1))
+			Expect(inherited[0].Name).To(Equal("test.Extra"))
+			Expect(fieldNames(declared)).To(Equal([]string{"name"}))
+		})
+
+		It("Should not declare a field an inherited base already supplies", func(
+			ctx SpecContext,
+		) {
+			form, v, table := analyzeUnion(ctx, `
+				@go output "pkg/test"
+
+				Base struct {
+					port string = ""
+					name string = ""
+				}
+
+				Extra struct {
+					name  string = "extra"
+					scale float64 = 1
+				}
+
+				Chan union on type extends Base, Extra {
+					builtin {
+						-port
+						units string = "c"
+					}
+				}
+			`, "Chan", "builtin")
+			inherited, declared := resolver.VariantBases(form, v, table)
+			Expect(inherited).To(HaveLen(1))
+			Expect(fieldNames(declared)).ToNot(ContainElement("name"))
+		})
+
+		It("Should not declare a field the variant declares itself", func(
+			ctx SpecContext,
+		) {
+			form, v, table := analyzeUnion(ctx, `
+				@go output "pkg/test"
+
+				Base struct {
+					port string = ""
+					name string = ""
+				}
+
+				Chan union on type extends Base {
+					builtin {
+						-port
+						name string = "builtin"
+					}
+				}
+			`, "Chan", "builtin")
+			inherited, declared := resolver.VariantBases(form, v, table)
+			Expect(inherited).To(BeEmpty())
+			Expect(fieldNames(declared)).ToNot(ContainElement("name"))
 		})
 	})
 })

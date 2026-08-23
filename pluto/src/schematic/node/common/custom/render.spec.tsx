@@ -63,7 +63,7 @@ describe("Custom.useRender", () => {
     variant: "test",
     handles: [],
     scale: 1,
-    scaleStroke: false,
+    strokeScaled: false,
     previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
     ...overrides,
   });
@@ -541,9 +541,9 @@ describe("Custom.useRender", () => {
   });
 
   describe("stroke scaling", () => {
-    it("should add non-scaling-stroke when scaleStroke is false", () => {
+    it("should add non-scaling-stroke when strokeScaled is false", () => {
       const container = document.createElement("div");
-      const spec = createMockSpec({ scaleStroke: false });
+      const spec = createMockSpec({ strokeScaled: false });
 
       renderAttached(
         {
@@ -559,9 +559,9 @@ describe("Custom.useRender", () => {
       expect(rect.getAttribute("vector-effect")).toBe("non-scaling-stroke");
     });
 
-    it("should not have vector-effect when scaleStroke is true", () => {
+    it("should not have vector-effect when strokeScaled is true", () => {
       const container = document.createElement("div");
-      const spec = createMockSpec({ scaleStroke: true });
+      const spec = createMockSpec({ strokeScaled: true });
 
       renderAttached(
         {
@@ -589,7 +589,7 @@ describe("Custom.useRender", () => {
           <polygon points="0,0 10,0 10,10"/>
           <polyline points="0,0 10,0 10,10"/>
         </svg>`,
-        scaleStroke: false,
+        strokeScaled: false,
       });
 
       renderAttached(
@@ -1093,10 +1093,9 @@ describe("Custom.useRender", () => {
     });
   });
 
-  // The symbol editor's form mutates its value object in place rather than
-  // producing a new reference on every change, so the same spec object is
-  // passed across rerenders. The diff must detect changes by value, not by
-  // object identity.
+  // The symbol editor's form mutates its value object in place rather than producing a
+  // new reference on every change, so the same spec object is passed across rerenders.
+  // The diff must detect changes by value, not by object identity.
   describe("in-place spec mutation", () => {
     it("should update dimensions when the internal scale is mutated in place", () => {
       const container = document.createElement("div");
@@ -1141,9 +1140,9 @@ describe("Custom.useRender", () => {
       expect(rect.getAttribute("stroke")).toBe(color.hex(color.construct("#aabbcc")));
     });
 
-    it("should toggle stroke scaling when scaleStroke is mutated in place", () => {
+    it("should toggle stroke scaling when strokeScaled is mutated in place", () => {
       const container = document.createElement("div");
-      const spec = createMockSpec({ scaleStroke: false });
+      const spec = createMockSpec({ strokeScaled: false });
       const { result, rerender } = renderHook(() =>
         Custom.useRender({
           orientation: "top",
@@ -1157,7 +1156,7 @@ describe("Custom.useRender", () => {
       const rect = container.querySelector(".main") as SVGRectElement;
       expect(rect.getAttribute("vector-effect")).toBe("non-scaling-stroke");
 
-      spec.scaleStroke = true;
+      spec.strokeScaled = true;
       rerender();
       expect(rect.getAttribute("vector-effect")).toBeNull();
     });
@@ -1165,7 +1164,7 @@ describe("Custom.useRender", () => {
 
   // When the SVG markup changes the element is re-parsed from scratch, discarding
   // every derived attribute. All of them must be re-applied against the new DOM even
-  // when their own inputs (state, scaleStroke) are unchanged.
+  // when their own inputs (state, strokeScaled) are unchanged.
   describe("re-application after SVG rebuild", () => {
     it("should re-apply region colors to a rebuilt SVG with unchanged state", () => {
       const container = document.createElement("div");
@@ -1196,7 +1195,7 @@ describe("Custom.useRender", () => {
       expect(rebuilt.getAttribute("fill")).toBe("#cccccc");
     });
 
-    it("should re-apply stroke scaling to a rebuilt SVG with unchanged scaleStroke", () => {
+    it("should re-apply stroke scaling to a rebuilt SVG with unchanged strokeScaled", () => {
       const container = document.createElement("div");
       const { result, rerender } = renderHook(
         ({ spec }) =>
@@ -1206,7 +1205,7 @@ describe("Custom.useRender", () => {
             externalScale: 1,
             spec,
           }),
-        { initialProps: { spec: createMockSpec({ scaleStroke: false }) } },
+        { initialProps: { spec: createMockSpec({ strokeScaled: false }) } },
       );
       result.current(container);
       expect(
@@ -1217,7 +1216,7 @@ describe("Custom.useRender", () => {
 
       rerender({
         spec: createMockSpec({
-          scaleStroke: false,
+          strokeScaled: false,
           svg: '<svg viewBox="0 0 100 100"><rect class="main" width="50" height="50" stroke="black" fill="white"/></svg>',
         }),
       });
@@ -1245,7 +1244,7 @@ const editorInitialValues = (): SymbolValues => ({
     variant: "static",
     handles: [],
     scale: 1,
-    scaleStroke: false,
+    strokeScaled: false,
     previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
   },
 });

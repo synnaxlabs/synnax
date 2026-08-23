@@ -14,6 +14,7 @@ import {
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import {
+  Access,
   Component,
   context,
   Haul,
@@ -82,7 +83,7 @@ const FallbackContextMenu = (): ReactElement => (
 const itemRenderProp = Component.renderProp(
   ({ onDrop: _, ...rest }: Base.ItemProps<string>) => {
     const { itemKey } = rest;
-    const id = ontology.idZ.parse(itemKey);
+    const id = ontology.parseID(itemKey);
     const resource = List.useItem<string, ontology.Resource>(itemKey);
     const Item = useItems()[id.type] ?? DefaultItem;
     const { onDrop, useLoading, onDragStart, onDragEnd } =
@@ -92,29 +93,44 @@ const itemRenderProp = Component.renderProp(
       [onDragStart, itemKey],
     );
     const loading = useLoading(itemKey);
+    // A drop re-parents the dragged items, so the grant is read on them and not on the
+    // destination. The item itself carries the same grant to leave its parent.
+    const client = Synnax.use();
+    const canMove = Access.useUpdateGranted(id);
 
     const [draggingOver, setDraggingOver] = useState(false);
 
     const onDropDrops = Haul.useDrop({
       type: Base.HAUL_TYPE,
       key: itemKey,
-      canDrop: useCallback(({ items: entities, source }) => {
-        const keys = entities.map((item) => item.key);
-        setDraggingOver(false);
-        return source.type === Base.HAUL_TYPE && !keys.includes(itemKey);
-      }, []),
+      canDrop: useCallback(
+        ({ items: entities, source }) => {
+          const keys = entities.map((item) => item.key);
+          setDraggingOver(false);
+          if (source.type !== Base.HAUL_TYPE || keys.includes(itemKey)) return false;
+          return Access.updateGranted({
+            client,
+            id: Base.filterHaulItems(entities).map(({ key }) =>
+              ontology.idZ.parse(key),
+            ),
+          });
+        },
+        [itemKey, client],
+      ),
       onDrop: useCallback((props) => onDrop(itemKey, props) ?? [], [onDrop, itemKey]),
       onDragOver: useCallback(() => setDraggingOver(true), []),
     });
 
-    if (resource == null) return null;
+    // The virtualizer has already reserved this row's slot. Rendering nothing would
+    // leave a gap, so the row stays empty until the resource loads.
+    if (resource == null) return <Base.Item {...rest} />;
 
     return (
       <Item
         {...rest}
         draggingOver={draggingOver}
         onDragStart={handleDragStart}
-        draggable
+        draggable={canMove}
         {...onDropDrops}
         onDragLeave={() => setDraggingOver(false)}
         onDragEnd={onDragEnd}
@@ -326,7 +342,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         return;
       }
       setLoading(clicked);
-      watchChildren(ontology.idZ.parse(clicked));
+      watchChildren(ontology.parseID(clicked));
     },
     [watchChildren, releaseChildren, setLoading, nodesRef],
   );
@@ -419,7 +435,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       const dropped = Base.filterHaulItems(items);
       const isValidDrop = dropped.length > 0 && source.type === Base.HAUL_TYPE;
       if (!isValidDrop) return [];
-      const destination = ontology.idZ.parse(key);
+      const destination = ontology.parseID(key);
       const svc = resolveItem(destination.type);
       if (!svc.canDrop({ source, items })) return [];
 
@@ -436,13 +452,13 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         const parent = Base.findNodeParent({ tree: nodesSnapshot, key });
         const sourceKey = parent?.key ?? ontology.idToString(root);
         const ids = bySource.get(sourceKey) ?? [];
-        ids.push(ontology.idZ.parse(key));
+        ids.push(ontology.parseID(key));
         bySource.set(sourceKey, ids);
       });
       contract(...moved.map(({ key }) => key));
       bySource.forEach((ids, sourceKey) =>
         moveChildren.update({
-          source: ontology.idZ.parse(sourceKey),
+          source: ontology.parseID(sourceKey),
           destination,
           ids,
         }),
@@ -465,7 +481,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         });
         return startDrag(selectedHaulItems);
       }
-      const haulItems = resolveItem(ontology.idZ.parse(itemKey).type).haulItems(
+      const haulItems = resolveItem(ontology.parseID(itemKey).type).haulItems(
         getResource(itemKey),
       );
       startDrag([Base.createHaulItem(itemKey), ...haulItems]);
@@ -490,11 +506,10 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       else keys = selectedRef.current;
       const nodeSnapshot = nodesRef.current;
 
-      const ids = keys.map((key) => ontology.idZ.parse(key));
+      const ids = keys.map((key) => ontology.parseID(key));
 
-      // TODO: we might be selecting two nodes that are not ascendants or
-      // descendants of the other ones. We need to change this function to
-      // implement recursion.
+      // TODO: we might be selecting two nodes that are not ascendants or descendants of
+      // the other ones. We need to change this function to implement recursion.
       const parent = Base.findNodeParent({
         tree: nodeSnapshot,
         // We want to find the parent of the node with the lowest depth, since we
@@ -502,9 +517,9 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         key: keys.sort(Base.compareDepth(shapeRef.current))[0],
       });
 
-      const parentID = parent == null ? root : ontology.idZ.parse(parent.key);
+      const parentID = parent == null ? root : ontology.parseID(parent.key);
 
-      const firstID = ontology.idZ.parse(keys[0]);
+      const firstID = ontology.parseID(keys[0]);
 
       const props: ContextMenuProps = {
         selection: {

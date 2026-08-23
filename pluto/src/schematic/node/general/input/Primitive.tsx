@@ -37,7 +37,7 @@ export const Input = ({
   return (
     <Primitive.Div
       orientation={orientation}
-      className={CSS(CSS.B("input-symbol"), className)}
+      className={CSS.cls(CSS.B("input-symbol"), className)}
     >
       <Handle.Rectangle
         orientation={orientation}

@@ -14,7 +14,6 @@ import { CONSOLE_NAV } from "@/pages/reference/console/_nav";
 import { CONTROL_NAV } from "@/pages/reference/control/_nav";
 import { CORE_NAV } from "@/pages/reference/core/_nav";
 import { DRIVER_NAV } from "@/pages/reference/driver/_nav";
-// import { PLUTO_NAV } from "@/pages/reference/pluto/_nav";
 
 // Pluto Components nav is temporarily hidden; content remains in docs/ for future fixup.
 // - Is this overall section helpful? To whom?

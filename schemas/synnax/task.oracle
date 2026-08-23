@@ -12,15 +12,14 @@ import "schemas/synnax/rack"
 import "schemas/synnax/status"
 import "schemas/x/telem"
 
-@ts output  "client/ts/src/task"
-@py output  "client/py/synnax/task"
-@go output  "core/pkg/service/task"
 @cpp output "client/cpp/task"
+@go output  "core/pkg/service/task"
 @pb
+@py output  "client/py/synnax/task"
+@ts output  "client/ts/src/task"
 
 Key = uuid {
-    @go version 2
-    @doc value  "is a unique identifier for a task."
+    @doc value "is a unique identifier for a task."
 }
 
 StatusDetails struct<Data? = record> {
@@ -35,8 +34,8 @@ StatusDetails struct<Data? = record> {
     }
     config_hash string = "" {
         @doc value """
-            is the hash of the config the running task instance was built from.
-            Empty when no instance exists.
+            is the hash of the config the running task instance was built from. Empty
+            when no instance exists.
         """
     }
     rack        rack.Key = 0 {
@@ -46,15 +45,16 @@ StatusDetails struct<Data? = record> {
         @doc value "contains task-specific status data."
     }
 
-    @go version        2
-    @doc value         "contains task-specific status details including execution state."
+    @doc value         """
+        contains task-specific status details including execution state.
+    """
     @ts concrete_types
 }
 
 Status<Data? = record> = status.Status<StatusDetails<Data>> {
-    @go version 2
-    @doc value  """
-        is task-specific status information including execution state and task-specific data.
+    @doc value """
+        is task-specific status information including execution state and task-specific
+        data.
     """
 }
 
@@ -69,8 +69,8 @@ Task struct<
     }
     rack        rack.Key = 0 {
         @doc value """
-            is the key of the rack this task deploys to. Zero for a draft that
-            has not been assigned a rack; required to start.
+            is the key of the rack this task deploys to. Zero for a draft that has not
+            been assigned a rack; required to start.
         """
         @filter
     }
@@ -87,8 +87,8 @@ Task struct<
     }
     config      Config              {
         @doc value """
-            is task-specific configuration stored as JSON. Structure varies by
-            task type.
+            is task-specific configuration stored as JSON. Structure varies by task
+            type.
         """
     }
     config_hash string = "" {
@@ -102,7 +102,7 @@ Task struct<
         @filter
     }
     snapshot    bool = false {
-        @doc value "indicates whether to persist this task's configuration."
+        @doc value "is true if this task is an immutable snapshot copy of another task."
         @filter
     }
     status      Status<StatusData>? {
@@ -110,23 +110,20 @@ Task struct<
         @go marshal omit
     }
 
-    @go version    2
-    @doc value     """
-        is an executable unit of work in the Driver system. Tasks represent
-        specific hardware operations such as reading sensor data, writing
-        control signals, or scanning for devices.
+    @create
+    @doc value               """
+        is an executable unit of work in the Driver system. Tasks represent specific
+        hardware operations such as reading sensor data, writing control signals, or
+        scanning for devices.
     """
-    @ts {
-        name "Payload"
-        concrete_types
-        coalesce_type_params
-    }
-    @ontology type "task"
-    @search
     @go marshal
     @go migrate
-    @py name       "Payload"
-    @create
+    @ontology type           "task"
+    @py name                 "Payload"
+    @search
+    @ts coalesce_type_params
+    @ts concrete_types
+    @ts name                 "Payload"
 }
 
 Command struct {
@@ -156,94 +153,64 @@ Command struct {
 
 KeyedConfig struct {
     key uuid = create {
-        @key
         @doc value "is the unique identifier for the stored configuration record."
+        @key
     }
 
-    @doc value  "is the base for every stored task configuration record."
-    @go version 0
-    @go output  "core/pkg/service/task/config"
-    @go name    "Keyed"
-    @cpp output "client/cpp/task/config"
-    @cpp name   "Keyed"
+    @doc value "is the base for every stored task configuration record."
     @pb omit
 }
 
-BaseStartConfig struct extends KeyedConfig {
+StartConfig struct extends KeyedConfig {
     auto_start bool = false {
         @doc value "is true when the task should start as soon as it is configured."
     }
 
-    @doc value  "carries the configuration fields shared by every task."
-    @go version 0
-    @go output  "core/pkg/service/task/config"
-    @go name    "BaseStart"
-    @cpp output "client/cpp/task/config"
-    @cpp name   "BaseStart"
+    @doc value "carries the configuration fields shared by every task."
     @pb omit
 }
 
-BasePersistConfig struct extends BaseStartConfig {
+PersistConfig struct extends StartConfig {
     data_saving_disabled bool = false {
         @doc value "is true when task telemetry is not persisted to disk."
     }
 
-    @doc value  "carries the configuration fields shared by tasks that write telemetry."
-    @go version 0
-    @go output  "core/pkg/service/task/config"
-    @go name    "BasePersist"
-    @cpp output "client/cpp/task/config"
-    @cpp name   "BasePersist"
+    @doc value "carries the configuration fields shared by tasks that write telemetry."
     @pb omit
 }
 
-BaseReadConfig struct extends BasePersistConfig {
+ReadConfig struct extends PersistConfig {
     sample_rate telem.Rate = 10 {
-        @doc value "is the per-channel hardware sample rate, in hertz."
+        @doc value "is the per-channel hardware sample rate, in Hertz."
         @ts type   "number"
     }
     stream_rate telem.Rate = 5 {
-        @doc value "is the rate at which samples are streamed to Synnax, in hertz."
+        @doc value "is the rate at which samples are streamed to Synnax, in Hertz."
         @ts type   "number"
     }
 
-    @doc value  "carries the configuration fields shared by hardware acquisition tasks."
-    @go version 0
-    @go output  "core/pkg/service/task/config"
-    @go name    "BaseRead"
-    @cpp output "client/cpp/task/config"
-    @cpp name   "BaseRead"
+    @doc value "carries the configuration fields shared by hardware acquisition tasks."
     @pb omit
 }
 
-BaseWriteConfig struct extends BasePersistConfig {
+WriteConfig struct extends PersistConfig {
     device device.Key = "" {
         @doc value "is the key of the device the task writes to."
     }
 
-    @doc value  "carries the configuration fields shared by hardware control tasks."
-    @go version 0
-    @go output  "core/pkg/service/task/config"
-    @go name    "BaseWrite"
-    @cpp output "client/cpp/task/config"
-    @cpp name   "BaseWrite"
+    @doc value "carries the configuration fields shared by hardware control tasks."
     @pb omit
 }
 
-BaseScanConfig struct extends KeyedConfig {
+ScanConfig struct extends KeyedConfig {
     rate     telem.Rate = 0.2 {
-        @doc value "is the rate at which the scan runs, in hertz."
+        @doc value "is the rate at which the scan runs, in Hertz."
         @ts type   "number"
     }
     disabled bool = false {
         @doc value "is true when scanning is paused."
     }
 
-    @doc value  "carries the fields shared by every scan task configuration."
-    @go version 0
-    @go output  "core/pkg/service/task/config"
-    @go name    "BaseScan"
-    @cpp output "client/cpp/task/config"
-    @cpp name   "BaseScan"
+    @doc value "carries the fields shared by every scan task configuration."
     @pb omit
 }

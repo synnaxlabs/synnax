@@ -42,7 +42,7 @@ interface IsIndexItemProps {
 
 const IsIndexItem = ({ path }: IsIndexItemProps): ReactElement => (
   <PForm.SwitchField
-    path={`${path}.useAsIndex`}
+    path={`${path}.isIndex`}
     label="Use as Index"
     hideIfNull
     x
@@ -67,7 +67,7 @@ const Properties = (): ReactElement => {
       <Flex.Box x>
         <Task.Fields.SampleRate />
         <PForm.SwitchField
-          label="Array Sampling"
+          label="Array sampling"
           path="config.arrayMode"
           onChange={(value, { set }) => {
             // always set the array size to 1 for either the default in array mode or an
@@ -78,7 +78,7 @@ const Properties = (): ReactElement => {
         />
         {arrayMode ? (
           <PForm.NumericField
-            label="Array Size"
+            label="Array size"
             path="config.arraySize"
             className={CSS.B("opc-array-size-field")}
           />
@@ -98,7 +98,7 @@ const convertHaulItemToChannel = ({ data }: HaulItem): ReadChannel => ({
   nodeId: data.nodeId,
   channel: 0,
   disabled: false,
-  useAsIndex: false,
+  isIndex: false,
   dataType: data.dataType,
   name: "",
 });
@@ -121,7 +121,7 @@ const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
 }) => {
   const cfg = READ_SCHEMAS.config.parse(config ?? {});
   if (deviceKey != null) cfg.device = deviceKey;
-  return { name: "OPC UA Read Task", type: READ_TYPE, config: cfg };
+  return { name: "OPC UA read task", type: READ_TYPE, config: cfg };
 };
 
 interface DetermineIndexChannelParams {
@@ -137,7 +137,7 @@ const determineIndexChannel = async ({
   device,
   taskName,
 }: DetermineIndexChannelParams): Promise<channel.Key> => {
-  const indexChannelInTaskConfig = config.channels.find(({ useAsIndex }) => useAsIndex);
+  const indexChannelInTaskConfig = config.channels.find(({ isIndex }) => isIndex);
   if (indexChannelInTaskConfig) {
     const existingIndex = getChannelByNodeID(
       device.properties,
@@ -148,7 +148,7 @@ const determineIndexChannel = async ({
         const { isIndex, key, name } = await client.channels.retrieve(existingIndex);
         if (!isIndex)
           throw new Error(
-            `${indexChannelInTaskConfig.nodeName} already exist as ${name}, but ${name} is not an index channel. Please remove the useAsIndex flag from ${indexChannelInTaskConfig.nodeName} and reconfigure.`,
+            `${indexChannelInTaskConfig.nodeName} already exists as ${name}, which is not an index channel. Disable "use as index" on ${indexChannelInTaskConfig.nodeName} and reconfigure.`,
           );
         if (!device.properties.read.indexes.includes(key))
           device.properties.read.indexes.push(key);
@@ -223,7 +223,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (
       const rCh = await client.channels.retrieve(exKey);
       if (rCh.index !== index)
         throw new Error(
-          `Channel ${ch.nodeName} already exists as ${rCh.name}. Please move all channels from ${name} to the OPC UA Read Task that reads for ${rCh.name}.`,
+          `Channel ${ch.nodeName} already exists as ${rCh.name}. Move all channels from ${name} to the task that reads ${rCh.name}.`,
         );
     } catch (e) {
       if (NotFoundError.matches(e)) toCreate.push(ch);
@@ -268,7 +268,7 @@ export const useCreateRead = Task.createUseCreate({
 
 export const ReadSelectable = Selector.createSelectable({
   type: READ_TYPE,
-  title: "OPC UA Read Task",
+  title: "OPC UA read task",
   icon: <Icon.Logo.OPCUA />,
   useOnSelect: useCreateRead,
 });

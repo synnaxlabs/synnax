@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "client/cpp/task/config/json.gen.h"
+#include "client/cpp/task/json.gen.h"
 
 #include "driver/bypass/pipeline/factory.h"
 #include "driver/common/common.h"
@@ -23,11 +23,9 @@ namespace driver::common {
 /// @brief common write task configuration shared across hardware control tasks.
 /// Wraps the schema-generated write config (auto_start, data_saving_disabled,
 /// device) so the field set has a single definition in the oracle schema.
-struct BaseWriteTaskConfig : ::synnax::task::config::BaseWrite {
+struct BaseWriteTaskConfig : ::synnax::task::WriteConfig {
     explicit BaseWriteTaskConfig(x::json::Parser &cfg):
-        ::synnax::task::config::BaseWrite(
-            ::synnax::task::config::BaseWrite::parse(cfg)
-        ) {
+        ::synnax::task::WriteConfig(::synnax::task::WriteConfig::parse(cfg)) {
         if (this->device.empty()) cfg.field_err("device", "this field is required");
     }
 };
@@ -252,9 +250,10 @@ public:
     /// @param propagate_state whether the task will be reconfigured after it was
     /// stopped.
     bool stop(const std::string &cmd_key, const bool propagate_state) {
-        const auto write_pipe_stopped = this->cmd_write_pipe.stop();
-        const auto state_pipe_stopped = this->state_write_pipe.stop();
-        const auto stopped = write_pipe_stopped && state_pipe_stopped;
+        // The state pipe never starts without state channels, so only the command
+        // pipe records whether the sink holds hardware.
+        const auto stopped = this->cmd_write_pipe.stop();
+        this->state_write_pipe.stop();
         if (stopped) this->state.error(this->sink->internal->stop());
         if (propagate_state) this->state.send_stop(cmd_key);
         return stopped;

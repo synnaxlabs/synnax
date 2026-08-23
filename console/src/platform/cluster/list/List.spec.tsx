@@ -38,7 +38,7 @@ describe("cluster List", () => {
     );
     // The footer create button carries the same label, so scope to the list body.
     const items = getBySelector<HTMLElement>(container, ".console-cluster-list__items");
-    fireEvent.click(await within(items).findByText("Add a Core"));
+    fireEvent.click(await within(items).findByText("Add Core"));
     await waitFor(() =>
       expect(screen.getByPlaceholderText("Synnax Core")).toBeTruthy(),
     );
@@ -143,7 +143,7 @@ describe("cluster List", () => {
     );
     const addButton = screen
       .getAllByRole("button")
-      .find((b) => b.querySelector("svg[aria-label*='add']"));
+      .find((b) => b.querySelector("svg.pluto-icon--add"));
     if (addButton == null) throw new Error("add button not found");
     fireEvent.click(addButton);
     await waitFor(() => {

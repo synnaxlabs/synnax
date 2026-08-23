@@ -10,7 +10,7 @@
 import "@/schematic/node/vessels/tank/tank.css";
 
 import { type schematic } from "@synnaxlabs/client";
-import { color } from "@synnaxlabs/x";
+import { border, color } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
@@ -34,7 +34,7 @@ export const Tank = ({
   backgroundColor,
   strokeWidth = 2,
 }: RenderProps): ReactElement => {
-  const detailedRadius = Border.parseRadius(borderRadius);
+  const detailedRadius = border.constructRadius(borderRadius);
   const hasCornerBoundaries = boxBorderRadius == null;
   const { width, height } = dimensions;
   const refreshDeps = useMemo(
@@ -59,7 +59,7 @@ export const Tank = ({
       width,
       height,
       borderRadius: cssBorderRadius,
-      [CSS.var("symbol-color")]: symbolColorVar(colorVal),
+      [CSS.variable("symbol-color")]: symbolColorVar(colorVal),
       backgroundColor: backgroundCSS,
       borderWidth: strokeWidth,
     }),
@@ -67,7 +67,7 @@ export const Tank = ({
   );
   return (
     <Primitive.Div
-      className={CSS(className, CSS.B("tank"), CSS.B("symbol-colored"))}
+      className={CSS.cls(className, CSS.B("tank"), CSS.B("symbol-colored"))}
       style={style}
     >
       <Handle.Boundary refreshDeps={refreshDeps} orientation="left">

@@ -19,7 +19,7 @@ class MosaicOperations(ConsoleCase):
     def setup(self) -> None:
         super().setup()
         self.shared_page_name = "Shared Layout Plot"
-        self.console.project.create_page("Line Plot", self.shared_page_name)
+        self.console.pages.create_by_type("Line plot", self.shared_page_name)
         self._cleanup_pages.append(self.shared_page_name)
 
     def run(self) -> None:
@@ -49,7 +49,7 @@ class MosaicOperations(ConsoleCase):
 
         # Create a page
         original_name = "Original Tab Name"
-        console.project.create_page("Line Plot", original_name)
+        console.pages.create_by_type("Line plot", original_name)
         self._cleanup_pages.append(original_name)
 
         # Rename the tab
@@ -63,7 +63,7 @@ class MosaicOperations(ConsoleCase):
         assert new_tab.is_visible(), f"Tab '{new_name}' should be visible after rename"
 
         # Clean up
-        console.project.close_page(new_name)
+        console.layout.close_tab(new_name)
 
     def _split_and_drag(self, direction: str) -> None:
         """Split a leaf, drag a tab to the new pane, and verify positioning.
@@ -76,9 +76,9 @@ class MosaicOperations(ConsoleCase):
         first_name = "Left Plot" if horizontal else "Top Plot"
         second_name = "Right Plot" if horizontal else "Bottom Plot"
 
-        console.project.create_page("Line Plot", first_name)
+        console.pages.create_by_type("Line plot", first_name)
         self._cleanup_pages.append(first_name)
-        console.project.create_page("Line Plot", second_name)
+        console.pages.create_by_type("Line plot", second_name)
         self._cleanup_pages.append(second_name)
 
         if horizontal:
@@ -127,8 +127,8 @@ class MosaicOperations(ConsoleCase):
                 f"below {first_name} ({first_box['y']})"
             )
 
-        console.project.close_page(second_name)
-        console.project.close_page(first_name)
+        console.layout.close_tab(second_name)
+        console.layout.close_tab(first_name)
 
     def test_split_horizontal(self) -> None:
         """Should split a leaf horizontally via context menu."""
@@ -141,34 +141,34 @@ class MosaicOperations(ConsoleCase):
         self._split_and_drag("vertical")
 
     def test_focus_via_context_menu(self) -> None:
-        """Should focus a leaf via context menu, showing a modal overlay."""
+        """Should focus a leaf via context menu, collapsing to an overlaid leaf."""
         self.log("test_focus_via_context_menu: Focusing a leaf via context menu")
         console = self.console
 
-        modal = console.layout.locator(LayoutClient.MODAL_SELECTOR)
+        overlay = console.layout.locator(LayoutClient.FOCUS_SELECTOR)
 
         # Focus via context menu
         console.layout.focus(self.shared_page_name)
-        console.layout.wait_for_visible(modal)
+        console.layout.wait_for_visible(overlay)
 
         # Unfocus by pressing Cmd+L
         console.layout.press_key("ControlOrMeta+l")
-        console.layout.wait_for_hidden(modal)
+        console.layout.wait_for_hidden(overlay)
 
     def test_focus_via_cmd_l(self) -> None:
-        """Should toggle focus modal with Cmd+L keyboard shortcut."""
+        """Should toggle the focus overlay with the Cmd+L keyboard shortcut."""
         self.log("test_focus_via_cmd_l: Toggling focus with Cmd+L")
         console = self.console
 
-        modal = console.layout.locator(LayoutClient.MODAL_SELECTOR)
+        overlay = console.layout.locator(LayoutClient.FOCUS_SELECTOR)
 
         # Focus with Cmd+L
         console.layout.press_key("ControlOrMeta+l")
-        console.layout.wait_for_visible(modal)
+        console.layout.wait_for_visible(overlay)
 
         # Toggle off with Cmd+L
         console.layout.press_key("ControlOrMeta+l")
-        console.layout.wait_for_hidden(modal)
+        console.layout.wait_for_hidden(overlay)
 
     def _get_theme_class(self) -> str:
         """Get the current pluto theme class from the <html> element."""

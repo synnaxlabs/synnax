@@ -17,13 +17,13 @@ import (
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	device "github.com/synnaxlabs/synnax/pkg/service/device/versions/v1"
-	config "github.com/synnaxlabs/synnax/pkg/service/task/config/versions/v0"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Units enumerates the engineering units an NI analog channel can report.
+// Units enumerates the engineering units for NI analog channel values.
 type Units string
 
 const (
@@ -638,17 +638,17 @@ func (MapScale) isScaleVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (m *MapScale) ApplyDefaults() {
-	if m.PreScaledMax == 0 {
-		m.PreScaledMax = 1
-	}
-	if m.ScaledMax == 0 {
-		m.ScaledMax = 1
-	}
 	if m.PreScaledUnits == "" {
 		m.PreScaledUnits = UnitsVolts
 	}
 	if m.ScaledUnits == "" {
 		m.ScaledUnits = "Volts"
+	}
+	if m.PreScaledMin == 0 && m.PreScaledMax == 0 {
+		m.PreScaledMax = 1
+	}
+	if m.ScaledMin == 0 && m.ScaledMax == 0 {
+		m.ScaledMax = 1
 	}
 }
 
@@ -865,7 +865,7 @@ type MinMaxVal struct {
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (m *MinMaxVal) ApplyDefaults() {
-	if m.MaxVal == 0 {
+	if m.MinVal == 0 && m.MaxVal == 0 {
 		m.MaxVal = 1
 	}
 }
@@ -901,7 +901,7 @@ type Sensitivity struct {
 type CurrentExcitation struct {
 	// CurrentExcitSource selects the source of the current excitation signal.
 	CurrentExcitSource ExcitationSource `json:"current_excit_source" msgpack:"current_excit_source"`
-	// CurrentExcitVal is the current excitation level, in amps.
+	// CurrentExcitVal is the current excitation level, in Amps.
 	CurrentExcitVal float64 `json:"current_excit_val" msgpack:"current_excit_val"`
 }
 
@@ -924,7 +924,7 @@ func (c CurrentExcitation) Validate() error {
 type VoltageExcitation struct {
 	// VoltageExcitSource selects the source of the voltage excitation signal.
 	VoltageExcitSource ExcitationSource `json:"voltage_excit_source" msgpack:"voltage_excit_source"`
-	// VoltageExcitVal is the voltage excitation level, in volts.
+	// VoltageExcitVal is the voltage excitation level, in Volts.
 	VoltageExcitVal float64 `json:"voltage_excit_val" msgpack:"voltage_excit_val"`
 }
 
@@ -947,7 +947,7 @@ func (vo VoltageExcitation) Validate() error {
 type Bridge struct {
 	// BridgeConfig selects the physical bridge wiring.
 	BridgeConfig BridgeConfig `json:"bridge_config" msgpack:"bridge_config"`
-	// NominalBridgeResistance is the nominal resistance of the bridge, in ohms.
+	// NominalBridgeResistance is the nominal resistance of the bridge, in Ohms.
 	NominalBridgeResistance float64 `json:"nominal_bridge_resistance" msgpack:"nominal_bridge_resistance"`
 }
 
@@ -1057,13 +1057,13 @@ type TwoPointLin struct {
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (t *TwoPointLin) ApplyDefaults() {
-	if t.SecondElectricalVal == 0 {
-		t.SecondElectricalVal = 1
-	}
 	if t.ElectricalUnits == "" {
 		t.ElectricalUnits = ElectricalUnitsMVoltsPerVolt
 	}
-	if t.SecondPhysicalVal == 0 {
+	if t.FirstElectricalVal == 0 && t.SecondElectricalVal == 0 {
+		t.SecondElectricalVal = 1
+	}
+	if t.FirstPhysicalVal == 0 && t.SecondPhysicalVal == 0 {
 		t.SecondPhysicalVal = 1
 	}
 }
@@ -1159,17 +1159,12 @@ type AIVoltageChannel struct {
 	MinMaxVal
 	Terminal
 	CustomScale
-	// Units are the units of the voltage measurement.
-	Units Units `json:"units" msgpack:"units"`
 }
 
 func (AIVoltageChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIVoltageChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = UnitsVolts
-	}
 	a.MinMaxVal.ApplyDefaults()
 	a.Terminal.ApplyDefaults()
 	a.CustomScale.ApplyDefaults()
@@ -1179,7 +1174,6 @@ func (a *AIVoltageChannel) ApplyDefaults() {
 // schema constraints.
 func (a AIVoltageChannel) Validate() error {
 	v := validate.New("AIVoltageChannel")
-	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Exec(a.Terminal.Validate)
 	v.Exec(a.CustomScale.Validate)
 	return v.Error()
@@ -1268,11 +1262,9 @@ type AICurrentChannel struct {
 	MinMaxVal
 	Terminal
 	CustomScale
-	// Units are the units of the current measurement.
-	Units Units `json:"units" msgpack:"units"`
 	// ShuntResistorLoc selects where the shunt resistor is located.
 	ShuntResistorLoc ShuntResistorLocation `json:"shunt_resistor_loc" msgpack:"shunt_resistor_loc"`
-	// ExtShuntResistorVal is the external shunt resistor value, in ohms.
+	// ExtShuntResistorVal is the external shunt resistor value, in Ohms.
 	ExtShuntResistorVal float64 `json:"ext_shunt_resistor_val" msgpack:"ext_shunt_resistor_val"`
 }
 
@@ -1280,9 +1272,6 @@ func (AICurrentChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AICurrentChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = UnitsAmps
-	}
 	if a.ShuntResistorLoc == "" {
 		a.ShuntResistorLoc = ShuntResistorLocationDefault
 	}
@@ -1298,7 +1287,6 @@ func (a *AICurrentChannel) ApplyDefaults() {
 // schema constraints.
 func (a AICurrentChannel) Validate() error {
 	v := validate.New("AICurrentChannel")
-	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Ternaryf("shunt_resistor_loc", !a.ShuntResistorLoc.IsValid(), "invalid shunt_resistor_loc: %v", a.ShuntResistorLoc)
 	v.Exec(a.Terminal.Validate)
 	v.Exec(a.CustomScale.Validate)
@@ -1442,8 +1430,6 @@ type AIMicrophoneChannel struct {
 	Terminal
 	CurrentExcitation
 	CustomScale
-	// Units are the units of the microphone measurement.
-	Units Units `json:"units" msgpack:"units"`
 	// MicSensitivity is the microphone sensitivity, in mV/Pa.
 	MicSensitivity float64 `json:"mic_sensitivity" msgpack:"mic_sensitivity"`
 	// MaxSndPressLevel is the maximum expected sound pressure level, in dB.
@@ -1454,9 +1440,6 @@ func (AIMicrophoneChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIMicrophoneChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = UnitsPascals
-	}
 	a.Terminal.ApplyDefaults()
 	a.CurrentExcitation.ApplyDefaults()
 	a.CustomScale.ApplyDefaults()
@@ -1466,7 +1449,6 @@ func (a *AIMicrophoneChannel) ApplyDefaults() {
 // schema constraints.
 func (a AIMicrophoneChannel) Validate() error {
 	v := validate.New("AIMicrophoneChannel")
-	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Exec(a.Terminal.Validate)
 	v.Exec(a.CurrentExcitation.Validate)
 	v.Exec(a.CustomScale.Validate)
@@ -1569,17 +1551,12 @@ type AIResistanceChannel struct {
 	Resistance
 	CurrentExcitation
 	CustomScale
-	// Units are the units of the resistance measurement.
-	Units Units `json:"units" msgpack:"units"`
 }
 
 func (AIResistanceChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIResistanceChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = UnitsOhms
-	}
 	a.MinMaxVal.ApplyDefaults()
 	a.Resistance.ApplyDefaults()
 	a.CurrentExcitation.ApplyDefaults()
@@ -1590,7 +1567,6 @@ func (a *AIResistanceChannel) ApplyDefaults() {
 // schema constraints.
 func (a AIResistanceChannel) Validate() error {
 	v := validate.New("AIResistanceChannel")
-	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Exec(a.Resistance.Validate)
 	v.Exec(a.CurrentExcitation.Validate)
 	v.Exec(a.CustomScale.Validate)
@@ -1607,7 +1583,7 @@ type AIRTDChannel struct {
 	Units TemperatureUnits `json:"units" msgpack:"units"`
 	// RtdType selects the RTD resistance-temperature curve.
 	RtdType RTDType `json:"rtd_type" msgpack:"rtd_type"`
-	// R0 is the sensor resistance at 0 degrees Celsius, in ohms.
+	// R0 is the sensor resistance at 0 degrees Celsius, in Ohms.
 	R0 float64 `json:"r0" msgpack:"r0"`
 }
 
@@ -1643,19 +1619,17 @@ type AIStrainGaugeChannel struct {
 	MinMaxVal
 	VoltageExcitation
 	CustomScale
-	// Units are the units of the strain measurement.
-	Units Units `json:"units" msgpack:"units"`
 	// StrainConfig selects the strain-gauge bridge configuration.
 	StrainConfig StrainConfig `json:"strain_config" msgpack:"strain_config"`
 	// GageFactor is the gauge factor of the strain gauge.
 	GageFactor float64 `json:"gage_factor" msgpack:"gage_factor"`
 	// InitialBridgeVoltage is the bridge output voltage in the unloaded state.
 	InitialBridgeVoltage float64 `json:"initial_bridge_voltage" msgpack:"initial_bridge_voltage"`
-	// NominalGageResistance is the nominal gauge resistance, in ohms.
+	// NominalGageResistance is the nominal gauge resistance, in Ohms.
 	NominalGageResistance float64 `json:"nominal_gage_resistance" msgpack:"nominal_gage_resistance"`
-	// PoissonRatio is the Poisson ratio of the gauge material.
+	// PoissonRatio is the Poisson ratio of the measured material.
 	PoissonRatio float64 `json:"poisson_ratio" msgpack:"poisson_ratio"`
-	// LeadWireResistance is the resistance of the lead wires, in ohms.
+	// LeadWireResistance is the resistance of the lead wires, in Ohms.
 	LeadWireResistance float64 `json:"lead_wire_resistance" msgpack:"lead_wire_resistance"`
 }
 
@@ -1663,9 +1637,6 @@ func (AIStrainGaugeChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIStrainGaugeChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = UnitsStrain
-	}
 	if a.StrainConfig == "" {
 		a.StrainConfig = StrainConfigFullBridgeI
 	}
@@ -1678,7 +1649,6 @@ func (a *AIStrainGaugeChannel) ApplyDefaults() {
 // schema constraints.
 func (a AIStrainGaugeChannel) Validate() error {
 	v := validate.New("AIStrainGaugeChannel")
-	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Ternaryf("strain_config", !a.StrainConfig.IsValid(), "invalid strain_config: %v", a.StrainConfig)
 	v.Exec(a.VoltageExcitation.Validate)
 	v.Exec(a.CustomScale.Validate)
@@ -1687,7 +1657,16 @@ func (a AIStrainGaugeChannel) Validate() error {
 
 // AITempBuiltinChannel reads temperature from the device's built-in sensor.
 type AITempBuiltinChannel struct {
-	BaseAIChannel
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name string `json:"name" msgpack:"name"`
+	// Disabled is true when the channel is excluded from acquisition.
+	Disabled bool `json:"disabled" msgpack:"disabled"`
+	// Channel is the Synnax channel that raw samples are written to.
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+	// Device is the key of the device the channel belongs to.
+	Device device.Key `json:"device" msgpack:"device"`
 	// Units are the units of the temperature measurement.
 	Units TemperatureUnits `json:"units" msgpack:"units"`
 }
@@ -1890,9 +1869,9 @@ type AIAccel4WireDCVoltageChannel struct {
 	Units AccelUnits `json:"units" msgpack:"units"`
 	// SensitivityUnits are the units of the accelerometer sensitivity.
 	SensitivityUnits AccelSensitivityUnits `json:"sensitivity_units" msgpack:"sensitivity_units"`
-	// UseExcitForScaling is true when the excitation voltage is used to scale the
+	// ScaledByExcitation is true when the excitation voltage is used to scale the
 	// reading.
-	UseExcitForScaling bool `json:"use_excit_for_scaling" msgpack:"use_excit_for_scaling"`
+	ScaledByExcitation bool `json:"scaled_by_excitation" msgpack:"scaled_by_excitation"`
 }
 
 func (AIAccel4WireDCVoltageChannel) isAIChannelVariant() {}
@@ -1928,13 +1907,12 @@ type AIAccelChargeChannel struct {
 	BaseAIChannel
 	MinMaxVal
 	Terminal
+	Sensitivity
 	CustomScale
 	// Units are the units of the acceleration measurement.
 	Units AccelUnits `json:"units" msgpack:"units"`
-	// Sensitivity is the sensitivity of the accelerometer.
-	Sensitivity float64 `json:"sensitivity" msgpack:"sensitivity"`
-	// SensitivityUnits are the units of the accelerometer's sensitivity rating.
-	SensitivityUnits AccelSensitivityUnits `json:"sensitivity_units" msgpack:"sensitivity_units"`
+	// SensitivityUnits are the units of the accelerometer sensitivity.
+	SensitivityUnits AccelChargeSensitivityUnits `json:"sensitivity_units" msgpack:"sensitivity_units"`
 }
 
 func (AIAccelChargeChannel) isAIChannelVariant() {}
@@ -1945,7 +1923,7 @@ func (a *AIAccelChargeChannel) ApplyDefaults() {
 		a.Units = AccelUnitsG
 	}
 	if a.SensitivityUnits == "" {
-		a.SensitivityUnits = AccelSensitivityUnitsMVoltsPerG
+		a.SensitivityUnits = AccelChargeSensitivityUnitsPicoCoulombsPerG
 	}
 	a.MinMaxVal.ApplyDefaults()
 	a.Terminal.ApplyDefaults()
@@ -2001,11 +1979,9 @@ type AICurrentRMSChannel struct {
 	MinMaxVal
 	Terminal
 	CustomScale
-	// Units are the units of the current measurement.
-	Units Units `json:"units" msgpack:"units"`
 	// ShuntResistorLoc selects where the shunt resistor is located.
 	ShuntResistorLoc ShuntResistorLocation `json:"shunt_resistor_loc" msgpack:"shunt_resistor_loc"`
-	// ExtShuntResistorVal is the external shunt resistor value, in ohms.
+	// ExtShuntResistorVal is the external shunt resistor value, in Ohms.
 	ExtShuntResistorVal float64 `json:"ext_shunt_resistor_val" msgpack:"ext_shunt_resistor_val"`
 }
 
@@ -2013,9 +1989,6 @@ func (AICurrentRMSChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AICurrentRMSChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = UnitsAmps
-	}
 	if a.ShuntResistorLoc == "" {
 		a.ShuntResistorLoc = ShuntResistorLocationDefault
 	}
@@ -2031,7 +2004,6 @@ func (a *AICurrentRMSChannel) ApplyDefaults() {
 // schema constraints.
 func (a AICurrentRMSChannel) Validate() error {
 	v := validate.New("AICurrentRMSChannel")
-	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Ternaryf("shunt_resistor_loc", !a.ShuntResistorLoc.IsValid(), "invalid shunt_resistor_loc: %v", a.ShuntResistorLoc)
 	v.Exec(a.Terminal.Validate)
 	v.Exec(a.CustomScale.Validate)
@@ -2087,8 +2059,6 @@ type AIFreqVoltageChannel struct {
 	BaseAIChannel
 	MinMaxVal
 	CustomScale
-	// Units are the units of the frequency measurement.
-	Units Units `json:"units" msgpack:"units"`
 	// ThresholdLevel is the voltage level at which a cycle is counted.
 	ThresholdLevel float64 `json:"threshold_level" msgpack:"threshold_level"`
 	// Hysteresis is the hysteresis applied around the threshold level.
@@ -2099,9 +2069,6 @@ func (AIFreqVoltageChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIFreqVoltageChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = UnitsHz
-	}
 	a.MinMaxVal.ApplyDefaults()
 	a.CustomScale.ApplyDefaults()
 }
@@ -2110,7 +2077,6 @@ func (a *AIFreqVoltageChannel) ApplyDefaults() {
 // schema constraints.
 func (a AIFreqVoltageChannel) Validate() error {
 	v := validate.New("AIFreqVoltageChannel")
-	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Exec(a.CustomScale.Validate)
 	return v.Error()
 }
@@ -2212,7 +2178,7 @@ type AIThermistorVexChannel struct {
 	B float64 `json:"b" msgpack:"b"`
 	// C is the third Steinhart-Hart coefficient.
 	C float64 `json:"c" msgpack:"c"`
-	// R1 is the reference resistor value, in ohms.
+	// R1 is the reference resistor value, in Ohms.
 	R1 float64 `json:"r1" msgpack:"r1"`
 }
 
@@ -2289,17 +2255,12 @@ type AIVoltageRMSChannel struct {
 	MinMaxVal
 	Terminal
 	CustomScale
-	// Units are the units of the voltage measurement.
-	Units Units `json:"units" msgpack:"units"`
 }
 
 func (AIVoltageRMSChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIVoltageRMSChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = UnitsVolts
-	}
 	a.MinMaxVal.ApplyDefaults()
 	a.Terminal.ApplyDefaults()
 	a.CustomScale.ApplyDefaults()
@@ -2309,7 +2270,6 @@ func (a *AIVoltageRMSChannel) ApplyDefaults() {
 // schema constraints.
 func (a AIVoltageRMSChannel) Validate() error {
 	v := validate.New("AIVoltageRMSChannel")
-	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Exec(a.Terminal.Validate)
 	v.Exec(a.CustomScale.Validate)
 	return v.Error()
@@ -2322,22 +2282,17 @@ type AIVoltageWithExcitChannel struct {
 	Terminal
 	VoltageExcitation
 	CustomScale
-	// Units are the units of the voltage measurement.
-	Units Units `json:"units" msgpack:"units"`
 	// BridgeConfig selects the physical bridge wiring.
 	BridgeConfig BridgeConfig `json:"bridge_config" msgpack:"bridge_config"`
-	// UseExcitForScaling is true when the excitation voltage is used to scale the
+	// ScaledByExcitation is true when the excitation voltage is used to scale the
 	// reading.
-	UseExcitForScaling bool `json:"use_excit_for_scaling" msgpack:"use_excit_for_scaling"`
+	ScaledByExcitation bool `json:"scaled_by_excitation" msgpack:"scaled_by_excitation"`
 }
 
 func (AIVoltageWithExcitChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIVoltageWithExcitChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = UnitsVolts
-	}
 	if a.BridgeConfig == "" {
 		a.BridgeConfig = BridgeConfigFullBridge
 	}
@@ -2351,7 +2306,6 @@ func (a *AIVoltageWithExcitChannel) ApplyDefaults() {
 // schema constraints.
 func (a AIVoltageWithExcitChannel) Validate() error {
 	v := validate.New("AIVoltageWithExcitChannel")
-	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Ternaryf("bridge_config", !a.BridgeConfig.IsValid(), "invalid bridge_config: %v", a.BridgeConfig)
 	v.Exec(a.Terminal.Validate)
 	v.Exec(a.VoltageExcitation.Validate)
@@ -2855,20 +2809,19 @@ func (c CIMeasMethod) IsValid() bool {
 	}
 }
 
-// CIFreqUnits are the units of a frequency measurement.
+// CIFreqUnits are the unit options for a counter frequency channel.
 type CIFreqUnits string
 
 const (
-	CIFreqUnitsHz      CIFreqUnits = "Hz"
-	CIFreqUnitsSeconds CIFreqUnits = "Seconds"
-	CIFreqUnitsTicks   CIFreqUnits = "Ticks"
+	CIFreqUnitsHz    CIFreqUnits = "Hz"
+	CIFreqUnitsTicks CIFreqUnits = "Ticks"
 )
 
 // IsValid reports whether c is one of the defined CIFreqUnits
 // values.
 func (c CIFreqUnits) IsValid() bool {
 	switch c {
-	case CIFreqUnitsHz, CIFreqUnitsSeconds, CIFreqUnitsTicks:
+	case CIFreqUnitsHz, CIFreqUnitsTicks:
 		return true
 	default:
 		return false
@@ -3037,9 +2990,9 @@ func (z ZIndexPhase) IsValid() bool {
 
 // ZIndex configures the Z-index reset behavior of an encoder.
 type ZIndex struct {
-	// ZIndexEnable is true when the encoder's Z index resets the count.
-	ZIndexEnable bool `json:"z_index_enable" msgpack:"z_index_enable"`
-	// ZIndexVal is the count value the Z index resets to.
+	// ZIndexEnabled is true when the encoder's Z index resets the count.
+	ZIndexEnabled bool `json:"z_index_enabled" msgpack:"z_index_enabled"`
+	// ZIndexVal is the value the measurement resets to when the Z index is active.
 	ZIndexVal float64 `json:"z_index_val" msgpack:"z_index_val"`
 	// ZIndexPhase selects the A/B states at which the Z index is active.
 	ZIndexPhase ZIndexPhase `json:"z_index_phase" msgpack:"z_index_phase"`
@@ -3102,10 +3055,7 @@ type CIChannelVariant interface {
 type CIFrequencyChannel struct {
 	BaseCIChannel
 	CustomScale
-	// MinVal is the minimum expected frequency.
-	MinVal float64 `json:"min_val" msgpack:"min_val"`
-	// MaxVal is the maximum expected frequency.
-	MaxVal float64 `json:"max_val" msgpack:"max_val"`
+	MinMaxVal
 	// Units are the units of the frequency measurement.
 	Units CIFreqUnits `json:"units" msgpack:"units"`
 	// Edge selects the edge the counter responds to.
@@ -3124,12 +3074,6 @@ func (CIFrequencyChannel) isCIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CIFrequencyChannel) ApplyDefaults() {
-	if c.MinVal == 0 {
-		c.MinVal = 2
-	}
-	if c.MaxVal == 0 {
-		c.MaxVal = 100
-	}
 	if c.Units == "" {
 		c.Units = CIFreqUnitsHz
 	}
@@ -3145,7 +3089,12 @@ func (c *CIFrequencyChannel) ApplyDefaults() {
 	if c.Divisor == 0 {
 		c.Divisor = 4
 	}
+	if c.MinVal == 0 && c.MaxVal == 0 {
+		c.MinVal = 2
+		c.MaxVal = 100
+	}
 	c.CustomScale.ApplyDefaults()
+	c.MinMaxVal.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -3197,10 +3146,7 @@ func (c CIEdgeCountChannel) Validate() error {
 type CIPeriodChannel struct {
 	BaseCIChannel
 	CustomScale
-	// MinVal is the minimum expected period, in seconds.
-	MinVal float64 `json:"min_val" msgpack:"min_val"`
-	// MaxVal is the maximum expected period, in seconds.
-	MaxVal float64 `json:"max_val" msgpack:"max_val"`
+	MinMaxVal
 	// Units are the units of the period measurement.
 	Units CITimeUnits `json:"units" msgpack:"units"`
 	// StartingEdge selects the edge that starts a period measurement.
@@ -3219,12 +3165,6 @@ func (CIPeriodChannel) isCIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CIPeriodChannel) ApplyDefaults() {
-	if c.MinVal == 0 {
-		c.MinVal = 1e-06
-	}
-	if c.MaxVal == 0 {
-		c.MaxVal = 0.1
-	}
 	if c.Units == "" {
 		c.Units = CITimeUnitsSeconds
 	}
@@ -3240,7 +3180,12 @@ func (c *CIPeriodChannel) ApplyDefaults() {
 	if c.Divisor == 0 {
 		c.Divisor = 4
 	}
+	if c.MinVal == 0 && c.MaxVal == 0 {
+		c.MinVal = 1e-06
+		c.MaxVal = 0.1
+	}
 	c.CustomScale.ApplyDefaults()
+	c.MinMaxVal.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -3258,10 +3203,7 @@ func (c CIPeriodChannel) Validate() error {
 type CIPulseWidthChannel struct {
 	BaseCIChannel
 	CustomScale
-	// MinVal is the minimum expected pulse width, in seconds.
-	MinVal float64 `json:"min_val" msgpack:"min_val"`
-	// MaxVal is the maximum expected pulse width, in seconds.
-	MaxVal float64 `json:"max_val" msgpack:"max_val"`
+	MinMaxVal
 	// Units are the units of the pulse-width measurement.
 	Units CITimeUnits `json:"units" msgpack:"units"`
 	// StartingEdge selects the edge that starts a pulse-width measurement.
@@ -3274,19 +3216,18 @@ func (CIPulseWidthChannel) isCIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CIPulseWidthChannel) ApplyDefaults() {
-	if c.MinVal == 0 {
-		c.MinVal = 1e-06
-	}
-	if c.MaxVal == 0 {
-		c.MaxVal = 0.1
-	}
 	if c.Units == "" {
 		c.Units = CITimeUnitsSeconds
 	}
 	if c.StartingEdge == "" {
 		c.StartingEdge = CIEdgeRising
 	}
+	if c.MinVal == 0 && c.MaxVal == 0 {
+		c.MinVal = 1e-06
+		c.MaxVal = 0.1
+	}
 	c.CustomScale.ApplyDefaults()
+	c.MinMaxVal.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -3303,10 +3244,7 @@ func (c CIPulseWidthChannel) Validate() error {
 type CISemiPeriodChannel struct {
 	BaseCIChannel
 	CustomScale
-	// MinVal is the minimum expected semi-period, in seconds.
-	MinVal float64 `json:"min_val" msgpack:"min_val"`
-	// MaxVal is the maximum expected semi-period, in seconds.
-	MaxVal float64 `json:"max_val" msgpack:"max_val"`
+	MinMaxVal
 	// Units are the units of the semi-period measurement.
 	Units CITimeUnits `json:"units" msgpack:"units"`
 	// Terminal is the terminal the counter signal is wired to.
@@ -3317,16 +3255,15 @@ func (CISemiPeriodChannel) isCIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CISemiPeriodChannel) ApplyDefaults() {
-	if c.MinVal == 0 {
-		c.MinVal = 1e-06
-	}
-	if c.MaxVal == 0 {
-		c.MaxVal = 0.1
-	}
 	if c.Units == "" {
 		c.Units = CITimeUnitsSeconds
 	}
+	if c.MinVal == 0 && c.MaxVal == 0 {
+		c.MinVal = 1e-06
+		c.MaxVal = 0.1
+	}
 	c.CustomScale.ApplyDefaults()
+	c.MinMaxVal.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -3342,10 +3279,7 @@ func (c CISemiPeriodChannel) Validate() error {
 type CITwoEdgeSepChannel struct {
 	BaseCIChannel
 	CustomScale
-	// MinVal is the minimum expected separation, in seconds.
-	MinVal float64 `json:"min_val" msgpack:"min_val"`
-	// MaxVal is the maximum expected separation, in seconds.
-	MaxVal float64 `json:"max_val" msgpack:"max_val"`
+	MinMaxVal
 	// Units are the units of the two-edge-separation measurement.
 	Units CITimeUnits `json:"units" msgpack:"units"`
 	// FirstEdge selects the edge that starts the measurement.
@@ -3362,12 +3296,6 @@ func (CITwoEdgeSepChannel) isCIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CITwoEdgeSepChannel) ApplyDefaults() {
-	if c.MinVal == 0 {
-		c.MinVal = 1e-06
-	}
-	if c.MaxVal == 0 {
-		c.MaxVal = 1
-	}
 	if c.Units == "" {
 		c.Units = CITimeUnitsSeconds
 	}
@@ -3377,7 +3305,12 @@ func (c *CITwoEdgeSepChannel) ApplyDefaults() {
 	if c.SecondEdge == "" {
 		c.SecondEdge = CIEdgeFalling
 	}
+	if c.MinVal == 0 && c.MaxVal == 0 {
+		c.MinVal = 1e-06
+		c.MaxVal = 1
+	}
 	c.CustomScale.ApplyDefaults()
+	c.MinMaxVal.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -3395,10 +3328,7 @@ func (c CITwoEdgeSepChannel) Validate() error {
 type CIVelocityLinearChannel struct {
 	BaseCIChannel
 	CustomScale
-	// MinVal is the minimum expected velocity.
-	MinVal float64 `json:"min_val" msgpack:"min_val"`
-	// MaxVal is the maximum expected velocity.
-	MaxVal float64 `json:"max_val" msgpack:"max_val"`
+	MinMaxVal
 	// Units are the units of the velocity measurement.
 	Units CILinearVelocityUnits `json:"units" msgpack:"units"`
 	// DecodingType selects the encoder decoding type.
@@ -3415,9 +3345,6 @@ func (CIVelocityLinearChannel) isCIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CIVelocityLinearChannel) ApplyDefaults() {
-	if c.MaxVal == 0 {
-		c.MaxVal = 1
-	}
 	if c.Units == "" {
 		c.Units = CILinearVelocityUnitsMPerS
 	}
@@ -3427,7 +3354,11 @@ func (c *CIVelocityLinearChannel) ApplyDefaults() {
 	if c.DistPerPulse == 0 {
 		c.DistPerPulse = 0.001
 	}
+	if c.MinVal == 0 && c.MaxVal == 0 {
+		c.MaxVal = 1
+	}
 	c.CustomScale.ApplyDefaults()
+	c.MinMaxVal.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -3444,10 +3375,7 @@ func (c CIVelocityLinearChannel) Validate() error {
 type CIVelocityAngularChannel struct {
 	BaseCIChannel
 	CustomScale
-	// MinVal is the minimum expected velocity.
-	MinVal float64 `json:"min_val" msgpack:"min_val"`
-	// MaxVal is the maximum expected velocity.
-	MaxVal float64 `json:"max_val" msgpack:"max_val"`
+	MinMaxVal
 	// Units are the units of the velocity measurement.
 	Units CIAngularVelocityUnits `json:"units" msgpack:"units"`
 	// DecodingType selects the encoder decoding type.
@@ -3464,9 +3392,6 @@ func (CIVelocityAngularChannel) isCIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CIVelocityAngularChannel) ApplyDefaults() {
-	if c.MaxVal == 0 {
-		c.MaxVal = 1
-	}
 	if c.Units == "" {
 		c.Units = CIAngularVelocityUnitsRpm
 	}
@@ -3476,7 +3401,11 @@ func (c *CIVelocityAngularChannel) ApplyDefaults() {
 	if c.PulsesPerRev == 0 {
 		c.PulsesPerRev = 24
 	}
+	if c.MinVal == 0 && c.MaxVal == 0 {
+		c.MaxVal = 1
+	}
 	c.CustomScale.ApplyDefaults()
+	c.MinMaxVal.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -3587,10 +3516,7 @@ func (c CIPositionAngularChannel) Validate() error {
 type CIDutyCycleChannel struct {
 	BaseCIChannel
 	CustomScale
-	// MinVal is the minimum expected duty-cycle frequency.
-	MinVal float64 `json:"min_val" msgpack:"min_val"`
-	// MaxVal is the maximum expected duty-cycle frequency.
-	MaxVal float64 `json:"max_val" msgpack:"max_val"`
+	MinMaxVal
 	// ActiveEdge selects the edge the counter responds to.
 	ActiveEdge CIEdge `json:"active_edge" msgpack:"active_edge"`
 	// Terminal is the terminal the counter signal is wired to.
@@ -3601,16 +3527,15 @@ func (CIDutyCycleChannel) isCIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CIDutyCycleChannel) ApplyDefaults() {
-	if c.MinVal == 0 {
-		c.MinVal = 2
-	}
-	if c.MaxVal == 0 {
-		c.MaxVal = 10000
-	}
 	if c.ActiveEdge == "" {
 		c.ActiveEdge = CIEdgeRising
 	}
+	if c.MinVal == 0 && c.MaxVal == 0 {
+		c.MinVal = 2
+		c.MaxVal = 10000
+	}
 	c.CustomScale.ApplyDefaults()
+	c.MinMaxVal.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -3887,17 +3812,12 @@ type AOCurrentChannel struct {
 	BaseAOChannel
 	MinMaxVal
 	CustomScale
-	// Units are the units of the current output.
-	Units Units `json:"units" msgpack:"units"`
 }
 
 func (AOCurrentChannel) isAOChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AOCurrentChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = UnitsAmps
-	}
 	a.MinMaxVal.ApplyDefaults()
 	a.CustomScale.ApplyDefaults()
 }
@@ -3906,7 +3826,6 @@ func (a *AOCurrentChannel) ApplyDefaults() {
 // schema constraints.
 func (a AOCurrentChannel) Validate() error {
 	v := validate.New("AOCurrentChannel")
-	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Exec(a.CustomScale.Validate)
 	return v.Error()
 }
@@ -3916,7 +3835,7 @@ type AOFuncGenChannel struct {
 	BaseAOChannel
 	// WaveType selects the waveform to generate.
 	WaveType WaveType `json:"wave_type" msgpack:"wave_type"`
-	// Frequency is the waveform frequency, in hertz.
+	// Frequency is the waveform frequency, in Hertz.
 	Frequency float64 `json:"frequency" msgpack:"frequency"`
 	// Amplitude is the waveform amplitude.
 	Amplitude float64 `json:"amplitude" msgpack:"amplitude"`
@@ -3946,17 +3865,12 @@ type AOVoltageChannel struct {
 	BaseAOChannel
 	MinMaxVal
 	CustomScale
-	// Units are the units of the voltage output.
-	Units Units `json:"units" msgpack:"units"`
 }
 
 func (AOVoltageChannel) isAOChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AOVoltageChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = UnitsVolts
-	}
 	a.MinMaxVal.ApplyDefaults()
 	a.CustomScale.ApplyDefaults()
 }
@@ -3965,7 +3879,6 @@ func (a *AOVoltageChannel) ApplyDefaults() {
 // schema constraints.
 func (a AOVoltageChannel) Validate() error {
 	v := validate.New("AOVoltageChannel")
-	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Exec(a.CustomScale.Validate)
 	return v.Error()
 }
@@ -4114,14 +4027,14 @@ type DOChannel struct {
 // AnalogReadConfig configures an NI analog read task. Each channel carries its own
 // device.
 type AnalogReadConfig struct {
-	config.BaseRead
+	task.ReadConfig
 	// Channels are the analog input channels the task acquires.
 	Channels []AIChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AnalogReadConfig) ApplyDefaults() {
-	a.BaseRead.ApplyDefaults()
+	a.ReadConfig.ApplyDefaults()
 	for i := range a.Channels {
 		a.Channels[i].ApplyDefaults()
 	}
@@ -4140,14 +4053,14 @@ func (a AnalogReadConfig) Validate() error {
 // CounterReadConfig configures an NI counter read task. Each channel carries its own
 // device.
 type CounterReadConfig struct {
-	config.BaseRead
+	task.ReadConfig
 	// Channels are the counter input channels the task acquires.
 	Channels []CIChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CounterReadConfig) ApplyDefaults() {
-	c.BaseRead.ApplyDefaults()
+	c.ReadConfig.ApplyDefaults()
 	for i := range c.Channels {
 		c.Channels[i].ApplyDefaults()
 	}
@@ -4165,8 +4078,8 @@ func (c CounterReadConfig) Validate() error {
 
 // WriteConfig carries the configuration fields shared by NI write tasks.
 type WriteConfig struct {
-	config.BaseWrite
-	// StateRate is the rate at which output state is reported to Synnax, in hertz.
+	task.WriteConfig
+	// StateRate is the rate at which output state is reported to Synnax, in Hertz.
 	StateRate telem.Rate `json:"state_rate" msgpack:"state_rate"`
 }
 
@@ -4204,7 +4117,7 @@ func (a AnalogWriteConfig) Validate() error {
 
 // DigitalReadConfig configures an NI digital read task.
 type DigitalReadConfig struct {
-	config.BaseRead
+	task.ReadConfig
 	// Device is the key of the device the task acquires from.
 	Device device.Key `json:"device" msgpack:"device"`
 	// Channels are the digital input channels the task acquires.
@@ -4213,7 +4126,7 @@ type DigitalReadConfig struct {
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (d *DigitalReadConfig) ApplyDefaults() {
-	d.BaseRead.ApplyDefaults()
+	d.ReadConfig.ApplyDefaults()
 }
 
 // DigitalWriteConfig configures an NI digital write task.
@@ -4230,7 +4143,7 @@ func (d *DigitalWriteConfig) ApplyDefaults() {
 
 // ScanConfig configures the NI device scanner task.
 type ScanConfig struct {
-	config.BaseScan
+	task.ScanConfig
 	// IgnoredModels are regex patterns matching the device models the scan skips.
 	IgnoredModels []string `json:"ignored_models,omitzero" msgpack:"ignored_models,omitzero"`
 }
@@ -4240,5 +4153,26 @@ func (s *ScanConfig) ApplyDefaults() {
 	if s.IgnoredModels == nil {
 		s.IgnoredModels = []string{"^cRIO.*", "^nown.*"}
 	}
-	s.BaseScan.ApplyDefaults()
+	s.ScanConfig.ApplyDefaults()
+}
+
+// AccelChargeSensitivityUnits are the units of a charge-mode accelerometer's
+// sensitivity rating.
+type AccelChargeSensitivityUnits string
+
+const (
+	AccelChargeSensitivityUnitsPicoCoulombsPerG                      AccelChargeSensitivityUnits = "PicoCoulombsPerG"
+	AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared AccelChargeSensitivityUnits = "PicoCoulombsPerMetersPerSecondSquared"
+	AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared AccelChargeSensitivityUnits = "PicoCoulombsPerInchesPerSecondSquared"
+)
+
+// IsValid reports whether a is one of the defined AccelChargeSensitivityUnits
+// values.
+func (a AccelChargeSensitivityUnits) IsValid() bool {
+	switch a {
+	case AccelChargeSensitivityUnitsPicoCoulombsPerG, AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared, AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared:
+		return true
+	default:
+		return false
+	}
 }

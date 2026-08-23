@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { EOF } from "@synnaxlabs/freighter";
-import { type breaker, DataType, errors } from "@synnaxlabs/x";
+import { type breaker, DataType, errors, zod } from "@synnaxlabs/x";
 import type z from "zod";
 
 import { isConnectionError, NotFoundError } from "@/errors";
@@ -30,12 +30,9 @@ export interface Listener<Z extends z.ZodType = z.ZodType> {
 }
 
 /**
- * Sorts channel names to ensure deletions are processed before other changes.
- * This ensures that modifications to things like relationships (delete followed by create)
+ * Sorts channel names to ensure deletions are processed before other changes. This
+ * ensures that modifications to things like relationships (delete followed by create)
  * are processed in the correct order.
- *
- * @param a - First channel name
- * @param b - Second channel name
  * @returns Sort order (-1, 0, or 1)
  */
 const channelNameSort = (a: string, b: string) => {
@@ -46,9 +43,7 @@ const channelNameSort = (a: string, b: string) => {
   return 0;
 };
 
-/**
- * Arguments for opening a cache streamer.
- */
+/** Arguments for opening a cache streamer. */
 export interface StreamerParams {
   /** Receives frame-handling and listener errors. */
   onError: (error: Error) => void;
@@ -58,9 +53,7 @@ export interface StreamerParams {
   openStreamer: framer.StreamOpener;
   /** Retry behavior for stream reconnect attempts. */
   breaker?: breaker.Config;
-  /**
-   * Called once when the stream first opens, before any frame is processed.
-   */
+  /** Called once when the stream first opens, before any frame is processed. */
   onOpen?: () => void;
   /**
    * Called after every successful reconnect of the underlying stream (not the
@@ -68,9 +61,8 @@ export interface StreamerParams {
    */
   onReopen?: () => void;
   /**
-   * Called whenever the stream goes live: after the initial open and before
-   * every onReopen, so reconciliation fetches never race a stale liveness
-   * verdict.
+   * Called whenever the stream goes live: after the initial open and before every
+   * onReopen, so reconciliation fetches never race a stale liveness verdict.
    */
   onLive?: () => void;
   /** Called when the underlying stream fails and reconnection begins. */
@@ -98,10 +90,8 @@ export interface Streamer {
 }
 
 /**
- * Creates a lazy streamer that, once demanded, listens to configured channels
- * and invokes the appropriate listeners when data changes.
- *
- * @param params - Configuration for the streamer
+ * Creates a lazy streamer that, once demanded, listens to configured channels and
+ * invokes the appropriate listeners when data changes.
  * @returns The lazy streamer handle
  */
 export const createStreamer = ({
@@ -145,8 +135,7 @@ export const createStreamer = ({
     // is still waiting on a first successful open.
     hardened = h;
     await h.start();
-    // ObservableStreamer construction below starts reads, so onOpen precedes any
-    // frame.
+    // ObservableStreamer construction below starts reads, so onOpen precedes any frame.
     onOpen?.();
     onLive?.();
     const handleChange = (frame: framer.Frame) => {
@@ -156,11 +145,12 @@ export const createStreamer = ({
           const series = frame.get(name);
           const listeners = listenersForChannels.get(name);
           if (listeners == null) continue;
+          const parseOpts = { label: `${name} sample` };
           for (const { onChange, schema } of listeners) {
             let parsed: z.output<typeof schema>[];
             try {
               if (!series.dataType.equals(DataType.JSON))
-                parsed = Array.from(series).map((s) => schema.parse(s));
+                parsed = Array.from(series).map((s) => zod.parse(schema, s, parseOpts));
               else parsed = series.parseJSON(schema);
             } catch (exc) {
               report(exc, `failed to parse streamer change for ${name}`);

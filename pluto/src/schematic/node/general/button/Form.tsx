@@ -41,7 +41,9 @@ export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
             onChange={handleSinkChange}
           />
         </Input.Item>
-        <Form.ActivationDelayField />
+        {/* The delay gates single-shot actuation (fire, pulse). Momentary's
+            hold is the actuation, so the field is hidden there. */}
+        {value.mode !== "momentary" && <Form.ActivationDelayField />}
         <Form.ControlChipField />
       </Flex.Box>
       <Base.Field<BaseButton.Mode> path="mode" label="Mode" optional>

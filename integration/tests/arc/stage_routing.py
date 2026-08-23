@@ -8,7 +8,11 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
-from framework.utils import create_indexed_pair, create_virtual_channel
+from framework.utils import (
+    create_indexed_pair,
+    create_virtual_channel,
+    create_virtual_channels,
+)
 from tests.arc.arc import ArcCase
 
 ARC_STAGE_ROUTING = """
@@ -23,14 +27,24 @@ func decide_stage{low f64, high f64} (value f64) (vent u8, press u8, abort u8) {
     }
 }
 
+func multi_route{} (value f64) (first u8, second u8, third u8, fourth u8) {
+    if (value > 50.0) {
+        first = 1
+        third = 1
+    } else {
+        second = 1
+        fourth = 1
+    }
+}
+
 start_stage_routing_cmd => main
 
 sequence main {
     stage select_hold {
         "select_hold" -> routing_stage_log
         routing_flag -> select{} -> {
-            true: select_on,
-            false: select_off
+            true: true => select_on,
+            false: true => select_off
         }
     }
     stage select_on {
@@ -45,9 +59,9 @@ sequence main {
     stage decide_stage_hold {
         "decide_stage_hold" -> routing_stage_log
         routing_sensor -> decide_stage{low=30.0, high=80.0} -> {
-            vent: decide_stage_vent,
-            press: decide_stage_press,
-            abort: decide_stage_abort
+            vent: true => decide_stage_vent,
+            press: true => decide_stage_press,
+            abort: true => decide_stage_abort
         }
     }
     stage decide_stage_vent {
@@ -75,8 +89,8 @@ sequence main {
     stage arrow_body_hold {
         "arrow_body_hold" -> routing_stage_log
         routing_flag -> select{} -> {
-            true: 1 => arrow_on,
-            false: 1 => arrow_off
+            true: true => arrow_on,
+            false: true => arrow_off
         }
     }
     stage arrow_on {
@@ -85,6 +99,17 @@ sequence main {
     }
     stage arrow_off {
         "arrow_off" -> routing_stage_log
+        next_cmd => multi_hold
+    }
+
+    stage multi_hold {
+        "multi_hold" -> routing_stage_log
+        routing_sensor -> multi_route{} -> {
+            first: "multi_1" -> routing_multi_log_1,
+            second: "multi_2" -> routing_multi_log_2,
+            third: "multi_3" -> routing_multi_log_3,
+            fourth: "multi_4" -> routing_multi_log_4
+        }
         next_cmd => done
     }
 
@@ -106,17 +131,29 @@ class StageRouting(ArcCase):
     to a channel, verifying that case-body chains type-check via chain semantics
     rather than against the select's discriminator output.
     Phase 4 (SY-4460) uses select with `=>` transition case bodies, verifying that
-    the transition operator drives stage jumps from inside a routing table."""
+    the transition operator drives stage jumps from inside a routing table.
+    Phase 5 sets two of four outputs in one invocation, verifying that every set
+    output fires its entry in the same tick."""
 
     arc_source = ARC_STAGE_ROUTING
     arc_name_prefix = "StageRouting"
     start_cmd_channel = "start_stage_routing_cmd"
-    subscribe_channels = ["routing_stage_log"]
+    subscribe_channels = [
+        "routing_stage_log",
+        "routing_multi_log_1",
+        "routing_multi_log_2",
+        "routing_multi_log_3",
+        "routing_multi_log_4",
+    ]
 
     def setup(self) -> None:
-        create_indexed_pair(self.client, "routing_flag", sy.DataType.UINT8)
+        create_indexed_pair(self.client, "routing_flag", sy.DataType.BOOLEAN)
         create_indexed_pair(self.client, "routing_sensor", sy.DataType.FLOAT64)
         create_virtual_channel(self.client, "routing_stage_log", sy.DataType.STRING)
+        create_virtual_channels(
+            self.client,
+            [(f"routing_multi_log_{i}", sy.DataType.STRING) for i in range(1, 5)],
+        )
         create_virtual_channel(self.client, "next_cmd", sy.DataType.UINT8)
         super().setup()
 
@@ -205,6 +242,30 @@ class StageRouting(ArcCase):
         self._write_flag(0)
         self.wait_for_eq("routing_stage_log", "arrow_off")
 
-        self.log("[arrow_body] Advancing arrow_off -> done")
+        self.log("[arrow_body] Advancing arrow_off -> multi_hold")
+        self._advance()
+        self.wait_for_eq("routing_stage_log", "multi_hold")
+
+        # Phase 5: one invocation sets two of four outputs; both entries fire.
+        # Sentinel writes keep a wait_for_eq from passing on a stale value.
+        for i in range(1, 5):
+            self.writer.write(f"routing_multi_log_{i}", "zero_value")
+            self.wait_for_eq(f"routing_multi_log_{i}", "zero_value")
+
+        self.log("[multi] sensor=75.0 sets first+third")
+        self._write_sensor(75.0)
+        self.wait_for_eq("routing_multi_log_1", "multi_1")
+        self.wait_for_eq("routing_multi_log_3", "multi_3")
+
+        for i in range(1, 5):
+            self.writer.write(f"routing_multi_log_{i}", "zero_value")
+            self.wait_for_eq(f"routing_multi_log_{i}", "zero_value")
+
+        self.log("[multi] sensor=10.0 sets second+fourth")
+        self._write_sensor(10.0)
+        self.wait_for_eq("routing_multi_log_2", "multi_2")
+        self.wait_for_eq("routing_multi_log_4", "multi_4")
+
+        self.log("[multi] Advancing multi_hold -> done")
         self._advance()
         self.wait_for_eq("routing_stage_log", "done")

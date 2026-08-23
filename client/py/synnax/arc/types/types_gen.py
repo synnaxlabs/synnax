@@ -30,17 +30,18 @@ class Kind(IntEnum):
     f32 = 9
     f64 = 10
     string = 11
-    chan = 14
-    series = 15
-    variable = 16
-    numeric_constant = 17
-    integer_constant = 18
-    float_constant = 19
-    exact_integer_float_constant = 20
-    function = 21
-    sequence = 22
-    stage = 23
-    var_ref = 24
+    chan = 12
+    series = 13
+    variable = 14
+    numeric_constant = 15
+    integer_constant = 16
+    float_constant = 17
+    exact_integer_float_constant = 18
+    function = 19
+    sequence = 20
+    stage = 21
+    var_ref = 22
+    bool = 23
 
 
 class ChanDirection(IntEnum):
@@ -63,17 +64,16 @@ class Channels(BaseModel):
 
 
 class Dimensions(BaseModel):
-    """Contains physical dimension exponents for dimensional analysis (SI base
-    quantities).
+    """Contains dimension exponents for dimensional analysis.
 
     Attributes:
         length: Is the length dimension exponent (meters).
         mass: Is the mass dimension exponent (kilograms).
         time: Is the time dimension exponent (seconds).
-        current: Is the electric current dimension exponent (amperes).
-        temperature: Is the temperature dimension exponent (kelvin).
+        current: Is the electric current dimension exponent (Amperes).
+        temperature: Is the temperature dimension exponent (Kelvin).
         angle: Is the angle dimension exponent (radians).
-        count: Is the count dimension exponent (dimensionless quantity).
+        count: Is the count dimension exponent.
         data: Is the data size dimension exponent (bytes).
     """
 

@@ -22,6 +22,7 @@ const deleteResZ = z.object({});
 const renameReqZ = z.object({ key: keyZ, name: nameZ });
 const renameResZ = z.object({});
 
+/** Creates, renames, and deletes ranges. Reach it through `client.ranges`. */
 export class Writer {
   client: UnaryClient;
 

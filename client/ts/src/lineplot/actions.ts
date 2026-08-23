@@ -172,10 +172,9 @@ const handlers: Handlers = {
     };
   },
 
-  // setXChannel swaps the single channel on an x-axis. Reconciliation rekeys
-  // every line on that axis: the old lines are dropped and fresh ones
-  // materialized. Undo restores both the previous channel and the previous
-  // line styling.
+  // setXChannel swaps the single channel on an x-axis. Reconciliation rekeys every line
+  // on that axis: the old lines are dropped and fresh ones materialized. Undo restores
+  // both the previous channel and the previous line styling.
   setXChannel: (state, payload) => {
     const axis = payload.axisKey;
     const oldChannel = state.channels[axis];
@@ -196,9 +195,8 @@ const handlers: Handlers = {
     };
   },
 
-  // addRange appends the range to an x-axis and reconciles the line set,
-  // materializing a line for every y-channel plotted against it. removeRange is
-  // its inverse.
+  // addRange appends the range to an x-axis and reconciles the line set, materializing
+  // a line for every y-channel plotted against it. removeRange is its inverse.
   addRange: (state, payload) => {
     const axis = payload.axisKey;
     const slice = state.ranges[axis];
@@ -263,7 +261,6 @@ const handlers: Handlers = {
     };
   },
 
-  // Each setAxis* action sets one field of the named axis in place.
   setAxisLabel: (state, payload) => {
     const axis = state.axes[payload.key];
     const inverse = [setAxisLabel({ key: payload.key, label: axis.label })];
@@ -413,7 +410,6 @@ const handlers: Handlers = {
     return { inverse: [setRule({ rule: oldRule })], targets: [`rule:${payload.key}`] };
   },
 
-  // Each setRule* action sets one field of the rule identified by key.
   setRuleLabel: (state, payload) => {
     const rule = state.rules.find((r) => r.key === payload.key);
     if (rule == null) return actions.NO_OP_RESULT;
@@ -483,12 +479,11 @@ export const reduceAll = createReduceAll(handlers);
 export const createOf = (action: Action) =>
   action.type === "create" ? action.create.linePlot : undefined;
 
-// Drag streams (axis bounds, rule position, line style, legend) coalesce into
-// one undo entry within the coalesce window. Single-target actions key by their
-// axis/line/rule so gestures on different targets don't merge; dragging axis x1
-// then axis x2 is two undo steps. Edits to distinct fields of the same target
-// (e.g. an x1 label then its bounds) deliberately share a key, matching the
-// previous single-setAxis coalescing.
+// Drag streams (axis bounds, rule position, line style, legend) coalesce into one undo
+// entry within the coalesce window. Single-target actions key by their axis/line/rule
+// so gestures on different targets don't merge; dragging axis x1 then axis x2 is two
+// undo steps. Edits to distinct fields of the same target (e.g. an x1 label then its
+// bounds) deliberately share a key, matching the previous single-setAxis coalescing.
 export const kindOf = (actions: Action[]): string => {
   if (actions.length === 0) return "default";
   if (actions.length > 1) return "transaction";

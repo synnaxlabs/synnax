@@ -93,14 +93,8 @@ class NITask(TaskPage):
         """
         layout = self.layout
 
-        # Add first channel or subsequent channels
-        if len(self.channels) == 0:
-            layout.click("Add a channel")
-        else:
-            layout.page.locator("header:has-text('Channels') .pluto-icon--add").click()
-
-        # Click the channel in the list
         idx = len(self.channels)
+        self.add_channel_row(idx)
         layout.page.locator(".pluto-list__item").nth(idx).click()
 
         # Configure device

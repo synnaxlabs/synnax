@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/json"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -46,7 +47,7 @@ var _ = Describe("DB Metadata Operations", func() {
 					Channel: channel.Channel{
 						Key:      indexDBKey,
 						Name:     "test",
-						DataType: telem.TimeStampT,
+						DataType: telem.TimestampT,
 						IsIndex:  true,
 					},
 				}))
@@ -176,7 +177,7 @@ var _ = Describe("DB Metadata Operations", func() {
 						MustSucceed(w.Commit(ctx))
 						MustSucceed(w.Close())
 
-						expectedSize := telem.Size(5 * telem.TimeStampT.Density())
+						expectedSize := telem.Size(5 * telem.TimestampT.Density())
 						Expect(indexDB.Size()).To(Equal(expectedSize))
 					},
 				)
@@ -194,7 +195,7 @@ var _ = Describe("DB Metadata Operations", func() {
 						MustSucceed(w.Commit(ctx))
 						MustSucceed(w.Close())
 
-						expectedSize := telem.Size(5 * telem.TimeStampT.Density())
+						expectedSize := telem.Size(5 * telem.TimestampT.Density())
 						Expect(indexDB.Size()).To(Equal(expectedSize))
 					},
 				)
@@ -211,7 +212,7 @@ var _ = Describe("DB Metadata Operations", func() {
 				Channel: channel.Channel{
 					Key:      GenerateChannelKey(),
 					Name:     "test",
-					DataType: telem.TimeStampT,
+					DataType: telem.TimestampT,
 					IsIndex:  true,
 				},
 			}))
@@ -261,7 +262,7 @@ var _ = Describe("DB Metadata Operations", func() {
 					Channel: channel.Channel{
 						Key:      GenerateChannelKey(),
 						Name:     "test",
-						DataType: telem.TimeStampT,
+						DataType: telem.TimestampT,
 						IsIndex:  true,
 					},
 				}))

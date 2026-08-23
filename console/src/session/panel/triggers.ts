@@ -15,16 +15,14 @@ import { useGetTabIsFocused } from "@/session/panel/selectors";
 /**
  * @returns a getter for whether the surrounding tab is the one the user is working in,
  * and so should answer keyboard triggers. False for a background tab, and false for
- * every tab while a modal is open.
- *
- * A getter rather than a value: it is read when a trigger fires, so the answer can
- * change without re-rendering its consumer.
+ * every tab while a modal is open. A getter rather than a value: it is read when a
+ * trigger fires, so the answer can change without re-rendering its consumer.
  */
 export const useGetTabTriggersActive = (): (() => boolean) => {
   const getIsFocused = useGetTabIsFocused();
-  const modals = Modals.useStore("useGetTabTriggersActive");
+  const getIsAnyModalOpen = Modals.useGetIsAnyOpen();
   return useCallback(
-    () => getIsFocused() && !modals.isAnyOpen(),
-    [getIsFocused, modals],
+    () => getIsFocused() && !getIsAnyModalOpen(),
+    [getIsFocused, getIsAnyModalOpen],
   );
 };

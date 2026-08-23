@@ -12,6 +12,7 @@ package mock
 import (
 	"context"
 	"go/types"
+	"sync"
 
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
@@ -68,6 +69,8 @@ func NewStreams[RQ, RS freighter.Payload](
 // the transport.
 type StreamServer[RQ, RS freighter.Payload] struct {
 	Handler func(ctx context.Context, srv freighter.ServerStream[RQ, RS]) error
+	// mu guards Handler.
+	mu      sync.RWMutex
 	Address address.Address
 	freighter.Reporter
 	freighter.MiddlewareCollector
@@ -79,20 +82,32 @@ func (s *StreamServer[RQ, RS]) BindHandler(handler func(
 	ctx context.Context,
 	srv freighter.ServerStream[RQ, RS]) error,
 ) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.Handler = handler
+}
+
+func (s *StreamServer[RQ, RS]) handler() func(
+	ctx context.Context,
+	srv freighter.ServerStream[RQ, RS],
+) error {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.Handler
 }
 
 func (s *StreamServer[RQ, RS]) exec(
 	ctx freighter.Context,
 	srv *ServerStream[RQ, RS],
 ) (freighter.Context, error) {
-	if s.Handler == nil {
+	h := s.handler()
+	if h == nil {
 		return ctx, errors.New("no handler bound to stream server")
 	}
 	return s.Exec(
 		ctx,
 		freighter.FinalizerFunc(func(md freighter.Context) (freighter.Context, error) {
-			go srv.exec(ctx, s.Handler)
+			go srv.exec(ctx, h)
 			return freighter.Context{
 				Target:   s.Address,
 				Protocol: s.Protocol,
@@ -138,7 +153,7 @@ func (s *StreamClient[RQ, RS]) Stream(
 					targetBufferSize = server.BufferSize
 				} else if s.Network != nil {
 					srv, ok := s.Network.resolveStreamTarget(target)
-					if !ok || srv.Handler == nil {
+					if !ok || srv.handler() == nil {
 						return oCtx, address.NewTargetNotFoundError(target)
 					}
 					server = srv
@@ -237,7 +252,12 @@ func (s *ServerStream[RQ, RS]) exec(
 		errPayload = errors.Encode(ctx, freighter.EOF, true)
 	}
 	close(s.serverClosed)
-	s.responses <- message[RS]{error: errPayload}
+	// A client that abandons the stream stops receiving, so the final error can have
+	// nowhere to go. Drop it rather than parking this goroutine for good.
+	select {
+	case s.responses <- message[RS]{error: errPayload}:
+	case <-s.ctx.Done():
+	}
 }
 
 type ClientStream[RQ, RS freighter.Payload] struct {

@@ -7,6 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <iomanip>
+#include <iostream>
+#include <thread>
+
 #include "gtest/gtest.h"
 #include "nlohmann/json.hpp"
 
@@ -19,6 +23,20 @@
 #include "driver/pipeline/mock/pipeline.h"
 
 namespace driver::opcua {
+/// @brief Allowed relative error of a task's achieved sample rate.
+constexpr double RATE_TOLERANCE = 0.10;
+/// @brief Wall time each rate runs for.
+const auto RATE_SPAN = 1 * x::telem::SECOND;
+
+/// @brief Logs the rate a task held and checks it against the tolerance.
+void expect_rate(const double measured, const int rate_hz) {
+    const double error = (measured - rate_hz) / rate_hz * 100;
+    std::cout << std::fixed << std::setprecision(1);
+    std::cout << rate_hz << " Hz: " << measured << " Hz measured (" << error << "%)\n";
+    EXPECT_NEAR(measured, rate_hz, rate_hz * RATE_TOLERANCE)
+        << "at " << rate_hz << " Hz";
+}
+
 class TestReadTask : public ::testing::Test {
 protected:
     synnax::task::Task task;
@@ -140,7 +158,7 @@ protected:
                    {"node_id", "NS=1;S=TestBoolean"},
                    {"channel", this->bool_channel.key},
                    {"disabled", false},
-                   {"use_as_index", false},
+                   {"is_index", false},
                    {"data_type", "uint8"}},
                   {{"key", "NS=2;I=2"},
                    {"name", "uint16_test"},
@@ -148,7 +166,7 @@ protected:
                    {"node_id", "NS=1;S=TestUInt16"},
                    {"channel", this->uint16_channel.key},
                    {"disabled", false},
-                   {"use_as_index", false},
+                   {"is_index", false},
                    {"data_type", "uint16"}},
                   {{"key", "NS=2;I=3"},
                    {"name", "uint32_test"},
@@ -156,7 +174,7 @@ protected:
                    {"node_id", "NS=1;S=TestUInt32"},
                    {"channel", this->uint32_channel.key},
                    {"disabled", false},
-                   {"use_as_index", false},
+                   {"is_index", false},
                    {"data_type", "uint32"}},
                   {{"key", "NS=2;I=4"},
                    {"name", "uint64_test"},
@@ -164,7 +182,7 @@ protected:
                    {"node_id", "NS=1;S=TestUInt64"},
                    {"channel", this->uint64_channel.key},
                    {"disabled", false},
-                   {"use_as_index", false},
+                   {"is_index", false},
                    {"data_type", "uint64"}},
                   {{"key", "NS=2;I=5"},
                    {"name", "int8_test"},
@@ -172,7 +190,7 @@ protected:
                    {"node_id", "NS=1;S=TestInt8"},
                    {"channel", this->int8_channel.key},
                    {"disabled", false},
-                   {"use_as_index", false},
+                   {"is_index", false},
                    {"data_type", "int8"}},
                   {{"key", "NS=2;I=6"},
                    {"name", "int16_test"},
@@ -180,7 +198,7 @@ protected:
                    {"node_id", "NS=1;S=TestInt16"},
                    {"channel", this->int16_channel.key},
                    {"disabled", false},
-                   {"use_as_index", false},
+                   {"is_index", false},
                    {"data_type", "int16"}},
                   {{"key", "NS=2;I=7"},
                    {"name", "int32_test"},
@@ -188,7 +206,7 @@ protected:
                    {"node_id", "NS=1;S=TestInt32"},
                    {"channel", this->int32_channel.key},
                    {"disabled", false},
-                   {"use_as_index", false},
+                   {"is_index", false},
                    {"data_type", "int32"}},
                   {{"key", "NS=2;I=8"},
                    {"name", "int64_test"},
@@ -196,7 +214,7 @@ protected:
                    {"node_id", "NS=1;S=TestInt64"},
                    {"channel", this->int64_channel.key},
                    {"disabled", false},
-                   {"use_as_index", false},
+                   {"is_index", false},
                    {"data_type", "int64"}},
                   {{"key", "NS=2;I=9"},
                    {"name", "float_test"},
@@ -204,7 +222,7 @@ protected:
                    {"node_id", "NS=1;S=TestFloat"},
                    {"channel", this->float_channel.key},
                    {"disabled", false},
-                   {"use_as_index", false},
+                   {"is_index", false},
                    {"data_type", "float32"}},
                   {{"key", "NS=2;I=10"},
                    {"name", "double_test"},
@@ -212,7 +230,7 @@ protected:
                    {"node_id", "NS=1;S=TestDouble"},
                    {"channel", this->double_channel.key},
                    {"disabled", false},
-                   {"use_as_index", false},
+                   {"is_index", false},
                    {"data_type", "float64"}}}
              )},
             {"sample_rate", 50},
@@ -327,7 +345,7 @@ TEST_F(TestReadTask, testInvalidNodeId) {
                {"node_id", "NS=1;S=NonExistentNode"},
                {"channel", this->float_channel.key},
                {"disabled", false},
-               {"use_as_index", false},
+               {"is_index", false},
                {"data_type", "float32"}}}
          )},
         {"sample_rate", 50},
@@ -413,7 +431,7 @@ TEST_F(TestReadTask, testDisabledChannels) {
                {"node_id", "NS=1;S=TestFloat"},
                {"channel", this->float_channel.key},
                {"disabled", true},
-               {"use_as_index", false},
+               {"is_index", false},
                {"data_type", "float32"}}}
          )},
         {"sample_rate", 50},
@@ -440,7 +458,7 @@ TEST_F(TestReadTask, testUnboundDisabledChannel) {
                {"node_id", "NS=1;S=TestFloat"},
                {"channel", this->float_channel.key},
                {"disabled", false},
-               {"use_as_index", false},
+               {"is_index", false},
                {"data_type", "float32"}},
               {{"key", "blank"}, {"disabled", true}}}
          )},
@@ -454,6 +472,38 @@ TEST_F(TestReadTask, testUnboundDisabledChannel) {
     ASSERT_FALSE(p.error()) << p.error().message();
     EXPECT_EQ(parsed->channels.size(), 1);
     EXPECT_EQ(parsed->channels[0]->synnax_key, this->float_channel.key);
+}
+
+/// @brief it should stay out of array mode when array_mode is false, even when
+/// the config carries an array_size greater than one.
+TEST_F(TestReadTask, testArraySizeIgnoredWhenArrayModeDisabled) {
+    task_cfg_json["array_size"] = 5;
+    auto p = x::json::Parser(task_cfg_json);
+    const ReadTaskConfig cfg(ctx->client, p);
+    ASSERT_NIL(p.error());
+    EXPECT_FALSE(cfg.array_mode);
+
+    task_cfg_json["stream_rate"] = 0;
+    auto strict_p = x::json::Parser(task_cfg_json);
+    const ReadTaskConfig strict_cfg(ctx->client, strict_p);
+    ASSERT_OCCURRED_AS(strict_p.error(), x::errors::VALIDATION);
+}
+
+/// @brief it should require a stream rate only when array_mode is false.
+TEST_F(TestReadTask, testStreamRateOptionalInArrayMode) {
+    task_cfg_json["stream_rate"] = 0;
+    auto p = x::json::Parser(task_cfg_json);
+    const ReadTaskConfig unary_cfg(ctx->client, p);
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+
+    task_cfg_json["array_mode"] = true;
+    task_cfg_json["array_size"] = 5;
+    auto array_p = x::json::Parser(task_cfg_json);
+    const ReadTaskConfig array_cfg(ctx->client, array_p);
+    ASSERT_NIL(array_p.error());
+    EXPECT_TRUE(array_cfg.array_mode);
+    EXPECT_EQ(array_cfg.array_size, 5);
+    EXPECT_EQ(array_cfg.samples_per_chan, 0);
 }
 
 /// @brief it should handle rapid start and stop cycles.
@@ -539,7 +589,7 @@ TEST_F(TestReadTask, testInvalidDataHandlingInArrayMode) {
                {"node_id", "NS=1;S=TestFloat"},
                {"channel", this->float_channel.key},
                {"disabled", false},
-               {"use_as_index", false},
+               {"is_index", false},
                {"data_type", "float32"}}}
          )},
         {"sample_rate", 50},
@@ -728,7 +778,7 @@ TEST_F(TestReadTask, testErrorAggregationInArrayMode) {
                {"node_id", "NS=1;S=TestFloat"},
                {"channel", this->float_channel.key},
                {"disabled", false},
-               {"use_as_index", false},
+               {"is_index", false},
                {"data_type", "float32"}},
               {{"key", "NS=2;I=2"},
                {"name", "double_test"},
@@ -736,7 +786,7 @@ TEST_F(TestReadTask, testErrorAggregationInArrayMode) {
                {"node_id", "NS=1;S=TestDouble"},
                {"channel", this->double_channel.key},
                {"disabled", false},
-               {"use_as_index", false},
+               {"is_index", false},
                {"data_type", "float64"}}}
          )},
         {"sample_rate", 50},
@@ -815,7 +865,7 @@ TEST_F(TestReadTask, testFrameClearedOnErrorInArrayMode) {
                {"node_id", "NS=1;S=TestBoolean"},
                {"channel", this->bool_channel.key},
                {"disabled", false},
-               {"use_as_index", false},
+               {"is_index", false},
                {"data_type", "uint8"}}}
          )},
         {"sample_rate", 50},
@@ -906,7 +956,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
                {"node_id", "NS=1;S=InvalidBoolean"},
                {"channel", this->bool_channel.key},
                {"disabled", false},
-               {"use_as_index", false},
+               {"is_index", false},
                {"data_type", "uint8"}}}
          )},
         {"sample_rate", 50},
@@ -987,7 +1037,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
                {"node_id", "NS=1;S=InvalidFloat"},
                {"channel", this->float_channel.key},
                {"disabled", false},
-               {"use_as_index", false},
+               {"is_index", false},
                {"data_type", "float32"}}}
          )},
         {"sample_rate", 50},
@@ -1068,7 +1118,7 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
                {"node_id", "NS=1;S=InvalidDouble"},
                {"channel", this->double_channel.key},
                {"disabled", false},
-               {"use_as_index", false},
+               {"is_index", false},
                {"data_type", "float64"}}}
          )},
         {"sample_rate", 50},
@@ -1165,5 +1215,28 @@ TEST(OPCReadTaskConfig, testOPCDriverSetsAutoCommitTrue) {
     // Verify that writer_config has enable_auto_commit set to true
     auto writer_cfg = cfg->writer_config();
     ASSERT_TRUE(writer_cfg.enable_auto_commit);
+}
+
+/// @brief it should hold each configured sample rate over time.
+TEST_F(TestReadTask, testHoldsSampleRate) {
+    for (const int rate_hz: {25, 50, 100}) {
+        this->task_cfg_json["sample_rate"] = rate_hz;
+        this->task_cfg_json["stream_rate"] = rate_hz;
+        this->mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
+
+        const auto rt = create_task();
+        rt->start("start_cmd");
+        ASSERT_EVENTUALLY_GE(this->mock_factory->writes->size(), 1);
+        std::this_thread::sleep_for(RATE_SPAN.chrono());
+        rt->stop("stop_cmd", true);
+
+        expect_rate(
+            pipeline::mock::measured_rate(
+                *this->mock_factory->writes,
+                this->index_channel.key
+            ),
+            rate_hz
+        );
+    }
 }
 }

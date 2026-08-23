@@ -40,7 +40,7 @@ export const TextBox = ({
   const style = useMemo<CSSProperties>(
     () => ({
       textAlign: align as CSSProperties["textAlign"],
-      [CSS.var("symbol-color")]: symbolColorVar(colorVal),
+      [CSS.variable("symbol-color")]: symbolColorVar(colorVal),
       ...(isVertical ? { height: size } : { width: size }),
     }),
     [align, colorVal, isVertical, size],
@@ -50,7 +50,7 @@ export const TextBox = ({
     <Primitive.Div
       style={style}
       orientation={orientation}
-      className={CSS(
+      className={CSS.cls(
         CSS.B("text-box"),
         CSS.B("symbol-colored"),
         CSS.loc(orientation),

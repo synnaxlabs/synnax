@@ -31,8 +31,6 @@ type AddFavoritesPayload = status.Key | status.Key[];
 
 type RemoveFavoritesPayload = status.Key | status.Key[];
 
-type FilterFavoritesToKeysPayload = status.Key | status.Key[];
-
 type ToggleFavoritePayload = status.Key;
 
 export const { actions, reducer } = createSlice({
@@ -46,13 +44,6 @@ export const { actions, reducer } = createSlice({
         state.favorites.push(key);
         existingFavorites.add(key);
       }
-    },
-    filterFavoritesToKeys: (
-      state,
-      { payload: keys }: PayloadAction<FilterFavoritesToKeysPayload>,
-    ) => {
-      const favoritesToKeep = new Set(array.toArray(keys));
-      state.favorites = state.favorites.filter((key) => favoritesToKeep.has(key));
     },
     removeFavorites: (
       state,
@@ -70,15 +61,9 @@ export const { actions, reducer } = createSlice({
   },
 });
 
-export const { addFavorites, filterFavoritesToKeys, removeFavorites, toggleFavorite } =
-  actions;
+export const { addFavorites, removeFavorites, toggleFavorite } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 
-/** AnySliceState is any persisted shape of the slice: fields may be absent. */
-export type AnySliceState = z.input<typeof sliceStateZ>;
-
-export const migrateSlice = (state: AnySliceState): SliceState => ({
-  ...ZERO_SLICE_STATE,
-  ...state,
-});
+/** Migrates a persisted slice, filling absent fields with their defaults. */
+export const migrateSlice = (state: unknown): SliceState => sliceStateZ.parse(state);

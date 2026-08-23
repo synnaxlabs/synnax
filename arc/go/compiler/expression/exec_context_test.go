@@ -89,3 +89,44 @@ var _ = Describe("Unary Minus", func() {
 		Expect(exprType).To(Equal(types.I32()))
 	})
 })
+
+var _ = Describe("Builtin Len", func() {
+	It("Should compile len on a string literal", func(bCtx SpecContext) {
+		bytecode, exprType := compileExpression(bCtx, `len("hello")`)
+		Expect(exprType).To(Equal(types.I64()))
+		Expect(bytecode).ToNot(BeEmpty())
+	})
+
+	It("Should compile string.len on a string literal", func(bCtx SpecContext) {
+		bytecode, exprType := compileExpression(bCtx, `string.len("hello")`)
+		Expect(exprType).To(Equal(types.I64()))
+		Expect(bytecode).ToNot(BeEmpty())
+	})
+
+	It("Should compile len on a series operand", func(bCtx SpecContext) {
+		ctx := NewContext(bCtx)
+		MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+			Name: "s",
+			Kind: symbol.KindVariable,
+			Type: types.Series(types.I64()),
+		}))
+		bytecode, exprType := compileWithCtx(ctx, "len(s)")
+		Expect(exprType).To(Equal(types.I64()))
+		Expect(bytecode).ToNot(BeEmpty())
+	})
+
+	DescribeTable(
+		"should reject mismatched len operands",
+		expectCompileError,
+		Entry(
+			"string.len on a series",
+			"string.len(s)",
+			"string.len() requires a string argument, got series",
+		),
+		Entry(
+			"len with no arguments",
+			"len()",
+			"len() requires exactly 1 argument, got 0",
+		),
+	)
+})

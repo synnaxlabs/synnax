@@ -223,7 +223,9 @@ var _ = Describe("Hover", func() {
 
 			Expect(hover).ToNot(BeNil())
 			Expect(HoverContents(hover)).To(ContainSubstring("#### select"))
-			Expect(HoverContents(hover)).To(ContainSubstring("Routes input values"))
+			Expect(HoverContents(hover)).To(
+				ContainSubstring("Triggers the 'true' or 'false' routing entry"),
+			)
 		})
 
 		It("should provide hover for 'stable.for' function", func(ctx SpecContext) {
@@ -239,7 +241,7 @@ var _ = Describe("Hover", func() {
 
 			Expect(hover).ToNot(BeNil())
 			Expect(HoverContents(hover)).To(ContainSubstring("#### stable.for"))
-			Expect(HoverContents(hover)).To(ContainSubstring("remained stable"))
+			Expect(HoverContents(hover)).To(ContainSubstring("stays stable"))
 		})
 
 		It("should provide hover for 'time.now' function", func(ctx SpecContext) {
@@ -977,7 +979,7 @@ func add(a i32, b i32) i32 {
 			Entry("star *", "x * y", uint32(lsp.SemanticTokenTypeOperator)),
 			Entry("slash /", "x / y", uint32(lsp.SemanticTokenTypeOperator)),
 			Entry("percent %", "x % y", uint32(lsp.SemanticTokenTypeOperator)),
-			Entry("caret ^", "x ^ y", uint32(lsp.SemanticTokenTypeOperator)),
+			Entry("power ^", "x ^ y", uint32(lsp.SemanticTokenTypeOperator)),
 			Entry("eq ==", "x == y", uint32(lsp.SemanticTokenTypeOperator)),
 			Entry("neq !=", "x != y", uint32(lsp.SemanticTokenTypeOperator)),
 			Entry("lt <", "x < y", uint32(lsp.SemanticTokenTypeOperator)),

@@ -13,7 +13,7 @@
     height: 100%;
 
     .console-log-toolbar__actions {
-        width: 66px;
+        width: 72px;
     }
 
     .console-log__toolbar-properties {
@@ -22,16 +22,12 @@
     }
 
     .console-log__toolbar-channels {
-        padding-top: 2rem;
-        padding-bottom: 2rem;
+        padding: 2rem 1rem;
         overflow: auto;
 
         .console-log__channel-row {
             padding: 0.25rem 3rem 0.25rem 1rem;
             min-height: unset;
-            cursor: default;
-
-            --pluto-hover-bg: transparent;
 
             .console-log__channel-select {
                 flex: 4;

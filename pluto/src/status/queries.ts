@@ -32,8 +32,10 @@ export const useList = Flux.createList<ListParams, status.Key, status.Status>({
 export const { useUpdate: useDelete } = Flux.createUpdate<status.Key | status.Key[]>({
   name: RESOURCE_NAME,
   verbs: verbs.DELETE,
-  update: async ({ client, data }) => {
-    await client.statuses.delete(data);
+  update: async ({ client, data, onOptimisticComplete }) => {
+    await client.statuses.delete(data, {
+      onOptimistic: async () => await onOptimisticComplete(data),
+    });
     return data;
   },
 });
@@ -46,9 +48,14 @@ export interface SetParams {
 export const { useUpdate: useSet } = Flux.createUpdate<SetParams>({
   name: RESOURCE_NAME,
   verbs: verbs.SET,
-  update: async ({ client, data, data: { statuses, parent } }) => {
-    if (Array.isArray(statuses)) await client.statuses.set(statuses, { parent });
-    else await client.statuses.set(statuses, { parent });
+  update: async ({
+    client,
+    data,
+    data: { statuses, parent },
+    onOptimisticComplete,
+  }) => {
+    const onOptimistic = async () => await onOptimisticComplete(data);
+    await client.statuses.set(statuses, { parent, onOptimistic });
     return data;
   },
 });
@@ -150,11 +157,13 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
       });
     set("key", res.key);
   },
-  mountListeners: ({ client, query: { key }, reset }) =>
+  mountListeners: ({ client, query: { key }, reset, abandon }) =>
     client.statuses.onChange(key, (result) => {
-      if (!query.isLive(result)) return;
-      const { labels, ...rest } = result;
-      reset({ ...rest, labels: labels?.map((l) => l.key) ?? [] });
+      if (query.Deleted.matches(result)) abandon();
+      else if (query.isLive(result)) {
+        const { labels, ...rest } = result;
+        reset({ ...rest, labels: labels?.map((l) => l.key) ?? [] });
+      }
     }),
 });
 

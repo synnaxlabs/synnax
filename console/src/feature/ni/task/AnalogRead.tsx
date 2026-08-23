@@ -12,10 +12,13 @@ import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { errors, id, primitive, strings, unique } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
-import { enrich } from "@/feature/ni/device/enrich";
 import * as Device from "@/feature/ni/device/types";
 import { AIChannelForm } from "@/feature/ni/task/AIChannelForm";
 import { createNextAIChannel } from "@/feature/ni/task/createChannel";
+import {
+  getAIChannelDeviceKey,
+  getAIChannelSuffix,
+} from "@/feature/ni/task/getAIChannelDeviceKey";
 import { SelectAIChannelTypeField } from "@/feature/ni/task/SelectAIChannelTypeField";
 import {
   AI_CHANNEL_TYPE_ICONS,
@@ -26,6 +29,7 @@ import {
   ANALOG_READ_TYPE,
   analogReadConfigZ,
   type AnalogReadSchemas,
+  channelPort,
   createAIChannel,
   deployAnalogReadConfigZ,
 } from "@/feature/ni/task/types";
@@ -48,9 +52,14 @@ interface ChannelListItemProps extends Task.ChannelListItemProps {
   onTare: (channelKey: channel.Key) => void;
 }
 
+// What the port cell shows for a channel type that reads from no port. Two characters,
+// matching the column's own width.
+const NO_PORT = "NA";
+
 const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
   const path = `config.channels.${rest.itemKey}`;
-  const { port, type, channel, disabled } = PForm.useFieldValue<AIChannel>(path);
+  const value = PForm.useFieldValue<AIChannel>(path);
+  const { type, channel, disabled } = value;
   const isSnapshot = Task.useIsSnapshot();
   const isRunning = Task.useIsRunning();
   const hasTareButton = channel !== 0 && !isSnapshot;
@@ -59,7 +68,7 @@ const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
   return (
     <Task.Views.ListAndDetailsChannelItem
       {...rest}
-      port={port}
+      port={channelPort(value) ?? NO_PORT}
       canTare={canTare}
       onTare={onTare}
       path={path}
@@ -110,7 +119,7 @@ const getInitialValues: Task.GetInitialValues<AnalogReadSchemas> = ({
   const cfg = analogReadConfigZ.parse(config ?? {});
   if (config == null && deviceKey != null)
     cfg.channels = [{ ...createAIChannel(), device: deviceKey, key: id.create() }];
-  return { name: "NI Analog Read Task", type: ANALOG_READ_TYPE, config: cfg };
+  return { name: "NI analog read task", type: ANALOG_READ_TYPE, config: cfg };
 };
 
 const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
@@ -118,8 +127,7 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
   config,
 ) => {
   const devices = unique.unique(config.channels.map((c) => c.device));
-  if (devices.length === 0)
-    throw new Error("No devices selected in task configuration");
+  if (devices.length === 0) throw new Error("No devices selected");
   let rackKey: rack.Key | undefined;
   const allDevices = await client.devices.retrieve({
     keys: devices,
@@ -130,12 +138,11 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
     const first = allDevices[0];
     const mismatched = allDevices.filter((d) => d.rack !== first.rack);
     throw new Error(
-      `All devices must be on the same driver: ${first.name} and ${strings.naturalLanguageJoin(mismatched.map((d) => d.name))} are on different racks`,
+      `All devices must be on the same rack: ${first.name} and ${strings.naturalLanguageJoin(mismatched.map((d) => d.name))} are on different racks`,
     );
   }
   for (const dev of allDevices) {
     PlatformDevice.checkConfigured(dev);
-    dev.properties = enrich(dev.model, dev.properties);
     rackKey = dev.rack;
     let modified = false;
     let shouldCreateIndex = primitive.isZero(dev.properties.analogInput.index);
@@ -161,8 +168,8 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
       const toCreate: AIChannel[] = [];
       for (const channel of config.channels) {
         if (channel.device !== dev.key) continue;
-        // check if the channel is in properties
-        const exKey = dev.properties.analogInput.channels[channel.port.toString()];
+        const exKey =
+          dev.properties.analogInput.channels[getAIChannelDeviceKey(channel)];
         if (primitive.isZero(exKey)) toCreate.push(channel);
         else
           try {
@@ -176,25 +183,27 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
         modified = true;
         const channels = await client.channels.create(
           toCreate.map((c) => ({
-            name: primitive.isNonZero(c.name) ? c.name : `${identifier}_ai_${c.port}`,
+            name: primitive.isNonZero(c.name)
+              ? c.name
+              : `${identifier}_ai_${getAIChannelSuffix(c)}`,
             dataType: "float32",
             index: dev.properties.analogInput.index,
           })),
         );
-        channels.forEach(
-          (c, i) =>
-            (dev.properties.analogInput.channels[toCreate[i].port.toString()] = c.key),
-        );
+        channels.forEach((c, i) => {
+          const key = getAIChannelDeviceKey(toCreate[i]);
+          dev.properties.analogInput.channels[key] = c.key;
+        });
       }
     } finally {
       if (modified) await client.devices.create(dev, Device.SCHEMAS);
     }
     config.channels.forEach((c) => {
       if (c.device !== dev.key) return;
-      c.channel = dev.properties.analogInput.channels[c.port.toString()];
+      c.channel = dev.properties.analogInput.channels[getAIChannelDeviceKey(c)];
     });
   }
-  if (rackKey == null) throw new Error("No devices selected in task configuration");
+  if (rackKey == null) throw new Error("No devices selected");
   return [config, rackKey];
 };
 
@@ -214,7 +223,7 @@ export const useCreateAnalogRead = Task.createUseCreate({
 
 export const AnalogReadSelectable = Selector.createSelectable({
   type: ANALOG_READ_TYPE,
-  title: "NI Analog Read Task",
+  title: "NI analog read task",
   icon: <Icon.Logo.NI />,
   useOnSelect: useCreateAnalogRead,
 });

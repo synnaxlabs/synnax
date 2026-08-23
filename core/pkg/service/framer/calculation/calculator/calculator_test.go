@@ -321,7 +321,7 @@ var _ = Describe("Calculator", Ordered, func() {
 		Specify("Single persisted channel", func(ctx SpecContext) {
 			indexes := []channel.Channel{{
 				Name:     UniqueChannelName(),
-				DataType: telem.TimeStampT,
+				DataType: telem.TimestampT,
 				IsIndex:  true,
 			}}
 			bases := []channel.Channel{{
@@ -359,7 +359,7 @@ var _ = Describe("Calculator", Ordered, func() {
 		Specify("Two persisted channels shared index", func(ctx SpecContext) {
 			indexes := []channel.Channel{{
 				Name:     UniqueChannelName(),
-				DataType: telem.TimeStampT,
+				DataType: telem.TimestampT,
 				IsIndex:  true,
 			}}
 			bases := []channel.Channel{
@@ -407,12 +407,12 @@ var _ = Describe("Calculator", Ordered, func() {
 			indexes := []channel.Channel{
 				{
 					Name:     UniqueChannelName(),
-					DataType: telem.TimeStampT,
+					DataType: telem.TimestampT,
 					IsIndex:  true,
 				},
 				{
 					Name:     UniqueChannelName(),
-					DataType: telem.TimeStampT,
+					DataType: telem.TimestampT,
 					IsIndex:  true,
 				},
 			}
@@ -463,7 +463,7 @@ var _ = Describe("Calculator", Ordered, func() {
 		Specify("Mixed virtual and persisted", func(ctx SpecContext) {
 			indexes := []channel.Channel{{
 				Name:     UniqueChannelName(),
-				DataType: telem.TimeStampT,
+				DataType: telem.TimestampT,
 				IsIndex:  true,
 			}}
 			bases := []channel.Channel{
@@ -545,7 +545,7 @@ var _ = Describe("Calculator", Ordered, func() {
 		Specify("Index after data", func(ctx SpecContext) {
 			indexes := []channel.Channel{{
 				Name:     UniqueChannelName(),
-				DataType: telem.TimeStampT,
+				DataType: telem.TimestampT,
 				IsIndex:  true,
 			}}
 			bases := []channel.Channel{{
@@ -583,7 +583,7 @@ var _ = Describe("Calculator", Ordered, func() {
 		Specify("Data after index", func(ctx SpecContext) {
 			indexes := []channel.Channel{{
 				Name:     UniqueChannelName(),
-				DataType: telem.TimeStampT,
+				DataType: telem.TimestampT,
 				IsIndex:  true,
 			}}
 			bases := []channel.Channel{{
@@ -621,7 +621,7 @@ var _ = Describe("Calculator", Ordered, func() {
 		Specify("Sequential channel arrivals", func(ctx SpecContext) {
 			indexes := []channel.Channel{{
 				Name:     UniqueChannelName(),
-				DataType: telem.TimeStampT,
+				DataType: telem.TimestampT,
 				IsIndex:  true,
 			}}
 			bases := []channel.Channel{
@@ -674,12 +674,12 @@ var _ = Describe("Calculator", Ordered, func() {
 			indexes := []channel.Channel{
 				{
 					Name:     UniqueChannelName(),
-					DataType: telem.TimeStampT,
+					DataType: telem.TimestampT,
 					IsIndex:  true,
 				},
 				{
 					Name:     UniqueChannelName(),
-					DataType: telem.TimeStampT,
+					DataType: telem.TimestampT,
 					IsIndex:  true,
 				},
 			}
@@ -733,7 +733,7 @@ var _ = Describe("Calculator", Ordered, func() {
 	It("Operations", func(ctx SpecContext) {
 		idx := []channel.Channel{{
 			Name:     UniqueChannelName(),
-			DataType: telem.TimeStampT,
+			DataType: telem.TimestampT,
 			IsIndex:  true,
 		}}
 		base := []channel.Channel{{
@@ -786,12 +786,46 @@ var _ = Describe("Calculator", Ordered, func() {
 		Expect(o.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](35))
 	})
 
+	Describe("Reset channel", func() {
+		It(
+			"Should fail to compile with a non-boolean reset channel",
+			func(ctx SpecContext) {
+				reset := channel.Channel{
+					Name:     UniqueChannelName(),
+					DataType: telem.Uint8T,
+					Virtual:  true,
+				}
+				Expect(channelWriter.Create(ctx, &reset)).To(Succeed())
+				base := []channel.Channel{{
+					Name:     UniqueChannelName(),
+					DataType: telem.Int64T,
+					Virtual:  true,
+				}}
+				Expect(channelWriter.CreateMany(ctx, &base)).To(Succeed())
+				calc := channel.Channel{
+					Name:       UniqueChannelName(),
+					DataType:   telem.Int64T,
+					Virtual:    true,
+					Expression: fmt.Sprintf("return %s", base[0].Name),
+					Operations: []channel.Operation{
+						{Type: "max", ResetChannel: reset.Key()},
+					},
+				}
+				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+				Expect(compiler.Compile(ctx, compiler.Config{
+					ChannelService: channelSvc,
+					Channel:        calc,
+				})).Error().To(MatchError(ContainSubstring("type mismatch")))
+			},
+		)
+	})
+
 	It(
 		"Should compute derivative operation with type promotion",
 		func(ctx SpecContext) {
 			idx := []channel.Channel{{
 				Name:     UniqueChannelName(),
-				DataType: telem.TimeStampT,
+				DataType: telem.TimestampT,
 				IsIndex:  true,
 			}}
 			base := []channel.Channel{{
@@ -844,7 +878,7 @@ var _ = Describe("Calculator", Ordered, func() {
 	It("Should correctly chain multiple operations", func(ctx SpecContext) {
 		idx := []channel.Channel{{
 			Name:     UniqueChannelName(),
-			DataType: telem.TimeStampT,
+			DataType: telem.TimestampT,
 			IsIndex:  true,
 		}}
 		base := []channel.Channel{{
@@ -893,7 +927,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				idx := []channel.Channel{
 					{
 						Name:     UniqueChannelName(),
-						DataType: telem.TimeStampT,
+						DataType: telem.TimestampT,
 						IsIndex:  true,
 					},
 				}
@@ -930,7 +964,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				idx := []channel.Channel{
 					{
 						Name:     UniqueChannelName(),
-						DataType: telem.TimeStampT,
+						DataType: telem.TimestampT,
 						IsIndex:  true,
 					},
 				}
@@ -979,7 +1013,7 @@ var _ = Describe("Calculator", Ordered, func() {
 
 		It("Should close all calculators", func(ctx SpecContext) {
 			idx := []channel.Channel{
-				{Name: UniqueChannelName(), DataType: telem.TimeStampT, IsIndex: true},
+				{Name: UniqueChannelName(), DataType: telem.TimestampT, IsIndex: true},
 			}
 			b1 := []channel.Channel{{Name: UniqueChannelName(), DataType: telem.Int64T}}
 			b2 := []channel.Channel{

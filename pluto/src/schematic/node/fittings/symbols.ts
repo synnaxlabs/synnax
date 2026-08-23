@@ -26,19 +26,19 @@ const cap = createStatic({ variant: "cap", name: "Cap", Primitive: Cap });
 const filter = createStatic({ variant: "filter", name: "Filter", Primitive: Filter });
 const flowStraightener = createStatic({
   variant: "flow_straightener",
-  name: "Flow Straightener",
+  name: "Flow straightener",
   Primitive: FlowStraightener,
 });
 const heaterElement = createStatic({
   variant: "heater_element",
   name: "Heater",
-  label: "Heater Element",
+  label: "Heater element",
   Primitive: HeaterElement,
 });
-const isoCap = createStatic({ variant: "iso_cap", name: "ISO Cap", Primitive: ISOCap });
+const isoCap = createStatic({ variant: "iso_cap", name: "ISO cap", Primitive: ISOCap });
 const isoFilter = createStatic({
   variant: "iso_filter",
-  name: "ISO Filter",
+  name: "ISO filter",
   Primitive: ISOFilter,
 });
 const nozzle = createStatic({ variant: "nozzle", name: "Nozzle", Primitive: Nozzle });
@@ -50,7 +50,7 @@ const orifice = createStatic({
 const orificePlate = createStatic({
   variant: "orifice_plate",
   name: "Plate",
-  label: "Orifice Plate",
+  label: "Orifice plate",
   Primitive: OrificePlate,
 });
 const strainer = createStatic({
@@ -61,7 +61,7 @@ const strainer = createStatic({
 const strainerCone = createStatic({
   variant: "strainer_cone",
   name: "Cone",
-  label: "Strainer Cone",
+  label: "Strainer cone",
   Primitive: StrainerCone,
 });
 const thruster = createToggle({

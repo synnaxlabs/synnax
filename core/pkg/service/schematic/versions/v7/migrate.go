@@ -59,12 +59,12 @@ func MigrateSchematic(
 		}
 		return node
 	})
-	raw, err := migrateProps(d.Props)
+	out.Configs, err = migrateProps(d.Props)
 	if err != nil {
 		return Schematic{}, err
 	}
-	if raw == nil {
-		raw = make(map[string]msgpack.EncodedJSON)
+	if out.Configs == nil {
+		out.Configs = make(map[string]msgpack.EncodedJSON)
 	}
 	out.Edges = make([]Edge, len(d.Edges))
 	for i, e := range d.Edges {
@@ -74,33 +74,10 @@ func MigrateSchematic(
 		}
 		out.Edges[i] = edge
 		if edgeProps != nil {
-			raw[edge.Key] = edgeProps
+			out.Configs[edge.Key] = edgeProps
 		}
 	}
-	out.Configs = typeConfigs(raw)
 	return out, nil
-}
-
-// typeConfigs decodes reshaped config entries into the element config union. The
-// entries reach here in the camelCase form the Console wrote verbatim and never
-// validated, so each is normalized to the snake_case wire form and has its stored
-// telem pipelines rewritten into semantic arguments first. An entry matching no known
-// variant is dropped rather than failing the migration.
-func typeConfigs(raw map[string]msgpack.EncodedJSON) map[string]ElementConfig {
-	out := make(map[string]ElementConfig, len(raw))
-	for k, entry := range raw {
-		normalized := NormalizeConfigKeys(entry)
-		if normalized == nil {
-			continue
-		}
-		extractTelemArgs(normalized)
-		cfg, err := DecodeElementConfig(normalized)
-		if err != nil {
-			continue
-		}
-		out[k] = cfg
-	}
-	return out
 }
 
 // migrateEdge reshapes a v5 edge into the typed Edge with nested Handles and, when the
@@ -288,7 +265,7 @@ var Migration = gorp.NewEntryMigration("v55_lift_typed_schematic", MigrateSchema
 func SchematicFromConsole(d legacy.Export) Schematic {
 	return Schematic{
 		Snapshot: d.Snapshot,
-		Configs:  typeConfigs(d.Configs),
+		Configs:  d.Configs,
 		Nodes: lo.Map(d.Nodes, func(n legacyv6.Node, _ int) Node {
 			return Node{Key: n.Key, Position: n.Position, ZIndex: n.ZIndex}
 		}),

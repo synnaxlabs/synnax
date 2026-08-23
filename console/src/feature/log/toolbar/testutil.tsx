@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { log as clientLog, type log } from "@synnaxlabs/client";
+import { log as clientLog, type log, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Log, Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
@@ -20,7 +20,7 @@ import {
   Suspense,
 } from "react";
 
-import { createResourceTab } from "@/platform/panel/testutil";
+import { createResourceTab, primePanel } from "@/platform/panel/testutil";
 import { type ConsolePreloadedState, createConsoleWrapper } from "@/testutil";
 
 export const client = createTestClient();
@@ -53,6 +53,8 @@ const loadLog = async (Wrapper: FC<PropsWithChildren>, key: string): Promise<voi
 export interface RenderLogOptions {
   log?: Partial<log.New>;
   preloadedState?: (key: string) => ConsolePreloadedState;
+  /** The client the component renders against; defaults to the root client. */
+  as?: Client;
 }
 
 // renderLog creates a log on the server, mounts Component inside the panel and tab
@@ -61,14 +63,14 @@ export interface RenderLogOptions {
 // log key.
 export const renderLog = async (
   Component: ComponentType,
-  { log: logOverrides, preloadedState }: RenderLogOptions = {},
+  { log: logOverrides, preloadedState, as = client }: RenderLogOptions = {},
 ) => {
   const created = await client.logs.create(await project(), {
     name: "Test Log",
     ...logOverrides,
   });
   const { wrapper: Wrapper, store } = await createConsoleWrapper({
-    client,
+    client: as,
     preloadedState: preloadedState?.(created.key),
   });
   await loadLog(Wrapper, created.key);
@@ -76,6 +78,7 @@ export const renderLog = async (
     client,
     clientLog.ontologyID(created.key),
   );
+  await primePanel(Wrapper, panelKey);
   // The toolbar suspends on channel fetches; a tree that suspends inside a sync
   // act never commits, so the mount needs an async act (see renderHookSuspended).
   let result!: ReturnType<typeof render>;

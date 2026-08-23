@@ -24,7 +24,11 @@ export const Symbol = ({
   config: { label, orientation = "left", commandChannel, control, mode, ...rest },
 }: NodeProps<schematic.ButtonNodeConfig>): ReactElement => {
   const sink = useMemo(() => CommonTelem.booleanSink(commandChannel), [commandChannel]);
-  const { onMouseDown, onMouseUp } = BaseButton.use({ aetherKey: nodeKey, sink, mode });
+  const { onClick, onMouseDown, onMouseUp } = BaseButton.use({
+    aetherKey: nodeKey,
+    sink,
+    mode,
+  });
   return (
     <Grid.Grid
       orientation={orientation}
@@ -40,6 +44,8 @@ export const Symbol = ({
       />
       <Button
         label={label}
+        mode={mode}
+        onClick={onClick}
         onMouseDown={onMouseDown}
         onMouseUp={onMouseUp}
         orientation={orientation}

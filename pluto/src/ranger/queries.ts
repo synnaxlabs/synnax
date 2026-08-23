@@ -164,9 +164,10 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
       parent: value.parent,
     });
   },
-  mountListeners: ({ client, query: { key }, reset }) =>
+  mountListeners: ({ client, query: { key }, reset, abandon }) =>
     client.ranges.onChange(key, (result) => {
       if (query.isLive(result)) reset(toFormValues(result));
+      else if (query.Deleted.matches(result)) abandon();
     }),
 });
 
@@ -209,7 +210,7 @@ export const useListMetaData = Flux.createList<
 
 export const kvPairFormSchema = ranger.kv.pairZ;
 
-export type KVFormQuery = ListMetaDataQuery;
+export type KVFormQuery = ListMetaDataQuery & { key: string };
 
 const ZERO_KV_PAIR_FORM_VALUES: z.infer<typeof kvPairFormSchema> = {
   key: "",
@@ -225,6 +226,13 @@ export const useKVPairForm = Flux.createForm<KVFormQuery, typeof kvPairFormSchem
     const { key, value, range } = getPair();
     await client.ranges.getKV(range).set(key, value);
   },
+  mountListeners: ({ client, query: { rangeKey, key }, abandon }) =>
+    client.ranges.kv.onChange(rangeKey, (result) => {
+      // An undefined answer is an invalidation, not a deletion.
+      if (result === undefined) return;
+      if (query.isLive(result) && result.some((pair) => pair.key === key)) return;
+      abandon();
+    }),
 });
 
 export interface DeleteKVParams extends ListMetaDataQuery {
@@ -234,9 +242,11 @@ export interface DeleteKVParams extends ListMetaDataQuery {
 export const { useUpdate: useDeleteKV } = Flux.createUpdate<DeleteKVParams>({
   name: KV_RESOURCE_NAME,
   verbs: verbs.DELETE,
-  update: async ({ client, data }) => {
+  update: async ({ client, data, onOptimisticComplete }) => {
     const { key, rangeKey } = data;
-    await client.ranges.getKV(rangeKey).delete(key);
+    await client.ranges.getKV(rangeKey).delete(key, {
+      onOptimistic: async () => await onOptimisticComplete(data),
+    });
     return data;
   },
 });
@@ -246,9 +256,11 @@ export interface SetKVParams extends ListMetaDataQuery, ranger.kv.Pair {}
 export const { useUpdate: useUpdateKV } = Flux.createUpdate<SetKVParams>({
   name: KV_RESOURCE_NAME,
   verbs: verbs.UPDATE,
-  update: async ({ client, data }) => {
+  update: async ({ client, data, onOptimisticComplete }) => {
     const { range, key, value } = data;
-    await client.ranges.getKV(range).set(key, value);
+    await client.ranges.getKV(range).set(key, value, {
+      onOptimistic: async () => await onOptimisticComplete(data),
+    });
     return data;
   },
 });
@@ -264,8 +276,10 @@ export type DeleteParams = ranger.Key | ranger.Key[];
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   name: RESOURCE_NAME,
   verbs: verbs.DELETE,
-  update: async ({ client, data }) => {
-    await client.ranges.delete(data);
+  update: async ({ client, data, onOptimisticComplete }) => {
+    await client.ranges.delete(data, {
+      onOptimistic: async () => await onOptimisticComplete(data),
+    });
     return data;
   },
 });

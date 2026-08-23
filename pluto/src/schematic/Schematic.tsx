@@ -177,7 +177,7 @@ export const Schematic = ({
   return (
     <Diagram
       ref={ref}
-      className={CSS(CSS.B("schematic"), className)}
+      className={CSS.cls(CSS.B("schematic"), className)}
       dragHandleSelector={DRAG_HANDLE_SELECTOR}
       autoRenderInterval={AUTO_RENDER_INTERVAL}
       onNodesChange={handleNodesChange}

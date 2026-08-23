@@ -16,7 +16,7 @@ import {
   ontology,
   project,
 } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -24,6 +24,7 @@ import { describe, expect, it } from "vitest";
 import { Channel } from "@/feature/channel";
 import { findButton } from "@/platform/modals/testutil";
 import { createTestRange } from "@/platform/range/testutil";
+import { renderTreeContextMenu } from "@/platform/tree/menuTestutil";
 import { createResource } from "@/platform/tree/testutil";
 import {
   findTreeRow,
@@ -32,6 +33,7 @@ import {
 } from "@/platform/tree/treeTestutil";
 import { Session } from "@/session";
 import {
+  assertDefined,
   awaitTextEditingElement,
   commitTextEdit,
   resolveFocusedTab,
@@ -39,6 +41,7 @@ import {
 } from "@/testutil";
 
 const client = createTestClient();
+const roles = new RoleClients(client);
 
 const Item = Channel.TREE_ITEMS.channel;
 
@@ -114,7 +117,7 @@ describe("channel/ontology", () => {
       if (tab.variant !== "resource") throw new Error("expected a resource tab");
       expect(tab.resource.type).toBe("lineplot");
       const plot = await client.lineplots.retrieve(tab.resource.key);
-      expect(plot.name).toBe("Line Plot");
+      expect(plot.name).toBe("Line plot");
       expect(plot.channels.y1).toContain(ch.key);
     });
 
@@ -250,5 +253,23 @@ describe("channel/ontology", () => {
       fireEvent.click(await screen.findByText("Edit calculation"));
       expect(await screen.findByDisplayValue(calc.name)).toBeTruthy();
     });
+  });
+});
+
+describe("permission to write the channel", () => {
+  it("should withhold rename, grouping, aliasing, and delete from a viewer", async () => {
+    const ch = await createChannel();
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client: await roles.get("Viewer"),
+      resources: [
+        createResource(channelClient.ontologyID(ch.key), ch.name, { ...ch.payload }),
+      ],
+    });
+    expect(await screen.findByText("Copy properties")).toBeTruthy();
+    expect(screen.queryByText("Rename")).toBeNull();
+    expect(screen.queryByText("Group selection")).toBeNull();
+    expect(screen.queryByText("Set Alias")).toBeNull();
+    expect(screen.queryByText("Delete")).toBeNull();
   });
 });

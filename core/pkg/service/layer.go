@@ -26,6 +26,7 @@ import (
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	channelsignals "github.com/synnaxlabs/synnax/pkg/service/channel/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/verification"
+	"github.com/synnaxlabs/synnax/pkg/service/control"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat"
@@ -46,6 +47,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/opcua"
 	pdruntime "github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
+	panelversions "github.com/synnaxlabs/synnax/pkg/service/panel/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktask "github.com/synnaxlabs/synnax/pkg/service/rack/task"
@@ -63,6 +65,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/view"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
@@ -205,6 +208,9 @@ type Layer struct {
 	// Channel is the highest-level channel service and owns calculated channel
 	// behavior.
 	Channel *channel.Service
+	// Control reads the control state of channels across the cluster and publishes
+	// every transfer on the control channel.
+	Control *control.Service
 	// Verification verifies that the universe remains as it is.
 	Verification *verification.Service
 	// Arc is used for validating, saving, and executing arc automations.
@@ -336,7 +342,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			Framer:          cfg.Distribution.Framer,
 			Channel:         l.Channel,
 			Status:          l.Status,
-			HostProvider:    cfg.Distribution.Cluster,
 		},
 	); !ok(err, l.Framer) {
 		return nil, err
@@ -382,6 +387,13 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		l.Signals,
 		signals.GorpPublisherConfigString(l.Status.Observe()),
 	); !ok(err, closer) {
+		return nil, err
+	}
+	if l.Control, err = control.OpenService(ctx, control.ServiceConfig{
+		Instrumentation: cfg.Child("control"),
+		Control:         cfg.Distribution.Control,
+		Signals:         l.Signals,
+	}); !ok(err, l.Control) {
 		return nil, err
 	}
 	if l.User, err = user.OpenService(ctx, user.ServiceConfig{
@@ -432,16 +444,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.KV) {
 		return nil, err
 	}
-	if l.Project, err = project.OpenService(ctx, project.ServiceConfig{
-		Instrumentation: cfg.Child("project"),
-		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
-		Search:          l.Search,
-		Group:           l.Group,
-		Signals:         l.Signals,
-	}); !ok(err, l.Project) {
-		return nil, err
-	}
 	l.ImEx = imex.NewService()
 	if l.Schematic, err = schematic.OpenService(ctx, schematic.ServiceConfig{
 		Instrumentation: cfg.Child("schematic"),
@@ -472,6 +474,27 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Signals:         l.Signals,
 		ImEx:            l.ImEx,
 	}); !ok(err, l.Log) {
+		return nil, err
+	}
+	if l.Panel, err = panel.OpenService(ctx, panel.ServiceConfig{
+		Instrumentation: cfg.Child("panel"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        l.Ontology,
+		Search:          l.Search,
+		Signals:         l.Signals,
+	}); !ok(err, l.Panel) {
+		return nil, err
+	}
+	if l.Project, err = project.OpenService(ctx, project.ServiceConfig{
+		Instrumentation: cfg.Child("project"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        l.Ontology,
+		Search:          l.Search,
+		Group:           l.Group,
+		Signals:         l.Signals,
+		ImEx:            l.ImEx,
+		Panel:           l.Panel,
+	}); !ok(err, l.Project) {
 		return nil, err
 	}
 	if l.Table, err = table.OpenService(ctx, table.ServiceConfig{
@@ -595,15 +618,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Task) {
 		return nil, err
 	}
-	if l.Panel, err = panel.OpenService(ctx, panel.ServiceConfig{
-		Instrumentation: cfg.Child("panel"),
-		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
-		Search:          l.Search,
-		Signals:         l.Signals,
-	}); !ok(err, l.Panel) {
-		return nil, err
-	}
 	if l.Arc, err = arc.OpenService(
 		ctx,
 		arc.ServiceConfig{
@@ -656,6 +670,19 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			Group:           l.Group,
 			Ontology:        l.Ontology,
 		}); !ok(err, l.Metrics) {
+		return nil, err
+	}
+	// Composition migrations move data across service boundaries, so they can only run
+	// once every service table above is open: a table's own chain runs at open, before
+	// later services have staged the legacy data these migrations consume. Table chains
+	// handle single-table format upgrades; anything that reads another service's staged
+	// data belongs here.
+	if err = gorp.Migrate(ctx, gorp.MigrateConfig{
+		Instrumentation: cfg.Child("composition"),
+		DB:              cfg.Distribution.DB,
+		Namespace:       "Composition",
+		Migrations:      panelversions.CompositionMigrations,
+	}); !ok(err, nil) {
 		return nil, err
 	}
 	arcFactory, err := arctask.NewFactory(arctask.FactoryConfig{

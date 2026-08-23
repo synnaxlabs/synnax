@@ -136,6 +136,49 @@ export const redlineZ = z.object({
 });
 export interface Redline extends z.infer<typeof redlineZ> {}
 
+/**
+ * ScaleIndicatorConfig is a live fill indicator driven by a channel, rendered by
+ * symbols that show a level against a numeric range.
+ */
+export const scaleIndicatorConfigZ = z.object({
+  /** channel is the channel whose value drives the indicator. */
+  channel: channel.keyZ.optional(),
+  /** rollingAverage is the sample window for rolling-average smoothing. */
+  rollingAverage: z.int32().optional(),
+  /** bounds is the numeric range the indicator maps onto its extent. */
+  bounds: spatial.boundsZ().optional(),
+  /** color is the color of the filled portion. */
+  color: color.colorZ.optional(),
+  /** axisColor is the color of the scale axis and its ticks. */
+  axisColor: color.colorZ.optional(),
+  /** textColor is the color of the tick labels. */
+  textColor: color.colorZ.optional(),
+  /** units is the unit suffix displayed after each tick label. */
+  units: z.string().optional(),
+  /** notation is the numeric notation used to format tick labels. */
+  notation: notation.notationZ.optional(),
+  /** precision is the number of decimal places shown on tick labels. */
+  precision: z.number().optional(),
+  /** showFill indicates whether the filled portion is drawn. */
+  showFill: z.boolean().optional(),
+  /** showCaret indicates whether the caret marking the current value is drawn. */
+  showCaret: z.boolean().optional(),
+  /** showScale indicates whether the axis and its tick labels are drawn. */
+  showScale: z.boolean().optional(),
+  /** side is the edge the axis is drawn along. */
+  side: spatial.xLocationZ.optional(),
+  /** level is the typography level of the tick labels. */
+  level: text.levelZ.optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: color.colorZ.optional(),
+});
+export interface ScaleIndicatorConfig extends z.infer<typeof scaleIndicatorConfigZ> {}
+
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
@@ -631,6 +674,23 @@ export const selectNodeConfigZ = labeledConfigZ.extend({
   control: controlStateConfigZ.optional(),
 });
 export interface SelectNodeConfig extends z.infer<typeof selectNodeConfigZ> {}
+
+/** ScaleNodeConfig is the configuration for standalone scale symbols. */
+export const scaleNodeConfigZ = labeledConfigZ.extend({
+  variant: z.literal("scale"),
+  /** position is the offset of the scale contents within the symbol. */
+  position: spatial.xyZ.optional(),
+  /** dimensions is the rendered size of the scale in pixels. */
+  dimensions: spatial.dimensionsZ.optional(),
+  /**
+   * color is the color of the fill, which is what the symbol reads as. The toolbar
+   * recolors a selection through this field.
+   */
+  color: color.colorZ.optional(),
+  /** indicator is the live indicator the scale renders. */
+  indicator: scaleIndicatorConfigZ.optional(),
+});
+export interface ScaleNodeConfig extends z.infer<typeof scaleNodeConfigZ> {}
 
 /** SetpointNodeConfig is the configuration for numeric setpoint symbols. */
 export const setpointNodeConfigZ = labeledConfigZ.extend({
@@ -1153,6 +1213,8 @@ export interface CylinderNodeConfig extends z.infer<typeof cylinderNodeConfigZ> 
 /** TankNodeConfig is the configuration for tank vessel symbols. */
 export const tankNodeConfigZ = labeledConfigZ.extend({
   variant: z.literal("tank"),
+  /** position is the offset of the tank contents within the symbol. */
+  position: spatial.xyZ.optional(),
   /** color is the border color of the tank. */
   color: color.colorZ.optional(),
   /** backgroundColor is the fill color of the tank. */
@@ -1161,6 +1223,11 @@ export const tankNodeConfigZ = labeledConfigZ.extend({
   dimensions: spatial.dimensionsZ.optional(),
   /** borderRadius is the corner radius of the tank. */
   borderRadius: border.radiusZ.optional(),
+  /**
+   * fill is the live fill level drawn inside the tank. A tank without one renders its
+   * wall alone.
+   */
+  fill: scaleIndicatorConfigZ.optional(),
 });
 export interface TankNodeConfig extends z.infer<typeof tankNodeConfigZ> {}
 
@@ -1240,6 +1307,7 @@ export const NODE_CONFIG_TYPES = [
   "off_page_reference",
   "polygon",
   "select",
+  "scale",
   "setpoint",
   "state_indicator",
   "string_display",
@@ -1350,6 +1418,7 @@ export const nodeConfigZ = z.discriminatedUnion("variant", [
   offPageReferenceNodeConfigZ,
   polygonNodeConfigZ,
   selectNodeConfigZ,
+  scaleNodeConfigZ,
   setpointNodeConfigZ,
   stateIndicatorNodeConfigZ,
   stringDisplayNodeConfigZ,
@@ -1453,6 +1522,7 @@ export type NodeConfig =
   | OffPageReferenceNodeConfig
   | PolygonNodeConfig
   | SelectNodeConfig
+  | ScaleNodeConfig
   | SetpointNodeConfig
   | StateIndicatorNodeConfig
   | StringDisplayNodeConfig
@@ -1558,6 +1628,7 @@ export const NODE_CONFIG_SCHEMAS: {
   off_page_reference: offPageReferenceNodeConfigZ,
   polygon: polygonNodeConfigZ,
   select: selectNodeConfigZ,
+  scale: scaleNodeConfigZ,
   setpoint: setpointNodeConfigZ,
   state_indicator: stateIndicatorNodeConfigZ,
   string_display: stringDisplayNodeConfigZ,
@@ -1979,6 +2050,23 @@ export const selectElementConfigZ = labeledConfigZ.extend({
   control: controlStateConfigZ.optional(),
 });
 export interface SelectElementConfig extends z.infer<typeof selectElementConfigZ> {}
+
+/** ScaleElementConfig is the configuration for standalone scale symbols. */
+export const scaleElementConfigZ = labeledConfigZ.extend({
+  variant: z.literal("scale"),
+  /** position is the offset of the scale contents within the symbol. */
+  position: spatial.xyZ.optional(),
+  /** dimensions is the rendered size of the scale in pixels. */
+  dimensions: spatial.dimensionsZ.optional(),
+  /**
+   * color is the color of the fill, which is what the symbol reads as. The toolbar
+   * recolors a selection through this field.
+   */
+  color: color.colorZ.optional(),
+  /** indicator is the live indicator the scale renders. */
+  indicator: scaleIndicatorConfigZ.optional(),
+});
+export interface ScaleElementConfig extends z.infer<typeof scaleElementConfigZ> {}
 
 /** SetpointElementConfig is the configuration for numeric setpoint symbols. */
 export const setpointElementConfigZ = labeledConfigZ.extend({
@@ -2534,6 +2622,8 @@ export interface CylinderElementConfig extends z.infer<typeof cylinderElementCon
 /** TankElementConfig is the configuration for tank vessel symbols. */
 export const tankElementConfigZ = labeledConfigZ.extend({
   variant: z.literal("tank"),
+  /** position is the offset of the tank contents within the symbol. */
+  position: spatial.xyZ.optional(),
   /** color is the border color of the tank. */
   color: color.colorZ.optional(),
   /** backgroundColor is the fill color of the tank. */
@@ -2542,6 +2632,11 @@ export const tankElementConfigZ = labeledConfigZ.extend({
   dimensions: spatial.dimensionsZ.optional(),
   /** borderRadius is the corner radius of the tank. */
   borderRadius: border.radiusZ.optional(),
+  /**
+   * fill is the live fill level drawn inside the tank. A tank without one renders its
+   * wall alone.
+   */
+  fill: scaleIndicatorConfigZ.optional(),
 });
 export interface TankElementConfig extends z.infer<typeof tankElementConfigZ> {}
 
@@ -2566,7 +2661,7 @@ export const customActuatorElementConfigZ = toggleConfigZ.extend({
    * entry mirrors the symbol service's State shape; the wire format stores it opaquely,
    * consistent with how the symbol service stores specs.
    */
-  stateOverrides: caseconv.preserveCase(zod.nullToUndefined(record.unknownZ().array())),
+  stateOverrides: zod.nullToUndefined(record.unknownZ().array()),
 });
 export interface CustomActuatorElementConfig extends z.infer<
   typeof customActuatorElementConfigZ
@@ -2584,7 +2679,7 @@ export const customStaticElementConfigZ = labeledConfigZ.extend({
    * entry mirrors the symbol service's State shape; the wire format stores it opaquely,
    * consistent with how the symbol service stores specs.
    */
-  stateOverrides: caseconv.preserveCase(zod.nullToUndefined(record.unknownZ().array())),
+  stateOverrides: zod.nullToUndefined(record.unknownZ().array()),
 });
 export interface CustomStaticElementConfig extends z.infer<
   typeof customStaticElementConfigZ
@@ -2666,6 +2761,7 @@ export const ELEMENT_CONFIG_TYPES = [
   "off_page_reference",
   "polygon",
   "select",
+  "scale",
   "setpoint",
   "state_indicator",
   "string_display",
@@ -2783,6 +2879,7 @@ export const elementConfigZ = z.discriminatedUnion("variant", [
   offPageReferenceElementConfigZ,
   polygonElementConfigZ,
   selectElementConfigZ,
+  scaleElementConfigZ,
   setpointElementConfigZ,
   stateIndicatorElementConfigZ,
   stringDisplayElementConfigZ,
@@ -2893,6 +2990,7 @@ export type ElementConfig =
   | OffPageReferenceElementConfig
   | PolygonElementConfig
   | SelectElementConfig
+  | ScaleElementConfig
   | SetpointElementConfig
   | StateIndicatorElementConfig
   | StringDisplayElementConfig
@@ -3005,6 +3103,7 @@ export const ELEMENT_CONFIG_SCHEMAS: {
   off_page_reference: offPageReferenceElementConfigZ,
   polygon: polygonElementConfigZ,
   select: selectElementConfigZ,
+  scale: scaleElementConfigZ,
   setpoint: setpointElementConfigZ,
   state_indicator: stateIndicatorElementConfigZ,
   string_display: stringDisplayElementConfigZ,
@@ -3091,7 +3190,7 @@ export const schematicZ = z.object({
   key: keyZ.default(uuid.create),
   /** name is a human-readable name for the schematic. */
   name: z.string().min(1, "name is required"),
-  /** snapshot indicates whether this schematic represents a saved snapshot state. */
+  /** snapshot is true if this schematic is an immutable snapshot copy. */
   snapshot: z.boolean().default(false),
   /** nodes contains all diagram nodes in the schematic. */
   nodes: nodeZ.array().default(() => []),

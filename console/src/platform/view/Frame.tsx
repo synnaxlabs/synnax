@@ -56,7 +56,7 @@ export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElemen
     () => [
       {
         key: staticViewKey,
-        name: `All ${caseconv.capitalize(plural(resourceType))}`,
+        name: `All ${plural(resourceType)}`,
         type: resourceType,
         query: {},
         static: true,
@@ -201,7 +201,7 @@ const Selector = ({
         {hasCreatePermission && editable && (
           <Button.Button
             onClick={handleCreate}
-            tooltip="Create a view"
+            tooltip="Create view"
             size="small"
             tooltipLocation={location.BOTTOM_LEFT}
           >
@@ -244,7 +244,6 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
   const confirm = Modals.useConfirmDelete({
     icon: "View",
     type: caseconv.capitalize(resourceType),
-    description: "Deletion permanently removes the views.",
   });
   const { update: del } = PView.useDelete({
     beforeUpdate: useCallback(
@@ -259,7 +258,9 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
     ),
   });
   const canRename = filteredViews.length === 1;
-  const canDelete = filteredViews.length > 0;
+  const canDelete =
+    Access.useDeleteGranted(view.ontologyID(filteredViews.map(({ key }) => key))) &&
+    filteredViews.length > 0;
   return (
     <PlatformContextMenu.Menu>
       {canRename && (

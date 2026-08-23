@@ -13,7 +13,16 @@
     user-select: none;
     overflow: auto;
     -webkit-user-select: none;
-    transition: height 0.1s ease;
+
+    /* Rows mount and unmount on every scroll frame. Never `size`: the select dialog
+       sizes this box from its contents. */
+    contain: layout paint;
+
+    /* Opt-in: a list sized by its container would lag behind every pane drag. */
+    &.pluto-list__items--animate-height {
+        transition: height 0.1s ease;
+    }
+
     &:not(.pluto--direction-x) {
         padding: 1rem;
     }

@@ -7,10 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, caseconv, type destructor, primitive, record } from "@synnaxlabs/x";
+import {
+  type FileTransport,
+  type UnaryClient,
+  type UploadBody,
+} from "@synnaxlabs/freighter";
+import {
+  array,
+  caseconv,
+  type destructor,
+  primitive,
+  record,
+  zod,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { imex } from "@/imex";
 import { type ontology } from "@/ontology";
 import {
   type Key,
@@ -41,10 +53,23 @@ const setLayoutReqZ = z.object({
   layout: caseconv.preserveCase(record.unknownZ()),
 });
 const deleteReqZ = z.object({ keys: keyZ.array() });
+const exportReqZ = z.object({ key: keyZ, encoding: imex.encodingZ });
+
+const importParamsZ = z.object({ fileName: z.string().min(1) });
 
 const retrieveResZ = z.object({ projects: projectZ.array().default(() => []) });
 const createResZ = z.object({ projects: projectZ.array() });
+const importResZ = z.object({ project: projectZ });
 const emptyResZ = z.object({});
+
+/** Options for a project import call. */
+export interface ImportOptions {
+  /**
+   * The name of the uploaded archive or picked directory. Its extension-stripped form
+   * names the project when the bundle carries no name.
+   */
+  fileName: string;
+}
 
 export interface SetLayoutParams extends z.input<typeof setLayoutReqZ> {}
 
@@ -59,6 +84,7 @@ const requestFilter = (req: RetrieveRequest): ((p: Project) => boolean) => {
 
 export interface ClientConfig {
   unary: UnaryClient;
+  file: FileTransport;
   cache: query.Cache;
   ontology: ontology.Client;
 }
@@ -100,7 +126,9 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pr
     opts: query.WriteOptions<Project[]> = {},
   ): Promise<Project | Project[]> {
     const isMany = Array.isArray(projects);
-    const optimistic = array.toArray(projects).map((p) => projectZ.parse(p));
+    const optimistic = array
+      .toArray(projects)
+      .map((p) => zod.parse(projectZ, p, { label: "project" }));
     const res = await query.optimistic({
       rollbacks: [this.store.set(optimistic)],
       onOptimistic: () => opts.onOptimistic?.(optimistic),
@@ -174,6 +202,49 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pr
         ),
     });
     drop();
+  }
+
+  /**
+   * Exports the project and its contents as a bundle: a zip archive holding one JSON
+   * file per document and panel, group children as directories, and a manifest.json
+   * naming the project. Two members of one directory that take the same file name keep
+   * distinct names through a numeric suffix. The caller pipes the stream wherever it
+   * likes without the client buffering the whole archive.
+   * @param options - the export options, including the serialization member files are
+   * written in.
+   * @returns the bundle as a stream of zip bytes.
+   */
+  async export(key: Key, options: imex.Options): Promise<ReadableStream<Uint8Array>> {
+    return await this.cfg.file.download(
+      "/project/export",
+      { key, encoding: options.encoding },
+      exportReqZ,
+      { encoding: "ZIP" },
+    );
+  }
+
+  /**
+   * Imports a project bundle: a zip archive holding one JSON envelope per document and
+   * panel, group children as directories, and a manifest.json naming the project. The
+   * Core creates a fresh project and imports every member in a single transaction, so a
+   * failure leaves nothing behind. Legacy project directories (a root LAYOUT.json with
+   * no manifest) import through the same call.
+   *
+   * @param data - the bundle as zip bytes.
+   * @param options - the import options, including the source file's name.
+   * @returns the created project.
+   * @throws {ValidationError} if the manifest is missing, malformed, or of another
+   * bundle kind, if two member names collide, or if a member cannot be imported.
+   */
+  async import(data: UploadBody, options: ImportOptions): Promise<Project> {
+    const res = await this.cfg.file.upload(
+      "/project/import",
+      data,
+      { encoding: "ZIP", params: options, paramsSchema: importParamsZ },
+      importResZ,
+    );
+    this.store.set(res.project);
+    return res.project;
   }
 
   /** Subscribes to every project delete delivered to the cache. */

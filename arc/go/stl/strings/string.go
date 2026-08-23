@@ -100,6 +100,11 @@ func NewSymbols() []*symbol.Symbol {
 			types.Params{{Name: "value", Type: types.F64()}},
 			types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
 		),
+		symbol.InternalHostFunc(
+			"from_bool",
+			types.Params{{Name: "value", Type: types.Bool()}},
+			types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+		),
 		formatHostFunc(types.I32()),
 		formatHostFunc(types.U32()),
 		formatHostFunc(types.I64()),
@@ -244,6 +249,12 @@ func NewHost(
 		"from_f64",
 		func(v float64) string { return strconv.FormatFloat(v, 'g', -1, 64) },
 	)
+	builder = registerFrom(builder, s, "from_bool", func(v int32) string {
+		if v != 0 {
+			return "true"
+		}
+		return "false"
+	})
 	builder = registerFormat(
 		builder,
 		h,

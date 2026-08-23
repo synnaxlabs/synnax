@@ -15,6 +15,7 @@ import {
   type record,
   TimeSpan,
 } from "@synnaxlabs/x";
+import { z } from "zod";
 
 import { openSugaredKV, type SugaredKV } from "@/session/persist/kv";
 import { Runtime } from "@/session/runtime";
@@ -35,10 +36,6 @@ export interface Context {
 
 const contextsEqual = (a: Context, b: Context): boolean =>
   a.cluster === b.cluster && a.project === b.project;
-
-interface SlotPointer {
-  slot: number;
-}
 
 export interface KVOpener {
   (base: string): SugaredKV;
@@ -110,6 +107,14 @@ const HISTORY_LENGTH = 4;
 const nextSlot = (s: number): number => (s + 1) % HISTORY_LENGTH;
 const prevSlot = (s: number): number => (s - 1 + HISTORY_LENGTH) % HISTORY_LENGTH;
 
+const slotPointerZ = z.object({
+  slot: z
+    .number()
+    .int()
+    .min(0)
+    .max(HISTORY_LENGTH - 1),
+});
+
 /**
  * A group of slices stored under one key prefix, with a bounded ring of slots
  * behind a pointer key. Owns how the group's bytes round-trip: ring advancement,
@@ -154,9 +159,12 @@ class Partition<S extends object> {
     this.slices.forEach((key) => {
       data[key] = state[key];
     });
-    await this.db.set(this.stateKey(slot), data).catch((err: unknown) => {
+    try {
+      await this.db.set(this.stateKey(slot), data);
+    } catch (err) {
       console.error(`failed to write partition ${this.base} at slot ${slot}`, err);
-    });
+      return;
+    }
     await this.setSlot(slot);
   }
 
@@ -174,14 +182,19 @@ class Partition<S extends object> {
   }
 
   private async readSlot(): Promise<number> {
-    const stored = (await this.db.get(this.slotKey())) as SlotPointer | null;
-    return stored?.slot ?? 0;
+    const stored = slotPointerZ.safeParse(await this.db.get(this.slotKey()));
+    return stored.success ? stored.data.slot : 0;
   }
 
+  /** @throws {Error} if the pointer cannot be written. */
   private async setSlot(slot: number): Promise<void> {
-    await this.db.set(this.slotKey(), { slot }).catch((err: unknown) => {
-      console.error(`failed to bump slot pointer of partition ${this.base}`, err);
-    });
+    try {
+      await this.db.set(this.slotKey(), { slot });
+    } catch (err) {
+      throw new Error(`failed to bump slot pointer of partition ${this.base}`, {
+        cause: err,
+      });
+    }
   }
 
   private migrateSlice(key: SliceKey<S>, raw: unknown): unknown {
@@ -196,17 +209,15 @@ class Partition<S extends object> {
   }
 }
 
-/**
- * Clear the entire store and reload the page.
- */
+/** Clear the entire store and reload the page. */
 export const hardClearAndReload = () => {
   if (!Runtime.isMainWindow()) return;
   openSugaredKV(STORE_PATH)
     .clear()
-    .finally(() => window.location.reload())
     .catch((err: unknown) => {
       console.error("failed to clear store during hard reload", err);
-    });
+    })
+    .finally(() => window.location.reload());
 };
 
 /** Persists the redux store state to disk, partitioned by session context. */
@@ -226,7 +237,6 @@ class Engine<S extends object> {
   /**
    * Opens an engine over the persisted store and composes the state it holds for the
    * context it finds.
-   * @param config - The configuration for the engine.
    */
   static async open<S extends object>(config: Config<S>): Promise<Engine<S>> {
     const engine = new Engine(config);
@@ -395,7 +405,7 @@ const createMiddleware = <S extends object>(
       else if (type === hydrate.type) {
         current = getContext(state);
         swapping = false;
-        void debouncedPersist();
+        debouncedPersist();
       } else {
         const ctx = getContext(state);
         if (!contextsEqual(ctx, current)) {
@@ -420,7 +430,7 @@ const createMiddleware = <S extends object>(
               }
               console.error("failed to swap session context", err);
             });
-        } else void debouncedPersist();
+        } else debouncedPersist();
       }
       return result;
     };

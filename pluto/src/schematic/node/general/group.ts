@@ -18,6 +18,7 @@ export const GROUP: Group = {
     "value",
     "string_display",
     "gauge",
+    "scale",
     "setpoint",
     "text_box",
     "off_page_reference",

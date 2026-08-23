@@ -66,12 +66,13 @@ export const middleware =
   (store) =>
   (next) =>
   (action_) => {
+    const incoming = action_ as A | Action;
     // eslint-disable-next-line prefer-const
-    let { action, emitted, emitter } = desugar<A | Action>(action_ as A | Action);
+    let { action, emitted, emitter } = desugar<A | Action>(incoming);
 
     const label = runtime.label();
 
-    validateAction({ action: action_ as A | Action, emitted, emitter });
+    validateAction({ action: incoming, emitted, emitter });
 
     const isDrift = isDriftAction(action.type);
     if (isDrift)
@@ -129,9 +130,7 @@ export const middleware =
 
 /**
  * Configures the Redux middleware for the current window's store.
- *
  * @param mw - Middleware provided by the drift user (if any).
- * @param runtime - The runtime of the current window.
  * @returns a middleware function to be passed to `configureStore`.
  */
 export const configureMiddleware =

@@ -26,7 +26,7 @@ export const Screw = ({
 }: Props): ReactElement => (
   <Toggle.Button
     {...rest}
-    className={CSS(CSS.B("screw-pump"), className)}
+    className={CSS.cls(CSS.B("screw-pump"), className)}
     orientation={orientation}
   >
     <Handle.Rectangle
@@ -48,26 +48,26 @@ export const Screw = ({
         y1="2"
         x2="62"
         y2="32"
-        className={CSS(CSS.M("detail"), className)}
+        className={CSS.cls(CSS.M("detail"), className)}
       />
       <Primitive.Line
         x1="32"
         y1="62"
         x2="62"
         y2="32"
-        className={CSS(CSS.M("detail"), className)}
+        className={CSS.cls(CSS.M("detail"), className)}
       />
       <Primitive.Path
         d="M 0 0, L -10 -10, M 0 0, L -10 10"
         transform="translate(32, 32)"
         strokeLinecap="round"
-        className={CSS(CSS.M("detail"), className)}
+        className={CSS.cls(CSS.M("detail"), className)}
       />
       <Primitive.Path
         d="M 0 0, L -10 -10, M 0 0, L -10 10"
         transform="translate(42, 32)"
         strokeLinecap="round"
-        className={CSS(CSS.M("detail"), className)}
+        className={CSS.cls(CSS.M("detail"), className)}
       />
     </Primitive.SVG>
   </Toggle.Button>

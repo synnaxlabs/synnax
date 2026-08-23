@@ -44,6 +44,7 @@ export const Tag = ({
   const closeIcon =
     onClose == null ? undefined : (
       <Button.Close
+        aria-label={typeof children === "string" ? `Remove ${children}` : "Remove"}
         size={size === "tiny" ? "small" : size}
         className={CSS.BE("tag", "close")}
         onClick={onClose}
@@ -52,7 +53,7 @@ export const Tag = ({
   return (
     <Button.Button
       el="div"
-      className={CSS(
+      className={CSS.cls(
         className,
         CSS.B("tag"),
         CSS.M("reveals"),
@@ -67,7 +68,7 @@ export const Tag = ({
     >
       {icon}
       {closeIcon}
-      <Text.Text el="span" overflow="ellipsis">
+      <Text.Text el="span" overflow="fade">
         {children}
       </Text.Text>
     </Button.Button>

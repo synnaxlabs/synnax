@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, dimensions, location, scale, xy } from "@synnaxlabs/x";
+import { box, dimensions, location, record, scale, xy } from "@synnaxlabs/x";
 import {
   type ForwardedRef,
   type RefObject,
@@ -87,29 +87,35 @@ export const MASK_MODES: Mode[] = ["zoom", "select"];
 
 export const ZOOM_DEFAULT_TRIGGERS: UseTriggers = {
   defaultMode: "zoom",
-  zoom: [["MouseLeft"]],
-  zoomReset: [["MouseLeft", "Control"]],
-  pan: [["MouseLeft", "Shift"], ["MouseMiddle"]],
-  select: [["MouseLeft", "Alt"], ["MouseRight"]],
-  cancel: [Triggers.ESCAPE],
+  modes: {
+    zoom: [["MouseLeft"]],
+    zoomReset: [["MouseLeft", "Control"]],
+    pan: [["MouseLeft", "Shift"], ["MouseMiddle"]],
+    select: [["MouseLeft", "Alt"], ["MouseRight"]],
+    cancel: [Triggers.ESCAPE],
+  },
 };
 
 export const PAN_DEFAULT_TRIGGERS: UseTriggers = {
   defaultMode: "pan",
-  pan: [["MouseLeft"], ["MouseMiddle"]],
-  zoom: [["MouseLeft", "Shift"]],
-  zoomReset: [["MouseLeft", "Control"]],
-  select: [["MouseLeft", "Alt"]],
-  cancel: [Triggers.ESCAPE],
+  modes: {
+    pan: [["MouseLeft"], ["MouseMiddle"]],
+    zoom: [["MouseLeft", "Shift"]],
+    zoomReset: [["MouseLeft", "Control"]],
+    select: [["MouseLeft", "Alt"]],
+    cancel: [Triggers.ESCAPE],
+  },
 };
 
 export const SELECT_DEFAULT_TRIGGERS: UseTriggers = {
   defaultMode: "select",
-  select: [["MouseLeft"]],
-  pan: [["MouseLeft", "Shift"], ["MouseMiddle"]],
-  zoom: [["MouseLeft", "Alt"]],
-  zoomReset: [["MouseLeft", "Control"]],
-  cancel: [Triggers.ESCAPE],
+  modes: {
+    select: [["MouseLeft"]],
+    pan: [["MouseLeft", "Shift"], ["MouseMiddle"]],
+    zoom: [["MouseLeft", "Alt"]],
+    zoomReset: [["MouseLeft", "Control"]],
+    cancel: [Triggers.ESCAPE],
+  },
 };
 
 export const DEFAULT_TRIGGERS: Record<Mode, UseTriggers> = {
@@ -121,22 +127,12 @@ export const DEFAULT_TRIGGERS: Record<Mode, UseTriggers> = {
   cancel: ZOOM_DEFAULT_TRIGGERS,
 };
 
-const purgeMouseTriggers = (triggers: UseTriggers): UseTriggers => {
-  const e = Object.entries(triggers) as Array<
-    [TriggerMode | "defaultMode", Triggers.Trigger[]]
-  >;
-  return Object.fromEntries(
-    e.map(([key, value]: [string, Triggers.Trigger[]]) => {
-      if (key === "defaultMode") return [key, value];
-      return [
-        key,
-        value
-          .map((t) => t.filter((k) => k !== "MouseLeft"))
-          .filter((t) => t.length > 0),
-      ];
-    }),
-  ) as unknown as UseTriggers;
-};
+const purgeMouseTriggers = ({ defaultMode, modes }: UseTriggers): UseTriggers => ({
+  defaultMode,
+  modes: record.map(modes, (triggers) =>
+    triggers.map((t) => t.filter((k) => k !== "MouseLeft")).filter((t) => t.length > 0),
+  ),
+});
 
 const D = box.construct(0, 0, 1, 1, location.TOP_LEFT);
 
@@ -154,11 +150,10 @@ export const use = ({
   const [maskBox, setMaskBox, maskBoxRef] = useCombinedStateAndRef<box.Box>(box.ZERO);
   const [maskMode, setMaskMode] = useState<Mode>(defaultMode);
   const [stateRef, setStateRef] = useStateRef<box.Box>(initial);
-  // We store the START of the previous pan in statRef, which means
-  // that even if the viewport didn't change significantly, our equality
-  // comparison will still trigger a re-render. So we track the previous
-  // pan update in this ref here, that stores the result of the previous
-  // pan update.
+  // We store the START of the previous pan in statRef, which means that even if the
+  // viewport didn't change significantly, our equality comparison will still trigger a
+  // re-render. So we track the previous pan update in this ref here, that stores the
+  // result of the previous pan update.
   const prevCursorRef = useRef<xy.XY>(xy.ZERO);
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const threshold = dimensions.construct(threshold_);

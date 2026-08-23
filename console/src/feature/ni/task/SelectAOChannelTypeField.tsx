@@ -27,7 +27,7 @@ export type SelectAOChannelTypeFieldProps = Form.SelectFieldProps<AOChannelType,
 export const SelectAOChannelTypeField = Form.buildSelectField<AOChannelType, Entry>({
   fieldKey: "type",
   fieldProps: {
-    label: "Channel Type",
+    label: "Channel type",
     onChange: (value, { get, set, path }) => {
       const prevType = get<AOChannelType>(path).value;
       if (prevType === value) return;

@@ -9,12 +9,14 @@
 
 import "@/platform/label/Edit.css";
 
-import { type label, type query } from "@synnaxlabs/client";
+import { label, type query } from "@synnaxlabs/client";
 import {
+  Access,
   Button,
   Color,
   Component,
   CSS as PCSS,
+  Dialog,
   Divider,
   Flex,
   type Flux,
@@ -24,7 +26,6 @@ import {
   Label,
   List,
   Text,
-  useClickOutside,
 } from "@synnaxlabs/pluto";
 import { color } from "@synnaxlabs/x";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -48,7 +49,7 @@ const LabelListItem = ({
   const { itemKey } = rest;
   const initialValues = List.useItem<string, label.Label>(itemKey);
   const { form, save } = Label.useForm({
-    query: null,
+    query: isCreate ? null : { key: itemKey },
     initialValues,
     autoSave: !isCreate,
     afterSave: useCallback(
@@ -62,11 +63,12 @@ const LabelListItem = ({
   });
   const inputRef = useRef<HTMLInputElement>(null);
   const { update: handleDelete } = Label.useDelete();
+  const canDelete = Access.useDeleteGranted(label.ontologyID(itemKey));
   useEffect(() => {
     if (isCreate && visible) inputRef.current?.focus();
   }, [isCreate, visible]);
   const ref = useRef<HTMLDivElement>(null);
-  useClickOutside({
+  Dialog.useClickOutside({
     ref,
     onClickOutside: useCallback(() => {
       if (!isCreate) return;
@@ -77,7 +79,7 @@ const LabelListItem = ({
   return (
     <List.Item
       ref={ref}
-      className={CSS(
+      className={CSS.cls(
         CSS.BE("label", "list-item"),
         isCreate && CSS.M("create"),
         PCSS.visible(visible),
@@ -88,15 +90,13 @@ const LabelListItem = ({
     >
       <Flex.Box x gap="small" align="center">
         <Form.Form<typeof Label.formSchema> {...form}>
-          <Form.Field<string>
+          <Form.Field<color.Color>
             hideIfNull
             path="color"
             padHelpText={false}
             showLabel={false}
           >
-            {({ onChange, ...p }) => (
-              <Color.Swatch onChange={(v) => onChange(color.hex(v))} {...p} />
-            )}
+            {(p) => <Color.Swatch onlyChangeOnBlur {...p} />}
           </Form.Field>
           <Form.TextField
             showLabel={false}
@@ -106,7 +106,7 @@ const LabelListItem = ({
             padHelpText={false}
             inputProps={{
               ref: inputRef,
-              placeholder: "Label Name",
+              placeholder: "Name",
               variant: "text",
               selectOnFocus: true,
               autoFocus: isCreate,
@@ -131,14 +131,16 @@ const LabelListItem = ({
           </Button.Button>
         </Flex.Box>
       ) : (
-        <Button.Button
-          variant="outlined"
-          size="small"
-          reveal
-          onClick={() => handleDelete(itemKey)}
-        >
-          <Icon.Delete />
-        </Button.Button>
+        canDelete && (
+          <Button.Button
+            variant="outlined"
+            size="small"
+            reveal
+            onClick={() => handleDelete(itemKey)}
+          >
+            <Icon.Delete />
+          </Button.Button>
+        )
       )}
     </List.Item>
   );
@@ -151,9 +153,10 @@ export const useEditModal = Modals.create(() => {
   const { fetchMore, search } = List.usePager({ retrieve, pageSize: 15 });
   const [newFormVisible, setNewFormVisible] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const hasCreatePermission = Access.useCreateGranted(label.TYPE_ONTOLOGY_ID);
   return (
     <Modals.Frame y className={CSS.BE("label", "edit")}>
-      <Modals.Header icon={<Icon.Label />}>Labels.Edit</Modals.Header>
+      <Modals.Header icon={<Icon.Label />}>Label.Edit</Modals.Header>
       <List.Frame<label.Key, label.Label>
         data={data}
         getItem={getItem}
@@ -199,12 +202,12 @@ export const useEditModal = Modals.create(() => {
           >
             {listItem}
           </List.Items>
-          {!newFormVisible && (
+          {!newFormVisible && hasCreatePermission && (
             <PlatformButton.CreateListItem
               onClick={() => setNewFormVisible(true)}
               className={CSS.BE("label", "create")}
             >
-              New Label
+              New label
             </PlatformButton.CreateListItem>
           )}
         </Flex.Box>

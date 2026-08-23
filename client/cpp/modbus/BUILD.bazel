@@ -19,8 +19,9 @@ cc_library(
     deps = [
         "//client/cpp/channel",
         "//client/cpp/device",
-        "//client/cpp/task/config",
+        "//client/cpp/task",
         "//x/cpp/json",
         "//x/cpp/telem",
+        "//x/cpp/uuid",
     ],
 )

@@ -42,13 +42,17 @@ export const Gauge = ({ color: c, className }: RenderProps): ReactElement => {
   `;
 
   const style = useMemo<CSSProperties>(
-    () => ({ [CSS.var("symbol-color")]: symbolColorVar(c) }),
+    () => ({ [CSS.variable("symbol-color")]: symbolColorVar(c) }),
     [c],
   );
 
   return (
     <div
-      className={CSS(CSS.B("symbol-colored"), CSS.BE("gauge", "container"), className)}
+      className={CSS.cls(
+        CSS.B("symbol-colored"),
+        CSS.BE("gauge", "container"),
+        className,
+      )}
       style={style}
     >
       <svg width="67" height="67" className={CSS.BE("gauge", "svg")}>

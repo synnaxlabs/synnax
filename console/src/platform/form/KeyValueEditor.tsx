@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, CSS as PCSS, Flex, Form, Icon, Input, Text } from "@synnaxlabs/pluto";
-import { useEffect } from "react";
-
-import { CSS } from "@/platform/css";
+import { Flex, Form, Input, Text } from "@synnaxlabs/pluto";
+import { caseconv } from "@synnaxlabs/x";
+import { useEffect, useMemo } from "react";
 
 export type Entry<K extends string, V extends string | number> = {
   [k in K]: string;
@@ -38,8 +37,8 @@ export const KeyValueEditor = <K extends string, V extends string | number>({
   ...rest
 }: KeyValueEditorProps<K, V>): React.ReactElement => {
   const vt = valueType ?? "string";
-  const defaultValue: V = (vt === "number" ? 0 : "") as V;
-  const { set } = Form.useContext();
+  const { set, mode } = Form.useContext();
+  const preview = mode === "preview" ? true : undefined;
   const value = Form.useFieldValue<Entry<K, V>[]>(path, { defaultValue: [] });
 
   useEffect(() => {
@@ -54,83 +53,59 @@ export const KeyValueEditor = <K extends string, V extends string | number>({
   }, []);
   const entries = Array.isArray(value) ? value : [];
 
-  const setFormValue = (arr: Entry<K, V>[]) =>
-    set(path, arr.length > 0 ? arr : undefined);
+  // Both directions and the column order read off these, so valueFirst cannot leave a
+  // cell bound to the other field.
+  const keyIndex = valueFirst ? 1 : 0;
+  const valueIndex = valueFirst ? 0 : 1;
 
-  const addRow = () =>
-    setFormValue([...entries, { [keyField]: "", value: defaultValue } as Entry<K, V>]);
+  const rows = useMemo(
+    () =>
+      entries.map((entry) => {
+        const row: Input.TableCell[] = [];
+        row[keyIndex] = entry[keyField];
+        row[valueIndex] = entry.value;
+        return row;
+      }),
+    [entries, keyField, keyIndex, valueIndex],
+  );
 
-  const updateRowKey = (i: number, k: string) => {
-    const updated = [...entries];
-    updated[i] = { ...updated[i], [keyField]: k };
-    setFormValue(updated);
-  };
+  const handleRowsChange = (next: Input.TableCell[][]) =>
+    set(
+      path,
+      next.length > 0
+        ? next.map(
+            (row) =>
+              ({ [keyField]: row[keyIndex], value: row[valueIndex] }) as Entry<K, V>,
+          )
+        : undefined,
+    );
 
-  const updateRowValue = (i: number, v: V) => {
-    const updated = [...entries];
-    updated[i] = { ...updated[i], value: v };
-    setFormValue(updated);
-  };
+  const keyColumn = (
+    <Input.TableColumn key="key" name={caseconv.capitalize(keyField)} type="string">
+      {(p) => <Input.Text {...p} placeholder={keyPlaceholder} />}
+    </Input.TableColumn>
+  );
+  const valueColumn =
+    vt === "number" ? (
+      <Input.TableColumn key="value" name="Value" />
+    ) : (
+      <Input.TableColumn key="value" name="Value" type="string">
+        {(p) => <Input.Text {...p} placeholder={valuePlaceholder} />}
+      </Input.TableColumn>
+    );
 
-  const removeRow = (i: number) => setFormValue(entries.filter((_, j) => j !== i));
+  const columns = [];
+  columns[keyIndex] = keyColumn;
+  columns[valueIndex] = valueColumn;
 
   return (
     <Flex.Box y gap="small" {...rest}>
-      <Text.Text level="small" justify="between" size="small" color={9}>
+      <Text.Text level="small" size="small" color={9}>
         {label}
-        <Button.Button
-          onClick={addRow}
-          variant="filled"
-          tooltip={`Add ${label.toLowerCase()}`}
-          size="small"
-        >
-          <Icon.Add />
-        </Button.Button>
       </Text.Text>
-      <Flex.Box y gap="small">
-        {entries.map((entry, i) => {
-          const keyInput = (
-            <Input.Text
-              placeholder={keyPlaceholder}
-              value={entry[keyField]}
-              onChange={(v) => updateRowKey(i, v)}
-            />
-          );
-          const valueInput =
-            vt === "number" ? (
-              <Input.Numeric
-                value={entry.value as number}
-                onChange={(v) => updateRowValue(i, v as V)}
-              />
-            ) : (
-              <Input.Text
-                placeholder={valuePlaceholder}
-                value={entry.value as string}
-                onChange={(v) => updateRowValue(i, v as V)}
-              />
-            );
-          return (
-            <Flex.Box
-              x
-              key={i}
-              align="center"
-              gap="small"
-              className={CSS(CSS.B("kv-row"), PCSS.M("reveals"))}
-            >
-              {valueFirst ? valueInput : keyInput}
-              {valueFirst ? keyInput : valueInput}
-              <Button.Button
-                variant="text"
-                reveal
-                size="small"
-                onClick={() => removeRow(i)}
-              >
-                <Icon.Close />
-              </Button.Button>
-            </Flex.Box>
-          );
-        })}
-      </Flex.Box>
+      <Input.Table value={rows} onChange={handleRowsChange} preview={preview}>
+        {columns}
+      </Input.Table>
     </Flex.Box>
   );
 };

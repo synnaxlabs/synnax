@@ -55,7 +55,8 @@ func checkOptionalDefaultInvariant(c *analysisCtx) {
 // The check is conservative. It decides only the cases it can settle without
 // introspecting validation bounds (booleans and integer enums) and abstains otherwise,
 // so it never reports a false positive. Numeric and string bounds are handled in a
-// follow-up.
+// follow-up. A field whose zero is valid keeps a non-zero default by joining a
+// `@default group`; see checkDefaultGroups.
 func checkDefaultInvariant(c *analysisCtx) {
 	for _, typ := range c.table.Types {
 		if typ.Namespace != c.namespace {
@@ -213,4 +214,145 @@ func defaultInvariantViolation(
 		}
 	}
 	return "", false
+}
+
+const (
+	// defaultDomain is the domain holding fill-behavior markers for a field's default.
+	defaultDomain = "default"
+	// groupExpr names the set of fields a default fills alongside.
+	groupExpr = "group"
+)
+
+// defaultGroup returns the name of the group a field's default belongs to. The second
+// result reports whether the field carries the marker at all, which separates a missing
+// marker from one written with no name.
+func defaultGroup(f resolution.Field) (string, bool) {
+	dom, ok := f.Domains[defaultDomain]
+	if !ok {
+		return "", false
+	}
+	expr, ok := dom.Expressions.Find(groupExpr)
+	if !ok {
+		return "", false
+	}
+	if len(expr.Values) == 0 {
+		return "", true
+	}
+	return expr.Values[0].StringValue, true
+}
+
+// checkDefaultGroups enforces the rules of `@default group "<name>"`, the marker that
+// makes a set of fields fill as a unit. Grouping is how a field whose zero is valid
+// keeps a non-zero default: the generated fill is guarded on every member being zero,
+// which the author asserts is not a valid configuration, so a deliberate zero on any
+// one member survives.
+func checkDefaultGroups(c *analysisCtx) {
+	for _, typ := range c.table.Types {
+		if typ.Namespace != c.namespace {
+			continue
+		}
+		form, ok := typ.Form.(resolution.StructForm)
+		if !ok {
+			continue
+		}
+		var order []string
+		members := make(map[string][]resolution.Field)
+		for _, f := range form.Fields {
+			dom, ok := f.Domains[defaultDomain]
+			if !ok {
+				continue
+			}
+			for _, expr := range dom.Expressions {
+				if expr.Name != groupExpr {
+					c.diag.Add(diagnostics.Errorf(
+						nil,
+						"field %q in %q declares unknown default expression %q; the "+
+							"only one is `group`.",
+						f.Name, typ.Name, expr.Name,
+					))
+				}
+			}
+			name, marked := defaultGroup(f)
+			if !marked {
+				continue
+			}
+			if name == "" {
+				c.diag.Add(diagnostics.Errorf(
+					nil,
+					"field %q in %q declares `@default group` with no name; write "+
+						"`@default group \"<name>\"` and give every field in the group "+
+						"the same name.",
+					f.Name, typ.Name,
+				))
+				continue
+			}
+			if _, seen := members[name]; !seen {
+				order = append(order, name)
+			}
+			members[name] = append(members[name], f)
+			checkGroupMember(c, typ, f, name)
+		}
+		for _, name := range order {
+			if len(members[name]) > 1 {
+				continue
+			}
+			c.diag.Add(diagnostics.Errorf(
+				nil,
+				"default group %q in %q has one member, %q. A group guards its fill on "+
+					"every member being zero, so a lone member guards on itself and "+
+					"fills nothing. Add the fields it belongs with, or drop the marker.",
+				name,
+				typ.Name,
+				members[name][0].Name,
+			))
+		}
+	}
+}
+
+// checkGroupMember enforces that one field can take part in a default group: it must
+// carry a default the fill can assign, and a type whose zero value the guard can
+// compare against.
+func checkGroupMember(
+	c *analysisCtx,
+	typ resolution.Type,
+	f resolution.Field,
+	group string,
+) {
+	if f.Optional {
+		c.diag.Add(diagnostics.Errorf(
+			nil,
+			"field %q in %q is optional and in default group %q; an optional field "+
+				"takes no default fill, so it cannot be part of a group.",
+			f.Name, typ.Name, group,
+		))
+		return
+	}
+	if f.Default == nil {
+		c.diag.Add(diagnostics.Errorf(
+			nil,
+			"field %q in %q is in default group %q but has no default; a group fills "+
+				"its members together, so every member needs one.",
+			f.Name, typ.Name, group,
+		))
+		return
+	}
+	switch f.Default.Kind {
+	case resolution.ValueKindString, resolution.ValueKindInt, resolution.ValueKindFloat:
+		return
+	case resolution.ValueKindIdent:
+		ev, ok := validation.ResolveEnumVariant(f.Default.IdentValue, f.Type, c.table)
+		if ok {
+			if form, isEnum := ev.Type.Form.(resolution.EnumForm); isEnum &&
+				!form.IsIntEnum {
+				return
+			}
+		}
+	}
+	c.diag.Add(diagnostics.Errorf(
+		nil,
+		"field %q in %q is in default group %q, but its default has no zero value the "+
+			"group guard can compare against. Group members default to a number, a "+
+			"string, or a string-enum member.",
+		f.Name, typ.Name, group,
+	))
 }

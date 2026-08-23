@@ -17,6 +17,7 @@ import { Input } from "@/schematic/node/general/input";
 import { Light } from "@/schematic/node/general/light";
 import { OffPageReference } from "@/schematic/node/general/offPageReference";
 import { Polygon } from "@/schematic/node/general/polygon";
+import { Scale } from "@/schematic/node/general/scale";
 import { Select } from "@/schematic/node/general/select";
 import { Setpoint } from "@/schematic/node/general/setpoint";
 import { StateIndicator } from "@/schematic/node/general/stateIndicator";
@@ -34,6 +35,7 @@ export const REGISTRY = {
   light: Light.spec,
   off_page_reference: OffPageReference.spec,
   polygon: Polygon.spec,
+  scale: Scale.spec,
   select: Select.spec,
   setpoint: Setpoint.spec,
   state_indicator: StateIndicator.spec,

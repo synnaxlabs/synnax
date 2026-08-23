@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/io/fs"
+	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -43,7 +44,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Channel: channel.Channel{
 							Name:     "Alex",
 							Key:      index,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 							Index:    index,
 						},
@@ -447,6 +448,39 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Expect(iter.Close()).To(Succeed())
 					})
 					Describe("Auto Span", func() {
+						Specify(
+							"Single Domain - Last chunk view ends at the data",
+							func(ctx SpecContext) {
+								Expect(unary.Write(
+									ctx,
+									indexDB,
+									10*telem.SecondTS,
+									telem.NewSeriesSecondsTSV(10, 11, 12),
+								)).To(Succeed())
+								Expect(unary.Write(
+									ctx,
+									db,
+									10*telem.SecondTS,
+									telem.NewSeriesV[int64](1, 2, 3),
+								)).To(Succeed())
+								iter := MustSucceed(
+									db.OpenIterator(unary.IteratorConfig{
+										Bounds: telem.TimeStamp(0).
+											Range(telem.TimeStampMax),
+										AutoChunkSize: 2,
+									}),
+								)
+								Expect(iter.SeekFirst(ctx)).To(BeTrue())
+								Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
+								Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
+								Expect(iter.View()).To(Equal(
+									(12 * telem.SecondTS).Range(
+										12*telem.SecondTS + 1,
+									),
+								))
+								Expect(iter.Close()).To(Succeed())
+							},
+						)
 						Specify(
 							"Single Domain - Leftover chunk",
 							func(ctx SpecContext) {
@@ -1884,7 +1918,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 									MetaCodec: json.Codec,
 									Channel: channel.Channel{
 										Key:      iKey,
-										DataType: telem.TimeStampT,
+										DataType: telem.TimestampT,
 										IsIndex:  true,
 										Index:    iKey,
 									},
@@ -1981,7 +2015,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								Channel: channel.Channel{
 									Name:     "Ozturk",
 									Key:      iKey,
-									DataType: telem.TimeStampT,
+									DataType: telem.TimestampT,
 									IsIndex:  true,
 									Index:    iKey,
 								},
@@ -2141,7 +2175,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Channel: channel.Channel{
 							Key:      key,
 							Name:     "ludwig",
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						},
 						Instrumentation: PanicLogger(),
@@ -2224,7 +2258,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Channel: channel.Channel{
 							Name:     "Fred",
 							Key:      indexKey,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 							Index:    indexKey,
 						},
@@ -2322,7 +2356,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Channel: channel.Channel{
 							Name:     "GI",
 							Key:      indexKey,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						},
 						FileSize: fileSizeLimit,

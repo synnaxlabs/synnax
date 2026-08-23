@@ -9,7 +9,21 @@
 
 import { connect, createServer, type Socket } from "node:net";
 
+import { type breaker, TimeSpan } from "@synnaxlabs/x";
+
 const DEFAULT_TARGET = { host: "localhost", port: 9090 };
+
+/**
+ * Retry policy for a client pointed at a severable proxy. A spec drives its own
+ * retries, so the client's must finish well inside one assertion budget: the
+ * default policy waits seconds per request and outlasts a single `expect.poll`
+ * attempt, which reports as a timeout rather than the real answer.
+ */
+export const FAST_RETRY: breaker.Config = {
+  baseInterval: TimeSpan.milliseconds(10),
+  maxInterval: TimeSpan.milliseconds(50),
+  scale: 1.5,
+};
 
 export interface SeverableProxyTarget {
   host?: string;
@@ -37,7 +51,14 @@ export const createSeverableProxy = async (
 ): Promise<SeverableProxy> => {
   const { host, port } = { ...DEFAULT_TARGET, ...target };
   const sockets = new Set<Socket>();
+  let severed = false;
   const server = createServer((downstream) => {
+    // A connection the kernel accepted before the sever is still delivered after it,
+    // and forwarding it would let a request through a severed link.
+    if (severed) {
+      downstream.destroy();
+      return;
+    }
     const upstream = connect(port, host);
     sockets.add(downstream).add(upstream);
     const destroy = (): void => {
@@ -67,6 +88,7 @@ export const createSeverableProxy = async (
     throw new Error("proxy failed to bind a port");
   const boundPort = address.port;
   const sever = async (): Promise<void> => {
+    severed = true;
     const closed = new Promise<void>((resolve) => server.close(() => resolve()));
     sockets.forEach((socket) => socket.destroy());
     sockets.clear();
@@ -75,7 +97,10 @@ export const createSeverableProxy = async (
   return {
     port: boundPort,
     sever,
-    restore: async () => await listen(boundPort),
+    restore: async () => {
+      severed = false;
+      await listen(boundPort);
+    },
     close: sever,
   };
 };

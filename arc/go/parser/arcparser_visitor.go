@@ -97,6 +97,9 @@ type ArcParserVisitor interface {
 	// Visit a parse tree produced by ArcParser#routingEntry.
 	VisitRoutingEntry(ctx *RoutingEntryContext) interface{}
 
+	// Visit a parse tree produced by ArcParser#routingKey.
+	VisitRoutingKey(ctx *RoutingKeyContext) interface{}
+
 	// Visit a parse tree produced by ArcParser#flowNode.
 	VisitFlowNode(ctx *FlowNodeContext) interface{}
 
@@ -217,11 +220,11 @@ type ArcParserVisitor interface {
 	// Visit a parse tree produced by ArcParser#multiplicativeExpression.
 	VisitMultiplicativeExpression(ctx *MultiplicativeExpressionContext) interface{}
 
-	// Visit a parse tree produced by ArcParser#powerExpression.
-	VisitPowerExpression(ctx *PowerExpressionContext) interface{}
-
 	// Visit a parse tree produced by ArcParser#unaryExpression.
 	VisitUnaryExpression(ctx *UnaryExpressionContext) interface{}
+
+	// Visit a parse tree produced by ArcParser#powerExpression.
+	VisitPowerExpression(ctx *PowerExpressionContext) interface{}
 
 	// Visit a parse tree produced by ArcParser#postfixExpression.
 	VisitPostfixExpression(ctx *PostfixExpressionContext) interface{}
@@ -246,6 +249,9 @@ type ArcParserVisitor interface {
 
 	// Visit a parse tree produced by ArcParser#seriesLiteral.
 	VisitSeriesLiteral(ctx *SeriesLiteralContext) interface{}
+
+	// Visit a parse tree produced by ArcParser#booleanLiteral.
+	VisitBooleanLiteral(ctx *BooleanLiteralContext) interface{}
 
 	// Visit a parse tree produced by ArcParser#expressionList.
 	VisitExpressionList(ctx *ExpressionListContext) interface{}

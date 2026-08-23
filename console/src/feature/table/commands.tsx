@@ -15,7 +15,7 @@ import { Table as PlatformTable } from "@/platform/table";
 
 const CreateCommand = Command.create({
   key: "create_table",
-  name: "Create a table",
+  name: "Create table",
   icon: <Table.CreateIcon />,
   useOnSelect: PlatformTable.useCreate,
   useVisible: () => Access.useCreateGranted(table.TYPE_ONTOLOGY_ID),

@@ -3,8 +3,8 @@ layout: "@/layouts/Reference.astro"
 title: "Modbus | Connect Server"
 heading: "Connect to a Modbus Server"
 description: "Connect to a Modbus TCP server using Synnax."
-prev: "Get Started"
-prevURL: "/reference/driver/modbus/get-started"
+prev: "LabJack Write Task"
+prevURL: "/reference/driver/labjack/write-task"
 next: "Read Task"
 nextURL: "/reference/driver/modbus/read-task"
 ---
@@ -16,6 +16,13 @@ import Details from "@/components/details/Details.astro";
 import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
+
+The Synnax Driver connects to [Modbus TCP/IP](https://modbus.org) servers such as PLCs,
+variable-frequency drives, power meters, and industrial I/O modules.
+
+<Note.Note variant="warning" className="compact">
+  Modbus RTU and Modbus ASCII (serial) are not supported.
+</Note.Note>
 
 <Divider.Divider x />
 
@@ -31,6 +38,24 @@ following:
 3. The [Synnax Console](/reference/console/get-started) installed on your local machine.
 4. A Modbus TCP server running on your network. This server must be reachable by the
    Driver.
+
+<Divider.Divider x />
+
+## Supported Operating Systems
+
+| Platform                            | Status          |
+| ----------------------------------- | --------------- |
+| <Icon.Logo.Windows /> Windows       | ✓ Supported     |
+| <Icon.Logo.Linux /> Linux           | ✓ Supported     |
+| <Icon.Logo.NI /> NI Linux Real-Time | ✗ Not Supported |
+| <Icon.Logo.Apple /> macOS           | ✓ Supported     |
+| <Icon.Logo.Docker /> Docker         | ✓ Supported     |
+
+<Note.Note variant="info" className="compact">
+  When running in a Docker container, ensure [the container has network
+  access](https://docs.docker.com/get-started/docker-concepts/running-containers/publishing-ports/)
+  to the Modbus server.
+</Note.Note>
 
 <Divider.Divider x />
 

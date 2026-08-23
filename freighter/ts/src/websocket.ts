@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type binary, errors, url } from "@synnaxlabs/x";
+import { type binary, errors, url, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { EOF, StreamClosed } from "@/errors";
@@ -45,9 +45,17 @@ class WebSocketStream<
   private sendClosed: boolean;
   private readonly receiveDataQueue: WebsocketMessage[] = [];
   private readonly receiveCallbacksQueue: ReceiveCallbacksQueue = [];
+  private readonly resLabel: string;
 
-  constructor(ws: WebSocket, encoder: binary.Codec, reqSchema: RQ, resSchema: RS) {
+  constructor(
+    ws: WebSocket,
+    encoder: binary.Codec,
+    target: string,
+    reqSchema: RQ,
+    resSchema: RS,
+  ) {
     this.codec = encoder;
+    this.resLabel = `${target} response`;
     this.reqSchema = reqSchema;
     this.resSchema = resSchema;
     this.ws = ws;
@@ -81,7 +89,7 @@ class WebSocketStream<
       if (this.serverClosed == null) throw new Error("Message error must be defined");
       throw this.serverClosed;
     }
-    return this.resSchema.parse(msg.payload);
+    return zod.parse(this.resSchema, msg.payload, { label: this.resLabel });
   }
 
   /** Implements the Stream protocol */
@@ -138,8 +146,7 @@ class WebSocketStream<
 const CLOSE_NORMAL = 1000;
 
 /**
- * WebSocketClient is an implementation of StreamClient that is backed by
- * websockets.
+ * WebSocketClient is an implementation of StreamClient that is backed by websockets.
  */
 export class WebSocketClient extends MiddlewareCollector implements StreamClient {
   baseUrl: url.URL;
@@ -149,8 +156,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
   static readonly MESSAGE_TYPE = "arraybuffer";
 
   /**
-   * @param encoder - The encoder to use for encoding messages and decoding
-   *   responses.
+   * @param encoder - The encoder to use for encoding messages and decoding responses.
    * @param baseEndpoint - A base url to use as a prefix for all requests.
    */
   constructor(baseEndpoint: url.URL, encoder: binary.Codec, secure = false) {
@@ -179,7 +185,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
         const ws = new WebSocket(this.buildURL(target, ctx));
         const outCtx: Context = { ...ctx, params: {} };
         ws.binaryType = WebSocketClient.MESSAGE_TYPE;
-        stream = await this.wrapSocket(ws, reqSchema, resSchema);
+        stream = await this.wrapSocket(ws, target, reqSchema, resSchema);
         return outCtx;
       },
     );
@@ -199,12 +205,19 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
 
   private async wrapSocket<RQ extends z.ZodType, RS extends z.ZodType = RQ>(
     ws: WebSocket,
+    target: string,
     reqSchema: RQ,
     resSchema: RS,
   ): Promise<WebSocketStream<RQ, RS>> {
     return await new Promise((resolve, reject) => {
       ws.onopen = () => {
-        const oWs = new WebSocketStream<RQ, RS>(ws, this.encoder, reqSchema, resSchema);
+        const oWs = new WebSocketStream<RQ, RS>(
+          ws,
+          this.encoder,
+          target,
+          reqSchema,
+          resSchema,
+        );
         oWs
           .receiveOpenAck()
           .then(() => resolve(oWs))

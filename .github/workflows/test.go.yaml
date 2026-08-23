@@ -36,6 +36,44 @@ on:
         default: false
 
 jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: ${{ inputs.directory }}/go.mod
+          cache-dependency-path: |
+            ${{ inputs.directory }}/go.mod
+            ${{ inputs.directory }}/go.sum
+
+      - name: Build the custom golangci-lint binary
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.12.2
+          working-directory: ${{ inputs.directory }}
+          install-only: true
+
+      # The Windows runner does not have the disk space for a cold lint, so lint both
+      # GOOS values here. No package has a darwin-only file, so linux covers macOS.
+      - name: Lint
+        working-directory: ${{ inputs.directory }}
+        env:
+          CGO_ENABLED: "0"
+        run: |
+          ./custom-gcl config verify
+          echo "::group::GOOS=linux"
+          GOOS=linux ./custom-gcl run
+          echo "::endgroup::"
+          echo "::group::GOOS=windows"
+          # A throwaway cache keeps the shared setup-go cache down to one GOOS.
+          GOOS=windows GOCACHE="$RUNNER_TEMP/gocache-windows" ./custom-gcl run
+          echo "::endgroup::"
+
   test:
     name: Test (${{ matrix.os }})
     strategy:
@@ -79,16 +117,12 @@ jobs:
         if: matrix.codegen
         run: scripts/check_go_generate.sh ${{ inputs.directory }}
 
-      - name: Lint
-        uses: golangci/golangci-lint-action@v9
-        with:
-          working-directory: ${{ inputs.directory }}
-
       - name: Test
+        timeout-minutes: 150
         run: >-
           go run github.com/onsi/ginkgo/v2/ginkgo -r -p --randomize-all
           --randomize-suites --fail-on-pending --fail-on-empty --keep-going --cover
-          --coverprofile=cover.out --race --trace --github-output ${{
+          --coverprofile=cover.out --race --trace --timeout=2h --github-output ${{
           inputs.ginkgo_flags }}
         working-directory: ${{ inputs.directory }}
 

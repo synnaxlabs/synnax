@@ -203,7 +203,7 @@ export class LinePlot
       this.renderTooltips(plot, canvases);
       this.renderMeasures(plot);
     } catch (e) {
-      handleError(e, "failed to render line plot");
+      handleError(e, "Failed to render line plot");
     } finally {
       removeCanvasScissor();
       removeGLScissor();

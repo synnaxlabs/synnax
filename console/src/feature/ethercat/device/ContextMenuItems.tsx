@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device } from "@synnaxlabs/client";
-import { Icon, Menu } from "@synnaxlabs/pluto";
+import { device } from "@synnaxlabs/client";
+import { Access, Icon, Menu } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { useEnabledState, useToggleEnabled } from "@/feature/ethercat/device/queries";
@@ -32,6 +32,7 @@ const TASK_CONTEXT_MENU_ITEM_CONFIGS: Device.TaskContextMenuItemConfig[] = [
 
 export const ContextMenuItems = (props: Tree.ContextMenuProps) => {
   const keys = props.selection.ids.map((id) => id.key);
+  const hasUpdatePermission = Access.useUpdateGranted(device.ontologyID(keys));
   const { update: toggleEnabled } = useToggleEnabled();
   const configure = useConfigureModal();
   const onConfigure = (deviceKey: device.Key) => configure({ deviceKey });
@@ -57,13 +58,13 @@ export const ContextMenuItems = (props: Tree.ContextMenuProps) => {
         taskContextMenuItemConfigs={TASK_CONTEXT_MENU_ITEM_CONFIGS}
       />
       <Menu.Divider />
-      {!allDisabled && (
+      {hasUpdatePermission && !allDisabled && (
         <Menu.Item itemKey="ethercat.disable" onClick={handleDisable}>
           <Icon.Disable />
           Disable
         </Menu.Item>
       )}
-      {!allEnabled && (
+      {hasUpdatePermission && !allEnabled && (
         <Menu.Item itemKey="ethercat.enable" onClick={handleEnable}>
           <Icon.Enable />
           Enable

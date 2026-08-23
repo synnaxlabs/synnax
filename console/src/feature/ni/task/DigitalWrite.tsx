@@ -12,7 +12,6 @@ import { Component, Flex, Icon } from "@synnaxlabs/pluto";
 import { errors, type optional, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { enrich } from "@/feature/ni/device/enrich";
 import { Select } from "@/feature/ni/device/Select";
 import * as Device from "@/feature/ni/device/types";
 import { createNextDOChannel } from "@/feature/ni/task/createChannel";
@@ -78,7 +77,7 @@ const getInitialValues: Task.GetInitialValues<DigitalWriteSchemas> = ({
 }) => {
   const cfg = digitalWriteConfigZ.parse(config ?? {});
   if (deviceKey != null) cfg.device = deviceKey;
-  return { name: "NI Digital Write Task", type: DIGITAL_WRITE_TYPE, config: cfg };
+  return { name: "NI digital write task", type: DIGITAL_WRITE_TYPE, config: cfg };
 };
 
 const onConfigure: Task.OnConfigure<typeof digitalWriteConfigZ> = async (
@@ -90,7 +89,6 @@ const onConfigure: Task.OnConfigure<typeof digitalWriteConfigZ> = async (
     schemas: Device.SCHEMAS,
   });
   PlatformDevice.checkConfigured(dev);
-  dev.properties = enrich(dev.model, dev.properties);
   let modified = false;
   let shouldCreateStateIndex = primitive.isZero(
     dev.properties.digitalOutput.stateIndex,
@@ -210,7 +208,7 @@ export const useCreateDigitalWrite = Task.createUseCreate({
 
 export const DigitalWriteSelectable = Selector.createSelectable({
   type: DIGITAL_WRITE_TYPE,
-  title: "NI Digital Write Task",
+  title: "NI digital write task",
   icon: <Icon.Logo.NI />,
   useOnSelect: useCreateDigitalWrite,
 });

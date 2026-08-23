@@ -23,6 +23,10 @@ type toEncode struct {
 	Value int
 }
 
+type markup struct {
+	Value string
+}
+
 var _ = Describe("Codec", func() {
 	Describe("ContentType", func() {
 		It("Should report the JSON content type", func() {
@@ -74,6 +78,94 @@ var _ = Describe("Codec", func() {
 	Describe("Extension", func() {
 		It("Should report the JSON file extension", func() {
 			Expect(json.Codec.Extension()).To(Equal(".json"))
+		})
+	})
+})
+
+var _ = Describe("NewCodec", func() {
+	It("Should encode compactly with no options", func(ctx SpecContext) {
+		b := MustSucceed(json.NewCodec().Encode(ctx, toEncode{1}))
+		Expect(string(b)).To(Equal(`{"Value":1}`))
+	})
+	Describe("WithoutHTMLEscaping", func() {
+		plain := json.NewCodec(json.WithoutHTMLEscaping())
+
+		It("Should write <, >, and & literally", func(ctx SpecContext) {
+			b := MustSucceed(plain.Encode(ctx, markup{`<a href="x">1 & 2</a>`}))
+			Expect(string(b)).To(Equal(`{"Value":"<a href=\"x\">1 & 2</a>"}` + "\n"))
+		})
+
+		It("Should escape them by default", func(ctx SpecContext) {
+			b := MustSucceed(json.Codec.Encode(ctx, markup{"<&>"}))
+			Expect(string(b)).To(Equal(`{"Value":"\u003c\u0026\u003e"}`))
+		})
+
+		It("Should still escape the line and paragraph separators", func(
+			ctx SpecContext,
+		) {
+			b := MustSucceed(plain.Encode(ctx, markup{"a\u2028b\u2029c"}))
+			Expect(string(b)).To(Equal(`{"Value":"a\u2028b\u2029c"}` + "\n"))
+		})
+
+		It("Should decode to the same value as the escaping codec", func(
+			ctx SpecContext,
+		) {
+			original := markup{`<svg viewBox="0 0 1 1"/>`}
+			var escaped, literal markup
+			Expect(json.Codec.Decode(
+				ctx, MustSucceed(json.Codec.Encode(ctx, original)), &escaped,
+			)).To(Succeed())
+			Expect(plain.Decode(
+				ctx, MustSucceed(plain.Encode(ctx, original)), &literal,
+			)).To(Succeed())
+			Expect(literal).To(Equal(escaped))
+			Expect(literal).To(Equal(original))
+		})
+
+		It("Should compose with WithIndent", func(ctx SpecContext) {
+			c := json.NewCodec(json.WithIndent("  "), json.WithoutHTMLEscaping())
+			Expect(string(MustSucceed(c.Encode(ctx, markup{"<x>"})))).
+				To(Equal("{\n  \"Value\": \"<x>\"\n}\n"))
+		})
+	})
+
+	Describe("WithIndent", func() {
+		pretty := json.NewCodec(json.WithIndent("  "))
+		Describe("ContentType", func() {
+			It("Should report the JSON content type", func() {
+				Expect(pretty.ContentType()).To(Equal("application/json"))
+			})
+		})
+		Describe("Extension", func() {
+			It("Should report the JSON file extension", func() {
+				Expect(pretty.Extension()).To(Equal(".json"))
+			})
+		})
+		It("Should encode with the indentation and a trailing newline", func(
+			ctx SpecContext,
+		) {
+			b := MustSucceed(pretty.Encode(ctx, toEncode{1}))
+			Expect(string(b)).To(Equal("{\n  \"Value\": 1\n}\n"))
+		})
+		It("Should encode identical bytes through EncodeStream", func(ctx SpecContext) {
+			b := MustSucceed(pretty.Encode(ctx, toEncode{1}))
+			var buf bytes.Buffer
+			Expect(pretty.EncodeStream(ctx, &buf, toEncode{1})).To(Succeed())
+			Expect(buf.Bytes()).To(Equal(b))
+		})
+		It("Should decode its own output", func(ctx SpecContext) {
+			b := MustSucceed(pretty.Encode(ctx, toEncode{1}))
+			var d toEncode
+			Expect(pretty.Decode(ctx, b, &d)).To(Succeed())
+			Expect(d).To(Equal(toEncode{1}))
+		})
+		It("Should add error info on encoding failure", func(ctx SpecContext) {
+			Expect(pretty.Encode(ctx, make(chan int))).Error().To(MatchError(
+				SatisfyAll(
+					ContainSubstring("failed to encode value"),
+					ContainSubstring("kind=chan, type=chan int"),
+				)),
+			)
 		})
 	})
 })

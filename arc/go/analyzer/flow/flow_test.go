@@ -106,7 +106,7 @@ var resolver = []symbol.Symbol{
 	{
 		Name: "start_cmd",
 		Kind: symbol.KindChannel,
-		Type: types.Chan(types.U8()),
+		Type: types.Chan(types.Bool()),
 	},
 }
 
@@ -1007,7 +1007,7 @@ func demux(value f64) (high f64, low f64) {
     low = value
 }
 sensor_chan -> demux{} -> {
-    high: some_var
+    high: true -> some_var
 }`))
 					ctx := context.NewRoot(bCtx, ast, NewRoot(nil, localResolver...))
 					analyzer.AnalyzeProgram(ctx)
@@ -1033,7 +1033,7 @@ func router{} (value f64) (high u8, low u8) {
 sequence main {
     stage first {
         sensor_chan -> router{} -> {
-            high: opt_1,
+            high: true => opt_1,
         }
     }
     stage opt_1 {}
@@ -1094,8 +1094,8 @@ sequence main {
 			func logger{} (value f64) {}
 
 			sensor_chan -> demux{threshold=100.0} -> {
-			    high: alarm{},
-			    low: logger{}
+			    high: 1.0 -> alarm{},
+			    low: 1.0 -> logger{}
 			}`))
 			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 			analyzer.AnalyzeProgram(ctx)
@@ -1138,8 +1138,8 @@ sequence main {
 			func target{} (value f64) {}
 
 			sensor_chan -> demux{} -> {
-			    high: target{},
-			    medium: target{}
+			    high: 1.0 -> target{},
+			    medium: 1.0 -> target{}
 			}`))
 			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 			analyzer.AnalyzeProgram(ctx)
@@ -1163,7 +1163,7 @@ sequence main {
 			func u32_target{} (value u32) {}
 
 			sensor_chan -> demux{} -> {
-			    high: u32_target{}
+			    high: "nope" -> u32_target{}
 			}`))
 			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 			analyzer.AnalyzeProgram(ctx)
@@ -1190,8 +1190,8 @@ sequence main {
 			func logger{} (value f64) {}
 
 			sensor_chan -> demux{} -> {
-			    high: multiplier{} -> alarm{},
-			    low: logger{}
+			    high: 1.0 -> multiplier{} -> alarm{},
+			    low: 1.0 -> logger{}
 			}`))
 			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 			analyzer.AnalyzeProgram(ctx)
@@ -1218,8 +1218,8 @@ sequence main {
 			func logger{} (value f64) {}
 
 			sensor_chan -> demux{} -> {
-			    high: multiplier{} => alarm{},
-			    low: logger{}
+			    high: 1.0 -> multiplier{} => alarm{},
+			    low: 1.0 -> logger{}
 			}`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 				analyzer.AnalyzeProgram(ctx)
@@ -1373,9 +1373,7 @@ sequence main {
 				ctx := context.NewRoot(bCtx, ast, NewRoot(customResolver))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-				Expect(
-					(*ctx.Diagnostics)[0].Message,
-				).To(ContainSubstring("type mismatch"))
+				Expect(ctx.Diagnostics.String()).To(ContainSubstring("type mismatch"))
 			},
 		)
 
@@ -1404,7 +1402,7 @@ sequence main {
 			}
 
 			sensor_chan -> demux{} -> {
-			    high: demux{} -> log_num,
+			    high: 1.0 -> demux{} -> log_num,
 			    low: 1 -> log_num
 			}`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(customResolver))
@@ -1423,7 +1421,7 @@ sequence main {
 					{
 						Name: "flag",
 						Kind: symbol.KindChannel,
-						Type: types.Chan(types.U8()),
+						Type: types.Chan(types.Bool()),
 					},
 					{
 						Name: "log_str",
@@ -1444,7 +1442,11 @@ sequence main {
 
 		It("Should accept select{} with => chain bodies", func(bCtx SpecContext) {
 			customResolver := StaticResolver{
-				{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8())},
+				{
+					Name: "flag",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.Bool()),
+				},
 				{
 					Name: "log_str",
 					Kind: symbol.KindChannel,
@@ -2549,7 +2551,7 @@ sequence main {
 					{
 						Name: "inner_flag",
 						Kind: symbol.KindChannel,
-						Type: types.Chan(types.U8()),
+						Type: types.Chan(types.Bool()),
 					},
 					{
 						Name: "log_str",
@@ -2576,7 +2578,7 @@ sequence main {
 					{
 						Name: "outer_flag",
 						Kind: symbol.KindChannel,
-						Type: types.Chan(types.U8()),
+						Type: types.Chan(types.Bool()),
 					},
 					{
 						Name: "inner_flag",
@@ -2612,8 +2614,8 @@ sequence main {
 			}
 
 			sensor_chan -> demux{} -> {
-			    high: output_chan,
-			    low: temp_sensor
+			    high: 1.0 -> output_chan,
+			    low: 1.0 -> temp_sensor
 			}`))
 			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 			analyzer.AnalyzeProgram(ctx)
@@ -2654,8 +2656,8 @@ sequence main {
 			func configurable{threshold f64} (value f64) {}
 
 			sensor_chan -> demux{} -> {
-			    high: configurable{threshold=50.0},
-			    low: configurable{}
+			    high: 1.0 -> configurable{threshold=50.0},
+			    low: 1.0 -> configurable{}
 			}`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 				analyzer.AnalyzeProgram(ctx)
@@ -2742,7 +2744,7 @@ sequence main {
 			}
 
 			sensor_chan -> demux{} -> {
-			    high: multiplier{}: a
+			    high: 1.0 -> multiplier{}: a
 			} -> converter{}`))
 			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 			analyzer.AnalyzeProgram(ctx)
@@ -2776,7 +2778,7 @@ sequence main {
 			}
 
 			sensor_chan -> demux{} -> {
-			    high: filter{} -> amplifier{}: input,
+			    high: 1.0 -> filter{} -> amplifier{}: input,
 			    low: output_chan: scale
 			} -> scaler{}`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
@@ -3019,7 +3021,7 @@ sequence main {
 			"Should compile sequences with stage targets and mixed flow operators",
 			func(bCtx SpecContext) {
 				ast := MustSucceed(parser.Parse(`
-			func threshold{} (val f32) u8 {
+			func threshold{} (val f32) bool {
 			    return val > 100
 			}
 
@@ -3051,6 +3053,68 @@ sequence main {
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			},
+		)
+	})
+
+	Describe("Numeric transition deprecation", func() {
+		DescribeTable(
+			"warns when a numeric condition feeds =>",
+			func(bCtx SpecContext, source string, warningCount int) {
+				customResolver := StaticResolver{
+					{
+						Name: "u8_gate",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.U8()),
+					},
+					{
+						Name: "bool_gate",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.Bool()),
+					},
+				}
+				ast := MustSucceed(parser.Parse(source))
+				ctx := context.NewRoot(bCtx, ast, NewRoot(customResolver))
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				warnings := ctx.Diagnostics.Warnings()
+				Expect(warnings).To(HaveLen(warningCount))
+				for _, w := range warnings {
+					Expect(w.Message).To(Equal(
+						"numeric conditions are deprecated; use an explicit " +
+							"comparison like x != 0",
+					))
+				}
+			},
+			Entry(
+				"numeric channel gate",
+				`sequence main {
+					stage first { u8_gate => next }
+					stage second {}
+				}`,
+				1,
+			),
+			Entry(
+				"bool channel gate",
+				`sequence main {
+					stage first { bool_gate => next }
+					stage second {}
+				}`,
+				0,
+			),
+			Entry(
+				"comparison gate",
+				`sequence main {
+					stage first { u8_gate > 1 => next }
+					stage second {}
+				}`,
+				0,
+			),
+			Entry(
+				"numeric top-level entry",
+				`u8_gate => main
+				sequence main { stage first {} }`,
+				1,
+			),
 		)
 	})
 })
@@ -3144,8 +3208,8 @@ var _ = Describe("Trigger in select routing branches", func() {
 			ast := MustSucceed(parser.Parse(`
 		func setter{key_or_name str, message str, variant str} () {}
 		start_cmd -> select{} -> {
-			true: setter{key_or_name="a", message="up", variant="info"},
-			false: setter{key_or_name="b", message="down", variant="info"}
+			true: true -> setter{key_or_name="a", message="up", variant="info"},
+			false: true -> setter{key_or_name="b", message="down", variant="info"}
 		}`))
 			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 			analyzer.AnalyzeProgram(ctx)
@@ -3159,8 +3223,8 @@ var _ = Describe("Trigger in select routing branches", func() {
 			ast := MustSucceed(parser.Parse(`
 		func sink(v str) {}
 		start_cmd -> select{} -> {
-			true: sink{},
-			false: sink{}
+			true: true -> sink{},
+			false: true -> sink{}
 		}`))
 			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 			analyzer.AnalyzeProgram(ctx)
@@ -3173,7 +3237,11 @@ var _ = Describe("Trigger in select routing branches", func() {
 		"Should accept a select branch chaining time.now into an i64 channel",
 		func(bCtx SpecContext) {
 			customResolver := StaticResolver{
-				{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8())},
+				{
+					Name: "flag",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.Bool()),
+				},
 				{
 					Name: "i64_ch",
 					Kind: symbol.KindChannel,
@@ -3193,12 +3261,170 @@ var _ = Describe("Trigger in select routing branches", func() {
 	)
 })
 
+var _ = Describe("Routing entry strictness", func() {
+	routingResolver := StaticResolver{
+		{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.Bool())},
+		{Name: "vlv_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.Bool())},
+		{Name: "log_str", Kind: symbol.KindChannel, Type: types.Chan(types.String())},
+		{Name: "sensor_chan", Kind: symbol.KindChannel, Type: types.Chan(types.F64())},
+	}
+
+	DescribeTable("Should reject a bare routing entry target",
+		func(bCtx SpecContext, source string) {
+			ast := MustSucceed(parser.Parse(source))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(routingResolver))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect(ctx.Diagnostics.String()).To(
+				ContainSubstring("must be a full statement"),
+			)
+		},
+		Entry("bare next", `
+			sequence main {
+			    stage first {
+			        flag -> select{} -> { true: next }
+			    }
+			    stage second {}
+			}`),
+		Entry("bare channel", `
+			flag -> select{} -> { false: vlv_cmd }`),
+		Entry("bare sequence", `
+			sequence alarm {
+			    stage active {}
+			}
+			flag -> select{} -> { true: alarm }`),
+		Entry("bare expression", `
+			flag -> select{} -> { true: 1 }`),
+		Entry("bare func invocation", `
+			func alarm{} (value f64) {}
+			flag -> select{} -> { true: alarm{} }`),
+		Entry("bare func invocations on a custom routing func", `
+			func demux{} (value f64) (high f64, low f64) {
+			    if (value > 100.0) {
+			        high = value
+			    } else {
+			        low = value
+			    }
+			}
+			func alarm{} (value f64) {}
+			func logger{} (value f64) {}
+			sensor_chan -> demux{} -> { high: alarm{}, low: logger{} }`),
+	)
+
+	It("Should not feed the routed value into an entry's head func",
+		func(bCtx SpecContext) {
+			ast := MustSucceed(parser.Parse(`
+			func amplify{} (value f64) f64 {
+			    return value * 2.0
+			}
+			flag -> select{} -> {
+			    true: amplify{} -> log_str
+			}`))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(routingResolver))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect(ctx.Diagnostics.String()).To(ContainSubstring(
+				"missing required argument for parameter 'value' of func 'amplify'"))
+		},
+	)
+
+	DescribeTable("Should accept a full flow statement entry",
+		func(bCtx SpecContext, source string) {
+			ast := MustSucceed(parser.Parse(source))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(routingResolver))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		},
+		Entry("boolean transition to next", `
+			sequence main {
+			    stage first {
+			        flag -> select{} -> { true: true => next }
+			    }
+			    stage second {}
+			}`),
+		Entry("explicit value per branch", `
+			flag -> select{} -> {
+			    true: true -> vlv_cmd,
+			    false: false -> vlv_cmd
+			}`),
+		Entry("boolean transition to a sequence", `
+			sequence alarm {
+			    stage active {}
+			}
+			flag -> select{} -> { true: true => alarm }`),
+	)
+
+	// Inline bodies are the exception to the full-statement rule. They are
+	// self-contained, so they run without the entry providing an upstream flow.
+	DescribeTable("Should accept an inline body without an upstream flow",
+		func(bCtx SpecContext, source string) {
+			ast := MustSucceed(parser.Parse(source))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(routingResolver))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		},
+		Entry("inline stage body", `
+			flag -> select{} -> {
+			    true: stage { true -> vlv_cmd }
+			}`),
+		Entry("inline sequence body", `
+			flag -> select{} -> {
+			    true: sequence { true -> vlv_cmd }
+			}`),
+		Entry("inline bodies on both branches", `
+			flag -> select{} -> {
+			    true: stage { true -> vlv_cmd },
+			    false: sequence { false -> vlv_cmd }
+			}`),
+	)
+
+	It("Should type-check a param-mapped entry head against the parameter",
+		func(bCtx SpecContext) {
+			ast := MustSucceed(parser.Parse(`
+			func demux{} (value f64) (high f64, low f64) {
+			    if (value > 100.0) {
+			        high = value
+			    } else {
+			        low = value
+			    }
+			}
+			func combiner{} (a f64, b f64) f64 {
+			    return a + b
+			}
+			sensor_chan -> demux{} -> {
+			    high: log_str: a,
+			    low: 1.0: b
+			} -> combiner{}`))
+			resolver := StaticResolver{
+				{
+					Name: "sensor_chan",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+				},
+				{
+					Name: "log_str",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.String()),
+				},
+			}
+			ctx := context.NewRoot(bCtx, ast, NewRoot(resolver))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect(ctx.Diagnostics.String()).To(
+				ContainSubstring("does not match target parameter a"),
+			)
+		},
+	)
+})
+
 var _ = Describe("Flow Sink Type Compatibility", func() {
 	sinkResolver := []symbol.Symbol{
 		{Name: "log_str", Kind: symbol.KindChannel, Type: types.Chan(types.String())},
 		{Name: "num_f64", Kind: symbol.KindChannel, Type: types.Chan(types.F64())},
 		{Name: "sink_f64", Kind: symbol.KindChannel, Type: types.Chan(types.F64())},
 		{Name: "num_i64", Kind: symbol.KindChannel, Type: types.Chan(types.I64())},
+		{Name: "num_u8", Kind: symbol.KindChannel, Type: types.Chan(types.U8())},
+		{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.Bool())},
 	}
 
 	type mismatchCase struct {
@@ -3244,6 +3470,30 @@ var _ = Describe("Flow Sink Type Compatibility", func() {
 				"does not match channel log_str value type str",
 			},
 		}),
+		Entry("bool function output into a u8 channel", mismatchCase{
+			source: "func check() bool { return true }\n\ncheck{} -> num_u8",
+			line:   2,
+			substrings: []string{
+				"func check output type bool",
+				"does not match channel num_u8 value type u8",
+			},
+		}),
+		Entry("bool channel into a u8 channel", mismatchCase{
+			source: "flag -> num_u8",
+			line:   0,
+			substrings: []string{
+				"flag value type bool",
+				"does not match channel num_u8 value type u8",
+			},
+		}),
+		Entry("qualified func output into a bool channel", mismatchCase{
+			source: "import time\ntime.wait{duration=1s} -> flag",
+			line:   1,
+			substrings: []string{
+				"func time.wait output type u8",
+				"does not match channel flag value type bool",
+			},
+		}),
 	)
 
 	DescribeTable("Should accept a source whose type matches the channel sink",
@@ -3255,6 +3505,26 @@ var _ = Describe("Flow Sink Type Compatibility", func() {
 		},
 		Entry("value variable to matching channel", "z := 3\n\nz -> num_i64"),
 		Entry("channel to matching channel", "num_f64 -> sink_f64"),
+		Entry(
+			"bool function output to matching bool channel",
+			"func check() bool { return true }\n\ncheck{} -> flag",
+		),
+		Entry(
+			"qualified func output to a matching u8 channel",
+			"import time\ntime.wait{duration=1s} -> num_u8",
+		),
+	)
+
+	It(
+		"Should report an unknown qualified func source without a sink mismatch",
+		func(bCtx SpecContext) {
+			ast := MustSucceed(parser.Parse("import time\ntime.nosuch{} -> num_u8"))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, sinkResolver...))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect(ctx.Diagnostics.String()).To(ContainSubstring("nosuch"))
+			Expect(ctx.Diagnostics.String()).ToNot(ContainSubstring("does not match"))
+		},
 	)
 
 	Describe("Writing to a channelRead variable", func() {

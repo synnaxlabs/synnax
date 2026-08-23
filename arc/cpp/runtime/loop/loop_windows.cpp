@@ -40,7 +40,7 @@ public:
         std::shared_ptr<x::thread::rt::Handle> rt_handle = nullptr
     ):
         config_(config), rt_handle_(std::move(rt_handle)) {
-        if (this->config_.lock_memory) {
+        if (this->config_.memory_locked) {
             LOG(WARNING) << "[arc.loop] Memory locking on Windows requires "
                          << "VirtualLock API (not implemented)";
         }

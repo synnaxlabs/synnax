@@ -9,9 +9,11 @@
 
 #pragma once
 
+#include <cstring>
 #include <functional>
 #include <memory>
 #include <optional>
+#include <vector>
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
@@ -46,8 +48,8 @@ struct StableForInputs {
     }
 };
 
-/// @brief StableFor outputs a value only after the input has remained unchanged
-/// for a configured duration. Used to debounce noisy signals.
+/// @brief StableFor debounces a signal: emits a value only after it stays
+/// stable for the given duration, suppressing transient fluctuations.
 ///
 /// Stability is measured from the input sample's timestamp (not scheduler
 /// elapsed time), and the current time is obtained via an injectable now()
@@ -57,8 +59,8 @@ class StableFor : public runtime::node::Node {
     x::telem::TimeSpan duration;
     size_t input_idx;
     x::telem::MonoClock clock;
-    std::optional<uint8_t> value;
-    std::optional<uint8_t> last_sent;
+    std::optional<std::vector<uint8_t>> value;
+    std::optional<std::vector<uint8_t>> last_sent;
     x::telem::TimeStamp last_changed{0};
 
     /// @brief latches the var-bound live duration at a window start;
@@ -87,10 +89,15 @@ public:
             const auto &input_data = this->state.input(this->input_idx);
             const auto &input_time = this->state.input_time(this->input_idx);
             if (input_data->size() > 0) {
+                const auto density = input_data->data_type().density();
+                const auto *data = reinterpret_cast<const uint8_t *>(
+                    input_data->data()
+                );
                 for (size_t i = 0; i < input_data->size(); i++) {
-                    const auto current_value = input_data->at<uint8_t>(i);
-                    if (!this->value.has_value() || *this->value != current_value) {
-                        this->value = current_value;
+                    const auto *current_value = data + i * density;
+                    if (!this->value.has_value() ||
+                        std::memcmp(this->value->data(), current_value, density) != 0) {
+                        this->value.emplace(current_value, current_value + density);
                         this->last_changed = x::telem::TimeStamp(
                             input_time->at<int64_t>(i)
                         );
@@ -101,15 +108,15 @@ public:
         }
 
         if (!this->value.has_value()) return x::errors::NIL;
-        const auto current_value = *this->value;
         const auto current_time = this->clock.now();
         if (x::telem::TimeSpan(current_time - this->last_changed) >= this->duration) {
-            if (!this->last_sent.has_value() || *this->last_sent != current_value) {
+            if (!this->last_sent.has_value() || *this->last_sent != *this->value) {
                 const auto &o = this->state.output(0);
                 const auto &o_time = this->state.output_time(0);
-                *o = x::telem::Series(current_value);
+                o->resize(1);
+                std::memcpy(o->data(), this->value->data(), this->value->size());
                 *o_time = x::telem::Series(current_time.nanoseconds());
-                this->last_sent = current_value;
+                this->last_sent = *this->value;
                 ctx.mark_changed(0);
             }
         }

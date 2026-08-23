@@ -16,6 +16,63 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
+var _ = Describe("Read", func() {
+	DescribeTable("legacy shapes",
+		func(in, want msgpack.EncodedJSON) {
+			Expect(legacy.Read.Apply(in)).To(Equal(want))
+		},
+		Entry("rebuilds a thermocouple's port from the pos_chan it read",
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":     "TC",
+					"port":     "AIN0",
+					"pos_chan": float64(3),
+				}},
+			},
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type": "thermocouple",
+					"port": "AIN3",
+				}},
+			},
+		),
+		Entry("keeps a canonical thermocouple's port",
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type": "thermocouple",
+					"port": "AIN6",
+				}},
+			},
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type": "thermocouple",
+					"port": "AIN6",
+				}},
+			},
+		),
+		Entry("keeps an analog channel's port and drops its pos_chan",
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":     "AI",
+					"port":     "AIN2",
+					"pos_chan": float64(5),
+				}},
+			},
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{"type": "analog", "port": "AIN2"}},
+			},
+		),
+		Entry("keeps a digital channel unchanged",
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{"type": "DI", "port": "DIO6"}},
+			},
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{"type": "digital", "port": "DIO6"}},
+			},
+		),
+	)
+})
+
 var _ = Describe("Write", func() {
 	DescribeTable("legacy shapes",
 		func(in, want msgpack.EncodedJSON) {

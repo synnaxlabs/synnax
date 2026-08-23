@@ -26,7 +26,7 @@ export const defaultConfig = (
   color: color.ZERO,
   inlineSize: 100,
   options: [],
-  label: Label.defaultConfig("State Indicator"),
+  label: Label.defaultConfig("State indicator"),
   stalenessTimeout: 5,
   stalenessColor: t.colors.warning.m1,
 });
@@ -41,7 +41,7 @@ const Preview = ({ color }: schematic.StateIndicatorNodeConfig): ReactElement =>
 
 export const spec: Spec<"state_indicator", schematic.StateIndicatorNodeConfig> = {
   key: "state_indicator",
-  name: "State Indicator",
+  name: "State indicator",
   Form: StateIndicatorForm,
   Node: Symbol,
   Preview,

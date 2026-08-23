@@ -13,7 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
-	. "github.com/synnaxlabs/cesium/internal/testutil"
+	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -56,7 +56,7 @@ var _ = Describe("Accuracy", func() {
 							Name:     "Rufus",
 							Key:      idxKey,
 							IsIndex:  true,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 						},
 						cesium.Channel{
 							Name:     "Du",
@@ -199,13 +199,13 @@ var _ = Describe("Accuracy", func() {
 							cesium.Channel{
 								Name:     "Albert",
 								Key:      idxKey1,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 							cesium.Channel{
 								Name:     "Park",
 								Key:      idxKey2,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 							cesium.Channel{

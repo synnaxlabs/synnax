@@ -11,6 +11,7 @@ import { type ReactElement, type ReactNode } from "react";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
+import { useLabelledBy } from "@/input/Item";
 import { type InputProps } from "@/input/types";
 
 export interface BooleanProps
@@ -61,57 +62,61 @@ export const Boolean = ({
   tooltipLocation,
   hideTooltip,
   ...rest
-}: BooleanProps): ReactElement => (
-  <Button.Button
-    el="label"
-    variant={variant === "shadow" ? "outlined" : variant}
-    className={CSS(
-      CSS.BE("input", inputType),
-      checkedIcon != null && CSS.M("icon"),
-      className,
-    )}
-    reveal={reveal}
-    disabled={disabled}
-    size={size}
-    preview={preview}
-    preventClick
-    style={style}
-    color={color}
-    borderColor={borderColor}
-    borderWidth={borderWidth}
-    bordered={bordered}
-    rounded={rounded}
-    background={background}
-    textColor={parseTextColor(preview, textColor, value)}
-    onClick={onClick}
-    tooltip={tooltip}
-    tooltipLocation={tooltipLocation}
-    hideTooltip={hideTooltip}
-  >
-    {preview !== true ? (
-      <>
-        <input
-          className={CSS.BE("input", inputType, "input")}
-          type="checkbox"
-          ref={ref}
-          checked={value}
-          onChange={(e) => {
-            e.stopPropagation();
-            onChange?.(e.target.checked);
-          }}
-          value=""
-          disabled={disabled}
-          onClick={onClick}
-          {...rest}
-        />
-        <span className={CSS.BE("input", inputType, "indicator")} onClick={onClick}>
-          {value ? checkedIcon : uncheckedIcon}
-        </span>
-      </>
-    ) : value ? (
-      "True"
-    ) : (
-      "False"
-    )}
-  </Button.Button>
-);
+}: BooleanProps): ReactElement => {
+  const ariaLabelledBy = useLabelledBy(rest);
+  return (
+    <Button.Button
+      el="label"
+      variant={variant === "shadow" ? "outlined" : variant}
+      className={CSS.cls(
+        CSS.BE("input", inputType),
+        checkedIcon != null && CSS.M("icon"),
+        className,
+      )}
+      reveal={reveal}
+      disabled={disabled}
+      size={size}
+      preview={preview}
+      preventClick
+      style={style}
+      color={color}
+      borderColor={borderColor}
+      borderWidth={borderWidth}
+      bordered={bordered}
+      rounded={rounded}
+      background={background}
+      textColor={parseTextColor(preview, textColor, value)}
+      onClick={onClick}
+      tooltip={tooltip}
+      tooltipLocation={tooltipLocation}
+      hideTooltip={hideTooltip}
+    >
+      {preview !== true ? (
+        <>
+          <input
+            className={CSS.BE("input", inputType, "input")}
+            type="checkbox"
+            ref={ref}
+            checked={value}
+            onChange={(e) => {
+              e.stopPropagation();
+              onChange?.(e.target.checked);
+            }}
+            value=""
+            disabled={disabled}
+            onClick={onClick}
+            {...rest}
+            aria-labelledby={ariaLabelledBy}
+          />
+          <span className={CSS.BE("input", inputType, "indicator")} onClick={onClick}>
+            {value ? checkedIcon : uncheckedIcon}
+          </span>
+        </>
+      ) : value ? (
+        "True"
+      ) : (
+        "False"
+      )}
+    </Button.Button>
+  );
+};

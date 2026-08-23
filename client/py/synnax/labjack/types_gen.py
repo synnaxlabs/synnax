@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 from typing import Annotated, Literal, Union
+from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
@@ -62,7 +63,7 @@ class BaseReadChannel(BaseModel):
         port: Is the physical port the channel reads from (e.g. 'AIN0', 'DIO4').
     """
 
-    key: str = ""
+    key: str = Field(default_factory=lambda: str(uuid4()))
     name: str = ""
     disabled: bool = False
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
@@ -85,7 +86,7 @@ class BaseWriteChannel(BaseModel):
         port: Is the physical port the channel writes to (e.g. 'DAC0', 'DIO4').
     """
 
-    key: str = ""
+    key: str = Field(default_factory=lambda: str(uuid4()))
     disabled: bool = False
     cmd_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     state_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
@@ -97,7 +98,7 @@ class BaseWriteChannel(BaseModel):
         return hash(self.key)
 
 
-class ScanConfig(task.BaseScanConfig):
+class ScanConfig(task.ScanConfig):
     """Configures a LabJack scan task.
 
     Attributes:
@@ -156,8 +157,7 @@ class DigitalWriteChannel(BaseWriteChannel):
     port: str = "DIO4"
 
 
-# Is a single LabJack write channel. The type field selects the output
-# mode.
+# Is a single LabJack write channel. The type field selects the output mode.
 WriteChannel = Annotated[
     Union[AnalogWriteChannel, DigitalWriteChannel],
     Field(discriminator="type"),
@@ -187,7 +187,6 @@ class ThermocoupleReadChannel(BaseReadChannel):
     type: Literal["thermocouple"] = "thermocouple"
     port: str = "AIN0"
     thermocouple_type: ThermocoupleType = "K"
-    pos_chan: int = Field(default=0, ge=-2147483648, le=2147483647)
     neg_chan: int = Field(default=199, ge=-2147483648, le=2147483647)
     cjc_source: str = "TEMPERATURE_DEVICE_K"
     cjc_slope: float = 1
@@ -196,19 +195,19 @@ class ThermocoupleReadChannel(BaseReadChannel):
     scale: Scale = Field(default_factory=lambda: NoneScale(type="none"))
 
 
-# Is a single LabJack read channel. The type field selects the input mode
-# and the fields that accompany it.
+# Is a single LabJack read channel. The type field selects the input mode and the
+# fields that accompany it.
 ReadChannel = Annotated[
     Union[AnalogReadChannel, DigitalReadChannel, ThermocoupleReadChannel],
     Field(discriminator="type"),
 ]
 
 
-class WriteConfig(task.BaseWriteConfig):
+class WriteConfig(task.WriteConfig):
     """Configures a LabJack write task.
 
     Attributes:
-        state_rate: Is the rate at which output state is reported to Synnax, in hertz.
+        state_rate: Is the rate at which output state is reported to Synnax, in Hertz.
         channels: Are the channels the task drives.
     """
 
@@ -219,17 +218,17 @@ class WriteConfig(task.BaseWriteConfig):
         return hash(self.key)
 
 
-class ReadConfig(task.BaseReadConfig):
+class ReadConfig(task.ReadConfig):
     """Configures a LabJack read task.
 
     Attributes:
         device: Is the key of the device the task acquires from.
         channels: Are the channels the task acquires.
         device_scan_backlog_warn_on_count: Is the device-side scan backlog above which
-            the task reports a skew warning. Zero lets the driver pick two seconds of
+            the task reports a skew warning. Zero lets the Driver pick two seconds of
             scans.
         ljm_scan_backlog_warn_on_count: Is the LJM-side scan backlog above which the
-            task reports a skew warning. Zero lets the driver pick one second of scans.
+            task reports a skew warning. Zero lets the Driver pick one second of scans.
     """
 
     device: device_.Key = ""

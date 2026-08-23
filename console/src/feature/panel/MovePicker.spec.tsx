@@ -10,8 +10,15 @@
 import { panel, project } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { type ReactElement } from "react";
+import {
+  act,
+  fireEvent,
+  renderHook,
+  type RenderHookResult,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { useMovePicker } from "@/feature/panel/MovePicker";
@@ -21,8 +28,6 @@ import { Session } from "@/session";
 import { type TestStore, uniqueName } from "@/testutil";
 
 const client = createTestClient();
-
-const OPEN = "open the picker";
 
 interface Harness {
   store: TestStore;
@@ -67,26 +72,19 @@ const createHarness = async (): Promise<Harness> => {
   const { wrapper, store } = await createPanelWrapper({ client, project: projectKey });
   store.dispatch(Session.Panel.select({ key: source.key }));
 
-  const Trigger = (): ReactElement => {
-    const open = useMovePicker();
-    return (
-      <button onClick={() => open({ origin: { panel: source.key, tab } })}>
-        {OPEN}
-      </button>
-    );
-  };
-
+  const Panels = wrapper;
+  const pickerWrapper = ({ children }: PropsWithChildren): ReactElement => (
+    <Panels>
+      {children}
+      <Modals.Stack />
+    </Panels>
+  );
+  let rendered!: RenderHookResult<ReturnType<typeof useMovePicker>, unknown>;
   await act(async () => {
-    render(
-      <>
-        <Trigger />
-        <Modals.Stack />
-      </>,
-      { wrapper },
-    );
+    rendered = renderHook(useMovePicker, { wrapper: pickerWrapper });
   });
   await act(async () => {
-    fireEvent.click(screen.getByText(OPEN));
+    rendered.result.current({ origin: { panel: source.key, tab } });
   });
   await screen.findByText("Move to panel");
   return { store, source, tab, destination, other };

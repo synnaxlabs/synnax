@@ -7,12 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
-
 import { ontology } from "@/ontology";
-
-export const keyZ = z.string();
-export type Key = z.infer<typeof keyZ>;
+import { type Key } from "@/status/types.gen";
 
 export const SET_CHANNEL_NAME = "sy_status_set";
 export const DELETE_CHANNEL_NAME = "sy_status_delete";

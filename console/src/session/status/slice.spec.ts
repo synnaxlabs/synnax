@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { Status } from "@/session/status";
 
@@ -77,35 +78,6 @@ describe("status slice", () => {
     });
   });
 
-  describe("filterFavoritesToKeys", () => {
-    it("should keep only favorites present in the payload", () => {
-      let state = Status.reducer(
-        Status.ZERO_SLICE_STATE,
-        Status.addFavorites(["a", "b", "c"]),
-      );
-      state = Status.reducer(state, Status.filterFavoritesToKeys(["b", "c", "d"]));
-      expect(state.favorites).toEqual(["b", "c"]);
-    });
-
-    it("should clear favorites when the payload matches none", () => {
-      let state = Status.reducer(
-        Status.ZERO_SLICE_STATE,
-        Status.addFavorites(["a", "b"]),
-      );
-      state = Status.reducer(state, Status.filterFavoritesToKeys([]));
-      expect(state.favorites).toEqual([]);
-    });
-
-    it("should accept a single key", () => {
-      let state = Status.reducer(
-        Status.ZERO_SLICE_STATE,
-        Status.addFavorites(["a", "b"]),
-      );
-      state = Status.reducer(state, Status.filterFavoritesToKeys("a"));
-      expect(state.favorites).toEqual(["a"]);
-    });
-  });
-
   describe("toggleFavorite", () => {
     it("should add a favorite that is not present", () => {
       const state = Status.reducer(Status.ZERO_SLICE_STATE, Status.toggleFavorite("a"));
@@ -138,6 +110,18 @@ describe("status slice", () => {
     it("should preserve existing fields", () => {
       const existing: Status.SliceState = { version: 0, favorites: ["x", "y"] };
       expect(Status.migrateSlice(existing)).toEqual(existing);
+    });
+
+    it("should drop fields the schema does not declare", () => {
+      expect(Status.migrateSlice({ favorites: ["a"], stale: 1 })).toEqual({
+        version: 0,
+        favorites: ["a"],
+      });
+    });
+
+    it("should throw on a persisted value the schema rejects", () => {
+      expect(() => Status.migrateSlice({ favorites: "a" })).toThrow(z.ZodError);
+      expect(() => Status.migrateSlice("corrupt")).toThrow(z.ZodError);
     });
   });
 });

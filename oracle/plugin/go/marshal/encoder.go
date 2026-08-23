@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/typemap"
 	"github.com/synnaxlabs/oracle/plugin/output"
+	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
@@ -36,8 +37,8 @@ type concreteCodec struct {
 	EncodeBody string
 	DecodeBody string
 	UsesErr    bool
-	// Recursive marks types whose DecodeOrc can re-enter itself; their decode
-	// bodies are guarded with PushDepth/PopDepth against malicious nesting.
+	// Recursive marks types whose DecodeOrc can re-enter itself; their decode bodies
+	// are guarded with PushDepth/PopDepth against malicious nesting.
 	Recursive bool
 }
 
@@ -53,15 +54,14 @@ type genericCodec struct {
 	EncodeBody string
 	DecodeBody string
 	UsesErr    bool
-	// Recursive marks types whose DecodeOrc can re-enter itself; their decode
-	// bodies are guarded with PushDepth/PopDepth against malicious nesting.
+	// Recursive marks types whose DecodeOrc can re-enter itself; their decode bodies
+	// are guarded with PushDepth/PopDepth against malicious nesting.
 	Recursive bool
 }
 
 type encoderFileOutput struct {
 	Package        string
 	ExtraImports   map[string]string
-	NeedsMath      bool
 	NeedsJSON      bool
 	HasFlex        bool
 	ConcreteCodecs []concreteCodec
@@ -118,9 +118,6 @@ func generateEncoderCodecFile(
 					e.GoName,
 				)
 			}
-			if b.needsMath {
-				fo.NeedsMath = true
-			}
 			if b.needsJSON {
 				fo.NeedsJSON = true
 			}
@@ -142,7 +139,7 @@ func generateEncoderCodecFile(
 			for _, tp := range resolution.NonDefaultedTypeParams(form.TypeParams) {
 				typeParams = append(typeParams, typeParamData{
 					Name:       tp.Name,
-					Constraint: typeParamConstraint(tp),
+					Constraint: typemap.TypeParamConstraint(tp),
 				})
 			}
 		}
@@ -159,9 +156,6 @@ func generateEncoderCodecFile(
 					"failed to generate generic codec for %s",
 					e.GoName,
 				)
-			}
-			if b.needsMath {
-				fo.NeedsMath = true
 			}
 			if b.needsJSON {
 				fo.NeedsJSON = true
@@ -183,9 +177,6 @@ func generateEncoderCodecFile(
 					"failed to generate codec for %s",
 					e.GoName,
 				)
-			}
-			if b.needsMath {
-				fo.NeedsMath = true
 			}
 			if b.needsJSON {
 				fo.NeedsJSON = true
@@ -212,13 +203,6 @@ func generateEncoderCodecFile(
 		return nil, errors.Wrap(err, "failed to execute encoder template")
 	}
 	return buf.Bytes(), nil
-}
-
-func typeParamConstraint(tp resolution.TypeParam) string {
-	if tp.Constraint != nil && resolution.IsConstraint(tp.Constraint.Name) {
-		return tp.Constraint.Name
-	}
-	return "any"
 }
 
 // reservedNames contains single-letter variable names used in generated method
@@ -615,11 +599,12 @@ func buildUnionCodec(
 				entry.Name, v.Name, v.Type.Name)
 		}
 		variantType := casing.VariantTypeName(goName, v.Name)
-		embeds := append([]string{}, baseEmbeds...)
+		var embeds []string
 		var inlineFields []resolution.Field
 		if v.Inline {
 			pform := payload.Form.(resolution.StructForm)
-			for _, ext := range pform.Extends {
+			inherited, declared := resolver.VariantBases(form, v, table)
+			for _, ext := range inherited {
 				parent, ok := ext.Resolve(table)
 				if !ok {
 					return concreteCodec{}, errors.Newf(
@@ -628,13 +613,12 @@ func buildUnionCodec(
 				}
 				embeds = append(embeds, naming.GetGoName(parent))
 			}
-			inlineFields = declaredFields(
-				append(slices.Clone(form.Extends), pform.Extends...),
-				pform.Fields,
-				table,
+			inlineFields = append(
+				slices.Clone(declared),
+				declaredFields(inherited, pform.Fields, table)...,
 			)
 		} else {
-			embeds = append(embeds, naming.GetGoName(payload))
+			embeds = append(slices.Clone(baseEmbeds), naming.GetGoName(payload))
 		}
 		enc = append(enc,
 			fmt.Sprintf("\tcase %s:", variantType),
@@ -1154,132 +1138,6 @@ func (b *encoderBuilder) addIntLeaf(
 				writerMethod,
 			),
 		)
-	}
-}
-
-// --- Type dependency walk ---
-
-func collectSerializableTypes(
-	entryType resolution.Type,
-	table *resolution.Table,
-) (byPackage map[string][]resolution.Type, reachable set.Set[string]) {
-	result := make(map[string][]resolution.Type)
-	visited := make(set.Set[string])
-	walkSerializableTypes(entryType, table, result, visited)
-	return result, visited
-}
-
-func walkSerializableTypes(
-	typ resolution.Type,
-	table *resolution.Table,
-	result map[string][]resolution.Type,
-	visited set.Set[string],
-) {
-	if visited.Contains(typ.QualifiedName) {
-		return
-	}
-	visited.Add(typ.QualifiedName)
-	goPath := output.GetPath(typ, "go")
-	// Synthetic inline variant payloads have no standalone Go type; their
-	// fields encode through the union codec, so only their dependencies walk.
-	if goPath != "" && !typ.Synthetic {
-		switch typ.Form.(type) {
-		case resolution.StructForm, resolution.UnionForm:
-			result[goPath] = append(result[goPath], typ)
-		}
-	}
-	if uf, ok := typ.Form.(resolution.UnionForm); ok {
-		for _, ext := range uf.Extends {
-			walkSerializableRef(ext, table, result, visited)
-		}
-		for _, v := range uf.Variants {
-			walkSerializableRef(v.Type, table, result, visited)
-		}
-		return
-	}
-	if sf, ok := typ.Form.(resolution.StructForm); ok {
-		for _, ext := range sf.Extends {
-			walkSerializableRef(ext, table, result, visited)
-		}
-	}
-	fields := resolution.UnifiedFields(typ, table)
-	for _, f := range fields {
-		if domain.GetStringFromField(f, "go", "marshal") == "omit" {
-			continue
-		}
-		walkSerializableRef(f.Type, table, result, visited)
-	}
-}
-
-func walkSerializableRef(
-	ref resolution.TypeRef,
-	table *resolution.Table,
-	result map[string][]resolution.Type,
-	visited set.Set[string],
-) {
-	resolved, ok := ref.Resolve(table)
-	if !ok {
-		return
-	}
-	encoded := encodedTypeParams(resolved, table)
-	for i, arg := range ref.TypeArgs {
-		if encoded != nil {
-			form := resolved.Form.(resolution.StructForm)
-			if i < len(form.TypeParams) && !encoded.Contains(form.TypeParams[i].Name) {
-				continue
-			}
-		}
-		walkSerializableRef(arg, table, result, visited)
-	}
-	switch form := resolved.Form.(type) {
-	case resolution.StructForm, resolution.UnionForm:
-		walkSerializableTypes(resolved, table, result, visited)
-	case resolution.AliasForm:
-		walkSerializableRef(form.Target, table, result, visited)
-	case resolution.DistinctForm:
-		walkSerializableRef(form.Base, table, result, visited)
-	}
-}
-
-// encodedTypeParams returns the type parameters of a generic struct whose
-// arguments the generated codec encodes structurally (the SelfEncoder assertion
-// path). A parameter used only in json_only or omitted fields, or substituted
-// by its default, never reaches the argument's own codec, so that argument
-// contributes no codec dependency. Returns nil for non-generic types, meaning
-// every argument walks.
-func encodedTypeParams(typ resolution.Type, table *resolution.Table) set.Set[string] {
-	form, ok := typ.Form.(resolution.StructForm)
-	if !ok || !form.IsGeneric() {
-		return nil
-	}
-	encoded := make(set.Set[string])
-	for _, f := range resolution.UnifiedFields(typ, table) {
-		directive := domain.GetStringFromField(f, "go", "marshal")
-		if directive == "omit" {
-			continue
-		}
-		if f.Type.IsTypeParam() {
-			if f.Type.TypeParam.HasDefault() || directive == "json_only" {
-				continue
-			}
-			encoded.Add(f.Type.Name)
-			continue
-		}
-		addNestedTypeParams(f.Type, encoded)
-	}
-	return encoded
-}
-
-// addNestedTypeParams collects type parameters referenced inside a field's
-// type arguments; nested parameter uses always encode through the SelfEncoder
-// assertion path.
-func addNestedTypeParams(ref resolution.TypeRef, out set.Set[string]) {
-	if ref.IsTypeParam() {
-		out.Add(ref.Name)
-		return
-	}
-	for _, a := range ref.TypeArgs {
-		addNestedTypeParams(a, out)
 	}
 }
 

@@ -24,18 +24,18 @@ export const defaultConfig = (t: Theming.Theme): schematic.StringDisplayNodeConf
   color: color.ZERO,
   level: "p",
   inlineSize: 100,
-  label: Label.defaultConfig("String Display"),
+  label: Label.defaultConfig("String display"),
   stalenessTimeout: 5,
   stalenessColor: t.colors.warning.m1,
 });
 
 const Preview = ({ color, level }: schematic.StringDisplayNodeConfig): ReactElement => (
-  <StringDisplay color={color} level={level} value="Hello World!" />
+  <StringDisplay color={color} level={level} value="Hello world!" />
 );
 
 export const spec: Spec<"string_display", schematic.StringDisplayNodeConfig> = {
   key: "string_display",
-  name: "String Display",
+  name: "String display",
   Form: StringDisplayForm,
   Node: Symbol,
   Preview,

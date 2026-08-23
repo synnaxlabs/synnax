@@ -1,0 +1,20 @@
+{
+  "version": "4.0.0",
+  "snapshot": false,
+  "nodes": [],
+  "edges": [],
+  "props": {},
+  "remoteCreated": true,
+  "viewport": { "position": { "x": 0, "y": 0 }, "zoom": 1 },
+  "editable": true,
+  "control": "released",
+  "controlAcquireTrigger": 0,
+  "fitViewOnResize": false,
+  "legend": {
+    "visible": false,
+    "position": { "x": 50, "y": 50, "units": { "x": "px", "y": "px" } }
+  },
+  "key": "312ec0ff-026c-403b-8a5c-1f034bdc092f",
+  "type": "schematic",
+  "authority": 1
+}

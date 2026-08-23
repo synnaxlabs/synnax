@@ -37,9 +37,8 @@ stage pressurize {
     abort_btn => abort
 
     // Continuous flows (run every cycle)
-    1 -> press_vlv_cmd
+    true -> press_vlv_cmd
     sensor -> controller{}
-
 }
 ```
 
@@ -75,7 +74,7 @@ sequence controller {
         stop_cmd => stop
     }
     stage stop {
-        0 -> valve_cmd
+        false -> valve_cmd
         time.wait{duration=250ms} => yield
     }
     stage yield {
@@ -98,16 +97,13 @@ All flow statements in a stage run concurrently:
 
 ```arc channels="sensor, ox_pt_1, fuel_pt_1, abort_btn, pressure", bodies="abort"
 stage pressurize {
-
     // ALL of these run simultaneously
-
     ox_pt_1 > 600 => abort   // monitor
     fuel_pt_1 > 400 => abort // monitor
     abort_btn => abort       // listen
     pressure > 500 => next   // advance
 
     sensor -> controller{target=500} // control loop
-
 }
 ```
 
@@ -118,7 +114,6 @@ listed wins:
 
 ```arc channels="ox_pt_1, fuel_pt_1, abort_btn, pressure", bodies="abort"
 stage pressurize {
-
     // Safety conditions first (higher priority)
     ox_pt_1 > 600 => abort   // 1st priority
     fuel_pt_1 > 400 => abort // 2nd priority
@@ -144,9 +139,9 @@ parent stage is entered.
 stage fire {
     chamber_temp > 2000 => abort
     sequence {
-        1 -> igniter_cmd
+        true -> igniter_cmd
         time.wait{200ms}
-        1 -> ox_main_vlv_cmd
+        true -> ox_main_vlv_cmd
     }
 }
 ```

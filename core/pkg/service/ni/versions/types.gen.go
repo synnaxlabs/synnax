@@ -13,7 +13,7 @@ package versions
 
 import "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v2"
 
-// Units enumerates the engineering units an NI analog channel can report.
+// Units enumerates the engineering units for NI analog channel values.
 type Units = v2.Units
 
 const (
@@ -516,13 +516,12 @@ const (
 	CIMeasMethodDynamicAvg   CIMeasMethod = v2.CIMeasMethodDynamicAvg
 )
 
-// CIFreqUnits are the units of a frequency measurement.
+// CIFreqUnits are the unit options for a counter frequency channel.
 type CIFreqUnits = v2.CIFreqUnits
 
 const (
-	CIFreqUnitsHz      CIFreqUnits = v2.CIFreqUnitsHz
-	CIFreqUnitsSeconds CIFreqUnits = v2.CIFreqUnitsSeconds
-	CIFreqUnitsTicks   CIFreqUnits = v2.CIFreqUnitsTicks
+	CIFreqUnitsHz    CIFreqUnits = v2.CIFreqUnitsHz
+	CIFreqUnitsTicks CIFreqUnits = v2.CIFreqUnitsTicks
 )
 
 // CITimeUnits are the units of a counter time measurement (period, pulse width, ...).
@@ -732,3 +731,13 @@ type DigitalWriteConfig = v2.DigitalWriteConfig
 
 // ScanConfig configures the NI device scanner task.
 type ScanConfig = v2.ScanConfig
+
+// AccelChargeSensitivityUnits are the units of a charge-mode accelerometer's
+// sensitivity rating.
+type AccelChargeSensitivityUnits = v2.AccelChargeSensitivityUnits
+
+const (
+	AccelChargeSensitivityUnitsPicoCoulombsPerG                      AccelChargeSensitivityUnits = v2.AccelChargeSensitivityUnitsPicoCoulombsPerG
+	AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared AccelChargeSensitivityUnits = v2.AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared
+	AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared AccelChargeSensitivityUnits = v2.AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared
+)

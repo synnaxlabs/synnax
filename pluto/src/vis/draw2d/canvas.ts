@@ -16,6 +16,22 @@ export interface FillTextOptions {
   useAtlas?: boolean;
 }
 
+type Radii = number | DOMPointInit | Array<number | DOMPointInit>;
+
+const scaleRadius = (s: scale.XY, r: number | DOMPointInit): number | DOMPointInit => {
+  if (typeof r === "number") return s.x.dim(r);
+  return { x: s.x.dim(r.x ?? 0), y: s.y.dim(r.y ?? 0) };
+};
+
+// Corner radii reach roundRect as a number, a single pair, or one entry per corner. All
+// three have to scale with the box they round, or the corners keep their unscaled size.
+const scaleRadii = (s: scale.XY, radii?: Radii): Radii | undefined => {
+  if (radii == null) return radii;
+  if (typeof radii === "number") return s.x.dim(radii);
+  if (Array.isArray(radii)) return radii.map((r) => scaleRadius(s, r));
+  return scaleRadius(s, radii);
+};
+
 export class SugaredOffscreenCanvasRenderingContext2D implements OffscreenCanvasRenderingContext2D {
   readonly scale_: scale.XY;
   readonly wrapped: OffscreenCanvasRenderingContext2D;
@@ -463,19 +479,13 @@ export class SugaredOffscreenCanvasRenderingContext2D implements OffscreenCanvas
     );
   }
 
-  roundRect(
-    x: number,
-    y: number,
-    w: number,
-    h: number,
-    radii?: number | DOMPointInit | Array<number | DOMPointInit> | undefined,
-  ): void {
+  roundRect(x: number, y: number, w: number, h: number, radii?: Radii): void {
     this.wrapped.roundRect(
       this.scale_.x.pos(x),
       this.scale_.y.pos(y),
       this.scale_.x.dim(w),
       this.scale_.y.dim(h),
-      typeof radii === "number" ? this.scale_.x.dim(radii) : radii,
+      scaleRadii(this.scale_, radii),
     );
   }
 
@@ -855,40 +865,14 @@ export class ScaledPath2D {
     );
   }
 
-  roundRect(
-    x: number,
-    y: number,
-    w: number,
-    h: number,
-    radii?: number | DOMPointInit | Array<number | DOMPointInit>,
-  ): void {
-    const scaledRadii = this.scaleRadii(radii);
+  roundRect(x: number, y: number, w: number, h: number, radii?: Radii): void {
     this.path.roundRect(
       this.scale_.x.pos(x),
       this.scale_.y.pos(y),
       this.scale_.x.dim(w),
       this.scale_.y.dim(h),
-      scaledRadii,
+      scaleRadii(this.scale_, radii),
     );
-  }
-
-  private scaleRadii(
-    radii?: number | DOMPointInit | Array<number | DOMPointInit>,
-  ): number | DOMPointInit | Array<number | DOMPointInit> | undefined {
-    if (radii == null) return radii;
-    if (typeof radii === "number") return this.scale_.x.dim(radii);
-    if (Array.isArray(radii)) return radii.map((r) => this.scaleRadius(r));
-
-    return this.scaleRadius(radii);
-  }
-
-  private scaleRadius(r: number | DOMPointInit): number | DOMPointInit {
-    if (typeof r === "number") return this.scale_.x.dim(r);
-
-    return {
-      x: this.scale_.x.dim(r.x ?? 0),
-      y: this.scale_.y.dim(r.y ?? 0),
-    };
   }
 
   getPath(): Path2D {

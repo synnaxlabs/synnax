@@ -88,6 +88,6 @@ describe("Device.Select", () => {
   it("should show the empty content when no devices match the make", async () => {
     await renderSelect({ make: uniqueName("make"), onConfigure: vi.fn() });
     fireEvent.click(await findDialogTrigger());
-    await screen.findByText("No devices connected.");
+    await screen.findByText("No devices connected");
   });
 });

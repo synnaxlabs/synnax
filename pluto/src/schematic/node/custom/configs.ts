@@ -30,7 +30,7 @@ export const customActuatorSpec: Spec<
   CustomActuatorConfig
 > = {
   key: CUSTOM_ACTUATOR_VARIANT,
-  name: "Custom Actuator",
+  name: "Custom actuator",
   Form: Form.ToggleForm,
   Node: Toggle.createToggle<CustomActuatorConfig>(Actuator),
   Preview: Actuator,
@@ -40,7 +40,7 @@ export const customActuatorSpec: Spec<
     stateOverrides: [],
     ...Primitive.ZERO_PROPS,
     ...Toggle.ZERO_TOGGLE_DEFAULTS,
-    label: Label.defaultConfig("Custom Actuator"),
+    label: Label.defaultConfig("Custom actuator"),
   }),
   zIndex: 4,
 };
@@ -55,7 +55,7 @@ export interface CustomStaticConfig extends z.infer<typeof customStaticConfigZ> 
 export const customStaticSpec: Spec<typeof CUSTOM_STATIC_VARIANT, CustomStaticConfig> =
   {
     key: CUSTOM_STATIC_VARIANT,
-    name: "Custom Static",
+    name: "Custom static",
     Form: Form.StyleForm,
     Node: Label.createLabeled<CustomStaticConfig>(Static),
     Preview: Static,
@@ -64,7 +64,7 @@ export const customStaticSpec: Spec<typeof CUSTOM_STATIC_VARIANT, CustomStaticCo
       specKey: "",
       stateOverrides: [],
       ...Primitive.ZERO_PROPS,
-      label: Label.defaultConfig("Custom Static"),
+      label: Label.defaultConfig("Custom static"),
     }),
     zIndex: 4,
   };

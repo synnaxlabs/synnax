@@ -116,7 +116,7 @@ describe("Schematic toolbar Properties", () => {
           "The custom symbol referenced by this node was not found.",
         ),
       ).toBeDefined();
-      expect(screen.getByText("Or create a new symbol in:")).toBeDefined();
+      expect(screen.getByText("Or create a symbol in:")).toBeDefined();
       expect(isPlutoDisabled(findButton("Create symbol"))).toBe(true);
     });
   });

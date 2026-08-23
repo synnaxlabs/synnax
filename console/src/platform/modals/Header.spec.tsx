@@ -33,6 +33,13 @@ describe("Header", () => {
     expect(screen.getByText("Name")).toBeTruthy();
   });
 
+  it("should keep pre-split segments whole even when they contain dots", () => {
+    renderHeader(<Modals.Header>{["Role", "Assign", "user.name"]}</Modals.Header>);
+    expect(screen.getByText("Role")).toBeTruthy();
+    expect(screen.getByText("Assign")).toBeTruthy();
+    expect(screen.getByText("user.name")).toBeTruthy();
+  });
+
   it("should render a leading icon segment only when an icon is provided", () => {
     const withIcon = renderHeader(
       <Modals.Header icon={<Icon.Add className="test-icon" />}>Title</Modals.Header>,

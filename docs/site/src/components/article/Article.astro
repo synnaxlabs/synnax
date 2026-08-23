@@ -190,9 +190,20 @@ const visibleTitleLength = String(title ?? "").replace(/`/g, "").length;
 
         .pluto-tabs__selector {
             --pluto-height-medium: 6.5rem;
+            --pluto-tabs-tab-height: 5.5rem;
 
-            .pluto-btn.pluto--height-medium {
-                padding: 0 2rem;
+            .pluto-tabs__tab {
+                padding: 0 2.5rem;
+                gap: 1.5rem;
+
+                @media (max-width: 800px) {
+                    padding: 0 1.5rem;
+                    gap: 1rem;
+                }
+
+                :is(.pluto-text, .pluto-icon) {
+                    margin: 0;
+                }
             }
         }
 

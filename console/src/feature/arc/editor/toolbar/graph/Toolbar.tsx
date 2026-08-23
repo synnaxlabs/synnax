@@ -29,9 +29,8 @@ const NotEditableContent = (): ReactElement => {
   const { canEdit } = Session.Arc.useSelectEditable();
   return (
     <Empty.Action
-      x
-      message={`${name} is not editable.${canEdit ? " To make changes," : ""}`}
-      action={canEdit ? "enable editing." : undefined}
+      message={`${name} is not editable`}
+      action={canEdit ? "Enable editing" : undefined}
       onClick={(e) => {
         e.stopPropagation();
         dispatch(Session.Arc.setEditable({ key, editable: true }));
@@ -76,8 +75,8 @@ export const Toolbar = (): ReactElement | null => {
           )}
         </Breadcrumb.Breadcrumb>
         <Flex.Box x align="center" empty>
-          <Flex.Box x empty className={CSS.BE("arc-toolbar", "actions")}>
-            <Export.ToolbarButton getID={() => arc.ontologyID(key)} />
+          <Flex.Box x gap="small" className={CSS.BE("arc-toolbar", "actions")}>
+            <Export.ToolbarButton id={arc.ontologyID(key)} />
             <Cluster.CopyLinkToolbarButton
               name={name}
               ontologyID={arc.ontologyID(key)}

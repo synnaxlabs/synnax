@@ -22,27 +22,37 @@ var (
 		{
 			Label:  "struct",
 			Kind:   protocol.CompletionItemKindKeyword,
-			Detail: protocol.NewOptional("Define a data structure"),
-		},
-		{
-			Label:  "field",
-			Kind:   protocol.CompletionItemKindKeyword,
-			Detail: protocol.NewOptional("Define a field within a struct"),
-		},
-		{
-			Label:  "domain",
-			Kind:   protocol.CompletionItemKindKeyword,
-			Detail: protocol.NewOptional("Define a domain block with rules"),
+			Detail: protocol.NewOptional("Declare a data structure"),
 		},
 		{
 			Label:  "enum",
 			Kind:   protocol.CompletionItemKindKeyword,
-			Detail: protocol.NewOptional("Define an enumeration type"),
+			Detail: protocol.NewOptional("Declare an enumeration type"),
+		},
+		{
+			Label:  "union",
+			Kind:   protocol.CompletionItemKindKeyword,
+			Detail: protocol.NewOptional("Declare a discriminated union"),
 		},
 		{
 			Label:  "import",
 			Kind:   protocol.CompletionItemKindKeyword,
 			Detail: protocol.NewOptional("Import another schema file"),
+		},
+		{
+			Label:  "extends",
+			Kind:   protocol.CompletionItemKindKeyword,
+			Detail: protocol.NewOptional("Inherit fields from another struct"),
+		},
+		{
+			Label:  "map",
+			Kind:   protocol.CompletionItemKindKeyword,
+			Detail: protocol.NewOptional("Declare a map type: map<K, V>"),
+		},
+		{
+			Label:  "action",
+			Kind:   protocol.CompletionItemKindKeyword,
+			Detail: protocol.NewOptional("Declare a wire mutation on a struct"),
 		},
 	}
 
@@ -105,27 +115,12 @@ var (
 		{
 			Label:  "float32",
 			Kind:   protocol.CompletionItemKindClass,
-			Detail: protocol.NewOptional("32-bit floating point"),
+			Detail: protocol.NewOptional("32-bit floating-point number"),
 		},
 		{
 			Label:  "float64",
 			Kind:   protocol.CompletionItemKindClass,
-			Detail: protocol.NewOptional("64-bit floating point"),
-		},
-		{
-			Label:  "timestamp",
-			Kind:   protocol.CompletionItemKindClass,
-			Detail: protocol.NewOptional("Timestamp type"),
-		},
-		{
-			Label:  "timespan",
-			Kind:   protocol.CompletionItemKindClass,
-			Detail: protocol.NewOptional("Duration/timespan type"),
-		},
-		{
-			Label:  "time_range",
-			Kind:   protocol.CompletionItemKindClass,
-			Detail: protocol.NewOptional("Time range type (start, end)"),
+			Detail: protocol.NewOptional("64-bit floating-point number"),
 		},
 		{
 			Label:  "record",
@@ -141,9 +136,14 @@ var (
 
 	domainNameCompletions = []protocol.CompletionItem{
 		{
-			Label:  "id",
+			Label:  "doc",
 			Kind:   protocol.CompletionItemKindProperty,
-			Detail: protocol.NewOptional("Marks field as primary key"),
+			Detail: protocol.NewOptional("Documentation for the declaration"),
+		},
+		{
+			Label:  "key",
+			Kind:   protocol.CompletionItemKindProperty,
+			Detail: protocol.NewOptional("Marks the field as the primary key"),
 		},
 		{
 			Label:  "validate",
@@ -151,14 +151,34 @@ var (
 			Detail: protocol.NewOptional("Validation constraints"),
 		},
 		{
-			Label:  "ontology",
+			Label:  "filter",
 			Kind:   protocol.CompletionItemKindProperty,
-			Detail: protocol.NewOptional("Ontology type mapping"),
+			Detail: protocol.NewOptional("Retrieve requests can filter on the field"),
 		},
 		{
-			Label:  "doc",
+			Label:  "ontology",
 			Kind:   protocol.CompletionItemKindProperty,
-			Detail: protocol.NewOptional("Documentation for the field/struct"),
+			Detail: protocol.NewOptional("Ontology resource type"),
+		},
+		{
+			Label:  "create",
+			Kind:   protocol.CompletionItemKindProperty,
+			Detail: protocol.NewOptional("Generate a create endpoint"),
+		},
+		{
+			Label:  "retrieve",
+			Kind:   protocol.CompletionItemKindProperty,
+			Detail: protocol.NewOptional("Generate a retrieve endpoint"),
+		},
+		{
+			Label:  "search",
+			Kind:   protocol.CompletionItemKindProperty,
+			Detail: protocol.NewOptional("Index the resource for search"),
+		},
+		{
+			Label:  "index",
+			Kind:   protocol.CompletionItemKindProperty,
+			Detail: protocol.NewOptional("Index configuration for the field"),
 		},
 		{
 			Label:  "go",
@@ -175,13 +195,28 @@ var (
 			Kind:   protocol.CompletionItemKindProperty,
 			Detail: protocol.NewOptional("Python output configuration"),
 		},
+		{
+			Label:  "cpp",
+			Kind:   protocol.CompletionItemKindProperty,
+			Detail: protocol.NewOptional("C++ output configuration"),
+		},
+		{
+			Label:  "pb",
+			Kind:   protocol.CompletionItemKindProperty,
+			Detail: protocol.NewOptional("Protobuf output configuration"),
+		},
 	}
 
 	validateExpressionCompletions = []protocol.CompletionItem{
 		{
 			Label:  "required",
 			Kind:   protocol.CompletionItemKindValue,
-			Detail: protocol.NewOptional("Field is required"),
+			Detail: protocol.NewOptional("Field must be set"),
+		},
+		{
+			Label:  "skip",
+			Kind:   protocol.CompletionItemKindValue,
+			Detail: protocol.NewOptional("Skip validation for this field"),
 		},
 		{
 			Label:  "min_length",
@@ -194,11 +229,6 @@ var (
 			Detail: protocol.NewOptional("Maximum string length"),
 		},
 		{
-			Label:  "pattern",
-			Kind:   protocol.CompletionItemKindValue,
-			Detail: protocol.NewOptional("Regex pattern constraint"),
-		},
-		{
 			Label:  "min",
 			Kind:   protocol.CompletionItemKindValue,
 			Detail: protocol.NewOptional("Minimum numeric value"),
@@ -209,19 +239,9 @@ var (
 			Detail: protocol.NewOptional("Maximum numeric value"),
 		},
 		{
-			Label:  "email",
+			Label:  "pattern",
 			Kind:   protocol.CompletionItemKindValue,
-			Detail: protocol.NewOptional("Email format validation"),
-		},
-		{
-			Label:  "url",
-			Kind:   protocol.CompletionItemKindValue,
-			Detail: protocol.NewOptional("URL format validation"),
-		},
-		{
-			Label:  "default",
-			Kind:   protocol.CompletionItemKindValue,
-			Detail: protocol.NewOptional("Default value"),
+			Detail: protocol.NewOptional("Regex pattern constraint"),
 		},
 	}
 
@@ -234,7 +254,7 @@ var (
 		{
 			Label:  "omit",
 			Kind:   protocol.CompletionItemKindValue,
-			Detail: protocol.NewOptional("Skip code generation for this struct/enum"),
+			Detail: protocol.NewOptional("Skip code generation for this declaration"),
 		},
 	}
 
@@ -300,56 +320,39 @@ func (s *Server) Completion(
 }
 
 func getCompletionsForContext(linePrefix string) []protocol.CompletionItem {
-	trimmed := strings.TrimSpace(linePrefix)
-
-	if strings.Contains(linePrefix, "domain validate") ||
-		isInsideDomain(linePrefix, "validate") {
-		return validateExpressionCompletions
-	}
-	if strings.Contains(linePrefix, "domain ts") || isInsideDomain(linePrefix, "ts") {
-		return tsExpressionCompletions
-	}
-	if strings.Contains(linePrefix, "domain ontology") ||
-		isInsideDomain(linePrefix, "ontology") {
-		return ontologyExpressionCompletions
-	}
-	if strings.Contains(linePrefix, "domain go") ||
-		strings.Contains(linePrefix, "domain py") ||
-		isInsideDomain(linePrefix, "go") ||
-		isInsideDomain(linePrefix, "py") {
-		return outputExpressionCompletions
-	}
-
-	if strings.HasSuffix(trimmed, "domain") {
-		return domainNameCompletions
-	}
-
-	if strings.Contains(trimmed, "field ") && !strings.Contains(trimmed, "{") {
-		parts := strings.Fields(trimmed)
-		if len(parts) >= 2 && parts[0] == "field" {
-			return primitiveTypeCompletions
+	trimmed := strings.TrimLeft(linePrefix, " \t")
+	if i := strings.LastIndex(trimmed, "@"); i >= 0 {
+		rest := trimmed[i+1:]
+		switch {
+		case strings.HasPrefix(rest, "validate "):
+			return validateExpressionCompletions
+		case strings.HasPrefix(rest, "ts "):
+			return tsExpressionCompletions
+		case strings.HasPrefix(rest, "ontology "):
+			return ontologyExpressionCompletions
+		case strings.HasPrefix(rest, "go "),
+			strings.HasPrefix(rest, "py "),
+			strings.HasPrefix(rest, "cpp "),
+			strings.HasPrefix(rest, "pb "):
+			return outputExpressionCompletions
+		default:
+			return domainNameCompletions
 		}
 	}
-
-	if trimmed == "" || !strings.Contains(trimmed, "{") {
+	if strings.TrimSpace(trimmed) == "" {
 		return keywordCompletions
 	}
-
 	all := make([]protocol.CompletionItem, 0)
 	all = append(all, keywordCompletions...)
 	all = append(all, primitiveTypeCompletions...)
-	all = append(all, domainNameCompletions...)
 	return all
-}
-
-func isInsideDomain(linePrefix, domainName string) bool {
-	return strings.Contains(linePrefix, domainName) && strings.Contains(linePrefix, "{")
 }
 
 func extractPrefix(linePrefix string) string {
 	for i := len(linePrefix) - 1; i >= 0; i-- {
 		ch := linePrefix[i]
-		if ch == ' ' || ch == '\t' || ch == '{' || ch == '}' || ch == '[' || ch == ']' {
+		if ch == ' ' || ch == '\t' || ch == '{' || ch == '}' || ch == '[' ||
+			ch == ']' || ch == '@' {
 			return linePrefix[i+1:]
 		}
 	}

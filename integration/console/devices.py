@@ -12,27 +12,23 @@ import json
 from playwright.sync_api import Locator
 
 import synnax as sy
-from console.context_menu import ContextMenu
+from console.base import ResourceClient
 from console.layout import LayoutClient
-from console.tree import Tree
 
 
-class DevicesClient:
+class DevicesClient(ResourceClient):
     """Device and rack management for Console UI automation."""
 
     RACK_PREFIX = "rack:"
     DEVICE_PREFIX = "device:"
-    ICON_NAME = "device"
 
     def __init__(self, layout: LayoutClient, client: sy.Synnax):
-        self.layout = layout
+        super().__init__(layout)
         self.client = client
-        self.ctx_menu = ContextMenu(layout.page)
-        self.tree = Tree(layout.page)
 
     def show_toolbar(self) -> None:
         """Show the devices toolbar in the left sidebar."""
-        self.layout.show_resource_toolbar(self.ICON_NAME)
+        self.layout.show_resource_toolbar("Devices")
 
     def _find_item(self, prefix: str, name: str) -> Locator | None:
         """Find an item in the tree by prefix and name."""
@@ -209,7 +205,9 @@ class DevicesClient:
             status_icon = item.locator("svg.pluto-rack__heartbeat")
         status_icon.wait_for(state="visible", timeout=2000)
         status_icon.hover()
-        tooltip = self.layout.page.locator(".pluto-tooltip")
+        # A tooltip from a previously hovered item lingers with pluto--closing
+        # while it fades out, so exclude it to keep the lookup unambiguous.
+        tooltip = self.layout.page.locator(".pluto-tooltip:not(.pluto--closing)")
         tooltip.wait_for(state="visible", timeout=5000)
         message = tooltip.inner_text().strip()
         if is_device:
@@ -323,7 +321,7 @@ class DevicesClient:
     def get_icon(self, name: str) -> str | None:
         """Get the icon type rendered for a device in the tree.
 
-        The icon's ``aria-label`` follows the pattern ``pluto-icon--logo-{make}``.
+        The icon's class list contains ``pluto-icon--logo-{make}``.
 
         :param name: Name of the device.
         :returns: The make slug (e.g. ``"ni"``, ``"labjack"``), or ``None``
@@ -335,12 +333,12 @@ class DevicesClient:
         ).first
         if icon.count() == 0:
             return None
-        aria = icon.get_attribute("aria-label") or ""
+        classes = icon.get_attribute("class") or ""
         prefix = "pluto-icon--logo-"
-        idx = aria.find(prefix)
+        idx = classes.find(prefix)
         if idx == -1:
             return None
-        return aria[idx + len(prefix) :]
+        return classes[idx + len(prefix) :].split(" ")[0]
 
     def has_expand_arrow(self, name: str) -> bool:
         """Check if a device has an expand arrow (i.e. can have children).

@@ -87,7 +87,7 @@ var _ = Describe("Writer", func() {
 			idxCh = channel.Channel{
 				Name:     "variable_time",
 				IsIndex:  true,
-				DataType: telem.TimeStampT,
+				DataType: telem.TimestampT,
 			}
 			idxCh = MustSucceed(node.Channel.Create(ctx, []channel.Channel{idxCh}))[0]
 			strCh = channel.Channel{
@@ -382,7 +382,7 @@ var _ = Describe("Writer", func() {
 				idx := channel.Channel{
 					Name:        "auto_index_time",
 					IsIndex:     true,
-					DataType:    telem.TimeStampT,
+					DataType:    telem.TimestampT,
 					Leaseholder: peer,
 				}
 				idx = MustSucceed(gw.Channel.Create(ctx, []channel.Channel{idx}))[0]
@@ -436,7 +436,7 @@ var _ = Describe("Writer", func() {
 					idxCh = channel.Channel{
 						Name:        "free_time",
 						IsIndex:     true,
-						DataType:    telem.TimeStampT,
+						DataType:    telem.TimestampT,
 						Leaseholder: node.KeyFree,
 						Virtual:     true,
 					}

@@ -12,15 +12,14 @@ package lsp
 import (
 	"context"
 	"io"
-	"path/filepath"
 	"strings"
 	"sync"
 
 	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/formatter"
 	"github.com/synnaxlabs/oracle/parser"
+	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/resolution"
-	"github.com/synnaxlabs/x/diagnostics"
 	xlsp "github.com/synnaxlabs/x/lsp"
 	"go.lsp.dev/jsonrpc2"
 	"go.lsp.dev/protocol"
@@ -40,12 +39,7 @@ const translateSource = "oracle-analyzer"
 
 // Document represents an open document in the LSP server.
 type Document struct {
-	Schema      parser.ISchemaContext
-	Table       *resolution.Table
-	Diagnostics *diagnostics.Diagnostics
-	URI         uri.URI
-	Content     string
-	Version     int32
+	Content string
 }
 
 var _ protocol.Server = (*Server)(nil)
@@ -97,9 +91,7 @@ func (s *Server) Serve(ctx context.Context, rwc io.ReadWriteCloser) error {
 }
 
 // SetClient sets the LSP client for sending notifications.
-func (s *Server) SetClient(client protocol.Client) {
-	s.client = client
-}
+func (s *Server) SetClient(client protocol.Client) { s.client = client }
 
 // getDocument retrieves a document from the cache by URI.
 func (s *Server) getDocument(docURI uri.URI) (*Document, bool) {
@@ -124,9 +116,7 @@ func (s *Server) Initialize(
 }
 
 // Shutdown handles the shutdown request.
-func (s *Server) Shutdown(_ context.Context) error {
-	return nil
-}
+func (*Server) Shutdown(context.Context) error { return nil }
 
 // DidOpen handles opening a document.
 func (s *Server) DidOpen(
@@ -135,11 +125,7 @@ func (s *Server) DidOpen(
 ) error {
 	docURI := params.TextDocument.URI
 	s.mu.Lock()
-	s.documents[docURI] = &Document{
-		URI:     docURI,
-		Version: params.TextDocument.Version,
-		Content: params.TextDocument.Text,
-	}
+	s.documents[docURI] = &Document{Content: params.TextDocument.Text}
 	s.mu.Unlock()
 	s.publishDiagnostics(ctx, docURI, params.TextDocument.Text)
 	return nil
@@ -154,7 +140,6 @@ func (s *Server) DidChange(
 	s.mu.Lock()
 	if doc, ok := s.documents[docURI]; ok {
 		if len(params.ContentChanges) > 0 {
-			doc.Version = params.TextDocument.Version
 			for _, change := range params.ContentChanges {
 				doc.Content = xlsp.ApplyIncrementalChange(doc.Content, change)
 			}
@@ -162,7 +147,7 @@ func (s *Server) DidChange(
 	}
 	s.mu.Unlock()
 	s.mu.RLock()
-	content := ""
+	var content string
 	if doc, ok := s.documents[docURI]; ok {
 		content = doc.Content
 	}
@@ -195,67 +180,62 @@ func (s *Server) publishDiagnostics(
 	content string,
 ) {
 	s.mu.Lock()
-	doc, ok := s.documents[docURI]
+	_, ok := s.documents[docURI]
 	s.mu.Unlock()
 	if !ok {
 		return
 	}
 
-	ast, parseDiag := parser.Parse(content)
+	_, parseDiag := parser.Parse(content)
 	if parseDiag != nil && !parseDiag.Ok() {
-		doc.Diagnostics = parseDiag
 		_ = s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
 			URI:         docURI,
 			Diagnostics: xlsp.TranslateDiagnostics(*parseDiag, translateSource),
 		})
 		return
 	}
-
-	doc.Schema = ast
 	namespace := deriveNamespaceFromURI(docURI)
-	table, analyzeDiag := analyzer.AnalyzeSource(ctx, content, namespace, noopLoader{})
+	// The real file path distinguishes version files from live schemas so the
+	// analyzer's placement rules key correctly.
+	filePath := strings.TrimPrefix(string(docURI), "file://")
+	table := resolution.NewTable()
+	analyzeDiag := analyzer.AnalyzeSeeded(
+		ctx, content, filePath, namespace, noopLoader{}, table,
+	)
 	if analyzeDiag != nil {
 		flat := analyzeDiag.Flat()
-		doc.Diagnostics = &flat
-		doc.Table = table
 		_ = s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
 			URI:         docURI,
 			Diagnostics: xlsp.TranslateDiagnostics(flat, translateSource),
 		})
 		return
 	}
-
-	doc.Table = table
-	doc.Diagnostics = &diagnostics.Diagnostics{}
 	_ = s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
 		URI:         docURI,
 		Diagnostics: []protocol.Diagnostic{},
 	})
 }
 
-// deriveNamespaceFromURI extracts a namespace from the document URI.
+// deriveNamespaceFromURI extracts a namespace from the document URI. A version file's
+// namespace is its resource ("crdt" for versions/crdt/v0.oracle), never the vN base
+// name.
 func deriveNamespaceFromURI(docURI uri.URI) string {
-	path := string(docURI)
-	path = strings.TrimPrefix(path, "file://")
-	base := filepath.Base(path)
-	ext := filepath.Ext(base)
-	if ext != "" {
-		base = base[:len(base)-len(ext)]
-	}
-	return base
+	return paths.DeriveNamespace(strings.TrimPrefix(string(docURI), "file://"))
 }
 
-// noopLoader is a FileLoader that doesn't load any files.
-// It's used by the LSP server for analyzing single files without import resolution.
+// noopLoader is a FileLoader that doesn't load any files. It's used by the LSP server
+// for analyzing single files without import resolution.
 type noopLoader struct{}
 
 func (noopLoader) Load(path string) (source, filePath string, err error) {
 	return "", path, nil
 }
 
-func (noopLoader) RepoRoot() string {
-	return ""
-}
+// Versioned reports every resource as versioned: with no files to consult, the stricter
+// answer keeps the editor from suggesting an import the pipeline rejects.
+func (noopLoader) Versioned(string) bool { return true }
+
+func (noopLoader) RepoRoot() string { return "" }
 
 // Formatting handles document formatting requests.
 func (s *Server) Formatting(

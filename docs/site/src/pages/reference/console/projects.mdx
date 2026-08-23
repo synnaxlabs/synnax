@@ -1,0 +1,93 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Projects"
+heading: "Projects"
+description: "Organize and share Console layouts with projects."
+prev: "Calculated Channels"
+prevURL: "/reference/console/calculated-channels"
+next: "Ranges"
+nextURL: "/reference/console/ranges"
+---
+
+import { Divider, Note, Icon } from "@synnaxlabs/pluto";
+
+import Diagram from "@/components/diagram/Diagram.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+import { Image, Video } from "@/components/media/Media";
+
+export const components = mdxOverrides;
+
+<Diagram style="height: 400px" preview>
+  <Image
+    client:only="react"
+    id="console/workspaces/workspaces"
+    themed={false}
+    style={{
+      height: "500px",
+      width: "fit-content",
+      transform: "translate(-6%, -9%)",
+      borderRadius: "1.5rem",
+      boxShadow: "-1rem -1rem 1rem 3px var(--pluto-gray-l1-15)",
+    }}
+  />
+</Diagram>
+
+Projects are saved Console layouts. Each project keeps its own panels and arrangement,
+so you can build one for a stand, campaign, or operator view.
+
+<Note.Note variant="warning">
+  Make sure that you are working in an active project. A
+  [schematic](/reference/console/schematics) or [line
+  plot](/reference/console/line-plots) created outside one is **not saved**.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Creating and Loading
+
+### Create
+
+Create a project from the Project Selector in the top-left corner of the Console, or
+with the `Create a project` command in the
+[Command Palette](/reference/console/ui-overview#search-and-command-palette).
+
+<Video client:only="react" id="console/workspaces/create" />
+
+### Load
+
+Load a project from the [Projects Toolbar](/reference/console/ui-overview#projects) on
+the left-hand side, or from the Project Selector in the top-left corner.
+
+<Video client:only="react" id="console/workspaces/load" />
+
+<Divider.Divider x />
+
+## Sharing a Project
+
+### Via Link
+
+Right-click the project in the Projects Toolbar and click `Copy Link`.
+
+Anyone connected to the same Core can open the project by pasting the link into a web
+browser.
+
+<Image client:only="react" id="console/workspaces/copy-link" />
+
+### Via File
+
+Right-click the project in the Projects Toolbar and click `Export`.
+
+<Image client:only="react" id="console/workspaces/export" />
+
+You can also run the `Export current project` command in the
+[Command Palette](/reference/console/ui-overview#search-and-command-palette).
+
+The project is saved as a directory holding a `PANELS.json` file, which describes the
+panels, and one JSON file per schematic, line plot, or other visualization.
+
+<Divider.Divider x />
+
+## Importing a Project
+
+Run the `Import a project` command, or drag a directory containing a `PANELS.json` file
+into the Console.

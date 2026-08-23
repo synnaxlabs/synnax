@@ -225,6 +225,24 @@ describe("Button", () => {
       const c = render(<Button.Button preventClick>Hello</Button.Button>);
       expect(c.getByText("Hello").className).toContain("pluto-btn--prevent-click");
     });
+
+    it("should cancel the press default on the chassis itself", () => {
+      const c = render(
+        <Button.Button preventClick el="div">
+          Hello
+        </Button.Button>,
+      );
+      expect(fireEvent.mouseDown(c.getByText("Hello"))).toBe(false);
+    });
+
+    it("should leave the press default alone for a focusable descendant", () => {
+      const c = render(
+        <Button.Button preventClick el="div">
+          <input aria-label="alias" />
+        </Button.Button>,
+      );
+      expect(fireEvent.mouseDown(c.getByLabelText("alias"))).toBe(true);
+    });
   });
 
   describe("disabled", () => {
@@ -351,7 +369,7 @@ describe("Button", () => {
     });
     it("should display a loading indicator when the status is loading", () => {
       const c = render(<Button.Button status="loading">Hello</Button.Button>);
-      expect(c.getByLabelText("pluto-icon--loading")).toBeTruthy();
+      expect(c.container.querySelector(".pluto-icon--loading")!).toBeTruthy();
     });
 
     it("should display the content along with the loading indicator when the button is not square", () => {
@@ -365,7 +383,7 @@ describe("Button", () => {
           <Icon.Access />
         </Button.Button>,
       );
-      const el = c.queryByLabelText("pluto-icon--access");
+      const el = c.container.querySelector(".pluto-icon--access");
       expect(el?.parentElement).not.toBeTruthy();
     });
   });

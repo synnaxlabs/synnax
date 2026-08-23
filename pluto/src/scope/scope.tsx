@@ -55,7 +55,6 @@ export interface Instance<K extends record.Key> {
  * create mints a typed scope: a Provider that publishes an active key and hooks that
  * read it. Call once per domain so each scope carries its own branded key type and
  * nests independently of other domains.
- *
  * @param name identifies the scope in error messages and the context display name.
  */
 export const create = <K extends record.Key>(name: string): Instance<K> => {

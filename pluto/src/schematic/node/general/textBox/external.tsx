@@ -23,19 +23,19 @@ export const defaultConfig = (): schematic.TextBoxNodeConfig => ({
   color: color.ZERO,
   autoFit: true,
   align: "center",
-  label: Label.defaultConfig("Text Box"),
+  label: Label.defaultConfig("Text box"),
   level: "p",
-  value: "Text Box",
+  value: "Text box",
   width: 75,
 });
 
 const Preview = (props: schematic.TextBoxNodeConfig): ReactElement => (
-  <TextBox {...props} autoFit value="Text Box" />
+  <TextBox {...props} autoFit value="Text box" />
 );
 
 export const spec: Spec<"text_box", schematic.TextBoxNodeConfig> = {
   key: "text_box",
-  name: "Text Box",
+  name: "Text box",
   Form: TextBoxForm,
   Node: Symbol,
   Preview,

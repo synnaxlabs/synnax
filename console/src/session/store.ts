@@ -67,7 +67,7 @@ const PERSIST_SCOPES: Persist.Scopes<State> = {
 };
 
 const PERSIST_MIGRATORS: Persist.SliceMigrators<State> = {
-  [Status.SLICE_NAME]: (raw) => Status.migrateSlice(raw as Status.AnySliceState),
+  [Status.SLICE_NAME]: Status.migrateSlice,
 };
 
 const getPersistContext = (state: State): Persist.Context => ({

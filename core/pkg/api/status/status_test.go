@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
+	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -40,7 +41,7 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 
 				res := MustSucceed(
 					apiSvc.SetByKeyOrName(
-						authedCtx(ctx, author),
+						AuthedCtx(ctx, author),
 						db,
 						apistatus.SetByKeyOrNameRequest{
 							KeyOrName: name,
@@ -80,7 +81,7 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 
 				res := MustSucceed(
 					apiSvc.SetByKeyOrName(
-						authedCtx(ctx, author),
+						AuthedCtx(ctx, author),
 						db,
 						apistatus.SetByKeyOrNameRequest{
 							KeyOrName: key,
@@ -112,7 +113,7 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 
 				res := MustSucceed(
 					apiSvc.SetByKeyOrName(
-						authedCtx(ctx, author),
+						AuthedCtx(ctx, author),
 						db,
 						apistatus.SetByKeyOrNameRequest{
 							KeyOrName: name,
@@ -136,7 +137,7 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 					statusTypeOnly)
 
 				Expect(
-					apiSvc.SetByKeyOrName(authedCtx(ctx, author), db, apistatus.SetByKeyOrNameRequest{
+					apiSvc.SetByKeyOrName(AuthedCtx(ctx, author), db, apistatus.SetByKeyOrNameRequest{
 						KeyOrName: name,
 						Message:   "x",
 						Variant:   "bogus",
@@ -154,7 +155,7 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 					statusTypeOnly)
 
 				Expect(
-					apiSvc.SetByKeyOrName(authedCtx(ctx, author), db, apistatus.SetByKeyOrNameRequest{
+					apiSvc.SetByKeyOrName(AuthedCtx(ctx, author), db, apistatus.SetByKeyOrNameRequest{
 						KeyOrName: "",
 						Message:   "x",
 						Variant:   status.VariantInfo,
@@ -172,7 +173,7 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 
 				Expect(
 					apiSvc.SetByKeyOrName(
-						authedCtx(ctx, anon),
+						AuthedCtx(ctx, anon),
 						db,
 						apistatus.SetByKeyOrNameRequest{
 							KeyOrName: name,
@@ -200,7 +201,7 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 
 				Expect(
 					apiSvc.SetByKeyOrName(
-						authedCtx(ctx, anon),
+						AuthedCtx(ctx, anon),
 						db,
 						apistatus.SetByKeyOrNameRequest{
 							KeyOrName: name,
@@ -213,4 +214,78 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 			},
 		)
 	})
+})
+
+// createStatus persists a fresh status and returns it. Writes commit immediately (nil
+// tx) so access-control reads can observe the new ontology resource.
+func createStatus(ctx SpecContext, name string) status.Status[any] {
+	GinkgoHelper()
+	s := status.Status[any]{
+		Key:     uuid.NewString(),
+		Name:    name,
+		Message: "test",
+		Variant: status.VariantInfo,
+		Time:    telem.Now(),
+	}
+	Expect(statusSvc.NewWriter(nil).Set(ctx, &s)).To(Succeed())
+	return s
+}
+
+var _ = Describe("Service.Retrieve", func() {
+	It(
+		"Should omit missing keys from a multi-key retrieve instead of failing",
+		func(ctx SpecContext) {
+			s := createStatus(ctx, "api_partial_"+uuid.New().String())
+			grantOn(ctx, author.OntologyID(),
+				[]access.Action{access.ActionRetrieve},
+				statusTypeOnly)
+
+			res := MustSucceed(
+				apiSvc.Retrieve(
+					AuthedCtx(ctx, author),
+					apistatus.RetrieveRequest{
+						Keys:                []status.Key{s.Key, uuid.NewString()},
+						IgnoreNotFoundError: true,
+					},
+				),
+			)
+			Expect(res.Statuses).To(HaveLen(1))
+			Expect(res.Statuses[0].Key).To(Equal(s.Key))
+		},
+	)
+
+	It(
+		"Should return an empty result when every requested key is missing",
+		func(ctx SpecContext) {
+			grantOn(ctx, author.OntologyID(),
+				[]access.Action{access.ActionRetrieve},
+				statusTypeOnly)
+
+			res := MustSucceed(
+				apiSvc.Retrieve(
+					AuthedCtx(ctx, author),
+					apistatus.RetrieveRequest{
+						Keys:                []status.Key{uuid.NewString()},
+						IgnoreNotFoundError: true,
+					},
+				),
+			)
+			Expect(res.Statuses).To(BeEmpty())
+		},
+	)
+
+	It(
+		"Should return a not found error for a missing key without the flag",
+		func(ctx SpecContext) {
+			grantOn(ctx, author.OntologyID(),
+				[]access.Action{access.ActionRetrieve},
+				statusTypeOnly)
+
+			Expect(
+				apiSvc.Retrieve(AuthedCtx(ctx, author), apistatus.RetrieveRequest{
+					Keys: []status.Key{uuid.NewString()},
+				}),
+			).Error().To(MatchError(query.ErrNotFound))
+		},
+	)
 })

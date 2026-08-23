@@ -500,22 +500,23 @@ var _ = Describe("Type", func() {
 		})
 
 		Describe("IsBool", func() {
-			It("Should return true for U8", func() {
-				Expect(types.U8().IsBool()).To(BeTrue())
+			It("Should return true for Bool", func() {
+				Expect(types.Bool().IsBool()).To(BeTrue())
 			})
 
 			It("Should return false for other types", func() {
+				Expect(types.U8().IsBool()).To(BeFalse())
 				Expect(types.I32().IsBool()).To(BeFalse())
 				Expect(types.String().IsBool()).To(BeFalse())
 			})
 
 			It("Should check value type for channels", func() {
-				Expect(types.Chan(types.U8()).IsBool()).To(BeTrue())
+				Expect(types.Chan(types.Bool()).IsBool()).To(BeTrue())
 				Expect(types.Chan(types.I32()).IsBool()).To(BeFalse())
 			})
 
 			It("Should check value type for series", func() {
-				Expect(types.Series(types.U8()).IsBool()).To(BeTrue())
+				Expect(types.Series(types.Bool()).IsBool()).To(BeTrue())
 				Expect(types.Series(types.I32()).IsBool()).To(BeFalse())
 			})
 		})
@@ -551,6 +552,7 @@ var _ = Describe("Type", func() {
 			Entry("Sequence", types.Sequence(), "sequence"),
 			Entry("Stage", types.Stage(), "stage"),
 			Entry("String", types.String(), "str"),
+			Entry("Bool", types.Bool(), "bool"),
 			Entry("TimeStamp", types.TimeStamp(), "i64 ns"),
 			Entry("TimeSpan", types.TimeSpan(), "i64 ns"),
 		)
@@ -661,8 +663,9 @@ var _ = Describe("Type", func() {
 			Entry("F32", types.F32(), telem.Float32T),
 			Entry("F64", types.F64(), telem.Float64T),
 			Entry("String", types.String(), telem.StringT),
-			Entry("TimeStamp", types.TimeStamp(), telem.TimeStampT),
-			Entry("TimeSpan", types.TimeSpan(), telem.TimeStampT),
+			Entry("Bool", types.Bool(), telem.BooleanT),
+			Entry("TimeStamp", types.TimeStamp(), telem.TimestampT),
+			Entry("TimeSpan", types.TimeSpan(), telem.TimestampT),
 		)
 
 		It("Should return UnknownT for types that don't map to telem", func() {

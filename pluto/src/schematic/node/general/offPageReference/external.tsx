@@ -21,19 +21,19 @@ export const defaultConfig = (): schematic.OffPageReferenceNodeConfig => ({
   variant: "off_page_reference",
   color: color.ZERO,
   orientation: "right",
-  label: Label.defaultConfig("Off Page Reference"),
+  label: Label.defaultConfig("Off page reference"),
 });
 
 const Preview = ({
   label: _,
   ...rest
 }: schematic.OffPageReferenceNodeConfig): ReactElement => (
-  <OffPageReference label="Off Page" {...rest} orientation="right" />
+  <OffPageReference label="Off page" {...rest} orientation="right" />
 );
 
 export const spec: Spec<"off_page_reference", schematic.OffPageReferenceNodeConfig> = {
   key: "off_page_reference",
-  name: "Off Page",
+  name: "Off page",
   Form: OffPageReferenceForm,
   Node: Symbol,
   Preview,

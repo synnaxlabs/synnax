@@ -18,9 +18,23 @@ import (
 	"github.com/synnaxlabs/cesium"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/io/fs"
+	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+var _ = Describe("Options", func() {
+	It("Should reject a non-positive slow consumer timeout", func(ctx SpecContext) {
+		Expect(cesium.Open(
+			ctx,
+			"",
+			cesium.WithFS(fs.NewMem()),
+			cesium.WithSlowConsumerTimeout(0),
+		)).Error().To(MatchError(
+			ContainSubstring("slow_consumer_timeout: must be positive"),
+		))
+	})
+})
 
 var _ = Describe("Open", func() {
 	for fsName, openFS := range FileSystems {
@@ -70,7 +84,7 @@ var _ = Describe("Open", func() {
 							Key:      key,
 							Name:     "Edison",
 							IsIndex:  true,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 						})).To(Succeed())
 						Expect(db.Close()).To(Succeed())
 
@@ -106,7 +120,7 @@ var _ = Describe("Open", func() {
 							Key:      indexKey,
 							Name:     "Tesla",
 							IsIndex:  true,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 						})).To(Succeed())
 						Expect(db.CreateChannel(ctx, cesium.Channel{
 							Key:      key,
@@ -137,7 +151,7 @@ var _ = Describe("Open", func() {
 						Expect(ch).ToNot(BeNil())
 						Expect(ch.Key).To(Equal(indexKey))
 						Expect(ch.IsIndex).To(BeTrue())
-						Expect(ch.DataType).To(Equal(telem.TimeStampT))
+						Expect(ch.DataType).To(Equal(telem.TimestampT))
 
 						By("Asserting that writes to the db still occurs normally")
 						Expect(db.Write(ctx, 11*telem.SecondTS, telem.MultiFrame(

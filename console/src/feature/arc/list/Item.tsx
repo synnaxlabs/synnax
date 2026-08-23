@@ -38,6 +38,7 @@ export const Item = ({ onRename, textIdPrefix = "text", ...props }: ItemProps) =
           value={selected}
           onChange={onSelect}
           onClick={stopPropagation}
+          aria-label="Select"
         />
         <Text.MaybeEditable
           id={`${textIdPrefix}-${itemKey}`}

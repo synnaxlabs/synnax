@@ -14,7 +14,13 @@ import {
   type Synnax as Client,
   UnexpectedError,
 } from "@synnaxlabs/client";
-import { compare, type destructor, type state, TimeSpan } from "@synnaxlabs/x";
+import {
+  caseconv,
+  compare,
+  type destructor,
+  type state,
+  TimeSpan,
+} from "@synnaxlabs/x";
 import {
   useCallback,
   useEffect,
@@ -80,11 +86,10 @@ export interface CreateRetrieveParams<
    */
   normalizeQuery?: <Q extends Query>(query: Q) => Q;
   /**
-   * Holds a not-found pending for a short wait instead of settling it, for
-   * documents a reference can reach a reader ahead of: a panel tab minted in
-   * another window names its view before that view's create broadcast lands.
-   * Every other reader shows absence at once. Requires `onChange` and
-   * `getCached`.
+   * Holds a not-found pending for a short wait instead of settling it, for documents a
+   * reference can reach a reader ahead of: a panel tab minted in another window names
+   * its view before that view's create broadcast lands. Every other reader shows
+   * absence at once. Requires `onChange` and `getCached`.
    */
   awaitCreation?: boolean;
 }
@@ -303,7 +308,9 @@ const waitForCreation = <Query extends query.Params, Data extends query.Data>(
       if (result === undefined) return;
       finish();
       if (Deleted.matches<Data>(result))
-        reject(new DeletedError(`${name} was deleted`, result.corpse));
+        reject(
+          new DeletedError(`${caseconv.capitalize(name)} was deleted`, result.corpse),
+        );
       else resolve(result);
     });
     // An already-answered query delivers during onChange itself, before the
@@ -315,7 +322,9 @@ const waitForCreation = <Query extends query.Params, Data extends query.Data>(
     if (cached !== undefined) {
       finish();
       if (Deleted.matches<Data>(cached))
-        reject(new DeletedError(`${name} was deleted`, cached.corpse));
+        reject(
+          new DeletedError(`${caseconv.capitalize(name)} was deleted`, cached.corpse),
+        );
       else resolve(cached);
     }
   });
@@ -391,7 +400,7 @@ const useSuspended = <Query extends query.Params, Data extends query.Data>(
   // find the end of the recorded hook list.
   if (pending.promise == null && cached !== undefined) {
     if (Deleted.matches<Data>(cached))
-      throw new DeletedError(`${name} was deleted`, cached.corpse);
+      throw new DeletedError(`${caseconv.capitalize(name)} was deleted`, cached.corpse);
     return cached;
   }
   return suspendOnFetch(
@@ -480,7 +489,7 @@ const useResultValue = <Query extends query.Params, Data extends query.Data>(
     return hold(["deleted", cached], () =>
       errorResult(
         `retrieve ${name}`,
-        new DeletedError(`${name} was deleted`, cached.corpse),
+        new DeletedError(`${caseconv.capitalize(name)} was deleted`, cached.corpse),
       ),
     );
   }
@@ -522,7 +531,10 @@ const useEnsure = <Query extends query.Params, Data extends query.Data>(
     const cached = getCached?.(params);
     if (cached !== undefined) {
       if (Deleted.matches<Data>(cached))
-        throw new DeletedError(`${name} was deleted`, cached.corpse);
+        throw new DeletedError(
+          `${caseconv.capitalize(name)} was deleted`,
+          cached.corpse,
+        );
       return;
     }
   }
@@ -617,7 +629,10 @@ const createSelector = <
             `Cannot select ${name}: nothing cached. A parent must retrieve it first.`,
           );
         if (Deleted.matches<Data>(raw))
-          throw new DeletedError(`${name} was deleted`, raw.corpse);
+          throw new DeletedError(
+            `${caseconv.capitalize(name)} was deleted`,
+            raw.corpse,
+          );
         const cached = computed.current;
         if (cached != null && cached.raw === raw && cached.query === memoQuery)
           return cached.out;
@@ -745,7 +760,7 @@ const createResultSelector = <
       return hold(["deleted", slice.corpse], () =>
         errorResult(
           `retrieve ${name}`,
-          new DeletedError(`${name} was deleted`, slice.corpse),
+          new DeletedError(`${caseconv.capitalize(name)} was deleted`, slice.corpse),
         ),
       );
     const local = localFor(locals, client);

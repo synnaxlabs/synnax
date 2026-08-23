@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc } from "@synnaxlabs/client";
+import "@/platform/arc/ContextMenu.css";
+
+import { arc, query, task } from "@synnaxlabs/client";
 import {
   Access,
   Arc,
@@ -16,6 +18,8 @@ import {
   type List,
   Menu,
   Status,
+  Synnax,
+  Task,
   Text,
 } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
@@ -23,6 +27,8 @@ import { useCallback } from "react";
 
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu as Base } from "@/platform/context-menu";
+import { CSS } from "@/platform/css";
+import { Framer } from "@/platform/framer";
 import { Link } from "@/platform/link";
 import { Modals } from "@/platform/modals";
 import { Panel } from "@/platform/panel";
@@ -43,6 +49,20 @@ export const ContextMenu = ({
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const someSelected = keys.length > 0;
   const isSingle = keys.length === 1;
+
+  const client = Synnax.use();
+  const canControl = Framer.useCanCommand();
+  const { update: runCommand } = Task.useCommand();
+  const redeployTaskKeys =
+    client == null || !canControl
+      ? []
+      : keys
+          .map((key) => client.arcs.task.getCached(key))
+          .filter(
+            (tsk): tsk is task.Task =>
+              query.isLive(tsk) && tsk != null && task.drifted(tsk),
+          )
+          .map(({ key }) => key);
 
   const dispatch = Session.useDispatch();
   const openTab = Panel.useOpenTab();
@@ -69,7 +89,7 @@ export const ContextMenu = ({
       return addStatus({
         variant: "error",
         message: "Failed to open Arc editor",
-        description: `Arc with key ${keys[0]} not found`,
+        description: "The Arc no longer exists.",
       });
     openTab({ variant: "resource", resource: arc.ontologyID(retrieved.key) });
   };
@@ -82,6 +102,19 @@ export const ContextMenu = ({
 
   return (
     <Base.Menu>
+      {redeployTaskKeys.length > 0 && (
+        <Menu.Item
+          className={CSS.BE("arc", "redeploy-item")}
+          itemKey="redeploy"
+          onClick={() =>
+            runCommand(redeployTaskKeys.map((key) => ({ task: key, type: "start" })))
+          }
+        >
+          <Icon.Refresh />
+          Redeploy
+        </Menu.Item>
+      )}
+      <Menu.Divider />
       {hasUpdatePermission && isSingle && (
         <>
           <Menu.Item itemKey="edit" onClick={handleEdit}>

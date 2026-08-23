@@ -34,7 +34,7 @@ stage pressurize {
     abort_btn => abort
 
     // Automation next
-    1 -> press_vlv_cmd
+    true -> press_vlv_cmd
     ox_pt_1 > 500 => next
 }
 ```
@@ -83,23 +83,23 @@ step is just a write or a wait, make it a sequence item directly:
 ```arc channels="vent_vlv_cmd, press_vlv_cmd, tank_pressure", bodies="abort"
 // Good: the linear part is linear, stages exist only where they earn their keep
 sequence prime {
-    0 -> vent_vlv_cmd
-    1 -> press_vlv_cmd
+    false -> vent_vlv_cmd
+    true -> press_vlv_cmd
     stage {
         tank_pressure > 500 => next
         time.wait{30s} => abort
     }
-    0 -> press_vlv_cmd
+    false -> press_vlv_cmd
 }
 
 // Avoid: single-flow stages that exist only to hold one write
 sequence prime {
     stage close_vent {
-        0 -> vent_vlv_cmd
+        false -> vent_vlv_cmd
         time.wait{1ms} => next
     }
     stage open_press {
-        1 -> press_vlv_cmd
+        true -> press_vlv_cmd
         time.wait{1ms} => next
     }
     stage wait_pressure {
@@ -107,7 +107,7 @@ sequence prime {
         time.wait{30s} => abort
     }
     stage close_press {
-        0 -> press_vlv_cmd
+        false -> press_vlv_cmd
     }
 }
 ```
@@ -135,10 +135,10 @@ The first execution computes `value - 0`, which may be misleading. Options:
 // Option 1: Use a "first run" flag
 func rate(value f64) f64 {
     prev $= 0.0
-    first $= 1
+    first $= true
     if first {
         prev = value
-        first = 0
+        first = false
         return 0.0
     }
     d := value - prev
@@ -165,8 +165,8 @@ sequence main {
     stage emergency {
         // Escalate to override all other writers
         control.set_authority{value=255}
-        0 -> press_vlv_cmd
-        1 -> vent_vlv_cmd
+        false -> press_vlv_cmd
+        true -> vent_vlv_cmd
     }
 }
 ```
@@ -199,22 +199,15 @@ When multiple flows write to the same channel, last write wins:
 
 ```arc channels="valve_cmd"
 stage example {
-    0 -> valve_cmd // Writes 0
-    1 -> valve_cmd // Writes 1 (overwrites 0)
+    false -> valve_cmd // Writes false
+    true -> valve_cmd // Writes true (overwrites false)
 }
 ```
 
 This is usually a mistake. Use conditional logic instead:
 
-```arc channels="valve_cmd"
-func valve_control(condition u8) u8 {
-    if condition {
-        return 1
-    }
-    return 0
-}
-
-condition -> valve_control{} -> valve_cmd
+```arc channels="pressure, valve_cmd"
+pressure < 500 -> valve_cmd
 ```
 
 ### Type Mismatches

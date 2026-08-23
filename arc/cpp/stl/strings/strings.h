@@ -651,6 +651,15 @@ public:
         linker
             .func_wrap(
                 MODULE_NAME,
+                "from_bool",
+                [ss](int32_t v) -> uint32_t {
+                    return ss->create(v != 0 ? "true" : "false");
+                }
+            )
+            .unwrap();
+        linker
+            .func_wrap(
+                MODULE_NAME,
                 "format_i32",
                 [self, ss](int32_t v, uint32_t ptr, uint32_t len) -> uint32_t {
                     const std::string spec = self->read_memory_string(ptr, len);

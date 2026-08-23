@@ -30,15 +30,21 @@ import { Text as TelemText } from "@/telem/text";
 import { Text } from "@/text";
 import { Triggers } from "@/triggers";
 
+/** Props for {@link DateTime}. The value is UTC nanoseconds since the Unix epoch. */
 export interface DateTimeProps
   extends Omit<TextProps, "type" | "value" | "onChange">, Control<number> {}
 
+/**
+ * A combined date and time field over UTC nanoseconds, shown in local time. A dropdown
+ * offers plain-language entry ("yesterday at 3pm") and a nanosecond offset.
+ */
 export const DateTime = ({
   value,
   onChange,
   onBlur,
   onlyChangeOnBlur,
   variant,
+  preview,
   ...rest
 }: DateTimeProps): ReactElement => {
   const [tempValue, setTempValue] = useState<string | null>(null);
@@ -89,14 +95,17 @@ export const DateTime = ({
         value={tempValue ?? parsedValue}
         onChange={handleChange}
         step={0.00001}
+        preview={preview}
         {...rest}
       >
-        <Button.Button
-          onClick={() => setVisible(!visible)}
-          variant={variant === "shadow" ? "outlined" : variant}
-        >
-          <Icon.Calendar />
-        </Button.Button>
+        {preview !== true && (
+          <Button.Button
+            onClick={() => setVisible(!visible)}
+            variant={variant === "shadow" ? "outlined" : variant}
+          >
+            <Icon.Calendar />
+          </Button.Button>
+        )}
       </InputText>
       <DateTimeModal
         value={tsValue}
@@ -121,7 +130,7 @@ const DateTimeModal = ({ value, onChange }: DateTimeModalProps): ReactElement =>
     <Dialog.Dialog>
       <Flex.Box className={CSS.B("datetime-modal")} empty>
         <Flex.Box className={CSS.B("datetime-modal-container")}>
-          <Flex.Box x className={CSS.B("header")}>
+          <Flex.Box x className={CSS.B("datetime-modal-header")}>
             <TelemText.TimeStamp level="h3" format="preciseDate">
               {value}
             </TelemText.TimeStamp>
@@ -137,7 +146,7 @@ const DateTimeModal = ({ value, onChange }: DateTimeModalProps): ReactElement =>
         <Nav.Bar location="bottom" size="7rem">
           <Nav.Bar.Start gap="small">
             <Triggers.Text level="small" trigger={SAVE_TRIGGER} />
-            <Text.Text level="small">To Finish</Text.Text>
+            <Text.Text level="small">to finish</Text.Text>
           </Nav.Bar.Start>
           <Nav.Bar.End>
             <Button.Button onClick={close} variant="outlined">
@@ -234,7 +243,7 @@ const AISelector = ({
         value={value}
         onChange={handleChange}
         autoFocus
-        placeholder="AI Suggestion"
+        placeholder="AI suggestion"
         full="x"
       />
       <Select.Frame data={data} allowNone onChange={handleSelect} getItem={getItem}>
@@ -323,7 +332,7 @@ const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
           </Button.Button>
           <Text.Text
             level="small"
-            className={CSS(
+            className={CSS.cls(
               CSS.BE("calendar-header", "month"),
               CSS.B("datetime-calendar-header-label"),
             )}
@@ -354,7 +363,7 @@ const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
             <Button.Button
               key={i}
               variant="text"
-              className={CSS(CSS.selected(i + 1 === day))}
+              className={CSS.cls(CSS.selected(i + 1 === day))}
               onClick={() => handleDayChange(i + 1)}
               square
             >

@@ -39,7 +39,7 @@ export const Setpoint = ({
   const [currValue, setCurrValue] = useState(0);
   return (
     <Primitive.Div
-      className={CSS(CSS.B("setpoint"), className)}
+      className={CSS.cls(CSS.B("setpoint"), className)}
       orientation={orientation}
       style={style}
     >

@@ -19,40 +19,31 @@ seconds should sound an alarm. Arc makes these patterns straightforward.
 
 <Divider.Divider x />
 
-## Basic Threshold Alarm
+## Basic Threshold
 
-The simplest alarm compares a value to a threshold:
+The simplest alarm compares a value to a threshold.
 
-```arc channels="tank_pressure, pressure_high"
-func threshold_alarm{limit f64} (value f64) u8 {
-    if value > limit {
-        return 1
-    }
-    return 0
-}
-
-tank_pressure -> threshold_alarm{limit=600.0} -> pressure_high
-```
-
-When `tank_pressure` exceeds 600, `pressure_high` outputs 1. Wire this to a warning
-indicator in your Console schematic.
-
-For low alarms, flip the comparison:
-
-```arc channels="tank_level, tank_level_low"
-func low_alarm{limit f64} (value f64) u8 {
-    if value < limit {
-        return 1
-    }
-    return 0
-}
-
-tank_level -> low_alarm{limit=10.0} -> tank_level_low
+```arc channels="tank_pressure, pressure_high, tank_level, tank_level_low"
+tank_level < 10.0 -> status.set{ ... }
+tank_pressure > 9000.0 -> status.set{ ... }
 ```
 
 <Divider.Divider x />
 
-## Deadband Alarm
+## Time-Delayed
+
+A brief spike might be acceptable, but a sustained high value indicates a real problem.
+Debounce the condition with
+[`stable.for`](/reference/control/arc/reference/standard-library/stable) so the alarm
+fires only after it holds:
+
+```arc channels="tank_pressure" bodies="alert_hq"
+tank_pressure > 600 -> stable.for{duration=1s} => alert_hq
+```
+
+<Divider.Divider x />
+
+## Deadband
 
 Simple threshold alarms chatter when values oscillate near the limit. If pressure hovers
 around 600 psi, the alarm toggles on and off rapidly. A deadband prevents this by
@@ -61,23 +52,23 @@ requiring the value to cross back below a lower threshold before the alarm clear
 ```arc channels="tank_pressure, pressure_high"
 func deadband_alarm{
     high f64, // alarm activates above this
-    low f64, // alarm clears below this
-} (value f64) u8 {
-    state $= 0
+    low f64,  // alarm clears below this
+} (value f64) bool {
+    alarm_active $= false
 
-    if state == 0 {
-        // Alarm is off, check if we should activate
+    if not alarm_active {
+        // Alarm is off, check to activate
         if value > high {
-            state = 1
+            alarm_active = true
         }
     } else {
-        // Alarm is on, check if we should clear
+        // Alarm is on, check to clear
         if value < low {
-            state = 0
+            alarm_active = false
         }
     }
 
-    return state
+    return alarm_active
 }
 
 tank_pressure -> deadband_alarm{high=600.0, low=580.0} -> pressure_high
@@ -93,24 +84,24 @@ below 580 psi. This 20 psi deadband eliminates chatter.
 
 <Divider.Divider x />
 
-## High and Low Alarm with Deadband
+## High and Low with Deadband
 
 Many sensors need both high and low alarms. Create separate functions for each:
 
 ```arc channels="tank_pressure, pressure_high, pressure_low"
 func low_deadband_alarm{
-    low f64, // alarm activates below this
+    low f64,   // alarm activates below this
     clear f64, // alarm clears above this
-} (value f64) u8 {
-    state $= 0
+} (value f64) bool {
+    state $= false
 
-    if state == 0 {
+    if not state {
         if value < low {
-            state = 1
+            state = true
         }
     } else {
         if value > clear {
-            state = 0
+            state = false
         }
     }
 
@@ -123,7 +114,7 @@ tank_pressure -> low_deadband_alarm{low=100.0, clear=120.0} -> pressure_low
 
 <Divider.Divider x />
 
-## Multi-Condition Alarms
+## Multi-Condition
 
 Some alarms require multiple conditions. An abort alarm might trigger when both inlet
 and outlet pressures are elevated (potential runaway), or when any single pressure
@@ -137,24 +128,16 @@ func combined_alarm{
     outlet_crit f64,
     combined_inlet f64,
     combined_outlet f64,
-} () u8 {
+} () bool {
     p1 := inlet
     p2 := outlet
 
     // Critical: either exceeds maximum
-    if p1 > inlet_crit {
-        return 1
-    }
-    if p2 > outlet_crit {
-        return 1
-    }
-
+    critical := p1 > inlet_crit or p2 > outlet_crit
     // Combined: both elevated (potential runaway)
-    if p1 > combined_inlet and p2 > combined_outlet {
-        return 1
-    }
+    combined := p1 > combined_inlet and p2 > combined_outlet
 
-    return 0
+    return critical or combined
 }
 
 time.interval{period=50ms} -> combined_alarm{
@@ -169,40 +152,7 @@ time.interval{period=50ms} -> combined_alarm{
 
 <Divider.Divider x />
 
-## Time-Delayed Alarm
-
-A brief spike might be acceptable, but a sustained high value indicates a real problem.
-Use a counter to require the condition to persist:
-
-```arc channels="tank_pressure, sustained_high"
-func sustained_alarm{
-    limit f64,
-    samples i64, // number of consecutive samples above limit
-} (value f64) u8 {
-    count $= 0
-
-    if value > limit {
-        count = count + 1
-    } else {
-        count = 0
-    }
-
-    if count >= samples {
-        return 1
-    }
-    return 0
-}
-
-// At 50ms intervals, 20 samples = 1 second
-tank_pressure -> sustained_alarm{limit=600.0, samples=20} -> sustained_high
-```
-
-For time-based delays, use the sample rate to calculate the count. At 50ms intervals, 20
-samples equals 1 second of sustained high readings.
-
-<Divider.Divider x />
-
-## Latching Alarm
+## Latching
 
 Some alarms should stay active until manually acknowledged, even if the condition
 clears:
@@ -210,19 +160,19 @@ clears:
 ```arc channels="ack_signal, alarm_ack, tank_pressure, latched_alarm"
 func latching_alarm{
     limit f64,
-    ack chan u8, // acknowledgment channel (write 1 to clear)
-} (value f64) u8 {
-    latched $= 0
+    ack chan bool, // acknowledgment channel (write true to clear)
+} (value f64) bool {
+    latched $= false
 
     // Check for acknowledgment
     ack_signal := ack
     if ack_signal {
-        latched = 0
+        latched = false
     }
 
     // Activate on threshold
     if value > limit {
-        latched = 1
+        latched = true
     }
 
     return latched
@@ -236,61 +186,56 @@ operator acknowledges it by clicking the button.
 
 <Divider.Divider x />
 
-## Alarm Priority Levels
+## Priority Levels
 
-Different conditions warrant different responses:
+The simplest form maps a reading to a priority level and logs it:
 
-```arc channels="tank_pressure, pressure_warning, pressure_alarm, pressure_critical"
-func priority_alarm{warning f64, alarm f64, critical f64} (value f64) (level i64, warning u8, alarm u8, critical u8) {
-    // Priority levels: 0=normal, 1=warning, 2=alarm, 3=critical
-    level = 0
-    warning = 0
-    alarm = 0
-    critical = 0
-
-    if value > critical {
-        level = 3
-        critical = 1
-        alarm = 1
-        warning = 1
-    } else if value > alarm {
-        level = 2
-        alarm = 1
-        warning = 1
-    } else if value > warning {
-        level = 1
-        warning = 1
+```arc channels="tank_pressure, log_channel"
+func classify{warn f64, critical f64} (value f64) str {
+    if value >= critical {
+        return "Critical"
     }
-}
-// Use separate functions for each priority level
-func warning_check{limit f64} (value f64) u8 {
-    if value > limit {
-        return 1
+    if value >= warn {
+        return "Warning"
     }
-    return 0
+    return ""
 }
 
-func alarm_check{limit f64} (value f64) u8 {
-    if value > limit {
-        return 1
-    }
-    return 0
-}
-
-func critical_check{limit f64} (value f64) u8 {
-    if value > limit {
-        return 1
-    }
-    return 0
-}
-
-tank_pressure -> warning_check{limit=500.0} -> pressure_warning
-tank_pressure -> alarm_check{limit=600.0} -> pressure_alarm
-tank_pressure -> critical_check{limit=700.0} -> pressure_critical
+// "" is falsy, so => never fires for nominal readings
+tank_pressure -> classify{warn=600.0, critical=700.0} => log_channel
 ```
 
-Higher priority alarms include all lower levels. A critical condition is also an alarm
-and a warning.
+When each level warrants a different response, demux the value with a
+[custom routing table](/reference/control/arc/reference/flow#custom-routing). A warning
+sets the status, and a critical also triggers the abort stage:
+
+```arc channels="tank_pressure, log_channel" bodies="abort"
+import status
+
+func prioritize{
+    warn f64,
+    crit f64,
+} (value f64) (nominal bool, warning bool, critical bool) {
+    if value < warn {
+        nominal = true
+    } else if value < crit {
+        warning = true
+    } else {
+        critical = true
+    }
+}
+
+stage monitor {
+    tank_pressure -> prioritize{warn=600.0, crit=700.0} -> {
+        // nominal: no-op
+        warning:  "Warning" -> status.set{ ... },
+        critical: sequence {
+            "Critical" -> status.set{ ... },
+            true => abort
+        }
+    }
+}
+```
 
 <Divider.Divider x />
 
@@ -307,7 +252,7 @@ sequence main {
         abort_btn => abort
 
         // Normal completion
-        1 -> valve_cmd
+        true -> valve_cmd
         tank_pressure > 500 => next
     }
 
@@ -319,14 +264,14 @@ sequence main {
     }
 
     stage complete {
-        0 -> valve_cmd
+        false -> valve_cmd
     }
 }
 
 sequence abort {
     stage safed {
-        0 -> valve_cmd
-        0 -> vent_valve
+        false -> valve_cmd
+        false -> vent_valve
     }
 }
 

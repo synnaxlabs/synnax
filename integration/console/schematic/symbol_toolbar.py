@@ -15,9 +15,7 @@ from typing import Any
 from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
-from console.context_menu import ContextMenu
 from console.layout import LayoutClient
-from console.notifications import NotificationsClient
 from console.schematic.symbol_editor import SymbolEditor
 from framework.run_dir import resolve_results_path
 
@@ -28,8 +26,8 @@ class SymbolToolbar:
     def __init__(self, layout: LayoutClient):
         self.page = layout.page
         self.layout = layout
-        self.ctx_menu = ContextMenu(layout.page)
-        self.notifications = NotificationsClient(layout.page)
+        self.ctx_menu = layout.ctx_menu
+        self.notifications = layout.notifications
 
     @property
     def toolbar(self) -> Locator:
@@ -45,14 +43,28 @@ class SymbolToolbar:
         """Show the visualization toolbar with symbol search."""
         self.layout.show_visualization_toolbar()
 
+    def _select_symbols_tab(self) -> None:
+        """Select the Symbols tab.
+
+        Dispatch the click: notifications stack over the drawer's tab strip
+        and intercept physical clicks.
+        """
+        tab = self.page.get_by_text("Symbols", exact=True).first
+        tab.wait_for(state="visible", timeout=5000)
+        tab.dispatch_event("click")
+
+    def _group_tab(self, name: str) -> Locator:
+        """A symbol group's tab in the group list."""
+        return self.group_list.locator("[role='tab']").filter(has_text=name)
+
     def select_group(self, name: str) -> None:
         """Select a symbol group by name."""
         self.show()
         self.notifications.close_all()
-        self.layout.click("Symbols")
+        self._select_symbols_tab()
         self.layout.wait_for_visible(self.group_list)
 
-        group_btn = self.layout.locator("button").filter(has_text=name)
+        group_btn = self._group_tab(name)
         self.layout.wait_for_visible(group_btn)
         self.layout.click(group_btn)
 
@@ -61,45 +73,48 @@ class SymbolToolbar:
         self.show()
         self.notifications.close_all()
 
-        create_group_btn = (
-            self.toolbar.locator("button[class*='outlined']")
-            .filter(has=self.page.locator("[aria-label*='group']"))
-            .first
-        )
-        self.layout.click(create_group_btn)
+        create_group_btn = self.toolbar.get_by_role(
+            "button", name="Create symbol group", exact=True
+        ).first
+        # Notifications stack over the actions bar and swallow coordinate
+        # clicks, so dispatch the click on the button itself.
+        create_group_btn.wait_for(state="visible", timeout=5000)
+        create_group_btn.dispatch_event("click")
 
-        name_input = self.layout.locator("input[placeholder='Group Name']")
+        name_input = self.layout.locator("input[placeholder='Name']")
         self.layout.wait_for_visible(name_input)
-        self.layout.fill_input_field("Group Name", name)
+        name_input.fill(name)
 
         self.layout.click_btn("Save")
         self.layout.wait_for_hidden(name_input)
 
         self.show()
-        group_btn = self.layout.locator("button").filter(has_text=name)
+        group_btn = self._group_tab(name)
         self.layout.wait_for_visible(group_btn)
 
+    def _rename_inline(self, target: Locator, new_name: str) -> None:
+        """Complete an in-place rename started from a context menu."""
+        self.ctx_menu.action(target, "Rename")
+        editable = self.page.locator(".pluto-text--editable[contenteditable='true']")
+        editable.wait_for(state="visible", timeout=5000)
+        editable.fill(new_name)
+        self.page.keyboard.press("Enter")
+        self.layout.wait_for_hidden(self.page.locator("[contenteditable='true']"))
+
     def rename_group(self, old_name: str, new_name: str) -> None:
-        """Rename a symbol group via context menu."""
+        """Rename a symbol group via context menu (in-place edit)."""
         self.select_group(old_name)
 
-        group_btn = self.layout.locator("button").filter(has_text=old_name)
-        self.ctx_menu.action(group_btn, "Rename")
+        group_btn = self._group_tab(old_name)
+        self._rename_inline(group_btn, new_name)
 
-        name_input = self.layout.locator("input[placeholder='Group Name']")
-        self.layout.wait_for_visible(name_input)
-        self.layout.fill_input_field("Group Name", new_name)
-
-        self.layout.click_btn("Save")
-        self.layout.wait_for_hidden(name_input)
-
-        renamed_btn = self.layout.locator("button").filter(has_text=new_name)
+        renamed_btn = self._group_tab(new_name)
         self.layout.wait_for_visible(renamed_btn)
 
     def delete_group(self, name: str) -> None:
         """Delete a symbol group via context menu."""
         self.show()
-        group_btn = self.layout.locator("button").filter(has_text=name)
+        group_btn = self._group_tab(name)
         self.layout.wait_for_visible(group_btn)
         self.ctx_menu.action(group_btn, "Delete")
 
@@ -115,24 +130,22 @@ class SymbolToolbar:
         try:
             self.show()
             self.layout.wait_for_visible(self.group_list)
-            group_btn = self.layout.locator("button").filter(has_text=name)
+            group_btn = self._group_tab(name)
             self.layout.wait_for_visible(group_btn)
             return True
         except PlaywrightTimeoutError:
             return False
 
-    def wait_for_group_hidden(self, name: str) -> None:
+    def wait_for_group_removed(self, name: str) -> None:
         """Wait for a symbol group to be hidden/removed."""
-        group_btn = self.layout.locator("button").filter(has_text=name)
+        group_btn = self._group_tab(name)
         self.layout.wait_for_hidden(group_btn)
 
     def create_symbol(self) -> SymbolEditor:
         """Open the symbol editor to create a new symbol."""
-        create_symbol_btn = (
-            self.toolbar.locator("button[class*='outlined']")
-            .filter(has=self.page.locator("[aria-label*='schematic']"))
-            .first
-        )
+        create_symbol_btn = self.toolbar.get_by_role(
+            "button", name="Create symbol", exact=True
+        ).first
         create_symbol_btn.click()
 
         editor = SymbolEditor(self.layout)
@@ -166,23 +179,15 @@ class SymbolToolbar:
         except PlaywrightTimeoutError:
             return False
 
-    def wait_for_symbol_hidden(self, name: str) -> None:
+    def wait_for_symbol_removed(self, name: str) -> None:
         """Wait for a symbol to be hidden/removed."""
         symbol = self.get_symbol(name)
         symbol.wait_for(state="hidden", timeout=5000)
 
     def rename_symbol(self, old_name: str, new_name: str) -> None:
-        """Rename a symbol via context menu."""
+        """Rename a symbol via context menu (in-place edit)."""
         symbol = self.get_symbol(old_name)
-        self.ctx_menu.action(symbol, "Rename")
-
-        name_input = self.page.locator("input[placeholder='Symbol Name']")
-        name_input.wait_for(state="visible", timeout=5000)
-        name_input.fill(new_name)
-
-        save_btn = self.page.get_by_role("button", name="Save", exact=True)
-        save_btn.click()
-        name_input.wait_for(state="hidden", timeout=5000)
+        self._rename_inline(symbol, new_name)
 
     def edit_symbol(self, name: str) -> SymbolEditor:
         """Open the symbol editor for an existing symbol via context menu."""
@@ -204,12 +209,55 @@ class SymbolToolbar:
 
         symbol.wait_for(state="hidden", timeout=5000)
 
+    def import_symbol(self, path: str) -> None:
+        """Import a symbol envelope into the selected group via the toolbar.
+
+        Only drives the file chooser; callers assert the outcome via
+        ``symbol_exists`` or the notifications client. Requires a remote
+        (user-created) group to be selected: the button is disabled otherwise.
+
+        :param path: Path to the symbol JSON file to import.
+        """
+        button = self.toolbar.get_by_role("button", name="Import symbol", exact=True)
+        with self.page.expect_file_chooser() as fc_info:
+            button.click()
+        fc_info.value.set_files(path)
+
+    def import_group(self, zip_path: str) -> None:
+        """Import a symbol group bundle zip through the import-group modal.
+
+        Only drives the modal and file chooser; callers assert the outcome via
+        ``group_exists`` or the notifications client.
+
+        :param zip_path: Path to the bundle zip to import.
+        """
+        button = self.toolbar.get_by_role(
+            "button", name="Import symbol group", exact=True
+        )
+        button.wait_for(state="visible", timeout=5000)
+        button.dispatch_event("click")
+        zone = self.layout.dialog.get_by_text("Drop a .zip or folder here")
+        self.layout.wait_for_visible(zone)
+        with self.page.expect_file_chooser() as fc_info:
+            zone.click()
+        fc_info.value.set_files(zip_path)
+
+    def export_group(self, name: str) -> str:
+        """Export a symbol group via context menu and return the saved zip path."""
+        self.show()
+        group_btn = self._group_tab(name)
+        self.layout.wait_for_visible(group_btn)
+        self.ctx_menu.open_on(group_btn)
+        with self.page.expect_download(timeout=10000) as download_info:
+            self.ctx_menu.click_option("Export")
+        zip_path = resolve_results_path(f"{name}_export.zip")
+        download_info.value.save_as(zip_path)
+        return zip_path
+
     def export_symbol(self, name: str) -> dict[str, Any]:
         """Export a symbol via context menu and return the JSON content."""
         symbol = self.get_symbol(name)
         self.ctx_menu.open_on(symbol)
-
-        self.page.evaluate("delete window.showSaveFilePicker")
 
         with self.page.expect_download(timeout=5000) as download_info:
             self.ctx_menu.click_option("Export")
@@ -256,7 +304,7 @@ class SymbolToolbar:
     def _add_by_search(self, symbol_type: str) -> None:
         """Add a symbol using the search UI."""
         self.layout.show_visualization_toolbar()
-        self.layout.click("Symbols")
+        self._select_symbols_tab()
         self.layout.wait_for_visible(self.toolbar)
 
         search_input = self.toolbar.locator("input[role='textbox']").first

@@ -97,10 +97,8 @@ export class Dynamic {
   }
 
   /**
-   * Writes the given arrays to the cache.
-   *
-   * @returns a list of buffers that were filled by the cache during the write. If
-   * the current buffer is able to fit all writes, no buffers will be returned.
+   * @returns a list of buffers that were filled by the cache during the write. If the
+   * current buffer is able to fit all writes, no buffers will be returned.
    */
   write(series: MultiSeries): WriteResponse {
     const res: WriteResponse = {
@@ -179,8 +177,7 @@ export class Dynamic {
     if (this.curr != null) {
       const resolved = transform.resolveDataType(series.dataType);
       if (!this.curr.dataType.equals(resolved)) {
-        // The channel's data type changed (e.g. a calculated channel was
-        // reconfigured).
+        // The channel's data type changed (e.g. a calculated channel was reconfigured).
         ins.L.warn("buffer data type changed, resetting", {
           prev: this.curr.dataType.toString(),
           next: resolved.toString(),

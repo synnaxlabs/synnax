@@ -12,9 +12,8 @@ import { type destructor, type record, type state } from "@synnaxlabs/x";
 import { type Keyed, type Table, type TableEvent } from "@/query/table";
 
 /**
- * A foreign-table trigger for a derived table: projects that table's events
- * onto the source keys whose composition they change. Build with
- * {@link deriveWatch}.
+ * A foreign-table trigger for a derived table: projects that table's events onto the
+ * source keys whose composition they change. Build with {@link deriveWatch}.
  */
 export interface DeriveWatch<K extends record.Key> {
   attach: (recompose: (keys: K[] | "all") => void) => destructor.Destructor;
@@ -88,7 +87,10 @@ export const bindDerived = <
       into.batch(() =>
         events.forEach((event) => {
           if (event.variant === "set") into.set(compose(event.value));
-          else into.delete(event.key);
+          // A source that keeps no corpse never held the record: mirroring that keeps a
+          // derived tombstone from outliving a deletion that never was.
+          else if (source.status(event.key) === "tombstoned") into.delete(event.key);
+          else into.evict(event.key);
         }),
       ),
     ),

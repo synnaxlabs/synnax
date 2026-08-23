@@ -37,6 +37,7 @@ import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Export } from "@/platform/export";
+import { Framer } from "@/platform/framer";
 import { Link } from "@/platform/link";
 import { Modals } from "@/platform/modals";
 import { type Nav } from "@/platform/nav";
@@ -51,8 +52,8 @@ const EmptyContent = () => {
   const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
   return (
     <Empty.Action
-      message="No existing tasks."
-      action={hasCreatePermission ? "Create a task" : undefined}
+      message="No tasks"
+      action={hasCreatePermission ? "Create task" : undefined}
       onClick={() => openSelector()}
     />
   );
@@ -151,7 +152,7 @@ const Content = () => {
   );
   return (
     <Menu.ContextMenu menu={contextMenu} {...menuProps}>
-      <Toolbar.Content className={CSS(CSS.B("task-toolbar"), menuProps.className)}>
+      <Toolbar.Content className={CSS.cls(CSS.B("task-toolbar"), menuProps.className)}>
         <Toolbar.Header>
           <Toolbar.Title>
             <Icon.Task />
@@ -229,6 +230,7 @@ const TaskListItem = ({
   const { getIcon, parseType } = PlatformTask.useRegistry();
   const task_ = List.useItem<task.Key, task.Task>(itemKey);
   const hasUpdatePermission = Access.useUpdateGranted(task.ontologyID(itemKey));
+  const canControl = Framer.useCanCommand();
   const details = task_?.status?.details;
   let variant = task_?.status?.variant;
   const icon = getIcon(task_?.type ?? "");
@@ -282,7 +284,7 @@ const TaskListItem = ({
           {parseType(task_?.type ?? "")}
         </Text.Text>
       </Flex.Box>
-      {hasUpdatePermission && (
+      {canControl && (
         <Button.Button
           variant="outlined"
           size="small"
@@ -325,6 +327,7 @@ const ContextMenu = ({
   const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
   const hasDeletePermission = Access.useDeleteGranted(ontologyIDs);
   const hasUpdatePermission = Access.useUpdateGranted(ontologyIDs);
+  const canControl = Framer.useCanCommand();
 
   const canStart = selectedTasks.some(
     ({ status }) => status?.details.running === false,
@@ -360,7 +363,7 @@ const ContextMenu = ({
   const addStatus = Status.useAdder();
   const copyLinkToClipboard = Cluster.useCopyLinkToClipboard();
 
-  const handleExport = Export.use();
+  const handleExport = Export.useResource();
   const handleLink = useCallback(
     (key: task.Key) => {
       const name = selectedTasks.find((t) => t.key === key)?.name;
@@ -368,7 +371,7 @@ const ContextMenu = ({
         return addStatus({
           variant: "error",
           message: "Failed to copy link",
-          description: `Task with key ${key} not found`,
+          description: "The task no longer exists.",
         });
       copyLinkToClipboard({ name, ontologyID: task.ontologyID(key) });
     },
@@ -378,7 +381,7 @@ const ContextMenu = ({
     activeRange?.persisted === true && selectedTasks.length > 0;
   return (
     <PlatformContextMenu.Menu>
-      {hasUpdatePermission && (
+      {canControl && (
         <>
           {canStart && (
             <Menu.Item itemKey="start" onClick={() => onStart(keys)}>
@@ -405,7 +408,7 @@ const ContextMenu = ({
         </>
       )}
       <Menu.Divider />
-      {isSingle && (
+      {hasUpdatePermission && isSingle && (
         <Menu.Item itemKey="edit" onClick={() => onEdit(keys[0])}>
           <Icon.Edit />
           Edit configuration

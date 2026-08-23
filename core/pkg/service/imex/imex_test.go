@@ -27,6 +27,21 @@ type wirePayload struct {
 	Bar  string `json:"bar,omitempty"`
 }
 
+// bodyExported is a resource whose portable body differs from its stored shape.
+type bodyExported struct {
+	Secret string `json:"secret"`
+}
+
+// portableBody is the shape bodyExported serializes as.
+type portableBody struct {
+	Name  string `json:"name"`
+	Shape string `json:"shape"`
+}
+
+func (bodyExported) ExportBody() any {
+	return portableBody{Name: "portable", Shape: "portable"}
+}
+
 var _ = Describe("ImEx", func() {
 	Describe("Envelope", func() {
 		Describe("UnmarshalJSON", func() {
@@ -192,6 +207,20 @@ var _ = Describe("ImEx", func() {
 			)
 
 			It(
+				"Should emit markup literally, leaving escaping to the encoder",
+				func() {
+					env := imex.Envelope{Version: 1, Type: "log"}
+					Expect(imex.Encode(
+						&env, wirePayload{Name: "n", Bar: `<svg id="a"/>`},
+					)).To(Succeed())
+					Expect(string(MustSucceed(env.MarshalJSON()))).
+						To(ContainSubstring(`"<svg id=\"a\"/>"`))
+					Expect(string(MustSucceed(json.Marshal(env)))).
+						To(ContainSubstring(`"\u003csvg id=\"a\"/\u003e"`))
+				},
+			)
+
+			It(
 				"Should error when marshaling a hand-constructed envelope with no body",
 				func() {
 					// Hand-constructed envelopes have a nil body. MarshalJSON refuses
@@ -278,6 +307,18 @@ var _ = Describe("ImEx", func() {
 				})).To(Succeed())
 				Expect(env.Type).To(Equal("map_type"))
 				Expect(env.Name).To(Equal("map_name"))
+			})
+
+			It("Should reduce a BodyExporter through its ExportBody", func() {
+				env := imex.Envelope{Version: 2, Type: "arc"}
+				Expect(imex.Encode(&env, bodyExported{Secret: "hidden"})).
+					To(Succeed())
+				b := MustSucceed(json.Marshal(env))
+				var round map[string]any
+				Expect(json.Unmarshal(b, &round)).To(Succeed())
+				Expect(round).ToNot(HaveKey("secret"))
+				Expect(round["name"]).To(Equal("portable"))
+				Expect(round["shape"]).To(Equal("portable"))
 			})
 
 			It("Should drop a top-level key field from the encoded body", func() {

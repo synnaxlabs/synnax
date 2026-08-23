@@ -45,7 +45,7 @@ export const Value = ({
   const symbolColor = symbolColorVar(colorVal);
   const style = useMemo<CSSProperties>(
     () => ({
-      [CSS.var("symbol-color")]: symbolColor,
+      [CSS.variable("symbol-color")]: symbolColor,
       height: dimensions?.height,
     }),
     [symbolColor, dimensions?.height],
@@ -60,12 +60,7 @@ export const Value = ({
   );
   return (
     <Primitive.Div
-      className={CSS(
-        CSS.B("value"),
-        CSS.B("symbol-colored"),
-        symbolColor != null && CSS.M("colored"),
-        className,
-      )}
+      className={CSS.cls(CSS.B("value"), CSS.B("symbol-colored"), className)}
       style={style}
     >
       <div className={CSS.BE("value", "content")} style={contentStyle}>
@@ -78,7 +73,7 @@ export const Value = ({
         right={100}
         bottom={102}
       />
-      <div className={CSS(CSS.BE("value", "units"), CSS.M(unitsLevel))}>
+      <div className={CSS.cls(CSS.BE("value", "units"), CSS.M(unitsLevel))}>
         <Text.Text level={unitsLevel}>{units}</Text.Text>
       </div>
     </Primitive.Div>

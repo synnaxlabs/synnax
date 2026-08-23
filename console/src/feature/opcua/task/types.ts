@@ -49,14 +49,14 @@ const validateIndexChannels = ({
   issues,
 }: z.core.ParsePayload<ReadChannel[]>) => {
   const indexChannelIndexes = channels
-    .map(({ useAsIndex }, i) => (useAsIndex ? i : -1))
+    .map(({ isIndex }, i) => (isIndex ? i : -1))
     .filter((i) => i !== -1);
   if (indexChannelIndexes.length <= 1) return;
   indexChannelIndexes.forEach((i) => {
     issues.push({
       code: "custom",
       message: "Only one channel can be marked as an index channel",
-      path: ["channels", i, "useAsIndex"],
+      path: ["channels", i, "isIndex"],
       input: channels,
     });
   });

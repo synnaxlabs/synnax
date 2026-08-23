@@ -27,10 +27,15 @@ import { z } from "zod";
 import { type framer } from "@/framer";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
-import { type Key as RackKey, keyZ as rackKeyZ } from "@/rack/types.gen";
+import {
+  type Key as RackKey,
+  keyZ as rackKeyZ,
+  ontologyID as rackOntologyID,
+} from "@/rack/types.gen";
 import { type ranger } from "@/ranger";
 import { status } from "@/status";
 import {
+  type Command,
   commandZ,
   type Key,
   keyZ,
@@ -65,7 +70,6 @@ export interface DriftedParams extends Pick<
  * with. Tasks that are not running never drift. Both hashes are server-assigned, so
  * this compares two given values and never hashes a config. A status with an empty
  * deployed hash never drifts: the deployed config is unknown, not different.
- * @param task - The stored task's hash, rack, and status.
  * @returns True when a redeploy (start) would change the running instance.
  */
 export const drifted = (task: DriftedParams): boolean => {
@@ -79,26 +83,39 @@ export const drifted = (task: DriftedParams): boolean => {
 // Issue: https://linear.app/synnax/issue/SY-2723/fix-handling-of-non-startstop-commands-loading-indicators-in-tasks
 const LOADING_COMMANDS = ["start", "stop"];
 
+// The rack monitor marks a rack whose Driver is alive with one of these.
+const HEALTHY_RACK_VARIANTS: status.Variant[] = ["success", "info"];
+
+/** How long a command waits for the Driver before the wait is called off. */
+const COMMAND_DEADLINE = TimeSpan.seconds(10);
+
+const STATUS_NAME = "Task Status";
+
 const retrieveSnapshottedTo = async (taskKey: Key, ontologyClient: ontology.Client) => {
   const parents = await ontologyClient.parents.retrieve({ ids: ontologyID(taskKey) });
   if (parents.length === 0) return null;
   return parents[0];
 };
 
+/** One command sent to a task, as issued from the task itself. */
 export interface TaskExecuteCommandParams {
   type: string;
   args?: record.Unknown;
 }
 
+/** One command sent to a task, as issued from the client. */
 export interface ExecuteCommandParams extends TaskExecuteCommandParams {
   task: Key;
 }
 
+/** Several commands sent in one round trip. */
 export interface ExecuteCommandsParams {
   commands: NewCommand[];
 }
 
+/** A command awaited to completion, as issued from the task itself. */
 export interface TaskExecuteCommandSyncParams extends TaskExecuteCommandParams {
+  /** How long to wait for the status before giving up. */
   timeout?: CrudeTimeSpan;
 }
 
@@ -112,6 +129,10 @@ export interface ExecuteCommandSyncParams<StatusData extends z.ZodType> extends 
   "frameClient" | "name"
 > {}
 
+/**
+ * A unit of work a rack runs against hardware: its config, its running status, and the
+ * commands it accepts. Get one from `client.hardware.tasks` rather than building it.
+ */
 export class Task<S extends Schemas = Schemas> {
   readonly key: Key;
   readonly rack: RackKey;
@@ -275,12 +296,15 @@ const singleRetrieveParamsZ = z.union([
     .object({ type: z.string(), rack: rackKeyZ.optional() })
     .transform(({ type, rack }) => ({ types: [type], rack })),
 ]);
+/** Names one task: by key, by name, or by type and rack. */
 export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
 
 const multiRetrieveParamsZ = retrieveReqZ;
+/** Everything a multi-task retrieval can filter on. */
 export type RetrieveMultipleParams = z.input<typeof multiRetrieveParamsZ>;
 
 const retrieveParamsZ = z.union([singleRetrieveParamsZ, multiRetrieveParamsZ]);
+/** Params for a task retrieval, single or multiple. */
 export type RetrieveParams = z.input<typeof retrieveParamsZ>;
 
 type SingleRequest = Partial<
@@ -345,6 +369,7 @@ const retrieveResZ = <S extends Schemas = Schemas>(schemas?: S) =>
       .default(() => []),
   });
 
+/** A task retrieval on the wire. */
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 
 const createReqZ = <S extends Schemas = Schemas>(schemas?: S) =>
@@ -365,6 +390,7 @@ const matchesSingle = (t: Omit<Task, "status">, query: SingleRequest): boolean =
   return false;
 };
 
+/** Config for {@link Client}. */
 export interface ClientConfig {
   unary: UnaryClient;
   framer: framer.Client;
@@ -374,6 +400,10 @@ export interface ClientConfig {
   statusStore: query.Table<status.Key, status.Status>;
 }
 
+/**
+ * Creates, reads, deletes, and commands tasks on a Core. Reach it through
+ * `client.hardware.tasks`. Reads are served from a cache a change stream keeps current.
+ */
 export class Client extends query.Retriever<
   typeof retrieveMultiParamsZ,
   Key,
@@ -385,6 +415,7 @@ export class Client extends query.Retriever<
   /** The task record table; injected into sibling clients at wiring. */
   readonly store: query.Table<Key, Omit<Task, "status">>;
   private readonly cfg: ClientConfig;
+  private readonly commandDeadlines = new Map<Key, ReturnType<typeof setTimeout>>();
 
   constructor(cfg: ClientConfig) {
     const { cache, statusStore } = cfg;
@@ -424,28 +455,15 @@ export class Client extends query.Retriever<
       schema: commandZ,
       onChange: (commands) =>
         statusStore.batch(() =>
-          commands.forEach((changed) =>
-            statusStore.set(statusKey(changed.task), (prev) => {
-              if (prev == null || !LOADING_COMMANDS.includes(changed.type)) return prev;
-              // Carry the last known deploy info forward: zeroing it would make this
-              // optimistic status claim the task deployed with an empty config/rack.
-              const latest = this.latestStatusOf(changed.task);
-              return status.create<StatusDetailsZodObject>({
-                key: statusKey(changed.task),
-                name: "Task Status",
-                variant: "loading",
-                message: `Running ${changed.type} command...`,
-                details: {
-                  task: changed.task,
-                  running: true,
-                  cmd: "",
-                  configHash: latest?.details.configHash ?? "",
-                  rack: latest?.details.rack ?? 0,
-                  data: {},
-                },
-              });
-            }),
-          ),
+          commands.forEach((changed) => {
+            if (!LOADING_COMMANDS.includes(changed.type)) return;
+            const key = statusKey(changed.task);
+            if (statusStore.get(key) == null) return;
+            const optimistic = this.optimisticStatus(changed);
+            statusStore.set(key, optimistic);
+            if (optimistic.variant === "loading")
+              this.armCommandDeadline(changed, optimistic);
+          }),
         ),
     });
     const composed = cache.derive<Key, Omit<Task, "status">, Task>({
@@ -629,6 +647,78 @@ export class Client extends query.Retriever<
     return this.sugar({ ...payload, status: st });
   }
 
+  // Every domain's statuses share one store, so a rack's status sits beside its
+  // tasks' under the rack's ontology ID.
+  private downRackStatus(rack: RackKey | undefined): status.Status | undefined {
+    if (rack == null || primitive.isZero(rack)) return undefined;
+    const stat = this.cfg.statusStore.get(ontology.idToString(rackOntologyID(rack)));
+    if (stat == null || HEALTHY_RACK_VARIANTS.includes(stat.variant)) return undefined;
+    return stat;
+  }
+
+  /**
+   * Builds the status shown while a command is in flight. A rack whose Driver is down
+   * answers nothing, so its warning stands in for a wait that would never end.
+   */
+  private optimisticStatus(cmd: Command): Status {
+    // Carry the last known deploy info forward: zeroing it would make this
+    // optimistic status claim the task deployed with an empty config/rack.
+    const latest = this.latestStatusOf(cmd.task);
+    const key = statusKey(cmd.task);
+    const details = {
+      task: cmd.task,
+      cmd: "",
+      configHash: latest?.details.configHash ?? "",
+      rack: latest?.details.rack ?? 0,
+      data: {},
+    };
+    const down = this.downRackStatus(this.store.get(cmd.task)?.rack);
+    if (down == null)
+      return status.create<StatusDetailsZodObject>({
+        key,
+        name: STATUS_NAME,
+        variant: "loading",
+        message: `Running ${cmd.type} command...`,
+        details: { ...details, running: true },
+      });
+    return status.create<StatusDetailsZodObject>({
+      key,
+      name: STATUS_NAME,
+      variant: "warning",
+      message: down.message,
+      description: down.description,
+      details: { ...details, running: false },
+    });
+  }
+
+  // Nothing else retires the loading status: a task on a silent rack waits on the
+  // Core's next dead-rack alert, which dampens to once a minute.
+  private armCommandDeadline(cmd: Command, optimistic: Status): void {
+    const { statusStore } = this.cfg;
+    const key = statusKey(cmd.task);
+    clearTimeout(this.commandDeadlines.get(cmd.task));
+    this.commandDeadlines.set(
+      cmd.task,
+      setTimeout(() => {
+        this.commandDeadlines.delete(cmd.task);
+        // Any later write replaced the exact object this deadline was armed for.
+        if (statusStore.get(key) !== optimistic) return;
+        statusStore.set(
+          key,
+          status.create<StatusDetailsZodObject>({
+            key,
+            name: STATUS_NAME,
+            variant: "warning",
+            message: `No response to the ${cmd.type} command`,
+            description: `The Driver did not respond within ${COMMAND_DEADLINE.toString()}.`,
+            // Nothing answered, so the command is taken to have had no effect.
+            details: { ...optimistic.details, running: cmd.type === "stop" },
+          }),
+        );
+      }, COMMAND_DEADLINE.milliseconds),
+    );
+  }
+
   // A task's status may live under the "task:<key>" row or under any status
   // whose details reference the task; the freshest wins. Rows are parsed
   // because the status table holds every domain's statuses generically.
@@ -773,6 +863,7 @@ export class Client extends query.Retriever<
   }
 }
 
+/** @returns the key of the status that reports on the given task. */
 export const statusKey = (key: Key): string => ontology.idToString(ontologyID(key));
 
 const taskStatusZ = z.object({ details: z.object({ task: keyZ }) });
@@ -815,6 +906,7 @@ const executeCommand = async ({
     })
   )[0];
 
+/** A command queued for a task. */
 export interface NewCommand {
   task: Key;
   type: string;
@@ -886,7 +978,7 @@ interface ExecuteCommandsSyncInternalParams<StatusData extends z.ZodType = z.Zod
 const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
   frameClient,
   commands,
-  timeout = TimeSpan.seconds(10),
+  timeout = COMMAND_DEADLINE,
   statusDataZ,
   name: taskName,
 }: ExecuteCommandsSyncInternalParams<StatusData>): Promise<Status<StatusData>[]> => {
@@ -898,10 +990,11 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
   let timeoutID: NodeJS.Timeout | undefined;
   const timeoutPromise = new Promise<never>((_, reject) => {
     timeoutID = setTimeout(() => {
-      void (async () => {
-        const taskKeys = commands.map((c) => c.task);
-        reject(await formatTimeoutError("command", taskName, parsedTimeout, taskKeys));
-      })();
+      const taskKeys = commands.map((c) => c.task);
+      formatTimeoutError("command", taskName, parsedTimeout, taskKeys).then(
+        reject,
+        reject,
+      );
     }, parsedTimeout.milliseconds);
   });
   try {

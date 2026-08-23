@@ -82,6 +82,9 @@ type unionVariantData struct {
 	DefaultFills     []defaultFillData
 	EnumChecks       []enumCheckData
 	ConstraintChecks []constraintCheckData
+	// DefaultGroups is the variant's inline fields grouped by `@default group`, each
+	// filled as a unit.
+	DefaultGroups []defaultGroupData
 	// NeedsApplyDefaults and NeedsValidate report whether the variant emits the
 	// respective method.
 	NeedsApplyDefaults bool
@@ -96,8 +99,8 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 	if override := domain.GetStringFromType(entry, "go", "name"); override != "" {
 		name = override
 	}
-	data.imports.AddExternal("encoding/json")
-	data.imports.AddExternal("github.com/synnaxlabs/x/errors")
+	data.AddExternal("encoding/json")
+	data.AddExternal("github.com/synnaxlabs/x/errors")
 
 	ud := unionData{
 		Name:          name,
@@ -108,17 +111,21 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 		DiscJSONName:  casing.FieldSnake(form.Discriminator),
 	}
 
-	var baseEmbeds []embeddedType
-	for _, ext := range form.Extends {
-		parent, ok := ext.Resolve(data.table)
-		if !ok {
-			continue
+	embedBases := func(refs []resolution.TypeRef) []embeddedType {
+		var out []embeddedType
+		for _, ext := range refs {
+			parent, ok := ext.Resolve(data.table)
+			if !ok {
+				continue
+			}
+			out = append(
+				out,
+				embeddedType{ref: ext, rendered: resolveExtendsType(ext, parent, data)},
+			)
 		}
-		baseEmbeds = append(
-			baseEmbeds,
-			embeddedType{ref: ext, rendered: resolveExtendsType(ext, parent, data)},
-		)
+		return out
 	}
+	baseEmbeds := embedBases(form.Extends)
 
 	for _, v := range form.Variants {
 		vd := unionVariantData{
@@ -133,33 +140,23 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 		if v.Inline {
 			if payload, ok := v.Type.Resolve(data.table); ok {
 				pform := payload.Form.(resolution.StructForm)
-				for _, ext := range pform.Extends {
-					if parent, ok := ext.Resolve(data.table); ok {
-						embeds = append(
-							embeds,
-							embeddedType{
-								ref:      ext,
-								rendered: resolveExtendsType(ext, parent, data),
-							},
-						)
-					}
-				}
-				inlineFields = pform.Fields
+				inherited, declared := resolver.VariantBases(form, v, data.table)
+				embeds = embedBases(inherited)
+				inlineFields = append(slices.Clone(declared), pform.Fields...)
 				// A field that only restates an inherited default keeps the
 				// embedded parent's declaration and contributes a fill alone.
-				inherited := append(
-					slices.Clone(form.Extends), pform.Extends...,
-				)
 				defaultOnly := resolver.DefaultOnlyOverrides(
 					inherited, pform.Fields, data.table,
 				)
-				for _, f := range pform.Fields {
+				for _, f := range inlineFields {
 					if !defaultOnly.Contains(f.Name) {
 						vd.Fields = append(vd.Fields, processField(f, data))
 					}
-					vd.DefaultFills = append(
-						vd.DefaultFills,
-						goDefaultFills(f, data)...)
+					if defaultGroupName(f) == "" {
+						vd.DefaultFills = append(
+							vd.DefaultFills,
+							goDefaultFills(f, data)...)
+					}
 					if validateSkip(f, data) {
 						continue
 					}
@@ -170,6 +167,7 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 						vd.ConstraintChecks,
 						goConstraintChecks(f, data)...)
 				}
+				vd.DefaultGroups = goDefaultGroups(inlineFields, data)
 			}
 		} else {
 			embeds = append(
@@ -198,7 +196,7 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 			validateSkip,
 		)
 		vd.NeedsApplyDefaults = len(vd.DefaultRecurse) > 0 ||
-			len(vd.DefaultFills) > 0
+			len(vd.DefaultFills) > 0 || len(vd.DefaultGroups) > 0
 		vd.NeedsValidate = len(vd.ValidateRecurse) > 0 ||
 			len(vd.EnumChecks) > 0 || len(vd.ConstraintChecks) > 0
 		if vd.NeedsApplyDefaults {
@@ -208,12 +206,12 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 			ud.NeedsValidate = true
 		}
 		if hasSliceRecurse(vd.ValidateRecurse) {
-			data.imports.AddExternal(strconvImportPath)
+			data.AddExternal(strconvImportPath)
 		}
 		ud.Variants = append(ud.Variants, vd)
 	}
 	if ud.NeedsValidate {
-		data.imports.AddExternal(validateImportPath)
+		data.AddExternal(validateImportPath)
 	}
 	return ud
 }

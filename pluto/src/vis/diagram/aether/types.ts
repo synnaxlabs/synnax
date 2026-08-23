@@ -185,11 +185,8 @@ export interface ConnectionLineProps {
 export const createEndpoint = (
   x: number,
   y: number,
-  position: string,
-): EdgeEndpoint => ({
-  position: { x, y },
-  orientation: position as location.Outer,
-});
+  orientation: location.Outer,
+): EdgeEndpoint => ({ position: { x, y }, orientation });
 
 export const createEdgeFromConnection = (connection: rf.Connection): Edge => ({
   key: id.create(),

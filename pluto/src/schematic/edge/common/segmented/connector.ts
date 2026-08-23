@@ -88,13 +88,11 @@ export const prepareNode = ({
   const sourceDirection = direction.construct(sourceOrientation);
   const swappedSourceDirection = direction.swap(sourceDirection);
 
-  // This is the direction we need to travel in
   let orientationToTravelIn = orientationFromLength(
     swappedSourceDirection,
     targetPos[swappedSourceDirection] - sourcePos[swappedSourceDirection],
   );
 
-  // We need to grab the edge of the node in this direction
   const nodeEdge = box.loc(sourceBox, orientationToTravelIn);
 
   // If they are pointing in opposite directions, we need to check if we need to
@@ -104,9 +102,8 @@ export const prepareNode = ({
     // In this case we do need to go around the node.
     const targetNodeEdge = box.loc(targetBox, location.swap(orientationToTravelIn));
     if (Math.abs(nodeEdge - targetNodeEdge) < STUMP_LENGTH)
-      orientationToTravelIn = location.swap(orientationToTravelIn) as location.Outer;
+      orientationToTravelIn = location.swap(orientationToTravelIn);
   }
-  // We need to travel from the source to the edge of the node plus MIN_LENGTH
   return {
     direction: swappedSourceDirection,
     length:
@@ -255,7 +252,6 @@ const removeShortSegments = (segments: Segment[]): Segment[] => {
     return false;
   });
   if (ok !== -1) {
-    // splice out the short segment
     next.splice(ok, 1);
     return next;
   }
@@ -317,7 +313,6 @@ const removeSameOrientationSegments = (segments: Segment[]): Segment[] => {
       return true;
     }
 
-    // splice out the short segment
     next[i - 1] = {
       direction: next[i - 1].direction,
       length: next[i - 1].length + next[i].length,
@@ -459,13 +454,11 @@ const internalNewConnector = ({
     orientationFromLength(sourceStump.direction, delta) === sourceStumpOrientation &&
     orientationFromLength(swapped, swappedDelta) === targetStumpOrientation
   )
-    // This means we're good to go in this direction
     firstSeg = {
       direction: sourceStump.direction,
       length: delta,
     };
   else {
-    // This means we need to go orthogonally
     firstSeg = {
       direction: swapped,
       length: targetStumpTip[swapped] - sourceStumpTip[swapped],
@@ -474,7 +467,6 @@ const internalNewConnector = ({
   }
 
   segments.push(firstSeg);
-  // All we need to do next is draw a line
   const secondSeg = {
     direction: swapped,
     length: targetStumpTip[swapped] - sourceStumpTip[swapped],
@@ -508,14 +500,11 @@ const internalDragSegment = ({
     next.unshift({ direction: dir, length: magnitude });
     const stumpLength = setOrientationOnLength(orientation, STUMP_LENGTH);
     next.unshift({ direction: seg.direction, length: stumpLength });
-    // Move the index up by two since we added two segments
     index += 2;
     // Since we added a new stump in the same direction as the old one, we need to
     // subtract the stump length from the segment.
     next[index] = { ...next[index], length: next[index].length - stumpLength };
-  }
-  // If it's not the stump just move it directly.
-  else
+  } else
     next[index - 1] = {
       direction: next[index - 1].direction,
       length: next[index - 1].length + magnitude,
@@ -757,7 +746,6 @@ const moveNodeInDirection = (
       ];
     } else {
       if (stump.direction === dir) {
-        // just adjust the stump
         segments[stumpIdx] = { ...stump, length: stump.length - delta[dir] };
         return segments;
       }

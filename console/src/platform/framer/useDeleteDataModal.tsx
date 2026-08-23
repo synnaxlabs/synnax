@@ -40,8 +40,8 @@ import { Triggers } from "@/platform/triggers";
 const formSchema = z.object({
   channels: channel.keyZ.array().min(1, "Select at least one channel"),
   timeRange: numericTimeRangeZ.refine(({ start, end }) => start < end, {
-    error: "Start time must be before end time",
-    path: ["start"],
+    error: "End time must be after start time",
+    path: ["end"],
   }),
 });
 
@@ -106,7 +106,7 @@ const FormStep = ({ onNext }: FormStepProps): ReactElement => {
     <>
       <Modals.Body gap="large" justify="start">
         <Text.Text level="h3" weight={450}>
-          Delete Data
+          Delete data
         </Text.Text>
         <Flex.Box y full="x" gap="medium">
           <Form.Field<channel.Key[]> path="channels">
@@ -223,7 +223,7 @@ const ConfirmStep = ({ onBack, onClose }: ConfirmStepProps): ReactElement => {
       await client.delete(keys, tr);
       addStatus({
         variant: "success",
-        message: `Successfully deleted data from ${newChannelStr(keys)}`,
+        message: `Deleted data from ${newChannelStr(keys)}`,
       });
     }, "Failed to delete data");
   }, [get, onClose, handleError, client, addStatus]);
@@ -252,11 +252,11 @@ const ConfirmStep = ({ onBack, onClose }: ConfirmStepProps): ReactElement => {
         </Text.Text>
         <Flex.Box y gap="medium">
           <Text.Text weight={450}>
-            This will permanently delete data from {channelStr} for the time range:{" "}
+            This permanently deletes data from {channelStr} for the time range:{" "}
             {formatTimeRange(start, end)}.
           </Text.Text>
           <Text.Text weight={450} status="error">
-            This action is irreversible.
+            This action cannot be undone.
           </Text.Text>
         </Flex.Box>
       </Modals.Body>

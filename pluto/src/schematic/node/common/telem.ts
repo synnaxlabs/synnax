@@ -64,6 +64,25 @@ export const numberSource = (channel: channel.Key = 0): telem.NumberSourceSpec =
     outlet: "valueStream",
   });
 
+export interface SmoothedNumberSourceArgs {
+  channel?: channel.Key;
+  rollingAverage?: number;
+}
+
+/** smoothedNumberSource builds the rolling-average read pipeline for a value channel. */
+export const smoothedNumberSource = ({
+  channel = 0,
+  rollingAverage = 1,
+}: SmoothedNumberSourceArgs): telem.NumberSourceSpec =>
+  telem.sourcePipeline("number", {
+    connections: [{ from: "valueStream", to: "rollingAverage" }],
+    segments: {
+      valueStream: telem.streamChannelValue({ channel }),
+      rollingAverage: telem.rollingAverage({ windowSize: rollingAverage }),
+    },
+    outlet: "rollingAverage",
+  });
+
 export interface StringSourceArgs {
   channel?: channel.Key;
   rollingAverage?: number;

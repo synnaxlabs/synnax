@@ -61,9 +61,8 @@ export const synnaxParamsZ = z.object({
   retry: breaker.breakerConfigZ.optional(),
   cache: z.boolean().default(true),
   /**
-   * Receives cache errors that have no caller to throw to (listener fan-out,
-   * streamer frame handling, background reconciliation). Defaults to console
-   * logging.
+   * Receives cache errors that have no caller to throw to (listener fan-out, streamer
+   * frame handling, background reconciliation). Defaults to console logging.
    */
   // output is unknown, not void: strict void validation would make a
   // caller's `(e) => list.push(e)` throw at error-report time
@@ -77,7 +76,6 @@ export interface ParsedSynnaxParams extends z.infer<typeof synnaxParamsZ> {}
 
 /**
  * Client to perform operations against a Synnax cluster.
- *
  * @property channel - Channel client for creating and retrieving channels.
  * @property data - Data client for reading and writing telemetry.
  * @property connection - The connection state machine.
@@ -114,25 +112,22 @@ export default class Synnax extends framer.Client {
   private readonly transport: Transport;
   private readonly conn: connection.Client;
 
-  /**
-   * The version of the client.
-   */
+  /** The version of the client. */
   readonly clientVersion: string = __VERSION__;
 
   /**
    * @param props.host - Hostname of a node in the cluster.
    * @param props.port - Port of the node in the cluster.
-   * @param props.username - Username for authentication. Not required if the
-   * cluster is insecure.
-   * @param props.password - Password for authentication. Not required if the
-   * cluster is insecure.
-   * @param props.connectivityPollFrequency - Heartbeat cadence while the
-   * connection is healthy. Defaults to 30 seconds.
-   * @param props.secure - Whether to connect to the cluster using TLS. The cluster
-   * must be configured to support TLS. Defaults to false.
-   *
-   * A Synnax client must be closed when it is no longer needed. This stops the
-   * connection machine and closes the change stream.
+   * @param props.username - Username for authentication. Not required if the cluster is
+   * insecure.
+   * @param props.password - Password for authentication. Not required if the cluster is
+   * insecure.
+   * @param props.connectivityPollFrequency - Heartbeat cadence while the connection is
+   * healthy. Defaults to 30 seconds.
+   * @param props.secure - Whether to connect to the cluster using TLS. The cluster must
+   * be configured to support TLS. Defaults to false. A Synnax client must be closed
+   * when it is no longer needed. This stops the connection machine and closes the
+   * change stream.
    */
   constructor(params: SynnaxParams) {
     const parsedParams = zod.parse(synnaxParamsZ, params);
@@ -188,9 +183,8 @@ export default class Synnax extends framer.Client {
     this.connection = this.conn;
     cache.onEpoch((epoch) => this.conn.notify({ type: "epoch.advanced", epoch }));
     transport.unary.use(this.conn.middleware());
-    // The auth client fails fast: login retries belong to the request that
-    // triggered them (the breaker-wrapped unary or the check loop), never
-    // stacked beneath it.
+    // The auth client fails fast: login retries belong to the request that triggered
+    // them (the breaker-wrapped unary or the check loop), never stacked beneath it.
     this.auth = new auth.Client(
       transport.unaryNoRetry,
       { username, password },
@@ -231,10 +225,15 @@ export default class Synnax extends framer.Client {
       cache,
       ontology: this.ontology,
     });
-    this.control = new control.Client({ framer: this });
+    this.control = new control.Client({ unary, cache });
     this.access = new access.Client({ unary, cache, ontology: this.ontology });
     this.users = new user.Client({ unary, cache, ontology: this.ontology });
-    this.projects = new project.Client({ unary, cache, ontology: this.ontology });
+    this.projects = new project.Client({
+      unary,
+      file: this.transport.file,
+      cache,
+      ontology: this.ontology,
+    });
     this.tasks = new task.Client({
       unary,
       framer: this,
@@ -289,12 +288,11 @@ export default class Synnax extends framer.Client {
   }
 
   /**
-   * Awaits the connection becoming usable: success, or warning when the cluster
-   * refuses live updates. Idempotent: resolves immediately when already
-   * connected.
+   * Awaits the connection becoming usable: success, or warning when the cluster refuses
+   * live updates. Idempotent: resolves immediately when already connected.
    * @throws {AuthError} on a definitive credential rejection.
-   * @throws {DisconnectedError} when the cluster cannot be reached after the
-   * configured retry budget, or when the client is closed while waiting.
+   * @throws {DisconnectedError} when the cluster cannot be reached after the configured
+   * retry budget, or when the client is closed while waiting.
    * @throws {Error} if the timeout elapses first.
    */
   async connect({ timeout }: ConnectOptions = {}): Promise<connection.Status> {

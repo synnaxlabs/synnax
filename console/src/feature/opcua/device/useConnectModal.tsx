@@ -45,11 +45,13 @@ import { Triggers } from "@/platform/triggers";
 
 const useForm = PDevice.createForm(SCHEMAS);
 
+const TEST_CONNECTION_TIMEOUT = TimeSpan.seconds(10);
+
 const INITIAL_VALUES: Device = {
   key: "",
-  name: "OPC UA Server",
+  name: "OPC UA server",
   make: "opc",
-  model: "OPC UA Server",
+  model: "OPC UA server",
   location: "",
   properties: ZERO_PROPERTIES,
   rack: 0,
@@ -70,7 +72,7 @@ const beforeSave = async ({
   const scanTask = await retrieveScanTask(client, get<rack.Key>("rack").value);
   const scanStatus = await scanTask.executeCommandSync({
     type: TEST_CONNECTION_COMMAND_TYPE,
-    timeout: TimeSpan.seconds(10),
+    timeout: TEST_CONNECTION_TIMEOUT,
     args: { connection: get("properties.connection").value },
   });
   if (scanStatus.variant === "error") throw new Error(scanStatus.message);
@@ -114,7 +116,7 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
         <Modals.Body gap="small">
           <Form.Form<typeof PDevice.formSchema> {...form}>
             <Form.TextField inputProps={NAME_INPUT_PROPS} path="name" />
-            <Form.Field<rack.Key> path="rack" label="Connect From" required>
+            <Form.Field<rack.Key> path="rack" label="Connect from" required>
               {selectRackRenderProp}
             </Form.Field>
             <Form.TextField
@@ -134,7 +136,7 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
                 inputProps={PASSWORD_INPUT_PROPS}
               />
               <Form.Field<SecurityMode>
-                label="Security Mode"
+                label="Security mode"
                 path="properties.connection.securityMode"
               >
                 {({ value, onChange }) => (
@@ -146,7 +148,7 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
             <Form.Field<SecurityPolicy>
               grow={!hasSecurity}
               path="properties.connection.securityPolicy"
-              label="Security Policy"
+              label="Security policy"
             >
               {({ value, onChange }) => (
                 <SelectSecurityPolicy value={value} onChange={onChange} />
@@ -155,23 +157,23 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
             {hasSecurity && (
               <>
                 <Form.Field<string>
-                  label="Client Certificate"
+                  label="Client certificate"
                   path="properties.connection.clientCertificate"
                 >
-                  {FS.InputFilePath}
+                  {clientCertField}
                 </Form.Field>
                 <Form.Field<string>
-                  label="Client Private Key"
+                  label="Client private key"
                   path="properties.connection.clientPrivateKey"
                 >
-                  {FS.InputFilePath}
+                  {clientPrivateKeyField}
                 </Form.Field>
                 <Form.Field<string>
                   grow
-                  label="Server Certificate"
+                  label="Server certificate"
                   path="properties.connection.serverCertificate"
                 >
-                  {FS.InputFilePath}
+                  {serverCertField}
                 </Form.Field>
               </>
             )}
@@ -180,7 +182,7 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
         <Modals.Footer>
           <Nav.Bar.Start gap="small">
             {variant == "success" ? (
-              <Triggers.SaveHelpText action="Test Connection" noBar />
+              <Triggers.SaveHelpText action="Connect" noBar />
             ) : (
               <Status.Summary variant={variant} message={stat.description} />
             )}
@@ -200,6 +202,18 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
   },
 );
 
+const clientCertField = Component.renderProp(({ value, onChange }) => (
+  <FS.InputPath value={value} onChange={onChange} title="Select a client certificate" />
+));
+
+const clientPrivateKeyField = Component.renderProp(({ value, onChange }) => (
+  <FS.InputPath value={value} onChange={onChange} title="Select a client private key" />
+));
+
+const serverCertField = Component.renderProp(({ value, onChange }) => (
+  <FS.InputPath value={value} onChange={onChange} title="Select a server certificate" />
+));
+
 const INITIAL_RACK_QUERY: rack.RetrieveParams = { integration: "opc" };
 
 const selectRackRenderProp = Component.renderProp(
@@ -211,7 +225,7 @@ const selectRackRenderProp = Component.renderProp(
 const NAME_INPUT_PROPS = {
   level: "h2",
   variant: "text",
-  placeholder: "OPC UA Server",
+  placeholder: "OPC UA server",
 } as const;
 
 const ENDPOINT_INPUT_PROPS = {

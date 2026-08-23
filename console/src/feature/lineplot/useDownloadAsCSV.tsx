@@ -12,7 +12,7 @@ import { Icon, LinePlot, Status } from "@synnaxlabs/pluto";
 import { TimeRange, TimeStamp, unique } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { CSV } from "@/platform/csv";
+import { Framer } from "@/platform/framer";
 import { Session } from "@/session";
 
 // DownloadLine carries only the channels the CSV export pulls. CSV columns are
@@ -28,7 +28,7 @@ export interface DownloadAsCSVParams {
 }
 
 export const useDownloadAsCSV = (): ((params: DownloadAsCSVParams) => void) => {
-  const openDownloadCSVModal = CSV.useDownloadModal();
+  const openDownloadCSVModal = Framer.useDownloadCSVModal();
   const handleError = Status.useErrorHandler();
   return useCallback(
     ({ timeRanges, lines, name }) => {

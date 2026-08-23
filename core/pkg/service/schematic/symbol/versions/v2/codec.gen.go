@@ -155,7 +155,7 @@ func (s Spec) EncodeOrc(w *orc.Writer) error {
 		}
 	}
 	w.Float64(float64(s.Scale))
-	w.Bool(s.ScaleStroke)
+	w.Bool(s.StrokeScaled)
 	if s.PreviewViewport != nil {
 		w.Bool(true)
 		if err := s.PreviewViewport.EncodeOrc(w); err != nil {
@@ -215,7 +215,7 @@ func (s *Spec) DecodeOrc(r *orc.Reader) error {
 	if s.Scale, err = r.Float64(); err != nil {
 		return err
 	}
-	if s.ScaleStroke, err = r.Bool(); err != nil {
+	if s.StrokeScaled, err = r.Bool(); err != nil {
 		return err
 	}
 	{

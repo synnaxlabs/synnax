@@ -20,9 +20,8 @@ export interface RedeployButtonProps extends Omit<Button.ButtonProps, "onClick">
 }
 
 /**
- * Deploys the saved configuration to the running task. Stays mounted so its
- * reveal and collapse can animate; hidden it occupies no space and cannot be
- * focused or clicked.
+ * Deploys the saved configuration to the running task. Stays mounted so its reveal and
+ * collapse can animate; hidden it occupies no space and cannot be focused or clicked.
  */
 export const RedeployButton = ({
   visible,
@@ -30,7 +29,7 @@ export const RedeployButton = ({
   ...props
 }: RedeployButtonProps): ReactElement => (
   <div
-    className={CSS(
+    className={CSS.cls(
       CSS.B("task-redeploy"),
       visible && CSS.BM("task-redeploy", "visible"),
     )}

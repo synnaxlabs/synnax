@@ -31,7 +31,7 @@ describe("Clipboard.useCopy", () => {
       expect(
         result.current.notifications.statuses.some(
           (s) =>
-            s.variant === "success" && s.message === "Copied greeting to clipboard.",
+            s.variant === "success" && s.message === "Copied greeting to clipboard",
         ),
       ).toBe(true),
     );

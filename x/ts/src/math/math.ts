@@ -23,8 +23,7 @@ const multiCoercedOp =
     return func(Number(a), Number(b)) as V;
   };
 
-/**
- * @returns the product of a and b, coercing b to the type of a if necessary. */
+/** @returns the product of a and b, coercing b to the type of a if necessary. */
 export const sub = multiCoercedOp((a, b) => a - b);
 
 /** @returns the sum of a and b, coercing b to the type of a if necessary. */
@@ -71,6 +70,10 @@ export const abs = <V extends Numeric>(a: V): V => {
   if (typeof a === "bigint") return (a < 0n ? -a : a) as V;
   return (a < 0 ? -a : a) as V;
 };
+
+/** @returns zero, represented as a bigint when the given value is one. */
+export const zero = <V extends Numeric>(like: V): V =>
+  (typeof like === "bigint" ? 0n : 0) as V;
 
 /** @returns the multiplication of a and b, coercing b to the type of a if necessary. */
 export const mult = multiCoercedOp((a, b) => a * b);

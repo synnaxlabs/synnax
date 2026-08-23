@@ -21,8 +21,9 @@ import (
 
 // Manager tracks Go imports needed for generated files.
 type Manager struct {
-	external set.Set[string]
-	internal map[string]*internalImport
+	external  set.Set[string]
+	internal  map[string]*internalImport
+	conflicts map[string]set.Set[string]
 }
 
 type internalImport struct {
@@ -33,17 +34,45 @@ type internalImport struct {
 // NewManager creates a new import manager.
 func NewManager() *Manager {
 	return &Manager{
-		external: make(set.Set[string]),
-		internal: make(map[string]*internalImport),
+		external:  make(set.Set[string]),
+		internal:  make(map[string]*internalImport),
+		conflicts: make(map[string]set.Set[string]),
 	}
 }
 
 // AddExternal adds an external package import.
 func (m *Manager) AddExternal(path string) { m.external.Add(path) }
 
-// AddInternal adds an internal package import with an alias.
+// AddInternal adds an internal package import with an alias. When two
+// different paths request one alias, the first binding wins and the conflict
+// is recorded; emitters must check Conflicts before rendering, because a
+// rendered reference under a rebound alias would silently point at the wrong
+// package.
 func (m *Manager) AddInternal(alias, path string) {
+	if existing, ok := m.internal[alias]; ok && existing.Path != path {
+		if m.conflicts[alias] == nil {
+			m.conflicts[alias] = make(set.Set[string])
+		}
+		m.conflicts[alias].Add(existing.Path)
+		m.conflicts[alias].Add(path)
+		return
+	}
 	m.internal[alias] = &internalImport{Path: path, Alias: alias}
+}
+
+// Conflicts returns, per alias, the sorted set of distinct import paths that
+// requested it. Empty when every alias maps to exactly one path.
+func (m *Manager) Conflicts() map[string][]string {
+	if len(m.conflicts) == 0 {
+		return nil
+	}
+	out := make(map[string][]string, len(m.conflicts))
+	for alias, paths := range m.conflicts {
+		s := paths.Slice()
+		sort.Strings(s)
+		out[alias] = s
+	}
+	return out
 }
 
 // AddImport routes imports to AddExternal or AddInternal based on category.

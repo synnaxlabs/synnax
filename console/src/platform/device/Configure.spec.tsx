@@ -41,7 +41,7 @@ const setup = async () => {
   const handle = await renderModalOpener(useConfigureModal, [{ deviceKey: dev.key }], {
     client,
   });
-  await waitFor(() => expect(screen.getByText(/enter a name/)).toBeTruthy());
+  await waitFor(() => expect(screen.getByText(/give this device a name/)).toBeTruthy());
   return { dev, ...handle };
 };
 
@@ -59,7 +59,7 @@ describe("device Configure", () => {
         />
       </Errors.SuspenseBoundary>,
     );
-    expect(screen.queryByText(/enter a name so it's easy to look up later/)).toBeNull();
+    expect(screen.queryByText(/give this device a name/)).toBeNull();
   });
 
   it("should stay on the name step and leave the device unconfigured when the name is cleared", async () => {

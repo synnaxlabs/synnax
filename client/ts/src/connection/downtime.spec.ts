@@ -14,16 +14,12 @@ import Synnax from "@/client";
 import { DisconnectedError, isConnectionError } from "@/errors";
 import {
   createSeverableProxy,
+  FAST_RETRY,
   type SeverableProxy,
   TEST_CLIENT_PARAMS,
   waitForStatus,
+  waitForStreamLive,
 } from "@/testutil";
-
-const FAST_RETRY: breaker.Config = {
-  baseInterval: TimeSpan.milliseconds(10),
-  maxInterval: TimeSpan.milliseconds(50),
-  scale: 1.5,
-};
 
 interface ProxiedClient {
   proxy: SeverableProxy;
@@ -81,10 +77,7 @@ describe("downtime", () => {
         client.projects.create({ name: "unreachable", layout: {} }),
       ).rejects.toThrow(DisconnectedError);
       await proxy.restore();
-      const status = await waitForStatus(
-        client.connection,
-        ({ variant, details }) => variant === "success" && details.streamLive,
-      );
+      const status = await waitForStreamLive(client.connection);
       expect(status.details.clusterKey).toBe(firstKey);
       // A fresh write proves the unary path recovered, not just the check loop.
       const recovered = await client.projects.create({ name: "recovered", layout: {} });
@@ -138,10 +131,7 @@ describe("downtime", () => {
       await proxy.restore();
       const created = await inFlight;
       expect(created.name).toBe("blip");
-      await waitForStatus(
-        client.connection,
-        ({ variant, details }) => variant === "success" && details.streamLive,
-      );
+      await waitForStreamLive(client.connection);
       expect(internal.map(chainOf)).toEqual([]);
     } finally {
       await client.close();

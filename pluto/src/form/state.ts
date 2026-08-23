@@ -217,7 +217,6 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
       if (status.variant !== "success") cachedRefsToClear.add(childPath);
     });
     cachedRefsToClear.forEach((path) => this.clearStatus(path));
-    // Parse was a complete success. No errors encountered.
     if (result.success) return true;
     let success = true;
     const statuses = this.errorsToStatuses(result.error.issues, [], []);

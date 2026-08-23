@@ -226,6 +226,22 @@ var _ = Describe("Vars", func() {
 		)
 	})
 
+	Describe("bool scalar type", func() {
+		It("Should load initial value and persist stores", func(ctx SpecContext) {
+			mod.SetNodeKey("node1")
+			Expect(
+				callU32(ctx, "load_bool", testutil.U32(0), testutil.U32(1)),
+			).To(Equal(uint32(1)))
+			Expect(
+				callU32(ctx, "load_bool", testutil.U32(0), testutil.U32(0)),
+			).To(Equal(uint32(1)))
+			rt.CallVoid(ctx, "stateful", "store_bool", testutil.U32(0), testutil.U32(0))
+			Expect(
+				callU32(ctx, "load_bool", testutil.U32(0), testutil.U32(1)),
+			).To(Equal(uint32(0)))
+		})
+	})
+
 	Describe("node key isolation", func() {
 		It("Should isolate state between different node keys", func(ctx SpecContext) {
 			mod.SetNodeKey("node1")
@@ -337,6 +353,28 @@ var _ = Describe("Vars", func() {
 			)
 			Expect(ser2.Len()).To(Equal(int64(2)))
 			Expect(telem.ValueAt[float64](ser2, 0)).To(Equal(10.0))
+		})
+
+		It("Should load and store bool series via handles", func(ctx SpecContext) {
+			mod.SetNodeKey("node1")
+			initH := seriesS.Store(telem.NewSeriesV(true, false, true))
+			rh := callU32(ctx, "load_series_bool", testutil.U32(0), testutil.U32(initH))
+			Expect(rh).To(Equal(initH))
+			Expect(MustBeOk(seriesS.Get(rh)).Len()).To(Equal(int64(3)))
+			rt.CallVoid(
+				ctx,
+				"stateful",
+				"store_series_bool",
+				testutil.U32(0),
+				testutil.U32(seriesS.Store(telem.NewSeriesV(false, true))),
+			)
+			ser2 := MustBeOk(
+				seriesS.Get(
+					callU32(ctx, "load_series_bool", testutil.U32(0), testutil.U32(0)),
+				),
+			)
+			Expect(ser2.Len()).To(Equal(int64(2)))
+			Expect(telem.ValueAt[bool](ser2, 0)).To(BeFalse())
 		})
 
 		It(
@@ -483,6 +521,7 @@ var _ = Describe("Vars", func() {
 				testutil.U32(0),
 				testutil.F64(10.5),
 			)
+			rt.CallVoid(ctx, "stateful", "store_bool", testutil.U32(0), testutil.U32(1))
 
 			mod.ClearNode("node1")
 
@@ -516,6 +555,9 @@ var _ = Describe("Vars", func() {
 			Expect(
 				callF64(ctx, "load_f64", testutil.U32(0), testutil.F64(21.5)),
 			).To(Equal(21.5))
+			Expect(
+				callU32(ctx, "load_bool", testutil.U32(0), testutil.U32(0)),
+			).To(Equal(uint32(0)))
 		})
 
 		It("Should clear every varID held for the node", func(ctx SpecContext) {

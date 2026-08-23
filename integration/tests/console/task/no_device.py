@@ -7,7 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import platform
 import random
 import uuid
 
@@ -24,11 +23,6 @@ class NoDevice(HardwareCase, ConsoleCase):
     that are not present.
     """
 
-    def setup(self) -> None:
-        if platform.system().lower() != "windows":
-            self.auto_pass(msg="Windows DAQmx drivers required")
-        super().setup()
-
     def run(self) -> None:
         """
         Test Opening and closing pages
@@ -36,10 +30,7 @@ class NoDevice(HardwareCase, ConsoleCase):
 
         self.log("Creating NI Analog Read Task Page")
         rand_int = random.randint(100, 999)
-        ni_ai = self.console.project.create_task(
-            "NI Analog Read Task",
-            f"USB-6000_{rand_int}",
-        )
+        ni_ai = self.console.pages.create(AnalogRead, f"USB-6000_{rand_int}")
 
         rack_name = f"TestRack_{rand_int}"
         dev_name = f"USB-6000_{rand_int}"
@@ -72,7 +63,7 @@ class NoDevice(HardwareCase, ConsoleCase):
         level = status["level"]
 
         level_expected = "disabled"
-        msg_expected = "Task has not been configured"
+        msg_expected = "NI analog read task has not been deployed"
 
         assert level_expected == level, (
             f"Task status level <{level}> should be <{level_expected}>"
@@ -83,28 +74,24 @@ class NoDevice(HardwareCase, ConsoleCase):
 
     def configure_without_channels(self, ni_ai: AnalogRead) -> None:
         """Configure without defining channels"""
-        ni_ai.configure()
+        ni_ai.deploy(expect=None)
 
         # Assert error notification
         notifications = self.console.notifications.check(timeout=5)
         msg = notifications[0]["message"]
-        msg_expected = "Failed to update Task"
+        msg_expected = "Failed to start task"
         assert msg_expected == msg, (
             f"Notification msg is <{msg}>, should be <{msg_expected}>"
         )
+        desc = notifications[0].get("description")
+        desc_expected = "No devices selected"
+        assert desc_expected == desc, (
+            f"Notification description is <{desc}>, should be <{desc_expected}>"
+        )
 
-        # Assert Task error status
-        status = ni_ai.status()
-        level = status["level"]
-        msg = status["msg"]
-        level_expected = "error"
-        msg_expected = "Failed to update Task"
-        assert level_expected == level, (
-            f"Task status level <{level}> should be <{level_expected}>"
-        )
-        assert msg_expected == msg, (
-            f"Task status msg <{msg}> should be <{msg_expected}>"
-        )
+        # Deploy rejects the config before it writes or starts anything, so the task
+        # keeps the status it had.
+        self.initial_assertion(ni_ai)
 
     def nominal_configuration(
         self, ni_ai: AnalogRead, rack_name: str, dev_name: str
@@ -118,24 +105,15 @@ class NoDevice(HardwareCase, ConsoleCase):
             dev_name="usb_6000",
         )
 
-        self.log("Configuring task")
-        ni_ai.configure()
-        self.log("Running task")
-        ni_ai.run()
+        self.log("Deploying task")
+        ni_ai.deploy(expect=None)
 
-        # Status assertions
-        status = ni_ai.status()
-        level = status["level"]
-        msg = status["msg"]
+        # No Driver answers a start command on this rack, so the Console stands the
+        # rack's own problem in for a wait that would never end. The Core stamps a
+        # "status unknown" placeholder while the task saves, so the wait keys on the
+        # message rather than on the level.
+        ni_ai.wait_for_status(f"Synnax Driver on {rack_name} not running")
 
-        while level == "loading" and self.should_continue:
-            sy.sleep(0.1)
-            status = ni_ai.status()
-            level = status["level"]
-            msg = status["msg"]
-
+        level = ni_ai.status()["level"]
         level_expected = "warning"
-        msg_expected = f"{rack_name} is not running"
-
-        assert msg_expected in msg, f"<{msg}> should be <{msg_expected}>"
         assert level_expected == level, f"<{level}> should be <{level_expected}>"

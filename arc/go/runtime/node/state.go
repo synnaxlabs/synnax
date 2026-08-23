@@ -41,7 +41,7 @@ func New(inter ir.IR) *ProgramState {
 		for _, p := range node.Outputs {
 			s.outputs[ir.Handle{Node: node.Key, Param: p.Name}] = &value{
 				data: telem.Series{DataType: p.Type.ToTelem()},
-				time: telem.Series{DataType: telem.TimeStampT},
+				time: telem.Series{DataType: telem.TimestampT},
 			}
 		}
 	}
@@ -62,7 +62,7 @@ func (s *ProgramState) Node(key string) *State {
 		isReference  = make([]bool, len(n.Inputs))
 	)
 	for i := range alignedData {
-		alignedTime[i] = telem.Series{DataType: telem.TimeStampT}
+		alignedTime[i] = telem.Series{DataType: telem.TimestampT}
 	}
 	hasEdgeFed := false
 	for i, p := range n.Inputs {
@@ -140,7 +140,7 @@ func (s *ProgramState) Node(key string) *State {
 			}
 			inputs = append(inputs, e)
 			alignedData = append(alignedData, telem.Series{})
-			alignedTime = append(alignedTime, telem.Series{DataType: telem.TimeStampT})
+			alignedTime = append(alignedTime, telem.Series{DataType: telem.TimestampT})
 			accumulated = append(accumulated, inputEntry{})
 			inputSources = append(inputSources, s.outputs[e.Source])
 			isReference = append(isReference, false)
@@ -571,7 +571,9 @@ func isSeriesTruthy(s telem.Series) bool {
 		return telem.ValueAt[uint16](s, -1) != 0
 	case telem.Uint8T:
 		return telem.ValueAt[uint8](s, -1) != 0
-	case telem.TimeStampT:
+	case telem.BooleanT:
+		return telem.ValueAt[bool](s, -1)
+	case telem.TimestampT:
 		return telem.ValueAt[telem.TimeStamp](s, -1) != 0
 	case telem.StringT:
 		return len(s.At(-1)) > 0

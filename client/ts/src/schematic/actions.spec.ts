@@ -496,12 +496,11 @@ describe("schematic reducer inverses", () => {
     expect(restored).toEqual(state);
   };
 
-  // Acknowledges the documented gap in setConfig's inverse: keys newly added
-  // by a SetConfig action cannot be removed by the inverse (SetConfig is a
-  // merge, not a replace). Asserts that nodes and edges round-trip cleanly,
-  // and that every config key present in the original is restored to its
-  // original value. Keys absent from the original may persist as phantom
-  // entries on the restored state.
+  // Acknowledges the documented gap in setConfig's inverse: keys newly added by a
+  // SetConfig action cannot be removed by the inverse (SetConfig is a merge, not a
+  // replace). Asserts that nodes and edges round-trip cleanly, and that every config
+  // key present in the original is restored to its original value. Keys absent from the
+  // original may persist as phantom entries on the restored state.
   const expectUserVisibleRoundTrip = (
     state: schematic.Schematic,
     actions: schematic.Action[],
@@ -579,10 +578,9 @@ describe("schematic reducer inverses", () => {
 
   describe("removeNode", () => {
     it("should invert by re-inserting the node and its config (order not preserved)", () => {
-      // setNode appends rather than inserting at a specific index, so a
-      // remove + undo cycle can rearrange the nodes array. The contents are
-      // restored but the original index is lost. Would be addressed by an
-      // InsertNode(node, idx) action.
+      // setNode appends rather than inserting at a specific index, so a remove + undo
+      // cycle can rearrange the nodes array. The contents are restored but the original
+      // index is lost. Would be addressed by an InsertNode(node, idx) action.
       const state = empty({
         nodes: [node("n1", 0, 0), node("n2", 1, 1)],
         configs: { n1: tank("Pump"), n2: tank("Tank") },

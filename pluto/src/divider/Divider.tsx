@@ -20,12 +20,7 @@ export interface DividerProps extends Flex.BoxProps {
   padded?: boolean | location.Location;
 }
 
-/**
- * Divider renders a vertical or horizontal divided to separate content.
- *
- * @param props - The props for the component.
- * @param props.direction - The direction to render the divider in.
- */
+/** Divider renders a vertical or horizontal divided to separate content. */
 export const Divider = ({
   className,
   padded = false,
@@ -35,7 +30,7 @@ export const Divider = ({
   if (padded === true) padded = "center";
   return (
     <Flex.Box
-      className={CSS(
+      className={CSS.cls(
         CSS.B("divider"),
         padded !== false && CSS.BM("divider", "padded"),
         typeof padded === "string" && CSS.loc(padded),

@@ -33,11 +33,13 @@ const SELECT_ALL_END = Number.MAX_SAFE_INTEGER;
 type Mode = "selectAll" | "clearSelection" | "togglePause" | "default";
 
 const TRIGGER_CONFIG: Triggers.ModeConfig<Mode> = {
-  selectAll: [["Control", "A"]],
-  clearSelection: [Triggers.ESCAPE],
-  togglePause: [PAUSE_TRIGGER],
-  default: [],
   defaultMode: "default",
+  modes: {
+    selectAll: [["Control", "A"]],
+    clearSelection: [Triggers.ESCAPE],
+    togglePause: [PAUSE_TRIGGER],
+    default: [],
+  },
 };
 
 const FLATTENED_TRIGGERS = Triggers.flattenConfig(TRIGGER_CONFIG);
@@ -46,9 +48,6 @@ export interface BaseProps extends UseProps, Omit<Flex.BoxProps, "color"> {
   emptyContent?: ReactElement;
   extraContextMenuItems?: ReactNode;
   enableTriggers?: Triggers.Condition;
-  /** Called when an internal gesture (scroll up, H trigger) changes the pause
-   * state. Controlled callers must reflect the value back through hold. */
-  onHold?: (hold: boolean) => void;
 }
 
 export const Base = ({
@@ -56,13 +55,13 @@ export const Base = ({
   font,
   className,
   visible,
-  hideChannelNames,
-  hideReceiptTimestamp,
+  channelNamesHidden,
+  receiptTimestampHidden,
   timestampPrecision,
   channels,
   emptyContent = (
     <Status.Summary center level="h3" variant="disabled" hideIcon>
-      Empty Log
+      No log entries
     </Status.Summary>
   ),
   color,
@@ -78,13 +77,14 @@ export const Base = ({
     aetherKey,
     font,
     visible,
-    hideChannelNames,
-    hideReceiptTimestamp,
+    channelNamesHidden,
+    receiptTimestampHidden,
     timestampPrecision,
     channels,
     color,
     telem,
     hold,
+    onHold,
   });
 
   const {
@@ -163,6 +163,7 @@ export const Base = ({
   }, [selectedLines]);
 
   const addStatus = Status.useAdder();
+  const handleError = Status.useErrorHandler();
   const notifyCopied = useCallback(
     (count: number) =>
       addStatus({
@@ -179,8 +180,11 @@ export const Base = ({
       "text/plain": new Blob([selectedText], { type: "text/plain" }),
     });
     const count = selectedLines.length;
-    void navigator.clipboard.write([item]).then(() => notifyCopied(count));
-  }, [selectedText, selectedLines.length, buildCopyHTML, notifyCopied]);
+    handleError(async () => {
+      await navigator.clipboard.write([item]);
+      notifyCopied(count);
+    }, "Failed to copy to clipboard");
+  }, [selectedText, selectedLines.length, buildCopyHTML, notifyCopied, handleError]);
 
   Triggers.use({
     triggers: FLATTENED_TRIGGERS,
@@ -241,8 +245,8 @@ export const Base = ({
     <Menu.ContextMenu className={menuClassName} menu={menuContent} {...menuProps}>
       <div
         ref={combinedRef}
-        tabIndex={0}
-        className={CSS(CSS.B("log"), className)}
+        tabIndex={-1}
+        className={CSS.cls(CSS.B("log"), className)}
         onWheel={(e) => {
           if (e.deltaY < 0 && !scrolling) setHold(true);
           setState((s) => ({ ...s, wheelPos: s.wheelPos - e.deltaY }));

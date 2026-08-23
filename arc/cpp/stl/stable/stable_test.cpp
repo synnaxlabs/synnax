@@ -7,6 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cstdint>
+#include <cstring>
+#include <vector>
+
 #include "gtest/gtest.h"
 
 #include "x/cpp/mem/indirect.h"
@@ -36,8 +40,11 @@ struct TestSetup {
     ir::IR ir;
     runtime::state::State state;
 
-    explicit TestSetup(const int64_t duration_ns):
-        ir(build_ir(duration_ns)),
+    explicit TestSetup(
+        const int64_t duration_ns,
+        const types::Kind kind = types::Kind::U8
+    ):
+        ir(build_ir(duration_ns, kind)),
         state(
             runtime::state::Config{.ir = ir, .channels = {}},
             runtime::errors::noop_handler
@@ -52,10 +59,10 @@ struct TestSetup {
     }
 
 private:
-    static ir::IR build_ir(const int64_t duration_ns) {
+    static ir::IR build_ir(const int64_t duration_ns, const types::Kind kind) {
         types::Param source_output;
         source_output.name = ir::default_output_param;
-        source_output.type = types::Type{.kind = types::Kind::U8};
+        source_output.type = types::Type{.kind = kind};
 
         ir::Node source_node;
         source_node.key = "source";
@@ -64,11 +71,11 @@ private:
 
         types::Param stable_input;
         stable_input.name = ir::default_input_param;
-        stable_input.type = types::Type{.kind = types::Kind::U8};
+        stable_input.type = types::Type{.kind = kind};
 
         types::Param stable_output;
         stable_output.name = ir::default_output_param;
-        stable_output.type = types::Type{.kind = types::Kind::U8};
+        stable_output.type = types::Type{.kind = kind};
 
         types::Param duration_param;
         duration_param.name = "duration";
@@ -718,4 +725,90 @@ TEST(StableForVarDurationTest, AdoptsALengtheningWriteAtTheNextWindowNotMidWindo
     const auto output = t.handle("stable").output(0);
     EXPECT_EQ(output->values<uint8_t>(), std::vector<uint8_t>{7});
 }
+
+struct TypePreservationCase {
+    types::Kind kind;
+    x::telem::DataType dt;
+    std::vector<uint8_t> bytes;
+};
+
+template<typename T>
+TypePreservationCase
+make_preservation_case(types::Kind kind, x::telem::DataType dt, T value) {
+    std::vector<uint8_t> bytes(sizeof(T));
+    std::memcpy(bytes.data(), &value, sizeof(T));
+    return {kind, dt, std::move(bytes)};
+}
+
+class StableForTypePreservationTest
+    : public ::testing::TestWithParam<TypePreservationCase> {};
+
+/// @brief The debounced output must carry the input's data type and its
+/// full-width value for every input type.
+TEST_P(StableForTypePreservationTest, DebouncesAndEmitsFullWidthValue) {
+    const auto &p = GetParam();
+    TestSetup setup(x::telem::SECOND.nanoseconds(), p.kind);
+    x::telem::TimeStamp now(0);
+    StableForInputs inputs{.duration = x::telem::SECOND};
+    StableFor node(inputs, setup.make_stable_node(), 0, make_now(now));
+
+    auto source = setup.make_source_node();
+    auto input = x::telem::Series(p.dt, 1);
+    input.resize(1);
+    std::memcpy(input.data(), p.bytes.data(), p.bytes.size());
+    source.output(0) = x::mem::make_local_shared<x::telem::Series>(std::move(input));
+    source.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
+        std::vector<int64_t>{x::telem::SECOND.nanoseconds()}
+    );
+
+    bool fired = false;
+    auto ctx = make_context();
+    ctx.mark_changed = [&fired](size_t) { fired = true; };
+    ASSERT_NIL(node.next(ctx));
+    EXPECT_FALSE(fired);
+
+    now = x::telem::TimeStamp(2 * x::telem::SECOND);
+    source.output(0) = x::mem::make_local_shared<x::telem::Series>(p.dt, 0);
+    source.output_time(
+        0
+    ) = x::mem::make_local_shared<x::telem::Series>(x::telem::TIMESTAMP_T, 0);
+    ASSERT_NIL(node.next(ctx));
+    EXPECT_TRUE(fired);
+
+    auto checker = setup.make_stable_node();
+    const auto &out = checker.output(0);
+    EXPECT_EQ(out->data_type(), p.dt);
+    ASSERT_EQ(out->size(), 1);
+    EXPECT_EQ(std::memcmp(out->data(), p.bytes.data(), p.bytes.size()), 0);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    AllTypes,
+    StableForTypePreservationTest,
+    ::testing::Values(
+        make_preservation_case(types::Kind::U8, x::telem::UINT8_T, uint8_t{42}),
+        make_preservation_case(types::Kind::U16, x::telem::UINT16_T, uint16_t{50000}),
+        make_preservation_case(
+            types::Kind::U32,
+            x::telem::UINT32_T,
+            uint32_t{3000000000U}
+        ),
+        make_preservation_case(
+            types::Kind::U64,
+            x::telem::UINT64_T,
+            uint64_t{18000000000000000000ULL}
+        ),
+        make_preservation_case(types::Kind::I8, x::telem::INT8_T, int8_t{-42}),
+        make_preservation_case(types::Kind::I16, x::telem::INT16_T, int16_t{-1000}),
+        make_preservation_case(types::Kind::I32, x::telem::INT32_T, int32_t{-100000}),
+        make_preservation_case(
+            types::Kind::I64,
+            x::telem::INT64_T,
+            int64_t{-5000000000LL}
+        ),
+        make_preservation_case(types::Kind::F32, x::telem::FLOAT32_T, float{4.321f}),
+        make_preservation_case(types::Kind::F64, x::telem::FLOAT64_T, double{4.321}),
+        make_preservation_case(types::Kind::Bool, x::telem::BOOLEAN_T, uint8_t{1})
+    )
+);
 }

@@ -58,13 +58,11 @@ describe("remote", () => {
     class MockClient implements Client {
       key: string = id.create();
 
-      // Stream
       streamHandler: framer.StreamHandler | null = null;
       streamKeys: channel.Key[] = [];
       streamF = vi.fn();
       streamDestructorF = vi.fn();
 
-      // Channel
       channel: channel.Channel = new channel.Channel({
         key: 65537,
         name: "test",
@@ -72,7 +70,6 @@ describe("remote", () => {
         isIndex: false,
       });
 
-      // Data
       response: MultiSeries = new MultiSeries([]);
 
       channels = { retrieve: async (): Promise<channel.Channel> => this.channel };
@@ -474,7 +471,6 @@ describe("remote", () => {
       readMock = vi.fn();
       retrieveChannelMock = vi.fn();
 
-      // Channel
       channel: channel.Channel = new channel.Channel({
         key: 65537,
         name: "test",
@@ -490,7 +486,6 @@ describe("remote", () => {
         isIndex: true,
       });
 
-      // Data
       response: Record<channel.Key, MultiSeries> = {
         [this.channel.key]: new MultiSeries([]),
         [this.channel.index]: new MultiSeries([]),
@@ -649,17 +644,14 @@ describe("remote", () => {
     class MockClient implements Client {
       key: string = id.create();
 
-      // Stream
       streamHandler: framer.StreamHandler | null = null;
       streamKeys: channel.Key[] = [];
       streamF = vi.fn();
       streamDestructorF = vi.fn();
 
-      // Read
       response: MultiSeries = new MultiSeries([]);
       readMock = vi.fn();
 
-      // Channel
       channel: channel.Channel = new channel.Channel({
         key: 65537,
         name: "test",
@@ -816,7 +808,6 @@ describe("remote", () => {
         now.add(TimeSpan.milliseconds(1)),
         now.add(TimeSpan.milliseconds(20)),
       );
-      // write the new series
       const series2 = new Series({
         data: new Float32Array([4, 5, 6]),
         timeRange: tr2,
@@ -856,7 +847,6 @@ describe("remote", () => {
         now.add(TimeSpan.milliseconds(20)),
       );
       expect(series.refCount).toBe(1);
-      // write the new series
       const series2 = new Series({
         data: new Float32Array([4, 5, 6]),
         timeRange: tr2,

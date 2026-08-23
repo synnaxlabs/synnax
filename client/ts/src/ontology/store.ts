@@ -20,6 +20,7 @@ import {
 } from "@/ontology/payload";
 import { query } from "@/query";
 
+/** Channels the Core writes ontology changes to. */
 export const RESOURCE_SET_CHANNEL_NAME = "sy_ontology_resource_set";
 export const RESOURCE_DELETE_CHANNEL_NAME = "sy_ontology_resource_delete";
 export const RELATIONSHIP_SET_CHANNEL_NAME = "sy_ontology_relationship_set";

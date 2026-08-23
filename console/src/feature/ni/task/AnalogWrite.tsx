@@ -12,7 +12,6 @@ import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { errors, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { enrich } from "@/feature/ni/device/enrich";
 import { Select } from "@/feature/ni/device/Select";
 import * as Device from "@/feature/ni/device/types";
 import { AOChannelForm } from "@/feature/ni/task/AOChannelForm";
@@ -94,7 +93,7 @@ const getInitialValues: Task.GetInitialValues<AnalogWriteSchemas> = ({
 }) => {
   const cfg = analogWriteConfigZ.parse(config ?? {});
   if (deviceKey != null) cfg.device = deviceKey;
-  return { name: "NI Analog Write Task", type: ANALOG_WRITE_TYPE, config: cfg };
+  return { name: "NI analog write task", type: ANALOG_WRITE_TYPE, config: cfg };
 };
 
 const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
@@ -106,7 +105,6 @@ const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
     schemas: Device.SCHEMAS,
   });
   PlatformDevice.checkConfigured(dev);
-  dev.properties = enrich(dev.model, dev.properties);
   let modified = false;
   let shouldCreateStateIndex = primitive.isZero(dev.properties.analogOutput.stateIndex);
   if (!shouldCreateStateIndex)
@@ -222,7 +220,7 @@ export const useCreateAnalogWrite = Task.createUseCreate({
 
 export const AnalogWriteSelectable = Selector.createSelectable({
   type: ANALOG_WRITE_TYPE,
-  title: "NI Analog Write Task",
+  title: "NI analog write task",
   icon: <Icon.Logo.NI />,
   useOnSelect: useCreateAnalogWrite,
 });

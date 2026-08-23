@@ -53,6 +53,7 @@ import { Range } from "@/platform/range";
 import { Session } from "@/session";
 
 const CLEAR_OVERSCAN: xy.XY = { x: 5, y: 5 };
+const VIEWPORT_DEBOUNCE = TimeSpan.milliseconds(100);
 
 interface RangeAnnotationContextMenuProps {
   lines: DownloadLine[];
@@ -103,6 +104,7 @@ const ContextMenuContent = ({
   const name = Base.useName({});
   const { box: selection } = Session.LinePlot.useSelectSelection();
   const openCreateRange = Range.useCreateModal();
+  const hasRangeCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
   const handleError = Status.useErrorHandler();
   const downloadAsCSV = useDownloadAsCSV();
   const getTimeRange = useCallback(async (): Promise<TimeRange> => {
@@ -155,9 +157,11 @@ const ContextMenuContent = ({
             <Icon.TypeScript /> Copy TypeScript time range
           </Menu.CopyItem>
           <Menu.Divider />
-          <Menu.Item itemKey="range" onClick={handleCreateRange}>
-            <Ranger.CreateIcon /> Create range from selection
-          </Menu.Item>
+          {hasRangeCreatePermission && (
+            <Menu.Item itemKey="range" onClick={handleCreateRange}>
+              <Ranger.CreateIcon /> Create range from selection
+            </Menu.Item>
+          )}
           <Menu.Divider />
           <Menu.Item itemKey="download" onClick={handleDownloadCSV}>
             <Icon.CSV /> Download region as CSV
@@ -238,7 +242,7 @@ const Internal = (): ReactElement => {
           }),
         );
     },
-    TimeSpan.milliseconds(100),
+    VIEWPORT_DEBOUNCE,
     [dispatch, key],
   );
 
@@ -281,7 +285,7 @@ const Internal = (): ReactElement => {
   );
 
   return (
-    <div className={CSS(CSS.BE("line-plot", "container"), menuProps.className)}>
+    <div className={CSS.cls(CSS.BE("line-plot", "container"), menuProps.className)}>
       <Menu.ContextMenu {...menuProps} menu={menuRenderProp}>
         <Base.LinePlot
           ref={linePlotRef}

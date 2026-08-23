@@ -9,7 +9,7 @@
 
 import { log as clientLog } from "@synnaxlabs/client";
 import { box, color, TimeStamp } from "@synnaxlabs/x";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Log, logStateZ } from "@/log/aether/Log";
 import {
@@ -145,7 +145,6 @@ describe("log/aether/Log", () => {
       const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
       const { log, updateState } = setup(entries);
 
-      // First update: not scrolling
       updateState({
         region: REGION_500,
         wheelPos: 0,
@@ -154,7 +153,6 @@ describe("log/aether/Log", () => {
         visible: true,
       });
 
-      // Second update: start scrolling
       updateState({
         region: REGION_500,
         wheelPos: 100,
@@ -163,10 +161,64 @@ describe("log/aether/Log", () => {
         visible: true,
       });
 
-      // Scrollback should be initialized with current entry count
       expect(log.scrollState.offset).toBe(entries.length);
       expect(log.scrollState.offsetRef).toBe(entries.length);
       expect(log.scrollState.scrollRef).toBe(100);
+    });
+
+    it("should not carry scrollback state into a later log", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      // A log mounted already paused runs the scrollback branch on its first update.
+      setup(entries, REGION_500, { scrolling: true, empty: false });
+      const { log } = setup(entries);
+      expect(log.scrollState).toEqual({
+        offset: 0,
+        offsetRef: 0,
+        scrollRef: 0,
+        awayFromEnd: false,
+      });
+    });
+
+    it("should stay paused while new entries arrive after a pause at the newest entry", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { log, source, updateState } = setup(entries);
+      updateState({ scrolling: false, empty: false });
+      updateState({ scrolling: true, empty: false });
+      source.push(...Array.from({ length: 20 }, (_, i) => makeEntry(100 + i)));
+      updateState({ scrolling: true, empty: false });
+      expect(log.state.scrolling).toBe(true);
+      expect(log.scrollState.offset).toBe(100);
+    });
+
+    it("should stay paused when the pause begins at the newest entry", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { log, updateState } = setup(entries);
+      updateState({ scrolling: false, empty: false });
+      updateState({ scrolling: true, empty: false });
+      updateState({ scrolling: true, empty: false });
+      expect(log.state.scrolling).toBe(true);
+    });
+
+    it("should resume once the viewport returns to the newest entry", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { log, updateState } = setup(entries);
+      updateState({ scrolling: false, empty: false });
+      updateState({ scrolling: true, empty: false, wheelPos: 0 });
+      updateState({ scrolling: true, empty: false, wheelPos: 300 });
+      expect(log.state.scrolling).toBe(true);
+      updateState({ scrolling: true, empty: false, wheelPos: 0 });
+      expect(log.state.scrolling).toBe(false);
+    });
+
+    it("should stamp resumedAt only when it resumes on its own", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { log, updateState } = setup(entries);
+      updateState({ scrolling: false, empty: false });
+      updateState({ scrolling: true, empty: false, wheelPos: 0 });
+      updateState({ scrolling: true, empty: false, wheelPos: 300 });
+      expect(log.state.resumedAt).toBe(0);
+      updateState({ scrolling: true, empty: false, wheelPos: 0 });
+      expect(log.state.resumedAt).toBeGreaterThan(0);
     });
   });
 
@@ -204,7 +256,7 @@ describe("log/aether/Log", () => {
         empty: true,
         visible: true,
       });
-      expect(parsed.hideChannelNames).toBe(false);
+      expect(parsed.channelNamesHidden).toBe(false);
       expect(parsed.timestampPrecision).toBe(0);
       expect(parsed.channelNames).toEqual({});
       expect(parsed.channels).toEqual([]);
@@ -225,10 +277,10 @@ describe("log/aether/Log", () => {
           }),
           clientLog.channelEntryZ.parse({ channel: 2, color: color.ZERO }),
         ],
-        hideChannelNames: true,
+        channelNamesHidden: true,
         timestampPrecision: 2,
       });
-      expect(parsed.hideChannelNames).toBe(true);
+      expect(parsed.channelNamesHidden).toBe(true);
       expect(parsed.timestampPrecision).toBe(2);
       expect(parsed.channels).toHaveLength(2);
       expect(parsed.channels[0].color).toEqual([255, 0, 0, 1]);
@@ -337,7 +389,6 @@ describe("log/aether/Log", () => {
       const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
       const { log, updateState } = setup(entries);
 
-      // First update: not scrolling
       updateState({
         region: REGION_500,
         wheelPos: 0,
@@ -346,7 +397,6 @@ describe("log/aether/Log", () => {
         visible: true,
       });
 
-      // Enter scrollback
       updateState({
         region: REGION_500,
         wheelPos: 100,
@@ -358,7 +408,6 @@ describe("log/aether/Log", () => {
       const initialOffset = log.scrollState.offset;
       expect(initialOffset).toBe(entries.length);
 
-      // Continue scrolling (wheel position changes)
       updateState({
         region: REGION_500,
         wheelPos: 200,
@@ -367,7 +416,6 @@ describe("log/aether/Log", () => {
         visible: true,
       });
 
-      // Offset should have changed based on the wheel delta
       expect(log.scrollState.offset).toBeLessThanOrEqual(entries.length);
       expect(log.scrollState.offset).toBeGreaterThan(0);
     });
@@ -392,7 +440,6 @@ describe("log/aether/Log", () => {
         visible: true,
       });
 
-      // Scroll back down past the end (large negative delta from scrollRef)
       updateState({
         region: REGION_500,
         wheelPos: -5000,
@@ -401,7 +448,6 @@ describe("log/aether/Log", () => {
         visible: true,
       });
 
-      // Should have exited scrollback
       expect(log.state.scrolling).toBe(false);
     });
   });
@@ -421,12 +467,10 @@ describe("log/aether/Log", () => {
         selectionEnd: 10,
       });
 
-      // Simulate eviction via the onChange callback
       source.evictedCount = 3;
       source.setEntries(entries.slice(3));
       source.notify();
 
-      // Selection should be adjusted by evictedCount
       expect(log.state.selectionStart).toBe(2);
       expect(log.state.selectionEnd).toBe(7);
     });
@@ -445,7 +489,6 @@ describe("log/aether/Log", () => {
         selectionEnd: 2,
       });
 
-      // Evict more than the selection range
       source.evictedCount = 5;
       source.setEntries(entries.slice(5));
       source.notify();
@@ -469,7 +512,6 @@ describe("log/aether/Log", () => {
         selectionEnd: 10,
       });
 
-      // No eviction
       source.evictedCount = 0;
       source.notify();
 
@@ -506,7 +548,6 @@ describe("log/aether/Log", () => {
       const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
       const { log, source, updateState } = setup(entries);
 
-      // First update: not scrolling
       updateState({
         region: REGION_500,
         wheelPos: 0,
@@ -515,7 +556,6 @@ describe("log/aether/Log", () => {
         visible: true,
       });
 
-      // Enter scrollback
       updateState({
         region: REGION_500,
         wheelPos: 100,
@@ -526,7 +566,6 @@ describe("log/aether/Log", () => {
 
       const offsetBeforeEviction = log.scrollState.offset;
 
-      // Simulate eviction
       source.evictedCount = 10;
       source.setEntries(entries.slice(10));
       source.notify();
@@ -562,7 +601,6 @@ describe("log/aether/Log", () => {
       const entries = Array.from({ length: 50 }, (_, i) => makeEntry(i));
       const { log } = setup(entries);
       log.render();
-      // visibleStart should be set to the start of the visible slice
       const expectedStart = Math.max(0, entries.length - log.visibleLineCount);
       expect(log.state.visibleStart).toBe(expectedStart);
     });
@@ -588,7 +626,6 @@ describe("log/aether/Log", () => {
         visible: true,
       });
 
-      // Enter scrollback
       updateState({
         region: REGION_500,
         wheelPos: 100,
@@ -599,35 +636,32 @@ describe("log/aether/Log", () => {
 
       const result = log.render();
       expect(result).toBeTypeOf("function");
-      // visibleStart should reflect the scrolled position
       expect(log.state.visibleStart).toBeLessThan(entries.length);
     });
   });
 
   describe("channel configs and formatting", () => {
-    it("should format entries with channel names when hideChannelNames is false", () => {
+    it("should format entries with channel names when channelNamesHidden is false", () => {
       const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i, 1));
       const { log } = setup(entries, REGION_500, {
-        hideChannelNames: false,
+        channelNamesHidden: false,
         channels: [clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO })],
         channelNames: { "1": "Sensor1" },
         selectionStart: 0,
         selectionEnd: 0,
       });
       log.render();
-      // selectedText should contain the channel name
       expect(log.state.selectedText).toContain("Sensor1");
     });
 
-    it("should format entries without channel names when hideChannelNames is true", () => {
+    it("should format entries without channel names when channelNamesHidden is true", () => {
       const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i, 1));
       const { log } = setup(entries, REGION_500, {
-        hideChannelNames: true,
+        channelNamesHidden: true,
         selectionStart: 0,
         selectionEnd: 0,
       });
       log.render();
-      // selectedText should NOT contain the channel name
       expect(log.state.selectedText).not.toContain("Sensor1");
     });
 
@@ -691,8 +725,8 @@ describe("log/aether/Log", () => {
         { channelKey: 1, timestamp: TimeStamp.milliseconds(2000), value: "again" },
       ];
       const { log } = setup(entries, REGION_500, {
-        hideChannelNames: false,
-        hideReceiptTimestamp: true,
+        channelNamesHidden: false,
+        receiptTimestampHidden: true,
         channels: [clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO })],
         channelNames: { "1": "log" },
         selectionStart: 0,
@@ -715,8 +749,8 @@ describe("log/aether/Log", () => {
         { channelKey: 1, timestamp: TimeStamp.milliseconds(1000), value: "" },
       ];
       const { log } = setup(entries, REGION_500, {
-        hideChannelNames: false,
-        hideReceiptTimestamp: true,
+        channelNamesHidden: false,
+        receiptTimestampHidden: true,
         channels: [clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO })],
         channelNames: { "1": "log" },
         selectionStart: 0,
@@ -744,8 +778,8 @@ describe("log/aether/Log", () => {
         },
       ];
       const { log } = setup(entries, REGION_500, {
-        hideChannelNames: false,
-        hideReceiptTimestamp: false,
+        channelNamesHidden: false,
+        receiptTimestampHidden: false,
         channels: [clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO })],
         channelNames: { "1": "sensor" },
         selectionStart: 0,
@@ -773,8 +807,8 @@ describe("log/aether/Log", () => {
         },
       ];
       const { log } = setup(entries, REGION_500, {
-        hideChannelNames: true,
-        hideReceiptTimestamp: true,
+        channelNamesHidden: true,
+        receiptTimestampHidden: true,
         channels: [clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO })],
         selectionStart: 0,
         selectionEnd: 1,
@@ -803,8 +837,8 @@ describe("log/aether/Log", () => {
         },
       ];
       const { log } = setup(entries, REGION_500, {
-        hideChannelNames: false,
-        hideReceiptTimestamp: true,
+        channelNamesHidden: false,
+        receiptTimestampHidden: true,
         channels: [
           clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO }),
           clientLog.channelEntryZ.parse({ channel: 2, color: color.ZERO }),
@@ -836,8 +870,8 @@ describe("log/aether/Log", () => {
         },
       ];
       const { log } = setup(entries, REGION_500, {
-        hideChannelNames: false,
-        hideReceiptTimestamp: true,
+        channelNamesHidden: false,
+        receiptTimestampHidden: true,
         channels: [clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO })],
         channelNames: { "1": "log" },
         selectionStart: 0,
@@ -883,7 +917,6 @@ describe("log/aether/Log", () => {
         selectionEnd: 5,
       });
       log.render();
-      // selectedLines should contain entries 2 through 5 inclusive
       expect(log.state.selectedLines).toHaveLength(4);
       expect(log.state.selectedText).toContain("\n");
     });
@@ -905,7 +938,6 @@ describe("log/aether/Log", () => {
         selectionEnd: 2,
       });
       log.render();
-      // Should still produce correct selected text (min to max)
       expect(log.state.selectedLines).toHaveLength(4);
     });
 
@@ -959,28 +991,122 @@ describe("log/aether/Log", () => {
   });
 
   describe("render scrollbar", () => {
-    it("should render scrollbar when scrolling with many entries", () => {
+    const SCROLLBAR_WIDTH = 6;
+    // The log never sits at the top left of the window, and the thumb is positioned in
+    // canvas coordinates, so an offset region is the case that matters.
+    const REGION_OFFSET = box.construct({ x: 20, y: 200 }, { width: 400, height: 500 });
+
+    // The thumb is the only rounded rect drawn at the scrollbar width; selection bands
+    // are unrounded and span the full region.
+    const findThumb = (recorder: ReturnType<typeof canvasTest.record>) => {
+      const call = recorder.lower2d.calls.findLast(
+        ({ op, args }) => op === "roundRect" && args[2] === SCROLLBAR_WIDTH,
+      );
+      if (call == null) return null;
+      const [x, y, width, height] = call.args as number[];
+      return { x, y, width, height };
+    };
+
+    // Enters scrollback pinned to the bottom, then scrolls up by wheelPos.
+    const scrollTo = (
+      updateState: (o: Record<string, unknown>) => void,
+      wheelPos: number,
+    ): void => {
+      updateState({ scrolling: false, empty: false });
+      updateState({ scrolling: true, empty: false, wheelPos: 0 });
+      if (wheelPos !== 0) updateState({ scrolling: true, empty: false, wheelPos });
+    };
+
+    it("should not draw a thumb while the log is live", () => {
+      const entries = Array.from({ length: 500 }, (_, i) => makeEntry(i));
+      const { log, recorder } = setup(entries);
+      log.render();
+      expect(findThumb(recorder)).toBeNull();
+    });
+
+    it("should not draw a thumb when the log has no entries", () => {
+      const { log, recorder, updateState } = setup([]);
+      updateState({ scrolling: true, empty: true });
+      recorder.clear();
+      log.render();
+      expect(findThumb(recorder)).toBeNull();
+    });
+
+    it("should not draw a thumb when the content barely overflows", () => {
+      const { log, recorder, updateState } = setup(
+        Array.from({ length: 33 }, (_, i) => makeEntry(i)),
+      );
+      scrollTo(updateState, 0);
+      recorder.clear();
+      log.render();
+      // 33 lines at a 15px line height is 495px against a 500px region.
+      expect(log.totalHeight).toBeLessThan(box.height(REGION_500));
+      expect(findThumb(recorder)).toBeNull();
+    });
+
+    it("should size the thumb to the visible fraction of the content", () => {
       const entries = Array.from({ length: 200 }, (_, i) => makeEntry(i));
-      const { log, updateState } = setup(entries);
+      const { log, recorder, updateState } = setup(entries);
+      scrollTo(updateState, 0);
+      recorder.clear();
+      log.render();
+      const regHeight = box.height(REGION_500);
+      const thumb = findThumb(recorder);
+      assert(thumb != null);
+      expect(thumb.height).toBeCloseTo((regHeight / log.totalHeight) * regHeight);
+    });
 
-      updateState({
-        region: REGION_500,
-        wheelPos: 0,
-        scrolling: false,
-        empty: true,
-        visible: true,
-      });
+    it("should floor the thumb height when the content dwarfs the region", () => {
+      const entries = Array.from({ length: 5000 }, (_, i) => makeEntry(i));
+      const { log, recorder, updateState } = setup(entries);
+      scrollTo(updateState, 0);
+      recorder.clear();
+      log.render();
+      const regHeight = box.height(REGION_500);
+      expect((regHeight / log.totalHeight) * regHeight).toBeLessThan(32);
+      const thumb = findThumb(recorder);
+      assert(thumb != null);
+      expect(thumb.height).toBe(32);
+    });
 
-      updateState({
-        region: REGION_500,
-        wheelPos: 100,
-        scrolling: true,
-        empty: false,
-        visible: true,
-      });
+    it("should pin the thumb to the bottom of the region at the newest entry", () => {
+      const entries = Array.from({ length: 200 }, (_, i) => makeEntry(i));
+      const { log, recorder, updateState } = setup(entries, REGION_OFFSET);
+      scrollTo(updateState, 0);
+      recorder.clear();
+      log.render();
+      const thumb = findThumb(recorder);
+      assert(thumb != null);
+      expect(thumb.y + thumb.height).toBeCloseTo(box.bottom(REGION_OFFSET));
+      expect(thumb.x + thumb.width).toBeCloseTo(box.right(REGION_OFFSET));
+    });
 
-      const result = log.render();
-      expect(result).toBeTypeOf("function");
+    it("should pin the thumb to the top of the region at the oldest entry", () => {
+      const entries = Array.from({ length: 200 }, (_, i) => makeEntry(i));
+      const { log, recorder, updateState } = setup(entries, REGION_OFFSET);
+      scrollTo(updateState, 100_000);
+      recorder.clear();
+      log.render();
+      expect(log.scrollState.offset).toBe(log.visibleLineCount);
+      const thumb = findThumb(recorder);
+      assert(thumb != null);
+      expect(thumb.y).toBeCloseTo(box.top(REGION_OFFSET));
+    });
+
+    it("should keep the thumb inside the region while scrolling up", () => {
+      const entries = Array.from({ length: 200 }, (_, i) => makeEntry(i));
+      const { log, recorder, updateState } = setup(entries, REGION_OFFSET);
+      updateState({ scrolling: false, empty: false });
+      updateState({ scrolling: true, empty: false, wheelPos: 0 });
+      for (let wheelPos = 100; wheelPos <= 5000; wheelPos += 100) {
+        updateState({ scrolling: true, empty: false, wheelPos });
+        recorder.clear();
+        log.render();
+        const thumb = findThumb(recorder);
+        assert(thumb != null);
+        expect(thumb.y).toBeGreaterThanOrEqual(box.top(REGION_OFFSET));
+        expect(thumb.y + thumb.height).toBeLessThanOrEqual(box.bottom(REGION_OFFSET));
+      }
     });
   });
 
@@ -993,7 +1119,7 @@ describe("log/aether/Log", () => {
         makeEntry(3, 3),
       ];
       const { log } = setup(entries, REGION_500, {
-        hideChannelNames: false,
+        channelNamesHidden: false,
         channels: [
           clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO }),
           clientLog.channelEntryZ.parse({ channel: 2, color: color.ZERO }),

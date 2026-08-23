@@ -580,6 +580,25 @@ describe("Answers", () => {
       expect(expectDeleted(answers.getCached(qA)).corpse).toEqual(4);
     });
 
+    it("returns a subscribed exact-key answer to unfetched when its entry is evicted", async () => {
+      const table = newTable();
+      table.set("a", rec("a", 4));
+      const fetch = vi.fn(async () => {
+        table.set("a", rec("a", 7));
+        return ["a"];
+      });
+      const answers = singleSpace(table, fetch);
+      const handler = vi.fn();
+      answers.onChange(qA, handler);
+      table.evict("a");
+      expect(handler).toHaveBeenLastCalledWith(undefined);
+      expect(answers.getCached(qA)).toBeUndefined();
+      // The record was never deleted, so the answer refetches instead of rejecting the
+      // way a tombstoned one does.
+      expect(await answers.retrieve(qA)).toEqual(7);
+      expect(fetch).toHaveBeenCalledOnce();
+    });
+
     it("does not seed when the table has no entry for the key", () => {
       const table = newTable();
       const answers = singleSpace(table, async () => ["a"]);
@@ -872,7 +891,8 @@ describe("Answers", () => {
       const pending = answers.retrieve({ min: 3 });
       table.set("a", rec("a", 5));
       release([]);
-      await pending;
+      // A caller that writes the awaited answer back loses the record.
+      expect(await pending).toEqual([rec("a", 5)]);
       expect(answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
       // patching the answer without announcing it leaves subscribers blind
       expect(handler).toHaveBeenLastCalledWith([rec("a", 5)]);
@@ -890,7 +910,7 @@ describe("Answers", () => {
       const pending = answers.retrieve({ min: 3 });
       table.set("a", rec("a", 1));
       release(["a"]);
-      await pending;
+      expect(await pending).toEqual([]);
       expect(answers.getCached({ min: 3 })).toEqual([]);
     });
 

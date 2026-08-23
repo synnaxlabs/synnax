@@ -79,7 +79,7 @@ export const Provider = ({
       <Flex.Box
         style={gridStyle}
         onContextMenu={menuProps.open}
-        className={CSS(
+        className={CSS.cls(
           CSS.B("lineplot-range-provider"),
           hovered != null && CSS.M("hovered"),
           menuProps.className,

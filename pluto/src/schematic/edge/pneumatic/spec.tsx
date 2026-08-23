@@ -62,7 +62,7 @@ export const spec: Spec<"pneumatic", schematic.PneumaticEdgeConfig> =
     "Pneumatic",
     ({ points, crossings, color: colorVal }) => {
       const symbolStyle = useMemo(
-        () => ({ [CSS.var("symbol-color")]: symbolColorVar(colorVal) }),
+        () => ({ [CSS.variable("symbol-color")]: symbolColorVar(colorVal) }),
         [colorVal],
       );
       return (

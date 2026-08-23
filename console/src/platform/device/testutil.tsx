@@ -163,15 +163,13 @@ export const renderWithDeviceForm = async (
 };
 
 /**
- * Shared test suite that verifies a device propertiesZ schema is tolerant of
- * missing / incomplete data — the core requirement for backward-compatible
- * device retrieval.
- *
+ * Shared test suite that verifies a device propertiesZ schema is tolerant of missing /
+ * incomplete data — the core requirement for backward-compatible device retrieval.
  * @param name - human-readable integration name shown in test output.
  * @param schema - the Zod schema under test (e.g. `propertiesZ`).
  * @param zeroProperties - the ZERO_PROPERTIES constant for the integration.
- * @param partialCases - optional extra cases: each entry is `[label, input]`
- *   where `input` is a partial properties object that the schema must accept.
+ * @param partialCases - optional extra cases: each entry is `[label, input]` where
+ * `input` is a partial properties object that the schema must accept.
  */
 interface TestPropertiesSchemaOptions {
   /** Set to false to skip the empty `{}` parse test (e.g., for versioned schemas). */

@@ -26,13 +26,12 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/framework"
 	"github.com/synnaxlabs/oracle/plugin/gomod"
+	"github.com/synnaxlabs/oracle/plugin/internal/arrays"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	pbprimitives "github.com/synnaxlabs/oracle/plugin/pb/primitives"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 )
 
 const defaultModulePrefix = "github.com/synnaxlabs/synnax/"
@@ -59,8 +58,6 @@ func (p *Plugin) Name() string { return "pb/types" }
 func (p *Plugin) Domains() []string { return []string{"pb"} }
 
 func (p *Plugin) Requires() []string { return nil }
-
-func (p *Plugin) Check(req *plugin.Request) error { return nil }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
@@ -246,7 +243,7 @@ func (p *Plugin) generateFile(
 	table *resolution.Table,
 	repoRoot string,
 ) ([]byte, error) {
-	namespace := ""
+	var namespace string
 	if len(structs) > 0 {
 		namespace = structs[0].Namespace
 	} else if len(unions) > 0 {
@@ -264,7 +261,6 @@ func (p *Plugin) generateFile(
 		Enums:      make([]enumData, 0, len(enums)),
 		imports:    newImportManager(),
 		table:      table,
-		repoRoot:   repoRoot,
 	}
 
 	for _, e := range enums {
@@ -414,7 +410,7 @@ func (p *Plugin) processField(
 	number int,
 	data *templateData,
 ) (fieldData, error) {
-	if p.isFixedSizeUint8Array(field.Type, data.table) {
+	if arrays.IsFixedSizeUint8(field.Type, data.table) {
 		return fieldData{
 			Name:       casing.FieldSnake(field.Name),
 			Doc:        doc.Get(field.Domains),
@@ -425,9 +421,9 @@ func (p *Plugin) processField(
 		}, nil
 	}
 
-	isArray := p.isArrayType(field.Type, data.table)
+	isArray := arrays.IsArray(field.Type, data.table)
 
-	if p.isNestedArrayType(field.Type, data.table) {
+	if arrays.IsNested(field.Type, data.table) {
 		wrapperName, err := p.generateNestedArrayWrapper(field.Type, data)
 		if err != nil {
 			return fieldData{}, errors.Wrapf(err, "field %q", field.Name)
@@ -475,118 +471,6 @@ func (p *Plugin) processField(
 	}, nil
 }
 
-func (p *Plugin) isArrayType(typeRef resolution.TypeRef, table *resolution.Table) bool {
-	if typeRef.Name == "Array" {
-		return true
-	}
-
-	resolved, ok := typeRef.Resolve(table)
-	if !ok {
-		return false
-	}
-
-	switch form := resolved.Form.(type) {
-	case resolution.BuiltinGenericForm:
-		return form.Name == "Array"
-	case resolution.AliasForm:
-		return p.isArrayType(form.Target, table)
-	case resolution.DistinctForm:
-		return p.isArrayType(form.Base, table)
-	default:
-		return false
-	}
-}
-
-func (p *Plugin) getArrayElementType(
-	typeRef resolution.TypeRef,
-	table *resolution.Table,
-) (resolution.TypeRef, bool) {
-	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
-		return typeRef.TypeArgs[0], true
-	}
-
-	resolved, ok := typeRef.Resolve(table)
-	if !ok {
-		return resolution.TypeRef{}, false
-	}
-
-	switch form := resolved.Form.(type) {
-	case resolution.BuiltinGenericForm:
-		if form.Name == "Array" && len(typeRef.TypeArgs) > 0 {
-			return typeRef.TypeArgs[0], true
-		}
-		return resolution.TypeRef{}, false
-	case resolution.AliasForm:
-		return p.getArrayElementType(form.Target, table)
-	case resolution.DistinctForm:
-		return p.getArrayElementType(form.Base, table)
-	default:
-		return resolution.TypeRef{}, false
-	}
-}
-
-func (p *Plugin) isFixedSizeUint8Array(
-	typeRef resolution.TypeRef,
-	table *resolution.Table,
-) bool {
-	arraySize := p.getArraySize(typeRef, table)
-	if arraySize == nil {
-		return false
-	}
-
-	elemType, ok := p.getArrayElementType(typeRef, table)
-	if !ok {
-		return false
-	}
-
-	resolved, ok := elemType.Resolve(table)
-	if !ok {
-		return elemType.Name == "uint8"
-	}
-
-	if prim, ok := resolved.Form.(resolution.PrimitiveForm); ok {
-		return prim.Name == "uint8"
-	}
-	return false
-}
-
-func (p *Plugin) getArraySize(
-	typeRef resolution.TypeRef,
-	table *resolution.Table,
-) *int64 {
-	if typeRef.Name == "Array" && typeRef.ArraySize != nil {
-		return typeRef.ArraySize
-	}
-
-	resolved, ok := typeRef.Resolve(table)
-	if !ok {
-		return nil
-	}
-
-	switch form := resolved.Form.(type) {
-	case resolution.AliasForm:
-		return p.getArraySize(form.Target, table)
-	case resolution.DistinctForm:
-		return p.getArraySize(form.Base, table)
-	default:
-		return nil
-	}
-}
-
-func (p *Plugin) isNestedArrayType(
-	typeRef resolution.TypeRef,
-	table *resolution.Table,
-) bool {
-	if !p.isArrayType(typeRef, table) {
-		return false
-	}
-	elemType, ok := p.getArrayElementType(typeRef, table)
-	if !ok {
-		return false
-	}
-	return p.isArrayType(elemType, table)
-}
-
 // generateOptionalArrayWrapper registers (once) a wrapper message holding the
 // repeated element type, so an optional list can be represented as a nullable
 // message field. Returns the wrapper message name.
@@ -594,7 +478,7 @@ func (p *Plugin) generateOptionalArrayWrapper(
 	typeRef resolution.TypeRef,
 	data *templateData,
 ) (string, error) {
-	elemType, ok := p.getArrayElementType(typeRef, data.table)
+	elemType, ok := arrays.ElementType(typeRef, data.table)
 	if !ok {
 		return "", errors.New("could not get element type for optional array")
 	}
@@ -605,7 +489,7 @@ func (p *Plugin) generateOptionalArrayWrapper(
 			"could not convert optional array element type to proto",
 		)
 	}
-	wrapperName := p.getOptionalArrayWrapperName(typeRef, data.table)
+	wrapperName := arrays.OptionalWrapperName(typeRef, data.table)
 	if data.wrapperMessages == nil {
 		data.wrapperMessages = make(set.Set[string])
 	}
@@ -621,56 +505,16 @@ func (p *Plugin) generateOptionalArrayWrapper(
 	return wrapperName, nil
 }
 
-// getOptionalArrayWrapperName derives the wrapper message name for an optional list
-// (e.g. "Label" -> "LabelList"), distinct from the nested-array "Wrapper" suffix.
-func (p *Plugin) getOptionalArrayWrapperName(
-	typeRef resolution.TypeRef,
-	table *resolution.Table,
-) string {
-	elemType, ok := p.getArrayElementType(typeRef, table)
-	if !ok {
-		return "ListWrapper"
-	}
-	if resolved, ok := elemType.Resolve(table); ok {
-		return lo.PascalCase(resolved.Name) + "List"
-	}
-	if resolution.IsPrimitive(elemType.Name) {
-		return cases.Title(language.English).String(elemType.Name) + "List"
-	}
-	return "ListWrapper"
-}
-
-func (p *Plugin) getNestedArrayWrapperName(
-	typeRef resolution.TypeRef,
-	table *resolution.Table,
-) string {
-	elemType, ok := p.getArrayElementType(typeRef, table)
-	if !ok {
-		return "ArrayWrapper"
-	}
-
-	resolved, ok := elemType.Resolve(table)
-	if ok {
-		return resolved.Name + "Wrapper"
-	}
-
-	if resolution.IsPrimitive(elemType.Name) {
-		return cases.Title(language.English).String(elemType.Name) + "Array"
-	}
-
-	return "ArrayWrapper"
-}
-
 func (p *Plugin) generateNestedArrayWrapper(
 	typeRef resolution.TypeRef,
 	data *templateData,
 ) (string, error) {
-	elemType, ok := p.getArrayElementType(typeRef, data.table)
+	elemType, ok := arrays.ElementType(typeRef, data.table)
 	if !ok {
 		return "", errors.New("could not get element type for nested array")
 	}
 
-	innerElemType, ok := p.getArrayElementType(elemType, data.table)
+	innerElemType, ok := arrays.ElementType(elemType, data.table)
 	if !ok {
 		return "", errors.New("could not get inner element type for nested array")
 	}
@@ -680,7 +524,7 @@ func (p *Plugin) generateNestedArrayWrapper(
 		return "", errors.Wrap(err, "could not convert inner element type to proto")
 	}
 
-	wrapperName := p.getNestedArrayWrapperName(typeRef, data.table)
+	wrapperName := arrays.NestedWrapperName(typeRef, data.table)
 
 	if data.wrapperMessages == nil {
 		data.wrapperMessages = make(set.Set[string])
@@ -829,6 +673,18 @@ func (p *Plugin) processUnion(
 
 	oneof := &oneofData{Name: "variant"}
 	for _, v := range form.Variants {
+		// The union's bases are one shared message field, not per-variant, so a
+		// variant cannot drop a field from them.
+		if payload, ok := v.Type.Resolve(data.table); ok {
+			if pform, ok := payload.Form.(resolution.StructForm); ok &&
+				len(pform.OmittedFields) > 0 {
+				return messageData{}, errors.Newf(
+					"union %q variant %q omits inherited field(s) %v, which "+
+						"protobuf cannot express; drop @pb or the omission",
+					entry.Name, v.Name, pform.OmittedFields,
+				)
+			}
+		}
 		protoType, err := p.typeToProto(v.Type, data)
 		if err != nil {
 			return messageData{}, errors.Wrapf(
@@ -959,7 +815,6 @@ type templateData struct {
 	GoPackage       string
 	OutputPath      string
 	Namespace       string
-	repoRoot        string
 	Messages        []messageData
 	Enums           []enumData
 }

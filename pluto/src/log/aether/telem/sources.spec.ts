@@ -220,7 +220,6 @@ describe("StreamMultiChannelLog", () => {
     const log = new StreamMultiChannelLog(c, props);
     await waitForResolve(log);
 
-    // channel_a arrives first, then channel_b
     const seriesA = new Series({ data: new Float32Array([1]) });
     c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesA])]]));
     const seriesB = new Series({ data: new Float32Array([2]) });
@@ -294,7 +293,6 @@ describe("StreamMultiChannelLog", () => {
     const series1 = new Series({ data: new Float32Array([1, 2]) });
     c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series1])]]));
     expect(log.value()).toHaveLength(2);
-    // Second allocation — simulates buffer filling up and a new one being allocated
     const series2 = new Series({ data: new Float32Array([3, 4]) });
     c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series2])]]));
     expect(log.value()).toHaveLength(4);
@@ -345,7 +343,6 @@ describe("StreamMultiChannelLog", () => {
     const log = new StreamMultiChannelLog(c, props, undefined, () => now);
     await waitForResolve(log);
 
-    // Push entries at t=1000ms
     const seriesA = new Series({ data: new Float32Array([1, 2]) });
     c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesA])]]));
     expect(log.value()).toHaveLength(2);
@@ -353,7 +350,6 @@ describe("StreamMultiChannelLog", () => {
     // Advance time past keepFor — threshold becomes 2000 - 500 = 1500ms
     now = TimeStamp.milliseconds(2_000);
 
-    // Push a new entry — triggers GC, old entries at t=1000ms should be evicted
     const seriesB = new Series({ data: new Float32Array([3]) });
     c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesB])]]));
     const entries = log.value();
@@ -371,7 +367,6 @@ describe("StreamMultiChannelLog", () => {
     const log = new StreamMultiChannelLog(c, props, undefined, () => now);
     await waitForResolve(log);
 
-    // Fill the window with 2 entries at t=1000ms
     const seriesA = new Series({ data: new Float32Array([1, 2]) });
     c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesA])]]));
     expect(log.value()).toHaveLength(2);
@@ -417,7 +412,6 @@ describe("StreamMultiChannelLog", () => {
     c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesA])]]));
     expect(log.evictedCount).toBe(0);
 
-    // Advance time — both entries at t=1000ms are now stale
     now = TimeStamp.milliseconds(2_000);
     const seriesB = new Series({ data: new Float32Array([3]) });
     c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesB])]]));
@@ -434,7 +428,6 @@ describe("StreamMultiChannelLog", () => {
     const log = new StreamMultiChannelLog(c, props, undefined, () => now);
     await waitForResolve(log);
 
-    // Trigger GC
     const seriesA = new Series({ data: new Float32Array([1, 2]) });
     c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesA])]]));
     now = TimeStamp.milliseconds(2_000);
@@ -442,7 +435,6 @@ describe("StreamMultiChannelLog", () => {
     c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesB])]]));
     expect(log.evictedCount).toBe(2);
 
-    // Next callback — nothing is stale, evictedCount resets to 0
     const seriesC = new Series({ data: new Float32Array([4]) });
     c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesC])]]));
     expect(log.evictedCount).toBe(0);
@@ -653,7 +645,6 @@ describe("StreamMultiChannelLog", () => {
       c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
       expect(log.value()).toHaveLength(2);
 
-      // setChannels with the same list should not restart the stream
       log.setChannels([c.channelA.key]);
       expect(c.streamDestructorF).not.toHaveBeenCalled();
       expect(log.value()).toHaveLength(2);
@@ -677,10 +668,8 @@ describe("StreamMultiChannelLog", () => {
       );
       expect(log.value()).toHaveLength(3);
 
-      // Remove channel B
       log.setChannels([c.channelA.key]);
       const entries = await waitForResolve(log);
-      // Only channel A's 2 entries should remain
       expect(entries).toHaveLength(2);
       expect(entries.every((e) => e.channelKey === c.channelA.key)).toBe(true);
     });
@@ -703,7 +692,6 @@ describe("StreamMultiChannelLog", () => {
       );
       expect(log.value()).toHaveLength(3);
 
-      // Remove channel A, keep channel B
       log.setChannels([c.channelB.key]);
       const entries = await waitForResolve(log);
       expect(entries).toHaveLength(2);
@@ -742,14 +730,12 @@ describe("StreamMultiChannelLog", () => {
       // call c.streamHandler again with an initial batch. Simulate the batch containing
       // the existing cache data for channel A.
       c.streamF = vi.fn((handler: framer.StreamHandler, _keys: channel.Key[]) => {
-        // Simulate the initial batch: channel A has cached data we already consumed.
         const initialA = new Series({ data: new Float32Array([1, 2, 3]) });
         handler(new Map([[c.channelA.key, new MultiSeries([initialA])]]));
       });
       log.setChannels([c.channelA.key, c.channelB.key]);
       await waitForResolve(log);
 
-      // Channel A entries should NOT be duplicated (skipInitialBatch should have fired)
       const entries = log.value();
       const channelAEntries = entries.filter((e) => e.channelKey === c.channelA.key);
       expect(channelAEntries).toHaveLength(3);
@@ -776,7 +762,6 @@ describe("StreamMultiChannelLog", () => {
       log.setChannels([c.channelA.key, c.channelB.key]);
       await waitForResolve(log);
 
-      // Channel B initial-batch data should be skipped — only channel A's entry remains
       const entries = log.value();
       expect(entries).toHaveLength(1);
       expect(entries[0].channelKey).toBe(c.channelA.key);
@@ -793,7 +778,6 @@ describe("StreamMultiChannelLog", () => {
       const series = new Series({ data: new Float32Array([1]) });
       c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
 
-      // Restart with channel B added; the initial batch is skipped
       c.streamF = vi.fn((handler: framer.StreamHandler, _keys: channel.Key[]) => {
         const initialA = new Series({ data: new Float32Array([1]) });
         const initialB = new Series({ data: new Float32Array([10]) });
@@ -808,7 +792,6 @@ describe("StreamMultiChannelLog", () => {
       await waitForResolve(log);
       expect(log.value()).toHaveLength(1); // only the original entry
 
-      // Now new data arrives AFTER the initial batch — should be accepted normally
       const newA = new Series({ data: new Float32Array([2]) });
       const newB = new Series({ data: new Float32Array([20]) });
       c.streamHandler?.(
@@ -826,7 +809,6 @@ describe("StreamMultiChannelLog", () => {
     });
 
     it("should allow initial-batch data on first start (not a restart)", async () => {
-      // Simulate a client that delivers an initial batch on the first stream() call
       c.streamF = vi.fn((handler: framer.StreamHandler, _keys: channel.Key[]) => {
         const initial = new Series({ data: new Float32Array([10, 20]) });
         handler(new Map([[c.channelA.key, new MultiSeries([initial])]]));
@@ -839,7 +821,6 @@ describe("StreamMultiChannelLog", () => {
       const log = new StreamMultiChannelLog(c, props);
       await waitForResolve(log);
 
-      // The initial batch should be accepted on first start
       const entries = log.value();
       expect(entries).toHaveLength(2);
       expect(entries[0].value).toBe("10");

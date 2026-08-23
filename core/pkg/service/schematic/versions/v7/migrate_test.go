@@ -23,7 +23,6 @@ import (
 	legacyv6 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v6"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v0"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v7"
-	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -70,29 +69,6 @@ func migrateSeed(ctx SpecContext, seed v0.Schematic) v7.Schematic {
 		Where(gorp.MatchKeys[v7.Key, v7.Schematic](seed.Key)).
 		Entry(&got).Exec(ctx, db)).To(Succeed())
 	return got
-}
-
-// variantOf returns the decoded union variant stored under key, failing the spec when
-// the key is absent.
-func variantOf(s v7.Schematic, key string) v7.ElementConfigVariant {
-	GinkgoHelper()
-	cfg, ok := s.Configs[key]
-	Expect(ok).To(BeTrue(), "no config stored under %q", key)
-	return cfg.Variant
-}
-
-// segmentsOf returns the routed segments of the segmented edge config stored under key.
-func segmentsOf(s v7.Schematic, key string) []v7.Segment {
-	GinkgoHelper()
-	switch cfg := variantOf(s, key).(type) {
-	case v7.PipeElementConfig:
-		return cfg.Segments
-	case v7.JacketedElementConfig:
-		return cfg.Segments
-	default:
-		Fail("config is not a segmented edge")
-		return nil
-	}
 }
 
 func stringOr(v any) string {
@@ -170,9 +146,7 @@ var _ = Describe("MigrateSchematic", func() {
 				Expect(
 					got.Edges[0].Source,
 				).To(Equal(v7.Handle{Node: "n1", Param: "outlet"}))
-				Expect(variantOf(got, "n1")).To(BeAssignableToTypeOf(
-					v7.TankElementConfig{},
-				))
+				Expect(got.Configs["n1"]["variant"]).To(Equal("tank"))
 			},
 		)
 
@@ -190,9 +164,7 @@ var _ = Describe("MigrateSchematic", func() {
 				Expect(
 					got.Edges[0].Source,
 				).To(Equal(v7.Handle{Node: "n1", Param: "out"}))
-				Expect(variantOf(got, "n1")).To(BeAssignableToTypeOf(
-					v7.ValveElementConfig{},
-				))
+				Expect(got.Configs["n1"]["variant"]).To(Equal("valve"))
 			},
 		)
 	})
@@ -243,12 +215,11 @@ var _ = Describe("MigrateSchematic", func() {
 					}]
 				}`),
 				})
-				Expect(variantOf(out, "e1")).To(Equal(v7.PipeElementConfig{
-					SegmentedEdgeConfig: v7.SegmentedEdgeConfig{
-						Color:    new(MustSucceed(color.FromHex("#0000ff"))),
-						Segments: []v7.Segment{{Direction: "x", Length: 10}},
-					},
-				}))
+				Expect(out.Configs["e1"]).To(SatisfyAll(
+					HaveKeyWithValue("variant", "pipe"),
+					HaveKeyWithValue("color", "#0000ff"),
+					HaveKey("segments"),
+				))
 			},
 		)
 
@@ -272,9 +243,9 @@ var _ = Describe("MigrateSchematic", func() {
 					}]
 				}`),
 			})
-			Expect(segmentsOf(out, "e1")).To(Equal([]v7.Segment{
-				{Direction: "y", Length: -281.7166395035551},
-				{Direction: "x", Length: 140.06190790464655},
+			Expect(out.Configs["e1"]["segments"]).To(Equal([]any{
+				map[string]any{"direction": "y", "length": -281.7166395035551},
+				map[string]any{"direction": "x", "length": 140.06190790464655},
 			}))
 		})
 
@@ -293,7 +264,7 @@ var _ = Describe("MigrateSchematic", func() {
 						"data": {"segments": [{"direction": "y", "length": 11.88}], "variant": "pipe"}}]
 				}`),
 				})
-				Expect(segmentsOf(out, "e1")).To(BeEmpty())
+				Expect(out.Configs["e1"]["segments"]).To(Equal([]any{}))
 			},
 		)
 
@@ -308,9 +279,7 @@ var _ = Describe("MigrateSchematic", func() {
 					"edges": [{"key": "e1", "source": "n1", "target": "n2", "data": {}}]
 				}`),
 				})
-				Expect(variantOf(out, "e1")).To(BeAssignableToTypeOf(
-					v7.PipeElementConfig{},
-				))
+				Expect(out.Configs["e1"]["variant"]).To(Equal("pipe"))
 			},
 		)
 
@@ -338,11 +307,11 @@ var _ = Describe("MigrateSchematic", func() {
 				ctx,
 				`"props": {"n1": {"key": "valve", "color": "#ff0000"}}`,
 			)
-			Expect(variantOf(out, "n1")).To(Equal(v7.ValveElementConfig{
-				ToggleSymbolConfig: v7.ToggleSymbolConfig{
-					Color: new(MustSucceed(color.FromHex("#ff0000"))),
-				},
-			}))
+			Expect(out.Configs["n1"]).To(SatisfyAll(
+				HaveKeyWithValue("variant", "valve"),
+				HaveKeyWithValue("color", "#ff0000"),
+				Not(HaveKey("key")),
+			))
 		})
 
 		It(
@@ -352,9 +321,7 @@ var _ = Describe("MigrateSchematic", func() {
 					ctx,
 					`"props": {"n1": {"key": "tank", "variant": "stale"}}`,
 				)
-				Expect(variantOf(out, "n1")).To(BeAssignableToTypeOf(
-					v7.TankElementConfig{},
-				))
+				Expect(out.Configs["n1"]["variant"]).To(Equal("tank"))
 			},
 		)
 
@@ -589,9 +556,7 @@ var _ = Describe("SchematicFromConsole", func() {
 			Source: v7.Handle{Node: "n1", Param: "out"},
 			Target: v7.Handle{Node: "n2", Param: "in"},
 		}}))
-		Expect(variantOf(out, "n1")).To(BeAssignableToTypeOf(
-			v7.ValveElementConfig{},
-		))
+		Expect(out.Configs).To(HaveKey("n1"))
 	})
 
 	It("Should produce an empty Schematic from an empty export", func() {

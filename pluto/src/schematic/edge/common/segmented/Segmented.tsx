@@ -179,7 +179,7 @@ const create = <V extends schematic.EdgeConfigType>(
                 <foreignObject x={p.x - 9} y={p.y - 9} width="18px" height="18px">
                   <div
                     id={`handle-${i}`}
-                    className={CSS(
+                    className={CSS.cls(
                       CSS.BE("diagram-edge-handle", "dragger"),
                       CSS.dir(dir),
                       Cursor.DRAG_CLASS,

@@ -47,7 +47,7 @@ const Internal = () => {
           <Button.Button
             onClick={handleCreate}
             tooltipLocation={location.BOTTOM_LEFT}
-            tooltip="Create a status"
+            tooltip="Create status"
             variant="filled"
           >
             <Icon.Add />

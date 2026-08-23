@@ -18,6 +18,7 @@ import (
 	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/json"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -40,7 +41,7 @@ var _ = Describe("Variable-length channel", func() {
 					Channel: channel.Channel{
 						Key:      GenerateChannelKey(),
 						Name:     "index",
-						DataType: telem.TimeStampT,
+						DataType: telem.TimestampT,
 						IsIndex:  true,
 					},
 				}))
@@ -198,7 +199,7 @@ var _ = Describe("Variable-length channel", func() {
 							Channel: channel.Channel{
 								Key:      GenerateChannelKey(),
 								Name:     "flush-on-commit-idx",
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 						}))
@@ -262,7 +263,7 @@ var _ = Describe("Variable-length channel", func() {
 							Channel: channel.Channel{
 								Key:      GenerateChannelKey(),
 								Name:     "cold-rebuild-idx",
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 						}))
@@ -301,7 +302,7 @@ var _ = Describe("Variable-length channel", func() {
 							Channel: channel.Channel{
 								Key:      seedIdx.Channel().Key,
 								Name:     "cold-rebuild-idx",
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 						}))
@@ -348,7 +349,7 @@ var _ = Describe("Variable-length channel", func() {
 							Channel: channel.Channel{
 								Key:      GenerateChannelKey(),
 								Name:     "rollover-idx",
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 							FileSize: 40 * telem.Byte,
@@ -429,7 +430,7 @@ var _ = Describe("Variable-length channel", func() {
 							Channel: channel.Channel{
 								Key:      GenerateChannelKey(),
 								Name:     "multi-commit-idx",
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 						}))
@@ -491,7 +492,7 @@ var _ = Describe("Variable-length channel", func() {
 							Channel: channel.Channel{
 								Key:      GenerateChannelKey(),
 								Name:     "idx2",
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 						}))
@@ -600,7 +601,7 @@ var _ = Describe("Variable-length channel", func() {
 							Channel: channel.Channel{
 								Key:      GenerateChannelKey(),
 								Name:     "handoff-idx",
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 						}))
@@ -681,7 +682,7 @@ var _ = Describe("Variable-length channel", func() {
 							Channel: channel.Channel{
 								Key:      GenerateChannelKey(),
 								Name:     "handoff-uncommitted-idx",
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 						}))
@@ -742,7 +743,7 @@ var _ = Describe("Variable-length channel", func() {
 							Channel: channel.Channel{
 								Key:      GenerateChannelKey(),
 								Name:     "handoff-roundtrip-idx",
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 						}))

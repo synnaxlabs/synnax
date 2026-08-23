@@ -20,7 +20,7 @@ import { type Spec } from "@/schematic/edge/spec";
 export const spec: Spec<"electric", schematic.ElectricEdgeConfig> =
   Segmented.createSpec(
     "electric",
-    "Electric Signal",
+    "Electric signal",
     ({ points, crossings, color }) => (
       <Base.Base
         path={Path.rounded(points, crossings)}

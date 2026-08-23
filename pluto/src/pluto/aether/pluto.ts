@@ -29,6 +29,7 @@ import { gauge } from "@/vis/gauge/aether";
 import { input } from "@/vis/input/aether";
 import { light } from "@/vis/light/aether";
 import { line } from "@/vis/line/aether";
+import { scale } from "@/vis/scale/aether";
 import { setpoint } from "@/vis/setpoint/aether";
 import { staleness } from "@/vis/staleness/aether";
 import { stateIndicator } from "@/vis/stateIndicator/aether";
@@ -49,6 +50,7 @@ export const render = (): void => {
     ...line.REGISTRY,
     ...lineplot.REGISTRY,
     ...range.REGISTRY,
+    ...scale.REGISTRY,
     ...setpoint.REGISTRY,
     ...staleness.REGISTRY,
     ...stateIndicator.REGISTRY,
@@ -64,7 +66,7 @@ export const render = (): void => {
     ...gauge.REGISTRY,
   };
 
-  void aether.render({
+  aether.render({
     registry: REGISTRY,
     instrumentation: new Instrumentation({
       logger: new Logger({ filters: [logThresholdFilter("info")] }),

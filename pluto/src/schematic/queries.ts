@@ -23,8 +23,7 @@ const RESOURCE_NAME = "schematic";
 
 export type RetrieveQuery = schematic.RetrieveSingleParams;
 
-// Prefers the cached copy: it may hold locally replayed edits ahead of the
-// server.
+// Prefers the cached copy: it may hold locally replayed edits ahead of the server.
 export const { use, useEnsure, useTombstone, createSelector } = Flux.createRetrieve<
   RetrieveQuery,
   schematic.Schematic
@@ -215,8 +214,9 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   verbs: verbs.RENAME,
   update: async ({ client, data, onOptimisticComplete }) => {
     const { key, name } = data;
-    await onOptimisticComplete(data);
-    await client.schematics.rename(key, name);
+    await client.schematics.rename(key, name, {
+      onOptimistic: async () => await onOptimisticComplete(data),
+    });
     return data;
   },
 });

@@ -1460,6 +1460,31 @@ describe("Tombstones", () => {
     expect(table.getTombstone("k1")).toBeUndefined();
   });
 
+  it("should corpse nothing when an entry is evicted", () => {
+    const table = newTable();
+    table.set("k1", { key: "k1", name: "a" });
+    table.evict("k1");
+    expect(table.get("k1")).toBeUndefined();
+    expect(table.status("k1")).toBe("unknown");
+    expect(table.getTombstone("k1")).toBeUndefined();
+  });
+
+  it("should restore an evicted entry through the returned rollback", () => {
+    const table = newTable();
+    table.set("k1", { key: "k1", name: "a" });
+    table.evict("k1")();
+    expect(table.get("k1")).toEqual({ key: "k1", name: "a" });
+  });
+
+  it("should notify a delete event for an evicted entry", () => {
+    const table = newTable();
+    table.set("k1", { key: "k1", name: "a" });
+    const subscriber = vi.fn();
+    table.subscribe(subscriber);
+    table.evict("k1");
+    expect(subscriber).toHaveBeenCalledWith({ variant: "delete", key: "k1" });
+  });
+
   it("should clear the tombstone on a subsequent set", () => {
     const table = newTable();
     table.set("k1", { key: "k1", name: "a" });

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { color } from "@synnaxlabs/x";
+import { border, color } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
@@ -30,7 +30,7 @@ export const Cylinder = ({
   orientation = "left",
   scale,
 }: RenderProps): ReactElement => {
-  const detailedRadius = Border.parseRadius(borderRadius);
+  const detailedRadius = border.constructRadius(borderRadius);
   const refreshDeps = useMemo(
     () => [dimensions, borderRadius, detailedRadius, orientation],
     [
@@ -50,7 +50,7 @@ export const Cylinder = ({
   return (
     <Primitive.Div
       orientation={orientation}
-      className={CSS(className, CSS.B("cylinder"))}
+      className={CSS.cls(className, CSS.B("cylinder"))}
     >
       <Primitive.SVG
         dimensions={dimensions}

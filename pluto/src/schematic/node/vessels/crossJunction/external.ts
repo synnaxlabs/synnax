@@ -25,7 +25,7 @@ export const defaultConfig = (): schematic.CrossJunctionNodeConfig => ({
 
 export const spec: Spec<"cross_junction", schematic.CrossJunctionNodeConfig> = {
   key: "cross_junction",
-  name: "Cross Junction",
+  name: "Cross junction",
   Form: Form.StyleForm,
   Node: Label.createLabeled<schematic.CrossJunctionNodeConfig>(CrossJunction),
   Preview: CrossJunction,

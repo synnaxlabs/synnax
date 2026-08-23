@@ -47,7 +47,7 @@ export const spec: Spec<"hydraulic", schematic.HydraulicEdgeConfig> =
     "Hydraulic",
     ({ points, crossings, color: colorVal }) => {
       const symbolStyle = useMemo(
-        () => ({ [CSS.var("symbol-color")]: symbolColorVar(colorVal) }),
+        () => ({ [CSS.variable("symbol-color")]: symbolColorVar(colorVal) }),
         [colorVal],
       );
       return (

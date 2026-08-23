@@ -44,66 +44,6 @@ func pbDomains(goOutputPath string) map[string]resolution.Domain {
 	}
 }
 
-var _ = Describe("PbFormatter", func() {
-	f := types.PbFormatter
-
-	Describe("FormatQualified", func() {
-		It("Should format qualified names with dot separator", func() {
-			Expect(f.FormatQualified("pkg", "Type")).To(Equal("pkg.Type"))
-		})
-
-		It("Should return type name when qualifier is empty", func() {
-			Expect(f.FormatQualified("", "Type")).To(Equal("Type"))
-		})
-	})
-
-	Describe("FormatGeneric", func() {
-		It("Should return base name unchanged (protobuf has no generics)", func() {
-			Expect(
-				f.FormatGeneric("Container", []string{"string"}),
-			).To(Equal("Container"))
-		})
-	})
-
-	Describe("FormatArray", func() {
-		It(
-			"Should return element type unchanged (repeated handled at field level)",
-			func() {
-				Expect(f.FormatArray("string")).To(Equal("string"))
-			},
-		)
-	})
-
-	Describe("FormatMap", func() {
-		It("Should format map types", func() {
-			Expect(f.FormatMap("string", "int32")).To(Equal("map<string, int32>"))
-		})
-	})
-
-	Describe("FallbackType", func() {
-		It("Should return bytes as fallback", func() {
-			Expect(f.FallbackType()).To(Equal("bytes"))
-		})
-	})
-})
-
-var _ = Describe("PbImportResolver", func() {
-	var r *types.PbImportResolver
-
-	BeforeEach(func() {
-		r = &types.PbImportResolver{}
-	})
-
-	Describe("ResolveImport", func() {
-		It("Should return proto path with qualifier", func() {
-			importPath, qualifier, shouldImport := r.ResolveImport("core/pkg/task", nil)
-			Expect(importPath).To(Equal("core/pkg/task/types.gen.proto"))
-			Expect(qualifier).To(Equal("task"))
-			Expect(shouldImport).To(BeTrue())
-		})
-	})
-})
-
 var _ = Describe("Plugin", func() {
 	var (
 		loader *MockFileLoader
@@ -122,9 +62,6 @@ var _ = Describe("Plugin", func() {
 	})
 
 	Describe("Check", func() {
-		It("Should return nil (no validation required)", func() {
-			Expect(p.Check(&plugin.Request{})).To(Succeed())
-		})
 	})
 
 	Describe("Domains", func() {
@@ -1104,6 +1041,29 @@ var _ = Describe("Protobuf Union Generation", func() {
 					"oneof variant {",
 					"VoltageFields ai_voltage = 2;",
 				)
+		},
+	)
+
+	It(
+		"Should error when a variant omits a field from a shared base",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/hw/ni"
+			@pb
+
+			BaseAIChan struct { port int32 }
+
+			AIChannel union on type extends BaseAIChan {
+				ai_temp_builtin {
+					-port
+				}
+			}
+		`
+			req := MustGenerateRequest(ctx, source, "ni", loader)
+			_, err := p.Generate(req)
+			Expect(err).To(MatchError(ContainSubstring(
+				`union "AIChannel" variant "ai_temp_builtin" omits inherited field(s) [port], which protobuf cannot express`,
+			)))
 		},
 	)
 

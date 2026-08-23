@@ -16,7 +16,7 @@
 
 #include "client/cpp/arc/types.gen.h"
 #include "client/cpp/status/json.gen.h"
-#include "client/cpp/task/config/json.gen.h"
+#include "client/cpp/task/json.gen.h"
 #include "x/cpp/json/json.h"
 
 #include "arc/cpp/graph/json.gen.h"
@@ -63,28 +63,28 @@ inline x::json::json Arc::to_json() const {
 
 inline TaskConfig TaskConfig::parse(x::json::Parser parser) {
     TaskConfig result;
-    static_cast<::synnax::task::config::BasePersist &>(
+    static_cast<::synnax::task::PersistConfig &>(
         result
-    ) = ::synnax::task::config::BasePersist::parse(parser);
+    ) = ::synnax::task::PersistConfig::parse(parser);
     result.arc_key = parser.field<Key>("arc_key");
     result.hash = parser.field<std::string>("hash", "");
     result.execution_mode = parser.field<std::string>("execution_mode", "AUTO");
     result.rt_priority = parser.field<std::int32_t>("rt_priority", 47);
     result.cpu_affinity = parser.field<std::int32_t>("cpu_affinity", -1);
-    result.lock_memory = parser.field<bool>("lock_memory", false);
+    result.memory_locked = parser.field<bool>("memory_locked", false);
     return result;
 }
 
 inline x::json::json TaskConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::config::BasePersist::to_json().items())
+    for (auto &[k, v]: ::synnax::task::PersistConfig::to_json().items())
         j[k] = v;
     j["arc_key"] = this->arc_key.to_json();
     j["hash"] = this->hash;
     j["execution_mode"] = this->execution_mode;
     j["rt_priority"] = this->rt_priority;
     j["cpu_affinity"] = this->cpu_affinity;
-    j["lock_memory"] = this->lock_memory;
+    j["memory_locked"] = this->memory_locked;
     return j;
 }
 

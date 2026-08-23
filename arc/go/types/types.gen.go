@@ -41,6 +41,7 @@ const (
 	KindSequence                  Kind = versions.KindSequence
 	KindStage                     Kind = versions.KindStage
 	KindVarRef                    Kind = versions.KindVarRef
+	KindBool                      Kind = versions.KindBool
 )
 
 // ChanDirection indicates read/write direction for channel-typed parameters.
@@ -70,8 +71,7 @@ type Params = versions.Params
 // channels.
 type Channels = versions.Channels
 
-// Dimensions contains physical dimension exponents for dimensional analysis (SI base
-// quantities).
+// Dimensions contains dimension exponents for dimensional analysis.
 type Dimensions = versions.Dimensions
 
 // Unit is a physical unit with dimensions and scale factor for unit-aware computation.

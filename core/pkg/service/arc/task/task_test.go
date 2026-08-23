@@ -37,7 +37,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -119,10 +118,9 @@ var _ = Describe("Task", Ordered, func() {
 		}))
 		channelWriter = channelSvc.NewWriter(nil)
 		framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
-			Framer:       node.Framer,
-			Channel:      channelSvc,
-			Status:       statusSvc,
-			HostProvider: node.Cluster,
+			Framer:  node.Framer,
+			Channel: channelSvc,
+			Status:  statusSvc,
 		}))
 		rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
 			DB:       node.DB,
@@ -477,8 +475,8 @@ var _ = Describe("Task", Ordered, func() {
 					Name: "test-auto-start",
 					Type: arctask.Type,
 					Config: configToMap(arctask.Config{
-						BasePersist: config.BasePersist{
-							BaseStart: config.BaseStart{AutoStart: true},
+						PersistConfig: task.PersistConfig{
+							StartConfig: task.StartConfig{AutoStart: true},
 						},
 						ArcKey: uuid.New(),
 					}),
@@ -512,8 +510,8 @@ var _ = Describe("Task", Ordered, func() {
 					Name: "test-silent-stop",
 					Type: arctask.Type,
 					Config: configToMap(arctask.Config{
-						BasePersist: config.BasePersist{
-							BaseStart: config.BaseStart{AutoStart: true},
+						PersistConfig: task.PersistConfig{
+							StartConfig: task.StartConfig{AutoStart: true},
 						},
 						ArcKey: uuid.New(),
 					}),
@@ -597,8 +595,8 @@ var _ = Describe("Task", Ordered, func() {
 					Name: "test-boot-auto-start-failure",
 					Type: arctask.Type,
 					Config: configToMap(arctask.Config{
-						BasePersist: config.BasePersist{
-							BaseStart: config.BaseStart{AutoStart: true},
+						PersistConfig: task.PersistConfig{
+							StartConfig: task.StartConfig{AutoStart: true},
 						},
 						ArcKey: uuid.New(),
 					}),
@@ -654,8 +652,8 @@ var _ = Describe("Task", Ordered, func() {
 				Name: "test-boot-auto-start",
 				Type: arctask.Type,
 				Config: configToMap(arctask.Config{
-					BasePersist: config.BasePersist{
-						BaseStart: config.BaseStart{AutoStart: true},
+					PersistConfig: task.PersistConfig{
+						StartConfig: task.StartConfig{AutoStart: true},
 					},
 					ArcKey: uuid.New(),
 				}),
@@ -1101,7 +1099,7 @@ var _ = Describe("Task", Ordered, func() {
 			indexCh := &channel.Channel{
 				Name:     "interval_idx_" + uuid.NewString()[:8],
 				IsIndex:  true,
-				DataType: telem.TimeStampT,
+				DataType: telem.TimestampT,
 			}
 			Expect(channelWriter.Create(ctx, indexCh)).To(Succeed())
 			dataCh := &channel.Channel{
@@ -2072,7 +2070,7 @@ var _ = Describe("Task", Ordered, func() {
 							counter = read_val
 						}
 
-						if input and not prev {
+						if input != 0 and prev == 0 {
 							counter = counter + 1.0
 						}
 
@@ -2230,7 +2228,7 @@ var _ = Describe("Task", Ordered, func() {
 				idxCh := &channel.Channel{
 					Name:     "trig_align_idx_" + suffix,
 					IsIndex:  true,
-					DataType: telem.TimeStampT,
+					DataType: telem.TimestampT,
 				}
 				Expect(channelWriter.Create(ctx, idxCh)).To(Succeed())
 				p3 := &channel.Channel{

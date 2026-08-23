@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError, project } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Project } from "@/feature/project";
 import { findModalButton, renderTreeContextMenu } from "@/platform/tree/menuTestutil";
@@ -19,12 +19,14 @@ import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
 import { Session } from "@/session";
 import {
   assertDefined,
+  captureBrowserDownloads,
   createTestStore,
   resolveFocusedTab,
   uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();
+const roles = new RoleClients(client);
 
 const Item = Project.TREE_ITEMS.project;
 
@@ -43,6 +45,10 @@ const createStoreWithActive = async (key: string) =>
     },
   });
 
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
 describe("project ontology service", () => {
   it("should expose creation, import, export, and link actions", async () => {
     const p = await createProject();
@@ -58,9 +64,30 @@ describe("project ontology service", () => {
     expect(screen.getByText("Create log")).toBeTruthy();
     expect(screen.getByText("Create table")).toBeTruthy();
     expect(screen.getByText("Create schematic")).toBeTruthy();
-    expect(screen.getByText("Import component(s)")).toBeTruthy();
+    expect(screen.getByText("Import components")).toBeTruthy();
     expect(screen.getByText("Export")).toBeTruthy();
     expect(screen.getByText("Copy link")).toBeTruthy();
+  });
+
+  it("should export the clicked project rather than the active one", async () => {
+    const p = await createProject();
+    const logName = uniqueName("log");
+    await client.logs.create(p.key, { name: logName });
+    const active = await createProject();
+    const downloads = captureBrowserDownloads();
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client,
+      resources: [projectResource(p.key, p.name)],
+      store: await createStoreWithActive(active.key),
+    });
+    fireEvent.click(await screen.findByText("Export"));
+    await waitFor(() => expect(downloads.anchors).toHaveLength(1));
+    // The zip takes the clicked row's name and carries its members, proving the
+    // export took the clicked project's key.
+    expect(downloads.anchors[0].download).toBe(`${p.name}.zip`);
+    const archive = new TextDecoder().decode(await downloads.blobs[0].arrayBuffer());
+    expect(archive).toContain(`${logName}.json`);
   });
 
   it("should create a log inside the project from the context menu", async () => {
@@ -127,5 +154,21 @@ describe("project ontology service", () => {
     expect(canDrop({ source, items: [{ key: "channel:1", type: "channel" }] })).toBe(
       false,
     );
+  });
+});
+
+describe("permission to write the project", () => {
+  it("should withhold rename, the create actions, and delete from a viewer", async () => {
+    const p = await createProject();
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client: await roles.get("Viewer"),
+      resources: [projectResource(p.key, p.name)],
+    });
+    expect(await screen.findByText("Copy properties")).toBeTruthy();
+    expect(screen.queryByText("Rename")).toBeNull();
+    expect(screen.queryByText("Delete")).toBeNull();
+    expect(screen.queryByText("New Line Plot")).toBeNull();
+    expect(screen.queryByText("New Schematic")).toBeNull();
   });
 });

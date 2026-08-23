@@ -80,6 +80,8 @@ func inferReturnType(expected any) string {
 		return "u16"
 	case uint8:
 		return "u8"
+	case bool:
+		return "bool"
 	default:
 		return "i64"
 	}
@@ -107,6 +109,12 @@ func assertResult(result uint64, expected any) {
 		Expect(uint16(result)).To(Equal(v))
 	case uint8:
 		Expect(uint8(result)).To(Equal(v))
+	case bool:
+		if v {
+			Expect(result).ToNot(BeZero())
+		} else {
+			Expect(result).To(BeZero())
+		}
 	}
 }
 
@@ -544,7 +552,7 @@ var _ = Describe("Compiler", func() {
 				}}
 
 				output := MustSucceed(compileWithHostImports(ctx, `
-			func checkPressure() u8 {
+			func checkPressure() bool {
 				return press_pt > 1
 			}
 			`, resolver))
@@ -584,7 +592,7 @@ var _ = Describe("Compiler", func() {
 				}}
 
 				output := MustSucceed(compileWithHostImports(ctx, `
-			func inRange() u8 {
+			func inRange() bool {
 				return sensor > 50 and sensor < 100
 			}
 			`, resolver))
@@ -1146,7 +1154,7 @@ var _ = Describe("Compiler", func() {
 
 		It("Should compile decimal literal with i32 variable", func(ctx SpecContext) {
 			output := MustSucceed(compile(ctx, `
-			func compare(x i32) u8 {
+			func compare(x i32) bool {
 				return x > 5.0
 			}
 			`, nil))
@@ -1329,7 +1337,7 @@ var _ = Describe("Compiler", func() {
 			"Should allow float literals in comparisons with i64",
 			func(ctx SpecContext) {
 				output := MustSucceed(compile(ctx, `
-			func isPositive(x i64) u8 {
+			func isPositive(x i64) bool {
 				return x > 0.0
 			}
 			`, nil))
@@ -1407,7 +1415,7 @@ var _ = Describe("Compiler", func() {
 			"Should correctly execute signed comparison with negative numbers",
 			func(ctx SpecContext) {
 				output := MustSucceed(compile(ctx, `
-			func test(a i32) u8 {
+			func test(a i32) bool {
 				return a > -10
 			}
 			`, nil))
@@ -1617,6 +1625,47 @@ var _ = Describe("Compiler", func() {
 		),
 	)
 
+	Describe("Logical Short Circuit Execution", func() {
+		// A trap on the right operand is the proof: it only fires when the left
+		// operand fails to short circuit.
+		DescribeTable(
+			"should skip the right operand",
+			func(ctx SpecContext, body string, expected uint64) {
+				output := MustSucceed(compileWithHostImports(ctx, fmt.Sprintf(`
+			func guard() bool {
+				return %s
+			}
+			`, body), nil))
+
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				guard := mod.ExportedFunction("guard")
+				Expect(guard).ToNot(BeNil())
+
+				results := MustSucceed(guard.Call(ctx))
+				Expect(results).To(ConsistOf(expected))
+			},
+			Entry("false and", "false and (i32(1) / i32(0)) > i32(0)", uint64(0)),
+			Entry("true or", "true or (i32(1) / i32(0)) > i32(0)", uint64(1)),
+		)
+
+		DescribeTable(
+			"should evaluate the right operand",
+			func(ctx SpecContext, body string) {
+				output := MustSucceed(compileWithHostImports(ctx, fmt.Sprintf(`
+			func guard() bool {
+				return %s
+			}
+			`, body), nil))
+
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				_, err := mod.ExportedFunction("guard").Call(ctx)
+				Expect(err).To(MatchError(ContainSubstring("integer divide by zero")))
+			},
+			Entry("true and", "true and (i32(1) / i32(0)) > i32(0)"),
+			Entry("false or", "false or (i32(1) / i32(0)) > i32(0)"),
+		)
+	})
+
 	Describe("Power Expression Execution", func() {
 		BeforeEach(func(ctx SpecContext) {
 			bindDefaultModules(ctx, r)
@@ -1746,6 +1795,50 @@ var _ = Describe("Compiler", func() {
 				results := MustSucceed(power.Call(ctx))
 				Expect(results).To(ConsistOf(uint64(11)))
 			},
+		)
+
+		DescribeTable(
+			"unary minus binds looser than the exponent: -2 ^ 2 is -(2 ^ 2)",
+			func(ctx SpecContext, returnType, body string, expected uint64) {
+				output := MustSucceed(compileWithHostImports(ctx, fmt.Sprintf(`
+			func power() %s {
+				return %s
+			}
+			`, returnType, body), nil))
+
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				power := mod.ExportedFunction("power")
+				Expect(power).ToNot(BeNil())
+
+				results := MustSucceed(power.Call(ctx))
+				Expect(results).To(ConsistOf(expected))
+			},
+			Entry("negated power", "i64", "-2 ^ 2", uint64(18446744073709551612)),
+			Entry(
+				"explicitly negated power",
+				"i64",
+				"-(2 ^ 2)",
+				uint64(18446744073709551612),
+			),
+			Entry("parenthesized negative base", "i64", "(-2) ^ 2", uint64(4)),
+			Entry(
+				"negated power i32",
+				"i32",
+				"-i32(2) ^ i32(2)",
+				uint64(4294967292),
+			),
+			Entry(
+				"negated power f64",
+				"f64",
+				"-2.0 ^ 2.0",
+				math.Float64bits(-4.0),
+			),
+			Entry(
+				"negative f64 exponent",
+				"f64",
+				"2.0 ^ -1.0",
+				math.Float64bits(0.5),
+			),
 		)
 
 		It(
@@ -2028,24 +2121,27 @@ var _ = Describe("Compiler", func() {
 			},
 		)
 
-		It("Should execute chained power with literals: x^2^3", func(ctx SpecContext) {
-			output := MustSucceed(compileWithHostImports(ctx, `
+		It(
+			"Should execute chained power with literals: x^2^3",
+			func(ctx SpecContext) {
+				output := MustSucceed(compileWithHostImports(ctx, `
 			func power() f32 {
 				x f32 := 2.0
 				return x ^ 2 ^ 3
 			}
 			`, nil))
 
-			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			power := mod.ExportedFunction("power")
-			Expect(power).ToNot(BeNil())
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				power := mod.ExportedFunction("power")
+				Expect(power).ToNot(BeNil())
 
-			results := MustSucceed(power.Call(ctx))
-			Expect(results).To(HaveLen(1))
-			// 2.0^(2^3) = 2.0^8 = 256.0
-			result := math.Float32frombits(uint32(results[0]))
-			Expect(result).To(BeNumerically("~", 256.0, 0.0001))
-		})
+				results := MustSucceed(power.Call(ctx))
+				Expect(results).To(HaveLen(1))
+				// 2.0^(2^3) = 2.0^8 = 256.0
+				result := math.Float32frombits(uint32(results[0]))
+				Expect(result).To(BeNumerically("~", 256.0, 0.0001))
+			},
+		)
 	})
 
 	Describe("Series Operations", func() {
@@ -2138,9 +2234,9 @@ var _ = Describe("Compiler", func() {
 			Entry("series-series comparison", `{
 				a series f64 := [1.0, 5.0, 3.0]
 				b series f64 := [2.0, 2.0, 2.0]
-				t series u8 := a > b
+				t := a > b
 				return t[1]
-			}`, uint8(1)),
+			}`, true),
 
 			// Integer series operations (i32)
 			Entry("integer series add i32", `{
@@ -2331,6 +2427,71 @@ var _ = Describe("Compiler", func() {
 				t series f64 := s + 5.0
 				return t[0]
 			}`, float64(15.0)),
+
+			// Element-wise logical operators on bool series
+			Entry("series and series (true element)", `{
+				a series f64 := [5.0, 1.0]
+				b series f64 := [3.0, 3.0]
+				c series f64 := [0.0, 0.0]
+				r := (a > b) and (a > c)
+				return r[0]
+			}`, true),
+			Entry("series and series (false element)", `{
+				a series f64 := [5.0, 1.0]
+				b series f64 := [3.0, 3.0]
+				c series f64 := [0.0, 0.0]
+				r := (a > b) and (a > c)
+				return r[1]
+			}`, false),
+			Entry("series or series (true element)", `{
+				a series f64 := [5.0, 1.0]
+				b series f64 := [3.0, 3.0]
+				c series f64 := [9.0, 9.0]
+				r := (a > b) or (a > c)
+				return r[0]
+			}`, true),
+			Entry("series or series (false element)", `{
+				a series f64 := [5.0, 1.0]
+				b series f64 := [3.0, 3.0]
+				c series f64 := [9.0, 9.0]
+				r := (a > b) or (a > c)
+				return r[1]
+			}`, false),
+			Entry("not series", `{
+				a series f64 := [5.0, 1.0]
+				b series f64 := [3.0, 3.0]
+				r := not (a > b)
+				return r[1]
+			}`, true),
+			Entry("series and scalar true (identity)", `{
+				a series f64 := [5.0, 1.0]
+				b series f64 := [3.0, 3.0]
+				r := (a > b) and true
+				return r[0]
+			}`, true),
+			Entry("series and scalar false (zeroes)", `{
+				a series f64 := [5.0, 1.0]
+				b series f64 := [3.0, 3.0]
+				r := (a > b) and false
+				return r[0]
+			}`, false),
+			Entry("series or scalar true (fills)", `{
+				a series f64 := [5.0, 1.0]
+				b series f64 := [3.0, 3.0]
+				r := (a > b) or true
+				return r[1]
+			}`, true),
+			Entry("series or scalar false (identity)", `{
+				a series f64 := [5.0, 1.0]
+				b series f64 := [3.0, 3.0]
+				r := (a > b) or false
+				return r[1]
+			}`, false),
+			Entry("negate series", `{
+				x series f64 := [1.0, 2.0, 3.0]
+				r := -x
+				return r[1]
+			}`, float64(-2.0)),
 		)
 	})
 
@@ -2416,7 +2577,7 @@ var _ = Describe("Compiler", func() {
 			"Should execute string concatenation with multiple operands",
 			func(ctx SpecContext) {
 				output := MustSucceed(compileWithHostImports(ctx, `
-			func concat() u8 {
+			func concat() bool {
 				a str := "hello"
 				b str := " "
 				c str := "world"
@@ -2434,7 +2595,7 @@ var _ = Describe("Compiler", func() {
 
 		It("Should execute string equality - equal strings", func(ctx SpecContext) {
 			output := MustSucceed(compileWithHostImports(ctx, `
-			func equal() u8 {
+			func equal() bool {
 				a str := "hello"
 				b str := "hello"
 				return a == b
@@ -2449,7 +2610,7 @@ var _ = Describe("Compiler", func() {
 
 		It("Should execute string equality - different strings", func(ctx SpecContext) {
 			output := MustSucceed(compileWithHostImports(ctx, `
-			func notEqual() u8 {
+			func notEqual() bool {
 				a str := "hello"
 				b str := "world"
 				return a == b
@@ -2464,7 +2625,7 @@ var _ = Describe("Compiler", func() {
 
 		It("Should execute string inequality", func(ctx SpecContext) {
 			output := MustSucceed(compileWithHostImports(ctx, `
-			func notEqual() u8 {
+			func notEqual() bool {
 				a str := "hello"
 				b str := "world"
 				return a != b
@@ -2481,7 +2642,7 @@ var _ = Describe("Compiler", func() {
 			"Should verify concatenated string matches expected value",
 			func(ctx SpecContext) {
 				output := MustSucceed(compileWithHostImports(ctx, `
-			func concatMatch() u8 {
+			func concatMatch() bool {
 				a str := "hello"
 				b str := " world"
 				c str := a + b
@@ -2498,7 +2659,7 @@ var _ = Describe("Compiler", func() {
 
 		It("Should execute string compound concatenation", func(ctx SpecContext) {
 			output := MustSucceed(compileWithHostImports(ctx, `
-			func build() u8 {
+			func build() bool {
 				s str := "hello"
 				s += " "
 				s += "world"
@@ -2517,7 +2678,7 @@ var _ = Describe("Compiler", func() {
 			"Should execute string compound concatenation with variable",
 			func(ctx SpecContext) {
 				output := MustSucceed(compileWithHostImports(ctx, `
-			func build() u8 {
+			func build() bool {
 				s str := "a"
 				suffix str := "b"
 				s += suffix
@@ -3053,7 +3214,7 @@ var _ = Describe("Compiler", func() {
 			"Should handle function calls in conditional expressions",
 			func(ctx SpecContext) {
 				output := MustSucceed(compile(ctx, `
-			func isPositive(x i64) u8 {
+			func isPositive(x i64) bool {
 				return x > 0
 			}
 
@@ -3223,11 +3384,11 @@ var _ = Describe("Compiler", func() {
 
 		It("Should compare strings with default", func(ctx SpecContext) {
 			output := MustSucceed(compileWithHostImports(ctx, `
-			func isDefault(s str = "default") u8 {
+			func isDefault(s str = "default") bool {
 				return s == "default"
 			}
 
-			func main() u8 {
+			func main() bool {
 				return isDefault()
 			}
 			`, nil))
@@ -3244,11 +3405,11 @@ var _ = Describe("Compiler", func() {
 
 		It("Should compare overridden string parameter", func(ctx SpecContext) {
 			output := MustSucceed(compileWithHostImports(ctx, `
-			func isHello(s str = "default") u8 {
+			func isHello(s str = "default") bool {
 				return s == "hello"
 			}
 
-			func main() u8 {
+			func main() bool {
 				return isHello("hello")
 			}
 			`, nil))
@@ -3267,11 +3428,11 @@ var _ = Describe("Compiler", func() {
 			"Should return false when default string doesn't match",
 			func(ctx SpecContext) {
 				output := MustSucceed(compileWithHostImports(ctx, `
-			func isHello(s str = "world") u8 {
+			func isHello(s str = "world") bool {
 				return s == "hello"
 			}
 
-			func main() u8 {
+			func main() bool {
 				return isHello()
 			}
 			`, nil))
@@ -3766,39 +3927,47 @@ var _ = Describe("Compiler", func() {
 				assertResult(results[0], expected)
 			},
 			// Less than
-			Entry("i32 lt true", `{ return i32(5) < i32(10) }`, uint8(1)),
-			Entry("i32 lt false", `{ return i32(10) < i32(5) }`, uint8(0)),
-			Entry("i32 lt equal", `{ return i32(5) < i32(5) }`, uint8(0)),
-			Entry("f64 lt true", `{ return 1.5 < 2.5 }`, uint8(1)),
-			Entry("f64 lt false", `{ return 2.5 < 1.5 }`, uint8(0)),
+			Entry("i32 lt true", `{ return i32(5) < i32(10) }`, true),
+			Entry("i32 lt false", `{ return i32(10) < i32(5) }`, false),
+			Entry("i32 lt equal", `{ return i32(5) < i32(5) }`, false),
+			Entry("f64 lt true", `{ return 1.5 < 2.5 }`, true),
+			Entry("f64 lt false", `{ return 2.5 < 1.5 }`, false),
 
 			// Less than or equal
-			Entry("i32 le true", `{ return i32(5) <= i32(10) }`, uint8(1)),
-			Entry("i32 le equal", `{ return i32(5) <= i32(5) }`, uint8(1)),
-			Entry("i32 le false", `{ return i32(10) <= i32(5) }`, uint8(0)),
-			Entry("f64 le true", `{ return 1.5 <= 2.5 }`, uint8(1)),
+			Entry("i32 le true", `{ return i32(5) <= i32(10) }`, true),
+			Entry("i32 le equal", `{ return i32(5) <= i32(5) }`, true),
+			Entry("i32 le false", `{ return i32(10) <= i32(5) }`, false),
+			Entry("f64 le true", `{ return 1.5 <= 2.5 }`, true),
 
 			// Greater than
-			Entry("i32 gt true", `{ return i32(10) > i32(5) }`, uint8(1)),
-			Entry("i32 gt false", `{ return i32(5) > i32(10) }`, uint8(0)),
-			Entry("i32 gt equal", `{ return i32(5) > i32(5) }`, uint8(0)),
-			Entry("f64 gt true", `{ return 2.5 > 1.5 }`, uint8(1)),
+			Entry("i32 gt true", `{ return i32(10) > i32(5) }`, true),
+			Entry("i32 gt false", `{ return i32(5) > i32(10) }`, false),
+			Entry("i32 gt equal", `{ return i32(5) > i32(5) }`, false),
+			Entry("f64 gt true", `{ return 2.5 > 1.5 }`, true),
 
 			// Greater than or equal
-			Entry("i32 ge true", `{ return i32(10) >= i32(5) }`, uint8(1)),
-			Entry("i32 ge equal", `{ return i32(5) >= i32(5) }`, uint8(1)),
-			Entry("i32 ge false", `{ return i32(5) >= i32(10) }`, uint8(0)),
+			Entry("i32 ge true", `{ return i32(10) >= i32(5) }`, true),
+			Entry("i32 ge equal", `{ return i32(5) >= i32(5) }`, true),
+			Entry("i32 ge false", `{ return i32(5) >= i32(10) }`, false),
 
 			// Equality
-			Entry("i32 eq true", `{ return i32(5) == i32(5) }`, uint8(1)),
-			Entry("i32 eq false", `{ return i32(5) == i32(6) }`, uint8(0)),
-			Entry("f64 eq true", `{ return 3.14 == 3.14 }`, uint8(1)),
-			Entry("f64 eq false", `{ return 3.14 == 3.15 }`, uint8(0)),
+			Entry("i32 eq true", `{ return i32(5) == i32(5) }`, true),
+			Entry("i32 eq false", `{ return i32(5) == i32(6) }`, false),
+			Entry("f64 eq true", `{ return 3.14 == 3.14 }`, true),
+			Entry("f64 eq false", `{ return 3.14 == 3.15 }`, false),
 
 			// Inequality
-			Entry("i32 ne true", `{ return i32(5) != i32(6) }`, uint8(1)),
-			Entry("i32 ne false", `{ return i32(5) != i32(5) }`, uint8(0)),
-			Entry("f64 ne true", `{ return 3.14 != 3.15 }`, uint8(1)),
+			Entry("i32 ne true", `{ return i32(5) != i32(6) }`, true),
+			Entry("i32 ne false", `{ return i32(5) != i32(5) }`, false),
+			Entry("f64 ne true", `{ return 3.14 != 3.15 }`, true),
+
+			// Untyped integer literals
+			Entry("literal eq", `{ return 3 == 5 }`, false),
+			Entry("literal ne", `{ return 3 != 5 }`, true),
+			Entry("literal lt", `{ return 3 < 5 }`, true),
+			Entry("literal gt", `{ return 3 > 5 }`, false),
+			Entry("literal le", `{ return 3 <= 5 }`, true),
+			Entry("literal ge", `{ return 3 >= 5 }`, false),
 		)
 
 		DescribeTable(
@@ -3817,80 +3986,79 @@ var _ = Describe("Compiler", func() {
 				Expect(results).To(HaveLen(1))
 				assertResult(results[0], expected)
 			},
-			// AND operations (using comparisons since true/false aren't implemented as
-			// keywords)
+			// AND operations
 			Entry(
 				"and true true",
 				`{ return i32(1) == i32(1) and i32(2) == i32(2) }`,
-				uint8(1),
+				true,
 			),
 			Entry(
 				"and true false",
 				`{ return i32(1) == i32(1) and i32(1) == i32(0) }`,
-				uint8(0),
+				false,
 			),
 			Entry(
 				"and false true",
 				`{ return i32(1) == i32(0) and i32(1) == i32(1) }`,
-				uint8(0),
+				false,
 			),
 			Entry(
 				"and false false",
 				`{ return i32(1) == i32(0) and i32(2) == i32(0) }`,
-				uint8(0),
+				false,
 			),
 			// OR operations
 			Entry(
 				"or true true",
 				`{ return i32(1) == i32(1) or i32(2) == i32(2) }`,
-				uint8(1),
+				true,
 			),
 			Entry(
 				"or true false",
 				`{ return i32(1) == i32(1) or i32(1) == i32(0) }`,
-				uint8(1),
+				true,
 			),
 			Entry(
 				"or false true",
 				`{ return i32(1) == i32(0) or i32(1) == i32(1) }`,
-				uint8(1),
+				true,
 			),
 			Entry(
 				"or false false",
 				`{ return i32(1) == i32(0) or i32(2) == i32(0) }`,
-				uint8(0),
+				false,
 			),
 			// Chained operations
 			Entry(
 				"chained and",
 				`{ return i32(1) == i32(1) and i32(2) == i32(2) and i32(3) == i32(3) }`,
-				uint8(1),
+				true,
 			),
 			Entry(
 				"chained and with false",
 				`{ return i32(1) == i32(1) and i32(2) == i32(2) and i32(1) == i32(0) }`,
-				uint8(0),
+				false,
 			),
 			Entry(
 				"chained or",
 				`{ return i32(1) == i32(0) or i32(2) == i32(0) or i32(1) == i32(1) }`,
-				uint8(1),
+				true,
 			),
 			Entry(
 				"chained or all false",
 				`{ return i32(1) == i32(0) or i32(2) == i32(0) or i32(3) == i32(0) }`,
-				uint8(0),
+				false,
 			),
 			// Mixed and/or with comparisons
 			Entry(
 				"comparison and",
 				`{ return i32(5) < i32(10) and i32(10) < i32(20) }`,
-				uint8(1),
+				true,
 			),
 			Entry(
 				"comparison or",
 				`{ return i32(5) > i32(10) or i32(10) < i32(20) }`,
-				uint8(1),
+				true,
 			),
 		)
 
@@ -3940,15 +4108,15 @@ var _ = Describe("Compiler", func() {
 				return --x
 			}`, 3.14),
 			// Logical not (Arc uses 'not' keyword, using comparisons for true/false)
-			Entry("not true", `{ return not (i32(1) == i32(1)) }`, uint8(0)),
-			Entry("not false", `{ return not (i32(1) == i32(0)) }`, uint8(1)),
-			Entry("double not true", `{ return not not (i32(1) == i32(1)) }`, uint8(1)),
+			Entry("not true", `{ return not (i32(1) == i32(1)) }`, false),
+			Entry("not false", `{ return not (i32(1) == i32(0)) }`, true),
+			Entry("double not true", `{ return not not (i32(1) == i32(1)) }`, true),
 			Entry(
 				"double not false",
 				`{ return not not (i32(1) == i32(0)) }`,
-				uint8(0),
+				false,
 			),
-			Entry("not comparison", `{ return not (i32(5) < i32(3)) }`, uint8(1)),
+			Entry("not comparison", `{ return not (i32(5) < i32(3)) }`, true),
 		)
 
 		DescribeTable("control flow",

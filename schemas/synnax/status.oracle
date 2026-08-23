@@ -10,11 +10,11 @@
 import "schemas/synnax/label"
 import "schemas/x/telem"
 
-@ts output  "client/ts/src/status"
-@py output  "client/py/synnax/status"
-@go output  "core/pkg/service/status"
 @cpp output "client/cpp/status"
+@go output  "core/pkg/service/status"
 @pb
+@py output  "client/py/synnax/status"
+@ts output  "client/ts/src/status"
 
 Variant enum {
     success  = "success"
@@ -24,23 +24,28 @@ Variant enum {
     loading  = "loading"
     disabled = "disabled"
 
-    @go version  1
     @doc value   "is the severity or type of a status message."
     @ts literals
 }
 
+Key = string {
+    @doc value "is a unique identifier for a status."
+}
+
 Status struct<Details?, V extends Variant = Variant> {
-    key         string = create {
+    key         Key = create {
+        @doc value """
+            is a unique identifier for this status, auto-generated if not provided.
+        """
         @key
-        @doc value "is a unique identifier for this status, auto-generated if not provided."
     }
     name        string = "" {
         @doc value "is an optional human-readable name for the status."
     }
     variant     V               {
         @doc value """
-            indicates the severity of the status. One of success, info,
-            warning, error, loading, or disabled.
+            indicates the severity of the status. One of success, info, warning, error,
+            loading, or disabled.
         """
     }
     message     string          {
@@ -53,7 +58,9 @@ Status struct<Details?, V extends Variant = Variant> {
         @doc value "is the timestamp when the status was created."
     }
     details     Details         {
-        @doc value  "contains optional component-specific custom details for the status."
+        @doc value  """
+            contains optional component-specific custom details for the status.
+        """
         @go marshal json_only
     }
     labels      label.Label[]?  {
@@ -61,14 +68,13 @@ Status struct<Details?, V extends Variant = Variant> {
         @go marshal omit
     }
 
-    @go version        1
+    @create
     @doc value         """
-        is a standardized message used to communicate state across the Synnax
-        platform. Statuses support different severity variants and can carry
-        component-specific details. A status is uniquely identified by a key and may
-        carry a human-readable name and labels for categorization and filtering.
+        is a standardized message used to communicate state across the Synnax platform.
+        Statuses support different severity variants and can carry component-specific
+        details. A status is uniquely identified by a key and may carry a human-readable
+        name and labels for categorization and filtering.
     """
     @go marshal
     @ts concrete_types
-    @create
 }

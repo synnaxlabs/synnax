@@ -68,10 +68,9 @@ const ALL_SYNCHRONIZERS: Synchronizer.Synchronizers<State, Action> = [
 ];
 
 /**
- * Mounts the session synchronizers for this window. Must be called below the
- * Pluto providers, in every window.
- * @returns whether a full reconcile pass has completed since the last
- * return-to-cold.
+ * Mounts the session synchronizers for this window. Must be called below the Pluto
+ * providers, in every window.
+ * @returns whether a full reconcile pass has completed since the last return-to-cold.
  */
 const useSynchronizers = (): boolean =>
   Synchronizer.use(Runtime.isMainWindow() ? ALL_SYNCHRONIZERS : WINDOW_SYNCHRONIZERS);
@@ -90,11 +89,10 @@ export const SettledProvider = ({ children }: PropsWithChildren): ReactElement =
 };
 
 /**
- * Whether the workspace state is verified against the connected cluster:
- * first contact made, the session's cluster identity agrees with the
- * connection's, no partition swap is in flight, and a reconcile pass has
- * completed. While false the workspace is in structural doubt and must not
- * render; the connection guard shows a splash instead.
+ * Whether the workspace state is verified against the connected cluster: first contact
+ * made, the session's cluster identity agrees with the connection's, no partition swap
+ * is in flight, and a reconcile pass has completed. While false the workspace is in
+ * structural doubt and must not render; the connection guard shows a splash instead.
  */
 export const useSettled = (): boolean => {
   const verified = useContext(SettledContext);

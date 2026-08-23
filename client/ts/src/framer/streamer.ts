@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { EOF, type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
-import { errors, Rate } from "@synnaxlabs/x";
+import { errors, Rate, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type channel } from "@/channel";
@@ -51,38 +51,25 @@ const intermediateStreamerConfigZ = z.object({
   excludeGroups: z.uint32().array().default([]),
 });
 
+/** Zod schema for {@link StreamerConfig}. A bare channel list parses as a config. */
 export const streamerConfigZ = intermediateStreamerConfigZ.or(
   paramsZ.transform((channels) => intermediateStreamerConfigZ.parse({ channels })),
 );
 
+/** Config for a streamer. Pass it to `client.telem.openStreamer`. */
 export type StreamerConfig = z.input<typeof streamerConfigZ>;
 
 /**
- * A streamer is used to stream frames of telemetry in real-time from a Synnax cluster.
- * It should not be constructed directly, and should instead be created using the
- * client's openStreamer method.
+ * Streams frames of telemetry from a Synnax cluster in real time. Open one with the
+ * client's openStreamer method, never directly. Read frames with `read` or by
+ * iterating the streamer. Close it in a `finally` block to free its resources.
  *
- * To open a streamer, use the openStreamer method on the client and pass it in the list
- * of channels you'd like to receive data from. Once the streamer has been opened, call
- * the `read` method to read the next frame of telemetry, or use the streamer as an
- * async iterator to iterate over the frames of telemetry as they are received.
- *
- * The list of channels being streamed can be updated at any time by using the `update`
- * method.
- *
- * Once done, call the `close` method to close the streamer and free all associated
- * resources. We recommend using the streamer within a try-finally block to ensure
- * that it is closed properly in the event of an error.
- *
- * For detailed documentation, see https://docs.synnaxlabs.com/reference/client/working-with-data/streaming-data
+ * @see https://docs.synnaxlabs.com/reference/client/working-with-data/streaming-data
  */
 export interface Streamer extends AsyncIterator<Frame>, AsyncIterable<Frame> {
   /** The keys of the channels currently being streamed from. */
   keys: channel.Key[];
-  /**
-   * Update the list of channels being streamed from. This replaces the list of channels
-   * being streamed from with the new list of channels.
-   */
+  /** Replaces the list of channels being streamed from. */
   update: (channels: channel.Params) => Promise<void>;
   /** Close the streamer and free all associated resources. */
   close: () => void;
@@ -90,16 +77,13 @@ export interface Streamer extends AsyncIterator<Frame>, AsyncIterable<Frame> {
   read: () => Promise<Frame>;
 }
 
-/**
- * A function that opens a streamer.
- */
+/** A function that opens a streamer. */
 export interface StreamOpener {
   (config: StreamerConfig): Promise<Streamer>;
 }
 
 /**
- * Creates a function that opens streamers with the given channel resolver and
- * client.
+ * Creates a function that opens streamers with the given channel resolver and client.
  * @param retrieveChannels - Resolves channel params to payloads for the codec
  * @param client - The WebSocket client to use for streaming
  * @returns A function that opens streamers with the given configuration
@@ -107,7 +91,7 @@ export interface StreamOpener {
 export const createStreamOpener =
   (retrieveChannels: ChannelRetriever, client: WebSocketClient): StreamOpener =>
   async (config) => {
-    const cfg = streamerConfigZ.parse(config);
+    const cfg = zod.parse(streamerConfigZ, config, { label: "streamer config" });
     const adapter = await ReadAdapter.open(retrieveChannels, cfg.channels);
     client = client.withCodec(new WSStreamerCodec(adapter.codec));
     const stream = await client.stream("/frame/stream", reqZ, resZ);
@@ -132,7 +116,6 @@ export const createStreamOpener =
  * Opens a new streamer with the given configuration.
  * @param retrieveChannels - Resolves channel params to payloads for the codec
  * @param client - The WebSocket client to use for streaming
- * @param config - The configuration for the streamer
  * @returns A promise that resolves to a new streamer
  */
 export const openStreamer = async (

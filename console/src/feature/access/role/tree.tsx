@@ -31,6 +31,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
     state,
   } = props;
   const hasDeletePermission = Access.useDeleteGranted(ids);
+  const hasUpdatePermission = Access.useUpdateGranted(ids);
   const handleDelete = useDelete(props);
   const handleRename = useRename(props);
   const singleResource = ids.length === 1;
@@ -38,7 +39,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const hasInternal = resources.some((r) => r.data?.internal === true);
   return (
     <ContextMenu.Menu>
-      {singleResource && !hasInternal && (
+      {singleResource && hasUpdatePermission && !hasInternal && (
         <ContextMenu.RenameItem onClick={handleRename} />
       )}
       <Menu.Divider />

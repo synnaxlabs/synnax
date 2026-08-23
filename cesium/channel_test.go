@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/io/fs"
+	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -58,13 +59,13 @@ var _ = Describe("Channel", Ordered, func() {
 						cesium.Channel{
 							Name:     "Bob",
 							Key:      9992,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						},
 						cesium.Channel{
 							Key:      9992,
 							Name:     "Isaac",
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						},
 					),
@@ -85,14 +86,14 @@ var _ = Describe("Channel", Ordered, func() {
 							Name:     "Feynman",
 							Key:      9995,
 							IsIndex:  true,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 						},
 						cesium.Channel{
 							Name:     "Cavendish",
 							Key:      9996,
 							IsIndex:  true,
 							Index:    9995,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 						},
 					),
 					Entry(
@@ -120,7 +121,7 @@ var _ = Describe("Channel", Ordered, func() {
 						cesium.Channel{
 							Name:     "Hemingway",
 							Key:      9980,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						},
 						cesium.Channel{
@@ -147,7 +148,7 @@ var _ = Describe("Channel", Ordered, func() {
 							ctx,
 							cesium.Channel{
 								Key:      key,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 						)
@@ -163,7 +164,7 @@ var _ = Describe("Channel", Ordered, func() {
 							Key:      key,
 							Name:     "Lebron",
 							IsIndex:  true,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 						})).To(Succeed())
 						Expect(subDB.Close()).To(Succeed())
 
@@ -184,7 +185,7 @@ var _ = Describe("Channel", Ordered, func() {
 						{
 							Name:     "Christian",
 							Key:      k1,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						},
 						{Name: "Ben", Key: k2, DataType: telem.Uint32T, Index: k1},
@@ -219,7 +220,7 @@ var _ = Describe("Channel", Ordered, func() {
 								Key:      idx,
 								Name:     "var-lc-idx",
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 							cesium.Channel{
 								Key:      data,
@@ -244,7 +245,7 @@ var _ = Describe("Channel", Ordered, func() {
 							Key:      idx,
 							Name:     "var-rn-idx",
 							IsIndex:  true,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 						},
 						cesium.Channel{
 							Key:      data,
@@ -268,7 +269,7 @@ var _ = Describe("Channel", Ordered, func() {
 							Key:      idx,
 							Name:     "var-del-idx",
 							IsIndex:  true,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 						},
 						cesium.Channel{
 							Key:      data,
@@ -309,7 +310,7 @@ var _ = Describe("Channel", Ordered, func() {
 						{
 							Name:     "John",
 							Key:      unaryKey,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						},
 						{
@@ -321,7 +322,7 @@ var _ = Describe("Channel", Ordered, func() {
 						{
 							Name:     "Alex",
 							Key:      indexKey,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						},
 						{
@@ -339,7 +340,7 @@ var _ = Describe("Channel", Ordered, func() {
 						{
 							Name:     "Napoleon",
 							Key:      indexErrorKey,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						},
 						{
@@ -351,7 +352,7 @@ var _ = Describe("Channel", Ordered, func() {
 						{
 							Name:     "Michael",
 							Key:      errorKey1,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						},
 						{
@@ -663,7 +664,7 @@ var _ = Describe("Channel", Ordered, func() {
 								cesium.Channel{
 									Key:      key,
 									Name:     "fermat",
-									DataType: telem.TimeStampT,
+									DataType: telem.TimestampT,
 									IsIndex:  true,
 								},
 							),
@@ -733,7 +734,7 @@ var _ = Describe("Channel", Ordered, func() {
 								Key:      key1,
 								Name:     "fermat",
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 						),
 					).To(Succeed())
@@ -755,7 +756,7 @@ var _ = Describe("Channel", Ordered, func() {
 								Key:      key3,
 								Name:     "newton",
 								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 							},
 						),
 					).To(Succeed())

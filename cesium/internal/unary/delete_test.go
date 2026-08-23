@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/io/fs"
+	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -42,7 +43,7 @@ var _ = Describe("Delete", func() {
 					Channel: channel.Channel{
 						Name:     "John",
 						Key:      index,
-						DataType: telem.TimeStampT,
+						DataType: telem.TimestampT,
 						IsIndex:  true,
 						Index:    index,
 					},
@@ -1586,7 +1587,7 @@ var _ = Describe("Delete", func() {
 								MetaCodec: json.Codec,
 								Channel: channel.Channel{
 									Key:      iKey,
-									DataType: telem.TimeStampT,
+									DataType: telem.TimestampT,
 									IsIndex:  true,
 									Index:    iKey,
 								},
@@ -1668,7 +1669,7 @@ var _ = Describe("Delete", func() {
 								MetaCodec: json.Codec,
 								Channel: channel.Channel{
 									Key:      iKey,
-									DataType: telem.TimeStampT,
+									DataType: telem.TimestampT,
 									IsIndex:  true,
 									Index:    iKey,
 								},
@@ -1756,7 +1757,7 @@ var _ = Describe("Delete", func() {
 								MetaCodec: json.Codec,
 								Channel: channel.Channel{
 									Key:      iKey,
-									DataType: telem.TimeStampT,
+									DataType: telem.TimestampT,
 									IsIndex:  true,
 									Index:    iKey,
 								},
@@ -1841,7 +1842,7 @@ var _ = Describe("Delete", func() {
 								MetaCodec: json.Codec,
 								Channel: channel.Channel{
 									Key:      iKey,
-									DataType: telem.TimeStampT,
+									DataType: telem.TimestampT,
 									IsIndex:  true,
 									Index:    iKey,
 								},

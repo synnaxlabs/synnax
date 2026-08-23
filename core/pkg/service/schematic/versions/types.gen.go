@@ -11,377 +11,687 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v7"
+import "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v8"
 
 // Key is a unique identifier for a schematic, represented as a UUID.
-type Key = v7.Key
+type Key = v8.Key
 
 // Node is a diagram node representing a symbol in the schematic.
-type Node = v7.Node
+type Node = v8.Node
 
 // Handle is a reference to a specific connection point on a specific node. For
 // schematics, param is the symbol handle key (e.g. inlet, outlet).
-type Handle = v7.Handle
+type Handle = v8.Handle
 
 // Edge is a connection between two nodes in the schematic.
-type Edge = v7.Edge
+type Edge = v8.Edge
 
 // Segment is a single orthogonal run in an edge's connector path.
-type Segment = v7.Segment
+type Segment = v8.Segment
 
 // SegmentedEdgeConfig is the configuration shared by every segmented edge variant.
-type SegmentedEdgeConfig = v7.SegmentedEdgeConfig
+type SegmentedEdgeConfig = v8.SegmentedEdgeConfig
 
-// FlexAlignment is a cross-axis flex alignment for laid-out content.
-type FlexAlignment = v7.FlexAlignment
+// EdgeConfig is the per-edge configuration stored in the schematic configs map. The
+// variant selects the visual style of the connection.
+type EdgeConfig = v8.EdgeConfig
+type EdgeConfigVariant = v8.EdgeConfigVariant
+type EdgeConfigType = v8.EdgeConfigType
 
 const (
-	FlexAlignmentStart   FlexAlignment = v7.FlexAlignmentStart
-	FlexAlignmentCenter  FlexAlignment = v7.FlexAlignmentCenter
-	FlexAlignmentEnd     FlexAlignment = v7.FlexAlignmentEnd
-	FlexAlignmentStretch FlexAlignment = v7.FlexAlignmentStretch
+	PipeEdgeConfigType      EdgeConfigType = v8.PipeEdgeConfigType
+	ElectricEdgeConfigType  EdgeConfigType = v8.ElectricEdgeConfigType
+	SecondaryEdgeConfigType EdgeConfigType = v8.SecondaryEdgeConfigType
+	JacketedEdgeConfigType  EdgeConfigType = v8.JacketedEdgeConfigType
+	HydraulicEdgeConfigType EdgeConfigType = v8.HydraulicEdgeConfigType
+	PneumaticEdgeConfigType EdgeConfigType = v8.PneumaticEdgeConfigType
+	DataEdgeConfigType      EdgeConfigType = v8.DataEdgeConfigType
+)
+
+type PipeEdgeConfig = v8.PipeEdgeConfig
+type ElectricEdgeConfig = v8.ElectricEdgeConfig
+type SecondaryEdgeConfig = v8.SecondaryEdgeConfig
+type JacketedEdgeConfig = v8.JacketedEdgeConfig
+type HydraulicEdgeConfig = v8.HydraulicEdgeConfig
+type PneumaticEdgeConfig = v8.PneumaticEdgeConfig
+type DataEdgeConfig = v8.DataEdgeConfig
+
+// FlexAlignment is a cross-axis flex alignment for laid-out content.
+type FlexAlignment = v8.FlexAlignment
+
+const (
+	FlexAlignmentStart   FlexAlignment = v8.FlexAlignmentStart
+	FlexAlignmentCenter  FlexAlignment = v8.FlexAlignmentCenter
+	FlexAlignmentEnd     FlexAlignment = v8.FlexAlignmentEnd
+	FlexAlignmentStretch FlexAlignment = v8.FlexAlignmentStretch
 )
 
 // ComponentSize is a discrete size preset for interactive components.
-type ComponentSize = v7.ComponentSize
+type ComponentSize = v8.ComponentSize
 
 const (
-	ComponentSizeTiny   ComponentSize = v7.ComponentSizeTiny
-	ComponentSizeSmall  ComponentSize = v7.ComponentSizeSmall
-	ComponentSizeMedium ComponentSize = v7.ComponentSizeMedium
-	ComponentSizeLarge  ComponentSize = v7.ComponentSizeLarge
-	ComponentSizeHuge   ComponentSize = v7.ComponentSizeHuge
+	ComponentSizeTiny   ComponentSize = v8.ComponentSizeTiny
+	ComponentSizeSmall  ComponentSize = v8.ComponentSizeSmall
+	ComponentSizeMedium ComponentSize = v8.ComponentSizeMedium
+	ComponentSizeLarge  ComponentSize = v8.ComponentSizeLarge
+	ComponentSizeHuge   ComponentSize = v8.ComponentSizeHuge
 )
 
 // ButtonMode is the actuation behavior of a button: fire writes once on click,
 // momentary writes on press and clears on release, and pulse writes a one-cycle pulse.
-type ButtonMode = v7.ButtonMode
+type ButtonMode = v8.ButtonMode
 
 const (
-	ButtonModeFire      ButtonMode = v7.ButtonModeFire
-	ButtonModeMomentary ButtonMode = v7.ButtonModeMomentary
-	ButtonModePulse     ButtonMode = v7.ButtonModePulse
+	ButtonModeFire      ButtonMode = v8.ButtonModeFire
+	ButtonModeMomentary ButtonMode = v8.ButtonModeMomentary
+	ButtonModePulse     ButtonMode = v8.ButtonModePulse
 )
 
 // LabelConfig is the text label configuration shared by schematic symbols.
-type LabelConfig = v7.LabelConfig
+type LabelConfig = v8.LabelConfig
 
 // LabeledConfig is the base configuration for any symbol that carries a label.
-type LabeledConfig = v7.LabeledConfig
+type LabeledConfig = v8.LabeledConfig
 
 // ControlStateConfig is the control authority and state display configuration for
 // actuated symbols.
-type ControlStateConfig = v7.ControlStateConfig
+type ControlStateConfig = v8.ControlStateConfig
 
 // ToggleConfig is the base configuration for symbols actuated through a boolean
 // telemetry pair.
-type ToggleConfig = v7.ToggleConfig
+type ToggleConfig = v8.ToggleConfig
 
 // StaticSymbolConfig is the configuration for non-interactive labeled symbols.
-type StaticSymbolConfig = v7.StaticSymbolConfig
+type StaticSymbolConfig = v8.StaticSymbolConfig
 
 // ToggleSymbolConfig is the configuration for telemetry-actuated toggle symbols.
-type ToggleSymbolConfig = v7.ToggleSymbolConfig
+type ToggleSymbolConfig = v8.ToggleSymbolConfig
 
 // DummyToggleSymbolConfig is the configuration for symbols that toggle their appearance
 // from local state without binding to telemetry.
-type DummyToggleSymbolConfig = v7.DummyToggleSymbolConfig
+type DummyToggleSymbolConfig = v8.DummyToggleSymbolConfig
 
 // StateMapping maps a numeric channel value to a named, colored state.
-type StateMapping = v7.StateMapping
+type StateMapping = v8.StateMapping
 
 // Redline maps a numeric range to a color gradient for limit visualization.
-type Redline = v7.Redline
+type Redline = v8.Redline
+
+// NodeConfig is the per-node configuration stored in the schematic configs map. The
+// variant selects the symbol rendered for the node and the fields that accompany it.
+type NodeConfig = v8.NodeConfig
+type NodeConfigVariant = v8.NodeConfigVariant
+type NodeConfigType = v8.NodeConfigType
+
+const (
+	CapNodeConfigType                           NodeConfigType = v8.CapNodeConfigType
+	FilterNodeConfigType                        NodeConfigType = v8.FilterNodeConfigType
+	FlowStraightenerNodeConfigType              NodeConfigType = v8.FlowStraightenerNodeConfigType
+	HeaterElementNodeConfigType                 NodeConfigType = v8.HeaterElementNodeConfigType
+	IsoCapNodeConfigType                        NodeConfigType = v8.IsoCapNodeConfigType
+	IsoFilterNodeConfigType                     NodeConfigType = v8.IsoFilterNodeConfigType
+	NozzleNodeConfigType                        NodeConfigType = v8.NozzleNodeConfigType
+	OrificeNodeConfigType                       NodeConfigType = v8.OrificeNodeConfigType
+	OrificePlateNodeConfigType                  NodeConfigType = v8.OrificePlateNodeConfigType
+	StrainerNodeConfigType                      NodeConfigType = v8.StrainerNodeConfigType
+	StrainerConeNodeConfigType                  NodeConfigType = v8.StrainerConeNodeConfigType
+	ThrusterNodeConfigType                      NodeConfigType = v8.ThrusterNodeConfigType
+	VentNodeConfigType                          NodeConfigType = v8.VentNodeConfigType
+	FlowmeterGeneralNodeConfigType              NodeConfigType = v8.FlowmeterGeneralNodeConfigType
+	FlowmeterElectromagneticNodeConfigType      NodeConfigType = v8.FlowmeterElectromagneticNodeConfigType
+	FlowmeterVariableAreaNodeConfigType         NodeConfigType = v8.FlowmeterVariableAreaNodeConfigType
+	FlowmeterCoriolisNodeConfigType             NodeConfigType = v8.FlowmeterCoriolisNodeConfigType
+	FlowmeterNozzleNodeConfigType               NodeConfigType = v8.FlowmeterNozzleNodeConfigType
+	FlowmeterVenturiNodeConfigType              NodeConfigType = v8.FlowmeterVenturiNodeConfigType
+	FlowmeterRingPistonNodeConfigType           NodeConfigType = v8.FlowmeterRingPistonNodeConfigType
+	FlowmeterPositiveDisplacementNodeConfigType NodeConfigType = v8.FlowmeterPositiveDisplacementNodeConfigType
+	FlowmeterTurbineNodeConfigType              NodeConfigType = v8.FlowmeterTurbineNodeConfigType
+	FlowmeterPulseNodeConfigType                NodeConfigType = v8.FlowmeterPulseNodeConfigType
+	FlowmeterFloatSensorNodeConfigType          NodeConfigType = v8.FlowmeterFloatSensorNodeConfigType
+	FlowmeterOrificeNodeConfigType              NodeConfigType = v8.FlowmeterOrificeNodeConfigType
+	// BoxNodeConfigType is the configuration for box annotation symbols.
+	BoxNodeConfigType NodeConfigType = v8.BoxNodeConfigType
+	// ButtonNodeConfigType is the configuration for button symbols.
+	ButtonNodeConfigType NodeConfigType = v8.ButtonNodeConfigType
+	// CircleNodeConfigType is the configuration for circle annotation symbols.
+	CircleNodeConfigType NodeConfigType = v8.CircleNodeConfigType
+	// GaugeNodeConfigType is the configuration for gauge symbols.
+	GaugeNodeConfigType NodeConfigType = v8.GaugeNodeConfigType
+	// InputNodeConfigType is the configuration for free-form input symbols.
+	InputNodeConfigType NodeConfigType = v8.InputNodeConfigType
+	// LightNodeConfigType is the configuration for indicator light symbols.
+	LightNodeConfigType NodeConfigType = v8.LightNodeConfigType
+	// OffPageReferenceNodeConfigType is the configuration for off-page reference
+	// symbols.
+	OffPageReferenceNodeConfigType NodeConfigType = v8.OffPageReferenceNodeConfigType
+	// PolygonNodeConfigType is the configuration for polygon annotation symbols.
+	PolygonNodeConfigType NodeConfigType = v8.PolygonNodeConfigType
+	// SelectNodeConfigType is the configuration for select symbols.
+	SelectNodeConfigType NodeConfigType = v8.SelectNodeConfigType
+	// ScaleNodeConfigType is the configuration for standalone scale symbols.
+	ScaleNodeConfigType NodeConfigType = v8.ScaleNodeConfigType
+	// SetpointNodeConfigType is the configuration for numeric setpoint symbols.
+	SetpointNodeConfigType NodeConfigType = v8.SetpointNodeConfigType
+	// StateIndicatorNodeConfigType is the configuration for multi-state indicator
+	// symbols.
+	StateIndicatorNodeConfigType NodeConfigType = v8.StateIndicatorNodeConfigType
+	// StringDisplayNodeConfigType is the configuration for live string display symbols.
+	StringDisplayNodeConfigType NodeConfigType = v8.StringDisplayNodeConfigType
+	SwitchNodeConfigType        NodeConfigType = v8.SwitchNodeConfigType
+	// TextBoxNodeConfigType is the configuration for text box annotation symbols.
+	TextBoxNodeConfigType NodeConfigType = v8.TextBoxNodeConfigType
+	// ValueNodeConfigType is the configuration for live telemetry value symbols.
+	ValueNodeConfigType                          NodeConfigType = v8.ValueNodeConfigType
+	AgitatorNodeConfigType                       NodeConfigType = v8.AgitatorNodeConfigType
+	CrossBeamAgitatorNodeConfigType              NodeConfigType = v8.CrossBeamAgitatorNodeConfigType
+	FlatBladeAgitatorNodeConfigType              NodeConfigType = v8.FlatBladeAgitatorNodeConfigType
+	HeatExchangerGeneralNodeConfigType           NodeConfigType = v8.HeatExchangerGeneralNodeConfigType
+	HeatExchangerMNodeConfigType                 NodeConfigType = v8.HeatExchangerMNodeConfigType
+	HeatExchangerStraightTubeNodeConfigType      NodeConfigType = v8.HeatExchangerStraightTubeNodeConfigType
+	HelicalAgitatorNodeConfigType                NodeConfigType = v8.HelicalAgitatorNodeConfigType
+	PaddleAgitatorNodeConfigType                 NodeConfigType = v8.PaddleAgitatorNodeConfigType
+	PropellerAgitatorNodeConfigType              NodeConfigType = v8.PropellerAgitatorNodeConfigType
+	RotaryMixerNodeConfigType                    NodeConfigType = v8.RotaryMixerNodeConfigType
+	StaticMixerNodeConfigType                    NodeConfigType = v8.StaticMixerNodeConfigType
+	CavityPumpNodeConfigType                     NodeConfigType = v8.CavityPumpNodeConfigType
+	CentrifugalCompressorNodeConfigType          NodeConfigType = v8.CentrifugalCompressorNodeConfigType
+	CompressorNodeConfigType                     NodeConfigType = v8.CompressorNodeConfigType
+	DiaphragmPumpNodeConfigType                  NodeConfigType = v8.DiaphragmPumpNodeConfigType
+	EjectionPumpNodeConfigType                   NodeConfigType = v8.EjectionPumpNodeConfigType
+	EjectorCompressorNodeConfigType              NodeConfigType = v8.EjectorCompressorNodeConfigType
+	LiquidRingCompressorNodeConfigType           NodeConfigType = v8.LiquidRingCompressorNodeConfigType
+	PistonPumpNodeConfigType                     NodeConfigType = v8.PistonPumpNodeConfigType
+	PumpNodeConfigType                           NodeConfigType = v8.PumpNodeConfigType
+	RollerVaneCompressorNodeConfigType           NodeConfigType = v8.RollerVaneCompressorNodeConfigType
+	ScrewPumpNodeConfigType                      NodeConfigType = v8.ScrewPumpNodeConfigType
+	TurboCompressorNodeConfigType                NodeConfigType = v8.TurboCompressorNodeConfigType
+	VacuumPumpNodeConfigType                     NodeConfigType = v8.VacuumPumpNodeConfigType
+	BurstDiscNodeConfigType                      NodeConfigType = v8.BurstDiscNodeConfigType
+	FlameArrestorNodeConfigType                  NodeConfigType = v8.FlameArrestorNodeConfigType
+	FlameArrestorDetonationNodeConfigType        NodeConfigType = v8.FlameArrestorDetonationNodeConfigType
+	FlameArrestorExplosionNodeConfigType         NodeConfigType = v8.FlameArrestorExplosionNodeConfigType
+	FlameArrestorFireResNodeConfigType           NodeConfigType = v8.FlameArrestorFireResNodeConfigType
+	FlameArrestorFireResDetonationNodeConfigType NodeConfigType = v8.FlameArrestorFireResDetonationNodeConfigType
+	IsoBurstDiscNodeConfigType                   NodeConfigType = v8.IsoBurstDiscNodeConfigType
+	AngledValveNodeConfigType                    NodeConfigType = v8.AngledValveNodeConfigType
+	AngledReliefValveNodeConfigType              NodeConfigType = v8.AngledReliefValveNodeConfigType
+	AngledSpringLoadedReliefValveNodeConfigType  NodeConfigType = v8.AngledSpringLoadedReliefValveNodeConfigType
+	BallValveNodeConfigType                      NodeConfigType = v8.BallValveNodeConfigType
+	BreatherValveNodeConfigType                  NodeConfigType = v8.BreatherValveNodeConfigType
+	ButterflyValveOneNodeConfigType              NodeConfigType = v8.ButterflyValveOneNodeConfigType
+	ButterflyValveTwoNodeConfigType              NodeConfigType = v8.ButterflyValveTwoNodeConfigType
+	CheckValveNodeConfigType                     NodeConfigType = v8.CheckValveNodeConfigType
+	CheckValveWithArrowNodeConfigType            NodeConfigType = v8.CheckValveWithArrowNodeConfigType
+	ElectricRegulatorNodeConfigType              NodeConfigType = v8.ElectricRegulatorNodeConfigType
+	ElectricRegulatorMotorizedNodeConfigType     NodeConfigType = v8.ElectricRegulatorMotorizedNodeConfigType
+	FourWayValveNodeConfigType                   NodeConfigType = v8.FourWayValveNodeConfigType
+	GateValveNodeConfigType                      NodeConfigType = v8.GateValveNodeConfigType
+	IsoCheckValveNodeConfigType                  NodeConfigType = v8.IsoCheckValveNodeConfigType
+	ManualValveNodeConfigType                    NodeConfigType = v8.ManualValveNodeConfigType
+	NeedleValveNodeConfigType                    NodeConfigType = v8.NeedleValveNodeConfigType
+	RegulatorNodeConfigType                      NodeConfigType = v8.RegulatorNodeConfigType
+	RegulatorManualNodeConfigType                NodeConfigType = v8.RegulatorManualNodeConfigType
+	ReliefValveNodeConfigType                    NodeConfigType = v8.ReliefValveNodeConfigType
+	// SolenoidValveNodeConfigType is the configuration for solenoid valve symbols.
+	SolenoidValveNodeConfigType           NodeConfigType = v8.SolenoidValveNodeConfigType
+	SpringLoadedReliefValveNodeConfigType NodeConfigType = v8.SpringLoadedReliefValveNodeConfigType
+	ThreeWayValveNodeConfigType           NodeConfigType = v8.ThreeWayValveNodeConfigType
+	ThreeWayBallValveNodeConfigType       NodeConfigType = v8.ThreeWayBallValveNodeConfigType
+	ValveNodeConfigType                   NodeConfigType = v8.ValveNodeConfigType
+	CrossJunctionNodeConfigType           NodeConfigType = v8.CrossJunctionNodeConfigType
+	// CylinderNodeConfigType is the configuration for cylinder vessel symbols.
+	CylinderNodeConfigType NodeConfigType = v8.CylinderNodeConfigType
+	// TankNodeConfigType is the configuration for tank vessel symbols.
+	TankNodeConfigType      NodeConfigType = v8.TankNodeConfigType
+	TJunctionNodeConfigType NodeConfigType = v8.TJunctionNodeConfigType
+	// CustomActuatorNodeConfigType is the configuration for user-defined actuator
+	// symbols.
+	CustomActuatorNodeConfigType NodeConfigType = v8.CustomActuatorNodeConfigType
+	// CustomStaticNodeConfigType is the configuration for user-defined static symbols.
+	CustomStaticNodeConfigType NodeConfigType = v8.CustomStaticNodeConfigType
+)
+
+type CapNodeConfig = v8.CapNodeConfig
+type FilterNodeConfig = v8.FilterNodeConfig
+type FlowStraightenerNodeConfig = v8.FlowStraightenerNodeConfig
+type HeaterElementNodeConfig = v8.HeaterElementNodeConfig
+type IsoCapNodeConfig = v8.IsoCapNodeConfig
+type IsoFilterNodeConfig = v8.IsoFilterNodeConfig
+type NozzleNodeConfig = v8.NozzleNodeConfig
+type OrificeNodeConfig = v8.OrificeNodeConfig
+type OrificePlateNodeConfig = v8.OrificePlateNodeConfig
+type StrainerNodeConfig = v8.StrainerNodeConfig
+type StrainerConeNodeConfig = v8.StrainerConeNodeConfig
+type ThrusterNodeConfig = v8.ThrusterNodeConfig
+type VentNodeConfig = v8.VentNodeConfig
+type FlowmeterGeneralNodeConfig = v8.FlowmeterGeneralNodeConfig
+type FlowmeterElectromagneticNodeConfig = v8.FlowmeterElectromagneticNodeConfig
+type FlowmeterVariableAreaNodeConfig = v8.FlowmeterVariableAreaNodeConfig
+type FlowmeterCoriolisNodeConfig = v8.FlowmeterCoriolisNodeConfig
+type FlowmeterNozzleNodeConfig = v8.FlowmeterNozzleNodeConfig
+type FlowmeterVenturiNodeConfig = v8.FlowmeterVenturiNodeConfig
+type FlowmeterRingPistonNodeConfig = v8.FlowmeterRingPistonNodeConfig
+type FlowmeterPositiveDisplacementNodeConfig = v8.FlowmeterPositiveDisplacementNodeConfig
+type FlowmeterTurbineNodeConfig = v8.FlowmeterTurbineNodeConfig
+type FlowmeterPulseNodeConfig = v8.FlowmeterPulseNodeConfig
+type FlowmeterFloatSensorNodeConfig = v8.FlowmeterFloatSensorNodeConfig
+type FlowmeterOrificeNodeConfig = v8.FlowmeterOrificeNodeConfig
+
+// BoxNodeConfig is the configuration for box annotation symbols.
+type BoxNodeConfig = v8.BoxNodeConfig
+
+// ButtonNodeConfig is the configuration for button symbols.
+type ButtonNodeConfig = v8.ButtonNodeConfig
+
+// CircleNodeConfig is the configuration for circle annotation symbols.
+type CircleNodeConfig = v8.CircleNodeConfig
+
+// GaugeNodeConfig is the configuration for gauge symbols.
+type GaugeNodeConfig = v8.GaugeNodeConfig
+
+// InputNodeConfig is the configuration for free-form input symbols.
+type InputNodeConfig = v8.InputNodeConfig
+
+// LightNodeConfig is the configuration for indicator light symbols.
+type LightNodeConfig = v8.LightNodeConfig
+
+// OffPageReferenceNodeConfig is the configuration for off-page reference symbols.
+type OffPageReferenceNodeConfig = v8.OffPageReferenceNodeConfig
+
+// PolygonNodeConfig is the configuration for polygon annotation symbols.
+type PolygonNodeConfig = v8.PolygonNodeConfig
+
+// SelectNodeConfig is the configuration for select symbols.
+type SelectNodeConfig = v8.SelectNodeConfig
+
+// ScaleNodeConfig is the configuration for standalone scale symbols.
+type ScaleNodeConfig = v8.ScaleNodeConfig
+
+// SetpointNodeConfig is the configuration for numeric setpoint symbols.
+type SetpointNodeConfig = v8.SetpointNodeConfig
+
+// StateIndicatorNodeConfig is the configuration for multi-state indicator symbols.
+type StateIndicatorNodeConfig = v8.StateIndicatorNodeConfig
+
+// StringDisplayNodeConfig is the configuration for live string display symbols.
+type StringDisplayNodeConfig = v8.StringDisplayNodeConfig
+type SwitchNodeConfig = v8.SwitchNodeConfig
+
+// TextBoxNodeConfig is the configuration for text box annotation symbols.
+type TextBoxNodeConfig = v8.TextBoxNodeConfig
+
+// ValueNodeConfig is the configuration for live telemetry value symbols.
+type ValueNodeConfig = v8.ValueNodeConfig
+type AgitatorNodeConfig = v8.AgitatorNodeConfig
+type CrossBeamAgitatorNodeConfig = v8.CrossBeamAgitatorNodeConfig
+type FlatBladeAgitatorNodeConfig = v8.FlatBladeAgitatorNodeConfig
+type HeatExchangerGeneralNodeConfig = v8.HeatExchangerGeneralNodeConfig
+type HeatExchangerMNodeConfig = v8.HeatExchangerMNodeConfig
+type HeatExchangerStraightTubeNodeConfig = v8.HeatExchangerStraightTubeNodeConfig
+type HelicalAgitatorNodeConfig = v8.HelicalAgitatorNodeConfig
+type PaddleAgitatorNodeConfig = v8.PaddleAgitatorNodeConfig
+type PropellerAgitatorNodeConfig = v8.PropellerAgitatorNodeConfig
+type RotaryMixerNodeConfig = v8.RotaryMixerNodeConfig
+type StaticMixerNodeConfig = v8.StaticMixerNodeConfig
+type CavityPumpNodeConfig = v8.CavityPumpNodeConfig
+type CentrifugalCompressorNodeConfig = v8.CentrifugalCompressorNodeConfig
+type CompressorNodeConfig = v8.CompressorNodeConfig
+type DiaphragmPumpNodeConfig = v8.DiaphragmPumpNodeConfig
+type EjectionPumpNodeConfig = v8.EjectionPumpNodeConfig
+type EjectorCompressorNodeConfig = v8.EjectorCompressorNodeConfig
+type LiquidRingCompressorNodeConfig = v8.LiquidRingCompressorNodeConfig
+type PistonPumpNodeConfig = v8.PistonPumpNodeConfig
+type PumpNodeConfig = v8.PumpNodeConfig
+type RollerVaneCompressorNodeConfig = v8.RollerVaneCompressorNodeConfig
+type ScrewPumpNodeConfig = v8.ScrewPumpNodeConfig
+type TurboCompressorNodeConfig = v8.TurboCompressorNodeConfig
+type VacuumPumpNodeConfig = v8.VacuumPumpNodeConfig
+type BurstDiscNodeConfig = v8.BurstDiscNodeConfig
+type FlameArrestorNodeConfig = v8.FlameArrestorNodeConfig
+type FlameArrestorDetonationNodeConfig = v8.FlameArrestorDetonationNodeConfig
+type FlameArrestorExplosionNodeConfig = v8.FlameArrestorExplosionNodeConfig
+type FlameArrestorFireResNodeConfig = v8.FlameArrestorFireResNodeConfig
+type FlameArrestorFireResDetonationNodeConfig = v8.FlameArrestorFireResDetonationNodeConfig
+type IsoBurstDiscNodeConfig = v8.IsoBurstDiscNodeConfig
+type AngledValveNodeConfig = v8.AngledValveNodeConfig
+type AngledReliefValveNodeConfig = v8.AngledReliefValveNodeConfig
+type AngledSpringLoadedReliefValveNodeConfig = v8.AngledSpringLoadedReliefValveNodeConfig
+type BallValveNodeConfig = v8.BallValveNodeConfig
+type BreatherValveNodeConfig = v8.BreatherValveNodeConfig
+type ButterflyValveOneNodeConfig = v8.ButterflyValveOneNodeConfig
+type ButterflyValveTwoNodeConfig = v8.ButterflyValveTwoNodeConfig
+type CheckValveNodeConfig = v8.CheckValveNodeConfig
+type CheckValveWithArrowNodeConfig = v8.CheckValveWithArrowNodeConfig
+type ElectricRegulatorNodeConfig = v8.ElectricRegulatorNodeConfig
+type ElectricRegulatorMotorizedNodeConfig = v8.ElectricRegulatorMotorizedNodeConfig
+type FourWayValveNodeConfig = v8.FourWayValveNodeConfig
+type GateValveNodeConfig = v8.GateValveNodeConfig
+type IsoCheckValveNodeConfig = v8.IsoCheckValveNodeConfig
+type ManualValveNodeConfig = v8.ManualValveNodeConfig
+type NeedleValveNodeConfig = v8.NeedleValveNodeConfig
+type RegulatorNodeConfig = v8.RegulatorNodeConfig
+type RegulatorManualNodeConfig = v8.RegulatorManualNodeConfig
+type ReliefValveNodeConfig = v8.ReliefValveNodeConfig
+
+// SolenoidValveNodeConfig is the configuration for solenoid valve symbols.
+type SolenoidValveNodeConfig = v8.SolenoidValveNodeConfig
+type SpringLoadedReliefValveNodeConfig = v8.SpringLoadedReliefValveNodeConfig
+type ThreeWayValveNodeConfig = v8.ThreeWayValveNodeConfig
+type ThreeWayBallValveNodeConfig = v8.ThreeWayBallValveNodeConfig
+type ValveNodeConfig = v8.ValveNodeConfig
+type CrossJunctionNodeConfig = v8.CrossJunctionNodeConfig
+
+// CylinderNodeConfig is the configuration for cylinder vessel symbols.
+type CylinderNodeConfig = v8.CylinderNodeConfig
+
+// TankNodeConfig is the configuration for tank vessel symbols.
+type TankNodeConfig = v8.TankNodeConfig
+type TJunctionNodeConfig = v8.TJunctionNodeConfig
+
+// CustomActuatorNodeConfig is the configuration for user-defined actuator symbols.
+type CustomActuatorNodeConfig = v8.CustomActuatorNodeConfig
+
+// CustomStaticNodeConfig is the configuration for user-defined static symbols.
+type CustomStaticNodeConfig = v8.CustomStaticNodeConfig
 
 // ElementConfig is the per-element configuration stored in the schematic configs map: a
 // node config or an edge config, discriminated by variant.
-type ElementConfig = v7.ElementConfig
-type ElementConfigVariant = v7.ElementConfigVariant
-type ElementConfigType = v7.ElementConfigType
+type ElementConfig = v8.ElementConfig
+type ElementConfigVariant = v8.ElementConfigVariant
+type ElementConfigType = v8.ElementConfigType
 
 const (
-	CapElementConfigType                           ElementConfigType = v7.CapElementConfigType
-	FilterElementConfigType                        ElementConfigType = v7.FilterElementConfigType
-	FlowStraightenerElementConfigType              ElementConfigType = v7.FlowStraightenerElementConfigType
-	HeaterElementElementConfigType                 ElementConfigType = v7.HeaterElementElementConfigType
-	IsoCapElementConfigType                        ElementConfigType = v7.IsoCapElementConfigType
-	IsoFilterElementConfigType                     ElementConfigType = v7.IsoFilterElementConfigType
-	NozzleElementConfigType                        ElementConfigType = v7.NozzleElementConfigType
-	OrificeElementConfigType                       ElementConfigType = v7.OrificeElementConfigType
-	OrificePlateElementConfigType                  ElementConfigType = v7.OrificePlateElementConfigType
-	StrainerElementConfigType                      ElementConfigType = v7.StrainerElementConfigType
-	StrainerConeElementConfigType                  ElementConfigType = v7.StrainerConeElementConfigType
-	ThrusterElementConfigType                      ElementConfigType = v7.ThrusterElementConfigType
-	VentElementConfigType                          ElementConfigType = v7.VentElementConfigType
-	FlowmeterGeneralElementConfigType              ElementConfigType = v7.FlowmeterGeneralElementConfigType
-	FlowmeterElectromagneticElementConfigType      ElementConfigType = v7.FlowmeterElectromagneticElementConfigType
-	FlowmeterVariableAreaElementConfigType         ElementConfigType = v7.FlowmeterVariableAreaElementConfigType
-	FlowmeterCoriolisElementConfigType             ElementConfigType = v7.FlowmeterCoriolisElementConfigType
-	FlowmeterNozzleElementConfigType               ElementConfigType = v7.FlowmeterNozzleElementConfigType
-	FlowmeterVenturiElementConfigType              ElementConfigType = v7.FlowmeterVenturiElementConfigType
-	FlowmeterRingPistonElementConfigType           ElementConfigType = v7.FlowmeterRingPistonElementConfigType
-	FlowmeterPositiveDisplacementElementConfigType ElementConfigType = v7.FlowmeterPositiveDisplacementElementConfigType
-	FlowmeterTurbineElementConfigType              ElementConfigType = v7.FlowmeterTurbineElementConfigType
-	FlowmeterPulseElementConfigType                ElementConfigType = v7.FlowmeterPulseElementConfigType
-	FlowmeterFloatSensorElementConfigType          ElementConfigType = v7.FlowmeterFloatSensorElementConfigType
-	FlowmeterOrificeElementConfigType              ElementConfigType = v7.FlowmeterOrificeElementConfigType
+	CapElementConfigType                           ElementConfigType = v8.CapElementConfigType
+	FilterElementConfigType                        ElementConfigType = v8.FilterElementConfigType
+	FlowStraightenerElementConfigType              ElementConfigType = v8.FlowStraightenerElementConfigType
+	HeaterElementElementConfigType                 ElementConfigType = v8.HeaterElementElementConfigType
+	IsoCapElementConfigType                        ElementConfigType = v8.IsoCapElementConfigType
+	IsoFilterElementConfigType                     ElementConfigType = v8.IsoFilterElementConfigType
+	NozzleElementConfigType                        ElementConfigType = v8.NozzleElementConfigType
+	OrificeElementConfigType                       ElementConfigType = v8.OrificeElementConfigType
+	OrificePlateElementConfigType                  ElementConfigType = v8.OrificePlateElementConfigType
+	StrainerElementConfigType                      ElementConfigType = v8.StrainerElementConfigType
+	StrainerConeElementConfigType                  ElementConfigType = v8.StrainerConeElementConfigType
+	ThrusterElementConfigType                      ElementConfigType = v8.ThrusterElementConfigType
+	VentElementConfigType                          ElementConfigType = v8.VentElementConfigType
+	FlowmeterGeneralElementConfigType              ElementConfigType = v8.FlowmeterGeneralElementConfigType
+	FlowmeterElectromagneticElementConfigType      ElementConfigType = v8.FlowmeterElectromagneticElementConfigType
+	FlowmeterVariableAreaElementConfigType         ElementConfigType = v8.FlowmeterVariableAreaElementConfigType
+	FlowmeterCoriolisElementConfigType             ElementConfigType = v8.FlowmeterCoriolisElementConfigType
+	FlowmeterNozzleElementConfigType               ElementConfigType = v8.FlowmeterNozzleElementConfigType
+	FlowmeterVenturiElementConfigType              ElementConfigType = v8.FlowmeterVenturiElementConfigType
+	FlowmeterRingPistonElementConfigType           ElementConfigType = v8.FlowmeterRingPistonElementConfigType
+	FlowmeterPositiveDisplacementElementConfigType ElementConfigType = v8.FlowmeterPositiveDisplacementElementConfigType
+	FlowmeterTurbineElementConfigType              ElementConfigType = v8.FlowmeterTurbineElementConfigType
+	FlowmeterPulseElementConfigType                ElementConfigType = v8.FlowmeterPulseElementConfigType
+	FlowmeterFloatSensorElementConfigType          ElementConfigType = v8.FlowmeterFloatSensorElementConfigType
+	FlowmeterOrificeElementConfigType              ElementConfigType = v8.FlowmeterOrificeElementConfigType
 	// BoxElementConfigType is the configuration for box annotation symbols.
-	BoxElementConfigType ElementConfigType = v7.BoxElementConfigType
+	BoxElementConfigType ElementConfigType = v8.BoxElementConfigType
 	// ButtonElementConfigType is the configuration for button symbols.
-	ButtonElementConfigType ElementConfigType = v7.ButtonElementConfigType
+	ButtonElementConfigType ElementConfigType = v8.ButtonElementConfigType
 	// CircleElementConfigType is the configuration for circle annotation symbols.
-	CircleElementConfigType ElementConfigType = v7.CircleElementConfigType
+	CircleElementConfigType ElementConfigType = v8.CircleElementConfigType
 	// GaugeElementConfigType is the configuration for gauge symbols.
-	GaugeElementConfigType ElementConfigType = v7.GaugeElementConfigType
+	GaugeElementConfigType ElementConfigType = v8.GaugeElementConfigType
 	// InputElementConfigType is the configuration for free-form input symbols.
-	InputElementConfigType ElementConfigType = v7.InputElementConfigType
+	InputElementConfigType ElementConfigType = v8.InputElementConfigType
 	// LightElementConfigType is the configuration for indicator light symbols.
-	LightElementConfigType ElementConfigType = v7.LightElementConfigType
+	LightElementConfigType ElementConfigType = v8.LightElementConfigType
 	// OffPageReferenceElementConfigType is the configuration for off-page reference
 	// symbols.
-	OffPageReferenceElementConfigType ElementConfigType = v7.OffPageReferenceElementConfigType
+	OffPageReferenceElementConfigType ElementConfigType = v8.OffPageReferenceElementConfigType
 	// PolygonElementConfigType is the configuration for polygon annotation symbols.
-	PolygonElementConfigType ElementConfigType = v7.PolygonElementConfigType
+	PolygonElementConfigType ElementConfigType = v8.PolygonElementConfigType
 	// SelectElementConfigType is the configuration for select symbols.
-	SelectElementConfigType ElementConfigType = v7.SelectElementConfigType
+	SelectElementConfigType ElementConfigType = v8.SelectElementConfigType
+	// ScaleElementConfigType is the configuration for standalone scale symbols.
+	ScaleElementConfigType ElementConfigType = v8.ScaleElementConfigType
 	// SetpointElementConfigType is the configuration for numeric setpoint symbols.
-	SetpointElementConfigType ElementConfigType = v7.SetpointElementConfigType
+	SetpointElementConfigType ElementConfigType = v8.SetpointElementConfigType
 	// StateIndicatorElementConfigType is the configuration for multi-state indicator
 	// symbols.
-	StateIndicatorElementConfigType ElementConfigType = v7.StateIndicatorElementConfigType
+	StateIndicatorElementConfigType ElementConfigType = v8.StateIndicatorElementConfigType
 	// StringDisplayElementConfigType is the configuration for live string display
 	// symbols.
-	StringDisplayElementConfigType ElementConfigType = v7.StringDisplayElementConfigType
-	SwitchElementConfigType        ElementConfigType = v7.SwitchElementConfigType
+	StringDisplayElementConfigType ElementConfigType = v8.StringDisplayElementConfigType
+	SwitchElementConfigType        ElementConfigType = v8.SwitchElementConfigType
 	// TextBoxElementConfigType is the configuration for text box annotation symbols.
-	TextBoxElementConfigType ElementConfigType = v7.TextBoxElementConfigType
+	TextBoxElementConfigType ElementConfigType = v8.TextBoxElementConfigType
 	// ValueElementConfigType is the configuration for live telemetry value symbols.
-	ValueElementConfigType                          ElementConfigType = v7.ValueElementConfigType
-	AgitatorElementConfigType                       ElementConfigType = v7.AgitatorElementConfigType
-	CrossBeamAgitatorElementConfigType              ElementConfigType = v7.CrossBeamAgitatorElementConfigType
-	FlatBladeAgitatorElementConfigType              ElementConfigType = v7.FlatBladeAgitatorElementConfigType
-	HeatExchangerGeneralElementConfigType           ElementConfigType = v7.HeatExchangerGeneralElementConfigType
-	HeatExchangerMElementConfigType                 ElementConfigType = v7.HeatExchangerMElementConfigType
-	HeatExchangerStraightTubeElementConfigType      ElementConfigType = v7.HeatExchangerStraightTubeElementConfigType
-	HelicalAgitatorElementConfigType                ElementConfigType = v7.HelicalAgitatorElementConfigType
-	PaddleAgitatorElementConfigType                 ElementConfigType = v7.PaddleAgitatorElementConfigType
-	PropellerAgitatorElementConfigType              ElementConfigType = v7.PropellerAgitatorElementConfigType
-	RotaryMixerElementConfigType                    ElementConfigType = v7.RotaryMixerElementConfigType
-	StaticMixerElementConfigType                    ElementConfigType = v7.StaticMixerElementConfigType
-	CavityPumpElementConfigType                     ElementConfigType = v7.CavityPumpElementConfigType
-	CentrifugalCompressorElementConfigType          ElementConfigType = v7.CentrifugalCompressorElementConfigType
-	CompressorElementConfigType                     ElementConfigType = v7.CompressorElementConfigType
-	DiaphragmPumpElementConfigType                  ElementConfigType = v7.DiaphragmPumpElementConfigType
-	EjectionPumpElementConfigType                   ElementConfigType = v7.EjectionPumpElementConfigType
-	EjectorCompressorElementConfigType              ElementConfigType = v7.EjectorCompressorElementConfigType
-	LiquidRingCompressorElementConfigType           ElementConfigType = v7.LiquidRingCompressorElementConfigType
-	PistonPumpElementConfigType                     ElementConfigType = v7.PistonPumpElementConfigType
-	PumpElementConfigType                           ElementConfigType = v7.PumpElementConfigType
-	RollerVaneCompressorElementConfigType           ElementConfigType = v7.RollerVaneCompressorElementConfigType
-	ScrewPumpElementConfigType                      ElementConfigType = v7.ScrewPumpElementConfigType
-	TurboCompressorElementConfigType                ElementConfigType = v7.TurboCompressorElementConfigType
-	VacuumPumpElementConfigType                     ElementConfigType = v7.VacuumPumpElementConfigType
-	BurstDiscElementConfigType                      ElementConfigType = v7.BurstDiscElementConfigType
-	FlameArrestorElementConfigType                  ElementConfigType = v7.FlameArrestorElementConfigType
-	FlameArrestorDetonationElementConfigType        ElementConfigType = v7.FlameArrestorDetonationElementConfigType
-	FlameArrestorExplosionElementConfigType         ElementConfigType = v7.FlameArrestorExplosionElementConfigType
-	FlameArrestorFireResElementConfigType           ElementConfigType = v7.FlameArrestorFireResElementConfigType
-	FlameArrestorFireResDetonationElementConfigType ElementConfigType = v7.FlameArrestorFireResDetonationElementConfigType
-	IsoBurstDiscElementConfigType                   ElementConfigType = v7.IsoBurstDiscElementConfigType
-	AngledValveElementConfigType                    ElementConfigType = v7.AngledValveElementConfigType
-	AngledReliefValveElementConfigType              ElementConfigType = v7.AngledReliefValveElementConfigType
-	AngledSpringLoadedReliefValveElementConfigType  ElementConfigType = v7.AngledSpringLoadedReliefValveElementConfigType
-	BallValveElementConfigType                      ElementConfigType = v7.BallValveElementConfigType
-	BreatherValveElementConfigType                  ElementConfigType = v7.BreatherValveElementConfigType
-	ButterflyValveOneElementConfigType              ElementConfigType = v7.ButterflyValveOneElementConfigType
-	ButterflyValveTwoElementConfigType              ElementConfigType = v7.ButterflyValveTwoElementConfigType
-	CheckValveElementConfigType                     ElementConfigType = v7.CheckValveElementConfigType
-	CheckValveWithArrowElementConfigType            ElementConfigType = v7.CheckValveWithArrowElementConfigType
-	ElectricRegulatorElementConfigType              ElementConfigType = v7.ElectricRegulatorElementConfigType
-	ElectricRegulatorMotorizedElementConfigType     ElementConfigType = v7.ElectricRegulatorMotorizedElementConfigType
-	FourWayValveElementConfigType                   ElementConfigType = v7.FourWayValveElementConfigType
-	GateValveElementConfigType                      ElementConfigType = v7.GateValveElementConfigType
-	IsoCheckValveElementConfigType                  ElementConfigType = v7.IsoCheckValveElementConfigType
-	ManualValveElementConfigType                    ElementConfigType = v7.ManualValveElementConfigType
-	NeedleValveElementConfigType                    ElementConfigType = v7.NeedleValveElementConfigType
-	RegulatorElementConfigType                      ElementConfigType = v7.RegulatorElementConfigType
-	RegulatorManualElementConfigType                ElementConfigType = v7.RegulatorManualElementConfigType
-	ReliefValveElementConfigType                    ElementConfigType = v7.ReliefValveElementConfigType
+	ValueElementConfigType                          ElementConfigType = v8.ValueElementConfigType
+	AgitatorElementConfigType                       ElementConfigType = v8.AgitatorElementConfigType
+	CrossBeamAgitatorElementConfigType              ElementConfigType = v8.CrossBeamAgitatorElementConfigType
+	FlatBladeAgitatorElementConfigType              ElementConfigType = v8.FlatBladeAgitatorElementConfigType
+	HeatExchangerGeneralElementConfigType           ElementConfigType = v8.HeatExchangerGeneralElementConfigType
+	HeatExchangerMElementConfigType                 ElementConfigType = v8.HeatExchangerMElementConfigType
+	HeatExchangerStraightTubeElementConfigType      ElementConfigType = v8.HeatExchangerStraightTubeElementConfigType
+	HelicalAgitatorElementConfigType                ElementConfigType = v8.HelicalAgitatorElementConfigType
+	PaddleAgitatorElementConfigType                 ElementConfigType = v8.PaddleAgitatorElementConfigType
+	PropellerAgitatorElementConfigType              ElementConfigType = v8.PropellerAgitatorElementConfigType
+	RotaryMixerElementConfigType                    ElementConfigType = v8.RotaryMixerElementConfigType
+	StaticMixerElementConfigType                    ElementConfigType = v8.StaticMixerElementConfigType
+	CavityPumpElementConfigType                     ElementConfigType = v8.CavityPumpElementConfigType
+	CentrifugalCompressorElementConfigType          ElementConfigType = v8.CentrifugalCompressorElementConfigType
+	CompressorElementConfigType                     ElementConfigType = v8.CompressorElementConfigType
+	DiaphragmPumpElementConfigType                  ElementConfigType = v8.DiaphragmPumpElementConfigType
+	EjectionPumpElementConfigType                   ElementConfigType = v8.EjectionPumpElementConfigType
+	EjectorCompressorElementConfigType              ElementConfigType = v8.EjectorCompressorElementConfigType
+	LiquidRingCompressorElementConfigType           ElementConfigType = v8.LiquidRingCompressorElementConfigType
+	PistonPumpElementConfigType                     ElementConfigType = v8.PistonPumpElementConfigType
+	PumpElementConfigType                           ElementConfigType = v8.PumpElementConfigType
+	RollerVaneCompressorElementConfigType           ElementConfigType = v8.RollerVaneCompressorElementConfigType
+	ScrewPumpElementConfigType                      ElementConfigType = v8.ScrewPumpElementConfigType
+	TurboCompressorElementConfigType                ElementConfigType = v8.TurboCompressorElementConfigType
+	VacuumPumpElementConfigType                     ElementConfigType = v8.VacuumPumpElementConfigType
+	BurstDiscElementConfigType                      ElementConfigType = v8.BurstDiscElementConfigType
+	FlameArrestorElementConfigType                  ElementConfigType = v8.FlameArrestorElementConfigType
+	FlameArrestorDetonationElementConfigType        ElementConfigType = v8.FlameArrestorDetonationElementConfigType
+	FlameArrestorExplosionElementConfigType         ElementConfigType = v8.FlameArrestorExplosionElementConfigType
+	FlameArrestorFireResElementConfigType           ElementConfigType = v8.FlameArrestorFireResElementConfigType
+	FlameArrestorFireResDetonationElementConfigType ElementConfigType = v8.FlameArrestorFireResDetonationElementConfigType
+	IsoBurstDiscElementConfigType                   ElementConfigType = v8.IsoBurstDiscElementConfigType
+	AngledValveElementConfigType                    ElementConfigType = v8.AngledValveElementConfigType
+	AngledReliefValveElementConfigType              ElementConfigType = v8.AngledReliefValveElementConfigType
+	AngledSpringLoadedReliefValveElementConfigType  ElementConfigType = v8.AngledSpringLoadedReliefValveElementConfigType
+	BallValveElementConfigType                      ElementConfigType = v8.BallValveElementConfigType
+	BreatherValveElementConfigType                  ElementConfigType = v8.BreatherValveElementConfigType
+	ButterflyValveOneElementConfigType              ElementConfigType = v8.ButterflyValveOneElementConfigType
+	ButterflyValveTwoElementConfigType              ElementConfigType = v8.ButterflyValveTwoElementConfigType
+	CheckValveElementConfigType                     ElementConfigType = v8.CheckValveElementConfigType
+	CheckValveWithArrowElementConfigType            ElementConfigType = v8.CheckValveWithArrowElementConfigType
+	ElectricRegulatorElementConfigType              ElementConfigType = v8.ElectricRegulatorElementConfigType
+	ElectricRegulatorMotorizedElementConfigType     ElementConfigType = v8.ElectricRegulatorMotorizedElementConfigType
+	FourWayValveElementConfigType                   ElementConfigType = v8.FourWayValveElementConfigType
+	GateValveElementConfigType                      ElementConfigType = v8.GateValveElementConfigType
+	IsoCheckValveElementConfigType                  ElementConfigType = v8.IsoCheckValveElementConfigType
+	ManualValveElementConfigType                    ElementConfigType = v8.ManualValveElementConfigType
+	NeedleValveElementConfigType                    ElementConfigType = v8.NeedleValveElementConfigType
+	RegulatorElementConfigType                      ElementConfigType = v8.RegulatorElementConfigType
+	RegulatorManualElementConfigType                ElementConfigType = v8.RegulatorManualElementConfigType
+	ReliefValveElementConfigType                    ElementConfigType = v8.ReliefValveElementConfigType
 	// SolenoidValveElementConfigType is the configuration for solenoid valve symbols.
-	SolenoidValveElementConfigType           ElementConfigType = v7.SolenoidValveElementConfigType
-	SpringLoadedReliefValveElementConfigType ElementConfigType = v7.SpringLoadedReliefValveElementConfigType
-	ThreeWayValveElementConfigType           ElementConfigType = v7.ThreeWayValveElementConfigType
-	ThreeWayBallValveElementConfigType       ElementConfigType = v7.ThreeWayBallValveElementConfigType
-	ValveElementConfigType                   ElementConfigType = v7.ValveElementConfigType
-	CrossJunctionElementConfigType           ElementConfigType = v7.CrossJunctionElementConfigType
+	SolenoidValveElementConfigType           ElementConfigType = v8.SolenoidValveElementConfigType
+	SpringLoadedReliefValveElementConfigType ElementConfigType = v8.SpringLoadedReliefValveElementConfigType
+	ThreeWayValveElementConfigType           ElementConfigType = v8.ThreeWayValveElementConfigType
+	ThreeWayBallValveElementConfigType       ElementConfigType = v8.ThreeWayBallValveElementConfigType
+	ValveElementConfigType                   ElementConfigType = v8.ValveElementConfigType
+	CrossJunctionElementConfigType           ElementConfigType = v8.CrossJunctionElementConfigType
 	// CylinderElementConfigType is the configuration for cylinder vessel symbols.
-	CylinderElementConfigType ElementConfigType = v7.CylinderElementConfigType
+	CylinderElementConfigType ElementConfigType = v8.CylinderElementConfigType
 	// TankElementConfigType is the configuration for tank vessel symbols.
-	TankElementConfigType      ElementConfigType = v7.TankElementConfigType
-	TJunctionElementConfigType ElementConfigType = v7.TJunctionElementConfigType
+	TankElementConfigType      ElementConfigType = v8.TankElementConfigType
+	TJunctionElementConfigType ElementConfigType = v8.TJunctionElementConfigType
 	// CustomActuatorElementConfigType is the configuration for user-defined actuator
 	// symbols.
-	CustomActuatorElementConfigType ElementConfigType = v7.CustomActuatorElementConfigType
+	CustomActuatorElementConfigType ElementConfigType = v8.CustomActuatorElementConfigType
 	// CustomStaticElementConfigType is the configuration for user-defined static
 	// symbols.
-	CustomStaticElementConfigType ElementConfigType = v7.CustomStaticElementConfigType
-	PipeElementConfigType         ElementConfigType = v7.PipeElementConfigType
-	ElectricElementConfigType     ElementConfigType = v7.ElectricElementConfigType
-	SecondaryElementConfigType    ElementConfigType = v7.SecondaryElementConfigType
-	JacketedElementConfigType     ElementConfigType = v7.JacketedElementConfigType
-	HydraulicElementConfigType    ElementConfigType = v7.HydraulicElementConfigType
-	PneumaticElementConfigType    ElementConfigType = v7.PneumaticElementConfigType
-	DataElementConfigType         ElementConfigType = v7.DataElementConfigType
+	CustomStaticElementConfigType ElementConfigType = v8.CustomStaticElementConfigType
+	PipeElementConfigType         ElementConfigType = v8.PipeElementConfigType
+	ElectricElementConfigType     ElementConfigType = v8.ElectricElementConfigType
+	SecondaryElementConfigType    ElementConfigType = v8.SecondaryElementConfigType
+	JacketedElementConfigType     ElementConfigType = v8.JacketedElementConfigType
+	HydraulicElementConfigType    ElementConfigType = v8.HydraulicElementConfigType
+	PneumaticElementConfigType    ElementConfigType = v8.PneumaticElementConfigType
+	DataElementConfigType         ElementConfigType = v8.DataElementConfigType
 )
 
-type CapElementConfig = v7.CapElementConfig
-type FilterElementConfig = v7.FilterElementConfig
-type FlowStraightenerElementConfig = v7.FlowStraightenerElementConfig
-type HeaterElementElementConfig = v7.HeaterElementElementConfig
-type IsoCapElementConfig = v7.IsoCapElementConfig
-type IsoFilterElementConfig = v7.IsoFilterElementConfig
-type NozzleElementConfig = v7.NozzleElementConfig
-type OrificeElementConfig = v7.OrificeElementConfig
-type OrificePlateElementConfig = v7.OrificePlateElementConfig
-type StrainerElementConfig = v7.StrainerElementConfig
-type StrainerConeElementConfig = v7.StrainerConeElementConfig
-type ThrusterElementConfig = v7.ThrusterElementConfig
-type VentElementConfig = v7.VentElementConfig
-type FlowmeterGeneralElementConfig = v7.FlowmeterGeneralElementConfig
-type FlowmeterElectromagneticElementConfig = v7.FlowmeterElectromagneticElementConfig
-type FlowmeterVariableAreaElementConfig = v7.FlowmeterVariableAreaElementConfig
-type FlowmeterCoriolisElementConfig = v7.FlowmeterCoriolisElementConfig
-type FlowmeterNozzleElementConfig = v7.FlowmeterNozzleElementConfig
-type FlowmeterVenturiElementConfig = v7.FlowmeterVenturiElementConfig
-type FlowmeterRingPistonElementConfig = v7.FlowmeterRingPistonElementConfig
-type FlowmeterPositiveDisplacementElementConfig = v7.FlowmeterPositiveDisplacementElementConfig
-type FlowmeterTurbineElementConfig = v7.FlowmeterTurbineElementConfig
-type FlowmeterPulseElementConfig = v7.FlowmeterPulseElementConfig
-type FlowmeterFloatSensorElementConfig = v7.FlowmeterFloatSensorElementConfig
-type FlowmeterOrificeElementConfig = v7.FlowmeterOrificeElementConfig
+type CapElementConfig = v8.CapElementConfig
+type FilterElementConfig = v8.FilterElementConfig
+type FlowStraightenerElementConfig = v8.FlowStraightenerElementConfig
+type HeaterElementElementConfig = v8.HeaterElementElementConfig
+type IsoCapElementConfig = v8.IsoCapElementConfig
+type IsoFilterElementConfig = v8.IsoFilterElementConfig
+type NozzleElementConfig = v8.NozzleElementConfig
+type OrificeElementConfig = v8.OrificeElementConfig
+type OrificePlateElementConfig = v8.OrificePlateElementConfig
+type StrainerElementConfig = v8.StrainerElementConfig
+type StrainerConeElementConfig = v8.StrainerConeElementConfig
+type ThrusterElementConfig = v8.ThrusterElementConfig
+type VentElementConfig = v8.VentElementConfig
+type FlowmeterGeneralElementConfig = v8.FlowmeterGeneralElementConfig
+type FlowmeterElectromagneticElementConfig = v8.FlowmeterElectromagneticElementConfig
+type FlowmeterVariableAreaElementConfig = v8.FlowmeterVariableAreaElementConfig
+type FlowmeterCoriolisElementConfig = v8.FlowmeterCoriolisElementConfig
+type FlowmeterNozzleElementConfig = v8.FlowmeterNozzleElementConfig
+type FlowmeterVenturiElementConfig = v8.FlowmeterVenturiElementConfig
+type FlowmeterRingPistonElementConfig = v8.FlowmeterRingPistonElementConfig
+type FlowmeterPositiveDisplacementElementConfig = v8.FlowmeterPositiveDisplacementElementConfig
+type FlowmeterTurbineElementConfig = v8.FlowmeterTurbineElementConfig
+type FlowmeterPulseElementConfig = v8.FlowmeterPulseElementConfig
+type FlowmeterFloatSensorElementConfig = v8.FlowmeterFloatSensorElementConfig
+type FlowmeterOrificeElementConfig = v8.FlowmeterOrificeElementConfig
 
 // BoxElementConfig is the configuration for box annotation symbols.
-type BoxElementConfig = v7.BoxElementConfig
+type BoxElementConfig = v8.BoxElementConfig
 
 // ButtonElementConfig is the configuration for button symbols.
-type ButtonElementConfig = v7.ButtonElementConfig
+type ButtonElementConfig = v8.ButtonElementConfig
 
 // CircleElementConfig is the configuration for circle annotation symbols.
-type CircleElementConfig = v7.CircleElementConfig
+type CircleElementConfig = v8.CircleElementConfig
 
 // GaugeElementConfig is the configuration for gauge symbols.
-type GaugeElementConfig = v7.GaugeElementConfig
+type GaugeElementConfig = v8.GaugeElementConfig
 
 // InputElementConfig is the configuration for free-form input symbols.
-type InputElementConfig = v7.InputElementConfig
+type InputElementConfig = v8.InputElementConfig
 
 // LightElementConfig is the configuration for indicator light symbols.
-type LightElementConfig = v7.LightElementConfig
+type LightElementConfig = v8.LightElementConfig
 
 // OffPageReferenceElementConfig is the configuration for off-page reference symbols.
-type OffPageReferenceElementConfig = v7.OffPageReferenceElementConfig
+type OffPageReferenceElementConfig = v8.OffPageReferenceElementConfig
 
 // PolygonElementConfig is the configuration for polygon annotation symbols.
-type PolygonElementConfig = v7.PolygonElementConfig
+type PolygonElementConfig = v8.PolygonElementConfig
 
 // SelectElementConfig is the configuration for select symbols.
-type SelectElementConfig = v7.SelectElementConfig
+type SelectElementConfig = v8.SelectElementConfig
+
+// ScaleElementConfig is the configuration for standalone scale symbols.
+type ScaleElementConfig = v8.ScaleElementConfig
 
 // SetpointElementConfig is the configuration for numeric setpoint symbols.
-type SetpointElementConfig = v7.SetpointElementConfig
+type SetpointElementConfig = v8.SetpointElementConfig
 
 // StateIndicatorElementConfig is the configuration for multi-state indicator symbols.
-type StateIndicatorElementConfig = v7.StateIndicatorElementConfig
+type StateIndicatorElementConfig = v8.StateIndicatorElementConfig
 
 // StringDisplayElementConfig is the configuration for live string display symbols.
-type StringDisplayElementConfig = v7.StringDisplayElementConfig
-type SwitchElementConfig = v7.SwitchElementConfig
+type StringDisplayElementConfig = v8.StringDisplayElementConfig
+type SwitchElementConfig = v8.SwitchElementConfig
 
 // TextBoxElementConfig is the configuration for text box annotation symbols.
-type TextBoxElementConfig = v7.TextBoxElementConfig
+type TextBoxElementConfig = v8.TextBoxElementConfig
 
 // ValueElementConfig is the configuration for live telemetry value symbols.
-type ValueElementConfig = v7.ValueElementConfig
-type AgitatorElementConfig = v7.AgitatorElementConfig
-type CrossBeamAgitatorElementConfig = v7.CrossBeamAgitatorElementConfig
-type FlatBladeAgitatorElementConfig = v7.FlatBladeAgitatorElementConfig
-type HeatExchangerGeneralElementConfig = v7.HeatExchangerGeneralElementConfig
-type HeatExchangerMElementConfig = v7.HeatExchangerMElementConfig
-type HeatExchangerStraightTubeElementConfig = v7.HeatExchangerStraightTubeElementConfig
-type HelicalAgitatorElementConfig = v7.HelicalAgitatorElementConfig
-type PaddleAgitatorElementConfig = v7.PaddleAgitatorElementConfig
-type PropellerAgitatorElementConfig = v7.PropellerAgitatorElementConfig
-type RotaryMixerElementConfig = v7.RotaryMixerElementConfig
-type StaticMixerElementConfig = v7.StaticMixerElementConfig
-type CavityPumpElementConfig = v7.CavityPumpElementConfig
-type CentrifugalCompressorElementConfig = v7.CentrifugalCompressorElementConfig
-type CompressorElementConfig = v7.CompressorElementConfig
-type DiaphragmPumpElementConfig = v7.DiaphragmPumpElementConfig
-type EjectionPumpElementConfig = v7.EjectionPumpElementConfig
-type EjectorCompressorElementConfig = v7.EjectorCompressorElementConfig
-type LiquidRingCompressorElementConfig = v7.LiquidRingCompressorElementConfig
-type PistonPumpElementConfig = v7.PistonPumpElementConfig
-type PumpElementConfig = v7.PumpElementConfig
-type RollerVaneCompressorElementConfig = v7.RollerVaneCompressorElementConfig
-type ScrewPumpElementConfig = v7.ScrewPumpElementConfig
-type TurboCompressorElementConfig = v7.TurboCompressorElementConfig
-type VacuumPumpElementConfig = v7.VacuumPumpElementConfig
-type BurstDiscElementConfig = v7.BurstDiscElementConfig
-type FlameArrestorElementConfig = v7.FlameArrestorElementConfig
-type FlameArrestorDetonationElementConfig = v7.FlameArrestorDetonationElementConfig
-type FlameArrestorExplosionElementConfig = v7.FlameArrestorExplosionElementConfig
-type FlameArrestorFireResElementConfig = v7.FlameArrestorFireResElementConfig
-type FlameArrestorFireResDetonationElementConfig = v7.FlameArrestorFireResDetonationElementConfig
-type IsoBurstDiscElementConfig = v7.IsoBurstDiscElementConfig
-type AngledValveElementConfig = v7.AngledValveElementConfig
-type AngledReliefValveElementConfig = v7.AngledReliefValveElementConfig
-type AngledSpringLoadedReliefValveElementConfig = v7.AngledSpringLoadedReliefValveElementConfig
-type BallValveElementConfig = v7.BallValveElementConfig
-type BreatherValveElementConfig = v7.BreatherValveElementConfig
-type ButterflyValveOneElementConfig = v7.ButterflyValveOneElementConfig
-type ButterflyValveTwoElementConfig = v7.ButterflyValveTwoElementConfig
-type CheckValveElementConfig = v7.CheckValveElementConfig
-type CheckValveWithArrowElementConfig = v7.CheckValveWithArrowElementConfig
-type ElectricRegulatorElementConfig = v7.ElectricRegulatorElementConfig
-type ElectricRegulatorMotorizedElementConfig = v7.ElectricRegulatorMotorizedElementConfig
-type FourWayValveElementConfig = v7.FourWayValveElementConfig
-type GateValveElementConfig = v7.GateValveElementConfig
-type IsoCheckValveElementConfig = v7.IsoCheckValveElementConfig
-type ManualValveElementConfig = v7.ManualValveElementConfig
-type NeedleValveElementConfig = v7.NeedleValveElementConfig
-type RegulatorElementConfig = v7.RegulatorElementConfig
-type RegulatorManualElementConfig = v7.RegulatorManualElementConfig
-type ReliefValveElementConfig = v7.ReliefValveElementConfig
+type ValueElementConfig = v8.ValueElementConfig
+type AgitatorElementConfig = v8.AgitatorElementConfig
+type CrossBeamAgitatorElementConfig = v8.CrossBeamAgitatorElementConfig
+type FlatBladeAgitatorElementConfig = v8.FlatBladeAgitatorElementConfig
+type HeatExchangerGeneralElementConfig = v8.HeatExchangerGeneralElementConfig
+type HeatExchangerMElementConfig = v8.HeatExchangerMElementConfig
+type HeatExchangerStraightTubeElementConfig = v8.HeatExchangerStraightTubeElementConfig
+type HelicalAgitatorElementConfig = v8.HelicalAgitatorElementConfig
+type PaddleAgitatorElementConfig = v8.PaddleAgitatorElementConfig
+type PropellerAgitatorElementConfig = v8.PropellerAgitatorElementConfig
+type RotaryMixerElementConfig = v8.RotaryMixerElementConfig
+type StaticMixerElementConfig = v8.StaticMixerElementConfig
+type CavityPumpElementConfig = v8.CavityPumpElementConfig
+type CentrifugalCompressorElementConfig = v8.CentrifugalCompressorElementConfig
+type CompressorElementConfig = v8.CompressorElementConfig
+type DiaphragmPumpElementConfig = v8.DiaphragmPumpElementConfig
+type EjectionPumpElementConfig = v8.EjectionPumpElementConfig
+type EjectorCompressorElementConfig = v8.EjectorCompressorElementConfig
+type LiquidRingCompressorElementConfig = v8.LiquidRingCompressorElementConfig
+type PistonPumpElementConfig = v8.PistonPumpElementConfig
+type PumpElementConfig = v8.PumpElementConfig
+type RollerVaneCompressorElementConfig = v8.RollerVaneCompressorElementConfig
+type ScrewPumpElementConfig = v8.ScrewPumpElementConfig
+type TurboCompressorElementConfig = v8.TurboCompressorElementConfig
+type VacuumPumpElementConfig = v8.VacuumPumpElementConfig
+type BurstDiscElementConfig = v8.BurstDiscElementConfig
+type FlameArrestorElementConfig = v8.FlameArrestorElementConfig
+type FlameArrestorDetonationElementConfig = v8.FlameArrestorDetonationElementConfig
+type FlameArrestorExplosionElementConfig = v8.FlameArrestorExplosionElementConfig
+type FlameArrestorFireResElementConfig = v8.FlameArrestorFireResElementConfig
+type FlameArrestorFireResDetonationElementConfig = v8.FlameArrestorFireResDetonationElementConfig
+type IsoBurstDiscElementConfig = v8.IsoBurstDiscElementConfig
+type AngledValveElementConfig = v8.AngledValveElementConfig
+type AngledReliefValveElementConfig = v8.AngledReliefValveElementConfig
+type AngledSpringLoadedReliefValveElementConfig = v8.AngledSpringLoadedReliefValveElementConfig
+type BallValveElementConfig = v8.BallValveElementConfig
+type BreatherValveElementConfig = v8.BreatherValveElementConfig
+type ButterflyValveOneElementConfig = v8.ButterflyValveOneElementConfig
+type ButterflyValveTwoElementConfig = v8.ButterflyValveTwoElementConfig
+type CheckValveElementConfig = v8.CheckValveElementConfig
+type CheckValveWithArrowElementConfig = v8.CheckValveWithArrowElementConfig
+type ElectricRegulatorElementConfig = v8.ElectricRegulatorElementConfig
+type ElectricRegulatorMotorizedElementConfig = v8.ElectricRegulatorMotorizedElementConfig
+type FourWayValveElementConfig = v8.FourWayValveElementConfig
+type GateValveElementConfig = v8.GateValveElementConfig
+type IsoCheckValveElementConfig = v8.IsoCheckValveElementConfig
+type ManualValveElementConfig = v8.ManualValveElementConfig
+type NeedleValveElementConfig = v8.NeedleValveElementConfig
+type RegulatorElementConfig = v8.RegulatorElementConfig
+type RegulatorManualElementConfig = v8.RegulatorManualElementConfig
+type ReliefValveElementConfig = v8.ReliefValveElementConfig
 
 // SolenoidValveElementConfig is the configuration for solenoid valve symbols.
-type SolenoidValveElementConfig = v7.SolenoidValveElementConfig
-type SpringLoadedReliefValveElementConfig = v7.SpringLoadedReliefValveElementConfig
-type ThreeWayValveElementConfig = v7.ThreeWayValveElementConfig
-type ThreeWayBallValveElementConfig = v7.ThreeWayBallValveElementConfig
-type ValveElementConfig = v7.ValveElementConfig
-type CrossJunctionElementConfig = v7.CrossJunctionElementConfig
+type SolenoidValveElementConfig = v8.SolenoidValveElementConfig
+type SpringLoadedReliefValveElementConfig = v8.SpringLoadedReliefValveElementConfig
+type ThreeWayValveElementConfig = v8.ThreeWayValveElementConfig
+type ThreeWayBallValveElementConfig = v8.ThreeWayBallValveElementConfig
+type ValveElementConfig = v8.ValveElementConfig
+type CrossJunctionElementConfig = v8.CrossJunctionElementConfig
 
 // CylinderElementConfig is the configuration for cylinder vessel symbols.
-type CylinderElementConfig = v7.CylinderElementConfig
+type CylinderElementConfig = v8.CylinderElementConfig
 
 // TankElementConfig is the configuration for tank vessel symbols.
-type TankElementConfig = v7.TankElementConfig
-type TJunctionElementConfig = v7.TJunctionElementConfig
+type TankElementConfig = v8.TankElementConfig
+type TJunctionElementConfig = v8.TJunctionElementConfig
 
 // CustomActuatorElementConfig is the configuration for user-defined actuator symbols.
-type CustomActuatorElementConfig = v7.CustomActuatorElementConfig
+type CustomActuatorElementConfig = v8.CustomActuatorElementConfig
 
 // CustomStaticElementConfig is the configuration for user-defined static symbols.
-type CustomStaticElementConfig = v7.CustomStaticElementConfig
-type PipeElementConfig = v7.PipeElementConfig
-type ElectricElementConfig = v7.ElectricElementConfig
-type SecondaryElementConfig = v7.SecondaryElementConfig
-type JacketedElementConfig = v7.JacketedElementConfig
-type HydraulicElementConfig = v7.HydraulicElementConfig
-type PneumaticElementConfig = v7.PneumaticElementConfig
-type DataElementConfig = v7.DataElementConfig
+type CustomStaticElementConfig = v8.CustomStaticElementConfig
+type PipeElementConfig = v8.PipeElementConfig
+type ElectricElementConfig = v8.ElectricElementConfig
+type SecondaryElementConfig = v8.SecondaryElementConfig
+type JacketedElementConfig = v8.JacketedElementConfig
+type HydraulicElementConfig = v8.HydraulicElementConfig
+type PneumaticElementConfig = v8.PneumaticElementConfig
+type DataElementConfig = v8.DataElementConfig
 
 // Schematic is a visual diagram editor component for drawing system schematics, control
 // flows, and process diagrams. Schematics support interactive symbols, connection
 // handles, and dynamic state visualization.
-type Schematic = v7.Schematic
+type Schematic = v8.Schematic
+
+// ScaleIndicatorConfig is a live fill indicator driven by a channel, rendered by
+// symbols that show a level against a numeric range.
+type ScaleIndicatorConfig = v8.ScaleIndicatorConfig

@@ -91,6 +91,7 @@ public:
     void write_channel_i64(types::ChannelKey key, int64_t value);
     void write_channel_f32(types::ChannelKey key, float value);
     void write_channel_f64(types::ChannelKey key, double value);
+    void write_channel_bool(types::ChannelKey key, bool value);
 
     std::tuple<x::telem::MultiSeries, x::telem::MultiSeries, bool>
     read_series(types::ChannelKey key);

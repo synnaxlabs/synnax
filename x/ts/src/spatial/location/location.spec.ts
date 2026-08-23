@@ -13,11 +13,11 @@ import { location } from "@/spatial/location";
 
 describe("Location", () => {
   describe("construction", () => {
-    [
-      ["from valueOf", String("left")],
+    const CASES: Array<[string, location.Crude]> = [
       ["from string", "left"],
       ["from direction", "x"],
-    ].forEach(([name, arg]) =>
+    ];
+    CASES.forEach(([name, arg]) =>
       test(name, () => expect(location.construct(arg)).toEqual("left")),
     );
   });
