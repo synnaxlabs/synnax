@@ -55,21 +55,27 @@ export const Row = memo(
   }: RowProps): ReactElement => {
     let xCursor = x;
     const theme = Theming.use();
-    // CSS rounds the table's outer corners on the corner <td>, but a cell that paints
-    // its background on the canvas squares them off unless it knows the radius. The
-    // indicators occupy the first row and column when shown, so a data cell only
-    // reaches the top and left edges without them.
+    // Table.css rounds the table's outer corners on the corner <td> by
+    // --pluto-border-radius-small, but a cell that paints its background on the canvas
+    // squares them off unless it knows the radius, so both sides read the same theme
+    // step. The indicators occupy the first row and column when shown, so a data cell
+    // only reaches the top and left edges without them.
     const borderRadii = useMemo(() => {
       const r = theme.sizes.border.radius.small * theme.sizes.base;
       const top = index === 0 && !showIndicator;
-      return cells.map((_, i): border.CrudeRadius => {
+      return cells.map((_, i): border.CrudeRadius | undefined => {
         const left = i === 0 && !showIndicator;
         const right = i === cells.length - 1;
+        const topLeft = top && left;
+        const topRight = top && right;
+        const bottomRight = last && right;
+        const bottomLeft = last && left;
+        if (!topLeft && !topRight && !bottomRight && !bottomLeft) return undefined;
         return {
-          topLeft: top && left ? r : 0,
-          topRight: top && right ? r : 0,
-          bottomRight: last && right ? r : 0,
-          bottomLeft: last && left ? r : 0,
+          topLeft: topLeft ? r : 0,
+          topRight: topRight ? r : 0,
+          bottomRight: bottomRight ? r : 0,
+          bottomLeft: bottomLeft ? r : 0,
         };
       });
     }, [cells, index, last, showIndicator, theme]);
@@ -116,7 +122,7 @@ interface VariantCellProps {
   y: number;
   width: number;
   height: number;
-  borderRadius: border.CrudeRadius;
+  borderRadius?: border.CrudeRadius;
   editable: boolean;
   onSelect: (cellKey: string, ev: MouseEvent) => void;
 }
