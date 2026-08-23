@@ -80,8 +80,8 @@ export const SelectForm = (): ReactElement => (
   <Tabs.Frame initialValue="style" grow>
     <Tabs.Selector>
       <Tabs.Tab itemKey="style">Style</Tabs.Tab>
-      <Tabs.Tab itemKey="options">Options</Tabs.Tab>
       <Tabs.Tab itemKey="control">Control</Tabs.Tab>
+      <Tabs.Tab itemKey="options">Options</Tabs.Tab>
     </Tabs.Selector>
     <Tabs.Content itemKey="style">
       <Form.Wrapper y align="stretch">
