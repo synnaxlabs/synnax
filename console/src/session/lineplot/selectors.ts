@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type lineplot as client, panel, query } from "@synnaxlabs/client";
+import {
+  type lineplot as client,
+  panel,
+  query,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
 import { LinePlot, Synnax, type Viewport } from "@synnaxlabs/pluto";
 import { type lineplot } from "@synnaxlabs/pluto/ether";
 import { type record } from "@synnaxlabs/x";
@@ -110,19 +115,38 @@ const selectAnnotationsVisible = (params: KeyedSelectorParams): boolean =>
 
 export const useSelectAnnotationsVisible = createSelector(selectAnnotationsVisible);
 
+const focusedKey = (
+  synnax: Client | null,
+  panelKey: panel.Key | undefined,
+  tabKey: panel.TabKey | undefined,
+): client.Key | undefined => {
+  if (panelKey == null || tabKey == null) return undefined;
+  const cached = synnax?.panels.getCached(panelKey);
+  if (!query.isLive(cached)) return undefined;
+  const tab = panel.findTab(cached.root, tabKey);
+  if (tab?.variant === "resource" && tab.resource.type === "lineplot")
+    return tab.resource.key;
+  return undefined;
+};
+
+/**
+ * @returns a getter for the key of the line plot the user is looking at: the focused
+ * tab of the window's selected panel, when that tab shows a line plot. Returns
+ * undefined for every other focused tab, and while the panel is absent from the cache.
+ */
 export const useGetFocusedKey = (): (() => client.Key | undefined) => {
   const getSelectedPanel = Panel.useGetSelected();
   const getFocusedTabKey = Panel.useGetFocusedTab();
   const synnax = Synnax.use();
-  return useCallback(() => {
-    const panelKey = getSelectedPanel();
-    const tabKey = getFocusedTabKey();
-    if (panelKey == null || tabKey == null) return undefined;
-    const cached = synnax?.panels.getCached(panelKey);
-    if (!query.isLive(cached)) return undefined;
-    const tab = panel.findTab(cached.root, tabKey);
-    if (tab?.variant === "resource" && tab.resource.type === "lineplot")
-      return tab.resource.key;
-    return undefined;
-  }, [getSelectedPanel, getFocusedTabKey, synnax]);
+  return useCallback(
+    () => focusedKey(synnax, getSelectedPanel(), getFocusedTabKey()),
+    [getSelectedPanel, getFocusedTabKey, synnax],
+  );
 };
+
+/**
+ * @returns the key of the focused line plot, as {@link useGetFocusedKey}, re-rendering
+ * when the selected panel or its focused tab changes.
+ */
+export const useSelectFocusedKey = (): client.Key | undefined =>
+  focusedKey(Synnax.use(), Panel.useSelectSelected(), Panel.useSelectFocusedTab());

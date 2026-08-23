@@ -107,7 +107,7 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
   };
 
   const rng = ranges.find((r) => r.key === key);
-  const linePlotFocused = Session.Panel.useSelectFocusedTab();
+  const linePlotFocused = Session.LinePlot.useSelectFocusedKey() != null;
   const openTab = Panel.useOpenTab();
   const addToActivePlot = Range.useAddToActivePlot();
   const addToNewPlot = Range.useAddToNewPlot();

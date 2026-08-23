@@ -126,6 +126,22 @@ describe("Core List", () => {
     await waitFor(() => expect(editable.getAttribute("contenteditable")).toBe("false"));
     expect(Session.Core.selectState(store.getState(), ALPHA.key)?.name).toBe("Alpha");
     expect(Session.Core.selectState(store.getState(), BRAVO.key)?.name).toBe("Bravo");
+    expect(editable.innerText).toBe("Alpha");
+  });
+
+  it("should accept renaming a Core to the name it already has", async () => {
+    const { store } = await renderCoreUI(
+      <Core.List value={ALPHA.key} onChange={vi.fn()} />,
+      createCoreState([ALPHA, BRAVO], ALPHA.key),
+    );
+    fireEvent.contextMenu(await screen.findByText("Alpha"));
+    fireEvent.click(await screen.findByText("Rename"));
+    const editable = screen.getByText("Alpha");
+    await waitFor(() => expect(editable.getAttribute("contenteditable")).toBe("true"));
+    editable.innerText = "Alpha ";
+    fireEvent.keyDown(editable, { key: "Enter" });
+    await waitFor(() => expect(editable.getAttribute("contenteditable")).toBe("false"));
+    expect(Session.Core.selectState(store.getState(), ALPHA.key)?.name).toBe("Alpha");
   });
 
   it("should open the connect modal from the header add button", async () => {

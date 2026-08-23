@@ -470,6 +470,24 @@ describe("value/aether/Value", () => {
       component.render({});
       expect(drawCalls(recorder, "scissor")).toHaveLength(0);
     });
+
+    it("should leave the clip region square by default", () => {
+      const { component, recorder } = setup({ value: "1", state: { clip: true } });
+      recorder.clear();
+      component.render({});
+      expect(drawCalls(recorder, "scissor")[0].args[2]).toBeUndefined();
+    });
+
+    it("should round the clip region by borderRadius", () => {
+      const radius = { topLeft: 0, topRight: 0, bottomRight: 6, bottomLeft: 0 };
+      const { component, recorder } = setup({
+        value: "1",
+        state: { clip: true, borderRadius: radius },
+      });
+      recorder.clear();
+      component.render({});
+      expect(drawCalls(recorder, "scissor")[0].args[2]).toEqual(radius);
+    });
   });
 
   describe("afterDelete", () => {

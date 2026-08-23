@@ -8,15 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { type project, type Synnax } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Project } from "@/feature/project";
 import { createActiveState } from "@/platform/project/testutil";
 import { Session } from "@/session";
 import {
+  awaitTextEditingElement,
+  commitTextEdit,
   createConsoleWrapper,
   getBySelector,
   renderWithConsole,
@@ -25,7 +27,28 @@ import {
 
 const client: Synnax = createTestClient();
 
+const roles = new RoleClients(client);
+
 const TRIGGER = ".console-project-selector__trigger";
+
+/** Opens the selector dialog with a freshly created project matched by `term`. */
+const openSelectorAt = async (term: string, as: Synnax = client) => {
+  const active = await client.projects.create({
+    name: `proj-active-${id.create()}`,
+    layout: {},
+  });
+  const target = await client.projects.create({ name: term, layout: {} });
+  const { wrapper } = await createConsoleWrapper({
+    client: as,
+    preloadedState: { [Session.Project.SLICE_NAME]: createActiveState(active) },
+  });
+  const { container } = render(<Project.Selector />, { wrapper });
+  fireEvent.click(await waitFor(() => getBySelector(container, TRIGGER)));
+  const search = await screen.findByPlaceholderText("Search projects...");
+  fireEvent.change(search, { target: { value: term } });
+  await screen.findByText(term);
+  return { active, target };
+};
 
 describe("Project.Selector", () => {
   it("renders nothing when the user lacks retrieve permission", async () => {
@@ -88,5 +111,42 @@ describe("Project.Selector", () => {
 
     expect(await screen.findByText("S1")).toBeTruthy();
     expect(await screen.findByText("S2")).toBeTruthy();
+  });
+
+  it("renames a project in place from the context menu", async () => {
+    const { target } = await openSelectorAt(uniqueName("proj"));
+    fireEvent.contextMenu(await screen.findByText(target.name));
+    fireEvent.click(await screen.findByText("Rename"));
+    const editor = await awaitTextEditingElement();
+    const renamed = uniqueName("renamed");
+    commitTextEdit(editor, renamed);
+    await waitFor(async () =>
+      expect((await client.projects.retrieve(target.key)).name).toBe(renamed),
+    );
+  });
+
+  it("does not start an edit when the project name is double-clicked", async () => {
+    const { target } = await openSelectorAt(uniqueName("proj"));
+    const name = await screen.findByText(target.name);
+    fireEvent.doubleClick(name);
+    await act(async () => {});
+    expect(name.getAttribute("contenteditable")).not.toBe("true");
+  });
+
+  it("offers a menu when the create row is right-clicked", async () => {
+    await openSelectorAt(uniqueName("proj"));
+    fireEvent.contextMenu(await screen.findByText("New project"));
+    expect(await screen.findByText("Reload Console")).toBeTruthy();
+    expect(screen.queryByText("Rename")).toBeNull();
+  });
+
+  it("renders the project name as plain text for a viewer", async () => {
+    const { target } = await openSelectorAt(
+      uniqueName("proj"),
+      await roles.get("Viewer"),
+    );
+    const name = await screen.findByText(target.name);
+    await act(async () => {});
+    expect(name.className).not.toContain("pluto-text--editable");
   });
 });

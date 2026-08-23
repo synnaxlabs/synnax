@@ -84,6 +84,40 @@ describe("range slice", () => {
     });
   });
 
+  describe("restore", () => {
+    it("should put a range back at the index it was removed from", () => {
+      const next = Range.reducer(
+        stateWith([DYNAMIC]),
+        Range.restore({ ranges: [{ index: 0, range: STATIC }] }),
+      );
+      expect(next.ranges).toEqual([STATIC, DYNAMIC]);
+    });
+
+    it("should put the selection back", () => {
+      const next = Range.reducer(
+        stateWith([]),
+        Range.restore({ ranges: [{ index: 0, range: STATIC }], selected: STATIC.key }),
+      );
+      expect(next.selected).toEqual(STATIC.key);
+    });
+
+    it("should keep a selection made while the delete was in flight", () => {
+      const next = Range.reducer(
+        stateWith([DYNAMIC], DYNAMIC.key),
+        Range.restore({ ranges: [{ index: 0, range: STATIC }] }),
+      );
+      expect(next.selected).toEqual(DYNAMIC.key);
+    });
+
+    it("should skip a range the slice already holds", () => {
+      const next = Range.reducer(
+        stateWith([STATIC]),
+        Range.restore({ ranges: [{ index: 0, range: STATIC }] }),
+      );
+      expect(next.ranges).toEqual([STATIC]);
+    });
+  });
+
   describe("select", () => {
     it("should set the selected key", () => {
       const next = Range.reducer(emptyState(), Range.select(STATIC.key));

@@ -10,7 +10,7 @@
 import { status, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { xy } from "@synnaxlabs/x";
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, type Mock } from "vitest";
 
 import { List } from "@/feature/status/list";
@@ -105,20 +105,6 @@ describe("status list context menu", () => {
       }
     };
     await waitFor(async () => expect(await statusExists()).toBe(false));
-  });
-
-  it("should rename the status through the rename modal", async () => {
-    const s = await createStatus();
-    await renderMenu([s.key]);
-    fireEvent.click(await screen.findByText("Rename"));
-    const input = within(await screen.findByRole("dialog")).getByRole("textbox");
-    const newName = uniqueName("renamed");
-    fireEvent.change(input, { target: { value: newName } });
-    fireEvent.click(findModalButton("Save"));
-    await waitFor(async () => {
-      const updated = await client.statuses.retrieve(s.key);
-      expect(updated.name).toBe(newName);
-    });
   });
 });
 

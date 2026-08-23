@@ -8,17 +8,24 @@
 // included in the file licenses/APL.txt.
 
 import { type status } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Component, List, Select } from "@synnaxlabs/pluto";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import { Component, List, Select, Text } from "@synnaxlabs/pluto";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Status } from "@/platform/status";
 import { Session } from "@/session";
-import { createConsoleWrapper, uniqueName } from "@/testutil";
+import {
+  awaitTextEditing,
+  commitTextEdit,
+  countEditableText,
+  createConsoleWrapper,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
+const roles = new RoleClients(client);
 
 const createStatus = async (message = "a status message"): Promise<status.Status> =>
   await client.statuses.set({
@@ -81,5 +88,31 @@ describe("Status.List.Item", () => {
     await waitFor(() =>
       expect(Session.Status.selectIsFavorite(store.getState(), stat.key)).toBe(true),
     );
+  });
+
+  it("should rename the status in place", async () => {
+    const stat = await createStatus();
+    const { wrapper } = await createConsoleWrapper({ client });
+    render(<Fixture status={stat} />, { wrapper });
+    await screen.findByText(stat.name);
+    await waitFor(() => expect(countEditableText(List.itemNameID(stat.key))).toBe(1));
+    Text.edit(List.itemNameID(stat.key));
+    const editor = await awaitTextEditing(List.itemNameID(stat.key));
+    const renamed = uniqueName("renamed");
+    commitTextEdit(editor, renamed);
+    await waitFor(async () =>
+      expect((await client.statuses.retrieve(stat.key)).name).toBe(renamed),
+    );
+  });
+
+  it("should render the name as plain text for a viewer", async () => {
+    const stat = await createStatus();
+    const { wrapper } = await createConsoleWrapper({
+      client: await roles.get("Viewer"),
+    });
+    render(<Fixture status={stat} />, { wrapper });
+    await screen.findByText(stat.name);
+    await act(async () => {});
+    expect(countEditableText(List.itemNameID(stat.key))).toBe(0);
   });
 });

@@ -83,10 +83,8 @@ export interface RenamePayload {
   name: string;
 }
 
-const checkName = (state: SliceState, name: string, key?: string) => {
-  if (Object.entries(state.cores).some(([k, c]) => c.name === name && k !== key))
-    throw new Error(`A Core with the name ${name} already exists.`);
-};
+const nameTaken = (state: SliceState, name: string, key: string): boolean =>
+  Object.values(state.cores).some((c) => c.name === name && c.key !== key);
 
 const { actions, reducer } = createSlice({
   name: SLICE_NAME,
@@ -111,9 +109,12 @@ const { actions, reducer } = createSlice({
     clearSelected: (state) => {
       state.selected = undefined;
     },
+    // Duplicate names are user input, so the reducer drops them instead of throwing;
+    // the list surfaces the error before dispatching.
     rename: (state, { payload: { key, name } }: PayloadAction<RenamePayload>) => {
-      checkName(state, name, key);
-      state.cores[key].name = name;
+      const core = state.cores[key];
+      if (core == null || nameTaken(state, name, key)) return;
+      core.name = name;
     },
   },
 });

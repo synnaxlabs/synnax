@@ -145,18 +145,30 @@ describe("rename", () => {
     expect(state.cores[alpha.key].name).toBe("Renamed");
   });
 
-  it("should throw when renaming to a name owned by another Core", () => {
+  it("should drop a rename to a name owned by another Core", () => {
     const alpha = Core.keyed({ ...BASE, name: "Alpha" });
     const beta = Core.keyed({ ...BASE, name: "Beta", port: 9091 });
-    expect(() =>
-      reduce(withCores(alpha, beta), Core.rename({ key: alpha.key, name: "Beta" })),
-    ).toThrow("already exists");
+    const state = reduce(
+      withCores(alpha, beta),
+      Core.rename({ key: alpha.key, name: "Beta" }),
+    );
+    expect(state.cores[alpha.key].name).toBe("Alpha");
   });
 
-  it("should allow renaming a Core to the name it already has", () => {
+  it("should keep a rename to the Core's own name", () => {
     const alpha = Core.keyed({ ...BASE, name: "Alpha" });
-    expect(() =>
-      reduce(withCores(alpha), Core.rename({ key: alpha.key, name: "Alpha" })),
-    ).not.toThrow();
+    const state = reduce(
+      withCores(alpha),
+      Core.rename({ key: alpha.key, name: "Alpha" }),
+    );
+    expect(state.cores[alpha.key].name).toBe("Alpha");
+  });
+
+  it("should drop a rename of a missing Core", () => {
+    const state = reduce(
+      Core.ZERO_SLICE_STATE,
+      Core.rename({ key: "nowhere", name: "Alpha" }),
+    );
+    expect(state.cores.nowhere).toBeUndefined();
   });
 });

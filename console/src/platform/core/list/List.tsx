@@ -24,7 +24,7 @@ import { type ReactElement, useCallback, useMemo, useState } from "react";
 
 import { Button } from "@/platform/button";
 import { ContextMenu } from "@/platform/context-menu";
-import { Item } from "@/platform/core/list/Item";
+import { Item, nameID } from "@/platform/core/list/Item";
 import { useConnectModal } from "@/platform/core/useConnectModal";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
@@ -46,9 +46,8 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
   const handleError = Status.useErrorHandler();
 
   const validateName = useCallback(
-    (name: string): boolean => {
-      const allNames = allCores.map((c) => c.name);
-      if (!allNames.includes(name)) return true;
+    (key: string, name: string): boolean => {
+      if (!allCores.some((c) => c.name === name && c.key !== key)) return true;
       addStatus({
         variant: "error",
         message: `Failed to rename Core to ${name}`,
@@ -67,7 +66,7 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
     dispatch(Session.Core.remove(key));
   };
 
-  const handleRename = (key: string): void => Text.edit(`core-dropdown-${key}`);
+  const handleRename = (key: string): void => Text.edit(nameID(key));
 
   const handleLink = Link.useCopyToClipboard();
 

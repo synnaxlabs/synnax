@@ -44,6 +44,7 @@ export const listItem = Component.renderProp(
     const { itemKey } = props;
     const proj = List.useItem<project.Key, project.Project>(itemKey);
     const { update: rename } = Project.useRename();
+    const canRename = Access.useUpdateGranted(project.ontologyID(itemKey));
     const handleRename = useCallback(
       (name: string) => rename({ key: itemKey, name }),
       [itemKey, rename],
@@ -57,10 +58,11 @@ export const listItem = Component.renderProp(
         onClickCapture={stopClicksWhileEditing}
       >
         <Avatar name={proj.name} />
-        <Text.Editable
+        <Text.MaybeEditable
           id={PCSS.B(`project-${itemKey}`)}
           value={proj.name}
-          onChange={handleRename}
+          onChange={canRename ? handleRename : undefined}
+          allowDoubleClick={false}
           className={CSS.BE("project", "name")}
           overflow="ellipsis"
         />
@@ -95,7 +97,12 @@ export const ContextMenu = ({
       [confirm, getItem],
     ),
   });
-  if (keys.length === 0) return null;
+  if (keys.length === 0)
+    return (
+      <CMenu.Menu>
+        <CMenu.ReloadConsoleItem />
+      </CMenu.Menu>
+    );
   const [key] = keys;
   return (
     <CMenu.Menu>

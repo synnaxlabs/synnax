@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ranger } from "@synnaxlabs/client";
-import { Access, Icon, List, Menu, Ranger, Status } from "@synnaxlabs/pluto";
+import { Access, Icon, List, Menu, Ranger, Status, Text } from "@synnaxlabs/pluto";
 
 import { CreateChildRangeIcon } from "@/feature/range/ContextMenu";
 import { ContextMenu as Base } from "@/platform/context-menu";
@@ -34,13 +34,11 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
   const someAreFavorites = ranges.some((r) => favoriteKeys.includes(r.key));
   const someAreNotFavorites = ranges.some((r) => !favoriteKeys.includes(r.key));
   const dispatch = Session.useDispatch();
-  const renameModal = Modals.useRename();
   const confirm = Modals.useConfirmDelete({
     type: "Range",
     description: "Deleting a range also deletes its child ranges.",
   });
   const { update: del } = Ranger.useDelete();
-  const { update: renameRange } = Ranger.useRename();
   const handleAddChildRange = () => {
     openCreate({ parent: ranges[0].key });
   };
@@ -56,17 +54,7 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
   const handleDetails = () => {
     openTab({ variant: "resource", resource: ranger.ontologyID(ranges[0].key) });
   };
-  const handleRename = () => {
-    handleError(async () => {
-      const renamed = await renameModal({
-        initialValue: ranges[0].name,
-        title: "Range.Rename",
-        icon: <Icon.Range />,
-      });
-      if (renamed == null) return;
-      renameRange({ key: ranges[0].key, name: renamed });
-    }, "Failed to rename range");
-  };
+  const handleRename = () => Text.edit(List.itemNameID(ranges[0].key));
   const handleDelete = () => {
     handleError(async () => {
       const confirmed = await confirm(ranges);

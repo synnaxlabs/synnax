@@ -16,8 +16,11 @@ import { memo, type ReactElement } from "react";
 import { CSS } from "@/platform/css";
 import { Session } from "@/session";
 
+/** DOM id of a row's editable name, so {@link Text.edit} can target it. */
+export const nameID = (key: string): string => `core-${key}`;
+
 interface ListItemProps extends List.ItemProps<string> {
-  validateName: (name: string) => boolean;
+  validateName: (key: string, name: string) => boolean;
   item: Session.Core.Core;
   loading: boolean;
 }
@@ -39,9 +42,10 @@ const Base = ({
 }: ListItemProps): ReactElement | null => {
   const dispatch = Session.useDispatch();
   const { selected, onSelect } = Select.useItemState(rest.itemKey);
-  const handleChange = (value: string) => {
-    if (!validateName(value) || item == null) return;
+  const handleChange = (value: string): boolean => {
+    if (item == null || !validateName(item.key, value)) return false;
     dispatch(Session.Core.rename({ key: item.key, name: value }));
+    return true;
   };
   const status = Synnax.useCheckConnection({
     host: item.host,
@@ -66,7 +70,7 @@ const Base = ({
     >
       <Flex.Box y>
         <Text.MaybeEditable
-          id={`core-dropdown-${item.key}`}
+          id={nameID(item.key)}
           weight={500}
           value={item.name}
           onChange={handleChange}

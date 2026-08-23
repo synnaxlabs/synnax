@@ -7,8 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type arc } from "@synnaxlabs/client";
-import { Flex, Input, List, Select, stopPropagation, Text } from "@synnaxlabs/pluto";
+import { arc } from "@synnaxlabs/client";
+import {
+  Access,
+  Flex,
+  Input,
+  List,
+  Select,
+  stopPropagation,
+  Text,
+} from "@synnaxlabs/pluto";
 
 export interface ItemProps extends List.ItemProps<arc.Key> {
   onRename?: (name: string) => void;
@@ -17,11 +25,12 @@ export interface ItemProps extends List.ItemProps<arc.Key> {
 
 export const Item = ({ onRename, textIdPrefix = "text", ...props }: ItemProps) => {
   const { itemKey } = props;
-  const arc = List.useItem<arc.Key, arc.Arc>(itemKey);
+  const item = List.useItem<arc.Key, arc.Arc>(itemKey);
   const { onSelect, selected, hovered } = Select.useItemState(itemKey);
+  const canRename = Access.useUpdateGranted(arc.ontologyID(itemKey));
 
-  if (arc == null) return null;
-  const { name } = arc;
+  if (item == null) return null;
+  const { name } = item;
 
   return (
     <List.Item
@@ -44,7 +53,7 @@ export const Item = ({ onRename, textIdPrefix = "text", ...props }: ItemProps) =
           id={`${textIdPrefix}-${itemKey}`}
           level="p"
           value={name}
-          onChange={onRename}
+          onChange={canRename ? onRename : undefined}
           allowDoubleClick={false}
         />
       </Flex.Box>

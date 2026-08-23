@@ -8,10 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import {
+  channel,
+  device,
   type framer,
   type ontology,
   panel,
+  project,
   query,
+  rack,
   type Synnax as Client,
   task,
 } from "@synnaxlabs/client";
@@ -37,6 +41,7 @@ import {
   assertDefined,
   CaptureStatuses,
   createConsoleWrapper,
+  createTestClientWithGrants,
   createTestStore,
   getIconButton,
   renderHookWithConsole,
@@ -48,6 +53,23 @@ import {
 } from "@/testutil";
 
 const defaultClient = createTestClient();
+
+/**
+ * Creates a client that may read and update tasks but only read channels, so specs can
+ * check the channel-rename gates on task context menus.
+ */
+export const createChannelReadOnlyClient = async (client: Client): Promise<Client> =>
+  await createTestClientWithGrants(client, {
+    retrieve: [
+      task.TYPE_ONTOLOGY_ID,
+      device.TYPE_ONTOLOGY_ID,
+      rack.TYPE_ONTOLOGY_ID,
+      channel.TYPE_ONTOLOGY_ID,
+      panel.TYPE_ONTOLOGY_ID,
+      project.TYPE_ONTOLOGY_ID,
+    ],
+    update: [task.TYPE_ONTOLOGY_ID],
+  });
 
 export type TaskFormValues = Record<string, unknown>;
 
