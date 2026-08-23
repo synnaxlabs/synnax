@@ -12,7 +12,10 @@ import { z } from "zod";
 
 import { Runtime } from "@/session/runtime";
 
-/** The store the 0.56 and earlier Console wrote. Opened read-only, never written. */
+/**
+ * The store the 0.56 and earlier Console wrote. Relative, so it resolves against the
+ * roaming app data directory where 0.56 left it. Opened read-only, never written.
+ */
 export const STORE_PATH = "persisted-state.json";
 
 const SLOT_KEY = "console-version";

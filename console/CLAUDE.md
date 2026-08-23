@@ -114,9 +114,11 @@ once no Core record names it.
 
 `STORE_NAME` (`"session"`) names both backends, picked by `Runtime.ENGINE`:
 
-- **Tauri** — `session.json` in the app data dir
+- **Tauri** — `session.json` in the local app data dir
   (`~/Library/Application Support/com.synnaxlabs.dev` on macOS,
-  `%APPDATA%\com.synnaxlabs.dev` on Windows).
+  `%LOCALAPPDATA%\com.synnaxlabs.dev` on Windows, `~/.local/share/com.synnaxlabs.dev` on
+  Linux). `TauriKV` names an absolute path because the store plugin resolves a relative
+  one against the **roaming** dir, which must not carry machine-local session state.
 - **Browser** — IndexedDB database `session`, one object store `kv`, partition keys as
   string keys. **Scoped to the page's origin**, so a Console served from two ports is
   two independent sessions, and clearing site data wipes it.
@@ -125,9 +127,10 @@ IndexedDB, not localStorage: twelve state slots outgrow its few-megabyte cap, an
 quota errors surface only as a failed write. `localStorage` holds one thing, the
 deep-link ignore flag in `platform/link/markIgnored.ts`; keep it that way.
 
-`persisted-state.json` (Tauri) and the `persisted-state.json:` localStorage prefix
-(browser) are the 0.56 store: read once to seed a fresh install, never written or
-cleared, so a rollback to 0.56 still finds its state.
+`persisted-state.json` (Tauri, still in the roaming app data dir where 0.56 wrote it)
+and the `persisted-state.json:` localStorage prefix (browser) are the 0.56 store: read
+once to seed a fresh install, never written or cleared, so a rollback to 0.56 still
+finds its state.
 
 ## Windows Are Viewports
 

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type kv } from "@synnaxlabs/x";
+import { appLocalDataDir, join } from "@tauri-apps/api/path";
 import { LazyStore } from "@tauri-apps/plugin-store";
 
 import { Runtime } from "@/session/runtime";
@@ -37,14 +38,15 @@ export interface SugaredKV extends kv.Async {
 }
 
 class TauriKV implements SugaredKV {
-  private store: LazyStore;
+  private readonly name: string;
+  private store: Promise<LazyStore> | null = null;
 
-  constructor(store: LazyStore) {
-    this.store = store;
+  constructor(name: string) {
+    this.name = name;
   }
 
   async get<V>(key: string): Promise<V | null> {
-    return (await this.store.get(key)) as V;
+    return (await (await this.open()).get(key)) as V;
   }
 
   async set<V>(key: string, value: V): Promise<void> {
@@ -52,27 +54,43 @@ class TauriKV implements SugaredKV {
   }
 
   async setMany(entries: Entry[]): Promise<void> {
-    for (const { key, value } of entries) await this.store.set(key, value);
+    const store = await this.open();
+    for (const { key, value } of entries) await store.set(key, value);
     // One save for the batch: the plugin rewrites the whole file per call.
-    await this.store.save();
+    await store.save();
   }
 
   async delete(key: string): Promise<void> {
-    await this.store.delete(key);
-    await this.store.save();
+    const store = await this.open();
+    await store.delete(key);
+    await store.save();
   }
 
   async length(): Promise<number> {
-    return await this.store.length();
+    return await (await this.open()).length();
   }
 
   async keys(): Promise<string[]> {
-    return await this.store.keys();
+    return await (await this.open()).keys();
   }
 
   async clear(): Promise<void> {
-    await this.store.clear();
-    await this.store.save();
+    const store = await this.open();
+    await store.clear();
+    await store.save();
+  }
+
+  /**
+   * The plugin resolves a relative path against the roaming app data directory, which
+   * copies whole files between machines at logoff. A session belongs to the machine it
+   * runs on, so the file is named absolutely under the local directory instead.
+   */
+  private open(): Promise<LazyStore> {
+    this.store ??= (async () => {
+      const path = await join(await appLocalDataDir(), `${this.name}.json`);
+      return new LazyStore(path, { autoSave: false, defaults: {} });
+    })();
+    return this.store;
   }
 }
 
@@ -191,11 +209,10 @@ export class MemoryKV implements SugaredKV {
 }
 
 /**
- * @param name - The store's name. Tauri makes it a file in the app data directory,
- * which holds other stores; IndexedDB databases are already scoped to the origin.
+ * @param name - The store's name. Tauri makes it a file in the app's local data
+ * directory, which holds other stores; IndexedDB databases are already scoped to the
+ * origin.
  * @returns A new SugaredKV instance.
  */
 export const openSugaredKV = (name: string): SugaredKV =>
-  Runtime.ENGINE === "tauri"
-    ? new TauriKV(new LazyStore(`${name}.json`, { autoSave: false, defaults: {} }))
-    : new IndexedDBKV(name);
+  Runtime.ENGINE === "tauri" ? new TauriKV(name) : new IndexedDBKV(name);
