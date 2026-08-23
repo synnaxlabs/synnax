@@ -157,18 +157,39 @@ describe("rename", () => {
     expect(state.clusters[TEMP_KEY].name).toBe("New Name");
   });
 
-  it("should throw when renaming to a name owned by another cluster", () => {
+  it("should drop a rename to a name owned by another cluster", () => {
     let state = Cluster.reducer(Cluster.ZERO_SLICE_STATE, Cluster.set(BASE_CLUSTER));
     state = Cluster.reducer(
       state,
-      Cluster.set({ ...BASE_CLUSTER, key: REAL_KEY, host: "other.com" }),
+      Cluster.set({
+        ...BASE_CLUSTER,
+        key: REAL_KEY,
+        name: "Other Cluster",
+        host: "other.com",
+      }),
     );
-    expect(() =>
-      Cluster.reducer(
-        state,
-        Cluster.rename({ key: REAL_KEY, name: BASE_CLUSTER.name }),
-      ),
-    ).toThrow(/already exists/);
+    state = Cluster.reducer(
+      state,
+      Cluster.rename({ key: REAL_KEY, name: BASE_CLUSTER.name }),
+    );
+    expect(state.clusters[REAL_KEY].name).toBe("Other Cluster");
+  });
+
+  it("should keep a rename to the cluster's own name", () => {
+    let state = Cluster.reducer(Cluster.ZERO_SLICE_STATE, Cluster.set(BASE_CLUSTER));
+    state = Cluster.reducer(
+      state,
+      Cluster.rename({ key: TEMP_KEY, name: BASE_CLUSTER.name }),
+    );
+    expect(state.clusters[TEMP_KEY].name).toBe(BASE_CLUSTER.name);
+  });
+
+  it("should drop a rename of a missing cluster", () => {
+    const state = Cluster.reducer(
+      Cluster.ZERO_SLICE_STATE,
+      Cluster.rename({ key: TEMP_KEY, name: "New Name" }),
+    );
+    expect(state.clusters[TEMP_KEY]).toBeUndefined();
   });
 });
 

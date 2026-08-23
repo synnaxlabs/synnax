@@ -18,6 +18,7 @@ import {
   view,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { List } from "@synnaxlabs/pluto";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -28,6 +29,9 @@ import { createTestRange, uniqueRangeName } from "@/platform/range/testutil";
 import { enableEditing, findToolbarIconButton } from "@/platform/view/testutil";
 import { Session } from "@/session";
 import {
+  awaitTextEditing,
+  commitTextEdit,
+  countEditableText,
   createConsoleWrapper,
   createTestClientWithGrants,
   getBySelector,
@@ -168,19 +172,14 @@ describe("range/Explorer", () => {
       });
     });
 
-    it("renames the range through the rename modal", async () => {
+    it("renames the range in place from the context menu", async () => {
       const rng = await createTestRange(client);
       await renderExplorer();
       fireEvent.contextMenu(await revealRange(rng.name));
       fireEvent.click(await screen.findByText("Rename"));
-      const input = await waitFor(() => {
-        const el = screen.getByPlaceholderText<HTMLInputElement>("Name");
-        expect(el.value).toBe(rng.name);
-        return el;
-      });
+      const el = await awaitTextEditing(List.itemNameID(rng.key));
       const renamed = uniqueRangeName("renamed");
-      fireEvent.change(input, { target: { value: renamed } });
-      fireEvent.click(findButton("Save"));
+      commitTextEdit(el, renamed);
       await waitFor(async () =>
         expect((await client.ranges.retrieve(rng.key)).name).toBe(renamed),
       );
@@ -266,6 +265,7 @@ describe("range/Explorer permissions", () => {
       expect(screen.queryByText("Rename")).toBeNull();
       expect(screen.queryByText("Create child range")).toBeNull();
       expect(screen.queryByText("Delete")).toBeNull();
+      expect(countEditableText(List.itemNameID(rng.key))).toBe(0);
     });
 
     it("should offer every write to a subject granted them", async () => {
