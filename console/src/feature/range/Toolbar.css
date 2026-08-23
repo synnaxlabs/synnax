@@ -15,7 +15,7 @@
     }
 
     /* A flex item will not shrink below its content, so a long name overflows the row
-       and clips instead of ellipsizing. */
+       and clips instead of fading. */
     & .console-range-list-item__name {
         min-width: 0;
     }

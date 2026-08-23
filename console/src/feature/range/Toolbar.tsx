@@ -123,7 +123,7 @@ const listItem = Component.renderProp((props: BaseList.ItemProps<string>) => {
           id={`text-${key}`}
           level="p"
           value={name}
-          overflow="ellipsis"
+          overflow="fade"
           onChange={
             hasUpdatePermission ? (name) => onRename.update({ key, name }) : undefined
           }

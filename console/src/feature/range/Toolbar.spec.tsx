@@ -110,11 +110,11 @@ describe("range/Toolbar", () => {
     expect(screen.getByText("L")).toBeTruthy();
   });
 
-  it("ellipsizes a range name too long for the toolbar", async () => {
+  it("fades a range name too long for the toolbar", async () => {
     const rng = createLocalRangeState(uniqueRangeName("a-very-long-range-name"));
     await renderToolbar({ ranges: [rng] });
     const name = await screen.findByText(rng.name);
-    expect(name.className).toContain("pluto-text--overflow-ellipsis");
+    expect(name.className).toContain("pluto-text--overflow-fade");
     expect(name.closest(".console-range-list-item__name")).not.toBeNull();
   });
 

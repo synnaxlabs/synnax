@@ -20,8 +20,10 @@ import { remove, restore } from "@/session/range/slice";
  * the selection it carried, when the server delete fails. A caller's own beforeUpdate
  * runs first and can still cancel the delete.
  */
-export const useDelete: Flux.UseUpdate<Ranger.DeleteParams> = (params) => {
-  const { beforeUpdate } = params ?? {};
+export const useDelete: Flux.UseUpdate<Ranger.DeleteParams> = ({
+  beforeUpdate,
+  ...params
+} = {}) => {
   const getSliceState = useGetSliceState();
   const dispatch = useDispatch();
   return Ranger.useDelete({
