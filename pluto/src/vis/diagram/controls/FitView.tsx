@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { location } from "@synnaxlabs/x";
-import { useReactFlow } from "@xyflow/react";
 import { type ReactElement } from "react";
 
 import { Button } from "@/button";
 import { Icon } from "@/icon";
 import { diagram } from "@/vis/diagram/aether";
 import { useContext } from "@/vis/diagram/Context";
+import { useFitView } from "@/vis/diagram/useFitView";
 
 export interface FitViewProps extends Omit<
   Button.ToggleProps,
@@ -22,12 +22,12 @@ export interface FitViewProps extends Omit<
 > {}
 
 export const FitView = ({ onClick, ...rest }: FitViewProps): ReactElement => {
-  const { fitView } = useReactFlow();
+  const fitView = useFitView();
   const { fitViewOnResize, setFitViewOnResize } = useContext();
   return (
     <Button.Toggle
       onClick={(e) => {
-        void fitView(diagram.FIT_VIEW_OPTIONS);
+        fitView(diagram.FIT_VIEW_OPTIONS);
         onClick?.(e);
       }}
       tooltip="Fit view to contents"
