@@ -11,7 +11,10 @@ import { scale, xy } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { text } from "@/text/aether";
-import { SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d/canvas";
+import {
+  domRadii,
+  SugaredOffscreenCanvasRenderingContext2D,
+} from "@/vis/draw2d/canvas";
 
 /** The properties the wrapper caches, so a repeat set never reaches the canvas. */
 const CACHED_PROPS = [
@@ -371,5 +374,41 @@ describe("SugaredOffscreenCanvasRenderingContext2D", () => {
         expect(warn).not.toHaveBeenCalled();
       });
     });
+  });
+});
+
+describe("domRadii", () => {
+  it("should order the corners top-left, top-right, bottom-right, bottom-left", () => {
+    const radius = {
+      topLeft: { x: 1, y: 2 },
+      topRight: { x: 3, y: 4 },
+      bottomLeft: { x: 5, y: 6 },
+      bottomRight: { x: 7, y: 8 },
+    };
+    expect(domRadii(radius)).toEqual([
+      radius.topLeft,
+      radius.topRight,
+      radius.bottomRight,
+      radius.bottomLeft,
+    ]);
+  });
+
+  it("should spread a scalar over every corner", () => {
+    expect(domRadii(4)).toEqual([
+      { x: 4, y: 4 },
+      { x: 4, y: 4 },
+      { x: 4, y: 4 },
+      { x: 4, y: 4 },
+    ]);
+  });
+
+  it("should widen per-corner numbers into pairs", () => {
+    const radii = domRadii({ topLeft: 1, topRight: 0, bottomRight: 3, bottomLeft: 0 });
+    expect(radii).toEqual([
+      { x: 1, y: 1 },
+      { x: 0, y: 0 },
+      { x: 3, y: 3 },
+      { x: 0, y: 0 },
+    ]);
   });
 });

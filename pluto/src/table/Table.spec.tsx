@@ -9,7 +9,7 @@
 
 import { table } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { box, type scale, xy } from "@synnaxlabs/x";
+import { type border, box, type scale, xy } from "@synnaxlabs/x";
 import { act, fireEvent, render, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -168,8 +168,11 @@ describe("Table", () => {
     request.render();
   };
 
+  const scissors = (): canvasTest.Call[] =>
+    recorder.upper2d.calls.filter((c) => c.op === "scissor");
+
   const lastScissor = (): canvasTest.Call => {
-    const scissor = recorder.upper2d.calls.findLast((c) => c.op === "scissor");
+    const scissor = scissors().at(-1);
     if (scissor == null) throw new Error("no cell draw was recorded");
     return scissor;
   };
@@ -285,19 +288,87 @@ describe("Table", () => {
   });
 
   describe("corner radius", () => {
-    // CSS rounds the table's bottom-right <td>, so the cell's canvas background
-    // has to clip to the same radius or it fills the corner square.
-    it("rounds the bottom-right cell's clip region", async () => {
-      renderTable(false);
+    const corner = (name: keyof border.Radius): Record<string, number> => ({
+      topLeft: 0,
+      topRight: 0,
+      bottomRight: 0,
+      bottomLeft: 0,
+      [name]: RADIUS,
+    });
+
+    // Renders a fresh grid of value cells and returns the clip radius each one drew
+    // with, in row-major order.
+    const renderGrid = async (
+      name: string,
+      rows: number,
+      cols: number,
+      showIndicators: boolean,
+    ): Promise<unknown[]> => {
+      const source = telemTest.source("1");
+      const cells: Record<string, table.Cell> = {};
+      const rowSpecs = Array.from({ length: rows }, (_, r) => ({
+        size: ROW_SIZE,
+        cells: Array.from({ length: cols }, (_, c) => {
+          const cellKey = `${r}-${c}`;
+          cells[cellKey] = {
+            key: cellKey,
+            variant: "value",
+            props: {
+              telem: telemTest.stringSourceSpec(source),
+              redline: Value.ZERO_READLINE,
+              level: "h5",
+              color: "#000000",
+              units: "",
+            },
+          };
+          return cellKey;
+        }),
+      }));
+      const project = await client.projects.create({ name, layout: {} });
+      const created = await client.tables.create(project.key, {
+        name: `${name}_table`,
+        rows: rowSpecs,
+        columns: Array.from({ length: cols }, () => ({ size: COL_SIZE })),
+        cells,
+      });
+      await loadTable(wrapper, created.key);
+      const Wrapped = (): ReactElement => (
+        <Table.Suspended tableKey={created.key}>
+          <Table.Table visible showIndicators={showIndicators} />
+        </Table.Suspended>
+      );
+      render(<Wrapped />, { wrapper });
+      let radii: unknown[] = [];
       await waitFor(() => {
         pumpRender();
-        expect(lastScissor().args[2]).toEqual({
-          topLeft: 0,
-          topRight: 0,
-          bottomRight: RADIUS,
-          bottomLeft: 0,
-        });
+        // One scissor per cell, so the last rows * cols are this render's.
+        radii = scissors()
+          .slice(-rows * cols)
+          .map((c) => c.args[2]);
+        expect(radii).toHaveLength(rows * cols);
       });
+      return radii;
+    };
+
+    // CSS rounds the table's outer corners on the corner <td>, so a cell painting its
+    // background on the canvas has to clip to the same radius or it fills the corner
+    // square. The indicators hold the first row and column when shown, leaving the
+    // bottom-right cell as the only data cell at a corner.
+    it("rounds only the bottom-right cell when the indicators are shown", async () => {
+      const radii = await renderGrid("indicated", 2, 2, true);
+      expect(radii).toEqual([undefined, undefined, undefined, corner("bottomRight")]);
+    });
+
+    it("rounds all four corners when the indicators are hidden", async () => {
+      const radii = await renderGrid("bare", 2, 3, false);
+      expect(radii).toEqual([
+        corner("topLeft"),
+        undefined,
+        corner("topRight"),
+        corner("bottomLeft"),
+        undefined,
+        corner("bottomRight"),
+      ]);
     });
   });
 
