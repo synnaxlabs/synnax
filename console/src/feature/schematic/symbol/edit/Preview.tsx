@@ -34,7 +34,7 @@ import { FileDrop } from "@/feature/schematic/symbol/edit/FileDrop";
 import { HandleOverlay } from "@/feature/schematic/symbol/edit/Handles";
 import { CSS } from "@/platform/css";
 
-export const ZOOM_TRIGGERS: Triggers.ModeConfig<"in" | "out" | "reset" | "default"> = {
+const ZOOM_TRIGGERS: Triggers.ModeConfig<"in" | "out" | "reset" | "default"> = {
   defaultMode: "default",
   modes: {
     in: [["Control", "Equal"]],
