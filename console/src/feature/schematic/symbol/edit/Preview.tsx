@@ -63,8 +63,8 @@ export const Preview = ({
 }: PreviewProps): ReactElement | null => {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgWrapperRef = useRef<HTMLDivElement>(null);
-  // State, not a ref: the theme provider takes the element as a prop, and a ref
-  // filled after the first render would never re-render it into place.
+  // State, not a ref: the theme provider takes the element as a prop, and a ref filled
+  // after the first render would never re-render it into place.
   const [themeContainer, setThemeContainer] = useState<HTMLDivElement | null>(null);
   const spec = Form.useFieldValue<schematic.symbol.Spec>("data");
   const pan = Form.useField<xy.XY>("data.previewViewport.position");

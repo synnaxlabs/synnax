@@ -443,8 +443,8 @@ describe("log/Base", () => {
         undoRedo: { undo, redo, canUndo: true, canRedo: true },
       });
       openMenu(container);
-      // Both entries are asserted before the click, since selecting one closes
-      // the menu and takes the other out of the document with it.
+      // Both entries are asserted before the click, since selecting one closes the menu
+      // and takes the other out of the document with it.
       expect(await screen.findByText("Undo")).toBeDefined();
       expect(screen.getByText("Redo")).toBeDefined();
       fireEvent.click(screen.getByText("Undo"));
@@ -456,8 +456,8 @@ describe("log/Base", () => {
       setupAether({ empty: false });
       const { container } = renderLog();
       openMenu(container);
-      // Positive control: the menu opened, so the absence below is the missing
-      // prop rather than a menu that never rendered.
+      // Positive control: the menu opened, so the absence below is the missing prop
+      // rather than a menu that never rendered.
       expect(await screen.findByText("Copy")).toBeDefined();
       expect(screen.queryByText("Undo")).toBeNull();
     });

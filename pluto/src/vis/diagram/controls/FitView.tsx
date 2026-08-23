@@ -34,11 +34,7 @@ export const FitView = ({ onClick, ...rest }: FitViewProps): ReactElement => {
         void fitView(diagram.FIT_VIEW_OPTIONS);
         onClick?.(e);
       }}
-      tooltip={
-        <Triggers.Text trigger={FIT_VIEW_TRIGGER} level="small">
-          Fit view to contents
-        </Triggers.Text>
-      }
+      tooltip={tooltip}
       tooltipLocation={location.BOTTOM_LEFT}
       size="small"
       {...rest}
@@ -49,3 +45,9 @@ export const FitView = ({ onClick, ...rest }: FitViewProps): ReactElement => {
     </Button.Toggle>
   );
 };
+
+const tooltip = (
+  <Triggers.Text trigger={FIT_VIEW_TRIGGER} level="small">
+    Fit view to contents
+  </Triggers.Text>
+);

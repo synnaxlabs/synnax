@@ -58,7 +58,12 @@
     }
 }
 
-:root {
+/* Everything derived from the theme's own colors. A scoped Theming.Provider re-points
+   the color ramps on its container and stamps the theme class there, so these have to
+   resolve against that element. Left on :root alone they would compute once against
+   the root theme and inherit into the subtree frozen. */
+:root,
+[class*="pluto-theme-"] {
     /* The interactive fill band. Elevated chrome re-points these to step toward the
        canvas (l0-l2) so its controls recess instead of lighten. */
     --pluto-fill-rest: var(--pluto-gray-l3);
@@ -102,9 +107,12 @@
     );
     --pluto-selected-list-border-color: transparent;
 
-    --pluto-border-width: 1px;
     --pluto-border: var(--pluto-border-width) solid var(--pluto-border-color);
     --pluto-border-l6: var(--pluto-border-width) solid var(--pluto-gray-l6);
+}
+
+:root {
+    --pluto-border-width: 1px;
     --pluto-height-large: 6rem;
     --pluto-height-medium: round(4.6667rem, 1px);
     --pluto-height-small: 4rem;

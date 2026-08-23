@@ -13,11 +13,11 @@ import { TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { useDeleteDataModal } from "@/feature/framer/useDeleteDataModal";
 import {
   createTestIndexedPair,
   type TestIndexedPair,
 } from "@/platform/channel/testutil";
-import { Framer } from "@/platform/framer";
 import {
   findButton,
   getSwitch,
@@ -31,7 +31,7 @@ const client = createTestClient();
 const SAMPLES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
 const openModal = async (c: Synnax | null = null): Promise<ModalOpenerHandle<void>> => {
-  const handle = await renderModalOpener(Framer.useDeleteDataModal, [], { client: c });
+  const handle = await renderModalOpener(useDeleteDataModal, [], { client: c });
   await screen.findByText("Delete data");
   return handle;
 };
