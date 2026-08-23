@@ -12,7 +12,7 @@ export const components = mdxOverrides;
 <Release
     version="0.57.0"
     breakingChanges
-    date="Aug 21, 2026"
+    date="Aug 23, 2026"
     title="Projects, Panels, and a Redesigned Console"
 >
 
@@ -106,7 +106,7 @@ has already changed.
 
 #### Roles and permissions
 
-A Viewer or an Operator now sees a Console built for that role. We went through every
+A viewer or an operator now sees a Console built for that role. We went through every
 control that writes and put a permission check behind it. Controls your role does not
 hold are hidden or disabled, so you see a missing permission before you press a button,
 not as an error afterward. Operators keep the ability to start and stop tasks.
@@ -142,7 +142,7 @@ tracks the value. A graduated scale can be drawn along the outside wall, with ma
 minor ticks, a caret at the current value, and a readout box. Tanks with no channel
 bound look exactly as they did.
 
-The same display is available on its own. The new Scale symbol shows a bounded value as
+The same display is available on its own. The new scale symbol shows a bounded value as
 a filled bar or a caret against an optional graduated scale, in any orientation.
 
 #### More schematic improvements
@@ -284,9 +284,9 @@ reaches hardware, and when a device is claimed.
 #### Save as you edit, deploy on start
 
 A task configuration now saves as you type, and deploys when you press start. Saving and
-deploying used to be one step. Pressing Configure wrote the task and immediately rebuilt
-it on hardware. A half-finished configuration was one press away from running, renaming
-a task restarted it, and closing the tab lost your work.
+deploying used to be one step. Pressing "Configure" wrote the task and immediately
+rebuilt it on hardware. A half-finished configuration was one press away from running,
+renaming a task restarted it, and closing the tab lost your work.
 
 The form now saves itself. Closing the tab keeps what you wrote, and renaming a task
 does not touch running hardware. When you press start, the Driver compares the saved
@@ -380,7 +380,7 @@ single-address deployments are unchanged.
 
 #### Console
 
-- Calculated channels can be edited from the Channels toolbar context menu.
+- Calculated channels can be edited from the channel toolbar's context menu.
 - Logs hold their position correctly while streaming.
 - Tables can be centered from the toolbar, and tables made in earlier versions keep the
   styling of their cells.
@@ -390,8 +390,8 @@ single-address deployments are unchanged.
 - Crash reports name what failed and point at real source lines.
 - The login screen shows a connection indicator for every saved Core, so you know which
   ones are reachable before you type a password.
-- The Console follows your operating system's light and dark setting again, and
-  `Enable/Disable theme sync with system` pins one theme.
+- The Console gives an explicit option to use light mode, dark mode, or system default,
+  accessible by the "Change color theme" command.
 - Console text is sentence case throughout, and error messages are full sentences that
   name what failed.
 - On Windows, the caption buttons match the rest of the operating system.
