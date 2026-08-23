@@ -119,6 +119,10 @@ interface NodeProps
 /** Creates a new tab. Bound by the embedding app; shown on the create button. */
 export const CREATE_TAB_TRIGGER: Triggers.Trigger = ["Control", "T"];
 
+const CREATE_TAB_TOOLTIP = <Triggers.Text trigger={CREATE_TAB_TRIGGER} level="small" />;
+
+const EXIT_FOCUS_TOOLTIP = <Triggers.Text trigger={Triggers.ESCAPE} level="small" />;
+
 const Leaf = memo(
   ({
     nodeKey,
@@ -160,7 +164,7 @@ const Leaf = memo(
                   size="small"
                   onClick={handleAdd}
                   className={CSS.BE("panel-mosaic", "create")}
-                  tooltip={<Triggers.Text trigger={CREATE_TAB_TRIGGER} level="small" />}
+                  tooltip={CREATE_TAB_TOOLTIP}
                 >
                   <Icon.Add color={9} />
                 </Button.Button>
@@ -228,7 +232,7 @@ const OverlaidLeaf = ({
         size="small"
         onClick={onStopOverlay}
         className={CSS.BE("panel-mosaic", "overlaid-exit")}
-        tooltip={<Triggers.Text trigger={Triggers.ESCAPE} level="small" />}
+        tooltip={EXIT_FOCUS_TOOLTIP}
       >
         <Icon.Collapse />
         Exit focus

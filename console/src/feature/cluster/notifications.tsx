@@ -17,6 +17,20 @@ const isMismatch = (status: Notifications.NotificationProps["status"]): boolean 
   return details.success && details.data.type === Synnax.SERVER_VERSION_MISMATCH;
 };
 
+const UPDATE_CORE_ACTIONS = [
+  <Button.Button
+    key="update"
+    variant="outlined"
+    size="small"
+    href="https://docs.synnaxlabs.com/reference/core/quick-start"
+    target="_blank"
+  >
+    Update Core
+  </Button.Button>,
+];
+
+const UPDATE_CONSOLE_ACTIONS = [<Version.OpenUpdateDialogAction key="update" />];
+
 export const Notification: Notifications.Notification = ({ status, silence }) => {
   const details = Synnax.statusDetailsSchema.safeParse(status.details);
   const oldServer =
@@ -27,21 +41,7 @@ export const Notification: Notifications.Notification = ({ status, silence }) =>
     <Status.Notification
       status={status}
       silence={silence}
-      actions={
-        oldServer
-          ? [
-              <Button.Button
-                key="update"
-                variant="outlined"
-                size="small"
-                href="https://docs.synnaxlabs.com/reference/core/quick-start"
-                target="_blank"
-              >
-                Update Core
-              </Button.Button>,
-            ]
-          : [<Version.OpenUpdateDialogAction key="update" />]
-      }
+      actions={oldServer ? UPDATE_CORE_ACTIONS : UPDATE_CONSOLE_ACTIONS}
     />
   );
 };

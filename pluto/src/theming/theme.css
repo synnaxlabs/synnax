@@ -52,6 +52,7 @@
         opacity: 0;
         transform: scale(0.98) translateY(-4px);
     }
+
     100% {
         opacity: 1;
         transform: scale(1) translateY(0);
@@ -89,7 +90,6 @@
         var(--pluto-gray-l1)
     );
     --pluto-selected-color: var(--pluto-primary-z);
-
     --pluto-selected-subtle-bg: var(--pluto-fill-hover);
     --pluto-selected-subtle-hover-bg: var(--pluto-fill-press);
     --pluto-selected-subtle-active-bg: var(--pluto-gray-l6);
@@ -106,7 +106,6 @@
         from var(--pluto-gray-l6) l calc(c + 0.025) h
     );
     --pluto-selected-list-border-color: transparent;
-
     --pluto-border: var(--pluto-border-width) solid var(--pluto-border-color);
     --pluto-border-l6: var(--pluto-border-width) solid var(--pluto-gray-l6);
 }
@@ -125,7 +124,6 @@
     --pluto-modal-animation: fade-in-zoom 0.15s ease-in-out;
     --pluto-dialog-animation: fade-in-zoom 0.1s ease-in-out;
     --pluto-frost: blur(3.5rem) saturate(140%);
-
     --pluto-focus-ring-offset: 2px;
     --pluto-focus-ring-inset: -2px;
 }
@@ -154,11 +152,9 @@
        undefined one computes to no shadow. Rings, inset fills, and glows are not
        elevation and stay off the ladder. */
     --pluto-shadow-lift: lch(0 0 0 / 0.044) 0px 3px 9px, lch(0 0 0 / 0.044) 0px 1px 1px;
-
     --pluto-shadow-overlay:
         lch(0 0 0 / 0.02) 0px 1px 1px, lch(0 0 0 / 0.1) 0px 4px 8px -4px,
         lch(0 0 0 / 0.12) 0px 16px 24px -8px;
-
     --pluto-shadow-modal:
         lch(0 0 0 / 0.088) 0px 9px 48px, lch(0 0 0 / 0.11) 0px 6px 24px,
         lch(0 0 0 / 0.044) 0px 1px 1px;
@@ -180,11 +176,9 @@
     /* Restated at higher density: a shadow needs more weight to read against a dark
        surface. */
     --pluto-shadow-lift: lch(0 0 0 / 0.188) 0px 2px 5px, lch(0 0 0 / 0.188) 0px 1px 1px;
-
     --pluto-shadow-overlay:
         lch(0 0 0 / 0.188) 0px 3px 8px, lch(0 0 0 / 0.188) 0px 2px 5px,
         lch(0 0 0 / 0.188) 0px 1px 1px;
-
     --pluto-shadow-modal:
         lch(0 0 0 / 0.32) 0px 9px 48px, lch(0 0 0 / 0.28) 0px 6px 24px,
         lch(0 0 0 / 0.188) 0px 1px 1px;

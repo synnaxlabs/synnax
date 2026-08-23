@@ -39,6 +39,24 @@ import {
 } from "@/feature/schematic/symbol/edit/triggers";
 import { CSS } from "@/platform/css";
 
+const ZOOM_OUT_TOOLTIP = (
+  <Triggers.Text trigger={ZOOM_TRIGGERS.modes.out[0]} level="small">
+    Zoom out
+  </Triggers.Text>
+);
+
+const ZOOM_IN_TOOLTIP = (
+  <Triggers.Text trigger={ZOOM_TRIGGERS.modes.in[0]} level="small">
+    Zoom in
+  </Triggers.Text>
+);
+
+const RESET_ZOOM_TOOLTIP = (
+  <Triggers.Text trigger={ZOOM_TRIGGERS.modes.reset[0]} level="small">
+    Reset zoom
+  </Triggers.Text>
+);
+
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 5;
 const ZOOM_STEP = 1.2;
@@ -299,33 +317,21 @@ export const Preview = ({
                 <Button.Button
                   onClick={handleZoomOut}
                   size="small"
-                  tooltip={
-                    <Triggers.Text trigger={ZOOM_TRIGGERS.modes.out[0]} level="small">
-                      Zoom out
-                    </Triggers.Text>
-                  }
+                  tooltip={ZOOM_OUT_TOOLTIP}
                 >
                   <Icon.Subtract />
                 </Button.Button>
                 <Button.Button
                   onClick={handleZoomIn}
                   size="small"
-                  tooltip={
-                    <Triggers.Text trigger={ZOOM_TRIGGERS.modes.in[0]} level="small">
-                      Zoom in
-                    </Triggers.Text>
-                  }
+                  tooltip={ZOOM_IN_TOOLTIP}
                 >
                   <Icon.Add />
                 </Button.Button>
                 <Button.Button
                   onClick={handleResetZoom}
                   size="small"
-                  tooltip={
-                    <Triggers.Text trigger={ZOOM_TRIGGERS.modes.reset[0]} level="small">
-                      Reset zoom
-                    </Triggers.Text>
-                  }
+                  tooltip={RESET_ZOOM_TOOLTIP}
                 >
                   <Icon.Expand />
                 </Button.Button>

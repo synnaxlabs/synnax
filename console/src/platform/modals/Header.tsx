@@ -30,6 +30,8 @@ export interface HeaderProps extends Omit<
  * their own Header so that title and icon stay static presentation owned by the
  * renderer rather than dynamic state on the open-modal entry.
  */
+const CLOSE_TOOLTIP = <Triggers.Text trigger={Triggers.ESCAPE} level="small" />;
+
 export const Header = ({
   icon,
   children,
@@ -65,7 +67,7 @@ export const Header = ({
             size="small"
             variant="text"
             textColor={9}
-            tooltip={<Triggers.Text trigger={Triggers.ESCAPE} level="small" />}
+            tooltip={CLOSE_TOOLTIP}
           >
             <Icon.Close />
           </Button.Button>

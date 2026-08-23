@@ -36,6 +36,13 @@ export interface ListProps
   enableSearch?: boolean;
 }
 
+const SEARCH_PLACEHOLDER = (
+  <>
+    <Icon.Search />
+    Search Arcs...
+  </>
+);
+
 export const List = ({
   data,
   getItem,
@@ -81,12 +88,7 @@ export const List = ({
                 level="h4"
                 variant="text"
                 value={searchTerm}
-                placeholder={
-                  <>
-                    <Icon.Search />
-                    Search Arcs...
-                  </>
-                }
+                placeholder={SEARCH_PLACEHOLDER}
                 onChange={(value) => {
                   setSearchTerm(value);
                   search(value);
