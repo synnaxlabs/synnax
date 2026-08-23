@@ -19,6 +19,7 @@ import { SYNCHRONIZERS } from "@/session/core/synchronizer";
 import { createCore, createCoreState } from "@/session/core/testutil";
 import { Synchronizer } from "@/session/synchronizer";
 import { pickSynchronizer } from "@/session/synchronizer/testutil";
+import { createDriftStateWithWindow } from "@/session/window/testutil";
 import {
   createConnectedConsoleWrapper,
   createConsoleWrapper,
@@ -49,23 +50,7 @@ describe("useCloseOnCoreChange", () => {
   const AUX_LABEL = "aux";
   const AUX_KEY = "aux-key";
 
-  const auxWindow: Drift.WindowState = {
-    key: AUX_KEY,
-    stage: "created",
-    processCount: 0,
-    reserved: true,
-    focusCount: 0,
-    centerCount: 0,
-    ordinal: 2,
-  };
-
-  const auxDriftState = {
-    ...Session.ZERO_STATE.drift,
-    windows: { ...Session.ZERO_STATE.drift.windows, [AUX_LABEL]: auxWindow },
-    labelKeys: { ...Session.ZERO_STATE.drift.labelKeys, [AUX_LABEL]: AUX_KEY },
-    keyLabels: { ...Session.ZERO_STATE.drift.keyLabels, [AUX_KEY]: AUX_LABEL },
-    nextOrdinal: 3,
-  };
+  const auxDriftState = createDriftStateWithWindow(AUX_KEY, AUX_LABEL);
 
   const useSyncWithModals = () => {
     const modals = Session.Modals.useStore("useCloseOnCoreChange spec");

@@ -39,6 +39,37 @@ export const DRIFT_STATE: Drift.StoreState = {
   [Drift.SLICE_NAME]: Drift.ZERO_SLICE_STATE,
 };
 
+/**
+ * Drift state naming the main window and one torn-off window, for specs that open or
+ * close a second window.
+ * @param key - The window's key, which window-keyed slices store their state under.
+ * @param label - The runtime label drift addresses the window by.
+ */
+export const createDriftStateWithWindow = (
+  key: string,
+  label: string,
+): Drift.SliceState => {
+  const zero = Drift.ZERO_SLICE_STATE;
+  return {
+    ...zero,
+    windows: {
+      ...zero.windows,
+      [label]: {
+        key,
+        stage: "created",
+        processCount: 0,
+        reserved: true,
+        focusCount: 0,
+        centerCount: 0,
+        ordinal: 2,
+      },
+    },
+    labelKeys: { ...zero.labelKeys, [label]: key },
+    keyLabels: { ...zero.keyLabels, [key]: label },
+    nextOrdinal: 3,
+  };
+};
+
 export interface SliceStoreParams<Name extends string, S> {
   name: Name;
   reducer: Reducer<S>;

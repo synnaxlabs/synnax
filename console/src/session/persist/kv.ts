@@ -29,6 +29,8 @@ export interface SugaredKV extends kv.Async {
    * bytes did not land.
    */
   setMany(entries: Entry[]): Promise<void>;
+  /** Delete every key as one unit, for the same reason {@link setMany} exists. */
+  deleteMany(keys: string[]): Promise<void>;
   /** Get the number of key-value pairs in the store. */
   length(): Promise<number>;
   /** Every key the store holds, in no particular order. */
@@ -61,8 +63,12 @@ class TauriKV implements SugaredKV {
   }
 
   async delete(key: string): Promise<void> {
+    await this.deleteMany([key]);
+  }
+
+  async deleteMany(keys: string[]): Promise<void> {
     const store = await this.open();
-    await store.delete(key);
+    for (const key of keys) await store.delete(key);
     await store.save();
   }
 
@@ -132,7 +138,19 @@ class IndexedDBKV implements SugaredKV {
   }
 
   async delete(key: string): Promise<void> {
-    await this.run("readwrite", (store) => store.delete(key));
+    await this.deleteMany([key]);
+  }
+
+  async deleteMany(keys: string[]): Promise<void> {
+    const db = await this.open();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(OBJECT_STORE, "readwrite");
+      const store = tx.objectStore(OBJECT_STORE);
+      keys.forEach((key) => store.delete(key));
+      tx.oncomplete = () => resolve();
+      tx.onabort = tx.onerror = () =>
+        reject(new Error(`${this.name} delete failed`, { cause: tx.error }));
+    });
   }
 
   async length(): Promise<number> {
@@ -192,7 +210,11 @@ export class MemoryKV implements SugaredKV {
   }
 
   async delete(key: string): Promise<void> {
-    this.store.delete(key);
+    await this.deleteMany([key]);
+  }
+
+  async deleteMany(keys: string[]): Promise<void> {
+    keys.forEach((key) => this.store.delete(key));
   }
 
   async length(): Promise<number> {

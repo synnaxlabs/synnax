@@ -106,7 +106,8 @@ state. There is no migrator framework: to evolve a shape, widen `sliceStateZ`, b
 Each partition keeps a four-slot ring behind a `.slot` pointer, backing revert. A
 partition whose slices did not change is left alone, so the ring holds sessions rather
 than the last second of writes, and `revertState` steps back only the innermost
-partition holding history. Switching Core or project flushes the outgoing partitions and
+partition holding history. Every partition a tick touches commits in one `setMany`, so
+a tick is one write no matter how many scopes changed. Switching Core or project flushes the outgoing partitions and
 hydrates the target's without a reload. `Persist.purge` deletes a cluster's partitions
 once no Core record names it.
 

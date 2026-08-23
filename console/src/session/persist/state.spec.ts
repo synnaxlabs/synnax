@@ -79,9 +79,26 @@ class FailingKV extends Persist.MemoryKV {
     await super.setMany(entries);
   }
 
-  override async delete(key: string): Promise<void> {
-    if (this.failOn?.test(key) === true) throw new Error("disk full");
-    await super.delete(key);
+  override async deleteMany(keys: string[]): Promise<void> {
+    if (keys.some((key) => this.failOn?.test(key) === true))
+      throw new Error("disk full");
+    await super.deleteMany(keys);
+  }
+}
+
+/** Counts the batched calls production makes, so a spec can assert it writes once. */
+class CountingKV extends Persist.MemoryKV {
+  readonly writes: Persist.Entry[][] = [];
+  readonly deletes: string[][] = [];
+
+  override async setMany(entries: Persist.Entry[]): Promise<void> {
+    this.writes.push(entries);
+    await super.setMany(entries);
+  }
+
+  override async deleteMany(keys: string[]): Promise<void> {
+    this.deletes.push(keys);
+    await super.deleteMany(keys);
   }
 }
 
@@ -246,6 +263,28 @@ describe("Persist.open", () => {
       ).toHaveLength(5);
     });
 
+    it("should write every partition it touches in one batch", async () => {
+      const store = new CountingKV();
+      const driver = await createDriver(store);
+      await enter(driver, CTX);
+      await edit(driver, "16.2.0");
+      store.writes.length = 0;
+      // Leaving a project flushes the Core and project partitions together, so a
+      // batched write commits both in one call.
+      driver.dispatch(
+        { type: "project/select" },
+        {
+          ...driver.getState(),
+          project: { selected: "p2" },
+          work: { value: "16.2.1" },
+        },
+      );
+      await driver.settle();
+      const keys = store.writes[0].map(({ key }) => key);
+      expect(keys.filter((key) => key.startsWith("core.c1."))).toHaveLength(2);
+      expect(keys.filter((key) => key.startsWith("project.c1.p1."))).toHaveLength(2);
+    });
+
     it("should leave a partition alone while its slices hold still", async () => {
       const store = new Persist.MemoryKV();
       const driver = await createDriver(store);
@@ -399,6 +438,7 @@ describe("Persist.open", () => {
         set: fail,
         setMany: fail,
         delete: fail,
+        deleteMany: fail,
         length: fail,
         keys: fail,
         clear: fail,
@@ -517,6 +557,16 @@ describe("Persist.middleware", () => {
     );
     // The Core the global partition names outlives the state stored under it.
     expect(await store.get("global.0")).toEqual({ core: { selected: "c1" } });
+  });
+
+  it("should delete a purged Core's keys in one batch", async () => {
+    const store = new CountingKV();
+    const driver = await createDriver(store);
+    await enter(driver, CTX);
+    await edit(driver, "16.2.0");
+    driver.dispatch(Persist.purge("c1"));
+    await vi.waitFor(() => expect(store.deletes).toHaveLength(1));
+    expect(store.deletes[0].length).toBeGreaterThan(1);
   });
 
   it("should purge behind the swap that leaves the purged Core", async () => {
@@ -694,6 +744,7 @@ describe("Persist.middleware", () => {
       set: async (key, value) => await store.set(key, value),
       setMany: async (entries) => await store.setMany(entries),
       delete: async (key) => await store.delete(key),
+      deleteMany: async (keys) => await store.deleteMany(keys),
       length: async () => await store.length(),
       keys: async () => await store.keys(),
       clear: async () => await store.clear(),

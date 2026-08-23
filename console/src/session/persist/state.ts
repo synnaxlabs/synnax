@@ -22,7 +22,7 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { openSugaredKV, type SugaredKV } from "@/session/persist/kv";
+import { type Entry, openSugaredKV, type SugaredKV } from "@/session/persist/kv";
 import { Runtime } from "@/session/runtime";
 
 // On desktop this names session.json inside the tauri local app data directory: on
@@ -189,6 +189,7 @@ class Partition<S extends object> {
   private readonly schemas: SliceSchemas<S>;
   /** The slices last known to be in the ring, so an idle partition is left alone. */
   private committed: Partial<S> | null = null;
+  private staged: Partial<S> | null = null;
 
   constructor(db: SugaredKV, base: string, schemas: SliceSchemas<S>) {
     this.db = db;
@@ -221,31 +222,33 @@ class Partition<S extends object> {
   }
 
   /**
-   * Write the state's slices into the next ring slot and advance the pointer onto it,
-   * as one unit. A partition whose slices match the ones already committed is left
-   * alone, so the ring holds sessions the user can revert to rather than the last
-   * second of writes.
-   * @throws {Error} if the store rejects the write.
+   * The entries that put the state's slices in the next ring slot and move the pointer
+   * onto it. The caller writes them, then calls {@link commit}.
+   * @returns null when the slices match the ones already committed, so an idle
+   * partition is left alone and the ring holds sessions rather than the last second of
+   * writes.
+   * @throws {Error} if the store refuses the pointer read.
    */
-  async write(state: S): Promise<void> {
+  async stage(state: S): Promise<Entry[] | null> {
     const data: Partial<S> = {};
     this.keys().forEach((key) => {
       data[key] = state[key];
     });
-    if (this.committed != null && deep.equal(this.committed, data)) return;
+    if (this.committed != null && deep.equal(this.committed, data)) return null;
     const stored = await this.readSlot();
     const slot = stored == null ? 0 : nextSlot(stored);
-    try {
-      await this.db.setMany([
-        { key: this.stateKey(slot), value: data },
-        { key: this.slotKey(), value: { slot } },
-      ]);
-    } catch (err) {
-      throw new Error(`failed to write partition ${this.base} at slot ${slot}`, {
-        cause: err,
-      });
-    }
-    this.committed = data;
+    this.staged = data;
+    return [
+      { key: this.stateKey(slot), value: data },
+      { key: this.slotKey(), value: { slot } },
+    ];
+  }
+
+  /** Marks what {@link stage} returned as the slices now in the ring. */
+  commit(): void {
+    if (this.staged == null) return;
+    this.committed = this.staged;
+    this.staged = null;
   }
 
   /**
@@ -339,12 +342,26 @@ class Engine<S extends object> {
     this.context = getContext(this.initialState);
   }
 
-  /** Persist the state's partitions under the given context's keys. */
+  /**
+   * Persist the state's partitions under the given context's keys, as one write. Every
+   * partition the context reaches commits together, so a reader never sees one scope
+   * of a session without the others.
+   * @throws {Error} if the store rejects the write.
+   */
   async persist(rawState: S, context: Context): Promise<void> {
     let state = deep.copy(rawState);
     this.exclude.forEach((exclude) => (state = exclude(state)));
-    for (const partition of this.activePartitions(context))
-      await partition.write(state);
+    const partitions = this.activePartitions(context);
+    const entries: Entry[] = [];
+    for (const partition of partitions)
+      entries.push(...((await partition.stage(state)) ?? []));
+    if (entries.length === 0) return;
+    try {
+      await this.db.setMany(entries);
+    } catch (err) {
+      throw new Error("failed to write the session state", { cause: err });
+    }
+    partitions.forEach((partition) => partition.commit());
   }
 
   /**
@@ -401,7 +418,7 @@ class Engine<S extends object> {
     const stale = (await this.db.keys()).filter((key) =>
       owned(key.slice(0, key.lastIndexOf("."))),
     );
-    for (const key of stale) await this.db.delete(key);
+    await this.db.deleteMany(stale);
     for (const base of this.partitions.keys())
       if (owned(base)) this.partitions.delete(base);
   }
