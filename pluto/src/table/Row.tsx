@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { table } from "@synnaxlabs/client";
-import { box, deep, dimensions, type record, xy } from "@synnaxlabs/x";
+import { type border, box, deep, dimensions, type record, xy } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback, useMemo } from "react";
 
 import { CSS } from "@/css";
@@ -29,6 +29,8 @@ export interface RowProps {
   cells: string[];
   columns: number[];
   editable: boolean;
+  /** True when this is the table's bottom row. */
+  last: boolean;
   showIndicator?: boolean;
   onResize: (size: number, index: number) => void;
   onSelect: (index: number, ev: React.MouseEvent) => void;
@@ -45,12 +47,32 @@ export const Row = memo(
     cells,
     columns,
     editable,
+    last,
     showIndicator = true,
     onResize,
     onSelect,
     onCellSelect,
   }: RowProps): ReactElement => {
     let xCursor = x;
+    const theme = Theming.use();
+    // CSS rounds the table's outer corners on the corner <td>, but a cell that paints
+    // its background on the canvas squares them off unless it knows the radius. The
+    // indicators occupy the first row and column when shown, so a data cell only
+    // reaches the top and left edges without them.
+    const borderRadii = useMemo(() => {
+      const r = theme.sizes.border.radius.small * theme.sizes.base;
+      const top = index === 0 && !showIndicator;
+      return cells.map((_, i): border.CrudeRadius => {
+        const left = i === 0 && !showIndicator;
+        const right = i === cells.length - 1;
+        return {
+          topLeft: top && left ? r : 0,
+          topRight: top && right ? r : 0,
+          bottomRight: last && right ? r : 0,
+          bottomLeft: last && left ? r : 0,
+        };
+      });
+    }, [cells, index, last, showIndicator, theme]);
     return (
       <tr className={CSS.cls(CSS.BE("table", "row"))}>
         {showIndicator && (
@@ -75,6 +97,7 @@ export const Row = memo(
               y={y}
               width={columns[i]}
               height={size}
+              borderRadius={borderRadii[i]}
               editable={editable}
               onSelect={onCellSelect}
             />
@@ -93,6 +116,7 @@ interface VariantCellProps {
   y: number;
   width: number;
   height: number;
+  borderRadius: border.CrudeRadius;
   editable: boolean;
   onSelect: (cellKey: string, ev: MouseEvent) => void;
 }
@@ -113,6 +137,7 @@ const VariantCell = memo(
     y,
     width,
     height,
+    borderRadius,
     editable,
     onSelect,
   }: VariantCellProps): ReactElement | null => {
@@ -149,6 +174,7 @@ const VariantCell = memo(
       <Spec.Cell
         cellKey={cellKey}
         box={b}
+        borderRadius={borderRadius}
         selected={selected}
         editable={editable}
         onSelect={onSelect}

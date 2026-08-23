@@ -21,6 +21,7 @@ import { INDICATOR_SIZE } from "@/table/Indicator";
 import { telemTest } from "@/telem/aether/test";
 import { mockBoundingClientRect } from "@/testutil/dom";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { Theming } from "@/theming";
 import { canvasTest } from "@/vis/render/test";
 import { Value } from "@/vis/value";
 import { value } from "@/vis/value/aether";
@@ -38,6 +39,9 @@ const expectedOffset = (contentWidth: number, contentHeight: number) => ({
 });
 
 const RECT = mockBoundingClientRect(0, 0, SURFACE_WIDTH, SURFACE_HEIGHT)();
+
+const THEME = Theming.themeZ.parse(Theming.SYNNAX_THEMES.synnaxLight);
+const RADIUS = THEME.sizes.border.radius.small * THEME.sizes.base;
 
 // Single-hook bootstrap so the suspending useEnsure is not followed by other
 // hooks, which trips a React 19 concurrent replay warning (same pattern as
@@ -164,13 +168,15 @@ describe("Table", () => {
     request.render();
   };
 
-  // The value cell clips its canvas draw to its own box, so the latest scissor
-  // call on the upper2d canvas carries the box the cell last drew at.
-  const lastCellBox = (): box.Box => {
+  const lastScissor = (): canvasTest.Call => {
     const scissor = recorder.upper2d.calls.findLast((c) => c.op === "scissor");
     if (scissor == null) throw new Error("no cell draw was recorded");
-    return scissor.args[0] as box.Box;
+    return scissor;
   };
+
+  // The value cell clips its canvas draw to its own box, so the latest scissor
+  // call on the upper2d canvas carries the box the cell last drew at.
+  const lastCellBox = (): box.Box => lastScissor().args[0] as box.Box;
 
   const expectPlacement = async (
     frame: () => HTMLElement,
@@ -275,6 +281,23 @@ describe("Table", () => {
       await expectDrawnAt(ORIGIN);
       scrollTo(scroller, { x: 10, y: 20 });
       await expectDrawnAt({ x: ORIGIN.x - 10, y: ORIGIN.y - 20 });
+    });
+  });
+
+  describe("corner radius", () => {
+    // CSS rounds the table's bottom-right <td>, so the cell's canvas background
+    // has to clip to the same radius or it fills the corner square.
+    it("rounds the bottom-right cell's clip region", async () => {
+      renderTable(false);
+      await waitFor(() => {
+        pumpRender();
+        expect(lastScissor().args[2]).toEqual({
+          topLeft: 0,
+          topRight: 0,
+          bottomRight: RADIUS,
+          bottomLeft: 0,
+        });
+      });
     });
   });
 
