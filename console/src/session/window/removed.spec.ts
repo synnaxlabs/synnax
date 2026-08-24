@@ -17,8 +17,20 @@ import { createTestStore, type TestStore } from "@/testutil";
 const AUX_KEY = "aux-key";
 const AUX_LABEL = "aux";
 const PANEL_KEY = "panel-1";
+const DOC_KEY = "doc-1";
 
-/** A store whose second window holds nav and panel state of its own. */
+/** The window-keyed slices, every one of which must drop a removed window's entry. */
+const SLICES = [
+  Session.Arc.SLICE_NAME,
+  Session.LinePlot.SLICE_NAME,
+  Session.Log.SLICE_NAME,
+  Session.Nav.SLICE_NAME,
+  Session.Panel.SLICE_NAME,
+  Session.Schematic.SLICE_NAME,
+  Session.Table.SLICE_NAME,
+] as const;
+
+/** A store whose second window holds state of its own in every window-keyed slice. */
 const createStore = async (): Promise<TestStore> => {
   const store = await createTestStore({
     preloadedState: { drift: createDriftStateWithWindow(AUX_KEY, AUX_LABEL) },
@@ -26,28 +38,30 @@ const createStore = async (): Promise<TestStore> => {
   [MAIN_WINDOW, AUX_KEY].forEach((windowKey) => {
     store.dispatch(Session.Nav.showBottom({ windowKey }));
     store.dispatch(Session.Panel.select({ key: PANEL_KEY, windowKey }));
+    store.dispatch(Session.Arc.create({ key: DOC_KEY, windowKey }));
+    store.dispatch(Session.LinePlot.create({ key: DOC_KEY, windowKey }));
+    store.dispatch(Session.Log.create({ key: DOC_KEY, windowKey }));
+    store.dispatch(Session.Schematic.create({ key: DOC_KEY, windowKey }));
+    store.dispatch(Session.Table.create({ key: DOC_KEY, windowKey }));
   });
   return store;
 };
 
-const windowKeys = (store: TestStore): { nav: string[]; panels: string[] } => {
-  const state = store.getState();
-  return {
-    nav: Object.keys(state.nav.windows),
-    panels: Object.keys(state.panels.windows),
-  };
-};
+const windowKeys = (store: TestStore, slice: (typeof SLICES)[number]): string[] =>
+  Object.keys(store.getState()[slice].windows);
 
 describe("Window.removalMiddleware", () => {
-  it("should drop the closed window's nav and panel state", async () => {
+  it("should drop the closed window's state from every window-keyed slice", async () => {
     const store = await createStore();
-    expect(windowKeys(store).nav).toContain(AUX_KEY);
-    expect(windowKeys(store).panels).toContain(AUX_KEY);
+    SLICES.forEach((slice) =>
+      expect(windowKeys(store, slice), slice).toContain(AUX_KEY),
+    );
     store.dispatch(Drift.closeWindow({ key: AUX_KEY }));
     // Window keys are minted fresh per open, so an entry left behind here is one the
     // session carries forever.
-    expect(windowKeys(store).nav).not.toContain(AUX_KEY);
-    expect(windowKeys(store).panels).not.toContain(AUX_KEY);
+    SLICES.forEach((slice) =>
+      expect(windowKeys(store, slice), slice).not.toContain(AUX_KEY),
+    );
   });
 
   // Drift keeps a window with a process registered open, so a close it defers must
@@ -57,8 +71,9 @@ describe("Window.removalMiddleware", () => {
     store.dispatch(Drift.registerProcess({ key: AUX_KEY }));
     store.dispatch(Drift.closeWindow({ key: AUX_KEY }));
     expect(Drift.selectWindow(store.getState(), AUX_KEY)).not.toBeNull();
-    expect(windowKeys(store).nav).toContain(AUX_KEY);
-    expect(windowKeys(store).panels).toContain(AUX_KEY);
+    SLICES.forEach((slice) =>
+      expect(windowKeys(store, slice), slice).toContain(AUX_KEY),
+    );
   });
 
   it("should drop the state once the deferred close lands", async () => {
@@ -67,15 +82,27 @@ describe("Window.removalMiddleware", () => {
     store.dispatch(Drift.closeWindow({ key: AUX_KEY }));
     store.dispatch(Drift.completeProcess({ key: AUX_KEY }));
     expect(Drift.selectWindow(store.getState(), AUX_KEY)).toBeNull();
-    expect(windowKeys(store).nav).not.toContain(AUX_KEY);
-    expect(windowKeys(store).panels).not.toContain(AUX_KEY);
+    SLICES.forEach((slice) =>
+      expect(windowKeys(store, slice), slice).not.toContain(AUX_KEY),
+    );
+  });
+
+  // Main's key is the one key that recurs across launches, so quitting the app must
+  // not take its state with it.
+  it("should keep the main window's state when the main window closes", async () => {
+    const store = await createStore();
+    store.dispatch(Drift.closeWindow({ key: MAIN_WINDOW }));
+    SLICES.forEach((slice) =>
+      expect(windowKeys(store, slice), slice).toContain(MAIN_WINDOW),
+    );
   });
 
   it("should leave the windows still open untouched", async () => {
     const store = await createStore();
     store.dispatch(Drift.closeWindow({ key: AUX_KEY }));
-    expect(windowKeys(store).nav).toEqual([MAIN_WINDOW]);
-    expect(windowKeys(store).panels).toEqual([MAIN_WINDOW]);
+    SLICES.forEach((slice) =>
+      expect(windowKeys(store, slice), slice).toEqual([MAIN_WINDOW]),
+    );
     expect(store.getState().panels.windows[MAIN_WINDOW].selected).toBe(PANEL_KEY);
   });
 });

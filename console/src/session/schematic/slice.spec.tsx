@@ -32,6 +32,7 @@ const storeWith = (slice: Schematic.SliceState) =>
   });
 
 const KEY = "schematic-1";
+const AUX_WINDOW = "aux-window";
 
 describe("Schematic Slice", () => {
   let store: ReturnType<typeof storeWith>;
@@ -54,6 +55,19 @@ describe("Schematic Slice", () => {
 
   const schematics = () =>
     store.getState()[Schematic.SLICE_NAME].windows[MAIN_WINDOW] ?? {};
+
+  // A window is a viewport: an edit in one window must not reach another window's
+  // view of the same document.
+  it("should keep each window's view of a document independent", () => {
+    store.dispatch(Schematic.create({ key: KEY }));
+    store.dispatch(Schematic.create({ key: KEY, windowKey: AUX_WINDOW }));
+    store.dispatch(
+      Schematic.setEditable({ key: KEY, editable: false, windowKey: AUX_WINDOW }),
+    );
+    const slice = store.getState()[Schematic.SLICE_NAME];
+    expect(documentIn(slice, KEY, AUX_WINDOW)?.editable).toBe(false);
+    expect(documentIn(slice, KEY)?.editable).toBe(true);
+  });
 
   describe("create", () => {
     it("should bootstrap session state from ZERO_STATE for the key", () => {

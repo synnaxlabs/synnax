@@ -75,16 +75,26 @@ const useDelete = () => {
 const usePersist = () => {
   const dispatch = Session.useDispatch();
   const ranges = Range.useResolveMultiple();
-  const { update } = Ranger.useCreate();
+  const { update } = Ranger.useCreate({
+    beforeUpdate: useCallback(
+      ({ data, rollbacks }: Flux.BeforeUpdateParams<ranger.New>) => {
+        const range = ranges.find((r) => r.key === data.key);
+        if (range?.variant !== "static") return true;
+        dispatch(Session.Range.add({ variant: "persisted", key: range.key }));
+        rollbacks.push(() => dispatch(Session.Range.add(range)));
+        return true;
+      },
+      [dispatch, ranges],
+    ),
+  });
   return useCallback(
     (key: string) => {
       const range = ranges.find((r) => r.key === key);
       if (range?.variant !== "static") return;
       const { name, timeRange } = range;
-      dispatch(Session.Range.add({ variant: "persisted", key: range.key }));
       update({ key: range.key, name, timeRange });
     },
-    [dispatch, ranges, update],
+    [ranges, update],
   );
 };
 

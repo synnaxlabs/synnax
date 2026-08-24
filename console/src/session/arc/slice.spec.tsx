@@ -14,7 +14,7 @@ import { Provider } from "react-redux";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { Arc } from "@/session/arc";
-import { createSliceStore } from "@/session/window/testutil";
+import { createSliceStore, documentIn } from "@/session/window/testutil";
 
 const storeWith = (slice: Arc.SliceState) =>
   createSliceStore({
@@ -25,6 +25,7 @@ const storeWith = (slice: Arc.SliceState) =>
   });
 
 const KEY = "arc-1";
+const AUX_WINDOW = "aux-window";
 
 const wrapperFor = (
   store: ReturnType<typeof storeWith>,
@@ -48,6 +49,19 @@ describe("Arc Slice", () => {
 
   const renderGetter = <G,>(useGetter: () => G, key: string = KEY): G =>
     renderHook(() => useGetter(), { wrapper: wrapperFor(store, key) }).result.current;
+
+  // A window is a viewport: an edit in one window must not reach another window's
+  // view of the same document.
+  it("should keep each window's view of a document independent", () => {
+    store.dispatch(Arc.create({ key: KEY }));
+    store.dispatch(Arc.create({ key: KEY, windowKey: AUX_WINDOW }));
+    store.dispatch(
+      Arc.setEditable({ key: KEY, editable: false, windowKey: AUX_WINDOW }),
+    );
+    const slice = store.getState()[Arc.SLICE_NAME];
+    expect(documentIn(slice, KEY, AUX_WINDOW)?.graph.editable).toBe(false);
+    expect(documentIn(slice, KEY)?.graph.editable).toBe(true);
+  });
 
   describe("create", () => {
     it("should bootstrap session state from ZERO_STATE for the key", () => {

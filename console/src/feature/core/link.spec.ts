@@ -47,11 +47,11 @@ const instantPoll = (maxRetries = 1_000) =>
     sleepFn: async () => {},
   });
 
-describe("connectToCore", () => {
+describe("connect", () => {
   it("should throw if no Core reaches the cluster", async () => {
     const setActive = vi.fn();
     await expect(
-      Core.connectToCore("missing", {
+      Core.connect("missing", {
         getState: () => createState([], null),
         getClient: sequence(null),
         setActive,
@@ -79,7 +79,7 @@ describe("connectToCore", () => {
         },
       },
     };
-    const result = await Core.connectToCore("cluster-b", {
+    const result = await Core.connect("cluster-b", {
       getState: () => state,
       getClient: sequence(prior, prior, next),
       setActive,
@@ -92,7 +92,7 @@ describe("connectToCore", () => {
   it("should return the managed client when already active", async () => {
     const setActive = vi.fn();
     const active = createTestClient();
-    const result = await Core.connectToCore("a", {
+    const result = await Core.connect("a", {
       getState: () => createState(["a"], "a"),
       getClient: sequence(active),
       setActive,
@@ -106,7 +106,7 @@ describe("connectToCore", () => {
     const setActive = vi.fn();
     const prior = createTestClient();
     const next = createTestClient();
-    const result = await Core.connectToCore("b", {
+    const result = await Core.connect("b", {
       getState: () => createState(["a", "b"], "a"),
       getClient: sequence(prior, prior, next),
       setActive,
@@ -122,7 +122,7 @@ describe("connectToCore", () => {
       retry: { baseInterval: TimeSpan.milliseconds(5), scale: 1, maxRetries: 1 },
     });
     await expect(
-      Core.connectToCore("a", {
+      Core.connect("a", {
         getState: () => createState(["a"], "a"),
         getClient: sequence(dead),
         setActive: vi.fn(),
@@ -134,7 +134,7 @@ describe("connectToCore", () => {
   it("should throw when the provider never swaps clients", async () => {
     const prior = createTestClient();
     await expect(
-      Core.connectToCore("b", {
+      Core.connect("b", {
         getState: () => createState(["a", "b"], "a"),
         getClient: sequence(prior),
         setActive: vi.fn(),

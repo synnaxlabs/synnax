@@ -14,7 +14,7 @@ import { Provider } from "react-redux";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { LinePlot } from "@/session/lineplot";
-import { createSliceStore } from "@/session/window/testutil";
+import { createSliceStore, documentIn } from "@/session/window/testutil";
 
 const storeWith = (slice: LinePlot.SliceState) =>
   createSliceStore({
@@ -25,6 +25,7 @@ const storeWith = (slice: LinePlot.SliceState) =>
   });
 
 const KEY = "plot-1";
+const AUX_WINDOW = "aux-window";
 
 const wrapperFor = (
   store: ReturnType<typeof storeWith>,
@@ -54,6 +55,19 @@ describe("LinePlot Slice", () => {
 
   beforeEach(() => {
     store = storeWith(LinePlot.ZERO_SLICE_STATE);
+  });
+
+  // A window is a viewport: an edit in one window must not reach another window's
+  // view of the same document.
+  it("should keep each window's view of a document independent", () => {
+    store.dispatch(LinePlot.create({ key: KEY }));
+    store.dispatch(LinePlot.create({ key: KEY, windowKey: AUX_WINDOW }));
+    store.dispatch(
+      LinePlot.setActiveToolbarTab({ key: KEY, tab: "axes", windowKey: AUX_WINDOW }),
+    );
+    const slice = store.getState()[LinePlot.SLICE_NAME];
+    expect(documentIn(slice, KEY, AUX_WINDOW)?.toolbar.activeTab).toBe("axes");
+    expect(documentIn(slice, KEY)?.toolbar.activeTab).toBe("data");
   });
 
   describe("create", () => {

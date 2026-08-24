@@ -15,7 +15,7 @@ import {
   type Store as BaseStore,
   Tuple,
 } from "@reduxjs/toolkit";
-import { Drift } from "@synnaxlabs/drift";
+import { Drift, MAIN_WINDOW } from "@synnaxlabs/drift";
 import { useDispatch as baseUseDispatch, useStore as baseUseStore } from "react-redux";
 
 import { Arc } from "@/session/arc";
@@ -79,9 +79,12 @@ const PERSIST_SCOPES: Persist.Scopes<State> = {
 };
 
 // Drift keys its windows by label; the key each label maps to is what the window-keyed
-// slices store their state under.
-const getWindows = (state: State): string[] =>
-  Object.values(state[Drift.SLICE_NAME].labelKeys);
+// slices store their state under. Main is always listed: its key recurs across
+// launches, so its partition must outlive the close that ends a session.
+const getWindows = (state: State): string[] => {
+  const keys = Object.values(state[Drift.SLICE_NAME].labelKeys);
+  return keys.includes(MAIN_WINDOW) ? keys : [MAIN_WINDOW, ...keys];
+};
 
 // A Core's state is partitioned by the cluster it connects to, not by the record the
 // user picked: two records aimed at one cluster share a partition, and a Core that has

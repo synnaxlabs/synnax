@@ -165,7 +165,16 @@ class IndexedDBKV implements SugaredKV {
   }
 
   async clear(): Promise<void> {
-    await this.run("readwrite", (store) => store.clear());
+    const db = await this.open();
+    // Resolves on commit, not request success: the callers reload the page right
+    // after, and navigation aborts a transaction that has not committed yet.
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(OBJECT_STORE, "readwrite");
+      tx.objectStore(OBJECT_STORE).clear();
+      tx.oncomplete = () => resolve();
+      tx.onabort = tx.onerror = () =>
+        reject(new Error(`${this.name} clear failed`, { cause: tx.error }));
+    });
   }
 
   private open(): Promise<IDBDatabase> {

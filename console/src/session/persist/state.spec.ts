@@ -247,6 +247,39 @@ describe("Persist.open", () => {
       expect(initialState).toEqual(ZERO_MOCK_STATE);
     });
 
+    it("should apply the migrated slices to an empty store", async () => {
+      const { initialState } = await openPersist(new Persist.MemoryKV(), {
+        migrate: async () => ({ work: { value: "0.56.0" } }),
+      });
+      expect(initialState?.work.value).toBe("0.56.0");
+    });
+
+    it("should not consult the migration once the store holds a session", async () => {
+      const store = new Persist.MemoryKV();
+      const driver = await createDriver(store);
+      await enter(driver, CTX);
+      await edit(driver, "16.2.0");
+      const migrate = vi.fn(async () => ({ work: { value: "0.56.0" } }));
+      const { initialState } = await openPersist(store, { migrate });
+      expect(migrate).not.toHaveBeenCalled();
+      expect(initialState?.work.value).toBe("16.2.0");
+    });
+
+    it("should still open when the migration throws", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const { initialState } = await openPersist(new Persist.MemoryKV(), {
+        migrate: async () => {
+          throw new Error("unreadable legacy store");
+        },
+      });
+      expect(initialState).toEqual(ZERO_MOCK_STATE);
+      expect(errorSpy).toHaveBeenCalledWith(
+        "failed to carry the previous release's state over",
+        expect.anything(),
+      );
+      errorSpy.mockRestore();
+    });
+
     it("should compose the global, selected Core, and active project partitions", async () => {
       const store = new Persist.MemoryKV();
       const driver = await createDriver(store);
@@ -333,6 +366,34 @@ describe("Persist.open", () => {
         ),
       );
       expect(await store.keys()).toContain(`window.c1.p1.${WINDOW}.slot`);
+    });
+
+    it("should leave a window with no entry in a slice alone across sessions", async () => {
+      const store = new CountingKV();
+      const driver = await createDriver(store);
+      await enter(driver, CTX);
+      // The window list comes from drift, not from the slice, so a window that never
+      // touched the view slice still gets a partition staged and written.
+      driver.dispatch(
+        { type: "window/open" },
+        { ...driver.getState(), windows: [WINDOW] },
+      );
+      await vi.waitFor(async () =>
+        expect(await store.keys()).toContain(`window.c1.p1.${WINDOW}.slot`),
+      );
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const sessionOneWrites = store.writes.length;
+      const driver2 = await createDriver(store);
+      await edit(driver2, "16.3.0");
+      // The reread bytes must compose back to what re-staging narrows, or every
+      // launch rewrites the partition and burns a revert slot.
+      const rewrites = store.writes
+        .slice(sessionOneWrites)
+        .flat()
+        .filter(({ key }) => key.startsWith("window."));
+      expect(rewrites).toHaveLength(0);
+      expect(errorSpy).not.toHaveBeenCalled();
+      errorSpy.mockRestore();
     });
 
     it("should bound a partition to four slots", async () => {
@@ -696,6 +757,22 @@ describe("Persist.middleware", () => {
     errorSpy.mockRestore();
   });
 
+  it("should announce the store unavailable when a mid-session write fails", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const store = new FailingKV();
+    const driver = await createDriver(store);
+    await enter(driver, CTX);
+    store.failOn = /./;
+    driver.dispatch(
+      { type: "work/edit" },
+      { ...driver.getState(), work: { value: "doomed" } },
+    );
+    await vi.waitFor(() =>
+      expect(driver.dispatched).toHaveBeenCalledWith(Persist.storeUnavailable()),
+    );
+    errorSpy.mockRestore();
+  });
+
   // The revert and clear branches reload the window, which jsdom cannot perform; the
   // production code swallows that failure via .catch, so we suppress the expected log.
   it("should revert the innermost partition one version on a revertState action", async () => {
@@ -740,6 +817,23 @@ describe("Persist.middleware", () => {
     errorSpy.mockRestore();
   });
 
+  it("should revert the window partition before the project partition", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const store = new Persist.MemoryKV();
+    const driver = await createDriver(store);
+    await enter(driver, CTX);
+    await edit(driver, "16.2.0");
+    await editView(driver, WINDOW, "one");
+    await edit(driver, "16.2.1");
+    await editView(driver, WINDOW, "two");
+    driver.dispatch(Persist.revertState());
+    // Only the innermost partition steps back: the window's view reverts while the
+    // project's work stays put.
+    await driver.flushed((state) => state?.view.windows[WINDOW]?.value === "one");
+    expect((await driver.composed())?.work.value).toBe("16.2.1");
+    errorSpy.mockRestore();
+  });
+
   it("should clear the entire store on a clearState action", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const store = new Persist.MemoryKV();
@@ -766,6 +860,34 @@ describe("Persist.middleware", () => {
         view: ZERO_MOCK_STATE.view,
       }),
     );
+  });
+
+  it("should end the swap when loading the target context fails", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const store = new Persist.MemoryKV();
+    const failing: Persist.SugaredKV = {
+      get: async <V>(key: string): Promise<V | null> => {
+        if (key.startsWith("core.c2.")) throw new Error("read failed");
+        return await store.get<V>(key);
+      },
+      set: async (key, value) => await store.set(key, value),
+      setMany: async (entries) => await store.setMany(entries),
+      delete: async (key) => await store.delete(key),
+      deleteMany: async (keys) => await store.deleteMany(keys),
+      length: async () => await store.length(),
+      keys: async () => await store.keys(),
+      clear: async () => await store.clear(),
+    };
+    const driver = await createDriver(store, { openKV: () => failing });
+    await enter(driver, CTX);
+    driver.dispatch(
+      { type: "Core/select" },
+      { ...driver.getState(), core: { selected: "c2" }, project: {} },
+    );
+    await vi.waitFor(() =>
+      expect(driver.dispatched).toHaveBeenCalledWith(Persist.endSwap()),
+    );
+    errorSpy.mockRestore();
   });
 
   it("should mark the swap window with beginSwap before hydrate", async () => {
@@ -876,17 +998,62 @@ describe("Persist.middleware", () => {
       { type: "Core/select" },
       { ...driver.getState(), core: { selected: "c2" }, project: {} },
     );
+    releaseStale?.();
+    // The released read is the stale swap's last async hop, so once it lands the
+    // swap has fully resolved. Its hydrate would clobber the newer Core's slices.
+    await vi.waitFor(() => expect(gateDone).toHaveBeenCalled());
     await driver.settle();
     const hydrates = (): number =>
       driver.dispatched.mock.calls.filter(
         ([action]) => (action as { type: string }).type === Persist.hydrate.type,
       ).length;
     expect(hydrates()).toBe(1);
-    releaseStale?.();
-    // The released read is the stale swap's last async hop, so once it lands the swap
-    // has fully resolved. Its hydrate would clobber the newer Core's slices.
-    await vi.waitFor(() => expect(gateDone).toHaveBeenCalled());
-    expect(hydrates()).toBe(1);
+  });
+
+  it("should queue a swap's flush behind a write already in flight", async () => {
+    const store = new Persist.MemoryKV();
+    let armed = false;
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const gateHit = vi.fn();
+    let release: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const gated: Persist.SugaredKV = {
+      get: async <V>(key: string): Promise<V | null> => await store.get<V>(key),
+      set: async (key, value) => await store.set(key, value),
+      setMany: async (entries) => {
+        if (!armed) return await store.setMany(entries);
+        inFlight++;
+        maxInFlight = Math.max(maxInFlight, inFlight);
+        gateHit();
+        await gate;
+        await store.setMany(entries);
+        inFlight--;
+      },
+      delete: async (key) => await store.delete(key),
+      deleteMany: async (keys) => await store.deleteMany(keys),
+      length: async () => await store.length(),
+      keys: async () => await store.keys(),
+      clear: async () => await store.clear(),
+    };
+    const driver = await createDriver(store, { openKV: () => gated });
+    await enter(driver, CTX);
+    armed = true;
+    driver.dispatch(
+      { type: "work/edit" },
+      { ...driver.getState(), work: { value: "mid-flight" } },
+    );
+    await vi.waitFor(() => expect(gateHit).toHaveBeenCalled());
+    driver.dispatch(
+      { type: "Core/select" },
+      { ...driver.getState(), core: { selected: "c2" }, project: {} },
+    );
+    // A concurrent flush would reach the store within this window; a queued one
+    // cannot move until the gate opens.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    release?.();
+    await driver.settle();
+    expect(maxInFlight).toBe(1);
   });
 
   it("should coalesce rapid dispatches into a single persist when debounced", async () => {

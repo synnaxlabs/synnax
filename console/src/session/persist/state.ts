@@ -659,11 +659,17 @@ const createMiddleware = <S extends object>(
   // write queued mid-swap lands under the context it hydrated into.
   let queue: Promise<unknown> = Promise.resolve();
   return (store) => {
-    if (engine.unreadable) store.dispatch(storeUnavailable());
+    // Redux forbids dispatching while middleware is constructed, so an engine that
+    // could not open its storage announces it on the first action instead.
+    let announced = !engine.unreadable;
     const debouncedPersist = debounce.debounce(() => {
+      // Captured when the write is queued: a swap may retarget `current` before the
+      // queue reaches this write, and it must land under the session it belongs to.
+      const state = store.getState() as S;
+      const context = current;
       queue = queue.then(async () => {
         try {
-          await engine.persist(store.getState() as S, current);
+          await engine.persist(state, context);
         } catch (e) {
           console.error("failed to persist state", e);
           store.dispatch(storeUnavailable());
@@ -672,6 +678,10 @@ const createMiddleware = <S extends object>(
     }, debounceInterval);
     return (next) => (action) => {
       const result = next(action);
+      if (!announced) {
+        announced = true;
+        store.dispatch(storeUnavailable());
+      }
       const type = (action as Action | undefined)?.type;
       const state = store.getState() as S;
       if (type === revertState.type)
@@ -706,9 +716,9 @@ const createMiddleware = <S extends object>(
           current = ctx;
           const gen = ++swapGen;
           store.dispatch(beginSwap());
-          queue = engine
-            .persist(state, old)
+          queue = queue
             .then(async () => {
+              await engine.persist(state, old);
               if (gen !== swapGen) return;
               const loaded = await engine.loadSwap(state, ctx, includeCore);
               if (gen !== swapGen) return;

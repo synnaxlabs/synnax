@@ -115,6 +115,36 @@ describe("openSugaredKV (IndexedDBKV)", () => {
     await expect(other.length()).resolves.toBe(1);
   });
 
+  it("should not resolve clear before its transaction commits", async () => {
+    const kv = Persist.openSugaredKV("base");
+    await kv.set("key", "value");
+    // Both callers of clear reload the page as soon as it resolves, and navigation
+    // aborts an uncommitted transaction, so resolving early loses the clear.
+    let committed = false;
+    // The capture is re-bound through .call, so the unbound-method hazard does not
+    // apply.
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    const original = IDBDatabase.prototype.transaction;
+    const spy = vi
+      .spyOn(IDBDatabase.prototype, "transaction")
+      .mockImplementation(function (
+        this: IDBDatabase,
+        name: string | Iterable<string>,
+        mode?: IDBTransactionMode,
+      ) {
+        const tx = original.call(this, name, mode);
+        if (mode === "readwrite")
+          tx.addEventListener("complete", () => (committed = true));
+        return tx;
+      });
+    try {
+      await kv.clear();
+      expect(committed).toBe(true);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it("should ask the engine to keep the database", async () => {
     // jsdom ships no Storage Manager, so the standard API is supplied here.
     const persist = vi.fn(async () => true);

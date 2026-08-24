@@ -25,6 +25,7 @@ const storeWith = (slice: Table.SliceState) =>
   });
 
 const KEY = "table-1";
+const AUX_WINDOW = "aux-window";
 
 const wrapperFor = (
   store: ReturnType<typeof storeWith>,
@@ -57,6 +58,19 @@ describe("Table Slice", () => {
 
   const exists = (key: string = KEY): boolean =>
     documentIn(Table.selectSliceState(store.getState()), key) != null;
+
+  // A window is a viewport: an edit in one window must not reach another window's
+  // view of the same document.
+  it("should keep each window's view of a document independent", () => {
+    store.dispatch(Table.create({ key: KEY }));
+    store.dispatch(Table.create({ key: KEY, windowKey: AUX_WINDOW }));
+    store.dispatch(
+      Table.setEditable({ key: KEY, editable: false, windowKey: AUX_WINDOW }),
+    );
+    const slice = store.getState()[Table.SLICE_NAME];
+    expect(documentIn(slice, KEY, AUX_WINDOW)?.editable).toBe(false);
+    expect(documentIn(slice, KEY)?.editable).toBe(true);
+  });
 
   describe("create", () => {
     it("should bootstrap session state from ZERO_STATE for the key", () => {

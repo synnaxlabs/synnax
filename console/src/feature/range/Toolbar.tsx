@@ -62,12 +62,14 @@ const List = (): ReactElement => {
     canDrop: Ranger.canDropHaulItem,
     onDrop: ({ items }) => {
       const dropped = Ranger.filterHaulItems(items);
-      const ranges = dropped.map<Session.Range.StaticState>(({ data }) => ({
-        ...data,
-        persisted: true,
-        variant: "static",
-      }));
-      Session.Range.add(ranges);
+      dispatch(
+        Session.Range.add(
+          dropped.map<Session.Range.State>(({ key }) => ({
+            variant: "persisted",
+            key,
+          })),
+        ),
+      );
       return dropped;
     },
   });

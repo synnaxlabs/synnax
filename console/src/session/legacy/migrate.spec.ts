@@ -12,8 +12,6 @@ import { describe, expect, it, vi } from "vitest";
 import { Color } from "@/session/color";
 import { Core } from "@/session/core";
 import { Legacy } from "@/session/legacy";
-import { Project } from "@/session/project";
-import { Theme } from "@/session/theme";
 
 const LOCAL_LEGACY_KEY = "8edeb842-40e9-4a55-87e9-5f0937b4654a";
 const WORKSPACE_KEY = "cfc7f87d-4d0d-440c-9ebf-776b292688b7";
@@ -104,14 +102,24 @@ describe("Legacy.migrate", () => {
     expect(Object.keys(core?.cores ?? {}).sort()).toEqual(["a", "b"]);
   });
 
-  it("should map the active theme onto a mode", async () => {
-    const [read] = createReader(FULL);
-    expect((await Legacy.migrate(read)).theme?.mode).toBe("light");
-  });
-
-  it("should carry the workspace selection over as the project selection", async () => {
-    const [read] = createReader(FULL);
-    expect((await Legacy.migrate(read)).project?.selected).toBe(WORKSPACE_KEY);
+  it("should drop a Core whose port cannot parse and keep the rest", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const [read] = createReader({
+      ...FULL,
+      "console-persisted-state.3": {
+        ...BLOB,
+        cluster: {
+          activeCluster: null,
+          clusters: {
+            good: { name: "Good", host: "localhost", port: 9090, secure: false },
+            bad: { name: "Bad", host: "localhost", port: "not-a-port", secure: false },
+          },
+        },
+      },
+    });
+    const { core } = await Legacy.migrate(read);
+    expect(Object.keys(core?.cores ?? {})).toEqual(["good"]);
+    errorSpy.mockRestore();
   });
 
   it("should carry the recent colors across", async () => {
@@ -146,9 +154,7 @@ describe("Legacy.migrate", () => {
     });
     const migrated = await Legacy.migrate(read);
     expect(migrated.core).toBeUndefined();
-    expect(migrated.theme?.mode).toBe("light");
     expect(migrated.color).toBeDefined();
-    expect(migrated.project?.selected).toBe(WORKSPACE_KEY);
     expect(errorSpy).toHaveBeenCalled();
     errorSpy.mockRestore();
   });
@@ -207,17 +213,6 @@ describe("Legacy.migrate", () => {
     expect(core?.selected).toBe(LOCAL_LEGACY_KEY);
   });
 
-  it("should carry the workspace selection when it is stored as a workspace", async () => {
-    const [read] = createReader({
-      ...FULL,
-      "console-persisted-state.3": {
-        ...BLOB,
-        workspace: { active: { key: WORKSPACE_KEY, name: "My Workspace" } },
-      },
-    });
-    expect((await Legacy.migrate(read)).project?.selected).toBe(WORKSPACE_KEY);
-  });
-
   it("should leave the slices it does not carry at their defaults", async () => {
     const [read] = createReader(FULL);
     const migrated = await Legacy.migrate(read);
@@ -225,6 +220,10 @@ describe("Legacy.migrate", () => {
     expect(migrated).not.toHaveProperty("status");
     expect(migrated).not.toHaveProperty("panels");
     expect(migrated).not.toHaveProperty("nav");
+    // The workspace selection stays behind by design: reselecting is one step. The
+    // theme does too: the stored value was only the OS theme at last run.
+    expect(migrated).not.toHaveProperty("project");
+    expect(migrated).not.toHaveProperty("theme");
   });
 
   it("should never write to the legacy store", async () => {
@@ -238,10 +237,8 @@ describe("Legacy.migrate", () => {
 describe("Legacy migration defaults", () => {
   it("should produce slice states the current schemas accept", async () => {
     const [read] = createReader(FULL);
-    const { core, theme, color, project } = await Legacy.migrate(read);
+    const { core, color } = await Legacy.migrate(read);
     expect(() => Core.sliceStateZ.parse(core)).not.toThrow();
-    expect(() => Theme.sliceStateZ.parse(theme)).not.toThrow();
     expect(() => Color.sliceStateZ.parse(color)).not.toThrow();
-    expect(() => Project.sliceStateZ.parse(project)).not.toThrow();
   });
 });

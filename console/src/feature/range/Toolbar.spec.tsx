@@ -17,8 +17,10 @@ import {
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { Haul, Ranger } from "@synnaxlabs/pluto";
 import { TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Range } from "@/feature/range";
@@ -66,25 +68,44 @@ const toState = (rng: ranger.Range): Session.Range.State =>
 const nameOf = (state?: Session.Range.State): string | undefined =>
   state == null || state.variant === "persisted" ? undefined : state.name;
 
+const DRAG_HANDLE = "drag-a-range";
+
+/** A haul source the drop specs drag a Core range out of. */
+const DragSource = ({ range }: { range: ranger.Range }): ReactElement => {
+  const { startDrag, onDragEnd } = Haul.useDrag({ type: "test-source" });
+  return (
+    <button
+      onDragStart={() => startDrag([Ranger.createHaulItem(range.payload)])}
+      onDragEnd={onDragEnd}
+    >
+      {DRAG_HANDLE}
+    </button>
+  );
+};
+
 interface RenderToolbarOptions {
   ranges?: Session.Range.State[];
   active?: string;
   /** The client the toolbar renders against; defaults to the root client. */
   as?: Client;
+  /** Extra content rendered beside the toolbar, e.g. a drag source. */
+  extra?: ReactElement;
 }
 
 const renderToolbar = async ({
   ranges = [],
   active,
   as = client,
+  extra,
 }: RenderToolbarOptions = {}): Promise<{ store: TestStore }> => {
   const { wrapper, store } = await createConsoleWrapper({ client: as });
   await selectTestProject(store, client);
   render(
-    <>
+    <Haul.Provider>
       {Range.TOOLBAR.content}
       <Modals.Stack />
-    </>,
+      {extra}
+    </Haul.Provider>,
     { wrapper },
   );
   if (ranges.length > 0) store.dispatch(Session.Range.add(ranges));
@@ -131,6 +152,21 @@ describe("range/Toolbar", () => {
     await waitFor(() =>
       expect(Session.Range.selectSelectedKey(store.getState())).toBe(rng.key),
     );
+  });
+
+  it("favorites a Core range dropped onto the list", async () => {
+    const rng = await createTestRange(client);
+    const { store } = await renderToolbar({ extra: <DragSource range={rng} /> });
+    fireEvent.dragStart(await screen.findByText(DRAG_HANDLE));
+    fireEvent.drop(await screen.findByText("No favorited ranges"));
+    // A dragged range lives on the Core, so the session gains only the stub.
+    await waitFor(() =>
+      expect(Session.Range.selectState(store.getState(), rng.key)).toEqual({
+        variant: "persisted",
+        key: rng.key,
+      }),
+    );
+    expect(await screen.findByText(rng.name)).toBeTruthy();
   });
 
   describe("context menu", () => {
@@ -190,6 +226,30 @@ describe("range/Toolbar", () => {
       await waitFor(async () =>
         expect((await client.ranges.retrieve(local.key)).name).toBe(local.name),
       );
+    });
+
+    // The persisted stub replaces the session's static entry, the only copy of the
+    // range, so a failed create must roll the entry back instead of losing it.
+    it("restores the local range when Save to Core fails", async () => {
+      const local = createLocalRangeState(uniqueRangeName("doomed"));
+      // An inverted range fails the client's own validation, so the create rejects
+      // deterministically without reaching the Core.
+      local.timeRange = { start: local.timeRange.end, end: local.timeRange.start };
+      const { store } = await renderToolbar({ ranges: [local] });
+      const variants: Array<string | undefined> = [];
+      store.subscribe(() => {
+        const variant = Session.Range.selectState(store.getState(), local.key)?.variant;
+        if (variants.at(-1) !== variant) variants.push(variant);
+      });
+      await openContextMenu(local.name);
+      fireEvent.click(await screen.findByText("Save to Core"));
+      // The entry flips to a persisted stub optimistically, then the failure puts
+      // the static entry back.
+      await waitFor(() => expect(variants).toContain("persisted"));
+      await waitFor(() =>
+        expect(Session.Range.selectState(store.getState(), local.key)).toEqual(local),
+      );
+      await expect(client.ranges.retrieve(local.key)).rejects.toThrow(NotFoundError);
     });
 
     it("deletes a persisted range after confirmation", async () => {

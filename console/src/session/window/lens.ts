@@ -17,7 +17,11 @@ import { type Persist } from "@/session/persist";
 export const LENS: Persist.Lens = {
   keys: ({ windows }) => Object.keys(windows),
   // A window's partition stores the whole slice narrowed to that one window, so its
-  // bytes still parse through the slice's own schema.
-  narrow: (slice, key) => ({ ...slice, windows: { [key]: slice.windows[key] } }),
+  // bytes still parse through the slice's own schema. A window with no entry narrows
+  // to none: an undefined-valued key neither survives JSON nor parses.
+  narrow: (slice, key) => ({
+    ...slice,
+    windows: key in slice.windows ? { [key]: slice.windows[key] } : {},
+  }),
   widen: (into, from) => ({ ...from, windows: { ...into.windows, ...from.windows } }),
 };

@@ -13,7 +13,7 @@ import {
   type Middleware,
   type PayloadAction,
 } from "@reduxjs/toolkit";
-import { Drift } from "@synnaxlabs/drift";
+import { Drift, MAIN_WINDOW } from "@synnaxlabs/drift";
 import { type record } from "@synnaxlabs/x";
 
 export interface RemovedPayload {
@@ -60,7 +60,9 @@ export const removalMiddleware: Middleware<record.Unknown> =
     const result = next(action);
     const after = new Set(windowKeys(store.getState() as Drift.StoreState));
     before
-      .filter((key) => !after.has(key))
+      // Main's key recurs across launches, so the close that ends a session must
+      // not drop the state the next one reuses.
+      .filter((key) => !after.has(key) && key !== MAIN_WINDOW)
       .forEach((windowKey) => store.dispatch(removed({ windowKey })));
     return result;
   };

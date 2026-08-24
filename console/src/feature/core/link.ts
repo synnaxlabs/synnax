@@ -24,7 +24,7 @@ const SWAP_POLL_BREAKER_CONFIG: breaker.Config = {
   maxRetries: Math.ceil(CONNECT_TIMEOUT.milliseconds / SWAP_POLL_INTERVAL.milliseconds),
 };
 
-// ConnectContext supplies connectToCore with everything it needs to observe and mutate
+// ConnectContext supplies connect with everything it needs to observe and mutate
 // connection state without binding to React. Production wires these to the Redux store
 // and the Synnax provider; tests inject controllable stubs.
 export interface ConnectContext {
@@ -34,7 +34,7 @@ export interface ConnectContext {
   poll: breaker.Breaker;
 }
 
-// connectToCore resolves the cluster a link names to a connected client through
+// connect resolves the cluster a link names to a connected client through
 // whichever Core reaches it. If that Core is already active, its managed client's
 // connect() is awaited and the client returned. Otherwise the active Core is switched,
 // the provider-constructed replacement client is awaited (client identity changes only
@@ -44,7 +44,7 @@ export interface ConnectContext {
 // It throws if no Core names the cluster, if the provider never swaps clients before
 // the poll exhausts its retries, or with the client's typed rejection when the
 // connection fails.
-export const connectToCore = async (
+export const connect = async (
   clusterKey: string,
   { getState, getClient, setActive, poll }: ConnectContext,
 ): Promise<Client> => {
@@ -69,7 +69,7 @@ export const connectToCore = async (
 };
 
 // useLink returns a connect function that resolves a cluster key to a connected client.
-// See connectToCore for the resolution semantics.
+// See connect for the resolution semantics.
 export const useLink = (): Link.Connect => {
   const client = Synnax.use();
   const clientRef = useSyncedRef(client);
@@ -77,7 +77,7 @@ export const useLink = (): Link.Connect => {
   const store = Session.useStore();
   return useCallback(
     (clusterKey) =>
-      connectToCore(clusterKey, {
+      connect(clusterKey, {
         getState: () => store.getState(),
         getClient: () => clientRef.current,
         setActive: (key) => dispatch(Session.Core.select(key)),

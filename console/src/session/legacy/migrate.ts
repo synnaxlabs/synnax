@@ -13,8 +13,6 @@ import { z } from "zod";
 import { Color } from "@/session/color";
 import { Core } from "@/session/core";
 import { openReader, type Reader, readState } from "@/session/legacy/read";
-import { Project } from "@/session/project";
-import { Theme } from "@/session/theme";
 
 /**
  * The connection parameters of a stored Core. The cluster slice flattened them onto the
@@ -41,14 +39,7 @@ const clusterZ = z.object({
   activeCluster: z.string().nullish(),
   clusters: z.record(z.string(), z.unknown()),
 });
-const themeZ = z.object({ activeTheme: z.string().optional() });
 const colorZ = z.object({ colorContext: PColor.contextStateZ.optional() });
-// The workspace slice held the active key itself until 1.0.0, and the workspace after.
-const workspaceZ = z.object({
-  active: z
-    .union([z.string(), z.object({ key: z.string() }).transform(({ key }) => key)])
-    .nullish(),
-});
 
 /**
  * Parses one branch of the blob. Every release line since 0.4 wrote a different shape,
@@ -67,21 +58,13 @@ const parseBranch = <T>(
 };
 
 /**
- * The slices carried over from the previous release. Layouts, mosaics, and per-document
- * view state are absent by design: the Core migrates workspaces into projects and
- * panels, so their content arrives from there rather than from local state.
+ * The slices carried over from the previous release. Layouts, mosaics, per-document
+ * view state, and the workspace selection are absent by design: the Core migrates
+ * workspaces into projects and panels, so their content arrives from there, and
+ * reselecting a project is a single step. The theme stays behind too: 0.56 stored
+ * only the OS theme at last run, which the system default already follows.
  */
-export interface Migrated extends Partial<
-  Core.StoreState & Theme.StoreState & Color.StoreState & Project.StoreState
-> {}
-
-const themeMode = (activeTheme?: string): Theme.Mode | undefined => {
-  const theme = activeTheme?.toLowerCase();
-  if (theme == null) return undefined;
-  if (theme.includes("dark")) return "dark";
-  if (theme.includes("light")) return "light";
-  return undefined;
-};
+export interface Migrated extends Partial<Core.StoreState & Color.StoreState> {}
 
 const cores = (legacy?: z.infer<typeof clusterZ>): Core.SliceState | undefined => {
   if (legacy == null) return undefined;
@@ -90,8 +73,11 @@ const cores = (legacy?: z.infer<typeof clusterZ>): Core.SliceState | undefined =
   Object.entries(legacy.clusters).forEach(([key, raw]) => {
     const core = parseBranch(raw, coreZ, `Core ${key}`);
     if (core == null) return;
-    const { port, ...rest } = core;
-    out.cores[key] = { ...rest, key, port: Number(port) };
+    // The slice schema is what the store parses on every read, so a record it
+    // rejects must drop here rather than poison the whole registry later.
+    const mapped = parseBranch({ ...core, key }, Core.coreZ, `Core ${key}`);
+    if (mapped == null) return;
+    out.cores[key] = mapped;
   });
   if (Object.keys(out.cores).length === 0) return undefined;
   const { activeCluster } = legacy;
@@ -113,14 +99,7 @@ export const migrate = async (read: Reader = openReader()): Promise<Migrated> =>
   const out: Migrated = {};
   const core = cores(parseBranch(root.cluster, clusterZ, "Cores"));
   if (core != null) out[Core.SLICE_NAME] = core;
-  const mode = themeMode(parseBranch(root.layout, themeZ, "theme")?.activeTheme);
-  if (mode != null) out[Theme.SLICE_NAME] = { ...Theme.ZERO_SLICE_STATE, mode };
   const context = parseBranch(root.layout, colorZ, "colors")?.colorContext;
   if (context != null) out[Color.SLICE_NAME] = { ...Color.ZERO_SLICE_STATE, context };
-  // The Core migrates workspaces into projects under the same key, so the selection
-  // still names something once a connection is up.
-  const selected = parseBranch(root.workspace, workspaceZ, "project selection")?.active;
-  if (selected != null)
-    out[Project.SLICE_NAME] = { ...Project.ZERO_SLICE_STATE, selected };
   return out;
 };

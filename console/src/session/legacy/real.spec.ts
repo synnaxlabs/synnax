@@ -91,20 +91,12 @@ describe("Legacy.migrate over a real 0.56 store", () => {
     expect((await Legacy.migrate(read)).core?.selected).toBeUndefined();
   });
 
-  it("should map synnaxLight onto the light mode", async () => {
-    expect((await Legacy.migrate(read)).theme?.mode).toBe("light");
-  });
-
   it("should carry the recent-color context across", async () => {
     expect((await Legacy.migrate(read)).color?.context).toEqual({ frequent: {} });
   });
 
-  it("should carry no project when the old store had no active workspace", async () => {
-    expect(await Legacy.migrate(read)).not.toHaveProperty("project");
-  });
-
   it("should ignore the slices this release does not keep", async () => {
     const migrated = await Legacy.migrate(read);
-    expect(Object.keys(migrated).sort()).toEqual(["color", "core", "theme"]);
+    expect(Object.keys(migrated).sort()).toEqual(["color", "core"]);
   });
 });

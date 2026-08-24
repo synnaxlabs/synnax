@@ -7,9 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { connection } from "@synnaxlabs/client";
-import { Button, Flex, Form, Icon, type Input, Nav, Status } from "@synnaxlabs/pluto";
-import { useState } from "react";
+import { Button, Flex, Form, Icon, type Input, Nav } from "@synnaxlabs/pluto";
 import { type z } from "zod";
 
 import { CSS } from "@/platform/css";
@@ -45,9 +43,6 @@ export const useConnectModal = Modals.create<ConnectModalParams>(
     const dispatch = Session.useDispatch();
     const isEdit = coreKey != null;
     const existing = Session.Core.useSelectState(coreKey);
-    const [connStatus, setConnStatus] = useState<connection.Status | null>(null);
-    const [loading, setLoading] = useState<"test" | "submit" | null>(null);
-    const handleError = Status.useErrorHandler();
     const methods = Form.use<typeof FORM_SCHEMA>({
       schema: FORM_SCHEMA,
       values:
@@ -61,27 +56,23 @@ export const useConnectModal = Modals.create<ConnectModalParams>(
           : { ...ZERO_VALUES },
     });
 
-    const handleSubmit = (): void =>
-      handleError(async () => {
-        if (!methods.validate()) return;
-        const data = methods.value();
-        setConnStatus(null);
-        setLoading("submit");
-        const status = await connection.check(data);
-        setLoading(null);
-        setConnStatus(status);
-        if (isEdit && existing != null)
-          dispatch(
-            Session.Core.set({
-              ...data,
-              key: coreKey,
-              username: existing.username,
-              password: existing.password,
-            }),
-          );
-        else dispatch(Session.Core.set({ ...data, username: "", password: "" }));
-        close();
-      }, "Failed to connect to the Core");
+    // A record is an address-book entry: reachability is proven later at login, so a
+    // save must not wait on (or be gated by) a live connectivity check.
+    const handleSubmit = (): void => {
+      if (!methods.validate()) return;
+      const data = methods.value();
+      if (isEdit && existing != null)
+        dispatch(
+          Session.Core.set({
+            ...data,
+            key: coreKey,
+            username: existing.username,
+            password: existing.password,
+          }),
+        );
+      else dispatch(Session.Core.set({ ...data, username: "", password: "" }));
+      close();
+    };
 
     return (
       <Modals.Frame className={CSS.B("connect-core")}>
@@ -107,18 +98,11 @@ export const useConnectModal = Modals.create<ConnectModalParams>(
         </Form.Form>
         <Modals.Footer>
           <Nav.Bar.Start gap="small">
-            {connStatus != null ? (
-              <Status.Summary variant={connStatus.variant}>
-                {connStatus.variant === "success" ? "Connected" : connStatus.message}
-              </Status.Summary>
-            ) : (
-              <Triggers.SaveHelpText action={isEdit ? "Save" : "Connect"} noBar />
-            )}
+            <Triggers.SaveHelpText action={isEdit ? "Save" : "Connect"} noBar />
           </Nav.Bar.Start>
           <Nav.Bar.End>
             <Button.Button
               onClick={handleSubmit}
-              status={loading === "submit" ? "loading" : undefined}
               trigger={Triggers.SAVE}
               variant="filled"
             >
