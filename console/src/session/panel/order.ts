@@ -14,7 +14,7 @@ import z from "zod";
 
 import { remove, reset } from "@/session/panel/slice";
 
-export const ORDER_SLICE_NAME = "panelOrder";
+export const ORDER_SLICE_NAME = "panel_order";
 
 /**
  * The strip's panel order, shared by every window and owned by the project rather than

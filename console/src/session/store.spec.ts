@@ -148,12 +148,12 @@ describe("createStore", () => {
     await enterAndEdit(store, Session.Core.DEMO_KEY, CLUSTER_KEY);
     store.dispatch(Session.Panel.reconcileOrder({ panels: [PANEL] }));
     store.dispatch(Session.Panel.select({ key: PANEL.key, windowKey: MAIN_WINDOW }));
-    await waitForPersisted(db, (p) => p.panelOrder != null, "order not persisted yet");
+    await waitForPersisted(db, (p) => p.panel_order != null, "order not persisted yet");
     // The order belongs to the project; the selection belongs to the window looking
     // at it.
     readPersisted(db).forEach((p) => {
-      if (p.panelOrder != null) expect(p.panels).toBeUndefined();
-      if (p.panels != null) expect(p.panelOrder).toBeUndefined();
+      if (p.panel_order != null) expect(p.panels).toBeUndefined();
+      if (p.panels != null) expect(p.panel_order).toBeUndefined();
     });
     await waitForPersisted(
       db,
