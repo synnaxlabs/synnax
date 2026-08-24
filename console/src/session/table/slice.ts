@@ -122,19 +122,6 @@ export const {
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 export type Payload = Action["payload"];
 
-export const purgeState = (state: State): State => {
-  state.selectedCells = [];
-  state.lastSelected = null;
-  return state;
-};
-
-export const purgeSliceState = <S extends StoreState>(state: S): S => {
-  Window.purgeDocuments(state[SLICE_NAME], purgeState);
-  return state;
-};
-
-export const PERSIST_EXCLUDE = [purgeSliceState];
-
 export const MIDDLEWARE = [
   Window.createInjectKeyMiddleware([
     create,

@@ -27,18 +27,14 @@ export interface ResolvedPersisted extends Session.Range.PersistedState {
 export type Resolved =
   ResolvedPersisted | Session.Range.StaticState | Session.Range.DynamicState;
 
-/** The time range a resolved range covers, absent for a rolling window. */
-export const timeRangeOf = (range: Resolved): NumericTimeRange | undefined =>
-  range.variant === "dynamic" ? undefined : range.timeRange;
-
 const fold = (
   state: Session.Range.State,
   found: Map<string, ranger.Range>,
 ): Resolved | undefined => {
   if (state.variant !== "persisted") return state;
   const range = found.get(state.key);
-  // A range the Core no longer has resolves to nothing until the synchronizer drops
-  // it, which keeps a half-rendered row out of the list.
+  // A range the Core no longer has resolves to nothing until the synchronizer drops it,
+  // which keeps a half-rendered row out of the list.
   if (range == null) return undefined;
   return { ...state, name: range.name, timeRange: range.timeRange.numeric };
 };

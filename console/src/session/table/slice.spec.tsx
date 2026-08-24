@@ -14,12 +14,7 @@ import { Provider } from "react-redux";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { Table } from "@/session/table";
-import {
-  createSliceStore,
-  documentIn,
-  DRIFT_STATE,
-  inWindow,
-} from "@/session/window/testutil";
+import { createSliceStore, documentIn } from "@/session/window/testutil";
 
 const storeWith = (slice: Table.SliceState) =>
   createSliceStore({
@@ -252,50 +247,6 @@ describe("Table Slice", () => {
     it("should default the slice version to 0", () => {
       expect(Table.sliceStateZ.parse({}).version).toBe(0);
       expect(Table.ZERO_SLICE_STATE.version).toBe(0);
-    });
-  });
-
-  describe("purgeState", () => {
-    it("should reset the cell selection", () => {
-      const state = Table.stateZ.parse({
-        selectedCells: ["a", "b"],
-        lastSelected: "b",
-      });
-      const purged = Table.purgeState(state);
-      expect(purged.selectedCells).toEqual([]);
-      expect(purged.lastSelected).toBeNull();
-    });
-
-    it("should leave other fields untouched", () => {
-      const state = Table.stateZ.parse({
-        hideIndicators: true,
-        editable: false,
-        centered: true,
-      });
-      const purged = Table.purgeState(state);
-      expect(purged.hideIndicators).toBe(true);
-      expect(purged.editable).toBe(false);
-      expect(purged.centered).toBe(true);
-    });
-  });
-
-  describe("purgeSliceState", () => {
-    it("should reset the selection on every table in the slice", () => {
-      const state: Table.StoreState = {
-        ...DRIFT_STATE,
-        [Table.SLICE_NAME]: {
-          version: 0,
-          windows: inWindow({
-            "table-1": Table.stateZ.parse({ selectedCells: ["a"], lastSelected: "a" }),
-            "table-2": Table.stateZ.parse({ selectedCells: ["b"], lastSelected: "b" }),
-          }),
-        },
-      };
-      const purged = Table.purgeSliceState(state);
-      expect(documentIn(purged[Table.SLICE_NAME], "table-1")?.selectedCells).toEqual(
-        [],
-      );
-      expect(documentIn(purged[Table.SLICE_NAME], "table-2")?.lastSelected).toBeNull();
     });
   });
 });

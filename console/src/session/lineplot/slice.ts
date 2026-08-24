@@ -83,7 +83,7 @@ export interface SliceState extends z.infer<typeof sliceStateZ> {}
 
 export const ZERO_SLICE_STATE = sliceStateZ.parse({});
 
-export const SLICE_NAME = "line";
+export const SLICE_NAME = "line_plot";
 
 export interface StoreState extends Drift.StoreState {
   [SLICE_NAME]: SliceState;
@@ -254,18 +254,6 @@ export const {
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
-
-export const purgeState = (state: State): State => {
-  state.hiddenLines = [];
-  return state;
-};
-
-export const purgeSliceState = <S extends StoreState>(state: S): S => {
-  Window.purgeDocuments(state[SLICE_NAME], purgeState);
-  return state;
-};
-
-export const PERSIST_EXCLUDE = [purgeSliceState];
 
 export const MIDDLEWARE = [
   Window.createInjectKeyMiddleware([

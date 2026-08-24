@@ -14,12 +14,7 @@ import { Provider } from "react-redux";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { LinePlot } from "@/session/lineplot";
-import {
-  createSliceStore,
-  documentIn,
-  DRIFT_STATE,
-  inWindow,
-} from "@/session/window/testutil";
+import { createSliceStore } from "@/session/window/testutil";
 
 const storeWith = (slice: LinePlot.SliceState) =>
   createSliceStore({
@@ -375,43 +370,6 @@ describe("LinePlot Slice", () => {
       expect(parsed.annotations.visible).toBe(true);
       expect(parsed.selectedRules).toEqual([]);
       expect(parsed.hiddenLines).toEqual([]);
-    });
-  });
-
-  describe("purgeState", () => {
-    it("should clear hidden lines", () => {
-      const state = LinePlot.stateZ.parse({ hiddenLines: ["l1", "l2"] });
-      expect(LinePlot.purgeState(state).hiddenLines).toEqual([]);
-    });
-
-    it("should leave other fields untouched", () => {
-      const state = LinePlot.stateZ.parse({
-        hiddenLines: ["l1"],
-        toolbar: { activeTab: "axes" },
-      });
-      expect(LinePlot.purgeState(state).toolbar.activeTab).toBe("axes");
-    });
-  });
-
-  describe("purgeSliceState", () => {
-    it("should clear hidden lines on every plot in the slice", () => {
-      const state: LinePlot.StoreState = {
-        ...DRIFT_STATE,
-        [LinePlot.SLICE_NAME]: {
-          version: 0 as const,
-          windows: inWindow({
-            "plot-1": LinePlot.stateZ.parse({ hiddenLines: ["l1"] }),
-            "plot-2": LinePlot.stateZ.parse({ hiddenLines: ["l2"] }),
-          }),
-        },
-      };
-      const purged = LinePlot.purgeSliceState(state);
-      expect(documentIn(purged[LinePlot.SLICE_NAME], "plot-1")?.hiddenLines).toEqual(
-        [],
-      );
-      expect(documentIn(purged[LinePlot.SLICE_NAME], "plot-2")?.hiddenLines).toEqual(
-        [],
-      );
     });
   });
 });

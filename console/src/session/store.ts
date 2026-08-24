@@ -39,9 +39,7 @@ import { Window } from "@/session/window";
 
 const PERSIST_EXCLUDE: Array<Persist.ExcludeFn<State>> = [
   ...Panel.PERSIST_EXCLUDE,
-  ...LinePlot.PERSIST_EXCLUDE,
   ...Schematic.PERSIST_EXCLUDE,
-  ...Table.PERSIST_EXCLUDE,
 ];
 
 // Every slice lives in exactly one partition scope, under the schema its stored

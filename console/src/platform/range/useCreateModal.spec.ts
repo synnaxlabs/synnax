@@ -84,8 +84,8 @@ describe("Range.useCreateModal", () => {
     );
     await clickWhenEnabled("Save to Core");
     await waitFor(() => {
-      // A Core range is stored by key alone, so the session cannot be searched by
-      // name: the Core answers for it.
+      // A Core range is stored by key alone, so the session cannot be searched by name:
+      // the Core answers for it.
       const created = Session.Range.selectMultiple(store.getState()).find(
         (r) => r.variant === "persisted",
       );
