@@ -44,12 +44,8 @@ afterEach(() => {
 // production load path without touching that jsdom hole.
 const SHAPELESS_SVG = '<svg viewBox="0 0 100 100"><g id="grp"></g></svg>';
 
-// The triggers provider identifies a key by KeyboardEvent.code and treats a modifier as
-// a held key rather than an event flag. Control stays down for the whole sequence:
-// releasing and re-pressing it inside the provider's double-press window would register
-// as a double tap and stop matching the plain Control shortcut.
-const CONTROL = { key: "Control", code: "ControlLeft" };
-
+// The triggers provider identifies a key by KeyboardEvent.code, not by the printed
+// character, so the zoom keys are pressed as Equal, Minus, and Digit0.
 const pressKey = (code: string): void => {
   fireEvent.keyDown(window, { code });
   fireEvent.keyUp(window, { code });
@@ -161,14 +157,13 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       const { picker } = await openCreateModal();
       await loadSVG(picker);
       await screen.findByText("100%");
-      fireEvent.keyDown(window, CONTROL);
+      // Bare keys, since a browser reserves the Control chords for its own zoom.
       pressKey("Equal");
       expect(await screen.findByText("120%")).toBeDefined();
       pressKey("Digit0");
       expect(await screen.findByText("100%")).toBeDefined();
       pressKey("Minus");
       expect(await screen.findByText("83%")).toBeDefined();
-      fireEvent.keyUp(window, CONTROL);
     });
 
     it("pans the preview while shift-dragging", async () => {

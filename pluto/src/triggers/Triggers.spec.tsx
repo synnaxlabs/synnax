@@ -819,6 +819,53 @@ describe("Triggers", () => {
       expect(callback).not.toHaveBeenCalled();
     });
 
+    // A bare "-" or "=" types a character, so a field must keep it even though the
+    // key is not alphanumeric. The symbol editor binds both as bare zoom shortcuts.
+    const TEXT_ENTRY_KEYS: [Triggers.Key, string][] = [
+      ["Minus", "-"],
+      ["Equal", "="],
+      ["Space", " "],
+    ];
+
+    it.each(TEXT_ENTRY_KEYS)(
+      "should ignore a bare %s in input elements",
+      async (code, key) => {
+        const callback = vi.fn();
+        const C = () => {
+          Triggers.use({ callback, triggers: [[code]] });
+          return <input type="text" data-testid="input" />;
+        };
+        const { getByTestId } = render(
+          <Triggers.Provider>
+            <C />
+          </Triggers.Provider>,
+        );
+        const input = getByTestId("input");
+        fireEvent.mouseMove(input, { clientX: 10, clientY: 10 });
+        fireEvent.keyDown(input, { code, key });
+        vi.advanceTimersByTime(500);
+        expect(callback).not.toHaveBeenCalled();
+      },
+    );
+
+    it("should still fire a bare punctuation trigger outside a text field", async () => {
+      const callback = vi.fn();
+      const C = () => {
+        Triggers.use({ callback, triggers: [["Minus"]] });
+        return <div data-testid="canvas" />;
+      };
+      const { getByTestId } = render(
+        <Triggers.Provider>
+          <C />
+        </Triggers.Provider>,
+      );
+      const canvas = getByTestId("canvas");
+      fireEvent.mouseMove(canvas, { clientX: 10, clientY: 10 });
+      fireEvent.keyDown(canvas, { code: "Minus", key: "-" });
+      vi.advanceTimersByTime(500);
+      expect(callback).toHaveBeenCalled();
+    });
+
     it("should handle non-text-editing ctrl+key combinations in input elements", async () => {
       const callback = vi.fn();
       const C = () => {

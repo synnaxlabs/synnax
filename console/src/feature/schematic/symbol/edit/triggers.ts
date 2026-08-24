@@ -9,12 +9,15 @@
 
 import { Triggers } from "@synnaxlabs/pluto";
 
+// Bare keys, not Control chords: a browser reserves Control with = and - for its own
+// zoom and ignores preventDefault on them. The provider withholds printable keys from
+// a focused text field, so these stay out of the editor's name and handle inputs.
 export const ZOOM_TRIGGERS: Triggers.ModeConfig<"in" | "out" | "reset" | "default"> = {
   defaultMode: "default",
   modes: {
-    in: [["Control", "Equal"]],
-    out: [["Control", "Minus"]],
-    reset: [["Control", "0"]],
+    in: [["Equal"]],
+    out: [["Minus"]],
+    reset: [["0"]],
     default: [],
   },
 };
