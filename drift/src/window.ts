@@ -23,41 +23,82 @@ export type WindowStage = z.infer<typeof windowStageZ>;
 export const MAIN_WINDOW = "main";
 export const PRERENDER_WINDOW = "prerender";
 
-export interface WindowStateExtensionProps {
+/** The properties to provide when creating a window. */
+export const windowPropsZ = z.object({
+  /** A unique key for the window. If not provided, a unique key will be created. */
+  key: z.string(),
+  /** The url to load in the window. */
+  url: z.string().optional(),
+  /** The title of the window. */
+  title: z.string().optional(),
+  /** Whether the window should be centered on the screen. */
+  center: z.boolean().optional(),
+  /** The x and y coordinates of the window. */
+  position: xy.xyZ.optional(),
+  /** The dimensions of the window. */
+  size: dimensions.dimensionsZ.optional(),
+  /** The minimum dimensions of the window. */
+  minSize: dimensions.dimensionsZ.optional(),
+  /** The maximum dimensions of the window. */
+  maxSize: dimensions.dimensionsZ.optional(),
+  /** Whether the window should be resizable. */
+  resizable: z.boolean().optional(),
+  /** Whether the window is fullscreen. */
+  fullscreen: z.boolean().optional(),
+  /** Whether the window is focused. */
+  focus: z.boolean().optional(),
+  /** Whether the window is maximized. */
+  maximized: z.boolean().optional(),
+  /** Whether the window is visible. */
+  visible: z.boolean().optional(),
+  /** Whether the window is minimized. */
+  minimized: z.boolean().optional(),
+  /** Decorations. Runtime specific. */
+  decorations: z.boolean().optional(),
+  /** Whether to add the window to the task bar or not. Runtime specific. */
+  skipTaskbar: z.boolean().optional(),
+  /** Whether to enable file drop. Runtime specific. */
+  fileDropEnabled: z.boolean().optional(),
+  /** Whether the window is transparent. Runtime specific. */
+  transparent: z.boolean().optional(),
+  /** Whether the window is always on top. Runtime specific. */
+  alwaysOnTop: z.boolean().optional(),
+});
+export interface WindowProps extends z.infer<typeof windowPropsZ> {}
+
+/** What drift tracks about a window on top of the properties it was created with. */
+export const windowStateExtensionPropsZ = z.object({
   /** Lifecycle stage */
-  stage: WindowStage;
+  stage: windowStageZ,
   /** Number of active processes */
-  processCount: number;
+  processCount: z.number(),
   /**
    * Whether the window has been reserved for use. If this value is false,
    * the window is a pre-forked window that is not currently in use.
    */
-  reserved: boolean;
+  reserved: z.boolean(),
   /**
    * If something went wrong while making changes to the window, the error
    * will be stored here.
    */
-  error?: string;
+  error: z.string().optional(),
   /** Incremented to focus the window */
-  focusCount: number;
+  focusCount: z.number(),
   /** Incremented to center the window */
-  centerCount: number;
+  centerCount: z.number(),
   /**
    * Creation ordinal, assigned once when the window is reserved and never
    * reused. The main window is 1; pre-render windows have none until claimed.
    */
-  ordinal?: number;
-}
-
-export const windowStateExtensionPropsZ = z.object({
-  stage: windowStageZ,
-  processCount: z.number(),
-  reserved: z.boolean(),
-  error: z.string().optional(),
-  focusCount: z.number(),
-  centerCount: z.number(),
   ordinal: z.number().optional(),
 });
+export interface WindowStateExtensionProps extends z.infer<
+  typeof windowStateExtensionPropsZ
+> {}
+
+/** State of a window managed by drift  */
+export const windowStateZ = windowPropsZ.extend(windowStateExtensionPropsZ.shape);
+export interface WindowState extends z.infer<typeof windowStateZ> {}
 
 export const INITIAL_WINDOW_STATE: WindowStateExtensionProps = {
   stage: "creating",
@@ -88,72 +129,3 @@ export const resetTransientState = (window: WindowState): WindowState => ({
   fullscreen: undefined,
   error: undefined,
 });
-
-/** State of a window managed by drift  */
-export interface WindowState extends WindowProps, WindowStateExtensionProps {}
-
-/** The properties to provide when creating a window. */
-export interface WindowProps {
-  /* A unique key for the window. If not provided, a unique key will be created. */
-  key: string;
-  /* The url to load in the window. */
-  url?: string;
-  /* The title of the window. */
-  title?: string;
-  /* Whether the window should be centered on the screen. */
-  center?: boolean;
-  /* The x and y coordinates of the window. */
-  position?: xy.XY;
-  /* The dimensions of the window. */
-  size?: dimensions.Dimensions;
-  /* The minimum dimensions of the window. */
-  minSize?: dimensions.Dimensions;
-  /* The maximum dimensions of the window. */
-  maxSize?: dimensions.Dimensions;
-  /* Whether the window should be resizable. */
-  resizable?: boolean;
-  /* Whether the window is fullscreen. */
-  fullscreen?: boolean;
-  /* Whether the window is focused. */
-  focus?: boolean;
-  /* Whether the window is maximized. */
-  maximized?: boolean;
-  /* Whether the window is visible. */
-  visible?: boolean;
-  /* Whether the window is minimized. */
-  minimized?: boolean;
-  /* Decorations. Runtime specific. */
-  decorations?: boolean;
-  /* Whether to add the window to the task bar or not. Runtime specific. */
-  skipTaskbar?: boolean;
-  /* Whether to enable file drop. Runtime specific. */
-  fileDropEnabled?: boolean;
-  /* Whether the window is transparent. Runtime specific. */
-  transparent?: boolean;
-  /* Whether the window is always on top. Runtime specific. */
-  alwaysOnTop?: boolean;
-}
-
-export const windowPropsZ = z.object({
-  key: z.string(),
-  url: z.string().optional(),
-  title: z.string().optional(),
-  center: z.boolean().optional(),
-  position: xy.xyZ.optional(),
-  size: dimensions.dimensionsZ.optional(),
-  minSize: dimensions.dimensionsZ.optional(),
-  maxSize: dimensions.dimensionsZ.optional(),
-  resizable: z.boolean().optional(),
-  fullscreen: z.boolean().optional(),
-  focus: z.boolean().optional(),
-  maximized: z.boolean().optional(),
-  visible: z.boolean().optional(),
-  minimized: z.boolean().optional(),
-  decorations: z.boolean().optional(),
-  skipTaskbar: z.boolean().optional(),
-  fileDropEnabled: z.boolean().optional(),
-  transparent: z.boolean().optional(),
-  alwaysOnTop: z.boolean().optional(),
-});
-
-export const windowStateZ = windowPropsZ.extend(windowStateExtensionPropsZ.shape);
