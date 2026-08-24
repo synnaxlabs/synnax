@@ -174,12 +174,18 @@ describe("app/triggers", () => {
   });
 
   describe("focus", () => {
-    it("should put the focused tab into focus mode and leave it there", async () => {
+    it("should toggle the focused tab in and out of focus mode", async () => {
       const { result, store } = await renderTriggers();
       focusTab(store);
       act(() => press(CONTROL, "KeyL"));
       expect(result.current.overlaid).toBe(true);
-      // The trigger only enters focus mode; Escape is the single way back out.
+      act(() => press(CONTROL, "KeyL"));
+      expect(result.current.overlaid).toBe(false);
+    });
+
+    it("should also leave focus mode on Escape", async () => {
+      const { result, store } = await renderTriggers();
+      focusTab(store);
       act(() => press(CONTROL, "KeyL"));
       expect(result.current.overlaid).toBe(true);
       act(pressEscape);
