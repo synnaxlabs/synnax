@@ -46,6 +46,7 @@ span.pluto-text {
         box-sizing: border-box;
         padding-inline: 0.4em;
         justify-content: center;
+        color: var(--pluto-gray-l9);
         background: var(--pluto-keycap-bg, var(--pluto-gray-l2));
 
         /* Geometry off the color chain: a blank border color voids the shorthand, and
