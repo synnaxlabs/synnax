@@ -53,6 +53,7 @@ import { Session } from "@/session";
 import {
   awaitTextEditingElement,
   createTestClientWithGrants,
+  type TestStore,
   uniqueName,
 } from "@/testutil";
 
@@ -75,17 +76,18 @@ const viewTab = (): panel.Tab => ({
 interface Rendered {
   wrapper: FC<PropsWithChildren>;
   panelKey: panel.Key;
+  store: TestStore;
 }
 
 const setup = async (tabs: panel.Tab[], tabKey: string): Promise<Rendered> => {
   const existing = await createServerPanel(client, { variant: "leaf", tabs });
-  const { wrapper } = await createPanelWrapper({
+  const { wrapper, store } = await createPanelWrapper({
     client,
     panelKey: existing.key,
     tabKey,
   });
   await primePanel(wrapper, existing.key);
-  return { wrapper, panelKey: existing.key };
+  return { wrapper, panelKey: existing.key, store };
 };
 
 const renderMenu = (wrapper: FC<PropsWithChildren>, keys: string[]) =>
@@ -177,6 +179,50 @@ describe("Panel.TabMenuItems", () => {
 
       await waitFor(() => expect(result.current.background).toBe(true));
       expect(result.current.front).toBe(false);
+    });
+  });
+
+  describe("focus hints", () => {
+    const hintOf = (label: string): string => {
+      const item = screen.getByText(label).closest("button");
+      const hint = item?.querySelector('[aria-label="trigger-indicator"]');
+      return hint?.textContent?.toLowerCase() ?? "";
+    };
+
+    it("names the key that performs the action the entry offers", async () => {
+      const front = resourceTab();
+      const { wrapper } = await setup([front], front.key);
+      renderMenu(wrapper, [front.key]);
+      await waitFor(() => expect(screen.getByText("Focus")).toBeTruthy());
+      expect(hintOf("Focus")).toContain("l");
+      await act(async () => {
+        fireEvent.click(screen.getByText("Focus"));
+      });
+      await waitFor(() => expect(screen.getByText("Exit focus")).toBeTruthy());
+      expect(hintOf("Exit focus")).toContain("esc");
+    });
+
+    it("withholds every hint from a menu open on a tab that is not focused", async () => {
+      const front = resourceTab();
+      const background = resourceTab();
+      const { wrapper, panelKey, store } = await setup(
+        [front, background],
+        background.key,
+      );
+      act(() => {
+        store.dispatch(
+          Session.Panel.internalSelectTab({
+            key: panelKey,
+            tabKey: front.key,
+            otherTabKeys: [],
+          }),
+        );
+      });
+      renderMenu(wrapper, [background.key]);
+      await waitFor(() => expect(screen.getByText("Focus")).toBeTruthy());
+      expect(hintOf("Focus")).toEqual("");
+      expect(hintOf("Close")).toEqual("");
+      expect(hintOf("Rename")).toEqual("");
     });
   });
 

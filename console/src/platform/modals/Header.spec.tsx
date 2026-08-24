@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Dialog, Icon } from "@synnaxlabs/pluto";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -58,5 +58,19 @@ describe("Header", () => {
     expect(close).not.toBeNull();
     fireEvent.click(close as HTMLButtonElement);
     expect(onVisibleChange).toHaveBeenCalledWith(false);
+  });
+
+  it("should advertise escape on the close button", async () => {
+    renderHeader(<Modals.Header>Title</Modals.Header>);
+    const close = screen.getByLabelText("Close");
+    // Escape closes every modal through the dialog frame, and nothing else in the
+    // header says so.
+    fireEvent.pointerEnter(close);
+    const tip = await waitFor(() => {
+      const el = document.querySelector<HTMLElement>(".pluto-tooltip");
+      if (el == null) throw new Error("tooltip did not open");
+      return el;
+    });
+    expect(tip.textContent?.toLowerCase()).toContain("esc");
   });
 });

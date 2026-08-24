@@ -106,7 +106,15 @@ export const createPanelWrapper = async ({
   resolvedStore.dispatch(Session.Project.select(projectKey));
   // A scoped panel renders because it is the window's selected panel; tab
   // focus/visibility selectors require that term.
-  if (panelKey != null) resolvedStore.dispatch(Session.Panel.select({ key: panelKey }));
+  if (panelKey != null) {
+    resolvedStore.dispatch(Session.Panel.select({ key: panelKey }));
+    // The scope alone names the tab the component reads. Focus is a session term, so
+    // the same tab has to win the panel's selection for it to read as focused.
+    if (tabKey != null)
+      resolvedStore.dispatch(
+        Session.Panel.internalSelectTab({ key: panelKey, tabKey, otherTabKeys: [] }),
+      );
+  }
   const wrapper = ({ children }: PropsWithChildren): ReactElement => {
     let inner: ReactNode = children;
     if (tabKey != null)

@@ -22,7 +22,11 @@ import {
   getPreviewTransformWrapper,
   SYMBOL_FILE_DROP_PROMPT,
 } from "@/feature/schematic/testutil";
-import { findButton, renderModalOpener } from "@/platform/modals/testutil";
+import {
+  findButton,
+  pressSaveTrigger,
+  renderModalOpener,
+} from "@/platform/modals/testutil";
 import {
   fakePickedFile,
   findDialogTrigger,
@@ -39,6 +43,13 @@ afterEach(() => {
 // normalizeSVG's computed-style pass requires; a shapeless SVG exercises the same
 // production load path without touching that jsdom hole.
 const SHAPELESS_SVG = '<svg viewBox="0 0 100 100"><g id="grp"></g></svg>';
+
+// The triggers provider identifies a key by KeyboardEvent.code, not by the printed
+// character, so the zoom keys are pressed as Equal, Minus, and Digit0.
+const pressKey = (code: string): void => {
+  fireEvent.keyDown(window, { code });
+  fireEvent.keyUp(window, { code });
+};
 
 const createParentGroup = async (): Promise<group.Group> => {
   const root = await client.schematics.symbols.retrieveGroup();
@@ -102,6 +113,17 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
     });
 
+    it("creates the symbol on the shortcut its footer advertises", async () => {
+      const { grp, picker } = await openCreateModal();
+      await loadSVG(picker);
+      const name = uniqueName("triggered_symbol");
+      fireEvent.change(findNameInput(), { target: { value: name } });
+      pressSaveTrigger();
+      await waitFor(async () =>
+        expect(await childNames(group.ontologyID(grp.key))).toContain(name),
+      );
+    });
+
     it("persists the symbol under a forced key when createKey is provided", async () => {
       const createKey = uuid.create();
       const { picker } = await openCreateModal(createKey);
@@ -135,11 +157,12 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       const { picker } = await openCreateModal();
       await loadSVG(picker);
       await screen.findByText("100%");
-      fireEvent.keyDown(window, { key: "=", ctrlKey: true });
+      // Bare keys, since a browser reserves the Control chords for its own zoom.
+      pressKey("Equal");
       expect(await screen.findByText("120%")).toBeDefined();
-      fireEvent.keyDown(window, { key: "0", ctrlKey: true });
+      pressKey("Digit0");
       expect(await screen.findByText("100%")).toBeDefined();
-      fireEvent.keyDown(window, { key: "-", ctrlKey: true });
+      pressKey("Minus");
       expect(await screen.findByText("83%")).toBeDefined();
     });
 

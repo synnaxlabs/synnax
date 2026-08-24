@@ -43,10 +43,12 @@ describe("useCreate", () => {
       const doc = await client.panels.retrieve(selected);
       expect(doc.name).toEqual("New panel");
     });
-    const children = await client.panels.retrieve({
-      parent: project.ontologyID(proj.key),
+    await waitFor(async () => {
+      const children = await client.panels.retrieve({
+        parent: project.ontologyID(proj.key),
+      });
+      expect(children.map(({ key }) => key)).toContain(selected);
     });
-    expect(children.map(({ key }) => key)).toContain(selected);
     expect(Session.Panel.selectSelected(store.getState())).toEqual(selected);
   });
 

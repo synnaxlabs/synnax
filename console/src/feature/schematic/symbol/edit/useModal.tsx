@@ -265,7 +265,11 @@ export const useModal = Modals.create<ModalParams>(
             <Modals.Footer background={0}>
               <Triggers.SaveHelpText action={createSaveText} />
               <Nav.Bar.End>
-                <Button.Button variant="filled" onClick={() => save()}>
+                <Button.Button
+                  variant="filled"
+                  onClick={() => save()}
+                  trigger={Triggers.SAVE}
+                >
                   {createSaveText}
                 </Button.Button>
               </Nav.Bar.End>

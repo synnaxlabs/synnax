@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex, type Icon, type List, Text } from "@synnaxlabs/pluto";
+import { Flex, type Icon, type List, Text, Triggers } from "@synnaxlabs/pluto";
 import { type FC, type ReactElement, useCallback } from "react";
 
 import { Palette } from "@/platform/palette";
@@ -57,6 +57,8 @@ export interface CreateParams {
   icon: Icon.ReactElement;
   useOnSelect: () => () => void;
   useVisible?: () => boolean;
+  /** Shortcut that runs the same action; rendered as a hint on the list item. */
+  trigger?: Triggers.Trigger;
 }
 
 export const create = ({
@@ -65,11 +67,24 @@ export const create = ({
   icon,
   useOnSelect,
   useVisible,
+  trigger,
 }: CreateParams): Command => {
   const Cmd: Command = (listProps) => {
     const handleSelect = useOnSelect();
     const onSelect = useCallback(() => handleSelect(), [handleSelect]);
-    return <ListItem {...listProps} name={name} icon={icon} onSelect={onSelect} />;
+    return (
+      <ListItem
+        {...listProps}
+        name={name}
+        icon={icon}
+        onSelect={onSelect}
+        endContent={
+          trigger != null ? (
+            <Triggers.Text trigger={trigger} level="small" color={9} />
+          ) : undefined
+        }
+      />
+    );
   };
   Cmd.key = key;
   Cmd.commandName = name;

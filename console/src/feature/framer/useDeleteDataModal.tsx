@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/platform/framer/DeleteModal.css";
+import "@/feature/framer/DeleteModal.css";
 
 import { channel, DisconnectedError } from "@synnaxlabs/client";
 import {
@@ -237,7 +237,13 @@ const ConfirmStep = ({ onBack, onClose }: ConfirmStepProps): ReactElement => {
         </Button.Button>
       </Nav.Bar.Start>
       <Nav.Bar.End>
-        <Button.Button variant="filled" status="error" onClick={handleDelete}>
+        <Button.Button
+          variant="filled"
+          status="error"
+          onClick={handleDelete}
+          trigger={Triggers.SAVE}
+          triggerIndicator
+        >
           <Icon.Delete />
           Delete
         </Button.Button>

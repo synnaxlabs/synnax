@@ -17,7 +17,6 @@ import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Haul } from "@/haul";
 import { useSyncedRef } from "@/hooks";
-import { Icon } from "@/icon";
 import { Menu } from "@/menu";
 import { useClipboard } from "@/schematic/clipboard";
 import {
@@ -36,7 +35,7 @@ import {
   useUndo,
 } from "@/schematic/queries";
 import { useKey } from "@/schematic/Suspended";
-import { Triggers } from "@/triggers";
+import { type Triggers } from "@/triggers";
 import { Diagram as BaseDiagram } from "@/vis/diagram";
 
 export interface SchematicProps extends Omit<
@@ -139,6 +138,7 @@ export const Schematic = ({
     onUndo: undo,
     onRedo: redo,
     enabled: enableTriggers,
+    editable,
   });
 
   const contextMenu = Menu.useContextMenu();
@@ -147,24 +147,12 @@ export const Schematic = ({
       <Menu.Menu level="small" gap="small">
         {editable && (
           <>
-            <Menu.Item
-              itemKey="undo"
-              onClick={undo}
-              disabled={!canUndo}
-              triggerIndicator={Triggers.UNDO}
-            >
-              <Icon.Undo />
-              Undo
-            </Menu.Item>
-            <Menu.Item
-              itemKey="redo"
-              onClick={redo}
-              disabled={!canRedo}
-              triggerIndicator={Triggers.REDO}
-            >
-              <Icon.Redo />
-              Redo
-            </Menu.Item>
+            <Menu.UndoRedoItems
+              undo={undo}
+              redo={redo}
+              canUndo={canUndo}
+              canRedo={canRedo}
+            />
             {extraMenuItems != null && <Menu.Divider />}
           </>
         )}

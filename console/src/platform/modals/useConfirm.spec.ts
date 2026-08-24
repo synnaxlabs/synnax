@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 
 import { Modals } from "@/platform/modals";
 import {
+  findButton,
   findDismissButton,
   type ModalOpenerHandle,
   renderModalOpener,
@@ -81,5 +82,14 @@ describe("Confirm", () => {
     handle.reopen();
     fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
     await expect(handle.result()).resolves.toBe(false);
+  });
+
+  it("should advertise escape on the cancel button", async () => {
+    await openConfirm(BASE);
+    const cancel = findButton("Cancel");
+    const hint = cancel.querySelector('[aria-label="trigger-indicator"]');
+    // Escape dismisses the modal, and Cancel is the button that action belongs to.
+    // The confirm side already advertises Ctrl+Enter, so the pair reads together.
+    expect(hint?.textContent?.toLowerCase()).toContain("esc");
   });
 });

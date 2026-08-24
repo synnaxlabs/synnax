@@ -313,3 +313,47 @@ class ArcClient(ResourceClient):
         item = self.get_item(name)
         item.wait_for(state="visible", timeout=5000)
         self.layout.delete_with_confirmation(item)
+
+    GRAPH_CLASS = ".pluto-arc"
+    STAGES_CLASS = ".console-arc__stages"
+    STAGE_BUTTON_CLASS = ".console-arc-stages__button"
+
+    def open_graph(self, name: str) -> None:
+        """Open a graph-mode Arc, waiting on the canvas rather than the text editor.
+
+        Args:
+            name: The name of the Arc to open.
+        """
+        self._show_arc_panel()
+        self.get_item(name).dblclick()
+        self.layout.page.locator(self.GRAPH_CLASS).first.wait_for(
+            state="visible", timeout=10000
+        )
+
+    def show_graph_toolbar(self) -> None:
+        """Show the graph Arc's stage palette in the bottom Component drawer."""
+        self.layout.show_visualization_toolbar()
+        self.layout.page.locator(self.STAGES_CLASS).wait_for(
+            state="visible", timeout=5000
+        )
+
+    def stage_group_names(self) -> list[str]:
+        """Return the stage group names offered by the graph toolbar."""
+        groups = self.layout.page.locator(f"{self.STAGES_CLASS} .pluto-btn")
+        return [groups.nth(i).inner_text().strip() for i in range(groups.count())]
+
+    def select_stage_group(self, name: str) -> None:
+        """Select a stage group by name.
+
+        Args:
+            name: The group's label, e.g. "Telemetry".
+        """
+        self.layout.page.locator(self.STAGES_CLASS).get_by_role(
+            "button", name=name, exact=True
+        ).click()
+
+    def stage_names(self) -> list[str]:
+        """Return the node selector names shown for the selected stage group."""
+        stages = self.layout.page.locator(self.STAGE_BUTTON_CLASS)
+        stages.first.wait_for(state="visible", timeout=5000)
+        return [stages.nth(i).inner_text().strip() for i in range(stages.count())]

@@ -10,7 +10,17 @@
 import "@/feature/schematic/symbol/edit/Edit.css";
 
 import { type schematic } from "@synnaxlabs/client";
-import { Button, Flex, Form, Icon, Schematic, Text, Theming } from "@synnaxlabs/pluto";
+import {
+  Button,
+  Flex,
+  Form,
+  Icon,
+  Schematic,
+  Text,
+  Theming,
+  TimeSpan,
+  Triggers,
+} from "@synnaxlabs/pluto";
 import { box, id, type xy } from "@synnaxlabs/x";
 import {
   type ReactElement,
@@ -23,7 +33,34 @@ import {
 
 import { FileDrop } from "@/feature/schematic/symbol/edit/FileDrop";
 import { HandleOverlay } from "@/feature/schematic/symbol/edit/Handles";
+import {
+  FLATTENED_ZOOM_TRIGGERS,
+  ZOOM_TRIGGERS,
+} from "@/feature/schematic/symbol/edit/triggers";
 import { CSS } from "@/platform/css";
+
+const ZOOM_OUT_TOOLTIP = (
+  <Triggers.Text trigger={ZOOM_TRIGGERS.modes.out[0]} level="small">
+    Zoom out
+  </Triggers.Text>
+);
+
+const ZOOM_IN_TOOLTIP = (
+  <Triggers.Text trigger={ZOOM_TRIGGERS.modes.in[0]} level="small">
+    Zoom in
+  </Triggers.Text>
+);
+
+const RESET_ZOOM_TOOLTIP = (
+  <Triggers.Text trigger={ZOOM_TRIGGERS.modes.reset[0]} level="small">
+    Reset zoom
+  </Triggers.Text>
+);
+
+const MIN_ZOOM = 0.1;
+const MAX_ZOOM = 5;
+const ZOOM_STEP = 1.2;
+const ZOOM_REPEAT = TimeSpan.milliseconds(70);
 
 interface PreviewProps {
   selectedState: string;
@@ -44,7 +81,9 @@ export const Preview = ({
 }: PreviewProps): ReactElement | null => {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgWrapperRef = useRef<HTMLDivElement>(null);
-  const themeContainerRef = useRef<HTMLDivElement>(null);
+  // State, not a ref: the theme provider takes the element as a prop, and a ref filled
+  // after the first render would never re-render it into place.
+  const [themeContainer, setThemeContainer] = useState<HTMLDivElement | null>(null);
   const spec = Form.useFieldValue<schematic.symbol.Spec>("data");
   const pan = Form.useField<xy.XY>("data.previewViewport.position");
   const zoom = Form.useField<number>("data.previewViewport.zoom");
@@ -61,14 +100,27 @@ export const Preview = ({
     pan.onChange({ x: 0, y: 0 });
   };
 
-  const handleZoomIn = () => zoom.onChange(Math.min(zoom.value * 1.2, 5));
-  const handleZoomOut = () => zoom.onChange(Math.max(zoom.value / 1.2, 0.1));
+  // A held chord steps on an interval, so the step reads the live zoom and setter
+  // rather than the ones captured when the hold started.
+  const zoomRef = useRef(zoom.value);
+  zoomRef.current = zoom.value;
+  const setZoomRef = useRef(zoom.onChange);
+  setZoomRef.current = zoom.onChange;
+  const stepZoom = useCallback(
+    (factor: number) =>
+      setZoomRef.current(
+        Math.min(Math.max(zoomRef.current * factor, MIN_ZOOM), MAX_ZOOM),
+      ),
+    [],
+  );
+
+  const handleZoomIn = useCallback(() => stepZoom(ZOOM_STEP), [stepZoom]);
+  const handleZoomOut = useCallback(() => stepZoom(1 / ZOOM_STEP), [stepZoom]);
   const handleResetZoom = () => resetViewport();
 
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    zoom.onChange(Math.max(0.1, Math.min(5, zoom.value * delta)));
+    stepZoom(e.deltaY > 0 ? 0.9 : 1.1);
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -89,25 +141,33 @@ export const Preview = ({
 
   const handleMouseUp = () => setIsDragging(false);
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (!spec.svg) return;
+  const repeat = useRef<ReturnType<typeof setInterval>>(null);
+  const stopRepeat = useCallback(() => {
+    if (repeat.current == null) return;
+    clearInterval(repeat.current);
+    repeat.current = null;
+  }, []);
+  useEffect(() => stopRepeat, [stopRepeat]);
 
-      if ((e.ctrlKey || e.metaKey) && e.key === "0") {
-        e.preventDefault();
-        handleResetZoom();
-      } else if ((e.ctrlKey || e.metaKey) && e.key === "=") {
-        e.preventDefault();
-        handleZoomIn();
-      } else if ((e.ctrlKey || e.metaKey) && e.key === "-") {
-        e.preventDefault();
-        handleZoomOut();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [spec.svg]);
+  Triggers.use({
+    triggers: FLATTENED_ZOOM_TRIGGERS,
+    enabled: Boolean(spec.svg),
+    callback: useCallback(
+      ({ triggers, stage }: Triggers.UseEvent) => {
+        if (stage === "end") return stopRepeat();
+        if (stage !== "start") return;
+        const mode = Triggers.determineMode(ZOOM_TRIGGERS, triggers);
+        if (mode === "reset") return handleResetZoom();
+        if (mode !== "in" && mode !== "out") return;
+        const step = mode === "in" ? handleZoomIn : handleZoomOut;
+        step();
+        // A held chord keeps zooming, the way a held arrow key keeps scrolling.
+        stopRepeat();
+        repeat.current = setInterval(step, ZOOM_REPEAT.milliseconds);
+      },
+      [handleZoomIn, handleZoomOut, handleResetZoom, stopRepeat],
+    ),
+  });
 
   const onMount = (svgElement: SVGSVGElement) => {
     svgElementRef.current = svgElement;
@@ -224,11 +284,11 @@ export const Preview = ({
       enabled={fileDropEnabled}
     >
       <Theming.Provider
-        el={themeContainerRef.current}
+        el={themeContainer}
         theme={Theming.SYNNAX_THEMES[isDarkMode ? "synnaxDark" : "synnaxLight"]}
       >
         <Flex.Box
-          ref={themeContainerRef}
+          ref={setThemeContainer}
           className={CSS.cls(
             CSS.B("schematic-preview-theme-container"),
             fileDropEnabled && CSS.M("hidden"),
@@ -254,16 +314,24 @@ export const Preview = ({
                 {isDarkMode ? <Icon.DarkMode /> : <Icon.LightMode />}
               </Button.Button>
               <Flex.Box pack x>
-                <Button.Button onClick={handleZoomOut} size="small" tooltip="Zoom out">
+                <Button.Button
+                  onClick={handleZoomOut}
+                  size="small"
+                  tooltip={ZOOM_OUT_TOOLTIP}
+                >
                   <Icon.Subtract />
                 </Button.Button>
-                <Button.Button onClick={handleZoomIn} size="small" tooltip="Zoom in">
+                <Button.Button
+                  onClick={handleZoomIn}
+                  size="small"
+                  tooltip={ZOOM_IN_TOOLTIP}
+                >
                   <Icon.Add />
                 </Button.Button>
                 <Button.Button
                   onClick={handleResetZoom}
                   size="small"
-                  tooltip="Reset zoom"
+                  tooltip={RESET_ZOOM_TOOLTIP}
                 >
                   <Icon.Expand />
                 </Button.Button>
