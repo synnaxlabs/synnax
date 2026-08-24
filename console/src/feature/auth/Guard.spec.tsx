@@ -120,8 +120,8 @@ describe("auth guard", () => {
       () => expect(document.querySelector(".pluto--status-success")).toBeTruthy(),
       { timeout: 10000 },
     );
-    // The login sequence swaps the Core and project partitions in turn;
-    // the workspace settles once the second swap hydrates.
+    // The login sequence swaps the Core and project partitions in turn; the workspace
+    // settles once the second swap hydrates.
     expect(
       await screen.findByText("authenticated content", {}, { timeout: 10000 }),
     ).toBeTruthy();

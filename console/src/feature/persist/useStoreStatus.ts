@@ -31,8 +31,7 @@ export const useStoreStatus = (): void => {
       variant: "warning",
       message: UNAVAILABLE_MESSAGE,
       description:
-        "Synnax cannot reach browser storage, so your workspace resets when you " +
-        "reload. Private browsing and blocked site data are the usual causes.",
+        "Synnax cannot reach browser storage, so your workspace resets when you reload.",
     });
   }, [unavailable, addStatus]);
 };

@@ -12,8 +12,8 @@ import { open } from "@tauri-apps/plugin-shell";
 import { Session } from "@/session";
 
 /**
- * Opens a URL in the user's browser. Tauri's WebView cannot navigate away from the
- * app, so it hands the URL to the shell plugin instead.
+ * Opens a URL in the user's browser. Tauri's WebView cannot navigate away from the app,
+ * so it hands the URL to the shell plugin instead.
  * @throws {Error} if the platform refuses to open the URL.
  */
 export const openExternal = async (url: string): Promise<void> => {

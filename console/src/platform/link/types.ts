@@ -14,8 +14,8 @@ import { type Synnax } from "@synnaxlabs/client";
 
 export const PREFIX = `synnax://core/`;
 
-// CoreConnect resolves the Core identified by key to a connected client,
-// switching the active Core and awaiting a successful connection if necessary.
+// CoreConnect resolves the Core identified by key to a connected client, switching the
+// active Core and awaiting a successful connection if necessary.
 export interface CoreConnect {
   (key: string): Promise<Synnax>;
 }
@@ -35,6 +35,6 @@ export interface UseHandler {
   (): Handler;
 }
 
-// Registry maps a resource type (the segment after the Core key in a deep link) to
-// the hook that produces its Handler.
+// Registry maps a resource type (the segment after the Core key in a deep link) to the
+// hook that produces its Handler.
 export type Registry = Record<string, UseHandler>;
