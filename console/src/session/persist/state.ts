@@ -60,18 +60,39 @@ export type SliceSchemas<S extends object> = {
   [K in SliceKey<S>]?: z.ZodType<S[K]>;
 };
 
+/** A slice keying its state by window, which is what a lens splits. */
+export interface Windowed {
+  windows: Record<string, unknown>;
+}
+
 /**
  * How a window-scoped slice splits across the windows it holds state for. The store
- * supplies one, so persistence never assumes the shape of a slice.
+ * supplies one, so persistence never assumes anything about a slice beyond the record
+ * a window scope already implies.
  */
 export interface Lens {
   /** The window keys the slice holds state for. */
-  keys: (slice: unknown) => string[];
+  keys: (slice: Windowed) => string[];
   /** The slice narrowed to one window, which is what that window's partition stores. */
-  narrow: (slice: unknown, key: string) => unknown;
+  narrow: (slice: Windowed, key: string) => Windowed;
   /** Folds a window's stored slice back into the one being composed. */
-  widen: (into: unknown, from: unknown) => unknown;
+  widen: (into: Windowed, from: Windowed) => Windowed;
 }
+
+// A window scope is the store's promise that the slices in it key state by window. S
+// carries no such constraint, so these two are where that promise is taken at its
+// word, and the only place a slice is treated as anything but opaque.
+const narrowTo = <S extends object, K extends SliceKey<S>>(
+  lens: Lens,
+  slice: S[K],
+  window: string,
+): S[K] => lens.narrow(slice as Windowed, window) as S[K];
+
+const widenInto = <S extends object, K extends SliceKey<S>>(
+  lens: Lens,
+  into: S[K],
+  from: S[K],
+): S[K] => lens.widen(into as Windowed, from as Windowed) as S[K];
 
 /**
  * Where each slice lives on disk. Every slice of S appears in exactly one scope or
@@ -264,7 +285,7 @@ class Partition<S extends object> {
       data[key] =
         this.window == null
           ? slice
-          : (this.window.lens.narrow(slice, this.window.key) as S[typeof key]);
+          : narrowTo<S, typeof key>(this.window.lens, slice, this.window.key);
     });
     if (this.committed != null && deep.equal(this.committed, data)) return null;
     const stored = await this.readSlot();
@@ -578,10 +599,11 @@ class Engine<S extends object> {
       scopeKeys(this.scopes.window).forEach((key) => {
         const value = read[key];
         if (value == null || this.lens == null) return;
-        out[key] = this.lens.widen(
+        out[key] = widenInto<S, typeof key>(
+          this.lens,
           out[key] ?? deep.copy(this.initial[key]),
           value,
-        ) as S[typeof key];
+        );
       });
     }
     return out;

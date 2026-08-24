@@ -9,28 +9,15 @@
 
 import { type Persist } from "@/session/persist";
 
-interface Windowed {
-  windows: Record<string, unknown>;
-}
-
-const windowsOf = (slice: unknown): Record<string, unknown> =>
-  (slice as Windowed).windows;
-
 /**
  * How persistence splits a window-keyed slice across its windows. Every window-keyed
  * slice holds a windows record, so one lens serves them all, and the shape stays
  * declared here rather than assumed by the store.
  */
 export const LENS: Persist.Lens = {
-  keys: (slice) => Object.keys(windowsOf(slice)),
+  keys: ({ windows }) => Object.keys(windows),
   // A window's partition stores the whole slice narrowed to that one window, so its
   // bytes still parse through the slice's own schema.
-  narrow: (slice, key) => ({
-    ...(slice as Windowed),
-    windows: { [key]: windowsOf(slice)[key] },
-  }),
-  widen: (into, from) => ({
-    ...(from as Windowed),
-    windows: { ...windowsOf(into), ...windowsOf(from) },
-  }),
+  narrow: (slice, key) => ({ ...slice, windows: { [key]: slice.windows[key] } }),
+  widen: (into, from) => ({ ...from, windows: { ...into.windows, ...from.windows } }),
 };
