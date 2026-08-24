@@ -85,17 +85,6 @@ const fullTitle = cleanTitle ? `${cleanTitle} | Synnax` : "Synnax";
     </body><script>
         import { addCodeButtonListeners } from "@/components/code/codeUtil";
         import { startUpdatingIframeHref } from "@/util/iframe";
-        import { fetchVersion } from "@/util/fetchVersion";
-        const updateVersion = () => {
-            fetchVersion().then((version) => {
-                const versionElement = document.querySelectorAll(".version");
-                versionElement.forEach((element) => {
-                    if (element.classList.contains("full")) element.innerHTML = version;
-                    else element.innerHTML = version.split(".").slice(0, -1).join(".");
-                });
-            });
-        };
-
         const bindClickHandlersToHeadingAnchors = () => {
             const anchors =
                 document.querySelectorAll<HTMLAnchorElement>(".heading-anchor");
@@ -111,12 +100,10 @@ const fullTitle = cleanTitle ? `${cleanTitle} | Synnax` : "Synnax";
             });
         };
 
-        updateVersion();
         addCodeButtonListeners();
         startUpdatingIframeHref();
         bindClickHandlersToHeadingAnchors();
         document.addEventListener("astro:after-swap", () => {
-            updateVersion();
             addCodeButtonListeners();
             startUpdatingIframeHref();
             bindClickHandlersToHeadingAnchors();
