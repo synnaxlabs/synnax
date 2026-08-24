@@ -108,10 +108,10 @@ export const createWithDocumentHandler =
   };
 
 /**
- * Builds the reducer for a document's create action: it seeds this window's view from
+ * Builds the reducer for a document's create action: it starts this window's view from
  * the payload, and leaves an existing view alone so reopening a document does not
  * discard where the user had it.
- * @param schema the zod schema the seeded state is parsed through.
+ * @param schema the zod schema the initial state is parsed through.
  * @throws {UnexpectedError} if the dispatched action has no windowKey.
  */
 export const createDocumentInitializer =

@@ -146,11 +146,11 @@ export interface Config<S extends object> {
   lens?: Lens | null;
   exclude?: Array<ExcludeFn<S>>;
   /**
-   * Slices to start from the first time the store is opened, carried over from
-   * whatever the previous release left on disk. Consulted only while the store is
-   * still empty, so it never overwrites what this release has written.
+   * Carries the previous release's state over the first time the store is opened.
+   * Consulted only while the store is still empty, so it never overwrites what this
+   * release has written.
    */
-  seed?: () => Promise<Partial<S>>;
+  migrate?: () => Promise<Partial<S>>;
   openKV?: KVOpener;
   debounceInterval?: CrudeTimeSpan;
 }
@@ -370,7 +370,7 @@ class Engine<S extends object> {
   private readonly getWindows: (state: S) => string[];
   private readonly lens: Lens | null;
   private readonly exclude: Array<ExcludeFn<S>>;
-  private readonly seed?: () => Promise<Partial<S>>;
+  private readonly migrate?: () => Promise<Partial<S>>;
 
   /**
    * Opens an engine over the persisted store and composes the state it holds for the
@@ -389,7 +389,7 @@ class Engine<S extends object> {
     getWindows = () => [],
     lens = null,
     exclude = [],
-    seed,
+    migrate,
     openKV = openSugaredKV,
   }: Config<S>) {
     this.initial = deep.copy(initial);
@@ -398,7 +398,7 @@ class Engine<S extends object> {
     this.getWindows = getWindows;
     this.lens = lens;
     this.exclude = exclude;
-    this.seed = seed;
+    this.migrate = migrate;
     this.db = openKV(STORE_NAME);
     this.initialState = deep.copy(initial);
     this.context = getContext(this.initialState);
@@ -505,7 +505,7 @@ class Engine<S extends object> {
   private async compose(): Promise<void> {
     const state = deep.copy(this.initial);
     try {
-      Object.assign(state, await this.readSeed());
+      Object.assign(state, await this.readMigrated());
       Object.assign(state, await this.global().read());
       const { core } = this.getContext(state);
       if (core != null) Object.assign(state, await this.core(core).read());
@@ -527,14 +527,16 @@ class Engine<S extends object> {
     this.initialState = state;
   }
 
-  /** The seed's slices, or nothing when the store already holds a session. */
-  private async readSeed(): Promise<Partial<S>> {
-    if (this.seed == null) return {};
+  /**
+   * The previous release's slices, or nothing when the store already holds a session.
+   */
+  private async readMigrated(): Promise<Partial<S>> {
+    if (this.migrate == null) return {};
     try {
       if ((await this.db.length()) > 0) return {};
-      return await this.seed();
+      return await this.migrate();
     } catch (err) {
-      console.error("failed to seed the session store", err);
+      console.error("failed to carry the previous release's state over", err);
       return {};
     }
   }

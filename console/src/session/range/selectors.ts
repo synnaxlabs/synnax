@@ -21,7 +21,7 @@ import { Select } from "@/session/select";
 
 const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 
-// The built-ins lead, as they did when they were seeded into stored state.
+// The built-ins lead, as they did when stored state carried them.
 const selectAll = (state: StoreState): State[] => [
   ...BUILT_IN,
   ...selectSliceState(state).ranges,

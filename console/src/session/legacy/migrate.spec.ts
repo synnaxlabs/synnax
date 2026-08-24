@@ -144,11 +144,11 @@ describe("Legacy.migrate", () => {
       ...FULL,
       "console-persisted-state.3": { ...BLOB, cluster: { clusters: "corrupt" } },
     });
-    const seed = await Legacy.migrate(read);
-    expect(seed.core).toBeUndefined();
-    expect(seed.theme?.mode).toBe("light");
-    expect(seed.color).toBeDefined();
-    expect(seed.project?.selected).toBe(WORKSPACE_KEY);
+    const migrated = await Legacy.migrate(read);
+    expect(migrated.core).toBeUndefined();
+    expect(migrated.theme?.mode).toBe("light");
+    expect(migrated.color).toBeDefined();
+    expect(migrated.project?.selected).toBe(WORKSPACE_KEY);
     expect(errorSpy).toHaveBeenCalled();
     errorSpy.mockRestore();
   });
@@ -220,11 +220,11 @@ describe("Legacy.migrate", () => {
 
   it("should leave the slices it does not carry at their defaults", async () => {
     const [read] = createReader(FULL);
-    const seed = await Legacy.migrate(read);
-    expect(seed).not.toHaveProperty("range");
-    expect(seed).not.toHaveProperty("status");
-    expect(seed).not.toHaveProperty("panels");
-    expect(seed).not.toHaveProperty("nav");
+    const migrated = await Legacy.migrate(read);
+    expect(migrated).not.toHaveProperty("range");
+    expect(migrated).not.toHaveProperty("status");
+    expect(migrated).not.toHaveProperty("panels");
+    expect(migrated).not.toHaveProperty("nav");
   });
 
   it("should never write to the legacy store", async () => {
@@ -235,7 +235,7 @@ describe("Legacy.migrate", () => {
   });
 });
 
-describe("Legacy seed defaults", () => {
+describe("Legacy migration defaults", () => {
   it("should produce slice states the current schemas accept", async () => {
     const [read] = createReader(FULL);
     const { core, theme, color, project } = await Legacy.migrate(read);

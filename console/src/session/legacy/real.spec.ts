@@ -104,7 +104,7 @@ describe("Legacy.migrate over a real 0.56 store", () => {
   });
 
   it("should ignore the slices this release does not keep", async () => {
-    const seed = await Legacy.migrate(read);
-    expect(Object.keys(seed).sort()).toEqual(["color", "core", "theme"]);
+    const migrated = await Legacy.migrate(read);
+    expect(Object.keys(migrated).sort()).toEqual(["color", "core", "theme"]);
   });
 });

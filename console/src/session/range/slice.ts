@@ -53,7 +53,7 @@ export type State = z.infer<typeof stateZ>;
 export const RECENT_KEY = "recent";
 
 /**
- * The rolling windows every session offers. Held in code rather than seeded into
+ * The rolling windows every session offers. Held in code rather than written into
  * stored state, so a release can revise them and no session can lose one. The list
  * always leads with {@link RECENT_KEY}, which callers fall back to when nothing is
  * selected.

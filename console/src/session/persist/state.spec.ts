@@ -838,9 +838,9 @@ describe("Persist.middleware", () => {
 
   it("should discard a stale swap when a newer context switch supersedes it", async () => {
     const store = new Persist.MemoryKV();
-    const seed = await createDriver(store);
-    await enter(seed, CTX);
-    await edit(seed, "fresh");
+    const written = await createDriver(store);
+    await enter(written, CTX);
+    await edit(written, "fresh");
     let releaseStale: (() => void) | undefined;
     const staleGate = new Promise<void>((resolve) => (releaseStale = resolve));
     const gateHit = vi.fn();

@@ -132,8 +132,8 @@ shape or accept the reset — say which in the PR.
   in `platform/link/markIgnored.ts`; keep it that way.
 
 The 0.56 store (`persisted-state.json` in the roaming dir; the `persisted-state.json:`
-localStorage prefix) is read once to seed a fresh install, never written, so a rollback
-to 0.56 finds its state.
+localStorage prefix) is read once to carry a fresh install over, and never written, so a
+rollback to 0.56 finds its state.
 
 ## Windows Are Viewports
 

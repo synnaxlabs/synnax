@@ -232,7 +232,7 @@ export const createStore = async (opts: CreateStoreOptions = {}): Promise<Store>
       getWindows,
       lens: Window.LENS,
       exclude: PERSIST_EXCLUDE,
-      seed: Legacy.migrate,
+      migrate: Legacy.migrate,
       openKV,
     });
     preloadedState ??= persist.initialState;

@@ -71,7 +71,7 @@ const parseBranch = <T>(
  * view state are absent by design: the Core migrates workspaces into projects and
  * panels, so their content arrives from there rather than from local state.
  */
-export interface Seed extends Partial<
+export interface Migrated extends Partial<
   Core.StoreState & Theme.StoreState & Color.StoreState & Project.StoreState
 > {}
 
@@ -107,10 +107,10 @@ const cores = (legacy?: z.infer<typeof clusterZ>): Core.SliceState | undefined =
  * @param read - Reader over the legacy store. Defaults to the real one.
  * @returns the slices worth carrying, or nothing when there is no legacy state.
  */
-export const migrate = async (read: Reader = openReader()): Promise<Seed> => {
+export const migrate = async (read: Reader = openReader()): Promise<Migrated> => {
   const root = parseBranch(await readState(read), rootZ, "session state");
   if (root == null) return {};
-  const out: Seed = {};
+  const out: Migrated = {};
   const core = cores(parseBranch(root.cluster, clusterZ, "Cores"));
   if (core != null) out[Core.SLICE_NAME] = core;
   const mode = themeMode(parseBranch(root.layout, themeZ, "theme")?.activeTheme);
