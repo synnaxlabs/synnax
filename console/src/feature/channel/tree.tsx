@@ -29,11 +29,12 @@ import { useCallback, useMemo } from "react";
 
 import { useOpen } from "@/feature/channel/useOpen";
 import { Channel } from "@/platform/channel";
-import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
+import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Group } from "@/platform/group";
 import { Link } from "@/platform/link";
+import { Range } from "@/platform/range";
 import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
@@ -126,7 +127,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
     selection: { ids, rootID },
     state: { getResource, shape },
   } = props;
-  const activeRange = Session.Range.useSelectState();
+  const activeRange = Range.useResolve();
   const groupFromSelection = Group.useCreateFromSelection();
   const handleSetAlias = useSetAlias(props);
   const resources = getResource(ids);
@@ -154,7 +155,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
   const handleRename = useRename(props);
 
-  const handleLink = Cluster.useCopyLinkToClipboard();
+  const handleLink = Core.useCopyLinkToClipboard();
   const openCalculated = useEditCalculated();
   const singleResource = resources.length === 1;
 
@@ -169,7 +170,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         </Menu.Item>
       )}
       <Menu.Divider />
-      {singleResource && hasUpdatePermission && (
+      {singleResource && hasUpdatePermission && allowRename(first) && (
         <ContextMenu.RenameItem onClick={handleRename} />
       )}
       {hasUpdatePermission && (
@@ -182,11 +183,11 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       )}
       <Menu.Divider />
       {activeRange != null &&
-        activeRange.persisted &&
+        activeRange.variant === "persisted" &&
         (singleResource || showDeleteAlias) &&
         (hasAliasCreatePermission || hasAliasDeletePermission) && (
           <>
-            {singleResource && hasAliasCreatePermission && (
+            {singleResource && hasAliasCreatePermission && allowRename(first) && (
               <Menu.Item itemKey="alias" onClick={handleSetAlias}>
                 <Icon.Rename />
                 Set alias under {activeRange.name}
@@ -218,7 +219,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
 };
 
 const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
-  const activeRange = Session.Range.useSelectState();
+  const activeRange = Range.useResolve();
   const query = { key: Number(resource.id.key), rangeKey: activeRange?.key };
   const { data: alias } = PChannel.useResultAlias(query);
   const { data: chStatus } = PChannel.useResultStatus(query);

@@ -8,30 +8,24 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { renderPalette } from "@/feature/command/testutil";
 import { Docs } from "@/feature/docs";
-import { Session } from "@/session";
-import { resolveFocusedTab, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
 describe("Docs Commands", () => {
-  it("should open the docs view as a tab when the read command is selected", async () => {
-    const proj = await client.projects.create({
-      name: uniqueName("proj"),
-      layout: {},
-    });
-    const { store, openCommandPalette, selectCommand } = await renderPalette({
+  it("should open the docs in the browser when the read command is selected", async () => {
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    const { openCommandPalette, selectCommand } = await renderPalette({
       commands: Docs.COMMANDS,
       client,
     });
-    store.dispatch(Session.Project.select(proj.key));
     await openCommandPalette();
     await selectCommand("Read documentation");
-    const tab = await resolveFocusedTab(store, client);
-    if (tab.variant !== "view") throw new Error("expected a view tab");
-    expect(tab.type).toBe(Docs.TAB_TYPE);
+    await vi.waitFor(() => {
+      expect(open).toHaveBeenCalledWith(Docs.URL, "_blank", "noopener,noreferrer");
+    });
   });
 });

@@ -14,6 +14,12 @@
         width: 100%;
     }
 
+    /* The hint is a right-aligned column, and the widest row sets the menu width, so
+       that row's caps butt against its label unless a gutter is held open. */
+    &:not(.pluto--square) .pluto-trigger-indicator {
+        padding-left: 2rem;
+    }
+
     /* Menu items are rows: they speak the list selection tier, not the
        control-tier default. */
     &.pluto-btn.pluto--selected {
@@ -23,6 +29,7 @@
         --pluto-border-color: var(--pluto-selected-list-border-color);
         --pluto-hover-border-color: var(--pluto-selected-list-border-color);
         --pluto-active-border-color: var(--pluto-selected-list-border-color);
+
         color: unset;
     }
 }

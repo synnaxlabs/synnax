@@ -123,6 +123,7 @@ const LabelListItem = ({
             size="small"
             onClick={() => save()}
             trigger={visible ? ["Enter"] : undefined}
+            triggerIndicator
           >
             <Icon.Check />
           </Button.Button>
@@ -147,6 +148,14 @@ const LabelListItem = ({
 };
 
 const listItem = Component.renderProp(LabelListItem);
+
+const EMPTY_CONTENT = (
+  <Flex.Box center>
+    <Text.Text level="h4" color={9}>
+      No labels created
+    </Text.Text>
+  </Flex.Box>
+);
 
 export const useEditModal = Modals.create(() => {
   const { data, getItem, retrieve, subscribe, answered } = Label.useList();
@@ -187,19 +196,7 @@ export const useEditModal = Modals.create(() => {
             visible={newFormVisible}
             onClose={() => setNewFormVisible(false)}
           />
-          <List.Items
-            grow
-            emptyContent={
-              answered &&
-              !newFormVisible && (
-                <Flex.Box center>
-                  <Text.Text level="h4" color={9}>
-                    No labels created
-                  </Text.Text>
-                </Flex.Box>
-              )
-            }
-          >
+          <List.Items grow emptyContent={answered && !newFormVisible && EMPTY_CONTENT}>
             {listItem}
           </List.Items>
           {!newFormVisible && hasCreatePermission && (

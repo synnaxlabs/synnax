@@ -101,7 +101,7 @@ export interface ToolbarHandle {
 /**
  * Renders a domain's navdrawer toolbar content inside the full console provider stack
  * with haul + ontology services and a live modal stack, so the toolbar's resource tree
- * and its actions run against the real cluster.
+ * and its actions run against the real Core.
  */
 export const renderToolbar = async (
   content: ReactNode,

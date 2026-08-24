@@ -20,6 +20,7 @@ import {
   renderTable,
 } from "@/feature/table/testutil";
 import { Session } from "@/session";
+import { documentIn } from "@/session/window/testutil";
 import { getLabeledDialogTrigger, uniqueName } from "@/testutil";
 
 interface RenderToolbarOptions {
@@ -60,7 +61,7 @@ describe("table/Toolbar", () => {
     fireEvent.click(await screen.findByText("Enable editing"));
     await waitFor(() =>
       expect(
-        Session.Table.selectSliceState(store.getState()).tables[key].editable,
+        documentIn(Session.Table.selectSliceState(store.getState()), key)?.editable,
       ).toBe(true),
     );
   });

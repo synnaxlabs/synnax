@@ -14,6 +14,7 @@ import {
   type Synnax,
 } from "@synnaxlabs/client";
 import {
+  Access,
   context,
   type Flux,
   type Icon,
@@ -187,17 +188,19 @@ export const createEditableTabName = (
 ): TabName => {
   const Name: TabName = ({ allowRename = true }) => {
     const tabKey = Panel.useTabKey();
-    const { key } = Panel.useTabResource();
+    const resource = Panel.useTabResource();
+    const { key } = resource;
     useEnsure({ key });
     const name = useName({ key });
     const { update } = useRename();
+    const canRename = Access.useUpdateGranted(resource);
     return (
       <>
         {icon}
         <Text.MaybeEditable
           id={tabNameID(tabKey)}
           value={name}
-          disabled={!allowRename}
+          disabled={!allowRename || !canRename}
           onChange={(name) => update({ key, name })}
         />
       </>

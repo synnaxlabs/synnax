@@ -18,7 +18,7 @@ import { createActiveState } from "@/platform/project/testutil";
 import { Range } from "@/platform/range";
 import { createTestRange, uniqueRangeName } from "@/platform/range/testutil";
 import { Session } from "@/session";
-import { createCluster } from "@/session/cluster/testutil";
+import { createCore } from "@/session/core/testutil";
 import {
   createConsoleWrapper,
   renderSuspended,
@@ -52,7 +52,7 @@ const renderDetails = async (rangeKey: string, as: Client = client) => {
 };
 
 describe("Range.Details", () => {
-  it("should rename the range on the cluster when the name field is edited", async () => {
+  it("should rename the range on the Core when the name field is edited", async () => {
     const range = await createRange();
     await renderDetails(range.key);
     const nameInput = await screen.findByDisplayValue(range.name, {});
@@ -113,11 +113,11 @@ describe("Range.Details", () => {
     const { wrapper } = await createConsoleWrapper({
       client,
       preloadedState: {
-        [Session.Cluster.SLICE_NAME]: {
+        [Session.Core.SLICE_NAME]: {
           version: 0,
           selected: "local",
-          clusters: {
-            local: createCluster("local", { name: "Local" }),
+          cores: {
+            local: createCore("local", { name: "Local" }),
           },
         },
       },

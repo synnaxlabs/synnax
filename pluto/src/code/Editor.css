@@ -50,11 +50,13 @@
     height: 100%;
     padding: 2rem 1px;
     border-color: var(--pluto-gray-l6);
-    &.pluto--bordered:has(.focused) {
-        box-sizing: border-box !important;
+    /* Monaco toggles .focused on .monaco-editor alone; its overlay divs keep the class
+    after blur. Focus thickens the border to a full 1px, so the padding gives back the
+    difference from the theme border width to keep the text from shifting. */
+    &.pluto--bordered:has(.monaco-editor.focused) {
         border-color: var(--pluto-primary-z);
         border-width: 1px;
-        padding: calc(2rem - 0.5px) 0.5px;
+        padding: calc(2rem - 1px + var(--pluto-border-width)) var(--pluto-border-width);
     }
 }
 

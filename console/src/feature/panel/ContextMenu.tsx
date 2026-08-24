@@ -23,12 +23,13 @@ const ResourceRenameItem = (): ReactElement | null => {
   const tabKey = Panel.useTabKey();
   const resource = Panel.useTabResource({});
   const canRename = Access.useUpdateGranted(resource);
+  const isFocused = Session.Panel.useSelectIsTabFocused();
   if (!canRename) return null;
   return (
     <CMenu.RenameItem
       onClick={() => PlatformPanel.editTabName(tabKey)}
       trigger={PlatformPanel.RENAME_TRIGGER}
-      triggerIndicator
+      triggerIndicator={isFocused}
     />
   );
 };
@@ -39,6 +40,7 @@ const RenameItem = (): ReactElement | null =>
 const FocusItem = (): ReactElement => {
   const tabKey = Panel.useTabKey();
   const isOverlaid = Session.Panel.useSelectIsTabOverlaid();
+  const isFocused = Session.Panel.useSelectIsTabFocused();
   const startOverlaying = Session.Panel.useStartOverlaying();
   const dispatch = Session.useDispatch();
   const handleFocus = useCallback(() => {
@@ -49,7 +51,7 @@ const FocusItem = (): ReactElement => {
     <Menu.Item
       itemKey="focus"
       onClick={handleFocus}
-      triggerIndicator={Panel.OVERLAY_TRIGGER}
+      triggerIndicator={isFocused && Panel.OVERLAY_TRIGGER}
     >
       {isOverlaid ? <Icon.Collapse /> : <Icon.Focus />}
       {isOverlaid ? "Exit focus" : "Focus"}
@@ -113,11 +115,18 @@ const MoveToNewWindowItem = (): ReactElement | null => {
   );
 };
 
+// Every tab hotkey acts on the window's focused tab, so a menu open on any other tab
+// would advertise a shortcut that does something else.
+const CloseItem = (): ReactElement | null => {
+  const isFocused = Session.Panel.useSelectIsTabFocused();
+  return <Panel.CloseTabMenuItem triggerIndicator={isFocused} />;
+};
+
 export const TabMenuItems = ({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
   if (keys.length === 0) return <CMenu.ReloadConsoleItem />;
   return (
     <>
-      <Panel.CloseTabMenuItem />
+      <CloseItem />
       <Menu.Divider />
       <RenameItem />
       <FocusItem />

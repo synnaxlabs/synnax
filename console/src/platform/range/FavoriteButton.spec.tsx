@@ -38,9 +38,7 @@ describe("Range.FavoriteButton", () => {
     fireEvent.click(screen.getByRole("checkbox"));
     const state = Session.Range.selectState(store.getState(), range.key);
     expect(state).toBeDefined();
-    expect(state?.name).toEqual(range.name);
-    expect(state?.persisted).toBe(true);
-    expect(state?.variant).toBe("static");
+    expect(state?.variant).toBe("persisted");
   });
 
   it("should remove the range from the slice when unfavorited", async () => {

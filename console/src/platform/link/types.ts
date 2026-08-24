@@ -10,14 +10,16 @@
 import { type Synnax } from "@synnaxlabs/client";
 
 // Links have the form synnax://cluster/<cluster-key> for a cluster or
-// synnax://cluster/<cluster-key>/<resource-type>/<resource-key> for another resource
+// synnax://cluster/<cluster-key>/<resource-type>/<resource-key> for another resource.
+// The cluster names the target rather than a Core record, so a link opens through
+// whichever Core the person receiving it reaches the cluster through.
 
 export const PREFIX = `synnax://cluster/`;
 
-// ClusterConnect resolves the cluster identified by key to a connected client,
-// switching the active cluster and awaiting a successful connection if necessary.
-export interface ClusterConnect {
-  (key: string): Promise<Synnax>;
+// Connect resolves the cluster a link names to a connected client, switching the active
+// Core and awaiting a successful connection if necessary.
+export interface Connect {
+  (clusterKey: string): Promise<Synnax>;
 }
 
 export interface HandlerParams {

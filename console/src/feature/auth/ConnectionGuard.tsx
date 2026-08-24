@@ -30,8 +30,8 @@ import {
 
 import { Login } from "@/feature/auth/Login";
 import { Shell } from "@/feature/shell";
-import { Cluster } from "@/platform/cluster";
 import { Connection } from "@/platform/connection";
+import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Shell as PlatformShell } from "@/platform/shell";
 import { Session } from "@/session";
@@ -110,8 +110,7 @@ interface SplashProps {
 
 const Splash = ({ status }: SplashProps): ReactElement => {
   const { variant, details } = status;
-  const activeKey = Session.Cluster.useSelectSelectedKey();
-  const cluster = Session.Cluster.useSelectState(activeKey ?? undefined);
+  const target = Session.Core.useSelectSelected();
   const connecting = details.epoch === 0;
   const troubled =
     connecting &&
@@ -129,7 +128,7 @@ const Splash = ({ status }: SplashProps): ReactElement => {
     ) : undefined;
   return (
     // Trouble puts the connection detail in the card, so the island would repeat it.
-    <Shell.Frame className={CSS.B("connection")} connection={troubled ? null : cluster}>
+    <Shell.Frame className={CSS.B("connection")} connection={troubled ? null : target}>
       <Flex.Box
         y
         align="center"
@@ -152,9 +151,9 @@ const Splash = ({ status }: SplashProps): ReactElement => {
 };
 
 const Trouble = (): ReactElement => {
-  const activeKey = Session.Cluster.useSelectSelectedKey();
+  const activeKey = Session.Core.useSelectSelectedKey();
   const logout = Session.useLogout();
-  const openConnect = Cluster.useConnectModal();
+  const openConnect = Core.useConnectModal();
   return (
     <Flex.Box y gap="large" full="x">
       <Connection.Target />
@@ -166,7 +165,7 @@ const Trouble = (): ReactElement => {
               variant="outlined"
               grow
               justify="center"
-              onClick={() => openConnect({ clusterKey: activeKey })}
+              onClick={() => openConnect({ coreKey: activeKey })}
             >
               <Icon.Edit />
               Edit connection

@@ -9,7 +9,15 @@
 
 import "@/table/cells/Cells.css";
 
-import { box, color, location, type record, scale, text } from "@synnaxlabs/x";
+import {
+  type border,
+  box,
+  color,
+  location,
+  type record,
+  scale,
+  text,
+} from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 import { z } from "zod";
 
@@ -34,6 +42,11 @@ export type TextProps = z.infer<typeof textPropsZ>;
 export type CellProps<P extends object = record.Unknown> = P & {
   cellKey: string;
   box: box.Box;
+  /**
+   * Rounding of the cell's corners in px. Only cells at the table's outer corners
+   * round.
+   */
+  borderRadius?: border.CrudeRadius;
   selected: boolean;
   editable: boolean;
   onSelect: (key: string, ev: React.MouseEvent) => void;
@@ -104,6 +117,7 @@ export type ValueProps = z.infer<typeof valuePropsZ>;
 
 export const Value = ({
   cellKey,
+  borderRadius,
   telem: t,
   level,
   color,
@@ -138,6 +152,7 @@ export const Value = ({
     }),
     location: { x: "center", y: "center" },
     clip: true,
+    borderRadius,
   });
   const handleSelect = (e: React.MouseEvent) => onSelect(cellKey, e);
   // Use the column-driven box width, not BaseValue's natural text width: when

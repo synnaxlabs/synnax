@@ -9,7 +9,10 @@
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type table } from "@synnaxlabs/client";
+import { type Drift } from "@synnaxlabs/drift";
 import z from "zod";
+
+import { Window } from "@/session/window";
 
 export const stateZ = z.object({
   editable: z.boolean().default(true),
@@ -23,9 +26,12 @@ export interface NewState extends z.input<typeof stateZ> {}
 
 export const ZERO_STATE = stateZ.parse({});
 
+export const windowStateZ = z.record(z.string(), stateZ).default({});
+
 export const sliceStateZ = z.object({
   version: z.literal(0).default(0),
-  tables: z.record(z.string(), stateZ).default({}),
+  /** A window is a viewport, so each holds its own view of every table it shows. */
+  windows: z.record(z.string(), windowStateZ).default({}),
 });
 export interface SliceState extends z.infer<typeof sliceStateZ> {}
 
@@ -33,11 +39,11 @@ export const ZERO_SLICE_STATE = sliceStateZ.parse({});
 
 export const SLICE_NAME = "table";
 
-export interface StoreState {
+export interface StoreState extends Drift.StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-export interface KeyedPayload {
+export interface KeyedPayload extends Window.OptionalKeyParams {
   key: table.Key;
 }
 
@@ -64,38 +70,22 @@ export interface RemovePayload {
   keys: string[];
 }
 
-const withSelectedState =
-  <Payload extends KeyedPayload, Type extends string = string>(
-    handler?: (state: State, action: PayloadAction<Payload, Type>) => void,
-  ) =>
-  (state: SliceState, action: PayloadAction<Payload, Type>) => {
-    const {
-      payload: { key },
-    } = action;
-    let s = state.tables[key];
-    if (s == null) {
-      s = stateZ.parse({});
-      state.tables[key] = s;
-    }
-    handler?.(s, action);
-  };
+const withSelectedState = Window.createWithDocumentHandler(stateZ);
+const initializeDocument = Window.createDocumentInitializer(stateZ);
 
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
   reducers: {
-    create: (state, { payload }: PayloadAction<CreatePayload>) => {
-      if (payload.key in state.tables) return;
-      state.tables[payload.key] = stateZ.parse(payload);
-    },
-    setSelectedCells: withSelectedState(
-      (state, { payload }: PayloadAction<SetSelectedCellsPayload>) => {
+    create: initializeDocument<CreatePayload, SliceState>,
+    setSelectedCells: withSelectedState<SetSelectedCellsPayload, SliceState>(
+      (state, { payload }) => {
         state.selectedCells = payload.cells;
         if (payload.anchor !== undefined) state.lastSelected = payload.anchor;
       },
     ),
-    setEditable: withSelectedState(
-      (state, { payload: { editable } }: PayloadAction<SetEditablePayload>) => {
+    setEditable: withSelectedState<SetEditablePayload, SliceState>(
+      (state, { payload: { editable } }) => {
         state.editable = editable ?? !state.editable;
         if (!state.editable) {
           state.selectedCells = [];
@@ -103,23 +93,21 @@ export const { actions, reducer } = createSlice({
         }
       },
     ),
-    setHideIndicators: withSelectedState(
-      (
-        state,
-        { payload: { hideIndicators } }: PayloadAction<SetHideIndicatorsPayload>,
-      ) => {
+    setHideIndicators: withSelectedState<SetHideIndicatorsPayload, SliceState>(
+      (state, { payload: { hideIndicators } }) => {
         state.hideIndicators = hideIndicators ?? !state.hideIndicators;
       },
     ),
-    setCentered: withSelectedState(
-      (state, { payload: { centered } }: PayloadAction<SetCenteredPayload>) => {
+    setCentered: withSelectedState<SetCenteredPayload, SliceState>(
+      (state, { payload: { centered } }) => {
         state.centered = centered ?? !state.centered;
       },
     ),
     remove: (state, { payload }: PayloadAction<RemovePayload>) => {
-      payload.keys.forEach((key) => delete state.tables[key]);
+      Window.removeDocuments(state, payload.keys);
     },
   },
+  extraReducers: Window.handleRemoved,
 });
 
 export const {
@@ -141,8 +129,18 @@ export const purgeState = (state: State): State => {
 };
 
 export const purgeSliceState = <S extends StoreState>(state: S): S => {
-  Object.values(state[SLICE_NAME].tables).forEach(purgeState);
+  Window.purgeDocuments(state[SLICE_NAME], purgeState);
   return state;
 };
 
 export const PERSIST_EXCLUDE = [purgeSliceState];
+
+export const MIDDLEWARE = [
+  Window.createInjectKeyMiddleware([
+    create,
+    setSelectedCells,
+    setEditable,
+    setHideIndicators,
+    setCentered,
+  ]),
+];

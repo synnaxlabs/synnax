@@ -12,15 +12,14 @@ import { Access, Icon, Menu, Mosaic, Task as Base } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
 
 import { useRangeSnapshot } from "@/feature/task/useRangeSnapshot";
-import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
+import { Core } from "@/platform/core";
 import { Export } from "@/platform/export";
 import { Group } from "@/platform/group";
 import { Link } from "@/platform/link";
 import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
 import { Tree } from "@/platform/tree";
-import { Session } from "@/session";
 
 const useOnSelect = (): ((resource: ontology.Resource) => void) => {
   const openTab = Panel.useOpenTab();
@@ -51,10 +50,10 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const { ids, rootID } = selection;
   const resources = getResource(ids);
   const handleDelete = useDelete(props);
-  const handleLink = Cluster.useCopyLinkToClipboard();
+  const handleLink = Core.useCopyLinkToClipboard();
   const handleExport = Export.useResource();
   const snap = useRangeSnapshot();
-  const range = Session.Range.useSelectState();
+  const range = Range.useResolve();
   const group = Group.useCreateFromSelection();
   const rename = useRename(props);
   const ontologyIDs = useMemo(() => ids.map((id) => task.ontologyID(id.key)), [ids]);
@@ -85,7 +84,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         </>
       )}
       <Menu.Divider />
-      {hasCreatePermission && hasNoSnapshots && range?.persisted === true && (
+      {hasCreatePermission && hasNoSnapshots && range?.variant === "persisted" && (
         <Range.SnapshotMenuItem
           key="snapshot"
           range={range}

@@ -9,9 +9,12 @@
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type arc } from "@synnaxlabs/client";
+import { type Drift } from "@synnaxlabs/drift";
 import { type Diagram, Viewport } from "@synnaxlabs/pluto";
 import { xy } from "@synnaxlabs/x";
 import { z } from "zod";
+
+import { Window } from "@/session/window";
 
 export const toolbarTabZ = z.enum(["stages", "properties"]);
 export type ToolbarTab = z.infer<typeof toolbarTabZ>;
@@ -42,10 +45,12 @@ export interface NewState extends z.input<typeof stateZ> {}
 
 export const ZERO_STATE = stateZ.parse({});
 
+export const windowStateZ = z.record(z.string(), stateZ).default({});
+
 export const sliceStateZ = z.object({
   version: z.literal(0).default(0),
-
-  arcs: z.record(z.string(), stateZ).default({}),
+  /** A window is a viewport, so each holds its own view of every document. */
+  windows: z.record(z.string(), windowStateZ).default({}),
 });
 export interface SliceState extends z.infer<typeof sliceStateZ> {}
 
@@ -53,13 +58,11 @@ export const ZERO_SLICE_STATE = sliceStateZ.parse({});
 
 export const SLICE_NAME = "arc";
 
-export interface StoreState {
+export interface StoreState extends Drift.StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-export const PERSIST_EXCLUDE = [];
-
-interface KeyedPayload {
+interface KeyedPayload extends Window.OptionalKeyParams {
   key: arc.Key;
 }
 
@@ -93,71 +96,53 @@ export interface SetViewportModePayload extends KeyedPayload {
   mode: Viewport.Mode;
 }
 
-const withSelectedState =
-  <Payload extends KeyedPayload, Type extends string = string>(
-    handler?: (state: State, action: PayloadAction<Payload, Type>) => void,
-  ) =>
-  (state: SliceState, action: PayloadAction<Payload, Type>) => {
-    const {
-      payload: { key },
-    } = action;
-    let s = state.arcs[key];
-    if (s == null) {
-      s = stateZ.parse({});
-      state.arcs[key] = s;
-    }
-    handler?.(s, action);
-  };
+const withSelectedState = Window.createWithDocumentHandler(stateZ);
+const initializeDocument = Window.createDocumentInitializer(stateZ);
 
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
   reducers: {
-    create: (state, { payload }: PayloadAction<CreatePayload>) => {
-      if (payload.key in state.arcs) return;
-      state.arcs[payload.key] = stateZ.parse(payload);
-    },
+    create: initializeDocument<CreatePayload, SliceState>,
     remove: (state, { payload }: PayloadAction<RemovePayload>) => {
-      payload.keys.forEach((key) => delete state.arcs[key]);
+      Window.removeDocuments(state, payload.keys);
     },
-    setSelected: withSelectedState(
-      (state, { payload }: PayloadAction<SetSelectedPayload>) => {
+    setSelected: withSelectedState<SetSelectedPayload, SliceState>(
+      (state, { payload }) => {
         const { selected } = payload;
         state.graph.selected = selected;
         if (selected.length > 0) state.toolbar.selectedTab = "properties";
         else state.toolbar.selectedTab = "stages";
       },
     ),
-    selectToolbarTab: withSelectedState(
-      (state, { payload: { tab } }: PayloadAction<SelectToolbarTabPayload>) => {
+    selectToolbarTab: withSelectedState<SelectToolbarTabPayload, SliceState>(
+      (state, { payload: { tab } }) => {
         state.toolbar.selectedTab = tab;
       },
     ),
-    setViewport: withSelectedState(
-      (state, { payload: { viewport } }: PayloadAction<SetViewportPayload>) => {
+    setViewport: withSelectedState<SetViewportPayload, SliceState>(
+      (state, { payload: { viewport } }) => {
         state.graph.viewport = { ...state.graph.viewport, ...viewport };
       },
     ),
-    setEditable: withSelectedState(
-      (state, { payload: { editable } }: PayloadAction<SetEditablePayload>) => {
+    setEditable: withSelectedState<SetEditablePayload, SliceState>(
+      (state, { payload: { editable } }) => {
         state.graph.selected = [];
         state.graph.editable = editable;
       },
     ),
-    setFitViewOnResize: withSelectedState(
-      (
-        state,
-        { payload: { fitViewOnResize } }: PayloadAction<SetFitViewOnResizePayload>,
-      ) => {
+    setFitViewOnResize: withSelectedState<SetFitViewOnResizePayload, SliceState>(
+      (state, { payload: { fitViewOnResize } }) => {
         state.graph.fitViewOnResize = fitViewOnResize;
       },
     ),
-    setViewportMode: withSelectedState(
-      (state, { payload: { mode } }: PayloadAction<SetViewportModePayload>) => {
+    setViewportMode: withSelectedState<SetViewportModePayload, SliceState>(
+      (state, { payload: { mode } }) => {
         state.graph.viewport.mode = mode;
       },
     ),
   },
+  extraReducers: Window.handleRemoved,
 });
 
 export const {
@@ -172,3 +157,27 @@ export const {
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
+
+export const purgeState = (state: State): State => {
+  state.graph.selected = [];
+  return state;
+};
+
+export const purgeSliceState = <S extends StoreState>(state: S): S => {
+  Window.purgeDocuments(state[SLICE_NAME], purgeState);
+  return state;
+};
+
+export const PERSIST_EXCLUDE = [purgeSliceState];
+
+export const MIDDLEWARE = [
+  Window.createInjectKeyMiddleware([
+    setSelected,
+    setFitViewOnResize,
+    create,
+    selectToolbarTab,
+    setViewport,
+    setEditable,
+    setViewportMode,
+  ]),
+];

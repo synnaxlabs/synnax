@@ -21,7 +21,7 @@ interface InternalTreeProps {
 
 const SECTION_ICONS: Record<string, ReactElement> = {
   concepts: <Icon.Reference />,
-  core: <Icon.Cluster />,
+  core: <Icon.Core />,
   client: <Icon.Terminal />,
   control: <Icon.Control />,
   console: <Icon.Dashboard />,

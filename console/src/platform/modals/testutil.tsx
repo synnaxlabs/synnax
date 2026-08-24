@@ -14,6 +14,7 @@ import { type aether } from "@synnaxlabs/pluto/ether";
 import { deep } from "@synnaxlabs/x";
 import {
   act,
+  fireEvent,
   render,
   renderHook,
   type RenderHookResult,
@@ -58,9 +59,9 @@ const createWrapper = (connectionStatus?: connection.Status): FC<PropsWithChildr
 };
 
 /**
- * The provider stack every modal spec renders within: the proven Pluto-rendering
- * Synnax wrapper (with a null client, since modals never touch the cluster), a Redux
- * Provider backing the error Boundary, and the per-window modal store Provider.
+ * The provider stack every modal spec renders within: the proven Pluto-rendering Synnax
+ * wrapper (with a null client, since modals never touch the Core), a Redux Provider
+ * backing the error Boundary, and the per-window modal store Provider.
  */
 export const Wrapper = createWrapper();
 
@@ -112,7 +113,7 @@ export const closeOf = (
     .close;
 
 export interface RenderModalOpenerOptions {
-  /** Client backing the console wrapper; null (default) for cluster-free specs. */
+  /** Client backing the console wrapper; null (default) for Core-free specs. */
   client?: Client | null;
   preloadedState?: ConsolePreloadedState;
   store?: TestStore;
@@ -184,9 +185,9 @@ export interface OpenModalOptions<P> {
 
 /**
  * Opens the given modal-opener hook inside the full console provider stack with a
- * mounted modal stack, and returns the render result plus the console store. Pass a real
- * client to exercise the enabled/save path, or omit it (null) to exercise the no-cluster
- * branch.
+ * mounted modal stack, and returns the render result plus the console store. Pass a
+ * real client to exercise the enabled/save path, or omit it (null) to exercise the
+ * no-Core branch.
  */
 export const openModal = async <P,>(
   useOpen: () => Modals.Opener<P>,
@@ -195,6 +196,18 @@ export const openModal = async <P,>(
   await renderModalOpener(useOpen as () => (params?: P) => void, [params], {
     client,
   });
+
+/**
+ * Presses the Ctrl+Enter save shortcut through the triggers provider. The provider
+ * identifies keys by KeyboardEvent.code and treats a modifier as a held key rather than
+ * an event flag, and a button's trigger fires on release.
+ */
+export const pressSaveTrigger = (): void => {
+  fireEvent.keyDown(window, { key: "Control", code: "ControlLeft" });
+  fireEvent.keyDown(window, { code: "Enter" });
+  fireEvent.keyUp(window, { code: "Enter" });
+  fireEvent.keyUp(window, { key: "Control", code: "ControlLeft" });
+};
 
 /**
  * Finds the rendered button whose subtree contains the given text. Pluto buttons nest
@@ -224,14 +237,11 @@ export const findLastButton = (text: string): HTMLButtonElement => {
   return btn;
 };
 
-/**
- * Finds the icon-only dismiss button a modal Header renders (the only button in the
- * document whose subtree contains no text).
- */
+/** Finds the icon-only dismiss button a modal Header renders. */
 export const findDismissButton = (): HTMLButtonElement => {
   const btn = screen
     .getAllByRole("button")
-    .find((b) => (b.textContent ?? "").trim() === "");
+    .find((b) => b.getAttribute("aria-label") === "Close");
   if (btn == null) throw new Error("modal dismiss button not found");
   return btn as HTMLButtonElement;
 };

@@ -1,0 +1,482 @@
+---
+title: "Version 0.57 Release Notes"
+---
+
+import Release from "@/components/releases/Release.astro";
+import { Divider } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+import { Image, Video } from "@/components/media/Media";
+
+export const components = mdxOverrides;
+
+<Release
+    version="0.57.0"
+    breakingChanges
+    date="Aug 23, 2026"
+    title="Projects, Panels, and a Redesigned Console"
+>
+
+<Video client:only="react" id="releases/0-57-0/panels" themed={false} />
+
+Synnax v0.57 rebuilds how you organize work in the Console. Projects replace workspaces,
+and each project holds a set of panels you switch between instantly. We redesigned the
+Console around them, extended collaborative editing to every visualization, and gave
+schematics live fill levels and graduated scales.
+
+Behind the Console, we added a boolean data type, gave Arc variables and range creation,
+and reworked how hardware tasks save and deploy. A Core can now serve several networks
+at once. We also spent a large part of this cycle on quality: big clusters load faster,
+a lost connection recovers on its own, and the bug fix list is long.
+
+<Divider.Divider x />
+
+### Projects and Panels
+
+We renamed workspaces to projects, and the Console now always works inside one. Your
+existing workspaces carry over the first time you start the new Core, including the one
+you had open.
+
+Every visualization belongs to a project, so the Console asks you to choose or create
+one when you log in. Nothing you build can end up unsaved. Switch projects at any time
+from the selector in the top-left corner or from the Projects toolbar.
+
+#### Panels
+
+A project is a set of panels, and each panel holds its own arrangement of tabs. Keep one
+panel for the stand you are running and another for the plots you review afterward. Move
+between them from the strip at the top of the window. Switching is instant, and nothing
+reloads. Plots keep their history and schematics keep streaming while you look at
+another panel.
+
+Panels are saved with the project on the Core. They open the same way on every machine,
+and a change one person makes appears live for everyone else. Each window layout in an
+existing workspace becomes a panel when you upgrade.
+
+A tab moves to another panel in three ways: drag it onto that panel's pill, drop it
+anywhere in the strip, or use `Move to panel` in the tab menu. Hold a drag over a pill
+to switch to that panel, then drop the tab where you want it. Dropping a tab on the
+create button opens a new panel to hold it. Drag the pills to reorder the strip. That
+order is yours alone and never re-sorts itself. A new panel goes on the end, and
+renaming one leaves it where it is.
+
+On desktop, a tab can still be torn off into its own window, and `Ctrl + O` opens a
+second window on the panel you are in. That is how you put a schematic on the wall
+display and a plot on the desk at the same time. Closing a tab now selects the tab
+beside it.
+
+#### Sharing a project
+
+`Export current project` writes a project to a single `.zip` file. The file holds the
+panels and every schematic, plot, log, table, and task inside them. Drag it onto another
+Console or run `Import project` to bring the whole arrangement back. Projects exported
+by earlier versions still import.
+
+Import and export got a lot of attention this release, and they are far more reliable
+for it. A large project no longer has to fit in Console memory, so size is not a limit.
+An import that fails part way through leaves nothing behind instead of a half-built
+project.
+
+To share a project with someone on the same Core, right-click it in the Projects toolbar
+and choose `Copy link`.
+
+<Divider.Divider x />
+
+### A Redesigned Console
+
+<Image client:only="react" id="releases/0-57-0/visual-language" themed={false} />
+
+We redesigned the Console from the ground up, down to the context menus, for consistency
+and clarity. The interface is nearly colorless by design, so the only color on screen
+comes from your data: a plot series, a valve state, a status. Underneath it, every
+visualization is now edited live, large clusters stay fast, and the Console recovers on
+its own when something goes wrong.
+
+#### Everything is edited live
+
+We brought schematics and tables into collaborative editing in v0.56. Line plots, logs,
+Arc programs, and panels join them in v0.57. Each change is sent as you make it, rather
+than saved as a whole document when you finish. A channel added to a plot or a symbol
+moved on a schematic appears in everybody else's Console as it happens, with no reload.
+
+Two people editing the same thing no longer overwrite each other. Their changes are
+merged, so the last save no longer wins. In Arc, that merge happens character by
+character, so two people can type in the same program at once. Undo stays yours: it
+reverses your own edit, not the last one that arrived, and skips an edit somebody else
+has already changed.
+
+#### Roles and permissions
+
+A viewer or an operator now sees a Console built for that role. We went through every
+control that writes and put a permission check behind it. Controls your role does not
+hold are hidden or disabled, so you see a missing permission before you press a button,
+not as an error afterward. Operators keep the ability to start and stop tasks.
+
+#### Speed and reliability
+
+A large tree, such as a channel list with thousands of entries, now draws only what is
+on screen, so scrolling and expanding stay smooth on a cluster of any size. Switching
+panels is immediate, because the panel you left stays loaded.
+
+When the Console cannot reach a Core, it tells you plainly: the Core's name and address,
+whether it is reachable, and when the next retry happens. Losing a connection no longer
+empties the Console. It keeps what it has, shows what is wrong, and catches up the views
+that fell behind once the Core returns. An expired password prompts you to enter it
+again instead of closing your layout. If someone deletes a schematic while you have it
+open, the tab stays put and tells you what happened. A crash screen now names the Core
+and the page that failed, so a screenshot is enough for us to act on.
+
+Line plot y-axes are calculated from the samples on screen. A spike that has scrolled
+out of view no longer flattens the data in front of you, and a channel whose values are
+all negative is no longer cut off at zero. A rolling plot that stopped streaming and
+started again no longer leaves a permanent gap. Values in a table stay with their cells
+while the table scrolls.
+
+<Divider.Divider x />
+
+### Fill Levels and Scales
+
+<Image client:only="react" id="releases/0-57-0/tank-fill" themed={false} />
+
+Tanks can now show a live fill level. Bind a channel, set the bounds, and the tank
+tracks the value. A graduated scale can be drawn along the outside wall, with major and
+minor ticks, a caret at the current value, and a readout box. Tanks with no channel
+bound look exactly as they did.
+
+The same display is available on its own. The new scale symbol shows a bounded value as
+a filled bar or a caret against an optional graduated scale, in any orientation.
+
+#### More schematic improvements
+
+Symbols that read a state channel now change color when that channel stops sending. Each
+symbol has its own stale color and timeout, so a valve that has gone quiet looks
+different from one reporting closed. Staleness is measured from when data last arrived,
+not from the timestamp on the sample. A channel that keeps sending the same value stays
+live.
+
+Where two wires cross, the wire on top now hops over the one underneath. It is a small
+change that makes a dense schematic much easier to read. Selected symbols resize by
+dragging their handles, and the arrow keys nudge a symbol after a single click.
+
+<Divider.Divider x />
+
+### Boolean Channels
+
+Synnax finally has a `boolean` data type. Digital signals such as valve states, limit
+switches, and coils were stored as `uint8`. Nothing downstream could tell a two-state
+signal from a count.
+
+Create a boolean channel from the Console or from any client. Each client returns its
+language's native type: `bool` in Go and C++, `boolean` in TypeScript, and `np.bool_` in
+Python. The Console gives boolean channels their own icon, and Arc treats them as real
+booleans. Each sample takes one bit, so streaming a boolean channel uses about an eighth
+of the network bandwidth it used to.
+
+Hardware tasks still create their digital channels as `uint8`. Moving the Driver
+integrations onto the new type is next on our list.
+
+<Divider.Divider x />
+
+### Arc
+
+Variables, real booleans, and range creation all land in Arc this release. We also
+tightened up routing and made a pass over the editor.
+
+#### Variables
+
+Arc programs can declare variables and channel aliases inside sequences, stages, and at
+the top level. What a variable does follows from how you initialize it:
+
+```arc
+stage setup {
+    // constant: a held value, reset when its scope is entered
+    gain := 2 * 3
+
+    // stateful: keeps its value across entries into its scope
+    count $= 0
+
+    // reactive: recomputes whenever raw updates
+    scaled := raw * 2
+
+    // channel alias: reads and writes pass through to the channel
+    c := chan_long_name
+}
+```
+
+A constant resets every time its scope is entered, which suits setup inside a stage. A
+stateful variable keeps its value across entries, which is what counters, accumulators,
+and edge detection need. Only a stage or a sequence can hold one, because a top-level
+variable never leaves its scope. A reactive variable recomputes on every new sample from
+the channels it reads. A channel alias gives a long channel name a short one.
+Reassigning the alias points it at a different channel.
+
+Variables work the same way on a Core and on a Driver.
+
+#### Booleans
+
+Arc has a `bool` type to match the new channel type. Comparisons return `bool` rather
+than `u8`. The `and`, `or`, and `not` operators take boolean operands. `true` and
+`false` are literals. Boolean values, non-zero numbers, and non-empty strings are truthy
+in an `if`, a `for`, and a `=>` condition. Boolean channels, boolean stateful variables,
+and element-wise operations on boolean series all work on both runtimes.
+
+#### Creating and ending ranges
+
+An Arc program can now create and close [ranges](/reference/concepts/ranges), so a test
+marks its own runs while it executes:
+
+```arc
+import ranges
+
+sequence burn {
+    range_key := ""
+
+    stage ignite {
+        range_key := ranges.create{name="Burn", color="#3bc454"}
+        burn_complete => next
+    }
+
+    stage done {
+        ranges.end{key=range_key}
+    }
+}
+```
+
+`ranges.create` takes an optional parent range and an optional color, so a sequence can
+nest each phase under the run it belongs to. It outputs the key of the new range.
+`ranges.end` closes an open range at the current time. Both work on a Core and on a
+Driver.
+
+#### Explicit routing
+
+A routing table used to accept a bare target, as in `select{} -> { false: next }`. That
+form looked like the routed value was passed into the entry. It was not. Every entry in
+a routing table is now a complete flow statement that names its own source:
+
+```arc
+pressure > 500.0 -> select{} -> {
+    true: true => vent,
+    false: "low pressure" -> log
+}
+```
+
+A routing key only decides whether its entry runs. Programs written in the old form no
+longer compile, so the error surfaces when you deploy, not while the program runs. The
+`=>` operator is also now allowed anywhere `->` is inside a case body.
+
+#### Editor improvements
+
+Pressing enter after a comma inserts a new line instead of accepting a highlighted
+suggestion. The dot is now the only character that opens completions on its own, and
+`Ctrl + Space` still opens the full list anywhere. `f"` and backticks auto-close like
+ordinary quotes.
+
+The Arc editor's deploy controls now behave like a hardware task's, described below.
+
+<Divider.Divider x />
+
+### Tasks
+
+<Image client:only="react" id="releases/0-57-0/task-deploy" themed={false} />
+
+We reworked the whole task lifecycle this release: how a configuration is saved, when it
+reaches hardware, and when a device is claimed.
+
+#### Save as you edit, deploy on start
+
+A task configuration now saves as you type, and deploys when you press start. Saving and
+deploying used to be one step. Pressing "Configure" wrote the task and immediately
+rebuilt it on hardware. A half-finished configuration was one press away from running,
+renaming a task restarted it, and closing the tab lost your work.
+
+The form now saves itself. Closing the tab keeps what you wrote, and renaming a task
+does not touch running hardware. When you press start, the Driver compares the saved
+configuration against the one the running task was built from, and rebuilds only if they
+differ.
+
+#### Redeploying a running task
+
+Change the configuration of a running task and a redeploy button appears in the task
+controls and in the Tasks toolbar. A change only reaches hardware when you ask for it.
+The start control shows a stop square while the task runs, because stopping a task ends
+it rather than pausing it.
+
+#### Hardware is claimed on start, not on configure
+
+LabJack, Modbus, and NI tasks now take their device when the task starts and release it
+when the task stops. A task used to hold its device from the moment it was configured,
+so anything that happened to the hardware in between broke the connection. Restarting a
+Modbus server between runs, for example, left the task reporting
+`Connection reset by peer` until you reconfigured it.
+
+#### Typed task configurations
+
+Every task integration now has a typed configuration defined in one place and shared by
+the Console, all four clients, and the Driver. A field you leave out takes a documented
+default, not whatever zero value the client happened to send. A validation error names
+the field that is wrong.
+
+A few fields changed name along the way. NI cold junction compensation is now a single
+`cjc` object, and the NI channel classes use the full word `Channel`. The old Python
+names still work and raise a deprecation warning:
+
+```python
+ni.AIThermocoupleChannel(   # was ni.AIThermocoupleChan
+    channel=temp_chan.key,
+    device=tc_dev.key,
+    port=0,
+    units="DegC",
+    thermocouple_type="J",
+    cjc=ni.BuiltInCJC(),    # was cjc_source, cjc_val, and cjc_port
+)
+```
+
+#### Editable NI scaling tables
+
+An NI table scale used to accept a CSV upload only, and it never showed the values it
+loaded. You had to export a file from a spreadsheet and trust the result. The table
+scale now shows an editable grid. Type breakpoints in directly, paste a block from a
+spreadsheet, or load a CSV. All three land in the same grid, where you can check and
+edit them.
+
+#### Control state across a cluster
+
+Control state is now tracked for the whole cluster instead of node by node. On a
+multi-node deployment, the Console shows every transfer of control, not just the ones
+handled by the node it happened to be connected to.
+
+<Divider.Divider x />
+
+### Serving a Core on Several Networks
+
+A Core can now listen on several addresses at once, each with its own TLS certificate. A
+Core on a test stand can be reachable on the lab network with a certificate your
+organization issued, and over Tailscale with a certificate Tailscale issues. You do not
+need a second Core or a proxy in front of it.
+
+A certificate comes from one of three places: a PEM pair on disk, Synnax's built-in
+certificate authority, or a local Tailscale daemon. The Core reloads a PEM pair when the
+file is rotated. `--listen` accepts the single address it always has, or a list of
+listeners:
+
+```yaml
+listen:
+  - address: 10.0.0.4:9090
+    advertise: true
+    cert:
+      source: file
+      cert: /etc/synnax/lan.crt
+      key: /etc/synnax/lan.key
+  - address: 100.71.3.9:9090
+    cert:
+      source: tailscale
+```
+
+One listener is advertised to the rest of the cluster and used by the Driver. Existing
+single-address deployments are unchanged.
+
+<Divider.Divider x />
+
+### Minor Improvements and Bug Fixes
+
+#### Console
+
+- Calculated channels can be edited from the channel toolbar's context menu.
+- Logs hold their position correctly while streaming.
+- Tables can be centered from the toolbar, and tables made in earlier versions keep the
+  styling of their cells.
+- Schematic symbols and symbol groups are renamed in place, and a symbol group exports
+  as a single file.
+- Scrollbars appear on hover instead of taking up space permanently.
+- Crash reports name what failed and point at real source lines.
+- The login screen shows a connection indicator for every saved Core, so you know which
+  ones are reachable before you type a password.
+- The Console gives an explicit option to use light mode, dark mode, or system default,
+  accessible by the "Change color theme" command.
+- Console text is sentence case throughout, and error messages are full sentences that
+  name what failed.
+- On Windows, the caption buttons match the rest of the operating system.
+
+#### Arc
+
+- A range created with an invalid color fails when the program is analyzed instead of
+  when it runs.
+- A non-empty string is truthy in the Core runtime, matching the Driver.
+- `stable.for` no longer fires immediately from a sample that arrived before its stage
+  was entered.
+- A nested sequence that finishes now advances the sequence containing it.
+- Arc syntax highlighting no longer falls back to the default editor theme.
+
+#### Driver
+
+- OPC UA read tasks honor the array mode setting instead of inferring it from the array
+  size.
+- NI RTD types parse correctly, and starting a task again reuses its existing custom
+  scale rather than failing to redefine it.
+- The PagerDuty alert task uses the same typed configuration as every other task.
+
+#### Core
+
+- Exported JSON is formatted for reading.
+- Colors saved by older versions load correctly in every client.
+- A client that stops responding can no longer hold up a Core shutdown.
+- Upgrading a cluster created before v0.54 no longer fails during migration.
+
+#### Clients
+
+- Child ranges take the parent `Range` itself, in single and batch creates.
+- Line plots, logs, and schematic symbols are typed resources in the TypeScript client.
+- Python gains a projects client.
+- Starting or stopping a task raises when the Driver reports a failure instead of
+  returning as though it succeeded.
+
+<Divider.Divider x />
+
+### Breaking Changes
+
+#### Upgrade the Driver with the Core
+
+Control state moved to a new cluster-wide channel. A Driver older than its Core cannot
+find the channel it needs and will not start any tasks, so upgrade both together.
+
+#### Workspaces are projects
+
+`client.workspaces` becomes `client.projects` in the Python and TypeScript clients, and
+the `workspace` ontology type becomes `project`. Stored workspaces migrate
+automatically, but client code does not.
+
+#### The Console requires a project
+
+Visualizations that were never saved to a Core now open empty. Export anything you still
+need from v0.56 before you upgrade; importing those files still works.
+
+#### Arc comparisons return `bool`
+
+Comparisons return `bool` rather than `u8`, and `and`, `or`, and `not` require boolean
+operands. Programs that did arithmetic on the result of a comparison need updating.
+`select{}` now requires the input to be a `bool` (`trigger != 0 -> select{}`)
+
+#### Calculated channel reset channels must be `boolean`
+
+A reset channel on a `min`, `max`, or `avg` operation must now be a `boolean` channel. A
+calculation that resets on a `uint8` channel survives the upgrade but no longer
+compiles, and the Console reports it as `invalid expression`. The data type of an
+existing channel cannot be changed, so create a new `boolean` channel or calc channel
+(`return (u8_chan != 0)`).
+
+#### Arc routing entries must be complete flow statements
+
+A bare target after a routing key no longer compiles. Give each entry its own source, as
+in `true: high => vent`.
+
+#### NI task configurations changed shape
+
+Cold junction compensation is a single `cjc` object, replacing `cjc_source`, `cjc_val`,
+and `cjc_port`. The old Python channel class names still work with a deprecation
+warning; the old cold junction fields do not.
+
+#### Task keys are UUIDs
+
+A task key no longer encodes its rack, and the rack is a plain field. Code that derived
+a rack from a task key must read `rack` instead. Existing tasks migrate automatically.
+
+</Release>

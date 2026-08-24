@@ -116,6 +116,42 @@ interface NodeProps
   emptyContent?: ReactNode;
 }
 
+/** Creates a new tab. Bound by the embedding app; shown on the create button. */
+export const CREATE_TAB_TRIGGER: Triggers.Trigger = ["Control", "T"];
+
+const CREATE_TAB_TOOLTIP = <Triggers.Text trigger={CREATE_TAB_TRIGGER} level="small" />;
+
+const EXIT_FOCUS_TOOLTIP = <Triggers.Text trigger={Triggers.ESCAPE} level="small" />;
+
+interface CreateTabProps {
+  /** The leaf's own selected tab, absent when the leaf holds none. */
+  selected?: panel.TabKey;
+  onAdd: () => void;
+}
+
+/**
+ * The button that adds a tab to a leaf. Split from the leaf so the subscription to the
+ * selection head re-renders the button alone: focus moving between leaves must not
+ * re-render either leaf's tabs.
+ */
+const CreateTab = memo(({ selected, onAdd }: CreateTabProps): ReactElement => {
+  // Create acts on the panel's focused tab, so only the leaf holding that tab may
+  // advertise the shortcut. An empty leaf holds none, and "" matches no tab.
+  const { head } = Select.useItemState(selected ?? "");
+  return (
+    <Button.Button
+      variant="text"
+      size="small"
+      onClick={onAdd}
+      className={CSS.BE("panel-mosaic", "create")}
+      tooltip={head ? CREATE_TAB_TOOLTIP : undefined}
+    >
+      <Icon.Add color={9} />
+    </Button.Button>
+  );
+});
+CreateTab.displayName = "Panel.Mosaic.CreateTab";
+
 const Leaf = memo(
   ({
     nodeKey,
@@ -152,14 +188,7 @@ const Leaf = memo(
                 justify="center"
                 className={CSS.BE("panel-mosaic", "cap")}
               >
-                <Button.Button
-                  variant="text"
-                  size="small"
-                  onClick={handleAdd}
-                  className={CSS.BE("panel-mosaic", "create")}
-                >
-                  <Icon.Add color={9} />
-                </Button.Button>
+                <CreateTab selected={selected} onAdd={handleAdd} />
               </Flex.Box>
             )}
           </Tabs.Selector>
@@ -199,8 +228,8 @@ const Node = memo(({ nodeKey, ...rest }: NodeProps): ReactElement => {
 });
 Node.displayName = "Panel.Mosaic.Node";
 
-/** Toggles a tab's overlaid (focused) state. Bound by the embedding app;
- * shown on the overlaid leaf's exit affordances. */
+/** Enters a tab's overlaid (focused) state. Escape is the way out, so the exit
+ * affordances hint that instead. Bound by the embedding app. */
 export const OVERLAY_TRIGGER: Triggers.Trigger = ["Control", "L"];
 
 interface OverlaidLeafProps extends Pick<TabProps, "tabName" | "onClose" | "canEdit"> {
@@ -224,11 +253,7 @@ const OverlaidLeaf = ({
         size="small"
         onClick={onStopOverlay}
         className={CSS.BE("panel-mosaic", "overlaid-exit")}
-        tooltip={
-          <Triggers.Text trigger={OVERLAY_TRIGGER} level="small">
-            Exit focus
-          </Triggers.Text>
-        }
+        tooltip={EXIT_FOCUS_TOOLTIP}
       >
         <Icon.Collapse />
         Exit focus
@@ -243,9 +268,18 @@ const OverlaidLeaf = ({
 /** Closes the focused tab. Bound by the embedding app; shown on the close menu item. */
 export const CLOSE_TRIGGER: Triggers.Trigger = ["Control", "W"];
 
+/** Props for {@link CloseTabMenuItem}. */
+export interface CloseTabMenuItemProps {
+  /** Shows the {@link CLOSE_TRIGGER} hint. The app binds the trigger and chooses the
+   * tab it acts on, so only the app knows whether this tab is that tab. */
+  triggerIndicator?: boolean;
+}
+
 /** CloseTabMenuItem closes the context menu's tab. Hidden from a viewer who cannot
  * write the panel. Must render inside the tab context menu passed to {@link Mosaic}. */
-export const CloseTabMenuItem = (): ReactElement | null => {
+export const CloseTabMenuItem = ({
+  triggerIndicator = false,
+}: CloseTabMenuItemProps = {}): ReactElement | null => {
   const tabKey = TabScope.use();
   const dispatch = useSingleDispatch();
   const canEdit = useCanEdit({});
@@ -255,7 +289,11 @@ export const CloseTabMenuItem = (): ReactElement | null => {
   );
   if (!canEdit) return null;
   return (
-    <Menu.Item itemKey="close" onClick={handleClose} triggerIndicator={CLOSE_TRIGGER}>
+    <Menu.Item
+      itemKey="close"
+      onClick={handleClose}
+      triggerIndicator={triggerIndicator && CLOSE_TRIGGER}
+    >
       <Icon.Close />
       Close
     </Menu.Item>

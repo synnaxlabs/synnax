@@ -10,7 +10,7 @@
 import { fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { Indicator } from "@/table/Indicator";
+import { getCellColumn, Indicator } from "@/table/Indicator";
 
 const renderIndicator = (props: Partial<React.ComponentProps<typeof Indicator>>) =>
   render(
@@ -59,5 +59,25 @@ describe("Indicator", () => {
       0,
       expect.objectContaining({ type: "contextmenu" }),
     );
+  });
+});
+
+describe("getCellColumn", () => {
+  it.each([
+    [0, "A"],
+    [25, "Z"],
+    [26, "AA"],
+    [27, "AB"],
+    [51, "AZ"],
+    [52, "BA"],
+    [701, "ZZ"],
+    [702, "AAA"],
+  ])("labels index %i as %s", (index, label) => {
+    expect(getCellColumn(index)).toEqual(label);
+  });
+
+  it("renders the label on a column indicator past the alphabet", () => {
+    const { container } = renderIndicator({ index: 26 });
+    expect(container.textContent).toContain("AA");
   });
 });

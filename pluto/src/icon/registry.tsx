@@ -301,7 +301,7 @@ export const Panel = wrapSVGIcon(HiSquare2Stack, "panel");
 export const LinePlot = wrapSVGIcon(MdAreaChart, "line-plot");
 export const Expand = wrapSVGIcon(BiExpandAlt, "expand");
 export const Collapse = wrapSVGIcon(BiCollapseAlt, "collapse");
-export const Cluster = wrapSVGIcon(HiSquare3Stack3D, "cluster");
+export const Core = wrapSVGIcon(HiSquare3Stack3D, "core");
 export const Component = wrapSVGIcon(BiSolidComponent, "component");
 // Binary counter-rotation: a bright and a dim star orbiting the center in
 // opposite directions at different periods, so their passes drift.
@@ -602,7 +602,7 @@ const icons = {
   LinePlot,
   Expand,
   Collapse,
-  Cluster,
+  Core,
   Component,
   Loading,
   Schematic,

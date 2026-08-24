@@ -9,7 +9,7 @@
 
 import "@/platform/modals/Header.css";
 
-import { Breadcrumb, Button, Dialog, Icon, Nav } from "@synnaxlabs/pluto";
+import { Breadcrumb, Button, Dialog, Icon, Nav, Triggers } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
@@ -23,6 +23,8 @@ export interface HeaderProps extends Omit<
   icon?: Icon.ReactElement;
   hideClose?: boolean;
 }
+
+const CLOSE_TOOLTIP = <Triggers.Text trigger={Triggers.ESCAPE} level="small" />;
 
 /**
  * Header renders a modal's top title bar: a breadcrumb of the given name, an optional
@@ -65,6 +67,7 @@ export const Header = ({
             size="small"
             variant="text"
             textColor={9}
+            tooltip={CLOSE_TOOLTIP}
           >
             <Icon.Close />
           </Button.Button>

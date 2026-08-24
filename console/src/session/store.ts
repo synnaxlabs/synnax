@@ -15,14 +15,14 @@ import {
   type Store as BaseStore,
   Tuple,
 } from "@reduxjs/toolkit";
-import { Drift } from "@synnaxlabs/drift";
+import { Drift, MAIN_WINDOW } from "@synnaxlabs/drift";
 import { useDispatch as baseUseDispatch, useStore as baseUseStore } from "react-redux";
 
 import { Arc } from "@/session/arc";
-import { Cluster } from "@/session/cluster";
 import { Color } from "@/session/color";
-import { Docs } from "@/session/docs";
+import { Core } from "@/session/core";
 import { Haul } from "@/session/haul";
+import { Legacy } from "@/session/legacy";
 import { LinePlot } from "@/session/lineplot";
 import { Log } from "@/session/log";
 import { Nav } from "@/session/nav";
@@ -35,51 +35,66 @@ import { Schematic } from "@/session/schematic";
 import { Status } from "@/session/status";
 import { Table } from "@/session/table";
 import { Theme } from "@/session/theme";
+import { Window } from "@/session/window";
 
 const PERSIST_EXCLUDE: Array<Persist.ExcludeFn<State>> = [
-  ...Panel.PERSIST_EXCLUDE,
-  Haul.PERSIST_EXCLUDE,
   ...Arc.PERSIST_EXCLUDE,
   ...LinePlot.PERSIST_EXCLUDE,
-  ...Log.PERSIST_EXCLUDE,
+  ...Panel.PERSIST_EXCLUDE,
   ...Schematic.PERSIST_EXCLUDE,
   ...Table.PERSIST_EXCLUDE,
 ];
 
-// Every persisted slice lives in exactly one partition scope: global,
-// per-cluster, or per-cluster-per-project.
+// Every slice lives in exactly one partition scope, under the schema its stored
+// bytes are parsed through, or in transient. Persist.open throws when one is
+// missing from all four.
 const PERSIST_SCOPES: Persist.Scopes<State> = {
-  global: [Cluster.SLICE_NAME, Color.SLICE_NAME, Docs.SLICE_NAME, Theme.SLICE_NAME],
-  cluster: [Project.SLICE_NAME],
-  project: [
-    Arc.SLICE_NAME,
-    Drift.SLICE_NAME,
-    Haul.SLICE_NAME,
-    LinePlot.SLICE_NAME,
-    Log.SLICE_NAME,
-    Nav.SLICE_NAME,
-    Panel.SLICE_NAME,
-    Range.SLICE_NAME,
-    Schematic.SLICE_NAME,
-    Status.SLICE_NAME,
-    Table.SLICE_NAME,
-  ],
+  global: {
+    [Core.SLICE_NAME]: Core.sliceStateZ,
+    [Color.SLICE_NAME]: Color.sliceStateZ,
+    [Theme.SLICE_NAME]: Theme.sliceStateZ,
+  },
+  // Statuses and ranges belong to the cluster, not to a project under it.
+  core: {
+    [Project.SLICE_NAME]: Project.sliceStateZ,
+    [Range.SLICE_NAME]: Range.sliceStateZ,
+    [Status.SLICE_NAME]: Status.sliceStateZ,
+  },
+  project: { [Drift.SLICE_NAME]: Drift.sliceStateZ },
+  // A window is a viewport, so its view of every document is stored under the window
+  // rather than mixed into the project's.
+  window: {
+    [Arc.SLICE_NAME]: Arc.sliceStateZ,
+    [LinePlot.SLICE_NAME]: LinePlot.sliceStateZ,
+    [Log.SLICE_NAME]: Log.sliceStateZ,
+    [Nav.SLICE_NAME]: Nav.sliceStateZ,
+    [Panel.SLICE_NAME]: Panel.sliceStateZ,
+    [Schematic.SLICE_NAME]: Schematic.sliceStateZ,
+    [Table.SLICE_NAME]: Table.sliceStateZ,
+  },
+  transient: [Haul.SLICE_NAME, Persist.SLICE_NAME],
 };
 
-const PERSIST_MIGRATORS: Persist.SliceMigrators<State> = {
-  [Status.SLICE_NAME]: Status.migrateSlice,
+// Drift keys its windows by label; the key each label maps to is what the window-keyed
+// slices store their state under. Main is always listed: its key recurs across
+// launches, so its partition must outlive the close that ends a session.
+const getWindows = (state: State): string[] => {
+  const keys = Object.values(state[Drift.SLICE_NAME].labelKeys);
+  return keys.includes(MAIN_WINDOW) ? keys : [MAIN_WINDOW, ...keys];
 };
 
+// A Core's state is partitioned by the cluster it connects to, not by the record the
+// user picked: two records aimed at one cluster share a partition, and a Core that has
+// never connected has no partition to open.
 const getPersistContext = (state: State): Persist.Context => ({
-  cluster: state[Cluster.SLICE_NAME].selected,
+  core: Core.selectClusterKey(state),
   project: state[Project.SLICE_NAME].selected,
 });
 
 export const ZERO_STATE: State = {
   [Arc.SLICE_NAME]: Arc.ZERO_SLICE_STATE,
-  [Cluster.SLICE_NAME]: Cluster.ZERO_SLICE_STATE,
+  [Core.SLICE_NAME]: Core.ZERO_SLICE_STATE,
   [Color.SLICE_NAME]: Color.ZERO_SLICE_STATE,
-  [Docs.SLICE_NAME]: Docs.ZERO_SLICE_STATE,
   [Drift.SLICE_NAME]: Drift.ZERO_SLICE_STATE,
   [Haul.SLICE_NAME]: Haul.ZERO_SLICE_STATE,
   [Nav.SLICE_NAME]: Nav.ZERO_SLICE_STATE,
@@ -97,9 +112,8 @@ export const ZERO_STATE: State = {
 
 const combinedReducer = combineReducers({
   [Arc.SLICE_NAME]: Arc.reducer,
-  [Cluster.SLICE_NAME]: Cluster.reducer,
+  [Core.SLICE_NAME]: Core.reducer,
   [Color.SLICE_NAME]: Color.reducer,
-  [Docs.SLICE_NAME]: Docs.reducer,
   [Drift.SLICE_NAME]: Drift.reducer,
   [Haul.SLICE_NAME]: Haul.reducer,
   [Nav.SLICE_NAME]: Nav.reducer,
@@ -130,9 +144,8 @@ export const reducer: Reducer<State, Action> = (state, action) => {
 
 export interface State {
   [Arc.SLICE_NAME]: Arc.SliceState;
-  [Cluster.SLICE_NAME]: Cluster.SliceState;
+  [Core.SLICE_NAME]: Core.SliceState;
   [Color.SLICE_NAME]: Color.SliceState;
-  [Docs.SLICE_NAME]: Docs.SliceState;
   [Drift.SLICE_NAME]: Drift.SliceState;
   [Haul.SLICE_NAME]: Haul.SliceState;
   [Log.SLICE_NAME]: Log.SliceState;
@@ -150,9 +163,8 @@ export interface State {
 
 export type Action =
   | Arc.Action
-  | Cluster.Action
+  | Core.Action
   | Color.Action
-  | Docs.Action
   | Drift.Action
   | Haul.Action
   | Log.Action
@@ -175,7 +187,17 @@ const DEFAULT_WINDOW_PROPS: Omit<Drift.WindowProps, "key"> = {
   minSize: { width: 625, height: 375 },
 };
 
-export const BASE_MIDDLEWARE = [...Nav.MIDDLEWARE, ...Panel.MIDDLEWARE];
+export const BASE_MIDDLEWARE = [
+  Window.removalMiddleware,
+  ...Arc.MIDDLEWARE,
+  ...Core.MIDDLEWARE,
+  ...LinePlot.MIDDLEWARE,
+  ...Log.MIDDLEWARE,
+  ...Nav.MIDDLEWARE,
+  ...Panel.MIDDLEWARE,
+  ...Schematic.MIDDLEWARE,
+  ...Table.MIDDLEWARE,
+];
 
 export interface CreateStoreOptions extends Partial<
   Pick<
@@ -203,8 +225,10 @@ export const createStore = async (opts: CreateStoreOptions = {}): Promise<Store>
       initial: ZERO_STATE,
       scopes: PERSIST_SCOPES,
       getContext: getPersistContext,
-      migrators: PERSIST_MIGRATORS,
+      getWindows,
+      lens: Window.LENS,
       exclude: PERSIST_EXCLUDE,
+      migrate: Legacy.migrate,
       openKV,
     });
     preloadedState ??= persist.initialState;

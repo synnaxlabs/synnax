@@ -98,4 +98,41 @@ describe("Diagram.useTriggers", () => {
     fireEvent.keyUp(document.body, { code: "KeyA" });
     fireEvent.keyUp(document.body, { code: "ControlLeft" });
   });
+
+  describe("read-only diagrams", () => {
+    const press = (...codes: string[]): void => {
+      codes.forEach((code) => fireEvent.keyDown(document.body, { code }));
+      [...codes].reverse().forEach((code) => fireEvent.keyUp(document.body, { code }));
+    };
+
+    it("should withhold the shortcuts that change the diagram", () => {
+      const onUndo = vi.fn();
+      const onRedo = vi.fn();
+      const onPaste = vi.fn();
+      renderTriggers({ onUndo, onRedo, onPaste, editable: false });
+      // The context menu already withholds undo and redo from a viewer. The keyboard
+      // route has to agree, or a read-only diagram rewrites itself on Control+Z.
+      press("ControlLeft", "KeyZ");
+      press("ControlLeft", "ShiftLeft", "KeyZ");
+      press("ControlLeft", "KeyV");
+      expect(onUndo).not.toHaveBeenCalled();
+      expect(onRedo).not.toHaveBeenCalled();
+      expect(onPaste).not.toHaveBeenCalled();
+    });
+
+    it("should keep a read-only diagram navigable", () => {
+      const onCopy = vi.fn();
+      const onSelectAll = vi.fn();
+      const onClearSelection = vi.fn();
+      renderTriggers({ onCopy, onSelectAll, onClearSelection, editable: false });
+      // Copying and selecting read the diagram rather than write it, so they survive
+      // the read-only gate.
+      press("ControlLeft", "KeyC");
+      press("ControlLeft", "KeyA");
+      press("Escape");
+      expect(onCopy).toHaveBeenCalledOnce();
+      expect(onSelectAll).toHaveBeenCalledOnce();
+      expect(onClearSelection).toHaveBeenCalledOnce();
+    });
+  });
 });

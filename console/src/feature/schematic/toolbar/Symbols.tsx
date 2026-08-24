@@ -139,6 +139,7 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
     [addNode, createParams],
   );
   const { update: rename } = Schematic.Symbol.useRename();
+  const canRename = Access.useUpdateGranted(schematic.symbol.ontologyID(itemKey));
   const handleRename = useCallback(
     (name: string) => rename({ key: itemKey, name }),
     [itemKey, rename],
@@ -163,7 +164,7 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
         level="small"
         value={symbol.name}
         allowDoubleClick={false}
-        onChange={handleRename}
+        onChange={canRename ? handleRename : undefined}
       />
       <Flex.Box align="center" justify="center" grow>
         <Preview specKey={itemKey} scale={0.75} />
@@ -183,6 +184,7 @@ const RemoteSymbolListContextMenu = ({
 }: RemoteSymbolListContextMenuProps): ReactElement => {
   const firstKey = rest.keys[0];
   const item = List.useItem<schematic.symbol.Key, schematic.symbol.Symbol>(firstKey);
+  const canRename = Access.useUpdateGranted(schematic.symbol.ontologyID(firstKey));
   const canDelete = Access.useDeleteGranted(schematic.symbol.ontologyID(firstKey));
   const confirmDelete = Modals.useConfirmDelete({
     type: "Symbol",
@@ -206,7 +208,9 @@ const RemoteSymbolListContextMenu = ({
         <Icon.Edit />
         Edit
       </Menu.Item>
-      <ContextMenu.RenameItem onClick={() => Text.edit(List.itemNameID(firstKey))} />
+      {canRename && (
+        <ContextMenu.RenameItem onClick={() => Text.edit(List.itemNameID(firstKey))} />
+      )}
       <Menu.Divider />
       <Export.ContextMenuItem
         onClick={() => exportSymbol(schematic.symbol.ontologyID(firstKey))}
@@ -281,6 +285,7 @@ const GroupTab = ({ itemKey }: GroupTabProps): ReactElement | null => {
   // Named item rather than group so the client's group namespace stays reachable.
   const item = List.useItem<group.Key, group.Group & { Icon?: Icon.FC }>(itemKey);
   const { update: rename } = Group.useRename();
+  const canRename = Access.useUpdateGranted(group.ontologyID(itemKey));
   const handleRename = useCallback(
     (name: string) => rename({ key: itemKey, name }),
     [itemKey, rename],
@@ -297,7 +302,7 @@ const GroupTab = ({ itemKey }: GroupTabProps): ReactElement | null => {
         level="small"
         value={item.name}
         allowDoubleClick={false}
-        onChange={isRemote ? handleRename : undefined}
+        onChange={isRemote && canRename ? handleRename : undefined}
       />
     </Tabs.Tab>
   );
@@ -418,6 +423,7 @@ const GroupListContextMenu = ({
   const firstKey = keys[0];
   const isRemoteGroup = group.keyZ.safeParse(firstKey).success;
   const item = List.useItem<group.Key, group.Group>(firstKey);
+  const canRename = Access.useUpdateGranted(group.ontologyID(firstKey));
   const canDelete = Access.useDeleteGranted(group.ontologyID(firstKey));
   const exportGroup = Export.use();
   const deleteSymbolGroup = Symbol.useDeleteGroup();
@@ -425,7 +431,9 @@ const GroupListContextMenu = ({
   if (!isRemoteGroup) return null;
   return (
     <ContextMenu.Menu>
-      <ContextMenu.RenameItem onClick={() => Text.edit(List.itemNameID(firstKey))} />
+      {canRename && (
+        <ContextMenu.RenameItem onClick={() => Text.edit(List.itemNameID(firstKey))} />
+      )}
       <Menu.Divider />
       <Export.ContextMenuItem
         onClick={() => {
