@@ -11,7 +11,6 @@ import { Component, Form as PForm, Select } from "@synnaxlabs/pluto";
 import { type FC } from "react";
 
 import { type TimeFormat } from "@/feature/http/task/types";
-import { CSS } from "@/platform/css";
 
 const DATA: Select.StaticEntry<TimeFormat>[] = [
   { key: "iso8601", name: "ISO 8601" },
@@ -47,12 +46,7 @@ export interface TimeFormatFieldProps {
  * visible and stored instead of silently absent.
  */
 export const TimeFormatField: FC<TimeFormatFieldProps> = ({ path, label }) => (
-  <PForm.Field<TimeFormat>
-    path={path}
-    label={label}
-    defaultValue="iso8601"
-    className={CSS.B("time-format")}
-  >
+  <PForm.Field<TimeFormat> path={path} label={label} defaultValue="iso8601">
     {renderSelect}
   </PForm.Field>
 );

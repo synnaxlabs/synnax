@@ -7,12 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/schematic/node/common/form/form.css";
-
 import { type direction, type text } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { CSS } from "@/css";
 import { Direction } from "@/direction";
 import { Flex } from "@/flex";
 import { Form as Base } from "@/form";
@@ -26,8 +23,8 @@ interface FormProps {
   omit?: string[];
 }
 
-export const TextFields = ({ path, omit = [] }: FormProps): ReactElement => (
-  <>
+export const Form = ({ path, omit = [] }: FormProps): ReactElement => (
+  <Flex.Box x align="stretch">
     <Base.TextField
       path={`${path}.label`}
       label="Label"
@@ -37,7 +34,6 @@ export const TextFields = ({ path, omit = [] }: FormProps): ReactElement => (
     />
     <Base.NumericField
       visible={!omit.includes("maxInlineSize")}
-      className={CSS.BE("label-form", "wrap-width")}
       path={`${path}.maxInlineSize`}
       hideIfNull
       label="Wrap width"
@@ -53,11 +49,6 @@ export const TextFields = ({ path, omit = [] }: FormProps): ReactElement => (
     >
       {({ value, onChange }) => <Select.Text.Level value={value} onChange={onChange} />}
     </Base.Field>
-  </>
-);
-
-export const PlacementFields = ({ path, omit = [] }: FormProps): ReactElement => (
-  <>
     <Base.Field<Flex.Alignment>
       visible={!omit.includes("align")}
       path={`${path}.align`}
@@ -80,12 +71,5 @@ export const PlacementFields = ({ path, omit = [] }: FormProps): ReactElement =>
         <Direction.Select value={value} onChange={onChange} yDirection="down" />
       )}
     </Base.Field>
-  </>
-);
-
-export const Form = (props: FormProps): ReactElement => (
-  <Flex.Box x align="stretch">
-    <TextFields {...props} />
-    <PlacementFields {...props} />
   </Flex.Box>
 );

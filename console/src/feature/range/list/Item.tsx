@@ -95,11 +95,11 @@ const Base = ({
               showLabel={false}
             >
               {({ value, onChange }) => (
-                <Ranger.SelectStage
-                  {...Ranger.wrapNumericTimeRangeToStage({ value, onChange })}
-                  variant="floating"
+                <Ranger.StageButton
+                  value={value}
+                  onChange={onChange}
+                  iconOnly
                   disabled={!canEdit}
-                  triggerProps={{ variant: "text", iconOnly: true }}
                 />
               )}
             </Form.Field>

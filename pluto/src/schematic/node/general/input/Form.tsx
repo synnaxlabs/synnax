@@ -12,7 +12,6 @@ import { zod } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
-import { Flex } from "@/flex";
 import { Form as Base } from "@/form";
 import { Input } from "@/input";
 import { type Control } from "@/schematic/node/common/control";
@@ -70,34 +69,32 @@ const InputTelemForm = ({ path }: InputTelemFormProps): ReactElement => {
   };
 
   return (
-    <Form.Wrapper x grow align="stretch">
-      <Input.Item label="Command channel" grow>
-        <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
-      </Input.Item>
-      <Form.ControlChipField />
-    </Form.Wrapper>
+    <Base.Sections x>
+      <Base.Section title="Command">
+        <Input.Item label="Channel" padHelpText={false}>
+          <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
+        </Input.Item>
+        <Form.ControlChipField />
+      </Base.Section>
+    </Base.Sections>
   );
 };
 
 export const InputForm = (): ReactElement => (
-  <Tabs.Frame initialValue="style">
-    <Tabs.Selector>
-      <Tabs.Tab itemKey="style">Style</Tabs.Tab>
-      <Tabs.Tab itemKey="control">Control</Tabs.Tab>
-    </Tabs.Selector>
+  <Form.Tabs tabs={["style", "control"]}>
     <Tabs.Content itemKey="style">
-      <Form.Wrapper x>
-        <Flex.Box y align="stretch" grow gap="small">
+      <Base.Sections x>
+        <Base.Section title="Label">
           <Label.Form path="label" />
-          <Flex.Box x>
-            <Form.SizeField />
-            <Form.ColorField path="color" />
-          </Flex.Box>
-        </Flex.Box>
-      </Form.Wrapper>
+        </Base.Section>
+        <Base.Section title="Appearance">
+          <Form.SizeField />
+          <Form.ColorField path="color" />
+        </Base.Section>
+      </Base.Sections>
     </Tabs.Content>
     <Tabs.Content itemKey="control">
       <InputTelemForm path="" />
     </Tabs.Content>
-  </Tabs.Frame>
+  </Form.Tabs>
 );

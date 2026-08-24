@@ -7,9 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/feature/ni/task/AIChannelForm.css";
-
-import { Divider, Flex, Form, Icon, type Select as PSelect } from "@synnaxlabs/pluto";
+import { Form, Icon, type Select as PSelect } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import { type FC } from "react";
 
@@ -45,7 +43,6 @@ import {
   type VelocitySensitivityUnits,
   type VelocityUnits,
 } from "@/feature/ni/task/types";
-import { CSS } from "@/platform/css";
 
 interface FormProps {
   prefix: string;
@@ -460,10 +457,8 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
   ai_accel: ({ prefix }) => (
     <>
       <TerminalConfigField path={prefix} />
-      <Divider.Divider x padded="bottom" />
       <MinMaxValueFields path={prefix} />
       <AccelUnitsField path={prefix} />
-      <Divider.Divider x padded="bottom" />
       <SensitivityField
         path={prefix}
         inputProps={{
@@ -471,35 +466,28 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
           children: (
             <AccelSensitivityUnitsField
               path={prefix}
-              grow
               showLabel={false}
               showHelpText={false}
             />
           ),
         }}
       />
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x>
-        <ExcitSourceField
-          path={prefix}
-          fieldKey="currentExcitSource"
-          label="Current excitation source"
-          grow
-        />
-        <Form.NumericField
-          path={`${prefix}.currentExcitVal`}
-          label="Current excitation value"
-        />
-      </Flex.Box>
+      <ExcitSourceField
+        path={prefix}
+        fieldKey="currentExcitSource"
+        label="Current excitation source"
+      />
+      <Form.NumericField
+        path={`${prefix}.currentExcitVal`}
+        label="Current excitation value"
+      />
     </>
   ),
   ai_accel_4_wire_dc_voltage: ({ prefix }) => (
     <>
       <TerminalConfigField path={prefix} />
-      <Divider.Divider x padded="bottom" />
       <MinMaxValueFields path={prefix} />
       <AccelUnitsField path={prefix} />
-      <Divider.Divider x padded="bottom" />
       <SensitivityField
         path={prefix}
         inputProps={{
@@ -507,26 +495,21 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
           children: (
             <AccelSensitivityUnitsField
               path={prefix}
-              grow
               showLabel={false}
               showHelpText={false}
             />
           ),
         }}
       />
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x>
-        <ExcitSourceField
-          path={prefix}
-          fieldKey="voltageExcitSource"
-          label="Voltage excitation source"
-          grow
-        />
-        <Form.NumericField
-          path={`${prefix}.voltageExcitVal`}
-          label="Voltage excitation value"
-        />
-      </Flex.Box>
+      <ExcitSourceField
+        path={prefix}
+        fieldKey="voltageExcitSource"
+        label="Voltage excitation source"
+      />
+      <Form.NumericField
+        path={`${prefix}.voltageExcitVal`}
+        label="Voltage excitation value"
+      />
       <Form.SwitchField
         path={`${prefix}.scaledByExcitation`}
         label="Use excitation for scaling"
@@ -536,10 +519,8 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
   ai_accel_charge: ({ prefix }) => (
     <>
       <TerminalConfigField path={prefix} />
-      <Divider.Divider x padded="bottom" />
       <MinMaxValueFields path={prefix} />
       <AccelUnitsField path={prefix} />
-      <Divider.Divider x padded="bottom" />
       <SensitivityField
         path={prefix}
         inputProps={{
@@ -547,7 +528,6 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
           children: (
             <AccelChargeSensitivityUnitsField
               path={prefix}
-              grow
               showLabel={false}
               showHelpText={false}
             />
@@ -559,34 +539,26 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
   ai_bridge: ({ prefix }) => (
     <>
       <MinMaxValueFields path={prefix} />
-      <Divider.Divider x padded="bottom" />
       <ElectricalUnitsField path={prefix} fieldKey="units" />
-      <Flex.Box x>
-        <BridgeConfigField path={prefix} grow />
-        <Form.NumericField
-          path={`${prefix}.nominalBridgeResistance`}
-          label="Nominal bridge resistance"
-        />
-      </Flex.Box>
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x>
-        <ExcitSourceField
-          path={prefix}
-          fieldKey="voltageExcitSource"
-          label="Voltage excitation source"
-          grow
-        />
-        <Form.NumericField
-          path={`${prefix}.voltageExcitVal`}
-          label="Voltage excitation value"
-        />
-      </Flex.Box>
+      <BridgeConfigField path={prefix} />
+      <Form.NumericField
+        path={`${prefix}.nominalBridgeResistance`}
+        label="Nominal bridge resistance"
+      />
+      <ExcitSourceField
+        path={prefix}
+        fieldKey="voltageExcitSource"
+        label="Voltage excitation source"
+      />
+      <Form.NumericField
+        path={`${prefix}.voltageExcitVal`}
+        label="Voltage excitation value"
+      />
     </>
   ),
   ai_charge: ({ prefix }) => (
     <>
       <TerminalConfigField path={prefix} />
-      <Divider.Divider x padded="bottom" />
       <MinMaxValueFields path={prefix} />
       <ChargeUnitsField path={prefix} />
     </>
@@ -594,70 +566,45 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
   ai_current: ({ prefix }) => (
     <>
       <TerminalConfigField path={prefix} />
-      <Divider.Divider x padded="bottom" />
       <MinMaxValueFields path={prefix} />
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x>
-        <ShuntResistorLocField path={prefix} grow />
-        <Form.NumericField
-          path={`${prefix}.extShuntResistorVal`}
-          label="Shunt resistance"
-          grow
-        />
-      </Flex.Box>
+      <ShuntResistorLocField path={prefix} />
+      <Form.NumericField
+        path={`${prefix}.extShuntResistorVal`}
+        label="Shunt resistance"
+      />
     </>
   ),
   ai_current_rms: ({ prefix }) => (
     <>
       <TerminalConfigField path={prefix} />
-      <Divider.Divider x padded="bottom" />
       <MinMaxValueFields path={prefix} />
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x>
-        <ShuntResistorLocField path={prefix} grow />
-        <Form.NumericField
-          path={`${prefix}.extShuntResistorVal`}
-          label="Shunt resistance"
-          grow
-        />
-      </Flex.Box>
+      <ShuntResistorLocField path={prefix} />
+      <Form.NumericField
+        path={`${prefix}.extShuntResistorVal`}
+        label="Shunt resistance"
+      />
     </>
   ),
   ai_force_bridge_polynomial: ({ prefix }) => (
     <>
       <MinMaxValueFields path={prefix} />
       <ForceUnitsField path={prefix} />
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x>
-        <BridgeConfigField path={prefix} grow />
-        <Form.NumericField
-          path={`${prefix}.nominalBridgeResistance`}
-          label="Nominal bridge resistance"
-        />
-      </Flex.Box>
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x>
-        <ExcitSourceField
-          path={prefix}
-          fieldKey="voltageExcitSource"
-          label="Voltage excitation source"
-          grow
-        />
-        <Form.NumericField
-          path={`${prefix}.voltageExcitVal`}
-          label="Voltage excitation value"
-        />
-      </Flex.Box>
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x>
-        <ForceUnitsField
-          path={prefix}
-          fieldKey="physicalUnits"
-          label="Physical units"
-          grow
-        />
-        <ElectricalUnitsField path={prefix} grow />
-      </Flex.Box>
+      <BridgeConfigField path={prefix} />
+      <Form.NumericField
+        path={`${prefix}.nominalBridgeResistance`}
+        label="Nominal bridge resistance"
+      />
+      <ExcitSourceField
+        path={prefix}
+        fieldKey="voltageExcitSource"
+        label="Voltage excitation source"
+      />
+      <Form.NumericField
+        path={`${prefix}.voltageExcitVal`}
+        label="Voltage excitation value"
+      />
+      <ForceUnitsField path={prefix} fieldKey="physicalUnits" label="Physical units" />
+      <ElectricalUnitsField path={prefix} />
       <CoefficientsField
         path={`${prefix}.forwardCoeffs`}
         label="Forward coefficients"
@@ -672,108 +619,66 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
     <>
       <MinMaxValueFields path={prefix} />
       <ForceUnitsField path={prefix} />
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x gap="small">
-        <BridgeConfigField path={prefix} grow />
-        <Form.NumericField
-          path={`${prefix}.nominalBridgeResistance`}
-          label="Nominal bridge resistance"
-          grow
-        />
-      </Flex.Box>
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x gap="small">
-        <ExcitSourceField
-          path={prefix}
-          fieldKey="voltageExcitSource"
-          label="Voltage excitation source"
-          grow
-        />
-        <Form.NumericField
-          path={`${prefix}.voltageExcitVal`}
-          label="Voltage excitation value"
-          grow
-        />
-      </Flex.Box>
-      <Flex.Box x>
-        <ForceUnitsField
-          path={prefix}
-          fieldKey="physicalUnits"
-          label="Physical units"
-          grow
-        />
-        {/* physicalVals */}
-        <ElectricalUnitsField path={prefix} grow />
-      </Flex.Box>
-      {/* electricalVals */}
+      <BridgeConfigField path={prefix} />
+      <Form.NumericField
+        path={`${prefix}.nominalBridgeResistance`}
+        label="Nominal bridge resistance"
+      />
+      <ExcitSourceField
+        path={prefix}
+        fieldKey="voltageExcitSource"
+        label="Voltage excitation source"
+      />
+      <Form.NumericField
+        path={`${prefix}.voltageExcitVal`}
+        label="Voltage excitation value"
+      />
+      <ForceUnitsField path={prefix} fieldKey="physicalUnits" label="Physical units" />
+      <ElectricalUnitsField path={prefix} />
     </>
   ),
   ai_force_bridge_two_point_lin: ({ prefix }) => (
     <>
       <ForceUnitsField path={prefix} />
       <MinMaxValueFields path={prefix} />
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x>
-        <ExcitSourceField
-          path={prefix}
-          fieldKey="voltageExcitSource"
-          label="Voltage excitation source"
-          grow
-        />
-        <Form.NumericField
-          path={`${prefix}.voltageExcitVal`}
-          label="Voltage excitation value"
-        />
-      </Flex.Box>
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x>
-        <BridgeConfigField path={prefix} grow />
-        <Form.NumericField
-          path={`${prefix}.nominalBridgeResistance`}
-          label="Nominal bridge resistance"
-        />
-      </Flex.Box>
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x>
-        <ForceUnitsField
-          path={prefix}
-          fieldKey="physicalUnits"
-          label="Physical units"
-          grow
-        />
-        <ElectricalUnitsField grow path={prefix} />
-      </Flex.Box>
-      <Flex.Box x>
-        <Form.NumericField
-          path={`${prefix}.firstPhysicalVal`}
-          label="Physical value one"
-          grow
-        />
-        <Form.NumericField
-          path={`${prefix}.secondPhysicalVal`}
-          label="Physical value two"
-          grow
-        />
-      </Flex.Box>
-      <Flex.Box x>
-        <Form.NumericField
-          path={`${prefix}.firstElectricalVal`}
-          label="Electrical value one"
-          grow
-        />
-        <Form.NumericField
-          path={`${prefix}.secondElectricalVal`}
-          label="Electrical value two"
-          grow
-        />
-      </Flex.Box>
+      <ExcitSourceField
+        path={prefix}
+        fieldKey="voltageExcitSource"
+        label="Voltage excitation source"
+      />
+      <Form.NumericField
+        path={`${prefix}.voltageExcitVal`}
+        label="Voltage excitation value"
+      />
+      <BridgeConfigField path={prefix} />
+      <Form.NumericField
+        path={`${prefix}.nominalBridgeResistance`}
+        label="Nominal bridge resistance"
+      />
+      <ForceUnitsField path={prefix} fieldKey="physicalUnits" label="Physical units" />
+      <ElectricalUnitsField path={prefix} />
+      <Form.NumericField
+        path={`${prefix}.firstPhysicalVal`}
+        label="Physical value one"
+      />
+      <Form.NumericField
+        path={`${prefix}.secondPhysicalVal`}
+        label="Physical value two"
+      />
+      <Form.NumericField
+        path={`${prefix}.firstElectricalVal`}
+        label="Electrical value one"
+      />
+      <Form.NumericField
+        path={`${prefix}.secondElectricalVal`}
+        label="Electrical value two"
+      />
     </>
   ),
   ai_force_iepe: ({ prefix }) => (
     <>
       <TerminalConfigField path={prefix} />
       <MinMaxValueFields path={prefix} />
-      <Divider.Divider x padded="bottom" />
       <ForceUnitsField
         path={prefix}
         inputProps={{
@@ -793,104 +698,71 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
           ),
         }}
       />
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x>
-        <ExcitSourceField
-          path={prefix}
-          fieldKey="currentExcitSource"
-          label="Current excitation source"
-          grow
-        />
-        <Form.NumericField
-          path={`${prefix}.currentExcitVal`}
-          label="Current excitation value"
-          grow
-        />
-      </Flex.Box>
+      <ExcitSourceField
+        path={prefix}
+        fieldKey="currentExcitSource"
+        label="Current excitation source"
+      />
+      <Form.NumericField
+        path={`${prefix}.currentExcitVal`}
+        label="Current excitation value"
+      />
     </>
   ),
 
   ai_freq_voltage: ({ prefix }) => (
     <>
       <MinMaxValueFields path={prefix} />
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x>
-        <Form.NumericField
-          path={`${prefix}.thresholdLevel`}
-          label="Threshold level"
-          grow
-        />
-        <Form.NumericField path={`${prefix}.hysteresis`} label="Hysteresis" grow />
-      </Flex.Box>
+      <Form.NumericField path={`${prefix}.thresholdLevel`} label="Threshold level" />
+      <Form.NumericField path={`${prefix}.hysteresis`} label="Hysteresis" />
     </>
   ),
   ai_microphone: ({ prefix }) => (
     <>
       <TerminalConfigField path={prefix} />
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x>
-        <Form.NumericField
-          path={`${prefix}.micSensitivity`}
-          label="Microphone sensitivity"
-          grow
-        />
-        <Form.NumericField
-          path={`${prefix}.maxSndPressLevel`}
-          label="Max sound pressure level"
-          grow
-        />
-      </Flex.Box>
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x>
-        <ExcitSourceField
-          path={prefix}
-          fieldKey="currentExcitSource"
-          label="Current excitation source"
-          grow
-        />
-        <Form.NumericField
-          path={`${prefix}.currentExcitVal`}
-          label="Current excitation value"
-          grow
-        />
-      </Flex.Box>
+      <Form.NumericField
+        path={`${prefix}.micSensitivity`}
+        label="Microphone sensitivity"
+      />
+      <Form.NumericField
+        path={`${prefix}.maxSndPressLevel`}
+        label="Max sound pressure level"
+      />
+      <ExcitSourceField
+        path={prefix}
+        fieldKey="currentExcitSource"
+        label="Current excitation source"
+      />
+      <Form.NumericField
+        path={`${prefix}.currentExcitVal`}
+        label="Current excitation value"
+      />
     </>
   ),
   ai_pressure_bridge_polynomial: ({ prefix }) => (
     <>
       <MinMaxValueFields path={prefix} />
       <PressureUnitsField path={prefix} />
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x>
-        <BridgeConfigField path={prefix} grow />
-        <Form.NumericField
-          path={`${prefix}.nominalBridgeResistance`}
-          label="Nominal bridge resistance"
-        />
-      </Flex.Box>
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x>
-        <ExcitSourceField
-          path={prefix}
-          fieldKey="voltageExcitSource"
-          label="Voltage excitation source"
-          grow
-        />
-        <Form.NumericField
-          path={`${prefix}.voltageExcitVal`}
-          label="Voltage excitation value"
-        />
-      </Flex.Box>
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x>
-        <PressureUnitsField
-          path={prefix}
-          fieldKey="physicalUnits"
-          label="Physical units"
-          grow
-        />
-        <ElectricalUnitsField path={prefix} grow />
-      </Flex.Box>
+      <BridgeConfigField path={prefix} />
+      <Form.NumericField
+        path={`${prefix}.nominalBridgeResistance`}
+        label="Nominal bridge resistance"
+      />
+      <ExcitSourceField
+        path={prefix}
+        fieldKey="voltageExcitSource"
+        label="Voltage excitation source"
+      />
+      <Form.NumericField
+        path={`${prefix}.voltageExcitVal`}
+        label="Voltage excitation value"
+      />
+      <PressureUnitsField
+        path={prefix}
+        fieldKey="physicalUnits"
+        label="Physical units"
+      />
+      <ElectricalUnitsField path={prefix} />
       <CoefficientsField
         path={`${prefix}.forwardCoeffs`}
         label="Forward coefficients"
@@ -906,151 +778,100 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
       <MinMaxValueFields path={prefix} />
       <PressureUnitsField path={prefix} />
       <BridgeConfigField path={prefix} />
-      <Flex.Box x>
-        <ExcitSourceField
-          path={prefix}
-          fieldKey="voltageExcitSource"
-          label="Voltage excitation source"
-          grow
-        />
-        <Form.NumericField
-          path={`${prefix}.voltageExcitVal`}
-          label="Voltage excitation value"
-        />
-      </Flex.Box>
+      <ExcitSourceField
+        path={prefix}
+        fieldKey="voltageExcitSource"
+        label="Voltage excitation source"
+      />
+      <Form.NumericField
+        path={`${prefix}.voltageExcitVal`}
+        label="Voltage excitation value"
+      />
       <Form.NumericField
         path={`${prefix}.nominalBridgeResistance`}
         label="Nominal bridge resistance"
       />
-      <Flex.Box x>
-        <PressureUnitsField
-          path={prefix}
-          fieldKey="physicalUnits"
-          label="Physical units"
-          grow
-        />
-        {/* physicalVals */}
-        <ElectricalUnitsField path={prefix} grow />
-      </Flex.Box>
-      {/* electricalVals */}
+      <PressureUnitsField
+        path={prefix}
+        fieldKey="physicalUnits"
+        label="Physical units"
+      />
+      <ElectricalUnitsField path={prefix} />
     </>
   ),
   ai_pressure_bridge_two_point_lin: ({ prefix }) => (
     <>
       <MinMaxValueFields path={prefix} />
       <PressureUnitsField path={prefix} />
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x>
-        <BridgeConfigField path={prefix} grow />
-        <Form.NumericField
-          path={`${prefix}.nominalBridgeResistance`}
-          label="Nominal bridge resistance"
-        />
-      </Flex.Box>
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x>
-        <ExcitSourceField
-          path={prefix}
-          fieldKey="voltageExcitSource"
-          label="Voltage excitation source"
-          grow
-        />
-        <Form.NumericField
-          path={`${prefix}.voltageExcitVal`}
-          label="Voltage excitation value"
-          grow
-          className={CSS.BM("ni-field", "narrow")}
-        />
-      </Flex.Box>
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x>
-        <PressureUnitsField
-          path={prefix}
-          fieldKey="physicalUnits"
-          label="Physical units"
-          grow
-          className={CSS.BM("ni-field", "half")}
-        />
-        <ElectricalUnitsField
-          path={prefix}
-          grow
-          className={CSS.BM("ni-field", "half")}
-        />
-      </Flex.Box>
-      <Flex.Box x>
-        <Form.NumericField
-          path={`${prefix}.firstPhysicalVal`}
-          label="Physical value one"
-          grow
-          className={CSS.BM("ni-field", "half")}
-        />
-        <Form.NumericField
-          path={`${prefix}.secondPhysicalVal`}
-          label="Physical value two"
-          className={CSS.BM("ni-field", "half")}
-          grow
-        />
-      </Flex.Box>
-      <Flex.Box x>
-        <Form.NumericField
-          path={`${prefix}.firstElectricalVal`}
-          label="Electrical value one"
-          className={CSS.BM("ni-field", "half")}
-          grow
-        />
-        <Form.NumericField
-          path={`${prefix}.secondElectricalVal`}
-          label="Electrical value two"
-          className={CSS.BM("ni-field", "half")}
-          grow
-        />
-      </Flex.Box>
+      <BridgeConfigField path={prefix} />
+      <Form.NumericField
+        path={`${prefix}.nominalBridgeResistance`}
+        label="Nominal bridge resistance"
+      />
+      <ExcitSourceField
+        path={prefix}
+        fieldKey="voltageExcitSource"
+        label="Voltage excitation source"
+      />
+      <Form.NumericField
+        path={`${prefix}.voltageExcitVal`}
+        label="Voltage excitation value"
+      />
+      <PressureUnitsField
+        path={prefix}
+        fieldKey="physicalUnits"
+        label="Physical units"
+      />
+      <ElectricalUnitsField path={prefix} />
+      <Form.NumericField
+        path={`${prefix}.firstPhysicalVal`}
+        label="Physical value one"
+      />
+      <Form.NumericField
+        path={`${prefix}.secondPhysicalVal`}
+        label="Physical value two"
+      />
+      <Form.NumericField
+        path={`${prefix}.firstElectricalVal`}
+        label="Electrical value one"
+      />
+      <Form.NumericField
+        path={`${prefix}.secondElectricalVal`}
+        label="Electrical value two"
+      />
     </>
   ),
   ai_resistance: ({ prefix }) => (
     <>
       <MinMaxValueFields path={prefix} />
-      <Divider.Divider x padded="bottom" />
       <ResistanceConfigField path={prefix} />
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x>
-        <ExcitSourceField
-          path={prefix}
-          fieldKey="currentExcitSource"
-          label="Current excitation source"
-          grow
-        />
-        <Form.NumericField
-          path={`${prefix}.currentExcitVal`}
-          label="Current excitation value"
-        />
-      </Flex.Box>
+      <ExcitSourceField
+        path={prefix}
+        fieldKey="currentExcitSource"
+        label="Current excitation source"
+      />
+      <Form.NumericField
+        path={`${prefix}.currentExcitVal`}
+        label="Current excitation value"
+      />
     </>
   ),
   ai_rtd: ({ prefix }) => (
     <>
       <MinMaxValueFields path={prefix} />
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x>
-        <TemperatureUnitsField path={prefix} grow />
-        <RTDTypeField path={prefix} grow />
-      </Flex.Box>
+      <TemperatureUnitsField path={prefix} />
+      <RTDTypeField path={prefix} />
       <ResistanceConfigField path={prefix} />
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x>
-        <ExcitSourceField
-          path={prefix}
-          fieldKey="currentExcitSource"
-          label="Current excitation source"
-          grow
-        />
-        <Form.NumericField
-          path={`${prefix}.currentExcitVal`}
-          label="Current excitation value"
-          grow
-        />
-      </Flex.Box>
-      <Form.NumericField path={`${prefix}.r0`} label="R0 Resistance" grow />
+      <ExcitSourceField
+        path={prefix}
+        fieldKey="currentExcitSource"
+        label="Current excitation source"
+      />
+      <Form.NumericField
+        path={`${prefix}.currentExcitVal`}
+        label="Current excitation value"
+      />
+      <Form.NumericField path={`${prefix}.r0`} label="R0 Resistance" />
     </>
   ),
   ai_strain_gauge: ({ prefix }) => (
@@ -1091,52 +912,38 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
     <>
       <MinMaxValueFields path={prefix} />
       <TemperatureUnitsField path={prefix} />
-      <Divider.Divider x padded="bottom" />
       <ResistanceConfigField path={prefix} />
-      <Flex.Box x>
-        <ExcitSourceField
-          path={prefix}
-          fieldKey="currentExcitSource"
-          label="Current excitation source"
-          grow
-        />
-        <Form.NumericField
-          path={`${prefix}.currentExcitVal`}
-          label="Current excitation value"
-        />
-      </Flex.Box>
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x>
-        <Form.NumericField path={`${prefix}.a`} label="Steinhart-Hart A" grow />
-        <Form.NumericField path={`${prefix}.b`} label="Steinhart-Hart B" grow />
-        <Form.NumericField path={`${prefix}.c`} label="Steinhart-Hart C" grow />
-      </Flex.Box>
+      <ExcitSourceField
+        path={prefix}
+        fieldKey="currentExcitSource"
+        label="Current excitation source"
+      />
+      <Form.NumericField
+        path={`${prefix}.currentExcitVal`}
+        label="Current excitation value"
+      />
+      <Form.NumericField path={`${prefix}.a`} label="Steinhart-Hart A" />
+      <Form.NumericField path={`${prefix}.b`} label="Steinhart-Hart B" />
+      <Form.NumericField path={`${prefix}.c`} label="Steinhart-Hart C" />
     </>
   ),
   ai_thermistor_vex: ({ prefix }) => (
     <>
       <MinMaxValueFields path={prefix} />
       <TemperatureUnitsField path={prefix} />
-      <Divider.Divider x padded="bottom" />
       <ResistanceConfigField path={prefix} />
-      <Flex.Box x>
-        <ExcitSourceField
-          path={prefix}
-          fieldKey="voltageExcitSource"
-          label="Voltage excitation source"
-          grow
-        />
-        <Form.NumericField
-          path={`${prefix}.voltageExcitVal`}
-          label="Voltage excitation value"
-        />
-      </Flex.Box>
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x>
-        <Form.NumericField path={`${prefix}.a`} label="Steinhart-Hart A" grow />
-        <Form.NumericField path={`${prefix}.b`} label="Steinhart-Hart B" grow />
-        <Form.NumericField path={`${prefix}.c`} label="Steinhart-Hart C" grow />
-      </Flex.Box>
+      <ExcitSourceField
+        path={prefix}
+        fieldKey="voltageExcitSource"
+        label="Voltage excitation source"
+      />
+      <Form.NumericField
+        path={`${prefix}.voltageExcitVal`}
+        label="Voltage excitation value"
+      />
+      <Form.NumericField path={`${prefix}.a`} label="Steinhart-Hart A" />
+      <Form.NumericField path={`${prefix}.b`} label="Steinhart-Hart B" />
+      <Form.NumericField path={`${prefix}.c`} label="Steinhart-Hart C" />
       <Form.NumericField path={`${prefix}.r1`} label="Reference resistor" />
     </>
   ),
@@ -1169,37 +976,22 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
     <>
       <MinMaxValueFields path={prefix} />
       <TorqueUnitsField path={prefix} />
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x>
-        <BridgeConfigField path={prefix} grow />
-        <Form.NumericField
-          path={`${prefix}.nominalBridgeResistance`}
-          label="Nominal bridge resistance"
-        />
-      </Flex.Box>
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x>
-        <ExcitSourceField
-          path={prefix}
-          fieldKey="voltageExcitSource"
-          label="Voltage excitation source"
-          grow
-        />
-        <Form.NumericField
-          path={`${prefix}.voltageExcitVal`}
-          label="Voltage excitation value"
-        />
-      </Flex.Box>
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x>
-        <TorqueUnitsField
-          path={prefix}
-          fieldKey="physicalUnits"
-          label="Physical units"
-          grow
-        />
-        <ElectricalUnitsField path={prefix} grow />
-      </Flex.Box>
+      <BridgeConfigField path={prefix} />
+      <Form.NumericField
+        path={`${prefix}.nominalBridgeResistance`}
+        label="Nominal bridge resistance"
+      />
+      <ExcitSourceField
+        path={prefix}
+        fieldKey="voltageExcitSource"
+        label="Voltage excitation source"
+      />
+      <Form.NumericField
+        path={`${prefix}.voltageExcitVal`}
+        label="Voltage excitation value"
+      />
+      <TorqueUnitsField path={prefix} fieldKey="physicalUnits" label="Physical units" />
+      <ElectricalUnitsField path={prefix} />
       <CoefficientsField
         path={`${prefix}.forwardCoeffs`}
         label="Forward coefficients"
@@ -1214,98 +1006,60 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
     <>
       <MinMaxValueFields path={prefix} />
       <TorqueUnitsField path={prefix} />
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x>
-        <BridgeConfigField path={prefix} grow />
-        <Form.NumericField
-          path={`${prefix}.nominalBridgeResistance`}
-          label="Nominal bridge resistance"
-        />
-      </Flex.Box>
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x>
-        <ExcitSourceField
-          path={prefix}
-          fieldKey="voltageExcitSource"
-          label="Voltage excitation source"
-          grow
-        />
-        <Form.NumericField
-          path={`${prefix}.voltageExcitVal`}
-          label="Voltage excitation value"
-        />
-      </Flex.Box>
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x>
-        <TorqueUnitsField
-          path={prefix}
-          fieldKey="physicalUnits"
-          label="Physical units"
-          grow
-        />
-        {/* physicalVals */}
-        <ElectricalUnitsField path={prefix} grow />
-      </Flex.Box>
-      {/* electricalVals */}
+      <BridgeConfigField path={prefix} />
+      <Form.NumericField
+        path={`${prefix}.nominalBridgeResistance`}
+        label="Nominal bridge resistance"
+      />
+      <ExcitSourceField
+        path={prefix}
+        fieldKey="voltageExcitSource"
+        label="Voltage excitation source"
+      />
+      <Form.NumericField
+        path={`${prefix}.voltageExcitVal`}
+        label="Voltage excitation value"
+      />
+      <TorqueUnitsField path={prefix} fieldKey="physicalUnits" label="Physical units" />
+      <ElectricalUnitsField path={prefix} />
     </>
   ),
   ai_torque_bridge_two_point_lin: ({ prefix }) => (
     <>
       <MinMaxValueFields path={prefix} />
       <TorqueUnitsField path={prefix} />
-      <Divider.Divider x padded="bottom" />
       <BridgeConfigField path={prefix} />
       <Form.NumericField
         path={`${prefix}.nominalBridgeResistance`}
         label="Nominal bridge resistance"
       />
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x>
-        <ExcitSourceField
-          path={prefix}
-          grow
-          fieldKey="voltageExcitSource"
-          label="Voltage excitation source"
-        />
-        <Form.NumericField
-          path={`${prefix}.voltageExcitVal`}
-          label="Voltage excitation value"
-        />
-      </Flex.Box>
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x gap="small">
-        <TorqueUnitsField
-          path={prefix}
-          fieldKey="physicalUnits"
-          label="Physical units"
-          grow
-        />
-        <ElectricalUnitsField path={prefix} grow />
-      </Flex.Box>
-      <Flex.Box x>
-        <Form.NumericField
-          grow
-          path={`${prefix}.firstPhysicalVal`}
-          label="Physical value one"
-        />
-        <Form.NumericField
-          grow
-          path={`${prefix}.secondPhysicalVal`}
-          label="Physical value two"
-        />
-      </Flex.Box>
-      <Flex.Box x>
-        <Form.NumericField
-          grow
-          path={`${prefix}.firstElectricalVal`}
-          label="Electrical value one"
-        />
-        <Form.NumericField
-          grow
-          path={`${prefix}.secondElectricalVal`}
-          label="Electrical value two"
-        />
-      </Flex.Box>
+      <ExcitSourceField
+        path={prefix}
+        fieldKey="voltageExcitSource"
+        label="Voltage excitation source"
+      />
+      <Form.NumericField
+        path={`${prefix}.voltageExcitVal`}
+        label="Voltage excitation value"
+      />
+      <TorqueUnitsField path={prefix} fieldKey="physicalUnits" label="Physical units" />
+      <ElectricalUnitsField path={prefix} />
+      <Form.NumericField
+        path={`${prefix}.firstPhysicalVal`}
+        label="Physical value one"
+      />
+      <Form.NumericField
+        path={`${prefix}.secondPhysicalVal`}
+        label="Physical value two"
+      />
+      <Form.NumericField
+        path={`${prefix}.firstElectricalVal`}
+        label="Electrical value one"
+      />
+      <Form.NumericField
+        path={`${prefix}.secondElectricalVal`}
+        label="Electrical value two"
+      />
     </>
   ),
   ai_velocity_iepe: ({ prefix }) => (
@@ -1331,18 +1085,15 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
           ),
         }}
       />
-      <Flex.Box x>
-        <ExcitSourceField
-          path={prefix}
-          fieldKey="currentExcitSource"
-          label="Current excitation source"
-          grow
-        />
-        <Form.NumericField
-          path={`${prefix}.currentExcitVal`}
-          label="Current excitation value"
-        />
-      </Flex.Box>
+      <ExcitSourceField
+        path={prefix}
+        fieldKey="currentExcitSource"
+        label="Current excitation source"
+      />
+      <Form.NumericField
+        path={`${prefix}.currentExcitVal`}
+        label="Current excitation value"
+      />
     </>
   ),
   ai_voltage: ({ prefix }) => (
@@ -1361,20 +1112,16 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
     <>
       <TerminalConfigField path={prefix} />
       <MinMaxValueFields path={prefix} />
-      <Divider.Divider x padded="bottom" />
       <BridgeConfigField path={prefix} />
-      <Flex.Box x>
-        <ExcitSourceField
-          path={prefix}
-          fieldKey="voltageExcitSource"
-          label="Voltage excitation source"
-          grow
-        />
-        <Form.NumericField
-          path={`${prefix}.voltageExcitVal`}
-          label="Voltage excitation value"
-        />
-      </Flex.Box>
+      <ExcitSourceField
+        path={prefix}
+        fieldKey="voltageExcitSource"
+        label="Voltage excitation source"
+      />
+      <Form.NumericField
+        path={`${prefix}.voltageExcitVal`}
+        label="Voltage excitation value"
+      />
       <Form.SwitchField
         path={`${prefix}.scaledByExcitation`}
         label="Use excitation for scaling"

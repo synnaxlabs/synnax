@@ -12,7 +12,6 @@ import { zod } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
-import { Flex } from "@/flex";
 import { Form as Base } from "@/form";
 import { Input } from "@/input";
 import { type Control } from "@/schematic/node/common/control";
@@ -67,45 +66,41 @@ const SelectTelemForm = ({ path }: { path: string }): ReactElement => {
   };
 
   return (
-    <Form.Wrapper x grow align="stretch">
-      <Input.Item label="Command channel" grow>
-        <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
-      </Input.Item>
-      <Form.ControlChipField />
-    </Form.Wrapper>
+    <Base.Sections x>
+      <Base.Section title="Command">
+        <Input.Item label="Channel" padHelpText={false}>
+          <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
+        </Input.Item>
+        <Form.ControlChipField />
+      </Base.Section>
+    </Base.Sections>
   );
 };
 
 export const SelectForm = (): ReactElement => (
-  <Tabs.Frame initialValue="style" grow>
-    <Tabs.Selector>
-      <Tabs.Tab itemKey="style">Style</Tabs.Tab>
-      <Tabs.Tab itemKey="control">Control</Tabs.Tab>
-      <Tabs.Tab itemKey="options">Options</Tabs.Tab>
-    </Tabs.Selector>
+  <Form.Tabs tabs={["style", "control", "options"]}>
     <Tabs.Content itemKey="style">
-      <Form.Wrapper y align="stretch">
-        <Flex.Box y align="stretch" grow gap="small">
+      <Base.Sections x>
+        <Base.Section title="Label">
           <Label.Form path="label" />
-          <Flex.Box x>
-            <Form.SizeField />
-            <Form.ColorField path="color" />
-            <Base.NumericField
-              path="inlineSize"
-              label="Width"
-              inputProps={Form.VALUE_WIDTH_INPUT_PROPS}
-            />
-          </Flex.Box>
-        </Flex.Box>
-      </Form.Wrapper>
-    </Tabs.Content>
-    <Tabs.Content itemKey="options">
-      <Form.Wrapper y align="stretch">
-        <Form.StateMappingForm path="options" />
-      </Form.Wrapper>
+        </Base.Section>
+        <Base.Section title="Appearance">
+          <Form.SizeField />
+          <Form.ColorField path="color" />
+          <Base.NumericField
+            path="inlineSize"
+            label="Width"
+            padHelpText={false}
+            inputProps={Form.VALUE_WIDTH_INPUT_PROPS}
+          />
+        </Base.Section>
+      </Base.Sections>
     </Tabs.Content>
     <Tabs.Content itemKey="control">
       <SelectTelemForm path="" />
     </Tabs.Content>
-  </Tabs.Frame>
+    <Tabs.Content itemKey="options">
+      <Form.StateMappingForm path="options" />
+    </Tabs.Content>
+  </Form.Tabs>
 );

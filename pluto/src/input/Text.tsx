@@ -135,6 +135,15 @@ export const Text = ({
     cachedFocusRef.current = e.target.value;
   };
 
+  // Start and end content ignore the pointer, and a textarea leaves slack around
+  // itself, so a press on the frame focuses the input. Preventing the default keeps
+  // the press from first moving focus to the body.
+  const handleFrameMouseDown = (e: React.MouseEvent<HTMLDivElement>): void => {
+    if (disabled || e.target === internalRef.current) return;
+    e.preventDefault();
+    internalRef.current?.focus();
+  };
+
   const handleMouseUp = (): void => {
     // This looks hacky, but it's the only way to consistently select the text
     // after the focus event.
@@ -221,6 +230,7 @@ export const Text = ({
       hideTooltip={hideTooltip}
       reveal={reveal}
       propagateClick={propagateClick}
+      onMouseDown={handleFrameMouseDown}
       {...restButtonProps}
     >
       {showPlaceholder && (

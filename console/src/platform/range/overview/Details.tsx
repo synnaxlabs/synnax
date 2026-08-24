@@ -17,7 +17,6 @@ import {
   Flex,
   Form,
   Icon,
-  Input,
   Ranger,
   Status,
   Text,
@@ -79,6 +78,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   // The form saves on every edit, so a subject who cannot write the range gets it
   // read-only rather than a field that reverts once the save is refused.
   const canEdit = Access.useUpdateGranted(ranger.ontologyID(rangeKey));
+  const parent = Ranger.useResultParent({ id: ranger.ontologyID(rangeKey) }).data;
   const { form, status } = Ranger.useForm({
     query: { key: rangeKey },
     initialValues: {
@@ -199,33 +199,22 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
             <FavoriteButton range={range} size="medium" />
           </Flex.Box>
         </Flex.Box>
-        <Flex.Box className={CSS.B("time-range")} x gap="medium" align="center">
-          <Form.Field<number> path="timeRange.start" padHelpText={false} label="From">
-            {(p) => (
-              <Input.DateTime level="h4" variant="text" onlyChangeOnBlur {...p} />
-            )}
-          </Form.Field>
-          <Icon.Arrow.Right
-            className={CSS.BE("range-overview", "arrow-icon")}
-            color={9}
-          />
-          <Form.Field<number> padHelpText={false} path="timeRange.end" label="To">
-            {(p) => (
-              <Input.DateTime onlyChangeOnBlur level="h4" variant="text" {...p} />
-            )}
-          </Form.Field>
-        </Flex.Box>
+        <Form.Field<NumericTimeRange>
+          path="timeRange"
+          padHelpText={false}
+          showLabel={false}
+          className={CSS.B("time-range")}
+        >
+          {(p) => (
+            <Ranger.Timeline
+              level="h4"
+              variant="shadow"
+              parent={parent?.timeRange.numeric}
+              {...p}
+            />
+          )}
+        </Form.Field>
         <Flex.Box x>
-          <Form.Field<NumericTimeRange> path="timeRange" label="Stage">
-            {(props) => (
-              <Ranger.SelectStage
-                {...Ranger.wrapNumericTimeRangeToStage(props)}
-                allowNone={false}
-                triggerProps={{ variant: "text", hideCaret: true }}
-                variant="floating"
-              />
-            )}
-          </Form.Field>
           <Form.Field<string[]> required={false} path="labels">
             {(p) => (
               <Label.SelectMultiple

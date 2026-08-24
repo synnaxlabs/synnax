@@ -9,6 +9,18 @@
  * included in the file licenses/APL.txt.
  */
 
+/* The width a control wants when a form lays it out; a numeric holds a short value,
+   a text input a phrase. The drag-handle container carries its input's want. */
+.pluto-input,
+.pluto-input__container:has(> .pluto-input) {
+    --pluto-control-width: 40rem;
+}
+
+.pluto-input--numeric,
+.pluto-input__container:has(> .pluto-input--numeric) {
+    --pluto-control-width: 24rem;
+}
+
 .pluto-input {
     position: relative;
     display: inline-flex;
@@ -79,6 +91,7 @@
 
     & textarea {
         resize: none;
+        align-self: stretch;
         &::placeholder,
         &::-webkit-input-placeholder {
             padding-left: 2px;

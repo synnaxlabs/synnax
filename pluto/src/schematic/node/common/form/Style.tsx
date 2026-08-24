@@ -26,6 +26,7 @@ interface StyleFormProps extends FormProps {
 }
 
 export const StyleForm = ({
+  actions,
   omit,
   hideInnerOrientation,
   hideOuterOrientation,
@@ -35,10 +36,7 @@ export const StyleForm = ({
   return (
     <Form.Sections x>
       <Form.Section title="Label">
-        <Label.TextFields omit={omit} path="label" />
-      </Form.Section>
-      <Form.Section title="Label placement">
-        <Label.PlacementFields omit={omit} path="label" />
+        <Label.Form omit={omit} path="label" />
       </Form.Section>
       <Form.Section title="Appearance">
         {!hasStateOverrides && <ColorField path="color" optional />}
@@ -52,20 +50,17 @@ export const StyleForm = ({
         <ScaleField path="scale" />
       </Form.Section>
       {hasStateOverrides && (
-        <Form.Section title="State overrides">
+        <Form.Section title="State overrides" actions={actions}>
           <Errors.SuspenseBoundary>
             <Custom.StateOverrideForm />
           </Errors.SuspenseBoundary>
         </Form.Section>
       )}
-      <Form.Section title="Orientation">
-        <Orientation.Field
-          path=""
-          hideInner={hideInnerOrientation}
-          hideOuter={hideOuterOrientation}
-          showLabel={false}
-        />
-      </Form.Section>
+      <Orientation.Section
+        path=""
+        hideInner={hideInnerOrientation}
+        hideOuter={hideOuterOrientation}
+      />
     </Form.Sections>
   );
 };

@@ -93,7 +93,7 @@ export const ChannelForm = ({ path, omit = [] }: ChannelFormProps): ReactElement
   return (
     <Form.Sections x>
       <Form.Section title="State">
-        <Input.Item label="State channel" padHelpText={false}>
+        <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle
             value={source.channel as number}
             onChange={handleSourceChange}
@@ -101,7 +101,7 @@ export const ChannelForm = ({ path, omit = [] }: ChannelFormProps): ReactElement
         </Input.Item>
       </Form.Section>
       <Form.Section title="Command">
-        <Input.Item label="Command channel" padHelpText={false}>
+        <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
         </Input.Item>
         {!omit.includes("onClickDelay") && <ActivationDelayField />}

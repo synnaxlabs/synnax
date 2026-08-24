@@ -23,8 +23,9 @@
     /* Insets the node form's tab strip off the pane edge. */
     padding: 1rem 0.75rem;
 
-    /* A railed form runs its dividers the full pane height. */
-    &:has(> .pluto-symbol-form-tabs) {
+    /* A sectioned form runs its dividers the full pane height. */
+    &:has(> .pluto-symbol-form-tabs),
+    &:has(> .pluto-form-sections) {
         padding: 0;
     }
 }

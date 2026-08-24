@@ -13,7 +13,6 @@ import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
 import { Component } from "@/component";
-import { Flex } from "@/flex";
 import { Form as Base } from "@/form";
 import { Input } from "@/input";
 import { Notation } from "@/notation";
@@ -63,6 +62,7 @@ export interface TelemFormProps extends FormProps {
   defaults?: Partial<Config>;
 }
 
+/** TelemForm is the scale's source and format sections; the caller lays them out. */
 export const TelemForm = ({
   path,
   allowNone = false,
@@ -83,8 +83,8 @@ export const TelemForm = ({
   };
   return (
     <>
-      <Flex.Box x>
-        <Input.Item label="Channel" grow padHelpText={false}>
+      <Base.Section title="Source">
+        <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle
             value={props.channel}
             onChange={handleChannelChange}
@@ -92,35 +92,40 @@ export const TelemForm = ({
           />
         </Input.Item>
         {config != null && (
-          <NodeForm.BoundsFields path={field(path, "bounds")} padHelpText={false} />
-        )}
-      </Flex.Box>
-      {config != null && (
-        <Flex.Box x>
-          <Base.Field<notation.Notation>
-            path={field(path, "notation")}
-            label="Notation"
-            padHelpText={false}
-          >
-            {NotationSelect}
-          </Base.Field>
-          <Base.NumericField
-            path={field(path, "precision")}
-            label="Precision"
-            align="start"
-            padHelpText={false}
-            inputProps={PRECISION_INPUT_PROPS}
-          />
-          <NodeForm.UnitsField path={field(path, "units")} />
-          <Staleness.Fields path={path} />
-          <Input.Item label="Averaging window" align="start" grow>
+          <Input.Item label="Averaging window" padHelpText={false}>
             <Input.Numeric
               value={props.windowSize}
               bounds={WINDOW_SIZE_BOUNDS}
               onChange={(windowSize) => handleChange({ windowSize })}
             />
           </Input.Item>
-        </Flex.Box>
+        )}
+      </Base.Section>
+      {config != null && (
+        <>
+          <Base.Section title="Range">
+            <NodeForm.BoundsFields path={field(path, "bounds")} padHelpText={false} />
+          </Base.Section>
+          <Base.Section title="Format">
+            <Base.Field<notation.Notation>
+              path={field(path, "notation")}
+              label="Notation"
+              padHelpText={false}
+            >
+              {NotationSelect}
+            </Base.Field>
+            <Base.NumericField
+              path={field(path, "precision")}
+              label="Precision"
+              padHelpText={false}
+              inputProps={PRECISION_INPUT_PROPS}
+            />
+            <NodeForm.UnitsField path={field(path, "units")} />
+          </Base.Section>
+          <Base.Section title="Staleness">
+            <Staleness.Fields path={path} />
+          </Base.Section>
+        </>
       )}
     </>
   );

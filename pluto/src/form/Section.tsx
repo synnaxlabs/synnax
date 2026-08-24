@@ -20,7 +20,8 @@ export interface SectionsProps extends Flex.BoxProps {}
 /**
  * Lays out sections. Stacked (the default), every label in every section shares one
  * column sized to the widest label and every control fills the rest. Side by side
- * (`x`), each section is a fixed-width column with its own label column.
+ * (`x`), each section is as wide as its content: fields fill the rows the height
+ * affords, then continue in a further label and control column pair.
  */
 export const Sections = ({
   className,
@@ -59,6 +60,6 @@ export const Section = ({
       </Text.Text>
       {actions}
     </Flex.Box>
-    {children}
+    <div className={CSS.BE("form-section", "body")}>{children}</div>
   </Flex.Box>
 );

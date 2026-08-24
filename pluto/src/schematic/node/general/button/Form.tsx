@@ -12,7 +12,6 @@ import { zod } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
-import { Flex } from "@/flex";
 import { Form as Base } from "@/form";
 import { Input } from "@/input";
 import { type Control } from "@/schematic/node/common/control";
@@ -68,31 +67,29 @@ export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
   };
 
   return (
-    <Form.Wrapper y empty>
-      <Flex.Box x>
-        <Input.Item label="Channel" grow padHelpText={false}>
+    <Base.Sections x>
+      <Base.Section title="Command">
+        <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
         </Input.Item>
+        <Form.ControlChipField />
+      </Base.Section>
+      <Base.Section title="Actuation">
+        <Base.Field<BaseButton.Mode> path="mode" label="Mode" optional>
+          {({ value, onChange }) => (
+            <BaseButton.SelectMode value={value} onChange={onChange} />
+          )}
+        </Base.Field>
         {/* The delay gates single-shot actuation (fire, pulse). Momentary's
             hold is the actuation, so the field is hidden there. */}
         {mode !== "momentary" && <Form.ActivationDelayField />}
-        <Form.ControlChipField />
-      </Flex.Box>
-      <Base.Field<BaseButton.Mode> path="mode" label="Mode" optional>
-        {({ value, onChange }) => (
-          <BaseButton.SelectMode value={value} onChange={onChange} />
-        )}
-      </Base.Field>
-    </Form.Wrapper>
+      </Base.Section>
+    </Base.Sections>
   );
 };
 
 export const ButtonForm = (): ReactElement => (
-  <Tabs.Frame initialValue="style">
-    <Tabs.Selector>
-      <Tabs.Tab itemKey="style">Style</Tabs.Tab>
-      <Tabs.Tab itemKey="control">Control</Tabs.Tab>
-    </Tabs.Selector>
+  <Form.Tabs tabs={["style", "control"]}>
     <Tabs.Content itemKey="style">
       <Form.StyleForm
         omit={["align", "maxInlineSize"]}
@@ -103,5 +100,5 @@ export const ButtonForm = (): ReactElement => (
     <Tabs.Content itemKey="control">
       <ButtonTelemForm path="" />
     </Tabs.Content>
-  </Tabs.Frame>
+  </Form.Tabs>
 );

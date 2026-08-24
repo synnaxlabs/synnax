@@ -44,6 +44,7 @@ export const SingleTrigger = <K extends record.Key>({
   hideCaret = false,
   renderIcon,
   preview,
+  className,
   ...rest
 }: SingleTriggerProps) => {
   const allSelected = useSelected<K>();
@@ -74,7 +75,7 @@ export const SingleTrigger = <K extends record.Key>({
     <Dialog.Trigger
       variant="outlined"
       gap="small"
-      className={CSS.cls(CSS.dropRegion(canDrop(dragging)))}
+      className={CSS.cls(CSS.dropRegion(canDrop(dragging)), className)}
       disabled={disabled}
       {...dropProps}
       {...rest}

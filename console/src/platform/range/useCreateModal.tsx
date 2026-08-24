@@ -19,10 +19,9 @@ import {
   Nav,
   Ranger,
   Synnax,
-  Text,
 } from "@synnaxlabs/pluto";
 import { type NumericTimeRange, TimeRange, uuid } from "@synnaxlabs/x";
-import { useCallback, useRef } from "react";
+import { type ReactElement, useCallback, useRef } from "react";
 import { type z } from "zod";
 
 import { CSS } from "@/platform/css";
@@ -43,6 +42,17 @@ const ParentRangeIcon = Icon.createComposite(Icon.Range, {
   bottomRight: Icon.Arrow.Up,
 });
 
+const TimelineField = (): ReactElement => {
+  const parentKey = Form.useFieldValue<string>("parent");
+  const parent = Ranger.useResult(parentKey === "" ? null : { key: parentKey });
+  const parentRange = parent.data?.timeRange.numeric;
+  return (
+    <Form.Field<NumericTimeRange> path="timeRange" label="Stage" padHelpText={false}>
+      {(p) => <Ranger.Timeline level="h4" parent={parentRange} {...p} />}
+    </Form.Field>
+  );
+};
+
 export const useCreateModal = Modals.create<CreateModalParams>(
   ({ close, rangeKey, ...params }) => {
     const now = useRef(Number(TimeStamp.now().valueOf())).current;
@@ -57,7 +67,7 @@ export const useCreateModal = Modals.create<CreateModalParams>(
         key: rangeKey ?? uuid.create(),
         name: "",
         labels: [],
-        timeRange: { start: now, end: now },
+        timeRange: { start: now, end: TimeStamp.MAX.nanoseconds },
         parent: "",
         ...params,
       },
@@ -117,34 +127,7 @@ export const useCreateModal = Modals.create<CreateModalParams>(
                 />
               )}
             </Form.Field>
-            <Form.Field<NumericTimeRange> path="timeRange" label="Stage">
-              {(p) => (
-                <Ranger.SelectStage
-                  {...Ranger.wrapNumericTimeRangeToStage(p)}
-                  className={CSS.BE("range-create-layout", "stage")}
-                  triggerProps={{ variant: "outlined" }}
-                />
-              )}
-            </Form.Field>
-            <Flex.Box
-              x
-              wrap
-              gap="large"
-              className={CSS.BE("range-create-layout", "time-range")}
-            >
-              <Form.Field<number> path="timeRange.start" label="From">
-                {(p) => <Input.DateTime level="h4" variant="text" {...p} />}
-              </Form.Field>
-              <Text.Text
-                level="h4"
-                className={CSS.BE("range-create-layout", "time-range-arrow")}
-              >
-                <Icon.Arrow.Right />
-              </Text.Text>
-              <Form.Field<number> path="timeRange.end" label="To">
-                {(p) => <Input.DateTime level="h4" variant="text" {...p} />}
-              </Form.Field>
-            </Flex.Box>
+            <TimelineField />
             <Flex.Box x>
               <Form.Field<string> path="parent" visible padHelpText={false}>
                 {({ onChange, value }) => (

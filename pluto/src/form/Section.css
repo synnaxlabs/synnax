@@ -18,47 +18,117 @@
     align-items: start;
     align-content: start;
 
-    & > .pluto-form-section {
+    & > .pluto-form-section,
+    .pluto-form-section__body,
+    .pluto-input__item {
         display: contents;
     }
 
     & > .pluto-form-section + .pluto-form-section > .pluto-form-section__header {
         margin-top: 2.5rem;
     }
+
+    .pluto-form-section__header,
+    .pluto-form-section__body > :not(.pluto-input__item),
+    .pluto-input__item:not(:has(> .pluto-input-label)) > * {
+        grid-column: 1 / -1;
+    }
 }
 
-/* Side by side: each section is a column with its own label grid. */
+/* Side by side: each section is as wide as its content. Fields fill the rows the
+   strip's height affords, then flow into a further label and control column pair.
+   A control that declares --pluto-control-width is laid out at that width; any
+   other keeps its natural size. The strip scrolls when the sections outgrow it. */
 .pluto-form-sections.pluto--direction-x {
+    --pluto-form-section-rows: 3;
     display: flex;
     align-items: stretch;
     height: 100%;
     overflow-x: auto;
+    container-type: size;
 
-    & > .pluto-form-section,
-    & > .pluto-form-sections {
-        width: 66rem;
-        flex-shrink: 0;
+    & > .pluto-form-section {
+        flex: none;
+        display: flex;
+        flex-direction: column;
         padding: 1.5rem 2rem;
-        border-right: var(--pluto-border-l6);
-        gap: 1.5rem 3rem;
-        align-content: start;
         overflow-y: auto;
     }
 
-    & > .pluto-form-section {
-        display: grid;
-        grid-template-columns: max-content minmax(0, 1fr);
-        align-items: start;
+    /* Dividers sit between sections only, never against the strip's own edge. */
+    & > * + * {
+        border-left: var(--pluto-border-l6);
     }
 
-    & > .pluto-form-sections {
-        & > .pluto-form-section + .pluto-form-section > .pluto-form-section__header {
-            margin-top: 1.5rem;
+    .pluto-form-section__header {
+        margin-bottom: 2.5rem;
+
+        &::after {
+            display: none;
         }
     }
 
-    .pluto-form-section__header::after {
-        display: none;
+    .pluto-form-section__body {
+        display: grid;
+        grid-auto-flow: column;
+        grid-template-rows: repeat(var(--pluto-form-section-rows), max-content);
+        grid-auto-columns: max-content;
+        gap: 2rem 8rem;
+        align-items: start;
+
+        /* A dissolved row's fields are grid items too. */
+        & > *,
+        & > .pluto-flex:not(.pluto-input__item) > * {
+            grid-column: span 2;
+        }
+
+        & > .pluto-input__item,
+        & > .pluto-flex > .pluto-input__item {
+            display: grid;
+            grid-template-columns: subgrid;
+            /* A subgrid's own gap wins over the inherited one. */
+            column-gap: 3rem;
+            align-items: start;
+
+            & > .pluto-flex {
+                align-items: start;
+
+                & > * {
+                    width: var(--pluto-control-width, auto);
+                }
+            }
+        }
+    }
+}
+
+/* One more row per 40px of strip height: a medium control plus the row gap. */
+@container (min-height: 204px) {
+    .pluto-form-sections.pluto--direction-x {
+        --pluto-form-section-rows: 4;
+    }
+}
+
+@container (min-height: 244px) {
+    .pluto-form-sections.pluto--direction-x {
+        --pluto-form-section-rows: 5;
+    }
+}
+
+@container (min-height: 284px) {
+    .pluto-form-sections.pluto--direction-x {
+        --pluto-form-section-rows: 6;
+    }
+}
+
+@container (min-height: 324px) {
+    .pluto-form-sections.pluto--direction-x {
+        --pluto-form-section-rows: 7;
+    }
+}
+
+@container (min-height: 364px) {
+    .pluto-form-sections.pluto--direction-x {
+        --pluto-form-section-rows: 8;
     }
 }
 
@@ -67,29 +137,34 @@
         justify-content: flex-start;
     }
 
-    & > :not(.pluto-input__item) {
-        grid-column: 1 / -1;
-    }
-
     /* A row of fields inside a section dissolves; each field becomes a row. */
-    & > .pluto-flex:not(.pluto-input__item):has(> .pluto-input__item) {
+    .pluto-form-section__body
+        > .pluto-flex:not(.pluto-input__item):has(> .pluto-input__item) {
         display: contents;
     }
 
+    /* The hairline runs between the title and the actions. */
     .pluto-form-section__header {
         margin-bottom: 0.5rem;
 
+        & > :first-child {
+            order: 0;
+        }
+
         &::after {
             content: "";
+            order: 1;
             flex-grow: 1;
             height: var(--pluto-border-width);
             background: var(--pluto-gray-l6);
         }
+
+        & > :not(:first-child) {
+            order: 2;
+        }
     }
 
     .pluto-input__item {
-        display: contents;
-
         & > .pluto-input-label {
             height: var(--pluto-height-medium);
             display: flex;

@@ -234,6 +234,7 @@ import {
   TbColumnRemove,
   TbDecimal,
   TbEraser,
+  TbLayoutSidebar,
   TbLetterE,
   TbLivePhoto,
   TbMathFunction,
@@ -359,6 +360,7 @@ export const PNPM = wrapSVGIcon(SiPnpm, "pnpm");
 export const Yarn = wrapSVGIcon(SiYarn, "yarn");
 export const QuestionMark = wrapSVGIcon(MdQuestionMark, "question-mark");
 export const Menu = wrapSVGIcon(GiHamburgerMenu, "menu");
+export const Sidebar = wrapSVGIcon(TbLayoutSidebar, "sidebar");
 export const Logo = {
   Apple: wrapSVGIcon(FaApple, "logo-apple"),
   Docker: wrapSVGIcon(FaDocker, "logo-docker"),
@@ -629,6 +631,7 @@ const icons = {
   Yarn,
   QuestionMark,
   Menu,
+  Sidebar,
   Logo,
   Arrow,
   Keyboard,
