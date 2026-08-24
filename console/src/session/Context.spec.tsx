@@ -62,8 +62,8 @@ const createCoreState = (): Session.Core.SliceState => ({
 
 /**
  * Renders useSettled against a live Core under the real synchronizers and
- * waits for the workspace to settle. The settled result is the positive
- * control that unsettling assertions measure against.
+ * waits for the workspace to settle. The settled result is the positive control that
+ * unsettling assertions measure against.
  */
 const renderSettled = async () => {
   const { wrapper: Console, store } = await createSessionConsoleWrapper({

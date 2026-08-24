@@ -19,8 +19,8 @@ import {
 
 /**
  * Renders ui together with a live {@link Modals.Stack} inside the full console provider
- * stack, so modals opened during the test actually mount. Returns the backing store so a
- * spec can inspect dispatched Core state.
+ * stack, so modals opened during the test actually mount. Returns the backing store so
+ * a spec can inspect dispatched Core state.
  */
 export const renderCoreUI = async (
   ui: ReactNode,

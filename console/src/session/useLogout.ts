@@ -18,8 +18,8 @@ import { useDispatch } from "@/session/store";
 export const useLogout = () => {
   const dispatch = useDispatch();
   return useCallback(() => {
-    // The Core clear must come last: it flushes the Core's persistence partition,
-    // which must already hold the cleared project selection.
+    // The Core clear must come last: it flushes the Core's persistence partition, which
+    // must already hold the cleared project selection.
     dispatch(Project.clearSelected());
     dispatch(Panel.reset());
     dispatch(Nav.hideAll({}));

@@ -34,9 +34,9 @@ export interface Params<S, A extends Action> {
 }
 
 /**
- * Lifecycle callbacks keeping session state consistent with the Core.
- * The host runs reconcile at client-ready and on every epoch bump, and mounts
- * listen once per client, tearing it down on client swap or unmount.
+ * Lifecycle callbacks keeping session state consistent with the Core. The host runs
+ * reconcile at client-ready and on every epoch bump, and mounts listen once per client,
+ * tearing it down on client swap or unmount.
  */
 export interface Callbacks<S, A extends Action> {
   /**
@@ -61,12 +61,12 @@ export interface Synchronizer<S, A extends Action> {
 }
 
 /**
- * Synchronizers, mounted in array order by the host. The array is a constant:
- * the host calls a hook per entry, so its order and length must never vary
- * between renders. S and A are the host store's shape: a synchronizer needing
- * only a slice of it fits, since Store is covariant in its state and
- * contravariant in its actions. A session slice holding Core references
- * without an entry in a registry is a structural omission.
+ * Synchronizers, mounted in array order by the host. The array is a constant: the host
+ * calls a hook per entry, so its order and length must never vary between renders. S
+ * and A are the host store's shape: a synchronizer needing only a slice of it fits,
+ * since Store is covariant in its state and contravariant in its actions. A session
+ * slice holding Core references without an entry in a registry is a structural
+ * omission.
  */
 export type Synchronizers<S, A extends Action> = Synchronizer<S, A>[];
 

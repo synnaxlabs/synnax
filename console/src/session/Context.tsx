@@ -90,9 +90,9 @@ export const SettledProvider = ({ children }: PropsWithChildren): ReactElement =
 
 /**
  * Whether the workspace state is verified against the connected Core: first contact
- * made, no partition swap is in flight, and a reconcile pass has completed. While
- * false the workspace is in structural doubt and must not render; the connection
- * guard shows a splash instead.
+ * made, no partition swap is in flight, and a reconcile pass has completed. While false
+ * the workspace is in structural doubt and must not render; the connection guard shows
+ * a splash instead.
  */
 export const useSettled = (): boolean => {
   const verified = useContext(SettledContext);
