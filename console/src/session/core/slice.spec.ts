@@ -64,12 +64,37 @@ describe("set", () => {
     expect(state.cores[ALPHA.key].port).toBe(9099);
   });
 
-  it("should keep the cached cluster when an edit carries none", () => {
+  it("should keep the cached cluster when an edit leaves the address alone", () => {
     const state = reduce(
       withCores({ ...ALPHA, clusterKey: "cluster-1" }),
       Core.set({ ...BASE, key: ALPHA.key, name: "Renamed" }),
     );
     expect(state.cores[ALPHA.key].clusterKey).toBe("cluster-1");
+  });
+
+  // Holding the old key would open another cluster's stored state under this record
+  // until the next connection corrected it.
+  it.each([
+    ["host", { host: "elsewhere.com" }],
+    ["port", { port: 9099 }],
+    ["scheme", { secure: true }],
+  ])("should drop the cached cluster when the %s changes", (_, change) => {
+    const state = reduce(
+      withCores({ ...ALPHA, clusterKey: "cluster-1" }),
+      Core.set({ ...BASE, ...change, key: ALPHA.key }),
+    );
+    expect(state.cores[ALPHA.key].clusterKey).toBeUndefined();
+  });
+
+  // Editing a Core is usually built by spreading the record being edited, which would
+  // otherwise carry the stale key straight back over the address change.
+  it("should ignore a cluster the edit carries over a changed address", () => {
+    const edited = { ...ALPHA, clusterKey: "cluster-1" };
+    const state = reduce(
+      withCores(edited),
+      Core.set({ ...edited, host: "elsewhere.com" }),
+    );
+    expect(state.cores[ALPHA.key].clusterKey).toBeUndefined();
   });
 });
 

@@ -77,7 +77,7 @@ export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-export interface SetPayload extends Omit<Core, "key"> {
+export interface SetPayload extends Omit<Core, "key" | "clusterKey"> {
   /** The key to store under. A Core the user has just added gets a generated one. */
   key?: string;
 }
@@ -96,6 +96,9 @@ export interface SetClusterKeyPayload {
   clusterKey: string;
 }
 
+const sameAddress = (a: Core, b: Core): boolean =>
+  a.host === b.host && a.port === b.port && a.secure === b.secure;
+
 const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
@@ -105,12 +108,15 @@ const { actions, reducer } = createSlice({
         payload: { ...core, key: key ?? uuid.create() },
       }),
       reducer: (state, { payload }: PayloadAction<Core>) => {
-        // A cluster key is learned from a connection, so an edit that carries none
-        // keeps what the record already cached.
+        // The cached cluster answers which cluster this address reaches, so a new
+        // address invalidates it. Only a connection can answer for the new one, so
+        // the key is assigned here rather than carried: an edit built by spreading
+        // the record it edits would otherwise smuggle the stale one back in.
         const prev = state.cores[payload.key];
         state.cores[payload.key] = {
           ...payload,
-          clusterKey: payload.clusterKey ?? prev?.clusterKey,
+          clusterKey:
+            prev != null && sameAddress(prev, payload) ? prev.clusterKey : undefined,
         };
       },
     },

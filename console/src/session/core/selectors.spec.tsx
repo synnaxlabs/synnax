@@ -104,7 +104,7 @@ describe("Core selectors", () => {
       act(() => {
         store.dispatch(Core.set(CORE_A));
       });
-      expect(get().cores).toEqual({ [KEY_A]: CORE_A });
+      expect(get().cores).toEqual({ [KEY_A]: { ...CORE_A, clusterKey: undefined } });
     });
 
     it("should read the current selected key on demand across dispatches", () => {
@@ -135,8 +135,8 @@ describe("Core selectors", () => {
         store.dispatch(Core.set(CORE_A));
         store.dispatch(Core.set(CORE_B));
       });
-      expect(get(KEY_B)).toEqual(CORE_B);
-      expect(get(KEY_A)).toEqual(CORE_A);
+      expect(get(KEY_B)).toEqual({ ...CORE_B, clusterKey: undefined });
+      expect(get(KEY_A)).toEqual({ ...CORE_A, clusterKey: undefined });
     });
 
     it("should report whether any Core is selected on demand", () => {

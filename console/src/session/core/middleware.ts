@@ -11,23 +11,30 @@ import { type Middleware } from "@reduxjs/toolkit";
 import { array, type record, unique } from "@synnaxlabs/x";
 
 import { selectIsClusterOrphaned, selectState } from "@/session/core/selectors";
-import { remove, type StoreState } from "@/session/core/slice";
+import { remove, set, type StoreState } from "@/session/core/slice";
 import { Persist } from "@/session/persist";
 
 /**
- * Purges the state of every cluster the removed Cores were the last to name. Reads
- * before the removal lands, since the reducer drops the records it needs.
+ * Purges the state of every cluster the change left unreachable. A Core stops naming
+ * its cluster when it is removed and when it is repointed at another address, and the
+ * cluster's stored state has nothing to open it once no Core names it.
  */
-const purgeOnRemove: Middleware<record.Unknown> = (store) => (next) => (action) => {
-  if (!remove.match(action)) return next(action);
-  const state = store.getState() as StoreState;
-  const removed = array.toArray(action.payload);
-  const orphaned = unique
-    .unique(removed.flatMap((key) => selectState(state, key)?.clusterKey ?? []))
-    .filter((cluster) => selectIsClusterOrphaned(state, cluster, removed));
-  const result = next(action);
-  orphaned.forEach((cluster) => store.dispatch(Persist.purge(cluster)));
-  return result;
-};
+const purgeOrphanedClusters: Middleware<record.Unknown> =
+  (store) => (next) => (action) => {
+    const isRemove = remove.match(action);
+    if (!isRemove && !set.match(action)) return next(action);
+    const state = store.getState() as StoreState;
+    const keys = isRemove ? array.toArray(action.payload) : [action.payload.key];
+    // Read the cached clusters first: the reducer is about to drop them.
+    const named = unique.unique(
+      keys.flatMap((key) => selectState(state, key)?.clusterKey ?? []),
+    );
+    const result = next(action);
+    const settled = store.getState() as StoreState;
+    named
+      .filter((cluster) => selectIsClusterOrphaned(settled, cluster))
+      .forEach((cluster) => store.dispatch(Persist.purge(cluster)));
+    return result;
+  };
 
-export const MIDDLEWARE = [purgeOnRemove];
+export const MIDDLEWARE = [purgeOrphanedClusters];

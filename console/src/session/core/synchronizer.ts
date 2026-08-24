@@ -57,12 +57,11 @@ const useCacheClusterKey = (): Synchronizer.Callbacks<
   reconcile: ({ client, store }) => {
     const { clusterKey } = client.connection.status.details;
     if (clusterKey === "") return;
-    const state = store.getState();
-    const core = selectSelected(state);
+    const core = selectSelected(store.getState());
     if (core == null || core.clusterKey === clusterKey) return;
     const stale = core.clusterKey;
     store.dispatch(setClusterKey({ key: core.key, clusterKey }));
-    if (stale != null && selectIsClusterOrphaned(state, stale, [core.key]))
+    if (stale != null && selectIsClusterOrphaned(store.getState(), stale))
       store.dispatch(Persist.purge(stale));
   },
 });

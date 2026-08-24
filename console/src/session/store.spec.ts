@@ -170,6 +170,16 @@ describe("createStore", () => {
     await waitFor(async () => expect(await clusterKeys(CLUSTER_KEY)).toHaveLength(0));
   });
 
+  it("purges a repointed Core's stored state", async () => {
+    const store = await createStore();
+    await enterAndEdit(store, Session.Core.DEMO_KEY, CLUSTER_KEY);
+    expect((await clusterKeys(CLUSTER_KEY)).length).toBeGreaterThan(0);
+    const demo = Session.Core.selectState(store.getState(), Session.Core.DEMO_KEY);
+    // A new address reaches an unknown cluster, so nothing names the old one.
+    store.dispatch(Session.Core.set({ ...demo!, host: "elsewhere.com" }));
+    await waitFor(async () => expect(await clusterKeys(CLUSTER_KEY)).toHaveLength(0));
+  });
+
   it("keeps a cluster's state while another Core still names it", async () => {
     const store = await createStore();
     store.dispatch(

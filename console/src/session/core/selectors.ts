@@ -80,16 +80,15 @@ export const selectByClusterKey = (
 };
 
 /**
- * Whether no Core outside the excluded keys still names the cluster. The cluster's
- * stored state is unreachable once true.
+ * Whether no Core still names the cluster. Its stored state is unreachable once true.
+ * Ask after the change that dropped the name, not before.
  */
 export const selectIsClusterOrphaned = (
   state: StoreState,
   clusterKey: string,
-  except: string[],
 ): boolean =>
   !Object.values(selectSliceState(state).cores).some(
-    (c) => !except.includes(c.key) && c.clusterKey === clusterKey,
+    (c) => c.clusterKey === clusterKey,
   );
 
 export const selectMany = (state: StoreState, keys?: string[]): Core[] =>
