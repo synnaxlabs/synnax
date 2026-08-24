@@ -780,6 +780,23 @@ describe("Persist.middleware", () => {
     expect(hydrated).toBeGreaterThan(begin);
   });
 
+  // A write and a purge used to run on separate chains, so a write in flight could
+  // put back the keys the purge had just deleted.
+  it("should not write a purged Core's partition back", async () => {
+    const store = new Persist.MemoryKV();
+    const driver = await createDriver(store);
+    await enter(driver, CTX);
+    await edit(driver, "doomed");
+    driver.dispatch(
+      { type: "work/edit" },
+      { ...driver.getState(), work: { value: "racing", transient: "drag" } },
+    );
+    driver.dispatch(Persist.purge("c1"));
+    await vi.waitFor(async () =>
+      expect((await store.keys()).filter((key) => key.includes("c1"))).toHaveLength(0),
+    );
+  });
+
   it("should swap only the project partition when the Core is unchanged", async () => {
     const driver = await createDriver(new Persist.MemoryKV());
     await enter(driver, CTX);

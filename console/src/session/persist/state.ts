@@ -7,12 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  createAction,
-  type Middleware,
-  type MiddlewareAPI,
-  type PayloadAction,
-} from "@reduxjs/toolkit";
+import { createAction, type Middleware, type PayloadAction } from "@reduxjs/toolkit";
 import {
   type CrudeTimeSpan,
   debounce,
@@ -364,8 +359,8 @@ class Engine<S extends object> {
   context: Context;
   /** The composed global + Core + project state read on open. */
   initialState: S;
-  /** Whether the store refused every read on open. */
-  unusable = false;
+  /** Whether composing state on open failed outright. */
+  unreadable = false;
 
   private readonly db: SugaredKV;
   private readonly partitions = new Map<string, Partition<S>>();
@@ -527,7 +522,7 @@ class Engine<S extends object> {
       // session runs from its initial state; the middleware tells the user it will
       // not be saved.
       console.error("failed to read the session store", err);
-      this.unusable = true;
+      this.unreadable = true;
     }
     this.initialState = state;
   }
@@ -654,26 +649,23 @@ const createMiddleware = <S extends object>(
   debounceInterval: CrudeTimeSpan = PERSIST_DEBOUNCE,
 ): Middleware<record.Unknown> => {
   let current = engine.context;
-  let swapping = false;
-  let announced = false;
-  const announceUnavailable = (store: MiddlewareAPI) => {
-    if (announced) return;
-    announced = true;
-    store.dispatch(storeUnavailable());
-  };
   // Concurrent switches race: a slow stale swap hydrating last would clobber
   // the newer context's slices, so only the latest generation may hydrate.
   let swapGen = 0;
-  // A swap flushes the partition it leaves, so a purge of that partition has to
-  // wait behind it or the keys come back.
-  let swap: Promise<unknown> = Promise.resolve();
+  // Everything the store writes runs in turn. A swap flushes the partition it leaves,
+  // so a purge of that partition has to wait behind it or the keys come back, and a
+  // write queued mid-swap lands under the context it hydrated into.
+  let queue: Promise<unknown> = Promise.resolve();
   return (store) => {
-    if (engine.unusable) announceUnavailable(store);
+    if (engine.unreadable) store.dispatch(storeUnavailable());
     const debouncedPersist = debounce.debounce(() => {
-      if (swapping) return;
-      engine.persist(store.getState() as S, current).catch((e: unknown) => {
-        console.error("failed to persist state", e);
-        announceUnavailable(store);
+      queue = queue.then(async () => {
+        try {
+          await engine.persist(store.getState() as S, current);
+        } catch (e) {
+          console.error("failed to persist state", e);
+          store.dispatch(storeUnavailable());
+        }
       });
     }, debounceInterval);
     return (next) => (action) => {
@@ -696,14 +688,13 @@ const createMiddleware = <S extends object>(
           });
       else if (type === purge.type) {
         const { payload } = action as PayloadAction<string>;
-        swap = swap
+        queue = queue
           .then(async () => await engine.purge(payload))
           .catch((err: unknown) => {
             console.error("failed to purge stored Core state", err);
           });
       } else if (type === hydrate.type) {
         current = getContext(state);
-        swapping = false;
         debouncedPersist();
       } else {
         const ctx = getContext(state);
@@ -711,10 +702,9 @@ const createMiddleware = <S extends object>(
           const old = current;
           const includeCore = ctx.core !== old.core;
           current = ctx;
-          swapping = true;
           const gen = ++swapGen;
           store.dispatch(beginSwap());
-          swap = engine
+          queue = engine
             .persist(state, old)
             .then(async () => {
               if (gen !== swapGen) return;
@@ -723,10 +713,7 @@ const createMiddleware = <S extends object>(
               store.dispatch(hydrate(loaded));
             })
             .catch((err: unknown) => {
-              if (gen === swapGen) {
-                swapping = false;
-                store.dispatch(endSwap());
-              }
+              if (gen === swapGen) store.dispatch(endSwap());
               console.error("failed to swap session context", err);
             });
         } else debouncedPersist();
