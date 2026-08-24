@@ -62,10 +62,10 @@ describe("Range.useCreateModal", () => {
     await clickWhenEnabled("Save locally");
     await waitFor(() => expect(screen.queryByText("Save locally")).toBeNull());
     const ranges = Session.Range.selectMultiple(store.getState());
-    const created = ranges.find((r) => r.name === "Local Range");
+    const created = ranges.find(
+      (r) => r.variant === "static" && r.name === "Local Range",
+    );
     expect(created).toBeDefined();
-    expect(created?.persisted).toBe(false);
-    expect(created?.variant).toBe("static");
   });
 
   it("should keep the modal open and add nothing when the name is empty", async () => {
@@ -84,11 +84,12 @@ describe("Range.useCreateModal", () => {
     );
     await clickWhenEnabled("Save to Core");
     await waitFor(() => {
+      // A Core range is stored by key alone, so the session cannot be searched by
+      // name: the Core answers for it.
       const created = Session.Range.selectMultiple(store.getState()).find(
-        (r) => r.name === name,
+        (r) => r.variant === "persisted",
       );
       expect(created).toBeDefined();
-      expect(created?.persisted).toBe(true);
     });
     await waitFor(() => expect(screen.queryByText("Save locally")).toBeNull());
     await waitFor(async () => {

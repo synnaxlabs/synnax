@@ -17,8 +17,8 @@ import { Project } from "@/session/project";
 import { Theme } from "@/session/theme";
 
 /**
- * The connection parameters of a stored Core. The cluster slice flattened them onto
- * the record in 2.0.0; before that they sat under props.
+ * The connection parameters of a stored Core. The cluster slice flattened them onto the
+ * record in 2.0.0; before that they sat under props.
  */
 const paramsZ = z.object({
   host: z.string(),

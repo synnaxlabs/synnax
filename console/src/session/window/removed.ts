@@ -22,8 +22,8 @@ export interface RemovedPayload {
 
 /**
  * Announces that a window is gone, so the slices keying state by window can drop it.
- * Drift's own close removes only its bookkeeping; without this every window ever
- * opened would leave an entry behind, and window keys are minted fresh per open.
+ * Drift's own close removes only its bookkeeping; without this every window ever opened
+ * would leave an entry behind, and window keys are minted fresh per open.
  */
 export const removed = createAction<RemovedPayload>("window/removed");
 

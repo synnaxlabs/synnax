@@ -95,16 +95,16 @@ const List = (): ReactElement => {
 
 const listItem = Component.renderProp((props: BaseList.ItemProps<string>) => {
   const { itemKey } = props;
-  const entry = Session.Range.useSelectState(itemKey);
-  const isLocal = entry != null && !entry.persisted;
+  const entry = Range.useResolve(itemKey);
+  const isLocal = entry != null && entry.variant !== "persisted";
   const labels = Ranger.useLabels(isLocal ? null : itemKey) ?? [];
   const onRename = Session.Range.useRename();
   const hasUpdatePermission = Access.useUpdateGranted(ranger.ontologyID(itemKey));
   if (entry == null || entry.variant === "dynamic") return null;
-  const { key, name, timeRange, persisted } = entry;
+  const { key, name, timeRange } = entry;
   return (
     <Select.ListItem className={CSS.B("range-list-item")} {...props} gap="small" y>
-      {!persisted && (
+      {isLocal && (
         <Tooltip.Dialog location="left">
           <Text.Text level="small">This range is local.</Text.Text>
           <Text.Text className="save-button" weight={700} level="small" color={11}>

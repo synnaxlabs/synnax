@@ -71,7 +71,7 @@ const useCopy = (props: Tree.ContextMenuProps): (() => void) => {
 
 export const useRangeSnapshot = () => {
   const addStatus = Status.useAdder();
-  const rng = Session.Range.useSelectState();
+  const rng = Range.useResolve();
   const buildMessage = useCallback(
     ({ schematics }: Base.SnapshotParams) =>
       `${strings.naturalLanguageJoin(
@@ -119,7 +119,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
     selection: { ids, rootID },
     state: { getResource, shape },
   } = props;
-  const activeRange = Session.Range.useSelectState();
+  const activeRange = Range.useResolve();
   const hasCreatePermission = Access.useCreateGranted(schematic.TYPE_ONTOLOGY_ID);
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const handleDelete = useDelete(props);

@@ -52,16 +52,19 @@ const expectFocusedRange = async (store: TestStore, key: string): Promise<void> 
 const createLocalRangeState = (name: string): Session.Range.StaticState => {
   const start = TimeStamp.now();
   return {
+    variant: "static",
     key: uuid.create(),
     name,
-    persisted: false,
-    variant: "static",
     timeRange: { start: Number(start), end: Number(start.add(TimeSpan.seconds(1))) },
   };
 };
 
 const toState = (rng: ranger.Range): Session.Range.State =>
   Session.Range.fromClient(rng.payload)[0];
+
+// A Core range keeps its name on the Core, so only a range the session owns has one.
+const nameOf = (state?: Session.Range.State): string | undefined =>
+  state == null || state.variant === "persisted" ? undefined : state.name;
 
 interface RenderToolbarOptions {
   ranges?: Session.Range.State[];
@@ -102,9 +105,9 @@ describe("range/Toolbar", () => {
   });
 
   it("renders favorited ranges and marks local ones with the L badge", async () => {
-    const persisted = toState(await createTestRange(client));
+    const persisted = await createTestRange(client);
     const local = createLocalRangeState(uniqueRangeName("local"));
-    await renderToolbar({ ranges: [persisted, local] });
+    await renderToolbar({ ranges: [toState(persisted), local] });
     expect(await screen.findByText(persisted.name)).toBeTruthy();
     expect(await screen.findByText(local.name)).toBeTruthy();
     expect(screen.getByText("L")).toBeTruthy();
@@ -119,8 +122,8 @@ describe("range/Toolbar", () => {
   });
 
   it("sets the clicked range as active", async () => {
-    const rng = toState(await createTestRange(client));
-    const { store } = await renderToolbar({ ranges: [rng] });
+    const rng = await createTestRange(client);
+    const { store } = await renderToolbar({ ranges: [toState(rng)] });
     await screen.findByText(rng.name);
     // Re-query synchronously: async permission resolution can replace the text node,
     // detaching a match held across an await before the click lands.
@@ -132,8 +135,8 @@ describe("range/Toolbar", () => {
 
   describe("context menu", () => {
     it("sets a non-active range as active", async () => {
-      const rng = toState(await createTestRange(client));
-      const { store } = await renderToolbar({ ranges: [rng] });
+      const rng = await createTestRange(client);
+      const { store } = await renderToolbar({ ranges: [toState(rng)] });
       await openContextMenu(rng.name);
       fireEvent.click(await screen.findByText("Set as active range"));
       await waitFor(() =>
@@ -142,8 +145,11 @@ describe("range/Toolbar", () => {
     });
 
     it("clears the active range", async () => {
-      const rng = toState(await createTestRange(client));
-      const { store } = await renderToolbar({ ranges: [rng], active: rng.key });
+      const rng = await createTestRange(client);
+      const { store } = await renderToolbar({
+        ranges: [toState(rng)],
+        active: rng.key,
+      });
       await openContextMenu(rng.name);
       fireEvent.click(await screen.findByText("Clear active range"));
       await waitFor(() =>
@@ -152,8 +158,8 @@ describe("range/Toolbar", () => {
     });
 
     it("opens the overview tab from View details", async () => {
-      const rng = toState(await createTestRange(client));
-      const { store } = await renderToolbar({ ranges: [rng] });
+      const rng = await createTestRange(client);
+      const { store } = await renderToolbar({ ranges: [toState(rng)] });
       await openContextMenu(rng.name);
       fireEvent.click(await screen.findByText("View details"));
       await expectFocusedRange(store, rng.key);
@@ -161,8 +167,8 @@ describe("range/Toolbar", () => {
 
     it("removes the range from favorites without deleting it on the server", async () => {
       const created = await createTestRange(client);
-      const rng = toState(created);
-      const { store } = await renderToolbar({ ranges: [rng] });
+      const rng = created;
+      const { store } = await renderToolbar({ ranges: [toState(rng)] });
       await openContextMenu(rng.name);
       fireEvent.click(await screen.findByText("Unfavorite"));
       await waitFor(() =>
@@ -177,8 +183,8 @@ describe("range/Toolbar", () => {
       await openContextMenu(local.name);
       fireEvent.click(await screen.findByText("Save to Core"));
       await waitFor(() =>
-        expect(Session.Range.selectState(store.getState(), local.key)?.persisted).toBe(
-          true,
+        expect(Session.Range.selectState(store.getState(), local.key)?.variant).toBe(
+          "persisted",
         ),
       );
       await waitFor(async () =>
@@ -188,8 +194,8 @@ describe("range/Toolbar", () => {
 
     it("deletes a persisted range after confirmation", async () => {
       const created = await createTestRange(client);
-      const rng = toState(created);
-      const { store } = await renderToolbar({ ranges: [rng] });
+      const rng = created;
+      const { store } = await renderToolbar({ ranges: [toState(rng)] });
       await openContextMenu(rng.name);
       fireEvent.click(await screen.findByText("Delete"));
       await screen.findByText(`Are you sure you want to delete ${rng.name}?`);
@@ -206,18 +212,13 @@ describe("range/Toolbar", () => {
 
     it("renames a persisted range through the inline editor", async () => {
       const created = await createTestRange(client);
-      const rng = toState(created);
-      const { store } = await renderToolbar({ ranges: [rng] });
+      const rng = created;
+      await renderToolbar({ ranges: [toState(rng)] });
       await openContextMenu(rng.name);
       fireEvent.click(await screen.findByText("Rename"));
       const editor = await awaitTextEditing(`text-${rng.key}`);
       const renamed = uniqueRangeName("renamed");
       commitTextEdit(editor, renamed);
-      await waitFor(() =>
-        expect(Session.Range.selectState(store.getState(), rng.key)?.name).toBe(
-          renamed,
-        ),
-      );
       await waitFor(async () =>
         expect((await client.ranges.retrieve(created.key)).name).toBe(renamed),
       );
@@ -232,7 +233,7 @@ describe("range/Toolbar", () => {
       const renamed = uniqueRangeName("renamed");
       commitTextEdit(editor, renamed);
       await waitFor(() =>
-        expect(Session.Range.selectState(store.getState(), local.key)?.name).toBe(
+        expect(nameOf(Session.Range.selectState(store.getState(), local.key))).toBe(
           renamed,
         ),
       );
@@ -251,8 +252,8 @@ describe("range/Toolbar", () => {
     });
 
     it("opens the create modal for a child range", async () => {
-      const rng = toState(await createTestRange(client));
-      await renderToolbar({ ranges: [rng] });
+      const rng = await createTestRange(client);
+      await renderToolbar({ ranges: [toState(rng)] });
       await openContextMenu(rng.name);
       fireEvent.click(await screen.findByText("Create child range"));
       expect(await screen.findByText("Save locally")).toBeTruthy();
@@ -273,16 +274,16 @@ describe("Range.fetchIfNotInState", () => {
     const { store } = await createConsoleWrapper({ client });
     store.dispatch(Session.Range.add(local));
     const result = await Range.fetchIfNotInState(store, client, local.key);
-    expect(result.name).toBe(local.name);
+    expect(nameOf(result)).toBe(local.name);
   });
 
   it("fetches a missing range from the Core and adds it to the store", async () => {
     const created = await createTestRange(client);
     const { store } = await createConsoleWrapper({ client });
     const result = await Range.fetchIfNotInState(store, client, created.key);
-    expect(result.name).toBe(created.name);
-    expect(Session.Range.selectState(store.getState(), created.key)?.persisted).toBe(
-      true,
+    expect(result.key).toBe(created.key);
+    expect(Session.Range.selectState(store.getState(), created.key)?.variant).toBe(
+      "persisted",
     );
   });
 });

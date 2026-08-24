@@ -200,7 +200,7 @@ const Internal = (): ReactElement => {
     () => unique.unique([...ranges.x1, ...ranges.x2]),
     [ranges.x1, ranges.x2],
   );
-  const resolved = Session.Range.useSelectMultiple(rangeKeys);
+  const resolved = Range.useResolveMultiple(rangeKeys);
   const resolvedRanges = useMemo(() => {
     const m = new Map<string, Base.ResolvedRange>();
     for (const r of resolved)

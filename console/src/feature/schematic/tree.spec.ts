@@ -120,14 +120,8 @@ describe("Schematic.useRangeSnapshot", () => {
             ranges: [
               ...Session.Range.ZERO_SLICE_STATE.ranges,
               {
+                variant: "persisted" as const,
                 key: rng.key,
-                name: rng.name,
-                variant: "static",
-                persisted: true,
-                timeRange: {
-                  start: Number(rng.timeRange.start),
-                  end: Number(rng.timeRange.end),
-                },
               },
             ],
           },

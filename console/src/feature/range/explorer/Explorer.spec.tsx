@@ -168,7 +168,7 @@ describe("range/Explorer", () => {
       fireEvent.click(await screen.findByText("Favorite"));
       await waitFor(() => {
         const state = Session.Range.selectState(store.getState(), rng.key);
-        expect(state?.persisted).toBe(true);
+        expect(state?.variant).toBe("persisted");
       });
     });
 
@@ -196,15 +196,7 @@ describe("range/Explorer", () => {
     it("deletes the range from the Core after confirmation", async () => {
       const rng = await createTestRange(client);
       const { store } = await renderExplorer();
-      store.dispatch(
-        Session.Range.add({
-          key: rng.key,
-          name: rng.name,
-          persisted: true,
-          variant: "static",
-          timeRange: rng.timeRange.numeric,
-        }),
-      );
+      store.dispatch(Session.Range.add({ variant: "persisted", key: rng.key }));
       fireEvent.contextMenu(await revealRange(rng.name));
       fireEvent.click(await screen.findByText("Delete"));
       await screen.findByText(`Are you sure you want to delete ${rng.name}?`);

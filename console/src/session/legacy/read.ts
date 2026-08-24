@@ -45,8 +45,8 @@ export const openReader = (): Reader =>
   Runtime.ENGINE === "tauri" ? tauriReader() : localStorageReader();
 
 /**
- * Reads the whole state blob the previous release last committed, or null when it
- * left none behind.
+ * Reads the whole state blob the previous release last committed, or null when it left
+ * none behind.
  * @param read - Reader over the legacy store.
  */
 export const readState = async (read: Reader): Promise<unknown> => {

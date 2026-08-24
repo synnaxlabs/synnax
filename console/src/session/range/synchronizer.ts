@@ -7,22 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { destructor } from "@synnaxlabs/x";
-
-import {
-  type Action,
-  remove,
-  type StoreState,
-  updateRemote,
-} from "@/session/range/slice";
+import { type Action, remove, type StoreState } from "@/session/range/slice";
 import { type Synchronizer } from "@/session/synchronizer";
 
 const syncRanges: Synchronizer.Callbacks<StoreState, Action> = {
   reconcile: async ({ client, store }) => {
-    // Unpersisted ranges are local-only; only Core-backed ones can vanish.
+    // Only the Core's own ranges can vanish; the rest are the session's.
     const keys = store
       .getState()
-      .range.ranges.filter(({ persisted }) => persisted)
+      .range.ranges.filter(({ variant }) => variant === "persisted")
       .map(({ key }) => key);
     if (keys.length === 0) return;
     const found = await client.ranges.retrieve({ keys, ignoreNotFoundError: true });
@@ -30,17 +23,10 @@ const syncRanges: Synchronizer.Callbacks<StoreState, Action> = {
     const missing = keys.filter((key) => !foundKeys.has(key));
     if (missing.length > 0) store.dispatch(remove({ keys: missing }));
   },
-  listen: ({ client, store }) => {
-    const removeOnSet = client.ranges.onSet(({ payload: { timeRange, ...rest } }) => {
-      store.dispatch(
-        updateRemote({ ...rest, parent: undefined, timeRange: timeRange.numeric }),
-      );
-    });
-    const removeOnDelete = client.ranges.onDelete((key) =>
-      store.dispatch(remove({ keys: [key] })),
-    );
-    return () => destructor.unwind(removeOnSet, removeOnDelete);
-  },
+  // A rename or a retime needs no answer here: the session keeps only the key, and
+  // reads the rest from the Core.
+  listen: ({ client, store }) =>
+    client.ranges.onDelete((key) => store.dispatch(remove({ keys: [key] }))),
 };
 
 export const SYNCHRONIZERS: Synchronizer.Synchronizers<StoreState, Action> = [

@@ -35,6 +35,7 @@ import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Group } from "@/platform/group";
 import { Link } from "@/platform/link";
+import { Range } from "@/platform/range";
 import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
@@ -140,7 +141,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
     selection: { ids, rootID },
     state: { getResource, shape },
   } = props;
-  const activeRange = Session.Range.useSelectState();
+  const activeRange = Range.useResolve();
   const groupFromSelection = Group.useCreateFromSelection();
   const handleSetAlias = useSetAlias(props);
   const resources = getResource(ids);
@@ -196,7 +197,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       )}
       <Menu.Divider />
       {activeRange != null &&
-        activeRange.persisted &&
+        activeRange.variant === "persisted" &&
         (singleResource || showDeleteAlias) &&
         (hasAliasCreatePermission || hasAliasDeletePermission) && (
           <>
@@ -232,7 +233,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
 };
 
 const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
-  const activeRange = Session.Range.useSelectState();
+  const activeRange = Range.useResolve();
   const query = { key: Number(resource.id.key), rangeKey: activeRange?.key };
   const { data: alias } = PChannel.useResultAlias(query);
   const { data: chStatus } = PChannel.useResultStatus(query);

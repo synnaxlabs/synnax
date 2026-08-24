@@ -56,18 +56,6 @@ const useRename = Tree.createUseRename({
   query: Ranger.useRename,
   ontologyID: ranger.ontologyID,
   convertKey: String,
-  beforeUpdate: async ({ data, store, rollbacks }) => {
-    const { key, name } = data;
-    const rng = Session.Range.selectState(store.getState(), key);
-    if (rng != null) {
-      const oldName = rng.name;
-      store.dispatch(Session.Range.rename({ key, name }));
-      rollbacks.push(() =>
-        store.dispatch(Session.Range.rename({ key, name: oldName })),
-      );
-    }
-    return data;
-  },
 });
 
 const useDelete = Tree.createUseDelete({
