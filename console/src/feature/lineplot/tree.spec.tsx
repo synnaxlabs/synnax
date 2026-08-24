@@ -49,6 +49,8 @@ import {
   uniqueName,
 } from "@/testutil";
 
+const CORE = createCore("test");
+
 const Item = LinePlot.TREE_ITEMS.lineplot;
 
 const createLinePlot = async (): Promise<lineplot.LinePlot> =>
@@ -64,7 +66,7 @@ const renderMenu = async ({ plots, overrides, withCore = false }: SetupParams) =
   const store = await createTestStore({
     preloadedState: {
       ...createPreloadedState(plots[0].key),
-      ...(withCore ? createCoreState([createCore("test")], "test") : {}),
+      ...(withCore ? createCoreState([CORE], CORE.key) : {}),
     },
   });
   const Menu = Item.ContextMenu;

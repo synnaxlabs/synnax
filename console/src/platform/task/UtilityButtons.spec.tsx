@@ -12,7 +12,7 @@ import { beforeEach, describe, expect, it, type Mock } from "vitest";
 
 import { Task } from "@/platform/task";
 import { renderInTaskForm } from "@/platform/task/testutil";
-import { createCoreState } from "@/session/core/testutil";
+import { createCore, createCoreState } from "@/session/core/testutil";
 import { getIconButton, queryIcon, stubClipboardWriteText } from "@/testutil";
 
 const clickIcon = (container: HTMLElement, icon: string): void => {
@@ -83,16 +83,14 @@ describe("UtilityButtons", () => {
     });
   });
 
-  it("should copy a link containing the active Core and the task key", async () => {
+  it("should copy a link containing the active cluster and the task key", async () => {
+    const core = createCore("Alpha", { clusterKey: "cluster-1" });
     const { container } = await renderInTaskForm(<Task.UtilityButtons />, {
       values: { key: "task_123", name: "My Task", config: {} },
-      preloadedState: createCoreState([], "Core_1"),
+      preloadedState: createCoreState([core], core.key),
     });
     clickIcon(container, "link");
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
-    const url = writeText.mock.calls[0][0];
-    expect(url).toContain("Core_1");
-    expect(url).toContain("task");
-    expect(url).toContain("task_123");
+    expect(writeText.mock.calls[0][0]).toBe("synnax://cluster/cluster-1/task/task_123");
   });
 });

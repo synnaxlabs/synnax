@@ -34,48 +34,50 @@ export interface ConnectContext {
   poll: breaker.Breaker;
 }
 
-// connectToCore resolves the Core identified by key to a connected client. If the
-// target Core is already active, its managed client's connect() is awaited and the
-// client returned. Otherwise the active Core is switched, the provider-constructed
-// replacement client is awaited (client identity changes only on a param change), and
-// its connect() drives the outcome. No client is constructed here, so there is nothing
-// to close.
+// connectToCore resolves the cluster a link names to a connected client through
+// whichever Core reaches it. If that Core is already active, its managed client's
+// connect() is awaited and the client returned. Otherwise the active Core is switched,
+// the provider-constructed replacement client is awaited (client identity changes only
+// on a param change), and its connect() drives the outcome. No client is constructed
+// here, so there is nothing to close.
 //
-// It throws if the Core is unknown, if the provider never swaps clients before the poll
-// exhausts its retries, or with the client's typed rejection when the connection fails.
+// It throws if no Core names the cluster, if the provider never swaps clients before
+// the poll exhausts its retries, or with the client's typed rejection when the
+// connection fails.
 export const connectToCore = async (
-  key: string,
+  clusterKey: string,
   { getState, getClient, setActive, poll }: ConnectContext,
 ): Promise<Client> => {
   const state = getState();
-  const core = Session.Core.selectState(state, key);
-  if (core == null) throw new Error(`Core with key ${key} not found`);
+  const core = Session.Core.selectByClusterKey(state, clusterKey);
+  if (core == null) throw new Error(`No Core connects to cluster ${clusterKey}`);
   const prior = getClient();
-  if (Session.Core.selectSelectedKey(state) === key && prior != null) {
+  if (Session.Core.selectSelectedKey(state) === core.key && prior != null) {
     await prior.connect({ timeout: CONNECT_TIMEOUT });
     return prior;
   }
-  setActive(key);
+  setActive(core.key);
   while (true) {
     const client = getClient();
     if (client != null && client !== prior) {
       await client.connect({ timeout: CONNECT_TIMEOUT });
       return client;
     }
-    if (!(await poll.wait())) throw new Error(`Timed out connecting to Core ${key}`);
+    if (!(await poll.wait()))
+      throw new Error(`Timed out connecting to cluster ${clusterKey}`);
   }
 };
 
-// useLink returns a connect function that resolves a Core key to a connected client.
+// useLink returns a connect function that resolves a cluster key to a connected client.
 // See connectToCore for the resolution semantics.
-export const useLink = (): Link.CoreConnect => {
+export const useLink = (): Link.Connect => {
   const client = Synnax.use();
   const clientRef = useSyncedRef(client);
   const dispatch = Session.useDispatch();
   const store = Session.useStore();
   return useCallback(
-    (key) =>
-      connectToCore(key, {
+    (clusterKey) =>
+      connectToCore(clusterKey, {
         getState: () => store.getState(),
         getClient: () => clientRef.current,
         setActive: (key) => dispatch(Session.Core.select(key)),

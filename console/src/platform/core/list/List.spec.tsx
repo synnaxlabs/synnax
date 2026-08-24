@@ -16,8 +16,8 @@ import { Session } from "@/session";
 import { createCore, createCoreState } from "@/session/core/testutil";
 import { getBySelector, stubClipboardWriteText } from "@/testutil";
 
-const ALPHA = createCore("Alpha");
-const BRAVO = createCore("Bravo", { port: 9099 });
+const ALPHA = createCore("Alpha", { clusterKey: "cluster-alpha" });
+const BRAVO = createCore("Bravo", { port: 9099, clusterKey: undefined });
 
 describe("Core List", () => {
   it("should call onChange with the clicked Core's key", async () => {
@@ -57,7 +57,9 @@ describe("Core List", () => {
     });
   });
 
-  it("should copy a link to the Core from the context menu", async () => {
+  // The link names the cluster, not the record, so it opens on a machine whose own
+  // record for that cluster carries a different key.
+  it("should copy a link to the Core's cluster from the context menu", async () => {
     const writeText = stubClipboardWriteText();
     await renderCoreUI(
       <Core.List value={ALPHA.key} onChange={vi.fn()} />,
@@ -66,7 +68,19 @@ describe("Core List", () => {
     fireEvent.contextMenu(await screen.findByText("Alpha"));
     fireEvent.click(await screen.findByText("Copy link"));
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
-    expect(writeText.mock.calls[0][0]).toBe(`synnax://core/${ALPHA.key}`);
+    expect(writeText.mock.calls[0][0]).toBe("synnax://cluster/cluster-alpha");
+  });
+
+  it("should copy no link for a Core that has never connected", async () => {
+    const writeText = stubClipboardWriteText();
+    await renderCoreUI(
+      <Core.List value={BRAVO.key} onChange={vi.fn()} />,
+      createCoreState([BRAVO], BRAVO.key),
+    );
+    fireEvent.contextMenu(await screen.findByText("Bravo"));
+    fireEvent.click(await screen.findByText("Copy link"));
+    await waitFor(() => expect(screen.queryByText("Copy link")).toBeNull());
+    expect(writeText).not.toHaveBeenCalled();
   });
 
   it("should remove a Core and reselect a sibling from the context menu", async () => {

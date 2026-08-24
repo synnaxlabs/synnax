@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology } from "@synnaxlabs/client";
-import { Status } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Link } from "@/platform/link";
@@ -25,20 +24,9 @@ export interface CopyLinkToClipboard {
 
 export const useCopyLinkToClipboard = (): CopyLinkToClipboard => {
   const copyLink = Link.useCopyToClipboard();
-  const coreKey = Session.Core.useSelectSelectedKey();
-  const addStatus = Status.useAdder();
+  const clusterKey = Session.Core.useSelectClusterKey();
   return useCallback(
-    (params) => {
-      if (coreKey == null) {
-        addStatus({
-          variant: "error",
-          message: `Failed to copy link to ${params.name}`,
-          description: "No Core is connected.",
-        });
-        return;
-      }
-      return copyLink({ ...params, coreKey });
-    },
-    [copyLink, coreKey, addStatus],
+    (params) => copyLink({ ...params, clusterKey }),
+    [copyLink, clusterKey],
   );
 };

@@ -54,6 +54,24 @@ export const useGetState = (): ((key?: string) => Core | undefined) => {
 export const selectClusterKey = (state: StoreState, key?: string): string | undefined =>
   selectState(state, key)?.clusterKey;
 
+export const useSelectClusterKey = (key?: string): string | undefined =>
+  Select.useMemo((s: StoreState) => selectClusterKey(s, key), [key]);
+
+/**
+ * The Core to reach the given cluster through, preferring the selected one so a link
+ * to the cluster already open does not switch Cores.
+ */
+export const selectByClusterKey = (
+  state: StoreState,
+  clusterKey: string,
+): Core | undefined => {
+  const selected = selectState(state);
+  if (selected?.clusterKey === clusterKey) return selected;
+  return Object.values(selectSliceState(state).cores).find(
+    (c) => c.clusterKey === clusterKey,
+  );
+};
+
 /**
  * Whether no Core outside the excluded keys still names the cluster. The cluster's
  * stored state is unreachable once true.

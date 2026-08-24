@@ -44,6 +44,8 @@ import {
   uniqueName,
 } from "@/testutil";
 
+const CORE = createCore("test");
+
 const Item = Table.TREE_ITEMS.table;
 
 const createTable = async (): Promise<table.Table> =>
@@ -60,7 +62,7 @@ const renderMenu = async ({ tables, overrides, withCore = false }: SetupParams) 
   const store = await createTestStore({
     preloadedState: {
       ...createPreloadedState(tables[0].key),
-      ...(withCore ? createCoreState([createCore("test")], "test") : {}),
+      ...(withCore ? createCoreState([CORE], CORE.key) : {}),
     },
   });
   const props: Tree.ContextMenuProps = {

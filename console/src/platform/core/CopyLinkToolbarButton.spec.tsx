@@ -13,8 +13,10 @@ import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vite
 
 import { Core } from "@/platform/core";
 import { renderCoreUI } from "@/platform/core/testutil";
-import { createCoreState } from "@/session/core/testutil";
+import { createCore, createCoreState } from "@/session/core/testutil";
 import { stubClipboardWriteText } from "@/testutil";
+
+const CORE = createCore("Alpha", { clusterKey: "cluster-9" });
 
 describe("CopyLinkToolbarButton", () => {
   let writeText: Mock;
@@ -31,16 +33,15 @@ describe("CopyLinkToolbarButton", () => {
   it("should copy the resource link when clicked", async () => {
     await renderCoreUI(
       <Core.CopyLinkToolbarButton name="My Range" ontologyID={id} />,
-      createCoreState([], "Core-9"),
+      createCoreState([CORE], CORE.key),
     );
     const button = screen.getByRole("button");
     await act(async () => {
       fireEvent.click(button);
     });
     expect(writeText).toHaveBeenCalledTimes(1);
-    const url = writeText.mock.calls[0][0];
-    expect(url).toContain("Core-9");
-    expect(url).toContain("range");
-    expect(url).toContain("range-key");
+    expect(writeText.mock.calls[0][0]).toBe(
+      "synnax://cluster/cluster-9/range/range-key",
+    );
   });
 });

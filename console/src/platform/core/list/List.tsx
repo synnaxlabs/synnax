@@ -129,9 +129,9 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
           <Menu.Divider />
           <Link.CopyContextMenuItem
             onClick={() => {
-              const name = allCores.find((c) => c.key === key)?.name;
-              if (name == null) return;
-              handleLink({ coreKey: key, name });
+              const core = allCores.find((c) => c.key === key);
+              if (core == null) return;
+              handleLink({ clusterKey: core.clusterKey, name: core.name });
             }}
           />
           <Menu.Divider />

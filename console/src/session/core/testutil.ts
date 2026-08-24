@@ -21,9 +21,14 @@ export const CONNECTION_PARAMS: Omit<Core, "key" | "name"> = {
   secure: false,
 };
 
+/**
+ * A Core that has already connected, so it caches a cluster key and links to it can be
+ * copied. Pass `clusterKey: undefined` for one that never has.
+ */
 export const createCore = (name: string, overrides: Partial<Core> = {}): Core => ({
   key: uuid.create(),
   name,
+  clusterKey: uuid.create(),
   ...CONNECTION_PARAMS,
   ...overrides,
 });

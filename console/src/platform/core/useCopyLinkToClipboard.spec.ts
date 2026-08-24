@@ -12,8 +12,10 @@ import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { Core } from "@/platform/core";
-import { createCoreState } from "@/session/core/testutil";
+import { createCore, createCoreState } from "@/session/core/testutil";
 import { renderHookWithConsole, stubClipboardWriteText } from "@/testutil";
+
+const CORE = createCore("Alpha", { clusterKey: "cluster-1" });
 
 describe("useCopyLinkToClipboard", () => {
   let writeText: Mock;
@@ -26,20 +28,17 @@ describe("useCopyLinkToClipboard", () => {
     vi.restoreAllMocks();
   });
 
-  it("should copy a link containing the active Core key and ontology id", async () => {
+  it("should copy a link containing the active cluster key and ontology id", async () => {
     const id: ontology.ID = { type: "channel", key: "42" };
     const { result } = await renderHookWithConsole(
       () => Core.useCopyLinkToClipboard(),
-      { preloadedState: createCoreState([], "Core-1") },
+      { preloadedState: createCoreState([CORE], CORE.key) },
     );
     await act(async () => {
       result.current({ name: "My Channel", ontologyID: id });
     });
     expect(writeText).toHaveBeenCalledTimes(1);
-    const url = writeText.mock.calls[0][0];
-    expect(url).toContain("Core-1");
-    expect(url).toContain("channel");
-    expect(url).toContain("42");
+    expect(writeText.mock.calls[0][0]).toBe("synnax://cluster/cluster-1/channel/42");
   });
 
   it("should not copy anything when there is no active Core", async () => {

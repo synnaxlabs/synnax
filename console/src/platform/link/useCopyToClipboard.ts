@@ -8,13 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology } from "@synnaxlabs/client";
+import { Status } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Clipboard } from "@/platform/clipboard";
 import { PREFIX } from "@/platform/link/types";
 
 export interface CopyToClipboardParams {
-  coreKey: string;
+  /** The cluster the link opens. A Core caches it on its first connection. */
+  clusterKey?: string;
   name: string;
   ontologyID?: ontology.ID;
 }
@@ -25,12 +27,21 @@ export interface CopyToClipboard {
 
 export const useCopyToClipboard = (): CopyToClipboard => {
   const copy = Clipboard.useCopy();
+  const addStatus = Status.useAdder();
   return useCallback(
-    ({ coreKey, name, ontologyID }) => {
-      let url = `${PREFIX}${coreKey}`;
+    ({ clusterKey, name, ontologyID }) => {
+      if (clusterKey == null) {
+        addStatus({
+          variant: "error",
+          message: `Failed to copy link to ${name}`,
+          description: "Connect to the Core to get a link to its cluster.",
+        });
+        return;
+      }
+      let url = `${PREFIX}${clusterKey}`;
       if (ontologyID != null) url += `/${ontologyID.type}/${ontologyID.key}`;
       return copy(url, `link to ${name}`);
     },
-    [copy],
+    [copy, addStatus],
   );
 };

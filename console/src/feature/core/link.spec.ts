@@ -19,12 +19,16 @@ import { CONNECTION_PARAMS, createCore } from "@/session/core/testutil";
 import { type State } from "@/session/store";
 import { createConnectedConsoleWrapper } from "@/testutil";
 
-const createState = (coreKeys: string[], selected: string | null): State => ({
+// Each Core is keyed and named after the cluster it reaches, so a spec names one Core
+// by the cluster key a link would carry.
+const createState = (clusterKeys: string[], selected: string | null): State => ({
   ...Session.ZERO_STATE,
   [Session.Core.SLICE_NAME]: {
     ...Session.Core.ZERO_SLICE_STATE,
     selected: selected ?? undefined,
-    cores: Object.fromEntries(coreKeys.map((k) => [k, createCore(k)])),
+    cores: Object.fromEntries(
+      clusterKeys.map((k) => [k, createCore(k, { key: k, clusterKey: k })]),
+    ),
   },
 });
 
@@ -44,7 +48,7 @@ const instantPoll = (maxRetries = 1_000) =>
   });
 
 describe("connectToCore", () => {
-  it("should throw if the Core is unknown", async () => {
+  it("should throw if no Core reaches the cluster", async () => {
     const setActive = vi.fn();
     await expect(
       Core.connectToCore("missing", {
@@ -53,8 +57,36 @@ describe("connectToCore", () => {
         setActive,
         poll: instantPoll(),
       }),
-    ).rejects.toThrow("Core with key missing not found");
+    ).rejects.toThrow("No Core connects to cluster missing");
     expect(setActive).not.toHaveBeenCalled();
+  });
+
+  // Two records reaching one cluster is the whole point of keying links by cluster: a
+  // link made against one machine's record opens through whichever record this machine
+  // holds for the same cluster.
+  it("should resolve a cluster through the Core that names it", async () => {
+    const setActive = vi.fn();
+    const prior = createTestClient();
+    const next = createTestClient();
+    const state: State = {
+      ...Session.ZERO_STATE,
+      [Session.Core.SLICE_NAME]: {
+        ...Session.Core.ZERO_SLICE_STATE,
+        selected: "here",
+        cores: {
+          here: createCore("Here", { key: "here", clusterKey: "cluster-a" }),
+          there: createCore("There", { key: "there", clusterKey: "cluster-b" }),
+        },
+      },
+    };
+    const result = await Core.connectToCore("cluster-b", {
+      getState: () => state,
+      getClient: sequence(prior, prior, next),
+      setActive,
+      poll: instantPoll(),
+    });
+    expect(result).toBe(next);
+    expect(setActive).toHaveBeenCalledWith("there");
   });
 
   it("should return the managed client when already active", async () => {
@@ -108,13 +140,13 @@ describe("connectToCore", () => {
         setActive: vi.fn(),
         poll: instantPoll(3),
       }),
-    ).rejects.toThrow("Timed out connecting to Core b");
+    ).rejects.toThrow("Timed out connecting to cluster b");
   });
 });
 
 describe("useLink", () => {
   it("should resolve the active Core's managed client", async () => {
-    const core = createCore("Local");
+    const core = createCore("Local", { clusterKey: "local-cluster" });
     const { wrapper } = await createConnectedConsoleWrapper({
       client: null,
       connParams: CONNECTION_PARAMS,
@@ -128,7 +160,7 @@ describe("useLink", () => {
     });
     const { result } = renderHook(() => Core.useLink(), { wrapper });
     await waitFor(async () => {
-      const resolved = await result.current(core.key);
+      const resolved = await result.current("local-cluster");
       expect(resolved).not.toBeNull();
     });
   });

@@ -81,10 +81,12 @@ Modular slices (`core`, `nav`, `panels`, `lineplot`, `schematic`, `table`, `proj
 `drift`, ...), each with `SLICE_NAME`, `sliceStateZ`, `SliceState`, `ZERO_SLICE_STATE`,
 and `createSlice` reducers. Side effects go in middleware.
 
-**A Core record's key is opaque** — `LOCAL`, `DEMO`, `SERVED` for the Core serving a
-browser Console, a generated UUID for the rest — so editing an address never moves an
-entry. Stored state is partitioned by the **cluster key** the record caches on connect,
-so two records reaching one cluster share its state.
+**A Core record's key is opaque** — `LOCAL`, `DEMO`, `SERVED`, a UUID for the rest — so
+editing an address never moves an entry. Stored state is partitioned by the **cluster
+key** the record caches on connect, so two records reaching one cluster share its state.
+That key is local, so deep links name the cluster instead
+(`synnax://cluster/<cluster-key>/<type>/<key>`) and resolve to whatever record this
+machine reaches it through.
 
 ### Persistence (`session/persist/`)
 
@@ -99,57 +101,39 @@ Main window only, 250ms debounce. Every slice is declared in exactly one scope i
 | `window`    | arc, lineplot, log, nav, panels, schematic, table |
 | `transient` | haul, persist — never written                     |
 
-A `window`-scoped slice gets one partition per window
-(`window.<clusterKey>.<projectKey>.<windowKey>`), holding the slice narrowed to that
-window — so its bytes still parse through the slice's own schema. `Config.lens` says how
-to narrow and widen, and `Config.getWindows` names the windows to write;
-`session/window/lens.ts` owns both shapes, so persistence never reaches into a slice.
-Closing a window deletes its partition on the next write.
-
-The panel strip splits along the same line: `panelOrder` is the project's, while each
-window's selection, overlay, and mounted panels are its own.
-
 `Persist.open` throws when a slice is in none of them, so a new slice forces a decision
-about its durability. A stored slice that fails its schema falls back to its initial
-state. There is no migrator framework: to evolve a shape, widen `sliceStateZ`, bump its
-`version: z.literal(N)`, and default the new fields.
+about its durability.
 
-**Evolve a slice additively, or lose it.** A schema parses one version, so anything it
-cannot read is dropped silently to the initial state — including a newer slice read by
-an older Console, which makes every bump a one-way door for that slice. Additive fields
-with defaults cost nothing. A rename or reshape has only two honest options: keep
-accepting the old shape in the schema, or accept that the slice resets. Choose
-deliberately and say which in the PR.
+A `window`-scoped slice gets one partition per window
+(`window.<clusterKey>.<projectKey>.<windowKey>`) holding the slice narrowed to that
+window, so its bytes still parse through the slice's own schema.
+`session/window/lens.ts` owns the narrow and widen; persistence never reaches into a
+slice itself. Closing a window deletes its partition.
 
 Each partition keeps a four-slot ring behind a `.slot` pointer, backing revert. A
 partition whose slices did not change is left alone, so the ring holds sessions rather
-than the last second of writes, and `revertState` steps back only the innermost
-partition holding history. Every partition a tick touches commits in one `setMany`, so a
-tick is one write no matter how many scopes changed. Switching Core or project flushes
-the outgoing partitions and hydrates the target's without a reload. `Persist.purge`
-deletes a cluster's partitions once no Core record names it.
+than the last second of writes.
+
+**Evolve a slice additively, or lose it.** There is no migrator framework: a schema
+parses one version and drops silently to the initial state otherwise, an older Console
+reading a newer slice included. To reshape or rename, either keep accepting the old
+shape or accept the reset — say which in the PR.
 
 ### Where it lands
 
 `STORE_NAME` (`"session"`) names both backends, picked by `Runtime.ENGINE`:
 
-- **Tauri** — `session.json` in the local app data dir
-  (`~/Library/Application Support/com.synnaxlabs.dev` on macOS,
-  `%LOCALAPPDATA%\com.synnaxlabs.dev` on Windows, `~/.local/share/com.synnaxlabs.dev` on
-  Linux). `TauriKV` names an absolute path because the store plugin resolves a relative
-  one against the **roaming** dir, which must not carry machine-local session state.
-- **Browser** — IndexedDB database `session`, one object store `kv`, partition keys as
-  string keys. **Scoped to the page's origin**, so a Console served from two ports is
-  two independent sessions, and clearing site data wipes it.
+- **Tauri** — `session.json` in the **local** app data dir. `TauriKV` names an absolute
+  path because the store plugin resolves a relative one against the roaming dir, which
+  must not carry machine-local session state.
+- **Browser** — IndexedDB database `session`, object store `kv`, scoped to the page's
+  origin, so a Console served from two ports is two sessions. Not localStorage: twelve
+  state slots outgrow its cap. `localStorage` holds one thing, the deep-link ignore flag
+  in `platform/link/markIgnored.ts`; keep it that way.
 
-IndexedDB, not localStorage: twelve state slots outgrow its few-megabyte cap, and its
-quota errors surface only as a failed write. `localStorage` holds one thing, the
-deep-link ignore flag in `platform/link/markIgnored.ts`; keep it that way.
-
-`persisted-state.json` (Tauri, still in the roaming app data dir where 0.56 wrote it)
-and the `persisted-state.json:` localStorage prefix (browser) are the 0.56 store: read
-once to seed a fresh install, never written or cleared, so a rollback to 0.56 still
-finds its state.
+The 0.56 store (`persisted-state.json` in the roaming dir; the `persisted-state.json:`
+localStorage prefix) is read once to seed a fresh install, never written, so a rollback
+to 0.56 finds its state.
 
 ## Windows Are Viewports
 
