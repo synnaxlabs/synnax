@@ -380,6 +380,7 @@ export const DateTime = ({
           value={text}
           onChange={setText}
           onKeyDown={handleKeyDown}
+          onFocus={(e) => e.currentTarget.select()}
           placeholder="14:05, tomorrow 3pm, now - 5m"
           spellCheck={false}
         />

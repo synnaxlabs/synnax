@@ -182,6 +182,7 @@ export const TimeSpan = ({
           value={text}
           onChange={setText}
           onKeyDown={handleKeyDown}
+          onFocus={(e) => e.currentTarget.select()}
           placeholder={elapsed ?? "2h 30m"}
           spellCheck={false}
         />
