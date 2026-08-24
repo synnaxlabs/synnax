@@ -98,9 +98,6 @@ export interface SetClusterKeyPayload {
   clusterKey: string;
 }
 
-const sameAddress = (a: Core, b: Core): boolean =>
-  a.host === b.host && a.port === b.port && a.secure === b.secure;
-
 const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
@@ -110,15 +107,13 @@ const { actions, reducer } = createSlice({
         payload: { ...core, key: key ?? uuid.create() },
       }),
       reducer: (state, { payload }: PayloadAction<Core>) => {
-        // The cached cluster answers which cluster this address reaches, so a new
-        // address invalidates it. Only a connection can answer for the new one, so
-        // the key is assigned here rather than carried: an edit built by spreading
-        // the record it edits would otherwise smuggle the stale one back in.
-        const prev = state.cores[payload.key];
+        // The cached cluster is the last one this record reached, not a claim about
+        // where its current address points. A repointed record keeps it until a
+        // connection answers for the new address, so nothing drops that cluster's
+        // stored state on a guess.
         state.cores[payload.key] = {
           ...payload,
-          clusterKey:
-            prev != null && sameAddress(prev, payload) ? prev.clusterKey : undefined,
+          clusterKey: state.cores[payload.key]?.clusterKey,
         };
       },
     },

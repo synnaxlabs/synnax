@@ -357,14 +357,21 @@ describe("createStore", () => {
     expect(holders.every((key) => key.startsWith(`core.${CLUSTER_KEY}`))).toBe(true);
   });
 
-  it("purges a repointed Core's stored state", async () => {
+  it("keeps a repointed Core's stored state", async () => {
     const store = await createStore();
     await enterAndEdit(store, Session.Core.DEMO_KEY, CLUSTER_KEY);
-    expect((await clusterKeys(CLUSTER_KEY)).length).toBeGreaterThan(0);
+    const before = await clusterKeys(CLUSTER_KEY);
+    expect(before.length).toBeGreaterThan(0);
     const demo = Session.Core.selectState(store.getState(), Session.Core.DEMO_KEY);
-    // A new address reaches an unknown cluster, so nothing names the old one.
+    // The new address may still reach the same cluster, and only a connection can
+    // answer that. Dropping the state here loses a workspace to a retyped hostname.
     store.dispatch(Session.Core.set({ ...demo!, host: "elsewhere.com" }));
-    await waitFor(async () => expect(await clusterKeys(CLUSTER_KEY)).toHaveLength(0));
+    await waitForPersisted(
+      db,
+      (p) => p.core?.cores[Session.Core.DEMO_KEY]?.host === "elsewhere.com",
+      "the repoint has not been persisted yet",
+    );
+    expect(await clusterKeys(CLUSTER_KEY)).toEqual(before);
   });
 
   it("keeps a cluster's state while another Core still names it", async () => {

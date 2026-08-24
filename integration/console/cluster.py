@@ -7,8 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Client for the connection badge, connect-cluster modal, cold connection
-takeover, and the pre-login cluster selection surface."""
+"""Client for the connection badge, connect-core modal, cold connection
+takeover, and the pre-login Core selection surface."""
 
 import re
 
@@ -20,7 +20,7 @@ from console.layout import LayoutClient
 class ClusterClient:
     """Client for the Console's cluster connection surfaces."""
 
-    MODAL_SELECTOR = ".console-connect-cluster"
+    MODAL_SELECTOR = ".console-connect-core"
     BADGE_DIALOG_SELECTOR = ".console-connection-badge__dialog"
     TROUBLE_SELECTOR = ".console-connection"
 
@@ -89,7 +89,7 @@ class ClusterClient:
         host: str | None = None,
         port: int | None = None,
     ) -> None:
-        """Fill the open connect-cluster modal and submit it.
+        """Fill the open connect-core modal and submit it.
 
         The submit button reads "Save" in edit mode and "Connect" in create
         mode; both are matched. The modal dispatches and closes even when the
@@ -137,11 +137,11 @@ class ClusterClient:
 
     @property
     def core_list(self) -> Locator:
-        return self.page.locator(".console-cluster-list__items")
+        return self.page.locator(".console-core-list__items")
 
     def core_item(self, name: str) -> Locator:
         return (
-            self.core_list.locator(".console-cluster-list-item")
+            self.core_list.locator(".console-core-list-item")
             .filter(has_text=name)
             .first
         )

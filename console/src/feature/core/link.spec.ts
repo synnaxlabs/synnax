@@ -11,7 +11,7 @@ import { type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { breaker, TimeSpan } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Core } from "@/feature/core";
 import { Session } from "@/session";
@@ -47,6 +47,17 @@ const instantPoll = (maxRetries = 1_000) =>
     sleepFn: async () => {},
   });
 
+// Every scripted client reaches the same live Core, and connect refuses a client that
+// landed on a cluster the link did not name, so the specs have to use its real key.
+let LIVE = "";
+
+beforeAll(async () => {
+  const client = createTestClient();
+  await client.connect();
+  LIVE = client.connection.status.details.clusterKey;
+  expect(LIVE).not.toEqual("");
+});
+
 describe("connect", () => {
   it("should throw if no Core reaches the cluster", async () => {
     const setActive = vi.fn();
@@ -75,11 +86,11 @@ describe("connect", () => {
         selected: "here",
         cores: {
           here: createCore("Here", { key: "here", clusterKey: "cluster-a" }),
-          there: createCore("There", { key: "there", clusterKey: "cluster-b" }),
+          there: createCore("There", { key: "there", clusterKey: LIVE }),
         },
       },
     };
-    const result = await Core.connect("cluster-b", {
+    const result = await Core.connect(LIVE, {
       getState: () => state,
       getClient: sequence(prior, prior, next),
       setActive,
@@ -92,8 +103,8 @@ describe("connect", () => {
   it("should return the managed client when already active", async () => {
     const setActive = vi.fn();
     const active = createTestClient();
-    const result = await Core.connect("a", {
-      getState: () => createState(["a"], "a"),
+    const result = await Core.connect(LIVE, {
+      getState: () => createState([LIVE], LIVE),
       getClient: sequence(active),
       setActive,
       poll: instantPoll(),
@@ -106,14 +117,14 @@ describe("connect", () => {
     const setActive = vi.fn();
     const prior = createTestClient();
     const next = createTestClient();
-    const result = await Core.connect("b", {
-      getState: () => createState(["a", "b"], "a"),
+    const result = await Core.connect(LIVE, {
+      getState: () => createState(["a", LIVE], "a"),
       getClient: sequence(prior, prior, next),
       setActive,
       poll: instantPoll(),
     });
     expect(result).toBe(next);
-    expect(setActive).toHaveBeenCalledWith("b");
+    expect(setActive).toHaveBeenCalledWith(LIVE);
   });
 
   it("should reject with the client's typed error when the connection fails", async () => {
@@ -142,11 +153,25 @@ describe("connect", () => {
       }),
     ).rejects.toThrow("Timed out connecting to cluster b");
   });
+
+  // A record's cached cluster is only as fresh as its last connection, so a link
+  // resolved through a repointed record can land on another cluster entirely.
+  it("should throw when the Core reaches a different cluster", async () => {
+    const active = createTestClient();
+    await expect(
+      Core.connect("stale", {
+        getState: () => createState(["stale"], "stale"),
+        getClient: sequence(active),
+        setActive: vi.fn(),
+        poll: instantPoll(),
+      }),
+    ).rejects.toThrow(`Connected to cluster ${LIVE}, not stale`);
+  });
 });
 
 describe("useLink", () => {
   it("should resolve the active Core's managed client", async () => {
-    const core = createCore("Local", { clusterKey: "local-cluster" });
+    const core = createCore("Local", { clusterKey: LIVE });
     const { wrapper } = await createConnectedConsoleWrapper({
       client: null,
       connParams: CONNECTION_PARAMS,
@@ -160,7 +185,7 @@ describe("useLink", () => {
     });
     const { result } = renderHook(() => Core.useLink(), { wrapper });
     await waitFor(async () => {
-      const resolved = await result.current("local-cluster");
+      const resolved = await result.current(LIVE);
       expect(resolved).not.toBeNull();
     });
   });

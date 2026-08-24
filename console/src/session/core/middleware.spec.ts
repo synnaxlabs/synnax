@@ -103,30 +103,14 @@ describe("purgeOrphanedClusters", () => {
   });
 
   describe("on set", () => {
-    // The reducer drops the cached cluster when the address moves, so without this
-    // the old partition would outlive every Core that could open it.
-    it("should purge the cluster a repointed Core was the last to name", () => {
+    // A repointed Core keeps naming its cluster, so the cluster's stored state outlives
+    // the edit. Only a connection reporting another cluster retires it.
+    it("should purge nothing when a Core is repointed", () => {
       const cached = { ...ALPHA, clusterKey: CLUSTER_A };
       const { store, purged } = createStore(cached);
       store.dispatch(Core.set({ ...cached, host: "elsewhere.com" }));
-      expect(purged()).toEqual([CLUSTER_A]);
-    });
-
-    it("should keep the cluster when the edit leaves the address alone", () => {
-      const cached = { ...ALPHA, clusterKey: CLUSTER_A };
-      const { store, purged } = createStore(cached);
-      store.dispatch(Core.set({ ...cached, name: "Renamed" }));
       expect(purged()).toEqual([]);
-    });
-
-    it("should keep the cluster another Core still names after the move", () => {
-      const cached = { ...ALPHA, clusterKey: CLUSTER_A };
-      const { store, purged } = createStore(cached, {
-        ...BRAVO,
-        clusterKey: CLUSTER_A,
-      });
-      store.dispatch(Core.set({ ...cached, host: "elsewhere.com" }));
-      expect(purged()).toEqual([]);
+      expect(Core.selectState(store.getState(), ALPHA.key)?.clusterKey).toBe(CLUSTER_A);
     });
 
     it("should purge nothing when a Core is added", () => {

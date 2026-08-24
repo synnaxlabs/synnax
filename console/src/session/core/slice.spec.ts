@@ -72,27 +72,26 @@ describe("set", () => {
     expect(state.cores[ALPHA.key].clusterKey).toBe("cluster-1");
   });
 
-  // Holding the old key would open another cluster's stored state under this record
-  // until the next connection corrected it.
+  // Dropping the key here would orphan the cluster's stored state before a connection
+  // could say whether the new address still reaches it.
   it.each([
     ["host", { host: "elsewhere.com" }],
     ["port", { port: 9099 }],
     ["scheme", { secure: true }],
-  ])("should drop the cached cluster when the %s changes", (_, change) => {
+  ])("should keep the cached cluster when the %s changes", (_, change) => {
     const state = reduce(
       withCores({ ...ALPHA, clusterKey: "cluster-1" }),
       Core.set({ ...BASE, ...change, key: ALPHA.key }),
     );
-    expect(state.cores[ALPHA.key].clusterKey).toBeUndefined();
+    expect(state.cores[ALPHA.key].clusterKey).toBe("cluster-1");
   });
 
-  // Editing a Core is usually built by spreading the record being edited, which would
-  // otherwise carry the stale key straight back over the address change.
-  it("should ignore a cluster the edit carries over a changed address", () => {
-    const edited = { ...ALPHA, clusterKey: "cluster-1" };
+  // Actions cross the window IPC boundary as plain JSON, so the payload's type is not
+  // the only thing that can carry a field.
+  it("should ignore a cluster the caller passes in", () => {
     const state = reduce(
-      withCores(edited),
-      Core.set({ ...edited, host: "elsewhere.com" }),
+      withCores(ALPHA),
+      Core.set({ ...ALPHA, clusterKey: "cluster-1" } as Core.SetPayload),
     );
     expect(state.cores[ALPHA.key].clusterKey).toBeUndefined();
   });

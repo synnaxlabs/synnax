@@ -34,6 +34,16 @@ export interface ConnectContext {
   poll: breaker.Breaker;
 }
 
+// A Core's cached cluster is whichever one its address reached last, so the record a
+// link resolves through can point somewhere else by now. Only the live connection
+// answers for the address as it stands.
+const verifyReached = (client: Client, clusterKey: string): Client => {
+  const reached = client.connection.status.details.clusterKey;
+  if (reached !== "" && reached !== clusterKey)
+    throw new Error(`Connected to cluster ${reached}, not ${clusterKey}`);
+  return client;
+};
+
 // connect resolves the cluster a link names to a connected client through
 // whichever Core reaches it. If that Core is already active, its managed client's
 // connect() is awaited and the client returned. Otherwise the active Core is switched,
@@ -41,9 +51,9 @@ export interface ConnectContext {
 // on a param change), and its connect() drives the outcome. No client is constructed
 // here, so there is nothing to close.
 //
-// It throws if no Core names the cluster, if the provider never swaps clients before
-// the poll exhausts its retries, or with the client's typed rejection when the
-// connection fails.
+// It throws if no Core names the cluster, if the Core reaches a different one, if the
+// provider never swaps clients before the poll exhausts its retries, or with the
+// client's typed rejection when the connection fails.
 export const connect = async (
   clusterKey: string,
   { getState, getClient, setActive, poll }: ConnectContext,
@@ -54,14 +64,14 @@ export const connect = async (
   const prior = getClient();
   if (Session.Core.selectSelectedKey(state) === core.key && prior != null) {
     await prior.connect({ timeout: CONNECT_TIMEOUT });
-    return prior;
+    return verifyReached(prior, clusterKey);
   }
   setActive(core.key);
   while (true) {
     const client = getClient();
     if (client != null && client !== prior) {
       await client.connect({ timeout: CONNECT_TIMEOUT });
-      return client;
+      return verifyReached(client, clusterKey);
     }
     if (!(await poll.wait()))
       throw new Error(`Timed out connecting to cluster ${clusterKey}`);
