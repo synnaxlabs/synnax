@@ -63,6 +63,7 @@
     "@vitest/coverage-v8": "catalog:",
     "cross-env": "^10.1.0",
     "eslint": "catalog:",
+    "fake-indexeddb": "^6.2.5",
     "jsdom": "catalog:",
     "stylelint": "catalog:",
     "typescript": "catalog:",

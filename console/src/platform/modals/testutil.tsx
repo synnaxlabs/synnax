@@ -59,9 +59,9 @@ const createWrapper = (connectionStatus?: connection.Status): FC<PropsWithChildr
 };
 
 /**
- * The provider stack every modal spec renders within: the proven Pluto-rendering
- * Synnax wrapper (with a null client, since modals never touch the cluster), a Redux
- * Provider backing the error Boundary, and the per-window modal store Provider.
+ * The provider stack every modal spec renders within: the proven Pluto-rendering Synnax
+ * wrapper (with a null client, since modals never touch the Core), a Redux Provider
+ * backing the error Boundary, and the per-window modal store Provider.
  */
 export const Wrapper = createWrapper();
 
@@ -113,7 +113,7 @@ export const closeOf = (
     .close;
 
 export interface RenderModalOpenerOptions {
-  /** Client backing the console wrapper; null (default) for cluster-free specs. */
+  /** Client backing the console wrapper; null (default) for Core-free specs. */
   client?: Client | null;
   preloadedState?: ConsolePreloadedState;
   store?: TestStore;
@@ -185,9 +185,9 @@ export interface OpenModalOptions<P> {
 
 /**
  * Opens the given modal-opener hook inside the full console provider stack with a
- * mounted modal stack, and returns the render result plus the console store. Pass a real
- * client to exercise the enabled/save path, or omit it (null) to exercise the no-cluster
- * branch.
+ * mounted modal stack, and returns the render result plus the console store. Pass a
+ * real client to exercise the enabled/save path, or omit it (null) to exercise the
+ * no-Core branch.
  */
 export const openModal = async <P,>(
   useOpen: () => Modals.Opener<P>,

@@ -29,13 +29,16 @@ const createRange = async (): Promise<ranger.Range> => {
 const localState = (): Session.Range.StaticState => {
   const start = TimeStamp.now();
   return {
+    variant: "static",
     key: uuid.create(),
     name: uniqueName("local"),
-    persisted: false,
-    variant: "static",
     timeRange: { start: Number(start), end: Number(start.add(TimeSpan.seconds(1))) },
   };
 };
+
+// Only a range the session owns carries a name; the Core answers for the rest.
+const nameOf = (state?: Session.Range.State): string | undefined =>
+  state == null || state.variant === "persisted" ? undefined : state.name;
 
 const preloadedFor = (ranges: Session.Range.State[]) => ({
   [Session.Range.SLICE_NAME]: { version: 0 as const, ranges },
@@ -51,19 +54,14 @@ const renderRename = async (ranges: Session.Range.State[]) => {
 };
 
 describe("Range.useRename", () => {
-  it("should rename a persisted range on the Core and in the slice", async () => {
+  it("should rename a persisted range on the Core", async () => {
     const range = await createRange();
     const [state] = Session.Range.fromClient(range);
-    const { result, store } = await renderRename([state]);
+    const { result } = await renderRename([state]);
     const renamed = uniqueName("renamed");
     await act(async () => {
       await result.current.updateAsync({ key: range.key, name: renamed });
     });
-    await waitFor(() =>
-      expect(Session.Range.selectState(store.getState(), range.key)?.name).toBe(
-        renamed,
-      ),
-    );
     expect((await client.ranges.retrieve(range.key)).name).toBe(renamed);
   });
 
@@ -75,26 +73,11 @@ describe("Range.useRename", () => {
       await result.current.updateAsync({ key: local.key, name: renamed });
     });
     await waitFor(() =>
-      expect(Session.Range.selectState(store.getState(), local.key)?.name).toBe(
+      expect(nameOf(Session.Range.selectState(store.getState(), local.key))).toBe(
         renamed,
       ),
     );
     await expect(client.ranges.retrieve(local.key)).rejects.toThrow(NotFoundError);
-  });
-
-  it("should roll the slice back when the Core rejects the rename", async () => {
-    const range = await createRange();
-    const [state] = Session.Range.fromClient(range);
-    const { result, store } = await renderRename([state]);
-    await client.ranges.delete(range.key);
-    await act(async () => {
-      await result.current.updateAsync({ key: range.key, name: uniqueName("renamed") });
-    });
-    await waitFor(() =>
-      expect(Session.Range.selectState(store.getState(), range.key)?.name).toBe(
-        state.name,
-      ),
-    );
   });
 
   it("should leave the slice alone for a range it does not hold", async () => {

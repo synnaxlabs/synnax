@@ -13,8 +13,8 @@ import { Access, type Flux, Icon, Menu, Ranger, Synnax, Text } from "@synnaxlabs
 import { array } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { Cluster } from "@/platform/cluster";
 import { ContextMenu as Base } from "@/platform/context-menu";
+import { Core } from "@/platform/core";
 import { Link } from "@/platform/link";
 import { Modals } from "@/platform/modals";
 import { Panel } from "@/platform/panel";
@@ -49,7 +49,7 @@ export const CreateChildRangeIcon = Icon.createComposite(Icon.Range, {
 
 const useDelete = () => {
   const dispatch = Session.useDispatch();
-  const ranges = Session.Range.useSelectMultiple();
+  const ranges = Range.useResolveMultiple();
   const handleRemove = (keys: string[]): void => {
     dispatch(Session.Range.remove({ keys }));
   };
@@ -74,23 +74,34 @@ const useDelete = () => {
 
 const usePersist = () => {
   const dispatch = Session.useDispatch();
-  const ranges = Session.Range.useSelectMultiple();
-  const { update } = Ranger.useCreate();
+  const ranges = Range.useResolveMultiple();
+  const { update } = Ranger.useCreate({
+    beforeUpdate: useCallback(
+      ({ data, rollbacks }: Flux.BeforeUpdateParams<ranger.New>) => {
+        const range = ranges.find((r) => r.key === data.key);
+        if (range?.variant !== "static") return true;
+        dispatch(Session.Range.add({ variant: "persisted", key: range.key }));
+        rollbacks.push(() => dispatch(Session.Range.add(range)));
+        return true;
+      },
+      [dispatch, ranges],
+    ),
+  });
   return useCallback(
     (key: string) => {
       const range = ranges.find((r) => r.key === key);
-      if (range == null || range.variant === "dynamic") return;
-      dispatch(Session.Range.add({ ...range, persisted: true }));
-      update(range);
+      if (range?.variant !== "static") return;
+      const { name, timeRange } = range;
+      update({ key: range.key, name, timeRange });
     },
-    [dispatch, ranges],
+    [ranges, update],
   );
 };
 
 export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
   const dispatch = Session.useDispatch();
   const client = Synnax.use();
-  const ranges = Session.Range.useSelectMultiple();
+  const ranges = Range.useResolveMultiple();
   const id = ranger.ontologyID(key ?? "");
   const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
   const hasUpdatePermission = Access.useUpdateGranted(id);
@@ -111,7 +122,7 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
   const openTab = Panel.useOpenTab();
   const addToActivePlot = Range.useAddToActivePlot();
   const addToNewPlot = Range.useAddToNewPlot();
-  const activeRange = Session.Range.useSelectState();
+  const activeKey = Session.Range.useSelectSelectedKey();
   const openCreate = Range.useCreateModal();
   const handleSetActive = () => {
     dispatch(Session.Range.select(key));
@@ -126,13 +137,13 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
   const rangeExists = rng != null;
   const del = useDelete();
   const persist = usePersist();
-  const handleLink = Cluster.useCopyLinkToClipboard();
+  const handleLink = Core.useCopyLinkToClipboard();
 
   return (
     <Base.Menu>
       {rangeExists && (
         <>
-          {rng.key !== activeRange?.key ? (
+          {rng.key !== activeKey ? (
             <Menu.Item itemKey="setAsActive" gap="small" onClick={handleSetActive}>
               <Icon.Dynamic />
               Set as active range
@@ -143,7 +154,7 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
               Clear active range
             </Menu.Item>
           )}
-          {rng.persisted && (
+          {rng.variant === "persisted" && (
             <Menu.Item
               itemKey="details"
               onClick={() =>
@@ -158,7 +169,7 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
           {hasUpdatePermission && (
             <Base.RenameItem onClick={() => Text.edit(`text-${key}`)} />
           )}
-          {hasCreatePermission && rng.persisted && (
+          {hasCreatePermission && rng.variant === "persisted" && (
             <Menu.Item itemKey="addChildRange" onClick={handleAddChildRange}>
               <CreateChildRangeIcon key="plot" />
               Create child range
@@ -177,14 +188,14 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
               Add to new plot
             </Menu.Item>
           )}
-          {!rng.persisted && hasCreatePermission && client != null && (
+          {rng.variant === "static" && hasCreatePermission && client != null && (
             <Menu.Item itemKey="save" onClick={() => persist(rng.key)}>
               <Icon.Save />
               Save to Core
             </Menu.Item>
           )}
           <Menu.Divider />
-          {rng.persisted && (
+          {rng.variant === "persisted" && (
             <Link.CopyContextMenuItem
               onClick={() =>
                 handleLink({ name: rng.name, ontologyID: ranger.ontologyID(rng.key) })
@@ -196,7 +207,7 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
             <Icon.Close />
             Unfavorite
           </Menu.Item>
-          {rng.persisted && hasDeletePermission && (
+          {rng.variant === "persisted" && hasDeletePermission && (
             <Base.DeleteItem onClick={() => del(rng.key)} />
           )}
         </>

@@ -32,8 +32,8 @@ import { useCallback, useState } from "react";
 import { useOpenSelector } from "@/feature/task/Selector";
 import { useRangeSnapshot } from "@/feature/task/useRangeSnapshot";
 import { useSetDataSaving } from "@/feature/task/useSetDataSaving";
-import { Cluster } from "@/platform/cluster";
 import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
+import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Export } from "@/platform/export";
@@ -45,7 +45,6 @@ import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
 import { Task as PlatformTask } from "@/platform/task";
 import { Toolbar } from "@/platform/toolbar";
-import { Session } from "@/session";
 
 const EmptyContent = () => {
   const openSelector = useOpenSelector();
@@ -321,7 +320,7 @@ const ContextMenu = ({
   onEnableDataSaving,
   onDisableDataSaving,
 }: ContextMenuProps) => {
-  const activeRange = Session.Range.useSelectState();
+  const activeRange = Range.useResolve();
   const snapshotToActiveRange = useRangeSnapshot();
   const ontologyIDs = task.ontologyID(keys);
   const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
@@ -361,7 +360,7 @@ const ContextMenu = ({
   );
 
   const addStatus = Status.useAdder();
-  const copyLinkToClipboard = Cluster.useCopyLinkToClipboard();
+  const copyLinkToClipboard = Core.useCopyLinkToClipboard();
 
   const handleExport = Export.useResource();
   const handleLink = useCallback(
@@ -378,7 +377,7 @@ const ContextMenu = ({
     [selectedTasks, addStatus, copyLinkToClipboard],
   );
   const showSnapshotToActiveRange =
-    activeRange?.persisted === true && selectedTasks.length > 0;
+    activeRange?.variant === "persisted" && selectedTasks.length > 0;
   return (
     <PlatformContextMenu.Menu>
       {canControl && (

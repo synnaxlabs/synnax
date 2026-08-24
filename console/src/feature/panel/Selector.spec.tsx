@@ -92,6 +92,15 @@ const renderStrip = async (
   projectKey: project.Key,
 ): Promise<{ store: TestStore; row: panel.Panel[] }> => {
   const { wrapper, store } = await createPanelWrapper({ client, project: projectKey });
+  // Production's membership synchronizer reconciles the strip order before the user
+  // can touch it; the harness mounts no synchronizer, so seed the order the same way.
+  act(() => {
+    store.dispatch(
+      Session.Panel.reconcileOrder({
+        panels: panels.map(({ key, name }) => ({ key, name })),
+      }),
+    );
+  });
   await act(async () => {
     render(
       <>

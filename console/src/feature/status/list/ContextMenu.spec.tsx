@@ -90,7 +90,7 @@ describe("status list context menu", () => {
     expect(copied).toContain("valve stuck open");
   });
 
-  it("should delete the status on the cluster after confirmation", async () => {
+  it("should delete the status on the Core after confirmation", async () => {
     const s = await createStatus();
     await renderMenu([s.key]);
     fireEvent.click(await screen.findByText("Delete"));

@@ -17,7 +17,7 @@ import { createSessionConsoleWrapper, renderHookWithConsole } from "@/testutil";
 
 const useProbe = () => ({
   dispatch: Session.useDispatch(),
-  selected: useSelector(Session.Cluster.selectSelectedKey),
+  selected: useSelector(Session.Core.selectSelectedKey),
   modals: Session.Modals.useStore("context-spec"),
 });
 
@@ -36,19 +36,19 @@ describe("Session.Context", () => {
     expect(result.current.selected).toBeUndefined();
 
     act(() => {
-      result.current.dispatch(Session.Cluster.select("DEMO"));
+      result.current.dispatch(Session.Core.select("DEMO"));
     });
     expect(result.current.selected).toBe("DEMO");
   });
 });
 
-const CLUSTER_KEY = "local";
+const CORE_KEY = "local";
 
-const createClusterState = (): Session.Cluster.SliceState => ({
-  ...Session.Cluster.ZERO_SLICE_STATE,
-  clusters: {
-    [CLUSTER_KEY]: {
-      key: CLUSTER_KEY,
+const createCoreState = (): Session.Core.SliceState => ({
+  ...Session.Core.ZERO_SLICE_STATE,
+  cores: {
+    [CORE_KEY]: {
+      key: CORE_KEY,
       name: "Local",
       host: "localhost",
       port: 9090,
@@ -57,18 +57,18 @@ const createClusterState = (): Session.Cluster.SliceState => ({
       secure: false,
     },
   },
-  selected: CLUSTER_KEY,
+  selected: CORE_KEY,
 });
 
 /**
- * Renders useSettled against a live cluster under the real synchronizers and
- * waits for the workspace to settle. The settled result is the positive
- * control that unsettling assertions measure against.
+ * Renders useSettled against a live Core under the real synchronizers and
+ * waits for the workspace to settle. The settled result is the positive control that
+ * unsettling assertions measure against.
  */
 const renderSettled = async () => {
   const { wrapper: Console, store } = await createSessionConsoleWrapper({
     client: null,
-    preloadedState: { [Session.Cluster.SLICE_NAME]: createClusterState() },
+    preloadedState: { [Session.Core.SLICE_NAME]: createCoreState() },
   });
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Console>

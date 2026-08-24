@@ -20,8 +20,8 @@ import {
 import { useCallback } from "react";
 
 import { CreateChildRangeIcon } from "@/feature/range/ContextMenu";
-import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
+import { Core } from "@/platform/core";
 import { Link } from "@/platform/link";
 import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
@@ -56,18 +56,6 @@ const useRename = Tree.createUseRename({
   query: Ranger.useRename,
   ontologyID: ranger.ontologyID,
   convertKey: String,
-  beforeUpdate: async ({ data, store, rollbacks }) => {
-    const { key, name } = data;
-    const rng = Session.Range.selectState(store.getState(), key);
-    if (rng != null) {
-      const oldName = rng.name;
-      store.dispatch(Session.Range.rename({ key, name }));
-      rollbacks.push(() =>
-        store.dispatch(Session.Range.rename({ key, name: oldName })),
-      );
-    }
-    return data;
-  },
 });
 
 const useDelete = Tree.createUseDelete({
@@ -96,7 +84,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const openCreate = Range.useCreateModal();
   const rename = useRename(props);
   const handleDelete = useDelete(props);
-  const handleLink = Cluster.useCopyLinkToClipboard();
+  const handleLink = Core.useCopyLinkToClipboard();
   const firstID = ids[0];
   const first = getResource(firstID);
   const singleResource = ids.length === 1;

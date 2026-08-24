@@ -85,7 +85,7 @@ describe("ChannelName", () => {
       );
     }, 20000);
 
-    it("should rename the channel on the cluster when an edit is committed", async () => {
+    it("should rename the channel on the Core when an edit is committed", async () => {
       const ch = await createChannel();
       const editID = Task.getChannelNameID("live_ch");
       await renderInTaskFormWithClient(

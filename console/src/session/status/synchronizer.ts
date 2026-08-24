@@ -13,7 +13,7 @@ import { useMemo } from "react";
 import { type Action, removeFavorites, type StoreState } from "@/session/status/slice";
 import { Synchronizer } from "@/session/synchronizer";
 
-// Statuses the cluster raises while connected surface as notifications. Nothing is
+// Statuses the Core raises while connected surface as notifications. Nothing is
 // repaired at a boundary: a notification missed during a gap has no state behind it.
 const useForwardStatuses: Synchronizer.Use<StoreState, Action> = () => {
   const addStatus = Status.useAdder();

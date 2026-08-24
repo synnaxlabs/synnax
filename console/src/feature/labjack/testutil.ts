@@ -32,7 +32,7 @@ type ThermocoupleReadChannel = Extract<ReadChannel, { type: "thermocouple" }>;
 type AnalogWriteChannel = Extract<WriteChannel, { type: "analog" }>;
 type DigitalWriteChannel = Extract<WriteChannel, { type: "digital" }>;
 
-/** Builds a cluster-safe device identifier (2-12 chars, letter first). */
+/** Builds a Core-safe device identifier (2-12 chars, letter first). */
 export const createIdentifier = (): string =>
   `l${id.create().replace(/[^a-zA-Z0-9]/g, "")}`.slice(0, 12);
 
@@ -43,7 +43,7 @@ export interface CreateLabJackDeviceOptions {
 }
 
 /**
- * Creates a rack and a LabJack device on the live cluster with a unique identifier so
+ * Creates a rack and a LabJack device on the live Core with a unique identifier so
  * channels created from it never collide across runs.
  */
 export const createLabJackDevice = async (

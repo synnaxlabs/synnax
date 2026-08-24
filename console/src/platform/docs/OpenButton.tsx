@@ -11,10 +11,10 @@ import { Button, Icon } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
-import { useOpenTab } from "@/platform/docs/useOpenTab";
+import { useOpen } from "@/platform/docs/useOpen";
 
 export const OpenButton = (): ReactElement => {
-  const handleOpen = useOpenTab();
+  const handleOpen = useOpen();
   return (
     <Button.Button
       size="small"

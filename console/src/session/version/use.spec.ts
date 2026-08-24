@@ -35,7 +35,7 @@ const retrieveNodeVersion = async (): Promise<string> => {
     details: { nodeVersion },
   } = await client.connect();
   await client.close();
-  if (nodeVersion == null) throw new Error("cluster did not report a node version");
+  if (nodeVersion == null) throw new Error("Core did not report a node version");
   return nodeVersion;
 };
 
@@ -58,7 +58,7 @@ describe("Version.use", () => {
       await waitFor(() => expect(result.current).toBe(nodeVersion));
     });
 
-    it("should return undefined when no cluster is connected", () => {
+    it("should return undefined when no Core is connected", () => {
       const { result } = renderHook(() => Version.use());
       expect(result.current).toBeUndefined();
     });

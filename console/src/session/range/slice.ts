@@ -8,81 +8,94 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import { type ranger } from "@synnaxlabs/client";
-import {
-  array,
-  type NumericTimeRange,
-  numericTimeRangeZ,
-  TimeSpan,
-} from "@synnaxlabs/x";
+import { array, numericTimeRangeZ, TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod";
 
-export const baseStateZ = z.object({
+/**
+ * A range the Core holds. Only the key is kept: the name and time range live on the
+ * Core, so a copy here could only go stale.
+ */
+export const persistedStateZ = z.object({
+  variant: z.literal("persisted"),
   key: z.string(),
-  name: z.string(),
-  persisted: z.boolean(),
 });
 
-export const staticStateZ = baseStateZ.extend({
+export interface PersistedState extends z.infer<typeof persistedStateZ> {}
+
+/** A fixed window the session owns, saved to the Core only on request. */
+export const staticStateZ = z.object({
   variant: z.literal("static"),
+  key: z.string(),
+  name: z.string(),
   timeRange: numericTimeRangeZ,
 });
 
 export interface StaticState extends z.infer<typeof staticStateZ> {}
 
-export const dynamicStateZ = baseStateZ.extend({
+/** A window of the given span ending now. The Core has no notion of one. */
+export const dynamicStateZ = z.object({
   variant: z.literal("dynamic"),
+  key: z.string(),
+  name: z.string(),
   span: z.number(),
 });
 
 export interface DynamicState extends z.infer<typeof dynamicStateZ> {}
 
-export const stateZ = z.union([staticStateZ, dynamicStateZ]);
+export const stateZ = z.discriminatedUnion("variant", [
+  persistedStateZ,
+  staticStateZ,
+  dynamicStateZ,
+]);
 
 export type State = z.infer<typeof stateZ>;
 
 export const RECENT_KEY = "recent";
 
+/**
+ * The rolling windows every session offers. Held in code rather than written into
+ * stored state, so a release can revise them and no session can lose one. The list
+ * always leads with {@link RECENT_KEY}, which callers fall back to when nothing is
+ * selected.
+ */
+export const BUILT_IN: DynamicState[] = [
+  {
+    variant: "dynamic",
+    key: RECENT_KEY,
+    name: "Rolling 30s",
+    span: Number(TimeSpan.seconds(30)),
+  },
+  {
+    variant: "dynamic",
+    key: "rolling1m",
+    name: "Rolling 1m",
+    span: Number(TimeSpan.minutes(1)),
+  },
+  {
+    variant: "dynamic",
+    key: "rolling5m",
+    name: "Rolling 5m",
+    span: Number(TimeSpan.minutes(5)),
+  },
+  {
+    variant: "dynamic",
+    key: "rolling15m",
+    name: "Rolling 15m",
+    span: Number(TimeSpan.minutes(15)),
+  },
+  {
+    variant: "dynamic",
+    key: "rolling30m",
+    name: "Rolling 30m",
+    span: Number(TimeSpan.minutes(30)),
+  },
+];
+
 export const sliceStateZ = z.object({
   version: z.literal(0).default(0),
   selected: z.string().optional(),
-  ranges: z.array(stateZ).default([
-    {
-      key: RECENT_KEY,
-      variant: "dynamic",
-      name: "Rolling 30s",
-      span: Number(TimeSpan.seconds(30)),
-      persisted: false,
-    },
-    {
-      key: "rolling1m",
-      variant: "dynamic",
-      name: "Rolling 1m",
-      span: Number(TimeSpan.minutes(1)),
-      persisted: false,
-    },
-    {
-      key: "rolling5m",
-      variant: "dynamic",
-      name: "Rolling 5m",
-      span: Number(TimeSpan.minutes(5)),
-      persisted: false,
-    },
-    {
-      key: "rolling15m",
-      variant: "dynamic",
-      name: "Rolling 15m",
-      span: Number(TimeSpan.minutes(15)),
-      persisted: false,
-    },
-    {
-      key: "rolling30m",
-      variant: "dynamic",
-      name: "Rolling 30m",
-      span: Number(TimeSpan.minutes(30)),
-      persisted: false,
-    },
-  ]),
+  /** The ranges the session added. The built-ins are not among them. */
+  ranges: z.array(stateZ).default([]),
 });
 
 export const ZERO_SLICE_STATE = sliceStateZ.parse({});
@@ -109,10 +122,6 @@ interface RestorePayload {
 interface RenamePayload {
   key: string;
   name: string;
-}
-
-interface UpdateIfExistsPayload extends Omit<ranger.Payload, "timeRange"> {
-  timeRange: NumericTimeRange;
 }
 
 type SelectPayload = string;
@@ -149,23 +158,14 @@ export const { actions, reducer } = createSlice({
     clearSelected: (state) => {
       state.selected = undefined;
     },
+    // A persisted range is renamed on the Core, which is where its name lives.
     rename: (state, { payload: { key, name } }: PayloadAction<RenamePayload>) => {
       const r = state.ranges.find((r) => r.key === key);
-      if (r == null) return;
+      if (r == null || r.variant === "persisted") return;
       r.name = name;
-    },
-    updateRemote: (
-      state,
-      { payload: { key, name, timeRange } }: PayloadAction<UpdateIfExistsPayload>,
-    ) => {
-      const r = state.ranges.find((r) => r.key === key);
-      if (r == null || r.variant == "dynamic") return;
-      r.name = name;
-      r.timeRange = timeRange;
     },
   },
 });
-export const { add, clearSelected, remove, rename, restore, select, updateRemote } =
-  actions;
+export const { add, clearSelected, remove, rename, restore, select } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;

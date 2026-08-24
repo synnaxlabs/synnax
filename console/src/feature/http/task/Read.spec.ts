@@ -146,7 +146,7 @@ describe("HTTP Read form", () => {
     await screen.findByText(/\/seeded/);
   });
 
-  describe("deploying against a live cluster", () => {
+  describe("deploying against a live Core", () => {
     const client = createTestClient();
 
     it("should create index, data, and virtual channels and persist them to the device", async () => {

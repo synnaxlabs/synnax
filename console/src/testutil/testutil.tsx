@@ -39,8 +39,8 @@ import { Session } from "@/session";
 import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
 
 /**
- * Generates a unique, cluster-safe resource name: letters, digits, and underscores
- * only, prefixed so failures are traceable back to tests.
+ * Generates a unique, Core-safe resource name: letters, digits, and underscores only,
+ * prefixed so failures are traceable back to tests.
  */
 export const uniqueName = (prefix: string = "test"): string =>
   `${prefix}_${id.create().replace(/-/g, "_")}`;
@@ -95,10 +95,10 @@ export const waitForFocusedTab = async (store: TestStore): Promise<string> =>
   });
 
 /**
- * Polls until the active window's focused tab resolves to a tab in the selected
- * panel's document and returns it. Bridges the session focus state (a tab key)
- * and the panel document (fetched from the cluster) that together define what a
- * Panel.useOpenTab call produced.
+ * Polls until the active window's focused tab resolves to a tab in the selected panel's
+ * document and returns it. Bridges the session focus state (a tab key) and the panel
+ * document (fetched from the Core) that together define what a Panel.useOpenTab call
+ * produced.
  */
 export const resolveFocusedTab = async (
   store: TestStore,
@@ -125,9 +125,9 @@ export const resolveFocusedTab = async (
   });
 
 /**
- * Creates a project on the cluster and marks it active in the session. Panel
- * placement (Panel.useOpenTab) auto-creates panels under the active project, so
- * any spec that exercises opening a tab must establish one first.
+ * Creates a project on the Core and marks it active in the session. Panel placement
+ * (Panel.useOpenTab) auto-creates panels under the active project, so any spec that
+ * exercises opening a tab must establish one first.
  */
 export const selectTestProject = async (
   store: TestStore,
@@ -345,7 +345,7 @@ export interface CreateConnectedConsoleWrapperParams extends CreateConsoleWrappe
 
 /**
  * Like createConsoleWrapper, but nests the production pluto Synnax.Provider inside the
- * stack, so Synnax.useConnectionStatus reflects a live connection to the cluster at
+ * stack, so Synnax.useConnectionStatus reflects a live connection to the Core at
  * connParams, the same wiring the app uses in production.
  */
 export const createConnectedConsoleWrapper = async ({
@@ -365,14 +365,14 @@ export const createConnectedConsoleWrapper = async ({
 };
 
 const SessionSynnaxProvider = ({ children }: PropsWithChildren): ReactElement => {
-  const cluster = Session.Cluster.useSelectState();
-  return <Synnax.Provider connParams={cluster}>{children}</Synnax.Provider>;
+  const core = Session.Core.useSelectSelected();
+  return <Synnax.Provider connParams={core}>{children}</Synnax.Provider>;
 };
 SessionSynnaxProvider.displayName = "SessionSynnaxProvider";
 
 /**
  * Like createConnectedConsoleWrapper, but derives the provider's connection params from
- * the store's selected cluster, exactly as the production Pluto.Context does. Use for
+ * the store's selected Core, exactly as the production Pluto.Context does. Use for
  * tests that exercise the login -> select -> connect flow.
  */
 export const createSessionConsoleWrapper = async (

@@ -183,7 +183,7 @@ describe("HTTP Write form", () => {
     expect(screen.queryByText("Time format")).toBeNull();
   });
 
-  describe("deploying against a live cluster", () => {
+  describe("deploying against a live Core", () => {
     const client = createTestClient();
 
     it("should create command channels, virtual when variable, and persist them to the device", async () => {

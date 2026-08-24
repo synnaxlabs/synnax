@@ -101,8 +101,8 @@ const renderTriggers = async (ui?: ReactNode) => {
   return { result, store };
 };
 
-// The cluster-writing shortcuts need a panel that exists on the Core. The triggers
-// mount above every panel scope, the way the app shell mounts them.
+// The Core-writing shortcuts need a panel that exists on the Core. The triggers mount
+// above every panel scope, the way the app shell mounts them.
 const renderLiveTriggers = async (panelKey: panel.Key) => {
   const { wrapper: Panels, store } = await createPanelWrapper({ client });
   await primePanel(Panels, panelKey);
@@ -266,7 +266,7 @@ describe("app/triggers", () => {
       expect(isWindowOpen(store)).toBe(true);
     });
 
-    it("should remove the focused tab from the panel on the cluster", async () => {
+    it("should remove the focused tab from the panel on the Core", async () => {
       const closed = viewTab();
       const kept = viewTab();
       const pan = await createServerPanel(client, {

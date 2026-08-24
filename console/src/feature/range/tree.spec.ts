@@ -57,8 +57,8 @@ describe("range/ontology", () => {
       });
       fireEvent.doubleClick(await findTreeRow(rng.name));
       await waitFor(() =>
-        expect(Session.Range.selectState(store.getState(), rng.key)?.name).toBe(
-          rng.name,
+        expect(Session.Range.selectState(store.getState(), rng.key)?.variant).toBe(
+          "persisted",
         ),
       );
       const tab = await resolveFocusedTab(store, client);
@@ -83,11 +83,6 @@ describe("range/ontology", () => {
       commitTextEdit(editor, renamed);
       await waitFor(async () =>
         expect((await client.ranges.retrieve(rng.key)).name).toBe(renamed),
-      );
-      await waitFor(() =>
-        expect(Session.Range.selectState(store.getState(), rng.key)?.name).toBe(
-          renamed,
-        ),
       );
     });
 

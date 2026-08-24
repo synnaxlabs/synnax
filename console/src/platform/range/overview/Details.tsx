@@ -25,7 +25,7 @@ import {
 import { type NumericTimeRange, TimeStamp } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useCallback } from "react";
 
-import { Cluster } from "@/platform/cluster";
+import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Errors } from "@/platform/errors";
 import { Framer } from "@/platform/framer";
@@ -91,7 +91,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
     mode: canEdit ? "normal" : "preview",
   });
 
-  const handleLink = Cluster.useCopyLinkToClipboard();
+  const handleLink = Core.useCopyLinkToClipboard();
   const handleError = Status.useErrorHandler();
   const name = Form.useFieldValue<string, string, typeof Ranger.formSchema>("name", {
     ctx: form,

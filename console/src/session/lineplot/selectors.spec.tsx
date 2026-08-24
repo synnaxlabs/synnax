@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { configureStore } from "@reduxjs/toolkit";
 import { lineplot, type ontology, type panel, ranger } from "@synnaxlabs/client";
 import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
 import { LinePlot as PLinePlot } from "@synnaxlabs/pluto";
@@ -19,6 +18,7 @@ import { describe, expect, it } from "vitest";
 
 import { Session } from "@/session";
 import { LinePlot } from "@/session/lineplot";
+import { createSliceStore, inWindow } from "@/session/window/testutil";
 import { createConsoleWrapper, uniqueName } from "@/testutil";
 
 const KEY = "plot-1";
@@ -34,9 +34,11 @@ const customState = LinePlot.stateZ.parse({
 });
 
 const storeWith = (slice: LinePlot.SliceState) =>
-  configureStore({
-    reducer: { [LinePlot.SLICE_NAME]: LinePlot.reducer },
-    preloadedState: { [LinePlot.SLICE_NAME]: slice },
+  createSliceStore({
+    name: LinePlot.SLICE_NAME,
+    reducer: LinePlot.reducer,
+    preloadedState: slice,
+    middleware: LinePlot.MIDDLEWARE,
   });
 
 const wrapperFor = (
@@ -53,7 +55,7 @@ const wrapperFor = (
 };
 
 const createCustomStore = () =>
-  storeWith({ version: 0, plots: { [KEY]: customState } });
+  storeWith({ version: 0, windows: inWindow({ [KEY]: customState }) });
 
 describe("lineplot selector hooks", () => {
   it("should resolve the key from the surrounding scope", () => {
@@ -121,10 +123,10 @@ describe("lineplot selector stability under dispatch", () => {
   it("should re-point the selector when its key dependency changes", () => {
     const store = storeWith({
       version: 0,
-      plots: {
+      windows: inWindow({
         [KEY]: customState,
         "plot-2": LinePlot.stateZ.parse({ toolbar: { activeTab: "axes" } }),
-      },
+      }),
     });
     const { result, rerender } = renderHook(
       ({ key }: { key: string }) => LinePlot.useSelectActiveToolbarTab({ key }),

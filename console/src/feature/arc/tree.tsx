@@ -11,8 +11,8 @@ import { arc, query, task } from "@synnaxlabs/client";
 import { Access, Arc, Icon, Menu, Task } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 
-import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
+import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Framer } from "@/platform/framer";
 import { Link } from "@/platform/link";
@@ -49,7 +49,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const { update: runCommand } = Task.useCommand();
   const rename = useRename(props);
   const handleDelete = useDelete(props);
-  const handleLink = Cluster.useCopyLinkToClipboard();
+  const handleLink = Core.useCopyLinkToClipboard();
   const firstID = ids[0];
   const first = getResource(firstID);
   const singleResource = ids.length === 1;

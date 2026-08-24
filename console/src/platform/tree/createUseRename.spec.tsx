@@ -88,7 +88,7 @@ describe("createUseRename", () => {
     await awaitTextEditing(itemID);
   });
 
-  it("should rename the resource on the cluster once the edit is committed", async () => {
+  it("should rename the resource on the Core once the edit is committed", async () => {
     const ch = await createChannel();
     const { itemID, rename } = await setup(ch);
     const newName = uniqueName("renamed");

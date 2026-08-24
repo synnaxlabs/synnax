@@ -32,6 +32,7 @@ import {
 } from "@/session/lineplot/slice";
 import { Panel } from "@/session/panel";
 import { Select } from "@/session/select";
+import { Window } from "@/session/window";
 
 export const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 
@@ -60,7 +61,7 @@ const createGetter =
   };
 
 const selectState = ({ state, key }: KeyedSelectorParams): State =>
-  selectSliceState(state).plots[key] ?? ZERO_STATE;
+  Window.selectDocument(state, selectSliceState(state), key) ?? ZERO_STATE;
 
 export const useSelect = createSelector(selectState);
 export const useGet = createGetter(selectState);

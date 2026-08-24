@@ -93,7 +93,7 @@ describe("rack ontology service", () => {
     expect(screen.queryByText("Copy properties")).toBeNull();
   });
 
-  it("should delete the rack on the cluster after confirmation", async () => {
+  it("should delete the rack on the Core after confirmation", async () => {
     const r = await createRack();
     await renderMenu([r]);
     fireEvent.click(await screen.findByText("Delete"));

@@ -18,7 +18,7 @@ import {
 } from "react";
 
 import { Arc } from "@/session/arc";
-import { Cluster } from "@/session/cluster";
+import { Core } from "@/session/core";
 import { LinePlot } from "@/session/lineplot";
 import { Log } from "@/session/log";
 import { Modals } from "@/session/modals";
@@ -48,7 +48,7 @@ export const Context = ({ children }: ContextProps) => {
 
 const MAIN_SYNCHRONIZERS: Synchronizer.Synchronizers<State, Action> = [
   ...Arc.SYNCHRONIZERS,
-  ...Cluster.SYNCHRONIZERS,
+  ...Core.SYNCHRONIZERS,
   ...LinePlot.SYNCHRONIZERS,
   ...Log.SYNCHRONIZERS,
   ...Panel.SYNCHRONIZERS,
@@ -89,18 +89,17 @@ export const SettledProvider = ({ children }: PropsWithChildren): ReactElement =
 };
 
 /**
- * Whether the workspace state is verified against the connected cluster: first contact
- * made, the session's cluster identity agrees with the connection's, no partition swap
- * is in flight, and a reconcile pass has completed. While false the workspace is in
- * structural doubt and must not render; the connection guard shows a splash instead.
+ * Whether the workspace state is verified against the connected Core: first contact
+ * made, no partition swap is in flight, and a reconcile pass has completed. While false
+ * the workspace is in structural doubt and must not render; the connection guard shows
+ * a splash instead.
  */
 export const useSettled = (): boolean => {
   const verified = useContext(SettledContext);
   const { variant, details } = Synnax.useConnectionStatus();
-  const selected = Cluster.useSelectSelectedKey();
   const swapping = Persist.useSelectSwapping();
   // A disabled machine (no client, or a closed or test client) has nothing to
   // verify against; the guards above handle the no-intent case.
   if (variant === "disabled") return true;
-  return details.epoch >= 1 && details.clusterKey === selected && !swapping && verified;
+  return details.epoch >= 1 && !swapping && verified;
 };

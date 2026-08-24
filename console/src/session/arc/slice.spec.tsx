@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { configureStore } from "@reduxjs/toolkit";
 import { Arc as PArc } from "@synnaxlabs/pluto";
 import { act, renderHook } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
@@ -15,14 +14,18 @@ import { Provider } from "react-redux";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { Arc } from "@/session/arc";
+import { createSliceStore, documentIn } from "@/session/window/testutil";
 
 const storeWith = (slice: Arc.SliceState) =>
-  configureStore({
-    reducer: { [Arc.SLICE_NAME]: Arc.reducer },
-    preloadedState: { [Arc.SLICE_NAME]: slice },
+  createSliceStore({
+    name: Arc.SLICE_NAME,
+    reducer: Arc.reducer,
+    preloadedState: slice,
+    middleware: Arc.MIDDLEWARE,
   });
 
 const KEY = "arc-1";
+const AUX_WINDOW = "aux-window";
 
 const wrapperFor = (
   store: ReturnType<typeof storeWith>,
@@ -46,6 +49,19 @@ describe("Arc Slice", () => {
 
   const renderGetter = <G,>(useGetter: () => G, key: string = KEY): G =>
     renderHook(() => useGetter(), { wrapper: wrapperFor(store, key) }).result.current;
+
+  // A window is a viewport: an edit in one window must not reach another window's
+  // view of the same document.
+  it("should keep each window's view of a document independent", () => {
+    store.dispatch(Arc.create({ key: KEY }));
+    store.dispatch(Arc.create({ key: KEY, windowKey: AUX_WINDOW }));
+    store.dispatch(
+      Arc.setEditable({ key: KEY, editable: false, windowKey: AUX_WINDOW }),
+    );
+    const slice = store.getState()[Arc.SLICE_NAME];
+    expect(documentIn(slice, KEY, AUX_WINDOW)?.graph.editable).toBe(false);
+    expect(documentIn(slice, KEY)?.graph.editable).toBe(true);
+  });
 
   describe("create", () => {
     it("should bootstrap session state from ZERO_STATE for the key", () => {
@@ -302,8 +318,27 @@ describe("Arc Slice", () => {
       expect(Arc.ZERO_SLICE_STATE.version).toBe(0);
     });
 
-    it("should default the arcs record to empty", () => {
-      expect(Arc.sliceStateZ.parse({}).arcs).toEqual({});
+    it("should default the window map to empty", () => {
+      expect(Arc.sliceStateZ.parse({}).windows).toEqual({});
     });
+  });
+});
+
+describe("persistence", () => {
+  // A selection is the state of an edit in progress, so it does not outlive the
+  // session that made it.
+  it("should clear the selection on the way to disk", () => {
+    const state = Arc.stateZ.parse({ graph: { selected: ["a", "b"] } });
+    expect(Arc.purgeState(state).graph.selected).toEqual([]);
+  });
+
+  it("should leave the rest of the document alone", () => {
+    const state = Arc.stateZ.parse({
+      graph: { selected: ["a"], editable: false },
+      toolbar: { selectedTab: "properties" },
+    });
+    const purged = Arc.purgeState(state);
+    expect(purged.graph.editable).toBe(false);
+    expect(purged.toolbar.selectedTab).toBe("properties");
   });
 });

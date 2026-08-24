@@ -147,7 +147,7 @@ describe("EtherCAT Read", () => {
     await waitFor(() => expect(screen.getByText(slave.name)).toBeTruthy());
   });
 
-  describe("deploying against a live cluster", () => {
+  describe("deploying against a live Core", () => {
     it("should create the index and data channels, update the slave, and save the task", async () => {
       const identifier = createIdentifier();
       const namedChannel = uniqueName("ecat_named");
