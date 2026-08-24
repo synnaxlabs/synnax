@@ -43,8 +43,12 @@ const ParentRangeIcon = Icon.createComposite(Icon.Range, {
 });
 
 const TimelineField = (): ReactElement => {
-  const parentKey = Form.useFieldValue<string>("parent");
-  const parent = Ranger.useResult(parentKey === "" ? null : { key: parentKey });
+  // A range loaded by key carries no parent field, so the read must tolerate its
+  // absence.
+  const parentKey = Form.useFieldValue<string>("parent", { optional: true });
+  const parent = Ranger.useResult(
+    parentKey == null || parentKey === "" ? null : { key: parentKey },
+  );
   const parentRange = parent.data?.timeRange.numeric;
   return (
     <Form.Field<NumericTimeRange> path="timeRange" label="Stage" padHelpText={false}>
@@ -133,7 +137,7 @@ export const useCreateModal = Modals.create<CreateModalParams>(
                   />
                 )}
               </Form.Field>
-              <Form.Field<string[]> path="labels" required={false}>
+              <Form.Field<string[]> path="labels" required={false} showLabel={false}>
                 {(p) => <Label.SelectMultiple zIndex={100} {...p} />}
               </Form.Field>
             </Flex.Box>

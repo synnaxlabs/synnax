@@ -215,7 +215,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
           )}
         </Form.Field>
         <Flex.Box x>
-          <Form.Field<string[]> required={false} path="labels">
+          <Form.Field<string[]> required={false} path="labels" showLabel={false}>
             {(p) => (
               <Label.SelectMultiple
                 zIndex={100}

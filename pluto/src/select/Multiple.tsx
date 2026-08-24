@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type record } from "@synnaxlabs/x";
+import { caseconv, type record } from "@synnaxlabs/x";
 import { plural } from "pluralize";
 import { type ReactElement } from "react";
 
@@ -90,6 +90,7 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
         createHaulItem={createHaulItem}
         icon={icon}
         placeholder={`Select ${plural(resourceName)}`}
+        aria-label={caseconv.capitalize(plural(resourceName))}
         disabled={disabled}
         preview={preview}
         {...triggerProps}
