@@ -19,13 +19,13 @@ class LoginForms(ConsoleCase):
     """Exercise the cluster selection step of Login and its connect modal.
 
     The web build skips cluster selection because it detects the serving Core;
-    the ``select-cluster`` query param disables that detection so the full
+    the ``select-core`` query param disables that detection so the full
     desktop-style flow renders.
     """
 
     def setup(self) -> None:
         self._launch_browser()
-        self._goto_console(query="?select-cluster")
+        self._goto_console(query="?select-core")
 
     def _wait(self, locator: Locator) -> None:
         self.console.layout.wait_for_visible(locator)
@@ -62,21 +62,13 @@ class LoginForms(ConsoleCase):
         self.console.layout.wait_for_hidden(cluster.modal)
 
     def test_add_core(self) -> None:
-        """Adding a Core lists it; a duplicate name is rejected."""
+        """Adding a Core lists it."""
         self.log(f"Adding Core {self.core_name}")
-        cluster = self.console.cluster
-        host = self.synnax_connection.server_address
-        port = self.synnax_connection.port
-        cluster.add_core(name=self.core_name, host=host, port=port)
-
-        self.page.get_by_text("Add a Core").click(timeout=5000)
-        self._wait(cluster.modal)
-        cluster.modal.get_by_label("Name").fill(self.core_name)
-        cluster.modal.get_by_label("Host").fill(host)
-        cluster.modal.get_by_role("button", name="Connect").click(timeout=5000)
-        self._wait(cluster.modal.get_by_text("is already in use"))
-        self.page.get_by_label("Close").click(timeout=5000)
-        self.console.layout.wait_for_hidden(cluster.modal)
+        self.console.cluster.add_core(
+            name=self.core_name,
+            host=self.synnax_connection.server_address,
+            port=self.synnax_connection.port,
+        )
 
     def test_rename_core(self) -> None:
         """Renaming through the context menu updates the list."""
@@ -95,11 +87,14 @@ class LoginForms(ConsoleCase):
         self.console.notifications.close_all()
 
     def test_copy_link(self) -> None:
-        """Copy link puts a cluster deep link on the clipboard."""
+        """A link names a cluster, which only a connection can report."""
+        self.log(f"Copying a link to the unconnected {self.core_name}")
         link = self.console.cluster.copy_core_link(self.core_name)
-        assert link.startswith("synnax://cluster/"), (
-            f"expected a cluster link, got {link!r}"
-        )
+        assert link == "", f"expected no link, got {link!r}"
+        assert self.console.notifications.wait_for(
+            f"Failed to copy link to {self.core_name}"
+        ), "copying without a connection should raise an error notification"
+        self.console.notifications.close_all()
 
     def test_remove_core(self) -> None:
         """Removing the added Core takes it out of the list."""

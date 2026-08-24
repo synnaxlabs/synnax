@@ -10,20 +10,20 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { assert, describe, expect, it, vi } from "vitest";
 
-// A serving Core skips the cluster step, and detection reports one for every
-// browser build. The module is the only seam.
-vi.mock("@/platform/cluster/detectConnection", () => ({
+// A serving Core skips the Core step, and detection reports one for every browser
+// build. The module is the only seam.
+vi.mock("@/platform/core/detectConnection", () => ({
   detectConnection: () => null,
 }));
 
 import { Login } from "@/feature/auth/Login";
 import { Session } from "@/session";
-import { createCluster } from "@/session/cluster/testutil";
+import { createCore } from "@/session/core/testutil";
 import { createSessionConsoleWrapper, getBySelector } from "@/testutil";
 
 // Dead ports: the list checks each Core, and no assertion here reads the result.
-const ALPHA = createCluster("alpha", { name: "Alpha", port: 9098, username: "ada" });
-const BETA = createCluster("beta", { name: "Beta", port: 9099, username: "grace" });
+const ALPHA = createCore("alpha", { name: "Alpha", port: 9098, username: "ada" });
+const BETA = createCore("beta", { name: "Beta", port: 9099, username: "grace" });
 
 const BACK = ".console-login__back";
 const USERNAME_PLACEHOLDER = "synnax";
@@ -32,9 +32,9 @@ const renderLogin = async (): Promise<HTMLElement> => {
   const { wrapper } = await createSessionConsoleWrapper({
     client: null,
     preloadedState: {
-      [Session.Cluster.SLICE_NAME]: {
-        ...Session.Cluster.ZERO_SLICE_STATE,
-        clusters: { [ALPHA.key]: ALPHA, [BETA.key]: BETA },
+      [Session.Core.SLICE_NAME]: {
+        ...Session.Core.ZERO_SLICE_STATE,
+        cores: { [ALPHA.key]: ALPHA, [BETA.key]: BETA },
         selected: undefined,
       },
     },

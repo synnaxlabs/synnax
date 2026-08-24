@@ -10,7 +10,7 @@
 import "@/platform/modals/useConfirm.css";
 
 import { type status } from "@synnaxlabs/client";
-import { Button, type Icon, Nav, Text } from "@synnaxlabs/pluto";
+import { Button, type Icon, Nav, Text, Triggers as PTriggers } from "@synnaxlabs/pluto";
 
 import { CSS } from "@/platform/css";
 import { Body } from "@/platform/modals/Body";
@@ -66,7 +66,13 @@ const CancelButton = ({
   delay,
   ...rest
 }: InternalButtonProps) => (
-  <Button.Button variant="outlined" status={variant} onClickDelay={delay} {...rest}>
+  <Button.Button
+    variant="outlined"
+    status={variant}
+    onClickDelay={delay}
+    triggerIndicator={PTriggers.ESCAPE}
+    {...rest}
+  >
     {label}
   </Button.Button>
 );

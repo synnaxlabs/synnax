@@ -22,6 +22,7 @@ const roles = new RoleClients(client);
 const withSelected = (key: string): ConsolePreloadedState =>
   withActiveProject({
     [Session.Nav.SLICE_NAME]: {
+      version: 0,
       windows: {
         [MAIN_WINDOW]: {
           ...Session.Nav.ZERO_WINDOW_STATE,

@@ -698,7 +698,7 @@ describe("Tree.Tree", () => {
     });
   });
 
-  describe("cluster event isolation", () => {
+  describe("Core event isolation", () => {
     const countingItems = (counts: Map<string, number>): Tree.Items => ({
       group: Tree.createItem({
         type: "group",

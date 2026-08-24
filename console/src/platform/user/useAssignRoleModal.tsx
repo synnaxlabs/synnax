@@ -12,6 +12,7 @@ import { Access, Button, Form, Icon, Nav, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Modals } from "@/platform/modals";
+import { Triggers } from "@/platform/triggers";
 
 export interface AssignRoleModalParams {
   /** Key of the user whose role is being assigned. */
@@ -36,6 +37,7 @@ export const useAssignRoleModal = Modals.create<AssignRoleModalParams>(
             </Form.Field>
           </Modals.Body>
           <Modals.Footer>
+            <Triggers.SaveHelpText action="Assign" />
             <Nav.Bar.End>
               <Button.Button
                 onClick={() => save()}
@@ -44,6 +46,7 @@ export const useAssignRoleModal = Modals.create<AssignRoleModalParams>(
                 status={status.keepVariants(variant, "loading")}
                 tooltip={client == null ? "No Core connected" : undefined}
                 tooltipLocation="bottom"
+                trigger={Triggers.SAVE}
               >
                 Assign
               </Button.Button>

@@ -19,6 +19,7 @@ import { Triggers } from "@/app/triggers";
 import { Auth } from "@/feature/auth";
 import { Device } from "@/feature/device";
 import { Panel } from "@/feature/panel";
+import { Persist } from "@/feature/persist";
 import { Project } from "@/feature/project";
 import { CSS } from "@/platform/css";
 import { Session } from "@/session";
@@ -26,6 +27,7 @@ import { Session } from "@/session";
 const SideEffect = (): null => {
   Device.useListenForChanges();
   Link.useDeep();
+  Persist.useStoreStatus();
   Triggers.use();
   return null;
 };

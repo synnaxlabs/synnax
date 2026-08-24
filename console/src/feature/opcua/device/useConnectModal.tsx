@@ -192,6 +192,7 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
               status={status.keepVariants(variant, "loading")}
               onClick={() => save()}
               variant="filled"
+              trigger={Triggers.SAVE}
             >
               Connect
             </Button.Button>

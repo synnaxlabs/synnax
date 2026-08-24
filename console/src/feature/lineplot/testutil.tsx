@@ -9,6 +9,7 @@
 
 import { lineplot, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { LinePlot as PLinePlot, Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
 import { act, render, within } from "@testing-library/react";
@@ -61,7 +62,9 @@ export const createPreloadedState = (
 ): ConsolePreloadedState => ({
   [Session.LinePlot.SLICE_NAME]: {
     ...Session.LinePlot.ZERO_SLICE_STATE,
-    plots: { [key]: { ...Session.LinePlot.ZERO_STATE, ...plotState } },
+    windows: {
+      [MAIN_WINDOW]: { [key]: { ...Session.LinePlot.ZERO_STATE, ...plotState } },
+    },
   },
 });
 

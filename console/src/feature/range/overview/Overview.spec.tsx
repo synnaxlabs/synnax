@@ -249,8 +249,8 @@ describe("range/overview tab", () => {
     await waitFor(() =>
       expect(query.isLive(client.ranges.getCached(rng.key))).toBe(true),
     );
-    // Read back through a second client: the restoring client write-throughs its
-    // own cache, so retrieving on it would pass even if the cluster never got it.
+    // Read back through a second client: the restoring client write-throughs its own
+    // cache, so retrieving on it would pass even if the Core never got it.
     const remote = createTestClient();
     const [restored] = await remote.ranges.retrieve([rng.key]);
     expect(restored.name).toEqual(rng.name);

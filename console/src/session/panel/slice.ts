@@ -43,13 +43,10 @@ export interface WindowState extends z.output<typeof windowStateZ> {}
 export const ZERO_WINDOW_STATE: WindowState = windowStateZ.parse({});
 
 export const sliceStateZ = z.object({
-  windows: z.record(z.string(), windowStateZ).default({}),
-  /**
-   * The strip's panel order, shared by every window. Reconciliation appends new
-   * panels name-sorted and prunes deleted ones; only an explicit reorder moves an
-   * entry, so a panel never changes slot behind the user's back.
-   */
+  version: z.literal(0).default(0),
+  /** The strip's panel order, shared by every window and so scoped to the project. */
   order: panel.keyZ.array().default([]),
+  windows: z.record(z.string(), windowStateZ).default({}),
 });
 
 export interface SliceState extends z.output<typeof sliceStateZ> {}
@@ -72,12 +69,20 @@ export interface TabAndPanelKeyPayload extends PanelKeyPayload {
 
 export interface RemovePayload {
   keys: panel.Key | panel.Key[];
-  /**
-   * The panels in the order the selector shows them, as of before the removal. A
-   * window that loses its selected panel takes the nearest survivor beside it.
-   * Without the row it falls back to its most recently used panel.
-   */
-  order?: panel.Key[];
+}
+
+export interface OrderEntry {
+  key: panel.Key;
+  name: string;
+}
+
+export interface ReconcileOrderPayload {
+  panels: OrderEntry[];
+}
+
+export interface ReorderPayload {
+  key: panel.Key;
+  index: number;
 }
 
 interface SelectTabPayload extends TabAndPanelKeyPayload {
@@ -91,18 +96,6 @@ export interface ReconcileSelectionPayload extends PanelKeyPayload {
    * comes from. Without it a lost tab has no neighbor and its leaf falls back.
    */
   previous?: panel.TabKey[][];
-}
-
-export interface OrderEntry extends PanelKeyPayload {
-  name: string;
-}
-
-export interface ReconcileOrderPayload {
-  panels: OrderEntry[];
-}
-
-export interface ReorderPayload extends PanelKeyPayload {
-  index: number;
 }
 
 const withWindowKey = Window.createWithKeyHandler(windowStateZ);
@@ -227,8 +220,8 @@ const { actions, reducer } = createSlice({
       win.isOverlaid = false;
     }),
     // reconcileOrder converges the order to the project's live membership: deleted
-    // panels prune, unknown panels append name-sorted. On first sight of a project
-    // the whole order materializes name-sorted through the same append path.
+    // panels prune, unknown panels append name-sorted. On first sight of a project the
+    // whole order materializes name-sorted through the same append path.
     reconcileOrder: (
       state,
       { payload: { panels } }: PayloadAction<ReconcileOrderPayload>,
@@ -242,8 +235,8 @@ const { actions, reducer } = createSlice({
       const next = [...kept, ...fresh];
       if (!compare.arraysEqual(state.order, next)) state.order = next;
     },
-    // The index is a strip insertion slot resolved with the panel still in place,
-    // so a move toward the end lands one slot short of the raw index.
+    // The index is a strip insertion slot resolved with the panel still in place, so a
+    // move toward the end lands one slot short of the raw index.
     reorder: (state, { payload: { key, index } }: PayloadAction<ReorderPayload>) => {
       const from = state.order.indexOf(key);
       const next = [...state.order];
@@ -252,12 +245,12 @@ const { actions, reducer } = createSlice({
       next.splice(Math.max(to, 0), 0, key);
       if (!compare.arraysEqual(state.order, next)) state.order = next;
     },
-    remove: (
-      state,
-      { payload: { keys, order = [] } }: PayloadAction<RemovePayload>,
-    ) => {
+    remove: (state, { payload: { keys } }: PayloadAction<RemovePayload>) => {
       const removed = array.toArray(keys);
       const survives = (key: panel.Key): boolean => !removed.includes(key);
+      // The row as the user saw it, read before pruning, so a deleted panel hands
+      // its place to the survivor beside it.
+      const order = [...state.order];
       state.order = state.order.filter(survives);
       Object.values(state.windows).forEach((win) => {
         removed.forEach((key) => delete win.panels[key]);
@@ -276,19 +269,23 @@ const { actions, reducer } = createSlice({
         if (next != null) mount(win, next);
       });
     },
+    /** Clears the order and every window's panel state on logout or project change. */
     reset: () => ZERO_SLICE_STATE,
+  },
+  extraReducers: (builder) => {
+    Window.handleRemoved(builder);
   },
 });
 
 const {
   select,
   clearSelected,
-  remove,
   selectTab: internalSelectTab,
   startOverlaying,
   stopOverlaying,
   reconcileOrder,
   reconcileSelection,
+  remove,
   reorder,
   reset,
 } = actions;

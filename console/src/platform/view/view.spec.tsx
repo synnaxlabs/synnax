@@ -15,7 +15,7 @@ import {
   view,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Channel, Component, type List, Menu } from "@synnaxlabs/pluto";
+import { Channel, Component, List, Menu } from "@synnaxlabs/pluto";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -23,6 +23,9 @@ import { describe, expect, it } from "vitest";
 import { View } from "@/platform/view";
 import { enableEditing } from "@/platform/view/testutil";
 import {
+  awaitTextEditing,
+  commitTextEdit,
+  countEditableText,
   createConsoleWrapper,
   createTestClientWithGrants,
   getBySelector,
@@ -63,6 +66,13 @@ const Harness = (): ReactElement => (
 Harness.displayName = "Harness";
 
 const client = createTestClient();
+
+const createView = async () =>
+  await client.views.create({
+    name: uniqueName("view"),
+    type: "channel",
+    query: {},
+  });
 
 const renderHarness = async (as: Client = client): Promise<void> => {
   const { wrapper } = await createConsoleWrapper({ client: as });
@@ -119,6 +129,38 @@ describe("View", () => {
     await waitFor(() => expect(screen.getByText("No channels found")).toBeTruthy());
   });
 
+  it("leaves a static view's name plain while a saved view's is editable", async () => {
+    const saved = await createView();
+    await renderHarness();
+    await screen.findByText(saved.name);
+    await waitFor(() => expect(countEditableText(List.itemNameID(saved.key))).toBe(1));
+    expect(screen.getByText("All channels").className).not.toContain(
+      "pluto-text--editable",
+    );
+  });
+
+  it("renames a saved view in place from the context menu", async () => {
+    const saved = await createView();
+    await renderHarness();
+    fireEvent.contextMenu(await screen.findByText(saved.name));
+    fireEvent.click(await screen.findByText("Rename"));
+    const editor = await awaitTextEditing(List.itemNameID(saved.key));
+    const renamed = uniqueName("renamed");
+    commitTextEdit(editor, renamed);
+    await waitFor(async () =>
+      expect((await client.views.retrieve(saved.key)).name).toBe(renamed),
+    );
+  });
+
+  it("withholds rename from a static view's context menu", async () => {
+    await createView();
+    await renderHarness();
+    fireEvent.contextMenu(await screen.findByText("All channels"));
+    expect(await screen.findByText("Reload Console")).toBeTruthy();
+    expect(screen.queryByText("Rename")).toBeNull();
+    expect(screen.queryByText("Delete")).toBeNull();
+  });
+
   it("reveals the filter menu contents when the filter trigger is opened", async () => {
     await renderHarness();
     await enableEditing();
@@ -152,6 +194,17 @@ describe("View permissions", () => {
     expect(
       queryIconButton(getBySelector(document.body, ".console-controls"), "add"),
     ).toBeNull();
+  });
+
+  it("should withhold rename from a subject who cannot update views", async () => {
+    const saved = await createView();
+    await renderHarness(await createSubject({ delete: [view.TYPE_ONTOLOGY_ID] }));
+    fireEvent.contextMenu(await screen.findByText(saved.name));
+    // Delete shares the selection the rename item needs, so its presence proves the
+    // menu resolved before the absence below is read.
+    expect(await screen.findByText("Delete")).toBeTruthy();
+    expect(screen.queryByText("Rename")).toBeNull();
+    expect(countEditableText(List.itemNameID(saved.key))).toBe(0);
   });
 
   it("should offer the view create button to a subject who may create views", async () => {

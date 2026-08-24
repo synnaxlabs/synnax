@@ -18,9 +18,9 @@ from console.layout import LayoutClient
 
 STRIP_SELECTOR = ".console-view__views"
 ITEM_SELECTOR = ".pluto-select-btn"
-ITEM_LABEL_SELECTOR = ".console-view__view-item"
+# Every list item names its text element after its key, per List.itemNameID.
+ITEM_LABEL_SELECTOR = "[id$='-name']"
 SELECTED_CLASS = "pluto--selected"
-EDITING_SELECTOR = "p.pluto-text--editable[contenteditable='true']"
 
 
 class ViewsClient(ResourceClient):
@@ -144,14 +144,7 @@ class ViewsClient(ResourceClient):
         :param old_name: Current name of the view.
         :param new_name: Name to set.
         """
-        item = self.get_view_item(old_name)
-        item.wait_for(state="visible", timeout=5000)
-        self.ctx_menu.action(item, "Rename")
-        self.page.locator(EDITING_SELECTOR).first.wait_for(
-            state="visible", timeout=5000
-        )
-        self.layout.select_all_and_type(new_name)
-        self.layout.press_enter()
+        self.layout.rename_in_place(self.get_view_item(old_name), new_name)
         self.wait_for(new_name)
 
     def delete(self, name: str) -> None:

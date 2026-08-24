@@ -109,7 +109,7 @@ describe("EtherCAT Write", () => {
     expect(screen.getByDisplayValue("4")).toBeTruthy();
   });
 
-  describe("deploying against a live cluster", () => {
+  describe("deploying against a live Core", () => {
     it("should create command and state channels, update the slave, and save the task", async () => {
       const identifier = createIdentifier();
       const slave = await createSlaveDevice(client, testRack.key, {

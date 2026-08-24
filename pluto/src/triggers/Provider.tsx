@@ -22,7 +22,7 @@ import { useStateRef } from "@/hooks/ref";
 import {
   type Callback,
   eventKey,
-  isAlphanumericKey,
+  isTextEntryKey,
   type Key,
   match,
   type MatchOptions,
@@ -91,8 +91,8 @@ const isInputOrContentEditable = (e: KeyboardEvent): boolean => {
 const shouldTriggerOnKeyDown = (key: Key, e: KeyboardEvent): boolean => {
   if (EXCLUDE_TRIGGERS.includes(key)) return false;
   if (!isInputOrContentEditable(e)) return true;
-  // Bare alphanumerics in a text field are text entry, not triggers.
-  if (isAlphanumericKey(key) && !e.ctrlKey && !e.metaKey) return false;
+  // A bare printable key in a text field is text entry, not a trigger.
+  if (isTextEntryKey(key) && !e.ctrlKey && !e.metaKey) return false;
   // Let the browser own native text-editing shortcuts within the field.
   if ((e.ctrlKey || e.metaKey) && NATIVE_TEXT_EDIT_KEYS.includes(key)) return false;
   return true;

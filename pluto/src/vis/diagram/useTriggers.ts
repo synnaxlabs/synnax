@@ -29,6 +29,8 @@ const CONFIG: Triggers.ModeConfig<Mode> = {
 
 const FLATTENED_CONFIG = Triggers.flattenConfig(CONFIG);
 
+const MUTATING_MODES = new Set<Mode>(["undo", "redo", "paste"]);
+
 export interface UseTriggersProps {
   onUndo?: () => void;
   onRedo?: () => void;
@@ -37,6 +39,10 @@ export interface UseTriggersProps {
   onClearSelection?: () => void;
   onSelectAll?: () => void;
   enabled?: Triggers.Condition;
+  /** Withholds the shortcuts that change the diagram. Copying and the selection
+   * shortcuts stay live, so a read-only diagram is still navigable. Defaults to true.
+   * */
+  editable?: boolean;
 }
 
 export const useTriggers = ({
@@ -47,6 +53,7 @@ export const useTriggers = ({
   onUndo,
   onRedo,
   enabled,
+  editable = true,
 }: UseTriggersProps) => {
   Triggers.use({
     triggers: FLATTENED_CONFIG,
@@ -56,6 +63,7 @@ export const useTriggers = ({
       ({ triggers, cursor, stage }: Triggers.UseEvent) => {
         if (stage !== "start") return;
         const mode = Triggers.determineMode(CONFIG, triggers);
+        if (!editable && MUTATING_MODES.has(mode)) return;
         if (mode == "undo") return onUndo?.();
         if (mode == "redo") return onRedo?.();
         if (mode == "copy") return onCopy?.(cursor);
@@ -63,7 +71,7 @@ export const useTriggers = ({
         if (mode == "clear") return onClear?.();
         if (mode == "all") return onSelectAll?.();
       },
-      [onUndo, onRedo, onCopy, onPaste, onClear, onSelectAll],
+      [onUndo, onRedo, onCopy, onPaste, onClear, onSelectAll, editable],
     ),
   });
 };

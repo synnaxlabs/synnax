@@ -16,6 +16,7 @@ import {
   view,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { List } from "@synnaxlabs/pluto";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -23,6 +24,8 @@ import { Status } from "@/feature/status";
 import { Modals } from "@/platform/modals";
 import { enableEditing, findToolbarIconButton } from "@/platform/view/testutil";
 import {
+  awaitTextEditing,
+  commitTextEdit,
   createConsoleWrapper,
   createTestClientWithGrants,
   getBySelector,
@@ -49,6 +52,31 @@ describe("status explorer", () => {
     const search = await screen.findByPlaceholderText("Search statuses...");
     fireEvent.change(search, { target: { value: s.name } });
     expect(await screen.findByText(s.name)).toBeTruthy();
+  });
+
+  it("should rename a status in place from the context menu", async () => {
+    const s = await client.statuses.set(
+      status.create({ name: uniqueName("status"), variant: "info", message: "m" }),
+    );
+    const { wrapper } = await createConsoleWrapper({ client });
+    render(
+      <>
+        <Status.Explorer.Explorer />
+        <Modals.Stack />
+      </>,
+      { wrapper },
+    );
+    await enableEditing();
+    const search = await screen.findByPlaceholderText("Search statuses...");
+    fireEvent.change(search, { target: { value: s.name } });
+    fireEvent.contextMenu(await screen.findByText(s.name));
+    fireEvent.click(await screen.findByText("Rename"));
+    const editor = await awaitTextEditing(List.itemNameID(s.key));
+    const renamed = uniqueName("renamed");
+    commitTextEdit(editor, renamed);
+    await waitFor(async () =>
+      expect((await client.statuses.retrieve(s.key)).name).toBe(renamed),
+    );
   });
 });
 

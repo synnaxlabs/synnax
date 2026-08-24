@@ -13,7 +13,11 @@ import { type ReactElement, type ReactNode, useCallback, useMemo } from "react";
 import { Icon } from "@/icon";
 import { Menu } from "@/menu";
 import { getCellColumn } from "@/table/Indicator";
-import { useCellPosition, useRows } from "@/table/queries";
+import { useCellPosition, useRedo, useRows, useUndo } from "@/table/queries";
+import { type Triggers } from "@/triggers";
+
+/** Erases the selected cells. Registered by {@link Table}; shown on the erase item. */
+export const ERASE_TRIGGER: Triggers.Trigger = ["Delete"];
 
 export interface DefaultContextMenuProps {
   resourceKey: table.Key;
@@ -120,8 +124,21 @@ export const DefaultContextMenu = ({
     [onCenteredChange, centered],
   );
   const showIndicatorToggle = !editable && onShowIndicatorsChange != null;
+  const { undo, canUndo } = useUndo({ key: resourceKey });
+  const { redo, canRedo } = useRedo({ key: resourceKey });
   return (
     <Menu.Menu level="small" gap="small">
+      {editable && (
+        <>
+          <Menu.UndoRedoItems
+            undo={undo}
+            redo={redo}
+            canUndo={canUndo}
+            canRedo={canRedo}
+          />
+          <Menu.Divider />
+        </>
+      )}
       {editable && rowIdx != null && (
         <>
           <Menu.Item
@@ -191,6 +208,7 @@ export const DefaultContextMenu = ({
           size="small"
           itemKey="eraseCells"
           onClick={() => onEraseCells(selected)}
+          triggerIndicator={ERASE_TRIGGER}
         >
           <Icon.Eraser />
           {selected.length > 1 ? "Erase cells" : "Erase cell"}

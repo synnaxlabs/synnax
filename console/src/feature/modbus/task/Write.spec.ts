@@ -15,6 +15,7 @@ import { describe, expect, it } from "vitest";
 import { Modbus } from "@/feature/modbus";
 import { createModbusDevice } from "@/feature/modbus/testutil";
 import {
+  createChannelReadOnlyClient,
   deployAndAwaitTask,
   renderTaskFormTab,
   reportTaskStopped,
@@ -160,5 +161,25 @@ describe("Modbus.Write", () => {
     fireEvent.contextMenu(screen.getByText("my_cmd_channel"));
     fireEvent.click(await screen.findByText("Remove"));
     await waitFor(() => expect(screen.queryByText("my_cmd_channel")).toBeNull());
+  });
+
+  it("should withhold rename from a subject who cannot update channels", async () => {
+    const dev = await createModbusDevice(client);
+    const draft = await createDraft(client, {
+      ...Modbus.Task.WRITE_SCHEMAS.config.parse({}),
+      device: dev.key,
+    });
+    const { container } = await renderTaskFormTab(Modbus.Task.Write, {
+      client,
+      taskKey: draft.key,
+      as: await createChannelReadOnlyClient(client),
+    });
+    await screen.findByText(dev.name);
+    fireEvent.click(getIconButton(container, "add"));
+    fireEvent.contextMenu(await screen.findByText("No channel"));
+    // Remove is ungated, so its presence proves the menu resolved before the
+    // absence below is read.
+    expect(await screen.findByText("Remove")).toBeTruthy();
+    expect(screen.queryByText("Rename")).toBeNull();
   });
 });

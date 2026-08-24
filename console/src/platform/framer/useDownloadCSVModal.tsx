@@ -91,18 +91,14 @@ export const useDownloadCSVModal = Modals.createPrompt<void, DownloadCSVModalPar
                   padHelpText={false}
                   label="From"
                 >
-                  {(p) => (
-                    <Input.DateTime level="h4" variant="text" onlyChangeOnBlur {...p} />
-                  )}
+                  {(p) => <Input.DateTime level="h4" variant="text" {...p} />}
                 </Form.Field>
                 <Icon.Arrow.Right
                   className={CSS.BE("download-csv", "arrow")}
                   color={9}
                 />
                 <Form.Field<number> padHelpText={false} path="timeRange.end" label="To">
-                  {(p) => (
-                    <Input.DateTime onlyChangeOnBlur level="h4" variant="text" {...p} />
-                  )}
+                  {(p) => <Input.DateTime level="h4" variant="text" {...p} />}
                 </Form.Field>
               </Flex.Box>
               <Form.Field<channel.Key[]> path="channels">

@@ -429,6 +429,17 @@ describe("Button", () => {
       expect(c.getByLabelText("trigger-indicator")).toBeTruthy();
     });
 
+    it("should keep the indicator out of the button's accessible name", () => {
+      const c = render(
+        <Button.Button trigger={["Control", "Enter"]} triggerIndicator>
+          Save
+        </Button.Button>,
+      );
+      // The keycaps are decoration. Without aria-hidden they join the accessible name,
+      // so every name-based query for a hinted button breaks.
+      expect(c.getByRole("button", { name: "Save" })).toBeTruthy();
+    });
+
     it("should set the trigger text level to a level below the button", () => {
       const c = render(
         <Button.Button triggerIndicator={["Enter"]} level="p">

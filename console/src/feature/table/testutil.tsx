@@ -13,6 +13,7 @@ import {
   type table,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { Panel as PlutoPanel, Table as PTable } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
 import { act, render, within } from "@testing-library/react";
@@ -83,7 +84,9 @@ export const createPreloadedState = (
 ): ConsolePreloadedState => ({
   [Session.Table.SLICE_NAME]: {
     ...Session.Table.ZERO_SLICE_STATE,
-    tables: { [key]: { ...Session.Table.ZERO_STATE, ...tableState } },
+    windows: {
+      [MAIN_WINDOW]: { [key]: { ...Session.Table.ZERO_STATE, ...tableState } },
+    },
   },
 });
 

@@ -104,9 +104,11 @@ export interface RenameParams {
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
   verbs: verbs.RENAME,
-  update: async ({ client, data }) => {
+  update: async ({ client, data, onOptimisticComplete }) => {
     const { key, name } = data;
-    await client.access.roles.rename(key, name);
+    await client.access.roles.rename(key, name, {
+      onOptimistic: async () => await onOptimisticComplete(data),
+    });
     return data;
   },
 });

@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { describe, expect, it } from "vitest";
-import { z } from "zod";
 
 import { Status } from "@/session/status";
 
@@ -98,30 +97,6 @@ describe("status slice", () => {
       state = Status.reducer(state, Status.toggleFavorite("a"));
       state = Status.reducer(state, Status.toggleFavorite("a"));
       expect(state.favorites).toEqual(["b"]);
-    });
-  });
-
-  describe("migrateSlice", () => {
-    it("should backfill missing fields from the zero state", () => {
-      const migrated = Status.migrateSlice({ favorites: ["a"] });
-      expect(migrated).toEqual({ version: 0, favorites: ["a"] });
-    });
-
-    it("should preserve existing fields", () => {
-      const existing: Status.SliceState = { version: 0, favorites: ["x", "y"] };
-      expect(Status.migrateSlice(existing)).toEqual(existing);
-    });
-
-    it("should drop fields the schema does not declare", () => {
-      expect(Status.migrateSlice({ favorites: ["a"], stale: 1 })).toEqual({
-        version: 0,
-        favorites: ["a"],
-      });
-    });
-
-    it("should throw on a persisted value the schema rejects", () => {
-      expect(() => Status.migrateSlice({ favorites: "a" })).toThrow(z.ZodError);
-      expect(() => Status.migrateSlice("corrupt")).toThrow(z.ZodError);
     });
   });
 });

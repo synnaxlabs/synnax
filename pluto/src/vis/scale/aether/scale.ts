@@ -28,6 +28,7 @@ import { fontString } from "@/theming/base/fontString";
 import { newTickFactory, type Tick, type TickFactory } from "@/vis/axis/ticks";
 import { type Element } from "@/vis/diagram/aether/Diagram";
 import { Draw2D } from "@/vis/draw2d";
+import { domRadii } from "@/vis/draw2d/canvas";
 import { render } from "@/vis/render";
 import { staleness } from "@/vis/staleness/aether";
 
@@ -275,12 +276,13 @@ export class Scale
       // full rounded bar so the tank's rounded corners are preserved at the fill edges.
       const restore = ctx.scissor(region);
       ctx.beginPath();
-      ctx.roundRect(box.left(bar), box.top(bar), box.width(bar), box.height(bar), [
-        cornerRadii.topLeft,
-        cornerRadii.topRight,
-        cornerRadii.bottomRight,
-        cornerRadii.bottomLeft,
-      ]);
+      ctx.roundRect(
+        box.left(bar),
+        box.top(bar),
+        box.width(bar),
+        box.height(bar),
+        domRadii(cornerRadii),
+      );
       ctx.fillStyle = color.hex(fillColor);
       ctx.fill();
       restore();

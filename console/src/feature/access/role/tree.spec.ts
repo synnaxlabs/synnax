@@ -69,7 +69,7 @@ describe("role ontology service", () => {
     expect(screen.queryByText("Delete")).toBeNull();
   });
 
-  it("should delete the role on the cluster after confirmation", async () => {
+  it("should delete the role on the Core after confirmation", async () => {
     const role = await createRole();
     assertDefined(RoleItem.ContextMenu);
     await renderTreeContextMenu(RoleItem.ContextMenu, {

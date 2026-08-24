@@ -8,5 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/platform/runtime/files";
+export * from "@/platform/runtime/openExternal";
 export * from "@/platform/runtime/useDownload";
 export * from "@/platform/runtime/useExternalLinkHandler";

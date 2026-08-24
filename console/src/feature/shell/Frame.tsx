@@ -19,7 +19,7 @@ import { Shell } from "@/platform/shell";
 export interface FrameProps {
   className?: string;
   /** Target Core shown in the connection island; omit to hide it. */
-  connection?: Shell.ConnectionCluster | null;
+  connection?: Shell.ConnectionCore | null;
   children: ReactNode;
 }
 

@@ -113,7 +113,7 @@ class ConsoleCase(TestCase):
     def _goto_console(self, query: str = "") -> None:
         """Navigate to the Console, falling back to the dev server when the
         Core lacks an embedded Console. ``query`` is appended verbatim (e.g.
-        ``"?select-cluster"``)."""
+        ``"?select-core"``)."""
         host = self.synnax_connection.server_address
         port = self.synnax_connection.port
 

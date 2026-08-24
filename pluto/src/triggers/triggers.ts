@@ -70,6 +70,14 @@ export type AlphanumericKey = (typeof ALPHANUMERIC_KEYS)[number];
 export const isAlphanumericKey = (key: Key): key is AlphanumericKey =>
   ALPHANUMERIC_KEYS_SET.has(key as AlphanumericKey);
 
+// The printable keys outside the alphanumeric set. Every other Key names an action
+// (Enter, Escape, the arrows) rather than a character.
+const PUNCTUATION_KEYS_SET = new Set<Key>(["Equal", "Minus", "Space"]);
+
+/** @returns whether pressing the key types a character. */
+export const isTextEntryKey = (key: Key): boolean =>
+  isAlphanumericKey(key) || PUNCTUATION_KEYS_SET.has(key);
+
 /** The set of all possible keyboard and mouse inputs that can be used in a trigger */
 export const KEYS = [
   ...MOUSE_KEYS,
@@ -83,6 +91,8 @@ export const KEYS = [
   "CapsLock",
   "Escape",
   "Space",
+  "Equal",
+  "Minus",
   "PageUp",
   "PageDown",
   "End",

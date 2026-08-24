@@ -35,7 +35,7 @@ const DEFAULT_DEPS: Deps = {
 };
 
 export const useDeep = (
-  connect: Link.ClusterConnect,
+  connect: Link.Connect,
   handlers: Record<string, Link.Handler>,
   deps: Deps = DEFAULT_DEPS,
 ): void => {
@@ -54,8 +54,7 @@ export const useDeep = (
       if (urlParts.length !== 1 && urlParts.length !== 3)
         throw new Error(INCORRECT_FORMAT_ERROR_MESSAGE);
 
-      const clusterKey = urlParts[0];
-      const client = await connect(clusterKey);
+      const client = await connect(urlParts[0]);
       if (urlParts.length === 1) return;
 
       const resource = urlParts[1];

@@ -25,6 +25,9 @@ import { type ReactElement, useCallback, useMemo, useState } from "react";
 
 import { CSS } from "@/platform/css";
 
+const STAGES_LABEL = "Stages";
+const STAGE_GROUPS_LABEL = "Stage groups";
+
 const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
   const { itemKey } = props;
   const { startDrag, onDragEnd } = Haul.useDrag({
@@ -44,6 +47,7 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
   return (
     <Select.ListItem
       className={CSS.cls(CSS.BE("arc-stages", "button"))}
+      aria-label={name}
       align="center"
       gap="tiny"
       draggable
@@ -88,7 +92,13 @@ export const StaticStageList = ({
       allowNone
       onChange={onSelect}
     >
-      <List.Items x className={CSS.BE("arc", "stages", "group")} wrap>
+      <List.Items
+        x
+        className={CSS.BE("arc", "stages", "group")}
+        wrap
+        role="listbox"
+        aria-label={STAGES_LABEL}
+      >
         {staticListItem}
       </List.Items>
     </Select.Frame>
@@ -145,7 +155,13 @@ export const Stages = (): ReactElement => {
   );
   return (
     <Flex.Box y empty full className={CSS.BE("arc", "stages")}>
-      <Flex.Box x sharp className={CSS.BE("arc", "stages", "group", "list")}>
+      <Flex.Box
+        x
+        sharp
+        className={CSS.BE("arc", "stages", "group", "list")}
+        role="group"
+        aria-label={STAGE_GROUPS_LABEL}
+      >
         <GroupList value={selectedGroup} onChange={setSelectedGroup} />
       </Flex.Box>
       <StaticStageList groupKey={selectedGroup} onSelect={handleAddNode} />

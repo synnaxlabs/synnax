@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, type destructor, dimensions, scale, xy } from "@synnaxlabs/x";
+import { border, box, type destructor, dimensions, scale, xy } from "@synnaxlabs/x";
 
 import { text } from "@/text/aether";
 import { applyOverScan } from "@/vis/render/util";
@@ -16,11 +16,20 @@ export interface FillTextOptions {
   useAtlas?: boolean;
 }
 
-type Radii = number | DOMPointInit | Array<number | DOMPointInit>;
+export type Radii = number | DOMPointInit | Array<number | DOMPointInit>;
 
 const scaleRadius = (s: scale.XY, r: number | DOMPointInit): number | DOMPointInit => {
   if (typeof r === "number") return s.x.dim(r);
   return { x: s.x.dim(r.x ?? 0), y: s.y.dim(r.y ?? 0) };
+};
+
+/**
+ * Radii for `roundRect` in the order the canvas and CSS use: top-left, top-right,
+ * bottom-right, bottom-left.
+ */
+export const domRadii = (radius: border.CrudeRadius): Radii => {
+  const { topLeft, topRight, bottomRight, bottomLeft } = border.constructRadius(radius);
+  return [topLeft, topRight, bottomRight, bottomLeft];
 };
 
 // Corner radii reach roundRect as a number, a single pair, or one entry per corner. All
@@ -720,10 +729,19 @@ export class SugaredOffscreenCanvasRenderingContext2D implements OffscreenCanvas
     this.dpr = x;
   }
 
-  scissor(region: box.Box, overScan: xy.XY = xy.ZERO): destructor.Destructor {
+  scissor(
+    region: box.Box,
+    overScan: xy.XY = xy.ZERO,
+    radius?: border.CrudeRadius,
+  ): destructor.Destructor {
     const p = new ScaledPath2D(this.scale_);
     region = applyOverScan(region, overScan);
-    p.rect(...xy.couple(box.topLeft(region)), ...dimensions.couple(box.dims(region)));
+    const args = [
+      ...xy.couple(box.topLeft(region)),
+      ...dimensions.couple(box.dims(region)),
+    ] as const;
+    if (radius == null) p.rect(...args);
+    else p.roundRect(...args, domRadii(radius));
     this.save();
     this.clip(p.getPath());
     return () => this.restore();

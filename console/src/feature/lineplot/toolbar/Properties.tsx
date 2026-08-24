@@ -45,6 +45,7 @@ export const Properties = (): ReactElement => {
           onChange={handleTitleRename}
           selectOnFocus
           resetOnBlurIfEmpty
+          onlyChangeOnBlur
         />
       </Input.Item>
       <Input.Item label="Show title">

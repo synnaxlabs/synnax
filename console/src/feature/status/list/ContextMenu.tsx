@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { status } from "@synnaxlabs/client";
-import { Access, Component, type Flux, Icon, Menu, Status } from "@synnaxlabs/pluto";
+import { Access, Component, List, Menu, Status, Text } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
 
 import { ContextMenu as Base } from "@/platform/context-menu";
@@ -16,7 +16,13 @@ import { Errors } from "@/platform/errors";
 import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
 
-const Internal = ({ keys }: Menu.ContextMenuMenuProps) => {
+export interface ContextMenuProps extends Menu.ContextMenuMenuProps {
+  /** Builds the DOM id of a row's editable name. Lists rendering the same statuses
+   * under different ids (e.g. the favorites toolbar) pass their own builder. */
+  nameID?: (key: status.Key) => string;
+}
+
+const Internal = ({ keys, nameID = List.itemNameID }: ContextMenuProps) => {
   const statuses = Status.useMultiple({ keys });
   const dispatch = Session.useDispatch();
   const favoriteSet = Session.Status.useSelectFavoriteSet();
@@ -27,21 +33,6 @@ const Internal = ({ keys }: Menu.ContextMenuMenuProps) => {
   const confirm = Modals.useConfirmDelete({ type: "Status" });
   const { update: del } = Status.useDelete();
   const handleError = Status.useErrorHandler();
-  const renameModal = Modals.useRename();
-  const rename = Status.useRename({
-    beforeUpdate: useCallback(
-      async ({ data }: Flux.BeforeUpdateParams<Status.RenameParams>) => {
-        const renamed = await renameModal({
-          initialValue: data.name,
-          title: "Status.Rename",
-          icon: <Icon.Status />,
-        });
-        if (renamed == null) return false;
-        return { ...data, name: renamed };
-      },
-      [renameModal],
-    ),
-  });
 
   const anyFavorited = useMemo(
     () => keys.some((k) => favoriteSet.has(k)),
@@ -62,7 +53,7 @@ const Internal = ({ keys }: Menu.ContextMenuMenuProps) => {
   return (
     <Base.Menu>
       {hasUpdatePermission && isSingle && (
-        <Base.RenameItem onClick={() => rename.update(statuses[0])} />
+        <Base.RenameItem onClick={() => Text.edit(nameID(statuses[0].key))} />
       )}
       <Menu.Divider />
       <Base.FavoriteItems
@@ -98,7 +89,7 @@ const Internal = ({ keys }: Menu.ContextMenuMenuProps) => {
   );
 };
 
-const ContextMenu = (props: Menu.ContextMenuMenuProps) => (
+export const ContextMenu = (props: ContextMenuProps) => (
   <Errors.SuspenseBoundary loading={null}>
     <Internal {...props} />
   </Errors.SuspenseBoundary>

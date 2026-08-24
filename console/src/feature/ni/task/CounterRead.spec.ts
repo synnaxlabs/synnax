@@ -127,7 +127,7 @@ describe("CounterRead", () => {
     expect(screen.queryByText("Measurement method")).toBeNull();
   });
 
-  describe("deploying against a live cluster", () => {
+  describe("deploying against a live Core", () => {
     it("should create counter channels and update the device", async () => {
       const dev = await createNIDevice(client);
       const namedChannel = uniqueName("ctr_named");

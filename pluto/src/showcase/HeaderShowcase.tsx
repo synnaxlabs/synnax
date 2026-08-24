@@ -214,7 +214,7 @@ export const HeaderShowcase = () => (
         <Flex.Box y gap="large">
           <Header.Header level="h2" divided>
             <Header.Title>
-              <Icon.Cluster />
+              <Icon.Core />
               Cluster Management
             </Header.Title>
             <Header.Actions>

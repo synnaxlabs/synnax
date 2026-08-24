@@ -12,7 +12,7 @@ import {
   createTestClient,
   createTestClientWithPolicy,
 } from "@synnaxlabs/client/testutil";
-import { Haul, Mosaic, Panel as PPanel } from "@synnaxlabs/pluto";
+import { CSS as PCSS, Haul, Mosaic, Panel as PPanel } from "@synnaxlabs/pluto";
 import { fireDragEvent } from "@synnaxlabs/pluto/testutil";
 import { uuid } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -31,7 +31,12 @@ import { Modals } from "@/platform/modals";
 import { createPanelWrapper } from "@/platform/panel/testutil";
 import { findModalButton } from "@/platform/tree/menuTestutil";
 import { Session } from "@/session";
-import { getIconButton, type TestStore, uniqueName } from "@/testutil";
+import {
+  countEditableText,
+  getIconButton,
+  type TestStore,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -87,6 +92,15 @@ const renderStrip = async (
   projectKey: project.Key,
 ): Promise<{ store: TestStore; row: panel.Panel[] }> => {
   const { wrapper, store } = await createPanelWrapper({ client, project: projectKey });
+  // Production's membership synchronizer reconciles the strip order before the user
+  // can touch it; the harness mounts no synchronizer, so seed the order the same way.
+  act(() => {
+    store.dispatch(
+      Session.Panel.reconcileOrder({
+        panels: panels.map(({ key, name }) => ({ key, name })),
+      }),
+    );
+  });
   await act(async () => {
     render(
       <>
@@ -515,6 +529,7 @@ describe("Panel.Selector", () => {
       });
       await waitFor(() => expect(screen.getByText(pan.name)).toBeTruthy());
       expect(screen.queryByRole("button")).toBeNull();
+      expect(countEditableText(PCSS.B(`tab-${pan.key}`))).toBe(0);
     });
   });
 

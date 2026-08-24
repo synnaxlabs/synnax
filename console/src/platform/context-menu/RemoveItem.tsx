@@ -12,7 +12,7 @@ import { type ReactElement } from "react";
 
 export interface RemoveItemProps extends Omit<Menu.ItemProps, "itemKey"> {}
 
-/** Takes an entry out of the list being edited. For destroying a cluster resource,
+/** Takes an entry out of the list being edited. For destroying a Core resource,
  * use {@link DeleteItem} instead. */
 export const RemoveItem = (props: RemoveItemProps): ReactElement => (
   <Menu.Item itemKey="remove" {...props}>

@@ -217,7 +217,7 @@ describe("AnalogRead", () => {
     expect(port).toBeTruthy();
   });
 
-  describe("deploying against a live cluster", () => {
+  describe("deploying against a live Core", () => {
     it("should create index and data channels, update the device, and save the task", async () => {
       const dev = await createNIDevice(client);
       const namedChannel = uniqueName("ai_named");

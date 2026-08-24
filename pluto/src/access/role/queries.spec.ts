@@ -12,7 +12,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Role } from "@/access/role";
 import { renderHookSuspended } from "@/testutil/render";
@@ -278,6 +278,21 @@ describe("queries", () => {
         result.current.rename.update({ key: role.key, name: "newName" });
       });
       await waitFor(() => expect(result.current.retrieve?.name).toEqual("newName"));
+    });
+
+    it("should apply the rename optimistically", async () => {
+      const role = await client.access.roles.create({
+        name: "testRole",
+        description: "Test description",
+      });
+      const afterOptimistic = vi.fn();
+      const { result } = renderHook(() => Role.useRename({ afterOptimistic }), {
+        wrapper,
+      });
+      await act(async () => {
+        await result.current.updateAsync({ key: role.key, name: "newName" });
+      });
+      expect(afterOptimistic).toHaveBeenCalledOnce();
     });
   });
 

@@ -27,7 +27,7 @@ import { Data } from "@/feature/lineplot/toolbar/Data";
 import { Lines } from "@/feature/lineplot/toolbar/Lines";
 import { Properties } from "@/feature/lineplot/toolbar/Properties";
 import { useDownloadPlotAsCSV } from "@/feature/lineplot/useDownloadAsCSV";
-import { Cluster } from "@/platform/cluster";
+import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Export } from "@/platform/export";
@@ -75,7 +75,7 @@ const Internal = (): ReactElement => {
                 <Icon.CSV />
               </Button.Button>
               <Export.ToolbarButton id={lineplot.ontologyID(key)} />
-              <Cluster.CopyLinkToolbarButton
+              <Core.CopyLinkToolbarButton
                 name={name}
                 ontologyID={lineplot.ontologyID(key)}
               />

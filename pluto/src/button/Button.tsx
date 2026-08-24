@@ -265,6 +265,7 @@ const Base = <E extends ElementType = "button">({
         <Triggers.Text
           className={CSS.B("trigger-indicator")}
           aria-label="trigger-indicator"
+          aria-hidden
           trigger={parsedTriggerIndicator}
           color={9}
           gap="tiny"

@@ -184,7 +184,7 @@ describe("LabJack Read", () => {
     await waitFor(() => expect(screen.getAllByText("FIO4").length).toBeGreaterThan(0));
   });
 
-  describe("deploying against a live cluster", () => {
+  describe("deploying against a live Core", () => {
     it("should create the index and data channels, update the device, and save the task", async () => {
       const dev = await createLabJackDevice(client);
       const namedChannel = uniqueName("lj_named");

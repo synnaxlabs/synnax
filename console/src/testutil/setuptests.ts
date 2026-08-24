@@ -7,13 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// jsdom ships no IndexedDB; the session store uses it as the browser backend.
+import "fake-indexeddb/auto";
+
 import { configure } from "@testing-library/react";
 import { afterAll, beforeAll, vi } from "vitest";
 
 import { installTestWebSocket } from "@/testutil/websocket";
 
-// Live-core round-trips share the single test cluster with the rest of the suite, so
-// allow more than the 1s waitFor default.
+// Live-core round-trips share the single test Core with the rest of the suite, so allow
+// more than the 1s waitFor default.
 configure({ asyncUtilTimeout: 5000 });
 
 // Clients constructed at spec module scope start connecting immediately, so the

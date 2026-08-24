@@ -14,6 +14,7 @@ import {
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import {
   Haul,
   Panel as PlutoPanel,
@@ -52,7 +53,7 @@ export const testProjectKey = async (): Promise<string> =>
   (projectKey ??= (await client.projects.create({ name: id.create(), layout: {} }))
     .key);
 
-/** Creates a schematic on the test cluster under a shared test project. */
+/** Creates a schematic on the test Core under a shared test project. */
 export const createSchematic = async (
   overrides: Partial<schematic.New> = {},
 ): Promise<schematic.Schematic> =>
@@ -71,7 +72,9 @@ export const createPreloadedState = (
 ): ConsolePreloadedState => ({
   [Session.Schematic.SLICE_NAME]: {
     ...Session.Schematic.ZERO_SLICE_STATE,
-    schematics: { [key]: { ...Session.Schematic.ZERO_STATE, ...overrides } },
+    windows: {
+      [MAIN_WINDOW]: { [key]: { ...Session.Schematic.ZERO_STATE, ...overrides } },
+    },
   },
 });
 
@@ -233,6 +236,6 @@ export const createSymbolPayload = (name: string) => ({
 export const createLegacySymbolFile = (name: string): string =>
   JSON.stringify({ version: 1, ...createSymbolPayload(name) });
 
-/** Returns the names of the resource's ontology children on the test cluster. */
+/** Returns the names of the resource's ontology children on the test Core. */
 export const childNames = async (id: ontology.ID): Promise<string[]> =>
   (await client.ontology.children.retrieve({ ids: id })).map((c) => c.name);

@@ -29,6 +29,7 @@
       "sequence_order": "asynchronous",
       "pool_size": 3,
       "tests": [
+        { "case": "console/arc/graph_toolbar" },
         { "case": "console/log/log_lifecycle" },
         { "case": "console/pages/import_goldens" },
         { "case": "console/pages/open_close" },

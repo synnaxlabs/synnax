@@ -21,6 +21,7 @@ import {
   type StoreState,
   ZERO_STATE,
 } from "@/session/table/slice";
+import { Window } from "@/session/window";
 
 export const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 
@@ -48,14 +49,14 @@ const createGetter =
     );
   };
 
-const selectState = ({ state, key }: KeyedSelectorParams): State =>
-  selectSliceState(state).tables[key] ?? ZERO_STATE;
+const selectOptional = ({ state, key }: KeyedSelectorParams): State | undefined =>
+  Window.selectDocument(state, selectSliceState(state), key);
+
+const selectState = (params: KeyedSelectorParams): State =>
+  selectOptional(params) ?? ZERO_STATE;
 
 export const useSelect = createSelector(selectState);
 export const useGet = createGetter(selectState);
-
-const selectOptional = ({ state, key }: KeyedSelectorParams): State | undefined =>
-  selectSliceState(state).tables[key];
 
 export const useSelectOptional = createSelector(selectOptional);
 

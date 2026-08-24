@@ -597,8 +597,8 @@ class Overview(Surface):
         self.get_child_range(name).wait_for(state="hidden", timeout=5000)
 
     def rename_child_range(self, name: str, new_name: str) -> None:
-        """Rename a child range via context menu modal dialog."""
-        self.layout.rename_with_modal(self.get_child_range(name), new_name)
+        """Rename a child range via context menu. The name edits in place."""
+        self.layout.rename_in_place(self.get_child_range(name), new_name)
 
     def copy_child_range_link(self, name: str) -> None:
         """Copy link to a child range via context menu.

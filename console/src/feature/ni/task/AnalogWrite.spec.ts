@@ -105,7 +105,7 @@ describe("AnalogWrite", () => {
     expect(screen.queryByText("Custom scaling")).toBeNull();
   });
 
-  describe("deploying against a live cluster", () => {
+  describe("deploying against a live Core", () => {
     it("should create command and state channels and update the device", async () => {
       const dev = await createNIDevice(client);
       const rendered = await renderAnalogWrite(

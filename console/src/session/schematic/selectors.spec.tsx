@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { configureStore } from "@reduxjs/toolkit";
 import {
   access,
   channel,
@@ -28,6 +27,7 @@ import { Provider } from "react-redux";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { Schematic } from "@/session/schematic";
+import { createSliceStore, inWindow } from "@/session/window/testutil";
 import { createConsoleWrapper } from "@/testutil";
 
 const KEY = "schematic-1";
@@ -43,9 +43,11 @@ const customState = Schematic.stateZ.parse({
 });
 
 const storeWith = (slice: Schematic.SliceState) =>
-  configureStore({
-    reducer: { [Schematic.SLICE_NAME]: Schematic.reducer },
-    preloadedState: { [Schematic.SLICE_NAME]: slice },
+  createSliceStore({
+    name: Schematic.SLICE_NAME,
+    reducer: Schematic.reducer,
+    preloadedState: slice,
+    middleware: Schematic.MIDDLEWARE,
   });
 
 const wrapperFor = (
@@ -62,7 +64,7 @@ const wrapperFor = (
 };
 
 const createCustomStore = (): ReturnType<typeof storeWith> =>
-  storeWith({ schematics: { [KEY]: customState } });
+  storeWith({ version: 0, windows: inWindow({ [KEY]: customState }) });
 
 describe("schematic getters", () => {
   it("should read a schematic's state on demand across dispatches", () => {
@@ -133,7 +135,7 @@ describe("schematic getters", () => {
 
 describe("schematic selector hooks", () => {
   const store = (): ReturnType<typeof storeWith> =>
-    storeWith({ schematics: { [KEY]: customState } });
+    storeWith({ version: 0, windows: inWindow({ [KEY]: customState }) });
 
   it("should resolve the key from the surrounding scope", () => {
     const { result } = renderHook(() => Schematic.useSelect(), {
@@ -229,7 +231,7 @@ describe("schematic selector hooks", () => {
 
 describe("schematic selector stability under dispatch", () => {
   const store = (): ReturnType<typeof storeWith> =>
-    storeWith({ schematics: { [KEY]: customState } });
+    storeWith({ version: 0, windows: inWindow({ [KEY]: customState }) });
 
   it("should keep a stable reference when an unrelated field changes", () => {
     const s = store();
@@ -271,12 +273,13 @@ describe("schematic selector stability under dispatch", () => {
 
   it("should re-point the selector when its key dependency changes", () => {
     const s = storeWith({
-      schematics: {
+      version: 0,
+      windows: inWindow({
         [KEY]: customState,
         "schematic-2": Schematic.stateZ.parse({
           toolbar: { selectedSymbolGroup: "pumps" },
         }),
-      },
+      }),
     });
     const { result, rerender } = renderHook(
       ({ key }: { key: string }) => Schematic.useSelectSelectedSymbolGroup({ key }),
@@ -340,7 +343,8 @@ const setup = async ({
     client: userClient,
     preloadedState: {
       [Schematic.SLICE_NAME]: {
-        schematics: { [created.key]: Schematic.stateZ.parse({ editable }) },
+        version: 0,
+        windows: inWindow({ [created.key]: Schematic.stateZ.parse({ editable }) }),
       },
     },
   });

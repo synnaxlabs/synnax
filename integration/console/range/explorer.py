@@ -112,8 +112,8 @@ class Explorer(Surface):
         self.layout.wait_for_hidden(self.get_item(name))
 
     def rename(self, old_name: str, new_name: str) -> None:
-        """Rename a range via modal dialog from the explorer."""
-        self.layout.rename_with_modal(self.get_item(old_name), new_name)
+        """Rename a range from the explorer. The name edits in place."""
+        self.layout.rename_in_place(self.get_item(old_name), new_name)
 
     def delete(self, name: str) -> None:
         """Delete a range via context menu in the explorer."""

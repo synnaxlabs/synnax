@@ -9,9 +9,12 @@
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type schematic } from "@synnaxlabs/client";
+import { type Drift } from "@synnaxlabs/drift";
 import { type Control, control, type Diagram, Viewport } from "@synnaxlabs/pluto";
 import { color, control as xcontrol, sticky, xy } from "@synnaxlabs/x";
 import z from "zod";
+
+import { Window } from "@/session/window";
 
 export const viewportZ = z.object({
   position: xy.xyZ.default({ x: 0, y: 0 }),
@@ -50,7 +53,7 @@ export const stateZ = z.object({
   selected: z.array(z.string()).default([]),
   legend: legendStateZ.prefault({}),
   toolbar: toolbarStateZ.prefault({}),
-  editable: z.boolean().default(false),
+  editable: z.boolean().default(true),
   fitViewOnResize: z.boolean().default(false),
   viewport: viewportZ.prefault({}),
 });
@@ -59,8 +62,12 @@ export interface NewState extends z.input<typeof stateZ> {}
 
 export const ZERO_STATE = stateZ.parse({});
 
+export const windowStateZ = z.record(z.string(), stateZ).default({});
+
 export const sliceStateZ = z.object({
-  schematics: z.record(z.string(), stateZ).default({}),
+  version: z.literal(0).default(0),
+  /** A window is a viewport, so each holds its own view of every document. */
+  windows: z.record(z.string(), windowStateZ).default({}),
 });
 
 export interface SliceState extends z.infer<typeof sliceStateZ> {}
@@ -69,11 +76,11 @@ export const ZERO_SLICE_STATE = sliceStateZ.parse({});
 
 export const SLICE_NAME = "schematic";
 
-export interface StoreState {
+export interface StoreState extends Drift.StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-export interface KeyedPayload {
+export interface KeyedPayload extends Window.OptionalKeyParams {
   key: schematic.Key;
 }
 
@@ -131,106 +138,86 @@ export interface RemovePayload {
   keys: string[];
 }
 
-const withSelectedState =
-  <Payload extends KeyedPayload, Type extends string = string>(
-    handler?: (state: State, action: PayloadAction<Payload, Type>) => void,
-  ) =>
-  (state: SliceState, action: PayloadAction<Payload, Type>) => {
-    const {
-      payload: { key },
-    } = action;
-    let s = state.schematics[key];
-    if (s == null) {
-      s = stateZ.parse({});
-      state.schematics[key] = s;
-    }
-    handler?.(s, action);
-  };
+const withSelectedState = Window.createWithDocumentHandler(stateZ);
+const initializeDocument = Window.createDocumentInitializer(stateZ);
 
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
   reducers: {
-    create: (state, { payload }: PayloadAction<CreatePayload>) => {
-      if (payload.key in state.schematics) return;
-      state.schematics[payload.key] = stateZ.parse(payload);
-    },
-    setSelected: withSelectedState(
-      (state, { payload }: PayloadAction<SetSelectedPayload>) => {
+    create: initializeDocument<CreatePayload, SliceState>,
+    setSelected: withSelectedState<SetSelectedPayload, SliceState>(
+      (state, { payload }) => {
         state.selected = payload.selected;
         state.toolbar.selectedTab =
           payload.selected.length > 0 ? "properties" : "symbols";
       },
     ),
-    setControlStatus: withSelectedState(
-      (
-        state,
-        { payload: { status: control } }: PayloadAction<SetControlStatusPayload>,
-      ) => {
+    setControlStatus: withSelectedState<SetControlStatusPayload, SliceState>(
+      (state, { payload: { status: control } }) => {
         state.control.status = control;
         if (control !== "acquired") return;
         state.selected = [];
         state.editable = false;
       },
     ),
-    setControlAuthority: withSelectedState(
-      (state, { payload: { authority } }: PayloadAction<SetAuthorityPayload>) => {
+    setControlAuthority: withSelectedState<SetAuthorityPayload, SliceState>(
+      (state, { payload: { authority } }) => {
         state.control.authority = authority;
       },
     ),
-    moveLegend: withSelectedState(
-      (state, { payload: { position } }: PayloadAction<MoveLegendPayload>) => {
+    moveLegend: withSelectedState<MoveLegendPayload, SliceState>(
+      (state, { payload: { position } }) => {
         state.legend.position = position;
       },
     ),
-    setLegendColors: withSelectedState(
-      (state, { payload: { colors } }: PayloadAction<SetLegendColorsPayload>) => {
+    setLegendColors: withSelectedState<SetLegendColorsPayload, SliceState>(
+      (state, { payload: { colors } }) => {
         state.legend.colors = colors;
       },
     ),
-    setLegendVisible: withSelectedState(
-      (state, { payload: { visible } }: PayloadAction<SetLegendVisiblePayload>) => {
+    setLegendVisible: withSelectedState<SetLegendVisiblePayload, SliceState>(
+      (state, { payload: { visible } }) => {
         state.legend.visible = visible;
       },
     ),
-    selectToolbarTab: withSelectedState(
-      (state, { payload: { tab } }: PayloadAction<SelectToolbarTabPayload>) => {
+    selectToolbarTab: withSelectedState<SelectToolbarTabPayload, SliceState>(
+      (state, { payload: { tab } }) => {
         state.toolbar.selectedTab = tab;
       },
     ),
-    setSelectedSymbolGroup: withSelectedState(
-      (state, { payload: { group } }: PayloadAction<SetSelectedSymbolGroupPayload>) => {
-        state.toolbar.selectedSymbolGroup = group;
-      },
-    ),
-    setEditable: withSelectedState(
-      (state, { payload: { editable } }: PayloadAction<SetEditablePayload>) => {
+    setSelectedSymbolGroup: withSelectedState<
+      SetSelectedSymbolGroupPayload,
+      SliceState
+    >((state, { payload: { group } }) => {
+      state.toolbar.selectedSymbolGroup = group;
+    }),
+    setEditable: withSelectedState<SetEditablePayload, SliceState>(
+      (state, { payload: { editable } }) => {
         state.editable = editable;
         if (!editable) state.selected = [];
       },
     ),
-    setFitViewOnResize: withSelectedState(
-      (
-        state,
-        { payload: { fitViewOnResize } }: PayloadAction<SetFitViewOnResizePayload>,
-      ) => {
+    setFitViewOnResize: withSelectedState<SetFitViewOnResizePayload, SliceState>(
+      (state, { payload: { fitViewOnResize } }) => {
         state.fitViewOnResize = fitViewOnResize;
       },
     ),
-    setViewport: withSelectedState(
-      (state, { payload: { viewport } }: PayloadAction<SetViewportPayload>) => {
+    setViewport: withSelectedState<SetViewportPayload, SliceState>(
+      (state, { payload: { viewport } }) => {
         state.viewport = { ...state.viewport, ...viewport };
       },
     ),
-    setViewportMode: withSelectedState(
-      (state, { payload: { mode } }: PayloadAction<SetViewportModePayload>) => {
+    setViewportMode: withSelectedState<SetViewportModePayload, SliceState>(
+      (state, { payload: { mode } }) => {
         state.viewport.mode = mode;
       },
     ),
     remove: (state, { payload }: PayloadAction<RemovePayload>) => {
-      payload.keys.forEach((key) => delete state.schematics[key]);
+      Window.removeDocuments(state, payload.keys);
     },
   },
+  extraReducers: Window.handleRemoved,
 });
 
 export const {
@@ -254,12 +241,31 @@ export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 
 export const purgeState = (state: State): State => {
   state.control.status = "released";
+  state.selected = [];
   return state;
 };
 
 export const purgeSliceState = <S extends StoreState>(state: S): S => {
-  Object.values(state[SLICE_NAME].schematics).forEach(purgeState);
+  Window.purgeDocuments(state[SLICE_NAME], purgeState);
   return state;
 };
 
 export const PERSIST_EXCLUDE = [purgeSliceState];
+
+export const MIDDLEWARE = [
+  Window.createInjectKeyMiddleware([
+    create,
+    setSelected,
+    setControlStatus,
+    setControlAuthority,
+    setLegendColors,
+    moveLegend,
+    setLegendVisible,
+    selectToolbarTab,
+    setSelectedSymbolGroup,
+    setEditable,
+    setFitViewOnResize,
+    setViewport,
+    setViewportMode,
+  ]),
+];

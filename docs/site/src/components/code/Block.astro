@@ -132,6 +132,11 @@ if (wrap) className += " wrap";
         }
     }
 
+    /* The code block's own padding carries the gap under the tab strip. */
+    .pluto-tabs__content .astro-code-wrapper:first-child {
+        margin-top: 0;
+    }
+
     @media (max-width: 800px) {
         .astro-code-wrapper {
             margin: 5rem 0;

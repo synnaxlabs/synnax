@@ -142,15 +142,6 @@ const visibleTitleLength = String(title ?? "").replace(/`/g, "").length;
             }
         }
 
-        .pluto-tabs__selector {
-            margin: 1rem 1rem 1rem;
-        }
-
-        /* The code block's own padding carries the gap under the strip. */
-        .pluto-tabs__content .astro-code-wrapper:first-child {
-            margin-top: 0;
-        }
-
         & video,
         img:not(.diagram img):not(.blog-author__photo) {
             width: 100%;
@@ -185,25 +176,6 @@ const visibleTitleLength = String(title ?? "").replace(/`/g, "").length;
             /* Step h2 following the hidden empty h2 after a divider */
             & + h2:not(.no-link) + h2.no-link {
                 margin-top: 4rem !important;
-            }
-        }
-
-        .pluto-tabs__selector {
-            --pluto-height-medium: 6.5rem;
-            --pluto-tabs-tab-height: 5.5rem;
-
-            .pluto-tabs__tab {
-                padding: 0 2.5rem;
-                gap: 1.5rem;
-
-                @media (max-width: 800px) {
-                    padding: 0 1.5rem;
-                    gap: 1rem;
-                }
-
-                :is(.pluto-text, .pluto-icon) {
-                    margin: 0;
-                }
             }
         }
 

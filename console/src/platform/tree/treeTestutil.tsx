@@ -38,7 +38,7 @@ export interface OntologyTreeHandle extends RenderResult {
 }
 
 /**
- * Renders the real Tree.Tree against the live cluster inside the full console
+ * Renders the real Tree.Tree against the live Core inside the full console
  * provider stack, with a mounted modal stack so context-menu flows can open prompts.
  * The Triggers provider is included so held-modifier interactions (control-click
  * multi-select) behave as they do in the app. An active project is established so

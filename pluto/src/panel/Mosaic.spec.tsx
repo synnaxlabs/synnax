@@ -13,7 +13,7 @@ import {
   createTestClient,
   createTestClientWithPolicy,
 } from "@synnaxlabs/client/testutil";
-import { type record, uuid } from "@synnaxlabs/x";
+import { type record, TimeSpan, uuid } from "@synnaxlabs/x";
 import {
   act,
   fireEvent,
@@ -28,7 +28,9 @@ import { Errors } from "@/errors";
 import { Haul } from "@/haul";
 import { Panel } from "@/panel";
 import { Tabs } from "@/tabs";
+import { mockBoundingClientRect } from "@/testutil/dom";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { Tooltip } from "@/tooltip";
 
 const client = createTestClient();
 // writer is a second connected client used to emit changes the wrapper client
@@ -183,7 +185,9 @@ describe("Panel.Mosaic", () => {
       utils = render(
         <Errors.SuspenseBoundary loading={<div>loading</div>}>
           <Panel.Suspended panelKey={panelKey}>
-            <Panel.Mosaic {...props}>{children}</Panel.Mosaic>
+            <Tooltip.Config delay={TimeSpan.milliseconds(1)}>
+              <Panel.Mosaic {...props}>{children}</Panel.Mosaic>
+            </Tooltip.Config>
           </Panel.Suspended>
         </Errors.SuspenseBoundary>,
         { wrapper },
@@ -368,6 +372,73 @@ describe("Panel.Mosaic", () => {
       const utils = await renderMosaic({ panelKey: p.key });
       await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
       expect(isTabFocused(utils, a.key)).toBe(false);
+    });
+  });
+
+  describe("shortcut hints", () => {
+    // The mosaic binds neither shortcut; the embedding app does. A hint that drifts
+    // from the exported constant therefore advertises a key that does nothing.
+    const hoverTooltip = async (el: HTMLElement): Promise<HTMLElement> => {
+      // jsdom lays every element out at zero size, and the tooltip closes itself
+      // against a zero-area anchor, so the anchor is given a real box first.
+      el.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 40);
+      fireEvent.pointerEnter(el);
+      let tip!: HTMLElement;
+      await waitFor(() => {
+        const found = document.querySelector<HTMLElement>(".pluto-tooltip");
+        if (found == null) throw new Error("tooltip did not open");
+        tip = found;
+      });
+      return tip;
+    };
+
+    const createButtons = (utils: RenderResult): HTMLElement[] =>
+      Array.from(
+        utils.container.querySelectorAll<HTMLElement>(".pluto-panel-mosaic__create"),
+      );
+
+    it("should advertise create only on the leaf holding the focused tab", async () => {
+      const a1 = resourceTab();
+      const a2 = resourceTab();
+      const b1 = resourceTab();
+      const b2 = resourceTab();
+      const p = await splitPanel(a1, a2, b1, b2);
+      const utils = await renderMosaic({
+        panelKey: p.key,
+        selected: [a2.key, b2.key],
+      });
+      await waitFor(() => expect(utils.getByText(contentText(b2))).toBeTruthy());
+      const [left, right] = createButtons(utils);
+
+      // The right leaf's selected tab is not the selection head, so create would put
+      // the new tab in the left leaf. Hinting the key here would point at the wrong
+      // leaf, so the unfocused button opens no tooltip at all.
+      right.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 40);
+      fireEvent.pointerEnter(right);
+      await expect(
+        waitFor(
+          () => {
+            if (document.querySelector(".pluto-tooltip") == null)
+              throw new Error("no tooltip yet");
+          },
+          { timeout: 500 },
+        ),
+      ).rejects.toThrow();
+      fireEvent.pointerLeave(right);
+
+      const tip = await hoverTooltip(left);
+      expect(tip.textContent?.toLowerCase()).toContain("t");
+    });
+
+    it("should advertise escape as the way out of focus mode", async () => {
+      const tab = resourceTab();
+      const p = await createPanel(tab);
+      const utils = await renderMosaic({ panelKey: p.key, overlaid: tab.key });
+      const exit = utils.getByText("Exit focus").closest("button");
+      if (exit == null) throw new Error("exit focus button did not render");
+      const tip = await hoverTooltip(exit);
+      // Control+L only enters focus mode now, so hinting it here would be a lie.
+      expect(tip.textContent?.toLowerCase()).toContain("esc");
     });
   });
 

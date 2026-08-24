@@ -37,8 +37,7 @@ import { Session } from "@/session";
 export const Splash = (): ReactElement => {
   const dispatch = Session.useDispatch();
   const logout = Session.useLogout();
-  const activeClusterKey = Session.Cluster.useSelectSelectedKey();
-  const activeCluster = Session.Cluster.useSelectState(activeClusterKey ?? undefined);
+  const activeCore = Session.Core.useSelectSelected();
   const hasRetrievePermission = Access.useRetrieveGranted(project.TYPE_ONTOLOGY_ID);
   const hasCreatePermission = Access.useCreateGranted(project.TYPE_ONTOLOGY_ID);
   const openCreate = PlatformProject.useCreateModal();
@@ -78,7 +77,7 @@ export const Splash = (): ReactElement => {
   const getIsAnyModalOpen = Session.Modals.useGetIsAnyOpen();
 
   return (
-    <Shell.Frame className={CSS.B("project-splash")} connection={activeCluster}>
+    <Shell.Frame className={CSS.B("project-splash")} connection={activeCore}>
       <Menu.ContextMenu menu={contextMenu} {...menuProps} />
       <Select.Frame
         data={data}

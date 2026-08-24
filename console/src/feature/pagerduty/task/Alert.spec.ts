@@ -111,7 +111,7 @@ describe("PagerDuty Alert form", () => {
     expect(screen.queryByText("No alerts")).toBeNull();
   });
 
-  describe("deploying against a live cluster", () => {
+  describe("deploying against a live Core", () => {
     const client = createTestClient();
 
     it("should start the alert task on the rack stored on its row", async () => {

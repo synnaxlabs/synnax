@@ -41,9 +41,3 @@ export { reducer };
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 export type Payload = Action["payload"];
-
-/** Drag state is transient; a persisted drag would resume a phantom haul on relaunch. */
-export const PERSIST_EXCLUDE = <S extends StoreState>(state: S): S => ({
-  ...state,
-  [SLICE_NAME]: ZERO_SLICE_STATE,
-});

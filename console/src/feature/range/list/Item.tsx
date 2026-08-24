@@ -25,6 +25,7 @@ import { memo, type MouseEvent, useMemo } from "react";
 import { CSS } from "@/platform/css";
 import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
+import { Session } from "@/session";
 
 export interface ItemProps extends List.ItemProps<ranger.Key> {
   showParent?: boolean;
@@ -54,6 +55,7 @@ const Base = ({
     };
   }, [item]);
   const canEdit = Access.useUpdateGranted(ranger.ontologyID(itemKey));
+  const { update: rename } = Session.Range.useRename();
   const { form } = Ranger.useForm({
     query: null,
     initialValues,
@@ -108,6 +110,8 @@ const Base = ({
               parent={parent}
               showParent={showParent}
               overflow="nowrap"
+              nameID={List.itemNameID(itemKey)}
+              onRename={canEdit ? (name) => rename({ key: itemKey, name }) : undefined}
             />
           </Flex.Box>
         </Flex.Box>

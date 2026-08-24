@@ -14,6 +14,10 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 import synnax as sy
 
+# A notification expires on its own after a few seconds, so a button that is still
+# attached resolves at once.
+SILENCE_TIMEOUT = 1000
+
 
 class NotificationsClient:
     """Notifications management for Console UI automation."""
@@ -118,19 +122,27 @@ class NotificationsClient:
     def close_all(self) -> int:
         """Silence every visible notification at once and wait for them to clear.
 
+        A notification that expires on its own before its click lands is already in
+        the wanted state, so it does not fail the call.
+
         :returns: Number of notifications silenced.
         """
         buttons = self._all().get_by_role("button", name="Silence", exact=True)
         count = buttons.count()
+        silenced = 0
         # Last to first: a silenced toast unmounts and shifts the indexes after it.
         for i in reversed(range(count)):
-            buttons.nth(i).dispatch_event("click")
-        if count > 0:
+            try:
+                buttons.nth(i).dispatch_event("click", timeout=SILENCE_TIMEOUT)
+                silenced += 1
+            except PlaywrightTimeoutError:
+                pass
+        if silenced > 0:
             try:
                 expect(buttons).to_have_count(0, timeout=2000)
             except AssertionError:
                 pass
-        return count
+        return silenced
 
     def close_connection(self) -> bool:
         """Close the 'Connected to...' notification if present.

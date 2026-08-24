@@ -17,25 +17,25 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { openSugaredKV, type SugaredKV } from "@/session/persist/kv";
+import { type Entry, openSugaredKV, type SugaredKV } from "@/session/persist/kv";
 import { Runtime } from "@/session/runtime";
 
-// Note that this is a relative path within the tauri standard app data directory.
-// On macOS, this is ~/Library/Application Support/com.synnaxlabs.dev.
-// On Windows, this is %APPDATA%/com.synnaxlabs.dev.
-export const STORE_PATH = "persisted-state.json";
+// On desktop this names session.json inside the tauri local app data directory: on
+// macOS ~/Library/Application Support/com.synnaxlabs.dev, on Windows
+// %LOCALAPPDATA%/com.synnaxlabs.dev. In the browser it names an IndexedDB database.
+export const STORE_NAME = "session";
 
 /**
  * The scope state is persisted under. State partitions into three scopes:
- * global, per-cluster, and per-cluster-per-project.
+ * global, per-Core, and per-Core-per-project.
  */
 export interface Context {
-  cluster?: string;
+  core?: string;
   project?: string;
 }
 
 const contextsEqual = (a: Context, b: Context): boolean =>
-  a.cluster === b.cluster && a.project === b.project;
+  a.core === b.core && a.project === b.project;
 
 export interface KVOpener {
   (base: string): SugaredKV;
@@ -46,26 +46,131 @@ export type ExcludeFn<S extends object> = (state: S) => S;
 
 type SliceKey<S extends object> = keyof S & string;
 
-export type SliceMigrators<S extends object> = {
-  [K in keyof S]?: (raw: unknown) => S[K];
+/**
+ * The slices of one partition scope, each under the schema its bytes are parsed
+ * through on read. Declaring the schema beside the scope rather than in a separate
+ * table is what makes an unvalidated persisted slice unrepresentable.
+ */
+export type SliceSchemas<S extends object> = {
+  [K in SliceKey<S>]?: z.ZodType<S[K]>;
 };
 
-/** Slice names belonging to each partition scope. Every persisted slice
- * appears in exactly one scope. */
-export interface Scopes<S extends object> {
-  global: Array<SliceKey<S>>;
-  cluster: Array<SliceKey<S>>;
-  project: Array<SliceKey<S>>;
+/** A slice keying its state by window, which is what a lens splits. */
+export interface Windowed {
+  windows: Record<string, unknown>;
 }
+
+/**
+ * How a window-scoped slice splits across the windows it holds state for. The store
+ * supplies one, so persistence never assumes anything about a slice beyond the record
+ * a window scope already implies.
+ */
+export interface Lens {
+  /** The slice narrowed to one window, which is what that window's partition stores. */
+  narrow: (slice: Windowed, key: string) => Windowed;
+  /**
+   * The slice's shared remainder: every field but the windows record, which the
+   * project partition stores once for all windows.
+   */
+  shared: (slice: Windowed) => Windowed;
+  /** Folds a window's stored slice back into the one being composed. */
+  widen: (into: Windowed, from: Windowed) => Windowed;
+}
+
+// A window scope is the store's promise that the slices in it key state by window. S
+// carries no such constraint, so these three are where that promise is taken at its
+// word, and the only place a slice is treated as anything but opaque.
+const narrowTo = <S extends object, K extends SliceKey<S>>(
+  lens: Lens,
+  slice: S[K],
+  window: string,
+): S[K] => lens.narrow(slice as Windowed, window) as S[K];
+
+const sharedOf = <S extends object, K extends SliceKey<S>>(
+  lens: Lens,
+  slice: S[K],
+): S[K] => lens.shared(slice as Windowed) as S[K];
+
+const widenInto = <S extends object, K extends SliceKey<S>>(
+  lens: Lens,
+  into: S[K],
+  from: S[K],
+): S[K] => lens.widen(into as Windowed, from as Windowed) as S[K];
+
+/**
+ * Where each slice lives on disk. Every slice of S appears in exactly one scope or
+ * in transient; {@link open} throws when one is missing, so adding a slice to the
+ * store forces a decision about its durability.
+ */
+export interface Scopes<S extends object> {
+  global: SliceSchemas<S>;
+  core: SliceSchemas<S>;
+  project: SliceSchemas<S>;
+  /**
+   * Slices split through {@link Config.lens}: one partition per window for the
+   * windows record, with every other field stored in the project partition.
+   */
+  window: SliceSchemas<S>;
+  /** Slices deliberately never written. */
+  transient: Array<SliceKey<S>>;
+}
+
+const scopeKeys = <S extends object>(scope: SliceSchemas<S>): Array<SliceKey<S>> =>
+  Object.keys(scope) as Array<SliceKey<S>>;
+
+/**
+ * @throws {Error} if a slice of S is in no scope and not declared transient, or is
+ * in more than one scope.
+ */
+const validateScopes = <S extends object>(initial: S, scopes: Scopes<S>): void => {
+  const { global, core, project, window, transient } = scopes;
+  const declared = [
+    ...scopeKeys(global),
+    ...scopeKeys(core),
+    ...scopeKeys(project),
+    ...scopeKeys(window),
+    ...transient,
+  ];
+  const seen = new Set<string>();
+  const duplicated = declared.filter((key) => {
+    if (seen.has(key)) return true;
+    seen.add(key);
+    return false;
+  });
+  if (duplicated.length > 0)
+    throw new Error(`slices declared in more than one scope: ${duplicated.join(", ")}`);
+  const missing = Object.keys(initial).filter((key) => !seen.has(key));
+  if (missing.length > 0)
+    throw new Error(
+      `slices in no persistence scope: ${missing.join(", ")}. Add each to a scope with its schema, or to transient.`,
+    );
+  // A window partition stores a slice narrowed to its windows record alone, so a
+  // field without a schema default would make every window partition unreadable.
+  const defaultless = scopeKeys(window).filter(
+    (key) => window[key]?.safeParse({ windows: {} }).success !== true,
+  );
+  if (defaultless.length > 0)
+    throw new Error(
+      `window-scoped slices whose schemas reject a bare windows record: ${defaultless.join(", ")}. Give every field outside windows a default.`,
+    );
+};
 
 export interface Config<S extends object> {
   initial: S;
   scopes: Scopes<S>;
   /** getContext reads the partition scope from state. */
   getContext: (state: S) => Context;
-  /** Per-slice migrators applied to each slice as its partition loads. */
-  migrators?: SliceMigrators<S>;
+  /** getWindows names the windows the session is running, one partition each. */
+  getWindows?: (state: S) => string[];
+  /** How window-scoped slices split across windows. Required for that scope. */
+  lens?: Lens | null;
   exclude?: Array<ExcludeFn<S>>;
+  /**
+   * Carries the previous release's state over the first time the store is opened.
+   * Consulted only while the store is still empty, so it never overwrites what this
+   * release has written.
+   */
+  migrate?: () => Promise<Partial<S>>;
   openKV?: KVOpener;
   debounceInterval?: CrudeTimeSpan;
 }
@@ -93,12 +198,25 @@ export const matchHydrate = <S extends object>(
 export const beginSwap = createAction("persist/beginSwap");
 /** Clears the swap mark when a failed swap will never hydrate. */
 export const endSwap = createAction("persist/endSwap");
+/**
+ * Deletes everything stored under a Core partition key: the partition itself and the
+ * project partitions beneath it. Dispatched when nothing can reach that state again.
+ */
+export const purge = createAction<string>("persist/purge");
+/**
+ * Marks the store unwritable. The platform refuses it outright — a cross-origin
+ * frame, private browsing on an older engine, an exhausted quota — so the session
+ * runs but will not survive a reload.
+ */
+export const storeUnavailable = createAction("persist/storeUnavailable");
 export type Action = ReturnType<
   | typeof revertState
   | typeof clearState
   | typeof hydrate
   | typeof beginSwap
   | typeof endSwap
+  | typeof purge
+  | typeof storeUnavailable
 >;
 
 /** Slots kept per partition before the ring wraps. */
@@ -115,62 +233,122 @@ const slotPointerZ = z.object({
     .max(HISTORY_LENGTH - 1),
 });
 
+/** Maps a slice to the part of it a partition stores. */
+type SliceTransform<S extends object> = (
+  key: SliceKey<S>,
+  slice: S[SliceKey<S>],
+) => S[SliceKey<S>];
+
 /**
  * A group of slices stored under one key prefix, with a bounded ring of slots
  * behind a pointer key. Owns how the group's bytes round-trip: ring advancement,
- * migration on read, and stepping the pointer back on revert. The slot pointer is
+ * parsing on read, and stepping the pointer back on revert. The slot pointer is
  * unrelated to the schema version each slice carries in its own value.
  */
 class Partition<S extends object> {
   private readonly db: SugaredKV;
   private readonly base: string;
-  private readonly slices: Array<SliceKey<S>>;
-  private readonly migrators: SliceMigrators<S>;
+  private readonly schemas: SliceSchemas<S>;
+  /** Maps each slice to the part of it this partition stores. */
+  private readonly transform: SliceTransform<S> | null;
+  /** The slices last known to be in the ring, so an idle partition is left alone. */
+  private committed: Partial<S> | null = null;
+  private staged: Partial<S> | null = null;
 
   constructor(
     db: SugaredKV,
     base: string,
-    slices: Array<SliceKey<S>>,
-    migrators: SliceMigrators<S>,
+    schemas: SliceSchemas<S>,
+    transform: SliceTransform<S> | null = null,
   ) {
     this.db = db;
     this.base = base;
-    this.slices = slices;
-    this.migrators = migrators;
+    this.schemas = schemas;
+    this.transform = transform;
   }
 
-  /** Read the slices at the current ring slot, migrated. */
+  /**
+   * Read the slices at the current ring slot. A slice whose stored bytes fail its
+   * schema is dropped, leaving the caller to fall back to its initial state.
+   */
   async read(): Promise<Partial<S>> {
-    const slot = await this.readSlot();
-    const data = (await this.db.get(this.stateKey(slot))) as Partial<S> | null;
     const out: Partial<S> = {};
+    const slot = (await this.readSlot()) ?? 0;
+    const data = (await this.db.get(this.stateKey(slot))) as Partial<S> | null;
+    // Committed mirrors the bytes in the ring, not their parse: parsing fills
+    // defaults staging strips back out, and comparing across that gap would rewrite
+    // an idle partition every launch.
+    const committed: Partial<S> = {};
+    this.committed = committed;
     if (data == null) return out;
-    this.slices.forEach((key) => {
-      const migrated = this.migrateSlice(key, data[key]);
-      if (migrated != null) out[key] = migrated as S[typeof key];
+    this.keys().forEach((key) => {
+      const raw = data[key];
+      if (raw == null) return;
+      committed[key] = raw;
+      const parsed = this.schemas[key]?.safeParse(raw);
+      if (parsed?.success !== true)
+        return console.error(
+          `discarding stored slice ${key}: it does not match its schema`,
+          parsed?.error,
+        );
+      out[key] = parsed.data;
     });
     return out;
   }
 
-  /** Write the state's slices into the next ring slot and advance the pointer. */
-  async write(state: S): Promise<void> {
-    const slot = nextSlot(await this.readSlot());
+  /**
+   * The entries that put the state's slices in the next ring slot and move the pointer
+   * onto it. The caller writes them, then calls {@link commit}.
+   * @returns null when the slices match the ones already committed, so an idle
+   * partition is left alone and the ring holds sessions rather than the last second of
+   * writes.
+   * @throws {Error} if the store refuses the pointer read.
+   */
+  async stage(state: S): Promise<Entry[] | null> {
     const data: Partial<S> = {};
-    this.slices.forEach((key) => {
-      data[key] = state[key];
+    this.keys().forEach((key) => {
+      const slice = state[key];
+      data[key] = this.transform == null ? slice : this.transform(key, slice);
     });
-    try {
-      await this.db.set(this.stateKey(slot), data);
-    } catch (err) {
-      console.error(`failed to write partition ${this.base} at slot ${slot}`, err);
-      return;
-    }
-    await this.setSlot(slot);
+    if (this.committed != null && deep.equal(this.committed, data)) return null;
+    const stored = await this.readSlot();
+    const slot = stored == null ? 0 : nextSlot(stored);
+    this.staged = data;
+    return [
+      { key: this.stateKey(slot), value: data },
+      { key: this.slotKey(), value: { slot } },
+    ];
   }
 
-  /** Step the ring pointer back one slot. */
-  async revert(): Promise<void> {
-    await this.setSlot(prevSlot(await this.readSlot()));
+  /** Marks what {@link stage} returned as the slices now in the ring. */
+  commit(): void {
+    if (this.staged == null) return;
+    this.committed = this.staged;
+    this.staged = null;
+  }
+
+  /**
+   * Step the ring pointer back one slot.
+   * @returns false when the slot behind holds nothing, leaving the pointer alone.
+   */
+  async revert(): Promise<boolean> {
+    const slot = prevSlot((await this.readSlot()) ?? 0);
+    if ((await this.db.get(this.stateKey(slot))) == null) return false;
+    this.committed = null;
+    await this.db.setMany([{ key: this.slotKey(), value: { slot } }]);
+    return true;
+  }
+
+  private keys(): Array<SliceKey<S>> {
+    return Object.keys(this.schemas) as Array<SliceKey<S>>;
+  }
+
+  /** Every key the partition occupies, for deleting it whole. */
+  occupied(): string[] {
+    const slots = Array.from({ length: HISTORY_LENGTH }, (_, slot) =>
+      this.stateKey(slot),
+    );
+    return [...slots, this.slotKey()];
   }
 
   private stateKey(slot: number): string {
@@ -181,38 +359,21 @@ class Partition<S extends object> {
     return `${this.base}.slot`;
   }
 
-  private async readSlot(): Promise<number> {
+  /**
+   * The slot the pointer names, or null when the ring has never been written or the
+   * pointer is corrupt.
+   * @throws {Error} if the store refuses the read.
+   */
+  private async readSlot(): Promise<number | null> {
     const stored = slotPointerZ.safeParse(await this.db.get(this.slotKey()));
-    return stored.success ? stored.data.slot : 0;
-  }
-
-  /** @throws {Error} if the pointer cannot be written. */
-  private async setSlot(slot: number): Promise<void> {
-    try {
-      await this.db.set(this.slotKey(), { slot });
-    } catch (err) {
-      throw new Error(`failed to bump slot pointer of partition ${this.base}`, {
-        cause: err,
-      });
-    }
-  }
-
-  private migrateSlice(key: SliceKey<S>, raw: unknown): unknown {
-    const migrator = this.migrators[key];
-    if (migrator == null || raw == null) return raw;
-    try {
-      return migrator(raw);
-    } catch (err) {
-      console.error(`failed to migrate slice ${key}. using its initial state.`, err);
-      return null;
-    }
+    return stored.success ? stored.data.slot : null;
   }
 }
 
 /** Clear the entire store and reload the page. */
 export const hardClearAndReload = () => {
   if (!Runtime.isMainWindow()) return;
-  openSugaredKV(STORE_PATH)
+  openSugaredKV(STORE_NAME)
     .clear()
     .catch((err: unknown) => {
       console.error("failed to clear store during hard reload", err);
@@ -224,15 +385,23 @@ export const hardClearAndReload = () => {
 class Engine<S extends object> {
   /** The context {@link initialState} was composed for. */
   context: Context;
-  /** The composed global + cluster + project state read on open. */
+  /** The composed global + Core + project state read on open. */
   initialState: S;
+  /** Whether composing state on open failed outright. */
+  unreadable = false;
 
   private readonly db: SugaredKV;
+  private readonly partitions = new Map<string, Partition<S>>();
   private readonly initial: S;
   private readonly scopes: Scopes<S>;
+  /** The project partition's schemas: its own slices plus window-slice remainders. */
+  private readonly projectSchemas: SliceSchemas<S>;
+  private readonly sharedTransform: SliceTransform<S> | null;
   private readonly getContext: (state: S) => Context;
-  private readonly migrators: SliceMigrators<S>;
+  private readonly getWindows: (state: S) => string[];
+  private readonly lens: Lens | null;
   private readonly exclude: Array<ExcludeFn<S>>;
+  private readonly migrate?: () => Promise<Partial<S>>;
 
   /**
    * Opens an engine over the persisted store and composes the state it holds for the
@@ -248,112 +417,275 @@ class Engine<S extends object> {
     initial,
     scopes,
     getContext,
-    migrators = {},
+    getWindows = () => [],
+    lens = null,
     exclude = [],
+    migrate,
     openKV = openSugaredKV,
   }: Config<S>) {
     this.initial = deep.copy(initial);
     this.scopes = scopes;
     this.getContext = getContext;
-    this.migrators = migrators;
+    this.getWindows = getWindows;
+    this.lens = lens;
+    // A window-scoped slice's fields outside its windows record are shared by every
+    // window, so the project partition stores that remainder under the slice's own
+    // key.
+    if (lens == null) {
+      this.projectSchemas = scopes.project;
+      this.sharedTransform = null;
+    } else {
+      this.projectSchemas = { ...scopes.project, ...scopes.window };
+      this.sharedTransform = (key, slice) =>
+        key in scopes.window ? sharedOf<S, SliceKey<S>>(lens, slice) : slice;
+    }
     this.exclude = exclude;
-    this.db = openKV(STORE_PATH);
+    this.migrate = migrate;
+    this.db = openKV(STORE_NAME);
     this.initialState = deep.copy(initial);
     this.context = getContext(this.initialState);
   }
 
-  /** Persist the state's partitions under the given context's keys. */
+  /**
+   * Persist the state's partitions under the given context's keys, as one write. Every
+   * partition the context reaches commits together, so a reader never sees one scope
+   * of a session without the others.
+   * @throws {Error} if the store rejects the write.
+   */
   async persist(rawState: S, context: Context): Promise<void> {
     let state = deep.copy(rawState);
     this.exclude.forEach((exclude) => (state = exclude(state)));
-    for (const partition of this.activePartitions(context))
-      await partition.write(state);
+    const partitions = [
+      ...this.activePartitions(context),
+      ...this.windowPartitions(context, state),
+    ];
+    const entries: Entry[] = [];
+    for (const partition of partitions)
+      entries.push(...((await partition.stage(state)) ?? []));
+    const closed = this.closedWindows(context, state);
+    if (entries.length === 0 && closed.length === 0) return;
+    try {
+      if (entries.length > 0) await this.db.setMany(entries);
+      if (closed.length > 0) await this.db.deleteMany(closed);
+    } catch (err) {
+      throw new Error("failed to write the session state", { cause: err });
+    }
+    partitions.forEach((partition) => partition.commit());
   }
 
   /**
-   * Load the cluster and project (or project-only) slices for the target context,
-   * defaulting unvisited partitions to their initial slices. When includeCluster is
-   * true the target project is re-derived from the loaded cluster partition.
+   * Load the Core and project (or project-only) slices for the target context,
+   * defaulting unvisited partitions to their initial slices. When includeCore is
+   * true the target project is re-derived from the loaded Core partition.
    */
   async loadSwap(
     state: S,
     context: Context,
-    includeCluster: boolean,
+    includeCore: boolean,
   ): Promise<Partial<S>> {
     const out: Partial<S> = {};
     let project = context.project;
-    if (includeCluster) {
-      const clusterSlices =
-        context.cluster == null ? {} : await this.cluster(context.cluster).read();
-      this.fill(out, this.scopes.cluster, clusterSlices);
-      // The target cluster's partition records which project was last active.
+    if (includeCore) {
+      const coreSlices =
+        context.core == null ? {} : await this.core(context.core).read();
+      this.fill(out, this.scopes.core, coreSlices);
+      // The target Core's partition records which project was last active.
       project = this.getContext({ ...state, ...out }).project;
     }
     const projectSlices =
-      context.cluster == null || project == null
+      context.core == null || project == null
         ? {}
-        : await this.project(context.cluster, project).read();
+        : await this.project(context.core, project).read();
     this.fill(out, this.scopes.project, projectSlices);
+    // Window slices seed from their shared remainder in the project partition, then
+    // fold in each window partition's entry.
+    this.fill(out, this.scopes.window, projectSlices);
+    const target = { ...state, ...out };
+    const windowSlices =
+      project == null ? {} : await this.readWindows({ ...context, project }, target);
+    Object.assign(out, windowSlices);
     return out;
   }
 
-  /** Step every active partition back one version. */
-  async revert(context: Context): Promise<void> {
-    for (const partition of this.activePartitions(context)) await partition.revert();
+  /**
+   * Step the innermost active partition holding history back one version. Only that
+   * one moves: the partitions outside it name the session's context, and stepping
+   * those back would move the session somewhere else instead of undoing its state.
+   */
+  async revert(context: Context, state: S): Promise<void> {
+    let reverted = false;
+    for (const partition of this.windowPartitions(context, state))
+      reverted = (await partition.revert()) || reverted;
+    if (reverted) return;
+    for (const partition of this.activePartitions(context).reverse())
+      if (await partition.revert()) return;
   }
 
   /** Clear the entire store. */
   async clear(): Promise<void> {
+    this.partitions.clear();
     await this.db.clear();
   }
 
-  // The global partition names the selected cluster, whose partition names the active
+  /**
+   * Delete the Core partition stored under the key, and every project partition under
+   * it.
+   * @throws {Error} if the store refuses the read or a delete.
+   */
+  async purge(core: string): Promise<void> {
+    const owned = (base: string): boolean =>
+      base === `core.${core}` ||
+      base.startsWith(`project.${core}.`) ||
+      base.startsWith(`window.${core}.`);
+    const stale = (await this.db.keys()).filter((key) =>
+      owned(key.slice(0, key.lastIndexOf("."))),
+    );
+    await this.db.deleteMany(stale);
+    for (const base of this.partitions.keys())
+      if (owned(base)) this.partitions.delete(base);
+  }
+
+  // The global partition names the selected Core, whose partition names the active
   // project, whose partition holds the workspace.
   private async compose(): Promise<void> {
     const state = deep.copy(this.initial);
-    Object.assign(state, await this.global().read());
-    const { cluster } = this.getContext(state);
-    if (cluster != null) Object.assign(state, await this.cluster(cluster).read());
-    const context = this.getContext(state);
-    if (context.cluster != null && context.project != null)
-      Object.assign(state, await this.project(context.cluster, context.project).read());
+    try {
+      Object.assign(state, await this.readMigrated());
+      Object.assign(state, await this.global().read());
+      const { core } = this.getContext(state);
+      if (core != null) Object.assign(state, await this.core(core).read());
+      const context = this.getContext(state);
+      if (context.core != null && context.project != null) {
+        Object.assign(state, await this.project(context.core, context.project).read());
+        // The project partition holds the window bookkeeping, so the windows a session
+        // is running are only known once it has been read.
+        Object.assign(state, await this.readWindows(context, state));
+      }
+      this.context = context;
+    } catch (err) {
+      // A platform that refuses storage outright must not stop the app booting. The
+      // session runs from its initial state; the middleware tells the user it will
+      // not be saved.
+      console.error("failed to read the session store", err);
+      this.unreadable = true;
+    }
     this.initialState = state;
-    this.context = context;
+  }
+
+  /**
+   * The previous release's slices, or nothing when the store already holds a session.
+   */
+  private async readMigrated(): Promise<Partial<S>> {
+    if (this.migrate == null) return {};
+    try {
+      if ((await this.db.length()) > 0) return {};
+      return await this.migrate();
+    } catch (err) {
+      console.error("failed to carry the previous release's state over", err);
+      return {};
+    }
   }
 
   private global(): Partition<S> {
-    return new Partition(this.db, "global", this.scopes.global, this.migrators);
+    return this.partition("global", this.scopes.global);
   }
 
-  private cluster(key: string): Partition<S> {
-    return new Partition(
-      this.db,
-      `cluster.${key}`,
-      this.scopes.cluster,
-      this.migrators,
+  private core(key: string): Partition<S> {
+    return this.partition(`core.${key}`, this.scopes.core);
+  }
+
+  private project(core: string, project: string): Partition<S> {
+    return this.partition(
+      `project.${core}.${project}`,
+      this.projectSchemas,
+      this.sharedTransform,
     );
   }
 
-  private project(cluster: string, project: string): Partition<S> {
-    return new Partition(
-      this.db,
-      `project.${cluster}.${project}`,
-      this.scopes.project,
-      this.migrators,
+  private window(core: string, project: string, key: string): Partition<S> {
+    const { lens } = this;
+    if (lens == null)
+      throw new Error("the window scope needs a lens to split its slices");
+    return this.partition(
+      `window.${core}.${project}.${key}`,
+      this.scopes.window,
+      (_, slice) => narrowTo<S, SliceKey<S>>(lens, slice, key),
     );
   }
 
-  /** The partitions the given context reaches: global, then cluster, then project. */
-  private activePartitions({ cluster, project }: Context): Array<Partition<S>> {
-    const out = [this.global()];
-    if (cluster == null) return out;
-    out.push(this.cluster(cluster));
-    if (project != null) out.push(this.project(cluster, project));
+  /**
+   * The keys of window partitions this engine wrote whose windows are gone. Window
+   * keys are minted fresh per open, so a partition left behind is one the store
+   * carries forever.
+   */
+  private closedWindows(context: Context, state: S): string[] {
+    const { core, project } = context;
+    if (core == null || project == null) return [];
+    const prefix = `window.${core}.${project}.`;
+    const live = new Set(this.getWindows(state).map((key) => `${prefix}${key}`));
+    const stale: string[] = [];
+    for (const [base, partition] of this.partitions)
+      if (base.startsWith(prefix) && !live.has(base)) {
+        stale.push(...partition.occupied());
+        this.partitions.delete(base);
+      }
+    return stale;
+  }
+
+  /** One partition per window the session is running, under the given context. */
+  private windowPartitions(context: Context, state: S): Array<Partition<S>> {
+    const { core, project } = context;
+    if (core == null || project == null) return [];
+    return this.getWindows(state).map((key) => this.window(core, project, key));
+  }
+
+  /**
+   * Reads every window partition the state names, folding each into the slice's
+   * shared remainder already composed on the state.
+   */
+  private async readWindows(context: Context, state: S): Promise<Partial<S>> {
+    const out: Partial<S> = {};
+    scopeKeys(this.scopes.window).forEach((key) => {
+      out[key] = deep.copy(state[key]);
+    });
+    for (const partition of this.windowPartitions(context, state)) {
+      const read = await partition.read();
+      scopeKeys(this.scopes.window).forEach((key) => {
+        const value = read[key];
+        const into = out[key];
+        if (value == null || into == null || this.lens == null) return;
+        out[key] = widenInto<S, typeof key>(this.lens, into, value);
+      });
+    }
     return out;
   }
 
-  private fill(out: Partial<S>, slices: Array<SliceKey<S>>, data: Partial<S>): void {
-    slices.forEach((key) => {
+  // Partitions are held rather than rebuilt so each one remembers what it committed
+  // and can skip a write that would change nothing.
+  private partition(
+    base: string,
+    schemas: SliceSchemas<S>,
+    transform: SliceTransform<S> | null = null,
+  ): Partition<S> {
+    let partition = this.partitions.get(base);
+    if (partition == null) {
+      partition = new Partition(this.db, base, schemas, transform);
+      this.partitions.set(base, partition);
+    }
+    return partition;
+  }
+
+  /** The partitions the given context reaches: global, then Core, then project. */
+  private activePartitions({ core, project }: Context): Array<Partition<S>> {
+    const out = [this.global()];
+    if (core == null) return out;
+    out.push(this.core(core));
+    if (project != null) out.push(this.project(core, project));
+    return out;
+  }
+
+  private fill(out: Partial<S>, scope: SliceSchemas<S>, data: Partial<S>): void {
+    scopeKeys(scope).forEach((key) => {
       out[key] = data[key] ?? deep.copy(this.initial[key]);
     });
   }
@@ -363,7 +695,7 @@ const PERSIST_DEBOUNCE = TimeSpan.milliseconds(250);
 
 /**
  * Creates a middleware that persists the redux store state to the given engine after an
- * action is dispatched, and swaps the cluster and project partitions when the (cluster,
+ * action is dispatched, and swaps the Core and project partitions when the (Core,
  * project) context changes: the outgoing context flushes under its own keys, the
  * target's partitions load, and a single hydrate action applies them.
  */
@@ -373,24 +705,42 @@ const createMiddleware = <S extends object>(
   debounceInterval: CrudeTimeSpan = PERSIST_DEBOUNCE,
 ): Middleware<record.Unknown> => {
   let current = engine.context;
-  let swapping = false;
   // Concurrent switches race: a slow stale swap hydrating last would clobber
   // the newer context's slices, so only the latest generation may hydrate.
   let swapGen = 0;
+  // Everything the store writes runs in turn. A swap flushes the partition it leaves,
+  // so a purge of that partition has to wait behind it or the keys come back, and a
+  // write queued mid-swap lands under the context it hydrated into.
+  let queue: Promise<unknown> = Promise.resolve();
   return (store) => {
+    // Redux forbids dispatching while middleware is constructed, so an engine that
+    // could not open its storage announces it on the first action instead.
+    let announced = !engine.unreadable;
     const debouncedPersist = debounce.debounce(() => {
-      if (swapping) return;
-      engine
-        .persist(store.getState() as S, current)
-        .catch((e: unknown) => console.error("Failed to persist state", e));
+      // Captured when the write is queued: a swap may retarget `current` before the
+      // queue reaches this write, and it must land under the session it belongs to.
+      const state = store.getState() as S;
+      const context = current;
+      queue = queue.then(async () => {
+        try {
+          await engine.persist(state, context);
+        } catch (e) {
+          console.error("failed to persist state", e);
+          store.dispatch(storeUnavailable());
+        }
+      });
     }, debounceInterval);
     return (next) => (action) => {
       const result = next(action);
+      if (!announced) {
+        announced = true;
+        store.dispatch(storeUnavailable());
+      }
       const type = (action as Action | undefined)?.type;
       const state = store.getState() as S;
       if (type === revertState.type)
         engine
-          .revert(current)
+          .revert(current, state)
           .then(() => window.location.reload())
           .catch((err: unknown) => {
             console.error("failed to revert state", err);
@@ -402,32 +752,34 @@ const createMiddleware = <S extends object>(
           .catch((err: unknown) => {
             console.error("failed to clear state", err);
           });
-      else if (type === hydrate.type) {
+      else if (type === purge.type) {
+        const { payload } = action as PayloadAction<string>;
+        queue = queue
+          .then(async () => await engine.purge(payload))
+          .catch((err: unknown) => {
+            console.error("failed to purge stored Core state", err);
+          });
+      } else if (type === hydrate.type) {
         current = getContext(state);
-        swapping = false;
         debouncedPersist();
       } else {
         const ctx = getContext(state);
         if (!contextsEqual(ctx, current)) {
           const old = current;
-          const includeCluster = ctx.cluster !== old.cluster;
+          const includeCore = ctx.core !== old.core;
           current = ctx;
-          swapping = true;
           const gen = ++swapGen;
           store.dispatch(beginSwap());
-          engine
-            .persist(state, old)
+          queue = queue
             .then(async () => {
+              await engine.persist(state, old);
               if (gen !== swapGen) return;
-              const loaded = await engine.loadSwap(state, ctx, includeCluster);
+              const loaded = await engine.loadSwap(state, ctx, includeCore);
               if (gen !== swapGen) return;
               store.dispatch(hydrate(loaded));
             })
             .catch((err: unknown) => {
-              if (gen === swapGen) {
-                swapping = false;
-                store.dispatch(endSwap());
-              }
+              if (gen === swapGen) store.dispatch(endSwap());
               console.error("failed to swap session context", err);
             });
         } else debouncedPersist();
@@ -447,10 +799,12 @@ const passThrough: Middleware<record.Unknown> = () => (next) => (action) =>
  * @param config - The configuration for the engine.
  * @returns The composed state to preload the store with, and the middleware to install
  * on it.
+ * @throws {Error} if a slice is in no scope and not declared transient.
  */
 export const open = async <S extends object>(
   config: Config<S>,
 ): Promise<{ initialState?: S; middleware: Middleware<record.Unknown> }> => {
+  validateScopes(config.initial, config.scopes);
   if (!Runtime.isMainWindow()) return { middleware: passThrough };
   const engine = await Engine.open(config);
   return {

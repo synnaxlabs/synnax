@@ -23,6 +23,7 @@ import {
   ZERO_STATE,
 } from "@/session/arc/slice";
 import { Select } from "@/session/select";
+import { Window } from "@/session/window";
 
 const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 
@@ -51,7 +52,7 @@ const createGetter =
   };
 
 export const selectState = ({ state, key }: KeyedSelectorParams): State =>
-  selectSliceState(state).arcs[key] ?? ZERO_STATE;
+  Window.selectDocument(state, selectSliceState(state), key) ?? ZERO_STATE;
 
 const selectGraph = (params: KeyedSelectorParams): GraphState =>
   selectState(params).graph;

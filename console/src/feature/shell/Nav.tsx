@@ -17,7 +17,7 @@ import { Window } from "@/platform/window";
 import { Session } from "@/session";
 
 export interface NavProps {
-  connection?: Shell.ConnectionCluster | null;
+  connection?: Shell.ConnectionCore | null;
 }
 
 /**
@@ -46,7 +46,7 @@ export const Nav = ({ connection }: NavProps): ReactElement => {
         <Shell.Island square>
           <Theme.Toggle size="medium" textColor={9} />
         </Shell.Island>
-        <Shell.Connection cluster={connection} />
+        <Shell.Connection core={connection} />
         {chrome && os === "Windows" && (
           <Shell.Island data-tauri-drag-region>
             <Window.Controls visibleIfOS="Windows" forceOS={os} />

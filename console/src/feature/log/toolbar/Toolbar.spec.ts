@@ -13,6 +13,7 @@ import { describe, expect, it } from "vitest";
 import { Log } from "@/feature/log";
 import { renderLog } from "@/feature/log/toolbar/testutil";
 import { Session } from "@/session";
+import { inWindow } from "@/session/window/testutil";
 import { type ConsolePreloadedState } from "@/testutil";
 
 const preloadedState = (
@@ -21,7 +22,7 @@ const preloadedState = (
 ): ConsolePreloadedState => ({
   [Session.Log.SLICE_NAME]: {
     ...Session.Log.ZERO_SLICE_STATE,
-    logs: { [key]: { ...Session.Log.ZERO_STATE, ...logState } },
+    windows: inWindow({ [key]: { ...Session.Log.ZERO_STATE, ...logState } }),
   },
 });
 
