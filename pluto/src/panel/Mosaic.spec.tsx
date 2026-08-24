@@ -392,6 +392,44 @@ describe("Panel.Mosaic", () => {
       return tip;
     };
 
+    const createButtons = (utils: RenderResult): HTMLElement[] =>
+      Array.from(
+        utils.container.querySelectorAll<HTMLElement>(".pluto-panel-mosaic__create"),
+      );
+
+    it("should advertise create only on the leaf holding the focused tab", async () => {
+      const a1 = resourceTab();
+      const a2 = resourceTab();
+      const b1 = resourceTab();
+      const b2 = resourceTab();
+      const p = await splitPanel(a1, a2, b1, b2);
+      const utils = await renderMosaic({
+        panelKey: p.key,
+        selected: [a2.key, b2.key],
+      });
+      await waitFor(() => expect(utils.getByText(contentText(b2))).toBeTruthy());
+      const [left, right] = createButtons(utils);
+
+      // The right leaf's selected tab is not the selection head, so create would put
+      // the new tab in the left leaf. Hinting the key here would point at the wrong
+      // leaf, so the unfocused button opens no tooltip at all.
+      right.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 40);
+      fireEvent.pointerEnter(right);
+      await expect(
+        waitFor(
+          () => {
+            if (document.querySelector(".pluto-tooltip") == null)
+              throw new Error("no tooltip yet");
+          },
+          { timeout: 500 },
+        ),
+      ).rejects.toThrow();
+      fireEvent.pointerLeave(right);
+
+      const tip = await hoverTooltip(left);
+      expect(tip.textContent?.toLowerCase()).toContain("t");
+    });
+
     it("should advertise escape as the way out of focus mode", async () => {
       const tab = resourceTab();
       const p = await createPanel(tab);

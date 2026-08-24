@@ -123,6 +123,35 @@ const CREATE_TAB_TOOLTIP = <Triggers.Text trigger={CREATE_TAB_TRIGGER} level="sm
 
 const EXIT_FOCUS_TOOLTIP = <Triggers.Text trigger={Triggers.ESCAPE} level="small" />;
 
+interface CreateTabProps {
+  /** The leaf's own selected tab, absent when the leaf holds none. */
+  selected?: panel.TabKey;
+  onAdd: () => void;
+}
+
+/**
+ * The button that adds a tab to a leaf. Split from the leaf so the subscription to
+ * the selection head re-renders the button alone: focus moving between leaves must
+ * not re-render either leaf's tabs.
+ */
+const CreateTab = memo(({ selected, onAdd }: CreateTabProps): ReactElement => {
+  // Create acts on the panel's focused tab, so only the leaf holding that tab may
+  // advertise the shortcut. An empty leaf holds none, and "" matches no tab.
+  const { head } = Select.useItemState(selected ?? "");
+  return (
+    <Button.Button
+      variant="text"
+      size="small"
+      onClick={onAdd}
+      className={CSS.BE("panel-mosaic", "create")}
+      tooltip={head ? CREATE_TAB_TOOLTIP : undefined}
+    >
+      <Icon.Add color={9} />
+    </Button.Button>
+  );
+});
+CreateTab.displayName = "Panel.Mosaic.CreateTab";
+
 const Leaf = memo(
   ({
     nodeKey,
@@ -159,15 +188,7 @@ const Leaf = memo(
                 justify="center"
                 className={CSS.BE("panel-mosaic", "cap")}
               >
-                <Button.Button
-                  variant="text"
-                  size="small"
-                  onClick={handleAdd}
-                  className={CSS.BE("panel-mosaic", "create")}
-                  tooltip={CREATE_TAB_TOOLTIP}
-                >
-                  <Icon.Add color={9} />
-                </Button.Button>
+                <CreateTab selected={selected} onAdd={handleAdd} />
               </Flex.Box>
             )}
           </Tabs.Selector>
