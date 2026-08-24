@@ -41,10 +41,7 @@ const renderGuard = async (selected?: string): Promise<TestStore> => {
     </Auth.Guard>,
     {
       preloadedState: {
-        [Session.Core.SLICE_NAME]: {
-          ...CoreState(),
-          selected,
-        },
+        [Session.Core.SLICE_NAME]: { ...CoreState(), selected },
       },
     },
   );
@@ -143,9 +140,7 @@ describe("auth guard", () => {
       preloadedState: {
         [Session.Core.SLICE_NAME]: {
           ...Session.Core.ZERO_SLICE_STATE,
-          cores: {
-            [DEAD_KEY]: createCore("Dead", { key: DEAD_KEY, port: 9098 }),
-          },
+          cores: { [DEAD_KEY]: createCore("Dead", { key: DEAD_KEY, port: 9098 }) },
           selected: DEAD_KEY,
         },
       },
@@ -173,9 +168,7 @@ describe("auth guard", () => {
       preloadedState: {
         [Session.Core.SLICE_NAME]: {
           ...Session.Core.ZERO_SLICE_STATE,
-          cores: {
-            [DEAD_KEY]: createCore("Dead", { key: DEAD_KEY, port: 9098 }),
-          },
+          cores: { [DEAD_KEY]: createCore("Dead", { key: DEAD_KEY, port: 9098 }) },
           selected: DEAD_KEY,
         },
       },
