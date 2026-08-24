@@ -116,10 +116,7 @@ describe("Legacy.migrate", () => {
 
   it("should carry the recent colors across", async () => {
     const [read] = createReader(FULL);
-    expect((await Legacy.migrate(read)).color?.context).toEqual({
-      frequent: {},
-      palettes: {},
-    });
+    expect((await Legacy.migrate(read)).color?.context).toEqual({ frequent: {} });
   });
 
   it("should read the slot the version pointer names", async () => {

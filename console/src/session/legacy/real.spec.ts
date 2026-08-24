@@ -96,9 +96,7 @@ describe("Legacy.migrate over a real 0.56 store", () => {
   });
 
   it("should carry the recent-color context across", async () => {
-    expect((await Legacy.migrate(read)).color?.context.palettes).toHaveProperty(
-      "frequent",
-    );
+    expect((await Legacy.migrate(read)).color?.context).toEqual({ frequent: {} });
   });
 
   it("should carry no project when the old store had no active workspace", async () => {
