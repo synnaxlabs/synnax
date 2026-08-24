@@ -149,6 +149,37 @@ describe("select / clearSelected", () => {
   });
 });
 
+describe("coreZ", () => {
+  // Releases through 0.57 stored whatever the connect form's text field produced, so
+  // the same port sits on disk as both 9090 and "9090".
+  it("should read a stored string port as a number", () => {
+    const parsed = Core.coreZ.parse({
+      key: "k",
+      name: "Alpha",
+      host: "localhost",
+      port: "9090",
+      username: "synnax",
+      password: "seldon",
+      secure: false,
+    });
+    expect(parsed.port).toBe(9090);
+  });
+
+  // The client's params carry behavioral fields; only the address may reach the disk.
+  it("should store no field beyond the address and its cluster", () => {
+    expect(Object.keys(Core.coreZ.shape).sort()).toEqual([
+      "clusterKey",
+      "host",
+      "key",
+      "name",
+      "password",
+      "port",
+      "secure",
+      "username",
+    ]);
+  });
+});
+
 describe("rename", () => {
   it("should rename a Core in place", () => {
     const state = reduce(
@@ -158,20 +189,14 @@ describe("rename", () => {
     expect(state.cores[ALPHA.key].name).toBe("Renamed");
   });
 
-  it("should drop a rename to a name owned by another Core", () => {
+  // A name is a label, not an identity: the key is what everything resolves by.
+  it("should allow two Cores to share a name", () => {
     const state = reduce(
       withCores(ALPHA, BRAVO),
       Core.rename({ key: ALPHA.key, name: BRAVO.name }),
     );
-    expect(state.cores[ALPHA.key].name).toBe(ALPHA.name);
-  });
-
-  it("should keep a rename to the Core's own name", () => {
-    const state = reduce(
-      withCores(ALPHA),
-      Core.rename({ key: ALPHA.key, name: ALPHA.name }),
-    );
-    expect(state.cores[ALPHA.key].name).toBe(ALPHA.name);
+    expect(state.cores[ALPHA.key].name).toBe(BRAVO.name);
+    expect(state.cores[BRAVO.key].name).toBe(BRAVO.name);
   });
 
   it("should drop a rename of a missing Core", () => {

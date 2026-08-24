@@ -39,8 +39,9 @@ export const useGetSelectedKey = (): (() => string | undefined) => {
   return useCallback(() => selectSelectedKey(store.getState()), [store]);
 };
 
+/** The Core stored under key, or nothing when key names none. */
 export const selectState = (state: StoreState, key?: string): Core | undefined =>
-  Select.byKey(selectSliceState(state).cores, key, selectSelectedKey(state));
+  Select.byKey(selectSliceState(state).cores, key);
 
 export const useSelectState = (key?: string): Core | undefined =>
   Select.useMemo((s: StoreState) => selectState(s, key), [key]);
@@ -50,12 +51,18 @@ export const useGetState = (): ((key?: string) => Core | undefined) => {
   return useCallback((key?: string) => selectState(store.getState(), key), [store]);
 };
 
-/** The cluster the given (or selected) Core last connected to. */
-export const selectClusterKey = (state: StoreState, key?: string): string | undefined =>
-  selectState(state, key)?.clusterKey;
+export const selectSelected = (state: StoreState): Core | undefined =>
+  selectState(state, selectSelectedKey(state));
 
-export const useSelectClusterKey = (key?: string): string | undefined =>
-  Select.useMemo((s: StoreState) => selectClusterKey(s, key), [key]);
+export const useSelectSelected = (): Core | undefined =>
+  Select.useMemo(selectSelected, []);
+
+/** The cluster the selected Core last connected to. */
+export const selectClusterKey = (state: StoreState): string | undefined =>
+  selectSelected(state)?.clusterKey;
+
+export const useSelectClusterKey = (): string | undefined =>
+  Select.useMemo(selectClusterKey, []);
 
 /**
  * The Core to reach the given cluster through, preferring the selected one so a link
@@ -65,7 +72,7 @@ export const selectByClusterKey = (
   state: StoreState,
   clusterKey: string,
 ): Core | undefined => {
-  const selected = selectState(state);
+  const selected = selectSelected(state);
   if (selected?.clusterKey === clusterKey) return selected;
   return Object.values(selectSliceState(state).cores).find(
     (c) => c.clusterKey === clusterKey,
@@ -90,12 +97,6 @@ export const selectMany = (state: StoreState, keys?: string[]): Core[] =>
 
 export const useSelectMany = (keys?: string[]): Core[] =>
   Select.useMemo((s: StoreState) => selectMany(s, keys), [keys]);
-
-const selectAllNames = (state: StoreState): string[] =>
-  Object.values(selectSliceState(state).cores).map((c) => c.name);
-
-export const useSelectAllNames = (): string[] =>
-  Select.useMemo((s: StoreState) => selectAllNames(s), []);
 
 const selectIsAnySelected = (state: StoreState): boolean =>
   selectSelectedKey(state) != null;

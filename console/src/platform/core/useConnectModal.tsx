@@ -22,22 +22,18 @@ export interface ConnectModalParams {
   coreKey?: string;
 }
 
-const baseFormSchema = Session.Core.coreZ.pick({
+const FORM_SCHEMA = Session.Core.coreZ.pick({
   name: true,
   host: true,
   port: true,
   secure: true,
 });
 
-const ZERO_VALUES: z.infer<typeof baseFormSchema> = {
+const ZERO_VALUES: z.infer<typeof FORM_SCHEMA> = {
   name: "",
   host: "",
-  port: "",
+  port: 9090,
   secure: false,
-};
-
-const PORT_FIELD_PROPS: Partial<Input.TextProps> = {
-  placeholder: "9090",
 };
 
 const HOST_FIELD_PROPS: Partial<Input.TextProps> = {
@@ -51,22 +47,9 @@ export const useConnectModal = Modals.create<ConnectModalParams>(
     const existing = Session.Core.useSelectState(coreKey);
     const [connStatus, setConnStatus] = useState<connection.Status | null>(null);
     const [loading, setLoading] = useState<"test" | "submit" | null>(null);
-    const names = Session.Core.useSelectAllNames();
-    const formSchema = baseFormSchema.check(({ value: { name }, issues }) => {
-      const isDuplicate = names.some(
-        (n) => n === name && (!isEdit || existing?.name !== name),
-      );
-      if (isDuplicate)
-        issues.push({
-          input: name,
-          code: "custom",
-          path: ["name"],
-          message: `${name} is already in use.`,
-        });
-    });
     const handleError = Status.useErrorHandler();
-    const methods = Form.use<typeof formSchema>({
-      schema: formSchema,
+    const methods = Form.use<typeof FORM_SCHEMA>({
+      schema: FORM_SCHEMA,
       values:
         isEdit && existing != null
           ? {
@@ -103,7 +86,7 @@ export const useConnectModal = Modals.create<ConnectModalParams>(
     return (
       <Modals.Frame className={CSS.B("connect-core")}>
         <Modals.Header icon={<Icon.Core />}>Connect a Core</Modals.Header>
-        <Form.Form<typeof formSchema> {...methods}>
+        <Form.Form<typeof FORM_SCHEMA> {...methods}>
           <Modals.Body gap="tiny" align="stretch">
             <Form.TextField
               path="name"
@@ -117,7 +100,7 @@ export const useConnectModal = Modals.create<ConnectModalParams>(
             />
             <Flex.Box x align="stretch">
               <Form.TextField path="host" grow inputProps={HOST_FIELD_PROPS} />
-              <Form.TextField path="port" inputProps={PORT_FIELD_PROPS} />
+              <Form.NumericField path="port" />
               <Form.SwitchField path="secure" />
             </Flex.Box>
           </Modals.Body>

@@ -36,7 +36,7 @@ export const Badge = (): ReactElement | null => {
   const { data: remoteUsername } = User.useResultUsername({});
   const { data: firstName } = User.useResultFirstName({});
   const { data: lastName } = User.useResultLastName({});
-  const core = Session.Core.useSelectState();
+  const core = Session.Core.useSelectSelected();
   const handleLogout = Session.useLogout();
   const username = remoteUsername ?? core?.username ?? "";
   const fullName = [firstName, lastName].filter((part) => part).join(" ");

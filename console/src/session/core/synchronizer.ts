@@ -10,7 +10,7 @@
 import { Drift } from "@synnaxlabs/drift";
 import { useRef } from "react";
 
-import { selectIsClusterOrphaned, selectState } from "@/session/core/selectors";
+import { selectIsClusterOrphaned, selectSelected } from "@/session/core/selectors";
 import { type Action, setClusterKey, type StoreState } from "@/session/core/slice";
 import { Modals } from "@/session/modals";
 import { Persist } from "@/session/persist";
@@ -58,7 +58,7 @@ const useCacheClusterKey = (): Synchronizer.Callbacks<
     const { clusterKey } = client.connection.status.details;
     if (clusterKey === "") return;
     const state = store.getState();
-    const core = selectState(state);
+    const core = selectSelected(state);
     if (core == null || core.clusterKey === clusterKey) return;
     const stale = core.clusterKey;
     store.dispatch(setClusterKey({ key: core.key, clusterKey }));

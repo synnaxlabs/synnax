@@ -39,7 +39,7 @@ const Diagnostics = (): ReactElement => {
   const status = Synnax.useConnectionStatus();
   const { variant, details } = status;
   const activeKey = Session.Core.useSelectSelectedKey();
-  const core = Session.Core.useSelectState(activeKey ?? undefined);
+  const core = Session.Core.useSelectSelected();
   const copy = Clipboard.useCopy();
   const openConnect = Core.useConnectModal();
   const { close } = Dialog.useContext();

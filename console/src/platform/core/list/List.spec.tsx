@@ -126,7 +126,8 @@ describe("Core List", () => {
     );
   });
 
-  it("should reject renaming a Core to a name already in use", async () => {
+  // A name is a label, not an identity, so two Cores may share one.
+  it("should accept renaming a Core to a name another Core already has", async () => {
     const { store } = await renderCoreUI(
       <Core.List value={ALPHA.key} onChange={vi.fn()} />,
       createCoreState([ALPHA, BRAVO], ALPHA.key),
@@ -137,10 +138,10 @@ describe("Core List", () => {
     await waitFor(() => expect(editable.getAttribute("contenteditable")).toBe("true"));
     editable.innerText = "Bravo";
     fireEvent.keyDown(editable, { key: "Enter" });
-    await waitFor(() => expect(editable.getAttribute("contenteditable")).toBe("false"));
-    expect(Session.Core.selectState(store.getState(), ALPHA.key)?.name).toBe("Alpha");
+    await waitFor(() =>
+      expect(Session.Core.selectState(store.getState(), ALPHA.key)?.name).toBe("Bravo"),
+    );
     expect(Session.Core.selectState(store.getState(), BRAVO.key)?.name).toBe("Bravo");
-    expect(editable.innerText).toBe("Alpha");
   });
 
   it("should accept renaming a Core to the name it already has", async () => {

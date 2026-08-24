@@ -365,7 +365,7 @@ export const createConnectedConsoleWrapper = async ({
 };
 
 const SessionSynnaxProvider = ({ children }: PropsWithChildren): ReactElement => {
-  const core = Session.Core.useSelectState();
+  const core = Session.Core.useSelectSelected();
   return <Synnax.Provider connParams={core}>{children}</Synnax.Provider>;
 };
 SessionSynnaxProvider.displayName = "SessionSynnaxProvider";

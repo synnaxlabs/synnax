@@ -22,7 +22,7 @@ import { Session } from "@/session";
 export const Target = (): ReactElement => {
   const { variant, details } = Synnax.useConnectionStatus();
   const checking = useHeldChecking(details.checking);
-  const core = Session.Core.useSelectState();
+  const core = Session.Core.useSelectSelected();
   const label = STATUS_LABELS[variant];
   return (
     <Flex.Box

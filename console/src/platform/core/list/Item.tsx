@@ -20,7 +20,6 @@ import { Session } from "@/session";
 export const nameID = (key: string): string => `core-${key}`;
 
 interface ListItemProps extends List.ItemProps<string> {
-  validateName: (key: string, name: string) => boolean;
   item: Session.Core.Core;
   loading: boolean;
 }
@@ -34,16 +33,10 @@ const LABELS: Record<connection.Status["variant"], string> = {
   disabled: "Disconnected",
 };
 
-const Base = ({
-  validateName,
-  item,
-  loading,
-  ...rest
-}: ListItemProps): ReactElement | null => {
+const Base = ({ item, loading, ...rest }: ListItemProps): ReactElement | null => {
   const dispatch = Session.useDispatch();
   const { selected, onSelect } = Select.useItemState(rest.itemKey);
   const handleChange = (value: string): boolean => {
-    if (item == null || !validateName(item.key, value)) return false;
     dispatch(Session.Core.rename({ key: item.key, name: value }));
     return true;
   };

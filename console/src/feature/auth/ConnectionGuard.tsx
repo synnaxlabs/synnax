@@ -110,8 +110,7 @@ interface SplashProps {
 
 const Splash = ({ status }: SplashProps): ReactElement => {
   const { variant, details } = status;
-  const activeKey = Session.Core.useSelectSelectedKey();
-  const target = Session.Core.useSelectState(activeKey ?? undefined);
+  const target = Session.Core.useSelectSelected();
   const connecting = details.epoch === 0;
   const troubled =
     connecting &&

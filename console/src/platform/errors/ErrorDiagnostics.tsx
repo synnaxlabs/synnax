@@ -37,7 +37,7 @@ export const ErrorDiagnostics = ({
   error,
   ...rest
 }: ErrorDiagnosticsProps): ReactElement => {
-  const target = Session.Core.useSelectState();
+  const target = Session.Core.useSelectSelected();
   const core =
     target != null ? `${target.name} (${target.host}:${target.port})` : "none";
   const client = Synnax.use();

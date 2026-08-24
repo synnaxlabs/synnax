@@ -71,12 +71,24 @@ describe("Core selectors", () => {
         expect(Core.selectState(storeWith([CORE_A, CORE_B]), KEY_B)).toEqual(CORE_B);
       });
 
-      it("should fall back to the selected Core when no key is given", () => {
-        expect(Core.selectState(storeWith([CORE_A, CORE_B], KEY_A))).toEqual(CORE_A);
+      // A selector that silently answered with the selected Core would hand a caller
+      // a different record than the one it named.
+      it("should not fall back to the selection when no key is given", () => {
+        expect(Core.selectState(storeWith([CORE_A, CORE_B], KEY_A))).toBeUndefined();
       });
 
-      it("should return undefined when neither a key nor a selection resolves", () => {
-        expect(Core.selectState(storeWith([CORE_A]))).toBeUndefined();
+      it("should return undefined when the key names no Core", () => {
+        expect(Core.selectState(storeWith([CORE_A]), KEY_B)).toBeUndefined();
+      });
+    });
+
+    describe("selectSelected", () => {
+      it("should resolve the selected Core", () => {
+        expect(Core.selectSelected(storeWith([CORE_A, CORE_B], KEY_B))).toEqual(CORE_B);
+      });
+
+      it("should return undefined when nothing is selected", () => {
+        expect(Core.selectSelected(storeWith([CORE_A]))).toBeUndefined();
       });
     });
   });
@@ -112,7 +124,7 @@ describe("Core selectors", () => {
       expect(get()).toBe(KEY_B);
     });
 
-    it("should resolve a Core by key and fall back to the selection on demand", () => {
+    it("should resolve a Core by key on demand across dispatches", () => {
       const store = createStore();
       const { result } = renderHook(() => Core.useGetState(), {
         wrapper: createWrapper(store),
@@ -124,10 +136,7 @@ describe("Core selectors", () => {
         store.dispatch(Core.set(CORE_B));
       });
       expect(get(KEY_B)).toEqual(CORE_B);
-      act(() => {
-        store.dispatch(Core.select(KEY_A));
-      });
-      expect(get()).toEqual(CORE_A);
+      expect(get(KEY_A)).toEqual(CORE_A);
     });
 
     it("should report whether any Core is selected on demand", () => {

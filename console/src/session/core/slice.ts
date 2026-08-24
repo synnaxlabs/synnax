@@ -12,21 +12,21 @@ import { synnaxParamsZ } from "@synnaxlabs/client";
 import { array, uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
+// Picked rather than omitted: the client's params carry behavioral fields a session
+// has no business storing, and a new one must not reach the disk by default.
 export const coreZ = synnaxParamsZ
+  .pick({ host: true, username: true, password: true, secure: true })
   .extend({
     key: z.string(),
     name: z.string().min(1, { message: "Name is required" }),
+    // Coerced because the connect form's port field yields a string. One type reaches
+    // the store, so records built by hand and by the form compare equal.
+    port: z.coerce.number({ error: "Port is required" }).int().positive(),
     /**
      * The cluster the Core last connected to. Cached so a session opens the cluster's
      * stored state before a connection is up; absent until the first connection.
      */
     clusterKey: z.string().optional(),
-  })
-  .omit({
-    cache: true,
-    connectivityPollFrequency: true,
-    retry: true,
-    clockSkewThreshold: true,
   });
 export interface Core extends z.infer<typeof coreZ> {}
 
@@ -96,9 +96,6 @@ export interface SetClusterKeyPayload {
   clusterKey: string;
 }
 
-const nameTaken = (state: SliceState, name: string, key: string): boolean =>
-  Object.values(state.cores).some((c) => c.name === name && c.key !== key);
-
 const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
@@ -129,12 +126,9 @@ const { actions, reducer } = createSlice({
     clearSelected: (state) => {
       state.selected = undefined;
     },
-    // Duplicate names are user input, so the reducer drops them instead of throwing;
-    // the list surfaces the error before dispatching.
     rename: (state, { payload: { key, name } }: PayloadAction<RenamePayload>) => {
       const core = state.cores[key];
-      if (core == null || nameTaken(state, name, key)) return;
-      core.name = name;
+      if (core != null) core.name = name;
     },
     setClusterKey: (
       state,

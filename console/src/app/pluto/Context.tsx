@@ -21,7 +21,7 @@ export interface ContextProps extends Pick<
 const ALAMOS_PROPS: Alamos.ProviderProps = { level: "info" };
 
 export const Context = memo((props: ContextProps) => {
-  const core = Session.Core.useSelectState();
+  const core = Session.Core.useSelectSelected();
   const themingProps = Session.Theme.useProviderProps();
   return (
     <Pluto.Provider

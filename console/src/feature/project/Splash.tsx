@@ -37,8 +37,7 @@ import { Session } from "@/session";
 export const Splash = (): ReactElement => {
   const dispatch = Session.useDispatch();
   const logout = Session.useLogout();
-  const activeCoreKey = Session.Core.useSelectSelectedKey();
-  const activeCore = Session.Core.useSelectState(activeCoreKey ?? undefined);
+  const activeCore = Session.Core.useSelectSelected();
   const hasRetrievePermission = Access.useRetrieveGranted(project.TYPE_ONTOLOGY_ID);
   const hasCreatePermission = Access.useCreateGranted(project.TYPE_ONTOLOGY_ID);
   const openCreate = PlatformProject.useCreateModal();

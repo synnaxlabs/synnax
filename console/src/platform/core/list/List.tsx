@@ -45,19 +45,6 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
 
-  const validateName = useCallback(
-    (key: string, name: string): boolean => {
-      if (!allCores.some((c) => c.name === name && c.key !== key)) return true;
-      addStatus({
-        variant: "error",
-        message: `Failed to rename Core to ${name}`,
-        description: `A Core with name "${name}" already exists.`,
-      });
-      return false;
-    },
-    [allCores, addStatus],
-  );
-
   const handleRemove = (key: string): void => {
     if (key === value) {
       const nextCore = allCores.find((c) => c.key !== key);
@@ -171,13 +158,7 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
             />
           ) : (
             keys.map((key, i) => (
-              <Item
-                key={key}
-                index={i}
-                itemKey={key}
-                validateName={validateName}
-                loading={testing === key}
-              />
+              <Item key={key} index={i} itemKey={key} loading={testing === key} />
             ))
           )}
         </Flex.Box>
