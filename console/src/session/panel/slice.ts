@@ -7,12 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  createAction,
-  createSlice,
-  type Dispatch,
-  type PayloadAction,
-} from "@reduxjs/toolkit";
+import { createSlice, type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
 import { NotFoundError, panel, query } from "@synnaxlabs/client";
 import { type Drift } from "@synnaxlabs/drift";
 import { Panel, Synnax } from "@synnaxlabs/pluto";
@@ -49,6 +44,8 @@ export const ZERO_WINDOW_STATE: WindowState = windowStateZ.parse({});
 
 export const sliceStateZ = z.object({
   version: z.literal(0).default(0),
+  /** The strip's panel order, shared by every window and so scoped to the project. */
+  order: panel.keyZ.array().default([]),
   windows: z.record(z.string(), windowStateZ).default({}),
 });
 
@@ -72,12 +69,20 @@ export interface TabAndPanelKeyPayload extends PanelKeyPayload {
 
 export interface RemovePayload {
   keys: panel.Key | panel.Key[];
-  /**
-   * The panels in the order the selector shows them, as of before the removal. A
-   * window that loses its selected panel takes the nearest survivor beside it.
-   * Without the row it falls back to its most recently used panel.
-   */
-  order?: panel.Key[];
+}
+
+export interface OrderEntry {
+  key: panel.Key;
+  name: string;
+}
+
+export interface ReconcileOrderPayload {
+  panels: OrderEntry[];
+}
+
+export interface ReorderPayload {
+  key: panel.Key;
+  index: number;
 }
 
 interface SelectTabPayload extends TabAndPanelKeyPayload {
@@ -153,14 +158,6 @@ const mount = (win: WindowState, key: panel.Key): void => {
   win.mounted = [key, ...win.mounted.filter((k) => k !== key)].slice(0, MAX_MOUNTED);
 };
 
-/**
- * Deleting panels prunes the order and every window's view of them, so both slices
- * answer it.
- */
-export const remove = createAction<RemovePayload>(`${SLICE_NAME}/remove`);
-/** Clears every window's panel state and the order, on logout or a project change. */
-export const reset = createAction(`${SLICE_NAME}/reset`);
-
 const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
@@ -222,31 +219,61 @@ const { actions, reducer } = createSlice({
     stopOverlaying: withWindowKey<Window.OptionalKeyParams, SliceState>((win) => {
       win.isOverlaid = false;
     }),
+    // reconcileOrder converges the order to the project's live membership: deleted
+    // panels prune, unknown panels append name-sorted. On first sight of a project the
+    // whole order materializes name-sorted through the same append path.
+    reconcileOrder: (
+      state,
+      { payload: { panels } }: PayloadAction<ReconcileOrderPayload>,
+    ) => {
+      const live = new Set(panels.map(({ key }) => key));
+      const kept = state.order.filter((key) => live.has(key));
+      const fresh = panels
+        .filter(({ key }) => !kept.includes(key))
+        .sort((a, b) => compare.stringsWithNumbers(a.name, b.name))
+        .map(({ key }) => key);
+      const next = [...kept, ...fresh];
+      if (!compare.arraysEqual(state.order, next)) state.order = next;
+    },
+    // The index is a strip insertion slot resolved with the panel still in place, so a
+    // move toward the end lands one slot short of the raw index.
+    reorder: (state, { payload: { key, index } }: PayloadAction<ReorderPayload>) => {
+      const from = state.order.indexOf(key);
+      const next = [...state.order];
+      if (from !== -1) next.splice(from, 1);
+      const to = Math.min(from !== -1 && from < index ? index - 1 : index, next.length);
+      next.splice(Math.max(to, 0), 0, key);
+      if (!compare.arraysEqual(state.order, next)) state.order = next;
+    },
+    remove: (state, { payload: { keys } }: PayloadAction<RemovePayload>) => {
+      const removed = array.toArray(keys);
+      const survives = (key: panel.Key): boolean => !removed.includes(key);
+      // The row as the user saw it, read before pruning, so a deleted panel hands
+      // its place to the survivor beside it.
+      const order = [...state.order];
+      state.order = state.order.filter(survives);
+      Object.values(state.windows).forEach((win) => {
+        removed.forEach((key) => delete win.panels[key]);
+        win.mounted = win.mounted.filter(survives);
+        if (win.selected == null || survives(win.selected)) return;
+        // The overlaid tab belongs to the selected panel, so losing it ends the
+        // overlay.
+        win.isOverlaid = false;
+        // Off the row, the most recently used survivor, then any panel the window
+        // has state for: mounted is empty until it selects again.
+        const next =
+          neighbor(order, win.selected, survives) ??
+          win.mounted[0] ??
+          Object.keys(win.panels).at(-1);
+        win.selected = next;
+        if (next != null) mount(win, next);
+      });
+    },
+    /** Clears the order and every window's panel state on logout or project change. */
+    reset: () => ZERO_SLICE_STATE,
   },
   extraReducers: (builder) => {
     Window.handleRemoved(builder);
-    builder
-      .addCase(remove, (state, { payload: { keys, order = [] } }) => {
-        const removed = array.toArray(keys);
-        const survives = (key: panel.Key): boolean => !removed.includes(key);
-        Object.values(state.windows).forEach((win) => {
-          removed.forEach((key) => delete win.panels[key]);
-          win.mounted = win.mounted.filter(survives);
-          if (win.selected == null || survives(win.selected)) return;
-          // The overlaid tab belongs to the selected panel, so losing it ends the
-          // overlay.
-          win.isOverlaid = false;
-          // Off the row, the most recently used survivor, then any panel the window
-          // has state for: mounted is empty until it selects again.
-          const next =
-            neighbor(order, win.selected, survives) ??
-            win.mounted[0] ??
-            Object.keys(win.panels).at(-1);
-          win.selected = next;
-          if (next != null) mount(win, next);
-        });
-      })
-      .addCase(reset, () => ZERO_SLICE_STATE);
   },
 });
 
@@ -256,23 +283,28 @@ const {
   selectTab: internalSelectTab,
   startOverlaying,
   stopOverlaying,
+  reconcileOrder,
   reconcileSelection,
+  remove,
+  reorder,
+  reset,
 } = actions;
 
 export {
   clearSelected,
   internalSelectTab,
+  reconcileOrder,
   reconcileSelection,
   reducer,
+  remove,
+  reorder,
+  reset,
   select,
   startOverlaying,
   stopOverlaying,
 };
 
-export type Action =
-  | ReturnType<(typeof actions)[keyof typeof actions]>
-  | ReturnType<typeof remove>
-  | ReturnType<typeof reset>;
+export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 export type Payload = Action["payload"];
 
 export const MIDDLEWARE = [

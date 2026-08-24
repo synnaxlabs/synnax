@@ -48,7 +48,7 @@ class TauriKV implements SugaredKV {
   }
 
   async get<V>(key: string): Promise<V | null> {
-    return (await (await this.open()).get(key)) as V;
+    return (await (await this.open()).get<V>(key)) ?? null;
   }
 
   async set<V>(key: string, value: V): Promise<void> {

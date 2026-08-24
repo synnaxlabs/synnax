@@ -33,8 +33,11 @@ interface MockState {
   core: { selected?: string };
   project: { selected?: string };
   work: { value: string; transient?: string };
-  /** A window-keyed slice, shaped the way every real one is. */
-  view: { windows: Record<string, { value: string }> };
+  /**
+   * A window-keyed slice, shaped the way every real one is: per-window state under
+   * windows, and a shared field beside it.
+   */
+  view: { label: string; windows: Record<string, { value: string }> };
   /** Stands in for the drift bookkeeping the project partition holds. */
   windows: string[];
 }
@@ -43,7 +46,7 @@ const ZERO_MOCK_STATE: MockState = {
   core: {},
   project: {},
   work: { value: "0.0.0", transient: "zero" },
-  view: { windows: {} },
+  view: { label: "none", windows: {} },
   windows: [],
 };
 
@@ -54,6 +57,7 @@ const workZ = z.object({
 });
 
 const viewZ = z.object({
+  label: z.string().default("none"),
   windows: z.record(z.string(), z.object({ value: z.string() })),
 });
 
@@ -78,7 +82,7 @@ const STATE: MockState = {
   core: { selected: "c1" },
   project: { selected: "p1" },
   work: { value: "16.2.0", transient: "drag" },
-  view: { windows: {} },
+  view: { label: "none", windows: {} },
   windows: [],
 };
 
@@ -228,11 +232,21 @@ const editView = async (driver: Driver, key: string, value: string) => {
     { type: "view/edit" },
     {
       ...state,
-      view: { windows: { ...state.view.windows, [key]: { value } } },
+      view: { ...state.view, windows: { ...state.view.windows, [key]: { value } } },
       windows: unique.unique([...state.windows, key]),
     },
   );
   await driver.flushed((state) => state?.view.windows[key]?.value === value);
+};
+
+/** Edits the view slice's shared field, the part outside its windows record. */
+const editLabel = async (driver: Driver, value: string) => {
+  const state = driver.getState();
+  driver.dispatch(
+    { type: "view/label" },
+    { ...state, view: { ...state.view, label: value } },
+  );
+  await driver.flushed((state) => state?.view.label === value);
 };
 
 describe("Persist.open", () => {
@@ -500,6 +514,79 @@ describe("Persist.open", () => {
     });
   });
 
+  describe("shared fields", () => {
+    it("should store a window slice's shared fields in the project partition", async () => {
+      const store = new Persist.MemoryKV();
+      const driver = await createDriver(store);
+      await enter(driver, CTX);
+      await editView(driver, WINDOW, "left");
+      await editLabel(driver, "tagged");
+      const slot = (await store.get<{ slot: number }>("project.c1.p1.slot"))?.slot ?? 0;
+      const stored = await store.get<Partial<MockState>>(`project.c1.p1.${slot}`);
+      expect(stored?.view).toEqual({ label: "tagged", windows: {} });
+      // The window's partition holds its windows entry alone, no shared fields.
+      expect(await store.get(`window.c1.p1.${WINDOW}.0`)).toEqual({
+        view: { windows: { [WINDOW]: { value: "left" } } },
+      });
+    });
+
+    it("should compose shared fields with every window's entries", async () => {
+      const store = new Persist.MemoryKV();
+      const driver = await createDriver(store);
+      await enter(driver, CTX);
+      await editLabel(driver, "tagged");
+      await editView(driver, WINDOW, "left");
+      await editView(driver, "w2", "right");
+      expect((await driver.composed())?.view).toEqual({
+        label: "tagged",
+        windows: { [WINDOW]: { value: "left" }, w2: { value: "right" } },
+      });
+    });
+
+    it("should leave window partitions alone when only a shared field changes", async () => {
+      const store = new CountingKV();
+      const driver = await createDriver(store);
+      await enter(driver, CTX);
+      await editView(driver, WINDOW, "left");
+      const baseline = store.writes.length;
+      await editLabel(driver, "one");
+      await editLabel(driver, "two");
+      const windowWrites = store.writes
+        .slice(baseline)
+        .flat()
+        .filter(({ key }) => key.startsWith("window."));
+      expect(windowWrites).toHaveLength(0);
+    });
+
+    it("should leave the project ring alone when only a window's entry changes", async () => {
+      const store = new CountingKV();
+      const driver = await createDriver(store);
+      await enter(driver, CTX);
+      // The first view edit registers the window, which is project bookkeeping.
+      await editView(driver, WINDOW, "one");
+      const baseline = store.writes.length;
+      await editView(driver, WINDOW, "two");
+      await editView(driver, WINDOW, "three");
+      const projectWrites = store.writes
+        .slice(baseline)
+        .flat()
+        .filter(({ key }) => key.startsWith("project."));
+      expect(projectWrites).toHaveLength(0);
+    });
+
+    it("should scope shared fields to the project they were written under", async () => {
+      const store = new Persist.MemoryKV();
+      const driver = await createDriver(store);
+      await enter(driver, CTX);
+      await editLabel(driver, "p1-tag");
+      await enter(driver, { core: "c1", project: "p2" });
+      expect(driver.getState().view.label).toBe("none");
+      await editLabel(driver, "p2-tag");
+      await enter(driver, CTX);
+      expect(driver.getState().view.label).toBe("p1-tag");
+    });
+  });
+
   describe("secondary windows", () => {
     it("should neither compose nor persist state outside the main window", async () => {
       mocks.engine = "tauri";
@@ -675,6 +762,19 @@ describe("Persist.open", () => {
           scopes: { ...SCOPES, project: {}, transient: ["work", "windows"] },
         }),
       ).resolves.toBeDefined();
+    });
+
+    // A window partition holds only the windows record, so a field without a default
+    // would make every window partition unreadable on the next launch.
+    it("should throw when a window-scoped schema rejects a bare windows record", async () => {
+      await expect(
+        openPersist(new Persist.MemoryKV(), {
+          scopes: {
+            ...SCOPES,
+            window: { view: viewZ.extend({ label: z.string() }) },
+          },
+        }),
+      ).rejects.toThrow("reject a bare windows record: view");
     });
   });
 });

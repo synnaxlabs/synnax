@@ -13,7 +13,6 @@ import { Panel } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
 import { useStore } from "react-redux";
 
-import { ORDER_SLICE_NAME, type OrderStoreState } from "@/session/panel/order";
 import {
   SLICE_NAME,
   type SliceState,
@@ -74,8 +73,7 @@ export const selectSelected = (state: StoreState): panel.Key | undefined =>
   selectWindowState(state).selected;
 
 /** @returns the strip's panel order, shared by every window. */
-export const selectOrder = (state: OrderStoreState): panel.Key[] =>
-  state[ORDER_SLICE_NAME].order;
+export const selectOrder = (state: StoreState): panel.Key[] => state[SLICE_NAME].order;
 
 /** @returns the strip's panel order, as {@link selectOrder}. */
 const useSelectOrder = (): panel.Key[] => Select.useMemo(selectOrder, []);

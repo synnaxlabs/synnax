@@ -24,7 +24,8 @@ const BLOB = {
         key: "8edeb842-40e9-4a55-87e9-5f0937b4654a",
         name: "Local",
         password: "seldon",
-        port: 9090,
+        // The live store held the port as a string, so the fixture keeps it.
+        port: "9090",
         secure: false,
         username: "synnax",
       },
@@ -83,8 +84,10 @@ describe("Legacy.migrate over a real 0.56 store", () => {
       name: "Local",
       username: "synnax",
       password: "seldon",
+      port: 9090,
       secure: false,
     });
+    expect(core?.cores.DEMO).toMatchObject({ port: 9090, secure: true });
   });
 
   it("should leave the selection empty when the old store had none", async () => {

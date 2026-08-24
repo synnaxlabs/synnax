@@ -84,7 +84,7 @@ and `createSlice` reducers. Side effects go in middleware.
 **A Core record's key is opaque** — `LOCAL`, `DEMO`, `SERVED`, a UUID for the rest — so
 editing an address never moves an entry. Stored state is partitioned by the **cluster
 key** the record caches on connect, so two records reaching one cluster share its state.
-That key is local, so deep links name the cluster instead
+The record's key is machine-local, so deep links name the cluster instead
 (`synnax://cluster/<cluster-key>/<type>/<key>`) and resolve to whatever record this
 machine reaches it through.
 
@@ -97,18 +97,19 @@ Main window only, 250ms debounce. Every slice is declared in exactly one scope i
 | ----------- | ------------------------------------------------- |
 | `global`    | core, color, theme                                |
 | `core`      | project, range, status                            |
-| `project`   | drift, panel_order                                |
+| `project`   | drift                                             |
 | `window`    | arc, lineplot, log, nav, panels, schematic, table |
 | `transient` | haul, persist — never written                     |
 
 `Persist.open` throws when a slice is in none of them, so a new slice forces a decision
 about its durability.
 
-A `window`-scoped slice gets one partition per window
-(`window.<clusterKey>.<projectKey>.<windowKey>`) holding the slice narrowed to that
-window, so its bytes still parse through the slice's own schema.
-`session/window/lens.ts` owns the narrow and widen; persistence never reaches into a
-slice itself. Closing a window deletes its partition.
+A `window`-scoped slice splits along its top-level fields: each window's partition
+(`window.<clusterKey>.<projectKey>.<windowKey>`) stores only that window's `windows`
+entry, and every other field is project-scoped, stored once in the project partition
+(the `panels` slice's strip order rides there). Both halves parse through the slice's
+own schema, so every field needs a Zod default. `session/window/lens.ts` owns the split;
+persistence never reaches into a slice itself. Closing a window deletes its partition.
 
 Each partition keeps a four-slot ring behind a `.slot` pointer, backing revert. A
 partition whose slices did not change is left alone, so the ring holds sessions rather

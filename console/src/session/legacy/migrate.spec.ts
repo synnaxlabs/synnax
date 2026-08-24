@@ -225,13 +225,6 @@ describe("Legacy.migrate", () => {
     expect(migrated).not.toHaveProperty("project");
     expect(migrated).not.toHaveProperty("theme");
   });
-
-  it("should never write to the legacy store", async () => {
-    const reader = vi.fn(async (key: string) => FULL[key] ?? null);
-    await Legacy.migrate(reader);
-    // Reader is the whole surface: there is no write path to the old store at all.
-    expect(Object.keys(reader)).not.toContain("set");
-  });
 });
 
 describe("Legacy migration defaults", () => {

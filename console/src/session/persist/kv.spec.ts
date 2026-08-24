@@ -87,7 +87,7 @@ describe("openSugaredKV (IndexedDBKV)", () => {
     await Persist.openSugaredKV("base").clear();
   });
 
-  it("should round-trip a value through JSON serialization", async () => {
+  it("should round-trip a value through structured clone", async () => {
     const kv = Persist.openSugaredKV("base");
     await kv.set("key", { a: 1, nested: { b: 2 } });
     await expect(kv.get("key")).resolves.toEqual({ a: 1, nested: { b: 2 } });

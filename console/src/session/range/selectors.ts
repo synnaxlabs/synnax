@@ -21,7 +21,7 @@ import { Select } from "@/session/select";
 
 const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 
-// The built-ins lead, as they did when stored state carried them.
+// The built-ins lead so they hold a stable spot at the top of every list.
 const selectAll = (state: StoreState): State[] => [
   ...BUILT_IN,
   ...selectSliceState(state).ranges,

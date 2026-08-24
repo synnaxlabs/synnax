@@ -87,6 +87,18 @@ describe("Core selectors", () => {
         expect(Core.selectSelected(storeWith([CORE_A]))).toBeUndefined();
       });
     });
+
+    describe("selectByClusterKey", () => {
+      // Two records may reach one cluster; resolving a link through the record the
+      // user already selected keeps the link from switching Cores.
+      it("should prefer the selected record when two records name one cluster", () => {
+        const shared = "8a68d3a7-3f61-4f14-9c7b-2d9e5b41c6d0";
+        const first = createCore("First", { clusterKey: shared });
+        const second = createCore("Second", { clusterKey: shared });
+        const state = storeWith([first, second], second.key);
+        expect(Core.selectByClusterKey(state, shared)?.key).toBe(second.key);
+      });
+    });
   });
 
   describe("getters", () => {

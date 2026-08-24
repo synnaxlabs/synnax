@@ -60,10 +60,7 @@ const PERSIST_SCOPES: Persist.Scopes<State> = {
     [Range.SLICE_NAME]: Range.sliceStateZ,
     [Status.SLICE_NAME]: Status.sliceStateZ,
   },
-  project: {
-    [Drift.SLICE_NAME]: Drift.sliceStateZ,
-    [Panel.ORDER_SLICE_NAME]: Panel.orderSliceStateZ,
-  },
+  project: { [Drift.SLICE_NAME]: Drift.sliceStateZ },
   // A window is a viewport, so its view of every document is stored under the window
   // rather than mixed into the project's.
   window: {
@@ -102,7 +99,6 @@ export const ZERO_STATE: State = {
   [Haul.SLICE_NAME]: Haul.ZERO_SLICE_STATE,
   [Nav.SLICE_NAME]: Nav.ZERO_SLICE_STATE,
   [Panel.SLICE_NAME]: Panel.ZERO_SLICE_STATE,
-  [Panel.ORDER_SLICE_NAME]: Panel.ZERO_ORDER_SLICE_STATE,
   [Log.SLICE_NAME]: Log.ZERO_SLICE_STATE,
   [LinePlot.SLICE_NAME]: LinePlot.ZERO_SLICE_STATE,
   [Persist.SLICE_NAME]: Persist.ZERO_SLICE_STATE,
@@ -122,7 +118,6 @@ const combinedReducer = combineReducers({
   [Haul.SLICE_NAME]: Haul.reducer,
   [Nav.SLICE_NAME]: Nav.reducer,
   [Panel.SLICE_NAME]: Panel.reducer,
-  [Panel.ORDER_SLICE_NAME]: Panel.orderReducer,
   [Log.SLICE_NAME]: Log.reducer,
   [LinePlot.SLICE_NAME]: LinePlot.reducer,
   [Persist.SLICE_NAME]: Persist.reducer,
@@ -159,7 +154,6 @@ export interface State {
   [Project.SLICE_NAME]: Project.SliceState;
   [Nav.SLICE_NAME]: Nav.SliceState;
   [Panel.SLICE_NAME]: Panel.SliceState;
-  [Panel.ORDER_SLICE_NAME]: Panel.OrderSliceState;
   [Range.SLICE_NAME]: Range.SliceState;
   [Schematic.SLICE_NAME]: Schematic.SliceState;
   [Status.SLICE_NAME]: Status.SliceState;
@@ -177,7 +171,6 @@ export type Action =
   | LinePlot.Action
   | Nav.Action
   | Panel.Action
-  | Panel.OrderAction
   | Project.Action
   | Range.Action
   | Schematic.Action

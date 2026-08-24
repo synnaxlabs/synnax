@@ -95,11 +95,12 @@ describe("useCloseOnCoreChange", () => {
   });
 
   it("should close torn-off windows and clear modals when the Core changes", async () => {
-    const held = { client: createClient("Core-a") };
+    const active = createCore("Local");
+    const held = { client: createClient("cluster-a") };
     const { wrapper: Console, store } = await createConsoleWrapper({
       client: null,
       preloadedState: {
-        ...createCoreState([createCore("Core-a")], "Core-a"),
+        ...createCoreState([active], active.key),
         drift: auxDriftState,
       },
     });
@@ -121,7 +122,7 @@ describe("useCloseOnCoreChange", () => {
     expect(Drift.selectWindow(store.getState(), AUX_KEY)).not.toBeNull();
     expect(result.current.modals.isAnyOpen()).toBe(true);
 
-    held.client = createClient("Core-b");
+    held.client = createClient("cluster-b");
     rerender();
 
     await waitFor(() =>
@@ -167,7 +168,8 @@ describe("useCacheClusterKey", () => {
   };
 
   it("should cache the cluster the selected Core connected to", async () => {
-    const core = createCore("Local");
+    // No cached cluster key: the spec exercises the first connection, not a swap.
+    const core = createCore("Local", { clusterKey: undefined });
     const { cached } = await renderCacheSync([core], CLUSTER_A);
     await cached(core.key);
   });

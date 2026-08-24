@@ -237,18 +237,25 @@ describe("createStore", () => {
     await enterAndEdit(store, Session.Core.DEMO_KEY, CLUSTER_KEY);
     store.dispatch(Session.Panel.reconcileOrder({ panels: [PANEL] }));
     store.dispatch(Session.Panel.select({ key: PANEL.key, windowKey: MAIN_WINDOW }));
-    await waitForPersisted(db, (p) => p.panel_order != null, "order not persisted yet");
-    // The order belongs to the project; the selection belongs to the window looking
-    // at it.
-    readPersisted(db).forEach((p) => {
-      if (p.panel_order != null) expect(p.panels).toBeUndefined();
-      if (p.panels != null) expect(p.panel_order).toBeUndefined();
-    });
+    await waitForPersisted(
+      db,
+      (p) => (p.panels?.order?.length ?? 0) > 0,
+      "order not persisted yet",
+    );
     await waitForPersisted(
       db,
       (p) => Object.values(p.panels?.windows ?? {})[0]?.selected === PANEL.key,
       "panel selection not persisted yet",
     );
+    // The order belongs to the project; the selection belongs to the window looking
+    // at it. The shared remainder carries no window's state, and a window's
+    // partition carries no shared fields.
+    readPersisted(db).forEach((p) => {
+      if (p.panels == null) return;
+      if (p.panels.order != null) expect(p.panels.windows).toEqual({});
+      if (Object.keys(p.panels.windows ?? {}).length > 0)
+        expect(p.panels.order).toBeUndefined();
+    });
   });
 
   it("keeps the main window's partition when the main window closes", async () => {
@@ -299,7 +306,11 @@ describe("createStore", () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const reloaded = await createStore();
     reloaded.dispatch(Session.Panel.reconcileOrder({ panels: [PANEL] }));
-    await waitForPersisted(db, (p) => p.panel_order != null, "order not persisted yet");
+    await waitForPersisted(
+      db,
+      (p) => (p.panels?.order?.length ?? 0) > 0,
+      "order not persisted yet",
+    );
     // A rewrite advances the slot pointer, so four launches would erase the ring.
     expect(await db.get(slotKey as string)).toEqual(slotBefore);
     expect(errorSpy).not.toHaveBeenCalledWith(

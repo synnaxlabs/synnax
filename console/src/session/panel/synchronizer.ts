@@ -13,11 +13,6 @@ import { destructor } from "@synnaxlabs/x";
 import { useRef } from "react";
 
 import {
-  type OrderAction,
-  type OrderStoreState,
-  reconcileOrder,
-} from "@/session/panel/order";
-import {
   selectActiveWindow,
   selectOrder,
   selectSelected,
@@ -25,6 +20,7 @@ import {
 import {
   type Action,
   clearSelected,
+  reconcileOrder,
   reconcileSelection,
   remove,
   select,
@@ -33,8 +29,8 @@ import {
 import { type Project } from "@/session/project";
 import { Synchronizer } from "@/session/synchronizer";
 
-interface RequiredStoreState extends StoreState, OrderStoreState, Project.StoreState {}
-type RequiredAction = Action | OrderAction | Drift.Action;
+interface RequiredStoreState extends StoreState, Project.StoreState {}
+type RequiredAction = Action | Drift.Action;
 type RequiredStore = Synchronizer.Store<RequiredStoreState, RequiredAction>;
 type Params = Synchronizer.Params<RequiredStoreState, RequiredAction>;
 

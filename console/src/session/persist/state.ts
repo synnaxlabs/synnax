@@ -66,22 +66,30 @@ export interface Windowed {
  * a window scope already implies.
  */
 export interface Lens {
-  /** The window keys the slice holds state for. */
-  keys: (slice: Windowed) => string[];
   /** The slice narrowed to one window, which is what that window's partition stores. */
   narrow: (slice: Windowed, key: string) => Windowed;
+  /**
+   * The slice's shared remainder: every field but the windows record, which the
+   * project partition stores once for all windows.
+   */
+  shared: (slice: Windowed) => Windowed;
   /** Folds a window's stored slice back into the one being composed. */
   widen: (into: Windowed, from: Windowed) => Windowed;
 }
 
 // A window scope is the store's promise that the slices in it key state by window. S
-// carries no such constraint, so these two are where that promise is taken at its
+// carries no such constraint, so these three are where that promise is taken at its
 // word, and the only place a slice is treated as anything but opaque.
 const narrowTo = <S extends object, K extends SliceKey<S>>(
   lens: Lens,
   slice: S[K],
   window: string,
 ): S[K] => lens.narrow(slice as Windowed, window) as S[K];
+
+const sharedOf = <S extends object, K extends SliceKey<S>>(
+  lens: Lens,
+  slice: S[K],
+): S[K] => lens.shared(slice as Windowed) as S[K];
 
 const widenInto = <S extends object, K extends SliceKey<S>>(
   lens: Lens,
@@ -98,7 +106,10 @@ export interface Scopes<S extends object> {
   global: SliceSchemas<S>;
   core: SliceSchemas<S>;
   project: SliceSchemas<S>;
-  /** Slices split one partition per window, through {@link Config.lens}. */
+  /**
+   * Slices split through {@link Config.lens}: one partition per window for the
+   * windows record, with every other field stored in the project partition.
+   */
   window: SliceSchemas<S>;
   /** Slices deliberately never written. */
   transient: Array<SliceKey<S>>;
@@ -133,6 +144,15 @@ const validateScopes = <S extends object>(initial: S, scopes: Scopes<S>): void =
     throw new Error(
       `slices in no persistence scope: ${missing.join(", ")}. Add each to a scope with its schema, or to transient.`,
     );
+  // A window partition stores a slice narrowed to its windows record alone, so a
+  // field without a schema default would make every window partition unreadable.
+  const defaultless = scopeKeys(window).filter(
+    (key) => window[key]?.safeParse({ windows: {} }).success !== true,
+  );
+  if (defaultless.length > 0)
+    throw new Error(
+      `window-scoped slices whose schemas reject a bare windows record: ${defaultless.join(", ")}. Give every field outside windows a default.`,
+    );
 };
 
 export interface Config<S extends object> {
@@ -142,7 +162,7 @@ export interface Config<S extends object> {
   getContext: (state: S) => Context;
   /** getWindows names the windows the session is running, one partition each. */
   getWindows?: (state: S) => string[];
-  /** How window-scoped slices split across windows. Required when that scope is used. */
+  /** How window-scoped slices split across windows. Required for that scope. */
   lens?: Lens | null;
   exclude?: Array<ExcludeFn<S>>;
   /**
@@ -213,6 +233,12 @@ const slotPointerZ = z.object({
     .max(HISTORY_LENGTH - 1),
 });
 
+/** Maps a slice to the part of it a partition stores. */
+type SliceTransform<S extends object> = (
+  key: SliceKey<S>,
+  slice: S[SliceKey<S>],
+) => S[SliceKey<S>];
+
 /**
  * A group of slices stored under one key prefix, with a bounded ring of slots
  * behind a pointer key. Owns how the group's bytes round-trip: ring advancement,
@@ -223,8 +249,8 @@ class Partition<S extends object> {
   private readonly db: SugaredKV;
   private readonly base: string;
   private readonly schemas: SliceSchemas<S>;
-  /** The window this partition holds, when it holds one window's slices. */
-  private readonly window: { key: string; lens: Lens } | null;
+  /** Maps each slice to the part of it this partition stores. */
+  private readonly transform: SliceTransform<S> | null;
   /** The slices last known to be in the ring, so an idle partition is left alone. */
   private committed: Partial<S> | null = null;
   private staged: Partial<S> | null = null;
@@ -233,12 +259,12 @@ class Partition<S extends object> {
     db: SugaredKV,
     base: string,
     schemas: SliceSchemas<S>,
-    window: { key: string; lens: Lens } | null = null,
+    transform: SliceTransform<S> | null = null,
   ) {
     this.db = db;
     this.base = base;
     this.schemas = schemas;
-    this.window = window;
+    this.transform = transform;
   }
 
   /**
@@ -249,11 +275,16 @@ class Partition<S extends object> {
     const out: Partial<S> = {};
     const slot = (await this.readSlot()) ?? 0;
     const data = (await this.db.get(this.stateKey(slot))) as Partial<S> | null;
-    this.committed = out;
+    // Committed mirrors the bytes in the ring, not their parse: parsing fills
+    // defaults staging strips back out, and comparing across that gap would rewrite
+    // an idle partition every launch.
+    const committed: Partial<S> = {};
+    this.committed = committed;
     if (data == null) return out;
     this.keys().forEach((key) => {
       const raw = data[key];
       if (raw == null) return;
+      committed[key] = raw;
       const parsed = this.schemas[key]?.safeParse(raw);
       if (parsed?.success !== true)
         return console.error(
@@ -277,10 +308,7 @@ class Partition<S extends object> {
     const data: Partial<S> = {};
     this.keys().forEach((key) => {
       const slice = state[key];
-      data[key] =
-        this.window == null
-          ? slice
-          : narrowTo<S, typeof key>(this.window.lens, slice, this.window.key);
+      data[key] = this.transform == null ? slice : this.transform(key, slice);
     });
     if (this.committed != null && deep.equal(this.committed, data)) return null;
     const stored = await this.readSlot();
@@ -366,6 +394,9 @@ class Engine<S extends object> {
   private readonly partitions = new Map<string, Partition<S>>();
   private readonly initial: S;
   private readonly scopes: Scopes<S>;
+  /** The project partition's schemas: its own slices plus window-slice remainders. */
+  private readonly projectSchemas: SliceSchemas<S>;
+  private readonly sharedTransform: SliceTransform<S> | null;
   private readonly getContext: (state: S) => Context;
   private readonly getWindows: (state: S) => string[];
   private readonly lens: Lens | null;
@@ -397,6 +428,17 @@ class Engine<S extends object> {
     this.getContext = getContext;
     this.getWindows = getWindows;
     this.lens = lens;
+    // A window-scoped slice's fields outside its windows record are shared by every
+    // window, so the project partition stores that remainder under the slice's own
+    // key.
+    if (lens == null) {
+      this.projectSchemas = scopes.project;
+      this.sharedTransform = null;
+    } else {
+      this.projectSchemas = { ...scopes.project, ...scopes.window };
+      this.sharedTransform = (key, slice) =>
+        key in scopes.window ? sharedOf<S, SliceKey<S>>(lens, slice) : slice;
+    }
     this.exclude = exclude;
     this.migrate = migrate;
     this.db = openKV(STORE_NAME);
@@ -455,10 +497,13 @@ class Engine<S extends object> {
         ? {}
         : await this.project(context.core, project).read();
     this.fill(out, this.scopes.project, projectSlices);
+    // Window slices seed from their shared remainder in the project partition, then
+    // fold in each window partition's entry.
+    this.fill(out, this.scopes.window, projectSlices);
     const target = { ...state, ...out };
     const windowSlices =
       project == null ? {} : await this.readWindows({ ...context, project }, target);
-    this.fill(out, this.scopes.window, windowSlices);
+    Object.assign(out, windowSlices);
     return out;
   }
 
@@ -550,16 +595,22 @@ class Engine<S extends object> {
   }
 
   private project(core: string, project: string): Partition<S> {
-    return this.partition(`project.${core}.${project}`, this.scopes.project);
+    return this.partition(
+      `project.${core}.${project}`,
+      this.projectSchemas,
+      this.sharedTransform,
+    );
   }
 
   private window(core: string, project: string, key: string): Partition<S> {
-    if (this.lens == null)
+    const { lens } = this;
+    if (lens == null)
       throw new Error("the window scope needs a lens to split its slices");
-    return this.partition(`window.${core}.${project}.${key}`, this.scopes.window, {
-      key,
-      lens: this.lens,
-    });
+    return this.partition(
+      `window.${core}.${project}.${key}`,
+      this.scopes.window,
+      (_, slice) => narrowTo<S, SliceKey<S>>(lens, slice, key),
+    );
   }
 
   /**
@@ -588,19 +639,22 @@ class Engine<S extends object> {
     return this.getWindows(state).map((key) => this.window(core, project, key));
   }
 
-  /** Reads every window partition the state names, folding them into one set of slices. */
+  /**
+   * Reads every window partition the state names, folding each into the slice's
+   * shared remainder already composed on the state.
+   */
   private async readWindows(context: Context, state: S): Promise<Partial<S>> {
     const out: Partial<S> = {};
+    scopeKeys(this.scopes.window).forEach((key) => {
+      out[key] = deep.copy(state[key]);
+    });
     for (const partition of this.windowPartitions(context, state)) {
       const read = await partition.read();
       scopeKeys(this.scopes.window).forEach((key) => {
         const value = read[key];
-        if (value == null || this.lens == null) return;
-        out[key] = widenInto<S, typeof key>(
-          this.lens,
-          out[key] ?? deep.copy(this.initial[key]),
-          value,
-        );
+        const into = out[key];
+        if (value == null || into == null || this.lens == null) return;
+        out[key] = widenInto<S, typeof key>(this.lens, into, value);
       });
     }
     return out;
@@ -611,11 +665,11 @@ class Engine<S extends object> {
   private partition(
     base: string,
     schemas: SliceSchemas<S>,
-    window: { key: string; lens: Lens } | null = null,
+    transform: SliceTransform<S> | null = null,
   ): Partition<S> {
     let partition = this.partitions.get(base);
     if (partition == null) {
-      partition = new Partition(this.db, base, schemas, window);
+      partition = new Partition(this.db, base, schemas, transform);
       this.partitions.set(base, partition);
     }
     return partition;

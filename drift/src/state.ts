@@ -27,7 +27,8 @@ import {
 
 export const configZ = z.object({
   enablePrerender: z.boolean(),
-  defaultWindowProps: windowPropsZ.partial(),
+  // Defaults apply to every window, so they must not carry a key of their own.
+  defaultWindowProps: windowPropsZ.omit({ key: true }).partial(),
   debug: z.boolean(),
 });
 
