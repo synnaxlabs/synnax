@@ -84,7 +84,7 @@ const StateMappingListItem = ({
         onClick={() => onRemove(itemKey)}
         size="small"
         variant="text"
-        ghost
+        reveal
       >
         <Icon.Close />
       </Button.Button>
@@ -123,7 +123,7 @@ export const StateMappingForm = ({
           emptyContent={
             <Flex.Box center grow>
               <Text.Text center status="disabled" gap="tiny">
-                No options added.
+                No options added
                 <Text.Text variant="link" onClick={handleAddOption}>
                   Add an option
                 </Text.Text>

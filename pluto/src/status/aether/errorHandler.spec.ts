@@ -88,9 +88,7 @@ describe("errorHandler", () => {
     it("should handle synchronous functions that don't throw", () => {
       const mockAdder: Adder = vi.fn();
       const handler = createErrorHandler(mockAdder);
-      const func = () => {
-        // no error
-      };
+      const func = () => {};
 
       handler(func);
 
@@ -107,28 +105,25 @@ describe("errorHandler", () => {
 
       handler(func, "async error message");
 
-      // Wait for the async operation to complete
-      await new Promise((resolve) => setTimeout(resolve, 0));
-
-      expect(mockAdder).toHaveBeenCalledWith(
-        expect.objectContaining({
-          message: "async error message",
-        }),
-      );
+      await vi.waitFor(() => {
+        expect(mockAdder).toHaveBeenCalledWith(
+          expect.objectContaining({
+            message: "async error message",
+          }),
+        );
+      });
     });
 
     it("should handle async functions that resolve", async () => {
       const mockAdder: Adder = vi.fn();
       const handler = createErrorHandler(mockAdder);
-      const func = async () => {
-        // no error
-      };
+      const func = async () => {};
 
       handler(func);
 
-      await new Promise((resolve) => setTimeout(resolve, 0));
-
-      expect(mockAdder).not.toHaveBeenCalled();
+      await vi.waitFor(() => {
+        expect(mockAdder).not.toHaveBeenCalled();
+      });
     });
 
     it("should not add status if error is skipped", () => {
@@ -192,9 +187,7 @@ describe("errorHandler", () => {
     it("should handle synchronous functions that don't throw", async () => {
       const mockAdder: Adder = vi.fn();
       const handler = createAsyncErrorHandler(mockAdder);
-      const func = () => {
-        // no error
-      };
+      const func = () => {};
 
       await handler(func);
 
@@ -221,9 +214,7 @@ describe("errorHandler", () => {
     it("should handle async functions that resolve", async () => {
       const mockAdder: Adder = vi.fn();
       const handler = createAsyncErrorHandler(mockAdder);
-      const func = async () => {
-        // no error
-      };
+      const func = async () => {};
 
       await handler(func);
 

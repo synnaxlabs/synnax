@@ -62,11 +62,11 @@ TEST(RackTests, testCreateTaskOnCreatedRack) {
     ASSERT_NIL(client.racks.create(r));
     task::Task t{
         .name = "cat",
-        .type = "dog",
+        .type = "pagerduty_alert",
         .internal = false,
     };
     ASSERT_NIL(r.tasks.create(t));
-    ASSERT_EQ(task::rack_key_from_task_key(t.key), r.key);
+    ASSERT_EQ(t.rack, r.key);
 }
 
 TEST(RackTests, testCreateTaskOnRetrieveRack) {
@@ -76,12 +76,12 @@ TEST(RackTests, testCreateTaskOnRetrieveRack) {
     auto retrieved = ASSERT_NIL_P(client.racks.retrieve(r.key));
     task::Task t{
         .name = "cat",
-        .type = "dog",
+        .type = "pagerduty_alert",
         .internal = false,
     };
     ASSERT_NIL(retrieved.tasks.create(t));
-    ASSERT_EQ(task::rack_key_from_task_key(t.key), r.key);
-    ASSERT_EQ(task::rack_key_from_task_key(t.key), retrieved.key);
+    ASSERT_EQ(t.rack, r.key);
+    ASSERT_EQ(t.rack, retrieved.key);
 }
 
 /// @brief retrieving a rack without include_status should not populate the
@@ -93,7 +93,7 @@ TEST(RackTests, testCreateRackWithStatusNotIncludedByDefault) {
         .name = "test_rack_status_default",
         .status = Status{
             .key = "rack-status-default-key",
-            .variant = x::status::VARIANT_SUCCESS,
+            .variant = synnax::status::VARIANT_SUCCESS,
             .message = "Rack is healthy",
             .time = x::telem::TimeStamp::now(),
             .details = StatusDetails{.rack = 123}
@@ -113,7 +113,7 @@ TEST(RackTests, testCreateRackWithStatusIncluded) {
         .name = "test_rack_with_status",
         .status = Status{
             .key = "rack-status-key",
-            .variant = x::status::VARIANT_SUCCESS,
+            .variant = synnax::status::VARIANT_SUCCESS,
             .message = "Rack is healthy",
             .time = x::telem::TimeStamp::now(),
             .details = StatusDetails{.rack = 123}
@@ -125,7 +125,7 @@ TEST(RackTests, testCreateRackWithStatusIncluded) {
     );
     ASSERT_EQ(r2.name, "test_rack_with_status");
     ASSERT_TRUE(r2.status.has_value());
-    ASSERT_EQ(r2.status->variant, x::status::VARIANT_SUCCESS);
+    ASSERT_EQ(r2.status->variant, synnax::status::VARIANT_SUCCESS);
     ASSERT_EQ(r2.status->message, "Rack is healthy");
 }
 

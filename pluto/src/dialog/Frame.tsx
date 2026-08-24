@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, location } from "@synnaxlabs/x";
+import { box, location, type state as xstate } from "@synnaxlabs/x";
 import {
   type CSSProperties,
   type ReactElement,
   type RefCallback,
   useCallback,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -22,21 +23,24 @@ import { type Component } from "@/component";
 import { context } from "@/context";
 import { CSS } from "@/css";
 import { BACKGROUND_CLASS } from "@/dialog/Background";
-import { type LocationPreference, position, type Preference } from "@/dialog/position";
+import { PORTAL_ID_ATTR, useClickOutside } from "@/dialog/useClickOutside";
 import { Flex } from "@/flex";
-import {
-  useClickOutside,
-  useCombinedRefs,
-  useResize,
-  useSyncedRef,
-  useWindowResize,
-} from "@/hooks";
+import { useCombinedRefs, useResize, useSyncedRef, useWindowResize } from "@/hooks";
 import { CONTEXT_MENU_CLASS } from "@/menu/types";
+import { position } from "@/position";
 import { state } from "@/state";
 import { Triggers } from "@/triggers";
 
+/**
+ * How a dialog attaches to its trigger.
+ *
+ * - `connected`: butts against the trigger and matches its width.
+ * - `floating`: sits near the trigger at its own width.
+ * - `modal`: centers over the page behind a backdrop.
+ */
 export type Variant = "connected" | "floating" | "modal";
 
+/** How far a modal dialog rises from its resting place as the viewport tightens. */
 export type ModalPosition = "slammed" | "shifted" | "base";
 
 /** Props for the {@link Frame} component. */
@@ -45,9 +49,11 @@ export interface FrameProps extends Omit<
   "ref" | "reverse" | "size" | "empty"
 > {
   initialVisible?: boolean;
+  /** Set it to control visibility from outside. The frame owns it when left unset. */
   visible?: boolean;
-  onVisibleChange?: state.Setter<boolean>;
-  location?: LocationPreference;
+  onVisibleChange?: xstate.Setter<boolean>;
+  /** Pins the dialog to one corner pairing instead of choosing one that fits. */
+  location?: position.LocationPreference;
   variant?: Variant;
   maxHeight?: Component.Size | number;
   zIndex?: number;
@@ -68,12 +74,14 @@ const ZERO_STATE: State = {
   modalPosition: "base",
 };
 
+/** State the enclosing {@link Frame} publishes to its trigger and dialog. */
 export interface ContextValue {
   close: () => void;
   open: () => void;
   toggle: () => void;
   visible: boolean;
   variant: Variant;
+  /** The corner of the trigger the dialog opens from. */
   location: location.XY;
 }
 
@@ -95,6 +103,8 @@ interface InternalContextValue extends Pick<
   "targetCorner" | "dialogCorner" | "style" | "modalPosition"
 > {
   ref: RefCallback<HTMLDivElement>;
+  /** Ties the portaled dialog back to this frame for click-outside checks. */
+  id: string;
 }
 
 const [InternalContext, useInternalContext] = context.create<InternalContextValue>({
@@ -104,7 +114,7 @@ const [InternalContext, useInternalContext] = context.create<InternalContextValu
 
 export { useInternalContext };
 
-const ESCAPE_TRIGGERS: Triggers.Trigger[] = [["Escape"]];
+const ESCAPE_TRIGGERS: Triggers.Trigger[] = [Triggers.ESCAPE];
 
 const positionsEqual = (
   variant: Variant,
@@ -121,7 +131,7 @@ const positionsEqual = (
   return topLeftEqual && widthEqual;
 };
 
-const PREFERENCES: LocationPreference[] = [
+const PREFERENCES: position.LocationPreference[] = [
   {
     targetCorner: location.BOTTOM_LEFT,
     dialogCorner: location.TOP_LEFT,
@@ -156,12 +166,21 @@ const selectModalPosition = (
 /**
  * A controlled dropdown dialog component that wraps its children. For the simplest
  * case, use the {@link use} hook (more behavioral details explained there).
- *
  * @param props - The props for the dropdown component. Unlisted props are passed to the
  * parent element.
  * @param props.visible - Whether the dropdown is visible or not. This is a controlled
  * @param props.children - Two children are expected: the dropdown trigger (often a
  * button or input) and the dropdown content.
+ */
+/**
+ * Pairs a {@link Trigger} with a {@link Dialog}, owning whether it is open and placing
+ * it in whatever space the viewport leaves.
+ *
+ * @example
+ * <Dialog.Frame>
+ *   <Dialog.Trigger>Open</Dialog.Trigger>
+ *   <Dialog.Dialog>{content}</Dialog.Dialog>
+ * </Dialog.Frame>
  */
 export const Frame = ({
   children,
@@ -186,9 +205,10 @@ export const Frame = ({
   const open = useCallback(() => setVisible(true), [setVisible]);
   const toggle = useCallback(() => setVisible((prev) => !prev), [setVisible]);
 
+  const id = useId();
   const visibleRef = useSyncedRef(visible);
   const targetRef = useRef<HTMLDivElement>(null);
-  const prevLocationPreference = useRef<Preference | undefined>(undefined);
+  const prevLocationPreference = useRef<position.Preference | undefined>(undefined);
   const prevBox = useRef<box.Box | undefined>(undefined);
   const dialogRef = useRef<HTMLDivElement>(null);
 
@@ -219,7 +239,7 @@ export const Frame = ({
       prefer = [prevLocationPreference.current, ...PREFERENCES];
     // In the connected or floating case, we use a more sophisticated positioning
     // algorithm.
-    const { adjustedDialog, ...locations } = position({
+    const { adjustedDialog, ...locations } = position.position({
       target,
       dialog,
       container: windowBox,
@@ -313,12 +333,13 @@ export const Frame = ({
   const internalContextValue: InternalContextValue = useMemo(
     () => ({
       ref: combinedDialogRef,
+      id,
       targetCorner,
       dialogCorner,
       style,
       modalPosition,
     }),
-    [combinedDialogRef, targetCorner, dialogCorner, style, modalPosition],
+    [combinedDialogRef, id, targetCorner, dialogCorner, style, modalPosition],
   );
 
   const ctxValue = useMemo(
@@ -339,8 +360,9 @@ export const Frame = ({
       <InternalContext value={internalContextValue}>
         <Flex.Box
           {...rest}
+          {...{ [PORTAL_ID_ATTR]: id }}
           ref={combinedTargetRef}
-          className={CSS(
+          className={CSS.cls(
             className,
             CSS.BE("dialog", "frame"),
             CSS.visible(visible),

@@ -142,10 +142,10 @@ var _ = Describe("Type Casts", func() {
 
 	DescribeTable("Boolean and Edge Cases",
 		func(ctx SpecContext, code string) { expectSuccess(ctx, code, nil) },
-		Entry("u8 in boolean context", `
+		Entry("booleans in boolean context", `
 			func testFunc() {
-				x u8 := 1
-				y u8 := 0
+				x bool := true
+				y bool := false
 				result := x and y
 			}
 		`),
@@ -401,7 +401,8 @@ var _ = Describe("Type Casts", func() {
 		`),
 	)
 
-	DescribeTable("String to Numeric Casts (rejected)",
+	DescribeTable(
+		"String to Numeric Casts (rejected)",
 		func(ctx SpecContext, code string) { expectFailure(ctx, code, nil, "cannot cast") },
 		Entry("str to i8", `
 			func testFunc() {

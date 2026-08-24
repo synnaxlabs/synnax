@@ -11,7 +11,8 @@ package primitives
 
 // Import represents an import/include required for a type mapping.
 type Import struct {
-	// Category is the import category (e.g., "external", "internal", "system", "typing").
+	// Category is the import category (e.g., "external", "internal", "system",
+	// "typing").
 	Category string
 	// Path is the import path or module name.
 	Path string

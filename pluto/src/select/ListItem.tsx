@@ -11,13 +11,18 @@ import { type record } from "@synnaxlabs/x";
 
 import { type Button } from "@/button";
 import { List } from "@/list";
-import { useItemState } from "@/select/Provider";
+import { useItemState } from "@/select/Context";
 
+/** Props for {@link ListItem}. */
 export type ListItemProps<
   K extends record.Key = record.Key,
   E extends Button.ElementType = "div",
 > = List.ItemProps<K, E>;
 
+/**
+ * A {@link List.Item} wired to the enclosing selection, so clicking it selects and its
+ * selected and hovered states come from the selection rather than the caller.
+ */
 export const ListItem = <
   K extends record.Key = record.Key,
   E extends Button.ElementType = "div",
@@ -25,6 +30,14 @@ export const ListItem = <
   props: ListItemProps<K, E>,
 ) => {
   const { itemKey } = props;
-  const selectProps = useItemState(itemKey);
-  return <List.Item<K, E> {...selectProps} {...props} />;
+  const { selected, hovered, onSelect } = useItemState(itemKey);
+  return (
+    <List.Item<K, E>
+      role="option"
+      selected={selected}
+      hovered={hovered}
+      onSelect={onSelect}
+      {...props}
+    />
+  );
 };

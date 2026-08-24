@@ -13,6 +13,7 @@ import { type ReactElement, useEffect, useRef, useState } from "react";
 
 import { Client } from "@/components/client";
 import { Platform } from "@/components/platform";
+import { type Segment, Segments } from "@/components/text/InlineCode";
 
 const ON_THIS_PAGE_ID = "on-this-page-heading";
 
@@ -20,6 +21,19 @@ interface IndicatorPosition {
   top: number;
   height: number;
 }
+
+// Splits a rendered heading into plain text and inline code segments. Reads the DOM
+// because Astro's heading metadata flattens inline code to plain text.
+const parseHeading = (el: HTMLElement): Segment[] =>
+  Array.from(el.childNodes)
+    .flatMap((n): Segment[] => {
+      if (!(n instanceof HTMLElement))
+        return [{ text: n.textContent ?? "", code: false }];
+      if (n.classList.contains("heading-anchor")) return [];
+      if (n.tagName === "CODE") return [{ text: n.textContent ?? "", code: true }];
+      return parseHeading(n);
+    })
+    .filter(({ text }) => text.length > 0);
 
 export interface OnThisPageProps {
   headings?: MarkdownHeading[];
@@ -37,20 +51,26 @@ export const OnThisPage = ({
   const [currentID, setCurrentID] = useState("");
   const [indicator, setIndicator] = useState<IndicatorPosition>({ top: 0, height: 0 });
   const [initialized, setInitialized] = useState(false);
-  const [visibleHeadings, setVisibleHeadings] = useState<Set<string>>(
-    () => new Set(headings.map(({ slug }) => slug)),
+  const [visibleHeadings, setVisibleHeadings] = useState<Map<string, Segment[]>>(
+    () =>
+      new Map(
+        headings.map(({ slug, text }) => [
+          slug,
+          [{ text: unescape(text), code: false }],
+        ]),
+      ),
   );
 
   // Purge headings that aren't visible in the DOM (hidden by tabs, etc.)
   useEffect(() => {
     const purge = () => {
       const titles = document.querySelectorAll<HTMLElement>("article :is(h1, h2, h3)");
-      const visibleIds = new Set(
+      const visibleIds = new Map(
         Array.from(titles)
           .filter(
             (t) => t.offsetParent !== null || getComputedStyle(t).display !== "none",
           )
-          .map((t) => t.id),
+          .map((t): [string, Segment[]] => [t.id, parseHeading(t)]),
       );
       setVisibleHeadings(visibleIds);
     };
@@ -67,7 +87,6 @@ export const OnThisPage = ({
     };
   }, []);
 
-  // Update indicator position when currentID changes
   useEffect(() => {
     if (!menuRef.current || !currentID) return;
     const activeItem = menuRef.current.querySelector<HTMLElement>(
@@ -146,7 +165,7 @@ export const OnThisPage = ({
             onClick={() => setCurrentID(heading.slug)}
             className={`on-this-page-item depth-${heading.depth} ${currentID === heading.slug ? "active" : ""}`}
           >
-            {unescape(heading.text)}
+            <Segments segments={visibleHeadings.get(heading.slug) ?? []} />
           </a>
         ))}
       </div>

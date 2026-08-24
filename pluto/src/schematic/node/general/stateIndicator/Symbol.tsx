@@ -14,27 +14,46 @@ import { Label } from "@/schematic/node/common/label";
 import { type Config } from "@/schematic/node/general/stateIndicator/config";
 import { StateIndicator } from "@/schematic/node/general/stateIndicator/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
+import { Theming } from "@/theming";
+import { Staleness } from "@/vis/staleness";
 import { StateIndicator as BaseStateIndicator } from "@/vis/stateIndicator";
 
 export const Symbol = ({
   nodeKey,
   onConfigChange,
   selected,
-  config: { label, source, options, color, inlineSize },
+  config: {
+    label,
+    source,
+    options,
+    color,
+    inlineSize,
+    stalenessTimeout,
+    stalenessColor,
+  },
 }: NodeProps<Config>): ReactElement => {
-  const { key: optKey } = BaseStateIndicator.use({
+  const theme = Theming.use();
+  const { key: optKey, stale } = BaseStateIndicator.use({
     aetherKey: nodeKey,
     source,
     options,
+    stalenessTimeout,
   });
   return (
-    <Grid.Grid allowRotate={false} editable={selected} nodeKey={nodeKey}>
+    <Grid.Grid
+      allowRotate={false}
+      editable={selected}
+      nodeKey={nodeKey}
+      resizeHandles={["left", "right"]}
+      onResize={({ width }) => onConfigChange({ inlineSize: width })}
+    >
       <Label.Label config={label} onChange={onConfigChange} />
       <StateIndicator
         matchedOptionKey={optKey}
         options={options}
         color={color}
         inlineSize={inlineSize}
+        staleColor={stale ? Staleness.resolveColor(stalenessColor, theme) : undefined}
       />
     </Grid.Grid>
   );

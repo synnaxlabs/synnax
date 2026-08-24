@@ -12,7 +12,6 @@ import { UnexpectedError } from "@synnaxlabs/client";
 import {
   bounds,
   type box,
-  clamp,
   color,
   DataType,
   type destructor,
@@ -31,6 +30,7 @@ import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
 import { status } from "@/status/aether";
 import { telem } from "@/telem/aether";
+import { seriesOverlap, windowBounds } from "@/vis/line/aether/bounds";
 import FRAG_SHADER from "@/vis/line/aether/frag.glsl?raw";
 import F32_VERT_SHADER from "@/vis/line/aether/vert_f32.glsl?raw";
 import HYBRID_VERT_SHADER from "@/vis/line/aether/vert_hybrid.glsl?raw";
@@ -62,19 +62,12 @@ export type ParsedState = z.infer<typeof stateZ>;
 const DEFAULT_OVERLAP_THRESHOLD = TimeSpan.milliseconds(2);
 
 export interface FindResult {
-  // The line key that the point belongs to.
   key: string;
-  // The decimal position of the point in the region.
   position: xy.XY;
-  // The data value of the point.
   value: xy.XY;
-  // The color of the line.
   color: color.Color;
-  // The label of the line.
   label?: string;
-  // The units of the line.
   units?: string;
-  // The minimum and maximum values of the line.
   bounds: bounds.Bounds;
 }
 
@@ -88,9 +81,8 @@ export const ZERO_FIND_RESULT: FindResult = {
 
 export interface LineProps {
   /**
-   * A box in pixel space representing the region of the display that the line
-   * should be rendered in. The root of the pixel coordinate system is the top
-   * left of the canvas.
+   * A box in pixel space representing the region of the display that the line should be
+   * rendered in. The root of the pixel coordinate system is the top left of the canvas.
    */
   region: box.Box;
   /** An XY scale that maps from the data space to decimal space. */
@@ -166,7 +158,6 @@ export class GLProgram extends render.GLProgram {
     const density = dataType.density.valueOf();
 
     if (dataType.equals(DataType.UINT8))
-      // Use gl.vertexAttribIPointer for integer attributes
       gl.vertexAttribIPointer(
         aLoc,
         1,
@@ -175,7 +166,6 @@ export class GLProgram extends render.GLProgram {
         density * alignment,
       );
     else
-      // Use gl.vertexAttribPointer for float attributes
       gl.vertexAttribPointer(
         aLoc,
         1,
@@ -210,11 +200,10 @@ export class GLProgram extends render.GLProgram {
 
   /**
    * We apply stroke width by drawing the line multiple times, each time with a slight
-   * transformation. This is done as simply as possible. We draw the "centered" line
-   * and then four more lines: one to the left, one to the right, one above, and one
-   * below. We can repeat this process an arbitrary number of times to make the line
-   * thicker. As we increase the stroke width, we also increase the cost of drawing the
-   * line.
+   * transformation. This is done as simply as possible. We draw the "centered" line and
+   * then four more lines: one to the left, one to the right, one above, and one below.
+   * We can repeat this process an arbitrary number of times to make the line thicker.
+   * As we increase the stroke width, we also increase the cost of drawing the line.
    */
   private attrStrokeWidth(strokeWidth: number): number {
     const { gl } = this.renderCtx;
@@ -322,8 +311,17 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     return this.internal.xTelem.value()[0];
   }
 
-  yBounds(): bounds.Bounds {
-    return this.internal.yTelem.value()[0];
+  /**
+   * @param xWindow - the visible x range. Bounds cover only samples whose x value
+   * falls inside it; non-finite windows fall back to the source's full bounds.
+   * @returns the y bounds of this line's samples inside the window.
+   */
+  yBounds(xWindow: bounds.Bounds): bounds.Bounds {
+    const { xTelem, yTelem } = this.internal;
+    const [b, yData] = yTelem.value();
+    if (!bounds.isFinite(xWindow)) return b;
+    const [, xData] = xTelem.value();
+    return windowBounds(xData, yData, xWindow, DEFAULT_OVERLAP_THRESHOLD);
   }
 
   findByXValue(props: LineProps, target: number): FindResult {
@@ -337,7 +335,6 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       // a valid index is not a valid value.
       const valid = v >= 0 && v < x.length;
       if (valid) [index, series] = [v, i];
-      // We can stop the search if we have found a valid value.
       return valid;
     });
     const { key } = this;
@@ -487,10 +484,12 @@ export const buildDrawOperations = (
         bounds.span(y.alignmentBounds) - yAlignmentOffset,
       );
       if (alignmentCount === 0n) return;
-      let downsample = clamp(
+      let downsample = bounds.clamp(
+        {
+          lower: userSpecifiedDownSampling,
+          upper: 51,
+        },
         Math.round(exposure * 4 * Number(alignmentCount)),
-        userSpecifiedDownSampling,
-        51,
       );
       if (downsampleMode !== "decimate") downsample = 1;
       const count = Number(alignmentCount / x.alignmentMultiple);
@@ -504,22 +503,3 @@ export const buildDrawOperations = (
 
 const digests = (ops: DrawOperation[]): DrawOperationDigest[] =>
   ops.map((op) => ({ ...op, x: op.x.digest, y: op.y.digest }));
-
-const seriesOverlap = (x: Series, ys: Series, overlapThreshold: TimeSpan): boolean => {
-  if (x.alignmentMultiple !== ys.alignmentMultiple) {
-    console.warn(
-      "encountered two series with different alignment multiples in draw operations",
-      { x: x.digest, y: ys.digest },
-    );
-    return false;
-  }
-  // If the time ranges of the x and y series overlap, we meet the first condition
-  // for drawing them together. Dynamic buffering can sometimes lead to very slight,
-  // unintended overlaps, so we only consider them overlapping if they overlap by a
-  // certain threshold.
-  const timeRangesOverlap = x.timeRange.overlapsWith(ys.timeRange, overlapThreshold);
-  // If the 'indexes' of the x and y series overlap, we meet the second condition
-  // for drawing them together.
-  const alignmentsOverlap = bounds.overlapsWith(x.alignmentBounds, ys.alignmentBounds);
-  return timeRangesOverlap && alignmentsOverlap;
-};

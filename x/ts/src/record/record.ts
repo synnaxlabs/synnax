@@ -9,14 +9,10 @@
 
 import { z } from "zod";
 
-/**
- * Zod schema for validating record keys. Can be either a string or number.
- */
+/** Zod schema for validating record keys. Can be either a string or number. */
 export const keyZ = z.union([z.string(), z.number()]);
 
-/**
- * Represents valid key types for record objects. Can be either a string or number.
- */
+/** Represents valid key types for record objects. Can be either a string or number. */
 export type Key = z.infer<typeof keyZ>;
 
 /**
@@ -31,19 +27,13 @@ export const unknownZ = () => z.record(keyZ, z.unknown());
  */
 export interface Unknown extends z.infer<ReturnType<typeof unknownZ>> {}
 
-/**
- * Interface for objects that have a key property.
- * @template K - The type of the key (must extend Key)
- */
+/** Interface for objects that have a key property. */
 export interface Keyed<K extends Key = Key> {
   /** The key identifier for this object */
   key: K;
 }
 
-/**
- * Interface for objects that have both a key and a name property.
- * @template K - The type of the key (defaults to string)
- */
+/** Interface for objects that have both a key and a name property. */
 export interface KeyedNamed<K extends Key = string> {
   /** The key identifier for this object */
   key: K;
@@ -51,10 +41,7 @@ export interface KeyedNamed<K extends Key = string> {
   name: string;
 }
 
-/**
- * Type representing the entries of a record as an array of key-value tuples.
- * @template T - The record type
- */
+/** Type representing the entries of a record as an array of key-value tuples. */
 export type Entries<T> = Array<
   {
     [K in keyof T]: [K, T[K]];
@@ -62,11 +49,8 @@ export type Entries<T> = Array<
 >;
 
 /**
- * Converts a record object into an array of key-value tuples.
- * This is a type-safe wrapper around Object.entries().
- *
- * @template T - The type of the input record
- * @param obj - The record object to convert to entries
+ * Converts a record object into an array of key-value tuples. This is a type-safe
+ * wrapper around Object.entries().
  * @returns An array of [key, value] tuples
  *
  * @example
@@ -80,12 +64,18 @@ export const entries = <T extends Record<Key, unknown>>(obj: T): Entries<T> =>
   Object.entries(obj) as Entries<T>;
 
 /**
- * Maps over the entries of a record, applying a transformation function to each value.
+ * Reads the keys of a record, keeping their type instead of widening to `string`. Only
+ * correct when the object carries no properties beyond the ones its type declares.
  *
- * @template T - The type of the input record
- * @template U - The type of the output values
- * @param obj - The record object to map over
- * @param fn - A function that transforms each value. Receives the value and key as parameters.
+ * @example record.keys({ a: 1, b: 2 }) // typed Array<"a" | "b">
+ */
+export const keys = <T extends Record<Key, unknown>>(obj: T): Array<keyof T> =>
+  Object.keys(obj);
+
+/**
+ * Maps over the entries of a record, applying a transformation function to each value.
+ * @param fn - A function that transforms each value. Receives the value and key as
+ * parameters.
  * @returns A new record with the same keys but transformed values
  *
  * @example
@@ -98,13 +88,12 @@ export const entries = <T extends Record<Key, unknown>>(obj: T): Entries<T> =>
 export const map = <T extends Record<Key, unknown>, U>(
   obj: T,
   fn: (value: T[keyof T], key: keyof T) => U,
-): Record<Key, U> =>
-  Object.fromEntries(entries(obj).map(([key, value]) => [key, fn(value, key)]));
+): { [K in keyof T]: U } =>
+  Object.fromEntries(entries(obj).map(([key, value]) => [key, fn(value, key)])) as {
+    [K in keyof T]: U;
+  };
 
 /**
- * Removes all properties with undefined or null values from a record.
- *
- * @template T - The type of the input record
  * @param obj - The record object to purge
  * @returns A new record with undefined/null values removed
  *
@@ -121,11 +110,6 @@ export const purgeUndefined = <T extends Record<Key, unknown>>(obj: T): T =>
 /**
  * Removes specified keys from an object. This creates a shallow copy of the object and
  * removes the keys instead of mutating the original object.
- *
- * @template T - The type of the input object
- * @template K - The type of the keys to remove
- * @param obj - The object to remove keys from
- * @param keys - The keys to remove from the object
  * @returns A new object with the specified keys removed
  *
  * @example
@@ -142,11 +126,13 @@ export const omit = <T, K extends keyof T>(obj: T, ...keys: K[]): Omit<T, K> => 
 };
 
 export interface NullishToEmpty {
-  (): z.ZodType<Unknown>;
+  (): z.ZodDefault<z.ZodType<Unknown, Unknown | null>>;
   <K extends z.ZodType<Key>, V extends z.ZodType>(
     key: K,
     value: V,
-  ): z.ZodType<Record<z.infer<K>, z.infer<V>>>;
+  ): z.ZodDefault<
+    z.ZodType<Record<z.infer<K>, z.infer<V>>, Record<z.infer<K>, z.input<V>> | null>
+  >;
 }
 
 /**
@@ -170,3 +156,6 @@ export const nullishToEmpty = ((key?: z.ZodType, value?: z.ZodType) => {
     .union([z.null().transform(() => ({})), z.record(key as z.ZodType<Key>, value)])
     .default(() => ({}));
 }) as NullishToEmpty;
+
+/** A completely empty record */
+export type Empty = Record<never, never>;

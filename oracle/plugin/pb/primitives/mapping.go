@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package primitives provides Protocol Buffers-specific primitive type mappings for Oracle code generation.
+// Package primitives provides Protocol Buffers-specific primitive type mappings for
+// Oracle code generation.
 package primitives
 
 import "github.com/synnaxlabs/oracle/plugin/primitives"
@@ -29,9 +30,14 @@ var Mappings = map[string]primitives.Mapping{
 	"uint64":  {TargetType: "uint64"},
 	"float32": {TargetType: "float"},
 	"float64": {TargetType: "double"},
-	"record":  {TargetType: "google.protobuf.Struct", Imports: []primitives.Import{{Category: "external", Path: "google/protobuf/struct.proto"}}},
-	"bytes":   {TargetType: "bytes"},
-	"any":     {TargetType: "bytes"},
+	"record": {
+		TargetType: "google.protobuf.Struct",
+		Imports: []primitives.Import{
+			{Category: "external", Path: "google/protobuf/struct.proto"},
+		},
+	},
+	"bytes": {TargetType: "bytes"},
+	"any":   {TargetType: "bytes"},
 }
 
 // Mapper returns a primitives.Mapper for Protocol Buffers code generation.

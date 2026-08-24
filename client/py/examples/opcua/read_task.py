@@ -76,14 +76,11 @@ my_float_1 = client.channels.create(
 )
 
 # Create the OPC UA Read Task
-# Using node_name to reference the OPC UA variables directly by their names.
-# This is more reliable than using node IDs which can change between server restarts.
 tsk = sy.opcua.ReadTask(
     name="OPC UA Py - Read Task",
     device=dev.key,
     sample_rate=sy.Rate.HZ * 10,  # Sample at 10 Hz
     stream_rate=sy.Rate.HZ * 10,  # Stream at 10 Hz
-    data_saving=True,
     channels=[
         # Bind the Synnax channels to the OPC UA node IDs
         # These IDs correspond to my_float_0 and my_float_1 in the OPC UA server

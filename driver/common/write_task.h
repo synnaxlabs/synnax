@@ -9,7 +9,10 @@
 
 #pragma once
 
+#include "client/cpp/task/json.gen.h"
+
 #include "driver/bypass/pipeline/factory.h"
+#include "driver/common/common.h"
 #include "driver/common/status.h"
 #include "driver/errors/errors.h"
 #include "driver/pipeline/acquisition.h"
@@ -17,20 +20,14 @@
 #include "driver/task/task.h"
 
 namespace driver::common {
-/// @brief common write task configuration parameters used across multiple drivers.
-struct BaseWriteTaskConfig : BaseTaskConfig {
-    /// @brief the key of the device the task is writing to.
-    const std::string device_key;
-
-    BaseWriteTaskConfig(BaseWriteTaskConfig &&other) noexcept:
-        BaseTaskConfig(std::move(other)), device_key(other.device_key) {}
-
-    BaseWriteTaskConfig(const BaseWriteTaskConfig &) = delete;
-
-    const BaseWriteTaskConfig &operator=(const BaseWriteTaskConfig &) = delete;
-
+/// @brief common write task configuration shared across hardware control tasks.
+/// Wraps the schema-generated write config (auto_start, data_saving_disabled,
+/// device) so the field set has a single definition in the oracle schema.
+struct BaseWriteTaskConfig : ::synnax::task::WriteConfig {
     explicit BaseWriteTaskConfig(x::json::Parser &cfg):
-        BaseTaskConfig(cfg), device_key(cfg.field<std::string>("device")) {}
+        ::synnax::task::WriteConfig(::synnax::task::WriteConfig::parse(cfg)) {
+        if (this->device.empty()) cfg.field_err("device", "this field is required");
+    }
 };
 
 class Sink : public pipeline::Sink, public pipeline::Source {
@@ -40,8 +37,8 @@ class Sink : public pipeline::Sink, public pipeline::Source {
     std::unordered_map<synnax::channel::Key, synnax::channel::Channel> state_channels;
     /// @brief the index keys of the state channels.
     const std::set<synnax::channel::Key> state_indexes;
-    /// @brief whether data saving is enabled for the task.
-    bool data_saving;
+    /// @brief whether data saving is disabled for the task.
+    bool data_saving_disabled;
 
 public:
     /// @brief the rate at which to communicate state values down the channel.
@@ -58,7 +55,7 @@ public:
     explicit Sink(std::vector<synnax::channel::Key> cmd_channels):
         cmd_channels(std::move(cmd_channels)),
         state_indexes({}),
-        data_saving(true),
+        data_saving_disabled(false),
         state_rate(0) {}
 
     Sink(
@@ -66,11 +63,11 @@ public:
         std::set<synnax::channel::Key> state_indexes,
         const std::vector<synnax::channel::Channel> &state_channels,
         std::vector<synnax::channel::Key> cmd_channels,
-        const bool data_saving
+        const bool data_saving_disabled
     ):
         cmd_channels(std::move(cmd_channels)),
         state_indexes(std::move(state_indexes)),
-        data_saving(data_saving),
+        data_saving_disabled(data_saving_disabled),
         state_rate(state_rate) {
         auto idx = 0;
         for (const auto &ch: state_channels) {
@@ -96,7 +93,7 @@ public:
             keys.push_back(idx);
         return synnax::framer::WriterConfig{
             .channels = keys,
-            .mode = data_saving_writer_mode(this->data_saving),
+            .mode = data_saving_writer_mode(this->data_saving_disabled),
         };
     }
 
@@ -171,7 +168,7 @@ class WriteTask final : public driver::task::Task {
         [[nodiscard]] synnax::framer::WriterConfig writer_config() const {
             auto cfg = this->internal->writer_config();
             if (cfg.subject.key.empty())
-                cfg.subject.key = std::to_string(this->p.state.task.key);
+                cfg.subject.key = this->p.state.task.key.to_string();
             if (cfg.subject.name.empty()) cfg.subject.name = this->p.name();
             return cfg;
         }
@@ -253,9 +250,10 @@ public:
     /// @param propagate_state whether the task will be reconfigured after it was
     /// stopped.
     bool stop(const std::string &cmd_key, const bool propagate_state) {
-        const auto write_pipe_stopped = this->cmd_write_pipe.stop();
-        const auto state_pipe_stopped = this->state_write_pipe.stop();
-        const auto stopped = write_pipe_stopped && state_pipe_stopped;
+        // The state pipe never starts without state channels, so only the command
+        // pipe records whether the sink holds hardware.
+        const auto stopped = this->cmd_write_pipe.stop();
+        this->state_write_pipe.stop();
         if (stopped) this->state.error(this->sink->internal->stop());
         if (propagate_state) this->state.send_stop(cmd_key);
         return stopped;
@@ -263,9 +261,15 @@ public:
 
     /// @brief starts the task.
     /// @param cmd_key - A reference to the command key used to execute the start.
-    /// Will be used internally to communicate the task state.
+    /// Will be used internally to communicate the task state. A task that is
+    /// already running is not restarted: the command is answered with the current
+    /// status.
     bool start(const std::string &cmd_key) {
-        this->stop("", false);
+        if (this->cmd_write_pipe.running()) {
+            this->state.ack(cmd_key, true);
+            return false;
+        }
+        this->state.reset();
         const auto sink_started = !this->state.error(this->sink->internal->start());
         if (sink_started) {
             this->cmd_write_pipe.start();

@@ -16,6 +16,7 @@ import { render } from "@/vis/render";
 
 export const tableStateZ = z.object({
   region: box.box,
+  scroll: xy.xyZ.default(xy.ZERO),
   clearOverScan: xy.crudeZ.default(0),
   visible: z.boolean().default(true),
   autoRenderInterval: z.number().default(1000),
@@ -26,6 +27,8 @@ interface CellProps {
 }
 
 export interface Cell extends aether.Component {
+  /** The cell's position in the table's unscrolled layout coordinates. */
+  readonly box: box.Box;
   render: ({ viewportScale }: CellProps) => void;
 }
 
@@ -70,15 +73,20 @@ export class Table extends aether.Composite<typeof tableStateZ, InternalState, C
     if (!this.state.visible)
       return () => this.internal.renderCtx.erase(eraseRegion, this.state.clearOverScan);
     const { renderCtx, handleError } = this.internal;
-    const viewportScale = scale.XY.translate(box.topLeft(this.state.region));
+    const viewportScale = scale.XY.translate(
+      xy.sub(box.topLeft(this.state.region), this.state.scroll),
+    );
     const clearScissor = renderCtx.scissor(
       this.state.region,
       xy.construct(this.state.clearOverScan),
       CANVASES,
     );
 
+    const visible = box.construct(this.state.scroll, box.dims(this.state.region));
     try {
-      for (const child of this.children) child.render({ viewportScale });
+      for (const child of this.children)
+        if (!box.areaIsZero(box.intersection(child.box, visible)))
+          child.render({ viewportScale });
     } catch (e) {
       handleError(e, "Failed to render table");
     } finally {
@@ -89,7 +97,7 @@ export class Table extends aether.Composite<typeof tableStateZ, InternalState, C
 
   private requestRender(priority: render.Priority): void {
     const { renderCtx } = this.internal;
-    void renderCtx.loop.set({
+    renderCtx.loop.set({
       key: `${Table.TYPE}-${this.key}`,
       render: this.render.bind(this),
       priority,

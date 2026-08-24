@@ -17,8 +17,11 @@ import {
   TimeSpan,
 } from "@synnaxlabs/x";
 
-import { channel } from "@/channel";
+import { type channel } from "@/channel";
+import { analyzeParams } from "@/channel/payload";
+import { type ChannelRetriever } from "@/framer/adapter";
 import { Deleter } from "@/framer/deleter";
+import { Feed, type FeedOptions } from "@/framer/feed";
 import { Frame } from "@/framer/frame";
 import { AUTO_SPAN, Iterator, type IteratorConfig } from "@/framer/iterator";
 import { Reader, type ReadRequest } from "@/framer/reader";
@@ -29,27 +32,32 @@ import { ontology } from "@/ontology";
 export const ontologyID = ontology.createIDFactory<string>("framer");
 export const TYPE_ONTOLOGY_ID = ontologyID("");
 
+/** Config for {@link Client}. */
+export interface ClientConfig {
+  stream: WebSocketClient;
+  unary: UnaryClient;
+  retrieveChannels: ChannelRetriever;
+}
+
+/**
+ * Reads and writes telemetry on a Core. Reach it through `client.telem` rather than
+ * building one: `read` and `write` cover one-shot access, and the `open*` methods hand
+ * back a long-lived stream the caller must close.
+ */
 export class Client {
-  private readonly streamClient: WebSocketClient;
-  private readonly retriever: channel.Retriever;
+  private readonly cfg: ClientConfig;
   private readonly deleter: Deleter;
   private readonly reader: Reader;
 
-  constructor(
-    stream: WebSocketClient,
-    unary: UnaryClient,
-    retriever: channel.Retriever,
-  ) {
-    this.streamClient = stream;
-    this.retriever = retriever;
+  constructor(cfg: ClientConfig) {
+    const { stream, unary, retrieveChannels } = cfg;
+    this.cfg = cfg;
     this.deleter = new Deleter(unary);
-    this.reader = new Reader(retriever, stream);
+    this.reader = new Reader(retrieveChannels, stream);
   }
 
   /**
    * Opens a new iterator over the given channels within the provided time range.
-   *
-   * @param tr - A time range to iterate over.
    * @param channels - A list of channels (by name or key) to iterate over.
    * @param opts - see {@link IteratorConfig}
    * @returns a new {@link Iterator}.
@@ -59,33 +67,47 @@ export class Client {
     channels: channel.Params,
     opts?: IteratorConfig,
   ): Promise<Iterator> {
-    return await Iterator._open(tr, channels, this.retriever, this.streamClient, opts);
+    return await Iterator._open(
+      tr,
+      channels,
+      this.cfg.retrieveChannels,
+      this.cfg.stream,
+      opts,
+    );
   }
 
   /**
    * Opens a new writer on the given channels.
-   *
    * @param config - The configuration for the created writer, see documentation for
    * writerConfig for more detail.
    * @returns a new {@link Writer}.
    */
   async openWriter(config: WriterConfig): Promise<Writer> {
-    return await Writer._open(this.retriever, this.streamClient, config);
+    return await Writer._open(this.cfg.retrieveChannels, this.cfg.stream, config);
   }
 
   /**
    * Opens a new streamer with the provided configuration.
-   *
-   * @param config - Configuration parameters for the streamer.
    * @param config.channels - The channels to stream values from. Can be a key, name,
    * list of keys, or list of names.
-   * @param config.from - If this parameter is set and is before the current time,
-   * the streamer will first read and receive historical data from before this point
-   * and then will start reading new values.
-   *
+   * @param config.from - If this parameter is set and is before the current time, the
+   * streamer will first read and receive historical data from before this point and
+   * then will start reading new values.
    */
   async openStreamer(config: StreamerConfig): Promise<Streamer> {
-    return await openStreamer(this.retriever, this.streamClient, config);
+    return await openStreamer(this.cfg.retrieveChannels, this.cfg.stream, config);
+  }
+
+  /**
+   * Opens a feed over this client. The underlying stream opens on first demand;
+   * the caller must close the feed.
+   */
+  openFeed(options: FeedOptions = {}): Feed {
+    return new Feed({
+      ...options,
+      readRemote: async (tr, keys) => await this.read(tr, keys),
+      openStreamer: async (config) => await this.openStreamer(config),
+    });
   }
 
   async write(
@@ -106,13 +128,13 @@ export class Client {
   ): Promise<void>;
 
   /**
-   * Writes telemetry to the given channel starting at the given timestamp.
+   * Writes telemetry to the given channels, starting at the given timestamp. It commits
+   * and closes before it returns, so the samples land on disk.
    *
-   * @param channels - The key of the channel to write to.
-   * @param start - The starting timestamp of the first sample in data.
-   * @param data  - The telemetry to write. This telemetry must have the same
-   * data type as the channel.
-   * @throws if the channel does not exist.
+   * @param start - The timestamp of the first sample.
+   * @throws {NotFoundError} if a channel does not exist.
+   * @throws {UnauthorizedError} if another writer holds control of a channel.
+   * @throws {ValidationError} if the data type does not match the channel's.
    */
   async write(
     start: CrudeTimeStamp,
@@ -142,6 +164,12 @@ export class Client {
     await w.close();
   }
 
+  /**
+   * Reads every sample in the time range from the given channels.
+   *
+   * @returns a {@link MultiSeries} for one channel, or a {@link Frame} for several.
+   * @throws {NotFoundError} if a channel does not exist.
+   */
   async read(
     tr: CrudeTimeRange,
     channel: channel.Key | channel.Name,
@@ -153,7 +181,7 @@ export class Client {
     channels?: channel.Params,
   ): Promise<MultiSeries | Frame | ReadableStream<Uint8Array>> {
     if (!("start" in tr)) return await this.reader.read(tr);
-    const { single } = channel.analyzeParams(channels!);
+    const { single } = analyzeParams(channels!);
     const fr = await this.readFrame(tr, channels!);
     if (single) return fr.get(channels as channel.Key | channel.Name);
     return fr;
@@ -181,22 +209,18 @@ export class Client {
   async readLatest(channels: channel.Params, n: number): Promise<Frame>;
 
   /**
-   * Reads the latest n samples from the given channel(s).
-   *
-   * If fewer than n samples are available, returns only the samples that
-   * exist.
-   *
-   * @param channels - A single channel key/name or an array of channel
-   * keys/names.
+   * Reads the latest n samples from the given channel(s). If fewer than n samples are
+   * available, returns only the samples that exist.
+   * @param channels - A single channel key/name or an array of channel keys/names.
    * @param n - The maximum number of samples to read. Defaults to 1.
-   * @returns A MultiSeries when a single channel is provided, or a Frame when
-   * multiple channels are provided.
+   * @returns A MultiSeries when a single channel is provided, or a Frame when multiple
+   * channels are provided.
    */
   async readLatest(
     channels: channel.Params,
     n: number = 1,
   ): Promise<MultiSeries | Frame> {
-    const { single } = channel.analyzeParams(channels);
+    const { single } = analyzeParams(channels);
     const fr = await this.readLatestNFrame(channels, n);
     if (single) return fr.get(channels as channel.Key | channel.Name);
     return fr;
@@ -216,11 +240,15 @@ export class Client {
     return frame;
   }
 
+  /**
+   * Deletes every sample in the time range from the given channels. Deletion is
+   * permanent.
+   */
   async delete(channels: channel.Params, timeRange: CrudeTimeRange): Promise<void> {
-    const { normalized, variant } = channel.analyzeParams(channels);
+    const { normalized, variant } = analyzeParams(channels);
     const bounds = new TimeRange(timeRange);
     if (variant === "keys")
-      return await this.deleter.delete({ keys: normalized as channel.Key[], bounds });
-    return await this.deleter.delete({ names: normalized as string[], bounds });
+      return await this.deleter.delete({ keys: normalized, bounds });
+    return await this.deleter.delete({ names: normalized, bounds });
   }
 }

@@ -1,3 +1,12 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
 name: Test - Freighter (Integration)
 
 on:
@@ -10,7 +19,7 @@ on:
       - codecov.yaml
       - freighter/go/**
       - freighter/integration/**
-      - scripts/check_gofmt.sh
+      - scripts/check_go_generate.sh
       - x/go/**
   push:
     branches:
@@ -24,7 +33,7 @@ on:
       - codecov.yaml
       - freighter/go/**
       - freighter/integration/**
-      - scripts/check_gofmt.sh
+      - scripts/check_go_generate.sh
       - x/go/**
   workflow_dispatch:
 

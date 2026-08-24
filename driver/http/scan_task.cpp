@@ -10,8 +10,6 @@
 #include <memory>
 #include <utility>
 
-#include "glog/logging.h"
-
 #include "x/cpp/json/json.h"
 
 #include "driver/http/errors/errors.h"
@@ -119,7 +117,7 @@ void Scanner::set_device_status(
         .description = description,
         .time = x::telem::TimeStamp::now(),
         .details = {
-            .rack = synnax::task::rack_key_from_task_key(this->task.key),
+            .rack = this->task.rack,
             .device = dev.key,
         },
     };
@@ -139,7 +137,7 @@ std::optional<Scanner::PreparedHealthCheck> Scanner::prepare_health_check(
     if (parser.error()) {
         this->set_device_status(
             dev,
-            x::status::VARIANT_WARNING,
+            synnax::status::VARIANT_WARNING,
             "Invalid device properties",
             parser.error().message()
         );
@@ -164,14 +162,14 @@ void Scanner::process_health_response(
     if (err)
         return this->set_device_status(
             dev,
-            x::status::VARIANT_WARNING,
+            synnax::status::VARIANT_WARNING,
             "Failed to reach server",
             err.message()
         );
     if (const auto status_err = errors::from_status(resp.status_code))
         return this->set_device_status(
             dev,
-            x::status::VARIANT_ERROR,
+            synnax::status::VARIANT_ERROR,
             "HTTP " + std::to_string(resp.status_code),
             resp.body
         );
@@ -179,11 +177,11 @@ void Scanner::process_health_response(
         !v_err.empty())
         return this->set_device_status(
             dev,
-            x::status::VARIANT_ERROR,
+            synnax::status::VARIANT_ERROR,
             "Health check validation failed",
             v_err
         );
-    this->set_device_status(dev, x::status::VARIANT_SUCCESS, "Device connected");
+    this->set_device_status(dev, synnax::status::VARIANT_SUCCESS, "Device connected");
 }
 
 void Scanner::test_connection(const synnax::task::Command &cmd) const {
@@ -192,11 +190,12 @@ void Scanner::test_connection(const synnax::task::Command &cmd) const {
     synnax::task::Status status{
         .key = synnax::task::status_key(this->task),
         .name = this->task.name,
-        .variant = x::status::VARIANT_ERROR,
+        .variant = synnax::status::VARIANT_ERROR,
         .details = synnax::task::StatusDetails{
             .task = task.key,
             .running = true,
             .cmd = cmd.key,
+            .config_hash = task.config_hash,
         }
     };
     if (!parser.ok()) {
@@ -229,7 +228,7 @@ void Scanner::test_connection(const synnax::task::Command &cmd) const {
         status.description = validation_err;
         return ctx->set_status(status);
     }
-    status.variant = x::status::VARIANT_SUCCESS;
+    status.variant = synnax::status::VARIANT_SUCCESS;
     status.message = "Connection successful";
     return ctx->set_status(status);
 }

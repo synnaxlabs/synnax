@@ -66,12 +66,13 @@ export const middleware =
   (store) =>
   (next) =>
   (action_) => {
+    const incoming = action_ as A | Action;
     // eslint-disable-next-line prefer-const
-    let { action, emitted, emitter } = desugar<A | Action>(action_ as A | Action);
+    let { action, emitted, emitter } = desugar<A | Action>(incoming);
 
     const label = runtime.label();
 
-    validateAction({ action: action_ as A | Action, emitted, emitter });
+    validateAction({ action: incoming, emitted, emitter });
 
     const isDrift = isDriftAction(action.type);
     if (isDrift)
@@ -85,29 +86,31 @@ export const middleware =
     // The action is recirculating from our own relay.
     if (emitter === runtime.label()) return;
 
-    // If the runtime is updating its own props, no need to sync.
-    const shouldSync = isDrift && !EXCLUDE_SYNC_ACTIONS.includes(action.type);
-
-    let prevS: SliceState | null = null;
-    if (isDrift) {
-      prevS = store.getState().drift;
+    const prevS: SliceState = store.getState().drift;
+    if (isDrift)
       action = assignLabel(
         action as PayloadAction<MaybeKeyPayload | LabelPayload>,
         prevS,
       );
-    }
 
     const res = next(action);
 
-    const nextS = shouldSync ? store.getState().drift : null;
+    const nextS: SliceState = store.getState().drift;
 
-    const shouldEmit_ = shouldEmit(emitted, action.type);
+    // Any action that moves the slice reaches the runtime, not just drift's own: a
+    // host restoring persisted window state relies on the same reconciliation. If the
+    // runtime is updating its own props, no need to sync.
+    const shouldSync = prevS !== nextS && !EXCLUDE_SYNC_ACTIONS.includes(action.type);
+
+    // A middleware that swallows the action (next never ran) vetoes it for every
+    // window: broadcasting it would apply it remotely but not locally.
+    const shouldEmit_ = shouldEmit(emitted, action.type) && res != null;
 
     // Run everything within a mutex locked closure to ensure that we correctly sync
     // and then propagate actions to other windows.
     void mu.runExclusive(async (): Promise<void> => {
       try {
-        if (prevS !== null && nextS !== null) await sync(prevS, nextS, runtime, debug);
+        if (shouldSync) await sync(prevS, nextS, runtime, debug);
         if (shouldEmit_) await runtime.emit({ action });
       } catch (err) {
         const e = errors.fromUnknown(err);
@@ -127,9 +130,7 @@ export const middleware =
 
 /**
  * Configures the Redux middleware for the current window's store.
- *
  * @param mw - Middleware provided by the drift user (if any).
- * @param runtime - The runtime of the current window.
  * @returns a middleware function to be passed to `configureStore`.
  */
 export const configureMiddleware =

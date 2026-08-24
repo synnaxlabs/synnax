@@ -31,8 +31,9 @@ const _RoutineState_name = "RoutineStateStartingRoutineStateRunningRoutineStateS
 var _RoutineState_index = [...]uint8{0, 20, 39, 59, 77, 95, 122, 142}
 
 func (i RoutineState) String() string {
-	if i >= RoutineState(len(_RoutineState_index)-1) {
+	idx := int(i) - 0
+	if i < 0 || idx >= len(_RoutineState_index)-1 {
 		return "RoutineState(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _RoutineState_name[_RoutineState_index[i]:_RoutineState_index[i+1]]
+	return _RoutineState_name[_RoutineState_index[idx]:_RoutineState_index[idx+1]]
 }

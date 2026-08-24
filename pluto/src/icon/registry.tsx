@@ -20,11 +20,16 @@ import {
   AiOutlineBorder,
   AiOutlineCheck,
   AiOutlineClose,
-  AiOutlineLoading,
   AiOutlineMinus,
   AiOutlineSync,
 } from "react-icons/ai";
-import { BiCollapseAlt, BiExpandAlt, BiLinkExternal, BiRename } from "react-icons/bi";
+import {
+  BiCollapseAlt,
+  BiExpandAlt,
+  BiLinkExternal,
+  BiRename,
+  BiSolidComponent,
+} from "react-icons/bi";
 import {
   BsBorderWidth,
   BsFillInfoSquareFill,
@@ -54,15 +59,21 @@ import {
   FaGaugeHigh,
   FaGear,
   FaHelmetSafety,
+  FaPlus,
   FaXmark,
 } from "react-icons/fa6";
 import { FiTable } from "react-icons/fi";
 import { GiHamburgerMenu } from "react-icons/gi";
 import { GoNumber } from "react-icons/go";
 import { GrAttachment, GrDrag, GrPan, GrRotateRight } from "react-icons/gr";
-import { HiCursorClick, HiLightningBolt, HiOutlinePlus } from "react-icons/hi";
-import { HiSquare3Stack3D } from "react-icons/hi2";
-import { IoMdColorFill, IoMdHeart, IoMdRefresh } from "react-icons/io";
+import { HiCursorClick, HiLightningBolt } from "react-icons/hi";
+import { HiSquare2Stack, HiSquare3Stack3D } from "react-icons/hi2";
+import {
+  IoIosArrowRoundForward,
+  IoMdColorFill,
+  IoMdHeart,
+  IoMdRefresh,
+} from "react-icons/io";
 import {
   IoBookSharp,
   IoCopy,
@@ -74,6 +85,7 @@ import {
   IoTime,
   IoTvOutline,
 } from "react-icons/io5";
+import { LuSquareFunction } from "react-icons/lu";
 import {
   MdAccessTime,
   MdAlignHorizontalCenter,
@@ -159,6 +171,7 @@ import {
   MdShield,
   MdSquare,
   MdSquareFoot,
+  MdStop,
   MdTextFields,
   MdTypeSpecimen,
   MdUndo,
@@ -209,6 +222,8 @@ import {
   TbArrowRight,
   TbArrowsSplit,
   TbArrowUp,
+  TbBoxAlignTopLeft,
+  TbBoxModel2,
   TbChartArcs,
   TbCircleDashed,
   TbCircleLetterAFilled,
@@ -231,6 +246,7 @@ import {
   TbVariable,
 } from "react-icons/tb";
 import {
+  VscChromeRestore,
   VscSplitHorizontal,
   VscSplitVertical,
   VscSymbolConstant,
@@ -244,25 +260,27 @@ import { type IconProps, type ReactElement, wrapSVGIcon } from "@/icon/Icon";
 import { LabJack } from "@/icon/LabJack";
 import { Modbus } from "@/icon/Modbus";
 import { NI } from "@/icon/NI";
-import { OPC } from "@/icon/OPC";
+import { OPCUA } from "@/icon/OPCUA";
 import { Process } from "@/icon/Process";
 import { Pump } from "@/icon/Pump";
 import { Valve } from "@/icon/Valve";
 
 export const Pause = wrapSVGIcon(MdPause, "pause");
 export const Play = wrapSVGIcon(MdPlayArrow, "play");
+export const Stop = wrapSVGIcon(MdStop, "stop");
 export const Circle = wrapSVGIcon(MdFiberManualRecord, "circle");
 export const Square = wrapSVGIcon(MdSquare, "square");
 export const Edit = wrapSVGIcon(MdEdit, "edit");
 export const EditOff = wrapSVGIcon(MdEditOff, "edit-off");
-export const Add = wrapSVGIcon(HiOutlinePlus, "add");
+export const Add = wrapSVGIcon(FaPlus, "add");
 export const Subtract = wrapSVGIcon(AiOutlineMinus, "subtract");
 export const Copy = wrapSVGIcon(IoCopy, "copy");
 export const Cut = wrapSVGIcon(MdContentCut, "cut");
 export const Paste = wrapSVGIcon(MdContentPaste, "paste");
 export const Undo = wrapSVGIcon(MdUndo, "undo");
 export const Redo = wrapSVGIcon(MdRedo, "redo");
-export const Close = wrapSVGIcon(AiOutlineClose, "close");
+export const Close = wrapSVGIcon(FaXmark, "close");
+export const CloseThin = wrapSVGIcon(AiOutlineClose, "close-thin");
 export const Info = wrapSVGIcon(BsFillInfoSquareFill, "info");
 export const Warning = wrapSVGIcon(AiFillWarning, "warning");
 export const Check = wrapSVGIcon(AiOutlineCheck, "check");
@@ -279,13 +297,37 @@ export const Acquire = wrapSVGIcon(FaStream, "acquire");
 export const Analyze = wrapSVGIcon(FaBezierCurve, "analyze");
 export const Concepts = wrapSVGIcon(BsLightbulbFill, "concepts");
 export const Visualize = wrapSVGIcon(MdAreaChart, "visualize");
+export const Panel = wrapSVGIcon(HiSquare2Stack, "panel");
 export const LinePlot = wrapSVGIcon(MdAreaChart, "line-plot");
 export const Expand = wrapSVGIcon(BiExpandAlt, "expand");
 export const Collapse = wrapSVGIcon(BiCollapseAlt, "collapse");
-export const Cluster = wrapSVGIcon(HiSquare3Stack3D, "cluster");
-export const Loading = wrapSVGIcon(AiOutlineLoading, "loading", {
-  className: CSS.M("spin"),
-});
+export const Core = wrapSVGIcon(HiSquare3Stack3D, "core");
+export const Component = wrapSVGIcon(BiSolidComponent, "component");
+// Binary counter-rotation: a bright and a dim star orbiting the center in
+// opposite directions at different periods, so their passes drift.
+export const Loading = wrapSVGIcon(
+  (props) => (
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      xmlns="http://www.w3.org/2000/svg"
+      {...props}
+    >
+      <g className={CSS.BE("loading", "orbit")}>
+        <circle cx="3.6" cy="12" r="2.4" />
+      </g>
+      <g
+        className={CSS.cls(
+          CSS.BE("loading", "orbit"),
+          CSS.BEM("loading", "orbit", "reverse"),
+        )}
+      >
+        <circle cx="20.4" cy="12" r="1.8" opacity="0.65" />
+      </g>
+    </svg>
+  ),
+  "loading",
+);
 export const Schematic = wrapSVGIcon(IoShapes, "schematic");
 export const Caret = {
   Right: wrapSVGIcon(PiCaretRight, "caret-right"),
@@ -306,8 +348,9 @@ export const Node = wrapSVGIcon(MdOutlineDeviceHub, "node");
 export const Channel = wrapSVGIcon(MdSensors, "channel");
 export const Resources = wrapSVGIcon(AiFillFolder, "resources");
 export const Group = wrapSVGIcon(AiFillFolder, "group");
-export const Workspace = wrapSVGIcon(MdWorkspacesFilled, "workspace");
+export const Project = wrapSVGIcon(MdWorkspacesFilled, "project");
 export const Box = wrapSVGIcon(AiOutlineBorder, "box");
+export const Boxes = wrapSVGIcon(VscChromeRestore, "boxes");
 export const Python = wrapSVGIcon(SiPython, "python");
 export const TypeScript = wrapSVGIcon(SiTypescript, "typescript");
 export const CPlusPlus = wrapSVGIcon(SiCplusplus, "cplusplus");
@@ -325,7 +368,7 @@ export const Logo = {
   Linux: wrapSVGIcon(FaLinux, "logo-linux"),
   Modbus,
   NI,
-  OPC,
+  OPCUA,
   PagerDuty: wrapSVGIcon(SiPagerduty, "logo-pagerduty"),
   Windows: wrapSVGIcon(FaWindows, "logo-windows"),
   EtherCAT,
@@ -396,6 +439,8 @@ export const Align = {
   YCenter: wrapSVGIcon(MdAlignVerticalCenter, "align-y-center"),
   Top: wrapSVGIcon(MdAlignVerticalTop, "align-top"),
   Bottom: wrapSVGIcon(MdAlignVerticalBottom, "align-bottom"),
+  BoxCenter: wrapSVGIcon(TbBoxModel2, "align-box-center"),
+  BoxTopLeft: wrapSVGIcon(TbBoxAlignTopLeft, "align-box-top-left"),
 };
 export const Distribute = {
   X: wrapSVGIcon(MdHorizontalDistribute, "distribute-x"),
@@ -491,6 +536,8 @@ export const Map = wrapSVGIcon(MdOutlineMap, "map");
 export const Linear = wrapSVGIcon(MdOutlineLinearScale, "linear");
 export const None = wrapSVGIcon(TbCircleDashed, "none");
 export const Arc = wrapSVGIcon(TbChartArcs, "arc");
+export const ArcFlow = wrapSVGIcon(IoIosArrowRoundForward, "arc-flow");
+export const ArcFunc = wrapSVGIcon(LuSquareFunction, "arc-func");
 export const Select = wrapSVGIcon(TbArrowsSplit, "select");
 export const Notification = wrapSVGIcon(IoNotifications, "notification");
 export const Status = Notification;
@@ -526,6 +573,7 @@ interface Resolve {
 const icons = {
   Pause,
   Play,
+  Stop,
   Circle,
   Edit,
   EditOff,
@@ -537,6 +585,7 @@ const icons = {
   Undo,
   Redo,
   Close,
+  CloseThin,
   Info,
   Warning,
   Check,
@@ -549,10 +598,12 @@ const icons = {
   Analyze,
   Concepts,
   Visualize,
+  Panel,
   LinePlot,
   Expand,
   Collapse,
-  Cluster,
+  Core,
+  Component,
   Loading,
   Schematic,
   Caret,
@@ -567,8 +618,9 @@ const icons = {
   Channel,
   Resources,
   Group,
-  Workspace,
+  Project,
   Box,
+  Boxes,
   Python,
   TypeScript,
   CPlusPlus,
@@ -664,6 +716,8 @@ const icons = {
   Terminal,
   TerminalOutline,
   Arc,
+  ArcFlow,
+  ArcFunc,
   Select,
   Notification,
   InProgress,

@@ -12,9 +12,8 @@ package pb_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/synnaxlabs/x/testutil"
-
 	"github.com/synnaxlabs/x/pb"
+	. "github.com/synnaxlabs/x/testutil"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -38,10 +37,10 @@ var _ = Describe("Any", func() {
 			Expect(result.TypeUrl).To(ContainSubstring("StringValue"))
 		})
 
-		It("Should convert a map[string]any to structpb.Struct", func() {
+		It("Should convert a map[string]any to structpb.Value", func() {
 			m := map[string]any{"key": "value", "count": float64(42)}
 			result := MustSucceed(pb.AnyToPBAny(m))
-			Expect(result.TypeUrl).To(ContainSubstring("Struct"))
+			Expect(result.TypeUrl).To(ContainSubstring("Value"))
 		})
 
 		It("Should convert an arbitrary struct via JSON marshaling", func() {
@@ -50,13 +49,30 @@ var _ = Describe("Any", func() {
 				Value int    `json:"value"`
 			}
 			result := MustSucceed(pb.AnyToPBAny(custom{Name: "test", Value: 5}))
-			Expect(result.TypeUrl).To(ContainSubstring("Struct"))
+			Expect(result.TypeUrl).To(ContainSubstring("Value"))
 		})
+
+		DescribeTable("Should round-trip every JSON type",
+			func(original any) {
+				packed := MustSucceed(pb.AnyToPBAny(original))
+				Expect(pb.AnyFromPBAny(packed)).To(Equal(original))
+			},
+			Entry("number", float64(42)),
+			Entry("string", "sensor"),
+			Entry("boolean", true),
+			Entry("array", []any{float64(1), "two"}),
+			Entry("object", map[string]any{"key": "value"}),
+		)
 	})
 
 	Describe("AnyFromPBAny", func() {
 		It("Should return nil for nil input", func() {
 			Expect(pb.AnyFromPBAny(nil)).To(BeNil())
+		})
+
+		It("Should unpack a null structpb.Value to nil", func() {
+			packed := MustSucceed(anypb.New(structpb.NewNullValue()))
+			Expect(pb.AnyFromPBAny(packed)).To(BeNil())
 		})
 
 		It("Should unpack a structpb.Struct to a map", func() {

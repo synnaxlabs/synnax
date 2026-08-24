@@ -18,10 +18,10 @@ import (
 	programpb "github.com/synnaxlabs/arc/program/pb"
 	textpb "github.com/synnaxlabs/arc/text/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/status"
-	statuspb "github.com/synnaxlabs/x/status/pb"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -100,7 +100,7 @@ func ArcToPB(r arc.Arc) (*Arc, error) {
 	}
 	if r.Status != nil {
 		var err error
-		pb.Status, err = statuspb.StatusToPB[arc.StatusDetails]((status.Status[arc.StatusDetails])(*r.Status), StatusDetailsToPBAny)
+		pb.Status, err = statuspb.StatusToPB(*r.Status, StatusDetailsToPBAny)
 		if err != nil {
 			return nil, err
 		}
@@ -141,11 +141,11 @@ func ArcFromPB(pb *Arc) (arc.Arc, error) {
 		r.Program = &val
 	}
 	if pb.Status != nil {
-		val, err := statuspb.StatusFromPB[arc.StatusDetails](pb.Status, StatusDetailsFromPBAny)
+		val, err := statuspb.StatusFromPB(pb.Status, StatusDetailsFromPBAny)
 		if err != nil {
 			return arc.Arc{}, err
 		}
-		r.Status = (*arc.Status)(&val)
+		r.Status = &val
 	}
 	return r, nil
 }
@@ -200,8 +200,9 @@ func ModeFromPB(v Mode) (arc.Mode, error) {
 	}
 }
 
-// StatusDetailsToPBAny converts StatusDetails to *anypb.Any for use with generic translators.
-// It wraps the value in structpb.Struct (JSON) for cross-language compatibility.
+// StatusDetailsToPBAny converts StatusDetails to *anypb.Any for use with generic
+// translators. It wraps the value in structpb.Struct (JSON) for cross-language
+// compatibility.
 func StatusDetailsToPBAny(v arc.StatusDetails) (*anypb.Any, error) {
 	pb, err := StatusDetailsToPB(v)
 	if err != nil {
@@ -219,8 +220,10 @@ func StatusDetailsToPBAny(v arc.StatusDetails) (*anypb.Any, error) {
 	return anypb.New(s)
 }
 
-// StatusDetailsFromPBAny converts *anypb.Any to StatusDetails for use with generic translators.
-// It handles both typed protos and JSON (google.protobuf.Struct) for cross-language compatibility.
+// StatusDetailsFromPBAny converts *anypb.Any to StatusDetails for use with generic
+// translators. It handles typed protos and JSON (google.protobuf.Value, or
+// google.protobuf.Struct from peers on releases before value packing) for
+// cross-language compatibility.
 func StatusDetailsFromPBAny(a *anypb.Any) (arc.StatusDetails, error) {
 	if a == nil {
 		return arc.StatusDetails{}, nil
@@ -230,13 +233,20 @@ func StatusDetailsFromPBAny(a *anypb.Any) (arc.StatusDetails, error) {
 	if err := a.UnmarshalTo(&pb); err == nil {
 		return StatusDetailsFromPB(&pb)
 	}
-	// Fall back to JSON (structpb.Struct) for cross-language compatibility
-	var s structpb.Struct
-	if err := a.UnmarshalTo(&s); err != nil {
+	// Fall back to JSON for cross-language compatibility
+	var (
+		msg proto.Message
+		v   structpb.Value
+		s   structpb.Struct
+	)
+	if err := a.UnmarshalTo(&v); err == nil {
+		msg = &v
+	} else if err := a.UnmarshalTo(&s); err != nil {
 		return arc.StatusDetails{}, err
+	} else {
+		msg = &s
 	}
-	// Convert map to JSON then unmarshal to Go struct
-	jsonBytes, err := json.Marshal(s.AsMap())
+	jsonBytes, err := protojson.Marshal(msg)
 	if err != nil {
 		return arc.StatusDetails{}, err
 	}

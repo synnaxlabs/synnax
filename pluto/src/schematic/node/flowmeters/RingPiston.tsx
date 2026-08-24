@@ -26,7 +26,10 @@ export const RingPiston = ({
   scale = 1,
   ...rest
 }: Props): ReactElement => (
-  <Primitive.Div {...rest} className={CSS(CSS.B("flowmeter-RingPiston"), className)}>
+  <Primitive.Div
+    {...rest}
+    className={CSS.cls(CSS.B("flowmeter-RingPiston"), className)}
+  >
     <Handle.Boundary orientation={orientation}>
       <Handle.Handle
         location="left"

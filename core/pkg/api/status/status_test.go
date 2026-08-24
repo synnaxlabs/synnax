@@ -14,12 +14,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/query"
-	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -30,121 +29,263 @@ import (
 // cover any input via the ontology.ID IsType matching rule.
 var statusTypeOnly = ontology.ID{Type: ontology.ResourceTypeStatus}
 
-var _ = Describe("api/status SetByKeyOrName", func() {
+var _ = Describe("Service.SetByKeyOrName", func() {
 	Describe("authorized requests", func() {
-		It("Should create a UUID-keyed row named after the input when nothing matches", func(ctx SpecContext) {
-			name := "api_set_fresh_" + uuid.New().String()
-			grantOn(ctx, user.OntologyID(author.Key),
-				[]access.Action{access.ActionCreate},
-				statusTypeOnly)
+		It(
+			"Should create a UUID-keyed row named after the input when nothing matches",
+			func(ctx SpecContext) {
+				name := "api_set_fresh_" + uuid.New().String()
+				grantOn(ctx, author.OntologyID(),
+					[]access.Action{access.ActionCreate},
+					statusTypeOnly)
 
-			res := MustSucceed(apiSvc.SetByKeyOrName(authedCtx(ctx, author), apistatus.SetByKeyOrNameRequest{
-				KeyOrName: name,
-				Message:   "hello",
-				Variant:   xstatus.VariantInfo,
-			}))
-			MustSucceed(uuid.Parse(res.Key))
-			Expect(res.Key).ToNot(Equal(name))
-			Expect(res.MultipleMatches).To(BeFalse())
+				res := MustSucceed(
+					apiSvc.SetByKeyOrName(
+						AuthedCtx(ctx, author),
+						db,
+						apistatus.SetByKeyOrNameRequest{
+							KeyOrName: name,
+							Message:   "hello",
+							Variant:   status.VariantInfo,
+						},
+					),
+				)
+				MustSucceed(uuid.Parse(res.Key))
+				Expect(res.Key).ToNot(Equal(name))
+				Expect(res.MultipleMatches).To(BeFalse())
 
-			var s status.Status[any]
-			Expect(statusSvc.NewRetrieve().Where(status.MatchKeys[any](res.Key)).Entry(&s).Exec(ctx, nil)).To(Succeed())
-			Expect(s.Key).To(Equal(res.Key))
-			Expect(s.Name).To(Equal(name))
-			Expect(s.Message).To(Equal("hello"))
-		})
+				var s status.Status[any]
+				Expect(
+					statusSvc.NewRetrieve().
+						Where(status.MatchKeys[any](res.Key)).
+						Entry(&s).
+						Exec(ctx, nil),
+				).To(Succeed())
+				Expect(s.Key).To(Equal(res.Key))
+				Expect(s.Name).To(Equal(name))
+				Expect(s.Message).To(Equal("hello"))
+			},
+		)
 
-		It("Should update an existing row when the input matches its Key", func(ctx SpecContext) {
-			key := uuid.NewString()
-			Expect(statusSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
-				Key: key, Name: "api_uuid", Variant: xstatus.VariantInfo, Message: "orig", Time: telem.Now(),
-			})).To(Succeed())
-			grantOn(ctx, user.OntologyID(author.Key),
-				[]access.Action{access.ActionCreate},
-				status.OntologyID(key))
+		It(
+			"Should update an existing row when the input matches its Key",
+			func(ctx SpecContext) {
+				key := uuid.NewString()
+				Expect(statusSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
+					Variant: status.VariantInfo, Message: "orig", Time: telem.Now(),
+					Key: key, Name: "api_uuid",
+				})).To(Succeed())
+				grantOn(ctx, author.OntologyID(),
+					[]access.Action{access.ActionUpdate},
+					status.OntologyID(key))
 
-			res := MustSucceed(apiSvc.SetByKeyOrName(authedCtx(ctx, author), apistatus.SetByKeyOrNameRequest{
-				KeyOrName: key,
-				Message:   "updated",
-				Variant:   xstatus.VariantWarning,
-			}))
-			Expect(res.Key).To(Equal(key))
-			Expect(res.MultipleMatches).To(BeFalse())
-		})
+				res := MustSucceed(
+					apiSvc.SetByKeyOrName(
+						AuthedCtx(ctx, author),
+						db,
+						apistatus.SetByKeyOrNameRequest{
+							KeyOrName: key,
+							Message:   "updated",
+							Variant:   status.VariantWarning,
+						},
+					),
+				)
+				Expect(res.Key).To(Equal(key))
+				Expect(res.MultipleMatches).To(BeFalse())
+			},
+		)
 
-		It("Should report multipleMatches when the name resolves to multiple rows", func(ctx SpecContext) {
-			name := "api_multi_" + uuid.New().String()
-			Expect(statusSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
-				Key: uuid.NewString(), Name: name, Variant: xstatus.VariantInfo, Message: "a", Time: telem.Now(),
-			})).To(Succeed())
-			Expect(statusSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
-				Key: uuid.NewString(), Name: name, Variant: xstatus.VariantInfo, Message: "b", Time: telem.Now(),
-			})).To(Succeed())
-			grantOn(ctx, user.OntologyID(author.Key),
-				[]access.Action{access.ActionCreate},
-				statusTypeOnly)
+		It(
+			"Should report multipleMatches when the name resolves to multiple rows",
+			func(ctx SpecContext) {
+				name := "api_multi_" + uuid.New().String()
+				Expect(statusSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
+					Variant: status.VariantInfo, Message: "a", Time: telem.Now(),
+					Key: uuid.NewString(), Name: name,
+				})).To(Succeed())
+				Expect(statusSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
+					Variant: status.VariantInfo, Message: "b", Time: telem.Now(),
+					Key: uuid.NewString(), Name: name,
+				})).To(Succeed())
+				grantOn(ctx, author.OntologyID(),
+					[]access.Action{access.ActionUpdate},
+					statusTypeOnly)
 
-			res := MustSucceed(apiSvc.SetByKeyOrName(authedCtx(ctx, author), apistatus.SetByKeyOrNameRequest{
-				KeyOrName: name,
-				Message:   "updated",
-				Variant:   xstatus.VariantWarning,
-			}))
-			Expect(res.MultipleMatches).To(BeTrue())
-		})
+				res := MustSucceed(
+					apiSvc.SetByKeyOrName(
+						AuthedCtx(ctx, author),
+						db,
+						apistatus.SetByKeyOrNameRequest{
+							KeyOrName: name,
+							Message:   "updated",
+							Variant:   status.VariantWarning,
+						},
+					),
+				)
+				Expect(res.MultipleMatches).To(BeTrue())
+			},
+		)
 	})
 
 	Describe("failure paths", func() {
-		It("Should propagate a validation error for an unknown variant", func(ctx SpecContext) {
-			name := "api_iv_" + uuid.New().String()
-			grantOn(ctx, user.OntologyID(author.Key),
-				[]access.Action{access.ActionCreate},
-				statusTypeOnly)
+		It(
+			"Should propagate a validation error for an unknown variant",
+			func(ctx SpecContext) {
+				name := "api_iv_" + uuid.New().String()
+				grantOn(ctx, author.OntologyID(),
+					[]access.Action{access.ActionCreate},
+					statusTypeOnly)
 
-			Expect(apiSvc.SetByKeyOrName(authedCtx(ctx, author), apistatus.SetByKeyOrNameRequest{
-				KeyOrName: name,
-				Message:   "x",
-				Variant:   "bogus",
-			})).Error().To(SatisfyAll(MatchError(validate.ErrValidation), MatchError(ContainSubstring("invalid status variant"))))
-		})
+				Expect(
+					apiSvc.SetByKeyOrName(AuthedCtx(ctx, author), db, apistatus.SetByKeyOrNameRequest{
+						KeyOrName: name,
+						Message:   "x",
+						Variant:   "bogus",
+					}),
+				).Error().
+					To(SatisfyAll(MatchError(validate.ErrValidation), MatchError(ContainSubstring("invalid status variant"))))
+			},
+		)
 
-		It("Should propagate a validation error for empty input", func(ctx SpecContext) {
-			grantOn(ctx, user.OntologyID(author.Key),
-				[]access.Action{access.ActionCreate},
-				statusTypeOnly)
+		It(
+			"Should propagate a validation error for empty input",
+			func(ctx SpecContext) {
+				grantOn(ctx, author.OntologyID(),
+					[]access.Action{access.ActionCreate},
+					statusTypeOnly)
 
-			Expect(apiSvc.SetByKeyOrName(authedCtx(ctx, author), apistatus.SetByKeyOrNameRequest{
-				KeyOrName: "",
-				Message:   "x",
-				Variant:   xstatus.VariantInfo,
-			})).Error().To(SatisfyAll(MatchError(validate.ErrValidation), MatchError(ContainSubstring("key_or_name is required"))))
-		})
+				Expect(
+					apiSvc.SetByKeyOrName(AuthedCtx(ctx, author), db, apistatus.SetByKeyOrNameRequest{
+						KeyOrName: "",
+						Message:   "x",
+						Variant:   status.VariantInfo,
+					}),
+				).Error().
+					To(SatisfyAll(MatchError(validate.ErrValidation), MatchError(ContainSubstring("key_or_name is required"))))
+			},
+		)
 
-		It("Should refuse unauthorized requests without touching the store", func(ctx SpecContext) {
-			name := "api_unauth_" + uuid.New().String()
-			anon := freshUser(ctx)
+		It(
+			"Should refuse unauthorized requests without touching the store",
+			func(ctx SpecContext) {
+				name := "api_unauth_" + uuid.New().String()
+				anon := freshUser(ctx)
 
-			Expect(apiSvc.SetByKeyOrName(authedCtx(ctx, anon), apistatus.SetByKeyOrNameRequest{
-				KeyOrName: name,
-				Message:   "noop",
-				Variant:   xstatus.VariantInfo,
-			})).Error().To(MatchError(access.ErrDenied))
+				Expect(
+					apiSvc.SetByKeyOrName(
+						AuthedCtx(ctx, anon),
+						db,
+						apistatus.SetByKeyOrNameRequest{
+							KeyOrName: name,
+							Message:   "noop",
+							Variant:   status.VariantInfo,
+						},
+					),
+				).Error().
+					To(MatchError(access.ErrDenied))
 
-			Expect(statusSvc.NewRetrieve().Where(status.MatchKeys[any](name)).
-				Entry(&status.Status[any]{}).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
-		})
+				Expect(statusSvc.NewRetrieve().Where(status.MatchKeys[any](name)).
+					Entry(&status.Status[any]{}).
+					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+			},
+		)
 
-		It("Should deny when a row-level grant does not match the input key", func(ctx SpecContext) {
-			name := "api_rowlevel_" + uuid.New().String()
-			anon := freshUser(ctx)
-			grantOn(ctx, user.OntologyID(anon.Key),
-				[]access.Action{access.ActionCreate},
-				status.OntologyID(uuid.NewString()))
+		It(
+			"Should deny when a row-level grant does not match the input key",
+			func(ctx SpecContext) {
+				name := "api_rowlevel_" + uuid.New().String()
+				anon := freshUser(ctx)
+				grantOn(ctx, anon.OntologyID(),
+					[]access.Action{access.ActionCreate},
+					status.OntologyID(uuid.NewString()))
 
-			Expect(apiSvc.SetByKeyOrName(authedCtx(ctx, anon), apistatus.SetByKeyOrNameRequest{
-				KeyOrName: name,
-				Message:   "x",
-				Variant:   xstatus.VariantInfo,
-			})).Error().To(MatchError(access.ErrDenied))
-		})
+				Expect(
+					apiSvc.SetByKeyOrName(
+						AuthedCtx(ctx, anon),
+						db,
+						apistatus.SetByKeyOrNameRequest{
+							KeyOrName: name,
+							Message:   "x",
+							Variant:   status.VariantInfo,
+						},
+					),
+				).Error().
+					To(MatchError(access.ErrDenied))
+			},
+		)
 	})
+})
+
+// createStatus persists a fresh status and returns it. Writes commit immediately (nil
+// tx) so access-control reads can observe the new ontology resource.
+func createStatus(ctx SpecContext, name string) status.Status[any] {
+	GinkgoHelper()
+	s := status.Status[any]{
+		Key:     uuid.NewString(),
+		Name:    name,
+		Message: "test",
+		Variant: status.VariantInfo,
+		Time:    telem.Now(),
+	}
+	Expect(statusSvc.NewWriter(nil).Set(ctx, &s)).To(Succeed())
+	return s
+}
+
+var _ = Describe("Service.Retrieve", func() {
+	It(
+		"Should omit missing keys from a multi-key retrieve instead of failing",
+		func(ctx SpecContext) {
+			s := createStatus(ctx, "api_partial_"+uuid.New().String())
+			grantOn(ctx, author.OntologyID(),
+				[]access.Action{access.ActionRetrieve},
+				statusTypeOnly)
+
+			res := MustSucceed(
+				apiSvc.Retrieve(
+					AuthedCtx(ctx, author),
+					apistatus.RetrieveRequest{
+						Keys:                []status.Key{s.Key, uuid.NewString()},
+						IgnoreNotFoundError: true,
+					},
+				),
+			)
+			Expect(res.Statuses).To(HaveLen(1))
+			Expect(res.Statuses[0].Key).To(Equal(s.Key))
+		},
+	)
+
+	It(
+		"Should return an empty result when every requested key is missing",
+		func(ctx SpecContext) {
+			grantOn(ctx, author.OntologyID(),
+				[]access.Action{access.ActionRetrieve},
+				statusTypeOnly)
+
+			res := MustSucceed(
+				apiSvc.Retrieve(
+					AuthedCtx(ctx, author),
+					apistatus.RetrieveRequest{
+						Keys:                []status.Key{uuid.NewString()},
+						IgnoreNotFoundError: true,
+					},
+				),
+			)
+			Expect(res.Statuses).To(BeEmpty())
+		},
+	)
+
+	It(
+		"Should return a not found error for a missing key without the flag",
+		func(ctx SpecContext) {
+			grantOn(ctx, author.OntologyID(),
+				[]access.Action{access.ActionRetrieve},
+				statusTypeOnly)
+
+			Expect(
+				apiSvc.Retrieve(AuthedCtx(ctx, author), apistatus.RetrieveRequest{
+					Keys: []status.Key{uuid.NewString()},
+				}),
+			).Error().To(MatchError(query.ErrNotFound))
+		},
+	)
 })

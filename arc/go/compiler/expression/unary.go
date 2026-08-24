@@ -17,14 +17,21 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-func compileUnary(ctx context.Context[parser.IUnaryExpressionContext]) (types.Type, error) {
+func compileUnary(
+	ctx context.Context[parser.IUnaryExpressionContext],
+) (types.Type, error) {
 	if ctx.AST.MINUS() != nil {
 		innerType, err := compileUnary(context.Child(ctx, ctx.AST.UnaryExpression()))
 		if err != nil {
 			return types.Type{}, err
 		}
 		switch innerType.Kind {
-		case types.KindI8, types.KindI16, types.KindI32, types.KindU8, types.KindU16, types.KindU32:
+		case types.KindI8,
+			types.KindI16,
+			types.KindI32,
+			types.KindU8,
+			types.KindU16,
+			types.KindU32:
 			ctx.Writer.WriteI32Const(-1)
 			ctx.Writer.WriteBinaryOp(wasm.OpI32Mul)
 		case types.KindI64, types.KindU64:
@@ -39,7 +46,10 @@ func compileUnary(ctx context.Context[parser.IUnaryExpressionContext]) (types.Ty
 			if elemType.IsSigned() {
 				ctx.Resolver.EmitSeriesNegate(ctx.Writer, ctx.WriterID, elemType)
 			} else {
-				return types.Type{}, errors.Newf("cannot negate series of unsigned type %s", elemType)
+				return types.Type{}, errors.Newf(
+					"cannot negate series of unsigned type %s",
+					elemType,
+				)
 			}
 		default:
 			return types.Type{}, errors.Newf("cannot negate type %s", innerType)
@@ -56,20 +66,20 @@ func compileUnary(ctx context.Context[parser.IUnaryExpressionContext]) (types.Ty
 		if innerType.Kind == types.KindSeries {
 			if !innerType.IsBool() {
 				return types.Type{}, errors.Newf(
-					"logical NOT on series requires boolean (u8) element type, got %s",
+					"logical NOT on series requires a bool element type, got %s",
 					innerType.Unwrap(),
 				)
 			}
-			ctx.Resolver.EmitSeriesNotU8(ctx.Writer, ctx.WriterID)
+			ctx.Resolver.EmitSeriesNot(ctx.Writer, ctx.WriterID)
 			return innerType, nil
 		}
 
 		ctx.Writer.WriteOpcode(wasm.OpI32Eqz)
-		return types.U8(), nil
+		return types.Bool(), nil
 	}
 
-	if postfix := ctx.AST.PostfixExpression(); postfix != nil {
-		return compilePostfix(context.Child(ctx, postfix))
+	if power := ctx.AST.PowerExpression(); power != nil {
+		return compilePower(context.Child(ctx, power))
 	}
 	return types.Type{}, errors.New("unknown unary expression")
 }

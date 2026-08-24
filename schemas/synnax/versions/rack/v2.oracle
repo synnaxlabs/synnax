@@ -1,0 +1,45 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+Key = v1.Key
+
+StatusDetails = v1.StatusDetails
+
+Status = v1.Status
+
+Rack struct {
+    key          Key      {
+        @doc value "is the composite identifier for this rack."
+        @key
+    }
+    name         string   {
+        @doc value "is a human-readable name for the rack."
+    }
+    embedded     bool = false {
+        @doc value "is true if this rack is embedded within the Synnax server process."
+    }
+    status       Status?  {
+        @doc value  "is the current operational status of the rack."
+        @go marshal omit
+    }
+    integrations string[] = [] {
+        @doc value """
+            is the list of hardware integrations this rack supports (e.g., "ni", "opc",
+            "labjack"). An empty or nil list means the rack supports no integrations.
+        """
+    }
+
+    @doc value  """
+        is a collection container for hardware devices and tasks running on a specific
+        Core. Racks are the integration point between the Core and physical hardware
+        through the Driver.
+    """
+    @go marshal
+    @go migrate
+}

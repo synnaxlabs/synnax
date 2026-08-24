@@ -58,7 +58,10 @@ func (r RouterConfig) Override(other RouterConfig) RouterConfig {
 // returned Router will be bound to a fiber.App by calling Router.BindTo. Returns an
 // error if the merged config fails to validate.
 func NewRouter(configs ...RouterConfig) (*Router, error) {
-	cfg, err := config.New(RouterConfig{}, configs...)
+	cfg, err := config.New(
+		RouterConfig{StreamWriteDeadline: 10 * time.Second},
+		configs...,
+	)
 	if err != nil {
 		return nil, err
 	}

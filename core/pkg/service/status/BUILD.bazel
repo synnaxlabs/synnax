@@ -1,0 +1,31 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@rules_proto_grpc_cpp//:defs.bzl", "cpp_grpc_library")
+
+proto_library(
+    name = "status_proto",
+    srcs = ["pb/status.proto"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//core/pkg/service/label:label_proto",
+        "@protobuf//:any_proto",
+    ],
+)
+
+cpp_grpc_library(
+    name = "status_grpc",
+    output_mode = "NO_PREFIX",
+    protos = [":status_proto"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//core/pkg/service/label:label_grpc",
+    ],
+)

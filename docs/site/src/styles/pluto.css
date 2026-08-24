@@ -22,27 +22,37 @@
 }
 
 /* Tabs selector */
-.pluto-tabs-selector__btn {
-    padding: 0 3rem;
-
-    .pluto-text-icon {
-        gap: 1.5rem;
-    }
-
-    .pluto-text {
-        margin: 0;
-    }
-}
-
-@media (max-width: 800px) {
-    .pluto-tabs-selector__btn {
-        padding: 0 1rem;
+.pluto-tabs__tab {
+    /* Arc context tabs render the icon to the right of the label. */
+    .pluto-icon--arc-flow,
+    .pluto-icon--arc-func {
+        order: 1;
     }
 }
 
 @media (max-width: 600px) {
-    .pluto-tabs-selector__tabs {
+    .pluto-tabs__selector {
         justify-content: center;
+    }
+}
+
+article .pluto-tabs__selector {
+    margin: 1rem 1rem 1rem;
+    --pluto-height-medium: 6.5rem;
+    --pluto-tabs-tab-height: 5.5rem;
+
+    .pluto-tabs__tab {
+        padding: 0 2.5rem;
+        gap: 1.5rem;
+
+        @media (max-width: 800px) {
+            padding: 0 1.5rem;
+            gap: 1rem;
+        }
+
+        :is(.pluto-text, .pluto-icon) {
+            margin: 0;
+        }
     }
 }
 
@@ -110,9 +120,13 @@
             }
         }
 
-        &.pluto--selected .pluto-text {
-            color: var(--pluto-text-color);
-            font-weight: 500;
+        &.pluto--selected {
+            box-shadow: inset 3px 0 0 0 var(--pluto-primary-z);
+
+            & .pluto-text {
+                color: var(--pluto-text-color);
+                font-weight: 500;
+            }
         }
 
         &:not(.pluto--has-children):not(.pluto--selected) {
@@ -153,6 +167,22 @@
 /* Prevent type tokens like `i64 ns` from wrapping mid-token in reference tables. */
 article table code {
     white-space: nowrap;
+}
+
+/* Let code chips follow the state colors of the item that holds them. */
+.pluto-tree code,
+.pluto-breadcrumb code,
+.on-this-page-item code {
+    color: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    font-weight: inherit;
+}
+
+/* The page nav already sits on gray-l2, so the default chip vanishes into it. */
+.pluto-tree code {
+    background: var(--pluto-gray-l3);
+    border-color: var(--pluto-gray-l4);
 }
 
 /* Note component - override base layer text colors */

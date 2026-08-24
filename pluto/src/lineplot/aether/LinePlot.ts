@@ -15,11 +15,12 @@ import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
 import { XAxis } from "@/lineplot/aether/XAxis";
 import { YAxis } from "@/lineplot/aether/YAxis";
+import { measure } from "@/lineplot/measure/aether";
+import { rule } from "@/lineplot/rule/aether";
 import { tooltip } from "@/lineplot/tooltip/aether";
 import { status } from "@/status/aether";
 import { grid } from "@/vis/grid";
 import { type FindResult } from "@/vis/line/aether/line";
-import { measure } from "@/vis/measure/aether";
 import { render } from "@/vis/render";
 
 export type AxesBounds = Record<string, bounds.Bounds>;
@@ -138,10 +139,11 @@ export class LinePlot
     const bounds: AxesBounds = {};
     this.axes.forEach((v) => {
       const axisKey = v.state.axisKey ?? v.key;
-      bounds[axisKey] = v.bounds(this.state.hold);
+      const xBounds = v.bounds(this.state.hold);
+      bounds[axisKey] = xBounds;
       v.yAxes.forEach((y) => {
         const yAxisKey = y.state.axisKey ?? y.key;
-        bounds[yAxisKey] = y.bounds(this.state.hold);
+        bounds[yAxisKey] = y.bounds(this.state.hold, xBounds);
       });
     });
     return bounds;
@@ -201,7 +203,7 @@ export class LinePlot
       this.renderTooltips(plot, canvases);
       this.renderMeasures(plot);
     } catch (e) {
-      handleError(e, "failed to render line plot");
+      handleError(e, "Failed to render line plot");
     } finally {
       removeCanvasScissor();
       removeGLScissor();
@@ -232,4 +234,7 @@ export const REGISTRY: aether.ComponentRegistry = {
   [LinePlot.TYPE]: LinePlot,
   [XAxis.TYPE]: XAxis,
   [YAxis.TYPE]: YAxis,
+  ...measure.REGISTRY,
+  ...rule.REGISTRY,
+  ...tooltip.REGISTRY,
 };

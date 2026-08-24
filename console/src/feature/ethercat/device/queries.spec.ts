@@ -1,0 +1,400 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { createTestClient } from "@synnaxlabs/client/testutil";
+import { id } from "@synnaxlabs/x";
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { type PropsWithChildren } from "react";
+import { beforeEach, describe, expect, it } from "vitest";
+
+import { EtherCAT } from "@/feature/ethercat";
+import { createSlaveDevice as createSlave } from "@/feature/ethercat/testutil";
+import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
+
+const client = createTestClient();
+
+const createSlaveDevice = async (
+  rackKey: number,
+  properties: Partial<EtherCAT.Device.SlaveProperties> = {},
+) => await createSlave(client, rackKey, properties);
+
+describe("EtherCAT Device queries", () => {
+  let wrapper: React.FC<PropsWithChildren>;
+  let rack: { key: number };
+
+  beforeEach(async () => {
+    wrapper = await createAsyncSynnaxWrapper({ client });
+    rack = await client.racks.create({ name: `test-ethercat-rack-${id.create()}` });
+  });
+
+  describe("useSlave", () => {
+    it("should retrieve a slave device by key", async () => {
+      const dev = await createSlaveDevice(rack.key, {
+        name: "Test Slave",
+        network: "eth0",
+        position: 1,
+      });
+
+      const { result } = await renderHookSuspended(
+        () => EtherCAT.Device.useSlave({ key: dev.key }),
+        { wrapper },
+      );
+
+      await waitFor(() => expect(result.current?.key).toEqual(dev.key));
+      expect(result.current?.name).toEqual("Test Slave");
+    });
+
+    it("should update when device properties change", async () => {
+      const dev = await createSlaveDevice(rack.key, {
+        name: "Original Name",
+        network: "eth0",
+      });
+
+      const { result } = await renderHookSuspended(
+        () => EtherCAT.Device.useSlave({ key: dev.key }),
+        { wrapper },
+      );
+
+      await waitFor(() => expect(result.current?.name).toEqual("Original Name"));
+
+      await act(async () => {
+        await client.devices.create({
+          ...dev,
+          name: "Updated Name",
+        });
+      });
+
+      await waitFor(() => {
+        expect(result.current?.name).toEqual("Updated Name");
+      });
+    });
+
+    it("should return proper SlaveProperties type with PDOs", async () => {
+      const pdos = {
+        inputs: [
+          {
+            name: "Status",
+            index: 0x6000,
+            subIndex: 1,
+            bitLength: 16,
+            dataType: "uint16",
+          },
+        ],
+        outputs: [
+          {
+            name: "Control",
+            index: 0x7000,
+            subIndex: 1,
+            bitLength: 16,
+            dataType: "uint16",
+          },
+        ],
+      };
+
+      const dev = await createSlaveDevice(rack.key, {
+        name: "PDO Device",
+        network: "eth0",
+        position: 2,
+        pdos,
+        enabled: true,
+      });
+
+      const { result } = await renderHookSuspended(
+        () => EtherCAT.Device.useSlave({ key: dev.key }),
+        { wrapper },
+      );
+
+      await waitFor(() =>
+        expect(result.current?.properties?.pdos?.inputs).toHaveLength(1),
+      );
+      expect(result.current?.properties?.pdos?.outputs).toHaveLength(1);
+      expect(result.current?.properties?.pdos?.inputs[0].name).toEqual("Status");
+      expect(result.current?.properties?.enabled).toBe(true);
+    });
+  });
+
+  describe("useResultSlave", () => {
+    it("should serve the slave from the cache", async () => {
+      const dev = await createSlaveDevice(rack.key, { name: "Cached Test" });
+
+      const { result } = renderHook(
+        () => EtherCAT.Device.useResultSlave({ key: dev.key }).data,
+        { wrapper },
+      );
+
+      await waitFor(() => expect(result.current?.key).toEqual(dev.key));
+      expect(result.current?.name).toEqual("Cached Test");
+    });
+
+    it("should skip the read for a null query", () => {
+      const { result } = renderHook(() => EtherCAT.Device.useResultSlave(null).data, {
+        wrapper,
+      });
+      expect(result.current).toBeUndefined();
+    });
+  });
+
+  describe("useCommonNetwork", () => {
+    it("should return network from first device in channels", async () => {
+      const dev = await createSlaveDevice(rack.key, {
+        name: "Network Test Device",
+        network: "test-network",
+      });
+
+      const channels: EtherCAT.Task.Channel[] = [
+        {
+          type: "automatic",
+          device: dev.key,
+          pdo: "Status",
+          channel: 1,
+          disabled: false,
+          key: id.create(),
+          name: "Test Channel",
+        },
+      ];
+
+      const { result } = renderHook(() => EtherCAT.Device.useCommonNetwork(channels), {
+        wrapper,
+      });
+
+      await waitFor(() => expect(result.current).toEqual("test-network"));
+    });
+
+    it("should return empty string when channels array is empty", async () => {
+      const channels: EtherCAT.Task.Channel[] = [];
+
+      const { result } = renderHook(() => EtherCAT.Device.useCommonNetwork(channels), {
+        wrapper,
+      });
+
+      expect(result.current).toEqual("");
+    });
+
+    it("should return empty string when no channels have devices", async () => {
+      const channels: EtherCAT.Task.Channel[] = [
+        {
+          type: "automatic",
+          device: "",
+          pdo: "Status",
+          channel: 1,
+          disabled: false,
+          key: id.create(),
+          name: "No Device Channel",
+        },
+      ];
+
+      const { result } = renderHook(() => EtherCAT.Device.useCommonNetwork(channels), {
+        wrapper,
+      });
+
+      expect(result.current).toEqual("");
+    });
+
+    it("should update when device's network changes", async () => {
+      const dev = await createSlaveDevice(rack.key, {
+        name: "Network Change Device",
+        network: "original-network",
+      });
+
+      const channels: EtherCAT.Task.Channel[] = [
+        {
+          type: "automatic",
+          device: dev.key,
+          pdo: "Status",
+          channel: 1,
+          disabled: false,
+          key: id.create(),
+          name: "Test Channel",
+        },
+      ];
+
+      const { result } = renderHook(() => EtherCAT.Device.useCommonNetwork(channels), {
+        wrapper,
+      });
+
+      await waitFor(() => expect(result.current).toEqual("original-network"));
+
+      await act(async () => {
+        await client.devices.create({
+          ...dev,
+          properties: { ...dev.properties, network: "updated-network" },
+        });
+      });
+
+      await waitFor(() => expect(result.current).toEqual("updated-network"));
+    });
+  });
+
+  describe("useToggleEnabled", () => {
+    it("should toggle enabled from true to false", async () => {
+      const dev = await createSlaveDevice(rack.key, {
+        name: "Toggle Test Device",
+        network: "eth0",
+        enabled: true,
+      });
+
+      const { result } = renderHook(() => EtherCAT.Device.useToggleEnabled(), {
+        wrapper,
+      });
+
+      await act(async () => {
+        await result.current.updateAsync({ keys: dev.key });
+      });
+
+      const updated = await client.devices.retrieve({
+        key: dev.key,
+        schemas: EtherCAT.Device.SLAVE_SCHEMAS,
+      });
+      expect(updated.properties.enabled).toBe(false);
+    });
+
+    it("should toggle enabled from false to true", async () => {
+      const dev = await createSlaveDevice(rack.key, {
+        name: "Toggle False Device",
+        network: "eth0",
+        enabled: false,
+      });
+
+      const { result } = renderHook(() => EtherCAT.Device.useToggleEnabled(), {
+        wrapper,
+      });
+
+      await act(async () => {
+        await result.current.updateAsync({ keys: dev.key });
+      });
+
+      const updated = await client.devices.retrieve({
+        key: dev.key,
+        schemas: EtherCAT.Device.SLAVE_SCHEMAS,
+      });
+      expect(updated.properties.enabled).toBe(true);
+    });
+
+    it("should toggle multiple devices at once", async () => {
+      const dev1 = await createSlaveDevice(rack.key, {
+        name: "Multi Device 1",
+        network: "eth0",
+        enabled: true,
+      });
+      const dev2 = await createSlaveDevice(rack.key, {
+        name: "Multi Device 2",
+        network: "eth0",
+        enabled: true,
+      });
+
+      const { result } = renderHook(() => EtherCAT.Device.useToggleEnabled(), {
+        wrapper,
+      });
+
+      await act(async () => {
+        await result.current.updateAsync({ keys: [dev1.key, dev2.key] });
+      });
+
+      const updated1 = await client.devices.retrieve({
+        key: dev1.key,
+        schemas: EtherCAT.Device.SLAVE_SCHEMAS,
+      });
+      const updated2 = await client.devices.retrieve({
+        key: dev2.key,
+        schemas: EtherCAT.Device.SLAVE_SCHEMAS,
+      });
+      expect(updated1.properties.enabled).toBe(false);
+      expect(updated2.properties.enabled).toBe(false);
+    });
+
+    it("should apply same enabled value to all devices", async () => {
+      const dev1 = await createSlaveDevice(rack.key, {
+        name: "Same Value Device 1",
+        network: "eth0",
+        enabled: true,
+      });
+      const dev2 = await createSlaveDevice(rack.key, {
+        name: "Same Value Device 2",
+        network: "eth0",
+        enabled: false,
+      });
+
+      const { result } = renderHook(() => EtherCAT.Device.useToggleEnabled(), {
+        wrapper,
+      });
+
+      await act(async () => {
+        await result.current.updateAsync({
+          keys: [dev1.key, dev2.key],
+          enabled: true,
+        });
+      });
+
+      const updated1 = await client.devices.retrieve({
+        key: dev1.key,
+        schemas: EtherCAT.Device.SLAVE_SCHEMAS,
+      });
+      const updated2 = await client.devices.retrieve({
+        key: dev2.key,
+        schemas: EtherCAT.Device.SLAVE_SCHEMAS,
+      });
+      expect(updated1.properties.enabled).toBe(true);
+      expect(updated2.properties.enabled).toBe(true);
+    });
+
+    it("should hand the updated devices to afterSuccess", async () => {
+      const dev = await createSlaveDevice(rack.key, {
+        name: "After Success Device",
+        network: "eth0",
+        enabled: true,
+      });
+      let updated: EtherCAT.Device.SlaveDevice[] = [];
+
+      const { result } = renderHook(
+        () =>
+          EtherCAT.Device.useToggleEnabled({
+            afterSuccess: ({ data }) => {
+              updated = data;
+            },
+          }),
+        { wrapper },
+      );
+
+      await act(async () => {
+        await result.current.updateAsync({ keys: dev.key });
+      });
+
+      expect(updated.map(({ key }) => key)).toEqual([dev.key]);
+      expect(updated[0].properties.enabled).toBe(false);
+    });
+
+    it("should run afterOptimistic before the write commits", async () => {
+      const dev = await createSlaveDevice(rack.key, {
+        name: "Optimistic Toggle Device",
+        network: "eth0",
+        enabled: true,
+      });
+      const order: string[] = [];
+
+      const { result } = renderHook(
+        () =>
+          EtherCAT.Device.useToggleEnabled({
+            afterOptimistic: ({ data }) => {
+              order.push(`optimistic:${data[0].properties.enabled}`);
+            },
+            afterSuccess: () => {
+              order.push("success");
+            },
+          }),
+        { wrapper },
+      );
+
+      await act(async () => {
+        await result.current.updateAsync({ keys: dev.key });
+      });
+
+      expect(order).toEqual(["optimistic:false", "success"]);
+    });
+  });
+});

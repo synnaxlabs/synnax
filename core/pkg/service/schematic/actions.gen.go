@@ -18,15 +18,21 @@ import (
 )
 
 const (
+	ActionTypeCreate          = "create"
 	ActionTypeRename          = "rename"
 	ActionTypeSetNodePosition = "set_node_position"
-	ActionTypeSetNodeMeasured = "set_node_measured"
 	ActionTypeSetNode         = "set_node"
 	ActionTypeRemoveNode      = "remove_node"
 	ActionTypeAddEdge         = "add_edge"
 	ActionTypeRemoveEdge      = "remove_edge"
 	ActionTypeSetConfig       = "set_config"
 )
+
+// CreatePayload replaces the document with the given created state. Emitted by the Core
+// on create so remote caches ingest new documents; clients never dispatch it.
+type CreatePayload struct {
+	Schematic Schematic `json:"schematic" msgpack:"schematic"`
+}
 
 // RenamePayload renames the schematic.
 type RenamePayload struct {
@@ -39,20 +45,12 @@ type SetNodePositionPayload struct {
 	Position spatial.XY `json:"position" msgpack:"position"`
 }
 
-// SetNodeMeasuredPayload updates the rendered pixel size of a node. Emitted by the
-// renderer after measuring the mounted node and stored on the node so diagram
-// measurements stay consistent across re-renders.
-type SetNodeMeasuredPayload struct {
-	Key      string             `json:"key" msgpack:"key"`
-	Measured spatial.Dimensions `json:"measured" msgpack:"measured"`
-}
-
 // SetNodePayload inserts the node if no node with the same key exists, otherwise
 // replaces the existing node in place. If config is non-empty it is stored under the
 // node's key in the schematic configs map.
 type SetNodePayload struct {
 	Node   Node                `json:"node" msgpack:"node"`
-	Config msgpack.EncodedJSON `json:"config" msgpack:"config"`
+	Config msgpack.EncodedJSON `json:"config,omitempty" msgpack:"config,omitempty"`
 }
 
 // RemoveNodePayload removes a node and any config stored under its key.
@@ -85,9 +83,9 @@ type SetConfigPayload struct {
 // the variant; the matching pointer field carries the payload and others are nil.
 type Action struct {
 	Type            string                  `json:"type" msgpack:"type"`
+	Create          *CreatePayload          `json:"create,omitempty" msgpack:"create,omitempty"`
 	Rename          *RenamePayload          `json:"rename,omitempty" msgpack:"rename,omitempty"`
 	SetNodePosition *SetNodePositionPayload `json:"set_node_position,omitempty" msgpack:"set_node_position,omitempty"`
-	SetNodeMeasured *SetNodeMeasuredPayload `json:"set_node_measured,omitempty" msgpack:"set_node_measured,omitempty"`
 	SetNode         *SetNodePayload         `json:"set_node,omitempty" msgpack:"set_node,omitempty"`
 	RemoveNode      *RemoveNodePayload      `json:"remove_node,omitempty" msgpack:"remove_node,omitempty"`
 	AddEdge         *AddEdgePayload         `json:"add_edge,omitempty" msgpack:"add_edge,omitempty"`
@@ -104,6 +102,11 @@ func Reduce(state Schematic, actions ...Action) (Schematic, error) {
 	var err error
 	for _, a := range actions {
 		switch a.Type {
+		case ActionTypeCreate:
+			if a.Create == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.Create.Handle(state)
 		case ActionTypeRename:
 			if a.Rename == nil {
 				return state, union.MissingPayload(a.Type)
@@ -114,11 +117,6 @@ func Reduce(state Schematic, actions ...Action) (Schematic, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetNodePosition.Handle(state)
-		case ActionTypeSetNodeMeasured:
-			if a.SetNodeMeasured == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetNodeMeasured.Handle(state)
 		case ActionTypeSetNode:
 			if a.SetNode == nil {
 				return state, union.MissingPayload(a.Type)
@@ -154,6 +152,11 @@ func Reduce(state Schematic, actions ...Action) (Schematic, error) {
 	return state, nil
 }
 
+// NewCreateAction wraps a CreatePayload in an Action envelope.
+func NewCreateAction(p CreatePayload) Action {
+	return Action{Type: ActionTypeCreate, Create: &p}
+}
+
 // NewRenameAction wraps a RenamePayload in an Action envelope.
 func NewRenameAction(p RenamePayload) Action {
 	return Action{Type: ActionTypeRename, Rename: &p}
@@ -162,11 +165,6 @@ func NewRenameAction(p RenamePayload) Action {
 // NewSetNodePositionAction wraps a SetNodePositionPayload in an Action envelope.
 func NewSetNodePositionAction(p SetNodePositionPayload) Action {
 	return Action{Type: ActionTypeSetNodePosition, SetNodePosition: &p}
-}
-
-// NewSetNodeMeasuredAction wraps a SetNodeMeasuredPayload in an Action envelope.
-func NewSetNodeMeasuredAction(p SetNodeMeasuredPayload) Action {
-	return Action{Type: ActionTypeSetNodeMeasured, SetNodeMeasured: &p}
 }
 
 // NewSetNodeAction wraps a SetNodePayload in an Action envelope.

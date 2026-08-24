@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -36,8 +36,12 @@ type (
 )
 
 var (
-	_ grpc.Translator[auth.LoginRequest, *LoginRequest]   = (*loginRequestTranslator)(nil)
-	_ grpc.Translator[auth.LoginResponse, *LoginResponse] = (*loginResponseTranslator)(nil)
+	_ grpc.Translator[auth.LoginRequest, *LoginRequest] = (*loginRequestTranslator)(
+		nil,
+	)
+	_ grpc.Translator[auth.LoginResponse, *LoginResponse] = (*loginResponseTranslator)(
+		nil,
+	)
 )
 
 func (loginRequestTranslator) Forward(

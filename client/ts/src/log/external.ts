@@ -7,5 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/log/actions";
+export * from "@/log/actions.gen";
 export * from "@/log/client";
 export * from "@/log/types.gen";

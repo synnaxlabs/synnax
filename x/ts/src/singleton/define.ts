@@ -12,9 +12,7 @@ const isDefined = (key: symbol): boolean =>
 
 /**
  * Defines a new global singleton instance of a value.
- *
  * @param key - The unique identifier for the singleton.
- * @param value - A function that returns the singleton instance.
  * @returns A function that returns the singleton instance.
  */
 export const define = <T>(key: string, value: () => T): (() => T) => {

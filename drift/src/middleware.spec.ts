@@ -11,6 +11,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { MockRuntime } from "@/mock/runtime";
 import { setWindowStage, type StoreState, ZERO_SLICE_STATE } from "@/state";
+import { INITIAL_WINDOW_STATE, type WindowState } from "@/window";
 
 import {
   configureMiddleware,
@@ -46,6 +47,17 @@ describe("middleware", () => {
         mw((action) => action)({ type: "DA@test://test" });
         expect(runtime.emissions).toEqual([]);
       });
+      it("should not emit an action an inner middleware swallowed", async () => {
+        const store = { getState: () => state, dispatch: vi.fn() };
+        const runtime = new MockRuntime(false);
+        const mw = middleware(runtime)(store);
+        const next = (action: unknown) =>
+          (action as { type: string }).type === "dropped" ? undefined : action;
+        mw(next)({ type: "dropped" });
+        mw(next)({ type: "kept" });
+        await expect.poll(() => runtime.emissions.length).toEqual(1);
+        expect(runtime.emissions[0].action).toEqual({ type: "kept" });
+      });
     });
     describe("'nexting' actions", () => {
       it("should next an action if it has not been emitted by 'self' ", () => {
@@ -63,6 +75,39 @@ describe("middleware", () => {
         const next = vi.fn();
         mw(next)({ type: "DA@mock://test" });
         expect(next).not.toHaveBeenCalled();
+      });
+    });
+    describe("syncing windows", () => {
+      const restored: WindowState = {
+        ...INITIAL_WINDOW_STATE,
+        key: "restored",
+        reserved: true,
+      };
+
+      it("should sync when a non-drift action changes the slice", async () => {
+        let current: StoreState = { drift: ZERO_SLICE_STATE };
+        const store = { getState: () => current, dispatch: vi.fn() };
+        const runtime = new MockRuntime<StoreState>(true);
+        const mw = middleware(runtime)(store);
+        mw((action) => {
+          current = {
+            drift: {
+              ...ZERO_SLICE_STATE,
+              windows: { ...ZERO_SLICE_STATE.windows, restored },
+            },
+          };
+          return action;
+        })({ type: "persist/hydrate" });
+        await expect.poll(() => runtime.hasCreated).toHaveProperty("restored");
+      });
+
+      it("should not sync when the slice is untouched", async () => {
+        const store = { getState: () => state, dispatch: vi.fn() };
+        const runtime = new MockRuntime<StoreState>(true);
+        const mw = middleware(runtime)(store);
+        mw((action) => action)({ type: "persist/hydrate" });
+        await expect.poll(() => runtime.emissions.length).toEqual(1);
+        expect(runtime.hasCreated).toEqual({});
       });
     });
     describe("key assignment", () => {

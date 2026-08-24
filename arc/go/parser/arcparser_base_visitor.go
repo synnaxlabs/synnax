@@ -52,11 +52,11 @@ func (v *BaseArcParserVisitor) VisitFunctionDeclaration(ctx *FunctionDeclaration
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseArcParserVisitor) VisitInputList(ctx *InputListContext) interface{} {
+func (v *BaseArcParserVisitor) VisitTriggerList(ctx *TriggerListContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseArcParserVisitor) VisitInput(ctx *InputContext) interface{} {
+func (v *BaseArcParserVisitor) VisitTrigger(ctx *TriggerContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -72,15 +72,15 @@ func (v *BaseArcParserVisitor) VisitNamedOutput(ctx *NamedOutputContext) interfa
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseArcParserVisitor) VisitConfigBlock(ctx *ConfigBlockContext) interface{} {
+func (v *BaseArcParserVisitor) VisitInputBlock(ctx *InputBlockContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseArcParserVisitor) VisitConfigList(ctx *ConfigListContext) interface{} {
+func (v *BaseArcParserVisitor) VisitInputList(ctx *InputListContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseArcParserVisitor) VisitConfig(ctx *ConfigContext) interface{} {
+func (v *BaseArcParserVisitor) VisitInput(ctx *InputContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -108,10 +108,6 @@ func (v *BaseArcParserVisitor) VisitSingleInvocation(ctx *SingleInvocationContex
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseArcParserVisitor) VisitGlobalConstant(ctx *GlobalConstantContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
 func (v *BaseArcParserVisitor) VisitFlowStatement(ctx *FlowStatementContext) interface{} {
 	return v.VisitChildren(ctx)
 }
@@ -125,6 +121,10 @@ func (v *BaseArcParserVisitor) VisitRoutingTable(ctx *RoutingTableContext) inter
 }
 
 func (v *BaseArcParserVisitor) VisitRoutingEntry(ctx *RoutingEntryContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseArcParserVisitor) VisitRoutingKey(ctx *RoutingKeyContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -144,19 +144,19 @@ func (v *BaseArcParserVisitor) VisitQualifiedIdentifier(ctx *QualifiedIdentifier
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseArcParserVisitor) VisitConfigValues(ctx *ConfigValuesContext) interface{} {
+func (v *BaseArcParserVisitor) VisitInputValues(ctx *InputValuesContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseArcParserVisitor) VisitNamedConfigValues(ctx *NamedConfigValuesContext) interface{} {
+func (v *BaseArcParserVisitor) VisitNamedInputValues(ctx *NamedInputValuesContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseArcParserVisitor) VisitNamedConfigValue(ctx *NamedConfigValueContext) interface{} {
+func (v *BaseArcParserVisitor) VisitNamedInputValue(ctx *NamedInputValueContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseArcParserVisitor) VisitAnonymousConfigValues(ctx *AnonymousConfigValuesContext) interface{} {
+func (v *BaseArcParserVisitor) VisitAnonymousInputValues(ctx *AnonymousInputValuesContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -288,11 +288,11 @@ func (v *BaseArcParserVisitor) VisitMultiplicativeExpression(ctx *Multiplicative
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseArcParserVisitor) VisitPowerExpression(ctx *PowerExpressionContext) interface{} {
+func (v *BaseArcParserVisitor) VisitUnaryExpression(ctx *UnaryExpressionContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseArcParserVisitor) VisitUnaryExpression(ctx *UnaryExpressionContext) interface{} {
+func (v *BaseArcParserVisitor) VisitPowerExpression(ctx *PowerExpressionContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -325,6 +325,10 @@ func (v *BaseArcParserVisitor) VisitNumericLiteral(ctx *NumericLiteralContext) i
 }
 
 func (v *BaseArcParserVisitor) VisitSeriesLiteral(ctx *SeriesLiteralContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseArcParserVisitor) VisitBooleanLiteral(ctx *BooleanLiteralContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

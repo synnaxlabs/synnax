@@ -12,15 +12,18 @@ package imports
 
 import (
 	"path/filepath"
+	"regexp"
 	"sort"
+	"strings"
 
 	"github.com/synnaxlabs/x/set"
 )
 
 // Manager tracks Go imports needed for generated files.
 type Manager struct {
-	external set.Set[string]
-	internal map[string]*internalImport
+	external  set.Set[string]
+	internal  map[string]*internalImport
+	conflicts map[string]set.Set[string]
 }
 
 type internalImport struct {
@@ -31,17 +34,45 @@ type internalImport struct {
 // NewManager creates a new import manager.
 func NewManager() *Manager {
 	return &Manager{
-		external: make(set.Set[string]),
-		internal: make(map[string]*internalImport),
+		external:  make(set.Set[string]),
+		internal:  make(map[string]*internalImport),
+		conflicts: make(map[string]set.Set[string]),
 	}
 }
 
 // AddExternal adds an external package import.
 func (m *Manager) AddExternal(path string) { m.external.Add(path) }
 
-// AddInternal adds an internal package import with an alias.
+// AddInternal adds an internal package import with an alias. When two
+// different paths request one alias, the first binding wins and the conflict
+// is recorded; emitters must check Conflicts before rendering, because a
+// rendered reference under a rebound alias would silently point at the wrong
+// package.
 func (m *Manager) AddInternal(alias, path string) {
+	if existing, ok := m.internal[alias]; ok && existing.Path != path {
+		if m.conflicts[alias] == nil {
+			m.conflicts[alias] = make(set.Set[string])
+		}
+		m.conflicts[alias].Add(existing.Path)
+		m.conflicts[alias].Add(path)
+		return
+	}
 	m.internal[alias] = &internalImport{Path: path, Alias: alias}
+}
+
+// Conflicts returns, per alias, the sorted set of distinct import paths that
+// requested it. Empty when every alias maps to exactly one path.
+func (m *Manager) Conflicts() map[string][]string {
+	if len(m.conflicts) == 0 {
+		return nil
+	}
+	out := make(map[string][]string, len(m.conflicts))
+	for alias, paths := range m.conflicts {
+		s := paths.Slice()
+		sort.Strings(s)
+		out[alias] = s
+	}
+	return out
 }
 
 // AddImport routes imports to AddExternal or AddInternal based on category.
@@ -68,15 +99,68 @@ func (m *Manager) ExternalImports() []string {
 	return result
 }
 
+// stdlib reports whether an import path belongs to the standard library: its
+// first segment carries no dot.
+func stdlib(path string) bool {
+	first, _, _ := strings.Cut(path, "/")
+	return !strings.Contains(first, ".")
+}
+
+// StdImports returns sorted standard-library import paths.
+func (m *Manager) StdImports() []string {
+	result := make([]string, 0, len(m.external))
+	for imp := range m.external {
+		if stdlib(imp) {
+			result = append(result, imp)
+		}
+	}
+	sort.Strings(result)
+	return result
+}
+
+// NonStdImports returns every non-standard-library import — plain external
+// paths and aliased internal ones alike — sorted by path. An external import
+// whose package name is claimed by an internal alias is dropped: the internal
+// package shadows it, and selectors resolve through the alias instead.
+func (m *Manager) NonStdImports() []InternalImportData {
+	result := make([]InternalImportData, 0, len(m.external)+len(m.internal))
+	for imp := range m.external {
+		if stdlib(imp) {
+			continue
+		}
+		if shadow := m.internal[filepath.Base(imp)]; shadow == nil ||
+			shadow.Path == imp {
+			result = append(result, InternalImportData{Path: imp})
+		}
+	}
+	for _, imp := range m.internal {
+		if m.external.Contains(imp.Path) {
+			continue
+		}
+		result = append(result, InternalImportData{Path: imp.Path, Alias: imp.Alias})
+	}
+	sort.Slice(result, func(i, j int) bool { return result[i].Path < result[j].Path })
+	return result
+}
+
 // InternalImportData holds data for an internal import in templates.
 type InternalImportData struct {
 	Path  string
 	Alias string
 }
 
-// NeedsAlias returns true if the import needs an alias in the generated code.
+// versionDir matches version sub-directory names ("v0", "v12").
+var versionDir = regexp.MustCompile(`^v\d+$`)
+
+// NeedsAlias returns true if the import renders with an explicit alias.
+// Version directories always do (v6 "…/types/v6"), even when the alias
+// matches the package name, so the qualifier's origin stays visible.
 func (i InternalImportData) NeedsAlias() bool {
-	return i.Alias != "" && i.Alias != filepath.Base(i.Path)
+	if i.Alias == "" {
+		return false
+	}
+	base := filepath.Base(i.Path)
+	return i.Alias != base || versionDir.MatchString(base)
 }
 
 // InternalImports returns sorted internal imports, excluding any that are already

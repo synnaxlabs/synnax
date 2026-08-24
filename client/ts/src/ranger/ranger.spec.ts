@@ -7,12 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, id, math, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import {
+  DataType,
+  id,
+  math,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+  uuid,
+} from "@synnaxlabs/x";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { NotFoundError } from "@/errors";
+import { query } from "@/query";
 import { ranger } from "@/ranger";
-import { createTestClient } from "@/testutil/client";
+import { createTestClient, expectDeleted, expectLive } from "@/testutil";
 
 const client = createTestClient();
 
@@ -115,14 +124,14 @@ describe("range", () => {
         name: "My New Parent Range",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
       });
-      await client.ranges.create(
-        {
-          name: "My New Child Range",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-        },
-        { parent: parentRange.ontologyID },
-      );
-      const children = await client.ontology.retrieveChildren(parentRange.ontologyID);
+      await client.ranges.create({
+        name: "My New Child Range",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        parent: parentRange,
+      });
+      const children = await client.ontology.children.retrieve({
+        ids: parentRange.ontologyID,
+      });
       expect(children).toHaveLength(1);
     });
   });
@@ -205,13 +214,11 @@ describe("range", () => {
         name: "My New Parent Range",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
       });
-      const childRange = await client.ranges.create(
-        {
-          name: "My New Child Range",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-        },
-        { parent: parentRange.ontologyID },
-      );
+      const childRange = await client.ranges.create({
+        name: "My New Child Range",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        parent: parentRange,
+      });
       const parent = await childRange.retrieveParent();
       expect(parent?.key).toEqual(parentRange.key);
     });
@@ -339,5 +346,470 @@ describe("range", () => {
         expect(aliases).toEqual({ [ch.key]: "myalias" });
       });
     });
+  });
+
+  describe("optimistic writes", () => {
+    const WRITE_FAILED = new Error("write failed");
+    const fail = () => {
+      throw WRITE_FAILED;
+    };
+
+    const createRange = async () =>
+      await client.ranges.create({
+        name: `optimistic-${id.create()}`,
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+
+    const createChannel = async () =>
+      await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+
+    describe("delete", () => {
+      it("should drop the range from the cache before the write commits", async () => {
+        const rng = await createRange();
+        let duringWrite: query.Cached<ranger.Range> | undefined;
+        await client.ranges.delete(rng.key, {
+          onOptimistic: () => {
+            duringWrite = client.ranges.getCached(rng.key);
+          },
+        });
+        expect(query.isLive(duringWrite)).toBe(false);
+      });
+
+      it("should restore the range when the write fails", async () => {
+        const rng = await createRange();
+        await expect(
+          client.ranges.delete(rng.key, { onOptimistic: fail }),
+        ).rejects.toBe(WRITE_FAILED);
+        expect(expectLive(client.ranges.getCached(rng.key)).name).toEqual(rng.name);
+      });
+
+      it("should restore the range's children entry when the write fails", async () => {
+        const parent = await createRange();
+        const child = await client.ranges.create({
+          name: `optimistic-child-${id.create()}`,
+          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+          parent: { key: parent.key },
+        });
+        expect(await client.ranges.children.retrieve(parent.key)).toHaveLength(1);
+        await expect(
+          client.ranges.delete(child.key, { onOptimistic: fail }),
+        ).rejects.toBe(WRITE_FAILED);
+        const cached = expectLive(client.ranges.children.getCached(parent.key));
+        expect(cached.map((c) => c.key)).toEqual([child.key]);
+      });
+    });
+
+    describe("setAlias", () => {
+      it("should cache the alias before the write commits", async () => {
+        const rng = await createRange();
+        const ch = await createChannel();
+        const key = ranger.alias.createKey({ range: rng.key, channel: ch.key });
+        let duringWrite: ranger.alias.Alias | undefined;
+        await client.ranges.setAlias(rng.key, ch.key, "optimistic-alias", {
+          onOptimistic: () => {
+            duringWrite = client.ranges.aliases.get(key);
+          },
+        });
+        expect(duringWrite?.alias).toEqual("optimistic-alias");
+      });
+
+      it("should drop the alias when the write fails", async () => {
+        const rng = await createRange();
+        const ch = await createChannel();
+        const key = ranger.alias.createKey({ range: rng.key, channel: ch.key });
+        await expect(
+          client.ranges.setAlias(rng.key, ch.key, "optimistic-alias", {
+            onOptimistic: fail,
+          }),
+        ).rejects.toBe(WRITE_FAILED);
+        expect(client.ranges.aliases.get(key)).toBeUndefined();
+      });
+    });
+
+    describe("deleteAlias", () => {
+      it("should drop the alias before the write commits", async () => {
+        const rng = await createRange();
+        const ch = await createChannel();
+        const key = ranger.alias.createKey({ range: rng.key, channel: ch.key });
+        await client.ranges.setAlias(rng.key, ch.key, "optimistic-alias");
+        let duringWrite: ranger.alias.Alias | undefined;
+        await client.ranges.deleteAlias(rng.key, ch.key, {
+          onOptimistic: () => {
+            duringWrite = client.ranges.aliases.get(key);
+          },
+        });
+        expect(duringWrite).toBeUndefined();
+      });
+
+      it("should restore the alias when the write fails", async () => {
+        const rng = await createRange();
+        const ch = await createChannel();
+        const key = ranger.alias.createKey({ range: rng.key, channel: ch.key });
+        await client.ranges.setAlias(rng.key, ch.key, "optimistic-alias");
+        await expect(
+          client.ranges.deleteAlias(rng.key, ch.key, { onOptimistic: fail }),
+        ).rejects.toBe(WRITE_FAILED);
+        expect(client.ranges.aliases.get(key)?.alias).toEqual("optimistic-alias");
+      });
+    });
+
+    describe("kv", () => {
+      const cachedPairs = (key: ranger.Key): ranger.kv.Pair[] =>
+        expectLive(client.ranges.kv.getCached(key));
+
+      // An unsubscribed query never patches its membership, so every spec here
+      // holds a subscription for as long as it reads the cached pairs.
+      const openRange = async () => {
+        const rng = await createRange();
+        const off = client.ranges.kv.onChange(rng.key, vi.fn());
+        await client.ranges.kv.retrieve(rng.key);
+        return { rng, off };
+      };
+
+      it("should cache a pair before the write commits", async () => {
+        const { rng, off } = await openRange();
+        try {
+          let duringWrite: ranger.kv.Pair[] = [];
+          await rng.kv.set("foo", "bar", {
+            onOptimistic: () => {
+              duringWrite = cachedPairs(rng.key);
+            },
+          });
+          expect(duringWrite).toEqual([{ range: rng.key, key: "foo", value: "bar" }]);
+        } finally {
+          off();
+        }
+      });
+
+      it("should cache a keyed-object set before the write commits", async () => {
+        const { rng, off } = await openRange();
+        try {
+          let duringWrite: ranger.kv.Pair[] = [];
+          await rng.kv.set(
+            { foo: "bar", baz: "qux" },
+            {
+              onOptimistic: () => {
+                duringWrite = cachedPairs(rng.key);
+              },
+            },
+          );
+          expect(duringWrite).toEqual([
+            { range: rng.key, key: "foo", value: "bar" },
+            { range: rng.key, key: "baz", value: "qux" },
+          ]);
+        } finally {
+          off();
+        }
+      });
+
+      it("should restore the previous pairs when the set fails", async () => {
+        const { rng, off } = await openRange();
+        try {
+          await rng.kv.set("foo", "bar");
+          await expect(
+            rng.kv.set("foo", "replacement", { onOptimistic: fail }),
+          ).rejects.toBe(WRITE_FAILED);
+          expect(cachedPairs(rng.key)).toEqual([
+            { range: rng.key, key: "foo", value: "bar" },
+          ]);
+        } finally {
+          off();
+        }
+      });
+
+      it("should drop a pair before the delete commits", async () => {
+        const { rng, off } = await openRange();
+        try {
+          await rng.kv.set("foo", "bar");
+          let duringWrite: ranger.kv.Pair[] = [];
+          await rng.kv.delete("foo", {
+            onOptimistic: () => {
+              duringWrite = cachedPairs(rng.key);
+            },
+          });
+          expect(duringWrite).toEqual([]);
+        } finally {
+          off();
+        }
+      });
+
+      it("should restore a pair when the delete fails", async () => {
+        const { rng, off } = await openRange();
+        try {
+          await rng.kv.set("foo", "bar");
+          await expect(rng.kv.delete("foo", { onOptimistic: fail })).rejects.toBe(
+            WRITE_FAILED,
+          );
+          expect(cachedPairs(rng.key)).toEqual([
+            { range: rng.key, key: "foo", value: "bar" },
+          ]);
+        } finally {
+          off();
+        }
+      });
+    });
+  });
+});
+
+// A second client with its own cache: its writes reach the first client only
+// through the cluster's change streams, never through a shared cache.
+const remote = createTestClient();
+
+const createRange = async (c = client, overrides: Partial<ranger.New> = {}) => {
+  const start = TimeStamp.now();
+  return await c.ranges.create({
+    name: `qry-${id.create()}`,
+    timeRange: new TimeRange(start, start.add(TimeStamp.seconds(1))),
+    ...overrides,
+  });
+};
+
+describe("cached reads", () => {
+  // Changes made while the stream is still opening are lost (epoch
+  // reconciliation repairs them in production); open it up front so remote
+  // writes in these specs are always observed.
+  beforeAll(async () => await client.connect());
+
+  describe("retrieve", () => {
+    it("reflects remote changes on an unsubscribed repeat retrieve", async () => {
+      const rng = await createRange();
+      const first = await client.ranges.retrieve(rng.key);
+      expect(first.name).toEqual(rng.name);
+      const renamed = `qry-renamed-${id.create()}`;
+      await remote.ranges.rename(rng.key, renamed);
+      // Unsubscribed queries hold no frozen answer: repeat retrieves refetch
+      // and converge on the remote change once it streams in.
+      await expect
+        .poll(async () => (await client.ranges.retrieve(rng.key)).name)
+        .toBe(renamed);
+    });
+
+    it("preserves key order across cached and fetched entries", async () => {
+      const a = await createRange();
+      const b = await createRange();
+      await client.ranges.retrieve(b.key);
+      const res = await client.ranges.retrieve([a.key, b.key]);
+      expect(res.map((r) => r.key)).toEqual([a.key, b.key]);
+    });
+  });
+
+  describe("getCached", () => {
+    it("serves a key query straight from the record written by create", async () => {
+      const rng = await createRange();
+      const cached = expectLive(client.ranges.getCached(rng.key));
+      expect(cached.name).toEqual(rng.name);
+    });
+  });
+
+  describe("onChange", () => {
+    it("delivers a remote rename to a subscribed single query", async () => {
+      const rng = await createRange();
+      const handler = vi.fn();
+      const off = client.ranges.onChange(rng.key, handler);
+      try {
+        await client.ranges.retrieve(rng.key);
+        const renamed = `qry-renamed-${id.create()}`;
+        await remote.ranges.rename(rng.key, renamed);
+        await expect
+          .poll(() => {
+            const cached = client.ranges.getCached(rng.key);
+            return query.isLive(cached) && cached.name === renamed;
+          })
+          .toBe(true);
+        expect(handler).toHaveBeenCalled();
+      } finally {
+        off();
+      }
+    });
+
+    it("delivers a remote delete as a deleted result carrying the corpse", async () => {
+      const rng = await createRange();
+      const results: Array<query.Cached<ranger.Range> | undefined> = [];
+      const off = client.ranges.onChange(rng.key, (r) => results.push(r));
+      try {
+        await client.ranges.retrieve(rng.key);
+        await remote.ranges.delete(rng.key);
+        await expect
+          .poll(() => query.Deleted.matches(client.ranges.getCached(rng.key)))
+          .toBe(true);
+        const last = expectDeleted(results.at(-1));
+        expect(last.corpse.name).toEqual(rng.name);
+        await expect(client.ranges.retrieve(rng.key)).rejects.toThrow("deleted");
+      } finally {
+        off();
+      }
+    });
+
+    it("serves a record recreated while nothing subscribed to its delete", async () => {
+      const rng = await createRange();
+      const off = client.ranges.onChange(rng.key, () => {});
+      await client.ranges.retrieve(rng.key);
+      await remote.ranges.delete(rng.key);
+      await expect
+        .poll(() => query.Deleted.matches(client.ranges.getCached(rng.key)))
+        .toBe(true);
+      // A surface that tombstones drops its subscriptions, so the recreate
+      // lands with nothing listening and the resubscribe follows it.
+      off();
+      await client.ranges.create({
+        key: rng.key,
+        name: rng.name,
+        timeRange: rng.timeRange,
+      });
+      const off2 = client.ranges.onChange(rng.key, () => {});
+      try {
+        expect(query.isLive(client.ranges.getCached(rng.key))).toBe(true);
+        expect((await client.ranges.retrieve(rng.key)).name).toEqual(rng.name);
+      } finally {
+        off2();
+      }
+    });
+
+    it("delivers remote label attachments through composition", async () => {
+      const rng = await createRange();
+      const lbl = await remote.labels.create({
+        name: `qry-label-${id.create()}`,
+        color: "#E774D0",
+      });
+      const off = client.ranges.onChange(rng.key, vi.fn());
+      try {
+        await client.ranges.retrieve(rng.key);
+        await remote.labels.label(rng.ontologyID, [lbl.key]);
+        await expect
+          .poll(() => {
+            const cached = client.ranges.getCached(rng.key);
+            return (
+              query.isLive(cached) &&
+              (cached.labels ?? []).some((l) => l.key === lbl.key)
+            );
+          })
+          .toBe(true);
+      } finally {
+        off();
+      }
+    });
+  });
+
+  describe("children", () => {
+    it("retrieves children and appends a remotely created child while subscribed", async () => {
+      const parent = await createRange();
+      const child = await createRange(client, { parent: { key: parent.key } });
+      const off = client.ranges.children.onChange(parent.key, vi.fn());
+      try {
+        const children = await client.ranges.children.retrieve(parent.key);
+        expect(children.map((c) => c.key)).toContain(child.key);
+        const second = await createRange(remote, { parent: { key: parent.key } });
+        await expect
+          .poll(() => {
+            const cached = client.ranges.children.getCached(parent.key);
+            return query.isLive(cached) && cached.some((c) => c.key === second.key);
+          })
+          .toBe(true);
+      } finally {
+        off();
+      }
+    });
+  });
+
+  describe("parent", () => {
+    it("retrieves the parent of a child range", async () => {
+      const parent = await createRange();
+      const child = await createRange(client, { parent: { key: parent.key } });
+      const res = await client.ranges.retrieveParent(child.key);
+      expect(res?.key).toEqual(parent.key);
+      const cached = client.ranges.parent.getCached(ranger.ontologyID(child.key));
+      expect(expectLive(cached)?.key).toEqual(parent.key);
+    });
+  });
+
+  describe("hasLabels membership", () => {
+    it("admits a newly labeled range and evicts an unlabeled one", async () => {
+      const lbl = await client.labels.create({
+        name: `qry-lbl-${id.create()}`,
+        color: "#FF0000",
+      });
+      const labeled = await createRange();
+      await client.labels.label(ranger.ontologyID(labeled.key), [lbl.key]);
+      const handler = vi.fn();
+      const params = { hasLabels: [lbl.key] };
+      const off = client.ranges.onChange(params, handler);
+      try {
+        const initial = await client.ranges.retrieve(params);
+        expect(initial.map((r) => r.key)).toEqual([labeled.key]);
+        const late = await createRange();
+        await client.labels.label(ranger.ontologyID(late.key), [lbl.key]);
+        await expect
+          .poll(() => {
+            const cached = client.ranges.getCached(params);
+            return query.isLive(cached) && cached.some((r) => r.key === late.key);
+          })
+          .toBe(true);
+        await client.labels.remove(ranger.ontologyID(labeled.key), [lbl.key]);
+        await expect
+          .poll(() => {
+            const cached = client.ranges.getCached(params);
+            return query.isLive(cached) && cached.every((r) => r.key !== labeled.key);
+          })
+          .toBe(true);
+      } finally {
+        off();
+      }
+    });
+  });
+
+  describe("kv", () => {
+    it("retrieves a range's pairs and delivers remote sets to a subscription", async () => {
+      const rng = await createRange();
+      await rng.kv.set("foo", "bar");
+      const handler = vi.fn();
+      const off = client.ranges.kv.onChange(rng.key, handler);
+      try {
+        const pairs = await client.ranges.kv.retrieve(rng.key);
+        expect(pairs).toEqual([{ range: rng.key, key: "foo", value: "bar" }]);
+        const remoteRng = await remote.ranges.retrieve(rng.key);
+        await remoteRng.kv.set("baz", "qux");
+        await expect
+          .poll(() => {
+            const cached = client.ranges.kv.getCached(rng.key);
+            return (
+              query.isLive(cached) &&
+              cached.some((p) => p.key === "baz" && p.value === "qux")
+            );
+          })
+          .toBe(true);
+        await remoteRng.kv.delete("foo");
+        await expect
+          .poll(() => {
+            const cached = client.ranges.kv.getCached(rng.key);
+            return query.isLive(cached) && cached.every((p) => p.key !== "foo");
+          })
+          .toBe(true);
+      } finally {
+        off();
+      }
+    });
+  });
+});
+
+describe("store", () => {
+  it("caches sugared sets and corpses deletes from live signals", async () => {
+    await client.connect();
+    const range = await createRange();
+    await expect
+      .poll(() => {
+        const cached = client.ranges.getCached(range.key);
+        return query.isLive(cached) ? cached.name : undefined;
+      })
+      .toEqual(range.name);
+    await client.ranges.delete(range.key);
+    await expect
+      .poll(() => query.Deleted.matches(client.ranges.getCached(range.key)))
+      .toBe(true);
+    const cached = expectDeleted(client.ranges.getCached(range.key));
+    expect(cached.corpse.name).toEqual(range.name);
   });
 });

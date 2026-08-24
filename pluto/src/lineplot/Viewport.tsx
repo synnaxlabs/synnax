@@ -18,7 +18,7 @@ import {
 } from "react";
 
 import { CSS } from "@/css";
-import { useContext } from "@/lineplot/LinePlot";
+import { useContext } from "@/lineplot/Frame";
 import { Viewport as Base } from "@/viewport";
 
 export interface ViewportProps extends PropsWithChildren, Base.UseProps {}

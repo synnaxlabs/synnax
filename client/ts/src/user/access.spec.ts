@@ -10,9 +10,8 @@
 import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { AuthError, NotFoundError } from "@/errors";
-import { createTestClientWithPolicy } from "@/testutil/access";
-import { createTestClient } from "@/testutil/client";
+import { AccessDeniedError, NotFoundError } from "@/errors";
+import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 import { user } from "@/user";
 
 const client = createTestClient();
@@ -29,8 +28,8 @@ describe("user", () => {
         username: id.create(),
         password: "test",
       });
-      await expect(userClient.users.retrieve({ key: randomUser.key })).rejects.toThrow(
-        AuthError,
+      await expect(userClient.users.retrieve(randomUser.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
       );
     });
 
@@ -44,7 +43,7 @@ describe("user", () => {
         username: id.create(),
         password: "test",
       });
-      const retrieved = await userClient.users.retrieve({ key: randomUser.key });
+      const retrieved = await userClient.users.retrieve(randomUser.key);
       expect(retrieved.key).toBe(randomUser.key);
       expect(retrieved.username).toBe(randomUser.username);
     });
@@ -72,7 +71,7 @@ describe("user", () => {
           username: id.create(),
           password: "test",
         }),
-      ).rejects.toThrow(AuthError);
+      ).rejects.toSatisfy(AccessDeniedError.matches);
     });
 
     it("should allow the caller to delete users with the correct policy", async () => {
@@ -86,7 +85,7 @@ describe("user", () => {
         password: "test",
       });
       await userClient.users.delete(randomUser.key);
-      await expect(userClient.users.retrieve({ key: randomUser.key })).rejects.toThrow(
+      await expect(userClient.users.retrieve(randomUser.key)).rejects.toThrow(
         NotFoundError,
       );
     });
@@ -101,7 +100,9 @@ describe("user", () => {
         username: id.create(),
         password: "test",
       });
-      await expect(userClient.users.delete(randomUser.key)).rejects.toThrow(AuthError);
+      await expect(userClient.users.delete(randomUser.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
+      );
     });
   });
 });

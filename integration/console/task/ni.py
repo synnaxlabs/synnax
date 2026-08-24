@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from abc import abstractmethod
-from typing import Any, TypeVar, cast
+from typing import Any, TypeVar
 
 from playwright.sync_api import Locator
 
@@ -93,14 +93,8 @@ class NITask(TaskPage):
         """
         layout = self.layout
 
-        # Add first channel or subsequent channels
-        if len(self.channels) == 0:
-            layout.click("Add a channel")
-        else:
-            layout.page.locator("header:has-text('Channels') .pluto-icon--add").click()
-
-        # Click the channel in the list
         idx = len(self.channels)
+        self.add_channel_row(idx)
         layout.page.locator(".pluto-list__item").nth(idx).click()
 
         # Configure device
@@ -128,7 +122,7 @@ class NITask(TaskPage):
 
         self.channels.append(channel)
         self.channels_by_name.append(name)
-        return cast(NIChannelT, channel)
+        return channel
 
     def assert_channel(self, name: str | list[str]) -> None:
         """

@@ -212,7 +212,7 @@ def start_core(
         cwd = None
         log("  Starting Core...")
 
-    with open(log_file, "w") as log_fh:
+    with open(log_file, "w", encoding="utf-8") as log_fh:
         proc = subprocess.Popen(
             cmd,
             stdout=log_fh,
@@ -233,7 +233,7 @@ def start_core(
     proc.kill()
     if log_file.exists():
         log("--- Core log ---")
-        log(log_file.read_text()[-2000:])
+        log(log_file.read_text(encoding="utf-8", errors="replace")[-2000:])
         log("--- end log ---")
     raise TimeoutError(
         f"Core did not become ready on port {PORT} within {STARTUP_TIMEOUT}s"
@@ -423,7 +423,7 @@ def create_setup_venv(version: str) -> Path:
 
     python = _venv_python(CLIENT_VENV_DIR)
     constraints = CLIENT_VENV_DIR / "first-party-constraints.txt"
-    constraints.write_text(_first_party_constraints(version))
+    constraints.write_text(_first_party_constraints(version), encoding="utf-8")
     subprocess.run(
         [
             "uv",

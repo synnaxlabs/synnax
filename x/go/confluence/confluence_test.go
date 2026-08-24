@@ -11,10 +11,10 @@ package confluence_test
 
 import (
 	"context"
+	"sync/atomic"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/atomic"
 	. "github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 )
@@ -83,7 +83,7 @@ var _ = Describe("Confluence", func() {
 			var s seg
 			s.InFrom(i)
 			s.OutTo(o)
-			var a = atomic.Int32Counter{}
+			var a atomic.Int32
 			s.Flow(
 				ctx,
 				CloseOutputInletsOnExit(),
@@ -94,7 +94,7 @@ var _ = Describe("Confluence", func() {
 			_, ok := <-o.Outlet()
 			Expect(ok).To(BeFalse())
 			Expect(ctx.Wait()).To(MatchError(ContainSubstring("got 1")))
-			Expect(a.Value()).To(BeEquivalentTo(10))
+			Expect(a.Load()).To(BeEquivalentTo(10))
 		})
 	})
 	Describe("Drain", func() {

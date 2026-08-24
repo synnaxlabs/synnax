@@ -10,3 +10,4 @@
 import { Icon } from "@/icon";
 
 export const CreateIcon = Icon.createComposite(Icon.Status, { topRight: Icon.Add });
+export const ExplorerIcon = Icon.createStacked(Icon.Status);

@@ -1,0 +1,65 @@
+{
+  "type": "ni_analog_write",
+  "autoStart": true,
+  "device": "fixture-ni-write-device",
+  "dataSaving": false,
+  "stateRate": 123.5,
+  "channels": [
+    {
+      "enabled": true,
+      "key": "ch-ao-voltage",
+      "cmdChannel": 2010,
+      "stateChannel": 2011,
+      "cmdChannelName": "fixture_ao_voltage_cmd",
+      "stateChannelName": "fixture_ao_voltage_state",
+      "port": 0,
+      "type": "ao_voltage",
+      "units": "Volts",
+      "minVal": -9.5,
+      "maxVal": 9.5,
+      "customScale": {
+        "type": "linear",
+        "slope": 0.5,
+        "yIntercept": 1.25,
+        "preScaledUnits": "Volts",
+        "scaledUnits": "valve-percent"
+      }
+    },
+    {
+      "enabled": false,
+      "key": "ch-ao-current",
+      "cmdChannel": 2020,
+      "stateChannel": 2021,
+      "cmdChannelName": "fixture_ao_current_cmd",
+      "stateChannelName": "fixture_ao_current_state",
+      "port": 1,
+      "type": "ao_current",
+      "units": "Amps",
+      "minVal": 0.004,
+      "maxVal": 0.02,
+      "customScale": {
+        "type": "map",
+        "preScaledMin": 0.004,
+        "preScaledMax": 0.02,
+        "scaledMin": 0.5,
+        "scaledMax": 100.5,
+        "preScaledUnits": "Amps",
+        "scaledUnits": "percent-open"
+      }
+    },
+    {
+      "enabled": true,
+      "key": "ch-ao-func-gen",
+      "cmdChannel": 2030,
+      "stateChannel": 2031,
+      "cmdChannelName": "fixture_ao_func_gen_cmd",
+      "stateChannelName": "fixture_ao_func_gen_state",
+      "port": 2,
+      "type": "ao_func_gen",
+      "waveType": "Sawtooth",
+      "frequency": 12.5,
+      "amplitude": 3.75,
+      "offset": -0.625
+    }
+  ]
+}

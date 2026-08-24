@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-//go:build driver
-
 package driver_test
 
 import (
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -23,7 +22,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var mockBinaryPath string
+var mockFS fs.FS
 
 func TestDriver(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -32,19 +31,29 @@ func TestDriver(t *testing.T) {
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
-var _ = BeforeSuite(func() {
-	tmpDir := GinkgoT().TempDir()
-	mockBinaryPath = filepath.Join(tmpDir, "mockdriver")
+// Process #1 compiles the mock Driver once and hands its directory to the others.
+// Linking it is the suite's largest memory and disk cost, so it runs once rather than
+// once per parallel process.
+var _ = SynchronizedBeforeSuite(func() []byte {
+	ShouldNotLeakGoroutines()
+	dir := MustSucceed(os.MkdirTemp("", "mockdriver"))
+	// Ginkgo holds this until every other process finishes, so no process reads the
+	// binary after it is removed.
+	DeferCleanup(func() { Expect(os.RemoveAll(dir)).To(Succeed()) })
+	driverName := "driver"
 	if runtime.GOOS == "windows" {
-		mockBinaryPath += ".exe"
+		driverName = "driver.exe"
 	}
 	cmd := exec.Command(
-		"go", "build", "-o", mockBinaryPath,
+		"go", "build", "-o", filepath.Join(dir, driverName),
 		"./testdata/mockdriver",
 	)
 	cmd.Dir = MustSucceed(os.Getwd())
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	Expect(cmd.Run()).To(Succeed())
+	return []byte(dir)
+}, func(dir []byte) {
+	mockFS = os.DirFS(string(dir))
 	ShouldNotLeakGoroutines()
 })

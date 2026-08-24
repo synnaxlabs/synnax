@@ -7,110 +7,96 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type primitive, type record } from "@synnaxlabs/x";
+import { state } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 
-export type State = Exclude<primitive.Value, undefined> | record.Unknown | void;
-export type SetFunc<S, PS = S> = (prev: PS) => S;
-
-export const isSetter = <S extends State, PS = S>(
-  arg: SetArg<S, PS>,
-): arg is SetFunc<S, PS> => typeof arg === "function";
-
-export type SetArg<NextState extends State, PrevState = NextState> =
-  | NextState
-  | SetFunc<NextState, PrevState>;
-export type Setter<NextState extends State, PrevState = NextState> = (
-  value: SetArg<NextState, PrevState>,
-) => void;
-export type PureSetter<NextState extends State> = (value: NextState) => void;
-export type Initial<InitialState extends State> = InitialState | (() => InitialState);
-
-export const executeSetter = <
-  NextState extends State,
-  PrevState extends State = NextState,
->(
-  setter: SetArg<NextState, PrevState>,
-  prev: PrevState,
-): NextState => (isSetter(setter) ? setter(prev) : setter);
-
-export const skipUndefined =
-  <NextState extends State, PrevState extends State = NextState>(
-    f: SetFunc<NextState, PrevState>,
-  ): SetFunc<NextState | undefined, PrevState | undefined> =>
-  (v) =>
-    v == null ? undefined : f(v);
-
-export const skipNull =
-  <NextState extends State, PrevState extends State = NextState>(
-    f: SetFunc<NextState, PrevState>,
-  ): SetFunc<NextState | null, PrevState | null> =>
-  (v) =>
-    v == null ? null : f(v);
-
-export const executeInitialSetter = <InitialState extends State>(
-  setter: Initial<InitialState>,
-): InitialState => (isInitialSetter(setter) ? setter() : setter);
-
-export const isInitialSetter = <InitialState extends State>(
-  arg: Initial<InitialState>,
-): arg is () => InitialState => typeof arg === "function";
-
-export type UseReturn<NextState extends State> = [NextState, Setter<NextState>];
-export type Use = <NextState extends State>(
-  initial: Initial<NextState>,
+/** A state value and a setter that accepts a value or an updater. */
+export type UseReturn<NextState extends state.State> = [
+  NextState,
+  state.Setter<NextState>,
+];
+export type Use = <NextState extends state.State>(
+  initial: state.Initial<NextState>,
 ) => UseReturn<NextState>;
-export type PureUseReturn<NextState extends State> = [NextState, PureSetter<NextState>];
-export type PureUse<NextState extends State> = (
+/** A state value and a setter that accepts only a value, never an updater. */
+export type PureUseReturn<NextState extends state.State> = [
+  NextState,
+  state.PureSetter<NextState>,
+];
+export type PureUse<NextState extends state.State> = (
   initial: NextState,
 ) => PureUseReturn<NextState>;
 
-export interface UsePassthroughProps<NextState extends State> {
-  initial: Initial<NextState>;
+/** Props for {@link usePassthrough}. */
+export interface UsePassthroughProps<NextState extends state.State> {
+  initial: state.Initial<NextState>;
+  /** Set it, with `onChange`, to let the caller own the state. */
   value?: NextState;
-  onChange?: Setter<NextState>;
+  onChange?: state.Setter<NextState>;
 }
 
-export const usePassthrough = <NextState extends State>({
+/**
+ * Lets a component be controlled or uncontrolled through one API: the caller owns the
+ * state when it passes both `value` and `onChange`, and the component owns it
+ * otherwise. `onChange` fires either way, so `value` decides who owns the state, not
+ * who hears about it.
+ */
+export const usePassthrough = <NextState extends state.State>({
   initial,
   value,
   onChange,
 }: UsePassthroughProps<NextState>): UseReturn<NextState> => {
   const [internal, setInternal] = useState(value ?? initial);
+  const setAndNotify = useCallback(
+    (arg: state.SetArg<NextState>) => {
+      setInternal(arg);
+      onChange?.(arg);
+    },
+    [onChange],
+  );
   if (value != null && onChange != null) return [value, onChange];
-  return [internal, setInternal];
+  return [internal, setAndNotify];
 };
 
-export interface UsePurePassthroughProps<NextState extends State> {
-  initial: Initial<NextState>;
+/** Props for {@link usePurePassthrough}. */
+export interface UsePurePassthroughProps<NextState extends state.State> {
+  initialValue: state.Initial<NextState>;
   value?: NextState;
-  onChange?: PureSetter<NextState>;
-  callOnChangeIfValueIsUndefined?: boolean;
+  onChange?: state.PureSetter<NextState>;
 }
 
-export const usePurePassthrough = <NextState extends State>({
-  initial,
+/** {@link usePassthrough} for a setter that takes only values, never updaters. */
+export const usePurePassthrough = <NextState extends state.State>({
+  initialValue,
   value,
   onChange,
 }: UsePurePassthroughProps<NextState>): PureUseReturn<NextState> => {
   const [internal, setInternal] = useState<NextState>(
-    executeInitialSetter(value ?? initial),
+    state.executeInitialSetter(value ?? initialValue),
+  );
+  const setAndNotify = useCallback(
+    (next: NextState) => {
+      setInternal(next);
+      onChange?.(next);
+    },
+    [onChange],
   );
   if (value != null && onChange != null) return [value, onChange];
-  return [internal, setInternal];
+  return [internal, setAndNotify];
 };
 
-export const usePersisted = <S extends State>(
-  initial: Initial<S>,
+/** State backed by local storage under the given key, restored on the next mount. */
+export const usePersisted = <S extends state.State>(
+  initial: state.Initial<S>,
   key: string,
 ): UseReturn<S> => {
   const [internal, setInternal] = useState<S>(() => {
     const stored = localStorage.getItem(key);
-    if (stored == null) return executeInitialSetter(initial);
+    if (stored == null) return state.executeInitialSetter(initial);
     return JSON.parse(stored);
   });
   const set = useCallback(
-    (value: SetArg<S>) => {
+    (value: state.SetArg<S>) => {
       setInternal(value);
       localStorage.setItem(key, JSON.stringify(value));
     },

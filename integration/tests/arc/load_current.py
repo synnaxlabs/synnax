@@ -11,7 +11,7 @@ from examples.simulators import LoadCurrentSimDAQ
 
 import synnax as sy
 from framework.utils import create_indexed_pair
-from tests.arc.arc_case import ArcConsoleCase
+from tests.arc.arc import ArcCase
 
 ARC_LOAD_CURRENT_SOURCE = """
 func count{c_chan chan u8} () {
@@ -25,8 +25,8 @@ start_load_current_cmd => main
 sequence main {
     stage first {
         1 -> flag
-        load_current > 50 => count{c_chan=lc_tick_count}
-        load_current > 50 => wait{2s} => next
+        load_current > 25 => count{c_chan=lc_tick_count}
+        load_current > 25 => wait{2s} => next
     }
     stage last {
         0 -> flag
@@ -38,12 +38,12 @@ WAIT_DURATION = 2.0
 TIMING_TOLERANCE = 1.5
 
 
-class LoadCurrent(ArcConsoleCase):
+class LoadCurrent(ArcCase):
     """Test condition-gated wait timer with stage transition.
 
     Verifies:
     1. Stage entry writes flag=1 immediately on sequence start.
-    2. The wait timer does not begin until load_current exceeds 50.
+    2. The wait timer does not begin until load_current exceeds 25.
     3. While load_current > 50, the conditional edge re-fires every tick,
        incrementing lc_tick_count above 1.
     4. After the 2s wait elapses, the sequence transitions to the last stage
@@ -66,17 +66,17 @@ class LoadCurrent(ArcConsoleCase):
 
     def verify_sequence_execution(self) -> None:
         self.log("Phase 1: Waiting for flag == 1 (stage first entered)...")
-        self.wait_for_eq("flag", 1, is_virtual=True)
+        self.wait_for_eq("flag", 1)
         self.log("flag is 1, stage first is active")
 
-        self.log("Phase 2: Waiting for load_current > 50 (wait timer starts)...")
-        self.wait_for_gt("load_current", 50, timeout=10 * sy.TimeSpan.SECOND)
+        self.log("Phase 2: Waiting for load_current > 25 (wait timer starts)...")
+        self.wait_for_gt("load_current", 25, timeout=10 * sy.TimeSpan.SECOND)
         timer = sy.Timer()
         self.log("load_current crossed 50, wait timer should now be running")
 
         self.log("Phase 3: Asserting flag is still 1 (wait has not elapsed yet)...")
         sy.sleep(500 * sy.TimeSpan.MILLISECOND)
-        self.wait_for_eq("flag", 1, timeout=0, is_virtual=True)
+        self.wait_for_eq("flag", 1, timeout=0)
         self.log("flag remains 1 during wait period")
 
         self.log("Phase 3b: Verifying conditional edge re-fires while truthy...")
@@ -85,7 +85,7 @@ class LoadCurrent(ArcConsoleCase):
         self.log(f"lc_tick_count={tick_count} (>1 confirms conditional re-fires)")
 
         self.log("Phase 4: Waiting for flag == 0 (stage last entered after 2s wait)...")
-        self.wait_for_eq("flag", 0, timeout=10 * sy.TimeSpan.SECOND, is_virtual=True)
+        self.wait_for_eq("flag", 0, timeout=10 * sy.TimeSpan.SECOND)
 
         elapsed_secs = timer.elapsed() / sy.TimeSpan.SECOND
         self.log(

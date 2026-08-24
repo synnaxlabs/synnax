@@ -15,10 +15,10 @@
 
 #include "client/cpp/rack/json.gen.h"
 #include "client/cpp/rack/types.gen.h"
+#include "client/cpp/status/json.gen.h"
+#include "client/cpp/status/proto.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/pb/pb.h"
-#include "x/cpp/status/json.gen.h"
-#include "x/cpp/status/proto.gen.h"
 
 #include "core/pkg/service/rack/pb/rack.pb.h"
 
@@ -42,7 +42,6 @@ inline std::pair<::service::rack::pb::Rack, x::errors::Error> Rack::to_proto() c
     ::service::rack::pb::Rack pb;
     pb.set_key(static_cast<uint32_t>(this->key));
     pb.set_name(this->name);
-    pb.set_task_counter(this->task_counter);
     pb.set_embedded(this->embedded);
     if (this->status.has_value()) {
         auto [v, err] = this->status->to_proto();
@@ -59,7 +58,6 @@ Rack::from_proto(const ::service::rack::pb::Rack &pb) {
     Rack cpp;
     cpp.key = Key(pb.key());
     cpp.name = pb.name();
-    cpp.task_counter = pb.task_counter();
     cpp.embedded = pb.embedded();
     if (pb.has_status()) {
         auto [v, err] = Status::from_proto(pb.status());

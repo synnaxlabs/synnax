@@ -18,13 +18,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
-	"go.uber.org/zap"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 )
 
 type peerSwitchSender struct {
 	freightfluence.BatchSwitchSender[Request, Request]
 	addresses proxy.AddressMap
-	logger    *zap.Logger
 }
 
 func newRequestSwitchSender(
@@ -46,7 +46,14 @@ func (rs *peerSwitchSender) _switch(
 		for nodeKey, frame := range r.Frame.SplitByLeaseholder() {
 			addr, ok := rs.addresses[nodeKey]
 			if !ok {
-				rs.logger.DPanic("missing address for node", zap.Uint32("node", uint32(nodeKey)))
+				// The frame targets channels leased to a node the writer was not opened
+				// against, so no storage writer downstream could reject it.
+				return errors.Wrapf(
+					validate.ErrValidation,
+					"invalid key(s) %v: writer is not open on leaseholder node %d",
+					frame.KeysSlice(),
+					nodeKey,
+				)
 			}
 			r.Frame = frame
 			oReqs[addr] = r
@@ -84,7 +91,11 @@ func newPeerGatewayFreeSwitch(
 	return rl
 }
 
-func (rl *peerGatewayFreeSwitch) _switch(ctx context.Context, r Request, oReqs map[address.Address]Request) error {
+func (rl *peerGatewayFreeSwitch) _switch(
+	ctx context.Context,
+	r Request,
+	oReqs map[address.Address]Request,
+) error {
 	local, remote, free := r.Frame.SplitByHost(rl.host)
 	if rl.has.peer {
 		pr := r

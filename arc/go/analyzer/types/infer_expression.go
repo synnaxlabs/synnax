@@ -21,10 +21,12 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
+	"go.lsp.dev/protocol"
 	"go.uber.org/zap"
 )
 
-// InferFromExpression determines the type of an Arc expression through recursive descent.
+// InferFromExpression determines the type of an Arc expression through recursive
+// descent.
 func InferFromExpression(ctx context.Context[parser.IExpressionContext]) types.Type {
 	if logicalOr := ctx.AST.LogicalOrExpression(); logicalOr != nil {
 		return InferLogicalOr(context.Child(ctx, logicalOr))
@@ -32,10 +34,17 @@ func InferFromExpression(ctx context.Context[parser.IExpressionContext]) types.T
 	return types.Type{}
 }
 
-func InferLogicalOr(ctx context.Context[parser.ILogicalOrExpressionContext]) types.Type {
+func InferLogicalOr(
+	ctx context.Context[parser.ILogicalOrExpressionContext],
+) types.Type {
 	ands := ctx.AST.AllLogicalAndExpression()
 	if len(ands) > 1 {
-		return types.U8()
+		for _, a := range ands {
+			if InferLogicalAnd(context.Child(ctx, a)).Kind == types.KindSeries {
+				return types.Series(types.Bool())
+			}
+		}
+		return types.Bool()
 	}
 	if len(ands) == 1 {
 		return InferLogicalAnd(context.Child(ctx, ands[0]))
@@ -43,13 +52,20 @@ func InferLogicalOr(ctx context.Context[parser.ILogicalOrExpressionContext]) typ
 	return types.Type{}
 }
 
-func InferLogicalAnd(ctx context.Context[parser.ILogicalAndExpressionContext]) types.Type {
-	equalities := ctx.AST.AllEqualityExpression()
-	if len(equalities) > 1 {
-		return types.U8()
+func InferLogicalAnd(
+	ctx context.Context[parser.ILogicalAndExpressionContext],
+) types.Type {
+	eqs := ctx.AST.AllEqualityExpression()
+	if len(eqs) > 1 {
+		for _, e := range eqs {
+			if InferEquality(context.Child(ctx, e)).Kind == types.KindSeries {
+				return types.Series(types.Bool())
+			}
+		}
+		return types.Bool()
 	}
-	if len(equalities) == 1 {
-		return InferEquality(context.Child(ctx, equalities[0]))
+	if len(eqs) == 1 {
+		return InferEquality(context.Child(ctx, eqs[0]))
 	}
 	return types.Type{}
 }
@@ -57,7 +73,12 @@ func InferLogicalAnd(ctx context.Context[parser.ILogicalAndExpressionContext]) t
 func InferEquality(ctx context.Context[parser.IEqualityExpressionContext]) types.Type {
 	relExpressions := ctx.AST.AllRelationalExpression()
 	if len(relExpressions) > 1 {
-		return types.U8()
+		for _, r := range relExpressions {
+			if InferRelational(context.Child(ctx, r)).Kind == types.KindSeries {
+				return types.Series(types.Bool())
+			}
+		}
+		return types.Bool()
 	}
 	if len(relExpressions) == 1 {
 		return InferRelational(context.Child(ctx, relExpressions[0]))
@@ -65,10 +86,19 @@ func InferEquality(ctx context.Context[parser.IEqualityExpressionContext]) types
 	return types.Type{}
 }
 
-func InferRelational(ctx context.Context[parser.IRelationalExpressionContext]) types.Type {
+// InferRelational types a comparison. A series operand makes it element-wise,
+// yielding a bool series.
+func InferRelational(
+	ctx context.Context[parser.IRelationalExpressionContext],
+) types.Type {
 	additives := ctx.AST.AllAdditiveExpression()
 	if len(additives) > 1 {
-		return types.U8()
+		for _, a := range additives {
+			if InferAdditive(context.Child(ctx, a)).Kind == types.KindSeries {
+				return types.Series(types.Bool())
+			}
+		}
+		return types.Bool()
 	}
 	if len(additives) == 1 {
 		return InferAdditive(context.Child(ctx, additives[0]))
@@ -83,7 +113,8 @@ func inferBinaryType(elemType, nextElem types.Type) (types.Type, bool) {
 	// Only early-return on incompatibility when both types are concrete.
 	// When either is a type variable (literal), we must keep iterating
 	// to discover later concrete types that determine the actual type.
-	bothConcrete := elemType.Kind != types.KindVariable && nextElem.Kind != types.KindVariable
+	bothConcrete := elemType.Kind != types.KindVariable &&
+		nextElem.Kind != types.KindVariable
 	if bothConcrete && !Compatible(elemType, nextElem) {
 		return elemType, true
 	}
@@ -115,10 +146,18 @@ func checkMinusSpacing(ctx context.Context[parser.IAdditiveExpressionContext]) {
 			op.GetStop()+1 == right.GetStart().GetStart() {
 			col := op.GetColumn()
 			ctx.Diagnostics.Add(diagnostics.Diagnostic{
-				Severity: diagnostics.SeverityError,
+				Severity: protocol.DiagnosticSeverityError,
 				Message:  "subtraction requires whitespace on both sides of '-'",
-				Start:    diagnostics.Position{Line: op.GetLine(), Col: col},
-				End:      diagnostics.Position{Line: op.GetLine(), Col: col + len(op.GetText())},
+				Range: protocol.Range{
+					Start: protocol.Position{
+						Line:      uint32(op.GetLine() - 1),
+						Character: uint32(col),
+					},
+					End: protocol.Position{
+						Line:      uint32(op.GetLine() - 1),
+						Character: uint32(col + len(op.GetText())),
+					},
+				},
 			})
 		}
 	}
@@ -143,7 +182,8 @@ func InferAdditive(ctx context.Context[parser.IAdditiveExpressionContext]) types
 				if nextElem.Kind != types.KindVariable {
 					elemType = nextElem
 				}
-				bothConcrete := elemType.Kind != types.KindVariable && nextElem.Kind != types.KindVariable
+				bothConcrete := elemType.Kind != types.KindVariable &&
+					nextElem.Kind != types.KindVariable
 				if bothConcrete && !Compatible(elemType, nextElem) {
 					if isSeries {
 						return types.Series(elemType)
@@ -169,25 +209,28 @@ func InferAdditive(ctx context.Context[parser.IAdditiveExpressionContext]) types
 	return InferMultiplicative(context.Child(ctx, multiplicatives[0]))
 }
 
-func InferMultiplicative(ctx context.Context[parser.IMultiplicativeExpressionContext]) types.Type {
-	powers := ctx.AST.AllPowerExpression()
-	if len(powers) == 0 {
+func InferMultiplicative(
+	ctx context.Context[parser.IMultiplicativeExpressionContext],
+) types.Type {
+	unaries := ctx.AST.AllUnaryExpression()
+	if len(unaries) == 0 {
 		return types.Type{}
 	}
-	if len(powers) > 1 {
-		firstType := InferPower(context.Child(ctx, powers[0]))
+	if len(unaries) > 1 {
+		firstType := InferFromUnaryExpression(context.Child(ctx, unaries[0]))
 		isSeries := firstType.Kind == types.KindSeries
 		elemType := firstType.Unwrap()
 
-		for i := 1; i < len(powers); i++ {
-			nextType := InferPower(context.Child(ctx, powers[i]))
+		for i := 1; i < len(unaries); i++ {
+			nextType := InferFromUnaryExpression(context.Child(ctx, unaries[i]))
 			if nextType.Kind == types.KindSeries {
 				isSeries = true
 				nextElem := nextType.Unwrap()
 				if nextElem.Kind != types.KindVariable {
 					elemType = nextElem
 				}
-				bothConcrete := elemType.Kind != types.KindVariable && nextElem.Kind != types.KindVariable
+				bothConcrete := elemType.Kind != types.KindVariable &&
+					nextElem.Kind != types.KindVariable
 				if bothConcrete && !Compatible(elemType, nextElem) {
 					resultType := lo.Ternary(isSeries, types.Series(elemType), elemType)
 					ctx.TypeMap[ctx.AST] = resultType
@@ -207,22 +250,22 @@ func InferMultiplicative(ctx context.Context[parser.IMultiplicativeExpressionCon
 		ctx.TypeMap[ctx.AST] = resultType
 		return resultType
 	}
-	resultType := InferPower(context.Child(ctx, powers[0]))
+	resultType := InferFromUnaryExpression(context.Child(ctx, unaries[0]))
 	ctx.TypeMap[ctx.AST] = resultType
 	return resultType
 }
 
 func InferPower(ctx context.Context[parser.IPowerExpressionContext]) types.Type {
-	if unary := ctx.AST.UnaryExpression(); unary != nil {
-		baseType := InferFromUnaryExpression(context.Child(ctx, unary))
+	if postfix := ctx.AST.PostfixExpression(); postfix != nil {
+		baseType := InferPostfix(context.Child(ctx, postfix))
 
-		// If no caret operator, return base type
-		if ctx.AST.CARET() == nil || ctx.AST.PowerExpression() == nil {
+		// If no power operator, return base type
+		if ctx.AST.CARET() == nil || ctx.AST.UnaryExpression() == nil {
 			return baseType
 		}
 
 		// Recursively infer exponent type (right-associative)
-		_ = InferPower(context.Child(ctx, ctx.AST.PowerExpression()))
+		_ = InferFromUnaryExpression(context.Child(ctx, ctx.AST.UnaryExpression()))
 
 		// Power operation returns the unwrapped base type
 		// (e.g., chan f32 ^ i32 = f32, f64 ^ f64 = f64)
@@ -231,18 +274,24 @@ func InferPower(ctx context.Context[parser.IPowerExpressionContext]) types.Type 
 	return types.Type{}
 }
 
-func InferFromUnaryExpression(ctx context.Context[parser.IUnaryExpressionContext]) types.Type {
+func InferFromUnaryExpression(
+	ctx context.Context[parser.IUnaryExpressionContext],
+) types.Type {
 	if ctx.AST.UnaryExpression() != nil {
-		// Unary operator (- or not) - unwrap channels in the operand
-		return InferFromUnaryExpression(context.Child(ctx, ctx.AST.UnaryExpression())).Unwrap()
+		// Unwrap channels but keep series: not/- on a series stays a series.
+		return InferFromUnaryExpression(
+			context.Child(ctx, ctx.AST.UnaryExpression()),
+		).UnwrapChan()
 	}
-	if postfix := ctx.AST.PostfixExpression(); postfix != nil {
-		return inferPostfixType(context.Child(ctx, postfix))
+	if power := ctx.AST.PowerExpression(); power != nil {
+		return InferPower(context.Child(ctx, power))
 	}
 	return types.Type{}
 }
 
-func inferPostfixType(ctx context.Context[parser.IPostfixExpressionContext]) types.Type {
+func InferPostfix(
+	ctx context.Context[parser.IPostfixExpressionContext],
+) types.Type {
 	if primary := ctx.AST.PrimaryExpression(); primary != nil {
 		primaryType := inferPrimaryType(context.Child(ctx, primary))
 
@@ -270,7 +319,9 @@ func inferPostfixType(ctx context.Context[parser.IPostfixExpressionContext]) typ
 	return types.Type{}
 }
 
-func inferPrimaryType(ctx context.Context[parser.IPrimaryExpressionContext]) types.Type {
+func inferPrimaryType(
+	ctx context.Context[parser.IPrimaryExpressionContext],
+) types.Type {
 	if qid := ctx.AST.QualifiedIdentifier(); qid != nil {
 		head, tail := parser.QualifiedNameParts(qid)
 		headSym, err := ctx.Scope.Resolve(ctx, head)
@@ -285,15 +336,12 @@ func inferPrimaryType(ctx context.Context[parser.IPrimaryExpressionContext]) typ
 	}
 	if id := ctx.AST.IDENTIFIER(); id != nil {
 		text := id.GetText()
-		// Handle boolean literals (parsed as identifiers in the grammar)
-		if text == "true" || text == "false" {
-			return types.U8()
-		}
 		if varScope, err := ctx.Scope.Resolve(ctx, text); err == nil {
 			if varScope.Type.Kind != types.KindInvalid {
-				// When a variable is referenced, resolve literal constraints to concrete types.
-				// This ensures `x := 10; x + 3.2` fails (x becomes i64, can't add float to int),
-				// while `2 + 3.2` (both fresh literals) can still promote to float.
+				// When a variable is referenced, resolve literal constraints to
+				// concrete types. This ensures `x := 10; x + 3.2` fails (x becomes i64,
+				// can't add float to int), while `2 + 3.2` (both fresh literals) can
+				// still promote to float.
 				return resolveLiteralConstraint(varScope.Type)
 			}
 		}
@@ -307,6 +355,10 @@ func inferPrimaryType(ctx context.Context[parser.IPrimaryExpressionContext]) typ
 	}
 	if typeCast := ctx.AST.TypeCast(); typeCast != nil {
 		if typeCtx := typeCast.Type_(); typeCtx != nil {
+			// bool conversions are rejected, so the cast has no type.
+			if prim := typeCtx.PrimitiveType(); prim != nil && prim.BOOL() != nil {
+				return types.Type{}
+			}
 			t, _ := InferFromTypeContext(typeCtx)
 			return t
 		}
@@ -321,6 +373,11 @@ func inferLiteralType(ctx context.Context[parser.ILiteralContext]) types.Type {
 	if seriesLit := ctx.AST.SeriesLiteral(); seriesLit != nil {
 		return inferSeriesLiteralType(context.Child(ctx, seriesLit))
 	}
+	if boolLit := ctx.AST.BooleanLiteral(); boolLit != nil {
+		t := types.Bool()
+		ctx.TypeMap[ctx.AST] = t
+		return t
+	}
 	if parser.StringTerminal(ctx.AST) != nil {
 		t := types.String()
 		ctx.TypeMap[ctx.AST] = t
@@ -332,7 +389,9 @@ func inferLiteralType(ctx context.Context[parser.ILiteralContext]) types.Type {
 	return t
 }
 
-func inferSeriesLiteralType(ctx context.Context[parser.ISeriesLiteralContext]) types.Type {
+func inferSeriesLiteralType(
+	ctx context.Context[parser.ISeriesLiteralContext],
+) types.Type {
 	exprList := ctx.AST.ExpressionList()
 	if exprList == nil {
 		line := ctx.AST.GetStart().GetLine()
@@ -396,7 +455,8 @@ func inferSeriesLiteralType(ctx context.Context[parser.ISeriesLiteralContext]) t
 	return t
 }
 
-// seriesElementCompatible checks if two types are compatible for use in the same series literal.
+// seriesElementCompatible checks if two types are compatible for use in the same series
+// literal.
 func seriesElementCompatible(t1, t2 types.Type) bool {
 	if t1.Kind == types.KindInvalid || t2.Kind == types.KindInvalid {
 		return false
@@ -419,7 +479,8 @@ func seriesElementCompatible(t1, t2 types.Type) bool {
 	return Compatible(t1, t2)
 }
 
-// literalsCompatible checks if two literal types can coexist in a series (int/float can mix).
+// literalsCompatible checks if two literal types can coexist in a series (int/float can
+// mix).
 func literalsCompatible(t1, t2 types.Type) bool {
 	if t1.Kind == types.KindInvalid || t2.Kind == types.KindInvalid {
 		return false
@@ -428,7 +489,8 @@ func literalsCompatible(t1, t2 types.Type) bool {
 		if t1.Constraint == nil || t2.Constraint == nil {
 			return true
 		}
-		return isNumericConstraint(t1.Constraint.Kind) && isNumericConstraint(t2.Constraint.Kind)
+		return isNumericConstraint(t1.Constraint.Kind) &&
+			isNumericConstraint(t2.Constraint.Kind)
 	}
 	if t1.Kind == types.KindVariable {
 		return constraintAccepts(t1.Constraint, t2)
@@ -447,10 +509,11 @@ func isNumericConstraint(kind types.Kind) bool {
 		kind == types.KindExactIntegerFloatConstant
 }
 
-// numericConstraintsCompatible checks if two constraint kinds are compatible for series elements.
-// IntegerConstraint and FloatConstraint are NOT compatible - you cannot mix inferred int and
-// float variables in a series literal, consistent with how explicit i32 and f64 are rejected.
-// NumericConstant and ExactIntegerFloatConstant are compatible with both since they can adapt.
+// numericConstraintsCompatible checks if two constraint kinds are compatible for series
+// elements. IntegerConstraint and FloatConstraint are NOT compatible - you cannot mix
+// inferred int and float variables in a series literal, consistent with how explicit
+// i32 and f64 are rejected. NumericConstant and ExactIntegerFloatConstant are
+// compatible with both since they can adapt.
 func numericConstraintsCompatible(k1, k2 types.Kind) bool {
 	// Same constraint kind is always compatible
 	if k1 == k2 {
@@ -460,7 +523,8 @@ func numericConstraintsCompatible(k1, k2 types.Kind) bool {
 	if k1 == types.KindNumericConstant || k2 == types.KindNumericConstant {
 		return isNumericConstraint(k1) && isNumericConstraint(k2)
 	}
-	if k1 == types.KindExactIntegerFloatConstant || k2 == types.KindExactIntegerFloatConstant {
+	if k1 == types.KindExactIntegerFloatConstant ||
+		k2 == types.KindExactIntegerFloatConstant {
 		return isNumericConstraint(k1) && isNumericConstraint(k2)
 	}
 	// IntegerConstraint and FloatConstraint are NOT compatible with each other
@@ -476,7 +540,9 @@ func constraintAccepts(constraint *types.Type, concreteType types.Type) bool {
 		return true
 	}
 	switch constraint.Kind {
-	case types.KindNumericConstant, types.KindIntegerConstant, types.KindExactIntegerFloatConstant:
+	case types.KindNumericConstant,
+		types.KindIntegerConstant,
+		types.KindExactIntegerFloatConstant:
 		return concreteType.IsNumeric()
 	case types.KindFloatConstant:
 		return concreteType.IsFloat()
@@ -527,16 +593,17 @@ func inferNumericLiteralType(
 		ctx.AST,
 		"literal type variable",
 	); err != nil {
-		zap.S().DPanicf("unexpected error registering type variable with itself: %v", err)
+		zap.S().
+			DPanicf("unexpected error registering type variable with itself: %v", err)
 	}
 	ctx.TypeMap[ctx.AST] = tv
 	return tv
 }
 
-// resolveLiteralConstraint converts a type variable with a literal constraint to a concrete type.
-// This is used when a variable is referenced in an expression to distinguish between:
-// - Direct literals (2 + 3.2) which can be promoted
-// - Variable references (x := 10; x + 3.2) which should fail
+// resolveLiteralConstraint converts a type variable with a literal constraint to a
+// concrete type. This is used when a variable is referenced in an expression to
+// distinguish between: - Direct literals (2 + 3.2) which can be promoted - Variable
+// references (x := 10; x + 3.2) which should fail
 func resolveLiteralConstraint(t types.Type) types.Type {
 	if t.Kind != types.KindVariable || t.Constraint == nil {
 		return t
@@ -546,7 +613,9 @@ func resolveLiteralConstraint(t types.Type) types.Type {
 		result := types.I64()
 		result.Unit = t.Unit
 		return result
-	case types.KindFloatConstant, types.KindNumericConstant, types.KindExactIntegerFloatConstant:
+	case types.KindFloatConstant,
+		types.KindNumericConstant,
+		types.KindExactIntegerFloatConstant:
 		result := types.F64()
 		result.Unit = t.Unit
 		return result

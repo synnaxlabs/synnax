@@ -8,21 +8,25 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.task.client import (
-    BaseConfig,
-    BaseReadConfig,
-    BaseWriteConfig,
     Client,
     JSONConfigMixin,
     Protocol,
     StarterStopperMixin,
     Task,
+    assign_keys,
 )
 from synnax.task.types_gen import (
     ONTOLOGY_TYPE,
     Key,
+    KeyedConfig,
     Payload,
+    PersistConfig,
+    ReadConfig,
+    ScanConfig,
+    StartConfig,
     Status,
     StatusDetails,
+    WriteConfig,
     ontology_id,
 )
 from x.deprecation import deprecated_getattr
@@ -31,9 +35,9 @@ _DEPRECATED = {
     "TaskPayload": "Payload",
     "TaskStatus": "Status",
     "TaskStatusDetails": "StatusDetails",
-    "BaseTaskConfig": "BaseConfig",
-    "BaseReadTaskConfig": "BaseReadConfig",
-    "BaseWriteTaskConfig": "BaseWriteConfig",
+    "BaseTaskConfig": "StartConfig",
+    "BaseReadTaskConfig": "ReadConfig",
+    "BaseWriteTaskConfig": "WriteConfig",
     "TaskProtocol": "Protocol",
 }
 
@@ -48,9 +52,13 @@ __all__ = [
     "StatusDetails",
     "ONTOLOGY_TYPE",
     "ontology_id",
-    "BaseConfig",
-    "BaseReadConfig",
-    "BaseWriteConfig",
+    "assign_keys",
+    "PersistConfig",
+    "StartConfig",
+    "ReadConfig",
+    "ScanConfig",
+    "WriteConfig",
+    "KeyedConfig",
     "JSONConfigMixin",
     "StarterStopperMixin",
     "Protocol",

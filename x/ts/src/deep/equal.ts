@@ -13,6 +13,10 @@ interface DeepEqualBaseRecord {
   equals?: (other: unknown) => boolean;
 }
 
+/**
+ * @returns whether the two values are equal all the way down. A value carrying an
+ * `equals` method decides for itself, so a `TimeStamp` or a `Series` compares by value.
+ */
 export const equal = <
   T extends unknown | DeepEqualBaseRecord | DeepEqualBaseRecord[] | primitive.Value[],
 >(
@@ -47,6 +51,10 @@ export const equal = <
   return true;
 };
 
+/**
+ * @returns whether the base matches the partial on every field the partial names.
+ * Fields absent from the partial are ignored.
+ */
 export const partialEqual = <T extends unknown | DeepEqualBaseRecord | primitive.Value>(
   base: T,
   partial: Partial<T>,

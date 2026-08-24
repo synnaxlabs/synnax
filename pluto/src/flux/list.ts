@@ -7,25 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { query } from "@synnaxlabs/client";
 import {
   compare,
   type CrudeTimeSpan,
   type destructor,
   primitive,
   type record,
+  state,
   TimeSpan,
 } from "@synnaxlabs/x";
-import {
-  type RefObject,
-  useCallback,
-  useEffect,
-  useRef,
-  useSyncExternalStore,
-} from "react";
+import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 
-import { type flux } from "@/flux/aether";
-import { type base } from "@/flux/base";
-import { useStore } from "@/flux/Provider";
 import {
   errorResult,
   loadingResult,
@@ -33,32 +26,32 @@ import {
   type Result,
   successResult,
 } from "@/flux/result";
-import {
-  type CreateRetrieveParams,
-  type RetrieveMountListenersParams,
-  type RetrieveParams,
-} from "@/flux/retrieve";
+import { type CreateRetrieveParams, type RetrieveParams } from "@/flux/retrieve";
 import {
   useCombinedStateAndRef,
   useDebouncedCallback,
-  useDestructors,
   useInitializerRef,
   useSyncedRef,
 } from "@/hooks";
-import { state } from "@/state";
 import { Synnax } from "@/synnax";
 
+// Bound at module scope: hooks bind `query` to the caller's params object.
+const { Deleted, isLive } = query;
+
+/** Reads one entry, or many at once, out of a list query's results. */
 export interface GetItem<K extends record.Key, E extends record.Keyed<K>> {
   (key: K): E | undefined;
   (keys: K[]): E[];
 }
 
-export interface AsyncListOptions extends base.FetchOptions {
+/** Options for a list retrieval. Append for paging, replace for a new search. */
+export interface AsyncListOptions extends query.FetchOptions {
   mode?: "append" | "replace";
 }
 
+/** Return value for a list hook. Spread it into a {@link List.Frame}. */
 export type UseListReturn<
-  Query extends base.Query,
+  Query extends query.Params,
   K extends record.Key,
   E extends record.Keyed<K>,
 > = Omit<Result<K[]>, "data"> & {
@@ -71,43 +64,43 @@ export type UseListReturn<
     options?: AsyncListOptions,
   ) => Promise<void>;
   data: K[];
+  /**
+   * Whether the list has an answer. An unanswered list has the same empty data as a
+   * genuinely empty one, so anything that speaks for the absence of items (empty
+   * content, an empty-state action) must wait for this.
+   */
+  answered: boolean;
   getItem: GetItem<K, E>;
   subscribe: (callback: () => void, key: K) => destructor.Destructor;
 };
 
 export interface RetrieveByKeyParams<
-  Query extends base.Query,
+  Query extends query.Params,
   K extends record.Key,
-  Store extends flux.Store,
-> extends Omit<RetrieveParams<Query, Store>, "query"> {
+> extends Omit<RetrieveParams<Query>, "query"> {
   query: Partial<Query>;
   key: K;
 }
 
-export interface RetrieveCachedParams<
-  Query extends base.Query,
-  Store extends flux.Store,
-> {
-  query: Partial<Query>;
-  store: Store;
-}
-
 export interface CreateListParams<
-  Query extends base.Query,
+  Query extends query.Params,
   K extends record.Key,
   E extends record.Keyed<K>,
-  Store extends flux.Store,
-> extends Omit<CreateRetrieveParams<Query, E[], Store>, "mountListeners"> {
+> extends CreateRetrieveParams<Query, E[]> {
   sort?: compare.Comparator<E>;
-  retrieveByKey: (args: RetrieveByKeyParams<Query, K, Store>) => Promise<E | undefined>;
-  retrieveCached?: (args: RetrieveCachedParams<Query, Store>) => E[];
-  mountListeners?: (
-    args: ListMountListenersParams<Query, K, E, Store>,
-  ) => destructor.Destructor | destructor.Destructor[];
+  retrieveByKey: (params: RetrieveByKeyParams<Query, K>) => Promise<E | undefined>;
+  /**
+   * Live updates for items fetched through retrieveByKey. Page members get
+   * their updates from `onChange`; this covers lookups outside any page.
+   */
+  onChangeByKey?: (
+    params: RetrieveByKeyParams<Query, K>,
+    handler: query.ChangeHandler<E>,
+  ) => destructor.Destructor;
 }
 
 export interface UseListParams<
-  Query extends base.Query,
+  Query extends query.Params,
   K extends record.Key,
   E extends record.Keyed<K>,
 > {
@@ -119,104 +112,36 @@ export interface UseListParams<
 }
 
 export interface UseList<
-  Query extends base.Query,
+  Query extends query.Params,
   K extends record.Key,
   E extends record.Keyed<K>,
 > {
-  (args?: UseListParams<Query, K, E>): UseListReturn<Query, K, E>;
-}
-
-type ListChangeMode = "prepend" | "append" | "replace";
-
-interface ListenerOnChangeOptions {
-  mode?: ListChangeMode;
-}
-
-interface OnListChange<K extends record.Key, E extends record.Keyed<K>> {
-  (key: K, e: state.SetArg<E | null>, opts?: ListenerOnChangeOptions): void;
-  (e: E, opts?: ListenerOnChangeOptions): void;
-}
-
-const parseOnListChangeArgs = <K extends record.Key, E extends record.Keyed<K>>(
-  key: K | E,
-  e?: state.SetArg<E | null> | ListenerOnChangeOptions,
-  opts?: ListenerOnChangeOptions,
-): [K, state.SetArg<E | null>, ListenerOnChangeOptions] => {
-  if (typeof key === "object" && "key" in key)
-    return [key.key, key, (e as ListenerOnChangeOptions | undefined) ?? {}];
-  return [key, e as state.SetArg<E | null>, opts ?? {}];
-};
-
-export interface ListMountListenersParams<
-  Query extends base.Query,
-  Key extends record.Key,
-  Data extends record.Keyed<Key>,
-  Store extends flux.Store,
-> extends Omit<
-  RetrieveMountListenersParams<Query, Data[], Store>,
-  "onChange" | "query"
-> {
-  query: Partial<Query>;
-  onChange: OnListChange<Key, Data>;
-  onDelete: (key: Key) => void;
+  (params?: UseListParams<Query, K, E>): UseListReturn<Query, K, E>;
 }
 
 const defaultFilter = () => true;
 const DEFAULT_RETRIEVE_DEBOUNCE = TimeSpan.milliseconds(100);
 
-interface GetInitialDataParams<
-  Query extends base.Query,
-  K extends record.Key,
-  E extends record.Keyed<K>,
-  ScopedStore extends flux.Store,
-> {
-  retrieveCached: CreateListParams<Query, K, E, ScopedStore>["retrieveCached"];
-  queryRef: RefObject<Query | null>;
-  filterRef: RefObject<((item: E) => boolean) | undefined>;
-  sortRef: RefObject<compare.Comparator<E> | undefined>;
-  dataRef: RefObject<Map<K, E | null>>;
-  store: ScopedStore;
-  useCachedList: boolean;
+/** One retrieved page: its query, answer keys, and live subscription. */
+interface Page<K extends record.Key> {
+  hash: string;
+  keys: K[];
+  unsubscribe: destructor.Destructor;
 }
 
-const getInitialData = <
-  Query extends base.Query,
-  K extends record.Key,
-  E extends record.Keyed<K>,
-  ScopedStore extends flux.Store,
->({
-  retrieveCached,
-  queryRef: paramsRef,
-  filterRef,
-  sortRef,
-  dataRef,
-  store,
-  useCachedList,
-}: GetInitialDataParams<Query, K, E, ScopedStore>) => {
-  if (retrieveCached == null || !useCachedList) return undefined;
-  let cached = retrieveCached({ query: paramsRef.current ?? {}, store });
-  if (filterRef.current != null) cached = cached.filter(filterRef.current);
-  if (sortRef.current != null) cached = cached.sort(sortRef.current);
-  if (cached.length === 0) return undefined;
-  cached.forEach((v) => dataRef.current.set(v.key, v));
-  return cached.map((v) => v.key);
-};
-
 export const createList =
-  <
-    Query extends base.Query,
-    Key extends record.Key,
-    Data extends record.Keyed<Key>,
-    ScopedStore extends flux.Store = {},
-  >({
+  <Query extends query.Params, Key extends record.Key, Data extends record.Keyed<Key>>({
     name,
-    mountListeners,
     retrieve,
     retrieveByKey,
-    retrieveCached,
+    onChange: subscribeToQuery,
+    onChangeByKey,
+    getCached,
     sort: defaultSort,
-  }: CreateListParams<Query, Key, Data, ScopedStore>): UseList<Query, Key, Data> =>
+    normalizeQuery,
+  }: CreateListParams<Query, Key, Data>): UseList<Query, Key, Data> =>
   (params: UseListParams<Query, Key, Data> = {}) => {
+    const normalized = (q: Query): Query => normalizeQuery?.(q) ?? q;
     const {
       filter = defaultFilter,
       sort,
@@ -228,102 +153,157 @@ export const createList =
     const sortRef = useSyncedRef(sort ?? defaultSort);
     const client = Synnax.use();
     const dataRef = useRef<Map<Key, Data | null>>(new Map());
-    const listItemListeners = useInitializerRef<Map<() => void, Key>>(() => new Map());
-    const store = useStore<ScopedStore>();
-    const queryRef = useRef<Query | null>(initialQuery ?? null);
-    const [result, setResult, resultRef] = useCombinedStateAndRef<Result<Key[]>>(() =>
-      loadingResult<Key[]>(
-        `retrieving ${name}`,
-        getInitialData({
-          retrieveCached,
-          queryRef,
-          filterRef,
-          sortRef,
-          dataRef,
-          store,
-          useCachedList,
-        }),
-      ),
+    const listItemListeners = useInitializerRef<Map<Key, Set<() => void>>>(
+      () => new Map(),
     );
-    const hasMoreRef = useRef(true);
-    const storeListeners = useDestructors();
-    const storeListenersMountedRef = useRef(false);
+    const queryRef = useRef<Query | null>(
+      initialQuery != null ? normalized(initialQuery) : null,
+    );
+    const pagesRef = useRef<Page<Key>[]>([]);
+    const itemSubsRef = useInitializerRef<Map<Key, destructor.Destructor>>(
+      () => new Map(),
+    );
 
     const notifyListeners = useCallback(
       (changed: Key) =>
-        listItemListeners.current.forEach((key, notify) => {
-          if (key === changed) notify();
-        }),
-      [listItemListeners.current],
+        listItemListeners.current.get(changed)?.forEach((notify) => notify()),
+      [],
     );
 
-    const updateSortedData = useCallback(
-      (keys: Key[]) => {
-        if (sortRef.current == null) return keys;
-
-        const allItems = keys
-          .map((key) => dataRef.current.get(key))
-          .filter((item): item is Data => item != null);
-
-        allItems.sort(sortRef.current);
-        return allItems.map((item) => item.key);
+    const readCache = useCallback(
+      (query: Query): Key[] | undefined => {
+        if (!useCachedList || getCached == null || client == null) return undefined;
+        const cached = getCached({ client, query });
+        if (!isLive(cached)) return undefined;
+        let items = cached.filter(filterRef.current);
+        if (sortRef.current != null) items = [...items].sort(sortRef.current);
+        items.forEach((v) => dataRef.current.set(v.key, v));
+        return items.map((v) => v.key);
       },
-      [sortRef],
+      [client, useCachedList],
     );
 
-    const syncListeners = useCallback(() => {
-      if (client == null) return;
-      storeListenersMountedRef.current = true;
-      storeListeners.cleanup();
-      storeListeners.set(
-        mountListeners?.({
-          client,
-          store,
-          query: queryRef.current ?? {},
-          onDelete: (k) => {
-            dataRef.current.delete(k);
-            setResult((p) => {
-              if (p.data == null) return p;
-              return { ...p, data: p.data.filter((key) => key !== k) };
-            });
-          },
-          onChange: (
-            argKey: Key | Data,
-            argSetter?: state.SetArg<Data | null> | ListenerOnChangeOptions,
-            argOptions?: ListenerOnChangeOptions,
-          ) => {
-            const [k, setter, opts] = parseOnListChangeArgs<Key, Data>(
-              argKey,
-              argSetter,
-              argOptions,
-            );
-            const { mode = "append" } = opts;
-            const prev = dataRef.current.get(k) ?? null;
-            if (prev != null && !filterRef.current(prev)) return;
-            const res = state.executeSetter(setter, prev);
-            if (res == null || !filterRef.current(res)) return;
-            dataRef.current.set(k, res);
-            setResult((p) => {
-              if (p.data == null) return p;
-              let newData: Key[];
-              if (prev == null)
-                if (sortRef.current != null) newData = updateSortedData([...p.data, k]);
-                else newData = mode === "prepend" ? [k, ...p.data] : [...p.data, k];
-              else if (sortRef.current != null) {
-                const currentIndex = p.data.indexOf(k);
-                const sortedData = updateSortedData(p.data);
-                const newIndex = sortedData.indexOf(k);
-                if (currentIndex !== newIndex) newData = sortedData;
-                else newData = p.data;
-              } else newData = p.data;
-              return { ...p, data: newData };
-            });
+    const [result, setResult, resultRef] = useCombinedStateAndRef<Result<Key[]>>(() =>
+      loadingResult<Key[]>(
+        `retrieving ${name}`,
+        readCache(queryRef.current ?? normalized({} as Query)),
+      ),
+    );
+    const hasMoreRef = useRef(true);
 
-            notifyListeners(k);
-          },
+    const recomputeKeys = useCallback(() => {
+      const seen = new Set<Key>();
+      const keys: Key[] = [];
+      pagesRef.current.forEach((page) =>
+        page.keys.forEach((k) => {
+          if (seen.has(k)) return;
+          seen.add(k);
+          keys.push(k);
         }),
       );
-    }, [mountListeners, storeListeners, client, store]);
+      if (sortRef.current != null) {
+        const items = keys
+          .map((k) => dataRef.current.get(k))
+          .filter((item): item is Data => item != null);
+        items.sort(sortRef.current);
+        return items.map((item) => item.key);
+      }
+      return keys;
+    }, []);
+
+    /** Applies a page answer: updates items, notifies, recomputes keys. */
+    const applyPageAnswer = useCallback(
+      (page: Page<Key>, items: Data[]) => {
+        const filtered = items.filter(filterRef.current);
+        filtered.forEach((item) => {
+          const prev = dataRef.current.get(item.key);
+          if (prev === item) return;
+          dataRef.current.set(item.key, item);
+          notifyListeners(item.key);
+        });
+        const nextKeys = new Set(filtered.map((item) => item.key));
+        const dropped = page.keys.filter((k) => !nextKeys.has(k));
+        page.keys = filtered.map((item) => item.key);
+        dropped.forEach((k) => {
+          if (pagesRef.current.some((p) => p.keys.includes(k))) return;
+          dataRef.current.set(k, null);
+          notifyListeners(k);
+        });
+        setResult((p) => {
+          if (p.data == null) return p;
+          const next = recomputeKeys();
+          if (compare.primitiveArrays(p.data, next) === compare.EQUAL) return p;
+          return { ...p, data: next };
+        });
+      },
+      [notifyListeners, recomputeKeys, setResult],
+    );
+
+    const clearPages = useCallback(() => {
+      pagesRef.current.forEach((page) => page.unsubscribe());
+      pagesRef.current = [];
+    }, []);
+    useEffect(() => clearPages, [clearPages]);
+
+    const handleItemChange = useCallback(
+      (key: Key, cached: query.Cached<Data> | undefined) => {
+        if (cached === undefined) return;
+        if (Deleted.matches<Data>(cached)) dataRef.current.set(key, null);
+        else dataRef.current.set(key, filterRef.current(cached) ? cached : null);
+        notifyListeners(key);
+      },
+      [notifyListeners],
+    );
+
+    const openItemSub = useCallback(
+      (key: Key): void => {
+        if (onChangeByKey == null || client == null) return;
+        if (itemSubsRef.current.has(key)) return;
+        itemSubsRef.current.set(
+          key,
+          onChangeByKey(
+            {
+              client,
+              key,
+              query: queryRef.current ?? {},
+            },
+            (cached) => handleItemChange(key, cached),
+          ),
+        );
+      },
+      [client, handleItemChange],
+    );
+
+    const clearItemSubs = useCallback(() => {
+      itemSubsRef.current.forEach((unsub) => unsub());
+      itemSubsRef.current.clear();
+    }, []);
+    useEffect(() => clearItemSubs, [clearItemSubs]);
+
+    const openPage = useCallback(
+      (q: Query, keys: Key[]): void => {
+        const hash = query.hash(q);
+        const existing = pagesRef.current.find((p) => p.hash === hash);
+        if (existing != null) {
+          existing.keys = keys;
+          return;
+        }
+        const page: Page<Key> = { hash, keys, unsubscribe: () => {} };
+        if (subscribeToQuery != null && client != null)
+          page.unsubscribe = subscribeToQuery(
+            {
+              client,
+              query: q,
+            },
+            (cached: query.Cached<Data[]> | undefined) => {
+              if (!isLive(cached)) return;
+              applyPageAnswer(page, cached);
+            },
+          );
+        pagesRef.current.push(page);
+      },
+      [client, applyPageAnswer],
+    );
 
     const retrieveAsync = useCallback(
       async (
@@ -332,7 +312,9 @@ export const createList =
       ) => {
         const { signal, mode = "replace" } = options;
 
-        const query = state.executeSetter(paramsSetter, queryRef.current ?? {});
+        const query = normalized(
+          state.executeSetter(paramsSetter, queryRef.current ?? {}),
+        );
         queryRef.current = query;
 
         try {
@@ -346,15 +328,21 @@ export const createList =
           else if (mode === "append" && !hasMoreRef.current)
             return setResult((p) => successResult(`retrieved ${name}`, p.data ?? []));
 
-          let value = await retrieve({ client, query, store });
-          if (signal?.aborted) return;
+          let value = await retrieve({
+            client,
+            query,
+          });
+          if (signal?.aborted || queryRef.current !== query) return;
           value = value.filter(filterRef.current);
-          if (sortRef.current != null) value = value.sort(sortRef.current);
+          if (sortRef.current != null) value = [...value].sort(sortRef.current);
 
           if (value.length === 0) hasMoreRef.current = false;
           const keys = value.map((v) => v.key);
 
-          syncListeners();
+          if (mode === "replace") clearPages();
+          value.forEach((v) => dataRef.current.set(v.key, v));
+          openPage(query, keys);
+          keys.forEach(notifyListeners);
 
           // If we've already retrieved the initial data, and it's the same as the
           // data we just retrieved, then don't notify listeners.
@@ -364,41 +352,36 @@ export const createList =
           )
             return setResult((p) => successResult(`retrieved ${name}`, p.data ?? []));
 
-          value.forEach((v) => dataRef.current.set(v.key, v));
-
-          return setResult((prev) => {
-            if (mode === "replace" || prev.data == null)
-              return successResult(`retrieved ${name}`, keys);
-            const keysSet = new Set(keys);
-            return successResult(`retrieved ${name}`, [
-              ...prev.data.filter((k) => !keysSet.has(k)),
-              ...keys,
-            ]);
-          });
+          return setResult(() => successResult(`retrieved ${name}`, recomputeKeys()));
         } catch (error) {
-          if (signal?.aborted) return;
+          if (signal?.aborted || queryRef.current !== query) return;
           setResult(errorResult(`retrieve ${name}`, error));
         }
       },
-      [client, name, store, filterRef, syncListeners],
+      [client, name, filterRef, clearPages, openPage, recomputeKeys],
     );
 
-    // When the client and store are swapped, an active hook must re-point itself
-    // at the new store. A non-null query means a list retrieve ran: refetch
-    // (retrieveAsync re-subscribes as it goes). A null query means getItem-only
-    // use, so just re-subscribe. Keyed on client/store, not the churnier callback
-    // identities.
+    // When the client is swapped, an active hook must re-point itself at the
+    // new client's cache. A non-null query means a list retrieve ran: refetch
+    // (retrieveAsync re-subscribes as it goes). Item subscriptions re-open
+    // against the new client without refetching.
     const retrieveAsyncRef = useSyncedRef(retrieveAsync);
-    const syncListenersRef = useSyncedRef(syncListeners);
+    const firstMountRef = useRef(true);
     useEffect(() => {
-      if (!storeListenersMountedRef.current) return;
+      if (firstMountRef.current) {
+        firstMountRef.current = false;
+        return;
+      }
+      clearPages();
+      const itemKeys = [...itemSubsRef.current.keys()];
+      clearItemSubs();
+      itemKeys.forEach(openItemSub);
       const query = queryRef.current;
-      if (query == null) syncListenersRef.current();
-      else void retrieveAsyncRef.current(query);
-    }, [client, store]);
+      if (query != null) void retrieveAsyncRef.current(query);
+    }, [client]);
 
     const retrieveSingle = useCallback(
-      (key: Key, options: base.FetchOptions = {}) => {
+      (key: Key, options: query.FetchOptions = {}) => {
         const { signal } = options;
         void (async () => {
           try {
@@ -407,9 +390,9 @@ export const createList =
               client,
               key,
               query: queryRef.current ?? {},
-              store,
             });
             if (signal?.aborted || item == null) return;
+            openItemSub(key);
             if (!filterRef.current(item)) {
               dataRef.current.set(key, null);
               return;
@@ -423,39 +406,72 @@ export const createList =
           }
         })();
       },
-      [retrieveByKey, client, notifyListeners, syncListeners],
+      [retrieveByKey, client, notifyListeners, openItemSub],
     );
 
     const getItem = useCallback(
       ((key?: Key | Key[]) => {
-        if (!storeListenersMountedRef.current) syncListeners();
         if (Array.isArray(key))
           return key.map((k) => getItem(k)).filter((v) => v != null);
-        // Zero-value keys that are not null or undefined are common as
-        // initialized fields in various data structures ("", 0, etc.).
-        // A 'zero-value' is never valid as a key in Synnax, and a simple
-        // null check would result in excessive server refetches for
-        // keys we already know are invalid, so we do a full check
+        // Zero-value keys that are not null or undefined are common as initialized
+        // fields in various data structures ("", 0, etc.). A 'zero-value' is never
+        // valid as a key in Synnax, and a simple null check would result in excessive
+        // server refetches for keys we already know are invalid, so we do a full check
         // for a zero-value instead.
         if (primitive.isZero(key)) return undefined;
         const res = dataRef.current.get(key);
         if (res === undefined) retrieveSingle(key);
         return res;
       }) as GetItem<Key, Data>,
-      [retrieveSingle, syncListeners],
+      [retrieveSingle],
     );
 
     const subscribe = useCallback((callback: () => void, key?: Key) => {
       if (key == null) return () => {};
-      listItemListeners.current.set(callback, key);
-      return () => listItemListeners.current.delete(callback);
+      const listeners = listItemListeners.current;
+      let callbacks = listeners.get(key);
+      if (callbacks == null) {
+        callbacks = new Set();
+        listeners.set(key, callbacks);
+      }
+      callbacks.add(callback);
+      return () => {
+        callbacks.delete(callback);
+        if (callbacks.size === 0) listeners.delete(key);
+      };
     }, []);
 
-    const retrieveSync = useDebouncedCallback(
+    // Seeds a cold list from the cached answer for the exact query the debounced
+    // retrieve will fetch, so a remount paints before the network round trip. The
+    // fetch that follows reconciles membership. Setters must be pure: the
+    // debounced retrieve executes the setter again.
+    const seedFromCache = useCallback(
+      (paramsSetter: state.SetArg<Query, Query | {}>) => {
+        if (resultRef.current.data != null) return;
+        const query = normalized(
+          state.executeSetter(paramsSetter, queryRef.current ?? {}),
+        );
+        const keys = readCache(query);
+        if (keys == null) return;
+        keys.forEach(notifyListeners);
+        setResult(loadingResult(`retrieving ${name}`, keys));
+      },
+      [readCache, notifyListeners, name],
+    );
+
+    const debouncedRetrieve = useDebouncedCallback(
       (query: state.SetArg<Query, Query | {}>, options: AsyncListOptions = {}) =>
         void retrieveAsync(query, options),
       retrieveDebounce,
       [retrieveAsync],
+    );
+
+    const retrieveSync = useCallback(
+      (query: state.SetArg<Query, Query | {}>, options: AsyncListOptions = {}) => {
+        seedFromCache(query);
+        debouncedRetrieve(query, options);
+      },
+      [seedFromCache, debouncedRetrieve],
     );
 
     return {
@@ -464,14 +480,15 @@ export const createList =
       subscribe,
       getItem,
       ...result,
-      data: result?.data ?? [],
+      data: result.data ?? [],
+      answered: result.data != null,
     };
   };
 
-export interface UseListItemArgs<
+export interface UseListItemParams<
   K extends record.Key,
   E extends record.Keyed<K>,
-> extends Pick<UseListReturn<base.Query, K, E>, "subscribe" | "getItem"> {
+> extends Pick<UseListReturn<query.Params, K, E>, "subscribe" | "getItem"> {
   key: K;
 }
 
@@ -479,7 +496,7 @@ export const useListItem = <K extends record.Key, E extends record.Keyed<K>>({
   key,
   subscribe,
   getItem,
-}: UseListItemArgs<K, E>) =>
+}: UseListItemParams<K, E>) =>
   useSyncExternalStore(
     useCallback((callback) => subscribe(callback, key), [subscribe, key]),
     useCallback(() => getItem(key), [getItem, key]),

@@ -1,0 +1,119 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* One fixed height, so Core and project surfaces match. The doubled class beats the
+   bordered and background variants. */
+.console-shell__list.console-shell__list {
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: transparent;
+}
+
+/* Shrink guard: a long list would otherwise compress the header. */
+.console-shell__list .pluto-header {
+    padding: 2.5rem 3rem;
+    flex-shrink: 0;
+}
+
+.console-shell__list .console-shell__items {
+    overflow-y: auto;
+    min-height: 0;
+    padding: 1.5rem;
+}
+
+.console-shell__list .pluto-list__item {
+    min-height: 9rem;
+    padding: 2rem 3rem;
+    border-radius: var(--pluto-border-radius-medium);
+}
+
+/* The one frosted-glass recipe; shape stays with each surface that wears it. */
+.console-shell__frost {
+    background: color-mix(in srgb, var(--pluto-gray-l0) 45%, transparent);
+    -webkit-backdrop-filter: blur(3.5rem) saturate(140%);
+    backdrop-filter: blur(3.5rem) saturate(140%);
+    border: var(--pluto-border-width) solid var(--pluto-gray-l6);
+    box-shadow: var(--pluto-shadow-lift);
+}
+
+.console-shell__islands {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 2;
+    padding: 2rem;
+    pointer-events: none;
+}
+
+.console-shell__island {
+    pointer-events: auto;
+    min-height: 6rem;
+    padding: 0 2rem;
+    border-radius: var(--pluto-border-radius-medium);
+
+    &.pluto--square {
+        width: 6rem;
+        padding: 0;
+    }
+}
+
+.console-shell__island:empty {
+    display: none;
+}
+
+.console-shell__connection {
+    padding: 0 3.5rem;
+    flex-wrap: wrap;
+    justify-content: center;
+
+    & > .pluto-text--overflow-ellipsis {
+        min-width: 0;
+    }
+}
+
+.console-shell__connection-status {
+    flex-shrink: 0;
+}
+
+.console-shell__connection-dot {
+    font-size: 2.25rem;
+}
+
+/* Opaque, so orbital ring arcs passing behind the mark are occluded rather than
+   shining through it. */
+.console-shell__mark-ring {
+    width: 12rem;
+    height: 12rem;
+    min-width: 12rem;
+    min-height: 12rem;
+    max-width: 12rem;
+    max-height: 12rem;
+    flex-shrink: 0;
+    background: var(--pluto-gray-l0);
+    border: var(--pluto-border-width) solid var(--pluto-gray-l7);
+    border-radius: 50%;
+    margin: 2rem 0 1rem;
+}
+
+/* The orbital centers the mark itself, so the standalone spacing comes off. */
+.pluto-orbital__stage .console-shell__mark-ring {
+    margin: 0;
+}
+
+/* The media Logo's white/gradient color props are dead; only "auto" is implemented,
+   and it resolves this var. */
+.console-shell__mark {
+    height: 5.5rem;
+
+    --pluto-logo-color: var(--pluto-gray-l11);
+}

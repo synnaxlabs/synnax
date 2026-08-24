@@ -213,7 +213,8 @@ func calc(val f32) f32 {
     ASSERT_EQ(retrieved.program->nodes[2].type, "write");
     ASSERT_GT(retrieved.program->nodes[2].channels.write.count(ox_pt_doubled.key), 0)
         << "Third node should write to ox_pt_doubled channel";
-    ASSERT_EQ(retrieved.program->nodes[2].inputs.size(), 1);
+    // write node has two inputs: the value input and the channel param.
+    ASSERT_EQ(retrieved.program->nodes[2].inputs.size(), 2);
 
     // Verify edges (2 edges connecting the 3 nodes)
     ASSERT_EQ(retrieved.program->edges.size(), 2)
@@ -250,7 +251,7 @@ sequence main {
         if (node.type == "interval") {
             found_interval = true;
             bool found_period = false;
-            for (const auto &param: node.config)
+            for (const auto &param: node.inputs)
                 if (param.name == "period") found_period = true;
             ASSERT_TRUE(found_period);
             break;

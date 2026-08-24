@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "type": "symbol_group",
+  "name": "Legacy Group",
+  "symbols": [
+    {
+      "file": "Inlet_11111111.json",
+      "key": "11111111-2222-3333-4444-555555555555",
+      "name": "Inlet"
+    },
+    {
+      "file": "Outlet_66666666.json",
+      "key": "66666666-7777-8888-9999-aaaaaaaaaaaa",
+      "name": "Outlet"
+    }
+  ]
+}

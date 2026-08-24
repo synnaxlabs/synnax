@@ -7,23 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, DataType } from "@synnaxlabs/client";
 import {
-  type destructor,
-  id,
-  MultiSeries,
-  Series,
-  TimeSpan,
-  TimeStamp,
-} from "@synnaxlabs/x";
+  channel,
+  DataType,
+  type framer,
+  type status as cstatus,
+} from "@synnaxlabs/client";
+import { id, MultiSeries, Series, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   StreamMultiChannelLog,
   type StreamMultiChannelLogProps,
 } from "@/log/aether/telem/sources";
+import { type Client } from "@/telem/aether/remote";
 import { type Source } from "@/telem/aether/telem";
-import { type client } from "@/telem/client";
+import { telemTest } from "@/telem/aether/test";
 
 const waitForResolve = async <T>(source: Source<T>): Promise<T> => {
   source.value();
@@ -34,10 +33,10 @@ const waitForResolve = async <T>(source: Source<T>): Promise<T> => {
 };
 
 describe("StreamMultiChannelLog", () => {
-  class MockClient implements client.Client {
+  class MockClient implements Client {
     key: string = id.create();
 
-    streamHandler: client.StreamHandler | null = null;
+    streamHandler: framer.StreamHandler | null = null;
     streamKeys: channel.Key[] = [];
     streamF = vi.fn();
     streamDestructorF = vi.fn();
@@ -70,29 +69,28 @@ describe("StreamMultiChannelLog", () => {
       isIndex: false,
     });
 
-    async retrieveChannel(key: channel.Key | channel.Name): Promise<channel.Channel> {
-      if (key === this.channelA.key) return this.channelA;
-      if (key === this.channelB.key) return this.channelB;
-      if (key === this.channelInt.key) return this.channelInt;
-      if (key === this.channelJSON.key) return this.channelJSON;
-      throw new Error(`Channel ${key} not found`);
-    }
+    channels = {
+      retrieve: async (key: channel.Key | channel.Name): Promise<channel.Channel> => {
+        if (key === this.channelA.key) return this.channelA;
+        if (key === this.channelB.key) return this.channelB;
+        if (key === this.channelInt.key) return this.channelInt;
+        if (key === this.channelJSON.key) return this.channelJSON;
+        throw new Error(`Channel ${key} not found`);
+      },
+    };
 
-    async read(): Promise<MultiSeries> {
-      return new MultiSeries([]);
-    }
-
-    async stream(
-      handler: client.StreamHandler,
-      keys: channel.Key[],
-    ): Promise<destructor.Async> {
-      this.streamHandler = handler;
-      this.streamKeys = keys;
-      this.streamF(handler, keys);
-      return this.streamDestructorF;
-    }
-
-    async close(): Promise<void> {}
+    feed = {
+      read: async (): Promise<MultiSeries> => new MultiSeries([]),
+      stream: (
+        handler: framer.StreamHandler,
+        keys: channel.Key[],
+      ): framer.Subscription => {
+        this.streamHandler = handler;
+        this.streamKeys = keys;
+        this.streamF(handler, keys);
+        return telemTest.mockSubscription(this.streamDestructorF);
+      },
+    };
   }
 
   let c: MockClient;
@@ -100,6 +98,24 @@ describe("StreamMultiChannelLog", () => {
   beforeEach(() => {
     c = new MockClient();
     vi.resetAllMocks();
+  });
+
+  it("should not subscribe when cleaned up while retrieving channels", async () => {
+    let release = (): void => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    c.channels.retrieve = async (): Promise<channel.Channel> => {
+      await gate;
+      return c.channelA;
+    };
+    const log = new StreamMultiChannelLog(c, {
+      channels: [c.channelA.key],
+      timeSpan: TimeSpan.seconds(30),
+    });
+    log.value();
+    log.cleanup();
+    release();
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    expect(c.streamF).not.toHaveBeenCalled();
   });
 
   it("should return an empty array when no channels are configured", () => {
@@ -204,7 +220,6 @@ describe("StreamMultiChannelLog", () => {
     const log = new StreamMultiChannelLog(c, props);
     await waitForResolve(log);
 
-    // channel_a arrives first, then channel_b
     const seriesA = new Series({ data: new Float32Array([1]) });
     c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesA])]]));
     const seriesB = new Series({ data: new Float32Array([2]) });
@@ -278,7 +293,6 @@ describe("StreamMultiChannelLog", () => {
     const series1 = new Series({ data: new Float32Array([1, 2]) });
     c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series1])]]));
     expect(log.value()).toHaveLength(2);
-    // Second allocation — simulates buffer filling up and a new one being allocated
     const series2 = new Series({ data: new Float32Array([3, 4]) });
     c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series2])]]));
     expect(log.value()).toHaveLength(4);
@@ -329,7 +343,6 @@ describe("StreamMultiChannelLog", () => {
     const log = new StreamMultiChannelLog(c, props, undefined, () => now);
     await waitForResolve(log);
 
-    // Push entries at t=1000ms
     const seriesA = new Series({ data: new Float32Array([1, 2]) });
     c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesA])]]));
     expect(log.value()).toHaveLength(2);
@@ -337,7 +350,6 @@ describe("StreamMultiChannelLog", () => {
     // Advance time past keepFor — threshold becomes 2000 - 500 = 1500ms
     now = TimeStamp.milliseconds(2_000);
 
-    // Push a new entry — triggers GC, old entries at t=1000ms should be evicted
     const seriesB = new Series({ data: new Float32Array([3]) });
     c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesB])]]));
     const entries = log.value();
@@ -355,7 +367,6 @@ describe("StreamMultiChannelLog", () => {
     const log = new StreamMultiChannelLog(c, props, undefined, () => now);
     await waitForResolve(log);
 
-    // Fill the window with 2 entries at t=1000ms
     const seriesA = new Series({ data: new Float32Array([1, 2]) });
     c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesA])]]));
     expect(log.value()).toHaveLength(2);
@@ -401,7 +412,6 @@ describe("StreamMultiChannelLog", () => {
     c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesA])]]));
     expect(log.evictedCount).toBe(0);
 
-    // Advance time — both entries at t=1000ms are now stale
     now = TimeStamp.milliseconds(2_000);
     const seriesB = new Series({ data: new Float32Array([3]) });
     c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesB])]]));
@@ -418,7 +428,6 @@ describe("StreamMultiChannelLog", () => {
     const log = new StreamMultiChannelLog(c, props, undefined, () => now);
     await waitForResolve(log);
 
-    // Trigger GC
     const seriesA = new Series({ data: new Float32Array([1, 2]) });
     c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesA])]]));
     now = TimeStamp.milliseconds(2_000);
@@ -426,7 +435,6 @@ describe("StreamMultiChannelLog", () => {
     c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesB])]]));
     expect(log.evictedCount).toBe(2);
 
-    // Next callback — nothing is stale, evictedCount resets to 0
     const seriesC = new Series({ data: new Float32Array([4]) });
     c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesC])]]));
     expect(log.evictedCount).toBe(0);
@@ -637,7 +645,6 @@ describe("StreamMultiChannelLog", () => {
       c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
       expect(log.value()).toHaveLength(2);
 
-      // setChannels with the same list should not restart the stream
       log.setChannels([c.channelA.key]);
       expect(c.streamDestructorF).not.toHaveBeenCalled();
       expect(log.value()).toHaveLength(2);
@@ -661,10 +668,8 @@ describe("StreamMultiChannelLog", () => {
       );
       expect(log.value()).toHaveLength(3);
 
-      // Remove channel B
       log.setChannels([c.channelA.key]);
       const entries = await waitForResolve(log);
-      // Only channel A's 2 entries should remain
       expect(entries).toHaveLength(2);
       expect(entries.every((e) => e.channelKey === c.channelA.key)).toBe(true);
     });
@@ -687,7 +692,6 @@ describe("StreamMultiChannelLog", () => {
       );
       expect(log.value()).toHaveLength(3);
 
-      // Remove channel A, keep channel B
       log.setChannels([c.channelB.key]);
       const entries = await waitForResolve(log);
       expect(entries).toHaveLength(2);
@@ -723,23 +727,21 @@ describe("StreamMultiChannelLog", () => {
       expect(log.value()).toHaveLength(3);
 
       // Add channel B — this restarts the stream. The mock's stream() will
-      // call c.streamHandler again with a seed. Simulate the seed containing
+      // call c.streamHandler again with an initial batch. Simulate the batch containing
       // the existing cache data for channel A.
-      c.streamF = vi.fn((handler: client.StreamHandler, _keys: channel.Key[]) => {
-        // Simulate the seed: channel A has cached data we already consumed.
-        const seedA = new Series({ data: new Float32Array([1, 2, 3]) });
-        handler(new Map([[c.channelA.key, new MultiSeries([seedA])]]));
+      c.streamF = vi.fn((handler: framer.StreamHandler, _keys: channel.Key[]) => {
+        const initialA = new Series({ data: new Float32Array([1, 2, 3]) });
+        handler(new Map([[c.channelA.key, new MultiSeries([initialA])]]));
       });
       log.setChannels([c.channelA.key, c.channelB.key]);
       await waitForResolve(log);
 
-      // Channel A entries should NOT be duplicated (skipSeed should have fired)
       const entries = log.value();
       const channelAEntries = entries.filter((e) => e.channelKey === c.channelA.key);
       expect(channelAEntries).toHaveLength(3);
     });
 
-    it("should skip seed data for newly-added channels on restart", async () => {
+    it("should skip the initial batch for newly-added channels on restart", async () => {
       const props: StreamMultiChannelLogProps = {
         channels: [c.channelA.key],
         timeSpan: TimeSpan.seconds(30),
@@ -751,22 +753,21 @@ describe("StreamMultiChannelLog", () => {
       c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
       expect(log.value()).toHaveLength(1);
 
-      // Add channel B. Simulate the seed delivering cached data for channel B
+      // Add channel B. Simulate the initial batch delivering cached data for channel B
       // that was accumulated by another component — we should NOT dump it.
-      c.streamF = vi.fn((handler: client.StreamHandler, _keys: channel.Key[]) => {
-        const seedB = new Series({ data: new Float32Array([10, 20, 30]) });
-        handler(new Map([[c.channelB.key, new MultiSeries([seedB])]]));
+      c.streamF = vi.fn((handler: framer.StreamHandler, _keys: channel.Key[]) => {
+        const initialB = new Series({ data: new Float32Array([10, 20, 30]) });
+        handler(new Map([[c.channelB.key, new MultiSeries([initialB])]]));
       });
       log.setChannels([c.channelA.key, c.channelB.key]);
       await waitForResolve(log);
 
-      // Channel B seed data should be skipped — only channel A's entry remains
       const entries = log.value();
       expect(entries).toHaveLength(1);
       expect(entries[0].channelKey).toBe(c.channelA.key);
     });
 
-    it("should accept new data after skipping the seed", async () => {
+    it("should accept new data after skipping the initial batch", async () => {
       const props: StreamMultiChannelLogProps = {
         channels: [c.channelA.key],
         timeSpan: TimeSpan.seconds(30),
@@ -777,14 +778,13 @@ describe("StreamMultiChannelLog", () => {
       const series = new Series({ data: new Float32Array([1]) });
       c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
 
-      // Restart with channel B added; seed is skipped
-      c.streamF = vi.fn((handler: client.StreamHandler, _keys: channel.Key[]) => {
-        const seedA = new Series({ data: new Float32Array([1]) });
-        const seedB = new Series({ data: new Float32Array([10]) });
+      c.streamF = vi.fn((handler: framer.StreamHandler, _keys: channel.Key[]) => {
+        const initialA = new Series({ data: new Float32Array([1]) });
+        const initialB = new Series({ data: new Float32Array([10]) });
         handler(
           new Map([
-            [c.channelA.key, new MultiSeries([seedA])],
-            [c.channelB.key, new MultiSeries([seedB])],
+            [c.channelA.key, new MultiSeries([initialA])],
+            [c.channelB.key, new MultiSeries([initialB])],
           ]),
         );
       });
@@ -792,7 +792,6 @@ describe("StreamMultiChannelLog", () => {
       await waitForResolve(log);
       expect(log.value()).toHaveLength(1); // only the original entry
 
-      // Now new data arrives AFTER the seed — should be accepted normally
       const newA = new Series({ data: new Float32Array([2]) });
       const newB = new Series({ data: new Float32Array([20]) });
       c.streamHandler?.(
@@ -809,11 +808,10 @@ describe("StreamMultiChannelLog", () => {
       expect(entries[2].value).toBe("20");
     });
 
-    it("should allow seed data on initial start (not a restart)", async () => {
-      // Simulate a client that seeds data on the first stream() call
-      c.streamF = vi.fn((handler: client.StreamHandler, _keys: channel.Key[]) => {
-        const seed = new Series({ data: new Float32Array([10, 20]) });
-        handler(new Map([[c.channelA.key, new MultiSeries([seed])]]));
+    it("should allow initial-batch data on first start (not a restart)", async () => {
+      c.streamF = vi.fn((handler: framer.StreamHandler, _keys: channel.Key[]) => {
+        const initial = new Series({ data: new Float32Array([10, 20]) });
+        handler(new Map([[c.channelA.key, new MultiSeries([initial])]]));
       });
 
       const props: StreamMultiChannelLogProps = {
@@ -823,11 +821,26 @@ describe("StreamMultiChannelLog", () => {
       const log = new StreamMultiChannelLog(c, props);
       await waitForResolve(log);
 
-      // Seed data should be accepted on initial start
       const entries = log.value();
       expect(entries).toHaveLength(2);
       expect(entries[0].value).toBe("10");
       expect(entries[1].value).toBe("20");
+    });
+  });
+
+  describe("disconnected", () => {
+    it("should report a disconnected status once instead of throwing", () => {
+      const statuses: cstatus.Crude[] = [];
+      const log = new StreamMultiChannelLog(
+        null,
+        { channels: [1], timeSpan: TimeSpan.seconds(30) },
+        { onStatusChange: (s) => statuses.push(s) },
+      );
+      expect(log.value()).toHaveLength(0);
+      expect(statuses).toHaveLength(1);
+      expect(statuses[0].variant).toEqual("warning");
+      expect(log.value()).toHaveLength(0);
+      expect(statuses).toHaveLength(1);
     });
   });
 });

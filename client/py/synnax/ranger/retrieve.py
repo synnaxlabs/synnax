@@ -7,24 +7,22 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import uuid
-
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from alamos import NOOP, Instrumentation, trace
 from freighter import UnaryClient
-from synnax.ranger.payload import Key, Payload
-from x.normalize import normalize
+from synnax.ranger.types_gen import Key, Payload
+from x.lists import normalize
 
 
 class _Request(BaseModel):
-    keys: list[uuid.UUID | str] | None = None
+    keys: list[Key] | None = None
     names: list[str] | None = None
     search_term: str | None = None
 
 
 class _Response(BaseModel):
-    ranges: list[Payload] | None
+    ranges: list[Payload] = Field(default_factory=list)
 
 
 class Retriever:
@@ -58,7 +56,4 @@ class Retriever:
         return self._execute(_Request(search_term=term))
 
     def _execute(self, req: _Request) -> list[Payload]:
-        res = self._client.send("/range/retrieve", req, _Response)
-        if res.ranges is None:
-            return list()
-        return res.ranges
+        return self._client.send("/range/retrieve", req, _Response).ranges

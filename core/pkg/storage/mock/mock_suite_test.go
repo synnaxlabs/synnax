@@ -18,5 +18,5 @@ import (
 
 func TestMock(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Mock Suite")
+	RunSpecs(t, "Storage Mock Suite")
 }

@@ -8,10 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { TimeStamp } from "@synnaxlabs/x";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Input } from "@/input";
+import { Triggers } from "@/triggers";
 
 interface DateTimeTestCase {
   name: string;
@@ -82,6 +83,30 @@ describe("Input.DateTime", () => {
       const expectedValue = Number(expectedTS.valueOf());
 
       expect(receivedValue).toEqual(expectedValue);
+    });
+  });
+
+  describe("save trigger", () => {
+    const pressSave = (): void => {
+      fireEvent.keyDown(window, { key: "Control", code: "ControlLeft" });
+      fireEvent.keyDown(window, { code: "Enter" });
+      fireEvent.keyUp(window, { code: "Enter" });
+      fireEvent.keyUp(window, { key: "Control", code: "ControlLeft" });
+    };
+
+    it("should close the picker on the shortcut its footer advertises", async () => {
+      const result = render(
+        <Triggers.Provider>
+          <Input.DateTime
+            value={Number(TimeStamp.now().valueOf())}
+            onChange={vi.fn()}
+          />
+        </Triggers.Provider>,
+      );
+      openCalendarModal(result);
+      expect(await screen.findByText("Done")).toBeTruthy();
+      pressSave();
+      await waitFor(() => expect(screen.queryByText("Done")).toBeNull());
     });
   });
 
@@ -179,7 +204,7 @@ describe("Input.DateTime", () => {
         .getAllByRole("button")
         .find((b) => b.textContent?.trim() === "16");
       expect(day16).toBeTruthy();
-      expect(day16?.className).toContain("outlined");
+      expect(day16?.className).toContain("pluto--selected");
     });
 
     it("should select the correct local hour in the time selector", () => {

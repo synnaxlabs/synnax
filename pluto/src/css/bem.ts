@@ -7,20 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import clsx, { type ClassValue } from "clsx";
-
-const BaseBEM = clsx;
-
-type BaseBEMType = typeof clsx;
-
-export interface BEM extends BaseBEMType {
+export interface BEM {
+  /** @returns the class name for a block. */
   B: (...blocks: string[]) => string;
+  /** @returns the class name for an element of the enclosing block. */
   E: (element: string) => string;
+  /** @returns the class name for a modifier. */
   M: (...modifiers: string[]) => string;
+  /** @returns the class name for an element of the given block. */
   BE: (block: string, ...elements: string[]) => string;
+  /** @returns the class name for a modifier of the given block. */
   BM: (block: string, ...modifiers: string[]) => string;
+  /** @returns the class name for a modified element of the given block. */
   BEM: (block: string, element: string, ...modifiers: string[]) => string;
-  var: (...variables: string[]) => string;
+  /** @returns the name of a custom property, including the leading dashes. */
+  variable: (...variables: string[]) => string;
 }
 
 const BLOCK = "-";
@@ -28,16 +29,16 @@ const ELEMENT = "__";
 const MODIFIER = "--";
 
 export const newBEM = (prefix: string): BEM => {
-  // We need to define a new function to avoid reassigning the original
-  // on each call to newBEM.
-  const BEM_: BEM = (...args: ClassValue[]): string => BaseBEM(...args);
-  BEM_.B = (...blocks) => prefix + BLOCK + blocks.join(BLOCK);
-  BEM_.E = (element) => prefix + ELEMENT + element;
-  BEM_.M = (...modifiers) => prefix + MODIFIER + modifiers.join("-");
-  BEM_.BM = (block, ...modifiers) => BEM_.B(block) + MODIFIER + modifiers.join("-");
-  BEM_.BE = (block, ...elements) => BEM_.B(block) + ELEMENT + elements.join(BLOCK);
-  BEM_.BEM = (block, element, ...modifiers) =>
-    BEM_.BE(block, element) + MODIFIER + modifiers.join(BLOCK);
-  BEM_.var = (...variables) => MODIFIER + prefix + BLOCK + variables.join(BLOCK);
-  return BEM_;
+  const B: BEM["B"] = (...blocks) => prefix + BLOCK + blocks.join(BLOCK);
+  const E: BEM["E"] = (element) => prefix + ELEMENT + element;
+  const M: BEM["M"] = (...modifiers) => prefix + MODIFIER + modifiers.join("-");
+  const BM: BEM["BM"] = (block, ...modifiers) =>
+    B(block) + MODIFIER + modifiers.join("-");
+  const BE: BEM["BE"] = (block, ...elements) =>
+    B(block) + ELEMENT + elements.join(BLOCK);
+  const BEM: BEM["BEM"] = (block, element, ...modifiers) =>
+    BE(block, element) + MODIFIER + modifiers.join(BLOCK);
+  const variable: BEM["variable"] = (...variables) =>
+    MODIFIER + prefix + BLOCK + variables.join(BLOCK);
+  return { B, E, M, BM, BE, BEM, variable };
 };

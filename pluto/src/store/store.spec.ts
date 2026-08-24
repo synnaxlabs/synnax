@@ -127,6 +127,23 @@ describe("useKeyedListeners", () => {
       expect(globalListener).toHaveBeenCalledTimes(2);
     });
 
+    it("should accept a single key in place of an array", () => {
+      const { result } = renderHook(() => useKeyedListeners<string>());
+      const matching = vi.fn();
+      const other = vi.fn();
+
+      act(() => {
+        result.current.subscribe(matching, "key1");
+        result.current.subscribe(other, "key2");
+      });
+
+      act(() => {
+        result.current.notifyListeners("key1");
+      });
+      expect(matching).toHaveBeenCalledTimes(1);
+      expect(other).not.toHaveBeenCalled();
+    });
+
     it("should only notify listeners with matching keys", () => {
       const { result } = renderHook(() => useKeyedListeners<string>());
       const listener1 = vi.fn();

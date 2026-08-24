@@ -8,7 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { ResizeObserver } from "@juggle/resize-observer";
+import { configure } from "@testing-library/react";
 import { afterAll, beforeAll, vi } from "vitest";
+
+import { installTestWebSocket } from "@/testutil/websocket";
+
+// Live-Core round-trips share the single test Core with the rest of the suite, so allow
+// more than the 1s waitFor default.
+configure({ asyncUtilTimeout: 5000 });
 
 class MockIntersectionObserver {
   observe = vi.fn();
@@ -16,12 +23,21 @@ class MockIntersectionObserver {
   unobserve = vi.fn();
 }
 
+// Installed at module scope: an async describe body can open a socket at
+// collection time, before any beforeAll runs.
+installTestWebSocket();
+
 beforeAll(() => {
   vi.stubGlobal("ResizeObserver", ResizeObserver);
   vi.stubGlobal("OffscreenCanvas", {});
   vi.stubGlobal("IntersectionObserver", MockIntersectionObserver);
+  HTMLElement.prototype.setPointerCapture = () => {};
+  HTMLElement.prototype.releasePointerCapture = () => {};
+  HTMLElement.prototype.hasPointerCapture = () => false;
+  Element.prototype.scrollIntoView = () => {};
 });
 
 afterAll(() => {
   vi.clearAllMocks();
+  vi.unstubAllGlobals();
 });

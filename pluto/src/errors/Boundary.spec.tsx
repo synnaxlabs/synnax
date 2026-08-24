@@ -13,29 +13,25 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Errors } from "@/errors";
 
 // Boundary renders Fallback on error, which kicks off a source-map resolution effect.
-// Stub stacktrace-js at the library boundary so that effect doesn't hit the network.
-vi.mock("stacktrace-js", () => ({
-  default: {
-    fromError: async () => {
-      throw new Error("no maps in test env");
-    },
-  },
+// Stub the resolveStack module so that effect doesn't hit the network.
+vi.mock("@/errors/resolveStack", () => ({
+  resolveStack: vi.fn(async (error: Error, componentStack: string | null) => ({
+    stack: error.stack ?? "",
+    componentStack,
+  })),
 }));
 
 describe("Boundary", () => {
   let consoleSpy: ReturnType<typeof vi.spyOn>;
-  let warnSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
-    // React logs caught errors via console.error; Fallback warns when source-map
-    // resolution fails. Silence both so the test output stays clean.
+    // React logs caught errors via console.error; silence it so the test output stays
+    // clean.
     consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
   });
 
   afterEach(() => {
     consoleSpy.mockRestore();
-    warnSpy.mockRestore();
   });
 
   interface ThrowingComponentProps {
@@ -114,5 +110,58 @@ describe("Boundary", () => {
     shouldThrow = false;
     fireEvent.click(c.getByText("Reload"));
     expect(c.getByText("Recovered")).toBeTruthy();
+  });
+
+  describe("ResetProvider", () => {
+    it("should reset when the surrounding reset value changes", () => {
+      let shouldThrow = true;
+      const TestComponent = () => {
+        if (shouldThrow) throw new Error("Test error");
+        return <div>Recovered</div>;
+      };
+      const renderAt = (value: number) => (
+        <Errors.ResetProvider value={value}>
+          <Errors.Boundary>
+            <TestComponent />
+          </Errors.Boundary>
+        </Errors.ResetProvider>
+      );
+      const c = render(renderAt(0));
+      expect(c.getByText("Test error")).toBeTruthy();
+      shouldThrow = false;
+      c.rerender(renderAt(1));
+      expect(c.getByText("Recovered")).toBeTruthy();
+    });
+
+    it("should re-catch an error that outlives the reset", () => {
+      const TestComponent = () => {
+        throw new Error("Test error");
+      };
+      const renderAt = (value: number) => (
+        <Errors.ResetProvider value={value}>
+          <Errors.Boundary>
+            <TestComponent />
+          </Errors.Boundary>
+        </Errors.ResetProvider>
+      );
+      const c = render(renderAt(0));
+      c.rerender(renderAt(1));
+      expect(c.getByText("Test error")).toBeTruthy();
+    });
+
+    it("should not reset a boundary that never caught", () => {
+      const onReset = vi.fn();
+      const renderAt = (value: number) => (
+        <Errors.ResetProvider value={value}>
+          <Errors.Boundary onReset={onReset}>
+            <ThrowingComponent shouldThrow={false} />
+          </Errors.Boundary>
+        </Errors.ResetProvider>
+      );
+      const c = render(renderAt(0));
+      c.rerender(renderAt(1));
+      expect(onReset).not.toHaveBeenCalled();
+      expect(c.getByText("Content rendered successfully")).toBeTruthy();
+    });
   });
 });

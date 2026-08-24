@@ -9,7 +9,7 @@
 
 import synnax as sy
 from framework.utils import create_virtual_channel
-from tests.arc.arc_case import ArcConsoleCase
+from tests.arc.arc import ArcCase
 
 ARC_BACKWARD_JUMP_SOURCE = """
 authority 200
@@ -29,7 +29,7 @@ bj_start_cmd => main
 """
 
 
-class BackwardJump(ArcConsoleCase):
+class BackwardJump(ArcCase):
     """A sequence transitions forward to a named stage, jumps backward, and
     ignores stale start signals while already active.
 
@@ -65,30 +65,22 @@ class BackwardJump(ArcConsoleCase):
 
     def verify_sequence_execution(self) -> None:
         self.log("Waiting for bj_press_cmd=1 (pressurize entered)...")
-        self.wait_for_eq(
-            "bj_press_cmd", 1, timeout=5 * sy.TimeSpan.SECOND, is_virtual=True
-        )
+        self.wait_for_eq("bj_press_cmd", 1, timeout=5 * sy.TimeSpan.SECOND)
 
         self.log("Driving bj_pressure=75 (above pressurize -> hold threshold)")
         self.writer.write("bj_pressure", 75.0)
         self.log("Waiting for bj_press_cmd=0 (hold entered)...")
-        self.wait_for_eq(
-            "bj_press_cmd", 0, timeout=5 * sy.TimeSpan.SECOND, is_virtual=True
-        )
+        self.wait_for_eq("bj_press_cmd", 0, timeout=5 * sy.TimeSpan.SECOND)
 
         self.log("Driving bj_pressure=10 (below hold -> pressurize threshold)")
         self.writer.write("bj_pressure", 10.0)
         self.log("Waiting for bj_press_cmd=1 (backward jump re-entered pressurize)...")
-        self.wait_for_eq(
-            "bj_press_cmd", 1, timeout=5 * sy.TimeSpan.SECOND, is_virtual=True
-        )
+        self.wait_for_eq("bj_press_cmd", 1, timeout=5 * sy.TimeSpan.SECOND)
         self.log("Backward jump re-activated pressurize and re-fired its write")
 
         self.log("Driving bj_pressure=75 to transition pressurize -> hold")
         self.writer.write("bj_pressure", 75.0)
-        self.wait_for_eq(
-            "bj_press_cmd", 0, timeout=5 * sy.TimeSpan.SECOND, is_virtual=True
-        )
+        self.wait_for_eq("bj_press_cmd", 0, timeout=5 * sy.TimeSpan.SECOND)
 
         self.log(
             "Re-firing bj_start_cmd while sequence is in hold. The "

@@ -15,17 +15,20 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/server"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/net"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Grpc", func() {
 	It("Should start a grpc server", func() {
+		port := MustSucceed(net.FindOpenPort())
+		addr := address.Newf("localhost:%d", port)
 		b := MustSucceed(server.Serve(server.Config{
-			ListenAddress: "localhost:26260",
+			Listeners: []server.Listener{{Address: addr}},
 			Security: server.SecurityConfig{
 				Insecure: new(true),
 			},
-			Debug: new(true),
 			Branches: []server.Branch{
 				&server.GRPCBranch{},
 			},

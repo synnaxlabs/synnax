@@ -12,6 +12,7 @@ package lsp
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
@@ -20,7 +21,8 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	lsp "github.com/synnaxlabs/x/lsp"
 	"github.com/synnaxlabs/x/lsp/doc"
-	"github.com/synnaxlabs/x/lsp/protocol"
+	"go.lsp.dev/protocol"
+	"go.lsp.dev/uri"
 	"go.uber.org/zap"
 )
 
@@ -61,8 +63,8 @@ func (s *Server) Hover(
 		contents := s.getOperatorHoverContents(operator)
 		if contents != "" {
 			return &protocol.Hover{
-				Contents: protocol.MarkupContent{
-					Kind:  protocol.Markdown,
+				Contents: &protocol.MarkupContent{
+					Kind:  protocol.MarkupKindMarkdown,
 					Value: contents,
 				},
 			}, nil
@@ -110,17 +112,27 @@ func (s *Server) Hover(
 	}
 
 	return &protocol.Hover{
-		Contents: protocol.MarkupContent{
-			Kind:  protocol.Markdown,
+		Contents: &protocol.MarkupContent{
+			Kind:  protocol.MarkupKindMarkdown,
 			Value: contents,
 		},
 	}, nil
 }
 
 var operators = []string{
-	parser.LiteralDECLARE, parser.LiteralSTATEDECLARE, parser.LiteralTRANSITION, parser.LiteralARROW,
-	parser.LiteralPLUSASSIGN, parser.LiteralMINUSASSIGN, parser.LiteralSTARASSIGN, parser.LiteralSLASHASSIGN, parser.LiteralPERCENTASSIGN,
-	parser.LiteralEQ, parser.LiteralNEQ, parser.LiteralLEQ, parser.LiteralGEQ,
+	parser.LiteralDECLARE,
+	parser.LiteralSTATEDECLARE,
+	parser.LiteralTRANSITION,
+	parser.LiteralARROW,
+	parser.LiteralPLUSASSIGN,
+	parser.LiteralMINUSASSIGN,
+	parser.LiteralSTARASSIGN,
+	parser.LiteralSLASHASSIGN,
+	parser.LiteralPERCENTASSIGN,
+	parser.LiteralEQ,
+	parser.LiteralNEQ,
+	parser.LiteralLEQ,
+	parser.LiteralGEQ,
 }
 
 // operatorDocs contains pre-computed documentation for operators.
@@ -131,7 +143,9 @@ var operatorDocs = map[string]string{
 		doc.Divider(),
 		doc.Code("arc", "x := 42\nname := \"hello\""),
 		doc.Divider(),
-		doc.Paragraph("The variable type is inferred from the right-hand side expression."),
+		doc.Paragraph(
+			"The variable type is inferred from the right-hand side expression.",
+		),
 	).Render(),
 	parser.LiteralSTATEDECLARE: doc.New(
 		doc.TitleWithKind(parser.LiteralSTATEDECLARE, "Operator"),
@@ -139,15 +153,22 @@ var operatorDocs = map[string]string{
 		doc.Divider(),
 		doc.Code("arc", "count $= 0\ncount = count + 1"),
 		doc.Divider(),
-		doc.Paragraph("Stateful variables retain their values between reactive stage executions, making them useful for counters, accumulators, and maintaining state."),
+		doc.Paragraph(
+			"Stateful variables retain their values between reactive stage executions, making them useful for counters, accumulators, and maintaining state.",
+		),
 	).Render(),
 	parser.LiteralTRANSITION: doc.New(
 		doc.TitleWithKind(parser.LiteralTRANSITION, "Operator"),
 		doc.Paragraph("Transitions to another stage in a sequence."),
 		doc.Divider(),
-		doc.Code("arc", "sequence main {\n    stage first {\n        if ready => second\n    }\n    stage second {}\n}"),
+		doc.Code(
+			"arc",
+			"sequence main {\n    stage first {\n        if ready => second\n    }\n    stage second {}\n}",
+		),
 		doc.Divider(),
-		doc.Paragraph("When the condition is true, execution transitions to the specified stage on the next cycle."),
+		doc.Paragraph(
+			"When the condition is true, execution transitions to the specified stage on the next cycle.",
+		),
 	).Render(),
 	parser.LiteralARROW: doc.New(
 		doc.TitleWithKind(parser.LiteralARROW, "Operator"),
@@ -157,11 +178,31 @@ var operatorDocs = map[string]string{
 		doc.Divider(),
 		doc.Paragraph("Sends the left-hand value to the channel on the right."),
 	).Render(),
-	parser.LiteralPLUSASSIGN:    compoundAssignDoc(parser.LiteralPLUSASSIGN, "Adds", "+"),
-	parser.LiteralMINUSASSIGN:   compoundAssignDoc(parser.LiteralMINUSASSIGN, "Subtracts", "-"),
-	parser.LiteralSTARASSIGN:    compoundAssignDoc(parser.LiteralSTARASSIGN, "Multiplies", "*"),
-	parser.LiteralSLASHASSIGN:   compoundAssignDoc(parser.LiteralSLASHASSIGN, "Divides", "/"),
-	parser.LiteralPERCENTASSIGN: compoundAssignDoc(parser.LiteralPERCENTASSIGN, "Computes modulo", "%"),
+	parser.LiteralPLUSASSIGN: compoundAssignDoc(
+		parser.LiteralPLUSASSIGN,
+		"Adds",
+		"+",
+	),
+	parser.LiteralMINUSASSIGN: compoundAssignDoc(
+		parser.LiteralMINUSASSIGN,
+		"Subtracts",
+		"-",
+	),
+	parser.LiteralSTARASSIGN: compoundAssignDoc(
+		parser.LiteralSTARASSIGN,
+		"Multiplies",
+		"*",
+	),
+	parser.LiteralSLASHASSIGN: compoundAssignDoc(
+		parser.LiteralSLASHASSIGN,
+		"Divides",
+		"/",
+	),
+	parser.LiteralPERCENTASSIGN: compoundAssignDoc(
+		parser.LiteralPERCENTASSIGN,
+		"Computes modulo",
+		"%",
+	),
 	parser.LiteralEQ: doc.New(
 		doc.TitleWithKind(parser.LiteralEQ, "Operator"),
 		doc.Paragraph("Tests equality between two values."),
@@ -188,7 +229,8 @@ var operatorDocs = map[string]string{
 	).Render(),
 }
 
-// keywordDocs contains pre-computed documentation for keywords, types, and built-in functions.
+// keywordDocs contains pre-computed documentation for keywords, types, and built-in
+// functions.
 var keywordDocs = map[string]string{
 	parser.LiteralFUNC: doc.New(
 		doc.TitleWithKind(parser.LiteralFUNC, "Keyword"),
@@ -200,13 +242,19 @@ var keywordDocs = map[string]string{
 		doc.TitleWithKind(parser.LiteralSTAGE, "Keyword"),
 		doc.Paragraph("Declares a stage within a sequence."),
 		doc.Divider(),
-		doc.Code("arc", "sequence name {\n    stage stageName {\n        // body\n    }\n}"),
+		doc.Code(
+			"arc",
+			"sequence name {\n    stage stageName {\n        // body\n    }\n}",
+		),
 	).Render(),
 	parser.LiteralSEQUENCE: doc.New(
 		doc.TitleWithKind(parser.LiteralSEQUENCE, "Keyword"),
 		doc.Paragraph("Declares a sequence (state machine)."),
 		doc.Divider(),
-		doc.Code("arc", "sequence name {\n    stage first {\n        // initial stage\n    }\n}"),
+		doc.Code(
+			"arc",
+			"sequence name {\n    stage first {\n        // initial stage\n    }\n}",
+		),
 	).Render(),
 	parser.LiteralIF: doc.New(
 		doc.TitleWithKind(parser.LiteralIF, "Keyword"),
@@ -230,14 +278,46 @@ var keywordDocs = map[string]string{
 		doc.Divider(),
 		doc.Code("arc", "stage first {\n    next second\n}"),
 	).Render(),
-	parser.LiteralI8:  intTypeDoc(parser.LiteralI8, "Signed 8-bit integer.", "-128 to 127"),
-	parser.LiteralI16: intTypeDoc(parser.LiteralI16, "Signed 16-bit integer.", "-32768 to 32767"),
-	parser.LiteralI32: intTypeDoc(parser.LiteralI32, "Signed 32-bit integer.", "-2147483648 to 2147483647"),
-	parser.LiteralI64: intTypeDoc(parser.LiteralI64, "Signed 64-bit integer.", "-9223372036854775808 to 9223372036854775807"),
-	parser.LiteralU8:  intTypeDoc(parser.LiteralU8, "Unsigned 8-bit integer.", "0 to 255"),
-	parser.LiteralU16: intTypeDoc(parser.LiteralU16, "Unsigned 16-bit integer.", "0 to 65535"),
-	parser.LiteralU32: intTypeDoc(parser.LiteralU32, "Unsigned 32-bit integer.", "0 to 4294967295"),
-	parser.LiteralU64: intTypeDoc(parser.LiteralU64, "Unsigned 64-bit integer.", "0 to 18446744073709551615"),
+	parser.LiteralI8: intTypeDoc(
+		parser.LiteralI8,
+		"Signed 8-bit integer.",
+		"-128 to 127",
+	),
+	parser.LiteralI16: intTypeDoc(
+		parser.LiteralI16,
+		"Signed 16-bit integer.",
+		"-32768 to 32767",
+	),
+	parser.LiteralI32: intTypeDoc(
+		parser.LiteralI32,
+		"Signed 32-bit integer.",
+		"-2147483648 to 2147483647",
+	),
+	parser.LiteralI64: intTypeDoc(
+		parser.LiteralI64,
+		"Signed 64-bit integer.",
+		"-9223372036854775808 to 9223372036854775807",
+	),
+	parser.LiteralU8: intTypeDoc(
+		parser.LiteralU8,
+		"Unsigned 8-bit integer.",
+		"0 to 255",
+	),
+	parser.LiteralU16: intTypeDoc(
+		parser.LiteralU16,
+		"Unsigned 16-bit integer.",
+		"0 to 65535",
+	),
+	parser.LiteralU32: intTypeDoc(
+		parser.LiteralU32,
+		"Unsigned 32-bit integer.",
+		"0 to 4294967295",
+	),
+	parser.LiteralU64: intTypeDoc(
+		parser.LiteralU64,
+		"Unsigned 64-bit integer.",
+		"0 to 18446744073709551615",
+	),
 	parser.LiteralF32: doc.New(
 		doc.TitleWithKind(parser.LiteralF32, "Type"),
 		doc.Paragraph("32-bit floating point number (single precision)."),
@@ -249,6 +329,18 @@ var keywordDocs = map[string]string{
 	"string": doc.New(
 		doc.TitleWithKind("string", "Type"),
 		doc.Paragraph("Immutable UTF-8 encoded string."),
+	).Render(),
+	parser.LiteralBOOL: doc.New(
+		doc.TitleWithKind(parser.LiteralBOOL, "Type"),
+		doc.Paragraph("Boolean: true or false"),
+	).Render(),
+	parser.LiteralTRUE: doc.New(
+		doc.TitleWithKind(parser.LiteralTRUE, "Constant"),
+		doc.Paragraph("Boolean true"),
+	).Render(),
+	parser.LiteralFALSE: doc.New(
+		doc.TitleWithKind(parser.LiteralFALSE, "Constant"),
+		doc.Paragraph("Boolean false"),
 	).Render(),
 	"timestamp": doc.New(
 		doc.TitleWithKind("timestamp", "Type"),
@@ -272,7 +364,9 @@ var keywordDocs = map[string]string{
 	).Render(),
 	parser.LiteralAUTHORITY: doc.New(
 		doc.TitleWithKind(parser.LiteralAUTHORITY, "Keyword"),
-		doc.Paragraph("Declares the initial control authority for write channels. Authority determines which writer takes priority when multiple writers target the same channel. Higher values take precedence (range 0-255)."),
+		doc.Paragraph(
+			"Declares the initial control authority for write channels. Authority determines which writer takes priority when multiple writers target the same channel. Higher values take precedence (range 0-255).",
+		),
 		doc.Divider(),
 		doc.Code("arc", "authority 200"),
 		doc.Divider(),
@@ -280,11 +374,15 @@ var keywordDocs = map[string]string{
 		doc.Divider(),
 		doc.Code("arc", "authority (\n    200\n    valve_cmd 255\n)"),
 		doc.Divider(),
-		doc.Paragraph("Must appear before all function, flow, and sequence declarations."),
+		doc.Paragraph(
+			"Must appear before all function, flow, and sequence declarations.",
+		),
 	).Render(),
 	parser.LiteralIMPORT: doc.New(
 		doc.TitleWithKind(parser.LiteralIMPORT, "Keyword"),
-		doc.Paragraph("Imports modules so their qualified members can be used. A module must be imported before its dotted members (e.g. time.now, control.set_authority) can be referenced."),
+		doc.Paragraph(
+			"Imports modules so their qualified members can be used. A module must be imported before its dotted members (e.g. time.now, control.set_authority) can be referenced.",
+		),
 		doc.Divider(),
 		doc.Code("arc", "import ( time control )"),
 		doc.Divider(),
@@ -342,8 +440,7 @@ func (s *Server) extractDocComment(content string, sym *symbol.Symbol) string {
 	}
 
 	var commentTokens []string
-	for i := len(tokens) - 1; i >= 0; i-- {
-		t := tokens[i]
+	for i, t := range slices.Backward(tokens) {
 		tokenType := t.GetTokenType()
 		tokenLine := t.GetLine()
 
@@ -369,7 +466,7 @@ func (s *Server) extractDocComment(content string, sym *symbol.Symbol) string {
 	return cleanDocComment(commentTokens)
 }
 
-func hasCodeBetween(tokens []antlr.Token, fromIndex int, targetLine int) bool {
+func hasCodeBetween(tokens []antlr.Token, fromIndex, targetLine int) bool {
 	startLine := tokens[fromIndex].GetLine()
 	commentText := tokens[fromIndex].GetText()
 	endLine := startLine
@@ -449,6 +546,18 @@ func resolveDotted(
 	return resolveDotted(ctx, sym, tail)
 }
 
+// variableTypeDetail renders a value variable's hover type, tagged by its kind.
+func variableTypeDetail(sym *symbol.Symbol) string {
+	switch {
+	case sym.IsChannelReadWrite():
+		return "chan read/write " + sym.Type.UnwrapChan().String()
+	case sym.IsReactive():
+		return "chan read " + sym.Type.UnwrapChan().String()
+	default:
+		return sym.Type.String()
+	}
+}
+
 func (s *Server) getUserSymbolHover(
 	ctx context.Context,
 	scope *symbol.Symbol,
@@ -477,6 +586,9 @@ func (s *Server) getUserSymbolHover(
 		d = doc.New(doc.TitleWithKind(displayName, kindDesc))
 		d.Add(doc.Divider())
 		d.Add(doc.Code("arc", formatFunctionSignatureContent(sym)))
+		if sym.Trigger.Target != "" {
+			d.Add(doc.Detail("Trigger", sym.Trigger.Target, true))
+		}
 	case symbol.KindModule, symbol.KindModuleAlias:
 		d = doc.New(doc.TitleWithKind(displayName, "Module"))
 		if members := formatModuleMembersList(sym); len(members) > 0 {
@@ -484,7 +596,7 @@ func (s *Server) getUserSymbolHover(
 		}
 	case symbol.KindVariable:
 		d = doc.New(doc.TitleWithKind(displayName, "Variable"))
-		d.Add(doc.Detail("Type", sym.Type.String(), true))
+		d.Add(doc.Detail("Type", variableTypeDetail(sym), true))
 	case symbol.KindStatefulVariable:
 		d = doc.New(doc.TitleWithKind(displayName, "Stateful Variable"))
 		d.Add(doc.Paragraph("Persists across executions"))
@@ -494,9 +606,6 @@ func (s *Server) getUserSymbolHover(
 		d.Add(doc.Detail("Type", sym.Type.String(), true))
 	case symbol.KindOutput:
 		d = doc.New(doc.TitleWithKind(displayName, "Output Parameter"))
-		d.Add(doc.Detail("Type", sym.Type.String(), true))
-	case symbol.KindConfig:
-		d = doc.New(doc.TitleWithKind(displayName, "Configuration Parameter"))
 		d.Add(doc.Detail("Type", sym.Type.String(), true))
 	case symbol.KindChannel:
 		d = doc.New(doc.TitleWithKind(displayName, "Channel"))
@@ -545,28 +654,12 @@ func formatFunctionSignatureContent(sym *symbol.Symbol) string {
 	var sig strings.Builder
 	sig.WriteString("func ")
 	sig.WriteString(sym.Name)
-	if len(sym.Type.Config) > 0 {
-		sig.WriteString("{")
-		first := true
-		for _, param := range sym.Type.Config {
-			if !first {
-				sig.WriteString(", ")
-			}
-			_, _ = fmt.Fprintf(&sig, "\n    %s %s", param.Name, param.Type)
-			first = false
-		}
-		sig.WriteString("\n}")
-	}
 	sig.WriteString("(")
-	if len(sym.Type.Inputs) > 0 {
-		first := true
-		for _, param := range sym.Type.Inputs {
-			if !first {
-				sig.WriteString(", ")
-			}
-			_, _ = fmt.Fprintf(&sig, "%s %s", param.Name, param.Type)
-			first = false
+	for i, param := range sym.Type.Inputs {
+		if i > 0 {
+			sig.WriteString(", ")
 		}
+		_, _ = fmt.Fprintf(&sig, "%s %s", param.Name, param.Type)
 	}
 	sig.WriteString(")")
 	if len(sym.Type.Outputs) > 0 {
@@ -586,7 +679,7 @@ func formatFunctionSignatureContent(sym *symbol.Symbol) string {
 }
 
 func formatFunctionKindDescription(sym *symbol.Symbol) string {
-	if sym.Type.Config != nil {
+	if sym.Exec == symbol.ExecFlow || sym.Exec == symbol.ExecBoth {
 		return "Node"
 	}
 	return "Function"
@@ -619,7 +712,7 @@ func formatModuleMembersList(sym *symbol.Symbol) []string {
 
 // symbolToLocation converts a symbol to an LSP Location pointing to its definition
 func (s *Server) symbolToLocation(
-	uri protocol.DocumentURI,
+	docURI uri.URI,
 	sym *symbol.Symbol,
 ) *protocol.Location {
 	if sym.AST == nil {
@@ -632,10 +725,13 @@ func (s *Server) symbolToLocation(
 	line := uint32(start.GetLine() - 1)
 	col := uint32(start.GetColumn())
 	return &protocol.Location{
-		URI: uri,
+		URI: docURI,
 		Range: protocol.Range{
 			Start: protocol.Position{Line: line, Character: col},
-			End:   protocol.Position{Line: line, Character: col + uint32(len(sym.Name))},
+			End: protocol.Position{
+				Line:      line,
+				Character: col + uint32(len(sym.Name)),
+			},
 		},
 	}
 }

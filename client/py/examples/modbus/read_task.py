@@ -64,14 +64,13 @@ tsk = sy.modbus.ReadTask(
     device=dev.key,
     sample_rate=sy.Rate.HZ * 10,  # Sample at 10 Hz
     stream_rate=sy.Rate.HZ * 10,  # Stream at 10 Hz
-    data_saving=True,
     channels=[
         # Input register (16-bit R-only) at address 0
-        sy.modbus.InputRegisterChan(
+        sy.modbus.InputRegisterReadChannel(
             channel=input_reg_0.key, address=0, data_type="uint8"
         ),
         # Input register (16-bit R-only) at address 1
-        sy.modbus.InputRegisterChan(
+        sy.modbus.InputRegisterReadChannel(
             channel=input_reg_1.key, address=1, data_type="uint8"
         ),
     ],

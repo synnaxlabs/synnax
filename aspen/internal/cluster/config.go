@@ -61,7 +61,10 @@ var _ config.Config[Config] = Config{}
 func (cfg Config) Override(other Config) Config {
 	cfg.HostAddress = override.String(cfg.HostAddress, other.HostAddress)
 	cfg.Codec = override.Nil(cfg.Codec, other.Codec)
-	cfg.StorageFlushInterval = override.Numeric(cfg.StorageFlushInterval, other.StorageFlushInterval)
+	cfg.StorageFlushInterval = override.Numeric(
+		cfg.StorageFlushInterval,
+		other.StorageFlushInterval,
+	)
 	cfg.StorageKey = override.Slice(cfg.StorageKey, other.StorageKey)
 	cfg.Storage = override.Nil(cfg.Storage, other.Storage)
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)

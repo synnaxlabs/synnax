@@ -10,6 +10,7 @@ nextURL: "/reference/control/arc/reference/variables"
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
+import { Arc } from "@/components";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
@@ -42,6 +43,12 @@ export const components = mdxOverrides;
 | ----- | ---------------------- |
 | `str` | Immutable UTF-8 string |
 
+### Boolean Type
+
+| Type   | Description                           |
+| ------ | ------------------------------------- |
+| `bool` | `true` or `false`, stored as one byte |
+
 <Divider.Divider x />
 
 ## Type Defaults
@@ -53,33 +60,9 @@ When you write a literal without an explicit type, Arc infers a default:
 | `42`         | `i64`        |
 | `3.14`       | `f64`        |
 | `"text"`     | `str`        |
+| `true`       | `bool`       |
 | `[1, 2, 3]`  | `series i64` |
 | `[1.0, 2.0]` | `series f64` |
-
-<Divider.Divider x />
-
-## Boolean Semantics
-
-Arc uses `u8` for boolean values. There is no separate boolean type.
-
-| Value    | Meaning |
-| -------- | ------- |
-| `0`      | false   |
-| non-zero | true    |
-
-Logical operators normalize results to `0` or `1`:
-
-```arc
-result := 2 and 3 // 1 (both truthy)
-result := 5 or 0 // 1 (short-circuits)
-negated := not 5 // 0
-```
-
-Comparison operators return `u8`:
-
-```arc
-is_high := pressure > 500 // 0 or 1
-```
 
 <Divider.Divider x />
 
@@ -88,16 +71,37 @@ is_high := pressure > 500 // 0 or 1
 Channels connect Arc to Synnax telemetry data. Declare channel types with `chan`:
 
 ```arc
-chan f64 // channel of float64
-chan i32 // channel of int32
+chan f64  // channel of float64
+chan i32  // channel of int32
+chan bool // channel of boolean
 ```
 
-Channel names reference channels that exist in your Synnax cluster:
+Channel names reference channels that exist in your Synnax cluster. Binding one to a
+name declares a channel read/write
+[variable](/reference/control/arc/reference/variables) that reads and writes the
+channel:
 
-```arc
-value := ox_pt_1 // read from channel
-ox_pt_cmd = value // write to channel
+<Arc.Tabs client:load>
+
+<Fragment slot="flow">
+```arc channels="source_ch, sink_ch"
+sequence {
+    value := source_ch  // binds to source_ch
+    value -> sink_ch    // writes to sink_ch
+}
 ```
+</Fragment>
+
+<Fragment slot="function">
+```arc channels="source_ch, sink_ch"
+func example() {
+    value := source_ch  // read from source_ch
+    sink_ch = value     // write to sink_ch
+}
+```
+</Fragment>
+
+</Arc.Tabs>
 
 Reading from a channel that has no data returns the zero value for that type.
 
@@ -108,8 +112,9 @@ Reading from a channel that has no data returns the zero value for that type.
 Series are homogeneous arrays. Declare series types with `series`:
 
 ```arc
-series f64 // array of float64
-series i32 // array of int32
+series f64  // array of float64
+series i32  // array of int32
+series bool // array of booleans
 ```
 
 ### Series Literals
@@ -124,7 +129,7 @@ empty series f64 := [] // empty series (type required)
 ```arc
 length := len(data) // i64: number of elements
 first := data[0] // indexing (0-based)
-subset := data[1: 3] // slicing [start:end)
+subset := data[1:3] // slicing [start:end)
 ```
 
 ### Element-wise Operations
@@ -133,13 +138,19 @@ Arithmetic and comparison operators work element-wise on series:
 
 ```arc
 data := [1.0, 2.0, 3.0]
+
 // Scalar operations
 scaled := data * 2.0 // [2.0, 4.0, 6.0]
 offset := data + 10.0 // [11.0, 12.0, 13.0]
+
 // Series-to-series (must be equal length)
 sum := data + [4.0, 5.0, 6.0] // [5.0, 7.0, 9.0]
-// Comparisons return series u8
-mask := data > 2.0 // [0, 0, 1]
+
+// Comparisons return series bool
+mask := data > 2.0 // [false, false, true]
+
+// Logical operators apply element-wise to series bool
+inverted := not mask // [true, true, false]
 ```
 
 <Note.Note variant="warning">
@@ -175,10 +186,12 @@ The compiler enforces dimensional compatibility:
 
 ```arc
 distance f64 m := 10.0
-time f64 s := 2.0
+elapsed f64 s := 2.0
+
 // Division produces a length/time quantity (a velocity)
-speed := distance / time
-// Exponentiation produces a length^2 quantity (an area)
+speed := distance / elapsed
+
+// Exponentiation produces a squared-length quantity (an area)
 area := distance ^ 2
 ```
 
@@ -189,7 +202,7 @@ further use, but they are not spelled in source code.
 
 ## Type Casting
 
-Explicit casting converts between numeric types, or from a numeric type to `str`:
+Explicit casting converts between types.
 
 ```arc
 x i32 := 42
@@ -200,7 +213,16 @@ b i64 := i64(a) // truncates to 3
 
 n i64 := 42
 s str := str(n) // numeric to string: "42"
+
+active := n > 0
+level u8 := u8(active) // bool to int: 1
+state str := str(active) // bool to string: "true"
 ```
+
+<Note.Note variant="info">
+  Boolean conversions (`bool(x)`) are not supported. Use a comparison (`x != 0`) to
+  derive a `bool`. Casting a string to a numeric or boolean is not supported either.
+</Note.Note>
 
 ### Casting Rules
 
@@ -212,10 +234,12 @@ s str := str(n) // numeric to string: "42"
 | Float to integer                    | Truncates toward zero, saturates on overflow |
 | Integer overflow                    | Two's-complement wrapping                    |
 | Numeric to string (e.g., `str(42)`) | Decimal text (e.g., `"42"`, `"3.14"`)        |
+| `bool` to numeric (e.g., `u8(b)`)   | `1` or `0`                                   |
+| `bool` to string (`str(b)`)         | `"true"` or `"false"`                        |
 
 Float values render without trailing zeros (`str(1.0)` returns `"1"`), and special
-values render as `"NaN"`, `"+Inf"`, `"-Inf"`. Casting from `str` back to a numeric type
-is not supported.
+values render as `"NaN"`, `"+Inf"`, `"-Inf"`. Casting from `str` back to a numeric or
+`bool` type is not supported.
 
 <Note.Note variant="info">
   Arc requires explicit casts for mixed-type arithmetic. No implicit type promotion.
@@ -225,6 +249,7 @@ is not supported.
 // Wrong: type error
 x i32 := 42
 y f64 := x + 1.0
+
 // Right: explicit cast
 x i32 := 42
 y f64 := f64(x) + 1.0
@@ -240,6 +265,7 @@ All types have default zero values:
 | -------- | ------------------------------------------ |
 | integers | `0`                                        |
 | floats   | `0.0`                                      |
+| `bool`   | `false`                                    |
 | `str`    | `""` (empty string)                        |
 | series   | `[]` (empty series)                        |
 | channels | zero value of element type (on first read) |
@@ -252,11 +278,11 @@ Strings support the following operations:
 
 ```arc
 msg := "Hello"
-greeting := msg + " World" // concatenation
-first := msg[0] // indexing (returns u8)
-sub := msg[1: 4] // slicing
-length := len(msg) // length in bytes
-equal := msg == "Hello" // equality (returns u8: 1 or 0)
+greet := msg + " World"  // concatenation
+first := msg[0]          // indexing (returns u8)
+sub := msg[1:4]          // slicing
+length := len(msg)       // length in bytes
+equal := msg == "Hello"  // equality (returns bool)
 ```
 
 | Operation             | Supported |

@@ -22,12 +22,13 @@ import (
 var db *gorp.DB
 
 var _ = BeforeSuite(func() {
+	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
 })
 
 func TestDevice(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Device Suite")
+	RunSpecs(t, "Service Device Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

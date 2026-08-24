@@ -9,6 +9,7 @@
 
 import { type location } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
+import { ReactFlowProvider, ResizeControlVariant } from "@xyflow/react";
 import {
   type PropsWithChildren,
   type ReactElement,
@@ -511,5 +512,70 @@ describe("Grid drag-and-drop", () => {
       screenY: 10,
     });
     expect(onMoveX).not.toHaveBeenCalled();
+  });
+});
+
+describe("Grid resize controls", () => {
+  const EDGES = ["top", "right", "bottom", "left"];
+  const CORNERS = ["top-left", "top-right", "bottom-left", "bottom-right"];
+
+  const ResizableHost = ({
+    editable = true,
+    onResize,
+  }: Partial<Grid.GridProps>): ReactElement => (
+    <ReactFlowProvider>
+      <Haul.Provider>
+        <div data-id={NODE_KEY}>
+          <Grid.Grid editable={editable} nodeKey={NODE_KEY} onResize={onResize}>
+            <div>body</div>
+          </Grid.Grid>
+        </div>
+      </Haul.Provider>
+    </ReactFlowProvider>
+  );
+
+  const controlEls = (c: HTMLElement) =>
+    c.querySelectorAll<HTMLElement>(".react-flow__resize-control");
+  const hasControl = (c: HTMLElement, ...classes: string[]) =>
+    Array.from(controlEls(c)).some((el) =>
+      classes.every((cl) => el.classList.contains(cl)),
+    );
+
+  describe("render gating", () => {
+    it("should render no controls when the node is not editable", () => {
+      const { container } = render(
+        <ResizableHost editable={false} onResize={vi.fn()} />,
+      );
+      expect(controlEls(container)).toHaveLength(0);
+    });
+
+    it("should render no controls when no onResize handler is provided", () => {
+      const { container } = render(<ResizableHost />);
+      expect(controlEls(container)).toHaveLength(0);
+    });
+
+    it("should render eight controls when editable and resizable", () => {
+      const { container } = render(<ResizableHost onResize={vi.fn()} />);
+      expect(controlEls(container)).toHaveLength(8);
+    });
+  });
+
+  describe("control rendering", () => {
+    it("should render each edge as a line-variant control at its position", () => {
+      const { container } = render(<ResizableHost onResize={vi.fn()} />);
+      EDGES.forEach((edge) =>
+        expect(hasControl(container, edge, ResizeControlVariant.Line)).toBe(true),
+      );
+    });
+
+    it("should render each corner as a handle-variant control at its position", () => {
+      const { container } = render(<ResizableHost onResize={vi.fn()} />);
+      CORNERS.forEach((corner) => {
+        const [vertical, horizontal] = corner.split("-");
+        expect(
+          hasControl(container, vertical, horizontal, ResizeControlVariant.Handle),
+        ).toBe(true);
+      });
+    });
   });
 });

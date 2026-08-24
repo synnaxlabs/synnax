@@ -10,9 +10,8 @@
 import { describe, expect, it } from "vitest";
 
 import { arc } from "@/arc";
-import { AuthError, NotFoundError } from "@/errors";
-import { createTestClientWithPolicy } from "@/testutil/access";
-import { createTestClient } from "@/testutil/client";
+import { AccessDeniedError, NotFoundError } from "@/errors";
+import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
 const client = createTestClient();
 
@@ -27,17 +26,10 @@ describe("arc", () => {
       const a: arc.New = {
         name: "test",
         mode: "text",
-        graph: {
-          nodes: [],
-          edges: [],
-          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
-          functions: [],
-        },
-        text: { raw: "" },
       };
       const randomArc = await client.arcs.create(a);
-      await expect(userClient.arcs.retrieve({ key: randomArc.key })).rejects.toThrow(
-        AuthError,
+      await expect(userClient.arcs.retrieve(randomArc.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
       );
     });
 
@@ -50,15 +42,8 @@ describe("arc", () => {
       const randomArc = await client.arcs.create({
         name: "test",
         mode: "text",
-        graph: {
-          nodes: [],
-          edges: [],
-          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
-          functions: [],
-        },
-        text: { raw: "" },
       });
-      const retrieved = await userClient.arcs.retrieve({ key: randomArc.key });
+      const retrieved = await userClient.arcs.retrieve(randomArc.key);
       expect(retrieved.key).toBe(randomArc.key);
       expect(retrieved.name).toBe(randomArc.name);
     });
@@ -72,13 +57,6 @@ describe("arc", () => {
       await userClient.arcs.create({
         name: "test",
         mode: "text",
-        graph: {
-          nodes: [],
-          edges: [],
-          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
-          functions: [],
-        },
-        text: { raw: "" },
       });
     });
 
@@ -92,15 +70,8 @@ describe("arc", () => {
         userClient.arcs.create({
           name: "test",
           mode: "text",
-          graph: {
-            nodes: [],
-            edges: [],
-            viewport: { position: { x: 0, y: 0 }, zoom: 1 },
-            functions: [],
-          },
-          text: { raw: "" },
         }),
-      ).rejects.toThrow(AuthError);
+      ).rejects.toSatisfy(AccessDeniedError.matches);
     });
 
     it("should allow the caller to delete arcs with the correct policy", async () => {
@@ -112,16 +83,9 @@ describe("arc", () => {
       const randomArc = await client.arcs.create({
         name: "test",
         mode: "text",
-        graph: {
-          nodes: [],
-          edges: [],
-          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
-          functions: [],
-        },
-        text: { raw: "" },
       });
       await userClient.arcs.delete(randomArc.key);
-      await expect(userClient.arcs.retrieve({ key: randomArc.key })).rejects.toThrow(
+      await expect(userClient.arcs.retrieve(randomArc.key)).rejects.toThrow(
         NotFoundError,
       );
     });
@@ -135,15 +99,10 @@ describe("arc", () => {
       const randomArc = await client.arcs.create({
         name: "test",
         mode: "text",
-        graph: {
-          nodes: [],
-          edges: [],
-          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
-          functions: [],
-        },
-        text: { raw: "" },
       });
-      await expect(userClient.arcs.delete(randomArc.key)).rejects.toThrow(AuthError);
+      await expect(userClient.arcs.delete(randomArc.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
+      );
     });
   });
 });

@@ -9,7 +9,7 @@
 
 #include <algorithm>
 
-#include "glog/logging.h"
+#include "absl/log/check.h"
 
 #include "driver/ethercat/engine/engine.h"
 #include "driver/ethercat/errors/errors.h"

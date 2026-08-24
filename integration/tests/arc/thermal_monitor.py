@@ -23,7 +23,7 @@ from examples.simulators import ThermalSimDAQ
 
 import synnax as sy
 from framework.utils import create_indexed_pair, create_virtual_channel
-from tests.arc.arc_case import ArcConsoleCase
+from tests.arc.arc import ArcCase
 
 ARC_SOURCE = """
 func count_heater_cycles(heater_on u8) i64 {
@@ -64,7 +64,7 @@ sequence monitor {
     stage cooling {
         0 -> heater_cmd
         temp_sensor > 80 => abort
-        temp_sensor < 40 => heating
+        temp_sensor < 50 => heating
     }
 }
 
@@ -77,7 +77,7 @@ sequence abort {
 """
 
 
-class ThermalMonitor(ArcConsoleCase):
+class ThermalMonitor(ArcCase):
     """Test Arc thermal monitor with stateful variables and looping sequence."""
 
     arc_source = ARC_SOURCE
@@ -136,16 +136,30 @@ class ThermalMonitor(ArcConsoleCase):
         self.wait_for_gt("peak_temp", 55, timeout=0)
         self.log(f"Peak temperature tracked: {self.read_tlm('peak_temp'):.1f}")
 
-        temp_error = self.read_tlm("temp_error")
-        current_temp = self.read_tlm("temp_sensor")
-        if temp_error is None or current_temp is None:
-            self.fail("temp_error or current_temp is None")
+        raw_error = self.read_tlm("temp_error")
+        if raw_error is None or isinstance(raw_error, str):
+            self.fail(f"temp_error is {raw_error!r}")
             return
-        expected_error = current_temp - 50.0
-        self.log(f"Temp error: {temp_error:.1f} (expected ~{expected_error:.1f})")
-        if abs(temp_error - expected_error) > 1.0:
+        temp_error = float(raw_error)
+        # temp_error derives from a temp_sensor sample the runtime saw one
+        # pipeline latency before this read, and the sim ramps tens of degrees
+        # per second, so a latest-vs-latest comparison races. Match against
+        # the recent sample window instead.
+        now = sy.TimeStamp.now()
+        recent = self.client.read(
+            sy.TimeRange(now - sy.TimeSpan.SECOND * 2, now), "temp_sensor"
+        )
+        if len(recent) == 0:
+            self.fail("no recent temp_sensor samples to verify temp_error against")
+            return
+        closest = min(abs(temp_error - (float(s) - 50.0)) for s in recent)
+        self.log(
+            f"Temp error: {temp_error:.1f} (closest window mismatch {closest:.2f})"
+        )
+        if closest > 0.5:
             self.fail(
-                f"temp_error {temp_error:.1f} doesn't match expected {expected_error:.1f}"
+                f"temp_error {temp_error:.1f} doesn't match temp_sensor - 50.0 for "
+                f"any sample in the last 2s (closest mismatch {closest:.2f})"
             )
 
     def _verify_abort_transition(self) -> None:

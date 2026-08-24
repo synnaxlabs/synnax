@@ -12,10 +12,9 @@ package pb_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/synnaxlabs/x/testutil"
-
 	"github.com/synnaxlabs/x/telem"
 	telempb "github.com/synnaxlabs/x/telem/pb"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Frame Translator", func() {
@@ -71,9 +70,9 @@ var _ = Describe("Frame Translator", func() {
 
 		It("Should handle an empty slice", func() {
 			pb := MustSucceed(telempb.ManySeriesToPB(nil))
-			Expect(pb).To(HaveLen(0))
+			Expect(pb).To(BeEmpty())
 			result := MustSucceed(telempb.ManySeriesFromPB(nil))
-			Expect(result).To(HaveLen(0))
+			Expect(result).To(BeEmpty())
 		})
 	})
 

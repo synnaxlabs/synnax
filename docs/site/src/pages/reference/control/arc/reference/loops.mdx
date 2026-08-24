@@ -20,7 +20,7 @@ computation.
 The reactive layer (stages and flow statements) handles getting data to your functions.
 Loops handle processing that data once it arrives. For accumulating values across
 multiple executions, use
-[stateful variables](/reference/control/arc/concepts/stateful-variables) instead.
+[stateful variables](/reference/control/arc/reference/variables#stateful) instead.
 
 <Divider.Divider x />
 
@@ -133,7 +133,8 @@ for i := range(0, 10, -1) {} // no iterations (start < end, step is negative)
 
 ## Conditional Loops
 
-A `for` with a condition repeats while the condition is non-zero:
+A `for` with a condition repeats while the condition is true (a `bool`, or a non-zero
+numeric):
 
 ```arc
 func countdown(n i32) i32 {
@@ -248,12 +249,12 @@ They also cannot be accessed after the loop ends.
 
 ## Summary
 
-| Form                  | Syntax                                 | Description                        |
-| --------------------- | -------------------------------------- | ---------------------------------- |
-| Series (value)        | `for x := data { }`                    | Iterate over each element          |
-| Series (index, value) | `for i, x := data { }`                 | Iterate with position              |
-| Range (1 arg)         | `for i := range(end) { }`              | Count from 0 to end                |
-| Range (2 args)        | `for i := range(start, end) { }`       | Count from start to end            |
-| Range (3 args)        | `for i := range(start, end, step) { }` | Count with custom step             |
-| Conditional           | `for condition { }`                    | Repeat while condition is non-zero |
-| Infinite              | `for { }`                              | Repeat until `break`               |
+| Form                  | Syntax                                 | Description                    |
+| --------------------- | -------------------------------------- | ------------------------------ |
+| Series (value)        | `for x := data { }`                    | Iterate over each element      |
+| Series (index, value) | `for i, x := data { }`                 | Iterate with position          |
+| Range (1 arg)         | `for i := range(end) { }`              | Count from 0 to end            |
+| Range (2 args)        | `for i := range(start, end) { }`       | Count from start to end        |
+| Range (3 args)        | `for i := range(start, end, step) { }` | Count with custom step         |
+| Conditional           | `for condition { }`                    | Repeat while condition is true |
+| Infinite              | `for { }`                              | Repeat until `break`           |

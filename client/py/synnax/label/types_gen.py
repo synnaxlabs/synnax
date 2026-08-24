@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 from typing import TypeAlias
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
@@ -22,9 +22,8 @@ Key: TypeAlias = UUID
 
 
 class Label(BaseModel):
-    """Is a tagging and categorization entity with a name and associated color.
-    Labels can be attached to resources like ranges for organization and
-    filtering.
+    """Is a tagging and categorization entity with a name and associated color. Labels
+    can be attached to resources like ranges for organization and filtering.
 
     Attributes:
         key: Is the unique identifier for this label.
@@ -32,7 +31,7 @@ class Label(BaseModel):
         color: Is the display color for visual identification of the label.
     """
 
-    key: Key
+    key: Key = Field(default_factory=uuid4)
     name: str = Field(min_length=1)
     color: color_.Color
 

@@ -11,6 +11,7 @@
 
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/test/test.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "driver/http/mock/server.h"
 #include "driver/http/scan_task.h"
@@ -322,7 +323,8 @@ TEST(HTTPScanTask, ScanCommandArgsEmptyArgs) {
 
 TEST(HTTPScanTask, ScannerConfig) {
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -351,7 +353,8 @@ TEST(HTTPScanTask, ScanHealthyDevice) {
     common::ScannerContext scan_ctx{.devices = &devices};
 
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -360,7 +363,7 @@ TEST(HTTPScanTask, ScanHealthyDevice) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status->variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(result[0].status->variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(result[0].status->message, "Device connected");
 
     server.stop();
@@ -386,7 +389,8 @@ TEST(HTTPScanTask, ScanSuccessOnHTTP200) {
     common::ScannerContext scan_ctx{.devices = &devices};
 
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -395,7 +399,7 @@ TEST(HTTPScanTask, ScanSuccessOnHTTP200) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status->variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(result[0].status->variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(result[0].status->message, "Device connected");
 
     server.stop();
@@ -421,7 +425,8 @@ TEST(HTTPScanTask, ScanFailsOnNon2xxStatus) {
     common::ScannerContext scan_ctx{.devices = &devices};
 
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -430,7 +435,7 @@ TEST(HTTPScanTask, ScanFailsOnNon2xxStatus) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status->variant, x::status::VARIANT_ERROR);
+    EXPECT_EQ(result[0].status->variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(result[0].status->message, "HTTP 503");
     EXPECT_EQ(result[0].status->description, "Service Unavailable");
 
@@ -454,7 +459,8 @@ TEST(HTTPScanTask, ScanRepeatedScans) {
     common::ScannerContext scan_ctx{.devices = &devices};
 
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -464,7 +470,7 @@ TEST(HTTPScanTask, ScanRepeatedScans) {
     for (int i = 0; i < 3; i++) {
         const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
         ASSERT_EQ(result.size(), 1);
-        EXPECT_EQ(result[0].status->variant, x::status::VARIANT_SUCCESS);
+        EXPECT_EQ(result[0].status->variant, synnax::status::VARIANT_SUCCESS);
         EXPECT_EQ(result[0].status->message, "Device connected");
     }
 
@@ -473,7 +479,7 @@ TEST(HTTPScanTask, ScanRepeatedScans) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status->variant, x::status::VARIANT_WARNING);
+    EXPECT_EQ(result[0].status->variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(result[0].status->message, "Failed to reach server");
 }
 
@@ -485,7 +491,8 @@ TEST(HTTPScanTask, ScanUnreachableDevice) {
     common::ScannerContext scan_ctx{.devices = &devices};
 
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -494,7 +501,7 @@ TEST(HTTPScanTask, ScanUnreachableDevice) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status->variant, x::status::VARIANT_WARNING);
+    EXPECT_EQ(result[0].status->variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(result[0].status->message, "Failed to reach server");
     EXPECT_NE(
         result[0].status->description.find("Could not connect to server"),
@@ -535,7 +542,8 @@ TEST(HTTPScanTask, ScanHealthCheckValidationFailure) {
     common::ScannerContext scan_ctx{.devices = &devices};
 
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -544,7 +552,7 @@ TEST(HTTPScanTask, ScanHealthCheckValidationFailure) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status->variant, x::status::VARIANT_ERROR);
+    EXPECT_EQ(result[0].status->variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(result[0].status->message, "Health check validation failed");
     EXPECT_EQ(
         result[0].status->description,
@@ -587,7 +595,8 @@ TEST(HTTPScanTask, ScanHealthCheckValidationSuccess) {
     common::ScannerContext scan_ctx{.devices = &devices};
 
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -596,7 +605,7 @@ TEST(HTTPScanTask, ScanHealthCheckValidationSuccess) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status->variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(result[0].status->variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(result[0].status->message, "Device connected");
 
     server.stop();
@@ -604,7 +613,8 @@ TEST(HTTPScanTask, ScanHealthCheckValidationSuccess) {
 
 TEST(HTTPScanTask, ScanNoDevices) {
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -635,7 +645,8 @@ TEST(HTTPScanTask, ScanMultipleDevices) {
     common::ScannerContext scan_ctx{.devices = &devices};
 
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -647,9 +658,9 @@ TEST(HTTPScanTask, ScanMultipleDevices) {
 
     for (const auto &dev: result) {
         if (dev.key == healthy_dev.key) {
-            EXPECT_EQ(dev.status->variant, x::status::VARIANT_SUCCESS);
+            EXPECT_EQ(dev.status->variant, synnax::status::VARIANT_SUCCESS);
         } else if (dev.key == bad_dev.key) {
-            EXPECT_EQ(dev.status->variant, x::status::VARIANT_WARNING);
+            EXPECT_EQ(dev.status->variant, synnax::status::VARIANT_WARNING);
         } else {
             FAIL() << "Unexpected device key: " << dev.key;
         }
@@ -677,7 +688,8 @@ TEST(HTTPScanTask, ScanInvalidHealthCheck) {
     common::ScannerContext scan_ctx{.devices = &devices};
 
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -686,7 +698,7 @@ TEST(HTTPScanTask, ScanInvalidHealthCheck) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status->variant, x::status::VARIANT_WARNING);
+    EXPECT_EQ(result[0].status->variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(result[0].status->message, "Invalid device properties");
     EXPECT_NE(result[0].status->description.find("health_check"), std::string::npos);
 }
@@ -703,7 +715,8 @@ TEST(HTTPScanTask, ScanInvalidDeviceProperties) {
     common::ScannerContext scan_ctx{.devices = &devices};
 
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -712,7 +725,7 @@ TEST(HTTPScanTask, ScanInvalidDeviceProperties) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status->variant, x::status::VARIANT_WARNING);
+    EXPECT_EQ(result[0].status->variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(result[0].status->message, "Invalid device properties");
     EXPECT_NE(result[0].status->description.find("base_url"), std::string::npos);
 }
@@ -751,7 +764,8 @@ TEST(HTTPScanTask, ScanWithPOSTHealthCheck) {
     common::ScannerContext scan_ctx{.devices = &devices};
 
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -760,7 +774,7 @@ TEST(HTTPScanTask, ScanWithPOSTHealthCheck) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status->variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(result[0].status->variant, synnax::status::VARIANT_SUCCESS);
 
     auto received = server.received_requests();
     ASSERT_FALSE(received.empty());
@@ -804,7 +818,8 @@ TEST(HTTPScanTask, ScanHealthCheckNonJSONResponse) {
     common::ScannerContext scan_ctx{.devices = &devices};
 
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -813,7 +828,7 @@ TEST(HTTPScanTask, ScanHealthCheckNonJSONResponse) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status->variant, x::status::VARIANT_ERROR);
+    EXPECT_EQ(result[0].status->variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(result[0].status->message, "Health check validation failed");
     EXPECT_NE(
         result[0].status->description.find("failed to parse response body as JSON"),
@@ -856,7 +871,8 @@ TEST(HTTPScanTask, ScanHealthCheckMissingPointer) {
     common::ScannerContext scan_ctx{.devices = &devices};
 
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -865,7 +881,7 @@ TEST(HTTPScanTask, ScanHealthCheckMissingPointer) {
 
     const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0].status->variant, x::status::VARIANT_ERROR);
+    EXPECT_EQ(result[0].status->variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(result[0].status->message, "Health check validation failed");
     EXPECT_EQ(
         result[0].status->description,
@@ -886,7 +902,8 @@ TEST(HTTPScanTask, TestConnectionSuccess) {
     ASSERT_NIL(server.start());
 
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -912,7 +929,7 @@ TEST(HTTPScanTask, TestConnectionSuccess) {
 
     EXPECT_TRUE(scanner.exec(cmd, task, ctx));
     ASSERT_FALSE(ctx->statuses.empty());
-    EXPECT_EQ(ctx->statuses.back().variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(ctx->statuses.back().variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(ctx->statuses.back().message, "Connection successful");
 
     server.stop();
@@ -920,7 +937,8 @@ TEST(HTTPScanTask, TestConnectionSuccess) {
 
 TEST(HTTPScanTask, TestConnectionUnreachable) {
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -946,7 +964,7 @@ TEST(HTTPScanTask, TestConnectionUnreachable) {
 
     EXPECT_TRUE(scanner.exec(cmd, task, ctx));
     ASSERT_FALSE(ctx->statuses.empty());
-    EXPECT_EQ(ctx->statuses.back().variant, x::status::VARIANT_ERROR);
+    EXPECT_EQ(ctx->statuses.back().variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(ctx->statuses.back().message, "Failed to execute HTTP request");
     EXPECT_NE(
         ctx->statuses.back().description.find("Could not connect to server"),
@@ -967,7 +985,8 @@ TEST(HTTPScanTask, TestConnectionValidationFailure) {
     ASSERT_NIL(server.start());
 
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -998,7 +1017,7 @@ TEST(HTTPScanTask, TestConnectionValidationFailure) {
 
     EXPECT_TRUE(scanner.exec(cmd, task, ctx));
     ASSERT_FALSE(ctx->statuses.empty());
-    EXPECT_EQ(ctx->statuses.back().variant, x::status::VARIANT_ERROR);
+    EXPECT_EQ(ctx->statuses.back().variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(ctx->statuses.back().message, "Invalid health check response");
     EXPECT_EQ(
         ctx->statuses.back().description,
@@ -1022,7 +1041,8 @@ TEST(HTTPScanTask, TestConnectionNon2xxStatus) {
     ASSERT_NIL(server.start());
 
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -1048,7 +1068,7 @@ TEST(HTTPScanTask, TestConnectionNon2xxStatus) {
 
     EXPECT_TRUE(scanner.exec(cmd, task, ctx));
     ASSERT_FALSE(ctx->statuses.empty());
-    EXPECT_EQ(ctx->statuses.back().variant, x::status::VARIANT_ERROR);
+    EXPECT_EQ(ctx->statuses.back().variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(ctx->statuses.back().message, "HTTP 503");
     EXPECT_EQ(ctx->statuses.back().description, "Service Unavailable");
 
@@ -1057,7 +1077,8 @@ TEST(HTTPScanTask, TestConnectionNon2xxStatus) {
 
 TEST(HTTPScanTask, ExecUnknownCommand) {
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -1095,7 +1116,8 @@ TEST(HTTPScanTask, ScanExecutesHealthChecksInParallel) {
     }
 
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -1110,7 +1132,7 @@ TEST(HTTPScanTask, ScanExecutesHealthChecksInParallel) {
 
     ASSERT_EQ(result.size(), NUM_SERVERS);
     for (const auto &dev: result)
-        EXPECT_EQ(dev.status->variant, x::status::VARIANT_SUCCESS);
+        EXPECT_EQ(dev.status->variant, synnax::status::VARIANT_SUCCESS);
 
     EXPECT_LT(elapsed, x::telem::MILLISECOND * MAX_PARALLEL_MS)
         << "Scan took " << elapsed.milliseconds()
@@ -1122,7 +1144,8 @@ TEST(HTTPScanTask, ScanExecutesHealthChecksInParallel) {
 
 TEST(HTTPScanTask, TestConnectionInvalidArgs) {
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -1136,7 +1159,7 @@ TEST(HTTPScanTask, TestConnectionInvalidArgs) {
 
     EXPECT_TRUE(scanner.exec(cmd, task, ctx));
     ASSERT_FALSE(ctx->statuses.empty());
-    EXPECT_EQ(ctx->statuses.back().variant, x::status::VARIANT_ERROR);
+    EXPECT_EQ(ctx->statuses.back().variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(ctx->statuses.back().message, "Failed to parse test command");
     EXPECT_NE(ctx->statuses.back().description.find("connection"), std::string::npos);
     EXPECT_NE(ctx->statuses.back().description.find("health_check"), std::string::npos);

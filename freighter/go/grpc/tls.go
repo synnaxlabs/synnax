@@ -12,22 +12,23 @@ package grpc
 import (
 	"context"
 	"crypto/tls"
+	"net"
+
 	"github.com/cockroachdb/cmux"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/errors"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/credentials"
-	"net"
 )
 
-// MuxCredentials implements the grpc.TransportCredentials interface that allows
-// for TLS handshakes and verification to occur on a multiplexer that lies in front of
-// the gRPC server. MuxCredentials extracts the underlying TLS connection from
-// the cmux.MuxConn and passes it the gRPC server through its ServerHandshake method.
+// MuxCredentials implements the grpc.TransportCredentials interface that allows for TLS
+// handshakes and verification to occur on a multiplexer that lies in front of the gRPC
+// server. MuxCredentials extracts the underlying TLS connection from the cmux.MuxConn
+// and passes it the gRPC server through its ServerHandshake method.
 //
-// It's important to note that MuxTransport credentials does not perform any TLS handshaking
-// or certificate verification. It simply allows for a gRPC server to be run securely behind
-// a cmux multiplexer.
+// It's important to note that MuxTransport credentials does not perform any TLS
+// handshaking or certificate verification. It simply allows for a gRPC server to be run
+// securely behind a cmux multiplexer.
 //
 // It's also important to note that MuxCredentials should only be used for server
 // connections. Exec connections should use the standard TLS credentials.
@@ -38,8 +39,8 @@ type MuxCredentials struct {
 
 var _ credentials.TransportCredentials = (*MuxCredentials)(nil)
 
-// ClientHandshake will panic if called. It is here purely for the purpose of implementing
-// the grpc.TransportCredentials interface.
+// ClientHandshake will panic if called. It is here purely for the purpose of
+// implementing the grpc.TransportCredentials interface.
 func (*MuxCredentials) ClientHandshake(
 	context.Context, string, net.Conn,
 ) (net.Conn, credentials.AuthInfo, error) {
@@ -52,24 +53,34 @@ const (
 )
 
 // ServerHandshake implements the grpc.TransportCredentials interface by extracting the
-// underlying TLS connection from the cmux.MuxConn and passing it the gRPC server through
-// its ServerHandshake method. If the given connection is not a cmux.MuxConn, or if the
-// underlying connection is not a TLS connection, MuxCredentials will panic
-// in development mode and return an error in production mode.
-func (c *MuxCredentials) ServerHandshake(conn net.Conn) (net.Conn, credentials.AuthInfo, error) {
+// underlying TLS connection from the cmux.MuxConn and passing it the gRPC server
+// through its ServerHandshake method. If the given connection is not a cmux.MuxConn, or
+// if the underlying connection is not a TLS connection, MuxCredentials will panic in
+// development mode and return an error in production mode.
+func (c *MuxCredentials) ServerHandshake(
+	conn net.Conn,
+) (net.Conn, credentials.AuthInfo, error) {
 	muxConn, ok := conn.(*cmux.MuxConn)
 	if !ok {
-		c.L.DPanic(muxCredentialsNonMuxMsg, zap.String("type", conn.RemoteAddr().Network()))
+		c.L.DPanic(
+			muxCredentialsNonMuxMsg,
+			zap.String("type", conn.RemoteAddr().Network()),
+		)
 		return nil, nil, errors.New(muxCredentialsNonMuxMsg)
 	}
 	tlsConn, ok := muxConn.Conn.(*tls.Conn)
 	if !ok {
-		c.L.DPanic(muxCredentialsNonTLSMsg, zap.String("type", conn.RemoteAddr().Network()))
+		c.L.DPanic(
+			muxCredentialsNonTLSMsg,
+			zap.String("type", conn.RemoteAddr().Network()),
+		)
 		return nil, nil, errors.New(muxCredentialsNonTLSMsg)
 	}
 	return conn, credentials.TLSInfo{
-		State:          tlsConn.ConnectionState(),
-		CommonAuthInfo: credentials.CommonAuthInfo{SecurityLevel: credentials.PrivacyAndIntegrity},
+		State: tlsConn.ConnectionState(),
+		CommonAuthInfo: credentials.CommonAuthInfo{
+			SecurityLevel: credentials.PrivacyAndIntegrity,
+		},
 	}, nil
 }
 

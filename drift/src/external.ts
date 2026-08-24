@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export { configureStore } from "@/configureStore";
+export { configureStore, type ConfigureStoreOptions } from "@/configureStore";
 export { NoopRuntime } from "@/noop";
 export { type Runtime } from "@/runtime";
 export {
@@ -31,6 +31,7 @@ export {
   registerProcess,
   reloadWindow,
   type ReloadWindowPayload,
+  restoreWindows,
   setWindowAlwaysOnTop,
   type SetWindowAlwaysOnTopPayload,
   setWindowDecorations,
@@ -63,6 +64,7 @@ export {
   type SetWindowVisiblePayload,
   SLICE_NAME,
   type SliceState,
+  sliceStateZ,
   type StoreState,
   ZERO_SLICE_STATE,
 } from "@/state";

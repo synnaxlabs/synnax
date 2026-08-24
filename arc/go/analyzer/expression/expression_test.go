@@ -11,6 +11,7 @@ package expression_test
 
 import (
 	stdcontext "context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -20,7 +21,6 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/diagnostics"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -37,10 +37,10 @@ func expectOperatorTypeError(
 	ctx := context.NewRoot(specCtx, ast, NewRoot(nil))
 	analyzer.AnalyzeProgram(ctx)
 	Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-	Expect(*ctx.Diagnostics).To(HaveLen(1))
-	Expect((*ctx.Diagnostics)[0].Severity).To(Equal(diagnostics.SeverityError))
-	Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(typeName))
-	Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(operator))
+	errs := ctx.Diagnostics.Errors()
+	Expect(errs).To(HaveLen(1))
+	Expect(errs[0].Message).To(ContainSubstring(typeName))
+	Expect(errs[0].Message).To(ContainSubstring(operator))
 }
 
 var _ = Describe("Expressions", func() {
@@ -96,15 +96,15 @@ var _ = Describe("Expressions", func() {
 			`),
 			Entry("logical AND on booleans", `
 				func testFunc() {
-					a u8 := 0
-					b u8 := 1
+					a bool := false
+					b bool := true
 					c := a and b
 				}
 			`),
 			Entry("logical OR on booleans", `
 				func testFunc() {
-					a u8 := 0
-					b u8 := 1
+					a bool := false
+					b bool := true
 					c := a or b
 				}
 			`),
@@ -190,7 +190,7 @@ var _ = Describe("Expressions", func() {
 		)
 
 		DescribeTable("invalid arithmetic operations on strings",
-			func(ctx SpecContext, code string, operator string) {
+			func(ctx SpecContext, code, operator string) {
 				expectOperatorTypeError(ctx, code, "str", operator)
 			},
 			Entry("subtract", `
@@ -217,7 +217,7 @@ var _ = Describe("Expressions", func() {
 		)
 
 		DescribeTable("invalid logical operations on non-booleans",
-			func(ctx SpecContext, code string, typeName, operator string) {
+			func(ctx SpecContext, code, typeName, operator string) {
 				expectOperatorTypeError(ctx, code, typeName, operator)
 			},
 			Entry("AND on i32", `
@@ -234,10 +234,34 @@ var _ = Describe("Expressions", func() {
 					z := x or y
 				}
 			`, "i32", "or"),
+			Entry("AND on i32 series", `
+				func testFunc() {
+					x series i32 := [1, 2, 3]
+					y series i32 := [4, 5, 6]
+					z := x and y
+				}
+			`, "i32", "and"),
+			Entry("OR on i32 series", `
+				func testFunc() {
+					x series i32 := [1, 2, 3]
+					y series i32 := [4, 5, 6]
+					z := x or y
+				}
+			`, "i32", "or"),
+			Entry("AND on untyped integer constants", `
+				func testFunc() {
+					z := 1 and 0
+				}
+			`, "integer", "and"),
+			Entry("OR on untyped integer constants", `
+				func testFunc() {
+					z := 1 or 0
+				}
+			`, "integer", "or"),
 		)
 
 		DescribeTable("type mismatch errors",
-			func(ctx SpecContext, code string, expectedErrSubstring string) {
+			func(ctx SpecContext, code, expectedErrSubstring string) {
 				expectFailure(ctx, code, nil, expectedErrSubstring)
 			},
 			Entry("mixed type arithmetic", `
@@ -403,6 +427,36 @@ var _ = Describe("Expressions", func() {
 					}
 				`),
 			)
+
+			DescribeTable("valid series logical operations",
+				func(ctx SpecContext, code string) { expectSuccess(ctx, code, nil) },
+				Entry("series and series", `
+					func testFunc() {
+						a series f64 := [1.0, 5.0, 10.0]
+						b series f64 := [3.0, 3.0, 3.0]
+						c := (a > b) and (a < 20.0)
+					}
+				`),
+				Entry("series or series", `
+					func testFunc() {
+						a series f64 := [1.0, 5.0, 10.0]
+						b series f64 := [3.0, 3.0, 3.0]
+						c := (a > b) or (a < b)
+					}
+				`),
+				Entry("series and scalar", `
+					func testFunc() {
+						a series f64 := [1.0, 5.0, 10.0]
+						c := (a > 3.0) and true
+					}
+				`),
+				Entry("not series", `
+					func testFunc() {
+						a series f64 := [1.0, 5.0, 10.0]
+						c := not (a > 3.0)
+					}
+				`),
+			)
 		})
 	})
 
@@ -423,7 +477,7 @@ var _ = Describe("Expressions", func() {
 			`),
 			Entry("logical not on boolean", `
 				func testFunc() {
-					x u8 := 1
+					x bool := true
 					y := not x
 				}
 			`),
@@ -442,7 +496,7 @@ var _ = Describe("Expressions", func() {
 			`),
 			Entry("double not", `
 				func testFunc() {
-					x u8 := 1
+					x bool := true
 					y := not not x
 				}
 			`),
@@ -461,10 +515,22 @@ var _ = Describe("Expressions", func() {
 					y := -x
 				}
 			`),
+			Entry("logical not on bool series", `
+				func testFunc() {
+					a series f64 := [1.0, 5.0, 10.0]
+					y := not (a > 3.0)
+				}
+			`),
+			Entry("negation on signed series", `
+				func testFunc() {
+					x series i64 := [1, 2, 3]
+					y := -x
+				}
+			`),
 		)
 
 		DescribeTable("invalid unary operations",
-			func(ctx SpecContext, code string, expectedErrSubstring string) {
+			func(ctx SpecContext, code, expectedErrSubstring string) {
 				expectFailure(ctx, code, nil, expectedErrSubstring)
 			},
 			Entry("negation on string", `
@@ -485,6 +551,12 @@ var _ = Describe("Expressions", func() {
 					y := not x
 				}
 			`, "boolean operand"),
+			Entry("not on non-bool series", `
+				func testFunc() {
+					x series i64 := [1, 2, 3]
+					y := not x
+				}
+			`, "operator 'not' requires boolean operand"),
 		)
 	})
 
@@ -572,9 +644,9 @@ var _ = Describe("Expressions", func() {
 			`),
 			Entry("chained logical operations", `
 				func testFunc() {
-					a u8 := 1
-					b u8 := 0
-					c u8 := 1
+					a bool := true
+					b bool := false
+					c bool := true
 					result := a and b or c
 					result2 := a or b and c
 				}
@@ -584,8 +656,8 @@ var _ = Describe("Expressions", func() {
 					x i32 := 10
 					y i32 := 20
 					z i32 := 30
-					a u8 := x < y
-					b u8 := y > z
+					a := x < y
+					b := y > z
 					result := a and b or (x + y == z)
 				}
 			`),
@@ -596,8 +668,10 @@ var _ = Describe("Expressions", func() {
 			`),
 		)
 
-		It("Should detect type errors in complex expressions", func(specCtx SpecContext) {
-			ast := MustSucceed(parser.Parse(`
+		It(
+			"Should detect type errors in complex expressions",
+			func(specCtx SpecContext) {
+				ast := MustSucceed(parser.Parse(`
 				func testFunc() {
 					x i32 := 10
 					y str := "20"
@@ -605,12 +679,15 @@ var _ = Describe("Expressions", func() {
 					result := x + y * z
 				}
 			`))
-			ctx := context.NewRoot(specCtx, ast, NewRoot(nil))
-			analyzer.AnalyzeProgram(ctx)
-			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			Expect(*ctx.Diagnostics).ToNot(BeEmpty())
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("cannot use str"))
-		})
+				ctx := context.NewRoot(specCtx, ast, NewRoot(nil))
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				Expect(*ctx.Diagnostics).ToNot(BeEmpty())
+				Expect(
+					(*ctx.Diagnostics)[0].Message,
+				).To(ContainSubstring("cannot use str"))
+			},
+		)
 	})
 
 	Describe("Function Call Expressions", func() {
@@ -669,8 +746,9 @@ var _ = Describe("Expressions", func() {
 			`),
 		)
 
-		DescribeTable("invalid function calls",
-			func(ctx SpecContext, code string, expectedErrSubstring string) {
+		DescribeTable(
+			"invalid function calls",
+			func(ctx SpecContext, code, expectedErrSubstring string) {
 				expectFailure(ctx, code, nil, expectedErrSubstring)
 			},
 			Entry("undefined function", `
@@ -695,7 +773,7 @@ var _ = Describe("Expressions", func() {
 				func testFunc() {
 					result := add(5)
 				}
-			`, "expects 2 argument(s), got 1"),
+			`, "missing required argument"),
 			Entry("too many arguments", `
 				func add(x i32, y i32) i32 {
 					return x + y
@@ -704,7 +782,7 @@ var _ = Describe("Expressions", func() {
 				func testFunc() {
 					result := add(5, 10, 15)
 				}
-			`, "expects 2 argument(s), got 3"),
+			`, "too many arguments"),
 			Entry("no arguments when expected", `
 				func getValue(x i32) i32 {
 					return x
@@ -713,7 +791,7 @@ var _ = Describe("Expressions", func() {
 				func testFunc() {
 					result := getValue()
 				}
-			`, "expects 1 argument(s), got 0"),
+			`, "missing required argument"),
 			Entry("wrong argument type - string instead of i32", `
 				func add(x i32, y i32) i32 {
 					return x + y
@@ -722,7 +800,7 @@ var _ = Describe("Expressions", func() {
 				func testFunc() {
 					result := add(5, "hello")
 				}
-			`, "argument 2 of add"),
+			`, "argument 'y' of 'add'"),
 			Entry("wrong argument type - i32 vs f32 variable", `
 				func process(x f32) f32 {
 					return x * 2.0
@@ -732,7 +810,7 @@ var _ = Describe("Expressions", func() {
 					x i32 := 5
 					result := process(x)
 				}
-			`, "argument 1 of process"),
+			`, "argument 'x' of 'process'"),
 			Entry("wrong argument type - integer literal to string parameter", `
 				func greet(name str) {
 				}
@@ -740,15 +818,19 @@ var _ = Describe("Expressions", func() {
 				func testFunc() {
 					greet(42)
 				}
-			`, "argument 1 of greet"),
-			Entry("wrong argument type - integer literal to string in standalone call", `
+			`, "argument 'name' of 'greet'"),
+			Entry(
+				"wrong argument type - integer literal to string in standalone call",
+				`
 				func log(msg str) {
 				}
 
 				func testFunc() {
 					log(123)
 				}
-			`, "argument 1 of log"),
+			`,
+				"argument 'msg' of 'log'",
+			),
 			Entry("nested call type mismatch", `
 				func getFloat() f32 {
 					return 3.14
@@ -761,7 +843,7 @@ var _ = Describe("Expressions", func() {
 				func testFunc() {
 					result := needsInt(getFloat())
 				}
-			`, "argument 1 of needsInt"),
+			`, "argument 'x' of 'needsInt'"),
 			Entry("wrong arg count in nested call", `
 				func double(x i32) i32 {
 					return x * 2
@@ -770,7 +852,7 @@ var _ = Describe("Expressions", func() {
 				func testFunc() {
 					result := double(double())
 				}
-			`, "expects 1 argument(s), got 0"),
+			`, "missing required argument"),
 			Entry("calling a variable as a function", `
 				func testFunc() {
 					x i32 := 42
@@ -784,9 +866,18 @@ var _ = Describe("Expressions", func() {
 			`, "cannot call non-function"),
 		)
 
-		It("Should record a call edge when a function calls another function", func(specCtx SpecContext) {
-			resolver := []symbol.Symbol{{Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10}}
-			ast := MustSucceed(parser.Parse(`
+		It(
+			"Should record a call edge when a function calls another function",
+			func(specCtx SpecContext) {
+				resolver := []symbol.Symbol{
+					{
+						Name: "ch",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F32()),
+						ID:   10,
+					},
+				}
+				ast := MustSucceed(parser.Parse(`
 				func callee() {
 					ch = 1.0
 				}
@@ -794,24 +885,37 @@ var _ = Describe("Expressions", func() {
 					callee()
 				}
 			`))
-			ctx := context.NewRoot(specCtx, ast, NewRoot(nil, resolver...))
-			analyzer.AnalyzeProgram(ctx)
-			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-			Expect(*ctx.CallEdges).To(HaveLen(1))
-			Expect((*ctx.CallEdges)[0].Caller.Name).To(Equal("caller"))
-			Expect((*ctx.CallEdges)[0].Callee.Name).To(Equal("callee"))
-		})
+				ctx := context.NewRoot(specCtx, ast, NewRoot(nil, resolver...))
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				Expect(*ctx.CallEdges).To(HaveLen(1))
+				Expect((*ctx.CallEdges)[0].Caller.Name).To(Equal("caller"))
+				Expect((*ctx.CallEdges)[0].Callee.Name).To(Equal("callee"))
+			},
+		)
 
-		It("Should not record a call edge when no enclosing function exists", func(bCtx SpecContext) {
-			resolver := []symbol.Symbol{{Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10}, {
-				Name: "tick",
-				Kind: symbol.KindFunction,
-				Type: types.Function(types.FunctionProperties{
-					Config:  types.Params{{Name: "duration", Type: types.TimeSpan()}},
-					Outputs: types.Params{{Name: "output", Type: types.U8()}},
-				}),
-			}}
-			ast := MustSucceed(parser.Parse(`
+		It(
+			"Should not record a call edge when no enclosing function exists",
+			func(bCtx SpecContext) {
+				resolver := []symbol.Symbol{
+					{
+						Name: "ch",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F32()),
+						ID:   10,
+					},
+					{
+						Name: "tick",
+						Kind: symbol.KindFunction,
+						Type: types.Function(types.FunctionProperties{
+							Inputs: types.Params{
+								{Name: "duration", Type: types.TimeSpan()},
+							},
+							Outputs: types.Params{{Name: "output", Type: types.U8()}},
+						}),
+					},
+				}
+				ast := MustSucceed(parser.Parse(`
 				func helper() {
 					ch = 1.0
 				}
@@ -822,10 +926,54 @@ var _ = Describe("Expressions", func() {
 					stage done {}
 				}
 			`))
-			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
-			analyzer.AnalyzeProgram(ctx)
-			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-		})
+				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			},
+		)
+	})
+
+	Describe("Channel Reads", func() {
+		It(
+			"Should record a channel read for a chan-typed input parameter",
+			func(specCtx SpecContext) {
+				ast := MustSucceed(parser.Parse(`
+				func f(ch chan f32) f32 {
+					return ch + 1.0
+				}
+			`))
+				ctx := context.NewRoot(specCtx, ast, NewRoot(nil))
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				fn := MustSucceed(ctx.Scope.Resolve(ctx, "f"))
+				Expect(fn.Channels.Read).ToNot(BeEmpty())
+			},
+		)
+
+		It(
+			"Should record a channel read for a channel-alias variable",
+			func(specCtx SpecContext) {
+				resolver := []symbol.Symbol{
+					{
+						Name: "ch",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F32()),
+						ID:   10,
+					},
+				}
+				ast := MustSucceed(parser.Parse(`
+				func f() f32 {
+					alias := ch
+					return alias + 1.0
+				}
+			`))
+				ctx := context.NewRoot(specCtx, ast, NewRoot(nil, resolver...))
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				fn := MustSucceed(ctx.Scope.Resolve(ctx, "f"))
+				Expect(fn.Channels.Read).To(HaveKeyWithValue(uint32(10), "alias"))
+			},
+		)
 	})
 
 	Describe("Optional Parameter Function Calls", func() {
@@ -862,17 +1010,17 @@ var _ = Describe("Expressions", func() {
 		)
 
 		DescribeTable("invalid optional parameter calls",
-			func(ctx SpecContext, code string, expectedErrSubstring string) {
+			func(ctx SpecContext, code, expectedErrSubstring string) {
 				expectFailure(ctx, code, nil, expectedErrSubstring)
 			},
 			Entry("missing required argument", `
 				func add(x i64, y i64 = 0) i64 { return x + y }
 				func testFunc() { result := add() }
-			`, "expects 1 to 2 argument(s), got 0"),
+			`, "missing required argument"),
 			Entry("too many arguments", `
 				func add(x i64, y i64 = 0) i64 { return x + y }
 				func testFunc() { result := add(1, 2, 3) }
-			`, "expects 1 to 2 argument(s), got 3"),
+			`, "too many arguments"),
 		)
 	})
 
@@ -902,7 +1050,9 @@ var _ = Describe("Expressions", func() {
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined symbol: undefinedVar"))
+			Expect(
+				(*ctx.Diagnostics)[0].Message,
+			).To(ContainSubstring("undefined symbol: undefinedVar"))
 		})
 
 		It("Should not allow shadowing", func(specCtx SpecContext) {
@@ -919,7 +1069,9 @@ var _ = Describe("Expressions", func() {
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("name x conflicts with existing symbol"))
+			Expect(
+				(*ctx.Diagnostics)[0].Message,
+			).To(ContainSubstring("name x conflicts with existing variable"))
 		})
 	})
 
@@ -980,68 +1132,79 @@ var _ = Describe("Expressions", func() {
 	})
 
 	Describe("Channels in Expressions", func() {
-		It("Should correctly resolve an instantaneous channel read in an expression", func(specCtx SpecContext) {
-			ast := MustSucceed(parser.Parse(`
+		It(
+			"Should correctly resolve an instantaneous channel read in an expression",
+			func(specCtx SpecContext) {
+				ast := MustSucceed(parser.Parse(`
 				func testFunc() i32 {
 					return (ox_pt_1 + ox_pt_2) / 2
 				}
 			`))
-			resolver := []symbol.Symbol{{
-				Kind: symbol.KindChannel,
-				Name: "ox_pt_1",
-				Type: types.Chan(types.I32()),
-				ID:   20001,
-			}, {
-				Kind: symbol.KindChannel,
-				Name: "ox_pt_2",
-				Type: types.Chan(types.I32()),
-				ID:   20002,
-			}}
-			ctx := context.NewRoot(specCtx, ast, NewRoot(nil, resolver...))
-			analyzer.AnalyzeProgram(ctx)
-			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-		})
+				resolver := []symbol.Symbol{{
+					Kind: symbol.KindChannel,
+					Name: "ox_pt_1",
+					Type: types.Chan(types.I32()),
+					ID:   20001,
+				}, {
+					Kind: symbol.KindChannel,
+					Name: "ox_pt_2",
+					Type: types.Chan(types.I32()),
+					ID:   20002,
+				}}
+				ctx := context.NewRoot(specCtx, ast, NewRoot(nil, resolver...))
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			},
+		)
 
-		It("Should return an error when channels with mismatched types are used in arithmetic operations", func(specCtx SpecContext) {
-			ast := MustSucceed(parser.Parse(`
+		It(
+			"Should return an error when channels with mismatched types are used in arithmetic operations",
+			func(specCtx SpecContext) {
+				ast := MustSucceed(parser.Parse(`
 				func testFunc() i32 {
 					return (ox_pt_1 + ox_pt_2) / 2
 				}
 			`))
-			resolver := []symbol.Symbol{{
-				Kind: symbol.KindChannel,
-				Name: "ox_pt_1",
-				Type: types.Chan(types.I32()),
-				ID:   20003,
-			}, {
-				Kind: symbol.KindChannel,
-				Name: "ox_pt_2",
-				Type: types.Chan(types.F32()),
-				ID:   20004,
-			}}
-			ctx := context.NewRoot(specCtx, ast, NewRoot(nil, resolver...))
-			analyzer.AnalyzeProgram(ctx)
-			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch: cannot use i32 and f32 in + operation"))
-		})
+				resolver := []symbol.Symbol{{
+					Kind: symbol.KindChannel,
+					Name: "ox_pt_1",
+					Type: types.Chan(types.I32()),
+					ID:   20003,
+				}, {
+					Kind: symbol.KindChannel,
+					Name: "ox_pt_2",
+					Type: types.Chan(types.F32()),
+					ID:   20004,
+				}}
+				ctx := context.NewRoot(specCtx, ast, NewRoot(nil, resolver...))
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				Expect(
+					(*ctx.Diagnostics)[0].Message,
+				).To(ContainSubstring("type mismatch: cannot use i32 and f32 in + operation"))
+			},
+		)
 
-		It("Should not return an error when adding a channel to a variable of the same type", func(specCtx SpecContext) {
-			ast := MustSucceed(parser.Parse(`
+		It(
+			"Should not return an error when adding a channel to a variable of the same type",
+			func(specCtx SpecContext) {
+				ast := MustSucceed(parser.Parse(`
 				func testFunc() i32 {
 					return ox_pt_1 + 2
 				}
 			`))
-			resolver := []symbol.Symbol{{
-				Kind: symbol.KindChannel,
-				Name: "ox_pt_1",
-				Type: types.Chan(types.I32()),
-				ID:   20005,
-			}}
-			ctx := context.NewRoot(specCtx, ast, NewRoot(nil, resolver...))
-			analyzer.AnalyzeProgram(ctx)
-			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-		})
+				resolver := []symbol.Symbol{{
+					Kind: symbol.KindChannel,
+					Name: "ox_pt_1",
+					Type: types.Chan(types.I32()),
+					ID:   20005,
+				}}
+				ctx := context.NewRoot(specCtx, ast, NewRoot(nil, resolver...))
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			},
+		)
 
 		DescribeTable("channel operations",
 			expectSuccess,
@@ -1056,7 +1219,7 @@ var _ = Describe("Expressions", func() {
 				ID:   20006,
 			}}),
 			Entry("comparison", `
-				func testFunc() u8 {
+				func testFunc() bool {
 					return sensor > 100
 				}
 			`, []symbol.Symbol{{
@@ -1072,19 +1235,42 @@ var _ = Describe("Expressions", func() {
 			`, []symbol.Symbol{{Kind: symbol.KindChannel, Name: "temp1", Type: types.Chan(types.F64()), ID: 20008}, {Kind: symbol.KindChannel, Name: "temp2", Type: types.Chan(types.F64()), ID: 20009}, {Kind: symbol.KindChannel, Name: "temp3", Type: types.Chan(types.F64()), ID: 20010}}),
 		)
 
-		It("Should reject channel type mismatch in logical operation", func(ctx SpecContext) {
-			resolver := []symbol.Symbol{{
-				Kind: symbol.KindChannel,
-				Name: "sensor",
-				Type: types.Chan(types.F32()),
-				ID:   20011,
-			}}
-			expectFailure(ctx, `
+		It(
+			"Should reject channel type mismatch in logical operation",
+			func(ctx SpecContext) {
+				resolver := []symbol.Symbol{{
+					Kind: symbol.KindChannel,
+					Name: "sensor",
+					Type: types.Chan(types.F32()),
+					ID:   20011,
+				}}
+				expectFailure(ctx, `
 				func testFunc() u8 {
 					return sensor and 1
 				}
 			`, resolver, "cannot use f32 in and operation")
-		})
+			},
+		)
+
+		DescribeTable("cross-family operand errors",
+			func(ctx SpecContext, code, expectedMsg string) {
+				expectFailure(ctx, code, nil, expectedMsg)
+			},
+			Entry("integer in and", `
+				func testFunc() {
+					x u8 := 1
+					y u8 := 2
+					z := x and y
+				}
+			`, "cannot use u8 in and operation"),
+			Entry("integer in or", `
+				func testFunc() {
+					x u8 := 1
+					y u8 := 2
+					z := x or y
+				}
+			`, "cannot use u8 in or operation"),
+		)
 	})
 
 	Describe("IsLiteral", func() {
@@ -1140,7 +1326,7 @@ var _ = Describe("Expressions", func() {
 		}
 
 		DescribeTable("literal extraction",
-			func(code string, expectedText string) {
+			func(code, expectedText string) {
 				expr := getExpr(code)
 				lit := parser.GetLiteral(expr)
 				if expectedText == "" {
@@ -1190,7 +1376,7 @@ var _ = Describe("Expressions", func() {
 		)
 
 		DescribeTable("invalid power expressions",
-			func(ctx SpecContext, code string, expectedErrSubstring string) {
+			func(ctx SpecContext, code, expectedErrSubstring string) {
 				expectFailure(ctx, code, nil, expectedErrSubstring)
 			},
 			Entry("dimensioned base with variable exponent", `
@@ -1219,6 +1405,12 @@ var _ = Describe("Expressions", func() {
 					y := x^2s
 				}
 			`, "dimensionless"),
+			Entry("dimensioned base with chained power exponent", `
+				func testFunc() {
+					x f64 m := 5m
+					y := x^2^2
+				}
+			`, "literal integer exponent"),
 		)
 	})
 
@@ -1270,7 +1462,7 @@ var _ = Describe("Expressions", func() {
 		)
 
 		DescribeTable("invalid unit operations",
-			func(ctx SpecContext, code string, expectedErrSubstring string) {
+			func(ctx SpecContext, code, expectedErrSubstring string) {
 				expectFailure(ctx, code, nil, expectedErrSubstring)
 			},
 			Entry("addition of incompatible units", `
@@ -1361,7 +1553,157 @@ var _ = Describe("Expressions", func() {
 					y := u8(x)
 				}
 			`),
+			Entry("bool to str", `
+				func testFunc() {
+					x bool := true
+					y := str(x)
+				}
+			`),
 		)
+
+		DescribeTable(
+			"experimental warnings on bool to numeric casts",
+			func(ctx SpecContext, target string, warningCount int) {
+				code := fmt.Sprintf(`
+				func testFunc() {
+					x bool := true
+					y := %s(x)
+				}
+			`, target)
+				ast := MustSucceed(parser.Parse(code))
+				aCtx := context.NewRoot(ctx, ast, buildExpressionRoot(nil))
+				analyzer.AnalyzeProgram(aCtx)
+				Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
+				warnings := aCtx.Diagnostics.Warnings()
+				Expect(warnings).To(HaveLen(warningCount))
+				for _, w := range warnings {
+					Expect(w.Message).To(ContainSubstring("is experimental"))
+				}
+			},
+			Entry("u8 is the blessed target", "u8", 0),
+			Entry("str is not numeric", "str", 0),
+			Entry("i32", "i32", 1),
+			Entry("i64", "i64", 1),
+			Entry("u16", "u16", 1),
+			Entry("f32", "f32", 1),
+			Entry("f64", "f64", 1),
+		)
+
+		DescribeTable("rejected boolean conversions",
+			func(ctx SpecContext, code string) {
+				expectFailure(ctx, code, nil, "boolean conversions are not supported")
+			},
+			Entry("bool() of a typed numeric", `
+				func testFunc() {
+					x i32 := 1
+					y := bool(x)
+				}
+			`),
+			Entry("bool() of an integer literal", `
+				func testFunc() {
+					y := bool(1)
+				}
+			`),
+			Entry("bool() of a float literal", `
+				func testFunc() {
+					y := bool(1.23)
+				}
+			`),
+			Entry("bool() of a bool", `
+				func testFunc() {
+					x bool := true
+					y := bool(x)
+				}
+			`),
+			Entry("bool() of a string", `
+				func testFunc() {
+					x str := "hello"
+					y := bool(x)
+				}
+			`),
+		)
+
+		DescribeTable("accepted bool to numeric casts",
+			func(ctx SpecContext, code string) {
+				expectSuccess(ctx, code, nil)
+			},
+			Entry("bool to u8", `
+				func testFunc() {
+					x bool := true
+					y := u8(x)
+				}
+			`),
+			Entry("bool to f64", `
+				func testFunc() {
+					x bool := true
+					y := f64(x)
+				}
+			`),
+		)
+
+		It(
+			"Should reject the outer cast of a nested boolean conversion",
+			func(ctx SpecContext) {
+				ast := MustSucceed(parser.Parse(`
+					func testFunc() {
+						y := str(bool(1))
+					}
+				`))
+				aCtx := context.NewRoot(ctx, ast, NewRoot(nil))
+				analyzer.AnalyzeProgram(aCtx)
+				Expect(aCtx.Diagnostics.Ok()).To(BeFalse())
+				errs := aCtx.Diagnostics.Errors()
+				Expect(errs).To(HaveLen(2))
+				Expect(errs[0].Message).To(
+					ContainSubstring("boolean conversions are not supported"),
+				)
+				Expect(errs[1].Message).To(
+					ContainSubstring("cannot cast invalid to str"),
+				)
+			},
+		)
+
+		Context("in flow statements", func() {
+			flowChannels := []symbol.Symbol{{
+				Kind: symbol.KindChannel,
+				Name: "sensor",
+				Type: types.Chan(types.F64()),
+				ID:   21001,
+			}, {
+				Kind: symbol.KindChannel,
+				Name: "flag_in",
+				Type: types.Chan(types.Bool()),
+				ID:   21002,
+			}, {
+				Kind: symbol.KindChannel,
+				Name: "flag_out",
+				Type: types.Chan(types.Bool()),
+				ID:   21003,
+			}, {
+				Kind: symbol.KindChannel,
+				Name: "log_out",
+				Type: types.Chan(types.String()),
+				ID:   21004,
+			}}
+
+			DescribeTable("rejected boolean conversions",
+				func(ctx SpecContext, code string) {
+					expectFailure(
+						ctx,
+						code,
+						flowChannels,
+						"boolean conversions are not supported",
+					)
+				},
+				Entry("bool() of a literal", `bool(1) -> flag_out`),
+				Entry("bool() of a channel", `bool(sensor) -> flag_out`),
+				Entry("bool() nested in str()", `str(bool(sensor)) -> log_out`),
+			)
+
+			It("Should allow str() of a bool channel", func(ctx SpecContext) {
+				expectSuccess(ctx, `str(flag_in) -> log_out`, flowChannels)
+			})
+		})
 	})
 
 	Describe("IsLiteral and GetLiteral Edge Cases", func() {
@@ -1377,33 +1719,44 @@ var _ = Describe("Expressions", func() {
 	})
 
 	Describe("Nested Expression Failure Propagation", func() {
-		It("Should propagate failure from nested unary expression", func(ctx SpecContext) {
-			expectFailure(ctx, `
+		It(
+			"Should propagate failure from nested unary expression",
+			func(ctx SpecContext) {
+				expectFailure(ctx, `
 				func testFunc() {
 					x := --undefinedVar
 				}
 			`, nil, "undefined symbol")
-		})
+			},
+		)
 
-		It("Should propagate failure from slice expression index", func(ctx SpecContext) {
-			expectFailure(ctx, `
+		It(
+			"Should propagate failure from slice expression index",
+			func(ctx SpecContext) {
+				expectFailure(ctx, `
 				func testFunc() {
 					arr series i32 := [1, 2, 3]
 					x := arr[undefinedStart:undefinedEnd]
 				}
 			`, nil, "undefined symbol")
-		})
+			},
+		)
 
-		It("Should propagate failure from nested power expression", func(ctx SpecContext) {
-			expectFailure(ctx, `
+		It(
+			"Should propagate failure from nested power expression",
+			func(ctx SpecContext) {
+				expectFailure(ctx, `
 				func testFunc() {
 					x := 2^undefinedVar
 				}
 			`, nil, "undefined symbol")
-		})
+			},
+		)
 
-		It("Should propagate failure from function call argument", func(ctx SpecContext) {
-			expectFailure(ctx, `
+		It(
+			"Should propagate failure from function call argument",
+			func(ctx SpecContext) {
+				expectFailure(ctx, `
 				func add(x i32, y i32) i32 {
 					return x + y
 				}
@@ -1411,84 +1764,105 @@ var _ = Describe("Expressions", func() {
 					result := add(1, undefinedVar)
 				}
 			`, nil, "undefined symbol")
-		})
+			},
+		)
 	})
 
 	Describe("Power Expression Edge Cases", func() {
-		It("Should handle chained power with failure in exponent", func(ctx SpecContext) {
-			expectFailure(ctx, `
+		It(
+			"Should handle chained power with failure in exponent",
+			func(ctx SpecContext) {
+				expectFailure(ctx, `
 				func testFunc() {
 					x f64 := 2.0
 					y := x^2^undefinedVar
 				}
 			`, nil, "undefined symbol")
-		})
+			},
+		)
 	})
 
 	Describe("Power Expressions with Units", func() {
-		It("Should accept power expression with literal integer exponent", func(specCtx SpecContext) {
-			ast := MustSucceed(parser.Parse(`
+		It(
+			"Should accept power expression with literal integer exponent",
+			func(specCtx SpecContext) {
+				ast := MustSucceed(parser.Parse(`
 				func testFunc() {
 					x f64 m := 5m
 					y := x^2
 				}
 			`))
-			ctx := context.NewRoot(specCtx, ast, NewRoot(nil))
-			analyzer.AnalyzeProgram(ctx)
-			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-		})
+				ctx := context.NewRoot(specCtx, ast, NewRoot(nil))
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			},
+		)
 
-		It("Should accept power expression with negative literal integer exponent", func(specCtx SpecContext) {
-			ast := MustSucceed(parser.Parse(`
+		It(
+			"Should accept power expression with negative literal integer exponent",
+			func(specCtx SpecContext) {
+				ast := MustSucceed(parser.Parse(`
 				func testFunc() {
 					x f64 m := 5m
 					y := x^-2
 				}
 			`))
-			ctx := context.NewRoot(specCtx, ast, NewRoot(nil))
-			analyzer.AnalyzeProgram(ctx)
-			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-		})
+				ctx := context.NewRoot(specCtx, ast, NewRoot(nil))
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			},
+		)
 
-		It("Should accept power expression with zero exponent", func(specCtx SpecContext) {
-			ast := MustSucceed(parser.Parse(`
+		It(
+			"Should accept power expression with zero exponent",
+			func(specCtx SpecContext) {
+				ast := MustSucceed(parser.Parse(`
 				func testFunc() {
 					x f64 m := 5m
 					y := x^0
 				}
 			`))
-			ctx := context.NewRoot(specCtx, ast, NewRoot(nil))
-			analyzer.AnalyzeProgram(ctx)
-			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-		})
+				ctx := context.NewRoot(specCtx, ast, NewRoot(nil))
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			},
+		)
 
-		It("Should accept dimensionless base with any exponent", func(specCtx SpecContext) {
-			ast := MustSucceed(parser.Parse(`
+		It(
+			"Should accept dimensionless base with any exponent",
+			func(specCtx SpecContext) {
+				ast := MustSucceed(parser.Parse(`
 				func testFunc() {
 					x f64 := 5.0
 					y i32 := 2
 					z := x^y
 				}
 			`))
-			ctx := context.NewRoot(specCtx, ast, NewRoot(nil))
-			analyzer.AnalyzeProgram(ctx)
-			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-		})
+				ctx := context.NewRoot(specCtx, ast, NewRoot(nil))
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			},
+		)
 
-		It("Should reject dimensioned base with variable exponent", func(specCtx SpecContext) {
-			ast := MustSucceed(parser.Parse(`
+		It(
+			"Should reject dimensioned base with variable exponent",
+			func(specCtx SpecContext) {
+				ast := MustSucceed(parser.Parse(`
 				func testFunc() {
 					x f64 m := 5m
 					n i32 := 2
 					y := x^n
 				}
 			`))
-			ctx := context.NewRoot(specCtx, ast, NewRoot(nil))
-			analyzer.AnalyzeProgram(ctx)
-			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("literal integer exponent"))
-		})
+				ctx := context.NewRoot(specCtx, ast, NewRoot(nil))
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				Expect(
+					(*ctx.Diagnostics)[0].Message,
+				).To(ContainSubstring("literal integer exponent"))
+			},
+		)
 
 		It("Should reject dimensioned exponent", func(specCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
@@ -1505,33 +1879,43 @@ var _ = Describe("Expressions", func() {
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("dimensionless"))
 		})
 
-		It("Should reject dimensioned base with float literal exponent", func(specCtx SpecContext) {
-			ast := MustSucceed(parser.Parse(`
+		It(
+			"Should reject dimensioned base with float literal exponent",
+			func(specCtx SpecContext) {
+				ast := MustSucceed(parser.Parse(`
 				func testFunc() {
 					x f64 m := 5m
 					y := x^2.0
 				}
 			`))
-			ctx := context.NewRoot(specCtx, ast, NewRoot(nil))
-			analyzer.AnalyzeProgram(ctx)
-			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("literal integer exponent"))
-		})
+				ctx := context.NewRoot(specCtx, ast, NewRoot(nil))
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				Expect(
+					(*ctx.Diagnostics)[0].Message,
+				).To(ContainSubstring("literal integer exponent"))
+			},
+		)
 
-		It("Should reject dimensioned base with unit-suffixed literal exponent", func(specCtx SpecContext) {
-			ast := MustSucceed(parser.Parse(`
+		It(
+			"Should reject dimensioned base with unit-suffixed literal exponent",
+			func(specCtx SpecContext) {
+				ast := MustSucceed(parser.Parse(`
 				func testFunc() {
 					x f64 m := 5m
 					y := x^2s
 				}
 			`))
-			ctx := context.NewRoot(specCtx, ast, NewRoot(nil))
-			analyzer.AnalyzeProgram(ctx)
-			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("dimensionless"))
-		})
+				ctx := context.NewRoot(specCtx, ast, NewRoot(nil))
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				Expect(
+					(*ctx.Diagnostics)[0].Message,
+				).To(ContainSubstring("dimensionless"))
+			},
+		)
 	})
 
 	Describe("Qualified Identifier Analysis", func() {
@@ -1547,7 +1931,7 @@ var _ = Describe("Expressions", func() {
 		)
 
 		DescribeTable("invalid qualified calls",
-			func(ctx SpecContext, code string, expectedMsg string) {
+			func(ctx SpecContext, code, expectedMsg string) {
 				expectFailure(ctx, code, nil, expectedMsg)
 			},
 			Entry("undefined module without import", `

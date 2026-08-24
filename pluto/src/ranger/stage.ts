@@ -40,12 +40,12 @@ export const STAGE_ICONS: Record<Stage, Icon.FC> = {
 };
 
 export const STAGE_NAMES: Record<Stage, string> = {
-  to_do: "To Do",
-  in_progress: "In Progress",
+  to_do: "To do",
+  in_progress: "In progress",
   completed: "Completed",
 };
 
-interface WrapNumericTimeRangeToStageArgs {
+interface WrapNumericTimeRangeToStageParams {
   value: NumericTimeRange;
   onChange: (value: NumericTimeRange) => void;
 }
@@ -58,7 +58,7 @@ interface WrapNumericTimeRangeToStageReturn {
 export const wrapNumericTimeRangeToStage = ({
   value,
   onChange,
-}: WrapNumericTimeRangeToStageArgs): WrapNumericTimeRangeToStageReturn => ({
+}: WrapNumericTimeRangeToStageParams): WrapNumericTimeRangeToStageReturn => ({
   value: getStage(value),
   onChange: (v: Stage) => {
     // We subtract a millisecond here to avoid weird issues where you select "completed"

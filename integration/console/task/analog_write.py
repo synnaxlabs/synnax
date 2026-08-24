@@ -23,8 +23,8 @@ AO_CHANNEL_TYPES: dict[str, type[Analog]] = {
 class AnalogWrite(NITask):
     """NI Analog Write/Output Task automation interface."""
 
-    page_type: str = "NI Analog Write Task"
-    pluto_label: str = ".pluto-ni-analog-write-task"
+    page_type = "NI analog write task"
+    pluto_label: str = ".console-task-configure--ni_analog_write"
 
     def add_channel(
         self,
@@ -92,4 +92,4 @@ class AnalogWrite(NITask):
         )
 
         if state_update_rate is not None:
-            self.layout.fill_input_field("State Update Rate", str(state_update_rate))
+            self.layout.fill_input_field("State update rate", str(state_update_rate))

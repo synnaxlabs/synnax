@@ -31,6 +31,7 @@ package parser
 import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/x/diagnostics"
+	"go.lsp.dev/protocol"
 )
 
 // Parse parses a complete Oracle schema from source code.
@@ -57,7 +58,10 @@ func Parse(source string) (ISchemaContext, *diagnostics.Diagnostics) {
 // parseWithContext executes the parsing with proper error handling.
 // It sets up the lexer, parser, and error listener, then invokes the provided
 // parse function to generate the appropriate parse tree node.
-func parseWithContext[T any](source string, parseFn func(*OracleParser) T) (T, *diagnostics.Diagnostics) {
+func parseWithContext[T any](
+	source string,
+	parseFn func(*OracleParser) T,
+) (T, *diagnostics.Diagnostics) {
 	var (
 		input  = antlr.NewInputStream(source)
 		lexer  = NewOracleLexer(input)
@@ -90,15 +94,21 @@ type errorListener struct {
 // It records the error along with its position in the source code.
 func (e *errorListener) SyntaxError(
 	_ antlr.Recognizer,
-	_ interface{},
+	_ any,
 	line,
 	column int,
 	msg string,
 	_ antlr.RecognitionException,
 ) {
 	e.Add(diagnostics.Diagnostic{
-		Severity: diagnostics.SeverityError,
-		Start:    diagnostics.Position{Line: line, Col: column},
-		Message:  msg,
+		Severity: protocol.DiagnosticSeverityError,
+		Range: protocol.Range{
+			Start: protocol.Position{Line: uint32(line - 1), Character: uint32(column)},
+			End: protocol.Position{
+				Line:      uint32(line - 1),
+				Character: uint32(column + 1),
+			},
+		},
+		Message: msg,
 	})
 }

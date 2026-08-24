@@ -9,7 +9,7 @@
 
 import "@/input/HelpText.css";
 
-import { status } from "@synnaxlabs/x";
+import { status } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
@@ -24,15 +24,8 @@ export interface HelpTextProps extends Omit<
 }
 
 /**
- * Help text for an input component. We generally recommend using Input.Item with a
- * 'helpText' prop instead of this component. This component is useful for low-level
- * control over the help text element.
- *
- * @param props - Props for the help text component. Unlisted props are passed to the
- * underlying text element.
- * @param props.variant - The variant of the help text.
- * @see {@link status.Variant}
- * @defaultValue `"error"`
+ * Hint or error text below an input, colored by its status variant. Prefer {@link Item}
+ * with a `helpText` prop; reach for this only to place the text yourself.
  */
 export const HelpText = ({
   className,
@@ -40,8 +33,8 @@ export const HelpText = ({
   ...rest
 }: HelpTextProps): ReactElement => (
   <Text.Text<"small">
-    className={CSS(CSS.B("input-help-text"), className)}
-    color={8}
+    className={CSS.cls(CSS.B("input-help-text"), className)}
+    color={9}
     status={status.removeVariants(variant, "success")}
     level="small"
     {...rest}

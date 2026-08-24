@@ -11,14 +11,18 @@ import { type z } from "zod";
 
 import { type record } from "@/record";
 
-/**
- * Global symbol used to mark Zod schemas that should not have their keys converted.
- * Uses Symbol.for() to ensure the same symbol is used across different module instances.
- */
+/** Marks Zod schemas whose keys must not be converted. */
 const PRESERVE_CASE_SYMBOL = "synnax.caseconv.preserveCase";
+
+/**
+ * Marks Zod record schemas whose keys are semantic values but whose values are
+ * ordinary typed payloads: the keys stay untouched, the values still convert.
+ */
+const PRESERVE_KEYS_SYMBOL = "synnax.caseconv.preserveKeys";
 
 interface ZodDef extends z.core.$ZodTypeDef {
   innerType?: z.core.SomeType;
+  valueType?: z.core.SomeType;
   options?: readonly z.core.SomeType[];
   in?: z.core.SomeType;
   out?: z.core.SomeType;
@@ -32,18 +36,16 @@ interface ZodInternals extends z.core.$ZodTypeInternals {
 
 interface ZodSchema extends z.core.$ZodType {
   [PRESERVE_CASE_SYMBOL]?: boolean;
+  [PRESERVE_KEYS_SYMBOL]?: boolean;
   _zod: ZodInternals;
   shape?: Record<string, z.ZodType>;
   sourceType?: () => { shape?: Record<string, z.ZodType> } | undefined;
 }
 
 /**
- * Marks a Zod schema to prevent case conversion of its keys and nested content.
- * Use this for schemas where keys are semantic values (like OPC UA NodeIds or Modbus channel keys)
- * rather than property names.
- *
- * @param schema - The Zod schema to mark
- * @returns The same schema with a preserve case marker
+ * Marks a Zod schema so its keys and nested content skip case conversion. Use it where
+ * keys are semantic values (OPC UA NodeIds, Modbus channel keys) rather than property
+ * names.
  *
  * @example
  * const propertiesZ = z.object({
@@ -58,28 +60,57 @@ export const preserveCase = <T extends z.ZodType>(schema: T): T => {
 };
 
 /**
- * Checks if a Zod schema has the preserve case marker.
- * Traverses through wrapper schemas (optional, nullable, union, transform, etc.)
- * to find markers on inner schemas.
+ * Marks a Zod record schema so its keys skip case conversion while the keys of its
+ * values still convert. Use it for maps keyed by semantic identifiers (element keys,
+ * channel names) whose values are ordinary typed payloads.
+ */
+export const preserveKeys = <T extends z.ZodType>(schema: T): T => {
+  (schema as ZodSchema)[PRESERVE_KEYS_SYMBOL] = true;
+  return schema;
+};
+
+const hasPreserveKeysMarker = (schema: unknown): boolean =>
+  schema != null && typeof schema === "object" && PRESERVE_KEYS_SYMBOL in schema;
+
+/**
+ * Extracts the value schema from a Zod record schema, traversing wrappers
+ * (optional, nullable, default, pipe) and unions to find the inner record.
+ */
+const getRecordValueSchema = (
+  schema: z.ZodType | z.core.SomeType | undefined,
+): z.ZodType | undefined => {
+  if (schema == null) return undefined;
+  const def = (schema as ZodSchema)._zod?.def;
+  if (def == null) return undefined;
+  if (def.type === "record" && def.valueType != null) return def.valueType as z.ZodType;
+  if (def.innerType != null) return getRecordValueSchema(def.innerType);
+  if (def.in != null) return getRecordValueSchema(def.in);
+  if (Array.isArray(def.options))
+    for (const option of def.options) {
+      const result = getRecordValueSchema(option);
+      if (result != null) return result;
+    }
+  return undefined;
+};
+
+/**
+ * @returns true if the schema, or any schema it wraps (optional, nullable, union,
+ * transform), carries the preserve-case marker.
  */
 const hasPreserveCaseMarker = (schema: unknown): boolean => {
   if (schema == null || typeof schema !== "object") return false;
 
-  // Direct marker check
   if (PRESERVE_CASE_SYMBOL in schema) return true;
 
   const s = schema as ZodSchema;
   const def: ZodDef | undefined = s._zod?.def;
   if (def == null) return false;
 
-  // Traverse through wrappers with innerType (optional, nullable, default, catch)
   if (def.innerType && hasPreserveCaseMarker(def.innerType)) return true;
 
-  // Traverse through unions - check all options
   if (def.type === "union" && Array.isArray(def.options))
     return def.options.some(hasPreserveCaseMarker);
 
-  // Traverse through pipes/transforms - check both ends
   if (def.type === "pipe")
     return hasPreserveCaseMarker(def.in) || hasPreserveCaseMarker(def.out);
 
@@ -87,9 +118,8 @@ const hasPreserveCaseMarker = (schema: unknown): boolean => {
 };
 
 /**
- * Unwraps an array schema to get its element schema.
- * Handles direct arrays and unions containing arrays (e.g., from nullishToEmpty).
- * Returns undefined if the schema is not an array or is undefined.
+ * @returns the element schema of an array, looking through wrappers and unions, or
+ * undefined when the schema is not an array.
  */
 const getArrayElementSchema = (
   schema: z.ZodType | z.core.SomeType | undefined,
@@ -97,9 +127,7 @@ const getArrayElementSchema = (
   if (schema == null) return undefined;
   const def = (schema as ZodSchema)._zod?.def;
   if (def?.type === "array" && def.element != null) return def.element as z.ZodType;
-  // Traverse through wrappers (optional, nullable, default, catch) to inner schema
   if (def?.innerType != null) return getArrayElementSchema(def.innerType);
-  // Handle union types that may contain arrays (e.g., nullishToEmpty)
   if (def?.type === "union" && Array.isArray(def.options))
     for (const option of def.options) {
       const result = getArrayElementSchema(option);
@@ -110,15 +138,10 @@ const getArrayElementSchema = (
 };
 
 /**
- * Extracts the shape (field name → ZodType map) from a Zod schema.
- * Traverses through wrappers (optional, nullable, default, catch, union, pipe)
- * to find the inner object schema's shape. Returns null for non-object schemas.
- *
- * For unions (including discriminated unions), the shapes of every option are
- * merged, with earlier options taking precedence on key conflicts. This lets a
- * caller looking up a single field name resolve it to the variant that
- * actually declares it — e.g., walking a discriminated union of action
- * payloads where each variant carries a distinct inner field.
+ * @returns the shape (field name to ZodType) of an object schema, looking through
+ * wrappers, or null for non-object schemas. Union options are merged with earlier
+ * options winning key conflicts, so a lookup of one field name resolves to the variant
+ * that declares it.
  */
 const getSchemaShape = (
   schema: z.ZodType | z.core.SomeType | undefined,
@@ -158,12 +181,6 @@ const snakeToCamelStr = (str: string): string => {
   return String.fromCharCode(first + 32) + c.slice(1);
 };
 
-/**
- * Convert string keys in an object to snake_case format.
- * @param obj: object to convert keys. If `obj` isn't a json object, `null` is returned.
- * @param opt: (optional) Options parameter, default is non-recursive.
- * @param schema: (optional) Zod schema to check for preserve case markers
- */
 const createConverter = (
   f: (v: string) => string,
 ): (<V>(obj: V, opt?: Options) => V) => {
@@ -181,6 +198,34 @@ const createConverter = (
     if (!isValidObject(obj)) return obj;
 
     if (opt.schema != null && hasPreserveCaseMarker(opt.schema)) return obj;
+
+    if (opt.schema != null && hasPreserveKeysMarker(opt.schema)) {
+      const valueSchema = getRecordValueSchema(opt.schema);
+      const childOpt: Options = {
+        recursive: opt.recursive,
+        recursiveInArray: opt.recursiveInArray,
+        schema: valueSchema,
+      };
+      const res: record.Unknown = {};
+      const anyObj = obj as record.Unknown;
+      for (const key of Object.keys(anyObj)) {
+        let value = anyObj[key];
+        if (isValidObject(value)) {
+          if (!isPreservedType(value)) value = converter(value, childOpt);
+        } else if (Array.isArray(value)) {
+          const elemOpt: Options = {
+            recursive: opt.recursive,
+            recursiveInArray: opt.recursiveInArray,
+            schema: getArrayElementSchema(valueSchema),
+          };
+          value = (value as unknown[]).map((v) =>
+            isValidObject(v) && !isPreservedType(v) ? converter(v, elemOpt) : v,
+          );
+        }
+        res[key] = value;
+      }
+      return res as V;
+    }
 
     const recursive = opt.recursive ?? true;
     const recursiveInArray = opt.recursiveInArray ?? recursive;
@@ -238,49 +283,62 @@ const createConverter = (
  * like "foo-bar" will not be converted to "foo_bar". It will also not alter the
  * capitalization of the first character.
  *
- * @param value - A string, object, array of objects, or array of strings whose case
- * needs to be converted.
- * @returns A copy of the value with the case converted.
  */
 export const snakeToCamel = createConverter(snakeToCamelStr);
 
-const camelToSnakeStr = (str: string): string =>
-  // Don't convert the first character and don't convert a character that is after a
-  // non-alphanumeric character
-  str.replace(
-    /([a-z0-9])([A-Z])/g,
-    (_, p1: string, p2: string) => `${p1}_${p2.toLowerCase()}`,
-  );
+const UPPER_A = "A".charCodeAt(0);
+const UPPER_Z = "Z".charCodeAt(0);
+const LOWER_A = "a".charCodeAt(0);
+const LOWER_Z = "z".charCodeAt(0);
+const DIGIT_0 = "0".charCodeAt(0);
+const DIGIT_9 = "9".charCodeAt(0);
+const UPPER_TO_LOWER = LOWER_A - UPPER_A;
 
-/**
- * Converts a camelCase string to snake_case.
- *
- * @param str - The string to convert
- * @returns The converted string in snake_case
- */
+// camelToSnakeStr inverts snakeToCamel. The first word break is always a capital
+// following a lowercase or digit, so the prefix scan finds it without allocating
+// (an already-snake string is returned as-is). From there a capital breaks a word
+// if it follows a lowercase/digit or continues an uppercase run entered from one,
+// so fooXY (from foo_x_y) splits fully while a leading run like NS=1;ID=5 stays put.
+const camelToSnakeStr = (str: string): string => {
+  const n = str.length;
+  let i = 1;
+  for (; i < n; i++) {
+    const c = str.charCodeAt(i);
+    if (c < UPPER_A || c > UPPER_Z) continue;
+    const prev = str.charCodeAt(i - 1);
+    if ((prev >= LOWER_A && prev <= LOWER_Z) || (prev >= DIGIT_0 && prev <= DIGIT_9))
+      break;
+  }
+  if (i >= n) return str;
+  let res = str.slice(0, i);
+  // enteredFromLower stays true across an uppercase run begun after a lowercase or
+  // digit, so every capital in fooXY splits rather than just the first.
+  let enteredFromLower = true;
+  for (; i < n; i++) {
+    const c = str.charCodeAt(i);
+    if (c < UPPER_A || c > UPPER_Z) {
+      enteredFromLower = false;
+      res += str[i];
+      continue;
+    }
+    const prev = str.charCodeAt(i - 1);
+    if ((prev >= LOWER_A && prev <= LOWER_Z) || (prev >= DIGIT_0 && prev <= DIGIT_9))
+      enteredFromLower = true;
+    else if (prev < UPPER_A || prev > UPPER_Z) enteredFromLower = false;
+    res += enteredFromLower ? `_${String.fromCharCode(c + UPPER_TO_LOWER)}` : str[i];
+  }
+  return res;
+};
+
+/** Converts a camelCase string to snake_case. */
 export const camelToSnake = createConverter(camelToSnakeStr);
 
-/**
- * Capitalize capitalizes the first character of the given string.
- *
- * @param str - The string to capitalize.
- * @returns The string with the first character capitalized.
- */
+/** Capitalizes the first character of the given string. */
 export const capitalize = (str: string): string => {
   if (str.length === 0) return str;
   return str[0].toUpperCase() + str.slice(1);
 };
 
-/**
- * Options parameter for convert function
- *
- * @param recursive: recursive if value of subkey is an object that is not an array
- * @param recursiveInArray: recursive if ${recursive} is `true` and value of subkey
- * is an array. All elements in array (value of subkey) will be recursive.
- * If ${recursiveInArray} is not set, default is `false`.
- * @param keepTypesOnRecursion: list of types will be keep value on recursion.
- * Example Date, RegExp. These types will be right-hand side of 'instanceof' operator.
- */
 export interface Options {
   recursive?: boolean;
   recursiveInArray?: boolean;
@@ -299,13 +357,7 @@ const isValidObject = (obj: unknown): boolean =>
 const isPreservedType = (obj: unknown): boolean =>
   obj instanceof Uint8Array || obj instanceof Number || obj instanceof String;
 
-/**
- * Converts a string to kebab-case.
- * Handles spaces, camelCase, and uppercase characters.
- *
- * @param str - The string to convert
- * @returns The converted string in kebab-case
- */
+/** Converts a string to kebab-case, splitting on spaces, camelCase, and capitals. */
 const toKebabStr = (str: string): string =>
   str
     .replace(/[\s_]+/g, "-")
@@ -315,27 +367,11 @@ const toKebabStr = (str: string): string =>
     )
     .toLowerCase();
 
-/**
- * Converts a string to kebab-case.
- * Handles spaces, camelCase, and uppercase characters.
- *
- * @param str - The string to convert
- * @returns The converted string in kebab-case
- */
+/** Converts a string to kebab-case, splitting on spaces, camelCase, and capitals. */
 export const toKebab = createConverter(toKebabStr);
 
-/**
- * Converts a string to proper noun format.
- * Handles snake_case, kebab-case, camelCase, and PascalCase.
- * Capitalizes the first letter of each word.
- *
- * @param str - The string to convert
- * @returns The converted string in proper noun format
- */
-const toProperNounStr = (str: string): string => {
-  if (str.length === 0) return str;
-
-  // Replace underscores and hyphens with spaces
+/** Splits snake_case, kebab-case, camelCase, and PascalCase into spaced words. */
+const splitWords = (str: string): string => {
   let result = str.replace(/[_-]/g, " ");
 
   // Insert spaces before capital letters (for camelCase/PascalCase)
@@ -351,21 +387,31 @@ const toProperNounStr = (str: string): string => {
     (_, p1: string, p2: string) => `${p1} ${p2}`,
   );
 
-  // Clean up multiple spaces
-  result = result.replace(/\s+/g, " ").trim();
-
-  // Capitalize first letter of each word (proper noun format)
-  result = result.replace(/\b\w/g, (char) => char.toUpperCase());
-
-  return result;
+  return result.replace(/\s+/g, " ").trim();
 };
 
-/**
- * Converts a string to proper noun format.
- * Handles snake_case, kebab-case, camelCase, and PascalCase.
- * Each word is capitalized.
- *
- * @param str - The string to convert
- * @returns The converted string in proper noun format
- */
+const toProperNounStr = (str: string): string => {
+  if (str.length === 0) return str;
+  return splitWords(str).replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
+/** Converts a string to proper noun format, capitalizing every word. */
 export const toProperNoun = createConverter(toProperNounStr);
+
+// Matches acronym and version tokens ("XML", "V2") that keep their casing.
+const ACRONYM_REGEX = /^[A-Z0-9]{2,}$/;
+
+const toSentenceStr = (str: string): string => {
+  if (str.length === 0) return str;
+  const words = splitWords(str).split(" ");
+  return words
+    .map((word, i) => {
+      if (ACRONYM_REGEX.test(word)) return word;
+      const lower = word.toLowerCase();
+      return i === 0 ? lower[0].toUpperCase() + lower.slice(1) : lower;
+    })
+    .join(" ");
+};
+
+/** Converts a string to sentence case. Acronyms keep their casing. */
+export const toSentence = createConverter(toSentenceStr);

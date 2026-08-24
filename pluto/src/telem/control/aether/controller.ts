@@ -13,6 +13,7 @@ import {
   control,
   DisconnectedError,
   type framer,
+  status as cstatus,
   type Synnax,
   TimeStamp,
   ValidationError,
@@ -21,22 +22,22 @@ import { StreamClosed, Unreachable } from "@synnaxlabs/freighter";
 import {
   color,
   compare,
-  control as xcontrol,
   type CrudeSeries,
   type destructor,
   errors,
-  type status as xstatus,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
 import { type theming } from "@/ether";
+import { flux } from "@/flux/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { telem } from "@/telem/aether";
 import { AbstractSink } from "@/telem/aether/telem";
-import { StateProvider } from "@/telem/control/aether/state";
+import { Colors } from "@/telem/control/aether/colors";
+import { retrieveDefinition, type RetrieveQuery } from "@/telem/control/aether/queries";
 
 export const statusZ = z.enum(["acquired", "released", "overridden", "failed"]);
 export type Status = z.infer<typeof statusZ>;
@@ -46,6 +47,10 @@ export const controllerStateZ = z.object({
   authority: z.number().default(0),
   status: statusZ.optional(),
   needsControlOf: channel.keyZ.array().default([]),
+  // Bars the controller from writing or taking control on its own. It gives up any
+  // control it holds. An explicit acquire is still honored, so a caller that sets this
+  // owns what taking control means for its own state.
+  disabled: z.boolean().default(false),
 });
 
 export const controllerMethodsZ = {
@@ -53,10 +58,22 @@ export const controllerMethodsZ = {
   release: z.function({ input: z.tuple([]), output: z.void() }),
 };
 
+/**
+ * Opens the writer a {@link Controller} commands through. The client is an argument
+ * rather than a binding because a Controller resolves its own only after construction.
+ */
+export type OpenWriter = (
+  client: Synnax,
+  config: framer.WriterConfig,
+) => Promise<framer.Writer>;
+
+const defaultOpenWriter: OpenWriter = async (client, config) =>
+  await client.openWriter(config);
+
 interface InternalState {
   client: Synnax | null;
   instrumentation: Instrumentation;
-  stateProv: StateProvider;
+  colors: Colors;
   addStatus: status.Adder;
   runAsync: status.ErrorHandler;
   theme: theming.Theme;
@@ -88,19 +105,35 @@ export class Controller
   methods = controllerMethodsZ;
 
   private readonly registry = new Map<AetherControllerTelem, null>();
+  private readonly openWriter: OpenWriter;
   private writer?: framer.Writer;
   private acquirePromise?: Promise<void>;
+  /** Set while an acquisition the user asked for is in flight. The disabled bar does
+   * not apply to it: taking control is what clears the bar. */
+  private acquireExplicit = false;
+
+  constructor(
+    props: aether.ComponentConstructorProps,
+    openWriter: OpenWriter = defaultOpenWriter,
+  ) {
+    super(props);
+    this.openWriter = openWriter;
+  }
 
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     i.instrumentation = alamos.useInstrumentation(ctx);
     i.addStatus = status.useAdder(ctx);
     i.runAsync = status.useErrorHandler(ctx);
-    const nextClient = synnax.use(ctx);
-    const nextStateProv = StateProvider.use(ctx);
-    i.stateProv = nextStateProv;
+    i.colors = Colors.use(ctx);
     i.telemCtx = telem.useChildContext(ctx, this, i.telemCtx);
-    i.client = nextClient;
+    i.client = synnax.use(ctx);
+    if (this.state.disabled && this.state.status === "acquired") this.release();
+  }
+
+  /** The cluster this controller is bound to, or null while disconnected. */
+  get client(): Synnax | null {
+    return this.internal.client;
   }
 
   afterDelete(): void {
@@ -128,6 +161,7 @@ export class Controller
   }
 
   acquire(): void {
+    this.acquireExplicit = true;
     this.internal.runAsync(() => this.doAcquire(), "failed to acquire control");
   }
 
@@ -142,6 +176,7 @@ export class Controller
       await this.acquirePromise;
     } finally {
       this.acquirePromise = undefined;
+      this.acquireExplicit = false;
     }
   }
 
@@ -149,7 +184,7 @@ export class Controller
     const { client, addStatus } = this.internal;
     if (client == null)
       return addStatus({
-        message: `Cannot acquire control on ${this.state.name} because no Core has been connected.`,
+        message: `Failed to acquire control on ${this.state.name}: no Core is connected.`,
         variant: "warning",
       });
 
@@ -162,19 +197,22 @@ export class Controller
           variant: "warning",
         });
 
-      this.writer = await client.openWriter({
+      this.writer = await this.openWriter(client, {
         channels: needsControlOf,
         controlSubject: { key: this.key, name: this.state.name },
         authorities: this.state.authority,
         autoIndex: true,
       });
+      // disabled can turn on while the writer opens. afterUpdate cannot catch that,
+      // because the status is not acquired yet.
+      if (!this.acquireExplicit && this.state.disabled) return await this.doRelease();
       this.setState((p) => ({ ...p, status: "acquired" }));
     } catch (err) {
       this.setState((p) => ({ ...p, status: "failed" }));
       const e = errors.fromUnknown(err);
       addStatus({
         variant: "error",
-        message: `${this.state.name} failed to acquire control`,
+        message: `Failed to acquire control on ${this.state.name}`,
         description: e.message,
       });
     }
@@ -186,7 +224,7 @@ export class Controller
     } catch (err) {
       const e = errors.fromUnknown(err);
       this.internal.addStatus({
-        message: `${this.state.name} failed to release control: ${e.message}`,
+        message: `Failed to release control on ${this.state.name}: ${e.message}`,
         variant: "error",
       });
     } finally {
@@ -210,6 +248,7 @@ export class Controller
   }
 
   private async withRetry(fn: () => Promise<void>): Promise<void> {
+    if (this.state.disabled) return;
     if (this.writer == null) await this.doAcquire();
     try {
       await fn();
@@ -261,7 +300,7 @@ export class Controller
           return sink as T;
         }
         case AuthoritySource.TYPE: {
-          const source = new AuthoritySource(this, this.internal.stateProv, spec.props);
+          const source = new AuthoritySource(this, i.colors, i.runAsync, spec.props);
           this.registry.set(source, null);
           return source as T;
         }
@@ -408,73 +447,80 @@ export class AuthoritySource
   implements telem.StatusSource<typeof authoritySourceDetailsZ>, AetherControllerTelem
 {
   static readonly TYPE = "controlled-status-source";
-  private readonly prov: StateProvider;
-  private valid = false;
-  private stopListening?: destructor.Destructor;
+  private readonly colors: Colors;
   private readonly controller: Controller;
+  private readonly retrieve: flux.Retrieve<RetrieveQuery, control.KeyedState>;
+  private readonly stopListening: destructor.Destructor;
   schema = authoritySourceProps;
 
-  constructor(controller: Controller, prov: StateProvider, props: unknown) {
+  constructor(
+    controller: Controller,
+    colors: Colors,
+    runAsync: status.ErrorHandler,
+    props: unknown,
+  ) {
     super(props);
-    this.prov = prov;
+    this.colors = colors;
     this.controller = controller;
+    this.retrieve = new flux.Retrieve({
+      definition: retrieveDefinition,
+      onChange: () => this.notify?.(),
+      onError: (error) =>
+        runAsync(async () => {
+          throw error;
+        }, "failed to retrieve control state"),
+    });
+    this.stopListening = colors.onChange(() => this.notify?.());
   }
 
   async needsControlOf(): Promise<channel.Key[]> {
     return [];
   }
 
-  private maybeRevalidate(): void {
-    if (this.valid) return;
-    const { channel: ch } = this.props;
-    this.stopListening?.();
-    const filter = xcontrol.filterTransfersByChannelKey(ch);
-    this.stopListening = this.prov.onChange((t) => {
-      if (t.length > 0 && filter(t).length === 0) return;
-      this.notify?.();
-    });
-    this.valid = true;
-  }
-
-  value(): xstatus.Status<typeof authoritySourceDetailsZ> {
-    this.maybeRevalidate();
-
+  value(): cstatus.Status<typeof authoritySourceDetailsZ> {
     const time = TimeStamp.now();
-    if (this.props.channel === 0)
-      return {
+    const { channel: key } = this.props;
+    if (key === 0)
+      return cstatus.create<typeof authoritySourceDetailsZ>({
         name: this.controller.key,
         key: this.controller.key,
         variant: "disabled",
-        message: "No Channel",
+        message: "No channel",
         time,
         details: { valid: false, authority: 0 },
-      };
+      });
 
-    const state = this.prov.get(this.props.channel);
+    this.retrieve.update(this.controller.client, { key });
+    const state = this.retrieve.value;
 
     if (state == null)
-      return {
+      return cstatus.create<typeof authoritySourceDetailsZ>({
         name: this.controller.key,
         key: this.controller.key,
         variant: "disabled",
         message: "Uncontrolled",
         time,
         details: { valid: true, color: undefined, authority: 0 },
-      };
+      });
 
-    return {
+    return cstatus.create<typeof authoritySourceDetailsZ>({
       name: this.controller.key,
       key: state.subject.key,
       variant: state.subject.key === this.controller.key ? "success" : "error",
       message: `Controlled by ${state.subject.name}`,
       time,
-      details: { valid: true, color: state.subjectColor, authority: state.authority },
-    };
+      details: {
+        valid: true,
+        color: this.colors.get(state.subject.key),
+        authority: state.authority,
+      },
+    });
   }
 
   cleanup(): void {
     this.controller.deleteTelem(this);
-    this.stopListening?.();
+    this.stopListening();
+    this.retrieve.close();
   }
 }
 

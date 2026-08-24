@@ -7,12 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor } from "@synnaxlabs/x";
-import { useCallback, useState } from "react";
+import { type query, type Synnax as Client } from "@synnaxlabs/client";
+import { type CrudeTimeSpan, type destructor, state, TimeSpan } from "@synnaxlabs/x";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { type z } from "zod";
 
-import { type base } from "@/flux/base";
-import { useStore } from "@/flux/Provider";
 import {
   errorResult,
   loadingResult,
@@ -22,104 +28,126 @@ import {
   successResult,
 } from "@/flux/result";
 import {
-  type RetrieveMountListenersParams,
+  type LocalCache,
+  localFor,
   type RetrieveParams,
-} from "@/flux/retrieve";
+  suspendOnFetch,
+  useMemoQuery,
+  usePendingFetch,
+} from "@/flux/suspend";
 import { type UpdateParams } from "@/flux/update";
 import { Form } from "@/form";
-import { useAsyncEffect, useDestructors } from "@/hooks";
-import { useUniqueKey } from "@/hooks/useUniqueKey";
-import { useMemoDeepEqual } from "@/memo";
-import { state } from "@/state";
+import { useDebouncedCallback, useDestructors, useSyncedRef } from "@/hooks";
 import { Status } from "@/status/base";
 import { Synnax } from "@/synnax";
 
-export interface FormUpdateParams<
-  Schema extends z.ZodType<base.Data>,
-  ScopedStore extends base.Store = {},
->
+export interface FormUpdateParams<Schema extends z.ZodType<query.Data>>
   extends
-    Omit<UpdateParams<z.infer<Schema>, ScopedStore>, "data" | "onChange">,
+    Omit<UpdateParams<z.infer<Schema>>, "data" | "onChange" | "onOptimisticComplete">,
     Omit<Form.UseReturn<Schema>, "setStatus"> {}
 
-export interface FormRetrieveParams<
-  Query extends base.Query,
-  Schema extends z.ZodType<base.Data>,
-  Store extends base.Store = {},
->
-  extends Form.UseReturn<Schema>, RetrieveParams<Query, Store> {}
+/** Client and query handles for a form operation. */
+interface FormClientParams<Query extends query.Params> {
+  client: Client;
+  query: Query | null;
+}
 
 export interface CreateFormParams<
-  Query extends base.Query,
-  Schema extends z.ZodType<base.Data>,
-  Store extends base.Store,
+  Query extends query.Params,
+  Schema extends z.ZodType<query.Data>,
 > {
   name: string;
   schema: Schema;
   initialValues: z.infer<Schema>;
-  update: (args: FormUpdateParams<Schema, Store>) => Promise<void>;
-  retrieve: (args: FormRetrieveParams<Query, Schema, Store>) => Promise<void>;
+  /**
+   * Fetches the record's form values. Omit for a form that never reads. The
+   * hook suspends on this, so the form is built from real values rather than
+   * from a placeholder the fetch overwrites.
+   */
+  retrieve?: (params: RetrieveParams<Query>) => Promise<z.infer<Schema>>;
+  /**
+   * Projects the record's form values out of the domain client's cache.
+   * A hit resolves the read synchronously, with no fetch and no suspension.
+   */
+  getCached?: (params: RetrieveParams<Query>) => z.infer<Schema> | undefined;
+  update: (params: FormUpdateParams<Schema>) => Promise<void>;
   mountListeners?: (
-    args: FormMountListenersParams<Query, Schema, Store>,
+    params: FormMountListenersParams<Query, Schema>,
   ) => destructor.Destructor | destructor.Destructor[];
+  /**
+   * Canonicalizes the caller's query before anything reads it: `retrieve`,
+   * `mountListeners`, and `getCached` all receive the one normalized,
+   * identity-stable object. Merge defaults here instead of at each callback,
+   * where a per-call spread would mint a fresh object and miss the client's
+   * query memos. Must preserve fields it does not set.
+   */
+  normalizeQuery?: <Q extends Query>(query: Q) => Q;
 }
 
-export type UseFormReturn<Schema extends z.ZodType<base.Data>> = Omit<
+export type UseFormReturn<Schema extends z.ZodType<query.Data>> = Omit<
   Result<z.infer<Schema>>,
   "data"
 > & {
   form: Form.UseReturn<Schema>;
-  save: (opts?: base.FetchOptions) => void;
+  save: (opts?: query.FetchOptions) => void;
+  /** Like save, but resolves true once the update has been persisted. */
+  saveAsync: (opts?: query.FetchOptions) => Promise<boolean>;
 };
 
 export interface FormBeforeSaveParams<
-  Query extends base.Query,
-  Schema extends z.ZodType<base.Data>,
-  Store extends base.Store,
+  Query extends query.Params,
+  Schema extends z.ZodType<query.Data>,
 >
-  extends Form.UseReturn<Schema>, RetrieveParams<Query, Store> {}
+  extends Form.UseReturn<Schema>, FormClientParams<Query> {}
 
 interface FormMountListenersParams<
-  Query extends base.Query,
-  Schema extends z.ZodType<base.Data>,
-  Store extends base.Store,
+  Query extends query.Params,
+  Schema extends z.ZodType<query.Data>,
 >
-  extends
-    Form.UseReturn<Schema>,
-    Omit<RetrieveMountListenersParams<Query, base.Data, Store>, "onChange"> {}
+  extends Form.UseReturn<Schema>, Omit<FormClientParams<Query>, "query"> {
+  query: Query;
+  /**
+   * Drops the pending autosave, aborts one already running, and stops further ones.
+   * Call when the record no longer exists: a save queued before a delete would
+   * otherwise write it back.
+   */
+  abandon: () => void;
+}
 
 export interface AfterSaveParams<
-  Query extends base.Query,
-  Schema extends z.ZodType<base.Data>,
-  Store extends base.Store,
-> extends FormBeforeSaveParams<Query, Schema, Store> {}
+  Query extends query.Params,
+  Schema extends z.ZodType<query.Data>,
+> extends FormBeforeSaveParams<Query, Schema> {}
 
-export interface BeforeValidateArgs<
-  Query extends base.Query,
-  Schema extends z.ZodType<base.Data>,
-  Store extends base.Store,
-> extends FormBeforeSaveParams<Query, Schema, Store> {}
+export interface BeforeValidateParams<
+  Query extends query.Params,
+  Schema extends z.ZodType<query.Data>,
+> extends FormBeforeSaveParams<Query, Schema> {}
 
-export interface UseFormArgs<
-  Query extends base.Query,
-  Schema extends z.ZodType<base.Data>,
-  Store extends base.Store,
-> extends Pick<Form.UseArgs<Schema>, "sync" | "onHasTouched" | "mode"> {
+export interface UseFormParams<
+  Query extends query.Params,
+  Schema extends z.ZodType<query.Data>,
+> extends Pick<Form.UseParams<Schema>, "sync" | "onHasTouched" | "mode"> {
   initialValues?: z.infer<Schema>;
   autoSave?: boolean;
-  query: Query;
-  beforeValidate?: (args: BeforeValidateArgs<Query, Schema, Store>) => boolean | void;
-  beforeSave?: (args: FormBeforeSaveParams<Query, Schema, Store>) => Promise<boolean>;
-  afterSave?: (args: AfterSaveParams<Query, Schema, Store>) => void;
-  scope?: string;
+  /**
+   * How long to wait after a change before autosaving. Raise it for a form with a
+   * continuous input, such as a drag handle or a color picker, where one gesture
+   * emits a burst of changes. Zero saves on every change.
+   */
+  autoSaveDebounce?: CrudeTimeSpan;
+  /** The record to edit, or null for a form with nothing to read. */
+  query: Query | null;
+  beforeValidate?: (params: BeforeValidateParams<Query, Schema>) => boolean | void;
+  beforeSave?: (params: FormBeforeSaveParams<Query, Schema>) => Promise<boolean>;
+  afterSave?: (params: AfterSaveParams<Query, Schema>) => void;
 }
 
 export interface UseForm<
-  Query extends base.Query,
-  Schema extends z.ZodType<base.Data>,
-  Store extends base.Store,
+  Query extends query.Params,
+  Schema extends z.ZodType<query.Data>,
 > {
-  (args: UseFormArgs<Query, Schema, Store>): UseFormReturn<Schema>;
+  (params: UseFormParams<Query, Schema>): UseFormReturn<Schema>;
 }
 
 const DEFAULT_SET_OPTIONS: Form.SetOptions = {
@@ -127,46 +155,78 @@ const DEFAULT_SET_OPTIONS: Form.SetOptions = {
   notifyOnChange: false,
 };
 
-export const createForm =
-  <
-    Query extends base.Query,
-    Schema extends z.ZodType<base.Data>,
-    Store extends base.Store = {},
-  >({
-    name,
-    schema,
-    retrieve,
-    mountListeners,
-    update,
-    initialValues: baseInitialValues,
-  }: CreateFormParams<Query, Schema, Store>): UseForm<Query, Schema, Store> =>
-  ({
+const DEFAULT_AUTO_SAVE_DEBOUNCE = TimeSpan.milliseconds(200);
+
+/** A save waiting on the one before it, and the signal its callers issued it under. */
+interface QueuedSave {
+  promise: Promise<boolean>;
+  signal?: AbortSignal;
+}
+
+export const createForm = <
+  Query extends query.Params,
+  Schema extends z.ZodType<query.Data>,
+>({
+  name,
+  schema,
+  retrieve,
+  getCached,
+  mountListeners,
+  update,
+  initialValues: baseInitialValues,
+  normalizeQuery,
+}: CreateFormParams<Query, Schema>): UseForm<Query, Schema> => {
+  const locals = new WeakMap<Client, LocalCache<z.infer<Schema>>>();
+  return ({
     query,
     initialValues,
     autoSave = false,
+    autoSaveDebounce = DEFAULT_AUTO_SAVE_DEBOUNCE,
     afterSave,
     beforeSave,
     beforeValidate,
     sync,
     onHasTouched,
     mode,
-    scope: argsScope,
   }) => {
     const [result, setResult] = useState<Result<undefined>>(
-      loadingResult(`retrieving ${name}`),
+      successResult(`retrieved ${name}`, undefined),
     );
-    const scope = useUniqueKey(argsScope);
     const client = Synnax.use();
-    const store = useStore<Store>(scope);
     const listeners = useDestructors();
     const addStatus = Status.useAdder();
+    const memoQuery = useMemoQuery(query, normalizeQuery);
 
+    const cached = useMemo(
+      () =>
+        memoQuery == null || client == null
+          ? undefined
+          : getCached?.({ client, query: memoQuery }),
+      [client, memoQuery],
+    );
+
+    const pending = usePendingFetch<Query, z.infer<Schema>>(memoQuery);
+    // A replay resumes through the promise the suspended attempt holds. Reading the
+    // answer from anywhere else would skip the `use` call React needs to find the
+    // end of the recorded hook list, corrupting every hook below.
+    let retrieved = pending.promise == null ? cached : undefined;
+    if (retrieved == null && memoQuery != null && client != null && retrieve != null)
+      retrieved = suspendOnFetch(
+        { client, query: memoQuery },
+        { name, retrieve, getCached, local: localFor(locals, client) },
+        pending,
+      );
+
+    const abandonedRef = useRef(false);
+    const abortRef = useRef<AbortController>(null);
+    abortRef.current ??= new AbortController();
+    const values = retrieved ?? initialValues ?? baseInitialValues;
     const form = Form.use<Schema>({
       schema,
-      values: initialValues ?? baseInitialValues,
+      values,
       onChange: ({ path }) => {
         // Don't save if the path is empty to prevent infinite save loops.
-        if (autoSave && path !== "") save();
+        if (autoSave && path !== "" && !abandonedRef.current) debouncedSave();
       },
       sync,
       onHasTouched,
@@ -177,53 +237,50 @@ export const createForm =
         form.set(path, value, { ...options, ...DEFAULT_SET_OPTIONS }),
       [form],
     );
-    const retrieveAsync = useCallback(
-      async (query: Query, options: base.FetchOptions = {}) => {
-        const { signal } = options;
-        try {
-          if (client == null)
-            return setResult(nullClientResult<undefined>(`retrieve ${name}`));
-          setResult((p) => loadingResult(`retrieving ${name}`, p.data));
-          if (signal?.aborted) return;
-          const args = { client, query, store, ...form, set: noNotifySet };
-          await retrieve(args);
-          if (signal?.aborted) return;
-          listeners.cleanup();
-          listeners.set(mountListeners?.(args));
-          setResult(successResult<undefined>(`retrieved ${name}`));
-        } catch (error) {
-          if (signal?.aborted) return;
-          const res = errorResult(`retrieve ${name}`, error);
-          addStatus(res.status);
-          setResult(res);
-        }
+    // A listener carries what the Core holds, which an edit waiting on its autosave has
+    // already moved past. Writing it back would revert the edit, and the save that
+    // follows would persist the pre-edit value.
+    const listenerSet = useCallback(
+      (path: string, value: unknown, options?: Form.SetOptions) => {
+        if (form.get(path, { optional: true })?.touched === true) return;
+        noNotifySet(path, value, options);
       },
-      [client, name, form, store, noNotifySet],
-    );
-    const memoQuery = useMemoDeepEqual(query);
-    useAsyncEffect(
-      async (signal) => await retrieveAsync(memoQuery, { signal }),
-      [retrieveAsync, memoQuery],
+      [form, noNotifySet],
     );
 
-    const saveAsync = useCallback(
-      async (opts: base.FetchOptions = {}): Promise<boolean> => {
-        const { signal } = opts;
-        const rollbacks: destructor.Destructor[] = [];
+    // Form state is built once, so a query pointing at a different record has
+    // to replace it.
+    const readQuery = useRef(memoQuery);
+    const valuesRef = useRef(values);
+    valuesRef.current = values;
+    useLayoutEffect(() => {
+      if (readQuery.current === memoQuery) return;
+      readQuery.current = memoQuery;
+      abandonedRef.current = false;
+      abortRef.current = new AbortController();
+      form.reset(valuesRef.current);
+    }, [memoQuery, form]);
+
+    const runSave = useCallback(
+      async (opts: query.FetchOptions = {}): Promise<boolean> => {
+        const { signal = abortRef.current?.signal } = opts;
         try {
           if (client == null) {
             setResult(nullClientResult<undefined>(`update ${name}`));
             return false;
           }
-          const args = { client, query, store, rollbacks, ...form, set: noNotifySet };
-          if (beforeValidate?.(args) === false) return false;
+          const params = { client, query: memoQuery, ...form, set: noNotifySet };
+          if (beforeValidate?.(params) === false) return false;
           if (!(await form.validateAsync())) return false;
           setResult(loadingResult(`updating ${name}`, undefined));
-          if ((await beforeSave?.(args)) === false) {
+          if ((await beforeSave?.(params)) === false) {
             setResult(successResult(`updated ${name}`, undefined));
             return false;
           }
-          if (signal?.aborted === true) return false;
+          if (signal?.aborted === true) {
+            setResult(successResult(`updated ${name}`, undefined));
+            return false;
+          }
           const setStatus = (setter: state.SetArg<ResultStatus<never>>) =>
             setResult((p) => {
               const nextStatus = state.executeSetter(setter, p.status);
@@ -234,16 +291,11 @@ export const createForm =
               } as Result<undefined>;
             });
 
-          await update({ ...args, setStatus });
+          await update({ ...params, setStatus });
           setResult(successResult(`updated ${name}`, undefined));
-          if (afterSave != null) afterSave(args);
+          if (afterSave != null) afterSave(params);
           return true;
         } catch (error) {
-          try {
-            rollbacks.reverse().forEach((rollback) => rollback());
-          } catch (rollbackError) {
-            console.error("Error rolling back changes:", rollbackError);
-          }
           if (signal?.aborted === true) return false;
           const res = errorResult(`update ${name}`, error);
           addStatus(res.status);
@@ -251,12 +303,70 @@ export const createForm =
           return false;
         }
       },
-      [name, query, beforeSave, afterSave, beforeValidate],
+      [client, name, memoQuery, beforeSave, afterSave, beforeValidate],
+    );
+
+    // Saves of one record run one at a time. A caller that reads the form, awaits the
+    // Core, then writes back (a task deploy resolving its rack) leaves a window an
+    // autosave fires in; concurrent writes reach the Core in either order, so the
+    // pre-write values can land last and undo the save.
+    const pendingSave = useRef<Promise<unknown>>(null);
+    // A save that has not started reads the live form when it does, so it already
+    // carries what a later caller would write. Later callers join it instead of
+    // queueing a duplicate. Only callers under one signal join, so an abort still
+    // reaches every save it was issued for.
+    const queuedSave = useRef<QueuedSave>(null);
+    const saveAsync = useCallback(
+      async (opts: query.FetchOptions = {}): Promise<boolean> => {
+        const signal = opts.signal ?? abortRef.current?.signal;
+        const queued = queuedSave.current;
+        if (queued != null && queued.signal === signal) return await queued.promise;
+        const issuedFor = memoQuery;
+        const save = (pendingSave.current ?? Promise.resolve()).then(async () => {
+          if (queuedSave.current?.promise === save) queuedSave.current = null;
+          // A queued save reads the live form, which now holds another record.
+          return readQuery.current === issuedFor ? await runSave(opts) : false;
+        });
+        queuedSave.current = { promise: save, signal };
+        pendingSave.current = save.catch(() => {});
+        return await save;
+      },
+      [runSave, memoQuery],
     );
     const save = useCallback(
-      (opts?: base.FetchOptions) => void saveAsync(opts),
+      (opts?: query.FetchOptions) => void saveAsync(opts),
       [saveAsync],
     );
 
-    return { form, save, ...result };
+    const saveRef = useSyncedRef(save);
+    const debouncedSave = useDebouncedCallback(
+      () => saveRef.current(),
+      autoSaveDebounce,
+      [],
+    );
+    useEffect(() => () => debouncedSave.flush(), [debouncedSave]);
+
+    const abandon = useCallback(() => {
+      abandonedRef.current = true;
+      debouncedSave.cancel();
+      abortRef.current?.abort();
+    }, [debouncedSave]);
+
+    useEffect(() => {
+      if (memoQuery == null || client == null || mountListeners == null) return;
+      listeners.cleanup();
+      listeners.set(
+        mountListeners({
+          client,
+          query: memoQuery,
+          ...form,
+          set: listenerSet,
+          abandon,
+        }),
+      );
+      return () => listeners.cleanup();
+    }, [client, memoQuery, form, listenerSet, abandon]);
+
+    return { form, save, saveAsync, ...result };
   };
+};

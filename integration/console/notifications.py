@@ -9,10 +9,14 @@
 
 from typing import Any
 
-from playwright.sync_api import Page
+from playwright.sync_api import Locator, Page, expect
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 import synnax as sy
+
+# A notification expires on its own after a few seconds, so a button that is still
+# attached resolves at once.
+SILENCE_TIMEOUT = 1000
 
 
 class NotificationsClient:
@@ -20,6 +24,10 @@ class NotificationsClient:
 
     def __init__(self, page: Page):
         self.page = page
+
+    def _all(self) -> Locator:
+        """All visible notifications. Each notification carries role=status."""
+        return self.page.get_by_role("status")
 
     def check(
         self, timeout: sy.CrudeTimeSpan = 200 * sy.TimeSpan.MILLISECOND
@@ -37,7 +45,7 @@ class NotificationsClient:
 
         while timer.elapsed() < timeout_span:
             notifications = []
-            notification_elements = self.page.locator(".pluto-notification").all()
+            notification_elements = self._all().all()
 
             if len(notification_elements) > 0:
                 for notification in notification_elements:
@@ -86,24 +94,24 @@ class NotificationsClient:
         return []
 
     def close(self, notification_index: int = 0) -> bool:
-        """Close a notification by clicking its close button.
+        """Close a notification by clicking its Silence button.
 
-        Args:
-            notification_index: Index of the notification to close (0 for first)
-
-        Returns:
-            True if notification was closed, False if not found
+        :param notification_index: Index of the notification to close (0 for
+            first).
+        :returns: True if the notification was closed, False if not found.
         """
         try:
-            notifications = self.page.locator(".pluto-notification")
+            notifications = self._all()
             if notifications.count() <= notification_index:
                 return False
 
             notification = notifications.nth(notification_index)
-            close_button = notification.locator(".pluto-notification__silence")
+            close_button = notification.get_by_role(
+                "button", name="Silence", exact=True
+            )
 
             if close_button.count() > 0:
-                close_button.dispatch_event("click")
+                close_button.first.dispatch_event("click")
                 notification.wait_for(state="hidden", timeout=2000)
                 return True
             return False
@@ -112,66 +120,58 @@ class NotificationsClient:
             return False
 
     def close_all(self) -> int:
-        """Close all visible notifications.
+        """Silence every visible notification at once and wait for them to clear.
 
-        Returns:
-            Number of notifications closed
+        A notification that expires on its own before its click lands is already in
+        the wanted state, so it does not fail the call.
+
+        :returns: Number of notifications silenced.
         """
-        closed_count = 0
-        max_attempts = 10
-
-        for _ in range(max_attempts):
-            notification_elements = self.page.locator(".pluto-notification").all()
-            if len(notification_elements) == 0:
-                break
-
-            if self.close(0):
-                closed_count += 1
-            else:
-                sy.sleep(0.1)
-
-        if closed_count > 0:
+        buttons = self._all().get_by_role("button", name="Silence", exact=True)
+        count = buttons.count()
+        silenced = 0
+        # Last to first: a silenced toast unmounts and shifts the indexes after it.
+        for i in reversed(range(count)):
             try:
-                self.page.locator(".pluto-notification").first.wait_for(
-                    state="hidden", timeout=2000
-                )
+                buttons.nth(i).dispatch_event("click", timeout=SILENCE_TIMEOUT)
+                silenced += 1
             except PlaywrightTimeoutError:
                 pass
-
-        return closed_count
+        if silenced > 0:
+            try:
+                expect(buttons).to_have_count(0, timeout=2000)
+            except AssertionError:
+                pass
+        return silenced
 
     def close_connection(self) -> bool:
         """Close the 'Connected to...' notification if present.
 
-        Returns:
-            True if notification was found and close was triggered, False otherwise.
+        :returns: True if the notification was found and close was triggered,
+            False otherwise.
         """
-        notification = self.page.locator(".pluto-notification:has-text('Connected to')")
+        notification = self._all().filter(has_text="Connected to")
         if notification.count() == 0:
             return False
 
-        close_btn = notification.locator(".pluto-notification__silence")
-        if close_btn.count() > 0:
-            try:
-                close_btn.dispatch_event("click", timeout=2000)
-            except PlaywrightTimeoutError:
-                return False
+        close_btn = notification.first.get_by_role("button", name="Silence", exact=True)
+        if close_btn.count() == 0:
+            return False
+        try:
+            close_btn.first.dispatch_event("click", timeout=2000)
             return True
-        return False
+        except PlaywrightTimeoutError:
+            return False
 
     def wait_for(self, text: str) -> bool:
         """Wait for a notification containing specific text to appear.
 
-        Args:
-            text: Text to search for in the notification.
-            timeout: Maximum time to wait in milliseconds.
-
-        Returns:
-            True if notification was found, False if timeout.
+        :param text: Text to search for in the notification.
+        :returns: True if the notification was found, False if timeout.
         """
-        notification = self.page.locator(f".pluto-notification:has-text('{text}')")
+        notification = self._all().filter(has_text=text)
         try:
-            notification.wait_for(state="visible", timeout=5000)
+            notification.first.wait_for(state="visible", timeout=5000)
             return True
         except PlaywrightTimeoutError:
             return False

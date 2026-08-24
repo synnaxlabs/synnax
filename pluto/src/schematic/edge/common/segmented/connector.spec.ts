@@ -315,10 +315,8 @@ describe("connector", () => {
     const SIMPLE_BOTTOM_TO_TOP: Spec = {
       name: "simple bottom to top",
       props: {
-        sourceOrientation: "bottom",
-        targetOrientation: "top",
-        sourcePos: { x: 0, y: 0 },
-        targetPos: { x: 0, y: 30 },
+        source: { position: { x: 0, y: 0 }, orientation: "bottom" },
+        target: { position: { x: 0, y: 30 }, orientation: "top" },
         sourceBox: box.ZERO,
         targetBox: box.ZERO,
       },
@@ -328,10 +326,8 @@ describe("connector", () => {
     const SIMPLE_LEFT_TO_RIGHT: Spec = {
       name: "simple left to right",
       props: {
-        sourceOrientation: "left",
-        targetOrientation: "right",
-        sourcePos: { x: 30, y: 0 },
-        targetPos: { x: 0, y: 0 },
+        source: { position: { x: 30, y: 0 }, orientation: "left" },
+        target: { position: { x: 0, y: 0 }, orientation: "right" },
         sourceBox: box.ZERO,
         targetBox: box.ZERO,
       },
@@ -341,10 +337,8 @@ describe("connector", () => {
     const SIMPLE_TOP_TO_BOTTOM: Spec = {
       name: "simple top to bottom",
       props: {
-        sourceOrientation: "top",
-        targetOrientation: "bottom",
-        sourcePos: { x: 0, y: 0 },
-        targetPos: { x: 0, y: -30 },
+        source: { position: { x: 0, y: 0 }, orientation: "top" },
+        target: { position: { x: 0, y: -30 }, orientation: "bottom" },
         sourceBox: box.ZERO,
         targetBox: box.ZERO,
       },
@@ -354,10 +348,8 @@ describe("connector", () => {
     const SIMPLE_RIGHT_TO_LEFT: Spec = {
       name: "simple right to left",
       props: {
-        sourceOrientation: "right",
-        targetOrientation: "left",
-        sourcePos: { x: 0, y: 0 },
-        targetPos: { x: 30, y: 0 },
+        source: { position: { x: 0, y: 0 }, orientation: "right" },
+        target: { position: { x: 30, y: 0 }, orientation: "left" },
         sourceBox: box.ZERO,
         targetBox: box.ZERO,
       },
@@ -367,19 +359,14 @@ describe("connector", () => {
     const LEFT_LEFT_TARGET_DOWN_RIGHT: Spec = {
       name: "left and left - target is down and right",
       props: {
-        sourceOrientation: "left",
-        targetOrientation: "left",
-        sourcePos: { x: 0, y: 0 },
-        targetPos: { x: 30, y: 30 },
+        source: { position: { x: 0, y: 0 }, orientation: "left" },
+        target: { position: { x: 30, y: 30 }, orientation: "left" },
         sourceBox: box.ZERO,
         targetBox: box.ZERO,
       },
       expected: [
-        // Left
         { direction: "x", length: -10 },
-        // Down
         { direction: "y", length: 30 },
-        // Right
         { direction: "x", length: 40 },
       ],
     };
@@ -387,19 +374,14 @@ describe("connector", () => {
     const LEFT_LEFT_TARGET_UP_LEFT: Spec = {
       name: "left and left - target is up and left",
       props: {
-        sourceOrientation: "left",
-        targetOrientation: "left",
-        sourcePos: { x: 30, y: 30 },
-        targetPos: { x: 0, y: 0 },
+        source: { position: { x: 30, y: 30 }, orientation: "left" },
+        target: { position: { x: 0, y: 0 }, orientation: "left" },
         sourceBox: box.ZERO,
         targetBox: box.ZERO,
       },
       expected: [
-        // Left
         { direction: "x", length: -40 },
-        // Up
         { direction: "y", length: -30 },
-        // Right
         { direction: "x", length: 10 },
       ],
     };
@@ -407,23 +389,16 @@ describe("connector", () => {
     const LEFT_LEFT_TARGET_EQ_RIGHT: Spec = {
       name: "left and left - target is equal and right",
       props: {
-        sourceOrientation: "left",
-        targetOrientation: "left",
-        sourcePos: { x: 0, y: 0 },
-        targetPos: { x: 30, y: 0 },
+        source: { position: { x: 0, y: 0 }, orientation: "left" },
+        target: { position: { x: 30, y: 0 }, orientation: "left" },
         sourceBox: box.ZERO,
         targetBox: box.ZERO,
       },
       expected: [
-        // Left
         { direction: "x", length: -10 },
-        // Up
         { direction: "y", length: -10 },
-        // Right
         { direction: "x", length: 30 },
-        // Down
         { direction: "y", length: 10 },
-        // Right
         { direction: "x", length: 10 },
       ],
     };
@@ -431,23 +406,16 @@ describe("connector", () => {
     const LEFT_LEFT_TARGET_EQ_LEFT: Spec = {
       name: "left and left - target is equal and left",
       props: {
-        sourceOrientation: "left",
-        targetOrientation: "left",
-        sourcePos: { x: 30, y: 0 },
-        targetPos: { x: 0, y: 0 },
+        source: { position: { x: 30, y: 0 }, orientation: "left" },
+        target: { position: { x: 0, y: 0 }, orientation: "left" },
         sourceBox: box.ZERO,
         targetBox: box.ZERO,
       },
       expected: [
-        // Left
         { direction: "x", length: -10 },
-        // Up
         { direction: "y", length: -10 },
-        // Left
         { direction: "x", length: -30 },
-        // Down
         { direction: "y", length: 10 },
-        // Right
         { direction: "x", length: 10 },
       ],
     };
@@ -469,8 +437,8 @@ describe("connector", () => {
         expect(actual).toEqual(spec.expected);
         // We also want to do a sanity check to make sure that the connector actually gets to the target from the
         // source.
-        const target = Segmented.travelSegments(spec.props.sourcePos, ...actual);
-        expect(target).toEqual(spec.props.targetPos);
+        const target = Segmented.travelSegments(spec.props.source.position, ...actual);
+        expect(target).toEqual(spec.props.target.position);
       });
   });
 
@@ -484,10 +452,14 @@ describe("connector", () => {
     // Same-side handles with the target behind the source force a go-around through
     // prepareNode (the box-dependent path), without the facing-stub short-circuit.
     const buildProps = (offset: xy.XY): Segmented.BuildNew => ({
-      sourceOrientation: "right",
-      targetOrientation: "right",
-      sourcePos: xy.translate({ x: 540, y: 100 }, offset),
-      targetPos: xy.translate({ x: 400, y: 300 }, offset),
+      source: {
+        position: xy.translate({ x: 540, y: 100 }, offset),
+        orientation: "right",
+      },
+      target: {
+        position: xy.translate({ x: 400, y: 300 }, offset),
+        orientation: "right",
+      },
       sourceBox: box.construct(xy.translate({ x: 500, y: 80 }, offset), NODE_DIMS),
       targetBox: box.construct(xy.translate({ x: 360, y: 280 }, offset), NODE_DIMS),
     });
@@ -517,10 +489,8 @@ describe("connector", () => {
     // still terminate exactly on the target.
     const SOURCE = { x: 0, y: 0 };
     const buildProps = (target: xy.XY): Segmented.BuildNew => ({
-      sourcePos: SOURCE,
-      targetPos: target,
-      sourceOrientation: "right",
-      targetOrientation: "left",
+      source: { position: SOURCE, orientation: "right" },
+      target: { position: target, orientation: "left" },
       sourceBox: box.construct({ x: -40, y: -15 }, { width: 40, height: 30 }),
       targetBox: box.construct(
         { x: target.x, y: target.y - 15 },
@@ -746,11 +716,6 @@ describe("connector", () => {
       expected: [{ direction: "x", length: 30 }],
     };
 
-    // Props:
-    // S---T
-    //
-    // Expected:
-    // S-----T
     const SIMPLE_MOVE_LEFT: Spec = {
       name: "simple move left",
       props: { delta: { x: -10, y: 0 }, segments: [{ direction: "x", length: 30 }] },
@@ -942,5 +907,25 @@ describe("connector", () => {
         expect(actual).toEqual(spec.expected);
         expect(actualTarget).toEqual(expectedTarget);
       });
+  });
+
+  describe("build", () => {
+    const source = { position: { x: 0, y: 0 }, orientation: "right" as const };
+    const target = { position: { x: 100, y: 100 }, orientation: "left" as const };
+    const sourceBox = box.construct({ x: 0, y: 0 });
+    const targetBox = box.construct({ x: 100, y: 100 });
+
+    it("routes a fresh connector when there are no middle segments", () => {
+      expect(
+        Segmented.build({ source, target, sourceBox, targetBox, middleSegments: [] }),
+      ).toEqual(Segmented.createConnector({ source, target, sourceBox, targetBox }));
+    });
+
+    it("stitches the middle segments to the endpoints when present", () => {
+      const middleSegments = [{ direction: "x" as const, length: 30 }];
+      expect(
+        Segmented.build({ source, target, sourceBox, targetBox, middleSegments }),
+      ).toEqual(Segmented.stitchEdge({ source, target, middleSegments }));
+    });
   });
 });

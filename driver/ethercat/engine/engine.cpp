@@ -9,12 +9,12 @@
 
 #include <algorithm>
 
-#include "glog/logging.h"
+#include "absl/log/check.h"
+#include "absl/log/log.h"
 
 #include "x/cpp/loop/loop.h"
 
 #include "driver/ethercat/engine/engine.h"
-#include "driver/ethercat/errors/errors.h"
 
 namespace driver::ethercat::engine {
 void Engine::run() {

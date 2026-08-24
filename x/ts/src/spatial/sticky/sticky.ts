@@ -24,9 +24,8 @@ interface ToCSSReturn extends Partial<Record<location.Outer, string>> {}
 
 export const toCSS = (pos: XY): ToCSSReturn => {
   const ret: ToCSSReturn = {};
-  ret[pos.root?.x ?? "left"] =
-    pos?.units?.x === "px" ? `${pos.x}px` : `${pos.x * 100}%`;
-  ret[pos.root?.y ?? "top"] = pos?.units?.y === "px" ? `${pos.y}px` : `${pos.y * 100}%`;
+  ret[pos.root.x] = pos.units.x === "px" ? `${pos.x}px` : `${pos.x * 100}%`;
+  ret[pos.root.y] = pos.units.y === "px" ? `${pos.y}px` : `${pos.y * 100}%`;
   return ret;
 };
 
@@ -42,21 +41,21 @@ export const toDecimal = ({
   container,
 }: ToDecimalProps): base.XY => {
   const ret = { x: position.x, y: position.y };
-  if (position.units?.x === "decimal") {
-    if (position.root?.x === "right") ret.x = 1 - position.x;
-  } else if (position.root?.x === "right")
+  if (position.units.x === "decimal") {
+    if (position.root.x === "right") ret.x = 1 - position.x;
+  } else if (position.root.x === "right")
     ret.x = 1 - (position.x + box.width(element)) / box.width(container);
   else ret.x /= box.width(container);
-  if (position.units?.y === "decimal") {
-    if (position.root?.y === "bottom") ret.y = 1 - position.y;
-  } else if (position.root?.y === "bottom")
+  if (position.units.y === "decimal") {
+    if (position.root.y === "bottom") ret.y = 1 - position.y;
+  } else if (position.root.y === "bottom")
     ret.y = 1 - (position.y + box.height(element)) / box.height(container);
   else ret.y /= box.height(container);
   return ret;
 };
 
 export interface CalculateProps {
-  position: XY;
+  position: base.XY;
   element: box.Box;
   container: box.Box;
   lowerThreshold?: number;

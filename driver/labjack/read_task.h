@@ -9,13 +9,14 @@
 
 #pragma once
 
+#include <charconv>
 #include <map>
 #include <set>
 #include <string>
+#include <variant>
 #include <vector>
 
-#include "glog/logging.h"
-
+#include "client/cpp/labjack/json.gen.h"
 #include "client/cpp/synnax.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/json/json.h"
@@ -30,8 +31,6 @@
 #include "driver/transform/transform.h"
 
 namespace driver::labjack {
-constexpr int SINGLE_ENDED = 199; // default negative channel for single ended signals
-
 ///@brief look up table mapping LJM TC Type to TC AIN_EF index
 // Thermocouple type:		 B  E  J  K  N  R  S  T  C
 const int TC_INDEX_LUT[9] = {28, 20, 21, 22, 27, 23, 25, 24, 30};
@@ -65,35 +64,48 @@ const std::map<std::string, LJM_TemperatureUnits> TEMPERATURE_UNITS = {
     {FAHRENHEIT_UNITS, LJM_FARENHEIT}
 };
 
+/// @brief converts the configured temperature units to the LJM constant.
 inline LJM_TemperatureUnits
-parse_temperature_units(x::json::Parser &parser, const std::string &path) {
-    const auto units = parser.field<std::string>(path);
+resolve_temperature_units(x::json::Parser &parser, const std::string &units) {
     const auto v = TEMPERATURE_UNITS.find(units);
-    if (v == TEMPERATURE_UNITS.end())
-        parser.field_err(path, "Invalid temperature units: " + units);
+    if (v == TEMPERATURE_UNITS.end()) {
+        parser.field_err("units", "Invalid temperature units: " + units);
+        return LJM_KELVIN;
+    }
     return v->second;
 }
 
-/// @brief parses the thermocouple type from the configuration and converts it to
-/// the appropriate LJM type.
-inline long parse_tc_type(x::json::Parser &parser, const std::string &path) {
-    const auto tc_type = parser.field<std::string>(path);
+/// @brief converts the configured thermocouple type to the LJM constant.
+inline long resolve_tc_type(x::json::Parser &parser, const std::string &tc_type) {
     const auto v = TC_TYPE_LUT.find(tc_type);
-    if (v == TC_TYPE_LUT.end())
-        parser.field_err(path, "Invalid thermocouple type: " + tc_type);
+    if (v == TC_TYPE_LUT.end()) {
+        parser.field_err("thermocouple_type", "Invalid thermocouple type: " + tc_type);
+        return LJM_ttK;
+    }
     return v->second;
 }
 
-/// @brief parses the CJC address for the device.
-inline int parse_cjc_addr(x::json::Parser &parser, const std::string &path) {
-    const auto cjc_source = parser.field<std::string>(path);
+/// @brief resolves the AIN index a port names, e.g. 3 for "AIN3".
+inline int resolve_ain_index(x::json::Parser &parser, const std::string &port) {
+    if (port.starts_with(AIN_PREFIX)) {
+        int index = 0;
+        const char *last = port.data() + port.size();
+        const auto res = std::from_chars(port.data() + AIN_PREFIX.size(), last, index);
+        if (res.ec == std::errc{} && res.ptr == last) return index;
+    }
+    parser.field_err("port", "Invalid port: " + port);
+    return 0;
+}
+
+/// @brief resolves the CJC modbus address for the configured CJC source.
+inline int resolve_cjc_addr(x::json::Parser &parser, const std::string &cjc_source) {
     if (cjc_source == DEVICE_CJC_SOURCE) return LJM_TEMPERATURE_DEVICE_K_ADDRESS;
     if (cjc_source == AIR_CJC_SOURCE) return LJM_TEMPERATURE_AIR_K_ADDRESS;
     if (cjc_source.find(AIN_PREFIX) != std::string::npos) {
         const int port_num = std::stoi(cjc_source.substr(3));
         return port_num * 2;
     }
-    parser.field_err(path, "Invalid CJC source: " + cjc_source);
+    parser.field_err("cjc_source", "Invalid CJC source: " + cjc_source);
     return 0;
 }
 
@@ -107,22 +119,21 @@ struct InputChan {
     std::string port;
     /// @brief the synnax key to write channel data to.
     const synnax::channel::Key synnax_key;
-    const int neg_chan;
-    const int pos_chan;
 
     synnax::channel::Channel ch;
 
-    explicit InputChan(x::json::Parser &parser):
-        enabled(parser.field<bool>("enabled", true)),
-        port(parser.field<std::string>("port")),
-        synnax_key(parser.field<uint32_t>("channel")),
-        neg_chan(parser.field<int>("neg_chan", SINGLE_ENDED)),
-        pos_chan(parser.field<int>("pos_chan", 0)) {}
+    explicit InputChan(const ::synnax::labjack::BaseReadChannel &cfg):
+        enabled(!cfg.disabled), port(cfg.port), synnax_key(cfg.channel) {}
 
     /// @brief applies the configuration to the device.
     virtual x::errors::Error
     apply(const std::shared_ptr<device::Device> &dev, const std::string &device_type) {
         return x::errors::NIL;
+    }
+
+    /// @brief the scale applied to raw samples, when the channel carries one.
+    [[nodiscard]] virtual const ::synnax::labjack::Scale *scale() const {
+        return nullptr;
     }
 };
 
@@ -145,33 +156,52 @@ struct ThermocoupleChan final : InputChan {
     // or order. We use a lookup table provided by LabJack to convert our
     // thermocouple constant to the correct index when using the AIN_EF
     // Lookup table: TC_INDEX_LUT[ x - 60001] = AIN_EF_INDEX
-    long type;
+    const long type;
+
+    ///@brief the AIN index the thermocouple's positive lead is wired to.
+    const int pos_chan;
+
+    ///@brief the AIN port of the negative lead on T7 devices. 199 is single ended.
+    const int neg_chan;
 
     ///@brief  Modbus Address to read the CJC sensor
-    int cjc_addr;
+    const int cjc_addr;
 
     ///@brief slope of CJC Voltage to temperature conversion (Kelvin/Volts).
     // if using device temp (cjc_addr is TEMPERATURE_DEVICE_K), set to 1
     // If using a LM34 on some AIN, set to 55.56
-    float cjc_slope;
+    const double cjc_slope;
 
     ///@brief Offset for CJC temp (Kelvin)
     // If cjc_addr = TEMPERATURE_DEVICE_K. set to 0
     // If using InAmp or expansion board, might need to adjust it a few degrees
     // If using LM34 connected to an AIN, set to 255.37
-    float cjc_offset;
+    const double cjc_offset;
 
     ///@brief units for the thermocouple reading
-    LJM_TemperatureUnits units;
+    const LJM_TemperatureUnits units;
 
-    explicit ThermocoupleChan(x::json::Parser &parser):
-        InputChan(parser),
-        type(parse_tc_type(parser, "thermocouple_type")),
-        cjc_addr(parse_cjc_addr(parser, "cjc_source")),
-        cjc_slope(parser.field<float>("cjc_slope")),
-        cjc_offset(parser.field<float>("cjc_offset")),
-        units(parse_temperature_units(parser, "units")) {
+    ///@brief the scale applied to raw samples after acquisition.
+    const ::synnax::labjack::Scale scale_cfg;
+
+    ThermocoupleChan(
+        const ::synnax::labjack::ThermocoupleReadChannel &cfg,
+        x::json::Parser &parser
+    ):
+        InputChan(cfg),
+        type(resolve_tc_type(parser, cfg.thermocouple_type)),
+        pos_chan(resolve_ain_index(parser, cfg.port)),
+        neg_chan(cfg.neg_chan),
+        cjc_addr(resolve_cjc_addr(parser, cfg.cjc_source)),
+        cjc_slope(cfg.cjc_slope),
+        cjc_offset(cfg.cjc_offset),
+        units(resolve_temperature_units(parser, cfg.units)),
+        scale_cfg(cfg.scale) {
         this->port = AIN_PREFIX + std::to_string(this->pos_chan) + TC_SUFFIX;
+    }
+
+    [[nodiscard]] const ::synnax::labjack::Scale *scale() const override {
+        return &this->scale_cfg;
     }
 
     x::errors::Error apply(
@@ -231,9 +261,20 @@ struct ThermocoupleChan final : InputChan {
 struct AIChan final : InputChan {
     /// @brief the voltage range for the channel, starting at 0 and ending at range.
     const double range;
+    /// @brief the negative channel for differential readings. 199 is single ended.
+    const int neg_chan;
+    /// @brief the scale applied to raw samples after acquisition.
+    const ::synnax::labjack::Scale scale_cfg;
 
-    explicit AIChan(x::json::Parser &parser):
-        InputChan(parser), range(parser.field<double>("range", 10.0)) {}
+    explicit AIChan(const ::synnax::labjack::AnalogReadChannel &cfg):
+        InputChan(cfg),
+        range(cfg.range),
+        neg_chan(cfg.neg_chan),
+        scale_cfg(cfg.scale) {}
+
+    [[nodiscard]] const ::synnax::labjack::Scale *scale() const override {
+        return &this->scale_cfg;
+    }
 
     x::errors::Error apply(
         const std::shared_ptr<device::Device> &dev,
@@ -259,38 +300,69 @@ struct AIChan final : InputChan {
 
 /// @brief configuration for a digital input channel.
 struct DIChan final : InputChan {
-    explicit DIChan(x::json::Parser &parser): InputChan(parser) {}
-};
-
-template<typename T>
-using InputChanFactory = std::function<std::unique_ptr<T>(x::json::Parser &cfg)>;
-
-#define INPUT_CHAN_FACTORY(type, class)                                                \
-    {type, [](x::json::Parser &cfg) { return std::make_unique<class>(cfg); }}
-
-inline std::map<std::string, InputChanFactory<InputChan>> INPUTS = {
-    INPUT_CHAN_FACTORY("TC", ThermocoupleChan),
-    INPUT_CHAN_FACTORY("AI", AIChan),
-    INPUT_CHAN_FACTORY("DI", DIChan)
+    explicit DIChan(const ::synnax::labjack::DigitalReadChannel &cfg): InputChan(cfg) {}
 };
 
 /// @brief parses the input channel from the provided configuration.
-/// @returns nullptr if the configuration is in valid, and binds any relevant
+/// @returns nullptr if the configuration is invalid, and binds any relevant
 /// field errors to the config.
 inline std::unique_ptr<InputChan> parse_input_chan(x::json::Parser &cfg) {
     const auto type = cfg.field<std::string>("type");
-    const auto input = INPUTS.find(type);
-    if (input != INPUTS.end()) return input->second(cfg);
+    if (type == "thermocouple")
+        return std::make_unique<ThermocoupleChan>(
+            ::synnax::labjack::ThermocoupleReadChannel::parse(cfg),
+            cfg
+        );
+    if (type == "analog")
+        return std::make_unique<AIChan>(
+            ::synnax::labjack::AnalogReadChannel::parse(cfg)
+        );
+    if (type == "digital")
+        return std::make_unique<DIChan>(
+            ::synnax::labjack::DigitalReadChannel::parse(cfg)
+        );
     cfg.field_err("type", "unknown channel type: " + type);
     return nullptr;
+}
+
+/// @brief registers the channel's configured scale on the scale transform.
+inline void add_scale(
+    transform::Scale &scales,
+    const synnax::channel::Key key,
+    const x::telem::DataType &dt,
+    const ::synnax::labjack::Scale &scale
+) {
+    if (const auto *l = std::get_if<::synnax::labjack::LinearScale>(&scale))
+        scales.add(key, transform::UnaryLinearScale(l->slope, l->offset, dt));
+    else if (const auto *m = std::get_if<::synnax::labjack::MapScale>(&scale))
+        scales.add(
+            key,
+            transform::UnaryMapScale(
+                m->pre_scaled_min,
+                m->pre_scaled_max,
+                m->scaled_min,
+                m->scaled_max,
+                dt
+            )
+        );
+}
+
+/// @brief returns the scan backlog above which the task warns about skew. A zero
+/// or absent count means the caller has no preference, so the threshold falls back
+/// to seconds worth of scans at sample_rate.
+inline size_t parse_backlog_warn_on_count(
+    x::json::Parser &parser,
+    const std::string &field,
+    const x::telem::Rate sample_rate,
+    const float seconds
+) {
+    if (const auto count = parser.field<size_t>(field, 0); count != 0) return count;
+    return static_cast<size_t>(sample_rate.hz() * seconds);
 }
 
 /// @brief configuration for a LabJack read task.
 struct ReadTaskConfig : common::BaseReadTaskConfig {
     const std::string device_key;
-    /// @brief the connection method used to communicate with the device.
-    /// Dynamically populated by querying the core.
-    std::string conn_method;
     /// @brief the indexes of the channels in the task.
     /// Dynamically populated by querying the core.
     std::set<synnax::channel::Key> indexes;
@@ -304,15 +376,14 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// @brief a set of transforms to apply to the frame after reading. Applies
     /// scaling information to channels.
     driver::transform::Chain transform;
-    /// @brief the number of skipped scans to allow before warning the user.
+    /// @brief the device-side scan backlog to allow before warning the user.
     size_t device_scan_backlog_warn_on_count;
-    /// @brief the size of the buffer to use for reading data from the device.
+    /// @brief the LJM-side scan backlog to allow before warning the user.
     size_t ljm_scan_backlog_warn_on_count;
 
     ReadTaskConfig(ReadTaskConfig &&other) noexcept:
         common::BaseReadTaskConfig(std::move(other)),
         device_key(other.device_key),
-        conn_method(other.conn_method),
         indexes(std::move(other.indexes)),
         samples_per_chan(other.samples_per_chan),
         channels(std::move(other.channels)),
@@ -331,8 +402,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         const common::TimingConfig timing_cfg = common::TimingConfig()
     ):
         common::BaseReadTaskConfig(parser, timing_cfg),
-        device_key(parser.field<std::string>("device", "cross-device")),
-        conn_method(parser.field<std::string>("conn_method", "")),
+        device_key(parser.field<std::string>("device", "")),
         samples_per_chan(sample_rate / stream_rate),
         channels(parser.map<std::unique_ptr<InputChan>>(
             "channels",
@@ -343,13 +413,17 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                 return {std::move(ch), ch->enabled};
             }
         )),
-        device_scan_backlog_warn_on_count(parser.field<size_t>(
+        device_scan_backlog_warn_on_count(parse_backlog_warn_on_count(
+            parser,
             "device_scan_backlog_warn_on_count",
-            this->sample_rate.hz() * 2 // Default to 2 seconds of scans.
+            this->sample_rate,
+            2
         )),
-        ljm_scan_backlog_warn_on_count(parser.field<size_t>(
+        ljm_scan_backlog_warn_on_count(parse_backlog_warn_on_count(
+            parser,
             "ljm_scan_backlog_warn_on_count",
-            this->sample_rate.hz() // Default to 1 second of scans.
+            this->sample_rate,
+            1
         )) {
         if (this->channels.empty()) {
             parser.field_err("channels", "task must have at least one enabled channel");
@@ -378,8 +452,10 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             if (ch.index != 0) this->indexes.insert(ch.index);
             this->channels[i++]->ch = ch;
         }
-        const auto channel_map = map_channel_keys(sy_channels);
-        auto scale_transform = std::make_unique<transform::Scale>(parser, channel_map);
+        auto scale_transform = std::make_unique<transform::Scale>();
+        for (const auto &ch: this->channels)
+            if (const auto *scale = ch->scale())
+                add_scale(*scale_transform, ch->ch.key, ch->ch.data_type, *scale);
         this->transform.add(std::move(scale_transform));
     }
 
@@ -401,7 +477,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             keys.push_back(idx);
         return synnax::framer::WriterConfig{
             .channels = keys,
-            .mode = common::data_saving_writer_mode(this->data_saving),
+            .mode = common::data_saving_writer_mode(this->data_saving_disabled),
         };
     }
 
@@ -441,21 +517,36 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
 class UnarySource final : public common::Source {
     /// @brief the configuration for the read task.
     ReadTaskConfig cfg;
-    /// @brief the API of the device we're reading from.
-    const std::shared_ptr<device::Device> dev;
+    /// @brief acquires the device on each start.
+    const std::shared_ptr<device::Manager> devs;
+    /// @brief the API of the device we're reading from. Populated on start and
+    /// released on stop.
+    std::shared_ptr<device::Device> dev;
     /// @brief a handle to the interval that is regulating the sample clock.
     const int interval_handle;
 
 public:
-    UnarySource(const std::shared_ptr<device::Device> &dev, ReadTaskConfig cfg):
-        cfg(std::move(cfg)), dev(dev), interval_handle(0) {}
+    UnarySource(const std::shared_ptr<device::Manager> &devs, ReadTaskConfig cfg):
+        cfg(std::move(cfg)), devs(devs), interval_handle(0) {}
 
+    /// @brief claims the device on every start so a device that disconnects and
+    /// returns between runs gets a fresh LJM handle on the next start.
     x::errors::Error start() override {
-        if (const auto err = this->cfg.apply(this->dev)) return err;
-        return this->dev->start_interval(
-            this->interval_handle,
-            static_cast<int>(this->cfg.sample_rate.period().microseconds())
-        );
+        auto [d, err] = this->devs->acquire(this->cfg.device_key);
+        if (err) return err;
+        this->dev = std::move(d);
+        if (const auto apply_err = this->cfg.apply(this->dev)) {
+            this->dev.reset();
+            return apply_err;
+        }
+        if (const auto interval_err = this->dev->start_interval(
+                this->interval_handle,
+                static_cast<int>(this->cfg.sample_rate.period().microseconds())
+            )) {
+            this->dev.reset();
+            return interval_err;
+        }
+        return x::errors::NIL;
     }
 
     [[nodiscard]] std::vector<synnax::channel::Channel> channels() const override {
@@ -463,7 +554,10 @@ public:
     }
 
     x::errors::Error stop() override {
-        return this->dev->clean_interval(this->interval_handle);
+        if (this->dev == nullptr) return x::errors::NIL;
+        const auto err = this->dev->clean_interval(this->interval_handle);
+        this->dev.reset();
+        return err;
     }
 
     common::ReadResult
@@ -523,8 +617,11 @@ public:
 class StreamSource final : public common::Source {
     /// @brief the configuration for the read task.
     ReadTaskConfig cfg;
-    /// @brief the API to the device we're reading from.
-    const std::shared_ptr<device::Device> dev;
+    /// @brief acquires the device on each start.
+    const std::shared_ptr<device::Manager> devs;
+    /// @brief the API to the device we're reading from. Populated on start and
+    /// released on stop.
+    std::shared_ptr<device::Device> dev;
     /// @brief sample clock used to get timestamp information for the task.
     common::HardwareTimedSampleClock sample_clock;
     /// @brief buffer containing interleaved data directly from device
@@ -546,9 +643,9 @@ class StreamSource final : public common::Source {
     }
 
 public:
-    StreamSource(const std::shared_ptr<device::Device> &dev, ReadTaskConfig cfg):
+    StreamSource(const std::shared_ptr<device::Manager> &devs, ReadTaskConfig cfg):
         cfg(std::move(cfg)),
-        dev(dev),
+        devs(devs),
         sample_clock(
             common::HardwareTimedSampleClockConfig::create_simple(
                 this->cfg.sample_rate,
@@ -564,15 +661,25 @@ public:
         return this->cfg.writer();
     }
 
-    x::errors::Error start() override { return this->restart(false); }
+    x::errors::Error start() override {
+        if (const auto err = this->restart(false)) {
+            this->dev.reset();
+            return err;
+        }
+        return x::errors::NIL;
+    }
 
     [[nodiscard]] std::vector<synnax::channel::Channel> channels() const override {
         return this->cfg.sy_channels();
     }
 
-    /// @brief restarts the source.
+    /// @brief restarts the source. The claim is released before the acquire so a
+    /// device that reconnects gets a fresh LJM handle instead of the cached one.
     x::errors::Error restart(const bool force) {
         this->stop();
+        auto [d, acquire_err] = this->devs->acquire(this->cfg.device_key);
+        if (acquire_err) return acquire_err;
+        this->dev = std::move(d);
         if (const auto err = this->cfg.apply(this->dev); err && !force) return err;
         std::vector<int> temp_ports(this->cfg.channels.size());
         std::vector<const char *> physical_channels;
@@ -598,11 +705,22 @@ public:
         return x::errors::NIL;
     }
 
-    x::errors::Error stop() override { return this->dev->e_stream_stop(); }
+    x::errors::Error stop() override {
+        if (this->dev == nullptr) return x::errors::NIL;
+        const auto err = this->dev->e_stream_stop();
+        this->dev.reset();
+        return err;
+    }
 
     common::ReadResult
     read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override {
         common::ReadResult res;
+        // A failed restart leaves no device. The pipeline retries temporary errors,
+        // giving recovery a chance on every attempt.
+        if (this->dev == nullptr) {
+            res.error = translate_error(this->restart(true));
+            if (res.error) return res;
+        }
         const auto n_channels = this->cfg.channels.size();
         const auto n_samples = this->cfg.samples_per_chan;
         common::initialize_frame(fr, this->cfg.channels, this->cfg.indexes, n_samples);

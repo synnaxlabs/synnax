@@ -15,7 +15,6 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/arc/analyzer/constant"
 	"github.com/synnaxlabs/arc/analyzer/constraints"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
@@ -35,6 +34,7 @@ func AnalyzeProgram(ctx acontext.Context[parser.IProgramContext]) {
 	collectImports(ctx)
 	collectDeclarations(ctx)
 	analyzeDeclarations(ctx)
+	liftReassignedVarReads(ctx)
 	propagateCallChannels(ctx.CallEdges)
 	detectCallCycles(ctx.CallEdges, ctx.Diagnostics)
 	reportUnusedImports(ctx)
@@ -48,6 +48,23 @@ func AnalyzeProgram(ctx acontext.Context[parser.IProgramContext]) {
 	}
 }
 
+// liftReassignedVarReads lifts reassigned-variable reads in synth expressions
+// into input params. Format-string placeholders lift from their parsed bodies.
+func liftReassignedVarReads(ctx acontext.Context[parser.IProgramContext]) {
+	for _, c := range ctx.Scope.Root().Children() {
+		if c.Kind != symbol.KindFunction || c.AST == nil {
+			continue
+		}
+		if expr, ok := c.AST.(parser.IExpressionContext); ok {
+			if parser.IsLiteral(expr) {
+				flow.LiftFmtStrVarReads(ctx, c, expr)
+				continue
+			}
+			flow.LiftVarReads(ctx, c, expr)
+		}
+	}
+}
+
 func substituteTypeMap(ctx acontext.Context[parser.IProgramContext]) {
 	for node, typ := range ctx.TypeMap {
 		ctx.TypeMap[node] = ctx.Constraints.ApplySubstitutions(typ)
@@ -55,7 +72,6 @@ func substituteTypeMap(ctx acontext.Context[parser.IProgramContext]) {
 }
 
 func collectDeclarations(ctx acontext.Context[parser.IProgramContext]) {
-	constant.CollectDeclarations(ctx)
 	function.CollectDeclarations(ctx)
 	sequence.CollectDeclarations(ctx)
 }
@@ -186,7 +202,9 @@ func detectCallCycles(edges *[]acontext.CallEdge, diag *diagnostics.Diagnostics)
 		if !anySafe {
 			cycle, closingSite := findCycleInSCC(scc, sccSet, callGraph)
 			chain := strings.Join(cycle, " -> ")
-			diag.Add(diagnostics.Errorf(closingSite, "circular function call: %s", chain))
+			diag.Add(
+				diagnostics.Errorf(closingSite, "circular function call: %s", chain),
+			)
 		}
 	}
 }
@@ -194,7 +212,11 @@ func detectCallCycles(edges *[]acontext.CallEdge, diag *diagnostics.Diagnostics)
 // findCycleInSCC finds a simple cycle within the SCC for error reporting and returns
 // the cycle as a list of names (ending with the start node) and the closing call site.
 // O(|SCC| + edges within SCC). Only called for error SCCs.
-func findCycleInSCC(scc []string, sccSet set.Set[string], graph map[string][]callEdgeInfo) ([]string, antlr.ParserRuleContext) {
+func findCycleInSCC(
+	scc []string,
+	sccSet set.Set[string],
+	graph map[string][]callEdgeInfo,
+) ([]string, antlr.ParserRuleContext) {
 	start := scc[0]
 
 	if len(scc) == 1 {
@@ -241,7 +263,10 @@ func findCycleInSCC(scc []string, sccSet set.Set[string], graph map[string][]cal
 // blockAlwaysCalls returns true if every execution path through the block reaches at
 // least one of the given call sites. Mirrors blockAlwaysReturns in function.go.
 // O(S * K * D) where S = statements, K = call sites, D = AST depth.
-func blockAlwaysCalls(block parser.IBlockContext, sites []antlr.ParserRuleContext) bool {
+func blockAlwaysCalls(
+	block parser.IBlockContext,
+	sites []antlr.ParserRuleContext,
+) bool {
 	if block == nil {
 		return false
 	}
@@ -270,7 +295,10 @@ func blockAlwaysCalls(block parser.IBlockContext, sites []antlr.ParserRuleContex
 
 // ifAlwaysCalls returns true if all branches of the if-statement always reach a call
 // site. Mirrors ifStmtAlwaysReturns in function.go.
-func ifAlwaysCalls(ifStmt parser.IIfStatementContext, sites []antlr.ParserRuleContext) bool {
+func ifAlwaysCalls(
+	ifStmt parser.IIfStatementContext,
+	sites []antlr.ParserRuleContext,
+) bool {
 	if ifStmt.ElseClause() == nil || !blockAlwaysCalls(ifStmt.Block(), sites) {
 		return false
 	}
@@ -283,7 +311,8 @@ func ifAlwaysCalls(ifStmt parser.IIfStatementContext, sites []antlr.ParserRuleCo
 }
 
 // ifSometimesReturns returns true if any branch of the if-statement contains a return,
-// meaning some execution paths exit early and subsequent statements are not on all paths.
+// meaning some execution paths exit early and subsequent statements are not on all
+// paths.
 func ifSometimesReturns(ifStmt parser.IIfStatementContext) bool {
 	if function.BlockAlwaysReturns(ifStmt.Block()) {
 		return true
@@ -300,7 +329,10 @@ func ifSometimesReturns(ifStmt parser.IIfStatementContext) bool {
 }
 
 // stmtContainsSite checks if any call site is a descendant of the given statement.
-func stmtContainsSite(stmt parser.IStatementContext, sites []antlr.ParserRuleContext) bool {
+func stmtContainsSite(
+	stmt parser.IStatementContext,
+	sites []antlr.ParserRuleContext,
+) bool {
 	for _, site := range sites {
 		if isDescendant(site, stmt) {
 			return true
@@ -344,6 +376,12 @@ func analyzeDeclarations(ctx acontext.Context[parser.IProgramContext]) {
 			sequence.Analyze(acontext.Child(ctx, seqDecl))
 		} else if stageDecl := item.StageDeclaration(); stageDecl != nil {
 			sequence.AnalyzeTopLevelStage(acontext.Child(ctx, stageDecl))
+		} else if varDecl := item.VariableDeclaration(); varDecl != nil {
+			statement.AnalyzeVariableDeclaration(acontext.Child(ctx, varDecl))
+		} else if assign := item.Assignment(); assign != nil {
+			ctx.Diagnostics.Add(diagnostics.Errorf(assign,
+				"cannot reassign a top-level variable; assignment is only valid "+
+					"inside a sequence, stage, or function"))
 		}
 	}
 	sequence.AnalyzeSynthInlines(ctx)
@@ -388,7 +426,8 @@ func addUnificationError(
 	err error,
 	fallbackCtx antlr.ParserRuleContext,
 ) {
-	if ue, ok := err.(*constraints.UnificationError); ok && ue.Constraint != nil && ue.Constraint.Source != nil {
+	if ue, ok := err.(*constraints.UnificationError); ok && ue.Constraint != nil &&
+		ue.Constraint.Source != nil {
 		diag.Add(diagnostics.Error(err, ue.Constraint.Source))
 	} else {
 		diag.Add(diagnostics.Error(err, fallbackCtx))

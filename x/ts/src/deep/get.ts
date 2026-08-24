@@ -10,8 +10,11 @@
 import { defaultGetter, SEPARATOR } from "@/deep/path";
 import { type record } from "@/record";
 
+/** Options for {@link get}. */
 export interface GetOptions<O extends boolean | undefined = boolean | undefined> {
+  /** Whether a missing path returns null instead of throwing. */
   optional: O;
+  /** Reads one path part off an object. Defaults to {@link defaultGetter}. */
   getter?: (obj: record.Unknown, key: string) => unknown;
 }
 
@@ -33,6 +36,13 @@ export interface TypedGet<V = record.Unknown, T = record.Unknown> {
   (obj: T, path: string, options?: GetOptions<boolean | undefined>): V | null;
 }
 
+/**
+ * Reads the value at a dot-separated path. Keys that carry a dot still resolve, since
+ * the longest matching key wins at each step.
+ *
+ * @throws {Error} if the path is missing and `optional` is not set.
+ * @example deep.get(config, "task.channels.0.name")
+ */
 export const get = (<V = record.Unknown, T = record.Unknown>(
   obj: T,
   path: string,
@@ -73,6 +83,7 @@ export const get = (<V = record.Unknown, T = record.Unknown>(
   return tryGet(obj as record.Unknown, 0);
 }) as Get;
 
+/** @returns whether the object holds a non-null value at the path. */
 export const has = <V = record.Unknown, T = record.Unknown>(
   obj: T,
   path: string,

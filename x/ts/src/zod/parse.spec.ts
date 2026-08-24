@@ -11,7 +11,6 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { errors } from "@/errors";
-import { status } from "@/status";
 import { zod } from "@/zod";
 
 const asParseError = (e: unknown): zod.ParseError => {
@@ -580,7 +579,7 @@ describe("zod.parse", () => {
     });
 
     it("should return the input, issues, and context in the details", () => {
-      const details = makeError().toStatus().details as Record<string, unknown>;
+      const details = makeError().toStatus().details;
       expect(details.input).toEqual({
         config: { port: "8080", host: "localhost" },
       });
@@ -591,83 +590,16 @@ describe("zod.parse", () => {
 
     it("should include the raw zod issues for programmatic inspection", () => {
       const err = makeError();
-      const details = err.toStatus().details as Record<string, unknown>;
+      const details = err.toStatus().details;
       expect(details.issues).toBe(err.issues);
     });
 
     it("should omit the context key when no context is provided", () => {
       const err = parseExpectingError(z.string(), 42);
-      const details = err.toStatus().details as Record<string, unknown>;
+      const details = err.toStatus().details;
       expect(details.input).toBe(42);
       expect(details.context).toBeUndefined();
       expect(Array.isArray(details.issues)).toBe(true);
-    });
-  });
-
-  describe("status.fromException integration", () => {
-    const makeError = () =>
-      parseExpectingError(
-        z.object({
-          channels: z.array(z.object({ name: z.string(), port: z.number() })),
-          owner: z.string(),
-        }),
-        {
-          channels: [{ name: "temp", port: "oops" }],
-          owner: "alice",
-        },
-        { label: "task config", context: { taskKey: "tk-1" } },
-      );
-
-    const expectedDescription = `Failed to parse task config (1 issue)
-
-  at channels[0]
-    {
-      "name": "temp",
-    ✗ "port": "oops"  × expected number
-    }
-
-  context: taskKey=tk-1`;
-
-    it("should set the status message from toStatus.message", () => {
-      expect(status.fromException(makeError()).message).toBe(
-        "Failed to parse task config",
-      );
-    });
-
-    it("should set the status description from toStatus.description", () => {
-      expect(status.fromException(makeError()).description).toBe(expectedDescription);
-    });
-
-    it("should merge input, issues, and context into status.details", () => {
-      const s = status.fromException(makeError());
-      const details = s.details as Record<string, unknown>;
-      expect(details.context).toEqual({ taskKey: "tk-1" });
-      expect(details.input).toEqual({
-        channels: [{ name: "temp", port: "oops" }],
-        owner: "alice",
-      });
-      expect(Array.isArray(details.issues)).toBe(true);
-      expect((details.issues as unknown[]).length).toBe(1);
-    });
-
-    it("should still expose issues on the underlying ParseError", () => {
-      const err = makeError();
-      expect(err.issues.length).toBeGreaterThan(0);
-    });
-
-    it("should prefix a caller-provided message with the parse headline", () => {
-      expect(status.fromException(makeError(), "Saving failed").message).toBe(
-        "Saving failed: Failed to parse task config",
-      );
-    });
-
-    it("should include a populated stack and the original error in details", () => {
-      const details = status.fromException(makeError()).details as Record<
-        string,
-        unknown
-      >;
-      expect(typeof details.stack).toBe("string");
-      expect(details.error).toBeInstanceOf(Error);
     });
   });
 

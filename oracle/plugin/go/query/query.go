@@ -18,8 +18,6 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/key"
-	"github.com/synnaxlabs/oracle/domain/ontology"
-	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
 	plugindomain "github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/imports"
@@ -58,19 +56,6 @@ func (p *Plugin) Domains() []string { return []string{"go"} }
 // Requires returns plugin dependencies.
 func (p *Plugin) Requires() []string { return []string{"go/types"} }
 
-// Check verifies generated files are up-to-date.
-func (p *Plugin) Check(*plugin.Request) error { return nil }
-
-var goPostWriter = &exec.PostWriter{
-	Extensions: []string{".go"},
-	Commands:   [][]string{{"gofmt", "-w"}},
-}
-
-// PostWrite runs gofmt on generated files.
-func (p *Plugin) PostWrite(files []string) error {
-	return goPostWriter.PostWrite(files)
-}
-
 // Generate produces retrieve.gen.go files for structs with @retrieve annotation.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
@@ -99,7 +84,12 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 
 	for _, e := range entries {
-		content, err := generateRetrieveFile(e.path, e.structs, req.Resolutions, req.RepoRoot)
+		content, err := generateRetrieveFile(
+			e.path,
+			e.structs,
+			req.Resolutions,
+			req.RepoRoot,
+		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate %s: %w", e.path, err)
 		}
@@ -118,19 +108,19 @@ type filterInfo struct {
 	GoName     string // PascalCase
 	GoType     string // resolved Go type (full type, including Array<...> if a slice)
 	ElemGoType string // resolved Go type of the slice element (only set when IsSlice)
-	IsScalar   bool   // @filter scalar or bool type
+	IsScalar   bool   // the @filter field is a scalar or bool type
 	IsBool     bool   // underlying primitive is bool
 	IsSlice    bool   // field is a slice/array; emit a contains-style filter
-	// IndexFieldName is the camelCase field name on the per-Retrieve indexes
-	// struct if the same field also carries @index. When non-empty, the
-	// generated MatchX / MatchXs routes through r.indexes.<IndexFieldName>
-	// instead of a bespoke scan closure. Empty means no index on this field.
+	// IndexFieldName is the camelCase field name on the per-Retrieve indexes struct if
+	// the same field also carries @index. When non-empty, the generated MatchX /
+	// MatchXs routes through r.indexes.<IndexFieldName> instead of a bespoke scan
+	// closure. Empty means no index on this field.
 	IndexFieldName string
 }
 
-// indexInfo holds extracted data about an @index-annotated field. Emitted as
-// a constructor function (newXIndex) and a field on the per-Retrieve indexes
-// struct that the Service constructs once and threads onto every Retrieve.
+// indexInfo holds extracted data about an @index-annotated field. Emitted as a
+// constructor function (newXIndex) and a field on the per-Retrieve indexes struct that
+// the Service constructs once and threads onto every Retrieve.
 type indexInfo struct {
 	FieldName   string // oracle field name (e.g. "created_at")
 	GoName      string // PascalCase field name (e.g. "CreatedAt")
@@ -145,12 +135,10 @@ func (i indexInfo) IsSorted() bool { return i.Kind == "sorted" }
 
 // retrieveInfo holds extracted data about a @retrieve-annotated struct.
 type retrieveInfo struct {
-	TypeName                    string
 	GoName                      string
 	KeyType                     string
-	KeyPrimitive                string
 	HasSearch                   bool
-	IsCustom                    bool // @retrieve custom - user defines the struct
+	IsCustom                    bool // user defines the struct (@retrieve custom)
 	OntologyType                string
 	KeysFromOntologyIDsHasError bool
 	Filters                     []filterInfo
@@ -161,9 +149,9 @@ type retrieveInfo struct {
 // the template to gate the Indexes registration slice.
 func (r retrieveInfo) HasIndexes() bool { return len(r.Indexes) > 0 }
 
-// HasSortedIndex reports whether the retrieve declared any @index sorted
-// fields. Used by the template to gate the Order closure type, the
-// Retrieve.OrderBy method, and the per-field OrderByX free functions.
+// HasSortedIndex reports whether the retrieve declared any @index sorted fields. Used
+// by the template to gate the Order closure type, the Retrieve.OrderBy method, and the
+// per-field OrderByX free functions.
 func (r retrieveInfo) HasSortedIndex() bool {
 	for _, idx := range r.Indexes {
 		if idx.IsSorted() {
@@ -194,8 +182,11 @@ func generateRetrieveFile(
 	}
 
 	r := &resolver.Resolver{
-		Formatter:       types.GoFormatter(),
-		ImportResolver:  &types.GoImportResolver{RepoRoot: repoRoot, CurrentPackage: pkg},
+		Formatter: types.GoFormatter(),
+		ImportResolver: &types.GoImportResolver{
+			RepoRoot:       repoRoot,
+			CurrentPackage: pkg,
+		},
 		ImportAdder:     imps,
 		PrimitiveMapper: goprimitives.Mapper(),
 	}
@@ -214,18 +205,35 @@ func generateRetrieveFile(
 
 	// Always need context and gorp.
 	imps.AddExternal("context")
-	imps.AddInternal("gorp", gomod.ResolveImportPath("x/go/gorp", repoRoot, gomod.DefaultModulePrefix))
+	imps.AddInternal(
+		"gorp",
+		gomod.ResolveImportPath("x/go/gorp", repoRoot, gomod.DefaultModulePrefix),
+	)
 
 	// Check if any info needs search imports.
 	hasSearch := lo.SomeBy(infos, func(i retrieveInfo) bool { return i.HasSearch })
 	if hasSearch {
-		imps.AddInternal("search", gomod.ResolveImportPath("core/pkg/distribution/search", repoRoot, gomod.DefaultModulePrefix))
-		imps.AddInternal("ontology", gomod.ResolveImportPath("core/pkg/distribution/ontology", repoRoot, gomod.DefaultModulePrefix))
+		imps.AddInternal(
+			"search",
+			gomod.ResolveImportPath(
+				"core/pkg/service/search",
+				repoRoot,
+				gomod.DefaultModulePrefix,
+			),
+		)
+		imps.AddInternal(
+			"ontology",
+			gomod.ResolveImportPath(
+				"core/pkg/service/ontology",
+				repoRoot,
+				gomod.DefaultModulePrefix,
+			),
+		)
 	}
 
-	// Check if any info needs lo for variadic Match filters. Index-routed
-	// filters use the index's .Filter(...) method instead of lo.Contains,
-	// so only non-indexed, non-slice variadic filters contribute.
+	// Check if any info needs lo for variadic Match filters. Index-routed filters use
+	// the index's .Filter(...) method instead of lo.Contains, so only non-indexed,
+	// non-slice variadic filters contribute.
 	hasVariadicFilter := lo.SomeBy(infos, func(i retrieveInfo) bool {
 		return lo.SomeBy(i.Filters, func(f filterInfo) bool {
 			return !f.IsScalar && !f.IsSlice && f.IndexFieldName == ""
@@ -246,7 +254,7 @@ func generateRetrieveFile(
 	data := &templateData{
 		Package:   pkg,
 		Retrieves: infos,
-		imports:   imps,
+		Manager:   imps,
 	}
 
 	var buf bytes.Buffer
@@ -262,17 +270,20 @@ func extractRetrieveInfo(
 	r *resolver.Resolver,
 	ctx *resolver.Context,
 ) *retrieveInfo {
-	form, ok := typ.Form.(resolution.StructForm)
-	if !ok {
+	if _, ok := typ.Form.(resolution.StructForm); !ok {
 		return nil
 	}
 
-	// Resolve the key type. A struct-level `@retrieve key "TypeName"` override
-	// takes precedence; this is useful when the entry type has a computed
-	// GorpKey that is not stored as a field on the struct (e.g. channel.Channel).
-	// Otherwise, fall back to the first field carrying `@key`.
+	// Resolve the key type. A struct-level `@retrieve key "TypeName"` override takes
+	// precedence; this is useful when the entry type has a computed GorpKey that is not
+	// stored as a field on the struct (e.g. channel.Channel). Otherwise, fall back to
+	// the first field carrying `@key`.
 	var keyType, keyPrimitive string
-	if keyTypeName := plugindomain.GetStringFromType(typ, "retrieve", "key"); keyTypeName != "" {
+	if keyTypeName := plugindomain.GetStringFromType(
+		typ,
+		"retrieve",
+		"key",
+	); keyTypeName != "" {
 		qualified := keyTypeName
 		if typ.Namespace != "" && !strings.Contains(keyTypeName, ".") {
 			qualified = typ.Namespace + "." + keyTypeName
@@ -282,9 +293,10 @@ func extractRetrieveInfo(
 		keyPrimitive = key.ResolvePrimitive(keyRef, table)
 	} else {
 		var keyField *resolution.Field
-		for i := range form.Fields {
-			if plugindomain.HasDomainFromField(form.Fields[i], "key") {
-				keyField = &form.Fields[i]
+		fields := resolution.UnifiedFields(typ, table)
+		for i := range fields {
+			if plugindomain.HasDomainFromField(fields[i], "key") {
+				keyField = &fields[i]
 				break
 			}
 		}
@@ -300,19 +312,11 @@ func extractRetrieveInfo(
 	isCustom := plugindomain.HasExprFromType(typ, "retrieve", "custom")
 	hasSearch := plugindomain.HasDomainFromType(typ, "search")
 
-	// Get ontology type for search. Check @search type "X" first, then fall
-	// back to @ontology type "X" on the struct itself.
+	// Search queries the index against the struct's ontology resource type, read
+	// directly from its @ontology type annotation.
 	var ontologyType string
 	if hasSearch {
-		if searchType := plugindomain.GetStringFromType(typ, "search", "type"); searchType != "" {
-			ontologyType = searchType
-		} else {
-			keyFields := key.Collect([]resolution.Type{typ}, table, nil)
-			ontData := ontology.Extract([]resolution.Type{typ}, keyFields, nil)
-			if ontData != nil {
-				ontologyType = ontData.TypeName
-			}
-		}
+		ontologyType = plugindomain.GetStringFromType(typ, "ontology", "type")
 	}
 
 	// Collect @filter and @index fields. A field may carry both: in that
@@ -348,8 +352,8 @@ func extractRetrieveInfo(
 			if plugindomain.HasExprFromField(field, "index", "sorted") {
 				kind = "sorted"
 			}
-			// camelCase field name on the per-Retrieve indexes struct.
-			// Unexported because the indexes struct itself is unexported.
+			// camelCase field name on the per-Retrieve indexes struct. Unexported
+			// because the indexes struct itself is unexported.
 			structField = naming.LowerFirst(goFieldName)
 			indexes = append(indexes, indexInfo{
 				FieldName:   field.Name,
@@ -375,10 +379,8 @@ func extractRetrieveInfo(
 	}
 
 	return &retrieveInfo{
-		TypeName:                    typ.Name,
 		GoName:                      goName,
 		KeyType:                     keyType,
-		KeyPrimitive:                keyPrimitive,
 		HasSearch:                   hasSearch,
 		IsCustom:                    isCustom,
 		OntologyType:                ontologyType,
@@ -389,15 +391,9 @@ func extractRetrieveInfo(
 }
 
 type templateData struct {
-	imports   *imports.Manager
+	*imports.Manager
 	Package   string
 	Retrieves []retrieveInfo
-}
-
-func (d *templateData) HasImports() bool          { return d.imports.HasImports() }
-func (d *templateData) ExternalImports() []string { return d.imports.ExternalImports() }
-func (d *templateData) InternalImports() []imports.InternalImportData {
-	return d.imports.InternalImports()
 }
 
 // pluralizeDistinct returns the plural form of a name. If the plural is the
@@ -411,10 +407,10 @@ func pluralizeDistinct(name string) string {
 	return plural
 }
 
-// singularize returns a best-effort singular form of a name. Handles the common
-// English plural endings (-ies, -ches/-shes/-xes/-ses, -s); leaves the input
-// unchanged if no rule matches. Suitable for deriving filter names from
-// plural-noun field names (e.g. "Integrations" → "Integration").
+// singularize returns a best-effort singular form of a name. Handles the common English
+// plural endings (-ies, -ches/-shes/-xes/-ses, -s); leaves the input unchanged if no
+// rule matches. Suitable for deriving filter names from plural-noun field names (e.g.
+// "Integrations" → "Integration").
 func singularize(name string) string {
 	switch {
 	case strings.HasSuffix(name, "ies") && len(name) > 3:
@@ -437,7 +433,10 @@ var templateFuncs = template.FuncMap{
 	"singularize": singularize,
 }
 
-var retrieveTemplate = template.Must(template.New("go-retrieve").Funcs(templateFuncs).Parse(`// Code generated by oracle. DO NOT EDIT.
+var retrieveTemplate = template.Must(
+	template.New("go-retrieve").
+		Funcs(templateFuncs).
+		Parse(`// Code generated by oracle. DO NOT EDIT.
 
 package {{.Package}}
 {{- if .HasImports}}
@@ -526,10 +525,10 @@ func (r Retrieve) OrderBy(o Order) Retrieve {
 {{- range $idx := $ret.Indexes}}
 {{- if $idx.IsSorted}}
 
-// OrderBy{{$idx.GoName}} returns an Order that walks {{$ret.GoName | toLower | pluralize}} via the
-// {{$idx.FieldName}} sorted index in the given direction. Pass an optional
-// cursor to resume pagination after a previously visited value; the cursor
-// is type-checked at the call site.
+// OrderBy{{$idx.GoName}} returns an Order that walks
+// {{$ret.GoName | toLower | pluralize}} via the {{$idx.FieldName}} sorted index in
+// the given direction. Pass an optional cursor to resume pagination after a
+// previously visited value; the cursor is type-checked at the call site.
 func OrderBy{{$idx.GoName}}(dir gorp.Direction, cursor ...{{$idx.GoType}}) Order {
 	return func(r Retrieve) gorp.OrderQuery[{{$ret.KeyType}}, {{$ret.GoName}}] {
 		q := r.indexes.{{$idx.StructField}}.Ordered(dir)
@@ -579,10 +578,11 @@ func Not(f Filter) Filter {
 // Search sets a fuzzy search term that Retrieve will use to filter results.
 func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
 {{end}}
-// MatchKeys returns a filter that restricts results to {{$ret.GoName | toLower | pluralize}} whose key
-// matches any of the provided values. Composing MatchKeys at the top level
-// of a Where clause (i.e. r.Where(MatchKeys(...))) dispatches Exec to the
-// multi-get fast path; composing inside Or / Not falls back to a full scan.
+// MatchKeys returns a filter that restricts results to
+// {{$ret.GoName | toLower | pluralize}} whose key matches any of the provided
+// values. Composing MatchKeys at the top level of a Where clause (i.e.
+// r.Where(MatchKeys(...))) dispatches Exec to the multi-get fast path; composing
+// inside Or / Not falls back to a full scan.
 func MatchKeys(keys ...{{$ret.KeyType}}) Filter {
 	return func(_ Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
 		return gorp.MatchKeys[{{$ret.KeyType}}, {{$ret.GoName}}](keys...)
@@ -590,7 +590,8 @@ func MatchKeys(keys ...{{$ret.KeyType}}) Filter {
 }
 {{range .Filters}}
 {{- if .IsBool}}
-// Match{{.GoName}} returns a filter for {{$ret.GoName | toLower | pluralize}} by their {{.GoName}} field.
+// Match{{.GoName}} returns a filter for {{$ret.GoName | toLower | pluralize}} by their
+// {{.GoName}} field.
 func Match{{.GoName}}(v bool) Filter {
 	return func(r Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
 {{- if .IndexFieldName}}
@@ -603,7 +604,9 @@ func Match{{.GoName}}(v bool) Filter {
 	}
 }
 {{else if .IsSlice}}
-// Match{{.GoName | singularize}} returns a filter for {{$ret.GoName | toLower | pluralize}} whose {{.GoName}} contains the provided value.
+// Match{{.GoName | singularize}} returns a filter for
+// {{$ret.GoName | toLower | pluralize}} whose {{.GoName}} contains the provided
+// value.
 func Match{{.GoName | singularize}}(v {{.ElemGoType}}) Filter {
 	return func(_ Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
 		return gorp.Match(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
@@ -612,7 +615,8 @@ func Match{{.GoName | singularize}}(v {{.ElemGoType}}) Filter {
 	}
 }
 {{else if .IsScalar}}
-// Match{{.GoName}} returns a filter for {{$ret.GoName | toLower | pluralize}} whose {{.GoName}} matches the provided value.
+// Match{{.GoName}} returns a filter for {{$ret.GoName | toLower | pluralize}} whose
+// {{.GoName}} matches the provided value.
 func Match{{.GoName}}(v {{.GoType}}) Filter {
 	return func(r Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
 {{- if .IndexFieldName}}
@@ -625,7 +629,9 @@ func Match{{.GoName}}(v {{.GoType}}) Filter {
 	}
 }
 {{else}}
-// Match{{.GoName | pluralize}} returns a filter for {{$ret.GoName | toLower | pluralize}} whose {{.GoName}} matches any of the provided values.
+// Match{{.GoName | pluralize}} returns a filter for
+// {{$ret.GoName | toLower | pluralize}} whose {{.GoName}} matches any of the
+// provided values.
 func Match{{.GoName | pluralize}}(vals ...{{.GoType}}) Filter {
 	return func(r Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
 {{- if .IndexFieldName}}
@@ -648,14 +654,16 @@ func (r Retrieve) Where(filter Filter) Retrieve {
 	return r
 }
 
-// Entry binds the provided {{$ret.GoName | toLower}} as the result container for the query. If
-// multiple {{$ret.GoName | toLower | pluralize}} match, the first one is used.
+// Entry binds the provided {{$ret.GoName | toLower}} as the result container for the
+// query. If multiple {{$ret.GoName | toLower | pluralize}} match, the first one is
+// used.
 func (r Retrieve) Entry(e *{{$ret.GoName}}) Retrieve {
 	r.gorp = r.gorp.Entry(e)
 	return r
 }
 
-// Entries binds the provided slice of {{$ret.GoName | toLower | pluralize}} as the result container for the query.
+// Entries binds the provided slice of {{$ret.GoName | toLower | pluralize}} as the
+// result container for the query.
 func (r Retrieve) Entries(es *[]{{$ret.GoName}}) Retrieve {
 	r.gorp = r.gorp.Entries(es)
 	return r
@@ -664,7 +672,8 @@ func (r Retrieve) Entries(es *[]{{$ret.GoName}}) Retrieve {
 // Limit sets the maximum number of {{$ret.GoName | toLower | pluralize}} to return.
 func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); return r }
 
-// Offset sets the starting index of the {{$ret.GoName | toLower | pluralize}} to return.
+// Offset sets the starting index of the {{$ret.GoName | toLower | pluralize}} to
+// return.
 func (r Retrieve) Offset(offset int) Retrieve {
 	r.gorp = r.gorp.Offset(offset)
 	return r
@@ -724,4 +733,5 @@ func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
 {{- end}}
 	return r.gorp.Exists(ctx, gorp.OverrideTx(r.baseTX, tx))
 }
-{{end}}`))
+{{end}}`),
+)

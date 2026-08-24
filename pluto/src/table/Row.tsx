@@ -8,23 +8,29 @@
 // included in the file licenses/APL.txt.
 
 import { table } from "@synnaxlabs/client";
-import { box, dimensions, type record, xy } from "@synnaxlabs/x";
+import { type border, box, deep, dimensions, type record, xy } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback, useMemo } from "react";
 
 import { CSS } from "@/css";
-import { Select } from "@/select";
 import { Cell } from "@/table/cells";
 import { Indicator } from "@/table/Indicator";
-import { useDispatch, useSelectCell } from "@/table/queries";
+import { useCell, useDispatch } from "@/table/queries";
+import { Selection } from "@/table/selection";
+import { Theming } from "@/theming";
 
 export interface RowProps {
   index: number;
   size: number;
-  position: number;
+  /** Canvas x coordinate of the row's first cell. */
+  x: number;
+  /** Canvas y coordinate of the row. */
+  y: number;
   resourceKey: table.Key;
   cells: string[];
   columns: number[];
   editable: boolean;
+  /** True when this is the table's bottom row. */
+  last: boolean;
   showIndicator?: boolean;
   onResize: (size: number, index: number) => void;
   onSelect: (index: number, ev: React.MouseEvent) => void;
@@ -35,19 +41,46 @@ export const Row = memo(
   ({
     index,
     size,
-    position,
+    x,
+    y,
     resourceKey,
     cells,
     columns,
     editable,
+    last,
     showIndicator = true,
     onResize,
     onSelect,
     onCellSelect,
   }: RowProps): ReactElement => {
-    let xCursor = showIndicator ? 4.5 * 6 : 0;
+    let xCursor = x;
+    const theme = Theming.use();
+    // Table.css rounds the table's outer corners on the corner <td> by
+    // --pluto-border-radius-small, but a cell that paints its background on the canvas
+    // squares them off unless it knows the radius, so both sides read the same theme
+    // step. The indicators occupy the first row and column when shown, so a data cell
+    // only reaches the top and left edges without them.
+    const borderRadii = useMemo(() => {
+      const r = theme.sizes.border.radius.small * theme.sizes.base;
+      const top = index === 0 && !showIndicator;
+      return cells.map((_, i): border.CrudeRadius | undefined => {
+        const left = i === 0 && !showIndicator;
+        const right = i === cells.length - 1;
+        const topLeft = top && left;
+        const topRight = top && right;
+        const bottomRight = last && right;
+        const bottomLeft = last && left;
+        if (!topLeft && !topRight && !bottomRight && !bottomLeft) return undefined;
+        return {
+          topLeft: topLeft ? r : 0,
+          topRight: topRight ? r : 0,
+          bottomRight: bottomRight ? r : 0,
+          bottomLeft: bottomLeft ? r : 0,
+        };
+      });
+    }, [cells, index, last, showIndicator, theme]);
     return (
-      <tr className={CSS(CSS.BE("table", "row"))}>
+      <tr className={CSS.cls(CSS.BE("table", "row"))}>
         {showIndicator && (
           <Indicator
             direction="y"
@@ -67,9 +100,10 @@ export const Row = memo(
               resourceKey={resourceKey}
               cellKey={cellKey}
               x={xPos}
-              y={position}
+              y={y}
               width={columns[i]}
               height={size}
+              borderRadius={borderRadii[i]}
               editable={editable}
               onSelect={onCellSelect}
             />
@@ -88,6 +122,7 @@ interface VariantCellProps {
   y: number;
   width: number;
   height: number;
+  borderRadius?: border.CrudeRadius;
   editable: boolean;
   onSelect: (cellKey: string, ev: MouseEvent) => void;
 }
@@ -98,7 +133,7 @@ interface VariantCellProps {
 // dispatch-backed onChange handler. It takes x/y/width/height as primitives
 // (not a Box) so the memo barrier compares stable scalars; the Box is
 // constructed once per geometry change inside. Selection is read via
-// Select.useItemState so a cell re-renders only when its own selection flips,
+// Selection.useIsMember so a cell re-renders only when its own selection flips,
 // not on every selection event elsewhere in the table.
 const VariantCell = memo(
   ({
@@ -108,16 +143,25 @@ const VariantCell = memo(
     y,
     width,
     height,
+    borderRadius,
     editable,
     onSelect,
   }: VariantCellProps): ReactElement | null => {
-    const cell = useSelectCell({ key: resourceKey, cellKey });
-    const { selected } = Select.useItemState(cellKey);
+    const cell = useCell({ key: resourceKey, cellKey });
+    const selected = Selection.useIsMember(cellKey);
     const { dispatch } = useDispatch();
+    const theme = Theming.use();
     const b = useMemo(
       () => box.construct(xy.construct({ x, y }), dimensions.construct(width, height)),
       [x, y, width, height],
     );
+    // Imported legacy states can carry sparse cell props, so valid wire fields
+    // are merged over the variant's defaults instead of spread directly.
+    const props = useMemo(() => {
+      if (cell == null) return null;
+      const spec = Cell.REGISTRY[cell.variant];
+      return deep.overrideValidItems(spec.defaultProps(theme), cell.props, spec.schema);
+    }, [cell, theme]);
     const handleChange = useCallback(
       (props: record.Unknown) => {
         if (cell == null) return;
@@ -130,17 +174,18 @@ const VariantCell = memo(
       },
       [dispatch, resourceKey, cellKey, cell],
     );
-    if (cell == null) return null;
+    if (cell == null || props == null) return null;
     const Spec = Cell.REGISTRY[cell.variant];
     return (
       <Spec.Cell
         cellKey={cellKey}
         box={b}
+        borderRadius={borderRadius}
         selected={selected}
         editable={editable}
         onSelect={onSelect}
         onChange={handleChange}
-        {...cell.props}
+        {...props}
       />
     );
   },

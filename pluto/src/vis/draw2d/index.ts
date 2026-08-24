@@ -54,7 +54,7 @@ export interface Draw2DCircleProps {
 
 export interface Draw2DContainerProps {
   region: box.Box;
-  bordered?: boolean | location.Location | location.Location[];
+  bordered?: boolean | location.Outer | location.Outer[];
   rounded?: boolean;
   borderColor?: ColorSpec;
   borderRadius?: number;
@@ -94,7 +94,7 @@ export interface Draw2DBorderProps {
   color?: ColorSpec;
   width?: number;
   radius?: number;
-  location?: true | location.Location | location.Location[];
+  location?: true | location.Outer | location.Outer[];
 }
 
 export interface Draw2DTextContainerProps
@@ -169,7 +169,6 @@ export class Draw2D {
     const endAngle = angle?.upper ?? 2 * Math.PI;
 
     if (stroke != null && typeof radius === "object") {
-      // Stroke mode for rings - draw as a thick arc with rounded caps
       const { inner, outer } = radius;
       const midRadius = (inner + outer) / 2;
       const arcWidth = outer - inner;
@@ -182,7 +181,6 @@ export class Draw2D {
       ctx.stroke();
       if (lineDash != null) ctx.setLineDash([]);
     } else if (stroke != null && typeof radius === "number") {
-      // Stroke mode for simple circles
       ctx.arc(...xy.couple(position), radius, startAngle, endAngle, false);
       ctx.strokeStyle = color.hex(stroke);
       ctx.lineWidth = strokeWidth ?? 1;
@@ -191,23 +189,17 @@ export class Draw2D {
       ctx.stroke();
       if (lineDash != null) ctx.setLineDash([]);
     } else if (fill != null) {
-      // Fill mode (original behavior)
       ctx.fillStyle = color.hex(fill);
 
       if (typeof radius === "number") {
-        // Simple filled circle or arc
         ctx.arc(...xy.couple(position), radius, startAngle, endAngle);
         ctx.fill();
       } else {
-        // Ring or arc segment with inner and outer radius
         const { inner, outer } = radius;
-        // Draw outer arc
         ctx.arc(...xy.couple(position), outer, startAngle, endAngle, false);
-        // Draw line to inner arc start
         const innerStartX = position.x + inner * Math.cos(endAngle);
         const innerStartY = position.y + inner * Math.sin(endAngle);
         ctx.lineTo(innerStartX, innerStartY);
-        // Draw inner arc (reverse direction)
         ctx.arc(...xy.couple(position), inner, endAngle, startAngle, true);
         ctx.closePath();
         ctx.fill();
@@ -236,9 +228,10 @@ export class Draw2D {
     location,
   }: Draw2DBorderProps): void {
     const ctx = this.canvas;
+    ctx.beginPath();
     ctx.strokeStyle = color.hex(this.resolveColor(colorVal, this.theme.colors.border));
-    ctx.lineWidth = width ?? this.theme.sizes.border.width;
-    radius ??= this.theme.sizes.border.radius;
+    ctx.lineWidth = width ?? ctx.hairlineWidth;
+    radius ??= Math.round(this.theme.sizes.border.radius.tiny * this.theme.sizes.base);
     if (location == null || location === true)
       if (radius > 0) {
         ctx.roundRect(
@@ -271,7 +264,9 @@ export class Draw2D {
     borderWidth,
     backgroundColor,
   }: Draw2DContainerProps): void {
-    borderRadius ??= this.theme.sizes.border.radius;
+    borderRadius ??= Math.round(
+      this.theme.sizes.border.radius.tiny * this.theme.sizes.base,
+    );
     borderWidth ??= 1;
     const ctx = this.canvas;
     ctx.fillStyle = color.hex(
@@ -384,6 +379,19 @@ export class Draw2D {
       );
       draw(i, itemBox);
     }
+  }
+
+  /**
+   * Vertical offset that centers text ink within a rowHeight-tall band when the
+   * text is drawn at the band's top with align "top". Canvas positions the em
+   * box, not the ink, which sits a few pixels lower.
+   */
+  measureInkOffsetY(level: text.Level, rowHeight: number): number {
+    this.canvas.font = fontString(this.theme, { level, code: true });
+    const m = this.canvas.measureText("0M[]g_");
+    const inkTop = m.fontBoundingBoxAscent - m.actualBoundingBoxAscent;
+    const inkHeight = m.actualBoundingBoxAscent + m.actualBoundingBoxDescent;
+    return inkTop - (rowHeight - inkHeight) / 2;
   }
 
   measureCharWidth(level: text.Level): number {

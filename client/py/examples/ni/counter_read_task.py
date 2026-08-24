@@ -68,12 +68,9 @@ tsk = sy.ni.CounterReadTask(
     # time.
     # It's generally best to keep the stream rate under 100 Hz.
     stream_rate=sy.Rate.HZ * 25,
-    # Whether to save data acquired by the task to disk. If set to False, the data
-    # will be streamed into Synnax for real-time consumption but not saved to disk.
-    data_saving=True,
     # The list of counter channels we'd like to acquire data from.
     channels=[
-        sy.ni.CIFrequencyChan(
+        sy.ni.CIFrequencyChannel(
             # The key of the Synnax channel we're acquiring data for.
             channel=ci_0_freq.key,
             # The counter port on the device (ctr0, ctr1, etc.)
@@ -93,7 +90,7 @@ tsk = sy.ni.CounterReadTask(
             # Divisor for internal timebase
             divisor=4,
         ),
-        sy.ni.CIEdgeCountChan(
+        sy.ni.CIEdgeCountChannel(
             # The key of the Synnax channel we're acquiring data for.
             channel=ci_1_count.key,
             # The counter port on the device

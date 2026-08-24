@@ -14,9 +14,13 @@ import numpy as np
 
 import synnax as sy
 from console.case import ConsoleCase
+from console.plot import Plot
+from framework.utils import create_indexed_channels
 
 CrudeFrame = dict[int, sy.TimeStamp | float | np.floating]
 
+# Fixed names shared by every rate instance; the channel_stress sequence runs
+# serially so concurrent instances never contend for the same writers.
 CALC_CHANNELS = [
     "calc_avg_sum_div_50_sine",
     "calc_avg_explicit_50_sine",
@@ -45,15 +49,8 @@ class CalcChannelStress(ConsoleCase):
     def _create_multiple_channels(
         self, base_name: str, count: int, index_key: int
     ) -> list[sy.Channel]:
-        return [
-            self.client.channels.create(
-                name=f"{base_name}_{i + 1}",
-                index=index_key,
-                data_type=sy.DataType.FLOAT32,
-                retrieve_if_name_exists=True,
-            )
-            for i in range(count)
-        ]
+        names = [f"{base_name}_{i + 1}" for i in range(count)]
+        return create_indexed_channels(self.client, names, index_key)
 
     def _start_stress_writer(self) -> None:
         """Start the stress writer in a background thread."""
@@ -202,7 +199,7 @@ class CalcChannelStress(ConsoleCase):
             )
         self.log("All calculated channels are now visible in console")
 
-        plot = console.workspace.create_plot(f"Calc Stress {self.rate}Hz")
+        plot = console.pages.create(Plot, f"Calc Stress {self.rate}Hz")
         self._cleanup_pages.append(plot.page_name)
         plot.add_channels("Y1", CALC_CHANNELS)
 

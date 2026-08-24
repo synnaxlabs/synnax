@@ -9,6 +9,7 @@
 
 #include <set>
 
+#include "client/cpp/http/json.gen.h"
 #include "x/cpp/strings/strings.h"
 
 #include "driver/http/device/device.h"
@@ -23,84 +24,62 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
 ) {
     auto parser = x::json::Parser(task.config);
     ReadTaskConfig cfg;
-    cfg.device = parser.field<std::string>("device");
-    cfg.data_saving = parser.field<bool>("data_saving", true);
-    cfg.auto_start = parser.field<bool>("auto_start", false);
-    cfg.rate = x::telem::Rate(parser.field<double>("rate"));
+    static_cast<::synnax::http::ReadConfig &>(cfg) = ::synnax::http::ReadConfig::parse(
+        parser
+    );
+    if (cfg.device.empty()) parser.field_err("device", "this field is required");
 
     std::set<synnax::channel::Key> field_keys;
     std::set<synnax::channel::Key> enabled_field_keys;
 
-    parser.iter("endpoints", [&](x::json::Parser &ep) {
-        ReadEndpoint endpoint;
-        endpoint.request.method = parse_method(ep, "method");
-        endpoint.request.path = ep.field<std::string>("path");
-        if (ep.has("headers"))
-            ep.iter("headers", [&](x::json::Parser &h) {
-                auto name = h.field<std::string>("name");
-                auto val = h.field<std::string>("value");
-                if (!name.empty() &&
-                    !endpoint.request.headers.emplace(name, val).second)
-                    h.field_err("name", "duplicate header '" + name + "'");
-            });
-        if (ep.has("query_params"))
-            ep.iter("query_params", [&](x::json::Parser &qp) {
-                auto param = qp.field<std::string>("parameter");
-                auto val = qp.field<std::string>("value");
-                if (!param.empty() &&
-                    !endpoint.request.query_params.emplace(param, val).second)
-                    qp.field_err(
-                        "parameter",
-                        "duplicate query parameter '" + param + "'"
-                    );
-            });
-        endpoint.body = ep.field<std::string>("body", "");
-
+    std::vector<::synnax::http::ReadEndpoint> active;
+    active.reserve(cfg.endpoints.size());
+    for (auto &ep: cfg.endpoints) {
+        validate_request(ep, parser);
         size_t enabled_field_count = 0;
-        ep.iter("fields", [&](x::json::Parser &fp) {
-            ReadField field;
-            field.enabled = fp.field<bool>("enabled", true);
-            field.pointer = x::json::json::json_pointer(
-                fp.field<std::string>("pointer")
-            );
-            field.channel_key = fp.field<synnax::channel::Key>("channel");
-
-            const auto ts_fmt_str = fp.field<std::string>("timestamp_format", "");
-            if (!ts_fmt_str.empty()) {
-                auto [fmt, fmt_err] = x::json::parse_time_format(ts_fmt_str);
-                if (fmt_err)
-                    fp.field_err("timestamp_format", fmt_err.message());
-                else
-                    field.time_format = fmt;
-            }
-
-            if (fp.has("enum_values"))
-                fp.iter("enum_values", [&](x::json::Parser &ev) {
-                    auto label = ev.field<std::string>("label");
-                    auto val = ev.field<double>("value");
-                    if (!label.empty() && !field.enum_values.emplace(label, val).second)
-                        ev.field_err("label", "duplicate enum label '" + label + "'");
-                });
-
-            if (!field_keys.insert(field.channel_key).second)
-                fp.field_err(
-                    "channel",
-                    "channel " + std::to_string(field.channel_key) +
+        for (const auto &field: ep.fields) {
+            validate_pointer(field.pointer, parser, "endpoints.fields.pointer");
+            if (field.channel == 0)
+                parser.field_err("endpoints.fields.channel", "this field is required");
+            else if (!field_keys.insert(field.channel).second)
+                parser.field_err(
+                    "endpoints.fields.channel",
+                    "channel " + std::to_string(field.channel) +
                         " is used multiple times"
                 );
 
-            if (field.enabled) {
-                enabled_field_count++;
-                enabled_field_keys.insert(field.channel_key);
-            }
-            endpoint.fields.push_back(std::move(field));
-        });
+            if (field.time_format.has_value())
+                if (auto [fmt, fmt_err] = x::json::parse_time_format(
+                        *field.time_format
+                    );
+                    fmt_err)
+                    parser.field_err("endpoints.fields.time_format", fmt_err);
 
-        if (endpoint.fields.empty())
-            ep.field_err("fields", "at least one field is required");
+            std::set<std::string> labels;
+            for (const auto &entry: field.enum_values)
+                if (entry.label.empty())
+                    parser.field_err(
+                        "endpoints.fields.enum_values.label",
+                        "this field is required"
+                    );
+                else if (!labels.insert(entry.label).second)
+                    parser.field_err(
+                        "endpoints.fields.enum_values.label",
+                        "duplicate enum label '" + entry.label + "'"
+                    );
+
+            if (!field.disabled) {
+                enabled_field_count++;
+                enabled_field_keys.insert(field.channel);
+            }
+        }
+
+        if (ep.fields.empty())
+            parser.field_err("endpoints.fields", "at least one field is required");
         else if (enabled_field_count > 0)
-            cfg.endpoints.push_back(std::move(endpoint));
-    });
+            active.push_back(std::move(ep));
+    }
+    cfg.endpoints = std::move(active);
 
     if (enabled_field_keys.empty()) {
         parser.field_err(
@@ -115,7 +94,6 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
         enabled_field_keys.begin(),
         enabled_field_keys.end()
     );
-    if (all_keys.empty()) return {std::move(cfg), parser.error()};
     auto [sy_channels, ch_err] = ctx->client->channels.retrieve(all_keys);
     if (ch_err) return {{}, ch_err};
 
@@ -123,10 +101,9 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
         cfg.channels[ch.key] = ch;
 
     for (int ei = 0; ei < static_cast<int>(cfg.endpoints.size()); ei++) {
-        auto &ep = cfg.endpoints[ei];
-        for (auto &field: ep.fields) {
-            if (!field.enabled) continue;
-            auto it = cfg.channels.find(field.channel_key);
+        for (const auto &field: cfg.endpoints[ei].fields) {
+            if (field.disabled) continue;
+            auto it = cfg.channels.find(field.channel);
             if (it == cfg.channels.end()) continue;
             const auto &ch = it->second;
 
@@ -144,7 +121,7 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
                 parser.field_err(
                     "endpoints",
                     "channel " + ch.name +
-                        " is a timestamp channel but has no timestamp_format"
+                        " is a timestamp channel but has no time_format"
                 );
                 continue;
             }
@@ -168,40 +145,6 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
 
     if (!parser.ok()) return {std::move(cfg), parser.error()};
 
-    // Build sampling groups: fields sharing an index channel must be written
-    // atomically. Fields with no index (ch.index == 0) get their own group.
-    std::map<std::pair<size_t, synnax::channel::Key>, size_t> group_map;
-    for (size_t ei = 0; ei < cfg.endpoints.size(); ei++) {
-        const auto &ep = cfg.endpoints[ei];
-        for (size_t fi = 0; fi < ep.fields.size(); fi++) {
-            const auto &field = ep.fields[fi];
-            if (!field.enabled) continue;
-            const auto &ch = cfg.channels.at(field.channel_key);
-            if (ch.index == 0) {
-                cfg.groups.push_back({
-                    .index_key = 0,
-                    .software_timed_index = false,
-                    .endpoint_index = ei,
-                    .field_indices = {fi},
-                });
-                continue;
-            }
-            auto key = std::make_pair(ei, ch.index);
-            auto [it, inserted] = group_map.try_emplace(key, cfg.groups.size());
-            if (inserted) {
-                cfg.groups.push_back({
-                    .index_key = ch.index,
-                    .software_timed_index = cfg.software_timed_indexes.count(ch.index) >
-                                            0,
-                    .endpoint_index = ei,
-                    .field_indices = {fi},
-                });
-            } else {
-                cfg.groups[it->second].field_indices.push_back(fi);
-            }
-        }
-    }
-
     return {std::move(cfg), x::errors::NIL};
 }
 
@@ -215,11 +158,52 @@ ReadTaskSource::ReadTaskSource(
     requests(std::move(requests)),
     sample_clock(this->cfg.rate) {
     parsed_bodies.resize(this->cfg.endpoints.size());
-    for (const auto &ep: this->cfg.endpoints) {
-        for (const auto &field: ep.fields) {
-            if (!field.enabled) continue;
-            auto it = this->cfg.channels.find(field.channel_key);
-            if (it != this->cfg.channels.end()) this->chs.push_back(it->second);
+    // Build sampling groups: fields sharing an index channel must be written
+    // atomically. Fields with no index (ch.index == 0) get their own group.
+    std::map<std::pair<size_t, synnax::channel::Key>, size_t> group_map;
+    for (size_t ei = 0; ei < this->cfg.endpoints.size(); ei++) {
+        for (const auto &field: this->cfg.endpoints[ei].fields) {
+            if (field.disabled) continue;
+            auto it = this->cfg.channels.find(field.channel);
+            if (it == this->cfg.channels.end()) continue;
+            this->chs.push_back(it->second);
+
+            GroupField gf;
+            gf.channel = field.channel;
+            gf.pointer = x::json::json::json_pointer(field.pointer);
+            if (field.time_format.has_value())
+                if (auto [fmt, fmt_err] = x::json::parse_time_format(
+                        *field.time_format
+                    );
+                    !fmt_err)
+                    gf.time_format = fmt;
+            for (const auto &entry: field.enum_values)
+                if (!entry.label.empty())
+                    gf.enum_values.emplace(entry.label, entry.value);
+
+            const auto idx_key = it->second.index;
+            if (idx_key == 0) {
+                this->groups.push_back({
+                    .index_key = 0,
+                    .software_timed_index = false,
+                    .endpoint_index = ei,
+                    .fields = {std::move(gf)},
+                });
+                continue;
+            }
+            auto key = std::make_pair(ei, idx_key);
+            auto [git, inserted] = group_map.try_emplace(key, this->groups.size());
+            if (inserted)
+                this->groups.push_back({
+                    .index_key = idx_key,
+                    .software_timed_index = this->cfg.software_timed_indexes.count(
+                                                idx_key
+                                            ) > 0,
+                    .endpoint_index = ei,
+                    .fields = {std::move(gf)},
+                });
+            else
+                this->groups[git->second].fields.push_back(std::move(gf));
         }
     }
 }
@@ -229,14 +213,14 @@ synnax::framer::WriterConfig ReadTaskSource::writer_config() const {
     keys.reserve(this->cfg.channels.size() + this->cfg.software_timed_indexes.size());
     for (const auto &ep: this->cfg.endpoints)
         for (const auto &field: ep.fields) {
-            if (!field.enabled) continue;
-            keys.push_back(field.channel_key);
+            if (field.disabled) continue;
+            keys.push_back(field.channel);
         }
     for (const auto &[key, _]: this->cfg.software_timed_indexes)
         keys.push_back(key);
     return {
         .channels = keys,
-        .mode = common::data_saving_writer_mode(this->cfg.data_saving),
+        .mode = common::data_saving_writer_mode(this->cfg.data_saving_disabled),
     };
 }
 
@@ -284,14 +268,14 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
             ep_parsed[ei] = true;
         } catch (const x::json::json::parse_error &e) {
             warnings.push_back(
-                "failed to parse response from " + ep.request.path + ": " + e.what()
+                "failed to parse response from " + ep.path + ": " + e.what()
             );
         }
     }
 
     // Process each sampling group atomically: either all fields in the group succeed
     // and are written to the frame, or the entire group is skipped.
-    for (const auto &group: this->cfg.groups) {
+    for (const auto &group: this->groups) {
         const auto ei = group.endpoint_index;
         if (!ep_parsed[ei]) continue;
 
@@ -301,20 +285,19 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
 
         bool group_ok = true;
         std::vector<std::pair<synnax::channel::Key, x::telem::Series>> group_data;
-        group_data.reserve(group.field_indices.size());
+        group_data.reserve(group.fields.size());
 
-        for (const auto fi: group.field_indices) {
-            const auto &field = ep.fields[fi];
+        for (const auto &field: group.fields) {
             if (!body.contains(field.pointer)) {
                 warnings.push_back(
                     "field " + field.pointer.to_string() +
-                    " not found in response from " + ep.request.path
+                    " not found in response from " + ep.path
                 );
                 group_ok = false;
                 break;
             }
 
-            const auto &ch = this->cfg.channels.at(field.channel_key);
+            const auto &ch = this->cfg.channels.at(field.channel);
             const auto &json_val = body.at(field.pointer);
 
             auto tf = x::json::TimeFormat::ISO8601;
@@ -337,7 +320,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
                 break;
             }
 
-            group_data.emplace_back(field.channel_key, x::telem::Series(sample_val));
+            group_data.emplace_back(field.channel, x::telem::Series(sample_val));
         }
 
         if (!group_ok) continue;
@@ -360,6 +343,23 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
     return res;
 }
 
+std::vector<Request> build_requests(
+    const device::ConnectionConfig &conn,
+    const std::vector<::synnax::http::ReadEndpoint> &endpoints
+) {
+    std::vector<Request> requests;
+    requests.reserve(endpoints.size());
+    for (const auto &ep: endpoints) {
+        auto req_cfg = request_config(ep);
+        const std::string body = has_request_body(req_cfg.method) ? ep.body : "";
+        if (!body.empty()) req_cfg.request_content_type = "application/json";
+        auto req = device::build_request(conn, req_cfg);
+        req.body = body;
+        requests.push_back(std::move(req));
+    }
+    return requests;
+}
+
 std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
@@ -374,14 +374,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     );
     if (conn_err) return {common::ConfigureResult{}, conn_err};
 
-    std::vector<Request> requests;
-    requests.reserve(cfg.endpoints.size());
-    for (auto &ep: cfg.endpoints) {
-        if (!ep.body.empty()) { ep.request.request_content_type = "application/json"; }
-        auto req = device::build_request(conn, ep.request);
-        req.body = ep.body;
-        requests.push_back(std::move(req));
-    }
+    auto requests = build_requests(conn, cfg.endpoints);
 
     const bool auto_start = cfg.auto_start;
     auto source = std::make_unique<ReadTaskSource>(

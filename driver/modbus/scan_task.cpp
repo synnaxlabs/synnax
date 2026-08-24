@@ -10,8 +10,6 @@
 #include <memory>
 #include <utility>
 
-#include "glog/logging.h"
-
 #include "x/cpp/json/json.h"
 
 #include "driver/modbus/scan_task.h"
@@ -55,14 +53,14 @@ bool Scanner::exec(
 }
 
 void Scanner::check_device_health(synnax::device::Device &dev) const {
-    const auto rack_key = synnax::task::rack_key_from_task_key(this->task.key);
+    const auto rack_key = this->task.rack;
     const auto parser = x::json::Parser(dev.properties);
     const auto conn_cfg = device::ConnectionConfig(parser.child("connection"));
     if (parser.error()) {
         dev.status = synnax::device::Status{
             .key = synnax::device::status_key(dev),
             .name = dev.name,
-            .variant = x::status::VARIANT_WARNING,
+            .variant = synnax::status::VARIANT_WARNING,
             .message = "Invalid device properties",
             .description = parser.error().message(),
             .time = x::telem::TimeStamp::now(),
@@ -76,7 +74,7 @@ void Scanner::check_device_health(synnax::device::Device &dev) const {
         dev.status = synnax::device::Status{
             .key = synnax::device::status_key(dev),
             .name = dev.name,
-            .variant = x::status::VARIANT_WARNING,
+            .variant = synnax::status::VARIANT_WARNING,
             .message = "Failed to reach device",
             .description = conn_err.message(),
             .time = x::telem::TimeStamp::now(),
@@ -86,7 +84,7 @@ void Scanner::check_device_health(synnax::device::Device &dev) const {
         dev.status = synnax::device::Status{
             .key = synnax::device::status_key(dev),
             .name = dev.name,
-            .variant = x::status::VARIANT_SUCCESS,
+            .variant = synnax::status::VARIANT_SUCCESS,
             .message = "Device connected",
             .time = x::telem::TimeStamp::now(),
             .details = {.rack = rack_key, .device = dev.key},
@@ -99,11 +97,12 @@ void Scanner::test_connection(const synnax::task::Command &cmd) const {
     synnax::task::Status status{
         .key = synnax::task::status_key(this->task),
         .name = this->task.name,
-        .variant = x::status::VARIANT_ERROR,
+        .variant = synnax::status::VARIANT_ERROR,
         .details = synnax::task::StatusDetails{
             .task = task.key,
             .running = true,
             .cmd = cmd.key,
+            .config_hash = task.config_hash,
         }
     };
     if (!parser.ok()) {
@@ -116,7 +115,7 @@ void Scanner::test_connection(const synnax::task::Command &cmd) const {
         status.message = err.data;
         return ctx->set_status(status);
     }
-    status.variant = x::status::VARIANT_SUCCESS;
+    status.variant = synnax::status::VARIANT_SUCCESS;
     status.message = "Connection successful";
     return ctx->set_status(status);
 }

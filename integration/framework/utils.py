@@ -15,14 +15,95 @@ WebSocket handling, color conversion, etc.) belong in the ``x`` package
 located at ``x/py/``.
 """
 
+import json
 import os
 import re
+import shutil
+import tempfile
 import uuid
+from collections.abc import Iterator
+from contextlib import contextmanager
+from typing import Any
 
 import synnax as sy
 
 # Fixtures directory for test data (SVGs, JSONs, etc.)
 FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "..", "tests", "fixtures")
+
+# The Core's service directory, holding the canonical import golden files
+# (e.g. lineplot/versions/testdata/import_v5.json). Referenced directly so the
+# integration suite and the Core's own tests share one corpus.
+CORE_SERVICE_DIR = os.path.join(
+    os.path.dirname(__file__), "..", "..", "core", "pkg", "service"
+)
+
+
+def get_core_fixture_path(relative: str) -> str:
+    """Get the full path of a golden file in the Core's service testdata.
+
+    :param relative: Path relative to ``core/pkg/service``, e.g.
+        ``lineplot/versions/testdata/import_v5.json``.
+    :returns: Full path to the golden file.
+    :raises FileNotFoundError: If the golden file doesn't exist.
+    """
+    path = os.path.join(CORE_SERVICE_DIR, relative)
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Core golden file not found: {path}")
+    return path
+
+
+@contextmanager
+def named_envelope_copy(path: str, name: str) -> Iterator[str]:
+    """Temp copy of ``path`` named ``{name}.json``.
+
+    An envelope's ``name`` header wins over the filename fallback, and several
+    goldens share one header name, so a name-carrying envelope gets its header
+    rewritten to ``name``. A versionless state (no header) keeps the untouched
+    golden bytes and takes the filename-fallback path.
+
+    :param path: Path of the envelope to copy.
+    :param name: Name the import must produce.
+    :returns: A context manager yielding the temp copy's path.
+    """
+    with open(path, "r", encoding="utf-8") as f:
+        envelope = json.load(f)
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = os.path.join(tmp_dir, f"{name}.json")
+        if envelope.get("name"):
+            envelope["name"] = name
+            with open(tmp_path, "w", encoding="utf-8") as f:
+                json.dump(envelope, f)
+        else:
+            shutil.copyfile(path, tmp_path)
+        yield tmp_path
+
+
+# A placeholder standing alone as a JSON value carries quotes that must go with
+# it ('"{{channel:x}}"' -> 1048581); one embedded in a string keeps its quotes
+# ('"y1---{{channel:x}}"' -> '"y1---1048581"'). Quoted first so the inline form
+# never strands a numeric key inside quotes.
+QUOTED_CHANNEL_PLACEHOLDER = re.compile(r'"\{\{channel:([^}"]+)\}\}"')
+INLINE_CHANNEL_PLACEHOLDER = re.compile(r"\{\{channel:([^}\"]+)\}\}")
+
+
+def resolve_channel_placeholders(client: sy.Synnax, text: str) -> str:
+    """Substitute ``{{channel:<name>}}`` placeholders with live channel keys.
+
+    Fixtures must not pin numeric channel keys: built-in channels shift keys
+    across Core versions as new ones are added.
+
+    :param client: The Synnax client to resolve names through.
+    :param text: Raw fixture JSON text.
+    :returns: The text with each placeholder replaced by the channel's key.
+    :raises QueryError: If a named channel does not exist.
+    """
+
+    def key(m: re.Match[str]) -> str:
+        return str(client.channels.retrieve(m.group(1)).key)
+
+    return INLINE_CHANNEL_PLACEHOLDER.sub(
+        key, QUOTED_CHANNEL_PLACEHOLDER.sub(key, text)
+    )
 
 
 def get_fixture_path(filename: str) -> str:
@@ -41,6 +122,34 @@ def get_fixture_path(filename: str) -> str:
     if not os.path.exists(path):
         raise FileNotFoundError(f"Test fixture not found: {path}")
     return path
+
+
+def read_latest_value(client: sy.Synnax, channel_name: str) -> float | None:
+    """Read the latest sample written to a channel, or None if none arrived.
+
+    Retries with short delays: an empty read_latest falls back to a read over
+    the last three seconds, three times, absorbing CI resource stalls.
+
+    :param client: The Synnax client to read through.
+    :param channel_name: The channel to read.
+    :returns: The latest sample as a float, or None.
+    :raises RuntimeError: If a read fails.
+    """
+    try:
+        for attempt in range(3):
+            latest = client.read_latest(channel_name)
+            if latest is not None and len(latest) > 0:
+                return float(latest[-1])
+            now = sy.TimeStamp.now()
+            recent_range = sy.TimeRange(now - sy.TimeSpan.SECOND * 3, now)
+            frame = client.read(recent_range, channel_name)
+            if len(frame) > 0:
+                return float(frame[-1])
+            if attempt < 2:
+                sy.sleep(0.2)
+        return None
+    except Exception as e:
+        raise RuntimeError(f'Could not get value for channel "{channel_name}": {e}')
 
 
 def create_time_index(client: sy.Synnax, name: str) -> sy.Channel:
@@ -67,6 +176,21 @@ def create_virtual_channel(
     )
 
 
+def create_virtual_channels(
+    client: sy.Synnax,
+    specs: list[tuple[str, sy.DataType]],
+) -> list[sy.Channel]:
+    """Create (or retrieve) many virtual channels in a single round-trip."""
+    channels = [
+        sy.Channel(name=name, data_type=data_type, virtual=True)
+        for name, data_type in specs
+    ]
+    created: list[sy.Channel] = client.channels.create(
+        channels, retrieve_if_name_exists=True
+    )
+    return created
+
+
 def create_indexed_channel(
     client: sy.Synnax,
     name: str,
@@ -80,6 +204,22 @@ def create_indexed_channel(
         index=index_key,
         retrieve_if_name_exists=True,
     )
+
+
+def create_indexed_channels(
+    client: sy.Synnax,
+    names: list[str],
+    index_key: int,
+    data_type: sy.DataType = sy.DataType.FLOAT32,
+) -> list[sy.Channel]:
+    """Create (or retrieve) many channels on one index in a single round-trip."""
+    channels = [
+        sy.Channel(name=name, data_type=data_type, index=index_key) for name in names
+    ]
+    created: list[sy.Channel] = client.channels.create(
+        channels, retrieve_if_name_exists=True
+    )
+    return created
 
 
 def create_indexed_pair(
@@ -132,3 +272,33 @@ def assert_link_format(
             raise AssertionError(
                 f"Resource ID should be a valid UUID, got: {actual_id}"
             )
+
+
+def assert_envelope(
+    exported: dict[str, Any],
+    envelope_type: str,
+    min_version: int,
+    name: str | None = None,
+) -> None:
+    """Assert that a server-side export has the portable envelope shape.
+
+    :param exported: The decoded export JSON.
+    :param envelope_type: The expected envelope type (e.g., "lineplot", "schematic").
+    :param min_version: Floor for the envelope version — a floor, not an exact match, so
+        server-side version bumps don't break export tests.
+    :param name: Optional resource name the envelope must carry.
+    """
+    assert exported.get("type") == envelope_type, (
+        f"Envelope type should be {envelope_type!r}, got {exported.get('type')!r}"
+    )
+    version = exported.get("version")
+    assert isinstance(version, int) and version >= min_version, (
+        f"Envelope version should be an int >= {min_version}, got {version!r}"
+    )
+    assert "key" not in exported, (
+        "Server-side export strips the resource key from the portable envelope"
+    )
+    if name is not None:
+        assert exported.get("name") == name, (
+            f"Envelope name should be {name!r}, got {exported.get('name')!r}"
+        )

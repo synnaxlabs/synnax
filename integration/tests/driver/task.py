@@ -18,11 +18,20 @@ WriteTaskCase: Write-specific lifecycle (command sending).
 import os
 import sys
 from abc import abstractmethod
+from collections.abc import Callable
+from contextlib import ExitStack
 
 from pydantic import ValidationError
 
 import synnax as sy
 from framework.test_case import TestCase
+
+_STATUS_CHANNEL = "sy_status_set"
+# Allowed relative error between a task's measured and configured sample rate. Wide
+# because the runners host the Core, the Driver, the Console, Playwright, and the
+# Python sims, and NI software (Windows) all at once, and a 1 s window leaves little
+# time to reach steady state.
+RATE_TOLERANCE = 0.20
 
 # ── Channel creation helpers ─────────────────────────────────────
 
@@ -64,7 +73,7 @@ def send_and_verify_commands(
     cmd_keys: list[int],
     writer_name: str,
     task_name: str = "",
-    task_key: int = 0,
+    task_key: sy.task.Key | None = None,
     max_attempts: int = 3,
     timeout_per_round: sy.TimeSpan = 10 * sy.TimeSpan.SECOND,
     command_values: list[list[float]] | None = None,
@@ -80,7 +89,7 @@ def send_and_verify_commands(
     Args:
         command_values: Two lists of values to send in each round, one value per
             command key. If None, defaults to [42+i, ...] and [100+i, ...].
-        task_key: If non-zero, also streams ``sy_status_set`` and fails if the
+        task_key: If set, also streams ``sy_status_set`` and fails if the
             driver emits any warning or error status for this task.
     """
     if command_values is None:
@@ -97,8 +106,15 @@ def send_and_verify_commands(
     last_err: Exception | None = None
     for attempt in range(max_attempts):
         verified = False
+        task_errors: list[str] = []
         try:
-            with client.open_streamer(cmd_keys) as streamer:
+            with ExitStack() as stack:
+                streamer = stack.enter_context(client.open_streamer(cmd_keys))
+                statuses = None
+                if task_key is not None:
+                    statuses = stack.enter_context(
+                        client.open_streamer([_STATUS_CHANNEL])
+                    )
                 writer = client.open_writer(
                     start=sy.TimeStamp.now(),
                     channels=all_writer_keys,
@@ -142,12 +158,14 @@ def send_and_verify_commands(
                         writer.close()
                     except Exception:
                         pass
+                if verified and statuses is not None and task_key is not None:
+                    task_errors = _buffered_task_errors(statuses, task_key)
         except Exception as e:
             if not verified:
                 last_err = e
         if verified:
-            if task_key:
-                _assert_no_task_errors(client, task_key, task_name=task_name)
+            if task_errors:
+                raise AssertionError(f"{prefix}Driver reported {task_errors[0]}")
             return
         if attempt < max_attempts - 1:
             print(
@@ -160,35 +178,104 @@ def send_and_verify_commands(
     )
 
 
-def _assert_no_task_errors(
-    client: sy.Synnax,
-    task_key: int,
-    *,
-    task_name: str = "",
-    drain_timeout: sy.TimeSpan = 2 * sy.TimeSpan.SECOND,
-) -> None:
-    """Stream task status briefly and fail if warnings/errors were emitted."""
+def cleanup_task(client: sy.Synnax, task: sy.Task) -> None:
+    """Delete the task if it was assigned a key during save."""
+    if task.key is not None:
+        try:
+            client.tasks.delete(task.key)
+        except sy.NotFoundError:
+            pass
 
-    prefix = f"{task_name}: " if task_name else ""
+
+def run_and_expect_rejection(
+    client: sy.Synnax,
+    task: sy.Task,
+    *,
+    timeout: sy.TimeSpan = 10 * sy.TimeSpan.SECOND,
+) -> str | None:
+    """Start a saved task and return the driver's rejection message, if any.
+
+    Deploy failures acknowledge the start command with an error status; runtime
+    failures surface after a successful ack, so statuses are watched for the full
+    timeout window. Returns None when no rejection arrives. The task is stopped
+    before returning. Accepts both sugared tasks and plain ``sy.task.Task``.
+    """
+    internal = getattr(task, "_internal", task)
     with client.open_streamer(["sy_status_set"]) as streamer:
-        timer = sy.Timer()
-        while timer.elapsed() < drain_timeout:
-            frame = streamer.read(timeout=drain_timeout)
-            if frame is None:
-                break
-            if "sy_status_set" not in frame:
+        internal.execute_command("start")
+        try:
+            timer = sy.Timer()
+            while timer.elapsed() < timeout:
+                frame = streamer.read(timeout=timeout)
+                if frame is None:
+                    break
+                if "sy_status_set" not in frame:
+                    continue
+                for raw in frame["sy_status_set"]:
+                    try:
+                        status = sy.task.Status.model_validate(raw)
+                    except ValidationError:
+                        continue
+                    if status.details is None or status.details.task != task.key:
+                        continue
+                    if status.variant in ("warning", "error"):
+                        return str(status.message)
+        finally:
+            internal.execute_command("stop")
+    return None
+
+
+def assert_configure_rejected(client: sy.Synnax, task: sy.Task, label: str) -> str:
+    """Save a task and assert the client rejects it before it reaches the
+    driver. Configure resolves the task's device to update its properties, so a
+    dangling device reference fails here. Returns the rejection message."""
+    try:
+        client.tasks.configure(task)
+    except sy.NotFoundError as e:
+        return str(e)
+    cleanup_task(client, task)
+    raise AssertionError(f"Configure did not reject {label}")
+
+
+def assert_start_rejected(
+    client: sy.Synnax,
+    task: sy.Task,
+    label: str,
+    *,
+    timeout: sy.TimeSpan = 10 * sy.TimeSpan.SECOND,
+) -> str:
+    """Save a task, start it, and assert the driver rejects it with an error or
+    warning status. Returns the rejection message. The task is deleted before
+    returning."""
+    client.tasks.configure(task)
+    try:
+        message = run_and_expect_rejection(client, task, timeout=timeout)
+        if message is None:
+            raise AssertionError(
+                f"Driver did not reject {label} — task started successfully"
+            )
+        return message
+    finally:
+        cleanup_task(client, task)
+
+
+def _buffered_task_errors(statuses: sy.Streamer, task_key: sy.task.Key) -> list[str]:
+    """Return the warning and error statuses for ``task_key`` that a status streamer
+    has received so far, without waiting for more."""
+    errors: list[str] = []
+    while (frame := statuses.read(timeout=0)) is not None:
+        if _STATUS_CHANNEL not in frame:
+            continue
+        for raw in frame[_STATUS_CHANNEL]:
+            try:
+                status = sy.task.Status.model_validate(raw)
+            except ValidationError:
                 continue
-            for raw in frame["sy_status_set"]:
-                try:
-                    status = sy.task.Status.model_validate(raw)
-                except ValidationError:
-                    continue
-                if status.details is None or status.details.task != task_key:
-                    continue
-                if status.variant in ("warning", "error"):
-                    raise AssertionError(
-                        f"{prefix}Driver reported {status.variant}: {status.message}"
-                    )
+            if status.details is None or status.details.task != task_key:
+                continue
+            if status.variant in ("warning", "error"):
+                errors.append(f"{status.variant}: {status.message}")
+    return errors
 
 
 def assert_streamed_values(
@@ -267,6 +354,102 @@ def assert_sample_counts_in_range(
     return sample_counts
 
 
+def collect_samples(
+    client: sy.Synnax,
+    channel_keys: list[int],
+    duration: sy.TimeSpan,
+    frame_size: int,
+) -> sy.TimeStamp:
+    """Wait until a running task streams two consecutive frames of ``frame_size``
+    samples, then hold for ``duration``.
+
+    Returns the hold's start. Count after the task stops: Cesium commits per
+    channel, so a live read can catch one channel a frame ahead of another.
+    """
+    timer = sy.Timer()
+    full_frames = 0
+    with client.open_streamer(channel_keys) as streamer:
+        while full_frames < 2:
+            frame = streamer.read(timeout=15)
+            if frame is None:
+                raise AssertionError("Task did not start — no data received")
+            batch = min((len(frame[k]) for k in channel_keys if k in frame), default=0)
+            full_frames = full_frames + 1 if batch >= frame_size else 0
+            if timer.elapsed() > 15 * sy.TimeSpan.SECOND:
+                raise AssertionError(
+                    f"Task never streamed two consecutive frames of {frame_size} "
+                    f"samples, last frame had {batch}"
+                )
+    start = sy.TimeStamp.now()
+    sy.sleep(duration.seconds)
+    return start
+
+
+def assert_sample_rate(
+    client: sy.Synnax,
+    *,
+    channel_keys: list[int],
+    start: sy.TimeStamp,
+    sample_rate: float,
+    strict: bool = True,
+    task_name: str = "",
+    log: Callable[[str], None] = print,
+) -> None:
+    """Assert each channel's samples since ``start`` run at ``sample_rate``, measured
+    from the samples' own timestamps up to the last one recorded. Every channel must
+    hold the same number of samples. Non-strict only requires samples to exist.
+    Logs the measured rate and its error for each channel."""
+    prefix = f"{task_name}: " if task_name else ""
+    time_range = sy.TimeRange(start, sy.TimeStamp.now())
+    counts: list[int] = []
+    timestamps: dict[int, sy.Series] = {}
+    for key in channel_keys:
+        ch = client.channels.retrieve(key)
+        count = len(ch.read(time_range))
+        counts.append(count)
+        if count < (2 if strict else 1):
+            raise AssertionError(
+                f"{prefix}Channel '{ch.name}' has {count} samples since steady state"
+            )
+        if not strict:
+            continue
+        if ch.index not in timestamps:
+            timestamps[ch.index] = client.channels.retrieve(ch.index).read(time_range)
+        times = timestamps[ch.index]
+        span = sy.TimeSpan(int(times[-1]) - int(times[0]))
+        measured = (count - 1) / span.seconds
+        error = (measured - sample_rate) / sample_rate
+        log(
+            f"{prefix}Channel '{ch.name}': {measured:.1f} Hz measured, "
+            f"{sample_rate:g} Hz expected ({error:+.1%})"
+        )
+        if abs(error) > RATE_TOLERANCE:
+            raise AssertionError(
+                f"{prefix}Channel '{ch.name}' rate is off by {error:+.1%}, "
+                f"tolerance is ±{RATE_TOLERANCE:.0%}"
+            )
+    if len(set(counts)) > 1:
+        raise AssertionError(f"{prefix}Channels have different sample counts: {counts}")
+
+
+def delete_channels(client: sy.Synnax, keys: list[int]) -> None:
+    """Delete channels by key, then the indexes they depend on. Missing keys are
+    skipped."""
+    channels: list[sy.Channel] = []
+    for key in set(keys):
+        try:
+            channels.append(client.channels.retrieve(key))
+        except sy.NotFoundError:
+            pass
+    data_keys = [ch.key for ch in channels if not ch.is_index]
+    index_keys = {ch.index for ch in channels if not ch.is_index and ch.index != 0}
+    index_keys.update(ch.key for ch in channels if ch.is_index)
+    if data_keys:
+        client.channels.delete(data_keys)
+    if index_keys:
+        client.channels.delete(list(index_keys))
+
+
 class TaskCase(TestCase):
     """Base class for driver task lifecycle tests.
 
@@ -315,13 +498,15 @@ class TaskCase(TestCase):
             self.fail(f"Task configuration failed: {e}")
 
     def teardown(self) -> None:
-        """Delete the task created during setup, then delegate to parent."""
+        """Delete the task and its channels, then delegate to parent."""
         if self.tsk is not None:
             try:
                 self.client.tasks.delete(self.tsk.key)
                 self.log(f"Task '{self.task_name}' deleted")
             except sy.NotFoundError:
                 self.log(f"Task '{self.task_name}' already deleted")
+            with self._try_to("delete task channels"):
+                delete_channels(self.client, self._channel_keys(self.tsk))
         super().teardown()
 
     def _channel_keys(self, task: sy.Task) -> list[int]:
@@ -358,7 +543,7 @@ class TaskCase(TestCase):
             )
         return actual_names
 
-    def assert_task_exists(self, *, task_key: int) -> sy.Task:
+    def assert_task_exists(self, *, task_key: sy.task.Key) -> sy.Task:
         """Assert that a task exists in Synnax."""
         try:
             task = self.client.tasks.retrieve(task_key)
@@ -418,13 +603,9 @@ class ReadTaskCase(TaskCase):
 
         self.test_task_exists()
         self.test_start_and_stop()
-        sy.sleep(1)
         self.test_disable_data_saving()
-        sy.sleep(1)
         self.test_enable_data_saving()
-        sy.sleep(1)
         self.test_reconfigure_rate()
-        sy.sleep(1)
         self.test_survives_channel_deletion()
 
     def test_start_and_stop(self) -> None:
@@ -436,7 +617,7 @@ class ReadTaskCase(TaskCase):
         """Disable data saving and verify no samples are persisted."""
         assert self.tsk is not None
         self.log("Testing: Disable data saving")
-        self.tsk.config.data_saving = False
+        self.tsk.config.data_saving_disabled = True
         self.client.tasks.configure(self.tsk)
         self.assert_no_samples_persisted(task=self.tsk, duration=self.TASK_DURATION)
 
@@ -444,25 +625,18 @@ class ReadTaskCase(TaskCase):
         """Re-enable data saving and verify samples are persisted again."""
         assert self.tsk is not None
         self.log("Testing: Enable data saving")
-        self.tsk.config.data_saving = True
+        self.tsk.config.data_saving_disabled = False
         self.client.tasks.configure(self.tsk)
         self.assert_sample_count(task=self.tsk, duration=self.TASK_DURATION)
 
     def test_reconfigure_rate(self) -> None:
-        """Halve the sample rate with auto_start enabled.
-
-        Enables auto_start before configuring so the task starts automatically
-        after reconfiguration, removing the need for an explicit run() call.
-        """
+        """Halve the sample rate and verify the next start deploys the new config."""
         assert self.tsk is not None
-        self.log("Testing: Reconfigure task rate with auto_start")
+        self.log("Testing: Reconfigure task rate")
         new_rate = int(self.SAMPLE_RATE / 2)
         self.tsk.config.sample_rate = new_rate
-        self.tsk.config.auto_start = True
         self.client.tasks.configure(self.tsk)
-        self.assert_sample_count(
-            task=self.tsk, duration=self.TASK_DURATION, started=True
-        )
+        self.assert_sample_count(task=self.tsk, duration=self.TASK_DURATION)
 
     def test_survives_channel_deletion(self) -> None:
         """Attempt to delete a channel while the task is running."""
@@ -495,44 +669,19 @@ class ReadTaskCase(TaskCase):
         task: sy.Task,
         duration: sy.TimeSpan = 1 * sy.TimeSpan.SECOND,
         strict: bool = True,
-        started: bool = False,
     ) -> None:
-        """Assert that the task collects the expected number of samples.
-
-        Args:
-            started: If True, the task is already running (e.g. via auto_start)
-                and will be stopped after collection. If False, the task will be
-                started and stopped via task.run().
-        """
-        sample_rate = task.config.sample_rate
+        """Assert that the task collects the expected number of samples."""
         channel_keys = self._channel_keys(task)
-
-        def collect() -> sy.TimeStamp:
-            with self.client.open_streamer(channel_keys) as streamer:
-                frame = streamer.read(timeout=30)
-                if frame is None:
-                    raise AssertionError("Task did not start — no data received")
-            sy.sleep(1)
-            start = sy.TimeStamp.now()
-            sy.sleep(duration.seconds * 1.25)
-            return start
-
-        if started:
-            start_time = collect()
-            task.stop()
-        else:
-            with task.run():
-                start_time = collect()
-
-        end_time = sy.TimeStamp.now()
-        expected_samples = int(sample_rate * duration.seconds)
-        time_range = sy.TimeRange(start_time, end_time)
-        assert_sample_counts_in_range(
+        frame_size = int(task.config.sample_rate / task.config.stream_rate)
+        with task.run():
+            start = collect_samples(self.client, channel_keys, duration, frame_size)
+        assert_sample_rate(
             self.client,
             channel_keys=channel_keys,
-            time_range=time_range,
-            expected_samples=expected_samples,
+            start=start,
+            sample_rate=task.config.sample_rate,
             strict=strict,
+            log=self.log,
         )
 
     def assert_no_samples_persisted(

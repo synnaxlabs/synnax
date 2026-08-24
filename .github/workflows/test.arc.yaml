@@ -1,3 +1,12 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
 name: Test - Arc
 
 on:
@@ -7,13 +16,17 @@ on:
       - .bazelrc
       - .clang-format
       - .clang-format-ignore
+      - .github/workflows/build.docker.yaml
       - .github/workflows/test.arc.yaml
       - arc/**
       - alamos/go/**
+      - core/**
       - MODULE.bazel
       - MODULE.bazel.lock
+      - integration/scripts/kill_synnax_processes.sh
       - scripts/check_clang_format.sh
-      - scripts/check_gofmt.sh
+      - scripts/install_clang_format.sh
+      - scripts/run_bazel.sh
       - scripts/sanitizers/**
       - vendor/wasmtime/**
       - x/cpp/**
@@ -27,13 +40,17 @@ on:
       - .bazelrc
       - .clang-format
       - .clang-format-ignore
+      - .github/workflows/build.docker.yaml
       - .github/workflows/test.arc.yaml
       - arc/**
       - alamos/go/**
+      - core/**
       - MODULE.bazel
       - MODULE.bazel.lock
+      - integration/scripts/kill_synnax_processes.sh
       - scripts/check_clang_format.sh
-      - scripts/check_gofmt.sh
+      - scripts/install_clang_format.sh
+      - scripts/run_bazel.sh
       - scripts/sanitizers/**
       - vendor/wasmtime/**
       - x/cpp/**
@@ -42,6 +59,10 @@ on:
 
 env:
   BAZEL_REMOTE_CACHE: ${{ vars.BAZEL_REMOTE_CACHE_GRPC_URL }}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   server:
@@ -58,7 +79,7 @@ jobs:
     needs: [server]
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Force Quit Existing Synnax Processes
         continue-on-error: true
@@ -139,7 +160,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Update Submodules
         run: git submodule update --init --recursive
@@ -161,7 +182,7 @@ jobs:
       - name: Test (Windows)
         if: matrix.os == 'windows-build-bot'
         run: |
-          bazel --output_user_root=C:/tmp test --test_output=all //arc/cpp/... \
+          scripts/run_bazel.sh test --test_output=all //arc/cpp/... \
             --remote_cache=${{ env.BAZEL_REMOTE_CACHE }} --remote_cache_compression=true \
             --test_tag_filters=-requires-core
         shell: bash

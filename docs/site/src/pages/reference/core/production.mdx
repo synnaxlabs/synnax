@@ -9,7 +9,7 @@ prev: "Installation"
 prevURL: "/reference/core/installation"
 ---
 
-import { Divider } from "@synnaxlabs/pluto";
+import { Divider, Note } from "@synnaxlabs/pluto";
 import { Table } from "@/components";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -153,3 +153,98 @@ docker run -v /etc/letsencrypt:/usr/local/synnax/certs \
 
 When using your own certificates, you'll need to specify the `--certs-dir` option and
 provide the necessary certificates and keys in that directory.
+
+<Divider.Divider x />
+
+## Serving Multiple Listeners
+
+By default, a Core binds a single address and presents a single certificate on it. A
+Core can instead bind several **listeners**, each with its own address and its own
+certificate. Every listener serves the full API; they differ only in where they bind and
+what certificate they present.
+
+Use this to route different traffic over different networks. For example, hardware
+drivers reach the Core at a corporate address with your production PKI certificate,
+while operators reach the same Core at a Tailscale `ts.net` address with a
+Tailscale-issued certificate, so Tailscale can enforce per-user network access.
+
+Multiple listeners are configured through the `listen` key in a
+[configuration file](/reference/core/cli-reference#configuration-files). In this form,
+`listen` is a list of listener objects instead of a single address:
+
+```yaml
+listen:
+  - address: core01.example.com:9090
+    cert:
+      source: file
+      cert: /usr/local/synnax/certs/driver.crt
+      key: /usr/local/synnax/certs/driver.key
+    advertise: true
+  - address: node01.example-tailnet.ts.net:9091
+    cert:
+      source: tailscale
+    name: console
+
+peers:
+  - core02.example.com:9090
+  - core03.example.com:9090
+```
+
+Drivers reach `:9090` with the production certificate, operators reach `:9091` over
+Tailscale with the auto-provisioned `ts.net` certificate, and peers gossip over the
+advertised `core01.example.com:9090` address.
+
+### Certificate Sources
+
+Each listener draws its certificate from a **source**, selected by `cert.source`.
+Different listeners can use different sources.
+
+<Table.Data
+  client:only="react"
+  columns={[
+    { key: "source", name: "Source", type: "code", width: 100 },
+    { key: "description", name: "Description", type: "html" },
+  ]}
+  data={[
+    {
+      source: "file",
+      description:
+        "Serves a PEM certificate and key from disk. Requires <code>cert</code> and <code>key</code> paths. Reloads automatically when the files change, so certificate rotation needs no restart.",
+    },
+    {
+      source: "auto",
+      description:
+        "Self-signs a certificate from the Core's built-in CA, deriving its SANs from the listener address. Do not set <code>cert</code> or <code>key</code>. Intended for development and self-contained on-prem deployments.",
+    },
+    {
+      source: "tailscale",
+      description:
+        "Provisions and renews a <code>ts.net</code> certificate through the local <code>tailscaled</code> daemon. Requires a running <code>tailscaled</code> with HTTPS enabled on the tailnet. Do not set <code>cert</code> or <code>key</code>.",
+    },
+  ]}
+/>
+
+### The Advertised Listener
+
+Peers dial one agreed address to join the cluster, so exactly one listener is
+**advertised**. Set `advertise: true` on that listener. If no listener sets it, the
+first listener is advertised. Setting it on more than one listener is a startup error.
+
+<Note.Note variant="warning">
+  The advertised listener cannot use the `tailscale` source. Peers verify its
+  certificate against the cluster CA, which a public-CA certificate cannot satisfy.
+</Note.Note>
+
+### Rules
+
+The Core enforces these at startup:
+
+- Listener addresses must be unique.
+- In secure mode, every listener must resolve a certificate source.
+- A `file` source must set both `cert` and `key`; `auto` and `tailscale` must set
+  neither.
+- A `listen` list cannot be combined with the global `--auto-cert`, `--node-cert`, or
+  `--node-key` flags. Configure each listener's certificate in its `cert` block instead.
+
+`--insecure` remains a whole-node switch: it disables TLS on every listener and ignores
+all certificate sources.

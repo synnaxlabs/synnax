@@ -13,9 +13,7 @@ import { z } from "zod";
 
 export class SynnaxError extends errors.createTyped("sy") {}
 
-/**
- * Raised when a validation error occurs.
- */
+/** Raised when a validation error occurs. */
 export class ValidationError extends SynnaxError.sub("validation") {}
 
 export class PathError extends ValidationError.sub("path") {
@@ -37,25 +35,39 @@ export class PathError extends ValidationError.sub("path") {
     const decoded = PathError.encodedSchema.parse(JSON.parse(payload.data));
     return new PathError(decoded.path, errors.decode(decoded.error) as Error);
   }
+
+  static matchExact(e: unknown): e is PathError {
+    return (
+      e != null &&
+      typeof e === "object" &&
+      "path" in e &&
+      "error" in e &&
+      "type" in e &&
+      typeof e.type === "string" &&
+      e.type === PathError.TYPE
+    );
+  }
 }
 
-/**
- * AuthError is raised when an authentication error occurs.
- */
+/** AuthError is raised when an authentication error occurs. */
 export class AuthError extends SynnaxError.sub("auth") {}
 
-/**
- * InvalidTokenError is raised when an authentication token is invalid.
- */
+/** InvalidTokenError is raised when an authentication token is invalid. */
 export class InvalidTokenError extends AuthError.sub("invalid_token") {}
 
 export class ExpiredTokenError extends AuthError.sub("expired_token") {}
 
-export class AccessDeniedError extends AuthError.sub("access_denied") {}
+/** Raised when the caller's policies do not permit the action. */
+export class AccessDeniedError extends AuthError.sub("access_denied") {
+  toStatus() {
+    return {
+      message: "You do not have permission to do that",
+      description: this.message,
+    };
+  }
+}
 
-/**
- * UnexpectedError is raised when an unexpected error occurs.
- */
+/** UnexpectedError is raised when an unexpected error occurs. */
 export class UnexpectedError extends SynnaxError.sub("unexpected") {
   constructor(message: string) {
     super(`
@@ -68,18 +80,14 @@ export class UnexpectedError extends SynnaxError.sub("unexpected") {
   }
 }
 
-/**
- * QueryError is raised when a query error occurs.
- */
+/** QueryError is raised when a query error occurs. */
 export class QueryError extends SynnaxError.sub("query") {}
 
 export class NotFoundError extends QueryError.sub("not_found") {}
 
 export class MultipleFoundError extends QueryError.sub("multiple_results") {}
 
-/**
- * RouteError is raised when a routing error occurs.
- */
+/** RouteError is raised when a routing error occurs. */
 export class RouteError extends SynnaxError.sub("route") {
   path: string;
 
@@ -100,8 +108,13 @@ export class DisconnectedError extends SynnaxError.sub("disconnected") {
 }
 
 /**
- * Raised when time-series data is not contiguous.
+ * Whether the error means the Core could not be reached: a request that failed on
+ * the wire, or one short-circuited while the connection is known unreachable.
  */
+export const isConnectionError = (err: unknown): boolean =>
+  Unreachable.matches(err) || DisconnectedError.matches(err);
+
+/** Raised when time-series data is not contiguous. */
 export class ContiguityError extends SynnaxError.sub("contiguity") {}
 
 const decode = (payload: errors.Payload): Error | null => {
@@ -116,6 +129,8 @@ const decode = (payload: errors.Payload): Error | null => {
       return new InvalidTokenError(payload.data);
     if (payload.type.startsWith(ExpiredTokenError.TYPE))
       return new ExpiredTokenError(payload.data);
+    if (payload.type.startsWith(AccessDeniedError.TYPE))
+      return new AccessDeniedError(payload.data);
     return new AuthError(payload.data);
   }
 
@@ -142,8 +157,16 @@ const decode = (payload: errors.Payload): Error | null => {
   return new UnexpectedError(payload.data);
 };
 
-const encode = (): errors.Payload => {
-  throw new errors.NotImplemented();
+const encode: errors.Encoder = (error) => {
+  if (!error.type.startsWith(SynnaxError.TYPE)) return null;
+  if (PathError.matchExact(error)) {
+    const { path, error: cause } = error;
+    return {
+      type: PathError.TYPE,
+      data: JSON.stringify({ path, error: errors.encode(cause) }),
+    };
+  }
+  return { type: error.type, data: error.message };
 };
 
 errors.register({ encode, decode });

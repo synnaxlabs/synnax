@@ -15,51 +15,45 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
+	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/graph"
 	"github.com/synnaxlabs/x/migrate"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 	"go.uber.org/zap/zapcore"
 )
 
 type mockMigration struct {
-	key  string
-	deps set.Set[string]
-	fn   func(ctx context.Context, ins alamos.Instrumentation) error
+	key string
+	fn  func(context.Context, alamos.Instrumentation) error
 }
 
-func (m *mockMigration) Key() string                   { return m.key }
-func (m *mockMigration) Dependencies() set.Set[string] { return m.deps }
+func (m *mockMigration) Key() string { return m.key }
 func (m *mockMigration) Run(ctx context.Context, ins alamos.Instrumentation) error {
 	return m.fn(ctx, ins)
 }
 
-func newMock(key string, order *[]string, deps ...string) *mockMigration {
+func newMock(key string, order *[]string) *mockMigration {
 	return &mockMigration{
-		key:  key,
-		deps: set.New(deps...),
-		fn: func(_ context.Context, _ alamos.Instrumentation) error {
+		key: key,
+		fn: func(context.Context, alamos.Instrumentation) error {
 			*order = append(*order, key)
 			return nil
 		},
 	}
 }
 
-func noop(key string, deps ...string) *mockMigration {
+func noop(key string) *mockMigration {
 	return &mockMigration{
-		key:  key,
-		deps: set.New(deps...),
-		fn:   func(_ context.Context, _ alamos.Instrumentation) error { return nil },
+		key: key,
+		fn:  func(context.Context, alamos.Instrumentation) error { return nil },
 	}
 }
 
-func failing(key string, deps ...string) *mockMigration {
+func failing(key string) *mockMigration {
 	return &mockMigration{
-		key:  key,
-		deps: set.New(deps...),
-		fn: func(_ context.Context, _ alamos.Instrumentation) error {
+		key: key,
+		fn: func(context.Context, alamos.Instrumentation) error {
 			return errors.New("boom")
 		},
 	}
@@ -72,7 +66,10 @@ func cfg(migrations ...migrate.Migration) migrate.Config {
 	}
 }
 
-func cfgWithApplied(applied set.Set[string], migrations ...migrate.Migration) migrate.Config {
+func cfgWithApplied(
+	applied set.Set[string],
+	migrations ...migrate.Migration,
+) migrate.Config {
 	return migrate.Config{
 		Migrations: migrations,
 		Applied:    applied,
@@ -117,22 +114,30 @@ var _ = Describe("Migrate", func() {
 			Expect(order).To(Equal([]string{"b"}))
 		})
 
-		It("Should return the updated applied set including newly run migrations", func() {
-			applied := MustSucceed(migrate.Migrate(ctx, cfg(noop("a"), noop("b"))))
-			Expect(applied).To(HaveLen(2))
-			Expect(applied.Contains("a")).To(BeTrue())
-			Expect(applied.Contains("b")).To(BeTrue())
-		})
+		It(
+			"Should return the updated applied set including newly run migrations",
+			func() {
+				applied := MustSucceed(migrate.Migrate(ctx, cfg(noop("a"), noop("b"))))
+				Expect(applied).To(HaveLen(2))
+				Expect(applied.Contains("a")).To(BeTrue())
+				Expect(applied.Contains("b")).To(BeTrue())
+			},
+		)
 
-		It("Should return the applied set unchanged when all migrations are applied", func() {
-			applied := set.New("a", "b")
-			result := MustSucceed(migrate.Migrate(ctx, cfgWithApplied(applied, noop("a"), noop("b"))))
-			Expect(result).To(HaveLen(2))
-		})
+		It(
+			"Should return the applied set unchanged when all migrations are applied",
+			func() {
+				applied := set.New("a", "b")
+				result := MustSucceed(
+					migrate.Migrate(ctx, cfgWithApplied(applied, noop("a"), noop("b"))),
+				)
+				Expect(result).To(HaveLen(2))
+			},
+		)
 
 		It("Should handle an empty migrations list", func() {
 			applied := MustSucceed(migrate.Migrate(ctx, cfg()))
-			Expect(applied).To(HaveLen(0))
+			Expect(applied).To(BeEmpty())
 		})
 
 		It("Should handle a nil applied set", func() {
@@ -158,111 +163,6 @@ var _ = Describe("Migrate", func() {
 		It("Should wrap the failed migration key in the error message", func() {
 			Expect(migrate.Migrate(ctx, cfg(failing("my_migration")))).
 				Error().To(MatchError(ContainSubstring("my_migration")))
-		})
-	})
-
-	Describe("Dependencies", func() {
-		It("Should respect declared dependency ordering", func() {
-			var order []string
-			m1 := newMock("a", &order)
-			m2 := newMock("b", &order, "a")
-			m3 := newMock("c", &order, "b")
-			MustSucceed(migrate.Migrate(ctx, cfg(m3, m2, m1)))
-			Expect(order).To(Equal([]string{"a", "b", "c"}))
-		})
-
-		It("Should treat already-applied dependencies as satisfied", func() {
-			var order []string
-			m1 := newMock("a", &order)
-			m2 := newMock("b", &order, "a")
-			applied := set.New("a")
-			MustSucceed(migrate.Migrate(ctx, cfgWithApplied(applied, m1, m2)))
-			Expect(order).To(Equal([]string{"b"}))
-		})
-
-		It("Should detect cyclic dependencies", func() {
-			m1 := noop("a", "b")
-			m2 := noop("b", "a")
-			Expect(migrate.Migrate(ctx, cfg(m1, m2))).
-				Error().To(MatchError(graph.ErrCyclicDependency))
-		})
-
-		It("Should return error for missing dependency", func() {
-			m := noop("a", "nonexistent")
-			Expect(migrate.Migrate(ctx, cfg(m))).
-				Error().To(MatchError(query.ErrNotFound))
-		})
-
-		It("Should handle diamond dependency graphs", func() {
-			var order []string
-			root := newMock("root", &order)
-			left := newMock("left", &order, "root")
-			right := newMock("right", &order, "root")
-			tip := newMock("tip", &order, "left", "right")
-			applied := MustSucceed(migrate.Migrate(ctx, cfg(tip, left, right, root)))
-			Expect(applied).To(HaveLen(4))
-			Expect(order[0]).To(Equal("root"))
-			Expect(order[3]).To(Equal("tip"))
-		})
-	})
-
-	Describe("WithAddedDeps", func() {
-		It("Should add dependencies to a migration without mutating the original", func() {
-			original := noop("a")
-			Expect(original.Dependencies()).To(HaveLen(0))
-			wrapped := migrate.WithAddedDeps(original, "x", "y")
-			Expect(wrapped.Key()).To(Equal("a"))
-			Expect(wrapped.Dependencies()).To(HaveLen(2))
-			Expect(wrapped.Dependencies().Contains("x")).To(BeTrue())
-			Expect(wrapped.Dependencies().Contains("y")).To(BeTrue())
-			Expect(original.Dependencies()).To(HaveLen(0))
-		})
-
-		It("Should merge added deps with existing deps", func() {
-			m := noop("a", "existing")
-			wrapped := migrate.WithAddedDeps(m, "added")
-			deps := wrapped.Dependencies()
-			Expect(deps).To(HaveLen(2))
-			Expect(deps.Contains("existing")).To(BeTrue())
-			Expect(deps.Contains("added")).To(BeTrue())
-		})
-	})
-
-	Describe("AllWithAddedDeps", func() {
-		It("Should add the same deps to all migrations in the slice", func() {
-			migrations := []migrate.Migration{noop("a"), noop("b"), noop("c")}
-			wrapped := migrate.AllWithAddedDeps(migrations, "root")
-			for _, m := range wrapped {
-				Expect(m.Dependencies().Contains("root")).To(BeTrue())
-			}
-		})
-
-		It("Should not mutate the original migrations", func() {
-			m1 := noop("a")
-			m2 := noop("b")
-			originals := []migrate.Migration{m1, m2}
-			migrate.AllWithAddedDeps(originals, "root")
-			Expect(m1.Dependencies()).To(HaveLen(0))
-			Expect(m2.Dependencies()).To(HaveLen(0))
-		})
-	})
-
-	Describe("Unwrap", func() {
-		It("Should return the migration itself when not wrapped", func() {
-			m := noop("a")
-			Expect(migrate.Unwrap(m)).To(Equal(m))
-		})
-
-		It("Should unwrap a single layer of WithAddedDeps", func() {
-			m := noop("a")
-			wrapped := migrate.WithAddedDeps(m, "x")
-			Expect(migrate.Unwrap(wrapped)).To(Equal(m))
-		})
-
-		It("Should unwrap nested layers of WithAddedDeps", func() {
-			m := noop("a")
-			wrapped := migrate.WithAddedDeps(migrate.WithAddedDeps(m, "x"), "y")
-			Expect(migrate.Unwrap(wrapped)).To(Equal(m))
 		})
 	})
 

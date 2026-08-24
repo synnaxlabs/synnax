@@ -23,6 +23,8 @@ import { caseconv, deep } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useRef, useState } from "react";
 import z from "zod";
 
+import { codifyHTML } from "@/components/text/InlineCode";
+
 interface SearchResult {
   key: string;
   title: string;
@@ -65,11 +67,11 @@ export const Search = (): ReactElement => (
 );
 
 const ICONS: Record<string, Icon.ReactElement> = {
-  core: <Icon.Cluster />,
+  core: <Icon.Core />,
   console: <Icon.Visualize />,
   concepts: <Icon.Concepts />,
   blog: <Icon.Guide />,
-  "opc-ua": <Icon.Logo.OPC />,
+  "opc-ua": <Icon.Logo.OPCUA />,
   ni: <Icon.Logo.NI />,
   driver: <Icon.Device />,
   pluto: <Icon.Table />,
@@ -108,7 +110,11 @@ export const SearchListItem = (props: List.ItemRenderProps<string>) => {
       {...props}
     >
       <Flex.Box direction="y" empty>
-        <Text.Text level="h5" dangerouslySetInnerHTML={{ __html: title }} empty />
+        <Text.Text
+          level="h5"
+          dangerouslySetInnerHTML={{ __html: codifyHTML(title) }}
+          empty
+        />
         {path.length > 0 && (
           <Breadcrumb.Breadcrumb level="small" gap="tiny" highlightVariant="last">
             {icon}

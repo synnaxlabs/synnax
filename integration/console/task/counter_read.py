@@ -27,25 +27,25 @@ from console.task.ni import NIChannel, NITask
 
 # Valid channel types for NI Counter Read tasks
 COUNTER_READ_CHANNEL_TYPES: dict[str, Type[Counter]] = {
-    "Position Angular": AngularPosition,
-    "Velocity Angular": AngularVelocity,
-    "Duty Cycle": DutyCycle,
-    "Edge Count": EdgeCount,
+    "Position angular": AngularPosition,
+    "Velocity angular": AngularVelocity,
+    "Duty cycle": DutyCycle,
+    "Edge count": EdgeCount,
     "Frequency": Frequency,
-    "Position Linear": LinearPosition,
-    "Velocity Linear": LinearVelocity,
+    "Position linear": LinearPosition,
+    "Velocity linear": LinearVelocity,
     "Period": Period,
-    "Pulse Width": PulseWidth,
-    "Semi Period": SemiPeriod,
-    "Two Edge Separation": TwoEdgeSeparation,
+    "Pulse width": PulseWidth,
+    "Semi period": SemiPeriod,
+    "Two edge separation": TwoEdgeSeparation,
 }
 
 
 class CounterRead(NITask):
     """NI Counter Read Task automation interface."""
 
-    page_type: str = "NI Counter Read Task"
-    pluto_label: str = ".pluto-ni-counter-read-task"
+    page_type = "NI counter read task"
+    pluto_label: str = ".console-task-configure--ni_counter_read"
 
     def add_channel(
         self,
@@ -84,38 +84,3 @@ class CounterRead(NITask):
             channel_class=COUNTER_READ_CHANNEL_TYPES[chan_type],
             **kwargs,
         )
-
-    def set_parameters(
-        self,
-        *,
-        task_name: str | None = None,
-        data_saving: bool | None = None,
-        auto_start: bool | None = None,
-        **kwargs: Any,
-    ) -> None:
-        """
-        Set the parameters for the NI Counter Read task.
-
-        Args:
-            task_name: The name of the task.
-            data_saving: Whether to save data to the core.
-            auto_start: Whether to start the task automatically.
-            **kwargs: Additional parameters including:
-                sample_rate (float): Sample rate for the task.
-                stream_rate (float): Stream rate for the task.
-        """
-        sample_rate = kwargs.pop("sample_rate", None)
-        stream_rate = kwargs.pop("stream_rate", None)
-
-        super().set_parameters(
-            task_name=task_name,
-            data_saving=data_saving,
-            auto_start=auto_start,
-            **kwargs,
-        )
-
-        if sample_rate is not None:
-            self.layout.fill_input_field("Sample Rate", str(sample_rate))
-
-        if stream_rate is not None:
-            self.layout.fill_input_field("Stream Rate", str(stream_rate))

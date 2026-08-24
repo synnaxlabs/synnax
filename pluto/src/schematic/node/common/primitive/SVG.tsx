@@ -51,7 +51,7 @@ export const SVG = ({
       ...style,
       aspectRatio: `${dims.width} / ${dims.height}`,
       width: dimensions.scale(dims, scale * BASE_SCALE).width,
-      [CSS.var("symbol-color")]: symbolColorVar(colorVal),
+      [CSS.variable("symbol-color")]: symbolColorVar(colorVal),
     }),
     [style, dims, scale, colorVal],
   );
@@ -60,7 +60,7 @@ export const SVG = ({
     <svg
       xmlns="http://www.w3.org/2000/svg"
       viewBox={dimensions.svgViewBox(dims)}
-      className={CSS(CSS.B("symbol-colored"), CSS.loc(orientation), className)}
+      className={CSS.cls(CSS.B("symbol-colored"), CSS.loc(orientation), className)}
       {...rest}
       style={pStyle}
     >

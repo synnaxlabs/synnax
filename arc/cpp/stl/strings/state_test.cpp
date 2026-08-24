@@ -92,9 +92,9 @@ TEST(State, CreateEmptyStringReturnsHandleZero) {
     EXPECT_EQ(st.create(""), 0u);
 }
 
-TEST(State, CreateConfigEmptyStringReturnsHandleZero) {
+TEST(State, CreateLiteralEmptyStringReturnsHandleZero) {
     State st;
-    EXPECT_EQ(st.create_config(""), 0u);
+    EXPECT_EQ(st.create_literal(""), 0u);
 }
 
 TEST(State, FromMemoryZeroLengthReturnsHandleZero) {

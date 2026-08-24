@@ -1,0 +1,25 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+@go output "core/pkg/service/auth"
+
+SecureCredentials struct {
+    username string {
+        @doc value "is the unique login name the credentials belong to."
+    }
+    password bytes  {
+        @doc value "is the bcrypt hash of the user's password."
+    }
+
+    @doc value  """
+        is a persisted username and password-hash pair used to authenticate a user.
+    """
+    @go marshal
+    @go migrate
+}

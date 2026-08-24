@@ -21,6 +21,9 @@ interface RenderProps extends Omit<Config, "variant"> {
 
 const DIMENSIONS = { width: 64, height: 64 };
 
+// The SVG renders the base width scaled by BASE_SCALE, not at full size.
+export const WIDTH_PER_SCALE = DIMENSIONS.width * Primitive.BASE_SCALE;
+
 export const Light = ({
   className,
   color,
@@ -30,7 +33,7 @@ export const Light = ({
 }: RenderProps): ReactElement => (
   <Primitive.Div
     orientation={orientation}
-    className={CSS(CSS.B("light"), enabled && CSS.M("enabled"), className)}
+    className={CSS.cls(CSS.B("light"), enabled && CSS.M("enabled"), className)}
   >
     <Handle.Rectangle
       orientation={orientation}

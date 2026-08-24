@@ -65,9 +65,8 @@ task = ni.AnalogReadTask(
     name="Analog Read Task",
     sample_rate=sy.Rate.HZ * 100,
     stream_rate=sy.Rate.HZ * 25,
-    data_saving=True,
     channels=[
-        ni.AIVoltageChan(
+        ni.AIVoltageChannel(
             channel=voltage_chan.key,
             device=v_dev.key,
             port=0,
@@ -75,7 +74,7 @@ task = ni.AnalogReadTask(
             max_val=10.0,
             terminal_config="Diff",
         ),
-        ni.AICurrentChan(
+        ni.AICurrentChannel(
             channel=current_chan.key,
             device=c_dev.key,
             port=0,
@@ -84,15 +83,15 @@ task = ni.AnalogReadTask(
             shunt_resistor_loc="Internal",
             ext_shunt_resistor_val=249.0,
         ),
-        ni.AIThermocoupleChan(
+        ni.AIThermocoupleChannel(
             channel=temp_chan.key,
             device=tc_dev.key,
             port=0,
             units="DegC",
             thermocouple_type="J",
-            cjc_source="BuiltIn",
-            cjc_val=None,
-            cjc_port=None,
+            min_val=-50.0,
+            max_val=500.0,
+            cjc=ni.BuiltInCJC(),
         ),
     ],
 )

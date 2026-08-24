@@ -11,8 +11,8 @@ package ranger
 
 import (
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -44,7 +44,10 @@ func MatchLabels(matchLabels ...label.Key) Filter {
 		if err != nil {
 			return false, err
 		}
-		labelKeys := lo.Map(labels, func(l label.Label, _ int) label.Key { return l.Key })
+		labelKeys := lo.Map(
+			labels,
+			func(l label.Label, _ int) label.Key { return l.Key },
+		)
 		return lo.ContainsBy(labelKeys, func(l label.Key) bool {
 			return lo.Contains(matchLabels, l)
 		}), nil

@@ -257,7 +257,7 @@ class TestConductor:
         except Exception as e:
             self.log(f"Warning: failed to write summary.json: {e}")
         try:
-            (self.run_dir / "README.md").write_text(_BUNDLE_README)
+            (self.run_dir / "README.md").write_text(_BUNDLE_README, encoding="utf-8")
         except Exception as e:
             self.log(f"Warning: failed to write README.md: {e}")
         report_path = failure_report.safe_render(self.run_dir, self.tests)
@@ -309,7 +309,9 @@ class TestConductor:
             },
             "tests": tests_json,
         }
-        (self.run_dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
+        (self.run_dir / "summary.json").write_text(
+            json.dumps(summary, indent=2) + "\n", encoding="utf-8"
+        )
 
 
 def _iso(ts: float | None) -> str | None:
@@ -447,14 +449,34 @@ All matching is case-insensitive substring.
         help="Run Playwright Console tests in headed mode (sets PLAYWRIGHT_CONSOLE_HEADED environment variable)",
     )
     parser.add_argument(
+        "--slow-mo",
+        type=int,
+        default=0,
+        metavar="MS",
+        help=(
+            "Delay each Playwright action by MS milliseconds "
+            "(sets PLAYWRIGHT_CONSOLE_SLOW_MO environment variable)"
+        ),
+    )
+    parser.add_argument(
         "--driver",
         "-d",
         help="Driver rack name to use for driver tests (sets SYNNAX_DRIVER_RACK environment variable)",
+    )
+    parser.add_argument(
+        "--logs",
+        action="store_true",
+        help=(
+            "Stream test case logs as they happen instead of only after a failure "
+            "(sets TC_LOGS environment variable)"
+        ),
     )
 
     args = parser.parse_args()
 
     os.environ["PLAYWRIGHT_CONSOLE_HEADED"] = "1" if args.headed else "0"
+    os.environ["PLAYWRIGHT_CONSOLE_SLOW_MO"] = str(args.slow_mo)
+    os.environ["TC_LOGS"] = "1" if args.logs else "0"
     if args.driver:
         os.environ["SYNNAX_DRIVER_RACK"] = args.driver
 

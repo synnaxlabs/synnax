@@ -33,7 +33,11 @@ func NewPrettier() *Prettier {
 }
 
 // Format runs prettier with content on stdin.
-func (p *Prettier) Format(ctx context.Context, content []byte, absPath string) ([]byte, error) {
+func (p *Prettier) Format(
+	ctx context.Context,
+	content []byte,
+	absPath string,
+) ([]byte, error) {
 	args := append([]string{}, p.Args...)
 	args = append(args, "--stdin-filepath", absPath)
 	dir := findProjectDir(absPath, "package.json")

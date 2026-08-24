@@ -10,6 +10,8 @@
 import { box, direction, location, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type diagram } from "@/vis/diagram/aether";
+
 export interface CheckIntegrityProps {
   sourcePos: xy.XY;
   targetPos: xy.XY;
@@ -86,13 +88,11 @@ export const prepareNode = ({
   const sourceDirection = direction.construct(sourceOrientation);
   const swappedSourceDirection = direction.swap(sourceDirection);
 
-  // This is the direction we need to travel in
   let orientationToTravelIn = orientationFromLength(
     swappedSourceDirection,
     targetPos[swappedSourceDirection] - sourcePos[swappedSourceDirection],
   );
 
-  // We need to grab the edge of the node in this direction
   const nodeEdge = box.loc(sourceBox, orientationToTravelIn);
 
   // If they are pointing in opposite directions, we need to check if we need to
@@ -102,9 +102,8 @@ export const prepareNode = ({
     // In this case we do need to go around the node.
     const targetNodeEdge = box.loc(targetBox, location.swap(orientationToTravelIn));
     if (Math.abs(nodeEdge - targetNodeEdge) < STUMP_LENGTH)
-      orientationToTravelIn = location.swap(orientationToTravelIn) as location.Outer;
+      orientationToTravelIn = location.swap(orientationToTravelIn);
   }
-  // We need to travel from the source to the edge of the node plus MIN_LENGTH
   return {
     direction: swappedSourceDirection,
     length:
@@ -171,12 +170,10 @@ export const segmentsToPoints = (
 };
 
 export interface BuildNew {
+  source: diagram.EdgeEndpoint;
+  target: diagram.EdgeEndpoint;
   sourceBox: box.Box;
   targetBox: box.Box;
-  sourcePos: xy.XY;
-  targetPos: xy.XY;
-  sourceOrientation: location.Outer;
-  targetOrientation: location.Outer;
 }
 
 export const STUMP_LENGTH = 10;
@@ -258,7 +255,6 @@ const removeShortSegments = (segments: Segment[]): Segment[] => {
     return false;
   });
   if (ok !== -1) {
-    // splice out the short segment
     next.splice(ok, 1);
     return next;
   }
@@ -320,7 +316,6 @@ const removeSameOrientationSegments = (segments: Segment[]): Segment[] => {
       return true;
     }
 
-    // splice out the short segment
     next[i - 1] = {
       direction: next[i - 1].direction,
       length: next[i - 1].length + next[i].length,
@@ -336,29 +331,27 @@ export const createConnector = (props: BuildNew): Segment[] =>
   compressSegments(internalNewConnector(props));
 
 const internalNewConnector = ({
+  source,
+  target,
   sourceBox,
   targetBox,
-  sourcePos,
-  targetPos,
-  targetOrientation,
-  sourceOrientation,
 }: BuildNew): Segment[] => {
-  let sourceStumpOrientation = sourceOrientation;
-  let targetStumpOrientation = targetOrientation;
+  let sourceStumpOrientation = source.orientation;
+  let targetStumpOrientation = target.orientation;
 
-  let sourceStump = { ...STUMPS[sourceOrientation] };
-  let sourceStumpTip = travelSegments(sourcePos, sourceStump);
+  let sourceStump = { ...STUMPS[source.orientation] };
+  let sourceStumpTip = travelSegments(source.position, sourceStump);
 
-  const targetStump = { ...STUMPS[targetOrientation] };
-  let targetStumpTip = travelSegments(targetPos, targetStump);
+  const targetStump = { ...STUMPS[target.orientation] };
+  let targetStumpTip = travelSegments(target.position, targetStump);
 
   const xDist = Math.abs(sourceStumpTip.x - targetStumpTip.x);
   const yDist = Math.abs(sourceStumpTip.y - targetStumpTip.y);
   if (xDist < 2 * STUMP_LENGTH && yDist < 10) {
     sourceStump.length -= xDist / 2;
     targetStump.length += xDist / 2;
-    sourceStumpTip = travelSegments(sourcePos, sourceStump);
-    targetStumpTip = travelSegments(targetPos, targetStump);
+    sourceStumpTip = travelSegments(source.position, sourceStump);
+    targetStumpTip = travelSegments(target.position, targetStump);
   }
 
   // When the handles face each other and the nodes are close enough that their stubs
@@ -366,11 +359,11 @@ const internalNewConnector = ({
   // path back over itself, and the per-node go-around logic below compounds it into a
   // self-crossing loop. Approach the target perpendicular-first and drop the opposing
   // stub instead, which honors the source stub without doubling back.
-  if (location.swap(sourceOrientation) === targetOrientation) {
-    const dir = direction.construct(sourceOrientation);
+  if (location.swap(source.orientation) === target.orientation) {
+    const dir = direction.construct(source.orientation);
     const stubsCrossed =
       (targetStumpTip[dir] - sourceStumpTip[dir]) *
-        orientationMagnitude(sourceOrientation) <=
+        orientationMagnitude(source.orientation) <=
       0;
     if (stubsCrossed) {
       const swappedDir = direction.swap(dir);
@@ -378,9 +371,9 @@ const internalNewConnector = ({
         sourceStump,
         {
           direction: swappedDir,
-          length: targetPos[swappedDir] - sourceStumpTip[swappedDir],
+          length: target.position[swappedDir] - sourceStumpTip[swappedDir],
         },
-        { direction: dir, length: targetPos[dir] - sourceStumpTip[dir] },
+        { direction: dir, length: target.position[dir] - sourceStumpTip[dir] },
       ];
     }
   }
@@ -388,10 +381,10 @@ const internalNewConnector = ({
   const segments = [sourceStump];
   const extraSourceSeg = prepareNode({
     sourceStumpTip,
-    sourceOrientation,
+    sourceOrientation: source.orientation,
     sourceBox,
     targetStumpTip,
-    targetOrientation,
+    targetOrientation: target.orientation,
     targetBox,
   });
   if (extraSourceSeg != null) {
@@ -431,7 +424,7 @@ const internalNewConnector = ({
 
   // Here is where we draw the final connection line.
   // In this case we split the delta in half and draw three lines.
-  if (location.swap(sourceStumpOrientation) === targetOrientation) {
+  if (location.swap(sourceStumpOrientation) === target.orientation) {
     const dir = direction.construct(sourceStumpOrientation);
     // push three segments on
     // first segment is in same direction as source stump orientation and half way to the
@@ -464,13 +457,11 @@ const internalNewConnector = ({
     orientationFromLength(sourceStump.direction, delta) === sourceStumpOrientation &&
     orientationFromLength(swapped, swappedDelta) === targetStumpOrientation
   )
-    // This means we're good to go in this direction
     firstSeg = {
       direction: sourceStump.direction,
       length: delta,
     };
   else {
-    // This means we need to go orthogonally
     firstSeg = {
       direction: swapped,
       length: targetStumpTip[swapped] - sourceStumpTip[swapped],
@@ -479,7 +470,6 @@ const internalNewConnector = ({
   }
 
   segments.push(firstSeg);
-  // All we need to do next is draw a line
   const secondSeg = {
     direction: swapped,
     length: targetStumpTip[swapped] - sourceStumpTip[swapped],
@@ -513,14 +503,11 @@ const internalDragSegment = ({
     next.unshift({ direction: dir, length: magnitude });
     const stumpLength = setOrientationOnLength(orientation, STUMP_LENGTH);
     next.unshift({ direction: seg.direction, length: stumpLength });
-    // Move the index up by two since we added two segments
     index += 2;
     // Since we added a new stump in the same direction as the old one, we need to
     // subtract the stump length from the segment.
     next[index] = { ...next[index], length: next[index].length - stumpLength };
-  }
-  // If it's not the stump just move it directly.
-  else
+  } else
     next[index - 1] = {
       direction: next[index - 1].direction,
       length: next[index - 1].length + magnitude,
@@ -601,10 +588,8 @@ export const buildNewFromState = ({
   const targetBox =
     targetMeasured != null ? box.construct(targetPos, targetMeasured) : box.ZERO;
   return createConnector({
-    sourcePos,
-    targetPos,
-    sourceOrientation,
-    targetOrientation,
+    source: { position: sourcePos, orientation: sourceOrientation },
+    target: { position: targetPos, orientation: targetOrientation },
     sourceBox,
     targetBox,
   });
@@ -763,7 +748,6 @@ const moveNodeInDirection = (
       ];
     } else {
       if (stump.direction === dir) {
-        // just adjust the stump
         segments[stumpIdx] = { ...stump, length: stump.length - delta[dir] };
         return segments;
       }
@@ -807,25 +791,21 @@ const connectPoints = (
 };
 
 export interface StitchEdgeProps {
-  sourceOrientation: location.Outer;
-  targetOrientation: location.Outer;
-  sourcePos: xy.XY;
-  targetPos: xy.XY;
+  source: diagram.EdgeEndpoint;
+  target: diagram.EdgeEndpoint;
   middleSegments: Segment[];
 }
 
 export const stitchEdge = ({
-  sourceOrientation,
-  targetOrientation,
-  sourcePos,
-  targetPos,
+  source,
+  target,
   middleSegments,
 }: StitchEdgeProps): Segment[] => {
-  const srcStump = stump(sourceOrientation);
-  const tgtStump = stump(targetOrientation);
-  const srcTip = travelSegments(sourcePos, srcStump);
+  const srcStump = stump(source.orientation);
+  const tgtStump = stump(target.orientation);
+  const srcTip = travelSegments(source.position, srcStump);
   const midEnd = travelSegments(srcTip, ...middleSegments);
-  const tgtTip = travelSegments(targetPos, tgtStump);
+  const tgtTip = travelSegments(target.position, tgtStump);
   const exitDir =
     middleSegments.length > 0
       ? middleSegments[middleSegments.length - 1].direction
@@ -839,6 +819,21 @@ export const stitchEdge = ({
     { ...tgtStump, length: -tgtStump.length },
   ]);
 };
+
+export interface BuildProps extends BuildNew {
+  middleSegments: Segment[];
+}
+
+/// @brief routes an edge's full segment list: a fresh orthogonal connector when there are
+/// no middle segments, otherwise the user's middle segments stitched to the endpoints.
+export const build = ({ middleSegments, ...endpoints }: BuildProps): Segment[] =>
+  middleSegments.length === 0
+    ? createConnector(endpoints)
+    : stitchEdge({
+        source: endpoints.source,
+        target: endpoints.target,
+        middleSegments,
+      });
 
 export const extractMiddle = (
   segments: Segment[],

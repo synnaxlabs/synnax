@@ -1,0 +1,105 @@
+{
+  "auto_start": true,
+  "data_saving_disabled": true,
+  "device": "fixture-http-device",
+  "endpoints": [
+    {
+      "body": "",
+      "fields": [
+        {
+          "channel": 10010,
+          "data_type": "timestamp",
+          "disabled": false,
+          "key": "fld-ts",
+          "name": "fixture_http_timestamp",
+          "pointer": "/data/timestamp",
+          "time_format": "unix_ms"
+        },
+        {
+          "channel": 10020,
+          "data_type": "uint8",
+          "disabled": false,
+          "enum_values": [
+            {
+              "label": "faulted",
+              "value": 3
+            },
+            {
+              "label": "idle",
+              "value": 1
+            },
+            {
+              "label": "running",
+              "value": 2
+            }
+          ],
+          "key": "fld-mode",
+          "name": "fixture_http_mode",
+          "pointer": "/data/modeLabel"
+        },
+        {
+          "channel": 10030,
+          "data_type": "float32",
+          "disabled": true,
+          "key": "fld-press",
+          "name": "fixture_http_pressure",
+          "pointer": "/data/pressurePsi"
+        }
+      ],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "xApiKey",
+          "value": "fixture-api-key-123"
+        }
+      ],
+      "index": "fixture_http_time_index",
+      "key": "ep-read-get",
+      "method": "GET",
+      "path": "/api/v1/fixtureTelemetry",
+      "query_params": [
+        {
+          "parameter": "siteId",
+          "value": "fixture-site-7"
+        },
+        {
+          "parameter": "verbose",
+          "value": "true"
+        }
+      ]
+    },
+    {
+      "body": "{\"deviceId\": \"fixture-42\"}",
+      "fields": [
+        {
+          "channel": 10040,
+          "data_type": "float64",
+          "disabled": false,
+          "key": "fld-temp",
+          "name": "fixture_http_temperature",
+          "pointer": "/results/0/tempC"
+        }
+      ],
+      "headers": [
+        {
+          "name": "xRequestSource",
+          "value": "fixture"
+        }
+      ],
+      "index": "",
+      "key": "ep-read-post",
+      "method": "POST",
+      "path": "/api/v1/fixtureQuery",
+      "query_params": [
+        {
+          "parameter": "limitCount",
+          "value": "25"
+        }
+      ]
+    }
+  ],
+  "rate": 2.5
+}

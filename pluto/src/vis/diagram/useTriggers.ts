@@ -15,17 +15,21 @@ import { Triggers } from "@/triggers";
 type Mode = "copy" | "paste" | "clear" | "all" | "undo" | "redo" | "default";
 
 const CONFIG: Triggers.ModeConfig<Mode> = {
-  all: [["Control", "A"]],
-  copy: [["Control", "C"]],
-  paste: [["Control", "V"]],
-  clear: [["Escape"]],
-  undo: [["Control", "Z"]],
-  redo: [["Control", "Shift", "Z"]],
-  default: [],
   defaultMode: "default",
+  modes: {
+    all: [["Control", "A"]],
+    copy: [["Control", "C"]],
+    paste: [["Control", "V"]],
+    clear: [Triggers.ESCAPE],
+    undo: [Triggers.UNDO],
+    redo: [Triggers.REDO],
+    default: [],
+  },
 };
 
 const FLATTENED_CONFIG = Triggers.flattenConfig(CONFIG);
+
+const MUTATING_MODES = new Set<Mode>(["undo", "redo", "paste"]);
 
 export interface UseTriggersProps {
   onUndo?: () => void;
@@ -34,7 +38,11 @@ export interface UseTriggersProps {
   onPaste?: (cursor: xy.XY) => void;
   onClearSelection?: () => void;
   onSelectAll?: () => void;
-  enabled?: boolean | (() => boolean);
+  enabled?: Triggers.Condition;
+  /** Withholds the shortcuts that change the diagram. Copying and the selection
+   * shortcuts stay live, so a read-only diagram is still navigable. Defaults to true.
+   * */
+  editable?: boolean;
 }
 
 export const useTriggers = ({
@@ -45,15 +53,17 @@ export const useTriggers = ({
   onUndo,
   onRedo,
   enabled,
+  editable = true,
 }: UseTriggersProps) => {
   Triggers.use({
     triggers: FLATTENED_CONFIG,
     loose: true,
+    enabled,
     callback: useCallback(
       ({ triggers, cursor, stage }: Triggers.UseEvent) => {
-        if (stage !== "start" || enabled === false) return;
-        if (typeof enabled === "function" && !enabled()) return;
+        if (stage !== "start") return;
         const mode = Triggers.determineMode(CONFIG, triggers);
+        if (!editable && MUTATING_MODES.has(mode)) return;
         if (mode == "undo") return onUndo?.();
         if (mode == "redo") return onRedo?.();
         if (mode == "copy") return onCopy?.(cursor);
@@ -61,7 +71,7 @@ export const useTriggers = ({
         if (mode == "clear") return onClear?.();
         if (mode == "all") return onSelectAll?.();
       },
-      [onUndo, onRedo, onCopy, onPaste, onClear, onSelectAll, enabled],
+      [onUndo, onRedo, onCopy, onPaste, onClear, onSelectAll, editable],
     ),
   });
 };

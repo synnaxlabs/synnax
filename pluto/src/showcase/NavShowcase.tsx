@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useState } from "react";
+import { type ReactElement, useState } from "react";
 
 import { Button } from "@/button";
 import { Flex } from "@/flex";
@@ -16,6 +16,27 @@ import { Nav } from "@/nav";
 import { Text } from "@/text";
 
 import { SubcategorySection } from "./SubcategorySection";
+
+interface ShowcaseDrawerItem {
+  key: string;
+  content: ReactElement;
+  initialSize: number;
+  minSize: number;
+  maxSize: number;
+}
+
+const useShowcaseDrawer = (items: ShowcaseDrawerItem[]) => {
+  const [activeKey, setActiveKey] = useState<string>();
+  const [size, setSize] = useState(0);
+  const activeItem = items.find((i) => i.key === activeKey);
+  const onSelect = (key: string) =>
+    setActiveKey((prev) => {
+      const next = prev === key ? undefined : key;
+      setSize(items.find((i) => i.key === next)?.initialSize ?? 0);
+      return next;
+    });
+  return { activeItem, onSelect, size, setSize };
+};
 
 export const NavShowcase = () => {
   const [topDrawerItems] = useState([
@@ -86,8 +107,8 @@ export const NavShowcase = () => {
     },
   ]);
 
-  const topDrawer = Nav.useDrawer({ items: topDrawerItems });
-  const leftDrawer = Nav.useDrawer({ items: leftDrawerItems });
+  const topDrawer = useShowcaseDrawer(topDrawerItems);
+  const leftDrawer = useShowcaseDrawer(leftDrawerItems);
 
   return (
     <Flex.Box y pack empty>
@@ -336,19 +357,14 @@ export const NavShowcase = () => {
                     </Button.Button>
                   </Nav.Bar.End>
                 </Nav.Bar>
-                <Nav.Drawer {...topDrawer} location="top" />
                 <Flex.Box
                   style={{
                     padding: "2rem",
                     height: `calc(100% - 3rem - ${
-                      topDrawer.activeItem
-                        ? `${topDrawer.activeItem.initialSize}px`
-                        : "0px"
+                      topDrawer.activeItem ? `${topDrawer.size}px` : "0px"
                     })`,
                     marginTop: `calc(3rem + ${
-                      topDrawer.activeItem
-                        ? `${topDrawer.activeItem.initialSize}px`
-                        : "0px"
+                      topDrawer.activeItem ? `${topDrawer.size}px` : "0px"
                     })`,
                   }}
                   align="center"
@@ -399,19 +415,14 @@ export const NavShowcase = () => {
                     </Button.Button>
                   </Nav.Bar.End>
                 </Nav.Bar>
-                <Nav.Drawer {...leftDrawer} location="left" />
                 <Flex.Box
                   style={{
                     padding: "2rem",
                     width: `calc(100% - 3rem - ${
-                      leftDrawer.activeItem
-                        ? `${leftDrawer.activeItem.initialSize}px`
-                        : "0px"
+                      leftDrawer.activeItem ? `${leftDrawer.size}px` : "0px"
                     })`,
                     marginLeft: `calc(3rem + ${
-                      leftDrawer.activeItem
-                        ? `${leftDrawer.activeItem.initialSize}px`
-                        : "0px"
+                      leftDrawer.activeItem ? `${leftDrawer.size}px` : "0px"
                     })`,
                     height: "100%",
                   }}

@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type compare, type record } from "@synnaxlabs/x";
+import { type compare, type record, type state } from "@synnaxlabs/x";
 import Fuse from "fuse.js";
 import { useCallback, useMemo, useState } from "react";
 
 import { type FrameProps, type GetItem } from "@/list/Frame";
-import { type state } from "@/state";
 
+/** Return value for {@link useStaticData}. Spread it into a {@link Frame}. */
 export interface UseStaticDataReturn<
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
@@ -22,21 +22,29 @@ export interface UseStaticDataReturn<
   retrieve: state.Setter<RetrieveParams, Partial<RetrieveParams>>;
 }
 
+/** Query the caller passes to `retrieve` to narrow the data. */
 export interface RetrieveParams {
   searchTerm?: string;
   offset?: number;
   limit?: number;
 }
 
-export interface UseStaticDataArgs<
+export interface UseStaticDataParams<
   K extends record.Key = record.Key,
   E extends record.Keyed<K> = record.Keyed<K>,
 > {
   data: readonly E[];
+  /** Drops any item this rejects, before search and sort. */
   filter?: (item: E, params: RetrieveParams) => boolean;
   sort?: compare.Comparator<E>;
 }
 
+/**
+ * Backs a {@link Frame} with an in-memory array, adding fuzzy search over every field
+ * of the entry.
+ *
+ * @example <List.Frame {...List.useStaticData({ data: MODES })}>
+ */
 export const useStaticData = <
   K extends record.Key = record.Key,
   E extends record.Keyed<K> = record.Keyed<K>,
@@ -44,7 +52,7 @@ export const useStaticData = <
   data,
   filter,
   sort,
-}: UseStaticDataArgs<K, E>): UseStaticDataReturn<K, E> => {
+}: UseStaticDataParams<K, E>): UseStaticDataReturn<K, E> => {
   const filteredData = useMemo(() => {
     let result = data;
     if (filter != null) result = result.filter((d) => filter(d, {}));

@@ -30,23 +30,26 @@ enum Kind {
   KIND_F_32 = 9;
   KIND_F_64 = 10;
   KIND_STRING = 11;
-  KIND_CHAN = 14;
-  KIND_SERIES = 15;
-  KIND_VARIABLE = 16;
-  KIND_NUMERIC_CONSTANT = 17;
-  KIND_INTEGER_CONSTANT = 18;
-  KIND_FLOAT_CONSTANT = 19;
-  KIND_EXACT_INTEGER_FLOAT_CONSTANT = 20;
-  KIND_FUNCTION = 21;
-  KIND_SEQUENCE = 22;
-  KIND_STAGE = 23;
+  KIND_CHAN = 12;
+  KIND_SERIES = 13;
+  KIND_VARIABLE = 14;
+  KIND_NUMERIC_CONSTANT = 15;
+  KIND_INTEGER_CONSTANT = 16;
+  KIND_FLOAT_CONSTANT = 17;
+  KIND_EXACT_INTEGER_FLOAT_CONSTANT = 18;
+  KIND_FUNCTION = 19;
+  KIND_SEQUENCE = 20;
+  KIND_STAGE = 21;
+  KIND_VAR_REF = 22;
+  KIND_BOOL = 23;
 }
 
-// ChanDirection indicates read/write direction for channel-typed config parameters.
+// ChanDirection indicates read/write direction for channel-typed parameters.
 enum ChanDirection {
   CHAN_DIRECTION_NONE = 0;
   CHAN_DIRECTION_READ = 1;
   CHAN_DIRECTION_WRITE = 2;
+  CHAN_DIRECTION_READ_WRITE = 3;
 }
 
 // FunctionProperties contains common parameter definitions for function-like types.
@@ -55,8 +58,6 @@ message FunctionProperties {
   repeated Param inputs = 1;
   // outputs contains output parameter definitions.
   repeated Param outputs = 2;
-  // config contains configuration parameter definitions.
-  repeated Param config = 3;
 }
 
 // Type is a type in Arc's type system with optional element type for compounds,
@@ -66,20 +67,18 @@ message Type {
   repeated Param inputs = 1;
   // outputs contains output parameter definitions.
   repeated Param outputs = 2;
-  // config contains configuration parameter definitions.
-  repeated Param config = 3;
   // kind is the type category (primitive, compound, or meta-type).
-  Kind kind = 4;
+  Kind kind = 3;
   // name is the type name for variables and user-defined types.
-  string name = 5;
+  string name = 4;
   // elem is the element type for compound types (chan, series).
-  optional Type elem = 6;
+  optional Type elem = 5;
   // unit is the physical unit metadata for dimensional analysis.
-  optional Unit unit = 7;
+  optional Unit unit = 6;
   // constraint is the type constraint for type variables.
-  optional Type constraint = 8;
-  // chan_direction indicates read/write direction for channel-typed config parameters.
-  ChanDirection chan_direction = 9;
+  optional Type constraint = 7;
+  // chan_direction indicates read/write direction for channel-typed parameters.
+  ChanDirection chan_direction = 8;
 }
 
 // Param is a named, typed parameter with optional default value.
@@ -101,8 +100,7 @@ message Channels {
   map<uint32, string> write = 2;
 }
 
-// Dimensions contains physical dimension exponents for dimensional analysis (SI base
-// quantities).
+// Dimensions contains dimension exponents for dimensional analysis.
 message Dimensions {
   // length is the length dimension exponent (meters).
   int32 length = 1;
@@ -110,13 +108,13 @@ message Dimensions {
   int32 mass = 2;
   // time is the time dimension exponent (seconds).
   int32 time = 3;
-  // current is the electric current dimension exponent (amperes).
+  // current is the electric current dimension exponent (Amperes).
   int32 current = 4;
-  // temperature is the temperature dimension exponent (kelvin).
+  // temperature is the temperature dimension exponent (Kelvin).
   int32 temperature = 5;
   // angle is the angle dimension exponent (radians).
   int32 angle = 6;
-  // count is the count dimension exponent (dimensionless quantity).
+  // count is the count dimension exponent.
   int32 count = 7;
   // data is the data size dimension exponent (bytes).
   int32 data = 8;

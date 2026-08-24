@@ -26,7 +26,10 @@ BUILTIN_ROLES = ["Owner", "Engineer", "Host", "Operator", "Viewer"]
 def _get_user_role_names(client: sy.Synnax, username: str) -> list[str]:
     user = client.users.retrieve(username=username)
     parents = client.ontology.retrieve_parents(user.ontology_id)
-    return [r.name for r in parents if r.id.type == "role"]
+    role_keys = [UUID(r.key) for r in parents if r.type == "role" and r.key is not None]
+    if len(role_keys) == 0:
+        return []
+    return [r.name for r in client.access.roles.retrieve(keys=role_keys)]
 
 
 class RBACVerify(ConsoleCase):

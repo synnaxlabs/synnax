@@ -8,23 +8,31 @@
 // included in the file licenses/APL.txt.
 
 import { box, compare, unique, type xy } from "@synnaxlabs/x";
-import { type RefObject, useCallback, useEffect, useState } from "react";
+import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
 
-import { useStateRef } from "@/hooks/ref";
+import { useStateRef, useSyncedRef } from "@/hooks/ref";
 import { useMemoCompare } from "@/memo";
 import { useContext } from "@/triggers/Provider";
+import { type Condition, resolveCondition, useScope } from "@/triggers/Scope";
 import {
+  determineMode,
   diff,
   filter,
+  flattenConfig,
   type MatchOptions,
+  type ModeConfig,
   purge,
+  REDO,
   type Stage,
   type Trigger,
+  UNDO,
 } from "@/triggers/triggers";
 
+/** The event {@link use} hands its callback. */
 export interface UseEvent {
   target: HTMLElement;
   prevTriggers: Trigger[];
+  /** The matched triggers this stage applies to. */
   triggers: Trigger[];
   stage: Stage;
   cursor: xy.XY;
@@ -36,11 +44,20 @@ export interface UseEvent {
   stopPropagation: () => void;
 }
 
+/** Props for {@link use}. */
 export interface UseProps extends MatchOptions {
   triggers?: Trigger | Trigger[];
+  /** Fires only while the cursor sits inside this element. */
   region?: RefObject<HTMLElement | null>;
   callback?: (e: UseEvent) => void;
+  /** Whether the event target must be the region itself, not a descendant. */
   regionMustBeElement?: boolean;
+  /**
+   * Withholds events from this subscriber while it resolves false. Use it for conditions
+   * the subscriber itself owns, such as whether its content is editable. Whether the
+   * surrounding view is the one the user is working in belongs in a {@link Scope}.
+   */
+  enabled?: Condition;
   /**
    * Priority of this subscriber. Higher-priority subscribers receive events
    * before lower-priority ones and may call stopPropagation on the event to
@@ -49,6 +66,14 @@ export interface UseProps extends MatchOptions {
   priority?: number;
 }
 
+/**
+ * Binds a keyboard or mouse shortcut for as long as the caller is mounted. The callback
+ * fires on press and again on release, and only while the enclosing {@link Scope} is
+ * the active one.
+ *
+ * @example
+ * Triggers.use({ triggers: [["Control", "S"]], callback: ({ stage }) => save(stage) });
+ */
 export const use = ({
   triggers,
   callback: f,
@@ -57,8 +82,12 @@ export const use = ({
   double,
   regionMustBeElement,
   priority,
+  enabled = true,
 }: UseProps): void => {
   const { listen } = useContext();
+  const scope = useScope();
+  const activeRef = useSyncedRef(() => scope() && resolveCondition(enabled));
+  const startedRef = useRef<Set<string>>(new Set());
   let baseTriggers: Trigger[];
   if (triggers != null && triggers?.length > 0 && typeof triggers[0] === "string")
     baseTriggers = [triggers as Trigger];
@@ -66,7 +95,8 @@ export const use = ({
   const memoTriggers = useMemoCompare<Trigger[] | undefined, [Trigger[] | undefined]>(
     () => baseTriggers,
     ([a], [b]) => {
-      if (a == null && b == null) return true;
+      // Load-bearing: lets call sites that hoist their triggers skip the compare.
+      if (a === b) return true;
       if (a == null || b == null) return false;
       return compare.primitiveArrays(a.flat(), b.flat()) === compare.EQUAL;
     },
@@ -79,19 +109,31 @@ export const use = ({
       const prevMatches = filter(memoTriggers, e.prev, { loose, double });
       const nextMatches = filter(memoTriggers, e.next, { loose, double });
       const res = diff(nextMatches, prevMatches);
-      let added = res[0];
-      const removed = res[1];
+      const [added, removed] = res;
       if (added.length === 0 && removed.length === 0) return;
-      added = filterInRegion(e.target, e.cursor, added, region, regionMustBeElement);
+      const inRegion = filterInRegion(
+        e.target,
+        e.cursor,
+        added,
+        region,
+        regionMustBeElement,
+      );
       const base = {
         target: e.target,
         cursor: e.cursor,
         stopPropagation: e.stopPropagation,
       };
-      if (added.length > 0)
-        f?.({ ...base, stage: "start", triggers: added, prevTriggers: e.prev });
-      if (removed.length > 0)
-        f?.({ ...base, stage: "end", triggers: removed, prevTriggers: e.prev });
+      if (activeRef.current()) {
+        added.forEach((t) => startedRef.current.add(t.join("+")));
+        if (inRegion.length > 0)
+          f?.({ ...base, stage: "start", triggers: inRegion, prevTriggers: e.prev });
+      }
+      // A release lands only for a press seen while active: a key held when the
+      // subscriber went inactive cannot stick, and a press a scope withheld stays
+      // withheld through its release.
+      const ended = removed.filter((t) => startedRef.current.delete(t.join("+")));
+      if (ended.length > 0)
+        f?.({ ...base, stage: "end", triggers: ended, prevTriggers: e.prev });
     }, priority);
   }, [f, memoTriggers, listen, loose, region, double, regionMustBeElement, priority]);
 };
@@ -113,16 +155,58 @@ const filterInRegion = (
   });
 };
 
+const UNDO_REDO_CONFIG: ModeConfig<"undo" | "redo" | "default"> = {
+  defaultMode: "default",
+  modes: {
+    undo: [UNDO],
+    redo: [REDO],
+    default: [],
+  },
+};
+const UNDO_REDO_TRIGGERS = flattenConfig(UNDO_REDO_CONFIG);
+
+/** Props for {@link useUndoRedo}. */
+export interface UseUndoRedoProps {
+  undo: () => void;
+  redo: () => void;
+  enabled?: Condition;
+}
+
+/** useUndoRedo binds the standard undo and redo shortcuts to the given handlers. */
+export const useUndoRedo = ({ undo, redo, enabled }: UseUndoRedoProps): void => {
+  use({
+    triggers: UNDO_REDO_TRIGGERS,
+    loose: true,
+    enabled,
+    callback: useCallback(
+      ({ triggers, stage }: UseEvent) => {
+        if (stage !== "start") return;
+        const mode = determineMode(UNDO_REDO_CONFIG, triggers);
+        if (mode === "undo") undo();
+        else if (mode === "redo") redo();
+      },
+      [undo, redo],
+    ),
+  });
+};
+
+/** Which of the watched triggers are down right now. */
 export interface UseHeldReturn {
   triggers: Trigger[];
   held: boolean;
 }
 
+/** Props for {@link useHeld} and {@link useHeldRef}. */
 export interface UseHeldProps {
   triggers: Trigger[];
+  /** Whether a superset of a trigger still counts as held. */
   loose?: boolean;
 }
 
+/**
+ * Tracks which of the given triggers are down, in a ref rather than state. Use it in an
+ * event handler that reads the modifier keys, where a re-render per keypress is waste.
+ */
 export const useHeldRef = ({
   triggers,
   loose,
@@ -147,6 +231,10 @@ export const useHeldRef = ({
   return ref;
 };
 
+/**
+ * Tracks which of the given triggers are down and re-renders the caller on every
+ * change. Prefer {@link useHeldRef} when only an event handler reads the result.
+ */
 export const useHeld = ({ triggers, loose }: UseHeldProps): UseHeldReturn => {
   const [held, setHeld] = useState<UseHeldReturn>({ triggers: [], held: false });
   use({

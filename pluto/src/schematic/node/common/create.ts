@@ -17,7 +17,7 @@ import { Primitive as BasePrimitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
 import { type Spec } from "@/schematic/node/spec";
 
-export interface SymbolArgs<V extends string> {
+export interface SymbolParams<V extends string> {
   /// variant is the unique discriminant identifying the symbol in the registry.
   variant: V;
   /// name is the human-readable name shown in the symbols toolbar.
@@ -40,11 +40,10 @@ export const createStatic = <V extends string>({
   label = name,
   Primitive,
   zIndex = 4,
-}: SymbolArgs<V>) => {
+}: SymbolParams<V>) => {
   const configZ = Label.labeledConfigZ.extend({
     variant: z.literal(variant),
     color: color.crudeZ.optional(),
-    scale: z.number().optional(),
   });
   type Config = z.infer<typeof configZ>;
   const defaultConfig = (): Config => ({
@@ -65,7 +64,7 @@ export const createStatic = <V extends string>({
   return { configZ, spec };
 };
 
-interface ToggleArgs<V extends string> extends SymbolArgs<V> {
+interface ToggleParams<V extends string> extends SymbolParams<V> {
   /// node selects how the symbol renders. "toggle" (default) renders an interactive
   /// toggle bound to the configured telemetry. "labeled" renders a static labeled
   /// symbol while retaining the toggle telemetry config — used by symbols that carry
@@ -82,11 +81,10 @@ export const createToggle = <V extends string>({
   Primitive,
   zIndex = 4,
   node = "toggle",
-}: ToggleArgs<V>) => {
+}: ToggleParams<V>) => {
   const configZ = Toggle.toggleConfigZ.extend({
     variant: z.literal(variant),
     color: color.crudeZ.optional(),
-    scale: z.number().optional(),
   });
   type Config = z.infer<typeof configZ>;
   const defaultConfig = (): Config => ({
@@ -120,11 +118,10 @@ export const createDummyToggle = <V extends string>({
   label = name,
   Primitive,
   zIndex = 4,
-}: SymbolArgs<V>) => {
+}: SymbolParams<V>) => {
   const configZ = Toggle.dummyToggleConfigZ.extend({
     variant: z.literal(variant),
     color: color.crudeZ.optional(),
-    scale: z.number().optional(),
   });
   type Config = z.infer<typeof configZ>;
   const defaultConfig = (): Config => ({

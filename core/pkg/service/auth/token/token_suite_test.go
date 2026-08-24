@@ -19,7 +19,7 @@ import (
 
 func TestToken(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Token Suite")
+	RunSpecs(t, "Service Auth Token Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

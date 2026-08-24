@@ -26,7 +26,7 @@ func validateNonZeroArray[T any](exprs []T, opName string) []T {
 	return exprs
 }
 
-func validateNonZero(expr parser.IUnaryExpressionContext, opName string) {
+func validateNonZero(expr parser.IPostfixExpressionContext, opName string) {
 	if expr == nil {
 		panic(errors.Newf("cannot compile an empty %s expression", opName))
 	}
@@ -95,9 +95,9 @@ func compileAdditive(
 func compileMultiplicative(
 	ctx context.Context[parser.IMultiplicativeExpressionContext],
 ) (types.Type, error) {
-	pows := validateNonZeroArray(ctx.AST.AllPowerExpression(), "multiplicative")
-	if len(pows) == 1 {
-		return compilePower(context.Child(ctx, pows[0]))
+	unaries := validateNonZeroArray(ctx.AST.AllUnaryExpression(), "multiplicative")
+	if len(unaries) == 1 {
+		return compileUnary(context.Child(ctx, unaries[0]))
 	}
 	return compileBinaryMultiplicative(ctx)
 }
@@ -105,20 +105,20 @@ func compileMultiplicative(
 func compilePower(
 	ctx context.Context[parser.IPowerExpressionContext],
 ) (types.Type, error) {
-	unary := ctx.AST.UnaryExpression()
-	validateNonZero(unary, "power")
+	postfix := ctx.AST.PostfixExpression()
+	validateNonZero(postfix, "power")
 
-	baseType, err := compileUnary(context.Child(ctx, unary))
+	baseType, err := compilePostfix(context.Child(ctx, postfix))
 	if err != nil {
 		return types.Type{}, err
 	}
 
-	if ctx.AST.CARET() == nil || ctx.AST.PowerExpression() == nil {
+	if ctx.AST.CARET() == nil || ctx.AST.UnaryExpression() == nil {
 		return baseType, nil
 	}
 
-	_, err = compilePower(
-		context.Child(ctx, ctx.AST.PowerExpression()).WithHint(baseType.Unwrap()),
+	_, err = compileUnary(
+		context.Child(ctx, ctx.AST.UnaryExpression()).WithHint(baseType.Unwrap()),
 	)
 	if err != nil {
 		return types.Type{}, err
@@ -129,35 +129,37 @@ func compilePower(
 	return baseType, nil
 }
 
-func compilePostfix(ctx context.Context[parser.IPostfixExpressionContext]) (types.Type, error) {
+func compilePostfix(
+	ctx context.Context[parser.IPostfixExpressionContext],
+) (types.Type, error) {
 	primary := ctx.AST.PrimaryExpression()
 	funcCalls := ctx.AST.AllFunctionCallSuffix()
 
 	head, tail := parser.PrimaryNameParts(primary)
 	funcName := parser.PrimaryName(primary)
 	if len(funcCalls) > 0 && funcName != "" {
-		if funcName != "true" && funcName != "false" {
-			// len(), series.len(), and string.len() are language-level builtins
-			// that require compiler dispatch rather than normal function resolution.
-			// len() is polymorphic, dispatching to series.len or string.len based
-			// on argument type. The qualified forms restrict to a specific type.
-			if funcName == "len" || funcName == "series.len" || funcName == "string.len" {
-				return compileBuiltinLen(ctx, funcCalls[0], funcName)
-			}
+		// len(), series.len(), and string.len() are language-level builtins
+		// that require compiler dispatch rather than normal function resolution.
+		// len() is polymorphic, dispatching to series.len or string.len based
+		// on argument type. The qualified forms restrict to a specific type.
+		if funcName == "len" || funcName == "series.len" ||
+			funcName == "string.len" {
+			return compileBuiltinLen(ctx, funcCalls[0], funcName)
+		}
 
-			scope, err := ctx.Scope.Resolve(ctx, head)
-			if err == nil && tail != "" {
-				scope, err = scope.Resolve(ctx, tail)
+		scope, err := ctx.Scope.Resolve(ctx, head)
+		if err == nil && tail != "" {
+			scope, err = scope.Resolve(ctx, tail)
+		}
+		if err == nil && scope.Kind == symbol.KindFunction {
+			if scope.Exec == symbol.ExecFlow {
+				return types.Type{}, errors.Newf(
+					"function '%s' cannot be called inside a func block. Use it as a flow statement instead: %s{}",
+					funcName,
+					funcName,
+				)
 			}
-			if err == nil && scope.Kind == symbol.KindFunction {
-				if scope.Exec == symbol.ExecFlow {
-					return types.Type{}, errors.Newf(
-						"function '%s' cannot be called inside a func block. Use it as a flow statement instead: %s{}",
-						funcName, funcName,
-					)
-				}
-				return compileFunctionCallExpr(ctx, funcName, scope, funcCalls[0])
-			}
+			return compileFunctionCallExpr(ctx, funcName, scope, funcCalls[0])
 		}
 	}
 
@@ -221,8 +223,10 @@ func compileFunctionCallExpr(
 			return types.Type{}, errors.Wrapf(err, "argument %d", i)
 		}
 		concreteInputs[i].Type = argType
-		if paramType.Kind == types.KindVariable && argType.Kind != types.KindNumericConstant &&
-			argType.Kind != types.KindIntegerConstant && argType.Kind != types.KindFloatConstant {
+		if paramType.Kind == types.KindVariable &&
+			argType.Kind != types.KindNumericConstant &&
+			argType.Kind != types.KindIntegerConstant &&
+			argType.Kind != types.KindFloatConstant {
 			varMap[paramType.Name] = argType
 		}
 		if !types.Equal(argType, paramType) && paramType.Kind != types.KindVariable {
@@ -235,7 +239,11 @@ func compileFunctionCallExpr(
 	for i := actualCount; i < totalCount; i++ {
 		param := funcType.Inputs[i]
 		if err := emitLiteralValue(ctx, param.Type, param.Value); err != nil {
-			return types.Type{}, errors.Wrapf(err, "default value for parameter %s", param.Name)
+			return types.Type{}, errors.Wrapf(
+				err,
+				"default value for parameter %s",
+				param.Name,
+			)
 		}
 	}
 	concreteOutputs := make(types.Params, len(funcType.Outputs))
@@ -274,9 +282,13 @@ func compileIndexOrSlice(
 
 	if !isSliceOp {
 		if operandType.Kind != types.KindSeries {
-			return types.Type{}, errors.New("indexing is only supported on series types")
+			return types.Type{}, errors.New(
+				"indexing is only supported on series types",
+			)
 		}
-		if _, err := Compile(context.Child(ctx, expressions[0]).WithHint(types.I32())); err != nil {
+		if _, err := Compile(
+			context.Child(ctx, expressions[0]).WithHint(types.I32()),
+		); err != nil {
 			return types.Type{}, err
 		}
 		t := operandType.Unwrap()
@@ -299,11 +311,16 @@ func compileIndexOrSlice(
 		startExpr = expressions[0]
 		endExpr = expressions[1]
 	} else {
-		return types.Type{}, errors.Newf("expected 1 or 2 items in slice expression, received %v", len(expressions))
+		return types.Type{}, errors.Newf(
+			"expected 1 or 2 items in slice expression, received %v",
+			len(expressions),
+		)
 	}
 
 	if startExpr != nil {
-		if _, err := Compile(context.Child(ctx, startExpr).WithHint(types.I32())); err != nil {
+		if _, err := Compile(
+			context.Child(ctx, startExpr).WithHint(types.I32()),
+		); err != nil {
 			return types.Type{}, err
 		}
 	} else {
@@ -311,7 +328,9 @@ func compileIndexOrSlice(
 	}
 
 	if endExpr != nil {
-		if _, err := Compile(context.Child(ctx, endExpr).WithHint(types.I32())); err != nil {
+		if _, err := Compile(
+			context.Child(ctx, endExpr).WithHint(types.I32()),
+		); err != nil {
 			return types.Type{}, err
 		}
 	} else {
@@ -323,7 +342,9 @@ func compileIndexOrSlice(
 	return operandType, nil
 }
 
-func compilePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) (types.Type, error) {
+func compilePrimary(
+	ctx context.Context[parser.IPrimaryExpressionContext],
+) (types.Type, error) {
 	if lit := ctx.AST.Literal(); lit != nil {
 		return compileLiteral(context.Child(ctx, lit))
 	}
@@ -332,16 +353,7 @@ func compilePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) (type
 		return compileIdentifier(ctx, head, tail)
 	}
 	if id := ctx.AST.IDENTIFIER(); id != nil {
-		text := id.GetText()
-		if text == "true" {
-			ctx.Writer.WriteI32Const(1)
-			return types.U8(), nil
-		}
-		if text == "false" {
-			ctx.Writer.WriteI32Const(0)
-			return types.U8(), nil
-		}
-		return compileIdentifier(ctx, text, "")
+		return compileIdentifier(ctx, id.GetText(), "")
 	}
 	if ctx.AST.LPAREN() != nil && ctx.AST.Expression() != nil {
 		return Compile(context.Child(ctx, ctx.AST.Expression()))
@@ -358,7 +370,12 @@ func emitLiteralValue[T antlr.ParserRuleContext](
 	defaultVal any,
 ) error {
 	switch paramType.Kind {
-	case types.KindI8, types.KindI16, types.KindI32, types.KindU8, types.KindU16, types.KindU32:
+	case types.KindI8,
+		types.KindI16,
+		types.KindI32,
+		types.KindU8,
+		types.KindU16,
+		types.KindU32:
 		var i32Val int32
 		switch v := defaultVal.(type) {
 		case int8:
@@ -374,7 +391,11 @@ func emitLiteralValue[T antlr.ParserRuleContext](
 		case uint32:
 			i32Val = int32(v)
 		default:
-			return errors.Newf("unexpected default value type %T for %s", defaultVal, paramType)
+			return errors.Newf(
+				"unexpected default value type %T for %s",
+				defaultVal,
+				paramType,
+			)
 		}
 		ctx.Writer.WriteI32Const(i32Val)
 	case types.KindI64:
@@ -402,6 +423,16 @@ func emitLiteralValue[T antlr.ParserRuleContext](
 			return errors.Newf("unexpected default value type %T for f64", defaultVal)
 		}
 		ctx.Writer.WriteF64Const(v)
+	case types.KindBool:
+		v, ok := defaultVal.(bool)
+		if !ok {
+			return errors.Newf("unexpected default value type %T for bool", defaultVal)
+		}
+		if v {
+			ctx.Writer.WriteI32Const(1)
+		} else {
+			ctx.Writer.WriteI32Const(0)
+		}
 	case types.KindString:
 		str, ok := defaultVal.(string)
 		if !ok {
@@ -428,7 +459,11 @@ func compileBuiltinLen(
 		args = argList.AllExpression()
 	}
 	if len(args) != 1 {
-		return types.Type{}, errors.Newf("%s() requires exactly 1 argument, got %d", funcName, len(args))
+		return types.Type{}, errors.Newf(
+			"%s() requires exactly 1 argument, got %d",
+			funcName,
+			len(args),
+		)
 	}
 
 	argType, err := Compile(context.Child(ctx, args[0]))

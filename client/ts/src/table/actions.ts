@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NO_OP_RESULT as NO_OP, snapshotDraft as snapshot } from "@/actions/actions";
+import { actions } from "@/actions";
 import {
   type Action,
   addCol,
@@ -23,16 +23,14 @@ import {
 } from "@/table/actions.gen";
 import { type Cell } from "@/table/types.gen";
 
-// MIN_CELL_DIM is the floor enforced on row and column sizes.
 const MIN_CELL_DIM = 32;
 // BASE_ROW_DIM and BASE_COL_DIM are the defaults used when an action
 // bootstraps the opposing axis on an empty table.
 const BASE_ROW_DIM = 36;
 const BASE_COL_DIM = 72;
 
-// deriveCellKey returns the key for the index-th replica of template. Both
-// reducers run the same scheme so optimistic client state agrees with the
-// server.
+// deriveCellKey returns the key for the index-th replica of template. Both reducers run
+// the same scheme so optimistic client state agrees with the server.
 const deriveCellKey = (templateKey: string, index: number): string => {
   const suffix = index.toString(16).padStart(4, "0");
   if (templateKey.length < 36) return `${templateKey}-${suffix}`;
@@ -49,6 +47,11 @@ const expandTemplate = (template: Cell, count: number): Cell[] =>
   }));
 
 const handlers: Handlers = {
+  create: (state, payload) => {
+    Object.assign(state, payload.table);
+    return { inverse: [], targets: [payload.table.key] };
+  },
+
   rename: (state, payload) => {
     const oldName = state.name;
     state.name = payload.name;
@@ -83,12 +86,12 @@ const handlers: Handlers = {
   },
 
   removeRow: (state, payload) => {
-    if (payload.index >= state.rows.length) return NO_OP;
-    const removed = snapshot(state.rows[payload.index]);
+    if (payload.index >= state.rows.length) return actions.NO_OP_RESULT;
+    const removed = actions.snapshotDraft(state.rows[payload.index]);
     const cells: Cell[] = [];
     for (const k of removed.cells) {
       const c = state.cells[k];
-      if (c != null) cells.push(snapshot(c));
+      if (c != null) cells.push(actions.snapshotDraft(c));
     }
     state.rows.splice(payload.index, 1);
     for (const k of removed.cells) delete state.cells[k];
@@ -123,7 +126,7 @@ const handlers: Handlers = {
   },
 
   removeCol: (state, payload) => {
-    if (payload.index >= state.columns.length) return NO_OP;
+    if (payload.index >= state.columns.length) return actions.NO_OP_RESULT;
     const oldSize = state.columns[payload.index].size;
     const removedCells: Cell[] = [];
     state.columns.splice(payload.index, 1);
@@ -134,7 +137,7 @@ const handlers: Handlers = {
       if (payload.index >= state.rows[i].cells.length) continue;
       const k = state.rows[i].cells[payload.index];
       const c = state.cells[k];
-      if (c != null) removedCells.push(snapshot(c));
+      if (c != null) removedCells.push(actions.snapshotDraft(c));
       delete state.cells[k];
       state.rows[i].cells.splice(payload.index, 1);
     }
@@ -145,7 +148,7 @@ const handlers: Handlers = {
   },
 
   resizeRow: (state, payload) => {
-    if (payload.index >= state.rows.length) return NO_OP;
+    if (payload.index >= state.rows.length) return actions.NO_OP_RESULT;
     const oldSize = state.rows[payload.index].size;
     state.rows[payload.index].size = Math.max(payload.size, MIN_CELL_DIM);
     return {
@@ -155,7 +158,7 @@ const handlers: Handlers = {
   },
 
   resizeCol: (state, payload) => {
-    if (payload.index >= state.columns.length) return NO_OP;
+    if (payload.index >= state.columns.length) return actions.NO_OP_RESULT;
     const oldSize = state.columns[payload.index].size;
     state.columns[payload.index].size = Math.max(payload.size, MIN_CELL_DIM);
     const targets = state.rows
@@ -169,8 +172,8 @@ const handlers: Handlers = {
 
   setCell: (state, payload) => {
     const existing = state.cells[payload.cell.key];
-    if (existing == null) return NO_OP;
-    const oldCell = snapshot(existing);
+    if (existing == null) return actions.NO_OP_RESULT;
+    const oldCell = actions.snapshotDraft(existing);
     state.cells[payload.cell.key] = payload.cell;
     return {
       inverse: [setCell({ cell: oldCell })],
@@ -179,7 +182,7 @@ const handlers: Handlers = {
   },
 
   eraseCells: (state, payload) => {
-    if (payload.cells.length === 0) return NO_OP;
+    if (payload.cells.length === 0) return actions.NO_OP_RESULT;
     const selected = new Set(payload.cells);
     const rowPosOf = new Map<string, { row: number; col: number }>();
     for (let r = 0; r < state.rows.length; r++) {
@@ -209,11 +212,11 @@ const handlers: Handlers = {
     // unshift the inverse so undo replays it in ascending order.
     for (let i = fullRowIdx.length - 1; i >= 0; i--) {
       const idx = fullRowIdx[i];
-      const removed = snapshot(state.rows[idx]);
+      const removed = actions.snapshotDraft(state.rows[idx]);
       const cells: Cell[] = [];
       for (const k of removed.cells) {
         const c = state.cells[k];
-        if (c != null) cells.push(snapshot(c));
+        if (c != null) cells.push(actions.snapshotDraft(c));
       }
       state.rows.splice(idx, 1);
       for (const k of removed.cells) delete state.cells[k];
@@ -229,7 +232,7 @@ const handlers: Handlers = {
         if (idx >= state.rows[r].cells.length) continue;
         const k = state.rows[r].cells[idx];
         const c = state.cells[k];
-        if (c != null) removedCells.push(snapshot(c));
+        if (c != null) removedCells.push(actions.snapshotDraft(c));
         delete state.cells[k];
         state.rows[r].cells.splice(idx, 1);
       }
@@ -239,7 +242,7 @@ const handlers: Handlers = {
     for (const k of selected) {
       const existing = state.cells[k];
       if (existing == null) continue;
-      const oldCell = snapshot(existing);
+      const oldCell = actions.snapshotDraft(existing);
       state.cells[k] = {
         key: k,
         variant: payload.template.variant,
@@ -253,3 +256,25 @@ const handlers: Handlers = {
 };
 
 export const reduceAll = createReduceAll(handlers);
+
+// createOf hands the dispatch controller the document carried by a create
+// action so frames for never-cached documents ingest instead of drop.
+export const createOf = (action: Action) =>
+  action.type === "create" ? action.create.table : undefined;
+
+// kindOf classifies an action batch for the undoable store's per-kind coalesce window.
+// Continuous resize gestures (a stream of resize_row or resize_col actions) collapse
+// into a single undo step; successive set_cell actions on the same cell coalesce
+// per-cell so typing inside one cell collapses to one undo step but switching cells
+// starts a fresh entry; everything else is treated as a discrete user action.
+export const kindOf = (actions: Action[]): string => {
+  if (actions.length === 0) return "default";
+  if (actions.every((a) => a.type === "resize_row" || a.type === "resize_col"))
+    return "resize";
+  if (actions.length === 1) {
+    const a = actions[0];
+    if (a.type === "set_cell") return `set_cell:${a.setCell.cell.key}`;
+    return a.type;
+  }
+  return "transaction";
+};

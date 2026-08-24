@@ -116,7 +116,7 @@ class TestRoleClient:
         return client.access.roles.create(
             [
                 sy.Role(name="Admin", description="Administrator role"),
-                sy.Role(name="Viewer", description="Read-only viewer role"),
+                sy.Role(name="Auditor", description="Read-only auditor role"),
             ]
         )
 
@@ -126,8 +126,8 @@ class TestRoleClient:
         assert two_roles[0].name == "Admin"
         assert two_roles[0].description == "Administrator role"
         assert two_roles[0].key is not None
-        assert two_roles[1].name == "Viewer"
-        assert two_roles[1].description == "Read-only viewer role"
+        assert two_roles[1].name == "Auditor"
+        assert two_roles[1].description == "Read-only auditor role"
         assert two_roles[1].key is not None
 
     def test_create_single(self, client: sy.Synnax) -> None:
@@ -213,5 +213,5 @@ class TestAccessAuthClient:
             password="pwd2",
         )
 
-        with pytest.raises(sy.AuthError):
+        with pytest.raises(sy.AccessDenied):
             client2.users.create(username=str(uuid.uuid4()), password="pwd3")

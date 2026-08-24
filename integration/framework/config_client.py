@@ -129,7 +129,7 @@ class ConfigClient:
                 file_path = Path("tests") / test_file
 
             try:
-                with open(file_path) as f:
+                with open(file_path, encoding="utf-8") as f:
                     file_data = json.load(f)
                 if "sequences" in file_data:
                     all_sequences.extend(file_data["sequences"])
@@ -166,7 +166,10 @@ class ConfigClient:
             expanded_tests: list[TestDefinition] = []
             for test in raw_tests:
                 case_path: str = test["case"]
-                if not seq_name_matches and not target_filter.matches_case(case_path):
+                if not seq_name_matches and (
+                    target_filter.case_filter is None
+                    or not target_filter.matches_case(case_path)
+                ):
                     continue
 
                 test_def = TestDefinition(

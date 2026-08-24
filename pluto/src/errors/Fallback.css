@@ -23,7 +23,6 @@
         width: 100%;
         overflow: hidden;
         border-color: var(--pluto-error-z-40);
-        border-width: 1px;
 
         .pluto-error-fallback__body {
             padding: 2rem 3rem;
@@ -38,11 +37,27 @@
             padding-right: 2rem;
         }
 
-        .pluto-error-fallback__message,
         .pluto-error-fallback__name {
             overflow: hidden;
             text-overflow: ellipsis;
             width: 100%;
+        }
+
+        .pluto-error-fallback__message {
+            width: 100%;
+            max-height: 250px;
+            overflow: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+            user-select: text !important;
+            -webkit-user-select: text !important;
+        }
+
+        .pluto-error-fallback__message--multiline {
+            background: var(--pluto-gray-l1);
+            border: var(--pluto-border);
+            border-radius: var(--pluto-border-radius);
+            padding: 1rem;
         }
 
         .pluto-error-fallback__stack-container {

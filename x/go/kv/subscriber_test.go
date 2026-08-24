@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/observe"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 type dataStruct struct {
@@ -27,7 +28,7 @@ type dataStruct struct {
 var _ = Describe("Flush", func() {
 	It("Should flush the observable contents", func(ctx SpecContext) {
 		o := observe.New[dataStruct]()
-		db := memkv.New()
+		db := DeferClose(memkv.New())
 		codec := gob.Codec
 		flush := &kv.Subscriber[dataStruct]{
 			Key:         []byte("key"),
@@ -48,5 +49,23 @@ var _ = Describe("Flush", func() {
 			g.Expect(ds.Value).To(Equal([]byte("hello")))
 			g.Expect(closer.Close()).To(Succeed())
 		}).Should(Succeed())
+	})
+
+	It("Should write the state before returning to the caller", func(ctx SpecContext) {
+		db := DeferClose(memkv.New())
+		codec := gob.Codec
+		flush := &kv.Subscriber[dataStruct]{
+			Key:     []byte("key"),
+			Store:   db,
+			Encoder: codec,
+		}
+
+		flush.Flush(ctx, dataStruct{Value: []byte("hello")})
+
+		b, closer := MustSucceed2(db.Get(ctx, []byte("key")))
+		var ds dataStruct
+		Expect(codec.Decode(ctx, b, &ds)).To(Succeed())
+		Expect(ds.Value).To(Equal([]byte("hello")))
+		Expect(closer.Close()).To(Succeed())
 	})
 })

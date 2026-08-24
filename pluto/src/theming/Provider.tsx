@@ -18,7 +18,7 @@ import inter600 from "@fontsource/inter/files/inter-latin-600-normal.woff2";
 import inter700 from "@fontsource/inter/files/inter-latin-700-normal.woff2";
 import inter800 from "@fontsource/inter/files/inter-latin-800-normal.woff2";
 import inter900 from "@fontsource-variable/inter/files/inter-latin-standard-normal.woff2";
-import { caseconv, deep } from "@synnaxlabs/x";
+import { caseconv, deep, zod } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
   type ReactElement,
@@ -43,7 +43,9 @@ export interface ContextValue {
 
 const [Context, useContext] = context.create<ContextValue>({
   defaultValue: {
-    theme: theming.themeZ.parse(theming.SYNNAX_THEMES.synnaxLight),
+    theme: zod.parse(theming.themeZ, theming.SYNNAX_THEMES.synnaxLight, {
+      label: "theme",
+    }),
     toggleTheme: () => {},
     setTheme: () => {},
   },
@@ -81,17 +83,24 @@ export const useProvider = ({
 
   const parsedThemes = useMemo(() => {
     if (theme != null) {
-      const synnaxLight = theming.themeZ.parse(
+      const synnaxLight = zod.parse(
+        theming.themeZ,
         deep.override(deep.copy(theming.SYNNAX_LIGHT), theme),
+        { label: "theme" },
       );
-      const synnaxDark = theming.themeZ.parse(
+      const synnaxDark = zod.parse(
+        theming.themeZ,
         deep.override(deep.copy(theming.SYNNAX_DARK), theme),
+        { label: "theme" },
       );
       if (theme.key != null && theme.key.length > 0) setSelected(theme.key);
       return { synnaxLight, synnaxDark };
     }
     return Object.entries(themes).reduce<Record<string, theming.Theme>>(
-      (acc, [key, value]) => ({ ...acc, [key]: theming.themeZ.parse(value) }),
+      (acc, [key, value]) => ({
+        ...acc,
+        [key]: zod.parse(theming.themeZ, value, { label: "theme" }),
+      }),
       {},
     );
   }, [theme, themes]);
@@ -105,11 +114,15 @@ export const useProvider = ({
 
   const parsedTheme = useMemo(() => parsedThemes[selected], [parsedThemes, selected]);
 
+  // When a caller supplies theme, they own OS-sync (or the decision to opt out of
+  // it) themselves; listening here too would flip selected out from under a
+  // caller that has deliberately pinned the theme.
   useEffect(() => {
+    if (theme != null) return;
     const listener = (): void => setSelected(isDarkMode() ? darkTheme : lightTheme);
     prefersDark()?.addEventListener("change", listener);
     return () => prefersDark()?.removeEventListener("change", listener);
-  }, []);
+  }, [theme]);
 
   return {
     theme: parsedTheme,

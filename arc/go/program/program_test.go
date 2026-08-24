@@ -14,7 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/program"
+	program "github.com/synnaxlabs/arc/program"
 	"github.com/synnaxlabs/arc/types"
 )
 

@@ -17,29 +17,28 @@ import { StringDisplay } from "@/schematic/node/general/stringDisplay/Primitive"
 import { Symbol } from "@/schematic/node/general/stringDisplay/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
-import { type Theming } from "@/theming";
+import { Staleness } from "@/vis/staleness";
 
 export * from "@/schematic/node/general/stringDisplay/config";
 
-export const defaultConfig = (t: Theming.Theme): Config => ({
+export const defaultConfig = (): Config => ({
   variant: VARIANT,
   orientation: "left",
   color: color.ZERO,
   level: "p",
   inlineSize: 100,
-  label: Label.defaultConfig("String Display"),
-  stalenessTimeout: 5,
-  stalenessColor: t.colors.warning.m1,
+  label: Label.defaultConfig("String display"),
+  ...Staleness.ZERO_CONFIG,
   telem: telem.streamChannelStringValue({ channel: 0 }),
 });
 
 const Preview = ({ color, level }: Config): ReactElement => (
-  <StringDisplay color={color} level={level} value="Hello World!" />
+  <StringDisplay color={color} level={level} value="Hello world!" />
 );
 
 export const spec: Spec<typeof VARIANT, Config> = {
   key: VARIANT,
-  name: "String Display",
+  name: "String display",
   Form: StringDisplayForm,
   Node: Symbol,
   Preview,

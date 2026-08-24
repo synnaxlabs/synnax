@@ -10,7 +10,7 @@
 import { type Action, type UnknownAction } from "@reduxjs/toolkit";
 import {
   box,
-  debounce as debounceF,
+  debounce as xDebounce,
   deep,
   dimensions,
   runtime,
@@ -97,9 +97,7 @@ const isPositionVisible = async (position: xy.XY): Promise<boolean> => {
   return boxes.some((b) => box.contains(b, position));
 };
 
-/**
- * A Tauri backed implementation of the drift Runtime.
- */
+/** A Tauri backed implementation of the drift Runtime. */
 export class TauriRuntime<
   S extends StoreState,
   A extends Action = UnknownAction,
@@ -129,32 +127,25 @@ export class TauriRuntime<
     if (runtime.getOS() !== "macOS") return;
     let prevFullscreen = (await this.getProps()).fullscreen;
     if (this.fullscreenPoll != null) clearInterval(this.fullscreenPoll);
+    const poll = async (): Promise<void> => {
+      const isFullscreen = await this.win.isFullscreen();
+      if (isFullscreen === prevFullscreen) return;
+      prevFullscreen = isFullscreen;
+      await this.emit(
+        {
+          action: runtimeSetWindowProps({
+            label: this.win.label,
+            fullscreen: isFullscreen,
+          }) as unknown as A,
+        },
+        undefined,
+        "WHITELIST",
+      );
+    };
     this.fullscreenPoll = setInterval(() => {
-      this.win
-        .isFullscreen()
-        .then((isFullscreen) => {
-          if (isFullscreen !== prevFullscreen) {
-            prevFullscreen = isFullscreen;
-            this.emit(
-              {
-                action: runtimeSetWindowProps({
-                  label: this.win.label,
-                  fullscreen: isFullscreen,
-                }) as unknown as A,
-              },
-              undefined,
-              "WHITELIST",
-            ).catch((err: unknown) => {
-              console.error(
-                `failed to emit fullscreen change for ${this.win.label}`,
-                err,
-              );
-            });
-          }
-        })
-        .catch((err: unknown) => {
-          console.error(`failed to poll fullscreen state for ${this.win.label}`, err);
-        });
+      poll().catch((err: unknown) =>
+        console.error(`failed to poll fullscreen state for ${this.win.label}`, err),
+      );
     }, MACOS_FULLSCREEN_POLL_INTERVAL.milliseconds);
   }
 
@@ -217,34 +208,32 @@ export class TauriRuntime<
     for (const { key, handler, debounce } of propsHandlers)
       this.unsubscribe[key] = await this.win.listen(
         key,
-        debounceF(() => {
-          handler(this.win)
-            .then((action) => {
-              if (action != null)
-                this.emit({ action: action as A }, undefined, "WHITELIST").catch(
-                  (err: unknown) => {
-                    console.error(
-                      `failed to emit window prop change "${key}" for ${this.win.label}`,
-                      err,
-                    );
-                  },
-                );
-            })
-            .catch((err: unknown) => {
-              console.error(
-                `failed to handle window prop change "${key}" for ${this.win.label}`,
-                err,
-              );
-            });
+        xDebounce.debounce(() => {
+          this.applyPropChange(handler).catch((err: unknown) =>
+            console.error(
+              `failed to handle window prop change "${key}" for ${this.win.label}`,
+              err,
+            ),
+          );
         }, debounce),
       );
   }
 
+  private async applyPropChange(handler: HandlerEntry["handler"]): Promise<void> {
+    const action = await handler(this.win);
+    if (action == null) return;
+    await this.emit({ action: action as A }, undefined, "WHITELIST");
+  }
+
   onCloseRequested(cb: () => void): void {
-    void this.win.onCloseRequested((e) => {
-      e.preventDefault();
-      cb();
-    });
+    this.win
+      .onCloseRequested((e) => {
+        e.preventDefault();
+        cb();
+      })
+      .catch((err: unknown) =>
+        console.error(`failed to register close handler for ${this.win.label}`, err),
+      );
   }
 
   async create(label: string, props: Omit<WindowProps, "key">): Promise<void> {
@@ -276,8 +265,10 @@ export class TauriRuntime<
         ...rest,
       });
       return await new Promise<void>((resolve, reject) => {
-        void w.once(tauriError, (e) => reject(new Error(JSON.stringify(e.payload))));
-        void w.once(tauriCreated, () => resolve());
+        w.once(tauriError, (e) => reject(new Error(JSON.stringify(e.payload)))).catch(
+          reject,
+        );
+        w.once(tauriCreated, () => resolve()).catch(reject);
       });
     } catch (e) {
       console.error(e);
@@ -360,7 +351,7 @@ export class TauriRuntime<
     // For some reason, listening to window resize events when the window is not
     // resizable causes issues. To resolve this, we unmount the listener
     if (TauriEventKey.WINDOW_RESIZED in this.unsubscribe && !value) {
-      void this.unsubscribe[TauriEventKey.WINDOW_RESIZED]?.();
+      this.unsubscribe[TauriEventKey.WINDOW_RESIZED]?.();
 
       delete this.unsubscribe[TauriEventKey.WINDOW_RESIZED];
     }

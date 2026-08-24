@@ -8,11 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import { box, type optional } from "@synnaxlabs/x";
-import { type Dispatch, type SetStateAction, useEffect, useMemo } from "react";
+import {
+  type Dispatch,
+  type SetStateAction,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { Channel } from "@/channel";
+import { useSyncedRef } from "@/hooks/ref";
 import { log } from "@/log/aether";
 import { useMemoDeepEqual } from "@/memo";
 
@@ -20,12 +28,13 @@ export interface UseProps
   extends
     optional.Optional<
       Omit<
-        z.input<typeof log.logState>,
+        z.input<typeof log.logStateZ>,
         | "region"
         | "scrollPosition"
         | "scrollback"
         | "empty"
         | "scrolling"
+        | "resumedAt"
         | "wheelPos"
         | "selectionStart"
         | "selectionEnd"
@@ -38,9 +47,16 @@ export interface UseProps
       >,
       "visible"
     >,
-    Aether.ComponentProps {}
+    Aether.ComponentProps {
+  /** Controlled pause state. When set, the log pauses scrolling while true. */
+  hold?: boolean;
+  /** Called when the pause state changes from inside the log: a scroll up or the H
+   * trigger pauses it, scrolling back to the bottom resumes it. Controlled callers
+   * must reflect the value back through hold. */
+  onHold?: (hold: boolean) => void;
+}
 
-export type LogState = z.output<typeof log.logState>;
+export type LogState = z.output<typeof log.logStateZ>;
 
 export interface UseReturn {
   state: LogState;
@@ -51,13 +67,16 @@ export const use = ({
   aetherKey,
   font,
   visible = true,
-  showChannelNames = true,
-  showReceiptTimestamp = true,
+  channelNamesHidden = false,
+  receiptTimestampHidden = false,
   timestampPrecision = 0,
-  channels = [],
+  channels: rawChannels,
   color,
   telem,
+  hold,
+  onHold,
 }: UseProps): UseReturn => {
+  const channels = rawChannels ?? [];
   const numericChannels = useMemo(
     () =>
       channels
@@ -65,7 +84,7 @@ export const use = ({
         .filter((ch): ch is number => typeof ch === "number" && ch > 0),
     [channels],
   );
-  const { data: retrievedChannels } = Channel.useRetrieveMultiple({
+  const { data: retrievedChannels } = Channel.useResultMultiple({
     keys: numericChannels,
   });
   const channelNames = useMemo(() => {
@@ -86,18 +105,32 @@ export const use = ({
     color,
     telem,
     visible,
-    showChannelNames,
-    showReceiptTimestamp,
+    channelNamesHidden,
+    receiptTimestampHidden,
     timestampPrecision,
     channelNames,
     channelDataTypes,
     channels,
+    ...(hold != null && { scrolling: hold }),
   });
+
+  const holdRef = useSyncedRef(hold);
+  const resumedAtRef = useRef(0);
+  // The worker stamps resumedAt when it resumes on its own. Its pushes can still echo
+  // a stale scrolling value after a hold change, so the stamp is the only signal.
+  const handleAetherChange = useCallback(
+    ({ resumedAt }: LogState) => {
+      if (resumedAt <= resumedAtRef.current) return;
+      resumedAtRef.current = resumedAt;
+      if (holdRef.current != null) onHold?.(false);
+    },
+    [onHold],
+  );
 
   const [, state, setState] = Aether.use({
     aetherKey,
     type: log.Log.TYPE,
-    schema: log.logState,
+    schema: log.logStateZ,
     initialState: {
       empty: true,
       region: box.ZERO,
@@ -105,6 +138,7 @@ export const use = ({
       wheelPos: 0,
       ...memoProps,
     },
+    onAetherChange: handleAetherChange,
   });
 
   useEffect(() => {

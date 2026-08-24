@@ -26,7 +26,7 @@ class ModbusReadTaskCase(SimulatorCase, ReadTaskCase):
 
     @staticmethod
     @abstractmethod
-    def create_channels(client: sy.Synnax) -> list[sy.modbus.BaseChan]: ...
+    def create_channels(client: sy.Synnax) -> list[sy.modbus.ReadChannel]: ...
 
     def create(
         self,
@@ -44,7 +44,6 @@ class ModbusReadTaskCase(SimulatorCase, ReadTaskCase):
             device=device.key,
             sample_rate=sample_rate,
             stream_rate=stream_rate,
-            data_saving=True,
             channels=channels,
         )
 
@@ -56,7 +55,7 @@ class ModbusWriteTaskCase(SimulatorCase, WriteTaskCase):
 
     @staticmethod
     @abstractmethod
-    def create_channels(client: sy.Synnax) -> list[sy.modbus.OutputChan]: ...
+    def create_channels(client: sy.Synnax) -> list[sy.modbus.WriteChannel]: ...
 
     def create(
         self,

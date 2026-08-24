@@ -85,7 +85,12 @@ var _ = Describe("Recovery", func() {
 	Describe("LogPanic", func() {
 		It("should be a no-op when the instrumentation has no logger", func() {
 			Expect(func() {
-				recovery.LogPanic(alamos.Instrumentation{}, "target", "boom", []byte("stack"))
+				recovery.LogPanic(
+					alamos.Instrumentation{},
+					"target",
+					"boom",
+					[]byte("stack"),
+				)
 			}).ToNot(Panic())
 		})
 	})

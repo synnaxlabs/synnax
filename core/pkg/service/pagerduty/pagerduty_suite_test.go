@@ -11,6 +11,7 @@ package pagerduty_test
 
 import (
 	"context"
+	"encoding/json"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -18,12 +19,13 @@ import (
 	"github.com/PagerDuty/go-pagerduty"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	pd "github.com/synnaxlabs/synnax/pkg/service/pagerduty"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
@@ -31,7 +33,7 @@ import (
 
 func TestPagerDuty(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "PagerDuty Suite")
+	RunSpecs(t, "Service PagerDuty Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
@@ -42,9 +44,10 @@ var (
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
+	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	searchIdx := MustOpen(search.Open())
+	searchIdx := MustOpen(search.OpenIndex())
 	g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: db, Ontology: otg, Search: searchIdx,
 	}))
@@ -56,6 +59,16 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	Expect(searchIdx.Initialize(ctx)).To(Succeed())
 })
+
+// encodeConfig converts a config into the msgpack.EncodedJSON shape the driver
+// receives as task.Task.Config.
+func encodeConfig(cfg pd.TaskConfig) msgpack.EncodedJSON {
+	GinkgoHelper()
+	b := MustSucceed(json.Marshal(cfg))
+	var m msgpack.EncodedJSON
+	Expect(json.Unmarshal(b, &m)).To(Succeed())
+	return m
+}
 
 // mockEventSender records events sent through it for test assertions.
 type mockEventSender struct {

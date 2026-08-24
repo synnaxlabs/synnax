@@ -23,7 +23,7 @@ export const TJunction = ({
   scale,
   ...rest
 }: Props): ReactElement => (
-  <Primitive.Div className={CSS(CSS.B("t-junction"), className)} {...rest}>
+  <Primitive.Div className={CSS.cls(CSS.B("t-junction"), className)} {...rest}>
     <Handle.Boundary orientation={orientation}>
       <Handle.Handle
         location="left"

@@ -11,8 +11,7 @@ import { DataType, id, runtime, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
-import { createTestClient } from "@/testutil/client";
-import { secondsLinspace } from "@/testutil/telem";
+import { createTestClient, secondsLinspace } from "@/testutil";
 
 const client = createTestClient();
 
@@ -112,7 +111,6 @@ describe("Reader", () => {
         dataType: DataType.FLOAT64,
         index: index2.key,
       });
-      // Write to first group - timestamps 1, 3, 5
       const writer1 = await client.openWriter({
         start: TimeStamp.seconds(1),
         channels: [index1.key, data1.key],
@@ -128,7 +126,6 @@ describe("Reader", () => {
       await writer1.commit();
       await writer1.close();
 
-      // Write to second group - timestamps 2, 4, 6
       const writer2 = await client.openWriter({
         start: TimeStamp.seconds(2),
         channels: [index2.key, data2.key],
@@ -228,7 +225,6 @@ describe("Reader", () => {
         index: indexSlow.key,
       });
       const baseTime = TimeStamp.nanoseconds(0);
-      // Write fast data: 0ns, 1ns, 2ns, 3ns, 4ns, 5ns
       const writerFast = await client.openWriter({
         start: baseTime,
         channels: [indexFast.key, dataFast.key],
@@ -247,7 +243,6 @@ describe("Reader", () => {
       await writerFast.commit();
       await writerFast.close();
 
-      // Write slow data: 0ns, 5ns
       const writerSlow = await client.openWriter({
         start: baseTime,
         channels: [indexSlow.key, dataSlow.key],
@@ -312,13 +307,11 @@ describe("Reader", () => {
           start: TimeStamp.seconds(g + 1),
           channels: groupChannels,
         });
-        // Write two timestamps for this group
         const ts1 = TimeStamp.seconds(g + 1);
         const ts2 = TimeStamp.seconds(g + 2);
         const writeData: Record<number, unknown[]> = {
           [index.key]: [ts1, ts2],
         };
-        // Write sample values for all channels
         for (let c = 0; c < channelsPerGroup; c++)
           writeData[groupChannels[c + 1]] = [g * 10 + c, g * 10 + c + 1];
 
@@ -326,7 +319,6 @@ describe("Reader", () => {
         await writer.commit();
         await writer.close();
 
-        // Store the write info
         groupWrites.push({
           groupIdx: g,
           timestamps: [ts1.valueOf(), ts2.valueOf()],
@@ -337,7 +329,6 @@ describe("Reader", () => {
         });
       }
 
-      // Build expected rows AFTER all groups created (now we know total columns)
       const rowsByTime = new Map<string, string[]>();
       for (const gw of groupWrites)
         for (let i = 0; i < gw.timestamps.length; i++) {
@@ -352,7 +343,6 @@ describe("Reader", () => {
             row[colOffset + 1 + c] = gw.values[i][c].toString();
         }
 
-      // Compose expected rows in time order (ascending)
       const sortedTimes = Array.from(rowsByTime.keys())
         .map((k) => BigInt(k))
         .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
@@ -367,10 +357,8 @@ describe("Reader", () => {
         responseType: "csv",
       });
       const rows = await streamToRecords(stream);
-      // There should be a header and at least the expected number of rows
       expect(rows.length).toBeGreaterThan(1);
       expect(rows.slice(1)).toEqual(expectedRows);
-      // Each row should have columns for all groups (index + data channels each)
       rows.forEach((row) => {
         expect(row).toHaveLength(expectedColumns);
       });
@@ -559,7 +547,6 @@ describe("Reader", () => {
       ]);
     });
     it("should handle large dataset requiring multiple iterator calls", async () => {
-      // Create 4 groups with different indexes at different rates
       const numGroups = 4;
       const samplesPerGroup = [3000, 2500, 2000, 1500]; // Different sample counts
       const channelsPerGroup = 3;
@@ -575,7 +562,6 @@ describe("Reader", () => {
       const groups: GroupInfo[] = [];
       const allDataKeys: number[] = [];
 
-      // Create channels for each group
       for (let g = 0; g < numGroups; g++) {
         const index = await client.channels.create({
           name: `stress_index_${id.create()}`,
@@ -607,7 +593,6 @@ describe("Reader", () => {
         });
       }
 
-      // Write data to each group in parallel using Promise.all
       await Promise.all(
         groups.map(async (group) => {
           const writer = await client.openWriter({
@@ -615,7 +600,6 @@ describe("Reader", () => {
             channels: [group.indexKey, ...group.dataKeys],
           });
 
-          // Write in batches to avoid memory issues
           const batchSize = 500;
           for (
             let batchStart = 0;
@@ -648,10 +632,8 @@ describe("Reader", () => {
           await writer.close();
         }),
       );
-      // Calculate expected total samples across all groups
       const totalSamples = samplesPerGroup.reduce((a, b) => a + b, 0);
 
-      // Export the data
       const stream = await client.read({
         channels: allDataKeys,
         timeRange: {
@@ -661,7 +643,6 @@ describe("Reader", () => {
         responseType: "csv",
       });
 
-      // Collect all chunks and track streaming behavior
       const reader = stream.getReader();
       const chunks: Uint8Array[] = [];
       let chunkCount = 0;
@@ -676,7 +657,6 @@ describe("Reader", () => {
       // Verify multiple chunks were produced (proves streaming worked)
       expect(chunkCount).toBeGreaterThan(1);
 
-      // Decode and parse the full CSV
       const decoder = new TextDecoder();
       const csv = chunks.map((c) => decoder.decode(c)).join("");
       const lines = csv.trim().split(delimiter);
@@ -691,17 +671,14 @@ describe("Reader", () => {
       const headerColumns = lines[0].split(",");
       expect(headerColumns).toHaveLength(expectedColumns);
 
-      // Verify all data rows have correct column count
       for (let i = 1; i < lines.length; i++) {
         const cols = lines[i].split(",");
         expect(cols).toHaveLength(expectedColumns);
       }
 
-      // Verify timestamps are in ascending order
       const rows = parseCSV(csv);
       let lastTimestamp: bigint | null = null;
       for (let i = 1; i < rows.length; i++)
-        // Find the first non-empty timestamp in this row
         for (let g = 0; g < numGroups; g++) {
           const tsCol = g * (1 + channelsPerGroup);
           const tsStr = rows[i][tsCol];
@@ -718,148 +695,138 @@ describe("Reader", () => {
       const nonEmptyValues = firstDataRow.filter((v) => v !== "");
       expect(nonEmptyValues.length).toBeGreaterThan(0);
     });
-    it(
-      "should handle large dense and sparse indexes with correct ordering and merging",
-      { timeout: 15_000 },
-      async () => {
-        const denseSamples = 100_000;
-        const sparseStep = 1_000;
-        const sparseSamples = denseSamples / sparseStep;
+    // Writing and streaming 100k samples outlasts the default budget on a loaded
+    // runner, so this spec carries its own.
+    it("should handle large dense and sparse indexes with correct ordering and merging", async () => {
+      const denseSamples = 100_000;
+      const sparseStep = 1_000;
+      const sparseSamples = denseSamples / sparseStep;
 
-        const indexFast = await client.channels.create({
-          name: `dense_index_${id.create()}`,
-          dataType: DataType.TIMESTAMP,
-          isIndex: true,
-        });
-        const dataFast = await client.channels.create({
-          name: `dense_data_${id.create()}`,
-          dataType: DataType.FLOAT64,
-          index: indexFast.key,
-        });
+      const indexFast = await client.channels.create({
+        name: `dense_index_${id.create()}`,
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+      const dataFast = await client.channels.create({
+        name: `dense_data_${id.create()}`,
+        dataType: DataType.FLOAT64,
+        index: indexFast.key,
+      });
 
-        const indexSlow = await client.channels.create({
-          name: `sparse_index_${id.create()}`,
-          dataType: DataType.TIMESTAMP,
-          isIndex: true,
-        });
-        const dataSlow = await client.channels.create({
-          name: `sparse_data_${id.create()}`,
-          dataType: DataType.FLOAT64,
-          index: indexSlow.key,
-        });
-        const start = TimeStamp.seconds(0);
-        const denseWriter = await client.openWriter({
-          start,
-          channels: [indexFast.key, dataFast.key],
-        });
+      const indexSlow = await client.channels.create({
+        name: `sparse_index_${id.create()}`,
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+      const dataSlow = await client.channels.create({
+        name: `sparse_data_${id.create()}`,
+        dataType: DataType.FLOAT64,
+        index: indexSlow.key,
+      });
+      const start = TimeStamp.seconds(0);
+      const denseWriter = await client.openWriter({
+        start,
+        channels: [indexFast.key, dataFast.key],
+      });
 
-        const maxBatchSize = 10_000;
-        for (
-          let batchStart = 1;
-          batchStart <= denseSamples;
-          batchStart += maxBatchSize
-        ) {
-          const batchEnd = Math.min(batchStart + maxBatchSize - 1, denseSamples);
-          const batchSize = batchEnd - batchStart + 1;
-          const times = secondsLinspace(batchStart, batchSize);
-          const data = Array.from({ length: batchSize }, (_, i) => i + batchStart);
-          await denseWriter.write({ [indexFast.key]: times, [dataFast.key]: data });
+      const maxBatchSize = 10_000;
+      for (let batchStart = 1; batchStart <= denseSamples; batchStart += maxBatchSize) {
+        const batchEnd = Math.min(batchStart + maxBatchSize - 1, denseSamples);
+        const batchSize = batchEnd - batchStart + 1;
+        const times = secondsLinspace(batchStart, batchSize);
+        const data = Array.from({ length: batchSize }, (_, i) => i + batchStart);
+        await denseWriter.write({ [indexFast.key]: times, [dataFast.key]: data });
+      }
+      await denseWriter.commit();
+      await denseWriter.close();
+
+      const sparseWriter = await client.openWriter({
+        start,
+        channels: [indexSlow.key, dataSlow.key],
+      });
+
+      for (let batchStart = 1; batchStart < sparseSamples; batchStart += maxBatchSize) {
+        const batchEnd = Math.min(
+          batchStart + (maxBatchSize - 1) * sparseStep,
+          batchStart + sparseSamples * sparseStep,
+        );
+        const times: TimeStamp[] = [];
+        const data: number[] = [];
+
+        for (let j = batchStart; j < batchEnd; j += sparseStep) {
+          times.push(start.add(TimeSpan.seconds(j)));
+          data.push(j); // arbitrary data value
         }
-        await denseWriter.commit();
-        await denseWriter.close();
+        await sparseWriter.write({ [indexSlow.key]: times, [dataSlow.key]: data });
+      }
+      await sparseWriter.commit();
+      await sparseWriter.close();
 
-        const sparseWriter = await client.openWriter({
-          start,
-          channels: [indexSlow.key, dataSlow.key],
-        });
+      const stream = await client.read({
+        channels: [dataFast.key, dataSlow.key],
+        timeRange: {
+          start: TimeStamp.seconds(0),
+          end: start.add(TimeSpan.seconds(denseSamples + 1)),
+        },
+        responseType: "csv",
+      });
 
-        for (
-          let batchStart = 1;
-          batchStart < sparseSamples;
-          batchStart += maxBatchSize
-        ) {
-          const batchEnd = Math.min(
-            batchStart + (maxBatchSize - 1) * sparseStep,
-            batchStart + sparseSamples * sparseStep,
-          );
-          const times: TimeStamp[] = [];
-          const data: number[] = [];
+      const reader = stream.getReader();
+      const decoder = new TextDecoder();
 
-          for (let j = batchStart; j < batchEnd; j += sparseStep) {
-            times.push(start.add(TimeSpan.seconds(j)));
-            data.push(j); // arbitrary data value
-          }
-          await sparseWriter.write({ [indexSlow.key]: times, [dataSlow.key]: data });
-        }
-        await sparseWriter.commit();
-        await sparseWriter.close();
+      let buffer = "";
+      let chunkCount = 0;
+      let isHeader = true;
+      let totalRows = 0; // data rows only (exclude header)
+      let sparseRows = 0;
+      let lastTimestamp: bigint | null = null;
 
-        const stream = await client.read({
-          channels: [dataFast.key, dataSlow.key],
-          timeRange: {
-            start: TimeStamp.seconds(0),
-            end: start.add(TimeSpan.seconds(denseSamples + 1)),
-          },
-          responseType: "csv",
-        });
-
-        const reader = stream.getReader();
-        const decoder = new TextDecoder();
-
-        let buffer = "";
-        let chunkCount = 0;
-        let isHeader = true;
-        let totalRows = 0; // data rows only (exclude header)
-        let sparseRows = 0;
-        let lastTimestamp: bigint | null = null;
-
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunkCount++;
+        buffer += decoder.decode(value);
         while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          chunkCount++;
-          buffer += decoder.decode(value);
-          while (true) {
-            const idx = buffer.indexOf(delimiter);
-            if (idx === -1) break;
-            const line = buffer.slice(0, idx);
-            buffer = buffer.slice(idx + delimiter.length);
-            if (line === "") continue;
-            if (isHeader) {
-              const headerCols = line.split(",");
-              expect(headerCols).toEqual([
-                indexFast.name,
-                dataFast.name,
-                indexSlow.name,
-                dataSlow.name,
-              ]);
-              isHeader = false;
-              continue;
-            }
+          const idx = buffer.indexOf(delimiter);
+          if (idx === -1) break;
+          const line = buffer.slice(0, idx);
+          buffer = buffer.slice(idx + delimiter.length);
+          if (line === "") continue;
+          if (isHeader) {
+            const headerCols = line.split(",");
+            expect(headerCols).toEqual([
+              indexFast.name,
+              dataFast.name,
+              indexSlow.name,
+              dataSlow.name,
+            ]);
+            isHeader = false;
+            continue;
+          }
 
-            totalRows++;
-            const cols = line.split(",");
-            expect(cols).toHaveLength(4);
-            const [fastTsStr, fastValStr, slowTsStr, slowValStr] = cols;
+          totalRows++;
+          const cols = line.split(",");
+          expect(cols).toHaveLength(4);
+          const [fastTsStr, fastValStr, slowTsStr, slowValStr] = cols;
 
-            expect(fastTsStr).not.toBe("");
-            expect(fastValStr).not.toBe("");
+          expect(fastTsStr).not.toBe("");
+          expect(fastValStr).not.toBe("");
 
-            const ts = BigInt(fastTsStr);
-            if (lastTimestamp !== null) expect(ts).toBeGreaterThan(lastTimestamp);
-            lastTimestamp = ts;
+          const ts = BigInt(fastTsStr);
+          if (lastTimestamp !== null) expect(ts).toBeGreaterThan(lastTimestamp);
+          lastTimestamp = ts;
 
-            if (slowValStr !== "") {
-              sparseRows++;
-              // When sparse has data, its timestamp should match dense's timestamp
-              expect(slowTsStr).toBe(fastTsStr);
-              expect(slowValStr).not.toBe("");
-            }
+          if (slowValStr !== "") {
+            sparseRows++;
+            // When sparse has data, its timestamp should match dense's timestamp
+            expect(slowTsStr).toBe(fastTsStr);
+            expect(slowValStr).not.toBe("");
           }
         }
-        expect(chunkCount).toBeGreaterThan(1);
-        expect(totalRows).toBe(denseSamples);
-        expect(sparseRows).toBe(sparseSamples);
-      },
-    );
+      }
+      expect(chunkCount).toBeGreaterThan(1);
+      expect(totalRows).toBe(denseSamples);
+      expect(sparseRows).toBe(sparseSamples);
+    }, 60_000);
   });
 });

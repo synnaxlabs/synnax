@@ -1,3 +1,12 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
 name: Test - X (C++)
 
 on:
@@ -11,6 +20,7 @@ on:
       - MODULE.bazel
       - MODULE.bazel.lock
       - scripts/check_clang_format.sh
+      - scripts/run_bazel.sh
       - scripts/sanitizers/**
       - x/cpp/**
       - x/go/**/*.pb.go
@@ -27,6 +37,7 @@ on:
       - MODULE.bazel
       - MODULE.bazel.lock
       - scripts/check_clang_format.sh
+      - scripts/run_bazel.sh
       - scripts/sanitizers/**
       - x/cpp/**
       - x/go/**/*.pb.go
@@ -34,6 +45,10 @@ on:
 
 env:
   BAZEL_REMOTE_CACHE: ${{ vars.BAZEL_REMOTE_CACHE_GRPC_URL }}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
@@ -55,7 +70,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.19.0
@@ -91,6 +106,6 @@ jobs:
       - name: Test (Windows)
         if: matrix.os == 'windows-build-bot'
         run: |
-          bazel --output_user_root=C:/tmp test --test_output=all //x/cpp/... \
+          scripts/run_bazel.sh test --test_output=all //x/cpp/... \
             --remote_cache=${{ env.BAZEL_REMOTE_CACHE }} --remote_cache_compression=true
         shell: bash

@@ -18,19 +18,23 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { channel } from "@/channel";
+import { type channel } from "@/channel";
+import { paramsZ } from "@/channel/payload";
+import { keyZ, nameZ } from "@/channel/types.gen";
 import { SynnaxError } from "@/errors";
-import { WriteAdapter } from "@/framer/adapter";
+import { type ChannelRetriever, WriteAdapter } from "@/framer/adapter";
 import { WSWriterCodec } from "@/framer/codec";
 import { type CrudeFrame, frameZ } from "@/framer/frame";
 import { WriterCommand } from "@/framer/types.gen";
 
+/** Whether a writer persists its samples, streams them to subscribers, or both. */
 export enum WriterMode {
   PersistStream = 1,
   Persist = 2,
   Stream = 3,
 }
 
+/** `autoIndexPersistInterval` that flushes the index on every auto commit. */
 export const ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan = new TimeSpan(-1);
 
 export class WriterClosedError extends SynnaxError.sub("writer_closed") {
@@ -52,6 +56,7 @@ const writerModeZ = z.enum(WriterMode).or(
   }),
 );
 
+/** A {@link WriterMode}, or its name as a string. */
 export type CrudeWriterMode = z.input<typeof writerModeZ>;
 
 const baseWriterConfigZ = z.object({
@@ -96,22 +101,24 @@ const baseWriterConfigZ = z.object({
 });
 
 const netWriterConfigZ = baseWriterConfigZ.extend({
-  keys: channel.keyZ.array().optional(),
+  keys: keyZ.array().optional(),
 });
 
 export type NetWriterConfig = z.input<typeof netWriterConfigZ>;
 
 // Intermediate utility type to allow for the use of paramsZ in the writer config.
 const intermediateWriterConfigZ = baseWriterConfigZ.extend({
-  channels: channel.paramsZ,
+  channels: paramsZ,
 });
 
+/** Zod schema for {@link WriterConfig}. A bare channel list parses as a config. */
 export const writerConfigZ = intermediateWriterConfigZ.or(
-  channel.paramsZ.transform((channels) =>
+  paramsZ.transform((channels) =>
     intermediateWriterConfigZ.parse({ channels, start: TimeStamp.now() }),
   ),
 );
 
+/** Config for a writer. Pass it to `client.telem.openWriter`. */
 export type WriterConfig = z.input<typeof writerConfigZ>;
 
 const reqZ = z.object({
@@ -129,11 +136,11 @@ const resZ = z.object({
   err: errors.payloadZ.optional(),
 });
 
-const authorityArgsZ = z
+const authorityParamsZ = z
   .tuple([
     z.union([
-      z.record(channel.keyZ.or(channel.nameZ), control.authorityZ),
-      channel.keyZ.or(channel.nameZ),
+      z.record(keyZ.or(nameZ), control.authorityZ),
+      keyZ.or(nameZ),
       control.authorityZ,
     ]),
     control.authorityZ.optional(),
@@ -141,7 +148,7 @@ const authorityArgsZ = z
   .transform(([value, authority]) => {
     if (control.authorityZ.safeParse(value).success)
       return { keys: [], authorities: [value as control.Authority] };
-    if (channel.keyZ.or(channel.nameZ).safeParse(value).success) {
+    if (keyZ.or(nameZ).safeParse(value).success) {
       if (authority == null)
         throw new Error(
           "authority is required when setting authority for a single channel",
@@ -155,49 +162,25 @@ const authorityArgsZ = z
     return { keys: Object.keys(oValue), authorities: Object.values(oValue) };
   });
 
-export type AuthorityArgs = z.input<typeof authorityArgsZ>;
+/**
+ * Arguments to `Writer.setAuthority`: one authority for every channel, one channel and
+ * its authority, or a record of channel to authority.
+ */
+export type AuthorityParams = z.input<typeof authorityParamsZ>;
 
 interface Response extends z.infer<typeof resZ> {}
 
 /**
- * Writer is used to write telemetry to a set of channels in time order. It should not
- * be instantiated directly, and should instead be instantiated via the FramerClient
- * {@link FrameClient#openWriter}.
+ * Writes telemetry to a set of channels in time order. Open one with
+ * {@link FrameClient#openWriter}, never directly. Prefer the frame client's write
+ * method unless the volume warrants the streaming protocol.
  *
- * The writer is a streaming protocol that is heavily optimized for performance. This
- * comes at the cost of increased complexity, and should only be used directly when
- * writing large volumes of data (such as recording telemetry from a sensor or ingesting
- * data from file). Simpler methods (such as the frame client's write method) should be
- * used for most use cases.
- *
- * The protocol is as follows:
- *
- * 1. The writer is opened with a starting timestamp and a list of channel keys. The
- *    writer will fail to open if the starting timestamp overlaps with any existing
- *    telemetry for any channels specified. If the writer opens successfully, the caller
- *    is then free to write frames to the writer.
- *
- * 2. To write a frame, the caller can use the write method and follow the validation
- *    rules described in its method's documentation. This process is asynchronous,
- *    meaning that write calls may return before the frame has been written to the
- *    cluster. This also means that the writer can accumulate an error after write is
- *    called. If the writer accumulates an error, all subsequent write and commit calls
- *    will return False. The caller can check for errors by calling the error method,
- *    which returns the accumulated error and resets the writer for future use. The
- *    caller can also check for errors by closing the writer, which will throw any
- *    accumulated error.
- *
- * 3. To commit the written frames to the cluster, the caller can call the commit
- *    method. Unlike write, commit is synchronous, meaning that it will not return until
- *    the frames have been written to the cluster. If the writer has accumulated an
- *    error, commit will return false. After the caller acknowledges the error, they can
- *    attempt to commit again. Commit can be called several times throughout a writer's
- *    lifetime, and will only commit the frames that have been written since the last
- *    commit.
- *
- * 4. A writer MUST be closed after use in order to prevent resource leaks. Close should
- *    typically be called in a 'finally' block. If the writer has accumulated an error,
- *    close will throw the error.
+ * Opening fails when the start timestamp overlaps existing telemetry on any of the
+ * channels. `write` is asynchronous, so a failure surfaces on a later call: once the
+ * writer accumulates an error, every write and commit returns false until `error`
+ * reads and clears it. `commit` blocks until the cluster has the frames written since
+ * the last commit, and may be called repeatedly. Close in a `finally` block to release
+ * resources; close throws any accumulated error.
  */
 export class Writer {
   private readonly stream: Stream<typeof reqZ, typeof resZ>;
@@ -210,12 +193,12 @@ export class Writer {
   }
 
   static async _open(
-    retriever: channel.Retriever,
+    retrieveChannels: ChannelRetriever,
     client: WebSocketClient,
     config: WriterConfig,
   ): Promise<Writer> {
     const cfg = zod.parse(writerConfigZ, config);
-    const adapter = await WriteAdapter.open(retriever, cfg.channels);
+    const adapter = await WriteAdapter.open(retrieveChannels, cfg.channels);
     client = client.withCodec(new WSWriterCodec(adapter.codec));
     const stream = await client.stream("/frame/write", reqZ, resZ);
     const writer = new Writer(stream, adapter);
@@ -236,9 +219,7 @@ export class Writer {
   ): Promise<void>;
   async write(
     channelsOrData:
-      | channel.Params
-      | Record<channel.Key | channel.Name, CrudeSeries>
-      | CrudeFrame,
+      channel.Params | Record<channel.Key | channel.Name, CrudeSeries> | CrudeFrame,
     series?: CrudeSeries | CrudeSeries[],
   ): Promise<void>;
 
@@ -259,9 +240,7 @@ export class Writer {
    */
   async write(
     channelsOrData:
-      | channel.Params
-      | Record<channel.Key | channel.Name, CrudeSeries>
-      | CrudeFrame,
+      channel.Params | Record<channel.Key | channel.Name, CrudeSeries> | CrudeFrame,
     series?: CrudeSeries | CrudeSeries[],
   ): Promise<void> {
     if (this.closeErr != null) throw this.closeErr;
@@ -275,11 +254,13 @@ export class Writer {
   }
 
   async setAuthority(
-    value: AuthorityArgs[0],
-    authority?: AuthorityArgs[1],
+    value: AuthorityParams[0],
+    authority?: AuthorityParams[1],
   ): Promise<void> {
     if (this.closeErr != null) throw this.closeErr;
-    const parsed = authorityArgsZ.parse([value, authority]);
+    const parsed = zod.parse(authorityParamsZ, [value, authority], {
+      label: "authority params",
+    });
     const config = {
       keys: await this.adapter.adaptParams(parsed.keys),
       authorities: parsed.authorities,
@@ -290,7 +271,6 @@ export class Writer {
   /**
    * Commits the written frames to the database. Commit is synchronous, meaning that it
    * will not return until all frames have been committed to the database.
-   *
    * @returns the timestamp of the last sample written to the writer.
    * @throws if the commit fails or any previous writer method has thrown. Once commit
    * throws, the writer must be closed and re-opened to continue use.

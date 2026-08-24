@@ -11,12 +11,18 @@ package testutil
 
 import (
 	"context"
+	"go/parser"
+	"go/token"
+	"os"
+	"os/exec"
+	"runtime"
 	"strings"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/plugin"
+	xtestutil "github.com/synnaxlabs/x/testutil"
 )
 
 // generateRequest creates a plugin request from a source string by analyzing the source
@@ -49,7 +55,7 @@ func MustGenerateRequest(
 ) *plugin.Request {
 	ginkgo.GinkgoHelper()
 	req, err := generateRequest(ctx, source, namespace, loader)
-	gomega.Expect(err).To(gomega.BeNil(), "failed to analyze source")
+	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to analyze source")
 	return req
 }
 
@@ -73,7 +79,7 @@ func MustGenerateMulti(
 	}
 	req := &plugin.Request{Resolutions: table, RepoRoot: loader.RepoRoot()}
 	resp, err := p.Generate(req)
-	gomega.Expect(err).To(gomega.BeNil(), "failed to generate")
+	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to generate")
 	return resp
 }
 
@@ -89,7 +95,7 @@ func MustGenerate(
 	ginkgo.GinkgoHelper()
 	req := MustGenerateRequest(ctx, source, namespace, loader)
 	resp, err := p.Generate(req)
-	gomega.Expect(err).To(gomega.BeNil(), "failed to generate")
+	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to generate")
 	return resp
 }
 
@@ -108,8 +114,36 @@ func contentOf(resp *plugin.Response, pathSuffix string) string {
 func MustContentOf(resp *plugin.Response, pathSuffix string) string {
 	ginkgo.GinkgoHelper()
 	content := contentOf(resp, pathSuffix)
-	gomega.Expect(content).NotTo(gomega.BeEmpty(), "no file found with suffix: %s", pathSuffix)
+	gomega.Expect(content).
+		NotTo(gomega.BeEmpty(), "no file found with suffix: %s", pathSuffix)
 	return content
+}
+
+// DenyDirRead revokes read permission on dir so directory listings fail, and registers
+// a DeferCleanup that restores access. It skips the calling spec when running as root
+// on Unix, where permission checks are bypassed.
+func DenyDirRead(dir string) {
+	ginkgo.GinkgoHelper()
+	if runtime.GOOS == "windows" {
+		// chmod cannot remove read permission on Windows; deny the Everyone SID
+		// (S-1-1-0) list-directory access via an ACL entry instead.
+		gomega.Expect(
+			exec.Command("icacls", dir, "/deny", "*S-1-1-0:(RD)").Run(),
+		).To(gomega.Succeed())
+		ginkgo.DeferCleanup(func() {
+			gomega.Expect(
+				exec.Command("icacls", dir, "/remove:d", "*S-1-1-0").Run(),
+			).To(gomega.Succeed())
+		})
+		return
+	}
+	if os.Geteuid() == 0 {
+		ginkgo.Skip("filesystem permissions are bypassed when running as root")
+	}
+	gomega.Expect(os.Chmod(dir, 0o000)).To(gomega.Succeed())
+	ginkgo.DeferCleanup(func() {
+		gomega.Expect(os.Chmod(dir, 0o755)).To(gomega.Succeed())
+	})
 }
 
 // ContentExpectation provides fluent assertions for generated content.
@@ -129,8 +163,19 @@ func ExpectContent(resp *plugin.Response, pathSuffix string) *ContentExpectation
 func (c *ContentExpectation) ToContain(substrings ...string) *ContentExpectation {
 	ginkgo.GinkgoHelper()
 	for _, s := range substrings {
-		gomega.Expect(c.content).To(gomega.ContainSubstring(s), "expected content to contain: %q", s)
+		gomega.Expect(c.content).
+			To(gomega.ContainSubstring(s), "expected content to contain: %q", s)
 	}
+	return c
+}
+
+// ToBeValidGoSource asserts that the content parses as a syntactically valid
+// Go source file. Substring assertions cannot catch malformed emission around
+// the asserted fragments; this can.
+func (c *ContentExpectation) ToBeValidGoSource() *ContentExpectation {
+	ginkgo.GinkgoHelper()
+	xtestutil.MustSucceed(parser.ParseFile(
+		token.NewFileSet(), "", c.content, parser.SkipObjectResolution))
 	return c
 }
 
@@ -138,18 +183,22 @@ func (c *ContentExpectation) ToContain(substrings ...string) *ContentExpectation
 func (c *ContentExpectation) ToNotContain(substrings ...string) *ContentExpectation {
 	ginkgo.GinkgoHelper()
 	for _, s := range substrings {
-		gomega.Expect(c.content).NotTo(gomega.ContainSubstring(s), "expected content to NOT contain: %q", s)
+		gomega.Expect(c.content).
+			NotTo(gomega.ContainSubstring(s), "expected content to NOT contain: %q", s)
 	}
 	return c
 }
 
 // ToPreserveOrder asserts that the given substrings appear in order in the content.
-func (c *ContentExpectation) ToPreserveOrder(orderedSubstrings ...string) *ContentExpectation {
+func (c *ContentExpectation) ToPreserveOrder(
+	orderedSubstrings ...string,
+) *ContentExpectation {
 	ginkgo.GinkgoHelper()
 	lastIdx := -1
 	for _, s := range orderedSubstrings {
 		idx := strings.Index(c.content, s)
-		gomega.Expect(idx).To(gomega.BeNumerically(">=", 0), "expected content to contain: %q", s)
+		gomega.Expect(idx).
+			To(gomega.BeNumerically(">=", 0), "expected content to contain: %q", s)
 		gomega.Expect(idx).To(gomega.BeNumerically(">", lastIdx),
 			"expected %q to appear after previous substring", s)
 		lastIdx = idx

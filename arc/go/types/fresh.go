@@ -9,22 +9,21 @@
 
 package types
 
-import (
-	"slices"
-)
+import "slices"
 
 // Freshen creates a copy of t with all type variables renamed using the given prefix.
-// This is essential when instantiating generic functions to avoid type variable conflicts
-// during unification.
+// This is essential when instantiating generic functions to avoid type variable
+// conflicts during unification.
 //
 // For example, when instantiating a generic function `add<T>(a: T, b: T) -> T` twice,
 // each instantiation needs fresh type variables (e.g., "node1_T" and "node2_T") to
-// prevent unification from incorrectly constraining both instantiations to the same type.
+// prevent unification from incorrectly constraining both instantiations to the same
+// type.
 //
 // The function recursively freshens type variables in:
 //   - Direct type variables (including their constraints)
 //   - Channel and series element types
-//   - Function input, output, and config parameters
+//   - Function input and output parameters
 //
 // Primitive types (i64, f64, string, etc.) are returned unchanged.
 func Freshen(t Type, prefix string) Type {
@@ -69,7 +68,6 @@ func freshen(t Type, prefix string, mapping map[string]Type) Type {
 		props := FunctionProperties{
 			Inputs:  freshenParams(t.Inputs, prefix, mapping),
 			Outputs: freshenParams(t.Outputs, prefix, mapping),
-			Config:  freshenParams(t.Config, prefix, mapping),
 		}
 		return Type{Kind: KindFunction, FunctionProperties: props}
 	}

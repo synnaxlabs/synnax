@@ -27,8 +27,8 @@ var symbolName = "constant"
 // is Internal — it is emitted by graph-mode lowering of literal flow nodes,
 // not called directly from user source.
 func NewSymbols() []*symbol.Symbol {
-	constraint := new(types.NumericConstraint())
-	typeVar := types.Variable("T", constraint)
+	constraint := types.NumericConstraint()
+	typeVar := types.Variable("T", &constraint)
 	return []*symbol.Symbol{
 		{
 			Name:     symbolName,
@@ -37,8 +37,9 @@ func NewSymbols() []*symbol.Symbol {
 			Internal: true,
 			Type: types.Function(types.FunctionProperties{
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: typeVar}},
-				Config:  types.Params{{Name: "value", Type: typeVar}},
+				Inputs:  types.Params{{Name: "value", Type: typeVar}},
 			}),
+			Trigger: symbol.TriggerOnly,
 		},
 	}
 }
@@ -54,25 +55,45 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName {
 		return nil, query.ErrNotFound
 	}
-	return &constant{State: cfg.State, value: cfg.Node.Config[0].Value}, nil
+	return &constant{
+		State:       cfg.State,
+		value:       cfg.Node.Inputs[0].Value,
+		isEntryNode: cfg.Node.IsEntryNode(cfg.Program.Edges),
+	}, nil
 }
 
 type constant struct {
 	*node.State
 	clock       telem.MonoClock
 	value       any
+	isEntryNode bool
 	initialized bool
 }
 
 var _ node.Node = (*constant)(nil)
 
 func (c *constant) Next(ctx node.Context) {
-	if c.initialized {
-		return
+	if c.isEntryNode {
+		if c.initialized {
+			return
+		}
+		c.initialized = true
 	}
-	c.initialized = true
 	d := c.Output(0)
-	*d = telem.NewSeriesFromAny(c.value, d.DataType)
+	// A var-bound value input emits the referenced variable's latest value;
+	// otherwise the configured value is emitted.
+	if s := c.RefInput(0); c.RefSourced(0) && s.Len() > 0 {
+		if s.DataType.IsVariable() {
+			*d = telem.NewSeriesFromAny(string(s.At(-1)), s.DataType)
+		} else {
+			*d = telem.Series{
+				DataType: s.DataType,
+				Data:     append([]byte(nil), s.At(-1)...),
+			}
+		}
+	} else {
+		*d = telem.NewSeriesFromAny(c.value, d.DataType)
+	}
 	t := c.OutputTime(0)
 	*t = telem.NewSeriesV[telem.TimeStamp](c.clock.Now())
 	ctx.MarkChanged(0)

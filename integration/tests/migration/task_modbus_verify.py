@@ -30,10 +30,10 @@ class ModbusReadVerify(ReadTaskMigrationVerify, ModbusReadTaskCase):
     pre_start_sleep = 2
 
     @staticmethod
-    def create_channels(client: sy.Synnax) -> list[sy.modbus.BaseChan]:
+    def create_channels(client: sy.Synnax) -> list[sy.modbus.ReadChannel]:
         idx = create_index(client, IDX_NAME)
         return [
-            sy.modbus.HoldingRegisterInputChan(
+            sy.modbus.HoldingRegisterReadChannel(
                 channel=create_channel(
                     client,
                     name=f"{CHANNEL_PREFIX}_{i}",

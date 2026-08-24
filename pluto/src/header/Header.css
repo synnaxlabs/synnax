@@ -10,11 +10,12 @@
  */
 
 .pluto-header {
-    padding-left: 0.5rem;
+    padding: 1rem 1.5rem;
+    /* Room for a small action button, so headers keep one height whether or
+       not actions render (previews hide them). */
+    min-height: calc(var(--pluto-height-small) + 2rem);
     .pluto-header__text,
     .pluto-breadcrumb {
-        padding: 0.5rem;
-        padding-left: 1rem;
         overflow: hidden;
         .pluto-text {
             overflow: hidden;
@@ -24,8 +25,5 @@
     }
     .pluto-header-button-title {
         flex-grow: 1;
-    }
-    &.pluto-header--padded {
-        padding-right: 1rem;
     }
 }

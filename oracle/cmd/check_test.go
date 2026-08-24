@@ -30,13 +30,13 @@ var _ = Describe("oracle check end-to-end", func() {
 			Expect(os.RemoveAll(repoRoot)).To(Succeed())
 		})
 		// Bare git repo so paths.RepoRoot resolves.
-		Expect(os.MkdirAll(filepath.Join(repoRoot, ".git"), 0755)).To(Succeed())
-		Expect(os.MkdirAll(filepath.Join(repoRoot, "schemas"), 0755)).To(Succeed())
+		Expect(os.MkdirAll(filepath.Join(repoRoot, ".git"), 0o755)).To(Succeed())
+		Expect(os.MkdirAll(filepath.Join(repoRoot, "schemas"), 0o755)).To(Succeed())
 	})
 
 	writeSchema := func(name, body string) {
 		path := filepath.Join(repoRoot, "schemas", name+".oracle")
-		Expect(os.WriteFile(path, []byte(body), 0644)).To(Succeed())
+		Expect(os.WriteFile(path, []byte(body), 0o644)).To(Succeed())
 	}
 
 	runOracleCheck := func(args ...string) (string, int) {
@@ -97,6 +97,82 @@ Thing struct {
 	})
 })
 
+var _ = Describe("check command flag paths", func() {
+	var cleanup func()
+
+	AfterEach(func() { cleanup() })
+
+	Describe("with a well-formed schema", func() {
+		BeforeEach(func() {
+			_, cleanup = setupMiniRepo("0.53.4", map[string]string{
+				"user.oracle": "User struct {\n    key  uuid\n    name string\n}\n",
+			})
+		})
+
+		It("rejects an invalid --format value", func() {
+			cmd := NewRootCmd()
+			Expect(executeCommand(cmd, "check", "--format=yaml")).Error().
+				To(MatchError(ContainSubstring(`invalid --format "yaml"`)))
+		})
+
+		It("runs only the requested gates", func() {
+			cmd := NewRootCmd()
+			MustSucceed(executeCommand(cmd, "check", "--gates=format,analyze"))
+		})
+
+		It("renders a JSON report without error", func() {
+			cmd := NewRootCmd()
+			MustSucceed(executeCommand(
+				cmd, "check", "--gates=format,analyze", "--format=json",
+			))
+		})
+
+		It("renders a verbose report without error", func() {
+			cmd := NewRootCmd()
+			MustSucceed(executeCommand(cmd, "check", "-v"))
+		})
+	})
+
+	Describe("with format drift", func() {
+		BeforeEach(func() {
+			_, cleanup = setupMiniRepo("0.53.4", map[string]string{
+				"user.oracle": "User struct {key uuid\nname   string}",
+			})
+		})
+
+		It("returns the gate-failure exit error", func() {
+			cmd := NewRootCmd()
+			Expect(executeCommand(cmd, "check", "--gates=format")).Error().
+				To(MatchError(ContainSubstring("1 gate(s) failed")))
+		})
+
+		It("includes diffs without error when --diff is set", func() {
+			cmd := NewRootCmd()
+			Expect(executeCommand(cmd, "check", "--gates=format", "--diff")).Error().
+				To(MatchError(ContainSubstring("1 gate(s) failed")))
+		})
+	})
+
+	Describe("with an analyzer warning", func() {
+		BeforeEach(func() {
+			_, cleanup = setupMiniRepo("0.53.4", map[string]string{
+				"warn.oracle": "@go output \"x/go/warn\"\n" +
+					"Thing struct {\n    other other.Missing\n}\n",
+			})
+		})
+
+		It("escalates warnings with --warnings-as-errors", func() {
+			cmd := NewRootCmd()
+			MustSucceed(executeCommand(cmd, "check", "--gates=analyze"))
+
+			cmd = NewRootCmd()
+			Expect(executeCommand(
+				cmd, "check", "--gates=analyze", "--warnings-as-errors",
+			)).Error().To(MatchError(ContainSubstring("1 gate(s) failed")))
+		})
+	})
+})
+
 // buildOracleBinary compiles the oracle binary once per test run and
 // caches the path. Cmd-level e2e tests exercise the real binary so flag
 // parsing, exit codes, and output go through the same paths users hit.
@@ -111,13 +187,14 @@ func buildOracleBinary() string {
 	if runtime.GOOS == "windows" {
 		bin += ".exe"
 	}
-	cmd := exec.Command("go", "build", "-o", bin, ".")
+	// -buildvcs=false keeps the build working inside a Git worktree, where VCS stamping
+	// fails ("error obtaining VCS status: exit status 128").
+	cmd := exec.Command("go", "build", "-buildvcs=false", "-o", bin, ".")
 	cmd.Dir = MustSucceed(findOracleModuleRoot())
-	out := MustSucceed(cmd.CombinedOutput())
-	_ = out
+	Expect(cmd.CombinedOutput()).ToNot(BeNil())
 	oracleBinaryPath = bin
 	DeferCleanup(func() {
-		_ = os.RemoveAll(dir)
+		Expect(os.RemoveAll(dir)).To(Succeed())
 		oracleBinaryPath = ""
 	})
 	return bin

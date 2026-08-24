@@ -10,6 +10,9 @@
 #pragma once
 
 #include <string>
+#include <utility>
+
+#include "x/cpp/errors/errors.h"
 
 #include "driver/ni/daqmx/nidaqmx.h"
 
@@ -39,12 +42,14 @@ inline const std::map<std::string, int32_t> UNITS_MAP = {
     {"Radians", DAQmx_Val_Radians},
     {"g", DAQmx_Val_g},
     {"MetersPerSecondSquared", DAQmx_Val_MetersPerSecondSquared},
+    {"InchesPerSecondSquared", DAQmx_Val_InchesPerSecondSquared},
     {"MetersPerSecond", DAQmx_Val_MetersPerSecond},
     {"m/s", DAQmx_Val_MetersPerSecond},
     {"InchesPerSecond", DAQmx_Val_InchesPerSecond},
     {"in/s", DAQmx_Val_InchesPerSecond},
     {"RPM", DAQmx_Val_RPM},
     {"Radians/s", DAQmx_Val_RadiansPerSecond},
+    {"Degrees/s", DAQmx_Val_DegreesPerSecond},
     {"mV/m/s", DAQmx_Val_MillivoltsPerMillimeterPerSecond},
     {"MillivoltsPerMillimeterPerSecond", DAQmx_Val_MillivoltsPerMillimeterPerSecond},
     {"MilliVoltsPerInchPerSecond", DAQmx_Val_MilliVoltsPerInchPerSecond},
@@ -66,13 +71,31 @@ inline const std::map<std::string, int32_t> UNITS_MAP = {
     {"FromTEDS", DAQmx_Val_FromTEDS},
     {"VoltsPerG", DAQmx_Val_VoltsPerG},
     {"mVoltsPerG", DAQmx_Val_mVoltsPerG},
+    {"Coulombs", DAQmx_Val_Coulombs},
+    {"PicoCoulombs", DAQmx_Val_PicoCoulombs},
+    {"PicoCoulombsPerG", DAQmx_Val_PicoCoulombsPerG},
+    {"PicoCoulombsPerMetersPerSecondSquared",
+     DAQmx_Val_PicoCoulombsPerMetersPerSecondSquared},
+    {"PicoCoulombsPerInchesPerSecondSquared",
+     DAQmx_Val_PicoCoulombsPerInchesPerSecondSquared},
     {"AccelUnit_g", DAQmx_Val_AccelUnit_g}
 };
 
-int32_t inline parse_units(x::json::Parser &cfg, const std::string &path) {
-    const auto str_units = cfg.field<std::string>(path, "Volts");
-    const auto units = UNITS_MAP.find(str_units);
-    if (units == UNITS_MAP.end()) cfg.field_err(path, "invalid units: " + str_units);
-    return units->second;
+/// @brief maps an engineering-unit string to its DAQmx constant.
+inline std::pair<int32_t, x::errors::Error> parse_units(const std::string &s) {
+    const auto units = UNITS_MAP.find(s);
+    if (units == UNITS_MAP.end())
+        return {
+            DAQmx_Val_Volts,
+            x::errors::Error(x::errors::VALIDATION, "invalid units: " + s)
+        };
+    return {units->second, x::errors::NIL};
+}
+
+/// @brief maps an engineering-unit string to its DAQmx constant, falling back
+/// to volts when the string is unknown.
+inline int32_t units_or_volts(const std::string &s) {
+    const auto it = UNITS_MAP.find(s);
+    return it == UNITS_MAP.end() ? DAQmx_Val_Volts : it->second;
 }
 }

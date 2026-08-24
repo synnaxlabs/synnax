@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ValidationError } from "@synnaxlabs/client";
+import { type status, ValidationError } from "@synnaxlabs/client";
 import {
   type bounds,
   type color,
   type destructor,
   type MultiSeries,
   observe,
-  type status,
+  zod,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -146,15 +146,9 @@ export abstract class Base<P extends z.ZodType> extends observe.BaseObserver<voi
   }
 
   get props(): z.infer<P> {
-    if (this.props_ == null) {
-      const res = this.schema.safeParse(this.uProps_);
-      if (res.success) this.props_ = res.data;
-      else
-        throw new ValidationError(
-          `[BaseTelem] - expected props to be valid, but found the following errors:
-          ${res.error.message}`,
-        );
-    }
+    this.props_ ??= zod.parse(this.schema, this.uProps_, {
+      label: "telemetry props",
+    });
     return this.props_;
   }
 

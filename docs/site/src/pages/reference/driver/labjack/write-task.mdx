@@ -4,10 +4,12 @@ title: "LabJack Write Task"
 description: "Learn how to send commands to LabJack devices with Synnax."
 prev: "Read Task"
 prevURL: "/reference/driver/labjack/read-task"
+next: "Modbus"
+nextURL: "/reference/driver/modbus/connect-server"
 ---
 
-import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
-import { Video, Image } from "@/components/media/Media";
+import { Divider, Icon, Text } from "@synnaxlabs/pluto";
+import { Video } from "@/components/media/Media";
 import { Fragment } from "react";
 import Details from "@/components/details/Details.astro";
 import ChannelType from "@/components/details/ChannelType.astro";
@@ -16,33 +18,17 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-For task lifecycle management, see the
-[Task Basics](/reference/driver/task-basics#how-to) page.
-
-<Divider.Divider x />
-
-## How Commands Work
-
-Write tasks use **command** and **state** channels:
-
-- **Command channels** (`_cmd`): Write values here to set outputs
-- **State channels** (`_state`): Reflect the current output state
-- **Command time channels** (`_cmd_time`): Index channels storing command timestamps
-
-When you write to a command channel, the task processes it and updates the state
-channel, providing acknowledgment that the command was executed.
+For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lifecycle).
 
 <Divider.Divider x />
 
 ## Task Configuration Reference
 
-| Parameter     | Type    | Required | Default | Description                                   |
-| ------------- | ------- | -------- | ------- | --------------------------------------------- |
-| `name`        | string  | Yes      | -       | Human-readable task name                      |
-| `state_rate`  | number  | No       | `20`    | Rate (Hz) at which state channels are updated |
-| `data_saving` | boolean | No       | `false` | Enable permanent storage in Synnax            |
-| `auto_start`  | boolean | No       | `false` | Automatically start task after configuration  |
-| `channels`    | array   | Yes      | -       | List of output channel configurations         |
+| Parameter    | Type   | Required | Default | Description                                   |
+| ------------ | ------ | -------- | ------- | --------------------------------------------- |
+| `device`     | string | Yes      | -       | Key of the LabJack device                     |
+| `state_rate` | number | No       | `10`    | Rate (Hz) at which state channels are updated |
+| `channels`   | array  | Yes      | -       | List of output channel configurations         |
 
 <Divider.Divider x />
 
@@ -51,7 +37,7 @@ channel, providing acknowledgment that the command was executed.
 <DetailsGroup>
 
 <ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Analog Output ([`AO`](https://support.labjack.com/docs/15-0-dac-t-series-datasheet))</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Analog Output ([`analog`](https://support.labjack.com/docs/15-0-dac-t-series-datasheet))</Text.Text>
 
 Writes analog voltage to a specified output terminal (DAC).
 
@@ -59,12 +45,12 @@ Writes analog voltage to a specified output terminal (DAC).
 | --------------- | ------ | -------- | ------- | ------------------------------------ |
 | `cmd_channel`   | number | Yes      | -       | Synnax command channel key           |
 | `state_channel` | number | Yes      | -       | Synnax state channel key             |
-| `port`          | string | Yes      | -       | Port location (e.g., `DAC0`, `DAC1`) |
+| `port`          | string | No       | `DAC0`  | Port location (e.g., `DAC0`, `DAC1`) |
 
 </ChannelType>
 
 <ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Wave.Square /> Digital Output ([`DO`](https://support.labjack.com/docs/13-0-digital-i-o-t-series-datasheet))</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Wave.Square /> Digital Output ([`digital`](https://support.labjack.com/docs/13-0-digital-i-o-t-series-datasheet))</Text.Text>
 
 Writes digital state (0 or 1) to a specified digital I/O line.
 
@@ -72,21 +58,11 @@ Writes digital state (0 or 1) to a specified digital I/O line.
 | --------------- | ------ | -------- | ------- | ------------------------------------ |
 | `cmd_channel`   | number | Yes      | -       | Synnax command channel key           |
 | `state_channel` | number | Yes      | -       | Synnax state channel key             |
-| `port`          | string | Yes      | -       | Port location (e.g., `DIO4`, `FIO5`) |
+| `port`          | string | No       | `DIO4`  | Port location (e.g., `DIO4`, `FIO5`) |
 
 </ChannelType>
 
 </DetailsGroup>
-
-<Divider.Divider x />
-
-## Important Rules
-
-- **Command/State pairs** -> Each output requires both a command and state channel.
-- **State rate** -> Higher state rates provide faster feedback but consume more
-  resources.
-- **One running task per channel** -> A channel can only send commands to one task at a
-  time.
 
 <Divider.Divider x />
 
@@ -162,16 +138,13 @@ task = labjack.WriteTask(
     name="LabJack Write Task",
     device=dev.key,
     state_rate=sy.Rate.HZ * 20,
-    data_saving=True,
     channels=[
-        labjack.OutputChan(
-            type="AO",
+        labjack.AnalogWriteChannel(
             cmd_channel=ao_0_cmd.key,
             state_channel=ao_0_state.key,
             port="DAC0",
         ),
-        labjack.OutputChan(
-            type="DO",
+        labjack.DigitalWriteChannel(
             cmd_channel=do_4_cmd.key,
             state_channel=do_4_state.key,
             port="DIO4",
@@ -237,81 +210,93 @@ import { Synnax, TimeStamp, Rate } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Retrieve device
-const dev = await client.devices.retrieve({ name: "my_labjack" });
+const [dev] = await client.devices.retrieve({ names: ["my_labjack"] });
 
 // Create command time index
-const cmdTime = await client.channels.create({
-  name: "lj_cmd_time",
-  isIndex: true,
-  dataType: "timestamp",
-  retrieveIfNameExists: true,
-});
+const cmdTime = await client.channels.create(
+  {
+    name: "lj_cmd_time",
+    isIndex: true,
+    dataType: "timestamp",
+  },
+  { retrieveIfNameExists: true },
+);
 
 // Create command channels
-const ao0Cmd = await client.channels.create({
-  name: "ao_0_cmd",
-  index: cmdTime.key,
-  dataType: "float32",
-  retrieveIfNameExists: true,
-});
+const ao0Cmd = await client.channels.create(
+  {
+    name: "ao_0_cmd",
+    index: cmdTime.key,
+    dataType: "float32",
+  },
+  { retrieveIfNameExists: true },
+);
 
-const do4Cmd = await client.channels.create({
-  name: "do_4_cmd",
-  index: cmdTime.key,
-  dataType: "uint8",
-  retrieveIfNameExists: true,
-});
+const do4Cmd = await client.channels.create(
+  {
+    name: "do_4_cmd",
+    index: cmdTime.key,
+    dataType: "uint8",
+  },
+  { retrieveIfNameExists: true },
+);
 
 // Create state time index
-const stateTime = await client.channels.create({
-  name: "lj_state_time",
-  isIndex: true,
-  dataType: "timestamp",
-  retrieveIfNameExists: true,
-});
+const stateTime = await client.channels.create(
+  {
+    name: "lj_state_time",
+    isIndex: true,
+    dataType: "timestamp",
+  },
+  { retrieveIfNameExists: true },
+);
 
 // Create state channels
-const ao0State = await client.channels.create({
-  name: "ao_0_state",
-  index: stateTime.key,
-  dataType: "float32",
-  retrieveIfNameExists: true,
-});
+const ao0State = await client.channels.create(
+  {
+    name: "ao_0_state",
+    index: stateTime.key,
+    dataType: "float32",
+  },
+  { retrieveIfNameExists: true },
+);
 
-const do4State = await client.channels.create({
-  name: "do_4_state",
-  index: stateTime.key,
-  dataType: "uint8",
-  retrieveIfNameExists: true,
-});
+const do4State = await client.channels.create(
+  {
+    name: "do_4_state",
+    index: stateTime.key,
+    dataType: "uint8",
+  },
+  { retrieveIfNameExists: true },
+);
 
 // Create and configure task
 const task = await client.tasks.create({
   name: "LabJack Write Task",
+  rack: dev.rack,
   type: "labjack_write",
-  config: JSON.stringify({
+  config: {
     device: dev.key,
-    state_rate: 20,
-    data_saving: true,
+    stateRate: 20,
     channels: [
       {
-        type: "AO",
-        cmd_channel: ao0Cmd.key,
-        state_channel: ao0State.key,
+        type: "analog",
+        cmdChannel: ao0Cmd.key,
+        stateChannel: ao0State.key,
         port: "DAC0",
       },
       {
-        type: "DO",
-        cmd_channel: do4Cmd.key,
-        state_channel: do4State.key,
+        type: "digital",
+        cmdChannel: do4Cmd.key,
+        stateChannel: do4State.key,
         port: "DIO4",
       },
     ],
-  }),
+  },
 });
 
 // Start task
-await task.executeCommandSync("start");
+await task.start();
 
 // Write commands
 const writer = await client.openWriter({
@@ -334,7 +319,7 @@ console.log(`Analog State: ${aoState} V`);
 console.log(`Digital State: ${doState}`);
 
 // Stop task
-await task.executeCommandSync("stop");
+await task.stop();
 await writer.close();
 await streamer.close();
 ```
@@ -345,28 +330,33 @@ await streamer.close();
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```typescript
+import { labjack } from "@synnaxlabs/client";
+
 // Retrieve existing task
 const task = await client.tasks.retrieve({ name: "LabJack Write Task" });
 
 // Parse and update configuration
-const config = JSON.parse(task.config);
+const config = labjack.writeConfigZ.parse(task.config);
 
 // Update task-level configuration
-config.auto_start = true;
-config.state_rate = 50;
+config.autoStart = true;
+config.stateRate = 50;
 
 // Update analog output configuration
-config.channels[0].port = "DAC1";
+const analog = config.channels[0] as labjack.AnalogWriteChannel;
+analog.port = "DAC1";
 
 // Update digital output configuration
-config.channels[1].port = "DIO5";
+const digital = config.channels[1] as labjack.DigitalWriteChannel;
+digital.port = "DIO5";
 
 // Apply changes
 await client.tasks.create({
   key: task.key,
+  rack: task.rack,
   name: task.name,
   type: task.type,
-  config: JSON.stringify(config),
+  config,
 });
 ```
 

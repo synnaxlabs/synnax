@@ -1,0 +1,118 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/ontology"
+import "schemas/synnax/rack"
+import "schemas/synnax/status"
+
+@cpp output "client/cpp/device"
+@go output  "core/pkg/service/device"
+@pb
+@py output  "client/py/synnax/device"
+@ts output  "client/ts/src/device"
+
+Key = string {
+    @cpp include "client/cpp/device/key.h"
+    @doc value   "is a unique identifier for the device"
+}
+
+StatusDetails struct {
+    rack   rack.Key {
+        @doc value "is the key of the rack this device belongs to."
+    }
+    device Key      {
+        @doc value "is the device identifier."
+    }
+
+    @doc value """
+        contains device-specific status details identifying the device and its
+        associated rack.
+    """
+}
+
+Status = status.Status<StatusDetails> {
+    @doc value """
+        is device-specific status information including operational state and device
+        identification.
+    """
+}
+
+Device struct<
+    Properties extends record = record,
+    Make extends string = string,
+    Model extends string = string
+> {
+    key        Key          {
+        @doc value "is the unique identifier for this device."
+        @key
+    }
+    rack       rack.Key     {
+        @doc value         "is the key of the rack that owns this device."
+        @filter
+        @validate required
+    }
+    location   string       {
+        @doc value         "is the physical location or address of the device."
+        @filter
+        @validate required
+    }
+    make       Make         {
+        @doc value         """
+            is the manufacturer of the device (e.g., 'LabJack', 'National Instruments').
+        """
+        @filter
+        @validate required
+    }
+    model      Model        {
+        @doc value         "is the device model identifier."
+        @filter
+        @validate required
+    }
+    name       string       {
+        @doc value         "is a human-readable name for the device."
+        @filter
+        @validate required
+    }
+    configured bool = false {
+        @doc value """
+            indicates whether the device has been successfully configured and is ready
+            for use.
+        """
+    }
+    properties Properties   {
+        @doc value """
+            contains device-specific configuration properties stored as JSON. Structure
+            varies by device make and model.
+        """
+    }
+    status     Status?      {
+        @doc value  "is the current operational status of the device."
+        @go marshal omit
+    }
+    parent     ontology.ID? {
+        @doc value  """
+            is an optional parent resource ID for hierarchical device organization
+            (e.g., NI chassis containing modules).
+        """
+        @go marshal omit
+    }
+
+    @create
+    @doc value         """
+        is a physical piece of hardware connected to Synnax through the Driver system.
+        Devices represent external equipment like LabJack, National Instruments, OPC UA
+        servers, or Modbus devices.
+    """
+    @go marshal
+    @go migrate
+    @ontology type     "device"
+    @retrieve
+    @search
+    @ts concrete_types
+}

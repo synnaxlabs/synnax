@@ -19,7 +19,6 @@ import (
 type Field struct {
 	Name      string
 	Primitive string
-	Generate  bool
 }
 
 // SkipFunc is a predicate that determines whether to skip a type when collecting keys.
@@ -56,20 +55,6 @@ func Collect(types []resolution.Type, table *resolution.Table, skip SkipFunc) []
 func HasKey(field resolution.Field) bool {
 	_, hasKey := field.Domains["key"]
 	return hasKey
-}
-
-// HasGenerate checks if a field has @key generate annotation.
-func HasGenerate(field resolution.Field) bool {
-	domain, hasKey := field.Domains["key"]
-	if !hasKey {
-		return false
-	}
-	for _, expr := range domain.Expressions {
-		if expr.Name == "generate" {
-			return true
-		}
-	}
-	return false
 }
 
 // ResolvePrimitive extracts the underlying primitive from a TypeRef.

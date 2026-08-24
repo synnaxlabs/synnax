@@ -28,7 +28,7 @@ A sequence can be named or anonymous. A named sequence starts when an entry poin
 triggers it. An anonymous top-level sequence starts automatically when the program
 loads.
 
-```arc
+```arc channels="start_cmd"
 sequence named {
     // ... items ...
 }
@@ -45,25 +45,29 @@ sequence {
 
 A sequence item is one of:
 
-| Item            | Syntax                | Description                                   |
-| --------------- | --------------------- | --------------------------------------------- |
-| Write           | `expr -> chan`        | Write once, advance                           |
-| Wait            | `time.wait{duration}` | Pause for the duration, advance               |
-| Condition gate  | `expr`                | Pause until the expression is truthy, advance |
-| Stage           | `stage name? { ... }` | Enter stage; advance when a transition fires  |
-| Nested sequence | `sequence { ... }`    | Run nested items in order                     |
+| Item           | Syntax                | Description                                   |
+| -------------- | --------------------- | --------------------------------------------- |
+| Condition gate | `expr => next`        | Pause until the expression is truthy, advance |
+| Write          | `expr -> chan`        | Write once, advance                           |
+| Wait           | `time.wait{duration}` | Pause for the duration, advance               |
+| Sequence       | `sequence { ... }`    | Run nested items in order                     |
+| Stage          | `stage { ... }`       | Enter stage; advance when a transition fires  |
 
-```arc
+Stages and sequences can be named. A named item is a valid `=> name` target for its
+siblings; an anonymous one can only be reached in order.
+
+```arc channels="vent_vlv_cmd, press_vlv_cmd, tank_pressure", bodies="abort"
 sequence prime {
-    0 -> vent_vlv_cmd              // write
-    1 -> press_vlv_cmd             // write
-    time.wait{5s}                   // wait
-    tank_pressure > 500             // condition gate
-    stage hold {                    // stage
-        time.wait{30s} => next
+    true -> vent_vlv_cmd              // write
+    tank_pressure < 50 => next        // condition gate
+    false -> vent_vlv_cmd             // write
+    time.wait{5s}                     // wait
+    stage pressurize {                // stage
         tank_pressure > 700 => abort
+        true -> press_vlv_cmd
+        tank_pressure > 500 => next
     }
-    0 -> press_vlv_cmd             // write
+    false -> press_vlv_cmd            // write
 }
 ```
 
@@ -74,13 +78,26 @@ sequence prime {
 
 <Divider.Divider x />
 
+## Sequencing Rules
+
+1. When an item completes, the sequence advances; when the last item completes, the
+   sequence exits.
+2. `=> name` to a sibling item jumps there. Re-entry resets
+   [`:=` variables](/reference/control/arc/reference/variables#declaration) and keeps
+   [`$=` variables](/reference/control/arc/reference/variables#stateful).
+3. `=> name` to a top-level scope hands control away: the target starts, and the
+   sequence you jumped out of never resumes, nor does any sequence containing it.
+4. Activations are independent: several top-level scopes can run at the same time.
+
+<Divider.Divider x />
+
 ## Entry Points
 
 Entry points trigger sequences from external events:
 
-```arc
-start_cmd => main // channel triggers main sequence
-emergency_stop => abort // channel triggers abort sequence
+```arc channels="start_cmd, em_stop",  bodies="abort, main"
+start_cmd => main  // channel triggers main sequence
+em_stop => abort   // channel triggers abort sequence
 ```
 
 Entry points use `=>` because they fire while the channel value is truthy. The target
@@ -89,11 +106,11 @@ the sequence is already active.
 
 ### Triggering Sequences
 
-Entry point channels are typically `u8` virtual channels:
+Entry point channels are typically `bool` virtual channels:
 
-1. Create a `u8` virtual channel in Synnax (e.g., `start_cmd`)
+1. Create a `bool` virtual channel in Synnax (e.g., `start_cmd`)
 2. Wire the channel to a button in Console
-3. When clicked, the button writes `1` to the channel
+3. When clicked, the button writes `true` to the channel
 4. Arc sees the truthy value and triggers the sequence
 
 ### Anonymous Top-Level Sequences
@@ -101,12 +118,12 @@ Entry point channels are typically `u8` virtual channels:
 An anonymous top-level sequence has no entry point and starts automatically on program
 load:
 
-```arc
+```arc channels="vent_vlv_cmd, press_vlv_cmd"
 sequence {
-    0 -> vent_vlv_cmd
-    1 -> press_vlv_cmd
+    false -> vent_vlv_cmd
+    true -> press_vlv_cmd
     time.wait{5s}
-    0 -> press_vlv_cmd
+    false -> press_vlv_cmd
 }
 ```
 
@@ -119,14 +136,14 @@ An anonymous `stage { ... }` used as a sequence item acts as a multi-exit gate.
 [transition targets](/reference/control/arc/reference/flow#transition-targets) jump as
 usual.
 
-```arc
+```arc channels="press_vlv_cmd, tank_pressure", bodies="abort"
 sequence press {
-    1 -> press_vlv_cmd
+    true -> press_vlv_cmd
     stage {
         tank_pressure > 500 => next
         time.wait{30s} => abort
     }
-    0 -> press_vlv_cmd
+    false -> press_vlv_cmd
 }
 ```
 
@@ -134,13 +151,13 @@ sequence press {
 
 ## Complete Example
 
-```arc
+```arc channels="press_vlv_cmd, vent_vlv_cmd, start_btn, ox_pt_1, fuel_pt_1, abort_btn, start_cmd, emergency_stop", bodies="pressurize, abort, hold, vent, complete, main"
 authority 200
 
 sequence main {
     stage idle {
-        0 -> press_vlv_cmd
-        0 -> vent_vlv_cmd
+        false -> press_vlv_cmd
+        false -> vent_vlv_cmd
         start_btn => pressurize
     }
 
@@ -150,8 +167,8 @@ sequence main {
         fuel_pt_1 > 500 => abort
         abort_btn => abort
         // Control
-        1 -> press_vlv_cmd
-        0 -> vent_vlv_cmd
+        true -> press_vlv_cmd
+        false -> vent_vlv_cmd
         // Progress
         ox_pt_1 > 500 => hold
     }
@@ -159,27 +176,26 @@ sequence main {
     stage hold {
         ox_pt_1 > 700 => abort
         abort_btn => abort
-        1 -> press_vlv_cmd
+        true -> press_vlv_cmd
         time.wait{duration=5s} => vent
     }
 
     stage vent {
-        0 -> press_vlv_cmd
-        1 -> vent_vlv_cmd
+        false -> press_vlv_cmd
+        true -> vent_vlv_cmd
         ox_pt_1 < 50 => complete
     }
 
     stage complete {
-        0 -> press_vlv_cmd
-        0 -> vent_vlv_cmd
+        false -> press_vlv_cmd
+        false -> vent_vlv_cmd
     }
 }
 
 sequence abort {
     stage safed {
-        0 -> press_vlv_cmd
-        0 -> vent_vlv_cmd
-        1 -> vent_vlv_cmd
+        false -> press_vlv_cmd
+        true -> vent_vlv_cmd
     }
 }
 // Entry points

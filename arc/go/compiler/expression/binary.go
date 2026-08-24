@@ -53,7 +53,9 @@ func compileBinaryAdditive(
 		if firstIsSeries {
 			operandHint = elemType
 		}
-		operandType, err := compileMultiplicative(context.Child(ctx, muls[i]).WithHint(operandHint))
+		operandType, err := compileMultiplicative(
+			context.Child(ctx, muls[i]).WithHint(operandHint),
+		)
 		if err != nil {
 			return types.Type{}, err
 		}
@@ -62,13 +64,24 @@ func compileBinaryAdditive(
 
 		if firstIsSeries {
 			isScalar := !secondIsSeries
-			if err := ctx.Resolver.EmitSeriesArithmetic(ctx.Writer, ctx.WriterID, operators[i-1], elemType, isScalar); err != nil {
+			if err := ctx.Resolver.EmitSeriesArithmetic(
+				ctx.Writer,
+				ctx.WriterID,
+				operators[i-1],
+				elemType,
+				isScalar,
+			); err != nil {
 				return types.Type{}, err
 			}
 		} else if secondIsSeries {
 			secondElemType := *operandType.Elem
 			op := operators[i-1]
-			if err := ctx.Resolver.EmitSeriesReverseArithmetic(ctx.Writer, ctx.WriterID, op, secondElemType); err != nil {
+			if err := ctx.Resolver.EmitSeriesReverseArithmetic(
+				ctx.Writer,
+				ctx.WriterID,
+				op,
+				secondElemType,
+			); err != nil {
 				return types.Type{}, err
 			}
 			resultType = operandType
@@ -77,7 +90,10 @@ func compileBinaryAdditive(
 		} else if hintType.Kind == types.KindString && operators[i-1] == "+" {
 			ctx.Resolver.EmitStringConcat(ctx.Writer, ctx.WriterID)
 		} else {
-			if err = ctx.Writer.WriteBinaryOpInferred(operators[i-1], hintType); err != nil {
+			if err = ctx.Writer.WriteBinaryOpInferred(
+				operators[i-1],
+				hintType,
+			); err != nil {
 				return types.Type{}, err
 			}
 		}
@@ -92,9 +108,9 @@ func compileBinaryAdditive(
 func compileBinaryMultiplicative(
 	ctx context.Context[parser.IMultiplicativeExpressionContext],
 ) (types.Type, error) {
-	pows := ctx.AST.AllPowerExpression()
+	unaries := ctx.AST.AllUnaryExpression()
 
-	resultType, err := compilePower(context.Child(ctx, pows[0]))
+	resultType, err := compileUnary(context.Child(ctx, unaries[0]))
 	if err != nil {
 		return types.Type{}, err
 	}
@@ -124,12 +140,14 @@ func compileBinaryMultiplicative(
 		}
 	}
 
-	for i := 1; i < len(pows); i++ {
+	for i := 1; i < len(unaries); i++ {
 		operandHint := hintType
 		if firstIsSeries {
 			operandHint = elemType
 		}
-		operandType, err := compilePower(context.Child(ctx, pows[i]).WithHint(operandHint))
+		operandType, err := compileUnary(
+			context.Child(ctx, unaries[i]).WithHint(operandHint),
+		)
 		if err != nil {
 			return types.Type{}, err
 		}
@@ -138,20 +156,34 @@ func compileBinaryMultiplicative(
 
 		if firstIsSeries {
 			isScalar := !secondIsSeries
-			if err := ctx.Resolver.EmitSeriesArithmetic(ctx.Writer, ctx.WriterID, operators[i-1], elemType, isScalar); err != nil {
+			if err := ctx.Resolver.EmitSeriesArithmetic(
+				ctx.Writer,
+				ctx.WriterID,
+				operators[i-1],
+				elemType,
+				isScalar,
+			); err != nil {
 				return types.Type{}, err
 			}
 		} else if secondIsSeries {
 			secondElemType := *operandType.Elem
 			op := operators[i-1]
-			if err := ctx.Resolver.EmitSeriesReverseArithmetic(ctx.Writer, ctx.WriterID, op, secondElemType); err != nil {
+			if err := ctx.Resolver.EmitSeriesReverseArithmetic(
+				ctx.Writer,
+				ctx.WriterID,
+				op,
+				secondElemType,
+			); err != nil {
 				return types.Type{}, err
 			}
 			resultType = operandType
 			elemType = secondElemType
 			firstIsSeries = true
 		} else {
-			if err = ctx.Writer.WriteBinaryOpInferred(operators[i-1], hintType); err != nil {
+			if err = ctx.Writer.WriteBinaryOpInferred(
+				operators[i-1],
+				hintType,
+			); err != nil {
 				return types.Type{}, err
 			}
 		}
@@ -163,7 +195,9 @@ func compileBinaryMultiplicative(
 	return hintType, nil
 }
 
-func compileBinaryRelational(ctx context.Context[parser.IRelationalExpressionContext]) (types.Type, error) {
+func compileBinaryRelational(
+	ctx context.Context[parser.IRelationalExpressionContext],
+) (types.Type, error) {
 	adds := ctx.AST.AllAdditiveExpression()
 	leftType, err := compileAdditive(context.Child(ctx, adds[0]))
 	if err != nil {
@@ -202,19 +236,26 @@ func compileBinaryRelational(ctx context.Context[parser.IRelationalExpressionCon
 	}
 
 	if isSeries {
-		if err := ctx.Resolver.EmitSeriesComparison(ctx.Writer, ctx.WriterID, op, elemType); err != nil {
+		if err := ctx.Resolver.EmitSeriesComparison(
+			ctx.Writer,
+			ctx.WriterID,
+			op,
+			elemType,
+		); err != nil {
 			return types.Type{}, err
 		}
-		return types.Series(types.U8()), nil
+		return types.Series(types.Bool()), nil
 	}
 
 	if err = ctx.Writer.WriteBinaryOpInferred(op, hintType); err != nil {
 		return types.Type{}, err
 	}
-	return types.U8(), nil
+	return types.Bool(), nil
 }
 
-func compileBinaryEquality(ctx context.Context[parser.IEqualityExpressionContext]) (types.Type, error) {
+func compileBinaryEquality(
+	ctx context.Context[parser.IEqualityExpressionContext],
+) (types.Type, error) {
 	rels := ctx.AST.AllRelationalExpression()
 	leftType, err := compileRelational(context.Child(ctx, rels[0]))
 	if err != nil {
@@ -249,10 +290,15 @@ func compileBinaryEquality(ctx context.Context[parser.IEqualityExpressionContext
 	}
 
 	if isSeries {
-		if err := ctx.Resolver.EmitSeriesComparison(ctx.Writer, ctx.WriterID, op, elemType); err != nil {
+		if err := ctx.Resolver.EmitSeriesComparison(
+			ctx.Writer,
+			ctx.WriterID,
+			op,
+			elemType,
+		); err != nil {
 			return types.Type{}, err
 		}
-		return types.Series(types.U8()), nil
+		return types.Series(types.Bool()), nil
 	}
 
 	if hintType.Kind == types.KindString {
@@ -260,11 +306,11 @@ func compileBinaryEquality(ctx context.Context[parser.IEqualityExpressionContext
 		if op == "!=" {
 			ctx.Writer.WriteI32Eqz()
 		}
-		return types.U8(), nil
+		return types.Bool(), nil
 	}
 
 	if err = ctx.Writer.WriteBinaryOpInferred(op, hintType); err != nil {
 		return types.Type{}, err
 	}
-	return types.U8(), nil
+	return types.Bool(), nil
 }

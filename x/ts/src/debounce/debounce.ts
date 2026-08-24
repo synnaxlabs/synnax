@@ -9,10 +9,9 @@
 
 import { type CrudeTimeSpan, TimeSpan } from "@/telem/telem";
 
-// DebouncedFn is the function returned by debounce. It carries cancel and
-// flush handles so callers (e.g., React cleanup paths) can drop pending
-// invocations or force them to run immediately on demand. Shape matches
-// lodash.debounce.
+// DebouncedFn is the function returned by debounce. It carries cancel and flush handles
+// so callers (e.g., React cleanup paths) can drop pending invocations or force them to
+// run immediately on demand. Shape matches lodash.debounce.
 export interface DebouncedFn<Args extends unknown[]> {
   (...args: Args): void;
   cancel: () => void;

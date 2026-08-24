@@ -31,6 +31,132 @@ describe("Button", () => {
     });
   });
 
+  describe("chassis keyboard activation", () => {
+    it("should activate a focusable div chassis on Enter", () => {
+      const onClick = vi.fn();
+      const c = render(
+        <Button.Button el="div" tabIndex={0} onClick={onClick}>
+          Hello
+        </Button.Button>,
+      );
+      fireEvent.keyDown(c.getByText("Hello"), { key: "Enter" });
+      expect(onClick).toHaveBeenCalledTimes(1);
+    });
+    it("should activate a focusable div chassis on Space", () => {
+      const onClick = vi.fn();
+      const c = render(
+        <Button.Button el="div" tabIndex={0} onClick={onClick}>
+          Hello
+        </Button.Button>,
+      );
+      fireEvent.keyDown(c.getByText("Hello"), { key: " " });
+      expect(onClick).toHaveBeenCalledTimes(1);
+    });
+    it("should activate a div chassis with roving tabIndex -1", () => {
+      const onClick = vi.fn();
+      const c = render(
+        <Button.Button el="div" tabIndex={-1} onClick={onClick}>
+          Hello
+        </Button.Button>,
+      );
+      fireEvent.keyDown(c.getByText("Hello"), { key: "Enter" });
+      expect(onClick).toHaveBeenCalledTimes(1);
+    });
+    it("should not activate a non-focusable div chassis", () => {
+      const onClick = vi.fn();
+      const c = render(
+        <Button.Button el="div" onClick={onClick}>
+          Hello
+        </Button.Button>,
+      );
+      fireEvent.keyDown(c.getByText("Hello"), { key: "Enter" });
+      expect(onClick).not.toHaveBeenCalled();
+    });
+    it("should not activate when the keystroke lands on a nested element", () => {
+      const onClick = vi.fn();
+      const c = render(
+        <Button.Button el="div" tabIndex={0} onClick={onClick}>
+          <span>Nested</span>
+        </Button.Button>,
+      );
+      fireEvent.keyDown(c.getByText("Nested"), { key: "Enter" });
+      expect(onClick).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("preview", () => {
+    it("should add the preview class and block clicks", () => {
+      const onClick = vi.fn();
+      const c = render(
+        <Button.Button preview onClick={onClick}>
+          Hello
+        </Button.Button>,
+      );
+      const el = c.getByText("Hello");
+      expect(el.className).toContain("pluto-btn--preview");
+      fireEvent.click(el);
+      expect(onClick).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("reveal", () => {
+    it("should mark the button with the reveal class", () => {
+      const c = render(<Button.Button reveal>Hello</Button.Button>);
+      expect(c.getByText("Hello").className).toContain("pluto--reveal");
+    });
+  });
+
+  describe("Toggle", () => {
+    it("should carry the selected class when checked", () => {
+      const c = render(
+        <Button.Toggle value onChange={vi.fn()}>
+          Hello
+        </Button.Toggle>,
+      );
+      expect(c.getByText("Hello").className).toContain("pluto--selected");
+    });
+    it("should not carry the selected class when unchecked", () => {
+      const c = render(
+        <Button.Toggle value={false} onChange={vi.fn()}>
+          Hello
+        </Button.Toggle>,
+      );
+      expect(c.getByText("Hello").className).not.toContain("pluto--selected");
+    });
+    it("should toggle on click", () => {
+      const onChange = vi.fn();
+      const c = render(
+        <Button.Toggle value={false} onChange={onChange}>
+          Hello
+        </Button.Toggle>,
+      );
+      fireEvent.click(c.getByText("Hello"));
+      expect(onChange).toHaveBeenCalledWith(true);
+    });
+  });
+
+  describe("draggable", () => {
+    it("should not prevent default on mousedown for a draggable button, so a native dragstart can begin", () => {
+      const c = render(
+        <Button.Button el="div" tabIndex={-1} draggable>
+          Drag
+        </Button.Button>,
+      );
+      const notPrevented = fireEvent.mouseDown(c.getByText("Drag"));
+      expect(notPrevented).toBe(true);
+    });
+
+    it("should prevent default on mousedown for a non-draggable tabIndex=-1 button", () => {
+      const c = render(
+        <Button.Button el="div" tabIndex={-1}>
+          NoDrag
+        </Button.Button>,
+      );
+      const notPrevented = fireEvent.mouseDown(c.getByText("NoDrag"));
+      expect(notPrevented).toBe(false);
+    });
+  });
+
   describe("size", () => {
     it("should render a medium button by default", () => {
       const c = render(<Button.Button>Hello</Button.Button>);
@@ -98,6 +224,24 @@ describe("Button", () => {
     it("should add the prevent-click class to the button when the preventClick prop is true", () => {
       const c = render(<Button.Button preventClick>Hello</Button.Button>);
       expect(c.getByText("Hello").className).toContain("pluto-btn--prevent-click");
+    });
+
+    it("should cancel the press default on the chassis itself", () => {
+      const c = render(
+        <Button.Button preventClick el="div">
+          Hello
+        </Button.Button>,
+      );
+      expect(fireEvent.mouseDown(c.getByText("Hello"))).toBe(false);
+    });
+
+    it("should leave the press default alone for a focusable descendant", () => {
+      const c = render(
+        <Button.Button preventClick el="div">
+          <input aria-label="alias" />
+        </Button.Button>,
+      );
+      expect(fireEvent.mouseDown(c.getByLabelText("alias"))).toBe(true);
     });
   });
 
@@ -225,7 +369,7 @@ describe("Button", () => {
     });
     it("should display a loading indicator when the status is loading", () => {
       const c = render(<Button.Button status="loading">Hello</Button.Button>);
-      expect(c.getByLabelText("pluto-icon--loading")).toBeTruthy();
+      expect(c.container.querySelector(".pluto-icon--loading")!).toBeTruthy();
     });
 
     it("should display the content along with the loading indicator when the button is not square", () => {
@@ -239,7 +383,7 @@ describe("Button", () => {
           <Icon.Access />
         </Button.Button>,
       );
-      const el = c.queryByLabelText("pluto-icon--access");
+      const el = c.container.querySelector(".pluto-icon--access");
       expect(el?.parentElement).not.toBeTruthy();
     });
   });
@@ -255,21 +399,6 @@ describe("Button", () => {
     it("should not display the button as an anchor when an href is not set", () => {
       const c = render(<Button.Button>Hello</Button.Button>);
       expect(c.getByText("Hello").tagName).not.toBe("A");
-    });
-  });
-
-  describe("contrast", () => {
-    it("should not set the contrast class to the button when the contrast is not set or false", () => {
-      const c = render(<Button.Button>Hello</Button.Button>);
-      expect(c.getByText("Hello").className).not.toContain("contrast");
-    });
-    it("should set the contrast class to the button when the contrast is set", () => {
-      const c = render(<Button.Button contrast={0}>Hello</Button.Button>);
-      expect(c.getByText("Hello").className).toContain("pluto-btn--contrast-0");
-    });
-    it("should not set the contrast class to the button when the contrast is not set", () => {
-      const c = render(<Button.Button contrast={1}>Hello</Button.Button>);
-      expect(c.getByText("Hello").className).toContain("pluto-btn--contrast-1");
     });
   });
 
@@ -298,6 +427,17 @@ describe("Button", () => {
         </Button.Button>,
       );
       expect(c.getByLabelText("trigger-indicator")).toBeTruthy();
+    });
+
+    it("should keep the indicator out of the button's accessible name", () => {
+      const c = render(
+        <Button.Button trigger={["Control", "Enter"]} triggerIndicator>
+          Save
+        </Button.Button>,
+      );
+      // The keycaps are decoration. Without aria-hidden they join the accessible name,
+      // so every name-based query for a hinted button breaks.
+      expect(c.getByRole("button", { name: "Save" })).toBeTruthy();
     });
 
     it("should set the trigger text level to a level below the button", () => {
@@ -389,6 +529,22 @@ describe("Button", () => {
       fireEvent.keyDown(c.container, { code: "T" });
       fireEvent.keyUp(c.container, { code: "T" });
       expect(onClick).toHaveBeenCalledTimes(2);
+    });
+
+    it("Should not call onClick when the button is inside an inactive scope", () => {
+      const onClick = vi.fn();
+      const c = render(
+        <Triggers.Provider>
+          <Triggers.Scope active={false}>
+            <Button.Button trigger={["T"]} onClick={onClick}>
+              Hello
+            </Button.Button>
+          </Triggers.Scope>
+        </Triggers.Provider>,
+      );
+      fireEvent.keyDown(c.container, { code: "T" });
+      fireEvent.keyUp(c.container, { code: "T" });
+      expect(onClick).not.toHaveBeenCalled();
     });
   });
 

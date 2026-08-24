@@ -7,9 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include "absl/log/log.h"
+
 #ifndef SYNNAX_NILINUXRT
 #include "driver/modbus/modbus.h"
 #endif
+
 #include "driver/arc/arc.h"
 #include "driver/ethercat/ethercat.h"
 #include "driver/http/http.h"
@@ -38,9 +41,9 @@ void configure_integration(
     factories.push_back(factory_creator());
 }
 
-void configure_opc(const Config &config, FactoryList &factories) {
-    configure_integration(config, factories, opc::INTEGRATION_NAME, []() {
-        return std::make_unique<opc::Factory>();
+void configure_opcua(const Config &config, FactoryList &factories) {
+    configure_integration(config, factories, opcua::INTEGRATION_NAME, []() {
+        return std::make_unique<opcua::Factory>();
     });
 }
 
@@ -100,7 +103,7 @@ std::unique_ptr<task::Factory>
 Config::new_factory(const std::shared_ptr<x::thread::rt::Manager> &rt_manager) const {
     FactoryList factories;
     configure_state(factories);
-    configure_opc(*this, factories);
+    configure_opcua(*this, factories);
     configure_ni(*this, factories);
     configure_labjack(*this, factories);
     configure_arc(*this, factories, rt_manager);

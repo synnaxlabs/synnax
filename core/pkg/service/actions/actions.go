@@ -92,7 +92,9 @@ func NewState[K comparable, A any]() *State[K, A] {
 // OnAction subscribes the given handler to the action stream emitted by every
 // Dispatcher bound to this State. The handler runs synchronously inside the
 // Dispatcher.Notify call. The returned Disconnect removes the handler.
-func (s *State[K, A]) OnAction(handler func(context.Context, Scoped[K, A])) observe.Disconnect {
+func (s *State[K, A]) OnAction(
+	handler func(context.Context, Scoped[K, A]),
+) observe.Disconnect {
 	return s.observer.OnChange(handler)
 }
 

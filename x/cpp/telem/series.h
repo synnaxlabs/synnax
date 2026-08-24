@@ -9,8 +9,10 @@
 
 #pragma once
 
+#include <array>
 #include <cmath>
 #include <cstddef>
+#include <cstring>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -21,6 +23,7 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/telem.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "x/go/telem/pb/frame.pb.h"
 #include "x/go/telem/pb/telem.pb.h"
@@ -273,7 +276,7 @@ private:
         if (this->data_type() != other.data_type())
             throw std::runtime_error("series type mismatch for comparison");
 
-        auto result = Series(UINT8_T, this->size());
+        auto result = Series(BOOLEAN_T, this->size());
         result.resize(this->size());
 
         const auto dt = this->data_type();
@@ -296,6 +299,8 @@ private:
         else if (dt == UINT16_T)
             apply_comparison_op_typed<uint16_t>(other, result, op);
         else if (dt == UINT8_T)
+            apply_comparison_op_typed<uint8_t>(other, result, op);
+        else if (dt == BOOLEAN_T)
             apply_comparison_op_typed<uint8_t>(other, result, op);
 
         return result;
@@ -349,7 +354,7 @@ private:
 
     template<typename T, typename Op>
     Series apply_scalar_comparison_op(T scalar, Op op) const {
-        auto result = Series(UINT8_T, this->size());
+        auto result = Series(BOOLEAN_T, this->size());
         result.resize(this->size());
 
         const auto dt = this->data_type();
@@ -373,7 +378,50 @@ private:
             apply_scalar_comparison_op_typed<uint16_t>(scalar, result, op);
         else if (dt == UINT8_T)
             apply_scalar_comparison_op_typed<uint8_t>(scalar, result, op);
+        else if (dt == BOOLEAN_T)
+            apply_scalar_comparison_op_typed<uint8_t>(scalar, result, op);
 
+        return result;
+    }
+
+    template<typename Op>
+    Series apply_logical_op(const Series &other, Op op) const {
+        const auto lhs_len = this->size();
+        const auto rhs_len = other.size();
+        const auto max_len = lhs_len > rhs_len ? lhs_len : rhs_len;
+        auto result = Series(BOOLEAN_T, max_len);
+        result.resize(max_len);
+
+        const auto *lhs = reinterpret_cast<const uint8_t *>(this->data_.get());
+        const auto *rhs = reinterpret_cast<const uint8_t *>(other.data_.get());
+        auto *out = reinterpret_cast<uint8_t *>(result.data_.get());
+
+        // Equal-length fast path: avoids the per-iteration branches in the broadcast
+        // loop below, which defeat the compiler's ability to keep the inner loop tight.
+        if (lhs_len == rhs_len) {
+            for (size_t i = 0; i < lhs_len; i++)
+                out[i] = op(lhs[i] != 0, rhs[i] != 0) ? 1 : 0;
+            return result;
+        }
+
+        const bool lhs_last = lhs_len > 0 && lhs[lhs_len - 1] != 0;
+        const bool rhs_last = rhs_len > 0 && rhs[rhs_len - 1] != 0;
+        for (size_t i = 0; i < max_len; i++) {
+            const bool lhs_val = i < lhs_len ? lhs[i] != 0 : lhs_last;
+            const bool rhs_val = i < rhs_len ? rhs[i] != 0 : rhs_last;
+            out[i] = op(lhs_val, rhs_val) ? 1 : 0;
+        }
+        return result;
+    }
+
+    template<typename Op>
+    Series apply_logical_scalar_op(const bool scalar, Op op) const {
+        auto result = Series(BOOLEAN_T, this->size());
+        result.resize(this->size());
+        const auto *src = reinterpret_cast<const uint8_t *>(this->data_.get());
+        auto *out = reinterpret_cast<uint8_t *>(result.data_.get());
+        for (size_t i = 0; i < this->size(); i++)
+            out[i] = op(src[i] != 0, scalar) ? 1 : 0;
         return result;
     }
 
@@ -733,6 +781,10 @@ public:
             *reinterpret_cast<uint16_t *>(base_ptr) = static_cast<uint16_t>(value);
         } else if (dt == UINT8_T) {
             *reinterpret_cast<uint8_t *>(base_ptr) = static_cast<uint8_t>(value);
+        } else if (dt == BOOLEAN_T) {
+            *reinterpret_cast<uint8_t *>(base_ptr) = static_cast<uint8_t>(
+                value != 0 ? 1 : 0
+            );
         }
     }
 
@@ -963,6 +1015,22 @@ public:
         return v;
     }
 
+    /// @brief returns the data as a vector of UUIDs. This method can only be used
+    /// if the data type is UUID.
+    [[nodiscard]] std::vector<x::uuid::UUID> uuids() const {
+        if (!this->data_type().matches({UUID_T}))
+            throw std::runtime_error("cannot convert a non-UUID series to UUIDs");
+        std::vector<x::uuid::UUID> v;
+        v.reserve(this->size());
+        const auto *ptr = this->data_.get();
+        for (size_t i = 0; i < this->size(); i++, ptr += x::uuid::UUID::size()) {
+            std::array<std::uint8_t, 16> bytes;
+            std::memcpy(bytes.data(), ptr, bytes.size());
+            v.emplace_back(bytes);
+        }
+        return v;
+    }
+
     /// @brief returns the data as a vector of numeric values. It is up to the
     /// caller to ensure that the numeric type is compatible with the series' data
     /// type.
@@ -1050,6 +1118,7 @@ public:
         if (dt == UINT32_T) return this->at<uint32_t>(index);
         if (dt == UINT16_T) return this->at<uint16_t>(index);
         if (dt == UINT8_T) return this->at<uint8_t>(index);
+        if (dt == BOOLEAN_T) return this->at<uint8_t>(index);
         if (dt == TIMESTAMP_T) return this->at<TimeStamp>(index);
         if (dt == STRING_T || dt == JSON_T) return this->at<std::string>(index);
         throw std::runtime_error("unsupported data type for at: " + dt.name());
@@ -1079,6 +1148,8 @@ public:
         else if (dt == UINT64_T)
             output_partial_vector(os, s.values<uint64_t>());
         else if (dt == UINT8_T)
+            output_partial_vector_byte(os, s.values<uint8_t>());
+        else if (dt == BOOLEAN_T)
             output_partial_vector_byte(os, s.values<uint8_t>());
         else if (dt == INT32_T)
             output_partial_vector(os, s.values<int32_t>());
@@ -1342,56 +1413,56 @@ public:
         }
     }
 
-    /// @brief Series > Series comparison. Returns UINT8_T Series with 0/1 values.
+    /// @brief Series > Series comparison. Returns BOOLEAN_T Series with 0/1 values.
     /// @throws std::runtime_error if series lengths or types don't match.
     Series operator>(const Series &other) const {
         return apply_comparison_op(other, [](auto a, auto b) { return a > b; });
     }
 
-    /// @brief Series < Series comparison. Returns UINT8_T Series with 0/1 values.
+    /// @brief Series < Series comparison. Returns BOOLEAN_T Series with 0/1 values.
     /// @throws std::runtime_error if series lengths or types don't match.
     Series operator<(const Series &other) const {
         return apply_comparison_op(other, [](auto a, auto b) { return a < b; });
     }
 
-    /// @brief Series >= Series comparison. Returns UINT8_T Series with 0/1 values.
+    /// @brief Series >= Series comparison. Returns BOOLEAN_T Series with 0/1 values.
     /// @throws std::runtime_error if series lengths or types don't match.
     Series operator>=(const Series &other) const {
         return apply_comparison_op(other, [](auto a, auto b) { return a >= b; });
     }
 
-    /// @brief Series <= Series comparison. Returns UINT8_T Series with 0/1 values.
+    /// @brief Series <= Series comparison. Returns BOOLEAN_T Series with 0/1 values.
     /// @throws std::runtime_error if series lengths or types don't match.
     Series operator<=(const Series &other) const {
         return apply_comparison_op(other, [](auto a, auto b) { return a <= b; });
     }
 
-    /// @brief Series == Series element-wise comparison. Returns UINT8_T Series.
+    /// @brief Series == Series element-wise comparison. Returns BOOLEAN_T Series.
     /// Note: This performs element-wise comparison, not structural equality.
     /// @throws std::runtime_error if series lengths or types don't match.
     Series operator==(const Series &other) const {
         return apply_comparison_op(other, [](auto a, auto b) { return a == b; });
     }
 
-    /// @brief Series != Series element-wise comparison. Returns UINT8_T Series.
+    /// @brief Series != Series element-wise comparison. Returns BOOLEAN_T Series.
     /// @throws std::runtime_error if series lengths or types don't match.
     Series operator!=(const Series &other) const {
         return apply_comparison_op(other, [](auto a, auto b) { return a != b; });
     }
 
-    /// @brief Series > scalar comparison. Returns UINT8_T Series with 0/1 values.
+    /// @brief Series > scalar comparison. Returns BOOLEAN_T Series with 0/1 values.
     template<typename T>
     Series operator>(T scalar) const {
         return apply_scalar_comparison_op(scalar, [](auto a, auto b) { return a > b; });
     }
 
-    /// @brief Series < scalar comparison. Returns UINT8_T Series with 0/1 values.
+    /// @brief Series < scalar comparison. Returns BOOLEAN_T Series with 0/1 values.
     template<typename T>
     Series operator<(T scalar) const {
         return apply_scalar_comparison_op(scalar, [](auto a, auto b) { return a < b; });
     }
 
-    /// @brief Series >= scalar comparison. Returns UINT8_T Series with 0/1 values.
+    /// @brief Series >= scalar comparison. Returns BOOLEAN_T Series with 0/1 values.
     template<typename T>
     Series operator>=(T scalar) const {
         return apply_scalar_comparison_op(scalar, [](auto a, auto b) {
@@ -1399,7 +1470,7 @@ public:
         });
     }
 
-    /// @brief Series <= scalar comparison. Returns UINT8_T Series with 0/1 values.
+    /// @brief Series <= scalar comparison. Returns BOOLEAN_T Series with 0/1 values.
     template<typename T>
     Series operator<=(T scalar) const {
         return apply_scalar_comparison_op(scalar, [](auto a, auto b) {
@@ -1407,7 +1478,7 @@ public:
         });
     }
 
-    /// @brief Series == scalar comparison. Returns UINT8_T Series with 0/1 values.
+    /// @brief Series == scalar comparison. Returns BOOLEAN_T Series with 0/1 values.
     template<typename T>
     Series operator==(T scalar) const {
         return apply_scalar_comparison_op(scalar, [](auto a, auto b) {
@@ -1415,7 +1486,7 @@ public:
         });
     }
 
-    /// @brief Series != scalar comparison. Returns UINT8_T Series with 0/1 values.
+    /// @brief Series != scalar comparison. Returns BOOLEAN_T Series with 0/1 values.
     template<typename T>
     Series operator!=(T scalar) const {
         return apply_scalar_comparison_op(scalar, [](auto a, auto b) {
@@ -1429,31 +1500,42 @@ public:
         return apply_unary_op([](auto a) { return -a; });
     }
 
-    /// @brief Bitwise NOT operator. Returns a new Series with inverted bits.
-    /// Only valid for integer types.
-    /// @throws std::runtime_error if called on floating-point types.
-    Series operator~() const {
-        const auto dt = this->data_type();
-        if (dt == FLOAT32_T || dt == FLOAT64_T) {
-            throw std::runtime_error(
-                "bitwise NOT not supported for floating-point types"
-            );
-        }
-        return apply_unary_op([](auto a) {
-            if constexpr (std::is_integral_v<decltype(a)>) {
-                return static_cast<decltype(a)>(~a);
-            } else {
-                // This branch is never reached due to the runtime check above,
-                // but is needed for template instantiation.
-                return a;
-            }
-        });
-    }
-
-    /// @brief Logical NOT. Returns a UINT8_T Series where each element is
+    /// @brief Logical NOT. Returns a BOOLEAN_T Series where each element is
     /// 1 if the original was 0, and 0 if the original was non-zero.
     [[nodiscard]] Series logical_not() const {
         return apply_scalar_comparison_op(0, [](auto a, auto b) { return a == b; });
+    }
+
+    /// @brief Logical AND with another boolean series. Returns a BOOLEAN_T Series whose
+    /// length is the longer operand's; the shorter operand's last value repeats.
+    [[nodiscard]] Series logical_and(const Series &other) const {
+        return apply_logical_op(other, [](const bool a, const bool b) {
+            return a && b;
+        });
+    }
+
+    /// @brief Logical OR with another boolean series. Returns a BOOLEAN_T Series whose
+    /// length is the longer operand's; the shorter operand's last value repeats.
+    [[nodiscard]] Series logical_or(const Series &other) const {
+        return apply_logical_op(other, [](const bool a, const bool b) {
+            return a || b;
+        });
+    }
+
+    /// @brief Logical AND with a scalar. Returns a BOOLEAN_T Series of the input's
+    /// length.
+    [[nodiscard]] Series logical_and(const bool scalar) const {
+        return apply_logical_scalar_op(scalar, [](const bool a, const bool b) {
+            return a && b;
+        });
+    }
+
+    /// @brief Logical OR with a scalar. Returns a BOOLEAN_T Series of the input's
+    /// length.
+    [[nodiscard]] Series logical_or(const bool scalar) const {
+        return apply_logical_scalar_op(scalar, [](const bool a, const bool b) {
+            return a || b;
+        });
     }
 
     /// @brief deep copies the series, including all of its data_. This function
@@ -1483,6 +1565,29 @@ public:
         }
         this->size_ = 0;
         this->cached_byte_size = 0;
+    }
+
+    /// @brief copies src into this series, reusing its buffer capacity to avoid
+    /// allocation. Holders on emit hot paths should prefer this over deep_copy()
+    /// (SY-4506). A buffer shared via shallow_copy() is replaced, not written in
+    /// place.
+    void copy_from(const Series &src) {
+        const auto bs = src.byte_size();
+        const auto bc = this->data_ == nullptr ? 0 : this->byte_cap();
+        if (this->data_ == nullptr || this->data_.use_count() > 1 || bc < bs) {
+            this->data_ = alloc(bs);
+            this->cached_byte_cap = bs;
+        } else
+            this->cached_byte_cap = bc;
+        if (bs > 0) memcpy(this->data_.get(), src.data_.get(), bs);
+        this->data_type_ = src.data_type_;
+        this->size_ = src.size_;
+        this->cached_byte_size = src.data_type().is_variable() ? bs : 0;
+        this->cap_ = this->data_type_.is_variable()
+                       ? src.size_
+                       : this->cached_byte_cap / this->data_type_.density();
+        this->time_range = src.time_range;
+        this->alignment = src.alignment;
     }
 
     void resize(size_t new_size) {

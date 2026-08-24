@@ -3,8 +3,8 @@ layout: "@/layouts/Reference.astro"
 title: "LabJack | Configure Device"
 heading: "Configure a LabJack Device"
 description: "Learn how to connect and configure LabJack devices."
-prev: "Get Started"
-prevURL: "/reference/driver/labjack/get-started"
+prev: "HTTP Write Task"
+prevURL: "/reference/driver/http/write-task"
 next: "Read Task"
 nextURL: "/reference/driver/labjack/read-task"
 ---
@@ -17,6 +17,13 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 import { Client } from "@/components/client";
 import { Fragment } from "react";
 export const components = mdxOverrides;
+
+The Synnax Driver reads from and writes to LabJack T-Series devices.
+
+<Note.Note variant="warning" className="compact">
+  Only T-Series devices are supported. If you are interested in using Synnax with other
+  LabJack devices, [contact us](https://www.synnaxlabs.com/contact).
+</Note.Note>
 
 <Divider.Divider x />
 
@@ -33,6 +40,18 @@ that you have the following:
    [LJM library](https://support.labjack.com/docs/ljm-software-installer-downloads-t4-t7-t8-digit)
    installed on the machine running the Synnax Driver.
 4. The [Synnax Console](/reference/console/get-started) installed on your local machine.
+
+<Divider.Divider x />
+
+## Supported Operating Systems
+
+| Platform                            | Status          |
+| ----------------------------------- | --------------- |
+| <Icon.Logo.Windows /> Windows       | ✓ Supported     |
+| <Icon.Logo.Linux /> Linux           | ✓ Supported     |
+| <Icon.Logo.NI /> NI Linux Real-Time | ✗ Not Supported |
+| <Icon.Logo.Apple /> macOS           | ✓ Supported     |
+| <Icon.Logo.Docker /> Docker         | ✗ Not Supported |
 
 <Divider.Divider x />
 
@@ -115,10 +134,11 @@ import { Synnax } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Get the embedded rack (local driver rack)
-const rack = await client.racks.retrieveEmbeddedRack();
+const [rack] = await client.racks.retrieve({ embedded: true });
 
 // Configure device connection
 const device = await client.devices.create({
+  key: crypto.randomUUID(),
   rack: rack.key,
   name: "My LabJack T7",
   make: "LabJack",
@@ -127,7 +147,7 @@ const device = await client.devices.create({
   properties: {
     connection: {
       identifier: "ANY", // Serial number, IP, name, or "ANY"
-      connection_type: "ANY", // "ANY", "USB", "TCP", "ETHERNET", "WIFI"
+      connectionType: "ANY", // "ANY", "USB", "TCP", "ETHERNET", "WIFI"
     },
     read: {
       index: 0,
@@ -140,10 +160,10 @@ const device = await client.devices.create({
 });
 
 // Or retrieve by model
-const device = await client.devices.retrieve({ model: "LJM_dtT7" });
+const [byModel] = await client.devices.retrieve({ models: ["LJM_dtT7"] });
 
 // Or retrieve by name
-const device = await client.devices.retrieve({ name: "My LabJack T7" });
+const [byName] = await client.devices.retrieve({ names: ["My LabJack T7"] });
 
 console.log(`Device configured: ${device.name} (key=${device.key})`);
 ```

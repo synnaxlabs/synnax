@@ -32,6 +32,9 @@ enum class Concurrency : std::uint8_t {
     Shared = 1,
 };
 
+/// @brief Authority is a numeric value (0-255) representing the level of control
+/// authority a subject has over a resource. Higher values indicate greater authority.
+/// The maximum value of 255 represents absolute authority.
 using Authority = std::uint8_t;
 
 /// @brief Subject is an entity that can hold control authority over a resource.
@@ -41,8 +44,8 @@ struct Subject {
     std::string key;
     /// @brief name is a human-readable name for the subject.
     std::string name;
-    /// @brief group optional identifier shared by subjects from the same logical group
-    /// (e.g.) all writers from the same Driver rack.
+    /// @brief group is an optional identifier shared by subjects from the same logical
+    /// group (e.g., all writers from the same Driver rack).
     std::uint32_t group = 0;
 
     static Subject parse(x::json::Parser parser);
@@ -69,17 +72,10 @@ struct State {
 
     static State parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::x::control::pb::State;
-    [[nodiscard]] std::pair<::x::control::pb::State, x::errors::Error> to_proto() const;
-    static std::pair<State, x::errors::Error>
-    from_proto(const ::x::control::pb::State &pb);
 };
 
 /// @brief Transfer represents a transfer of control over a resource. It is represented
-/// as a transition from one state to another over the same resource. A transfer between
-/// resources that are different will result in a panic when any transfer methods are
-/// called.
+/// as a transition from one state to another over the same resource.
 ///
 /// If From is nil, the entity was uncontrolled before the transfer. If To is nil, the
 /// resource is uncontrolled after the transfer.
@@ -88,19 +84,13 @@ struct State {
 /// and From.Subject != To.Subject, a transfer occurred.
 template<typename R>
 struct Transfer {
-    /// @brief from the previous authority holder. Null on initial acquire.
+    /// @brief from is the previous authority holder. Null on initial acquire.
     std::optional<State<R>> from;
-    /// @brief to the new authority holder. Null on release.
+    /// @brief to is the new authority holder. Null on release.
     std::optional<State<R>> to;
 
     static Transfer parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::x::control::pb::Transfer;
-    [[nodiscard]] std::pair<::x::control::pb::Transfer, x::errors::Error>
-    to_proto() const;
-    static std::pair<Transfer, x::errors::Error>
-    from_proto(const ::x::control::pb::Transfer &pb);
 };
 
 /// @brief Update represents a batch of control transfers that occurred atomically.
@@ -111,11 +101,5 @@ struct Update {
 
     static Update parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::x::control::pb::Update;
-    [[nodiscard]] std::pair<::x::control::pb::Update, x::errors::Error>
-    to_proto() const;
-    static std::pair<Update, x::errors::Error>
-    from_proto(const ::x::control::pb::Update &pb);
 };
 }

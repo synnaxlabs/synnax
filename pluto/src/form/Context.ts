@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor, type status } from "@synnaxlabs/x";
+import { type status } from "@synnaxlabs/client";
+import { type destructor } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { context } from "@/context";
@@ -17,8 +18,11 @@ export interface RemoveFunc {
   (path: string): void;
 }
 
+/** Options for {@link SetFunc}. */
 export interface SetOptions {
+  /** Whether to call the form's `onChange`. Defaults to true. */
   notifyOnChange?: boolean;
+  /** Whether the write counts as a user edit. Defaults to true. */
   markTouched?: boolean;
 }
 
@@ -34,20 +38,30 @@ export interface BindFunc {
   (props: Listener): destructor.Destructor;
 }
 
+/** Whether the form takes edits, or renders flat and inert. */
 export type Mode = "normal" | "preview";
+
+/** The form API. Every field hook and component reads it from context. */
 export interface ContextValue<Z extends z.ZodType = z.ZodType> {
   mode: Mode;
+  /** Subscribes to every change in the form, returning the unsubscribe. */
   bind: BindFunc;
+  /** Writes the value at a dot-separated path, validating and notifying. */
   set: SetFunc;
+  /** Reads the state at a path: its value, status, and whether it is required. */
   get: typeof State.prototype.getState;
+  /** Restores the initial values, or the given ones. */
   reset: (values?: z.infer<Z>) => void;
   remove: RemoveFunc;
+  /** Reads the whole value tree. It does not re-render the caller. */
   value: () => z.infer<Z>;
+  /** Validates the whole form, or one subtree, writing statuses onto the fields. */
   validate: (path?: string) => boolean;
   validateAsync: (path?: string) => Promise<boolean>;
   has: (path: string) => boolean;
   setStatus: typeof State.prototype.setStatus;
   clearStatuses: () => void;
+  /** Takes the current values as the baseline, clearing the touched flag. */
   setCurrentStateAsInitialValues: () => void;
   getStatuses: () => status.Crude[];
 }
@@ -58,6 +72,10 @@ const [Context, useCtx] = context.create<ContextValue | null>({
 });
 export { Context };
 
+/**
+ * @returns the enclosing form's {@link ContextValue}, or the override when one is given.
+ * @throws {Error} if there is neither an enclosing form nor an override.
+ */
 export const useContext = <Z extends z.ZodType = z.ZodType>(
   override?: ContextValue<Z>,
   funcName: string = "Form.useContext",

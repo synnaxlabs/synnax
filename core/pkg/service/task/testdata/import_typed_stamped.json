@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "type": "pagerduty_alert",
+  "name": "Stamped Typed Task",
+  "routing_key": "stampedstampedstampedstamped1234",
+  "auto_start": true,
+  "alerts": [
+    {
+      "key": "alert-stamped",
+      "status": "stamped_status_channel",
+      "errors_critical": true,
+      "component": "stamped-component",
+      "group": "stamped-group",
+      "class": "stamped-class",
+      "disabled": true
+    }
+  ]
+}

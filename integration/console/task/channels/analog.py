@@ -33,8 +33,8 @@ class Analog:
                 "Default",
                 "Differential",
                 "Pseudo-Differential",
-                "Referenced Single Ended",
-                "Non-Referenced Single Ended",
+                "Referenced single ended",
+                "Non-referenced single ended",
             ]
             | None
         ) = None,
@@ -52,7 +52,7 @@ class Analog:
             chan_type: Channel type (e.g., "Voltage", "Accelerometer")
             port: Physical port number
             terminal_config: "Default", "Differential", "Pseudo-Differential",
-                           "Referenced Single Ended", "Non-Referenced Single Ended"
+                           "Referenced single ended", "Non-referenced single ended"
             min_val: Minimum value
             max_val: Maximum value
             custom_scale: "None", "Linear", "Map", "Table"
@@ -64,9 +64,11 @@ class Analog:
         values: dict[str, str | bool] = {}
 
         # Configure channel type
-        layout.click_btn("Channel Type")
-        layout.select_from_dropdown(chan_type, exact=True)
-        values["Channel Type"] = chan_type
+        layout.click_btn("Channel type")
+        layout.select_from_dropdown(
+            chan_type, exact=True, reopen=lambda: layout.click_btn("Channel type")
+        )
+        values["Channel type"] = chan_type
 
         # Get device (set by task.add_channel)
         values["Device"] = layout.get_dropdown_value("Device")
@@ -79,34 +81,42 @@ class Analog:
             values["Port"] = layout.get_input_field("Port")
 
         if terminal_config is not None:
-            layout.click_btn("Terminal Configuration")
-            layout.select_from_dropdown(terminal_config, exact=True)
-            values["Terminal Configuration"] = terminal_config
+            layout.click_btn("Terminal configuration")
+            layout.select_from_dropdown(
+                terminal_config,
+                exact=True,
+                reopen=lambda: layout.click_btn("Terminal configuration"),
+            )
+            values["Terminal configuration"] = terminal_config
         elif self.has_terminal_config():
-            values["Terminal Configuration"] = layout.get_dropdown_value(
-                "Terminal Configuration"
+            values["Terminal configuration"] = layout.get_dropdown_value(
+                "Terminal configuration"
             )
 
-        no_min_max_types = ("Microphone", "Temperature Built-In Sensor", "Thermocouple")
+        no_min_max_types = ("Microphone", "Temperature built-in sensor", "Thermocouple")
         if min_val is not None:
-            layout.fill_input_field("Minimum Value", str(min_val))
-            values["Minimum Value"] = str(min_val)
+            layout.fill_input_field("Minimum value", str(min_val))
+            values["Minimum value"] = str(min_val)
         elif chan_type not in no_min_max_types:
-            values["Minimum Value"] = layout.get_input_field("Minimum Value")
+            values["Minimum value"] = layout.get_input_field("Minimum value")
 
         if max_val is not None:
-            layout.fill_input_field("Maximum Value", str(max_val))
-            values["Maximum Value"] = str(max_val)
+            layout.fill_input_field("Maximum value", str(max_val))
+            values["Maximum value"] = str(max_val)
         elif chan_type not in no_min_max_types:
-            values["Maximum Value"] = layout.get_input_field("Maximum Value")
+            values["Maximum value"] = layout.get_input_field("Maximum value")
 
-        no_custom_scale_types = ("RTD", "Temperature Built-In Sensor", "Thermocouple")
+        no_custom_scale_types = ("RTD", "Temperature built-in sensor", "Thermocouple")
         if custom_scale is not None:
-            layout.click_btn("Custom Scaling")
-            layout.select_from_dropdown(custom_scale, exact=True)
-            values["Custom Scaling"] = custom_scale
+            layout.click_btn("Custom scaling")
+            layout.select_from_dropdown(
+                custom_scale,
+                exact=True,
+                reopen=lambda: layout.click_btn("Custom scaling"),
+            )
+            values["Custom scaling"] = custom_scale
         elif chan_type not in no_custom_scale_types:
-            values["Custom Scaling"] = layout.get_dropdown_value("Custom Scaling")
+            values["Custom scaling"] = layout.get_dropdown_value("Custom scaling")
 
         self.form_values = values
 
@@ -152,12 +162,41 @@ class Analog:
             track: Whether to track the value in form_values
         """
         if value is not None:
-            self.layout.click_btn(label)
-            self.layout.select_from_dropdown(value, exact=True)
+            # A single-option dropdown (e.g. sound pressure units) already shows its
+            # only value, and opening it renders no selectable list, so selecting the
+            # value it already holds would hang. Skip when it already matches.
+            if self.layout.get_dropdown_value(label) != value:
+                self.layout.click_btn(label)
+                self.layout.select_from_dropdown(
+                    value, exact=True, reopen=lambda: self.layout.click_btn(label)
+                )
             if track:
                 self.form_values[label] = value
         elif track:
             self.form_values[label] = self.layout.get_dropdown_value(label)
+
+    def _configure_symbol_dropdown(self, trigger_text: str, value: str | None) -> None:
+        """Select a value in a dropdown whose options carry special characters.
+
+        The trigger and options are matched by text rather than a form label.
+        Skips when the trigger already shows the target, since reopening a
+        single-option dropdown to reselect its value hangs.
+
+        Args:
+            trigger_text: A substring identifying the dropdown trigger button.
+            value: The exact option text to select, or None to leave unchanged.
+        """
+        if value is None:
+            return
+        trigger = self.layout.page.locator(
+            f"button.pluto-dialog__trigger:has-text('{trigger_text}')"
+        )
+        if trigger.inner_text().strip() == value:
+            return
+        trigger.click()
+        self.layout.page.locator(".pluto-list__item").get_by_text(
+            value, exact=True
+        ).dispatch_event("click")
 
     def _configure_input(
         self,

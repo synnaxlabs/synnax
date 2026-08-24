@@ -24,7 +24,7 @@ import (
 
 func TestPBTypes(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "PB Types Plugin Suite")
+	RunSpecs(t, "Plugin PB Types Suite")
 }
 
 // pbDomains creates domains that enable pb generation with the given go output path.
@@ -35,66 +35,14 @@ func pbDomains(goOutputPath string) map[string]resolution.Domain {
 		"go": {
 			Name: "go",
 			Expressions: []resolution.Expression{
-				{Name: "output", Values: []resolution.ExpressionValue{{StringValue: goOutputPath}}},
+				{
+					Name:   "output",
+					Values: []resolution.ExpressionValue{{StringValue: goOutputPath}},
+				},
 			},
 		},
 	}
 }
-
-var _ = Describe("PbFormatter", func() {
-	f := types.PbFormatter
-
-	Describe("FormatQualified", func() {
-		It("Should format qualified names with dot separator", func() {
-			Expect(f.FormatQualified("pkg", "Type")).To(Equal("pkg.Type"))
-		})
-
-		It("Should return type name when qualifier is empty", func() {
-			Expect(f.FormatQualified("", "Type")).To(Equal("Type"))
-		})
-	})
-
-	Describe("FormatGeneric", func() {
-		It("Should return base name unchanged (protobuf has no generics)", func() {
-			Expect(f.FormatGeneric("Container", []string{"string"})).To(Equal("Container"))
-		})
-	})
-
-	Describe("FormatArray", func() {
-		It("Should return element type unchanged (repeated handled at field level)", func() {
-			Expect(f.FormatArray("string")).To(Equal("string"))
-		})
-	})
-
-	Describe("FormatMap", func() {
-		It("Should format map types", func() {
-			Expect(f.FormatMap("string", "int32")).To(Equal("map<string, int32>"))
-		})
-	})
-
-	Describe("FallbackType", func() {
-		It("Should return bytes as fallback", func() {
-			Expect(f.FallbackType()).To(Equal("bytes"))
-		})
-	})
-})
-
-var _ = Describe("PbImportResolver", func() {
-	var r *types.PbImportResolver
-
-	BeforeEach(func() {
-		r = &types.PbImportResolver{}
-	})
-
-	Describe("ResolveImport", func() {
-		It("Should return proto path with qualifier", func() {
-			importPath, qualifier, shouldImport := r.ResolveImport("core/pkg/task", nil)
-			Expect(importPath).To(Equal("core/pkg/task/types.gen.proto"))
-			Expect(qualifier).To(Equal("task"))
-			Expect(shouldImport).To(BeTrue())
-		})
-	})
-})
 
 var _ = Describe("Plugin", func() {
 	var (
@@ -114,9 +62,6 @@ var _ = Describe("Plugin", func() {
 	})
 
 	Describe("Check", func() {
-		It("Should return nil (no validation required)", func() {
-			Expect(p.Check(&plugin.Request{})).To(BeNil())
-		})
 	})
 
 	Describe("Domains", func() {
@@ -144,7 +89,10 @@ var _ = Describe("Plugin", func() {
 						}
 					`
 					resp := MustGenerate(ctx, source, "test", loader, p)
-					ExpectContent(resp, "test.proto").ToContain(expectedProtoType + " field = 1;")
+					ExpectContent(
+						resp,
+						"test.proto",
+					).ToContain(expectedProtoType + " field = 1;")
 				},
 				Entry("string", "string", "string"),
 				Entry("bool", "bool", "bool"),
@@ -169,6 +117,39 @@ var _ = Describe("Plugin", func() {
 				resp := MustGenerate(ctx, source, "test", loader, p)
 				ExpectContent(resp, "test.proto").ToContain("string key = 1;")
 			})
+
+			It(
+				"Should emit an extending enum as a standalone, proto3-valid enum",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/pkg/api/grpc/v1"
+					@pb
+
+					XAxisKey enum {
+						x1 = "x1"
+						x2 = "x2"
+					}
+
+					YAxisKey enum {
+						y1 = "y1"
+						y2 = "y2"
+					}
+
+					AxisKey enum extends XAxisKey, YAxisKey {}
+
+					Test struct {
+						axis_key AxisKey
+					}
+				`
+					resp := MustGenerate(ctx, source, "test", loader, p)
+					content := ExpectContent(resp, "test.proto")
+					content.ToContain("enum AxisKey")
+					// The union enum gets its own positional numbering starting at 0,
+					// so the generated enum satisfies proto3's mandatory zero member.
+					content.ToContain("AXIS_KEY_X_1 = 0;")
+					content.ToContain("AXIS_KEY_Y_2 = 3;")
+				},
+			)
 
 			It("Should map record to google.protobuf.Struct", func(ctx SpecContext) {
 				source := `
@@ -198,7 +179,11 @@ var _ = Describe("Plugin", func() {
 					Fields: []resolution.Field{
 						{Name: "key", Type: resolution.TypeRef{Name: "uuid"}},
 						{Name: "username", Type: resolution.TypeRef{Name: "string"}},
-						{Name: "email", Type: resolution.TypeRef{Name: "string"}, IsOptional: true},
+						{
+							Name:     "email",
+							Type:     resolution.TypeRef{Name: "string"},
+							Optional: true,
+						},
 					},
 				},
 				Domains: pbDomains("core/pkg/api/grpc/v1"),
@@ -218,50 +203,54 @@ var _ = Describe("Plugin", func() {
 			Expect(content).To(ContainSubstring("message User"))
 			Expect(content).To(ContainSubstring("string key = 1;"))
 			Expect(content).To(ContainSubstring("string username = 2;"))
-			// Soft optional (?) is a regular field in proto
+			// Optional (?) is a regular field in proto
 			Expect(content).To(ContainSubstring("string email = 3;"))
 		})
 
-		It("Should generate enum with prefixed values per protobuf style guide", func() {
-			table := resolution.NewTable()
-			Expect(table.Add(resolution.Type{
-				Name:          "Role",
-				Namespace:     "user",
-				QualifiedName: "user.Role",
-				Form: resolution.EnumForm{
-					Values: []resolution.EnumValue{
-						{Name: "admin"},
-						{Name: "user"},
+		It(
+			"Should generate enum with prefixed values per protobuf style guide",
+			func() {
+				table := resolution.NewTable()
+				Expect(table.Add(resolution.Type{
+					Name:          "Role",
+					Namespace:     "user",
+					QualifiedName: "user.Role",
+					Form: resolution.EnumForm{
+						Values: []resolution.EnumValue{
+							{Name: "admin"},
+							{Name: "user"},
+						},
 					},
-				},
-				Domains: map[string]resolution.Domain{},
-			})).To(Succeed())
-			Expect(table.Add(resolution.Type{
-				Name:          "User",
-				Namespace:     "user",
-				QualifiedName: "user.User",
-				Form: resolution.StructForm{
-					Fields: []resolution.Field{
-						{Name: "role", Type: resolution.TypeRef{Name: "user.Role"}},
+					Domains: map[string]resolution.Domain{},
+				})).To(Succeed())
+				Expect(table.Add(resolution.Type{
+					Name:          "User",
+					Namespace:     "user",
+					QualifiedName: "user.User",
+					Form: resolution.StructForm{
+						Fields: []resolution.Field{
+							{Name: "role", Type: resolution.TypeRef{Name: "user.Role"}},
+						},
 					},
-				},
-				Domains: pbDomains("core/pkg/api/grpc/v1"),
-			})).To(Succeed())
+					Domains: pbDomains("core/pkg/api/grpc/v1"),
+				})).To(Succeed())
 
-			req := &plugin.Request{
-				Resolutions: table,
-				RepoRoot:    "/tmp/test",
-			}
+				req := &plugin.Request{
+					Resolutions: table,
+					RepoRoot:    "/tmp/test",
+				}
 
-			resp := MustSucceed(p.Generate(req))
-			Expect(resp.Files).To(HaveLen(1))
+				resp := MustSucceed(p.Generate(req))
+				Expect(resp.Files).To(HaveLen(1))
 
-			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring("enum Role"))
-			// Enum values should be prefixed with enum name per protobuf style guide
-			Expect(content).To(ContainSubstring("ROLE_ADMIN = 0;"))
-			Expect(content).To(ContainSubstring("ROLE_USER = 1;"))
-		})
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring("enum Role"))
+				// Enum values should be prefixed with enum name per protobuf style
+				// guide
+				Expect(content).To(ContainSubstring("ROLE_ADMIN = 0;"))
+				Expect(content).To(ContainSubstring("ROLE_USER = 1;"))
+			},
+		)
 
 		It("Should handle array fields as repeated", func() {
 			table := resolution.NewTable()
@@ -271,7 +260,13 @@ var _ = Describe("Plugin", func() {
 				QualifiedName: "user.User",
 				Form: resolution.StructForm{
 					Fields: []resolution.Field{
-						{Name: "tags", Type: resolution.TypeRef{Name: "Array", TypeArgs: []resolution.TypeRef{{Name: "string"}}}},
+						{
+							Name: "tags",
+							Type: resolution.TypeRef{
+								Name:     "Array",
+								TypeArgs: []resolution.TypeRef{{Name: "string"}},
+							},
+						},
 					},
 				},
 				Domains: pbDomains("core/pkg/api/grpc/v1"),
@@ -347,7 +342,9 @@ var _ = Describe("Plugin", func() {
 			Expect(resp.Files).To(HaveLen(1))
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring("import \"google/protobuf/struct.proto\";"))
+			Expect(
+				content,
+			).To(ContainSubstring("import \"google/protobuf/struct.proto\";"))
 			Expect(content).To(ContainSubstring("google.protobuf.Struct data = 1;"))
 		})
 
@@ -384,7 +381,10 @@ var _ = Describe("Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring("message Parent"))
-			Expect(strings.Count(content, "message")).To(Equal(1)) // Only Parent, not Alias
+			Expect(
+				strings.Count(content, "message"),
+			).To(Equal(1))
+			// Only Parent, not Alias
 		})
 
 		It("Should preserve struct declaration order", func() {
@@ -395,7 +395,9 @@ var _ = Describe("Plugin", func() {
 				Namespace:     "animals",
 				QualifiedName: "animals.Zebra",
 				Form: resolution.StructForm{
-					Fields: []resolution.Field{{Name: "name", Type: resolution.TypeRef{Name: "string"}}},
+					Fields: []resolution.Field{
+						{Name: "name", Type: resolution.TypeRef{Name: "string"}},
+					},
 				},
 				Domains: domains,
 			})).To(Succeed())
@@ -404,7 +406,9 @@ var _ = Describe("Plugin", func() {
 				Namespace:     "animals",
 				QualifiedName: "animals.Apple",
 				Form: resolution.StructForm{
-					Fields: []resolution.Field{{Name: "color", Type: resolution.TypeRef{Name: "string"}}},
+					Fields: []resolution.Field{
+						{Name: "color", Type: resolution.TypeRef{Name: "string"}},
+					},
 				},
 				Domains: domains,
 			})).To(Succeed())
@@ -413,7 +417,9 @@ var _ = Describe("Plugin", func() {
 				Namespace:     "animals",
 				QualifiedName: "animals.Mango",
 				Form: resolution.StructForm{
-					Fields: []resolution.Field{{Name: "ripe", Type: resolution.TypeRef{Name: "bool"}}},
+					Fields: []resolution.Field{
+						{Name: "ripe", Type: resolution.TypeRef{Name: "bool"}},
+					},
 				},
 				Domains: domains,
 			})).To(Succeed())
@@ -513,6 +519,31 @@ var _ = Describe("Plugin", func() {
 				Expect(content).To(ContainSubstring(`enum Status`))
 				Expect(content).NotTo(ContainSubstring(`DebugLevel`))
 			})
+
+			It(
+				"Should not emit a proto file for an output path whose types are all omitted",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/pkg/service/task"
+					@pb
+
+					Command struct {
+						key string
+					}
+
+					BaseConfig struct {
+						auto_start bool
+						@go output "core/pkg/service/task/common"
+						@pb omit
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, p)
+					Expect(resp.Files).To(HaveLen(1))
+					Expect(
+						resp.Files[0].Path,
+					).To(ContainSubstring("core/pkg/service/task/pb"))
+				},
+			)
 		})
 
 		Context("type parameters", func() {
@@ -547,32 +578,39 @@ var _ = Describe("Plugin", func() {
 				Expect(content).To(ContainSubstring("string value = 1;"))
 			})
 
-			It("Should resolve type params without default to google.protobuf.Any", func() {
-				table := resolution.NewTable()
-				Expect(table.Add(resolution.Type{
-					Name:          "Container",
-					Namespace:     "test",
-					QualifiedName: "test.Container",
-					Form: resolution.StructForm{
-						TypeParams: []resolution.TypeParam{{Name: "T"}},
-						Fields: []resolution.Field{
-							{
-								Name: "value",
-								Type: resolution.TypeRef{
-									TypeParam: &resolution.TypeParam{Name: "T"},
+			It(
+				"Should resolve type params without default to google.protobuf.Any",
+				func() {
+					table := resolution.NewTable()
+					Expect(table.Add(resolution.Type{
+						Name:          "Container",
+						Namespace:     "test",
+						QualifiedName: "test.Container",
+						Form: resolution.StructForm{
+							TypeParams: []resolution.TypeParam{{Name: "T"}},
+							Fields: []resolution.Field{
+								{
+									Name: "value",
+									Type: resolution.TypeRef{
+										TypeParam: &resolution.TypeParam{Name: "T"},
+									},
 								},
 							},
 						},
-					},
-					Domains: pbDomains("core/pkg/api/grpc/v1"),
-				})).To(Succeed())
+						Domains: pbDomains("core/pkg/api/grpc/v1"),
+					})).To(Succeed())
 
-				req := &plugin.Request{Resolutions: table, RepoRoot: "/tmp/test"}
-				resp := MustSucceed(p.Generate(req))
-				content := string(resp.Files[0].Content)
-				Expect(content).To(ContainSubstring(`import "google/protobuf/any.proto";`))
-				Expect(content).To(ContainSubstring("google.protobuf.Any value = 1;"))
-			})
+					req := &plugin.Request{Resolutions: table, RepoRoot: "/tmp/test"}
+					resp := MustSucceed(p.Generate(req))
+					content := string(resp.Files[0].Content)
+					Expect(
+						content,
+					).To(ContainSubstring(`import "google/protobuf/any.proto";`))
+					Expect(
+						content,
+					).To(ContainSubstring("google.protobuf.Any value = 1;"))
+				},
+			)
 		})
 
 		Context("nested arrays", func() {
@@ -590,8 +628,10 @@ var _ = Describe("Plugin", func() {
 									Name: "Array",
 									TypeArgs: []resolution.TypeRef{
 										{
-											Name:     "Array",
-											TypeArgs: []resolution.TypeRef{{Name: "float64"}},
+											Name: "Array",
+											TypeArgs: []resolution.TypeRef{
+												{Name: "float64"},
+											},
 										},
 									},
 								},
@@ -611,8 +651,8 @@ var _ = Describe("Plugin", func() {
 			})
 		})
 
-		Context("hard optional fields", func() {
-			It("Should mark hard optional fields with optional keyword", func() {
+		Context("optional fields", func() {
+			It("Should mark optional fields with optional keyword", func() {
 				table := resolution.NewTable()
 				Expect(table.Add(resolution.Type{
 					Name:          "User",
@@ -621,7 +661,11 @@ var _ = Describe("Plugin", func() {
 					Form: resolution.StructForm{
 						Fields: []resolution.Field{
 							{Name: "name", Type: resolution.TypeRef{Name: "string"}},
-							{Name: "nickname", Type: resolution.TypeRef{Name: "string"}, IsHardOptional: true},
+							{
+								Name:     "nickname",
+								Type:     resolution.TypeRef{Name: "string"},
+								Optional: true,
+							},
 						},
 					},
 					Domains: pbDomains("core/pkg/api/grpc/v1"),
@@ -642,8 +686,10 @@ var _ = Describe("Plugin", func() {
 					Name:          "UserID",
 					Namespace:     "user",
 					QualifiedName: "user.UserID",
-					Form:          resolution.DistinctForm{Base: resolution.TypeRef{Name: "uuid"}},
-					Domains:       pbDomains("core/pkg/api/grpc/v1"),
+					Form: resolution.DistinctForm{
+						Base: resolution.TypeRef{Name: "uuid"},
+					},
+					Domains: pbDomains("core/pkg/api/grpc/v1"),
 				})).To(Succeed())
 				Expect(table.Add(resolution.Type{
 					Name:          "User",
@@ -702,7 +748,10 @@ var _ = Describe("Plugin", func() {
 					QualifiedName: "user.User",
 					Form: resolution.StructForm{
 						Fields: []resolution.Field{
-							{Name: "address", Type: resolution.TypeRef{Name: "shared.Address"}},
+							{
+								Name: "address",
+								Type: resolution.TypeRef{Name: "shared.Address"},
+							},
 						},
 					},
 					Domains: pbDomains("core/pkg/user"),
@@ -720,8 +769,12 @@ var _ = Describe("Plugin", func() {
 						break
 					}
 				}
-				Expect(userContent).To(ContainSubstring(`import "core/pkg/shared/pb/shared.proto";`))
-				Expect(userContent).To(ContainSubstring(".shared.shared.pb.Address address = 1;"))
+				Expect(
+					userContent,
+				).To(ContainSubstring(`import "core/pkg/shared/pb/shared.proto";`))
+				Expect(
+					userContent,
+				).To(ContainSubstring(".shared.shared.pb.Address address = 1;"))
 			})
 		})
 
@@ -757,7 +810,10 @@ var _ = Describe("Plugin", func() {
 					QualifiedName: "task.Task",
 					Form: resolution.StructForm{
 						Fields: []resolution.Field{
-							{Name: "priority", Type: resolution.TypeRef{Name: "shared.Priority"}},
+							{
+								Name: "priority",
+								Type: resolution.TypeRef{Name: "shared.Priority"},
+							},
 						},
 					},
 					Domains: pbDomains("core/pkg/task"),
@@ -774,8 +830,12 @@ var _ = Describe("Plugin", func() {
 						break
 					}
 				}
-				Expect(taskContent).To(ContainSubstring(`import "core/pkg/shared/pb/shared.proto";`))
-				Expect(taskContent).To(ContainSubstring(".shared.shared.pb.Priority priority = 1;"))
+				Expect(
+					taskContent,
+				).To(ContainSubstring(`import "core/pkg/shared/pb/shared.proto";`))
+				Expect(
+					taskContent,
+				).To(ContainSubstring(".shared.shared.pb.Priority priority = 1;"))
 			})
 		})
 
@@ -882,15 +942,23 @@ var _ = Describe("Plugin", func() {
 				`
 				resp := MustGenerate(ctx, source, "user", loader, p)
 				content := string(resp.Files[0].Content)
-				Expect(content).To(ContainSubstring("// User is a representation of a user in the system."))
-				Expect(content).To(ContainSubstring("// key is the unique identifier for the user."))
-				Expect(content).To(ContainSubstring("// name is the user's display name."))
+				Expect(
+					content,
+				).To(ContainSubstring("// User is a representation of a user in the system."))
+				Expect(
+					content,
+				).To(ContainSubstring("// key is the unique identifier for the user."))
+				Expect(
+					content,
+				).To(ContainSubstring("// name is the user's display name."))
 			})
 		})
 
 		Context("enum-only @pb schema", func() {
-			It("Should emit a proto file with the enum and no messages", func(ctx SpecContext) {
-				loader.Add("schemas/text", `
+			It(
+				"Should emit a proto file with the enum and no messages",
+				func(ctx SpecContext) {
+					loader.Add("schemas/text", `
 					@go output "x/go/text"
 					@pb
 
@@ -900,15 +968,186 @@ var _ = Describe("Plugin", func() {
 						small = "small"
 					}
 				`)
-				resp := MustGenerateMulti(ctx, loader, p)
-				Expect(resp.Files).To(HaveLen(1))
-				Expect(resp.Files[0].Path).To(Equal("x/go/text/pb/text.proto"))
-				content := string(resp.Files[0].Content)
-				Expect(content).To(ContainSubstring("enum Level"))
-				Expect(content).To(ContainSubstring("LEVEL_H_1"))
-				Expect(content).To(ContainSubstring("LEVEL_SMALL"))
-				Expect(content).ToNot(ContainSubstring("message "))
-			})
+					resp := MustGenerateMulti(ctx, loader, p)
+					Expect(resp.Files).To(HaveLen(1))
+					Expect(resp.Files[0].Path).To(Equal("x/go/text/pb/text.proto"))
+					content := string(resp.Files[0].Content)
+					Expect(content).To(ContainSubstring("enum Level"))
+					Expect(content).To(ContainSubstring("LEVEL_H_1"))
+					Expect(content).To(ContainSubstring("LEVEL_SMALL"))
+					Expect(content).ToNot(ContainSubstring("message "))
+				},
+			)
 		})
 	})
 })
+
+var _ = Describe("Protobuf Union Generation", func() {
+	var (
+		loader *MockFileLoader
+		p      *types.Plugin
+	)
+
+	BeforeEach(func() {
+		loader = NewMockFileLoader()
+		p = types.New(types.DefaultOptions())
+	})
+
+	It(
+		"Should generate a wrapper message with a oneof of variant messages",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/hw/ni"
+			@pb
+
+			LinearParams struct { slope float64 }
+			NoneParams struct {}
+
+			Scale union on type {
+				linear LinearParams
+				none NoneParams
+			}
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, p)
+			ExpectContent(resp, "ni.proto").
+				ToContain(
+					"message Scale {",
+					"oneof variant {",
+					"LinearParams linear = 1;",
+					"NoneParams none = 2;",
+				)
+		},
+	)
+
+	It(
+		"Should nest shared bases as message fields outside the oneof",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/hw/ni"
+			@pb
+
+			BaseAIChan struct { port int32 }
+			VoltageFields struct { minVal float64 }
+
+			AIChannel union on type extends BaseAIChan {
+				ai_voltage VoltageFields
+			}
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, p)
+			ExpectContent(resp, "ni.proto").
+				ToContain(
+					"message AIChannel {",
+					"BaseAIChan base_ai_chan = 1;",
+					"oneof variant {",
+					"VoltageFields ai_voltage = 2;",
+				)
+		},
+	)
+
+	It(
+		"Should error when a variant omits a field from a shared base",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/hw/ni"
+			@pb
+
+			BaseAIChan struct { port int32 }
+
+			AIChannel union on type extends BaseAIChan {
+				ai_temp_builtin {
+					-port
+				}
+			}
+		`
+			req := MustGenerateRequest(ctx, source, "ni", loader)
+			_, err := p.Generate(req)
+			Expect(err).To(MatchError(ContainSubstring(
+				`union "AIChannel" variant "ai_temp_builtin" omits inherited field(s) [port], which protobuf cannot express`,
+			)))
+		},
+	)
+
+	It("Should generate messages for inline variant payloads", func(ctx SpecContext) {
+		source := `
+			@go output "core/pkg/hw/panel"
+			@pb
+
+			TabBase struct { key string }
+
+			Tab union on variant extends TabBase {
+				view {
+					type string
+				}
+				empty {}
+			}
+		`
+		resp := MustGenerate(ctx, source, "panel", loader, p)
+		ExpectContent(resp, "panel.proto").
+			ToContain(
+				"message TabViewPayload {",
+				"message TabEmptyPayload {",
+				"message Tab {",
+				"TabBase tab_base = 1;",
+				"oneof variant {",
+				"TabViewPayload view = 2;",
+				"TabEmptyPayload empty = 3;",
+			)
+	})
+
+	It(
+		"Should reference a union message from a union-typed field",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/hw/ni"
+			@pb
+
+			LinearParams struct { slope float64 }
+			NoneParams struct {}
+
+			Scale union on type {
+				linear LinearParams
+				none NoneParams
+			}
+
+			Channel struct {
+				customScale Scale
+			}
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, p)
+			ExpectContent(resp, "ni.proto").
+				ToContain("Scale custom_scale = 1;")
+		},
+	)
+	It("Should import a union field from another proto package", func(ctx SpecContext) {
+		loader.Add("schemas/scale", `
+			@pb
+			@go output "core/pkg/service/scale"
+
+			LinearParams struct { slope float64 }
+			NoneParams struct {}
+
+			Scale union on type {
+				linear LinearParams
+				none   NoneParams
+			}
+		`)
+		source := `
+			import "schemas/scale"
+
+			@pb
+			@go output "core/pkg/service/ni"
+
+			Channel struct {
+				custom_scale scale.Scale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, p)
+		ExpectContent(resp, "ni.proto").
+			ToContain(
+				`import "core/pkg/service/scale/pb/scale.proto";`,
+				"custom_scale = 1;",
+			)
+	})
+})
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

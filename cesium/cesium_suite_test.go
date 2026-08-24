@@ -11,35 +11,47 @@ package cesium_test
 
 import (
 	"context"
-	"runtime"
 	"strconv"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium"
-	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func openDBOnFS(ctx context.Context, fs xfs.FS) *cesium.DB {
+func openDBOnFS(ctx context.Context, fs fs.FS, opts ...cesium.Option) *cesium.DB {
 	return MustSucceed(cesium.Open(ctx,
 		"",
-		cesium.WithFS(fs),
-		cesium.WithInstrumentation(PanicLogger()),
+		append([]cesium.Option{
+			cesium.WithFS(fs),
+			cesium.WithInstrumentation(PanicLogger()),
+		}, opts...)...,
 	))
 }
 
-func channelKeyToPath(key cesium.ChannelKey) string {
-	return strconv.Itoa(int(key))
+func mustOpenDBOnFS(ctx context.Context, fs fs.FS, opts ...cesium.Option) *cesium.DB {
+	return DeferClose(openDBOnFS(ctx, fs, opts...))
+}
+
+func channelKeyToPath(key cesium.ChannelKey) string { return strconv.Itoa(int(key)) }
+
+// virtualChannel returns a virtual channel with the given key and name.
+func virtualChannel(key cesium.ChannelKey, name string) cesium.Channel {
+	return cesium.Channel{
+		Key:      key,
+		Name:     name,
+		DataType: telem.Int64T,
+		Virtual:  true,
+	}
 }
 
 func TestCesium(t *testing.T) {
-	runtime.GOMAXPROCS(4)
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Cesium Suite")
 }
 
-var _ = BeforeSuite(func() {
-	ShouldNotLeakGoroutines()
-})
+var _ = ShouldNotLeakGoroutinesPerSpec()

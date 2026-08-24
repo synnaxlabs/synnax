@@ -15,6 +15,7 @@ import { List } from "@/list";
 import { ListItem } from "@/select/ListItem";
 import { Single, type SingleProps } from "@/select/Single";
 
+/** One option in a {@link Static} selection. */
 export interface StaticEntry<K extends record.Key> extends record.KeyedNamed<K> {
   icon?: Icon.ReactElement;
 }
@@ -28,7 +29,7 @@ export interface StaticProps<
       Omit<SingleProps<K, E>, "data" | "getItem" | "subscribe">,
       "children"
     >,
-    List.UseStaticDataArgs<K, E> {}
+    List.UseStaticDataParams<K, E> {}
 
 const listItem = Component.renderProp((p: List.ItemProps<record.Key>) => {
   const { itemKey } = p;
@@ -43,6 +44,12 @@ const listItem = Component.renderProp((p: List.ItemProps<record.Key>) => {
   );
 });
 
+/**
+ * A {@link Single} over an in-memory array, with client-side search and a default item
+ * that renders the entry icon and name.
+ *
+ * @example <Select.Static resourceName="Mode" data={MODES} value={v} onChange={set} />
+ */
 export const Static = <K extends record.Key, E extends record.KeyedNamed<K>>({
   data,
   filter,

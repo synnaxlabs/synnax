@@ -1,0 +1,38 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { Note } from "@synnaxlabs/pluto";
+
+import { Video } from "@/components/media/Media";
+
+interface Props {
+    type: string;
+    video: string;
+}
+
+const { type, video } = Astro.props;
+---
+
+<p>
+    Create a {type} with the <code>Create a {type}</code> command in the{" "}
+    <a href="/reference/console/ui-overview#search-and-command-palette">
+        Command Palette
+    </a>, or by adding a new tab and selecting the {type} visualization.
+</p>
+
+<Note.Note variant="warning">
+    <p>
+        Make sure that you are working in an{" "}
+        <a href="/reference/console/projects"><b>active project</b></a>. A {type}{" "}
+        created outside one is <b>not saved</b>.
+    </p>
+</Note.Note>
+
+<Video client:only="react" id={video} />

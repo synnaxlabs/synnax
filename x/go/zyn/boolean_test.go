@@ -92,62 +92,86 @@ var _ = Describe("Bool", func() {
 	Describe("Invalid Inputs", func() {
 		Specify("invalid string", func() {
 			var dest bool
-			Expect(zyn.Bool().Parse("invalid", &dest)).To(MatchError(ContainSubstring("invalid boolean string 'invalid': must be 'true', 'false', '1', or '0'")))
+			Expect(
+				zyn.Bool().Parse("invalid", &dest),
+			).To(MatchError(ContainSubstring("invalid boolean string 'invalid': must be 'true', 'false', '1', or '0'")))
 		})
 
 		Specify("nil pointer", func() {
 			var dest *bool
-			Expect(zyn.Bool().Parse(true, dest)).To(MatchError(zyn.ErrInvalidDestinationType))
+			Expect(
+				zyn.Bool().Parse(true, dest),
+			).To(MatchError(zyn.ErrInvalidDestinationType))
 		})
 
 		Specify("non-pointer destination", func() {
 			var dest bool
-			Expect(zyn.Bool().Parse(true, dest)).To(MatchError(zyn.ErrInvalidDestinationType))
+			Expect(
+				zyn.Bool().Parse(true, dest),
+			).To(MatchError(zyn.ErrInvalidDestinationType))
 		})
 
 		Specify("nil interface", func() {
 			var dest any
-			Expect(zyn.Bool().Parse(true, dest)).To(MatchError(zyn.ErrInvalidDestinationType))
+			Expect(
+				zyn.Bool().Parse(true, dest),
+			).To(MatchError(zyn.ErrInvalidDestinationType))
 		})
 
 		Specify("invalid type", func() {
 			var dest bool
-			Expect(zyn.Bool().Parse(struct{}{}, &dest)).To(MatchError(ContainSubstring("expected boolean, string, number, or nil")))
+			Expect(
+				zyn.Bool().Parse(struct{}{}, &dest),
+			).To(MatchError(ContainSubstring("expected boolean, string, number, or nil")))
 		})
 
 		Specify("string destination", func() {
 			var dest string
-			Expect(zyn.Bool().Parse(true, &dest)).To(MatchError(zyn.ErrInvalidDestinationType))
+			Expect(
+				zyn.Bool().Parse(true, &dest),
+			).To(MatchError(zyn.ErrInvalidDestinationType))
 		})
 
 		Specify("numeric destination", func() {
 			var dest int
-			Expect(zyn.Bool().Parse(true, &dest)).To(MatchError(zyn.ErrInvalidDestinationType))
+			Expect(
+				zyn.Bool().Parse(true, &dest),
+			).To(MatchError(zyn.ErrInvalidDestinationType))
 		})
 
 		Specify("float destination", func() {
 			var dest float64
-			Expect(zyn.Bool().Parse(true, &dest)).To(MatchError(zyn.ErrInvalidDestinationType))
+			Expect(
+				zyn.Bool().Parse(true, &dest),
+			).To(MatchError(zyn.ErrInvalidDestinationType))
 		})
 
 		Specify("channel destination", func() {
 			var dest chan bool
-			Expect(zyn.Bool().Parse(true, &dest)).To(MatchError(zyn.ErrInvalidDestinationType))
+			Expect(
+				zyn.Bool().Parse(true, &dest),
+			).To(MatchError(zyn.ErrInvalidDestinationType))
 		})
 
 		Specify("slice destination", func() {
 			var dest []bool
-			Expect(zyn.Bool().Parse(true, &dest)).To(MatchError(zyn.ErrInvalidDestinationType))
+			Expect(
+				zyn.Bool().Parse(true, &dest),
+			).To(MatchError(zyn.ErrInvalidDestinationType))
 		})
 
 		Specify("map destination", func() {
 			var dest map[string]string
-			Expect(zyn.Bool().Parse(true, &dest)).To(MatchError(zyn.ErrInvalidDestinationType))
+			Expect(
+				zyn.Bool().Parse(true, &dest),
+			).To(MatchError(zyn.ErrInvalidDestinationType))
 		})
 
 		Specify("struct destination", func() {
 			var dest struct{ Flag bool }
-			Expect(zyn.Bool().Parse(true, &dest)).To(MatchError(zyn.ErrInvalidDestinationType))
+			Expect(
+				zyn.Bool().Parse(true, &dest),
+			).To(MatchError(zyn.ErrInvalidDestinationType))
 		})
 	})
 
@@ -173,58 +197,62 @@ var _ = Describe("Bool", func() {
 			type MyBool bool
 			var dest *MyBool
 			Expect(zyn.Bool().Optional().Parse(true, &dest)).To(Succeed())
-			Expect(*dest).To(Equal(MyBool(true)))
+			// BeTrue() panics on custom bool types because it asserts the value is
+			// exactly bool; Equal(MyBool(true)) is the correct matcher here.
+			Expect(*dest).To(Equal(MyBool(true))) //nolint:ginkgolinter
 		})
 	})
 
 	Describe("Dump", func() {
 		Specify("boolean value", func() {
-			Expect(zyn.Bool().Dump(true)).To(Equal(true))
+			Expect(zyn.Bool().Dump(true)).To(BeTrue())
 		})
 
 		Specify("string 'true'", func() {
 			result := MustSucceed(zyn.Bool().Dump("true"))
-			Expect(result).To(Equal(true))
+			Expect(result).To(BeTrue())
 		})
 
 		Specify("string '1'", func() {
 			result := MustSucceed(zyn.Bool().Dump("1"))
-			Expect(result).To(Equal(true))
+			Expect(result).To(BeTrue())
 		})
 
 		Specify("string 'false'", func() {
 			result := MustSucceed(zyn.Bool().Dump("false"))
-			Expect(result).To(Equal(false))
+			Expect(result).To(BeFalse())
 		})
 
 		Specify("string '0'", func() {
 			result := MustSucceed(zyn.Bool().Dump("0"))
-			Expect(result).To(Equal(false))
+			Expect(result).To(BeFalse())
 		})
 
 		Specify("integer 1", func() {
 			result := MustSucceed(zyn.Bool().Dump(1))
-			Expect(result).To(Equal(true))
+			Expect(result).To(BeTrue())
 		})
 
 		Specify("integer 0", func() {
 			result := MustSucceed(zyn.Bool().Dump(0))
-			Expect(result).To(Equal(false))
+			Expect(result).To(BeFalse())
 		})
 
 		Specify("float 1.0", func() {
 			result := MustSucceed(zyn.Bool().Dump(1.0))
-			Expect(result).To(Equal(true))
+			Expect(result).To(BeTrue())
 		})
 
 		Specify("float 0.0", func() {
 			result := MustSucceed(zyn.Bool().Dump(0.0))
-			Expect(result).To(Equal(false))
+			Expect(result).To(BeFalse())
 		})
 
 		Specify("invalid string", func() {
 			_, err := zyn.Bool().Dump("invalid")
-			Expect(err).To(MatchError(ContainSubstring("invalid boolean string 'invalid': must be 'true', 'false', '1', or '0'")))
+			Expect(
+				err,
+			).To(MatchError(ContainSubstring("invalid boolean string 'invalid': must be 'true', 'false', '1', or '0'")))
 		})
 
 		Specify("nil value", func() {
@@ -240,7 +268,9 @@ var _ = Describe("Bool", func() {
 
 		Specify("invalid type", func() {
 			_, err := zyn.Bool().Dump(struct{}{})
-			Expect(err).To(MatchError(ContainSubstring("expected boolean, string, number, or nil")))
+			Expect(
+				err,
+			).To(MatchError(ContainSubstring("expected boolean, string, number, or nil")))
 		})
 
 		Specify("optional nil value", func() {
@@ -257,7 +287,7 @@ var _ = Describe("Bool", func() {
 		Specify("custom type", func() {
 			type MyBool bool
 			result := MustSucceed(zyn.Bool().Dump(MyBool(true)))
-			Expect(result).To(Equal(true))
+			Expect(result).To(BeTrue())
 		})
 	})
 })

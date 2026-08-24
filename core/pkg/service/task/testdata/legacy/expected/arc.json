@@ -1,0 +1,10 @@
+{
+  "arc_key": "3f5b0f65-40f5-4b2e-9c3a-8f4de1c07a42",
+  "auto_start": false,
+  "cpu_affinity": -1,
+  "data_saving_disabled": false,
+  "execution_mode": "AUTO",
+  "hash": "",
+  "memory_locked": false,
+  "rt_priority": 47
+}

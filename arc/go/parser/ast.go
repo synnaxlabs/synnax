@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/x/set"
 )
 
 // IsLiteral checks if an expression is a single literal value (optionally negated)
@@ -47,12 +48,11 @@ func isNegatedLiteral(node antlr.ParserRuleContext) bool {
 		muls := ctx.AllMultiplicativeExpression()
 		return len(muls) == 1 && isNegatedLiteral(muls[0])
 	case IMultiplicativeExpressionContext:
-		pows := ctx.AllPowerExpression()
-		return len(pows) == 1 && isNegatedLiteral(pows[0])
-	case IPowerExpressionContext:
-		return ctx.CARET() == nil && isNegatedLiteral(ctx.UnaryExpression())
+		unaries := ctx.AllUnaryExpression()
+		return len(unaries) == 1 && isNegatedLiteral(unaries[0])
 	case IUnaryExpressionContext:
-		return ctx.MINUS() != nil && ctx.UnaryExpression() != nil && isLiteral(ctx.UnaryExpression())
+		return ctx.MINUS() != nil && ctx.UnaryExpression() != nil &&
+			isLiteral(ctx.UnaryExpression())
 	}
 	return false
 }
@@ -78,15 +78,15 @@ func isLiteral(node antlr.ParserRuleContext) bool {
 		muls := ctx.AllMultiplicativeExpression()
 		return len(muls) == 1 && isLiteral(muls[0])
 	case IMultiplicativeExpressionContext:
-		pows := ctx.AllPowerExpression()
-		return len(pows) == 1 && isLiteral(pows[0])
-	case IPowerExpressionContext:
-		return ctx.CARET() == nil && isLiteral(ctx.UnaryExpression())
+		unaries := ctx.AllUnaryExpression()
+		return len(unaries) == 1 && isLiteral(unaries[0])
 	case IUnaryExpressionContext:
 		if ctx.MINUS() != nil && ctx.UnaryExpression() != nil {
 			return isLiteral(ctx.UnaryExpression())
 		}
-		return ctx.UnaryExpression() == nil && isLiteral(ctx.PostfixExpression())
+		return ctx.UnaryExpression() == nil && isLiteral(ctx.PowerExpression())
+	case IPowerExpressionContext:
+		return ctx.CARET() == nil && isLiteral(ctx.PostfixExpression())
 	case IPostfixExpressionContext:
 		return len(ctx.AllIndexOrSlice()) == 0 &&
 			len(ctx.AllFunctionCallSuffix()) == 0 &&
@@ -135,19 +135,19 @@ func GetLiteralNode(node antlr.ParserRuleContext) ILiteralContext {
 			return GetLiteralNode(muls[0])
 		}
 	case IMultiplicativeExpressionContext:
-		pows := ctx.AllPowerExpression()
-		if len(pows) == 1 {
-			return GetLiteralNode(pows[0])
-		}
-	case IPowerExpressionContext:
-		if ctx.CARET() == nil {
-			return GetLiteralNode(ctx.UnaryExpression())
+		unaries := ctx.AllUnaryExpression()
+		if len(unaries) == 1 {
+			return GetLiteralNode(unaries[0])
 		}
 	case IUnaryExpressionContext:
 		if ctx.MINUS() != nil && ctx.UnaryExpression() != nil {
 			return GetLiteralNode(ctx.UnaryExpression())
 		}
 		if ctx.UnaryExpression() == nil {
+			return GetLiteralNode(ctx.PowerExpression())
+		}
+	case IPowerExpressionContext:
+		if ctx.CARET() == nil {
 			return GetLiteralNode(ctx.PostfixExpression())
 		}
 	case IPostfixExpressionContext:
@@ -201,15 +201,15 @@ func isNumericLiteral(node antlr.ParserRuleContext) bool {
 		muls := ctx.AllMultiplicativeExpression()
 		return len(muls) == 1 && isNumericLiteral(muls[0])
 	case IMultiplicativeExpressionContext:
-		pows := ctx.AllPowerExpression()
-		return len(pows) == 1 && isNumericLiteral(pows[0])
-	case IPowerExpressionContext:
-		return ctx.CARET() == nil && isNumericLiteral(ctx.UnaryExpression())
+		unaries := ctx.AllUnaryExpression()
+		return len(unaries) == 1 && isNumericLiteral(unaries[0])
 	case IUnaryExpressionContext:
 		if ctx.MINUS() != nil {
 			return isNumericLiteral(ctx.UnaryExpression())
 		}
-		return ctx.UnaryExpression() == nil && isNumericLiteral(ctx.PostfixExpression())
+		return ctx.UnaryExpression() == nil && isNumericLiteral(ctx.PowerExpression())
+	case IPowerExpressionContext:
+		return ctx.CARET() == nil && isNumericLiteral(ctx.PostfixExpression())
 	case IPostfixExpressionContext:
 		return len(ctx.AllIndexOrSlice()) == 0 &&
 			len(ctx.AllFunctionCallSuffix()) == 0 &&
@@ -221,6 +221,32 @@ func isNumericLiteral(node antlr.ParserRuleContext) bool {
 		return false
 	}
 	return false
+}
+
+// CollectIdentifiers returns the primary-expression identifier names in expr,
+// deduplicated, in source order.
+func CollectIdentifiers(expr IExpressionContext) []string {
+	var (
+		names []string
+		seen  = make(set.Set[string])
+		walk  func(t antlr.Tree)
+	)
+	walk = func(t antlr.Tree) {
+		if pe, ok := t.(IPrimaryExpressionContext); ok {
+			if id := pe.IDENTIFIER(); id != nil {
+				name := id.GetText()
+				if !seen.Contains(name) {
+					seen.Add(name)
+					names = append(names, name)
+				}
+			}
+		}
+		for i := 0; i < t.GetChildCount(); i++ {
+			walk(t.GetChild(i))
+		}
+	}
+	walk(expr)
+	return names
 }
 
 // GetPrimaryExpression extracts the primary expression from an expression that has no
@@ -250,18 +276,15 @@ func GetPrimaryExpression(expr IExpressionContext) IPrimaryExpressionContext {
 		return nil
 	}
 	mult := add.AllMultiplicativeExpression()[0]
-	if len(mult.AllPowerExpression()) != 1 {
+	if len(mult.AllUnaryExpression()) != 1 {
 		return nil
 	}
-	pow := mult.AllPowerExpression()[0]
-	if pow.CARET() != nil {
+	unary := mult.AllUnaryExpression()[0]
+	pow := unary.PowerExpression()
+	if pow == nil || pow.CARET() != nil {
 		return nil
 	}
-	unary := pow.UnaryExpression()
-	if unary == nil {
-		return nil
-	}
-	postfix := unary.PostfixExpression()
+	postfix := pow.PostfixExpression()
 	if postfix == nil {
 		return nil
 	}

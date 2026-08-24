@@ -13,14 +13,13 @@ import (
 	"context"
 	"strings"
 
-	"go.uber.org/zap"
-
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
 )
 
 // Config is the configuration for the instrumentation Middleware.
@@ -153,7 +152,9 @@ func log(ctx freighter.Context, err error, cfg Config) {
 	// which happens when performing tasks like reloading web pages. As such,
 	// we don't consider it anomalous and don't log it.
 	if errors.Skip(err, context.Canceled) != nil {
-		cfg.L.Warn(ctx.Target.String(), append(args, zap.String("error", err.Error()))...)
+		cfg.L.Warn(
+			ctx.Target.String(),
+			append(args, zap.String("error", err.Error()))...)
 	} else {
 		cfg.L.Debug(ctx.Target.String(), args...)
 	}

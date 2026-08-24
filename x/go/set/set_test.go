@@ -48,7 +48,7 @@ var _ = Describe("Set", func() {
 
 		It("Should create an empty set with no elements", func() {
 			s = set.New[int]()
-			Expect(s).To(HaveLen(0))
+			Expect(s).To(BeEmpty())
 		})
 	})
 
@@ -112,7 +112,7 @@ var _ = Describe("Set", func() {
 
 		It("Should be a no-op on an empty set", func() {
 			s.Remove(1, 2, 3)
-			Expect(s).To(HaveLen(0))
+			Expect(s).To(BeEmpty())
 		})
 
 		It("Should be a no-op with no elements", func() {
@@ -124,7 +124,7 @@ var _ = Describe("Set", func() {
 		It("Should remove all elements when all are specified", func() {
 			s.Add(1, 2, 3)
 			s.Remove(1, 2, 3)
-			Expect(s).To(HaveLen(0))
+			Expect(s).To(BeEmpty())
 		})
 
 		It("Should remove a single element", func() {
@@ -209,9 +209,9 @@ var _ = Describe("Set", func() {
 
 		It("Should handle copying an empty set", func() {
 			copied := s.Copy()
-			Expect(copied).To(HaveLen(0))
+			Expect(copied).To(BeEmpty())
 			copied.Add(1, 2, 3)
-			Expect(s).To(HaveLen(0))
+			Expect(s).To(BeEmpty())
 		})
 	})
 
@@ -347,7 +347,7 @@ var _ = Describe("Set", func() {
 		It("Should return empty when a is a subset of b", func() {
 			a := set.New(1, 2, 3)
 			b := set.New(1, 2, 3, 4, 5)
-			Expect(a.Difference(b)).To(HaveLen(0))
+			Expect(a.Difference(b)).To(BeEmpty())
 		})
 
 		It("Should return all of a when b is empty", func() {
@@ -363,13 +363,13 @@ var _ = Describe("Set", func() {
 		It("Should return empty when a is empty", func() {
 			a := make(set.Set[int])
 			b := set.New(1, 2, 3)
-			Expect(a.Difference(b)).To(HaveLen(0))
+			Expect(a.Difference(b)).To(BeEmpty())
 		})
 
 		It("Should return empty when both are empty", func() {
 			a := make(set.Set[int])
 			b := make(set.Set[int])
-			Expect(a.Difference(b)).To(HaveLen(0))
+			Expect(a.Difference(b)).To(BeEmpty())
 		})
 
 		It("Should return all of a when there is no overlap", func() {
@@ -385,7 +385,7 @@ var _ = Describe("Set", func() {
 		It("Should return empty when sets are identical", func() {
 			a := set.New(1, 2, 3)
 			b := set.New(1, 2, 3)
-			Expect(a.Difference(b)).To(HaveLen(0))
+			Expect(a.Difference(b)).To(BeEmpty())
 		})
 
 		It("Should not modify the original sets", func() {

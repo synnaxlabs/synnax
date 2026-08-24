@@ -11,8 +11,10 @@ nextURL: "/reference/console/tables"
 
 import { Divider, Note, Icon, Flex } from "@synnaxlabs/pluto";
 import { Image, Video } from "@/components/media/Media";
-import { Table } from "@/components";
 import Diagram from "@/components/diagram/Diagram.astro";
+import CreateVisualization from "@/components/console/CreateVisualization.astro";
+import ShareAndExport from "@/components/console/ShareAndExport.astro";
+import ControlChip from "@/components/console/ControlChip.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -30,9 +32,8 @@ export const components = mdxOverrides;
   />
 </Diagram>
 
-A schematic is used to see a diagram of your physical or simulated system. It displays
-live sensor data and can be used to exercise manual control by changing the values of
-channels tied to actuators.
+A schematic diagrams your physical or simulated system. It displays live sensor data and
+lets you exercise manual control by writing to channels tied to actuators.
 
 [Download the example schematic](https://github.com/synnaxlabs/synnax/blob/main/client/py/examples/control/tpc/schematic.json)
 to try it out yourself.
@@ -41,32 +42,7 @@ to try it out yourself.
 
 ## Creating a Schematic
 
-Creating a schematic is as simple as adding a new tab and selecting the schematic
-visualization:
-
-<Video client:only="react" id="console/schematics/create" />
-
-<Note.Note variant="warning">
-  Make sure that you are working in an active
-  [workspace](/reference/console/workspaces)! If your schematic is not created in a
-  workspace, it will not be saved permanently to Synnax.
-</Note.Note>
-
-### Export a Schematic
-
-You can download a schematic as a JSON file so that it can be easily sent and loaded.
-
-To download, right click on the schematic's name in the Workspaces Toolbar and click
-"Download as JSON":
-
-<Video client:only="react" id="console/schematics/download" />
-
-### Import a Schematic
-
-To import a schematic, you can drag and drop from your file system or right click on a
-workspace name in the Workspaces Toolbar:
-
-<Video client:only="react" id="console/schematics/upload" />
+<CreateVisualization type="schematic" video="console/schematics/create" />
 
 <Divider.Divider x />
 
@@ -109,30 +85,42 @@ the controls in the top-right corner of the schematic.
   </tbody>
 </table>
 
+### Control Mode
+
+In control mode, click an actionable symbol, such as a valve, switch, or button, to
+write to its command channel. The indicator next to the symbol displays the control
+status.
+
+<ControlChip variant="control" /> A blue circle indicates the current user has control.
+
+<ControlChip variant="absolute" /> A green circle indicates the current user has
+absolute control.
+
+<ControlChip variant="other" /> A red square indicates another user or process holds
+control.
+
+The color of the bar and legend indicate what has control over the channel.
+
+<Video client:only="react" id="console/schematics/valve" />
+
 <Divider.Divider x />
 
-## The Symbols Library
+## Configuring the Schematic
 
-Schematics are assembled by dragging symbols out of the library and onto the screen.
-These symbols are visual representation of sensors, actuators, and other components on
-your hardware system. If the symbols are not appearing on the bottom of the screen, make
-sure to click the visualization <Icon.Visualize /> icon in the bottom-left corner.
+Click the schematic <Icon.Schematic /> button in the bottom-left corner to open the
+Component Toolbar and configure the schematic. Select a symbol to show its properties in
+the toolbar; the tabs fine-tune its look and behavior.
 
-Synnax has a collection of built-in symbols including valves, live sensor values,
-buttons, and tanks.
+### Symbols Library
 
-<Divider.Divider x />
-
-## Changing Symbol Properties
-
-When selected, a symbol's properties will appear in the bottom Visualization Toolbar.
-There are several tabs that can be used to fine-tune the look and behavior of the
-symbol.
+Schematics are assembled by dragging symbols from the library onto the canvas. Symbols
+represent sensors, actuators, and other components of your hardware system. Synnax has a
+collection of built-in symbols including valves, live sensor values, buttons, and tanks.
 
 ### Style Tab
 
-The style tab on allows users to edit (<Icon.Edit />) the symbol's label, size,
-orientation, color, and other visual properties.
+The style tab edits the symbol's label, size, orientation, color, and other visual
+properties.
 
 <table>
   <thead>
@@ -164,13 +152,13 @@ orientation, color, and other visual properties.
       <td>
         <b>Normally Open</b>
       </td>
-      {<td>Invert the visual state of the valve</td>}
+      {<td>Inverts the visual state of the valve.</td>}
     </tr>
     <tr>
       <td>
         <b>Units</b>
       </td>
-      <td>Determines what units a value symbol is displaying.</td>
+      <td>The units a value symbol displays.</td>
     </tr>
     <tr>
       <td>
@@ -188,11 +176,9 @@ orientation, color, and other visual properties.
 
 ### Telemetry Tab
 
-The telemetry tab is available on symbols that receive data, such as the value and light
-symbols. After selecting a channel from the dropdown, the schematic will fetch and
-display the live data from that channel.
-
-The telemetry tab can have the following properties:
+The telemetry tab is available on symbols that receive data, such as the value, gauge,
+string display, light, switch, valve, and state indicator symbols. Select a channel to
+stream and display its live data.
 
 <table>
   <thead>
@@ -204,7 +190,7 @@ The telemetry tab can have the following properties:
   <tbody>
     <tr>
       <td>
-        <b>Input channel</b>
+        <b>Channel</b>
       </td>
       <td>The channel to stream data from.</td>
     </tr>
@@ -220,8 +206,8 @@ The telemetry tab can have the following properties:
       </td>
       {
         <td>
-          Display a rolling average for the input channel. This does not change the
-          underlying value written to the Synnax Core.
+          Display a rolling average for the channel. This does not change the underlying
+          value written to the Synnax Core.
         </td>
       }
     </tr>
@@ -231,8 +217,8 @@ The telemetry tab can have the following properties:
       </td>
       {
         <td>
-          The amount of seconds without input channel telemetry before the element state
-          registers as stale.
+          The time in seconds without data from the channel before the symbol registers
+          as stale.
         </td>
       }
     </tr>
@@ -240,17 +226,27 @@ The telemetry tab can have the following properties:
       <td>
         <b>Stale color</b>
       </td>
-      {<td>The color the element will change to when telemetry is stale.</td>}
+      {
+        <td>
+          The color the symbol changes to when its channel is stale. An unset color uses
+          the warning color of the current theme.
+        </td>
+      }
     </tr>
   </tbody>
 </table>
+
+<Note.Note variant="info">
+  A channel that writes on change can pass its stale timeout while it is healthy. Give
+  such a channel a timeout longer than the longest gap you expect between changes. A
+  symbol registers as stale only after data arrives and then stops.
+</Note.Note>
 
 <Video client:only="react" id="console/schematics/value" />
 
 ### Control Tab
 
-The control tab is available on symbols that can be actuated. Controllable symbols have
-two main properties:
+The control tab is available on symbols that can be actuated.
 
 <table>
   <thead>
@@ -266,8 +262,8 @@ two main properties:
       </td>
       {
         <td>
-          Represents the display state of the symbol. If the input channel has a value
-          of <code>1</code>, the symbol will be display as <code>activated</code>.
+          The display state of the symbol. The symbol displays as activated when the
+          channel has a value of <code>1</code>.
         </td>
       }
     </tr>
@@ -277,10 +273,8 @@ two main properties:
       </td>
       {
         <td>
-          Channel to write command to when the symbol is clicked. If the symbol is
-          <code>deactivated</code>, clicking it will write <code>1</code> to the output
-          channel. If the symbol is <code>activated</code>, clicking it will write
-          <code>0</code> to the output channel.
+          The channel commands are written to. Clicking a deactivated symbol writes
+          <code>1</code>; clicking an activated symbol writes <code>0</code>.
         </td>
       }
     </tr>
@@ -289,22 +283,19 @@ two main properties:
 
 <Divider.Divider x />
 
-## Stylistic Modifying the Schematic
-
-There are many ways that you can change the visuals of a schematic.
+## Styling the Schematic
 
 ### Connection Lines
 
-Every symbol has locations to attach connection lines. When hovering over an symbol,
-these attachment points appear. To draw a connection line, click on an attachment point
-and drag the line to a different symbol:
+Attachment points appear when you hover over a symbol. To draw a connection line, click
+an attachment point and drag to another symbol:
 
 <Video client:only="react" id="console/schematics/connections" />
 
 ### Aligning Elements
 
-To align elements, create a selection box by clicking and dragging on the canvas. Then,
-use the vertical or horizontal alignment buttons to align the selected elements:
+Select elements by dragging a box on the canvas, then use the vertical or horizontal
+alignment buttons:
 
 <Video client:only="react" id="console/schematics/align-items" />
 
@@ -316,36 +307,10 @@ You can also change the color of multiple symbols together in the same manner:
 
 <Divider.Divider x />
 
-## Control Mode
-
-In control mode, elements on the schematic are able to be activated for manual control
-of the system. Clicking on an actionable element, such as a valve, switch, or button,
-allows you to activate the output channel on that element. The indicator next to the
-element displays the control status.
-
-<Icon.Circle color="var(--pluto-primary-z)" /> Blue circle is indicates the current user
-has control.
-
-<Icon.Circle color="var(--pluto-secondary-z)" /> Green circle indicates the current user
-has absolute control.
-
-<Icon.Circle color="var(--pluto-error-z)" /> Red circle indicates the current user does
-not have control as the command channel is being controlled by another user or an
-automated sequence.
-
-The color of the bar indicates what is controlling the elements on the schematic. There
-is a legend on the display indicating what controlling node is what color.
-
-<Video client:only="react" id="console/schematics/valve" />
-
-<Divider.Divider x />
-
 ## Snapshotting a Schematic
 
-Oftentimes, you will want to save the configuration of a schematic to a particular
-range, so you can see exactly how a schematic looked at a certain point in time. To do
-this, you can snapshot a schematic to a range by finding the schematic in the Workspaces
-Toolbar, opening the context menu, and snapshotting the schematic to a range.
+Snapshot a schematic to a range to preserve exactly how it looked at that point in time.
+Right-click the schematic in the Projects Toolbar and snapshot it to a range.
 
 <Video client:only="react" id="console/schematics/snapshot" />
 
@@ -353,12 +318,12 @@ Toolbar, opening the context menu, and snapshotting the schematic to a range.
 
 ## Creating Custom Symbols
 
-You can create your own schematic symbols by using the built-in symbol editor. These
-symbols can be used as part of a schematic, and can also actuate channels when clicked.
+Create your own symbols with the built-in symbol editor. They can display data and
+actuate channels like the built-in symbols.
 
 ### Creating a Symbol Group
 
-The first step is to create a new symbol group within the schematic symbols browser.
+Create a new symbol group in the schematic symbols browser.
 
 <Video client:only="react" id="console/schematics/symbol-create-group" />
 
@@ -370,20 +335,16 @@ Once you've created a group, open the create symbol dialog and import an SVG fil
 
 ### Static Symbols vs. Actuators
 
-Custom symbols come in two flavors: static symbols and actuators. Static symbols are
-used for background images and other non-interactive elements. They have a single color
-palette, and are not connected to any telemetry sources.
+Static symbols are used for background images and other non-interactive elements. They
+have a single color palette and are not connected to any telemetry sources.
 
-Actuators are interactive elements that can command outputs to `1` or `0` (much like the
-built-in valves and switches). Actuators have two states, "base" and "active". The base
-state is what the symbol looks like when it is not activated, meaning the channel that
-it is connected to has a zero value. The active state is what the symbol looks like when
-it is activated, meaning the channel that it is connected to has a one value.
+Actuators are interactive elements that command outputs to `1` or `0`, like the built-in
+valves and switches. They have two states: `base`, shown when the connected channel is
+`0`, and `active`, shown when it is `1`.
 
 ### Choosing Color Palettes
 
-Each state state in an actuator has its own color palette, which can be used to change
-the colors of the symbol when it is activated.
+Each actuator state has its own color palette.
 
 <Flex.Box x justify="center">
   <Image
@@ -393,15 +354,19 @@ the colors of the symbol when it is activated.
   />
 </Flex.Box>
 
-When an SVG is imported, we'll automatically identify regions of the SVG by their color.
-To change the colors of a particular region, simply click on the color swatches and and
-choose a new color.
+Synnax identifies regions of the imported SVG by color. Click a region's color swatch to
+change it.
 
-To edit how an actuator will look when clicked, select the "active" tab under the states
-section, and edit the colors of the region.
+To edit how an actuator looks when clicked, select the `active` tab under the states
+section and edit the region's colors.
 
 ### Scaling the Symbol
 
-By default, Synnax uses the dimensions of the imported SVG to determine the default size
-of the symbol when it is added to a schematic. To change this scale, simply drag the
-slider or enter a new value in the properties field.
+The imported SVG's dimensions set the symbol's default size on a schematic. Drag the
+slider or enter a value in the properties field to change the scale.
+
+<Divider.Divider x />
+
+## Sharing and Exporting
+
+<ShareAndExport type="schematic" />

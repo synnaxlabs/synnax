@@ -73,7 +73,7 @@ class EditProps(ConsoleCase):
             retrieve_if_name_exists=True,
         )
 
-        schematic = self.console.workspace.create_schematic("edit_symbol_props")
+        schematic = self.console.pages.create(Schematic, "edit_symbol_props")
         self._cleanup_pages.append(schematic.page_name)
         self.test_schematic_props(schematic)
         self.test_value_props(schematic)
@@ -140,7 +140,7 @@ class EditProps(ConsoleCase):
             "notation": "standard",
             "precision": 2,
             "averaging_window": 1,
-            "stale_color": "#C29D0A",  # pluto-warning-m1
+            "stale_color": "#B07207",  # pluto-warning-m1 (light theme)
             "stale_timeout": 5,
         }
         assert_symbol_properties(value, default_props)
@@ -207,13 +207,13 @@ class EditProps(ConsoleCase):
         self.log("2.2 Edited")
         button.set_properties(
             channel_name=CHANNEL_NAME,
-            activation_delay=4.2,
             show_control_chip=False,
             mode="Momentary",
         )
+        # Momentary hides the activation delay field: the hold is the
+        # actuation, so no delay applies and the property is not read back.
         expected_edited_props: PropertyDict = {
             "channel": CHANNEL_NAME,
-            "activation_delay": 4.2,
             "show_control_chip": False,
             "mode": "Momentary",
         }

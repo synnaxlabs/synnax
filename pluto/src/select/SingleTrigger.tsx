@@ -15,21 +15,26 @@ import { Dialog } from "@/dialog";
 import { Haul } from "@/haul";
 import { type Icon } from "@/icon";
 import { List } from "@/list";
+import { useContext, useSelected } from "@/select/Context";
 import { staticCanDrop } from "@/select/MultipleTrigger";
-import { useContext, useSelection } from "@/select/Provider";
 
 export interface SingleTriggerEntry<K extends record.Key> extends record.KeyedNamed<K> {
   icon?: Icon.ReactElement;
 }
 
+/** Props for {@link SingleTrigger}. */
 export interface SingleTriggerProps extends Dialog.TriggerProps {
+  /** Haul item type this trigger accepts as a drop. Empty accepts nothing. */
   haulType?: string;
   placeholder?: string;
   icon?: Icon.ReactElement;
+  /** Whether to render the icon alone, with no name and no caret. */
   iconOnly?: boolean;
+  /** Chooses an icon from the selected entry, overriding `icon`. */
   renderIcon?: (entry: unknown) => Icon.ReactElement | undefined;
 }
 
+/** The button of a {@link Single} selection, showing the selected entry's name. */
 export const SingleTrigger = <K extends record.Key>({
   haulType = "",
   placeholder,
@@ -38,9 +43,10 @@ export const SingleTrigger = <K extends record.Key>({
   iconOnly = false,
   hideCaret = false,
   renderIcon,
+  preview,
   ...rest
 }: SingleTriggerProps) => {
-  const allSelected = useSelection<K>();
+  const allSelected = useSelected<K>();
   const { setSelected } = useContext<K>();
   const [selected] = allSelected;
   const item = List.useItem<K, SingleTriggerEntry<K>>(selected);
@@ -68,15 +74,16 @@ export const SingleTrigger = <K extends record.Key>({
     <Dialog.Trigger
       variant="outlined"
       gap="small"
-      className={CSS(CSS.dropRegion(canDrop(dragging)))}
+      className={CSS.cls(CSS.dropRegion(canDrop(dragging)))}
       disabled={disabled}
       {...dropProps}
       {...rest}
+      preview={preview}
       hideCaret={hideCaret || iconOnly}
       textColor={name == null ? 8 : undefined}
     >
       {resolvedIcon}
-      {!iconOnly && (name ?? placeholder)}
+      {!iconOnly && (name ?? (preview === true ? "None" : placeholder))}
     </Dialog.Trigger>
   );
 };

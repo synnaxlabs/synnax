@@ -30,15 +30,21 @@ import { Text as TelemText } from "@/telem/text";
 import { Text } from "@/text";
 import { Triggers } from "@/triggers";
 
+/** Props for {@link DateTime}. The value is UTC nanoseconds since the Unix epoch. */
 export interface DateTimeProps
   extends Omit<TextProps, "type" | "value" | "onChange">, Control<number> {}
 
+/**
+ * A combined date and time field over UTC nanoseconds, shown in local time. A dropdown
+ * offers plain-language entry ("yesterday at 3pm") and a nanosecond offset.
+ */
 export const DateTime = ({
   value,
   onChange,
   onBlur,
   onlyChangeOnBlur,
   variant,
+  preview,
   ...rest
 }: DateTimeProps): ReactElement => {
   const [tempValue, setTempValue] = useState<string | null>(null);
@@ -89,11 +95,17 @@ export const DateTime = ({
         value={tempValue ?? parsedValue}
         onChange={handleChange}
         step={0.00001}
+        preview={preview}
         {...rest}
       >
-        <Button.Button onClick={() => setVisible(!visible)} variant={variant}>
-          <Icon.Calendar />
-        </Button.Button>
+        {preview !== true && (
+          <Button.Button
+            onClick={() => setVisible(!visible)}
+            variant={variant === "shadow" ? "outlined" : variant}
+          >
+            <Icon.Calendar />
+          </Button.Button>
+        )}
       </InputText>
       <DateTimeModal
         value={tsValue}
@@ -118,7 +130,7 @@ const DateTimeModal = ({ value, onChange }: DateTimeModalProps): ReactElement =>
     <Dialog.Dialog>
       <Flex.Box className={CSS.B("datetime-modal")} empty>
         <Flex.Box className={CSS.B("datetime-modal-container")}>
-          <Flex.Box x className={CSS.B("header")}>
+          <Flex.Box x className={CSS.B("datetime-modal-header")}>
             <TelemText.TimeStamp level="h3" format="preciseDate">
               {value}
             </TelemText.TimeStamp>
@@ -134,10 +146,10 @@ const DateTimeModal = ({ value, onChange }: DateTimeModalProps): ReactElement =>
         <Nav.Bar location="bottom" size="7rem">
           <Nav.Bar.Start gap="small">
             <Triggers.Text level="small" trigger={SAVE_TRIGGER} />
-            <Text.Text level="small">To Finish</Text.Text>
+            <Text.Text level="small">to finish</Text.Text>
           </Nav.Bar.Start>
           <Nav.Bar.End>
-            <Button.Button onClick={close} variant="outlined">
+            <Button.Button onClick={close} variant="outlined" trigger={SAVE_TRIGGER}>
               Done
             </Button.Button>
           </Nav.Bar.End>
@@ -231,7 +243,7 @@ const AISelector = ({
         value={value}
         onChange={handleChange}
         autoFocus
-        placeholder="AI Suggestion"
+        placeholder="AI suggestion"
         full="x"
       />
       <Select.Frame data={data} allowNone onChange={handleSelect} getItem={getItem}>
@@ -243,13 +255,13 @@ const AISelector = ({
           emptyContent={
             <Flex.Box empty grow align="center" justify="center">
               <Flex.Box y gap="tiny">
-                <Text.Text level="small" color="var(--pluto-gray-l7)">
+                <Text.Text level="small" color="var(--pluto-gray-l9)">
                   "April 1 at 2PM"
                 </Text.Text>
-                <Text.Text level="small" color="var(--pluto-gray-l7)">
+                <Text.Text level="small" color="var(--pluto-gray-l9)">
                   "Add 2 two hours"
                 </Text.Text>
-                <Text.Text level="small" color="var(--pluto-gray-l7)">
+                <Text.Text level="small" color="var(--pluto-gray-l9)">
                   "Next Friday"
                 </Text.Text>
               </Flex.Box>
@@ -320,14 +332,16 @@ const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
           </Button.Button>
           <Text.Text
             level="small"
-            style={{ flexGrow: 1, paddingLeft: "1rem" }}
-            className={CSS.BE("calendar-header", "month")}
+            className={CSS.cls(
+              CSS.BE("calendar-header", "month"),
+              CSS.B("datetime-calendar-header-label"),
+            )}
           >
             {MONTH_NAMES[month]}
           </Text.Text>
           <Button.Button
             onClick={() => handleMonthChange(month + 1)}
-            style={{ borderTopRightRadius: 0 }}
+            className={CSS.BM("datetime-calendar-header-btn", "next")}
             variant="outlined"
           >
             <Icon.Caret.Right />
@@ -337,18 +351,19 @@ const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
           <Button.Button onClick={() => handleYearChange(year - 1)} variant="outlined">
             <Icon.Caret.Left />
           </Button.Button>
-          <Text.Text level="small" style={{ flexGrow: 1, paddingLeft: "1rem" }}>
+          <Text.Text level="small" className={CSS.B("datetime-calendar-header-label")}>
             {year}
           </Text.Text>
           <Button.Button onClick={() => handleYearChange(year + 1)} variant="outlined">
             <Icon.Caret.Right />
           </Button.Button>
         </Flex.Box>
-        <Flex.Box x wrap gap="tiny" style={{ padding: "0.5rem", height: "100%" }}>
+        <Flex.Box x wrap gap="tiny" className={CSS.B("datetime-calendar-days")}>
           {Array.from({ length: daysInMonth(month, year) }).map((_, i) => (
             <Button.Button
               key={i}
-              variant={i + 1 === day ? "outlined" : "text"}
+              variant="text"
+              className={CSS.cls(CSS.selected(i + 1 === day))}
               onClick={() => handleDayChange(i + 1)}
               square
             >

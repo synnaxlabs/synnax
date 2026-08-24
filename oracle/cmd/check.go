@@ -24,8 +24,8 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// Flag names for the check command. Constants so test code can set them
-// the same way the cobra binding does.
+// Flag names for the check command. Constants so test code can set them the same way
+// the cobra binding does.
 const (
 	checkGatesFlag            = "gates"
 	checkFormatFlag           = "format"
@@ -44,6 +44,8 @@ Gates:
   analyze      schemas pass semantic analysis (errors and warnings surfaced)
   generated    on-disk generated files match what 'oracle sync' would produce
   cache        sync cache is internally consistent
+  persistence  persisted shapes only reference persisted types
+  versions     version files, live projections, and pins are consistent
 
 Exit codes:
   0   all gates passed
@@ -51,7 +53,9 @@ Exit codes:
   10  format drift
   11  analyzer errors
   12  generated drift
+  13  persistence violations
   14  cache incoherence
+  15  versions drift
 
 Examples:
   oracle check
@@ -67,11 +71,11 @@ Examples:
 		"Include unified diffs in drift findings")
 	cmd.Flags().Bool(checkWarningsAsErrorsFlag, false,
 		"Treat analyzer warnings as errors")
-	// A failed gate is a normal exit - the user does not want cobra
-	// dumping the usage block underneath the gate findings, nor a
-	// duplicate "Error: ..." line repeating what the renderer already
-	// printed. The exit code (set by Execute via exitCodeError) is the
-	// machine-readable signal; the rendered report is the human one.
+	// A failed gate is a normal exit - the user does not want cobra dumping the usage
+	// block underneath the gate findings, nor a duplicate "Error: ..." line repeating
+	// what the renderer already printed. The exit code (set by Execute via
+	// exitCodeError) is the machine-readable signal; the rendered report is the human
+	// one.
 	cmd.SilenceUsage = true
 	cmd.SilenceErrors = true
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
@@ -79,10 +83,9 @@ Examples:
 		if err == nil {
 			return nil
 		}
-		// Gate failures already rendered via check.Render; suppress the
-		// duplicate. Any other error (no schemas, repo not git, render
-		// failure) is unexpected and gets printed once here so the user
-		// sees what went wrong.
+		// Gate failures already rendered via check.Render; suppress the duplicate. Any
+		// other error (no schemas, repo not git, render failure) is unexpected and gets
+		// printed once here so the user sees what went wrong.
 		if _, ok := err.(*exitCodeError); !ok {
 			printError(err.Error())
 		}
@@ -100,8 +103,12 @@ func runCheck(cmd *cobra.Command, _ []string) error {
 	warningsAsErrors, _ := cmd.Flags().GetBool(checkWarningsAsErrorsFlag)
 	verbose := viper.GetBool(verboseFlag)
 
-	if outputFormat != string(check.FormatText) && outputFormat != string(check.FormatJSON) {
-		return errors.Newf("invalid --format %q: must be 'text' or 'json'", outputFormat)
+	if outputFormat != string(check.FormatText) &&
+		outputFormat != string(check.FormatJSON) {
+		return errors.Newf(
+			"invalid --format %q: must be 'text' or 'json'",
+			outputFormat,
+		)
 	}
 
 	repoRoot, err := paths.RepoRoot()
@@ -125,7 +132,10 @@ func runCheck(cmd *cobra.Command, _ []string) error {
 		printSchemaCount(len(schemas))
 	}
 
-	registry := buildPluginRegistry()
+	registry, err := buildPluginRegistry()
+	if err != nil {
+		return err
+	}
 	result, err := pipeline.Run(ctx, pipeline.Options{
 		RepoRoot: repoRoot,
 		Schemas:  schemas,
@@ -135,11 +145,10 @@ func runCheck(cmd *cobra.Command, _ []string) error {
 		return errors.Wrap(err, "pipeline")
 	}
 
-	// Resource initialization is lazy because each gate has different
-	// dependencies and a failure to build (e.g. missing license template
-	// in a minimal test repo) should not poison gates that do not need
-	// the resource. Whether a gate is in the enabled set determines
-	// whether we even try.
+	// Resource initialization is lazy because each gate has different dependencies and
+	// a failure to build (e.g. missing license template in a minimal test repo) should
+	// not poison gates that do not need the resource. Whether a gate is in the enabled
+	// set determines whether we even try.
 	wantedGates := wantedSet(gates)
 	var formatters *format.Registry
 	if wantedGates.has("generated") {
@@ -159,12 +168,20 @@ func runCheck(cmd *cobra.Command, _ []string) error {
 		IncludeDiffs: includeDiffs,
 	}, checkers, gates)
 
-	if err := check.Render(os.Stdout, report, check.Format(outputFormat), verbose); err != nil {
+	if err := check.Render(
+		os.Stdout,
+		report,
+		check.Format(outputFormat),
+		verbose,
+	); err != nil {
 		return errors.Wrap(err, "render report")
 	}
 
 	if code := report.FirstExitCode(); code != 0 {
-		return &exitCodeError{code: code, msg: fmt.Sprintf("%d gate(s) failed", report.TotalFailed)}
+		return &exitCodeError{
+			code: code,
+			msg:  fmt.Sprintf("%d gate(s) failed", report.TotalFailed),
+		}
 	}
 	return nil
 }
@@ -182,6 +199,8 @@ func buildCheckers(
 		check.NewAnalyzeGate(warningsAsErrors),
 		check.NewGeneratedGate(formatters, runtime.GOMAXPROCS(0)),
 		check.NewCacheGate(cache),
+		check.NewPersistenceGate(warningsAsErrors),
+		check.VersionsGate{},
 	}
 }
 
@@ -193,19 +212,18 @@ func loadCheckCache(repoRoot string) *format.Cache {
 	return format.LoadCache(repoRoot)
 }
 
-// exitCodeError carries a specific exit code back through cobra's error
-// path. The Execute helper in root.go checks for this type before
-// falling back to its generic os.Exit(1).
+// exitCodeError carries a specific exit code back through cobra's error path. The
+// Execute helper in root.go checks for this type before falling back to its generic
+// os.Exit(1).
 type exitCodeError struct {
 	code int
 	msg  string
 }
 
 func (e *exitCodeError) Error() string { return e.msg }
-func (e *exitCodeError) ExitCode() int { return e.code }
 
-// gateSet is a small helper for "is this gate name in the enabled
-// subset?". Empty set means "all gates" (no --gates filter passed).
+// gateSet is a small helper for "is this gate name in the enabled subset?". Empty set
+// means "all gates" (no --gates filter passed).
 type gateSet struct {
 	all bool
 	in  set.Set[string]

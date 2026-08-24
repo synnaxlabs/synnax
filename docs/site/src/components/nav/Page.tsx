@@ -8,10 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { Logo } from "@synnaxlabs/media";
-import { Component, Icon, List, Text } from "@synnaxlabs/pluto";
+import { Component, type CSS, Icon, List, Text } from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
-import { type CSSProperties, type ReactElement, useEffect, useState } from "react";
+import { type ReactElement, useEffect, useState } from "react";
 
+import { InlineCode } from "@/components/text/InlineCode";
 import { REFERENCE_PAGES } from "@/pages/_nav";
 
 interface InternalTreeProps {
@@ -20,7 +21,7 @@ interface InternalTreeProps {
 
 const SECTION_ICONS: Record<string, ReactElement> = {
   concepts: <Icon.Reference />,
-  core: <Icon.Cluster />,
+  core: <Icon.Core />,
   client: <Icon.Terminal />,
   control: <Icon.Control />,
   console: <Icon.Dashboard />,
@@ -84,30 +85,31 @@ const Item = ({ translate: _, ...props }: Tree.ItemRenderProps<string>) => {
       >
         {SECTION_ICONS[itemKey]}
         <Text.Text level="p" weight={500}>
-          {item.name}
+          <InlineCode text={item.name} />
         </Text.Text>
       </Tree.Item>
     );
 
   const offset = depth * 1.5 + 1.5;
+  const style: CSS.VarProperties = {
+    textDecoration: "none",
+    paddingLeft: "2.5rem",
+    paddingRight: "0.5rem",
+    "--pluto-tree-item-offset": `${offset}rem`,
+  };
 
   return (
     <Tree.Item<string, "a">
       {...props}
-      style={
-        {
-          textDecoration: "none",
-          paddingLeft: "2.5rem",
-          paddingRight: "0.5rem",
-          "--pluto-tree-item-offset": `${offset}rem`,
-        } as CSSProperties
-      }
+      style={style}
       el="a"
       href={item.href}
       useMargin
       propagateClick
     >
-      <Text.Text weight={450}>{item.name}</Text.Text>
+      <Text.Text weight={450}>
+        <InlineCode text={item.name} />
+      </Text.Text>
     </Tree.Item>
   );
 };

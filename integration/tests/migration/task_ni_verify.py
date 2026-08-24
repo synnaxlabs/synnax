@@ -33,10 +33,10 @@ class NIAnalogReadVerify(ReadTaskMigrationVerify, NIAnalogReadTaskCase):
     @staticmethod
     def create_channels(
         client: sy.Synnax, devices: dict[str, sy.Device]
-    ) -> list[sy.ni.AIVoltageChan]:
+    ) -> list[sy.ni.AIVoltageChannel]:
         idx = create_index(client, IDX_NAME)
         return [
-            sy.ni.AIVoltageChan(
+            sy.ni.AIVoltageChannel(
                 port=i,
                 channel=create_channel(
                     client,

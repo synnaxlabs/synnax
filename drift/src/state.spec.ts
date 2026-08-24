@@ -1,0 +1,356 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { type PayloadAction } from "@reduxjs/toolkit";
+import { describe, expect, it } from "vitest";
+
+import {
+  assignLabel,
+  createWindow,
+  type CreateWindowPayload,
+  internalSetInitial,
+  reducer,
+  restoreWindows,
+  runtimeSetWindowProps,
+  type SliceState,
+  ZERO_SLICE_STATE,
+} from "@/state";
+import {
+  INITIAL_PRERENDER_WINDOW_STATE,
+  INITIAL_WINDOW_STATE,
+  MAIN_WINDOW,
+  type WindowState,
+} from "@/window";
+
+const reserved = (key: string, props: Partial<WindowState> = {}): WindowState => ({
+  ...INITIAL_WINDOW_STATE,
+  key,
+  reserved: true,
+  ...props,
+});
+
+const sliceState = (windows: Record<string, WindowState>): SliceState => {
+  const labelKeys: Record<string, string> = {};
+  const keyLabels: Record<string, string> = {};
+  Object.entries(windows).forEach(([label, win]) => {
+    if (!win.reserved) return;
+    labelKeys[label] = win.key;
+    keyLabels[win.key] = label;
+  });
+  return { ...ZERO_SLICE_STATE, windows, labelKeys, keyLabels };
+};
+
+describe("createWindow", () => {
+  const noPrerender: SliceState = {
+    ...ZERO_SLICE_STATE,
+    config: { ...ZERO_SLICE_STATE.config, enablePrerender: false },
+  };
+
+  // The main window sits at 100,100 and is 1000x800, so its center is 600,500. A
+  // 400x200 window centered on it starts at 400,400.
+  const withMain = (config: Partial<SliceState["config"]> = {}): SliceState => ({
+    ...sliceState({
+      [MAIN_WINDOW]: reserved(MAIN_WINDOW, {
+        ordinal: 1,
+        position: { x: 100, y: 100 },
+        size: { width: 1000, height: 800 },
+      }),
+    }),
+    config: { ...ZERO_SLICE_STATE.config, enablePrerender: false, ...config },
+  });
+
+  const created = (s: SliceState, size?: { width: number; height: number }) =>
+    reducer(s, createWindow({ key: "a", label: "la", prerenderLabel: "pa", size }))
+      .windows.la;
+
+  it("should center a new window on the main window", () => {
+    expect(created(withMain(), { width: 400, height: 200 }).position).toEqual({
+      x: 400,
+      y: 400,
+    });
+  });
+
+  it("should center a sizeless window using the default window props", () => {
+    const s = withMain({ defaultWindowProps: { size: { width: 400, height: 200 } } });
+    expect(created(s).position).toEqual({ x: 400, y: 400 });
+  });
+
+  // Centering a window of unknown size would place its top left at the main window's
+  // center, dropping it well below and right of where it belongs.
+  it("should leave a sizeless window unplaced when no default size exists", () => {
+    expect(created(withMain()).position).toBeUndefined();
+  });
+
+  it("should keep a position the caller asked for", () => {
+    const s = withMain({ defaultWindowProps: { size: { width: 400, height: 200 } } });
+    const next = reducer(
+      s,
+      createWindow({
+        key: "a",
+        label: "la",
+        prerenderLabel: "pa",
+        position: { x: 12, y: 34 },
+      }),
+    );
+    expect(next.windows.la.position).toEqual({ x: 12, y: 34 });
+  });
+
+  it("should assign increasing ordinals to freshly created windows", () => {
+    let s = noPrerender;
+    s = reducer(s, createWindow({ key: "a", label: "la", prerenderLabel: "pa" }));
+    s = reducer(s, createWindow({ key: "b", label: "lb", prerenderLabel: "pb" }));
+    expect(s.windows.la.ordinal).toEqual(2);
+    expect(s.windows.lb.ordinal).toEqual(3);
+    expect(s.nextOrdinal).toEqual(4);
+  });
+
+  it("should assign an ordinal when claiming a pre-rendered window", () => {
+    const s = sliceState({
+      [MAIN_WINDOW]: reserved(MAIN_WINDOW, { ordinal: 1 }),
+      spare: { ...INITIAL_PRERENDER_WINDOW_STATE },
+    });
+    const next = reducer(
+      s,
+      createWindow({ key: "a", label: "la", prerenderLabel: "pa" }),
+    );
+    expect(next.windows.spare.key).toEqual("a");
+    expect(next.windows.spare.ordinal).toEqual(2);
+    expect(next.nextOrdinal).toEqual(3);
+  });
+
+  it("should not consume an ordinal when focusing an existing window", () => {
+    let s = noPrerender;
+    s = reducer(s, createWindow({ key: "a", label: "la", prerenderLabel: "pa" }));
+    const before = s.nextOrdinal;
+    s = reducer(s, createWindow({ key: "a", label: "lx", prerenderLabel: "px" }));
+    expect(s.nextOrdinal).toEqual(before);
+    expect(s.windows.la.ordinal).toEqual(2);
+  });
+});
+
+describe("assignLabel", () => {
+  const labels = (a: PayloadAction<CreateWindowPayload>): (string | undefined)[] => [
+    a.payload.label,
+    a.payload.prerenderLabel,
+  ];
+
+  // Any window may open another one, and the one that dispatches is the one that
+  // names it. Waiting for the main window to do the naming left the dispatching
+  // window applying a create the reducer rejects.
+  it("should mint labels for a create dispatched outside the main window", () => {
+    const a = assignLabel(createWindow({ key: "a" }), {
+      ...ZERO_SLICE_STATE,
+      label: "secondary",
+    });
+    expect(labels(a)).not.toContain(undefined);
+  });
+
+  it("should keep the labels an emitted create already carries", () => {
+    const a = assignLabel(
+      createWindow({ key: "a", label: "la", prerenderLabel: "pa" }),
+      {
+        ...ZERO_SLICE_STATE,
+        label: MAIN_WINDOW,
+      },
+    );
+    expect(labels(a)).toEqual(["la", "pa"]);
+  });
+});
+
+describe("setWindowProps", () => {
+  const withPrerender = (): SliceState =>
+    sliceState({
+      [MAIN_WINDOW]: reserved(MAIN_WINDOW, { ordinal: 1 }),
+      pre: { ...INITIAL_PRERENDER_WINDOW_STATE },
+    });
+
+  it("should ignore writes to an unreserved pre-rendered window", () => {
+    const next = reducer(
+      withPrerender(),
+      runtimeSetWindowProps({ label: "pre", visible: true }),
+    );
+    expect(next.windows.pre.visible).toEqual(false);
+  });
+
+  it("should ignore runtime prop echoes on an unreserved window", () => {
+    const next = reducer(
+      withPrerender(),
+      runtimeSetWindowProps({ label: "pre", minimized: true }),
+    );
+    expect(next.windows.pre.minimized).toBeUndefined();
+  });
+
+  it("should apply props once the window is claimed", () => {
+    let s = reducer(
+      withPrerender(),
+      createWindow({ key: "a", label: "la", prerenderLabel: "pa" }),
+    );
+    expect(s.windows.pre.reserved).toEqual(true);
+    expect(s.windows.pre.visible).toEqual(true);
+    s = reducer(s, runtimeSetWindowProps({ label: "pre", position: { x: 5, y: 5 } }));
+    expect(s.windows.pre.position).toEqual({ x: 5, y: 5 });
+  });
+});
+
+describe("internalSetInitial", () => {
+  it("should keep the default window props when the caller omits them", () => {
+    const s: SliceState = {
+      ...ZERO_SLICE_STATE,
+      config: {
+        ...ZERO_SLICE_STATE.config,
+        defaultWindowProps: { size: { width: 400, height: 200 } },
+      },
+    };
+    const next = reducer(
+      s,
+      internalSetInitial({
+        label: MAIN_WINDOW,
+        enablePrerender: false,
+        debug: false,
+        defaultWindowProps: undefined,
+      }),
+    );
+    expect(next.config.defaultWindowProps).toEqual({
+      size: { width: 400, height: 200 },
+    });
+  });
+});
+
+describe("restoreWindows", () => {
+  it("should keep the live main window instead of the stored one", () => {
+    const live = reserved(MAIN_WINDOW, {
+      size: { width: 100, height: 100 },
+      ordinal: 1,
+    });
+    const next = restoreWindows(
+      sliceState({ [MAIN_WINDOW]: live }),
+      sliceState({
+        [MAIN_WINDOW]: reserved(MAIN_WINDOW, { size: { width: 900, height: 900 } }),
+      }),
+    );
+    expect(next.windows[MAIN_WINDOW]).toEqual(live);
+  });
+
+  it("should replace the live secondary windows with the stored ones", () => {
+    const next = restoreWindows(
+      sliceState({ [MAIN_WINDOW]: reserved(MAIN_WINDOW), outgoing: reserved("old") }),
+      sliceState({ [MAIN_WINDOW]: reserved(MAIN_WINDOW), incoming: reserved("new") }),
+    );
+    expect(next.windows.outgoing).toBeUndefined();
+    expect(next.windows.incoming?.key).toEqual("new");
+  });
+
+  it("should zero the counters on restored windows", () => {
+    const next = restoreWindows(
+      sliceState({ [MAIN_WINDOW]: reserved(MAIN_WINDOW) }),
+      sliceState({
+        incoming: reserved("new", { focusCount: 3, centerCount: 2, processCount: 1 }),
+      }),
+    );
+    expect(next.windows.incoming).toMatchObject({
+      focusCount: 0,
+      centerCount: 0,
+      processCount: 0,
+    });
+  });
+
+  it("should drop how a restored window looked when its process ended", () => {
+    const next = restoreWindows(
+      sliceState({ [MAIN_WINDOW]: reserved(MAIN_WINDOW) }),
+      sliceState({
+        incoming: reserved("new", {
+          stage: "reloading",
+          minimized: true,
+          fullscreen: true,
+          focus: false,
+          error: "stale",
+        }),
+      }),
+    );
+    expect(next.windows.incoming).toMatchObject({ stage: "creating" });
+    expect(next.windows.incoming?.minimized).toBeUndefined();
+    expect(next.windows.incoming?.fullscreen).toBeUndefined();
+    expect(next.windows.incoming?.focus).toBeUndefined();
+    expect(next.windows.incoming?.error).toBeUndefined();
+  });
+
+  it("should keep a restored window's geometry", () => {
+    const geometry: Partial<WindowState> = {
+      position: { x: 10, y: 20 },
+      size: { width: 800, height: 600 },
+      maximized: true,
+    };
+    const next = restoreWindows(
+      sliceState({ [MAIN_WINDOW]: reserved(MAIN_WINDOW) }),
+      sliceState({ incoming: reserved("new", { ...geometry, minimized: true }) }),
+    );
+    expect(next.windows.incoming).toMatchObject(geometry);
+  });
+
+  it("should keep unused pre-rendered windows out of the swap", () => {
+    const spare = { ...INITIAL_PRERENDER_WINDOW_STATE };
+    const next = restoreWindows(
+      sliceState({ [MAIN_WINDOW]: reserved(MAIN_WINDOW), spare }),
+      sliceState({ [MAIN_WINDOW]: reserved(MAIN_WINDOW) }),
+    );
+    expect(next.windows.spare).toEqual(spare);
+    expect(next.labelKeys.spare).toBeUndefined();
+    expect(next.keyLabels[spare.key]).toBeUndefined();
+  });
+
+  it("should rebuild the label maps from the merged windows", () => {
+    const next = restoreWindows(
+      sliceState({ [MAIN_WINDOW]: reserved(MAIN_WINDOW), outgoing: reserved("old") }),
+      sliceState({ incoming: reserved("new") }),
+    );
+    expect(next.labelKeys).toEqual({ [MAIN_WINDOW]: MAIN_WINDOW, incoming: "new" });
+    expect(next.keyLabels).toEqual({ [MAIN_WINDOW]: MAIN_WINDOW, new: "incoming" });
+  });
+
+  it("should carry the higher of the live and stored counters", () => {
+    const main = () => reserved(MAIN_WINDOW, { ordinal: 1 });
+    const current = { ...sliceState({ [MAIN_WINDOW]: main() }), nextOrdinal: 4 };
+    const stored = { ...sliceState({ [MAIN_WINDOW]: main() }), nextOrdinal: 7 };
+    expect(restoreWindows(current, stored).nextOrdinal).toEqual(7);
+  });
+
+  it("should raise the counter past every restored ordinal", () => {
+    const next = restoreWindows(
+      sliceState({ [MAIN_WINDOW]: reserved(MAIN_WINDOW, { ordinal: 1 }) }),
+      sliceState({ incoming: reserved("new", { ordinal: 5 }) }),
+    );
+    expect(next.windows.incoming?.ordinal).toEqual(5);
+    expect(next.nextOrdinal).toEqual(6);
+  });
+
+  it("should number restored windows persisted before ordinals existed", () => {
+    const next = restoreWindows(
+      sliceState({ [MAIN_WINDOW]: reserved(MAIN_WINDOW, { ordinal: 1 }) }),
+      sliceState({ a: reserved("a"), b: reserved("b") }),
+    );
+    const assigned = [next.windows.a?.ordinal, next.windows.b?.ordinal];
+    expect(assigned).toEqual([2, 3]);
+    expect(next.nextOrdinal).toEqual(4);
+  });
+
+  it("should keep the live label and config", () => {
+    const current: SliceState = {
+      ...sliceState({ [MAIN_WINDOW]: reserved(MAIN_WINDOW) }),
+      label: "live-label",
+      config: { enablePrerender: false, debug: true, defaultWindowProps: {} },
+    };
+    const next = restoreWindows(current, {
+      ...sliceState({ [MAIN_WINDOW]: reserved(MAIN_WINDOW) }),
+      label: "stored-label",
+      config: { enablePrerender: true, debug: false, defaultWindowProps: {} },
+    });
+    expect(next.label).toEqual("live-label");
+    expect(next.config).toEqual(current.config);
+  });
+});

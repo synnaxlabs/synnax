@@ -97,8 +97,8 @@ struct CodecFlags {
     static CodecFlags decode(uint8_t b);
 };
 
-/// @brief Codec for encoding and decoding frames efficiently.
-/// This implements the Frame Flight Protocol (RFC 0016)
+/// @brief Codec for encoding and decoding frames efficiently using the Frame Flight
+/// Protocol.
 class Codec {
     struct State {
         /// @brief the ordered set of channel keys for the codec.
@@ -379,7 +379,7 @@ public:
     /// @returns true if the authority was set successfully.
     /// @param keys the channels to set the authority of.
     /// @param authorities the authority levels to set the channels to.
-    /// @param ack if true, waits for server acknowledgement. If false, sends
+    /// @param ack if true, waits for server acknowledgment. If false, sends
     /// fire-and-forget.
     [[nodiscard]] x::errors::Error set_authority(
         const std::vector<channel::Key> &keys,

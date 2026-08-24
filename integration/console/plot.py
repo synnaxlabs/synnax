@@ -24,7 +24,7 @@ Axis = Literal["Y1", "Y2", "X1"]
 class Plot(ConsolePage):
     """Plot page management interface"""
 
-    page_type: str = "Line Plot"
+    page_type = "Line plot"
     pluto_label: str = ".pluto-line-plot"
 
     def __init__(
@@ -47,7 +47,7 @@ class Plot(ConsolePage):
     def add_channels(self, axis: Axis, channels: str | list[str]) -> None:
         channels = [channels] if isinstance(channels, str) else channels
 
-        data_tab = self.page.locator("#data")
+        data_tab = self.page.get_by_role("tab", name="Data", exact=True)
         data_tab.click(timeout=5000)
 
         axis_label = self.page.locator("label").filter(has_text=axis)
@@ -93,8 +93,7 @@ class Plot(ConsolePage):
         """
         self.notifications.close_all()
         self.layout.show_visualization_toolbar()
-        csv_button = self.page.locator(".pluto-icon--csv").locator("..")
-        csv_button.click()
+        self.page.get_by_role("button", name="Download as CSV", exact=True).click()
 
         self.page.get_by_text("Download data for").wait_for(
             state="visible", timeout=5000
@@ -102,25 +101,19 @@ class Plot(ConsolePage):
         download_button = self.page.get_by_role("button", name="Download").last
         download_button.wait_for(state="visible", timeout=5000)
 
-        self.page.evaluate("delete window.showSaveFilePicker")
-        self.page.wait_for_function(
-            "() => window.showSaveFilePicker === undefined", timeout=5000
-        )
-
         with self.page.expect_download(timeout=20000) as download_info:
             download_button.click()
 
         download = download_info.value
         save_path = resolve_results_path(f"{self.page_name}.csv")
         download.save_as(save_path)
-        with open(save_path, "r") as f:
+        with open(save_path, "r", encoding="utf-8") as f:
             return f.read()
 
     def set_axis(self, axis: Axis, config: dict[str, Any]) -> None:
         """Set axis configuration with the given parameters."""
         self.notifications.close_all()
-        self.page.get_by_text("Axes").click(timeout=5000)
-        self.page.wait_for_selector(".pluto-tabs-selector__btn", timeout=5000)
+        self.page.get_by_role("tab", name="Axes", exact=True).click(timeout=5000)
 
         self._select_axis_tab(axis)
 
@@ -131,28 +124,16 @@ class Plot(ConsolePage):
 
     def _select_axis_tab(self, axis: Axis) -> None:
         """Select the axis tab in the configuration panel."""
-        selectors = [
-            f"#{axis.lower()}",
-            f"#{axis}",
-            f".pluto-tabs-selector__btn:has-text('{axis}')",
-        ]
-
-        for selector in selectors:
-            locator = self.page.locator(selector)
-            if locator.count() > 0:
-                locator.click(timeout=5000)
-                return
-
-        raise RuntimeError(f"Could not find axis tab: {axis}")
+        self.page.get_by_role("tab", name=axis, exact=True).click(timeout=5000)
 
     def _set_axis_property(self, key: str, value: Any) -> None:
         """Set a single axis property."""
         try:
-            if key in {"Lower Bound", "Upper Bound", "Tick Spacing", "Label"}:
+            if key in {"Lower bound", "Upper bound", "Tick spacing", "Label"}:
                 self._set_input_field(key, value)
-            elif key == "Label Direction":
+            elif key == "Label direction":
                 self._set_label_direction(value)
-            elif key == "Label Size":
+            elif key == "Label size":
                 self._set_label_size(value)
             else:
                 self.page.locator(key).fill(str(value), timeout=5000)
@@ -188,13 +169,13 @@ class Plot(ConsolePage):
         icon_direction: Literal["arrow-up", "arrow-right"] = (
             "arrow-up" if direction == "vertical" else "arrow-right"
         )
-        selector = f"label:has-text('Label Direction') + div button:has([aria-label='pluto-icon--{icon_direction}'])"
+        selector = f"label:has-text('Label direction') + div button:has(svg.pluto-icon--{icon_direction})"
         self.page.locator(selector).click(timeout=5000)
 
     def _set_label_size(self, size: Literal["xs", "s", "m", "l", "xl"]) -> None:
         """Set label size button."""
 
-        selector = f"label:has-text('Label Size') + div button:has-text('{size}')"
+        selector = f"label:has-text('Label size') + div button:has-text('{size}')"
         self.page.locator(selector).click(timeout=5000)
 
     def set_title(self, title: str) -> None:
@@ -206,7 +187,7 @@ class Plot(ConsolePage):
             title: The new title for the plot
         """
         self.notifications.close_all()
-        self.page.locator("#properties").click(timeout=5000)
+        self.page.get_by_role("tab", name="Properties", exact=True).click(timeout=5000)
 
         title_input = (
             self.page.locator("label:has-text('Title')")
@@ -224,7 +205,7 @@ class Plot(ConsolePage):
             thickness: Stroke width (1-10)
         """
         self.notifications.close_all()
-        self.page.locator("#lines").click(timeout=5000)
+        self.page.get_by_role("tab", name="Lines", exact=True).click(timeout=5000)
 
         lines_container = self.page.locator(".console-line-plot__toolbar-lines")
         if lines_container.count() == 0:
@@ -249,7 +230,7 @@ class Plot(ConsolePage):
             label: New label for the line
         """
         self.notifications.close_all()
-        self.page.locator("#lines").click(timeout=5000)
+        self.page.get_by_role("tab", name="Lines", exact=True).click(timeout=5000)
 
         lines_container = self.page.locator(".console-line-plot__toolbar-lines")
         lines_container.wait_for(state="visible", timeout=5000)
@@ -268,7 +249,7 @@ class Plot(ConsolePage):
             The current stroke width
         """
         self.notifications.close_all()
-        self.page.locator("#lines").click(timeout=5000)
+        self.page.get_by_role("tab", name="Lines", exact=True).click(timeout=5000)
 
         lines_container = self.page.locator(".console-line-plot__toolbar-lines")
         line_item = lines_container.locator(".pluto-list__item").first
@@ -283,7 +264,7 @@ class Plot(ConsolePage):
         """
         self.notifications.close_all()
         self.layout.show_visualization_toolbar()
-        self.page.locator("#lines").click(timeout=5000)
+        self.page.get_by_role("tab", name="Lines", exact=True).click(timeout=5000)
 
         lines_container = self.page.locator(".console-line-plot__toolbar-lines")
         line_items = lines_container.locator(".pluto-list__item")
@@ -303,10 +284,9 @@ class Plot(ConsolePage):
         """
         channels.show_channels()
 
-        channel_item = (
-            self.page.locator("div[id^='channel:']").filter(has_text=channel_name).first
-        )
-        channel_item.wait_for(state="visible", timeout=5000)
+        # The channel tree is windowed, so the row must be scrolled into the
+        # DOM before it can be dragged.
+        channel_item = channels.tree.wait_for_name("channel:", channel_name)
 
         if not self.pane_locator:
             raise RuntimeError("Plot pane locator not available")
@@ -329,13 +309,12 @@ class Plot(ConsolePage):
         self.notifications.close_all()
         channels.show_channels()
 
-        channel_item = (
-            self.page.locator("div[id^='channel:']").filter(has_text=channel_name).first
-        )
-        channel_item.wait_for(state="visible", timeout=5000)
+        # The channel tree is windowed, so the row must be scrolled into the
+        # DOM before it can be dragged.
+        channel_item = channels.tree.wait_for_name("channel:", channel_name)
 
         self.layout.show_visualization_toolbar()
-        data_tab = self.page.locator("#data")
+        data_tab = self.page.get_by_role("tab", name="Data", exact=True)
         data_tab.click(timeout=5000)
 
         axis_section = self.page.locator(f"label:has-text('{axis}')").locator("..")
@@ -377,7 +356,7 @@ class Plot(ConsolePage):
             state="visible", timeout=5000
         )
         self.page.get_by_role("textbox", name="Name").fill(range_name)
-        self.page.get_by_role("button", name="Save to Synnax").click()
+        self.page.get_by_role("button", name="Save to Core").click()
 
     def get_annotation_toggle(self) -> Locator:
         """Return the range-annotation visibility toggle button.
@@ -404,9 +383,9 @@ class Plot(ConsolePage):
     ) -> None:
         """Assert the annotation visibility toggle reflects the given state.
 
-        Pluto's Button.Toggle renders the "filled" variant when on.
+        Pluto's Button.Toggle carries pluto--selected when on.
         """
-        pattern = re.compile(r"pluto-btn--filled")
+        pattern = re.compile(r"pluto--selected")
         toggle = expect(self.get_annotation_toggle())
         if visible:
             toggle.to_have_class(pattern, timeout=timeout)
@@ -417,7 +396,24 @@ class Plot(ConsolePage):
         """Check if a channel is shown on the specified axis in the toolbar."""
         self.layout.get_tab(self.page_name).click()
         self.layout.show_visualization_toolbar()
-        self.page.locator("#data").click(timeout=5000)
+        self.page.get_by_role("tab", name="Data", exact=True).click(timeout=5000)
         axis_section = self.page.locator("label").filter(has_text=axis).locator("..")
         result = axis_section.get_by_text(channel_name).count() > 0
         return result
+
+    def focus(self) -> None:
+        """Bring focus onto the plot pane so keyboard triggers fire on it."""
+        if self.pane_locator is not None:
+            self.pane_locator.click()
+
+    def undo(self) -> None:
+        """Cmd/Ctrl + Z — pop the last entry off the undo stack."""
+        self.focus()
+        self.layout.press_key("ControlOrMeta+z")
+        self.page.wait_for_timeout(300)
+
+    def redo(self) -> None:
+        """Cmd/Ctrl + Shift + Z — re-apply the most recently undone entry."""
+        self.focus()
+        self.layout.press_key("ControlOrMeta+Shift+z")
+        self.page.wait_for_timeout(300)

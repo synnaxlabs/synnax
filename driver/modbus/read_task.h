@@ -10,6 +10,9 @@
 #pragma once
 
 #include <set>
+#include <variant>
+
+#include "client/cpp/modbus/json.gen.h"
 
 #include "driver/common/read_task.h"
 #include "driver/common/sample_clock.h"
@@ -97,8 +100,8 @@ public:
             auto [value, err] = util::parse_register_value(
                 this->buffer.data() + offset,
                 ch.value_type,
-                ch.swap_bytes,
-                ch.swap_words
+                ch.bytes_swapped,
+                ch.words_swapped
             );
             if (err) return err;
             fr.series->at(frame_offset++).write(value);
@@ -204,19 +207,33 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         }
 
         cfg.iter("channels", [&, this](x::json::Parser &ch) {
-            const auto type = ch.field<std::string>("type");
-            if (type == "holding_register_input")
-                holding_registers.emplace_back(ch);
-            else if (type == "register_input")
-                input_registers.emplace_back(ch);
-            else if (type == "coil_input")
-                coils.emplace_back(ch);
-            else if (type == "discrete_input")
-                discrete_inputs.emplace_back(ch);
-            else {
-                cfg.field_err("channels", "invalid channel type: " + type);
-                return;
-            }
+            const auto parsed = ::synnax::modbus::parse_read_channel(ch);
+            const auto &base = std::visit(
+                [](const auto &c) -> const ::synnax::modbus::BaseReadChannel & {
+                    return c;
+                },
+                parsed
+            );
+            if (base.disabled) return;
+            if (base.channel == 0)
+                return ch.field_err("channel", "channel must be specified");
+            if (const auto *c = std::get_if<
+                    ::synnax::modbus::HoldingRegisterReadChannel>(&parsed))
+                holding_registers.emplace_back(*c);
+            else if (
+                const auto *c = std::get_if<::synnax::modbus::InputRegisterReadChannel>(
+                    &parsed
+                )
+            )
+                input_registers.emplace_back(*c);
+            else if (
+                const auto *c = std::get_if<::synnax::modbus::CoilReadChannel>(&parsed)
+            )
+                coils.emplace_back(*c);
+            else
+                discrete_inputs.emplace_back(
+                    std::get<::synnax::modbus::DiscreteInputReadChannel>(parsed)
+                );
             this->data_channel_count++;
         });
 
@@ -317,7 +334,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             keys.push_back(idx);
         return synnax::framer::WriterConfig{
             .channels = keys,
-            .mode = common::data_saving_writer_mode(this->data_saving),
+            .mode = common::data_saving_writer_mode(this->data_saving_disabled),
         };
     }
 };
@@ -326,17 +343,33 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
 class ReadTaskSource final : public common::Source {
     /// @brief the configuration for the task.
     const ReadTaskConfig config;
-    /// @brief the device to read from.
+    /// @brief creates the device connection on each start.
+    const std::shared_ptr<device::Manager> devs;
+    /// @brief the device to read from. Populated on start.
     std::shared_ptr<device::Device> dev;
     /// @brief the sample clock to regulate the read rate.
     common::SoftwareTimedSampleClock sample_clock;
 
 public:
     explicit ReadTaskSource(
-        const std::shared_ptr<device::Device> &dev,
+        const std::shared_ptr<device::Manager> &devs,
         ReadTaskConfig cfg
     ):
-        config(std::move(cfg)), dev(dev), sample_clock(this->config.sample_rate) {}
+        config(std::move(cfg)), devs(devs), sample_clock(this->config.sample_rate) {}
+
+    /// @brief connects on every start so a server restart between runs cannot
+    /// leave the task reading from a dead socket.
+    x::errors::Error start() override {
+        auto [d, err] = this->devs->acquire(this->config.conn);
+        if (err) return err;
+        this->dev = std::move(d);
+        return x::errors::NIL;
+    }
+
+    x::errors::Error stop() override {
+        this->dev.reset();
+        return x::errors::NIL;
+    }
 
     common::ReadResult
     read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override {

@@ -25,9 +25,9 @@ const _KVEngine_name = "KVEnginePebble"
 var _KVEngine_index = [...]uint8{0, 14}
 
 func (i KVEngine) String() string {
-	i -= 1
-	if i >= KVEngine(len(_KVEngine_index)-1) {
-		return "KVEngine(" + strconv.FormatInt(int64(i+1), 10) + ")"
+	idx := int(i) - 1
+	if i < 1 || idx >= len(_KVEngine_index)-1 {
+		return "KVEngine(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _KVEngine_name[_KVEngine_index[i]:_KVEngine_index[i+1]]
+	return _KVEngine_name[_KVEngine_index[idx]:_KVEngine_index[idx+1]]
 }

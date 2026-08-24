@@ -32,22 +32,23 @@ inline const std::string false_param = "false";
 inline constexpr size_t TRUE_OUTPUT_IDX = 0;
 inline constexpr size_t FALSE_OUTPUT_IDX = 1;
 
-/// @brief Select routes a u8 input to its "true" or "false" output based on
-/// value: input samples equal to 1 produce samples on the "true" output,
-/// all others produce samples on the "false" output. Both outputs emit a
-/// value of 1 for each matched sample — the output value signals "this
-/// route fired" rather than echoing the input — so the output can drive
-/// a truthy-gated transition whether the matched route is true or false.
+/// @brief Select gates the "true" or "false" branch of a routing table: true
+/// input samples fire the true output, false samples fire the false output.
+/// Each fired output emits 1 so truthy-gated transitions fire on either
+/// branch. The value never reaches an entry; entries define their own
+/// sources.
 class Select : public runtime::node::Node {
     runtime::state::Node state;
+    size_t input_idx;
 
 public:
-    explicit Select(runtime::state::Node &&state): state(std::move(state)) {}
+    Select(runtime::state::Node &&state, size_t input_idx):
+        state(std::move(state)), input_idx(input_idx) {}
 
     x::errors::Error next(runtime::node::Context &ctx) override {
         if (!this->state.refresh_inputs()) return x::errors::NIL;
-        const auto &data = this->state.input(0);
-        const auto &time = this->state.input_time(0);
+        const auto &data = this->state.input(this->input_idx);
+        const auto &time = this->state.input_time(this->input_idx);
         const auto n = data->size();
         if (n == 0) return x::errors::NIL;
 
@@ -95,6 +96,8 @@ public:
     [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
         return state.is_output_truthy(output_idx);
     }
+
+    void reset() override { this->state.reset(); }
 };
 
 class Module : public stl::Module {
@@ -106,7 +109,12 @@ public:
     std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
     create(runtime::node::Config &&cfg) override {
         if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
-        return {std::make_unique<Select>(std::move(cfg.state)), x::errors::NIL};
+        auto [input_idx, err] = cfg.node.resolve_input(ir::default_output_param);
+        if (err) return {nullptr, err};
+        return {
+            std::make_unique<Select>(std::move(cfg.state), input_idx),
+            x::errors::NIL
+        };
     }
 };
 

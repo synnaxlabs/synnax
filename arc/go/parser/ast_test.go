@@ -10,6 +10,7 @@
 package parser_test
 
 import (
+	"github.com/antlr4-go/antlr/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/parser"
@@ -22,7 +23,8 @@ var _ = Describe("AST Utilities", func() {
 	}
 
 	Describe("IsLiteral", func() {
-		DescribeTable("true cases",
+		DescribeTable(
+			"true cases",
 			func(code string) { Expect(parser.IsLiteral(parseExpr(code))).To(BeTrue()) },
 			Entry("integer", "42"),
 			Entry("float", "3.14"),
@@ -38,7 +40,8 @@ var _ = Describe("AST Utilities", func() {
 			Entry("negated unit literal", "-5ms"),
 		)
 
-		DescribeTable("false cases",
+		DescribeTable(
+			"false cases",
 			func(code string) { Expect(parser.IsLiteral(parseExpr(code))).To(BeFalse()) },
 			Entry("addition", "1 + 2"),
 			Entry("logical not", "not 1"),
@@ -52,14 +55,16 @@ var _ = Describe("AST Utilities", func() {
 	})
 
 	Describe("IsNegatedLiteral", func() {
-		DescribeTable("true cases",
+		DescribeTable(
+			"true cases",
 			func(code string) { Expect(parser.IsNegatedLiteral(parseExpr(code))).To(BeTrue()) },
 			Entry("negated integer", "-1"),
 			Entry("negated float", "-3.14"),
 			Entry("negated unit literal", "-5ms"),
 		)
 
-		DescribeTable("false cases",
+		DescribeTable(
+			"false cases",
 			func(code string) { Expect(parser.IsNegatedLiteral(parseExpr(code))).To(BeFalse()) },
 			Entry("positive integer", "42"),
 			Entry("positive float", "3.14"),
@@ -73,7 +78,7 @@ var _ = Describe("AST Utilities", func() {
 
 	Describe("GetLiteral", func() {
 		DescribeTable("extracts literal text",
-			func(code string, expected string) {
+			func(code, expected string) {
 				lit := parser.GetLiteral(parseExpr(code))
 				Expect(lit).NotTo(BeNil())
 				Expect(lit.GetText()).To(Equal(expected))
@@ -96,7 +101,8 @@ var _ = Describe("AST Utilities", func() {
 	})
 
 	Describe("IsNumericLiteral", func() {
-		DescribeTable("true cases",
+		DescribeTable(
+			"true cases",
 			func(code string) { Expect(parser.IsNumericLiteral(parseExpr(code))).To(BeTrue()) },
 			Entry("integer", "42"),
 			Entry("float", "3.14"),
@@ -106,7 +112,8 @@ var _ = Describe("AST Utilities", func() {
 			Entry("unit literal", "5ms"),
 		)
 
-		DescribeTable("false cases",
+		DescribeTable(
+			"false cases",
 			func(code string) { Expect(parser.IsNumericLiteral(parseExpr(code))).To(BeFalse()) },
 			Entry("string", `"hello"`),
 			Entry("raw string", `r"hello"`),
@@ -119,7 +126,8 @@ var _ = Describe("AST Utilities", func() {
 	})
 
 	Describe("GetPrimaryExpression", func() {
-		DescribeTable("extracts primary",
+		DescribeTable(
+			"extracts primary",
 			func(code string, check func(parser.IPrimaryExpressionContext)) {
 				primary := parser.GetPrimaryExpression(parseExpr(code))
 				Expect(primary).NotTo(BeNil())
@@ -129,22 +137,30 @@ var _ = Describe("AST Utilities", func() {
 				Expect(p.IDENTIFIER().GetText()).To(Equal("foo"))
 			}),
 			Entry("integer literal", "42", func(p parser.IPrimaryExpressionContext) {
-				Expect(p.Literal().NumericLiteral().INTEGER_LITERAL().GetText()).To(Equal("42"))
+				Expect(
+					p.Literal().NumericLiteral().INTEGER_LITERAL().GetText(),
+				).To(Equal("42"))
 			}),
 			Entry("string literal", `"hi"`, func(p parser.IPrimaryExpressionContext) {
 				Expect(p.Literal().GetText()).To(Equal(`"hi"`))
 			}),
-			Entry("format string literal", `f"hi {x}"`, func(p parser.IPrimaryExpressionContext) {
-				Expect(p.Literal().GetText()).To(Equal(`f"hi {x}"`))
-			}),
+			Entry(
+				"format string literal",
+				`f"hi {x}"`,
+				func(p parser.IPrimaryExpressionContext) {
+					Expect(p.Literal().GetText()).To(Equal(`f"hi {x}"`))
+				},
+			),
 		)
 
-		DescribeTable("returns nil for expressions with operators",
+		DescribeTable(
+			"returns nil for expressions with operators",
 			func(code string) { Expect(parser.GetPrimaryExpression(parseExpr(code))).To(BeNil()) },
 			Entry("addition", "1 + 2"),
 			Entry("multiplication", "3 * 4"),
 			Entry("comparison", "a > b"),
 			Entry("logical or", "a or b"),
+			Entry("logical and", "a and b"),
 			Entry("unary minus", "-1"),
 			Entry("power", "2 ^ 3"),
 		)
@@ -152,7 +168,7 @@ var _ = Describe("AST Utilities", func() {
 
 	Describe("GetExpressionText", func() {
 		DescribeTable("extracts source text",
-			func(code string, expected string) {
+			func(code, expected string) {
 				Expect(parser.GetExpressionText(parseExpr(code))).To(Equal(expected))
 			},
 			Entry("identifier", "foo", "foo"),
@@ -172,7 +188,7 @@ var _ = Describe("AST Utilities", func() {
 			postfix := expr.LogicalOrExpression().LogicalAndExpression(0).
 				EqualityExpression(0).RelationalExpression(0).
 				AdditiveExpression(0).MultiplicativeExpression(0).
-				PowerExpression(0).UnaryExpression().PostfixExpression()
+				UnaryExpression(0).PowerExpression().PostfixExpression()
 			lit := parser.GetLiteralNode(postfix)
 			Expect(lit).NotTo(BeNil())
 			Expect(lit.GetText()).To(Equal("42"))
@@ -222,11 +238,14 @@ var _ = Describe("AST Utilities", func() {
 			Expect(entries[0].Path).To(Equal("math.trig"))
 		})
 
-		It("Should default alias to the last path segment on hierarchical paths", func() {
-			prog := MustSucceed(parser.Parse(`import math.trig`))
-			entries := parser.Imports(prog)
-			Expect(entries[0].Alias).To(Equal("trig"))
-		})
+		It(
+			"Should default alias to the last path segment on hierarchical paths",
+			func() {
+				prog := MustSucceed(parser.Parse(`import math.trig`))
+				entries := parser.Imports(prog)
+				Expect(entries[0].Alias).To(Equal("trig"))
+			},
+		)
 
 		It("Should preserve a hierarchical alias when AS is present", func() {
 			prog := MustSucceed(parser.Parse(`import math.trig as t`))
@@ -244,6 +263,142 @@ var _ = Describe("AST Utilities", func() {
 			Expect(entries).To(HaveLen(2))
 			Expect(entries[0].Path).To(Equal("time"))
 			Expect(entries[1].Path).To(Equal("math"))
+		})
+	})
+
+	Describe("CollectIdentifiers", func() {
+		DescribeTable("collects primary-expression identifiers",
+			func(code string, expected []string) {
+				Expect(parser.CollectIdentifiers(parseExpr(code))).To(Equal(expected))
+			},
+			Entry("single identifier", "x", []string{"x"}),
+			Entry("deduplicates repeats", "x + x", []string{"x"}),
+			Entry("source order", "b + a + c", []string{"b", "a", "c"}),
+			Entry("nested and indexed", "a * (b + c[i]) - d",
+				[]string{"a", "b", "c", "i", "d"}),
+			Entry("function call name and args", "foo(a, b)",
+				[]string{"foo", "a", "b"}),
+			Entry("literal only", "42", nil),
+			Entry("format string braces are token text, not identifiers",
+				`f"hi {x}"`, nil),
+			Entry("qualified names are excluded", "math.avg + x", []string{"x"}),
+		)
+	})
+
+	Describe("StringTerminal", func() {
+		It("Should return the terminal for a string literal", func() {
+			lit := parser.GetLiteral(parseExpr(`"hello"`))
+			Expect(parser.StringTerminal(lit)).ToNot(BeNil())
+		})
+
+		It("Should return the terminal for a multi-line string literal", func() {
+			lit := parser.GetLiteral(parseExpr("`a\nb`"))
+			Expect(parser.StringTerminal(lit)).ToNot(BeNil())
+		})
+
+		It("Should return nil for a numeric literal", func() {
+			lit := parser.GetLiteral(parseExpr("42"))
+			Expect(parser.StringTerminal(lit)).To(BeNil())
+		})
+	})
+
+	Describe("QualifiedNameParts and QualifiedName", func() {
+		qualified := func(code string) parser.IQualifiedIdentifierContext {
+			primary := parser.GetPrimaryExpression(parseExpr(code))
+			Expect(primary).ToNot(BeNil())
+			qid := primary.QualifiedIdentifier()
+			Expect(qid).ToNot(BeNil())
+			return qid
+		}
+
+		It("Should split a qualified identifier into head and tail", func() {
+			head, tail := parser.QualifiedNameParts(qualified("math.avg"))
+			Expect(head).To(Equal("math"))
+			Expect(tail).To(Equal("avg"))
+		})
+
+		It("Should read the authority keyword as a head", func() {
+			head, tail := parser.QualifiedNameParts(qualified("authority.absolute"))
+			Expect(head).To(Equal("authority"))
+			Expect(tail).To(Equal("absolute"))
+		})
+
+		It("Should join head and tail with a dot", func() {
+			Expect(parser.QualifiedName(qualified("math.avg"))).To(Equal("math.avg"))
+		})
+	})
+
+	Describe("FunctionNameParts and FunctionName", func() {
+		var findFunction func(t antlr.Tree) parser.IFunctionContext
+		findFunction = func(t antlr.Tree) parser.IFunctionContext {
+			if fn, ok := t.(parser.IFunctionContext); ok {
+				return fn
+			}
+			for i := 0; i < t.GetChildCount(); i++ {
+				if found := findFunction(t.GetChild(i)); found != nil {
+					return found
+				}
+			}
+			return nil
+		}
+		// Flow statements are allowed at top level and in stage/sequence
+		// bodies, but not in func bodies, which is the rule ParseStatement
+		// parses. Parse a whole program instead.
+		functionOf := func(code string) parser.IFunctionContext {
+			prog := MustSucceed(parser.Parse(code))
+			fn := findFunction(prog)
+			Expect(fn).ToNot(BeNil())
+			return fn
+		}
+
+		It("Should return the bare name with an empty tail", func() {
+			head, tail := parser.FunctionNameParts(functionOf("x -> calc{}"))
+			Expect(head).To(Equal("calc"))
+			Expect(tail).To(Equal(""))
+		})
+
+		It("Should split a qualified function name", func() {
+			head, tail := parser.FunctionNameParts(functionOf("x -> math.avg{}"))
+			Expect(head).To(Equal("math"))
+			Expect(tail).To(Equal("avg"))
+		})
+
+		It("Should join names only when a tail is present", func() {
+			Expect(parser.FunctionName(functionOf("x -> calc{}"))).To(Equal("calc"))
+			Expect(parser.FunctionName(functionOf("x -> math.avg{}"))).
+				To(Equal("math.avg"))
+		})
+	})
+
+	Describe("PrimaryNameParts and PrimaryName", func() {
+		primaryOf := func(code string) parser.IPrimaryExpressionContext {
+			primary := parser.GetPrimaryExpression(parseExpr(code))
+			Expect(primary).ToNot(BeNil())
+			return primary
+		}
+
+		It("Should return the bare name with an empty tail", func() {
+			head, tail := parser.PrimaryNameParts(primaryOf("x"))
+			Expect(head).To(Equal("x"))
+			Expect(tail).To(Equal(""))
+		})
+
+		It("Should split a qualified identifier", func() {
+			head, tail := parser.PrimaryNameParts(primaryOf("math.avg"))
+			Expect(head).To(Equal("math"))
+			Expect(tail).To(Equal("avg"))
+		})
+
+		It("Should return empty parts for a non-identifier primary", func() {
+			head, tail := parser.PrimaryNameParts(primaryOf("42"))
+			Expect(head).To(Equal(""))
+			Expect(tail).To(Equal(""))
+		})
+
+		It("Should join or blank the name to match the parts", func() {
+			Expect(parser.PrimaryName(primaryOf("x"))).To(Equal("x"))
+			Expect(parser.PrimaryName(primaryOf("math.avg"))).To(Equal("math.avg"))
+			Expect(parser.PrimaryName(primaryOf("42"))).To(Equal(""))
 		})
 	})
 })

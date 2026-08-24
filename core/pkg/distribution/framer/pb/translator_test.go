@@ -12,8 +12,6 @@ package pb_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/synnaxlabs/x/testutil"
-
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -24,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func testFrame() frame.Frame {
@@ -153,7 +152,7 @@ var _ = Describe("Translator", func() {
 			pb := MustSucceed(t.Forward(ctx, original))
 			result := MustSucceed(t.Backward(ctx, pb))
 			Expect(result.Command).To(Equal(iterator.Command(0)))
-			Expect(result.Keys).To(HaveLen(0))
+			Expect(result.Keys).To(BeEmpty())
 		})
 	})
 
@@ -202,7 +201,7 @@ var _ = Describe("Translator", func() {
 			original := relay.Request{}
 			pb := MustSucceed(t.Forward(ctx, original))
 			result := MustSucceed(t.Backward(ctx, pb))
-			Expect(result.Keys).To(HaveLen(0))
+			Expect(result.Keys).To(BeEmpty())
 		})
 	})
 
@@ -247,7 +246,7 @@ var _ = Describe("Translator", func() {
 			original := deleter.Request{}
 			pb := MustSucceed(t.Forward(ctx, original))
 			result := MustSucceed(t.Backward(ctx, pb))
-			Expect(result.Keys).To(HaveLen(0))
+			Expect(result.Keys).To(BeEmpty())
 		})
 	})
 })

@@ -8,13 +8,14 @@
 #  included in the file licenses/APL.txt.
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import Any
 
 from playwright.sync_api import FloatRect, Locator, Page
 
 import synnax as sy
 from console.layout import LayoutClient
-from console.notifications import NotificationsClient
 
 """ Symbol Box helpers """
 
@@ -69,7 +70,7 @@ class Symbol(ABC):
 
         Args:
             label: Display label for the symbol
-            symbol_type: The type of symbol (e.g., "Valve", "Button", "Three Way")
+            symbol_type: The type of symbol (e.g., "Valve", "Button", "Three way")
             rotatable: Whether the symbol can be rotated (default: False)
         """
         if label.strip() == "":
@@ -92,7 +93,7 @@ class Symbol(ABC):
 
         self.page = layout.page
         self.layout = layout
-        self.notifications = NotificationsClient(layout.page)
+        self.notifications = layout.notifications
 
         toolbar = SymbolToolbar(self.layout)
         self.symbol_id = toolbar.add_symbol(self._symbol_type, self._symbol_group)
@@ -110,10 +111,12 @@ class Symbol(ABC):
 
     def _disable_edit_mode(self) -> None:
         self.notifications.close_all()
-        edit_off_icon = self.page.get_by_label("pluto-icon--edit-off")
-        if edit_off_icon.count() > 0:
-            edit_off_icon.click()
-            self.page.get_by_label("pluto-icon--edit").wait_for(
+        disable_btn = self.page.get_by_role(
+            "button", name="Disable editing", exact=True
+        )
+        if disable_btn.count() > 0:
+            disable_btn.click()
+            self.page.get_by_role("button", name="Enable editing", exact=True).wait_for(
                 state="visible", timeout=3000
             )
 
@@ -122,13 +125,13 @@ class Symbol(ABC):
         enable_editing_link = self.page.get_by_text("enable editing", exact=False)
         if enable_editing_link.count() > 0:
             enable_editing_link.click()
-            self.page.get_by_label("pluto-icon--edit-off").wait_for(
-                state="visible", timeout=2000
-            )
+            self.page.get_by_role(
+                "button", name="Disable editing", exact=True
+            ).wait_for(state="visible", timeout=2000)
             return
-        edit_icon = self.page.get_by_label("pluto-icon--edit")
-        if edit_icon.count() > 0:
-            edit_icon.click()
+        enable_btn = self.page.get_by_role("button", name="Enable editing", exact=True)
+        if enable_btn.count() > 0:
+            enable_btn.click()
 
     def click(self) -> None:
         """Click the symbol to select it."""
@@ -180,6 +183,23 @@ class Symbol(ABC):
     def press(self) -> None:
         """Press/activate the symbol if applicable. Default implementation does nothing."""
         pass
+
+    @contextmanager
+    def hold(self) -> Iterator[None]:
+        """Press and hold the symbol, releasing on exit."""
+        self._disable_edit_mode()
+        pos = self.position
+        self.page.mouse.move(box_center_x(pos), box_center_y(pos))
+        self.page.mouse.down()
+        try:
+            yield
+        finally:
+            self.page.mouse.up()
+
+    def press_and_hold(self, delay: sy.TimeSpan = sy.TimeSpan.SECOND) -> None:
+        """Press the symbol, hold for ``delay``, then release."""
+        with self.hold():
+            self.page.wait_for_timeout(int(delay.milliseconds))
 
     def move(self, *, delta_x: int, delta_y: int) -> None:
         """Move the symbol by the specified number of pixels using drag"""
@@ -234,7 +254,16 @@ class Symbol(ABC):
             Empty dict - subclasses should populate with actual properties
         """
         self.click()
-        self.page.get_by_text("Properties").click()
+        self.open_properties_tab()
         if tab:
             self.page.get_by_text(tab).last.click()
         return {}
+
+    def open_properties_tab(self) -> None:
+        """Open the symbol Properties tab.
+
+        Toasts stack over the tab strip and swallow coordinate clicks, so the
+        click is dispatched on the tab itself.
+        """
+        self.notifications.close_all()
+        self.page.get_by_text("Properties").dispatch_event("click")

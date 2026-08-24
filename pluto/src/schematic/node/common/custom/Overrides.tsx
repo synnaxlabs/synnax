@@ -7,21 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/schematic/node/common/custom/Overrides.css";
+
 import { type schematic } from "@synnaxlabs/client";
-import { caseconv, color, deep } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement, useCallback, useState } from "react";
+import { caseconv, type color, deep } from "@synnaxlabs/x";
+import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/button";
 import { Color } from "@/color";
+import { CSS } from "@/css";
 import { Flex } from "@/flex";
-import { type Flux } from "@/flux";
 import { Form } from "@/form";
 import { Icon } from "@/icon";
-import { useRetrieveEffect } from "@/schematic/symbol/queries";
+import { Symbol } from "@/schematic/symbol";
 import { Select } from "@/select";
 import { Text } from "@/text";
-
-const REGION_NAME_STYLE: CSSProperties = { maxWidth: 50, width: 50 };
 
 interface RegionControlsProps {
   path: string;
@@ -92,33 +92,34 @@ const RegionControls = ({
   const canBeReset = !deep.equal(region, originalRegion);
   return (
     <Flex.Box x align="center">
-      <Text.Text level="small" color={9} style={REGION_NAME_STYLE} overflow="ellipsis">
+      <Text.Text
+        level="small"
+        color={9}
+        className={CSS.B("schematic-region-name")}
+        overflow="ellipsis"
+      >
         {caseconv.capitalize(name)}
       </Text.Text>
       <Flex.Box x align="stretch" key={path}>
-        <Form.Field<string>
+        <Form.Field<color.Color>
           path={`${path}.strokeColor`}
           showLabel={false}
           padHelpText={false}
         >
-          {({ value, onChange }) => (
-            <Color.Swatch value={value} onChange={(v) => onChange(color.hex(v))} />
-          )}
+          {({ value, onChange }) => <Color.Swatch value={value} onChange={onChange} />}
         </Form.Field>
-        <Form.Field<string>
+        <Form.Field<color.Color>
           path={`${path}.fillColor`}
           showLabel={false}
           padHelpText={false}
         >
-          {({ value, onChange }) => (
-            <Color.Swatch value={value} onChange={(v) => onChange(color.hex(v))} />
-          )}
+          {({ value, onChange }) => <Color.Swatch value={value} onChange={onChange} />}
         </Form.Field>
         <Button.Button
           onClick={() => onReset(path)}
           variant="text"
           size="tiny"
-          style={{ opacity: canBeReset ? 1 : 0 }}
+          className={CSS.cls(CSS.B("schematic-region-reset"), CSS.visible(canBeReset))}
         >
           <Icon.Reset />
         </Button.Button>
@@ -160,29 +161,31 @@ export const StateOverrideForm = (): ReactElement => {
   );
   const [selectedState, setSelectedState] = useState<string | undefined>(states?.[0]);
 
-  useRetrieveEffect({
-    query: { key: specKey },
-    addStatusOnFailure: false,
-    onChange: useCallback(
-      (res: Flux.Result<schematic.symbol.Symbol>) => {
-        if (res.data?.data == null) return;
-        const symbolSpec = res.data.data;
-        setOriginalStates(deep.copy(symbolSpec.states));
-        const currentOverrides = form.get<schematic.symbol.State[]>("stateOverrides");
-        if (currentOverrides.value?.length === 0) {
-          form.set("stateOverrides", deep.copy(symbolSpec.states));
-          setSelectedState(symbolSpec.states[0].key);
-        } else {
-          const syncedStates = syncStateOverrides(
-            currentOverrides.value,
-            symbolSpec.states,
-          );
-          form.set("stateOverrides", syncedStates);
-        }
-      },
-      [form],
-    ),
-  });
+  const applySymbol = useCallback(
+    (symbol: schematic.symbol.Symbol) => {
+      if (symbol.data == null) return;
+      const symbolSpec = symbol.data;
+      setOriginalStates(deep.copy(symbolSpec.states));
+      const currentOverrides = form.get<schematic.symbol.State[]>("stateOverrides");
+      if (currentOverrides.value?.length === 0) {
+        form.set("stateOverrides", deep.copy(symbolSpec.states));
+        setSelectedState(symbolSpec.states[0].key);
+      } else {
+        const syncedStates = syncStateOverrides(
+          currentOverrides.value,
+          symbolSpec.states,
+        );
+        form.set("stateOverrides", syncedStates);
+      }
+    },
+    [form],
+  );
+  // A dangling spec key must not throw here: the owner renders a repair form for it.
+  const { symbol } = Symbol.useResolved(specKey);
+  useEffect(() => {
+    if (symbol == null) return;
+    applySymbol(symbol);
+  }, [symbol, applySymbol]);
 
   const resetRegion = useCallback(
     (path: string) => {
@@ -202,12 +205,17 @@ export const StateOverrideForm = (): ReactElement => {
     [originalStates],
   );
 
+  // The form can swap to a different symbol's overrides beneath the locally
+  // held selection, so fall back to the first state when the key disappears.
+  const shownState =
+    selectedState != null && states.includes(selectedState) ? selectedState : states[0];
+
   return (
     <Flex.Box y align="stretch">
       {states.length > 1 && (
         <Select.Buttons
           keys={states}
-          value={selectedState}
+          value={shownState}
           onChange={setSelectedState}
           full="x"
         >
@@ -218,9 +226,9 @@ export const StateOverrideForm = (): ReactElement => {
           ))}
         </Select.Buttons>
       )}
-      {selectedState != null && (
+      {shownState != null && (
         <RegionList
-          selectedState={selectedState}
+          selectedState={shownState}
           onReset={resetRegion}
           getOriginalRegion={getOriginalRegion}
         />

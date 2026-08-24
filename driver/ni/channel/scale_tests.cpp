@@ -16,11 +16,18 @@
 #include "driver/ni/channel/scale.h"
 
 namespace driver::ni::channel {
+std::pair<std::unique_ptr<Scale>, x::errors::Error>
+parse_test_scale(x::json::Parser &p) {
+    auto child = p.child("scale");
+    return channel::make_scale(::synnax::ni::parse_scale(child));
+}
+
 TEST(Scale, None) {
     const x::json::json j = {{"scale", {{"type", "none"}}}};
-    const x::json::Parser p(j);
-    const auto scale = channel::parse_scale(p, "scale");
+    x::json::Parser p(j);
+    auto [scale, scale_err] = parse_test_scale(p);
     ASSERT_NIL(p.error());
+    ASSERT_NIL(scale_err);
     ASSERT_NE(scale, nullptr);
     EXPECT_TRUE(scale->is_none());
 }
@@ -34,9 +41,10 @@ TEST(Scale, Linear) {
           {"pre_scaled_units", "Volts"},
           {"scaled_units", "Pascals"}}}
     };
-    const x::json::Parser p(j);
-    const auto scale = channel::parse_scale(p, "scale");
+    x::json::Parser p(j);
+    auto [scale, scale_err] = parse_test_scale(p);
     ASSERT_NIL(p.error());
+    ASSERT_NIL(scale_err);
     ASSERT_NE(scale, nullptr);
     EXPECT_FALSE(scale->is_none());
 
@@ -59,9 +67,10 @@ TEST(Scale, Map) {
           {"pre_scaled_units", "Volts"},
           {"scaled_units", "Pascals"}}}
     };
-    const x::json::Parser p(j);
-    const auto scale = channel::parse_scale(p, "scale");
+    x::json::Parser p(j);
+    auto [scale, scale_err] = parse_test_scale(p);
     ASSERT_NIL(p.error());
+    ASSERT_NIL(scale_err);
     EXPECT_FALSE(scale->is_none());
 
     auto *map_scale = dynamic_cast<channel::MapScale *>(scale.get());
@@ -79,25 +88,19 @@ TEST(Scale, Polynomial) {
         {"scale",
          {{"type", "polynomial"},
           {"forward_coeffs", {1.0, 2.0, 3.0}},
-          {"min_x", 0.0},
-          {"max_x", 10.0},
+          {"reverse_coeffs", {3.0, 2.0, 1.0}},
           {"pre_scaled_units", "Volts"},
           {"scaled_units", "Pascals"}}}
     };
-    const x::json::Parser p(j);
-    const auto scale = channel::parse_scale(p, "scale");
+    x::json::Parser p(j);
+    auto [scale, scale_err] = parse_test_scale(p);
     ASSERT_NIL(p.error());
+    ASSERT_NIL(scale_err);
     ASSERT_NE(scale, nullptr);
     EXPECT_FALSE(scale->is_none());
 
     auto *poly_scale = dynamic_cast<channel::PolynomialScale *>(scale.get());
     ASSERT_NE(poly_scale, nullptr);
-    EXPECT_EQ(poly_scale->min_x, 0.0);
-    EXPECT_EQ(poly_scale->max_x, 10.0);
-    EXPECT_EQ(
-        poly_scale->reverse_poly_order,
-        channel::REVERSE_POLY_ORDER_SAME_AS_FORWARD
-    );
     EXPECT_EQ(poly_scale->pre_scaled_units, DAQmx_Val_Volts);
     EXPECT_EQ(poly_scale->scaled_units, "Pascals");
 
@@ -105,41 +108,58 @@ TEST(Scale, Polynomial) {
     EXPECT_EQ(poly_scale->forward_coeffs[0], 1.0);
     EXPECT_EQ(poly_scale->forward_coeffs[1], 2.0);
     EXPECT_EQ(poly_scale->forward_coeffs[2], 3.0);
+    ASSERT_EQ(poly_scale->reverse_coeffs.size(), 3);
+    EXPECT_EQ(poly_scale->reverse_coeffs[0], 3.0);
+}
+
+TEST(Scale, PolynomialMissingReverseCoeffs) {
+    const x::json::json j = {
+        {"scale",
+         {{"type", "polynomial"},
+          {"forward_coeffs", {1.0, 2.0, 3.0}},
+          {"pre_scaled_units", "Volts"},
+          {"scaled_units", "Pascals"}}}
+    };
+    x::json::Parser p(j);
+    auto [scale, scale_err] = parse_test_scale(p);
+    ASSERT_OCCURRED_AS(scale_err, x::errors::VALIDATION);
 }
 
 TEST(Scale, Table) {
     const x::json::json j = {
         {"scale",
          {{"type", "table"},
-          {"pre_scaled", {0.0, 5.0, 10.0}},
-          {"scaled", {0.0, 50.0, 100.0}},
+          {"pre_scaled_vals", {0.0, 5.0, 10.0}},
+          {"scaled_vals", {0.0, 50.0, 100.0}},
           {"pre_scaled_units", "Volts"},
           {"scaled_units", "Pascals"}}}
     };
-    const x::json::Parser p(j);
-    const auto scale = channel::parse_scale(p, "scale");
+    x::json::Parser p(j);
+    auto [scale, scale_err] = parse_test_scale(p);
     ASSERT_NIL(p.error());
+    ASSERT_NIL(scale_err);
     ASSERT_NE(scale, nullptr);
     EXPECT_FALSE(scale->is_none());
 
     auto *table_scale = dynamic_cast<channel::TableScale *>(scale.get());
     ASSERT_NE(table_scale, nullptr);
+    EXPECT_EQ(table_scale->pre_scaled.size(), 3);
+    EXPECT_EQ(table_scale->scaled.size(), 3);
     EXPECT_EQ(table_scale->pre_scaled_units, DAQmx_Val_Volts);
     EXPECT_EQ(table_scale->scaled_units, "Pascals");
 }
 
 TEST(Scale, InvalidType) {
     const x::json::json j = {{"scale", {{"type", "invalid"}}}};
-    const x::json::Parser p(j);
-    const auto ptr = channel::parse_scale(p, "scale");
+    x::json::Parser p(j);
+    auto [scale, scale_err] = parse_test_scale(p);
     ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
-    ASSERT_EQ(ptr, nullptr);
 }
 
-TEST(Scale, MissingRequiredFields) {
-    const x::json::json j = {{"scale", {{"type", "linear"}, {"y_intercept", 1.0}}}};
-    const x::json::Parser p(j);
-    const auto scale = channel::parse_scale(p, "scale");
+TEST(Scale, MissingType) {
+    const x::json::json j = {{"scale", {{"slope", 2.0}}}};
+    x::json::Parser p(j);
+    auto [scale, scale_err] = parse_test_scale(p);
     ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
 }
 
@@ -147,9 +167,10 @@ TEST(Scale, DefaultUnits) {
     const x::json::json j = {
         {"scale", {{"type", "linear"}, {"slope", 2.0}, {"y_intercept", 1.0}}}
     };
-    const x::json::Parser p(j);
-    const auto scale = channel::parse_scale(p, "scale");
+    x::json::Parser p(j);
+    auto [scale, scale_err] = parse_test_scale(p);
     ASSERT_NIL(p.error());
+    ASSERT_NIL(scale_err);
     ASSERT_NE(scale, nullptr);
     EXPECT_FALSE(scale->is_none());
 

@@ -13,6 +13,7 @@
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/test/test.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "driver/common/scan_task.h"
 #include "driver/modbus/mock/slave.h"
@@ -27,7 +28,7 @@ TEST(ScanTask, testConnection) {
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task t;
-    t.key = 12345;
+    t.key = x::uuid::create();
     t.type = "modbus_scan";
 
     auto dev_manager = std::make_shared<device::Manager>();
@@ -38,7 +39,7 @@ TEST(ScanTask, testConnection) {
         ctx,
         t,
         x::breaker::default_config(t.name),
-        cfg.scan_rate
+        cfg.rate
     );
 
     auto conn_cfg = device::ConnectionConfig{"127.0.0.1", 1502};
@@ -53,7 +54,7 @@ TEST(ScanTask, testConnection) {
     scan_task->exec(cmd);
     ASSERT_EQ(ctx->statuses.size(), 1);
     auto first = ctx->statuses[0];
-    EXPECT_EQ(first.variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(first.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(first.key, synnax::task::status_key(t));
     EXPECT_EQ(first.details.cmd, cmd.key);
     EXPECT_EQ(first.details.task, t.key);
@@ -63,7 +64,7 @@ TEST(ScanTask, testConnection) {
 TEST(ScanTask, testConfigReturnsCorrectValues) {
     auto ctx = std::make_shared<task::MockContext>(nullptr);
     synnax::task::Task t;
-    t.key = 12345;
+    t.key = x::uuid::create();
     t.type = "modbus_scan";
     auto dev_manager = std::make_shared<device::Manager>();
 
@@ -76,7 +77,7 @@ TEST(ScanTask, testConfigReturnsCorrectValues) {
 TEST(ScanTask, testExecReturnsFalseForUnknownCommand) {
     auto ctx = std::make_shared<task::MockContext>(nullptr);
     synnax::task::Task t;
-    t.key = 12345;
+    t.key = x::uuid::create();
     t.type = "modbus_scan";
     auto dev_manager = std::make_shared<device::Manager>();
 
@@ -93,7 +94,7 @@ TEST(ScanTask, testScanChecksDeviceHealth) {
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
     synnax::task::Task t;
-    t.key = 12345;
+    t.key = x::uuid::create();
     t.type = "modbus_scan";
     auto dev_manager = std::make_shared<device::Manager>();
 
@@ -104,7 +105,7 @@ TEST(ScanTask, testScanChecksDeviceHealth) {
     dev.key = "health-test-device";
     dev.name = "Health Test Device";
     dev.make = "modbus";
-    dev.rack = synnax::task::rack_key_from_task_key(t.key);
+    dev.rack = t.rack;
     dev.properties = x::json::json{
         {"connection",
          {{"host", "127.0.0.1"},
@@ -120,14 +121,14 @@ TEST(ScanTask, testScanChecksDeviceHealth) {
 
     auto devices = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(devices.size(), 1);
-    EXPECT_EQ(devices[0].status->variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(devices[0].status->variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(devices[0].status->message, "Device connected");
 }
 
 TEST(ScanTask, testScanReportsDisconnectedDevice) {
     auto ctx = std::make_shared<task::MockContext>(nullptr);
     synnax::task::Task t;
-    t.key = 12345;
+    t.key = x::uuid::create();
     t.type = "modbus_scan";
     auto dev_manager = std::make_shared<device::Manager>();
 
@@ -138,7 +139,7 @@ TEST(ScanTask, testScanReportsDisconnectedDevice) {
     dev.key = "disconnected-device";
     dev.name = "Disconnected Device";
     dev.make = "modbus";
-    dev.rack = synnax::task::rack_key_from_task_key(t.key);
+    dev.rack = t.rack;
     dev.properties = x::json::json{
         {"connection",
          {{"host", "127.0.0.1"},
@@ -154,7 +155,7 @@ TEST(ScanTask, testScanReportsDisconnectedDevice) {
 
     auto devices = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(devices.size(), 1);
-    EXPECT_EQ(devices[0].status->variant, x::status::VARIANT_WARNING);
+    EXPECT_EQ(devices[0].status->variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(devices[0].status->message, "Failed to reach device");
 }
 }

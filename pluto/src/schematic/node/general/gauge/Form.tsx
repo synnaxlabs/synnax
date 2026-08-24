@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type text } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { Flex } from "@/flex";
 import { Form as Base } from "@/form";
@@ -28,70 +28,51 @@ const GAUGE_BAR_WIDTH_INPUT_PROPS: Partial<Input.NumericProps> = {
   dragScale: { x: 0.1, y: 0.1 },
 };
 
-const BOUND_INPUT_PROPS: Partial<Input.NumericProps> = { step: 10 };
-
 const handleLevelChange = (v: text.Level, { set }: Base.ContextValue): void => {
   if (v === "small") set("barWidth", 4);
   else if (v === "h5") set("barWidth", 8);
   else set("barWidth", 10);
 };
 
-export const GaugeForm = (): ReactElement => {
-  const content: Tabs.RenderProp = useCallback(({ tabKey }) => {
-    switch (tabKey) {
-      case "telemetry":
-        return (
-          <Form.Wrapper y empty>
-            <Value.TelemForm path="" />
-          </Form.Wrapper>
-        );
-      default:
-        return (
-          <Form.Wrapper x>
-            <Flex.Box y grow>
-              <Label.Form path="label" />
-              <Flex.Box x>
-                <Form.ColorField path="color" />
-                <Form.UnitsField />
-                <Base.NumericField
-                  path="bounds.lower"
-                  label="Min value"
-                  hideIfNull
-                  inputProps={BOUND_INPUT_PROPS}
-                />
-                <Base.NumericField
-                  path="bounds.upper"
-                  label="Max value"
-                  hideIfNull
-                  inputProps={BOUND_INPUT_PROPS}
-                />
-                <Base.NumericField
-                  path="barWidth"
-                  label="Bar width"
-                  hideIfNull
-                  inputProps={GAUGE_BAR_WIDTH_INPUT_PROPS}
-                />
-                <Base.Field<text.Level>
-                  path="level"
-                  label="Size"
-                  hideIfNull
-                  padHelpText={false}
-                  onChange={handleLevelChange}
-                >
-                  {({ value, onChange }) => (
-                    <Select.Text.Level value={value} onChange={onChange} />
-                  )}
-                </Base.Field>
-              </Flex.Box>
-            </Flex.Box>
-          </Form.Wrapper>
-        );
-    }
-  }, []);
-  const tabs: Tabs.Spec[] = [
-    { tabKey: "properties", name: "Properties" },
-    { tabKey: "telemetry", name: "Telemetry" },
-  ];
-  const props = Tabs.useStatic({ tabs, content });
-  return <Tabs.Tabs {...props} />;
-};
+export const GaugeForm = (): ReactElement => (
+  <Tabs.Frame initialValue="properties">
+    <Tabs.Selector>
+      <Tabs.Tab itemKey="properties">Properties</Tabs.Tab>
+      <Tabs.Tab itemKey="telemetry">Telemetry</Tabs.Tab>
+    </Tabs.Selector>
+    <Tabs.Content itemKey="properties">
+      <Form.Wrapper x>
+        <Flex.Box y grow>
+          <Label.Form path="label" />
+          <Flex.Box x>
+            <Form.ColorField path="color" />
+            <Form.UnitsField />
+            <Form.BoundsFields path="bounds" hideIfNull />
+            <Base.NumericField
+              path="barWidth"
+              label="Bar width"
+              hideIfNull
+              inputProps={GAUGE_BAR_WIDTH_INPUT_PROPS}
+            />
+            <Base.Field<text.Level>
+              path="level"
+              label="Size"
+              hideIfNull
+              padHelpText={false}
+              onChange={handleLevelChange}
+            >
+              {({ value, onChange }) => (
+                <Select.Text.Level value={value} onChange={onChange} />
+              )}
+            </Base.Field>
+          </Flex.Box>
+        </Flex.Box>
+      </Form.Wrapper>
+    </Tabs.Content>
+    <Tabs.Content itemKey="telemetry">
+      <Form.Wrapper y empty>
+        <Value.TelemForm path="" />
+      </Form.Wrapper>
+    </Tabs.Content>
+  </Tabs.Frame>
+);

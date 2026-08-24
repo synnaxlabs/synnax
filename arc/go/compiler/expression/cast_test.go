@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Type Cast Compilation", func() {
@@ -351,13 +352,28 @@ var _ = Describe("Type Cast Compilation", func() {
 			OpI32Const, int32(5),
 			OpCall, uint32(0),
 		),
+
+		// Bool to String — dispatches via strings.from_bool.
+		Entry(
+			"true to str",
+			"str(true)",
+			types.String(),
+			OpI32Const, int32(1),
+			OpCall, uint32(0),
+		),
+		Entry(
+			"false to str",
+			"str(false)",
+			types.String(),
+			OpI32Const, int32(0),
+			OpCall, uint32(0),
+		),
 	)
 
 	DescribeTable(
 		"should reject str to numeric casts (analyzer-gated)",
 		func(bCtx SpecContext, source string) {
-			expr, diag := parser.ParseExpression(source)
-			Expect(diag).To(BeNil())
+			expr := MustSucceed(parser.ParseExpression(source))
 			analyzerCtx := acontext.NewRoot(bCtx, expr, NewRoot(nil))
 			aexpression.Analyze(analyzerCtx)
 			Expect(analyzerCtx.Diagnostics.Ok()).To(BeFalse())
@@ -375,10 +391,48 @@ var _ = Describe("Type Cast Compilation", func() {
 		Entry("str to f64", `f64("hello")`),
 	)
 
+	DescribeTable(
+		"should reject boolean conversions (analyzer-gated)",
+		func(bCtx SpecContext, source string) {
+			expr := MustSucceed(parser.ParseExpression(source))
+			analyzerCtx := acontext.NewRoot(bCtx, expr, NewRoot(nil))
+			aexpression.Analyze(analyzerCtx)
+			Expect(analyzerCtx.Diagnostics.Ok()).To(BeFalse())
+			Expect(analyzerCtx.Diagnostics.String()).To(
+				ContainSubstring("boolean conversions are not supported"),
+			)
+		},
+		Entry("integer literal", `bool(1)`),
+		Entry("float literal", `bool(1.5)`),
+		Entry("bool literal", `bool(true)`),
+		Entry("str literal", `bool("hello")`),
+		Entry("typed numeric", `bool(i32(5))`),
+	)
+
+	DescribeTable("should compile bool to numeric casts",
+		expectExpression,
+		Entry("bool to u8", `u8(true)`, types.U8(), OpI32Const, int32(1)),
+		Entry(
+			"bool to i64",
+			`i64(true)`,
+			types.I64(),
+			OpI32Const,
+			int32(1),
+			OpI64ExtendI32U,
+		),
+		Entry(
+			"bool to f64",
+			`f64(false)`,
+			types.F64(),
+			OpI32Const,
+			int32(0),
+			OpF64ConvertI32U,
+		),
+	)
+
 	It("Should propagate literal parsing errors", func(bCtx SpecContext) {
 		// Test that non-exact float-to-int conversions are rejected
-		expr, diag := parser.ParseExpression("i32(3.14)")
-		Expect(diag).To(BeNil())
+		expr := MustSucceed(parser.ParseExpression("i32(3.14)"))
 		ctx := NewContext(bCtx)
 		_, err := expression.Compile(ccontext.Child(ctx, expr))
 		Expect(err).To(MatchError(ContainSubstring("cannot convert non-integer float")))
@@ -386,8 +440,7 @@ var _ = Describe("Type Cast Compilation", func() {
 
 	It("Should propagate overflow errors from literals", func(bCtx SpecContext) {
 		// Test that overflow validation is enforced
-		expr, diag := parser.ParseExpression("i8(128)")
-		Expect(diag).To(BeNil())
+		expr := MustSucceed(parser.ParseExpression("i8(128)"))
 		ctx := NewContext(bCtx)
 		_, err := expression.Compile(ccontext.Child(ctx, expr))
 		Expect(err).To(MatchError(ContainSubstring("out of range for i8")))

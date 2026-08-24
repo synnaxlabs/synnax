@@ -18,6 +18,8 @@ import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/stringDisplay/config";
 import { symbolColorVar } from "@/schematic/symbolColor";
 import { Text } from "@/text";
+import { Theming } from "@/theming";
+import { Staleness } from "@/vis/staleness";
 
 interface RenderProps extends Omit<Config, "label" | "variant"> {
   className?: string;
@@ -38,15 +40,18 @@ export const StringDisplay = ({
 }: RenderProps): ReactElement => {
   const style = useMemo<CSSProperties>(
     () => ({
-      [CSS.var("symbol-color")]: symbolColorVar(colorVal),
+      [CSS.variable("symbol-color")]: symbolColorVar(colorVal),
       width: inlineSize,
     }),
     [colorVal, inlineSize],
   );
-  const resolvedTextColor = stale ? stalenessColor : textColor;
+  const theme = Theming.use();
+  const resolvedTextColor = stale
+    ? Staleness.resolveColor(stalenessColor, theme)
+    : textColor;
   return (
     <Primitive.Div
-      className={CSS(CSS.B("string-display"), CSS.B("symbol-colored"), className)}
+      className={CSS.cls(CSS.B("string-display"), CSS.B("symbol-colored"), className)}
       style={style}
     >
       <div className={CSS.BE("string-display", "content")}>

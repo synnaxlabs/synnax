@@ -163,9 +163,13 @@ trig -> t.now{} -> now_out
 				if n.Type == "time.now" {
 					found = true
 				}
-				Expect(n.Type).ToNot(Equal("t.now"), "IR node type still uses the alias")
+				Expect(
+					n.Type,
+				).ToNot(Equal("t.now"), "IR node type still uses the alias")
 			}
-			Expect(found).To(BeTrue(), "expected an IR node with canonical type time.now")
+			Expect(
+				found,
+			).To(BeTrue(), "expected an IR node with canonical type time.now")
 		})
 	})
 
@@ -223,7 +227,9 @@ import banana
 
 sensor -> avg{} -> output
 `, chans)
-			Expect(messages(d)).ToNot(ContainSubstring(`imported module "banana" is unused`))
+			Expect(
+				messages(d),
+			).ToNot(ContainSubstring(`imported module "banana" is unused`))
 		})
 
 		It("Should not flag a misspelled member as an unused import", func() {
@@ -233,7 +239,9 @@ import time
 trig -> time.doesnotexist{} -> now_out
 `, chans)
 			Expect(d.Ok()).To(BeFalse())
-			Expect(messages(d)).ToNot(ContainSubstring(`imported module "time" is unused`))
+			Expect(
+				messages(d),
+			).ToNot(ContainSubstring(`imported module "time" is unused`))
 		})
 	})
 
@@ -291,31 +299,34 @@ func get_now() i64 { return time.now() }
 	})
 
 	Describe("authority block ordering", func() {
-		It("Should compile and run import + authority + dotted call", func(ctx SpecContext) {
-			resolver := channelSymbols(map[string]channelDef{
-				"trigger_cmd": {types.U8(), 100},
-				"valve_cmd":   {types.U8(), 101},
-			})
-			h := newRuntimeHarness(ctx, `
+		It(
+			"Should compile and run import + authority + dotted call",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"trigger_cmd": {types.U8(), 100},
+					"valve_cmd":   {types.U8(), 101},
+				})
+				h := newRuntimeHarness(ctx, `
 				import control
 				authority 100
 				trigger_cmd -> control.set_authority{value=200, channel=valve_cmd}
 			`, resolver,
-				channels.Digest{Key: 100, DataType: telem.Uint8T},
-				channels.Digest{Key: 101, DataType: telem.Uint8T},
-			)
-			defer h.Close(ctx)
+					channels.Digest{Key: 100, DataType: telem.Uint8T},
+					channels.Digest{Key: 101, DataType: telem.Uint8T},
+				)
+				defer h.Close(ctx)
 
-			h.Ingest(100, telem.NewSeriesV[uint8](1))
-			h.Tick(ctx, telem.Millisecond)
-			h.channelState.ClearReads()
+				h.Ingest(100, telem.NewSeriesV[uint8](1))
+				h.Tick(ctx, telem.Millisecond)
+				h.channelState.ClearReads()
 
-			changes := h.FlushAuthority()
-			Expect(changes).To(HaveLen(1),
-				"control.set_authority should buffer one authority change per activation")
-			Expect(changes[0].Authority).To(Equal(uint8(200)))
-			Expect(changes[0].Channel).ToNot(BeNil())
-			Expect(*changes[0].Channel).To(Equal(uint32(101)))
-		})
+				changes := h.FlushAuthority()
+				Expect(changes).To(HaveLen(1),
+					"control.set_authority should buffer one authority change per activation")
+				Expect(changes[0].Authority).To(Equal(uint8(200)))
+				Expect(changes[0].Channel).ToNot(BeNil())
+				Expect(*changes[0].Channel).To(Equal(uint32(101)))
+			},
+		)
 	})
 })

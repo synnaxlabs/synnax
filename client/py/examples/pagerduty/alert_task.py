@@ -42,13 +42,12 @@ alert_task = sy.pagerduty.AlertTask(
     routing_key=ROUTING_KEY,
     auto_start=False,
     alerts=[
-        sy.pagerduty.AlertConfig(
+        sy.pagerduty.Alert(
             status=STATUS_KEY,
-            enabled=True,
-            treat_error_as_critical=True,
+            errors_critical=True,
             component="example-service",
             group="examples",
-            alert_class="service_error",
+            class_="service_error",
         ),
     ],
 )

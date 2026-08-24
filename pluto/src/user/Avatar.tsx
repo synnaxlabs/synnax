@@ -59,7 +59,7 @@ export const Avatar = ({
       preventClick
       variant="text"
       {...rest}
-      className={CSS(className, CSS.B("avatar"))}
+      className={CSS.cls(className, CSS.B("avatar"))}
       square
       style={oStyle}
     />

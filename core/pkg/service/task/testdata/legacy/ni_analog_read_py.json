@@ -1,0 +1,90 @@
+{
+  "type": "ni_analog_read",
+  "auto_start": false,
+  "data_saving": true,
+  "sample_rate": 1000,
+  "stream_rate": 50,
+  "device": "fixture-ni-py-dev",
+  "channels": [
+    {
+      "key": "ch-py-ai-charge",
+      "enabled": true,
+      "device": "fixture-ni-py-dev",
+      "port": 0,
+      "channel": 3010,
+      "type": "ai_charge",
+      "terminal_config": "Diff",
+      "units": "uC",
+      "min_val": -0.000001,
+      "max_val": 0.000001,
+      "custom_scale": { "type": "none" }
+    },
+    {
+      "key": "ch-py-ai-freq-voltage",
+      "enabled": true,
+      "device": "fixture-ni-py-dev",
+      "port": 1,
+      "channel": 3020,
+      "type": "ai_freq_voltage",
+      "units": "Hz",
+      "threshold_level": 0.5,
+      "hysteresis": 0.125,
+      "min_val": 45.5,
+      "max_val": 65.5,
+      "custom_scale": { "type": "none" }
+    },
+    {
+      "key": "ch-py-ai-thermistor-iex",
+      "enabled": false,
+      "device": "fixture-ni-py-dev",
+      "port": 2,
+      "channel": 3030,
+      "type": "ai_thermistor_iex",
+      "units": "DegC",
+      "resistance_config": "4Wire",
+      "current_excit_source": "Internal",
+      "current_excit_val": 0.00015,
+      "a": 0.001129241,
+      "b": 0.000234126,
+      "c": 0.0000000876741,
+      "min_val": -40.5,
+      "max_val": 150.5
+    },
+    {
+      "key": "ch-py-ai-thermistor-vex",
+      "enabled": true,
+      "device": "fixture-ni-py-dev",
+      "port": 3,
+      "channel": 3040,
+      "type": "ai_thermistor_vex",
+      "units": "Kelvins",
+      "resistance_config": "2Wire",
+      "voltage_excit_source": "External",
+      "voltage_excit_val": 2.5,
+      "a": 0.001028444,
+      "b": 0.000239243,
+      "c": 0.0000001561926,
+      "min_val": 233.5,
+      "max_val": 423.5
+    },
+    {
+      "key": "ch-py-ai-voltage-rms",
+      "enabled": true,
+      "device": "fixture-ni-py-dev",
+      "port": 4,
+      "channel": 3050,
+      "type": "ai_voltage_rms",
+      "terminal_config": "RSE",
+      "units": "Volts",
+      "min_val": -7.5,
+      "max_val": 7.5,
+      "custom_scale": {
+        "type": "linear",
+        "slope": 1.5,
+        "y_intercept": -0.25,
+        "pre_scaled_units": "Volts",
+        "scaled_units": "vrms-custom"
+      }
+    }
+  ]
+}

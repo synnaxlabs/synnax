@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -19,6 +19,7 @@ IMPORT      : 'import' ;
 EXTENDS     : 'extends' ;
 MAP         : 'map' ;
 ACTION      : 'action' ;
+UNION       : 'union' ;
 
 // =============================================================================
 // Symbols
@@ -65,9 +66,9 @@ BOOL_LIT    : 'true' | 'false' ;
 // Identifiers
 // =============================================================================
 
-// Identifiers include type names, field names, domain names, etc.
-// Primitive types (uuid, string, int32, etc.) are NOT reserved keywords -
-// they are just identifiers that plugins interpret specially.
+// Identifiers include type names, field names, domain names, etc. Primitive types
+// (uuid, string, int32, etc.) are NOT reserved keywords - they are just identifiers
+// that plugins interpret specially.
 IDENT       : [a-zA-Z_][a-zA-Z0-9_]* ;
 
 // =============================================================================

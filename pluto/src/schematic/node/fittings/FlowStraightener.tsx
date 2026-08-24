@@ -25,7 +25,7 @@ export const FlowStraightener = ({
   scale,
   ...rest
 }: FlowStraightenerProps): ReactElement => (
-  <Primitive.Div className={CSS(CSS.B("flow-straightener"), className)} {...rest}>
+  <Primitive.Div className={CSS.cls(CSS.B("flow-straightener"), className)} {...rest}>
     <Handle.Rectangle
       orientation={orientation}
       left={3}

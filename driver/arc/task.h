@@ -12,18 +12,20 @@
 #include <memory>
 #include <vector>
 
+#include "absl/log/log.h"
+
 #include "client/cpp/arc/arc.h"
 #include "client/cpp/synnax.h"
+#include "client/cpp/task/json.gen.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/uuid/uuid.h"
 
-#include "arc/cpp/program/program.h"
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/loop/loop.h"
 #include "arc/cpp/runtime/runtime.h"
 #include "arc/cpp/runtime/state/state.h"
-#include "driver/arc/arc.h"
+#include "driver/arc/ranges/ranges.h"
 #include "driver/arc/status/status.h"
 #include "driver/bypass/pipeline/factory.h"
 #include "driver/common/common.h"
@@ -35,13 +37,13 @@
 
 namespace driver::arc {
 /// @brief configuration for an arc runtime task.
-struct TaskConfig : common::BaseTaskConfig {
+struct TaskConfig : ::synnax::task::PersistConfig {
     x::uuid::UUID arc_key;
     ::arc::program::Program program;
     ::arc::runtime::loop::Config loop;
 
     TaskConfig(TaskConfig &&other) noexcept:
-        BaseTaskConfig(std::move(other)),
+        ::synnax::task::PersistConfig(std::move(other)),
         arc_key(std::move(other.arc_key)),
         program(std::move(other.program)),
         loop(std::move(other.loop)) {}
@@ -50,7 +52,7 @@ struct TaskConfig : common::BaseTaskConfig {
     const TaskConfig &operator=(const TaskConfig &) = delete;
 
     explicit TaskConfig(x::json::Parser &parser):
-        BaseTaskConfig(parser),
+        ::synnax::task::PersistConfig(::synnax::task::PersistConfig::parse(parser)),
         arc_key(parser.field<x::uuid::UUID>("arc_key")),
         loop(parser) {}
 
@@ -140,7 +142,7 @@ public:
         if (rt_manager != nullptr) {
             x::thread::rt::Config base_rt;
             base_rt.enabled = true;
-            base_rt.lock_memory = cfg.loop.lock_memory;
+            base_rt.lock_memory = cfg.loop.memory_locked;
             base_rt.priority = cfg.loop.rt_priority;
             rt_handle = std::make_shared<x::thread::rt::Handle>(
                 rt_manager->allocate(base_rt)
@@ -168,10 +170,15 @@ public:
                 {
                     std::make_shared<::driver::arc::status::Module>(
                         ctx->client,
-                        [task_ptr = task.get()](
-                            const std::string &,
-                            const std::string &message
-                        ) { task_ptr->state.send_warning(message); }
+                        [task_ptr = task.get()](const std::string &message) {
+                            task_ptr->state.send_warning(message);
+                        }
+                    ),
+                    std::make_shared<::driver::arc::ranges::Module>(
+                        ctx->client,
+                        [task_ptr = task.get()](const std::string &message) {
+                            task_ptr->state.send_warning(message);
+                        }
                     ),
                 },
             .rt_handle = rt_handle,
@@ -213,10 +220,10 @@ public:
                     .authorities = std::move(initial_authorities),
                     .subject =
                         x::control::Subject{
-                            .key = std::to_string(task_meta.key),
+                            .key = task_meta.key.to_string(),
                             .name = task_meta.name,
                         },
-                    .mode = common::data_saving_writer_mode(cfg.data_saving),
+                    .mode = common::data_saving_writer_mode(cfg.data_saving_disabled),
                 },
                 std::move(source),
                 x::breaker::default_config("arc_acquisition"),
@@ -241,15 +248,20 @@ public:
         return {std::move(task), x::errors::NIL};
     }
 
+    /// @brief starts the task. A task whose runtime is already running is not
+    /// restarted: the command is answered with the current status.
     bool start(const std::string &cmd_key) {
         const auto start = x::telem::TimeStamp::now();
-        const auto runtime_started = this->runtime->start();
+        if (!this->runtime->start()) {
+            this->state.ack(cmd_key, true);
+            return false;
+        }
         auto acq_started = true;
         if (this->acquisition) acq_started = this->acquisition->start(start);
         auto control_started = true;
         if (this->control) control_started = this->control->start();
         this->state.send_start(cmd_key);
-        return acq_started && control_started && runtime_started;
+        return acq_started && control_started;
     }
 
     bool stop(const std::string &cmd_key, const bool propagate_state) {

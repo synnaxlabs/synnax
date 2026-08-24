@@ -10,7 +10,7 @@
 import "@/nav/Bar.css";
 
 import { direction, location, type spatial } from "@synnaxlabs/x";
-import { type FunctionComponent, type ReactElement } from "react";
+import { type FunctionComponent, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
@@ -22,19 +22,26 @@ export interface BarProps extends Omit<Flex.BoxProps, "direction" | "size" | "re
 }
 
 const BaseBar = ({
-  location: location_ = "left",
+  location: propsLoc = "left",
   size = "9rem",
   className,
-  style,
+  style: propsStyle,
   bordered = false,
   ...rest
 }: BarProps): ReactElement => {
-  const loc = location.construct(location_);
+  const loc = location.construct(propsLoc);
   const dir = location.direction(loc);
   const oppositeDir = direction.swap(dir);
+  const style = useMemo(
+    () => ({
+      [direction.dimension(dir)]: size,
+      ...propsStyle,
+    }),
+    [size, propsStyle],
+  );
   return (
     <Flex.Box
-      className={CSS(
+      className={CSS.cls(
         CSS.B("navbar"),
         bordered && CSS.bordered(location.swap(loc)),
         CSS.dir(oppositeDir),
@@ -42,10 +49,7 @@ const BaseBar = ({
         className,
       )}
       direction={oppositeDir}
-      style={{
-        [direction.dimension(dir)]: size,
-        ...style,
-      }}
+      style={style}
       align="center"
       empty
       {...rest}
@@ -53,22 +57,19 @@ const BaseBar = ({
   );
 };
 
-export interface BarContentProps extends Omit<Flex.BoxProps<"div">, "ref"> {
-  bordered?: boolean;
-  className?: string;
-}
+export interface BarContentProps extends Omit<Flex.BoxProps<"div">, "ref"> {}
 
-const contentFactory =
+const createContent =
   (
     pos: spatial.Alignment | "" | "absolute-center",
   ): FunctionComponent<BarContentProps> =>
   // eslint-disable-next-line react/display-name
   ({ bordered = false, className, ...rest }: BarContentProps): ReactElement => (
     <Flex.Box
-      className={CSS(
+      className={CSS.cls(
         CSS.BE("navbar", "content"),
         pos === "absolute-center" ? CSS.M(pos) : CSS.align(pos),
-        pos !== "" && bordered && CSS.bordered(pos),
+        pos !== "" && pos !== "absolute-center" && bordered && CSS.bordered(pos),
         className,
       )}
       align="center"
@@ -78,15 +79,15 @@ const contentFactory =
 
 type BaseBarType = typeof BaseBar;
 
-const Start = contentFactory("start");
+const Start = createContent("start");
 Start.displayName = "NavbarStart";
-const End = contentFactory("end");
+const End = createContent("end");
 End.displayName = "NavbarEnd";
-const Center = contentFactory("center");
+const Center = createContent("center");
 Center.displayName = "NavbarCenter";
-const Content = contentFactory("");
+const Content = createContent("");
 Content.displayName = "NavbarContent";
-const AbsoluteCenter = contentFactory("absolute-center");
+const AbsoluteCenter = createContent("absolute-center");
 AbsoluteCenter.displayName = "NavbarAbsoluteCenter";
 
 export interface BarType extends BaseBarType {

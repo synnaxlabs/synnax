@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { type ReactElement, useCallback } from "react";
+import { zod } from "@synnaxlabs/x";
+import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
 import { Flex } from "@/flex";
@@ -27,8 +28,13 @@ type ButtonTelemFormT = Omit<BaseButton.UseProps, "aetherKey"> & {
 
 export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } = Base.useField<ButtonTelemFormT>(path);
-  const sinkP = telem.sinkPipelinePropsZ.parse(value.sink?.props);
-  const sink = control.setChannelValuePropsZ.parse(sinkP.segments.setter.props);
+  const mode = Base.useFieldValue<BaseButton.Mode>("mode", { optional: true });
+  const sinkP = zod.parse(telem.sinkPipelinePropsZ, value.sink?.props, {
+    label: "sink pipeline",
+  });
+  const sink = zod.parse(control.setChannelValuePropsZ, sinkP.segments.setter.props, {
+    label: "setter sink",
+  });
 
   const handleSinkChange = (v: channel.Key): void => {
     v ??= 0;
@@ -64,10 +70,12 @@ export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
   return (
     <Form.Wrapper y empty>
       <Flex.Box x>
-        <Input.Item label="Output channel" grow padHelpText={false}>
+        <Input.Item label="Channel" grow padHelpText={false}>
           <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
         </Input.Item>
-        <Form.ActivationDelayField />
+        {/* The delay gates single-shot actuation (fire, pulse). Momentary's
+            hold is the actuation, so the field is hidden there. */}
+        {mode !== "momentary" && <Form.ActivationDelayField />}
         <Form.ControlChipField />
       </Flex.Box>
       <Base.Field<BaseButton.Mode> path="mode" label="Mode" optional>
@@ -79,23 +87,21 @@ export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
   );
 };
 
-export const ButtonForm = (): ReactElement => {
-  const content: Tabs.RenderProp = useCallback(({ tabKey }) => {
-    switch (tabKey) {
-      case "control":
-        return <ButtonTelemForm path="" />;
-      default:
-        return (
-          <Form.StyleForm
-            omit={["align", "maxInlineSize"]}
-            hideInnerOrientation
-            hideOuterOrientation
-          />
-        );
-    }
-  }, []);
-
-  const props = Tabs.useStatic({ tabs: Form.COMMON_TOGGLE_FORM_TABS, content });
-
-  return <Tabs.Tabs {...props} />;
-};
+export const ButtonForm = (): ReactElement => (
+  <Tabs.Frame initialValue="style">
+    <Tabs.Selector>
+      <Tabs.Tab itemKey="style">Style</Tabs.Tab>
+      <Tabs.Tab itemKey="control">Control</Tabs.Tab>
+    </Tabs.Selector>
+    <Tabs.Content itemKey="style">
+      <Form.StyleForm
+        omit={["align", "maxInlineSize"]}
+        hideInnerOrientation
+        hideOuterOrientation
+      />
+    </Tabs.Content>
+    <Tabs.Content itemKey="control">
+      <ButtonTelemForm path="" />
+    </Tabs.Content>
+  </Tabs.Frame>
+);

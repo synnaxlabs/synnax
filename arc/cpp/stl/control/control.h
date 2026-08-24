@@ -22,29 +22,35 @@
 namespace arc::stl::control {
 
 /// @brief Node that buffers an authority change request in the runtime state.
-/// When executed, it calls state.set_authority() to enqueue the change.
+/// When executed, it calls set_authority() to enqueue the change. The channel
+/// and value are read at fire time so var-bound params track live values.
 class SetAuthority : public runtime::node::Node {
-    runtime::state::State &state;
-    uint8_t authority_value;
-    std::optional<types::ChannelKey> channel_key;
+    runtime::state::Node state;
+    runtime::state::State &auth;
     bool initialized = false;
 
 public:
-    SetAuthority(
-        runtime::state::State &state,
-        const uint8_t authority,
-        std::optional<types::ChannelKey> channel_key
-    ):
-        state(state), authority_value(authority), channel_key(std::move(channel_key)) {}
+    SetAuthority(runtime::state::Node &&state, runtime::state::State &auth):
+        state(std::move(state)), auth(auth) {}
 
     x::errors::Error next(runtime::node::Context & /*ctx*/) override {
         if (this->initialized) return x::errors::NIL;
         this->initialized = true;
-        this->state.set_authority(this->channel_key, this->authority_value);
+        std::optional<types::ChannelKey> channel_key;
+        if (const auto key = this->state.numeric_input<types::ChannelKey>("channel");
+            key != 0)
+            channel_key = key;
+        this->auth.set_authority(
+            channel_key,
+            this->state.numeric_input<uint8_t>("value")
+        );
         return x::errors::NIL;
     }
 
-    void reset() override { this->initialized = false; }
+    void reset() override {
+        this->state.reset();
+        this->initialized = false;
+    }
 
     [[nodiscard]] bool is_output_truthy(size_t) const override { return false; }
 };
@@ -65,9 +71,8 @@ public:
     std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
     create(runtime::node::Config &&cfg) override {
         if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
-        const auto &auth_param = cfg.node.config["value"];
-        auto auth_sv = types::to_sample_value(auth_param.value, auth_param.type);
-        if (!auth_sv.has_value())
+        const auto &auth_param = cfg.node.inputs["value"];
+        if (!types::to_sample_value(auth_param.value, auth_param.type).has_value())
             return {
                 nullptr,
                 x::errors::Error(
@@ -75,16 +80,8 @@ public:
                     "set_authority node missing required value parameter"
                 )
             };
-        const auto auth = x::telem::cast<uint8_t>(*auth_sv);
-        const auto &ch_param = cfg.node.config["channel"];
-        auto ch_sv = types::to_sample_value(ch_param.value, ch_param.type);
-        const types::ChannelKey channel = ch_sv.has_value()
-                                            ? x::telem::cast<types::ChannelKey>(*ch_sv)
-                                            : 0;
-        std::optional<types::ChannelKey> channel_key;
-        if (channel != 0) channel_key = channel;
         return {
-            std::make_unique<SetAuthority>(*this->state, auth, channel_key),
+            std::make_unique<SetAuthority>(std::move(cfg.state), *this->state),
             x::errors::NIL
         };
     }

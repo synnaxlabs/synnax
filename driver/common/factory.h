@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "glog/logging.h"
+#include "absl/log/log.h"
 
 #include "driver/task/task.h"
 
@@ -34,10 +34,7 @@ inline std::pair<bool, x::errors::Error> create_if_type_not_exists_on_rack(
 }
 
 /// @brief Creates and configures initial tasks for a factory
-/// @tparam F A factory type that implements the configure_task method with signature:
-///           std::pair<std::unique_ptr<task::Task>, x::errors::Error> configure_task(
-///               const std::shared_ptr<task::Context> &ctx,
-///               const synnax::task::Task &task)
+/// @tparam F A factory type implementing task::Factory::configure_task
 /// @param factory Pointer to the factory instance that will configure the tasks
 /// @param ctx Shared context for task execution
 /// @param rack The rack to create tasks for
@@ -52,7 +49,7 @@ inline std::pair<bool, x::errors::Error> create_if_type_not_exists_on_rack(
 ///   1. A task of the specified type already exists
 ///   2. Task creation fails
 ///   3. Task configuration fails
-/// - Logs errors and warnings through glog
+/// - Logs errors and warnings
 template<typename F>
 std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>
 configure_initial_factory_tasks(
@@ -65,7 +62,7 @@ configure_initial_factory_tasks(
 ) {
     std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>> tasks;
     auto sy_task = synnax::task::Task{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = task_name,
         .type = task_type,
         .config = x::json::json::object(),
@@ -82,7 +79,7 @@ configure_initial_factory_tasks(
                 << " already exists on rack. Skipping creation.";
         return tasks;
     }
-    auto [task, _] = factory->configure_task(ctx, sy_task);
+    auto [task, _] = factory->configure_task(ctx, sy_task, driver::task::NO_COMMAND);
     if (task != nullptr)
         tasks.emplace_back(sy_task, std::move(task));
     else
@@ -97,7 +94,7 @@ configure_initial_factory_tasks(
 /// @param integration_name Name of the integration for logging purposes
 /// @return Error if any occurred during the operation (NOT_FOUND errors are skipped)
 /// @note
-/// - Logs success/failure through glog
+/// - Logs success/failure
 /// - Silently succeeds if no task of the specified type exists
 /// - Useful for cleaning up legacy tasks during system upgrades or reconfigurations
 inline x::errors::Error delete_legacy_task_by_type(

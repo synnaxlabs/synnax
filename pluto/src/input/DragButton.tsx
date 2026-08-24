@@ -15,16 +15,20 @@ import { type ReactElement, useCallback, useMemo, useRef } from "react";
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Cursor } from "@/cursor";
-import { useVirtualCursorDragWebKit } from "@/hooks/useCursorDrag/useVirtualCursorDragWebKit";
 import { Icon } from "@/icon";
 import { type Control } from "@/input/types";
 import { preventDefault } from "@/util/event";
 
+/** Drag behavior an input passes down to its {@link DragButton}. */
 export interface DragButtonExtraProps {
   direction?: direction.Crude;
+  /** Restricts scrubbing to one axis. Both axes are live when unset. */
   dragDirection?: direction.Crude;
+  /** Value change per pixel dragged, per axis. */
   dragScale?: xy.Crude | number;
+  /** Pixels the pointer must travel before scrubbing starts. */
   dragThreshold?: xy.Crude | number;
+  /** Value a double click restores. */
   resetValue?: number;
 }
 
@@ -67,6 +71,10 @@ const calculateValue = (
   return value;
 };
 
+/**
+ * A handle that scrubs a number as the pointer drags across it, horizontally by the x
+ * scale and vertically by the y. A double click restores `resetValue`.
+ */
 export const DragButton = ({
   direction,
   className,
@@ -101,7 +109,7 @@ export const DragButton = ({
     [dragThreshold],
   );
 
-  useVirtualCursorDragWebKit({
+  Cursor.useVirtualDrag({
     ref: elRef,
     onMove: useCallback(
       (b: box.Box) => {
@@ -150,7 +158,7 @@ export const DragButton = ({
     <Button.Button
       ref={elRef}
       variant="outlined"
-      className={CSS(
+      className={CSS.cls(
         CSS.BE("input", "drag-btn"),
         direction != null && CSS.BEM("input", "drag-btn", "direction", direction),
         className,
@@ -158,7 +166,6 @@ export const DragButton = ({
       tabIndex={-1}
       onDoubleClick={handleDoubleClick}
       onClick={preventDefault}
-      contrast={0}
       textColor={9}
       disabled={disabled}
       {...rest}

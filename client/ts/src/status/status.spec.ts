@@ -7,14 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, status as xStatus, TimeStamp, uuid } from "@synnaxlabs/x";
+import { color, id, TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import z from "zod";
 
 import { group } from "@/group";
 import { ontology } from "@/ontology";
+import { query } from "@/query";
 import { status } from "@/status";
-import { createTestClient } from "@/testutil/client";
+import { createTestClient, expectLive } from "@/testutil";
 
 const client = createTestClient();
 
@@ -100,10 +101,130 @@ describe("Status", () => {
 
       expect(s.key).toBe("child-status");
 
-      const resources = await client.ontology.retrieveChildren(parentOntologyID);
+      const resources = await client.ontology.children.retrieve({
+        ids: parentOntologyID,
+      });
 
       const statusResource = resources.find((r) => r.id.key === "child-status");
       expect(statusResource).toBeDefined();
+    });
+  });
+
+  describe("optimistic set", () => {
+    const createCrude = (overrides: Partial<status.Crude> = {}): status.Crude => ({
+      key: `optimistic-${id.create()}`,
+      name: "Optimistic Status",
+      variant: "info",
+      message: "Optimistic message",
+      time: TimeStamp.now(),
+      ...overrides,
+    });
+
+    it("should cache the status before the write commits", async () => {
+      const crude = createCrude();
+      let duringWrite: query.Cached<status.Status> | undefined;
+      await client.statuses.set(crude, {
+        onOptimistic: () => {
+          duringWrite = client.statuses.getCached(crude.key as status.Key);
+        },
+      });
+      expect(expectLive(duringWrite).message).toEqual(crude.message);
+    });
+
+    it("should cache every status of a batch before the write commits", async () => {
+      const first = createCrude();
+      const second = createCrude();
+      let duringWrite: Array<query.Cached<status.Status> | undefined> = [];
+      await client.statuses.set([first, second], {
+        onOptimistic: () => {
+          duringWrite = [first, second].map(({ key }) =>
+            client.statuses.getCached(key as status.Key),
+          );
+        },
+      });
+      expect(duringWrite.map((s) => expectLive(s).message)).toEqual([
+        first.message,
+        second.message,
+      ]);
+    });
+
+    it("should stamp a key and a time onto a status that carries neither", async () => {
+      const message = `unkeyed-${id.create()}`;
+      const created = await client.statuses.set({ variant: "info", message });
+      expect(created.key).not.toHaveLength(0);
+      expect(created.time.valueOf()).toBeGreaterThan(0n);
+      expect(expectLive(client.statuses.getCached(created.key)).message).toEqual(
+        message,
+      );
+    });
+
+    it("should keep the details of a schema-parametrized status", async () => {
+      const detailsSchema = z.object({ count: z.number() });
+      const crude = createCrude();
+      let duringWrite: query.Cached<status.Status<typeof detailsSchema>> | undefined;
+      await client.statuses.set<typeof detailsSchema>(
+        { ...crude, details: { count: 5 } },
+        {
+          detailsSchema,
+          onOptimistic: () => {
+            duringWrite = client.statuses.getCached(
+              crude.key as status.Key,
+            ) as query.Cached<status.Status<typeof detailsSchema>>;
+          },
+        },
+      );
+      expect(expectLive(duringWrite).details).toEqual({ count: 5 });
+    });
+
+    it("should drop the optimistic status when the write fails", async () => {
+      const crude = createCrude();
+      await expect(
+        client.statuses.set(crude, {
+          onOptimistic: () => {
+            throw new Error("write failed");
+          },
+        }),
+      ).rejects.toThrow("write failed");
+      expect(client.statuses.getCached(crude.key as status.Key)).toBeUndefined();
+    });
+
+    it("should leave no corpse behind when the write fails", async () => {
+      const crude = createCrude();
+      const key = crude.key as status.Key;
+      await client.statuses.set(crude);
+      // Another client owns the record, and this one neither streams nor subscribes, so
+      // nothing puts the record in its cache before the rollback.
+      const observer = createTestClient();
+      await expect(
+        observer.statuses.set(
+          { ...crude, message: "replacement" },
+          {
+            onOptimistic: () => {
+              throw new Error("write failed");
+            },
+          },
+        ),
+      ).rejects.toThrow("write failed");
+      expect(observer.statuses.getCached(key)).toBeUndefined();
+      expect((await observer.statuses.retrieve(key)).message).toEqual(crude.message);
+    });
+
+    it("should restore the previous status when the write fails", async () => {
+      const crude = createCrude();
+      const created = await client.statuses.set(crude);
+      await expect(
+        client.statuses.set(
+          { ...crude, message: "replacement" },
+          {
+            onOptimistic: () => {
+              throw new Error("write failed");
+            },
+          },
+        ),
+      ).rejects.toThrow("write failed");
+      expect(expectLive(client.statuses.getCached(created.key)).message).toEqual(
+        created.message,
+      );
     });
   });
 
@@ -117,10 +238,29 @@ describe("Status", () => {
         time: TimeStamp.now(),
       });
 
-      const retrieved = await client.statuses.retrieve({ key: "retrieve-test" });
+      const retrieved = await client.statuses.retrieve("retrieve-test");
       expect(retrieved.key).toBe(created.key);
       expect(retrieved.name).toBe(created.name);
       expect(retrieved.variant).toBe(created.variant);
+    });
+
+    it("should retrieve a single status when detailsSchema is explicitly undefined", async () => {
+      const created = await client.statuses.set({
+        name: "Undefined Schema Test",
+        key: "undefined-schema-test",
+        variant: "info",
+        message: "Test undefined schema",
+        time: TimeStamp.now(),
+      });
+
+      const retrieved = await client.statuses.retrieve({
+        key: "undefined-schema-test",
+        includeLabels: true,
+        detailsSchema: undefined,
+      });
+      expect(Array.isArray(retrieved)).toBe(false);
+      expect(retrieved.key).toBe(created.key);
+      expect(retrieved.name).toBe(created.name);
     });
 
     it("should retrieve multiple statuses by keys", async () => {
@@ -171,7 +311,6 @@ describe("Status", () => {
     });
 
     it("should paginate results", async () => {
-      // Create several statuses
       const keys = [];
       for (let i = 0; i < 5; i++) {
         const key = `paginate-${i}-${Date.now()}`;
@@ -185,7 +324,6 @@ describe("Status", () => {
         });
       }
 
-      // Retrieve with limit
       const page1 = await client.statuses.retrieve({
         keys,
         limit: 2,
@@ -201,7 +339,6 @@ describe("Status", () => {
       expect(page1).toHaveLength(2);
       expect(page2).toHaveLength(2);
 
-      // Ensure no overlap
       const page1Keys = page1.map((s) => s.key);
       const page2Keys = page2.map((s) => s.key);
       expect(page1Keys.some((k) => page2Keys.includes(k))).toBe(false);
@@ -247,28 +384,23 @@ describe("Status", () => {
 
       await client.statuses.delete(s.key);
 
-      await expect(
-        async () => await client.statuses.retrieve({ key: s.key }),
-      ).rejects.toThrow();
+      await expect(async () => await client.statuses.retrieve(s.key)).rejects.toThrow();
     });
 
     it("should delete multiple statuses", async () => {
       const keys = ["del-1", "del-2", "del-3"];
       await client.statuses.set(
-        keys.map((key) =>
-          xStatus.create({
-            name: `Delete ${key}`,
-            key,
-            variant: "info",
-            message: "To be deleted",
-            time: TimeStamp.now(),
-          }),
-        ),
+        keys.map<status.Crude>((key) => ({
+          name: `Delete ${key}`,
+          key,
+          variant: "info",
+          message: "To be deleted",
+          time: TimeStamp.now(),
+        })),
       );
 
       await client.statuses.delete(keys);
 
-      // Try to retrieve them - should get empty or error
       const results = await client.statuses.retrieve({ keys }).catch(() => []);
       expect(results).toHaveLength(0);
     });
@@ -276,10 +408,8 @@ describe("Status", () => {
     it("should be idempotent", async () => {
       const key = "idempotent-delete";
 
-      // Delete a non-existent status - should not throw
       await expect(client.statuses.delete(key)).resolves.not.toThrow();
 
-      // Create and delete
       await client.statuses.set({
         name: "Idempotent",
         key,
@@ -290,7 +420,6 @@ describe("Status", () => {
 
       await client.statuses.delete(key);
 
-      // Delete again - should not throw
       await expect(client.statuses.delete(key)).resolves.not.toThrow();
     });
   });
@@ -322,6 +451,54 @@ describe("Status", () => {
       });
       expect(retrievedStat.key).toEqual(stat.key);
       expect(retrievedStat.labels).toHaveLength(2);
+    });
+
+    it("should update a subscribed hasLabels answer when labels change", async () => {
+      const lbl = await client.labels.create({
+        name: "Membership Label",
+        color: color.construct("#00FF00"),
+      });
+      const member = uuid.create();
+      const joiner = uuid.create();
+      await client.statuses.set([
+        {
+          name: "Member",
+          key: member,
+          variant: "info",
+          message: "member",
+          time: TimeStamp.now(),
+        },
+        {
+          name: "Joiner",
+          key: joiner,
+          variant: "info",
+          message: "joiner",
+          time: TimeStamp.now(),
+        },
+      ]);
+      await client.labels.label(status.ontologyID(member), [lbl.key]);
+      const params = { hasLabels: [lbl.key] };
+      const off = client.statuses.onChange(params, () => {});
+      try {
+        const initial = await client.statuses.retrieve(params);
+        expect(initial.map((s) => s.key)).toEqual([member]);
+        await client.labels.label(status.ontologyID(joiner), [lbl.key]);
+        await expect
+          .poll(() => {
+            const cached = client.statuses.getCached(params);
+            return query.isLive(cached) && cached.some((s) => s.key === joiner);
+          })
+          .toBe(true);
+        await client.labels.remove(status.ontologyID(member), [lbl.key]);
+        await expect
+          .poll(() => {
+            const cached = client.statuses.getCached(params);
+            return query.isLive(cached) && !cached.some((s) => s.key === member);
+          })
+          .toBe(true);
+      } finally {
+        off();
+      }
     });
   });
 
@@ -420,7 +597,7 @@ describe("Status", () => {
 
   describe("status variants", () => {
     it("should support all status variants", async () => {
-      const variants: xStatus.Variant[] = [
+      const variants: status.Variant[] = [
         "success",
         "info",
         "warning",
@@ -444,5 +621,150 @@ describe("Status", () => {
         expect(s.variant).toBe(variants[i]);
       });
     });
+  });
+});
+
+describe("fromException", () => {
+  class CustomError extends Error {
+    toStatus() {
+      return {
+        message: "Failed to parse task config",
+        description: "the formatted breakdown",
+        details: { taskKey: "tk-1" },
+      };
+    }
+  }
+
+  it("should derive variant, message, and details from a plain Error", () => {
+    const s = status.fromException(new Error("boom"));
+    expect(s.variant).toBe("error");
+    expect(s.message).toBe("boom");
+    const details = s.details;
+    expect(typeof details.stack).toBe("string");
+    expect(details.error).toBeInstanceOf(Error);
+  });
+
+  it("should set the status message from a custom toStatus()", () => {
+    expect(status.fromException(new CustomError("boom")).message).toBe(
+      "Failed to parse task config",
+    );
+  });
+
+  it("should set the status description from a custom toStatus()", () => {
+    expect(status.fromException(new CustomError("boom")).description).toBe(
+      "the formatted breakdown",
+    );
+  });
+
+  it("should merge custom toStatus() details with the stack and original error", () => {
+    const details = status.fromException(new CustomError("boom")).details;
+    expect(details.taskKey).toBe("tk-1");
+    expect(typeof details.stack).toBe("string");
+    expect(details.error).toBeInstanceOf(Error);
+  });
+
+  it("should prefix a caller-provided message with the custom toStatus() message", () => {
+    expect(status.fromException(new CustomError("boom"), "Saving failed").message).toBe(
+      "Saving failed: Failed to parse task config",
+    );
+  });
+
+  it("should surface the cause chain as the description", () => {
+    const err = new Error("failed to reconcile projects cache", {
+      cause: new Error("projects not found", { cause: new Error("query") }),
+    });
+    const s = status.fromException(err);
+    expect(s.message).toBe("failed to reconcile projects cache");
+    expect(s.description).toBe("projects not found: query");
+  });
+
+  it("should append the cause chain after a caller-provided message", () => {
+    const err = new Error("outer", { cause: new Error("inner") });
+    const s = status.fromException(err, "Saving failed");
+    expect(s.message).toBe("Saving failed");
+    expect(s.description).toBe("outer: inner");
+  });
+
+  it("should leave the description empty without a cause or message", () => {
+    expect(status.fromException(new Error("boom")).description).toBe("");
+  });
+});
+
+describe("keepVariants", () => {
+  it("should return undefined when variant is null", () => {
+    expect(status.keepVariants(undefined, "success")).toBeUndefined();
+  });
+
+  it("should return undefined when variant is not in keep list", () => {
+    expect(status.keepVariants("error", "success")).toBeUndefined();
+    expect(status.keepVariants("error", ["success", "info"])).toBeUndefined();
+  });
+
+  it("should return variant when it matches single keep variant", () => {
+    expect(status.keepVariants("success", "success")).toBe("success");
+  });
+
+  it("should return variant when it is in keep array", () => {
+    expect(status.keepVariants("success", ["success", "info"])).toBe("success");
+    expect(status.keepVariants("info", ["success", "info"])).toBe("info");
+  });
+
+  it("should return undefined when keep is empty array", () => {
+    expect(status.keepVariants("success", [])).toBeUndefined();
+  });
+});
+
+describe("removeVariants", () => {
+  it("should return undefined when variant is null", () => {
+    expect(status.removeVariants(undefined, "success")).toBeUndefined();
+  });
+
+  it("should return undefined when variant matches single remove variant", () => {
+    expect(status.removeVariants("success", "success")).toBeUndefined();
+  });
+
+  it("should return undefined when variant is in remove array", () => {
+    expect(status.removeVariants("success", ["success", "error"])).toBeUndefined();
+    expect(status.removeVariants("error", ["success", "error"])).toBeUndefined();
+  });
+
+  it("should return variant when it does not match single remove variant", () => {
+    expect(status.removeVariants("success", "error")).toBe("success");
+  });
+
+  it("should return variant when it is not in remove array", () => {
+    expect(status.removeVariants("warning", ["success", "error"])).toBe("warning");
+    expect(status.removeVariants("info", ["success", "error"])).toBe("info");
+  });
+
+  it("should return variant when remove is empty array", () => {
+    expect(status.removeVariants("success", [])).toBe("success");
+  });
+});
+
+describe("toString", () => {
+  it("should render the variant, name, and message as the header", () => {
+    const s = status.create({
+      variant: "error",
+      name: "Task",
+      message: "failed to start",
+    });
+    expect(status.toString(s)).toBe("ERROR [Task]: failed to start");
+  });
+
+  it("should omit the description when the status carries an empty one", () => {
+    const s = status.create({ variant: "info", message: "connected" });
+    expect(status.toString(s)).toBe("INFO: connected");
+  });
+
+  it("should render a description when the status carries one", () => {
+    const s = status.create({
+      variant: "error",
+      message: "failed to start",
+      description: "channel is not writable",
+    });
+    expect(status.toString(s)).toBe(
+      "ERROR: failed to start\n\nDescription: channel is not writable",
+    );
   });
 });
