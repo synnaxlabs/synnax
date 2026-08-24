@@ -83,25 +83,43 @@ jobs:
         include:
           - os: ubuntu-latest
             codegen: true
+        # The full matrix runs for main, PRs into main, and manual dispatches; other
+        # refs run Linux only.
         exclude:
           - os:
-              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
-              'macos-latest' }}
+              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main' &&
+              github.event_name != 'workflow_dispatch') && 'macos-latest' }}
           - os:
-              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
-              'windows-latest' }}
+              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main' &&
+              github.event_name != 'workflow_dispatch') && 'windows-latest' }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
 
+      # Go keeps its caches and build scratch on the OS disk (C:), whose ~14GB of
+      # free space a --race --cover build of a large module overflows. RUNNER_TEMP
+      # sits on the far larger workspace drive. Runs before setup-go so its cache
+      # restores into the moved paths.
+      - name: Move the Go caches off the OS disk
+        if: runner.os == 'Windows'
+        run: |
+          New-Item -ItemType Directory -Force -Path "$env:RUNNER_TEMP\gotmp" | Out-Null
+          Add-Content $env:GITHUB_ENV "GOCACHE=$env:RUNNER_TEMP\gocache"
+          Add-Content $env:GITHUB_ENV "GOMODCACHE=$env:RUNNER_TEMP\gomod"
+          Add-Content $env:GITHUB_ENV "GOTMPDIR=$env:RUNNER_TEMP\gotmp"
+
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
           go-version-file: ${{ inputs.directory }}/go.mod
+          # This workflow file salts the cache key: cache archives store absolute
+          # paths, so one saved before a cache-path move restores to the old spot
+          # and would otherwise pin the moved cache permanently cold.
           cache-dependency-path: |
             ${{ inputs.directory }}/go.mod
             ${{ inputs.directory }}/go.sum
+            .github/workflows/test.go.yaml
 
       - name: Install stringer
         if: matrix.codegen
