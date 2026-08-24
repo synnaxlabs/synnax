@@ -23,12 +23,7 @@ export const Symbol = ({
   position,
   onConfigChange,
   selected,
-  config: {
-    label,
-    color,
-    dimensions: dims = BaseScale.DEFAULT_DIMENSIONS,
-    indicator,
-  },
+  config: { label, color, dimensions: dims = BaseScale.DEFAULT_DIMENSIONS, indicator },
 }: NodeProps<schematic.ScaleNodeConfig>): ReactElement => {
   const telem = useMemo(
     () => (indicator == null ? undefined : BaseScale.source(indicator)),

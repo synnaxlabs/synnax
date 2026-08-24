@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/union"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // mustColor parses a crude hex color into its canonical form.
@@ -374,6 +375,29 @@ var _ = Describe("Reducer", func() {
 				),
 			)
 			Expect(out.Configs["n1"]).To(Equal(tankCfg("New", "#ff0000")))
+		})
+		// A nil config would otherwise store a null entry, which no client can read
+		// back, taking the whole schematic down with it.
+		It("Should reject a nil config", func() {
+			Expect(schematic.Reduce(
+				schematic.Schematic{},
+				schematic.NewSetConfigAction(schematic.SetConfigPayload{Key: "n1"}),
+			)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("names no variant")),
+			))
+		})
+		It("Should reject a config naming no known variant", func() {
+			Expect(schematic.Reduce(
+				schematic.Schematic{},
+				schematic.NewSetConfigAction(schematic.SetConfigPayload{
+					Key:    "n1",
+					Config: msgpack.EncodedJSON{"variant": "not-a-symbol"},
+				}),
+			)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(`unknown variant "not-a-symbol"`)),
+			))
 		})
 		It("Should accept a key that does not match any node or edge", func() {
 			state := schematic.Schematic{}

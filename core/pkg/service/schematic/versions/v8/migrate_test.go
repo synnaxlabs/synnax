@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("MigrateNode", func() {
@@ -232,5 +233,94 @@ var _ = Describe("Config typing", func() {
 			},
 		}))
 		Expect(out.Configs).To(SatisfyAll(HaveLen(1), HaveKey("n2")))
+	})
+})
+
+var _ = Describe("ImportSchematic", func() {
+	It("Should decode every config the union accepts", func(ctx SpecContext) {
+		out := MustSucceed(v8.ImportSchematic(ctx, v7.Schematic{
+			Nodes:   []v7.Node{{Key: "n1", Position: spatial.XY{X: 1, Y: 2}}},
+			Configs: map[string]msgpack.EncodedJSON{"n1": {"variant": "valve"}},
+		}))
+		Expect(out.Nodes).To(Equal([]v8.Node{
+			{Key: "n1", Position: spatial.XY{X: 1, Y: 2}},
+		}))
+		Expect(out.Configs).To(Equal(map[string]v8.ElementConfig{
+			"n1": {Variant: v8.ValveElementConfig{}},
+		}))
+	})
+
+	It("Should reject the schematic when a config names no known variant", func(
+		ctx SpecContext,
+	) {
+		Expect(v8.ImportSchematic(ctx, v7.Schematic{
+			Configs: map[string]msgpack.EncodedJSON{
+				"n1": {"variant": "not-a-symbol"},
+				"n2": {"variant": "valve"},
+			},
+		})).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(`node n1`)),
+			MatchError(ContainSubstring(`unknown variant "not-a-symbol"`)),
+		))
+	})
+
+	It("Should name every rejected node in one error", func(ctx SpecContext) {
+		Expect(v8.ImportSchematic(ctx, v7.Schematic{
+			Configs: map[string]msgpack.EncodedJSON{
+				"n1": {"variant": "not-a-symbol"},
+				"n2": {"variant": "also-not-a-symbol"},
+			},
+		})).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("node n1")),
+			MatchError(ContainSubstring("node n2")),
+		))
+	})
+
+	It("Should reject a config carrying a field the variant cannot hold", func(
+		ctx SpecContext,
+	) {
+		Expect(v8.ImportSchematic(ctx, v7.Schematic{
+			Configs: map[string]msgpack.EncodedJSON{
+				"n1": {"variant": "circle", "radius": "wide"},
+			},
+		})).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("node n1")),
+		))
+	})
+})
+
+var _ = Describe("DecodeElementConfig", func() {
+	It("Should decode a payload naming a known variant", func() {
+		Expect(MustSucceed(v8.DecodeElementConfig(msgpack.EncodedJSON{
+			"variant": "valve",
+		}))).To(Equal(v8.ElementConfig{Variant: v8.ValveElementConfig{}}))
+	})
+
+	// A null payload decodes to a nil variant without erroring, so the guard against it
+	// is the only thing keeping an unreadable entry out of the configs map.
+	It("Should reject a nil payload", func() {
+		Expect(v8.DecodeElementConfig(nil)).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("names no variant")),
+		))
+	})
+
+	It("Should reject a payload carrying no variant", func() {
+		Expect(v8.DecodeElementConfig(msgpack.EncodedJSON{})).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(`unknown variant ""`)),
+		))
+	})
+
+	It("Should reject a payload naming an unknown variant", func() {
+		Expect(v8.DecodeElementConfig(msgpack.EncodedJSON{
+			"variant": "not-a-symbol",
+		})).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(`unknown variant "not-a-symbol"`)),
+		))
 	})
 })

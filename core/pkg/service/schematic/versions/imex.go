@@ -45,7 +45,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 		}
 		var doc legacy.Export
 		if doc, err = imex.Decode[legacy.Export](ctx, env); err == nil {
-			sch, err = v8.MigrateSchematic(ctx, v7.SchematicFromConsole(doc))
+			sch, err = v8.ImportSchematic(ctx, v7.SchematicFromConsole(doc))
 		}
 	default:
 		// Console states embed the document inline: ride the storage lift, which
@@ -66,7 +66,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 		}); err != nil {
 			break
 		}
-		sch, err = v8.MigrateSchematic(ctx, s7)
+		sch, err = v8.ImportSchematic(ctx, s7)
 	}
 	if err != nil {
 		return Schematic{}, err

@@ -37,8 +37,5 @@ export const defaultConfig = (overrides: Partial<Config> = {}): Config => ({
 });
 
 /** source builds the smoothed read pipeline the indicator's value is drawn from. */
-export const source = ({
-  channel,
-  rollingAverage,
-}: Config): telem.NumberSourceSpec =>
+export const source = ({ channel, rollingAverage }: Config): telem.NumberSourceSpec =>
   CommonTelem.smoothedNumberSource({ channel, rollingAverage });

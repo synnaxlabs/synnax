@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // opaqueConfigFields names element config fields whose contents carry semantic keys
@@ -82,8 +83,8 @@ func camelToSnakeKey(s string) string {
 }
 
 // DecodeElementConfig validates an opaque config payload against the element config
-// union. It returns a validate-style error when the payload's variant is unknown or its
-// fields do not conform to the variant's shape.
+// union. It wraps validate.ErrValidation when the payload names no variant, names one
+// the union does not, or carries fields that do not fit the variant it names.
 func DecodeElementConfig(raw msgpack.EncodedJSON) (ElementConfig, error) {
 	b, err := json.Marshal(raw)
 	if err != nil {
@@ -91,7 +92,16 @@ func DecodeElementConfig(raw msgpack.EncodedJSON) (ElementConfig, error) {
 	}
 	var cfg ElementConfig
 	if err := json.Unmarshal(b, &cfg); err != nil {
-		return ElementConfig{}, errors.Wrap(err, "invalid element config")
+		return ElementConfig{}, errors.Wrapf(
+			validate.ErrValidation, "invalid element config: %s", err,
+		)
+	}
+	// A null payload decodes to a nil variant without erroring, which would persist an
+	// entry no client can read back.
+	if cfg.Variant == nil {
+		return ElementConfig{}, errors.Wrap(
+			validate.ErrValidation, "element config names no variant",
+		)
 	}
 	return cfg, nil
 }

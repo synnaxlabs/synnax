@@ -44,18 +44,28 @@ describe("Scale", () => {
 
   describe("source", () => {
     it("should build the smoothed read pipeline for the configured channel", () => {
-      const spec = Scale.source(Scale.defaultConfig({ channel: 12, rollingAverage: 3 }));
+      const spec = Scale.source(
+        Scale.defaultConfig({ channel: 12, rollingAverage: 3 }),
+      );
       const { segments } = telem.sourcePipelinePropsZ.parse(spec.props);
-      expect(telem.streamChannelValuePropsZ.parse(segments.valueStream.props).channel).toEqual(12);
-      expect(telem.rollingAverageProps.parse(segments.rollingAverage.props).windowSize).toEqual(3);
+      expect(
+        telem.streamChannelValuePropsZ.parse(segments.valueStream.props).channel,
+      ).toEqual(12);
+      expect(
+        telem.rollingAverageProps.parse(segments.rollingAverage.props).windowSize,
+      ).toEqual(3);
     });
 
     it("should read an unset channel as zero and no smoothing", () => {
       const { segments } = telem.sourcePipelinePropsZ.parse(
         Scale.source(Scale.defaultConfig()).props,
       );
-      expect(telem.streamChannelValuePropsZ.parse(segments.valueStream.props).channel).toEqual(0);
-      expect(telem.rollingAverageProps.parse(segments.rollingAverage.props).windowSize).toEqual(1);
+      expect(
+        telem.streamChannelValuePropsZ.parse(segments.valueStream.props).channel,
+      ).toEqual(0);
+      expect(
+        telem.rollingAverageProps.parse(segments.rollingAverage.props).windowSize,
+      ).toEqual(1);
     });
   });
 });
