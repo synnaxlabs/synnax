@@ -415,7 +415,8 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
           value={selected}
           onChange={setSelected}
           replaceOnSingle
-          allowNone
+          allowNone={false}
+          autoSelectOnNone
         >
           <List.Items<string, WriteField>
             className={menuProps.className}

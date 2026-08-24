@@ -92,6 +92,9 @@
     & textarea {
         resize: none;
         align-self: stretch;
+        /* A one-line input centers its text in the fixed height; a textarea
+           grows from the top, so it pads its own block edges. */
+        padding-block: 1rem;
         &::placeholder,
         &::-webkit-input-placeholder {
             padding-left: 2px;

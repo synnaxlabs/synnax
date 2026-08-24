@@ -15,13 +15,24 @@ export interface EndpointLabelProps {
   epKey: string;
 }
 
+/* The API-docs convention: each method gets its own hue. */
+const METHOD_COLORS: Record<string, string> = {
+  GET: "var(--pluto-secondary-z)",
+  POST: "var(--pluto-warning-z)",
+};
+
 /** Names an endpoint by its method and path; an empty path reads as a new endpoint. */
 export const EndpointLabel = ({ epKey }: EndpointLabelProps) => {
   const path = `config.endpoints.${epKey}`;
   const method = PForm.useFieldValue<string>(`${path}.method`);
   const epPath = PForm.useFieldValue<string>(`${path}.path`);
   return (
-    <Task.Views.ItemLabel kind={method} color={epPath === "" ? 8 : 10}>
+    <Task.Views.ItemLabel
+      kind={method}
+      kindColor={METHOD_COLORS[method]}
+      color={epPath === "" ? 8 : 10}
+      variant="code"
+    >
       {epPath === "" ? "New endpoint" : epPath}
     </Task.Views.ItemLabel>
   );

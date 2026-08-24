@@ -633,6 +633,8 @@ const Form: FC = () => {
               className={menuProps.className}
               onContextMenu={menuProps.open}
               emptyContent={EMPTY_CONTENT}
+              allowNone={false}
+              autoSelectOnNone
             >
               {renderItem}
             </Tree.Tree>

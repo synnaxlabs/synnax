@@ -10,6 +10,7 @@
 import { type record } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement, useMemo } from "react";
 
+import { context } from "@/context";
 import { Store } from "@/store";
 
 type Value<K extends record.Key = record.Key> = Store.MembershipValue<K>;
@@ -21,6 +22,11 @@ const focusOf = <K extends record.Key>(value: Value<K>): K | undefined =>
 
 const headOf = <K extends record.Key>(value: Value<K>): K | undefined =>
   Array.isArray(value) ? value[0] : value;
+
+const soleOf = <K extends record.Key>(value: Value<K>): K | undefined => {
+  if (!Array.isArray(value)) return value;
+  return value.length === 1 ? value[0] : undefined;
+};
 
 interface SelectionState<K extends record.Key = record.Key> {
   value: Value<K>;
@@ -40,7 +46,14 @@ export interface ContextProps<K extends record.Key = record.Key>
   extends
     PropsWithChildren,
     Partial<Pick<ContextValue<K>, "onSelect" | "setSelected" | "clear">>,
-    SelectionState<K> {}
+    SelectionState<K> {
+  /**
+   * True when re-selecting an already-selected item changes nothing: the frame
+   * forbids emptying the selection and a select closes no dialog. Items use it
+   * to drop interaction feedback that would promise a change.
+   */
+  reselectNoop?: boolean;
+}
 
 /** Return value for {@link useItemState}. */
 export interface UseItemStateReturn {
@@ -51,6 +64,8 @@ export interface UseItemStateReturn {
    */
   focused: boolean;
   head: boolean;
+  /** True when the key is the entire selection: its sole member. */
+  sole: boolean;
   hovered: boolean;
   onSelect: () => void;
 }
@@ -62,6 +77,11 @@ const Members = Store.createMembership("Selection");
 const Hover = Store.createPresence("Selection.Hover");
 const Focus = Store.createPresence("Selection.Focus");
 const Head = Store.createPresence("Selection.Head");
+const Sole = Store.createPresence("Selection.Sole");
+const [ReselectNoop, useReselectNoopContext] = context.create<boolean>({
+  defaultValue: false,
+  displayName: "Select.ReselectNoop",
+});
 const members = <K extends record.Key>(): Store.Membership<K> =>
   Members as unknown as Store.Membership<K>;
 const hover = <K extends record.Key>(): Store.Presence<K> =>
@@ -78,6 +98,7 @@ export const Context = <K extends record.Key = record.Key>({
   setSelected,
   clear,
   hover: hoverValue,
+  reselectNoop = false,
   children,
 }: ContextProps<K>): ReactElement => {
   const M = members<K>();
@@ -86,12 +107,22 @@ export const Context = <K extends record.Key = record.Key>({
     <M.Context value={value} onItem={onSelect} setValue={setSelected} clear={clear}>
       <Focus.Context value={focusOf(value)}>
         <Head.Context value={headOf(value)}>
-          <H.Context value={hoverValue}>{children}</H.Context>
+          <Sole.Context value={soleOf(value)}>
+            <ReselectNoop value={reselectNoop}>
+              <H.Context value={hoverValue}>{children}</H.Context>
+            </ReselectNoop>
+          </Sole.Context>
         </Head.Context>
       </Focus.Context>
     </M.Context>
   );
 };
+
+/**
+ * useReselectNoop returns whether the enclosing frame turns a click on an
+ * already-selected item into a no-op. See {@link ContextProps.reselectNoop}.
+ */
+export const useReselectNoop = (): boolean => useReselectNoopContext();
 
 /** useContext returns the enclosing selection's imperative handle. */
 export const useContext = <K extends record.Key = record.Key>(): ContextValue<K> => {
@@ -124,10 +155,11 @@ export const useItemState = <K extends record.Key>(key: K): UseItemStateReturn =
   const { member, onItem } = members<K>().useItem(key);
   const focused = Focus.useIsPresent(key);
   const head = Head.useIsPresent(key);
+  const sole = Sole.useIsPresent(key);
   const hovered = hover<K>().useIsPresent(key);
   return useMemo(
-    () => ({ selected: member, focused, head, hovered, onSelect: onItem }),
-    [member, focused, head, hovered, onItem],
+    () => ({ selected: member, focused, head, sole, hovered, onSelect: onItem }),
+    [member, focused, head, sole, hovered, onItem],
   );
 };
 

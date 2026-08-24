@@ -18,14 +18,15 @@
 
     /* The rail marks the rows as the field's own block and brightens while a
        cell inside holds focus. Its top starts at the heading ink, skipping
-       the dead space above the first line's centered text. */
-    &::before {
+       the dead space above the first line's centered text. An empty grid
+       renders no rail. */
+    &:has(tbody tr)::before {
         content: "";
         position: absolute;
         left: 0;
         top: 1rem;
         bottom: 0;
-        width: 2px;
+        width: var(--pluto-border-width);
         background: var(--pluto-gray-l5);
         transition: background-color 0.15s ease-out;
     }
