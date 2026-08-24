@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type MiddlewareAPI } from "@reduxjs/toolkit";
-import { TimeSpan } from "@synnaxlabs/x";
+import { TimeSpan, unique } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -27,17 +27,24 @@ vi.mock("@tauri-apps/api/window", () => ({
 }));
 
 import { Persist } from "@/session/persist";
+import { Window } from "@/session/window";
 
 interface MockState {
   core: { selected?: string };
   project: { selected?: string };
   work: { value: string; transient?: string };
+  /** A window-keyed slice, shaped the way every real one is. */
+  view: { windows: Record<string, { value: string }> };
+  /** Stands in for the drift bookkeeping the project partition holds. */
+  windows: string[];
 }
 
 const ZERO_MOCK_STATE: MockState = {
   core: {},
   project: {},
   work: { value: "0.0.0", transient: "zero" },
+  view: { windows: {} },
+  windows: [],
 };
 
 const selectedZ = z.object({ selected: z.string().optional() });
@@ -46,10 +53,15 @@ const workZ = z.object({
   transient: z.string().optional(),
 });
 
+const viewZ = z.object({
+  windows: z.record(z.string(), z.object({ value: z.string() })),
+});
+
 const SCOPES: Persist.Scopes<MockState> = {
   global: { core: selectedZ },
   core: { project: selectedZ },
-  project: { work: workZ },
+  project: { work: workZ, windows: z.string().array() },
+  window: { view: viewZ },
   transient: [],
 };
 
@@ -60,10 +72,14 @@ const getContext = (state: MockState): Persist.Context => ({
 
 const CTX: Persist.Context = { core: "c1", project: "p1" };
 
+const WINDOW = "w1";
+
 const STATE: MockState = {
   core: { selected: "c1" },
   project: { selected: "p1" },
   work: { value: "16.2.0", transient: "drag" },
+  view: { windows: {} },
+  windows: [],
 };
 
 // One state key plus one slot pointer for the global partition.
@@ -110,6 +126,8 @@ const openPersist = async (
     initial: ZERO_MOCK_STATE,
     scopes: SCOPES,
     getContext,
+    getWindows: (state) => state.windows,
+    lens: Window.LENS,
     openKV: () => store,
     debounceInterval: TimeSpan.ZERO,
     ...overrides,
@@ -195,9 +213,26 @@ const enter = async (driver: Driver, { core, project }: Persist.Context) => {
 const edit = async (driver: Driver, value: string) => {
   driver.dispatch(
     { type: "work/edit" },
-    { ...driver.getState(), work: { value, transient: "drag" } },
+    {
+      ...driver.getState(),
+      work: { value, transient: "drag" },
+    },
   );
   await driver.flushed(workIs(value));
+};
+
+/** Edits one window's view of the project, the way a window-scoped slice changes. */
+const editView = async (driver: Driver, key: string, value: string) => {
+  const state = driver.getState();
+  driver.dispatch(
+    { type: "view/edit" },
+    {
+      ...state,
+      view: { windows: { ...state.view.windows, [key]: { value } } },
+      windows: unique.unique([...state.windows, key]),
+    },
+  );
+  await driver.flushed((state) => state?.view.windows[key]?.value === value);
 };
 
 describe("Persist.open", () => {
@@ -250,6 +285,54 @@ describe("Persist.open", () => {
       await driver.flushed((s) => s?.core.selected === "c1");
       // The project-scoped work never reached disk, so it composes from zero.
       expect((await driver.composed())?.work).toEqual(ZERO_MOCK_STATE.work);
+    });
+
+    it("should store a window's slices under its own partition", async () => {
+      const store = new Persist.MemoryKV();
+      const driver = await createDriver(store);
+      await enter(driver, CTX);
+      await editView(driver, WINDOW, "left");
+      await editView(driver, "w2", "right");
+      const keys = await store.keys();
+      expect(keys).toContain(`window.c1.p1.${WINDOW}.slot`);
+      expect(keys).toContain("window.c1.p1.w2.slot");
+      // Each partition holds the slice narrowed to its own window, so the bytes still
+      // parse through the slice's schema.
+      expect(await store.get(`window.c1.p1.${WINDOW}.0`)).toEqual({
+        view: { windows: { [WINDOW]: { value: "left" } } },
+      });
+    });
+
+    it("should compose every window's slices on open", async () => {
+      const store = new Persist.MemoryKV();
+      const driver = await createDriver(store);
+      await enter(driver, CTX);
+      await editView(driver, WINDOW, "left");
+      await editView(driver, "w2", "right");
+      expect((await driver.composed())?.view.windows).toEqual({
+        [WINDOW]: { value: "left" },
+        w2: { value: "right" },
+      });
+    });
+
+    it("should delete a window's partition once the window is gone", async () => {
+      const store = new Persist.MemoryKV();
+      const driver = await createDriver(store);
+      await enter(driver, CTX);
+      await editView(driver, WINDOW, "left");
+      await editView(driver, "w2", "right");
+      // Window keys are minted fresh per open, so a partition left behind is one the
+      // store carries forever.
+      driver.dispatch(
+        { type: "window/closed" },
+        { ...driver.getState(), windows: [WINDOW] },
+      );
+      await vi.waitFor(async () =>
+        expect((await store.keys()).filter((key) => key.includes("w2"))).toHaveLength(
+          0,
+        ),
+      );
+      expect(await store.keys()).toContain(`window.c1.p1.${WINDOW}.slot`);
     });
 
     it("should bound a partition to four slots", async () => {
@@ -395,7 +478,13 @@ describe("Persist.open", () => {
       const store = new Persist.MemoryKV();
       await createPersisted(store);
       const { initialState } = await openPersist(store, {
-        scopes: { ...SCOPES, project: { work: z.object({ value: z.string() }) } },
+        scopes: {
+          ...SCOPES,
+          project: {
+            work: z.object({ value: z.string() }),
+            windows: z.string().array(),
+          },
+        },
       });
       expect(initialState?.work).toEqual({ value: "16.2.0" });
     });
@@ -405,7 +494,10 @@ describe("Persist.open", () => {
       await createPersisted(store);
       const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
       const { initialState } = await openPersist(store, {
-        scopes: { ...SCOPES, project: { work: workZ.refine(() => false) } },
+        scopes: {
+          ...SCOPES,
+          project: { work: workZ.refine(() => false), windows: z.string().array() },
+        },
       });
       expect(initialState?.work).toEqual(ZERO_MOCK_STATE.work);
       expect(initialState?.core).toEqual(STATE.core);
@@ -519,7 +611,7 @@ describe("Persist.open", () => {
     it("should accept a slice declared transient instead of scoped", async () => {
       await expect(
         openPersist(new Persist.MemoryKV(), {
-          scopes: { ...SCOPES, project: {}, transient: ["work"] },
+          scopes: { ...SCOPES, project: {}, transient: ["work", "windows"] },
         }),
       ).resolves.toBeDefined();
     });
@@ -670,6 +762,8 @@ describe("Persist.middleware", () => {
       Persist.hydrate({
         project: { selected: "p1" },
         work: { value: "c1-work", transient: "drag" },
+        windows: [],
+        view: ZERO_MOCK_STATE.view,
       }),
     );
   });
@@ -694,7 +788,11 @@ describe("Persist.middleware", () => {
     await enter(driver, CTX);
     // The Core-scoped project slice stayed put; only the project's work swapped.
     expect(driver.dispatched).toHaveBeenLastCalledWith(
-      Persist.hydrate({ work: { value: "p1-work", transient: "drag" } }),
+      Persist.hydrate({
+        work: { value: "p1-work", transient: "drag" },
+        windows: [],
+        view: ZERO_MOCK_STATE.view,
+      }),
     );
   });
 
@@ -705,6 +803,8 @@ describe("Persist.middleware", () => {
       Persist.hydrate({
         project: ZERO_MOCK_STATE.project,
         work: ZERO_MOCK_STATE.work,
+        windows: ZERO_MOCK_STATE.windows,
+        view: ZERO_MOCK_STATE.view,
       }),
     );
   });

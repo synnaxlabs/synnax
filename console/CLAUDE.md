@@ -91,12 +91,23 @@ so two records reaching one cluster share its state.
 Main window only, 250ms debounce. Every slice is declared in exactly one scope in
 `PERSIST_SCOPES`, alongside the schema its stored bytes are parsed through:
 
-| Scope       | Slices                                                                  |
-| ----------- | ----------------------------------------------------------------------- |
-| `global`    | core, color, theme                                                      |
-| `core`      | project                                                                 |
-| `project`   | arc, drift, lineplot, log, nav, panels, range, schematic, status, table |
-| `transient` | haul, persist — never written                                           |
+| Scope       | Slices                                            |
+| ----------- | ------------------------------------------------- |
+| `global`    | core, color, theme                                |
+| `core`      | project                                           |
+| `project`   | drift, panelOrder, range, status                  |
+| `window`    | arc, lineplot, log, nav, panels, schematic, table |
+| `transient` | haul, persist — never written                     |
+
+A `window`-scoped slice gets one partition per window
+(`window.<clusterKey>.<projectKey>.<windowKey>`), holding the slice narrowed to that
+window — so its bytes still parse through the slice's own schema. `Config.lens` says how
+to narrow and widen, and `Config.getWindows` names the windows to write;
+`session/window/lens.ts` owns both shapes, so persistence never reaches into a slice.
+Closing a window deletes its partition on the next write.
+
+The panel strip splits along the same line: `panelOrder` is the project's, while each
+window's selection, overlay, and mounted panels are its own.
 
 `Persist.open` throws when a slice is in none of them, so a new slice forces a decision
 about its durability. A stored slice that fails its schema falls back to its initial

@@ -50,6 +50,8 @@ const waitForPersisted = async (
 // itself: nothing here connects.
 const CLUSTER_KEY = "9a1f7b2c-0d3e-4f56-8a9b-0c1d2e3f4a5b";
 
+const PANEL = { key: "0c9d1a3b-6f8e-4d21-9b77-2f5e8c4a1d60", name: "Overview" };
+
 describe("createStore", () => {
   let db: Session.Persist.MemoryKV;
 
@@ -126,6 +128,39 @@ describe("createStore", () => {
 
   const clusterKeys = async (clusterKey: string): Promise<string[]> =>
     (await db.keys()).filter((key) => key.includes(clusterKey));
+
+  it("stores a window's view of the project under the window", async () => {
+    const store = await createStore();
+    await enterAndEdit(store, Session.Core.DEMO_KEY, CLUSTER_KEY);
+    const keys = await db.keys();
+    const prefix = `window.${CLUSTER_KEY}.`;
+    const windowed = keys.filter((key) => key.startsWith(prefix));
+    expect(windowed.length).toBeGreaterThan(0);
+    expect(windowed.every((key) => key.includes(MAIN_WINDOW))).toBe(true);
+    // The project partition holds what the project owns, not how a window looks at it.
+    const project = readPersisted(db).filter((p) => p.range != null);
+    expect(project.length).toBeGreaterThan(0);
+    project.forEach((p) => expect(p.nav).toBeUndefined());
+  });
+
+  it("splits the panel strip's order from each window's view of it", async () => {
+    const store = await createStore();
+    await enterAndEdit(store, Session.Core.DEMO_KEY, CLUSTER_KEY);
+    store.dispatch(Session.Panel.reconcileOrder({ panels: [PANEL] }));
+    store.dispatch(Session.Panel.select({ key: PANEL.key, windowKey: MAIN_WINDOW }));
+    await waitForPersisted(db, (p) => p.panelOrder != null, "order not persisted yet");
+    // The order belongs to the project; the selection belongs to the window looking
+    // at it.
+    readPersisted(db).forEach((p) => {
+      if (p.panelOrder != null) expect(p.panels).toBeUndefined();
+      if (p.panels != null) expect(p.panelOrder).toBeUndefined();
+    });
+    await waitForPersisted(
+      db,
+      (p) => Object.values(p.panels?.windows ?? {})[0]?.selected === PANEL.key,
+      "panel selection not persisted yet",
+    );
+  });
 
   it("purges a removed Core's stored state", async () => {
     const store = await createStore();

@@ -55,19 +55,29 @@ const PERSIST_SCOPES: Persist.Scopes<State> = {
   },
   core: { [Project.SLICE_NAME]: Project.sliceStateZ },
   project: {
-    [Arc.SLICE_NAME]: Arc.sliceStateZ,
     [Drift.SLICE_NAME]: Drift.sliceStateZ,
+    [Panel.ORDER_SLICE_NAME]: Panel.orderSliceStateZ,
+    [Range.SLICE_NAME]: Range.sliceStateZ,
+    [Status.SLICE_NAME]: Status.sliceStateZ,
+  },
+  // A window is a viewport, so its view of every document is stored under the window
+  // rather than mixed into the project's.
+  window: {
+    [Arc.SLICE_NAME]: Arc.sliceStateZ,
     [LinePlot.SLICE_NAME]: LinePlot.sliceStateZ,
     [Log.SLICE_NAME]: Log.sliceStateZ,
     [Nav.SLICE_NAME]: Nav.sliceStateZ,
     [Panel.SLICE_NAME]: Panel.sliceStateZ,
-    [Range.SLICE_NAME]: Range.sliceStateZ,
     [Schematic.SLICE_NAME]: Schematic.sliceStateZ,
-    [Status.SLICE_NAME]: Status.sliceStateZ,
     [Table.SLICE_NAME]: Table.sliceStateZ,
   },
   transient: [Haul.SLICE_NAME, Persist.SLICE_NAME],
 };
+
+// Drift keys its windows by label; the key each label maps to is what the window-keyed
+// slices store their state under.
+const getWindows = (state: State): string[] =>
+  Object.values(state[Drift.SLICE_NAME].labelKeys);
 
 // A Core's state is partitioned by the cluster it connects to, not by the record the
 // user picked: two records aimed at one cluster share a partition, and a Core that has
@@ -85,6 +95,7 @@ export const ZERO_STATE: State = {
   [Haul.SLICE_NAME]: Haul.ZERO_SLICE_STATE,
   [Nav.SLICE_NAME]: Nav.ZERO_SLICE_STATE,
   [Panel.SLICE_NAME]: Panel.ZERO_SLICE_STATE,
+  [Panel.ORDER_SLICE_NAME]: Panel.ZERO_ORDER_SLICE_STATE,
   [Log.SLICE_NAME]: Log.ZERO_SLICE_STATE,
   [LinePlot.SLICE_NAME]: LinePlot.ZERO_SLICE_STATE,
   [Persist.SLICE_NAME]: Persist.ZERO_SLICE_STATE,
@@ -104,6 +115,7 @@ const combinedReducer = combineReducers({
   [Haul.SLICE_NAME]: Haul.reducer,
   [Nav.SLICE_NAME]: Nav.reducer,
   [Panel.SLICE_NAME]: Panel.reducer,
+  [Panel.ORDER_SLICE_NAME]: Panel.orderReducer,
   [Log.SLICE_NAME]: Log.reducer,
   [LinePlot.SLICE_NAME]: LinePlot.reducer,
   [Persist.SLICE_NAME]: Persist.reducer,
@@ -140,6 +152,7 @@ export interface State {
   [Project.SLICE_NAME]: Project.SliceState;
   [Nav.SLICE_NAME]: Nav.SliceState;
   [Panel.SLICE_NAME]: Panel.SliceState;
+  [Panel.ORDER_SLICE_NAME]: Panel.OrderSliceState;
   [Range.SLICE_NAME]: Range.SliceState;
   [Schematic.SLICE_NAME]: Schematic.SliceState;
   [Status.SLICE_NAME]: Status.SliceState;
@@ -157,6 +170,7 @@ export type Action =
   | LinePlot.Action
   | Nav.Action
   | Panel.Action
+  | Panel.OrderAction
   | Project.Action
   | Range.Action
   | Schematic.Action
@@ -211,6 +225,8 @@ export const createStore = async (opts: CreateStoreOptions = {}): Promise<Store>
       initial: ZERO_STATE,
       scopes: PERSIST_SCOPES,
       getContext: getPersistContext,
+      getWindows,
+      lens: Window.LENS,
       exclude: PERSIST_EXCLUDE,
       seed: Legacy.migrate,
       openKV,

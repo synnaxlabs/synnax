@@ -17,6 +17,7 @@ import { Panel } from "@/session/panel";
 
 const rootReducer = combineReducers({
   [Panel.SLICE_NAME]: Panel.reducer,
+  [Panel.ORDER_SLICE_NAME]: Panel.orderReducer,
   [Drift.SLICE_NAME]: Drift.reducer,
 });
 
@@ -32,7 +33,7 @@ const createStore = () =>
 // actions without an explicit windowKey resolve to the active window. State is read
 // back through the public selectors, exercising the slice, middleware, and selectors
 // together.
-const run = (...actions: Panel.Action[]): TestState => {
+const run = (...actions: Array<Panel.Action | Panel.OrderAction>): TestState => {
   const store = createStore();
   actions.forEach((action) => store.dispatch(action));
   return store.getState();
@@ -49,7 +50,7 @@ const OTHER_TAB = uuid.create();
 describe("Panel Slice", () => {
   describe("schemas", () => {
     it("should default the slice state to no windows and an empty order", () => {
-      const zero = { version: 0, windows: {}, order: [] };
+      const zero = { version: 0, windows: {} };
       expect(Panel.sliceStateZ.parse({})).toEqual(zero);
       expect(Panel.ZERO_SLICE_STATE).toEqual(zero);
     });
@@ -151,127 +152,6 @@ describe("Panel Slice", () => {
       );
       expect(Panel.selectSelected(state)).toEqual(KEYS[1]);
       expect(Panel.selectMounted(state)).toEqual([KEYS[1], KEYS[0]]);
-    });
-  });
-
-  describe("reconcileOrder", () => {
-    const [A, B, C] = Array.from({ length: 3 }, () => uuid.create());
-
-    it("should materialize the order name-sorted on first sight", () => {
-      const state = run(
-        Panel.reconcileOrder({
-          panels: [
-            { key: A, name: "Panel 10" },
-            { key: B, name: "Panel 2" },
-            { key: C, name: "Avionics" },
-          ],
-        }),
-      );
-      expect(Panel.selectOrder(state)).toEqual([C, B, A]);
-    });
-
-    it("should append new panels name-sorted without moving existing ones", () => {
-      const state = run(
-        Panel.reconcileOrder({ panels: [{ key: B, name: "Zulu" }] }),
-        Panel.reconcileOrder({
-          panels: [
-            { key: B, name: "Zulu" },
-            { key: C, name: "Bravo" },
-            { key: A, name: "Alpha" },
-          ],
-        }),
-      );
-      expect(Panel.selectOrder(state)).toEqual([B, A, C]);
-    });
-
-    it("should prune panels missing from the membership", () => {
-      const state = run(
-        Panel.reconcileOrder({
-          panels: [
-            { key: A, name: "Alpha" },
-            { key: B, name: "Bravo" },
-          ],
-        }),
-        Panel.reconcileOrder({ panels: [{ key: B, name: "Bravo" }] }),
-      );
-      expect(Panel.selectOrder(state)).toEqual([B]);
-    });
-
-    it("should never move an existing panel on a rename", () => {
-      const state = run(
-        Panel.reconcileOrder({
-          panels: [
-            { key: A, name: "Alpha" },
-            { key: B, name: "Bravo" },
-          ],
-        }),
-        Panel.reconcileOrder({
-          panels: [
-            { key: A, name: "Zulu" },
-            { key: B, name: "Bravo" },
-          ],
-        }),
-      );
-      expect(Panel.selectOrder(state)).toEqual([A, B]);
-    });
-
-    // Cross-window echoes re-apply against converged state, so an in-invariant
-    // membership must not churn the slice's reference.
-    it("should leave a converged order referentially unchanged", () => {
-      const store = createStore();
-      const panels = [
-        { key: A, name: "Alpha" },
-        { key: B, name: "Bravo" },
-      ];
-      store.dispatch(Panel.reconcileOrder({ panels }));
-      const before = store.getState()[Panel.SLICE_NAME];
-      store.dispatch(Panel.reconcileOrder({ panels }));
-      expect(store.getState()[Panel.SLICE_NAME]).toBe(before);
-    });
-  });
-
-  describe("reorder", () => {
-    const [A, B, C] = Array.from({ length: 3 }, () => uuid.create());
-    const seed = Panel.reconcileOrder({
-      panels: [
-        { key: A, name: "Alpha" },
-        { key: B, name: "Bravo" },
-        { key: C, name: "Charlie" },
-      ],
-    });
-
-    // The insertion index counts the moved panel itself, so moving to the last
-    // slot arrives as the strip length.
-    it("should move a panel toward the end", () => {
-      const state = run(seed, Panel.reorder({ key: A, index: 3 }));
-      expect(Panel.selectOrder(state)).toEqual([B, C, A]);
-    });
-
-    it("should move a panel toward the start", () => {
-      const state = run(seed, Panel.reorder({ key: C, index: 0 }));
-      expect(Panel.selectOrder(state)).toEqual([C, A, B]);
-    });
-
-    // Both slots adjacent to the panel's own pill resolve to its current
-    // position, so a drop back in place must not churn the reference.
-    it("should leave a drop in place referentially unchanged", () => {
-      const store = createStore();
-      store.dispatch(seed);
-      const before = store.getState()[Panel.SLICE_NAME];
-      store.dispatch(Panel.reorder({ key: B, index: 1 }));
-      store.dispatch(Panel.reorder({ key: B, index: 2 }));
-      expect(store.getState()[Panel.SLICE_NAME]).toBe(before);
-    });
-
-    it("should insert a not-yet-reconciled panel at the index", () => {
-      const other = uuid.create();
-      const state = run(seed, Panel.reorder({ key: other, index: 1 }));
-      expect(Panel.selectOrder(state)).toEqual([A, other, B, C]);
-    });
-
-    it("should clamp an out-of-range index to the end", () => {
-      const state = run(seed, Panel.reorder({ key: A, index: 10 }));
-      expect(Panel.selectOrder(state)).toEqual([B, C, A]);
     });
   });
 

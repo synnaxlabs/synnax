@@ -61,6 +61,19 @@ export type SliceSchemas<S extends object> = {
 };
 
 /**
+ * How a window-scoped slice splits across the windows it holds state for. The store
+ * supplies one, so persistence never assumes the shape of a slice.
+ */
+export interface Lens {
+  /** The window keys the slice holds state for. */
+  keys: (slice: unknown) => string[];
+  /** The slice narrowed to one window, which is what that window's partition stores. */
+  narrow: (slice: unknown, key: string) => unknown;
+  /** Folds a window's stored slice back into the one being composed. */
+  widen: (into: unknown, from: unknown) => unknown;
+}
+
+/**
  * Where each slice lives on disk. Every slice of S appears in exactly one scope or
  * in transient; {@link open} throws when one is missing, so adding a slice to the
  * store forces a decision about its durability.
@@ -69,6 +82,8 @@ export interface Scopes<S extends object> {
   global: SliceSchemas<S>;
   core: SliceSchemas<S>;
   project: SliceSchemas<S>;
+  /** Slices split one partition per window, through {@link Config.lens}. */
+  window: SliceSchemas<S>;
   /** Slices deliberately never written. */
   transient: Array<SliceKey<S>>;
 }
@@ -81,11 +96,12 @@ const scopeKeys = <S extends object>(scope: SliceSchemas<S>): Array<SliceKey<S>>
  * in more than one scope.
  */
 const validateScopes = <S extends object>(initial: S, scopes: Scopes<S>): void => {
-  const { global, core, project, transient } = scopes;
+  const { global, core, project, window, transient } = scopes;
   const declared = [
     ...scopeKeys(global),
     ...scopeKeys(core),
     ...scopeKeys(project),
+    ...scopeKeys(window),
     ...transient,
   ];
   const seen = new Set<string>();
@@ -108,6 +124,10 @@ export interface Config<S extends object> {
   scopes: Scopes<S>;
   /** getContext reads the partition scope from state. */
   getContext: (state: S) => Context;
+  /** getWindows names the windows the session is running, one partition each. */
+  getWindows?: (state: S) => string[];
+  /** How window-scoped slices split across windows. Required when that scope is used. */
+  lens?: Lens | null;
   exclude?: Array<ExcludeFn<S>>;
   /**
    * Slices to start from the first time the store is opened, carried over from
@@ -187,14 +207,22 @@ class Partition<S extends object> {
   private readonly db: SugaredKV;
   private readonly base: string;
   private readonly schemas: SliceSchemas<S>;
+  /** The window this partition holds, when it holds one window's slices. */
+  private readonly window: { key: string; lens: Lens } | null;
   /** The slices last known to be in the ring, so an idle partition is left alone. */
   private committed: Partial<S> | null = null;
   private staged: Partial<S> | null = null;
 
-  constructor(db: SugaredKV, base: string, schemas: SliceSchemas<S>) {
+  constructor(
+    db: SugaredKV,
+    base: string,
+    schemas: SliceSchemas<S>,
+    window: { key: string; lens: Lens } | null = null,
+  ) {
     this.db = db;
     this.base = base;
     this.schemas = schemas;
+    this.window = window;
   }
 
   /**
@@ -232,7 +260,11 @@ class Partition<S extends object> {
   async stage(state: S): Promise<Entry[] | null> {
     const data: Partial<S> = {};
     this.keys().forEach((key) => {
-      data[key] = state[key];
+      const slice = state[key];
+      data[key] =
+        this.window == null
+          ? slice
+          : (this.window.lens.narrow(slice, this.window.key) as S[typeof key]);
     });
     if (this.committed != null && deep.equal(this.committed, data)) return null;
     const stored = await this.readSlot();
@@ -265,6 +297,14 @@ class Partition<S extends object> {
 
   private keys(): Array<SliceKey<S>> {
     return Object.keys(this.schemas) as Array<SliceKey<S>>;
+  }
+
+  /** Every key the partition occupies, for deleting it whole. */
+  occupied(): string[] {
+    const slots = Array.from({ length: HISTORY_LENGTH }, (_, slot) =>
+      this.stateKey(slot),
+    );
+    return [...slots, this.slotKey()];
   }
 
   private stateKey(slot: number): string {
@@ -311,6 +351,8 @@ class Engine<S extends object> {
   private readonly initial: S;
   private readonly scopes: Scopes<S>;
   private readonly getContext: (state: S) => Context;
+  private readonly getWindows: (state: S) => string[];
+  private readonly lens: Lens | null;
   private readonly exclude: Array<ExcludeFn<S>>;
   private readonly seed?: () => Promise<Partial<S>>;
 
@@ -328,6 +370,8 @@ class Engine<S extends object> {
     initial,
     scopes,
     getContext,
+    getWindows = () => [],
+    lens = null,
     exclude = [],
     seed,
     openKV = openSugaredKV,
@@ -335,6 +379,8 @@ class Engine<S extends object> {
     this.initial = deep.copy(initial);
     this.scopes = scopes;
     this.getContext = getContext;
+    this.getWindows = getWindows;
+    this.lens = lens;
     this.exclude = exclude;
     this.seed = seed;
     this.db = openKV(STORE_NAME);
@@ -351,13 +397,18 @@ class Engine<S extends object> {
   async persist(rawState: S, context: Context): Promise<void> {
     let state = deep.copy(rawState);
     this.exclude.forEach((exclude) => (state = exclude(state)));
-    const partitions = this.activePartitions(context);
+    const partitions = [
+      ...this.activePartitions(context),
+      ...this.windowPartitions(context, state),
+    ];
     const entries: Entry[] = [];
     for (const partition of partitions)
       entries.push(...((await partition.stage(state)) ?? []));
-    if (entries.length === 0) return;
+    const closed = this.closedWindows(context, state);
+    if (entries.length === 0 && closed.length === 0) return;
     try {
-      await this.db.setMany(entries);
+      if (entries.length > 0) await this.db.setMany(entries);
+      if (closed.length > 0) await this.db.deleteMany(closed);
     } catch (err) {
       throw new Error("failed to write the session state", { cause: err });
     }
@@ -388,6 +439,10 @@ class Engine<S extends object> {
         ? {}
         : await this.project(context.core, project).read();
     this.fill(out, this.scopes.project, projectSlices);
+    const target = { ...state, ...out };
+    const windowSlices =
+      project == null ? {} : await this.readWindows({ ...context, project }, target);
+    this.fill(out, this.scopes.window, windowSlices);
     return out;
   }
 
@@ -396,7 +451,11 @@ class Engine<S extends object> {
    * one moves: the partitions outside it name the session's context, and stepping
    * those back would move the session somewhere else instead of undoing its state.
    */
-  async revert(context: Context): Promise<void> {
+  async revert(context: Context, state: S): Promise<void> {
+    let reverted = false;
+    for (const partition of this.windowPartitions(context, state))
+      reverted = (await partition.revert()) || reverted;
+    if (reverted) return;
     for (const partition of this.activePartitions(context).reverse())
       if (await partition.revert()) return;
   }
@@ -414,7 +473,9 @@ class Engine<S extends object> {
    */
   async purge(core: string): Promise<void> {
     const owned = (base: string): boolean =>
-      base === `core.${core}` || base.startsWith(`project.${core}.`);
+      base === `core.${core}` ||
+      base.startsWith(`project.${core}.`) ||
+      base.startsWith(`window.${core}.`);
     const stale = (await this.db.keys()).filter((key) =>
       owned(key.slice(0, key.lastIndexOf("."))),
     );
@@ -433,8 +494,12 @@ class Engine<S extends object> {
       const { core } = this.getContext(state);
       if (core != null) Object.assign(state, await this.core(core).read());
       const context = this.getContext(state);
-      if (context.core != null && context.project != null)
+      if (context.core != null && context.project != null) {
         Object.assign(state, await this.project(context.core, context.project).read());
+        // The project partition holds the window bookkeeping, so the windows a session
+        // is running are only known once it has been read.
+        Object.assign(state, await this.readWindows(context, state));
+      }
       this.context = context;
     } catch (err) {
       // A platform that refuses storage outright must not stop the app booting. The
@@ -470,12 +535,68 @@ class Engine<S extends object> {
     return this.partition(`project.${core}.${project}`, this.scopes.project);
   }
 
+  private window(core: string, project: string, key: string): Partition<S> {
+    if (this.lens == null)
+      throw new Error("the window scope needs a lens to split its slices");
+    return this.partition(`window.${core}.${project}.${key}`, this.scopes.window, {
+      key,
+      lens: this.lens,
+    });
+  }
+
+  /**
+   * The keys of window partitions this engine wrote whose windows are gone. Window
+   * keys are minted fresh per open, so a partition left behind is one the store
+   * carries forever.
+   */
+  private closedWindows(context: Context, state: S): string[] {
+    const { core, project } = context;
+    if (core == null || project == null) return [];
+    const prefix = `window.${core}.${project}.`;
+    const live = new Set(this.getWindows(state).map((key) => `${prefix}${key}`));
+    const stale: string[] = [];
+    for (const [base, partition] of this.partitions)
+      if (base.startsWith(prefix) && !live.has(base)) {
+        stale.push(...partition.occupied());
+        this.partitions.delete(base);
+      }
+    return stale;
+  }
+
+  /** One partition per window the session is running, under the given context. */
+  private windowPartitions(context: Context, state: S): Array<Partition<S>> {
+    const { core, project } = context;
+    if (core == null || project == null) return [];
+    return this.getWindows(state).map((key) => this.window(core, project, key));
+  }
+
+  /** Reads every window partition the state names, folding them into one set of slices. */
+  private async readWindows(context: Context, state: S): Promise<Partial<S>> {
+    const out: Partial<S> = {};
+    for (const partition of this.windowPartitions(context, state)) {
+      const read = await partition.read();
+      scopeKeys(this.scopes.window).forEach((key) => {
+        const value = read[key];
+        if (value == null || this.lens == null) return;
+        out[key] = this.lens.widen(
+          out[key] ?? deep.copy(this.initial[key]),
+          value,
+        ) as S[typeof key];
+      });
+    }
+    return out;
+  }
+
   // Partitions are held rather than rebuilt so each one remembers what it committed
   // and can skip a write that would change nothing.
-  private partition(base: string, schemas: SliceSchemas<S>): Partition<S> {
+  private partition(
+    base: string,
+    schemas: SliceSchemas<S>,
+    window: { key: string; lens: Lens } | null = null,
+  ): Partition<S> {
     let partition = this.partitions.get(base);
     if (partition == null) {
-      partition = new Partition(this.db, base, schemas);
+      partition = new Partition(this.db, base, schemas, window);
       this.partitions.set(base, partition);
     }
     return partition;
@@ -539,7 +660,7 @@ const createMiddleware = <S extends object>(
       const state = store.getState() as S;
       if (type === revertState.type)
         engine
-          .revert(current)
+          .revert(current, state)
           .then(() => window.location.reload())
           .catch((err: unknown) => {
             console.error("failed to revert state", err);

@@ -8,4 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/session/window/keyed";
+export * from "@/session/window/lens";
 export * from "@/session/window/removed";
