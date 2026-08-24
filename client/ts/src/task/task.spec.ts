@@ -857,7 +857,10 @@ describe("Task", async () => {
       let seeWrite = (_: status.Status): void => {};
       const written = new Promise<status.Status>((resolve) => (seeWrite = resolve));
       const off = client.statuses.store.subscribe((event) => {
-        if (event.variant === "set") seeWrite(event.value);
+        // The creation-time "has not been deployed" placeholder echoes back over the
+        // status stream at its own pace, so a disabled event is never the command's.
+        if (event.variant === "set" && event.value.variant !== "disabled")
+          seeWrite(event.value);
       }, key);
       try {
         await client.tasks.executeCommand({ task: t.key, type: "start" });

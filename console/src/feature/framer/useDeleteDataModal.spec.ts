@@ -13,15 +13,16 @@ import { TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { useDeleteDataModal } from "@/feature/framer/useDeleteDataModal";
 import {
   createTestIndexedPair,
   type TestIndexedPair,
 } from "@/platform/channel/testutil";
-import { Framer } from "@/platform/framer";
 import {
   findButton,
   getSwitch,
   type ModalOpenerHandle,
+  pressSaveTrigger,
   renderModalOpener,
 } from "@/platform/modals/testutil";
 
@@ -30,7 +31,7 @@ const client = createTestClient();
 const SAMPLES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
 const openModal = async (c: Synnax | null = null): Promise<ModalOpenerHandle<void>> => {
-  const handle = await renderModalOpener(Framer.useDeleteDataModal, [], { client: c });
+  const handle = await renderModalOpener(useDeleteDataModal, [], { client: c });
   await screen.findByText("Delete data");
   return handle;
 };
@@ -100,6 +101,25 @@ describe("DeleteModal", () => {
 
       await act(async () => {
         fireEvent.click(findButton("Delete"));
+      });
+      await waitFor(() =>
+        expect(
+          screen.queryByText("Are you sure you want to delete this data?"),
+        ).toBeNull(),
+      );
+      await waitFor(async () => {
+        const after = await client.read(TimeRange.MAX, data.key);
+        expect(after.length).toEqual(0);
+      });
+    });
+
+    it("should delete on the shortcut the confirm step advertises", async () => {
+      const { data } = await createWrittenPair();
+      await openModal(client);
+      await selectChannel(data.name);
+      await goToConfirmStep();
+      await act(async () => {
+        pressSaveTrigger();
       });
       await waitFor(() =>
         expect(

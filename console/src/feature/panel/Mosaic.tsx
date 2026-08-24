@@ -255,6 +255,7 @@ const EmptyTabContent = ({
         level="h5"
         message="No components open"
         action={canEdit ? "Create component" : undefined}
+        trigger={Panel.CREATE_TAB_TRIGGER}
         onClick={handleCreate}
       />
     </Flex.Box>

@@ -47,6 +47,8 @@ const FLATTENED_TRIGGERS = Triggers.flattenConfig(TRIGGER_CONFIG);
 export interface BaseProps extends UseProps, Omit<Flex.BoxProps, "color"> {
   emptyContent?: ReactElement;
   extraContextMenuItems?: ReactNode;
+  /** When set, the context menu offers undo and redo for the host document. */
+  undoRedo?: Menu.UndoRedoItemsProps;
   enableTriggers?: Triggers.Condition;
 }
 
@@ -67,6 +69,7 @@ export const Base = ({
   color,
   telem,
   extraContextMenuItems,
+  undoRedo,
   enableTriggers,
   hold,
   onHold,
@@ -221,6 +224,12 @@ export const Base = ({
   const menuContent = useCallback(
     () => (
       <Menu.Menu level="small" onChange={handleMenuSelect}>
+        {undoRedo != null && (
+          <>
+            <Menu.UndoRedoItems {...undoRedo} />
+            <Menu.Divider />
+          </>
+        )}
         <Menu.Item
           itemKey="copy"
           trigger={COPY_TRIGGER}
@@ -238,7 +247,7 @@ export const Base = ({
         )}
       </Menu.Menu>
     ),
-    [handleMenuSelect, hasSelection, extraContextMenuItems],
+    [handleMenuSelect, hasSelection, extraContextMenuItems, undoRedo],
   );
 
   return (

@@ -149,7 +149,7 @@ const DateTimeModal = ({ value, onChange }: DateTimeModalProps): ReactElement =>
             <Text.Text level="small">to finish</Text.Text>
           </Nav.Bar.Start>
           <Nav.Bar.End>
-            <Button.Button onClick={close} variant="outlined">
+            <Button.Button onClick={close} variant="outlined" trigger={SAVE_TRIGGER}>
               Done
             </Button.Button>
           </Nav.Bar.End>

@@ -8,4 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/feature/framer/commands";
+export * from "@/feature/framer/useDeleteDataModal";
 export * from "@/platform/framer/external";

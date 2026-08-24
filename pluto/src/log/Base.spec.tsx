@@ -430,6 +430,39 @@ describe("log/Base", () => {
     });
   });
 
+  describe("context menu", () => {
+    const openMenu = (container: HTMLElement): void => {
+      fireEvent.contextMenu(getLogDiv(container), { clientX: 10, clientY: 10 });
+    };
+
+    it("should run undo from the menu when the host supplies the handlers", async () => {
+      setupAether({ empty: false });
+      const undo = vi.fn();
+      const redo = vi.fn();
+      const { container } = renderLog({
+        undoRedo: { undo, redo, canUndo: true, canRedo: true },
+      });
+      openMenu(container);
+      // Both entries are asserted before the click, since selecting one closes the menu
+      // and takes the other out of the document with it.
+      expect(await screen.findByText("Undo")).toBeDefined();
+      expect(screen.getByText("Redo")).toBeDefined();
+      fireEvent.click(screen.getByText("Undo"));
+      expect(undo).toHaveBeenCalledTimes(1);
+      expect(redo).not.toHaveBeenCalled();
+    });
+
+    it("should omit undo and redo when the host supplies none", async () => {
+      setupAether({ empty: false });
+      const { container } = renderLog();
+      openMenu(container);
+      // Positive control: the menu opened, so the absence below is the missing prop
+      // rather than a menu that never rendered.
+      expect(await screen.findByText("Copy")).toBeDefined();
+      expect(screen.queryByText("Undo")).toBeNull();
+    });
+  });
+
   describe("keyboard triggers", () => {
     const PRIMED_STATE = {
       ...DEFAULT_STATE,

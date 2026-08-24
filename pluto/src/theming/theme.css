@@ -52,13 +52,19 @@
         opacity: 0;
         transform: scale(0.98) translateY(-4px);
     }
+
     100% {
         opacity: 1;
         transform: scale(1) translateY(0);
     }
 }
 
-:root {
+/* Everything derived from the theme's own colors. A scoped Theming.Provider re-points
+   the color ramps on its container and stamps the theme class there, so these have to
+   resolve against that element. Left on :root alone they would compute once against
+   the root theme and inherit into the subtree frozen. */
+:root,
+[class*="pluto-theme-"] {
     /* The interactive fill band. Elevated chrome re-points these to step toward the
        canvas (l0-l2) so its controls recess instead of lighten. */
     --pluto-fill-rest: var(--pluto-gray-l3);
@@ -84,7 +90,6 @@
         var(--pluto-gray-l1)
     );
     --pluto-selected-color: var(--pluto-primary-z);
-
     --pluto-selected-subtle-bg: var(--pluto-fill-hover);
     --pluto-selected-subtle-hover-bg: var(--pluto-fill-press);
     --pluto-selected-subtle-active-bg: var(--pluto-gray-l6);
@@ -101,10 +106,12 @@
         from var(--pluto-gray-l6) l calc(c + 0.025) h
     );
     --pluto-selected-list-border-color: transparent;
-
-    --pluto-border-width: 1px;
     --pluto-border: var(--pluto-border-width) solid var(--pluto-border-color);
     --pluto-border-l6: var(--pluto-border-width) solid var(--pluto-gray-l6);
+}
+
+:root {
+    --pluto-border-width: 1px;
     --pluto-height-large: 6rem;
     --pluto-height-medium: round(4.6667rem, 1px);
     --pluto-height-small: 4rem;
@@ -117,7 +124,6 @@
     --pluto-modal-animation: fade-in-zoom 0.15s ease-in-out;
     --pluto-dialog-animation: fade-in-zoom 0.1s ease-in-out;
     --pluto-frost: blur(3.5rem) saturate(140%);
-
     --pluto-focus-ring-offset: 2px;
     --pluto-focus-ring-inset: -2px;
 }
@@ -145,15 +151,14 @@
        covers it behind a scrim. Every rung is defined in both themes, since an
        undefined one computes to no shadow. Rings, inset fills, and glows are not
        elevation and stay off the ladder. */
-    --pluto-shadow-lift: lch(0 0 0 / 0.044) 0px 3px 9px, lch(0 0 0 / 0.044) 0px 1px 1px;
-
+    --pluto-shadow-lift:
+        lch(0% 0 0% / 4.4%) 0px 3px 9px, lch(0% 0 0% / 4.4%) 0px 1px 1px;
     --pluto-shadow-overlay:
-        lch(0 0 0 / 0.02) 0px 1px 1px, lch(0 0 0 / 0.1) 0px 4px 8px -4px,
-        lch(0 0 0 / 0.12) 0px 16px 24px -8px;
-
+        lch(0% 0 0% / 2%) 0px 1px 1px, lch(0% 0 0% / 10%) 0px 4px 8px -4px,
+        lch(0% 0 0% / 12%) 0px 16px 24px -8px;
     --pluto-shadow-modal:
-        lch(0 0 0 / 0.088) 0px 9px 48px, lch(0 0 0 / 0.11) 0px 6px 24px,
-        lch(0 0 0 / 0.044) 0px 1px 1px;
+        lch(0% 0 0% / 8.8%) 0px 9px 48px, lch(0% 0 0% / 11%) 0px 6px 24px,
+        lch(0% 0 0% / 4.4%) 0px 1px 1px;
 }
 
 .pluto-theme-synnax-dark {
@@ -171,15 +176,14 @@
 
     /* Restated at higher density: a shadow needs more weight to read against a dark
        surface. */
-    --pluto-shadow-lift: lch(0 0 0 / 0.188) 0px 2px 5px, lch(0 0 0 / 0.188) 0px 1px 1px;
-
+    --pluto-shadow-lift:
+        lch(0% 0 0% / 18.8%) 0px 2px 5px, lch(0% 0 0% / 18.8%) 0px 1px 1px;
     --pluto-shadow-overlay:
-        lch(0 0 0 / 0.188) 0px 3px 8px, lch(0 0 0 / 0.188) 0px 2px 5px,
-        lch(0 0 0 / 0.188) 0px 1px 1px;
-
+        lch(0% 0 0% / 18.8%) 0px 3px 8px, lch(0% 0 0% / 18.8%) 0px 2px 5px,
+        lch(0% 0 0% / 18.8%) 0px 1px 1px;
     --pluto-shadow-modal:
-        lch(0 0 0 / 0.32) 0px 9px 48px, lch(0 0 0 / 0.28) 0px 6px 24px,
-        lch(0 0 0 / 0.188) 0px 1px 1px;
+        lch(0% 0 0% / 32%) 0px 9px 48px, lch(0% 0 0% / 28%) 0px 6px 24px,
+        lch(0% 0 0% / 18.8%) 0px 1px 1px;
 }
 
 /* Theme-correct display color: achromatic colors snap to the theme's hard extreme,

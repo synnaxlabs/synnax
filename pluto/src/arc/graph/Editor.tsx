@@ -33,7 +33,6 @@ import { type Component } from "@/component";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { useSyncedRef } from "@/hooks";
-import { Icon } from "@/icon";
 import { Menu } from "@/menu";
 import { type Triggers } from "@/triggers";
 import { Diagram as BaseDiagram } from "@/vis/diagram";
@@ -45,9 +44,6 @@ const FIT_VIEW_OPTIONS: BaseDiagram.FitViewOptions = {
 };
 
 const SNAP_GRID: xy.Couple = [2, 2];
-
-const UNDO_TRIGGER: Triggers.Trigger = ["Control", "Z"];
-const REDO_TRIGGER: Triggers.Trigger = ["Control", "Shift", "Z"];
 
 export interface EditorProps extends Omit<
   BaseDiagram.DiagramProps,
@@ -143,6 +139,7 @@ export const Editor = ({
     onUndo: undo,
     onRedo: redo,
     enabled: enableTriggers,
+    editable,
   });
 
   const contextMenu = Menu.useContextMenu();
@@ -151,24 +148,12 @@ export const Editor = ({
       <Menu.Menu level="small" gap="small">
         {editable && (
           <>
-            <Menu.Item
-              itemKey="undo"
-              onClick={undo}
-              disabled={!canUndo}
-              triggerIndicator={UNDO_TRIGGER}
-            >
-              <Icon.Undo />
-              Undo
-            </Menu.Item>
-            <Menu.Item
-              itemKey="redo"
-              onClick={redo}
-              disabled={!canRedo}
-              triggerIndicator={REDO_TRIGGER}
-            >
-              <Icon.Redo />
-              Redo
-            </Menu.Item>
+            <Menu.UndoRedoItems
+              undo={undo}
+              redo={redo}
+              canUndo={canUndo}
+              canRedo={canRedo}
+            />
             {extraMenuItems != null && <Menu.Divider />}
           </>
         )}

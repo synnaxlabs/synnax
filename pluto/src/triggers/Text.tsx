@@ -25,7 +25,11 @@ const isWindows = runtime.getOS() == "Windows";
 const Control = isWindows ? Icon.Keyboard.Control : Icon.Keyboard.Command;
 const Alt = isWindows ? () => "Alt" : Icon.Keyboard.Option;
 
-const CUSTOM_TEXT: Partial<Record<Key, ReactElement>> = {
+// A keycap prints what the physical key prints, and the two platforms disagree: Apple
+// sets its word keys in lowercase, Windows capitalizes them.
+const word = (mac: string, windows: string): string => (isWindows ? windows : mac);
+
+const CUSTOM_TEXT: Partial<Record<Key, ReactElement | string>> = {
   Control: <Control key="control" />,
   Alt: <Alt key="alt" />,
   Shift: <Icon.Keyboard.Shift key="shift" />,
@@ -33,6 +37,18 @@ const CUSTOM_TEXT: Partial<Record<Key, ReactElement>> = {
   MouseRight: <Icon.Click key="mouse" />,
   MouseMiddle: <Icon.Click key="mouse" />,
   Enter: <Icon.Keyboard.Return key="enter" />,
+  Escape: word("esc", "Esc"),
+  Delete: word("delete", "Delete"),
+  Backspace: word("delete", "Backspace"),
+  Tab: word("tab", "Tab"),
+  Space: word("space", "Space"),
+  CapsLock: word("caps lock", "Caps Lock"),
+  Home: word("home", "Home"),
+  End: word("end", "End"),
+  PageUp: word("page up", "Page Up"),
+  PageDown: word("page down", "Page Down"),
+  Equal: "=",
+  Minus: "-",
 };
 
 const getCustomText = (trigger: Key): ReactElement | string =>

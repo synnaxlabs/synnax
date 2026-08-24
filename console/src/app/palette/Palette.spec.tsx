@@ -74,6 +74,22 @@ describe("Palette", () => {
     expect(input.value).toBe("");
   });
 
+  it("should offer both palette shortcuts when the button is hovered", async () => {
+    await renderAppPalette();
+    const btn = document.querySelector<HTMLElement>(".console-palette__btn");
+    if (btn == null) throw new Error("palette open button not found");
+    // The tooltip has to wrap the button itself. The dialog frame accepts no ref and
+    // routes onPointerEnter into its own context, so hovering never opens the tip.
+    fireEvent.pointerEnter(btn);
+    const tip = await waitFor(() => {
+      const el = document.querySelector<HTMLElement>(".pluto-tooltip");
+      if (el == null) throw new Error("tooltip did not open");
+      return el;
+    });
+    expect(tip.textContent).toContain("Search");
+    expect(tip.textContent).toContain("Command palette");
+  });
+
   it("should run a command selected through the command palette", async () => {
     const open = vi.spyOn(window, "open").mockReturnValue(null);
     await renderAppPalette();

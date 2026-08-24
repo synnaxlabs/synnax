@@ -102,8 +102,12 @@ describe("wrapForm", () => {
       taskKey: tsk.key,
     });
     await waitFor(() => expect(screen.getByText("child-form-body")).toBeTruthy());
-    expect(findNameInput()).toBeTruthy();
-    expect(container.querySelector(".pluto-icon--play")).toBeTruthy();
+    // The name input and the play button appear once the async update and command
+    // grants resolve; until then the form renders in preview mode.
+    await waitFor(findNameInput);
+    await waitFor(() =>
+      expect(container.querySelector(".pluto-icon--play")).toBeTruthy(),
+    );
   });
 
   it("should omit the controls when showControls is false", async () => {
