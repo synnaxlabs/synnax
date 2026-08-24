@@ -170,6 +170,12 @@ class IndexedDBKV implements SugaredKV {
 
   private open(): Promise<IDBDatabase> {
     this.db ??= new Promise<IDBDatabase>((resolve, reject) => {
+      // Storage is evictable under pressure until the origin asks to keep it. The
+      // request is advisory: the engine may grant it silently, refuse it, or ask the
+      // user, and the session runs either way.
+      void navigator.storage
+        ?.persist?.()
+        .catch((err: unknown) => console.error("failed to request storage", err));
       const request = indexedDB.open(this.name, 1);
       request.onupgradeneeded = () => request.result.createObjectStore(OBJECT_STORE);
       request.onsuccess = () => resolve(request.result);

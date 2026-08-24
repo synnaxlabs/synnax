@@ -103,6 +103,13 @@ about its durability. A stored slice that fails its schema falls back to its ini
 state. There is no migrator framework: to evolve a shape, widen `sliceStateZ`, bump its
 `version: z.literal(N)`, and default the new fields.
 
+**Evolve a slice additively, or lose it.** A schema parses one version, so anything it
+cannot read is dropped silently to the initial state — including a newer slice read by
+an older Console, which makes every bump a one-way door for that slice. Additive fields
+with defaults cost nothing. A rename or reshape has only two honest options: keep
+accepting the old shape in the schema, or accept that the slice resets. Choose
+deliberately and say which in the PR.
+
 Each partition keeps a four-slot ring behind a `.slot` pointer, backing revert. A
 partition whose slices did not change is left alone, so the ring holds sessions rather
 than the last second of writes, and `revertState` steps back only the innermost
