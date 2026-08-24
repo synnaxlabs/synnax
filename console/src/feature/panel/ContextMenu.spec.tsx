@@ -199,7 +199,7 @@ describe("Panel.TabMenuItems", () => {
         fireEvent.click(screen.getByText("Focus"));
       });
       await waitFor(() => expect(screen.getByText("Exit focus")).toBeTruthy());
-      expect(hintOf("Exit focus")).toContain("esc");
+      expect(hintOf("Exit focus")).toContain("l");
     });
 
     it("withholds every hint from a menu open on a tab that is not focused", async () => {

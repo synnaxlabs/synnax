@@ -58,7 +58,11 @@ export const use = (): void => {
     loose: true,
     callback: useCallback(
       ({ stage }: Triggers.UseEvent) => {
-        if (stage !== "start" || getIsOverlaid()) return;
+        if (stage !== "start") return;
+        if (getIsOverlaid()) {
+          sessionDispatch(Session.Panel.stopOverlaying({}));
+          return;
+        }
         const focused = getFocusedTab();
         if (focused != null) sessionDispatch(Session.Panel.startOverlaying({}));
       },
