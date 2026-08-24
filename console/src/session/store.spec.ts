@@ -170,6 +170,21 @@ describe("createStore", () => {
     await waitFor(async () => expect(await clusterKeys(CLUSTER_KEY)).toHaveLength(0));
   });
 
+  // A status belongs to the cluster, so a favorite made in one project is still a
+  // favorite in the next.
+  it("stores status favorites under the Core, not the project", async () => {
+    const store = await createStore();
+    await enterAndEdit(store, Session.Core.DEMO_KEY, CLUSTER_KEY);
+    store.dispatch(Session.Status.toggleFavorite("status-1"));
+    await waitForPersisted(db, (p) => p.status != null, "favorite not persisted yet");
+    const holders = [...db.store.entries()]
+      .filter(([key]) => !key.endsWith(".slot"))
+      .filter(([, value]) => (value as Partial<Session.State>).status != null)
+      .map(([key]) => key);
+    expect(holders.length).toBeGreaterThan(0);
+    expect(holders.every((key) => key.startsWith(`core.${CLUSTER_KEY}`))).toBe(true);
+  });
+
   it("purges a repointed Core's stored state", async () => {
     const store = await createStore();
     await enterAndEdit(store, Session.Core.DEMO_KEY, CLUSTER_KEY);

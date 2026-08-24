@@ -17,8 +17,8 @@ import { remove, reset } from "@/session/panel/slice";
 export const ORDER_SLICE_NAME = "panelOrder";
 
 /**
- * The strip's panel order, shared by every window and owned by the project rather
- * than by any one view of it.
+ * The strip's panel order, shared by every window and owned by the project rather than
+ * by any one view of it.
  */
 export const orderSliceStateZ = z.object({
   version: z.literal(0).default(0),
@@ -52,8 +52,8 @@ const { actions, reducer: orderReducer } = createSlice({
   initialState: ZERO_ORDER_SLICE_STATE,
   reducers: {
     // reconcileOrder converges the order to the project's live membership: deleted
-    // panels prune, unknown panels append name-sorted. On first sight of a project
-    // the whole order materializes name-sorted through the same append path.
+    // panels prune, unknown panels append name-sorted. On first sight of a project the
+    // whole order materializes name-sorted through the same append path.
     reconcileOrder: (
       state,
       { payload: { panels } }: PayloadAction<ReconcileOrderPayload>,
@@ -67,8 +67,8 @@ const { actions, reducer: orderReducer } = createSlice({
       const next = [...kept, ...fresh];
       if (!compare.arraysEqual(state.order, next)) state.order = next;
     },
-    // The index is a strip insertion slot resolved with the panel still in place,
-    // so a move toward the end lands one slot short of the raw index.
+    // The index is a strip insertion slot resolved with the panel still in place, so a
+    // move toward the end lands one slot short of the raw index.
     reorder: (state, { payload: { key, index } }: PayloadAction<ReorderPayload>) => {
       const from = state.order.indexOf(key);
       const next = [...state.order];

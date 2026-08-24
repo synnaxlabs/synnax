@@ -250,9 +250,9 @@ describe("reconcile panel order and selection", () => {
     await waitFor(() => expect(selectedPanel(store)).toEqual(pan.key));
   });
 
-  // Regression: the delete flow prunes session state before the Core delete,
-  // so the empty selection triggers a repair whose retrieve races the delete and
-  // resolves post-tombstone still holding the corpse; it must never be selected.
+  // Regression: the delete flow prunes session state before the Core delete, so the
+  // empty selection triggers a repair whose retrieve races the delete and resolves
+  // post-tombstone still holding the corpse; it must never be selected.
   it("never selects the corpse when deleting the last panel", async () => {
     const proj = await createProject();
     const pan = await createProjectPanel(proj.key);
