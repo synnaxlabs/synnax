@@ -22,11 +22,7 @@ const CORE_B = createCore("Beta", { host: "b.example.com", secure: true });
 const KEY_A = CORE_A.key;
 const KEY_B = CORE_B.key;
 
-const EMPTY_STATE: Core.SliceState = {
-  version: 0,
-  selected: undefined,
-  cores: {},
-};
+const EMPTY_STATE: Core.SliceState = { version: 0, selected: undefined, cores: {} };
 
 const stateWith = (cores: Core.Core[], selected?: string): Core.SliceState => ({
   version: 0,
@@ -71,8 +67,8 @@ describe("Core selectors", () => {
         expect(Core.selectState(storeWith([CORE_A, CORE_B]), KEY_B)).toEqual(CORE_B);
       });
 
-      // A selector that silently answered with the selected Core would hand a caller
-      // a different record than the one it named.
+      // A selector that silently answered with the selected Core would hand a caller a
+      // different record than the one it named.
       it("should not fall back to the selection when no key is given", () => {
         expect(Core.selectState(storeWith([CORE_A, CORE_B], KEY_A))).toBeUndefined();
       });

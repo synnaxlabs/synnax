@@ -37,8 +37,8 @@ export const LOCAL_KEY = "LOCAL";
 export const DEMO_KEY = "DEMO";
 
 /**
- * The Core serving a browser Console. Stored state is scoped to the page's origin and
- * a served Console's address is that origin, so a session sees one served Core.
+ * The Core serving a browser Console. Stored state is scoped to the page's origin and a
+ * served Console's address is that origin, so a session sees one served Core.
  */
 export const SERVED_KEY = "SERVED";
 

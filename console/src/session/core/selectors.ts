@@ -65,8 +65,8 @@ export const useSelectClusterKey = (): string | undefined =>
   Select.useMemo(selectClusterKey, []);
 
 /**
- * The Core to reach the given cluster through, preferring the selected one so a link
- * to the cluster already open does not switch Cores.
+ * The Core to reach the given cluster through, preferring the selected one so a link to
+ * the cluster already open does not switch Cores.
  */
 export const selectByClusterKey = (
   state: StoreState,

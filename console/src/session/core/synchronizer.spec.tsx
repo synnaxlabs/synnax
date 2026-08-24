@@ -26,8 +26,8 @@ import {
   createTestStore,
 } from "@/testutil";
 
-// A single core reports a single Core key, so the swap is staged with a
-// client carrying the connection the synchronizer reads and nothing else.
+// A single core reports a single Core key, so the swap is staged with a client carrying
+// the connection the synchronizer reads and nothing else.
 const createClient = (clusterKey: string): Client =>
   ({
     connection: {

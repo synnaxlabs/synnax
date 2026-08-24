@@ -38,8 +38,8 @@ const useCloseOnChange = (): Synchronizer.Callbacks<Drift.StoreState, Drift.Acti
       if (clusterKey === "") return;
       const previous = seen.current;
       seen.current = clusterKey;
-      // The ref outlives client swaps, so selecting a different Core counts as a
-      // change too, not just a replacement at the same address.
+      // The ref outlives client swaps, so selecting a different Core counts as a change
+      // too, not just a replacement at the same address.
       if (previous != null && previous !== clusterKey) discard(store, modals);
     },
   };
