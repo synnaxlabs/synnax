@@ -24,14 +24,14 @@ export interface HeaderProps extends Omit<
   hideClose?: boolean;
 }
 
+const CLOSE_TOOLTIP = <Triggers.Text trigger={Triggers.ESCAPE} level="small" />;
+
 /**
  * Header renders a modal's top title bar: a breadcrumb of the given name, an optional
  * leading icon, and a close button wired to dismiss the modal. Modal renderers render
  * their own Header so that title and icon stay static presentation owned by the
  * renderer rather than dynamic state on the open-modal entry.
  */
-const CLOSE_TOOLTIP = <Triggers.Text trigger={Triggers.ESCAPE} level="small" />;
-
 export const Header = ({
   icon,
   children,

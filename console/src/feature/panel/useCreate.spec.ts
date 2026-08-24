@@ -43,8 +43,6 @@ describe("useCreate", () => {
       const doc = await client.panels.retrieve(selected);
       expect(doc.name).toEqual("New panel");
     });
-    // The create is optimistic, and the ontology edge to the parent settles after the
-    // panel itself is retrievable, so the membership query has to be given time.
     await waitFor(async () => {
       const children = await client.panels.retrieve({
         parent: project.ontologyID(proj.key),
