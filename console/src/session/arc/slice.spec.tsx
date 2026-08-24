@@ -309,3 +309,22 @@ describe("Arc Slice", () => {
     });
   });
 });
+
+describe("persistence", () => {
+  // A selection is the state of an edit in progress, so it does not outlive the
+  // session that made it.
+  it("should clear the selection on the way to disk", () => {
+    const state = Arc.stateZ.parse({ graph: { selected: ["a", "b"] } });
+    expect(Arc.purgeState(state).graph.selected).toEqual([]);
+  });
+
+  it("should leave the rest of the document alone", () => {
+    const state = Arc.stateZ.parse({
+      graph: { selected: ["a"], editable: false },
+      toolbar: { selectedTab: "properties" },
+    });
+    const purged = Arc.purgeState(state);
+    expect(purged.graph.editable).toBe(false);
+    expect(purged.toolbar.selectedTab).toBe("properties");
+  });
+});

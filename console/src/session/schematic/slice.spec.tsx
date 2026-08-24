@@ -261,7 +261,7 @@ describe("Schematic Slice", () => {
       expect(parsed.legend.visible).toBe(true);
       expect(parsed.toolbar.selectedTab).toBe("symbols");
       expect(parsed.viewport.zoom).toBe(1);
-      expect(parsed.editable).toBe(false);
+      expect(parsed.editable).toBe(true);
       expect(parsed.fitViewOnResize).toBe(false);
       expect(parsed.selected).toEqual([]);
     });
@@ -271,6 +271,13 @@ describe("Schematic Slice", () => {
     it("should reset the control status to released", () => {
       const state = Schematic.stateZ.parse({ control: { status: "acquired" } });
       expect(Schematic.purgeState(state).control.status).toBe("released");
+    });
+
+    // A selection is the state of an edit in progress, so it does not outlive the
+    // session that made it.
+    it("should clear the selection", () => {
+      const state = Schematic.stateZ.parse({ selected: ["a", "b"] });
+      expect(Schematic.purgeState(state).selected).toEqual([]);
     });
 
     it("should leave other fields untouched", () => {

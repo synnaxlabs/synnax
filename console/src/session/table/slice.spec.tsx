@@ -250,3 +250,22 @@ describe("Table Slice", () => {
     });
   });
 });
+
+describe("persistence", () => {
+  // A selection is the state of an edit in progress, so it does not outlive the
+  // session that made it.
+  it("should clear the selection on the way to disk", () => {
+    const state = Table.stateZ.parse({
+      selectedCells: ["a", "b"],
+      lastSelected: "b",
+    });
+    const purged = Table.purgeState(state);
+    expect(purged.selectedCells).toEqual([]);
+    expect(purged.lastSelected).toBeNull();
+  });
+
+  it("should leave the rest of the document alone", () => {
+    const state = Table.stateZ.parse({ selectedCells: ["a"], centered: true });
+    expect(Table.purgeState(state).centered).toBe(true);
+  });
+});

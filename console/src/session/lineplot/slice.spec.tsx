@@ -373,3 +373,21 @@ describe("LinePlot Slice", () => {
     });
   });
 });
+
+describe("persistence", () => {
+  // A selection is the state of an edit in progress, so it does not outlive the
+  // session that made it.
+  it("should clear the selection on the way to disk", () => {
+    const state = LinePlot.stateZ.parse({ selectedRules: ["r1", "r2"] });
+    expect(LinePlot.purgeState(state).selectedRules).toEqual([]);
+  });
+
+  it("should leave the rest of the document alone", () => {
+    const state = LinePlot.stateZ.parse({
+      selectedRules: ["r1"],
+      hiddenLines: ["l1"],
+    });
+    // Hidden lines are how the window looks at the plot, so they survive.
+    expect(LinePlot.purgeState(state).hiddenLines).toEqual(["l1"]);
+  });
+});

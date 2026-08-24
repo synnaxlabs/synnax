@@ -53,7 +53,7 @@ export const stateZ = z.object({
   selected: z.array(z.string()).default([]),
   legend: legendStateZ.prefault({}),
   toolbar: toolbarStateZ.prefault({}),
-  editable: z.boolean().default(false),
+  editable: z.boolean().default(true),
   fitViewOnResize: z.boolean().default(false),
   viewport: viewportZ.prefault({}),
 });
@@ -241,6 +241,7 @@ export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 
 export const purgeState = (state: State): State => {
   state.control.status = "released";
+  state.selected = [];
   return state;
 };
 
