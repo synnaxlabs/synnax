@@ -43,16 +43,24 @@ export const handleRemoved = <S extends WindowedState>(
   );
 };
 
+const windowKeys = (state: Drift.StoreState): string[] =>
+  Object.values(state[Drift.SLICE_NAME].labelKeys);
+
 /**
- * Turns a window close into {@link removed}. Reads the key before the close lands,
- * since Drift drops its label mapping in the same reducer.
+ * Announces every window the action actually removed. A close asks, it does not tell:
+ * Drift defers one while the window has a process registered, and the process
+ * completing is what finally lands it. Watching the windows themselves rather than the
+ * close means a deferred window keeps its state for as long as it is open.
  */
 export const removalMiddleware: Middleware<record.Unknown> =
   (store) => (next) => (action) => {
-    if (!Drift.closeWindow.match(action)) return next(action);
-    const windowKey =
-      action.payload.key ?? Drift.selectWindowKey(store.getState() as Drift.StoreState);
+    if (!Drift.closeWindow.match(action) && !Drift.completeProcess.match(action))
+      return next(action);
+    const before = windowKeys(store.getState() as Drift.StoreState);
     const result = next(action);
-    if (windowKey != null) store.dispatch(removed({ windowKey }));
+    const after = new Set(windowKeys(store.getState() as Drift.StoreState));
+    before
+      .filter((key) => !after.has(key))
+      .forEach((windowKey) => store.dispatch(removed({ windowKey })));
     return result;
   };

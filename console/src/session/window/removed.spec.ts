@@ -50,6 +50,27 @@ describe("Window.removalMiddleware", () => {
     expect(windowKeys(store).panels).not.toContain(AUX_KEY);
   });
 
+  // Drift keeps a window with a process registered open, so a close it defers must
+  // not take the state of a window the user is still looking at.
+  it("should keep the state of a window whose close is deferred", async () => {
+    const store = await createStore();
+    store.dispatch(Drift.registerProcess({ key: AUX_KEY }));
+    store.dispatch(Drift.closeWindow({ key: AUX_KEY }));
+    expect(Drift.selectWindow(store.getState(), AUX_KEY)).not.toBeNull();
+    expect(windowKeys(store).nav).toContain(AUX_KEY);
+    expect(windowKeys(store).panels).toContain(AUX_KEY);
+  });
+
+  it("should drop the state once the deferred close lands", async () => {
+    const store = await createStore();
+    store.dispatch(Drift.registerProcess({ key: AUX_KEY }));
+    store.dispatch(Drift.closeWindow({ key: AUX_KEY }));
+    store.dispatch(Drift.completeProcess({ key: AUX_KEY }));
+    expect(Drift.selectWindow(store.getState(), AUX_KEY)).toBeNull();
+    expect(windowKeys(store).nav).not.toContain(AUX_KEY);
+    expect(windowKeys(store).panels).not.toContain(AUX_KEY);
+  });
+
   it("should leave the windows still open untouched", async () => {
     const store = await createStore();
     store.dispatch(Drift.closeWindow({ key: AUX_KEY }));
