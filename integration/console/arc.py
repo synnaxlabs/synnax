@@ -315,8 +315,8 @@ class ArcClient(ResourceClient):
         self.layout.delete_with_confirmation(item)
 
     GRAPH_CLASS = ".pluto-arc"
-    STAGES_CLASS = ".console-arc__stages"
-    STAGE_BUTTON_CLASS = ".console-arc-stages__button"
+    STAGES_LABEL = "Stages"
+    STAGE_GROUPS_LABEL = "Stage groups"
 
     def open_graph(self, name: str) -> None:
         """Open a graph-mode Arc, waiting on the canvas rather than the text editor.
@@ -330,16 +330,22 @@ class ArcClient(ResourceClient):
             state="visible", timeout=10000
         )
 
+    def _stages(self) -> Locator:
+        """Return the listbox holding the selected group's node selectors."""
+        return self.layout.page.get_by_role("listbox", name=self.STAGES_LABEL)
+
+    def _stage_groups(self) -> Locator:
+        """Return the group of buttons that pick the stage group."""
+        return self.layout.page.get_by_role("group", name=self.STAGE_GROUPS_LABEL)
+
     def show_graph_toolbar(self) -> None:
         """Show the graph Arc's stage palette in the bottom Component drawer."""
         self.layout.show_visualization_toolbar()
-        self.layout.page.locator(self.STAGES_CLASS).wait_for(
-            state="visible", timeout=5000
-        )
+        self._stages().wait_for(state="visible", timeout=5000)
 
     def stage_group_names(self) -> list[str]:
         """Return the stage group names offered by the graph toolbar."""
-        groups = self.layout.page.locator(f"{self.STAGES_CLASS} .pluto-btn")
+        groups = self._stage_groups().get_by_role("button")
         return [groups.nth(i).inner_text().strip() for i in range(groups.count())]
 
     def select_stage_group(self, name: str) -> None:
@@ -348,12 +354,17 @@ class ArcClient(ResourceClient):
         Args:
             name: The group's label, e.g. "Telemetry".
         """
-        self.layout.page.locator(self.STAGES_CLASS).get_by_role(
-            "button", name=name, exact=True
-        ).click()
+        self._stage_groups().get_by_role("button", name=name, exact=True).click()
 
     def stage_names(self) -> list[str]:
-        """Return the node selector names shown for the selected stage group."""
-        stages = self.layout.page.locator(self.STAGE_BUTTON_CLASS)
+        """Return the node selector names shown for the selected stage group.
+
+        Each selector renders a preview that repeats the name and shows a sample value,
+        so the name comes from the option's accessible name rather than its text.
+        """
+        stages = self._stages().get_by_role("option")
         stages.first.wait_for(state="visible", timeout=5000)
-        return [stages.nth(i).inner_text().strip() for i in range(stages.count())]
+        return [
+            stages.nth(i).get_attribute("aria-label") or ""
+            for i in range(stages.count())
+        ]
