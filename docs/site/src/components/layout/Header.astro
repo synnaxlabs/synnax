@@ -12,7 +12,10 @@ import { Logo } from "@synnaxlabs/media";
 import { Icon, Button, Flex } from "@synnaxlabs/pluto";
 import Search from "@/components/search/Search.astro";
 import { PageMobile } from "@/components/nav/Page";
+import { fetchVersion } from "@/util/fetchVersion";
 const url = Astro.url.pathname;
+const version = await fetchVersion().catch(() => null);
+const label = version?.split(".").slice(0, -1).join(".");
 ---
 
 <Flex.Box className="main-header" justify="center" align="center" el="header" empty>
@@ -65,7 +68,7 @@ const url = Astro.url.pathname;
                     variant="outlined"
                     href="https://github.com/synnaxlabs/synnax"
                 >
-                    <p class="version" transition:persist></p>
+                    <p class="version">{label}</p>
                     <Icon.Logo.Github />
                 </Button.Button>
                 <PageMobile client:only="react" currentPage={Astro.url.pathname} />
