@@ -18,10 +18,10 @@ EXPECTED_GROUPS = ["Basic", "Telemetry", "Operators", "Flow control"]
 class GraphToolbar(ConsoleCase):
     """Open a graph Arc and check its stage palette.
 
-    The palette is the only way to place a node, and it reaches the screen through
-    the Arc tab's registered toolbar. When that registration is missing the drawer
-    silently falls back to its "no toolbar" content, so this drives the real path:
-    open the Arc, open the drawer, and read the selectors back.
+    The palette is the only way to place a node, and it reaches the screen through the
+    Arc tab's registered toolbar. When that registration is missing the drawer silently
+    falls back to its "no toolbar" content, so this drives the real path: open the Arc,
+    open the drawer, and read the selectors back.
     """
 
     arc_name: str

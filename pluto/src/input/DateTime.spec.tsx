@@ -87,8 +87,6 @@ describe("Input.DateTime", () => {
   });
 
   describe("save trigger", () => {
-    // Without a Triggers.Provider the context's listen is a no-op, which would make
-    // this pass no matter what the Done button binds.
     const pressSave = (): void => {
       fireEvent.keyDown(window, { key: "Control", code: "ControlLeft" });
       fireEvent.keyDown(window, { code: "Enter" });

@@ -89,8 +89,8 @@ describe("table DefaultContextMenu", () => {
 
   it("withholds undo and redo from a read-only table", async () => {
     renderMenu({ editable: false, onCenteredChange: vi.fn() });
-    // Positive control first: the menu really rendered, so the absence below is
-    // the read-only gate rather than an empty menu.
+    // Positive control first: the menu really rendered, so the absence below is the
+    // read-only gate rather than an empty menu.
     expect(await screen.findByText("Center table")).toBeDefined();
     expect(screen.queryByText("Undo")).toBeNull();
     expect(screen.queryByText("Redo")).toBeNull();
@@ -101,8 +101,8 @@ describe("table DefaultContextMenu", () => {
     const item = (await screen.findByText("Erase cell")).closest("button");
     const hint = item?.querySelector('[aria-label="trigger-indicator"]');
     // The item never binds the key itself, so a hint that drifted from the trigger
-    // Table registers would advertise a key that does nothing. Keycaps follow the
-    // host platform's casing, so the comparison ignores it.
+    // Table registers would advertise a key that does nothing. Keycaps follow the host
+    // platform's casing, so the comparison ignores it.
     expect(hint?.textContent?.toLowerCase()).toContain(ERASE_TRIGGER[0].toLowerCase());
   });
 

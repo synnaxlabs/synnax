@@ -29,7 +29,6 @@ const CONFIG: Triggers.ModeConfig<Mode> = {
 
 const FLATTENED_CONFIG = Triggers.flattenConfig(CONFIG);
 
-/** The modes that write to the document, and so answer only to an editor. */
 const MUTATING_MODES = new Set<Mode>(["undo", "redo", "paste"]);
 
 export interface UseTriggersProps {
@@ -41,7 +40,8 @@ export interface UseTriggersProps {
   onSelectAll?: () => void;
   enabled?: Triggers.Condition;
   /** Withholds the shortcuts that change the diagram. Copying and the selection
-   * shortcuts stay live, so a read-only diagram is still navigable. Defaults to true. */
+   * shortcuts stay live, so a read-only diagram is still navigable. Defaults to true.
+   * */
   editable?: boolean;
 }
 

@@ -51,14 +51,15 @@ span.pluto-text {
         /* Geometry off the color chain: a blank border color voids the shorthand, and
            the zeroed width then shifts every cap in a right-aligned row. */
         border: var(--pluto-border-width) solid;
+
         /* A concrete gray, not the ambient --pluto-border-color: every button variant
            rewrites that for its own chassis, and the text variant sets it to the page
            background, which erases the cap's outline. */
         border-color: var(--pluto-keycap-border-color, var(--pluto-gray-l7));
         border-radius: var(--pluto-border-radius);
 
-        /* An icon already fits inside the square, so padding it moves nothing and
-           only widens the row's intrinsic size, knocking the caps off whole pixels. */
+        /* An icon already fits inside the square, so padding it moves nothing and only
+           widens the row's intrinsic size, knocking the caps off whole pixels. */
         &:has(> .pluto-icon) {
             padding-inline: 0;
         }

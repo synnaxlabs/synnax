@@ -819,8 +819,8 @@ describe("Triggers", () => {
       expect(callback).not.toHaveBeenCalled();
     });
 
-    // A bare "-" or "=" types a character, so a field must keep it even though the
-    // key is not alphanumeric. The symbol editor binds both as bare zoom shortcuts.
+    // A bare "-" or "=" types a character, so a field must keep it even though the key
+    // is not alphanumeric. The symbol editor binds both as bare zoom shortcuts.
     const TEXT_ENTRY_KEYS: [Triggers.Key, string][] = [
       ["Minus", "-"],
       ["Equal", "="],
@@ -1441,8 +1441,8 @@ describe("Triggers", () => {
   describe("Text", () => {
     it("should print a word key the way the physical key prints it", () => {
       const c = render(<Triggers.Text trigger={["Escape"]} />);
-      // The bare enum name ("Escape") leaking through is the regression: the cap has
-      // to read like the key, and it is a square that a full word overflows.
+      // The bare enum name ("Escape") leaking through is the regression: the cap has to
+      // read like the key, and it is a square that a full word overflows.
       expect(c.getByText(/^esc$/i)).toBeTruthy();
       expect(c.queryByText("Escape")).toBeNull();
     });

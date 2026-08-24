@@ -290,8 +290,8 @@ describe("Table", () => {
 
   describe("undo and redo triggers", () => {
     // The shortcut used to be filtered by the table's own region, so it only fired
-    // while the pointer happened to sit over the table. Undo is a tab-wide action;
-    // the pointer is parked far outside the table here to hold that line.
+    // while the pointer happened to sit over the table. Undo is a tab-wide action; the
+    // pointer is parked far outside the table here to hold that line.
     const pressUndo = (): void => {
       fireEvent.mouseMove(window, { clientX: 5000, clientY: 5000 });
       fireEvent.keyDown(window, { key: "Control", code: "ControlLeft" });
@@ -314,8 +314,8 @@ describe("Table", () => {
 
     it("should undo an edit while the pointer sits outside the table", async () => {
       const textKey = await createTextTable();
-      // Without a Triggers.Provider the context's listen is a no-op, so every
-      // shortcut assertion below would pass no matter what the table binds.
+      // Without a Triggers.Provider the context's listen is a no-op, so every shortcut
+      // assertion below would pass no matter what the table binds.
       const c = render(
         <Triggers.Provider>
           <Table.Suspended tableKey={textKey}>

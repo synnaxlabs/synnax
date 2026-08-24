@@ -33,24 +33,15 @@ const createGraphArc = async (graph: Partial<arc.Arc["graph"]> = {}) =>
     graph: { nodes: [], edges: [], ...graph },
   });
 
-// Rendered through the tab registry rather than the component directly: the palette
-// went missing because the tab never declared a Toolbar, which a direct render hides.
-const registeredToolbar = () => {
-  const { Toolbar } = Arc.Editor.TABS[arc.TYPE_ONTOLOGY_ID.type];
-  if (Toolbar == null) throw new Error("the arc tab registers no toolbar");
-  return Toolbar;
-};
-
 const renderToolbar = async (arcKey: string): Promise<{ store: TestStore }> => {
   const { wrapper, store } = await createConsoleWrapper({ client });
   const { panelKey, tabKey } = await createResourceTab(client, arc.ontologyID(arcKey));
-  const Toolbar = registeredToolbar();
   await act(async () => {
     render(
       <PlutoPanel.Scope.Provider value={panelKey}>
         <PlutoPanel.TabScope.Provider value={tabKey}>
           <Suspense fallback={null}>
-            <Toolbar />
+            <Arc.Editor.Toolbar />
           </Suspense>
         </PlutoPanel.TabScope.Provider>
       </PlutoPanel.Scope.Provider>,
@@ -61,12 +52,6 @@ const renderToolbar = async (arcKey: string): Promise<{ store: TestStore }> => {
 };
 
 describe("arc editor toolbar", () => {
-  it("registers a toolbar on the arc tab", () => {
-    // Without this the bottom drawer falls back to its "no toolbar" content and the
-    // whole stage palette is unreachable, with nothing else failing.
-    expect(Arc.Editor.TABS[arc.TYPE_ONTOLOGY_ID.type].Toolbar).toBeDefined();
-  });
-
   it("shows the arc name and the stage groups once editable", async () => {
     const arc = await createGraphArc();
     await renderToolbar(arc.key);

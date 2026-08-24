@@ -265,7 +265,6 @@ const Base = <E extends ElementType = "button">({
         <Triggers.Text
           className={CSS.B("trigger-indicator")}
           aria-label="trigger-indicator"
-          // Decorative; keep it out of the button's accessible name.
           aria-hidden
           trigger={parsedTriggerIndicator}
           color={9}

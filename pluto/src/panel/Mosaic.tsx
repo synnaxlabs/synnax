@@ -130,9 +130,9 @@ interface CreateTabProps {
 }
 
 /**
- * The button that adds a tab to a leaf. Split from the leaf so the subscription to
- * the selection head re-renders the button alone: focus moving between leaves must
- * not re-render either leaf's tabs.
+ * The button that adds a tab to a leaf. Split from the leaf so the subscription to the
+ * selection head re-renders the button alone: focus moving between leaves must not
+ * re-render either leaf's tabs.
  */
 const CreateTab = memo(({ selected, onAdd }: CreateTabProps): ReactElement => {
   // Create acts on the panel's focused tab, so only the leaf holding that tab may

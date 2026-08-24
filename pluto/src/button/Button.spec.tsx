@@ -435,8 +435,8 @@ describe("Button", () => {
           Save
         </Button.Button>,
       );
-      // The keycaps are decoration. Without aria-hidden they join the accessible
-      // name, so every name-based query for a hinted button breaks.
+      // The keycaps are decoration. Without aria-hidden they join the accessible name,
+      // so every name-based query for a hinted button breaks.
       expect(c.getByRole("button", { name: "Save" })).toBeTruthy();
     });
 
