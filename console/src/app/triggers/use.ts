@@ -15,7 +15,6 @@ import { useCallback, useRef } from "react";
 import { Palette } from "@/app/palette";
 import { useSelectorVisible } from "@/app/vis/Selector";
 import { Panel } from "@/feature/panel";
-import { Schematic } from "@/feature/schematic";
 import { Panel as PlatformPanel } from "@/platform/panel";
 import { Selector } from "@/platform/selector";
 import { Session } from "@/session";
@@ -26,9 +25,6 @@ const PREVENT_DEFAULT_ON: Triggers.Trigger[] = [
   Palette.COMMAND_TRIGGER,
   ["Control", "MouseLeft"],
   PPanel.CLOSE_TRIGGER,
-  // The symbol editor binds the zoom chords itself, so the browser must not also
-  // zoom the whole Console when they fire.
-  ...Schematic.Symbol.FLATTENED_ZOOM_TRIGGERS,
 ];
 
 export const PROVIDER_PROPS: Triggers.ProviderProps = {

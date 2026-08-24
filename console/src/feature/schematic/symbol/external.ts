@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/feature/schematic/symbol/edit";
-export { FLATTENED_ZOOM_TRIGGERS } from "@/feature/schematic/symbol/edit/triggers";
 export * from "@/feature/schematic/symbol/MissingForm";
 export * from "@/feature/schematic/symbol/SelectVariant";
 export * from "@/feature/schematic/symbol/tree";
