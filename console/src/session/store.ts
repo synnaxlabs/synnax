@@ -53,15 +53,15 @@ const PERSIST_SCOPES: Persist.Scopes<State> = {
     [Color.SLICE_NAME]: Color.sliceStateZ,
     [Theme.SLICE_NAME]: Theme.sliceStateZ,
   },
-  // A status belongs to the cluster, not to a project under it.
+  // Statuses and ranges belong to the cluster, not to a project under it.
   core: {
     [Project.SLICE_NAME]: Project.sliceStateZ,
+    [Range.SLICE_NAME]: Range.sliceStateZ,
     [Status.SLICE_NAME]: Status.sliceStateZ,
   },
   project: {
     [Drift.SLICE_NAME]: Drift.sliceStateZ,
     [Panel.ORDER_SLICE_NAME]: Panel.orderSliceStateZ,
-    [Range.SLICE_NAME]: Range.sliceStateZ,
   },
   // A window is a viewport, so its view of every document is stored under the window
   // rather than mixed into the project's.

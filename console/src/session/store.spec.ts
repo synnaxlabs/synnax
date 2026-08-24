@@ -170,17 +170,31 @@ describe("createStore", () => {
     await waitFor(async () => expect(await clusterKeys(CLUSTER_KEY)).toHaveLength(0));
   });
 
-  // A status belongs to the cluster, so a favorite made in one project is still a
-  // favorite in the next.
+  /** The partition keys holding the given slice. */
+  const holdersOf = (slice: keyof Session.State): string[] =>
+    [...db.store.entries()]
+      .filter(([key]) => !key.endsWith(".slot"))
+      .filter(([, value]) => (value as Partial<Session.State>)[slice] != null)
+      .map(([key]) => key);
+
+  // Statuses and ranges belong to the cluster, so a favorite made in one project is
+  // still a favorite in the next.
   it("stores status favorites under the Core, not the project", async () => {
     const store = await createStore();
     await enterAndEdit(store, Session.Core.DEMO_KEY, CLUSTER_KEY);
     store.dispatch(Session.Status.toggleFavorite("status-1"));
     await waitForPersisted(db, (p) => p.status != null, "favorite not persisted yet");
-    const holders = [...db.store.entries()]
-      .filter(([key]) => !key.endsWith(".slot"))
-      .filter(([, value]) => (value as Partial<Session.State>).status != null)
-      .map(([key]) => key);
+    const holders = holdersOf("status");
+    expect(holders.length).toBeGreaterThan(0);
+    expect(holders.every((key) => key.startsWith(`core.${CLUSTER_KEY}`))).toBe(true);
+  });
+
+  it("stores ranges under the Core, not the project", async () => {
+    const store = await createStore();
+    await enterAndEdit(store, Session.Core.DEMO_KEY, CLUSTER_KEY);
+    store.dispatch(Session.Range.select(Session.Range.RECENT_KEY));
+    await waitForPersisted(db, (p) => p.range != null, "range not persisted yet");
+    const holders = holdersOf("range");
     expect(holders.length).toBeGreaterThan(0);
     expect(holders.every((key) => key.startsWith(`core.${CLUSTER_KEY}`))).toBe(true);
   });
