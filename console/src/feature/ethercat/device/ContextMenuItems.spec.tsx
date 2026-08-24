@@ -128,7 +128,7 @@ describe("EtherCAT device ContextMenuItems", () => {
     expect(write.type).toBe(EtherCAT.Task.WRITE_TYPE);
   });
 
-  it("should disable every selected slave on the cluster when Disable is clicked", async () => {
+  it("should disable every selected slave on the Core when Disable is clicked", async () => {
     const slaveA = await createSlave(true);
     const slaveB = await createSlave(true);
     await renderContextMenu([slaveA, slaveB]);
@@ -147,7 +147,7 @@ describe("EtherCAT device ContextMenuItems", () => {
     });
   });
 
-  it("should enable a disabled slave on the cluster when Enable is clicked", async () => {
+  it("should enable a disabled slave on the Core when Enable is clicked", async () => {
     const slave = await createSlave(false);
     await renderContextMenu([slave]);
     fireEvent.click(await screen.findByText("Enable"));

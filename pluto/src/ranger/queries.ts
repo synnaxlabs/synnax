@@ -96,7 +96,7 @@ export type RetrieveMultipleQuery = {
   keys: ranger.Key[];
 };
 
-export const { use: useMultiple } = Flux.createRetrieve<
+export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRetrieve<
   RetrieveMultipleQuery,
   ranger.Range[]
 >({

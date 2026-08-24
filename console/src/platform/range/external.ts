@@ -10,6 +10,7 @@
 export * from "@/platform/range/FavoriteButton";
 export * from "@/platform/range/overview/Details";
 export * from "@/platform/range/overview/MetaData";
+export * from "@/platform/range/resolve";
 export * from "@/platform/range/Select";
 export * from "@/platform/range/SnapshotMenuItem";
 export * from "@/platform/range/snapshots";

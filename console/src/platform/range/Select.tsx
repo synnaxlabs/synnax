@@ -25,7 +25,12 @@ import {
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
-import { Session } from "@/session";
+import {
+  type Resolved,
+  useResolve,
+  useResolveMultiple,
+} from "@/platform/range/resolve";
+import { type Session } from "@/session";
 
 interface SelectMultipleRangesProps extends Omit<
   Select.MultipleProps<string, Session.Range.State>,
@@ -52,7 +57,11 @@ const DynamicListItem = Component.renderProp(
 );
 
 const StaticListItem = Component.renderProp(
-  (props: List.ItemProps<string> & { range: Session.Range.StaticState }) => {
+  (
+    props: List.ItemProps<string> & {
+      range: Exclude<Resolved, Session.Range.DynamicState>;
+    },
+  ) => {
     const { range } = props;
     const { data: parent } = Ranger.useResultParent({
       id: ranger.ontologyID(range.key),
@@ -73,10 +82,9 @@ const StaticListItem = Component.renderProp(
 
 const listItem = Component.renderProp((props: List.ItemProps<string>) => {
   const { itemKey } = props;
-  const range = Session.Range.useSelectState(itemKey);
+  const range = useResolve(itemKey);
   if (range == null) return null;
-  const { variant } = range;
-  if (variant === "dynamic") return <DynamicListItem {...props} range={range} />;
+  if (range.variant === "dynamic") return <DynamicListItem {...props} range={range} />;
   return <StaticListItem {...props} range={range} />;
 });
 
@@ -85,7 +93,7 @@ interface RenderTagProps {
 }
 
 const RangeTag = ({ itemKey }: RenderTagProps): ReactElement | null => {
-  const range = Session.Range.useSelectState(itemKey);
+  const range = useResolve(itemKey);
   const { onSelect } = Select.useItemState(itemKey);
   return (
     <Tag.Tag
@@ -102,7 +110,7 @@ const RangeTag = ({ itemKey }: RenderTagProps): ReactElement | null => {
 const renderTag = Component.renderProp(RangeTag);
 
 const SelectMultipleRanges = (props: SelectMultipleRangesProps): ReactElement => {
-  const entries = Session.Range.useSelectMultiple();
+  const entries = useResolveMultiple();
   const { data, retrieve } = List.useStaticData<string>({ data: entries });
   const { fetchMore, search } = List.usePager({ retrieve });
   return (

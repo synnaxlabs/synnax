@@ -8,8 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type MiddlewareAPI } from "@reduxjs/toolkit";
-import { kv, TimeSpan } from "@synnaxlabs/x";
+import { TimeSpan, unique } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 
 const mocks = vi.hoisted((): { engine: "web" | "tauri"; label: string } => ({
   engine: "web",
@@ -26,59 +27,111 @@ vi.mock("@tauri-apps/api/window", () => ({
 }));
 
 import { Persist } from "@/session/persist";
+import { Window } from "@/session/window";
 
 interface MockState {
-  cluster: { selected?: string };
+  core: { selected?: string };
   project: { selected?: string };
   work: { value: string; transient?: string };
+  /**
+   * A window-keyed slice, shaped the way every real one is: per-window state under
+   * windows, and a shared field beside it.
+   */
+  view: { label: string; windows: Record<string, { value: string }> };
+  /** Stands in for the drift bookkeeping the project partition holds. */
+  windows: string[];
 }
 
 const ZERO_MOCK_STATE: MockState = {
-  cluster: {},
+  core: {},
   project: {},
   work: { value: "0.0.0", transient: "zero" },
+  view: { label: "none", windows: {} },
+  windows: [],
 };
 
+const selectedZ = z.object({ selected: z.string().optional() });
+const workZ = z.object({
+  value: z.string(),
+  transient: z.string().optional(),
+});
+
+const viewZ = z.object({
+  label: z.string().default("none"),
+  windows: z.record(z.string(), z.object({ value: z.string() })),
+});
+
 const SCOPES: Persist.Scopes<MockState> = {
-  global: ["cluster"],
-  cluster: ["project"],
-  project: ["work"],
+  global: { core: selectedZ },
+  core: { project: selectedZ },
+  project: { work: workZ, windows: z.string().array() },
+  window: { view: viewZ },
+  transient: [],
 };
 
 const getContext = (state: MockState): Persist.Context => ({
-  cluster: state.cluster.selected,
+  core: state.core.selected,
   project: state.project.selected,
 });
 
-const CTX: Persist.Context = { cluster: "c1", project: "p1" };
+const CTX: Persist.Context = { core: "c1", project: "p1" };
+
+const WINDOW = "w1";
 
 const STATE: MockState = {
-  cluster: { selected: "c1" },
+  core: { selected: "c1" },
   project: { selected: "p1" },
   work: { value: "16.2.0", transient: "drag" },
+  view: { label: "none", windows: {} },
+  windows: [],
 };
 
 // One state key plus one slot pointer for the global partition.
 const GLOBAL_KEYS = 2;
 
 /** A store whose writes to keys matching failOn reject, standing in for a full disk. */
-class FailingKV extends kv.MockAsync {
+class FailingKV extends Persist.MemoryKV {
   failOn: RegExp | null = null;
 
-  override async set<V>(key: string, value: V): Promise<void> {
-    if (this.failOn?.test(key) === true) throw new Error("disk full");
-    await super.set(key, value);
+  override async setMany(entries: Persist.Entry[]): Promise<void> {
+    if (entries.some(({ key }) => this.failOn?.test(key) === true))
+      throw new Error("disk full");
+    await super.setMany(entries);
+  }
+
+  override async deleteMany(keys: string[]): Promise<void> {
+    if (keys.some((key) => this.failOn?.test(key) === true))
+      throw new Error("disk full");
+    await super.deleteMany(keys);
+  }
+}
+
+/** Counts the batched calls production makes, so a spec can assert it writes once. */
+class CountingKV extends Persist.MemoryKV {
+  readonly writes: Persist.Entry[][] = [];
+  readonly deletes: string[][] = [];
+
+  override async setMany(entries: Persist.Entry[]): Promise<void> {
+    this.writes.push(entries);
+    await super.setMany(entries);
+  }
+
+  override async deleteMany(keys: string[]): Promise<void> {
+    this.deletes.push(keys);
+    await super.deleteMany(keys);
   }
 }
 
 const openPersist = async (
-  store: kv.MockAsync,
+  store: Persist.MemoryKV,
   overrides: Partial<Persist.Config<MockState>> = {},
 ) =>
   await Persist.open<MockState>({
     initial: ZERO_MOCK_STATE,
     scopes: SCOPES,
     getContext,
+    getWindows: (state) => state.windows,
+    lens: Window.LENS,
     openKV: () => store,
     debounceInterval: TimeSpan.ZERO,
     ...overrides,
@@ -91,7 +144,7 @@ const openPersist = async (
  * through the chain.
  */
 const createDriver = async (
-  store: kv.MockAsync,
+  store: Persist.MemoryKV,
   overrides: Partial<Persist.Config<MockState>> = {},
 ) => {
   const { initialState, middleware } = await openPersist(store, overrides);
@@ -140,18 +193,18 @@ const workIs =
 type Driver = Awaited<ReturnType<typeof createDriver>>;
 
 /**
- * Walks into a context the way production does: the cluster is chosen first, and only
+ * Walks into a context the way production does: the Core is chosen first, and only
  * once its partition has hydrated does the project it names become selectable.
  */
-const enter = async (driver: Driver, { cluster, project }: Persist.Context) => {
-  if (driver.getState().cluster.selected !== cluster) {
+const enter = async (driver: Driver, { core, project }: Persist.Context) => {
+  if (driver.getState().core.selected !== core) {
     driver.dispatch(
-      { type: "cluster/select" },
-      { ...driver.getState(), cluster: { selected: cluster } },
+      { type: "Core/select" },
+      { ...driver.getState(), core: { selected: core } },
     );
     await driver.settle();
   }
-  // The cluster's partition may already name the project, in which case nothing moved.
+  // The Core's partition may already name the project, in which case nothing moved.
   if (project == null || driver.getState().project.selected === project) return;
   driver.dispatch(
     { type: "project/select" },
@@ -164,9 +217,36 @@ const enter = async (driver: Driver, { cluster, project }: Persist.Context) => {
 const edit = async (driver: Driver, value: string) => {
   driver.dispatch(
     { type: "work/edit" },
-    { ...driver.getState(), work: { value, transient: "drag" } },
+    {
+      ...driver.getState(),
+      work: { value, transient: "drag" },
+    },
   );
   await driver.flushed(workIs(value));
+};
+
+/** Edits one window's view of the project, the way a window-scoped slice changes. */
+const editView = async (driver: Driver, key: string, value: string) => {
+  const state = driver.getState();
+  driver.dispatch(
+    { type: "view/edit" },
+    {
+      ...state,
+      view: { ...state.view, windows: { ...state.view.windows, [key]: { value } } },
+      windows: unique.unique([...state.windows, key]),
+    },
+  );
+  await driver.flushed((state) => state?.view.windows[key]?.value === value);
+};
+
+/** Edits the view slice's shared field, the part outside its windows record. */
+const editLabel = async (driver: Driver, value: string) => {
+  const state = driver.getState();
+  driver.dispatch(
+    { type: "view/label" },
+    { ...state, view: { ...state.view, label: value } },
+  );
+  await driver.flushed((state) => state?.view.label === value);
 };
 
 describe("Persist.open", () => {
@@ -177,20 +257,53 @@ describe("Persist.open", () => {
 
   describe("composition", () => {
     it("should start from the initial state when nothing has been persisted", async () => {
-      const { initialState } = await openPersist(new kv.MockAsync());
+      const { initialState } = await openPersist(new Persist.MemoryKV());
       expect(initialState).toEqual(ZERO_MOCK_STATE);
     });
 
-    it("should compose the global, selected cluster, and active project partitions", async () => {
-      const store = new kv.MockAsync();
+    it("should apply the migrated slices to an empty store", async () => {
+      const { initialState } = await openPersist(new Persist.MemoryKV(), {
+        migrate: async () => ({ work: { value: "0.56.0" } }),
+      });
+      expect(initialState?.work.value).toBe("0.56.0");
+    });
+
+    it("should not consult the migration once the store holds a session", async () => {
+      const store = new Persist.MemoryKV();
+      const driver = await createDriver(store);
+      await enter(driver, CTX);
+      await edit(driver, "16.2.0");
+      const migrate = vi.fn(async () => ({ work: { value: "0.56.0" } }));
+      const { initialState } = await openPersist(store, { migrate });
+      expect(migrate).not.toHaveBeenCalled();
+      expect(initialState?.work.value).toBe("16.2.0");
+    });
+
+    it("should still open when the migration throws", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const { initialState } = await openPersist(new Persist.MemoryKV(), {
+        migrate: async () => {
+          throw new Error("unreadable legacy store");
+        },
+      });
+      expect(initialState).toEqual(ZERO_MOCK_STATE);
+      expect(errorSpy).toHaveBeenCalledWith(
+        "failed to carry the previous release's state over",
+        expect.anything(),
+      );
+      errorSpy.mockRestore();
+    });
+
+    it("should compose the global, selected Core, and active project partitions", async () => {
+      const store = new Persist.MemoryKV();
       const driver = await createDriver(store);
       await enter(driver, CTX);
       await edit(driver, "16.2.0");
       expect(await driver.composed()).toEqual(STATE);
     });
 
-    it("should stop at the global partition when no cluster was selected", async () => {
-      const store = new kv.MockAsync();
+    it("should stop at the global partition when no Core was selected", async () => {
+      const store = new Persist.MemoryKV();
       const driver = await createDriver(store);
       driver.dispatch({ type: "work/edit" }, { ...ZERO_MOCK_STATE, work: STATE.work });
       await vi.waitFor(async () => expect(await store.length()).toBe(GLOBAL_KEYS));
@@ -201,37 +314,148 @@ describe("Persist.open", () => {
   });
 
   describe("partitions", () => {
-    it("should write only the global partition when no cluster is in context", async () => {
-      const store = new kv.MockAsync();
+    it("should write only the global partition when no Core is in context", async () => {
+      const store = new Persist.MemoryKV();
       const driver = await createDriver(store);
       driver.dispatch({ type: "work/edit" }, { ...ZERO_MOCK_STATE, work: STATE.work });
       await vi.waitFor(async () => expect(await store.length()).toBe(GLOBAL_KEYS));
     });
 
     it("should skip the project partition when no project is in context", async () => {
-      const store = new kv.MockAsync();
+      const store = new Persist.MemoryKV();
       const driver = await createDriver(store);
-      await enter(driver, { cluster: "c1" });
+      await enter(driver, { core: "c1" });
       driver.dispatch(
         { type: "work/edit" },
         { ...driver.getState(), work: { value: "c1-work" } },
       );
-      await driver.flushed((s) => s?.cluster.selected === "c1");
+      await driver.flushed((s) => s?.core.selected === "c1");
       // The project-scoped work never reached disk, so it composes from zero.
       expect((await driver.composed())?.work).toEqual(ZERO_MOCK_STATE.work);
     });
 
-    it("should bound each partition to four slots", async () => {
-      const store = new kv.MockAsync();
+    it("should store a window's slices under its own partition", async () => {
+      const store = new Persist.MemoryKV();
+      const driver = await createDriver(store);
+      await enter(driver, CTX);
+      await editView(driver, WINDOW, "left");
+      await editView(driver, "w2", "right");
+      const keys = await store.keys();
+      expect(keys).toContain(`window.c1.p1.${WINDOW}.slot`);
+      expect(keys).toContain("window.c1.p1.w2.slot");
+      // Each partition holds the slice narrowed to its own window, so the bytes still
+      // parse through the slice's schema.
+      expect(await store.get(`window.c1.p1.${WINDOW}.0`)).toEqual({
+        view: { windows: { [WINDOW]: { value: "left" } } },
+      });
+    });
+
+    it("should compose every window's slices on open", async () => {
+      const store = new Persist.MemoryKV();
+      const driver = await createDriver(store);
+      await enter(driver, CTX);
+      await editView(driver, WINDOW, "left");
+      await editView(driver, "w2", "right");
+      expect((await driver.composed())?.view.windows).toEqual({
+        [WINDOW]: { value: "left" },
+        w2: { value: "right" },
+      });
+    });
+
+    it("should delete a window's partition once the window is gone", async () => {
+      const store = new Persist.MemoryKV();
+      const driver = await createDriver(store);
+      await enter(driver, CTX);
+      await editView(driver, WINDOW, "left");
+      await editView(driver, "w2", "right");
+      // Window keys are minted fresh per open, so a partition left behind is one the
+      // store carries forever.
+      driver.dispatch(
+        { type: "window/closed" },
+        { ...driver.getState(), windows: [WINDOW] },
+      );
+      await vi.waitFor(async () =>
+        expect((await store.keys()).filter((key) => key.includes("w2"))).toHaveLength(
+          0,
+        ),
+      );
+      expect(await store.keys()).toContain(`window.c1.p1.${WINDOW}.slot`);
+    });
+
+    it("should leave a window with no entry in a slice alone across sessions", async () => {
+      const store = new CountingKV();
+      const driver = await createDriver(store);
+      await enter(driver, CTX);
+      // The window list comes from drift, not from the slice, so a window that never
+      // touched the view slice still gets a partition staged and written.
+      driver.dispatch(
+        { type: "window/open" },
+        { ...driver.getState(), windows: [WINDOW] },
+      );
+      await vi.waitFor(async () =>
+        expect(await store.keys()).toContain(`window.c1.p1.${WINDOW}.slot`),
+      );
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const sessionOneWrites = store.writes.length;
+      const driver2 = await createDriver(store);
+      await edit(driver2, "16.3.0");
+      // The reread bytes must compose back to what re-staging narrows, or every
+      // launch rewrites the partition and burns a revert slot.
+      const rewrites = store.writes
+        .slice(sessionOneWrites)
+        .flat()
+        .filter(({ key }) => key.startsWith("window."));
+      expect(rewrites).toHaveLength(0);
+      expect(errorSpy).not.toHaveBeenCalled();
+      errorSpy.mockRestore();
+    });
+
+    it("should bound a partition to four slots", async () => {
+      const store = new Persist.MemoryKV();
       const driver = await createDriver(store);
       await enter(driver, CTX);
       for (let i = 0; i < 10; i++) await edit(driver, `16.2.${i}`);
-      // Four ring entries plus a slot pointer for each of the three partitions.
-      expect(await store.length()).toBe(15);
+      // Four ring entries plus the slot pointer.
+      expect(
+        (await store.keys()).filter((k) => k.startsWith("project.c1.p1.")),
+      ).toHaveLength(5);
+    });
+
+    it("should write every partition it touches in one batch", async () => {
+      const store = new CountingKV();
+      const driver = await createDriver(store);
+      await enter(driver, CTX);
+      await edit(driver, "16.2.0");
+      store.writes.length = 0;
+      // Leaving a project flushes the Core and project partitions together, so a
+      // batched write commits both in one call.
+      driver.dispatch(
+        { type: "project/select" },
+        {
+          ...driver.getState(),
+          project: { selected: "p2" },
+          work: { value: "16.2.1" },
+        },
+      );
+      await driver.settle();
+      const keys = store.writes[0].map(({ key }) => key);
+      expect(keys.filter((key) => key.startsWith("core.c1."))).toHaveLength(2);
+      expect(keys.filter((key) => key.startsWith("project.c1.p1."))).toHaveLength(2);
+    });
+
+    it("should leave a partition alone while its slices hold still", async () => {
+      const store = new Persist.MemoryKV();
+      const driver = await createDriver(store);
+      await enter(driver, CTX);
+      for (let i = 0; i < 10; i++) await edit(driver, `16.2.${i}`);
+      // Every edit is project-scoped, so the global ring still holds its one write.
+      expect(
+        (await store.keys()).filter((k) => k.startsWith("global.")).sort(),
+      ).toEqual(["global.0", "global.slot"]);
     });
 
     it("should fall back to the first slot when the slot pointer is corrupt", async () => {
-      const store = new kv.MockAsync();
+      const store = new Persist.MemoryKV();
       const driver = await createDriver(store);
       await enter(driver, CTX);
       await edit(driver, "16.2.0");
@@ -239,7 +463,7 @@ describe("Persist.open", () => {
       // its state instead of composing from zero off a key that does not exist.
       for (const slot of ["one", 4, -1, 1.5, null]) {
         await store.set("global.slot", { slot });
-        expect((await openPersist(store)).initialState?.cluster).toEqual(STATE.cluster);
+        expect((await openPersist(store)).initialState?.core).toEqual(STATE.core);
       }
     });
 
@@ -249,7 +473,8 @@ describe("Persist.open", () => {
       await enter(driver, CTX);
       await edit(driver, "16.2.0");
       const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      // Every ring entry is keyed on its slot number; the pointer stays writable.
+      // Every ring entry is keyed on its slot number. The pointer rides in the same
+      // batch, so rejecting the state write leaves it naming the last good slot.
       store.failOn = /\.\d$/;
       driver.dispatch(
         { type: "work/edit" },
@@ -260,15 +485,105 @@ describe("Persist.open", () => {
       errorSpy.mockRestore();
     });
 
+    it("should leave the pointer where it was when a write is rejected", async () => {
+      const store = new FailingKV();
+      const driver = await createDriver(store);
+      await enter(driver, CTX);
+      await edit(driver, "16.2.0");
+      const before = await store.get(`project.c1.p1.slot`);
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      store.failOn = /^project\./;
+      driver.dispatch(
+        { type: "work/edit" },
+        { ...driver.getState(), work: { value: "16.3.0" } },
+      );
+      await vi.waitFor(() => expect(errorSpy).toHaveBeenCalled());
+      expect(await store.get(`project.c1.p1.slot`)).toEqual(before);
+      errorSpy.mockRestore();
+    });
+
     it("should scope slices to the context they were written under", async () => {
-      const store = new kv.MockAsync();
+      const store = new Persist.MemoryKV();
       const driver = await createDriver(store);
       await enter(driver, CTX);
       await edit(driver, "p1-work");
-      await enter(driver, { cluster: "c2", project: "p2" });
+      await enter(driver, { core: "c2", project: "p2" });
       await edit(driver, "p2-work");
       await enter(driver, CTX);
       expect(driver.getState().work.value).toEqual("p1-work");
+    });
+  });
+
+  describe("shared fields", () => {
+    it("should store a window slice's shared fields in the project partition", async () => {
+      const store = new Persist.MemoryKV();
+      const driver = await createDriver(store);
+      await enter(driver, CTX);
+      await editView(driver, WINDOW, "left");
+      await editLabel(driver, "tagged");
+      const slot = (await store.get<{ slot: number }>("project.c1.p1.slot"))?.slot ?? 0;
+      const stored = await store.get<Partial<MockState>>(`project.c1.p1.${slot}`);
+      expect(stored?.view).toEqual({ label: "tagged", windows: {} });
+      // The window's partition holds its windows entry alone, no shared fields.
+      expect(await store.get(`window.c1.p1.${WINDOW}.0`)).toEqual({
+        view: { windows: { [WINDOW]: { value: "left" } } },
+      });
+    });
+
+    it("should compose shared fields with every window's entries", async () => {
+      const store = new Persist.MemoryKV();
+      const driver = await createDriver(store);
+      await enter(driver, CTX);
+      await editLabel(driver, "tagged");
+      await editView(driver, WINDOW, "left");
+      await editView(driver, "w2", "right");
+      expect((await driver.composed())?.view).toEqual({
+        label: "tagged",
+        windows: { [WINDOW]: { value: "left" }, w2: { value: "right" } },
+      });
+    });
+
+    it("should leave window partitions alone when only a shared field changes", async () => {
+      const store = new CountingKV();
+      const driver = await createDriver(store);
+      await enter(driver, CTX);
+      await editView(driver, WINDOW, "left");
+      const baseline = store.writes.length;
+      await editLabel(driver, "one");
+      await editLabel(driver, "two");
+      const windowWrites = store.writes
+        .slice(baseline)
+        .flat()
+        .filter(({ key }) => key.startsWith("window."));
+      expect(windowWrites).toHaveLength(0);
+    });
+
+    it("should leave the project ring alone when only a window's entry changes", async () => {
+      const store = new CountingKV();
+      const driver = await createDriver(store);
+      await enter(driver, CTX);
+      // The first view edit registers the window, which is project bookkeeping.
+      await editView(driver, WINDOW, "one");
+      const baseline = store.writes.length;
+      await editView(driver, WINDOW, "two");
+      await editView(driver, WINDOW, "three");
+      const projectWrites = store.writes
+        .slice(baseline)
+        .flat()
+        .filter(({ key }) => key.startsWith("project."));
+      expect(projectWrites).toHaveLength(0);
+    });
+
+    it("should scope shared fields to the project they were written under", async () => {
+      const store = new Persist.MemoryKV();
+      const driver = await createDriver(store);
+      await enter(driver, CTX);
+      await editLabel(driver, "p1-tag");
+      await enter(driver, { core: "c1", project: "p2" });
+      expect(driver.getState().view.label).toBe("none");
+      await editLabel(driver, "p2-tag");
+      await enter(driver, CTX);
+      expect(driver.getState().view.label).toBe("p1-tag");
     });
   });
 
@@ -276,7 +591,7 @@ describe("Persist.open", () => {
     it("should neither compose nor persist state outside the main window", async () => {
       mocks.engine = "tauri";
       mocks.label = "child-window";
-      const store = new kv.MockAsync();
+      const store = new Persist.MemoryKV();
       const driver = await createDriver(store);
       expect(driver.initialState).toBeUndefined();
       const action = { type: "work/edit" };
@@ -288,7 +603,7 @@ describe("Persist.open", () => {
 
   describe("exclude", () => {
     it("should strip excluded state from writes", async () => {
-      const store = new kv.MockAsync();
+      const store = new Persist.MemoryKV();
       const stripTransient = (s: MockState): MockState => ({
         ...s,
         work: { value: s.work.value },
@@ -300,39 +615,166 @@ describe("Persist.open", () => {
     });
   });
 
-  describe("migrators", () => {
-    const createPersisted = async (store: kv.MockAsync) => {
+  describe("schemas", () => {
+    const createPersisted = async (store: Persist.MemoryKV) => {
       const driver = await createDriver(store);
       await enter(driver, CTX);
       await edit(driver, "16.2.0");
     };
 
-    it("should apply a slice migrator as its partition loads", async () => {
-      const store = new kv.MockAsync();
+    it("should drop fields the slice's schema does not declare", async () => {
+      const store = new Persist.MemoryKV();
       await createPersisted(store);
       const { initialState } = await openPersist(store, {
-        migrators: {
-          work: (raw) => ({ ...(raw as MockState["work"]), value: "migrated" }),
-        },
-      });
-      expect(initialState?.work.value).toEqual("migrated");
-    });
-
-    it("should fall back to the slice's initial state when its migrator throws", async () => {
-      const store = new kv.MockAsync();
-      await createPersisted(store);
-      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      const { initialState } = await openPersist(store, {
-        migrators: {
-          work: () => {
-            throw new Error("migration failed");
+        scopes: {
+          ...SCOPES,
+          project: {
+            work: z.object({ value: z.string() }),
+            windows: z.string().array(),
           },
         },
       });
+      expect(initialState?.work).toEqual({ value: "16.2.0" });
+    });
+
+    it("should fall back to the slice's initial state when the stored bytes fail its schema", async () => {
+      const store = new Persist.MemoryKV();
+      await createPersisted(store);
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const { initialState } = await openPersist(store, {
+        scopes: {
+          ...SCOPES,
+          project: { work: workZ.refine(() => false), windows: z.string().array() },
+        },
+      });
       expect(initialState?.work).toEqual(ZERO_MOCK_STATE.work);
-      expect(initialState?.cluster).toEqual(STATE.cluster);
+      expect(initialState?.core).toEqual(STATE.core);
       expect(errorSpy).toHaveBeenCalled();
       errorSpy.mockRestore();
+    });
+
+    it("should leave the other slices of a partition alone when one fails", async () => {
+      const store = new Persist.MemoryKV();
+      await createPersisted(store);
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const { initialState } = await openPersist(store, {
+        scopes: {
+          ...SCOPES,
+          global: { core: selectedZ.refine(() => false) },
+        },
+      });
+      expect(initialState?.core).toEqual(ZERO_MOCK_STATE.core);
+      errorSpy.mockRestore();
+    });
+  });
+
+  describe("an unusable store", () => {
+    const broken = (): Persist.SugaredKV => {
+      const fail = async () => {
+        throw new Error("storage is blocked");
+      };
+      return {
+        get: fail,
+        set: fail,
+        setMany: fail,
+        delete: fail,
+        deleteMany: fail,
+        length: fail,
+        keys: fail,
+        clear: fail,
+      };
+    };
+
+    it("should still compose the initial state", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const { initialState, middleware } = await Persist.open<MockState>({
+        initial: ZERO_MOCK_STATE,
+        scopes: SCOPES,
+        getContext,
+        openKV: broken,
+      });
+      expect(initialState).toEqual(ZERO_MOCK_STATE);
+      expect(middleware).toBeDefined();
+      errorSpy.mockRestore();
+    });
+
+    it("should announce that the store is unavailable", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const { middleware } = await Persist.open<MockState>({
+        initial: ZERO_MOCK_STATE,
+        scopes: SCOPES,
+        getContext,
+        openKV: broken,
+      });
+      const dispatch = vi.fn();
+      middleware({
+        getState: () => ZERO_MOCK_STATE,
+        dispatch,
+      } as never)((a) => a)({ type: "work/edit" });
+      expect(dispatch).toHaveBeenCalledWith(Persist.storeUnavailable());
+      errorSpy.mockRestore();
+    });
+
+    it("should announce it only once", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const { middleware } = await Persist.open<MockState>({
+        initial: ZERO_MOCK_STATE,
+        scopes: SCOPES,
+        getContext,
+        openKV: broken,
+      });
+      const dispatch = vi.fn();
+      const next = middleware({
+        getState: () => ZERO_MOCK_STATE,
+        dispatch,
+      } as never)((a) => a);
+      next({ type: "work/edit" });
+      next({ type: "work/edit" });
+      const announcements = dispatch.mock.calls.filter(
+        ([action]) =>
+          (action as { type: string }).type === Persist.storeUnavailable.type,
+      );
+      expect(announcements).toHaveLength(1);
+      errorSpy.mockRestore();
+    });
+  });
+
+  describe("scope coverage", () => {
+    it("should throw when a slice is in no scope and not transient", async () => {
+      await expect(
+        openPersist(new Persist.MemoryKV(), {
+          scopes: { ...SCOPES, project: {} },
+        }),
+      ).rejects.toThrow("work");
+    });
+
+    it("should throw when a slice is declared in two scopes", async () => {
+      await expect(
+        openPersist(new Persist.MemoryKV(), {
+          scopes: { ...SCOPES, global: { core: selectedZ, work: workZ } },
+        }),
+      ).rejects.toThrow("more than one scope");
+    });
+
+    it("should accept a slice declared transient instead of scoped", async () => {
+      await expect(
+        openPersist(new Persist.MemoryKV(), {
+          scopes: { ...SCOPES, project: {}, transient: ["work", "windows"] },
+        }),
+      ).resolves.toBeDefined();
+    });
+
+    // A window partition holds only the windows record, so a field without a default
+    // would make every window partition unreadable on the next launch.
+    it("should throw when a window-scoped schema rejects a bare windows record", async () => {
+      await expect(
+        openPersist(new Persist.MemoryKV(), {
+          scopes: {
+            ...SCOPES,
+            window: { view: viewZ.extend({ label: z.string() }) },
+          },
+        }),
+      ).rejects.toThrow("reject a bare windows record: view");
     });
   });
 });
@@ -344,24 +786,98 @@ describe("Persist.middleware", () => {
   });
 
   it("should pass the action through to next and return its result", async () => {
-    const driver = await createDriver(new kv.MockAsync());
+    const driver = await createDriver(new Persist.MemoryKV());
     const action = { type: "any/action" };
     expect(driver.dispatch(action)).toBe(action);
     expect(driver.next).toHaveBeenCalledWith(action);
   });
 
   it("should persist the current store state under the current context", async () => {
-    const store = new kv.MockAsync();
+    const store = new Persist.MemoryKV();
     const driver = await createDriver(store);
     await enter(driver, CTX);
     await edit(driver, "edited");
   });
 
+  it("should delete a Core's partitions on a purge action", async () => {
+    const store = new Persist.MemoryKV();
+    const driver = await createDriver(store);
+    await enter(driver, CTX);
+    await edit(driver, "16.2.0");
+    driver.dispatch(Persist.purge("c1"));
+    await vi.waitFor(async () =>
+      expect((await store.keys()).filter((k) => k.includes("c1"))).toHaveLength(0),
+    );
+    // The Core the global partition names outlives the state stored under it.
+    expect(await store.get("global.0")).toEqual({ core: { selected: "c1" } });
+  });
+
+  it("should delete a purged Core's keys in one batch", async () => {
+    const store = new CountingKV();
+    const driver = await createDriver(store);
+    await enter(driver, CTX);
+    await edit(driver, "16.2.0");
+    driver.dispatch(Persist.purge("c1"));
+    await vi.waitFor(() => expect(store.deletes).toHaveLength(1));
+    expect(store.deletes[0].length).toBeGreaterThan(1);
+  });
+
+  it("should purge behind the swap that leaves the purged Core", async () => {
+    const store = new Persist.MemoryKV();
+    const driver = await createDriver(store);
+    await enter(driver, CTX);
+    await edit(driver, "16.2.0");
+    // Production dispatches both in one tick: the switch flushes c1's partitions on
+    // its way out, so a purge that ran first would find the keys written back.
+    driver.dispatch(
+      { type: "Core/select" },
+      { ...driver.getState(), core: { selected: "c2" }, project: {} },
+    );
+    driver.dispatch(Persist.purge("c1"));
+    await driver.settle();
+    await vi.waitFor(async () =>
+      expect((await store.keys()).filter((k) => k.includes("c1"))).toHaveLength(0),
+    );
+  });
+
+  it("should report a failed purge instead of throwing", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const store = new FailingKV();
+    const driver = await createDriver(store);
+    await enter(driver, CTX);
+    await edit(driver, "16.2.0");
+    store.failOn = /^core\.c1\./;
+    driver.dispatch(Persist.purge("c1"));
+    await vi.waitFor(() =>
+      expect(errorSpy).toHaveBeenCalledWith(
+        "failed to purge stored Core state",
+        expect.anything(),
+      ),
+    );
+    errorSpy.mockRestore();
+  });
+
+  it("should announce the store unavailable when a mid-session write fails", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const store = new FailingKV();
+    const driver = await createDriver(store);
+    await enter(driver, CTX);
+    store.failOn = /./;
+    driver.dispatch(
+      { type: "work/edit" },
+      { ...driver.getState(), work: { value: "doomed" } },
+    );
+    await vi.waitFor(() =>
+      expect(driver.dispatched).toHaveBeenCalledWith(Persist.storeUnavailable()),
+    );
+    errorSpy.mockRestore();
+  });
+
   // The revert and clear branches reload the window, which jsdom cannot perform; the
   // production code swallows that failure via .catch, so we suppress the expected log.
-  it("should revert every active partition one version on a revertState action", async () => {
+  it("should revert the innermost partition one version on a revertState action", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const store = new kv.MockAsync();
+    const store = new Persist.MemoryKV();
     const driver = await createDriver(store);
     await enter(driver, CTX);
     await edit(driver, "16.2.0");
@@ -392,7 +908,7 @@ describe("Persist.middleware", () => {
 
   it("should fall back to the initial state when reverting past the first version", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const store = new kv.MockAsync();
+    const store = new Persist.MemoryKV();
     const driver = await createDriver(store);
     await enter(driver, CTX);
     await edit(driver, "16.2.0");
@@ -401,9 +917,26 @@ describe("Persist.middleware", () => {
     errorSpy.mockRestore();
   });
 
+  it("should revert the window partition before the project partition", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const store = new Persist.MemoryKV();
+    const driver = await createDriver(store);
+    await enter(driver, CTX);
+    await edit(driver, "16.2.0");
+    await editView(driver, WINDOW, "one");
+    await edit(driver, "16.2.1");
+    await editView(driver, WINDOW, "two");
+    driver.dispatch(Persist.revertState());
+    // Only the innermost partition steps back: the window's view reverts while the
+    // project's work stays put.
+    await driver.flushed((state) => state?.view.windows[WINDOW]?.value === "one");
+    expect((await driver.composed())?.work.value).toBe("16.2.1");
+    errorSpy.mockRestore();
+  });
+
   it("should clear the entire store on a clearState action", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const store = new kv.MockAsync();
+    const store = new Persist.MemoryKV();
     const driver = await createDriver(store);
     await enter(driver, CTX);
     await edit(driver, "16.2.0");
@@ -413,22 +946,52 @@ describe("Persist.middleware", () => {
   });
 
   it("should load the target context and dispatch hydrate on a context switch", async () => {
-    const driver = await createDriver(new kv.MockAsync());
+    const driver = await createDriver(new Persist.MemoryKV());
     await enter(driver, CTX);
     await edit(driver, "c1-work");
-    await enter(driver, { cluster: "c2", project: "p2" });
-    await enter(driver, { cluster: "c1" });
-    // The cluster's partition names the project whose partition holds the work.
+    await enter(driver, { core: "c2", project: "p2" });
+    await enter(driver, { core: "c1" });
+    // The Core's partition names the project whose partition holds the work.
     expect(driver.dispatched).toHaveBeenLastCalledWith(
       Persist.hydrate({
         project: { selected: "p1" },
         work: { value: "c1-work", transient: "drag" },
+        windows: [],
+        view: ZERO_MOCK_STATE.view,
       }),
     );
   });
 
+  it("should end the swap when loading the target context fails", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const store = new Persist.MemoryKV();
+    const failing: Persist.SugaredKV = {
+      get: async <V>(key: string): Promise<V | null> => {
+        if (key.startsWith("core.c2.")) throw new Error("read failed");
+        return await store.get<V>(key);
+      },
+      set: async (key, value) => await store.set(key, value),
+      setMany: async (entries) => await store.setMany(entries),
+      delete: async (key) => await store.delete(key),
+      deleteMany: async (keys) => await store.deleteMany(keys),
+      length: async () => await store.length(),
+      keys: async () => await store.keys(),
+      clear: async () => await store.clear(),
+    };
+    const driver = await createDriver(store, { openKV: () => failing });
+    await enter(driver, CTX);
+    driver.dispatch(
+      { type: "Core/select" },
+      { ...driver.getState(), core: { selected: "c2" }, project: {} },
+    );
+    await vi.waitFor(() =>
+      expect(driver.dispatched).toHaveBeenCalledWith(Persist.endSwap()),
+    );
+    errorSpy.mockRestore();
+  });
+
   it("should mark the swap window with beginSwap before hydrate", async () => {
-    const driver = await createDriver(new kv.MockAsync());
+    const driver = await createDriver(new Persist.MemoryKV());
     await enter(driver, CTX);
     const calls = driver.dispatched.mock.calls.map(
       ([action]) => (action as { type: string }).type,
@@ -439,31 +1002,54 @@ describe("Persist.middleware", () => {
     expect(hydrated).toBeGreaterThan(begin);
   });
 
-  it("should swap only the project partition when the cluster is unchanged", async () => {
-    const driver = await createDriver(new kv.MockAsync());
+  // A write and a purge used to run on separate chains, so a write in flight could
+  // put back the keys the purge had just deleted.
+  it("should not write a purged Core's partition back", async () => {
+    const store = new Persist.MemoryKV();
+    const driver = await createDriver(store);
+    await enter(driver, CTX);
+    await edit(driver, "doomed");
+    driver.dispatch(
+      { type: "work/edit" },
+      { ...driver.getState(), work: { value: "racing", transient: "drag" } },
+    );
+    driver.dispatch(Persist.purge("c1"));
+    await vi.waitFor(async () =>
+      expect((await store.keys()).filter((key) => key.includes("c1"))).toHaveLength(0),
+    );
+  });
+
+  it("should swap only the project partition when the Core is unchanged", async () => {
+    const driver = await createDriver(new Persist.MemoryKV());
     await enter(driver, CTX);
     await edit(driver, "p1-work");
-    await enter(driver, { cluster: "c1", project: "p2" });
+    await enter(driver, { core: "c1", project: "p2" });
     await enter(driver, CTX);
-    // The cluster-scoped project slice stayed put; only the project's work swapped.
+    // The Core-scoped project slice stayed put; only the project's work swapped.
     expect(driver.dispatched).toHaveBeenLastCalledWith(
-      Persist.hydrate({ work: { value: "p1-work", transient: "drag" } }),
+      Persist.hydrate({
+        work: { value: "p1-work", transient: "drag" },
+        windows: [],
+        view: ZERO_MOCK_STATE.view,
+      }),
     );
   });
 
   it("should hydrate zero slices for a never-visited context", async () => {
-    const driver = await createDriver(new kv.MockAsync());
-    await enter(driver, { cluster: "fresh" });
+    const driver = await createDriver(new Persist.MemoryKV());
+    await enter(driver, { core: "fresh" });
     expect(driver.dispatched).toHaveBeenCalledWith(
       Persist.hydrate({
         project: ZERO_MOCK_STATE.project,
         work: ZERO_MOCK_STATE.work,
+        windows: ZERO_MOCK_STATE.windows,
+        view: ZERO_MOCK_STATE.view,
       }),
     );
   });
 
   it("should adopt the hydrated context instead of re-swapping on hydrate", async () => {
-    const store = new kv.MockAsync();
+    const store = new Persist.MemoryKV();
     const driver = await createDriver(store);
     await enter(driver, CTX);
     const swaps = driver.dispatched.mock.calls.length;
@@ -473,19 +1059,19 @@ describe("Persist.middleware", () => {
   });
 
   it("should discard a stale swap when a newer context switch supersedes it", async () => {
-    const store = new kv.MockAsync();
-    const seed = await createDriver(store);
-    await enter(seed, CTX);
-    await edit(seed, "fresh");
+    const store = new Persist.MemoryKV();
+    const written = await createDriver(store);
+    await enter(written, CTX);
+    await edit(written, "fresh");
     let releaseStale: (() => void) | undefined;
     const staleGate = new Promise<void>((resolve) => (releaseStale = resolve));
     const gateHit = vi.fn();
     const gateDone = vi.fn();
-    // Holds the slow cluster's state read so its swap is still in flight when the next
+    // Holds the slow Core's state read so its swap is still in flight when the next
     // switch starts and finishes. Its slot pointer stays readable so persists pass.
     const gated: Persist.SugaredKV = {
       get: async <V>(key: string): Promise<V | null> => {
-        if (/^cluster\.slow\.\d+$/.test(key)) {
+        if (/^core\.slow\.\d+$/.test(key)) {
           gateHit();
           await staleGate;
           const value = await store.get<V>(key);
@@ -495,35 +1081,83 @@ describe("Persist.middleware", () => {
         return await store.get<V>(key);
       },
       set: async (key, value) => await store.set(key, value),
+      setMany: async (entries) => await store.setMany(entries),
       delete: async (key) => await store.delete(key),
+      deleteMany: async (keys) => await store.deleteMany(keys),
       length: async () => await store.length(),
+      keys: async () => await store.keys(),
       clear: async () => await store.clear(),
     };
     const driver = await createDriver(store, { openKV: () => gated });
     driver.dispatch(
-      { type: "cluster/select" },
-      { ...driver.getState(), cluster: { selected: "slow" }, project: {} },
+      { type: "Core/select" },
+      { ...driver.getState(), core: { selected: "slow" }, project: {} },
     );
     await vi.waitFor(() => expect(gateHit).toHaveBeenCalled());
     driver.dispatch(
-      { type: "cluster/select" },
-      { ...driver.getState(), cluster: { selected: "c2" }, project: {} },
+      { type: "Core/select" },
+      { ...driver.getState(), core: { selected: "c2" }, project: {} },
     );
+    releaseStale?.();
+    // The released read is the stale swap's last async hop, so once it lands the
+    // swap has fully resolved. Its hydrate would clobber the newer Core's slices.
+    await vi.waitFor(() => expect(gateDone).toHaveBeenCalled());
     await driver.settle();
     const hydrates = (): number =>
       driver.dispatched.mock.calls.filter(
         ([action]) => (action as { type: string }).type === Persist.hydrate.type,
       ).length;
     expect(hydrates()).toBe(1);
-    releaseStale?.();
-    // The released read is the stale swap's last async hop, so once it lands the swap
-    // has fully resolved. Its hydrate would clobber the newer cluster's slices.
-    await vi.waitFor(() => expect(gateDone).toHaveBeenCalled());
-    expect(hydrates()).toBe(1);
+  });
+
+  it("should queue a swap's flush behind a write already in flight", async () => {
+    const store = new Persist.MemoryKV();
+    let armed = false;
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const gateHit = vi.fn();
+    let release: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const gated: Persist.SugaredKV = {
+      get: async <V>(key: string): Promise<V | null> => await store.get<V>(key),
+      set: async (key, value) => await store.set(key, value),
+      setMany: async (entries) => {
+        if (!armed) return await store.setMany(entries);
+        inFlight++;
+        maxInFlight = Math.max(maxInFlight, inFlight);
+        gateHit();
+        await gate;
+        await store.setMany(entries);
+        inFlight--;
+      },
+      delete: async (key) => await store.delete(key),
+      deleteMany: async (keys) => await store.deleteMany(keys),
+      length: async () => await store.length(),
+      keys: async () => await store.keys(),
+      clear: async () => await store.clear(),
+    };
+    const driver = await createDriver(store, { openKV: () => gated });
+    await enter(driver, CTX);
+    armed = true;
+    driver.dispatch(
+      { type: "work/edit" },
+      { ...driver.getState(), work: { value: "mid-flight" } },
+    );
+    await vi.waitFor(() => expect(gateHit).toHaveBeenCalled());
+    driver.dispatch(
+      { type: "Core/select" },
+      { ...driver.getState(), core: { selected: "c2" }, project: {} },
+    );
+    // A concurrent flush would reach the store within this window; a queued one
+    // cannot move until the gate opens.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    release?.();
+    await driver.settle();
+    expect(maxInFlight).toBe(1);
   });
 
   it("should coalesce rapid dispatches into a single persist when debounced", async () => {
-    const store = new kv.MockAsync();
+    const store = new Persist.MemoryKV();
     const driver = await createDriver(store, {
       debounceInterval: TimeSpan.milliseconds(250),
     });
@@ -542,11 +1176,9 @@ describe("Persist.middleware", () => {
 });
 
 describe("Persist.hardClearAndReload", () => {
-  const PREFIX = `${Persist.STORE_PATH}:`;
   let errorSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
-    localStorage.clear();
     // The reload after clearing is a no-op under jsdom and its failure is swallowed by
     // the production .catch; suppress the expected error log.
     errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -554,16 +1186,14 @@ describe("Persist.hardClearAndReload", () => {
 
   afterEach(() => {
     errorSpy.mockRestore();
-    localStorage.clear();
   });
 
-  it("should clear the persisted store scoped to the store path", async () => {
-    await Persist.openSugaredKV(Persist.STORE_PATH).set("global.slot", { slot: 1 });
-    localStorage.setItem("unrelated:key", "keep-me");
+  it("should clear the session store", async () => {
+    const db = Persist.openSugaredKV(Persist.STORE_NAME);
+    await db.set("global.slot", { slot: 1 });
     Persist.hardClearAndReload();
-    await vi.waitFor(() => {
-      expect(localStorage.getItem(`${PREFIX}global.slot`)).toBeNull();
+    await vi.waitFor(async () => {
+      expect(await db.get("global.slot")).toBeNull();
     });
-    expect(localStorage.getItem("unrelated:key")).toBe("keep-me");
   });
 });

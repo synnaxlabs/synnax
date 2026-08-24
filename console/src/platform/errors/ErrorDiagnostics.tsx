@@ -37,9 +37,9 @@ export const ErrorDiagnostics = ({
   error,
   ...rest
 }: ErrorDiagnosticsProps): ReactElement => {
-  const cluster = Session.Cluster.useSelectState();
+  const target = Session.Core.useSelectSelected();
   const core =
-    cluster != null ? `${cluster.name} (${cluster.host}:${cluster.port})` : "none";
+    target != null ? `${target.name} (${target.host}:${target.port})` : "none";
   const client = Synnax.use();
   if (isConnectionError(error)) return <Disconnected />;
   const message = [error.message, `Core: ${core}`, panelLine(client, panelKey)]

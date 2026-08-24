@@ -56,7 +56,7 @@ const leafTabs = (root: panel.Node): panel.Tab[] => {
 
 describe("Panel.useOpenTab", () => {
   describe("inserting into an existing panel", () => {
-    it("inserts the tab into the scoped panel on the cluster and focuses it", async () => {
+    it("inserts the tab into the scoped panel on the Core and focuses it", async () => {
       const existing = await createServerPanel(client, viewLeaf(uuid.create(), "seed"));
       const { wrapper, store } = await createPanelWrapper({
         client,
@@ -333,7 +333,7 @@ describe("Panel.useOpenTab", () => {
   });
 
   describe("creating a new panel", () => {
-    it("creates a panel on the cluster seeding the opened tab", async () => {
+    it("creates a panel on the Core seeding the opened tab", async () => {
       const { wrapper, store } = await createPanelWrapper({ client });
       const { result } = renderHook(() => Panel.useOpenTab(), { wrapper });
       const tabKey = uuid.create();

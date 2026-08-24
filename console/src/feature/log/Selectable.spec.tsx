@@ -15,6 +15,7 @@ import { describe, expect, it } from "vitest";
 import { Log } from "@/feature/log";
 import { createActiveState } from "@/platform/project/testutil";
 import { Session } from "@/session";
+import { documentIn } from "@/session/window/testutil";
 import {
   assertDefined,
   createConsoleWrapper,
@@ -46,7 +47,9 @@ describe("log/Selectable", () => {
     const created = await client.logs.retrieve(key);
     expect(created.name).toBe("Log");
     await waitFor(() =>
-      expect(Session.Log.selectSliceState(store.getState()).logs[key]).toBeDefined(),
+      expect(
+        documentIn(Session.Log.selectSliceState(store.getState()), key),
+      ).toBeDefined(),
     );
   });
 });

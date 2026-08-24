@@ -65,7 +65,7 @@ describe("useDeep", () => {
     );
   });
 
-  it("should connect without placing a layout for a cluster-only link", async () => {
+  it("should connect without placing a layout for a Core-only link", async () => {
     const { connect, handlers } = await setup({
       getCurrentURLs: async () => ["synnax://cluster/c1"],
     });

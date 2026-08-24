@@ -8,7 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { query, type task } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  createTestClientWithRole,
+} from "@synnaxlabs/client/testutil";
 import { Errors, Flux } from "@synnaxlabs/pluto";
 import { act, screen, waitFor } from "@testing-library/react";
 import { type ComponentType, type FC } from "react";
@@ -16,9 +19,10 @@ import { assert, describe, expect, it } from "vitest";
 
 import { HTTP } from "@/feature/http";
 import { Task } from "@/feature/task";
+import { Panel } from "@/platform/panel";
 import { type Task as PTask } from "@/platform/task";
 import { createTaskStatus, renderTaskFormTab } from "@/platform/task/testutil";
-import { uniqueName } from "@/testutil";
+import { countEditableText, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -71,6 +75,24 @@ describe("task tab", () => {
     await screen.findByText(name);
   });
 
+  it("should render the task's name as static text for an operator", async () => {
+    const name = uniqueName("named");
+    const created = await client.tasks.create({
+      name,
+      type: "rack_status",
+      config: {},
+    });
+    const operator = await createTestClientWithRole(client, "Operator");
+    const { tabKey } = await renderTaskFormTab(TabName, {
+      client,
+      as: operator,
+      taskKey: created.key,
+    });
+    await screen.findByText(name);
+    await act(async () => {});
+    expect(countEditableText(Panel.tabNameID(tabKey))).toEqual(0);
+  });
+
   it("throws the deleted task to the tab's boundary while it is open", async () => {
     const name = uniqueName("doomed");
     const created = await client.tasks.create({
@@ -118,8 +140,8 @@ describe("task tab", () => {
     });
     await restore({ client, project: project.key, resource: created.ontologyID });
 
-    // Read back through a second client: the restoring client write-throughs its
-    // own cache, so retrieving on it would pass even if the cluster never got it.
+    // Read back through a second client: the restoring client write-throughs its own
+    // cache, so retrieving on it would pass even if the Core never got it.
     const remote = createTestClient();
     const restored = await remote.tasks.retrieve({
       key: created.key,

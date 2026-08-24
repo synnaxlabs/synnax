@@ -12,7 +12,7 @@ import { type PageNavNode } from "@/components/nav/Page";
 export const CORE_NAV: PageNavNode = {
   key: "core",
   name: "Core",
-  icon: "Cluster",
+  icon: "Core",
   children: [
     {
       key: "/reference/core/quick-start",

@@ -223,6 +223,28 @@ describe("scale/aether/Scale", () => {
     });
   });
 
+  describe("corner radii", () => {
+    // A symbol with a rounded container (a tank) clips the fill to its corners, so the
+    // liquid keeps the container's shape at the top and bottom of its travel.
+    it("should round the fill by each corner", () => {
+      const cornerRadii = {
+        topLeft: { x: 1, y: 2 },
+        topRight: { x: 3, y: 4 },
+        bottomLeft: { x: 5, y: 6 },
+        bottomRight: { x: 7, y: 8 },
+      };
+      const { recorder } = setup({ cornerRadii });
+      const regions = fillRegions(recorder);
+      expect(regions).toHaveLength(1);
+      expect(regions[0][4]).toEqual([
+        cornerRadii.topLeft,
+        cornerRadii.topRight,
+        cornerRadii.bottomRight,
+        cornerRadii.bottomLeft,
+      ]);
+    });
+  });
+
   describe("color", () => {
     it("should stroke the ticks and the outline with the axis color", () => {
       const { recorder } = setup({ showCaret: false, axisColor: ACCENT });

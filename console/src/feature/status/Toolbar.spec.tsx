@@ -18,8 +18,11 @@ import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
 import {
   assertDefined,
+  awaitTextEditingElement,
+  commitTextEdit,
   createConsoleWrapper,
   createTestClientWithGrants,
+  openContextMenu,
   queryIcon,
   renderHookWithConsole,
   resolveFocusedTab,
@@ -94,6 +97,19 @@ describe("status toolbar", () => {
     expect(await screen.findByText(s.name)).toBeTruthy();
     await waitFor(() =>
       expect(Session.Status.selectFavorites(store.getState())).toEqual([s.key]),
+    );
+  });
+
+  it("should rename a favorited status in place from the context menu", async () => {
+    const s = await createStatus();
+    await renderToolbar([s.key]);
+    await openContextMenu(s.name);
+    fireEvent.click(await screen.findByText("Rename"));
+    const editor = await awaitTextEditingElement();
+    const renamed = uniqueName("renamed");
+    commitTextEdit(editor, renamed);
+    await waitFor(async () =>
+      expect((await client.statuses.retrieve(s.key)).name).toBe(renamed),
     );
   });
 });

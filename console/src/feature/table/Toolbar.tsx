@@ -27,7 +27,7 @@ import {
 import { color, deep, record, type text } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
 
-import { Cluster } from "@/platform/cluster";
+import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Export } from "@/platform/export";
@@ -69,10 +69,7 @@ const Internal = (): ReactElement => {
         </Flex.Box>
         <Flex.Box x className={CSS.BE("table", "toolbar-buttons")} gap="small">
           <Export.ToolbarButton id={table.ontologyID(key)} />
-          <Cluster.CopyLinkToolbarButton
-            name={name}
-            ontologyID={table.ontologyID(key)}
-          />
+          <Core.CopyLinkToolbarButton name={name} ontologyID={table.ontologyID(key)} />
         </Flex.Box>
       </Base.Header>
       <Flex.Box full className={CSS.BE("table", "toolbar-content")}>

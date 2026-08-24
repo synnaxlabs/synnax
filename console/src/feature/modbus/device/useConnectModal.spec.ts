@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 
 import { Modbus } from "@/feature/modbus";
 import { createModbusDevice } from "@/feature/modbus/testutil";
-import { renderModalOpener } from "@/platform/modals/testutil";
+import { pressSaveTrigger, renderModalOpener } from "@/platform/modals/testutil";
 
 const client = createTestClient();
 
@@ -35,5 +35,14 @@ describe("Modbus.Device.useConnectModal", () => {
     await screen.findByDisplayValue(dev.name);
     expect(screen.getByDisplayValue("modbus-existing.local")).toBeTruthy();
     expect(screen.getByDisplayValue("1502")).toBeTruthy();
+  });
+
+  // Submitting with no rack chosen fails validation. That error is the proof the keys
+  // reached the same save path the Connect button uses.
+  it("should submit on the shortcut its footer advertises", async () => {
+    await renderModalOpener(Modbus.Device.useConnectModal, [{}], { client });
+    await screen.findByRole("dialog");
+    pressSaveTrigger();
+    expect(await screen.findByText(/rack is required/i)).toBeTruthy();
   });
 });

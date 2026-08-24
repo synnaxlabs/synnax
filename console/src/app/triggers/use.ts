@@ -36,7 +36,7 @@ const OVERLAY_TRIGGERS: Triggers.Trigger[] = [PPanel.OVERLAY_TRIGGER];
 const ESCAPE_TRIGGERS: Triggers.Trigger[] = [Triggers.ESCAPE];
 const CLOSE_TRIGGERS: Triggers.Trigger[] = [PPanel.CLOSE_TRIGGER];
 const RENAME_TRIGGERS: Triggers.Trigger[] = [PlatformPanel.RENAME_TRIGGER];
-const CREATE_TAB_TRIGGERS: Triggers.Trigger[] = [["Control", "T"]];
+const CREATE_TAB_TRIGGERS: Triggers.Trigger[] = [PPanel.CREATE_TAB_TRIGGER];
 const OPEN_WINDOW_TRIGGERS: Triggers.Trigger[] = [Panel.OPEN_WINDOW_TRIGGER];
 
 const CLOSE_WINDOW_TIMEOUT = TimeSpan.milliseconds(350);
@@ -59,8 +59,7 @@ export const use = (): void => {
     callback: useCallback(
       ({ stage }: Triggers.UseEvent) => {
         if (stage !== "start") return;
-        const overlaid = getIsOverlaid();
-        if (overlaid) {
+        if (getIsOverlaid()) {
           sessionDispatch(Session.Panel.stopOverlaying({}));
           return;
         }

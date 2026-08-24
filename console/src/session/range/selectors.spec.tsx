@@ -16,18 +16,16 @@ import { describe, expect, it } from "vitest";
 import { Range } from "@/session/range";
 
 const STATIC: Range.StaticState = {
+  variant: "static",
   key: "static-1",
   name: "Static 1",
-  persisted: true,
-  variant: "static",
   timeRange: { start: 0, end: 1000 },
 };
 
 const DYNAMIC: Range.DynamicState = {
+  variant: "dynamic",
   key: "dynamic-1",
   name: "Dynamic 1",
-  persisted: false,
-  variant: "dynamic",
   span: 1000,
 };
 

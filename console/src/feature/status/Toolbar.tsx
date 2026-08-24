@@ -26,7 +26,7 @@ import {
 import { type ReactElement, useState } from "react";
 
 import { Explorer } from "@/feature/status/explorer";
-import { contextMenu } from "@/feature/status/list/ContextMenu";
+import { ContextMenu } from "@/feature/status/list/ContextMenu";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { type Nav } from "@/platform/nav";
@@ -45,6 +45,15 @@ const NoStatuses = (): ReactElement => {
     />
   );
 };
+
+// The explorer renders the same statuses under List.itemNameID, and both lists can be
+// mounted at once, so the favorites rows carry their own edit-target ids.
+const favoriteNameID = (key: status.Key): string =>
+  BaseList.itemNameID(`favorite-${key}`);
+
+const contextMenu = Component.renderProp((props: Menu.ContextMenuMenuProps) => (
+  <ContextMenu {...props} nameID={favoriteNameID} />
+));
 
 const List = (): ReactElement => {
   const favorites = Session.Status.useSelectFavorites();
@@ -72,6 +81,8 @@ const List = (): ReactElement => {
 const ListItem = (props: BaseList.ItemProps<status.Key>) => {
   const { itemKey } = props;
   const { data: item } = Status.useResult({ key: itemKey });
+  const canRename = Access.useUpdateGranted(status.ontologyID(itemKey));
+  const { update: rename } = Status.useRename();
   if (item == null) return null;
   const { name, time, variant, message, labels } = item;
   return (
@@ -79,9 +90,15 @@ const ListItem = (props: BaseList.ItemProps<status.Key>) => {
       <Flex.Box x justify="between">
         <Flex.Box x align="center" gap="small">
           <Status.Indicator variant={variant} />
-          <Text.Text level="p" weight={450} status={variant}>
-            {name}
-          </Text.Text>
+          <Text.MaybeEditable
+            id={favoriteNameID(itemKey)}
+            level="p"
+            weight={450}
+            status={variant}
+            value={name}
+            onChange={canRename ? (name) => rename({ key: itemKey, name }) : undefined}
+            allowDoubleClick={false}
+          />
         </Flex.Box>
         <Telem.Text.TimeSpanSince
           level="small"

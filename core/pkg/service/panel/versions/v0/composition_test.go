@@ -213,7 +213,10 @@ var _ = Describe("Composition migrations", func() {
 									"key": 3,
 									"tabs": []any{
 										mosaicTab(logKey),
-										// Inline app view: becomes a docs view tab.
+										// Inline app view: becomes a view tab.
+										mosaicTab("range_explorer"),
+										// App view the current Console has no
+										// renderer for: dropped.
 										mosaicTab("docs"),
 										// Viz whose resource was deleted: dropped.
 										mosaicTab(staleKey),
@@ -237,6 +240,12 @@ var _ = Describe("Composition migrations", func() {
 						logKey:   vizLayout(logKey, "log"),
 						tblKey:   vizLayout(tblKey, "table"),
 						staleKey: vizLayout(staleKey, "lineplot"),
+						"range_explorer": map[string]any{
+							"key":      "range_explorer",
+							"type":     "range_explorer",
+							"name":     "Ranges",
+							"location": "mosaic",
+						},
 						"docs": map[string]any{
 							"key":      "docs",
 							"type":     "docs",
@@ -277,7 +286,7 @@ var _ = Describe("Composition migrations", func() {
 				}},
 				Last: *leaf(
 					resourceTab(ontology.ResourceTypeLog, logKey),
-					appViewTab("docs"),
+					appViewTab("range_explorer"),
 				),
 			}}))
 
@@ -570,13 +579,12 @@ var _ = Describe("Composition migrations", func() {
 		},
 	)
 
-	// Regression: app views (docs, explorers, selectors) have no backing document but
-	// the current Console renders them as panel view tabs, so they must convert
-	// instead of being dropped.
+	// Regression: app views (explorers, selectors) have no backing document but the
+	// current Console renders them as panel view tabs, so they must convert instead
+	// of being dropped.
 	It("Should convert app view tabs into view tabs", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		legacyTypes := []string{
-			"docs",
 			"arc_explorer",
 			"range_explorer",
 			"status_explorer",
@@ -615,7 +623,6 @@ var _ = Describe("Composition migrations", func() {
 		root := panels[0].Root
 		zeroTabKeys(&root)
 		Expect(root).To(Equal(*leaf(
-			appViewTab("docs"),
 			appViewTab("arc_explorer"),
 			appViewTab("range_explorer"),
 			appViewTab("status_explorer"),
@@ -623,6 +630,38 @@ var _ = Describe("Composition migrations", func() {
 			appViewTab("selector"),
 			appViewTab("selector"),
 		)))
+	})
+
+	// A tab whose type the Console has no renderer for takes its whole panel down, so
+	// an app view without a current equivalent must never reach a panel.
+	It("Should drop app views with no current equivalent", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		stageLayout(ctx, db, project.Project{
+			Key:  uuid.New(),
+			Name: "Ops",
+			Layout: msgpack.EncodedJSON{
+				"mosaics": map[string]any{
+					"main": map[string]any{
+						"root": map[string]any{
+							"key":  1,
+							"tabs": []any{mosaicTab("docs")},
+						},
+					},
+				},
+				"layouts": map[string]any{
+					"docs": map[string]any{
+						"key":      "docs",
+						"type":     "docs",
+						"name":     "Documentation",
+						"location": "mosaic",
+					},
+				},
+			},
+		})
+
+		openPanelTable(ctx, db)
+		runComposition(ctx, db)
+		Expect(collectPanels(ctx, db)).To(BeEmpty())
 	})
 
 	It(
@@ -690,7 +729,7 @@ var _ = Describe("Composition migrations", func() {
 						msgpack.EncodedJSON{"taskKey": legacy},
 					)),
 					Last: *leaf(
-						viewTab("docs", nil),
+						viewTab("range_explorer", nil),
 						viewTab("opc_read", msgpack.EncodedJSON{"taskKey": "12345"}),
 					),
 				}},
@@ -718,9 +757,9 @@ var _ = Describe("Composition migrations", func() {
 			By("Leaving view tabs without staged task keys untouched")
 			last, ok := split.Last.Variant.(v0.LeafNode)
 			Expect(ok).To(BeTrue())
-			docs, ok := last.Tabs[0].Variant.(v0.ViewTab)
+			explorer, ok := last.Tabs[0].Variant.(v0.ViewTab)
 			Expect(ok).To(BeTrue())
-			Expect(docs.Args).To(BeNil())
+			Expect(explorer.Args).To(BeNil())
 			other, ok := last.Tabs[1].Variant.(v0.ViewTab)
 			Expect(ok).To(BeTrue())
 			Expect(other.Args).To(Equal(msgpack.EncodedJSON{"taskKey": "12345"}))

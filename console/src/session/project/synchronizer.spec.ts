@@ -29,7 +29,7 @@ const preloadWith = (selected: string): Partial<Session.State> => ({
 });
 
 describe("Project.SYNCHRONIZERS", () => {
-  it("clears a selected project that no longer exists on the cluster", async () => {
+  it("clears a selected project that no longer exists on the Core", async () => {
     const ghost = uuid.create();
     const { store } = await renderHookWithConsole(
       () => Session.Synchronizer.use(Session.Project.SYNCHRONIZERS),

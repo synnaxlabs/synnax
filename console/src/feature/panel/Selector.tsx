@@ -13,7 +13,7 @@ import { panel, query } from "@synnaxlabs/client";
 import {
   Access,
   Button,
-  type Component,
+  Component,
   CSS as PCSS,
   Errors,
   type Flux,
@@ -48,12 +48,7 @@ import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
 
-interface ContextMenuProps extends Menu.ContextMenuMenuProps {
-  /** The strip's panels in render order, so a delete can hand the selection on. */
-  order: panel.Key[];
-}
-
-const ContextMenu = ({ keys, order }: ContextMenuProps): ReactElement | null => {
+const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null => {
   const ids = panel.ontologyID(keys);
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
@@ -72,10 +67,10 @@ const ContextMenu = ({ keys, order }: ContextMenuProps): ReactElement | null => 
           return { name: query.isLive(cached) ? cached.name : "this panel" };
         });
         if (!(await confirm(items))) return false;
-        dispatch(Session.Panel.remove({ keys: panelKeys, order }));
+        dispatch(Session.Panel.remove({ keys: panelKeys }));
         return data;
       },
-      [client, confirm, dispatch, order],
+      [client, confirm, dispatch],
     ),
   });
   if (keys.length === 0) return null;
@@ -103,6 +98,8 @@ const ContextMenu = ({ keys, order }: ContextMenuProps): ReactElement | null => 
     </CMenu.Menu>
   );
 };
+
+const contextMenu = Component.renderProp(ContextMenu);
 
 // Only a tab dragged out of a mosaic can be dropped onto the strip. A pill dragged
 // along the strip is a window gesture, resolved over the desktop.
@@ -268,10 +265,6 @@ const Internal = (): ReactElement => {
   );
 
   const menuProps = Menu.useContextMenu();
-  const contextMenu = useCallback<Component.RenderProp<Menu.ContextMenuMenuProps>>(
-    (props) => <ContextMenu {...props} order={ordered} />,
-    [ordered],
-  );
 
   return (
     <Menu.ContextMenu menu={contextMenu} {...menuProps}>

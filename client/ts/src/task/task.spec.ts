@@ -7,16 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, TimeStamp, uuid } from "@synnaxlabs/x";
+import { id, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { assert, beforeAll, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { ontology } from "@/ontology";
 import { query } from "@/query";
+import { rack } from "@/rack";
+import { type status } from "@/status";
 import { task } from "@/task";
 import { createTestClient, waitForStreamLive } from "@/testutil";
 
 const client = createTestClient();
+
+// Mirrors the deadline the task client gives an unanswered command.
+const COMMAND_DEADLINE = TimeSpan.seconds(10);
 
 describe("Task", async () => {
   const testRack = await client.racks.create({ name: "test" });
@@ -709,6 +714,23 @@ describe("Task", async () => {
     });
   });
 
+  // A rack with no Driver goes down within seconds of its creation, and the client
+  // reads that state, so tests that need one state or the other must say which.
+  const setRackStatus = async (
+    key: number,
+    variant: status.Variant,
+    message: string,
+  ) => {
+    await client.statuses.set({
+      key: rack.statusKey(key),
+      name: "Rack Status",
+      variant,
+      message,
+      time: TimeStamp.now(),
+      details: { rack: key },
+    });
+  };
+
   describe("onChange", () => {
     it("merges a status keyed by details.task into a subscribed single query", async () => {
       const t = await testRack.createTask({
@@ -809,11 +831,82 @@ describe("Task", async () => {
             return cached.status?.details.configHash;
           })
           .toBe("deadbeef");
+        await setRackStatus(testRack.key, "success", "Driver is running");
         await client.tasks.executeCommand({ task: t.key, type: "stop" });
         await expect.poll(() => loading.length).toBeGreaterThan(0);
         expect(loading[0].details.configHash).toBe("deadbeef");
         expect(loading[0].details.rack).toBe(testRack.key);
       } finally {
+        off();
+      }
+    });
+
+    it("stands the rack's problem in for a wait its Driver cannot answer", async () => {
+      const down = await client.racks.create({ name: `down-${id.create()}` });
+      const t = await down.createTask({
+        name: `down-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const key = task.statusKey(t.key);
+      await client.tasks.retrieve({ key: t.key });
+      await setRackStatus(down.key, "warning", "no Driver here");
+      // The store is watched directly so the assertion reads the write the command
+      // makes. A subscribed query would let a refetch restore the stored status
+      // first, and a poll would only ever see whichever landed last.
+      let seeWrite = (_: status.Status): void => {};
+      const written = new Promise<status.Status>((resolve) => (seeWrite = resolve));
+      const off = client.statuses.store.subscribe((event) => {
+        // The creation-time "has not been deployed" placeholder echoes back over the
+        // status stream at its own pace, so a disabled event is never the command's.
+        if (event.variant === "set" && event.value.variant !== "disabled")
+          seeWrite(event.value);
+      }, key);
+      try {
+        await client.tasks.executeCommand({ task: t.key, type: "start" });
+        expect(await written).toMatchObject({
+          variant: "warning",
+          message: "no Driver here",
+          details: { running: false },
+        });
+      } finally {
+        off();
+      }
+    });
+
+    it("gives up on a command no Driver answers", async () => {
+      const alive = await client.racks.create({ name: `alive-${id.create()}` });
+      const t = await alive.createTask({
+        name: `deadline-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const key = task.statusKey(t.key);
+      // The status store is watched directly, leaving no subscribed query behind:
+      // winding the clock forward would otherwise reach the cache streamer's
+      // reconcile, whose refetch replaces the very status under test.
+      let seeLoading = (): void => {};
+      const loading = new Promise<void>((resolve) => (seeLoading = resolve));
+      const off = client.statuses.store.subscribe((event) => {
+        if (event.variant === "set" && event.value.variant === "loading") seeLoading();
+      }, key);
+      try {
+        await client.tasks.retrieve({ key: t.key });
+        await setRackStatus(alive.key, "success", "Driver is running");
+        vi.useFakeTimers({
+          toFake: ["setTimeout", "clearTimeout"],
+          shouldAdvanceTime: true,
+        });
+        await client.tasks.executeCommand({ task: t.key, type: "start" });
+        await loading;
+        await vi.advanceTimersByTimeAsync(COMMAND_DEADLINE.milliseconds);
+        expect(client.statuses.store.get(key)).toMatchObject({
+          variant: "warning",
+          message: "No response to the start command",
+          details: { running: false },
+        });
+      } finally {
+        vi.useRealTimers();
         off();
       }
     });

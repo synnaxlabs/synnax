@@ -10,10 +10,10 @@
 import { Icon, Menu } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { type Session } from "@/session";
+import { type Resolved } from "@/platform/range/resolve";
 
 export interface SnapshotMenuItemProps {
-  range?: Session.Range.State | null;
+  range?: Resolved | null;
   onClick?: () => void;
 }
 
@@ -21,7 +21,7 @@ export const SnapshotMenuItem = ({
   range,
   onClick,
 }: SnapshotMenuItemProps): ReactElement | null =>
-  range?.persisted === true ? (
+  range?.variant === "persisted" ? (
     <Menu.Item itemKey="rangeSnapshot" onClick={onClick}>
       <Icon.Snapshot />
       Snapshot to {range.name}

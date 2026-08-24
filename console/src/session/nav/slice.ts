@@ -36,6 +36,7 @@ export const ZERO_WINDOW_STATE = windowStateZ.parse({});
 export interface WindowState extends z.output<typeof windowStateZ> {}
 
 export const sliceStateZ = z.object({
+  version: z.literal(0).default(0),
   windows: z.record(z.string(), windowStateZ).default({}),
 });
 
@@ -152,6 +153,7 @@ const { actions, reducer } = createSlice({
       bottom.hover = false;
     }),
   },
+  extraReducers: Window.handleRemoved,
 });
 
 export const {

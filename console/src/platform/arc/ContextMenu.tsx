@@ -25,8 +25,8 @@ import {
 import { array } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { Cluster } from "@/platform/cluster";
 import { ContextMenu as Base } from "@/platform/context-menu";
+import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Framer } from "@/platform/framer";
 import { Link } from "@/platform/link";
@@ -67,7 +67,7 @@ export const ContextMenu = ({
   const dispatch = Session.useDispatch();
   const openTab = Panel.useOpenTab();
   const addStatus = Status.useAdder();
-  const handleLink = Cluster.useCopyLinkToClipboard();
+  const handleLink = Core.useCopyLinkToClipboard();
   const confirm = Modals.useConfirmDelete({ type: "Arc" });
   const { update: del } = Arc.useDelete({
     beforeUpdate: useCallback(

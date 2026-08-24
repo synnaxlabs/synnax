@@ -15,6 +15,7 @@ import { describe, expect, it } from "vitest";
 import { HTTP } from "@/feature/http";
 import { createHTTPDevice } from "@/feature/http/testutil";
 import {
+  createChannelReadOnlyClient,
   deployAndAwaitTask,
   findDialogTriggerByText,
   renderTaskFormTab,
@@ -135,6 +136,17 @@ describe("HTTP Write form", () => {
     await screen.findByText("my_cmd_channel");
   });
 
+  it("should withhold rename from a subject who cannot update channels", async () => {
+    const client = createTestClient();
+    await renderWrite({ client, as: await createChannelReadOnlyClient(client) });
+    await addEndpoint();
+    fireEvent.contextMenu(await screen.findByText("No channel"));
+    // Duplicate is ungated, so its presence proves the menu resolved before the
+    // absence below is read.
+    expect(await screen.findByText("Duplicate")).toBeTruthy();
+    expect(screen.queryByText("Rename")).toBeNull();
+  });
+
   it("should seed the form from the task row's config", async () => {
     const client = createTestClient();
     const config = createWriteConfig("dev_1", [createWriteEndpoint("ep1", "/seeded")]);
@@ -171,7 +183,7 @@ describe("HTTP Write form", () => {
     expect(screen.queryByText("Time format")).toBeNull();
   });
 
-  describe("deploying against a live cluster", () => {
+  describe("deploying against a live Core", () => {
     const client = createTestClient();
 
     it("should create command channels, virtual when variable, and persist them to the device", async () => {

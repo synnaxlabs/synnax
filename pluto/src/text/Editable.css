@@ -18,16 +18,28 @@
     &:focus {
         outline: none;
         overflow: unset !important;
+
         &.pluto--outline::after {
             content: "";
             position: absolute;
-            top: -1px;
-            left: -0.666rem;
-            right: -0.666rem;
-            bottom: -1px;
+            inset: -1px -0.666rem;
             border-radius: var(--pluto-border-radius);
             border: var(--pluto-border);
             border-color: var(--pluto-primary-z);
+        }
+    }
+
+    /* A field asked to ellipsize has declared that it must stay inside its box, so
+       editing scrolls to the caret rather than spilling past the container. The clip
+       would eat the ring above, so the ring moves inside the box. */
+    &.pluto-text--overflow-ellipsis:focus {
+        overflow: hidden !important;
+        text-overflow: clip;
+        border-radius: var(--pluto-border-radius);
+        box-shadow: inset 0 0 0 var(--pluto-border-width) var(--pluto-primary-z);
+
+        &.pluto--outline::after {
+            content: none;
         }
     }
 }
