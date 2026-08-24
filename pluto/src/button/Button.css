@@ -57,14 +57,6 @@
         align-items: center;
     }
 
-    &.pluto--disabled {
-        cursor: not-allowed;
-
-        & * {
-            cursor: not-allowed;
-        }
-    }
-
     &.pluto--rounded {
         border-radius: var(--pluto-border-radius);
     }
@@ -223,7 +215,9 @@
             }
         }
 
-        &:hover .pluto-trigger-indicator {
+        /* A disabled button's trigger is inert, so the hint stays hidden rather than
+           advertising a dead shortcut. */
+        &:hover:not(.pluto--disabled) .pluto-trigger-indicator {
             opacity: 1;
         }
     }
@@ -341,6 +335,23 @@
 
         &.pluto--status-error {
             color: var(--pluto-error-p1);
+        }
+    }
+
+    /* Placed after the variant blocks: their cap vars and text colors would otherwise
+       outrank these, leaving a trigger hint at full contrast. */
+    &.pluto--disabled {
+        cursor: not-allowed;
+
+        & * {
+            cursor: not-allowed;
+        }
+
+        --pluto-keycap-bg: transparent;
+        --pluto-keycap-border-color: var(--pluto-gray-l6);
+
+        & .pluto-text {
+            color: var(--pluto-text-disabled);
         }
     }
 
