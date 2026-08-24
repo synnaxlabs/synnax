@@ -380,15 +380,15 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
             path={`${path}.queryParams`}
             label="Query parameters"
             keyField="parameter"
-            keyPlaceholder="Parameter"
-            valuePlaceholder="Value"
+            keyPlaceholder="limit"
+            valuePlaceholder="100"
           />
           <PlatformForm.KeyValueEditor
             path={`${path}.headers`}
             label="Headers"
             keyField="name"
-            keyPlaceholder="Name"
-            valuePlaceholder="Value"
+            keyPlaceholder="Content-Type"
+            valuePlaceholder="application/json"
           />
         </PForm.Section>
         <PForm.Section title="Timestamp">

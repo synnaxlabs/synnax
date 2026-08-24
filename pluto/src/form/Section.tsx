@@ -55,7 +55,7 @@ export const Section = ({
 }: SectionProps): ReactElement => (
   <Flex.Box className={CSS.cls(CSS.B("form-section"), className)} empty {...rest}>
     <Flex.Box x align="center" gap="small" className={CSS.BE("form-section", "header")}>
-      <Text.Text level="p" weight={500} color={10}>
+      <Text.Text level="h5" weight={500} color={11}>
         {title}
       </Text.Text>
       {actions}

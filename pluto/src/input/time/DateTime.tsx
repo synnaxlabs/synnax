@@ -66,6 +66,11 @@ export interface DateTimeProps extends Control<number> {
   sharedDay?: number;
   /** The cell's place in a range; decides what a bare duration or time means. */
   role?: Role;
+  /**
+   * Returns where a commit of `next` would move the range's other stamp, or
+   * undefined when it stays. Readings that move it warn with the destination.
+   */
+  slide?: (next: number) => number | undefined;
   /** The finest unit the label shows; the tooltip and editor keep every digit. */
   resolution?: XTimeSpan;
   variant?: Variant;
@@ -105,6 +110,7 @@ interface SuggestionsProps {
   suggestions: Suggestion[];
   selected: string | undefined;
   anchors: Anchors;
+  warn?: (next: number) => string | undefined;
   onSelect: (key: string) => void;
 }
 
@@ -113,6 +119,7 @@ const Suggestions = ({
   suggestions,
   selected,
   anchors,
+  warn,
   onSelect,
 }: SuggestionsProps): ReactElement => {
   if (text.trim().length === 0)
@@ -134,6 +141,7 @@ const Suggestions = ({
   return (
     <Menu.Menu value={selected} onChange={onSelect}>
       {suggestions.map(({ key, value, reading }) => {
+        const warning = warn?.(Number(value.valueOf()));
         // A reading relative to now already says what the offset hint would.
         const relative = /\b(now|ago)$/.test(reading);
         const hints = relative ? [] : [describeOffset(value, anchors.now)];
@@ -152,9 +160,15 @@ const Suggestions = ({
                   </span>{" "}
                   {formatTime(value)}
                 </span>
-                <BaseText.Text level="small" color={9}>
-                  {hints.filter((h) => h.length > 0).join(" · ")}
-                </BaseText.Text>
+                {warning != null ? (
+                  <BaseText.Text level="small" status="warning">
+                    {warning}
+                  </BaseText.Text>
+                ) : (
+                  <BaseText.Text level="small" color={9}>
+                    {hints.filter((h) => h.length > 0).join(" · ")}
+                  </BaseText.Text>
+                )}
               </Flex.Box>
               <BaseText.Text level="small" color={9} overflow="ellipsis">
                 {reading}
@@ -172,15 +186,23 @@ interface ActionProps {
   icon: ReactElement;
   label: string;
   hint: string;
+  /** Replaces the hint with a warning about what applying the action moves. */
+  warning?: string;
 }
 
-const Action = ({ itemKey, icon, label, hint }: ActionProps): ReactElement => (
+const Action = ({ itemKey, icon, label, hint, warning }: ActionProps): ReactElement => (
   <Menu.Item itemKey={itemKey} className={CSS.BE("datetime", "action")}>
     {icon}
     {label}
-    <BaseText.Text color={9} className={CSS.BE("datetime", "hint")}>
-      {hint}
-    </BaseText.Text>
+    {warning != null ? (
+      <BaseText.Text status="warning" className={CSS.BE("datetime", "hint")}>
+        {warning}
+      </BaseText.Text>
+    ) : (
+      <BaseText.Text color={9} className={CSS.BE("datetime", "hint")}>
+        {hint}
+      </BaseText.Text>
+    )}
   </Menu.Item>
 );
 
@@ -198,6 +220,7 @@ export const DateTime = ({
   placeholder,
   sharedDay,
   role,
+  slide,
   resolution,
   clearLabel = "Clear",
   variant = "outlined",
@@ -224,6 +247,14 @@ export const DateTime = ({
 
   const stamp = isEmpty ? null : fromNumeric(value);
   const formatted = stamp == null ? "" : formatTimeStamp(stamp);
+
+  const other = role === "start" ? "end" : "start";
+  const warnFor = (next: number): string | undefined => {
+    const dest = slide?.(next);
+    if (dest == null) return undefined;
+    const target = fromNumeric(dest);
+    return `Moves ${other} to ${describeDay(target, anchors.now)} ${formatTime(target)}`;
+  };
 
   const setText = useCallback((next: string) => {
     setTextState(next);
@@ -392,12 +423,19 @@ export const DateTime = ({
           suggestions={suggestions}
           selected={chosen?.key}
           anchors={anchors}
+          warn={warnFor}
           onSelect={handleSuggestion}
         />
       </Flex.Box>
       <Flex.Box y gap="tiny" className={CSS.BE("datetime", "actions")}>
         <Menu.Menu onChange={handleAction}>
-          <Action itemKey="now" icon={<Icon.Time />} label="Now" hint="now" />
+          <Action
+            itemKey="now"
+            icon={<Icon.Time />}
+            label="Now"
+            hint="now"
+            warning={warnFor(Number(anchors.now.valueOf()))}
+          />
           {emptyValue != null && !isEmpty && (
             <Action
               itemKey="empty"
@@ -412,6 +450,7 @@ export const DateTime = ({
               icon={<Icon.Range />}
               label="Parent start"
               hint="T+0"
+              warning={warnFor(parent.start)}
             />
           )}
           {parent != null && parent.end < TimeStamp.MAX.nanoseconds && (
@@ -420,6 +459,7 @@ export const DateTime = ({
               icon={<Icon.Range />}
               label="Parent end"
               hint="T+end"
+              warning={warnFor(parent.end)}
             />
           )}
         </Menu.Menu>

@@ -14,7 +14,7 @@
 .pluto-form-sections.pluto--direction-y {
     display: grid;
     grid-template-columns: max-content minmax(0, 1fr);
-    gap: 2rem 4rem;
+    gap: 2.5rem 4rem;
     align-items: start;
     align-content: start;
 
@@ -25,7 +25,7 @@
     }
 
     & > .pluto-form-section + .pluto-form-section > .pluto-form-section__header {
-        margin-top: 2.5rem;
+        margin-top: 5rem;
     }
 
     .pluto-form-section__header,
@@ -145,7 +145,7 @@
 
     /* The hairline runs between the title and the actions. */
     .pluto-form-section__header {
-        margin-bottom: 0.5rem;
+        margin-bottom: 1rem;
 
         & > :first-child {
             order: 0;
@@ -169,6 +169,12 @@
             height: var(--pluto-height-medium);
             display: flex;
             align-items: center;
+        }
+
+        /* A table's first line (header row, or the add button when empty) is a
+           small-height band; the label centers against it, not a medium one. */
+        &:has(.pluto-input__table) > .pluto-input-label {
+            height: var(--pluto-height-small);
         }
 
         & .pluto-input-help-text:empty {

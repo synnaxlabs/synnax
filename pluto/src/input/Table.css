@@ -14,15 +14,58 @@
     table-layout: fixed;
     border-collapse: collapse;
 
+    position: relative;
+
+    /* The rail marks the rows as the field's own block and brightens while a
+       cell inside holds focus. Its top starts at the heading ink, skipping
+       the dead space above the first line's centered text. */
+    &::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 1rem;
+        bottom: 0;
+        width: 2px;
+        background: var(--pluto-gray-l5);
+        transition: background-color 0.15s ease-out;
+    }
+
+    &:focus-within::before {
+        background: var(--pluto-gray-l7);
+    }
+
     & th,
     & td {
         vertical-align: middle;
         font-weight: unset;
     }
 
+    /* The header row matches the add button's small height, so the field's
+       label centers on the first line whether or not rows exist. */
     & thead th {
         text-align: left;
-        padding-bottom: 0.5rem;
+        height: var(--pluto-height-small);
+    }
+
+    /* Column headings sit over the cell text, which shadow inputs inset. */
+    & thead th:not(.pluto-input__table-gutter) {
+        padding-left: 1.5rem;
+    }
+
+    /* The first column steps in from the rail. */
+    & tr > :first-child {
+        padding-left: 1.5rem;
+    }
+
+    /* The first heading carries the rail indent plus the text inset. */
+    & thead th:first-child:not(.pluto-input__table-gutter) {
+        padding-left: 3rem;
+    }
+
+    /* The add row only stands off from rows above it. Alone in an empty grid,
+       it holds the first line so the field's label has a stable anchor. */
+    &:has(tbody tr) tfoot td {
+        padding-top: 0.5rem;
     }
 
     & tbody td {
@@ -30,7 +73,7 @@
     }
 
     /* The gutter holds the row's label, the action column its remove button. */
-    & th:first-child {
+    & .pluto-input__table-gutter {
         width: 5rem;
         text-align: right;
         padding-right: 1rem;

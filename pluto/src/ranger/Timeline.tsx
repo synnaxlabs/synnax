@@ -44,6 +44,32 @@ export const resolutionFor = (span: TimeSpan): TimeSpan => {
   return TimeSpan.MICROSECOND;
 };
 
+/**
+ * Commits a start edit. A start moved past the end drags the end with it, keeping
+ * the duration. Unscheduling clears the end too.
+ */
+export const moveStart = (
+  { start, end }: NumericTimeRange,
+  next: number,
+): NumericTimeRange => {
+  if (next >= UNSET) return { start: UNSET, end: UNSET };
+  if (end < UNSET && next > end) return { start: next, end: next + (end - start) };
+  return { start: next, end };
+};
+
+/**
+ * Commits an end edit. An end moved before the start drags the start with it,
+ * keeping the duration; an open range has none to keep, so the start clamps.
+ */
+export const moveEnd = (
+  { start, end }: NumericTimeRange,
+  next: number,
+): NumericTimeRange => {
+  if (next < start)
+    return { start: end < UNSET ? next - (end - start) : next, end: next };
+  return { start, end: next };
+};
+
 interface Transition {
   to: Stage;
   name: string;
@@ -51,7 +77,10 @@ interface Transition {
 
 /** The transitions offered from each stage, most common first. */
 const TRANSITIONS: Record<Stage, Transition[]> = {
-  to_do: [{ to: "in_progress", name: "Start" }],
+  to_do: [
+    { to: "in_progress", name: "Start" },
+    { to: "completed", name: "Complete" },
+  ],
   in_progress: [
     { to: "completed", name: "Complete" },
     { to: "to_do", name: "Move to to do" },
@@ -153,7 +182,8 @@ export interface TimelineProps extends Input.Control<NumericTimeRange> {
  * A range's stage and the timestamps that define it, in one row. To do shows the
  * planned start; In progress shows the start, the elapsed time, and a planned end if
  * one is set; Completed shows start, end, and duration. Editing a timestamp keeps
- * the other in place and the duration follows; editing the duration moves the end.
+ * the other in place; an edit that crosses it slides it to keep the duration, and
+ * the editor warns with the destination first. Editing the duration moves the end.
  * The stage chip's menu holds the transitions, which stamp the timestamps.
  */
 export const Timeline = ({
@@ -179,16 +209,31 @@ export const Timeline = ({
   );
 
   const handleStart = useCallback(
-    (next: number) => onChange({ start: next, end }),
-    [onChange, end],
+    (next: number) => onChange(moveStart(value, next)),
+    [onChange, value],
   );
   const handleEnd = useCallback(
-    (next: number) => onChange({ start, end: next }),
-    [onChange, start],
+    (next: number) => onChange(moveEnd(value, next)),
+    [onChange, value],
   );
   const handleSpan = useCallback(
     (span: number) => onChange({ start, end: start + span }),
     [onChange, start],
+  );
+
+  const slideStart = useCallback(
+    (next: number) => {
+      const moved = moveStart(value, next).end;
+      return moved !== end && moved < UNSET ? moved : undefined;
+    },
+    [value, end],
+  );
+  const slideEnd = useCallback(
+    (next: number) => {
+      const moved = moveEnd(value, next).start;
+      return moved !== start ? moved : undefined;
+    },
+    [value, start],
   );
 
   const startAnchors = useMemo(
@@ -230,6 +275,7 @@ export const Timeline = ({
             value={start}
             onChange={handleStart}
             anchors={startAnchors}
+            slide={slideStart}
             emptyValue={UNSET}
             placeholder="Set a start time"
             clearLabel="Unschedule"
@@ -251,6 +297,7 @@ export const Timeline = ({
             value={start}
             onChange={handleStart}
             anchors={startAnchors}
+            slide={slideStart}
             role="start"
             {...cell}
           />
@@ -273,6 +320,7 @@ export const Timeline = ({
                 value={end}
                 onChange={handleEnd}
                 anchors={endAnchors}
+                slide={slideEnd}
                 emptyValue={UNSET}
                 clearLabel="Remove end"
                 sharedDay={start}
@@ -289,6 +337,7 @@ export const Timeline = ({
             value={start}
             onChange={handleStart}
             anchors={startAnchors}
+            slide={slideStart}
             role="start"
             {...cell}
           />
@@ -297,6 +346,7 @@ export const Timeline = ({
             value={end}
             onChange={handleEnd}
             anchors={endAnchors}
+            slide={slideEnd}
             sharedDay={start}
             role="end"
             {...cell}
