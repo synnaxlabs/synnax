@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package lock_test
+package sync_test
 
 import (
 	"sync"
@@ -17,13 +17,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/lock"
+	xsync "github.com/synnaxlabs/x/sync"
 )
 
-var _ = Describe("Keyed", func() {
-	var keyed lock.Keyed[string]
+var _ = Describe("KeyedMutex", func() {
+	var mtx xsync.KeyedMutex[string]
 
-	BeforeEach(func() { keyed = lock.Keyed[string]{} })
+	BeforeEach(func() { mtx = xsync.KeyedMutex[string]{} })
 
 	It("Should run callbacks for one key one at a time", func() {
 		var (
@@ -34,7 +34,7 @@ var _ = Describe("Keyed", func() {
 		for range 16 {
 			wg.Go(func() {
 				defer GinkgoRecover()
-				Expect(keyed.Do("a", func() error {
+				Expect(mtx.Do("a", func() error {
 					if active.Add(1) > 1 {
 						overlapped.Store(true)
 					}
@@ -57,7 +57,7 @@ var _ = Describe("Keyed", func() {
 		)
 		wg.Go(func() {
 			defer GinkgoRecover()
-			Expect(keyed.Do("a", func() error {
+			Expect(mtx.Do("a", func() error {
 				close(held)
 				<-release
 				return nil
@@ -66,7 +66,7 @@ var _ = Describe("Keyed", func() {
 		Eventually(held).Should(BeClosed())
 		wg.Go(func() {
 			defer GinkgoRecover()
-			Expect(keyed.Do("b", func() error { return nil })).To(Succeed())
+			Expect(mtx.Do("b", func() error { return nil })).To(Succeed())
 			close(done)
 		})
 		Eventually(done).Should(BeClosed())
@@ -76,12 +76,12 @@ var _ = Describe("Keyed", func() {
 
 	It("Should propagate the callback error", func() {
 		fnErr := errors.New("fn failed")
-		Expect(keyed.Do("a", func() error { return fnErr })).To(MatchError(fnErr))
+		Expect(mtx.Do("a", func() error { return fnErr })).To(MatchError(fnErr))
 	})
 
 	It("Should serialize again after an error released the key", func() {
-		Expect(keyed.Do("a", func() error { return errors.New("boom") })).
+		Expect(mtx.Do("a", func() error { return errors.New("boom") })).
 			To(MatchError(ContainSubstring("boom")))
-		Expect(keyed.Do("a", func() error { return nil })).To(Succeed())
+		Expect(mtx.Do("a", func() error { return nil })).To(Succeed())
 	})
 })

@@ -90,7 +90,6 @@ type Service struct {
 	closer io.MultiCloser
 	table  *gorp.Table[Key, Table]
 	state  *actions.State[Key, Action]
-	exec   *actions.Executor[Key, Action]
 }
 
 // OpenService instantiates a new table service using the provided configurations. Each
@@ -101,8 +100,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, state: actions.NewState[Key, Action]()}
-	s.exec = actions.NewExecutor(cfg.DB, s.state.Dispatcher())
+	s = &Service{cfg: cfg, state: actions.NewState[Key, Action](cfg.DB)}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Table]{
@@ -167,7 +165,7 @@ func (s *Service) Dispatch(
 	dispatchKey string,
 	acts []Action,
 ) error {
-	return s.exec.Dispatch(ctx, key, dispatchKey, acts, func(tx gorp.Tx) error {
+	return s.state.Dispatch(ctx, key, dispatchKey, acts, func(tx gorp.Tx) error {
 		return s.table.NewUpdate().Where(gorp.MatchKeys[Key, Table](key)).
 			ChangeErr(func(_ gorp.Context, t Table) (Table, error) {
 				return Reduce(t, acts...)

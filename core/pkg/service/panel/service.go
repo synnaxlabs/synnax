@@ -63,7 +63,6 @@ type Service struct {
 	closer xio.MultiCloser
 	table  *gorp.Table[Key, Panel]
 	state  *actions.State[Key, Action]
-	exec   *actions.Executor[Key, Action]
 }
 
 func OpenService(
@@ -74,8 +73,7 @@ func OpenService(
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, state: actions.NewState[Key, Action]()}
-	s.exec = actions.NewExecutor(cfg.DB, s.state.Dispatcher())
+	s = &Service{cfg: cfg, state: actions.NewState[Key, Action](cfg.DB)}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Panel]{
@@ -131,7 +129,7 @@ func (s *Service) Dispatch(
 	dispatchKey string,
 	acts []Action,
 ) error {
-	return s.exec.Dispatch(ctx, key, dispatchKey, acts, func(tx gorp.Tx) error {
+	return s.state.Dispatch(ctx, key, dispatchKey, acts, func(tx gorp.Tx) error {
 		return s.table.NewUpdate().Where(gorp.MatchKeys[Key, Panel](key)).
 			ChangeErr(func(_ gorp.Context, p Panel) (Panel, error) {
 				reduced, err := Reduce(p, acts...)

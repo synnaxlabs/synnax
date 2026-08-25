@@ -33,10 +33,10 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/lock"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
+	xsync "github.com/synnaxlabs/x/sync"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -149,7 +149,7 @@ type Service struct {
 	closer   xio.MultiCloser
 	cfg      ServiceConfig
 	state    *actions.State[Key, Action]
-	locks    lock.Keyed[Key]
+	locks    xsync.KeyedMutex[Key]
 	sweeper  textSweeper
 	taskSync *taskSync
 }
@@ -244,7 +244,7 @@ func OpenService(
 	}
 	s = &Service{
 		cfg:   cfg,
-		state: actions.NewState[Key, Action](),
+		state: actions.NewState[Key, Action](cfg.DB),
 		sweeper: newTextSweeper(
 			cfg.Now,
 			cfg.TextSweepQuiescence,

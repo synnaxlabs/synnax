@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package lock_test
+package sync_test
 
 import (
 	"testing"
@@ -17,9 +17,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestLock(t *testing.T) {
+func TestSync(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Lock Suite")
+	RunSpecs(t, "Sync Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
