@@ -71,17 +71,21 @@ export class Unary {
   }
 
   /**
-   * Reads cached data overlapping the given time range. The result includes the
-   * live leading buffer when it overlaps, but the buffer never claims coverage:
-   * its samples carry provisional leading alignments that cannot pair with fetched
-   * data on another channel, so its span is still reported as a gap to fetch. A
+   * Reads cached data overlapping the given time range. The result includes the live
+   * leading buffer when the data it actually holds overlaps the range, judged by the
+   * last stamped write rather than the buffer's provisional MAX end, so the buffer
+   * never leaks into reads of spans it has no samples for. It never claims coverage
+   * either: its samples carry provisional leading alignments that cannot pair with
+   * fetched data on another channel, so its span is still reported as a gap to fetch. A
    * span may therefore return in both its streamed and fetched representation.
    */
   read(tr: TimeRange): DirtyReadResult {
     this.checkOpen("read");
     const res = this.static.dirtyRead(tr);
     const buf = this.dynamic.leadingBuffer;
-    if (buf == null || buf.length === 0 || !buf.timeRange.overlapsWith(tr)) return res;
+    const dataTr = this.dynamic.dataTimeRange;
+    if (buf == null || dataTr == null || buf.length === 0 || !dataTr.overlapsWith(tr))
+      return res;
     res.series.push(buf);
     return res;
   }

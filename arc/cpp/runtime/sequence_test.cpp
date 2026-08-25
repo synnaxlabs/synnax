@@ -2099,7 +2099,7 @@ TEST(TriggeredExpressionVariableReadsTest, FiresPerIntervalTickWithTheLiveValue)
     h.advance(x::telem::TimeSpan(0));
     h.advance(60 * x::telem::MILLISECOND);
     auto out = h.flush();
-    EXPECT_EQ(count_of(out, h.key("out"), "v=3"), 1);
+    EXPECT_EQ(count_of(out, h.key("out"), "v=3"), 2);
     h.ingest("set_ch", x::telem::Series(std::uint8_t(9)));
     h.advance(65 * x::telem::MILLISECOND);
     h.advance(115 * x::telem::MILLISECOND);

@@ -455,7 +455,10 @@ public:
         }
         auto &output = this->state.output(0);
         auto &output_time = this->state.output_time(0);
-        output_time = this->state.input_time(this->lhs_idx);
+        // The op broadcasts the shorter input up to the longer one, so the
+        // timestamps have to come from the longer side to stay one per sample.
+        const auto time_idx = rhs->size() > lhs->size() ? this->rhs_idx : this->lhs_idx;
+        output_time->copy_from(*this->state.input_time(time_idx));
         auto alignment = lhs->alignment + rhs->alignment;
         auto time_range = lhs->time_range;
         if (rhs->time_range.start != 0 &&

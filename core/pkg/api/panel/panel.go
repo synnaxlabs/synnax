@@ -150,7 +150,7 @@ func (s *Service) Dispatch(
 	}); err != nil {
 		return res, err
 	}
-	return res, s.internal.NewWriter(tx).
+	return res, s.internal.
 		Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
 }
 
