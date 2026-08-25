@@ -3096,8 +3096,7 @@ var _ = Describe("Text", func() {
 
 			It("Should handle negated time unit input value", func(ctx SpecContext) {
 				source := `
-				import time
-				time_trigger -> time.wait{duration=-3h} -> wait_out
+				time_trigger -> delay{span=-3h} -> wait_out
 				`
 				resolver := []symbol.Symbol{
 					{
@@ -3112,6 +3111,20 @@ var _ = Describe("Text", func() {
 						Type: types.Chan(types.U8()),
 						ID:   10043,
 					},
+					{
+						Name: "delay",
+						Kind: symbol.KindFunction,
+						Exec: symbol.ExecFlow,
+						Type: types.Function(types.FunctionProperties{
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.U8()},
+							},
+							Inputs: types.Params{
+								{Name: "span", Type: types.TimeSpan()},
+							},
+						}),
+						Trigger: symbol.TriggerOnly,
+					},
 				}
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(
@@ -3121,13 +3134,13 @@ var _ = Describe("Text", func() {
 				)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				waitNode := findNodeByType(inter.Nodes, "time.wait")
-				Expect(waitNode).ToNot(BeNil())
-				Expect(waitNode.Inputs).To(HaveLen(1))
-				Expect(waitNode.Inputs[0].Name).To(Equal("duration"))
+				delayNode := findNodeByType(inter.Nodes, "delay")
+				Expect(delayNode).ToNot(BeNil())
+				Expect(delayNode.Inputs).To(HaveLen(1))
+				Expect(delayNode.Inputs[0].Name).To(Equal("span"))
 				threeHoursNanos := int64(3*60*60) * int64(telem.Second)
 				Expect(
-					waitNode.Inputs[0].Value,
+					delayNode.Inputs[0].Value,
 				).To(Equal(telem.TimeSpan(-threeHoursNanos)))
 			})
 

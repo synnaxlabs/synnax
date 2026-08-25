@@ -348,6 +348,26 @@ var _ = Describe("Task", Ordered, func() {
 				To(MatchError(query.ErrNotFound))
 		})
 
+		It(
+			"Should reject a zero-period interval program at configure",
+			func(ctx SpecContext) {
+				out := createVirtualCh(ctx, "zero_period", telem.Uint8T)
+				factory := newTextFactory(ctx, arc.Text{Raw: fmt.Sprintf(
+					"interval{period=0ms} -> %s\n", out.Name,
+				)})
+				svcTask := task.Task{
+					Key:    uuid.New(),
+					Name:   "test-zero-period",
+					Type:   arctask.Type,
+					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+				}
+				Expect(factory.ConfigureTask(ctx, svcTask, "cmd-1")).Error().
+					To(MatchError(ContainSubstring(
+						"period must be positive, got 0s",
+					)))
+			},
+		)
+
 		It("Should set error status when config is invalid", func(ctx SpecContext) {
 			factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
 				Channel:    channelSvc,
