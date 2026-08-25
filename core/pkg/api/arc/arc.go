@@ -127,8 +127,7 @@ func (s *Service) Dispatch(
 	}); err != nil {
 		return types.Nil{}, err
 	}
-	return types.Nil{}, s.internal.NewWriter(tx).
-		Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
+	return types.Nil{}, s.internal.Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
 }
 
 type (

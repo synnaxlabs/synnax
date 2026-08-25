@@ -125,6 +125,7 @@ var (
 			ImEx:                imexSvc,
 			TextSweepQuiescence: 5 * telem.Second,
 			TextSweepThreshold:  1,
+			TaskSyncDebounce:    5 * telem.Millisecond,
 			Now:                 func() telem.TimeStamp { return arcClock() },
 		}))
 		writer = svc.NewWriter(nil)
