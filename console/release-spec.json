@@ -1,23 +1,23 @@
 {
-  "version": "v0.57.0",
+  "version": "v0.57.1",
   "notes": "Synnax Update",
-  "pub_date": "2026-08-25T13:27:40Z",
+  "pub_date": "2026-08-25T15:15:30Z",
   "platforms": {
     "darwin-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRZ3h4ZmpWZnBGeU5YZTRQVlB2QStKN3piV09LNnJ5YzJsaWpFeXNrLzdzMWNrY3hjUEpKK1dyV1ZqNHJLVE56MU1JdU1HZjlPcmxpcmRRYjRyMWFoSDQ0ZDlJUUsxL0FVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3NjYwNDgzCWZpbGU6U3lubmF4LmFwcC50YXIuZ3oKcjdldm9CdU9TNFdWUlBadVpQelhrU2ZJaGZWbGZpanNNeXUwQnRzWTgwZkhXSDdWZjRsZEkvY3hmNGlZNFpRQS9nMlo4azBjRWQydjNjNVdUb3dHRHc9PQo=",
-      "url": "https://github.com/synnaxlabs/synnax/releases/download/console-v0.57.0/Synnax.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRZ3h4ZmpWZnBGeU1JQXBOWFBvQzB6LzVnQ0p1MUhkUm1ZSjVHYzlPUUNYSTlvU2kwQS9IbndUZWNxUWk0VkVxc3VLaWNNeHlzQ3VxMHlVdjNNWDkwamZqazduSzVvUXdBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3NjY2NzA2CWZpbGU6U3lubmF4LmFwcC50YXIuZ3oKNTRkUGdlaGY3OExzd0gvRzEwQjJ5RXZSUWJhNytZQjhpYWQvWFQwWFlvSzd2eUVzeTlLdHFZL1EySUswMDFZeUljQUNWbXlmYVJLR0s0V1BPeGx2Qmc9PQo=",
+      "url": "https://github.com/synnaxlabs/synnax/releases/download/console-v0.57.1/Synnax.app.tar.gz"
     },
     "darwin-aarch64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRZ3h4ZmpWZnBGeU5YZTRQVlB2QStKN3piV09LNnJ5YzJsaWpFeXNrLzdzMWNrY3hjUEpKK1dyV1ZqNHJLVE56MU1JdU1HZjlPcmxpcmRRYjRyMWFoSDQ0ZDlJUUsxL0FVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3NjYwNDgzCWZpbGU6U3lubmF4LmFwcC50YXIuZ3oKcjdldm9CdU9TNFdWUlBadVpQelhrU2ZJaGZWbGZpanNNeXUwQnRzWTgwZkhXSDdWZjRsZEkvY3hmNGlZNFpRQS9nMlo4azBjRWQydjNjNVdUb3dHRHc9PQo=",
-      "url": "https://github.com/synnaxlabs/synnax/releases/download/console-v0.57.0/Synnax.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRZ3h4ZmpWZnBGeU1JQXBOWFBvQzB6LzVnQ0p1MUhkUm1ZSjVHYzlPUUNYSTlvU2kwQS9IbndUZWNxUWk0VkVxc3VLaWNNeHlzQ3VxMHlVdjNNWDkwamZqazduSzVvUXdBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3NjY2NzA2CWZpbGU6U3lubmF4LmFwcC50YXIuZ3oKNTRkUGdlaGY3OExzd0gvRzEwQjJ5RXZSUWJhNytZQjhpYWQvWFQwWFlvSzd2eUVzeTlLdHFZL1EySUswMDFZeUljQUNWbXlmYVJLR0s0V1BPeGx2Qmc9PQo=",
+      "url": "https://github.com/synnaxlabs/synnax/releases/download/console-v0.57.1/Synnax.app.tar.gz"
     },
     "linux-x86_64": {
       "signature": "not_supported_and_tauri_requires_an_entry",
-      "url": "https://github.com/synnaxlabs/synnax/releases/download/console-v0.57.0/Synnax.app.tar.gz"
+      "url": "https://github.com/synnaxlabs/synnax/releases/download/console-v0.57.1/Synnax.app.tar.gz"
     },
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRZ3h4ZmpWZnBGeUI2Nkl4cys4MDBBZWxCVHhzbzJ3RXNzWTFzdXdOamdmQUVYSDNZRFRmTTBMM2pLTnhXS2VvUEJ2ajRFdlpFb0lUYm1udG9Vbmhwb0ZxQnpRTUhaRWdZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3NjYwNDI3CWZpbGU6U3lubmF4XzAuNTcuMF94NjRfZW4tVVMubXNpCjlqSklBajZoS3RtZVFSd3gyUVVNQjdwQTI4WWNNM0VnSkMwZk9QeXhTdUxLUkJIRUhpb1lWTmNwOWYyb2RmcGxNOWFzZXU1dStqV3Evem9rNDZLY0RnPT0K",
-      "url": "https://github.com/synnaxlabs/synnax/releases/download/console-v0.57.0/Synnax_0.57.0_x64_en-US.msi"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRZ3h4ZmpWZnBGeUFlb0E1L0crc2Jab1ZEQ0dSdWh4UFlHNGNQWFplRmZKb3lkc0lIcVFLeVJJRTBTTXRIU0NwRTdUYWd2OU1Rc2U0blZtOFdNeTNWdTczYzNPeWI4RXdzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3NjY2ODcwCWZpbGU6U3lubmF4XzAuNTcuMV94NjRfZW4tVVMubXNpCnJ6dDhLL0VLYkRDd1VEUzcwTkw5MWFRWUZFVlh4a1puRC9jN1VKaHR0YkxZeGpWbCtEWlJQSU1GY0ZuZ0czR0Ntdk40dEtNN3pOZWhLNmxRelVkTUFBPT0K",
+      "url": "https://github.com/synnaxlabs/synnax/releases/download/console-v0.57.1/Synnax_0.57.1_x64_en-US.msi"
     }
   }
 }
