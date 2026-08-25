@@ -43,12 +43,19 @@ interface InternalState {
   runAsync: status.ErrorHandler;
 }
 
-interface ProviderProps {
+export interface ProviderProps {
   dataToDecimalScale: scale.Scale;
   viewport: box.Box;
   region: box.Box;
   timeRange: TimeRange;
 }
+
+/**
+ * The most ranges the annotation strip fetches for one window. A dense window can
+ * overlap tens of thousands of ranges, which the strip cannot draw legibly in 32
+ * pixels and the worker cannot write through the cache without stalling for seconds.
+ */
+export const MAX_ANNOTATIONS = 100;
 
 // Snaps fetch boundaries outward to a grid roughly an eighth of the viewport wide,
 // so a requery takes a meaningful pan or zoom at any zoom level. Power-of-two grid
@@ -66,6 +73,7 @@ const quantize = (timeRange: TimeRange): TimeRange => {
 
 export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> {
   static readonly TYPE = "range-provider";
+  static readonly stateZ = providerStateZ;
   schema = providerStateZ;
 
   afterUpdate(ctx: aether.Context): void {
@@ -95,7 +103,10 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     const { dataToDecimalScale, region, viewport, timeRange } = props;
     const { internal: i } = this;
     if (i.client != null)
-      i.retrieve.update(i.client, { overlapsWith: quantize(timeRange) });
+      i.retrieve.update(i.client, {
+        overlapsWith: quantize(timeRange),
+        limit: MAX_ANNOTATIONS,
+      });
     const { draw } = i;
     const ranges = i.retrieve.value ?? [];
     const visible = this.state.visible !== false;
