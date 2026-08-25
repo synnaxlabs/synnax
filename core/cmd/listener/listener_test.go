@@ -80,6 +80,80 @@ var _ = Describe("Listener", func() {
 				Error().
 				To(MatchError(ContainSubstring("cannot be combined with a listen list")))
 		})
+
+		DescribeTable("Should reject a list combined with a non-default node cert flag",
+			func(flag string) {
+				viper.Set(flag, "custom.pem")
+				viper.Set(
+					listener.FlagListen,
+					[]any{listenerObj("core01:9090", "auto")},
+				)
+				Expect(listener.Parse()).
+					Error().
+					To(MatchError(ContainSubstring("cannot be combined with a listen list")))
+			},
+			Entry("node-cert", cmdcert.FlagNodeCert),
+			Entry("node-key", cmdcert.FlagNodeKey),
+		)
+
+		It("Should accept a list when the node cert flags hold their defaults", func() {
+			viper.SetDefault(
+				cmdcert.FlagNodeCert,
+				cert.DefaultLoaderConfig.NodeCertPath,
+			)
+			viper.SetDefault(cmdcert.FlagNodeKey, cert.DefaultLoaderConfig.NodeKeyPath)
+			viper.Set(listener.FlagListen, []any{listenerObj("core01:9090", "auto")})
+			configs := MustSucceed(listener.Parse())
+			Expect(configs).To(HaveLen(1))
+		})
+
+		It("Should accept a list when the node cert flags are cleared", func() {
+			viper.SetDefault(
+				cmdcert.FlagNodeCert,
+				cert.DefaultLoaderConfig.NodeCertPath,
+			)
+			viper.Set(cmdcert.FlagNodeCert, "")
+			viper.Set(cmdcert.FlagNodeKey, "")
+			viper.Set(listener.FlagListen, []any{listenerObj("core01:9090", "auto")})
+			configs := MustSucceed(listener.Parse())
+			Expect(configs).To(HaveLen(1))
+		})
+
+		It(
+			"Should parse a corporate-plus-tailnet deployment with default node cert flags",
+			func() {
+				viper.SetDefault(
+					cmdcert.FlagNodeCert,
+					cert.DefaultLoaderConfig.NodeCertPath,
+				)
+				viper.SetDefault(
+					cmdcert.FlagNodeKey,
+					cert.DefaultLoaderConfig.NodeKeyPath,
+				)
+				viper.Set(listener.FlagListen, []any{
+					map[string]any{
+						"address":   "localhost:9091",
+						"cert":      map[string]any{"source": "auto"},
+						"advertise": true,
+					},
+					map[string]any{
+						"address": "0.0.0.0:9090",
+						"cert": map[string]any{
+							"source": "file",
+							"cert":   "/etc/acm/server.crt",
+							"key":    "/etc/acm/server.key",
+						},
+					},
+					listenerObj("core01.example-tailnet.ts.net:9089", "tailscale"),
+				})
+				configs := MustSucceed(listener.Parse())
+				Expect(configs).To(HaveLen(3))
+				Expect(configs.Validate()).To(Succeed())
+				Expect(
+					configs.AdvertiseAddress(),
+				).To(Equal(address.Address("localhost:9091")))
+			},
+		)
 	})
 
 	Describe("Validate", func() {
@@ -202,22 +276,81 @@ var _ = Describe("Listener", func() {
 	})
 
 	Describe("Resolve", func() {
-		It("Should reject an unknown certificate source", func() {
-			fs := xfs.NewMem()
-			mock.GenerateCerts(fs)
-			prov := MustSucceed(security.NewProvider(security.ProviderConfig{
-				LoaderConfig: cert.LoaderConfig{FS: fs},
+		var (
+			prov      security.Provider
+			coreFC    cert.FactoryConfig
+			foreignFC cert.FactoryConfig
+		)
+		BeforeEach(func() {
+			coreFS := xfs.NewMem()
+			mock.GenerateCerts(coreFS)
+			prov = MustSucceed(security.NewProvider(security.ProviderConfig{
+				LoaderConfig: cert.LoaderConfig{FS: coreFS},
 				KeySize:      mock.SmallKeySize,
 				Insecure:     new(false),
 			}))
-			fc := cert.FactoryConfig{
-				LoaderConfig: cert.LoaderConfig{FS: fs},
+			coreFC = cert.FactoryConfig{
+				LoaderConfig: cert.LoaderConfig{FS: coreFS},
 				KeySize:      mock.SmallKeySize,
 			}
+			foreignFS := xfs.NewMem()
+			mock.GenerateCerts(foreignFS)
+			foreignFC = cert.FactoryConfig{
+				LoaderConfig: cert.LoaderConfig{FS: foreignFS},
+				KeySize:      mock.SmallKeySize,
+			}
+		})
+
+		It("Should reject an unknown certificate source", func() {
 			Expect(listener.Configs{
 				{Address: "localhost:9090", Cert: listener.CertConfig{Source: "bogus"}},
-			}.Resolve(prov, fc, false)).
+			}.Resolve(prov, coreFC, false, false)).
 				Error().To(MatchError(ContainSubstring("unknown certificate source")))
 		})
+
+		It(
+			"Should verify the advertised listener against the Core CA when peers are configured",
+			func() {
+				listeners := MustSucceed(listener.Configs{
+					{
+						Address:   "localhost:9090",
+						Cert:      listener.CertConfig{Source: file.SourceType},
+						Advertise: true,
+					},
+				}.Resolve(prov, coreFC, false, true))
+				Expect(listeners).To(HaveLen(1))
+				Expect(listeners[0].TLS).ToNot(BeNil())
+			},
+		)
+
+		It(
+			"Should reject an advertised certificate the Core CA cannot verify when peers are configured",
+			func() {
+				Expect(listener.Configs{
+					{
+						Address:   "localhost:9090",
+						Cert:      listener.CertConfig{Source: file.SourceType},
+						Advertise: true,
+					},
+				}.Resolve(prov, foreignFC, false, true)).
+					Error().
+					To(MatchError(ContainSubstring("must serve a certificate the Core CA signs")))
+			},
+		)
+
+		It(
+			"Should skip advertised certificate verification when no peers are configured",
+			func() {
+				listeners := MustSucceed(listener.Configs{
+					{
+						Address:   "0.0.0.0:9090",
+						Cert:      listener.CertConfig{Source: file.SourceType},
+						Advertise: true,
+					},
+				}.Resolve(prov, foreignFC, false, false))
+				Expect(listeners).To(HaveLen(1))
+				Expect(listeners[0].TLS).ToNot(BeNil())
+			},
+		)
 	})
 })

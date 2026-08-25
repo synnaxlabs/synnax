@@ -219,7 +219,7 @@ Different listeners can use different sources.
     {
       source: "tailscale",
       description:
-        "Provisions and renews a <code>ts.net</code> certificate through the local <code>tailscaled</code> daemon. Requires a running <code>tailscaled</code> with HTTPS enabled on the tailnet. Do not set <code>cert</code> or <code>key</code>.",
+        "Provisions and renews a <code>ts.net</code> certificate through the local <code>tailscaled</code> daemon. Requires a running <code>tailscaled</code> with HTTPS enabled on the tailnet. When the Core runs as a non-root user, that user must be the Tailscale operator: <code>tailscale set --operator=&lt;user&gt;</code>. Do not set <code>cert</code> or <code>key</code>.",
     },
   ]}
 />
@@ -231,8 +231,9 @@ Peers dial one agreed address to join the cluster, so exactly one listener is
 first listener is advertised. Setting it on more than one listener is a startup error.
 
 <Note.Note variant="warning">
-  The advertised listener cannot use the `tailscale` source. Peers verify its
-  certificate against the cluster CA, which a public-CA certificate cannot satisfy.
+  When `peers` are configured, the advertised listener cannot use the `tailscale`
+  source. Peers verify its certificate against the cluster CA, which a public-CA
+  certificate cannot satisfy.
 </Note.Note>
 
 ### Rules

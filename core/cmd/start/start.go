@@ -84,7 +84,8 @@ func (c CoreConfig) Validate() error {
 	validate.NotNil(v, "auto_cert", c.autoCert)
 	validate.NotNil(v, "mem_backed", c.memBacked)
 	v.Exec(c.listeners.Validate)
-	if c.insecure != nil && !*c.insecure {
+	// Without peers nothing dials the advertised address, so any source is valid.
+	if c.insecure != nil && !*c.insecure && len(c.peers) > 0 {
 		v.Exec(c.listeners.ValidateAdvertiseSource)
 	}
 	validate.NotEmptyString(v, "data_path", c.dataPath)
@@ -280,6 +281,7 @@ func BootupCore(
 		securityProvider,
 		cfg.certFactoryConfig,
 		*cfg.insecure,
+		len(cfg.peers) > 0,
 	)
 	if !ok(err, nil) {
 		return err

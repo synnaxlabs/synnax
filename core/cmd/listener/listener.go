@@ -114,8 +114,8 @@ func (cs Configs) Validate() error {
 
 // ValidateAdvertiseSource rejects a Tailscale source on the advertised listener. Peers
 // dial the advertised address and verify the certificate against the Core CA, which a
-// public-CA Tailscale certificate cannot satisfy. It applies only in secure mode, so
-// the caller gates it on the insecure flag.
+// public-CA Tailscale certificate cannot satisfy. It applies only in secure mode with
+// peers configured, so the caller gates it on the insecure flag and the peer list.
 func (cs Configs) ValidateAdvertiseSource() error {
 	v := validate.New("listeners")
 	if len(cs) == 0 {
@@ -145,11 +145,12 @@ func (cs Configs) AdvertiseAddress() address.Address { return cs.advertised().Ad
 
 // Resolve resolves each listener config into a server.Listener, backing every secure
 // listener with a TLS config from its certificate source. fc supplies the node-wide
-// filesystem and CA authority that the file and auto sources draw on.
+// filesystem and CA authority. Without peers the advertised cert check is skipped.
 func (cs Configs) Resolve(
 	p security.Provider,
 	fc cert.FactoryConfig,
 	insecure bool,
+	hasPeers bool,
 ) ([]server.Listener, error) {
 	out := make([]server.Listener, len(cs))
 	if insecure {
@@ -172,7 +173,7 @@ func (cs Configs) Resolve(
 		if err != nil {
 			return nil, err
 		}
-		if c.Address == advertised {
+		if c.Address == advertised && hasPeers {
 			if err = p.VerifyCoreCert(src, advertised.Host()); err != nil {
 				return nil, errors.Wrapf(
 					err,
@@ -236,18 +237,21 @@ func parseList(items []any) (Configs, error) {
 }
 
 // rejectGlobalCertFlags enforces that a listen list is not combined with a global flag
-// that configures the single node certificate. --certs-dir and the CA flags stay legal:
-// they locate the Core CA and node outbound identity, which every listener still
-// needs for gossip.
+// that configures the single node certificate. The node cert flags bind with defaults,
+// so only a non-default value counts as set. --certs-dir and the CA flags stay legal:
+// they locate the Core CA and node outbound identity, which every listener still needs
+// for gossip.
 func rejectGlobalCertFlags() error {
 	var offenders []string
 	if viper.GetBool(cmdcert.FlagAutoCert) {
 		offenders = append(offenders, "--"+cmdcert.FlagAutoCert)
 	}
-	if viper.GetString(cmdcert.FlagNodeCert) != "" {
+	nodeCert := viper.GetString(cmdcert.FlagNodeCert)
+	if nodeCert != "" && nodeCert != cert.DefaultLoaderConfig.NodeCertPath {
 		offenders = append(offenders, "--"+cmdcert.FlagNodeCert)
 	}
-	if viper.GetString(cmdcert.FlagNodeKey) != "" {
+	nodeKey := viper.GetString(cmdcert.FlagNodeKey)
+	if nodeKey != "" && nodeKey != cert.DefaultLoaderConfig.NodeKeyPath {
 		offenders = append(offenders, "--"+cmdcert.FlagNodeKey)
 	}
 	if len(offenders) == 0 {

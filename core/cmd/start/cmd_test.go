@@ -17,6 +17,8 @@ import (
 	cmdcert "github.com/synnaxlabs/synnax/cmd/cert"
 	"github.com/synnaxlabs/synnax/cmd/listener"
 	"github.com/synnaxlabs/synnax/cmd/start"
+	"github.com/synnaxlabs/synnax/pkg/security/cert"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("GetCoreConfigFromViper", func() {
@@ -46,4 +48,57 @@ var _ = Describe("GetCoreConfigFromViper", func() {
 			Error().
 			To(MatchError(ContainSubstring("cannot be combined with a listen list")))
 	})
+
+	It(
+		"Should accept a listen list when the node cert flags hold their defaults",
+		func() {
+			viper.SetDefault(
+				cmdcert.FlagNodeCert,
+				cert.DefaultLoaderConfig.NodeCertPath,
+			)
+			viper.SetDefault(cmdcert.FlagNodeKey, cert.DefaultLoaderConfig.NodeKeyPath)
+			viper.Set(listener.FlagListen, []any{
+				map[string]any{
+					"address": "core01:9090",
+					"cert":    map[string]any{"source": "auto"},
+				},
+			})
+			Expect(start.GetCoreConfigFromViper(alamos.Instrumentation{})).
+				Error().
+				ToNot(HaveOccurred())
+		},
+	)
+
+	It(
+		"Should reject a Tailscale advertised listener when peers are configured",
+		func() {
+			viper.Set(listener.FlagListen, []any{
+				map[string]any{
+					"address": "node01.example-tailnet.ts.net:9090",
+					"cert":    map[string]any{"source": "tailscale"},
+				},
+			})
+			viper.Set(start.FlagPeers, []string{"core02:9090"})
+			cfg := MustSucceed(start.GetCoreConfigFromViper(alamos.Instrumentation{}))
+			Expect(cfg.Validate()).To(MatchError(
+				ContainSubstring("advertised listener cannot use the Tailscale source"),
+			))
+		},
+	)
+
+	It(
+		"Should allow a Tailscale advertised listener when no peers are configured",
+		func() {
+			viper.Set(listener.FlagListen, []any{
+				map[string]any{
+					"address": "node01.example-tailnet.ts.net:9090",
+					"cert":    map[string]any{"source": "tailscale"},
+				},
+			})
+			cfg := MustSucceed(start.GetCoreConfigFromViper(alamos.Instrumentation{}))
+			Expect(cfg.Validate()).ToNot(MatchError(
+				ContainSubstring("advertised listener cannot use the Tailscale source"),
+			))
+		},
+	)
 })
