@@ -117,7 +117,7 @@ public:
                 std::memcpy(o->data(), this->value->data(), this->value->size());
                 *o_time = x::telem::Series(current_time.nanoseconds());
                 this->last_sent = *this->value;
-                ctx.mark_changed(0);
+                this->state.emit(ctx.mark_changed, 0);
             }
         }
         return x::errors::NIL;

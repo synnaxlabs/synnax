@@ -113,6 +113,7 @@ void write_source(
 ) {
     source.output(0) = x::mem::make_local_shared<x::telem::Series>(data);
     source.output_time(0) = x::mem::make_local_shared<x::telem::Series>(timestamps);
+    source.mark_fresh(0);
 }
 
 /// @brief Helper that returns a NowFunc capturing a mutable time reference.
@@ -760,6 +761,7 @@ TEST_P(StableForTypePreservationTest, DebouncesAndEmitsFullWidthValue) {
     source.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
         std::vector<int64_t>{x::telem::SECOND.nanoseconds()}
     );
+    source.mark_fresh(0);
 
     bool fired = false;
     auto ctx = make_context();
@@ -772,6 +774,7 @@ TEST_P(StableForTypePreservationTest, DebouncesAndEmitsFullWidthValue) {
     source.output_time(
         0
     ) = x::mem::make_local_shared<x::telem::Series>(x::telem::TIMESTAMP_T, 0);
+    source.mark_fresh(0);
     ASSERT_NIL(node.next(ctx));
     EXPECT_TRUE(fired);
 

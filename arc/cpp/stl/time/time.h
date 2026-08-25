@@ -108,7 +108,7 @@ public:
         o_time->resize(1);
         o->set(0, static_cast<std::uint8_t>(1));
         o_time->set(0, this->clock.now());
-        ctx.mark_changed(0);
+        this->state.emit(ctx.mark_changed, 0);
         return x::errors::NIL;
     }
 
@@ -174,7 +174,7 @@ public:
         o_time->resize(1);
         o->set(0, static_cast<std::uint8_t>(1));
         o_time->set(0, this->clock.now());
-        ctx.mark_changed(0);
+        this->state.emit(ctx.mark_changed, 0);
         return x::errors::NIL;
     }
 
@@ -216,7 +216,7 @@ public:
         o_time->resize(1);
         o->set(0, ts);
         o_time->set(0, ts);
-        ctx.mark_changed(0);
+        this->state.emit(ctx.mark_changed, 0);
         return x::errors::NIL;
     }
 

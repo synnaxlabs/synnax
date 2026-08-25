@@ -67,7 +67,7 @@ public:
         }
         o_time->resize(1);
         o_time->set(0, this->clock.now());
-        ctx.mark_changed(0);
+        this->state.emit(ctx.mark_changed, 0);
         return x::errors::NIL;
     }
 

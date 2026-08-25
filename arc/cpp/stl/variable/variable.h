@@ -47,6 +47,7 @@ public:
         this->state.absorb_inputs();
         this->state.output(0)->copy_from(*this->state.input(0));
         stamp_now(this->state.output_time(0), this->clock.now());
+        this->state.mark_fresh(0);
     }
 
     x::errors::Error next(runtime::node::Context &ctx) override {
@@ -56,7 +57,7 @@ public:
         // alias them.
         this->state.output(0)->copy_from(*data);
         stamp_now(this->state.output_time(0), this->clock.now());
-        ctx.mark_changed(0);
+        this->state.emit(ctx.mark_changed, 0);
         return x::errors::NIL;
     }
 
@@ -93,7 +94,7 @@ public:
         if (!ok || repointed) return x::errors::NIL;
         this->state.output(0)->copy_from(*data);
         stamp_now(this->state.output_time(0), this->clock.now());
-        ctx.mark_changed(0);
+        this->state.emit(ctx.mark_changed, 0);
         return x::errors::NIL;
     }
 

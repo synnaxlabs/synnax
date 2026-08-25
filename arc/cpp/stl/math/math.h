@@ -200,7 +200,7 @@ public:
         output->time_range = time_range;
         output_time->alignment = alignment;
         output_time->time_range = time_range;
-        ctx.mark_changed(0);
+        this->state.emit(ctx.mark_changed, 0);
         return x::errors::NIL;
     }
 
@@ -384,7 +384,7 @@ private:
         output->time_range = input_data->time_range;
         output_time->alignment = input_data->alignment;
         output_time->time_range = input_data->time_range;
-        ctx.mark_changed(0);
+        this->state.emit(ctx.mark_changed, 0);
     }
 };
 
@@ -466,7 +466,7 @@ public:
         output->time_range = time_range;
         output_time->alignment = alignment;
         output_time->time_range = time_range;
-        ctx.mark_changed(0);
+        this->state.emit(ctx.mark_changed, 0);
         return x::errors::NIL;
     }
 
@@ -559,7 +559,7 @@ public:
         output->time_range = input->time_range;
         output_time->alignment = input->alignment;
         output_time->time_range = input->time_range;
-        ctx.mark_changed(0);
+        this->state.emit(ctx.mark_changed, 0);
         return x::errors::NIL;
     }
 

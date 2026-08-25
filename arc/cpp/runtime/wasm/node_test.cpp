@@ -332,6 +332,7 @@ func double(val f32) f32 {
     on_node_state.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
         std::move(on_time)
     );
+    on_node_state.mark_fresh(0);
 
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
     auto func = ASSERT_NIL_P(wasm_mod->func("double"));
@@ -440,6 +441,7 @@ func double(val f32) f32 {
     on_node_state.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
         std::move(on_time)
     );
+    on_node_state.mark_fresh(0);
 
     // Now set up the double node
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
@@ -531,6 +533,7 @@ func divide_by_zero(val i32) i32 {
     on_node_state.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
         std::move(on_time)
     );
+    on_node_state.mark_fresh(0);
 
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
     auto func = ASSERT_NIL_P(wasm_mod->func("divide_by_zero"));
@@ -642,6 +645,7 @@ func passthrough(val f32) f32 {
     on_node_state.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
         std::move(on_time)
     );
+    on_node_state.mark_fresh(0);
 
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
     auto func = ASSERT_NIL_P(wasm_mod->func("passthrough"));
@@ -796,6 +800,7 @@ func double(val i64) i64 {
     on_node_state.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
         std::move(on_time)
     );
+    on_node_state.mark_fresh(0);
 
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
     auto func = ASSERT_NIL_P(wasm_mod->func("double"));
@@ -822,6 +827,7 @@ func double(val i64) i64 {
     on_node_state2.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
         std::move(on_time2)
     );
+    on_node_state2.mark_fresh(0);
 
     changed_outputs.clear();
     ASSERT_NIL(node.next(ctx));
@@ -1097,6 +1103,7 @@ func add_config{x i32}(y i32) i32 {
     on_node_state.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
         std::move(on_time)
     );
+    on_node_state.mark_fresh(0);
 
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
     auto func = ASSERT_NIL_P(wasm_mod->func("add_config", func_node->inputs));
@@ -1189,6 +1196,7 @@ func multi_config{a i32, b i32}(c i32) i32 {
     on_node_state.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
         std::move(on_time)
     );
+    on_node_state.mark_fresh(0);
 
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
     auto func = ASSERT_NIL_P(wasm_mod->func("multi_config", func_node->inputs));
@@ -1313,6 +1321,7 @@ func counter(trigger i64) i64 {
         on_node_state.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
             std::move(on_time)
         );
+        on_node_state.mark_fresh(0);
     }
 
     // Create state and function objects for both counter nodes
@@ -1674,6 +1683,7 @@ func read_chan{ch chan f32}(trigger u8) f32 {
     on_node_state.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
         std::move(on_time)
     );
+    on_node_state.mark_fresh(0);
 
     // Set up the function node with config param.
     auto node_state = ASSERT_NIL_P(state->node(func_node->key));
@@ -1792,6 +1802,7 @@ func str_len(s str) i64 {
     on_node_state.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
         std::move(on_time)
     );
+    on_node_state.mark_fresh(0);
 
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
     auto func = ASSERT_NIL_P(wasm_mod->func("str_len"));
@@ -1914,6 +1925,7 @@ func labeler(x i64) (label str, value i64) {
     on_node_state.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
         std::move(on_time)
     );
+    on_node_state.mark_fresh(0);
 
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
     auto func = ASSERT_NIL_P(wasm_mod->func("labeler"));
@@ -2036,6 +2048,7 @@ func qstr_len(s str) i64 {
     on_node_state.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
         std::move(on_time)
     );
+    on_node_state.mark_fresh(0);
 
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
     auto func = ASSERT_NIL_P(wasm_mod->func("qstr_len"));
@@ -2290,6 +2303,7 @@ func concat_len(a str, b str) i64 {
     on_a_state.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
         std::move(on_a_time)
     );
+    on_a_state.mark_fresh(0);
 
     auto on_b_state = ASSERT_NIL_P(state.node(on_keys[1]));
     auto on_b_data = x::telem::Series(std::vector<std::string>{" world"});
@@ -2302,6 +2316,7 @@ func concat_len(a str, b str) i64 {
     on_b_state.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
         std::move(on_b_time)
     );
+    on_b_state.mark_fresh(0);
 
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
     auto func = ASSERT_NIL_P(wasm_mod->func("concat_len"));
@@ -3000,6 +3015,7 @@ func loop_state(trigger i64) i64 {
         on_state.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
             std::move(on_time)
         );
+        on_state.mark_fresh(0);
     }
 
     auto node_state = ASSERT_NIL_P(state->node(func_node->key));
@@ -3020,6 +3036,7 @@ func loop_state(trigger i64) i64 {
             on_st.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
                 std::move(t)
             );
+            on_st.mark_fresh(0);
         }
     };
 

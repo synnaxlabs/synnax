@@ -88,8 +88,8 @@ public:
             }
         }
 
-        if (true_count > 0) ctx.mark_changed(0);
-        if (false_count > 0) ctx.mark_changed(1);
+        if (true_count > 0) this->state.emit(ctx.mark_changed, 0);
+        if (false_count > 0) this->state.emit(ctx.mark_changed, 1);
         return x::errors::NIL;
     }
 

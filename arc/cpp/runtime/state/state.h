@@ -10,6 +10,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 #include <tuple>
@@ -41,6 +42,10 @@ struct AuthorityChange {
 struct Value {
     Series data;
     Series time;
+    /// @brief the program-wide revision at which this value was last written.
+    /// Zero means never written. Consumers compare it against what they last
+    /// consumed; ordering across values is the program's true write order.
+    uint64_t rev = 0;
 };
 
 using ChannelDigest = stl::channels::Digest;
@@ -67,7 +72,8 @@ class Node {
         size_t source{NO_SOURCE};
         Series data;
         Series time;
-        x::telem::TimeStamp last_timestamp{0};
+        /// @brief the source value's revision when this entry was taken.
+        uint64_t last_rev{0};
         bool consumed{true};
     };
 
@@ -119,7 +125,7 @@ class Node {
         rearm(std::move(rearm)),
         params(std::move(params)) {}
 
-    /// @brief marks input i consumed at its current source timestamp.
+    /// @brief marks input i consumed at its current source revision.
     void absorb_input(size_t i);
 
 public:
@@ -138,6 +144,26 @@ public:
 
     [[nodiscard]] Series &output(size_t param_index) const;
     [[nodiscard]] Series &output_time(size_t param_index) const;
+
+    /// @brief publishes the value the node just wrote to the output at
+    /// param_index: downstream readers see it as unconsumed, and mark_changed
+    /// runs them. Every producer calls it once per write. Pass
+    /// node::Context::mark_changed.
+    void emit(
+        const std::function<void(size_t)> &mark_changed,
+        const size_t param_index
+    ) const {
+        this->mark_fresh(param_index);
+        mark_changed(param_index);
+    }
+
+    /// @brief makes the output at param_index unconsumed for downstream readers
+    /// without waking them. A cycle stamps one timestamp on everything it
+    /// produces, so a reader cannot tell a new value from the one it already
+    /// consumed; the revision this records is what tells it. Producers writing
+    /// during next call emit instead; this is for a write on reset, which has no
+    /// running node for the scheduler to propagate from.
+    void mark_fresh(size_t param_index) const;
 
     /// Reads buffered data and time series from a channel. Returns (data, index_data,
     /// ok). If the channel has an associated index, both data and time are returned.
@@ -235,7 +261,7 @@ public:
                 case Rearm::Always:
                 case Rearm::OnReset:
                     this->accumulated[i].consumed = false;
-                    this->accumulated[i].last_timestamp = x::telem::TimeStamp(0);
+                    this->accumulated[i].last_rev = 0;
                     break;
             }
         }
@@ -253,6 +279,10 @@ class State {
     Config cfg;
     std::vector<Value> values;
     std::unordered_map<ir::Handle, size_t> value_index;
+    /// @brief counts writes across every output in the program. Every cycle
+    /// stamps one timestamp, so the stamp cannot tell a consumer that a value is
+    /// new; this counter does.
+    uint64_t rev = 0;
     /// @brief Per-module state slices.
     std::shared_ptr<stl::channels::State> channel;
     std::shared_ptr<stl::strings::State> strings;

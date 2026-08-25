@@ -90,6 +90,7 @@ TEST(StateTest, RefreshInputs_BasicAlignment) {
     o_time->set(0, x::telem::TimeStamp(1 * x::telem::MICROSECOND));
     o_time->set(1, x::telem::TimeStamp(2 * x::telem::MICROSECOND));
     o_time->set(2, x::telem::TimeStamp(3 * x::telem::MICROSECOND));
+    producer_node.mark_fresh(0);
 
     auto consumer_node = ASSERT_NIL_P(s.node("consumer"));
 
@@ -191,6 +192,7 @@ TEST(StateTest, RefreshInputs_WatermarkTracking) {
     o_time->resize(2);
     o_time->set(0, x::telem::TimeStamp(1 * x::telem::MICROSECOND));
     o_time->set(1, x::telem::TimeStamp(2 * x::telem::MICROSECOND));
+    producer_node.mark_fresh(0);
 
     ASSERT_TRUE(consumer_node.refresh_inputs());
     EXPECT_EQ(consumer_node.input(0)->size(), 2);
@@ -277,6 +279,7 @@ TEST(StateTest, RefreshInputs_MultipleInputs) {
     o1_time->resize(2);
     o1_time->set(0, x::telem::TimeStamp(1 * x::telem::MICROSECOND));
     o1_time->set(1, x::telem::TimeStamp(2 * x::telem::MICROSECOND));
+    producer1_node.mark_fresh(0);
 
     ASSERT_FALSE(consumer_node.refresh_inputs());
 
@@ -289,6 +292,7 @@ TEST(StateTest, RefreshInputs_MultipleInputs) {
     o2_time->resize(2);
     o2_time->set(0, x::telem::TimeStamp(1 * x::telem::MICROSECOND));
     o2_time->set(1, x::telem::TimeStamp(2 * x::telem::MICROSECOND));
+    producer2_node.mark_fresh(0);
 
     ASSERT_TRUE(consumer_node.refresh_inputs());
     EXPECT_EQ(consumer_node.input(0)->size(), 2);
@@ -414,6 +418,7 @@ TEST(StateTest, OptionalInput_OverrideDefault) {
     o_time->resize(2);
     o_time->set(0, x::telem::TimeStamp(1 * x::telem::MICROSECOND));
     o_time->set(1, x::telem::TimeStamp(2 * x::telem::MICROSECOND));
+    producer_node.mark_fresh(0);
 
     auto consumer_node = ASSERT_NIL_P(s.node("consumer"));
 
@@ -488,6 +493,7 @@ TEST(StateTest, InitInput_SeedsConnectedInput) {
     *o = x::telem::Series(std::vector<float>{1.0f, 2.0f});
     auto &o_time = data_node.output_time(0);
     *o_time = x::telem::Series(std::vector<int64_t>{1000, 2000});
+    data_node.mark_fresh(0);
 
     ASSERT_FALSE(consumer_node.refresh_inputs());
 
@@ -559,6 +565,7 @@ TEST(StateTest, InitInput_OverwrittenByRealData) {
     *producer_node.output_time(0) = x::telem::Series(
         x::telem::TimeStamp(2000).nanoseconds()
     );
+    producer_node.mark_fresh(0);
     ASSERT_TRUE(consumer_node.refresh_inputs());
     EXPECT_EQ(consumer_node.input(0)->at<uint8_t>(0), 1);
 }
@@ -809,6 +816,7 @@ TEST(StateTest, NodeReset_ClearsWatermarks) {
     o_time->resize(2);
     o_time->set(0, x::telem::TimeStamp(1 * x::telem::MICROSECOND));
     o_time->set(1, x::telem::TimeStamp(2 * x::telem::MICROSECOND));
+    producer_node.mark_fresh(0);
 
     ASSERT_TRUE(consumer_node.refresh_inputs());
 
@@ -1068,6 +1076,7 @@ void emit(const Node &n, const T value, const int64_t seconds) {
     *n.output_time(0) = x::telem::Series(
         x::telem::TimeStamp(seconds * x::telem::SECOND)
     );
+    n.mark_fresh(0);
 }
 
 /// @brief new_linked_state builds src (i32 output) -> dst (i32 input) and returns the
@@ -1418,6 +1427,87 @@ TEST(ConsumeInputTest, ReturnsFalseForAReferenceInput) {
     EXPECT_FALSE(reader.consume_input(0).second);
 }
 
+/// @brief refresh_inputs should leave an unpublished write invisible to the reader.
+TEST(EmitTest, LeavesAnUnpublishedWriteInvisibleToTheReader) {
+    const auto s = new_linked_state();
+    const auto src = ASSERT_NIL_P(s->node("src"));
+    auto dst = ASSERT_NIL_P(s->node("dst"));
+    *src.output(0) = x::telem::Series(std::vector<int32_t>{1});
+    *src.output_time(0) = x::telem::Series(x::telem::TimeStamp(10 * x::telem::SECOND));
+    EXPECT_FALSE(dst.refresh_inputs());
+}
+
+/// @brief mark_fresh should make a written output visible to the reader.
+TEST(EmitTest, MakesAPublishedWriteVisibleToTheReader) {
+    const auto s = new_linked_state();
+    const auto src = ASSERT_NIL_P(s->node("src"));
+    auto dst = ASSERT_NIL_P(s->node("dst"));
+    emit<int32_t>(src, 1, 10);
+    ASSERT_TRUE(dst.refresh_inputs());
+    EXPECT_EQ(dst.input(0)->at<int32_t>(0), 1);
+}
+
+/// @brief emit should publish the output and wake the reader through mark_changed.
+TEST(EmitTest, WakesTheReaderThroughTheSchedulerCallback) {
+    const auto s = new_linked_state();
+    const auto src = ASSERT_NIL_P(s->node("src"));
+    auto dst = ASSERT_NIL_P(s->node("dst"));
+    std::vector<size_t> marked;
+    *src.output(0) = x::telem::Series(std::vector<int32_t>{1});
+    *src.output_time(0) = x::telem::Series(x::telem::TimeStamp(10 * x::telem::SECOND));
+    src.emit([&marked](const size_t i) { marked.push_back(i); }, 0);
+    EXPECT_EQ(marked, std::vector<size_t>{0});
+    EXPECT_TRUE(dst.refresh_inputs());
+}
+
+/// @brief every producer in a cycle stamps that cycle's single timestamp, so two
+/// writes one pass apart carry the same one. The reader must still see the second.
+TEST(EmitTest, SeesASecondWriteCarryingTheSameTimestamp) {
+    const auto s = new_linked_state();
+    const auto src = ASSERT_NIL_P(s->node("src"));
+    auto dst = ASSERT_NIL_P(s->node("dst"));
+    emit<int32_t>(src, 1, 10);
+    ASSERT_TRUE(dst.refresh_inputs());
+    EXPECT_EQ(dst.input(0)->at<int32_t>(0), 1);
+    emit<int32_t>(src, 2, 10);
+    ASSERT_TRUE(dst.refresh_inputs());
+    EXPECT_EQ(dst.input(0)->at<int32_t>(0), 2);
+}
+
+/// @brief refresh_inputs should not re-fire the reader without a second publish.
+TEST(EmitTest, DoesNotRefireTheReaderWithoutASecondPublish) {
+    const auto s = new_linked_state();
+    const auto src = ASSERT_NIL_P(s->node("src"));
+    auto dst = ASSERT_NIL_P(s->node("dst"));
+    emit<int32_t>(src, 1, 10);
+    ASSERT_TRUE(dst.refresh_inputs());
+    EXPECT_FALSE(dst.refresh_inputs());
+}
+
+/// @brief a published write should reach the reader even with no timestamps on it.
+TEST(EmitTest, ReachesAReaderWhoseSourceCarriesNoTimestamps) {
+    const auto s = new_linked_state();
+    const auto src = ASSERT_NIL_P(s->node("src"));
+    auto dst = ASSERT_NIL_P(s->node("dst"));
+    *src.output(0) = x::telem::Series(std::vector<int32_t>{5});
+    src.mark_fresh(0);
+    ASSERT_TRUE(dst.refresh_inputs());
+    EXPECT_EQ(dst.input(0)->at<int32_t>(0), 5);
+}
+
+/// @brief a published write should reach the reader even when its batch stamps
+/// earlier than the batch before it.
+TEST(EmitTest, ReachesAReaderWhenTheNewBatchStampsEarlier) {
+    const auto s = new_linked_state();
+    const auto src = ASSERT_NIL_P(s->node("src"));
+    auto dst = ASSERT_NIL_P(s->node("dst"));
+    emit<int32_t>(src, 1, 20);
+    ASSERT_TRUE(dst.refresh_inputs());
+    emit<int32_t>(src, 2, 5);
+    ASSERT_TRUE(dst.refresh_inputs());
+    EXPECT_EQ(dst.input(0)->at<int32_t>(0), 2);
+}
+
 /// @brief last_changed should return the most recently changed input and consume it.
 TEST(LastChangedTest, ReturnsTheMostRecentlyChangedInputAndConsumesIt) {
     const auto s = new_pair_state();
@@ -1449,6 +1539,7 @@ TEST(LastChangedTest, SkipsReferenceInputs) {
     auto reader = ASSERT_NIL_P(s->node("reader"));
     *reg.output(0) = x::telem::Series(std::vector<uint32_t>{7});
     *reg.output_time(0) = x::telem::Series(x::telem::TimeStamp(10 * x::telem::SECOND));
+    reg.mark_fresh(0);
     // Only the defaulted data input is eligible; the reference never is.
     const auto [defaulted, ok] = reader.last_changed();
     ASSERT_TRUE(ok);

@@ -108,6 +108,7 @@ void write_source(
         0
     ) = x::mem::make_local_shared<x::telem::Series>(data, x::telem::BOOLEAN_T);
     source.output_time(0) = x::mem::make_local_shared<x::telem::Series>(timestamps);
+    source.mark_fresh(0);
 }
 }
 
@@ -414,6 +415,7 @@ TEST(SelectTest, PropagatesAlignmentAndTimeRange) {
     source.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
         std::vector<int64_t>{100, 200}
     );
+    source.mark_fresh(0);
 
     auto ctx = make_context();
     ASSERT_NIL(node.next(ctx));

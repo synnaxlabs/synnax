@@ -157,6 +157,7 @@ static void
 emit(const runtime::state::Node &n, T value, const x::telem::TimeStamp seconds) {
     *n.output(0) = x::telem::Series(std::vector<T>{std::move(value)});
     *n.output_time(0) = x::telem::Series(seconds);
+    n.mark_fresh(0);
 }
 
 /// @brief returns a second-precision timestamp.

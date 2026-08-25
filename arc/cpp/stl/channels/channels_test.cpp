@@ -563,6 +563,7 @@ TEST(WriteTest, NextWritesDataWhenInputAvailable) {
     upstream.output_time(0) = x::mem::make_local_shared<::x::telem::Series>(
         std::vector<int64_t>{500, 501}
     );
+    upstream.mark_fresh(0);
 
     auto sink_checker = ASSERT_NIL_P(s.node("sink"));
     EXPECT_TRUE(sink_checker.refresh_inputs());
@@ -655,6 +656,7 @@ TEST(WriteTest, NextReportsErrorOnTimeLengthMismatch) {
     upstream.output_time(0) = x::mem::make_local_shared<::x::telem::Series>(
         std::vector<int64_t>{500}
     );
+    upstream.mark_fresh(0);
 
     bool changed = false;
     x::errors::Error captured;
@@ -737,6 +739,7 @@ TEST(WriteTest, ResetRearmsInputsOnStageReentry) {
     upstream.output_time(0) = x::mem::make_local_shared<::x::telem::Series>(
         std::vector<int64_t>{500, 501}
     );
+    upstream.mark_fresh(0);
 
     int changes = 0;
     runtime::node::Context ctx{.mark_changed = [&](size_t) { changes++; }};
@@ -873,6 +876,7 @@ TEST(WriteTest, NextSkipsEmptyInput) {
     upstream.output_time(0) = x::mem::make_local_shared<::x::telem::Series>(
         std::vector<int64_t>{}
     );
+    upstream.mark_fresh(0);
 
     auto sink_checker = ASSERT_NIL_P(s.node("sink"));
     EXPECT_FALSE(sink_checker.refresh_inputs());
@@ -945,6 +949,7 @@ TEST(WriteTest, NextHandlesSequentialWrites) {
     upstream1.output_time(0) = x::mem::make_local_shared<::x::telem::Series>(
         std::vector<int64_t>{10}
     );
+    upstream1.mark_fresh(0);
 
     auto sink_checker1 = ASSERT_NIL_P(s.node("sink"));
     EXPECT_TRUE(sink_checker1.refresh_inputs());
@@ -963,6 +968,7 @@ TEST(WriteTest, NextHandlesSequentialWrites) {
     upstream2.output_time(0) = x::mem::make_local_shared<::x::telem::Series>(
         std::vector<int64_t>{20}
     );
+    upstream2.mark_fresh(0);
 
     auto sink_checker2 = ASSERT_NIL_P(s.node("sink"));
     EXPECT_TRUE(sink_checker2.refresh_inputs());

@@ -129,7 +129,7 @@ public:
                 std::move(time_series)
             );
             this->high_water_mark = ::x::telem::Alignment(upper_val + 1);
-            ctx.mark_changed(0);
+            this->state.emit(ctx.mark_changed, 0);
             return x::errors::NIL;
         }
         return x::errors::NIL;
@@ -203,7 +203,7 @@ public:
         out_time->set(0, time->at<int64_t>(time->size() - 1));
         out_time->alignment = data->alignment;
         out_time->time_range = data->time_range;
-        ctx.mark_changed(0);
+        this->state.emit(ctx.mark_changed, 0);
         return x::errors::NIL;
     }
 

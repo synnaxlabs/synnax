@@ -254,7 +254,7 @@ public:
             else
                 out->resize(off);
             this->state.output_time(j)->resize(off);
-            if (off > 0) ctx.mark_changed(j);
+            if (off > 0) this->state.emit(ctx.mark_changed, j);
         }
 
         return x::errors::NIL;
