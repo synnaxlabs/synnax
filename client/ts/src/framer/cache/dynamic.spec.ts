@@ -522,4 +522,55 @@ describe("DynamicCache", () => {
       });
     });
   });
+
+  describe("dataTimeRange", () => {
+    const WALL = TimeStamp.seconds(100);
+    const stamped = (data: number[], tr: TimeRange, alignment = 0n): Series =>
+      new Series({
+        data: new Float32Array(data),
+        dataType: DataType.FLOAT32,
+        timeRange: tr,
+        alignment,
+      });
+
+    it("should be null when there is no buffer", () => {
+      const cache = new Dynamic({ dynamicBufferSize: 100 });
+      expect(cache.dataTimeRange).toBeNull();
+    });
+
+    it("should end at the last stamped write, not the buffer's MAX end", () => {
+      const cache = new Dynamic({ dynamicBufferSize: 100, now: () => WALL });
+      cache.write(
+        new MultiSeries([
+          stamped([1, 2, 3], TimeStamp.seconds(10).range(TimeStamp.seconds(13))),
+        ]),
+      );
+      cache.write(
+        new MultiSeries([
+          stamped([4, 5], TimeStamp.seconds(13).range(TimeStamp.seconds(15)), 3n),
+        ]),
+      );
+      expect(cache.leadingBuffer?.timeRange.end).toEqual(TimeStamp.MAX);
+      expect(cache.dataTimeRange).toEqual(
+        TimeStamp.seconds(10).range(TimeStamp.seconds(15)),
+      );
+    });
+
+    it("should fall back to the wall clock for unstamped data", () => {
+      const cache = new Dynamic({ dynamicBufferSize: 100, now: () => WALL });
+      cache.write(new MultiSeries([f32([1, 2, 3])]));
+      expect(cache.dataTimeRange).toEqual(WALL.range(WALL));
+    });
+
+    it("should be null again after a flush", () => {
+      const cache = new Dynamic({ dynamicBufferSize: 100 });
+      cache.write(
+        new MultiSeries([
+          stamped([1, 2, 3], TimeStamp.seconds(10).range(TimeStamp.seconds(13))),
+        ]),
+      );
+      cache.flush();
+      expect(cache.dataTimeRange).toBeNull();
+    });
+  });
 });

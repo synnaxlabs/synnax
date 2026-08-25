@@ -13,6 +13,7 @@ import {
   math,
   MultiSeries,
   Series,
+  TimeRange,
   type TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
@@ -94,6 +95,17 @@ export class Dynamic {
    */
   get leadingBuffer(): Series | null {
     return this.curr;
+  }
+
+  /**
+   * @returns the time range the buffer's samples actually cover: its start to the last
+   * stamped write, or the wall clock when the buffer holds unstamped data. Unlike the
+   * buffer's provisional time range, the end never claims future time. Null when there
+   * is no buffer.
+   */
+  get dataTimeRange(): TimeRange | null {
+    if (this.curr == null) return null;
+    return new TimeRange(this.curr.timeRange.start, this.currDataEnd ?? this.now());
   }
 
   /**
