@@ -28,8 +28,8 @@ const client = createTestClient();
 
 // The Core's minimum accepted cadence, so the specs pin the fastest detection a
 // client can actually get.
-const KEEPALIVE = TimeSpan.seconds(2);
-// KEEPALIVE_DEADLINE_FACTOR x KEEPALIVE: how long a read may stay silent once armed.
+const KEEP_ALIVE = TimeSpan.seconds(2);
+// KEEP_ALIVE_DEADLINE_FACTOR x KEEP_ALIVE: how long a read may stay silent once armed.
 const DEADLINE = TimeSpan.seconds(6);
 // One keepalive interval plus slack, so the client has seen a keepalive and armed.
 const ARMED = TimeSpan.milliseconds(2500);
@@ -50,11 +50,11 @@ describe("streamer keepalive", () => {
     const ch = await newVirtualChannel(client);
     const streamer = await client.openStreamer({
       channels: ch.key,
-      keepalive: KEEPALIVE,
+      keepAlive: KEEP_ALIVE,
     });
     try {
       // Let several keepalives queue up so the read has to skip past them.
-      await sleep.sleep(KEEPALIVE.mult(2.5));
+      await sleep.sleep(KEEP_ALIVE.mult(2.5));
       await write(ch, [1, 2, 3]);
       const frame = await streamer.read();
       expect(Array.from(frame.get(ch.key))).toEqual([1, 2, 3]);
@@ -66,8 +66,8 @@ describe("streamer keepalive", () => {
   it("should reject an interval below the Core's minimum", async () => {
     const ch = await newVirtualChannel(client);
     await expect(
-      client.openStreamer({ channels: ch.key, keepalive: TimeSpan.seconds(1) }),
-    ).rejects.toThrow("keepalive: must be greater than or equal to 2s");
+      client.openStreamer({ channels: ch.key, keepAlive: TimeSpan.seconds(1) }),
+    ).rejects.toThrow("keep_alive: must be greater than or equal to 2s");
   });
 
   it("should reject a silent read with Unreachable after the deadline", async () => {
@@ -77,7 +77,7 @@ describe("streamer keepalive", () => {
       const ch = await newVirtualChannel(client);
       const streamer = await proxied.openStreamer({
         channels: ch.key,
-        keepalive: KEEPALIVE,
+        keepAlive: KEEP_ALIVE,
       });
       // Receive at least one keepalive so the deadline is armed.
       await sleep.sleep(ARMED);
@@ -108,7 +108,7 @@ describe("streamer keepalive", () => {
       const onReopen = vi.fn();
       const hardened = await HardenedStreamer.open(
         async (cfg) => await proxied.openStreamer(cfg),
-        { channels: ch.key, keepalive: KEEPALIVE },
+        { channels: ch.key, keepAlive: KEEP_ALIVE },
         FAST_RETRY,
         onReopen,
         onDrop,
@@ -141,7 +141,7 @@ describe("streamer keepalive", () => {
       const ch = await newVirtualChannel(client);
       const streamer = await proxied.openStreamer({
         channels: ch.key,
-        keepalive: TimeSpan.ZERO,
+        keepAlive: TimeSpan.ZERO,
       });
       await sleep.sleep(TimeSpan.milliseconds(250));
       expect(proxy.blackholeStreams()).toBeGreaterThan(0);

@@ -32,9 +32,9 @@ type (
 	responseSegment = confluence.Segment[Response, Response]
 )
 
-// MinKeepalive is the fastest keepalive cadence a streamer accepts. Faster cadences
+// MinKeepAlive is the fastest keepalive cadence a streamer accepts. Faster cadences
 // buy no useful detection latency and let a client multiply its per-stream send rate.
-const MinKeepalive = 2 * telem.Second
+const MinKeepAlive = 2 * telem.Second
 
 type Config struct {
 	// Keys are the channels to stream live samples from.
@@ -51,10 +51,10 @@ type Config struct {
 	// ExcludeGroups are writer group IDs whose frames are filtered out before delivery
 	// (see relay ExcludeGroups).
 	ExcludeGroups []uint32 `json:"exclude_groups" msgpack:"exclude_groups"`
-	// Keepalive is the interval at which the wire sender emits empty keepalive
+	// KeepAlive is the interval at which the wire sender emits empty keepalive
 	// responses so the client can detect a silently dead connection. Zero disables
 	// them. Applied at open; ignored on later requests.
-	Keepalive telem.TimeSpan `json:"keepalive" msgpack:"keepalive"`
+	KeepAlive telem.TimeSpan `json:"keep_alive" msgpack:"keep_alive"`
 }
 
 var _ config.Config[Config] = Config{}
@@ -64,8 +64,8 @@ func (c Config) Validate() error {
 	v := validate.New("streamer.config")
 	validate.GreaterThanEq(v, "downsample_factor", c.DownsampleFactor, 0)
 	validate.GreaterThanEq(v, "throttle_rate", c.ThrottleRate, 0)
-	if c.Keepalive != 0 {
-		validate.GreaterThanEq(v, "keepalive", c.Keepalive, MinKeepalive)
+	if c.KeepAlive != 0 {
+		validate.GreaterThanEq(v, "keep_alive", c.KeepAlive, MinKeepAlive)
 	}
 	return v.Error()
 }
@@ -77,7 +77,7 @@ func (c Config) Override(other Config) Config {
 	c.DownsampleFactor = override.Numeric(c.DownsampleFactor, other.DownsampleFactor)
 	c.ThrottleRate = override.Numeric(c.ThrottleRate, other.ThrottleRate)
 	c.ExcludeGroups = override.Slice(c.ExcludeGroups, other.ExcludeGroups)
-	c.Keepalive = override.Numeric(c.Keepalive, other.Keepalive)
+	c.KeepAlive = override.Numeric(c.KeepAlive, other.KeepAlive)
 	return c
 }
 

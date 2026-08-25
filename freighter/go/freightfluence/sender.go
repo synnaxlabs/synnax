@@ -24,12 +24,12 @@ import (
 // interface for sending messages over a network freighter.
 type Sender[M freighter.Payload] struct {
 	Sender freighter.StreamSenderCloser[M]
-	// KeepaliveInterval, when positive, emits NewKeepalive() on this cadence so the
+	// KeepAliveInterval, when positive, emits NewKeepAlive() on this cadence so the
 	// peer can detect a silently dead connection. Zero disables keepalives.
-	KeepaliveInterval time.Duration
-	// NewKeepalive constructs the message emitted every KeepaliveInterval. Required
-	// when KeepaliveInterval is positive.
-	NewKeepalive func() M
+	KeepAliveInterval time.Duration
+	// NewKeepAlive constructs the message emitted every KeepAliveInterval. Required
+	// when KeepAliveInterval is positive.
+	NewKeepAlive func() M
 	confluence.UnarySink[M]
 }
 
@@ -43,21 +43,21 @@ func (s *Sender[M]) send(ctx context.Context) (err error) {
 		err = errors.Combine(s.Sender.CloseSend(), err)
 	}()
 	// A nil channel never fires, so the keepalive case is inert when disabled.
-	var keepalive <-chan time.Time
-	if s.KeepaliveInterval > 0 {
-		if s.NewKeepalive == nil {
+	var keepAlive <-chan time.Time
+	if s.KeepAliveInterval > 0 {
+		if s.NewKeepAlive == nil {
 			return errors.New("keepalive interval set without a message constructor")
 		}
-		ticker := time.NewTicker(s.KeepaliveInterval)
+		ticker := time.NewTicker(s.KeepAliveInterval)
 		defer ticker.Stop()
-		keepalive = ticker.C
+		keepAlive = ticker.C
 	}
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-keepalive:
-			if err = s.sendMsg(s.NewKeepalive()); err != nil {
+		case <-keepAlive:
+			if err = s.sendMsg(s.NewKeepAlive()); err != nil {
 				return err
 			}
 		case res, ok := <-s.In.Outlet():

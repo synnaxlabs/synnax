@@ -92,22 +92,22 @@ var _ = Describe("Streamer", Ordered, func() {
 	})
 
 	Describe("Config Validation", func() {
-		DescribeTable("Keepalive",
-			func(ctx SpecContext, keepalive telem.TimeSpan, valid bool) {
-				cfg := streamer.Config{Keepalive: keepalive}
+		DescribeTable("KeepAlive",
+			func(ctx SpecContext, keepAlive telem.TimeSpan, valid bool) {
+				cfg := streamer.Config{KeepAlive: keepAlive}
 				if valid {
 					MustSucceed(streamerSvc.New(ctx, cfg))
 					return
 				}
 				Expect(streamerSvc.New(ctx, cfg)).Error().To(
-					MatchError("keepalive: must be greater than or equal to 2s"),
+					MatchError("keep_alive: must be greater than or equal to 2s"),
 				)
 			},
 			Entry("zero disables keepalives", telem.TimeSpan(0), true),
-			Entry("the minimum interval is accepted", streamer.MinKeepalive, true),
+			Entry("the minimum interval is accepted", streamer.MinKeepAlive, true),
 			Entry(
 				"a nonzero interval below the minimum is rejected",
-				streamer.MinKeepalive-1,
+				streamer.MinKeepAlive-1,
 				false,
 			),
 		)

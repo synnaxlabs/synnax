@@ -28,7 +28,7 @@ const reqZ = z.object({
   downsampleFactor: z.int(),
   throttleRate: Rate.z.optional(),
   excludeGroups: z.uint32().array().optional(),
-  keepalive: TimeSpan.z.optional(),
+  keepAlive: TimeSpan.z.optional(),
 });
 
 /**
@@ -40,7 +40,7 @@ export interface StreamerRequest extends z.infer<typeof reqZ> {}
 const resZ = z.object({
   frame: frameZ,
   /** Marks an empty response the Core emits so a dead connection is detectable. */
-  keepalive: z.boolean().optional(),
+  keepAlive: z.boolean().optional(),
 });
 
 /**
@@ -62,7 +62,7 @@ const intermediateStreamerConfigZ = z.object({
   /** Interval at which the Core emits keepalive responses so a silently dead
    connection fails reads instead of hanging forever. TimeSpan.ZERO disables
    detection. Defaults to 5 seconds. */
-  keepalive: TimeSpan.z.default(TimeSpan.seconds(5)),
+  keepAlive: TimeSpan.z.default(TimeSpan.seconds(5)),
 });
 
 /** Zod schema for {@link StreamerConfig}. A bare channel list parses as a config. */
@@ -119,19 +119,19 @@ export const createStreamOpener =
       cfg.downsampleFactor,
       cfg.throttleRate,
       cfg.excludeGroups,
-      cfg.keepalive,
+      cfg.keepAlive,
     );
     stream.send({
       keys: Array.from(adapter.keys),
       downsampleFactor: cfg.downsampleFactor,
       throttleRate: cfg.throttleRate,
       excludeGroups: cfg.excludeGroups,
-      keepalive: cfg.keepalive,
+      keepAlive: cfg.keepAlive,
     });
     // A keepalive can beat the open ack onto the wire, so the ack is the first
     // non-keepalive response.
     let res = await stream.receive();
-    while (res.keepalive === true) res = await stream.receive();
+    while (res.keepAlive === true) res = await stream.receive();
     return streamer;
   };
 
@@ -149,7 +149,7 @@ export const openStreamer = async (
 
 // Missing this many keepalive intervals in a row fails the pending read: one is normal
 // jitter, three is a dead connection.
-const KEEPALIVE_DEADLINE_FACTOR = 3;
+const KEEP_ALIVE_DEADLINE_FACTOR = 3;
 
 class BaseStreamer implements Streamer {
   private readonly stream: StreamProxy<typeof reqZ, typeof resZ>;
@@ -168,7 +168,7 @@ class BaseStreamer implements Streamer {
     downsampleFactor: number = 1,
     throttleRate: Rate = new Rate(0),
     excludeGroups: number[] = [],
-    keepalive: TimeSpan = TimeSpan.ZERO,
+    keepAlive: TimeSpan = TimeSpan.ZERO,
   ) {
     this.stream = new StreamProxy("Streamer", stream);
     this.adapter = adapter;
@@ -176,7 +176,7 @@ class BaseStreamer implements Streamer {
     this.throttleRate = throttleRate;
     this.excludeGroups = excludeGroups;
     this.deadline = TimeSpan.milliseconds(
-      keepalive.milliseconds * KEEPALIVE_DEADLINE_FACTOR,
+      keepAlive.milliseconds * KEEP_ALIVE_DEADLINE_FACTOR,
     );
   }
 
@@ -197,7 +197,7 @@ class BaseStreamer implements Streamer {
   async read(): Promise<Frame> {
     while (true) {
       const res = await this.receiveWithDeadline();
-      if (res.keepalive === true) {
+      if (res.keepAlive === true) {
         if (!this.deadline.isZero) this.armed = true;
         continue;
       }

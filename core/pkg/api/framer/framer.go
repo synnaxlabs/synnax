@@ -242,9 +242,9 @@ func (s *Service) Stream(ctx context.Context, stream StreamerStream) error {
 			Sender: freighter.SenderNopCloser[StreamerResponse]{
 				StreamSender: stream,
 			},
-			KeepaliveInterval: req.Keepalive.Duration(),
-			NewKeepalive: func() StreamerResponse {
-				return StreamerResponse{Keepalive: true}
+			KeepAliveInterval: req.KeepAlive.Duration(),
+			NewKeepAlive: func() StreamerResponse {
+				return StreamerResponse{KeepAlive: true}
 			},
 		}
 		pipe = plumber.New()

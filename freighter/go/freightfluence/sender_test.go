@@ -81,7 +81,7 @@ var _ = Describe("Sender", func() {
 				Expect(ok).To(BeFalse())
 			})
 		})
-		Describe("Sender Keepalive", func() {
+		Describe("Sender KeepAlive", func() {
 			It(
 				"Should emit keepalives on the configured cadence",
 				func(ctx SpecContext) {
@@ -90,8 +90,8 @@ var _ = Describe("Sender", func() {
 					stream := MustSucceed(client.Stream(sCtx, "localhost:0"))
 					sender := &freightfluence.Sender[int]{
 						Sender:            stream,
-						KeepaliveInterval: 5 * time.Millisecond,
-						NewKeepalive:      func() int { return -1 },
+						KeepAliveInterval: 5 * time.Millisecond,
+						NewKeepAlive:      func() int { return -1 },
 					}
 					sender.InFrom(senderStream)
 					sender.Flow(sCtx)
@@ -105,8 +105,8 @@ var _ = Describe("Sender", func() {
 				stream := MustSucceed(client.Stream(sCtx, "localhost:0"))
 				sender := &freightfluence.Sender[int]{
 					Sender:            stream,
-					KeepaliveInterval: 5 * time.Millisecond,
-					NewKeepalive:      func() int { return -1 },
+					KeepAliveInterval: 5 * time.Millisecond,
+					NewKeepAlive:      func() int { return -1 },
 				}
 				sender.InFrom(senderStream)
 				sender.Flow(sCtx)
@@ -130,7 +130,7 @@ var _ = Describe("Sender", func() {
 					stream := MustSucceed(client.Stream(sCtx, "localhost:0"))
 					sender := &freightfluence.Sender[int]{
 						Sender:            stream,
-						KeepaliveInterval: 5 * time.Millisecond,
+						KeepAliveInterval: 5 * time.Millisecond,
 					}
 					sender.InFrom(senderStream)
 					sender.Flow(sCtx)
@@ -148,8 +148,8 @@ var _ = Describe("Sender", func() {
 						Sender: &errSenderCloser{
 							sendErr: freighter.ErrStreamClosed,
 						},
-						KeepaliveInterval: 5 * time.Millisecond,
-						NewKeepalive:      func() int { return -1 },
+						KeepAliveInterval: 5 * time.Millisecond,
+						NewKeepAlive:      func() int { return -1 },
 					}
 					sender.InFrom(confluence.NewStream[int](1))
 					sender.Flow(sCtx, confluence.CancelOnFail())
