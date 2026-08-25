@@ -42,7 +42,7 @@ func (s *Service) Dispatch(
 	acts []Action,
 ) error {
 	dispatcher := s.state.Dispatcher()
-	return s.exec.Serialize(key, func() error {
+	return s.locks.Do(key, func() error {
 		var sweep []Action
 		if err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 			return s.table.NewUpdate().Where(gorp.MatchKeys[Key, Arc](key)).

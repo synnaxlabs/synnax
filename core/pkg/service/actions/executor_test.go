@@ -12,8 +12,6 @@ package actions_test
 import (
 	"context"
 	"sync"
-	"sync/atomic"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -134,36 +132,5 @@ var _ = Describe("Executor", func() {
 				Expect(rec.Snapshot()).To(BeEmpty())
 			},
 		)
-	})
-
-	Describe("Serialize", func() {
-		It("Should run callbacks for one key one at a time", func() {
-			var (
-				wg         sync.WaitGroup
-				active     atomic.Int32
-				overlapped atomic.Bool
-			)
-			for range 16 {
-				wg.Go(func() {
-					defer GinkgoRecover()
-					Expect(exec.Serialize("c", func() error {
-						if active.Add(1) > 1 {
-							overlapped.Store(true)
-						}
-						time.Sleep(time.Millisecond)
-						active.Add(-1)
-						return nil
-					})).To(Succeed())
-				})
-			}
-			wg.Wait()
-			Expect(overlapped.Load()).To(BeFalse())
-		})
-
-		It("Should propagate the callback error", func() {
-			fnErr := errors.New("fn failed")
-			Expect(exec.Serialize("c", func() error { return fnErr })).
-				To(MatchError(fnErr))
-		})
 	})
 })

@@ -33,6 +33,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/lock"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
@@ -148,7 +149,7 @@ type Service struct {
 	closer   xio.MultiCloser
 	cfg      ServiceConfig
 	state    *actions.State[Key, Action]
-	exec     *actions.Executor[Key, Action]
+	locks    lock.Keyed[Key]
 	sweeper  textSweeper
 	taskSync *taskSync
 }
@@ -250,7 +251,6 @@ func OpenService(
 			cfg.TextSweepThreshold,
 		),
 	}
-	s.exec = actions.NewExecutor(cfg.DB, s.state.Dispatcher())
 	s.taskSync = newTaskSync(cfg.TaskSyncDebounce.Duration(), s.resyncTask)
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
