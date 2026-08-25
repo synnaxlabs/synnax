@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 	"github.com/tetratelabs/wazero"
 )
 
@@ -139,6 +140,90 @@ var _ = Describe("Time", func() {
 					State: s.Node("interval_1"),
 				}
 				Expect(factory.Create(ctx, cfg)).Error().To(BeAValidationPathError())
+			},
+		)
+		It(
+			"Should error at construction when the period is zero",
+			func(ctx SpecContext) {
+				cfg := node.Config{
+					Node: ir.Node{
+						Type: "interval",
+						Inputs: types.Params{
+							{
+								Name:  "period",
+								Type:  types.TimeSpan(),
+								Value: telem.TimeSpan(0),
+							},
+						},
+					},
+					State: s.Node("interval_1"),
+				}
+				Expect(factory.Create(ctx, cfg)).Error().To(SatisfyAll(
+					BeAValidationPathError(),
+					MatchError(ContainSubstring("period: must be positive, got 0s")),
+				))
+			},
+		)
+		It(
+			"Should error at construction when the period is negative",
+			func(ctx SpecContext) {
+				cfg := node.Config{
+					Node: ir.Node{
+						Type: "interval",
+						Inputs: types.Params{
+							{
+								Name:  "period",
+								Type:  types.TimeSpan(),
+								Value: -telem.Second,
+							},
+						},
+					},
+					State: s.Node("interval_1"),
+				}
+				Expect(factory.Create(ctx, cfg)).Error().To(SatisfyAll(
+					BeAValidationPathError(),
+					MatchError(ContainSubstring("period: must be positive, got")),
+				))
+			},
+		)
+		It(
+			"Should allow a zero var-bound period at construction",
+			func(ctx SpecContext) {
+				cfg := node.Config{
+					Node: ir.Node{
+						Type: "interval",
+						Inputs: types.Params{
+							{
+								Name:  "period",
+								Type:  types.VarRef(types.TimeSpan(), "p"),
+								Value: telem.TimeSpan(0),
+							},
+						},
+					},
+					State: s.Node("interval_1"),
+				}
+				n := MustSucceed(factory.Create(ctx, cfg))
+				Expect(n).ToNot(BeNil())
+			},
+		)
+		It(
+			"Should not fold a zero var-bound period into the timing base",
+			func(ctx SpecContext) {
+				cfg := node.Config{
+					Node: ir.Node{
+						Type: "interval",
+						Inputs: types.Params{
+							{
+								Name:  "period",
+								Type:  types.VarRef(types.TimeSpan(), "p"),
+								Value: telem.TimeSpan(0),
+							},
+						},
+					},
+					State: s.Node("interval_1"),
+				}
+				MustSucceed(factory.Create(ctx, cfg))
+				Expect(factory.BaseInterval).To(Equal(telem.TimeSpanMax))
 			},
 		)
 		It("Should fire immediately on first tick", func(ctx SpecContext) {
@@ -488,6 +573,28 @@ var _ = Describe("Time", func() {
 					State: s.Node("wait_1"),
 				}
 				Expect(factory.Create(ctx, cfg)).Error().To(BeAValidationPathError())
+			},
+		)
+		It(
+			"Should error at construction when the duration is zero",
+			func(ctx SpecContext) {
+				cfg := node.Config{
+					Node: ir.Node{
+						Type: "wait",
+						Inputs: types.Params{
+							{
+								Name:  "duration",
+								Type:  types.TimeSpan(),
+								Value: telem.TimeSpan(0),
+							},
+						},
+					},
+					State: s.Node("wait_1"),
+				}
+				Expect(factory.Create(ctx, cfg)).Error().To(SatisfyAll(
+					BeAValidationPathError(),
+					MatchError(ContainSubstring("duration: must be positive, got 0s")),
+				))
 			},
 		)
 		It("Should not fire before duration elapses", func(ctx SpecContext) {
@@ -1035,6 +1142,128 @@ var _ = Describe("Time", func() {
 				Expect(changedOutputs).To(BeEmpty())
 			},
 		)
+	})
+	Describe("Non-positive live span guard", func() {
+		var factory *time.Host
+		newState := func(
+			ctx context.Context,
+			nodeKey, typ, param string,
+			span int64,
+		) *node.ProgramState {
+			GinkgoHelper()
+			g := graph.Graph{
+				Nodes: []graph.Node{{Key: nodeKey}},
+				Inputs: map[string]msgpack.EncodedJSON{
+					nodeKey: {"type": typ, param: span},
+				},
+				Functions: []ir.Function{{
+					Key: typ,
+					Outputs: types.Params{
+						{Name: ir.DefaultOutputParam, Type: types.U8()},
+					},
+					Inputs: types.Params{
+						{Name: param, Type: types.I64()},
+					},
+				}},
+			}
+			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
+			Expect(diagnostics.Ok()).To(BeTrue())
+			return node.New(analyzed)
+		}
+		newNode := func(
+			ctx context.Context,
+			s *node.ProgramState,
+			nodeKey, typ, param string,
+		) node.Node {
+			GinkgoHelper()
+			cfg := node.Config{
+				Node: ir.Node{
+					Type: typ,
+					Inputs: types.Params{{
+						Name:  param,
+						Type:  types.VarRef(types.TimeSpan(), "p"),
+						Value: telem.TimeSpan(0),
+					}},
+				},
+				State: s.Node(nodeKey),
+			}
+			n := MustSucceed(factory.Create(ctx, cfg))
+			ns := s.Node(nodeKey)
+			*ns.Output(0) = telem.NewSeriesV[uint8]()
+			*ns.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
+			return n
+		}
+		var (
+			reported  []error
+			deadlines []telem.TimeSpan
+			changed   []int
+		)
+		tick := func(ctx context.Context, n node.Node, elapsed telem.TimeSpan) {
+			n.Next(node.Context{
+				Context:         ctx,
+				Elapsed:         elapsed,
+				Reason:          node.ReasonTimerTick,
+				MarkChanged:     func(i int) { changed = append(changed, i) },
+				MarkSelfChanged: func() {},
+				SetDeadline: func(d telem.TimeSpan) {
+					deadlines = append(deadlines, d)
+				},
+				ReportError: func(err error) { reported = append(reported, err) },
+			})
+		}
+		BeforeEach(func(ctx SpecContext) {
+			factory = MustSucceed(time.NewHost(ctx, nil))
+			reported, deadlines, changed = nil, nil, nil
+		})
+		It("Should park an interval and report the error once", func(ctx SpecContext) {
+			s := newState(ctx, "interval_1", "interval", "period", 0)
+			n := newNode(ctx, s, "interval_1", "interval", "period")
+			tick(ctx, n, 0)
+			tick(ctx, n, telem.Second)
+			Expect(changed).To(BeEmpty())
+			Expect(deadlines).To(BeEmpty())
+			Expect(reported).To(HaveLen(1))
+			Expect(reported[0]).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(
+					"interval period must be positive, got 0s",
+				)),
+			))
+		})
+		It(
+			"Should report an interval error again after a reset",
+			func(ctx SpecContext) {
+				s := newState(ctx, "interval_1", "interval", "period", 0)
+				n := newNode(ctx, s, "interval_1", "interval", "period")
+				tick(ctx, n, 0)
+				n.Reset(node.Context{})
+				tick(ctx, n, telem.Second)
+				Expect(reported).To(HaveLen(2))
+			},
+		)
+		It("Should park a wait and report the error once", func(ctx SpecContext) {
+			s := newState(ctx, "wait_1", "wait", "duration", 0)
+			n := newNode(ctx, s, "wait_1", "wait", "duration")
+			tick(ctx, n, 0)
+			tick(ctx, n, telem.Second)
+			Expect(changed).To(BeEmpty())
+			Expect(deadlines).To(BeEmpty())
+			Expect(reported).To(HaveLen(1))
+			Expect(reported[0]).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(
+					"wait duration must be positive, got 0s",
+				)),
+			))
+		})
+		It("Should park a wait with a negative duration", func(ctx SpecContext) {
+			s := newState(ctx, "wait_1", "wait", "duration", int64(-telem.Second))
+			n := newNode(ctx, s, "wait_1", "wait", "duration")
+			tick(ctx, n, 0)
+			Expect(changed).To(BeEmpty())
+			Expect(deadlines).To(BeEmpty())
+			Expect(reported).To(HaveLen(1))
+		})
 	})
 	Describe("TimingBase", func() {
 		It("Should compute GCD of multiple intervals", func(ctx SpecContext) {

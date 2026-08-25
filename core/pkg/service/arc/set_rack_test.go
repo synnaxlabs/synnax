@@ -10,6 +10,8 @@
 package arc_test
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -148,7 +150,7 @@ var _ = Describe("Task sync", func() {
 
 	createArc := func(ctx SpecContext, mode arc.Mode) {
 		a = arc.Arc{Name: "syncable", Mode: mode}
-		Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
+		Expect(writer.Create(ctx, &a)).To(Succeed())
 	}
 
 	retrieveTask := func(ctx SpecContext, key task.Key) task.Task {
@@ -159,6 +161,21 @@ var _ = Describe("Task sync", func() {
 			Entry(&tsk).
 			Exec(ctx, tx)).To(Succeed())
 		return tsk
+	}
+
+	// taskConfigHash returns a poll function for Eventually/Consistently: the task
+	// sync runs on a debouncer, so hash assertions after a dispatch must wait.
+	taskConfigHash := func(ctx SpecContext, key task.Key) func() string {
+		return func() string {
+			var tsk task.Task
+			if err := taskSvc.NewRetrieve().
+				Where(task.MatchKeys(key)).
+				Entry(&tsk).
+				Exec(ctx, nil); err != nil {
+				return ""
+			}
+			return tsk.ConfigHash
+		}
 	}
 
 	toInsertActions := func(inserts []crdt.Insert) []arc.Action {
@@ -192,44 +209,59 @@ var _ = Describe("Task sync", func() {
 		"Should rewrite the task config when an edit changes the content",
 		func(ctx SpecContext) {
 			createArc(ctx, arc.ModeText)
-			w := svc.NewWriter(tx)
-			tsk := MustSucceed(w.SetRack(ctx, a.Key, testRack.Key))
+			tsk := MustSucceed(writer.SetRack(ctx, a.Key, testRack.Key))
 			before := retrieveTask(ctx, tsk.Key)
 			client := crdt.New(2)
 			Expect(
-				w.Dispatch(ctx, a.Key, "dk", toInsertActions(client.Insert(0, "x"))),
+				svc.Dispatch(ctx, a.Key, "dk", toInsertActions(client.Insert(0, "x"))),
 			).
 				To(Succeed())
+			Eventually(taskConfigHash(ctx, tsk.Key)).
+				ShouldNot(Equal(before.ConfigHash))
 			after := retrieveTask(ctx, tsk.Key)
 			Expect(after.Config["hash"]).ToNot(Equal(before.Config["hash"]))
-			Expect(after.ConfigHash).ToNot(Equal(before.ConfigHash))
 		},
 	)
 
 	It("Should not create a task for an arc with no rack bound", func(ctx SpecContext) {
 		unbound := arc.Arc{Name: "unbound", Mode: arc.ModeText}
-		w := svc.NewWriter(tx)
-		Expect(w.Create(ctx, &unbound)).To(Succeed())
+		Expect(writer.Create(ctx, &unbound)).To(Succeed())
 		client := crdt.New(2)
 		Expect(
-			w.Dispatch(ctx, unbound.Key, "dk", toInsertActions(client.Insert(0, "x"))),
+			svc.Dispatch(
+				ctx,
+				unbound.Key,
+				"dk",
+				toInsertActions(client.Insert(0, "x")),
+			),
 		).To(Succeed())
-		var tasks []task.Task
-		Expect(taskSvc.NewRetrieve().
-			Where(task.MatchNames(unbound.Name)).
-			Entries(&tasks).
-			Exec(ctx, tx)).To(Succeed())
-		Expect(tasks).To(BeEmpty())
+		tasksByName := func(g Gomega) {
+			var tasks []task.Task
+			g.Expect(taskSvc.NewRetrieve().
+				Where(task.MatchNames(unbound.Name)).
+				Entries(&tasks).
+				Exec(ctx, nil)).To(Succeed())
+			g.Expect(tasks).To(BeEmpty())
+		}
+		Consistently(
+			tasksByName,
+			time.Millisecond*100,
+			time.Millisecond*10,
+		).Should(Succeed())
 	})
 
 	It("Should leave the task config on a layout-only edit", func(ctx SpecContext) {
 		createArc(ctx, arc.ModeGraph)
-		w := svc.NewWriter(tx)
-		tsk := MustSucceed(w.SetRack(ctx, a.Key, testRack.Key))
-		Expect(w.Dispatch(ctx, a.Key, "dk", setNode(0))).To(Succeed())
+		Expect(svc.Dispatch(ctx, a.Key, "dk", setNode(0))).To(Succeed())
+		tsk := MustSucceed(writer.SetRack(ctx, a.Key, testRack.Key))
 		before := retrieveTask(ctx, tsk.Key)
-		Expect(w.Dispatch(ctx, a.Key, "dk", setNode(9))).To(Succeed())
-		Expect(retrieveTask(ctx, tsk.Key).ConfigHash).To(Equal(before.ConfigHash))
+		Expect(svc.Dispatch(ctx, a.Key, "dk", setNode(9))).To(Succeed())
+		Consistently(
+			taskConfigHash(ctx, tsk.Key),
+			time.Millisecond*100,
+			time.Millisecond*10,
+		).
+			Should(Equal(before.ConfigHash))
 	})
 
 	It(
@@ -281,17 +313,23 @@ var _ = Describe("Task sync", func() {
 		"Should restore the deployed config when an edit is undone",
 		func(ctx SpecContext) {
 			createArc(ctx, arc.ModeText)
-			w := svc.NewWriter(tx)
-			tsk := MustSucceed(w.SetRack(ctx, a.Key, testRack.Key))
+			tsk := MustSucceed(writer.SetRack(ctx, a.Key, testRack.Key))
 			before := retrieveTask(ctx, tsk.Key)
 			client := crdt.New(2)
 			Expect(
-				w.Dispatch(ctx, a.Key, "dk", toInsertActions(client.Insert(0, "x"))),
+				svc.Dispatch(ctx, a.Key, "dk", toInsertActions(client.Insert(0, "x"))),
 			).
 				To(Succeed())
-			Expect(w.Dispatch(ctx, a.Key, "dk", toDeleteActions(client.Delete(0, 1)))).
+			Expect(
+				svc.Dispatch(ctx, a.Key, "dk", toDeleteActions(client.Delete(0, 1))),
+			).
 				To(Succeed())
-			Expect(retrieveTask(ctx, tsk.Key).ConfigHash).To(Equal(before.ConfigHash))
+			Consistently(
+				taskConfigHash(ctx, tsk.Key),
+				time.Millisecond*100,
+				time.Millisecond*10,
+			).
+				Should(Equal(before.ConfigHash))
 		},
 	)
 })

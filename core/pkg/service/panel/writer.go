@@ -84,30 +84,6 @@ func (w Writer) CreateMany(ctx context.Context, ps *[]Panel) error {
 	return nil
 }
 
-// Dispatch applies a sequence of actions atomically to the panel with the given key.
-// After a successful update the actions are notified to the service-level dispatcher so
-// subscribers (cluster signals) can broadcast them. dispatchKey identifies the
-// originating batch so the originating client can recognize and skip its own echo.
-func (w Writer) Dispatch(
-	ctx context.Context,
-	key Key,
-	dispatchKey string,
-	acts []Action,
-) error {
-	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Panel](key)).
-		ChangeErr(func(_ gorp.Context, p Panel) (Panel, error) {
-			reduced, err := Reduce(p, acts...)
-			if err != nil {
-				return reduced, err
-			}
-			return reduced, validateTree(reduced.Root)
-		}).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	w.dispatcher.Notify(ctx, key, dispatchKey, acts)
-	return nil
-}
-
 // Delete deletes the panels with the given keys and removes their ontology entries.
 func (w Writer) Delete(
 	ctx context.Context,
