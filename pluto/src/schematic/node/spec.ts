@@ -10,8 +10,6 @@
 import { type xy } from "@synnaxlabs/x";
 import { type FC, type ReactNode } from "react";
 
-import { type Theming } from "@/theming";
-
 export interface FormProps {
   /** actions render in the right corner of the form's tab strip. */
   actions?: ReactNode;
@@ -36,9 +34,10 @@ export type Node<Config extends object = object> = FC<NodeProps<Config>>;
 export interface Spec<Variant extends string = string, Config extends object = object> {
   key: Variant;
   name: string;
+  /** The text written into the symbol's label on creation. Defaults to name. */
+  label?: string;
   Form: FC<FormProps>;
   Node: Node<Config>;
-  defaultConfig: (t: Theming.Theme) => Config;
   Preview: FC<PreviewProps<Config>>;
   zIndex: number;
   needsPosition?: boolean;

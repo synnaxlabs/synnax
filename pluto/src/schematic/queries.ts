@@ -17,7 +17,6 @@ import { type ElementConfig } from "@/schematic/element";
 import { Node } from "@/schematic/node";
 import { Scope } from "@/schematic/scope";
 import { Synnax } from "@/synnax";
-import { Theming } from "@/theming";
 
 const RESOURCE_NAME = "schematic";
 
@@ -231,16 +230,15 @@ export interface AddNodeProps {
 
 export const useAddNode = () => {
   const client = Synnax.use();
-  const theme = Theming.use();
   const dispatch = useSingleDispatch();
 
   return useCallback(
     ({ key, variant, position, specKey, config: override }: AddNodeProps) => {
-      const config = Node.resolveSpec(variant).defaultConfig(theme);
+      const config = Node.createConfig(variant);
       if (Node.isCustomConfig(config) && specKey != null) {
         config.specKey = specKey;
         const sym = client?.schematics.symbols.getCached(specKey);
-        if (config.label != null && query.isLive(sym)) config.label.label = sym.name;
+        if (query.isLive(sym)) config.label.label = sym.name;
       }
       dispatch(
         schematic.setNode({
@@ -249,6 +247,6 @@ export const useAddNode = () => {
         }),
       );
     },
-    [dispatch, theme, client],
+    [dispatch, client],
   );
 };

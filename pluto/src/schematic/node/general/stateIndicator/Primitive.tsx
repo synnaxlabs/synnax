@@ -20,7 +20,10 @@ import { symbolColorVar } from "@/schematic/symbolColor";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 
-interface RenderProps extends Omit<schematic.StateIndicatorNodeConfig, "variant"> {
+interface RenderProps extends Partial<
+  Pick<schematic.StateIndicatorNodeConfig, "color" | "orientation" | "inlineSize">
+> {
+  options: schematic.StateIndicatorNodeConfig["options"];
   className?: string;
   matchedOptionKey?: string | null;
   /** Colors the label while the state channel is stale. */

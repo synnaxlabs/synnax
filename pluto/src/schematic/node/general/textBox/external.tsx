@@ -8,30 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Label } from "@/schematic/node/common/label";
 import { TextBoxForm } from "@/schematic/node/general/textBox/Form";
 import { TextBox } from "@/schematic/node/general/textBox/Primitive";
 import { Symbol } from "@/schematic/node/general/textBox/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 
-export const defaultConfig = (): schematic.TextBoxNodeConfig => ({
-  variant: "text_box",
-  orientation: "left",
-  color: color.ZERO,
-  autoFit: true,
-  align: "center",
-  label: Label.defaultConfig("Text box"),
-  level: "p",
-  value: "Text box",
-  width: 75,
-});
-
-const Preview = (props: schematic.TextBoxNodeConfig): ReactElement => (
-  <TextBox {...props} autoFit value="Text box" />
-);
+const Preview = ({
+  label: _label,
+  ...rest
+}: schematic.TextBoxNodeConfig): ReactElement => <TextBox {...rest} value="Text box" />;
 
 export const spec: Spec<"text_box", schematic.TextBoxNodeConfig> = {
   key: "text_box",
@@ -39,6 +26,5 @@ export const spec: Spec<"text_box", schematic.TextBoxNodeConfig> = {
   Form: TextBoxForm,
   Node: Symbol,
   Preview,
-  defaultConfig,
   zIndex: 4,
 };

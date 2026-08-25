@@ -8,23 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { color } from "@synnaxlabs/x";
 
-import { Label } from "@/schematic/node/common/label";
-import { Scale as BaseScale } from "@/schematic/node/common/scale";
 import { ScaleForm } from "@/schematic/node/general/scale/Form";
 import { Scale } from "@/schematic/node/general/scale/Primitive";
 import { Symbol } from "@/schematic/node/general/scale/Symbol";
 import { type Spec } from "@/schematic/node/spec";
-
-export const defaultConfig = (): schematic.ScaleNodeConfig => ({
-  variant: "scale",
-  orientation: "left",
-  dimensions: { ...BaseScale.DEFAULT_DIMENSIONS },
-  color: color.ZERO,
-  label: Label.defaultConfig("Scale"),
-  indicator: BaseScale.defaultConfig({ channel: 0 }),
-});
 
 export const spec: Spec<"scale", schematic.ScaleNodeConfig> = {
   key: "scale",
@@ -32,7 +20,6 @@ export const spec: Spec<"scale", schematic.ScaleNodeConfig> = {
   Form: ScaleForm,
   Node: Symbol,
   Preview: Scale,
-  defaultConfig,
   zIndex: 4,
   needsPosition: true,
 };

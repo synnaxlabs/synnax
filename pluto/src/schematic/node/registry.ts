@@ -51,6 +51,18 @@ export const resolveSpec = (variant: string): Spec<Variant, Config> => {
   return spec as Spec<Variant, Config>;
 };
 
+/**
+ * Builds a fresh config for the variant. Every value comes from the schema, except the
+ * label, which names the symbol.
+ * @throws {NotFoundError} if no spec is registered for the variant.
+ */
+export const createConfig = <V extends Variant>(variant: V): ConfigOf<V> => {
+  const config = configZ.parse({ variant }) as ConfigOf<V>;
+  const spec = resolveSpec(variant);
+  if ("label" in config) config.label.label = spec.label ?? spec.name;
+  return config;
+};
+
 /// CustomVariant is the union of Variants that reference a user-defined
 /// symbol spec via specKey rather than rendering a hard-coded SVG.
 export type CustomVariant =

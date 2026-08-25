@@ -19,7 +19,10 @@ import { Primitive } from "@/schematic/node/common/primitive";
 import { symbolColorVar } from "@/schematic/symbolColor";
 import { Text } from "@/text";
 
-interface RenderProps extends Omit<schematic.TextBoxNodeConfig, "variant"> {
+interface RenderProps extends Omit<
+  schematic.TextBoxNodeConfig,
+  "variant" | "label" | "scale"
+> {
   className?: string;
   onChange?: (value: string) => void;
 }
@@ -30,13 +33,13 @@ export const TextBox = ({
   width,
   color: colorVal,
   level,
-  autoFit,
+  autoFitDisabled,
   align = "center",
   value,
   onChange,
 }: RenderProps): ReactElement => {
   const isVertical = direction.construct(orientation) === "y";
-  const size = autoFit ? "fit-content" : width;
+  const size = autoFitDisabled ? width : "fit-content";
   const style = useMemo<CSSProperties>(
     () => ({
       textAlign: align as CSSProperties["textAlign"],

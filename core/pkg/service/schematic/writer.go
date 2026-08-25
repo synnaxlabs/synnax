@@ -49,6 +49,7 @@ func (w Writer) Create(
 			return err
 		}
 	}
+	s.ApplyDefaults()
 	if err = s.Validate(); err != nil {
 		return err
 	}

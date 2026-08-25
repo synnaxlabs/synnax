@@ -20,7 +20,7 @@ import { Primitive } from "@/schematic/node/common/primitive";
 
 interface RenderProps
   extends
-    Omit<schematic.SetpointNodeConfig, "variant">,
+    Omit<schematic.SetpointNodeConfig, "variant" | "label" | "scale">,
     Omit<BaseInput.Control<number>, "value"> {
   className?: string;
   style?: CSSProperties;

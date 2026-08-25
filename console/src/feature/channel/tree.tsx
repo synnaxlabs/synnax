@@ -40,8 +40,8 @@ import { Session } from "@/session";
 
 const haulItems = ({ name, id: otgID, data }: ontology.Resource): Haul.Item[] => {
   const nodeConfig: PSchematic.Node.ConfigOf<"value"> = {
-    variant: "value",
-    label: { label: name, level: "p" },
+    ...PSchematic.Node.createConfig("value"),
+    label: { ...PSchematic.Node.createConfig("value").label, label: name },
     channel: Number(otgID.key),
   };
   const items = [

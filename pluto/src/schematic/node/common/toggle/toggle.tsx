@@ -23,17 +23,6 @@ import { Toggle as Base } from "@/vis/toggle";
 export const toggleConfigZ = schematic.toggleConfigZ;
 export type ToggleConfig = schematic.ToggleConfig;
 
-export const ZERO_TOGGLE_DEFAULTS: Partial<ToggleConfig> = {
-  control: { show: true },
-  onClickDelay: 0,
-  ...Staleness.ZERO_CONFIG,
-};
-
-export const ZERO_DUMMY_TOGGLE_DEFAULTS: Partial<DummyToggleConfig> = {
-  enabled: false,
-  clickable: false,
-};
-
 export const createToggle = <C extends ToggleConfig>(
   BaseSymbol: FC<Omit<C, "label"> & ButtonProps>,
   overrides?: {

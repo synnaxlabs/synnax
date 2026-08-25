@@ -18,7 +18,10 @@ import { Input as BaseInput } from "@/input";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 
-interface PrimitiveProps extends Omit<schematic.InputNodeConfig, "variant"> {
+interface PrimitiveProps extends Omit<
+  schematic.InputNodeConfig,
+  "variant" | "label" | "scale"
+> {
   initialValue?: string;
   className?: string;
   onSend?: (value: string) => void;

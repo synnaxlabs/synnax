@@ -11,26 +11,21 @@ import { type schematic } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Label } from "@/schematic/node/common/label";
 import { InputForm } from "@/schematic/node/general/input/Form";
 import { Input } from "@/schematic/node/general/input/Primitive";
 import { Symbol } from "@/schematic/node/general/input/Symbol";
 import { type Spec } from "@/schematic/node/spec";
-import { type Theming } from "@/theming";
 
-export const defaultConfig = (t: Theming.Theme): schematic.InputNodeConfig => ({
-  variant: "input",
-  orientation: "left",
-  color: t.colors.gray.l11,
-  size: "small",
-  label: Label.defaultConfig("Input"),
-  control: { show: true },
-});
-
-const Preview = ({ color }: schematic.InputNodeConfig): ReactElement => (
+const Preview = ({
+  color,
+  orientation,
+  size,
+}: schematic.InputNodeConfig): ReactElement => (
   <Input
     initialValue="send message"
     color={color}
+    orientation={orientation}
+    size={size}
     disabled
     className={CSS.BM("input-symbol", "preview")}
   />
@@ -42,6 +37,5 @@ export const spec: Spec<"input", schematic.InputNodeConfig> = {
   Form: InputForm,
   Node: Symbol,
   Preview,
-  defaultConfig,
   zIndex: 4,
 };

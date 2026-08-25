@@ -134,7 +134,7 @@ export const createLabeled = <C extends LabeledConfig>(
       </Grid.Grid>
     );
   };
-  const M = memo(Inner) as FC<NodeProps<C>>;
+  const M = memo(Inner) as unknown as FC<NodeProps<C>>;
   M.displayName = BaseSymbol.displayName;
   return M;
 };

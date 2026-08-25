@@ -11,30 +11,20 @@ import { type schematic } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Label } from "@/schematic/node/common/label";
 import { SetpointForm } from "@/schematic/node/general/setpoint/Form";
 import { Setpoint } from "@/schematic/node/general/setpoint/Primitive";
 import { Symbol } from "@/schematic/node/general/setpoint/Symbol";
 import { type Spec } from "@/schematic/node/spec";
-import { type Theming } from "@/theming";
 
-export const defaultConfig = (t: Theming.Theme): schematic.SetpointNodeConfig => ({
-  variant: "setpoint",
-  orientation: "left",
-  units: "mV",
-  color: t.colors.gray.l11,
-  size: "small",
-  label: Label.defaultConfig("Setpoint"),
-  control: { show: true },
-});
-
-const Preview = ({ ...rest }: schematic.SetpointNodeConfig): ReactElement => (
+const Preview = ({
+  label: _label,
+  ...rest
+}: schematic.SetpointNodeConfig): ReactElement => (
   <Setpoint
+    {...rest}
     onChange={() => {}}
-    units="mV"
     className={CSS.BM("setpoint", "preview")}
     disabled
-    {...rest}
   />
 );
 
@@ -44,6 +34,5 @@ export const spec: Spec<"setpoint", schematic.SetpointNodeConfig> = {
   Form: SetpointForm,
   Node: Symbol,
   Preview,
-  defaultConfig,
   zIndex: 4,
 };

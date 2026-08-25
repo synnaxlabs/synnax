@@ -20,11 +20,6 @@ import { Control } from "@/telem/control";
 export const stateConfigZ = schematic.controlStateConfigZ;
 export type StateConfig = schematic.ControlStateConfig;
 
-export interface StateProps extends StateConfig, Omit<Flex.BoxProps, "direction"> {
-  chip?: Control.ChipProps;
-  indicator?: Control.IndicatorProps;
-}
-
 export interface State {
   config?: StateConfig;
   channel?: channel.Key;
@@ -37,13 +32,7 @@ interface InternalProps extends Flex.BoxProps {
 }
 
 const Internal = ({
-  config: {
-    show = true,
-    showChip = true,
-    showIndicator = true,
-    authority,
-    orientation = "bottom",
-  },
+  config: { hidden, chipHidden, indicatorHidden, authority, orientation },
   channel = 0,
   ...rest
 }: InternalProps) => {
@@ -66,8 +55,8 @@ const Internal = ({
       gap="small"
       {...rest}
     >
-      {show && showChip && <Control.Chip size="small" {...chip} />}
-      {show && showIndicator && <Control.Indicator {...indicator} />}
+      {!hidden && !chipHidden && <Control.Chip size="small" {...chip} />}
+      {!hidden && !indicatorHidden && <Control.Indicator {...indicator} />}
     </Flex.Box>
   );
 };

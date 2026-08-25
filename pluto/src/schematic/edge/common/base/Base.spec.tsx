@@ -32,12 +32,12 @@ describe("edge Base", () => {
     expect(path.getAttribute("class")).toContain("pluto-symbol-colored");
   });
 
-  it("should treat the ZERO sentinel as unset so it falls back to the theme", () => {
+  it("should pass a fully transparent color through as a choice", () => {
     const { container } = renderEdge(
       <Base.Base path="M0 0 L10 10" color={color.ZERO} />,
     );
     expect(queryPath(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
-      "",
+      "0, 0, 0, 0",
     );
   });
 

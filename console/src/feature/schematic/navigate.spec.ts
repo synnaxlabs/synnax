@@ -58,12 +58,13 @@ const renderNavigateHook = async ({
 const offPageConfig = (
   page: string,
   overrides: Partial<schematic.OffPageReferenceElementConfig> = {},
-): schematic.ElementConfig => ({
-  variant: "off_page_reference",
-  label: { label: "Target Ref" },
-  page,
-  ...overrides,
-});
+): schematic.ElementConfig =>
+  schematic.offPageReferenceElementConfigZ.parse({
+    variant: "off_page_reference",
+    label: { label: "Target Ref" },
+    page,
+    ...overrides,
+  });
 
 const expectNavigatedTo = async (
   store: TestStore,
@@ -114,7 +115,7 @@ describe("Schematic.useHandleNodeClickAction", () => {
   it("navigates on single click when dblClickNav is disabled", async () => {
     const target = await createSchematic({ name: uniqueName("target") });
     const { result, store } = await renderNavigateHook({
-      configs: { n1: offPageConfig(target.key, { dblClickNav: false }) },
+      configs: { n1: offPageConfig(target.key, { dblClickNavDisabled: true }) },
     });
     act(() => result.current.handler("n1", false));
     await expectNavigatedTo(store, target);
@@ -146,7 +147,7 @@ describe("Schematic.useHandleNodeClickAction", () => {
     const control = await createSchematic({ name: uniqueName("control") });
     const { result, store } = await renderNavigateHook({
       configs: {
-        n1: { variant: "valve" },
+        n1: schematic.valveElementConfigZ.parse({ variant: "valve" }),
         ctl: offPageConfig(control.key),
       },
     });

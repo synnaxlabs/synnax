@@ -17,7 +17,7 @@ import { type NodeProps } from "@/schematic/node/spec";
 export const Symbol = ({
   nodeKey,
   onConfigChange,
-  config: { color, width, align, autoFit, level, value, orientation },
+  config: { color, width, align, autoFitDisabled, level, value, orientation },
 }: NodeProps<schematic.TextBoxNodeConfig>): ReactElement => (
   <TextBox
     className={Grid.DRAG_HANDLE_CLASS}
@@ -28,7 +28,7 @@ export const Symbol = ({
     key={nodeKey}
     width={width}
     align={align}
-    autoFit={autoFit}
+    autoFitDisabled={autoFitDisabled}
     orientation={orientation}
   />
 );

@@ -8,28 +8,26 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { color, deep } from "@synnaxlabs/x";
+import { color } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { CSS } from "@/css";
 import { Form } from "@/form";
+import { Node } from "@/schematic/node";
 import { GROUP } from "@/schematic/node/general/group";
-import { StringDisplay } from "@/schematic/node/general/stringDisplay";
 import { StringDisplayForm } from "@/schematic/node/general/stringDisplay/Form";
 import { StringDisplay as Primitive } from "@/schematic/node/general/stringDisplay/Primitive";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
-import { SYNNAX_DARK, type Theme, themeZ } from "@/theming/base/theme";
 
 const SynnaxWrapper = createSynnaxWrapper({ client: null });
 
-const THEME: Theme = themeZ.parse(SYNNAX_DARK);
 const CONFIG_Z = schematic.stringDisplayNodeConfigZ;
 
 const FormWrapper = ({ children }: PropsWithChildren): ReactElement => {
   const methods = Form.use<typeof CONFIG_Z>({
-    values: deep.copy(StringDisplay.defaultConfig(THEME)),
+    values: Node.createConfig("string_display"),
     schema: CONFIG_Z,
   });
   return (
@@ -54,13 +52,6 @@ const getBox = (container: HTMLElement): HTMLElement => {
 const LONG_VALUE = "a".repeat(500);
 
 describe("StringDisplay", () => {
-  describe("defaultConfig", () => {
-    it("should produce a config that satisfies its own schema", () => {
-      const config = StringDisplay.defaultConfig(THEME);
-      expect(CONFIG_Z.parse(config)).toEqual(config);
-    });
-  });
-
   describe("Primitive", () => {
     it("should render the value as text", () => {
       const { container } = render(<Primitive value="hello" />);

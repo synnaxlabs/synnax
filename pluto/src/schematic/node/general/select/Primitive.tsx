@@ -19,7 +19,13 @@ import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { Select as BaseSelect } from "@/select";
 
-interface RenderProps extends Omit<schematic.SelectNodeConfig, "sink" | "variant"> {
+interface RenderProps extends Partial<
+  Pick<
+    schematic.SelectNodeConfig,
+    "color" | "orientation" | "size" | "disabled" | "inlineSize"
+  >
+> {
+  options: schematic.SelectNodeConfig["options"];
   className?: string;
   value?: string;
   onChange: (key: string | null) => void;

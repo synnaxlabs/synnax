@@ -16,7 +16,10 @@ import { CSS } from "@/css";
 import { symbolColorVar } from "@/schematic/symbolColor";
 import { Text } from "@/text";
 
-interface RenderProps extends Omit<schematic.GaugeNodeConfig, "variant"> {
+interface RenderProps extends Omit<
+  schematic.GaugeNodeConfig,
+  "variant" | "label" | "scale"
+> {
   className?: string;
 }
 

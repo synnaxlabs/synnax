@@ -38,6 +38,7 @@ export const Symbol = ({
     precision,
     units,
     inlineSize = 70,
+    orientation,
     notation,
     stalenessColor,
     stalenessTimeout,
@@ -92,6 +93,7 @@ export const Symbol = ({
       <Label.Label config={label} onChange={onConfigChange} />
       <Value
         color={color}
+        orientation={orientation}
         dimensions={{ height: valueBoxHeight, width: oWidth }}
         inlineSize={inlineSize}
         units={units}

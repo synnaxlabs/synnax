@@ -9,24 +9,12 @@
 
 import { type schematic } from "@synnaxlabs/client";
 
-import { Label } from "@/schematic/node/common/label";
 import { ButtonForm } from "@/schematic/node/general/button/Form";
 import { Button } from "@/schematic/node/general/button/Primitive";
 import { Symbol } from "@/schematic/node/general/button/Symbol";
 import { type Spec } from "@/schematic/node/spec";
-import { type Theming } from "@/theming";
 
 const NAME = "Button";
-
-export const defaultConfig = (t: Theming.Theme): schematic.ButtonNodeConfig => ({
-  variant: "button",
-  orientation: "left",
-  color: t.colors.primary.z,
-  label: Label.defaultConfig(NAME),
-  control: { show: true },
-  mode: "fire",
-  onClickDelay: 0,
-});
 
 export const spec: Spec<"button", schematic.ButtonNodeConfig> = {
   key: "button",
@@ -34,6 +22,5 @@ export const spec: Spec<"button", schematic.ButtonNodeConfig> = {
   Form: ButtonForm,
   Node: Symbol,
   Preview: Button,
-  defaultConfig,
   zIndex: 4,
 };

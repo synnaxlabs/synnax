@@ -46,10 +46,10 @@ describe("button symbol", () => {
     );
   });
 
-  it("should leave the source color unset for the ZERO sentinel", () => {
+  it("should pass a fully transparent color through as a choice", () => {
     const { container } = render(<Button color={color.ZERO} />);
     expect(getButton(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
-      "",
+      "0, 0, 0, 0",
     );
   });
 

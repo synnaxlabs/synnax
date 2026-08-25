@@ -14,7 +14,9 @@ import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 
-interface RenderProps extends Omit<schematic.LightNodeConfig, "variant"> {
+interface RenderProps extends Partial<
+  Pick<schematic.LightNodeConfig, "color" | "orientation" | "scale">
+> {
   className?: string;
   enabled?: boolean;
 }

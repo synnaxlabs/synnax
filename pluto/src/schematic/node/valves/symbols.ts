@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { color } from "@synnaxlabs/x";
 
 import {
   createDummyToggle,
@@ -16,8 +15,6 @@ import {
   createToggle,
 } from "@/schematic/node/common/create";
 import { Form } from "@/schematic/node/common/form";
-import { Label } from "@/schematic/node/common/label";
-import { Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
 import { type Spec } from "@/schematic/node/spec";
 import { Angled } from "@/schematic/node/valves/Angled";
@@ -169,14 +166,6 @@ const solenoidSpec: Spec<"solenoid_valve", SolenoidConfig> = {
   Form: Form.ToggleForm,
   Node: Toggle.createToggle<SolenoidConfig>(Solenoid),
   Preview: Solenoid,
-  defaultConfig: (): SolenoidConfig => ({
-    variant: "solenoid_valve",
-    color: color.ZERO,
-    label: Label.defaultConfig("Solenoid valve"),
-    normallyOpen: false,
-    ...Primitive.ZERO_PROPS,
-    ...Toggle.ZERO_TOGGLE_DEFAULTS,
-  }),
   zIndex: 4,
 };
 const springLoadedRelief = createDummyToggle({

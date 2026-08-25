@@ -21,9 +21,11 @@ import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { Staleness } from "@/vis/staleness";
 
-interface RenderProps extends Omit<
-  schematic.StringDisplayNodeConfig,
-  "label" | "variant"
+interface RenderProps extends Partial<
+  Pick<
+    schematic.StringDisplayNodeConfig,
+    "color" | "textColor" | "stalenessColor" | "orientation" | "level" | "inlineSize"
+  >
 > {
   className?: string;
   value?: string;

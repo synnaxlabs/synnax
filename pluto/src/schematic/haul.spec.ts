@@ -18,6 +18,7 @@ import {
   type HaulItemData,
   isHaulItem,
 } from "@/schematic/haul";
+import { Node } from "@/schematic/node";
 
 const ITEM_DATA: HaulItemData = { key: "n1", variant: "tank" };
 
@@ -44,7 +45,7 @@ describe("createHaulItem", () => {
       variant: "valve",
       position: { x: 5, y: 7 },
       specKey: "spec-1",
-      config: { variant: "valve" },
+      config: Node.createConfig("valve"),
     };
     expect(createHaulItem(data).data).toEqual(data);
   });

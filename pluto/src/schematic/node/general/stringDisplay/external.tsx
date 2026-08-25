@@ -8,26 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Label } from "@/schematic/node/common/label";
 import { StringDisplayForm } from "@/schematic/node/general/stringDisplay/Form";
 import { StringDisplay } from "@/schematic/node/general/stringDisplay/Primitive";
 import { Symbol } from "@/schematic/node/general/stringDisplay/Symbol";
 import { type Spec } from "@/schematic/node/spec";
-import { type Theming } from "@/theming";
-
-export const defaultConfig = (t: Theming.Theme): schematic.StringDisplayNodeConfig => ({
-  variant: "string_display",
-  orientation: "left",
-  color: color.ZERO,
-  level: "p",
-  inlineSize: 100,
-  label: Label.defaultConfig("String display"),
-  stalenessTimeout: 5,
-  stalenessColor: t.colors.warning.m1,
-});
 
 const Preview = ({ color, level }: schematic.StringDisplayNodeConfig): ReactElement => (
   <StringDisplay color={color} level={level} value="Hello world!" />
@@ -39,6 +25,5 @@ export const spec: Spec<"string_display", schematic.StringDisplayNodeConfig> = {
   Form: StringDisplayForm,
   Node: Symbol,
   Preview,
-  defaultConfig,
   zIndex: 4,
 };

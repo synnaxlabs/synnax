@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { Schematic as PSchematic, type Status, Theming } from "@synnaxlabs/pluto";
+import { Schematic as PSchematic, type Status } from "@synnaxlabs/pluto";
 import { location, uuid } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
@@ -25,10 +25,8 @@ import {
   isPlutoDisabled,
 } from "@/testutil";
 
-const theme = Theming.themeZ.parse(Theming.SYNNAX_THEMES.synnaxDark);
-
 const createValveConfig = (): Record<string, unknown> =>
-  PSchematic.Node.resolveSpec("valve").defaultConfig(theme);
+  PSchematic.Node.createConfig("valve");
 
 interface RenderPropertiesParams {
   nodeKeys: string[];
@@ -105,9 +103,10 @@ describe("Schematic toolbar Properties", () => {
       await renderProperties({
         nodeKeys: ["n1"],
         createConfig: () => ({
-          ...(PSchematic.Node.resolveSpec("custom_static").defaultConfig(
-            theme,
-          ) as Record<string, unknown>),
+          ...(PSchematic.Node.createConfig("custom_static") as unknown as Record<
+            string,
+            unknown
+          >),
           specKey: uuid.create(),
         }),
       });

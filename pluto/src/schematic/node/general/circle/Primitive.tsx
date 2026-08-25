@@ -15,7 +15,10 @@ import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 
-interface RenderProps extends Omit<schematic.CircleNodeConfig, "variant"> {
+interface RenderProps extends Omit<
+  schematic.CircleNodeConfig,
+  "variant" | "label" | "scale"
+> {
   className?: string;
 }
 

@@ -30,6 +30,20 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// labeled holds the LabeledConfig values ApplyDefaults fills in, including the nested
+// label defaults every symbol carries.
+var labeled = v9.LabeledConfig{
+	Label: v9.LabelConfig{
+		Level:         "h5",
+		Orientation:   "top",
+		Direction:     "x",
+		MaxInlineSize: 150,
+		Align:         "center",
+	},
+	Orientation: "left",
+	Scale:       1,
+}
+
 var _ = Describe("Config typing", func() {
 	// typed runs a single v8 config entry through the v9 migration and returns the
 	// decoded union variant, failing the spec when the entry was dropped.
@@ -49,6 +63,10 @@ var _ = Describe("Config typing", func() {
 			"color":   "#ff0000",
 		})).To(Equal(v9.ValveElementConfig{
 			ToggleSymbolConfig: v9.ToggleSymbolConfig{
+				ToggleConfig: v9.ToggleConfig{
+					LabeledConfig:    labeled,
+					StalenessTimeout: 5,
+				},
 				Color: new(MustSucceed(color.FromHex("#ff0000"))),
 			},
 		}))
@@ -76,7 +94,11 @@ var _ = Describe("Config typing", func() {
 			"variant":   "stringDisplay",
 			"textColor": "#00ff00",
 		})).To(Equal(v9.StringDisplayElementConfig{
-			TextColor: new(MustSucceed(color.FromHex("#00ff00"))),
+			LabeledConfig:    labeled,
+			Level:            "p",
+			InlineSize:       100,
+			StalenessTimeout: 5,
+			TextColor:        new(MustSucceed(color.FromHex("#00ff00"))),
 		}))
 	})
 
@@ -103,6 +125,28 @@ var _ = Describe("Config typing", func() {
 		Expect(cfg.RollingAverage).To(HaveValue(BeEquivalentTo(5)))
 	})
 
+	// A v8 config predates every schema default, so the lift is the only place the
+	// stored entry can pick them up.
+	It("Should fill schema defaults the stored config never carried", func(
+		ctx SpecContext,
+	) {
+		Expect(typed(ctx, msgpack.EncodedJSON{"variant": "value"})).To(
+			Equal(v9.ValueElementConfig{
+				LabeledConfig:    labeled,
+				Level:            "h5",
+				InlineSize:       70,
+				StalenessTimeout: 5,
+				Notation:         "standard",
+				Precision:        2,
+				Units:            "psi",
+				Redline: v9.Redline{
+					Bounds: spatial.Bounds{Lower: 0, Upper: 1},
+				},
+				Location: spatial.LocationXY{X: "left", Y: "center"},
+			}),
+		)
+	})
+
 	It("Should drop an entry naming no known variant", func(ctx SpecContext) {
 		out := MustSucceed(v9.MigrateSchematic(ctx, v8.Schematic{
 			Configs: map[string]msgpack.EncodedJSON{
@@ -124,7 +168,14 @@ var _ = Describe("ImportSchematic", func() {
 			{Key: "n1", Position: spatial.XY{X: 1, Y: 2}},
 		}))
 		Expect(out.Configs).To(Equal(map[string]v9.ElementConfig{
-			"n1": {Variant: v9.ValveElementConfig{}},
+			"n1": {Variant: v9.ValveElementConfig{
+				ToggleSymbolConfig: v9.ToggleSymbolConfig{
+					ToggleConfig: v9.ToggleConfig{
+						LabeledConfig:    labeled,
+						StalenessTimeout: 5,
+					},
+				},
+			}},
 		}))
 	})
 
@@ -241,7 +292,14 @@ var _ = Describe("Migration", func() {
 			{Key: "a", Position: spatial.XY{X: 1, Y: 2}},
 		}))
 		Expect(got.Configs).To(Equal(map[string]v9.ElementConfig{
-			"a": {Variant: v9.ValveElementConfig{}},
+			"a": {Variant: v9.ValveElementConfig{
+				ToggleSymbolConfig: v9.ToggleSymbolConfig{
+					ToggleConfig: v9.ToggleConfig{
+						LabeledConfig:    labeled,
+						StalenessTimeout: 5,
+					},
+				},
+			}},
 		}))
 	})
 

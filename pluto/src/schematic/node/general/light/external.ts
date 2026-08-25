@@ -8,24 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { color } from "@synnaxlabs/x";
 
-import { Label } from "@/schematic/node/common/label";
 import { LightForm } from "@/schematic/node/general/light/Form";
 import { Light } from "@/schematic/node/general/light/Primitive";
 import { Symbol } from "@/schematic/node/general/light/Symbol";
 import { type Spec } from "@/schematic/node/spec";
-import { type Theming } from "@/theming";
-
-export const defaultConfig = (t: Theming.Theme): schematic.LightNodeConfig => ({
-  variant: "light",
-  orientation: "left",
-  scale: 1,
-  color: color.ZERO,
-  label: Label.defaultConfig("Light"),
-  stalenessTimeout: 5,
-  stalenessColor: t.colors.warning.m1,
-});
 
 export const spec: Spec<"light", schematic.LightNodeConfig> = {
   key: "light",
@@ -33,6 +20,5 @@ export const spec: Spec<"light", schematic.LightNodeConfig> = {
   Form: LightForm,
   Node: Symbol,
   Preview: Light,
-  defaultConfig,
   zIndex: 4,
 };

@@ -17,16 +17,16 @@ import { Theming } from "@/theming";
 export const ColorField: Form.FieldT<color.Crude> = (props): ReactElement => {
   const theme = Theming.use();
   return (
-    <Form.Field hideIfNull label="Color" align="start" padHelpText={false} {...props}>
-      {({ value, ...rest }) => (
-        // The swatch shows the source color; an unset (ZERO) color resolves to the
-        // theme default so it reads as a filled swatch rather than transparent.
-        <Color.Swatch
-          value={value == null || color.isZero(value) ? theme.colors.gray.l11 : value}
-          {...rest}
-          bordered
-        />
-      )}
+    <Form.Field
+      label="Color"
+      align="start"
+      padHelpText={false}
+      // An unchosen color is absent, so the swatch reads the theme value it resolves
+      // to. Only a pick writes one.
+      defaultValue={theme.colors.gray.l11}
+      {...props}
+    >
+      {({ value, ...rest }) => <Color.Swatch value={value} {...rest} bordered />}
     </Form.Field>
   );
 };

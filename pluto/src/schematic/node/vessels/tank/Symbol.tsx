@@ -81,7 +81,6 @@ export const Symbol = ({
   selected,
   config: {
     label,
-    orientation = "left",
     backgroundColor,
     color,
     dimensions = Border.DEFAULT_DIMENSIONS,
@@ -107,7 +106,6 @@ export const Symbol = ({
       />
     )}
     <Tank
-      orientation={orientation}
       color={color}
       dimensions={dimensions}
       borderRadius={borderRadius}

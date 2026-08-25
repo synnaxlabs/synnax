@@ -8,21 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Label } from "@/schematic/node/common/label";
 import { OffPageReferenceForm } from "@/schematic/node/general/offPageReference/Form";
 import { OffPageReference } from "@/schematic/node/general/offPageReference/Primitive";
 import { Symbol } from "@/schematic/node/general/offPageReference/Symbol";
 import { type Spec } from "@/schematic/node/spec";
-
-export const defaultConfig = (): schematic.OffPageReferenceNodeConfig => ({
-  variant: "off_page_reference",
-  color: color.ZERO,
-  orientation: "right",
-  label: Label.defaultConfig("Off page reference"),
-});
 
 const Preview = ({
   label: _,
@@ -37,6 +28,5 @@ export const spec: Spec<"off_page_reference", schematic.OffPageReferenceNodeConf
   Form: OffPageReferenceForm,
   Node: Symbol,
   Preview,
-  defaultConfig,
   zIndex: 4,
 };

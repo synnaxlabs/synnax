@@ -39,7 +39,7 @@ export const StyleForm = ({
       <Flex.Box y grow>
         <Label.Form omit={omit} path="label" />
         <Flex.Box x grow>
-          {!hasStateOverrides && <ColorField path="color" optional />}
+          {!hasStateOverrides && <ColorField path="color" />}
           <Form.SwitchField
             path="normallyOpen"
             label="Normally open"

@@ -25,7 +25,7 @@ import { symbolColorVar } from "@/schematic/symbolColor";
 import { Text } from "@/text";
 
 interface RenderProps extends PropsWithChildren<
-  Omit<schematic.ValueNodeConfig, "label" | "variant">
+  Pick<schematic.ValueNodeConfig, "color" | "orientation" | "units" | "inlineSize">
 > {
   className?: string;
   dimensions?: dimensions.Dimensions;
@@ -36,8 +36,8 @@ export const Value = ({
   className,
   color: colorVal,
   dimensions,
-  orientation = "left",
-  units = "psi",
+  orientation,
+  units,
   unitsLevel = "small",
   children,
   inlineSize = 80,

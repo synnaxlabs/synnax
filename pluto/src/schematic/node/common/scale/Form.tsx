@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel } from "@synnaxlabs/client";
+import { type channel, schematic } from "@synnaxlabs/client";
 import { location, type notation, primitive, type text } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -18,7 +18,7 @@ import { Form as Base } from "@/form";
 import { Input } from "@/input";
 import { Notation } from "@/notation";
 import { Form as NodeForm } from "@/schematic/node/common/form";
-import { type Config, defaultConfig } from "@/schematic/node/common/scale/config";
+import { type Config } from "@/schematic/node/common/scale/config";
 import { Select } from "@/select";
 import { Staleness } from "@/vis/staleness";
 
@@ -54,20 +54,17 @@ const field = (path: string, name: string): string => `${path}.${name}`;
 export interface TelemFormProps extends FormProps {
   /** When true, clearing the channel unbinds the scale instead of pinning it to 0. */
   allowNone?: boolean;
-  /** Applied when the symbol carries no scale config yet. */
-  defaults?: Partial<Config>;
 }
 
 export const TelemForm = ({
   path,
   allowNone = false,
-  defaults,
 }: TelemFormProps): ReactElement => {
   const { set } = Base.useContext();
   const config = Base.useField<Config | undefined>(path, { optional: true })?.value;
   const setChannel = (channel?: channel.Key): void => {
     if (config != null) return set(field(path, "channel"), channel);
-    if (channel != null) set(path, defaultConfig({ ...defaults, channel }));
+    if (channel != null) set(path, schematic.scaleIndicatorConfigZ.parse({ channel }));
   };
   const handleChannelChange = (key: channel.Key | null): void => {
     if (allowNone && !primitive.isNonZero(key)) return setChannel(undefined);
@@ -121,14 +118,18 @@ export const TelemForm = ({
 /** Which parts of the scale are drawn, and which side its axis sits on. */
 export const DisplayFields = ({ path }: FormProps): ReactElement => (
   <>
-    <Base.SwitchField path={field(path, "showFill")} label="Fill" padHelpText={false} />
-    <Base.SwitchField
-      path={field(path, "showCaret")}
+    <NodeForm.NegatedSwitchField
+      path={field(path, "fillHidden")}
+      label="Fill"
+      padHelpText={false}
+    />
+    <NodeForm.NegatedSwitchField
+      path={field(path, "caretHidden")}
       label="Value"
       padHelpText={false}
     />
-    <Base.SwitchField
-      path={field(path, "showScale")}
+    <NodeForm.NegatedSwitchField
+      path={field(path, "scaleHidden")}
       label="Scale"
       padHelpText={false}
     />

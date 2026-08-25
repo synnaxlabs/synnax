@@ -24,7 +24,6 @@ import {
   Status,
   Tabs,
   Text,
-  Theming,
 } from "@synnaxlabs/pluto";
 import { id, uuid } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
@@ -44,7 +43,6 @@ const HAUL_DRAG_PROPS: Haul.UseDragProps = {
 
 const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
   const { itemKey } = props;
-  const theme = Theming.use();
   const addNode = Schematic.useAddNode();
   const { startDrag, onDragEnd } = Haul.useDrag(HAUL_DRAG_PROPS);
   const variant = itemKey as Schematic.Node.Variant;
@@ -61,8 +59,11 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
     [addNode, createParams],
   );
   const spec = List.useItem<string, Schematic.Node.Spec>(itemKey);
-  const defaultConfig = useMemo(() => spec?.defaultConfig(theme), [spec, theme]);
-  if (spec == null || defaultConfig == null) return null;
+  const config = useMemo(
+    () => (spec == null ? null : Schematic.Node.createConfig(spec.key as Schematic.Node.Variant)),
+    [spec],
+  );
+  if (spec == null || config == null) return null;
   const { name, Preview } = spec;
   return (
     <List.Item
@@ -78,7 +79,7 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
     >
       <Text.Text level="small">{name}</Text.Text>
       <Flex.Box align="center" justify="center" grow>
-        <Preview {...defaultConfig} scale={0.75} />
+        <Preview {...config} scale={0.75} />
       </Flex.Box>
     </List.Item>
   );

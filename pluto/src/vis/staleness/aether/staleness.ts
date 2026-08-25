@@ -265,7 +265,6 @@ export const useInternalRegistration = (
 export const resolveColor = (
   c: color.Crude | undefined,
   theme: theming.Theme,
-): color.Color =>
-  c == null || color.isZero(c) ? theme.colors.warning.m1 : color.construct(c);
+): color.Color => (c == null ? theme.colors.warning.m1 : color.construct(c));
 
 export const REGISTRY: aether.ComponentRegistry = { [Provider.TYPE]: Provider };

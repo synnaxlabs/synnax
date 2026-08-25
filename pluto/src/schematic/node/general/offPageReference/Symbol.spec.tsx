@@ -48,14 +48,14 @@ describe("OffPageReference", () => {
       expect(arrow?.style.getPropertyValue("--pluto-symbol-color")).toBe("");
     });
 
-    it("should treat the ZERO default config color as unset", () => {
+    it("should pass a fully transparent color through as a choice", () => {
       const { container } = render(
         <ThemeWrapper>
           <OffPageReference color={color.ZERO} />
         </ThemeWrapper>,
       );
       const arrow = container.querySelector<HTMLElement>(".pluto-arrow");
-      expect(arrow?.style.getPropertyValue("--pluto-symbol-color")).toBe("");
+      expect(arrow?.style.getPropertyValue("--pluto-symbol-color")).toBe("0, 0, 0, 0");
     });
   });
 

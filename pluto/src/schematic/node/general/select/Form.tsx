@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type schematic } from "@synnaxlabs/client";
+import { type channel, schematic } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
@@ -28,7 +28,12 @@ const SelectTelemForm = ({ path }: { path: string }): ReactElement => {
     onChange({
       ...value,
       commandChannel: v,
-      control: { ...value.control, show: true, showChip: true, showIndicator: true },
+      control: schematic.controlStateConfigZ.parse({
+        ...value.control,
+        hidden: false,
+        chipHidden: false,
+        indicatorHidden: false,
+      }),
       disabled: v === 0,
     });
 

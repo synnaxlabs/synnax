@@ -19,15 +19,7 @@ export const Symbol = ({
   nodeKey,
   onConfigChange,
   selected,
-  config: {
-    label,
-    orientation = "left",
-    backgroundColor,
-    borderRadius,
-    color,
-    dimensions,
-    strokeWidth,
-  },
+  config: { label, backgroundColor, borderRadius, color, dimensions, strokeWidth },
 }: NodeProps<schematic.BoxNodeConfig>): ReactElement => (
   <Grid.Grid
     allowCenter
@@ -38,7 +30,6 @@ export const Symbol = ({
   >
     <Label.Label config={label} onChange={onConfigChange} />
     <TankPrimitive
-      orientation={orientation}
       color={color}
       dimensions={dimensions}
       boxBorderRadius={borderRadius}

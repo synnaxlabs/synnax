@@ -10,7 +10,7 @@
 import "@/schematic/node/general/offPageReference/offPageReference.css";
 
 import { type schematic } from "@synnaxlabs/client";
-import { type color, direction } from "@synnaxlabs/x";
+import { type color, direction, type text } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
@@ -21,17 +21,17 @@ import { Text } from "@/text";
 
 export const offPageReferenceTooltip = (
   page?: string,
-  dblClickNav?: boolean,
+  dblClickNavDisabled?: boolean,
 ): string | undefined => {
   if (page == null || page.length === 0) return undefined;
-  const mode = dblClickNav !== false ? "Double" : "Single";
+  const mode = dblClickNavDisabled === true ? "Single" : "Double";
   return `${mode}-click to navigate`;
 };
 
-interface RenderProps extends Omit<
-  schematic.OffPageReferenceNodeConfig,
-  "label" | "page" | "dblClickNav" | "variant" | "color"
+interface RenderProps extends Partial<
+  Pick<schematic.OffPageReferenceNodeConfig, "orientation">
 > {
+  level?: text.Level;
   color?: color.Crude;
   id?: string;
   label?: string;

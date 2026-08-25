@@ -34,12 +34,12 @@ const ClickModeSelect = Component.renderProp(
     onChange: (v: boolean) => void;
   }): ReactElement => {
     const handleChange = useCallback(
-      (v: string) => onChange(v === "double"),
+      (v: string) => onChange(v === "single"),
       [onChange],
     );
     return (
       <Select.Buttons
-        value={value ? "double" : "single"}
+        value={value ? "single" : "double"}
         onChange={handleChange}
         keys={CLICK_MODE_KEYS}
       >
@@ -107,11 +107,10 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
           )}
         </Base.Field>
         <Base.Field<boolean>
-          path="dblClickNav"
+          path="dblClickNavDisabled"
           label="Click mode"
           padHelpText={false}
           hideIfNull={false}
-          defaultValue
         >
           {ClickModeSelect}
         </Base.Field>

@@ -20,21 +20,23 @@ import (
 )
 
 // MigrateSchematic lifts a v8 schematic into the v9 shape, decoding its opaque configs
-// into the element config union. A config the union rejects is dropped: the lift runs
-// unattended over every stored schematic, so one bad entry must not fail it. Prefer
-// ImportSchematic wherever the caller can report the loss.
+// into the element config union and filling each one's schema defaults. A config the
+// union rejects is dropped: the lift runs unattended over every stored schematic, so
+// one bad entry must not fail it. Prefer ImportSchematic wherever the caller can report
+// the loss.
 func MigrateSchematic(ctx context.Context, old v8.Schematic) (Schematic, error) {
 	out, err := autoMigrateSchematic(ctx, old)
 	if err != nil {
 		return Schematic{}, err
 	}
 	out.Configs, _ = typeConfigs(old.Configs)
+	out.ApplyDefaults()
 	return out, nil
 }
 
-// ImportSchematic lifts a v8 schematic into the v9 shape for an import. Unlike
-// MigrateSchematic it keeps no partial result: it wraps validate.ErrValidation naming
-// every node whose config the union rejects.
+// ImportSchematic lifts a v8 schematic into the v9 shape for an import, filling each
+// config's schema defaults. Unlike MigrateSchematic it keeps no partial result: it
+// wraps validate.ErrValidation naming every node whose config the union rejects.
 func ImportSchematic(ctx context.Context, old v8.Schematic) (Schematic, error) {
 	out, err := autoMigrateSchematic(ctx, old)
 	if err != nil {
@@ -45,6 +47,7 @@ func ImportSchematic(ctx context.Context, old v8.Schematic) (Schematic, error) {
 		return Schematic{}, rejectedConfigsError(rejected)
 	}
 	out.Configs = configs
+	out.ApplyDefaults()
 	return out, nil
 }
 

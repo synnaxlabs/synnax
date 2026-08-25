@@ -8,12 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { color } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
-import { Primitive as BasePrimitive } from "@/schematic/node/common/primitive";
+import { type Primitive as BasePrimitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
 import { type Spec } from "@/schematic/node/spec";
 
@@ -57,19 +56,13 @@ export const createStatic = <V extends schematic.NodeConfigType>({
   zIndex = 4,
 }: SymbolParams<V>) => {
   type Config = StaticConfig<V>;
-  const defaultConfig = (): Config => ({
-    variant,
-    color: color.ZERO,
-    label: Label.defaultConfig(label),
-    ...BasePrimitive.ZERO_PROPS,
-  });
   const spec: Spec<V, Config> = {
     key: variant,
     name,
+    label,
     Form: Form.StyleForm,
     Node: Label.createLabeled<Config>(Primitive),
     Preview: Primitive,
-    defaultConfig,
     zIndex,
   };
   return { spec };
@@ -94,23 +87,16 @@ export const createToggle = <V extends schematic.NodeConfigType>({
   node = "toggle",
 }: ToggleParams<V>) => {
   type Config = ToggleSymbolConfig<V>;
-  const defaultConfig = (): Config => ({
-    variant,
-    color: color.ZERO,
-    label: Label.defaultConfig(label),
-    ...BasePrimitive.ZERO_PROPS,
-    ...Toggle.ZERO_TOGGLE_DEFAULTS,
-  });
   const spec: Spec<V, Config> = {
     key: variant,
     name,
+    label,
     Form: Form.ToggleForm,
     Node:
       node === "labeled"
         ? Label.createLabeled<Config>(Primitive)
         : Toggle.createToggle<Config>(Primitive),
     Preview: Primitive,
-    defaultConfig,
     zIndex,
   };
   return { spec };
@@ -127,20 +113,13 @@ export const createDummyToggle = <V extends schematic.NodeConfigType>({
   zIndex = 4,
 }: SymbolParams<V>) => {
   type Config = DummyToggleConfig<V>;
-  const defaultConfig = (): Config => ({
-    variant,
-    color: color.ZERO,
-    label: Label.defaultConfig(label),
-    ...BasePrimitive.ZERO_PROPS,
-    ...Toggle.ZERO_DUMMY_TOGGLE_DEFAULTS,
-  });
   const spec: Spec<V, Config> = {
     key: variant,
     name,
+    label,
     Form: Form.DummyToggleForm,
     Node: Toggle.createDummyToggle<Config>(Primitive),
     Preview: Primitive,
-    defaultConfig,
     zIndex,
   };
   return { spec };

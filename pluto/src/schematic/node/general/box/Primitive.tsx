@@ -12,7 +12,10 @@ import { type ReactElement } from "react";
 
 import { Tank as TankPrimitive } from "@/schematic/node/vessels/tank/Primitive";
 
-interface RenderProps extends Omit<schematic.BoxNodeConfig, "variant"> {
+interface RenderProps extends Omit<
+  schematic.BoxNodeConfig,
+  "variant" | "label" | "scale"
+> {
   className?: string;
 }
 

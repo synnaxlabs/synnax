@@ -10,18 +10,9 @@
 import { type schematic } from "@synnaxlabs/client";
 
 import { Form } from "@/schematic/node/common/form";
-import { Label } from "@/schematic/node/common/label";
-import { Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
 import { Switch } from "@/schematic/node/general/switch/Primitive";
 import { type Spec } from "@/schematic/node/spec";
-
-export const defaultConfig = (): schematic.SwitchNodeConfig => ({
-  variant: "switch",
-  label: Label.defaultConfig("Switch"),
-  ...Primitive.ZERO_PROPS,
-  ...Toggle.ZERO_TOGGLE_DEFAULTS,
-});
 
 export const spec: Spec<"switch", schematic.SwitchNodeConfig> = {
   key: "switch",
@@ -29,6 +20,5 @@ export const spec: Spec<"switch", schematic.SwitchNodeConfig> = {
   Form: () => <Form.ToggleForm hideInnerOrientation omit={["onClickDelay"]} />,
   Node: Toggle.createToggle<schematic.SwitchNodeConfig>(Switch),
   Preview: Switch,
-  defaultConfig,
   zIndex: 4,
 };

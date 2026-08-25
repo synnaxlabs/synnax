@@ -19,22 +19,16 @@ import { type NodeProps } from "@/schematic/node/spec";
 
 export const Symbol = ({
   onConfigChange,
-  config: {
-    label: { label, level },
-    orientation,
-    color,
-    page,
-    dblClickNav,
-  },
+  config: { label: labelConfig, orientation, color, page, dblClickNavDisabled },
 }: NodeProps<schematic.OffPageReferenceNodeConfig>): ReactElement => (
   <OffPageReference
     className={Grid.DRAG_HANDLE_CLASS}
-    onLabelChange={(label) => onConfigChange({ label: { label, level } })}
-    label={label}
-    level={level}
+    onLabelChange={(label) => onConfigChange({ label: { ...labelConfig, label } })}
+    label={labelConfig.label}
+    level={labelConfig.level}
     orientation={orientation}
     color={color}
     linked={page != null && page.length > 0}
-    title={offPageReferenceTooltip(page, dblClickNav)}
+    title={offPageReferenceTooltip(page, dblClickNavDisabled)}
   />
 );

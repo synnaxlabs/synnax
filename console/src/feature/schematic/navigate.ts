@@ -49,8 +49,7 @@ export const useHandleNodeClickAction = (schematicKey: string): NodeClickHandler
         config.page.length === 0
       )
         return;
-      const dblClickNav = config.dblClickNav !== false;
-      if (dblClick !== dblClickNav) return;
+      if (dblClick === config.dblClickNavDisabled) return;
       const { page } = config;
       const labelObj = config.label as { label?: string } | undefined;
       const label = labelObj?.label;

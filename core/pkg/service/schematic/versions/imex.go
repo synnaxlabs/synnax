@@ -79,6 +79,9 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 	// fallback the imex service applies. Console-era decodes drop it, so it is stamped
 	// here for every path.
 	sch.Name = env.Name
+	// The newest-format arm decodes straight into the current shape, so it is the one
+	// path that has not already filled defaults through a migration step.
+	sch.ApplyDefaults()
 	return sch, nil
 }
 

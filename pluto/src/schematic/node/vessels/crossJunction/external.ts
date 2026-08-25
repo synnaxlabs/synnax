@@ -8,27 +8,18 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { color } from "@synnaxlabs/x";
 
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
-import { Primitive } from "@/schematic/node/common/primitive";
 import { type Spec } from "@/schematic/node/spec";
 import { CrossJunction } from "@/schematic/node/vessels/crossJunction/Primitive";
-
-export const defaultConfig = (): schematic.CrossJunctionNodeConfig => ({
-  variant: "cross_junction",
-  color: color.ZERO,
-  label: Label.defaultConfig(""),
-  ...Primitive.ZERO_PROPS,
-});
 
 export const spec: Spec<"cross_junction", schematic.CrossJunctionNodeConfig> = {
   key: "cross_junction",
   name: "Cross junction",
+  label: "",
   Form: Form.StyleForm,
   Node: Label.createLabeled<schematic.CrossJunctionNodeConfig>(CrossJunction),
   Preview: CrossJunction,
-  defaultConfig,
   zIndex: 24,
 };

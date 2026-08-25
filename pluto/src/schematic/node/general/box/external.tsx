@@ -8,28 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { color } from "@synnaxlabs/x";
 
 import { Component } from "@/component";
-import { Label } from "@/schematic/node/common/label";
 import { Box } from "@/schematic/node/general/box/Primitive";
 import { Symbol } from "@/schematic/node/general/box/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 import { TankForm } from "@/schematic/node/vessels/tank/Form";
-import { type Theming } from "@/theming";
 
 const NAME = "Box";
-
-export const defaultConfig = (t: Theming.Theme): schematic.BoxNodeConfig => ({
-  variant: "box",
-  orientation: "left",
-  color: color.ZERO,
-  backgroundColor: color.setAlpha(t.colors.gray.l1, 0),
-  label: Label.defaultConfig(NAME),
-  dimensions: { width: 125, height: 200 },
-  borderRadius: 3,
-  strokeWidth: 2,
-});
 
 export const spec: Spec<"box", schematic.BoxNodeConfig> = {
   key: "box",
@@ -37,6 +23,5 @@ export const spec: Spec<"box", schematic.BoxNodeConfig> = {
   Form: () => <TankForm showBorderRadius showStrokeWidth />,
   Node: Symbol,
   Preview: Component.removeProps(Box, ["dimensions"]),
-  defaultConfig,
   zIndex: 2,
 };

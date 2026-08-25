@@ -46,7 +46,7 @@ const TICK_YS = TICK_RATIOS.map(alongBar);
 const AXIS_FALLBACK = "var(--pluto-gray-l8)";
 
 export const Scale = ({
-  indicator: { color: c, axisColor, showFill, showCaret } = {},
+  indicator: { color: c, axisColor, fillHidden, caretHidden },
   className,
 }: RenderProps): ReactElement => {
   const containerStyle = useMemo<CSSProperties>(
@@ -57,7 +57,7 @@ export const Scale = ({
   return (
     <div className={CSS.cls(CSS.B("symbol-colored"), className)} style={containerStyle}>
       <svg width={WIDTH} height={HEIGHT} style={{ position: "absolute" }}>
-        {showFill && (
+        {!fillHidden && (
           <>
             <rect
               x={BAR_LEFT}
@@ -79,7 +79,7 @@ export const Scale = ({
             />
           </>
         )}
-        {!showFill && (
+        {fillHidden && (
           <line
             x1={BAR_RIGHT}
             y1={BAR_TOP}
@@ -100,7 +100,7 @@ export const Scale = ({
             strokeWidth={1}
           />
         ))}
-        {showCaret && (
+        {!caretHidden && (
           <path
             d={`M ${BAR_RIGHT} ${VALUE_Y} L ${BAR_RIGHT + CARET_SIZE} ${VALUE_Y - CARET_SIZE} L ${BAR_RIGHT + CARET_SIZE} ${VALUE_Y + CARET_SIZE} Z`}
             fill="var(--pluto-symbol-display)"

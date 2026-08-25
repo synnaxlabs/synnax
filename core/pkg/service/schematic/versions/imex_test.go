@@ -33,7 +33,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		return cfg
 	}
 
-	It("Should decode a current-version envelope", func(ctx SpecContext) {
+	It("Should lift a v8 envelope", func(ctx SpecContext) {
 		sch := decode(ctx, "testdata/import_v8.json")
 		Expect(sch.Snapshot).To(BeTrue())
 		Expect(sch.Nodes).To(Equal([]versions.Node{
@@ -44,7 +44,24 @@ var _ = Describe("DecodeImExEnvelope", func() {
 			Source: versions.Handle{Node: "n1", Param: "out"},
 			Target: versions.Handle{Node: "n2", Param: "in"},
 		}}))
-		Expect(valveConfig(sch, "n1")).To(Equal(versions.ValveElementConfig{}))
+		Expect(valveConfig(sch, "n1")).To(Equal(versions.ValveElementConfig{
+			ToggleSymbolConfig: versions.ToggleSymbolConfig{
+				ToggleConfig: versions.ToggleConfig{
+					LabeledConfig: versions.LabeledConfig{
+						Label: versions.LabelConfig{
+							Level:         "h5",
+							Orientation:   "top",
+							Direction:     "x",
+							MaxInlineSize: 150,
+							Align:         "center",
+						},
+						Orientation: "left",
+						Scale:       1,
+					},
+					StalenessTimeout: 5,
+				},
+			},
+		}))
 	})
 
 	It("Should lift a v7 envelope, dropping measured", func(ctx SpecContext) {
@@ -58,7 +75,24 @@ var _ = Describe("DecodeImExEnvelope", func() {
 			Source: versions.Handle{Node: "n1", Param: "out"},
 			Target: versions.Handle{Node: "n2", Param: "in"},
 		}}))
-		Expect(valveConfig(sch, "n1")).To(Equal(versions.ValveElementConfig{}))
+		Expect(valveConfig(sch, "n1")).To(Equal(versions.ValveElementConfig{
+			ToggleSymbolConfig: versions.ToggleSymbolConfig{
+				ToggleConfig: versions.ToggleConfig{
+					LabeledConfig: versions.LabeledConfig{
+						Label: versions.LabelConfig{
+							Level:         "h5",
+							Orientation:   "top",
+							Direction:     "x",
+							MaxInlineSize: 150,
+							Align:         "center",
+						},
+						Orientation: "left",
+						Scale:       1,
+					},
+					StalenessTimeout: 5,
+				},
+			},
+		}))
 	})
 
 	It("Should decode the camelCase Console export", func(ctx SpecContext) {

@@ -18,13 +18,6 @@ import { Scale } from "@/schematic/node/common/scale";
 import { type FormProps as NodeFormProps } from "@/schematic/node/spec";
 import { Tabs } from "@/tabs";
 
-/** Fill defaults for a tank, which draws its own wall and reads best with no scale. */
-export const FILL_DEFAULTS: Partial<Scale.Config> = {
-  showCaret: false,
-  showScale: false,
-  side: "left",
-};
-
 export interface TankFormProps extends NodeFormProps {
   showBorderRadius?: boolean;
   showStrokeWidth?: boolean;
@@ -37,7 +30,7 @@ const FillForm = (): ReactElement => {
   });
   return (
     <Form.Wrapper y empty>
-      <Scale.TelemForm path="fill" defaults={FILL_DEFAULTS} allowNone />
+      <Scale.TelemForm path="fill" allowNone />
       {channel != null && (
         <Flex.Box x>
           <Scale.DisplayFields path="fill" />

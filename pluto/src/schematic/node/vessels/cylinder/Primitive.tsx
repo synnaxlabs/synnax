@@ -16,9 +16,18 @@ import { Border } from "@/schematic/node/common/border";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 
-interface RenderProps extends Omit<schematic.CylinderNodeConfig, "variant"> {
+interface RenderProps extends Partial<
+  Pick<
+    schematic.CylinderNodeConfig,
+    | "dimensions"
+    | "borderRadius"
+    | "color"
+    | "backgroundColor"
+    | "orientation"
+    | "scale"
+  >
+> {
   className?: string;
-  scale?: number;
 }
 
 export const Cylinder = ({

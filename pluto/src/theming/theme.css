@@ -191,7 +191,13 @@
    chroma). Any element that sets --pluto-symbol-color carries this class to derive it. */
 .pluto-symbol-colored {
     --pluto-symbol-display: oklch(
-        from rgb(var(--pluto-symbol-color, var(--pluto-gray-l11-rgb)))
+        from
+            rgb(
+                var(
+                    --pluto-symbol-color,
+                    var(--pluto-symbol-seed, var(--pluto-gray-l11-rgb))
+                )
+            )
             calc(
                 clamp(var(--pluto-symbol-l-min, 0), l, var(--pluto-symbol-l-max, 1)) *
                     (

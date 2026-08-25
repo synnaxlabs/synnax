@@ -11,23 +11,10 @@ import { type schematic } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Label } from "@/schematic/node/common/label";
 import { SelectForm } from "@/schematic/node/general/select/Form";
 import { Select } from "@/schematic/node/general/select/Primitive";
 import { Symbol } from "@/schematic/node/general/select/Symbol";
 import { type Spec } from "@/schematic/node/spec";
-import { type Theming } from "@/theming";
-
-export const defaultConfig = (t: Theming.Theme): schematic.SelectNodeConfig => ({
-  variant: "select",
-  orientation: "left",
-  color: t.colors.gray.l11,
-  size: "small",
-  inlineSize: 100,
-  options: [],
-  label: Label.defaultConfig("Select"),
-  control: { show: true },
-});
 
 const Preview = ({ color }: schematic.SelectNodeConfig): ReactElement => (
   <Select
@@ -45,6 +32,5 @@ export const spec: Spec<"select", schematic.SelectNodeConfig> = {
   Form: SelectForm,
   Node: Symbol,
   Preview,
-  defaultConfig,
   zIndex: 4,
 };

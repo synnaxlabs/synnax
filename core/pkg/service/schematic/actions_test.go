@@ -38,7 +38,7 @@ func mustColor(hex string) color.Color {
 func tankCfg(label, hex string) schematic.ElementConfig {
 	cfg := schematic.TankElementConfig{
 		LabeledConfig: schematic.LabeledConfig{
-			Label: new(schematic.LabelConfig{Label: new(label)}),
+			Label: schematic.LabelConfig{Label: label},
 		},
 	}
 	if hex != "" {

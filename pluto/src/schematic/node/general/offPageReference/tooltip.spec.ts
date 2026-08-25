@@ -15,12 +15,12 @@ describe("offPageReferenceTooltip", () => {
     expect(offPageReferenceTooltip("page-key")).toBe("Double-click to navigate");
   });
 
-  it("should return double-click tooltip when dblClickNav is true", () => {
-    expect(offPageReferenceTooltip("page-key", true)).toBe("Double-click to navigate");
+  it("should return single-click tooltip when double-click nav is disabled", () => {
+    expect(offPageReferenceTooltip("page-key", true)).toBe("Single-click to navigate");
   });
 
-  it("should return single-click tooltip when dblClickNav is false", () => {
-    expect(offPageReferenceTooltip("page-key", false)).toBe("Single-click to navigate");
+  it("should return double-click tooltip when double-click nav is enabled", () => {
+    expect(offPageReferenceTooltip("page-key", false)).toBe("Double-click to navigate");
   });
 
   it("should return undefined when page is undefined", () => {

@@ -8,35 +8,29 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Label } from "@/schematic/node/common/label";
 import { ValueForm } from "@/schematic/node/general/value/Form";
 import { Value } from "@/schematic/node/general/value/Primitive";
 import { Symbol } from "@/schematic/node/general/value/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 import { Text } from "@/text";
-import { type Theming } from "@/theming";
-import { Value as BaseValue } from "@/vis/value";
-
-export const defaultConfig = (t: Theming.Theme): schematic.ValueNodeConfig => ({
-  variant: "value",
-  orientation: "left",
-  color: color.ZERO,
-  units: "psi",
-  level: "h5",
-  inlineSize: 70,
-  label: Label.defaultConfig("Value"),
-  stalenessTimeout: 5,
-  stalenessColor: t.colors.warning.m1,
-  redline: BaseValue.ZERO_READLINE,
-});
 
 const PREVIEW_DIMENSIONS = { width: 60, height: 25 };
 
-const Preview = ({ color }: schematic.ValueNodeConfig): ReactElement => (
-  <Value color={color} dimensions={PREVIEW_DIMENSIONS} units="psi">
+const Preview = ({
+  color,
+  orientation,
+  units,
+  inlineSize,
+}: schematic.ValueNodeConfig): ReactElement => (
+  <Value
+    color={color}
+    orientation={orientation}
+    units={units}
+    inlineSize={inlineSize}
+    dimensions={PREVIEW_DIMENSIONS}
+  >
     <Text.Text>50.00</Text.Text>
   </Value>
 );
@@ -47,7 +41,6 @@ export const spec: Spec<"value", schematic.ValueNodeConfig> = {
   Form: ValueForm,
   Node: Symbol,
   Preview,
-  defaultConfig,
   zIndex: 4,
   needsPosition: true,
 };

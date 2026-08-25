@@ -12,7 +12,6 @@ import { z } from "zod";
 
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
-import { Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
 import { Actuator } from "@/schematic/node/custom/Actuator";
 import { Static } from "@/schematic/node/custom/Static";
@@ -21,7 +20,7 @@ import { type Spec } from "@/schematic/node/spec";
 export const CUSTOM_ACTUATOR_VARIANT = "custom_actuator";
 
 export const customActuatorConfigZ = schematic.customActuatorNodeConfigZ.extend({
-  stateOverrides: z.array(schematic.symbol.stateZ).optional(),
+  stateOverrides: z.array(schematic.symbol.stateZ).default([]),
 });
 export interface CustomActuatorConfig extends z.infer<typeof customActuatorConfigZ> {}
 
@@ -34,21 +33,13 @@ export const customActuatorSpec: Spec<
   Form: Form.ToggleForm,
   Node: Toggle.createToggle<CustomActuatorConfig>(Actuator),
   Preview: Actuator,
-  defaultConfig: (): CustomActuatorConfig => ({
-    variant: CUSTOM_ACTUATOR_VARIANT,
-    specKey: "",
-    stateOverrides: [],
-    ...Primitive.ZERO_PROPS,
-    ...Toggle.ZERO_TOGGLE_DEFAULTS,
-    label: Label.defaultConfig("Custom actuator"),
-  }),
   zIndex: 4,
 };
 
 export const CUSTOM_STATIC_VARIANT = "custom_static";
 
 export const customStaticConfigZ = schematic.customStaticNodeConfigZ.extend({
-  stateOverrides: z.array(schematic.symbol.stateZ).optional(),
+  stateOverrides: z.array(schematic.symbol.stateZ).default([]),
 });
 export interface CustomStaticConfig extends z.infer<typeof customStaticConfigZ> {}
 
@@ -59,12 +50,5 @@ export const customStaticSpec: Spec<typeof CUSTOM_STATIC_VARIANT, CustomStaticCo
     Form: Form.StyleForm,
     Node: Label.createLabeled<CustomStaticConfig>(Static),
     Preview: Static,
-    defaultConfig: (): CustomStaticConfig => ({
-      variant: CUSTOM_STATIC_VARIANT,
-      specKey: "",
-      stateOverrides: [],
-      ...Primitive.ZERO_PROPS,
-      label: Label.defaultConfig("Custom static"),
-    }),
     zIndex: 4,
   };
