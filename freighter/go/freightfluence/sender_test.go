@@ -11,6 +11,7 @@ package freightfluence_test
 
 import (
 	"context"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -79,6 +80,82 @@ var _ = Describe("Sender", func() {
 				_, ok := <-receiverStream.Outlet()
 				Expect(ok).To(BeFalse())
 			})
+		})
+		Describe("Sender Keepalive", func() {
+			It(
+				"Should emit keepalives on the configured cadence",
+				func(ctx SpecContext) {
+					sCtx, cancel := signal.WithCancel(ctx)
+					defer cancel()
+					stream := MustSucceed(client.Stream(sCtx, "localhost:0"))
+					sender := &freightfluence.Sender[int]{
+						Sender:            stream,
+						KeepaliveInterval: 5 * time.Millisecond,
+						NewKeepalive:      func() int { return -1 },
+					}
+					sender.InFrom(senderStream)
+					sender.Flow(sCtx)
+					Eventually(receiverStream.Outlet()).Should(Receive(Equal(-1)))
+					Eventually(receiverStream.Outlet()).Should(Receive(Equal(-1)))
+				},
+			)
+			It("Should keep delivering data between keepalives", func(ctx SpecContext) {
+				sCtx, cancel := signal.WithCancel(ctx)
+				defer cancel()
+				stream := MustSucceed(client.Stream(sCtx, "localhost:0"))
+				sender := &freightfluence.Sender[int]{
+					Sender:            stream,
+					KeepaliveInterval: 5 * time.Millisecond,
+					NewKeepalive:      func() int { return -1 },
+				}
+				sender.InFrom(senderStream)
+				sender.Flow(sCtx)
+				senderStream.Inlet() <- 1
+				Eventually(receiverStream.Outlet()).Should(Receive(Equal(1)))
+			})
+			It("Should not emit keepalives when disabled", func(ctx SpecContext) {
+				sCtx, cancel := signal.WithCancel(ctx)
+				defer cancel()
+				stream := MustSucceed(client.Stream(sCtx, "localhost:0"))
+				sender := &freightfluence.Sender[int]{Sender: stream}
+				sender.InFrom(senderStream)
+				sender.Flow(sCtx)
+				Consistently(receiverStream.Outlet()).ShouldNot(Receive())
+			})
+			It(
+				"Should fail loud when the interval is set without a constructor",
+				func(ctx SpecContext) {
+					sCtx, cancel := signal.WithCancel(ctx)
+					defer cancel()
+					stream := MustSucceed(client.Stream(sCtx, "localhost:0"))
+					sender := &freightfluence.Sender[int]{
+						Sender:            stream,
+						KeepaliveInterval: 5 * time.Millisecond,
+					}
+					sender.InFrom(senderStream)
+					sender.Flow(sCtx)
+					Expect(sCtx.Wait()).To(MatchError(ContainSubstring(
+						"keepalive interval set without a message constructor",
+					)))
+				},
+			)
+			It(
+				"Should not treat ErrStreamClosed on a keepalive as a routine failure",
+				func(ctx SpecContext) {
+					sCtx, cancel := signal.WithCancel(ctx)
+					defer cancel()
+					sender := &freightfluence.Sender[int]{
+						Sender: &errSenderCloser{
+							sendErr: freighter.ErrStreamClosed,
+						},
+						KeepaliveInterval: 5 * time.Millisecond,
+						NewKeepalive:      func() int { return -1 },
+					}
+					sender.InFrom(confluence.NewStream[int](1))
+					sender.Flow(sCtx, confluence.CancelOnFail())
+					Expect(sCtx.Wait()).To(MatchError(context.Canceled))
+				},
+			)
 		})
 		Describe("TransformSender", func() {
 			It("Should transform values before sending them", func(ctx SpecContext) {

@@ -30,6 +30,10 @@ type Response struct {
 	// Group identifies the control group that produced the frame, used to filter
 	// relayed frames (see relay ExcludeGroups).
 	Group uint32 `json:"group" msgpack:"group"`
+	// Keepalive marks an empty response emitted on the wire so the client can detect a
+	// silently dead connection. The relay never sets it; the API layer's response
+	// sender does.
+	Keepalive bool `json:"keepalive" msgpack:"keepalive"`
 }
 
 func reqToStorage(req Request) ts.StreamerRequest {

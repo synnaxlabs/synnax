@@ -11,6 +11,7 @@ package freightfluence
 
 import (
 	"context"
+	"time"
 
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
@@ -23,6 +24,12 @@ import (
 // interface for sending messages over a network freighter.
 type Sender[M freighter.Payload] struct {
 	Sender freighter.StreamSenderCloser[M]
+	// KeepaliveInterval, when positive, emits NewKeepalive() on this cadence so the
+	// peer can detect a silently dead connection. Zero disables keepalives.
+	KeepaliveInterval time.Duration
+	// NewKeepalive constructs the message emitted every KeepaliveInterval. Required
+	// when KeepaliveInterval is positive.
+	NewKeepalive func() M
 	confluence.UnarySink[M]
 }
 
@@ -35,23 +42,45 @@ func (s *Sender[M]) send(ctx context.Context) (err error) {
 	defer func() {
 		err = errors.Combine(s.Sender.CloseSend(), err)
 	}()
+	// A nil channel never fires, so the keepalive case is inert when disabled.
+	var keepalive <-chan time.Time
+	if s.KeepaliveInterval > 0 {
+		if s.NewKeepalive == nil {
+			return errors.New("keepalive interval set without a message constructor")
+		}
+		ticker := time.NewTicker(s.KeepaliveInterval)
+		defer ticker.Stop()
+		keepalive = ticker.C
+	}
 	for {
 		select {
 		case <-ctx.Done():
-			err = ctx.Err()
-			return err
+			return ctx.Err()
+		case <-keepalive:
+			if err = s.sendMsg(s.NewKeepalive()); err != nil {
+				return err
+			}
 		case res, ok := <-s.In.Outlet():
 			if !ok {
 				return nil
 			}
-			if err = s.Sender.Send(res); err != nil {
-				if errors.Is(err, freighter.ErrStreamClosed) {
-					return context.Canceled
-				}
+			if err = s.sendMsg(res); err != nil {
 				return err
 			}
 		}
 	}
+}
+
+// sendMsg sends one message, translating a closed stream into context.Canceled so
+// closure is not treated as a routine failure.
+func (s *Sender[M]) sendMsg(msg M) error {
+	if err := s.Sender.Send(msg); err != nil {
+		if errors.Is(err, freighter.ErrStreamClosed) {
+			return context.Canceled
+		}
+		return err
+	}
+	return nil
 }
 
 // TransformSender wraps freighter.StreamSenderCloser to provide a confluence compatible
