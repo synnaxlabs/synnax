@@ -23,6 +23,7 @@ import type z from "zod";
 
 import { NotFoundError } from "@/errors";
 import { Deleted } from "@/query/deleted";
+import { type LookupIndex } from "@/query/indexes";
 import { type Listener } from "@/query/streamer";
 
 /**
@@ -98,6 +99,11 @@ export interface TableParams<
    * @default TimeSpan.milliseconds(10)
    */
   fetchDebounce?: CrudeTimeSpan;
+  /**
+   * Secondary indexes over the table's live entries. The table keeps each current
+   * across every mutation, rollbacks and resets included.
+   */
+  indexes?: Array<LookupIndex<Key, Value>>;
 }
 
 /**
@@ -156,6 +162,7 @@ export class Table<
     Key[],
     Array<Keyed<Key, Value>>
   > | null;
+  private readonly indexes: Array<LookupIndex<Key, Value>>;
   private gen = 0;
 
   constructor({
@@ -164,11 +171,13 @@ export class Table<
     fetch,
     hydrate = "set",
     fetchDebounce = DEFAULT_FETCH_DEBOUNCE,
+    indexes = [],
   }: TableParams<Key, Value>) {
     this.onError = onError;
     this.equal = equal;
     this.fetchEntries = fetch;
     this.hydrateMode = hydrate;
+    this.indexes = indexes;
     this.fetchBatcher =
       fetch == null
         ? null
@@ -188,6 +197,18 @@ export class Table<
           });
   }
 
+  /** Every live-entry write funnels through here so indexes stay current. */
+  private applySet(key: Key, value: Value): void {
+    this.entries.set(key, value);
+    for (const index of this.indexes) index.set(key, value);
+  }
+
+  /** Every live-entry removal funnels through here so indexes stay current. */
+  private applyDelete(key: Key): void {
+    this.entries.delete(key);
+    for (const index of this.indexes) index.delete(key);
+  }
+
   private setOne(
     key: Key,
     value: state.SetArg<Value | undefined>,
@@ -197,16 +218,16 @@ export class Table<
     if (next == null || (prev != null && this.equal(next, prev, key))) return undefined;
     const prevTombstone = this.tombstones.get(key);
     this.tombstones.delete(key);
-    this.entries.set(key, next);
+    this.applySet(key, next);
     this.notify({ variant: "set", key, value: next });
 
     return () => {
       if (prev === undefined) {
-        this.entries.delete(key);
+        this.applyDelete(key);
         if (prevTombstone != null) this.tombstones.set(key, prevTombstone);
         this.notify({ variant: "delete", key });
       } else {
-        this.entries.set(key, prev);
+        this.applySet(key, prev);
         this.notify({ variant: "set", key, value: prev });
       }
     };
@@ -375,7 +396,7 @@ export class Table<
 
     this.batch(() =>
       toDelete.forEach(({ key: k, value }) => {
-        this.entries.delete(k);
+        this.applyDelete(k);
         if (tombstone && value != null)
           this.tombstones.set(k, new Deleted(value, TimeStamp.now()));
         this.notify({ variant: "delete", key: k });
@@ -387,7 +408,7 @@ export class Table<
         toDelete.forEach(({ key: k, value }) => {
           if (value == null) return;
           this.tombstones.delete(k);
-          this.entries.set(k, value);
+          this.applySet(k, value);
           this.notify({ variant: "set", key: k, value });
         }),
       );
@@ -426,6 +447,7 @@ export class Table<
     this.gen++;
     this.entries.clear();
     this.tombstones.clear();
+    for (const index of this.indexes) index.reset();
   }
 
   /**
