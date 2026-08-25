@@ -183,37 +183,91 @@ describe("DynamicCache", () => {
           );
         });
 
-        it("should fall back to the wall clock at a buffer split", () => {
+        it("should grow a buffer rather than split a series across two", () => {
           const cache = new Dynamic({ dynamicBufferSize: 2, now: () => WALL });
           const { flushed, allocated } = cache.write(
             new MultiSeries([
               stamped([1, 2, 3], TimeStamp.seconds(10).range(TimeStamp.seconds(13))),
             ]),
           );
-          // The split point's timestamp is unknowable from the data series, so the
-          // flushed buffer ends at the wall clock and the continuation starts there.
-          expect(flushed.series[0].timeRange).toEqual(
-            TimeStamp.seconds(10).range(WALL),
+          // Splitting would put the boundary at a timestamp the data does not carry.
+          expect(flushed).toHaveLength(0);
+          expect(allocated).toHaveLength(3);
+          expect(cache.dataTimeRange).toEqual(
+            TimeStamp.seconds(10).range(TimeStamp.seconds(13)),
           );
-          expect(allocated.series[1].timeRange.start).toEqual(WALL);
+        });
+
+        it("should stamp a rotation with the last written series' end", () => {
+          const cache = new Dynamic({ dynamicBufferSize: 2, now: () => WALL });
+          cache.write(
+            new MultiSeries([
+              stamped([1, 2], TimeStamp.seconds(10).range(TimeStamp.seconds(12))),
+            ]),
+          );
+          // The next series does not fit, so the full buffer is flushed at the end of
+          // the series it holds, and the new one starts where its own data starts.
+          const { flushed } = cache.write(
+            new MultiSeries([
+              stamped([3, 4], TimeStamp.seconds(12).range(TimeStamp.seconds(14)), 2n),
+            ]),
+          );
+          expect(flushed.series[0].timeRange).toEqual(
+            TimeStamp.seconds(10).range(TimeStamp.seconds(12)),
+          );
+          expect(cache.leadingBuffer?.timeRange.start).toEqual(TimeStamp.seconds(12));
+        });
+
+        it("should start a rotation after a trim where the flushed buffer ends", () => {
+          const cache = new Dynamic({ dynamicBufferSize: 2, now: () => WALL });
+          cache.write(
+            new MultiSeries([
+              stamped([1, 2], TimeStamp.seconds(10).range(TimeStamp.seconds(12))),
+            ]),
+          );
+          // The re-sent frame starts at second 11 but its first new sample is at
+          // second 12. Trimming keeps the frame's own start, so the buffer would
+          // claim a second of time it holds nothing for.
+          const { flushed } = cache.write(
+            new MultiSeries([
+              stamped(
+                [2, 3, 4],
+                TimeStamp.seconds(11).range(TimeStamp.seconds(14)),
+                1n,
+              ),
+            ]),
+          );
+          expect(flushed.series[0].timeRange).toEqual(
+            TimeStamp.seconds(10).range(TimeStamp.seconds(12)),
+          );
+          expect(cache.leadingBuffer?.timeRange.start).toEqual(TimeStamp.seconds(12));
+          expect(
+            cache.dataTimeRange?.overlapsWith(
+              TimeStamp.seconds(11).range(TimeStamp.milliseconds(11500)),
+            ),
+          ).toEqual(false);
         });
       });
 
       it("should correctly allocate a single new buffer when the current one is full", async () => {
         const cache = new Dynamic({ dynamicBufferSize: 2 });
-        const ser = f32([1, 2, 3]);
-        const { flushed, allocated } = cache.write(new MultiSeries([ser]));
+        const first = cache.write(new MultiSeries([f32([1, 2])]));
+        expect(first.flushed).toHaveLength(0);
+        const { flushed, allocated } = cache.write(
+          new MultiSeries([f32([3]).reAlign(2n)]),
+        );
         expect(flushed).toHaveLength(2);
-        expect(allocated).toHaveLength(3);
-        expect(flushed.series[0]).toBe(allocated.series[0]);
+        expect(allocated).toHaveLength(1);
+        expect(flushed.series[0]).toBe(first.allocated.series[0]);
         expect(cache.length).toEqual(1);
       });
       it("should correctly allocate multiple new buffers when the current one is full", () => {
         const cache = new Dynamic({ dynamicBufferSize: 1 });
-        const ser = f32([1, 2, 3]);
-        const { flushed, allocated } = cache.write(new MultiSeries([ser]));
-        expect(flushed).toHaveLength(2);
-        expect(allocated).toHaveLength(3);
+        cache.write(new MultiSeries([f32([1])]));
+        const second = cache.write(new MultiSeries([f32([2]).reAlign(1n)]));
+        const third = cache.write(new MultiSeries([f32([3]).reAlign(2n)]));
+        expect(second.flushed).toHaveLength(1);
+        expect(third.flushed).toHaveLength(1);
         expect(cache.length).toEqual(1);
       });
       it("it should correctly set multiple writes", async () => {
@@ -235,12 +289,14 @@ describe("DynamicCache", () => {
         const waitSpan = TimeSpan.milliseconds(10);
         await new Promise((resolve) => setTimeout(resolve, waitSpan.milliseconds));
         const { flushed, allocated } = cache.write(new MultiSeries([ser.reAlign(9n)]));
-        expect(allocated).toHaveLength(2);
+        expect(allocated).toHaveLength(3);
         expect(allocated.timeRange.start.sub(TimeStamp.now()).valueOf()).toBeLessThan(
           TimeSpan.milliseconds(3).valueOf(),
         );
         expect(allocated.timeRange.end.valueOf()).toEqual(TimeStamp.MAX.valueOf());
-        expect(flushed).toHaveLength(10);
+        // The fourth series does not fit in the space left, so the buffer flushes with
+        // the nine samples it holds instead of taking part of it.
+        expect(flushed).toHaveLength(9);
         // Slack for a loaded runner: the buffer's span tracks wall time, so the bound
         // only has to rule out a span untethered from it.
         expect(flushed.timeRange.span.sub(waitSpan).valueOf()).toBeLessThanOrEqual(
@@ -249,7 +305,6 @@ describe("DynamicCache", () => {
         expect(flushed.series[0].data.slice(0, 3)).toEqual(new Float32Array([1, 2, 3]));
         expect(flushed.series[0].data.slice(3, 6)).toEqual(new Float32Array([1, 2, 3]));
         expect(flushed.series[0].data.slice(6, 9)).toEqual(new Float32Array([1, 2, 3]));
-        expect(flushed.series[0].data.slice(9)).toEqual(new Float32Array([1]));
       });
       it("should allocate a new buffer if the two series are out of alignment", () => {
         const cache = new Dynamic({ dynamicBufferSize: 10 });
@@ -274,6 +329,22 @@ describe("DynamicCache", () => {
         expect(allocated.timeRange.end.valueOf()).toEqual(TimeStamp.MAX.valueOf());
         expect(flushed.series[0]).toBe(allocated.series[0]);
         expect(allocated).toHaveLength(6);
+      });
+      it("should fit a variable-length series that outgrows the byte estimate", () => {
+        // Capacity for variable types is estimated in bytes per sample, so a series of
+        // long strings needs more room than the sample count suggests.
+        const cache = new Dynamic({ dynamicBufferSize: 1 });
+        const ser = new Series({
+          data: ["a".repeat(200), "b".repeat(200)],
+          dataType: DataType.STRING,
+        });
+        const { flushed, allocated } = cache.write(new MultiSeries([ser]));
+        expect(flushed).toHaveLength(0);
+        expect(allocated).toHaveLength(2);
+        expect(Array.from(cache.leadingBuffer as Series)).toEqual([
+          "a".repeat(200),
+          "b".repeat(200),
+        ]);
       });
       it("should derive the buffer's data type from the first written series", () => {
         const cache = new Dynamic({ dynamicBufferSize: 100 });
@@ -434,24 +505,26 @@ describe("DynamicCache", () => {
               transform: glTransform,
               now: () => WALL_CLOCK,
             });
-            const ser = new Series({
-              data: [500n, 501n, 600n, 601n, 700n],
-              dataType: DataType.INT64,
-            });
-            const { flushed, allocated } = cache.write(new MultiSeries([ser]));
-            // Buffer A fills with [500, 501], anchored at 500.
-            expect(flushed.series[0].sampleOffset).toBe(500n);
-            expect(flushed.series[0].at(0)).toBe(500n);
-            expect(flushed.series[0].at(1)).toBe(501n);
-            // Buffer B fills with [600, 601], anchored at the first sample that
-            // landed in it, not at A's offset.
-            expect(flushed.series[1].sampleOffset).toBe(600n);
-            expect(flushed.series[1].at(0)).toBe(600n);
-            expect(flushed.series[1].at(1)).toBe(601n);
+            const int64 = (data: bigint[], alignment: bigint): MultiSeries =>
+              new MultiSeries([
+                new Series({ data, dataType: DataType.INT64 }).reAlign(alignment),
+              ]);
+            cache.write(int64([500n, 501n], 0n));
+            // Buffer A is full, so each later write rotates to a fresh buffer.
+            const second = cache.write(int64([600n, 601n], 2n));
+            const third = cache.write(int64([700n], 4n));
+            // Buffer A held [500, 501], anchored at 500.
+            expect(second.flushed.series[0].sampleOffset).toBe(500n);
+            expect(second.flushed.series[0].at(0)).toBe(500n);
+            expect(second.flushed.series[0].at(1)).toBe(501n);
+            // Buffer B held [600, 601], anchored at the first sample that landed in it,
+            // not at A's offset.
+            expect(third.flushed.series[0].sampleOffset).toBe(600n);
+            expect(third.flushed.series[0].at(0)).toBe(600n);
+            expect(third.flushed.series[0].at(1)).toBe(601n);
             // Buffer C is the trailing buffer holding [700], anchored at 700.
-            expect(allocated.series).toHaveLength(3);
-            expect(allocated.series[2].sampleOffset).toBe(700n);
-            expect(allocated.series[2].at(0)).toBe(700n);
+            expect(cache.leadingBuffer?.sampleOffset).toBe(700n);
+            expect(cache.leadingBuffer?.at(0)).toBe(700n);
           });
           it("anchors a fresh offset when alignment mismatch forces rotation", () => {
             const cache = bigCache();
@@ -520,6 +593,172 @@ describe("DynamicCache", () => {
         expect(res3.flushed).toHaveLength(0);
         expect(cache.length).toBe(9);
       });
+    });
+  });
+
+  describe("dataTimeRange", () => {
+    const WALL = TimeStamp.seconds(100);
+    const stamped = (data: number[], tr: TimeRange, alignment = 0n): Series =>
+      new Series({
+        data: new Float32Array(data),
+        dataType: DataType.FLOAT32,
+        timeRange: tr,
+        alignment,
+      });
+
+    it("should be null when there is no buffer", () => {
+      const cache = new Dynamic({ dynamicBufferSize: 100 });
+      expect(cache.dataTimeRange).toBeNull();
+    });
+
+    it("should end at the last stamped write, not the buffer's MAX end", () => {
+      const cache = new Dynamic({ dynamicBufferSize: 100, now: () => WALL });
+      cache.write(
+        new MultiSeries([
+          stamped([1, 2, 3], TimeStamp.seconds(10).range(TimeStamp.seconds(13))),
+        ]),
+      );
+      cache.write(
+        new MultiSeries([
+          stamped([4, 5], TimeStamp.seconds(13).range(TimeStamp.seconds(15)), 3n),
+        ]),
+      );
+      expect(cache.leadingBuffer?.timeRange.end).toEqual(TimeStamp.MAX);
+      expect(cache.dataTimeRange).toEqual(
+        TimeStamp.seconds(10).range(TimeStamp.seconds(15)),
+      );
+    });
+
+    it("should fall back to the wall clock for unstamped data", () => {
+      const cache = new Dynamic({ dynamicBufferSize: 100, now: () => WALL });
+      cache.write(new MultiSeries([f32([1, 2, 3])]));
+      expect(cache.dataTimeRange).toEqual(WALL.range(WALL));
+    });
+
+    // A rotation used to stamp the new buffer with the wall clock while its samples
+    // stayed far in the past, which read back as a range spanning both.
+    it("should keep a rotated buffer's range inside its own data", () => {
+      const cache = new Dynamic({ dynamicBufferSize: 2, now: () => WALL });
+      cache.write(
+        new MultiSeries([
+          stamped([1, 2], TimeStamp.seconds(10).range(TimeStamp.seconds(12))),
+        ]),
+      );
+      cache.write(
+        new MultiSeries([
+          stamped([3, 4], TimeStamp.seconds(12).range(TimeStamp.seconds(14)), 2n),
+        ]),
+      );
+      const range = cache.dataTimeRange;
+      expect(range?.isValid).toBe(true);
+      expect(range).toEqual(TimeStamp.seconds(12).range(TimeStamp.seconds(14)));
+      // WALL is 100s, so a read of the present must not reach the rotated buffer.
+      expect(
+        range?.overlapsWith(TimeStamp.seconds(90).range(TimeStamp.seconds(110))),
+      ).toBe(false);
+    });
+
+    it("should be null again after a flush", () => {
+      const cache = new Dynamic({ dynamicBufferSize: 100 });
+      cache.write(
+        new MultiSeries([
+          stamped([1, 2, 3], TimeStamp.seconds(10).range(TimeStamp.seconds(13))),
+        ]),
+      );
+      cache.flush();
+      expect(cache.dataTimeRange).toBeNull();
+    });
+  });
+
+  describe("compaction", () => {
+    // 100k samples of float32 is 400KB, so a buffer holding a handful of them wastes
+    // far more than the floor and sits well under the fill fraction.
+    const ROOMY = 100_000;
+
+    it("should right-size a buffer that rotates nearly empty", () => {
+      const cache = new Dynamic({ dynamicBufferSize: ROOMY });
+      const first = cache.write(new MultiSeries([f32([1, 2, 3])]));
+      const original = first.allocated.series[0];
+      // A series of its own size does not fit beside it, forcing a rotation.
+      const { flushed } = cache.write(
+        new MultiSeries([f32(Array.from({ length: ROOMY }, (_, i) => i)).reAlign(3n)]),
+      );
+      const compacted = flushed.series[0];
+      expect(compacted).not.toBe(original);
+      expect(Array.from(compacted)).toEqual([1, 2, 3]);
+      expect(compacted.alignment).toEqual(original.alignment);
+      expect(compacted.timeRange).toEqual(original.timeRange);
+      expect(compacted.key).toEqual(original.key);
+      expect(compacted.byteCapacity.valueOf()).toEqual(compacted.byteLength.valueOf());
+    });
+
+    it("should leave a buffer a consumer holds alone", () => {
+      const cache = new Dynamic({ dynamicBufferSize: ROOMY });
+      const first = cache.write(new MultiSeries([f32([1, 2, 3])]));
+      const original = first.allocated.series[0];
+      // Copying would strand the holder on an object the cache no longer serves.
+      original.acquire();
+      const { flushed } = cache.write(
+        new MultiSeries([f32(Array.from({ length: ROOMY }, (_, i) => i)).reAlign(3n)]),
+      );
+      expect(flushed.series[0]).toBe(original);
+      original.release();
+    });
+
+    it("should leave a nearly full buffer alone", () => {
+      const cache = new Dynamic({ dynamicBufferSize: ROOMY });
+      const fill = Array.from({ length: ROOMY - 1 }, (_, i) => i);
+      const first = cache.write(new MultiSeries([f32(fill)]));
+      const original = first.allocated.series[0];
+      const { flushed } = cache.write(
+        new MultiSeries([f32([1, 2]).reAlign(BigInt(fill.length))]),
+      );
+      expect(flushed.series[0]).toBe(original);
+    });
+
+    it("should leave a buffer whose waste is under the floor alone", () => {
+      // 100 float32 samples is 400 bytes of capacity, so nothing is worth copying.
+      const cache = new Dynamic({ dynamicBufferSize: 100 });
+      const first = cache.write(new MultiSeries([f32([1, 2, 3])]));
+      const original = first.allocated.series[0];
+      const { flushed } = cache.write(
+        new MultiSeries([f32(Array.from({ length: 100 }, (_, i) => i)).reAlign(3n)]),
+      );
+      expect(flushed.series[0]).toBe(original);
+    });
+
+    it("should leave a buffer that rotates inside its own write alone", () => {
+      const cache = new Dynamic({ dynamicBufferSize: ROOMY });
+      // Both series land in one write, so the buffer the first allocates is flushed
+      // before any subscriber has seen it. The response has to name one object, or
+      // a subscriber reading back what it streamed would see two.
+      const { flushed, allocated } = cache.write(
+        new MultiSeries([
+          f32([1, 2, 3]),
+          f32(Array.from({ length: ROOMY }, (_, i) => i)).reAlign(3n),
+        ]),
+      );
+      expect(flushed.series[0]).toBe(allocated.series[0]);
+    });
+
+    it("should right-size a variable-length buffer", () => {
+      const cache = new Dynamic({ dynamicBufferSize: 10_000 });
+      const first = cache.write(
+        new MultiSeries([new Series({ data: ["one"], dataType: DataType.STRING })]),
+      );
+      const original = first.allocated.series[0];
+      const { flushed } = cache.write(
+        new MultiSeries([
+          new Series({
+            data: Array.from({ length: 10_000 }, () => "x".repeat(40)),
+            dataType: DataType.STRING,
+          }).reAlign(1n),
+        ]),
+      );
+      const compacted = flushed.series[0];
+      expect(compacted).not.toBe(original);
+      expect(Array.from(compacted)).toEqual(["one"]);
+      expect(compacted.byteCapacity.valueOf()).toEqual(compacted.byteLength.valueOf());
     });
   });
 });

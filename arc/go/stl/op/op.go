@@ -74,7 +74,13 @@ func (n *binary) Next(ctx node.Context) {
 	}
 	lhs, rhs := n.Input(n.lhsIdx), n.Input(n.rhsIdx)
 	n.op(lhs, rhs, n.Output(0))
-	*n.OutputTime(0) = n.InputTime(n.lhsIdx)
+	// The op broadcasts the shorter input up to the longer one, so the timestamps
+	// have to come from the longer side to stay one per sample.
+	timeIdx := n.lhsIdx
+	if rhs.Len() > lhs.Len() {
+		timeIdx = n.rhsIdx
+	}
+	*n.OutputTime(0) = n.InputTime(timeIdx)
 	alignment := lhs.Alignment + rhs.Alignment
 	timeRange := telem.TimeRange{Start: lhs.TimeRange.Start, End: lhs.TimeRange.End}
 	if !rhs.TimeRange.Start.IsZero() &&

@@ -635,6 +635,7 @@ export class Series<T extends TelemValue = TelemValue>
       sampleOffset,
       glBufferUsage: this.gl.bufferUsage,
       alignment: this.alignment,
+      alignmentMultiple: this.alignmentMultiple,
     });
   }
 
@@ -1106,7 +1107,9 @@ export class Series<T extends TelemValue = TelemValue>
     return this.derive(this.data.subarray(start, end), start);
   }
 
-  // Builds the series produced by a slice, offsetting the alignment by start.
+  // Builds the series produced by a slice, offsetting the alignment by start. Each
+  // sample advances the alignment by alignmentMultiple, which is above one when the
+  // samples are a decimated or averaged view of the raw data.
   private derive(data: TypedArray, start: number): Series {
     return new Series({
       data,
@@ -1114,7 +1117,8 @@ export class Series<T extends TelemValue = TelemValue>
       timeRange: this.timeRange,
       sampleOffset: this.sampleOffset,
       glBufferUsage: this.gl.bufferUsage,
-      alignment: this.alignment + BigInt(start),
+      alignment: this.alignment + BigInt(start) * this.alignmentMultiple,
+      alignmentMultiple: this.alignmentMultiple,
     });
   }
 
@@ -1139,6 +1143,25 @@ export class Series<T extends TelemValue = TelemValue>
   }
 
   /**
+   * @returns a copy sized to exactly the samples held, or this series when it has no
+   * spare capacity. The copy is a separate object, so a caller holding the original by
+   * reference or by an acquired GPU buffer must keep using it.
+   */
+  compact(): Series {
+    if (this.writePos === FULL_BUFFER || this.writePos === this.capacity) return this;
+    return new Series({
+      data: this.data.slice(),
+      dataType: this.dataType,
+      timeRange: this.timeRange,
+      sampleOffset: this.sampleOffset,
+      glBufferUsage: this.gl.bufferUsage,
+      alignment: this.alignment,
+      alignmentMultiple: this.alignmentMultiple,
+      key: this.key,
+    });
+  }
+
+  /**
    * Creates a new series with a different alignment.
    * @returns A new series with the specified alignment.
    */
@@ -1150,6 +1173,7 @@ export class Series<T extends TelemValue = TelemValue>
       sampleOffset: this.sampleOffset,
       glBufferUsage: "static",
       alignment,
+      alignmentMultiple: this.alignmentMultiple,
     });
   }
 
