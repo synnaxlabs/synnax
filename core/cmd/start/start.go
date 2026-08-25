@@ -281,7 +281,7 @@ func BootupCore(
 		securityProvider,
 		cfg.certFactoryConfig,
 		*cfg.insecure,
-		len(cfg.peers) > 0,
+		len(cfg.peers) > 0 || len(distributionLayer.Cluster.Nodes()) > 1,
 	)
 	if !ok(err, nil) {
 		return err
