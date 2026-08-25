@@ -765,6 +765,14 @@ describe("remote", () => {
       expect(c.streamF).toHaveBeenCalledWith(c.streamHandler, [c.channel.key]);
     });
 
+    // Mirrors cesium's leading-alignment region: streamed, not-yet-persisted data
+    // carries alignments whose domain index starts at MaxUint32 - 1e6, sorting after
+    // any committed alignment.
+    const leadingAlignment = (domain: bigint, sample: bigint): bigint =>
+      ((0xffffffffn - 1_000_000n + domain) << 32n) | sample;
+    const committedAlignment = (domain: bigint, sample: bigint): bigint =>
+      (domain << 32n) | sample;
+
     // The stream must open before the back-fill read resolves, so a stalled or failed
     // back-fill cannot block live data.
     describe("live stream before back-fill", () => {
@@ -917,6 +925,79 @@ describe("remote", () => {
         const settled = calls;
         await new Promise((resolve) => setTimeout(resolve, 20));
         expect(calls).toBe(settled);
+      });
+
+      it("should insert committed back-fill before leading live series", async () => {
+        const now = TimeStamp.now();
+        const fetched = new Series({
+          data: new Float32Array([1, 2]),
+          timeRange: new TimeRange(now.sub(TimeSpan.seconds(2)), now),
+          alignment: committedAlignment(3n, 0n),
+        });
+        let release = (): void => {};
+        const gate = new Promise<void>((resolve) => (release = resolve));
+        c.feed.read = async (): Promise<MultiSeries> => {
+          await gate;
+          return new MultiSeries([fetched]);
+        };
+        const cd = new StreamChannelData(c, {
+          timeSpan: TimeSpan.MAX,
+          channel: c.channel.key,
+        });
+        await waitForStream(cd, c);
+        const live = new Series({
+          data: new Float32Array([3, 4]),
+          timeRange: new TimeRange(now, TimeStamp.MAX),
+          alignment: leadingAlignment(1n, 0n),
+        });
+        c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([live])]]));
+        release();
+        await expect.poll(() => cd.value()[1].series.length).toBe(2);
+        const [, data] = cd.value();
+        expect(data.series[0]).toBe(fetched);
+        expect(data.series[1]).toBe(live);
+        cd.cleanup();
+      });
+
+      // Unary.read documents that a span can return in both its streamed and fetched
+      // representation. The plot needs both: each alignment space must pair x with y
+      // completely, so neither representation may be dropped.
+      it("should retain both representations of a span", async () => {
+        const now = TimeStamp.now();
+        const span = new TimeRange(now.sub(TimeSpan.seconds(1)), now);
+        const live = new Series({
+          data: new Float32Array([5, 6]),
+          timeRange: span,
+          alignment: leadingAlignment(1n, 0n),
+        });
+        const fetched = new Series({
+          data: new Float32Array([5, 6]),
+          timeRange: span,
+          alignment: committedAlignment(4n, 0n),
+        });
+        let release = (): void => {};
+        const gate = new Promise<void>((resolve) => (release = resolve));
+        c.feed.read = async (): Promise<MultiSeries> => {
+          await gate;
+          return new MultiSeries([fetched, live]);
+        };
+        const cd = new StreamChannelData(c, {
+          timeSpan: TimeSpan.MAX,
+          channel: c.channel.key,
+        });
+        await waitForStream(cd, c);
+        c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([live])]]));
+        release();
+        await expect.poll(() => cd.value()[1].series.length).toBe(2);
+        const [b, data] = cd.value();
+        expect(data.series[0]).toBe(fetched);
+        expect(data.series[1]).toBe(live);
+        expect(live.refCount).toBe(1);
+        expect(fetched.refCount).toBe(1);
+        expect(b).toStrictEqual({ lower: 5, upper: 6 });
+        cd.cleanup();
+        expect(live.refCount).toBe(0);
+        expect(fetched.refCount).toBe(0);
       });
 
       it("should insert a late back-fill in front of live series", async () => {
