@@ -2307,6 +2307,106 @@ var _ = Describe("ProgramState", func() {
 		})
 	})
 
+	Describe("Emit and MarkFresh", func() {
+		It("Should leave an unpublished write invisible to the reader", func(
+			ctx SpecContext,
+		) {
+			s := newLinkedState(ctx)
+			src, dst := s.Node("src"), s.Node("dst")
+			*src.Output(0) = telem.NewSeriesV[int32](1)
+			*src.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+			Expect(dst.RefreshInputs()).To(BeFalse())
+		})
+
+		It("Should make a published write visible to the reader", func(
+			ctx SpecContext,
+		) {
+			s := newLinkedState(ctx)
+			src, dst := s.Node("src"), s.Node("dst")
+			*src.Output(0) = telem.NewSeriesV[int32](1)
+			*src.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+			src.MarkFresh(0)
+			Expect(dst.RefreshInputs()).To(BeTrue())
+			Expect(dst.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[int32](1)))
+		})
+
+		It("Should wake the reader through the scheduler callback", func(
+			ctx SpecContext,
+		) {
+			s := newLinkedState(ctx)
+			src, dst := s.Node("src"), s.Node("dst")
+			marked := make([]int, 0, 1)
+			nodeCtx := node.Context{
+				Context:     ctx,
+				MarkChanged: func(i int) { marked = append(marked, i) },
+			}
+			*src.Output(0) = telem.NewSeriesV[int32](1)
+			*src.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+			src.Emit(nodeCtx, 0)
+			Expect(marked).To(Equal([]int{0}))
+			Expect(dst.RefreshInputs()).To(BeTrue())
+		})
+
+		// Every producer in a cycle stamps that cycle's single timestamp, so two
+		// writes one pass apart carry the same one. The reader must still see the
+		// second.
+		It("Should see a second write carrying the same timestamp", func(
+			ctx SpecContext,
+		) {
+			s := newLinkedState(ctx)
+			src, dst := s.Node("src"), s.Node("dst")
+			*src.Output(0) = telem.NewSeriesV[int32](1)
+			*src.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+			src.MarkFresh(0)
+			Expect(dst.RefreshInputs()).To(BeTrue())
+			Expect(dst.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[int32](1)))
+			*src.Output(0) = telem.NewSeriesV[int32](2)
+			*src.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+			src.MarkFresh(0)
+			Expect(dst.RefreshInputs()).To(BeTrue())
+			Expect(dst.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[int32](2)))
+		})
+
+		It("Should not re-fire the reader without a second publish", func(
+			ctx SpecContext,
+		) {
+			s := newLinkedState(ctx)
+			src, dst := s.Node("src"), s.Node("dst")
+			*src.Output(0) = telem.NewSeriesV[int32](1)
+			*src.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+			src.MarkFresh(0)
+			Expect(dst.RefreshInputs()).To(BeTrue())
+			Expect(dst.RefreshInputs()).To(BeFalse())
+		})
+
+		It("Should reach a reader whose source carries no timestamps", func(
+			ctx SpecContext,
+		) {
+			s := newLinkedState(ctx)
+			src, dst := s.Node("src"), s.Node("dst")
+			*src.Output(0) = telem.NewSeriesV[int32](5)
+			src.MarkFresh(0)
+			Expect(dst.RefreshInputs()).To(BeTrue())
+			Expect(dst.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[int32](5)))
+		})
+
+		It("Should reach a reader when the new batch stamps earlier", func(
+			ctx SpecContext,
+		) {
+			s := newLinkedState(ctx)
+			src, dst := s.Node("src"), s.Node("dst")
+			*src.Output(0) = telem.NewSeriesV[int32](1)
+			*src.OutputTime(0) = telem.NewSeriesSecondsTSV(20)
+			src.MarkFresh(0)
+			Expect(dst.RefreshInputs()).To(BeTrue())
+			*src.Output(0) = telem.NewSeriesV[int32](2)
+			*src.OutputTime(0) = telem.NewSeriesSecondsTSV(5)
+			src.MarkFresh(0)
+			Expect(dst.RefreshInputs()).To(BeTrue())
+			Expect(dst.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[int32](2)))
+		})
+	})
+
 	Describe("InitInput", func() {
 		It(
 			"Should populate the input's source so the node fires",
