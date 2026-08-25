@@ -288,10 +288,12 @@ void State::ingest(const x::telem::Frame &frame) {
     this->channel->ingest(frame);
 }
 
-void State::flush_into(x::telem::Frame &out) {
-    this->channel->flush_into(out);
+x::telem::TimeStamp
+State::flush_into(x::telem::Frame &out, const x::telem::TimeStamp now) {
+    const auto highest = this->channel->flush_into(out, now);
     this->series->clear();
     this->strings->clear();
+    return highest;
 }
 
 void State::reset() {

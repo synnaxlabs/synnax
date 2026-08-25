@@ -208,7 +208,7 @@ public:
         return x::errors::NIL;
     }
 
-    void reset() override {
+    void reset(runtime::node::Context &) override {
         this->state.reset();
         this->sample_count = 0;
         this->start_time = x::telem::TimeStamp(0);
@@ -338,7 +338,7 @@ public:
         return x::errors::NIL;
     }
 
-    void reset() override {
+    void reset(runtime::node::Context &) override {
         this->state.reset();
         this->has_prev = false;
         this->prev_value = 0.0;
@@ -477,7 +477,7 @@ public:
         return x::errors::NIL;
     }
 
-    void reset() override { this->state.reset(); }
+    void reset(runtime::node::Context &) override { this->state.reset(); }
 
     [[nodiscard]] bool is_output_truthy(size_t) const override { return false; }
 
@@ -574,7 +574,7 @@ public:
         return x::errors::NIL;
     }
 
-    void reset() override { this->state.reset(); }
+    void reset(runtime::node::Context &) override { this->state.reset(); }
 
     [[nodiscard]] bool is_output_truthy(size_t) const override { return false; }
 

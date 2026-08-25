@@ -282,7 +282,8 @@ Arc provides the following built-in functions:
 
 - `len(series)` - Returns the length of a series as `i64`
 - `len(str)` - Returns the length of a string as `i64`
-- `now()` - Returns the current timestamp as `i64` with nanosecond time units
+- `now()` - Returns the current timestamp as `i64` with nanosecond time units. The
+  value is constant within a cycle: every call in one cycle returns the same stamp
 
 ```arc
 data := [1.0, 2.0, 3.0]

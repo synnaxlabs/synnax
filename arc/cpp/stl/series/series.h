@@ -35,7 +35,7 @@ public:
 
     void clear_cycle() override { this->series_state->clear(); }
 
-    void reset() override { this->series_state->clear(); }
+    void reset(runtime::node::Context &) override { this->series_state->clear(); }
 };
 
 }

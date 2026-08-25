@@ -32,6 +32,13 @@ public:
     explicit MonoClock(NowFunc source = nullptr):
         source(source ? std::move(source) : NowFunc(TimeStamp::now)) {}
 
+    /// @brief raises the floor so the next now() returns a timestamp strictly
+    /// greater than ts. A caller that derives further stamps from a now() reading
+    /// reports the highest one here to keep the sequence increasing.
+    void advance(const TimeStamp ts) {
+        if (ts > last) last = ts;
+    }
+
     /// @brief returns a timestamp strictly greater than any previous call.
     TimeStamp now() {
         auto ts = source();

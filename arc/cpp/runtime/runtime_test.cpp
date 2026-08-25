@@ -390,7 +390,7 @@ struct DeadlineNode final : public node::Node {
         return x::errors::NIL;
     }
 
-    void reset() override {}
+    void reset(node::Context &) override {}
 
     [[nodiscard]] bool is_output_truthy(size_t) const override { return false; }
 };

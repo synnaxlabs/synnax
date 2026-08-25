@@ -360,7 +360,7 @@ TEST(IntervalTest, ResetAllowsImmediateFiring) {
     node.next(ctx2);
     EXPECT_EQ(output->size(), 0);
 
-    node.reset();
+    node.reset(ctx2);
 
     auto ctx3 = make_context(x::telem::MILLISECOND * 600);
     node.next(ctx3);
@@ -467,7 +467,7 @@ TEST(WaitTest, ResetAllowsFiringAgain) {
     EXPECT_EQ(output->size(), 1);
     output->resize(0);
 
-    node.reset();
+    node.reset(ctx2);
 
     auto ctx3 = make_context(x::telem::SECOND * 2);
     node.next(ctx3);
@@ -571,7 +571,7 @@ TEST(WaitTest, StartsTimingFromChannelInputAfterReset) {
     EXPECT_EQ(output->size(), 1);
     output->resize(0);
 
-    node.reset();
+    node.reset(ctx2);
 
     auto ctx3 = make_context(
         x::telem::SECOND * 2,
@@ -735,7 +735,7 @@ TEST(WaitTest, ResetRestartsTimingFromZero) {
     auto ctx1 = make_context(x::telem::SECOND * 5);
     node.next(ctx1);
 
-    node.reset();
+    node.reset(ctx1);
 
     auto ctx2 = make_context(x::telem::SECOND * 5 + x::telem::MILLISECOND * 500);
     node.next(ctx2);
@@ -1060,7 +1060,7 @@ TEST(WaitDeadlineTest, SetsCorrectDeadlineAfterReset) {
     auto ctx2 = make_context(x::telem::SECOND);
     ASSERT_NIL(node.next(ctx2));
 
-    node.reset();
+    node.reset(ctx2);
 
     x::telem::TimeSpan reported_deadline(-1);
     auto ctx3 = make_context(x::telem::SECOND * 10);
@@ -1174,7 +1174,7 @@ TEST(NowTest, WorksAfterReset) {
     auto ctx1 = make_context(x::telem::TimeSpan(0));
     ASSERT_NIL(node.next(ctx1));
 
-    node.reset();
+    node.reset(ctx1);
 
     bool changed = false;
     auto ctx2 = make_context(x::telem::SECOND);
@@ -1354,7 +1354,8 @@ TEST(IntervalVarTest, FiresImmediatelyAfterResetUsingTheLivePeriod) {
     );
     EXPECT_TRUE(t.tick(x::telem::SECOND, runtime::node::RunReason::TimerTick).fired);
     t.set(5 * x::telem::SECOND);
-    t.node->reset();
+    auto ctx = make_context(x::telem::SECOND);
+    t.node->reset(ctx);
     EXPECT_TRUE(
         t.tick(1500 * x::telem::MILLISECOND, runtime::node::RunReason::TimerTick).fired
     );

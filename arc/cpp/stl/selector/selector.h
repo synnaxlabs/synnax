@@ -97,7 +97,7 @@ public:
         return state.is_output_truthy(output_idx);
     }
 
-    void reset() override { this->state.reset(); }
+    void reset(runtime::node::Context &) override { this->state.reset(); }
 };
 
 class Module : public stl::Module {

@@ -194,7 +194,7 @@ TEST(SelectTest, ResetKeepsConsumedEdgeFedInput) {
     EXPECT_EQ(changes, 0);
 
     // Stage re-entry keeps the consumed input, so the node does not re-run.
-    node.reset();
+    node.reset(ctx);
     changes = 0;
     ASSERT_NIL(node.next(ctx));
     EXPECT_EQ(changes, 0);

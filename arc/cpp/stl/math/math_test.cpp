@@ -243,7 +243,7 @@ TEST(MathAvgTest, ResetKeepsConsumedEdgeFedInput) {
     EXPECT_EQ(changes, 0);
 
     // Stage re-entry keeps the consumed input, so the node does not re-run.
-    node->reset();
+    node->reset(ctx);
     changes = 0;
     ASSERT_NIL(node->next(ctx));
     EXPECT_EQ(changes, 0);
@@ -833,7 +833,7 @@ TEST(MathDerivativeTest, ResetClearsState) {
     auto ctx = make_context();
     ASSERT_NIL(node->next(ctx));
 
-    node->reset();
+    node->reset(ctx);
 
     auto source2 = setup.make_source_node();
     write_source_f64(source2, {100.0}, {10 * sec});

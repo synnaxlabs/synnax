@@ -214,7 +214,7 @@ public:
             sc.active_step = NO_INDEX;
         }
         for (auto &n: this->nodes)
-            n.node->reset();
+            n.node->reset(this->ctx);
         this->activate_scope(this->scopes[0]);
     }
 
@@ -222,11 +222,12 @@ public:
     /// until changes settle. Nodes with pending changes execute in stratum
     /// order; sequential scopes advance via their transitions; gated scopes
     /// activate when their handle fires.
-    void next(const x::telem::TimeSpan elapsed, const node::RunReason reason) {
+    void next(const node::Cycle &cycle) {
         this->min_deadline = x::telem::TimeSpan::max();
-        this->ctx.elapsed = elapsed;
+        this->ctx.now = cycle.now;
+        this->ctx.elapsed = cycle.elapsed;
         this->ctx.tolerance = this->tolerance;
-        this->ctx.reason = reason;
+        this->ctx.reason = cycle.reason;
 
         // Re-pass until no change lands on an already-run node, bounded
         // against cycles.
@@ -312,7 +313,7 @@ private:
     void reset_leaf_node(MemberState &m) {
         if (m.is_node() && m.node != NO_INDEX) {
             this->self_changed_flags[m.node] = 0;
-            this->nodes[m.node].node->reset();
+            this->nodes[m.node].node->reset(this->ctx);
         }
     }
 

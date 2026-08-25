@@ -41,7 +41,7 @@ var _ = Describe("ProgramState", func() {
 				telem.NewSeriesV[float32](1.0),
 				telem.NewSeriesSecondsTSV(100),
 			)
-			fr, changed := cs.Flush(telem.Frame[uint32]{})
+			fr, _, changed := cs.Flush(telem.Frame[uint32]{}, flushNow)
 			Expect(changed).To(BeTrue())
 			Expect(fr.Get(11).Series).To(HaveLen(1))
 		})
@@ -63,7 +63,7 @@ var _ = Describe("ProgramState", func() {
 		It("Should ignore zero-value index in digests", func() {
 			cs := channels.NewProgramState([]channels.Digest{{Key: 10, Index: 0}})
 			cs.WriteValue(10, telem.NewSeriesV[int32](42))
-			fr, changed := cs.Flush(telem.Frame[uint32]{})
+			fr, _, changed := cs.Flush(telem.Frame[uint32]{}, flushNow)
 			Expect(changed).To(BeTrue())
 			Expect(fr.Get(10).Series).To(HaveLen(1))
 			Expect(fr.Get(0).Series).To(BeEmpty())
@@ -182,7 +182,7 @@ var _ = Describe("ProgramState", func() {
 	Describe("WriteValue", func() {
 		It("Should buffer the write for later flushing", func() {
 			s.WriteValue(3, telem.NewSeriesV[int32](100))
-			fr, changed := s.Flush(telem.Frame[uint32]{})
+			fr, _, changed := s.Flush(telem.Frame[uint32]{}, flushNow)
 			Expect(changed).To(BeTrue())
 			Expect(fr.Get(3).Series[0]).To(
 				telem.MatchSeries(telem.NewSeriesV[int32](100)),
@@ -191,7 +191,7 @@ var _ = Describe("ProgramState", func() {
 
 		It("Should auto-write index channel for indexed channels", func() {
 			s.WriteValue(1, telem.NewSeriesV[float32](5.0))
-			fr, changed := s.Flush(telem.Frame[uint32]{})
+			fr, _, changed := s.Flush(telem.Frame[uint32]{}, flushNow)
 			Expect(changed).To(BeTrue())
 			Expect(fr.Get(1).Series).To(HaveLen(1))
 			Expect(fr.Get(2).Series).To(HaveLen(1))
@@ -200,7 +200,7 @@ var _ = Describe("ProgramState", func() {
 
 		It("Should not write to an index for non-indexed channels", func() {
 			s.WriteValue(3, telem.NewSeriesV[int32](50))
-			fr, _ := s.Flush(telem.Frame[uint32]{})
+			fr, _, _ := s.Flush(telem.Frame[uint32]{}, flushNow)
 			Expect(fr.Get(3).Series).To(HaveLen(1))
 			Expect(fr.Get(0).Series).To(BeEmpty())
 		})
@@ -208,7 +208,7 @@ var _ = Describe("ProgramState", func() {
 		It("Should accumulate multiple writes in same cycle", func() {
 			s.WriteValue(3, telem.NewSeriesV[int32](1))
 			s.WriteValue(3, telem.NewSeriesV[int32](2))
-			fr, _ := s.Flush(telem.Frame[uint32]{})
+			fr, _, _ := s.Flush(telem.Frame[uint32]{}, flushNow)
 			Expect(fr.Get(3).Series[0]).To(
 				telem.MatchSeries(telem.NewSeriesV[int32](1, 2)),
 			)
@@ -216,7 +216,7 @@ var _ = Describe("ProgramState", func() {
 
 		It("Should handle writes to channels not in digests", func() {
 			s.WriteValue(888, telem.NewSeriesV(3.14))
-			fr, changed := s.Flush(telem.Frame[uint32]{})
+			fr, _, changed := s.Flush(telem.Frame[uint32]{}, flushNow)
 			Expect(changed).To(BeTrue())
 			Expect(fr.Get(888).Series[0]).To(
 				telem.MatchSeries(telem.NewSeriesV(3.14)),
@@ -224,25 +224,74 @@ var _ = Describe("ProgramState", func() {
 		})
 	})
 
+	Describe("Index stamping", func() {
+		It("Should stamp one sample per data sample, 1ns apart", func() {
+			s.WriteValue(1, telem.NewSeriesV[float32](1, 2, 3))
+			fr, highest, changed := s.Flush(telem.Frame[uint32]{}, flushNow)
+			Expect(changed).To(BeTrue())
+			Expect(fr.Get(2).Series[0]).To(telem.MatchSeries(telem.NewSeriesV(
+				telem.TimeStamp(flushNow),
+				telem.TimeStamp(flushNow+1),
+				telem.TimeStamp(flushNow+2),
+			)))
+			Expect(highest).To(Equal(telem.TimeStamp(flushNow + 2)))
+		})
+
+		It("Should start every member of a group at the same stamp", func() {
+			grouped := channels.NewProgramState([]channels.Digest{
+				{Key: 1, DataType: telem.Float32T, Index: 2},
+				{Key: 3, DataType: telem.Float32T, Index: 2},
+			})
+			grouped.WriteValue(1, telem.NewSeriesV[float32](1, 2))
+			grouped.WriteValue(3, telem.NewSeriesV[float32](3, 4))
+			fr, _, _ := grouped.Flush(telem.Frame[uint32]{}, flushNow)
+			Expect(fr.Get(2).Series).To(HaveLen(1))
+			Expect(fr.Get(2).Series[0]).To(telem.MatchSeries(telem.NewSeriesV(
+				telem.TimeStamp(flushNow),
+				telem.TimeStamp(flushNow+1),
+			)))
+		})
+
+		It("Should keep the timestamps a write supplied", func() {
+			s.WriteChannel(
+				1,
+				telem.NewSeriesV[float32](1, 2),
+				telem.NewSeriesSecondsTSV(7, 8),
+			)
+			fr, highest, _ := s.Flush(telem.Frame[uint32]{}, flushNow)
+			Expect(fr.Get(2).Series[0]).To(
+				telem.MatchSeries(telem.NewSeriesSecondsTSV(7, 8)),
+			)
+			Expect(highest).To(Equal(telem.TimeStamp(0)))
+		})
+
+		It("Should not stamp a channel with no index", func() {
+			s.WriteValue(3, telem.NewSeriesV[int32](1))
+			fr, highest, _ := s.Flush(telem.Frame[uint32]{}, flushNow)
+			Expect(fr.Get(0).Series).To(BeEmpty())
+			Expect(highest).To(Equal(telem.TimeStamp(0)))
+		})
+	})
+
 	Describe("Flush", func() {
 		It("Should return false when no writes are buffered", func() {
-			_, changed := s.Flush(telem.Frame[uint32]{})
+			_, _, changed := s.Flush(telem.Frame[uint32]{}, flushNow)
 			Expect(changed).To(BeFalse())
 		})
 
 		It("Should extract buffered writes and clear the write buffer", func() {
 			s.WriteValue(1, telem.NewSeriesV[float32](9.9))
-			fr, changed := s.Flush(telem.Frame[uint32]{})
+			fr, _, changed := s.Flush(telem.Frame[uint32]{}, flushNow)
 			Expect(changed).To(BeTrue())
 			Expect(fr.Get(1).Series).To(HaveLen(1))
-			_, changed = s.Flush(telem.Frame[uint32]{})
+			_, _, changed = s.Flush(telem.Frame[uint32]{}, flushNow)
 			Expect(changed).To(BeFalse())
 		})
 
 		It("Should deep copy data so mutations don't affect flushed frames", func() {
 			original := telem.NewSeriesV[float32](1.0, 2.0, 3.0)
 			s.WriteValue(1, original)
-			fr, _ := s.Flush(telem.Frame[uint32]{})
+			fr, _, _ := s.Flush(telem.Frame[uint32]{}, flushNow)
 			original.Data[0] = 0xFF
 			Expect(fr.Get(1).Series[0].Data[0]).ToNot(Equal(byte(0xFF)))
 		})
@@ -250,7 +299,7 @@ var _ = Describe("ProgramState", func() {
 		It("Should append to an existing frame", func() {
 			existing := telem.UnaryFrame[uint32](100, telem.NewSeriesV[int32](1))
 			s.WriteValue(3, telem.NewSeriesV[int32](2))
-			fr, changed := s.Flush(existing)
+			fr, _, changed := s.Flush(existing, flushNow)
 			Expect(changed).To(BeTrue())
 			Expect(fr.Get(100).Series).To(HaveLen(1))
 			Expect(fr.Get(3).Series).To(HaveLen(1))
@@ -259,7 +308,7 @@ var _ = Describe("ProgramState", func() {
 		It("Should flush writes for multiple channels", func() {
 			s.WriteValue(1, telem.NewSeriesV[float32](1.0))
 			s.WriteValue(3, telem.NewSeriesV[int32](2))
-			fr, changed := s.Flush(telem.Frame[uint32]{})
+			fr, _, changed := s.Flush(telem.Frame[uint32]{}, flushNow)
 			Expect(changed).To(BeTrue())
 			Expect(fr.Get(1).Series).To(HaveLen(1))
 			Expect(fr.Get(3).Series).To(HaveLen(1))
@@ -325,7 +374,7 @@ var _ = Describe("ProgramState", func() {
 			data := telem.NewSeriesV[float32](1.0, 2.0)
 			time := telem.NewSeriesSecondsTSV(100, 200)
 			s.WriteChannel(1, data, time)
-			fr, changed := s.Flush(telem.Frame[uint32]{})
+			fr, _, changed := s.Flush(telem.Frame[uint32]{}, flushNow)
 			Expect(changed).To(BeTrue())
 			Expect(fr.Get(1).Series[0]).To(telem.MatchSeries(data))
 			Expect(fr.Get(2).Series[0]).To(telem.MatchSeries(time))
@@ -335,7 +384,7 @@ var _ = Describe("ProgramState", func() {
 			data := telem.NewSeriesV(9.9)
 			time := telem.NewSeriesSecondsTSV(500)
 			s.WriteChannel(5, data, time)
-			fr, _ := s.Flush(telem.Frame[uint32]{})
+			fr, _, _ := s.Flush(telem.Frame[uint32]{}, flushNow)
 			Expect(fr.Get(6).Series).To(HaveLen(1))
 		})
 
@@ -343,7 +392,7 @@ var _ = Describe("ProgramState", func() {
 			data := telem.NewSeriesV[int32](42)
 			time := telem.NewSeriesSecondsTSV(100)
 			s.WriteChannel(3, data, time)
-			fr, _ := s.Flush(telem.Frame[uint32]{})
+			fr, _, _ := s.Flush(telem.Frame[uint32]{}, flushNow)
 			Expect(fr.Get(3).Series).To(HaveLen(1))
 			Expect(fr.Get(0).Series).To(BeEmpty())
 		})
@@ -414,7 +463,7 @@ var _ = Describe("ProgramState", func() {
 	Describe("WriteChannelFixed", func() {
 		It("Should write all fixed numeric types and auto-index timestamps", func() {
 			s.WriteChannelI32(1, 42)
-			fr, changed := s.Flush(telem.Frame[uint32]{})
+			fr, _, changed := s.Flush(telem.Frame[uint32]{}, flushNow)
 			Expect(changed).To(BeTrue())
 			Expect(fr.Get(1).Series).To(HaveLen(1))
 			Expect(telem.ValueAt[int32](fr.Get(1).Series[0], 0)).To(Equal(int32(42)))
@@ -424,7 +473,7 @@ var _ = Describe("ProgramState", func() {
 
 		It("Should not write index for channels without one", func() {
 			s.WriteChannelI32(3, 10)
-			fr, _ := s.Flush(telem.Frame[uint32]{})
+			fr, _, _ := s.Flush(telem.Frame[uint32]{}, flushNow)
 			Expect(fr.Get(3).Series).To(HaveLen(1))
 			Expect(fr.Get(0).Series).To(BeEmpty())
 		})
@@ -438,7 +487,7 @@ var _ = Describe("ProgramState", func() {
 			ser2.TimeRange = telem.TimeRange{Start: 50, End: 300}
 			s.WriteValue(3, ser1)
 			s.WriteValue(3, ser2)
-			fr, _ := s.Flush(telem.Frame[uint32]{})
+			fr, _, _ := s.Flush(telem.Frame[uint32]{}, flushNow)
 			Expect(fr.Get(3).Series[0].TimeRange.Start).To(Equal(telem.TimeStamp(50)))
 			Expect(fr.Get(3).Series[0].TimeRange.End).To(Equal(telem.TimeStamp(300)))
 		})
@@ -450,7 +499,7 @@ var _ = Describe("ProgramState", func() {
 			s.WriteValue(3, telem.NewSeriesV[int32](20))
 			readSer := MustBeOk(s.ReadValue(3))
 			Expect(telem.ValueAt[int32](readSer, 0)).To(Equal(int32(10)))
-			fr, _ := s.Flush(telem.Frame[uint32]{})
+			fr, _, _ := s.Flush(telem.Frame[uint32]{}, flushNow)
 			Expect(telem.ValueAt[int32](fr.Get(3).Series[0], 0)).To(Equal(int32(20)))
 		})
 	})

@@ -331,8 +331,10 @@ public:
     std::pair<Node, x::errors::Error> node(const std::string &key);
     void ingest(const x::telem::Frame &frame);
     /// @brief flushes channel state directly into the provided frame, avoiding
-    /// intermediate allocations.
-    void flush_into(x::telem::Frame &out);
+    /// intermediate allocations. An index whose channels wrote no timestamps of their
+    /// own is stamped from now.
+    /// @returns the highest timestamp it synthesized, or zero when it synthesized none.
+    x::telem::TimeStamp flush_into(x::telem::Frame &out, x::telem::TimeStamp now);
 
     /// @brief Buffers an authority change request for later flushing.
     /// If channel_key is nullopt, the change applies to all write channels.

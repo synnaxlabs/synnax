@@ -69,7 +69,7 @@ struct MockNode final : public node::Node {
         return x::errors::NIL;
     }
 
-    void reset() override { reset_called++; }
+    void reset(node::Context &) override { reset_called++; }
 
     [[nodiscard]] bool is_output_truthy(const size_t output_idx) const override {
         if (output_idx >= output_truthy.size()) return false;
@@ -255,7 +255,7 @@ public:
 
 TEST_F(SchedulerTest, EmptyProgramDoesNotCrash) {
     const auto s = build(ir::IR{});
-    s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
 }
 
 TEST_F(SchedulerTest, ExecutesAllPhaseZeroMembers) {
@@ -268,7 +268,7 @@ TEST_F(SchedulerTest, ExecutesAllPhaseZeroMembers) {
         root_scope({ir::node_member("A"), ir::node_member("B"), ir::node_member("C")})
     );
     const auto s = build(std::move(ir));
-    s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(mocks["A"]->next_called, 1);
     EXPECT_EQ(mocks["B"]->next_called, 1);
     EXPECT_EQ(mocks["C"]->next_called, 1);
@@ -280,9 +280,13 @@ TEST_F(SchedulerTest, Phase0ExecutesUnconditionallyEachCycle) {
     auto &a = mock("A");
     auto ir = program_of({ir_node("A")}, {}, root_scope({ir::node_member("A")}));
     const auto s = build(std::move(ir));
-    s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
-    s->next(2 * x::telem::MILLISECOND, node::RunReason::TimerTick);
-    s->next(3 * x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
+    s->next(
+        {.elapsed = 2 * x::telem::MILLISECOND, .reason = node::RunReason::TimerTick}
+    );
+    s->next(
+        {.elapsed = 3 * x::telem::MILLISECOND, .reason = node::RunReason::TimerTick}
+    );
     EXPECT_EQ(a.next_called, 3);
 }
 
@@ -297,7 +301,7 @@ TEST_F(SchedulerTest, PhaseNSkipsWithoutIncomingChange) {
         )
     );
     const auto s = build(std::move(ir));
-    s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(a.next_called, 1);
     EXPECT_EQ(b.next_called, 0);
 }
@@ -314,7 +318,7 @@ TEST_F(SchedulerTest, ContinuousEdgePropagatesToDownstream) {
         )
     );
     const auto s = build(std::move(ir));
-    s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(a.next_called, 1);
     EXPECT_EQ(b.next_called, 1);
 }
@@ -331,11 +335,13 @@ TEST_F(SchedulerTest, ConditionalEdgeGatedOnSourceTruthiness) {
         )
     );
     const auto s = build(std::move(ir));
-    s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(b.next_called, 0);
 
     a.set_truthy(0);
-    s->next(2 * x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next(
+        {.elapsed = 2 * x::telem::MILLISECOND, .reason = node::RunReason::TimerTick}
+    );
     EXPECT_EQ(b.next_called, 1);
 }
 
@@ -354,7 +360,7 @@ TEST_F(SchedulerTest, FiresOnlyTheEdgeWhoseSourceParamWasMarked) {
         )
     );
     const auto s = build(std::move(ir));
-    s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(b.next_called, 1);
     EXPECT_EQ(c.next_called, 0);
 }
@@ -374,7 +380,7 @@ TEST_F(SchedulerTest, FansOutToMultipleDownstreamMembers) {
         )
     );
     const auto s = build(std::move(ir));
-    s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(a.next_called, 1);
     EXPECT_EQ(b.next_called, 1);
     EXPECT_EQ(c.next_called, 1);
@@ -396,7 +402,7 @@ TEST_F(SchedulerTest, JoinNodeRunsOnceWhenMultipleInputsFire) {
         )
     );
     const auto s = build(std::move(ir));
-    s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(c.next_called, 1);
 }
 
@@ -421,7 +427,7 @@ TEST_F(SchedulerTest, DiamondSinkRunsExactlyOnce) {
         )
     );
     const auto s = build(std::move(ir));
-    s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(d.next_called, 1);
 }
 
@@ -435,7 +441,7 @@ TEST_F(SchedulerTest, IgnoresEdgesWithEndpointsOutsideMembership) {
         root_scope({ir::node_member("A"), ir::node_member("B")})
     );
     const auto s = build(std::move(ir));
-    s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(a.next_called, 1);
     EXPECT_EQ(b.next_called, 1);
 }
@@ -453,9 +459,13 @@ TEST_F(SchedulerTest, ConditionalFiresEveryCycleWhileTruthy) {
         )
     );
     const auto s = build(std::move(ir));
-    s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
-    s->next(2 * x::telem::MILLISECOND, node::RunReason::TimerTick);
-    s->next(3 * x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
+    s->next(
+        {.elapsed = 2 * x::telem::MILLISECOND, .reason = node::RunReason::TimerTick}
+    );
+    s->next(
+        {.elapsed = 3 * x::telem::MILLISECOND, .reason = node::RunReason::TimerTick}
+    );
     EXPECT_EQ(b.next_called, 3);
 }
 
@@ -470,11 +480,13 @@ TEST_F(SchedulerTest, ConditionalStopsFiringWhenSourceBecomesFalsy) {
         )
     );
     const auto s = build(std::move(ir));
-    s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(b.next_called, 1);
 
     a.output_truthy[0] = false;
-    s->next(2 * x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next(
+        {.elapsed = 2 * x::telem::MILLISECOND, .reason = node::RunReason::TimerTick}
+    );
     EXPECT_EQ(b.next_called, 1);
 }
 
@@ -490,7 +502,7 @@ TEST_F(SchedulerTest, ContinuousEdgesIgnoreSourceTruthiness) {
         )
     );
     const auto s = build(std::move(ir));
-    s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(b.next_called, 1);
 }
 
@@ -512,7 +524,7 @@ TEST_F(SchedulerTest, ConditionalEdgesIndependentPerParam) {
         )
     );
     const auto s = build(std::move(ir));
-    s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(b.next_called, 1);
     EXPECT_EQ(c.next_called, 0);
 }
@@ -547,10 +559,16 @@ TEST_F(SchedulerTest, SelfChangedReplaysUntilNodeStopsMarking) {
         )
     );
     const auto s = build(std::move(ir));
-    s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
-    s->next(2 * x::telem::MILLISECOND, node::RunReason::TimerTick);
-    s->next(3 * x::telem::MILLISECOND, node::RunReason::TimerTick);
-    s->next(4 * x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
+    s->next(
+        {.elapsed = 2 * x::telem::MILLISECOND, .reason = node::RunReason::TimerTick}
+    );
+    s->next(
+        {.elapsed = 3 * x::telem::MILLISECOND, .reason = node::RunReason::TimerTick}
+    );
+    s->next(
+        {.elapsed = 4 * x::telem::MILLISECOND, .reason = node::RunReason::TimerTick}
+    );
     EXPECT_EQ(a.next_called, 3);
 }
 
@@ -560,8 +578,12 @@ TEST_F(SchedulerTest, ElapsedTimePassedThrough) {
     auto &a = mock("A");
     auto ir = program_of({ir_node("A")}, {}, root_scope({ir::node_member("A")}));
     const auto s = build(std::move(ir));
-    s->next(5 * x::telem::MILLISECOND, node::RunReason::TimerTick);
-    s->next(10 * x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next(
+        {.elapsed = 5 * x::telem::MILLISECOND, .reason = node::RunReason::TimerTick}
+    );
+    s->next(
+        {.elapsed = 10 * x::telem::MILLISECOND, .reason = node::RunReason::TimerTick}
+    );
     ASSERT_EQ(a.elapsed_values.size(), 2);
     EXPECT_EQ(a.elapsed_values[0], 5 * x::telem::MILLISECOND);
     EXPECT_EQ(a.elapsed_values[1], 10 * x::telem::MILLISECOND);
@@ -573,7 +595,9 @@ TEST_F(SchedulerTest, ReasonChannelInputPassedThrough) {
     a.on_next = [&received](const node::Context &ctx) { received = ctx.reason; };
     auto ir = program_of({ir_node("A")}, {}, root_scope({ir::node_member("A")}));
     const auto s = build(std::move(ir));
-    s->next(x::telem::MILLISECOND, node::RunReason::ChannelInput);
+    s->next(
+        {.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::ChannelInput}
+    );
     EXPECT_EQ(received, node::RunReason::ChannelInput);
 }
 
@@ -581,7 +605,7 @@ TEST_F(SchedulerTest, NextDeadlineDefaultsToMax) {
     mock("A");
     auto ir = program_of({ir_node("A")}, {}, root_scope({ir::node_member("A")}));
     const auto s = build(std::move(ir));
-    s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(s->next_deadline(), x::telem::TimeSpan::max());
 }
 
@@ -600,7 +624,7 @@ TEST_F(SchedulerTest, NextDeadlineReturnsMinimum) {
         root_scope({ir::node_member("A"), ir::node_member("B")})
     );
     const auto s = build(std::move(ir));
-    s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(s->next_deadline(), 3 * x::telem::MILLISECOND);
 }
 
@@ -613,9 +637,11 @@ TEST_F(SchedulerTest, NextDeadlineResetsBetweenCycles) {
     };
     auto ir = program_of({ir_node("A")}, {}, root_scope({ir::node_member("A")}));
     const auto s = build(std::move(ir));
-    s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(s->next_deadline(), x::telem::SECOND);
-    s->next(2 * x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next(
+        {.elapsed = 2 * x::telem::MILLISECOND, .reason = node::RunReason::TimerTick}
+    );
     EXPECT_EQ(s->next_deadline(), x::telem::TimeSpan::max());
 }
 
@@ -633,7 +659,7 @@ TEST_F(SchedulerTest, GatedScopeDoesNotExecuteBeforeActivation) {
         root_scope({ir::node_member("trigger"), ir::scope_member(std::move(gated))})
     );
     const auto s = build(std::move(ir));
-    s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(trigger.next_called, 1);
     EXPECT_EQ(stage_node.next_called, 0);
 }
@@ -650,10 +676,12 @@ TEST_F(SchedulerTest, GatedScopeActivatesOnceHandleFires) {
         root_scope({ir::node_member("trigger"), ir::scope_member(std::move(gated))})
     );
     const auto s = build(std::move(ir));
-    s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(stage_node.next_called, 1);
     EXPECT_EQ(stage_node.reset_called, 1);
-    s->next(2 * x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next(
+        {.elapsed = 2 * x::telem::MILLISECOND, .reason = node::RunReason::TimerTick}
+    );
     EXPECT_EQ(stage_node.next_called, 2);
     EXPECT_EQ(stage_node.reset_called, 1); // no re-activation
 }
@@ -672,7 +700,7 @@ TEST_F(SchedulerTest, AnonymousTopLevelAlwaysScopeAutoActivates) {
         root_scope({ir::scope_member(std::move(anon))})
     );
     const auto s = build(std::move(ir));
-    s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(n.reset_called, 1);
     EXPECT_EQ(n.next_called, 1);
 }
@@ -690,7 +718,7 @@ TEST_F(SchedulerTest, NamedTopLevelGatedScopeWithoutHandleStaysInert) {
         root_scope({ir::scope_member(std::move(gated))})
     );
     const auto s = build(std::move(ir));
-    s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(n.reset_called, 0);
     EXPECT_EQ(n.next_called, 0);
 }
@@ -712,7 +740,7 @@ TEST_F(SchedulerTest, CascadeResetsNestedAlwaysScopeOnActivation) {
         root_scope({ir::node_member("trigger"), ir::scope_member(std::move(outer))})
     );
     const auto s = build(std::move(ir));
-    s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(inner.reset_called, 1);
     EXPECT_EQ(inner.next_called, 1);
 }
@@ -737,7 +765,7 @@ TEST_F(SchedulerTest, CascadeThroughNestedAlwaysScopesAtDepth) {
         root_scope({ir::scope_member(std::move(outer))})
     );
     const auto s = build(std::move(ir));
-    s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(leaf.reset_called, 1);
     EXPECT_EQ(leaf.next_called, 1);
 }
@@ -776,12 +804,14 @@ TEST_F(SchedulerTest, AdvancesOnTransitionFire) {
         root_scope({ir::node_member("trigger"), ir::scope_member(std::move(main))})
     );
     const auto s = build(std::move(ir));
-    s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(first.next_called, 1);
     EXPECT_EQ(second.next_called, 0);
 
     first.set_truthy(0);
-    s->next(2 * x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next(
+        {.elapsed = 2 * x::telem::MILLISECOND, .reason = node::RunReason::TimerTick}
+    );
     EXPECT_EQ(second.next_called, 1);
     EXPECT_EQ(second.reset_called, 1);
 }
@@ -815,11 +845,15 @@ TEST_F(SchedulerTest, ExitTargetDeactivatesSequence) {
         root_scope({ir::node_member("trigger"), ir::scope_member(std::move(main))})
     );
     const auto s = build(std::move(ir));
-    s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
     first.set_truthy(0);
-    s->next(2 * x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next(
+        {.elapsed = 2 * x::telem::MILLISECOND, .reason = node::RunReason::TimerTick}
+    );
     const int count_at_exit = first.next_called;
-    s->next(3 * x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next(
+        {.elapsed = 3 * x::telem::MILLISECOND, .reason = node::RunReason::TimerTick}
+    );
     EXPECT_EQ(first.next_called, count_at_exit);
 }
 
@@ -858,9 +892,11 @@ TEST_F(SchedulerTest, FirstMatchWinsWhenMultipleTransitionsTruthy) {
         root_scope({ir::node_member("trigger"), ir::scope_member(std::move(main))})
     );
     const auto s = build(std::move(ir));
-    s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
     first.set_truthy(0);
-    s->next(2 * x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next(
+        {.elapsed = 2 * x::telem::MILLISECOND, .reason = node::RunReason::TimerTick}
+    );
     EXPECT_EQ(a.next_called, 1);
     EXPECT_EQ(b.next_called, 0);
 }
@@ -900,7 +936,7 @@ TEST_F(SchedulerTest, CascadesMultipleTransitionsInOneCycle) {
         root_scope({ir::node_member("trigger"), ir::scope_member(std::move(main))})
     );
     const auto s = build(std::move(ir));
-    s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(s1.next_called, 1);
     EXPECT_EQ(s2.next_called, 1);
     EXPECT_EQ(s3.next_called, 1);
@@ -921,7 +957,7 @@ TEST_F(SchedulerTest, ContinuesAfterErrorReport) {
         root_scope({ir::node_member("A"), ir::node_member("B"), ir::node_member("C")})
     );
     const auto s = build_with_handler(std::move(ir), h.handler);
-    s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(a.next_called, 1);
     EXPECT_EQ(b.next_called, 1);
     EXPECT_EQ(c.next_called, 1);
@@ -940,7 +976,7 @@ TEST_F(SchedulerTest, AccumulatesMultipleErrors) {
         root_scope({ir::node_member("A"), ir::node_member("B")})
     );
     const auto s = build_with_handler(std::move(ir), h.handler);
-    s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(h.errors.size(), 2);
 }
 
@@ -950,7 +986,7 @@ TEST_F(SchedulerTest, ZeroElapsedTimeAccepted) {
     auto &a = mock("A");
     auto ir = program_of({ir_node("A")}, {}, root_scope({ir::node_member("A")}));
     const auto s = build(std::move(ir));
-    s->next(x::telem::TimeSpan(0), node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::TimeSpan(0), .reason = node::RunReason::TimerTick});
     EXPECT_EQ(a.next_called, 1);
     EXPECT_EQ(a.elapsed_values[0], x::telem::TimeSpan(0));
 }
@@ -964,7 +1000,7 @@ TEST_F(SchedulerTest, SelfLoopEdgeDoesNotCrash) {
         root_scope({ir::node_member("A")})
     );
     const auto s = build(std::move(ir));
-    s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(a.next_called, 1);
 }
 
@@ -981,7 +1017,7 @@ TEST_F(SchedulerTest, EmptySequentialScopeTolerated) {
         root_scope({ir::node_member("trigger"), ir::scope_member(std::move(main))})
     );
     const auto s = build(std::move(ir));
-    s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(trigger.next_called, 1);
 }
 
@@ -1010,7 +1046,7 @@ TEST_F(SchedulerTest, IndependentTopLevelGatedScopes) {
         )
     );
     const auto s = build(std::move(ir));
-    s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(a.next_called, 1);
     EXPECT_EQ(b.next_called, 0);
 }
@@ -1033,7 +1069,7 @@ TEST_F(SchedulerTest, MixedContinuousAndConditionalInSameGraph) {
         )
     );
     const auto s = build(std::move(ir));
-    s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(b.next_called, 1);
     EXPECT_EQ(c.next_called, 1);
 }
@@ -1075,10 +1111,12 @@ TEST_F(
         )
     );
     const auto s = build(std::move(program));
-    s->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(mocks["worker"]->next_called, 1);
     EXPECT_EQ(mocks["worker"]->reset_called, 1);
-    s->next(2 * x::telem::MICROSECOND, node::RunReason::TimerTick);
+    s->next(
+        {.elapsed = 2 * x::telem::MICROSECOND, .reason = node::RunReason::TimerTick}
+    );
     EXPECT_EQ(mocks["worker"]->next_called, 2);
     EXPECT_EQ(mocks["worker"]->reset_called, 1);
 }
@@ -1124,15 +1162,19 @@ TEST_F(
     );
     const auto s = build(std::move(program));
 
-    s->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(mocks["worker_a"]->next_called, 1);
     EXPECT_EQ(mocks["worker_b"]->next_called, 1);
 
-    s->next(2 * x::telem::MICROSECOND, node::RunReason::TimerTick);
+    s->next(
+        {.elapsed = 2 * x::telem::MICROSECOND, .reason = node::RunReason::TimerTick}
+    );
     EXPECT_EQ(mocks["worker_a"]->next_called, 1);
     EXPECT_EQ(mocks["worker_b"]->next_called, 2);
 
-    s->next(3 * x::telem::MICROSECOND, node::RunReason::TimerTick);
+    s->next(
+        {.elapsed = 3 * x::telem::MICROSECOND, .reason = node::RunReason::TimerTick}
+    );
     EXPECT_EQ(mocks["worker_a"]->next_called, 1);
     EXPECT_EQ(mocks["worker_b"]->next_called, 3);
 }
@@ -1177,9 +1219,11 @@ TEST_F(SchedulerTest, FiresTransitionAgainWhenSourceFreshlyMarksChangedOnLaterCy
         )
     );
     const auto s = build(std::move(program));
-    s->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(mocks["worker_b"]->next_called, 0);
-    s->next(2 * x::telem::MICROSECOND, node::RunReason::TimerTick);
+    s->next(
+        {.elapsed = 2 * x::telem::MICROSECOND, .reason = node::RunReason::TimerTick}
+    );
     EXPECT_EQ(mocks["worker_b"]->next_called, 1);
 }
 
@@ -1206,12 +1250,14 @@ TEST_F(SchedulerTest, ReRunsAnAlreadyVisitedNodeWhenALaterNodeWritesBackToIt) {
     const auto s = build(std::move(program));
     // B's backward write lands on already-visited A, forcing a second pass
     // within the same cycle.
-    s->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(a.next_called, 2);
     // B's pass-1 run consumed its flag; no fresh mark, no re-run.
     EXPECT_EQ(b.next_called, 1);
     // The re-pass does not leak into the next cycle.
-    s->next(2 * x::telem::MICROSECOND, node::RunReason::TimerTick);
+    s->next(
+        {.elapsed = 2 * x::telem::MICROSECOND, .reason = node::RunReason::TimerTick}
+    );
     EXPECT_EQ(a.next_called, 3);
     EXPECT_EQ(b.next_called, 1);
 }
@@ -1232,10 +1278,12 @@ TEST_F(SchedulerTest, DoesNotRePassWhenAConditionalBackwardEdgeStaysFalsy) {
     const auto s = build(std::move(program));
     // B marks its falsy output each run; the gated backward edge never lands
     // the change, so each cycle stays a single pass.
-    s->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(a.next_called, 1);
     EXPECT_EQ(b.next_called, 1);
-    s->next(2 * x::telem::MICROSECOND, node::RunReason::TimerTick);
+    s->next(
+        {.elapsed = 2 * x::telem::MICROSECOND, .reason = node::RunReason::TimerTick}
+    );
     EXPECT_EQ(a.next_called, 2);
     EXPECT_EQ(b.next_called, 2);
 }
@@ -1249,9 +1297,11 @@ TEST_F(SchedulerTest, DoesNotRePassWhenANodeMarksItselfThroughASelfLoop) {
         root_scope({ir::node_member("A")})
     );
     const auto s = build(std::move(program));
-    s->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(a.next_called, 1);
-    s->next(2 * x::telem::MICROSECOND, node::RunReason::TimerTick);
+    s->next(
+        {.elapsed = 2 * x::telem::MICROSECOND, .reason = node::RunReason::TimerTick}
+    );
     EXPECT_EQ(a.next_called, 2);
 }
 
@@ -1269,7 +1319,7 @@ TEST_F(SchedulerTest, BoundsSettlePassesForAMutuallyMarkingCycle) {
         )
     );
     const auto s = build(std::move(program));
-    s->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick});
     // Every pass unsettles, so the cycle runs to the bound of node-count + 1
     // passes and stops.
     EXPECT_EQ(a.next_called, 3);
@@ -1314,7 +1364,7 @@ TEST_F(SchedulerTest, RunsTheNextSequentialStepOnTheSettlePassSoItObservesPriorW
         )
     );
     const auto s = build(std::move(program));
-    s->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick});
     // The transition fires on pass 1, but second_node waits for the settle
     // pass and runs after V has absorbed first_node's write.
     EXPECT_EQ(
@@ -1359,7 +1409,7 @@ TEST_F(SchedulerTest, DispatchesAMarkedNodeOnceDespiteAnUnrelatedRePass) {
         )
     );
     const auto s = build(std::move(program));
-    s->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick});
     // A's re-run proves a second pass happened.
     EXPECT_EQ(a.next_called, 2);
     EXPECT_EQ(worker.next_called, 1);
@@ -1384,7 +1434,7 @@ TEST_F(SchedulerTest, DispatchesChainNodesOncePerMarkAcrossSettlePasses) {
         )
     );
     const auto s = build(std::move(program));
-    s->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(a.next_called, 2);
     EXPECT_EQ(b.next_called, 1);
     EXPECT_EQ(c.next_called, 1);
@@ -1421,7 +1471,7 @@ TEST_F(SchedulerTest, FiresAStagesOneShotTriggeredNodeOncePerActivation) {
         )
     );
     const auto s = build(std::move(program));
-    s->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick});
     // The entry re-runs each pass but marks once; the creator must dispatch
     // exactly once, like a range create in a stage.
     EXPECT_EQ(entry.next_called, 2);
@@ -1446,7 +1496,7 @@ TEST_F(SchedulerTest, ReDispatchesANodeMarkedAgainAfterItAlreadyRan) {
         )
     );
     const auto s = build(std::move(program));
-    s->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick});
     // C's write marked B after B ran; the fresh mark re-dispatches it.
     EXPECT_EQ(b.next_called, 2);
     EXPECT_EQ(c.next_called, 1);
@@ -1473,7 +1523,7 @@ TEST_F(SchedulerTest, NeverDispatchesAnUnmarkedNodeAcrossSettlePasses) {
         )
     );
     const auto s = build(std::move(program));
-    s->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(a.next_called, 2);
     EXPECT_EQ(silent.next_called, 0);
 }
@@ -1502,7 +1552,7 @@ TEST_F(SchedulerTest, PreservesAMarkANodeSetsOnItselfWhileItRuns) {
         )
     );
     const auto s = build(std::move(program));
-    s->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick});
     // The self-mark lands after consumption, so the re-pass delivers it.
     EXPECT_EQ(looper.next_called, 2);
 }
@@ -1520,9 +1570,11 @@ TEST_F(SchedulerTest, DispatchesAgainOnAFreshMarkInTheNextCycle) {
         )
     );
     const auto s = build(std::move(program));
-    s->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(worker.next_called, 1);
-    s->next(2 * x::telem::MICROSECOND, node::RunReason::TimerTick);
+    s->next(
+        {.elapsed = 2 * x::telem::MICROSECOND, .reason = node::RunReason::TimerTick}
+    );
     EXPECT_EQ(worker.next_called, 2);
 }
 
@@ -1543,7 +1595,7 @@ TEST_F(SchedulerTest, ResetsASequentialScopesStrataMembersOnActivation) {
     );
     const auto s = build(std::move(program));
     const int base = v.reset_called;
-    s->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(v.reset_called, base + 1);
     EXPECT_EQ(stage_node.reset_called, 1);
 }
@@ -1587,16 +1639,20 @@ TEST_F(SchedulerTest, ClearsAPendingSelfChangeAndReResetsOnScopeReEntry) {
     const int base = v.reset_called;
     // Cycle 1: activation resets V; V runs via the trigger edge and marks
     // itself.
-    s->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+    s->next({.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(v.reset_called, base + 1);
     EXPECT_EQ(v.next_called, 1);
     // Cycle 2: V replays its self-change and re-marks; A exits main.
     stage_node.set_truthy(0);
-    s->next(2 * x::telem::MICROSECOND, node::RunReason::TimerTick);
+    s->next(
+        {.elapsed = 2 * x::telem::MICROSECOND, .reason = node::RunReason::TimerTick}
+    );
     EXPECT_EQ(v.next_called, 2);
     // Cycle 3: re-activation resets V again and clears the pending
     // self-change, so V does not replay.
-    s->next(3 * x::telem::MICROSECOND, node::RunReason::TimerTick);
+    s->next(
+        {.elapsed = 3 * x::telem::MICROSECOND, .reason = node::RunReason::TimerTick}
+    );
     EXPECT_EQ(v.reset_called, base + 2);
     EXPECT_EQ(v.next_called, 2);
 }
@@ -1614,7 +1670,9 @@ TEST_F(SchedulerTest, IgnoresAStrataVariableMemberWithNoMatchingNode) {
         root_scope({ir::node_member("trigger"), ir::scope_member(std::move(main))})
     );
     const auto s = build(std::move(program));
-    EXPECT_NO_THROW(s->next(x::telem::MICROSECOND, node::RunReason::TimerTick));
+    EXPECT_NO_THROW(s->next(
+        {.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick}
+    ));
     EXPECT_EQ(m.next_called, 1);
 }
 

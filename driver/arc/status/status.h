@@ -108,7 +108,7 @@ public:
         return x::errors::NIL;
     }
 
-    void reset() override { this->state.reset(); }
+    void reset(::arc::runtime::node::Context &) override { this->state.reset(); }
 
     [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
         return this->state.is_output_truthy(output_idx);

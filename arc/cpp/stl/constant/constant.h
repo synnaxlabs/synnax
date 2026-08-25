@@ -26,7 +26,6 @@ namespace arc::stl::constant {
 /// once per activation; triggered constants fire on every run.
 class Constant : public runtime::node::Node {
     runtime::state::Node state;
-    x::telem::MonoClock clock;
     x::telem::SampleValue value;
     bool is_entry_node;
     bool initialized = false;
@@ -66,12 +65,12 @@ public:
             o->set(0, this->value);
         }
         o_time->resize(1);
-        o_time->set(0, this->clock.now());
+        o_time->set(0, ctx.now);
         this->state.emit(ctx.mark_changed, 0);
         return x::errors::NIL;
     }
 
-    void reset() override { this->initialized = false; }
+    void reset(runtime::node::Context &) override { this->initialized = false; }
 
     [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
         return this->state.is_output_truthy(output_idx);

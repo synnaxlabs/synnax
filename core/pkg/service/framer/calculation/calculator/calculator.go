@@ -250,12 +250,15 @@ func (c *Calculator) Next(
 		changed     bool
 	)
 	for {
-		c.scheduler.Next(ctx, node.Cycle{
+		cycle := node.Cycle{
 			Now:     c.clock.Now(),
 			Elapsed: telem.Since(c.start),
 			Reason:  node.ReasonChannelInput,
-		})
-		ofr, currChanged = c.state.channel.Flush(ofr)
+		}
+		c.scheduler.Next(ctx, cycle)
+		var highest telem.TimeStamp
+		ofr, highest, currChanged = c.state.channel.Flush(ofr, cycle.Now)
+		c.clock.Advance(highest)
 		// Series and strings must be cleared after every flush, not just at the end
 		// of the loop. On each iteration the scheduler may create new series/string
 		// handles via WASM; if we don't clear them before the next iteration, stale
