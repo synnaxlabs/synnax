@@ -178,6 +178,10 @@ public:
     /// input up to a longer one, keeping one timestamp per output sample.
     [[nodiscard]] int provenance_idx() const;
 
+    /// @brief overwrites the output's time series with a single sample of the cycle
+    /// stamp, reusing its buffer. Nodes with no provenance to forward use it.
+    void stamp_cycle(x::telem::TimeStamp now, size_t output_idx) const;
+
     /// Reads buffered data and time series from a channel. Returns (data, index_data,
     /// ok). If the channel has an associated index, both data and time are returned.
     std::tuple<x::telem::MultiSeries, x::telem::MultiSeries, bool>

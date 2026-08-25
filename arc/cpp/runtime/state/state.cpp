@@ -351,6 +351,12 @@ int Node::provenance_idx() const {
     return best;
 }
 
+void Node::stamp_cycle(const x::telem::TimeStamp now, const size_t output_idx) const {
+    auto &t = this->output_time(output_idx);
+    t->resize(1);
+    t->set(0, now);
+}
+
 bool Node::refresh_inputs() {
     bool has_data_input = false;
     bool has_unconsumed = false;

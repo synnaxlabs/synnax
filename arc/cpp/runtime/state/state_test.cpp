@@ -1493,6 +1493,23 @@ TEST(ProvenanceIdxTest, ReportsNoneWhenEveryInputIsALiteral) {
     EXPECT_EQ(sink.provenance_idx(), -1);
 }
 
+/// @brief stamp_cycle should replace the output time with one cycle stamp.
+TEST(StampCycleTest, ReplacesOutputTimeWithTheCycleStamp) {
+    ir::IR prog;
+    prog.nodes.push_back(make_node(
+        "sink",
+        "sink",
+        {value_param(ir::lhs_input_param, types::Kind::I32, 5)},
+        {value_param(ir::default_output_param, types::Kind::I32)}
+    ));
+    const auto s = std::make_shared<State>(Config{.ir = prog});
+    auto sink = ASSERT_NIL_P(s->node("sink"));
+    *sink.output_time(0) = x::telem::Series(std::vector<int64_t>{10, 20, 30});
+    sink.stamp_cycle(x::telem::TimeStamp(1234), 0);
+    ASSERT_EQ(sink.output_time(0)->size(), 1);
+    EXPECT_EQ(sink.output_time(0)->at<int64_t>(0), 1234);
+}
+
 /// @brief reset should keep an edge-fed input the node already consumed.
 TEST(ResetTest, KeepsAConsumedEdgeFedInput) {
     const auto s = new_linked_state();
