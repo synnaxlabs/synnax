@@ -11,4 +11,6 @@ export * from "@/table/cells";
 export * from "@/table/clipboard";
 export * from "@/table/Icons";
 export * from "@/table/queries";
+export { Scope } from "@/table/scope";
+export * from "@/table/Suspended";
 export * from "@/table/Table";

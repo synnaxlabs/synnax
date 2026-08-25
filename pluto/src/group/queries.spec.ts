@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, group, ontology } from "@synnaxlabs/client";
+import { group, ontology } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
@@ -65,7 +66,6 @@ describe("Group queries", () => {
       expect(result.current.data).toContain(group1.key);
       expect(result.current.data).toContain(group2.key);
 
-      // Check we can retrieve the full group data
       const retrievedGroup1 = result.current.getItem(group1.key);
       expect(retrievedGroup1?.name).toBe("group1");
       const retrievedGroup2 = result.current.getItem(group2.key);
@@ -173,7 +173,6 @@ describe("Group queries", () => {
         expect(result.current.data).toHaveLength(2);
       });
 
-      // Check the actual group names via getItem
       const groupItems = result.current.data.map((key) => result.current.getItem(key));
       const names = groupItems.map((g) => g?.name).filter(Boolean);
       // With offset 1 and limit 2, we should get items at index 1 and 2
@@ -210,7 +209,6 @@ describe("Group queries", () => {
         expect(result.current.data).toHaveLength(1);
       });
 
-      // Create a new group which should trigger an update
       await act(async () => {
         await client.groups.create({
           parent: group.ontologyID(parent.key),
@@ -336,6 +334,32 @@ describe("Group queries", () => {
         client.ontology.retrieve(group.ontologyID(testGroup.key)),
       ).rejects.toThrow();
     });
+
+    it("should run afterOptimistic before the delete commits", async () => {
+      const testGroup = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: "optimistic-delete",
+      });
+      const order: string[] = [];
+      const { result } = renderHook(
+        () =>
+          Group.useDelete({
+            afterOptimistic: ({ data }) => {
+              order.push(`optimistic:${data.key}`);
+            },
+            afterSuccess: () => {
+              order.push("success");
+            },
+          }),
+        { wrapper },
+      );
+
+      await act(async () => {
+        await result.current.updateAsync({ key: testGroup.key });
+      });
+
+      expect(order).toEqual([`optimistic:${testGroup.key}`, "success"]);
+    });
   });
 
   describe("Flux store integration", () => {
@@ -452,7 +476,6 @@ describe("Group queries", () => {
         expect(result.current.data).toHaveLength(0);
       });
 
-      // Move the group from parent1 to parent2
       await act(async () => {
         await client.ontology.moveChildren(
           group.ontologyID(parent1.key),
@@ -502,7 +525,6 @@ describe("Group queries", () => {
         expect(result.current.data[0]).toBe(g.key);
       });
 
-      // Move the group from parent1 to parent2
       await act(async () => {
         await client.ontology.moveChildren(
           group.ontologyID(parent1.key),

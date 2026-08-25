@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, group, ontology } from "@synnaxlabs/client";
+import { group, ontology, schematic } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Ontology } from "@/ontology";
 import { Symbol } from "@/schematic/symbol";
+import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 describe("Symbol queries", () => {
@@ -22,10 +23,7 @@ describe("Symbol queries", () => {
   let wrapper: FC<PropsWithChildren>;
 
   beforeAll(async () => {
-    wrapper = await createAsyncSynnaxWrapper({
-      client,
-      excludeFluxStores: [Ontology.RESOURCES_FLUX_STORE_KEY],
-    });
+    wrapper = await createAsyncSynnaxWrapper({ client });
   });
 
   beforeEach(() => {
@@ -51,7 +49,7 @@ describe("Symbol queries", () => {
           handles: [],
           variant: "static",
           scale: 1,
-          scaleStroke: false,
+          strokeScaled: false,
           previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
         },
       });
@@ -64,7 +62,7 @@ describe("Symbol queries", () => {
           handles: [],
           variant: "static",
           scale: 1,
-          scaleStroke: false,
+          strokeScaled: false,
           previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
         },
       });
@@ -108,7 +106,7 @@ describe("Symbol queries", () => {
           handles: [],
           variant: "static",
           scale: 1,
-          scaleStroke: false,
+          strokeScaled: false,
           previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
         },
       });
@@ -121,7 +119,7 @@ describe("Symbol queries", () => {
           handles: [],
           variant: "static",
           scale: 1,
-          scaleStroke: false,
+          strokeScaled: false,
           previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
         },
       });
@@ -134,7 +132,7 @@ describe("Symbol queries", () => {
           handles: [],
           variant: "static",
           scale: 1,
-          scaleStroke: false,
+          strokeScaled: false,
           previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
         },
       });
@@ -181,7 +179,7 @@ describe("Symbol queries", () => {
           handles: [],
           variant: "static",
           scale: 1,
-          scaleStroke: false,
+          strokeScaled: false,
           previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
         },
       });
@@ -213,7 +211,7 @@ describe("Symbol queries", () => {
             handles: [],
             variant: "static",
             scale: 1,
-            scaleStroke: false,
+            strokeScaled: false,
             previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
           },
         });
@@ -241,19 +239,22 @@ describe("Symbol queries", () => {
           handles: [],
           variant: "static",
           scale: 1,
-          scaleStroke: false,
+          strokeScaled: false,
           previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
         },
       });
 
-      const { result } = renderHook(() => Symbol.useRetrieve({ key: symbol.key }), {
-        wrapper,
-      });
+      const { result } = await renderHookSuspended(
+        () => Symbol.use({ key: symbol.key }),
+        {
+          wrapper,
+        },
+      );
 
       await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-        expect(result.current.data?.name).toBe("retrieve-test");
-        expect(result.current.data?.data.svg).toBe("<svg>test</svg>");
+        expect(result.current).not.toBeNull();
+        expect(result.current?.name).toBe("retrieve-test");
+        expect(result.current?.data.svg).toBe("<svg>test</svg>");
       });
     });
   });
@@ -265,7 +266,7 @@ describe("Symbol queries", () => {
         name: "test-symbol-create",
       });
 
-      const { result } = renderHook(() => Symbol.useForm({ query: {} }), { wrapper });
+      const { result } = renderHook(() => Symbol.useForm({ query: null }), { wrapper });
 
       await act(async () => {
         result.current.form.set("name", "created-symbol");
@@ -281,18 +282,58 @@ describe("Symbol queries", () => {
         return key;
       });
 
-      const retrieved = await client.schematics.symbols.retrieve({
-        key: key!,
-      });
+      const retrieved = await client.schematics.symbols.retrieve(key!);
       expect(retrieved.name).toBe("created-symbol");
       expect(retrieved.data.svg).toBe("<svg>created</svg>");
 
-      const children = await client.ontology.retrieveChildren(
-        group.ontologyID(parent.key),
-      );
+      const children = await client.ontology.children.retrieve({
+        ids: group.ontologyID(parent.key),
+      });
       expect(children.length).toBe(1);
       expect(children[0].id.key).toBe(retrieved.key);
       expect(children[0].name).toBe("created-symbol");
+    });
+
+    it("should serve a warm symbol and parent from the cache without suspending", async () => {
+      const parent = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: "test-symbol-warm",
+      });
+      const symbol = await client.schematics.symbols.create({
+        name: "warm-symbol",
+        parent: group.ontologyID(parent.key),
+        data: {
+          svg: "<svg>warm</svg>",
+          states: [],
+          handles: [],
+          variant: "static",
+          scale: 1,
+          strokeScaled: false,
+          previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
+        },
+      });
+      const id = schematic.symbol.ontologyID(symbol.key);
+      // The cache answers only queries it maintains, so both reads need a live
+      // subscriber before they are within reach of getCached.
+      const stopSymbol = client.schematics.symbols.onChange(symbol.key, () => {});
+      const stopParents = client.ontology.parents.onChange({ ids: id }, () => {});
+      try {
+        await client.schematics.symbols.retrieve(symbol.key);
+        await client.ontology.parents.retrieve({ ids: id });
+        // A plain renderHook resolves only if the read never suspends.
+        const { result } = renderHook(
+          () => Symbol.useForm({ query: { key: symbol.key } }),
+          { wrapper },
+        );
+        expect(result.current.form.get("name").value).toBe("warm-symbol");
+        expect(result.current.form.get("data.svg").value).toBe("<svg>warm</svg>");
+        expect(result.current.form.get("parent").value).toEqual(
+          group.ontologyID(parent.key),
+        );
+      } finally {
+        stopSymbol();
+        stopParents();
+      }
     });
 
     it("should update an existing symbol", async () => {
@@ -309,12 +350,12 @@ describe("Symbol queries", () => {
           handles: [],
           variant: "static",
           scale: 1,
-          scaleStroke: false,
+          strokeScaled: false,
           previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
         },
       });
 
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () =>
           Symbol.useForm({
             query: { key: symbol.key },
@@ -340,9 +381,7 @@ describe("Symbol queries", () => {
         expect(result.current.variant).toEqual("success");
       });
 
-      const retrieved = await client.schematics.symbols.retrieve({
-        key: symbol.key,
-      });
+      const retrieved = await client.schematics.symbols.retrieve(symbol.key);
       expect(retrieved.name).toBe("updated-name");
       expect(retrieved.data.svg).toBe("<svg>updated</svg>");
     });
@@ -359,7 +398,7 @@ describe("Symbol queries", () => {
           handles: [],
           variant: "static",
           scale: 1,
-          scaleStroke: false,
+          strokeScaled: false,
           previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
         },
       });
@@ -374,10 +413,32 @@ describe("Symbol queries", () => {
         expect(result.current.variant).toEqual("success");
       });
 
-      const retrieved = await client.schematics.symbols.retrieve({
-        key: symbol.key,
-      });
+      const retrieved = await client.schematics.symbols.retrieve(symbol.key);
       expect(retrieved.name).toBe("new-name");
+    });
+
+    it("should apply the rename optimistically", async () => {
+      const symbol = await client.schematics.symbols.create({
+        name: "original-name",
+        parent: ontology.ROOT_ID,
+        data: {
+          svg: "<svg></svg>",
+          states: [],
+          handles: [],
+          variant: "static",
+          scale: 1,
+          strokeScaled: false,
+          previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
+        },
+      });
+      const afterOptimistic = vi.fn();
+      const { result } = renderHook(() => Symbol.useRename({ afterOptimistic }), {
+        wrapper,
+      });
+      await act(async () => {
+        await result.current.updateAsync({ key: symbol.key, name: "new-name" });
+      });
+      expect(afterOptimistic).toHaveBeenCalledOnce();
     });
   });
 
@@ -392,7 +453,7 @@ describe("Symbol queries", () => {
           handles: [],
           variant: "static",
           scale: 1,
-          scaleStroke: false,
+          strokeScaled: false,
           previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
         },
       });
@@ -415,16 +476,82 @@ describe("Symbol queries", () => {
     });
   });
 
-  describe("useGroup", () => {
-    it("should retrieve the symbol group", async () => {
-      const { result } = renderHook(() => Symbol.useRetrieveGroup({ params: {} }), {
-        wrapper,
+  describe("useDeleteGroup", () => {
+    const SYMBOL_DATA: schematic.symbol.New["data"] = {
+      svg: "<svg></svg>",
+      states: [],
+      handles: [],
+      variant: "static",
+      scale: 1,
+      strokeScaled: false,
+      previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
+    };
+
+    const createPopulatedGroup = async () => {
+      const grp = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: "group-to-be-deleted",
       });
+      const symbol = await client.schematics.symbols.create({
+        name: "symbol-in-group",
+        parent: group.ontologyID(grp.key),
+        data: SYMBOL_DATA,
+      });
+      return { grp, symbol };
+    };
+
+    it("should delete the group and its symbols", async () => {
+      const { grp, symbol } = await createPopulatedGroup();
+
+      const { result } = renderHook(Symbol.useDeleteGroup, { wrapper });
+
+      await act(async () => {
+        await result.current.updateAsync(grp.key);
+      });
+
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.data).toBeDefined();
-        expect(result.current.data?.name).toBe("Schematic Symbols");
       });
+
+      await expect(
+        client.schematics.symbols.retrieve({ keys: [symbol.key] }),
+      ).rejects.toThrow("not found");
+      await expect(client.groups.retrieve({ key: grp.key })).rejects.toThrow(
+        "not found",
+      );
+    });
+
+    it("should run afterOptimistic before the delete commits", async () => {
+      const { grp } = await createPopulatedGroup();
+      const order: string[] = [];
+
+      const { result } = renderHook(
+        () =>
+          Symbol.useDeleteGroup({
+            afterOptimistic: ({ data }) => {
+              order.push(`optimistic:${data}`);
+            },
+            afterSuccess: () => {
+              order.push("success");
+            },
+          }),
+        { wrapper },
+      );
+
+      await act(async () => {
+        await result.current.updateAsync(grp.key);
+      });
+
+      expect(order).toEqual([`optimistic:${grp.key}`, "success"]);
+    });
+  });
+
+  describe("useGroup", () => {
+    it("should retrieve the symbol group", async () => {
+      const { result } = await renderHookSuspended(() => Symbol.useGroup({}), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current?.name).toBe("Schematic Symbols"));
     });
   });
 });

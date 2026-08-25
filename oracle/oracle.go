@@ -11,6 +11,4 @@ package main
 
 import "github.com/synnaxlabs/oracle/cmd"
 
-func main() {
-	cmd.Execute()
-}
+func main() { cmd.Execute() }

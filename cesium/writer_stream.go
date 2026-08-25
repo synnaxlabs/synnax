@@ -41,7 +41,10 @@ const (
 	WriterCommandSetAuthority
 )
 
-var validateWriterCommand = validate.NewInclusiveBoundsChecker(WriterCommandWrite, WriterCommandSetAuthority)
+var validateWriterCommand = validate.NewInclusiveBoundsChecker(
+	WriterCommandWrite,
+	WriterCommandSetAuthority,
+)
 
 // WriterRequest is a request containing a frame to write to the DB.
 type WriterRequest struct {
@@ -109,7 +112,7 @@ type streamWriter struct {
 	accumulatedErr  error
 	errSent         bool
 	virtual         *virtualWriter
-	updateDBControl func(ctx context.Context, u ControlUpdate) error
+	updateDBControl func(ctx context.Context, u ControlUpdate)
 	internal        []*idxWriter
 	// keyToIdx maps every channel key the writer is responsible for to its owning
 	// idxWriter.
@@ -136,11 +139,11 @@ func (w *streamWriter) Flow(sCtx signal.Context, opts ...confluence.Option) {
 				if w.accumulatedErr != nil {
 					err = w.accumulatedErr
 				}
-				return
+				return err
 			case req, ok := <-w.In.Outlet():
 				if !ok {
 					err = w.accumulatedErr
-					return
+					return err
 				}
 				var commitEnd telem.TimeStamp
 				if w.accumulatedErr == nil {
@@ -154,20 +157,23 @@ func (w *streamWriter) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	}, o.Signal...)
 }
 
-func (w *streamWriter) process(ctx context.Context, req WriterRequest) (commitEnd telem.TimeStamp, err error) {
+func (w *streamWriter) process(
+	ctx context.Context,
+	req WriterRequest,
+) (commitEnd telem.TimeStamp, err error) {
 	if err = validateWriterCommand(req.Command); err != nil {
 		return 0, err
 	}
 	if req.Command == WriterCommandSetAuthority {
 		err = w.setAuthority(ctx, req.Config)
-		return
+		return commitEnd, err
 	}
 	if req.Command == WriterCommandCommit {
 		commitEnd, err = w.commit(ctx)
-		return
+		return commitEnd, err
 	}
 	err = w.write(ctx, req)
-	return
+	return commitEnd, err
 }
 
 func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error {
@@ -214,7 +220,7 @@ func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error
 	}
 
 	if len(u.Transfers) > 0 {
-		return w.updateDBControl(ctx, u)
+		w.updateDBControl(ctx, u)
 	}
 	return nil
 }
@@ -224,8 +230,14 @@ func (w *streamWriter) maybeSendRes(
 	req WriterRequest,
 	end telem.TimeStamp,
 ) error {
-	res := WriterResponse{Command: req.Command, SeqNum: req.SeqNum, End: end, Authorized: true}
-	if w.accumulatedErr != nil && errors.Is(w.accumulatedErr, xcontrol.ErrUnauthorized) {
+	res := WriterResponse{
+		Command:    req.Command,
+		SeqNum:     req.SeqNum,
+		End:        end,
+		Authorized: true,
+	}
+	if w.accumulatedErr != nil &&
+		errors.Is(w.accumulatedErr, xcontrol.ErrUnauthorized) {
 		w.accumulatedErr = nil
 		w.errSent = false
 		res.Authorized = false
@@ -268,7 +280,10 @@ func (w *streamWriter) write(ctx context.Context, req WriterRequest) error {
 		}
 	}
 	if w.virtual.internal != nil {
-		if req.Frame, err = w.virtual.write(&excludeUnauthorized, req.Frame); err != nil {
+		if req.Frame, err = w.virtual.write(
+			&excludeUnauthorized,
+			req.Frame,
+		); err != nil {
 			accumulatedErr = err
 			if !errors.Is(accumulatedErr, xcontrol.ErrUnauthorized) {
 				return accumulatedErr
@@ -402,7 +417,9 @@ func (w *streamWriter) commit(ctx context.Context) (telem.TimeStamp, error) {
 
 func (w *streamWriter) close(ctx context.Context) error {
 	var err error
-	parentUpdate := ControlUpdate{Transfers: make([]control.Transfer, 0, len(w.internal))}
+	parentUpdate := ControlUpdate{
+		Transfers: make([]control.Transfer, 0, len(w.internal)),
+	}
 	for _, idx := range w.internal {
 		u, errClose := idx.Close()
 		if errClose != nil {
@@ -421,16 +438,8 @@ func (w *streamWriter) close(ctx context.Context) error {
 	}
 
 	if len(parentUpdate.Transfers) > 0 {
-		_ = w.updateDBControl(ctx, parentUpdate)
+		w.updateDBControl(ctx, parentUpdate)
 	}
-
-	if digestWriter, ok := w.virtual.internal[w.virtual.digestKey]; ok {
-		// When digest writer closes, we do not (and cannot) send an update.
-		if _, digestErr := digestWriter.Close(); digestErr != nil {
-			return digestErr
-		}
-	}
-
 	return err
 }
 
@@ -447,6 +456,9 @@ type idxWriter struct {
 		*index.Domain
 		// Key is the channel key of the index.
 		ch channel.Channel
+		// db is the unary database of the index channel. Consulted for the current
+		// write cursor when this group does not write the index itself.
+		db *unary.DB
 		// highWaterMark is the last timestamp written to the index — whether by
 		// auto-stamping or by a caller-provided series. Drives commit resolution
 		// (resolveCommitEnd). Only relevant when writingToIdx is true.
@@ -462,9 +474,15 @@ type idxWriter struct {
 	// sampleCount is the total number of samples written to the index as if it were a
 	// single logical channel. i.e. N channels with M samples will result in a sample
 	// count of M.
-	sampleCount     int64
-	start           telem.TimeStamp
-	domainAlignment uint32
+	sampleCount int64
+	start       telem.TimeStamp
+	// anchor is the index write cursor observed at this group's first write, valid only
+	// when writingToIdx is false. Every subsequent write is stamped at anchor plus the
+	// number of samples the group has already written, so a group that does not write
+	// the index still lands in the index's sample space.
+	anchor telem.Alignment
+	// anchorSet reports whether anchor has been resolved.
+	anchorSet bool
 	// writingToIdx is true when the Write is writing to the index channel. This is
 	// typically true, which allows us to avoid unnecessary lookups.
 	writingToIdx bool
@@ -510,7 +528,7 @@ func (w *idxWriter) appendAutoStamp(fr Frame, now telem.TimeStamp) Frame {
 	// Allocate the Series's byte buffer once and reinterpret it as []TimeStamp via
 	// unsafe.CastSlice so timestamps are written directly into the backing array. Going
 	// through NewSeriesV(stamps...) would perform two allocations instead of one.
-	series := telem.MakeSeries(telem.TimeStampT, int(w.scanDataLen))
+	series := telem.MakeSeries(telem.TimestampT, int(w.scanDataLen))
 	stamps := unsafe.CastSlice[byte, telem.TimeStamp](series.Data)
 	for j := range stamps {
 		stamps[j] = t0 + telem.TimeStamp(j)
@@ -554,6 +572,22 @@ func (w *idxWriter) maxDataAuth() xcontrol.Authority {
 	return max
 }
 
+// resolveAlignment returns the alignment for the current write when no index series is
+// available to establish it. A group that writes the index takes the index's cursor
+// directly. A group that does not anchors on the cursor covering its start timestamp,
+// resolved once, and offsets by the number of samples it has written since, so the
+// index is consulted once per writer rather than once per write.
+func (w *idxWriter) resolveAlignment() telem.Alignment {
+	if w.writingToIdx {
+		return w.idx.db.WriteCursor(w.start)
+	}
+	if !w.anchorSet {
+		w.anchor = w.idx.db.WriteCursor(w.start)
+		w.anchorSet = true
+	}
+	return w.anchor.AddSamples(uint32(w.sampleCount))
+}
+
 func (w *idxWriter) write(
 	excludeUnauthorized *[]ChannelKey,
 	fr Frame,
@@ -566,9 +600,60 @@ func (w *idxWriter) write(
 	var (
 		incrementedSampleCount bool
 		accumulatedErr         error
+		alignment              telem.Alignment
+		alignmentSet           bool
+		idxUnauthorized        bool
+		idxTimeRange           telem.TimeRange
+		idxTimeRangeSet        bool
 	)
+	// Pass 1: the index channel establishes the alignment for the whole frame. Its
+	// sample position is the space every channel it indexes is expressed in, so it must
+	// be written before any of them.
+	if w.writingToIdx {
+		for i, key := range fr.RawKeys() {
+			if key != w.idx.ch.Key || fr.ShouldExcludeRaw(i) {
+				continue
+			}
+			series := fr.RawSeriesAt(i)
+			uWriter, ok := w.internal[key]
+			if series.Len() == 0 || !ok {
+				break
+			}
+			if err = w.updateHighWater(series); err != nil {
+				return fr, err
+			}
+			if alignment, err = uWriter.Write(series); err != nil {
+				accumulatedErr = err
+				if !errors.Is(accumulatedErr, xcontrol.ErrUnauthorized) {
+					return fr, accumulatedErr
+				}
+				*excludeUnauthorized = append(*excludeUnauthorized, key)
+				idxUnauthorized = true
+				break
+			}
+			alignmentSet = true
+			w.sampleCount = int64(alignment.SampleIndex()) + series.Len()
+			incrementedSampleCount = true
+			w.hasUncommittedData = true
+			series.Alignment = alignment
+			// The index series carries the timestamps for the whole group, so data
+			// series can be stamped with a real time range without consulting the
+			// index on disk.
+			idxTimeRange = telem.TimeRange{
+				Start: telem.ValueAt[telem.TimeStamp](series, 0),
+				End:   w.idx.highWaterMark + 1,
+			}
+			idxTimeRangeSet = true
+			series.TimeRange = idxTimeRange
+			fr.SetRawSeriesAt(i, series)
+			break
+		}
+	}
+	// Pass 2: every data channel is stamped with the index's alignment rather than its
+	// own position in its own domain. The alignment is resolved lazily so a frame that
+	// touches none of this group's data channels costs nothing.
 	for i, key := range fr.RawKeys() {
-		if fr.ShouldExcludeRaw(i) {
+		if key == w.idx.ch.Key || fr.ShouldExcludeRaw(i) {
 			continue
 		}
 		series := fr.RawSeriesAt(i)
@@ -579,13 +664,18 @@ func (w *idxWriter) write(
 		if !ok {
 			continue
 		}
-		if w.writingToIdx && w.idx.ch.Key == key {
-			if err = w.updateHighWater(series); err != nil {
-				return fr, err
-			}
+		// Losing control of the index means there is no position to express these
+		// samples against. Writing them anyway would stamp them in a controlling
+		// writer's space, so the whole group is held back instead.
+		if idxUnauthorized {
+			*excludeUnauthorized = append(*excludeUnauthorized, key)
+			continue
 		}
-		alignment, err := uWriter.Write(series)
-		if err != nil {
+		if !alignmentSet {
+			alignment = w.resolveAlignment()
+			alignmentSet = true
+		}
+		if _, err := uWriter.WriteAt(series, alignment); err != nil {
 			accumulatedErr = err
 			if !errors.Is(accumulatedErr, xcontrol.ErrUnauthorized) {
 				return fr, accumulatedErr
@@ -594,11 +684,21 @@ func (w *idxWriter) write(
 			continue
 		}
 		if !incrementedSampleCount {
-			w.sampleCount = int64(alignment.SampleIndex()) + series.Len()
+			// A data channel's alignment is now expressed in its index's sample space,
+			// so it no longer reports a position measured from this writer's start.
+			// resolveCommitEnd needs that measurement, so the group counts its own.
+			if w.writingToIdx {
+				w.sampleCount = int64(alignment.SampleIndex()) + series.Len()
+			} else {
+				w.sampleCount += series.Len()
+			}
 			incrementedSampleCount = true
 			w.hasUncommittedData = true
 		}
 		series.Alignment = alignment
+		if idxTimeRangeSet {
+			series.TimeRange = idxTimeRange
+		}
 		fr.SetRawSeriesAt(i, series)
 	}
 	if errors.Is(accumulatedErr, xcontrol.ErrUnauthorized) {
@@ -707,7 +807,6 @@ func missingChannelError(
 func incorrectNumberOfSeriesError(
 	expected int,
 	received int,
-
 ) error {
 	return errors.Wrapf(
 		validate.ErrValidation,
@@ -737,7 +836,8 @@ func (w *idxWriter) validateWrite(fr Frame) error {
 		}
 		ch := uWriter.Channel
 		if lengthOfFrame == -1 {
-			if !ch.DataType.IsVariable() && s.DataType.Density() == telem.UnknownDensity {
+			if !ch.DataType.IsVariable() &&
+				s.DataType.Density() == telem.UnknownDensity {
 				return invalidDataTypeError(ch, s.DataType)
 			}
 			lengthOfFrame = s.Len()
@@ -781,7 +881,7 @@ func (w *idxWriter) validateWrite(fr Frame) error {
 }
 
 func (w *idxWriter) updateHighWater(s telem.Series) error {
-	if s.DataType != telem.TimeStampT && s.DataType != telem.Int64T {
+	if s.DataType != telem.TimestampT && s.DataType != telem.Int64T {
 		return invalidDataTypeError(w.idx.ch, s.DataType)
 	}
 	w.idx.highWaterMark = telem.ValueAt[telem.TimeStamp](s, -1)
@@ -791,19 +891,33 @@ func (w *idxWriter) updateHighWater(s telem.Series) error {
 // resolveCommitEnd returns the end timestamp for a commit. For an index channel, this
 // returns the high watermark. For a non-index channel, this returns a stamp to the
 // approximation of the end
-func (w *idxWriter) resolveCommitEnd(ctx context.Context) (index.TimeStampApproximation, error) {
+func (w *idxWriter) resolveCommitEnd(
+	ctx context.Context,
+) (index.TimeStampApproximation, error) {
 	if w.writingToIdx {
 		return index.Exactly(w.idx.highWaterMark), nil
 	}
-	return w.idx.Stamp(ctx, w.start, w.sampleCount-1, true)
+	approx, err := w.idx.Stamp(ctx, w.start, w.sampleCount-1, index.MustBeContinuous)
+	if err != nil {
+		return approx, err
+	}
+	// An inexact approximation means w.start is not an exact sample in the index, so
+	// there is no defined timestamp for the samples written by this writer. Committing
+	// anyway would use the approximation's zero-valued lower bound as the commit end.
+	if !approx.Exact() {
+		return approx, index.NewDiscontinuousStampError(w.start)
+	}
+	return approx, nil
 }
 
 type virtualWriter struct {
-	internal  map[ChannelKey]*virtual.Writer
-	digestKey channel.Key
+	internal map[ChannelKey]*virtual.Writer
 }
 
-func (w virtualWriter) write(filterUnauthorized *[]ChannelKey, fr Frame) (Frame, error) {
+func (w virtualWriter) write(
+	filterUnauthorized *[]ChannelKey,
+	fr Frame,
+) (Frame, error) {
 	var accumulatedErr error
 	for rawI, k := range fr.RawKeys() {
 		if fr.ShouldExcludeRaw(rawI) {
@@ -833,15 +947,11 @@ func (w virtualWriter) Close() (ControlUpdate, error) {
 	var err error
 	update := ControlUpdate{Transfers: make([]control.Transfer, 0, len(w.internal))}
 	for _, chW := range w.internal {
-		// We do not want to clean up the digest channel since we want to use it to send
-		// updates for closures.
-		if chW.Channel.Key != w.digestKey {
-			transfer, closeErr := chW.Close()
-			if closeErr != nil {
-				err = errors.Join(err, closeErr)
-			} else if transfer.Occurred() {
-				update.Transfers = append(update.Transfers, transfer)
-			}
+		transfer, closeErr := chW.Close()
+		if closeErr != nil {
+			err = errors.Join(err, closeErr)
+		} else if transfer.Occurred() {
+			update.Transfers = append(update.Transfers, transfer)
 		}
 	}
 	return update, err

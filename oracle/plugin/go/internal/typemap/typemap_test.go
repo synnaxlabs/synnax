@@ -274,7 +274,9 @@ var _ = Describe("ResolveLeafPrimitive", func() {
 			QualifiedName: "string",
 			Form:          resolution.PrimitiveForm{Name: "string"},
 		}
-		prim, cast := MustSucceed2(typemap.ResolveLeafPrimitive(primType, table, goTypeName))
+		prim, cast := MustSucceed2(
+			typemap.ResolveLeafPrimitive(primType, table, goTypeName),
+		)
 		Expect(prim).To(Equal("string"))
 		Expect(cast).To(BeEmpty())
 	})
@@ -291,7 +293,9 @@ var _ = Describe("ResolveLeafPrimitive", func() {
 		}
 		_ = baseType
 		Expect(table.Add(distinctType)).To(Succeed())
-		prim, cast := MustSucceed2(typemap.ResolveLeafPrimitive(distinctType, table, goTypeName))
+		prim, cast := MustSucceed2(
+			typemap.ResolveLeafPrimitive(distinctType, table, goTypeName),
+		)
 		Expect(prim).To(Equal("string"))
 		Expect(cast).To(Equal("MyString"))
 	})
@@ -304,7 +308,9 @@ var _ = Describe("ResolveLeafPrimitive", func() {
 			Form:          resolution.EnumForm{IsIntEnum: true},
 		}
 		Expect(table.Add(enumType)).To(Succeed())
-		prim, cast := MustSucceed2(typemap.ResolveLeafPrimitive(enumType, table, goTypeName))
+		prim, cast := MustSucceed2(
+			typemap.ResolveLeafPrimitive(enumType, table, goTypeName),
+		)
 		Expect(prim).To(Equal("int64"))
 		Expect(cast).To(Equal("Status"))
 	})
@@ -317,7 +323,9 @@ var _ = Describe("ResolveLeafPrimitive", func() {
 			Form:          resolution.EnumForm{IsIntEnum: false},
 		}
 		Expect(table.Add(enumType)).To(Succeed())
-		prim, cast := MustSucceed2(typemap.ResolveLeafPrimitive(enumType, table, goTypeName))
+		prim, cast := MustSucceed2(
+			typemap.ResolveLeafPrimitive(enumType, table, goTypeName),
+		)
 		Expect(prim).To(Equal("string"))
 		Expect(cast).To(Equal("Priority"))
 	})
@@ -332,7 +340,9 @@ var _ = Describe("ResolveLeafPrimitive", func() {
 			},
 		}
 		Expect(table.Add(aliasType)).To(Succeed())
-		prim, cast := MustSucceed2(typemap.ResolveLeafPrimitive(aliasType, table, goTypeName))
+		prim, cast := MustSucceed2(
+			typemap.ResolveLeafPrimitive(aliasType, table, goTypeName),
+		)
 		Expect(prim).To(Equal("string"))
 		Expect(cast).To(BeEmpty())
 	})
@@ -396,7 +406,9 @@ var _ = Describe("ResolveLeafPrimitive", func() {
 		}
 		Expect(table.Add(distinct)).To(Succeed())
 		Expect(table.Add(alias)).To(Succeed())
-		prim, cast := MustSucceed2(typemap.ResolveLeafPrimitive(alias, table, goTypeName))
+		prim, cast := MustSucceed2(
+			typemap.ResolveLeafPrimitive(alias, table, goTypeName),
+		)
 		Expect(prim).To(Equal("uuid"))
 		Expect(cast).To(Equal("Key"))
 	})
@@ -415,7 +427,9 @@ var _ = Describe("ResolveGoSliceElemType", func() {
 			Form:          resolution.StructForm{},
 		}
 		Expect(table.Add(structType)).To(Succeed())
-		result := MustSucceed(typemap.ResolveGoSliceElemType(structType, table, goTypeName))
+		result := MustSucceed(
+			typemap.ResolveGoSliceElemType(structType, table, goTypeName),
+		)
 		Expect(result).To(Equal("User"))
 	})
 
@@ -439,28 +453,33 @@ var _ = Describe("ResolveGoSliceElemType", func() {
 		Expect(result).To(Equal("Base"))
 	})
 
-	It("should preserve a distinct type's own name rather than unwrapping to its base", func() {
-		// Distinct types are separate Go types from their base; `make([]X, n)`
-		// emitted by the codec must be assignable to `[]Distinct`, so the
-		// distinct's declared Go name is what we want, not the underlying type.
-		table := resolution.NewTable()
-		base := resolution.Type{
-			Name:          "Base",
-			QualifiedName: "test.Base",
-			Form:          resolution.StructForm{},
-		}
-		distinct := resolution.Type{
-			Name:          "Distinct",
-			QualifiedName: "test.Distinct",
-			Form: resolution.DistinctForm{
-				Base: resolution.TypeRef{Name: "test.Base"},
-			},
-		}
-		Expect(table.Add(base)).To(Succeed())
-		Expect(table.Add(distinct)).To(Succeed())
-		result := MustSucceed(typemap.ResolveGoSliceElemType(distinct, table, goTypeName))
-		Expect(result).To(Equal("Distinct"))
-	})
+	It(
+		"should preserve a distinct type's own name rather than unwrapping to its base",
+		func() {
+			// Distinct types are separate Go types from their base; `make([]X, n)`
+			// emitted by the codec must be assignable to `[]Distinct`, so the
+			// distinct's declared Go name is what we want, not the underlying type.
+			table := resolution.NewTable()
+			base := resolution.Type{
+				Name:          "Base",
+				QualifiedName: "test.Base",
+				Form:          resolution.StructForm{},
+			}
+			distinct := resolution.Type{
+				Name:          "Distinct",
+				QualifiedName: "test.Distinct",
+				Form: resolution.DistinctForm{
+					Base: resolution.TypeRef{Name: "test.Base"},
+				},
+			}
+			Expect(table.Add(base)).To(Succeed())
+			Expect(table.Add(distinct)).To(Succeed())
+			result := MustSucceed(
+				typemap.ResolveGoSliceElemType(distinct, table, goTypeName),
+			)
+			Expect(result).To(Equal("Distinct"))
+		},
+	)
 
 	It("should error when alias target is unresolvable", func() {
 		table := resolution.NewTable()
@@ -489,7 +508,9 @@ var _ = Describe("ResolveGoSliceElemType", func() {
 			},
 		}
 		Expect(table.Add(innerAlias)).To(Succeed())
-		result := MustSucceed(typemap.ResolveGoSliceElemType(innerAlias, table, goTypeName))
+		result := MustSucceed(
+			typemap.ResolveGoSliceElemType(innerAlias, table, goTypeName),
+		)
 		Expect(result).To(Equal("[]string"))
 	})
 })

@@ -14,17 +14,19 @@
 // subsystem can broadcast the sequence on a free channel. This package hosts the
 // pieces of that shape that are independent of the per-service action variant
 // set: the Scoped envelope sent to subscribers, the DispatchRequest wire body
-// accepted by the API layer, the State that owns the observer and the monotonic
-// sequence counter, the Dispatcher that stamps and forwards each notification,
-// and the PublishSignals helper that wires the set and delete pipelines onto
-// signals channels.
+// accepted by the API layer, the State that owns the observer, the monotonic
+// sequence counter, and the serialized dispatch execution, the Dispatcher that
+// stamps and forwards each notification, and the PublishSignals helper that
+// wires the set and delete pipelines onto signals channels.
 package actions
 
 import (
 	"context"
 	"sync/atomic"
 
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
+	xsync "github.com/synnaxlabs/x/sync"
 )
 
 // Scoped wraps an action sequence with the targeted entry key, the
@@ -70,9 +72,9 @@ type DispatchRequest[K comparable, A any] struct {
 	Actions []A `json:"actions" msgpack:"actions"`
 }
 
-// State owns the per-service observer and monotonic sequence counter used by
-// every Writer the service issues. Construct it once in OpenService, hand
-// Dispatcher() to each Writer, and expose subscriptions via OnAction. The
+// State owns the per-service observer, monotonic sequence counter, and dispatch
+// execution. Construct it once in OpenService, hand Dispatcher() to each Writer,
+// expose subscriptions via OnAction, and execute dispatches through Dispatch. The
 // observer is always non-nil so writers do not need to nil-check it.
 //
 // Seq is in-memory and resets on process restart. Clients reload service state
@@ -82,17 +84,44 @@ type DispatchRequest[K comparable, A any] struct {
 type State[K comparable, A any] struct {
 	observer observe.Observer[Scoped[K, A]]
 	seq      atomic.Uint64
+	db       *gorp.DB
+	locks    xsync.KeyedMutex[K]
 }
 
 // NewState constructs a State with a fresh observer and a zero sequence counter.
-func NewState[K comparable, A any]() *State[K, A] {
-	return &State[K, A]{observer: observe.New[Scoped[K, A]]()}
+// db backs Dispatch's transactions; it may be nil only when Dispatch is never
+// called.
+func NewState[K comparable, A any](db *gorp.DB) *State[K, A] {
+	return &State[K, A]{observer: observe.New[Scoped[K, A]](), db: db}
+}
+
+// Dispatch runs stage serialized per key, each call in its own transaction, then
+// notifies the actions after the commit. Two concurrent dispatches on the same
+// key can never interleave their read-reduce-write cycles, so neither can
+// overwrite the other's committed actions. When stage or the commit fails,
+// nothing persists and no notification is emitted.
+func (s *State[K, A]) Dispatch(
+	ctx context.Context,
+	key K,
+	dispatchKey string,
+	actions []A,
+	stage func(gorp.Tx) error,
+) error {
+	return s.locks.Do(key, func() error {
+		if err := s.db.WithTx(ctx, stage); err != nil {
+			return err
+		}
+		s.Dispatcher().Notify(ctx, key, dispatchKey, actions)
+		return nil
+	})
 }
 
 // OnAction subscribes the given handler to the action stream emitted by every
 // Dispatcher bound to this State. The handler runs synchronously inside the
 // Dispatcher.Notify call. The returned Disconnect removes the handler.
-func (s *State[K, A]) OnAction(handler func(context.Context, Scoped[K, A])) observe.Disconnect {
+func (s *State[K, A]) OnAction(
+	handler func(context.Context, Scoped[K, A]),
+) observe.Disconnect {
 	return s.observer.OnChange(handler)
 }
 

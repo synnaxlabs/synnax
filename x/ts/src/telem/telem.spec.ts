@@ -262,18 +262,15 @@ describe("TimeStamp", () => {
     });
 
     it("should handle edge case comparisons", () => {
-      // Zero values
       const zeroTs = new TimeStamp(0);
       expect(zeroTs.equals(0)).toBe(true);
       expect(zeroTs.equals(TimeStamp.ZERO)).toBe(true);
       expect(zeroTs.equals(0n)).toBe(true);
 
-      // MAX values
       const maxTs = TimeStamp.MAX;
       expect(maxTs.equals(TimeStamp.MAX)).toBe(true);
       expect(maxTs.equals(new TimeStamp(Infinity))).toBe(true);
 
-      // MIN values
       const minTs = TimeStamp.MIN;
       expect(minTs.equals(TimeStamp.MIN)).toBe(true);
       expect(minTs.equals(new TimeStamp(-Infinity))).toBe(true);
@@ -328,7 +325,6 @@ describe("TimeStamp", () => {
     });
 
     it("should maintain symmetry", () => {
-      // If a.equals(b), then b.equals(a)
       const ts1 = new TimeStamp(1000);
       const ts2 = new TimeStamp(1000);
 
@@ -1192,14 +1188,12 @@ describe("TimeSpan", () => {
 
   describe("toString with semantic format", () => {
     const TESTS: [TimeSpan, string][] = [
-      // Sub-second durations
       [TimeSpan.ZERO, "0s"],
       [TimeSpan.nanoseconds(50), "< 1s"],
       [TimeSpan.microseconds(50), "< 1s"],
       [TimeSpan.milliseconds(50), "< 1s"],
       [TimeSpan.milliseconds(999), "< 1s"],
 
-      // Seconds
       [TimeSpan.seconds(1), "1s"],
       [TimeSpan.seconds(30), "30s"],
       [TimeSpan.seconds(59), "59s"],
@@ -1283,13 +1277,11 @@ describe("TimeSpan", () => {
       [TimeSpan.days(1095), "3y"],
       [TimeSpan.days(3650), "10y"],
 
-      // Complex durations
       [TimeSpan.seconds(3661), "1h 1m"],
       [TimeSpan.minutes(1441), "1d"], // 24h 1m, but minutes are dropped at day level
       [TimeSpan.minutes(1500), "1d 1h"], // 25h exactly
       [TimeSpan.hours(169), "1w 1h"],
 
-      // Negative durations
       [TimeSpan.seconds(-30), "-30s"],
       [TimeSpan.minutes(-90), "-1h 30m"],
       [TimeSpan.hours(-25), "-1d 1h"],
@@ -1948,6 +1940,12 @@ describe("DataType", () => {
     it("should return true for BYTES", () => {
       expect(DataType.BYTES.isVariable).toBe(true);
     });
+    it("should return false for BOOLEAN", () => {
+      expect(DataType.BOOLEAN.isVariable).toBe(false);
+    });
+    it("should report density BIT8 for BOOLEAN", () => {
+      expect(DataType.BOOLEAN.density.valueOf()).toBe(1);
+    });
   });
 
   describe("construct", () => {
@@ -2015,6 +2013,13 @@ describe("DataType", () => {
       [DataType.BYTES, DataType.BYTES, true],
       [DataType.BYTES, DataType.INT32, false],
       [DataType.BYTES, DataType.STRING, false],
+      [DataType.BOOLEAN, DataType.BOOLEAN, true],
+      [DataType.BOOLEAN, DataType.UINT8, true],
+      [DataType.BOOLEAN, DataType.INT32, true],
+      [DataType.BOOLEAN, DataType.FLOAT64, true],
+      [DataType.UINT8, DataType.BOOLEAN, false],
+      [DataType.INT32, DataType.BOOLEAN, false],
+      [DataType.FLOAT64, DataType.BOOLEAN, false],
     ];
     TESTS.forEach(([from, to, expected]) =>
       it(`should return ${expected} when casting from ${from.toString()} to ${to.toString()}`, () => {
@@ -2067,6 +2072,13 @@ describe("DataType", () => {
       const dt = DataType.z.parse(original);
       expect(dt).toBe(original);
       expect(dt.toString()).toBe("int32");
+    });
+
+    it("should parse a structurally-equivalent DataType from another realm", () => {
+      const foreign = { value: "timestamp" };
+      const dt = DataType.z.parse(foreign);
+      expect(dt).toBeInstanceOf(DataType);
+      expect(dt.toString()).toBe("timestamp");
     });
 
     const testCases = [
@@ -2179,6 +2191,12 @@ describe("Size", () => {
       expect(size.valueOf()).toBe(2048);
     });
 
+    it("should parse a string", () => {
+      const size = Size.z.parse("1024");
+      expect(size).toBeInstanceOf(Size);
+      expect(size.valueOf()).toBe(1024);
+    });
+
     const testCases = [
       { input: 0, expected: 0 },
       { input: 1, expected: 1 },
@@ -2280,5 +2298,21 @@ describe("convertDataType", () => {
   it("falls back to math.sub when neither source nor target use bigint", () => {
     const result = convertDataType(DataType.FLOAT32, DataType.FLOAT64, 5.5, 1.5);
     expect(result).toBe(4);
+  });
+
+  it("normalizes a nonzero number to 1 when casting to BOOLEAN", () => {
+    expect(convertDataType(DataType.FLOAT64, DataType.BOOLEAN, 5)).toBe(1);
+  });
+
+  it("normalizes zero to 0 when casting to BOOLEAN", () => {
+    expect(convertDataType(DataType.FLOAT64, DataType.BOOLEAN, 0)).toBe(0);
+  });
+
+  it("normalizes a nonzero bigint to 1 when casting to BOOLEAN", () => {
+    expect(convertDataType(DataType.INT64, DataType.BOOLEAN, 5n)).toBe(1);
+  });
+
+  it("normalizes a zero bigint to 0 when casting to BOOLEAN", () => {
+    expect(convertDataType(DataType.INT64, DataType.BOOLEAN, 0n)).toBe(0);
   });
 });

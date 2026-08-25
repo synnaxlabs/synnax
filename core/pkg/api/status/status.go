@@ -15,15 +15,15 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	xstatus "github.com/synnaxlabs/x/status"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -48,7 +48,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 func statusAccessOntologyIDs(statuses []status.Status[any]) []ontology.ID {
 	ids := make([]ontology.ID, 0, len(statuses))
 	for _, s := range statuses {
-		ids = append(ids, status.OntologyID(s.Key))
+		ids = append(ids, s.OntologyID())
 		ids = append(ids, label.OntologyIDsFromLabels(s.Labels)...)
 	}
 	return ids
@@ -98,13 +98,13 @@ type SetByKeyOrNameRequest struct {
 	// Message is the new status message.
 	Message string `json:"message" msgpack:"message"`
 	// Variant is the new status variant.
-	Variant xstatus.Variant `json:"variant" msgpack:"variant"`
+	Variant status.Variant `json:"variant" msgpack:"variant"`
 }
 
 // SetByKeyOrNameResponse is a response to a SetByKeyOrNameRequest.
 type SetByKeyOrNameResponse struct {
 	// Key is the key of the upserted status.
-	Key string `json:"key" msgpack:"key"`
+	Key status.Key `json:"key" msgpack:"key"`
 	// MultipleMatches reports whether multiple statuses matched by name.
 	MultipleMatches bool `json:"multiple_matches" msgpack:"multiple_matches"`
 }
@@ -116,7 +116,10 @@ func (s *Service) SetByKeyOrName(
 	req SetByKeyOrNameRequest,
 ) (SetByKeyOrNameResponse, error) {
 	if !req.Variant.IsValid() {
-		return SetByKeyOrNameResponse{}, errors.Wrap(validate.ErrValidation, "invalid status variant")
+		return SetByKeyOrNameResponse{}, errors.Wrap(
+			validate.ErrValidation,
+			"invalid status variant",
+		)
 	}
 	matches, err := s.internal.ResolveKeyOrName(ctx, tx, req.KeyOrName)
 	if err != nil {
@@ -130,7 +133,7 @@ func (s *Service) SetByKeyOrName(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  action,
-		Objects: []ontology.ID{status.OntologyID(st.Key)},
+		Objects: []ontology.ID{st.OntologyID()},
 	}); err != nil {
 		return SetByKeyOrNameResponse{}, err
 	}
@@ -147,23 +150,26 @@ type RetrieveRequest struct {
 	// SearchTerm is used for fuzzy searching statuses.
 	SearchTerm string `json:"search_term" msgpack:"search_term"`
 	// Keys are the keys of the statuses to retrieve.
-	Keys []string `json:"keys" msgpack:"keys"`
+	Keys []status.Key `json:"keys" msgpack:"keys"`
 	// HasLabels retrieves statuses that are labeled by one or more labels with the
 	// given keys.
 	HasLabels []label.Key `json:"has_labels" msgpack:"has_labels"`
 	// Variants filters for statuses with the given variants.
-	Variants []xstatus.Variant `json:"variants" msgpack:"variants"`
+	Variants []status.Variant `json:"variants" msgpack:"variants"`
 	// Limit is the maximum number of statuses to retrieve.
 	Limit int `json:"limit" msgpack:"limit"`
 	// Offset is the number of statuses to skip.
 	Offset int `json:"offset" msgpack:"offset"`
 	// IncludeLabels sets whether to fetch labels for the retrieved statuses.
 	IncludeLabels bool `json:"include_labels" msgpack:"include_labels"`
+	// IgnoreNotFoundError returns the statuses that do exist instead of an error when
+	// one or more of Keys names a status that does not.
+	IgnoreNotFoundError bool `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 }
 
 type RetrieveResponse struct {
 	// Statuses are the statuses that were retrieved.
-	Statuses []status.Status[any] `json:"statuses" msgpack:"statuses"`
+	Statuses []status.Status[any] `json:"statuses,omitzero" msgpack:"statuses,omitzero"`
 }
 
 func (s *Service) Retrieve(
@@ -191,14 +197,18 @@ func (s *Service) Retrieve(
 	if len(req.Keys) != 0 {
 		q = q.Where(status.MatchKeys[any](req.Keys...))
 	}
-	if err := q.Entries(&resStatuses).Exec(ctx, nil); err != nil {
+	err := q.Entries(&resStatuses).Exec(ctx, nil)
+	if req.IgnoreNotFoundError && err != nil {
+		err = errors.Skip(err, query.ErrNotFound)
+	}
+	if err != nil {
 		return RetrieveResponse{}, err
 	}
 	res := RetrieveResponse{Statuses: resStatuses}
 	ids := statusAccessOntologyIDs(res.Statuses)
 	if req.IncludeLabels {
 		for i, stat := range res.Statuses {
-			labels, err := s.label.RetrieveFor(ctx, status.OntologyID(stat.Key), nil)
+			labels, err := s.label.RetrieveFor(ctx, stat.OntologyID(), nil)
 			if err != nil {
 				return RetrieveResponse{}, err
 			}
@@ -217,7 +227,7 @@ func (s *Service) Retrieve(
 
 type DeleteRequest struct {
 	// Keys are the keys of the statuses to delete.
-	Keys []string `json:"keys" msgpack:"keys"`
+	Keys []status.Key `json:"keys" msgpack:"keys"`
 }
 
 func (s *Service) Delete(

@@ -13,6 +13,8 @@
 
 #include <utility>
 
+#include "x/cpp/crdt/json.gen.h"
+#include "x/cpp/crdt/proto.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/pb/pb.h"
 
@@ -22,8 +24,45 @@
 
 namespace arc::text {
 
+inline std::pair<::arc::text::pb::Document, x::errors::Error>
+Document::to_proto() const {
+    ::arc::text::pb::Document pb;
+    for (const auto &item: this->inserts) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_inserts() = v;
+    }
+    for (const auto &item: this->deletes) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_deletes() = v;
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<Document, x::errors::Error>
+Document::from_proto(const ::arc::text::pb::Document &pb) {
+    Document cpp;
+    if (auto err = x::pb::from_proto_repeated<::x::crdt::Insert>(
+            cpp.inserts,
+            pb.inserts()
+        ))
+        return {{}, err};
+    if (auto err = x::pb::from_proto_repeated<::x::crdt::Delete>(
+            cpp.deletes,
+            pb.deletes()
+        ))
+        return {{}, err};
+    return {cpp, x::errors::NIL};
+}
+
 inline std::pair<::arc::text::pb::Text, x::errors::Error> Text::to_proto() const {
     ::arc::text::pb::Text pb;
+    {
+        auto [v, err] = this->doc.to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_doc() = v;
+    }
     pb.set_raw(this->raw);
     return {pb, x::errors::NIL};
 }
@@ -31,6 +70,11 @@ inline std::pair<::arc::text::pb::Text, x::errors::Error> Text::to_proto() const
 inline std::pair<Text, x::errors::Error>
 Text::from_proto(const ::arc::text::pb::Text &pb) {
     Text cpp;
+    {
+        auto [v, err] = Document::from_proto(pb.doc());
+        if (err) return {{}, err};
+        cpp.doc = v;
+    }
     cpp.raw = pb.raw();
     return {cpp, x::errors::NIL};
 }

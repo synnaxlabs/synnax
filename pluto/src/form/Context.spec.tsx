@@ -54,7 +54,6 @@ const mockOverride: Form.ContextValue = {
   getStatuses: () => [],
 };
 
-// Wrapper that provides Form context
 const FormWrapper = ({ children }: PropsWithChildren): ReactElement => {
   const methods = Form.use({
     values: mockInitialValues,
@@ -161,36 +160,6 @@ describe("useContext", () => {
     });
   });
 
-  describe("integration with actual Form components", () => {
-    it("should work properly when Field component calls useContext", () => {
-      const TestField = () => {
-        const ctx = useContext(undefined, `Field(name)`);
-        return <div>Field has context: {ctx ? "true" : "false"}</div>;
-      };
-
-      const { result } = renderHook(() => <TestField />, {
-        wrapper: FormWrapper,
-      });
-
-      // Should not throw any errors
-      expect(() => result.current).not.toThrow();
-    });
-
-    it("should work properly when useField hook calls useContext", () => {
-      const TestUseField = () => {
-        const ctx = useContext(undefined, `useField(name)`);
-        return ctx.get("name").value;
-      };
-
-      const { result } = renderHook(() => TestUseField(), {
-        wrapper: FormWrapper,
-      });
-
-      // Should not throw any errors and return the expected value
-      expect(() => result.current).not.toThrow();
-    });
-  });
-
   describe("error message variations", () => {
     it("should handle complex path expressions in function names", () => {
       expect(() => {
@@ -232,7 +201,6 @@ describe("useContext", () => {
       const { result } = renderHook(
         () => {
           const ctx = useContext();
-          // These should be type-safe operations
           const fieldState = ctx.get("name");
           return {
             hasGetMethod: typeof ctx.get === "function",

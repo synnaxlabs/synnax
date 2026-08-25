@@ -12,6 +12,7 @@ package alamos_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/alamos"
 	. "github.com/synnaxlabs/x/testutil"
@@ -20,9 +21,9 @@ import (
 var _ = Describe("Falamos", func() {
 	Describe("Name", func() {
 		It("Should correctly attach tracing metadata", func(ctx SpecContext) {
-			clientIns := Instrumentation("falamos", InstrumentationConfig{Trace: new(true)})
+			ins := Instrumentation("falamos", InstrumentationConfig{Trace: new(true)})
 			clientMw := MustSucceed(alamos.Middleware(alamos.Config{
-				Instrumentation: clientIns,
+				Instrumentation: ins,
 			}))
 			oCtx := MustSucceed(clientMw.Exec(
 				freighter.Context{
@@ -35,9 +36,8 @@ var _ = Describe("Falamos", func() {
 			_, ok := oCtx.Get("alamos-traceparent")
 			Expect(ok).To(BeTrue())
 
-			serverIns := Instrumentation("falamos", InstrumentationConfig{Trace: new(true)})
 			serverMw := MustSucceed(alamos.Middleware(alamos.Config{
-				Instrumentation: serverIns,
+				Instrumentation: ins,
 			}))
 			oCtx = MustSucceed(serverMw.Exec(
 				freighter.Context{

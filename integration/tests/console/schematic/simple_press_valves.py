@@ -10,7 +10,7 @@
 from examples.simulators import PressSimDAQ
 
 from console.case import ConsoleCase
-from console.schematic import Button, Valve
+from console.schematic import Button, Schematic, Valve
 from tests.driver.sim_daq_case import SimDaqCase
 
 
@@ -36,13 +36,12 @@ class SimplePressValves(SimDaqCase, ConsoleCase):
         super().setup()
 
     def run(self) -> None:
-
         # Define the control channel names
         END_CMD = "end_test_cmd"
         PRESSURE = "press_pt"
 
         self.log("Creating schematic symbols")
-        schematic = self.console.project.create_schematic("simple_press_valves")
+        schematic = self.console.pages.create(Schematic, "simple_press_valves")
         self._cleanup_pages.append(schematic.page_name)
         schematic.move("left")
 

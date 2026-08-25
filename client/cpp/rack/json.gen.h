@@ -11,13 +11,12 @@
 
 #pragma once
 
-#include <cstdint>
 #include <string>
 #include <vector>
 
 #include "client/cpp/rack/types.gen.h"
+#include "client/cpp/status/json.gen.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/status/json.gen.h"
 
 namespace synnax::rack {
 
@@ -37,10 +36,12 @@ inline Rack Rack::parse(x::json::Parser parser) {
     return Rack{
         .key = parser.field<Key>("key"),
         .name = parser.field<std::string>("name"),
-        .task_counter = parser.field<std::uint32_t>("task_counter", 0),
         .embedded = parser.field<bool>("embedded", false),
         .status = parser.field<std::optional<Status>>("status"),
-        .integrations = parser.field<std::vector<std::string>>("integrations"),
+        .integrations = parser.field<std::vector<std::string>>(
+            "integrations",
+            std::vector<std::string>{}
+        ),
     };
 }
 
@@ -48,7 +49,6 @@ inline x::json::json Rack::to_json() const {
     x::json::json j;
     j["key"] = this->key;
     j["name"] = this->name;
-    j["task_counter"] = this->task_counter;
     j["embedded"] = this->embedded;
     if (this->status.has_value()) j["status"] = this->status->to_json();
     j["integrations"] = this->integrations;

@@ -164,20 +164,23 @@ var _ = Describe("Vectorized Operations", func() {
 				Expect(telem.UnmarshalSeries[float64](output)).To(Equal(expected))
 			})
 
-			It("should repeat last value of shorter 'b' series for subtraction", func() {
-				a := telem.NewSeriesV[int64](100, 200, 300, 400)
-				b := telem.NewSeriesV[int64](10, 20)
-				output := telem.Series{DataType: telem.Int64T}
+			It(
+				"should repeat last value of shorter 'b' series for subtraction",
+				func() {
+					a := telem.NewSeriesV[int64](100, 200, 300, 400)
+					b := telem.NewSeriesV[int64](10, 20)
+					output := telem.Series{DataType: telem.Int64T}
 
-				op.SubtractI64(a, b, &output)
+					op.SubtractI64(a, b, &output)
 
-				// a values: [100, 200, 300, 400]
-				// b values: [10,  20,  20,  20] (20 repeats)
-				// result:   [90,  180, 280, 380]
-				expected := []int64{90, 180, 280, 380}
-				Expect(output.Len()).To(Equal(int64(4)))
-				Expect(telem.UnmarshalSeries[int64](output)).To(Equal(expected))
-			})
+					// a values: [100, 200, 300, 400]
+					// b values: [10,  20,  20,  20] (20 repeats)
+					// result:   [90,  180, 280, 380]
+					expected := []int64{90, 180, 280, 380}
+					Expect(output.Len()).To(Equal(int64(4)))
+					Expect(telem.UnmarshalSeries[int64](output)).To(Equal(expected))
+				},
+			)
 
 			It("should repeat last value for multiplication", func() {
 				a := telem.NewSeriesV[float32](2.0, 3.0, 4.0)
@@ -297,160 +300,197 @@ var _ = Describe("Vectorized Operations", func() {
 		})
 	})
 
-	Describe("Logical Operations", func() {
+	Describe("Boolean Logical Operations", func() {
 		Context("AND Operation", func() {
-			It("should perform bitwise AND on equal length series", func() {
-				a := telem.NewSeriesV[uint8](1, 1, 0, 0)
-				b := telem.NewSeriesV[uint8](1, 0, 1, 0)
-				output := telem.Series{DataType: telem.Uint8T}
+			It("should perform logical AND on equal length series", func() {
+				a := telem.NewSeriesV[bool](true, true, false, false)
+				b := telem.NewSeriesV[bool](true, false, true, false)
+				output := telem.Series{DataType: telem.BooleanT}
 
-				op.AndU8(a, b, &output)
+				op.And(a, b, &output)
 
-				// Truth table: 1&1=1, 1&0=0, 0&1=0, 0&0=0
-				expected := []uint8{1, 0, 0, 0}
-				Expect(telem.UnmarshalSeries[uint8](output)).To(Equal(expected))
+				// Truth table: T&&T=T, T&&F=F, F&&T=F, F&&F=F
+				expected := []bool{true, false, false, false}
+				Expect(telem.UnmarshalSeries[bool](output)).To(Equal(expected))
 			})
 
-			It("should handle different length series with last value repetition", func() {
-				a := telem.NewSeriesV[uint8](1, 0)
-				b := telem.NewSeriesV[uint8](1, 1, 1, 1, 1)
-				output := telem.Series{DataType: telem.Uint8T}
+			It(
+				"should handle different length series with last value repetition",
+				func() {
+					a := telem.NewSeriesV[bool](true, false)
+					b := telem.NewSeriesV[bool](true, true, true, true, true)
+					output := telem.Series{DataType: telem.BooleanT}
 
-				op.AndU8(a, b, &output)
+					op.And(a, b, &output)
 
-				// a values: [1, 0, 0, 0, 0] (0 repeats)
-				// b values: [1, 1, 1, 1, 1]
-				// result:   [1, 0, 0, 0, 0]
-				expected := []uint8{1, 0, 0, 0, 0}
-				Expect(output.Len()).To(Equal(int64(5)))
-				Expect(telem.UnmarshalSeries[uint8](output)).To(Equal(expected))
-			})
+					// a values: [T, F, F, F, F] (F repeats)
+					// b values: [T, T, T, T, T]
+					// result:   [T, F, F, F, F]
+					expected := []bool{true, false, false, false, false}
+					Expect(output.Len()).To(Equal(int64(5)))
+					Expect(telem.UnmarshalSeries[bool](output)).To(Equal(expected))
+				},
+			)
 
-			It("should work with all bits set", func() {
-				a := telem.NewSeriesV[uint8](0xFF, 0xF0, 0x0F)
-				b := telem.NewSeriesV[uint8](0xFF, 0x0F, 0xF0)
-				output := telem.Series{DataType: telem.Uint8T}
+			It("should work with an all-true operand", func() {
+				a := telem.NewSeriesV[bool](true, true, true)
+				b := telem.NewSeriesV[bool](true, false, true)
+				output := telem.Series{DataType: telem.BooleanT}
 
-				op.AndU8(a, b, &output)
+				op.And(a, b, &output)
 
-				expected := []uint8{0xFF, 0x00, 0x00}
-				Expect(telem.UnmarshalSeries[uint8](output)).To(Equal(expected))
+				expected := []bool{true, false, true}
+				Expect(telem.UnmarshalSeries[bool](output)).To(Equal(expected))
 			})
 		})
 
 		Context("OR Operation", func() {
-			It("should perform bitwise OR on equal length series", func() {
-				a := telem.NewSeriesV[uint8](1, 1, 0, 0)
-				b := telem.NewSeriesV[uint8](1, 0, 1, 0)
-				output := telem.Series{DataType: telem.Uint8T}
+			It("should perform logical OR on equal length series", func() {
+				a := telem.NewSeriesV[bool](true, true, false, false)
+				b := telem.NewSeriesV[bool](true, false, true, false)
+				output := telem.Series{DataType: telem.BooleanT}
 
-				op.OrU8(a, b, &output)
+				op.Or(a, b, &output)
 
-				// Truth table: 1|1=1, 1|0=1, 0|1=1, 0|0=0
-				expected := []uint8{1, 1, 1, 0}
-				Expect(telem.UnmarshalSeries[uint8](output)).To(Equal(expected))
+				// Truth table: T||T=T, T||F=T, F||T=T, F||F=F
+				expected := []bool{true, true, true, false}
+				Expect(telem.UnmarshalSeries[bool](output)).To(Equal(expected))
 			})
 
-			It("should handle different length series with last value repetition", func() {
-				a := telem.NewSeriesV[uint8](1, 0)
-				b := telem.NewSeriesV[uint8](0, 0, 0, 0, 0)
-				output := telem.Series{DataType: telem.Uint8T}
+			It(
+				"should handle different length series with last value repetition",
+				func() {
+					a := telem.NewSeriesV[bool](true, false)
+					b := telem.NewSeriesV[bool](false, false, false, false, false)
+					output := telem.Series{DataType: telem.BooleanT}
 
-				op.OrU8(a, b, &output)
+					op.Or(a, b, &output)
 
-				// a values: [1, 0, 0, 0, 0] (0 repeats)
-				// b values: [0, 0, 0, 0, 0]
-				// result:   [1, 0, 0, 0, 0]
-				expected := []uint8{1, 0, 0, 0, 0}
-				Expect(output.Len()).To(Equal(int64(5)))
-				Expect(telem.UnmarshalSeries[uint8](output)).To(Equal(expected))
-			})
+					// a values: [T, F, F, F, F] (F repeats)
+					// b values: [F, F, F, F, F]
+					// result:   [T, F, F, F, F]
+					expected := []bool{true, false, false, false, false}
+					Expect(output.Len()).To(Equal(int64(5)))
+					Expect(telem.UnmarshalSeries[bool](output)).To(Equal(expected))
+				},
+			)
 
-			It("should work with all bits set", func() {
-				a := telem.NewSeriesV[uint8](0xFF, 0xF0, 0x0F)
-				b := telem.NewSeriesV[uint8](0x00, 0x0F, 0xF0)
-				output := telem.Series{DataType: telem.Uint8T}
+			It("should work with an all-true operand", func() {
+				a := telem.NewSeriesV[bool](true, true, true)
+				b := telem.NewSeriesV[bool](false, true, false)
+				output := telem.Series{DataType: telem.BooleanT}
 
-				op.OrU8(a, b, &output)
+				op.Or(a, b, &output)
 
-				expected := []uint8{0xFF, 0xFF, 0xFF}
-				Expect(telem.UnmarshalSeries[uint8](output)).To(Equal(expected))
+				expected := []bool{true, true, true}
+				Expect(telem.UnmarshalSeries[bool](output)).To(Equal(expected))
 			})
 		})
 
 		Context("NOT Operation", func() {
-			It("should perform bitwise NOT", func() {
-				input := telem.NewSeriesV[uint8](1, 0, 1, 0)
-				output := telem.Series{DataType: telem.Uint8T}
+			It("should perform logical NOT", func() {
+				input := telem.NewSeriesV[bool](true, false, true, false)
+				output := telem.Series{DataType: telem.BooleanT}
 
-				op.NotU8(input, &output)
+				op.Not(input, &output)
 
-				// NOT inverts all bits: ^1 = 0xFE, ^0 = 0xFF
-				expected := []uint8{0xFE, 0xFF, 0xFE, 0xFF}
-				Expect(telem.UnmarshalSeries[uint8](output)).To(Equal(expected))
+				// Logical NOT: !T=F, !F=T
+				expected := []bool{false, true, false, true}
+				Expect(telem.UnmarshalSeries[bool](output)).To(Equal(expected))
 			})
 
 			It("should handle empty series", func() {
-				input := telem.Series{DataType: telem.Uint8T}
-				output := telem.Series{DataType: telem.Uint8T}
+				input := telem.Series{DataType: telem.BooleanT}
+				output := telem.Series{DataType: telem.BooleanT}
 
-				op.NotU8(input, &output)
+				op.Not(input, &output)
 
 				Expect(output.Len()).To(Equal(int64(0)))
 			})
 
 			It("should handle single element", func() {
-				input := telem.NewSeriesV[uint8](0xAA)
-				output := telem.Series{DataType: telem.Uint8T}
+				input := telem.NewSeriesV[bool](true)
+				output := telem.Series{DataType: telem.BooleanT}
 
-				op.NotU8(input, &output)
+				op.Not(input, &output)
 
-				expected := []uint8{0x55}
-				Expect(telem.UnmarshalSeries[uint8](output)).To(Equal(expected))
+				expected := []bool{false}
+				Expect(telem.UnmarshalSeries[bool](output)).To(Equal(expected))
 			})
 
-			It("should work with all bits combinations", func() {
-				input := telem.NewSeriesV[uint8](0xFF, 0x00, 0xF0, 0x0F, 0xAA, 0x55)
-				output := telem.Series{DataType: telem.Uint8T}
+			It("should work with all value combinations", func() {
+				input := telem.NewSeriesV[bool](true, false, true, false, true, false)
+				output := telem.Series{DataType: telem.BooleanT}
 
-				op.NotU8(input, &output)
+				op.Not(input, &output)
 
-				expected := []uint8{0x00, 0xFF, 0x0F, 0xF0, 0x55, 0xAA}
-				Expect(telem.UnmarshalSeries[uint8](output)).To(Equal(expected))
+				expected := []bool{false, true, false, true, false, true}
+				Expect(telem.UnmarshalSeries[bool](output)).To(Equal(expected))
+			})
+		})
+
+		Context("Scalar Logical Operations", func() {
+			DescribeTable("AndScalar",
+				func(scalar bool, expected []bool) {
+					series := telem.NewSeriesV[bool](true, false)
+					output := telem.Series{DataType: telem.BooleanT}
+					op.AndScalar(series, scalar, &output)
+					Expect(telem.UnmarshalSeries[bool](output)).To(Equal(expected))
+				},
+				Entry("true is identity", true, []bool{true, false}),
+				Entry("false zeroes", false, []bool{false, false}),
+			)
+
+			DescribeTable("OrScalar",
+				func(scalar bool, expected []bool) {
+					series := telem.NewSeriesV[bool](true, false)
+					output := telem.Series{DataType: telem.BooleanT}
+					op.OrScalar(series, scalar, &output)
+					Expect(telem.UnmarshalSeries[bool](output)).To(Equal(expected))
+				},
+				Entry("true fills", true, []bool{true, true}),
+				Entry("false is identity", false, []bool{true, false}),
+			)
+
+			It("should handle an empty series", func() {
+				series := telem.Series{DataType: telem.BooleanT}
+				output := telem.Series{DataType: telem.BooleanT}
+				op.AndScalar(series, true, &output)
+				Expect(output.Len()).To(Equal(int64(0)))
 			})
 		})
 
 		Context("Combined Logical Operations", func() {
 			It("should allow combining AND and OR operations", func() {
-				a := telem.NewSeriesV[uint8](1, 1, 0, 0)
-				b := telem.NewSeriesV[uint8](1, 0, 1, 0)
-				c := telem.NewSeriesV[uint8](1, 1, 1, 1)
+				a := telem.NewSeriesV[bool](true, true, false, false)
+				b := telem.NewSeriesV[bool](true, false, true, false)
+				c := telem.NewSeriesV[bool](true, true, true, true)
 
 				// (a AND b) OR c
-				andResult := telem.Series{DataType: telem.Uint8T}
-				op.AndU8(a, b, &andResult)
+				andResult := telem.Series{DataType: telem.BooleanT}
+				op.And(a, b, &andResult)
 
-				orResult := telem.Series{DataType: telem.Uint8T}
-				op.OrU8(andResult, c, &orResult)
+				orResult := telem.Series{DataType: telem.BooleanT}
+				op.Or(andResult, c, &orResult)
 
-				expected := []uint8{1, 1, 1, 1}
-				Expect(telem.UnmarshalSeries[uint8](orResult)).To(Equal(expected))
+				expected := []bool{true, true, true, true}
+				Expect(telem.UnmarshalSeries[bool](orResult)).To(Equal(expected))
 			})
 
 			It("should allow NOT of AND result", func() {
-				a := telem.NewSeriesV[uint8](1, 1, 0, 0)
-				b := telem.NewSeriesV[uint8](1, 0, 1, 0)
+				a := telem.NewSeriesV[bool](true, true, false, false)
+				b := telem.NewSeriesV[bool](true, false, true, false)
 
-				andResult := telem.Series{DataType: telem.Uint8T}
-				op.AndU8(a, b, &andResult)
+				andResult := telem.Series{DataType: telem.BooleanT}
+				op.And(a, b, &andResult)
 
-				notResult := telem.Series{DataType: telem.Uint8T}
-				op.NotU8(andResult, &notResult)
+				notResult := telem.Series{DataType: telem.BooleanT}
+				op.Not(andResult, &notResult)
 
-				// AND: [1, 0, 0, 0]
-				// NOT: [0xFE, 0xFF, 0xFF, 0xFF]
-				expected := []uint8{0xFE, 0xFF, 0xFF, 0xFF}
-				Expect(telem.UnmarshalSeries[uint8](notResult)).To(Equal(expected))
+				// AND: [T, F, F, F]
+				// NOT: [F, T, T, T]
+				expected := []bool{false, true, true, true}
+				Expect(telem.UnmarshalSeries[bool](notResult)).To(Equal(expected))
 			})
 		})
 	})
@@ -890,9 +930,17 @@ var _ = Describe("Vectorized Operations", func() {
 			var prevTS telem.TimeStamp
 			hasPrev := false
 			outData := telem.Series{DataType: telem.Float64T}
-			outTime := telem.Series{DataType: telem.TimeStampT}
+			outTime := telem.Series{DataType: telem.TimestampT}
 
-			op.DerivativeF64(input, inputTime, &prevVal, &prevTS, &hasPrev, &outData, &outTime)
+			op.DerivativeF64(
+				input,
+				inputTime,
+				&prevVal,
+				&prevTS,
+				&hasPrev,
+				&outData,
+				&outTime,
+			)
 
 			Expect(outData.Len()).To(Equal(int64(3)))
 			vals := telem.UnmarshalSeries[float64](outData)
@@ -911,15 +959,31 @@ var _ = Describe("Vectorized Operations", func() {
 			var prevTS telem.TimeStamp
 			hasPrev := false
 			outData := telem.Series{DataType: telem.Float64T}
-			outTime := telem.Series{DataType: telem.TimeStampT}
+			outTime := telem.Series{DataType: telem.TimestampT}
 
 			input1 := telem.NewSeriesV(0.0, 10.0)
 			time1 := telem.NewSeriesSecondsTSV(1, 2)
-			op.DerivativeF64(input1, time1, &prevVal, &prevTS, &hasPrev, &outData, &outTime)
+			op.DerivativeF64(
+				input1,
+				time1,
+				&prevVal,
+				&prevTS,
+				&hasPrev,
+				&outData,
+				&outTime,
+			)
 
 			input2 := telem.NewSeriesV(30.0)
 			time2 := telem.NewSeriesSecondsTSV(4)
-			op.DerivativeF64(input2, time2, &prevVal, &prevTS, &hasPrev, &outData, &outTime)
+			op.DerivativeF64(
+				input2,
+				time2,
+				&prevVal,
+				&prevTS,
+				&hasPrev,
+				&outData,
+				&outTime,
+			)
 
 			vals := telem.UnmarshalSeries[float64](outData)
 			Expect(vals[0]).To(BeNumerically("~", 10.0, 0.01))
@@ -934,9 +998,17 @@ var _ = Describe("Vectorized Operations", func() {
 			var prevTS telem.TimeStamp
 			hasPrev := false
 			outData := telem.Series{DataType: telem.Float64T}
-			outTime := telem.Series{DataType: telem.TimeStampT}
+			outTime := telem.Series{DataType: telem.TimestampT}
 
-			op.DerivativeF64(input, inputTime, &prevVal, &prevTS, &hasPrev, &outData, &outTime)
+			op.DerivativeF64(
+				input,
+				inputTime,
+				&prevVal,
+				&prevTS,
+				&hasPrev,
+				&outData,
+				&outTime,
+			)
 
 			vals := telem.UnmarshalSeries[float64](outData)
 			Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
@@ -950,9 +1022,17 @@ var _ = Describe("Vectorized Operations", func() {
 			var prevTS telem.TimeStamp
 			hasPrev := false
 			outData := telem.Series{DataType: telem.Float64T}
-			outTime := telem.Series{DataType: telem.TimeStampT}
+			outTime := telem.Series{DataType: telem.TimestampT}
 
-			op.DerivativeF64(input, inputTime, &prevVal, &prevTS, &hasPrev, &outData, &outTime)
+			op.DerivativeF64(
+				input,
+				inputTime,
+				&prevVal,
+				&prevTS,
+				&hasPrev,
+				&outData,
+				&outTime,
+			)
 
 			vals := telem.UnmarshalSeries[float64](outData)
 			Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
@@ -971,9 +1051,17 @@ var _ = Describe("Vectorized Operations", func() {
 			var prevTS telem.TimeStamp
 			hasPrev := false
 			outData := telem.Series{DataType: telem.Float64T}
-			outTime := telem.Series{DataType: telem.TimeStampT}
+			outTime := telem.Series{DataType: telem.TimestampT}
 
-			op.DerivativeI32(input, inputTime, &prevVal, &prevTS, &hasPrev, &outData, &outTime)
+			op.DerivativeI32(
+				input,
+				inputTime,
+				&prevVal,
+				&prevTS,
+				&hasPrev,
+				&outData,
+				&outTime,
+			)
 
 			vals := telem.UnmarshalSeries[float64](outData)
 			Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
@@ -983,14 +1071,22 @@ var _ = Describe("Vectorized Operations", func() {
 
 		It("should handle empty input", func() {
 			input := telem.Series{DataType: telem.Float64T}
-			inputTime := telem.Series{DataType: telem.TimeStampT}
+			inputTime := telem.Series{DataType: telem.TimestampT}
 			var prevVal float64
 			var prevTS telem.TimeStamp
 			hasPrev := false
 			outData := telem.Series{DataType: telem.Float64T}
-			outTime := telem.Series{DataType: telem.TimeStampT}
+			outTime := telem.Series{DataType: telem.TimestampT}
 
-			op.DerivativeF64(input, inputTime, &prevVal, &prevTS, &hasPrev, &outData, &outTime)
+			op.DerivativeF64(
+				input,
+				inputTime,
+				&prevVal,
+				&prevTS,
+				&hasPrev,
+				&outData,
+				&outTime,
+			)
 
 			Expect(outData.Len()).To(Equal(int64(0)))
 			Expect(outTime.Len()).To(Equal(int64(0)))
@@ -1004,9 +1100,17 @@ var _ = Describe("Vectorized Operations", func() {
 			var prevTS telem.TimeStamp
 			hasPrev := false
 			outData := telem.Series{DataType: telem.Float64T}
-			outTime := telem.Series{DataType: telem.TimeStampT}
+			outTime := telem.Series{DataType: telem.TimestampT}
 
-			op.DerivativeU8(input, inputTime, &prevVal, &prevTS, &hasPrev, &outData, &outTime)
+			op.DerivativeU8(
+				input,
+				inputTime,
+				&prevVal,
+				&prevTS,
+				&hasPrev,
+				&outData,
+				&outTime,
+			)
 
 			vals := telem.UnmarshalSeries[float64](outData)
 			Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
@@ -1021,9 +1125,17 @@ var _ = Describe("Vectorized Operations", func() {
 			var prevTS telem.TimeStamp
 			hasPrev := false
 			outData := telem.Series{DataType: telem.Float64T}
-			outTime := telem.Series{DataType: telem.TimeStampT}
+			outTime := telem.Series{DataType: telem.TimestampT}
 
-			op.DerivativeU8(input, inputTime, &prevVal, &prevTS, &hasPrev, &outData, &outTime)
+			op.DerivativeU8(
+				input,
+				inputTime,
+				&prevVal,
+				&prevTS,
+				&hasPrev,
+				&outData,
+				&outTime,
+			)
 
 			vals := telem.UnmarshalSeries[float64](outData)
 			Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
@@ -1038,29 +1150,36 @@ var _ = Describe("Vectorized Operations", func() {
 			output := telem.Series{}
 			op.NegateU8(input, &output)
 			Expect(output.DataType).To(Equal(telem.Int16T))
-			Expect(telem.UnmarshalSeries[int16](output)).To(Equal([]int16{-5, -10, -255}))
+			Expect(
+				telem.UnmarshalSeries[int16](output),
+			).To(Equal([]int16{-5, -10, -255}))
 		})
 		It("should negate uint16 to int32", func() {
 			input := telem.NewSeriesV[uint16](100, 500, 65535)
 			output := telem.Series{}
 			op.NegateU16(input, &output)
 			Expect(output.DataType).To(Equal(telem.Int32T))
-			Expect(telem.UnmarshalSeries[int32](output)).To(Equal([]int32{-100, -500, -65535}))
+			Expect(
+				telem.UnmarshalSeries[int32](output),
+			).To(Equal([]int32{-100, -500, -65535}))
 		})
 		It("should negate uint32 to int64", func() {
 			input := telem.NewSeriesV[uint32](1000, 50000, 4294967295)
 			output := telem.Series{}
 			op.NegateU32(input, &output)
 			Expect(output.DataType).To(Equal(telem.Int64T))
-			Expect(telem.UnmarshalSeries[int64](output)).To(Equal([]int64{-1000, -50000, -4294967295}))
+			Expect(
+				telem.UnmarshalSeries[int64](output),
+			).To(Equal([]int64{-1000, -50000, -4294967295}))
 		})
 		It("should negate uint64 to float64", func() {
 			input := telem.NewSeriesV[uint64](100, 200, 300)
 			output := telem.Series{}
 			op.NegateU64(input, &output)
 			Expect(output.DataType).To(Equal(telem.Float64T))
-			Expect(telem.UnmarshalSeries[float64](output)).To(Equal([]float64{-100, -200, -300}))
+			Expect(
+				telem.UnmarshalSeries[float64](output),
+			).To(Equal([]float64{-100, -200, -300}))
 		})
 	})
-
 })

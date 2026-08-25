@@ -30,12 +30,12 @@ export const baseAxisStateZ = axis.axisStateZ
   .extend({
     axisKey: z.string().optional(),
     bounds: bounds.boundsZ().optional(),
-    autoBounds: z
+    manualBounds: z
       .object({
-        lower: z.boolean().default(true),
-        upper: z.boolean().default(true),
+        lower: z.boolean().default(false),
+        upper: z.boolean().default(false),
       })
-      .or(z.boolean().default(true)),
+      .prefault({}),
     autoBoundPadding: z.number().optional(),
     autoBoundUpdateInterval: TimeSpan.z.default(TimeSpan.seconds(10)),
     size: z.number().default(0),
@@ -59,14 +59,16 @@ export const withinSizeThreshold = (prev: number, next: number): boolean =>
   );
 
 export const EMPTY_LINEAR_BOUNDS = bounds.DECIMAL;
-const now = TimeStamp.now();
-export const EMPTY_TIME_BOUNDS: bounds.Bounds = {
-  lower: Number(now.valueOf()),
-  upper: Number(now.add(TimeSpan.HOUR).valueOf()),
-};
 
-export const emptyBounds = (type: TickType): bounds.Bounds =>
-  type === "linear" ? EMPTY_LINEAR_BOUNDS : EMPTY_TIME_BOUNDS;
+// Computed per call so an empty time axis tracks the present instead of app start.
+export const emptyBounds = (type: TickType): bounds.Bounds => {
+  if (type === "linear") return EMPTY_LINEAR_BOUNDS;
+  const now = TimeStamp.now();
+  return {
+    lower: Number(now.valueOf()),
+    upper: Number(now.add(TimeSpan.HOUR).valueOf()),
+  };
+};
 
 export interface AxisRenderProps {
   grid: grid.Grid;
@@ -154,14 +156,18 @@ export class BaseAxis<
   ): [bounds.Bounds, Error | null] {
     if (hold && this.internal.boundSnapshot != null)
       return [this.internal.boundSnapshot, null];
-    const { lower, upper } = parseAutoBounds(this.state.autoBounds);
-    if (!lower && !upper && this.state.bounds != null) {
+    const { manualBounds } = this.state;
+    const autoLower = !manualBounds.lower;
+    const autoUpper = !manualBounds.upper;
+    if (!autoLower && !autoUpper && this.state.bounds != null) {
       this.internal.boundSnapshot = this.state.bounds;
       return [this.state.bounds, null];
     }
     const merge = (auto: bounds.Bounds): bounds.Bounds => ({
-      upper: upper || this.state.bounds == null ? auto.upper : this.state.bounds.upper,
-      lower: lower || this.state.bounds == null ? auto.lower : this.state.bounds.lower,
+      upper:
+        autoUpper || this.state.bounds == null ? auto.upper : this.state.bounds.upper,
+      lower:
+        autoLower || this.state.bounds == null ? auto.lower : this.state.bounds.lower,
     });
     let ab: bounds.Bounds;
     let err: Error | null = null;
@@ -176,8 +182,8 @@ export class BaseAxis<
     this.internal.boundSnapshot = bounds;
     if (
       this.state.bounds == null ||
-      (lower && this.state.bounds.lower !== bounds.lower) ||
-      (upper && this.state.bounds.upper !== bounds.upper)
+      (autoLower && this.state.bounds.lower !== bounds.lower) ||
+      (autoUpper && this.state.bounds.upper !== bounds.upper)
     )
       this.internal.updateBounds?.(bounds);
     return [bounds, err];
@@ -187,7 +193,7 @@ export class BaseAxis<
     hold: boolean,
     fetchDataBounds: () => bounds.Bounds[],
     viewport: box.Box,
-  ): [scale.Scale, Error | null] {
+  ): [scale.Scale, bounds.Bounds, Error | null] {
     const [bounds, err] = this.iBounds(hold, fetchDataBounds);
     const dir = direction.swap(direction.construct(this.state.location));
     return [
@@ -195,14 +201,8 @@ export class BaseAxis<
         .scale(1)
         .translate(-box.root(viewport)[dir])
         .magnify(1 / box.dim(viewport, dir)),
+      bounds,
       err,
     ];
   }
 }
-
-export const parseAutoBounds = (
-  autoBounds: boolean | { lower?: boolean; upper?: boolean },
-): { lower: boolean; upper: boolean } => {
-  if (typeof autoBounds === "boolean") return { lower: autoBounds, upper: autoBounds };
-  return { lower: autoBounds?.lower ?? true, upper: autoBounds?.upper ?? true };
-};

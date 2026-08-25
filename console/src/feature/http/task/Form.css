@@ -1,0 +1,109 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-task-configure--http_read,
+.console-task-configure--http_write {
+    /* Both halves are load-bearing: the list must refuse to shrink, and the detail
+       column must be allowed to, or the list absorbs everything it will not give up. */
+    .console-endpoint-list {
+        width: 250px;
+        flex-shrink: 0;
+    }
+
+    .console-endpoint-details-pane {
+        min-width: 0;
+    }
+
+    .console-endpoint-details {
+        overflow-y: auto;
+
+        .console-endpoint-details-form {
+            padding: 2rem;
+        }
+
+        .console-headers-kv-editor {
+            padding: 2rem 0;
+        }
+
+        .console-query-params-kv-editor {
+            padding: 2rem 0 0;
+        }
+
+        /* This pane is the only scroller. Its lists grow with their content and
+           hand the overflow up; pluto's paint containment would clip it instead. */
+        .console-channel-list,
+        .console-additional-fields {
+            overflow: visible;
+            flex-shrink: 0;
+        }
+
+        /* The shared rule sizes this list beside a detail column; stacked here, its
+           225px basis becomes a height that strands the enum mapping below the fold.
+           The :not() mirrors that rule so this one outweighs it. */
+        .console-channel-list:not(:only-child) {
+            flex-basis: auto;
+        }
+
+        .console-field-list-items,
+        .console-channel-list .pluto-list__items {
+            overflow: visible;
+            contain: layout;
+            height: auto;
+        }
+
+        /* Content height alone puts the placeholder right under the header. */
+        .pluto-list__items--empty {
+            min-height: 15rem;
+        }
+
+        .pluto-header__actions {
+            padding-right: 2rem;
+        }
+
+        .pluto-header__text {
+            padding-left: 2rem;
+        }
+    }
+
+    .console-rate-input {
+        max-width: 20rem;
+    }
+
+    .console-enum-mapping {
+        min-height: 200px;
+        max-height: 200px;
+        padding: 1rem 2rem;
+    }
+
+    .console-time-format {
+        width: 160px;
+    }
+
+    .console-channel-field-section {
+        padding: 2rem;
+    }
+
+    .console-json-type-select {
+        width: 140px;
+    }
+
+    .console-data-type-select {
+        max-width: 25rem;
+    }
+
+    .console-field-data-type {
+        width: 22rem;
+    }
+
+    .console-static-field-value {
+        width: 120px;
+    }
+}

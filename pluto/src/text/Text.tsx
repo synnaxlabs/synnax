@@ -9,12 +9,14 @@
 
 import "@/text/Text.css";
 
-import { type status, type text } from "@synnaxlabs/x";
+import { type status } from "@synnaxlabs/client";
+import { type text } from "@synnaxlabs/x";
 import {
   Children,
   type ComponentPropsWithoutRef,
   type ReactElement,
   type ReactNode,
+  useMemo,
 } from "react";
 
 import { CSS } from "@/css";
@@ -24,32 +26,37 @@ import { isValidElement } from "@/util/children";
 
 type AnchorProps = ComponentPropsWithoutRef<"a">;
 
+/** The typeface and treatment: body prose, monospace code, a key cap, or a link. */
 export type Variant = "prose" | "code" | "keyboard" | "link";
-export type Overflow = "ellipsis" | "clip" | "nowrap" | "wrap";
+/** What happens to text that outruns its box. */
+export type Overflow = "ellipsis" | "fade" | "clip" | "nowrap" | "wrap";
 
+/**
+ * The text-specific props {@link TextProps} adds. Text is a flex box, so it also takes
+ * every {@link Flex.BoxExtensionProps} for laying out icons beside a label.
+ */
 export interface ExtensionProps
   extends Flex.BoxExtensionProps, Pick<AnchorProps, "href" | "target" | "rel"> {
-  /* The level of text to display i.e. p, h1, h2 */
+  /** The type scale step, which also picks the rendered element: p, h1, h2. */
   level?: text.Level;
-  /* The text to display */
   children?: ReactNode;
-  /* Shade sets the shade of the text */
-  /* Weight sets the weight of the text */
+  /** The font weight. Defaults to the level's own. */
   weight?: text.Weight;
-  /* Variant sets the variant of the text */
+  /** The typeface treatment. Defaults to "prose". */
   variant?: Variant;
-  /* AutoFormatHref formats the href to be a secure http link */
+  /** Prefixes a scheme-less href with `https://`. */
   autoFormatHref?: boolean;
-  /* DefaultEl sets the default element of the text */
+  /** The element to render when `level` does not imply one. */
   defaultEl?: Generic.ElementType;
-  /* Overflow sets the overflow of the text */
+  /** What to do with text that outruns its box. */
   overflow?: Overflow;
-  /* Status sets the status of the text */
+  /** Tints the text with a status color. */
   status?: status.Variant;
-  /* LineClamp sets the maximum number of lines before truncating with ellipsis */
+  /** Truncates past this many lines. Implies an ellipsis. */
   lineClamp?: number;
 }
 
+/** Props for {@link Text}, on top of the props of the element it renders as. */
 export type TextProps<E extends Generic.ElementType = "p"> = Omit<
   Generic.OptionalElementProps<E>,
   "color"
@@ -69,6 +76,10 @@ const formatHref = (
   return href;
 };
 
+/**
+ * @returns true if the children are a lone icon, which the chassis renders in a square
+ * rather than a padded pill.
+ */
 export const isSquare = (children: ReactNode): boolean => {
   if (Children.count(children) !== 1) {
     const parsedChildren = Children.toArray(children).filter(
@@ -90,8 +101,9 @@ export const isSquare = (children: ReactNode): boolean => {
   return false;
 };
 
-const parseElement = <E extends Generic.ElementType = "p">(
-  level: text.Level,
+/** Resolves which element a text-based component renders as. */
+export const parseElement = <E extends Generic.ElementType = "p">(
+  level?: text.Level,
   el?: E,
   defaultEl?: Generic.ElementType,
   variant?: Variant,
@@ -117,6 +129,13 @@ const formatStyle = (
   return style;
 };
 
+/**
+ * Renders text at a step on the shared type scale. It is also a flex box, so icons and
+ * a label lay out inside one element with no wrapper.
+ *
+ * @example <Text.Text level="h3">Ranges</Text.Text>
+ * @example <Text.Text level="p" overflow="ellipsis"><Icon.Range />{name}</Text.Text>
+ */
 export const Text = <E extends Generic.ElementType = "p">({
   level = "p",
   className,
@@ -131,23 +150,29 @@ export const Text = <E extends Generic.ElementType = "p">({
   status,
   lineClamp,
   ...rest
-}: TextProps<E>): ReactElement => (
-  <Flex.Box<E>
-    direction="x"
-    el={parseElement<E>(level, el, defaultEl, variant, href)}
-    style={formatStyle(style, weight, lineClamp)}
-    className={CSS(
-      CSS.B("text"),
-      variant != null && CSS.BM("text", variant),
-      CSS.BM("text", level),
-      overflow != null && CSS.BM("text", "overflow", overflow),
-      lineClamp != null && CSS.BM("text", "line-clamp"),
-      status != null && CSS.M("status", status),
-      className,
-    )}
-    square={isSquare(rest.children)}
-    gap="small"
-    href={formatHref(href, autoFormatHref)}
-    {...(rest as Flex.BoxProps<E>)}
-  />
-);
+}: TextProps<E>): ReactElement => {
+  const formattedStyle = useMemo(
+    () => formatStyle(style, weight, lineClamp),
+    [style, weight, lineClamp],
+  );
+  return (
+    <Flex.Box<E>
+      direction="x"
+      el={parseElement<E>(level, el, defaultEl, variant, href)}
+      style={formattedStyle}
+      className={CSS.cls(
+        CSS.B("text"),
+        variant != null && CSS.BM("text", variant),
+        CSS.BM("text", level),
+        overflow != null && CSS.BM("text", "overflow", overflow),
+        lineClamp != null && CSS.BM("text", "line-clamp"),
+        status != null && CSS.M("status", status),
+        className,
+      )}
+      square={isSquare(rest.children)}
+      gap="small"
+      href={formatHref(href, autoFormatHref)}
+      {...(rest as Flex.BoxProps<E>)}
+    />
+  );
+};

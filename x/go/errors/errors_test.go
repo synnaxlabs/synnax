@@ -88,11 +88,14 @@ var _ = Describe("Is", func() {
 		It("Should return nil if the error is nil", func() {
 			Expect(errors.Skip(nil, nil)).To(Succeed())
 		})
-		It("Should return the error if the error does not match the reference error", func() {
-			e1 := errors.Newf("test1")
-			e2 := errors.Newf("test2")
-			Expect(errors.Skip(e1, e2)).To(Equal(e1))
-		})
+		It(
+			"Should return the error if the error does not match the reference error",
+			func() {
+				e1 := errors.Newf("test1")
+				e2 := errors.Newf("test2")
+				Expect(errors.Skip(e1, e2)).To(Equal(e1))
+			},
+		)
 	})
 
 	Describe("Combine", func() {
@@ -146,6 +149,32 @@ var _ = Describe("Is", func() {
 		})
 	})
 
+	Describe("UnwrapMulti", func() {
+		It("Should return the individual causes of a joined error", func() {
+			err1 := errors.New("err1")
+			err2 := errors.New("err2")
+			causes := errors.UnwrapMulti(errors.Join(err1, err2))
+			Expect(causes).To(HaveLen(2))
+			Expect(errors.Is(causes[0], err1)).To(BeTrue())
+			Expect(errors.Is(causes[1], err2)).To(BeTrue())
+		})
+
+		It("Should find the join through single-cause wrappers", func() {
+			joined := errors.Join(errors.New("err1"), errors.New("err2"))
+			Expect(errors.UnwrapMulti(errors.Wrap(joined, "context"))).To(HaveLen(2))
+		})
+
+		It("Should return nil for a single-cause error", func() {
+			Expect(
+				errors.UnwrapMulti(errors.Wrap(errors.New("base"), "context")),
+			).To(BeNil())
+		})
+
+		It("Should return nil for a nil error", func() {
+			Expect(errors.UnwrapMulti(nil)).To(BeNil())
+		})
+	})
+
 	Describe("New", func() {
 		It("Should create a new error with the given message", func() {
 			Expect(errors.New("test error")).To(MatchError(Equal("test error")))
@@ -164,7 +193,9 @@ var _ = Describe("Is", func() {
 		})
 
 		It("Should handle multiple format arguments", func() {
-			Expect(errors.Newf("test %s %d", "error", 123)).To(MatchError(Equal("test error 123")))
+			Expect(
+				errors.Newf("test %s %d", "error", 123),
+			).To(MatchError(Equal("test error 123")))
 		})
 	})
 

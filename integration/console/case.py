@@ -10,6 +10,7 @@
 import os
 import random
 from typing import cast
+from urllib.request import urlopen
 from uuid import uuid4
 
 from playwright.sync_api import (
@@ -21,8 +22,9 @@ from playwright.sync_api import (
 )
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
+import synnax as sy
 from console.console import Console
-from framework.models import STATUS
+from framework.models import STATUS, SynnaxConnection
 from framework.run_dir import resolve_results_path
 from framework.test_case import TestCase
 
@@ -32,8 +34,12 @@ class ConsoleCase(TestCase):
     Console TestCase implementation using Playwright
 
     Environment Variables:
-    - PLAYWRIGHT_CONSOLE_HEADED: Run in headed mode (default: False)
-      Can be set via command line: --console-headed or -ch
+    - PLAYWRIGHT_CONSOLE_HEADED: Run in headed mode (default: False).
+      Set by the ``--headed`` flag.
+    - PLAYWRIGHT_CONSOLE_SLOW_MO: Delay between Playwright actions in ms (default: 0).
+      Set by the ``--slow-mo MS`` flag.
+
+    Per-case ``headed`` and ``slow_mo`` parameters override the environment.
     """
 
     browser: Browser
@@ -44,10 +50,28 @@ class ConsoleCase(TestCase):
     default_nav_timeout: int
     console: Console
 
+    def __init__(
+        self,
+        synnax_connection: SynnaxConnection = SynnaxConnection(),
+        *,
+        name: str,
+        **params: object,
+    ) -> None:
+        super().__init__(synnax_connection, name=name, **params)
+        self._cleanup_pages: list[str] = []
+        self._project: sy.Project | None = None
+
     def setup(self) -> None:
+        self._launch_browser()
+        self._goto_console()
+        self._login()
+        self._bootstrap_project()
+
+    def _launch_browser(self) -> None:
         env_headed = os.environ.get("PLAYWRIGHT_CONSOLE_HEADED", "0") == "1"
         headed = self.params.get("headed", env_headed)
-        slow_mo = self.params.get("slow_mo", 0)
+        env_slow_mo = int(os.environ.get("PLAYWRIGHT_CONSOLE_SLOW_MO", "0"))
+        slow_mo = self.params.get("slow_mo", env_slow_mo)
         default_timeout = self.params.get("default_timeout", 15000)  # 15s
         default_nav_timeout = self.params.get("default_nav_timeout", 15000)  # 15s
 
@@ -55,7 +79,17 @@ class ConsoleCase(TestCase):
         self.log(f"Opening browser in {'headed' if headed else 'headless'} mode")
         self.playwright = sync_playwright().start()
         browser_engine = self.determine_browser()
-        self.browser = browser_engine.launch(headless=not headed, slow_mo=slow_mo)
+        # Playwright cannot drive the File System Access save picker, so remove the
+        # local pickers; exports then fall back to plain downloads, which
+        # expect_download captures. Inputs (expect_file_chooser) are unaffected.
+        launch_args = (
+            ["--disable-blink-features=FileSystemAccessLocal"]
+            if browser_engine.name == "chromium"
+            else []
+        )
+        self.browser = browser_engine.launch(
+            headless=not headed, slow_mo=slow_mo, args=launch_args
+        )
         self.context = self.browser.new_context(
             permissions=["clipboard-read", "clipboard-write"],
         )
@@ -76,32 +110,38 @@ class ConsoleCase(TestCase):
         self.page.set_default_timeout(default_timeout)  # 1s
         self.page.set_default_navigation_timeout(default_nav_timeout)  # 1s
 
-        # Try embedded console first, fallback to dev server if no console found
+    def _goto_console(self, query: str = "") -> None:
+        """Navigate to the Console, falling back to the dev server when the
+        Core lacks an embedded Console. ``query`` is appended verbatim (e.g.
+        ``"?select-core"``)."""
         host = self.synnax_connection.server_address
         port = self.synnax_connection.port
 
-        self.page.goto(f"http://{host}:{port}/", timeout=20000)
-        if "core built without embedded console" in self.page.content().lower():
-            port = 5173
-            self.page.goto(f"http://{host}:{port}/", timeout=15000)
+        # A plain request finds the Console's port without a page load in the browser.
+        with urlopen(f"http://{host}:{port}/", timeout=5) as res:
+            if b"core built without embedded console" in res.read().lower():
+                port = 5173
+        self.page.goto(f"http://{host}:{port}/{query}", timeout=20000)
 
         self.log(f"Console found on port {port}")
+        self.console = Console(self.page, self.client)
 
-        # Wait for and fill login form
+    def _login(self) -> None:
         username = self.synnax_connection.username
         password = self.synnax_connection.password
 
-        self.page.wait_for_selector(".pluto-field__username", timeout=5000)
-        username_input = self.page.locator(".pluto-field__username input").first
+        self.page.get_by_label("Username", exact=True).wait_for(
+            state="visible", timeout=5000
+        )
+        username_input = self.page.get_by_label("Username", exact=True).first
         username_input.fill(username)
 
-        password_input = self.page.locator(".pluto-field__password input").first
+        password_input = self.page.get_by_label("Password", exact=True).first
         password_input.fill(password)
 
-        self.page.get_by_role("button", name="Log In").click(timeout=2000)
+        self.page.get_by_role("button", name="Log in").click(timeout=2000)
 
-        self.console = Console(self.page, self.client)
-
+    def _bootstrap_project(self) -> None:
         # Each test runs in its own project so tests never inherit one another's
         # open tabs (a project's layout persists server-side). The project is
         # provisioned through the client rather than the UI: create/delete are
@@ -119,28 +159,28 @@ class ConsoleCase(TestCase):
         self.console.access.bootstrap_project = project_name
         self.console.project.select_bootstrap(self._project.name)
 
+        # Panels belong to the project, so a fresh project has none and the mosaic
+        # does not render until one exists.
+        self.console.layout.create_panel()
+
         # Prevent state pollution
         self.console.close_all_tabs()
         self.console.notifications.close_connection()
-        self._cleanup_pages: list[str] = []
 
     def teardown(self) -> None:
         # Stop and persist the trace before cleanup; cleanup may mutate page state
         # in ways that mask the failure we want to capture.
         self._stop_tracing()
 
-        # setup() may fail before _cleanup_pages is assigned; tolerate that here
-        # so teardown still closes the browser instead of raising.
-        if getattr(self, "_cleanup_pages", None):
+        if self._cleanup_pages:
             try:
-                self.console.project.delete_pages(self._cleanup_pages)
+                self.console.pages.delete_many(self._cleanup_pages)
             except PlaywrightTimeoutError:
                 pass
         # Delete the per-test project through the client. Server-side delete is
         # fast and works regardless of the browser's auth state, which a
-        # UI-driven delete does not (e.g. after a test logs out). setup() may
-        # fail before _project is assigned.
-        project = getattr(self, "_project", None)
+        # UI-driven delete does not (e.g. after a test logs out).
+        project = self._project
         if project is not None:
             try:
                 self.client.projects.delete(project.key)
@@ -149,6 +189,7 @@ class ConsoleCase(TestCase):
         self.context.close()
         self.browser.close()
         self.playwright.stop()
+        super().teardown()
 
     def _stop_tracing(self) -> None:
         failed_states = (STATUS.FAILED, STATUS.TIMEOUT, STATUS.KILLED)

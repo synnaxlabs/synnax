@@ -11,17 +11,17 @@
 
 #include <chrono>
 #include <memory>
-#include <ranges>
 #include <set>
 #include <utility>
 
-#include "glog/logging.h"
+#include "absl/log/log.h"
 
 #include "x/cpp/control/control.h"
 #include "x/cpp/queue/spsc.h"
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/thread/thread.h"
 
+#include "arc/cpp/program/program.h"
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/loop/loop.h"
 #include "arc/cpp/runtime/node/factory.h"
@@ -40,6 +40,7 @@
 #include "arc/cpp/stl/stateful/stateful.h"
 #include "arc/cpp/stl/strings/strings.h"
 #include "arc/cpp/stl/time/time.h"
+#include "arc/cpp/stl/variable/variable.h"
 
 namespace arc::runtime {
 
@@ -279,6 +280,7 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
         std::make_shared<stl::control::Module>(state),
         std::make_shared<stl::stable::Module>(),
         std::make_shared<stl::selector::Module>(),
+        std::make_shared<stl::variable::Module>(),
     };
 
     // External factories that are also stl::Modules get bind_to here;

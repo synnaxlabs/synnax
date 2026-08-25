@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel } from "@synnaxlabs/client";
+import { channel, type framer, status as cstatus } from "@synnaxlabs/client";
 import {
   compare,
   DataType,
   type destructor,
   type Series,
-  status as xstatus,
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
@@ -26,8 +25,8 @@ import {
 } from "@/log/aether/telem/types";
 import { type status } from "@/status/aether";
 import { type CreateOptions } from "@/telem/aether/factory";
+import { type Client, DISCONNECTED_STATUS } from "@/telem/aether/remote";
 import { AbstractSource } from "@/telem/aether/telem";
-import { type client } from "@/telem/client";
 
 const MAX_ENTRIES = 100_000;
 
@@ -54,7 +53,7 @@ export class StreamMultiChannelLog
   static readonly TYPE = "stream-multi-channel-log";
   schema = streamMultiChannelLogPropsZ;
 
-  private readonly client: client.Client;
+  private readonly client: Client | null;
   private readonly onStatusChange?: status.Adder;
   private readonly now: () => TimeStamp;
   private readonly maxEntries: number;
@@ -71,7 +70,7 @@ export class StreamMultiChannelLog
   }
 
   constructor(
-    client: client.Client,
+    client: Client | null,
     props: unknown,
     options?: CreateOptions,
     now: () => TimeStamp = () => TimeStamp.now(),
@@ -107,21 +106,25 @@ export class StreamMultiChannelLog
     this.notify();
   }
 
+  /** Never rejects: a failure invalidates the read and reaches onStatusChange. */
   private async read(): Promise<void> {
+    this.valid = true;
+    const { client } = this;
+    if (client == null) {
+      this.onStatusChange?.(DISCONNECTED_STATUS);
+      return;
+    }
     try {
-      this.valid = true;
-      // Generation counter prevents stale async completions: if setChannels() triggers
-      // a new read() while this one is awaiting, the older read bails out.
+      // A newer read() or cleanup() bumps the generation; older reads bail after
+      // awaiting.
       const generation = ++this.readGeneration;
       this.stopStreaming?.();
 
       const channels = await Promise.all(
-        this._channels.map((ch) => this.client.retrieveChannel(ch)),
+        this._channels.map((ch) => client.channels.retrieve(ch)),
       );
-      // Superseded by a newer read() call while we were awaiting.
       if (generation !== this.readGeneration) return;
 
-      // Scrub entries from channels that were removed.
       const newKeys = new Set(channels.map((ch) => ch.key));
       const removedKeys = new Set(
         [...this.channelMeta.keys()].filter((k) => !newKeys.has(k)),
@@ -129,9 +132,8 @@ export class StreamMultiChannelLog
       if (removedKeys.size > 0)
         this.entries = this.entries.filter((e) => !removedKeys.has(e.channelKey));
 
-      // When channels change mid-session, the new stream replays buffered data
-      // for ALL channels. Skip that initial batch to avoid re-displaying existing
-      // entries.
+      // When channels change mid-session, the new stream replays buffered data for ALL
+      // channels. Skip that initial batch to avoid re-displaying existing entries.
       const isRestart = this.channelMeta.size > 0;
       this.channelMeta.clear();
       for (const ch of channels)
@@ -144,7 +146,7 @@ export class StreamMultiChannelLog
         });
 
       const streamKeys = channels.map((ch) => ch.key);
-      this.stopStreaming = await this.client.stream((res) => {
+      const handler: framer.StreamHandler = (res) => {
         const now = this.now();
         let pushed = 0;
         for (const [key, chMeta] of this.channelMeta) {
@@ -184,13 +186,11 @@ export class StreamMultiChannelLog
             // Drain intermediate buffers (burst crossed multiple allocations).
             for (let s = 0; s < allocated.series.length - 1; s++)
               pushSamples(allocated.series[s], 0);
-            // Switch to the newest buffer.
             [chMeta.leadingBuffer, chMeta.readCursor] = [
               allocated.series[allocated.series.length - 1],
               0,
             ];
           }
-          // Read new in-place writes to the current leading buffer.
           const buf = chMeta.leadingBuffer;
           if (buf == null || buf.length <= chMeta.readCursor) continue;
           if (chMeta.skipInitialBatch) {
@@ -203,11 +203,12 @@ export class StreamMultiChannelLog
         }
         this._evictedCount = this.gcEntries();
         if (pushed > 0) this.notify();
-      }, streamKeys);
+      };
+      this.stopStreaming = client.feed.stream(handler, streamKeys).close;
       this.notify();
     } catch (e) {
       this.valid = false;
-      this.onStatusChange?.(xstatus.fromException(e, "failed to stream log channels"));
+      this.onStatusChange?.(cstatus.fromException(e, "failed to stream log channels"));
     }
   }
 
@@ -235,6 +236,7 @@ export class StreamMultiChannelLog
   }
 
   cleanup(): void {
+    this.readGeneration++;
     this.stopStreaming?.();
     this.stopStreaming = undefined;
     this.entries = [];

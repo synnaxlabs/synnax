@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from console.case import ConsoleCase
-from console.project import PageType
+from console.page import PageType
 from x import random_name
 
 
@@ -33,47 +33,44 @@ class OpenClose(ConsoleCase):
 
         PROJECT_PAGES: list[tuple[PageType, str]] = [
             ("Schematic", f"Sch_{suffix}"),
-            ("Line Plot", f"LinePlt_{suffix}"),
+            ("Line plot", f"LinePlt_{suffix}"),
             ("Log", f"LogPg_{suffix}"),
             ("Table", f"TablePg_{suffix}"),
         ]
 
         TASK_PAGES: list[tuple[PageType, str]] = [
-            ("NI Analog Read Task", f"NIAR_{suffix}"),
-            ("NI Analog Write Task", f"NIAW_{suffix}"),
-            ("NI Digital Read Task", f"NIDR_{suffix}"),
-            ("NI Digital Write Task", f"NIDW_{suffix}"),
-            ("LabJack Read Task", f"LJRead_{suffix}"),
-            ("LabJack Write Task", f"LJWrite_{suffix}"),
-            ("OPC UA Read Task", f"OPCRead_{suffix}"),
-            ("OPC UA Write Task", f"OPCWrite_{suffix}"),
+            ("NI analog read task", f"NIAR_{suffix}"),
+            ("NI analog write task", f"NIAW_{suffix}"),
+            ("NI digital read task", f"NIDR_{suffix}"),
+            ("NI digital write task", f"NIDW_{suffix}"),
+            ("LabJack read task", f"LJRead_{suffix}"),
+            ("LabJack write task", f"LJWrite_{suffix}"),
+            ("OPC UA read task", f"OPCRead_{suffix}"),
+            ("OPC UA write task", f"OPCWrite_{suffix}"),
         ]
 
         self.log("(1/2) Create pages by cmd palette")
         all_pages = PROJECT_PAGES + TASK_PAGES
 
         for page_type, page_name in all_pages:
-            console.project.create_page_by_command_palette(page_type, page_name)
-            if page_type in ("Schematic", "Line Plot", "Log", "Table"):
+            console.pages.create_by_command_palette(page_type, page_name)
+            if page_type in ("Schematic", "Line plot", "Log", "Table"):
                 self._page_names.append(page_name)
         for _, page_name in all_pages:
-            console.project.close_page(page_name)
+            console.layout.close_tab(page_name)
 
         self.log("(2/2) Create pages by (+) button")
         for page_type, page_name in all_pages:
-            console.project.create_page_by_new_page_button(page_type, page_name)
-            if page_type in ("Schematic", "Line Plot", "Log", "Table"):
+            console.pages.create_by_new_page_button(page_type, page_name)
+            if page_type in ("Schematic", "Line plot", "Log", "Table"):
                 self._page_names.append(page_name)
         for _, page_name in all_pages:
-            console.project.close_page(page_name)
+            console.layout.close_tab(page_name)
 
-        # Should see "New Component" if all pages closed successfully
-        pass_condition = self.page.get_by_text("New Component").count() > 0
-        assert pass_condition, (
-            "Some pages were not closed - 'New Component' screen not visible"
-        )
+        remaining = console.layout.tab_names()
+        assert not remaining, f"Some pages were not closed: {remaining}"
 
-        console.project.delete_pages(self._page_names)
+        console.pages.delete_many(self._page_names)
         self._pages_deleted = True
 
     def teardown(self) -> None:

@@ -12,7 +12,7 @@ export {
   DELETE_CHANNEL_NAME,
   type KeyRetrieveRequest,
   ontologyID,
-  type RetrieveArgs,
+  type RetrieveParams,
   type RetrieveRequest,
   SET_CHANNEL_NAME,
   TYPE_ONTOLOGY_ID,

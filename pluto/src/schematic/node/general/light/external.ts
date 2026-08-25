@@ -7,27 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 
 import { Label } from "@/schematic/node/common/label";
-import { type Config, VARIANT } from "@/schematic/node/general/light/config";
 import { LightForm } from "@/schematic/node/general/light/Form";
 import { Light } from "@/schematic/node/general/light/Primitive";
 import { Symbol } from "@/schematic/node/general/light/Symbol";
 import { type Spec } from "@/schematic/node/spec";
+import { type Theming } from "@/theming";
 
-export * from "@/schematic/node/general/light/config";
-
-export const defaultConfig = (): Config => ({
-  variant: VARIANT,
+export const defaultConfig = (t: Theming.Theme): schematic.LightNodeConfig => ({
+  variant: "light",
   orientation: "left",
   scale: 1,
   color: color.ZERO,
   label: Label.defaultConfig("Light"),
+  stalenessTimeout: 5,
+  stalenessColor: t.colors.warning.m1,
 });
 
-export const spec: Spec<typeof VARIANT, Config> = {
-  key: VARIANT,
+export const spec: Spec<"light", schematic.LightNodeConfig> = {
+  key: "light",
   name: "Light",
   Form: LightForm,
   Node: Symbol,

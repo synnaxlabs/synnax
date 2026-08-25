@@ -7,32 +7,33 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Label } from "@/schematic/node/common/label";
-import { type Config, VARIANT } from "@/schematic/node/general/offPageReference/config";
 import { OffPageReferenceForm } from "@/schematic/node/general/offPageReference/Form";
 import { OffPageReference } from "@/schematic/node/general/offPageReference/Primitive";
 import { Symbol } from "@/schematic/node/general/offPageReference/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 
-export * from "@/schematic/node/general/offPageReference/config";
-
-export const defaultConfig = (): Config => ({
-  variant: VARIANT,
+export const defaultConfig = (): schematic.OffPageReferenceNodeConfig => ({
+  variant: "off_page_reference",
   color: color.ZERO,
   orientation: "right",
-  label: Label.defaultConfig("Off Page Reference"),
+  label: Label.defaultConfig("Off page reference"),
 });
 
-const Preview = ({ label: _, ...rest }: Config): ReactElement => (
-  <OffPageReference label="Off Page" {...rest} orientation="right" />
+const Preview = ({
+  label: _,
+  ...rest
+}: schematic.OffPageReferenceNodeConfig): ReactElement => (
+  <OffPageReference label="Off page" {...rest} orientation="right" />
 );
 
-export const spec: Spec<typeof VARIANT, Config> = {
-  key: VARIANT,
-  name: "Off Page",
+export const spec: Spec<"off_page_reference", schematic.OffPageReferenceNodeConfig> = {
+  key: "off_page_reference",
+  name: "Off page",
   Form: OffPageReferenceForm,
   Node: Symbol,
   Preview,

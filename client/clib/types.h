@@ -12,6 +12,7 @@
 
 #pragma once
 
+#include <stddef.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -32,6 +33,15 @@ typedef struct {
     char type[128];
     char message[512];
 } SynnaxError;
+
+#ifdef __cplusplus
+// LabVIEW reads a fixed 644-byte buffer at these offsets (err_bytes_preallocated /
+// read_err_bytes VIs); keep both in sync if this struct changes.
+static_assert(sizeof(SynnaxError) == 644, "SynnaxError must be 644 bytes");
+static_assert(offsetof(SynnaxError, code) == 0, "code at offset 0");
+static_assert(offsetof(SynnaxError, type) == 4, "type at offset 4");
+static_assert(offsetof(SynnaxError, message) == 132, "message at offset 132");
+#endif
 
 #ifdef __cplusplus
 }

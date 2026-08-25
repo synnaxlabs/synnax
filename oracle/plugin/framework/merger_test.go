@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/framework"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestFramework(t *testing.T) {
@@ -111,7 +112,10 @@ var _ = Describe("MergeTypesByName", func() {
 			{Name: "TypeA", QualifiedName: "pkg1.TypeA"},
 		}
 		b := []resolution.Type{
-			{Name: "TypeA", QualifiedName: "pkg2.TypeA"}, // Same Name, different QualifiedName
+			{
+				Name:          "TypeA",
+				QualifiedName: "pkg2.TypeA",
+			}, // Same Name, different QualifiedName
 			{Name: "TypeB", QualifiedName: "pkg2.TypeB"},
 		}
 
@@ -139,8 +143,6 @@ var _ = Describe("Collector", func() {
 	Describe("NewCollector", func() {
 		It("Should create an empty collector", func() {
 			c := framework.NewCollector("go", req)
-			Expect(c.Empty()).To(BeTrue())
-			Expect(c.Count()).To(Equal(0))
 			Expect(c.Paths()).To(BeEmpty())
 		})
 	})
@@ -155,14 +157,17 @@ var _ = Describe("Collector", func() {
 				Domains: map[string]resolution.Domain{
 					"go": {
 						Expressions: []resolution.Expression{
-							{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "pkg/types.go"}}},
+							{
+								Name: "output",
+								Values: []resolution.ExpressionValue{
+									{StringValue: "pkg/types.go"},
+								},
+							},
 						},
 					},
 				},
 			}
 			Expect(c.Add(typ)).To(Succeed())
-			Expect(c.Empty()).To(BeFalse())
-			Expect(c.Count()).To(Equal(1))
 			Expect(c.Has("pkg/types.go")).To(BeTrue())
 			Expect(c.Get("pkg/types.go")).To(HaveLen(1))
 			Expect(c.Get("pkg/types.go")[0].Name).To(Equal("MyType"))
@@ -177,7 +182,6 @@ var _ = Describe("Collector", func() {
 				Domains:       map[string]resolution.Domain{},
 			}
 			Expect(c.Add(typ)).To(Succeed())
-			Expect(c.Empty()).To(BeTrue())
 		})
 
 		It("Should maintain path order", func() {
@@ -188,7 +192,12 @@ var _ = Describe("Collector", func() {
 					Name: "TypeA",
 					Domains: map[string]resolution.Domain{
 						"go": {Expressions: []resolution.Expression{
-							{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "path/a"}}},
+							{
+								Name: "output",
+								Values: []resolution.ExpressionValue{
+									{StringValue: "path/a"},
+								},
+							},
 						}},
 					},
 				},
@@ -196,7 +205,12 @@ var _ = Describe("Collector", func() {
 					Name: "TypeB",
 					Domains: map[string]resolution.Domain{
 						"go": {Expressions: []resolution.Expression{
-							{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "path/b"}}},
+							{
+								Name: "output",
+								Values: []resolution.ExpressionValue{
+									{StringValue: "path/b"},
+								},
+							},
 						}},
 					},
 				},
@@ -204,7 +218,12 @@ var _ = Describe("Collector", func() {
 					Name: "TypeC",
 					Domains: map[string]resolution.Domain{
 						"go": {Expressions: []resolution.Expression{
-							{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "path/a"}}}, // Same as first
+							{
+								Name: "output",
+								Values: []resolution.ExpressionValue{
+									{StringValue: "path/a"},
+								},
+							}, // Same as first
 						}},
 					},
 				},
@@ -227,7 +246,12 @@ var _ = Describe("Collector", func() {
 				Name: "TypeA",
 				Domains: map[string]resolution.Domain{
 					"go": {Expressions: []resolution.Expression{
-						{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "pkg/types.go"}}},
+						{
+							Name: "output",
+							Values: []resolution.ExpressionValue{
+								{StringValue: "pkg/types.go"},
+							},
+						},
 					}},
 				},
 			}
@@ -249,7 +273,12 @@ var _ = Describe("Collector", func() {
 					Name: "TypeA",
 					Domains: map[string]resolution.Domain{
 						"go": {Expressions: []resolution.Expression{
-							{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "path/first"}}},
+							{
+								Name: "output",
+								Values: []resolution.ExpressionValue{
+									{StringValue: "path/first"},
+								},
+							},
 						}},
 					},
 				},
@@ -257,7 +286,12 @@ var _ = Describe("Collector", func() {
 					Name: "TypeB",
 					Domains: map[string]resolution.Domain{
 						"go": {Expressions: []resolution.Expression{
-							{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "path/second"}}},
+							{
+								Name: "output",
+								Values: []resolution.ExpressionValue{
+									{StringValue: "path/second"},
+								},
+							},
 						}},
 					},
 				},
@@ -283,7 +317,12 @@ var _ = Describe("Collector", func() {
 					Name: "TypeA",
 					Domains: map[string]resolution.Domain{
 						"go": {Expressions: []resolution.Expression{
-							{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "path/first"}}},
+							{
+								Name: "output",
+								Values: []resolution.ExpressionValue{
+									{StringValue: "path/first"},
+								},
+							},
 						}},
 					},
 				},
@@ -291,7 +330,12 @@ var _ = Describe("Collector", func() {
 					Name: "TypeB",
 					Domains: map[string]resolution.Domain{
 						"go": {Expressions: []resolution.Expression{
-							{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "path/second"}}},
+							{
+								Name: "output",
+								Values: []resolution.ExpressionValue{
+									{StringValue: "path/second"},
+								},
+							},
 						}},
 					},
 				},
@@ -314,9 +358,10 @@ var _ = Describe("Collector", func() {
 
 	Describe("WithPathFunc", func() {
 		It("Should use custom path function", func() {
-			c := framework.NewCollector("go", req).WithPathFunc(func(typ resolution.Type) string {
-				return "custom/" + typ.Name
-			})
+			c := framework.NewCollector("go", req).
+				WithPathFunc(func(typ resolution.Type) string {
+					return "custom/" + typ.Name
+				})
 
 			typ := resolution.Type{Name: "MyType"}
 			Expect(c.Add(typ)).To(Succeed())
@@ -333,7 +378,6 @@ var _ = Describe("Collector", func() {
 			Expect(c.Add(resolution.Type{Name: "KeepMe"})).To(Succeed())
 			Expect(c.Add(resolution.Type{Name: "SkipMe"})).To(Succeed())
 
-			Expect(c.Count()).To(Equal(1))
 			Expect(c.Has("output/KeepMe")).To(BeTrue())
 			Expect(c.Has("output/SkipMe")).To(BeFalse())
 		})
@@ -350,7 +394,6 @@ var _ = Describe("Collector", func() {
 				{Name: "TypeC"},
 			}
 			Expect(c.AddAll(types)).To(Succeed())
-			Expect(c.Count()).To(Equal(3))
 		})
 
 		It("Should stop on first error", func() {
@@ -365,7 +408,12 @@ var _ = Describe("Collector", func() {
 					Name: "ValidType",
 					Domains: map[string]resolution.Domain{
 						"go": {Expressions: []resolution.Expression{
-							{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "valid/path"}}},
+							{
+								Name: "output",
+								Values: []resolution.ExpressionValue{
+									{StringValue: "valid/path"},
+								},
+							},
 						}},
 					},
 				},
@@ -373,7 +421,12 @@ var _ = Describe("Collector", func() {
 					Name: "InvalidType",
 					Domains: map[string]resolution.Domain{
 						"go": {Expressions: []resolution.Expression{
-							{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "../../../etc/passwd"}}},
+							{
+								Name: "output",
+								Values: []resolution.ExpressionValue{
+									{StringValue: "../../../etc/passwd"},
+								},
+							},
 						}},
 					},
 				},
@@ -426,7 +479,12 @@ var _ = Describe("Collect Helpers", func() {
 			Form: resolution.StructForm{},
 			Domains: map[string]resolution.Domain{
 				"go": {Expressions: []resolution.Expression{
-					{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "core/auth"}}},
+					{
+						Name: "output",
+						Values: []resolution.ExpressionValue{
+							{StringValue: "core/auth"},
+						},
+					},
 				}},
 			},
 		})).To(Succeed())
@@ -435,7 +493,12 @@ var _ = Describe("Collect Helpers", func() {
 			Form: resolution.EnumForm{Values: []resolution.EnumValue{{Name: "ACTIVE"}}},
 			Domains: map[string]resolution.Domain{
 				"go": {Expressions: []resolution.Expression{
-					{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "core/auth"}}},
+					{
+						Name: "output",
+						Values: []resolution.ExpressionValue{
+							{StringValue: "core/auth"},
+						},
+					},
 				}},
 			},
 		})).To(Succeed())
@@ -444,7 +507,12 @@ var _ = Describe("Collect Helpers", func() {
 			Form: resolution.DistinctForm{Base: resolution.TypeRef{Name: "uuid"}},
 			Domains: map[string]resolution.Domain{
 				"go": {Expressions: []resolution.Expression{
-					{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "core/auth"}}},
+					{
+						Name: "output",
+						Values: []resolution.ExpressionValue{
+							{StringValue: "core/auth"},
+						},
+					},
 				}},
 			},
 		})).To(Succeed())
@@ -453,7 +521,12 @@ var _ = Describe("Collect Helpers", func() {
 			Form: resolution.AliasForm{Target: resolution.TypeRef{Name: "string"}},
 			Domains: map[string]resolution.Domain{
 				"go": {Expressions: []resolution.Expression{
-					{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "core/auth"}}},
+					{
+						Name: "output",
+						Values: []resolution.ExpressionValue{
+							{StringValue: "core/auth"},
+						},
+					},
 				}},
 			},
 		})).To(Succeed())
@@ -464,21 +537,9 @@ var _ = Describe("Collect Helpers", func() {
 		It("Should collect only struct types", func() {
 			c, err := framework.CollectStructs("go", req)
 			Expect(err).To(Succeed())
-			Expect(c.Count()).To(Equal(1))
 			types := c.Get("core/auth")
 			Expect(types).To(HaveLen(1))
 			Expect(types[0].Name).To(Equal("User"))
-		})
-	})
-
-	Describe("CollectEnums", func() {
-		It("Should collect only enum types", func() {
-			c, err := framework.CollectEnums("go", req)
-			Expect(err).To(Succeed())
-			Expect(c.Count()).To(Equal(1))
-			types := c.Get("core/auth")
-			Expect(types).To(HaveLen(1))
-			Expect(types[0].Name).To(Equal("Status"))
 		})
 	})
 
@@ -486,7 +547,6 @@ var _ = Describe("Collect Helpers", func() {
 		It("Should collect only distinct types", func() {
 			c, err := framework.CollectDistinct("go", req)
 			Expect(err).To(Succeed())
-			Expect(c.Count()).To(Equal(1))
 			types := c.Get("core/auth")
 			Expect(types).To(HaveLen(1))
 			Expect(types[0].Name).To(Equal("UserID"))
@@ -497,10 +557,11 @@ var _ = Describe("Collect Helpers", func() {
 		It("Should collect only alias types", func() {
 			c, err := framework.CollectAliases("go", req)
 			Expect(err).To(Succeed())
-			Expect(c.Count()).To(Equal(1))
 			types := c.Get("core/auth")
 			Expect(types).To(HaveLen(1))
 			Expect(types[0].Name).To(Equal("StringAlias"))
 		})
 	})
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

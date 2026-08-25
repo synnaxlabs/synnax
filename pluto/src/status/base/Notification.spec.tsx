@@ -7,11 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { status, TimeStamp } from "@synnaxlabs/x";
+import { status } from "@synnaxlabs/client";
+import { TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Button } from "@/button";
+import { Icon } from "@/icon";
 import { Notification, type NotificationProps } from "@/status/base/Notification";
 
 const mockSilence = vi.fn();
@@ -41,10 +43,62 @@ describe("Notification Component", () => {
     expect(c.getByText("Test notification description")).toBeTruthy();
   });
 
+  it("omits the description entirely when the status carries an empty one", () => {
+    const c = render(
+      <Notification
+        {...notificationProps}
+        status={{ ...notificationProps.status, description: "" }}
+      />,
+    );
+
+    expect(c.container.querySelector(".pluto-notification__description")).toBeNull();
+  });
+
+  it("omits the name entirely when the status carries an empty one", () => {
+    const c = render(
+      <Notification
+        {...notificationProps}
+        status={{ ...notificationProps.status, name: "" }}
+      />,
+    );
+
+    expect(c.container.querySelector(".pluto-notification__name")).toBeNull();
+  });
+
+  it("renders a custom icon tinted with the variant color as the indicator", () => {
+    const c = render(
+      <Notification
+        {...notificationProps}
+        status={{ ...notificationProps.status, variant: "error" }}
+        icon={<Icon.Device />}
+      />,
+    );
+
+    expect(c.container.querySelector(".pluto-icon--status-concentric")).toBeNull();
+    const icon = c.container.querySelector<SVGElement>(
+      ".pluto-notification__indicator",
+    );
+    expect(icon?.classList.contains("pluto-icon--device")).toBe(true);
+    expect(icon?.style.color).toBe("var(--pluto-error-z)");
+  });
+
+  it("keeps the loading spinner even when a custom icon is given", () => {
+    const c = render(
+      <Notification
+        {...notificationProps}
+        status={{ ...notificationProps.status, variant: "loading" }}
+        icon={<Icon.Device />}
+      />,
+    );
+
+    const icon = c.container.querySelector(".pluto-notification__indicator");
+    expect(icon?.classList.contains("pluto-icon--loading")).toBe(true);
+  });
+
   it("calls silence function when close button is clicked", () => {
     const c = render(<Notification {...notificationProps} />);
 
-    const closeButton = c.getByRole("button", { name: /close/i });
+    const closeButton = c.getByRole("button", { name: "Silence" });
     fireEvent.click(closeButton);
 
     expect(mockSilence).toHaveBeenCalledWith("test-key");
@@ -61,7 +115,7 @@ describe("Notification Component", () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText } });
     const c = render(<Notification {...notificationProps} />);
-    const copyButton = c.getByRole("button", { name: /pluto-icon--copy/i });
+    const copyButton = c.getByRole("button", { name: "Copy diagnostics" });
     fireEvent.click(copyButton);
     await vi.waitFor(() => {
       expect(writeText).toHaveBeenCalledWith(status.toString(notificationProps.status));

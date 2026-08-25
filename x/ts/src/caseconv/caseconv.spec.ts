@@ -174,6 +174,32 @@ describe("caseconv", () => {
     });
   });
 
+  describe("toSentence", () => {
+    const SPECS: [string, string][] = [
+      ["sampleRate", "Sample rate"],
+      ["state_update_rate", "State update rate"],
+      ["data-type", "Data type"],
+      ["FooBar", "Foo bar"],
+      ["name", "Name"],
+      ["XMLParser", "XML parser"],
+      ["parseXMLDocument", "Parse XML document"],
+      ["IODevice", "IO device"],
+      ["apiKey", "Api key"],
+      ["cjcSource", "Cjc source"],
+      ["PIDController", "PID controller"],
+      ["valve-actuator-v2", "Valve actuator v2"],
+      ["", ""],
+      ["a", "A"],
+      ["ABC", "ABC"],
+      ["test_123_value", "Test 123 value"],
+    ];
+    SPECS.forEach(([input, expected]) => {
+      it(`should convert ${input} to ${expected}`, () => {
+        expect(caseconv.toSentence(input)).toBe(expected);
+      });
+    });
+  });
+
   describe("preserveKeys", () => {
     const configZ = z.object({
       variant: z.string(),
@@ -518,11 +544,9 @@ describe("caseconv", () => {
 
       it("should handle odd schema types with arrays", () => {
         const dataZ = caseconv.preserveCase(z.record(z.string(), z.unknown()));
-        const newZ = z.object({
-          data: dataZ,
-        });
+        const payloadZ = z.object({ data: dataZ });
         const schema = z.object({
-          values: newZ.array(),
+          values: payloadZ.array(),
         });
         type Schema = z.infer<typeof schema>;
         const v: Schema = { values: [{ data: { One: 1 } }] };
@@ -559,14 +583,13 @@ describe("caseconv", () => {
         );
       });
 
-      it("should handle array.nullishToEmpty with preserveCase on element field", async () => {
-        const { nullishToEmpty } = await import("@/array/nullable");
+      it("should handle a defaulted array with preserveCase on element field", () => {
         const elementZ = z.object({
           name: z.string(),
           data: caseconv.preserveCase(z.record(z.string(), z.unknown())),
         });
         const schema = z.object({
-          items: nullishToEmpty(elementZ),
+          items: elementZ.array().default(() => []),
         });
         const input = {
           items: [
@@ -762,14 +785,13 @@ describe("caseconv", () => {
     });
 
     describe("schema lookup with camelToSnake (regression)", () => {
-      it("should find schema for preserveCase field when input has camelCase keys", async () => {
-        const { nullishToEmpty } = await import("@/array/nullable");
+      it("should find schema for preserveCase field when input has camelCase keys", () => {
         const elementZ = z.object({
           name: z.string(),
           data: caseconv.preserveCase(z.record(z.string(), z.unknown())),
         });
         const schema = z.object({
-          items: nullishToEmpty(elementZ),
+          items: elementZ.array().default(() => []),
         });
         const input = {
           items: [
@@ -790,7 +812,7 @@ describe("caseconv", () => {
         expect(result.items[0].data.camel_case_key).toBeUndefined();
       });
 
-      it("should preserve case through create/encode cycle with nullishToEmpty array", async () => {
+      it("should preserve case through create/encode cycle with a defaulted array", () => {
         const linePlotZ = z.object({
           key: z.string().optional(),
           name: z.string(),
@@ -818,15 +840,14 @@ describe("caseconv", () => {
         expect(encoded.line_plots[0].data.my_custom_key).toBeUndefined();
       });
 
-      it("should preserve case through retrieve/decode cycle with nullishToEmpty array", async () => {
-        const { nullishToEmpty } = await import("@/array/nullable");
+      it("should preserve case through retrieve/decode cycle with a defaulted array", () => {
         const linePlotZ = z.object({
           key: z.string(),
           name: z.string(),
           data: caseconv.preserveCase(z.record(z.string(), z.unknown())),
         });
         const retrieveResZ = z.object({
-          line_plots: nullishToEmpty(linePlotZ),
+          line_plots: linePlotZ.array().default(() => []),
         });
         const response = {
           line_plots: [

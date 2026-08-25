@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin/primitives"
-	"github.com/synnaxlabs/x/set"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestPrimitives(t *testing.T) {
@@ -39,66 +39,30 @@ var _ = Describe("Primitives", func() {
 			Expect(primitives.IsPrimitive("")).To(BeFalse())
 		})
 	})
+})
 
-	Describe("Get", func() {
-		It("Should return primitive and true for registered types", func() {
-			p, ok := primitives.Get("string")
-			Expect(ok).To(BeTrue())
-			Expect(p.Name).To(Equal("string"))
-			Expect(p.Category).To(Equal(primitives.CategoryString))
-		})
+var _ = Describe("Mapper", func() {
+	mapper := primitives.NewMapper(map[string]primitives.Mapping{
+		"uuid": {
+			TargetType: "uuid.UUID",
+			ZeroValue:  "uuid.Nil",
+			Imports: []primitives.Import{
+				{Category: "external", Path: "github.com/google/uuid"},
+			},
+		},
+		"string": {TargetType: "string", ZeroValue: `""`},
+	}, "any")
 
-		It("Should return false for unknown types", func() {
-			_, ok := primitives.Get("unknown")
-			Expect(ok).To(BeFalse())
-		})
+	It("should return the table mapping for a known primitive", func() {
+		mapping := mapper.Map("uuid")
+		Expect(mapping.TargetType).To(Equal("uuid.UUID"))
+		Expect(mapping.ZeroValue).To(Equal("uuid.Nil"))
+		Expect(mapping.Imports).To(HaveLen(1))
+		Expect(mapping.Imports[0].Path).To(Equal("github.com/google/uuid"))
 	})
 
-	Describe("Category checks", func() {
-		It("Should correctly identify string types", func() {
-			Expect(primitives.IsString("string")).To(BeTrue())
-			Expect(primitives.IsString("uuid")).To(BeTrue())
-			Expect(primitives.IsString("int32")).To(BeFalse())
-		})
-
-		It("Should correctly identify number types", func() {
-			Expect(primitives.IsNumber("int8")).To(BeTrue())
-			Expect(primitives.IsNumber("int64")).To(BeTrue())
-			Expect(primitives.IsNumber("uint32")).To(BeTrue())
-			Expect(primitives.IsNumber("float32")).To(BeTrue())
-			Expect(primitives.IsNumber("float64")).To(BeTrue())
-			Expect(primitives.IsNumber("string")).To(BeFalse())
-		})
-
-		It("Should correctly identify temporal types", func() {
-			Expect(primitives.IsTemporal("int64")).To(BeFalse())
-		})
-
-		It("Should correctly identify boolean types", func() {
-			Expect(primitives.IsBoolean("bool")).To(BeTrue())
-			Expect(primitives.IsBoolean("string")).To(BeFalse())
-		})
-
-		It("Should correctly identify binary types", func() {
-			Expect(primitives.IsBinary("bytes")).To(BeTrue())
-			Expect(primitives.IsBinary("string")).To(BeFalse())
-		})
-	})
-
-	Describe("All", func() {
-		It("Should return all registered primitives", func() {
-			all := primitives.All()
-			Expect(len(all)).To(BeNumerically(">=", 15))
-
-			names := make(set.Set[string])
-			for _, p := range all {
-				names.Add(p.Name)
-			}
-
-			Expect(names).To(HaveKey("string"))
-			Expect(names).To(HaveKey("uuid"))
-			Expect(names).To(HaveKey("bytes"))
-		})
+	It("should fall back to the fallback type for unknown names", func() {
+		Expect(mapper.Map("mystery")).To(Equal(primitives.Mapping{TargetType: "any"}))
 	})
 })
 
@@ -108,3 +72,5 @@ var _ = Describe("Primitives", func() {
 // - oracle/plugin/ts/primitives/mapping_test.go
 // - oracle/plugin/cpp/primitives/mapping_test.go
 // - oracle/plugin/pb/primitives/mapping_test.go
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

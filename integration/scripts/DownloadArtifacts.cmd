@@ -1,6 +1,6 @@
 @echo off
 
-rem Copyright 2025 Synnax Labs, Inc.
+rem Copyright 2026 Synnax Labs, Inc.
 rem
 rem Use of this software is governed by the Business Source License included in the file
 rem licenses/BSL.txt.
@@ -30,26 +30,26 @@ if %errorlevel% equ 0 (
 rem Check if GitHub CLI exists in common installation paths
 if exist "%ProgramFiles%\GitHub CLI\gh.exe" (
     set "gh_cmd=%ProgramFiles%\GitHub CLI\gh.exe"
-    echo ✅ GitHub CLI found at Program Files
+    echo GitHub CLI found at Program Files
     "%gh_cmd%" --version
     goto :skip_install
 )
 
 if exist "C:\ProgramData\chocolatey\lib\gh\tools\gh.exe" (
     set "gh_cmd=C:\ProgramData\chocolatey\lib\gh\tools\gh.exe"
-    echo ✅ GitHub CLI found in Chocolatey installation
+    echo GitHub CLI found in Chocolatey installation
     "%gh_cmd%" --version
     goto :skip_install
 )
 
-echo 📦 GitHub CLI not found, proceeding with installation...
+echo GitHub CLI not found, proceeding with installation...
 goto :install_gh
 
 :install_gh
-echo 📦 Installing GitHub CLI via Chocolatey...
+echo Installing GitHub CLI via Chocolatey...
 choco install gh -y --force
 rem Note: Chocolatey may return non-zero exit codes even for successful installs
-echo ✅ Chocolatey installation command completed
+echo Chocolatey installation command completed
 
 echo Refreshing environment to find GitHub CLI...
 call refreshenv.exe 2>nul || echo "refreshenv not available, continuing..."
@@ -59,13 +59,13 @@ echo Searching for GitHub CLI in common locations...
 
 if exist "%ProgramFiles%\GitHub CLI\gh.exe" (
     set "gh_cmd=%ProgramFiles%\GitHub CLI\gh.exe"
-    echo ✅ Found GitHub CLI at Program Files
+    echo Found GitHub CLI at Program Files
     goto :test_gh
 )
 
 if exist "C:\ProgramData\chocolatey\lib\gh\tools\gh.exe" (
     set "gh_cmd=C:\ProgramData\chocolatey\lib\gh\tools\gh.exe"
-    echo ✅ Found GitHub CLI in Chocolatey lib
+    echo Found GitHub CLI in Chocolatey lib
     goto :test_gh
 )
 
@@ -73,7 +73,7 @@ rem Check if gh is now in PATH after installation
 where gh >nul 2>nul
 if %errorlevel% equ 0 (
     set "gh_cmd=gh"
-    echo ✅ Found GitHub CLI in PATH
+    echo Found GitHub CLI in PATH
     goto :test_gh
 )
 
@@ -86,37 +86,37 @@ set "PATH=%SYS_PATH%;%USER_PATH%"
 where gh >nul 2>nul
 if %errorlevel% equ 0 (
     set "gh_cmd=gh"
-    echo ✅ Found GitHub CLI in refreshed PATH
+    echo Found GitHub CLI in refreshed PATH
     goto :test_gh
 )
 
-echo ❌ Error: GitHub CLI not found after installation
+echo Error: GitHub CLI not found after installation
 exit /b 1
 
 :test_gh
 "%gh_cmd%" --version || (
-    echo ❌ Error: GitHub CLI test failed
+    echo Error: GitHub CLI test failed
     exit /b 1
 )
-echo ✅ GitHub CLI installation successful
+echo GitHub CLI installation successful
 
 :skip_install
 
-echo ✅ GitHub CLI setup completed
+echo GitHub CLI setup completed
 
 rem Verify GitHub CLI authentication
 echo Verifying GitHub CLI authentication...
 "%gh_cmd%" auth status
 if %errorlevel% neq 0 (
-    echo ❌ GitHub CLI authentication failed
+    echo GitHub CLI authentication failed
     echo Attempting to authenticate using GITHUB_TOKEN...
     set /p="%GH_TOKEN%" <nul | "%gh_cmd%" auth login --with-token
     if %errorlevel% neq 0 (
-        echo ❌ Failed to authenticate with GitHub
+        echo Failed to authenticate with GitHub
         exit /b 1
     )
 )
-echo ✅ GitHub CLI authentication verified
+echo GitHub CLI authentication verified
 
 rem Download artifacts from run: %REF_RUN_ID%
 echo Downloading artifacts from run: %REF_RUN_ID%
@@ -125,7 +125,7 @@ rem Verify the run exists and has artifacts
 echo Verifying run %REF_RUN_ID% exists...
 "%gh_cmd%" run view %REF_RUN_ID% --repo synnaxlabs/synnax
 if %errorlevel% neq 0 (
-    echo ❌ Error: Cannot access run %REF_RUN_ID%
+    echo Error: Cannot access run %REF_RUN_ID%
     exit /b 1
 )
 
@@ -138,20 +138,20 @@ echo "Downloading synnax-core *-windows artifact..."
 
 rem Check both exit code and if files were actually downloaded
 if %errorlevel% neq 0 (
-    echo ❌ Error: GitHub CLI returned error code %errorlevel%
-    echo ❌ Debug: gh_cmd=%gh_cmd%, REF_RUN_ID=%REF_RUN_ID%
-    echo ❌ This is a critical failure - cannot proceed without artifacts
+    echo Error: GitHub CLI returned error code %errorlevel%
+    echo Debug: gh_cmd=%gh_cmd%, REF_RUN_ID=%REF_RUN_ID%
+    echo This is a critical failure - cannot proceed without artifacts
     exit /b 1
 )
 
 rem Verify the binaries directory was created and contains files
 if not exist ".\binaries" (
-    echo ❌ Error: Binaries directory was not created - download likely failed
-    echo ❌ This is a critical failure - cannot proceed without artifacts
+    echo Error: Binaries directory was not created - download likely failed
+    echo This is a critical failure - cannot proceed without artifacts
     exit /b 1
 )
 
-rem gh run download creates a subdirectory named after the artifact — flatten it
+rem gh run download creates a subdirectory named after the artifact - flatten it
 for /d %%d in (.\binaries\synnax-core*) do (
     for %%f in (%%d\synnax-v*.exe) do (
         move /Y "%%f" ".\binaries\" >nul
@@ -162,16 +162,16 @@ for /d %%d in (.\binaries\synnax-core*) do (
 rem Check if any synnax executable was downloaded (binary is named synnax-v{VERSION}.exe)
 dir /b .\binaries\synnax-v*.exe >nul 2>nul
 if %errorlevel% neq 0 (
-    echo ❌ Error: No synnax executable found in binaries directory
+    echo Error: No synnax executable found in binaries directory
     echo Available files in binaries directory:
     dir .\binaries
-    echo ❌ This is a critical failure - cannot proceed without artifacts
+    echo This is a critical failure - cannot proceed without artifacts
     exit /b 1
 )
 
 
 rem Setup Binaries (Windows)
-echo 📦 Setting up binaries...
+echo Setting up binaries...
 if not exist "%USERPROFILE%\synnax-binaries" mkdir "%USERPROFILE%\synnax-binaries"
 
 rem Copy the Synnax binary (named synnax-v{VERSION}.exe) to canonical location
@@ -180,20 +180,20 @@ for %%f in (.\binaries\synnax-v*.exe) do (
     echo Found binary: %%f
     copy /Y "%%f" "%USERPROFILE%\synnax-binaries\synnax.exe"
     if %errorlevel% neq 0 (
-        echo ❌ Error: Failed to copy %%f to synnax-binaries
+        echo Error: Failed to copy %%f to synnax-binaries
         exit /b 1
     )
 )
 
 rem Verify the binary was copied successfully
 if not exist "%USERPROFILE%\synnax-binaries\synnax.exe" (
-    echo ❌ Error: synnax.exe not found in synnax-binaries after copy
+    echo Error: synnax.exe not found in synnax-binaries after copy
     echo Available files in binaries directory:
     dir .\binaries
     exit /b 1
 )
 
-echo ✅ Synnax binary ready at %USERPROFILE%\synnax-binaries\synnax.exe
+echo Synnax binary ready at %USERPROFILE%\synnax-binaries\synnax.exe
 dir "%USERPROFILE%\synnax-binaries\synnax*"
 
-echo ✅ Windows artifacts setup completed successfully
+echo Windows artifacts setup completed successfully

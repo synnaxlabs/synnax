@@ -12,12 +12,17 @@ import { type CrudeTimeRange } from "@synnaxlabs/x";
 
 import { Breadcrumb as Base } from "@/breadcrumb";
 import { StageIcon } from "@/ranger/StageIcon";
+import { Text } from "@/text";
 
 export interface BreadcrumbProps extends Omit<Base.BreadcrumbProps, "children"> {
   timeRange?: CrudeTimeRange;
   name: string;
   showParent?: boolean;
   parent?: Pick<ranger.Payload, "name"> | null;
+  /** DOM id for the name, so {@link Text.edit} can target it. */
+  nameID?: string;
+  /** Makes the name editable in place. Absent, the name is plain text. */
+  onRename?: (name: string) => void;
 }
 
 export const Breadcrumb = ({
@@ -25,12 +30,22 @@ export const Breadcrumb = ({
   name,
   parent,
   showParent = true,
+  nameID,
+  onRename,
   ...rest
 }: BreadcrumbProps) => (
   <Base.Breadcrumb {...rest}>
     <Base.Segment weight={450} color={10}>
       {timeRange != null && <StageIcon timeRange={timeRange} />}
-      {name}
+      <Text.MaybeEditable
+        id={nameID}
+        value={name}
+        defaultEl="span"
+        onChange={onRename}
+        allowDoubleClick={false}
+        weight={450}
+        color={10}
+      />
     </Base.Segment>
     {parent != null && showParent && (
       <Base.Segment weight={400} color={9}>

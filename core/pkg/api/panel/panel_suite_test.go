@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package panel
+package panel_test
 
 import (
 	"testing"
@@ -15,16 +15,19 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
+	apipanel "github.com/synnaxlabs/synnax/pkg/api/panel"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
+	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -42,15 +45,16 @@ var (
 	rbacSvc  *rbac.Service
 	panelSvc *panel.Service
 	userSvc  *user.Service
-	apiSvc   *Service
+	apiSvc   *apipanel.Service
 	author   user.User
 	parentID ontology.ID
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
+	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	searchIdx := MustOpen(search.Open())
+	searchIdx := MustOpen(search.OpenIndex())
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
@@ -77,20 +81,18 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Ontology: otg,
 		Search:   searchIdx,
 	}))
-	apiSvc = &Service{access: rbacSvc, internal: panelSvc}
-	author = MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{Username: "test"}))
-	parentID = MustSucceed(groupSvc.CreateOrRetrieve(ctx, "panel-parent", ontology.RootID)).
+	apiSvc = MustSucceed(apipanel.NewService(apicfg.LayerConfig{
+		Distribution: &distribution.Layer{DB: db},
+		Service:      &service.Layer{Panel: panelSvc, RBAC: rbacSvc},
+	}))
+	author = MustSucceed(
+		userSvc.NewWriter(nil).Create(ctx, user.User{Username: "test"}),
+	)
+	parentID = MustSucceed(
+		groupSvc.CreateOrRetrieve(ctx, "panel-parent", ontology.RootID),
+	).
 		OntologyID()
 })
-
-// authedCtx returns a freighter.Context derived from ctx with the given user
-// installed as the request subject, so auth.GetSubject succeeds inside the
-// api.Service methods.
-func authedCtx(ctx SpecContext, u user.User) freighter.Context {
-	fctx := freighter.Context{Context: ctx, Params: freighter.Params{}}
-	fctx.Set("Subject", user.OntologyID(u.Key))
-	return fctx
-}
 
 // newUser creates a fresh user. RBAC state is committed and shared across specs, so
 // specs that grant a type-level permission (e.g. create on the panel type) must use a
@@ -114,7 +116,10 @@ func grant(
 ) {
 	roleWriter := rbacSvc.Role.NewWriter(nil, true)
 	policyWriter := rbacSvc.Policy.NewWriter(nil, true)
-	r := &role.Role{Name: string(action) + "-" + uuid.New().String(), Description: "test"}
+	r := &role.Role{
+		Name:        string(action) + "-" + uuid.New().String(),
+		Description: "test",
+	}
 	Expect(roleWriter.Create(ctx, r)).To(Succeed())
 	p := &policy.Policy{
 		Name:    string(action) + "-policy-" + uuid.New().String(),
@@ -125,3 +130,5 @@ func grant(
 	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
 	Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
 }
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -23,7 +23,7 @@ export const Tags = ({
   ...rest
 }: TagsProps) => (
   <Button.Button
-    className={CSS(CSS.B("tags"), className)}
+    className={CSS.cls(CSS.B("tags"), className)}
     el="div"
     variant={variant}
     size={size}
@@ -31,7 +31,7 @@ export const Tags = ({
     onClick={onClick}
     align="center"
     gap="small"
-    rounded
+    rounded="small"
     {...rest}
   >
     {children}

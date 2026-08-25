@@ -17,15 +17,20 @@ import { Text, type TextProps } from "@/input/Text";
 import { type Control } from "@/input/types";
 import { Triggers } from "@/triggers";
 
+/** Props for {@link Numeric}. */
 export interface NumericProps
   extends
     Omit<TextProps, "type" | "onBlur" | "value" | "onChange">,
     DragButtonExtraProps,
     Control<number> {
+  /** Whether focusing selects the whole value. Defaults to true. */
   selectOnFocus?: boolean;
+  /** Whether to show the drag handle that scrubs the value. Defaults to true. */
   showDragHandle?: boolean;
+  /** Clamps the committed value. */
   bounds?: bounds.Crude;
   onBlur?: () => void;
+  /** Unit suffix shown after the value, e.g. "Hz". */
   units?: string;
   /// When set, a value equal to emptyValue renders as an empty input (showing the
   /// placeholder) and clearing the input on blur emits emptyValue via onChange. Useful
@@ -34,24 +39,11 @@ export interface NumericProps
 }
 
 /**
- * A controlled number input component.
+ * A number input. It accepts any math expression `mathjs` can evaluate, so a user can
+ * type `2 * 60` or `1 kHz`, and it commits on blur or Enter rather than per keystroke.
+ * A drag handle scrubs the value.
  *
- * @param props - The props for the input component. Unlisted props are passed to the
- * underlying input element.
- * @param props.value - The value of the input.
- * @param props.onChange - A function to call when the input value changes.
- * @param props.size - The size of the input: "small" | "medium" | "large".
- * @default "medium"
- * @param props.selectOnFocus - Whether the input should select its contents when focused.
- * @default true
- * @param props.centerPlaceholder - Whether the placeholder should be centered.
- * @default false
- * @param props.showDragHandle - Whether or not to show a drag handle to set the time.
- * @default true
- * @param props.dragScale - The scale of the drag handle.
- * @default x: 1, y: 10
- * @param props.dragDirection - The direction of the drag handle.
- * @default undefined
+ * @example <Input.Numeric value={rate} onChange={setRate} units="Hz" />
  */
 export const Numeric = ({
   ref,
@@ -62,8 +54,10 @@ export const Numeric = ({
   dragScale,
   selectOnFocus = true,
   bounds: propsBounds = bounds.INFINITE,
+  onlyChangeOnBlur = false,
   resetValue,
   variant = "outlined",
+  preview,
   className,
   children,
   disabled,
@@ -71,7 +65,6 @@ export const Numeric = ({
   units,
   size,
   color,
-  contrast,
   emptyValue,
   ...rest
 }: NumericProps): ReactElement => {
@@ -85,6 +78,7 @@ export const Numeric = ({
   const [isValueValid, setIsValueValid, isValueValidRef] =
     useCombinedStateAndRef<boolean>(true);
   const valueRef = useSyncedRef(value);
+  const boundsRef = useSyncedRef(propsBounds);
 
   const updateActualValue = useCallback(() => {
     // This just means we never actually modified the input
@@ -104,7 +98,7 @@ export const Numeric = ({
     } catch {
       v = null;
     }
-    if (v != null) onChange?.(bounds.clamp(propsBounds, v));
+    if (v != null) onChange?.(bounds.clamp(boundsRef.current, v));
     else
       setInternalValue(
         emptyValue != null && valueRef.current === emptyValue
@@ -139,26 +133,34 @@ export const Numeric = ({
 
   const onDragChange = useCallback(
     (value: number) => {
+      const next = bounds.clamp(boundsRef.current, Math.round(value));
+      // A gated input parks the drag in the internal value, so the text tracks the
+      // pointer and the release commits through the same blur path typing uses.
+      if (onlyChangeOnBlur) {
+        setIsValueValid(false);
+        setInternalValue(next.toString());
+        return;
+      }
       setIsValueValid(true);
-      onChange?.(bounds.clamp(propsBounds, Math.round(value)));
+      onChange?.(next);
     },
-    [onChange, setIsValueValid],
+    [onChange, onlyChangeOnBlur, setInternalValue, setIsValueValid],
   );
 
   if (dragScale == null && bounds.isFinite(propsBounds))
-    // make X 5% of the bounds and Y 10% of the bounds
     dragScale = {
       x: bounds.span(propsBounds) * 0.01,
       y: bounds.span(propsBounds) * 0.02,
     };
 
-  if (variant === "preview") showDragHandle = false;
+  if (preview === true) showDragHandle = false;
 
   return (
     <Text
       ref={ref}
       type="text"
       variant={variant}
+      preview={preview}
       className={className}
       value={value_}
       onChange={handleChange}
@@ -174,7 +176,6 @@ export const Numeric = ({
       onBlur={handleBlur}
       size={size}
       color={color}
-      contrast={contrast}
       {...rest}
     >
       {showDragHandle && (
@@ -187,7 +188,6 @@ export const Numeric = ({
           onBlur={handleBlur}
           size={size}
           color={color}
-          contrast={contrast}
           disabled={disabled}
         />
       )}

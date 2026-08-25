@@ -4,40 +4,102 @@ title: "`control`"
 description: "Arc standard library reference for the control module"
 prev: "Standard Library"
 prevURL: "/reference/control/arc/reference/standard-library"
-next: "math"
+next: "`math`"
 nextURL: "/reference/control/arc/reference/standard-library/math"
 ---
 
-import { Icon, Text } from "@synnaxlabs/pluto";
-import Details from "@/components/details/Details.astro";
+import { Note } from "@synnaxlabs/pluto";
 import { mdxOverrides } from "@/components/mdxOverrides";
+import Params from "@/components/params/Params.astro";
 
 export const components = mdxOverrides;
 
 The `control` module provides runtime control over write authority, letting a program
-promote or release writes that target shared channels.
+promote or release writes that target shared channels. The `authority` declaration sets
+the values each channel starts with.
+
+## `authority`
+
+Sets the control authority for the channels a program writes. `authority` is a keyword
+rather than a member of the module, so it needs no `import`. It must come before every
+`func`, `sequence`, and flow declaration in the program.
+
+```arc channels="valve_cmd, vent_cmd"
+// Sets every channel the program writes to
+authority 200
+
+// Sets a default, then overrides two channels
+authority (
+    200
+    valve_cmd 100
+    vent_cmd 150
+)
+
+// Sets only these channels; the rest stay at 255
+authority (
+    valve_cmd 100
+    vent_cmd 150
+)
+```
+
+<Note.Note variant="info">
+  Authority values are `u8` integers from 0 to 255. A program that declares no authority
+  writes every channel at 255, the maximum.
+</Note.Note>
 
 ## `set_authority`
 
-Dynamically changes the control authority of write channels at runtime. Higher authority
-values take priority, and setting the authority to `0` releases control.
+Changes the control authority of write channels at runtime. Higher values take priority,
+and `0` releases control.
 
-<Details>
-<Text.Text slot="summary" level="p"><Icon.Details /> Parameters</Text.Text>
+<Params
+  fn="control.set_authority"
+  params={[
+    {
+      name: "value",
+      type: "u8",
+      required: true,
+      description:
+        "Authority level `0`-`255`. Higher values take priority; `0` releases control.",
+    },
+    {
+      name: "channel",
+      type: "chan",
+      description:
+        "The write channel to target. If omitted, applies to all write channels.",
+    },
+  ]}
+  output={{
+    description: "None; changes authority as a side effect and emits no value.",
+  }}
+/>
 
-| Parameter | Type   | Required | Description                                                                                         |
-| --------- | ------ | -------- | --------------------------------------------------------------------------------------------------- |
-| `value`   | `u8`   | Yes      | The authority level, `0`-`255`. Higher values take priority; `0` releases control.                  |
-| `channel` | `chan` | No       | The write channel to target. If omitted, the change applies to all of the program's write channels. |
-
-**Output** none: changes authority as a side effect and emits no value.
-
-</Details>
-
-```arc
-// `flow` only
+```arc channels="trigger, press_vlv_cmd, vent_vlv_cmd" bodies="emergency"
+// Sets every channel the program writes to
 trigger -> control.set_authority{value=255}
 
-// Target a specific channel; value=0 releases control
-trigger -> control.set_authority{value=255, channel=valve_cmd}
+// Releases control of single channel
+trigger -> control.set_authority{value=0, channel=press_vlv_cmd}
+
+// Sets each channel to a different authority
+stage emergency {
+    control.set_authority{value=255, channel=press_vlv_cmd}
+    control.set_authority{value=100, channel=vent_vlv_cmd}
+}
 ```
+
+## Relationship to Manual Control
+
+<Note.Note variant="info">
+  The default `authority` for a task that declares none is `255`.
+</Note.Note>
+
+[Schematics](/reference/console/schematics) and other manual controls obey the same
+authority rules as an Arc task. Equal authority goes to whichever task, schematic, or
+process took control first, so an operator cannot take a channel from a task that
+already holds it. Declare an authority below 255 on every channel an operator may need
+to control by hand.
+
+For practical patterns including emergency override, handoff between programs, and
+releasing control, see the
+[Control Authority concept page](/reference/control/arc/concepts/control-authority).

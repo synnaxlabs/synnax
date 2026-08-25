@@ -21,36 +21,31 @@ monitoring for abort conditions.
 
 ## Basic Sequence
 
-A minimal sequence with idle, active, and complete states:
+A minimal sequence with active and complete states:
 
-```arc
+```arc channels="press_vlv_cmd, ox_pt_1, start_cmd, log", bodies="main"
 sequence main {
-    stage idle {
-        // Wait for operator to start
-        0 -> press_vlv_cmd
-    }
-
     stage active {
-        1 -> press_vlv_cmd
+        true -> press_vlv_cmd
         ox_pt_1 > 500 => next
     }
 
     stage complete {
-        0 -> press_vlv_cmd
+        false -> press_vlv_cmd
+        "complete" -> log
     }
 }
 
 start_cmd => main
 ```
 
-Wire `start_cmd` to a button in Console. When clicked, the sequence moves from `idle` to
-`active`, opens the valve, waits for pressure to reach 500, then closes the valve and
-stops.
+Wire `start_cmd` to a button in the Console. When clicked, the sequence opens the valve,
+waits for pressure to reach 500, then closes the valve and stops.
 
 <Note.Note variant="info">
 The entry point `start_cmd => main` triggers the sequence when the channel
-receives a truthy value (non-zero). Create `start_cmd` as a `u8` virtual
-channel in Synnax, then wire it to a button in your Console schematic.
+receives a truthy value (`true`, or a non-zero numeric). Create `start_cmd` as a `bool`
+virtual channel in Synnax, then wire it to a button in your Console schematic.
 </Note.Note>
 
 <Divider.Divider x />
@@ -59,26 +54,28 @@ channel in Synnax, then wire it to a button in your Console schematic.
 
 Use `time.wait` to add delays between stages:
 
-```arc
+```arc channels="press_vlv_cmd, ox_pt_1, start_cmd", bodies="main"
+import time
+
 sequence main {
     stage pressurize {
-        1 -> press_vlv_cmd
+        true -> press_vlv_cmd
         ox_pt_1 > 500 => next
     }
 
     stage hold {
         // Keep valve open, wait 30 seconds
-        1 -> press_vlv_cmd
+        true -> press_vlv_cmd
         time.wait{duration=30s} => next
     }
 
     stage depressurize {
-        0 -> press_vlv_cmd
+        false -> press_vlv_cmd
         ox_pt_1 < 50 => next
     }
 
     stage complete {
-        0 -> press_vlv_cmd
+        false -> press_vlv_cmd
     }
 }
 
@@ -94,40 +91,43 @@ The sequence pressurizes to 500 psi, holds for 30 seconds, then depressurizes.
 Real test sequences need abort capability. List abort conditions first in each stage
 (line order determines priority):
 
-```arc
+```arc channels="ox_pt_1, abort_btn, press_vlv_cmd, fuel_vlv_cmd, igniter_cmd, start_cmd, emergency_stop", bodies="abort, main"
+import time
+
 sequence main {
     stage pressurize {
-        // ABORT CONDITIONS FIRST
+        // Abort checks first
         ox_pt_1 > 700 => abort // over-pressure
         abort_btn => abort // operator abort
-        // Normal operations
-        1 -> press_vlv_cmd
+
+        // Automation next
+        true -> press_vlv_cmd
         ox_pt_1 > 500 => next
     }
 
     stage hold {
         ox_pt_1 > 700 => abort
         abort_btn => abort
-        1 -> press_vlv_cmd
+        true -> press_vlv_cmd
         time.wait{duration=30s} => next
     }
 
     stage depressurize {
         abort_btn => abort
-        0 -> press_vlv_cmd
+        false -> press_vlv_cmd
         ox_pt_1 < 50 => next
     }
 
     stage complete {
-        0 -> press_vlv_cmd
+        false -> press_vlv_cmd
     }
 }
 
 sequence abort {
     stage safing {
-        0 -> press_vlv_cmd
-        0 -> fuel_vlv_cmd
-        0 -> igniter_cmd
+        false -> press_vlv_cmd
+        false -> fuel_vlv_cmd
+        false -> igniter_cmd
     }
 }
 
@@ -141,7 +141,7 @@ conditions and the `emergency_stop` channel can trigger it.
 <Note.Note variant="warning">
 Always put abort conditions before normal operation flows in each stage.
 When multiple conditional transitions (`=>`) are truthy in the same cycle, the
-first one listed wins. Safety conditions should always have priority.
+first one listed wins.
 </Note.Note>
 
 <Divider.Divider x />
@@ -150,7 +150,9 @@ first one listed wins. Safety conditions should always have priority.
 
 Advance based on multiple conditions being satisfied:
 
-```arc
+```arc channels="ox_pt_1, fuel_pt_1, abort_btn, press_vlv_cmd",bodies="abort, timeout"
+import time
+
 sequence main {
     stage verify {
         // Check all systems ready
@@ -162,7 +164,7 @@ sequence main {
     stage pressurize {
         ox_pt_1 > 700 => abort
         abort_btn => abort
-        1 -> press_vlv_cmd
+        true -> press_vlv_cmd
         ox_pt_1 > 500 => next
     }
 
@@ -172,7 +174,7 @@ sequence main {
 
     stage timeout {
         // Handle timeout condition
-        0 -> press_vlv_cmd
+        false -> press_vlv_cmd
     }
 }
 ```
@@ -188,35 +190,37 @@ When a test is mostly ordered writes and waits but has one step that needs to wa
 multiple conditions, an inline stage keeps the procedure readable without forcing every
 step into its own named stage:
 
-```arc
+```arc channels="vent_vlv_cmd, press_vlv_cmd, tank_pressure, abort_btn, start_btn, emergency_stop", bodies="abort,timeout,prime"
+import time
+
 sequence prime {
     // Straight-line setup
-    0 -> vent_vlv_cmd
-    1 -> press_vlv_cmd
+    false -> vent_vlv_cmd
+    true -> press_vlv_cmd
 
-    // Inline gate: success, over-pressure abort, and timeout all watched at once
+    // Inline gate: group the exit conditions
     stage {
         tank_pressure > 700 => abort
         abort_btn => abort
         tank_pressure > 500 => next
-        time.wait{30s} => timeout
+        time.wait{duration=30s} => timeout
     }
 
     // Procedure resumes
-    0 -> press_vlv_cmd
+    false -> press_vlv_cmd
 }
 
 sequence abort {
     stage safed {
-        0 -> press_vlv_cmd
-        1 -> vent_vlv_cmd
+        false -> press_vlv_cmd
+        true -> vent_vlv_cmd
     }
 }
 
 sequence timeout {
     stage safed {
-        0 -> press_vlv_cmd
-        1 -> vent_vlv_cmd
+        false -> press_vlv_cmd
+        true -> vent_vlv_cmd
     }
 }
 
@@ -238,45 +242,29 @@ a multi-exit gate.
 
 Control the pressurization rate to avoid thermal shock or mechanical stress:
 
-```arc
-func rate_monitor{dt_ms f64, max_rate f64} (value f64) u8 {
-    prev $= 0.0
-    d := value - prev
-    prev = value
-
-    dt_s := dt_ms / 1000.0
-    if dt_s <= 0 {
-        return 0
-    }
-
-    rate := d / dt_s
-    // Check magnitude
-    if rate < 0 {
-        rate = 0.0 - rate
-    }
-
-    if rate > max_rate {
-        return 1
-    }
-    return 0
-}
+```arc channels="ox_pt_1, ox_rate, press_vlv_cmd, abort_btn", bodies="abort"
+import math
 
 sequence main {
     stage pressurize {
         // Abort conditions
         ox_pt_1 > 700 => abort
-        ox_pt_1 -> rate_monitor{dt_ms=50.0, max_rate=100.0} -> ox_rate_high
-        ox_rate_high => abort
+        ox_rate > 150 => abort
         abort_btn => abort
-        // Pressurize slowly by pulsing the valve
-        time.interval{period=100ms} -> press_valve_pulse{}
+
+        // Open the valve only while the rise rate is under 100 psi/s
+        ox_pt_1 -> math.derivative{} -> ox_rate
+        ox_rate < 100 -> press_vlv_cmd
+
         ox_pt_1 > 500 => next
     }
     // ... rest of sequence
 }
 ```
 
-The rate monitor triggers an abort if pressure rises faster than 100 psi/second.
+[`math.derivative`](/reference/control/arc/reference/standard-library/math#derivative)
+computes the rise rate in psi per second. The valve stays open while the rate is under
+100 psi/s, and a runaway rate over 150 psi/s aborts.
 
 <Divider.Divider x />
 
@@ -284,18 +272,9 @@ The rate monitor triggers an abort if pressure rises faster than 100 psi/second.
 
 A realistic rocket engine test sequence with all the patterns combined:
 
-```arc
-// Rate monitoring
-func pressure_rate{dt_ms f64} (value f64) f64 {
-    prev $= 0.0
-    d := value - prev
-    prev = value
-    dt_s := dt_ms / 1000.0
-    if dt_s <= 0 {
-        return 0.0
-    }
-    return d / dt_s
-}
+```arc channels="ox_pt_1, fuel_pt_1, abort_btn, ox_rate, ox_press_vlv_cmd, fuel_press_vlv_cmd, igniter_cmd, chamber_tc_1, ox_main_vlv_cmd, fuel_main_vlv_cmd, ox_vent_vlv_cmd, fuel_vent_vlv_cmd, start_cmd, emergency_stop",bodies="abort, ignition_fail, main"
+import math
+import time
 
 sequence main {
     // Stage 1: System checkout
@@ -309,10 +288,10 @@ sequence main {
     // Stage 2: Pressurize oxidizer
     stage press_ox {
         ox_pt_1 > 650 => abort
-        ox_pt_1 -> pressure_rate{dt_ms=50.0} -> ox_rate
+        ox_pt_1 -> math.derivative{} -> ox_rate
         ox_rate > 100 => abort
         abort_btn => abort
-        1 -> ox_press_vlv_cmd
+        true -> ox_press_vlv_cmd
         ox_pt_1 > 500 => next
     }
     // Stage 3: Pressurize fuel
@@ -320,8 +299,8 @@ sequence main {
         ox_pt_1 > 650 => abort
         fuel_pt_1 > 450 => abort
         abort_btn => abort
-        1 -> ox_press_vlv_cmd // maintain ox pressure
-        1 -> fuel_press_vlv_cmd
+        true -> ox_press_vlv_cmd // maintain ox pressure
+        true -> fuel_press_vlv_cmd
         fuel_pt_1 > 350 => next
     }
     // Stage 4: Pre-fire hold
@@ -331,8 +310,8 @@ sequence main {
         ox_pt_1 < 400 => abort // pressure decay = leak
         fuel_pt_1 < 250 => abort
         abort_btn => abort
-        1 -> ox_press_vlv_cmd
-        1 -> fuel_press_vlv_cmd
+        true -> ox_press_vlv_cmd
+        true -> fuel_press_vlv_cmd
         time.wait{duration=5s} => next
     }
     // Stage 5: Ignition
@@ -340,9 +319,9 @@ sequence main {
         ox_pt_1 > 650 => abort
         fuel_pt_1 > 450 => abort
         abort_btn => abort
-        1 -> ox_press_vlv_cmd
-        1 -> fuel_press_vlv_cmd
-        1 -> igniter_cmd
+        true -> ox_press_vlv_cmd
+        true -> fuel_press_vlv_cmd
+        true -> igniter_cmd
         // Wait for combustion confirmation
         chamber_tc_1 > 500 => next
         // Ignition timeout
@@ -354,51 +333,51 @@ sequence main {
         fuel_pt_1 > 500 => abort
         chamber_tc_1 > 2000 => abort
         abort_btn => abort
-        1 -> ox_press_vlv_cmd
-        1 -> fuel_press_vlv_cmd
-        1 -> ox_main_vlv_cmd
-        1 -> fuel_main_vlv_cmd
-        0 -> igniter_cmd
+        true -> ox_press_vlv_cmd
+        true -> fuel_press_vlv_cmd
+        true -> ox_main_vlv_cmd
+        true -> fuel_main_vlv_cmd
+        false -> igniter_cmd
         time.wait{duration=10s} => next
     }
     // Stage 7: Shutdown
     stage shutdown {
         // Controlled shutdown sequence
-        0 -> ox_main_vlv_cmd
-        0 -> fuel_main_vlv_cmd
+        false -> ox_main_vlv_cmd
+        false -> fuel_main_vlv_cmd
         time.wait{duration=1s} => next
     }
     // Stage 8: Depressurize
     stage depress {
-        0 -> ox_press_vlv_cmd
-        0 -> fuel_press_vlv_cmd
-        1 -> ox_vent_vlv_cmd
-        1 -> fuel_vent_vlv_cmd
+        false -> ox_press_vlv_cmd
+        false -> fuel_press_vlv_cmd
+        true -> ox_vent_vlv_cmd
+        true -> fuel_vent_vlv_cmd
         ox_pt_1 < 20 and fuel_pt_1 < 20 => next
     }
     // Stage 9: Complete
     stage complete {
-        0 -> ox_vent_vlv_cmd
-        0 -> fuel_vent_vlv_cmd
+        false -> ox_vent_vlv_cmd
+        false -> fuel_vent_vlv_cmd
     }
     // Stage: Ignition failure
     stage ignition_fail {
-        0 -> igniter_cmd
-        1 => abort
+        false -> igniter_cmd
+        true => abort
     }
 }
 
 sequence abort {
     stage safing {
         // Close all valves immediately
-        0 -> ox_press_vlv_cmd
-        0 -> fuel_press_vlv_cmd
-        0 -> ox_main_vlv_cmd
-        0 -> fuel_main_vlv_cmd
-        0 -> igniter_cmd
+        false -> ox_press_vlv_cmd
+        false -> fuel_press_vlv_cmd
+        false -> ox_main_vlv_cmd
+        false -> fuel_main_vlv_cmd
+        false -> igniter_cmd
         // Open vents
-        1 -> ox_vent_vlv_cmd
-        1 -> fuel_vent_vlv_cmd
+        true -> ox_vent_vlv_cmd
+        true -> fuel_vent_vlv_cmd
     }
 }
 // Entry points
@@ -410,20 +389,20 @@ emergency_stop => abort
 
 ## Sequence Design Tips
 
-**List abort conditions first.** Line order determines priority. Safety conditions
-should always win over normal operations.
+**List abort conditions first.** Line order determines priority, and safety conditions
+should always win.
 
 **Use multiple abort thresholds.** A pressure of 600 psi might be a warning, but 700 psi
 triggers an immediate abort.
 
-**Add timeouts.** Sequences that wait indefinitely for conditions can hang. Use
-`time.wait` to set maximum durations and transition to error stages.
+**Add timeouts.** A sequence waiting on a condition that never comes hangs forever.
+Bound each wait with `time.wait` and transition to an error stage.
 
-**Keep stages focused.** Each stage should have one primary purpose. Split complex
-operations into multiple stages for clarity and easier debugging.
+**Keep stages focused.** Give each stage one purpose. Split complex operations into
+multiple stages.
 
-**Monitor continuously.** While waiting for one condition, continue checking abort
-conditions. All flows in a stage run concurrently.
+**Monitor continuously.** All flows in a stage run concurrently, so abort checks stay
+armed while the stage waits.
 
 **Test abort paths.** Simulate abort conditions during development to verify the system
 reaches a safe state. The abort sequence is the most important part of your automation.

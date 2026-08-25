@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { deep, map, observe, type status, zod } from "@synnaxlabs/x";
+import { type status } from "@synnaxlabs/client";
+import { deep, map, observe, zod } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 export interface FieldState<V = unknown> {
@@ -216,7 +217,6 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
       if (status.variant !== "success") cachedRefsToClear.add(childPath);
     });
     cachedRefsToClear.forEach((path) => this.clearStatus(path));
-    // Parse was a complete success. No errors encountered.
     if (result.success) return true;
     let success = true;
     const statuses = this.errorsToStatuses(result.error.issues, [], []);

@@ -14,15 +14,16 @@ import (
 	"io"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
-	projectv56 "github.com/synnaxlabs/synnax/pkg/service/project/migrations/v56"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/panel"
+	"github.com/synnaxlabs/synnax/pkg/service/project/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
@@ -36,12 +37,18 @@ type ServiceConfig struct {
 	Ontology *ontology.Ontology
 	Group    *group.Service
 	Search   *search.Index
+	// ImEx is the leaf import/export registry Export serializes member documents
+	// through.
+	//
+	// [REQUIRED]
+	ImEx *imex.Service
+	// Panel is the panel service Export reads panel trees through.
+	//
+	// [REQUIRED]
+	Panel *panel.Service
 }
 
-var (
-	_                    config.Config[ServiceConfig] = ServiceConfig{}
-	DefaultServiceConfig                              = ServiceConfig{}
-)
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
@@ -51,6 +58,8 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Search = override.Nil(c.Search, other.Search)
 	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.ImEx = override.Nil(c.ImEx, other.ImEx)
+	c.Panel = override.Nil(c.Panel, other.Panel)
 	return c
 }
 
@@ -61,6 +70,8 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "search", c.Search)
+	validate.NotNil(v, "imex", c.ImEx)
+	validate.NotNil(v, "panel", c.Panel)
 	return v.Error()
 }
 
@@ -71,38 +82,31 @@ type Service struct {
 	group  group.Group
 }
 
-func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err error) {
-	cfg, err := config.New(DefaultServiceConfig, configs...)
+func OpenService(
+	ctx context.Context,
+	configs ...ServiceConfig,
+) (s *Service, err error) {
+	cfg, err := config.New(ServiceConfig{}, configs...)
 	if err != nil {
 		return nil, err
 	}
 	s = &Service{cfg: cfg}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	if s.table, err = gorp.OpenTable[Key, Project](ctx, gorp.TableConfig[Key, Project]{
+	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Project]{
 		DB: cfg.DB,
-		Migrations: []migrate.Migration{
-			gorp.CodecMigration[Key, projectv56.Workspace]("msgpack_to_orc"),
-			migrate.WithAddedDeps(
-				gorp.NewMigration(
-					"v56_migrate_workspace_to_project",
-					MigrateWorkspaceToProject,
-				),
-				"msgpack_to_orc",
-			),
-			migrate.WithAddedDeps(
-				gorp.NewMigration(
-					"v56_stage_project_layouts",
-					MigrateLayoutsToStaging,
-				),
-				"v56_migrate_workspace_to_project",
-			),
-		},
+		Migrations: versions.NewMigrations(
+			versions.MigrationsConfig{Ontology: cfg.Ontology},
+		),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	if s.group, err = cfg.Group.CreateOrRetrieve(ctx, "Projects", ontology.RootID); !ok(err, nil) {
+	if s.group, err = cfg.Group.CreateOrRetrieve(
+		ctx,
+		"Projects",
+		ontology.RootID,
+	); !ok(err, nil) {
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
@@ -114,7 +118,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	if sig, err = signals.PublishFromGorp(
 		ctx,
 		cfg.Signals,
-		signals.GorpPublisherConfigUUID[Project](s.table.Observe()),
+		signals.GorpPublisherConfigUUID(s.table.Observe()),
 	); !ok(err, sig) {
 		return nil, err
 	}

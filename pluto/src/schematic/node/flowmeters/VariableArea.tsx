@@ -23,7 +23,10 @@ export const VariableArea = ({
   scale = 1,
   ...rest
 }: Props) => (
-  <Primitive.Div {...rest} className={CSS(CSS.B("flowmeter-VariableArea"), className)}>
+  <Primitive.Div
+    {...rest}
+    className={CSS.cls(CSS.B("flowmeter-VariableArea"), className)}
+  >
     <Handle.Rectangle
       orientation={orientation}
       left={4}

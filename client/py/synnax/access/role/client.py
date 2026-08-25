@@ -10,12 +10,12 @@
 from typing import overload
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax.access.role.types_gen import Role
-from x.normalize import normalize
+from x.lists import normalize
 
 
 class _CreateRequest(BaseModel):
@@ -27,13 +27,14 @@ _CreateResponse = _CreateRequest
 
 class _RetrieveRequest(BaseModel):
     keys: list[UUID] | None = None
+    search_term: str | None = None
     limit: int | None = None
     offset: int | None = None
     internal: bool | None = None
 
 
 class _RetrieveResponse(BaseModel):
-    roles: list[Role] | None
+    roles: list[Role] = Field(default_factory=list)
 
 
 class _DeleteRequest(BaseModel):
@@ -91,6 +92,7 @@ class Client:
         self,
         *,
         keys: list[UUID] | None = None,
+        search_term: str | None = None,
         limit: int | None = None,
         offset: int | None = None,
         internal: bool | None = None,
@@ -100,6 +102,7 @@ class Client:
         self,
         key: UUID | None = None,
         keys: list[UUID] | None = None,
+        search_term: str | None = None,
         limit: int | None = None,
         offset: int | None = None,
         internal: bool | None = None,
@@ -107,10 +110,15 @@ class Client:
         is_single = key is not None
         if is_single and key is not None:
             keys = [key]
-        req = _RetrieveRequest(keys=keys, limit=limit, offset=offset, internal=internal)
+        req = _RetrieveRequest(
+            keys=keys,
+            search_term=search_term,
+            limit=limit,
+            offset=offset,
+            internal=internal,
+        )
         res = self._client.send("/access/role/retrieve", req, _RetrieveResponse)
-        roles = [] if res.roles is None else res.roles
-        return roles[0] if is_single else roles
+        return res.roles[0] if is_single else res.roles
 
     def delete(self, keys: UUID | list[UUID]) -> None:
         req = _DeleteRequest(keys=normalize(keys))

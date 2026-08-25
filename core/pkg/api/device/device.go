@@ -15,10 +15,10 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	xconfig "github.com/synnaxlabs/x/config"
@@ -43,7 +43,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		device:   cfg.Service.Device,
 		status:   cfg.Service.Status,
 		access:   cfg.Service.RBAC,
-		ontology: cfg.Distribution.Ontology,
+		ontology: cfg.Service.Ontology,
 	}, nil
 }
 
@@ -75,22 +75,22 @@ func (s *Service) Create(
 }
 
 type RetrieveRequest struct {
-	SearchTerm     string       `json:"search_term" msgpack:"search_term"`
-	Keys           []device.Key `json:"keys" msgpack:"keys"`
-	Names          []string     `json:"names" msgpack:"names"`
-	Makes          []string     `json:"makes" msgpack:"makes"`
-	Models         []string     `json:"models" msgpack:"models"`
-	Locations      []string     `json:"locations" msgpack:"locations"`
-	Racks          []rack.Key   `json:"racks" msgpack:"racks"`
-	Limit          int          `json:"limit" msgpack:"limit"`
-	Offset         int          `json:"offset" msgpack:"offset"`
+	SearchTerm     string       `json:"search_term"      msgpack:"search_term"`
+	Keys           []device.Key `json:"keys"             msgpack:"keys"`
+	Names          []string     `json:"names"            msgpack:"names"`
+	Makes          []string     `json:"makes"            msgpack:"makes"`
+	Models         []string     `json:"models"           msgpack:"models"`
+	Locations      []string     `json:"locations"        msgpack:"locations"`
+	Racks          []rack.Key   `json:"racks"            msgpack:"racks"`
+	Limit          int          `json:"limit"            msgpack:"limit"`
+	Offset         int          `json:"offset"           msgpack:"offset"`
 	IgnoreNotFound bool         `json:"ignore_not_found" msgpack:"ignore_not_found"`
-	IncludeStatus  bool         `json:"include_status" msgpack:"include_status"`
-	IncludeParent  bool         `json:"include_parent" msgpack:"include_parent"`
+	IncludeStatus  bool         `json:"include_status"   msgpack:"include_status"`
+	IncludeParent  bool         `json:"include_parent"   msgpack:"include_parent"`
 }
 
 type RetrieveResponse struct {
-	Devices []device.Device `json:"devices" msgpack:"devices"`
+	Devices []device.Device `json:"devices,omitzero" msgpack:"devices,omitzero"`
 }
 
 func (s *Service) Retrieve(
@@ -166,7 +166,7 @@ func (s *Service) Retrieve(
 		for i, d := range res.Devices {
 			var parent ontology.Resource
 			err := s.ontology.NewRetrieve().
-				WhereIDs(device.OntologyID(d.Key)).
+				WhereIDs(d.OntologyID()).
 				TraverseTo(ontology.ParentsTraverser).
 				Limit(1).
 				ExcludeFieldData(true).

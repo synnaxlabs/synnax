@@ -19,43 +19,43 @@ import { IsoBurstDisc } from "@/schematic/node/safety/IsoBurstDisc";
 const burstDisc = createStatic({
   variant: "burst_disc",
   name: "Standard",
-  label: "Burst Disc",
+  label: "Burst disc",
   Primitive: BurstDisc,
 });
 const flameArrestor = createStatic({
   variant: "flame_arrestor",
   name: "Standard",
-  label: "Flame Arrestor",
+  label: "Flame arrestor",
   Primitive: FlameArrestor,
 });
 const flameArrestorDetonation = createStatic({
   variant: "flame_arrestor_detonation",
-  name: "Detonation-Proof",
-  label: "Flame Arrestor (Detonation-Proof)",
+  name: "Detonation-proof",
+  label: "Flame arrestor (detonation-proof)",
   Primitive: FlameArrestorDetonation,
 });
 const flameArrestorExplosion = createStatic({
   variant: "flame_arrestor_explosion",
-  name: "Explosion-Proof",
-  label: "Flame Arrestor (Explosion-Proof)",
+  name: "Explosion-proof",
+  label: "Flame arrestor (explosion-proof)",
   Primitive: FlameArrestorExplosion,
 });
 const flameArrestorFireRes = createStatic({
   variant: "flame_arrestor_fire_res",
-  name: "Fire Resistant",
-  label: "Flame Arrestor (Fire Resistant)",
+  name: "Fire resistant",
+  label: "Flame arrestor (fire resistant)",
   Primitive: FlameArrestorFireRes,
 });
 const flameArrestorFireResDetonation = createStatic({
   variant: "flame_arrestor_fire_res_detonation",
-  name: "Fire Resistant & Detonation-Proof",
-  label: "Flame Arrestor (Fire Resistant and Detonation-Proof)",
+  name: "Fire resistant and detonation-proof",
+  label: "Flame arrestor (fire resistant and detonation-proof)",
   Primitive: FlameArrestorFireResDetonation,
 });
 const isoBurstDisc = createStatic({
   variant: "iso_burst_disc",
   name: "ISO",
-  label: "ISO Burst Disc",
+  label: "ISO burst disc",
   Primitive: IsoBurstDisc,
 });
 

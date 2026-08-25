@@ -8,8 +8,8 @@ next: "Counter Read Task"
 nextURL: "/reference/driver/ni/counter-read-task"
 ---
 
-import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
-import { Video, Image } from "@/components/media/Media";
+import { Divider, Icon, Text } from "@synnaxlabs/pluto";
+import { Video } from "@/components/media/Media";
 import { Fragment } from "react";
 import Details from "@/components/details/Details.astro";
 import ChannelType from "@/components/details/ChannelType.astro";
@@ -18,34 +18,17 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-For task lifecycle management, see the
-[Task Basics](/reference/driver/task-basics#how-to) page.
-
-<Divider.Divider x />
-
-## How Commands Work
-
-Write tasks use **command** and **state** channels:
-
-- **Command channels** (`_cmd`): Write values here to set analog outputs
-- **State channels** (`_state`): Reflect the current output state
-- **Command time channels** (`_cmd_time`): Index channels storing command timestamps
-
-When you write to a command channel, the task processes it and updates the state
-channel, providing acknowledgment that the command was executed.
+For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lifecycle).
 
 <Divider.Divider x />
 
 ## Task Configuration Reference
 
-| Parameter     | Type    | Required | Default | Description                                   |
-| ------------- | ------- | -------- | ------- | --------------------------------------------- |
-| `device`      | string  | Yes      | -       | Device key to write to                        |
-| `name`        | string  | Yes      | -       | Human-readable task name                      |
-| `state_rate`  | number  | Yes      | -       | Rate (Hz) at which state channels are updated |
-| `data_saving` | boolean | No       | `false` | Enable permanent storage in Synnax            |
-| `auto_start`  | boolean | No       | `false` | Automatically start task after configuration  |
-| `channels`    | array   | Yes      | -       | List of analog output channel configurations  |
+| Parameter    | Type   | Required | Default | Description                                   |
+| ------------ | ------ | -------- | ------- | --------------------------------------------- |
+| `device`     | string | Yes      | -       | Device key to write to                        |
+| `state_rate` | number | No       | `10`    | Rate (Hz) at which state channels are updated |
+| `channels`   | array  | Yes      | -       | List of analog output channel configurations  |
 
 <Divider.Divider x />
 
@@ -54,30 +37,45 @@ channel, providing acknowledgment that the command was executed.
 <DetailsGroup>
 
 <ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Units.Voltage /> Voltage ([`ao_voltage`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaovoltagechan.html))</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Units.Voltage /> Voltage ([`ao_voltage`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__output__channel_1gad278075876eeff4223fdb90ce58f0a15.html))</Text.Text>
 
 | Parameter       | Type   | Required | Default | Description                |
 | --------------- | ------ | -------- | ------- | -------------------------- |
 | `cmd_channel`   | number | Yes      | -       | Synnax command channel key |
 | `state_channel` | number | Yes      | -       | Synnax state channel key   |
 | `port`          | number | Yes      | -       | Physical port              |
-| `min_val`       | number | No       | `-10.0` | Minimum voltage (Volts)    |
-| `max_val`       | number | No       | `10.0`  | Maximum voltage (Volts)    |
+| `min_val`       | number | No       | `0`     | Minimum voltage (Volts)    |
+| `max_val`       | number | No       | `1`     | Maximum voltage (Volts)    |
 | `custom_scale`  | object | No       | -       | Custom scaling             |
 
 </ChannelType>
 
 <ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Units.Current /> Current ([`ao_current`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaocurrentchan.html))</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Units.Current /> Current ([`ao_current`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__output__channel_1ga1ae6afadb89de214c4823ca7144ab28d.html))</Text.Text>
 
 | Parameter       | Type   | Required | Default | Description                |
 | --------------- | ------ | -------- | ------- | -------------------------- |
 | `cmd_channel`   | number | Yes      | -       | Synnax command channel key |
 | `state_channel` | number | Yes      | -       | Synnax state channel key   |
 | `port`          | number | Yes      | -       | Physical port              |
-| `min_val`       | number | No       | `0.004` | Minimum current (Amps)     |
-| `max_val`       | number | No       | `0.02`  | Maximum current (Amps)     |
+| `min_val`       | number | No       | `0`     | Minimum current (Amps)     |
+| `max_val`       | number | No       | `1`     | Maximum current (Amps)     |
 | `custom_scale`  | object | No       | -       | Custom scaling             |
+
+</ChannelType>
+
+<ChannelType>
+<Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Function Generator ([`ao_func_gen`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__output__channel_1ga7146d8ebdf2336e5200c4d2549f67494.html))</Text.Text>
+
+| Parameter       | Type   | Required | Default | Description                              |
+| --------------- | ------ | -------- | ------- | ---------------------------------------- |
+| `cmd_channel`   | number | Yes      | -       | Synnax command channel key               |
+| `state_channel` | number | Yes      | -       | Synnax state channel key                 |
+| `port`          | number | Yes      | -       | Physical port                            |
+| `wave_type`     | enum   | No       | `Sine`  | `Sine`, `Triangle`, `Square`, `Sawtooth` |
+| `frequency`     | number | No       | `0`     | Waveform frequency (Hz)                  |
+| `amplitude`     | number | No       | `0`     | Waveform amplitude                       |
+| `offset`        | number | No       | `0`     | Waveform DC offset                       |
 
 </ChannelType>
 
@@ -87,11 +85,7 @@ channel, providing acknowledgment that the command was executed.
 
 ## Important Rules
 
-- **Command/State pairs** -> Each analog output requires both a command and state
-  channel.
 - **One task per module** -> Only one running task can claim a module at a time.
-- **State rate** -> Higher state rates provide faster feedback but consume more
-  resources.
 
 <Divider.Divider x />
 
@@ -148,12 +142,11 @@ current_state = client.channels.create(
 
 # Create and configure task
 task = ni.AnalogWriteTask(
-    name="Analog Write Task",
+    name="NI Analog Write Task",
     device=c_dev.key,
     state_rate=sy.Rate.HZ * 20,
-    data_saving=True,
     channels=[
-        ni.AOCurrentChan(
+        ni.AOCurrentChannel(
             cmd_channel=current_cmd.key,
             state_channel=current_state.key,
             port=0,
@@ -189,7 +182,7 @@ with task.run():
 
 ```python
 # Retrieve existing task
-task = client.tasks.retrieve(name="Analog Write Task")
+task = client.tasks.retrieve(name="NI Analog Write Task")
 task = ni.AnalogWriteTask(internal=task)
 
 # Update task-level configuration
@@ -219,59 +212,67 @@ import { Synnax, TimeStamp, Rate } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Retrieve device
-const cDev = await client.devices.retrieve({ name: "Mod1_Current" });
+const [cDev] = await client.devices.retrieve({ names: ["Mod1_Current"] });
 
 // Create command and state time indices
-const aoCmdTime = await client.channels.create({
-  name: "ao_cmd_time",
-  isIndex: true,
-  dataType: "timestamp",
-  retrieveIfNameExists: true,
-});
-const aoStateTime = await client.channels.create({
-  name: "ao_state_time",
-  isIndex: true,
-  dataType: "timestamp",
-  retrieveIfNameExists: true,
-});
+const aoCmdTime = await client.channels.create(
+  {
+    name: "ao_cmd_time",
+    isIndex: true,
+    dataType: "timestamp",
+  },
+  { retrieveIfNameExists: true },
+);
+const aoStateTime = await client.channels.create(
+  {
+    name: "ao_state_time",
+    isIndex: true,
+    dataType: "timestamp",
+  },
+  { retrieveIfNameExists: true },
+);
 
 // Create command and state channels
-const currentCmd = await client.channels.create({
-  name: "current_cmd",
-  index: aoCmdTime.key,
-  dataType: "float32",
-  retrieveIfNameExists: true,
-});
-const currentState = await client.channels.create({
-  name: "current_state",
-  index: aoStateTime.key,
-  dataType: "float32",
-  retrieveIfNameExists: true,
-});
+const currentCmd = await client.channels.create(
+  {
+    name: "current_cmd",
+    index: aoCmdTime.key,
+    dataType: "float32",
+  },
+  { retrieveIfNameExists: true },
+);
+const currentState = await client.channels.create(
+  {
+    name: "current_state",
+    index: aoStateTime.key,
+    dataType: "float32",
+  },
+  { retrieveIfNameExists: true },
+);
 
 // Create and configure task
 const task = await client.tasks.create({
-  name: "Analog Write Task",
+  name: "NI Analog Write Task",
+  rack: cDev.rack,
   type: "ni_analog_write",
-  config: JSON.stringify({
+  config: {
     device: cDev.key,
-    state_rate: 20,
-    data_saving: true,
+    stateRate: 20,
     channels: [
       {
         type: "ao_current",
-        cmd_channel: currentCmd.key,
-        state_channel: currentState.key,
+        cmdChannel: currentCmd.key,
+        stateChannel: currentState.key,
         port: 0,
-        min_val: 0.004,
-        max_val: 0.02,
+        minVal: 0.004,
+        maxVal: 0.02,
       },
     ],
-  }),
+  },
 });
 
 // Start task
-await task.executeCommandSync("start");
+await task.start();
 
 // Write command
 const writer = await client.openWriter({
@@ -286,10 +287,10 @@ await writer.write({
 // Read state
 const streamer = await client.openStreamer(["current_state"]);
 const frame = await streamer.read();
-console.log(`State: ${frame["current_state"]}`);
+console.log(`State: ${frame.get("current_state").at(-1)}`);
 
 // Stop task
-await task.executeCommandSync("stop");
+await task.stop();
 await writer.close();
 await streamer.close();
 ```
@@ -300,27 +301,31 @@ await streamer.close();
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```typescript
+import { ni } from "@synnaxlabs/client";
+
 // Retrieve existing task
-const task = await client.tasks.retrieve({ name: "Analog Write Task" });
+const task = await client.tasks.retrieve({ name: "NI Analog Write Task" });
 
 // Parse and update configuration
-const config = JSON.parse(task.config);
+const config = ni.analogWriteConfigZ.parse(task.config);
 
 // Update task-level configuration
-config.auto_start = true;
-config.state_rate = 50;
+config.autoStart = true;
+config.stateRate = 50;
 
 // Update channel-level configuration
-config.channels[0].port = 1;
-config.channels[0].min_val = 0.002;
-config.channels[0].max_val = 0.01;
+const current = config.channels[0] as ni.AOCurrentChannel;
+current.port = 1;
+current.minVal = 0.002;
+current.maxVal = 0.01;
 
 // Apply changes
 await client.tasks.create({
   key: task.key,
+  rack: task.rack,
   name: task.name,
   type: task.type,
-  config: JSON.stringify(config),
+  config,
 });
 ```
 

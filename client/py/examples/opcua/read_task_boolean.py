@@ -83,19 +83,18 @@ tsk = sy.opcua.ReadTask(
     device=dev.key,
     sample_rate=sy.Rate.HZ * 10,  # Sample at 10 Hz
     stream_rate=sy.Rate.HZ * 10,  # Stream at 10 Hz
-    data_saving=True,
     channels=[
         # Bind the Synnax channels to the OPC UA node IDs
         # These IDs correspond to my_bool_0 and my_bool_1 in the OPC UA server
         sy.opcua.ReadChannel(
             channel=my_bool_0.key,
             node_id="NS=2;I=13",
-            data_type="bool",  # my_bool_0
+            data_type="boolean",  # my_bool_0
         ),
         sy.opcua.ReadChannel(
             channel=my_bool_1.key,
             node_id="NS=2;I=14",
-            data_type="bool",  # my_bool_1
+            data_type="boolean",  # my_bool_1
         ),
     ],
 )

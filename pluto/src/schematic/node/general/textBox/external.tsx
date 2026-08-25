@@ -7,37 +7,35 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Label } from "@/schematic/node/common/label";
-import { type Config, VARIANT } from "@/schematic/node/general/textBox/config";
 import { TextBoxForm } from "@/schematic/node/general/textBox/Form";
 import { TextBox } from "@/schematic/node/general/textBox/Primitive";
 import { Symbol } from "@/schematic/node/general/textBox/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 
-export * from "@/schematic/node/general/textBox/config";
-
-export const defaultConfig = (): Config => ({
-  variant: VARIANT,
+export const defaultConfig = (): schematic.TextBoxNodeConfig => ({
+  variant: "text_box",
   orientation: "left",
   color: color.ZERO,
   autoFit: true,
   align: "center",
-  label: Label.defaultConfig("Text Box"),
+  label: Label.defaultConfig("Text box"),
   level: "p",
-  value: "Text Box",
+  value: "Text box",
   width: 75,
 });
 
-const Preview = (props: Config): ReactElement => (
-  <TextBox {...props} autoFit value="Text Box" />
+const Preview = (props: schematic.TextBoxNodeConfig): ReactElement => (
+  <TextBox {...props} autoFit value="Text box" />
 );
 
-export const spec: Spec<typeof VARIANT, Config> = {
-  key: VARIANT,
-  name: "Text Box",
+export const spec: Spec<"text_box", schematic.TextBoxNodeConfig> = {
+  key: "text_box",
+  name: "Text box",
   Form: TextBoxForm,
   Node: Symbol,
   Preview,

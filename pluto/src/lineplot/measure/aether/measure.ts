@@ -130,7 +130,7 @@ const LABEL_OVERLAP_Y_THRESHOLD = 30;
 const POINT_LABEL_OFFSET = 15;
 const POINT_LABEL_SPACING = 8;
 
-const TIME_FORMAT_THRESHOLD_MS = 10;
+const TIME_FORMAT_THRESHOLD = TimeSpan.milliseconds(10);
 
 export interface MeasureProps {
   findByXDecimal: (target: number) => FindResult[];
@@ -158,32 +158,32 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
 
   private get verticalLineColor(): color.Color {
     if (color.isColor(this.state.color)) {
-      if (color.isZero(this.state.color)) return this.internal.theme.colors.gray.l8;
+      if (color.isZero(this.state.color)) return this.internal.theme.colors.gray.l9;
       return this.state.color;
     }
 
     if (color.isZero(this.state.color.verticalLine))
-      return this.internal.theme.colors.gray.l8;
+      return this.internal.theme.colors.gray.l9;
     return this.state.color.verticalLine;
   }
 
   private get horizontalLineColor(): color.Color {
     if (color.isColor(this.state.color)) {
-      if (color.isZero(this.state.color)) return this.internal.theme.colors.gray.l8;
+      if (color.isZero(this.state.color)) return this.internal.theme.colors.gray.l9;
       return this.state.color;
     }
     if (color.isZero(this.state.color.horizontalLine))
-      return this.internal.theme.colors.gray.l8;
+      return this.internal.theme.colors.gray.l9;
     return this.state.color.horizontalLine;
   }
 
   private get obliqueLineColor(): color.Color {
     if (color.isColor(this.state.color)) {
-      if (color.isZero(this.state.color)) return this.internal.theme.colors.gray.l8;
+      if (color.isZero(this.state.color)) return this.internal.theme.colors.gray.l9;
       return this.state.color;
     }
     if (color.isZero(this.state.color.obliqueLine))
-      return this.internal.theme.colors.gray.l8;
+      return this.internal.theme.colors.gray.l9;
     return this.state.color.obliqueLine;
   }
 
@@ -229,7 +229,6 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     const oneResult = this.findPoint(props, one, dataOne, clickOne, s);
     if (oneResult == null) return null;
 
-    // Update cache if we found a new point
     if (clickOne == null || !xy.equals(one, clickOne)) {
       this.internal.dataOne = { ...oneResult.value };
       this.internal.clickOne = { ...one };
@@ -238,7 +237,6 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     const twoResult = this.findPoint(props, two, dataTwo, clickTwo, s);
     if (twoResult == null) return null;
 
-    // Update cache if we found a new point
     if (clickTwo == null || !xy.equals(two, clickTwo)) {
       this.internal.dataTwo = { ...twoResult.value };
       this.internal.clickTwo = { ...two };
@@ -305,11 +303,9 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
 
     let region: box.Box;
     if (centered) {
-      // Center the label around the position
       const centeredPos = xy.translate(position, [-width / 2, -height / 2]);
       region = box.construct(centeredPos, width, height);
     } else {
-      // Use position as top-left corner for right-side positioning
       region = box.construct(position, width, height);
 
       // Check if label goes outside the view region on the right, if so flip it to the left
@@ -327,7 +323,6 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
       backgroundColor: (t) => t.colors.gray.l1,
     });
 
-    // X row
     this.drawPointLabelRow({
       region,
       label: "ΔX",
@@ -337,7 +332,6 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
       leftOffset: 0,
     });
 
-    // Y row
     this.drawPointLabelRow({
       region,
       label: "ΔY",
@@ -347,7 +341,6 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
       leftOffset: 0,
     });
 
-    // Slope row
     this.drawPointLabelRow({
       region,
       label: "Slope",
@@ -409,7 +402,6 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     const lineHeight = LABEL_CONTAINER_HEIGHT;
     const height = lineHeight * 2 + padding.y * 2;
 
-    // Calculate and adjust label position
     let yOffset = toTop ? -(height + POINT_LABEL_OFFSET) : POINT_LABEL_OFFSET;
     let region = box.construct(
       xy.translate(position, [-width / 2, yOffset]),
@@ -417,7 +409,6 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
       height,
     );
 
-    // Flip if outside view region
     if (
       (toTop && box.top(region) < box.top(viewRegion)) ||
       (!toTop && box.bottom(region) > box.bottom(viewRegion))
@@ -584,7 +575,6 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     const isVeryClose =
       xPixelDist < PROXIMITY_THRESHOLD || yPixelDist < PROXIMITY_THRESHOLD;
 
-    // Draw all lines first
     draw.line({
       start: xy.construct(onePos.x, onePos.y),
       end: xy.construct(onePos.x, twoPos.y),
@@ -612,9 +602,8 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     this.drawPointMarker(onePos, oneValue.color);
     this.drawPointMarker(twoPos, twoValue.color);
 
-    // Now draw all labels on top
     const yValue = `${math.smartRound(yDist, bounds.construct(yDist))} ${oneValue.units ?? ""}`;
-    const trunc = xDist.lessThan(TimeSpan.milliseconds(TIME_FORMAT_THRESHOLD_MS))
+    const trunc = xDist.lessThan(TIME_FORMAT_THRESHOLD)
       ? TimeSpan.MICROSECOND
       : TimeSpan.MILLISECOND;
     const xValue = xDist.truncate(trunc).toString();
@@ -639,7 +628,6 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
         labelWidth + maxValueLength * VALUE_CHAR_WIDTH + padding * LABEL_VALUE_SPACING;
       const combinedHeight = LABEL_CONTAINER_HEIGHT * 3 + padding * 2;
 
-      // Calculate centered combined label region
       const centeredCombinedRegion = box.construct(
         xy.translate(centerPos, [-combinedWidth / 2, -combinedHeight / 2]),
         combinedWidth,
@@ -692,7 +680,6 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
         centerFits,
       );
     } else {
-      // Draw separate labels when points are spread out
       const yLabelPos = this.calculateYLabelPosition(
         xy.construct(onePos.x, (onePos.y + twoPos.y) / 2),
         isVeryClose,

@@ -37,19 +37,19 @@ ANALOG_READ_CHANNEL_TYPES: dict[str, type[Analog]] = {
     "Accelerometer": Accelerometer,
     "Bridge": Bridge,
     "Current": Current,
-    "Force Bridge Table": ForceBridgeTable,
-    "Force Bridge Two-Point Linear": ForceBridgeTwoPointLinear,
+    "Force bridge table": ForceBridgeTable,
+    "Force bridge two-point linear": ForceBridgeTwoPointLinear,
     "Force IEPE": ForceIEPE,
     "Microphone": Microphone,
-    "Pressure Bridge Table": PressureBridgeTable,
-    "Pressure Bridge Two-Point Linear": PressureBridgeTwoPointLinear,
+    "Pressure bridge table": PressureBridgeTable,
+    "Pressure bridge two-point linear": PressureBridgeTwoPointLinear,
     "Resistance": Resistance,
     "RTD": RTD,
-    "Strain Gauge": StrainGauge,
-    "Temperature Built-In Sensor": TemperatureBuiltInSensor,
+    "Strain gauge": StrainGauge,
+    "Temperature built-in sensor": TemperatureBuiltInSensor,
     "Thermocouple": Thermocouple,
-    "Torque Bridge Table": TorqueBridgeTable,
-    "Torque Bridge Two-Point Linear": TorqueBridgeTwoPointLinear,
+    "Torque bridge table": TorqueBridgeTable,
+    "Torque bridge two-point linear": TorqueBridgeTwoPointLinear,
     "Velocity IEPE": VelocityIEPE,
     "Voltage": Voltage,
 }
@@ -58,8 +58,8 @@ ANALOG_READ_CHANNEL_TYPES: dict[str, type[Analog]] = {
 class AnalogRead(NITask):
     """NI Analog Read/Input Task automation interface."""
 
-    page_type: str = "NI Analog Read Task"
-    pluto_label: str = ".pluto-ni-analog-read-task"
+    page_type = "NI analog read task"
+    pluto_label: str = ".console-task-configure--ni_analog_read"
 
     def add_channel(
         self,
@@ -98,38 +98,3 @@ class AnalogRead(NITask):
             channel_class=ANALOG_READ_CHANNEL_TYPES[chan_type],
             **kwargs,
         )
-
-    def set_parameters(
-        self,
-        *,
-        task_name: str | None = None,
-        data_saving: bool | None = None,
-        auto_start: bool | None = None,
-        **kwargs: Any,
-    ) -> None:
-        """
-        Set the parameters for the NI AI task.
-
-        Args:
-            task_name: The name of the task.
-            sample_rate: The sample rate for the AI task.
-            stream_rate: The stream rate for the AI task.
-            data_saving: Whether to save data to the core.
-            auto_start: Whether to start the task automatically.
-            **kwargs: Additional parameters.
-        """
-        sample_rate = kwargs.pop("sample_rate", None)
-        stream_rate = kwargs.pop("stream_rate", None)
-
-        super().set_parameters(
-            task_name=task_name,
-            data_saving=data_saving,
-            auto_start=auto_start,
-            **kwargs,
-        )
-
-        if sample_rate is not None:
-            self.layout.fill_input_field("Sample Rate", str(sample_rate))
-
-        if stream_rate is not None:
-            self.layout.fill_input_field("Stream Rate", str(stream_rate))

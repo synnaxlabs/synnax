@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { UnexpectedError } from "@synnaxlabs/client";
-import { type color, unique } from "@synnaxlabs/x";
+import { type color, type state, unique } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { Aether } from "@/aether";
@@ -16,7 +16,6 @@ import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
-import { type state } from "@/state";
 import { control } from "@/telem/control/aether";
 import { useContext } from "@/telem/control/Controller";
 import { Text } from "@/text";
@@ -138,7 +137,13 @@ const LegendEntry = ({
     [itemKey, onColorChange],
   );
   return (
-    <Flex.Box align="center" className={CSS(CSS.B("legend-entry"))} gap="small" x grow>
+    <Flex.Box
+      align="center"
+      className={CSS.cls(CSS.B("legend-entry"))}
+      gap="small"
+      x
+      grow
+    >
       <Color.Swatch
         allowChange
         draggable={false}

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { color, id } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -17,7 +18,6 @@ import { Flex } from "@/flex";
 import { Form } from "@/form";
 import { Icon } from "@/icon";
 import { List } from "@/list";
-import { type StateMapping } from "@/schematic/node/general/stateIndicator/config";
 import { Text } from "@/text";
 
 interface StateMappingFormProps {
@@ -84,7 +84,7 @@ const StateMappingListItem = ({
         onClick={() => onRemove(itemKey)}
         size="small"
         variant="text"
-        ghost
+        reveal
       >
         <Icon.Close />
       </Button.Button>
@@ -96,8 +96,10 @@ export const StateMappingForm = ({
   path,
   showColor = false,
 }: StateMappingFormProps): ReactElement => {
-  const { data, push, remove } = Form.useFieldList<string, StateMapping>(path);
-  const options = Form.useFieldValue<StateMapping[]>(path);
+  const { data, push, remove } = Form.useFieldList<string, schematic.StateMapping>(
+    path,
+  );
+  const options = Form.useFieldValue<schematic.StateMapping[]>(path);
 
   const handleAddOption = (): void => {
     const nextValue =
@@ -123,7 +125,7 @@ export const StateMappingForm = ({
           emptyContent={
             <Flex.Box center grow>
               <Text.Text center status="disabled" gap="tiny">
-                No options added.
+                No options added
                 <Text.Text variant="link" onClick={handleAddOption}>
                   Add an option
                 </Text.Text>

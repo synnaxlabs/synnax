@@ -120,7 +120,7 @@ protected:
 
     x::json::json create_base_config() {
         return {
-            {"data_saving", false},
+            {"data_saving_disabled", true},
             {"sample_rate", 100},
             {"stream_rate", 10},
             {"channels", x::json::json::array()}
@@ -136,7 +136,7 @@ protected:
             {"device", slave_device.key},
             {"pdo", pdo_name},
             {"channel", channel.key},
-            {"enabled", true}
+            {"disabled", false}
         };
     }
 
@@ -155,7 +155,7 @@ protected:
             {"bit_length", bit_length},
             {"data_type", data_type},
             {"channel", channel.key},
-            {"enabled", true}
+            {"disabled", false}
         };
     }
 };
@@ -349,7 +349,7 @@ TEST_F(EtherCATReadTest, InvalidSlaveDevice) {
     ));
 
     x::json::json cfg = {
-        {"data_saving", false},
+        {"data_saving_disabled", true},
         {"sample_rate", 100},
         {"stream_rate", 10},
         {"channels",
@@ -357,7 +357,7 @@ TEST_F(EtherCATReadTest, InvalidSlaveDevice) {
            {"device", "nonexistent_device_key"},
            {"pdo", "status_word"},
            {"channel", data_ch.key},
-           {"enabled", true}}}}
+           {"disabled", false}}}}
     };
 
     auto parser = x::json::Parser(cfg);

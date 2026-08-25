@@ -1,0 +1,185 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package versions_test
+
+import (
+	"github.com/google/uuid"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions"
+	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/spatial"
+	. "github.com/synnaxlabs/x/testutil"
+)
+
+var _ = Describe("DecodeImExEnvelope", func() {
+	decode := func(ctx SpecContext, path string) versions.Schematic {
+		GinkgoHelper()
+		return MustSucceed(versions.DecodeImExEnvelope(ctx, LoadEnvelope(path)))
+	}
+
+	valveConfig := func(s versions.Schematic, node string) versions.ValveElementConfig {
+		GinkgoHelper()
+		cfg, ok := s.Configs[node].Variant.(versions.ValveElementConfig)
+		Expect(ok).To(BeTrue())
+		return cfg
+	}
+
+	It("Should decode a current-version envelope", func(ctx SpecContext) {
+		sch := decode(ctx, "testdata/import_v8.json")
+		Expect(sch.Snapshot).To(BeTrue())
+		Expect(sch.Nodes).To(Equal([]versions.Node{
+			{Key: "n1", Position: spatial.XY{X: 1, Y: 2}, ZIndex: 4},
+		}))
+		Expect(sch.Edges).To(Equal([]versions.Edge{{
+			Key:    "e1",
+			Source: versions.Handle{Node: "n1", Param: "out"},
+			Target: versions.Handle{Node: "n2", Param: "in"},
+		}}))
+		Expect(valveConfig(sch, "n1")).To(Equal(versions.ValveElementConfig{}))
+	})
+
+	It("Should lift a v7 envelope, dropping measured", func(ctx SpecContext) {
+		sch := decode(ctx, "testdata/import_v7.json")
+		Expect(sch.Snapshot).To(BeTrue())
+		Expect(sch.Nodes).To(Equal([]versions.Node{
+			{Key: "n1", Position: spatial.XY{X: 1, Y: 2}, ZIndex: 4},
+		}))
+		Expect(sch.Edges).To(Equal([]versions.Edge{{
+			Key:    "e1",
+			Source: versions.Handle{Node: "n1", Param: "out"},
+			Target: versions.Handle{Node: "n2", Param: "in"},
+		}}))
+		Expect(valveConfig(sch, "n1")).To(Equal(versions.ValveElementConfig{}))
+	})
+
+	It("Should decode the camelCase Console export", func(ctx SpecContext) {
+		sch := decode(ctx, "testdata/import_typed_console.json")
+		Expect(sch.Snapshot).To(BeFalse())
+		Expect(sch.Nodes[0].ZIndex).To(Equal(int16(4)))
+		Expect(sch.Edges[0].Source).
+			To(Equal(versions.Handle{Node: "n1", Param: "out"}))
+		Expect(valveConfig(sch, "n1").OnClickDelay).To(HaveValue(Equal(2.0)))
+	})
+
+	It("Should lift a Console state through the legacy chain", func(ctx SpecContext) {
+		sch := decode(ctx, "testdata/import_v3_state.json")
+		Expect(sch.Nodes[0].ZIndex).To(Equal(int16(3)))
+		Expect(sch.Edges[0].Source).To(Equal(versions.Handle{Node: "n1", Param: "a"}))
+		Expect(sch.Edges[0].Target).To(Equal(versions.Handle{Node: "n2", Param: "b"}))
+		Expect(valveConfig(sch, "n1").Color).
+			To(HaveValue(Equal(MustSucceed(color.FromHex("#ff0000")))))
+	})
+
+	// The fixtures below are schematics a shipped Console exported.
+	DescribeTable("Should lift a typed Console export through the legacy chain",
+		func(ctx SpecContext, path string, nodes int) {
+			s := decode(ctx, path)
+			Expect(s.Nodes).To(HaveLen(nodes))
+			Expect(s.Snapshot).To(BeFalse())
+			// The Console's per-node render state — id, type, selected, measured — does
+			// not survive: a stored node keeps only key, position, and z-index.
+			for _, n := range s.Nodes {
+				Expect(n.Key).ToNot(BeEmpty())
+			}
+		},
+		Entry("version 3", "testdata/import_console_v3_typed.json", 3),
+		Entry("version 4, which added authority",
+			"testdata/import_console_v4_typed.json", 0),
+		Entry("version 5, which added mode and toolbar",
+			"testdata/import_console_v5_typed.json", 2),
+	)
+
+	It("Should keep each node's element config keyed by node", func(
+		ctx SpecContext,
+	) {
+		s := decode(ctx, "testdata/import_console_v3_typed.json")
+		Expect(s.Configs).To(SatisfyAll(
+			HaveKey("fTQJC5PIv7u"),
+			HaveKey("0hBxSpgF0u6"),
+			HaveKey("KJl7SWknO4T"),
+		))
+	})
+
+	It("Should carry a node's position and stacking order", func(ctx SpecContext) {
+		s := decode(ctx, "testdata/import_console_v5_typed.json")
+		Expect(s.Nodes[0].Key).To(Equal("eoK9e4MhHgb"))
+		Expect(s.Nodes[0].Position.X).To(Equal(169.0))
+		Expect(s.Nodes[0].Position.Y).To(Equal(474.0))
+		Expect(s.Nodes[0].ZIndex).To(BeEquivalentTo(2))
+	})
+
+	// The Console wrote state versions 0 through 5. The fixtures below reproduce the
+	// two earliest, whose schemas came out of the Console source at the release that
+	// wrote them.
+	It("Should lift the earliest Console state", func(ctx SpecContext) {
+		s := decode(ctx, "testdata/import_v0_state.json")
+		Expect(s.Nodes).To(HaveLen(2))
+		Expect(s.Nodes[0].Key).To(Equal("n1"))
+		Expect(s.Nodes[0].Position.X).To(Equal(120.0))
+		Expect(s.Nodes[0].ZIndex).To(BeEquivalentTo(2))
+		Expect(s.Edges).To(HaveLen(1))
+		Expect(s.Edges[0].Source.Node).To(Equal("n1"))
+		Expect(s.Edges[0].Source.Param).To(Equal("outlet"))
+		Expect(s.Edges[0].Target.Param).To(Equal("inlet"))
+		Expect(s.Configs).To(HaveKey("n1"))
+		Expect(s.Snapshot).To(BeFalse())
+	})
+
+	It("Should lift the Console state that added a legend", func(ctx SpecContext) {
+		// A legend is Console render state, so it reaches no stored field; the rest of
+		// the document must survive the version bump untouched.
+		s := decode(ctx, "testdata/import_v1_state.json")
+		Expect(s.Nodes).To(HaveLen(2))
+		Expect(s.Edges).To(HaveLen(1))
+		Expect(s.Configs).To(SatisfyAll(HaveKey("n1"), HaveKey("n2")))
+	})
+
+	It("Should drop the key on the wire", func(ctx SpecContext) {
+		Expect(decode(ctx, "testdata/import_v7.json").Key).To(Equal(uuid.Nil))
+	})
+
+	It("Should take the name from the envelope header", func(ctx SpecContext) {
+		env := LoadEnvelope("testdata/import_v3_state.json")
+		env.Name = "Renamed"
+		Expect(MustSucceed(versions.DecodeImExEnvelope(ctx, env)).Name).
+			To(Equal("Renamed"))
+	})
+
+	It("Should reject a version newer than Latest", func(ctx SpecContext) {
+		Expect(versions.DecodeImExEnvelope(
+			ctx, LoadEnvelope("testdata/import_bad_version.json"),
+		)).Error().To(SatisfyAll(
+			MatchError(ContainSubstring("schematic version 99")),
+			MatchError(ContainSubstring("newer than this Core supports")),
+		))
+	})
+
+	It("Should reject a body carrying no schematic structure", func(ctx SpecContext) {
+		Expect(versions.DecodeImExEnvelope(
+			ctx, LoadEnvelope("testdata/import_unrecognized.json"),
+		)).Error().To(MatchError(ContainSubstring(
+			`file is not a schematic: no "props" field`,
+		)))
+	})
+
+	// The typed export names its per-node bag configs, so the state chain's props
+	// marker would reject every valid one.
+	It("Should reject a typed export carrying no schematic structure", func(
+		ctx SpecContext,
+	) {
+		Expect(versions.DecodeImExEnvelope(
+			ctx, LoadEnvelope("testdata/import_unrecognized_typed.json"),
+		)).Error().To(MatchError(ContainSubstring(
+			`file is not a schematic: no "configs" field`,
+		)))
+	})
+})

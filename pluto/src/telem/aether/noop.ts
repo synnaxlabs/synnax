@@ -7,14 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  bounds,
-  color,
-  MultiSeries,
-  observe,
-  type status,
-  TimeStamp,
-} from "@synnaxlabs/x";
+import { status } from "@synnaxlabs/client";
+import { bounds, color, MultiSeries, observe } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { type Factory } from "@/telem/aether/factory";
@@ -131,13 +125,12 @@ class StatusSource extends Noop implements StatusSource {
   static readonly TYPE = "noop-status-source";
 
   value(): status.Status<z.ZodNever> {
-    return {
+    return status.create({
       key: "noop",
       name: "noop",
       variant: "disabled",
       message: "unknown",
-      time: TimeStamp.now(),
-    };
+    });
   }
 }
 
@@ -167,7 +160,7 @@ class NoopSeries extends Noop implements SeriesSource {
   static readonly TYPE = "noop-series";
 
   value(): [bounds.Bounds, MultiSeries] {
-    return [bounds.ZERO, new MultiSeries([])];
+    return [bounds.INVALID, new MultiSeries([])];
   }
 }
 

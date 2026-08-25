@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -45,7 +46,11 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	db := &DB{options: o, closed: &atomic.Bool{}}
+	db := &DB{
+		options:        o,
+		closed:         &atomic.Bool{},
+		controlUpdates: observe.New[ControlUpdate](),
+	}
 	db.mu.dbs.unary = make(map[channel.Key]unary.DB, len(info))
 	db.mu.dbs.virtual = make(map[channel.Key]virtual.DB, len(info))
 	for _, i := range info {
@@ -72,7 +77,7 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 	}
 
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(o.Instrumentation))
-	db.relay = openRelay(sCtx, o.Instrumentation, db.streamingConfig)
+	db.relay = openRelay(sCtx, o)
 	db.startGC(sCtx, o)
 	db.shutdown = signal.NewHardShutdown(sCtx, cancel)
 	return db, nil
@@ -111,15 +116,21 @@ func (db *DB) openUnary(ctx context.Context, ch Channel, fs fs.FS) error {
 		return err
 	}
 	// For non-index channels, resolve the index DB. The index DB is always a
-	// fixed-density unary DB (index channels are TimeStampT with IsIndex=true).
+	// fixed-density unary DB (index channels are TimestampT with IsIndex=true).
 	if u.Channel().Index != 0 && !u.Channel().IsIndex {
 		idxDB, ok := db.mu.dbs.unary[u.Channel().Index]
 		if !ok {
-			if err = db.openVirtualOrUnary(ctx, Channel{Key: u.Channel().Index}); err != nil {
+			if err = db.openVirtualOrUnary(
+				ctx,
+				Channel{Key: u.Channel().Index},
+			); err != nil {
 				return err
 			}
 			if idxDB, ok = db.mu.dbs.unary[u.Channel().Index]; !ok {
-				return validate.PathedError(indexChannelNotFoundError(u.Channel().Index), "index")
+				return validate.PathedError(
+					indexChannelNotFoundError(u.Channel().Index),
+					"index",
+				)
 			}
 		}
 		u.SetIndex(idxDB.Index())

@@ -10,11 +10,19 @@
 import { type CrudeTimeSpan, debounce, TimeSpan } from "@synnaxlabs/x";
 import { type DependencyList, useCallback } from "react";
 
+/**
+ * @returns a stable callback that defers `func` until `waitFor` passes with no further
+ * calls. The identity changes only when `waitFor` or `deps` change, so a pending call
+ * survives a re-render.
+ */
 export const useDebouncedCallback = <Args extends unknown[]>(
   func: (...args: Args) => void,
   waitFor: CrudeTimeSpan,
   deps: DependencyList,
-): ((...args: Args) => void) => {
+): debounce.DebouncedFn<Args> => {
   const debouncePeriod = new TimeSpan(waitFor).valueOf();
-  return useCallback(debounce(func, debouncePeriod), [debouncePeriod, ...deps]);
+  return useCallback(debounce.debounce(func, debouncePeriod), [
+    debouncePeriod,
+    ...deps,
+  ]);
 };

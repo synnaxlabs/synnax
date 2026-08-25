@@ -7,12 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, NotFoundError, user } from "@synnaxlabs/client";
+import { NotFoundError, user } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
+import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Role } from "@/access/role";
+import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -163,21 +166,24 @@ describe("queries", () => {
     });
   });
 
-  describe("useRetrieve", () => {
+  describe("use", () => {
     it("should retrieve a single role by key", async () => {
       const testRole = await client.access.roles.create({
         name: "singleRole",
         description: "Single role description",
       });
 
-      const { result } = renderHook(() => Role.useRetrieve({ key: testRole.key }), {
-        wrapper,
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      const { result } = await renderHookSuspended(
+        () => Role.use({ key: testRole.key }),
+        {
+          wrapper,
+        },
+      );
+      await waitFor(() => expect(result.current).not.toBeNull());
 
-      expect(result.current.data?.key).toEqual(testRole.key);
-      expect(result.current.data?.name).toEqual("singleRole");
-      expect(result.current.data?.description).toEqual("Single role description");
+      expect(result.current?.key).toEqual(testRole.key);
+      expect(result.current?.name).toEqual("singleRole");
+      expect(result.current?.description).toEqual("Single role description");
     });
 
     it("should handle retrieve with valid role key", async () => {
@@ -186,14 +192,71 @@ describe("queries", () => {
         description: "Valid description",
       });
 
-      const { result } = renderHook(() => Role.useRetrieve({ key: role.key }), {
+      const { result } = await renderHookSuspended(() => Role.use({ key: role.key }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current).not.toBeNull());
+
+      expect(result.current).not.toBeNull();
+      expect(result.current?.key).toEqual(role.key);
+      expect(result.current?.description).toEqual("Valid description");
+    });
+  });
+
+  describe("useResultForUser", () => {
+    const createUser = async (prefix: string) =>
+      await client.users.create({
+        username: `${prefix}-${id.create()}`,
+        firstName: "Test",
+        lastName: "User",
+        password: "password123",
+      });
+
+    it("should return the roles assigned to the user", async () => {
+      const role = await client.access.roles.create({
+        name: `assigned-${id.create()}`,
+        description: "Assigned role",
+      });
+      const u = await createUser("for-user");
+      await client.access.roles.assign({ user: u.key, role: role.key });
+
+      const { result } = renderHook(() => Role.useResultForUser({ user: u.key }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.data).toHaveLength(1));
+      expect(result.current.data?.[0].name).toEqual(role.name);
+    });
+
+    it("should return an empty list for a user holding no role", async () => {
+      const u = await createUser("roleless");
+
+      const { result } = renderHook(() => Role.useResultForUser({ user: u.key }), {
         wrapper,
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.data).toEqual([]);
+    });
 
-      expect(result.current.data).toBeDefined();
-      expect(result.current.data?.key).toEqual(role.key);
-      expect(result.current.data?.description).toEqual("Valid description");
+    it("should pick up a role assigned by another client", async () => {
+      const remote = createTestClient();
+      const u = await createUser("late-assign");
+
+      const { result } = renderHook(() => Role.useResultForUser({ user: u.key }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.data).toEqual([]));
+      const role = await remote.access.roles.create({
+        name: `late-${id.create()}`,
+        description: "Late role",
+      });
+      await remote.access.roles.assign({ user: u.key, role: role.key });
+      await waitFor(() => expect(result.current.data).toHaveLength(1));
+      expect(result.current.data?.[0].key).toEqual(role.key);
+    });
+
+    it("should not read at all when the query is null", async () => {
+      const { result } = renderHook(() => Role.useResultForUser(null), { wrapper });
+      expect(result.current.data).toBeUndefined();
     });
   });
 
@@ -204,9 +267,9 @@ describe("queries", () => {
         description: "Test description",
       });
 
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => ({
-          retrieve: Role.useRetrieve({ key: role.key }),
+          retrieve: Role.use({ key: role.key }),
           rename: Role.useRename(),
         }),
         { wrapper },
@@ -214,9 +277,22 @@ describe("queries", () => {
       act(() => {
         result.current.rename.update({ key: role.key, name: "newName" });
       });
-      await waitFor(() =>
-        expect(result.current.retrieve.data?.name).toEqual("newName"),
-      );
+      await waitFor(() => expect(result.current.retrieve?.name).toEqual("newName"));
+    });
+
+    it("should apply the rename optimistically", async () => {
+      const role = await client.access.roles.create({
+        name: "testRole",
+        description: "Test description",
+      });
+      const afterOptimistic = vi.fn();
+      const { result } = renderHook(() => Role.useRename({ afterOptimistic }), {
+        wrapper,
+      });
+      await act(async () => {
+        await result.current.updateAsync({ key: role.key, name: "newName" });
+      });
+      expect(afterOptimistic).toHaveBeenCalledOnce();
     });
   });
 
@@ -232,7 +308,7 @@ describe("queries", () => {
         await result.current.updateAsync(role.key);
       });
       await waitFor(async () => {
-        await expect(client.access.roles.retrieve({ key: role.key })).rejects.toThrow(
+        await expect(client.access.roles.retrieve(role.key)).rejects.toThrow(
           NotFoundError,
         );
       });
@@ -253,10 +329,10 @@ describe("queries", () => {
         await result.current.updateAsync([role1.key, role2.key]);
       });
       await waitFor(async () => {
-        await expect(client.access.roles.retrieve({ key: role1.key })).rejects.toThrow(
+        await expect(client.access.roles.retrieve(role1.key)).rejects.toThrow(
           NotFoundError,
         );
-        await expect(client.access.roles.retrieve({ key: role2.key })).rejects.toThrow(
+        await expect(client.access.roles.retrieve(role2.key)).rejects.toThrow(
           NotFoundError,
         );
       });
@@ -280,7 +356,7 @@ describe("queries", () => {
         role: role.key,
       });
 
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => Role.useChangeRoleForm({ query: { key: testUser.key } }),
         { wrapper },
       );
@@ -297,7 +373,7 @@ describe("queries", () => {
         password: "password123",
       });
 
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => Role.useChangeRoleForm({ query: { key: testUser.key } }),
         { wrapper },
       );
@@ -326,7 +402,7 @@ describe("queries", () => {
         role: role1.key,
       });
 
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => Role.useChangeRoleForm({ query: { key: testUser.key } }),
         { wrapper },
       );
@@ -334,12 +410,10 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.form.value().role).toEqual(role1.key);
 
-      // Change the role in the form
       act(() => {
         result.current.form.set("role", role2.key);
       });
 
-      // Save the form
       await act(async () => {
         result.current.save();
       });
@@ -347,10 +421,10 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
       // Verify role changed via direct API call
-      const parents = await client.ontology.retrieveParents(
-        user.ontologyID(testUser.key),
-        { types: ["role"] },
-      );
+      const parents = await client.ontology.parents.retrieve({
+        ids: user.ontologyID(testUser.key),
+        types: ["role"],
+      });
       expect(parents.length).toEqual(1);
       expect(parents[0].id.key).toEqual(role2.key);
     });
@@ -367,30 +441,27 @@ describe("queries", () => {
         password: "password123",
       });
 
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => Role.useChangeRoleForm({ query: { key: testUser.key } }),
         { wrapper },
       );
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      // Set the role in the form
       act(() => {
         result.current.form.set("role", role.key);
       });
 
-      // Save the form
       await act(async () => {
         result.current.save();
       });
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      // Verify role assigned
-      const parents = await client.ontology.retrieveParents(
-        user.ontologyID(testUser.key),
-        { types: ["role"] },
-      );
+      const parents = await client.ontology.parents.retrieve({
+        ids: user.ontologyID(testUser.key),
+        types: ["role"],
+      });
       expect(parents.length).toEqual(1);
       expect(parents[0].id.key).toEqual(role.key);
     });

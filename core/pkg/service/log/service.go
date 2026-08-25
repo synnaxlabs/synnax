@@ -11,18 +11,18 @@ package log
 
 import (
 	"context"
-	stdio "io"
+	"io"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	v55 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v55"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/log/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/migrate"
+	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
@@ -46,10 +46,17 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Search *search.Index
-	// Signals is the optional cluster signals provider. When set, every
-	// successful Writer.Dispatch broadcasts a ScopedAction onto the sy_log_set
-	// channel, and deletes flow through sy_log_delete.
+	// Signals is the optional cluster signals provider. When set, every successful
+	// Writer.Dispatch broadcasts a ScopedAction onto the sy_log_set channel, and
+	// deletes flow through sy_log_delete.
+	//
+	// [OPTIONAL]
 	Signals *signals.Provider
+	// ImEx is the import/export registry that the log service registers itself with as
+	// the importer/exporter for log resources during OpenService.
+	//
+	// [REQUIRED]
+	ImEx *imex.Service
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -61,6 +68,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Search = override.Nil(c.Search, other.Search)
 	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.ImEx = override.Nil(c.ImEx, other.ImEx)
 	return c
 }
 
@@ -70,13 +78,14 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "search", c.Search)
+	validate.NotNil(v, "imex", c.ImEx)
 	return v.Error()
 }
 
 // Service is the primary service for retrieving and modifying logs from Synnax.
 type Service struct {
 	cfg    ServiceConfig
-	closer io.MultiCloser
+	closer xio.MultiCloser
 	table  *gorp.Table[Key, Log]
 	state  *actions.State[Key, Action]
 }
@@ -89,26 +98,23 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, state: actions.NewState[Key, Action]()}
+	s = &Service{cfg: cfg, state: actions.NewState[Key, Action](cfg.DB)}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Log]{
-		DB: cfg.DB,
-		Migrations: []migrate.Migration{
-			gorp.CodecMigration[Key, v55.Log]("msgpack_to_orc"),
-			migrate.WithAddedDeps(
-				gorp.NewEntryMigration("v55_lift_typed_log", MigrateLog),
-				"msgpack_to_orc",
-			),
-		},
+		DB:              cfg.DB,
+		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
+	if err = cfg.ImEx.RegisterImportExporter(s); !ok(err, nil) {
+		return nil, err
+	}
 	if cfg.Signals != nil {
-		var sig stdio.Closer
+		var sig io.Closer
 		if sig, err = actions.PublishSignals(ctx, actions.SignalsConfig[Key, Action]{
 			Provider: cfg.Signals,
 			State:    s.state,
@@ -118,7 +124,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		}
 		deleteCfg := signals.GorpPublisherConfigUUID(s.table.Observe())
 		deleteCfg.DisableSet = true
-		if sig, err = signals.PublishFromGorp(ctx, cfg.Signals, deleteCfg); !ok(err, sig) {
+		if sig, err = signals.PublishFromGorp(
+			ctx,
+			cfg.Signals,
+			deleteCfg,
+		); !ok(err, sig) {
 			return nil, err
 		}
 	}
@@ -128,13 +138,32 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 // Close closes the log service and releases any resources.
 func (s *Service) Close() error { return s.closer.Close() }
 
-// OnAction subscribes the given handler to the action stream emitted by
-// Writer.Dispatch. The handler runs synchronously inside Dispatch after the
-// underlying transaction commits. The returned Disconnect removes the handler.
+// OnAction subscribes the given handler to the action stream emitted by Dispatch. The
+// handler runs synchronously inside Dispatch after the underlying transaction commits.
+// The returned Disconnect removes the handler.
 func (s *Service) OnAction(
 	handler func(context.Context, actions.Scoped[Key, Action]),
 ) observe.Disconnect {
 	return s.state.OnAction(handler)
+}
+
+// Dispatch applies a sequence of actions atomically to the log with the given key.
+// Dispatches for the same log run one at a time, each in its own transaction committed
+// before the actions are notified, so two concurrent dispatches can never overwrite
+// each other's edits. dispatchKey is a client-generated identifier carried verbatim
+// onto the broadcast so the originating client can recognize its own echo.
+func (s *Service) Dispatch(
+	ctx context.Context,
+	key Key,
+	dispatchKey string,
+	acts []Action,
+) error {
+	return s.state.Dispatch(ctx, key, dispatchKey, acts, func(tx gorp.Tx) error {
+		return s.table.NewUpdate().Where(gorp.MatchKeys[Key, Log](key)).
+			ChangeErr(func(_ gorp.Context, l Log) (Log, error) {
+				return Reduce(l, acts...)
+			}).Exec(ctx, tx)
+	})
 }
 
 // NewWriter opens a new writer for creating, updating, and deleting logs in Synnax. If

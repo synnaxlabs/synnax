@@ -1,0 +1,1022 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { DataType } from "@synnaxlabs/x";
+import { describe, expect, it } from "vitest";
+
+import { HTTP } from "@/feature/http";
+
+describe("HTTP Task Types", () => {
+  const readField = {
+    pointer: "/value",
+    channel: 1,
+    disabled: false,
+    key: "f1",
+    dataType: DataType.FLOAT64.toString(),
+  };
+
+  describe("READ_SCHEMAS", () => {
+    it("should validate the type literal", () => {
+      expect(HTTP.Task.READ_SCHEMAS.type.parse(HTTP.Task.READ_TYPE)).toBe(
+        HTTP.Task.READ_TYPE,
+      );
+    });
+
+    it("should validate a config with a GET endpoint", () => {
+      const config = {
+        device: "dev-001",
+        dataSavingDisabled: false,
+        autoStart: false,
+        rate: 1,
+        endpoints: [
+          {
+            key: "ep1",
+            method: "GET",
+            path: "/api/data",
+            fields: [{ ...readField, pointer: "/temp" }],
+          },
+        ],
+      };
+      const result = HTTP.Task.READ_SCHEMAS.config.parse(config);
+      expect(result.endpoints).toHaveLength(1);
+      expect(result.endpoints[0].method).toBe("GET");
+    });
+
+    it("should validate a config with a POST endpoint and body", () => {
+      const config = {
+        device: "dev-001",
+        rate: 1,
+        endpoints: [
+          {
+            key: "ep1",
+            method: "POST",
+            path: "/api/query",
+            body: '{"query": "latest"}',
+            fields: [readField],
+          },
+        ],
+      };
+      const result = HTTP.Task.READ_SCHEMAS.config.parse(config);
+      expect(result.endpoints[0].method).toBe("POST");
+    });
+
+    it("should default an endpoint without a body to an empty body", () => {
+      const config = {
+        device: "dev-001",
+        rate: 1,
+        endpoints: [
+          {
+            key: "ep1",
+            method: "GET",
+            path: "/api/data",
+            fields: [readField],
+          },
+        ],
+      };
+      const result = HTTP.Task.READ_SCHEMAS.config.parse(config);
+      expect(result.endpoints[0].body).toBe("");
+    });
+
+    it("should validate a config with endpoint headers and query params", () => {
+      const config = {
+        device: "dev-001",
+        rate: 1,
+        endpoints: [
+          {
+            key: "ep1",
+            method: "GET",
+            path: "/api/data",
+            headers: [{ name: "Accept", value: "application/json" }],
+            queryParams: [{ parameter: "limit", value: "100" }],
+            fields: [readField],
+          },
+        ],
+      };
+      const result = HTTP.Task.READ_SCHEMAS.config.parse(config);
+      expect(result.endpoints[0].headers).toEqual([
+        { name: "Accept", value: "application/json" },
+      ]);
+      expect(result.endpoints[0].queryParams).toEqual([
+        { parameter: "limit", value: "100" },
+      ]);
+    });
+
+    it("should reject a non-positive rate", () => {
+      const config = {
+        device: "dev-001",
+        rate: 0,
+        endpoints: [],
+      };
+      const result = HTTP.Task.deployReadConfigZ.safeParse(config);
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject a negative rate", () => {
+      const config = {
+        device: "dev-001",
+        rate: -1,
+        endpoints: [],
+      };
+      const result = HTTP.Task.deployReadConfigZ.safeParse(config);
+      expect(result.success).toBe(false);
+    });
+
+    it("should validate statusData as running/message object", () => {
+      HTTP.Task.READ_SCHEMAS.statusData.parse({ running: true, message: "ok" });
+    });
+
+    it("should validate statusData as null", () => {
+      HTTP.Task.READ_SCHEMAS.statusData.parse(null);
+    });
+
+    it("should validate statusData as undefined", () => {
+      expect(HTTP.Task.READ_SCHEMAS.statusData.safeParse(undefined).success).toBe(true);
+    });
+  });
+
+  describe("read field", () => {
+    it("should validate a field with a valid JSON pointer", () => {
+      const config = {
+        device: "dev-001",
+        rate: 1,
+        endpoints: [
+          {
+            key: "ep1",
+            method: "GET",
+            path: "/api",
+            fields: [
+              {
+                pointer: "/data/temperature",
+                channel: 1,
+                disabled: false,
+                key: "f1",
+                dataType: DataType.FLOAT64.toString(),
+              },
+            ],
+          },
+        ],
+      };
+      const result = HTTP.Task.READ_SCHEMAS.config.parse(config);
+      expect(result.endpoints[0].fields[0].pointer).toBe("/data/temperature");
+    });
+
+    it("should reject an invalid JSON pointer at deploy", () => {
+      const config = {
+        device: "dev-001",
+        rate: 1,
+        endpoints: [
+          {
+            key: "ep1",
+            method: "GET",
+            path: "/api",
+            fields: [
+              {
+                pointer: "no-leading-slash",
+                channel: 1,
+                disabled: false,
+                key: "f1",
+              },
+            ],
+          },
+        ],
+      };
+      const result = HTTP.Task.deployReadConfigZ.safeParse(config);
+      expect(result.success).toBe(false);
+    });
+
+    it("should validate a field with optional timeFormat", () => {
+      const config = {
+        device: "dev-001",
+        rate: 1,
+        endpoints: [
+          {
+            key: "ep1",
+            method: "GET",
+            path: "/api",
+            fields: [
+              {
+                ...readField,
+                pointer: "/ts",
+                timeFormat: "iso8601",
+              },
+            ],
+          },
+        ],
+      };
+      const result = HTTP.Task.READ_SCHEMAS.config.parse(config);
+      expect(result.endpoints[0].fields[0].timeFormat).toBe("iso8601");
+    });
+
+    it("should reject an invalid timeFormat", () => {
+      const config = {
+        device: "dev-001",
+        rate: 1,
+        endpoints: [
+          {
+            key: "ep1",
+            method: "GET",
+            path: "/api",
+            fields: [
+              {
+                pointer: "/ts",
+                channel: 1,
+                disabled: false,
+                key: "f1",
+                timeFormat: "invalid_format",
+              },
+            ],
+          },
+        ],
+      };
+      const result = HTTP.Task.READ_SCHEMAS.config.safeParse(config);
+      expect(result.success).toBe(false);
+    });
+
+    it("should validate a field with v1 enum values", () => {
+      const config = {
+        device: "dev-001",
+        rate: 1,
+        endpoints: [
+          {
+            key: "ep1",
+            method: "GET",
+            path: "/api",
+            fields: [
+              {
+                ...readField,
+                pointer: "/status",
+                enumValues: [
+                  { label: "ON", value: 1 },
+                  { label: "OFF", value: 0 },
+                ],
+              },
+            ],
+          },
+        ],
+      };
+      const result = HTTP.Task.READ_SCHEMAS.config.parse(config);
+      expect(result.endpoints[0].fields[0].enumValues).toEqual([
+        { label: "ON", value: 1 },
+        { label: "OFF", value: 0 },
+      ]);
+    });
+
+    it("should default a field without enum values to an empty list", () => {
+      const config = {
+        device: "dev-001",
+        rate: 1,
+        endpoints: [
+          {
+            key: "ep1",
+            method: "GET",
+            path: "/api",
+            fields: [{ ...readField, pointer: "/status" }],
+          },
+        ],
+      };
+      const result = HTTP.Task.deployReadConfigZ.parse(config);
+      expect(result.endpoints[0].fields[0].enumValues).toEqual([]);
+    });
+
+    it("should reject duplicate enum labels", () => {
+      const config = {
+        device: "dev-001",
+        rate: 1,
+        endpoints: [
+          {
+            key: "ep1",
+            method: "GET",
+            path: "/api",
+            fields: [
+              {
+                ...readField,
+                pointer: "/status",
+                enumValues: [
+                  { label: "ON", value: 1 },
+                  { label: "ON", value: 2 },
+                ],
+              },
+            ],
+          },
+        ],
+      };
+      const result = HTTP.Task.deployReadConfigZ.safeParse(config);
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("read enum v0 shapes", () => {
+    it("should not migrate a v0 enum record", () => {
+      // The Core migrates stored configs; the console only speaks generated shapes.
+      const config = {
+        device: "dev-001",
+        rate: 1,
+        endpoints: [
+          {
+            key: "ep1",
+            method: "GET",
+            path: "/api",
+            fields: [
+              {
+                ...readField,
+                pointer: "/status",
+                enumValues: { ON: 1, OFF: 0 },
+              },
+            ],
+          },
+        ],
+      };
+      const result = HTTP.Task.READ_SCHEMAS.config.safeParse(config);
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("read endpoint", () => {
+    it("should leave index empty by default", () => {
+      const config = {
+        device: "dev-001",
+        rate: 1,
+        endpoints: [
+          {
+            key: "ep1",
+            method: "GET",
+            path: "/api",
+            fields: [],
+          },
+        ],
+      };
+      const result = HTTP.Task.READ_SCHEMAS.config.parse(config);
+      expect(result.endpoints[0].index).toBe("");
+    });
+
+    it("should reject duplicate header names on an endpoint at deploy", () => {
+      const config = {
+        device: "dev-001",
+        rate: 1,
+        endpoints: [
+          {
+            key: "ep1",
+            method: "GET",
+            path: "/api",
+            headers: [
+              { name: "X-Key", value: "a" },
+              { name: "X-Key", value: "b" },
+            ],
+            fields: [],
+          },
+        ],
+      };
+      const result = HTTP.Task.deployReadConfigZ.safeParse(config);
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject duplicate query parameter names on an endpoint at deploy", () => {
+      const config = {
+        device: "dev-001",
+        rate: 1,
+        endpoints: [
+          {
+            key: "ep1",
+            method: "GET",
+            path: "/api",
+            queryParams: [
+              { parameter: "key", value: "a" },
+              { parameter: "key", value: "b" },
+            ],
+            fields: [],
+          },
+        ],
+      };
+      const result = HTTP.Task.deployReadConfigZ.safeParse(config);
+      expect(result.success).toBe(false);
+    });
+
+    it("should not migrate a v0 header record on an endpoint", () => {
+      // The Core migrates stored configs; the console only speaks generated shapes.
+      const config = {
+        device: "dev-001",
+        rate: 1,
+        endpoints: [
+          {
+            key: "ep1",
+            method: "GET",
+            path: "/api",
+            headers: { Accept: "application/json" },
+            fields: [],
+          },
+        ],
+      };
+      const result = HTTP.Task.READ_SCHEMAS.config.safeParse(config);
+      expect(result.success).toBe(false);
+    });
+
+    it("should not migrate a v0 query param record on an endpoint", () => {
+      const config = {
+        device: "dev-001",
+        rate: 1,
+        endpoints: [
+          {
+            key: "ep1",
+            method: "GET",
+            path: "/api",
+            queryParams: { limit: "10" },
+            fields: [],
+          },
+        ],
+      };
+      const result = HTTP.Task.READ_SCHEMAS.config.safeParse(config);
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("WRITE_SCHEMAS", () => {
+    it("should validate the type literal", () => {
+      expect(HTTP.Task.WRITE_SCHEMAS.type.parse(HTTP.Task.WRITE_TYPE)).toBe(
+        HTTP.Task.WRITE_TYPE,
+      );
+    });
+
+    it("should validate a config with a POST endpoint", () => {
+      const config = {
+        device: "dev-001",
+        autoStart: false,
+        endpoints: [
+          {
+            key: "ep1",
+            method: "POST",
+            path: "/api/control",
+            channel: { pointer: "/value", jsonType: "number", channel: 1 },
+            fields: [],
+          },
+        ],
+      };
+      const result = HTTP.Task.WRITE_SCHEMAS.config.parse(config);
+      expect(result.endpoints).toHaveLength(1);
+      expect(result.endpoints[0].method).toBe("POST");
+    });
+
+    it("should validate PUT and PATCH methods", () => {
+      for (const method of ["PUT", "PATCH"] as const) {
+        const config = {
+          device: "dev-001",
+          endpoints: [
+            {
+              key: "ep1",
+              method,
+              path: "/api",
+              channel: { pointer: "/val", jsonType: "number", channel: 1 },
+              fields: [],
+            },
+          ],
+        };
+        const result = HTTP.Task.WRITE_SCHEMAS.config.parse(config);
+        expect(result.endpoints[0].method).toBe(method);
+      }
+    });
+
+    it("should reject a read-only method at deploy", () => {
+      const config = {
+        device: "dev-001",
+        endpoints: [
+          {
+            key: "ep1",
+            method: "GET",
+            path: "/api",
+            channel: { pointer: "/val", jsonType: "number", channel: 1 },
+            fields: [],
+          },
+        ],
+      };
+      const result = HTTP.Task.deployWriteConfigZ.safeParse(config);
+      expect(result.success).toBe(false);
+    });
+
+    it("should default disabled to false", () => {
+      const config = {
+        device: "dev-001",
+        endpoints: [
+          {
+            key: "ep1",
+            method: "POST",
+            path: "/api",
+            channel: { pointer: "/val", jsonType: "number", channel: 1 },
+            fields: [],
+          },
+        ],
+      };
+      const result = HTTP.Task.WRITE_SCHEMAS.config.parse(config);
+      expect(result.endpoints[0].disabled).toBe(false);
+    });
+
+    it("should validate endpoint with headers and query params", () => {
+      const config = {
+        device: "dev-001",
+        endpoints: [
+          {
+            key: "ep1",
+            method: "POST",
+            path: "/api",
+            headers: [{ name: "X-Custom", value: "val" }],
+            queryParams: [{ parameter: "key", value: "abc" }],
+            channel: { pointer: "/val", jsonType: "number", channel: 1 },
+            fields: [],
+          },
+        ],
+      };
+      const result = HTTP.Task.WRITE_SCHEMAS.config.parse(config);
+      expect(result.endpoints[0].headers).toEqual([{ name: "X-Custom", value: "val" }]);
+      expect(result.endpoints[0].queryParams).toEqual([
+        { parameter: "key", value: "abc" },
+      ]);
+    });
+
+    it("should reject duplicate header names on a write endpoint at deploy", () => {
+      const config = {
+        device: "dev-001",
+        endpoints: [
+          {
+            key: "ep1",
+            method: "POST",
+            path: "/api",
+            headers: [
+              { name: "X-Key", value: "a" },
+              { name: "X-Key", value: "b" },
+            ],
+            channel: { pointer: "/val", jsonType: "number", channel: 1 },
+            fields: [],
+          },
+        ],
+      };
+      const result = HTTP.Task.deployWriteConfigZ.safeParse(config);
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject duplicate query parameters on a write endpoint at deploy", () => {
+      const config = {
+        device: "dev-001",
+        endpoints: [
+          {
+            key: "ep1",
+            method: "POST",
+            path: "/api",
+            queryParams: [
+              { parameter: "key", value: "a" },
+              { parameter: "key", value: "b" },
+            ],
+            channel: { pointer: "/val", jsonType: "number", channel: 1 },
+            fields: [],
+          },
+        ],
+      };
+      const result = HTTP.Task.deployWriteConfigZ.safeParse(config);
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("write channel field", () => {
+    it("should validate a channel field with all json types", () => {
+      for (const jsonType of ["number", "string", "boolean"] as const) {
+        const config = {
+          device: "dev-001",
+          endpoints: [
+            {
+              key: "ep1",
+              method: "POST",
+              path: "/api",
+              channel: { pointer: "/val", jsonType, channel: 1 },
+              fields: [],
+            },
+          ],
+        };
+        const result = HTTP.Task.WRITE_SCHEMAS.config.parse(config);
+        expect(result.endpoints[0].channel.jsonType).toBe(jsonType);
+      }
+    });
+
+    it("should reject an invalid jsonType", () => {
+      const config = {
+        device: "dev-001",
+        endpoints: [
+          {
+            key: "ep1",
+            method: "POST",
+            path: "/api",
+            channel: { pointer: "/val", jsonType: "object", channel: 1 },
+            fields: [],
+          },
+        ],
+      };
+      const result = HTTP.Task.WRITE_SCHEMAS.config.safeParse(config);
+      expect(result.success).toBe(false);
+    });
+
+    it("should validate a channel field with enum values", () => {
+      const config = {
+        device: "dev-001",
+        endpoints: [
+          {
+            key: "ep1",
+            method: "POST",
+            path: "/api",
+            channel: {
+              pointer: "/state",
+              jsonType: "string",
+              channel: 1,
+              enumValues: [
+                { value: 1, label: "ON" },
+                { value: 0, label: "OFF" },
+              ],
+            },
+            fields: [],
+          },
+        ],
+      };
+      const result = HTTP.Task.WRITE_SCHEMAS.config.parse(config);
+      expect(result.endpoints[0].channel.enumValues).toHaveLength(2);
+    });
+
+    it("should default a channel field without enum values to an empty list", () => {
+      const config = {
+        device: "dev-001",
+        endpoints: [
+          {
+            key: "ep1",
+            method: "POST",
+            path: "/api",
+            channel: { pointer: "/state", jsonType: "string", channel: 1 },
+            fields: [],
+          },
+        ],
+      };
+      const result = HTTP.Task.deployWriteConfigZ.parse(config);
+      expect(result.endpoints[0].channel.enumValues).toEqual([]);
+    });
+
+    it("should reject duplicate write enum values", () => {
+      const config = {
+        device: "dev-001",
+        endpoints: [
+          {
+            key: "ep1",
+            method: "POST",
+            path: "/api",
+            channel: {
+              pointer: "/state",
+              jsonType: "string",
+              channel: 1,
+              enumValues: [
+                { value: 1, label: "ON" },
+                { value: 1, label: "OFF" },
+              ],
+            },
+            fields: [],
+          },
+        ],
+      };
+      const result = HTTP.Task.deployWriteConfigZ.safeParse(config);
+      expect(result.success).toBe(false);
+    });
+
+    it("should validate a channel field with timeFormat", () => {
+      const config = {
+        device: "dev-001",
+        endpoints: [
+          {
+            key: "ep1",
+            method: "POST",
+            path: "/api",
+            channel: {
+              pointer: "/ts",
+              jsonType: "number",
+              channel: 1,
+              timeFormat: "unix_ms",
+            },
+            fields: [],
+          },
+        ],
+      };
+      const result = HTTP.Task.WRITE_SCHEMAS.config.parse(config);
+      expect(result.endpoints[0].channel.timeFormat).toBe("unix_ms");
+    });
+  });
+
+  describe("write endpoint custom checks", () => {
+    it("should reject bare primitive pointer with additional fields", () => {
+      const config = {
+        device: "dev-001",
+        endpoints: [
+          {
+            key: "ep1",
+            method: "POST",
+            path: "/api",
+            channel: { pointer: "", jsonType: "number", channel: 1 },
+            fields: [
+              {
+                key: "sf1",
+                type: "static",
+                pointer: "/extra",
+                jsonType: "number",
+                value: 42,
+              },
+            ],
+          },
+        ],
+      };
+      const result = HTTP.Task.deployWriteConfigZ.safeParse(config);
+      expect(result.success).toBe(false);
+    });
+
+    it("should allow bare primitive pointer with no fields", () => {
+      const config = {
+        device: "dev-001",
+        endpoints: [
+          {
+            key: "ep1",
+            method: "POST",
+            path: "/api",
+            channel: { pointer: "", jsonType: "number", channel: 1 },
+            fields: [],
+          },
+        ],
+      };
+      const result = HTTP.Task.WRITE_SCHEMAS.config.parse(config);
+      expect(result.endpoints[0].channel.pointer).toBe("");
+    });
+
+    it("should reject duplicate pointers between channel and fields", () => {
+      const config = {
+        device: "dev-001",
+        endpoints: [
+          {
+            key: "ep1",
+            method: "POST",
+            path: "/api",
+            channel: { pointer: "/value", jsonType: "number", channel: 1 },
+            fields: [
+              {
+                key: "sf1",
+                type: "static",
+                pointer: "/value",
+                jsonType: "number",
+                value: 42,
+              },
+            ],
+          },
+        ],
+      };
+      const result = HTTP.Task.deployWriteConfigZ.safeParse(config);
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject duplicate pointers between fields", () => {
+      const config = {
+        device: "dev-001",
+        endpoints: [
+          {
+            key: "ep1",
+            method: "POST",
+            path: "/api",
+            channel: { pointer: "/value", jsonType: "number", channel: 1 },
+            fields: [
+              {
+                key: "sf1",
+                type: "static",
+                pointer: "/extra",
+                jsonType: "number",
+                value: 1,
+              },
+              {
+                key: "sf2",
+                type: "static",
+                pointer: "/extra",
+                jsonType: "number",
+                value: 2,
+              },
+            ],
+          },
+        ],
+      };
+      const result = HTTP.Task.deployWriteConfigZ.safeParse(config);
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject a static field with empty pointer", () => {
+      const config = {
+        device: "dev-001",
+        endpoints: [
+          {
+            key: "ep1",
+            method: "POST",
+            path: "/api",
+            channel: { pointer: "/value", jsonType: "number", channel: 1 },
+            fields: [
+              {
+                key: "sf1",
+                type: "static",
+                pointer: "",
+                jsonType: "number",
+                value: 42,
+              },
+            ],
+          },
+        ],
+      };
+      const result = HTTP.Task.deployWriteConfigZ.safeParse(config);
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject a generated field with empty pointer", () => {
+      const config = {
+        device: "dev-001",
+        endpoints: [
+          {
+            key: "ep1",
+            method: "POST",
+            path: "/api",
+            channel: { pointer: "/value", jsonType: "number", channel: 1 },
+            fields: [{ key: "gf1", type: "generated", pointer: "", generator: "uuid" }],
+          },
+        ],
+      };
+      const result = HTTP.Task.deployWriteConfigZ.safeParse(config);
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("write fields", () => {
+    it("should validate a static field", () => {
+      const config = {
+        device: "dev-001",
+        endpoints: [
+          {
+            key: "ep1",
+            method: "POST",
+            path: "/api",
+            channel: { pointer: "/value", jsonType: "number", channel: 1 },
+            fields: [
+              {
+                key: "sf1",
+                type: "static",
+                pointer: "/device_id",
+                jsonType: "string",
+                value: "sensor-01",
+              },
+            ],
+          },
+        ],
+      };
+      const result = HTTP.Task.WRITE_SCHEMAS.config.parse(config);
+      expect(result.endpoints[0].fields[0].type).toBe("static");
+    });
+
+    it("should validate a generated UUID field", () => {
+      const config = {
+        device: "dev-001",
+        endpoints: [
+          {
+            key: "ep1",
+            method: "POST",
+            path: "/api",
+            channel: { pointer: "/value", jsonType: "number", channel: 1 },
+            fields: [
+              {
+                key: "gf1",
+                type: "generated",
+                pointer: "/request_id",
+                generator: "uuid",
+              },
+            ],
+          },
+        ],
+      };
+      const result = HTTP.Task.WRITE_SCHEMAS.config.parse(config);
+      expect(result.endpoints[0].fields[0].type).toBe("generated");
+    });
+
+    it("should validate a generated timestamp field with format", () => {
+      const config = {
+        device: "dev-001",
+        endpoints: [
+          {
+            key: "ep1",
+            method: "POST",
+            path: "/api",
+            channel: { pointer: "/value", jsonType: "number", channel: 1 },
+            fields: [
+              {
+                key: "gf1",
+                type: "generated",
+                pointer: "/timestamp",
+                generator: "timestamp",
+                timeFormat: "iso8601",
+              },
+            ],
+          },
+        ],
+      };
+      const result = HTTP.Task.WRITE_SCHEMAS.config.parse(config);
+      expect(result.endpoints[0].fields[0].type).toBe("generated");
+    });
+
+    it("should reject an invalid generator type", () => {
+      const config = {
+        device: "dev-001",
+        endpoints: [
+          {
+            key: "ep1",
+            method: "POST",
+            path: "/api",
+            channel: { pointer: "/value", jsonType: "number", channel: 1 },
+            fields: [
+              {
+                key: "gf1",
+                type: "generated",
+                pointer: "/id",
+                generator: "random",
+              },
+            ],
+          },
+        ],
+      };
+      const result = HTTP.Task.WRITE_SCHEMAS.config.safeParse(config);
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("write endpoint v0 shapes", () => {
+    it("should not migrate a v0 header record on a write endpoint", () => {
+      // The Core migrates stored configs; the console only speaks generated shapes.
+      const config = {
+        device: "dev-001",
+        endpoints: [
+          {
+            key: "ep1",
+            method: "POST",
+            path: "/api",
+            headers: { "X-Custom": "val" },
+            channel: { pointer: "/val", jsonType: "number", channel: 1 },
+            fields: [],
+          },
+        ],
+      };
+      const result = HTTP.Task.WRITE_SCHEMAS.config.safeParse(config);
+      expect(result.success).toBe(false);
+    });
+
+    it("should not migrate a v0 query param record on a write endpoint", () => {
+      const config = {
+        device: "dev-001",
+        endpoints: [
+          {
+            key: "ep1",
+            method: "POST",
+            path: "/api",
+            queryParams: { key: "abc" },
+            channel: { pointer: "/val", jsonType: "number", channel: 1 },
+            fields: [],
+          },
+        ],
+      };
+      const result = HTTP.Task.WRITE_SCHEMAS.config.safeParse(config);
+      expect(result.success).toBe(false);
+    });
+  });
+});
+
+describe("HTTP Scan Task", () => {
+  describe("config", () => {
+    it("should accept null", () => {
+      expect(HTTP.Task.SCAN_SCHEMAS.config.safeParse(null).success).toBe(true);
+    });
+    it("should accept undefined", () => {
+      expect(HTTP.Task.SCAN_SCHEMAS.config.safeParse(undefined).success).toBe(true);
+    });
+  });
+  describe("statusData", () => {
+    it("should accept null", () => {
+      expect(HTTP.Task.SCAN_SCHEMAS.statusData.safeParse(null).success).toBe(true);
+    });
+    it("should accept undefined", () => {
+      expect(HTTP.Task.SCAN_SCHEMAS.statusData.safeParse(undefined).success).toBe(true);
+    });
+  });
+});
+
+describe("draft configs", () => {
+  // Drafts persist server-side before configuration, so the shape schema must
+  // accept every default config; retrieve parses with it.
+  it("should accept the default read config", () => {
+    const config = HTTP.Task.READ_SCHEMAS.config.parse({});
+    expect(HTTP.Task.READ_SCHEMAS.config.safeParse(config).success).toBe(true);
+  });
+  it("should accept the default write config", () => {
+    const config = HTTP.Task.WRITE_SCHEMAS.config.parse({});
+    expect(HTTP.Task.WRITE_SCHEMAS.config.safeParse(config).success).toBe(true);
+  });
+});

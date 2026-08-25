@@ -9,13 +9,13 @@
 
 import "@/schematic/node/general/offPageReference/offPageReference.css";
 
+import { type schematic } from "@synnaxlabs/client";
 import { type color, direction } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
-import { type Config } from "@/schematic/node/general/offPageReference/config";
 import { symbolColorVar } from "@/schematic/symbolColor";
 import { Text } from "@/text";
 
@@ -29,7 +29,7 @@ export const offPageReferenceTooltip = (
 };
 
 interface RenderProps extends Omit<
-  Config,
+  schematic.OffPageReferenceNodeConfig,
   "label" | "page" | "dblClickNav" | "variant" | "color"
 > {
   color?: color.Crude;
@@ -56,13 +56,13 @@ export const OffPageReference = ({
 
   const swap = direction.construct(orientation) === "y";
   const style = useMemo<CSSProperties>(
-    () => ({ [CSS.var("symbol-color")]: symbolColorVar(colorVal) }),
+    () => ({ [CSS.variable("symbol-color")]: symbolColorVar(colorVal) }),
     [colorVal],
   );
 
   return (
     <Primitive.Div
-      className={CSS(
+      className={CSS.cls(
         CSS.B("arrow"),
         CSS.B("symbol-colored"),
         linked && CSS.M("linked"),
@@ -105,7 +105,7 @@ export const OffPageReference = ({
         />
       </Handle.Boundary>
       <svg
-        style={{ visibility: "hidden", position: "absolute" }}
+        className={CSS.BE("off-page-reference", "goo-defs")}
         width="0"
         height="0"
         xmlns="http://www.w3.org/2000/svg"

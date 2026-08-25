@@ -67,7 +67,7 @@ protected:
         ASSERT_NIL(client->devices.create(dev));
 
         task = synnax::task::Task{
-            .key = synnax::task::create_key(rack.key, 0),
+            .rack = rack.key,
             .name = "modbus_write_test",
             .type = "modbus_write",
         };
@@ -89,13 +89,13 @@ TEST_F(ModbusWriteTest, testBasicWrite) {
         {"device", "modbus_test_dev"},
         {"channels",
          x::json::json::array(
-             {{{"type", "coil_output"},
+             {{{"type", "coil"},
                {"address", 0},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", coil_ch.key}},
-              {{"type", "holding_register_output"},
+              {{"type", "holding_register"},
                {"address", 1},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", reg_ch.key},
                {"data_type", "uint16"}}}
          )}
@@ -115,13 +115,11 @@ TEST_F(ModbusWriteTest, testBasicWrite) {
         reads
     );
 
-    auto dev = ASSERT_NIL_P(devs->acquire(cfg->conn));
-
     auto wt = std::make_unique<common::WriteTask>(
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<WriteTaskSink>(dev, std::move(*cfg)),
+        std::make_unique<WriteTaskSink>(devs, std::move(*cfg)),
         nullptr,
         mock_streamer_factory
     );
@@ -177,29 +175,29 @@ TEST_F(ModbusWriteTest, testMultipleDataTypes) {
         {"device", "modbus_test_dev"},
         {"channels",
          x::json::json::array(
-             {{{"type", "holding_register_output"},
+             {{{"type", "holding_register"},
                {"address", 0},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", int16_ch.key},
                {"data_type", "int16"}},
-              {{"type", "holding_register_output"},
+              {{"type", "holding_register"},
                {"address", 1},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", uint32_ch.key},
                {"data_type", "uint32"}},
-              {{"type", "holding_register_output"},
+              {{"type", "holding_register"},
                {"address", 3},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", int32_ch.key},
                {"data_type", "int32"}},
-              {{"type", "holding_register_output"},
+              {{"type", "holding_register"},
                {"address", 5},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", float32_ch.key},
                {"data_type", "float32"}},
-              {{"type", "holding_register_output"},
+              {{"type", "holding_register"},
                {"address", 7},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", float64_ch.key},
                {"data_type", "float64"}}}
          )}
@@ -223,13 +221,11 @@ TEST_F(ModbusWriteTest, testMultipleDataTypes) {
         reads
     );
 
-    auto dev = ASSERT_NIL_P(devs->acquire(cfg->conn));
-
     auto wt = std::make_unique<common::WriteTask>(
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<WriteTaskSink>(dev, std::move(*cfg)),
+        std::make_unique<WriteTaskSink>(devs, std::move(*cfg)),
         nullptr,
         mock_streamer_factory
     );
@@ -254,9 +250,9 @@ TEST_F(ModbusWriteTest, testInvalidWriteConfiguration) {
         {"device", "non_existent_device"},
         {"channels",
          x::json::json::array(
-             {{{"type", "coil_output"},
+             {{{"type", "coil"},
                {"address", 0},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", coil_ch.key}}}
          )}
     };
@@ -271,18 +267,42 @@ TEST_F(ModbusWriteTest, testInvalidWriteConfiguration) {
     cfg = std::make_unique<WriteTaskConfig>(client, p2);
     ASSERT_OCCURRED_AS(p2.error(), x::errors::VALIDATION);
 
-    task_cfg["channels"][0]["type"] = "coil_output";
+    task_cfg["channels"][0]["type"] = "coil";
     task_cfg["channels"][0].erase("channel");
     auto p3 = x::json::Parser(task_cfg);
     cfg = std::make_unique<WriteTaskConfig>(client, p3);
     ASSERT_OCCURRED_AS(p3.error(), x::errors::VALIDATION);
 
     task_cfg["channels"][0]["channel"] = reg_ch.key;
-    task_cfg["channels"][0]["type"] = "holding_register_output";
-    task_cfg["channels"][0].erase("data_type");
+    task_cfg["channels"][0]["type"] = "holding_register";
+    task_cfg["channels"][0]["data_type"] = "uint16";
+    task_cfg["channels"][0]["address"] = "not_an_address";
     auto p4 = x::json::Parser(task_cfg);
     cfg = std::make_unique<WriteTaskConfig>(client, p4);
     ASSERT_OCCURRED_AS(p4.error(), x::errors::VALIDATION);
+}
+
+/// @brief it should configure when a disabled channel has no Synnax channel bound
+/// to it.
+TEST_F(ModbusWriteTest, testUnboundDisabledChannel) {
+    this->setup_task_config();
+
+    x::json::json task_cfg{
+        {"device", "modbus_test_dev"},
+        {"channels",
+         x::json::json::array(
+             {{{"type", "coil"},
+               {"address", 0},
+               {"disabled", false},
+               {"channel", coil_ch.key}},
+              {{"type", "coil"}, {"address", 1}, {"disabled", true}}}
+         )}
+    };
+
+    auto p = x::json::Parser(task_cfg);
+    cfg = std::make_unique<WriteTaskConfig>(client, p);
+    ASSERT_NIL(p.error());
+    EXPECT_EQ(cfg->cmd_keys().size(), 1);
 }
 
 /// @brief it should handle concurrent writes to multiple channels.
@@ -321,22 +341,22 @@ TEST_F(ModbusWriteTest, testConcurrentWrites) {
         {"device", "modbus_test_dev"},
         {"channels",
          x::json::json::array(
-             {{{"type", "coil_output"},
+             {{{"type", "coil"},
                {"address", 0},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", coil1.key}},
-              {{"type", "coil_output"},
+              {{"type", "coil"},
                {"address", 1},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", coil2.key}},
-              {{"type", "holding_register_output"},
+              {{"type", "holding_register"},
                {"address", 0},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", reg1.key},
                {"data_type", "uint16"}},
-              {{"type", "holding_register_output"},
+              {{"type", "holding_register"},
                {"address", 1},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", reg2.key},
                {"data_type", "uint16"}}}
          )}
@@ -359,13 +379,11 @@ TEST_F(ModbusWriteTest, testConcurrentWrites) {
         reads
     );
 
-    auto dev = ASSERT_NIL_P(devs->acquire(cfg->conn));
-
     auto wt = std::make_unique<common::WriteTask>(
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<WriteTaskSink>(dev, std::move(*cfg)),
+        std::make_unique<WriteTaskSink>(devs, std::move(*cfg)),
         nullptr,
         mock_streamer_factory
     );
@@ -400,13 +418,13 @@ TEST_F(ModbusWriteTest, testWriteVerification) {
         {"device", "modbus_test_dev"},
         {"channels",
          x::json::json::array(
-             {{{"type", "coil_output"},
+             {{{"type", "coil"},
                {"address", 0},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", coil_ch.key}},
-              {{"type", "holding_register_output"},
+              {{"type", "holding_register"},
                {"address", 1},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", reg_ch.key},
                {"data_type", "uint16"}}}
          )}
@@ -427,13 +445,11 @@ TEST_F(ModbusWriteTest, testWriteVerification) {
         reads
     );
 
-    auto dev = ASSERT_NIL_P(devs->acquire(cfg->conn));
-
     auto wt = std::make_unique<common::WriteTask>(
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<WriteTaskSink>(dev, std::move(*cfg)),
+        std::make_unique<WriteTaskSink>(devs, std::move(*cfg)),
         nullptr,
         mock_streamer_factory
     );
@@ -455,7 +471,7 @@ TEST_F(ModbusWriteTest, testWriteVerification) {
     EXPECT_EQ(first_state.key, synnax::task::status_key(task));
     EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
-    EXPECT_EQ(first_state.variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(first_state.variant, synnax::status::VARIANT_SUCCESS);
 
     wt->stop("stop_cmd", true);
 
@@ -464,7 +480,7 @@ TEST_F(ModbusWriteTest, testWriteVerification) {
     EXPECT_EQ(second_state.key, synnax::task::status_key(task));
     EXPECT_EQ(second_state.details.task, task.key);
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
-    EXPECT_EQ(second_state.variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(second_state.variant, synnax::status::VARIANT_SUCCESS);
 }
 
 /// @brief when a frame contains multiple samples for a channel, only the last
@@ -483,13 +499,13 @@ TEST_F(ModbusWriteTest, testLastWriteWins) {
         {"device", "modbus_test_dev"},
         {"channels",
          x::json::json::array(
-             {{{"type", "coil_output"},
+             {{{"type", "coil"},
                {"address", 0},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", coil_ch.key}},
-              {{"type", "holding_register_output"},
+              {{"type", "holding_register"},
                {"address", 1},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", reg_ch.key},
                {"data_type", "uint16"}}}
          )}
@@ -510,13 +526,11 @@ TEST_F(ModbusWriteTest, testLastWriteWins) {
         reads
     );
 
-    auto dev = ASSERT_NIL_P(devs->acquire(cfg->conn));
-
     auto wt = std::make_unique<common::WriteTask>(
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<WriteTaskSink>(dev, std::move(*cfg)),
+        std::make_unique<WriteTaskSink>(devs, std::move(*cfg)),
         nullptr,
         mock_streamer_factory
     );
@@ -567,19 +581,19 @@ TEST_F(ModbusWriteTest, testMultipleUint8HoldingRegisters) {
         {"device", "modbus_test_dev"},
         {"channels",
          x::json::json::array(
-             {{{"type", "holding_register_output"},
+             {{{"type", "holding_register"},
                {"address", 0},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", holding0.key},
                {"data_type", "uint8"}},
-              {{"type", "holding_register_output"},
+              {{"type", "holding_register"},
                {"address", 1},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", holding1.key},
                {"data_type", "uint8"}},
-              {{"type", "holding_register_output"},
+              {{"type", "holding_register"},
                {"address", 2},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", holding2.key},
                {"data_type", "uint8"}}}
          )}
@@ -601,13 +615,11 @@ TEST_F(ModbusWriteTest, testMultipleUint8HoldingRegisters) {
         reads
     );
 
-    auto dev = ASSERT_NIL_P(devs->acquire(cfg->conn));
-
     auto wt = std::make_unique<common::WriteTask>(
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<WriteTaskSink>(dev, std::move(*cfg)),
+        std::make_unique<WriteTaskSink>(devs, std::move(*cfg)),
         nullptr,
         mock_streamer_factory
     );

@@ -9,10 +9,9 @@
 
 import { describe, expect, it } from "vitest";
 
-import { AuthError, NotFoundError } from "@/errors";
+import { AccessDeniedError, NotFoundError } from "@/errors";
 import { project } from "@/project";
-import { createTestClientWithPolicy } from "@/testutil/access";
-import { createTestClient } from "@/testutil/client";
+import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
 const client = createTestClient();
 
@@ -28,8 +27,8 @@ describe("project", () => {
         name: "test",
         layout: {},
       });
-      await expect(userClient.projects.retrieve(randomProject.key)).rejects.toThrow(
-        AuthError,
+      await expect(userClient.projects.retrieve(randomProject.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
       );
     });
 
@@ -71,7 +70,7 @@ describe("project", () => {
           name: "test",
           layout: {},
         }),
-      ).rejects.toThrow(AuthError);
+      ).rejects.toSatisfy(AccessDeniedError.matches);
     });
 
     it("should allow the caller to delete projects with the correct policy", async () => {
@@ -100,8 +99,8 @@ describe("project", () => {
         name: "test",
         layout: {},
       });
-      await expect(userClient.projects.delete(randomProject.key)).rejects.toThrow(
-        AuthError,
+      await expect(userClient.projects.delete(randomProject.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
       );
     });
   });

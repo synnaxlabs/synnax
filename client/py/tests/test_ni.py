@@ -29,7 +29,7 @@ class TestNITask:
                     "terminal_config": "Cfg_Default",
                     "channel": 1048582,
                     "port": 0,
-                    "enabled": True,
+                    "disabled": False,
                     "min_val": 0,
                     "max_val": 1,
                     "units": "Volts",
@@ -42,14 +42,12 @@ class TestNITask:
                     "type": "ai_thermocouple",
                     "channel": 1048583,
                     "port": 1,
-                    "enabled": True,
+                    "disabled": False,
                     "min_val": 0,
                     "max_val": 1,
                     "units": "DegC",
                     "thermocouple_type": "J",
-                    "cjc_source": "BuiltIn",
-                    "cjc_val": 0,
-                    "cjc_port": 0,
+                    "cjc": {"source": "built_in"},
                 },
                 {
                     "name": "",
@@ -58,7 +56,7 @@ class TestNITask:
                     "channel": 1048584,
                     "type": "ai_rtd",
                     "port": 2,
-                    "enabled": True,
+                    "disabled": False,
                     "min_val": 0,
                     "max_val": 1,
                     "units": "DegC",
@@ -75,7 +73,7 @@ class TestNITask:
                     "type": "ai_pressure_bridge_two_point_lin",
                     "channel": 1048585,
                     "port": 3,
-                    "enabled": True,
+                    "disabled": False,
                     "min_val": 0,
                     "max_val": 1,
                     "terminal_config": "Cfg_Default",
@@ -100,7 +98,7 @@ class TestNITask:
                     "channel": 1048586,
                     "port": 4,
                     "units": "g",
-                    "enabled": True,
+                    "disabled": False,
                     "min_val": 0,
                     "max_val": 1,
                     "terminal_config": "Cfg_Default",
@@ -118,7 +116,7 @@ class TestNITask:
                     "units": "mVoltsPerVolt",
                     "channel": 1048587,
                     "port": 5,
-                    "enabled": True,
+                    "disabled": False,
                     "min_val": 0,
                     "max_val": 1,
                     "terminal_config": "Cfg_Default",
@@ -135,7 +133,7 @@ class TestNITask:
                     "channel": 1048588,
                     "port": 6,
                     "type": "ai_current",
-                    "enabled": True,
+                    "disabled": False,
                     "min_val": 0,
                     "max_val": 1,
                     "terminal_config": "Cfg_Default",
@@ -151,7 +149,7 @@ class TestNITask:
                     "type": "ai_force_bridge_table",
                     "channel": 1048589,
                     "port": 7,
-                    "enabled": True,
+                    "disabled": False,
                     "min_val": 0,
                     "max_val": 1,
                     "units": "Newtons",
@@ -172,7 +170,7 @@ class TestNITask:
                     "type": "ai_force_bridge_two_point_lin",
                     "channel": 1048590,
                     "port": 8,
-                    "enabled": True,
+                    "disabled": False,
                     "min_val": 0,
                     "max_val": 1,
                     "terminal_config": "Cfg_Default",
@@ -196,7 +194,7 @@ class TestNITask:
                     "type": "ai_force_iepe",
                     "channel": 1048591,
                     "port": 9,
-                    "enabled": True,
+                    "disabled": False,
                     "min_val": 0,
                     "max_val": 1,
                     "terminal_config": "Cfg_Default",
@@ -214,7 +212,7 @@ class TestNITask:
                     "type": "ai_microphone",
                     "channel": 1048592,
                     "port": 10,
-                    "enabled": True,
+                    "disabled": False,
                     "terminal_config": "Cfg_Default",
                     "mic_sensitivity": 0,
                     "max_snd_press_level": 0,
@@ -230,7 +228,7 @@ class TestNITask:
                     "type": "ai_pressure_bridge_table",
                     "channel": 1048593,
                     "port": 11,
-                    "enabled": True,
+                    "disabled": False,
                     "min_val": 0,
                     "max_val": 1,
                     "units": "PoundsPerSquareInch",
@@ -251,7 +249,7 @@ class TestNITask:
                     "type": "ai_resistance",
                     "channel": 1048594,
                     "port": 12,
-                    "enabled": True,
+                    "disabled": False,
                     "min_val": 0,
                     "max_val": 1,
                     "terminal_config": "Cfg_Default",
@@ -268,7 +266,7 @@ class TestNITask:
                     "type": "ai_strain_gauge",
                     "channel": 1048595,
                     "port": 13,
-                    "enabled": True,
+                    "disabled": False,
                     "min_val": 0,
                     "max_val": 1,
                     "terminal_config": "Cfg_Default",
@@ -290,7 +288,7 @@ class TestNITask:
                     "type": "ai_temp_builtin",
                     "channel": 1048596,
                     "port": 14,
-                    "enabled": True,
+                    "disabled": False,
                     "units": "DegC",
                 },
                 {
@@ -300,7 +298,7 @@ class TestNITask:
                     "type": "ai_torque_bridge_table",
                     "channel": 1048597,
                     "port": 15,
-                    "enabled": True,
+                    "disabled": False,
                     "min_val": 0,
                     "max_val": 1,
                     "units": "NewtonMeters",
@@ -321,7 +319,7 @@ class TestNITask:
                     "type": "ai_torque_bridge_two_point_lin",
                     "channel": 1048598,
                     "port": 16,
-                    "enabled": True,
+                    "disabled": False,
                     "min_val": 0,
                     "max_val": 1,
                     "units": "NewtonMeters",
@@ -344,7 +342,7 @@ class TestNITask:
                     "type": "ai_velocity_iepe",
                     "channel": 1048599,
                     "port": 17,
-                    "enabled": True,
+                    "disabled": False,
                     "terminal_config": "Cfg_Default",
                     "min_val": 0,
                     "max_val": 1,
@@ -356,9 +354,9 @@ class TestNITask:
                     "custom_scale": {"type": "none"},
                 },
             ],
-            "data_saving": True,
+            "data_saving_disabled": False,
         }
-        sy.ni.AnalogReadTaskConfig.model_validate(data)
+        sy.ni.AnalogReadConfig.model_validate(data)
 
     def test_parse_analog_read_task_default_device_none_provided(self):
         with pytest.raises(sy.ValidationError):
@@ -366,15 +364,16 @@ class TestNITask:
                 sample_rate=10,
                 stream_rate=5,
                 channels=[
-                    sy.ni.AIVoltageChan(
+                    sy.ni.AIVoltageChannel(
+                        type="ai_voltage",
                         key="k09AWoiyLxN",
                         terminal_config="Cfg_Default",
                         channel=1048582,
                         port=0,
-                        enabled=True,
                         min_val=0,
                         max_val=1,
                         units="Volts",
+                        custom_scale=sy.ni.NoneScale(type="none"),
                     )
                 ],
             )
@@ -385,15 +384,16 @@ class TestNITask:
             sample_rate=10,
             stream_rate=5,
             channels=[
-                sy.ni.AIVoltageChan(
+                sy.ni.AIVoltageChannel(
+                    type="ai_voltage",
                     key="k09AWoiyLxN",
                     terminal_config="Cfg_Default",
                     channel=1048582,
                     port=0,
-                    enabled=True,
                     min_val=0,
                     max_val=1,
                     units="Volts",
+                    custom_scale=sy.ni.NoneScale(type="none"),
                 )
             ],
         )
@@ -406,8 +406,7 @@ class TestNITask:
                 {
                     "key": "AnalogOut1",
                     "type": "ao_voltage",
-                    "enabled": True,
-                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
+                    "disabled": False,
                     "cmd_channel": 1048610,
                     "state_channel": 1048611,
                     "port": 0,
@@ -417,7 +416,7 @@ class TestNITask:
                     "custom_scale": {"type": "none"},
                 }
             ],
-            "data_saving": True,
+            "data_saving_disabled": False,
             "auto_start": False,
         }
         sy.ni.AnalogWriteConfig.model_validate(data)
@@ -430,7 +429,7 @@ class TestNITask:
                 {
                     "key": "CounterFreq1",
                     "type": "ci_frequency",
-                    "enabled": True,
+                    "disabled": False,
                     "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "channel": 1048630,
                     "port": 0,
@@ -444,7 +443,7 @@ class TestNITask:
                     "custom_scale": {"type": "none"},
                 }
             ],
-            "data_saving": True,
+            "data_saving_disabled": False,
             "auto_start": False,
         }
         sy.ni.CounterReadConfig.model_validate(data)
@@ -457,21 +456,21 @@ class TestNITask:
                 {
                     "key": "LinearVel1",
                     "type": "ci_velocity_linear",
-                    "enabled": True,
+                    "disabled": False,
                     "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "channel": 1048631,
                     "port": 0,
                     "min_val": 0.0,
                     "max_val": 100.0,
-                    "units": "MetersPerSecond",
+                    "units": "m/s",
                     "decoding_type": "X4",
                     "dist_per_pulse": 0.001,
-                    "terminalA": "",
-                    "terminalB": "",
+                    "terminal_a": "",
+                    "terminal_b": "",
                     "custom_scale": {"type": "none"},
                 }
             ],
-            "data_saving": True,
+            "data_saving_disabled": False,
             "auto_start": False,
         }
         sy.ni.CounterReadConfig.model_validate(data)
@@ -484,7 +483,7 @@ class TestNITask:
                 {
                     "key": "AngularVel1",
                     "type": "ci_velocity_angular",
-                    "enabled": True,
+                    "disabled": False,
                     "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "channel": 1048632,
                     "port": 1,
@@ -493,12 +492,12 @@ class TestNITask:
                     "units": "RPM",
                     "decoding_type": "X4",
                     "pulses_per_rev": 1024,
-                    "terminalA": "",
-                    "terminalB": "",
+                    "terminal_a": "",
+                    "terminal_b": "",
                     "custom_scale": {"type": "none"},
                 }
             ],
-            "data_saving": True,
+            "data_saving_disabled": False,
             "auto_start": False,
         }
         sy.ni.CounterReadConfig.model_validate(data)
@@ -511,7 +510,7 @@ class TestNITask:
                 {
                     "key": "LinearPos1",
                     "type": "ci_position_linear",
-                    "enabled": True,
+                    "disabled": False,
                     "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "channel": 1048633,
                     "port": 2,
@@ -519,16 +518,16 @@ class TestNITask:
                     "decoding_type": "X4",
                     "dist_per_pulse": 0.001,
                     "initial_pos": 0.0,
-                    "z_index_enable": False,
+                    "z_index_enabled": False,
                     "z_index_val": 0.0,
                     "z_index_phase": "AHighBHigh",
-                    "terminalA": "",
-                    "terminalB": "",
-                    "terminalZ": "",
+                    "terminal_a": "",
+                    "terminal_b": "",
+                    "terminal_z": "",
                     "custom_scale": {"type": "none"},
                 }
             ],
-            "data_saving": True,
+            "data_saving_disabled": False,
             "auto_start": False,
         }
         sy.ni.CounterReadConfig.model_validate(data)
@@ -541,7 +540,7 @@ class TestNITask:
                 {
                     "key": "AngularPos1",
                     "type": "ci_position_angular",
-                    "enabled": True,
+                    "disabled": False,
                     "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "channel": 1048634,
                     "port": 3,
@@ -549,16 +548,16 @@ class TestNITask:
                     "decoding_type": "X4",
                     "pulses_per_rev": 1024,
                     "initial_angle": 0.0,
-                    "z_index_enable": False,
+                    "z_index_enabled": False,
                     "z_index_val": 0.0,
                     "z_index_phase": "AHighBHigh",
-                    "terminalA": "",
-                    "terminalB": "",
-                    "terminalZ": "",
+                    "terminal_a": "",
+                    "terminal_b": "",
+                    "terminal_z": "",
                     "custom_scale": {"type": "none"},
                 }
             ],
-            "data_saving": True,
+            "data_saving_disabled": False,
             "auto_start": False,
         }
         sy.ni.CounterReadConfig.model_validate(data)
@@ -571,17 +570,17 @@ class TestNITask:
                 {
                     "key": "DutyCycle1",
                     "type": "ci_duty_cycle",
-                    "enabled": True,
+                    "disabled": False,
                     "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "channel": 1048635,
                     "port": 4,
                     "min_val": 0.0,
                     "max_val": 1.0,
-                    "activeEdge": "Rising",
+                    "active_edge": "Rising",
                     "custom_scale": {"type": "none"},
                 }
             ],
-            "data_saving": True,
+            "data_saving_disabled": False,
             "auto_start": False,
         }
         sy.ni.CounterReadConfig.model_validate(data)
@@ -592,8 +591,7 @@ class TestNITask:
             "channels": [
                 {
                     "key": "5DSZbDQy6a4",
-                    "type": "digital_input",
-                    "enabled": True,
+                    "disabled": False,
                     "port": 0,
                     "line": 1,
                     "channel": 1048601,
@@ -601,7 +599,7 @@ class TestNITask:
             ],
             "sample_rate": 50,
             "stream_rate": 25,
-            "data_saving": True,
+            "data_saving_disabled": False,
             "auto_start": False,
         }
         sy.ni.DigitalReadConfig.model_validate(data)
@@ -613,116 +611,55 @@ class TestNITask:
             "channels": [
                 {
                     "key": "Xph3kNL7twt",
-                    "type": "digital_output",
-                    "enabled": True,
+                    "disabled": False,
                     "cmd_channel": 1048605,
                     "state_channel": 1048603,
                     "port": 0,
                     "line": 1,
                 }
             ],
-            "data_saving": True,
+            "data_saving_disabled": False,
             "auto_start": True,
         }
         sy.ni.DigitalWriteConfig.model_validate(data)
 
-    def test_analog_read_sample_rate_bounds(self):
-        """Test that sample rate validation works (1-1000000 Hz for NI)."""
-        # Valid sample rates
-        sy.ni.AnalogReadTaskConfig(
-            sample_rate=1,
-            stream_rate=1,
-            data_saving=False,
+    def test_analog_read_config_rates(self):
+        """Test that AnalogReadConfig coerces crude rates and applies defaults."""
+        config = sy.ni.AnalogReadConfig(
+            sample_rate=sy.Rate(1000),
+            stream_rate=sy.Rate(100),
             channels=[
-                sy.ni.AIVoltageChan(
+                sy.ni.AIVoltageChannel(
+                    type="ai_voltage",
                     key="test",
                     device="test-device",
                     terminal_config="Cfg_Default",
                     channel=1234,
                     port=0,
-                    enabled=True,
                     min_val=0,
                     max_val=10,
                     units="Volts",
+                    custom_scale=sy.ni.NoneScale(type="none"),
                 )
             ],
         )
-        # Test max valid rate (1 MHz)
-        sy.ni.AnalogReadTaskConfig(
-            sample_rate=1000000,
-            stream_rate=50000,
-            data_saving=False,
+        assert config.sample_rate == sy.Rate(1000)
+        assert config.stream_rate == sy.Rate(100)
+        assert config.data_saving_disabled is False
+        assert config.auto_start is False
+
+    def test_counter_read_config_parses_channels(self):
+        """Test that CounterReadConfig accepts counter channel models."""
+        config = sy.ni.CounterReadConfig(
+            sample_rate=sy.Rate(1000),
+            stream_rate=sy.Rate(500),
             channels=[
-                sy.ni.AIVoltageChan(
-                    key="test",
-                    device="test-device",
-                    terminal_config="Cfg_Default",
-                    channel=1234,
-                    port=0,
-                    enabled=True,
-                    min_val=0,
-                    max_val=10,
-                    units="Volts",
-                )
-            ],
-        )
-
-        # Invalid sample rate (exceeds 1 MHz)
-        with pytest.raises(ValidationError):
-            sy.ni.AnalogReadTaskConfig(
-                sample_rate=1000001,
-                stream_rate=50000,
-                data_saving=False,
-                channels=[
-                    sy.ni.AIVoltageChan(
-                        key="test",
-                        device="test-device",
-                        terminal_config="Cfg_Default",
-                        channel=1234,
-                        port=0,
-                        enabled=True,
-                        min_val=0,
-                        max_val=10,
-                        units="Volts",
-                    )
-                ],
-            )
-
-        # Invalid sample rate (negative)
-        with pytest.raises(ValidationError):
-            sy.ni.AnalogReadTaskConfig(
-                sample_rate=-1,
-                stream_rate=1,
-                data_saving=False,
-                channels=[
-                    sy.ni.AIVoltageChan(
-                        key="test",
-                        device="test-device",
-                        terminal_config="Cfg_Default",
-                        channel=1234,
-                        port=0,
-                        enabled=True,
-                        min_val=0,
-                        max_val=10,
-                        units="Volts",
-                    )
-                ],
-            )
-
-    def test_counter_read_sample_rate_bounds(self):
-        """Test that counter read sample rate validation works (1-1000000 Hz for NI)."""
-        # Valid max rate (1 MHz)
-        sy.ni.CounterReadConfig(
-            sample_rate=1000000,
-            stream_rate=50000,
-            data_saving=False,
-            channels=[
-                sy.ni.CIFrequencyChan(
+                sy.ni.CIFrequencyChannel(
+                    type="ci_frequency",
                     key="test",
                     device="test-device",
                     channel=1234,
                     port=0,
-                    enabled=True,
                     min_val=0,
                     max_val=1000,
                     units="Hz",
@@ -730,136 +667,73 @@ class TestNITask:
                     meas_method="LowFreq1Ctr",
                     meas_time=0.001,
                     divisor=4,
+                    custom_scale=sy.ni.NoneScale(type="none"),
                 )
             ],
         )
+        assert len(config.channels) == 1
+        ch = config.channels[0]
+        assert isinstance(ch, sy.ni.CIFrequencyChannel)
+        assert ch.units == "Hz"
 
-        # Invalid sample rate (exceeds 1 MHz)
-        with pytest.raises(ValidationError):
-            sy.ni.CounterReadConfig(
-                sample_rate=1000001,
-                stream_rate=50000,
-                data_saving=False,
-                channels=[
-                    sy.ni.CIFrequencyChan(
-                        key="test",
-                        device="test-device",
-                        channel=1234,
-                        port=0,
-                        enabled=True,
-                        min_val=0,
-                        max_val=1000,
-                        units="Hz",
-                        edge="Rising",
-                        meas_method="LowFreq1Ctr",
-                        meas_time=0.001,
-                        divisor=4,
-                    )
-                ],
-            )
-
-    def test_digital_read_sample_rate_bounds(self):
-        """Test that digital read sample rate validation works (1-1000000 Hz for NI)."""
-        # Valid max rate (1 MHz)
-        sy.ni.DigitalReadConfig(
+    def test_digital_read_config_parses_channels(self):
+        """Test that DigitalReadConfig accepts digital input channel models."""
+        config = sy.ni.DigitalReadConfig(
             device="test-device",
-            sample_rate=1000000,
-            stream_rate=50000,
-            data_saving=False,
+            sample_rate=sy.Rate(1000),
+            stream_rate=sy.Rate(500),
             channels=[
-                sy.ni.DIChan(
+                sy.ni.DIChannel(
                     key="test",
-                    type="digital_input",
-                    enabled=True,
                     port=0,
                     line=0,
                     channel=1234,
                 )
             ],
         )
-
-        # Invalid sample rate (exceeds 1 MHz)
-        with pytest.raises(ValidationError):
-            sy.ni.DigitalReadConfig(
-                device="test-device",
-                sample_rate=1000001,
-                stream_rate=50000,
-                data_saving=False,
-                channels=[
-                    sy.ni.DIChan(
-                        key="test",
-                        type="digital_input",
-                        enabled=True,
-                        port=0,
-                        line=0,
-                        channel=1234,
-                    )
-                ],
-            )
+        assert len(config.channels) == 1
+        assert config.channels[0].line == 0
 
     def test_multi_device_duplicate_ports_allowed(self):
         """Channels on different devices can reuse the same port number."""
-        sy.ni.AnalogReadTaskConfig(
-            sample_rate=100,
-            stream_rate=25,
-            data_saving=False,
+        sy.ni.AnalogReadConfig(
             channels=[
-                sy.ni.AIVoltageChan(
+                sy.ni.AIVoltageChannel(
+                    type="ai_voltage",
                     key="test1",
                     device="device-a",
                     terminal_config="Cfg_Default",
                     channel=1,
                     port=0,
-                    enabled=True,
                     min_val=-10,
                     max_val=10,
                     units="Volts",
+                    custom_scale=sy.ni.NoneScale(type="none"),
                 ),
-                sy.ni.AIVoltageChan(
+                sy.ni.AIVoltageChannel(
+                    type="ai_voltage",
                     key="test2",
                     device="device-b",
                     terminal_config="Cfg_Default",
                     channel=2,
                     port=0,
-                    enabled=True,
                     min_val=-10,
                     max_val=10,
                     units="Volts",
+                    custom_scale=sy.ni.NoneScale(type="none"),
                 ),
             ],
         )
 
-    def test_same_device_duplicate_ports_rejected(self):
-        """Channels on the same device cannot reuse the same port number."""
+    def test_invalid_channel_type_rejected(self):
+        """An unknown channel type discriminator fails validation."""
         with pytest.raises(ValidationError):
-            sy.ni.AnalogReadTaskConfig(
-                sample_rate=100,
-                stream_rate=25,
-                data_saving=False,
-                channels=[
-                    sy.ni.AIVoltageChan(
-                        key="test1",
-                        device="device-a",
-                        terminal_config="Cfg_Default",
-                        channel=1,
-                        port=0,
-                        enabled=True,
-                        min_val=-10,
-                        max_val=10,
-                        units="Volts",
-                    ),
-                    sy.ni.AIVoltageChan(
-                        key="test2",
-                        device="device-a",
-                        terminal_config="Cfg_Default",
-                        channel=2,
-                        port=0,
-                        enabled=True,
-                        min_val=-10,
-                        max_val=10,
-                        units="Volts",
-                    ),
-                ],
+            sy.ni.AnalogReadConfig.model_validate(
+                {
+                    "sample_rate": 100,
+                    "stream_rate": 25,
+                    "channels": [{"type": "not_a_channel", "key": "test"}],
+                }
             )
 
 

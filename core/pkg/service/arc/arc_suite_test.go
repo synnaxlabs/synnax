@@ -14,17 +14,20 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -37,70 +40,95 @@ func TestArc(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db       *gorp.DB
-	otg      *ontology.Ontology
-	svc      *arc.Service
-	tx       gorp.Tx
-	dist     mock.Node
-	groupSvc *group.Service
-	labelSvc *label.Service
-	statSvc  *status.Service
-	rackSvc  *rack.Service
-	taskSvc  *task.Service
-	testRack *rack.Rack
+	db         *gorp.DB
+	otg        *ontology.Ontology
+	svc        *arc.Service
+	writer     arc.Writer
+	channelSvc *channel.Service
+	tx         gorp.Tx
+	taskSvc    *task.Service
+	statusSvc  *status.Service
+	rackSvc    *rack.Service
+	testRack   *rack.Rack
+	imexSvc    *imex.Service
+	arcClock   = telem.Now
 )
 
 var (
 	_ = BeforeSuite(func(ctx SpecContext) {
-		db = DeferClose(gorp.Wrap(memkv.New()))
+		ShouldNotLeakGoroutines()
+		node := mock.NewNode(ctx)
+		db = node.DB
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustOpen(search.Open())
-		dist = DeferClose(mock.NewCluster().Provision(ctx))
-		groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		searchIdx := MustOpen(search.OpenIndex())
+		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Search:   searchIdx,
 		}))
-		labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    groupSvc,
 			Search:   searchIdx,
 		}))
-		statSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    groupSvc,
 			Label:    labelSvc,
 			Search:   searchIdx,
 		}))
+		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+			Channel:      node.Channel,
+			DB:           node.DB,
+			HostProvider: node.Cluster,
+			Ontology:     otg,
+			Group:        groupSvc,
+			Search:       searchIdx,
+			Status:       statusSvc,
+		}))
 		rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:                  db,
 			Ontology:            otg,
 			Group:               groupSvc,
-			HostProvider:        mock.StaticHostKeyProvider(1),
-			Status:              statSvc,
+			HostProvider:        mock.NewStaticHostProvider(1),
+			Status:              statusSvc,
 			HealthCheckInterval: 10 * telem.Millisecond,
 			Search:              searchIdx,
 		}))
+		imexSvc = imex.NewService()
+		arcTaskSvc := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{
+			DB: db,
+		}))
+		configs := MustSucceed(taskconfig.NewRegistry(arcTaskSvc.Stores()...))
 		taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    groupSvc,
-			Rack:     rackSvc,
-			Status:   statSvc,
-			Search:   searchIdx,
+			DB:           db,
+			Ontology:     otg,
+			Group:        groupSvc,
+			Rack:         rackSvc,
+			Status:       statusSvc,
+			Search:       searchIdx,
+			ImEx:         imexSvc,
+			Configs:      configs,
+			ImExExcluded: []string{arctask.Type},
 		}))
 		testRack = &rack.Rack{Name: "Test Rack"}
 		Expect(rackSvc.NewWriter(db).Create(ctx, testRack)).To(Succeed())
 		svc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Channel:  dist.Channel,
-			Task:     taskSvc,
-			Search:   searchIdx,
+			DB:                  db,
+			Ontology:            otg,
+			Channel:             channelSvc,
+			Task:                taskSvc,
+			Status:              statusSvc,
+			Search:              searchIdx,
+			ImEx:                imexSvc,
+			TextSweepQuiescence: 5 * telem.Second,
+			TextSweepThreshold:  1,
+			TaskSyncDebounce:    5 * telem.Millisecond,
+			Now:                 func() telem.TimeStamp { return arcClock() },
 		}))
+		writer = svc.NewWriter(nil)
 	})
-	_ = BeforeEach(func() { tx = db.OpenTx() })
-	_ = AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
+	_ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 )

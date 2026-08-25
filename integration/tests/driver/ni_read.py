@@ -33,10 +33,10 @@ class NIAnalogReadHS(NIAnalogReadTaskCase):
     @staticmethod
     def create_channels(
         client: sy.Synnax, devices: dict[str, sy.Device]
-    ) -> list[sy.ni.AIVoltageChan]:
+    ) -> list[sy.ni.AIVoltageChannel]:
         idx = create_index(client, "ni_aiv_index")
         return [
-            sy.ni.AIVoltageChan(
+            sy.ni.AIVoltageChannel(
                 port=i,
                 channel=create_channel(
                     client,
@@ -60,7 +60,7 @@ class NIAnalogReadScaled(NIAnalogReadTaskCase):
     Port | Scale    | Params                       | Output Range
     -----|----------|------------------------------|-------------
     0    | MapScale | -10V..+10V → 500..700        | [500, 700]
-    1    | LinScale | slope=60, intercept=1200      | [600, 1800]
+    1    | LinearScale | slope=60, intercept=1200      | [600, 1800]
     2    | None     | nominal volts (control)       | [-10, 10]
     """
 
@@ -73,7 +73,7 @@ class NIAnalogReadScaled(NIAnalogReadTaskCase):
     @staticmethod
     def create_channels(
         client: sy.Synnax, devices: dict[str, sy.Device]
-    ) -> list[sy.ni.AIVoltageChan]:
+    ) -> list[sy.ni.AIVoltageChannel]:
         idx = create_index(client, "ni_scaled_index")
         map_scale = sy.ni.MapScale(
             pre_scaled_min=-10,
@@ -84,14 +84,14 @@ class NIAnalogReadScaled(NIAnalogReadTaskCase):
         )
         # slope=60: each volt = 60 scaled units, intercept=1200: 0V = 1200
         # -10V → 600, 0V → 1200, +10V → 1800
-        lin_scale = sy.ni.LinScale(
+        lin_scale = sy.ni.LinearScale(
             slope=60,
             y_intercept=1200,
             pre_scaled_units="Volts",
             scaled_units="Volts",
         )
         return [
-            sy.ni.AIVoltageChan(
+            sy.ni.AIVoltageChannel(
                 port=0,
                 channel=create_channel(
                     client,
@@ -104,7 +104,7 @@ class NIAnalogReadScaled(NIAnalogReadTaskCase):
                 max_val=700,
                 custom_scale=map_scale,
             ),
-            sy.ni.AIVoltageChan(
+            sy.ni.AIVoltageChannel(
                 port=1,
                 channel=create_channel(
                     client,
@@ -117,7 +117,7 @@ class NIAnalogReadScaled(NIAnalogReadTaskCase):
                 max_val=1800,
                 custom_scale=lin_scale,
             ),
-            sy.ni.AIVoltageChan(
+            sy.ni.AIVoltageChannel(
                 port=2,
                 channel=create_channel(
                     client,
@@ -281,7 +281,7 @@ class NIReadTemperature(NIAnalogReadTaskCase):
     E101Mod8 (NI 9219) — RTD:
         Port 0: Pt3920, 3-wire, DegR
         Port 1: Pt3928, 3-wire, DegC
-        Port 2: Pt3850, 4-wire, DegF
+        Port 2: Pt3851, 4-wire, DegF
     """
 
     task_name = "NI Temperature + Resistance Read"
@@ -299,7 +299,7 @@ class NIReadTemperature(NIAnalogReadTaskCase):
     @staticmethod
     def create_channels(
         client: sy.Synnax, devices: dict[str, sy.Device]
-    ) -> list[sy.ni.AIChan]:
+    ) -> list[sy.ni.AIChannel]:
         idx = create_index(client, "ni_temp_index")
         mod2 = devices["E101Mod2"]
         mod5 = devices["E101Mod5"]
@@ -308,7 +308,7 @@ class NIReadTemperature(NIAnalogReadTaskCase):
         mod8 = devices["E101Mod8"]
         return [
             # --- E101Mod2 / NI 9219 (resistance) ---
-            sy.ni.AIResistanceChan(
+            sy.ni.AIResistanceChannel(
                 device=mod2.key,
                 port=0,
                 channel=create_channel(
@@ -317,14 +317,13 @@ class NIReadTemperature(NIAnalogReadTaskCase):
                     data_type=sy.DataType.FLOAT32,
                     index=idx.key,
                 ),
-                terminal_config="Cfg_Default",
                 resistance_config="4Wire",
                 current_excit_source="Internal",
                 current_excit_val=0.0005,
                 min_val=0.0,
                 max_val=1000.0,
             ),
-            sy.ni.AIResistanceChan(
+            sy.ni.AIResistanceChannel(
                 device=mod2.key,
                 port=1,
                 channel=create_channel(
@@ -333,14 +332,13 @@ class NIReadTemperature(NIAnalogReadTaskCase):
                     data_type=sy.DataType.FLOAT32,
                     index=idx.key,
                 ),
-                terminal_config="Cfg_Default",
                 resistance_config="2Wire",
                 current_excit_source="Internal",
                 current_excit_val=0.0005,
                 min_val=0.0,
                 max_val=10000.0,
             ),
-            sy.ni.AIResistanceChan(
+            sy.ni.AIResistanceChannel(
                 device=mod2.key,
                 port=2,
                 channel=create_channel(
@@ -349,7 +347,6 @@ class NIReadTemperature(NIAnalogReadTaskCase):
                     data_type=sy.DataType.FLOAT32,
                     index=idx.key,
                 ),
-                terminal_config="Cfg_Default",
                 resistance_config="4Wire",
                 current_excit_source="Internal",
                 current_excit_val=0.0005,
@@ -357,7 +354,7 @@ class NIReadTemperature(NIAnalogReadTaskCase):
                 max_val=1000.0,
             ),
             # --- E101Mod5 / NI 9211 (thermocouple) ---
-            sy.ni.AIThermocoupleChan(
+            sy.ni.AIThermocoupleChannel(
                 device=mod5.key,
                 port=0,
                 channel=create_channel(
@@ -368,13 +365,11 @@ class NIReadTemperature(NIAnalogReadTaskCase):
                 ),
                 units="DegC",
                 thermocouple_type="J",
-                cjc_source="BuiltIn",
-                cjc_val=0.0,
-                cjc_port=0,
+                cjc=sy.ni.BuiltInCJC(),
                 min_val=-50.0,
                 max_val=500.0,
             ),
-            sy.ni.AIThermocoupleChan(
+            sy.ni.AIThermocoupleChannel(
                 device=mod5.key,
                 port=1,
                 channel=create_channel(
@@ -385,13 +380,11 @@ class NIReadTemperature(NIAnalogReadTaskCase):
                 ),
                 units="DegF",
                 thermocouple_type="K",
-                cjc_source="BuiltIn",
-                cjc_val=0.0,
-                cjc_port=0,
+                cjc=sy.ni.BuiltInCJC(),
                 min_val=32.0,
                 max_val=932.0,
             ),
-            sy.ni.AIThermocoupleChan(
+            sy.ni.AIThermocoupleChannel(
                 device=mod5.key,
                 port=2,
                 channel=create_channel(
@@ -402,13 +395,11 @@ class NIReadTemperature(NIAnalogReadTaskCase):
                 ),
                 units="DegC",
                 thermocouple_type="T",
-                cjc_source="BuiltIn",
-                cjc_val=0.0,
-                cjc_port=0,
+                cjc=sy.ni.BuiltInCJC(),
                 min_val=-50.0,
                 max_val=300.0,
             ),
-            sy.ni.AIThermocoupleChan(
+            sy.ni.AIThermocoupleChannel(
                 device=mod5.key,
                 port=3,
                 channel=create_channel(
@@ -419,14 +410,12 @@ class NIReadTemperature(NIAnalogReadTaskCase):
                 ),
                 units="Kelvins",
                 thermocouple_type="E",
-                cjc_source="BuiltIn",
-                cjc_val=0.0,
-                cjc_port=0,
+                cjc=sy.ni.BuiltInCJC(),
                 min_val=223.0,
                 max_val=773.0,
             ),
             # --- E101Mod6 / NI 9211 (thermocouple) ---
-            sy.ni.AIThermocoupleChan(
+            sy.ni.AIThermocoupleChannel(
                 device=mod6.key,
                 port=0,
                 channel=create_channel(
@@ -437,13 +426,11 @@ class NIReadTemperature(NIAnalogReadTaskCase):
                 ),
                 units="DegC",
                 thermocouple_type="R",
-                cjc_source="BuiltIn",
-                cjc_val=0.0,
-                cjc_port=0,
+                cjc=sy.ni.BuiltInCJC(),
                 min_val=0.0,
                 max_val=1500.0,
             ),
-            sy.ni.AIThermocoupleChan(
+            sy.ni.AIThermocoupleChannel(
                 device=mod6.key,
                 port=1,
                 channel=create_channel(
@@ -454,13 +441,11 @@ class NIReadTemperature(NIAnalogReadTaskCase):
                 ),
                 units="DegF",
                 thermocouple_type="S",
-                cjc_source="BuiltIn",
-                cjc_val=0.0,
-                cjc_port=0,
+                cjc=sy.ni.BuiltInCJC(),
                 min_val=32.0,
                 max_val=2732.0,
             ),
-            sy.ni.AIThermocoupleChan(
+            sy.ni.AIThermocoupleChannel(
                 device=mod6.key,
                 port=2,
                 channel=create_channel(
@@ -471,13 +456,11 @@ class NIReadTemperature(NIAnalogReadTaskCase):
                 ),
                 units="DegC",
                 thermocouple_type="B",
-                cjc_source="BuiltIn",
-                cjc_val=0.0,
-                cjc_port=0,
+                cjc=sy.ni.BuiltInCJC(),
                 min_val=250.0,
                 max_val=1700.0,
             ),
-            sy.ni.AIThermocoupleChan(
+            sy.ni.AIThermocoupleChannel(
                 device=mod6.key,
                 port=3,
                 channel=create_channel(
@@ -488,14 +471,12 @@ class NIReadTemperature(NIAnalogReadTaskCase):
                 ),
                 units="DegR",
                 thermocouple_type="N",
-                cjc_source="BuiltIn",
-                cjc_val=0.0,
-                cjc_port=0,
+                cjc=sy.ni.BuiltInCJC(),
                 min_val=491.0,
                 max_val=1851.0,
             ),
             # --- E101Mod7 / NI 9219 (RTD) ---
-            sy.ni.AIRTDChan(
+            sy.ni.AIRTDChannel(
                 device=mod7.key,
                 port=0,
                 channel=create_channel(
@@ -513,7 +494,7 @@ class NIReadTemperature(NIAnalogReadTaskCase):
                 min_val=-50.0,
                 max_val=200.0,
             ),
-            sy.ni.AIRTDChan(
+            sy.ni.AIRTDChannel(
                 device=mod7.key,
                 port=1,
                 channel=create_channel(
@@ -531,7 +512,7 @@ class NIReadTemperature(NIAnalogReadTaskCase):
                 min_val=32.0,
                 max_val=212.0,
             ),
-            sy.ni.AIRTDChan(
+            sy.ni.AIRTDChannel(
                 device=mod7.key,
                 port=2,
                 channel=create_channel(
@@ -549,7 +530,7 @@ class NIReadTemperature(NIAnalogReadTaskCase):
                 min_val=-50.0,
                 max_val=200.0,
             ),
-            sy.ni.AIRTDChan(
+            sy.ni.AIRTDChannel(
                 device=mod7.key,
                 port=3,
                 channel=create_channel(
@@ -568,7 +549,7 @@ class NIReadTemperature(NIAnalogReadTaskCase):
                 max_val=373.0,
             ),
             # --- E101Mod8 / NI 9219 (RTD) ---
-            sy.ni.AIRTDChan(
+            sy.ni.AIRTDChannel(
                 device=mod8.key,
                 port=0,
                 channel=create_channel(
@@ -586,7 +567,7 @@ class NIReadTemperature(NIAnalogReadTaskCase):
                 min_val=491.0,
                 max_val=671.0,
             ),
-            sy.ni.AIRTDChan(
+            sy.ni.AIRTDChannel(
                 device=mod8.key,
                 port=1,
                 channel=create_channel(
@@ -604,17 +585,17 @@ class NIReadTemperature(NIAnalogReadTaskCase):
                 min_val=-50.0,
                 max_val=200.0,
             ),
-            sy.ni.AIRTDChan(
+            sy.ni.AIRTDChannel(
                 device=mod8.key,
                 port=2,
                 channel=create_channel(
                     client,
-                    name="ni_rtd_pt3850_4w",
+                    name="ni_rtd_pt3851_4w",
                     data_type=sy.DataType.FLOAT32,
                     index=idx.key,
                 ),
                 units="DegF",
-                rtd_type="Pt3850",
+                rtd_type="Pt3851",
                 resistance_config="4Wire",
                 current_excit_source="Internal",
                 current_excit_val=0.001,
@@ -642,11 +623,10 @@ class NIReadTempBuiltIn(NIAnalogReadTaskCase):
     @staticmethod
     def create_channels(
         client: sy.Synnax, devices: dict[str, sy.Device]
-    ) -> list[sy.ni.AITempBuiltInChan]:
+    ) -> list[sy.ni.AITempBuiltinChannel]:
         idx = create_index(client, "ni_temp_builtin_index")
         return [
-            sy.ni.AITempBuiltInChan(
-                port=0,
+            sy.ni.AITempBuiltinChannel(
                 channel=create_channel(
                     client,
                     name="ni_usb6289_temp",
@@ -678,13 +658,13 @@ class NIReadCurrentVoltage(NIAnalogReadTaskCase):
     @staticmethod
     def create_channels(
         client: sy.Synnax, devices: dict[str, sy.Device]
-    ) -> list[sy.ni.AIChan]:
+    ) -> list[sy.ni.AIChannel]:
         idx = create_index(client, "ni_cur_volt_index")
         mod3 = devices["E101Mod3"]
         mod4 = devices["E101Mod4"]
         return [
             # --- E101Mod3 / NI 9203 (current) ---
-            sy.ni.AICurrentChan(
+            sy.ni.AICurrentChannel(
                 device=mod3.key,
                 port=0,
                 channel=create_channel(
@@ -698,7 +678,7 @@ class NIReadCurrentVoltage(NIAnalogReadTaskCase):
                 shunt_resistor_loc="Internal",
                 ext_shunt_resistor_val=249.0,
             ),
-            sy.ni.AICurrentChan(
+            sy.ni.AICurrentChannel(
                 device=mod3.key,
                 port=1,
                 channel=create_channel(
@@ -713,7 +693,7 @@ class NIReadCurrentVoltage(NIAnalogReadTaskCase):
                 ext_shunt_resistor_val=249.0,
             ),
             # --- E101Mod4 / NI 9205 (voltage) ---
-            sy.ni.AIVoltageChan(
+            sy.ni.AIVoltageChannel(
                 device=mod4.key,
                 port=0,
                 channel=create_channel(
@@ -726,7 +706,7 @@ class NIReadCurrentVoltage(NIAnalogReadTaskCase):
                 min_val=-10.0,
                 max_val=10.0,
             ),
-            sy.ni.AIVoltageChan(
+            sy.ni.AIVoltageChannel(
                 device=mod4.key,
                 port=1,
                 channel=create_channel(
@@ -760,10 +740,10 @@ class NIReadVoltageUSB(NIAnalogReadTaskCase):
     @staticmethod
     def create_channels(
         client: sy.Synnax, devices: dict[str, sy.Device]
-    ) -> list[sy.ni.AIVoltageChan]:
+    ) -> list[sy.ni.AIVoltageChannel]:
         idx = create_index(client, "ni_usb6000_index")
         return [
-            sy.ni.AIVoltageChan(
+            sy.ni.AIVoltageChannel(
                 port=0,
                 channel=create_channel(
                     client,
@@ -775,7 +755,7 @@ class NIReadVoltageUSB(NIAnalogReadTaskCase):
                 min_val=-10.0,
                 max_val=10.0,
             ),
-            sy.ni.AIVoltageChan(
+            sy.ni.AIVoltageChannel(
                 port=1,
                 channel=create_channel(
                     client,
@@ -813,13 +793,13 @@ class NIReadVoltageTerminalConfigs(NIAnalogReadTaskCase):
     @staticmethod
     def create_channels(
         client: sy.Synnax, devices: dict[str, sy.Device]
-    ) -> list[sy.ni.AIVoltageChan]:
+    ) -> list[sy.ni.AIVoltageChannel]:
         idx = create_index(client, "ni_terminal_cfg_index")
         mod1 = devices["E102Mod1"]
         mod2 = devices["E102Mod2"]
         return [
             # --- E102Mod1 / NI 9206 (Diff + NRSE) ---
-            sy.ni.AIVoltageChan(
+            sy.ni.AIVoltageChannel(
                 device=mod1.key,
                 port=0,
                 channel=create_channel(
@@ -832,7 +812,7 @@ class NIReadVoltageTerminalConfigs(NIAnalogReadTaskCase):
                 min_val=-10.0,
                 max_val=10.0,
             ),
-            sy.ni.AIVoltageChan(
+            sy.ni.AIVoltageChannel(
                 device=mod1.key,
                 port=1,
                 channel=create_channel(
@@ -845,7 +825,7 @@ class NIReadVoltageTerminalConfigs(NIAnalogReadTaskCase):
                 min_val=-5.0,
                 max_val=5.0,
             ),
-            sy.ni.AIVoltageChan(
+            sy.ni.AIVoltageChannel(
                 device=mod1.key,
                 port=2,
                 channel=create_channel(
@@ -859,7 +839,7 @@ class NIReadVoltageTerminalConfigs(NIAnalogReadTaskCase):
                 max_val=10.0,
             ),
             # --- E102Mod2 / NI 9234 (PseudoDiff) ---
-            sy.ni.AIVoltageChan(
+            sy.ni.AIVoltageChannel(
                 device=mod2.key,
                 port=0,
                 channel=create_channel(
@@ -872,7 +852,7 @@ class NIReadVoltageTerminalConfigs(NIAnalogReadTaskCase):
                 min_val=-5.0,
                 max_val=5.0,
             ),
-            sy.ni.AIVoltageChan(
+            sy.ni.AIVoltageChannel(
                 device=mod2.key,
                 port=1,
                 channel=create_channel(
@@ -907,10 +887,10 @@ class NIDigitalRead(NIDigitalReadTaskCase):
     @staticmethod
     def create_channels(
         client: sy.Synnax, devices: dict[str, sy.Device]
-    ) -> list[sy.ni.DIChan]:
+    ) -> list[sy.ni.DIChannel]:
         idx = create_index(client, "ni_di_index")
         return [
-            sy.ni.DIChan(
+            sy.ni.DIChannel(
                 port=0,
                 line=i,
                 channel=create_channel(
@@ -940,10 +920,10 @@ class NICounterReadEdgeCount(NICounterReadTaskCase):
     @staticmethod
     def create_channels(
         client: sy.Synnax, devices: dict[str, sy.Device]
-    ) -> list[sy.ni.CIEdgeCountChan]:
+    ) -> list[sy.ni.CIEdgeCountChannel]:
         idx = create_index(client, "ni_ci_edge_index")
         return [
-            sy.ni.CIEdgeCountChan(
+            sy.ni.CIEdgeCountChannel(
                 port=0,
                 channel=create_channel(
                     client,
@@ -974,10 +954,10 @@ class NICounterReadFrequency(NICounterReadTaskCase):
     @staticmethod
     def create_channels(
         client: sy.Synnax, devices: dict[str, sy.Device]
-    ) -> list[sy.ni.CIFrequencyChan]:
+    ) -> list[sy.ni.CIFrequencyChannel]:
         idx = create_index(client, "ni_ci_freq_index")
         return [
-            sy.ni.CIFrequencyChan(
+            sy.ni.CIFrequencyChannel(
                 port=1,
                 channel=create_channel(
                     client,

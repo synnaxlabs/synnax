@@ -20,8 +20,8 @@ class Thermocouple(Analog):
     Supported kwargs (in addition to Analog base kwargs):
         temperature_units (str): "Celsius", "Fahrenheit", "Kelvin", "Rankine"
         thermocouple_type (str): "B", "E", "J", "K", "N", "R", "S", "T"
-        cjc_source (str): "Built In", "Constant Value", "Channel"
-        cjc_value (float): CJC value when using "Constant Value" source
+        cjc_source (str): "Built in", "Constant value", "Channel"
+        cjc_value (float): CJC value when using "Constant value" source
         cjc_port (int): CJC port when using "Channel" source
 
     Base kwargs from Analog:
@@ -44,7 +44,7 @@ class Thermocouple(Analog):
         thermocouple_type: (
             Literal["B", "E", "J", "K", "N", "R", "S", "T"] | None
         ) = None,
-        cjc_source: Literal["Built In", "Constant Value", "Channel"] | None = None,
+        cjc_source: Literal["Built in", "Constant value", "Channel"] | None = None,
         cjc_value: float | None = None,
         cjc_port: int | None = None,
         **kwargs: Any,
@@ -58,11 +58,11 @@ class Thermocouple(Analog):
             **kwargs,
         )
 
-        self._configure_dropdown("Temperature Units", temperature_units)
-        self._configure_dropdown("Thermocouple Type", thermocouple_type)
-        self._configure_dropdown("CJC Source", cjc_source)
+        self._configure_dropdown("Temperature units", temperature_units)
+        self._configure_dropdown("Thermocouple type", thermocouple_type)
+        self._configure_dropdown("CJC source", cjc_source)
 
-        if cjc_source == "Constant Value":
-            self._configure_input("CJC Value", cjc_value)
+        if cjc_source == "Constant value":
+            self._configure_input("CJC value", cjc_value)
         elif cjc_source == "Channel":
-            self._configure_input("CJC Port", cjc_port)
+            self._configure_input("CJC port", cjc_port)

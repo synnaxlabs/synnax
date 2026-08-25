@@ -49,6 +49,11 @@ func expandTemplate(template Cell, count int) []Cell {
 	return cells
 }
 
+// Handle replaces the document with its created state.
+func (p CreatePayload) Handle(Table) (Table, error) {
+	return p.Table, nil
+}
+
 // Handle replaces the table's name.
 func (p RenamePayload) Handle(state Table) (Table, error) {
 	state.Name = p.Name
@@ -118,7 +123,11 @@ func (p AddColPayload) Handle(state Table) (Table, error) {
 		state.Rows = slices.Repeat([]Row{{Size: baseRowDim}}, len(cells))
 	}
 	idx := min(int(p.Index), len(state.Columns))
-	state.Columns = slices.Insert(state.Columns, idx, Column{Size: max(p.Size, minCellDim)})
+	state.Columns = slices.Insert(
+		state.Columns,
+		idx,
+		Column{Size: max(p.Size, minCellDim)},
+	)
 	if state.Cells == nil {
 		state.Cells = make(map[string]CellConfig, len(cells))
 	}

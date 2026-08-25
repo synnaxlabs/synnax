@@ -12,12 +12,12 @@ package kv_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/telem"
@@ -33,9 +33,10 @@ var _ = Describe("KV", Ordered, func() {
 		tx        gorp.Tx
 	)
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustOpen(search.Open())
+		searchIdx := MustOpen(search.OpenIndex())
 		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
@@ -77,19 +78,22 @@ var _ = Describe("KV", Ordered, func() {
 		Expect(kvSvc.NewWriter(tx).Set(ctx, r.Key, "key", "value")).To(Succeed())
 	})
 
-	It("Should be able to retrieve key-value pairs from a range", func(ctx SpecContext) {
-		r := &ranger.Range{
-			Name: "Range",
-			TimeRange: telem.TimeRange{
-				Start: telem.TimeStamp(5 * telem.Second),
-				End:   telem.TimeStamp(10 * telem.Second),
-			},
-		}
-		Expect(rangerSvc.NewWriter(tx).Create(ctx, r)).To(Succeed())
-		Expect(kvSvc.NewWriter(tx).Set(ctx, r.Key, "key", "value")).To(Succeed())
-		value := MustSucceed(kvSvc.NewReader(tx).Get(ctx, r.Key, "key"))
-		Expect(value).To(Equal("value"))
-	})
+	It(
+		"Should be able to retrieve key-value pairs from a range",
+		func(ctx SpecContext) {
+			r := &ranger.Range{
+				Name: "Range",
+				TimeRange: telem.TimeRange{
+					Start: telem.TimeStamp(5 * telem.Second),
+					End:   telem.TimeStamp(10 * telem.Second),
+				},
+			}
+			Expect(rangerSvc.NewWriter(tx).Create(ctx, r)).To(Succeed())
+			Expect(kvSvc.NewWriter(tx).Set(ctx, r.Key, "key", "value")).To(Succeed())
+			value := MustSucceed(kvSvc.NewReader(tx).Get(ctx, r.Key, "key"))
+			Expect(value).To(Equal("value"))
+		},
+	)
 
 	It("Should be able to delete key-value pairs from a range", func(ctx SpecContext) {
 		r := &ranger.Range{

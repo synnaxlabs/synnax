@@ -17,6 +17,7 @@ import { Input } from "@/input";
 import { ActivationDelayField } from "@/schematic/node/common/form/ActivationDelay";
 import { ControlChipField } from "@/schematic/node/common/form/Control";
 import { Wrapper } from "@/schematic/node/common/form/Wrapper";
+import { Staleness } from "@/vis/staleness";
 
 interface ChannelFormProps {
   path: string;
@@ -58,6 +59,7 @@ export const ChannelForm = ({ path, omit = [] }: ChannelFormProps): ReactElement
       <Flex.Box x grow>
         {!omit.includes("onClickDelay") && <ActivationDelayField grow />}
         <ControlChipField />
+        <Staleness.Fields />
       </Flex.Box>
     </Wrapper>
   );

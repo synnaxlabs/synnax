@@ -12,7 +12,6 @@ import { describe, expect, it } from "vitest";
 import { is } from "@/link/link";
 
 describe("is", () => {
-  // Valid IRIs
   it("should return true for a simple HTTP URL", () => {
     expect(is("http://example.com")).toBe(true);
   });
@@ -37,7 +36,6 @@ describe("is", () => {
     expect(is("http://example.com/path?query=123#section")).toBe(true);
   });
 
-  // Invalid IRIs
   it("should return false for a URL with invalid characters", () => {
     expect(is("http://example.com/invalid|character")).toBe(false);
   });

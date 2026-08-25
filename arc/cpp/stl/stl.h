@@ -12,10 +12,11 @@
 #include <cstdint>
 #include <memory>
 
+#include "wasmtime.hh"
+
 #include "x/cpp/errors/errors.h"
 
 #include "arc/cpp/runtime/node/factory.h"
-#include "wasmtime.hh"
 
 namespace arc::stl {
 
@@ -40,6 +41,10 @@ struct WasmType<int8_t> {
 template<>
 struct WasmType<int16_t> {
     using type = int32_t;
+};
+template<>
+struct WasmType<bool> {
+    using type = uint32_t;
 };
 
 /// Module is the unit of STL organization. Each module groups related host

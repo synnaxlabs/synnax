@@ -1,0 +1,96 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { type Store } from "@reduxjs/toolkit";
+import {
+  DisconnectedError,
+  imex,
+  type ontology,
+  project,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
+import { type Mosaic, Status, Synnax } from "@synnaxlabs/pluto";
+import { useCallback } from "react";
+
+import { FS } from "@/platform/fs";
+import { type BundleImporter } from "@/platform/import/import";
+import { useImportBatch } from "@/platform/import/useImportBatch";
+import { isZipFile, zipFiles } from "@/platform/import/zip";
+import { Session } from "@/session";
+
+interface ImportContext {
+  client: Client | null;
+  importBundle: BundleImporter;
+  projectKey: project.Key;
+  store: Store;
+}
+
+// Returns the resource the entry created, or nothing for a bundle: a project import
+// brings its own panels, so it opens no tab here. A dropped directory is zipped with
+// its files' relative paths; the Core owns the bundle format.
+const importEntry = async (
+  entry: FileSystemEntry,
+  { client, importBundle, projectKey, store }: ImportContext,
+): Promise<void | ontology.ID> => {
+  if (FS.isDirectoryEntry(entry)) {
+    const bundle = zipFiles(await FS.readDirectoryFiles(entry));
+    return await importBundle(entry.name, bundle, { client, store });
+  }
+  if (!FS.isFileEntry(entry)) return;
+  const file = await FS.readEntryFile(entry);
+  if (isZipFile(file.name))
+    return await importBundle(file.name, file, { client, store });
+  if (!file.name.toLowerCase().endsWith(".json")) throw new Error("not a JSON file");
+  if (client == null) throw new DisconnectedError();
+  return await client.imex.import(file, {
+    ...imex.JSON_OPTIONS,
+    fileName: file.name,
+    parent: project.ontologyID(projectKey),
+  });
+};
+
+export interface UseFileDropParams {
+  /**
+   * Imports a dropped directory or .zip as a bundle. Injected by the composition root.
+   */
+  importBundle: BundleImporter;
+}
+
+export type FileDrop = (props: Mosaic.OnFileDropProps) => void;
+
+/**
+ * Returns a file drop handler that imports every dropped JSON file and directory
+ * concurrently, then opens the resources they created as one batch of tabs in the leaf
+ * the drop landed on. A file that fails is reported on its own.
+ */
+export const useFileDrop = ({ importBundle }: UseFileDropParams): FileDrop => {
+  const client = Synnax.use();
+  const store = Session.useStore();
+  const handleError = Status.useErrorHandler();
+  const importBatch = useImportBatch();
+  return useCallback(
+    ({ nodeKey, location, event }: Mosaic.OnFileDropProps) => {
+      const entries = FS.captureEntries(event.dataTransfer);
+      // A dropped project selects itself once imported, so every file in the drop takes
+      // the project open when it landed instead of whichever one wins the race.
+      const projectKey = Session.Project.selectSelected(store.getState());
+      const placement = { leaf: nodeKey, location };
+      handleError(
+        async () =>
+          await importBatch({
+            items: entries,
+            importItem: async (entry) =>
+              await importEntry(entry, { client, importBundle, projectKey, store }),
+            placement,
+          }),
+      );
+    },
+    [client, importBundle, importBatch, store, handleError],
+  );
+};

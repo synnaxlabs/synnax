@@ -92,6 +92,19 @@ var _ = Describe("Object", func() {
 			schema := zyn.Object(map[string]zyn.Schema{"Name": zyn.String()})
 			Expect(schema.Validate("not an object")).To(HaveOccurred())
 		})
+		It("Should error when a required field is missing", func() {
+			schema := zyn.Object(map[string]zyn.Schema{
+				"Name": zyn.String(),
+				"Role": zyn.String(),
+			})
+			Expect(schema.Validate(map[string]any{"Name": "John"})).To(
+				MatchError(ContainSubstring("role: required")))
+		})
+		It("Should error when a field has an incompatible type", func() {
+			schema := zyn.Object(map[string]zyn.Schema{"Name": zyn.String()})
+			Expect(schema.Validate(map[string]any{"Name": map[string]any{}})).To(
+				MatchError(ContainSubstring("name")))
+		})
 	})
 	Describe("Invalid Inputs", func() {
 		Specify("non-map data", func() {
@@ -374,7 +387,11 @@ var _ = Describe("Object", func() {
 					"LastName":  zyn.String(),
 					"Age":       zyn.Number(),
 				})
-				data := map[string]any{"firstName": "John", "lastName": "Doe", "age": 42}
+				data := map[string]any{
+					"firstName": "John",
+					"lastName":  "Doe",
+					"age":       42,
+				}
 				Expect(schema.Dump(data)).To(Equal(map[string]any{
 					"first_name": "John",
 					"last_name":  "Doe",
@@ -775,7 +792,7 @@ var _ = Describe("Object", func() {
 		Describe("UUID Object", func() {
 			It("Should parse correctly", func() {
 				type MyStruct struct{ Value uuid.UUID }
-				var schema = zyn.Object(map[string]zyn.Schema{"value": zyn.UUID()})
+				schema := zyn.Object(map[string]zyn.Schema{"value": zyn.UUID()})
 				value := uuid.New()
 				data := map[string]any{"value": value.String()}
 				var res MyStruct

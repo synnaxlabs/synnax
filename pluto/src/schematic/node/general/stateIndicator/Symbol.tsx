@@ -7,27 +7,39 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { type ReactElement, useMemo } from "react";
 
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import * as CommonTelem from "@/schematic/node/common/telem";
-import { type Config } from "@/schematic/node/general/stateIndicator/config";
 import { StateIndicator } from "@/schematic/node/general/stateIndicator/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
+import { Theming } from "@/theming";
+import { Staleness } from "@/vis/staleness";
 import { StateIndicator as BaseStateIndicator } from "@/vis/stateIndicator";
 
 export const Symbol = ({
   nodeKey,
   onConfigChange,
   selected,
-  config: { label, channel, options, color, inlineSize },
-}: NodeProps<Config>): ReactElement => {
+  config: {
+    label,
+    channel,
+    options,
+    color,
+    inlineSize,
+    stalenessTimeout,
+    stalenessColor,
+  },
+}: NodeProps<schematic.StateIndicatorNodeConfig>): ReactElement => {
+  const theme = Theming.use();
   const source = useMemo(() => CommonTelem.numberSource(channel), [channel]);
-  const { key: optKey } = BaseStateIndicator.use({
+  const { key: optKey, stale } = BaseStateIndicator.use({
     aetherKey: nodeKey,
     source,
     options,
+    stalenessTimeout,
   });
   return (
     <Grid.Grid
@@ -43,6 +55,7 @@ export const Symbol = ({
         options={options}
         color={color}
         inlineSize={inlineSize}
+        staleColor={stale ? Staleness.resolveColor(stalenessColor, theme) : undefined}
       />
     </Grid.Grid>
   );

@@ -22,7 +22,7 @@ import { useStateRef } from "@/hooks/ref";
 import {
   type Callback,
   eventKey,
-  isAlphanumericKey,
+  isTextEntryKey,
   type Key,
   match,
   type MatchOptions,
@@ -32,10 +32,12 @@ import {
   type Trigger,
 } from "@/triggers/triggers";
 
+/** Subscribes to every trigger event, returning the unsubscribe. */
 export interface Listen {
   (callback: Callback, priority?: number): destructor.Destructor;
 }
 
+/** State the {@link Provider} publishes. */
 export interface ContextValue {
   listen: Listen;
 }
@@ -59,6 +61,7 @@ const ZERO_REF_STATE: RefState = {
 };
 
 const EXCLUDE_TRIGGERS = ["CapsLock"];
+const DOUBLE_PRESS_WINDOW = TimeSpan.milliseconds(300).valueOf();
 
 // Native text-editing shortcuts (select-all, copy, paste, cut) the browser owns inside
 // any text field. We drop them while a text-entry element is focused so app-level
@@ -66,7 +69,9 @@ const EXCLUDE_TRIGGERS = ["CapsLock"];
 // lack working native undo, so app-level undo is usually what the user wants.
 const NATIVE_TEXT_EDIT_KEYS: Key[] = ["A", "C", "V", "X"];
 
+/** Props for {@link Provider}. */
 export interface ProviderProps extends PropsWithChildren {
+  /** Triggers whose browser default is suppressed, such as the browser's own find. */
   preventDefaultOn?: Trigger[];
   preventDefaultOptions?: MatchOptions;
 }
@@ -86,13 +91,18 @@ const isInputOrContentEditable = (e: KeyboardEvent): boolean => {
 const shouldTriggerOnKeyDown = (key: Key, e: KeyboardEvent): boolean => {
   if (EXCLUDE_TRIGGERS.includes(key)) return false;
   if (!isInputOrContentEditable(e)) return true;
-  // Bare alphanumerics in a text field are text entry, not triggers.
-  if (isAlphanumericKey(key) && !e.ctrlKey && !e.metaKey) return false;
+  // A bare printable key in a text field is text entry, not a trigger.
+  if (isTextEntryKey(key) && !e.ctrlKey && !e.metaKey) return false;
   // Let the browser own native text-editing shortcuts within the field.
   if ((e.ctrlKey || e.metaKey) && NATIVE_TEXT_EDIT_KEYS.includes(key)) return false;
   return true;
 };
 
+/**
+ * Listens for keyboard and mouse input on the window and fans it out to every
+ * {@link use} subscriber, highest priority first. Mount one near the root of the app.
+ * Keystrokes inside a text field reach subscribers only when they carry a modifier.
+ */
 export const Provider = ({
   children,
   preventDefaultOn,
@@ -105,12 +115,10 @@ export const Provider = ({
   }, []);
 
   // All registered triggers and callbacks, kept sorted by priority descending.
-  // Same-priority entries are stored in insertion order. Higher priority
-  // subscribers receive events first and can stop propagation to lower priority
-  // subscribers.
+  // Same-priority entries are stored in insertion order. Higher priority subscribers
+  // receive events first and can stop propagation to lower priority subscribers.
   const registry = useRef<Array<{ callback: Callback; priority: number }>>([]);
 
-  // The current trigger.
   const [, setCurr] = useStateRef<RefState>({ ...ZERO_REF_STATE });
 
   const updateListeners = useCallback((state: RefState, target: HTMLElement): void => {
@@ -140,7 +148,7 @@ export const Provider = ({
       // This is considered a double press.
       if (
         prev.prev.includes(key) &&
-        TimeStamp.since(prev.last).valueOf() < TimeSpan.milliseconds(300).valueOf()
+        TimeStamp.since(prev.last).valueOf() < DOUBLE_PRESS_WINDOW
       )
         next.push(key);
       const nextState: RefState = {
@@ -186,9 +194,8 @@ export const Provider = ({
   }, []);
 
   /**
-   * If the mouse leaves the window, we want to clear all triggers. This prevents
-   * issues with the user holding down a key and then moving the mouse out of the
-   * window.
+   * If the mouse leaves the window, we want to clear all triggers. This prevents issues
+   * with the user holding down a key and then moving the mouse out of the window.
    */
   const handlePageVisibility = useCallback((event: Event): void => {
     setCurr((prevS) => {

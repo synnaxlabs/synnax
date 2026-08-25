@@ -11,14 +11,16 @@
 
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <utility>
 
 #include "client/cpp/ontology/id.h"
+#include "client/cpp/status/types.gen.h"
+#include "client/cpp/task/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/status/types.gen.h"
 #include "x/cpp/uuid/uuid.h"
 
 #include "arc/cpp/graph/types.gen.h"
@@ -29,10 +31,18 @@
 namespace synnax::arc {
 
 struct StatusDetails;
+struct TaskConfig;
 struct Arc;
 
 constexpr const char *MODE_TEXT = "text";
 constexpr const char *MODE_GRAPH = "graph";
+
+constexpr const char *EXECUTION_MODE_AUTO = "AUTO";
+constexpr const char *EXECUTION_MODE_BUSY_WAIT = "BUSY_WAIT";
+constexpr const char *EXECUTION_MODE_HIGH_RATE = "HIGH_RATE";
+constexpr const char *EXECUTION_MODE_RT_EVENT = "RT_EVENT";
+constexpr const char *EXECUTION_MODE_HYBRID = "HYBRID";
+constexpr const char *EXECUTION_MODE_EVENT_DRIVEN = "EVENT_DRIVEN";
 
 using Key = x::uuid::UUID;
 
@@ -51,7 +61,27 @@ struct StatusDetails {
     from_proto(const ::service::arc::pb::StatusDetails &pb);
 };
 
-using Status = ::x::status::Status<StatusDetails>;
+using Status = ::synnax::status::Status<StatusDetails>;
+
+/// @brief TaskConfig configures an Arc task, which runs a compiled Arc module.
+struct TaskConfig : public ::synnax::task::PersistConfig {
+    /// @brief arc_key is the key of the Arc module the task executes.
+    Key arc_key;
+    /// @brief hash is the semantic hash of the Arc module at deploy time.
+    std::string hash = "";
+    /// @brief execution_mode overrides the runtime's automatic loop mode selection.
+    std::string execution_mode = EXECUTION_MODE_AUTO;
+    /// @brief rt_priority is the thread priority used by real-time loop modes.
+    std::int32_t rt_priority = 47;
+    /// @brief cpu_affinity pins the loop to a CPU core. -1 selects automatically.
+    std::int32_t cpu_affinity = -1;
+    /// @brief memory_locked is true when the runtime's memory is locked to prevent
+    /// paging.
+    bool memory_locked = false;
+
+    static TaskConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
 
 /// @brief Arc is an Arc module combining visual graph representation and text-based
 /// source code for reactive control systems. Compiles to WebAssembly for sandboxed
@@ -65,9 +95,9 @@ struct Arc {
     /// text-based Arc code or "graph" for visual dataflow.
     std::string mode;
     /// @brief graph is the visual dataflow graph representation of the module.
-    ::arc::graph::Graph graph;
+    ::arc::graph::Graph graph = {};
     /// @brief text is the text-based Arc source code.
-    ::arc::text::Text text;
+    ::arc::text::Text text = {};
     /// @brief program is the compiled module output including IR and WebAssembly
     /// bytecode.
     std::optional<::arc::program::Program> program;

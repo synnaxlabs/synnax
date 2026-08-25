@@ -14,10 +14,10 @@
 #include <vector>
 
 #include "gtest/gtest.h"
+#include "wasmtime.hh"
 
 #include "arc/cpp/stl/series/series.h"
 #include "arc/cpp/stl/series/state.h"
-#include "wasmtime.hh"
 
 namespace arc::stl::series {
 
@@ -284,6 +284,7 @@ TEST_CREATE_EMPTY(i32, i32)
 TEST_CREATE_EMPTY(i64, i64)
 TEST_CREATE_EMPTY(f32, f32)
 TEST_CREATE_EMPTY(f64, f64)
+TEST_CREATE_EMPTY(bool, i32)
 
 TEST_SET_AND_INDEX(u8, i32, int32_t{42}, i32, 42)
 TEST_SET_AND_INDEX(u16, i32, int32_t{1000}, i32, 1000)
@@ -295,6 +296,7 @@ TEST_SET_AND_INDEX(i32, i32, int32_t{-70000}, i32, -70000)
 TEST_SET_AND_INDEX(i64, i64, int64_t{-100000}, i64, -100000)
 TEST_SET_AND_INDEX(f32, f32, float{3.14f}, f32, 3.14f)
 TEST_SET_AND_INDEX(f64, f64, double{2.718}, f64, 2.718)
+TEST_SET_AND_INDEX(bool, i32, int32_t{1}, i32, 1)
 
 TEST_INDEX_NULL_HANDLE(u8, i32)
 TEST_INDEX_NULL_HANDLE(u16, i32)
@@ -306,6 +308,7 @@ TEST_INDEX_NULL_HANDLE(i32, i32)
 TEST_INDEX_NULL_HANDLE(i64, i64)
 TEST_INDEX_NULL_HANDLE(f32, f32)
 TEST_INDEX_NULL_HANDLE(f64, f64)
+TEST_INDEX_NULL_HANDLE(bool, i32)
 
 #undef TEST_CREATE_EMPTY
 #undef TEST_SET_AND_INDEX
@@ -599,6 +602,7 @@ ALL_SERIES_OPS(f64, f64)
                           .unwrap();                                                   \
         auto rh = result[0].i32();                                                     \
         EXPECT_GT(rh, 0);                                                              \
+        EXPECT_EQ(f.state->get(rh)->data_type(), x::telem::BOOLEAN_T);                 \
         auto val = f.get("index_u8")                                                   \
                        .call(f.store, {wasmtime::Val(rh), wasmtime::Val(int32_t{0})})  \
                        .unwrap();                                                      \
@@ -641,6 +645,7 @@ ALL_SERIES_OPS(f64, f64)
                           .unwrap();                                                   \
         auto rh = result[0].i32();                                                     \
         EXPECT_GT(rh, 0);                                                              \
+        EXPECT_EQ(f.state->get(rh)->data_type(), x::telem::BOOLEAN_T);                 \
         auto val = f.get("index_u8")                                                   \
                        .call(f.store, {wasmtime::Val(rh), wasmtime::Val(int32_t{0})})  \
                        .unwrap();                                                      \
@@ -676,6 +681,7 @@ ALL_SERIES_OPS(f64, f64)
                           .unwrap();                                                   \
         auto rh = result[0].i32();                                                     \
         EXPECT_GT(rh, 0);                                                              \
+        EXPECT_EQ(f.state->get(rh)->data_type(), x::telem::BOOLEAN_T);                 \
         auto val = f.get("index_u8")                                                   \
                        .call(f.store, {wasmtime::Val(rh), wasmtime::Val(int32_t{0})})  \
                        .unwrap();                                                      \
@@ -690,6 +696,7 @@ ALL_SERIES_OPS(f64, f64)
                           .unwrap();                                                   \
         auto rh = result[0].i32();                                                     \
         EXPECT_GT(rh, 0);                                                              \
+        EXPECT_EQ(f.state->get(rh)->data_type(), x::telem::BOOLEAN_T);                 \
         auto val = f.get("index_u8")                                                   \
                        .call(f.store, {wasmtime::Val(rh), wasmtime::Val(int32_t{0})})  \
                        .unwrap();                                                      \
@@ -719,6 +726,7 @@ ALL_SERIES_OPS(f64, f64)
                           .unwrap();                                                   \
         auto rh = result[0].i32();                                                     \
         EXPECT_GT(rh, 0);                                                              \
+        EXPECT_EQ(f.state->get(rh)->data_type(), x::telem::BOOLEAN_T);                 \
         auto val = f.get("index_u8")                                                   \
                        .call(f.store, {wasmtime::Val(rh), wasmtime::Val(int32_t{0})})  \
                        .unwrap();                                                      \
@@ -748,6 +756,7 @@ ALL_SERIES_OPS(f64, f64)
                           .unwrap();                                                   \
         auto rh = result[0].i32();                                                     \
         EXPECT_GT(rh, 0);                                                              \
+        EXPECT_EQ(f.state->get(rh)->data_type(), x::telem::BOOLEAN_T);                 \
         auto val = f.get("index_u8")                                                   \
                        .call(f.store, {wasmtime::Val(rh), wasmtime::Val(int32_t{0})})  \
                        .unwrap();                                                      \
@@ -812,7 +821,7 @@ ALL_CMP_TESTS(f64)
 #undef TEST_SCMP_NULL
 #undef ALL_CMP_TESTS
 
-////////////////////// Chunk 5: negate, not_u8, len, slice /////////////////////////////
+////////////////////// Chunk 5: negate, not, len, slice ///////////////////////////
 
 std::string build_negate_wat(const std::string &suffix) {
     std::string wt = wasm_type_str(suffix);
@@ -893,7 +902,10 @@ const std::string_view MISC_WAT = R"wat(
   (import "series" "create_empty_u8" (func $create_empty_u8 (param i32) (result i32)))
   (import "series" "set_element_u8" (func $set_element_u8 (param i32 i32 i32) (result i32)))
   (import "series" "index_u8" (func $index_u8 (param i32 i32) (result i32)))
-  (import "series" "not_u8" (func $not_u8 (param i32) (result i32)))
+  (import "series" "create_empty_bool" (func $create_empty_bool (param i32) (result i32)))
+  (import "series" "set_element_bool" (func $set_element_bool (param i32 i32 i32) (result i32)))
+  (import "series" "index_bool" (func $index_bool (param i32 i32) (result i32)))
+  (import "series" "not" (func $not (param i32) (result i32)))
   (import "series" "len" (func $len (param i32) (result i64)))
   (import "series" "slice" (func $slice (param i32 i32 i32) (result i32)))
   (import "series" "create_empty_i32" (func $create_empty_i32 (param i32) (result i32)))
@@ -906,8 +918,14 @@ const std::string_view MISC_WAT = R"wat(
     (call $set_element_u8 (local.get 0) (local.get 1) (local.get 2)))
   (func (export "index_u8") (param i32 i32) (result i32)
     (call $index_u8 (local.get 0) (local.get 1)))
-  (func (export "not_u8") (param i32) (result i32)
-    (call $not_u8 (local.get 0)))
+  (func (export "create_empty_bool") (param i32) (result i32)
+    (call $create_empty_bool (local.get 0)))
+  (func (export "set_element_bool") (param i32 i32 i32) (result i32)
+    (call $set_element_bool (local.get 0) (local.get 1) (local.get 2)))
+  (func (export "index_bool") (param i32 i32) (result i32)
+    (call $index_bool (local.get 0) (local.get 1)))
+  (func (export "not") (param i32) (result i32)
+    (call $not (local.get 0)))
   (func (export "len") (param i32) (result i64)
     (call $len (local.get 0)))
   (func (export "slice") (param i32 i32 i32) (result i32)
@@ -921,40 +939,265 @@ const std::string_view MISC_WAT = R"wat(
 )
 )wat";
 
-TEST(SeriesModule, NotU8InvertsBooleanSeries) {
-    Fixture f{std::string(MISC_WAT)};
-    auto h_r = f.get("create_empty_u8")
-                   .call(f.store, {wasmtime::Val(int32_t{2})})
+int32_t make_bool_series(Fixture &f, const std::vector<int32_t> &values) {
+    auto h_r = f.get("create_empty_bool")
+                   .call(f.store, {wasmtime::Val(static_cast<int32_t>(values.size()))})
                    .unwrap();
     auto h = h_r[0].i32();
-    (void) f.get("set_element_u8")
-        .call(
-            f.store,
-            {wasmtime::Val(h), wasmtime::Val(int32_t{0}), wasmtime::Val(int32_t{1})}
-        )
-        .unwrap();
-    (void) f.get("set_element_u8")
-        .call(
-            f.store,
-            {wasmtime::Val(h), wasmtime::Val(int32_t{1}), wasmtime::Val(int32_t{0})}
-        )
-        .unwrap();
-    auto result = f.get("not_u8").call(f.store, {wasmtime::Val(h)}).unwrap();
-    auto rh = result[0].i32();
-    EXPECT_GT(rh, 0);
-    auto v0 = f.get("index_u8")
-                  .call(f.store, {wasmtime::Val(rh), wasmtime::Val(int32_t{0})})
-                  .unwrap();
-    auto v1 = f.get("index_u8")
-                  .call(f.store, {wasmtime::Val(rh), wasmtime::Val(int32_t{1})})
-                  .unwrap();
-    EXPECT_EQ(v0[0].i32(), 0);
-    EXPECT_EQ(v1[0].i32(), 1);
+    for (size_t i = 0; i < values.size(); i++)
+        (void) f.get("set_element_bool")
+            .call(
+                f.store,
+                {wasmtime::Val(h),
+                 wasmtime::Val(static_cast<int32_t>(i)),
+                 wasmtime::Val(values[i])}
+            )
+            .unwrap();
+    return h;
 }
 
-TEST(SeriesModule, NotU8NullHandleReturnsZero) {
+int32_t index_bool(Fixture &f, int32_t handle, int32_t index) {
+    return f.get("index_bool")
+        .call(f.store, {wasmtime::Val(handle), wasmtime::Val(index)})
+        .unwrap()[0]
+        .i32();
+}
+
+TEST(SeriesModule, NotBoolInvertsBooleanSeries) {
     Fixture f{std::string(MISC_WAT)};
-    auto result = f.get("not_u8").call(f.store, {wasmtime::Val(int32_t{999})}).unwrap();
+    auto h = make_bool_series(f, {1, 0});
+    auto result = f.get("not").call(f.store, {wasmtime::Val(h)}).unwrap();
+    auto rh = result[0].i32();
+    EXPECT_GT(rh, 0);
+    EXPECT_EQ(f.state->get(rh)->data_type(), x::telem::BOOLEAN_T);
+    EXPECT_EQ(index_bool(f, rh, 0), 0);
+    EXPECT_EQ(index_bool(f, rh, 1), 1);
+}
+
+TEST(SeriesModule, NotBoolNullHandleReturnsZero) {
+    Fixture f{std::string(MISC_WAT)};
+    auto result = f.get("not").call(f.store, {wasmtime::Val(int32_t{999})}).unwrap();
+    EXPECT_EQ(result[0].i32(), 0);
+}
+
+TEST(SeriesModule, SetElementBoolNormalizesNonzero) {
+    Fixture f{std::string(MISC_WAT)};
+    auto h = make_bool_series(f, {0});
+    (void) f.get("set_element_bool")
+        .call(
+            f.store,
+            {wasmtime::Val(h), wasmtime::Val(int32_t{0}), wasmtime::Val(int32_t{42})}
+        )
+        .unwrap();
+    EXPECT_EQ(index_bool(f, h, 0), 1);
+}
+
+TEST(SeriesModule, SetElementBoolOutOfBoundsIsIgnored) {
+    Fixture f{std::string(MISC_WAT)};
+    auto h = make_bool_series(f, {1, 0});
+    auto result = f.get("set_element_bool")
+                      .call(
+                          f.store,
+                          {wasmtime::Val(h),
+                           wasmtime::Val(int32_t{5}),
+                           wasmtime::Val(int32_t{1})}
+                      )
+                      .unwrap();
+    EXPECT_EQ(result[0].i32(), h);
+    EXPECT_EQ(index_bool(f, h, 0), 1);
+    EXPECT_EQ(index_bool(f, h, 1), 0);
+}
+
+TEST(SeriesModule, IndexBoolOutOfBoundsReturnsZero) {
+    Fixture f{std::string(MISC_WAT)};
+    auto h = make_bool_series(f, {1, 1});
+    EXPECT_EQ(index_bool(f, h, 5), 0);
+}
+
+const std::string_view BOOL_OPS_WAT = R"wat(
+(module
+  (import "series" "create_empty_bool" (func $create_empty_bool (param i32) (result i32)))
+  (import "series" "set_element_bool" (func $set_element_bool (param i32 i32 i32) (result i32)))
+  (import "series" "index_bool" (func $index_bool (param i32 i32) (result i32)))
+  (import "series" "and" (func $and (param i32 i32) (result i32)))
+  (import "series" "or" (func $or (param i32 i32) (result i32)))
+  (import "series" "and_scalar" (func $and_scalar (param i32 i32) (result i32)))
+  (import "series" "or_scalar" (func $or_scalar (param i32 i32) (result i32)))
+
+  (func (export "create_empty_bool") (param i32) (result i32)
+    (call $create_empty_bool (local.get 0)))
+  (func (export "set_element_bool") (param i32 i32 i32) (result i32)
+    (call $set_element_bool (local.get 0) (local.get 1) (local.get 2)))
+  (func (export "index_bool") (param i32 i32) (result i32)
+    (call $index_bool (local.get 0) (local.get 1)))
+  (func (export "and") (param i32 i32) (result i32)
+    (call $and (local.get 0) (local.get 1)))
+  (func (export "or") (param i32 i32) (result i32)
+    (call $or (local.get 0) (local.get 1)))
+  (func (export "and_scalar") (param i32 i32) (result i32)
+    (call $and_scalar (local.get 0) (local.get 1)))
+  (func (export "or_scalar") (param i32 i32) (result i32)
+    (call $or_scalar (local.get 0) (local.get 1)))
+)
+)wat";
+
+TEST(SeriesModule, AndBoolTruthTable) {
+    Fixture f{std::string(BOOL_OPS_WAT)};
+    auto ha = make_bool_series(f, {1, 1, 0, 0});
+    auto hb = make_bool_series(f, {1, 0, 1, 0});
+    auto result = f.get("and")
+                      .call(f.store, {wasmtime::Val(ha), wasmtime::Val(hb)})
+                      .unwrap();
+    auto rh = result[0].i32();
+    EXPECT_GT(rh, 0);
+    EXPECT_EQ(f.state->get(rh)->data_type(), x::telem::BOOLEAN_T);
+    EXPECT_EQ(f.state->get(rh)->size(), 4);
+    EXPECT_EQ(index_bool(f, rh, 0), 1);
+    EXPECT_EQ(index_bool(f, rh, 1), 0);
+    EXPECT_EQ(index_bool(f, rh, 2), 0);
+    EXPECT_EQ(index_bool(f, rh, 3), 0);
+}
+
+TEST(SeriesModule, OrBoolTruthTable) {
+    Fixture f{std::string(BOOL_OPS_WAT)};
+    auto ha = make_bool_series(f, {1, 1, 0, 0});
+    auto hb = make_bool_series(f, {1, 0, 1, 0});
+    auto result = f.get("or")
+                      .call(f.store, {wasmtime::Val(ha), wasmtime::Val(hb)})
+                      .unwrap();
+    auto rh = result[0].i32();
+    EXPECT_GT(rh, 0);
+    EXPECT_EQ(f.state->get(rh)->data_type(), x::telem::BOOLEAN_T);
+    EXPECT_EQ(index_bool(f, rh, 0), 1);
+    EXPECT_EQ(index_bool(f, rh, 1), 1);
+    EXPECT_EQ(index_bool(f, rh, 2), 1);
+    EXPECT_EQ(index_bool(f, rh, 3), 0);
+}
+
+TEST(SeriesModule, AndBoolBroadcastsShorterRhs) {
+    Fixture f{std::string(BOOL_OPS_WAT)};
+    auto ha = make_bool_series(f, {1, 1, 1, 1, 1});
+    auto hb = make_bool_series(f, {1, 0});
+    auto result = f.get("and")
+                      .call(f.store, {wasmtime::Val(ha), wasmtime::Val(hb)})
+                      .unwrap();
+    auto rh = result[0].i32();
+    EXPECT_EQ(f.state->get(rh)->size(), 5);
+    EXPECT_EQ(index_bool(f, rh, 0), 1);
+    EXPECT_EQ(index_bool(f, rh, 1), 0);
+    EXPECT_EQ(index_bool(f, rh, 2), 0);
+    EXPECT_EQ(index_bool(f, rh, 3), 0);
+    EXPECT_EQ(index_bool(f, rh, 4), 0);
+}
+
+TEST(SeriesModule, OrBoolBroadcastsShorterLhs) {
+    Fixture f{std::string(BOOL_OPS_WAT)};
+    auto ha = make_bool_series(f, {1, 0});
+    auto hb = make_bool_series(f, {0, 0, 0, 0, 0});
+    auto result = f.get("or")
+                      .call(f.store, {wasmtime::Val(ha), wasmtime::Val(hb)})
+                      .unwrap();
+    auto rh = result[0].i32();
+    EXPECT_EQ(f.state->get(rh)->size(), 5);
+    EXPECT_EQ(index_bool(f, rh, 0), 1);
+    EXPECT_EQ(index_bool(f, rh, 1), 0);
+    EXPECT_EQ(index_bool(f, rh, 2), 0);
+    EXPECT_EQ(index_bool(f, rh, 3), 0);
+    EXPECT_EQ(index_bool(f, rh, 4), 0);
+}
+
+TEST(SeriesModule, AndScalarBoolTrueIsIdentity) {
+    Fixture f{std::string(BOOL_OPS_WAT)};
+    auto h = make_bool_series(f, {1, 0, 1});
+    auto result = f.get("and_scalar")
+                      .call(f.store, {wasmtime::Val(h), wasmtime::Val(int32_t{1})})
+                      .unwrap();
+    auto rh = result[0].i32();
+    EXPECT_EQ(f.state->get(rh)->data_type(), x::telem::BOOLEAN_T);
+    EXPECT_EQ(f.state->get(rh)->size(), 3);
+    EXPECT_EQ(index_bool(f, rh, 0), 1);
+    EXPECT_EQ(index_bool(f, rh, 1), 0);
+    EXPECT_EQ(index_bool(f, rh, 2), 1);
+}
+
+TEST(SeriesModule, AndScalarBoolFalseZeroes) {
+    Fixture f{std::string(BOOL_OPS_WAT)};
+    auto h = make_bool_series(f, {1, 0, 1});
+    auto result = f.get("and_scalar")
+                      .call(f.store, {wasmtime::Val(h), wasmtime::Val(int32_t{0})})
+                      .unwrap();
+    auto rh = result[0].i32();
+    EXPECT_EQ(index_bool(f, rh, 0), 0);
+    EXPECT_EQ(index_bool(f, rh, 1), 0);
+    EXPECT_EQ(index_bool(f, rh, 2), 0);
+}
+
+TEST(SeriesModule, OrScalarBoolTrueFills) {
+    Fixture f{std::string(BOOL_OPS_WAT)};
+    auto h = make_bool_series(f, {1, 0, 1});
+    auto result = f.get("or_scalar")
+                      .call(f.store, {wasmtime::Val(h), wasmtime::Val(int32_t{1})})
+                      .unwrap();
+    auto rh = result[0].i32();
+    EXPECT_EQ(index_bool(f, rh, 0), 1);
+    EXPECT_EQ(index_bool(f, rh, 1), 1);
+    EXPECT_EQ(index_bool(f, rh, 2), 1);
+}
+
+TEST(SeriesModule, OrScalarBoolFalseIsIdentity) {
+    Fixture f{std::string(BOOL_OPS_WAT)};
+    auto h = make_bool_series(f, {1, 0, 1});
+    auto result = f.get("or_scalar")
+                      .call(f.store, {wasmtime::Val(h), wasmtime::Val(int32_t{0})})
+                      .unwrap();
+    auto rh = result[0].i32();
+    EXPECT_EQ(f.state->get(rh)->data_type(), x::telem::BOOLEAN_T);
+    EXPECT_EQ(index_bool(f, rh, 0), 1);
+    EXPECT_EQ(index_bool(f, rh, 1), 0);
+    EXPECT_EQ(index_bool(f, rh, 2), 1);
+}
+
+TEST(SeriesModule, AndBoolNullHandleReturnsZero) {
+    Fixture f{std::string(BOOL_OPS_WAT)};
+    auto result = f.get("and")
+                      .call(
+                          f.store,
+                          {wasmtime::Val(int32_t{999}), wasmtime::Val(int32_t{998})}
+                      )
+                      .unwrap();
+    EXPECT_EQ(result[0].i32(), 0);
+}
+
+TEST(SeriesModule, OrBoolNullHandleReturnsZero) {
+    Fixture f{std::string(BOOL_OPS_WAT)};
+    auto result = f.get("or")
+                      .call(
+                          f.store,
+                          {wasmtime::Val(int32_t{999}), wasmtime::Val(int32_t{998})}
+                      )
+                      .unwrap();
+    EXPECT_EQ(result[0].i32(), 0);
+}
+
+TEST(SeriesModule, AndScalarBoolNullHandleReturnsZero) {
+    Fixture f{std::string(BOOL_OPS_WAT)};
+    auto result = f.get("and_scalar")
+                      .call(
+                          f.store,
+                          {wasmtime::Val(int32_t{999}), wasmtime::Val(int32_t{1})}
+                      )
+                      .unwrap();
+    EXPECT_EQ(result[0].i32(), 0);
+}
+
+TEST(SeriesModule, OrScalarBoolNullHandleReturnsZero) {
+    Fixture f{std::string(BOOL_OPS_WAT)};
+    auto result = f.get("or_scalar")
+                      .call(
+                          f.store,
+                          {wasmtime::Val(int32_t{999}), wasmtime::Val(int32_t{1})}
+                      )
+                      .unwrap();
     EXPECT_EQ(result[0].i32(), 0);
 }
 

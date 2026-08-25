@@ -12,6 +12,7 @@ import { type CrudeTimeRange, csv, runtime } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
+import { type ChannelRetriever } from "@/framer/adapter";
 import { type Frame } from "@/framer/frame";
 import { Iterator, type IteratorConfig } from "@/framer/iterator";
 
@@ -24,11 +25,11 @@ export interface ReadRequest {
 }
 
 export class Reader {
-  private readonly retriever: channel.Retriever;
+  private readonly retrieveChannels: ChannelRetriever;
   private readonly streamClient: WebSocketClient;
 
-  constructor(retriever: channel.Retriever, streamClient: WebSocketClient) {
-    this.retriever = retriever;
+  constructor(retrieveChannels: ChannelRetriever, streamClient: WebSocketClient) {
+    this.retrieveChannels = retrieveChannels;
     this.streamClient = streamClient;
   }
 
@@ -39,23 +40,23 @@ export class Reader {
       channelNames,
       iteratorConfig,
     } = request;
-    const channelPayloads = await this.retriever.retrieve(channelParams);
+    const channelPayloads = await this.retrieveChannels(channelParams);
     const allKeys = new Set<channel.Key>();
+    const payloadKeys = new Set<channel.Key>();
     channelPayloads.forEach((ch) => {
       allKeys.add(ch.key);
+      payloadKeys.add(ch.key);
       if (ch.index !== 0) allKeys.add(ch.index);
     });
-    const missingIndexKeys = Array.from(allKeys).filter(
-      (k) => !channelPayloads.some((ch) => ch.key === k),
-    );
-    if (missingIndexKeys.length > 0) {
-      const indexChannels = await this.retriever.retrieve(missingIndexKeys);
+    const missingIndexKeys = allKeys.difference(payloadKeys);
+    if (missingIndexKeys.size > 0) {
+      const indexChannels = await this.retrieveChannels(Array.from(missingIndexKeys));
       channelPayloads.push(...indexChannels);
     }
     const iterator = await Iterator._open(
       timeRange,
       Array.from(allKeys),
-      this.retriever,
+      this.retrieveChannels,
       this.streamClient,
       iteratorConfig,
     );
@@ -172,7 +173,6 @@ const createCSVReadableStream = ({
         if (remainingPending === 0 || stagedRecords.length === 0) {
           const hasMore = await iterator.next();
           if (!hasMore) {
-            // Flush remaining records
             const finalRows = buildCSVRows(Infinity, true);
             if (finalRows.length > 0)
               controller.enqueue(

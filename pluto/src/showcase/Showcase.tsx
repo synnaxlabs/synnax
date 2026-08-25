@@ -21,7 +21,10 @@ import { HeaderShowcase } from "./HeaderShowcase";
 import { InputShowcase } from "./InputShowcase";
 import { MenuShowcase } from "./MenuShowcase";
 import { NoteShowcase } from "./NoteShowcase";
+import { PreviewShowcase } from "./PreviewShowcase";
+import { SchematicStyleShowcase } from "./SchematicStyleShowcase";
 import { SelectShowcase } from "./SelectShowcase";
+import { TabsShowcase } from "./TabsShowcase";
 import { TagShowcase } from "./TagShowcase";
 import { TextShowcase } from "./TextShowcase";
 
@@ -76,6 +79,13 @@ export const Showcase = () => {
       component: <InputShowcase />,
     },
     {
+      key: "preview",
+      title: "Preview",
+      description:
+        "Every previewable form component rendered side by side in normal and preview modes.",
+      component: <PreviewShowcase />,
+    },
+    {
       key: "select",
       title: "Select",
       description:
@@ -102,6 +112,20 @@ export const Showcase = () => {
       description:
         "Label and tag components for categorization, status indication, and metadata display.",
       component: <TagShowcase />,
+    },
+    {
+      key: "tabs",
+      title: "Tabs",
+      description:
+        "Composed tabbed interface with drag-to-reorder: tabs slide out of the way to preview where a dragged tab will land.",
+      component: <TabsShowcase />,
+    },
+    {
+      key: "schematic",
+      title: "Schematic Styles",
+      description:
+        "Competing schematic style philosophies rendered over one shared symbol set. Judge each on its specimens and on the composed fragment.",
+      component: <SchematicStyleShowcase />,
     },
     {
       key: "flex",

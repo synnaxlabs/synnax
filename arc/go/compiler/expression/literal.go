@@ -30,6 +30,14 @@ func compileLiteral(
 	if series := ctx.AST.SeriesLiteral(); series != nil {
 		return compileSeriesLiteral(context.Child(ctx, series))
 	}
+	if boolLit := ctx.AST.BooleanLiteral(); boolLit != nil {
+		if boolLit.TRUE() != nil {
+			ctx.Writer.WriteI32Const(1)
+		} else {
+			ctx.Writer.WriteI32Const(0)
+		}
+		return types.Bool(), nil
+	}
 	return types.Type{}, errors.New("unknown literal type")
 }
 
@@ -132,7 +140,12 @@ func compileNumericLiteral(
 		ctx.Writer.WriteF32Const(parsed.Value.(float32))
 	case types.KindF64:
 		ctx.Writer.WriteF64Const(parsed.Value.(float64))
-	case types.KindI8, types.KindI16, types.KindI32, types.KindU8, types.KindU16, types.KindU32:
+	case types.KindI8,
+		types.KindI16,
+		types.KindI32,
+		types.KindU8,
+		types.KindU16,
+		types.KindU32:
 		var i32Val int32
 		switch v := parsed.Value.(type) {
 		case int8:
@@ -149,7 +162,9 @@ func compileNumericLiteral(
 			i32Val = int32(v)
 		default:
 			return types.Type{}, errors.Newf(
-				"unexpected value type %T for %s literal", parsed.Value, parsed.Type.Kind,
+				"unexpected value type %T for %s literal",
+				parsed.Value,
+				parsed.Type.Kind,
 			)
 		}
 		ctx.Writer.WriteI32Const(i32Val)
@@ -162,7 +177,9 @@ func compileNumericLiteral(
 			i64Val = int64(v)
 		default:
 			return types.Type{}, errors.Newf(
-				"unexpected value type %T for %s literal", parsed.Value, parsed.Type.Kind,
+				"unexpected value type %T for %s literal",
+				parsed.Value,
+				parsed.Type.Kind,
 			)
 		}
 		ctx.Writer.WriteI64Const(i64Val)

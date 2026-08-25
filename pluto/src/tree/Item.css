@@ -17,7 +17,7 @@
         top: 0;
         bottom: 0;
         width: 2px;
-        background-color: var(--pluto-gray-l4);
+        background-color: var(--pluto-gray-l6);
         opacity: 0;
         transition: opacity 0.2s ease-in-out;
     }
@@ -25,7 +25,6 @@
     .pluto-tree__item {
         min-height: 4.5rem;
         padding-right: 1.5rem;
-        will-change: transform;
 
         &:is(a) {
             text-decoration: none;
@@ -48,6 +47,13 @@
             padding-bottom: 0;
             padding-left: var(--pluto-tree-item-offset);
         }
+    }
+
+    &.pluto-list__items--virtual .pluto-tree__item {
+        /* Every variant fits in one row, so the pitch the virtualizer assumes is
+           committed here rather than left to grow. */
+        height: var(--pluto-list-item-height);
+        flex-shrink: 0;
     }
 
     &:hover .pluto-tree__item.pluto--show-rules::after {

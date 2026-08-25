@@ -1,4 +1,13 @@
 ---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import Header from "@/components/layout/Header.astro";
 import "@/styles/main.css";
 import "@fontsource/geist-mono";
@@ -76,17 +85,6 @@ const fullTitle = cleanTitle ? `${cleanTitle} | Synnax` : "Synnax";
     </body><script>
         import { addCodeButtonListeners } from "@/components/code/codeUtil";
         import { startUpdatingIframeHref } from "@/util/iframe";
-        import { fetchVersion } from "@/util/fetchVersion";
-        const updateVersion = () => {
-            fetchVersion().then((version) => {
-                const versionElement = document.querySelectorAll(".version");
-                versionElement.forEach((element) => {
-                    if (element.classList.contains("full")) element.innerHTML = version;
-                    else element.innerHTML = version.split(".").slice(0, -1).join(".");
-                });
-            });
-        };
-
         const bindClickHandlersToHeadingAnchors = () => {
             const anchors =
                 document.querySelectorAll<HTMLAnchorElement>(".heading-anchor");
@@ -102,12 +100,10 @@ const fullTitle = cleanTitle ? `${cleanTitle} | Synnax` : "Synnax";
             });
         };
 
-        updateVersion();
         addCodeButtonListeners();
         startUpdatingIframeHref();
         bindClickHandlersToHeadingAnchors();
         document.addEventListener("astro:after-swap", () => {
-            updateVersion();
             addCodeButtonListeners();
             startUpdatingIframeHref();
             bindClickHandlersToHeadingAnchors();

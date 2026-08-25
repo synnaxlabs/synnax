@@ -7,22 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { unified } from "@astrojs/markdown-remark";
 import mdx from "@astrojs/mdx";
 import react from "@astrojs/react";
 import vercel from "@astrojs/vercel";
 import { grammar as arcGrammar } from "@synnaxlabs/arc";
 import { defineConfig } from "astro/config";
 
+import { symbols, theme } from "./src/util/shiki";
+
 // https://astro.build/config
 export default defineConfig({
   integrations: [react(), mdx()],
-  security: { csp: true },
   output: "server",
   adapter: vercel(),
   markdown: {
+    // Astro 7's native Markdown pipeline (Sätteri) emits highlighted code fences as raw
+    // HTML that bypasses the MDX `pre` component override (Block.astro). Opt back into
+    // the legacy remark/rehype pipeline so the override keeps applying.
+    processor: unified(),
     shikiConfig: {
-      theme: "css-variables",
+      theme,
       langs: [arcGrammar],
+      transformers: [symbols],
     },
   },
   redirects: {
@@ -35,7 +42,18 @@ export default defineConfig({
     "/guides/operations": "/reference/",
     "/guides/comparison": "/reference/",
     "/reference/device-drivers/standalone": "/reference/driver/installation",
-    "/reference/console/clusters": "/reference/console/cores",
+    "/reference/console/clusters": "/reference/console/get-started",
+    "/reference/console/cores": "/reference/console/get-started",
+    "/reference/console/requirements": "/reference/console/get-started",
+    "/reference/console/workspaces": "/reference/console/projects",
+    "/reference/driver/timing": "/reference/driver/task-basics",
+    "/reference/driver/http/get-started": "/reference/driver/http/connect-server",
+    "/reference/driver/labjack/get-started":
+      "/reference/driver/labjack/configure-device",
+    "/reference/driver/modbus/get-started": "/reference/driver/modbus/connect-server",
+    "/reference/driver/ni/get-started": "/reference/driver/ni/configure-device",
+    "/reference/driver/opc-ua/get-started": "/reference/driver/opc-ua/connect-server",
+    "/reference/driver/pagerduty/get-started": "/reference/driver/pagerduty/alert-task",
     // Python client redirects
     "/reference/python-client": "/reference/client/quick-start",
     "/reference/python-client/get-started": "/reference/client/quick-start",

@@ -1,0 +1,216 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/device"
+import "schemas/synnax/rack"
+import "schemas/synnax/status"
+import "schemas/x/telem"
+
+@cpp output "client/cpp/task"
+@go output  "core/pkg/service/task"
+@pb
+@py output  "client/py/synnax/task"
+@ts output  "client/ts/src/task"
+
+Key = uuid {
+    @doc value "is a unique identifier for a task."
+}
+
+StatusDetails struct<Data? = record> {
+    task        Key      {
+        @doc value "is the key of the task this status pertains to."
+    }
+    running     bool     {
+        @doc value "is true if the task is currently executing."
+    }
+    cmd         string = "" {
+        @doc value "is the last command executed on this task."
+    }
+    config_hash string = "" {
+        @doc value """
+            is the hash of the config the running task instance was built from. Empty
+            when no instance exists.
+        """
+    }
+    rack        rack.Key = 0 {
+        @doc value "is the key of the rack running the task instance."
+    }
+    data        Data?    {
+        @doc value "contains task-specific status data."
+    }
+
+    @doc value         """
+        contains task-specific status details including execution state.
+    """
+    @ts concrete_types
+}
+
+Status<Data? = record> = status.Status<StatusDetails<Data>> {
+    @doc value """
+        is task-specific status information including execution state and task-specific
+        data.
+    """
+}
+
+Task struct<
+    Type extends string = string,
+    Config extends record = record,
+    StatusData? = record
+> {
+    key         Key = create {
+        @doc value "is the unique identifier for this task."
+        @key
+    }
+    rack        rack.Key = 0 {
+        @doc value """
+            is the key of the rack this task deploys to. Zero for a draft that has not
+            been assigned a rack; required to start.
+        """
+        @filter
+    }
+    name        string              {
+        @doc value "is a human-readable name for the task."
+        @filter
+    }
+    type        Type                {
+        @doc value """
+            is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
+            Determines which hardware integration handles the task.
+        """
+        @filter
+    }
+    config      Config              {
+        @doc value """
+            is task-specific configuration stored as JSON. Structure varies by task
+            type.
+        """
+    }
+    config_hash string = "" {
+        @doc value """
+            is the Core-assigned hash of config, rewritten on every write and ignored on
+            writes from clients. Compare against a status's config_hash to detect drift.
+        """
+    }
+    internal    bool = false {
+        @doc value "is true if this is an internal system task."
+        @filter
+    }
+    snapshot    bool = false {
+        @doc value "is true if this task is an immutable snapshot copy of another task."
+        @filter
+    }
+    status      Status<StatusData>? {
+        @doc value  "is the current execution status of the task."
+        @go marshal omit
+    }
+
+    @create
+    @doc value               """
+        is an executable unit of work in the Driver system. Tasks represent specific
+        hardware operations such as reading sensor data, writing control signals, or
+        scanning for devices.
+    """
+    @go marshal
+    @go migrate
+    @ontology type           "task"
+    @py name                 "Payload"
+    @search
+    @ts coalesce_type_params
+    @ts concrete_types
+    @ts name                 "Payload"
+}
+
+Command struct {
+    task        Key    {
+        @doc value "is the key of the target task."
+    }
+    type        string {
+        @doc value "is the command type (e.g., 'start', 'stop', 'configure')."
+    }
+    key         string {
+        @doc value "is a unique identifier for this command instance."
+    }
+    config_hash string = "" {
+        @doc value """
+            is the config hash the sender wants running. Empty when the sender does not
+            know it. The Driver reuses its live instance when the hash matches and
+            redeploys when it differs.
+        """
+    }
+    args        record = {} {
+        @doc value        "contains optional arguments for the command."
+        @ts preserve_case
+    }
+
+    @doc value "is a command to execute on a task in the Driver system."
+}
+
+KeyedConfig struct {
+    key uuid = create {
+        @doc value "is the unique identifier for the stored configuration record."
+        @key
+    }
+
+    @doc value "is the base for every stored task configuration record."
+    @pb omit
+}
+
+StartConfig struct extends KeyedConfig {
+    auto_start bool = false {
+        @doc value "is true when the task should start as soon as it is configured."
+    }
+
+    @doc value "carries the configuration fields shared by every task."
+    @pb omit
+}
+
+PersistConfig struct extends StartConfig {
+    data_saving_disabled bool = false {
+        @doc value "is true when task telemetry is not persisted to disk."
+    }
+
+    @doc value "carries the configuration fields shared by tasks that write telemetry."
+    @pb omit
+}
+
+ReadConfig struct extends PersistConfig {
+    sample_rate telem.Rate = 10 {
+        @doc value "is the per-channel hardware sample rate, in Hertz."
+        @ts type   "number"
+    }
+    stream_rate telem.Rate = 5 {
+        @doc value "is the rate at which samples are streamed to Synnax, in Hertz."
+        @ts type   "number"
+    }
+
+    @doc value "carries the configuration fields shared by hardware acquisition tasks."
+    @pb omit
+}
+
+WriteConfig struct extends PersistConfig {
+    device device.Key = "" {
+        @doc value "is the key of the device the task writes to."
+    }
+
+    @doc value "carries the configuration fields shared by hardware control tasks."
+    @pb omit
+}
+
+ScanConfig struct extends KeyedConfig {
+    rate     telem.Rate = 0.2 {
+        @doc value "is the rate at which the scan runs, in Hertz."
+        @ts type   "number"
+    }
+    disabled bool = false {
+        @doc value "is true when scanning is paused."
+    }
+
+    @doc value "carries the fields shared by every scan task configuration."
+    @pb omit
+}

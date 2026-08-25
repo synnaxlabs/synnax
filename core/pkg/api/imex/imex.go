@@ -11,22 +11,57 @@ package imex
 
 import (
 	"context"
+	"encoding/json"
 
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/encoding"
+	xjson "github.com/synnaxlabs/x/encoding/json"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/http"
+	"github.com/synnaxlabs/x/validate"
 )
 
+// EncodingJSON names the JSON serialization in an export request's encoding field.
+const EncodingJSON = "JSON"
+
+// JSONCodec is the encoder for the JSON serialization. It pretty-prints its output and
+// writes <, >, and & literally, since an exported file is read by a person and never
+// placed into an HTML document unparsed.
+var JSONCodec http.FileCodec = xjson.NewCodec(
+	xjson.WithIndent("  "),
+	xjson.WithoutHTMLEscaping(),
+)
+
+// ResolveEncoding returns the file encoder for the named export serialization. It
+// returns a validation error scoped to the "encoding" field when name is not a
+// supported serialization.
+func ResolveEncoding(name string) (encoding.FileEncoder, error) {
+	switch name {
+	case EncodingJSON:
+		return JSONCodec, nil
+	default:
+		return nil, validate.PathedError(
+			errors.Wrapf(validate.ErrValidation, "unsupported encoding %q", name),
+			"encoding",
+		)
+	}
+}
+
+// Service implements the ImEx API.
 type Service struct {
 	access   *rbac.Service
 	internal *imex.Service
 }
 
+// NewService creates a new ImEx API service.
 func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
 	if err != nil {
@@ -39,38 +74,113 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 }
 
 type (
-	ImportRequest  = imex.Envelope
+	// ImportRequest is the request type for the Import endpoint.
+	ImportRequest = imex.Envelope
+	// ImportResponse is the response type for the Import endpoint.
 	ImportResponse = ontology.ID
 )
 
+// Import imports a resource from an envelope.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
 	req ImportRequest,
 ) (ImportResponse, error) {
-	resourceType, err := s.internal.ImporterType(req.Type)
+	// Typeless envelopes (legacy Console state files) must be resolved to a concrete
+	// registration type before access control can name the resource being created.
+	typ, err := s.internal.ResolveType(req)
 	if err != nil {
 		return ImportResponse{}, err
 	}
-	if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	req.Type = typ
+	resourceType, err := s.internal.ImporterType(typ)
+	if err != nil {
+		return ImportResponse{}, err
+	}
+	opts, err := parseImportOptions(ctx)
+	if err != nil {
+		return ImportResponse{}, err
+	}
+	enforcer := s.access.NewEnforcer(tx)
+	if err = enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: []ontology.ID{{Type: resourceType, Key: ""}},
 	}); err != nil {
 		return ImportResponse{}, err
 	}
-	id, err := s.internal.Import(ctx, tx, req)
+	if err = enforcer.Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{opts.Parent},
+	}); err != nil {
+		return ImportResponse{}, err
+	}
+	id, err := s.internal.Import(ctx, tx, req, opts)
 	if err != nil {
 		return ImportResponse{}, err
 	}
 	return id, nil
 }
 
+type importParams struct {
+	// FileName is the name of the file the envelope was read from, e.g. "table.json".
+	FileName string `json:"file_name"`
+	// Parent carries the compact "type:key" string form clients send.
+	Parent string `json:"parent"`
+}
+
+// parseImportOptions decodes the required "params" request param — a JSON object
+// carrying the out-of-band import options. A missing param, malformed JSON, or a
+// missing or invalid field returns a validation error scoped to the offending field.
+func parseImportOptions(ctx context.Context) (imex.ImportOptions, error) {
+	v, ok := freighter.MDFromContext(ctx).Get("params")
+	s, isStr := v.(string)
+	if !ok || !isStr || s == "" {
+		return imex.ImportOptions{}, validate.PathedError(
+			validate.ErrRequired,
+			"params",
+		)
+	}
+	var params importParams
+	if err := json.Unmarshal([]byte(s), &params); err != nil {
+		return imex.ImportOptions{}, validate.PathedError(
+			errors.Wrapf(validate.ErrValidation, "invalid params: %v", err),
+			"params",
+		)
+	}
+	if params.FileName == "" {
+		return imex.ImportOptions{}, validate.PathedError(
+			validate.ErrRequired, "file_name",
+		)
+	}
+	if params.Parent == "" {
+		return imex.ImportOptions{}, validate.PathedError(
+			validate.ErrRequired,
+			"parent",
+		)
+	}
+	parent, err := ontology.ParseID(params.Parent)
+	if err != nil {
+		return imex.ImportOptions{}, validate.PathedError(err, "parent")
+	}
+	if parent.Key == "" {
+		return imex.ImportOptions{}, validate.PathedError(
+			errors.Wrap(validate.ErrValidation, "must carry a non-empty key"),
+			"parent",
+		)
+	}
+	return imex.ImportOptions{FileName: params.FileName, Parent: parent}, nil
+}
+
 type (
-	ExportRequest  = ontology.ID
+	// ExportRequest is the request type for the Export endpoint.
+	ExportRequest = ontology.ID
+	// ExportResponse is the response type for the Export endpoint.
 	ExportResponse = imex.Envelope
 )
 
+// Export exports a resource to an envelope.
 func (s *Service) Export(
 	ctx context.Context,
 	req ExportRequest,

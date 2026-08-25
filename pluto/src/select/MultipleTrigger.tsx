@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/select/MultipleTrigger.css";
+
 import { array, type color, primitive, type record, unique } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useCallback } from "react";
 
@@ -19,7 +21,7 @@ import { Haul } from "@/haul";
 import { useSyncedRef } from "@/hooks";
 import { Icon } from "@/icon";
 import { List } from "@/list";
-import { useContext, useItemState, useSelection } from "@/select/Provider";
+import { useContext, useItemState, useSelected } from "@/select/Context";
 import { Tag } from "@/tag";
 import { Text } from "@/text";
 
@@ -67,19 +69,24 @@ const MultipleTag = <K extends record.Key, E extends MultipleEntry<K>>({
 
 const multipleTag = renderProp(MultipleTag);
 
+/** Props for {@link MultipleTrigger}. */
 export interface MultipleTriggerProps<
   K extends record.Key,
   E extends record.Keyed<K> | undefined = MultipleEntry<K> | undefined,
-> extends Pick<Button.ButtonProps, "variant" | "disabled"> {
+> extends Pick<Button.ButtonProps, "variant" | "disabled" | "preview"> {
+  /** Haul item type this trigger accepts as a drop. Empty accepts nothing. */
   haulType?: string;
+  /** Builds the haul item for an entry dragged out of the trigger. */
   createHaulItem?: (entry: NonNullable<E>) => Haul.Item;
   placeholder?: ReactNode;
   icon?: Icon.ReactElement;
+  /** Whether to show only a count instead of one tag per entry. */
   hideTags?: boolean;
   children?: RenderProp<MultipleTagProps<K>>;
   renderIcon?: (entry: unknown) => Icon.ReactElement | undefined;
 }
 
+/** @returns whether a drag carries at least one entry of the type not already selected. */
 export const staticCanDrop = <K extends record.Key>(
   { items: entities }: Haul.DraggingState,
   haulType: string,
@@ -91,6 +98,7 @@ export const staticCanDrop = <K extends record.Key>(
   return f.length > 0 && !f.every((h) => value.includes(h.key as K));
 };
 
+/** The button of a {@link Multiple} selection, showing one removable tag per entry. */
 export const MultipleTrigger = <
   K extends record.Key,
   E extends record.Keyed<K> | undefined = MultipleEntry<K> | undefined,
@@ -98,14 +106,15 @@ export const MultipleTrigger = <
   haulType = "",
   createHaulItem,
   disabled,
-  placeholder = "Select...",
+  placeholder = "Select",
   variant = "outlined",
+  preview,
   icon,
   hideTags = false,
   children = multipleTag as unknown as RenderProp<MultipleTagProps<K>>,
   renderIcon,
-}: MultipleTriggerProps<K, E>): ReactElement => {
-  const value = useSelection<K>();
+}: MultipleTriggerProps<K, E>): ReactElement | null => {
+  const value = useSelected<K>();
   const valueRef = useSyncedRef(value);
   const { setSelected } = useContext<K>();
   const { getItem } = List.useUtilContext<K, E>();
@@ -152,15 +161,17 @@ export const MultipleTrigger = <
     [startDrag, handleSuccessfulDrop, haulType, createHaulItem, getItem],
   );
   const dragging = Haul.useDraggingState();
-  const showAddButton = variant === "text" && value.length !== 0;
+  const showAddButton = variant === "text" && value.length !== 0 && preview !== true;
 
-  if (hideTags)
+  if (hideTags) {
+    if (preview === true) return null;
     return (
       <Dialog.Trigger variant={variant} {...dropProps}>
         {icon}
         {placeholder}
       </Dialog.Trigger>
     );
+  }
 
   return (
     <Tag.Tags
@@ -169,36 +180,43 @@ export const MultipleTrigger = <
         if (!showAddButton) toggle();
       }}
       {...dropProps}
-      className={CSS(
+      className={CSS.cls(
         CSS.dropRegion(canDrop(dragging)),
         CSS.BE("dialog", "trigger"),
         CSS.BM("variant", variant),
       )}
       variant={variant}
+      preview={preview}
       preventClick={showAddButton}
       grow
     >
       {value.length === 0 && (
-        <Text.Text color={8} weight={400} style={{ padding: "0 1rem" }}>
-          {icon}
-          {placeholder}
+        <Text.Text className={CSS.B("select-multiple-trigger-placeholder")}>
+          {preview === true ? (
+            "None"
+          ) : (
+            <>
+              {icon}
+              {placeholder}
+            </>
+          )}
         </Text.Text>
       )}
       {value.map((v) =>
         children({ key: v, itemKey: v, onDragStart: onTagDragStart, icon, renderIcon }),
       )}
-      {variant !== "text" && (
+      {variant !== "text" && preview !== true && (
         <Caret.Animated
           className={CSS.level("p")}
           enabled={visible}
           enabledLoc="bottom"
           disabledLoc="left"
-          color={8}
+          color={9}
         />
       )}
       {showAddButton && (
         <Button.Button variant={variant} onClick={toggle}>
-          <Icon.Add color={8} />
+          <Icon.Add color={9} />
         </Button.Button>
       )}
     </Tag.Tags>

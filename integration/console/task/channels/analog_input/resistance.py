@@ -42,7 +42,6 @@ class Resistance(Analog):
         current_excitation_value: float | None = None,
         **kwargs: Any,
     ) -> None:
-
         super().__init__(
             layout=layout,
             name=name,
@@ -51,6 +50,6 @@ class Resistance(Analog):
             **kwargs,
         )
 
-        self._configure_dropdown("Resistance Configuration", resistance_configuration)
-        self._configure_dropdown("Current Excitation Source", current_excitation_source)
-        self._configure_input("Current Excitation Value", current_excitation_value)
+        self._configure_dropdown("Resistance configuration", resistance_configuration)
+        self._configure_dropdown("Current excitation source", current_excitation_source)
+        self._configure_input("Current excitation value", current_excitation_value)

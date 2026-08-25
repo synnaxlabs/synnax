@@ -7,14 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, ranger } from "@synnaxlabs/client";
-import { color, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { act, renderHook, waitFor } from "@testing-library/react";
-import { type PropsWithChildren } from "react";
+import { ranger } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
+import { color, testutil, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { act, render, renderHook, waitFor } from "@testing-library/react";
+import {
+  createElement,
+  type PropsWithChildren,
+  type ReactElement,
+  Suspense,
+} from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { Ontology } from "@/ontology";
 import { Ranger } from "@/ranger";
+import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -24,10 +30,7 @@ describe("queries", () => {
   let wrapper: React.FC<PropsWithChildren>;
   beforeEach(async () => {
     controller = new AbortController();
-    wrapper = await createAsyncSynnaxWrapper({
-      client,
-      excludeFluxStores: [Ontology.RESOURCES_FLUX_STORE_KEY],
-    });
+    wrapper = await createAsyncSynnaxWrapper({ client });
   });
   afterEach(() => {
     controller.abort();
@@ -136,13 +139,11 @@ describe("queries", () => {
         name: "parentRange",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(2)),
       });
-      const childRange = await client.ranges.create(
-        {
-          name: "childRange",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-        },
-        { parent: parentRange.ontologyID },
-      );
+      const childRange = await client.ranges.create({
+        name: "childRange",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        parent: parentRange,
+      });
 
       const { result } = renderHook(() => Ranger.useList(), {
         wrapper,
@@ -291,7 +292,6 @@ describe("queries", () => {
       });
       await waitFor(() => expect(result.current.data).toHaveLength(1));
       expect(result.current.data).not.toContain(r2.key);
-      // add a new range with the label
       const r3 = await client.ranges.create({
         name: "Labeled Range",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
@@ -400,20 +400,16 @@ describe("queries", () => {
         name: "parentRange",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(10)),
       });
-      const child1 = await client.ranges.create(
-        {
-          name: "child1",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(2)),
-        },
-        { parent: parentRange.ontologyID },
-      );
-      const child2 = await client.ranges.create(
-        {
-          name: "child2",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(3)),
-        },
-        { parent: parentRange.ontologyID },
-      );
+      const child1 = await client.ranges.create({
+        name: "child1",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(2)),
+        parent: parentRange,
+      });
+      const child2 = await client.ranges.create({
+        name: "child2",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(3)),
+        parent: parentRange,
+      });
 
       const { result } = renderHook(() => Ranger.useListChildren(), {
         wrapper,
@@ -435,14 +431,12 @@ describe("queries", () => {
         name: "parentRange",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(10)),
       });
-      const childRange = await client.ranges.create(
-        {
-          name: "testChild",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(2)),
-          color: "#00FF00",
-        },
-        { parent: parentRange.ontologyID },
-      );
+      const childRange = await client.ranges.create({
+        name: "testChild",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(2)),
+        color: "#00FF00",
+        parent: parentRange,
+      });
 
       const { result } = renderHook(() => Ranger.useListChildren(), {
         wrapper,
@@ -501,13 +495,11 @@ describe("queries", () => {
       const initialLength = result.current.data.length;
       expect(initialLength).toEqual(0);
 
-      const newChild = await client.ranges.create(
-        {
-          name: "newChild",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-        },
-        { parent: parentRange.ontologyID },
-      );
+      const newChild = await client.ranges.create({
+        name: "newChild",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        parent: parentRange,
+      });
 
       await waitFor(() => {
         expect(result.current.data.length).toBeGreaterThan(initialLength);
@@ -520,13 +512,11 @@ describe("queries", () => {
         name: "parentRange",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(10)),
       });
-      const childRange = await client.ranges.create(
-        {
-          name: "originalChild",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(2)),
-        },
-        { parent: parentRange.ontologyID },
-      );
+      const childRange = await client.ranges.create({
+        name: "originalChild",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(2)),
+        parent: parentRange,
+      });
 
       const { result } = renderHook(() => Ranger.useListChildren(), {
         wrapper,
@@ -554,13 +544,11 @@ describe("queries", () => {
         name: "parentRange",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(10)),
       });
-      const childRange = await client.ranges.create(
-        {
-          name: "childToDelete",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(2)),
-        },
-        { parent: parentRange.ontologyID },
-      );
+      const childRange = await client.ranges.create({
+        name: "childToDelete",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(2)),
+        parent: parentRange,
+      });
 
       const { result } = renderHook(() => Ranger.useListChildren(), {
         wrapper,
@@ -588,22 +576,17 @@ describe("queries", () => {
         name: "grandparent",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(20)),
       });
-      const parentRange = await client.ranges.create(
-        {
-          name: "parent",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(10)),
-        },
-        { parent: grandparentRange.ontologyID },
-      );
-      const childRange = await client.ranges.create(
-        {
-          name: "child",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(5)),
-        },
-        { parent: parentRange.ontologyID },
-      );
+      const parentRange = await client.ranges.create({
+        name: "parent",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(10)),
+        parent: grandparentRange,
+      });
+      const childRange = await client.ranges.create({
+        name: "child",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(5)),
+        parent: parentRange,
+      });
 
-      // Test grandparent's children
       const { result: grandparentResult } = renderHook(() => Ranger.useListChildren(), {
         wrapper,
       });
@@ -617,7 +600,6 @@ describe("queries", () => {
       expect(grandparentResult.current.data).toContain(parentRange.key);
       expect(grandparentResult.current.data).not.toContain(childRange.key);
 
-      // Test parent's children
       const { result: parentResult } = renderHook(() => Ranger.useListChildren(), {
         wrapper,
       });
@@ -641,13 +623,11 @@ describe("queries", () => {
       // Create multiple children at the same level
       const children = [];
       for (let i = 0; i < 3; i++) {
-        const child = await client.ranges.create(
-          {
-            name: `level1_child_${i}`,
-            timeRange: TimeStamp.now().spanRange(TimeSpan.minutes(10)),
-          },
-          { parent: rootRange.ontologyID },
-        );
+        const child = await client.ranges.create({
+          name: `level1_child_${i}`,
+          timeRange: TimeStamp.now().spanRange(TimeSpan.minutes(10)),
+          parent: rootRange,
+        });
         children.push(child);
       }
 
@@ -666,11 +646,137 @@ describe("queries", () => {
     });
   });
 
+  describe("useDelete", () => {
+    it("should delete a range", async () => {
+      const rng = await client.ranges.create({
+        name: "delete_hook",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      const { result } = renderHook(() => Ranger.useDelete(), { wrapper });
+      await act(async () => {
+        await result.current.updateAsync(rng.key);
+      });
+      await expect(client.ranges.retrieve(rng.key)).rejects.toThrow();
+    });
+
+    it("should run afterOptimistic before the delete commits", async () => {
+      const rng = await client.ranges.create({
+        name: "delete_hook_optimistic",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      const order: string[] = [];
+      const { result } = renderHook(
+        () =>
+          Ranger.useDelete({
+            afterOptimistic: ({ data }) => {
+              order.push(`optimistic:${data as ranger.Key}`);
+            },
+            afterSuccess: () => {
+              order.push("success");
+            },
+          }),
+        { wrapper },
+      );
+      await act(async () => {
+        await result.current.updateAsync(rng.key);
+      });
+      expect(order).toEqual([`optimistic:${rng.key}`, "success"]);
+    });
+  });
+
+  describe("useUpdateKV", () => {
+    it("should set a pair on the range", async () => {
+      const rng = await client.ranges.create({
+        name: "set_kv_hook",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      const { result } = renderHook(() => Ranger.useUpdateKV(), { wrapper });
+      await act(async () => {
+        await result.current.updateAsync({
+          rangeKey: rng.key,
+          range: rng.key,
+          key: "foo",
+          value: "bar",
+        });
+      });
+      expect(await rng.kv.list()).toEqual({ foo: "bar" });
+    });
+
+    it("should run afterOptimistic before the set commits", async () => {
+      const rng = await client.ranges.create({
+        name: "set_kv_hook_optimistic",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      const order: string[] = [];
+      const { result } = renderHook(
+        () =>
+          Ranger.useUpdateKV({
+            afterOptimistic: ({ data }) => {
+              order.push(`optimistic:${data.key}`);
+            },
+            afterSuccess: () => {
+              order.push("success");
+            },
+          }),
+        { wrapper },
+      );
+      await act(async () => {
+        await result.current.updateAsync({
+          rangeKey: rng.key,
+          range: rng.key,
+          key: "foo",
+          value: "bar",
+        });
+      });
+      expect(order).toEqual(["optimistic:foo", "success"]);
+    });
+  });
+
+  describe("useDeleteKV", () => {
+    it("should delete a pair from the range", async () => {
+      const rng = await client.ranges.create({
+        name: "delete_kv_hook",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      await rng.kv.set("foo", "bar");
+      const { result } = renderHook(() => Ranger.useDeleteKV(), { wrapper });
+      await act(async () => {
+        await result.current.updateAsync({ rangeKey: rng.key, key: "foo" });
+      });
+      expect(await rng.kv.list()).toEqual({});
+    });
+
+    it("should run afterOptimistic before the delete commits", async () => {
+      const rng = await client.ranges.create({
+        name: "delete_kv_hook_optimistic",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      await rng.kv.set("foo", "bar");
+      const order: string[] = [];
+      const { result } = renderHook(
+        () =>
+          Ranger.useDeleteKV({
+            afterOptimistic: ({ data }) => {
+              order.push(`optimistic:${data.key}`);
+            },
+            afterSuccess: () => {
+              order.push("success");
+            },
+          }),
+        { wrapper },
+      );
+      await act(async () => {
+        await result.current.updateAsync({ rangeKey: rng.key, key: "foo" });
+      });
+      expect(order).toEqual(["optimistic:foo", "success"]);
+    });
+  });
+
   describe("useForm", () => {
     it("should create a new range", async () => {
       const timeRange = TimeStamp.now().spanRange(TimeSpan.minutes(5));
 
-      const { result } = renderHook(() => Ranger.useForm({ query: {} }), {
+      const { result } = renderHook(() => Ranger.useForm({ query: null }), {
         wrapper,
       });
 
@@ -701,7 +807,7 @@ describe("queries", () => {
         color: "#0000FF",
       });
 
-      const { result } = renderHook(() => Ranger.useForm({ query: {} }), {
+      const { result } = renderHook(() => Ranger.useForm({ query: null }), {
         wrapper,
       });
 
@@ -726,7 +832,7 @@ describe("queries", () => {
       });
       const childTimeRange = TimeStamp.now().spanRange(TimeSpan.minutes(30));
 
-      const { result } = renderHook(() => Ranger.useForm({ query: {} }), {
+      const { result } = renderHook(() => Ranger.useForm({ query: null }), {
         wrapper,
       });
 
@@ -811,13 +917,11 @@ describe("queries", () => {
         name: "parentForRetrieval",
         timeRange: TimeStamp.now().spanRange(TimeSpan.hours(2)),
       });
-      const childRange = await client.ranges.create(
-        {
-          name: "childForRetrieval",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.minutes(15)),
-        },
-        { parent: parentRange.ontologyID },
-      );
+      const childRange = await client.ranges.create({
+        name: "childForRetrieval",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.minutes(15)),
+        parent: parentRange,
+      });
 
       const { result } = renderHook(
         () => Ranger.useForm({ query: { key: childRange.key } }),
@@ -933,13 +1037,11 @@ describe("queries", () => {
         name: "newParent",
         timeRange: TimeStamp.now().spanRange(TimeSpan.hours(2)),
       });
-      const childRange = await client.ranges.create(
-        {
-          name: "childForParentChange",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.minutes(30)),
-        },
-        { parent: originalParent.ontologyID },
-      );
+      const childRange = await client.ranges.create({
+        name: "childForParentChange",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.minutes(30)),
+        parent: originalParent,
+      });
 
       const { result } = renderHook(
         () => Ranger.useForm({ query: { key: childRange.key } }),
@@ -962,7 +1064,7 @@ describe("queries", () => {
     });
 
     it("should handle form with default values", async () => {
-      const { result } = renderHook(() => Ranger.useForm({ query: {} }), {
+      const { result } = renderHook(() => Ranger.useForm({ query: null }), {
         wrapper,
       });
 
@@ -984,7 +1086,7 @@ describe("queries", () => {
         color: "#123456",
       });
 
-      const { result } = renderHook(() => Ranger.useForm({ query: {} }), {
+      const { result } = renderHook(() => Ranger.useForm({ query: null }), {
         wrapper,
       });
 
@@ -1011,7 +1113,7 @@ describe("queries", () => {
 
     it("should handle time range modifications", async () => {
       const initialTimeRange = TimeStamp.now().spanRange(TimeSpan.minutes(10));
-      const { result } = renderHook(() => Ranger.useForm({ query: {} }), {
+      const { result } = renderHook(() => Ranger.useForm({ query: null }), {
         wrapper,
       });
 
@@ -1048,7 +1150,7 @@ describe("queries", () => {
         timeRange: TimeStamp.now().spanRange(TimeSpan.hours(2)),
       });
 
-      const { result } = renderHook(() => Ranger.useForm({ query: {} }), {
+      const { result } = renderHook(() => Ranger.useForm({ query: null }), {
         wrapper,
       });
 
@@ -1073,6 +1175,77 @@ describe("queries", () => {
       await waitFor(() => {
         expect(result.current.form.value().parent).toEqual(parent2.key);
       });
+    });
+  });
+
+  describe("useKVPairForm", () => {
+    it("should not write back a pair deleted while an autosave was pending", async () => {
+      const rng = await client.ranges.create({
+        name: "kv_delete_race",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      await rng.kv.set("test_key", "initial");
+      // The metadata list warms this answer space in production.
+      await client.ranges.kv.retrieve(rng.key);
+      const { result } = renderHook(
+        () =>
+          Ranger.useKVPairForm({
+            query: { rangeKey: rng.key, key: "test_key" },
+            autoSave: true,
+            // Holds the save open long enough for the delete to overtake it.
+            autoSaveDebounce: TimeSpan.milliseconds(500),
+            initialValues: { key: "test_key", value: "initial", range: rng.key },
+          }),
+        { wrapper },
+      );
+      act(() => {
+        result.current.form.set("value", "edited");
+      });
+      await act(async () => {
+        await rng.kv.delete("test_key");
+      });
+      await testutil.expectAlways(async () => {
+        expect(await rng.kv.list()).not.toHaveProperty("test_key");
+      }, 800);
+    });
+  });
+
+  describe("use cached fast-path", () => {
+    it("resolves synchronously from the warm store without suspending", async () => {
+      const rng = await client.ranges.create({
+        name: "cached_fastpath",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+
+      // Warm the flux store (range + labels + parent relationship) through the
+      // async retrieve path so the composed cache fast-path can resolve.
+      const warm = await renderHookSuspended(() => Ranger.use({ key: rng.key }), {
+        wrapper,
+      });
+      await waitFor(() => expect(warm.result.current).toBeDefined());
+
+      const Display = (): ReactElement => {
+        const range = Ranger.use({ key: rng.key });
+        return createElement("span", { "data-testid": "name" }, range.name);
+      };
+
+      let utils!: ReturnType<typeof render>;
+      await act(async () => {
+        utils = render(
+          createElement(
+            wrapper,
+            null,
+            createElement(
+              Suspense,
+              { fallback: createElement("span", { "data-testid": "fallback" }) },
+              createElement(Display),
+            ),
+          ),
+        );
+      });
+
+      expect(utils.queryByTestId("fallback")).toBeNull();
+      expect(utils.queryByTestId("name")?.textContent).toBe("cached_fastpath");
     });
   });
 });

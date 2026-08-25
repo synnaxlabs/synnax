@@ -28,7 +28,9 @@ var _ = Describe("update", func() {
 		for i := range 10 {
 			entries[i] = entry{ID: int32(i), Data: "data"}
 		}
-		Expect(gorp.NewCreate[int32, entry]().Entries(&entries).Exec(ctx, tx)).To(Succeed())
+		Expect(
+			gorp.NewCreate[int32, entry]().Entries(&entries).Exec(ctx, tx),
+		).To(Succeed())
 	})
 
 	It("Should correctly update set of entries", func(ctx SpecContext) {
@@ -46,11 +48,14 @@ var _ = Describe("update", func() {
 		Expect(res).To(Equal(entry{ID: 0, Data: "new data"}))
 	})
 
-	It("Should return an error if no change function was specified", func(ctx SpecContext) {
-		Expect(gorp.NewUpdate[int32, entry]().
-			Where(gorp.MatchKeys[int32, entry](entries[0].GorpKey())).
-			Exec(ctx, tx)).To(MatchError(query.ErrInvalidParameters))
-	})
+	It(
+		"Should return an error if no change function was specified",
+		func(ctx SpecContext) {
+			Expect(gorp.NewUpdate[int32, entry]().
+				Where(gorp.MatchKeys[int32, entry](entries[0].GorpKey())).
+				Exec(ctx, tx)).To(MatchError(query.ErrInvalidParameters))
+		},
+	)
 
 	It("Should return an error if the the key cannot be found", func(ctx SpecContext) {
 		Expect(gorp.NewUpdate[int32, entry]().
@@ -61,17 +66,20 @@ var _ = Describe("update", func() {
 			}).Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 	})
 
-	It("Should pass the correct transaction into the gorp.Context in the where function", func(ctx SpecContext) {
-		count := 0
-		Expect(gorp.NewUpdate[int32, entry]().
-			Where(gorp.MatchKeys[int32, entry](entries[0].GorpKey())).
-			Change(func(gCtx gorp.Context, e entry) entry {
-				e.Data = "new data"
-				Expect(gCtx.Context).To(BeIdenticalTo(ctx))
-				Expect(gCtx.Tx).To(BeIdenticalTo(tx))
-				count++
-				return e
-			}).Exec(ctx, tx)).To(Succeed())
-		Expect(count).To(Equal(1))
-	})
+	It(
+		"Should pass the correct transaction into the gorp.Context in the where function",
+		func(ctx SpecContext) {
+			count := 0
+			Expect(gorp.NewUpdate[int32, entry]().
+				Where(gorp.MatchKeys[int32, entry](entries[0].GorpKey())).
+				Change(func(gCtx gorp.Context, e entry) entry {
+					e.Data = "new data"
+					Expect(gCtx.Context).To(BeIdenticalTo(ctx))
+					Expect(gCtx.Tx).To(BeIdenticalTo(tx))
+					count++
+					return e
+				}).Exec(ctx, tx)).To(Succeed())
+			Expect(count).To(Equal(1))
+		},
+	)
 })

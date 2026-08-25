@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { TimeSpan } from "@synnaxlabs/x";
+import { afterAll } from "vitest";
 
 import Synnax, { type SynnaxParams } from "@/client";
 
@@ -23,5 +24,29 @@ export const TEST_CLIENT_PARAMS: SynnaxParams = {
   },
 };
 
-export const createTestClient = (params?: Partial<SynnaxParams>): Synnax =>
-  new Synnax({ ...TEST_CLIENT_PARAMS, ...params });
+// A hook registered mid-test is silently dropped by vitest, so per-client afterAll
+// calls leak clients created inside test bodies. This module-level hook registers
+// during spec collection (import time) and covers every call site.
+const openClients: Synnax[] = [];
+// Awaited so every close finishes before vitest tears down the worker; a close
+// still in flight at teardown races its logging against the closing RPC channel.
+afterAll(async () => {
+  const results = await Promise.allSettled(openClients.map((client) => client.close()));
+  const failures = results.filter((result) => result.status === "rejected");
+  if (failures.length > 0)
+    throw new AggregateError(
+      failures.map((failure) => failure.reason),
+      "failed to close test clients",
+    );
+});
+
+/**
+ * Creates a client connected to the local test cluster. The client is closed
+ * automatically once every test in the current spec file has finished, so callers do
+ * not need to close it themselves.
+ */
+export const createTestClient = (params?: Partial<SynnaxParams>): Synnax => {
+  const client = new Synnax({ ...TEST_CLIENT_PARAMS, ...params });
+  openClients.push(client);
+  return client;
+};

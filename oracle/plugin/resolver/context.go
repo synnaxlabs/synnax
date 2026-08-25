@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package resolver provides a shared framework for type resolution across Oracle plugins.
-// It extracts the common patterns for resolving type references to language-specific strings.
+// Package resolver provides a shared framework for type resolution across Oracle
+// plugins. It extracts the common patterns for resolving type references to
+// language-specific strings.
 package resolver
 
 import (
@@ -30,15 +31,15 @@ type Context struct {
 	RepoRoot string
 	// DomainName is the language domain name (e.g., "go", "py", "ts", "cpp", "pb").
 	DomainName string
-	// SubstituteDefaultedTypeParams controls whether type parameters with default values
-	// should be substituted with their default. This is true for languages that
-	// don't support advanced generics (Go, Python, C++, Proto) and false for
-	// TypeScript which does support literal type narrowing.
+	// SubstituteDefaultedTypeParams controls whether type parameters with default
+	// values should be substituted with their default. This is true for languages that
+	// don't support advanced generics (Go, Python, C++, Proto) and false for TypeScript
+	// which does support literal type narrowing.
 	SubstituteDefaultedTypeParams bool
 }
 
-// IsSameOutput checks if a resolved type is in the same output location as the current context.
-// This determines whether to use qualified or unqualified type names.
+// IsSameOutput checks if a resolved type is in the same output location as the current
+// context. This determines whether to use qualified or unqualified type names.
 func (c *Context) IsSameOutput(resolved resolution.Type) bool {
 	targetOutputPath := output.GetPath(resolved, c.DomainName)
 	return resolved.Namespace == c.Namespace &&

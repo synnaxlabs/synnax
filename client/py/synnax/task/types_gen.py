@@ -12,13 +12,30 @@
 from __future__ import annotations
 
 from typing import Any, TypeAlias
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
+from synnax import device as device_
+from synnax import rack as rack_
 from synnax import status as status_
 from synnax.ontology.payload import ID
+from x import telem
 
-Key: TypeAlias = int
+Key: TypeAlias = UUID
+
+
+class KeyedConfig(BaseModel):
+    """Is the base for every stored task configuration record.
+
+    Attributes:
+        key: Is the unique identifier for the stored configuration record.
+    """
+
+    key: UUID = Field(default_factory=uuid4)
+
+    def __hash__(self) -> int:
+        return hash(self.key)
 
 
 class StatusDetails(BaseModel):
@@ -28,12 +45,17 @@ class StatusDetails(BaseModel):
         task: Is the key of the task this status pertains to.
         running: Is true if the task is currently executing.
         cmd: Is the last command executed on this task.
+        config_hash: Is the hash of the config the running task instance was built from.
+            Empty when no instance exists.
+        rack: Is the key of the rack running the task instance.
         data: Contains task-specific status data.
     """
 
-    task: Key = Field(ge=0, le=18446744073709551615)
+    task: Key
     running: bool
-    cmd: str | None = None
+    cmd: str = ""
+    config_hash: str = ""
+    rack: rack_.Key = Field(default=rack_.Key(0), ge=0, le=4294967295)
     data: dict[str, Any] | None = None
 
 
@@ -44,42 +66,122 @@ class Command(BaseModel):
         task: Is the key of the target task.
         type: Is the command type (e.g., 'start', 'stop', 'configure').
         key: Is a unique identifier for this command instance.
+        config_hash: Is the config hash the sender wants running. Empty when the sender
+            does not know it. The Driver reuses its live instance when the hash matches
+            and redeploys when it differs.
         args: Contains optional arguments for the command.
     """
 
-    task: Key = Field(ge=0, le=18446744073709551615)
+    task: Key
     type: str
     key: str
-    args: dict[str, Any] | None = None
+    config_hash: str = ""
+    args: dict[str, Any] = Field(default_factory=dict)
+
+
+class StartConfig(KeyedConfig):
+    """Carries the configuration fields shared by every task.
+
+    Attributes:
+        auto_start: Is true when the task should start as soon as it is configured.
+    """
+
+    auto_start: bool = False
+
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
+class ScanConfig(KeyedConfig):
+    """Carries the fields shared by every scan task configuration.
+
+    Attributes:
+        rate: Is the rate at which the scan runs, in Hertz.
+        disabled: Is true when scanning is paused.
+    """
+
+    rate: telem.Rate = telem.Rate(0.200000)
+    disabled: bool = False
+
+    def __hash__(self) -> int:
+        return hash(self.key)
 
 
 Status: TypeAlias = status_.Status[StatusDetails]
 
 
-class Payload(BaseModel):
-    """Is an executable unit of work in the Driver system. Tasks represent
-    specific hardware operations such as reading sensor data, writing
-    control signals, or scanning for devices.
+class PersistConfig(StartConfig):
+    """Carries the configuration fields shared by tasks that write telemetry.
 
     Attributes:
-        key: Is the composite identifier for this task.
+        data_saving_disabled: Is true when task telemetry is not persisted to disk.
+    """
+
+    data_saving_disabled: bool = False
+
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
+class Payload(BaseModel):
+    """Is an executable unit of work in the Driver system. Tasks represent specific
+    hardware operations such as reading sensor data, writing control signals, or
+    scanning for devices.
+
+    Attributes:
+        key: Is the unique identifier for this task.
+        rack: Is the key of the rack this task deploys to. Zero for a draft that has not
+            been assigned a rack; required to start.
         name: Is a human-readable name for the task.
         type: Is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
             Determines which hardware integration handles the task.
-        config: Is task-specific configuration stored as JSON. Structure varies by
-            task type.
+        config: Is task-specific configuration stored as JSON. Structure varies by task
+            type.
+        config_hash: Is the Core-assigned hash of config, rewritten on every write and
+            ignored on writes from clients. Compare against a status's config_hash to
+            detect drift.
         internal: Is true if this is an internal system task.
-        snapshot: Indicates whether to persist this task's configuration.
+        snapshot: Is true if this task is an immutable snapshot copy of another task.
         status: Is the current execution status of the task.
     """
 
-    key: Key = Field(ge=0, le=18446744073709551615)
+    key: Key = Field(default_factory=uuid4)
+    rack: rack_.Key = Field(default=rack_.Key(0), ge=0, le=4294967295)
     name: str
     type: str
-    config: dict[str, Any]
-    internal: bool | None = None
-    snapshot: bool | None = None
+    config: dict[str, Any] = Field(default_factory=dict)
+    config_hash: str = ""
+    internal: bool = False
+    snapshot: bool = False
     status: Status | None = None
+
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
+class ReadConfig(PersistConfig):
+    """Carries the configuration fields shared by hardware acquisition tasks.
+
+    Attributes:
+        sample_rate: Is the per-channel hardware sample rate, in Hertz.
+        stream_rate: Is the rate at which samples are streamed to Synnax, in Hertz.
+    """
+
+    sample_rate: telem.Rate = telem.Rate(10)
+    stream_rate: telem.Rate = telem.Rate(5)
+
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
+class WriteConfig(PersistConfig):
+    """Carries the configuration fields shared by hardware control tasks.
+
+    Attributes:
+        device: Is the key of the device the task writes to.
+    """
+
+    device: device_.Key = ""
 
     def __hash__(self) -> int:
         return hash(self.key)

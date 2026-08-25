@@ -18,22 +18,25 @@ import (
 // It allows the resolver to add imports when resolving cross-namespace types.
 type ImportAdder interface {
 	// AddImport adds an import with the given category, path, and optional alias.
-	AddImport(category string, path string, alias string)
+	AddImport(category, path, alias string)
 }
 
 // TypeFormatter formats type strings for a specific language.
 type TypeFormatter interface {
 	// FormatQualified formats a qualified type name (e.g., "pkg.Type" or "pkg::Type").
 	FormatQualified(qualifier, typeName string) string
-	// FormatGeneric formats a generic type with arguments (e.g., "Type[T]" or "Type<T>").
+	// FormatGeneric formats a generic type with arguments (e.g., "Type[T]" or
+	// "Type<T>").
 	FormatGeneric(baseName string, typeArgs []string) string
 	// FormatArray formats a dynamic array type (e.g., "[]T" or "std::vector<T>").
 	FormatArray(elemType string) string
-	// FormatFixedArray formats a fixed-size array type (e.g., "[4]byte" or "std::array<T, 4>").
+	// FormatFixedArray formats a fixed-size array type (e.g., "[4]byte" or
+	// "std::array<T, 4>").
 	FormatFixedArray(elemType string, size int64) string
 	// FormatMap formats a map type (e.g., "map[K]V" or "std::unordered_map<K, V>").
 	FormatMap(keyType, valType string) string
-	// FallbackType returns the fallback type for unresolved references (e.g., "any" or "void").
+	// FallbackType returns the fallback type for unresolved references (e.g., "any" or
+	// "void").
 	FallbackType() string
 }
 
@@ -41,7 +44,10 @@ type TypeFormatter interface {
 type ImportResolver interface {
 	// ResolveImport returns the import information for a type in a different namespace.
 	// Returns (importPath, qualifier, shouldImport).
-	ResolveImport(outputPath string, ctx *Context) (importPath string, qualifier string, shouldImport bool)
+	ResolveImport(
+		outputPath string,
+		ctx *Context,
+	) (importPath, qualifier string, shouldImport bool)
 }
 
 // Resolver resolves Oracle type references to language-specific type strings.
@@ -101,160 +107,108 @@ func (r *Resolver) ResolveTypeRef(typeRef resolution.TypeRef, ctx *Context) stri
 	case resolution.EnumForm:
 		return r.resolveEnumType(resolved, ctx)
 	case resolution.DistinctForm:
-		return r.resolveDistinctType(resolved, ctx)
+		return r.resolveNamedType(resolved, ctx)
 	case resolution.AliasForm:
 		return r.resolveAliasType(resolved, typeRef.TypeArgs, ctx)
 	case resolution.UnionForm:
-		return r.resolveUnionType(resolved, ctx)
+		return r.resolveNamedType(resolved, ctx)
 	default:
 		return r.Formatter.FallbackType()
 	}
 }
 
-// resolveUnionType resolves a discriminated union type to a language-specific
-// string. A union is referenced by name, like an enum or distinct type.
-func (r *Resolver) resolveUnionType(resolved resolution.Type, ctx *Context) string {
-	typeName := ctx.GetTypeName(resolved)
-	if ctx.IsSameOutput(resolved) {
-		return typeName
-	}
-	targetOutputPath := ctx.GetOutputPath(resolved)
-	if targetOutputPath == "" {
-		return r.Formatter.FallbackType()
-	}
-	importPath, qualifier, shouldImport := r.ImportResolver.ResolveImport(targetOutputPath, ctx)
-	if shouldImport {
-		r.ImportAdder.AddImport("internal", importPath, qualifier)
-	}
-	return r.Formatter.FormatQualified(qualifier, typeName)
+// resolveNamedType resolves a union or distinct type, which is referenced by bare
+// name.
+func (r *Resolver) resolveNamedType(resolved resolution.Type, ctx *Context) string {
+	return r.qualify(
+		ctx.GetTypeName(resolved), ctx.IsSameOutput(resolved),
+		ctx.GetOutputPath(resolved), ctx,
+	)
+}
+
+// resolveEnumType resolves an enum type, whose output may live in a dedicated enum
+// path.
+func (r *Resolver) resolveEnumType(resolved resolution.Type, ctx *Context) string {
+	return r.qualify(
+		ctx.GetTypeName(resolved), ctx.IsSameOutputEnum(resolved),
+		ctx.GetEnumOutputPath(resolved), ctx,
+	)
 }
 
 // resolveStructType resolves a struct type to a language-specific string.
-func (r *Resolver) resolveStructType(resolved resolution.Type, typeArgs []resolution.TypeRef, ctx *Context) string {
-	typeName := ctx.GetTypeName(resolved)
-
-	// Build type arguments, filtering out those that correspond to defaulted params
-	var args []string
+func (r *Resolver) resolveStructType(
+	resolved resolution.Type,
+	typeArgs []resolution.TypeRef,
+	ctx *Context,
+) string {
+	var params []resolution.TypeParam
 	if form, ok := resolved.Form.(resolution.StructForm); ok {
-		for i, arg := range typeArgs {
-			// Skip type args that correspond to defaulted params
-			if ctx.SubstituteDefaultedTypeParams && i < len(form.TypeParams) {
-				if form.TypeParams[i].HasDefault() {
-					continue
-				}
-			}
-			args = append(args, r.ResolveTypeRef(arg, ctx))
-		}
-	} else {
-		// Not a struct form, resolve all args
-		for _, arg := range typeArgs {
-			args = append(args, r.ResolveTypeRef(arg, ctx))
-		}
+		params = form.TypeParams
 	}
-	baseType := r.Formatter.FormatGeneric(typeName, args)
-
-	// Same namespace/output -> unqualified
-	if ctx.IsSameOutput(resolved) {
-		return baseType
-	}
-
-	// Different namespace -> add import and qualify
-	targetOutputPath := ctx.GetOutputPath(resolved)
-	if targetOutputPath == "" {
-		return r.Formatter.FallbackType()
-	}
-
-	importPath, qualifier, shouldImport := r.ImportResolver.ResolveImport(targetOutputPath, ctx)
-	if shouldImport {
-		r.ImportAdder.AddImport("internal", importPath, qualifier)
-	}
-
-	return r.Formatter.FormatQualified(qualifier, baseType)
+	baseType := r.Formatter.FormatGeneric(
+		ctx.GetTypeName(resolved), r.resolveTypeArgs(params, typeArgs, ctx),
+	)
+	return r.qualify(
+		baseType, ctx.IsSameOutput(resolved), ctx.GetOutputPath(resolved), ctx,
+	)
 }
 
-// resolveEnumType resolves an enum type to a language-specific string.
-func (r *Resolver) resolveEnumType(resolved resolution.Type, ctx *Context) string {
-	typeName := ctx.GetTypeName(resolved)
-
-	// Same namespace/output -> unqualified
-	if ctx.IsSameOutputEnum(resolved) {
-		return typeName
+// resolveAliasType resolves an alias type to a language-specific string. Unlike
+// expanding the target, this uses the alias name directly. The alias's own type params,
+// not the target's, determine which type args the output language exposes.
+func (r *Resolver) resolveAliasType(
+	resolved resolution.Type,
+	typeArgs []resolution.TypeRef,
+	ctx *Context,
+) string {
+	var params []resolution.TypeParam
+	if form, ok := resolved.Form.(resolution.AliasForm); ok {
+		params = form.TypeParams
 	}
-
-	// Different namespace -> add import and qualify
-	targetOutputPath := ctx.GetEnumOutputPath(resolved)
-	if targetOutputPath == "" {
-		return r.Formatter.FallbackType()
-	}
-
-	importPath, qualifier, shouldImport := r.ImportResolver.ResolveImport(targetOutputPath, ctx)
-	if shouldImport {
-		r.ImportAdder.AddImport("internal", importPath, qualifier)
-	}
-
-	return r.Formatter.FormatQualified(qualifier, typeName)
+	baseType := r.Formatter.FormatGeneric(
+		ctx.GetTypeName(resolved), r.resolveTypeArgs(params, typeArgs, ctx),
+	)
+	return r.qualify(
+		baseType, ctx.IsSameOutput(resolved), ctx.GetOutputPath(resolved), ctx,
+	)
 }
 
-// resolveDistinctType resolves a distinct type to a language-specific string.
-func (r *Resolver) resolveDistinctType(resolved resolution.Type, ctx *Context) string {
-	typeName := ctx.GetTypeName(resolved)
-
-	// Same namespace/output -> unqualified
-	if ctx.IsSameOutput(resolved) {
-		return typeName
-	}
-
-	// Different namespace -> add import and qualify
-	targetOutputPath := ctx.GetOutputPath(resolved)
-	if targetOutputPath == "" {
-		return r.Formatter.FallbackType()
-	}
-
-	importPath, qualifier, shouldImport := r.ImportResolver.ResolveImport(targetOutputPath, ctx)
-	if shouldImport {
-		r.ImportAdder.AddImport("internal", importPath, qualifier)
-	}
-
-	return r.Formatter.FormatQualified(qualifier, typeName)
-}
-
-// resolveAliasType resolves an alias type to a language-specific string.
-// Unlike expanding the target, this uses the alias name directly.
-func (r *Resolver) resolveAliasType(resolved resolution.Type, typeArgs []resolution.TypeRef, ctx *Context) string {
-	typeName := ctx.GetTypeName(resolved)
-
-	// Build type arguments, filtering out those that correspond to defaulted params
-	// We check the alias's own type params, not the target's, because the alias
-	// determines what type args are exposed in the output language.
+// resolveTypeArgs renders type arguments, skipping those bound to defaulted params
+// when the language substitutes defaults.
+func (r *Resolver) resolveTypeArgs(
+	params []resolution.TypeParam,
+	typeArgs []resolution.TypeRef,
+	ctx *Context,
+) []string {
 	var args []string
-	if aliasForm, ok := resolved.Form.(resolution.AliasForm); ok {
-		for i, arg := range typeArgs {
-			// Skip type args that correspond to defaulted params on the alias
-			if ctx.SubstituteDefaultedTypeParams && i < len(aliasForm.TypeParams) {
-				if aliasForm.TypeParams[i].HasDefault() {
-					continue
-				}
-			}
-			args = append(args, r.ResolveTypeRef(arg, ctx))
+	for i, arg := range typeArgs {
+		if ctx.SubstituteDefaultedTypeParams && i < len(params) &&
+			params[i].HasDefault() {
+			continue
 		}
+		args = append(args, r.ResolveTypeRef(arg, ctx))
 	}
-	baseType := r.Formatter.FormatGeneric(typeName, args)
+	return args
+}
 
-	// Same namespace/output -> unqualified
-	if ctx.IsSameOutput(resolved) {
-		return baseType
+// qualify renders a resolved type's name relative to the current output: bare
+// when the type lives in the same output, qualified through the language's import
+// machinery otherwise. An empty outputPath means the type has no home in this
+// language.
+func (r *Resolver) qualify(
+	rendered string, sameOutput bool, outputPath string, ctx *Context,
+) string {
+	if sameOutput {
+		return rendered
 	}
-
-	// Different namespace -> add import and qualify
-	targetOutputPath := ctx.GetOutputPath(resolved)
-	if targetOutputPath == "" {
+	if outputPath == "" {
 		return r.Formatter.FallbackType()
 	}
-
-	importPath, qualifier, shouldImport := r.ImportResolver.ResolveImport(targetOutputPath, ctx)
+	importPath, qualifier, shouldImport := r.ImportResolver.ResolveImport(
+		outputPath, ctx,
+	)
 	if shouldImport {
 		r.ImportAdder.AddImport("internal", importPath, qualifier)
 	}
-
-	return r.Formatter.FormatQualified(qualifier, baseType)
+	return r.Formatter.FormatQualified(qualifier, rendered)
 }

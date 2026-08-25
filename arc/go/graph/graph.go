@@ -25,29 +25,3 @@
 // The core compilation process is performed by Analyze(), which implements a
 // 10-step pipeline that produces executable IR from a visual graph.
 package graph
-
-import (
-	"github.com/samber/lo"
-	"github.com/synnaxlabs/arc/ir"
-)
-
-// Type aliases for IR types to avoid circular dependencies while maintaining
-// clean API boundaries.
-type (
-	Function = ir.Function
-	Edge     = ir.Edge
-	Edges    = ir.Edges
-	Handle   = ir.Handle
-)
-
-// Get returns the node with the given key. Panics if the node is not found.
-// Use Find for safe lookups with error handling.
-func (n Nodes) Get(key string) Node {
-	return lo.Must(lo.Find(n, func(n Node) bool { return n.Key == key }))
-}
-
-// Find returns the node with the given key and a boolean indicating whether
-// the node was found. This is the safe variant of Get.
-func (n Nodes) Find(key string) (Node, bool) {
-	return lo.Find(n, func(n Node) bool { return n.Key == key })
-}

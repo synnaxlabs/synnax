@@ -25,6 +25,11 @@ import {
 import { elementConfigZ } from "@/schematic/types.gen";
 
 const handlers: Handlers = {
+  create: (state, payload) => {
+    Object.assign(state, payload.schematic);
+    return { inverse: [], targets: [payload.schematic.key] };
+  },
+
   rename: (state, payload) => {
     const oldName = state.name;
     state.name = payload.name;
@@ -42,17 +47,6 @@ const handlers: Handlers = {
       inverse: [setNodePosition({ key: payload.key, position: oldPosition })],
       targets: [payload.key],
     };
-  },
-
-  // set_node_measured carries layout-derived dimensions, not user intent.
-  // Both the inverse and the target list are empty so it neither contributes
-  // to the undo stack nor invalidates undoables targeting the same node when
-  // a remote session emits it.
-  setNodeMeasured: (state, payload) => {
-    const node = state.nodes.find((n) => n.key === payload.key);
-    if (node == null) return actions.NO_OP_RESULT;
-    node.measured = payload.measured;
-    return { inverse: [], targets: [] };
   },
   setNode: (state, payload) => {
     const idx = state.nodes.findIndex((n) => n.key === payload.node.key);
@@ -123,12 +117,11 @@ const handlers: Handlers = {
       targets: [payload.key],
     };
   },
-  // The inverse of SetConfig is imperfect for keys the action newly
-  // introduces: SetConfig only merges, so it cannot remove keys that did not
-  // previously exist. The inverse here restores values for keys that DID
-  // exist before the merge; keys added by the action remain on undo as
-  // phantom fields. A future ReplaceConfig action can close the gap by
-  // enabling wholesale replacement.
+  // The inverse of SetConfig is imperfect for keys the action newly introduces:
+  // SetConfig only merges, so it cannot remove keys that did not previously exist. The
+  // inverse here restores values for keys that DID exist before the merge; keys added
+  // by the action remain on undo as phantom fields. A future ReplaceConfig action can
+  // close the gap by enabling wholesale replacement.
   setConfig: (state, payload) => {
     const existingRaw = state.configs[payload.key];
     if (existingRaw != null) {
@@ -151,8 +144,7 @@ const handlers: Handlers = {
     const edge = state.edges.find((e) => e.key === payload.key);
     if (edge != null) {
       const srcCfg = state.configs[edge.source.node] as
-        | { color?: color.Crude }
-        | undefined;
+        { color?: color.Crude } | undefined;
       if (srcCfg?.color != null && !color.isZero(srcCfg.color))
         cfg = { ...cfg, color: srcCfg.color };
     }
@@ -163,5 +155,22 @@ const handlers: Handlers = {
 
 export const reduceAll = createReduceAll(handlers);
 
-export const isUndoable = (action: Action): boolean =>
-  action.type !== "set_node_measured";
+// createOf hands the dispatch controller the document carried by a create
+// action so frames for never-cached documents ingest instead of drop.
+export const createOf = (action: Action) =>
+  action.type === "create" ? action.create.schematic : undefined;
+
+export const kindOf = (actions: Action[]): string => {
+  if (actions.length === 0) return "default";
+  // A drag dispatches a stream of `set_node_position` per frame, plus `set_config`
+  // companions synthesized by augmentWithEdgeSegments for any affected edges. Both
+  // shapes are part of one user gesture and must coalesce together; classify them all
+  // as "move" so the per-kind coalesce window collapses them into a single undoable.
+  const hasMove = actions.some((a) => a.type === "set_node_position");
+  const onlyMoveOrSegment = actions.every(
+    (a) => a.type === "set_node_position" || a.type === "set_config",
+  );
+  if (hasMove && onlyMoveOrSegment) return "move";
+  if (actions.length === 1) return actions[0].type;
+  return "transaction";
+};

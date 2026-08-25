@@ -13,25 +13,25 @@ from alamos import Instrumentation
 from freighter import (
     URL,
     AsyncMiddleware,
-    AsyncStreamClient,
     AsyncWebsocketClient,
+    FileTransport,
     HTTPClient,
-    JSONCodec,
     Middleware,
-    MsgPackCodec,
     UnaryClient,
     WebsocketClient,
     async_instrumentation_middleware,
     instrumentation_middleware,
 )
 from synnax.telem import Size, TimeSpan
+from x.codec import JSONCodec
 
 
 class Transport:
     url: URL
     stream: WebsocketClient
-    stream_async: AsyncStreamClient
+    stream_async: AsyncWebsocketClient
     unary: UnaryClient
+    file_transport: FileTransport
     secure: bool
 
     def __init__(
@@ -45,27 +45,30 @@ class Transport:
         max_retries: int = 3,
     ) -> None:
         self.url = url.child("/api/v1/")
+        codec = JSONCodec()
         ws_args = {
             "base_url": self.url,
-            "encoder": MsgPackCodec(),
+            "encoder": codec,
             "max_message_size": int(Size.MB * 5),
             "secure": secure,
             "open_timeout": open_timeout.seconds,
             "close_timeout": read_timeout.seconds,
         }
         self.stream = WebsocketClient(**ws_args)
-        # We need to update these here because the websocket client doesn't support
-        # the same arguments as the async websocket client.
+        # We need to update these here because the WebSocket client doesn't support the
+        # same arguments as the async WebSocket client.
         ws_args["ping_interval"] = keep_alive.seconds
         ws_args["ping_timeout"] = 180
         self.stream_async = AsyncWebsocketClient(**ws_args)
-        self.unary = HTTPClient(
+        http = HTTPClient(
             url=self.url,
-            codec=JSONCodec(),
+            codec=codec,
             secure=secure,
             timeout=Timeout(connect=open_timeout.seconds, read=read_timeout.seconds),
             retries=Retry(total=max_retries),
         )
+        self.unary = http
+        self.file_transport = http
         self.use(instrumentation_middleware(instrumentation))
         self.use_async(async_instrumentation_middleware(instrumentation))
 

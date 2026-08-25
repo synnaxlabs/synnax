@@ -12,21 +12,22 @@ package task
 import (
 	"context"
 	"io"
+	"slices"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/task/migrations/v0"
-	v54 "github.com/synnaxlabs/synnax/pkg/service/task/migrations/v54"
-	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/synnax/pkg/service/task/config"
+	"github.com/synnaxlabs/synnax/pkg/service/task/versions"
+	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
@@ -38,40 +39,62 @@ import (
 // ServiceConfig is the configuration for creating a Service.
 type ServiceConfig struct {
 	// DB is the gorp database that tasks will be stored in.
+	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology is used to define relationships between tasks and other resources
-	// in the Synnax cluster.
+	// Ontology is used to define relationships between tasks and other resources in the
+	// Synnax cluster.
+	//
 	// [REQUIRED]
 	Ontology *ontology.Ontology
 	// Group is used to create task related groups of ontology resources.
+	//
 	// [REQUIRED]
 	Group *group.Service
 	// Rack is used to manage rack-related operations for tasks.
+	//
 	// [REQUIRED]
 	Rack *rack.Service
 	// Status is used to define and process statuses for tasks.
+	//
 	// [REQUIRED]
 	Status *status.Service
-	// Signals is used to propagate task changes through the Synnax signals' channel
-	// communication mechanism.
-	// [OPTIONAL]
-	Signals *signals.Provider
 	// Channel is used to create channels related to task operations.
+	//
 	// [OPTIONAL]
 	Channel *channel.Service
 	// Search is the search index for fuzzy searching tasks.
+	//
 	// [REQUIRED]
 	Search *search.Index
+	// Signals is used to propagate task changes through the Synnax signals' channel
+	// communication mechanism.
+	//
+	// [OPTIONAL]
+	Signals *signals.Provider
+	// ImEx is the import/export registry the task service registers itself with as the
+	// exporter for task resources during OpenService.
+	//
+	// [REQUIRED]
+	ImEx *imex.Service
+	// Configs routes task types to the store that owns their configuration records.
+	//
+	// [REQUIRED]
+	Configs config.Registry
+	// ImExExcluded lists the task types with no file form. Export refuses them and no
+	// importer is registered for them.
+	//
+	// [OPTIONAL]
+	ImExExcluded []string
+	// Instrumentation is used for logging, tracing, and metrics.
+	//
+	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
 }
 
-var (
-	_                    config.Config[ServiceConfig] = ServiceConfig{}
-	DefaultServiceConfig                              = ServiceConfig{}
-)
+var _ xconfig.Config[ServiceConfig] = ServiceConfig{}
 
-// Override implements config.Config.
+// Override implements xconfig.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
@@ -79,13 +102,16 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Rack = override.Nil(c.Rack, other.Rack)
 	c.Status = override.Nil(c.Status, other.Status)
-	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Search = override.Nil(c.Search, other.Search)
+	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.ImEx = override.Nil(c.ImEx, other.ImEx)
+	c.Configs = override.Zero(c.Configs, other.Configs)
+	c.ImExExcluded = override.Slice(c.ImExExcluded, other.ImExExcluded)
 	return c
 }
 
-// Validate implements config.Config.
+// Validate implements xconfig.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("task")
 	validate.NotNil(v, "db", c.DB)
@@ -94,6 +120,8 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "rack", c.Rack)
 	validate.NotNil(v, "status", c.Status)
 	validate.NotNil(v, "search", c.Search)
+	validate.NotNil(v, "imex", c.ImEx)
+	v.Ternary("configs", c.Configs.IsZero(), "must be non-zero")
 	return v.Error()
 }
 
@@ -110,35 +138,60 @@ func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Task]] {
 	return s.table.Observe()
 }
 
-func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err error) {
-	cfg, err := config.New(DefaultServiceConfig, configs...)
+func OpenService(
+	ctx context.Context,
+	configs ...ServiceConfig,
+) (s *Service, err error) {
+	cfg, err := xconfig.New(ServiceConfig{}, configs...)
 	if err != nil {
 		return nil, err
 	}
 	s = &Service{cfg: cfg}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	v0Mig := v0.Migration(v0.MigrationConfig{Status: cfg.Status})
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Task]{
 		DB: cfg.DB,
-		Migrations: []migrate.Migration{
-			v0Mig,
-			gorp.CodecMigration[v54.Key, v54.Task]("msgpack_to_orc", v0Mig.Key()),
-			migrate.WithAddedDeps(
-				gorp.NewEntryMigration("v54_drop_status", MigrateTask),
-				"msgpack_to_orc",
-			),
-		},
+		Migrations: versions.NewMigrations(versions.MigrationsConfig{
+			Status:   cfg.Status,
+			Ontology: cfg.Ontology,
+			Configs:  cfg.Configs,
+		}),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	if s.group, err = cfg.Group.CreateOrRetrieve(ctx, "Tasks", ontology.RootID); !ok(err, nil) {
+	if s.group, err = cfg.Group.CreateOrRetrieve(
+		ctx,
+		"Tasks",
+		ontology.RootID,
+	); !ok(
+		err,
+		nil,
+	) {
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
-	s.cleanupInternalOntologyResources(ctx)
+	if err = cfg.ImEx.RegisterExporter(s); !ok(err, nil) {
+		return nil, err
+	}
+	// Task files carry the fine-grained type ("opc_read") while export routes under
+	// the coarse "task" ontology type, so the importer registers per config type.
+	for _, t := range cfg.Configs.Types() {
+		if slices.Contains(cfg.ImExExcluded, t) {
+			continue
+		}
+		if err = cfg.ImEx.RegisterImporter(t, s); !ok(err, nil) {
+			return nil, err
+		}
+	}
+	// Retired types register too so an old export fails with a retirement message
+	// instead of "no importer registered".
+	for t := range retiredTypes {
+		if err = cfg.ImEx.RegisterImporter(t, s); !ok(err, nil) {
+			return nil, err
+		}
+	}
 	if cfg.Channel != nil {
 		cmdCh := channel.Channel{
 			Name:     "sy_task_cmd",
@@ -146,7 +199,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 			Virtual:  true,
 			Internal: true,
 		}
-		if err = cfg.Channel.Create(
+		if err = cfg.Channel.NewWriter(nil).Create(
 			ctx,
 			&cmdCh,
 			channel.RetrieveIfNameExists(),
@@ -157,16 +210,16 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	}
 	disconnect := cfg.Rack.OnSuspect(s.onSuspectRack)
 	ok(nil, xio.NoFailCloserFunc(disconnect))
-	if cfg.Signals == nil {
-		return s, nil
-	}
-	var sig io.Closer
-	if sig, err = signals.PublishFromGorp(
-		ctx,
-		cfg.Signals,
-		signals.GorpPublisherConfigPureNumeric(s.table.Observe(), telem.Uint64T),
-	); !ok(err, sig) {
-		return nil, err
+	if cfg.Signals != nil {
+		pubCfg := signals.GorpPublisherConfigUUID[Task](s.table.Observe())
+		pubCfg.MarshalSet = func(t Task) ([]byte, error) {
+			t.Config, t.Status = nil, nil
+			return signals.MarshalJSON[Key, Task](t)
+		}
+		var sig io.Closer
+		if sig, err = signals.PublishFromGorp(ctx, cfg.Signals, pubCfg); !ok(err, sig) {
+			return nil, err
+		}
 	}
 	return s, nil
 }
@@ -175,41 +228,28 @@ func (s *Service) CommandChannelKey() channel.Key {
 	return s.commandChannelKey
 }
 
-// cleanupInternalOntologyResources purges existing internal task resources from the ontology.
-// we want to hide internal tasks from the user.
-func (s *Service) cleanupInternalOntologyResources(ctx context.Context) {
-	var tasks []Task
-	if err := s.NewRetrieve().Where(MatchInternal(true)).Entries(&tasks).Exec(ctx, nil); err != nil {
-		s.cfg.L.Warn("unable to retrieve internal tasks for cleanup", zap.Error(err))
-	}
-	ids := make([]ontology.ID, 0, len(tasks))
-	for _, t := range tasks {
-		ids = append(ids, OntologyID(t.Key))
-	}
-	if err := s.cfg.Ontology.NewWriter(nil).DeleteResource(ctx, ids...); err != nil {
-		s.cfg.L.Warn("unable to delete internal task resources", zap.Error(err))
-	}
-}
-
 func (s *Service) Close() error { return s.closer.Close() }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
-		tx:     tx,
-		otg:    s.cfg.Ontology.NewWriter(tx),
-		rack:   s.cfg.Rack.NewWriter(tx),
-		group:  s.group,
-		status: status.NewWriter[StatusDetails](s.cfg.Status, tx),
-		table:  s.table,
+		tx:        tx,
+		otgWriter: s.cfg.Ontology.NewWriter(tx),
+		otg:       s.cfg.Ontology,
+		group:     s.group,
+		status:    status.NewWriter[StatusDetails](s.cfg.Status, tx),
+		table:     s.table,
+		configs:   s.cfg.Configs,
 	}
 }
 
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		search: s.cfg.Search,
-		baseTX: s.cfg.DB,
-		gorp:   s.table.NewRetrieve(),
+		search:  s.cfg.Search,
+		baseTX:  s.cfg.DB,
+		gorp:    s.table.NewRetrieve(),
+		otg:     s.cfg.Ontology,
+		configs: s.cfg.Configs,
 	}
 }
 
@@ -221,15 +261,37 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {
 		s.cfg.L.Error("failed to retrieve tasks on suspect rack", zap.Error(err))
 	}
 	statuses := make([]Status, len(tasks))
+	keys := make([]string, len(tasks))
 	for i, tsk := range tasks {
+		keys[i] = tsk.OntologyID().String()
+	}
+	// A silent rack does not undo the deploy the Driver reported, so its config hash
+	// and rack are carried across rather than rebuilt.
+	var reported []Status
+	if err := status.NewRetrieve[StatusDetails](s.cfg.Status).
+		Where(status.MatchKeys[StatusDetails](keys...)).
+		Entries(&reported).
+		Exec(ctx, nil); err != nil {
+		s.cfg.L.Error("failed to retrieve statuses on suspect rack", zap.Error(err))
+	}
+	deployed := make(map[string]StatusDetails, len(reported))
+	for _, stat := range reported {
+		deployed[stat.Key] = stat.Details
+	}
+	for i, tsk := range tasks {
+		details := StatusDetails{Task: tsk.Key, Running: false}
+		if prev, ok := deployed[keys[i]]; ok {
+			details.ConfigHash = prev.ConfigHash
+			details.Rack = prev.Rack
+		}
 		statuses[i] = Status{
-			Key:         OntologyID(tsk.Key).String(),
+			Key:         keys[i],
 			Time:        telem.Now(),
 			Name:        tsk.Name,
 			Variant:     rackStat.Variant,
 			Message:     rackStat.Message,
 			Description: rackStat.Description,
-			Details:     StatusDetails{Task: tsk.Key, Running: false},
+			Details:     details,
 		}
 	}
 	if err := status.NewWriter[StatusDetails](s.cfg.Status, nil).

@@ -10,7 +10,7 @@
  */
 
 .pluto-setpoint {
-    --pluto-border-color: var(--pluto-gray-l7-40);
+    --pluto-border-color: var(--pluto-symbol-display);
 
     .pluto-input {
         width: min-content;
@@ -20,10 +20,17 @@
         min-width: 12rem;
     }
 
+    .pluto-handle__2 {
+        z-index: 5;
+    }
+
     &.pluto-setpoint--preview {
         input {
             flex-grow: 1;
             min-width: 50px;
         }
+
+        width: 120px;
+        transform: scale(0.95);
     }
 }

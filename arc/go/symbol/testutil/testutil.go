@@ -16,11 +16,14 @@ import (
 	"context"
 	"strings"
 
+	"github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/x/compare"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // NewRoot builds a test root with all STL symbols plus extras attached
@@ -36,6 +39,16 @@ func NewRoot(resolver symbol.Resolver, extras ...symbol.Symbol) *symbol.Symbol {
 		syms = append(syms, &s)
 	}
 	return symbol.NewRoot(resolver, syms)
+}
+
+// BeAValidationPathError matches a validate.PathError wrapping validate.ErrValidation,
+// which PathError has no Unwrap for, so MatchError(validate.ErrValidation) misses it.
+func BeAValidationPathError() types.GomegaMatcher {
+	return gomega.MatchError(func(err error) bool {
+		var pathErr validate.PathError
+		return errors.As(err, &pathErr) &&
+			errors.Is(pathErr.Err, validate.ErrValidation)
+	}, "be a validation path error")
 }
 
 // NewGraphRoot is NewRoot plus symbol.AutoImportModules. Graph-mode tests
@@ -89,7 +102,10 @@ func (r *StaticResolver) Remove(name string) {
 
 // Resolve looks up name by scanning the slice. Returns query.ErrNotFound
 // (wrapped) when the name is absent.
-func (r StaticResolver) Resolve(_ context.Context, name string) (*symbol.Symbol, error) {
+func (r StaticResolver) Resolve(
+	_ context.Context,
+	name string,
+) (*symbol.Symbol, error) {
 	for i := range r {
 		if r[i].Name == name {
 			sym := r[i]
@@ -101,7 +117,10 @@ func (r StaticResolver) Resolve(_ context.Context, name string) (*symbol.Symbol,
 
 // Search returns entries whose name has the given prefix or is within a
 // Levenshtein distance of 2 from the term.
-func (r StaticResolver) Search(_ context.Context, term string) ([]*symbol.Symbol, error) {
+func (r StaticResolver) Search(
+	_ context.Context,
+	term string,
+) ([]*symbol.Symbol, error) {
 	var results []*symbol.Symbol
 	for i := range r {
 		name := r[i].Name

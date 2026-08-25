@@ -16,12 +16,14 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	xchange "github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/validate"
 	"github.com/synnaxlabs/x/zyn"
 )
 
@@ -35,13 +37,32 @@ func OntologyIDs(keys []Key) []ontology.ID {
 
 func OntologyIDsFromProjects(projects []Project) []ontology.ID {
 	return lo.Map(projects, func(p Project, _ int) ontology.ID {
-		return OntologyID(p.Key)
+		return p.OntologyID()
 	})
+}
+
+// KeyFromOntologyID converts id to the Key of the project it identifies. It returns an
+// error wrapping validate.ErrValidation if id is not a project or its key is not a
+// valid UUID. Callers that resolve a caller-supplied field scope the returned error to
+// that field with validate.PathedError.
+func KeyFromOntologyID(id ontology.ID) (Key, error) {
+	if id.Type != ontology.ResourceTypeProject {
+		return uuid.Nil, errors.Wrapf(
+			validate.ErrValidation, "must be a project, got %q", id.Type,
+		)
+	}
+	key, err := uuid.Parse(id.Key)
+	if err != nil {
+		return uuid.Nil, errors.Wrapf(
+			validate.ErrValidation, "invalid project key %q: %v", id.Key, err,
+		)
+	}
+	return key, nil
 }
 
 func KeysFromOntologyIDs(ids []ontology.ID) ([]Key, error) {
 	return lo.MapErr(ids, func(id ontology.ID, _ int) (Key, error) {
-		return uuid.Parse(id.Key)
+		return KeyFromOntologyID(id)
 	})
 }
 
@@ -51,7 +72,7 @@ var schema = zyn.Object(map[string]zyn.Schema{
 })
 
 func newResource(p Project) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(p.Key), p.Name, p)
+	return ontology.NewResource(schema, p.OntologyID(), p.Name, p)
 }
 
 type change = xchange.Change[Key, Project]
@@ -63,11 +84,12 @@ var (
 
 func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeProject }
 
-// Schema implements ontology.Service.
-func (s *Service) Schema() zyn.Schema { return schema }
-
 // RetrieveResource implements ontology.Service.
-func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
+func (s *Service) RetrieveResource(
+	ctx context.Context,
+	key string,
+	tx gorp.Tx,
+) (ontology.Resource, error) {
 	k, err := uuid.Parse(key)
 	if err != nil {
 		return ontology.Resource{}, err
@@ -88,7 +110,9 @@ func translateChange(c change) ontology.Change {
 }
 
 // OnChange implements ontology.Service.
-func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) observe.Disconnect {
+func (s *Service) OnChange(
+	f func(context.Context, iter.Seq[ontology.Change]),
+) observe.Disconnect {
 	handleChange := func(ctx context.Context, reader gorp.TxReader[Key, Project]) {
 		f(ctx, xiter.Map(reader, translateChange))
 	}
@@ -96,7 +120,9 @@ func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) o
 }
 
 // OpenNexter implements ontology.Service.
-func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
+func (s *Service) OpenNexter(
+	ctx context.Context,
+) (iter.Seq[ontology.Resource], io.Closer, error) {
 	n, closer, err := s.table.OpenNexter(ctx)
 	if err != nil {
 		return nil, nil, err

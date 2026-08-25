@@ -14,12 +14,13 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/cluster"
-	xkv "github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Config is the configuration for the aspen DB service. For default values, see DefaultConfig().
+// Config is the configuration for the aspen DB service. For default values, see
+// DefaultConfig().
 type Config struct {
 	// BatchTransportClient is used to send key-value NewStreamer to nodes.
 	// [Required]
@@ -47,7 +48,7 @@ type Config struct {
 	RecoveryTransportServer RecoveryTransportServer
 	// Engine is the underlying key-value engine that DB writes its key-value pairs to.
 	// [Required]
-	Engine xkv.DB
+	Engine kv.DB
 	// Cluster is the cluster that the DB will use to communicate with other databases.
 	// [Required]
 	Cluster *cluster.Cluster
@@ -64,24 +65,51 @@ type Config struct {
 // Override implements config.Config.
 func (cfg Config) Override(other Config) Config {
 	cfg.Cluster = override.Nil(cfg.Cluster, other.Cluster)
-	cfg.BatchTransportClient = override.Nil(cfg.BatchTransportClient, other.BatchTransportClient)
-	cfg.BatchTransportServer = override.Nil(cfg.BatchTransportServer, other.BatchTransportServer)
-	cfg.FeedbackTransportClient = override.Nil(cfg.FeedbackTransportClient, other.FeedbackTransportClient)
-	cfg.FeedbackTransportServer = override.Nil(cfg.FeedbackTransportServer, other.FeedbackTransportServer)
-	cfg.LeaseTransportServer = override.Nil(cfg.LeaseTransportServer, other.LeaseTransportServer)
-	cfg.LeaseTransportClient = override.Nil(cfg.LeaseTransportClient, other.LeaseTransportClient)
-	cfg.RecoveryTransportClient = override.Nil(cfg.RecoveryTransportClient, other.RecoveryTransportClient)
-	cfg.RecoveryTransportServer = override.Nil(cfg.RecoveryTransportServer, other.RecoveryTransportServer)
+	cfg.BatchTransportClient = override.Nil(
+		cfg.BatchTransportClient,
+		other.BatchTransportClient,
+	)
+	cfg.BatchTransportServer = override.Nil(
+		cfg.BatchTransportServer,
+		other.BatchTransportServer,
+	)
+	cfg.FeedbackTransportClient = override.Nil(
+		cfg.FeedbackTransportClient,
+		other.FeedbackTransportClient,
+	)
+	cfg.FeedbackTransportServer = override.Nil(
+		cfg.FeedbackTransportServer,
+		other.FeedbackTransportServer,
+	)
+	cfg.LeaseTransportServer = override.Nil(
+		cfg.LeaseTransportServer,
+		other.LeaseTransportServer,
+	)
+	cfg.LeaseTransportClient = override.Nil(
+		cfg.LeaseTransportClient,
+		other.LeaseTransportClient,
+	)
+	cfg.RecoveryTransportClient = override.Nil(
+		cfg.RecoveryTransportClient,
+		other.RecoveryTransportClient,
+	)
+	cfg.RecoveryTransportServer = override.Nil(
+		cfg.RecoveryTransportServer,
+		other.RecoveryTransportServer,
+	)
 	cfg.Engine = override.Nil(cfg.Engine, other.Engine)
 	cfg.GossipInterval = override.Numeric(cfg.GossipInterval, other.GossipInterval)
-	cfg.RecoveryThreshold = override.Numeric(cfg.RecoveryThreshold, other.RecoveryThreshold)
+	cfg.RecoveryThreshold = override.Numeric(
+		cfg.RecoveryThreshold,
+		other.RecoveryThreshold,
+	)
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
 	return cfg
 }
 
 // Validate implements config.Config.
 func (cfg Config) Validate() error {
-	v := validate.New("cesium")
+	v := validate.New("aspen.kv.db")
 	validate.NotNil(v, "cluster", cfg.Cluster)
 	validate.NotNil(v, "tx_transport_client", cfg.BatchTransportClient)
 	validate.NotNil(v, "tx_transport_server", cfg.BatchTransportServer)

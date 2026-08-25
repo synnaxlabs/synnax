@@ -15,23 +15,24 @@ package pb
 import (
 	"bytes"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/omit"
+	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/imports"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
+	"github.com/synnaxlabs/oracle/plugin/go/internal/typemap"
 	"github.com/synnaxlabs/oracle/plugin/gomod"
-	"github.com/synnaxlabs/oracle/plugin/internal/casing"
+	"github.com/synnaxlabs/oracle/plugin/internal/arrays"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 )
 
 // Plugin generates protobuf translator functions for the pb/ subdirectory pattern.
@@ -62,9 +63,6 @@ func (p *Plugin) Domains() []string { return []string{"pb"} }
 // Requires returns plugin dependencies.
 func (p *Plugin) Requires() []string { return []string{"go/types", "pb/types"} }
 
-// Check verifies generated files are up-to-date. Currently unimplemented.
-func (p *Plugin) Check(*plugin.Request) error { return nil }
-
 // Generate produces translator functions for structs with @pb flag.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
@@ -79,13 +77,17 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			continue
 		}
 
-		if omit.IsType(entry, "pb") {
+		if omit.IsSkipped(entry, "pb") || omit.IsType(entry, "go") {
 			continue
 		}
 
 		if req.RepoRoot != "" {
 			if err := req.ValidateOutputPath(outputPath); err != nil {
-				return nil, errors.Wrapf(err, "invalid output path for struct %s", entry.Name)
+				return nil, errors.Wrapf(
+					err,
+					"invalid output path for struct %s",
+					entry.Name,
+				)
 			}
 		}
 		if _, exists := outputStructs[outputPath]; !exists {
@@ -99,7 +101,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if outputPath == "" {
 			continue
 		}
-		if omit.IsType(entry, "pb") {
+		if omit.IsSkipped(entry, "pb") || omit.IsType(entry, "go") {
 			continue
 		}
 
@@ -113,7 +115,11 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 
 		if req.RepoRoot != "" {
 			if err := req.ValidateOutputPath(outputPath); err != nil {
-				return nil, errors.Wrapf(err, "invalid output path for typedef %s", entry.Name)
+				return nil, errors.Wrapf(
+					err,
+					"invalid output path for typedef %s",
+					entry.Name,
+				)
 			}
 		}
 		if _, exists := outputStructs[outputPath]; !exists {
@@ -130,12 +136,16 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if outputPath == "" {
 			continue
 		}
-		if omit.IsType(entry, "pb") {
+		if omit.IsSkipped(entry, "pb") || omit.IsType(entry, "go") {
 			continue
 		}
 		if req.RepoRoot != "" {
 			if err := req.ValidateOutputPath(outputPath); err != nil {
-				return nil, errors.Wrapf(err, "invalid output path for union %s", entry.Name)
+				return nil, errors.Wrapf(
+					err,
+					"invalid output path for union %s",
+					entry.Name,
+				)
 			}
 		}
 		_, hasStruct := outputStructs[outputPath]
@@ -153,7 +163,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	// schema fails to compile against its missing import.
 	enumOnlyNamespace := make(map[string]string)
 	for _, e := range req.Resolutions.EnumTypes() {
-		if omit.IsType(e, "pb") {
+		if omit.IsSkipped(e, "pb") || omit.IsType(e, "go") {
 			continue
 		}
 		outputPath := enum.FindPBOutputPath(e, req.Resolutions)
@@ -198,14 +208,31 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		// own @pb opt-in (HasPB) and FilePath, so an enum declared in a
 		// different schema that happens to share this namespace name does
 		// not bleed into this output.
-		enums := enum.CollectNamespaceEnums(namespace, outputPath, req.Resolutions, "pb", pbPathFunc)
-		content, err := p.generateFile(outputPath, structs, typeDefs, unions, enums, req)
+		enums := enum.CollectNamespaceEnums(
+			namespace,
+			outputPath,
+			req.Resolutions,
+			"pb",
+			pbPathFunc,
+		)
+		content, err := p.generateFile(
+			outputPath,
+			structs,
+			typeDefs,
+			unions,
+			enums,
+			req,
+		)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate %s", outputPath)
 		}
 		if len(content) > 0 {
 			resp.Files = append(resp.Files, plugin.File{
-				Path:    fmt.Sprintf("%s/%s", outputPath, p.Options.TranslatorFileNamePattern),
+				Path: fmt.Sprintf(
+					"%s/%s",
+					outputPath,
+					p.Options.TranslatorFileNamePattern,
+				),
 				Content: content,
 			})
 		}
@@ -215,7 +242,10 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 }
 
 // isStructWrappingTypedef checks if a typeRef ultimately resolves to a struct type.
-func (p *Plugin) isStructWrappingTypedef(typeRef resolution.TypeRef, table *resolution.Table) bool {
+func (p *Plugin) isStructWrappingTypedef(
+	typeRef resolution.TypeRef,
+	table *resolution.Table,
+) bool {
 	resolved, ok := typeRef.Resolve(table)
 	if !ok {
 		return false
@@ -260,7 +290,7 @@ func (p *Plugin) generateFile(
 		EnumTranslators:       make([]enumTranslatorData, 0),
 		AnyHelpers:            make([]anyHelperData, 0),
 		DelegationTranslators: make([]delegationTranslatorData, 0),
-		imports:               imports.NewManager(),
+		Manager:               imports.NewManager(),
 		repoRoot:              req.RepoRoot,
 		table:                 req.Resolutions,
 		usedEnums:             make(map[string]*resolution.Type),
@@ -272,11 +302,11 @@ func (p *Plugin) generateFile(
 		return nil, errors.Wrap(err, "failed to resolve parent package import")
 	}
 	parentAlias := naming.DerivePackageName(parentGoPath)
-	data.imports.AddInternal(parentAlias, parentImportPath)
+	data.AddInternal(parentAlias, parentImportPath)
 	data.parentAlias = parentAlias
 
 	for _, s := range structs {
-		if omit.IsType(s, "pb") {
+		if omit.IsSkipped(s, "pb") || omit.IsType(s, "go") {
 			continue
 		}
 		form, ok := s.Form.(resolution.StructForm)
@@ -285,15 +315,26 @@ func (p *Plugin) generateFile(
 		}
 		if form.IsGeneric() {
 			// Generate generic translator with type parameters
-			genericTranslator, err := p.processGenericStructForTranslation(s, form, data, req)
+			genericTranslator, err := p.processGenericStructForTranslation(
+				s,
+				form,
+				data,
+			)
 			if err != nil {
-				return nil, errors.Wrapf(err, "failed to process generic struct %s", s.Name)
+				return nil, errors.Wrapf(
+					err,
+					"failed to process generic struct %s",
+					s.Name,
+				)
 			}
 			if genericTranslator != nil {
-				data.GenericTranslators = append(data.GenericTranslators, *genericTranslator)
+				data.GenericTranslators = append(
+					data.GenericTranslators,
+					*genericTranslator,
+				)
 			}
 		} else {
-			translator, err := p.processStructForTranslation(s, form, data, req)
+			translator, err := p.processStructForTranslation(s, data)
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed to process struct %s", s.Name)
 			}
@@ -307,7 +348,9 @@ func (p *Plugin) generateFile(
 		form, ok := u.Form.(resolution.UnionForm)
 		if !ok {
 			return nil, errors.Newf(
-				"union %s has unexpected form %T in the resolution table", u.Name, u.Form,
+				"union %s has unexpected form %T in the resolution table",
+				u.Name,
+				u.Form,
 			)
 		}
 		ut, err := p.processUnionForTranslation(u, form, data)
@@ -329,11 +372,10 @@ func (p *Plugin) generateFile(
 			if !ok {
 				continue
 			}
-			pform, ok := payload.Form.(resolution.StructForm)
-			if !ok {
+			if _, ok = payload.Form.(resolution.StructForm); !ok {
 				continue
 			}
-			pt, err := p.processStructForTranslation(payload, pform, data, req)
+			pt, err := p.processStructForTranslation(payload, data)
 			if err != nil || pt == nil {
 				return nil, errors.Wrapf(err,
 					"failed to process inline payload for union %s variant %q",
@@ -351,12 +393,12 @@ func (p *Plugin) generateFile(
 		}
 	}
 	if len(data.UnionTranslators) > 0 {
-		data.imports.AddExternal("github.com/synnaxlabs/x/errors")
+		data.AddExternal("github.com/synnaxlabs/x/errors")
 	}
 
 	for i := range enums {
 		e := enums[i]
-		if omit.IsType(e, "pb") {
+		if omit.IsSkipped(e, "pb") || omit.IsType(e, "go") {
 			continue
 		}
 		enumPBPath := output.GetPBPath(e)
@@ -379,27 +421,34 @@ func (p *Plugin) generateFile(
 	}
 
 	if len(data.EnumTranslators) > 0 {
-		data.imports.AddExternal("github.com/synnaxlabs/x/errors")
+		data.AddExternal("github.com/synnaxlabs/x/errors")
 	}
 
 	for _, td := range typeDefs {
-		if omit.IsType(td, "pb") {
+		if omit.IsSkipped(td, "pb") || omit.IsType(td, "go") {
 			continue
 		}
 		form, ok := td.Form.(resolution.DistinctForm)
 		if !ok {
 			continue
 		}
-		delegator, err := p.processDelegationTranslator(td, form, data, req)
+		delegator, err := p.processDelegationTranslator(td, form, data)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to process delegation translator %s", td.Name)
+			return nil, errors.Wrapf(
+				err,
+				"failed to process delegation translator %s",
+				td.Name,
+			)
 		}
 		if delegator != nil {
 			data.DelegationTranslators = append(data.DelegationTranslators, *delegator)
 		}
 	}
 
-	if len(data.Translators) == 0 && len(data.GenericTranslators) == 0 && len(data.EnumTranslators) == 0 && len(data.DelegationTranslators) == 0 && len(data.UnionTranslators) == 0 {
+	if len(data.Translators) == 0 && len(data.GenericTranslators) == 0 &&
+		len(data.EnumTranslators) == 0 &&
+		len(data.DelegationTranslators) == 0 &&
+		len(data.UnionTranslators) == 0 {
 		return nil, nil
 	}
 
@@ -440,7 +489,8 @@ type unionBaseTranslatorData struct {
 
 // unionVariantTranslatorData holds data for one variant of a union translator.
 type unionVariantTranslatorData struct {
-	// GoVariantType is the qualified Go variant struct (e.g. "schematic.NodeConfigCap").
+	// GoVariantType is the qualified Go variant struct (e.g.
+	// "schematic.NodeConfigCap").
 	GoVariantType string
 	// PBWrapper is the protoc-generated oneof wrapper type (e.g. "NodeConfig_Cap").
 	PBWrapper string
@@ -496,14 +546,22 @@ func (p *Plugin) processUnionForTranslation(
 	for _, v := range form.Variants {
 		payload, ok := v.Type.Resolve(data.table)
 		if !ok {
-			return nil, errors.Newf("union %s variant %q: unresolved payload type", u.Name, v.Name)
+			return nil, errors.Newf(
+				"union %s variant %q: unresolved payload type",
+				u.Name,
+				v.Name,
+			)
 		}
 		pbField := protocOneofGoName(v.Name)
 		vt := unionVariantTranslatorData{
-			GoVariantType: fmt.Sprintf("%s.%s", data.parentAlias, casing.VariantTypeName(goName, v.Name)),
-			PBWrapper:     fmt.Sprintf("%s_%s", pbName, pbField),
-			PBField:       pbField,
-			IsInline:      v.Inline,
+			GoVariantType: fmt.Sprintf(
+				"%s.%s",
+				data.parentAlias,
+				casing.VariantTypeName(goName, v.Name),
+			),
+			PBWrapper: fmt.Sprintf("%s_%s", pbName, pbField),
+			PBField:   pbField,
+			IsInline:  v.Inline,
 		}
 		if v.Inline {
 			// Inline payload translators are member-typed and generated locally
@@ -550,7 +608,7 @@ func (p *Plugin) resolveUnionTranslatorName(
 	if u.Namespace != data.Namespace || (pbPath != "" && pbPath != data.OutputPath) {
 		if importPath, err := resolveGoImportPath(pbPath, data.repoRoot); err == nil {
 			alias := strings.ToLower(u.Namespace) + "pb"
-			data.imports.AddInternal(alias, importPath)
+			data.AddInternal(alias, importPath)
 			prefix = alias + "."
 		}
 	}
@@ -559,9 +617,7 @@ func (p *Plugin) resolveUnionTranslatorName(
 
 func (p *Plugin) processStructForTranslation(
 	s resolution.Type,
-	form resolution.StructForm,
 	data *templateData,
-	req *plugin.Request,
 ) (*translatorData, error) {
 	if _, ok := s.Form.(resolution.AliasForm); ok {
 		return nil, nil
@@ -607,13 +663,16 @@ func (p *Plugin) processFieldForTranslation(
 	goName := naming.GetFieldName(field)
 	pbName := lo.PascalCase(lo.SnakeCase(field.Name))
 
-	isHardOptional := field.IsHardOptional
-	isOptional := isHardOptional
+	isOptional := field.Optional
 	isOptionalStruct := isOptional &&
 		(isStructType(field.Type, data.table) || isUnionType(field.Type, data.table))
 	isOptionalEnum := isOptional && isEnumType(field.Type, data.table)
 
-	forwardExpr, backwardExpr, backwardCast, hasError, hasBackwardError := p.generateFieldConversion(field, data, parentStruct)
+	forwardExpr, backwardExpr, backwardCast, hasError, hasBackwardError := p.generateFieldConversion(
+		field,
+		data,
+		parentStruct,
+	)
 
 	fd := fieldTranslatorData{
 		GoName:           goName,
@@ -630,24 +689,30 @@ func (p *Plugin) processFieldForTranslation(
 
 	typeRef := field.Type
 
-	// Hard optional primitives that need type conversion (e.g., *uint8 <-> *uint32)
+	// Optional primitives that need type conversion (e.g., *uint8 <-> *uint32)
 	// require pointer dereference before casting and re-addressing after.
-	if isHardOptional && resolution.IsPrimitive(typeRef.Name) && primitiveNeedsConversion(typeRef.Name) {
+	if isOptional && resolution.IsPrimitive(typeRef.Name) &&
+		primitiveNeedsConversion(typeRef.Name) {
 		fd.NeedsPtrConversion = true
 		goFieldDeref := "*r." + goName
 		pbFieldDeref := "*pb." + pbName
-		fd.ForwardExpr, fd.BackwardExpr, _, _ = p.generatePrimitiveConversion(typeRef.Name, goFieldDeref, pbFieldDeref, data)
+		fd.ForwardExpr, fd.BackwardExpr, _, _ = p.generatePrimitiveConversion(
+			typeRef.Name,
+			goFieldDeref,
+			pbFieldDeref,
+			data,
+		)
 	}
 
-	// Hard optional typedefs over primitives (e.g. *channel.Key <-> *uint32)
+	// Optional typedefs over primitives (e.g. *channel.Key <-> *uint32)
 	// need the same deref-convert-readdress treatment.
-	if isHardOptional && !resolution.IsPrimitive(typeRef.Name) {
+	if isOptional && !resolution.IsPrimitive(typeRef.Name) {
 		if resolved, ok := typeRef.Resolve(data.table); ok {
 			if form, isDistinct := resolved.Form.(resolution.DistinctForm); isDistinct &&
 				resolution.IsPrimitive(form.Base.Name) {
 				fd.NeedsPtrConversion = true
 				fd.ForwardExpr, fd.BackwardExpr, _, _ = p.generateTypeDefConversion(
-					typeRef, resolved, form, data, "*r."+goName, "*pb."+pbName,
+					resolved, form, data, "*r."+goName, "*pb."+pbName,
 				)
 			}
 		}
@@ -667,6 +732,25 @@ func (p *Plugin) processFieldForTranslation(
 		}
 	}
 
+	// An optional list is a nullable wrapper message in proto (see pb/types). The
+	// forward converts the slice (to be wrapped in &Wrapper{Values: ...}); the
+	// backward reads from <pbField>.Values. A nil slice maps to a nil wrapper.
+	if isOptional && arrays.IsArray(typeRef, data.table) &&
+		!arrays.IsNested(typeRef, data.table) {
+		f, b, e, be := p.generateArrayConversion(
+			field,
+			data,
+			"r."+goName,
+			"pb."+pbName+".Values",
+		)
+		fd.IsOptionalArrayWrapper = true
+		fd.WrapperName = arrays.OptionalWrapperName(typeRef, data.table)
+		fd.ForwardExpr = f
+		fd.BackwardExpr = b
+		fd.HasError = e
+		fd.HasBackwardError = be
+	}
+
 	return fd
 }
 
@@ -683,8 +767,11 @@ func (p *Plugin) buildMapValueConversion(
 	if resolution.IsPrimitive(valArg.Name) {
 		switch valArg.Name {
 		case "record":
-			data.imports.AddInternal("msgpack", "github.com/synnaxlabs/x/encoding/msgpack")
-			data.imports.AddExternal("google.golang.org/protobuf/types/known/structpb")
+			data.AddInternal(
+				"msgpack",
+				"github.com/synnaxlabs/x/encoding/msgpack",
+			)
+			data.AddExternal("google.golang.org/protobuf/types/known/structpb")
 			return &mapValueConversionData{
 				GoMapType:         fmt.Sprintf("map[%s]msgpack.EncodedJSON", keyType),
 				PBMapType:         fmt.Sprintf("map[%s]*structpb.Struct", keyType),
@@ -694,10 +781,19 @@ func (p *Plugin) buildMapValueConversion(
 			}
 		default:
 			if primitiveNeedsConversion(valArg.Name) {
-				fwd, bwd, _, _ := p.generatePrimitiveConversion(valArg.Name, "v", "v", data)
+				fwd, bwd, _, _ := p.generatePrimitiveConversion(
+					valArg.Name,
+					"v",
+					"v",
+					data,
+				)
 				return &mapValueConversionData{
-					GoMapType:         fmt.Sprintf("map[%s]%s", keyType, valArg.Name),
-					PBMapType:         fmt.Sprintf("map[%s]%s", keyType, primitiveToProtoType(valArg.Name)),
+					GoMapType: fmt.Sprintf("map[%s]%s", keyType, valArg.Name),
+					PBMapType: fmt.Sprintf(
+						"map[%s]%s",
+						keyType,
+						primitiveToProtoType(valArg.Name),
+					),
 					ForwardValueExpr:  fwd,
 					BackwardValueExpr: bwd,
 				}
@@ -728,8 +824,13 @@ func (p *Plugin) buildMapValueConversion(
 	goValType := p.resolveGoTypeLiteral(valArg, data)
 	translatorPrefix, structName := p.resolvePBTranslatorInfo(resolved, data)
 	return &mapValueConversionData{
-		GoMapType:         fmt.Sprintf("map[%s]%s", keyType, goValType),
-		PBMapType:         fmt.Sprintf("map[%s]*%s%s", keyType, translatorPrefix, structName),
+		GoMapType: fmt.Sprintf("map[%s]%s", keyType, goValType),
+		PBMapType: fmt.Sprintf(
+			"map[%s]*%s%s",
+			keyType,
+			translatorPrefix,
+			structName,
+		),
 		ForwardValueExpr:  fmt.Sprintf("%s%sToPB(v)", translatorPrefix, structName),
 		BackwardValueExpr: fmt.Sprintf("%s%sFromPB(v)", translatorPrefix, structName),
 		ForwardHasError:   true,
@@ -741,7 +842,6 @@ func (p *Plugin) processGenericStructForTranslation(
 	s resolution.Type,
 	form resolution.StructForm,
 	data *templateData,
-	req *plugin.Request,
 ) (*genericTranslatorData, error) {
 	if _, ok := s.Form.(resolution.AliasForm); ok {
 		return nil, nil
@@ -757,7 +857,10 @@ func (p *Plugin) processGenericStructForTranslation(
 	typeParams := make([]typeParamData, 0, len(form.TypeParams))
 	typeParamNames := make([]string, 0, len(form.TypeParams))
 	for _, tp := range resolution.NonDefaultedTypeParams(form.TypeParams) {
-		typeParams = append(typeParams, typeParamData{Name: tp.Name, Constraint: typeParamConstraint(tp)})
+		typeParams = append(
+			typeParams,
+			typeParamData{Name: tp.Name, Constraint: typemap.TypeParamConstraint(tp)},
+		)
 		typeParamNames = append(typeParamNames, tp.Name)
 	}
 
@@ -765,19 +868,22 @@ func (p *Plugin) processGenericStructForTranslation(
 	// generics survive default-substitution; for fully-defaulted generics the
 	// emitted translator is concrete and the import would be unused.
 	if len(typeParamNames) > 0 {
-		data.imports.AddExternal("google.golang.org/protobuf/types/known/anypb")
+		data.AddExternal("google.golang.org/protobuf/types/known/anypb")
 	}
 
 	goTypeBase := fmt.Sprintf("%s.%s", data.parentAlias, goName)
 	goTypeWithParams := goTypeBase
 	if len(typeParamNames) > 0 {
-		goTypeWithParams = fmt.Sprintf("%s[%s]", goTypeBase, strings.Join(typeParamNames, ", "))
+		goTypeWithParams = fmt.Sprintf(
+			"%s[%s]",
+			goTypeBase,
+			strings.Join(typeParamNames, ", "),
+		)
 	}
 
 	translator := &genericTranslatorData{
 		Name:            pbName,
 		GoType:          goTypeWithParams,
-		GoTypeBase:      goTypeBase,
 		PBType:          pbName,
 		GoTypeShort:     goName,
 		PBTypeShort:     pbName,
@@ -789,7 +895,7 @@ func (p *Plugin) processGenericStructForTranslation(
 	}
 
 	for _, field := range resolution.UnifiedFields(s, data.table) {
-		fieldData, isTypeParam := p.processGenericFieldForTranslation(field, data, s, form, typeParams)
+		fieldData, isTypeParam := p.processGenericFieldForTranslation(field, data, s)
 		if isTypeParam {
 			translator.TypeParamFields = append(translator.TypeParamFields, fieldData)
 		} else if fieldData.IsOptional {
@@ -808,15 +914,12 @@ func (p *Plugin) processGenericFieldForTranslation(
 	field resolution.Field,
 	data *templateData,
 	parentStruct resolution.Type,
-	parentForm resolution.StructForm,
-	typeParams []typeParamData,
 ) (fieldTranslatorData, bool) {
 	goName := naming.GetFieldName(field)
 	pbName := lo.PascalCase(lo.SnakeCase(field.Name))
 	typeRef := field.Type
 
-	isHardOptional := field.IsHardOptional
-	isOptional := isHardOptional
+	isOptional := field.Optional
 
 	goFieldName := "r." + goName
 	pbFieldName := "pb." + pbName
@@ -825,22 +928,24 @@ func (p *Plugin) processGenericFieldForTranslation(
 		if typeRef.TypeParam.HasDefault() {
 			forwardExpr, backwardExpr, backwardCast, hasError, hasBackwardError := p.generateFieldConversion(
 				resolution.Field{
-					Name:           field.Name,
-					Type:           *typeRef.TypeParam.Default,
-					IsOptional:     field.IsOptional,
-					IsHardOptional: field.IsHardOptional,
+					Name:     field.Name,
+					Type:     *typeRef.TypeParam.Default,
+					Optional: field.Optional,
 				},
-				data, parentStruct,
+				data,
+				parentStruct,
 			)
 			return fieldTranslatorData{
-				GoName:           goName,
-				PBName:           pbName,
-				ForwardExpr:      forwardExpr,
-				BackwardExpr:     backwardExpr,
-				BackwardCast:     backwardCast,
-				IsOptional:       isOptional,
-				IsOptionalStruct: isOptional && isStructType(*typeRef.TypeParam.Default, data.table),
-				IsOptionalEnum:   isOptional && isEnumType(*typeRef.TypeParam.Default, data.table),
+				GoName:       goName,
+				PBName:       pbName,
+				ForwardExpr:  forwardExpr,
+				BackwardExpr: backwardExpr,
+				BackwardCast: backwardCast,
+				IsOptional:   isOptional,
+				IsOptionalStruct: isOptional &&
+					isStructType(*typeRef.TypeParam.Default, data.table),
+				IsOptionalEnum: isOptional &&
+					isEnumType(*typeRef.TypeParam.Default, data.table),
 				HasError:         hasError,
 				HasBackwardError: hasBackwardError,
 			}, false
@@ -864,40 +969,71 @@ func (p *Plugin) processGenericFieldForTranslation(
 		}, true
 	}
 
-	forwardExpr, backwardExpr, backwardCast, hasError, hasBackwardError := p.generateFieldConversion(field, data, parentStruct)
+	forwardExpr, backwardExpr, backwardCast, hasError, hasBackwardError := p.generateFieldConversion(
+		field,
+		data,
+		parentStruct,
+	)
 
-	return fieldTranslatorData{
+	fd := fieldTranslatorData{
 		GoName:           goName,
 		PBName:           pbName,
 		ForwardExpr:      forwardExpr,
 		BackwardExpr:     backwardExpr,
 		BackwardCast:     backwardCast,
 		IsOptional:       isOptional,
-		IsOptionalStruct: isHardOptional && isStructType(typeRef, data.table),
-		IsOptionalEnum:   isHardOptional && isEnumType(typeRef, data.table),
+		IsOptionalStruct: isOptional && isStructType(typeRef, data.table),
+		IsOptionalEnum:   isOptional && isEnumType(typeRef, data.table),
 		HasError:         hasError,
 		HasBackwardError: hasBackwardError,
-	}, false
+	}
+
+	// An optional list is a nullable wrapper message in proto (see pb/types),
+	// matching the non-generic path in processFieldForTranslation.
+	if isOptional && arrays.IsArray(typeRef, data.table) &&
+		!arrays.IsNested(typeRef, data.table) {
+		f, b, e, be := p.generateArrayConversion(
+			field,
+			data,
+			"r."+goName,
+			"pb."+pbName+".Values",
+		)
+		fd.IsOptionalArrayWrapper = true
+		fd.WrapperName = arrays.OptionalWrapperName(typeRef, data.table)
+		fd.ForwardExpr = f
+		fd.BackwardExpr = b
+		fd.HasError = e
+		fd.HasBackwardError = be
+	}
+
+	return fd, false
 }
 
 func (p *Plugin) processDelegationTranslator(
 	td resolution.Type,
 	form resolution.DistinctForm,
 	data *templateData,
-	req *plugin.Request,
 ) (*delegationTranslatorData, error) {
 	goName := naming.GetGoName(td)
 
 	typeParams := make([]typeParamData, 0, len(form.TypeParams))
 	typeParamNames := make([]string, 0, len(form.TypeParams))
 	for _, tp := range resolution.NonDefaultedTypeParams(form.TypeParams) {
-		typeParams = append(typeParams, typeParamData{Name: tp.Name, Constraint: typeParamConstraint(tp)})
+		typeParams = append(
+			typeParams,
+			typeParamData{Name: tp.Name, Constraint: typemap.TypeParamConstraint(tp)},
+		)
 		typeParamNames = append(typeParamNames, tp.Name)
 	}
 
 	goType := fmt.Sprintf("%s.%s", data.parentAlias, goName)
 	if len(typeParamNames) > 0 {
-		goType = fmt.Sprintf("%s.%s[%s]", data.parentAlias, goName, strings.Join(typeParamNames, ", "))
+		goType = fmt.Sprintf(
+			"%s.%s[%s]",
+			data.parentAlias,
+			goName,
+			strings.Join(typeParamNames, ", "),
+		)
 	}
 
 	underlyingResolved, ok := form.Base.Resolve(data.table)
@@ -935,22 +1071,27 @@ func (p *Plugin) processDelegationTranslator(
 		return nil, err
 	}
 	underlyingGoAlias := naming.DerivePackageAlias(underlyingGoPath, data.parentAlias)
-	data.imports.AddInternal(underlyingGoAlias, underlyingGoImportPath)
+	data.AddInternal(underlyingGoAlias, underlyingGoImportPath)
 
 	underlyingPBImportPath, err := resolveGoImportPath(underlyingPBPath, data.repoRoot)
 	if err != nil {
 		return nil, err
 	}
 	underlyingPBAlias := underlyingGoAlias + "_pb"
-	data.imports.AddInternal(underlyingPBAlias, underlyingPBImportPath)
+	data.AddInternal(underlyingPBAlias, underlyingPBImportPath)
 
 	if len(typeParams) > 0 {
-		data.imports.AddExternal("google.golang.org/protobuf/types/known/anypb")
+		data.AddExternal("google.golang.org/protobuf/types/known/anypb")
 	}
 
 	underlyingGoType := fmt.Sprintf("%s.%s", underlyingGoAlias, underlyingGoName)
 	if len(typeParamNames) > 0 {
-		underlyingGoType = fmt.Sprintf("%s.%s[%s]", underlyingGoAlias, underlyingGoName, strings.Join(typeParamNames, ", "))
+		underlyingGoType = fmt.Sprintf(
+			"%s.%s[%s]",
+			underlyingGoAlias,
+			underlyingGoName,
+			strings.Join(typeParamNames, ", "),
+		)
 	}
 
 	underlyingPBName := getPBName(actualStruct)
@@ -959,132 +1100,18 @@ func (p *Plugin) processDelegationTranslator(
 	}
 
 	return &delegationTranslatorData{
-		Name:                       goName,
-		GoType:                     goType,
-		TypeParams:                 typeParams,
-		UnderlyingName:             underlyingPBName,
-		UnderlyingGoType:           underlyingGoType,
-		UnderlyingPBType:           fmt.Sprintf("%s.%s", underlyingPBAlias, underlyingPBName),
+		Name:             goName,
+		GoType:           goType,
+		TypeParams:       typeParams,
+		UnderlyingName:   underlyingPBName,
+		UnderlyingGoType: underlyingGoType,
+		UnderlyingPBType: fmt.Sprintf(
+			"%s.%s",
+			underlyingPBAlias,
+			underlyingPBName,
+		),
 		UnderlyingTranslatorPrefix: underlyingPBAlias + ".",
 	}, nil
-}
-
-func (p *Plugin) isArrayType(typeRef resolution.TypeRef, table *resolution.Table) bool {
-	if typeRef.Name == "Array" {
-		return true
-	}
-
-	resolved, ok := typeRef.Resolve(table)
-	if !ok {
-		return false
-	}
-
-	switch form := resolved.Form.(type) {
-	case resolution.BuiltinGenericForm:
-		return form.Name == "Array"
-	case resolution.AliasForm:
-		return p.isArrayType(form.Target, table)
-	case resolution.DistinctForm:
-		return p.isArrayType(form.Base, table)
-	default:
-		return false
-	}
-}
-
-func (p *Plugin) getArrayElementType(typeRef resolution.TypeRef, table *resolution.Table) (resolution.TypeRef, bool) {
-	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
-		return typeRef.TypeArgs[0], true
-	}
-
-	resolved, ok := typeRef.Resolve(table)
-	if !ok {
-		return resolution.TypeRef{}, false
-	}
-
-	switch form := resolved.Form.(type) {
-	case resolution.BuiltinGenericForm:
-		if form.Name == "Array" && len(typeRef.TypeArgs) > 0 {
-			return typeRef.TypeArgs[0], true
-		}
-		return resolution.TypeRef{}, false
-	case resolution.AliasForm:
-		return p.getArrayElementType(form.Target, table)
-	case resolution.DistinctForm:
-		return p.getArrayElementType(form.Base, table)
-	default:
-		return resolution.TypeRef{}, false
-	}
-}
-
-func (p *Plugin) isNestedArrayType(typeRef resolution.TypeRef, table *resolution.Table) bool {
-	if !p.isArrayType(typeRef, table) {
-		return false
-	}
-	elemType, ok := p.getArrayElementType(typeRef, table)
-	if !ok {
-		return false
-	}
-	return p.isArrayType(elemType, table)
-}
-
-func (p *Plugin) getNestedArrayWrapperName(typeRef resolution.TypeRef, table *resolution.Table) string {
-	elemType, ok := p.getArrayElementType(typeRef, table)
-	if !ok {
-		return "ArrayWrapper"
-	}
-
-	resolved, ok := elemType.Resolve(table)
-	if ok {
-		return resolved.Name + "Wrapper"
-	}
-
-	if resolution.IsPrimitive(elemType.Name) {
-		return cases.Title(language.English).String(elemType.Name) + "Array"
-	}
-
-	return "ArrayWrapper"
-}
-
-func (p *Plugin) isFixedSizeUint8Array(typeRef resolution.TypeRef, table *resolution.Table) bool {
-	arraySize := p.getArraySize(typeRef, table)
-	if arraySize == nil {
-		return false
-	}
-
-	elemType, ok := p.getArrayElementType(typeRef, table)
-	if !ok {
-		return false
-	}
-
-	resolved, ok := elemType.Resolve(table)
-	if !ok {
-		return elemType.Name == "uint8"
-	}
-
-	if prim, ok := resolved.Form.(resolution.PrimitiveForm); ok {
-		return prim.Name == "uint8"
-	}
-	return false
-}
-
-func (p *Plugin) getArraySize(typeRef resolution.TypeRef, table *resolution.Table) *int64 {
-	if typeRef.Name == "Array" && typeRef.ArraySize != nil {
-		return typeRef.ArraySize
-	}
-
-	resolved, ok := typeRef.Resolve(table)
-	if !ok {
-		return nil
-	}
-
-	switch form := resolved.Form.(type) {
-	case resolution.AliasForm:
-		return p.getArraySize(form.Target, table)
-	case resolution.DistinctForm:
-		return p.getArraySize(form.Base, table)
-	default:
-		return nil
-	}
 }
 
 func (p *Plugin) generateFixedSizeUint8ArrayConversion(
@@ -1108,7 +1135,7 @@ func (p *Plugin) generateFixedSizeUint8ArrayConversion(
 	}
 
 	alias := naming.DerivePackageName(goOutput)
-	data.imports.AddInternal(alias, importPath)
+	data.AddInternal(alias, importPath)
 
 	forward = fmt.Sprintf("%s.Bytes()", goField)
 	backward = fmt.Sprintf("%s.FromBytes(%s)", alias, pbField)
@@ -1125,17 +1152,23 @@ func (p *Plugin) generateFieldConversion(
 	goFieldName := "r." + naming.GetFieldName(field)
 	pbFieldName := "pb." + lo.PascalCase(lo.SnakeCase(field.Name))
 
-	if p.isFixedSizeUint8Array(typeRef, data.table) {
-		f, b := p.generateFixedSizeUint8ArrayConversion(typeRef, data, goFieldName, pbFieldName)
+	if arrays.IsFixedSizeUint8(typeRef, data.table) {
+		f, b := p.generateFixedSizeUint8ArrayConversion(
+			typeRef,
+			data,
+			goFieldName,
+			pbFieldName,
+		)
 		return f, b, "", false, false
 	}
 
-	if p.isArrayType(typeRef, data.table) {
+	if arrays.IsArray(typeRef, data.table) {
 		f, b, e, be := p.generateArrayConversion(field, data, goFieldName, pbFieldName)
 		return f, b, "", e, be
 	}
 
-	if hasKeyDomain(field) && resolution.IsPrimitive(typeRef.Name) && isNumericPrimitive(typeRef.Name) {
+	if hasKeyDomain(field) && resolution.IsPrimitive(typeRef.Name) &&
+		isNumericPrimitive(typeRef.Name) {
 		protoType := primitiveToProtoType(typeRef.Name)
 		keyPkgAlias := data.parentAlias
 		goOutput := output.GetPath(parentStruct, "go")
@@ -1143,7 +1176,7 @@ func (p *Plugin) generateFieldConversion(
 			importPath, err := resolveGoImportPath(goOutput, data.repoRoot)
 			if err == nil {
 				keyPkgAlias = naming.DerivePackageName(goOutput)
-				data.imports.AddInternal(keyPkgAlias, importPath)
+				data.AddInternal(keyPkgAlias, importPath)
 			}
 		}
 		return fmt.Sprintf("%s(%s)", protoType, goFieldName),
@@ -1152,7 +1185,12 @@ func (p *Plugin) generateFieldConversion(
 	}
 
 	if resolution.IsPrimitive(typeRef.Name) {
-		f, b, e, be := p.generatePrimitiveConversion(typeRef.Name, goFieldName, pbFieldName, data)
+		f, b, e, be := p.generatePrimitiveConversion(
+			typeRef.Name,
+			goFieldName,
+			pbFieldName,
+			data,
+		)
 		return f, b, "", e, be
 	}
 
@@ -1163,7 +1201,7 @@ func (p *Plugin) generateFieldConversion(
 
 	if _, isUnion := resolved.Form.(resolution.UnionForm); isUnion {
 		prefix, name := p.resolveUnionTranslatorName(resolved, data)
-		if field.IsHardOptional {
+		if field.Optional {
 			return fmt.Sprintf("%s%sToPB(*%s)", prefix, name, goFieldName),
 				fmt.Sprintf("%s%sFromPB(%s)", prefix, name, pbFieldName),
 				"", true, true
@@ -1174,47 +1212,93 @@ func (p *Plugin) generateFieldConversion(
 	}
 
 	if _, isStruct := resolved.Form.(resolution.StructForm); isStruct {
-		f, b, c, hasErr := p.generateStructConversion(typeRef, resolved, field.IsHardOptional, data, goFieldName, pbFieldName)
+		f, b, c, hasErr := p.generateStructConversion(
+			typeRef,
+			resolved,
+			field.Optional,
+			data,
+			goFieldName,
+			pbFieldName,
+		)
 		return f, b, c, hasErr, hasErr
 	}
 
 	if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
 		if target, ok := aliasForm.Target.Resolve(data.table); ok {
 			if _, isStruct := target.Form.(resolution.StructForm); isStruct {
-				f, b, c, hasErr := p.generateStructConversion(typeRef, resolved, field.IsHardOptional, data, goFieldName, pbFieldName)
+				f, b, c, hasErr := p.generateStructConversion(
+					typeRef,
+					resolved,
+					field.Optional,
+					data,
+					goFieldName,
+					pbFieldName,
+				)
 				return f, b, c, hasErr, hasErr
 			}
 		}
 	}
 
 	if _, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
-		f, b := p.generateEnumConversion(typeRef, resolved, data, goFieldName, pbFieldName, field.IsHardOptional)
+		f, b := p.generateEnumConversion(
+			resolved,
+			data,
+			goFieldName,
+			pbFieldName,
+			field.Optional,
+		)
 		return f, b, "", true, true
 	}
 
 	if form, isDistinct := resolved.Form.(resolution.DistinctForm); isDistinct {
 		if baseResolved, ok := form.Base.Resolve(data.table); ok {
 			if _, isStruct := baseResolved.Form.(resolution.StructForm); isStruct {
-				f, b, c, hasErr := p.generateStructConversion(typeRef, resolved, field.IsHardOptional, data, goFieldName, pbFieldName)
+				f, b, c, hasErr := p.generateStructConversion(
+					typeRef,
+					resolved,
+					field.Optional,
+					data,
+					goFieldName,
+					pbFieldName,
+				)
 				return f, b, c, hasErr, hasErr
 			}
 			// Also check if base is an alias to a struct
 			if aliasForm, isAlias := baseResolved.Form.(resolution.AliasForm); isAlias {
 				if target, ok := aliasForm.Target.Resolve(data.table); ok {
 					if _, isStruct := target.Form.(resolution.StructForm); isStruct {
-						f, b, c, hasErr := p.generateStructConversion(typeRef, resolved, field.IsHardOptional, data, goFieldName, pbFieldName)
+						f, b, c, hasErr := p.generateStructConversion(
+							typeRef,
+							resolved,
+							field.Optional,
+							data,
+							goFieldName,
+							pbFieldName,
+						)
 						return f, b, c, hasErr, hasErr
 					}
 				}
 			}
 		}
-		f, b, c, be := p.generateTypeDefConversion(typeRef, resolved, form, data, goFieldName, pbFieldName)
+		f, b, c, be := p.generateTypeDefConversion(
+			resolved,
+			form,
+			data,
+			goFieldName,
+			pbFieldName,
+		)
 		return f, b, c, false, be
 	}
 
 	if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
 		if resolution.IsPrimitive(aliasForm.Target.Name) {
-			f, b, c, be := p.generateAliasConversion(typeRef, resolved, aliasForm, data, goFieldName, pbFieldName)
+			f, b, c, be := p.generateAliasConversion(
+				resolved,
+				aliasForm,
+				data,
+				goFieldName,
+				pbFieldName,
+			)
 			return f, b, c, false, be
 		}
 	}
@@ -1228,41 +1312,44 @@ func (p *Plugin) generatePrimitiveConversion(
 ) (forward, backward string, hasError, hasBackwardError bool) {
 	switch primitive {
 	case "uuid":
-		data.imports.AddExternal("github.com/google/uuid")
+		data.AddExternal("github.com/google/uuid")
 		return fmt.Sprintf("%s.String()", goField),
 			fmt.Sprintf("uuid.Parse(%s)", pbField), false, true
 	case "timestamp":
-		data.imports.AddExternal("github.com/synnaxlabs/x/telem")
+		data.AddExternal("github.com/synnaxlabs/x/telem")
 		return fmt.Sprintf("int64(%s)", goField),
 			fmt.Sprintf("telem.TimeStamp(%s)", pbField), false, false
 	case "timespan":
-		data.imports.AddExternal("github.com/synnaxlabs/x/telem")
+		data.AddExternal("github.com/synnaxlabs/x/telem")
 		return fmt.Sprintf("int64(%s)", goField),
 			fmt.Sprintf("telem.TimeSpan(%s)", pbField), false, false
 	case "time_range", "time_range_bounded":
-		data.imports.AddExternal("github.com/synnaxlabs/x/telem")
+		data.AddExternal("github.com/synnaxlabs/x/telem")
 		return fmt.Sprintf("telem.TranslateTimeRangeForward(%s)", goField),
 			fmt.Sprintf("telem.TranslateTimeRangeBackward(%s)", pbField), false, false
 	case "record":
-		data.imports.AddExternal("google.golang.org/protobuf/types/known/structpb")
+		data.AddExternal("google.golang.org/protobuf/types/known/structpb")
 		return fmt.Sprintf("structpb.NewStruct(%s)", goField),
 			fmt.Sprintf("%s.AsMap()", pbField), true, false
 	case "uint12":
-		data.imports.AddExternal("github.com/synnaxlabs/x/types")
+		data.AddExternal("github.com/synnaxlabs/x/types")
 		return fmt.Sprintf("uint32(%s)", goField),
 			fmt.Sprintf("types.Uint12(%s)", pbField), false, false
 	case "uint20":
-		data.imports.AddExternal("github.com/synnaxlabs/x/types")
+		data.AddExternal("github.com/synnaxlabs/x/types")
 		return fmt.Sprintf("uint32(%s)", goField),
 			fmt.Sprintf("types.Uint20(%s)", pbField), false, false
 	case "data_type":
-		data.imports.AddExternal("github.com/synnaxlabs/x/telem")
+		data.AddExternal("github.com/synnaxlabs/x/telem")
 		return fmt.Sprintf("string(%s)", goField),
 			fmt.Sprintf("telem.DataType(%s)", pbField), false, false
 	case "any":
-		data.imports.AddExternal("encoding/json")
+		data.AddExternal("encoding/json")
 		return fmt.Sprintf("json.Marshal(%s)", goField),
-			fmt.Sprintf("func() any { var v any; _ = json.Unmarshal(%s, &v); return v }()", pbField), true, false
+			fmt.Sprintf(
+				"func() any { var v any; _ = json.Unmarshal(%s, &v); return v }()",
+				pbField,
+			), true, false
 	case "int8":
 		return fmt.Sprintf("int32(%s)", goField),
 			fmt.Sprintf("int8(%s)", pbField), false, false
@@ -1283,7 +1370,7 @@ func (p *Plugin) generatePrimitiveConversion(
 func (p *Plugin) generateStructConversion(
 	typeRef resolution.TypeRef,
 	resolved resolution.Type,
-	isHardOptional bool,
+	isOptional bool,
 	data *templateData,
 	goField, pbField string,
 ) (forward, backward, backwardCast string, hasError bool) {
@@ -1335,33 +1422,57 @@ func (p *Plugin) generateStructConversion(
 	}
 
 	if actualForm.IsGeneric() && len(typeArgs) > 0 {
-		return p.generateGenericStructConversion(typeRef, resolved, actualStruct, actualForm, typeArgs, data, goField, pbField, isHardOptional)
+		return p.generateGenericStructConversion(
+			actualStruct,
+			actualForm,
+			typeArgs,
+			data,
+			goField,
+			pbField,
+			isOptional,
+		)
 	}
 
 	// A fully-defaulted generic struct (every type param has a default and the
 	// caller supplied no args) emits a non-generic Go pb translator under its
 	// bare name, so the call site falls through to the regular non-generic
 	// branch below instead of returning the raw field names.
-	translatorPrefix, translatorStructName := p.resolvePBTranslatorInfo(actualStruct, data)
+	translatorPrefix, translatorStructName := p.resolvePBTranslatorInfo(
+		actualStruct,
+		data,
+	)
 
-	if isHardOptional {
-		return fmt.Sprintf("%s%sToPB(*%s)", translatorPrefix, translatorStructName, goField),
-			fmt.Sprintf("%s%sFromPB(%s)", translatorPrefix, translatorStructName, pbField), "", true
+	if isOptional {
+		return fmt.Sprintf(
+				"%s%sToPB(*%s)",
+				translatorPrefix,
+				translatorStructName,
+				goField,
+			),
+			fmt.Sprintf(
+				"%s%sFromPB(%s)",
+				translatorPrefix,
+				translatorStructName,
+				pbField,
+			), "", true
 	}
 
 	return fmt.Sprintf("%s%sToPB(%s)", translatorPrefix, translatorStructName, goField),
-		fmt.Sprintf("%s%sFromPB(%s)", translatorPrefix, translatorStructName, pbField), "", true
+		fmt.Sprintf(
+			"%s%sFromPB(%s)",
+			translatorPrefix,
+			translatorStructName,
+			pbField,
+		), "", true
 }
 
 func (p *Plugin) generateGenericStructConversion(
-	typeRef resolution.TypeRef,
-	originalResolved resolution.Type,
 	actualStruct resolution.Type,
 	actualForm resolution.StructForm,
 	typeArgs []resolution.TypeRef,
 	data *templateData,
 	goField, pbField string,
-	isHardOptional bool,
+	isOptional bool,
 ) (forward, backward, backwardCast string, hasError bool) {
 	translatorPrefix, structName := p.resolvePBTranslatorInfo(actualStruct, data)
 
@@ -1372,10 +1483,17 @@ func (p *Plugin) generateGenericStructConversion(
 			continue
 		}
 
-		if typeArg.IsTypeParam() && typeArg.TypeParam != nil && !typeArg.TypeParam.HasDefault() {
+		if typeArg.IsTypeParam() && typeArg.TypeParam != nil &&
+			!typeArg.TypeParam.HasDefault() {
 			paramName := typeArg.TypeParam.Name
-			forwardConverters = append(forwardConverters, fmt.Sprintf("translate%s", paramName))
-			backwardConverters = append(backwardConverters, fmt.Sprintf("translate%s", paramName))
+			forwardConverters = append(
+				forwardConverters,
+				fmt.Sprintf("translate%s", paramName),
+			)
+			backwardConverters = append(
+				backwardConverters,
+				fmt.Sprintf("translate%s", paramName),
+			)
 			explicitTypeArgs = append(explicitTypeArgs, paramName)
 			continue
 		}
@@ -1387,17 +1505,26 @@ func (p *Plugin) generateGenericStructConversion(
 
 				p.ensureAnyHelper(argResolved, data)
 
-				forwardConverters = append(forwardConverters, fmt.Sprintf("%sToPBAny", argGoName))
-				backwardConverters = append(backwardConverters, fmt.Sprintf("%sFromPBAny", argGoName))
+				forwardConverters = append(
+					forwardConverters,
+					fmt.Sprintf("%sToPBAny", argGoName),
+				)
+				backwardConverters = append(
+					backwardConverters,
+					fmt.Sprintf("%sFromPBAny", argGoName),
+				)
 
-				explicitTypeArgs = append(explicitTypeArgs, fmt.Sprintf("%s.%s", data.parentAlias, argGoName))
+				explicitTypeArgs = append(
+					explicitTypeArgs,
+					fmt.Sprintf("%s.%s", data.parentAlias, argGoName),
+				)
 				continue
 			}
 		}
 		forwardConverters = append(forwardConverters, "nil")
 		backwardConverters = append(backwardConverters, "nil")
 		if typeArg.Name == "nil" {
-			data.imports.AddInternal("gotypes", "go/types")
+			data.AddInternal("gotypes", "go/types")
 			explicitTypeArgs = append(explicitTypeArgs, "gotypes.Nil")
 		} else {
 			explicitTypeArgs = append(explicitTypeArgs, "any")
@@ -1406,43 +1533,37 @@ func (p *Plugin) generateGenericStructConversion(
 
 	forwardArgs := strings.Join(forwardConverters, ", ")
 	backwardArgs := strings.Join(backwardConverters, ", ")
-	typeArgsStr := "[" + strings.Join(explicitTypeArgs, ", ") + "]"
 
-	var genericGoType string
-	goOutput := output.GetPath(actualStruct, "go")
-	if goOutput != "" {
-		importPath, err := resolveGoImportPath(goOutput, data.repoRoot)
-		if err == nil {
-			alias := naming.DerivePackageName(goOutput)
-			data.imports.AddInternal(alias, importPath)
-			genericGoType = fmt.Sprintf("%s.%s[%s]", alias, structName, strings.Join(explicitTypeArgs, ", "))
-		}
+	// The generated Go field type is (an alias of) the instantiated generic:
+	// the forward argument pins every type parameter and the backward result
+	// assigns directly. Backward inference needs a typed converter, so a nil
+	// converter keeps the explicit instantiation.
+	backwardTypeArgs := ""
+	if slices.Contains(backwardConverters, "nil") {
+		backwardTypeArgs = "[" + strings.Join(explicitTypeArgs, ", ") + "]"
 	}
 
-	aliasGoName := naming.GetGoName(originalResolved)
-	if isHardOptional {
-		if genericGoType != "" {
-			forward = fmt.Sprintf("%s%sToPB%s((%s)(*%s), %s)", translatorPrefix, structName, typeArgsStr, genericGoType, goField, forwardArgs)
-		} else {
-			forward = fmt.Sprintf("%s%sToPB%s(*%s, %s)", translatorPrefix, structName, typeArgsStr, goField, forwardArgs)
-		}
-		backward = fmt.Sprintf("%s%sFromPB%s(%s, %s)", translatorPrefix, structName, typeArgsStr, pbField, backwardArgs)
-		_, isAlias := originalResolved.Form.(resolution.AliasForm)
-		if !isAlias && len(explicitTypeArgs) > 0 {
-			backwardCast = fmt.Sprintf("(*%s.%s[%s])", data.parentAlias, aliasGoName, strings.Join(explicitTypeArgs, ", "))
-		} else {
-			backwardCast = fmt.Sprintf("(*%s.%s)", data.parentAlias, aliasGoName)
-		}
-	} else {
-		if genericGoType != "" {
-			forward = fmt.Sprintf("%s%sToPB%s((%s)(%s), %s)", translatorPrefix, structName, typeArgsStr, genericGoType, goField, forwardArgs)
-		} else {
-			forward = fmt.Sprintf("%s%sToPB%s(%s, %s)", translatorPrefix, structName, typeArgsStr, goField, forwardArgs)
-		}
-		backward = fmt.Sprintf("%s%sFromPB%s(%s, %s)", translatorPrefix, structName, typeArgsStr, pbField, backwardArgs)
+	deref := ""
+	if isOptional {
+		deref = "*"
 	}
-
-	return forward, backward, backwardCast, true
+	forward = fmt.Sprintf(
+		"%s%sToPB(%s%s, %s)",
+		translatorPrefix,
+		structName,
+		deref,
+		goField,
+		forwardArgs,
+	)
+	backward = fmt.Sprintf(
+		"%s%sFromPB%s(%s, %s)",
+		translatorPrefix,
+		structName,
+		backwardTypeArgs,
+		pbField,
+		backwardArgs,
+	)
+	return forward, backward, "", true
 }
 
 func (p *Plugin) ensureAnyHelper(s resolution.Type, data *templateData) {
@@ -1452,10 +1573,11 @@ func (p *Plugin) ensureAnyHelper(s resolution.Type, data *templateData) {
 	}
 	data.generatedAnyHelpers.Add(key)
 
-	data.imports.AddExternal("google.golang.org/protobuf/types/known/anypb")
-	data.imports.AddExternal("google.golang.org/protobuf/types/known/structpb")
-	data.imports.AddExternal("google.golang.org/protobuf/encoding/protojson")
-	data.imports.AddExternal("encoding/json")
+	data.AddExternal("google.golang.org/protobuf/types/known/anypb")
+	data.AddExternal("google.golang.org/protobuf/types/known/structpb")
+	data.AddExternal("google.golang.org/protobuf/encoding/protojson")
+	data.AddExternal("google.golang.org/protobuf/proto")
+	data.AddExternal("encoding/json")
 
 	goName := naming.GetGoName(s)
 
@@ -1472,16 +1594,15 @@ func (p *Plugin) ensureAnyHelper(s resolution.Type, data *templateData) {
 }
 
 func (p *Plugin) generateEnumConversion(
-	typeRef resolution.TypeRef,
 	resolved resolution.Type,
 	data *templateData,
 	goField, pbField string,
-	isHardOptional bool,
+	isOptional bool,
 ) (forward, backward string) {
 	enumName := resolved.Name
 	forwardArg := goField
 	backwardArg := pbField
-	if isHardOptional {
+	if isOptional {
 		forwardArg = "*" + goField
 		backwardArg = "*" + pbField
 	}
@@ -1492,7 +1613,7 @@ func (p *Plugin) generateEnumConversion(
 			importPath, err := resolveGoImportPath(pbPath, data.repoRoot)
 			if err == nil {
 				alias := strings.ToLower(resolved.Namespace) + "pb"
-				data.imports.AddInternal(alias, importPath)
+				data.AddInternal(alias, importPath)
 				return fmt.Sprintf("%s.%sToPB(%s)", alias, enumName, forwardArg),
 					fmt.Sprintf("%s.%sFromPB(%s)", alias, enumName, backwardArg)
 			}
@@ -1508,7 +1629,6 @@ func (p *Plugin) generateEnumConversion(
 }
 
 func (p *Plugin) generateTypeDefConversion(
-	typeRef resolution.TypeRef,
 	resolved resolution.Type,
 	form resolution.DistinctForm,
 	data *templateData,
@@ -1521,12 +1641,13 @@ func (p *Plugin) generateTypeDefConversion(
 
 	typedefPrefix := ""
 	goOutput := output.GetPath(resolved, "go")
-	if resolved.Namespace != data.Namespace || (goOutput != "" && goOutput != data.ParentGoPath) {
+	if resolved.Namespace != data.Namespace ||
+		(goOutput != "" && goOutput != data.ParentGoPath) {
 		if goOutput != "" {
 			importPath, err := resolveGoImportPath(goOutput, data.repoRoot)
 			if err == nil {
 				alias := naming.DerivePackageAlias(goOutput, data.parentAlias)
-				data.imports.AddInternal(alias, importPath)
+				data.AddInternal(alias, importPath)
 				typedefPrefix = alias + "."
 			}
 		}
@@ -1537,7 +1658,7 @@ func (p *Plugin) generateTypeDefConversion(
 	resolvedGoName := naming.GetGoName(resolved)
 
 	if baseType.Name == "uuid" {
-		data.imports.AddExternal("github.com/google/uuid")
+		data.AddExternal("github.com/google/uuid")
 		forward = fmt.Sprintf("%s.String()", goField)
 		backward = fmt.Sprintf("uuid.Parse(%s)", pbField)
 		backwardCast = fmt.Sprintf("%s%s", typedefPrefix, resolvedGoName)
@@ -1553,7 +1674,6 @@ func (p *Plugin) generateTypeDefConversion(
 }
 
 func (p *Plugin) generateAliasConversion(
-	typeRef resolution.TypeRef,
 	resolved resolution.Type,
 	form resolution.AliasForm,
 	data *templateData,
@@ -1563,12 +1683,13 @@ func (p *Plugin) generateAliasConversion(
 
 	aliasPrefix := ""
 	goOutput := output.GetPath(resolved, "go")
-	if resolved.Namespace != data.Namespace || (goOutput != "" && goOutput != data.ParentGoPath) {
+	if resolved.Namespace != data.Namespace ||
+		(goOutput != "" && goOutput != data.ParentGoPath) {
 		if goOutput != "" {
 			importPath, err := resolveGoImportPath(goOutput, data.repoRoot)
 			if err == nil {
 				alias := naming.DerivePackageAlias(goOutput, data.parentAlias)
-				data.imports.AddInternal(alias, importPath)
+				data.AddInternal(alias, importPath)
 				aliasPrefix = alias + "."
 			}
 		}
@@ -1580,7 +1701,7 @@ func (p *Plugin) generateAliasConversion(
 
 	// Handle uuid specially
 	if primitiveName == "uuid" {
-		data.imports.AddExternal("github.com/google/uuid")
+		data.AddExternal("github.com/google/uuid")
 		forward = fmt.Sprintf("%s.String()", goField)
 		backward = fmt.Sprintf("uuid.Parse(%s)", pbField)
 		backwardCast = fmt.Sprintf("%s%s", aliasPrefix, resolvedGoName)
@@ -1600,20 +1721,20 @@ func (p *Plugin) generateArrayConversion(
 ) (forward, backward string, hasError, hasBackwardError bool) {
 	typeRef := field.Type
 
-	if p.isNestedArrayType(typeRef, data.table) {
+	if arrays.IsNested(typeRef, data.table) {
 		f, b, e := p.generateNestedArrayConversion(typeRef, data, goField, pbField)
 		return f, b, e, e
 	}
 
-	elemType, ok := p.getArrayElementType(typeRef, data.table)
+	elemType, ok := arrays.ElementType(typeRef, data.table)
 	if !ok {
 		return goField, pbField, false, false
 	}
 
 	if elemType.Name == "record" {
 		data.NeedsRecordArrayHelpers = true
-		data.imports.AddExternal("google.golang.org/protobuf/types/known/structpb")
-		data.imports.AddExternal("github.com/synnaxlabs/x/encoding/msgpack")
+		data.AddExternal("google.golang.org/protobuf/types/known/structpb")
+		data.AddExternal("github.com/synnaxlabs/x/encoding/msgpack")
 		return fmt.Sprintf("recordsToPB(%s)", goField),
 			fmt.Sprintf("recordsFromPB(%s)", pbField),
 			true, false
@@ -1629,22 +1750,43 @@ func (p *Plugin) generateArrayConversion(
 				true, true
 		}
 		if structForm, isStruct := elemResolved.Form.(resolution.StructForm); isStruct {
-			translatorPrefix, translatorStructName := p.resolvePBTranslatorInfo(elemResolved, data)
+			translatorPrefix, translatorStructName := p.resolvePBTranslatorInfo(
+				elemResolved,
+				data,
+			)
 			pluralName := pluralizeDistinct(translatorStructName)
 
 			if structForm.IsGeneric() && len(elemType.TypeArgs) > 0 {
 				var typeParamArgs, converterArgs []string
 				for _, ta := range elemType.TypeArgs {
-					if ta.IsTypeParam() && ta.TypeParam != nil && !ta.TypeParam.HasDefault() {
+					if ta.IsTypeParam() && ta.TypeParam != nil &&
+						!ta.TypeParam.HasDefault() {
 						typeParamArgs = append(typeParamArgs, ta.TypeParam.Name)
-						converterArgs = append(converterArgs, fmt.Sprintf("translate%s", ta.TypeParam.Name))
+						converterArgs = append(
+							converterArgs,
+							fmt.Sprintf("translate%s", ta.TypeParam.Name),
+						)
 					}
 				}
 				if len(typeParamArgs) > 0 {
 					typeArgsStr := "[" + strings.Join(typeParamArgs, ", ") + "]"
 					converterArgsStr := strings.Join(converterArgs, ", ")
-					return fmt.Sprintf("%s%sToPB%s(%s, %s)", translatorPrefix, pluralName, typeArgsStr, goField, converterArgsStr),
-						fmt.Sprintf("%s%sFromPB%s(%s, %s)", translatorPrefix, pluralName, typeArgsStr, pbField, converterArgsStr),
+					return fmt.Sprintf(
+							"%s%sToPB%s(%s, %s)",
+							translatorPrefix,
+							pluralName,
+							typeArgsStr,
+							goField,
+							converterArgsStr,
+						),
+						fmt.Sprintf(
+							"%s%sFromPB%s(%s, %s)",
+							translatorPrefix,
+							pluralName,
+							typeArgsStr,
+							pbField,
+							converterArgsStr,
+						),
 						true, true
 				}
 			}
@@ -1658,8 +1800,8 @@ func (p *Plugin) generateArrayConversion(
 	if resolution.IsPrimitive(elemType.Name) {
 		switch elemType.Name {
 		case "uuid":
-			data.imports.AddExternal("github.com/google/uuid")
-			data.imports.AddExternal("github.com/samber/lo")
+			data.AddExternal("github.com/google/uuid")
+			data.AddExternal("github.com/samber/lo")
 			// Forward conversion uses lo.Map (no error possible)
 			// Backward conversion uses IIFE with proper error handling
 			backward = fmt.Sprintf(`func() ([]uuid.UUID, error) {
@@ -1673,7 +1815,10 @@ func (p *Plugin) generateArrayConversion(
 		}
 		return result, nil
 	}()`, pbField, pbField)
-			return fmt.Sprintf("lo.Map(%s, func(u uuid.UUID, _ int) string { return u.String() })", goField),
+			return fmt.Sprintf(
+					"lo.Map(%s, func(u uuid.UUID, _ int) string { return u.String() })",
+					goField,
+				),
 				backward, false, true
 		}
 	}
@@ -1683,15 +1828,26 @@ func (p *Plugin) generateArrayConversion(
 	// lo.Map conversions in both directions using the proto/distinct type names.
 	if ok {
 		if distinctForm, isDistinct := elemResolved.Form.(resolution.DistinctForm); isDistinct {
-			if resolution.IsPrimitive(distinctForm.Base.Name) && distinctForm.Base.Name != "uuid" {
-				data.imports.AddExternal("github.com/samber/lo")
+			if resolution.IsPrimitive(distinctForm.Base.Name) &&
+				distinctForm.Base.Name != "uuid" {
+				data.AddExternal("github.com/samber/lo")
 				elemGoType, ok := p.qualifiedDistinctGoName(elemResolved, data)
 				if ok {
 					protoType := primitiveToProtoType(distinctForm.Base.Name)
-					forward := fmt.Sprintf("lo.Map(%s, func(v %s, _ int) %s { return %s(v) })",
-						goField, elemGoType, protoType, protoType)
-					backward := fmt.Sprintf("lo.Map(%s, func(v %s, _ int) %s { return %s(v) })",
-						pbField, protoType, elemGoType, elemGoType)
+					forward := fmt.Sprintf(
+						"lo.Map(%s, func(v %s, _ int) %s { return %s(v) })",
+						goField,
+						elemGoType,
+						protoType,
+						protoType,
+					)
+					backward := fmt.Sprintf(
+						"lo.Map(%s, func(v %s, _ int) %s { return %s(v) })",
+						pbField,
+						protoType,
+						elemGoType,
+						elemGoType,
+					)
 					return forward, backward, false, false
 				}
 			}
@@ -1704,10 +1860,14 @@ func (p *Plugin) generateArrayConversion(
 // qualifiedDistinctGoName returns the Go identifier for a distinct type as it
 // should appear in the generated translator file, including any package prefix
 // and registering the import if the type lives in a different package.
-func (p *Plugin) qualifiedDistinctGoName(resolved resolution.Type, data *templateData) (string, bool) {
+func (p *Plugin) qualifiedDistinctGoName(
+	resolved resolution.Type,
+	data *templateData,
+) (string, bool) {
 	prefix := ""
 	goOutput := output.GetPath(resolved, "go")
-	if resolved.Namespace != data.Namespace || (goOutput != "" && goOutput != data.ParentGoPath) {
+	if resolved.Namespace != data.Namespace ||
+		(goOutput != "" && goOutput != data.ParentGoPath) {
 		if goOutput == "" {
 			return "", false
 		}
@@ -1716,7 +1876,7 @@ func (p *Plugin) qualifiedDistinctGoName(resolved resolution.Type, data *templat
 			return "", false
 		}
 		alias := naming.DerivePackageAlias(goOutput, data.parentAlias)
-		data.imports.AddInternal(alias, importPath)
+		data.AddInternal(alias, importPath)
 		prefix = alias + "."
 	} else {
 		prefix = data.parentAlias + "."
@@ -1729,7 +1889,7 @@ func (p *Plugin) generateNestedArrayConversion(
 	data *templateData,
 	goField, pbField string,
 ) (forward, backward string, hasError bool) {
-	wrapperName := p.getNestedArrayWrapperName(typeRef, data.table)
+	wrapperName := arrays.NestedWrapperName(typeRef, data.table)
 
 	// Delegate per-element conversion to the inner slice's existing
 	// XYZToPB / XYZFromPB helpers. This preserves type safety and error
@@ -1737,13 +1897,28 @@ func (p *Plugin) generateNestedArrayConversion(
 	// Falls back to the earlier broken lo.Map form only for [][]primitive,
 	// which has no struct helper to call — that path was not used by any
 	// schema at the time this fix landed.
-	if f, b, ok := p.generateStructNestedArrayConversion(typeRef, data, goField, pbField, wrapperName); ok {
+	if f, b, ok := p.generateStructNestedArrayConversion(
+		typeRef,
+		data,
+		goField,
+		pbField,
+		wrapperName,
+	); ok {
 		return f, b, true
 	}
 
-	data.imports.AddExternal("github.com/samber/lo")
-	forward = fmt.Sprintf("lo.Map(%s, func(inner []string, _ int) *%s { return &%s{Values: inner} })", goField, wrapperName, wrapperName)
-	backward = fmt.Sprintf("lo.Map(%s, func(w *%s, _ int) []string { return w.Values })", pbField, wrapperName)
+	data.AddExternal("github.com/samber/lo")
+	forward = fmt.Sprintf(
+		"lo.Map(%s, func(inner []string, _ int) *%s { return &%s{Values: inner} })",
+		goField,
+		wrapperName,
+		wrapperName,
+	)
+	backward = fmt.Sprintf(
+		"lo.Map(%s, func(w *%s, _ int) []string { return w.Values })",
+		pbField,
+		wrapperName,
+	)
 	return forward, backward, false
 }
 
@@ -1763,7 +1938,7 @@ func (p *Plugin) generateStructNestedArrayConversion(
 	data *templateData,
 	goField, pbField, wrapperName string,
 ) (forward, backward string, ok bool) {
-	elemType, ok := p.getArrayElementType(typeRef, data.table)
+	elemType, ok := arrays.ElementType(typeRef, data.table)
 	if !ok {
 		return "", "", false
 	}
@@ -1771,7 +1946,7 @@ func (p *Plugin) generateStructNestedArrayConversion(
 	if !ok {
 		return "", "", false
 	}
-	innerElem, ok := p.getArrayElementType(elemType, data.table)
+	innerElem, ok := arrays.ElementType(elemType, data.table)
 	if !ok {
 		return "", "", false
 	}
@@ -1783,7 +1958,10 @@ func (p *Plugin) generateStructNestedArrayConversion(
 		return "", "", false
 	}
 
-	translatorPrefix, translatorStructName := p.resolvePBTranslatorInfo(innerElemResolved, data)
+	translatorPrefix, translatorStructName := p.resolvePBTranslatorInfo(
+		innerElemResolved,
+		data,
+	)
 	pluralName := pluralizeDistinct(translatorStructName)
 
 	// If the outer typeRef resolves to a distinct named type (e.g., Strata),
@@ -1848,7 +2026,12 @@ func (p *Plugin) generateEnumTranslator(
 		goValue := fmt.Sprintf("%s.%s%s", goAlias, goName, valueName)
 
 		enumPrefix := toScreamingSnake(enumRef.Name) + "_"
-		pbValueName := fmt.Sprintf("%s_%s%s", enumRef.Name, enumPrefix, toScreamingSnake(v.Name))
+		pbValueName := fmt.Sprintf(
+			"%s_%s%s",
+			enumRef.Name,
+			enumPrefix,
+			toScreamingSnake(v.Name),
+		)
 
 		values = append(values, enumValueTranslatorData{
 			GoValue: goValue,
@@ -1880,7 +2063,10 @@ func getPBName(s resolution.Type) string {
 	return ""
 }
 
-func findStructWithPB(s resolution.Type, table *resolution.Table) (*resolution.Type, string) {
+func findStructWithPB(
+	s resolution.Type,
+	table *resolution.Table,
+) (*resolution.Type, string) {
 	current := &s
 	for current != nil {
 		pbPath := output.GetPBPath(*current)
@@ -1914,11 +2100,12 @@ func (p *Plugin) resolvePBTranslatorInfo(
 		translatorStructName = pbStruct.Name
 	}
 
-	if pbStruct.Namespace != data.Namespace || (pbPath != "" && pbPath != data.OutputPath) {
+	if pbStruct.Namespace != data.Namespace ||
+		(pbPath != "" && pbPath != data.OutputPath) {
 		importPath, err := resolveGoImportPath(pbPath, data.repoRoot)
 		if err == nil {
 			alias := strings.ToLower(pbStruct.Namespace) + "pb"
-			data.imports.AddInternal(alias, importPath)
+			data.AddInternal(alias, importPath)
 			translatorPrefix = alias + "."
 		}
 	}
@@ -2009,7 +2196,10 @@ func isEnumType(typeRef resolution.TypeRef, table *resolution.Table) bool {
 	return false
 }
 
-func (p *Plugin) resolveGoTypeLiteral(typeRef resolution.TypeRef, data *templateData) string {
+func (p *Plugin) resolveGoTypeLiteral(
+	typeRef resolution.TypeRef,
+	data *templateData,
+) string {
 	resolved, ok := typeRef.Resolve(data.table)
 	if !ok {
 		return ""
@@ -2024,14 +2214,14 @@ func (p *Plugin) resolveGoTypeLiteral(typeRef resolution.TypeRef, data *template
 		return fmt.Sprintf("%s.%s", data.parentAlias, goName)
 	}
 	alias := naming.DerivePackageAlias(goOutput, data.parentAlias)
-	data.imports.AddInternal(alias, importPath)
+	data.AddInternal(alias, importPath)
 	return fmt.Sprintf("%s.%s", alias, goName)
 }
 
 type templateData struct {
-	usedEnums             map[string]*resolution.Type
-	table                 *resolution.Table
-	imports               *imports.Manager
+	usedEnums map[string]*resolution.Type
+	table     *resolution.Table
+	*imports.Manager
 	generatedAnyHelpers   set.Set[string]
 	ParentGoPath          string
 	Package               string
@@ -2048,17 +2238,6 @@ type templateData struct {
 	// NeedsRecordArrayHelpers reports whether any field converts a []record,
 	// requiring the shared recordsToPB/recordsFromPB helpers.
 	NeedsRecordArrayHelpers bool
-}
-
-// HasImports returns true if any imports are needed.
-func (d *templateData) HasImports() bool { return d.imports.HasImports() }
-
-// ExternalImports returns sorted external imports.
-func (d *templateData) ExternalImports() []string { return d.imports.ExternalImports() }
-
-// InternalImports returns sorted internal imports.
-func (d *templateData) InternalImports() []imports.InternalImportData {
-	return d.imports.InternalImports()
 }
 
 // translatorData holds data for a single type's translators.
@@ -2080,16 +2259,17 @@ type fieldTranslatorData struct {
 	PBName       string
 	ForwardExpr  string
 	BackwardExpr string
-	// BackwardCast is an optional cast for the backward assignment (e.g., "(*rack.Status)").
+	// BackwardCast is an optional cast for the backward assignment (e.g.,
+	// "(*rack.Status)").
 	BackwardCast     string
 	IsOptional       bool
 	IsOptionalStruct bool
-	// IsOptionalEnum is true for a hard-optional field whose underlying type is an
+	// IsOptionalEnum is true for a optional field whose underlying type is an
 	// enum. Triggers the same val/&val backward dance as IsOptionalStruct so the
 	// pointer-typed Go field is populated from the value-returning EnumFromPB call.
 	IsOptionalEnum bool
-	// NeedsPtrConversion is true when a hard-optional primitive needs type conversion
-	// (e.g., *uint8 <-> *uint32). The template must dereference, convert, and re-address.
+	// NeedsPtrConversion is true when a optional primitive needs type conversion (e.g.,
+	// *uint8 <-> *uint32). The template must dereference, convert, and re-address.
 	NeedsPtrConversion bool
 	// MapValueConversion holds the forward and backward conversion expressions for map
 	// value types that need conversion (e.g., uint8 <-> uint32). When set, the template
@@ -2099,6 +2279,13 @@ type fieldTranslatorData struct {
 	HasError bool
 	// HasBackwardError is true if backward conversion returns (result, error).
 	HasBackwardError bool
+	// IsOptionalArrayWrapper is true for an optional list, represented in proto as a
+	// nullable wrapper message. ToPB wraps the converted slice (&Wrapper{Values: ...});
+	// FromPB unwraps Values. ForwardExpr/BackwardExpr hold the inner slice conversions
+	// (BackwardExpr already reads from <pbField>.Values).
+	IsOptionalArrayWrapper bool
+	// WrapperName is the proto wrapper message type for IsOptionalArrayWrapper fields.
+	WrapperName string
 }
 
 type mapValueConversionData struct {
@@ -2138,9 +2325,7 @@ type enumValueTranslatorData struct {
 type genericTranslatorData struct {
 	Name string
 	// GoType is the full generic type with parameters (e.g., "status.Status[D]").
-	GoType string
-	// GoTypeBase is the type without parameters (e.g., "status.Status").
-	GoTypeBase  string
+	GoType      string
 	PBType      string
 	GoTypeShort string
 	PBTypeShort string
@@ -2162,13 +2347,6 @@ type typeParamData struct {
 	Constraint string
 }
 
-func typeParamConstraint(tp resolution.TypeParam) string {
-	if tp.Constraint != nil && resolution.IsConstraint(tp.Constraint.Name) {
-		return tp.Constraint.Name
-	}
-	return "any"
-}
-
 // anyHelperData holds data for ToPBAny/FromPBAny helper functions.
 // These are generated for concrete types that are used as type arguments
 // to generic structs.
@@ -2181,9 +2359,9 @@ type anyHelperData struct {
 	PBType string
 }
 
-// delegationTranslatorData holds data for translators that delegate to an underlying type.
-// Used for DistinctForm types that wrap struct types - instead of generating independent
-// translators, we generate thin wrappers that cast and delegate.
+// delegationTranslatorData holds data for translators that delegate to an underlying
+// type. Used for DistinctForm types that wrap struct types - instead of generating
+// independent translators, we generate thin wrappers that cast and delegate.
 type delegationTranslatorData struct {
 	Name                       string
 	GoType                     string

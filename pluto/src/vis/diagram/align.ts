@@ -45,10 +45,8 @@ export const alignNodesAlongDirection = (
 
   const loc = location.construct(dir);
   const oppositeLoc = location.swap(loc);
-  // Sort layouts by position, lowest to highest
   layouts.sort((a, b) => box.loc(a.box, loc) - box.loc(b.box, loc));
 
-  // Pre-compute handles in direction for each layout
   const handlesInDir = layouts.map((layout) =>
     layout.handles.filter(
       (h) => h.orientation === loc || h.orientation === oppositeLoc,
@@ -71,7 +69,6 @@ export const alignNodesAlongDirection = (
       return;
     }
 
-    // Align current node's handle with previous node's handle
     const prevHandle =
       prevHandlesInDir.find((h) => h.orientation === oppositeLoc) ??
       prevHandlesInDir[prevHandlesInDir.length - 1];

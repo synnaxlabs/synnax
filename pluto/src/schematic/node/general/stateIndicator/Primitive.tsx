@@ -9,20 +9,22 @@
 
 import "@/schematic/node/general/stateIndicator/stateIndicator.css";
 
+import { type schematic } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
-import { type Config } from "@/schematic/node/general/stateIndicator/config";
 import { symbolColorVar } from "@/schematic/symbolColor";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 
-interface RenderProps extends Omit<Config, "variant"> {
+interface RenderProps extends Omit<schematic.StateIndicatorNodeConfig, "variant"> {
   className?: string;
   matchedOptionKey?: string | null;
+  /** Colors the label while the state channel is stale. */
+  staleColor?: color.Crude;
 }
 
 export const StateIndicator = ({
@@ -32,21 +34,28 @@ export const StateIndicator = ({
   options,
   color: colorVal,
   inlineSize,
+  staleColor,
 }: RenderProps): ReactElement => {
   const matched = options.find((o) => o.key === matchedOptionKey);
   const stateColor = matched?.color;
   const backgroundColor = stateColor != null ? color.cssString(stateColor) : undefined;
   const theme = Theming.use();
   const textColor =
-    stateColor != null
-      ? color.cssString(
-          color.pickByContrast(stateColor, theme.colors.gray.l0, theme.colors.gray.l11),
-        )
-      : undefined;
+    staleColor != null
+      ? color.cssString(staleColor)
+      : stateColor != null
+        ? color.cssString(
+            color.pickByContrast(
+              stateColor,
+              theme.colors.gray.l0,
+              theme.colors.gray.l11,
+            ),
+          )
+        : undefined;
   const label = matched != null ? matched.name || `Option ${matched.value}` : "Unknown";
   const style = useMemo<CSSProperties>(
     () => ({
-      [CSS.var("symbol-color")]: symbolColorVar(colorVal),
+      [CSS.variable("symbol-color")]: symbolColorVar(colorVal),
       backgroundColor,
       minWidth: inlineSize,
     }),
@@ -54,7 +63,7 @@ export const StateIndicator = ({
   );
   return (
     <Primitive.Div
-      className={CSS(CSS.B("state-indicator"), CSS.B("symbol-colored"), className)}
+      className={CSS.cls(CSS.B("state-indicator"), CSS.B("symbol-colored"), className)}
       style={style}
     >
       <Handle.Rectangle

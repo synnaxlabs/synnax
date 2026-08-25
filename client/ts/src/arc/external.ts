@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/arc/actions";
+export * from "@/arc/actions.gen";
 export * from "@/arc/client";
 export * from "@/arc/compiler";
 export * from "@/arc/graph";

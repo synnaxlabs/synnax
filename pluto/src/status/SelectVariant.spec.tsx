@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type status } from "@synnaxlabs/x";
+import { type status } from "@synnaxlabs/client";
 import { fireEvent, render } from "@testing-library/react";
 import { useState } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
@@ -32,12 +32,12 @@ describe("SelectVariant", () => {
 
   it("should render a selection trigger", () => {
     const c = render(<TestSelect />);
-    expect(c.getByText("Select a variant")).toBeTruthy();
+    expect(c.getByText("Select variant")).toBeTruthy();
   });
 
   it("should open and show all variant options", () => {
     const c = render(<TestSelect />);
-    fireEvent.click(c.getByText("Select a variant"));
+    fireEvent.click(c.getByText("Select variant"));
     expect(c.getByText("Success")).toBeTruthy();
     expect(c.getByText("Error")).toBeTruthy();
     expect(c.getByText("Warning")).toBeTruthy();
@@ -48,7 +48,7 @@ describe("SelectVariant", () => {
 
   it("should call onChange when a variant is selected", () => {
     const c = render(<TestSelect />);
-    fireEvent.click(c.getByText("Select a variant"));
+    fireEvent.click(c.getByText("Select variant"));
     fireEvent.click(c.getByText("Error"));
     expect(onChange).toHaveBeenCalledWith("error");
   });

@@ -9,9 +9,11 @@
 
 #pragma once
 
+#include <cstring>
 #include <functional>
 #include <memory>
 #include <optional>
+#include <vector>
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
@@ -24,10 +26,10 @@
 
 namespace arc::stl::stable {
 
-struct StableForConfig {
+struct StableForInputs {
     x::telem::TimeSpan duration;
 
-    static std::pair<StableForConfig, x::errors::Error>
+    static std::pair<StableForInputs, x::errors::Error>
     create(const types::Params &params) {
         const auto &param = params["duration"];
         auto sv = types::to_sample_value(param.value, param.type);
@@ -46,56 +48,75 @@ struct StableForConfig {
     }
 };
 
-/// @brief StableFor outputs a value only after the input has remained unchanged
-/// for a configured duration. Used to debounce noisy signals.
+/// @brief StableFor debounces a signal: emits a value only after it stays
+/// stable for the given duration, suppressing transient fluctuations.
 ///
 /// Stability is measured from the input sample's timestamp (not scheduler
 /// elapsed time), and the current time is obtained via an injectable now()
 /// function, matching the Go runtime behavior.
 class StableFor : public runtime::node::Node {
     runtime::state::Node state;
-    StableForConfig cfg;
+    x::telem::TimeSpan duration;
+    size_t input_idx;
     x::telem::MonoClock clock;
-    std::optional<uint8_t> value;
-    std::optional<uint8_t> last_sent;
+    std::optional<std::vector<uint8_t>> value;
+    std::optional<std::vector<uint8_t>> last_sent;
     x::telem::TimeStamp last_changed{0};
+
+    /// @brief latches the var-bound live duration at a window start;
+    /// an in-flight window completes under the duration it began with.
+    void refresh_duration() {
+        const auto [i, err] = this->state.resolve_input("duration");
+        if (err || !this->state.ref_sourced(i)) return;
+        if (const auto v = this->state.ref_input(i); v != nullptr && v->size() > 0)
+            this->duration = x::telem::TimeSpan(v->at<int64_t>(-1));
+    }
 
 public:
     explicit StableFor(
-        const StableForConfig &cfg,
+        const StableForInputs &inputs,
         runtime::state::Node &&state,
+        size_t input_idx,
         x::telem::NowFunc now = nullptr
     ):
-        state(std::move(state)), cfg(cfg), clock(std::move(now)) {}
+        state(std::move(state)),
+        duration(inputs.duration),
+        input_idx(input_idx),
+        clock(std::move(now)) {}
 
     x::errors::Error next(runtime::node::Context &ctx) override {
         if (this->state.refresh_inputs()) {
-            const auto &input_data = this->state.input(0);
-            const auto &input_time = this->state.input_time(0);
+            const auto &input_data = this->state.input(this->input_idx);
+            const auto &input_time = this->state.input_time(this->input_idx);
             if (input_data->size() > 0) {
+                const auto density = input_data->data_type().density();
+                const auto *data = reinterpret_cast<const uint8_t *>(
+                    input_data->data()
+                );
                 for (size_t i = 0; i < input_data->size(); i++) {
-                    const auto current_value = input_data->at<uint8_t>(i);
-                    if (!this->value.has_value() || *this->value != current_value) {
-                        this->value = current_value;
+                    const auto *current_value = data + i * density;
+                    if (!this->value.has_value() ||
+                        std::memcmp(this->value->data(), current_value, density) != 0) {
+                        this->value.emplace(current_value, current_value + density);
                         this->last_changed = x::telem::TimeStamp(
                             input_time->at<int64_t>(i)
                         );
+                        this->refresh_duration();
                     }
                 }
             }
         }
 
         if (!this->value.has_value()) return x::errors::NIL;
-        const auto current_value = *this->value;
         const auto current_time = this->clock.now();
-        if (x::telem::TimeSpan(current_time - this->last_changed) >=
-            this->cfg.duration) {
-            if (!this->last_sent.has_value() || *this->last_sent != current_value) {
+        if (x::telem::TimeSpan(current_time - this->last_changed) >= this->duration) {
+            if (!this->last_sent.has_value() || *this->last_sent != *this->value) {
                 const auto &o = this->state.output(0);
                 const auto &o_time = this->state.output_time(0);
-                *o = x::telem::Series(current_value);
+                o->resize(1);
+                std::memcpy(o->data(), this->value->data(), this->value->size());
                 *o_time = x::telem::Series(current_time.nanoseconds());
-                this->last_sent = current_value;
+                this->last_sent = *this->value;
                 ctx.mark_changed(0);
             }
         }
@@ -103,6 +124,7 @@ public:
     }
 
     void reset() override {
+        this->state.absorb_inputs();
         this->value = std::nullopt;
         this->last_sent = std::nullopt;
         this->last_changed = x::telem::TimeStamp(0);
@@ -124,10 +146,12 @@ public:
     std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
     create(runtime::node::Config &&cfg) override {
         if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
-        auto [node_cfg, err] = StableForConfig::create(cfg.node.config);
+        auto [inputs, err] = StableForInputs::create(cfg.node.inputs);
         if (err) return {nullptr, err};
+        auto [input_idx, in_err] = cfg.node.resolve_input(ir::default_input_param);
+        if (in_err) return {nullptr, in_err};
         return {
-            std::make_unique<StableFor>(node_cfg, std::move(cfg.state)),
+            std::make_unique<StableFor>(inputs, std::move(cfg.state), input_idx),
             x::errors::NIL
         };
     }

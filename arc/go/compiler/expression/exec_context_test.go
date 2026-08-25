@@ -36,14 +36,20 @@ var _ = Describe("ExecContext", func() {
 			Exec: symbol.ExecFlow,
 		}))
 		expr := MustSucceed(parser.ParseExpression("avg(10)"))
-		Expect(expression.Compile(context.Child(ctx, expr))).Error().To(MatchError(ContainSubstring("cannot be called inside a func block")))
+		Expect(
+			expression.Compile(context.Child(ctx, expr)),
+		).Error().
+			To(MatchError(ContainSubstring("cannot be called inside a func block")))
 	})
 
 	It("Should allow a WASM function in a func block", func(bCtx SpecContext) {
 		ctx := NewContext(bCtx)
 		ctx.Resolver.RegisterLocal("pow", 3)
 		funcType := types.Function(types.FunctionProperties{
-			Inputs:  types.Params{{Name: "base", Type: types.I64()}, {Name: "exp", Type: types.I64()}},
+			Inputs: types.Params{
+				{Name: "base", Type: types.I64()},
+				{Name: "exp", Type: types.I64()},
+			},
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
 		})
 		MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
@@ -82,4 +88,45 @@ var _ = Describe("Unary Minus", func() {
 		_, exprType := compileWithAnalyzer(bCtx, "-x", extras)
 		Expect(exprType).To(Equal(types.I32()))
 	})
+})
+
+var _ = Describe("Builtin Len", func() {
+	It("Should compile len on a string literal", func(bCtx SpecContext) {
+		bytecode, exprType := compileExpression(bCtx, `len("hello")`)
+		Expect(exprType).To(Equal(types.I64()))
+		Expect(bytecode).ToNot(BeEmpty())
+	})
+
+	It("Should compile string.len on a string literal", func(bCtx SpecContext) {
+		bytecode, exprType := compileExpression(bCtx, `string.len("hello")`)
+		Expect(exprType).To(Equal(types.I64()))
+		Expect(bytecode).ToNot(BeEmpty())
+	})
+
+	It("Should compile len on a series operand", func(bCtx SpecContext) {
+		ctx := NewContext(bCtx)
+		MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+			Name: "s",
+			Kind: symbol.KindVariable,
+			Type: types.Series(types.I64()),
+		}))
+		bytecode, exprType := compileWithCtx(ctx, "len(s)")
+		Expect(exprType).To(Equal(types.I64()))
+		Expect(bytecode).ToNot(BeEmpty())
+	})
+
+	DescribeTable(
+		"should reject mismatched len operands",
+		expectCompileError,
+		Entry(
+			"string.len on a series",
+			"string.len(s)",
+			"string.len() requires a string argument, got series",
+		),
+		Entry(
+			"len with no arguments",
+			"len()",
+			"len() requires exactly 1 argument, got 0",
+		),
+	)
 })

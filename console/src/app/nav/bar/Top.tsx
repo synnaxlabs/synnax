@@ -1,0 +1,91 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { Button, Nav, OS } from "@synnaxlabs/pluto";
+import { type ReactElement, useCallback } from "react";
+
+import { useBottomActions } from "@/app/nav/bar/bottom";
+import { Toolbars } from "@/app/toolbars";
+import { Core } from "@/feature/core";
+import { Docs } from "@/feature/docs";
+import { Panel } from "@/feature/panel";
+import { CSS } from "@/platform/css";
+import { Nav as PlatformNav } from "@/platform/nav";
+import { User } from "@/platform/user";
+import { Version } from "@/platform/version";
+import { Window } from "@/platform/window";
+
+const BottomToggleButton = (): ReactElement => {
+  const { select, toggle, pin, startHover, stopHover } = useBottomActions();
+  const { onClick, onMouseEnter, onMouseLeave } = PlatformNav.useItem({
+    trigger: Toolbars.BOTTOM.trigger,
+    bar: "top",
+    onStartHover: startHover,
+    onStopHover: stopHover,
+    onToggle: toggle,
+    onPin: pin,
+  });
+  const handleClick = useCallback(() => {
+    onClick();
+    select();
+  }, [onClick, select]);
+  return (
+    <Button.Button
+      variant="outlined"
+      className={CSS.BE("nav", "controls-button")}
+      onClick={handleClick}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      justify="center"
+      color={9}
+      weight={450}
+      triggerIndicator={Toolbars.BOTTOM.trigger}
+    >
+      {Toolbars.BOTTOM.icon}
+      Controls
+    </Button.Button>
+  );
+};
+
+export interface TopProps {
+  /** Renders the trimmed secondary window variant: the controls toggle in place of the
+   * project selector and Core badge. */
+  secondary?: boolean;
+}
+
+export const Top = ({ secondary = false }: TopProps): ReactElement => {
+  const os = OS.use();
+  return (
+    <PlatformNav.Bar
+      location="top"
+      size="var(--console-top-bar-size)"
+      data-tauri-drag-region
+    >
+      <Nav.Bar.Start data-tauri-drag-region gap="large">
+        <Window.Controls visibleIfOS="macOS" forceOS={os} />
+        {secondary && os === "Windows" && <BottomToggleButton />}
+        <Panel.Selector />
+      </Nav.Bar.Start>
+      <Nav.Bar.Content data-tauri-drag-region grow />
+      <Nav.Bar.End justify="end" align="center" data-tauri-drag-region gap="small">
+        {secondary ? (
+          os === "macOS" && <BottomToggleButton />
+        ) : (
+          <>
+            <Version.Badge />
+            <Docs.OpenButton />
+            <User.Badge />
+            <Core.ConnectionBadge />
+          </>
+        )}
+        <Window.Controls visibleIfOS="Windows" forceOS={os} />
+      </Nav.Bar.End>
+    </PlatformNav.Bar>
+  );
+};

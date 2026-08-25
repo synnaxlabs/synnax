@@ -7,13 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type CrudeTimeSpan,
-  id,
-  type status as xstatus,
-  TimeSpan,
-  TimeStamp,
-} from "@synnaxlabs/x";
+import { type status as cstatus } from "@synnaxlabs/client";
+import { type CrudeTimeSpan, id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
   useCallback,
@@ -28,11 +23,12 @@ import { context } from "@/context";
 import { useSyncedRef } from "@/hooks";
 import { status } from "@/status/aether";
 
-const [Context, useContext] = context.create<xstatus.Status[]>({
+const [Context, useContext] = context.create<cstatus.Status[]>({
   defaultValue: [],
   displayName: "Status.Context",
 });
 
+/** Adds a status to the enclosing {@link Aggregator}. */
 export interface Adder extends status.Adder {}
 
 const [AdderContext, useAdder] = context.create<Adder>({
@@ -41,12 +37,18 @@ const [AdderContext, useAdder] = context.create<Adder>({
 });
 export { useAdder };
 
+/** Props for {@link Aggregator}. */
 export interface AggregatorProps extends PropsWithChildren {
+  /** Statuses kept before the oldest are dropped. Defaults to 500. */
   maxHistory?: number;
 }
 
 const TRUNCATE_FACTOR = 0.9;
 
+/**
+ * Collects statuses from its subtree and from the aether worker thread, and hands them
+ * to {@link useNotifications} and the status list. Mount one near the root of the app.
+ */
 export const Aggregator = ({ children, maxHistory = 500 }: AggregatorProps) => {
   const [{ path }, { statuses }, setState] = Aether.use({
     type: status.Aggregator.TYPE,
@@ -81,24 +83,38 @@ export interface ErrorHandler extends status.ErrorHandler {}
 
 export interface AsyncErrorHandler extends status.AsyncErrorHandler {}
 
+/**
+ * @returns a handler that turns a caught error into an error status on the enclosing
+ * {@link Aggregator}. Use it in place of `console.error` in a UI path.
+ *
+ * @example handleError(err, "failed to save the range");
+ */
 export const useErrorHandler = (): ErrorHandler => {
   const add = useAdder();
   return useMemo(() => status.createErrorHandler(add), [add]);
 };
 
+/**
+ * @returns a handler that runs an async function and reports a rejection as an error
+ * status. Use it wherever an effect or a click handler would otherwise float a promise.
+ */
 export const useAsyncErrorHandler = (): AsyncErrorHandler => {
   const add = useAdder();
   return useMemo(() => status.createAsyncErrorHandler(add), [add]);
 };
 
+/** A status shown as a notification, with how many identical ones it stands for. */
 export type NotificationSpec<Details extends z.ZodType = z.ZodNever> =
-  xstatus.Status<Details> & {
+  cstatus.Status<Details> & {
     count: number;
   };
 
+/** Return value for {@link useNotifications}. */
 export interface UseNotificationsReturn<Details extends z.ZodType = z.ZodNever> {
   statuses: NotificationSpec<Details>[];
+  /** Hides one notification for good. */
   silence: (key: string) => void;
+  silenceAll: () => void;
 }
 
 const DEFAULT_EXPIRATION = TimeSpan.seconds(7);
@@ -109,6 +125,11 @@ interface UseNotificationsProps {
   poll?: CrudeTimeSpan;
 }
 
+/**
+ * @returns the statuses recent enough to show as notifications, with identical ones
+ * folded into a single entry carrying a count. They drop off on their own after the
+ * expiration.
+ */
 export const useNotifications = ({
   expiration = DEFAULT_EXPIRATION,
   poll = DEFAULT_EXPIRATION_POLL,
@@ -166,5 +187,13 @@ export const useNotifications = ({
     });
   }, []);
 
-  return { statuses: filtered, silence };
+  const silenceAll = useCallback(() => {
+    setSilencedKeys((prev) => {
+      const next = new Set(prev);
+      statusesRef.current.forEach(({ key }) => next.add(key));
+      return next;
+    });
+  }, []);
+
+  return { statuses: filtered, silence, silenceAll };
 };

@@ -14,7 +14,9 @@
 #pragma once
 
 #include <cstring>
+#include <sstream>
 #include <string>
+#include <vector>
 
 #include "client/clib/types.h"
 #include "client/cpp/synnax.h"
@@ -57,6 +59,16 @@ inline void clear_err(SynnaxError *err) {
 /// @brief returns s as a std::string, or fallback when s is NULL.
 inline std::string str_or(const char *s, const char *fallback) {
     return s != nullptr ? std::string(s) : std::string(fallback);
+}
+
+/// @brief splits s into tokens on '\n'; returns empty when s is NULL.
+inline std::vector<std::string> split_newlines(const char *s) {
+    std::vector<std::string> out;
+    std::stringstream ss(str_or(s, ""));
+    std::string token;
+    while (std::getline(ss, token, '\n'))
+        out.push_back(token);
+    return out;
 }
 
 }

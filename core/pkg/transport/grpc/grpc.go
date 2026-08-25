@@ -28,13 +28,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/api/project"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
+	"github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/api/table"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
-	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/arc"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/auth"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/channel"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/connectivity"
+	"github.com/synnaxlabs/synnax/pkg/transport/grpc/control"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/device"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/framer"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/rack"
@@ -46,15 +47,15 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/view"
 )
 
-// Bind constructs the gRPC transport for every API service, binds the API
-// layer's handlers and middleware to it, and returns the bindable transports
-// for registration with the server's gRPC branch. channelSvc resolves channel
-// keys for the frame codec.
-func Bind(layer *api.Layer, channelSvc *distchannel.Service) []grpc.BindableTransport {
+// Bind constructs the gRPC transport for every API service, binds the API layer's
+// handlers and middleware to it, and returns the bindable transports for registration
+// with the server's gRPC branch. The framer codec resolves channel data types through
+// the API layer's channel service.
+func Bind(layer *api.Layer) []grpc.BindableTransport {
 	var t api.Transport
 	transports := grpc.CompoundBindableTransport{
 		channel.New(&t),
-		framer.New(&t, channelSvc),
+		framer.New(&t, layer.Channel),
 		connectivity.New(&t),
 		auth.New(&t),
 		ranger.New(&t),
@@ -66,6 +67,7 @@ func Bind(layer *api.Layer, channelSvc *distchannel.Service) []grpc.BindableTran
 		status.New(&t),
 		arc.New(&t),
 		view.New(&t),
+		control.New(&t),
 	}
 
 	// AUTH
@@ -92,6 +94,7 @@ func Bind(layer *api.Layer, channelSvc *distchannel.Service) []grpc.BindableTran
 	t.GroupCreate = noop.UnaryServer[group.CreateRequest, group.CreateResponse]{}
 	t.GroupDelete = noop.UnaryServer[group.DeleteRequest, types.Nil]{}
 	t.GroupRename = noop.UnaryServer[group.RenameRequest, types.Nil]{}
+	t.GroupRetrieve = noop.UnaryServer[group.RetrieveRequest, group.RetrieveResponse]{}
 
 	// PROJECT
 	t.ProjectCreate = noop.UnaryServer[project.CreateRequest, project.CreateResponse]{}
@@ -99,6 +102,8 @@ func Bind(layer *api.Layer, channelSvc *distchannel.Service) []grpc.BindableTran
 	t.ProjectDelete = noop.UnaryServer[project.DeleteRequest, types.Nil]{}
 	t.ProjectRename = noop.UnaryServer[project.RenameRequest, types.Nil]{}
 	t.ProjectSetLayout = noop.UnaryServer[project.SetLayoutRequest, types.Nil]{}
+	t.ProjectExport = noop.UnaryServer[project.ExportRequest, project.ExportResponse]{}
+	t.ProjectImport = noop.UnaryServer[project.ImportRequest, project.ImportResponse]{}
 
 	// SCHEMATIC
 	t.SchematicCreate = noop.UnaryServer[schematic.CreateRequest, schematic.CreateResponse]{}
@@ -108,11 +113,14 @@ func Bind(layer *api.Layer, channelSvc *distchannel.Service) []grpc.BindableTran
 	t.SchematicCopy = noop.UnaryServer[schematic.CopyRequest, schematic.CopyResponse]{}
 
 	// SCHEMATIC SYMBOL
-	t.SchematicCreateSymbol = noop.UnaryServer[schematic.CreateSymbolRequest, schematic.CreateSymbolResponse]{}
-	t.SchematicRetrieveSymbol = noop.UnaryServer[schematic.RetrieveSymbolRequest, schematic.RetrieveSymbolResponse]{}
-	t.SchematicDeleteSymbol = noop.UnaryServer[schematic.DeleteSymbolRequest, types.Nil]{}
-	t.SchematicRenameSymbol = noop.UnaryServer[schematic.RenameSymbolRequest, types.Nil]{}
-	t.SchematicRetrieveSymbolGroup = noop.UnaryServer[schematic.RetrieveSymbolGroupRequest, schematic.RetrieveSymbolGroupResponse]{}
+	t.SchematicSymbolCreate = noop.UnaryServer[symbol.CreateRequest, symbol.CreateResponse]{}
+	t.SchematicSymbolRetrieve = noop.UnaryServer[symbol.RetrieveRequest, symbol.RetrieveResponse]{}
+	t.SchematicSymbolDelete = noop.UnaryServer[symbol.DeleteRequest, types.Nil]{}
+	t.SchematicSymbolRename = noop.UnaryServer[symbol.RenameRequest, types.Nil]{}
+	t.SchematicSymbolRetrieveGroup = noop.UnaryServer[symbol.RetrieveGroupRequest, symbol.RetrieveGroupResponse]{}
+	t.SchematicSymbolExportGroup = noop.UnaryServer[symbol.ExportGroupRequest, symbol.ExportGroupResponse]{}
+	t.SchematicSymbolImportGroup = noop.UnaryServer[symbol.ImportGroupRequest, symbol.ImportGroupResponse]{}
+	t.SchematicSymbolDeleteGroup = noop.UnaryServer[symbol.DeleteGroupRequest, types.Nil]{}
 
 	// LINE PLOT
 	t.LinePlotCreate = noop.UnaryServer[lineplot.CreateRequest, lineplot.CreateResponse]{}
@@ -159,7 +167,9 @@ func Bind(layer *api.Layer, channelSvc *distchannel.Service) []grpc.BindableTran
 	t.ImExImport = noop.UnaryServer[imex.ImportRequest, imex.ImportResponse]{}
 	t.ImExExport = noop.UnaryServer[imex.ExportRequest, imex.ExportResponse]{}
 
-	// ARC LSP
+	// ARC
+	t.ArcDispatch = noop.UnaryServer[apiarc.DispatchRequest, types.Nil]{}
+	t.ArcSetRack = noop.UnaryServer[apiarc.SetRackRequest, apiarc.SetRackResponse]{}
 	t.ArcLSP = noop.StreamServer[apiarc.LSPMessage, apiarc.LSPMessage]{}
 
 	layer.BindTo(t)

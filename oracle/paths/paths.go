@@ -15,15 +15,16 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/synnaxlabs/x/errors"
 )
 
-// RepoRoot finds the git repository root from the current working directory.
-// It first tries `git rev-parse --show-toplevel`, then falls back to walking
-// up the directory tree looking for a .git directory.
-// Returns an error if not within a git repository.
+// RepoRoot finds the git repository root from the current working directory. It first
+// tries `git rev-parse --show-toplevel`, then falls back to walking up the directory
+// tree looking for a .git directory. Returns an error if not within a git repository.
 func RepoRoot() (string, error) {
 	// Try git rev-parse first (most reliable)
 	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
@@ -41,9 +42,9 @@ func RepoRoot() (string, error) {
 	return findGitRoot(cwd)
 }
 
-// findGitRoot walks up the directory tree looking for a .git entry. Accepts
-// both a directory (main checkout) and a file (linked worktree, where .git
-// is a file containing a gitdir: pointer).
+// findGitRoot walks up the directory tree looking for a .git entry. Accepts both a
+// directory (main checkout) and a file (linked worktree, where .git is a file
+// containing a gitdir: pointer).
 func findGitRoot(startPath string) (string, error) {
 	current := startPath
 
@@ -55,7 +56,10 @@ func findGitRoot(startPath string) (string, error) {
 
 		parent := filepath.Dir(current)
 		if parent == current {
-			return "", errors.Newf("oracle must be run within a git repository: no .git entry found in %s or any parent", startPath)
+			return "", errors.Newf(
+				"oracle must be run within a git repository: no .git entry found in %s or any parent",
+				startPath,
+			)
 		}
 		current = parent
 	}
@@ -113,8 +117,8 @@ func Resolve(repoRelative, repoRoot string) string {
 	return filepath.Join(repoRoot, repoRelative)
 }
 
-// ValidateOutput ensures an output path is valid and within repo bounds.
-// It checks for path traversal attempts and invalid characters.
+// ValidateOutput ensures an output path is valid and within repo bounds. It checks for
+// path traversal attempts and invalid characters.
 func ValidateOutput(path, repoRoot string) error {
 	if path == "" {
 		return errors.New("output path cannot be empty")
@@ -122,7 +126,10 @@ func ValidateOutput(path, repoRoot string) error {
 
 	// Check for path traversal patterns
 	if strings.Contains(path, "..") {
-		return errors.Newf("output path %q contains path traversal (..) which is not allowed", path)
+		return errors.Newf(
+			"output path %q contains path traversal (..) which is not allowed",
+			path,
+		)
 	}
 
 	// Check for absolute paths (should be repo-relative)
@@ -149,30 +156,6 @@ func ValidateOutput(path, repoRoot string) error {
 	return nil
 }
 
-// RelativeImport calculates the relative import path from one repo-relative path to another.
-// Both paths should be repo-relative directory paths (not file paths).
-// Returns a path suitable for use in import statements (e.g., "./sibling" or "../parent/other").
-func RelativeImport(from, to string) (string, error) {
-	if from == to {
-		return ".", nil
-	}
-
-	rel, err := filepath.Rel(from, to)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to compute relative import")
-	}
-
-	// Ensure forward slashes for import paths
-	rel = filepath.ToSlash(rel)
-
-	// If it doesn't start with . or .., prefix with ./
-	if !strings.HasPrefix(rel, ".") {
-		rel = "./" + rel
-	}
-
-	return rel, nil
-}
-
 // EnsureOracleExtension adds the .oracle extension if not present.
 func EnsureOracleExtension(path string) string {
 	if !strings.HasSuffix(path, ".oracle") {
@@ -181,8 +164,66 @@ func EnsureOracleExtension(path string) string {
 	return path
 }
 
-// DeriveNamespace extracts the namespace from a file path.
-// For "schema/core/label.oracle" returns "label".
+// DeriveNamespace extracts the namespace from a file path. For
+// "schema/core/label.oracle" returns "label". A version file's namespace is its
+// resource: "schemas/x/versions/telem/v0.oracle" derives "telem" — the file name
+// carries the version, the directory carries the qualifier.
 func DeriveNamespace(path string) string {
+	if resource, _, ok := VersionFile(path); ok {
+		return resource
+	}
 	return strings.TrimSuffix(filepath.Base(path), ".oracle")
+}
+
+// VersionsDirName is the directory holding a schema domain's version chains.
+const VersionsDirName = "versions"
+
+// versionFileName matches a version file's base name ("v0", "v12").
+var versionFileName = regexp.MustCompile(`^v(0|[1-9][0-9]*)$`)
+
+// VersionFile reports whether path names a schema version file
+// (".../versions/<resource>/vN.oracle" or the extensionless import form) and
+// returns its resource and version.
+func VersionFile(path string) (resource string, version int, ok bool) {
+	base := strings.TrimSuffix(filepath.Base(path), ".oracle")
+	m := versionFileName.FindStringSubmatch(base)
+	if m == nil {
+		return "", 0, false
+	}
+	dir := filepath.Dir(path)
+	if filepath.Base(filepath.Dir(dir)) != VersionsDirName {
+		return "", 0, false
+	}
+	version, err := strconv.Atoi(m[1])
+	if err != nil {
+		return "", 0, false
+	}
+	return filepath.Base(dir), version, true
+}
+
+// VersionsDir returns the directory holding a live schema's version chain. It reports
+// false for a path that does not name a live resource schema.
+func VersionsDir(livePath string) (string, bool) {
+	domain, resource, ok := LiveSchema(livePath)
+	if !ok {
+		return "", false
+	}
+	return strings.Join(
+		[]string{"schemas", domain, VersionsDirName, resource}, "/",
+	), true
+}
+
+// LiveSchema reports whether path names a live resource schema — the
+// "schemas/<domain>/<resource>.oracle" shape whose history lives at
+// "schemas/<domain>/versions/<resource>/vN.oracle" — and returns its domain and
+// resource.
+func LiveSchema(path string) (domain, resource string, ok bool) {
+	if _, _, isVersion := VersionFile(path); isVersion {
+		return "", "", false
+	}
+	parts := strings.Split(filepath.ToSlash(strings.TrimSuffix(path, ".oracle")), "/")
+	if len(parts) != 3 || parts[0] != "schemas" {
+		return "", "", false
+	}
+	return parts[1], parts[2], true
 }

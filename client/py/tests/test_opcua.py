@@ -8,13 +8,12 @@
 #  included in the file licenses/APL.txt.
 
 import pytest
-from pydantic import ValidationError
 
 import synnax as sy
 
 
 @pytest.mark.opcua
-class TestOPCUATask:
+class TestOPCReadTask:
     @pytest.mark.parametrize(
         "test_data",
         [
@@ -26,7 +25,7 @@ class TestOPCUATask:
                     "stream_rate": 5,
                     "array_mode": False,
                     "array_size": 1,
-                    "data_saving": False,
+                    "data_saving_disabled": True,
                     "auto_start": True,
                     "channels": [
                         {
@@ -34,8 +33,8 @@ class TestOPCUATask:
                             "key": "k09AWoiyLxN",
                             "node_id": "NS=2;I=8",
                             "channel": 1234,
-                            "enabled": True,
-                            "use_as_index": False,
+                            "disabled": False,
+                            "is_index": False,
                         },
                     ],
                 },
@@ -47,15 +46,15 @@ class TestOPCUATask:
                     "sample_rate": 10,
                     "stream_rate": 5,
                     "array_mode": False,
-                    "data_saving": False,
+                    "data_saving_disabled": True,
                     "auto_start": False,
                     "channels": [
                         {
                             "key": "k09AWoiyLxN",
                             "node_id": "NS=2;I=8",
                             "channel": 1234,
-                            "enabled": True,
-                            "use_as_index": False,
+                            "disabled": False,
+                            "is_index": False,
                         },
                     ],
                 },
@@ -65,7 +64,7 @@ class TestOPCUATask:
                 "data": {
                     "device": "some-device-key",
                     "sample_rate": 10,
-                    "data_saving": False,
+                    "data_saving_disabled": True,
                     "auto_start": True,
                     "array_mode": True,
                     "array_size": 1,
@@ -75,18 +74,18 @@ class TestOPCUATask:
                             "node_id": "NS=2;I=8",
                             "node_name": "some-node-name",
                             "channel": 1234,
-                            "enabled": True,
-                            "use_as_index": False,
+                            "disabled": False,
+                            "is_index": False,
                         },
                     ],
                 },
             },
         ],
     )
-    def test_parse_opcua_read_task(self, test_data):
-        """Test that ReadTaskConfig can parse various configurations correctly."""
+    def test_parse_opc_read_task(self, test_data):
+        """Test that ReadConfig can parse various configurations correctly."""
         input_data = test_data["data"]
-        sy.opcua.WrappedReadTaskConfig(config=input_data)
+        sy.opcua.ReadConfig.model_validate(input_data)
 
     def test_create_and_retrieve_task(self, client: sy.Synnax):
         """Test that ReadTask can be created and retrieved from the database."""
@@ -114,7 +113,7 @@ class TestOPCUATask:
 
 
 @pytest.mark.opcua
-class TestOPCUAWriteTask:
+class TestOPCWriteTask:
     @pytest.mark.parametrize(
         "test_data",
         [
@@ -122,14 +121,13 @@ class TestOPCUAWriteTask:
                 "name": "basic_write_config",
                 "data": {
                     "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
-                    "data_saving": False,
                     "auto_start": True,
                     "channels": [
                         {
                             "key": "k09AWoiyLxN",
                             "node_id": "ns=2;i=8",
                             "cmd_channel": 1234,
-                            "enabled": True,
+                            "disabled": False,
                         },
                     ],
                 },
@@ -138,30 +136,29 @@ class TestOPCUAWriteTask:
                 "name": "multiple_channels_config",
                 "data": {
                     "device": "some-device-key",
-                    "data_saving": True,
                     "auto_start": False,
                     "channels": [
                         {
                             "key": "k09AWoiyLxN",
                             "node_id": "ns=2;i=8",
                             "cmd_channel": 1234,
-                            "enabled": True,
+                            "disabled": False,
                         },
                         {
                             "key": "k10BWoiyLxN",
                             "node_id": "ns=2;i=10",
                             "cmd_channel": 5678,
-                            "enabled": True,
+                            "disabled": False,
                         },
                     ],
                 },
             },
         ],
     )
-    def test_parse_opcua_write_task(self, test_data):
-        """Test that WriteTaskConfig can parse various configurations correctly."""
+    def test_parse_opc_write_task(self, test_data):
+        """Test that WriteConfig can parse various configurations correctly."""
         input_data = test_data["data"]
-        sy.opcua.WriteTaskConfig.model_validate(input_data)
+        sy.opcua.WriteConfig.model_validate(input_data)
 
     def test_create_and_retrieve_write_task(self, client: sy.Synnax):
         """Test that WriteTask can be created and retrieved from the database."""
@@ -184,16 +181,6 @@ class TestOPCUAWriteTask:
         )
         sy.opcua.WriteTask(createdTask)
 
-    def test_write_task_empty_channels(self):
-        """Test that empty channel list raises validation error."""
-        with pytest.raises(ValidationError) as exc_info:
-            sy.opcua.WriteTaskConfig(
-                device="some-device-key",
-                auto_start=True,
-                channels=[],
-            )
-        assert "at least one channel" in str(exc_info.value).lower()
-
     def test_write_task_disabled_channels(self, client: sy.Synnax):
         """Test that disabled channels are handled correctly."""
         task = sy.opcua.WriteTask(
@@ -205,27 +192,34 @@ class TestOPCUAWriteTask:
                     key="k09AWoiyLxN",
                     node_id="ns=2;i=8",
                     cmd_channel=1234,
-                    enabled=True,
+                    disabled=False,
                 ),
                 sy.opcua.WriteChannel(
                     key="k10BWoiyLxN",
                     node_id="ns=2;i=9",
                     cmd_channel=5678,
-                    enabled=False,
+                    disabled=True,
                 ),
             ],
         )
         # Both channels should be in the config (enabled and disabled)
         assert len(task.config.channels) == 2
-        assert task.config.channels[0].enabled is True
-        assert task.config.channels[1].enabled is False
+        assert task.config.channels[0].disabled is False
+        assert task.config.channels[1].disabled is True
 
     def test_write_channel_auto_key_generation(self):
-        """Test that WriteChannel auto-generates a key if not provided."""
-        channel = sy.opcua.WriteChannel(
-            node_id="ns=2;i=8",
-            cmd_channel=1234,
+        """Test that the WriteTask assigns keys to channels missing one."""
+        task = sy.opcua.WriteTask(
+            name="test",
+            device="some-device-key",
+            channels=[
+                sy.opcua.WriteChannel(
+                    node_id="ns=2;i=8",
+                    cmd_channel=1234,
+                )
+            ],
         )
+        channel = task.config.channels[0]
         assert channel.key != ""
         assert len(channel.key) > 0
 
@@ -240,13 +234,13 @@ class TestOPCUAWriteTask:
                     key="k09AWoiyLxN",
                     node_id="ns=2;i=8",
                     cmd_channel=1234,
-                    enabled=True,
+                    disabled=False,
                 ),
                 sy.opcua.WriteChannel(
                     key="k10BWoiyLxN",
                     node_id="ns=2;i=10",
                     cmd_channel=5678,
-                    enabled=False,
+                    disabled=True,
                 ),
             ],
         )
@@ -272,16 +266,19 @@ class TestOPCUAWriteTask:
             assert retr_ch.key == orig_ch.key
             assert retr_ch.node_id == orig_ch.node_id
             assert retr_ch.cmd_channel == orig_ch.cmd_channel
-            assert retr_ch.enabled == orig_ch.enabled
+            assert retr_ch.disabled == orig_ch.disabled
 
 
 @pytest.mark.opcua
-class TestOPCUAReadTaskDeprecation:
-    def test_channel_deprecation_warning(self):
-        """Test that using Channel emits a deprecation warning."""
-        with pytest.warns(DeprecationWarning, match="opcua.Channel is deprecated"):
-            sy.opcua.Channel(
-                key="test-key",
-                node_id="ns=2;i=8",
-                channel=1234,
-            )
+class TestOPCUADeprecatedNames:
+    def test_should_resolve_released_channel_aliases(self):
+        """Test that names released clients used still resolve."""
+        assert sy.opcua.Channel is sy.opcua.ReadChannel
+        assert sy.opcua.WriteTaskConfig is sy.opcua.WriteConfig
+
+    def test_should_forward_the_hardware_module(self):
+        """Test that the deprecated synnax.hardware.opcua module still forwards."""
+        from synnax.hardware import opcua as hardware_opcua
+
+        assert hardware_opcua.ReadTask is sy.opcua.ReadTask
+        assert hardware_opcua.Device is sy.opcua.Device

@@ -26,7 +26,7 @@ export const Item = ({
   size,
   ...rest
 }: ItemProps): ReactElement => {
-  const { onClick: ctxOnClick, selected, level = "p", gap, background } = useContext();
+  const { onClick: ctxOnClick, selected, level = "p", gap } = useContext();
   const handleClick: Button.ButtonProps["onClick"] = (e) => {
     ctxOnClick(itemKey);
     onClick?.(e);
@@ -34,15 +34,15 @@ export const Item = ({
   const _selected = selected === itemKey;
   return (
     <Button.Button
-      contrast={background}
       level={level}
       overflow="nowrap"
       onClick={handleClick}
       variant="text"
-      className={CSS(CSS.B("menu-item"), CSS.selected(_selected), className)}
+      className={CSS.cls(CSS.B("menu-item"), CSS.selected(_selected), className)}
       size={size}
       gap={gap}
       propagateClick
+      role="menuitem"
       {...rest}
     />
   );

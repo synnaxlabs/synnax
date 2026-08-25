@@ -37,7 +37,9 @@ var _ = Describe("Emit", func() {
 	Describe("EmitNumericToString", func() {
 		DescribeTable("Should dispatch to the host fn matching the source type",
 			func(ctx SpecContext, from types.Type, wantWASMName string) {
-				Expect(resolver.EmitNumericToString(ctx, writer, writerID, scope, from)).To(Succeed())
+				Expect(
+					resolver.EmitNumericToString(ctx, writer, writerID, scope, from),
+				).To(Succeed())
 				resolver.Finalize(wasmModule)
 				Expect(wasmModule.ImportNames()).To(ConsistOf(wantWASMName))
 			},
@@ -53,16 +55,30 @@ var _ = Describe("Emit", func() {
 			Entry("f64 -> from_f64", types.F64(), "from_f64"),
 		)
 
-		It("Should return an error for non-numeric source types", func(ctx SpecContext) {
-			Expect(resolver.EmitNumericToString(ctx, writer, writerID, scope, types.String())).
-				To(MatchError(ContainSubstring("cannot convert")))
-		})
+		It(
+			"Should return an error for non-numeric source types",
+			func(ctx SpecContext) {
+				Expect(
+					resolver.EmitNumericToString(
+						ctx,
+						writer,
+						writerID,
+						scope,
+						types.String(),
+					),
+				).
+					To(MatchError(ContainSubstring("cannot convert")))
+			},
+		)
 	})
 
 	Describe("EmitNumericFormat", func() {
-		DescribeTable("Should dispatch to the format_<type> host fn matching the source type",
+		DescribeTable(
+			"Should dispatch to the format_<type> host fn matching the source type",
 			func(ctx SpecContext, from types.Type, wantWASMName string) {
-				Expect(resolver.EmitNumericFormat(ctx, writer, writerID, scope, from)).To(Succeed())
+				Expect(
+					resolver.EmitNumericFormat(ctx, writer, writerID, scope, from),
+				).To(Succeed())
 				resolver.Finalize(wasmModule)
 				Expect(wasmModule.ImportNames()).To(ConsistOf(wantWASMName))
 			},
@@ -78,15 +94,28 @@ var _ = Describe("Emit", func() {
 			Entry("f64 -> format_f64", types.F64(), "format_f64"),
 		)
 
-		It("Should return an error for non-numeric source types", func(ctx SpecContext) {
-			Expect(resolver.EmitNumericFormat(ctx, writer, writerID, scope, types.String())).
-				To(MatchError(ContainSubstring("cannot convert")))
-		})
+		It(
+			"Should return an error for non-numeric source types",
+			func(ctx SpecContext) {
+				Expect(
+					resolver.EmitNumericFormat(
+						ctx,
+						writer,
+						writerID,
+						scope,
+						types.String(),
+					),
+				).
+					To(MatchError(ContainSubstring("cannot convert")))
+			},
+		)
 	})
 
 	Describe("EmitStringFormat", func() {
 		It("Should emit an import for string.format_str", func(ctx SpecContext) {
-			Expect(resolver.EmitStringFormat(ctx, writer, writerID, scope)).To(Succeed())
+			Expect(
+				resolver.EmitStringFormat(ctx, writer, writerID, scope),
+			).To(Succeed())
 			resolver.Finalize(wasmModule)
 			Expect(wasmModule.ImportNames()).To(ConsistOf("format_str"))
 		})
@@ -98,20 +127,106 @@ var _ = Describe("Emit", func() {
 	})
 
 	Describe("EmitFixedImportCall", func() {
-		It("Should resolve the signature from the scope and emit an import", func(ctx SpecContext) {
-			Expect(resolver.EmitFixedImportCall(ctx, writer, writerID, scope, "strings", "from_i32")).To(Succeed())
-			resolver.Finalize(wasmModule)
-			Expect(wasmModule.ImportNames()).To(ConsistOf("from_i32"))
-		})
+		It(
+			"Should resolve the signature from the scope and emit an import",
+			func(ctx SpecContext) {
+				Expect(
+					resolver.EmitFixedImportCall(
+						ctx,
+						writer,
+						writerID,
+						scope,
+						"strings",
+						"from_i32",
+					),
+				).To(Succeed())
+				resolver.Finalize(wasmModule)
+				Expect(wasmModule.ImportNames()).To(ConsistOf("from_i32"))
+			},
+		)
 
-		It("Should return an error when the symbol does not exist", func(ctx SpecContext) {
-			Expect(resolver.EmitFixedImportCall(ctx, writer, writerID, scope, "strings", "does_not_exist")).
-				To(MatchError(ContainSubstring("resolve strings.does_not_exist")))
-		})
+		It(
+			"Should return an error when the symbol does not exist",
+			func(ctx SpecContext) {
+				Expect(
+					resolver.EmitFixedImportCall(
+						ctx,
+						writer,
+						writerID,
+						scope,
+						"strings",
+						"does_not_exist",
+					),
+				).
+					To(MatchError(ContainSubstring("resolve strings.does_not_exist")))
+			},
+		)
 
 		It("Should return an error when no scope is configured", func(ctx SpecContext) {
-			Expect(resolver.EmitFixedImportCall(ctx, writer, writerID, nil, "strings", "from_i32")).
+			Expect(
+				resolver.EmitFixedImportCall(
+					ctx,
+					writer,
+					writerID,
+					nil,
+					"strings",
+					"from_i32",
+				),
+			).
 				To(MatchError(ContainSubstring("no scope")))
+		})
+	})
+
+	Describe("EmitSeriesComparison", func() {
+		DescribeTable("Should emit a compare_<op>_<type> series import",
+			func(op, wantWASMName string) {
+				Expect(
+					resolver.EmitSeriesComparison(writer, writerID, op, types.I64()),
+				).To(Succeed())
+				resolver.Finalize(wasmModule)
+				Expect(wasmModule.ImportNames()).To(ConsistOf(wantWASMName))
+			},
+			Entry("> emits compare_gt_i64", ">", "compare_gt_i64"),
+			Entry("< emits compare_lt_i64", "<", "compare_lt_i64"),
+			Entry("== emits compare_eq_i64", "==", "compare_eq_i64"),
+			Entry("!= emits compare_ne_i64", "!=", "compare_ne_i64"),
+		)
+
+		It("Should return an error for an unknown operator", func() {
+			Expect(resolver.EmitSeriesComparison(writer, writerID, "??", types.I64())).
+				To(MatchError(ContainSubstring("unknown comparison operator")))
+		})
+	})
+
+	Describe("EmitSeriesLogical", func() {
+		It("Should emit and for a series right operand", func() {
+			Expect(
+				resolver.EmitSeriesLogical(writer, writerID, "and", false),
+			).To(Succeed())
+			resolver.Finalize(wasmModule)
+			Expect(wasmModule.ImportNames()).To(ConsistOf("and"))
+		})
+
+		It("Should emit or_scalar for a scalar right operand", func() {
+			Expect(
+				resolver.EmitSeriesLogical(writer, writerID, "or", true),
+			).To(Succeed())
+			resolver.Finalize(wasmModule)
+			Expect(wasmModule.ImportNames()).To(ConsistOf("or_scalar"))
+		})
+
+		It("Should return an error for an unknown operator", func() {
+			Expect(
+				resolver.EmitSeriesLogical(writer, writerID, "xor", false),
+			).To(MatchError(ContainSubstring("unknown logical operator")))
+		})
+	})
+
+	Describe("EmitSeriesNot", func() {
+		It("Should emit a not series import", func() {
+			resolver.EmitSeriesNot(writer, writerID)
+			resolver.Finalize(wasmModule)
+			Expect(wasmModule.ImportNames()).To(ConsistOf("not"))
 		})
 	})
 })

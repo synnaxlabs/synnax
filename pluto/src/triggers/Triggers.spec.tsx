@@ -7,11 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, render } from "@testing-library/react";
+import { act, fireEvent, render, renderHook } from "@testing-library/react";
+import { type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { mockBoundingClientRect } from "@/testutil/dom";
 import { Triggers } from "@/triggers";
+
+const TriggersWrapper = ({ children }: PropsWithChildren): ReactElement => (
+  <Triggers.Provider>{children}</Triggers.Provider>
+);
 
 describe("Triggers", () => {
   describe("filter", () => {
@@ -131,8 +136,7 @@ describe("Triggers", () => {
         it("should select the matching mode with the highest complexity", () => {
           const config: Triggers.ModeConfig<"a" | "b"> = {
             defaultMode: "a",
-            a: [["Shift"]],
-            b: [["Shift", "Control"]],
+            modes: { a: [["Shift"]], b: [["Shift", "Control"]] },
           };
           expect(Triggers.determineMode(config, [["Shift", "Control"]])).toEqual("b");
           expect(Triggers.determineMode(config, [["Shift"]])).toEqual("a");
@@ -140,8 +144,7 @@ describe("Triggers", () => {
         it("should correctly match loose trigers", () => {
           const config: Triggers.ModeConfig<"a" | "b"> = {
             defaultMode: "a",
-            a: [["Shift"]],
-            b: [["Shift", "Control"]],
+            modes: { a: [["Shift"]], b: [["Shift", "Control"]] },
           };
           expect(
             Triggers.determineMode(config, [["Shift", "Control"]], { loose: true }),
@@ -157,19 +160,9 @@ describe("Triggers", () => {
   describe("use", () => {
     it("should handle single key triggers", async () => {
       const callback = vi.fn();
-      const C = () => {
-        Triggers.use({
-          callback,
-          triggers: [["A"]],
-        });
-        return <div>Hello</div>;
-      };
-      const Wrapper = () => (
-        <Triggers.Provider>
-          <C />
-        </Triggers.Provider>
-      );
-      render(<Wrapper />);
+      renderHook(() => Triggers.use({ callback, triggers: [["A"]] }), {
+        wrapper: TriggersWrapper,
+      });
       fireEvent.keyDown(document.body, { code: "KeyA" });
       expect(callback).toHaveBeenCalledOnce();
       expect(callback).toHaveBeenCalledWith({
@@ -194,24 +187,13 @@ describe("Triggers", () => {
 
     it("should handle multi-key combinations", async () => {
       const callback = vi.fn();
-      const C = () => {
-        Triggers.use({
-          callback,
-          triggers: [["Control", "A"]],
-        });
-        return <div>Hello</div>;
-      };
-      render(
-        <Triggers.Provider>
-          <C />
-        </Triggers.Provider>,
-      );
+      renderHook(() => Triggers.use({ callback, triggers: [["Control", "A"]] }), {
+        wrapper: TriggersWrapper,
+      });
 
-      // Press Control first
       fireEvent.keyDown(document.body, { code: "ControlLeft" });
       expect(callback).not.toHaveBeenCalled();
 
-      // Then press A
       fireEvent.keyDown(document.body, { code: "KeyA" });
       expect(callback).toHaveBeenCalledWith({
         target: document.body,
@@ -222,7 +204,6 @@ describe("Triggers", () => {
         stopPropagation: expect.any(Function),
       });
 
-      // Release A first
       fireEvent.keyUp(document.body, { code: "KeyA" });
       expect(callback).toHaveBeenLastCalledWith({
         target: document.body,
@@ -233,24 +214,14 @@ describe("Triggers", () => {
         stopPropagation: expect.any(Function),
       });
 
-      // Release Control
       fireEvent.keyUp(document.body, { code: "ControlLeft" });
     });
 
     it("should handle mouse triggers", async () => {
       const callback = vi.fn();
-      const C = () => {
-        Triggers.use({
-          callback,
-          triggers: [["MouseLeft"]],
-        });
-        return <div>Hello</div>;
-      };
-      render(
-        <Triggers.Provider>
-          <C />
-        </Triggers.Provider>,
-      );
+      renderHook(() => Triggers.use({ callback, triggers: [["MouseLeft"]] }), {
+        wrapper: TriggersWrapper,
+      });
 
       fireEvent.mouseDown(document.body, { button: 0 });
       expect(callback).toHaveBeenCalledWith({
@@ -275,21 +246,11 @@ describe("Triggers", () => {
 
     it("should handle double key presses", async () => {
       const callback = vi.fn();
-      const C = () => {
-        Triggers.use({
-          callback,
-          triggers: [["A", "A"]],
-          double: true,
-        });
-        return <div>Hello</div>;
-      };
-      render(
-        <Triggers.Provider>
-          <C />
-        </Triggers.Provider>,
+      renderHook(
+        () => Triggers.use({ callback, triggers: [["A", "A"]], double: true }),
+        { wrapper: TriggersWrapper },
       );
 
-      // First press
       fireEvent.keyDown(document.body, { code: "KeyA" });
       fireEvent.keyUp(document.body, { code: "KeyA" });
 
@@ -317,18 +278,9 @@ describe("Triggers", () => {
 
     it("should handle loose matching", async () => {
       const callback = vi.fn();
-      const C = () => {
-        Triggers.use({
-          callback,
-          triggers: [["Control"]],
-          loose: true,
-        });
-        return <div>Hello</div>;
-      };
-      render(
-        <Triggers.Provider>
-          <C />
-        </Triggers.Provider>,
+      renderHook(
+        () => Triggers.use({ callback, triggers: [["Control"]], loose: true }),
+        { wrapper: TriggersWrapper },
       );
 
       // Control + A should trigger because of loose matching
@@ -359,23 +311,18 @@ describe("Triggers", () => {
 
     it("should handle multiple simultaneous triggers", async () => {
       const callback = vi.fn();
-      const C = () => {
-        Triggers.use({
-          callback,
-          triggers: [
-            ["Control", "A"],
-            ["Control", "B"],
-          ],
-        });
-        return <div>Hello</div>;
-      };
-      render(
-        <Triggers.Provider>
-          <C />
-        </Triggers.Provider>,
+      renderHook(
+        () =>
+          Triggers.use({
+            callback,
+            triggers: [
+              ["Control", "A"],
+              ["Control", "B"],
+            ],
+          }),
+        { wrapper: TriggersWrapper },
       );
 
-      // Try Control + A
       fireEvent.keyDown(document.body, { code: "ControlLeft" });
       fireEvent.keyDown(document.body, { code: "KeyA" });
 
@@ -391,7 +338,6 @@ describe("Triggers", () => {
       fireEvent.keyUp(document.body, { code: "KeyA" });
       fireEvent.keyUp(document.body, { code: "ControlLeft" });
 
-      // Try Control + B
       fireEvent.keyDown(document.body, { code: "ControlLeft" });
       fireEvent.keyDown(document.body, { code: "KeyB" });
 
@@ -406,6 +352,308 @@ describe("Triggers", () => {
 
       fireEvent.keyUp(document.body, { code: "KeyB" });
       fireEvent.keyUp(document.body, { code: "ControlLeft" });
+    });
+  });
+
+  describe("scope", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    interface RenderScopedProps {
+      active: Triggers.Condition;
+      inner?: Triggers.Condition;
+      enabled?: Triggers.Condition;
+    }
+
+    const renderScoped = ({ active, inner, enabled }: RenderScopedProps) => {
+      const callback = vi.fn();
+      const C = () => {
+        Triggers.use({ callback, triggers: [["A"]], enabled });
+        return <div>Hello</div>;
+      };
+      const subject =
+        inner == null ? (
+          <C />
+        ) : (
+          <Triggers.Scope active={inner}>
+            <C />
+          </Triggers.Scope>
+        );
+      render(
+        <Triggers.Provider>
+          <Triggers.Scope active={active}>{subject}</Triggers.Scope>
+        </Triggers.Provider>,
+      );
+      const stages = () => callback.mock.calls.map(([e]) => e.stage);
+      return { stages };
+    };
+
+    const pressA = () => {
+      fireEvent.keyDown(document.body, { code: "KeyA" });
+      fireEvent.keyUp(document.body, { code: "KeyA" });
+      // Clears the provider's double-press window so the next press is a fresh one.
+      vi.advanceTimersByTime(500);
+    };
+
+    it("should deliver triggers while active", () => {
+      const { stages } = renderScoped({ active: true });
+      pressA();
+      expect(stages()).toEqual(["start", "end"]);
+    });
+
+    it("should withhold the press while inactive", () => {
+      const { stages } = renderScoped({ active: false });
+      pressA();
+      expect(stages()).not.toContain("start");
+    });
+
+    it("should withhold the release when the press was withheld", () => {
+      const { stages } = renderScoped({ active: false });
+      pressA();
+      expect(stages()).toEqual([]);
+    });
+
+    it("should deliver the release after deactivation so a held key cannot stick", () => {
+      let active = true;
+      const { stages } = renderScoped({ active: () => active });
+      fireEvent.keyDown(document.body, { code: "KeyA" });
+      active = false;
+      fireEvent.keyUp(document.body, { code: "KeyA" });
+      vi.advanceTimersByTime(500);
+      expect(stages()).toEqual(["start", "end"]);
+    });
+
+    it("should read a getter at fire time rather than at render", () => {
+      let active = false;
+      const { stages } = renderScoped({ active: () => active });
+      pressA();
+      expect(stages()).not.toContain("start");
+      active = true;
+      pressA();
+      expect(stages()).toContain("start");
+    });
+
+    it("should not let an inner scope re-enable an outer one", () => {
+      const { stages } = renderScoped({ active: false, inner: true });
+      pressA();
+      expect(stages()).not.toContain("start");
+    });
+
+    it("should withhold the press when enabled is false inside an active scope", () => {
+      const { stages } = renderScoped({ active: true, enabled: false });
+      pressA();
+      expect(stages()).not.toContain("start");
+    });
+  });
+
+  describe("useUndoRedo", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    interface RenderUndoRedoProps {
+      enabled?: Triggers.Condition;
+      scope?: Triggers.Condition;
+    }
+
+    const renderUndoRedo = ({ enabled, scope }: RenderUndoRedoProps = {}) => {
+      const undo = vi.fn();
+      const redo = vi.fn();
+      const wrapper = ({ children }: PropsWithChildren): ReactElement => (
+        <Triggers.Provider>
+          {scope == null ? (
+            children
+          ) : (
+            <Triggers.Scope active={scope}>{children}</Triggers.Scope>
+          )}
+        </Triggers.Provider>
+      );
+      renderHook(() => Triggers.useUndoRedo({ undo, redo, enabled }), { wrapper });
+      return { undo, redo };
+    };
+
+    const press = (...codes: string[]) => {
+      codes.forEach((code) => fireEvent.keyDown(document.body, { code }));
+      [...codes].reverse().forEach((code) => fireEvent.keyUp(document.body, { code }));
+      vi.advanceTimersByTime(500);
+    };
+
+    it("should call undo on control+z", () => {
+      const { undo, redo } = renderUndoRedo();
+      press("ControlLeft", "KeyZ");
+      expect(undo).toHaveBeenCalledTimes(1);
+      expect(redo).not.toHaveBeenCalled();
+    });
+
+    it("should call redo on control+shift+z", () => {
+      const { undo, redo } = renderUndoRedo();
+      press("ControlLeft", "ShiftLeft", "KeyZ");
+      expect(redo).toHaveBeenCalledTimes(1);
+      expect(undo).not.toHaveBeenCalled();
+    });
+
+    it("should treat meta+z as undo", () => {
+      const { undo } = renderUndoRedo();
+      press("MetaLeft", "KeyZ");
+      expect(undo).toHaveBeenCalledTimes(1);
+    });
+
+    it("should not fire on the release", () => {
+      const { undo } = renderUndoRedo();
+      press("ControlLeft", "KeyZ");
+      expect(undo).toHaveBeenCalledTimes(1);
+    });
+
+    it("should ignore z without a modifier", () => {
+      const { undo, redo } = renderUndoRedo();
+      press("KeyZ");
+      expect(undo).not.toHaveBeenCalled();
+      expect(redo).not.toHaveBeenCalled();
+    });
+
+    it("should withhold both handlers while disabled", () => {
+      const { undo, redo } = renderUndoRedo({ enabled: false });
+      press("ControlLeft", "KeyZ");
+      press("ControlLeft", "ShiftLeft", "KeyZ");
+      expect(undo).not.toHaveBeenCalled();
+      expect(redo).not.toHaveBeenCalled();
+    });
+
+    it("should withhold both handlers inside an inactive scope", () => {
+      const { undo, redo } = renderUndoRedo({ scope: false });
+      press("ControlLeft", "KeyZ");
+      press("ControlLeft", "ShiftLeft", "KeyZ");
+      expect(undo).not.toHaveBeenCalled();
+      expect(redo).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("useHeld", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    const renderHeld = (triggers: Triggers.Trigger[], loose?: boolean) => {
+      const { result } = renderHook(() => Triggers.useHeld({ triggers, loose }), {
+        wrapper: ({ children }) => <Triggers.Provider>{children}</Triggers.Provider>,
+      });
+      return result;
+    };
+
+    it("should start unheld", () => {
+      const result = renderHeld([["Control"]]);
+      expect(result.current).toEqual({ triggers: [], held: false });
+    });
+
+    it("should report held while the trigger is down", () => {
+      const result = renderHeld([["Control"]]);
+      act(() => {
+        fireEvent.keyDown(document.body, { code: "ControlLeft" });
+      });
+      expect(result.current.held).toBe(true);
+      expect(result.current.triggers).toEqual([["Control"]]);
+    });
+
+    it("should report unheld once the trigger is released", () => {
+      const result = renderHeld([["Control"]]);
+      act(() => {
+        fireEvent.keyDown(document.body, { code: "ControlLeft" });
+      });
+      act(() => {
+        fireEvent.keyUp(document.body, { code: "ControlLeft" });
+      });
+      expect(result.current).toEqual({ triggers: [], held: false });
+    });
+
+    it("should stay held under loose matching until the last trigger lifts", () => {
+      const result = renderHeld([["Control"], ["Alt"]], true);
+      act(() => {
+        fireEvent.keyDown(document.body, { code: "ControlLeft" });
+      });
+      act(() => {
+        fireEvent.keyDown(document.body, { code: "AltLeft" });
+      });
+      act(() => {
+        fireEvent.keyUp(document.body, { code: "ControlLeft" });
+      });
+      expect(result.current).toEqual({ triggers: [["Alt"]], held: true });
+      act(() => {
+        fireEvent.keyUp(document.body, { code: "AltLeft" });
+      });
+      expect(result.current.held).toBe(false);
+    });
+
+    it("should drop an exact match once a second key joins it", () => {
+      const result = renderHeld([["Control"], ["Alt"]]);
+      act(() => {
+        fireEvent.keyDown(document.body, { code: "ControlLeft" });
+      });
+      act(() => {
+        fireEvent.keyDown(document.body, { code: "AltLeft" });
+      });
+      expect(result.current.held).toBe(false);
+    });
+
+    it("should ignore a key that is not one of its triggers", () => {
+      const result = renderHeld([["Control"]]);
+      act(() => {
+        fireEvent.keyDown(document.body, { code: "KeyA" });
+      });
+      expect(result.current.held).toBe(false);
+    });
+  });
+
+  describe("useHeldRef", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    const renderHeldRef = (triggers: Triggers.Trigger[]) => {
+      const { result } = renderHook(() => Triggers.useHeldRef({ triggers }), {
+        wrapper: ({ children }) => <Triggers.Provider>{children}</Triggers.Provider>,
+      });
+      return result;
+    };
+
+    it("should track the held state without re-rendering", () => {
+      const renders = vi.fn();
+      const { result } = renderHook(
+        () => {
+          renders();
+          return Triggers.useHeldRef({ triggers: [["Control"]] });
+        },
+        {
+          wrapper: ({ children }) => <Triggers.Provider>{children}</Triggers.Provider>,
+        },
+      );
+      const before = renders.mock.calls.length;
+      fireEvent.keyDown(document.body, { code: "ControlLeft" });
+      expect(result.current.current.held).toBe(true);
+      expect(renders.mock.calls.length).toEqual(before);
+    });
+
+    it("should clear the ref once the trigger is released", () => {
+      const result = renderHeldRef([["Control"]]);
+      fireEvent.keyDown(document.body, { code: "ControlLeft" });
+      fireEvent.keyUp(document.body, { code: "ControlLeft" });
+      expect(result.current.current).toEqual({ triggers: [], held: false });
     });
   });
 
@@ -523,7 +771,6 @@ describe("Triggers", () => {
 
       vi.advanceTimersByTime(500);
 
-      // Mouse click inside region
       fireEvent.mouseMove(regionRef.current, { clientX: 10, clientY: 10 });
       fireEvent.mouseDown(regionRef.current, { button: 0 });
       expect(callback).toHaveBeenCalledWith({
@@ -572,6 +819,53 @@ describe("Triggers", () => {
       expect(callback).not.toHaveBeenCalled();
     });
 
+    // A bare "-" or "=" types a character, so a field must keep it even though the key
+    // is not alphanumeric. The symbol editor binds both as bare zoom shortcuts.
+    const TEXT_ENTRY_KEYS: [Triggers.Key, string][] = [
+      ["Minus", "-"],
+      ["Equal", "="],
+      ["Space", " "],
+    ];
+
+    it.each(TEXT_ENTRY_KEYS)(
+      "should ignore a bare %s in input elements",
+      async (code, key) => {
+        const callback = vi.fn();
+        const C = () => {
+          Triggers.use({ callback, triggers: [[code]] });
+          return <input type="text" data-testid="input" />;
+        };
+        const { getByTestId } = render(
+          <Triggers.Provider>
+            <C />
+          </Triggers.Provider>,
+        );
+        const input = getByTestId("input");
+        fireEvent.mouseMove(input, { clientX: 10, clientY: 10 });
+        fireEvent.keyDown(input, { code, key });
+        vi.advanceTimersByTime(500);
+        expect(callback).not.toHaveBeenCalled();
+      },
+    );
+
+    it("should still fire a bare punctuation trigger outside a text field", async () => {
+      const callback = vi.fn();
+      const C = () => {
+        Triggers.use({ callback, triggers: [["Minus"]] });
+        return <div data-testid="canvas" />;
+      };
+      const { getByTestId } = render(
+        <Triggers.Provider>
+          <C />
+        </Triggers.Provider>,
+      );
+      const canvas = getByTestId("canvas");
+      fireEvent.mouseMove(canvas, { clientX: 10, clientY: 10 });
+      fireEvent.keyDown(canvas, { code: "Minus", key: "-" });
+      vi.advanceTimersByTime(500);
+      expect(callback).toHaveBeenCalled();
+    });
+
     it("should handle non-text-editing ctrl+key combinations in input elements", async () => {
       const callback = vi.fn();
       const C = () => {
@@ -590,7 +884,6 @@ describe("Triggers", () => {
       const input = getByTestId("input");
       fireEvent.mouseMove(input, { clientX: 10, clientY: 10 });
 
-      // Press Control first
       fireEvent.keyDown(input, { code: "ControlLeft" });
       expect(callback).not.toHaveBeenCalled();
 
@@ -607,7 +900,6 @@ describe("Triggers", () => {
         stopPropagation: expect.any(Function),
       });
 
-      // Release in correct order
       fireEvent.keyUp(input, { code: "KeyB", ctrlKey: true });
       fireEvent.keyUp(input, { code: "ControlLeft" });
     });
@@ -652,7 +944,7 @@ describe("Triggers", () => {
     it("should still trigger undo/redo in input elements", async () => {
       const callback = vi.fn();
       const C = () => {
-        Triggers.use({ callback, triggers: [["Control", "Z"]] });
+        Triggers.use({ callback, triggers: [Triggers.UNDO] });
         return <input type="text" data-testid="input" />;
       };
       const { getByTestId } = render(
@@ -669,7 +961,7 @@ describe("Triggers", () => {
 
       expect(callback).toHaveBeenCalledWith({
         target: input,
-        triggers: [["Control", "Z"]],
+        triggers: [Triggers.UNDO],
         prevTriggers: [["Control"]],
         cursor: { x: 10, y: 10 },
         stage: "start",
@@ -707,7 +999,6 @@ describe("Triggers", () => {
       vi.advanceTimersByTime(500);
       expect(callback).not.toHaveBeenCalled();
 
-      // Ctrl+key should trigger
       fireEvent.keyDown(editable, { code: "ControlLeft" });
       fireEvent.keyDown(editable, { code: "KeyB", ctrlKey: true });
       vi.advanceTimersByTime(500);
@@ -743,7 +1034,6 @@ describe("Triggers", () => {
       const input = getByTestId("input");
       fireEvent.mouseMove(input, { clientX: 10, clientY: 10 });
 
-      // Escape should trigger
       fireEvent.keyDown(input, { code: "Escape" });
       vi.advanceTimersByTime(500);
 
@@ -759,7 +1049,6 @@ describe("Triggers", () => {
       fireEvent.keyUp(input, { code: "Escape" });
       vi.advanceTimersByTime(500);
 
-      // Arrow keys should trigger
       fireEvent.keyDown(input, { code: "ArrowUp" });
       vi.advanceTimersByTime(500);
 
@@ -805,7 +1094,6 @@ describe("Triggers", () => {
       const target = getByTestId("target");
       fireEvent.mouseMove(target, { clientX: 10, clientY: 10 });
 
-      // Press Meta (Command) first
       fireEvent.keyDown(target, { code: "MetaLeft" });
       expect(callback).not.toHaveBeenCalled();
 
@@ -822,7 +1110,6 @@ describe("Triggers", () => {
         stopPropagation: expect.any(Function),
       });
 
-      // Release in correct order
       fireEvent.keyUp(target, { code: "KeyA", metaKey: true });
       fireEvent.keyUp(target, { code: "MetaLeft" });
     });
@@ -845,7 +1132,6 @@ describe("Triggers", () => {
       const target = getByTestId("target");
       fireEvent.mouseMove(target, { clientX: 10, clientY: 10 });
 
-      // Test with Control
       fireEvent.keyDown(target, { code: "ControlLeft" });
       fireEvent.keyDown(target, { code: "KeyS", ctrlKey: true });
       vi.advanceTimersByTime(500);
@@ -863,7 +1149,6 @@ describe("Triggers", () => {
       fireEvent.keyUp(target, { code: "ControlLeft" });
       vi.advanceTimersByTime(500);
 
-      // Test with Meta
       fireEvent.keyDown(target, { code: "MetaLeft" });
       fireEvent.keyDown(target, { code: "KeyS", metaKey: true });
       vi.advanceTimersByTime(500);
@@ -919,20 +1204,16 @@ describe("Triggers", () => {
 
     it("should clear stuck non-modifier keys when Meta (Cmd) is released", async () => {
       const callback = vi.fn();
-      const C = () => {
-        Triggers.use({
-          callback,
-          triggers: [
-            ["Control", "Shift", "P"],
-            ["Control", "P"],
-          ],
-        });
-        return <div>Hello</div>;
-      };
-      render(
-        <Triggers.Provider>
-          <C />
-        </Triggers.Provider>,
+      renderHook(
+        () =>
+          Triggers.use({
+            callback,
+            triggers: [
+              ["Control", "Shift", "P"],
+              ["Control", "P"],
+            ],
+          }),
+        { wrapper: TriggersWrapper },
       );
 
       // Cmd + Shift + P fires and opens whatever Control+Shift+P controls.
@@ -995,7 +1276,6 @@ describe("Triggers", () => {
       const target = getByTestId("target");
       fireEvent.mouseMove(target, { clientX: 10, clientY: 10 });
 
-      // Press Shift first
       fireEvent.keyDown(target, { code: "ShiftLeft", shiftKey: true });
       expect(callback).not.toHaveBeenCalled();
 
@@ -1034,7 +1314,6 @@ describe("Triggers", () => {
       fireEvent.keyDown(target, { code: "KeyC", shiftKey: false });
       expect(callback).toHaveBeenCalledTimes(2);
 
-      // Cleanup
       fireEvent.keyUp(target, { code: "KeyA", shiftKey: false });
       fireEvent.keyUp(target, { code: "KeyB", shiftKey: false });
       fireEvent.keyUp(target, { code: "KeyC", shiftKey: false });
@@ -1045,15 +1324,12 @@ describe("Triggers", () => {
         const order: string[] = [];
         const high = vi.fn(() => order.push("high"));
         const low = vi.fn(() => order.push("low"));
-        const C = () => {
-          Triggers.use({ callback: high, triggers: [["A"]], priority: 100 });
-          Triggers.use({ callback: low, triggers: [["A"]], priority: 0 });
-          return <div>Hello</div>;
-        };
-        render(
-          <Triggers.Provider>
-            <C />
-          </Triggers.Provider>,
+        renderHook(
+          () => {
+            Triggers.use({ callback: high, triggers: [["A"]], priority: 100 });
+            Triggers.use({ callback: low, triggers: [["A"]], priority: 0 });
+          },
+          { wrapper: TriggersWrapper },
         );
         fireEvent.keyDown(document.body, { code: "KeyA" });
         expect(order).toEqual(["high", "low"]);
@@ -1062,15 +1338,12 @@ describe("Triggers", () => {
       it("should not invoke lower-priority subscribers when a higher-priority one stops propagation", () => {
         const high = vi.fn((e: Triggers.UseEvent) => e.stopPropagation());
         const low = vi.fn();
-        const C = () => {
-          Triggers.use({ callback: high, triggers: [["A"]], priority: 100 });
-          Triggers.use({ callback: low, triggers: [["A"]], priority: 0 });
-          return <div>Hello</div>;
-        };
-        render(
-          <Triggers.Provider>
-            <C />
-          </Triggers.Provider>,
+        renderHook(
+          () => {
+            Triggers.use({ callback: high, triggers: [["A"]], priority: 100 });
+            Triggers.use({ callback: low, triggers: [["A"]], priority: 0 });
+          },
+          { wrapper: TriggersWrapper },
         );
         fireEvent.keyDown(document.body, { code: "KeyA" });
         expect(high).toHaveBeenCalledOnce();
@@ -1081,16 +1354,13 @@ describe("Triggers", () => {
         const stopper = vi.fn((e: Triggers.UseEvent) => e.stopPropagation());
         const peer = vi.fn();
         const lower = vi.fn();
-        const C = () => {
-          Triggers.use({ callback: stopper, triggers: [["A"]], priority: 100 });
-          Triggers.use({ callback: peer, triggers: [["A"]], priority: 100 });
-          Triggers.use({ callback: lower, triggers: [["A"]], priority: 0 });
-          return <div>Hello</div>;
-        };
-        render(
-          <Triggers.Provider>
-            <C />
-          </Triggers.Provider>,
+        renderHook(
+          () => {
+            Triggers.use({ callback: stopper, triggers: [["A"]], priority: 100 });
+            Triggers.use({ callback: peer, triggers: [["A"]], priority: 100 });
+            Triggers.use({ callback: lower, triggers: [["A"]], priority: 0 });
+          },
+          { wrapper: TriggersWrapper },
         );
         fireEvent.keyDown(document.body, { code: "KeyA" });
         expect(stopper).toHaveBeenCalledOnce();
@@ -1101,15 +1371,12 @@ describe("Triggers", () => {
       it("should invoke all subscribers when none stops propagation", () => {
         const high = vi.fn();
         const low = vi.fn();
-        const C = () => {
-          Triggers.use({ callback: high, triggers: [["A"]], priority: 100 });
-          Triggers.use({ callback: low, triggers: [["A"]], priority: 0 });
-          return <div>Hello</div>;
-        };
-        render(
-          <Triggers.Provider>
-            <C />
-          </Triggers.Provider>,
+        renderHook(
+          () => {
+            Triggers.use({ callback: high, triggers: [["A"]], priority: 100 });
+            Triggers.use({ callback: low, triggers: [["A"]], priority: 0 });
+          },
+          { wrapper: TriggersWrapper },
         );
         fireEvent.keyDown(document.body, { code: "KeyA" });
         expect(high).toHaveBeenCalledOnce();
@@ -1119,15 +1386,12 @@ describe("Triggers", () => {
       it("should default priority to 0 so unconfigured subscribers are blocked by a stopping priority>0 peer", () => {
         const high = vi.fn((e: Triggers.UseEvent) => e.stopPropagation());
         const defaultPriority = vi.fn();
-        const C = () => {
-          Triggers.use({ callback: high, triggers: [["A"]], priority: 1 });
-          Triggers.use({ callback: defaultPriority, triggers: [["A"]] });
-          return <div>Hello</div>;
-        };
-        render(
-          <Triggers.Provider>
-            <C />
-          </Triggers.Provider>,
+        renderHook(
+          () => {
+            Triggers.use({ callback: high, triggers: [["A"]], priority: 1 });
+            Triggers.use({ callback: defaultPriority, triggers: [["A"]] });
+          },
+          { wrapper: TriggersWrapper },
         );
         fireEvent.keyDown(document.body, { code: "KeyA" });
         expect(high).toHaveBeenCalledOnce();
@@ -1139,22 +1403,71 @@ describe("Triggers", () => {
           if (e.stage === "start") e.stopPropagation();
         });
         const low = vi.fn();
-        const C = () => {
-          Triggers.use({ callback: high, triggers: [["A"]], priority: 100 });
-          Triggers.use({ callback: low, triggers: [["A"]], priority: 0 });
-          return <div>Hello</div>;
-        };
-        render(
-          <Triggers.Provider>
-            <C />
-          </Triggers.Provider>,
+        renderHook(
+          () => {
+            Triggers.use({ callback: high, triggers: [["A"]], priority: 100 });
+            Triggers.use({ callback: low, triggers: [["B"]], priority: 0 });
+          },
+          { wrapper: TriggersWrapper },
         );
         fireEvent.keyDown(document.body, { code: "KeyA" });
+        expect(high).toHaveBeenCalledOnce();
         expect(low).not.toHaveBeenCalled();
         fireEvent.keyUp(document.body, { code: "KeyA" });
+        fireEvent.keyDown(document.body, { code: "KeyB" });
         expect(low).toHaveBeenCalledOnce();
-        expect(low.mock.calls[0][0].stage).toBe("end");
+        expect(low.mock.calls[0][0].stage).toBe("start");
       });
+
+      it("should withhold the release from a subscriber whose press was stopped", () => {
+        const high = vi.fn((e: Triggers.UseEvent) => {
+          if (e.stage === "start") e.stopPropagation();
+        });
+        const low = vi.fn();
+        renderHook(
+          () => {
+            Triggers.use({ callback: high, triggers: [["A"]], priority: 100 });
+            Triggers.use({ callback: low, triggers: [["A"]], priority: 0 });
+          },
+          { wrapper: TriggersWrapper },
+        );
+        fireEvent.keyDown(document.body, { code: "KeyA" });
+        fireEvent.keyUp(document.body, { code: "KeyA" });
+        expect(low).not.toHaveBeenCalled();
+      });
+    });
+  });
+
+  describe("Text", () => {
+    it("should print a word key the way the physical key prints it", () => {
+      const c = render(<Triggers.Text trigger={["Escape"]} />);
+      // The bare enum name ("Escape") leaking through is the regression: the cap has to
+      // read like the key, and it is a square that a full word overflows.
+      expect(c.getByText(/^esc$/i)).toBeTruthy();
+      expect(c.queryByText("Escape")).toBeNull();
+    });
+
+    it("should print the delete key as its own label", () => {
+      const c = render(<Triggers.Text trigger={["Delete"]} />);
+      expect(c.getByText(/^delete$/i)).toBeTruthy();
+    });
+
+    it("should print punctuation keys as the symbol on the key", () => {
+      const c = render(<Triggers.Text trigger={["Control", "Equal"]} />);
+      expect(c.getByText("=")).toBeTruthy();
+      expect(c.queryByText("Equal")).toBeNull();
+    });
+
+    it("should print the minus key as its symbol", () => {
+      const c = render(<Triggers.Text trigger={["Control", "Minus"]} />);
+      expect(c.getByText("-")).toBeTruthy();
+      expect(c.queryByText("Minus")).toBeNull();
+    });
+
+    it("should render a label passed as children beside the keycaps", () => {
+      const c = render(<Triggers.Text trigger={["Escape"]}>Close</Triggers.Text>);
+      expect(c.getByText("Close")).toBeTruthy();
+      expect(c.getByText(/^esc$/i)).toBeTruthy();
     });
   });
 });

@@ -22,25 +22,6 @@
 
 namespace x::color {
 
-inline std::pair<::x::color::pb::Color, x::errors::Error> Color::to_proto() const {
-    ::x::color::pb::Color pb;
-    pb.set_r(this->r);
-    pb.set_g(this->g);
-    pb.set_b(this->b);
-    pb.set_a(this->a);
-    return {pb, x::errors::NIL};
-}
-
-inline std::pair<Color, x::errors::Error>
-Color::from_proto(const ::x::color::pb::Color &pb) {
-    Color cpp;
-    cpp.r = pb.r();
-    cpp.g = pb.g();
-    cpp.b = pb.b();
-    cpp.a = pb.a();
-    return {cpp, x::errors::NIL};
-}
-
 inline std::pair<::x::color::pb::Stop, x::errors::Error> Stop::to_proto() const {
     ::x::color::pb::Stop pb;
     pb.set_key(this->key);
@@ -50,7 +31,7 @@ inline std::pair<::x::color::pb::Stop, x::errors::Error> Stop::to_proto() const 
         *pb.mutable_color() = v;
     }
     pb.set_position(this->position);
-    pb.set_switched(this->switched);
+    if (this->switched.has_value()) pb.set_switched(*this->switched);
     return {pb, x::errors::NIL};
 }
 
@@ -64,7 +45,7 @@ Stop::from_proto(const ::x::color::pb::Stop &pb) {
         cpp.color = v;
     }
     cpp.position = pb.position();
-    cpp.switched = pb.switched();
+    if (pb.has_switched()) cpp.switched = pb.switched();
     return {cpp, x::errors::NIL};
 }
 

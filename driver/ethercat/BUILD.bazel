@@ -1,3 +1,12 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
@@ -21,6 +30,8 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp:synnax",
+        "//client/cpp/ethercat",
+        "//client/cpp/task",
         "//driver/common",
         "//driver/errors",
         "//driver/ethercat/channel",
@@ -37,7 +48,7 @@ cc_library(
         "//x/cpp/json",
         "//x/cpp/lib",
         "//x/cpp/telem",
-        "@glog",
+        "@abseil-cpp//absl/log",
     ] + select({
         ":linux": [
             "//driver/ethercat/igh",

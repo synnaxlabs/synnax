@@ -32,7 +32,6 @@ var _ = Describe("Stream", func() {
 					Expect(stream.OutletAddress()).To(Equal(addr))
 				})
 			})
-
 		})
 		Describe("Communication", func() {
 			var stream *Stream[int]

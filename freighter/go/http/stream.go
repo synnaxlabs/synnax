@@ -164,9 +164,16 @@ func (c *streamCore[I, O]) listenForContextCancellation() {
 		if err := c.conn.WriteControl(
 			websocket.CloseMessage,
 			websocket.FormatCloseMessage(contextCancelledCloseCode, ""),
-			time.Now().Add(time.Second),
+			time.Now().Add(closeReadWriteDeadline),
 		); err != nil && !errors.Is(err, websocket.ErrCloseSent) {
 			c.L.Error("error sending close message: %v \n", zap.Error(err))
+		}
+		// A peer that never answers the close message blocks the reader forever, and
+		// the server's shutdown with it.
+		if err := c.conn.SetReadDeadline(
+			time.Now().Add(closeReadWriteDeadline),
+		); err != nil {
+			c.L.Error("error setting close read deadline", zap.Error(err))
 		}
 	}
 }

@@ -20,7 +20,19 @@
         { "case": "driver/http_read" },
         { "case": "driver/http_write" },
         { "case": "driver/http_invalid" },
+        { "case": "driver/http_deploy" },
         { "case": "driver/grand_finale" }
+      ]
+    },
+    {
+      "sequence_name": "Console Configuration",
+      "tests": [
+        { "case": "console/task/opcua_read_task" },
+        { "case": "console/task/opcua_write_task" },
+        { "case": "console/task/opcua_invalid" },
+        { "case": "console/task/modbus_read_task" },
+        { "case": "console/task/modbus_write_task" },
+        { "case": "console/task/modbus_invalid" }
       ]
     },
     {

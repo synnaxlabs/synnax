@@ -10,7 +10,7 @@
 #include <chrono>
 #include <thread>
 
-#include "glog/logging.h"
+#include "absl/log/log.h"
 
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/telem/telem.h"
@@ -32,7 +32,7 @@ public:
         if (this->config_.cpu_affinity >= 0) {
             LOG(WARNING) << "[arc.loop] CPU affinity not supported in polling mode";
         }
-        if (this->config_.lock_memory) {
+        if (this->config_.memory_locked) {
             LOG(WARNING) << "[arc.loop] Memory locking not supported in polling mode";
         }
 

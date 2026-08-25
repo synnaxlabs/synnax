@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { deep, type destructor, type status } from "@synnaxlabs/x";
+import { type status } from "@synnaxlabs/client";
+import { deep, type destructor } from "@synnaxlabs/x";
 import { useCallback, useEffect, useMemo } from "react";
 import { type z } from "zod";
 
@@ -22,7 +23,7 @@ import { type FieldState, type GetOptions, State } from "@/form/state";
 import { useInitializerRef, useSyncedRef } from "@/hooks/ref";
 import { Status } from "@/status/base";
 
-export interface OnChangeArgs<Z extends z.ZodType> {
+export interface OnChangeParams<Z extends z.ZodType> {
   /** The values in the form AFTER the change. */
   values: z.infer<Z>;
   /** The path that was changed. */
@@ -33,18 +34,31 @@ export interface OnChangeArgs<Z extends z.ZodType> {
   valid: boolean;
 }
 
-export interface UseArgs<Z extends z.ZodType> {
+/** Params for {@link use}. */
+export interface UseParams<Z extends z.ZodType> {
+  /** The starting values. They are copied, not held. */
   values: z.infer<Z>;
   mode?: Mode;
+  /** Whether to reset the form whenever `values` changes identity. */
   sync?: boolean;
-  onChange?: (props: OnChangeArgs<Z>) => void;
+  onChange?: (props: OnChangeParams<Z>) => void;
+  /** Called when the form goes from untouched to touched, and back. */
   onHasTouched?: (value: boolean) => void;
+  /** Zod schema the values validate against on every write. */
   schema?: Z;
   scope?: string;
 }
 
 export interface UseReturn<Z extends z.ZodType> extends ContextValue<Z> {}
 
+/**
+ * Creates a form over the given values, validated by the given Zod schema. The returned
+ * value is stable, so a field hook re-renders only when its own path changes.
+ *
+ * @example
+ * const form = Form.use({ values: initial, schema: rangeZ, onChange: save });
+ * return <Form.Form {...form}><Form.TextField path="name" /></Form.Form>;
+ */
 export const use = <Z extends z.ZodType>({
   values: initialValues,
   sync = false,
@@ -52,7 +66,7 @@ export const use = <Z extends z.ZodType>({
   mode = "normal",
   onChange,
   onHasTouched,
-}: UseArgs<Z>): UseReturn<Z> => {
+}: UseParams<Z>): UseReturn<Z> => {
   const ref = useInitializerRef<State<Z>>(() => new State<Z>(initialValues, schema));
   const onChangeRef = useSyncedRef(onChange);
   const handleError = Status.useErrorHandler();

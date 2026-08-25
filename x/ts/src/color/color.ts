@@ -49,8 +49,41 @@ export type Hex = z.infer<typeof hexZ>;
 type LegacyObject = z.infer<typeof legacyObjectZ>;
 /** A color in RGBA format as a struct. */
 type RGBAStruct = z.infer<typeof rgbaStructZ>;
+/**
+ * A zod schema for a legacy 0-255 alpha. Old Consoles persisted alpha as a fourth
+ * 0-255 channel; the current scale caps alpha at 1, so any larger value is legacy.
+ * Values in (1, 2] clamp to 1 instead of dividing: a legacy alpha that small means a
+ * sub-1% opacity no user sets, while a current-scale value nudged past 1 by float
+ * error means opaque. Mirrors the rule in the Go color decoders.
+ */
+const legacyAlphaZ = z
+  .number()
+  .gt(1)
+  .max(255)
+  .transform((a) => (a <= 2 ? 1 : a / 255));
+/** A zod schema for an RGBA color carrying a legacy 0-255 alpha. */
+const legacyAlphaRGBAZ = z.tuple([rgbValueZ, rgbValueZ, rgbValueZ, legacyAlphaZ]);
+/** A zod schema for a legacy color object carrying a legacy 0-255 alpha. */
+const legacyAlphaObjectZ = z.object({ rgba255: legacyAlphaRGBAZ });
+/** A zod schema for an RGBA struct carrying a legacy 0-255 alpha. */
+const legacyAlphaStructZ = z.object({
+  r: rgbValueZ,
+  g: rgbValueZ,
+  b: rgbValueZ,
+  a: legacyAlphaZ,
+});
 /** A zod schema for a crude color representation. */
-export const crudeZ = z.union([hexZ, rgbZ, rgbaZ, hslaZ, legacyObjectZ, rgbaStructZ]);
+export const crudeZ = z.union([
+  hexZ,
+  rgbZ,
+  rgbaZ,
+  hslaZ,
+  legacyObjectZ,
+  rgbaStructZ,
+  legacyAlphaRGBAZ,
+  legacyAlphaObjectZ,
+  legacyAlphaStructZ,
+]);
 /**
  * An unparsed representation of a color i.e. a value that can be converted into
  * a Color object.
@@ -79,7 +112,8 @@ export const isColor = (color: unknown): color is Color =>
  * @returns undefined if the color is undefined.
  * @returns an RGBA CSS string if the color can be parsed into a Color.
  * @returns the color directly if it is a css variable.
- * @throws if the color does not match any of the preceding conditions.
+ * @throws {zod.ParseError} if the color does not match any of the preceding
+ * conditions.
  */
 export interface CSSString {
   (color: Crude): string;
@@ -91,7 +125,12 @@ export const cssString = ((color?: Crude): string | undefined => {
   const res = colorZ.safeParse(color);
   if (res.success) return rgbaCSS(res.data);
   if (typeof color === "string") return color;
-  throw res.error;
+  throw new zod.ParseError({
+    issues: res.error.issues,
+    input: color,
+    label: "color",
+    cause: res.error,
+  });
 }) as CSSString;
 
 /**
@@ -107,9 +146,10 @@ export const cssString = ((color?: Crude): string | undefined => {
  *
  * @param alpha - An optional alpha value to set. If the color value carries its own
  * alpha value, this value will be ignored. Defaults to 1.
+ * @throws {zod.ParseError} if the color value is not a valid crude color.
  */
 export const construct = (color: Crude, alpha: number = 1): Color => {
-  color = crudeZ.parse(color);
+  color = zod.parse(crudeZ, color, { label: "color" });
   if (typeof color === "string") return fromHex(color, alpha);
   if (Array.isArray(color)) {
     if (color.length < 3 || color.length > 4)
@@ -416,7 +456,6 @@ const rgbaToHSLA = (rgba: RGBA): HSLA => {
     h /= 6;
   }
 
-  // Convert hue to degrees
   h *= 360;
   s *= 100;
   l *= 100;

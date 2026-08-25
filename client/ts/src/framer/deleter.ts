@@ -11,21 +11,19 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { TimeRange } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { channel } from "@/channel";
+import { keyZ, nameZ } from "@/channel/types.gen";
 
 const reqZ = z.object({
-  keys: channel.keyZ.array().optional(),
+  keys: keyZ.array().optional(),
   bounds: TimeRange.z,
-  names: channel.nameZ.array().optional(),
+  names: nameZ.array().optional(),
 });
 interface Request extends z.infer<typeof reqZ> {}
 
 const resZ = z.object({});
 
+/** Deletes a time range of telemetry from a Core. Reach it through `client.telem`. */
 export class Deleter {
-  /*
-  Deleter is used to delete a time range of telemetry from the data engine.
-   */
   private readonly client: UnaryClient;
 
   constructor(client: UnaryClient) {

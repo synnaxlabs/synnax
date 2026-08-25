@@ -17,10 +17,11 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
@@ -34,9 +35,9 @@ const (
 var _ = Describe("Signals", func() {
 	openStreamer := func(ctx context.Context, name string) confluence.Outlet[framer.StreamerResponse] {
 		var ch channel.Channel
-		Expect(dist.Channel.NewRetrieve().Where(channel.MatchNames(name)).Entry(&ch).
+		Expect(channelSvc.NewRetrieve().Where(channel.MatchNames(name)).Entry(&ch).
 			Exec(ctx, nil)).To(Succeed())
-		streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+		streamer := MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
 			Keys: channel.Keys{ch.Key()},
 		}))
 		requests, responses := confluence.Attach(streamer, 2)
@@ -55,48 +56,74 @@ var _ = Describe("Signals", func() {
 	It("Should create the set and delete signal channels", func(ctx SpecContext) {
 		for _, name := range []string{setChannelName, deleteChannelName} {
 			var ch channel.Channel
-			Expect(dist.Channel.NewRetrieve().Where(channel.MatchNames(name)).Entry(&ch).
+			Expect(channelSvc.NewRetrieve().Where(channel.MatchNames(name)).Entry(&ch).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(ch.Virtual).To(BeTrue())
 			Expect(ch.Internal).To(BeTrue())
 		}
 	})
 
-	It("Should broadcast a dispatched action vector on the set channel", func(ctx SpecContext) {
-		responses := openStreamer(ctx, setChannelName)
-		p := panel.Panel{Name: "sig", Parent: &parentID}
-		Expect(svc.NewWriter(nil).Create(ctx, &p)).To(Succeed())
-		DeferCleanup(func(ctx SpecContext) { Expect(svc.NewWriter(nil).Delete(ctx, p.Key)).To(Succeed()) })
-		Expect(svc.NewWriter(nil).Dispatch(ctx, p.Key, "dk-1", []panel.Action{
-			panel.NewRenameAction(panel.RenamePayload{Name: "renamed"}),
-		})).To(Succeed())
-		var res framer.StreamerResponse
-		Eventually(responses.Outlet(), time.Second*5).Should(Receive(&res))
-		var decoded []actions.Scoped[panel.Key, panel.Action]
-		for sample := range res.Frame.SeriesAt(0).Samples() {
-			var sa actions.Scoped[panel.Key, panel.Action]
-			Expect(json.Unmarshal(sample, &sa)).To(Succeed())
-			decoded = append(decoded, sa)
-		}
-		Expect(decoded).ToNot(BeEmpty())
-		last := decoded[len(decoded)-1]
-		Expect(last.Key).To(Equal(p.Key))
-		Expect(last.DispatchKey).To(Equal("dk-1"))
-		Expect(last.Actions).To(HaveLen(1))
-		Expect(last.Actions[0].Type).To(Equal(panel.ActionTypeRename))
-	})
+	It(
+		"Should broadcast a dispatched action vector on the set channel",
+		func(ctx SpecContext) {
+			responses := openStreamer(ctx, setChannelName)
+			p := panel.Panel{Name: "sig", Parent: &parentID}
+			Expect(writer.Create(ctx, &p)).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(writer.Delete(ctx, p.Key)).To(Succeed())
+			})
+			Expect(svc.Dispatch(ctx, p.Key, "dk-1", []panel.Action{
+				panel.NewRenameAction(panel.RenamePayload{Name: "renamed"}),
+			})).To(Succeed())
+			var decoded []actions.Scoped[panel.Key, panel.Action]
+			for len(decoded) < 2 {
+				var res framer.StreamerResponse
+				Eventually(responses.Outlet(), time.Second*5).Should(Receive(&res))
+				for sample := range res.Frame.SeriesAt(0).Samples() {
+					var sa actions.Scoped[panel.Key, panel.Action]
+					Expect(json.Unmarshal(sample, &sa)).To(Succeed())
+					decoded = append(decoded, sa)
+				}
+			}
+			created := decoded[0]
+			Expect(created.Key).To(Equal(p.Key))
+			Expect(created.DispatchKey).To(BeEmpty())
+			Expect(created.Actions).To(HaveLen(1))
+			Expect(created.Actions[0].Type).To(Equal(panel.ActionTypeCreate))
+			Expect(created.Actions[0].Create.Panel.Key).To(Equal(p.Key))
+			last := decoded[len(decoded)-1]
+			Expect(last.Key).To(Equal(p.Key))
+			Expect(last.DispatchKey).To(Equal("dk-1"))
+			Expect(last.Actions).To(HaveLen(1))
+			Expect(last.Actions[0].Type).To(Equal(panel.ActionTypeRename))
+		},
+	)
 
-	It("Should emit the deleted panel key on the delete channel", func(ctx SpecContext) {
-		responses := openStreamer(ctx, deleteChannelName)
-		p := panel.Panel{Name: "sig-del", Parent: &parentID}
-		Expect(svc.NewWriter(nil).Create(ctx, &p)).To(Succeed())
-		Expect(svc.NewWriter(nil).Delete(ctx, p.Key)).To(Succeed())
-		var res framer.StreamerResponse
-		Eventually(responses.Outlet(), time.Second*5).Should(Receive(&res))
-		var keys []uuid.UUID
-		for sample := range res.Frame.SeriesAt(0).Samples() {
-			keys = append(keys, MustSucceed(uuid.FromBytes(sample)))
-		}
-		Expect(keys).To(ContainElement(p.Key))
-	})
+	It(
+		"Should not broadcast a create rejected by ontology validation",
+		func(ctx SpecContext) {
+			responses := openStreamer(ctx, setChannelName)
+			missing := user.OntologyID(uuid.New())
+			p := panel.Panel{Name: "sig-reject", Parent: &missing}
+			Expect(writer.Create(ctx, &p)).ToNot(Succeed())
+			Consistently(responses.Outlet(), 250*time.Millisecond).ShouldNot(Receive())
+		},
+	)
+
+	It(
+		"Should emit the deleted panel key on the delete channel",
+		func(ctx SpecContext) {
+			responses := openStreamer(ctx, deleteChannelName)
+			p := panel.Panel{Name: "sig-del", Parent: &parentID}
+			Expect(writer.Create(ctx, &p)).To(Succeed())
+			Expect(writer.Delete(ctx, p.Key)).To(Succeed())
+			var res framer.StreamerResponse
+			Eventually(responses.Outlet(), time.Second*5).Should(Receive(&res))
+			var keys []uuid.UUID
+			for sample := range res.Frame.SeriesAt(0).Samples() {
+				keys = append(keys, MustSucceed(uuid.FromBytes(sample)))
+			}
+			Expect(keys).To(ContainElement(p.Key))
+		},
+	)
 })

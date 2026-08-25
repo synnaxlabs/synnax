@@ -20,8 +20,10 @@ import { type IconBaseProps } from "react-icons";
 import { CSS } from "@/css";
 import { type Theming } from "@/theming";
 
+/** Props for every icon in the set. */
 export interface IconProps extends Omit<IconBaseProps, "color" | "children"> {
   ref?: Ref<SVGSVGElement>;
+  /** Fill color. A number selects that step on the theme gray scale. */
   color?: color.Crude | Theming.Shade;
 }
 
@@ -54,17 +56,19 @@ const createSubIcon = (
         cx={SUB_SIZE / 2}
         cy={SUB_SIZE / 2}
       />
-      <Icon className={CSS(CSS.B("sub"), CSS.M(key))} size={SUB_SIZE} />
+      <Icon className={CSS.cls(CSS.B("sub"), CSS.M(key))} size={SUB_SIZE} />
     </g>
   );
 };
 
+/** An icon component. Every member of the icon set has this type. */
 export interface FC extends ReactFC<IconProps> {}
 
 interface WrapIconOpts {
   className?: string;
 }
 
+/** A raw SVG component, as generated from an icon file. Wrap it with {@link wrapSVGIcon}. */
 export interface SVGFC extends ReactFC<IconBaseProps> {}
 
 const parseColor = (c?: color.Crude | Theming.Shade): string | undefined => {
@@ -72,6 +76,12 @@ const parseColor = (c?: color.Crude | Theming.Shade): string | undefined => {
   return color.cssString(c);
 };
 
+/**
+ * Turns a raw SVG component into an {@link FC}, applying the icon class names and
+ * theme-aware color parsing. Icons are decorative by default: without an explicit
+ * `aria-label` they are hidden from the accessibility tree, so they never leak into
+ * an ancestor's accessible name.
+ */
 export const wrapSVGIcon = (
   Base: SVGFC,
   name: string,
@@ -82,8 +92,8 @@ export const wrapSVGIcon = (
     c = parseColor(c);
     return (
       <Base
-        className={CSS(CSS.B("icon"), pClassName, className, typeClass)}
-        aria-label={rest["aria-label"] ?? typeClass}
+        className={CSS.cls(CSS.B("icon"), pClassName, className, typeClass)}
+        aria-hidden={rest["aria-label"] == null ? true : undefined}
         color={c}
         {...rest}
       />
@@ -93,6 +103,57 @@ export const wrapSVGIcon = (
   return O;
 };
 
+const STACK_SCALE = 0.75;
+const STACK_OFFSET = BASE_SIZE * (1 - STACK_SCALE);
+/**
+ * Copies size themselves in `em`, which inside a view box counts user units rather than
+ * pixels, so the font size has to be pinned to the view box or they scale with the
+ * caller's text.
+ */
+const STACK_COPY_STYLE = { fontSize: BASE_SIZE };
+
+/**
+ * createStacked returns an icon that draws Base twice in oblique projection: a back
+ * copy shifted up and right, a front copy shifted down and left. A halo painted in the
+ * surface color sits under the front copy so the two silhouettes stay separable.
+ */
+export const createStacked = (Base: FC): FC => {
+  const Stacked = ({ className, color: c, ...rest }: IconProps) => (
+    <svg
+      className={CSS.cls(CSS.B("icon"), CSS.BM("icon", "stacked"), className)}
+      viewBox={`0 0 ${BASE_SIZE} ${BASE_SIZE}`}
+      height="1em"
+      width="1em"
+      color={parseColor(c)}
+      {...rest}
+    >
+      <g
+        style={STACK_COPY_STYLE}
+        transform={`translate(${STACK_OFFSET}, 0) scale(${STACK_SCALE})`}
+      >
+        <Base />
+      </g>
+      <g
+        style={STACK_COPY_STYLE}
+        transform={`translate(0, ${STACK_OFFSET}) scale(${STACK_SCALE})`}
+      >
+        <g className={CSS.BE("icon", "halo")}>
+          <Base />
+        </g>
+        <Base />
+      </g>
+    </svg>
+  );
+  Stacked.displayName = Base.displayName || Base.name;
+  return Stacked;
+};
+
+/**
+ * @returns an icon that draws Base with a smaller icon badged into any of its four
+ * corners. Base itself is returned when no corner is given.
+ *
+ * @example createComposite(Icon.Channel, { bottomRight: Icon.Add })
+ */
 export const createComposite = (
   Base: FC,
   { topRight, topLeft, bottomLeft, bottomRight }: Record<string, FC | undefined>,
@@ -109,7 +170,7 @@ export const createComposite = (
     c = parseColor(c);
     return (
       <svg
-        className={CSS(CSS.B("icon"), CSS.BM("icon", "composite"))}
+        className={CSS.cls(CSS.B("icon"), CSS.BM("icon", "composite"))}
         viewBox="0 0 24 24"
         height="1em"
         width="1em"

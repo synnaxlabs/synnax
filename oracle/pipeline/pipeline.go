@@ -7,33 +7,32 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package pipeline is the single in-memory execution path that takes a set of
-// .oracle schema files and produces (a) the canonical formatted schema source
-// for each input and (b) the canonical generated output for each registered
-// plugin. Every other oracle entrypoint - sync, generate, check - is a
-// consumer of this pipeline. There is no other code path that turns schemas
-// into outputs; sync and generate cannot disagree with check about what is
-// "valid", because they all run the same Run.
+// Package pipeline is the single in-memory execution path that takes a set of .oracle
+// schema files and produces (a) the canonical formatted schema source for each input
+// and (b) the canonical generated output for each registered plugin. Every other oracle
+// entrypoint - sync, generate, check - is a consumer of this pipeline. There is no
+// other code path that turns schemas into outputs; sync and generate cannot disagree
+// with check about what is "valid", because they all run the same Run.
 //
-// The pipeline does not touch the filesystem outside of reading inputs.
-// Writing canonical schema source, writing generated outputs, or invoking
-// post-write hooks are all consumer concerns layered on top of the Result.
+// The pipeline does not touch the filesystem outside of reading inputs. Writing
+// canonical schema source, writing generated outputs, or invoking post-write hooks are
+// all consumer concerns layered on top of the Result.
 package pipeline
 
 import (
 	"context"
+	"maps"
 	"os"
 	"runtime"
 	"sort"
 	"sync"
-	"time"
 
 	"github.com/synnaxlabs/oracle/analyzer"
-	"github.com/synnaxlabs/oracle/format"
 	"github.com/synnaxlabs/oracle/formatter"
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/oracle/versions"
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"golang.org/x/sync/errgroup"
@@ -43,23 +42,17 @@ import (
 type Options struct {
 	// RepoRoot is the absolute path to the repository root.
 	RepoRoot string
-	// Schemas is the set of repo-relative .oracle file paths to analyze.
-	// Callers must normalize these via paths.Normalize before passing them
-	// in; see DiscoverSchemas for the canonical discovery helper.
+	// Schemas is the set of repo-relative .oracle file paths to analyze. Callers must
+	// normalize these via paths.Normalize before passing them in; see DiscoverSchemas
+	// for the canonical discovery helper.
 	Schemas []string
-	// Plugins is the registry of code generators to run. Pass nil to skip
-	// plugin generation entirely (analyze-only mode).
+	// Plugins is the registry of code generators to run. Pass nil to skip plugin
+	// generation entirely (analyze-only mode).
 	Plugins *plugin.Registry
-	// Loader is the analyzer file loader for resolving schema imports. Pass
-	// nil to use a StandardFileLoader rooted at RepoRoot.
-	Loader analyzer.FileLoader
-	// Workers caps fan-out across schema formatting and plugin generation.
-	// Zero (or negative) defaults to GOMAXPROCS.
-	Workers int
 }
 
-// Result is the artifact set produced by a single pipeline run, held entirely
-// in memory.
+// Result is the artifact set produced by a single pipeline run, held entirely in
+// memory.
 //
 // Field rules:
 //   - Sources is always populated with the as-read source bytes for every
@@ -67,42 +60,40 @@ type Options struct {
 //   - FormattedSources holds the canonical formatter output for every input.
 //     A schema's entry equals its Sources entry when no formatting drift
 //     exists.
+//   - MergedSources holds the canonical live-file projection for every
+//     versioned resource: version-owned content from the chain, live-owned
+//     annotations from the on-disk source. Analysis and sync use these bytes
+//     in place of FormattedSources; check compares them against disk.
 //   - Resolutions and Diagnostics are populated by the analyzer. Resolutions
 //     is nil when the analyzer produced fatal errors. Diagnostics is always
 //     non-nil and may carry warnings even on success.
 //   - Outputs is the per-plugin set of generated files, byte-identical to
 //     what plugins emitted (no formatter chain applied yet). Empty when
 //     Options.Plugins is nil or the analyzer failed.
-//   - Timings records elapsed wall time for each pipeline phase. Useful for
-//     verbose / profile output.
 type Result struct {
 	Schemas          []string
 	Sources          map[string][]byte
 	FormattedSources map[string][]byte
+	MergedSources    map[string][]byte
 	Resolutions      *resolution.Table
-	Diagnostics      *diagnostics.Diagnostics
+	Diagnostics      *diagnostics.Files
 	Outputs          map[string][]plugin.File
-	// Deletions holds repo-relative paths of files plugins requested be
-	// removed from disk (e.g. when migrate retargets a transform). Keyed
-	// by plugin name to mirror Outputs.
+	// Deletions holds repo-relative paths of files plugins requested be removed from
+	// disk (e.g. when migrate retargets a transform). Keyed by plugin name to mirror
+	// Outputs.
 	Deletions map[string][]string
-	Timings   Timings
+	// Chains holds the discovered version chains, keyed by live import path.
+	Chains map[string]versions.Chain
+	// Versions resolves the version chains through the same overlay loader
+	// analysis used; nil when the repository declares no chains.
+	Versions *versions.Resolver
 }
 
-// Timings records the wall-clock duration of each pipeline phase.
-type Timings struct {
-	Read     time.Duration
-	Format   time.Duration
-	Analyze  time.Duration
-	Generate time.Duration
-}
-
-// Run executes the pipeline end to end. The returned Result is always non-nil
-// and reflects whatever was completed before the first fatal failure.
-// Diagnostics surface non-fatal issues (warnings, info, hints). The error
-// return is reserved for IO failures and unexpected errors that prevent the
-// pipeline from running at all; analyzer or plugin diagnostics do not
-// surface as a Go error.
+// Run executes the pipeline end to end. The returned Result is always non-nil and
+// reflects whatever was completed before the first fatal failure. Diagnostics surface
+// non-fatal issues (warnings, info, hints). The error return is reserved for IO
+// failures and unexpected errors that prevent the pipeline from running at all;
+// analyzer or plugin diagnostics do not surface as a Go error.
 func Run(ctx context.Context, opts Options) (*Result, error) {
 	if opts.RepoRoot == "" {
 		return nil, errors.New("pipeline: RepoRoot is required")
@@ -110,14 +101,8 @@ func Run(ctx context.Context, opts Options) (*Result, error) {
 	if len(opts.Schemas) == 0 {
 		return nil, errors.New("pipeline: at least one schema is required")
 	}
-	loader := opts.Loader
-	if loader == nil {
-		loader = analyzer.NewStandardFileLoader(opts.RepoRoot)
-	}
-	workers := opts.Workers
-	if workers <= 0 {
-		workers = runtime.GOMAXPROCS(0)
-	}
+	loader := analyzer.NewStandardFileLoader(opts.RepoRoot)
+	workers := runtime.GOMAXPROCS(0)
 
 	r := &Result{
 		Schemas:          append([]string(nil), opts.Schemas...),
@@ -125,7 +110,7 @@ func Run(ctx context.Context, opts Options) (*Result, error) {
 		FormattedSources: make(map[string][]byte, len(opts.Schemas)),
 		Outputs:          make(map[string][]plugin.File),
 		Deletions:        make(map[string][]string),
-		Diagnostics:      &diagnostics.Diagnostics{},
+		Diagnostics:      diagnostics.NewFiles(),
 	}
 	sort.Strings(r.Schemas)
 
@@ -133,7 +118,22 @@ func Run(ctx context.Context, opts Options) (*Result, error) {
 		return r, err
 	}
 
-	if err := analyze(ctx, r, loader); err != nil {
+	chains, err := versions.Discover(opts.RepoRoot)
+	if err != nil {
+		return r, err
+	}
+	r.Chains = chains
+	if len(chains) > 0 {
+		if err := mergeLiveSources(ctx, r, loader, chains); err != nil {
+			return r, err
+		}
+	}
+	effective := newOverlayLoader(loader, r.effectiveSources())
+	if len(chains) > 0 {
+		r.Versions = versions.NewResolver(chains, effective)
+	}
+
+	if err := analyze(ctx, r, effective); err != nil {
 		return r, err
 	}
 
@@ -146,10 +146,90 @@ func Run(ctx context.Context, opts Options) (*Result, error) {
 	return r, nil
 }
 
-// DiscoverSchemas finds every .oracle file under <repoRoot>/schemas and
-// returns the repo-relative paths in sorted order. This is the discovery
-// helper sync, generate, and check share; it is the only correct way to
-// build Options.Schemas from a glob.
+// EffectiveSource returns the canonical bytes a schema contributes to analysis and to
+// disk after sync: the merged live projection when one exists, the formatted source
+// otherwise.
+func (r *Result) EffectiveSource(path string) []byte {
+	if merged, ok := r.MergedSources[path]; ok {
+		return merged
+	}
+	return r.FormattedSources[path]
+}
+
+// effectiveSources overlays MergedSources onto FormattedSources.
+func (r *Result) effectiveSources() map[string][]byte {
+	out := make(map[string][]byte, len(r.FormattedSources)+len(r.MergedSources))
+	maps.Copy(out, r.FormattedSources)
+	maps.Copy(out, r.MergedSources)
+	return out
+}
+
+// mergeLiveSources computes the canonical live-file projection for every version chain,
+// iterating to a fixpoint: a merged live file can change what another chain's version
+// files resolve through a live import, so merges re-run over their own output until
+// stable.
+func mergeLiveSources(
+	ctx context.Context,
+	r *Result,
+	loader analyzer.FileLoader,
+	chains map[string]versions.Chain,
+) error {
+	livePaths := make([]string, 0, len(chains))
+	for livePath := range chains {
+		livePaths = append(livePaths, livePath)
+	}
+	sort.Strings(livePaths)
+	prev := make(map[string][]byte)
+	for range 3 {
+		overlay := make(map[string][]byte, len(r.FormattedSources)+len(prev))
+		maps.Copy(overlay, r.FormattedSources)
+		maps.Copy(overlay, prev)
+		resolver := versions.NewResolver(chains, newOverlayLoader(loader, overlay))
+		next := make(map[string][]byte, len(chains))
+		for _, livePath := range livePaths {
+			file := livePath + ".oracle"
+			merged, err := versions.MergeLive(
+				ctx, resolver, chains[livePath], string(r.FormattedSources[file]),
+			)
+			if err != nil {
+				return err
+			}
+			if merged == "" {
+				continue
+			}
+			next[file] = []byte(merged)
+		}
+		if sourcesEqual(prev, next) {
+			r.MergedSources = next
+			for file := range next {
+				if _, known := r.Sources[file]; !known {
+					r.Schemas = append(r.Schemas, file)
+					sort.Strings(r.Schemas)
+				}
+			}
+			return nil
+		}
+		prev = next
+	}
+	return errors.New("live-file merge did not converge")
+}
+
+// sourcesEqual reports whether two source maps hold identical bytes.
+func sourcesEqual(a, b map[string][]byte) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for p, ab := range a {
+		if bb, ok := b[p]; !ok || string(ab) != string(bb) {
+			return false
+		}
+	}
+	return true
+}
+
+// DiscoverSchemas finds every .oracle file under <repoRoot>/schemas and returns the
+// repo-relative paths in sorted order. This is the discovery helper sync, generate, and
+// check share; it is the only correct way to build Options.Schemas from a glob.
 func DiscoverSchemas(repoRoot string) ([]string, error) {
 	abs, err := globOracleSchemas(repoRoot)
 	if err != nil {
@@ -168,7 +248,6 @@ func DiscoverSchemas(repoRoot string) ([]string, error) {
 }
 
 func readAndFormat(ctx context.Context, r *Result, opts Options, workers int) error {
-	readStart := time.Now()
 	type entry struct {
 		path string
 		raw  []byte
@@ -193,9 +272,7 @@ func readAndFormat(ctx context.Context, r *Result, opts Options, workers int) er
 	if err := eg.Wait(); err != nil {
 		return err
 	}
-	r.Timings.Read = time.Since(readStart)
 
-	formatStart := time.Now()
 	formattedRaw := make([][]byte, len(entries))
 	eg2, gctx2 := errgroup.WithContext(ctx)
 	eg2.SetLimit(workers)
@@ -215,7 +292,6 @@ func readAndFormat(ctx context.Context, r *Result, opts Options, workers int) er
 	if err := eg2.Wait(); err != nil {
 		return err
 	}
-	r.Timings.Format = time.Since(formatStart)
 
 	for i, e := range entries {
 		r.Sources[e.path] = e.raw
@@ -225,15 +301,11 @@ func readAndFormat(ctx context.Context, r *Result, opts Options, workers int) er
 }
 
 func analyze(ctx context.Context, r *Result, loader analyzer.FileLoader) error {
-	start := time.Now()
-	// Use the freshly formatted bytes for analysis. This gives format
-	// drift the same semantic check the canonical source would receive,
-	// without requiring the caller to write them to disk first.
-	overlay := newOverlayLoader(loader, r.FormattedSources)
-	table, diag := analyzer.Analyze(ctx, r.Schemas, overlay)
-	r.Timings.Analyze = time.Since(start)
+	// The loader already overlays the canonical in-memory bytes (formatted sources plus
+	// merged live projections), so analysis sees exactly what sync would write to disk.
+	table, diag := analyzer.Analyze(ctx, r.Schemas, loader)
 	if diag != nil {
-		r.Diagnostics.Merge(*diag)
+		r.Diagnostics.Combine(diag)
 	}
 	if r.Diagnostics.Ok() {
 		r.Resolutions = table
@@ -242,9 +314,6 @@ func analyze(ctx context.Context, r *Result, loader analyzer.FileLoader) error {
 }
 
 func generate(ctx context.Context, r *Result, opts Options, workers int) error {
-	start := time.Now()
-	defer func() { r.Timings.Generate = time.Since(start) }()
-
 	levels := topoLevels(opts.Plugins)
 	var mu sync.Mutex
 	for _, level := range levels {
@@ -258,21 +327,14 @@ func generate(ctx context.Context, r *Result, opts Options, workers int) error {
 				req := &plugin.Request{
 					Resolutions: r.Resolutions,
 					RepoRoot:    opts.RepoRoot,
+					Versions:    r.Versions,
 				}
 				for _, depName := range p.Requires() {
-					dep := opts.Plugins.Get(depName)
-					if dep == nil {
+					if opts.Plugins.Get(depName) == nil {
 						return errors.Newf(
 							"plugin %q requires unknown plugin %q",
 							p.Name(), depName,
 						)
-					}
-					if err := dep.Check(req); err != nil {
-						return &plugin.DependencyStaleError{
-							Plugin:     p.Name(),
-							Dependency: depName,
-							Reason:     err,
-						}
 					}
 				}
 				resp, err := p.Generate(req)
@@ -291,44 +353,9 @@ func generate(ctx context.Context, r *Result, opts Options, workers int) error {
 			})
 		}
 		if err := eg.Wait(); err != nil {
-			if staleErr, ok := err.(*plugin.DependencyStaleError); ok {
-				r.Diagnostics.Add(diagnostics.Error(staleErr, nil))
-				return nil
-			}
 			r.Diagnostics.Add(diagnostics.Error(err, nil))
 			return nil
 		}
 	}
 	return nil
-}
-
-// FormatGenerated runs the on-disk formatter chain over a single plugin file
-// and returns its canonical bytes. This is the post-pipeline normalisation
-// step that turns plugin output (raw template render) into what would
-// actually land on disk after sync. Sharing this between sync (writes the
-// result) and check (compares the result against disk) is what makes the
-// generated-drift gate impossible to mismatch with what sync would write.
-func FormatGenerated(
-	ctx context.Context,
-	formatters *format.Registry,
-	repoRoot string,
-	files []plugin.File,
-	workers int,
-) ([]plugin.File, error) {
-	if len(files) == 0 {
-		return nil, nil
-	}
-	batch := make([]format.File, len(files))
-	for i, f := range files {
-		batch[i] = format.File{Path: paths.Resolve(f.Path, repoRoot), Content: f.Content}
-	}
-	formatted, err := formatters.FormatBatch(ctx, batch, workers)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]plugin.File, len(files))
-	for i, f := range files {
-		out[i] = plugin.File{Path: f.Path, Content: formatted[i].Content}
-	}
-	return out, nil
 }

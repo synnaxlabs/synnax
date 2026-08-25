@@ -9,3 +9,10 @@
 
 export * from "@/ontology/client";
 export * from "@/ontology/payload";
+export {
+  Cache,
+  RELATIONSHIP_DELETE_CHANNEL_NAME,
+  RELATIONSHIP_SET_CHANNEL_NAME,
+  RESOURCE_DELETE_CHANNEL_NAME,
+  RESOURCE_SET_CHANNEL_NAME,
+} from "@/ontology/store";

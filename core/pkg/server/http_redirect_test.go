@@ -17,9 +17,12 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
+	"github.com/synnaxlabs/synnax/pkg/security/cert/file"
 	"github.com/synnaxlabs/synnax/pkg/security/mock"
 	"github.com/synnaxlabs/synnax/pkg/server"
+	"github.com/synnaxlabs/x/address"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/net"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -32,19 +35,28 @@ var _ = Describe("HttpRedirect", func() {
 			KeySize:      mock.SmallKeySize,
 			Insecure:     new(false),
 		}))
+		src := MustSucceed(file.NewSource(fs,
+			"/usr/local/synnax/certs/node.crt",
+			"/usr/local/synnax/certs/node.key",
+		))
+		port := MustSucceed(net.FindOpenPort())
+		addr := address.Newf("localhost:%d", port)
 		received := false
 		b := MustSucceed(server.Serve(server.Config{
-			ListenAddress: "localhost:26260",
-			Security: server.SecurityConfig{
-				Insecure: new(false),
-				TLS:      prov.TLS(),
-			},
+			Listeners: []server.Listener{{
+				Address: addr,
+				TLS:     prov.TLSConfigFor(src),
+			}},
+			Security: server.SecurityConfig{Insecure: new(false)},
 			Branches: []server.Branch{
 				server.NewHTTPRedirectBranch(),
-				server.NewSimpleHTTPBranch(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					received = true
-					w.WriteHeader(http.StatusOK)
-				}), server.RoutingPolicyServeAlwaysPreferSecure),
+				server.NewSimpleHTTPBranch(
+					http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+						received = true
+						w.WriteHeader(http.StatusOK)
+					}),
+					server.RoutingPolicyServeAlwaysPreferSecure,
+				),
 			},
 		}))
 
@@ -52,11 +64,10 @@ var _ = Describe("HttpRedirect", func() {
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}
 		client := &http.Client{Transport: tr}
-		resp, err := client.Get("http://localhost:26260")
+		resp, err := client.Get("http://" + addr.String())
 		Expect(err).To(Succeed())
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		Expect(received).To(BeTrue())
 		Expect(b.Close()).To(Succeed())
 	})
-
 })

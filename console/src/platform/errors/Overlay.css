@@ -1,0 +1,26 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-error-overlay {
+    /* Anchors the absolutely-positioned island row. */
+    position: relative;
+    height: 100vh;
+
+    /* Tauri drags only when the click target is the drag region itself, and the
+       fallback's wrapper covers the whole overlay. Passing it through makes the
+       background draggable; the card takes its own clicks back. */
+    & > .pluto-error-fallback__container {
+        pointer-events: none;
+    }
+    & .pluto-error-fallback__content {
+        pointer-events: auto;
+    }
+}

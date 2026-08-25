@@ -41,6 +41,24 @@ describe("Bounds", () => {
       expect(bound.upper).toEqual(1);
     });
 
+    describe("partial bounds", () => {
+      it("should default a missing upper to Infinity", () => {
+        const bound = bounds.construct({ lower: 0 });
+        expect(bound.lower).toEqual(0);
+        expect(bound.upper).toEqual(Infinity);
+      });
+      it("should default a missing lower to -Infinity", () => {
+        const bound = bounds.construct({ upper: 10 });
+        expect(bound.lower).toEqual(-Infinity);
+        expect(bound.upper).toEqual(10);
+      });
+      it("should default both bounds when given an empty object", () => {
+        const bound = bounds.construct({});
+        expect(bound.lower).toEqual(-Infinity);
+        expect(bound.upper).toEqual(Infinity);
+      });
+    });
+
     describe("makeValid", () => {
       it("should make the bounds valid", () => {
         const bound = bounds.construct<number>(2, 1, { makeValid: true });
@@ -128,6 +146,14 @@ describe("Bounds", () => {
       expect(bound.lower).toEqual(-1);
       expect(bound.upper).toEqual(2);
     });
+    it("should treat INVALID as the union identity", () => {
+      const bound = bounds.max([[-250, -100], bounds.INVALID]);
+      expect(bound).toStrictEqual({ lower: -250, upper: -100 });
+    });
+    it("should preserve a reversed member instead of reordering it", () => {
+      const bound = bounds.max([{ lower: 20, upper: 10 }]);
+      expect(bound).toStrictEqual({ lower: 20, upper: 10 });
+    });
   });
   describe("min", () => {
     it("should return the bound with the minimum possible span", () => {
@@ -139,6 +165,17 @@ describe("Bounds", () => {
       expect(bound.lower).toEqual(1);
       expect(bound.upper).toEqual(1);
     });
+    it("should treat INVALID as absorbing", () => {
+      const bound = bounds.min([[-250, -100], bounds.INVALID]);
+      expect(bound).toStrictEqual(bounds.INVALID);
+    });
+    it("should produce reversed bounds for disjoint inputs", () => {
+      const bound = bounds.min([
+        [0, 10],
+        [20, 30],
+      ]);
+      expect(bound).toStrictEqual({ lower: 20, upper: 10 });
+    });
   });
   describe("isFinite", () => {
     it("should return false if either bound is infinite", () => {
@@ -148,6 +185,9 @@ describe("Bounds", () => {
     it("should return true if both bounds are finite", () => {
       const b = bounds.construct([1, 2]);
       expect(bounds.isFinite(b)).toEqual(true);
+    });
+    it("should return false for INVALID", () => {
+      expect(bounds.isFinite(bounds.INVALID)).toEqual(false);
     });
   });
   describe("overlapsWith", () => {
@@ -401,11 +441,18 @@ describe("Bounds", () => {
     });
   });
   describe("clamp", () => {
-    it("should clamp the provided target to the bounds", () => {
+    it("should project the target onto the closed interval", () => {
       const b = bounds.construct([1, 3]);
       expect(bounds.clamp(b, 0)).toEqual(1);
       expect(bounds.clamp(b, 2)).toEqual(2);
-      expect(bounds.clamp(b, 4)).toEqual(2);
+      expect(bounds.clamp(b, 4)).toEqual(3);
+    });
+    it("should return the upper bound when the target exceeds it", () => {
+      expect(bounds.clamp(bounds.DECIMAL, 1)).toEqual(1);
+      expect(bounds.clamp(bounds.DECIMAL, 5)).toEqual(1);
+    });
+    it("should return the lower bound when the target is below it", () => {
+      expect(bounds.clamp(bounds.DECIMAL, -5)).toEqual(0);
     });
   });
   describe("mean", () => {

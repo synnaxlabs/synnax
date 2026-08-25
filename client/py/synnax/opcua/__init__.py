@@ -8,27 +8,43 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.opcua.types import (
-    Channel,
+    MAKE,
+    MODEL,
     Device,
-    ReadChannel,
     ReadTask,
     SecurityMode,
     SecurityPolicy,
-    WrappedReadTaskConfig,
-    WriteChannel,
     WriteTask,
-    WriteTaskConfig,
 )
+from synnax.opcua.types_gen import (
+    BaseChannel,
+    ReadChannel,
+    ReadConfig,
+    ScanConfig,
+    WriteChannel,
+    WriteConfig,
+)
+from x.deprecation import deprecated_getattr
+
+_DEPRECATED: dict[str, str | tuple[str, str]] = {
+    "Channel": "ReadChannel",
+    "WriteTaskConfig": "WriteConfig",
+}
+
+__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())
 
 __all__ = [
-    "Channel",
+    "BaseChannel",
     "Device",
+    "MAKE",
+    "MODEL",
     "ReadChannel",
+    "ReadConfig",
     "ReadTask",
+    "ScanConfig",
     "SecurityMode",
     "SecurityPolicy",
-    "WrappedReadTaskConfig",
     "WriteChannel",
+    "WriteConfig",
     "WriteTask",
-    "WriteTaskConfig",
 ]

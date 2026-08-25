@@ -11,56 +11,18 @@
 
 package log
 
-import (
-	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/notation"
-	"github.com/synnaxlabs/x/telem"
-)
+import "github.com/synnaxlabs/synnax/pkg/service/log/versions"
 
 // Key is a unique identifier for a log, represented as a UUID.
-type Key = uuid.UUID
+type Key = versions.Key
 
 // TimestampConfig is per-channel timestamp display configuration.
-type TimestampConfig struct {
-	// Format controls how channel timestamps are rendered.
-	Format telem.TimestampFormat `json:"format" msgpack:"format"`
-	// Tz is the time zone used when rendering timestamps.
-	Tz telem.TimeZone `json:"tz" msgpack:"tz"`
-}
+type TimestampConfig = versions.TimestampConfig
 
 // ChannelEntry is a per-channel display configuration entry within a log.
-type ChannelEntry struct {
-	// Channel is the channel this entry references.
-	Channel channel.Key `json:"channel" msgpack:"channel"`
-	// Color is the display color for the channel.
-	Color color.Color `json:"color" msgpack:"color"`
-	// Notation is the numeric notation used to render samples.
-	Notation notation.Notation `json:"notation" msgpack:"notation"`
-	// Precision is the number of decimal digits to display. -1 means "use the log-level
-	// precision"; 17 is the maximum significant digits for a float64.
-	Precision int32 `json:"precision" msgpack:"precision"`
-	// Alias is a human-readable alias displayed in place of the channel name.
-	Alias string `json:"alias" msgpack:"alias"`
-	// Timestamp is the per-channel timestamp display configuration.
-	Timestamp TimestampConfig `json:"timestamp" msgpack:"timestamp"`
-}
+type ChannelEntry = versions.ChannelEntry
 
 // Log is a timestamped event and message logging component. Logs display chronological
 // records of events, system messages, and audit trails with filtering and formatting
 // capabilities.
-type Log struct {
-	// Key is the unique identifier for this log.
-	Key Key `json:"key" msgpack:"key"`
-	// Name is a human-readable name for the log.
-	Name string `json:"name" msgpack:"name"`
-	// Channels are the channels displayed in this log, in order.
-	Channels []ChannelEntry `json:"channels" msgpack:"channels"`
-	// TimestampPrecision is the precision of displayed timestamps (0-3).
-	TimestampPrecision int32 `json:"timestamp_precision" msgpack:"timestamp_precision"`
-	// ShowChannelNames controls whether channel names are displayed.
-	ShowChannelNames bool `json:"show_channel_names" msgpack:"show_channel_names"`
-	// ShowReceiptTimestamp controls whether the receipt timestamp column is displayed.
-	ShowReceiptTimestamp bool `json:"show_receipt_timestamp" msgpack:"show_receipt_timestamp"`
-}
+type Log = versions.Log

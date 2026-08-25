@@ -45,8 +45,8 @@ const (
 // Context represents the metadata for a request that is passed to Middleware.
 type Context struct {
 	context.Context
-	// Params is a set of arbitrary parameters that can be set by client side middleware,
-	// and read by server side middleware.
+	// Params is a set of arbitrary parameters that can be set by client side
+	// middleware, and read by server side middleware.
 	Params
 	// Protocol is the protocol that the request is being sent over.
 	Protocol string
@@ -62,8 +62,8 @@ type Context struct {
 
 // SecurityInfo represents the security information for a request.
 type SecurityInfo struct {
-	// TLS contains the TLS information for the request. If Used is false, the connection
-	// is not protected by TLS, and the ConnectionState is invalid.
+	// TLS contains the TLS information for the request. If Used is false, the
+	// connection is not protected by TLS, and the ConnectionState is invalid.
 	TLS struct {
 		// ConnectionState is the TLS connection state.
 		tls.ConnectionState
@@ -72,8 +72,8 @@ type SecurityInfo struct {
 	}
 }
 
-// Params is a set of arbitrary parameters that can be set by client side middleware, and
-// read by server side middleware.
+// Params is a set of arbitrary parameters that can be set by client side middleware,
+// and read by server side middleware.
 type Params map[string]any
 
 // GetRequired returns the value of the given key, or panics if the key is not set. It

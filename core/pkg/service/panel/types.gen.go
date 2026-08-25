@@ -11,271 +11,69 @@
 
 package panel
 
-import (
-	"encoding/json"
-	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/spatial"
-)
+import "github.com/synnaxlabs/synnax/pkg/service/panel/versions"
 
-// Key is a unique identifier for a panel, represented as a UUID.
-type Key = uuid.UUID
+// TabKey uniquely identifies a tab within a panel.
+type TabKey = versions.TabKey
 
 // TabBase carries the identity shared by every tab variant.
-type TabBase struct {
-	// Key is the stable unique identifier of this tab within the panel. It is independent
-	// of the tab's content, so a tab's content may be swapped without changing the tab's
-	// identity or position.
-	Key uuid.UUID `json:"key" msgpack:"key"`
-}
+type TabBase = versions.TabBase
 
-// Leaf is a leaf node in the panel tree displaying a tab strip.
-type Leaf struct {
-	// Tabs is the ordered list of tabs in this leaf.
-	Tabs []Tab `json:"tabs" msgpack:"tabs"`
-}
-
-// Split is an interior split node dividing its area between two children.
-type Split struct {
-	// Direction is the axis along which this node is split.
-	Direction spatial.Direction `json:"direction" msgpack:"direction"`
-	// Size is the fraction in [0, 1] of the parent area allocated to first. The remainder
-	// is allocated to last.
-	Size spatial.Decimal `json:"size" msgpack:"size"`
-	// First is the first child (left for x, top for y).
-	First Node `json:"first" msgpack:"first"`
-	// Last is the second child (right for x, bottom for y).
-	Last Node `json:"last" msgpack:"last"`
-}
-
-// Panel is a tab in a project owning a tree of visualization tabs. A panel is owned by
-// a project (project panel) or by a user (draft); renaming a draft promotes it to
-// project ownership.
-type Panel struct {
-	// Key is the unique identifier for this panel.
-	Key Key `json:"key" msgpack:"key"`
-	// Name is a human-readable name for the panel.
-	Name string `json:"name" msgpack:"name"`
-	// Root is the root of the panel tree.
-	Root Node `json:"root" msgpack:"root"`
-	// Parent is an optional parent resource for the panel in the ontology. When absent on
-	// create, the panel is parented to the creating user as a draft. Parenthood lives in
-	// the ontology graph, so the field is not persisted on the panel record and is absent
-	// on retrieve.
-	Parent *ontology.ID `json:"parent,omitempty" msgpack:"parent,omitempty"`
-}
-
-type TabType string
-
-const (
-	TabTypeResource TabType = "resource"
-	TabTypeView     TabType = "view"
-	TabTypeEmpty    TabType = "empty"
-)
-
-type TabVariant interface {
-	isTabVariant()
-}
-
-// TabResource is a tab displaying a backing core document.
-type TabResource struct {
-	TabBase
-	// Resource is the visualization resource displayed by this tab, set via SetTabResource.
-	Resource ontology.ID `json:"resource" msgpack:"resource"`
-}
-
-func (TabResource) isTabVariant() {}
-
-// TabView is a tab displaying an inline, self-describing view. Unlike a resource, a
-// view has no backing core document: it carries its own type and opaque args. Used for
-// app-views and tools (docs, explorers, about, the visualization picker).
-type TabView struct {
-	TabBase
-	// Type is the Console-owned view type identifier (e.g., 'docs', 'about') used to select
-	// a renderer.
-	Type string `json:"type" msgpack:"type"`
-	// Name is the human-readable tab name for the view. A view has no backing resource to
-	// derive a name from, so it carries its own. May be renamed via SetTabView; when empty
-	// the Console falls back to a type-derived default.
-	Name string `json:"name" msgpack:"name"`
-	// Args is an opaque, Console-owned configuration payload for the view. Core never
-	// interprets it; it round-trips as-is.
-	Args msgpack.EncodedJSON `json:"args" msgpack:"args"`
-}
-
-func (TabView) isTabVariant() {}
-
-// TabEmpty is a tab with no content yet. An empty tab renders the visualization
-// selector at render time; SetTabResource or SetTabView fills it in place.
-type TabEmpty struct {
-	TabBase
-}
-
-func (TabEmpty) isTabVariant() {}
+// View is an inline, self-describing view: a Console-owned type plus an opaque
+// configuration payload, with no backing core document. Used for app-views and tools
+// (docs, explorers, task forms, and the selector pickers).
+type View = versions.View
 
 // Tab is a single tab in a leaf. Tab content is a discriminated union: a resource (a
-// backing core document, e.g. a line plot), a view (an inline, self-describing
-// app-view, e.g. docs), or empty (the visualization selector). Display attributes
-// (name, icon, closability) are resolved at render time from the content. The same
-// content may be referenced by multiple tabs in the same or other panels.
-type Tab struct {
-	Variant TabVariant
-}
-
-func (u Tab) MarshalJSON() ([]byte, error) {
-	if u.Variant == nil {
-		return []byte("null"), nil
-	}
-	var t TabType
-	switch u.Variant.(type) {
-	case TabResource:
-		t = TabTypeResource
-	case TabView:
-		t = TabTypeView
-	case TabEmpty:
-		t = TabTypeEmpty
-	default:
-		return nil, errors.Newf("Tab: nil or unknown variant %T", u.Variant)
-	}
-	raw, err := json.Marshal(u.Variant)
-	if err != nil {
-		return nil, err
-	}
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		return nil, err
-	}
-	tag, err := json.Marshal(t)
-	if err != nil {
-		return nil, err
-	}
-	fields["variant"] = tag
-	return json.Marshal(fields)
-}
-
-func (u *Tab) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
-		u.Variant = nil
-		return nil
-	}
-	var disc struct {
-		Type TabType `json:"variant"`
-	}
-	if err := json.Unmarshal(data, &disc); err != nil {
-		return err
-	}
-	switch disc.Type {
-	case TabTypeResource:
-		var v TabResource
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case TabTypeView:
-		var v TabView
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case TabTypeEmpty:
-		var v TabEmpty
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	default:
-		return errors.Newf("Tab: unknown variant %q", disc.Type)
-	}
-	return nil
-}
-
-type NodeType string
+// backing core document, e.g. a line plot) or a view (an inline, self-describing
+// app-view, e.g. docs). A freshly created tab is a view whose type is a selector
+// picker; SetTabResource or SetTabView swaps content in place. Display attributes
+// (name, icon, closability) are resolved at render time from the content. A resource
+// may back at most one tab per panel; views may repeat.
+type Tab = versions.Tab
+type TabVariant = versions.TabVariant
+type TabType = versions.TabType
 
 const (
-	NodeTypeLeaf  NodeType = "leaf"
-	NodeTypeSplit NodeType = "split"
+	// ResourceTabType is a tab displaying a backing core document.
+	ResourceTabType TabType = versions.ResourceTabType
+	// ViewTabType is a tab displaying an inline, self-describing view. Unlike a
+	// resource, a view has no backing core document: it carries its own type and opaque
+	// args. Used for app-views and tools (docs, explorers, task forms, and the selector
+	// pickers).
+	ViewTabType TabType = versions.ViewTabType
 )
 
-type NodeVariant interface {
-	isNodeVariant()
-}
+// ResourceTab is a tab displaying a backing core document.
+type ResourceTab = versions.ResourceTab
 
-type NodeLeaf struct {
-	Leaf
-}
-
-func (NodeLeaf) isNodeVariant() {}
-
-type NodeSplit struct {
-	Split
-}
-
-func (NodeSplit) isNodeVariant() {}
+// ViewTab is a tab displaying an inline, self-describing view. Unlike a resource, a
+// view has no backing core document: it carries its own type and opaque args. Used for
+// app-views and tools (docs, explorers, task forms, and the selector pickers).
+type ViewTab = versions.ViewTab
 
 // Node is a node in the panel tree: either a leaf displaying a tab strip or an interior
 // split. Nodes are identified by path-derived numeric keys during traversal (1 = root,
 // 2k = first child, 2k+1 = last child).
-type Node struct {
-	Variant NodeVariant
-}
+type Node = versions.Node
+type NodeVariant = versions.NodeVariant
+type NodeType = versions.NodeType
 
-func (u Node) MarshalJSON() ([]byte, error) {
-	if u.Variant == nil {
-		return []byte("null"), nil
-	}
-	var t NodeType
-	switch u.Variant.(type) {
-	case NodeLeaf:
-		t = NodeTypeLeaf
-	case NodeSplit:
-		t = NodeTypeSplit
-	default:
-		return nil, errors.Newf("Node: nil or unknown variant %T", u.Variant)
-	}
-	raw, err := json.Marshal(u.Variant)
-	if err != nil {
-		return nil, err
-	}
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		return nil, err
-	}
-	tag, err := json.Marshal(t)
-	if err != nil {
-		return nil, err
-	}
-	fields["variant"] = tag
-	return json.Marshal(fields)
-}
+const (
+	// LeafNodeType is a leaf node in the panel tree displaying a tab strip.
+	LeafNodeType NodeType = versions.LeafNodeType
+	// SplitNodeType is an interior split node dividing its area between two children.
+	SplitNodeType NodeType = versions.SplitNodeType
+)
 
-func (u *Node) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
-		u.Variant = nil
-		return nil
-	}
-	var disc struct {
-		Type NodeType `json:"variant"`
-	}
-	if err := json.Unmarshal(data, &disc); err != nil {
-		return err
-	}
-	switch disc.Type {
-	case NodeTypeLeaf:
-		var v NodeLeaf
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case NodeTypeSplit:
-		var v NodeSplit
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	default:
-		return errors.Newf("Node: unknown variant %q", disc.Type)
-	}
-	return nil
-}
+// LeafNode is a leaf node in the panel tree displaying a tab strip.
+type LeafNode = versions.LeafNode
+
+// SplitNode is an interior split node dividing its area between two children.
+type SplitNode = versions.SplitNode
+
+// Key is a unique identifier for a panel, represented as a UUID.
+type Key = versions.Key
+
+// Panel is a project-owned tree of visualization tabs.
+type Panel = versions.Panel

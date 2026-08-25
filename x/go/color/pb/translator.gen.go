@@ -11,9 +11,7 @@
 
 package pb
 
-import (
-	"github.com/synnaxlabs/x/color"
-)
+import "github.com/synnaxlabs/x/color"
 
 // ColorToPB converts Color to Color.
 func ColorToPB(r color.Color) (*Color, error) {
@@ -74,8 +72,10 @@ func StopToPB(r color.Stop) (*Stop, error) {
 	pb := &Stop{
 		Key:      r.Key,
 		Position: r.Position,
-		Switched: r.Switched,
 		Color:    colorVal,
+	}
+	if r.Switched != nil {
+		pb.Switched = r.Switched
 	}
 	return pb, nil
 }
@@ -93,7 +93,9 @@ func StopFromPB(pb *Stop) (color.Stop, error) {
 	}
 	r.Key = pb.Key
 	r.Position = pb.Position
-	r.Switched = pb.Switched
+	if pb.Switched != nil {
+		r.Switched = pb.Switched
+	}
 	return r, nil
 }
 

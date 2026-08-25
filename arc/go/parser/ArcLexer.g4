@@ -1,3 +1,12 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 lexer grammar ArcLexer;
 
 // =============================================================================
@@ -37,7 +46,12 @@ U64         : 'u64';
 F32         : 'f32';
 F64         : 'f64';
 STR         : 'str';
+BOOL        : 'bool';
 SERIES      : 'series';
+
+// Boolean literals
+TRUE        : 'true';
+FALSE       : 'false';
 
 // =============================================================================
 // Operators
@@ -136,7 +150,8 @@ fragment STR_PREFIX
 // Identifiers
 // =============================================================================
 
-IDENTIFIER  : [a-zA-Z_] [a-zA-Z0-9_]*;
+// '-' joins an identifier (dashed names on) unless it starts '->' or '-='.
+IDENTIFIER  : [a-zA-Z_] ( [a-zA-Z0-9_] | {p.dashJoinsIdentifier()}? '-' )*;
 
 // =============================================================================
 // Comments & Whitespace

@@ -17,7 +17,7 @@ import { Primitive as BasePrimitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
 import { type Spec } from "@/schematic/node/spec";
 
-export interface SymbolArgs<V extends schematic.NodeConfigType> {
+export interface SymbolParams<V extends schematic.NodeConfigType> {
   /// variant is the unique discriminant identifying the symbol in the registry.
   variant: V;
   /// name is the human-readable name shown in the symbols toolbar.
@@ -55,7 +55,7 @@ export const createStatic = <V extends schematic.NodeConfigType>({
   label = name,
   Primitive,
   zIndex = 4,
-}: SymbolArgs<V>) => {
+}: SymbolParams<V>) => {
   type Config = StaticConfig<V>;
   const defaultConfig = (): Config => ({
     variant,
@@ -75,7 +75,7 @@ export const createStatic = <V extends schematic.NodeConfigType>({
   return { spec };
 };
 
-interface ToggleArgs<V extends schematic.NodeConfigType> extends SymbolArgs<V> {
+interface ToggleParams<V extends schematic.NodeConfigType> extends SymbolParams<V> {
   /// node selects how the symbol renders. "toggle" (default) renders an interactive
   /// toggle bound to the configured telemetry. "labeled" renders a static labeled
   /// symbol while retaining the toggle telemetry config — used by symbols that carry
@@ -92,7 +92,7 @@ export const createToggle = <V extends schematic.NodeConfigType>({
   Primitive,
   zIndex = 4,
   node = "toggle",
-}: ToggleArgs<V>) => {
+}: ToggleParams<V>) => {
   type Config = ToggleSymbolConfig<V>;
   const defaultConfig = (): Config => ({
     variant,
@@ -125,7 +125,7 @@ export const createDummyToggle = <V extends schematic.NodeConfigType>({
   label = name,
   Primitive,
   zIndex = 4,
-}: SymbolArgs<V>) => {
+}: SymbolParams<V>) => {
   type Config = DummyToggleConfig<V>;
   const defaultConfig = (): Config => ({
     variant,

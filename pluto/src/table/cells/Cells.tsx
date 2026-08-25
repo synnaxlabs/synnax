@@ -10,7 +10,7 @@
 import "@/table/cells/Cells.css";
 
 import { table } from "@synnaxlabs/client";
-import { box, color, scale } from "@synnaxlabs/x";
+import { type border, box, color, scale } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
@@ -20,12 +20,17 @@ import { telem } from "@/telem/aether";
 import { Text as BaseText } from "@/text";
 import { Value as BaseValue } from "@/vis/value";
 
-export const textConfigZ = table.cellConfigTextZ;
-export type TextConfig = table.CellConfigText;
+export const textConfigZ = table.textCellConfigZ;
+export type TextConfig = table.TextCellConfig;
 
 export type CellProps<C extends table.CellConfig = table.CellConfig> = C & {
   cellKey: string;
   box: box.Box;
+  /**
+   * Rounding of the cell's corners in px. Only cells at the table's outer corners
+   * round.
+   */
+  borderRadius?: border.CrudeRadius;
   selected: boolean;
   editable: boolean;
   onSelect: (key: string, ev: React.MouseEvent) => void;
@@ -48,10 +53,15 @@ export const Text = ({
   const handleSelect = (e: React.MouseEvent) => onSelect(cellKey, e);
   const handleValueChange = (value: string) =>
     onChange({ variant: "text", value, level, weight, align, backgroundColor });
+  const cellStyle = useMemo(
+    () => ({ backgroundColor: color.cssString(backgroundColor), width: box.width(b) }),
+    [backgroundColor, b],
+  );
+  const editableStyle = useMemo(() => ({ justifyContent: align }), [align]);
   return (
     <Base
       id={cellKey}
-      className={CSS(
+      className={CSS.cls(
         Menu.CONTEXT_TARGET,
         selected && Menu.CONTEXT_SELECTED,
         CSS.BEM("table", "cell", "text"),
@@ -60,18 +70,14 @@ export const Text = ({
       height={box.height(b)}
       onClick={handleSelect}
       onContextMenu={handleSelect}
-      style={{
-        backgroundColor:
-          backgroundColor == null ? undefined : color.cssString(backgroundColor),
-        width: box.width(b),
-      }}
+      style={cellStyle}
     >
       <BaseText.Editable
         level={level}
         value={value}
         weight={weight}
         onChange={handleValueChange}
-        style={{ justifyContent: align }}
+        style={editableStyle}
         allowDoubleClick={editable}
         allowEmpty
         outline={false}
@@ -80,8 +86,8 @@ export const Text = ({
   );
 };
 
-export const valueConfigZ = table.cellConfigValueZ;
-export type ValueConfig = table.CellConfigValue;
+export const valueConfigZ = table.valueCellConfigZ;
+export type ValueConfig = table.ValueCellConfig;
 
 export const Value = ({
   cellKey,
@@ -89,6 +95,7 @@ export const Value = ({
   rollingAverage,
   precision,
   notation,
+  borderRadius,
   level = "h5",
   color: textColor,
   redline,
@@ -131,8 +138,14 @@ export const Value = ({
     backgroundTelem,
     location: { x: "center", y: "center" },
     clip: true,
+    borderRadius,
   });
   const handleSelect = (e: React.MouseEvent) => onSelect(cellKey, e);
+  // Use the column-driven box width, not BaseValue's natural text width: when
+  // row indicators are hidden, the first data row determines column widths via
+  // table-layout: fixed, so the cell must be locked to the stored column size
+  // or canvas/DOM alignment drifts.
+  const cellStyle = useMemo(() => ({ width: box.width(b) }), [b]);
 
   return (
     <Base
@@ -141,12 +154,8 @@ export const Value = ({
       height={box.height(b)}
       onClick={handleSelect}
       onContextMenu={handleSelect}
-      // Use the column-driven box width, not BaseValue's natural text width:
-      // when row indicators are hidden, the first data row determines column
-      // widths via table-layout: fixed, so the cell must be locked to the
-      // stored column size or canvas/DOM alignment drifts.
-      style={{ width: box.width(b) }}
-      className={CSS(
+      style={cellStyle}
+      className={CSS.cls(
         Menu.CONTEXT_TARGET,
         selected && Menu.CONTEXT_SELECTED,
         CSS.BEM("table", "cell", "value"),

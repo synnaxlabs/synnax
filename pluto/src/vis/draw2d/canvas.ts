@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, type destructor, dimensions, scale, xy } from "@synnaxlabs/x";
+import { border, box, type destructor, dimensions, scale, xy } from "@synnaxlabs/x";
 
 import { text } from "@/text/aether";
 import { applyOverScan } from "@/vis/render/util";
@@ -15,6 +15,31 @@ import { applyOverScan } from "@/vis/render/util";
 export interface FillTextOptions {
   useAtlas?: boolean;
 }
+
+export type Radii = number | DOMPointInit | Array<number | DOMPointInit>;
+
+const scaleRadius = (s: scale.XY, r: number | DOMPointInit): number | DOMPointInit => {
+  if (typeof r === "number") return s.x.dim(r);
+  return { x: s.x.dim(r.x ?? 0), y: s.y.dim(r.y ?? 0) };
+};
+
+/**
+ * Radii for `roundRect` in the order the canvas and CSS use: top-left, top-right,
+ * bottom-right, bottom-left.
+ */
+export const domRadii = (radius: border.CrudeRadius): Radii => {
+  const { topLeft, topRight, bottomRight, bottomLeft } = border.constructRadius(radius);
+  return [topLeft, topRight, bottomRight, bottomLeft];
+};
+
+// Corner radii reach roundRect as a number, a single pair, or one entry per corner. All
+// three have to scale with the box they round, or the corners keep their unscaled size.
+const scaleRadii = (s: scale.XY, radii?: Radii): Radii | undefined => {
+  if (radii == null) return radii;
+  if (typeof radii === "number") return s.x.dim(radii);
+  if (Array.isArray(radii)) return radii.map((r) => scaleRadius(s, r));
+  return scaleRadius(s, radii);
+};
 
 export class SugaredOffscreenCanvasRenderingContext2D implements OffscreenCanvasRenderingContext2D {
   readonly scale_: scale.XY;
@@ -101,6 +126,16 @@ export class SugaredOffscreenCanvasRenderingContext2D implements OffscreenCanvas
 
   reset(): void {
     this.wrapped.reset();
+    this.cachedFont = null;
+    this.cachedFillStyle = null;
+    this.cachedStrokeStyle = null;
+    this.cachedLineWidth = null;
+    this.cachedGlobalAlpha = null;
+    this.cachedTextAlign = null;
+    this.cachedTextBaseline = null;
+    this.cachedLineCap = null;
+    this.cachedLineJoin = null;
+    this.cachedMiterLimit = null;
   }
 
   applyScale(scale: scale.XY): SugaredOffscreenCanvasRenderingContext2D {
@@ -453,19 +488,13 @@ export class SugaredOffscreenCanvasRenderingContext2D implements OffscreenCanvas
     );
   }
 
-  roundRect(
-    x: number,
-    y: number,
-    w: number,
-    h: number,
-    radii?: number | DOMPointInit | Array<number | DOMPointInit> | undefined,
-  ): void {
+  roundRect(x: number, y: number, w: number, h: number, radii?: Radii): void {
     this.wrapped.roundRect(
       this.scale_.x.pos(x),
       this.scale_.y.pos(y),
       this.scale_.x.dim(w),
       this.scale_.y.dim(h),
-      typeof radii === "number" ? this.scale_.x.dim(radii) : radii,
+      scaleRadii(this.scale_, radii),
     );
   }
 
@@ -495,6 +524,11 @@ export class SugaredOffscreenCanvasRenderingContext2D implements OffscreenCanvas
     if (value === this.cachedLineJoin) return;
     this.cachedLineJoin = value;
     this.wrapped.lineJoin = value;
+  }
+
+  /** @returns the width in CSS pixels of a single device pixel. */
+  get hairlineWidth(): number {
+    return 1 / this.dpr;
   }
 
   get lineWidth(): number {
@@ -695,10 +729,19 @@ export class SugaredOffscreenCanvasRenderingContext2D implements OffscreenCanvas
     this.dpr = x;
   }
 
-  scissor(region: box.Box, overScan: xy.XY = xy.ZERO): destructor.Destructor {
+  scissor(
+    region: box.Box,
+    overScan: xy.XY = xy.ZERO,
+    radius?: border.CrudeRadius,
+  ): destructor.Destructor {
     const p = new ScaledPath2D(this.scale_);
     region = applyOverScan(region, overScan);
-    p.rect(...xy.couple(box.topLeft(region)), ...dimensions.couple(box.dims(region)));
+    const args = [
+      ...xy.couple(box.topLeft(region)),
+      ...dimensions.couple(box.dims(region)),
+    ] as const;
+    if (radius == null) p.rect(...args);
+    else p.roundRect(...args, domRadii(radius));
     this.save();
     this.clip(p.getPath());
     return () => this.restore();
@@ -840,40 +883,14 @@ export class ScaledPath2D {
     );
   }
 
-  roundRect(
-    x: number,
-    y: number,
-    w: number,
-    h: number,
-    radii?: number | DOMPointInit | Array<number | DOMPointInit>,
-  ): void {
-    const scaledRadii = this.scaleRadii(radii);
+  roundRect(x: number, y: number, w: number, h: number, radii?: Radii): void {
     this.path.roundRect(
       this.scale_.x.pos(x),
       this.scale_.y.pos(y),
       this.scale_.x.dim(w),
       this.scale_.y.dim(h),
-      scaledRadii,
+      scaleRadii(this.scale_, radii),
     );
-  }
-
-  private scaleRadii(
-    radii?: number | DOMPointInit | Array<number | DOMPointInit>,
-  ): number | DOMPointInit | Array<number | DOMPointInit> | undefined {
-    if (radii == null) return radii;
-    if (typeof radii === "number") return this.scale_.x.dim(radii);
-    if (Array.isArray(radii)) return radii.map((r) => this.scaleRadius(r));
-
-    return this.scaleRadius(radii);
-  }
-
-  private scaleRadius(r: number | DOMPointInit): number | DOMPointInit {
-    if (typeof r === "number") return this.scale_.x.dim(r);
-
-    return {
-      x: this.scale_.x.dim(r.x ?? 0),
-      y: this.scale_.y.dim(r.y ?? 0),
-    };
   }
 
   getPath(): Path2D {

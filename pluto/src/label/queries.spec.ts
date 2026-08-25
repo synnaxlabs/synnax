@@ -7,14 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, label } from "@synnaxlabs/client";
-import { color } from "@synnaxlabs/x";
+import { label } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
+import { color, testutil, TimeSpan } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { Label } from "@/label";
-import { Ontology } from "@/ontology";
+import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -22,10 +23,7 @@ const client = createTestClient();
 describe("queries", () => {
   let wrapper: FC<PropsWithChildren>;
   beforeAll(async () => {
-    wrapper = await createAsyncSynnaxWrapper({
-      client,
-      excludeFluxStores: [Ontology.RESOURCES_FLUX_STORE_KEY],
-    });
+    wrapper = await createAsyncSynnaxWrapper({ client });
   });
   describe("useList", () => {
     it("should return a list of label keys", async () => {
@@ -215,14 +213,14 @@ describe("queries", () => {
       ]);
 
       const { result } = renderHook(
-        () => Label.useRetrieveLabelsOf({ id: label.ontologyID(targetLabel.key) }),
+        () => Label.useResultLabelsOf({ id: label.ontologyID(targetLabel.key) }).data,
         { wrapper },
       );
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() => expect(result.current).toBeDefined());
 
-      expect(result.current.data).toHaveLength(2);
-      expect(result.current.data?.map((l) => l.key)).toContain(label1.key);
-      expect(result.current.data?.map((l) => l.key)).toContain(label2.key);
+      expect(result.current).toHaveLength(2);
+      expect(result.current?.map((l) => l.key)).toContain(label1.key);
+      expect(result.current?.map((l) => l.key)).toContain(label2.key);
     });
 
     it("should update when labels are added to entity", async () => {
@@ -233,15 +231,13 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () =>
-          Label.useRetrieveLabelsOf({
+          Label.useResultLabelsOf({
             id: label.ontologyID(targetLabel.key),
-          }),
+          }).data,
         { wrapper },
       );
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
-      const initialLength = result.current.data?.length ?? 0;
+      await waitFor(() => expect(result.current).toBeDefined());
+      const initialLength = result.current?.length ?? 0;
 
       const newLabel = await client.labels.create({
         name: "addedLabel",
@@ -250,8 +246,8 @@ describe("queries", () => {
       await client.labels.label(label.ontologyID(targetLabel.key), [newLabel.key]);
 
       await waitFor(() => {
-        expect(result.current.data).toHaveLength(initialLength + 1);
-        expect(result.current.data?.map((l) => l.key)).toContain(newLabel.key);
+        expect(result.current).toHaveLength(initialLength + 1);
+        expect(result.current?.map((l) => l.key)).toContain(newLabel.key);
       });
     });
 
@@ -269,22 +265,20 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () =>
-          Label.useRetrieveLabelsOf({
+          Label.useResultLabelsOf({
             id: label.ontologyID(targetLabel.key),
-          }),
+          }).data,
         { wrapper },
       );
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
-      expect(result.current.data?.map((l) => l.key)).toContain(labelToRemove.key);
+      await waitFor(() => expect(result.current).toBeDefined());
+      expect(result.current?.map((l) => l.key)).toContain(labelToRemove.key);
 
       await client.labels.label(label.ontologyID(targetLabel.key), [], {
         replace: true,
       });
 
       await waitFor(() => {
-        expect(result.current.data?.map((l) => l.key)).not.toContain(labelToRemove.key);
+        expect(result.current?.map((l) => l.key)).not.toContain(labelToRemove.key);
       });
     });
 
@@ -302,17 +296,15 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () =>
-          Label.useRetrieveLabelsOf({
+          Label.useResultLabelsOf({
             id: label.ontologyID(targetLabel.key),
-          }),
+          }).data,
         { wrapper },
       );
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
-      expect(
-        result.current.data?.find((l) => l.key === originalLabel.key)?.name,
-      ).toEqual("originalName");
+      await waitFor(() => expect(result.current).toBeDefined());
+      expect(result.current?.find((l) => l.key === originalLabel.key)?.name).toEqual(
+        "originalName",
+      );
 
       const updatedLabel = await client.labels.create({
         ...originalLabel,
@@ -320,9 +312,9 @@ describe("queries", () => {
       });
 
       await waitFor(() => {
-        expect(
-          result.current.data?.find((l) => l.key === updatedLabel.key)?.name,
-        ).toEqual("updatedName");
+        expect(result.current?.find((l) => l.key === updatedLabel.key)?.name).toEqual(
+          "updatedName",
+        );
       });
     });
 
@@ -340,20 +332,18 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () =>
-          Label.useRetrieveLabelsOf({
+          Label.useResultLabelsOf({
             id: label.ontologyID(targetLabel.key),
-          }),
+          }).data,
         { wrapper },
       );
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
-      expect(result.current.data?.map((l) => l.key)).toContain(labelToDelete.key);
+      await waitFor(() => expect(result.current).toBeDefined());
+      expect(result.current?.map((l) => l.key)).toContain(labelToDelete.key);
 
       await client.labels.delete(labelToDelete.key);
 
       await waitFor(() => {
-        expect(result.current.data?.map((l) => l.key)).not.toContain(labelToDelete.key);
+        expect(result.current?.map((l) => l.key)).not.toContain(labelToDelete.key);
       });
     });
     describe("retrieveMultiple", () => {
@@ -363,30 +353,30 @@ describe("queries", () => {
             { name: "label1", color: "#FF0000" },
             { name: "label2", color: "#00FF00" },
           ]);
-          const { result } = renderHook(
-            () => Label.useRetrieveMultiple({ keys: labels.map((l) => l.key) }),
+          const { result } = await renderHookSuspended(
+            () => Label.useMultiple({ keys: labels.map((l) => l.key) }),
             { wrapper },
           );
-          await waitFor(() => expect(result.current.variant).toEqual("success"));
-          expect(result.current.data).toEqual(labels);
+          await waitFor(() => expect(result.current).not.toBeNull());
+          expect(result.current).toEqual(labels);
         });
         it("should update when a label changes", async () => {
           const labels = await client.labels.create([
             { name: "label1", color: "#FF0000" },
             { name: "label2", color: "#00FF00" },
           ]);
-          const { result } = renderHook(
-            () => Label.useRetrieveMultiple({ keys: labels.map((l) => l.key) }),
+          const { result } = await renderHookSuspended(
+            () => Label.useMultiple({ keys: labels.map((l) => l.key) }),
             { wrapper },
           );
-          await waitFor(() => expect(result.current.variant).toEqual("success"));
-          expect(result.current.data).toEqual(labels);
+          await waitFor(() => expect(result.current).not.toBeNull());
+          expect(result.current).toEqual(labels);
           labels[0] = await client.labels.create({
             ...labels[0],
             name: "updatedLabel",
           });
           await waitFor(() => {
-            expect(result.current.data).toEqual(expect.arrayContaining(labels));
+            expect(result.current).toEqual(expect.arrayContaining(labels));
           });
         });
       });
@@ -414,7 +404,7 @@ describe("queries", () => {
 
   describe("useForm", () => {
     it("should create a new label", async () => {
-      const { result } = renderHook(() => Label.useForm({ query: {} }), {
+      const { result } = renderHook(() => Label.useForm({ query: null }), {
         wrapper,
       });
 
@@ -481,8 +471,33 @@ describe("queries", () => {
       });
     });
 
+    it("should not write back a label deleted while an autosave was pending", async () => {
+      const toDelete = await client.labels.create({
+        name: "autosaveRace",
+        color: "#FF0000",
+      });
+      const { result } = renderHook(
+        () =>
+          Label.useForm({
+            query: { key: toDelete.key },
+            autoSave: true,
+            // Holds the save open long enough for the delete to overtake it.
+            autoSaveDebounce: TimeSpan.milliseconds(500),
+          }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      act(() => result.current.form.set("name", "edited"));
+      await act(async () => await client.labels.delete(toDelete.key));
+      await testutil.expectAlways(async () => {
+        await expect(
+          async () => await client.labels.retrieve(toDelete.key),
+        ).rejects.toThrow();
+      }, 800);
+    });
+
     it("should handle form with default values", async () => {
-      const { result } = renderHook(() => Label.useForm({ query: {} }), {
+      const { result } = renderHook(() => Label.useForm({ query: null }), {
         wrapper,
       });
 
@@ -507,8 +522,34 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
       await expect(
-        async () => await client.labels.retrieve({ key: labelToDelete.key }),
+        async () => await client.labels.retrieve(labelToDelete.key),
       ).rejects.toThrow();
+    });
+
+    it("should run afterOptimistic before the delete commits", async () => {
+      const lbl = await client.labels.create({
+        name: "optimisticDelete",
+        color: "#FF0000",
+      });
+      const order: string[] = [];
+      const { result } = renderHook(
+        () =>
+          Label.useDelete({
+            afterOptimistic: ({ data }) => {
+              order.push(`optimistic:${data as label.Key}`);
+            },
+            afterSuccess: () => {
+              order.push("success");
+            },
+          }),
+        { wrapper },
+      );
+
+      await act(async () => {
+        await result.current.updateAsync(lbl.key);
+      });
+
+      expect(order).toEqual([`optimistic:${lbl.key}`, "success"]);
     });
 
     it("should handle delete operations in sequence", async () => {
@@ -535,10 +576,10 @@ describe("queries", () => {
       await waitFor(() => expect(result2.current.variant).toEqual("success"));
 
       await expect(
-        async () => await client.labels.retrieve({ key: label1.key }),
+        async () => await client.labels.retrieve(label1.key),
       ).rejects.toThrow();
       await expect(
-        async () => await client.labels.retrieve({ key: label2.key }),
+        async () => await client.labels.retrieve(label2.key),
       ).rejects.toThrow();
     });
   });

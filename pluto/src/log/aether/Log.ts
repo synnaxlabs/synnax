@@ -9,6 +9,7 @@
 
 import { log } from "@synnaxlabs/client";
 import {
+  bounds,
   box,
   color,
   type destructor,
@@ -31,17 +32,18 @@ import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
 
-export const logStateZ = log.newZ
+export const logStateZ = log.logZ
   .pick({
     channels: true,
     timestampPrecision: true,
-    showChannelNames: true,
-    showReceiptTimestamp: true,
+    channelNamesHidden: true,
+    receiptTimestampHidden: true,
   })
   .extend({
     region: box.box,
     wheelPos: z.number(),
     scrolling: z.boolean(),
+    resumedAt: z.number().default(0),
     empty: z.boolean(),
     visible: z.boolean(),
     // channelNames: server-side display names (fetched fresh, never persisted)
@@ -63,6 +65,10 @@ export const logStateZ = log.newZ
   });
 
 const SCROLLBAR_RENDER_THRESHOLD = 0.98;
+const SCROLLBAR_WIDTH = 6;
+// Floor on the thumb so it stays visible at the 100k entry cap, where the
+// proportional height falls below a pixel.
+const SCROLLBAR_MIN_HEIGHT = 32;
 const CANVAS: render.Canvas2DVariant = "lower2d";
 const CONTENT_PADDING = 6;
 
@@ -87,6 +93,9 @@ interface InternalState {
   namePadding: Record<string, string>;
   charWidth: number;
   lineHeight: number;
+  // Downward nudge aligning the selection band with glyph ink (see
+  // Draw2D.measureInkOffsetY).
+  selectionOffsetY: number;
   tsLen: number;
   selectionColor: color.Color;
   stopListeningTelem?: destructor.Destructor;
@@ -96,12 +105,15 @@ interface ScrollbackState {
   offset: number;
   offsetRef: number;
   scrollRef: number;
+  // Whether the viewport has moved off the newest entry since the pause began.
+  awayFromEnd: boolean;
 }
 
 const ZERO_SCROLLBACK: ScrollbackState = {
   offset: 0,
   offsetRef: 0,
   scrollRef: 0,
+  awayFromEnd: false,
 };
 
 const muteColor = (c: color.Crude, theme: theming.Theme): color.Color => {
@@ -120,7 +132,8 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
   static readonly z = logStateZ;
   schema = Log.z;
   entries: LogEntry[] = [];
-  scrollState: ScrollbackState = ZERO_SCROLLBACK;
+  // Copied, not shared: the scrollback branch mutates this in place.
+  scrollState: ScrollbackState = { ...ZERO_SCROLLBACK };
   // Render key for requestRender — allocated once, not per call.
   private renderKey: string = "";
 
@@ -148,10 +161,10 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
 
     i.lineHeight = i.theme.typography[this.state.font].size * i.theme.sizes.base;
     i.charWidth = i.draw2d.measureCharWidth(this.state.font);
+    i.selectionOffsetY = i.draw2d.measureInkOffsetY(this.state.font, i.lineHeight);
     i.tsLen =
       this.state.timestampPrecision === 0 ? 8 : 9 + this.state.timestampPrecision;
 
-    // Decompose merged channel entries into keys and config map.
     const channelEntries = this.state.channels;
     const prevEntries = this.prevState.channels;
     const channelsChanged = channelEntries !== prevEntries;
@@ -209,6 +222,7 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
         offset: off,
         offsetRef: off,
         scrollRef: this.state.wheelPos,
+        awayFromEnd: false,
       };
     } else if (scrolling) {
       // Adjust viewport offset based on wheel delta from the snapshot reference.
@@ -224,12 +238,17 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
         scrollState.offset = visCount;
         this.setState((s) => ({ ...s, wheelPos: this.prevState.wheelPos }));
       }
-      // Auto-resume live mode when scrolled back to the bottom.
-      if (scrollState.offset >= this.entries.length)
-        this.setState((s) => ({ ...s, scrolling: false }));
+      // Auto-resume live mode when the viewport is back on the newest entry. A pause
+      // taken at the bottom starts there, so it takes a return or a downward scroll.
+      if (scrollState.offset < this.entries.length) scrollState.awayFromEnd = true;
+      else if (scrollState.awayFromEnd || dist < 0)
+        this.setState((s) => ({
+          ...s,
+          scrolling: false,
+          resumedAt: performance.now(),
+        }));
     }
 
-    // Pull current entries and subscribe to new data from the telem source.
     this.entries = this.internal.telem.value();
     this.checkEmpty();
     i.stopListeningTelem?.();
@@ -247,7 +266,7 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
         this.clampSelection(evictedCount);
       }
       this.checkEmpty();
-      this.requestRender();
+      if (this.state.visible) this.requestRender();
     });
     if (!this.state.visible && !this.prevState.visible) return;
     this.requestRender();
@@ -312,30 +331,38 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     const clearScissor = renderCtx.scissor(reg, xy.ZERO, [CANVAS]);
     this.renderSelection(draw2d, sliceStart, slice.length, lh);
     this.renderElements(draw2d, slice, lh);
-    this.renderScrollbar(draw2d, lh);
+    this.renderScrollbar(draw2d);
     clearScissor();
     const eraseRegion = box.copy(this.state.region);
     return ({ canvases }) =>
       renderCtx.erase(eraseRegion, this.state.overshoot, ...canvases);
   }
 
-  private renderScrollbar(draw2d: Draw2D, lh: number): void {
+  private renderScrollbar(draw2d: Draw2D): void {
     if (!this.state.scrolling) return;
     const reg = this.state.region;
-    const totalHeight = Math.ceil(this.entries.length * lh);
     const regHeight = box.height(reg);
-    const scrollbarHeight = (regHeight / totalHeight) * regHeight;
-    if (scrollbarHeight >= regHeight * SCROLLBAR_RENDER_THRESHOLD) return;
-    let scrollbarYPos = box.bottom(reg) - scrollbarHeight;
-    if (this.state.scrolling) {
-      const distFromEnd = this.entries.length - this.scrollState.offset;
-      scrollbarYPos -= (distFromEnd / this.entries.length) * regHeight;
-    }
-    if (scrollbarYPos < 0) scrollbarYPos = box.top(reg);
+    const { totalHeight } = this;
+    if (totalHeight <= 0) return;
+    const proportionalHeight = (regHeight / totalHeight) * regHeight;
+    if (proportionalHeight >= regHeight * SCROLLBAR_RENDER_THRESHOLD) return;
+    const height = bounds.clamp(
+      { lower: SCROLLBAR_MIN_HEIGHT, upper: regHeight },
+      proportionalHeight,
+    );
+    // The thumb travels the track less its own height, over the entries that sit
+    // outside the viewport.
+    const scrollRange = this.entries.length - this.visibleLineCount;
+    const distFromEnd = this.entries.length - this.scrollState.offset;
+    const progress =
+      scrollRange <= 0
+        ? 0
+        : bounds.clamp({ lower: 0, upper: 1 }, distFromEnd / scrollRange);
+    const y = box.bottom(reg) - height - progress * (regHeight - height);
     draw2d.container({
       region: box.construct(
-        { x: box.right(reg) - 6, y: scrollbarYPos },
-        { width: 6, height: scrollbarHeight },
+        { x: box.right(reg) - SCROLLBAR_WIDTH, y },
+        { width: SCROLLBAR_WIDTH, height },
       ),
       bordered: false,
       backgroundColor: (t: theming.Theme) => t.colors.gray.l6,
@@ -383,7 +410,7 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
       region: box.construct(
         xy.translate(box.topLeft(reg), {
           x: 0,
-          y: highlightStart * lh + CONTENT_PADDING,
+          y: highlightStart * lh + CONTENT_PADDING + this.internal.selectionOffsetY,
         }),
         { width: box.width(reg), height: rowCount * lh },
       ),
@@ -393,7 +420,7 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     });
   }
 
-  // showChannelNames is read from state (O(1)) rather than derived by scanning all
+  // channelNamesHidden is read from state (O(1)) rather than derived by scanning all
   // entries (O(n)). The render loop below is already O(n) over visible entries — adding
   // a second O(n) scan here just to answer a yes/no question would double the per-frame
   // work at up to 60fps.
@@ -403,11 +430,11 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     line: string;
     channelKey: string;
   } {
-    const { showChannelNames, showReceiptTimestamp, channelDataTypes } = this.state;
+    const { channelNamesHidden, receiptTimestampHidden, channelDataTypes } = this.state;
     const { tsLen, configs } = this.internal;
     const chKeyStr = String(entry.channelKey);
     const cfg = configs[chKeyStr];
-    const ts = showReceiptTimestamp
+    const ts = !receiptTimestampHidden
       ? new TimeStamp(entry.timestamp).toString("preciseTime", "local").slice(0, tsLen)
       : "";
     let value = entry.value;
@@ -430,9 +457,10 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     const name = displayNames[chKeyStr] ?? chKeyStr;
     const pad = namePadding[chKeyStr] ?? "";
     let prefix: string;
-    if (showReceiptTimestamp && showChannelNames) prefix = `${ts} [${name}]${pad}  `;
-    else if (showReceiptTimestamp) prefix = `${ts}  `;
-    else if (showChannelNames) prefix = `[${name}]${pad}  `;
+    if (!receiptTimestampHidden && !channelNamesHidden)
+      prefix = `${ts} [${name}]${pad}  `;
+    else if (!receiptTimestampHidden) prefix = `${ts}  `;
+    else if (!channelNamesHidden) prefix = `[${name}]${pad}  `;
     else prefix = "";
     // Continuation lines (\n) keep the prefix's alignment width as whitespace.
     if (entry.continuation) prefix = " ".repeat(prefix.length);

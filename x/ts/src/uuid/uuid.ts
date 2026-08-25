@@ -23,15 +23,12 @@ import { NIL, stringify, v4 as uuid } from "uuid";
 export const create = (): string => uuid();
 
 /**
- * Parses a UUID from a byte array.
- * This function converts a 16-byte array into a standard UUID string format.
- * It can optionally start parsing from a specific offset in the byte array.
- *
- * @param {Uint8Array} bytes - The byte array containing the UUID. Must be at least 16 bytes long.
- * @param {number} [offset=0] - Optional offset in the byte array to start parsing from.
- *
+ * Parses a UUID from a byte array. This function converts a 16-byte array into a
+ * standard UUID string format. It can optionally start parsing from a specific offset
+ * in the byte array.
+ * @param {Uint8Array} bytes - The byte array containing the UUID. Must be at least 16
+ * bytes long.
  * @returns {string} A UUID string in the format 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
- *
  * @throws {Error} If the byte array is less than 16 bytes long (accounting for offset)
  *
  * @example

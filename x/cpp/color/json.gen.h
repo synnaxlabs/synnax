@@ -11,7 +11,6 @@
 
 #pragma once
 
-#include <cstdint>
 #include <string>
 
 #include "x/cpp/color/types.gen.h"
@@ -19,30 +18,12 @@
 
 namespace x::color {
 
-inline Color Color::parse(x::json::Parser parser) {
-    return Color{
-        .r = parser.field<std::uint8_t>("r"),
-        .g = parser.field<std::uint8_t>("g"),
-        .b = parser.field<std::uint8_t>("b"),
-        .a = parser.field<double>("a"),
-    };
-}
-
-inline x::json::json Color::to_json() const {
-    x::json::json j;
-    j["r"] = this->r;
-    j["g"] = this->g;
-    j["b"] = this->b;
-    j["a"] = this->a;
-    return j;
-}
-
 inline Stop Stop::parse(x::json::Parser parser) {
     return Stop{
         .key = parser.field<std::string>("key"),
         .color = parser.field<Color>("color"),
         .position = parser.field<double>("position"),
-        .switched = parser.field<bool>("switched", false),
+        .switched = parser.field<std::optional<bool>>("switched"),
     };
 }
 

@@ -4,9 +4,9 @@ Freighter defines a protocol agnostic transport interface that allows libraries 
 variety of languages to communicate without needing to know protocol, routing, or
 encoding details.
 
-It's interface is similar to [gRPC](https://grpc.io/), but it can be implemented by
-HTTP, WebSockets, WebRTC, UDP, TCP, etc. For more information on its design, see the
-[Freighter RFC](/docs/tech/rfc/0006-220809-freighter.md).
+Its interface is similar to [gRPC](https://grpc.io/), but it can be implemented by HTTP,
+WebSockets, WebRTC, UDP, TCP, etc. For more information on its design, see the
+[Freighter RFC](../docs/tech/rfc/0006-freighter.md).
 
 The implementations for specific languages are contained in subdirectories of this
 directory.

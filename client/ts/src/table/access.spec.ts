@@ -9,10 +9,9 @@
 
 import { describe, expect, it } from "vitest";
 
-import { AuthError, NotFoundError } from "@/errors";
+import { AccessDeniedError, NotFoundError } from "@/errors";
 import { table } from "@/table";
-import { createTestClientWithPolicy } from "@/testutil/access";
-import { createTestClient } from "@/testutil/client";
+import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
 const client = createTestClient();
 
@@ -31,9 +30,9 @@ describe("table", () => {
       const randomTable = await client.tables.create(proj.key, {
         name: "test",
       });
-      await expect(
-        userClient.tables.retrieve({ key: randomTable.key }),
-      ).rejects.toThrow(AuthError);
+      await expect(userClient.tables.retrieve(randomTable.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
+      );
     });
 
     it("should allow the caller to retrieve tables with the correct policy", async () => {
@@ -49,9 +48,7 @@ describe("table", () => {
       const randomTable = await client.tables.create(proj.key, {
         name: "test",
       });
-      const retrieved = await userClient.tables.retrieve({
-        key: randomTable.key,
-      });
+      const retrieved = await userClient.tables.retrieve(randomTable.key);
       expect(retrieved.key).toBe(randomTable.key);
       expect(retrieved.name).toBe(randomTable.name);
     });
@@ -85,7 +82,7 @@ describe("table", () => {
         userClient.tables.create(proj.key, {
           name: "test",
         }),
-      ).rejects.toThrow(AuthError);
+      ).rejects.toSatisfy(AccessDeniedError.matches);
     });
 
     it("should allow the caller to delete tables with the correct policy", async () => {
@@ -102,9 +99,9 @@ describe("table", () => {
         name: "test",
       });
       await userClient.tables.delete(randomTable.key);
-      await expect(
-        userClient.tables.retrieve({ key: randomTable.key }),
-      ).rejects.toThrow(NotFoundError);
+      await expect(userClient.tables.retrieve(randomTable.key)).rejects.toThrow(
+        NotFoundError,
+      );
     });
 
     it("should deny access when no delete policy exists", async () => {
@@ -120,8 +117,8 @@ describe("table", () => {
       const randomTable = await client.tables.create(proj.key, {
         name: "test",
       });
-      await expect(userClient.tables.delete(randomTable.key)).rejects.toThrow(
-        AuthError,
+      await expect(userClient.tables.delete(randomTable.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
       );
     });
   });

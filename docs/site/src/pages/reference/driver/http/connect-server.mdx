@@ -3,8 +3,8 @@ layout: "@/layouts/Reference.astro"
 title: "HTTP | Connect Server"
 heading: "Connect an HTTP Server"
 description: "Connect to an HTTP server using Synnax."
-prev: "Get Started"
-prevURL: "/reference/driver/http/get-started"
+prev: "EtherCAT Write Task"
+prevURL: "/reference/driver/ethercat/write-task"
 next: "Read Task"
 nextURL: "/reference/driver/http/read-task"
 ---
@@ -16,6 +16,10 @@ import Details from "@/components/details/Details.astro";
 import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
+
+The Synnax Driver talks to any device or service with an HTTP or HTTPS JSON API: REST
+endpoints on embedded devices, cloud telemetry APIs, monitoring endpoints, and IoT
+gateways. Bearer token, basic auth, and API key authentication are supported.
 
 <Divider.Divider x />
 
@@ -29,6 +33,24 @@ following:
    must be connected to the Core and able to reach your HTTP server.
 3. The [Synnax Console](/reference/console/get-started) installed on your local machine.
 4. An HTTP server running on your network that is reachable by the Driver.
+
+<Divider.Divider x />
+
+## Supported Operating Systems
+
+| Platform                            | Status      |
+| ----------------------------------- | ----------- |
+| <Icon.Logo.Windows /> Windows       | ✓ Supported |
+| <Icon.Logo.Linux /> Linux           | ✓ Supported |
+| <Icon.Logo.NI /> NI Linux Real-Time | ✓ Supported |
+| <Icon.Logo.Apple /> macOS           | ✓ Supported |
+| <Icon.Logo.Docker /> Docker         | ✓ Supported |
+
+<Note.Note variant="info" className="compact">
+  When running in a Docker container, ensure [the container has network
+  access](https://docs.docker.com/get-started/docker-concepts/running-containers/publishing-ports/)
+  to the HTTP server.
+</Note.Note>
 
 <Divider.Divider x />
 

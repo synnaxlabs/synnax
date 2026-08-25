@@ -1,0 +1,203 @@
+{
+  "key": "00000000-0000-0000-0000-000000000001",
+  "name": "v4_full.json",
+  "title": {
+    "level": "h3",
+    "visible": true
+  },
+  "legend": {
+    "hidden": false,
+    "position": {
+      "x": 10,
+      "y": 20,
+      "root": {
+        "x": "right",
+        "y": "bottom"
+      },
+      "units": {
+        "x": "px",
+        "y": "px"
+      }
+    }
+  },
+  "channels": {
+    "x1": 100,
+    "x2": 101,
+    "y1": [200, 201, 202],
+    "y2": [300],
+    "y3": [],
+    "y4": []
+  },
+  "ranges": {
+    "x1": [
+      "00000000-0000-0000-0000-00000000000a",
+      "00000000-0000-0000-0000-00000000000b"
+    ],
+    "x2": ["00000000-0000-0000-0000-00000000000c"]
+  },
+  "axes": {
+    "x1": {
+      "key": "x1",
+      "label": "time",
+      "label_direction": "x",
+      "label_level": "small",
+      "bounds": {
+        "lower": 0,
+        "upper": 1000
+      },
+      "manual_bounds": {
+        "lower": true,
+        "upper": false
+      },
+      "tick_spacing": 80,
+      "type": "time"
+    },
+    "x2": {
+      "key": "x2",
+      "label": "elapsed",
+      "label_direction": "x",
+      "label_level": "small",
+      "bounds": {
+        "lower": 0,
+        "upper": 0
+      },
+      "manual_bounds": {
+        "lower": false,
+        "upper": false
+      },
+      "tick_spacing": 75,
+      "type": "linear"
+    },
+    "y1": {
+      "key": "y1",
+      "label": "pressure",
+      "label_direction": "y",
+      "label_level": "small",
+      "bounds": {
+        "lower": 0,
+        "upper": 50
+      },
+      "manual_bounds": {
+        "lower": true,
+        "upper": true
+      },
+      "tick_spacing": 60
+    },
+    "y2": {
+      "key": "y2",
+      "label": "flow",
+      "label_direction": "y",
+      "label_level": "small",
+      "bounds": {
+        "lower": 0,
+        "upper": 25
+      },
+      "manual_bounds": {
+        "lower": true,
+        "upper": false
+      },
+      "tick_spacing": 75
+    },
+    "y3": {
+      "key": "y3",
+      "label": "",
+      "label_direction": "y",
+      "label_level": "small",
+      "bounds": {
+        "lower": 0,
+        "upper": 0
+      },
+      "manual_bounds": {
+        "lower": false,
+        "upper": false
+      },
+      "tick_spacing": 75
+    },
+    "y4": {
+      "key": "y4",
+      "label": "",
+      "label_direction": "y",
+      "label_level": "small",
+      "bounds": {
+        "lower": 0,
+        "upper": 0
+      },
+      "manual_bounds": {
+        "lower": false,
+        "upper": false
+      },
+      "tick_spacing": 75
+    }
+  },
+  "lines": [
+    {
+      "key": "y1-ra-200",
+      "label": "P main",
+      "color": {
+        "r": 255,
+        "g": 0,
+        "b": 0,
+        "a": 1
+      },
+      "stroke_width": 2,
+      "downsample": 1,
+      "downsample_mode": "decimate"
+    },
+    {
+      "key": "y1-ra-201",
+      "color": {
+        "r": 0,
+        "g": 170,
+        "b": 0,
+        "a": 1
+      },
+      "stroke_width": 2,
+      "downsample": 1,
+      "downsample_mode": "decimate"
+    },
+    {
+      "key": "y2-ra-300",
+      "color": {
+        "r": 0,
+        "g": 0,
+        "b": 255,
+        "a": 1
+      },
+      "stroke_width": 1,
+      "downsample": 4,
+      "downsample_mode": "average"
+    }
+  ],
+  "rules": [
+    {
+      "key": "rule-1",
+      "label": "ceiling",
+      "color": {
+        "r": 136,
+        "g": 136,
+        "b": 136,
+        "a": 1
+      },
+      "axis": "y1",
+      "line_width": 1,
+      "line_dash": 4,
+      "units": "psi",
+      "position": 45
+    },
+    {
+      "key": "rule-2",
+      "label": "floor",
+      "color": {
+        "r": 170,
+        "g": 170,
+        "b": 170,
+        "a": 1
+      },
+      "axis": "y1",
+      "line_width": 1,
+      "line_dash": 2,
+      "units": "psi",
+      "position": 5
+    }
+  ]
+}

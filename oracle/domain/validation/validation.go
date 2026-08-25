@@ -22,6 +22,10 @@ type Rules struct {
 	Pattern        *string
 	PatternMessage *string
 	Required       bool
+	// Skip excludes the field from generated validation entirely, including recursion
+	// into it. Used for fields that hold a reference to another entity (e.g. a parent
+	// key or label keys) rather than embedded data to validate.
+	Skip bool
 }
 
 // Number represents a numeric constraint value that can be int or float.
@@ -40,6 +44,8 @@ func Parse(domain resolution.Domain) *Rules {
 			switch expr.Name {
 			case "required":
 				rules.Required = true
+			case "skip":
+				rules.Skip = true
 			}
 			continue
 		}

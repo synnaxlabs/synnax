@@ -11,11 +11,14 @@ package types
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/synnaxlabs/oracle/domain/doc"
+	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/cpp/keywords"
 	cppnaming "github.com/synnaxlabs/oracle/plugin/cpp/naming"
 	"github.com/synnaxlabs/oracle/plugin/domain"
+	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 )
 
@@ -49,18 +52,21 @@ type unionVariantData struct {
 // discriminator as a defaulted std::string field followed by the flattened
 // base and variant fields, so the existing struct template and JSON codec
 // handle it like any other struct.
-func (p *Plugin) processUnion(entry resolution.Type, data *templateData) ([]structData, unionData) {
+func (p *Plugin) processUnion(
+	entry resolution.Type,
+	data *templateData,
+) ([]structData, unionData) {
 	form := entry.Form.(resolution.UnionForm)
 	name := domain.GetName(entry, "cpp")
-	data.includes.addSystem("variant")
-	data.includes.addSystem("string")
+	data.AddSystem("variant")
+	data.AddSystem("string")
 
-	discField := keywords.Escape(toSnakeCase(form.Discriminator))
+	discField := keywords.Escape(casing.FieldSnake(form.Discriminator))
 	ud := unionData{
 		Name:      name,
-		SnakeName: toSnakeCase(name),
+		SnakeName: casing.FieldSnake(name),
 		Doc:       doc.Get(entry.Domains),
-		DiscJSON:  toSnakeCase(form.Discriminator),
+		DiscJSON:  casing.FieldSnake(form.Discriminator),
 	}
 
 	variants := make([]structData, 0, len(form.Variants))
@@ -75,29 +81,46 @@ func (p *Plugin) processUnion(entry resolution.Type, data *templateData) ([]stru
 				DefaultValue: fmt.Sprintf("%q", v.Name),
 			}},
 		}
-		for _, ext := range form.Extends {
+		inherited, declared := resolver.VariantBases(form, v, data.table)
+		for _, ext := range inherited {
 			if parent, ok := ext.Resolve(data.table); ok {
-				sd.ExtendsTypes = append(sd.ExtendsTypes, p.resolveExtendsType(ext, parent, data))
+				sd.ExtendsTypes = append(
+					sd.ExtendsTypes,
+					p.resolveExtendsType(ext, parent, data),
+				)
 			}
 		}
 		if payload, ok := v.Type.Resolve(data.table); ok {
 			if v.Inline {
 				pform := payload.Form.(resolution.StructForm)
-				for _, ext := range pform.Extends {
-					if parent, ok := ext.Resolve(data.table); ok {
-						sd.ExtendsTypes = append(sd.ExtendsTypes,
-							p.resolveExtendsType(ext, parent, data))
+				// A field that only restates an inherited default keeps the base's
+				// member; the new default moves into a generated constructor.
+				defaultOnly := resolver.DefaultOnlyOverrides(
+					inherited, pform.Fields, data.table,
+				)
+				for _, f := range append(slices.Clone(declared), pform.Fields...) {
+					fd := p.processField(f, payload, data)
+					if !defaultOnly.Contains(f.Name) {
+						sd.Fields = append(sd.Fields, fd)
+						continue
 					}
-				}
-				for _, f := range pform.Fields {
-					sd.Fields = append(sd.Fields, p.processField(f, payload, data))
+					if fd.DefaultValue == "" {
+						continue
+					}
+					sd.InheritedDefaults = append(
+						sd.InheritedDefaults,
+						inheritedDefaultData{Name: fd.Name, Value: fd.DefaultValue},
+					)
 				}
 			} else {
-				sd.ExtendsTypes = append(sd.ExtendsTypes, p.resolveExtendsType(v.Type, payload, data))
+				sd.ExtendsTypes = append(
+					sd.ExtendsTypes,
+					p.resolveExtendsType(v.Type, payload, data),
+				)
 			}
 		}
 		sd.HasExtends = len(sd.ExtendsTypes) > 0
-		data.includes.addInternal("x/cpp/json/json.h")
+		data.AddInternal("x/cpp/json/json.h")
 		variants = append(variants, sd)
 		ud.Variants = append(ud.Variants, unionVariantData{
 			TypeName: variantName,

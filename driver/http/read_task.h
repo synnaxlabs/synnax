@@ -16,12 +16,14 @@
 #include <utility>
 #include <vector>
 
+#include "client/cpp/http/types.gen.h"
 #include "x/cpp/json/convert.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/telem.h"
 
 #include "driver/common/read_task.h"
 #include "driver/common/sample_clock.h"
+#include "driver/http/device/device.h"
 #include "driver/http/http.h"
 #include "driver/http/processor/processor.h"
 #include "driver/http/types/types.h"
@@ -30,29 +32,18 @@
 namespace driver::http {
 const std::string READ_TASK_TYPE = INTEGRATION_NAME + "_read";
 
-/// @brief a single field to extract from an endpoint's JSON response.
-struct ReadField {
-    /// @brief whether this field is enabled.
-    bool enabled = true;
+/// @brief a single field within a sampling group, with conversion state derived
+/// from its configuration.
+struct GroupField {
+    /// @brief Synnax channel key to write the extracted value to.
+    synnax::channel::Key channel = 0;
     /// @brief JSON Pointer to the value in the response.
     x::json::json::json_pointer pointer;
-    /// @brief Synnax channel key to write the extracted value to.
-    synnax::channel::Key channel_key;
     /// @brief if the Synnax channel is a timestamp, the format of the JSON value.
     std::optional<x::json::TimeFormat> time_format;
-    /// @brief optional mapping of string values to numbers for enum-style parsing
+    /// @brief mapping of string values to numbers for enum-style parsing
     /// (e.g., "ON" -> 1, "OFF" -> 0).
     x::json::EnumMap enum_values;
-};
-
-/// @brief a single HTTP endpoint to poll.
-struct ReadEndpoint {
-    /// @brief static request configuration.
-    RequestConfig request;
-    /// @brief optional static body to send with the request.
-    std::string body;
-    /// @brief fields to extract from the response.
-    std::vector<ReadField> fields;
 };
 
 /// @brief a group of fields that share the same index channel and must be
@@ -65,25 +56,13 @@ struct SamplingGroup {
     /// field — needs a timestamp written automatically).
     bool software_timed_index = false;
     /// @brief index of the endpoint this group's fields live on.
-    size_t endpoint_index;
-    /// @brief indices into ReadEndpoint::fields for the fields in this group.
-    std::vector<size_t> field_indices;
+    size_t endpoint_index = 0;
+    /// @brief the fields in this group.
+    std::vector<GroupField> fields;
 };
 
 /// @brief configuration for an HTTP read task.
-struct ReadTaskConfig {
-    /// @brief key of the device to read from.
-    std::string device;
-    /// @brief whether to persist data to disk.
-    bool data_saving;
-    /// @brief whether to auto-start the task.
-    bool auto_start;
-    /// @brief polling rate (used for both sample_rate and stream_rate).
-    x::telem::Rate rate;
-    /// @brief endpoints to poll.
-    std::vector<ReadEndpoint> endpoints;
-    /// @brief sampling groups computed at parse time.
-    std::vector<SamplingGroup> groups;
+struct ReadTaskConfig : ::synnax::http::ReadConfig {
     /// @brief index channels that need software timing, mapped to their endpoint
     /// index. These are index channels referenced by data channels but not
     /// explicitly listed as fields.
@@ -107,6 +86,8 @@ class ReadTaskSource : public common::Source {
     common::SoftwareTimedSampleClock sample_clock;
     std::vector<synnax::channel::Channel> chs;
     std::vector<x::json::json> parsed_bodies;
+    /// @brief sampling groups derived from the configuration.
+    std::vector<SamplingGroup> groups;
 
 public:
     /// @param cfg the read task configuration.
@@ -133,6 +114,17 @@ public:
     common::ReadResult
     read(x::breaker::Breaker &breaker, x::telem::Frame &frame) override;
 };
+
+/// @brief builds the static request for each read endpoint.
+/// @param conn the resolved device connection.
+/// @param endpoints the endpoints to build requests for.
+/// @returns one request per endpoint, in order. An endpoint whose method carries no
+/// request body drops the body it stores, so a value left behind by a method change
+/// never reaches the wire or sets a content type.
+[[nodiscard]] std::vector<Request> build_requests(
+    const device::ConnectionConfig &conn,
+    const std::vector<::synnax::http::ReadEndpoint> &endpoints
+);
 
 /// @brief configures an HTTP read task from a Synnax task definition.
 /// @param ctx the task context providing access to the Synnax client.

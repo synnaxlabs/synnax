@@ -7,28 +7,31 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Label } from "@/schematic/node/common/label";
-import { type Config, VARIANT } from "@/schematic/node/general/stateIndicator/config";
 import { StateIndicatorForm } from "@/schematic/node/general/stateIndicator/Form";
 import { StateIndicator } from "@/schematic/node/general/stateIndicator/Primitive";
 import { Symbol } from "@/schematic/node/general/stateIndicator/Symbol";
 import { type Spec } from "@/schematic/node/spec";
+import { type Theming } from "@/theming";
 
-export * from "@/schematic/node/general/stateIndicator/config";
-
-export const defaultConfig = (): Config => ({
-  variant: VARIANT,
+export const defaultConfig = (
+  t: Theming.Theme,
+): schematic.StateIndicatorNodeConfig => ({
+  variant: "state_indicator",
   orientation: "left",
   color: color.ZERO,
   inlineSize: 100,
   options: [],
-  label: Label.defaultConfig("State Indicator"),
+  label: Label.defaultConfig("State indicator"),
+  stalenessTimeout: 5,
+  stalenessColor: t.colors.warning.m1,
 });
 
-const Preview = ({ color }: Config): ReactElement => (
+const Preview = ({ color }: schematic.StateIndicatorNodeConfig): ReactElement => (
   <StateIndicator
     matchedOptionKey="1"
     options={[{ key: "1", name: "Active", value: 1 }]}
@@ -36,9 +39,9 @@ const Preview = ({ color }: Config): ReactElement => (
   />
 );
 
-export const spec: Spec<typeof VARIANT, Config> = {
-  key: VARIANT,
-  name: "State Indicator",
+export const spec: Spec<"state_indicator", schematic.StateIndicatorNodeConfig> = {
+  key: "state_indicator",
+  name: "State indicator",
   Form: StateIndicatorForm,
   Node: Symbol,
   Preview,

@@ -1,0 +1,465 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { type ontology, panel, project, query } from "@synnaxlabs/client";
+import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
+import { Drift } from "@synnaxlabs/drift";
+import { uuid } from "@synnaxlabs/x";
+import { act, waitFor } from "@testing-library/react";
+import { beforeAll, describe, expect, it } from "vitest";
+
+import { Session } from "@/session";
+import { pickSynchronizer } from "@/session/synchronizer/testutil";
+import {
+  createTestStore,
+  renderHookWithConsole,
+  type TestStore,
+  uniqueName,
+} from "@/testutil";
+
+const client = createTestClient();
+
+// Panel creation requires a parent; panels whose project is irrelevant to the
+// test at hand share this one.
+let defaultParent: ontology.ID;
+
+beforeAll(async () => {
+  await client.connect();
+  defaultParent = await createPanelParent(client);
+});
+
+const leaf = (...tabKeys: string[]): panel.Node => ({
+  variant: "leaf",
+  tabs: tabKeys.map((key) => ({ variant: "view", key, type: "t", args: {} })),
+});
+
+const createPanel = async (key: panel.Key, root: panel.Node): Promise<panel.Panel> =>
+  await client.panels.create({
+    ...panel.panelZ.parse({ key, name: uniqueName("panel"), root }),
+    parent: defaultParent,
+  });
+
+const selectTab = (store: TestStore, key: panel.Key, tabKey: panel.TabKey): void =>
+  void store.dispatch(
+    Session.Panel.internalSelectTab({ key, tabKey, otherTabKeys: [tabKey] }),
+  );
+
+const mount = async () =>
+  await renderHookWithConsole(
+    () =>
+      Session.Synchronizer.use(
+        pickSynchronizer(
+          Session.Panel.WINDOW_SYNCHRONIZERS,
+          "reconcile tab selections",
+        ),
+      ),
+    { client },
+  );
+
+describe("Panel.WINDOW_SYNCHRONIZERS", () => {
+  it("reconciles a stale selection when the panel document loads", async () => {
+    const panelKey = uuid.create();
+    const [tab, ghost] = [uuid.create(), uuid.create()];
+    const { store } = await mount();
+    act(() => selectTab(store, panelKey, ghost));
+    await act(async () => {
+      await createPanel(panelKey, leaf(tab));
+    });
+    await waitFor(() => {
+      expect(Session.Panel.selectSelectedTabs(store.getState(), panelKey)).toEqual([
+        tab,
+      ]);
+    });
+  });
+
+  it("converges the selection when the selected tab is removed from the tree", async () => {
+    const panelKey = uuid.create();
+    const [tabA, tabB] = [uuid.create(), uuid.create()];
+    const { store } = await mount();
+    act(() => selectTab(store, panelKey, tabA));
+    await act(async () => {
+      await createPanel(panelKey, leaf(tabA, tabB));
+    });
+    await waitFor(() => {
+      expect(Session.Panel.selectSelectedTabs(store.getState(), panelKey)).toEqual([
+        tabA,
+      ]);
+    });
+    await act(async () => {
+      await client.panels.dispatch(panelKey, panel.removeTab({ key: tabA }));
+    });
+    await waitFor(() => {
+      expect(Session.Panel.selectSelectedTabs(store.getState(), panelKey)).toEqual([
+        tabB,
+      ]);
+    });
+  });
+
+  // The closed tab's row lives in the synchronizer: the client holds one version of
+  // the document, so the tree the tab sat in is gone once the change lands.
+  const closeTab = async (
+    store: TestStore,
+    panelKey: panel.Key,
+    tabKeys: panel.TabKey[],
+    closed: panel.TabKey,
+  ): Promise<void> => {
+    act(() => selectTab(store, panelKey, closed));
+    await act(async () => {
+      await createPanel(panelKey, leaf(...tabKeys));
+    });
+    await waitFor(() => {
+      expect(Session.Panel.selectSelectedTabs(store.getState(), panelKey)).toEqual([
+        closed,
+      ]);
+    });
+    await act(async () => {
+      await client.panels.dispatch(panelKey, panel.removeTab({ key: closed }));
+    });
+  };
+
+  // Four tabs, closing the second: the neighbor and the row's last tab are
+  // different tabs, so the assertion can tell the two rules apart.
+  it("selects the tab to the right of a closed tab", async () => {
+    const panelKey = uuid.create();
+    const tabs = Array.from({ length: 4 }, () => uuid.create());
+    const { store } = await mount();
+    await closeTab(store, panelKey, tabs, tabs[1]);
+    await waitFor(() => {
+      expect(Session.Panel.selectSelectedTabs(store.getState(), panelKey)).toEqual([
+        tabs[2],
+      ]);
+    });
+  });
+
+  it("selects the tab to the left when the closed tab was last", async () => {
+    const panelKey = uuid.create();
+    const tabs = [uuid.create(), uuid.create(), uuid.create()];
+    const { store } = await mount();
+    await closeTab(store, panelKey, tabs, tabs[2]);
+    await waitFor(() => {
+      expect(Session.Panel.selectSelectedTabs(store.getState(), panelKey)).toEqual([
+        tabs[1],
+      ]);
+    });
+  });
+
+  it("reconciles from the cache when an already-cached panel is selected", async () => {
+    const panelKey = uuid.create();
+    const tab = uuid.create();
+    const { store } = await mount();
+    await act(async () => {
+      await createPanel(panelKey, leaf(tab));
+    });
+    expect(Session.Panel.selectSelectedTabs(store.getState(), panelKey)).toEqual([]);
+    act(() => {
+      store.dispatch(Session.Panel.select({ key: panelKey }));
+    });
+    await waitFor(() => {
+      expect(Session.Panel.selectSelectedTabs(store.getState(), panelKey)).toEqual([
+        tab,
+      ]);
+    });
+  });
+});
+
+const createProject = async (): Promise<project.Project> =>
+  await client.projects.create({ name: uniqueName("project"), layout: {} });
+
+interface ProjectPanelOverrides {
+  key?: panel.Key;
+  name?: string;
+}
+
+const createProjectPanel = async (
+  projectKey: project.Key,
+  { key = uuid.create(), name = uniqueName("panel") }: ProjectPanelOverrides = {},
+): Promise<panel.Panel> =>
+  await client.panels.create({
+    key,
+    name,
+    parent: project.ontologyID(projectKey),
+    root: leaf(uuid.create()),
+  });
+
+const selectedPanel = (store: TestStore): panel.Key | undefined =>
+  store.getState().panels.windows[Drift.MAIN_WINDOW]?.selected;
+
+describe("reconcile panel order and selection", () => {
+  const mountMembership = async (store: TestStore) =>
+    await renderHookWithConsole(
+      () =>
+        Session.Synchronizer.use(
+          pickSynchronizer(
+            Session.Panel.WINDOW_SYNCHRONIZERS,
+            "reconcile panel order and selection",
+          ),
+        ),
+      { client, store },
+    );
+
+  const stripOrder = (store: TestStore): panel.Key[] =>
+    Session.Panel.selectOrder(store.getState());
+
+  const createStoreWithProject = async (
+    projectKey: project.Key,
+    selected?: panel.Key,
+  ): Promise<TestStore> => {
+    const store = await createTestStore();
+    store.dispatch(Session.Project.select(projectKey));
+    if (selected != null)
+      store.dispatch(
+        Session.Panel.select({ key: selected, windowKey: Drift.MAIN_WINDOW }),
+      );
+    return store;
+  };
+
+  it("selects the project's first panel when the window has no selection", async () => {
+    const proj = await createProject();
+    const pan = await createProjectPanel(proj.key);
+    const store = await createStoreWithProject(proj.key);
+    await mountMembership(store);
+    await waitFor(() => expect(selectedPanel(store)).toEqual(pan.key));
+  });
+
+  it("repairs a selection that points outside the active project", async () => {
+    const proj = await createProject();
+    const pan = await createProjectPanel(proj.key);
+    const store = await createStoreWithProject(proj.key, uuid.create());
+    await mountMembership(store);
+    await waitFor(() => expect(selectedPanel(store)).toEqual(pan.key));
+  });
+
+  it("clears the selection when the project has no panels", async () => {
+    const proj = await createProject();
+    const store = await createStoreWithProject(proj.key, uuid.create());
+    await mountMembership(store);
+    await waitFor(() => expect(selectedPanel(store)).toBeUndefined());
+  });
+
+  it("adopts the project's first panel when one is created while none is selected", async () => {
+    const proj = await createProject();
+    const store = await createStoreWithProject(proj.key);
+    await mountMembership(store);
+    const pan = await createProjectPanel(proj.key);
+    await waitFor(() => expect(selectedPanel(store)).toEqual(pan.key));
+  });
+
+  // Regression: the delete flow prunes session state before the Core delete, so the
+  // empty selection triggers a repair whose retrieve races the delete and resolves
+  // post-tombstone still holding the corpse; it must never be selected.
+  it("never selects the corpse when deleting the last panel", async () => {
+    const proj = await createProject();
+    const pan = await createProjectPanel(proj.key);
+    const store = await createStoreWithProject(proj.key);
+    await mountMembership(store);
+    await waitFor(() => expect(selectedPanel(store)).toEqual(pan.key));
+    const violations: panel.Key[] = [];
+    const unsubscribe = store.subscribe(() => {
+      const selected = selectedPanel(store);
+      if (selected == null) return;
+      if (query.Deleted.matches(client.panels.getCached(selected)))
+        violations.push(selected);
+    });
+    await act(async () => {
+      store.dispatch(Session.Panel.remove({ keys: pan.key }));
+      await client.panels.delete(pan.key);
+      // The racing repair retrieve resolves after the delete; give every
+      // in-flight repair a full round-trip to land before judging.
+      await client.panels.retrieve({ parent: project.ontologyID(proj.key) });
+      await client.panels.retrieve({ parent: project.ontologyID(proj.key) });
+    });
+    await waitFor(() => {
+      expect(violations).toEqual([]);
+      expect(selectedPanel(store)).toBeUndefined();
+    });
+    unsubscribe();
+  });
+
+  it("repairs the selection when the active project changes", async () => {
+    const [projA, projB] = [await createProject(), await createProject()];
+    const panA = await createProjectPanel(projA.key);
+    const panB = await createProjectPanel(projB.key);
+    const store = await createStoreWithProject(projA.key, panA.key);
+    await mountMembership(store);
+    act(() => {
+      store.dispatch(Session.Project.select(projB.key));
+    });
+    await waitFor(() => expect(selectedPanel(store)).toEqual(panB.key));
+  });
+
+  // The membership answer arrives in UUID order, so the keys are minted sorted
+  // and named in the opposite order: a name-sorted result cannot pass by luck.
+  const opposedPanels = async (
+    projectKey: project.Key,
+  ): Promise<[panel.Panel, panel.Panel]> => {
+    const [lowKey, highKey] = [uuid.create(), uuid.create()].sort();
+    const zulu = await createProjectPanel(projectKey, { key: lowKey, name: "zulu" });
+    const alpha = await createProjectPanel(projectKey, { key: highKey, name: "alpha" });
+    return [zulu, alpha];
+  };
+
+  it("materializes the strip order name-sorted on first sight", async () => {
+    const proj = await createProject();
+    const [zulu, alpha] = await opposedPanels(proj.key);
+    const store = await createStoreWithProject(proj.key);
+    await mountMembership(store);
+    await waitFor(() => expect(stripOrder(store)).toEqual([alpha.key, zulu.key]));
+  });
+
+  it("selects the strip's leftmost panel rather than the answer's first", async () => {
+    const proj = await createProject();
+    const [, alpha] = await opposedPanels(proj.key);
+    const store = await createStoreWithProject(proj.key);
+    await mountMembership(store);
+    await waitFor(() => expect(selectedPanel(store)).toEqual(alpha.key));
+  });
+
+  it("appends a later-created panel to the end without re-sorting", async () => {
+    const proj = await createProject();
+    const bravo = await createProjectPanel(proj.key, { name: "bravo" });
+    const store = await createStoreWithProject(proj.key);
+    await mountMembership(store);
+    await waitFor(() => expect(stripOrder(store)).toEqual([bravo.key]));
+    const alpha = await createProjectPanel(proj.key, { name: "alpha" });
+    await waitFor(() => expect(stripOrder(store)).toEqual([bravo.key, alpha.key]));
+  });
+
+  it("prunes a deleted panel from the strip order", async () => {
+    const proj = await createProject();
+    const [zulu, alpha] = await opposedPanels(proj.key);
+    const store = await createStoreWithProject(proj.key);
+    await mountMembership(store);
+    await waitFor(() => expect(stripOrder(store)).toEqual([alpha.key, zulu.key]));
+    await act(async () => {
+      await client.panels.delete(alpha.key);
+    });
+    await waitFor(() => expect(stripOrder(store)).toEqual([zulu.key]));
+  });
+
+  it("swaps in the new project's order when the active project changes", async () => {
+    const [projA, projB] = [await createProject(), await createProject()];
+    await createProjectPanel(projA.key);
+    const panB = await createProjectPanel(projB.key);
+    const store = await createStoreWithProject(projA.key);
+    await mountMembership(store);
+    await waitFor(() => expect(stripOrder(store)).toHaveLength(1));
+    act(() => {
+      store.dispatch(Session.Project.select(projB.key));
+    });
+    await waitFor(() => expect(stripOrder(store)).toEqual([panB.key]));
+  });
+});
+
+describe("useSyncWindowTitle", () => {
+  const windowTitle = (
+    store: TestStore,
+    key: string = Drift.MAIN_WINDOW,
+  ): string | undefined => Drift.selectWindow(store.getState(), key)?.title;
+
+  const mountTitle = async (store?: TestStore) =>
+    await renderHookWithConsole(
+      () =>
+        Session.Synchronizer.use(
+          pickSynchronizer(Session.Panel.WINDOW_SYNCHRONIZERS, "sync window title"),
+        ),
+      { client, store },
+    );
+
+  it("titles the main window with its identity and the selected panel's name", async () => {
+    const proj = await createProject();
+    const pan = await createProjectPanel(proj.key);
+    const { store } = await mountTitle();
+    act(() => {
+      store.dispatch(
+        Session.Panel.select({ key: pan.key, windowKey: Drift.MAIN_WINDOW }),
+      );
+    });
+    await waitFor(() => expect(windowTitle(store)).toEqual(`Main - ${pan.name}`));
+  });
+
+  it("tracks the selected panel's rename", async () => {
+    const proj = await createProject();
+    const pan = await createProjectPanel(proj.key);
+    const { store } = await mountTitle();
+    act(() => {
+      store.dispatch(
+        Session.Panel.select({ key: pan.key, windowKey: Drift.MAIN_WINDOW }),
+      );
+    });
+    await waitFor(() => expect(windowTitle(store)).toEqual(`Main - ${pan.name}`));
+    const next = uniqueName("renamed");
+    await act(async () => {
+      await client.panels.rename(pan.key, next);
+    });
+    await waitFor(() => expect(windowTitle(store)).toEqual(`Main - ${next}`));
+  });
+
+  it("falls back to Synnax when the main window has no selection", async () => {
+    const { store } = await mountTitle();
+    await waitFor(() => expect(windowTitle(store)).toEqual("Synnax"));
+  });
+
+  it("restores the fallback when the selection clears", async () => {
+    const proj = await createProject();
+    const pan = await createProjectPanel(proj.key);
+    const { store } = await mountTitle();
+    act(() => {
+      store.dispatch(
+        Session.Panel.select({ key: pan.key, windowKey: Drift.MAIN_WINDOW }),
+      );
+    });
+    await waitFor(() => expect(windowTitle(store)).toEqual(`Main - ${pan.name}`));
+    act(() => {
+      store.dispatch(Session.Panel.clearSelected({ windowKey: Drift.MAIN_WINDOW }));
+    });
+    await waitFor(() => expect(windowTitle(store)).toEqual("Synnax"));
+  });
+
+  const AUX_LABEL = "aux";
+  const AUX_KEY = "aux-key";
+
+  const auxWindow: Drift.WindowState = {
+    key: AUX_KEY,
+    stage: "created",
+    processCount: 0,
+    reserved: true,
+    focusCount: 0,
+    centerCount: 0,
+    ordinal: 2,
+  };
+
+  const createAuxStore = async (): Promise<TestStore> =>
+    await createTestStore({
+      windowLabel: AUX_LABEL,
+      preloadedState: {
+        drift: {
+          ...Session.ZERO_STATE.drift,
+          windows: { ...Session.ZERO_STATE.drift.windows, [AUX_LABEL]: auxWindow },
+          labelKeys: { ...Session.ZERO_STATE.drift.labelKeys, [AUX_LABEL]: AUX_KEY },
+          keyLabels: { ...Session.ZERO_STATE.drift.keyLabels, [AUX_KEY]: AUX_LABEL },
+          nextOrdinal: 3,
+        },
+      },
+    });
+
+  it("titles a secondary window with its ordinal", async () => {
+    const proj = await createProject();
+    const pan = await createProjectPanel(proj.key);
+    const store = await createAuxStore();
+    await mountTitle(store);
+    act(() => {
+      store.dispatch(Session.Panel.select({ key: pan.key, windowKey: AUX_KEY }));
+    });
+    await waitFor(() => expect(windowTitle(store, AUX_KEY)).toEqual(`2 - ${pan.name}`));
+    act(() => {
+      store.dispatch(Session.Panel.clearSelected({ windowKey: AUX_KEY }));
+    });
+    await waitFor(() => expect(windowTitle(store, AUX_KEY)).toEqual("Window 2"));
+  });
+});

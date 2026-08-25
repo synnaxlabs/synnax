@@ -12,53 +12,33 @@
 from __future__ import annotations
 
 from typing import Any, TypeAlias
-from uuid import UUID
+from uuid import UUID, uuid4
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-from synnax import user
 from synnax.ontology.payload import ID
 
 Key: TypeAlias = UUID
 
 
 class Project(BaseModel):
-    """Is a named, persistable container that stores the layout and organization
-    of the Console application. Projects allow users to save and restore
-    custom arrangements of visualizations, tabs, and window configurations.
+    """Is a named, persistable container that stores the layout and organization of the
+    Console application. Projects allow users to save and restore custom arrangements of
+    visualizations, tabs, and window configurations.
 
     Attributes:
         key: Is the unique identifier for this project.
         name: Is a human-readable name for the project.
-        author: Is the UUID of the user who created this project.
         layout: Is the mosaic tree structure that defines how visualizations are
-            arranged. Contains tab layout, split configurations, and window
-            positions.
+            arranged. Contains tab layout, split configurations, and window positions.
     """
 
-    key: Key
+    key: Key = Field(default_factory=uuid4)
     name: str
-    author: user.Key | None = None
-    layout: dict[str, Any]
+    layout: dict[str, Any] = Field(default_factory=dict)
 
     def __hash__(self) -> int:
         return hash(self.key)
-
-
-class New(BaseModel):
-    """Contains parameters for creating a new project.
-
-    Attributes:
-        key: Is the unique identifier for this project.
-        name: Is a human-readable name for the project.
-        layout: Is the mosaic tree structure that defines how visualizations are
-            arranged. Contains tab layout, split configurations, and window
-            positions.
-    """
-
-    key: Key | None = None
-    name: str
-    layout: dict[str, Any]
 
 
 ONTOLOGY_TYPE = ID(type="project")

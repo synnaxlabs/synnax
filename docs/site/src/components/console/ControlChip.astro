@@ -1,0 +1,56 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { Icon } from "@synnaxlabs/pluto";
+
+interface Props {
+    variant: "control" | "absolute" | "other";
+}
+
+const COLORS: Record<Props["variant"], string> = {
+    control: "var(--pluto-primary-z)",
+    absolute: "var(--pluto-secondary-z)",
+    other: "var(--pluto-error-z)",
+};
+
+const { variant } = Astro.props;
+const color = COLORS[variant];
+---
+
+<span class:list={["control-chip", `control-chip--${variant}`]}>
+    {
+        variant === "other" ? (
+            <Icon.Square color={color} />
+        ) : (
+            <Icon.Circle color={color} />
+        )
+    }
+</span>
+
+<style is:global>
+    .control-chip {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        box-sizing: border-box;
+        height: 1em;
+        width: 1em;
+        border-radius: 0.5rem;
+
+        & svg {
+            height: 0.6em;
+            width: 0.6em;
+        }
+
+        &.control-chip--absolute {
+            background: var(--pluto-secondary-z-30);
+        }
+    }
+</style>

@@ -16,11 +16,11 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -67,13 +67,13 @@ func (s *Service) CreatePolicy(
 type RetrievePolicyRequest struct {
 	Internal *bool         `json:"internal" msgpack:"internal"`
 	Subjects []ontology.ID `json:"subjects" msgpack:"subjects"`
-	Keys     []policy.Key  `json:"keys" msgpack:"keys"`
-	Limit    int           `json:"limit" msgpack:"limit"`
-	Offset   int           `json:"offset" msgpack:"offset"`
+	Keys     []policy.Key  `json:"keys"     msgpack:"keys"`
+	Limit    int           `json:"limit"    msgpack:"limit"`
+	Offset   int           `json:"offset"   msgpack:"offset"`
 }
 
 type RetrievePolicyResponse struct {
-	Policies []policy.Policy `json:"policies" msgpack:"policies"`
+	Policies []policy.Policy `json:"policies,omitzero" msgpack:"policies,omitzero"`
 }
 
 func (s *Service) RetrievePolicy(
@@ -166,13 +166,14 @@ func (s *Service) CreateRole(
 
 type (
 	RetrieveRoleRequest struct {
-		Internal *bool      `json:"internal" msgpack:"internal"`
-		Keys     []role.Key `json:"keys" msgpack:"keys"`
-		Limit    int        `json:"limit" msgpack:"limit"`
-		Offset   int        `json:"offset" msgpack:"offset"`
+		Internal   *bool      `json:"internal"    msgpack:"internal"`
+		Keys       []role.Key `json:"keys"        msgpack:"keys"`
+		SearchTerm string     `json:"search_term" msgpack:"search_term"`
+		Limit      int        `json:"limit"       msgpack:"limit"`
+		Offset     int        `json:"offset"      msgpack:"offset"`
 	}
 	RetrieveRoleResponse struct {
-		Roles []role.Role `json:"roles" msgpack:"roles"`
+		Roles []role.Role `json:"roles,omitzero" msgpack:"roles,omitzero"`
 	}
 )
 
@@ -181,6 +182,9 @@ func (s *Service) RetrieveRole(
 	req RetrieveRoleRequest,
 ) (RetrieveRoleResponse, error) {
 	q := s.internal.Role.NewRetrieve()
+	if req.SearchTerm != "" {
+		q = q.Search(req.SearchTerm)
+	}
 	if len(req.Keys) > 0 {
 		q = q.Where(role.MatchKeys(req.Keys...))
 	}
@@ -254,7 +258,8 @@ func (s *Service) AssignRole(
 	}); err != nil {
 		return types.Nil{}, err
 	}
-	return types.Nil{}, s.internal.Role.NewWriter(tx, allowInternal).AssignRole(ctx, userID, req.Role)
+	return types.Nil{}, s.internal.Role.NewWriter(tx, allowInternal).
+		AssignRole(ctx, userID, req.Role)
 }
 
 type UnassignRoleRequest struct {

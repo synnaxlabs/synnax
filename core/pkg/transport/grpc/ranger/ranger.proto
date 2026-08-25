@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,7 +11,7 @@ syntax = "proto3";
 
 package grpc.ranger;
 
-import "core/pkg/api/ranger/pb/ranger.proto";
+import "core/pkg/service/ranger/pb/ranger.proto";
 import "google/protobuf/empty.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/transport/grpc/ranger";
@@ -32,16 +32,20 @@ service RangeRenameService {
   rpc Exec(RenameRequest) returns (google.protobuf.Empty) {}
 }
 
+service RangeSetEndService {
+  rpc Exec(SetEndRequest) returns (google.protobuf.Empty) {}
+}
+
 message DeleteRequest {
   repeated string keys = 1;
 }
 
 message CreateRequest {
-  repeated api.ranger.pb.Range ranges = 1;
+  repeated service.ranger.pb.Range ranges = 1;
 }
 
 message CreateResponse {
-  repeated api.ranger.pb.Range ranges = 1;
+  repeated service.ranger.pb.Range ranges = 1;
 }
 
 message RetrieveRequest {
@@ -50,10 +54,15 @@ message RetrieveRequest {
 }
 
 message RetrieveResponse {
-  repeated api.ranger.pb.Range ranges = 1;
+  repeated service.ranger.pb.Range ranges = 1;
 }
 
 message RenameRequest {
   string key = 1;
   string name = 2;
+}
+
+message SetEndRequest {
+  string key = 1;
+  int64 end = 2;
 }

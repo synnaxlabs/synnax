@@ -52,8 +52,25 @@ export const buildQueryString = (
 };
 
 /**
- * URL is a simple class for building and extending URLs.
+ * Encodes a string as unpadded base64url (RFC 4648 §5). The result contains only
+ * characters that are unreserved in URI paths, queries, and fragments, so it survives
+ * URI canonicalization unchanged and is safe to embed directly in a URL.
  */
+export const encodeBase64 = (input: string): string => {
+  const bytes = new TextEncoder().encode(input);
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+};
+
+/** Decodes an unpadded base64url string produced by {@link encodeBase64}. */
+export const decodeBase64 = (encoded: string): string => {
+  const binary = atob(encoded.replace(/-/g, "+").replace(/_/g, "/"));
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+};
+
+/** URL is a simple class for building and extending URLs. */
 export class URL {
   protocol: string;
   host: string;
@@ -62,7 +79,6 @@ export class URL {
 
   /**
    * @param host - The hostname or IP address of the server.
-   * @param port - The port number of the server.
    * @param protocol - The protocol to use for all requests. Defaults to "".
    * @param pathPrefix - A path prefix to use for all requests. Defaults to "".
    */
@@ -75,7 +91,6 @@ export class URL {
 
   /**
    * Replaces creates a new URL with the specified properties replaced.
-   * @param props - The properties to replace.
    * @returns a new URL.
    */
   replace(props: Partial<URLProps>): URL {
@@ -89,7 +104,6 @@ export class URL {
 
   /**
    * Creates a new url with the given path appended to the current path.
-   * @param path - the path to append to the URL.
    * @returns a new URL.
    */
   child(path: string): URL {

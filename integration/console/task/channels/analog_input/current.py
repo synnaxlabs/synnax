@@ -38,7 +38,6 @@ class Current(Analog):
         resistance: float | None = None,
         **kwargs: Any,
     ) -> None:
-
         super().__init__(
             layout=layout,
             name=name,
@@ -47,5 +46,5 @@ class Current(Analog):
             **kwargs,
         )
 
-        self._configure_dropdown("Shunt Resistor Location", shunt_resistor)
-        self._configure_input("Shunt Resistance", resistance)
+        self._configure_dropdown("Shunt resistor location", shunt_resistor)
+        self._configure_input("Shunt resistance", resistance)

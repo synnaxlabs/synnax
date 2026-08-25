@@ -71,7 +71,7 @@ The `authority` keyword sets a program's priority level from 0 to 255, where hig
 values take precedence. You can set a uniform level, assign different levels per
 channel, or change authority at runtime with `set_authority`:
 
-```arc
+```arc channels="press_vlv_cmd, vent_vlv_cmd, sensor, output, start_cmd",bodies="main,abort"
 // default 200, with per-channel overrides for press_vlv_cmd and vent_vlv_cmd
 authority (
     200

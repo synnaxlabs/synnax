@@ -1,0 +1,31 @@
+{
+  "array_mode": false,
+  "array_size": 1,
+  "auto_start": true,
+  "channels": [
+    {
+      "channel": 6010,
+      "data_type": "float64",
+      "disabled": false,
+      "key": "ch-opc-read-0",
+      "name": "fixture_opc_pressure",
+      "node_id": "NS=2;S=fixture.node.pressure",
+      "node_name": "FixturePressureNode",
+      "is_index": false
+    },
+    {
+      "channel": 6020,
+      "data_type": "int64",
+      "disabled": true,
+      "key": "ch-opc-read-1",
+      "name": "fixture_opc_timestamp",
+      "node_id": "NS=2;S=fixture.node.timestamp",
+      "node_name": "FixtureTimestampNode",
+      "is_index": true
+    }
+  ],
+  "data_saving_disabled": true,
+  "device": "fixture-opc-device",
+  "sample_rate": 432.5,
+  "stream_rate": 43.5
+}

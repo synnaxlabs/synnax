@@ -13,8 +13,8 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -26,7 +26,11 @@ type Writer struct {
 	dispatcher actions.Dispatcher[Key, Action]
 }
 
-func (w Writer) Create(ctx context.Context, projectKey project.Key, lp *LinePlot) error {
+func (w Writer) Create(
+	ctx context.Context,
+	projectKey project.Key,
+	lp *LinePlot,
+) error {
 	var (
 		exists bool
 		err    error
@@ -34,7 +38,9 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, lp *LinePlot
 	if lp.Key == uuid.Nil {
 		lp.Key = uuid.New()
 	} else {
-		exists, err = w.table.NewRetrieve().Where(gorp.MatchKeys[Key, LinePlot](lp.Key)).Exists(ctx, w.tx)
+		exists, err = w.table.NewRetrieve().
+			Where(gorp.MatchKeys[Key, LinePlot](lp.Key)).
+			Exists(ctx, w.tx)
 		if err != nil {
 			return err
 		}
@@ -42,25 +48,34 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, lp *LinePlot
 	// Materialize lines for any channel/range bindings supplied at creation so a plot
 	// created with channels and ranges but no lines is fully populated.
 	lp.Lines = reconcileLines(*lp)
+	lp.ApplyDefaults()
+	if err := lp.Validate(); err != nil {
+		return err
+	}
 	if err := w.table.NewCreate().Entry(lp).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if exists {
-		return nil
+	if !exists {
+		otgID := lp.OntologyID()
+		if err := w.otg.DefineResources(ctx, otgID); err != nil {
+			return err
+		}
+		if projectKey != uuid.Nil {
+			if err := w.otg.DefineRelationships(
+				ctx,
+				project.OntologyID(projectKey),
+				ontology.RelationshipTypeParentOf,
+				otgID,
+			); err != nil {
+				return err
+			}
+		}
 	}
-	otgID := OntologyID(lp.Key)
-	if err := w.otg.DefineResource(ctx, otgID); err != nil {
-		return err
-	}
-	if projectKey == uuid.Nil {
-		return nil
-	}
-	return w.otg.DefineRelationship(
-		ctx,
-		project.OntologyID(projectKey),
-		ontology.RelationshipTypeParentOf,
-		otgID,
+	// Notify last: a create rejected by ontology validation must not be broadcast.
+	w.dispatcher.Notify(
+		ctx, lp.Key, "", []Action{NewCreateAction(CreatePayload{LinePlot: *lp})},
 	)
+	return nil
 }
 
 // CreateMany creates the given line plots within the project provided. If line plots
@@ -78,37 +93,10 @@ func (w Writer) CreateMany(
 	return nil
 }
 
-// Dispatch applies a sequence of actions atomically to the line plot with the given
-// key. After a successful update the actions are notified to the service-level observer
-// so subscribers (cluster signals) can broadcast them. dispatchKey is a
-// client-generated identifier carried verbatim onto the broadcast so the originating
-// client can match its own echo against the set of outstanding local replays and skip a
-// redundant reduce when no foreign action interleaved.
-func (w Writer) Dispatch(
-	ctx context.Context,
-	key Key,
-	dispatchKey string,
-	actions []Action,
-) error {
-	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, LinePlot](key)).
-		ChangeErr(func(_ gorp.Context, p LinePlot) (LinePlot, error) {
-			return Reduce(p, actions...)
-		}).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	w.dispatcher.Notify(ctx, key, dispatchKey, actions)
-	return nil
-}
-
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	if err := w.table.NewDelete().Where(gorp.MatchKeys[Key, LinePlot](keys...)).
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	for _, key := range keys {
-		if err := w.otg.DeleteResource(ctx, OntologyID(key)); err != nil {
-			return err
-		}
-	}
-	return nil
+	return w.otg.DeleteResources(ctx, OntologyIDs(keys)...)
 }

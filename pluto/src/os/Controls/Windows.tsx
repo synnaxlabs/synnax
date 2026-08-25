@@ -19,13 +19,13 @@ import { type InternalControlsProps } from "@/os/Controls/types";
 
 export const Windows = ({
   disabled = [],
+  maximized = false,
   onMinimize,
   onMaximize,
   onClose,
   // no-ops on windows
   onFullscreen: _,
   focused: __,
-  contrast = 2,
   ...rest
 }: InternalControlsProps): ReactElement => (
   <Flex.Box pack {...rest}>
@@ -33,7 +33,6 @@ export const Windows = ({
       className={CSS.BM("windows-control", "minimize")}
       onClick={onMinimize}
       disabled={disabled.includes("minimize")}
-      contrast={contrast}
     >
       <Icon.Subtract />
     </Button>
@@ -41,17 +40,15 @@ export const Windows = ({
       className={CSS.BM("windows-control", "maximize")}
       onClick={onMaximize}
       disabled={disabled.includes("maximize")}
-      contrast={contrast}
     >
-      <Icon.Box />
+      {maximized ? <Icon.Boxes /> : <Icon.Box />}
     </Button>
     <Button
       onClick={onClose}
       className={CSS.BM("windows-control", "close")}
       disabled={disabled.includes("close")}
-      contrast={contrast}
     >
-      <Icon.Close />
+      <Icon.CloseThin />
     </Button>
   </Flex.Box>
 );
@@ -63,8 +60,9 @@ const Button = ({
 }: BaseButton.ButtonProps): ReactElement | null =>
   !disabled ? (
     <BaseButton.Button
-      className={CSS(CSS.B("windows-control"), className)}
+      className={CSS.cls(CSS.B("windows-control"), className)}
       tabIndex={-1}
+      variant="text"
       {...rest}
     />
   ) : null;

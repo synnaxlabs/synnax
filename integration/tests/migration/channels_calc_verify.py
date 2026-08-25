@@ -109,6 +109,8 @@ class CalcChannelsVerify(TestCase):
 
     def test_calc_operations(self) -> None:
         self.log("Testing: Calc channel operations metadata")
+        # Legacy uint8 reset configs survive migration but no longer compile (reset
+        # channels must be boolean), so only their stored metadata is asserted.
         reset = self.client.channels.retrieve(CALC_RESET)
         for name, expected_op, expected_dur, uses_reset in CALC_OP_CHANNELS:
             ch = self.client.channels.retrieve(name)
@@ -150,40 +152,6 @@ class CalcChannelsVerify(TestCase):
                 "mig_calc_expr_max": 65.0,
             }
         )
-
-        calc_avg_rst = self.client.channels.retrieve("mig_calc_op_avg_rst")
-        start = sy.TimeStamp.now()
-        with self.client.open_streamer(calc_avg_rst.key) as streamer:
-            with self.client.open_writer(
-                start, [self._calc_idx.key, self._src.key, reset.key]
-            ) as writer:
-                writer.write(
-                    {
-                        self._calc_idx.key: _timestamps(start, 3),
-                        self._src.key: VERIFY_SRC_DATA,
-                        reset.key: np.array([0, 0, 0], dtype=np.uint8),
-                    }
-                )
-                frame = streamer.read(timeout=5)
-                assert frame is not None
-                val = float(frame[calc_avg_rst.key][0])
-                assert abs(val - 20.0) < 0.01, (
-                    f"avg_rst batch1: expected 20.0, got {val}"
-                )
-
-                writer.write(
-                    {
-                        self._calc_idx.key: _timestamps(start, 2, offset=4),
-                        self._src.key: np.array([40.0, 50.0], dtype=np.float32),
-                        reset.key: np.array([1, 0], dtype=np.uint8),
-                    }
-                )
-                frame = streamer.read(timeout=5)
-                assert frame is not None
-                val = float(frame[calc_avg_rst.key][0])
-                assert abs(val - 45.0) < 0.01, (
-                    f"avg_rst after reset: expected 45.0, got {val}"
-                )
 
     def test_calc_type_handling(self) -> None:
         self.log("Testing: Calc type handling metadata")

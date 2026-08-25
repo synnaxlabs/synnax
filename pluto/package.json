@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/pluto",
-  "version": "0.56.5",
+  "version": "0.57.1",
   "type": "module",
   "scripts": {
     "build": "tsc --noEmit && vite build",
@@ -18,37 +18,50 @@
     "generate-theme": "tsx src/theming/static/generate.ts"
   },
   "dependencies": {
-    "@fontsource-variable/inter": "^5.2.8",
-    "@fontsource/geist-mono": "catalog:",
-    "@fontsource/inter": "catalog:",
+    "@codingame/monaco-vscode-editor-api": "^36.0.0",
     "@synnaxlabs/alamos": "workspace:^",
     "@synnaxlabs/client": "workspace:^",
     "@synnaxlabs/freighter": "workspace:*",
     "@synnaxlabs/media": "workspace:*",
     "@synnaxlabs/x": "workspace:^",
-    "@tanstack/react-virtual": "^3.13.24",
-    "@xyflow/react": "^12.10.2",
-    "async-mutex": "catalog:",
+    "@xyflow/react": "^12.11.2",
     "clsx": "catalog:",
-    "compromise": "catalog:",
-    "compromise-dates": "catalog:",
-    "d3-scale": "^4.0.2",
-    "fuse.js": "^7.3.0",
-    "mathjs": "^15.2.0",
-    "pluralize": "catalog:",
-    "react": "catalog:",
-    "react-color": "^2.19.3",
     "react-icons": "catalog:",
-    "stacktrace-js": "^2.0.2",
-    "use-sync-external-store": "^1.6.0",
+    "vscode-languageclient": "^10.1.0",
     "zod": "catalog:"
   },
+  "peerDependencies": {
+    "@testing-library/react": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "vitest": "catalog:"
+  },
+  "peerDependenciesMeta": {
+    "@testing-library/react": {
+      "optional": true
+    },
+    "vitest": {
+      "optional": true
+    }
+  },
   "devDependencies": {
+    "@codingame/monaco-vscode-api": "^36.0.0",
+    "@codingame/monaco-vscode-extension-api": "^36.0.0",
+    "@codingame/monaco-vscode-languages-service-override": "^36.0.0",
+    "@codingame/monaco-vscode-textmate-service-override": "^36.0.0",
+    "@codingame/monaco-vscode-theme-defaults-default-extension": "^36.0.0",
+    "@codingame/monaco-vscode-theme-service-override": "^36.0.0",
+    "@fontsource-variable/inter": "^5.3.0",
+    "@fontsource/geist-mono": "catalog:",
+    "@fontsource/inter": "catalog:",
     "@juggle/resize-observer": "^3.4.0",
+    "@synnaxlabs/arc": "workspace:^",
     "@synnaxlabs/eslint-config": "workspace:^",
+    "@synnaxlabs/madge": "workspace:^",
     "@synnaxlabs/stylelint-config": "workspace:^",
     "@synnaxlabs/tsconfig": "workspace:^",
     "@synnaxlabs/vite-plugin": "workspace:^",
+    "@tanstack/react-virtual": "^3.14.9",
     "@testing-library/react": "catalog:",
     "@testing-library/user-event": "^14.6.1",
     "@types/d3-scale": "^4.0.9",
@@ -60,108 +73,111 @@
     "@types/react-dom": "catalog:",
     "@types/use-sync-external-store": "^1.5.0",
     "@types/webgl2": "^0.0.12",
+    "@types/ws": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "@vitest/coverage-v8": "catalog:",
+    "async-mutex": "catalog:",
+    "compromise": "catalog:",
+    "compromise-dates": "catalog:",
+    "d3-scale": "^4.0.2",
+    "error-stack-parser": "^2.1.4",
     "eslint": "catalog:",
+    "fuse.js": "^7.5.0",
     "jsdom": "catalog:",
-    "madge": "catalog:",
+    "mathjs": "^15.2.0",
+    "pluralize": "catalog:",
+    "react": "catalog:",
+    "react-color": "^2.19.3",
     "react-dom": "catalog:",
+    "source-map-js": "^1.2.1",
     "stylelint": "catalog:",
     "typescript": "catalog:",
+    "use-sync-external-store": "^1.6.0",
     "vite": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "vscode": "npm:@codingame/monaco-vscode-extension-api@^36.0.0",
+    "vscode-jsonrpc": "^9.0.1",
+    "ws": "catalog:"
   },
   "files": [
-    "dist"
+    "dist",
+    "!dist/**/*.map",
+    "!**/*.spec.*",
+    "!**/*.bench.*",
+    "!dist/eslint.config.*"
   ],
-  "main": "./dist/pluto.cjs",
-  "module": "./dist/pluto.js",
-  "types": "./dist/src/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",
-      "import": "./dist/pluto.js",
-      "require": "./dist/pluto.cjs"
+      "default": "./dist/pluto.js"
     },
     "./ether": {
       "types": "./dist/src/ether.d.ts",
-      "import": "./dist/ether.js",
-      "require": "./dist/ether.cjs"
+      "default": "./dist/ether.js"
+    },
+    "./testutil": {
+      "types": "./dist/src/testutil/index.d.ts",
+      "default": "./dist/testutil.js"
     },
     "./flex": {
       "types": "./dist/src/flex/index.d.ts",
-      "import": "./dist/flex.js",
-      "require": "./dist/flex.cjs"
+      "default": "./dist/flex.js"
     },
     "./button": {
       "types": "./dist/src/button/index.d.ts",
-      "import": "./dist/button.js",
-      "require": "./dist/button.cjs"
+      "default": "./dist/button.js"
     },
     "./tabs": {
       "types": "./dist/src/tabs/index.d.ts",
-      "import": "./dist/tabs.js",
-      "require": "./dist/tabs.cjs"
+      "default": "./dist/tabs.js"
     },
     "./theming": {
       "types": "./dist/src/theming/index.d.ts",
-      "import": "./dist/theming.js",
-      "require": "./dist/theming.cjs"
+      "default": "./dist/theming.js"
     },
     "./menu": {
       "types": "./dist/src/menu/index.d.ts",
-      "import": "./dist/menu.js",
-      "require": "./dist/menu.cjs"
+      "default": "./dist/menu.js"
     },
     "./header": {
       "types": "./dist/src/header/index.d.ts",
-      "import": "./dist/header.js",
-      "require": "./dist/header.cjs"
+      "default": "./dist/header.js"
     },
     "./tree": {
       "types": "./dist/src/tree/index.d.ts",
-      "import": "./dist/tree.js",
-      "require": "./dist/tree.cjs"
+      "default": "./dist/tree.js"
     },
     "./dropdown": {
       "types": "./dist/src/dropdown/index.d.ts",
-      "import": "./dist/dropdown.js",
-      "require": "./dist/dropdown.cjs"
+      "default": "./dist/dropdown.js"
     },
     "./video": {
       "types": "./dist/src/video/index.d.ts",
-      "import": "./dist/video.js",
-      "require": "./dist/video.cjs"
+      "default": "./dist/video.js"
     },
     "./text": {
       "types": "./dist/src/text/index.d.ts",
-      "import": "./dist/text.js",
-      "require": "./dist/text.cjs"
+      "default": "./dist/text.js"
     },
     "./input": {
       "types": "./dist/src/input/index.d.ts",
-      "import": "./dist/input.js",
-      "require": "./dist/input.cjs"
+      "default": "./dist/input.js"
     },
     "./triggers": {
       "types": "./dist/src/triggers/index.d.ts",
-      "import": "./dist/triggers.js",
-      "require": "./dist/triggers.cjs"
+      "default": "./dist/triggers.js"
     },
     "./list": {
       "types": "./dist/src/list/index.d.ts",
-      "import": "./dist/list.js",
-      "require": "./dist/list.cjs"
+      "default": "./dist/list.js"
     },
     "./color": {
       "types": "./dist/src/color/index.d.ts",
-      "import": "./dist/color.js",
-      "require": "./dist/color.cjs"
+      "default": "./dist/color.js"
     },
     "./css": {
       "types": "./dist/src/css/index.d.ts",
-      "import": "./dist/css.js",
-      "require": "./dist/css.cjs"
+      "default": "./dist/css.js"
     },
     "./dist/*": "./dist/*"
   },

@@ -48,13 +48,17 @@ ox_pt_1
 
 **Reserved keywords** cannot be used as identifiers:
 
-| Keywords   |             |                        |                   |
-| ---------- | ----------- | ---------------------- | ----------------- |
-| `func`     | `if`        | `else`                 | `return`          |
-| `for`      | `break`     | `continue`             | `chan`            |
-| `sequence` | `stage`     | `next`                 | `series`          |
-| `and`      | `or`        | `not`                  | `authority`       |
-| `i8` `i16` | `i32` `i64` | `u8` `u16` `u32` `u64` | `f32` `f64` `str` |
+| Category        | Keywords                                                                                    |
+| --------------- | ------------------------------------------------------------------------------------------- |
+| Functions       | `func` `return`                                                                             |
+| Conditionals    | `if` `else`                                                                                 |
+| Loops           | `for` `break` `continue`                                                                    |
+| Operators       | `and` `or` `not`                                                                            |
+| Sequences       | `sequence` `stage` `next`                                                                   |
+| Control         | `authority`                                                                                 |
+| Literals        | `true` `false`                                                                              |
+| Data types      | `i8` `i16` `i32` `i64` <br /> `u8` `u16` `u32` `u64` <br /> `f32` `f64` <br /> `str` `bool` |
+| Composite types | `chan` `series`                                                                             |
 
 <Divider.Divider x />
 
@@ -103,6 +107,10 @@ parameter that expects a time span.
 | `hz`            | hertz     |
 | `khz`           | kilohertz |
 | `mhz`           | megahertz |
+
+### Boolean Literals
+
+`true` and `false`.
 
 ### String Literals
 
@@ -156,16 +164,17 @@ yields `a\"b`, four characters; `` r`a\`b` `` yields ``a\`b``).
 Prefix with `f` to enable `{expr}` placeholders, with an optional format spec after `:`.
 Combine with `r` (as `rf` or `fr`) for raw + format.
 
-```arc
-f"Data: {pressure:.1f} psi"      // "Data: 523.7 psi"
-f"Code: {pump_err_code:#x}"      // "Code: 0xff00"
-f"Math: {(2.0 + 4.0)/2.0}"       // "Math: 3"
-rf"C:\logs\{name}.txt"           // backslashes literal; {name} substituted
+```arc channels="pressure, pump_err_code"
+f"Data: {pressure:.1f} psi"  // "Data: 523.7 psi"
+f"Code: {pump_err_code:#x}"  // "Code: 0xff00"
+f"Math: {(2.0 + 4.0)/2.0}"   // "Math: 3"
+rf"C:\logs\{name}.txt"       // backslashes literal; {name} substituted
 ```
 
 Each placeholder is a regular Arc expression. Numeric values are converted to their
-default string form unless a format spec is given. Format specs follow printf-style
-conventions and are validated against the placeholder type at compile time.
+default string form unless a format spec is given. A `bool` renders as `true` or
+`false`. Format specs follow printf-style conventions and are validated against the
+placeholder type at compile time.
 
 | Form          | Meaning                                               |
 | ------------- | ----------------------------------------------------- |
@@ -307,7 +316,7 @@ form; multiple imports go in an `import ( … )` block.
 
 ### Single Module
 
-```arc
+```arc channels="trig, ts_out"
 import time
 
 trig -> time.now{} -> ts_out
@@ -317,7 +326,7 @@ trig -> time.now{} -> ts_out
 
 Rename the qualifier with `as`:
 
-```arc
+```arc channels="trig, ts_out"
 import time as t
 
 trig -> t.now{} -> ts_out
@@ -339,7 +348,8 @@ import (
 
 ## Authority Declarations
 
-Authority declarations set the [control authority](/reference/control/control-authority)
+Authority declarations set the
+[control authority](/reference/control/arc/reference/standard-library/control#authority)
 for channels written by the program. They must appear before any `func`, `sequence`, or
 flow declarations.
 
@@ -357,7 +367,7 @@ When omitted, the system default is 255 (maximum).
 
 Set authority for specific channels using a grouped form:
 
-```arc
+```arc channels="valve_cmd, vent_cmd"
 authority (
     200
     valve_cmd 100
@@ -369,7 +379,7 @@ This sets a default of 200, then overrides `valve_cmd` to 100 and `vent_cmd` to 
 
 You can also set per-channel authority without a default:
 
-```arc
+```arc channels="valve_cmd, vent_cmd"
 authority (
     valve_cmd 100
     vent_cmd 150
@@ -415,9 +425,9 @@ sequence prime {
 
 Stage bodies contain flow statements; newlines separate them.
 
-```arc
+```arc channels="valve, sensor, pressure"
 stage pressurize {
-    1 -> valve
+    true -> valve
     sensor -> controller{}
     pressure > 500 => next
 }
@@ -426,11 +436,11 @@ stage pressurize {
 Sequence bodies contain items that run in order: writes, waits, condition gates, stages,
 and nested sequences.
 
-```arc
+```arc channels="press_vlv_cmd, tank_pressure"
 sequence prime {
-    1 -> press_vlv_cmd
+    true -> press_vlv_cmd
     time.wait{5s}
     tank_pressure > 500
-    0 -> press_vlv_cmd
+    false -> press_vlv_cmd
 }
 ```

@@ -9,10 +9,9 @@
 
 import { describe, expect, it } from "vitest";
 
-import { AuthError, NotFoundError } from "@/errors";
+import { AccessDeniedError, NotFoundError } from "@/errors";
 import { rack } from "@/rack";
-import { createTestClientWithPolicy } from "@/testutil/access";
-import { createTestClient } from "@/testutil/client";
+import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
 const client = createTestClient();
 
@@ -27,8 +26,8 @@ describe("rack", () => {
       const randomRack = await client.racks.create({
         name: "test",
       });
-      await expect(userClient.racks.retrieve({ key: randomRack.key })).rejects.toThrow(
-        AuthError,
+      await expect(userClient.racks.retrieve(randomRack.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
       );
     });
 
@@ -41,9 +40,7 @@ describe("rack", () => {
       const randomRack = await client.racks.create({
         name: "test",
       });
-      const retrieved = await userClient.racks.retrieve({
-        key: randomRack.key,
-      });
+      const retrieved = await userClient.racks.retrieve(randomRack.key);
       expect(retrieved.key).toBe(randomRack.key);
       expect(retrieved.name).toBe(randomRack.name);
     });
@@ -69,7 +66,7 @@ describe("rack", () => {
         userClient.racks.create({
           name: "test",
         }),
-      ).rejects.toThrow(AuthError);
+      ).rejects.toSatisfy(AccessDeniedError.matches);
     });
 
     it("should allow the caller to delete racks with the correct policy", async () => {
@@ -82,7 +79,7 @@ describe("rack", () => {
         name: "test",
       });
       await userClient.racks.delete(randomRack.key);
-      await expect(userClient.racks.retrieve({ key: randomRack.key })).rejects.toThrow(
+      await expect(userClient.racks.retrieve(randomRack.key)).rejects.toThrow(
         NotFoundError,
       );
     });
@@ -96,7 +93,9 @@ describe("rack", () => {
       const randomRack = await client.racks.create({
         name: "test",
       });
-      await expect(userClient.racks.delete(randomRack.key)).rejects.toThrow(AuthError);
+      await expect(userClient.racks.delete(randomRack.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
+      );
     });
   });
 });

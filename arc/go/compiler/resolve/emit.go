@@ -104,7 +104,14 @@ func (r *Resolver) EmitStateStoreSeries(w *wasm.Writer, wID int, elemType types.
 	ct := types.Function(types.FunctionProperties{
 		Inputs: types.Params{{Type: types.I32()}, {Type: types.I32()}},
 	})
-	r.EmitImportCallWithSuffix(w, wID, "stateful", "store_series", ct, elemType.String())
+	r.EmitImportCallWithSuffix(
+		w,
+		wID,
+		"stateful",
+		"store_series",
+		ct,
+		elemType.String(),
+	)
 }
 
 var opToArithName = map[string]string{
@@ -133,14 +140,28 @@ func (r *Resolver) EmitSeriesArithmetic(
 			Inputs:  types.Params{{Type: types.I32()}, {Type: elemType}},
 			Outputs: types.Params{{Type: types.I32()}},
 		})
-		r.EmitImportCallWithSuffix(w, wID, "series", "element_"+name, ct, suffixForType(elemType))
+		r.EmitImportCallWithSuffix(
+			w,
+			wID,
+			"series",
+			"element_"+name,
+			ct,
+			suffixForType(elemType),
+		)
 		return nil
 	}
 	ct := types.Function(types.FunctionProperties{
 		Inputs:  types.Params{{Type: types.I32()}, {Type: types.I32()}},
 		Outputs: types.Params{{Type: types.I32()}},
 	})
-	r.EmitImportCallWithSuffix(w, wID, "series", "series_"+name, ct, suffixForType(elemType))
+	r.EmitImportCallWithSuffix(
+		w,
+		wID,
+		"series",
+		"series_"+name,
+		ct,
+		suffixForType(elemType),
+	)
 	return nil
 }
 
@@ -160,7 +181,14 @@ func (r *Resolver) EmitSeriesReverseArithmetic(
 		Inputs:  types.Params{{Type: elemType}, {Type: types.I32()}},
 		Outputs: types.Params{{Type: types.I32()}},
 	})
-	r.EmitImportCallWithSuffix(w, wID, "series", "element_r"+name, ct, suffixForType(elemType))
+	r.EmitImportCallWithSuffix(
+		w,
+		wID,
+		"series",
+		"element_r"+name,
+		ct,
+		suffixForType(elemType),
+	)
 	return nil
 }
 
@@ -184,12 +212,23 @@ func (r *Resolver) EmitSeriesComparison(
 	if !ok {
 		return errors.Newf("unknown comparison operator: %s", op)
 	}
+	r.emitSeriesBinary(w, wID, "compare_"+name, elemType)
+	return nil
+}
+
+// emitSeriesBinary emits a call to a series host function taking two series
+// handles and returning a series handle.
+func (r *Resolver) emitSeriesBinary(
+	w *wasm.Writer,
+	wID int,
+	name string,
+	elemType types.Type,
+) {
 	ct := types.Function(types.FunctionProperties{
 		Inputs:  types.Params{{Type: types.I32()}, {Type: types.I32()}},
 		Outputs: types.Params{{Type: types.I32()}},
 	})
-	r.EmitImportCallWithSuffix(w, wID, "series", "compare_"+name, ct, suffixForType(elemType))
-	return nil
+	r.EmitImportCallWithSuffix(w, wID, "series", name, ct, suffixForType(elemType))
 }
 
 // EmitSeriesScalarComparison emits a call to a series-to-scalar comparison function.
@@ -207,7 +246,14 @@ func (r *Resolver) EmitSeriesScalarComparison(
 		Inputs:  types.Params{{Type: types.I32()}, {Type: elemType}},
 		Outputs: types.Params{{Type: types.I32()}},
 	})
-	r.EmitImportCallWithSuffix(w, wID, "series", "compare_"+name+"_scalar", ct, suffixForType(elemType))
+	r.EmitImportCallWithSuffix(
+		w,
+		wID,
+		"series",
+		"compare_"+name+"_scalar",
+		ct,
+		suffixForType(elemType),
+	)
 	return nil
 }
 
@@ -217,16 +263,34 @@ func (r *Resolver) EmitSeriesCreateEmpty(w *wasm.Writer, wID int, elemType types
 		Inputs:  types.Params{{Type: types.I32()}},
 		Outputs: types.Params{{Type: types.I32()}},
 	})
-	r.EmitImportCallWithSuffix(w, wID, "series", "create_empty", ct, suffixForType(elemType))
+	r.EmitImportCallWithSuffix(
+		w,
+		wID,
+		"series",
+		"create_empty",
+		ct,
+		suffixForType(elemType),
+	)
 }
 
 // EmitSeriesSetElement emits a call to series.set_element for the given element type.
 func (r *Resolver) EmitSeriesSetElement(w *wasm.Writer, wID int, elemType types.Type) {
 	ct := types.Function(types.FunctionProperties{
-		Inputs:  types.Params{{Type: types.I32()}, {Type: types.I32()}, {Type: elemType}},
+		Inputs: types.Params{
+			{Type: types.I32()},
+			{Type: types.I32()},
+			{Type: elemType},
+		},
 		Outputs: types.Params{{Type: types.I32()}},
 	})
-	r.EmitImportCallWithSuffix(w, wID, "series", "set_element", ct, suffixForType(elemType))
+	r.EmitImportCallWithSuffix(
+		w,
+		wID,
+		"series",
+		"set_element",
+		ct,
+		suffixForType(elemType),
+	)
 }
 
 // EmitSeriesIndex emits a call to series.index for the given element type.
@@ -247,13 +311,35 @@ func (r *Resolver) EmitSeriesNegate(w *wasm.Writer, wID int, elemType types.Type
 	r.EmitImportCallWithSuffix(w, wID, "series", "negate", ct, suffixForType(elemType))
 }
 
-// EmitSeriesNotU8 emits a call to series.not_u8.
-func (r *Resolver) EmitSeriesNotU8(w *wasm.Writer, wID int) {
+// EmitSeriesLogical emits a call to a series logical operation. A scalar
+// right operand broadcasts against every element.
+func (r *Resolver) EmitSeriesLogical(
+	w *wasm.Writer,
+	wID int,
+	op string,
+	isScalar bool,
+) error {
+	if op != "and" && op != "or" {
+		return errors.Newf("unknown logical operator: %s", op)
+	}
+	if isScalar {
+		op += "_scalar"
+	}
+	ct := types.Function(types.FunctionProperties{
+		Inputs:  types.Params{{Type: types.I32()}, {Type: types.I32()}},
+		Outputs: types.Params{{Type: types.I32()}},
+	})
+	r.EmitImportCall(w, wID, "series", op, ct)
+	return nil
+}
+
+// EmitSeriesNot emits a call to series.not.
+func (r *Resolver) EmitSeriesNot(w *wasm.Writer, wID int) {
 	ct := types.Function(types.FunctionProperties{
 		Inputs:  types.Params{{Type: types.I32()}},
 		Outputs: types.Params{{Type: types.I32()}},
 	})
-	r.EmitImportCall(w, wID, "series", "not_u8", ct)
+	r.EmitImportCall(w, wID, "series", "not", ct)
 }
 
 // EmitSeriesLen emits a call to series.len.
@@ -268,7 +354,11 @@ func (r *Resolver) EmitSeriesLen(w *wasm.Writer, wID int) {
 // EmitSeriesSlice emits a call to series.slice.
 func (r *Resolver) EmitSeriesSlice(w *wasm.Writer, wID int) {
 	ct := types.Function(types.FunctionProperties{
-		Inputs:  types.Params{{Type: types.I32()}, {Type: types.I32()}, {Type: types.I32()}},
+		Inputs: types.Params{
+			{Type: types.I32()},
+			{Type: types.I32()},
+			{Type: types.I32()},
+		},
 		Outputs: types.Params{{Type: types.I32()}},
 	})
 	r.EmitImportCall(w, wID, "series", "slice", ct)

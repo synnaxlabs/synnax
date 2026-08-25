@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <thread>
+#include <chrono>
 
 #include "gtest/gtest.h"
 
@@ -344,7 +344,7 @@ TEST(WriterTests, testSetAuthority) {
     ASSERT_NIL(writer.close());
 }
 
-/// @brief it should correctly set authority without waiting for acknowledgement.
+/// @brief it should correctly set authority without waiting for acknowledgment.
 TEST(WriterTests, testSetAuthorityFireAndForget) {
     auto client = new_test_client();
     auto time = ASSERT_NIL_P(client.channels.create(
@@ -431,27 +431,38 @@ TEST(WriterTests, testSetAuthorityFireAndForgetTakesEffect) {
         false
     ));
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    // The release is not acknowledged, so a writer opened right after it can still be
+    // locked out. Retry until the release lands.
+    const auto take_control = [&]() -> x::errors::Error {
+        auto [w2, open_err] = client.telem.open_writer(
+            synnax::framer::WriterConfig{
+                .channels = std::vector{time.key, data.key},
+                .start = x::telem::TimeStamp::now(),
+                .authorities =
+                    std::vector{
+                        x::control::AUTHORITY_ABSOLUTE,
+                        x::control::AUTHORITY_ABSOLUTE
+                    },
+                .subject = x::control::Subject{"writer_2"},
+                .err_on_unauthorized = true
+            }
+        );
+        if (open_err) return open_err;
+        const auto now = x::telem::TimeStamp::now();
+        auto frame = x::telem::Frame(2);
+        frame.emplace(time.key, x::telem::Series(now + x::telem::SECOND));
+        frame.emplace(data.key, x::telem::Series(std::vector<uint8_t>{42}));
+        auto err = w2.write(frame);
+        if (!err) err = w2.commit().second;
+        const auto close_err = w2.close();
+        return err ? err : close_err;
+    };
+    ASSERT_EVENTUALLY_NIL_WITH_TIMEOUT(
+        take_control(),
+        std::chrono::seconds(10),
+        std::chrono::milliseconds(50)
+    );
 
-    auto w2 = ASSERT_NIL_P(client.telem.open_writer(
-        synnax::framer::WriterConfig{
-            .channels = std::vector{time.key, data.key},
-            .start = x::telem::TimeStamp::now(),
-            .authorities = std::
-                vector{x::control::AUTHORITY_ABSOLUTE, x::control::AUTHORITY_ABSOLUTE},
-            .subject = x::control::Subject{"writer_2"},
-            .err_on_unauthorized = true
-        }
-    ));
-
-    auto now = x::telem::TimeStamp::now();
-    auto frame = x::telem::Frame(2);
-    frame.emplace(time.key, x::telem::Series(now + x::telem::SECOND));
-    frame.emplace(data.key, x::telem::Series(std::vector<uint8_t>{42}));
-    ASSERT_NIL(w2.write(frame));
-    ASSERT_NIL_P(w2.commit());
-
-    ASSERT_NIL(w2.close());
     ASSERT_NIL(w1.close());
 }
 

@@ -20,7 +20,8 @@ import (
 )
 
 var _ = Describe("Radius", func() {
-	DescribeTable("UnmarshalJSON accepts crude forms",
+	DescribeTable(
+		"UnmarshalJSON accepts crude forms",
 		func(input string, expected border.Radius) {
 			var r border.Radius
 			Expect(json.Unmarshal([]byte(input), &r)).To(Succeed())
@@ -38,18 +39,26 @@ var _ = Describe("Radius", func() {
 			BottomLeft:  spatial.XY{X: 50, Y: 10},
 			BottomRight: spatial.XY{X: 50, Y: 10},
 		}),
-		Entry("per-corner numbers, camelCase", `{"topLeft": 1, "topRight": 2, "bottomLeft": 3, "bottomRight": 4}`, border.Radius{
-			TopLeft:     spatial.XY{X: 1, Y: 1},
-			TopRight:    spatial.XY{X: 2, Y: 2},
-			BottomLeft:  spatial.XY{X: 3, Y: 3},
-			BottomRight: spatial.XY{X: 4, Y: 4},
-		}),
-		Entry("canonical per-corner pairs, snake_case", `{"top_left": {"x": 1, "y": 9}, "top_right": {"x": 2, "y": 8}, "bottom_left": {"x": 3, "y": 7}, "bottom_right": {"x": 4, "y": 6}}`, border.Radius{
-			TopLeft:     spatial.XY{X: 1, Y: 9},
-			TopRight:    spatial.XY{X: 2, Y: 8},
-			BottomLeft:  spatial.XY{X: 3, Y: 7},
-			BottomRight: spatial.XY{X: 4, Y: 6},
-		}),
+		Entry(
+			"per-corner numbers, camelCase",
+			`{"topLeft": 1, "topRight": 2, "bottomLeft": 3, "bottomRight": 4}`,
+			border.Radius{
+				TopLeft:     spatial.XY{X: 1, Y: 1},
+				TopRight:    spatial.XY{X: 2, Y: 2},
+				BottomLeft:  spatial.XY{X: 3, Y: 3},
+				BottomRight: spatial.XY{X: 4, Y: 4},
+			},
+		),
+		Entry(
+			"canonical per-corner pairs, snake_case",
+			`{"top_left": {"x": 1, "y": 9}, "top_right": {"x": 2, "y": 8}, "bottom_left": {"x": 3, "y": 7}, "bottom_right": {"x": 4, "y": 6}}`,
+			border.Radius{
+				TopLeft:     spatial.XY{X: 1, Y: 9},
+				TopRight:    spatial.XY{X: 2, Y: 8},
+				BottomLeft:  spatial.XY{X: 3, Y: 7},
+				BottomRight: spatial.XY{X: 4, Y: 6},
+			},
+		),
 		Entry("null", `null`, border.Radius{}),
 	)
 

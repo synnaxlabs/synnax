@@ -9,6 +9,7 @@
 
 import { actions } from "@/actions";
 import {
+  type Action,
   addChannel,
   addRange,
   createReduceAll,
@@ -24,8 +25,8 @@ import {
   setAxisTickSpacing,
   setAxisType,
   setChannels,
+  setLegendHidden,
   setLegendPosition,
-  setLegendVisible,
   setLine,
   setLineColor,
   setLineDownsample,
@@ -41,7 +42,8 @@ import {
   setRuleLineWidth,
   setRulePosition,
   setRuleUnits,
-  setTitle,
+  setTitleLevel,
+  setTitleVisible,
   setXChannel,
 } from "@/lineplot/actions.gen";
 import { reconcileLines } from "@/lineplot/line";
@@ -53,23 +55,40 @@ import { reconcileLines } from "@/lineplot/line";
 // the specific channel/range/axis/line/rule so concurrent edits to distinct
 // resources neither coalesce nor invalidate each other's undoables.
 const handlers: Handlers = {
+  create: (state, payload) => {
+    Object.assign(state, payload.linePlot);
+    return { inverse: [], targets: [payload.linePlot.key] };
+  },
+
   rename: (state, payload) => {
     const oldName = state.name;
     state.name = payload.name;
     return { inverse: [rename({ name: oldName })], targets: [state.key] };
   },
 
-  setTitle: (state, payload) => {
-    const oldTitle = actions.snapshotDraft(state.title);
-    state.title = payload.title;
-    return { inverse: [setTitle({ title: oldTitle })], targets: [state.key] };
+  setTitleVisible: (state, payload) => {
+    const oldVisible = state.title.visible;
+    state.title.visible = payload.visible;
+    return {
+      inverse: [setTitleVisible({ visible: oldVisible })],
+      targets: [state.key],
+    };
   },
 
-  setLegendVisible: (state, payload) => {
-    const oldVisible = state.legend.visible;
-    state.legend.visible = payload.visible;
+  setTitleLevel: (state, payload) => {
+    const oldLevel = state.title.level;
+    state.title.level = payload.level;
     return {
-      inverse: [setLegendVisible({ visible: oldVisible })],
+      inverse: [setTitleLevel({ level: oldLevel })],
+      targets: [state.key],
+    };
+  },
+
+  setLegendHidden: (state, payload) => {
+    const oldHidden = state.legend.hidden;
+    state.legend.hidden = payload.hidden;
+    return {
+      inverse: [setLegendHidden({ hidden: oldHidden })],
       targets: [state.key],
     };
   },
@@ -153,10 +172,9 @@ const handlers: Handlers = {
     };
   },
 
-  // setXChannel swaps the single channel on an x-axis. Reconciliation rekeys
-  // every line on that axis: the old lines are dropped and fresh ones
-  // materialized. Undo restores both the previous channel and the previous
-  // line styling.
+  // setXChannel swaps the single channel on an x-axis. Reconciliation rekeys every line
+  // on that axis: the old lines are dropped and fresh ones materialized. Undo restores
+  // both the previous channel and the previous line styling.
   setXChannel: (state, payload) => {
     const axis = payload.axisKey;
     const oldChannel = state.channels[axis];
@@ -177,9 +195,8 @@ const handlers: Handlers = {
     };
   },
 
-  // addRange appends the range to an x-axis and reconciles the line set,
-  // materializing a line for every y-channel plotted against it. removeRange is
-  // its inverse.
+  // addRange appends the range to an x-axis and reconciles the line set, materializing
+  // a line for every y-channel plotted against it. removeRange is its inverse.
   addRange: (state, payload) => {
     const axis = payload.axisKey;
     const slice = state.ranges[axis];
@@ -244,7 +261,6 @@ const handlers: Handlers = {
     };
   },
 
-  // Each setAxis* action sets one field of the named axis in place.
   setAxisLabel: (state, payload) => {
     const axis = state.axes[payload.key];
     const inverse = [setAxisLabel({ key: payload.key, label: axis.label })];
@@ -276,11 +292,11 @@ const handlers: Handlers = {
       setAxisBounds({
         key: payload.key,
         bounds: actions.snapshotDraft(axis.bounds),
-        autoBounds: actions.snapshotDraft(axis.autoBounds),
+        manualBounds: actions.snapshotDraft(axis.manualBounds),
       }),
     ];
     axis.bounds = payload.bounds;
-    axis.autoBounds = payload.autoBounds;
+    axis.manualBounds = payload.manualBounds;
     return { inverse, targets: [`axis:${payload.key}`] };
   },
 
@@ -394,7 +410,6 @@ const handlers: Handlers = {
     return { inverse: [setRule({ rule: oldRule })], targets: [`rule:${payload.key}`] };
   },
 
-  // Each setRule* action sets one field of the rule identified by key.
   setRuleLabel: (state, payload) => {
     const rule = state.rules.find((r) => r.key === payload.key);
     if (rule == null) return actions.NO_OP_RESULT;
@@ -458,3 +473,63 @@ const handlers: Handlers = {
 };
 
 export const reduceAll = createReduceAll(handlers);
+
+// createOf hands the dispatch controller the document carried by a create
+// action so frames for never-cached documents ingest instead of drop.
+export const createOf = (action: Action) =>
+  action.type === "create" ? action.create.linePlot : undefined;
+
+// Drag streams (axis bounds, rule position, line style, legend) coalesce into one undo
+// entry within the coalesce window. Single-target actions key by their axis/line/rule
+// so gestures on different targets don't merge; dragging axis x1 then axis x2 is two
+// undo steps. Edits to distinct fields of the same target (e.g. an x1 label then its
+// bounds) deliberately share a key, matching the previous single-setAxis coalescing.
+export const kindOf = (actions: Action[]): string => {
+  if (actions.length === 0) return "default";
+  if (actions.length > 1) return "transaction";
+  const a = actions[0];
+  switch (a.type) {
+    case "set_axis_label":
+      return `axis:${a.setAxisLabel.key}`;
+    case "set_axis_label_direction":
+      return `axis:${a.setAxisLabelDirection.key}`;
+    case "set_axis_label_level":
+      return `axis:${a.setAxisLabelLevel.key}`;
+    case "set_axis_bounds":
+      return `axis:${a.setAxisBounds.key}`;
+    case "set_axis_tick_spacing":
+      return `axis:${a.setAxisTickSpacing.key}`;
+    case "set_axis_type":
+      return `axis:${a.setAxisType.key}`;
+    case "set_line_label":
+      return `line:${a.setLineLabel.key}`;
+    case "set_line_color":
+      return `line:${a.setLineColor.key}`;
+    case "set_line_stroke_width":
+      return `line:${a.setLineStrokeWidth.key}`;
+    case "set_line_downsample":
+      return `line:${a.setLineDownsample.key}`;
+    case "set_line_downsample_mode":
+      return `line:${a.setLineDownsampleMode.key}`;
+    case "set_line":
+      return `line:${a.setLine.line.key}`;
+    case "set_rule":
+      return `rule:${a.setRule.rule.key}`;
+    case "set_rule_label":
+      return `rule:${a.setRuleLabel.key}`;
+    case "set_rule_color":
+      return `rule:${a.setRuleColor.key}`;
+    case "set_rule_axis":
+      return `rule:${a.setRuleAxis.key}`;
+    case "set_rule_line_width":
+      return `rule:${a.setRuleLineWidth.key}`;
+    case "set_rule_line_dash":
+      return `rule:${a.setRuleLineDash.key}`;
+    case "set_rule_units":
+      return `rule:${a.setRuleUnits.key}`;
+    case "set_rule_position":
+      return `rule:${a.setRulePosition.key}`;
+    default:
+      return a.type;
+  }
+};

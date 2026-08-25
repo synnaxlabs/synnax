@@ -7,19 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type record, TimeSpan } from "@synnaxlabs/x";
+import { type record, state, TimeSpan } from "@synnaxlabs/x";
 import { useCallback, useEffect, useRef } from "react";
 
 import { Dialog } from "@/dialog";
 import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
 import { List } from "@/list";
-import { state } from "@/state";
 import { Triggers } from "@/triggers";
 
+/** Props for {@link useHover}. */
 export interface UseHoverProps<K extends record.Key> {
+  /** Index hovered when the dialog opens. Defaults to none. */
   initialHover?: number;
   data: K[];
   onSelect: (key: K) => void;
+  /**
+   * When to answer keyboard triggers. Defaults to the enclosing dialog's visibility.
+   */
+  enableTriggers?: Triggers.Condition;
 }
 
 const UP_TRIGGER: Triggers.Trigger = ["ArrowUp"];
@@ -30,19 +35,26 @@ const TRIGGERS: Triggers.Trigger[] = [UP_TRIGGER, DOWN_TRIGGER, SELECT_TRIGGER];
 const INITIAL_HOVER_DELAY = TimeSpan.milliseconds(200).milliseconds;
 const HOVER_INTERVAL = TimeSpan.milliseconds(100).milliseconds;
 
+/** Return value for {@link useHover}. */
 export interface UseHoverReturn<K extends record.Key> {
+  /** The key the arrow keys currently rest on. */
   hover: K;
 }
 
+/**
+ * Moves a hover cursor through the list with the arrow keys and selects with Enter,
+ * scrolling the hovered item into view. Holding an arrow key repeats.
+ */
 export const useHover = <K extends record.Key>({
   data,
   initialHover = -1,
   onSelect,
+  enableTriggers,
 }: UseHoverProps<K>): UseHoverReturn<K> => {
   const dataRef = useSyncedRef(data);
   const [hover, setHover, hoverRef] = useCombinedStateAndRef<number>(initialHover);
   const { visible } = Dialog.useContext();
-  const visibleRef = useSyncedRef(visible);
+  const enabledRef = useSyncedRef<Triggers.Condition>(enableTriggers ?? visible);
   const { scrollToIndex } = List.useScroller();
   const updateHover = useCallback(
     (setArg: state.SetArg<number>) => {
@@ -61,7 +73,7 @@ export const useHover = <K extends record.Key>({
 
   const handleTrigger = useCallback(
     ({ triggers, stage }: Triggers.UseEvent) => {
-      if (!visibleRef.current) return;
+      if (!Triggers.resolveCondition(enabledRef.current)) return;
       if (intervalRef.current != null) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;

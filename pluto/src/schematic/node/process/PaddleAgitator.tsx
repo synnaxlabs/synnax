@@ -25,7 +25,7 @@ export const PaddleAgitator = ({
   scale,
   ...rest
 }: Props): ReactElement => (
-  <Toggle.Button {...rest} className={CSS(CSS.B("agitator"))}>
+  <Toggle.Button {...rest} className={CSS.cls(CSS.B("agitator"))}>
     <Handle.Boundary orientation={orientation}>
       <Handle.Handle
         location="top"
@@ -48,7 +48,7 @@ export const PaddleAgitator = ({
         y1="82.1"
         x2="43"
         y2="49"
-        className={CSS(CSS.M("detail"), className)}
+        className={CSS.cls(CSS.M("detail"), className)}
         strokeLinecap="round"
       />
       <Primitive.Line
@@ -56,7 +56,7 @@ export const PaddleAgitator = ({
         y1="49"
         x2="43"
         y2="83"
-        className={CSS(CSS.M("detail"), className)}
+        className={CSS.cls(CSS.M("detail"), className)}
         strokeLinecap="round"
       />
       <Primitive.Line
@@ -64,7 +64,7 @@ export const PaddleAgitator = ({
         y1="83"
         x2="82.2"
         y2="49.9"
-        className={CSS(CSS.M("detail"), className)}
+        className={CSS.cls(CSS.M("detail"), className)}
         strokeLinecap="round"
       />
     </Primitive.SVG>

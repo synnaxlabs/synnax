@@ -12,6 +12,8 @@
 #include <memory>
 #include <string>
 
+#include "wasmtime.hh"
+
 #include "arc/cpp/stl/series/state.h"
 #include "arc/cpp/stl/stateful/state.h"
 #include "arc/cpp/stl/stl.h"
@@ -57,6 +59,7 @@ public:
         BIND_STATE_OPS(i64, int64_t)
         BIND_STATE_OPS(f32, float)
         BIND_STATE_OPS(f64, double)
+        BIND_STATE_OPS(bool, bool)
 
 #undef BIND_STATE_OPS
 
@@ -74,6 +77,7 @@ public:
         BIND_SERIES_STATE_OPS(i64)
         BIND_SERIES_STATE_OPS(f32)
         BIND_SERIES_STATE_OPS(f64)
+        BIND_SERIES_STATE_OPS(bool)
 
 #undef BIND_SERIES_STATE_OPS
     }

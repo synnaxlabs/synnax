@@ -17,6 +17,8 @@
 #include <memory>
 #include <string>
 
+#include "wasmtime.hh"
+
 #include "arc/cpp/stl/stl.h"
 #include "arc/cpp/stl/strings/state.h"
 
@@ -644,6 +646,15 @@ public:
                 MODULE_NAME,
                 "from_f64",
                 [ss](double v) -> uint32_t { return ss->create(format_float(v)); }
+            )
+            .unwrap();
+        linker
+            .func_wrap(
+                MODULE_NAME,
+                "from_bool",
+                [ss](int32_t v) -> uint32_t {
+                    return ss->create(v != 0 ? "true" : "false");
+                }
             )
             .unwrap();
         linker

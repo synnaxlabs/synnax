@@ -23,6 +23,8 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
+// freeWriteAlignments tracks a monotonically increasing alignment counter for each
+// free index channel, shared across every writer opened on the service.
 type freeWriteAlignments struct {
 	alignments map[channel.Key]*atomic.Uint32
 	mu         sync.Mutex
@@ -41,21 +43,19 @@ func (f *freeWriteAlignments) increment(key channel.Key) telem.Alignment {
 func (s *Service) newFree(
 	mode Mode,
 	sync bool,
-	channels []channel.Channel,
+	freeIndexes map[channel.Key]channel.Key,
 	group uint32,
 ) StreamWriter {
+	if freeIndexes == nil {
+		freeIndexes = make(map[channel.Key]channel.Key)
+	}
 	w := &freeWriter{
 		freeWrites: s.cfg.FreeWrites,
 		mode:       mode,
 		sync:       sync,
 		group:      group,
-		indexes:    make(map[channel.Key]channel.Key),
+		indexes:    freeIndexes,
 		alignments: make(map[channel.Key]telem.Alignment),
-	}
-	for _, ch := range channels {
-		if ch.Free() && ch.Index() != 0 {
-			w.indexes[ch.Key()] = ch.Index()
-		}
 	}
 	s.freeWriteAlignments.mu.Lock()
 	defer s.freeWriteAlignments.mu.Unlock()
@@ -70,14 +70,16 @@ func (s *Service) newFree(
 
 // freeWriter is used to write data for free channels into the distribution relay.
 type freeWriter struct {
-	indexes    map[channel.Key]channel.Key
+	// indexes maps each free channel with an index to that index channel's key.
+	indexes map[channel.Key]channel.Key
+	// alignments tracks the current alignment for each free index channel.
 	alignments map[channel.Key]telem.Alignment
 	confluence.LinearTransform[Request, Response]
 	// freeWrites is the inlet for communicating free frames to the relay
 	freeWrites confluence.Inlet[relay.Response]
 	// mode is the mode of the writer.
 	mode Mode
-	// sync is true if the writer should receive acknowledgements for all requests,
+	// sync is true if the writer should receive acknowledgments for all requests,
 	// including Write commands.
 	sync bool
 	// group is the writer group identifier, used for server-side deduplication.
@@ -111,14 +113,21 @@ func (w *freeWriter) alignFrame(fr frame.Frame) frame.Frame {
 	return fr
 }
 
-func (w *freeWriter) transform(ctx context.Context, req Request) (res Response, ok bool, err error) {
+func (w *freeWriter) transform(
+	ctx context.Context,
+	req Request,
+) (res Response, ok bool, err error) {
 	if req.Command == CommandWrite && w.mode.Stream() {
 		if err = signal.SendUnderContext(
 			ctx, w.freeWrites.Inlet(),
 			relay.Response{Frame: w.alignFrame(req.Frame), Group: w.group},
 		); err != nil || !w.sync {
-			return
+			return res, ok, err
 		}
 	}
-	return Response{Command: req.Command, SeqNum: req.SeqNum, Authorized: true}, true, nil
+	return Response{
+		Command:    req.Command,
+		SeqNum:     req.SeqNum,
+		Authorized: true,
+	}, true, nil
 }

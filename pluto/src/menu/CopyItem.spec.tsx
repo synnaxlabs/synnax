@@ -40,6 +40,17 @@ describe("CopyItem", () => {
     expect(c.getByText("Copy Python code")).toBeTruthy();
   });
 
+  it("should expose the menuitem role", () => {
+    const c = render(
+      <Menu.Menu>
+        <Menu.CopyItem itemKey="copy" text="hello">
+          Copy properties
+        </Menu.CopyItem>
+      </Menu.Menu>,
+    );
+    expect(c.getByRole("menuitem")).toBeTruthy();
+  });
+
   it("should copy text to the clipboard when clicked", async () => {
     const c = render(
       <Menu.Menu>

@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
+	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/version"
@@ -44,7 +45,7 @@ type Service struct {
 	token   *token.Service
 	auth    *auth.Service
 	user    *user.Service
-	cluster node.Cluster
+	cluster cluster.Cluster
 }
 
 func NewService(cfgs ...config.LayerConfig) (*Service, error) {

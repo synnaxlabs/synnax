@@ -26,13 +26,7 @@ const dateComponentsZ = z.union([
   z.tuple([z.int(), z.int().min(1).max(12), z.int().min(1).max(31)]),
 ]);
 
-/**
- * A triple of numbers representing a date.
- *
- * @param year - The year.
- * @param month - The month.
- * @param day - The day.
- */
+/** A triple of numbers representing a date. */
 export type DateComponents = z.infer<typeof dateComponentsZ>;
 
 const remainder = <T extends TimeStamp | TimeSpan>(
@@ -59,22 +53,12 @@ const remainder = <T extends TimeStamp | TimeSpan>(
 };
 
 /**
-UTC timestamp. Synnax uses a nanosecond precision int64 timestamp.
+ * A UTC timestamp with nanosecond precision, stored as an int64.
  *
- * @param value - The timestamp value to parse. This can be any of the following:
- *
- * 1. A number representing the number of nanoseconds since the Unix epoch.
- * 2. A JavaScript Date object.
- * 3. An array of numbers satisfying the DateComponents type, where the first element is
- *    the year, the second is the month, and the third is the day. To increase
- *    resolution when using this method, use the add method. It's important to note that
- *    this initializes a timestamp at midnight UTC, regardless of the TimeZone
- *    specified.
- * 4. An ISO compliant date or date time string. The TimeZone component is ignored.
- *
- * @param timeZone - The TimeZone to use when parsing the TimeStamp. This can be either
- * "UTC" or "local". This parameter is ignored if the value is a Date object or a
- * DateComponents array.
+ * @param value - nanoseconds since the Unix epoch, a Date, a `[year, month, day]`
+ * {@link DateComponents} triple (midnight UTC, whatever the timeZone; add a TimeSpan
+ * for finer resolution), or an ISO date or date-time string (time zone ignored).
+ * @param timeZone - "UTC" or "local". Ignored for a Date and for DateComponents.
  *
  * @example ts = new TimeStamp(1 * TimeSpan.HOUR) // 1 hour after the Unix epoch
  * @example ts = new TimeStamp([2021, 1, 1]) // 1/1/2021 midnight UTC
@@ -123,10 +107,7 @@ export class TimeStamp
       .valueOf();
   }
 
-  /**
-   * @returns the primitive value of the TimeStamp. Overrides standard JS valueOf()
-   * method.
-   */
+  /** @returns the timestamp as nanoseconds since the Unix epoch. */
   valueOf(): bigint {
     return this.value;
   }
@@ -215,9 +196,7 @@ export class TimeStamp
   }
 
   /**
-   * @returns a TimeSpan representing the amount time elapsed since
-   * the other timestamp.
-   * @param other - The other timestamp.
+   * @returns a TimeSpan representing the amount time elapsed since the other timestamp.
    */
   static since(other: CrudeTimeStamp): TimeSpan {
     return new TimeStamp().span(other);
@@ -228,153 +207,77 @@ export class TimeStamp
     return new Date(this.milliseconds);
   }
 
-  /**
-   * Checks if the TimeStamp is equal to another TimeStamp.
-   *
-   * @param other - The other TimeStamp to compare to.
-   * @returns True if the TimeStamps are equal, false otherwise.
-   */
+  /** @returns true if the two timestamps name the same instant. */
   equals(other: CrudeTimeStamp): boolean {
     return this.valueOf() === new TimeStamp(other).valueOf();
   }
 
-  /**
-   * Creates a TimeSpan representing the duration between the two timestamps.
-   *
-   * @param other - The other TimeStamp to compare to.
-   * @returns A TimeSpan representing the duration between the two timestamps.
-   *   The span is guaranteed to be positive.
-   */
+  /** @returns the always-positive duration between the two timestamps. */
   span(other: CrudeTimeStamp): TimeSpan {
     return this.range(other).span;
   }
 
-  /**
-   * Creates a TimeRange spanning the given TimeStamp.
-   *
-   * @param other - The other TimeStamp to compare to.
-   * @returns A TimeRange spanning the given TimeStamp that is guaranteed to be
-   *   valid, regardless of the TimeStamp order.
-   */
+  /** @returns a valid TimeRange between the two timestamps, in either order. */
   range(other: CrudeTimeStamp): TimeRange {
     return new TimeRange(this, other).makeValid();
   }
 
-  /**
-   * Creates a TimeRange starting at the TimeStamp and spanning the given
-   * TimeSpan.
-   *
-   * @param other - The TimeSpan to span.
-   * @returns A TimeRange starting at the TimeStamp and spanning the given
-   *   TimeSpan. The TimeRange is guaranteed to be valid.
-   */
+  /** @returns a valid TimeRange starting here and spanning the given TimeSpan. */
   spanRange(other: CrudeTimeSpan): TimeRange {
     return this.range(this.add(other)).makeValid();
   }
 
-  /**
-   * Checks if the TimeStamp represents the unix epoch.
-   *
-   * @returns True if the TimeStamp represents the unix epoch, false otherwise.
-   */
+  /** @returns True if the TimeStamp represents the unix epoch, false otherwise. */
   get isZero(): boolean {
     return this.valueOf() === 0n;
   }
 
-  /**
-   * Checks if the TimeStamp is after the given TimeStamp.
-   *
-   * @param other - The other TimeStamp to compare to.
-   * @returns True if the TimeStamp is after the given TimeStamp, false
-   *   otherwise.
-   */
+  /** @returns True if the TimeStamp is after the given TimeStamp, false otherwise. */
   after(other: CrudeTimeStamp): boolean {
     return this.valueOf() > new TimeStamp(other).valueOf();
   }
 
-  /**
-   * Checks if the TimeStamp is after or equal to the given TimeStamp.
-   *
-   * @param other - The other TimeStamp to compare to.
-   * @returns True if the TimeStamp is after or equal to the given TimeStamp,
-   *   false otherwise.
-   */
+  /** @returns true if this timestamp is at or after the given one. */
   afterEq(other: CrudeTimeStamp): boolean {
     return this.valueOf() >= new TimeStamp(other).valueOf();
   }
 
-  /**
-   * Checks if the TimeStamp is before the given TimeStamp.
-   *
-   * @param other - The other TimeStamp to compare to.
-   * @returns True if the TimeStamp is before the given TimeStamp, false
-   *   otherwise.
-   */
+  /** @returns True if the TimeStamp is before the given TimeStamp, false otherwise. */
   before(other: CrudeTimeStamp): boolean {
     return this.valueOf() < new TimeStamp(other).valueOf();
   }
 
-  /**
-   * Checks if TimeStamp is before or equal to the current timestamp.
-   *
-   * @param other - The other TimeStamp to compare to.
-   * @returns True if TimeStamp is before or equal to the current timestamp,
-   *   false otherwise.
-   */
+  /** @returns true if this timestamp is at or before the given one. */
   beforeEq(other: CrudeTimeStamp): boolean {
     return this.valueOf() <= new TimeStamp(other).valueOf();
   }
 
-  /**
-   * Adds a TimeSpan to the TimeStamp.
-   *
-   * @param span - The TimeSpan to add.
-   * @returns A new TimeStamp representing the sum of the TimeStamp and
-   *   TimeSpan.
-   */
+  /** @returns A new TimeStamp representing the sum of the TimeStamp and TimeSpan. */
   add(span: CrudeTimeSpan): TimeStamp {
     return new TimeStamp(math.add(this.valueOf(), new TimeSpan(span).valueOf()));
   }
 
-  /**
-   * Subtracts a TimeSpan from the TimeStamp.
-   *
-   * @param span - The TimeSpan to subtract.
-   * @returns A new TimeStamp representing the difference of the TimeStamp and
-   *   TimeSpan.
-   */
+  /** @returns a copy with the TimeSpan subtracted. */
   sub(span: CrudeTimeSpan): TimeStamp {
     return new TimeStamp(math.sub(this.valueOf(), new TimeSpan(span).valueOf()));
   }
 
-  /**
-   * @returns the floating point number of hours since the unix epoch to the timestamp
-   * value.
-   */
+  /** @returns the fractional hours since the unix epoch. */
   get hours(): number {
     return Number(this.valueOf()) / Number(TimeSpan.HOUR.valueOf());
   }
 
-  /**
-   * @returns the floating point number of minutes since the unix epoch to the timestamp
-   * value.
-   */
+  /** @returns the fractional minutes since the unix epoch. */
   get minutes(): number {
     return Number(this.valueOf()) / Number(TimeSpan.MINUTE.valueOf());
   }
 
-  /**
-   * @returns the floating point number of days since the unix epoch to the timestamp
-   * value.
-   */
+  /** @returns the fractional days since the unix epoch. */
   get days(): number {
     return Number(this.valueOf()) / Number(TimeSpan.DAY.valueOf());
   }
 
-  /**
-   * @returns the floating point number of seconds since the unix epoch to the timestamp
-   * value.
-   */
+  /** @returns the fractional seconds since the unix epoch. */
   get seconds(): number {
     return Number(this.valueOf()) / Number(TimeSpan.SECOND.valueOf());
   }
@@ -390,8 +293,7 @@ export class TimeStamp
   }
 
   /**
-   * @returns the floating point number of nanoseconds since the unix epoch.
-   * Note that since we're converting to float64, this reduces the resolution
+   * @returns the nanoseconds since the unix epoch as a float64, which drops resolution
    * to a quarter of a microsecond.
    */
   get nanoseconds(): number {
@@ -408,20 +310,14 @@ export class TimeStamp
     return this.date().getFullYear();
   }
 
-  /**
-   * @returns a copy of the timestamp with the year changed in UTC.
-   * @param year the value to set the year to.
-   */
+  /** @returns a copy of the timestamp with the year changed in UTC. */
   setYear(year: number): TimeStamp {
     const d = this.date();
     d.setUTCFullYear(year);
     return new TimeStamp(d);
   }
 
-  /**
-   * @returns a copy of the timestamp with the year changed in local time.
-   * @param year the value to set the year to.
-   */
+  /** @returns a copy of the timestamp with the year changed in local time. */
   setLocalYear(year: number): TimeStamp {
     const d = this.date();
     d.setFullYear(year);
@@ -440,20 +336,14 @@ export class TimeStamp
     return this.date().getMonth();
   }
 
-  /**
-   * @returns a copy of the timestamp with the month changed in UTC.
-   * @param month the value to set the month to.
-   */
+  /** @returns a copy of the timestamp with the month changed in UTC. */
   setMonth(month: number): TimeStamp {
     const d = this.date();
     d.setUTCMonth(month);
     return new TimeStamp(d);
   }
 
-  /**
-   * @returns a copy of the timestamp with the month changed in local time.
-   * @param month the value to set the month to.
-   */
+  /** @returns a copy of the timestamp with the month changed in local time. */
   setLocalMonth(month: number): TimeStamp {
     const d = this.date();
     d.setMonth(month);
@@ -472,55 +362,38 @@ export class TimeStamp
     return this.date().getDate();
   }
 
-  /**
-   * @returns a copy of the timestamp with the day changed in UTC.
-   * @param day the value the set the day to.
-   */
+  /** @returns a copy of the timestamp with the day changed in UTC. */
   setDay(day: number): TimeStamp {
     const d = this.date();
     d.setUTCDate(day);
     return new TimeStamp(d);
   }
 
-  /**
-   * @returns a copy of the timestamp with the day changed in local time.
-   * @param day the value to set the day to.
-   */
+  /** @returns a copy of the timestamp with the day changed in local time. */
   setLocalDay(day: number): TimeStamp {
     const d = this.date();
     d.setDate(day);
     return new TimeStamp(d);
   }
 
-  /**
-   * @returns the integer hour that the timestamp corresponds to within its day.
-   */
+  /** @returns the integer hour that the timestamp corresponds to within its day. */
   get hour(): number {
     return this.date().getUTCHours();
   }
 
-  /**
-   * @returns the integer hour that the timestamp corresponds to within its day in local
-   * time.
-   */
+  /** @returns the integer hour within the timestamp's day, in local time. */
   get localHour(): number {
     return this.date().getHours();
   }
 
-  /**
-   * @returns a copy of the timestamp with the hour changed.
-   * @param hour the value to set the hour to.
-   */
+  /** @returns a copy of the timestamp with the hour changed. */
   setLocalHour(hour: number): TimeStamp {
     const d = this.date();
     d.setHours(hour);
     return new TimeStamp(d);
   }
 
-  /**
-   * @returns a copy of the timestamp with the hour changed.
-   * @param hour the value to set the hour to.
-   */
+  /** @returns a copy of the timestamp with the hour changed. */
   setHour(hour: number): TimeStamp {
     const d = this.date();
     d.setUTCHours(hour);
@@ -539,105 +412,69 @@ export class TimeStamp
     return this.date().getMinutes();
   }
 
-  /**
-   * @returns a copy of the timestamp with the minute changed in UTC.
-   * @param minute the value to set the minute to.
-   */
+  /** @returns a copy of the timestamp with the minute changed in UTC. */
   setMinute(minute: number): TimeStamp {
     const d = this.date();
     d.setUTCMinutes(minute);
     return new TimeStamp(d);
   }
 
-  /**
-   * @returns a copy of the timestamp with the minute changed in local time.
-   * @param minute the value to set the minute to.
-   */
+  /** @returns a copy of the timestamp with the minute changed in local time. */
   setLocalMinute(minute: number): TimeStamp {
     const d = this.date();
     d.setMinutes(minute);
     return new TimeStamp(d);
   }
 
-  /**
-   * @returns the integer second that the timestamp corresponds to within its
-   * minute in UTC.
-   */
+  /** @returns the integer second within the timestamp's minute, in UTC. */
   get second(): number {
     return this.date().getUTCSeconds();
   }
 
-  /**
-   * @returns the integer second that the timestamp corresponds to within its minute in
-   * local time.
-   */
+  /** @returns the integer second within the timestamp's minute, in local time. */
   get localSecond(): number {
     return this.date().getSeconds();
   }
 
-  /**
-   * @returns a copy of the timestamp with the second changed in UTC.
-   * @param second the value to set the second to.
-   */
+  /** @returns a copy of the timestamp with the second changed in UTC. */
   setSecond(second: number): TimeStamp {
     const d = this.date();
     d.setUTCSeconds(second);
     return new TimeStamp(d);
   }
 
-  /**
-   * @returns a copy of the timestamp with the second changed in local time.
-   * @param second the value to set the second to.
-   */
+  /** @returns a copy of the timestamp with the second changed in local time. */
   setLocalSecond(second: number): TimeStamp {
     const d = this.date();
     d.setSeconds(second);
     return new TimeStamp(d);
   }
 
-  /**
-   * @returns the integer millisecond that the timestamp corresponds to within its
-   * second in UTC.
-   */
+  /** @returns the integer millisecond within the timestamp's second, in UTC. */
   get millisecond(): number {
     return this.date().getUTCMilliseconds();
   }
 
-  /**
-   * @returns the integer millisecond that the timestamp corresponds to within its
-   * second in local time.
-   */
+  /** @returns the integer millisecond within the timestamp's second, in local time. */
   get localMillisecond(): number {
     return this.date().getMilliseconds();
   }
 
-  /**
-   * @returns a copy of the timestamp with the milliseconds changed in UTC.
-   * @param millisecond the value to set the millisecond to.
-   */
+  /** @returns a copy of the timestamp with the milliseconds changed in UTC. */
   setMillisecond(millisecond: number): TimeStamp {
     const d = this.date();
     d.setUTCMilliseconds(millisecond);
     return new TimeStamp(d);
   }
 
-  /**
-   * @returns a copy of the timestamp with the milliseconds changed in local time.
-   * @param millisecond the value to set the millisecond to.
-   */
+  /** @returns a copy of the timestamp with the milliseconds changed in local time. */
   setLocalMillisecond(millisecond: number): TimeStamp {
     const d = this.date();
     d.setMilliseconds(millisecond);
     return new TimeStamp(d);
   }
 
-  /**
-   * Returns a string representation of the TimeStamp.
-   *
-   * @param format - Optional format for the string representation. Defaults to "ISO".
-   * @param timeZone - Optional TimeZone. Defaults to "UTC".
-   * @returns A string representation of the TimeStamp.
-   */
+  /** @returns the timestamp formatted per format, defaulting to ISO in UTC. */
   toString(format: TimestampFormat = "ISO", timeZone: TimeZone = "UTC"): string {
     switch (format) {
       case "ISODate":
@@ -658,15 +495,10 @@ export class TimeStamp
   }
 
   /**
-   * @returns A new TimeStamp that is the remainder of the TimeStamp divided by the
-   * given span. This is useful in cases where you want only part of a TimeStamp's value
-   * i.e., the hours, minutes, seconds, milliseconds, microseconds, and nanoseconds but
-   * not the days, years, etc.
+   * @returns the part of the timestamp below divisor, which must be an even unit (a
+   * day, hour, minute, second, millisecond, or microsecond).
    *
-   * @param divisor - The TimeSpan to divide by. Must be an even TimeSpan or TimeStamp. Even
-   * means it must be a day, hour, minute, second, millisecond, or microsecond, etc.
-   *
-   * @example TimeStamp.now().remainder(TimeStamp.DAY) // => TimeStamp representing the current day
+   * @example TimeStamp.now().remainder(TimeStamp.DAY) // => today's time of day
    */
   remainder(divisor: TimeSpan | TimeStamp): TimeStamp {
     return remainder(this, divisor);
@@ -677,27 +509,14 @@ export class TimeStamp
     return this.truncate(TimeSpan.DAY).equals(TimeStamp.now().truncate(TimeSpan.DAY));
   }
 
-  /**
-   * Truncates the TimeStamp to the nearest multiple of the given span.
-   *
-   * @param span - The TimeSpan to truncate to.
-   * @returns A new TimeStamp that is truncated to the nearest multiple of the given span.
-   */
+  /** @returns a copy truncated down to a multiple of span. */
   truncate(span: TimeSpan | TimeStamp): TimeStamp {
     return this.sub(this.remainder(span));
   }
 
   /**
-   * Determines the appropriate string format based on the span magnitude.
-   *
-   * @param span - The span that provides context for format selection
-   * @returns The appropriate TimestampFormat
-   *
-   * Rules:
-   * - For spans >= 30 days: "date" (e.g., "Nov 5")
-   * - For spans >= 1 day: "dateTime" (e.g., "Nov 5 14:23:45")
-   * - For spans >= 1 hour: "time" (e.g., "14:23:45")
-   * - For spans < 1 hour: "preciseTime" (e.g., "14:23:45.123")
+   * @returns the format that suits the span's magnitude: "date" at 30 days and up,
+   * "dateTime" at 1 day, "time" at 1 hour, and "preciseTime" below that.
    */
   formatBySpan(span: TimeSpan): TimestampFormat {
     if (span.greaterThanOrEqual(TimeSpan.days(30))) return "date";
@@ -706,21 +525,12 @@ export class TimeStamp
     return "preciseTime";
   }
 
-  /**
-   * @returns A new TimeStamp representing the current time in UTC. It's important to
-   * note that this TimeStamp is only accurate to the millisecond level (that's the best
-   * JavaScript can do).
-   */
+  /** @returns the current UTC time, accurate only to the millisecond. */
   static now(): TimeStamp {
     return new TimeStamp(new Date());
   }
 
-  /**
-   * Finds the maximum timestamp among the provided timestamps.
-   *
-   * @param timestamps - The timestamps to compare.
-   * @returns The maximum (latest) timestamp from the input.
-   */
+  /** @returns the latest of the given timestamps. */
   static max(...timestamps: CrudeTimeStamp[]): TimeStamp {
     let max = TimeStamp.MIN;
     for (const ts of timestamps) {
@@ -730,12 +540,7 @@ export class TimeStamp
     return max;
   }
 
-  /**
-   * Finds the minimum timestamp among the provided timestamps.
-   *
-   * @param timestamps - The timestamps to compare.
-   * @returns The minimum (earliest) timestamp from the input.
-   */
+  /** @returns the earliest of the given timestamps. */
   static min(...timestamps: CrudeTimeStamp[]): TimeStamp {
     let min = TimeStamp.MAX;
     for (const ts of timestamps) {
@@ -745,12 +550,7 @@ export class TimeStamp
     return min;
   }
 
-  /**
-   * Creates a TimeStamp representing the given number of nanoseconds.
-   *
-   * @param value - The number of nanoseconds.
-   * @returns A TimeStamp representing the given number of nanoseconds.
-   */
+  /** @returns A TimeStamp representing the given number of nanoseconds. */
   static nanoseconds(value: number, timeZone: TimeZone = "UTC"): TimeStamp {
     return new TimeStamp(value, timeZone);
   }
@@ -827,14 +627,7 @@ export class TimeStamp
     dateComponentsZ.transform((v) => new TimeStamp(v)),
   ]);
 
-  /**
-   * Sorts two timestamps.
-   *
-   * @param a - The first timestamp.
-   * @param b - The second timestamp.
-   * @returns A number indicating the order of the two timestamps (positive if a is
-   * greater than b, negative if a is less than b, and 0 if they are equal).
-   */
+  /** @returns a positive number when a is after b, negative when before, 0 when equal. */
   static sort(a: TimeStamp, b: TimeStamp): number {
     return Number(a.valueOf() - b.valueOf());
   }
@@ -851,12 +644,7 @@ export class TimeSpan
     super(BigInt(value.valueOf()));
   }
 
-  /**
-   * Creates a TimeSpan representing the given number of seconds.
-   *
-   * @param span - The number of seconds.
-   * @returns A TimeSpan representing the given number of seconds.
-   */
+  /** @returns A TimeSpan representing the given number of seconds. */
   static fromSeconds(span: CrudeTimeSpan): TimeSpan {
     if (span instanceof TimeSpan) return span;
     if (span instanceof Rate) return span.period;
@@ -866,12 +654,7 @@ export class TimeSpan
     return new TimeSpan(span);
   }
 
-  /**
-   * Creates a TimeSpan representing the given number of milliseconds.
-   *
-   * @param span - The number of milliseconds.
-   * @returns A TimeSpan representing the given number of milliseconds.
-   */
+  /** @returns A TimeSpan representing the given number of milliseconds. */
   static fromMilliseconds(span: CrudeTimeSpan): TimeSpan {
     if (span instanceof TimeSpan) return span;
     if (span instanceof Rate) return span.period;
@@ -881,10 +664,7 @@ export class TimeSpan
     return new TimeSpan(span);
   }
 
-  /**
-   * @returns the primitive value of the TimeSpan. Overrides standard JS valueOf()
-   * method.
-   */
+  /** @returns the span as a count of nanoseconds. */
   valueOf(): bigint {
     return this.value;
   }
@@ -894,62 +674,34 @@ export class TimeSpan
     return this.value.toString();
   }
 
-  /**
-   * Checks if the TimeSpan is less than another TimeSpan.
-   *
-   * @param other - The TimeSpan to compare against.
-   * @returns True if the TimeSpan is less than the other TimeSpan, false otherwise.
-   */
+  /** @returns True if the TimeSpan is less than the other TimeSpan, false otherwise. */
   lessThan(other: CrudeTimeSpan): boolean {
     return this.valueOf() < new TimeSpan(other).valueOf();
   }
 
   /**
-   * Checks if the TimeSpan is greater than another TimeSpan.
-   *
-   * @param other - The TimeSpan to compare against.
    * @returns True if the TimeSpan is greater than the other TimeSpan, false otherwise.
    */
   greaterThan(other: CrudeTimeSpan): boolean {
     return this.valueOf() > new TimeSpan(other).valueOf();
   }
 
-  /**
-   * Checks if the TimeSpan is less than or equal to another TimeSpan.
-   *
-   * @param other - The TimeSpan to compare against.
-   * @returns True if the TimeSpan is less than or equal to the other TimeSpan, false otherwise.
-   */
+  /** @returns true if this span is at most the other one. */
   lessThanOrEqual(other: CrudeTimeSpan): boolean {
     return this.valueOf() <= new TimeSpan(other).valueOf();
   }
 
-  /**
-   * Checks if the TimeSpan is greater than or equal to another TimeSpan.
-   *
-   * @param other - The TimeSpan to compare against.
-   * @returns True if the TimeSpan is greater than or equal to the other TimeSpan, false otherwise.
-   */
+  /** @returns true if this span is at least the other one. */
   greaterThanOrEqual(other: CrudeTimeSpan): boolean {
     return this.valueOf() >= new TimeSpan(other).valueOf();
   }
 
-  /**
-   * Calculates the remainder of the TimeSpan when divided by another TimeSpan.
-   *
-   * @param divisor - The TimeSpan to divide by.
-   * @returns A new TimeSpan representing the remainder.
-   */
+  /** @returns the remainder of this span divided by divisor. */
   remainder(divisor: TimeSpan): TimeSpan {
     return remainder(this, divisor);
   }
 
-  /**
-   * Truncates the TimeSpan to the nearest multiple of the given span.
-   *
-   * @param span - The TimeSpan to truncate to.
-   * @returns A new TimeSpan that is truncated to the nearest multiple of the given span.
-   */
+  /** @returns a copy truncated down to a multiple of span. */
   truncate(span: TimeSpan): TimeSpan {
     return new TimeSpan(
       BigInt(Math.trunc(Number(this.valueOf() / span.valueOf()))) * span.valueOf(),
@@ -957,17 +709,12 @@ export class TimeSpan
   }
 
   /**
-   * Returns a string representation of the TimeSpan.
-   *
-   * @param format - Optional format for the string representation. Defaults to "full".
-   *   - "full": Shows all non-zero units with full precision (e.g., "2d 3h 45m 12s 500ms")
-   *   - "semantic": Shows 1-2 most significant units (e.g., "2d 3h")
-   * @returns A string representation of the TimeSpan.
+   * @param format - "full" prints every non-zero unit ("2d 3h 45m 12s 500ms"),
+   * "semantic" prints the one or two most significant ("2d 3h"). Defaults to "full".
    */
   toString(format: TimeSpanStringFormat = "full"): string {
     if (format === "semantic") return this.toSemanticString();
 
-    // Default "full" format
     const totalDays = this.truncate(TimeSpan.DAY);
     const totalHours = this.truncate(TimeSpan.HOUR);
     const totalMinutes = this.truncate(TimeSpan.MINUTE);
@@ -1095,22 +842,12 @@ export class TimeSpan
     return `${prefix}${seconds}s`;
   }
 
-  /**
-   * Multiplies the TimeSpan by a scalar value.
-   *
-   * @param value - The scalar value to multiply by.
-   * @returns A new TimeSpan that is this TimeSpan multiplied by the provided value.
-   */
+  /** @returns a copy multiplied by the given scalar. */
   mult(value: number): TimeSpan {
     return new TimeSpan(math.mult(this.valueOf(), value));
   }
 
-  /**
-   * Divides the TimeSpan by a scalar value.
-   *
-   * @param value - The scalar value to divide by.
-   * @returns A new TimeSpan that is this TimeSpan divided by the provided value.
-   */
+  /** @returns a copy divided by the given scalar. */
   div(value: number): TimeSpan {
     return new TimeSpan(math.div(this.valueOf(), value));
   }
@@ -1130,17 +867,14 @@ export class TimeSpan
     return Number(this.valueOf()) / Number(TimeSpan.MINUTE.valueOf());
   }
 
-  /** @returns The number of seconds in the TimeSpan. */
   get seconds(): number {
     return Number(this.valueOf()) / Number(TimeSpan.SECOND.valueOf());
   }
 
-  /** @returns The number of milliseconds in the TimeSpan. */
   get milliseconds(): number {
     return Number(this.valueOf()) / Number(TimeSpan.MILLISECOND.valueOf());
   }
 
-  /** @returns The number of microseconds in the TimeSpan. */
   get microseconds(): number {
     return Number(this.valueOf()) / Number(TimeSpan.MICROSECOND.valueOf());
   }
@@ -1150,38 +884,22 @@ export class TimeSpan
     return Number(this.valueOf());
   }
 
-  /**
-   * Checks if the TimeSpan represents a zero duration.
-   *
-   * @returns True if the TimeSpan represents a zero duration, false otherwise.
-   */
+  /** @returns True if the TimeSpan represents a zero duration, false otherwise. */
   get isZero(): boolean {
     return this.valueOf() === 0n;
   }
 
-  /**
-   * Checks if the TimeSpan is equal to another TimeSpan.
-   *
-   * @returns True if the TimeSpans are equal, false otherwise.
-   */
+  /** @returns true if the two spans are the same length. */
   equals(other: CrudeTimeSpan): boolean {
     return this.valueOf() === new TimeSpan(other).valueOf();
   }
 
-  /**
-   * Adds a TimeSpan to the TimeSpan.
-   *
-   * @returns A new TimeSpan representing the sum of the two TimeSpans.
-   */
+  /** @returns A new TimeSpan representing the sum of the two TimeSpans. */
   add(other: CrudeTimeSpan): TimeSpan {
     return new TimeSpan(this.valueOf() + new TimeSpan(other).valueOf());
   }
 
-  /**
-   * Creates a TimeSpan representing the duration between the two timestamps.
-   *
-   * @param other
-   */
+  /** Creates a TimeSpan representing the duration between the two timestamps. */
   sub(other: CrudeTimeSpan): TimeSpan {
     return new TimeSpan(this.valueOf() - new TimeSpan(other).valueOf());
   }
@@ -1191,12 +909,7 @@ export class TimeSpan
     return new TimeSpan(v < 0n ? -v : v);
   }
 
-  /**
-   * Creates a TimeSpan representing the given number of nanoseconds.
-   *
-   * @param value - The number of nanoseconds.
-   * @returns A TimeSpan representing the given number of nanoseconds.
-   */
+  /** @returns A TimeSpan representing the given number of nanoseconds. */
   static nanoseconds(value: math.Numeric = 1): TimeSpan {
     return new TimeSpan(value);
   }
@@ -1204,12 +917,7 @@ export class TimeSpan
   /** A nanosecond. */
   static readonly NANOSECOND = TimeSpan.nanoseconds(1);
 
-  /**
-   * Creates a TimeSpan representing the given number of microseconds.
-   *
-   * @param value - The number of microseconds.
-   * @returns A TimeSpan representing the given number of microseconds.
-   */
+  /** @returns A TimeSpan representing the given number of microseconds. */
   static microseconds(value: math.Numeric = 1): TimeSpan {
     return TimeSpan.nanoseconds(math.mult(value, 1000));
   }
@@ -1217,12 +925,7 @@ export class TimeSpan
   /** A microsecond. */
   static readonly MICROSECOND = TimeSpan.microseconds(1);
 
-  /**
-   * Creates a TimeSpan representing the given number of milliseconds.
-   *
-   * @param value - The number of milliseconds.
-   * @returns A TimeSpan representing the given number of milliseconds.
-   */
+  /** @returns A TimeSpan representing the given number of milliseconds. */
   static milliseconds(value: math.Numeric = 1): TimeSpan {
     return TimeSpan.microseconds(math.mult(value, 1000));
   }
@@ -1230,25 +933,14 @@ export class TimeSpan
   /** A millisecond. */
   static readonly MILLISECOND = TimeSpan.milliseconds(1);
 
-  /**
-   * Creates a TimeSpan representing the given number of seconds.
-   *
-   * @param value - The number of seconds.
-   * @returns A TimeSpan representing the given number of seconds.
-   */
+  /** @returns A TimeSpan representing the given number of seconds. */
   static seconds(value: math.Numeric = 1): TimeSpan {
     return TimeSpan.milliseconds(math.mult(value, 1000));
   }
 
-  /** A second. */
   static readonly SECOND = TimeSpan.seconds(1);
 
-  /**
-   * Creates a TimeSpan representing the given number of minutes.
-   *
-   * @param value - The number of minutes.
-   * @returns A TimeSpan representing the given number of minutes.
-   */
+  /** @returns A TimeSpan representing the given number of minutes. */
   static minutes(value: math.Numeric = 1): TimeSpan {
     return TimeSpan.seconds(math.mult(value, 60));
   }
@@ -1256,12 +948,7 @@ export class TimeSpan
   /** A minute. */
   static readonly MINUTE = TimeSpan.minutes(1);
 
-  /**
-   * Creates a TimeSpan representing the given number of hours.
-   *
-   * @param value - The number of hours.
-   * @returns A TimeSpan representing the given number of hours.
-   */
+  /** @returns A TimeSpan representing the given number of hours. */
   static hours(value: math.Numeric): TimeSpan {
     return TimeSpan.minutes(math.mult(value, 60));
   }
@@ -1269,12 +956,7 @@ export class TimeSpan
   /** Represents an hour. */
   static readonly HOUR = TimeSpan.hours(1);
 
-  /**
-   * Creates a TimeSpan representing the given number of days.
-   *
-   * @param value - The number of days.
-   * @returns A TimeSpan representing the given number of days.
-   */
+  /** @returns A TimeSpan representing the given number of days. */
   static days(value: math.Numeric): TimeSpan {
     return TimeSpan.hours(math.mult(value, 24));
   }
@@ -1288,7 +970,6 @@ export class TimeSpan
   /** The minimum possible value for a TimeSpan. */
   static readonly MIN = new TimeSpan(0);
 
-  /** The zero value for a TimeSpan. */
   static readonly ZERO = new TimeSpan(0);
 
   /** A zod schema for validating and transforming time spans */
@@ -1328,49 +1009,28 @@ export class Rate
     return this.valueOf() === new Rate(other).valueOf();
   }
 
-  /**
-   * Calculates the period of the Rate as a TimeSpan.
-   *
-   * @returns A TimeSpan representing the period of the Rate.
-   */
+  /** @returns A TimeSpan representing the period of the Rate. */
   get period(): TimeSpan {
     return TimeSpan.seconds(1 / this.valueOf());
   }
 
-  /**
-   * Calculates the number of samples in the given TimeSpan at this rate.
-   *
-   * @param duration - The duration to calculate the sample count from.
-   * @returns The number of samples in the given TimeSpan at this rate.
-   */
+  /** @returns the number of samples the duration holds at this rate. */
   sampleCount(duration: CrudeTimeSpan): number {
     return new TimeSpan(duration).seconds * this.valueOf();
   }
 
-  /**
-   * Calculates the number of bytes in the given TimeSpan at this rate.
-   *
-   * @param span - The duration to calculate the byte count from.
-   * @param density - The density of the data in bytes per sample.
-   * @returns The number of bytes in the given TimeSpan at this rate.
-   */
+  /** @returns the byte count the span holds at this rate and density. */
   byteCount(span: CrudeTimeSpan, density: CrudeDensity): number {
     return this.sampleCount(span) * new Density(density).valueOf();
   }
 
-  /**
-   * Calculates a TimeSpan given the number of samples at this rate.
-   *
-   * @param sampleCount - The number of samples in the span.
-   * @returns A TimeSpan that corresponds to the given number of samples.
-   */
+  /** @returns the span that holds sampleCount samples at this rate. */
   span(sampleCount: number): TimeSpan {
     return TimeSpan.seconds(sampleCount / this.valueOf());
   }
 
   /**
    * Calculates a TimeSpan given the number of bytes at this rate.
-   *
    * @param size - The number of bytes in the span.
    * @param density - The density of the data in bytes per sample.
    * @returns A TimeSpan that corresponds to the given number of bytes.
@@ -1381,8 +1041,6 @@ export class Rate
 
   /**
    * Adds another Rate to this Rate.
-   *
-   * @param other - The Rate to add.
    * @returns A new Rate representing the sum of the two rates.
    */
   add(other: CrudeRate): Rate {
@@ -1391,7 +1049,6 @@ export class Rate
 
   /**
    * Subtracts another Rate from this Rate.
-   *
    * @param other - The Rate to subtract.
    * @returns A new Rate representing the difference of the two rates.
    */
@@ -1401,7 +1058,6 @@ export class Rate
 
   /**
    * Multiplies this Rate by a scalar value.
-   *
    * @param value - The scalar value to multiply by.
    * @returns A new Rate representing this Rate multiplied by the value.
    */
@@ -1410,8 +1066,6 @@ export class Rate
   }
 
   /**
-   * Divides this Rate by a scalar value.
-   *
    * @param value - The scalar value to divide by.
    * @returns A new Rate representing this Rate divided by the value.
    */
@@ -1419,22 +1073,12 @@ export class Rate
     return new Rate(math.div(this.valueOf(), value));
   }
 
-  /**
-   * Creates a Rate representing the given number of Hz.
-   *
-   * @param value - The number of Hz.
-   * @returns A Rate representing the given number of Hz.
-   */
+  /** @returns A Rate representing the given number of Hz. */
   static hz(value: number): Rate {
     return new Rate(value);
   }
 
-  /**
-   * Creates a Rate representing the given number of kHz.
-   *
-   * @param value - The number of kHz.
-   * @returns A Rate representing the given number of kHz.
-   */
+  /** @returns A Rate representing the given number of kHz. */
   static khz(value: number): Rate {
     return Rate.hz(value * 1000);
   }
@@ -1452,8 +1096,6 @@ export class Density
   implements primitive.Stringer
 {
   /**
-   * Creates a Density representing the given number of bytes per value.
-   *
    * @class
    * @param value - The number of bytes per value.
    * @returns A Density representing the given number of bytes per value.
@@ -1464,8 +1106,6 @@ export class Density
   }
 
   /**
-   * Calculates the number of values in the given Size.
-   *
    * @param size - The Size to calculate the value count from.
    * @returns The number of values in the given Size.
    */
@@ -1473,20 +1113,13 @@ export class Density
     return size.valueOf() / this.valueOf();
   }
 
-  /**
-   * Calculates a Size representing the given number of values.
-   *
-   * @param sampleCount - The number of values in the Size.
-   * @returns A Size representing the given number of values.
-   */
+  /** @returns A Size representing the given number of values. */
   size(sampleCount: number): Size {
     return new Size(sampleCount * this.valueOf());
   }
 
   /**
    * Adds another Density to this Density.
-   *
-   * @param other - The Density to add.
    * @returns A new Density representing the sum of the two densities.
    */
   add(other: CrudeDensity): Density {
@@ -1495,7 +1128,6 @@ export class Density
 
   /**
    * Subtracts another Density from this Density.
-   *
    * @param other - The Density to subtract.
    * @returns A new Density representing the difference of the two densities.
    */
@@ -1505,7 +1137,6 @@ export class Density
 
   /**
    * Multiplies this Density by a scalar value.
-   *
    * @param value - The scalar value to multiply by.
    * @returns A new Density representing this Density multiplied by the value.
    */
@@ -1514,8 +1145,6 @@ export class Density
   }
 
   /**
-   * Divides this Density by a scalar value.
-   *
    * @param value - The scalar value to divide by.
    * @returns A new Density representing this Density divided by the value.
    */
@@ -1544,9 +1173,8 @@ export class Density
 }
 
 /**
- * TimeRange is a range of time marked by a start and end timestamp. A TimeRange
- * is start inclusive and end exclusive.
- *
+ * TimeRange is a range of time marked by a start and end timestamp. A TimeRange is
+ * start inclusive and end exclusive.
  * @property start - A TimeStamp representing the start of the range.
  * @property end - A Timestamp representing the end of the range.
  */
@@ -1557,22 +1185,16 @@ export class TimeRange implements primitive.Stringer, primitive.Hashable {
   }
 
   /**
-   * The starting TimeStamp of the TimeRange.
-   *
-   * Note that this value is not guaranteed to be before or equal to the ending value.
-   * To ensure that this is the case, call TimeRange.make_valid().
-   *
-   * In most cases, operations should treat start as inclusive.
+   * The starting TimeStamp of the TimeRange. Note that this value is not guaranteed to
+   * be before or equal to the ending value. To ensure that this is the case, call
+   * TimeRange.make_valid(). In most cases, operations should treat start as inclusive.
    */
   start: TimeStamp;
 
   /**
-   * The starting TimeStamp of the TimeRange.
-   *
-   * Note that this value is not guaranteed to be before or equal to the ending value.
-   * To ensure that this is the case, call TimeRange.make_valid().
-   *
-   * In most cases, operations should treat end as exclusive.
+   * The starting TimeStamp of the TimeRange. Note that this value is not guaranteed to
+   * be before or equal to the ending value. To ensure that this is the case, call
+   * TimeRange.make_valid(). In most cases, operations should treat end as exclusive.
    */
   end: TimeStamp;
 
@@ -1582,7 +1204,6 @@ export class TimeRange implements primitive.Stringer, primitive.Hashable {
 
   /**
    * Creates a TimeRange from the given start and end TimeStamps.
-   *
    * @param start - A TimeStamp representing the start of the range.
    * @param end - A TimeStamp representing the end of the range.
    */
@@ -1603,7 +1224,6 @@ export class TimeRange implements primitive.Stringer, primitive.Hashable {
 
   /**
    * Checks if the timestamp is valid i.e. the start is before the end.
-   *
    * @returns True if the TimeRange is valid.
    */
   get isValid(): boolean {
@@ -1612,34 +1232,23 @@ export class TimeRange implements primitive.Stringer, primitive.Hashable {
 
   /**
    * Makes sure the TimeRange is valid i.e. the start is before the end.
-   *
    * @returns A TimeRange that is valid.
    */
   makeValid(): TimeRange {
     return this.isValid ? this : this.swap();
   }
 
-  /**
-   * Checks if the TimeRange is zero (both start and end are TimeStamp.ZERO).
-   *
-   * @returns True if both start and end are TimeStamp.ZERO, false otherwise.
-   */
+  /** @returns True if both start and end are TimeStamp.ZERO, false otherwise. */
   get isZero(): boolean {
     return this.start.isZero && this.end.isZero;
   }
 
-  /**
-   * @returns the TimeRange as a numeric object with start and end properties.
-   */
+  /** @returns the TimeRange as a numeric object with start and end properties. */
   get numeric(): NumericTimeRange {
     return { start: Number(this.start.valueOf()), end: Number(this.end.valueOf()) };
   }
 
-  /**
-   * Creates a new TimeRange with the start and end swapped.
-   *
-   * @returns A TimeRange with the start and end swapped.
-   */
+  /** @returns A TimeRange with the start and end swapped. */
   swap(): TimeRange {
     return new TimeRange(this.end, this.start);
   }
@@ -1651,12 +1260,7 @@ export class TimeRange implements primitive.Stringer, primitive.Hashable {
     };
   }
 
-  /**
-   * Checks if the TimeRange is equal to the given TimeRange.
-   *
-   * @param other - The TimeRange to compare to.
-   * @returns True if the TimeRange is equal to the given TimeRange.
-   */
+  /** @returns True if the TimeRange is equal to the given TimeRange. */
   equals(other: TimeRange, delta: TimeSpan = TimeSpan.ZERO): boolean {
     if (delta.isZero)
       return this.start.equals(other.start) && this.end.equals(other.end);
@@ -1667,33 +1271,23 @@ export class TimeRange implements primitive.Stringer, primitive.Hashable {
     return startDist <= delta.valueOf() && endDist <= delta.valueOf();
   }
 
-  /**
-   * Returns a string representation of the TimeRange.
-   *
-   * @returns A string representation of the TimeRange.
-   */
+  /** @returns A string representation of the TimeRange. */
   toString(): string {
     return `${this.start.toString()} - ${this.end.toString()}`;
   }
 
-  /**
-   * Returns a pretty string representation of the TimeRange.
-   *
-   * @returns A pretty string representation of the TimeRange.
-   */
+  /** @returns A pretty string representation of the TimeRange. */
   toPrettyString(): string {
     return `${this.start.toString("preciseDate")} - ${this.span.toString()}`;
   }
 
   /**
    * Checks if the two time ranges overlap. If the two time ranges are equal, returns
-   * true.  If the start of one range is equal to the end of the other, it returns false.
-   * Just follow the rule [start, end), i.e., start is inclusive, and the end is exclusive.
-   *
-   * @param other - The other TimeRange to compare to.
-   * @param delta - A TimeSpan representing the minimum amount of overlap for
-   * overlap to return true. This allows for a slight amount of leeway when
-   * checking for overlap.
+   * true. If the start of one range is equal to the end of the other, it returns false.
+   * Just follow the rule [start, end), i.e., start is inclusive, and the end is
+   * exclusive.
+   * @param delta - A TimeSpan representing the minimum amount of overlap for overlap to
+   * return true. This allows for a slight amount of leeway when checking for overlap.
    * @returns True if the two TimeRanges overlap, false otherwise.
    */
   overlapsWith(other: TimeRange, delta: TimeSpan = TimeSpan.ZERO): boolean {
@@ -1705,31 +1299,24 @@ export class TimeRange implements primitive.Stringer, primitive.Hashable {
     // If the ranges touch at their boundaries, they do not overlap.
     if (other.end.equals(rng.start) || rng.end.equals(other.start)) return false;
 
-    // Determine the actual overlapping range
     const startOverlap = TimeStamp.max(rng.start, other.start);
     const endOverlap = TimeStamp.min(rng.end, other.end);
 
-    // If the end of overlap is before the start, then they don't overlap at all
     if (endOverlap.before(startOverlap)) return false;
 
-    // Calculate the duration of the overlap
     const overlapDuration = new TimeSpan(endOverlap.sub(startOverlap));
 
-    // Compare the overlap duration with delta
     return overlapDuration.greaterThanOrEqual(delta);
   }
 
   /**
-   * Checks if the TimeRange contains the given TimeRange or TimeStamp.
-   *
-   * @param other - The TimeRange or TimeStamp to check if it is contained in the TimeRange.
+   * @param other - The TimeRange or TimeStamp to check if it is contained in the
+   * TimeRange.
    * @returns True if the TimeRange contains the given TimeRange or TimeStamp.
    */
   contains(other: TimeRange): boolean;
 
   /**
-   * Checks if the TimeRange contains the given TimeStamp.
-   *
    * @param ts - The TimeStamp to check if it is contained in the TimeRange.
    * @returns True if the TimeRange contains the given TimeStamp.
    */
@@ -1742,10 +1329,9 @@ export class TimeRange implements primitive.Stringer, primitive.Hashable {
   }
 
   /**
-   * Returns a new TimeRange that is bound by the given TimeRange.
-   *
    * @param other - The TimeRange to bound by.
    * @returns A new TimeRange that is bound by the given TimeRange.
+   *
    * @example
    * const range = new TimeRange(new TimeStamp(1000), new TimeStamp(2000));
    * const other = new TimeRange(new TimeStamp(1500), new TimeStamp(2500));
@@ -1816,7 +1402,6 @@ export class TimeRange implements primitive.Stringer, primitive.Hashable {
 
   /**
    * Merges the given time ranges into a single time range.
-   *
    * @param ranges - The list of `CrudeTimeRange`s to merge.
    * @returns A new `TimeRange` that is the union of the given time ranges - the start
    * is the minimum of the start times and the end is the maximum of the end times.
@@ -1852,9 +1437,7 @@ export class DataType
     }
   }
 
-  /**
-   * @returns the TypedArray constructor for the DataType.
-   */
+  /** @returns the TypedArray constructor for the DataType. */
   get Array(): TypedArrayConstructor {
     const v = DataType.ARRAY_CONSTRUCTORS.get(this.toString());
     if (v == null)
@@ -1862,16 +1445,12 @@ export class DataType
     return v;
   }
 
-  /**
-   * @returns true if the DataType is equal to the given DataType.
-   */
+  /** @returns true if the DataType is equal to the given DataType. */
   equals(other: CrudeDataType): boolean {
     return this.valueOf() === other.valueOf();
   }
 
-  /**
-   * @returns true if the DataType is equal to any of the given DataTypes.
-   */
+  /** @returns true if the DataType is equal to any of the given DataTypes. */
   matches(...others: CrudeDataType[]): boolean {
     return others.some((o) => this.equals(o));
   }
@@ -1968,6 +1547,8 @@ export class DataType
     if (this.equals(other)) return true;
     if (!this.isNumeric || !other.isNumeric) return false;
     if (this.isVariable || other.isVariable) return false;
+    if (this.equals(DataType.BOOLEAN)) return true;
+    if (other.equals(DataType.BOOLEAN)) return false;
     if (this.isUnsignedInteger && other.isSignedInteger) return false;
 
     if (this.isFloat)
@@ -1990,8 +1571,6 @@ export class DataType
   }
 
   /**
-   * Checks whether the given TypedArray is of the same type as the DataType.
-   *
    * @param array - The TypedArray to check.
    * @returns True if the TypedArray is of the same type as the DataType.
    */
@@ -2039,6 +1618,9 @@ export class DataType
   /** Represents a bytes data type for arbitrary byte arrays. Bytes have an unknown
    * density and are encoded as uint32-length-prefixed samples. */
   static readonly BYTES = new DataType("bytes");
+  /** Represents a boolean data type. Samples are a single byte with canonical values
+   * 0x00 (false) and 0x01 (true). */
+  static readonly BOOLEAN = new DataType("boolean");
 
   private static readonly ARRAY_CONSTRUCTORS: Map<string, TypedArrayConstructor> =
     new Map<string, TypedArrayConstructor>([
@@ -2057,6 +1639,7 @@ export class DataType
       [DataType.JSON.toString(), Uint8Array],
       [DataType.UUID.toString(), Uint8Array],
       [DataType.BYTES.toString(), Uint8Array],
+      [DataType.BOOLEAN.toString(), Uint8Array],
     ]);
 
   private static readonly ARRAY_CONSTRUCTOR_DATA_TYPES: Map<string, DataType> = new Map<
@@ -2091,6 +1674,7 @@ export class DataType
     [DataType.JSON.toString(), Density.UNKNOWN],
     [DataType.UUID.toString(), Density.BIT128],
     [DataType.BYTES.toString(), Density.UNKNOWN],
+    [DataType.BOOLEAN.toString(), Density.BIT8],
   ]);
 
   /** All the data types. */
@@ -2106,6 +1690,7 @@ export class DataType
     DataType.INT64,
     DataType.FLOAT32,
     DataType.FLOAT64,
+    DataType.BOOLEAN,
     DataType.TIMESTAMP,
     DataType.UUID,
     DataType.STRING,
@@ -2124,6 +1709,7 @@ export class DataType
     [DataType.INT64.toString(), "i64"],
     [DataType.FLOAT32.toString(), "f32"],
     [DataType.FLOAT64.toString(), "f64"],
+    [DataType.BOOLEAN.toString(), "bool"],
     [DataType.TIMESTAMP.toString(), "ts"],
     [DataType.UUID.toString(), "uuid"],
     [DataType.STRING.toString(), "str"],
@@ -2135,14 +1721,13 @@ export class DataType
 
   /** A zod schema for a DataType. */
   static readonly z = z.union([
-    z.string().transform((v) => new DataType(v)),
     z.instanceof(DataType),
+    z.string().transform((v) => new DataType(v)),
+    z.object({ value: z.string() }).transform((v) => new DataType(v)),
   ]);
 }
 
-/**
- * The Size of an element in bytes.
- */
+/** The Size of an element in bytes. */
 export class Size
   extends primitive.ValueExtension<number>
   implements primitive.Stringer
@@ -2178,7 +1763,6 @@ export class Size
 
   /**
    * Multiplies this Size by a scalar value.
-   *
    * @param value - The scalar value to multiply by.
    * @returns A new Size representing this Size multiplied by the value.
    */
@@ -2187,8 +1771,6 @@ export class Size
   }
 
   /**
-   * Divides this Size by a scalar value.
-   *
    * @param value - The scalar value to divide by.
    * @returns A new Size representing this Size divided by the value.
    */
@@ -2208,22 +1790,18 @@ export class Size
     return Size.bytes(this.valueOf() % new Size(span).valueOf());
   }
 
-  /** @returns the number of gigabytes in the Size. */
   get gigabytes(): number {
     return this.valueOf() / Size.GIGABYTE.valueOf();
   }
 
-  /** @returns the number of megabytes in the Size. */
   get megabytes(): number {
     return this.valueOf() / Size.MEGABYTE.valueOf();
   }
 
-  /** @returns the number of kilobytes in the Size. */
   get kilobytes(): number {
     return this.valueOf() / Size.KILOBYTE.valueOf();
   }
 
-  /** @returns the number of terabytes in the Size. */
   get terabytes(): number {
     return this.valueOf() / Size.TERABYTE.valueOf();
   }
@@ -2251,8 +1829,6 @@ export class Size
 
   /**
    * Creates a Size from the given number of bytes.
-   *
-   * @param value - The number of bytes.
    * @returns A Size representing the given number of bytes.
    */
   static bytes(value: CrudeSize = 1): Size {
@@ -2264,8 +1840,6 @@ export class Size
 
   /**
    * Creates a Size from the given number if kilobytes.
-   *
-   * @param value - The number of kilobytes.
    * @returns A Size representing the given number of kilobytes.
    */
   static kilobytes(value: CrudeSize = 1): Size {
@@ -2277,8 +1851,6 @@ export class Size
 
   /**
    * Creates a Size from the given number of megabytes.
-   *
-   * @param value - The number of megabytes.
    * @returns A Size representing the given number of megabytes.
    */
   static megabytes(value: CrudeSize = 1): Size {
@@ -2290,8 +1862,6 @@ export class Size
 
   /**
    * Creates a Size from the given number of gigabytes.
-   *
-   * @param value - The number of gigabytes.
    * @returns A Size representing the given number of gigabytes.
    */
   static gigabytes(value: CrudeSize = 1): Size {
@@ -2303,9 +1873,7 @@ export class Size
 
   /**
    * Creates a Size from the given number of terabytes.
-   *
-   * @param value - The number of terabytes.
-   * @returns  A Size representing the given number of terabytes.
+   * @returns A Size representing the given number of terabytes.
    */
   static terabytes(value: CrudeSize): Size {
     return Size.gigabytes(new Size(value).valueOf() * 1e3);
@@ -2320,6 +1888,7 @@ export class Size
   /** A zod schema for a Size. */
   static readonly z = z.union([
     z.number().transform((v) => new Size(v)),
+    z.string().transform((v) => new Size(Number(v))),
     z.instanceof(Size),
   ]);
 
@@ -2340,22 +1909,14 @@ export type CrudeTimeStamp =
   | primitive.CrudeValueExtension<bigint>;
 export type TimeStampT = number;
 export type CrudeTimeSpan =
-  | bigint
-  | TimeSpan
-  | TimeStamp
-  | number
-  | Rate
-  | primitive.CrudeValueExtension<bigint>;
+  bigint | TimeSpan | TimeStamp | number | Rate | primitive.CrudeValueExtension<bigint>;
 export type TimeSpanT = number;
 export type CrudeRate = Rate | number | primitive.CrudeValueExtension<number>;
 export type RateT = number;
 export type CrudeDensity = Density | number | primitive.CrudeValueExtension<number>;
 export type DensityT = number;
 export type CrudeDataType =
-  | DataType
-  | string
-  | TypedArray
-  | primitive.CrudeValueExtension<string>;
+  DataType | string | TypedArray | primitive.CrudeValueExtension<string>;
 export type DataTypeT = string;
 export type CrudeSize = Size | number | primitive.CrudeValueExtension<number>;
 export type SizeT = number;
@@ -2402,13 +1963,7 @@ type TypedArrayConstructor =
   | Int32ArrayConstructor
   | BigInt64ArrayConstructor;
 export type TelemValue =
-  | number
-  | bigint
-  | string
-  | boolean
-  | Date
-  | TimeStamp
-  | TimeSpan;
+  number | bigint | string | boolean | Date | TimeStamp | TimeSpan;
 
 export const isTelemValue = (value: unknown): value is TelemValue => {
   const ot = typeof value;
@@ -2429,6 +1984,7 @@ export const convertDataType = (
   value: math.Numeric,
   offset: math.Numeric = 0,
 ): math.Numeric => {
+  if (target.equals(DataType.BOOLEAN)) return primitive.isZero(value) ? 0 : 1;
   if (source.usesBigInt && !target.usesBigInt)
     return Number(BigInt(value.valueOf()) - BigInt(offset.valueOf()));
   if (!source.usesBigInt && target.usesBigInt)

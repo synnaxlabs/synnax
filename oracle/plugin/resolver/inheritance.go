@@ -10,6 +10,9 @@
 package resolver
 
 import (
+	"slices"
+
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/set"
 )
@@ -52,12 +55,120 @@ func HasDomainOmissions(form resolution.StructForm) bool {
 	return false
 }
 
+// InheritedFields returns the fields the given parents contribute, keyed by name, with
+// each parent's type arguments substituted. The leftmost parent wins a name collision,
+// matching resolution.UnifiedFields.
+func InheritedFields(
+	extends []resolution.TypeRef,
+	table *resolution.Table,
+) map[string]resolution.Field {
+	out := make(map[string]resolution.Field)
+	for _, ext := range extends {
+		parent, ok := ext.Resolve(table)
+		if !ok {
+			continue
+		}
+		parentForm, ok := parent.Form.(resolution.StructForm)
+		if !ok {
+			continue
+		}
+		typeArgs := make(map[string]resolution.TypeRef, len(parentForm.TypeParams))
+		for i, tp := range parentForm.TypeParams {
+			if i < len(ext.TypeArgs) {
+				typeArgs[tp.Name] = ext.TypeArgs[i]
+			}
+		}
+		for _, f := range resolution.UnifiedFields(parent, table) {
+			if _, seen := out[f.Name]; seen {
+				continue
+			}
+			f.Type = resolution.SubstituteTypeRef(f.Type, typeArgs)
+			out[f.Name] = f
+		}
+	}
+	return out
+}
+
+// DefaultOnlyOverrides returns the names of fields that redeclare a field inherited
+// from extends to change only its default. Every language can express such an override
+// while still inheriting: the field keeps its declared type and optionality, so only
+// the value filled in when it is absent differs. A union variant passes the union's
+// bases and its own, since both contribute to the variant it generates.
+func DefaultOnlyOverrides(
+	extends []resolution.TypeRef,
+	fields []resolution.Field,
+	table *resolution.Table,
+) set.Set[string] {
+	out := make(set.Set[string])
+	inherited := InheritedFields(extends, table)
+	for _, child := range fields {
+		parent, ok := inherited[child.Name]
+		if !ok || isStructuralOverride(parent, child) {
+			continue
+		}
+		out.Add(child.Name)
+	}
+	return out
+}
+
+// HasStructuralOverride reports whether form redeclares an inherited field with a
+// different type or optionality. Neither Go embedding nor C++ inheritance can restate
+// an inherited field, so such a struct must be flattened; leaving it inherited emits a
+// second field beside the inherited one.
+func HasStructuralOverride(
+	form resolution.StructForm,
+	table *resolution.Table,
+) bool {
+	inherited := InheritedFields(form.Extends, table)
+	for _, child := range form.Fields {
+		if parent, ok := inherited[child.Name]; ok &&
+			isStructuralOverride(parent, child) {
+			return true
+		}
+	}
+	return false
+}
+
+// isStructuralOverride reports whether child changes more than parent's default. A
+// typeless override never can: the analyzer resolves it against the parent before
+// generation.
+func isStructuralOverride(parent, child resolution.Field) bool {
+	return child.Optional != parent.Optional || !sameTypeRef(child.Type, parent.Type)
+}
+
+// sameTypeRef reports whether a and b name the same type, comparing array sizes, type
+// parameters, and type arguments.
+func sameTypeRef(a, b resolution.TypeRef) bool {
+	if a.Name != b.Name || len(a.TypeArgs) != len(b.TypeArgs) {
+		return false
+	}
+	if (a.ArraySize == nil) != (b.ArraySize == nil) {
+		return false
+	}
+	if a.ArraySize != nil && *a.ArraySize != *b.ArraySize {
+		return false
+	}
+	if (a.TypeParam == nil) != (b.TypeParam == nil) {
+		return false
+	}
+	if a.TypeParam != nil && a.TypeParam.Name != b.TypeParam.Name {
+		return false
+	}
+	for i := range a.TypeArgs {
+		if !sameTypeRef(a.TypeArgs[i], b.TypeArgs[i]) {
+			return false
+		}
+	}
+	return true
+}
+
 // CanUseInheritance checks if a struct can use language inheritance/embedding.
 // Returns false if:
 // - There are no parent types (Extends is empty)
 // - There are omitted fields (can't omit fields with inheritance)
 // - There are field name conflicts between parents
 // - A field removes an inherited domain (must flatten to drop it)
+// - A field restates an inherited field's type or optionality
 func CanUseInheritance(form resolution.StructForm, table *resolution.Table) bool {
 	if len(form.Extends) == 0 {
 		return false
@@ -68,5 +179,70 @@ func CanUseInheritance(form resolution.StructForm, table *resolution.Table) bool
 	if HasDomainOmissions(form) {
 		return false
 	}
+	if HasStructuralOverride(form, table) {
+		return false
+	}
 	return !HasFieldConflicts(form.Extends, table)
+}
+
+// VariantBases splits the types a union variant would inherit, its union's bases
+// followed by its own, into the ones it still inherits and the fields it must
+// declare itself. A base whose field the variant drops with `-name` cannot be
+// inherited, because no target language can remove a member from an inherited type,
+// so that base's remaining fields are returned for the variant to declare. A name an
+// inherited base or the variant itself already supplies wins over the flattened base's
+// copy, which is dropped.
+func VariantBases(
+	form resolution.UnionForm,
+	v resolution.UnionVariant,
+	table *resolution.Table,
+) (inherited []resolution.TypeRef, declared []resolution.Field) {
+	payload, ok := v.Type.Resolve(table)
+	if !ok || !v.Inline {
+		return form.Extends, nil
+	}
+	pform, ok := payload.Form.(resolution.StructForm)
+	if !ok {
+		return form.Extends, nil
+	}
+	bases := append(slices.Clone(form.Extends), pform.Extends...)
+	if len(pform.OmittedFields) == 0 {
+		return bases, nil
+	}
+	drop := set.New(pform.OmittedFields...)
+	// taken holds every name the variant already receives: the fields it declares
+	// itself, plus everything a base it still inherits contributes. A flattened
+	// base's field under one of those names is dropped rather than declared again,
+	// since a name arriving twice shadows silently in every target language.
+	taken := set.New(lo.Map(pform.Fields, func(f resolution.Field, _ int) string {
+		return f.Name
+	})...)
+	var flattened [][]resolution.Field
+	for _, ref := range bases {
+		base, ok := ref.Resolve(table)
+		if !ok {
+			continue
+		}
+		fields := resolution.UnifiedFields(base, table)
+		if lo.SomeBy(fields, func(f resolution.Field) bool {
+			return drop.Contains(f.Name)
+		}) {
+			flattened = append(flattened, fields)
+			continue
+		}
+		inherited = append(inherited, ref)
+		for _, f := range fields {
+			taken.Add(f.Name)
+		}
+	}
+	for _, fields := range flattened {
+		for _, f := range fields {
+			if drop.Contains(f.Name) || taken.Contains(f.Name) {
+				continue
+			}
+			taken.Add(f.Name)
+			declared = append(declared, f)
+		}
+	}
+	return inherited, declared
 }

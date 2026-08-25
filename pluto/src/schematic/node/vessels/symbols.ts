@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
+
 import { CrossJunction } from "@/schematic/node/vessels/crossJunction";
 import { Cylinder } from "@/schematic/node/vessels/cylinder";
 import { Tank } from "@/schematic/node/vessels/tank";
@@ -17,4 +19,4 @@ export const REGISTRY = {
   cylinder: Cylinder.spec,
   tank: Tank.spec,
   t_junction: TJunction.spec,
-} as const;
+} as const satisfies Partial<Record<schematic.NodeConfigType, unknown>>;

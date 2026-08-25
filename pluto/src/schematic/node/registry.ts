@@ -54,8 +54,7 @@ export const resolveSpec = (variant: string): Spec<Variant, Config> => {
 /// CustomVariant is the union of Variants that reference a user-defined
 /// symbol spec via specKey rather than rendering a hard-coded SVG.
 export type CustomVariant =
-  | typeof CUSTOM_ACTUATOR_VARIANT
-  | typeof CUSTOM_STATIC_VARIANT;
+  typeof CUSTOM_ACTUATOR_VARIANT | typeof CUSTOM_STATIC_VARIANT;
 export type CustomConfig = ConfigOf<CustomVariant>;
 
 /// CUSTOM_VARIANTS is the set form of CustomVariant. Prefer the isCustomVariant

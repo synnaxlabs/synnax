@@ -7,7 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import uuid
 from typing import Any
 
 import synnax as sy
@@ -15,7 +14,7 @@ from console.case import ConsoleCase
 from console.schematic import SCHEMATIC_VERSION, Button
 from console.schematic.off_page_reference import OffPageReference
 from console.schematic.schematic import Schematic
-from framework.utils import assert_link_format
+from framework.utils import assert_envelope, assert_link_format
 from x import random_name
 
 
@@ -23,24 +22,10 @@ def assert_exported_json(exported: dict[str, Any]) -> None:
     """Assert that the exported JSON has a valid structure.
 
     Validates:
-    - Root 'key' is a valid UUID format
-    - Version matches SCHEMATIC_VERSION
-    - Required keys exist: nodes, edges, props, viewport
+    - Envelope shape: 'schematic' type, version >= SCHEMATIC_VERSION, key stripped
+    - Required keys exist: nodes, edges, configs
     """
-    assert "key" in exported, "Exported JSON should contain 'key'"
-    try:
-        uuid.UUID(exported["key"])
-    except ValueError:
-        raise AssertionError(
-            f"Schematic key should be a valid UUID, got '{exported['key']}'"
-        )
-
-    assert "version" in exported, "Exported JSON should contain 'version'"
-    assert exported["version"] == SCHEMATIC_VERSION, (
-        f"Schematic version should be '{SCHEMATIC_VERSION}', "
-        f"got '{exported['version']}'"
-    )
-
+    assert_envelope(exported, envelope_type="schematic", min_version=SCHEMATIC_VERSION)
     required_keys = ["nodes", "edges", "configs"]
     for key in required_keys:
         assert key in exported, f"Exported JSON should contain '{key}'"
@@ -73,17 +58,17 @@ class SchematicLifecycle(ConsoleCase):
         self.console.ranges.favorite(self.shared_range_name)
         self.console.ranges.set_active(self.shared_range_name)
 
-        ctx_schematic = self.console.project.create_schematic(
-            f"Context Menu Test {self.suffix}"
+        ctx_schematic = self.console.pages.create(
+            Schematic, f"Context Menu Test {self.suffix}"
         )
         self.ctx_schematic_name = ctx_schematic.page_name
         ctx_schematic.close()
 
     def teardown(self) -> None:
         if self.shared_range_name is not None:
-            self.console.ranges.open_explorer()
-            if self.console.ranges.exists_in_explorer(self.shared_range_name):
-                self.console.ranges.delete_from_explorer(self.shared_range_name)
+            self.console.ranges.explorer.open()
+            if self.console.ranges.explorer.exists(self.shared_range_name):
+                self.console.ranges.explorer.delete(self.shared_range_name)
 
         for name in [
             self.ctx_schematic_name,
@@ -117,8 +102,8 @@ class SchematicLifecycle(ConsoleCase):
         """Run all schematic lifecycle tests."""
         self.setup_channels()
 
-        schematic = self.console.project.create_schematic(
-            f"Schematic Test {self.suffix}"
+        schematic = self.console.pages.create(
+            Schematic, f"Schematic Test {self.suffix}"
         )
         schematic.create_symbol(Button(label="Test Button", channel_name=self.cmd_name))
 
@@ -234,7 +219,7 @@ class SchematicLifecycle(ConsoleCase):
         assert self.main_schematic_name is not None
         self.log("Testing open schematic from resources toolbar")
 
-        schematic = self.console.project.open_schematic(self.main_schematic_name)
+        schematic = self.console.pages.open(Schematic, self.main_schematic_name)
 
         assert schematic.is_pane_visible, (
             f"Schematic '{self.main_schematic_name}' pane not visible after opening from resources toolbar"
@@ -253,8 +238,8 @@ class SchematicLifecycle(ConsoleCase):
         assert self.main_schematic_name is not None
         self.log("Testing drag schematic onto mosaic")
 
-        schematic = self.console.project.drag_schematic_to_mosaic(
-            self.main_schematic_name
+        schematic = self.console.pages.drag_to_mosaic(
+            Schematic, self.main_schematic_name
         )
 
         assert schematic.is_pane_visible, (
@@ -273,7 +258,7 @@ class SchematicLifecycle(ConsoleCase):
         assert self.main_schematic_name is not None
         self.log("Testing open schematic from search palette")
 
-        schematic = self.console.project.open_from_search(
+        schematic = self.console.pages.open_from_search(
             Schematic, self.main_schematic_name
         )
 
@@ -293,28 +278,28 @@ class SchematicLifecycle(ConsoleCase):
         assert self.ctx_schematic_name is not None, "ctx_schematic_name should be set"
 
         self.log("Testing copy link via context menu")
-        link = self.console.project.copy_page_link(self.ctx_schematic_name)
+        link = self.console.pages.copy_link(self.ctx_schematic_name)
         assert_link_format(link, "schematic")
 
         self.log("Testing export schematic via context menu")
-        exported = self.console.project.export_page(self.ctx_schematic_name)
+        exported = self.console.pages.export(self.ctx_schematic_name)
         assert_exported_json(exported)
 
         self.log("Testing rename schematic via context menu")
         new_name = f"Renamed Schematic {self.suffix}"
-        self.console.project.rename_page(self.ctx_schematic_name, new_name)
-        assert self.console.project.page_exists(new_name), (
+        self.console.pages.rename(self.ctx_schematic_name, new_name)
+        assert self.console.pages.exists(new_name), (
             f"Schematic '{new_name}' should exist after rename"
         )
         self.ctx_schematic_name = new_name
 
         self.log("Testing copy schematic via context menu")
         copy_name = f"Copied Schematic {self.suffix}"
-        self.console.project.copy_page(self.ctx_schematic_name, copy_name)
-        assert self.console.project.page_exists(copy_name), (
+        self.console.pages.copy(self.ctx_schematic_name, copy_name)
+        assert self.console.pages.exists(copy_name), (
             f"Copied schematic '{copy_name}' should exist"
         )
-        assert self.console.project.page_exists(self.ctx_schematic_name), (
+        assert self.console.pages.exists(self.ctx_schematic_name), (
             f"Original schematic '{self.ctx_schematic_name}' should still exist"
         )
         self.ctx_schematic_copy_name = copy_name
@@ -324,49 +309,47 @@ class SchematicLifecycle(ConsoleCase):
         self.log("Creating schematics for multi-select operations")
         schematic_names: list[str] = []
         for i in range(3):
-            schematic = self.console.project.create_schematic(
-                f"Multi Test {i} {self.suffix}"
+            schematic = self.console.pages.create(
+                Schematic, f"Multi Test {i} {self.suffix}"
             )
             schematic_names.append(schematic.page_name)
             schematic.close()
 
         self.log("Testing copy multiple schematics via context menu")
-        self.console.project.copy_pages(schematic_names)
+        self.console.pages.copy_many(schematic_names)
 
         copy_names = [f"{name} (copy)" for name in schematic_names]
         for copy_name in copy_names:
-            assert self.console.project.page_exists(copy_name), (
+            assert self.console.pages.exists(copy_name), (
                 f"Copied schematic '{copy_name}' should exist"
             )
 
         self.log("Testing delete multiple schematics via context menu")
         all_names = schematic_names + copy_names
-        self.console.project.delete_pages(all_names)
+        self.console.pages.delete_many(all_names)
 
     def test_snapshot_operations(self) -> None:
         """Test snapshot operations using shared range."""
         assert self.shared_range_name is not None
         self.log("Testing snapshot schematic to active range")
         single_snapshot_name = f"Snapshot Single {self.suffix}"
-        schematic = self.console.project.create_schematic(single_snapshot_name)
+        schematic = self.console.pages.create(Schematic, single_snapshot_name)
         schematic.close()
         self.console.ranges.snapshot_to_active_range(
             single_snapshot_name, self.shared_range_name
         )
-        self.console.project.delete_page(single_snapshot_name)
+        self.console.pages.delete(single_snapshot_name)
 
         self.log("Testing snapshot multiple schematics to active range")
         multi_names: list[str] = []
         for i in range(2):
-            schematic = self.console.project.create_schematic(
-                f"Snapshot Multi {i} {self.suffix}"
+            schematic = self.console.pages.create(
+                Schematic, f"Snapshot Multi {i} {self.suffix}"
             )
             multi_names.append(schematic.page_name)
             schematic.close()
-        self.console.project.snapshot_pages_to_active_range(
-            multi_names, self.shared_range_name
-        )
-        self.console.project.delete_pages(multi_names)
+        self.console.pages.snapshot_to_active_range(multi_names, self.shared_range_name)
+        self.console.pages.delete_many(multi_names)
 
         self.log("Testing schematic snapshot rename synchronization")
         self._test_snapshot_rename_synchronization()
@@ -375,7 +358,7 @@ class SchematicLifecycle(ConsoleCase):
         """Test that renaming a snapshot synchronizes across UI elements."""
         assert self.shared_range_name is not None
         original_name = f"Snapshot Original {self.suffix}"
-        schematic = self.console.project.create_schematic(original_name)
+        schematic = self.console.pages.create(Schematic, original_name)
         schematic.close()
         self.console.ranges.snapshot_to_active_range(
             original_name, self.shared_range_name
@@ -385,15 +368,15 @@ class SchematicLifecycle(ConsoleCase):
         snapshot_name = f"{original_name} (Snapshot)"
 
         self.console.ranges.open_from_search(self.shared_range_name)
-        self.console.ranges.wait_for_overview(self.shared_range_name)
+        self.console.ranges.overview.wait_for(self.shared_range_name)
 
-        snapshot_names = self.console.ranges.get_snapshot_names_in_overview()
+        snapshot_names = self.console.ranges.overview.get_snapshot_names()
         self.log(f"Snapshots found in overview: {snapshot_names}")
-        assert self.console.ranges.snapshot_exists_in_overview(snapshot_name), (
+        assert self.console.ranges.overview.snapshot_exists(snapshot_name), (
             f"Snapshot '{snapshot_name}' should exist in Range Details Overview. Found: {snapshot_names}"
         )
 
-        self.console.ranges.open_snapshot_from_overview(snapshot_name)
+        self.console.ranges.overview.open_snapshot(snapshot_name)
         self.console.layout.wait_for_tab(snapshot_name)
 
         new_name = f"Snapshot Renamed {self.suffix}"
@@ -410,12 +393,12 @@ class SchematicLifecycle(ConsoleCase):
         self.console.layout.hide_visualization_toolbar()
 
         self.console.ranges.open_from_search(self.shared_range_name)
-        self.console.ranges.wait_for_overview(self.shared_range_name)
-        assert self.console.ranges.snapshot_exists_in_overview(new_name), (
+        self.console.ranges.overview.wait_for(self.shared_range_name)
+        assert self.console.ranges.overview.snapshot_exists(new_name), (
             f"Snapshot should be renamed to '{new_name}' in Range Details Overview"
         )
-        self.console.project.close_page(new_name)
-        self.console.project.delete_page(original_name)
+        self.console.layout.close_tab(new_name)
+        self.console.pages.delete(original_name)
 
     def _dblclick_node(self, page: Any, label: str) -> None:
         """Double-click a react-flow node by label using mouse coordinates."""
@@ -442,12 +425,12 @@ class SchematicLifecycle(ConsoleCase):
         ]
 
         for name in names:
-            s = self.console.project.create_schematic(name)
+            s = self.console.pages.create(Schematic, name)
             s.close()
         self.off_page_schematic_names = list(names)
 
         # Open snap, create off-page ref pointing to crackle, navigate
-        schematic = self.console.project.open_schematic(names[0])
+        schematic = self.console.pages.open(Schematic, names[0])
         ref = OffPageReference(label=f"Go to {names[1]}", page_name=names[1])
         schematic.create_symbol(ref)
         schematic.disable_edit()
@@ -487,11 +470,11 @@ class SchematicLifecycle(ConsoleCase):
         )
         self.log("Off-page navigation cycle verified")
 
-        # Cleanup
+        # Each off-page hop opens a new tab, so the cycle leaves one tab per schematic.
         for name in names:
             self.console.layout.close_tab(name)
 
-        self.console.project.delete_pages(names)
+        self.console.pages.delete_many(names)
         self.off_page_schematic_names = []
 
     def test_ctx_delete_operations(self) -> None:
@@ -499,10 +482,10 @@ class SchematicLifecycle(ConsoleCase):
         assert self.ctx_schematic_name is not None, "ctx_schematic_name should be set"
 
         self.log("Testing delete schematic via context menu")
-        self.console.project.delete_page(self.ctx_schematic_name)
+        self.console.pages.delete(self.ctx_schematic_name)
         self.ctx_schematic_name = None
 
         self.log("Testing delete copied schematic via context menu")
         if self.ctx_schematic_copy_name:
-            self.console.project.delete_page(self.ctx_schematic_copy_name)
+            self.console.pages.delete(self.ctx_schematic_copy_name)
             self.ctx_schematic_copy_name = None

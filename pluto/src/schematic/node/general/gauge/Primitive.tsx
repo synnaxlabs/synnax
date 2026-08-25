@@ -7,32 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/schematic/node/general/gauge/gauge.css";
+
+import { type schematic } from "@synnaxlabs/client";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
-import { type Config } from "@/schematic/node/general/gauge/config";
 import { symbolColorVar } from "@/schematic/symbolColor";
 import { Text } from "@/text";
 
-interface RenderProps extends Omit<Config, "variant"> {
+interface RenderProps extends Omit<schematic.GaugeNodeConfig, "variant"> {
   className?: string;
 }
-
-const CONTAINER_STYLE: CSSProperties = {
-  width: 67,
-  height: 67,
-  position: "relative",
-};
-
-const SVG_STYLE: CSSProperties = { position: "absolute" };
-
-const METRICS_STYLE: CSSProperties = {
-  position: "absolute",
-  top: "60%",
-  left: "50%",
-  transform: "translate(-50%, -50%)",
-  textAlign: "center",
-};
 
 export const Gauge = ({ color: c, className }: RenderProps): ReactElement => {
   const radius = 27;
@@ -56,16 +42,20 @@ export const Gauge = ({ color: c, className }: RenderProps): ReactElement => {
   `;
 
   const style = useMemo<CSSProperties>(
-    () => ({
-      ...CONTAINER_STYLE,
-      [CSS.var("symbol-color")]: symbolColorVar(c),
-    }),
+    () => ({ [CSS.variable("symbol-color")]: symbolColorVar(c) }),
     [c],
   );
 
   return (
-    <div className={CSS(CSS.B("symbol-colored"), className)} style={style}>
-      <svg width="67" height="67" style={SVG_STYLE}>
+    <div
+      className={CSS.cls(
+        CSS.B("symbol-colored"),
+        CSS.BE("gauge", "container"),
+        className,
+      )}
+      style={style}
+    >
+      <svg width="67" height="67" className={CSS.BE("gauge", "svg")}>
         <path
           d={backgroundPath}
           fill="none"
@@ -80,7 +70,7 @@ export const Gauge = ({ color: c, className }: RenderProps): ReactElement => {
           strokeLinecap="round"
         />
       </svg>
-      <div style={METRICS_STYLE}>
+      <div className={CSS.BE("gauge", "metrics")}>
         <Text.Text level="h5" weight="bold">
           750
         </Text.Text>

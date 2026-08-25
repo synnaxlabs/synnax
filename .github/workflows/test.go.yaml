@@ -1,3 +1,12 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
 name: Test - Go
 
 on:
@@ -18,13 +27,6 @@ on:
         description: The codecov flag for this module
         required: true
         type: string
-      prepare_assets:
-        description:
-          Whether to create placeholder assets (driver binaries) before lint and test.
-          Required for modules compiled with -tags driver.
-        required: false
-        type: boolean
-        default: false
       install_antlr4:
         description:
           Whether to install antlr4 before running `go generate`. Required for modules
@@ -34,6 +36,44 @@ on:
         default: false
 
 jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: ${{ inputs.directory }}/go.mod
+          cache-dependency-path: |
+            ${{ inputs.directory }}/go.mod
+            ${{ inputs.directory }}/go.sum
+
+      - name: Build the custom golangci-lint binary
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.12.2
+          working-directory: ${{ inputs.directory }}
+          install-only: true
+
+      # The Windows runner does not have the disk space for a cold lint, so lint both
+      # GOOS values here. No package has a darwin-only file, so linux covers macOS.
+      - name: Lint
+        working-directory: ${{ inputs.directory }}
+        env:
+          CGO_ENABLED: "0"
+        run: |
+          ./custom-gcl config verify
+          echo "::group::GOOS=linux"
+          GOOS=linux ./custom-gcl run
+          echo "::endgroup::"
+          echo "::group::GOOS=windows"
+          # A throwaway cache keeps the shared setup-go cache down to one GOOS.
+          GOOS=windows GOCACHE="$RUNNER_TEMP/gocache-windows" ./custom-gcl run
+          echo "::endgroup::"
+
   test:
     name: Test (${{ matrix.os }})
     strategy:
@@ -42,65 +82,70 @@ jobs:
         os: [macos-latest, ubuntu-latest, windows-latest]
         include:
           - os: ubuntu-latest
-            fmt: true
+            codegen: true
+        # The full matrix runs for main, PRs into main, and manual dispatches; other
+        # refs run Linux only.
         exclude:
           - os:
-              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
-              'macos-latest' }}
+              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main' &&
+              github.event_name != 'workflow_dispatch') && 'macos-latest' }}
           - os:
-              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
-              'windows-latest' }}
+              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main' &&
+              github.event_name != 'workflow_dispatch') && 'windows-latest' }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
+
+      # Go keeps its caches and build scratch on the OS disk (C:), whose ~14GB of
+      # free space a --race --cover build of a large module overflows. RUNNER_TEMP
+      # sits on the far larger workspace drive. Runs before setup-go so its cache
+      # restores into the moved paths.
+      - name: Move the Go caches off the OS disk
+        if: runner.os == 'Windows'
+        run: |
+          New-Item -ItemType Directory -Force -Path "$env:RUNNER_TEMP\gotmp" | Out-Null
+          Add-Content $env:GITHUB_ENV "GOCACHE=$env:RUNNER_TEMP\gocache"
+          Add-Content $env:GITHUB_ENV "GOMODCACHE=$env:RUNNER_TEMP\gomod"
+          Add-Content $env:GITHUB_ENV "GOTMPDIR=$env:RUNNER_TEMP\gotmp"
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version-file: ${{ inputs.directory }}/go.mod
+          # This workflow file salts the cache key: cache archives store absolute
+          # paths, so one saved before a cache-path move restores to the old spot
+          # and would otherwise pin the moved cache permanently cold.
           cache-dependency-path: |
             ${{ inputs.directory }}/go.mod
             ${{ inputs.directory }}/go.sum
-
-      - name: Check formatting
-        if: matrix.fmt
-        run: scripts/check_gofmt.sh ${{ inputs.directory }}
+            .github/workflows/test.go.yaml
 
       - name: Install stringer
-        if: matrix.fmt
-        run: go install golang.org/x/tools/cmd/stringer@v0.45.0
+        if: matrix.codegen
+        run: go install golang.org/x/tools/cmd/stringer@v0.48.0
 
       - name: Install antlr4
-        if: matrix.fmt && inputs.install_antlr4
+        if: matrix.codegen && inputs.install_antlr4
         run: |
           scripts/install_antlr4.sh
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Verify `go generate` is up to date
-        if: matrix.fmt
+        if: matrix.codegen
         run: scripts/check_go_generate.sh ${{ inputs.directory }}
 
-      - name: Prepare asset placeholders
-        if: inputs.prepare_assets
-        run: core/scripts/setup_assets.sh
-        shell: bash
-
-      - name: Lint
-        uses: golangci/golangci-lint-action@v9
-        with:
-          working-directory: ${{ inputs.directory }}
-
       - name: Test
+        timeout-minutes: 150
         run: >-
           go run github.com/onsi/ginkgo/v2/ginkgo -r -p --randomize-all
           --randomize-suites --fail-on-pending --fail-on-empty --keep-going --cover
-          --coverprofile=cover.out --race --trace --github-output ${{
+          --coverprofile=cover.out --race --trace --timeout=2h --github-output ${{
           inputs.ginkgo_flags }}
         working-directory: ${{ inputs.directory }}
 
       - name: Upload coverage
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}

@@ -23,14 +23,15 @@ import { useAdder, useErrorHandler } from "@/status/base/Aggregator";
 
 const COPIED_DURATION_MS = TimeSpan.seconds(2).milliseconds;
 
+/** Props for {@link Copy}. */
 export interface CopyProps extends ButtonProps {
-  /** The text to copy to the clipboard, or a function that returns it (sync or async). */
+  /** The text to copy, or a function returning it. The function may be async. */
   text: string | (() => string | Promise<string>);
-  /** Optional callback invoked after successfully copying to clipboard. */
+  /** Called once the text reaches the clipboard. */
   onCopy?: () => void;
-  /** Duration in ms to show the checkmark after copying. Defaults to 2000. */
+  /** How long the checkmark stays up. Defaults to 2 seconds. */
   copiedDuration?: CrudeTimeSpan;
-  /** Status notification message shown on successful copy. Can be a string or a function that returns one. */
+  /** The status shown on success. Omit for no status. */
   successMessage?: string | (() => string);
 }
 
@@ -39,7 +40,6 @@ export interface CopyProps extends ButtonProps {
  *
  * @example
  * <Button.Copy text="Hello, world!" tooltip="Copy greeting" />
- *
  * @example
  * <Button.Copy
  *   text={JSON.stringify(data)}

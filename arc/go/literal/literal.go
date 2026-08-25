@@ -29,10 +29,9 @@ type ParsedValue struct {
 	Type types.Type
 }
 
-// Parse parses a literal AST node and returns its value and type.
-// It supports numeric literals (integer, float, with optional unit suffix) and validates
-// type compatibility.
-// The targetType parameter specifies the expected type for conversion.
+// Parse parses a literal AST node and returns its value and type. It supports numeric
+// literals (integer, float, with optional unit suffix) and validates type
+// compatibility. The targetType parameter specifies the expected type for conversion.
 // Float-to-int conversions that lose precision will fail (matching Go semantics for
 // constant conversions).
 func Parse(
@@ -46,7 +45,15 @@ func Parse(
 		return ParseString(str.GetText(), targetType)
 	}
 	if series := literal.SeriesLiteral(); series != nil {
-		return ParsedValue{}, errors.New("series literals not supported for default values")
+		return ParsedValue{}, errors.New(
+			"series literals not supported for default values",
+		)
+	}
+	if boolLit := literal.BooleanLiteral(); boolLit != nil {
+		if targetType.IsValid() && targetType.Kind != types.KindBool {
+			return ParsedValue{}, errors.Newf("cannot assign bool to %s", targetType)
+		}
+		return ParsedValue{Value: boolLit.TRUE() != nil, Type: types.Bool()}, nil
 	}
 	return ParsedValue{}, errors.New("unknown literal type")
 }
@@ -97,18 +104,36 @@ func ParseNumeric(
 	numLit parser.INumericLiteralContext,
 	targetType types.Type,
 ) (ParsedValue, error) {
-	negate := numLit.MINUS() != nil
+	return ParseNumericSigned(numLit, numLit.MINUS() != nil, targetType)
+}
 
+// ParseNumericSigned parses numLit's magnitude and applies negate before the range
+// check and unit scaling, so type minimums like -128 for i8 fit and negated units keep
+// sign.
+func ParseNumericSigned(
+	numLit parser.INumericLiteralContext,
+	negate bool,
+	targetType types.Type,
+) (ParsedValue, error) {
 	if intLit := numLit.INTEGER_LITERAL(); intLit != nil {
 		intValue, err := strconv.ParseInt(intLit.GetText(), 10, 64)
 		if err != nil {
-			return ParsedValue{}, errors.Wrapf(err, "invalid integer literal: %s", intLit.GetText())
+			return ParsedValue{}, errors.Wrapf(
+				err,
+				"invalid integer literal: %s",
+				intLit.GetText(),
+			)
 		}
 		if negate {
 			intValue = -intValue
 		}
 		if unitID := numLit.IDENTIFIER(); unitID != nil {
-			return parseNumericWithUnit(float64(intValue), true, unitID.GetText(), targetType)
+			return parseNumericWithUnit(
+				float64(intValue),
+				true,
+				unitID.GetText(),
+				targetType,
+			)
 		}
 		return parseIntegerLiteral(intValue, targetType)
 	}
@@ -116,7 +141,11 @@ func ParseNumeric(
 	if floatLit := numLit.FLOAT_LITERAL(); floatLit != nil {
 		floatValue, err := strconv.ParseFloat(floatLit.GetText(), 64)
 		if err != nil {
-			return ParsedValue{}, errors.Wrapf(err, "invalid float literal: %s", floatLit.GetText())
+			return ParsedValue{}, errors.Wrapf(
+				err,
+				"invalid float literal: %s",
+				floatLit.GetText(),
+			)
 		}
 		if negate {
 			floatValue = -floatValue
@@ -130,8 +159,9 @@ func ParseNumeric(
 	return ParsedValue{}, errors.New("unknown numeric literal")
 }
 
-// parseNumericWithUnit handles numeric literals with unit suffixes (e.g., "300ms", "5km").
-// It looks up the unit, applies scale conversion, and returns the appropriate value.
+// parseNumericWithUnit handles numeric literals with unit suffixes (e.g., "300ms",
+// "5km"). It looks up the unit, applies scale conversion, and returns the appropriate
+// value.
 func parseNumericWithUnit(
 	numericValue float64,
 	isIntLiteral bool,
@@ -160,8 +190,8 @@ func parseNumericWithUnit(
 		return convertToTargetKind(siValue, targetType, unit)
 	}
 
-	// Default (no target type): use type inference
-	// int64 if scaled result is exact integer AND original literal was integer, else f64
+	// Default (no target type): use type inference int64 if scaled result is exact
+	// integer AND original literal was integer, else f64
 	siValue := numericValue * unit.Scale
 
 	resultType := types.Type{Unit: unit}
@@ -276,7 +306,10 @@ func parseFloatLiteral(value float64, targetType types.Type) (ParsedValue, error
 		return ParsedValue{Value: value, Type: types.F64()}, nil
 	case types.KindI8:
 		if value != math.Trunc(value) {
-			return ParsedValue{}, errors.Newf("cannot convert non-integer float %f to i8", value)
+			return ParsedValue{}, errors.Newf(
+				"cannot convert non-integer float %f to i8",
+				value,
+			)
 		}
 		intVal := int64(value)
 		if intVal < math.MinInt8 || intVal > math.MaxInt8 {
@@ -285,7 +318,10 @@ func parseFloatLiteral(value float64, targetType types.Type) (ParsedValue, error
 		return ParsedValue{Value: int8(intVal), Type: types.I8()}, nil
 	case types.KindI16:
 		if value != math.Trunc(value) {
-			return ParsedValue{}, errors.Newf("cannot convert non-integer float %f to i16", value)
+			return ParsedValue{}, errors.Newf(
+				"cannot convert non-integer float %f to i16",
+				value,
+			)
 		}
 		intVal := int64(value)
 		if intVal < math.MinInt16 || intVal > math.MaxInt16 {
@@ -294,7 +330,10 @@ func parseFloatLiteral(value float64, targetType types.Type) (ParsedValue, error
 		return ParsedValue{Value: int16(intVal), Type: types.I16()}, nil
 	case types.KindI32:
 		if value != math.Trunc(value) {
-			return ParsedValue{}, errors.Newf("cannot convert non-integer float %f to i32", value)
+			return ParsedValue{}, errors.Newf(
+				"cannot convert non-integer float %f to i32",
+				value,
+			)
 		}
 		intVal := int64(value)
 		if intVal < math.MinInt32 || intVal > math.MaxInt32 {
@@ -303,12 +342,18 @@ func parseFloatLiteral(value float64, targetType types.Type) (ParsedValue, error
 		return ParsedValue{Value: int32(intVal), Type: types.I32()}, nil
 	case types.KindI64:
 		if value != math.Trunc(value) {
-			return ParsedValue{}, errors.Newf("cannot convert non-integer float %f to i64", value)
+			return ParsedValue{}, errors.Newf(
+				"cannot convert non-integer float %f to i64",
+				value,
+			)
 		}
 		return ParsedValue{Value: int64(value), Type: types.I64()}, nil
 	case types.KindU8:
 		if value != math.Trunc(value) {
-			return ParsedValue{}, errors.Newf("cannot convert non-integer float %f to u8", value)
+			return ParsedValue{}, errors.Newf(
+				"cannot convert non-integer float %f to u8",
+				value,
+			)
 		}
 		intVal := int64(value)
 		if intVal < 0 || intVal > math.MaxUint8 {
@@ -317,7 +362,10 @@ func parseFloatLiteral(value float64, targetType types.Type) (ParsedValue, error
 		return ParsedValue{Value: uint8(intVal), Type: types.U8()}, nil
 	case types.KindU16:
 		if value != math.Trunc(value) {
-			return ParsedValue{}, errors.Newf("cannot convert non-integer float %f to u16", value)
+			return ParsedValue{}, errors.Newf(
+				"cannot convert non-integer float %f to u16",
+				value,
+			)
 		}
 		intVal := int64(value)
 		if intVal < 0 || intVal > math.MaxUint16 {
@@ -326,7 +374,10 @@ func parseFloatLiteral(value float64, targetType types.Type) (ParsedValue, error
 		return ParsedValue{Value: uint16(intVal), Type: types.U16()}, nil
 	case types.KindU32:
 		if value != math.Trunc(value) {
-			return ParsedValue{}, errors.Newf("cannot convert non-integer float %f to u32", value)
+			return ParsedValue{}, errors.Newf(
+				"cannot convert non-integer float %f to u32",
+				value,
+			)
 		}
 		intVal := int64(value)
 		if intVal < 0 || intVal > math.MaxUint32 {
@@ -335,10 +386,16 @@ func parseFloatLiteral(value float64, targetType types.Type) (ParsedValue, error
 		return ParsedValue{Value: uint32(intVal), Type: types.U32()}, nil
 	case types.KindU64:
 		if value != math.Trunc(value) {
-			return ParsedValue{}, errors.Newf("cannot convert non-integer float %f to u64", value)
+			return ParsedValue{}, errors.Newf(
+				"cannot convert non-integer float %f to u64",
+				value,
+			)
 		}
 		if value < 0 {
-			return ParsedValue{}, errors.Newf("value %f out of range for u64 (must be non-negative)", value)
+			return ParsedValue{}, errors.Newf(
+				"value %f out of range for u64 (must be non-negative)",
+				value,
+			)
 		}
 		return ParsedValue{Value: uint64(value), Type: types.U64()}, nil
 	default:
@@ -346,8 +403,8 @@ func parseFloatLiteral(value float64, targetType types.Type) (ParsedValue, error
 	}
 }
 
-// convertToTargetKind converts a float64 value to the target type's kind.
-// Uses Go-like constant conversion semantics: errors on fractional parts for integer types.
+// convertToTargetKind converts a float64 value to the target type's kind. Uses Go-like
+// constant conversion semantics: errors on fractional parts for integer types.
 func convertToTargetKind(
 	value float64,
 	targetType types.Type,
@@ -414,7 +471,10 @@ func convertToTargetKind(
 		return ParsedValue{Value: uint32(intVal), Type: resultType}, nil
 	case types.KindU64:
 		if value < 0 {
-			return ParsedValue{}, errors.Newf("value %g out of range for u64 (must be non-negative)", value)
+			return ParsedValue{}, errors.Newf(
+				"value %g out of range for u64 (must be non-negative)",
+				value,
+			)
 		}
 		return ParsedValue{Value: uint64(value), Type: resultType}, nil
 	case types.KindF32:
@@ -441,24 +501,27 @@ func IsExactInteger(value float64) bool {
 	return math.Abs(value-rounded)/math.Abs(rounded) < 1e-9
 }
 
-// Negate negates a parsed literal value. Supports the numeric types produced by Parse.
-func Negate(v any) any {
-	switch val := v.(type) {
-	case int8:
-		return -val
-	case int16:
-		return -val
-	case int32:
-		return -val
-	case int64:
-		return -val
-	case float32:
-		return -val
-	case float64:
-		return -val
-	case telem.TimeSpan:
-		return -val
-	default:
-		return v
+// ParseConst parses a bare or single-negated literal against targetType, applying the
+// sign before the range check so type minimums like -128 for i8 fit. Errors on anything
+// else.
+func ParseConst(
+	expr parser.IExpressionContext,
+	targetType types.Type,
+) (ParsedValue, error) {
+	if expr == nil {
+		return ParsedValue{}, errors.New("expression is not a constant")
 	}
+	if primary := parser.GetPrimaryExpression(expr); primary != nil {
+		if lit := primary.Literal(); lit != nil {
+			return Parse(lit, targetType)
+		}
+	}
+	if parser.IsNegatedLiteral(expr) {
+		if lit := parser.GetLiteral(expr); lit != nil {
+			if numLit := lit.NumericLiteral(); numLit != nil {
+				return ParseNumericSigned(numLit, true, targetType)
+			}
+		}
+	}
+	return ParsedValue{}, errors.New("expression is not a compile-time constant")
 }

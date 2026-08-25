@@ -13,80 +13,283 @@ import (
 	"context"
 	"strings"
 
-	"github.com/synnaxlabs/x/lsp/protocol"
+	"go.lsp.dev/protocol"
 )
 
 // Static completion items for Oracle schema language
 var (
 	keywordCompletions = []protocol.CompletionItem{
-		{Label: "struct", Kind: protocol.CompletionItemKindKeyword, Detail: "Define a data structure"},
-		{Label: "field", Kind: protocol.CompletionItemKindKeyword, Detail: "Define a field within a struct"},
-		{Label: "domain", Kind: protocol.CompletionItemKindKeyword, Detail: "Define a domain block with rules"},
-		{Label: "enum", Kind: protocol.CompletionItemKindKeyword, Detail: "Define an enumeration type"},
-		{Label: "import", Kind: protocol.CompletionItemKindKeyword, Detail: "Import another schema file"},
+		{
+			Label:  "struct",
+			Kind:   protocol.CompletionItemKindKeyword,
+			Detail: protocol.NewOptional("Declare a data structure"),
+		},
+		{
+			Label:  "enum",
+			Kind:   protocol.CompletionItemKindKeyword,
+			Detail: protocol.NewOptional("Declare an enumeration type"),
+		},
+		{
+			Label:  "union",
+			Kind:   protocol.CompletionItemKindKeyword,
+			Detail: protocol.NewOptional("Declare a discriminated union"),
+		},
+		{
+			Label:  "import",
+			Kind:   protocol.CompletionItemKindKeyword,
+			Detail: protocol.NewOptional("Import another schema file"),
+		},
+		{
+			Label:  "extends",
+			Kind:   protocol.CompletionItemKindKeyword,
+			Detail: protocol.NewOptional("Inherit fields from another struct"),
+		},
+		{
+			Label:  "map",
+			Kind:   protocol.CompletionItemKindKeyword,
+			Detail: protocol.NewOptional("Declare a map type: map<K, V>"),
+		},
+		{
+			Label:  "action",
+			Kind:   protocol.CompletionItemKindKeyword,
+			Detail: protocol.NewOptional("Declare a wire mutation on a struct"),
+		},
 	}
 
 	primitiveTypeCompletions = []protocol.CompletionItem{
-		{Label: "uuid", Kind: protocol.CompletionItemKindClass, Detail: "UUID type"},
-		{Label: "string", Kind: protocol.CompletionItemKindClass, Detail: "String type"},
-		{Label: "bool", Kind: protocol.CompletionItemKindClass, Detail: "Boolean type"},
-		{Label: "int8", Kind: protocol.CompletionItemKindClass, Detail: "8-bit signed integer"},
-		{Label: "int16", Kind: protocol.CompletionItemKindClass, Detail: "16-bit signed integer"},
-		{Label: "int32", Kind: protocol.CompletionItemKindClass, Detail: "32-bit signed integer"},
-		{Label: "int64", Kind: protocol.CompletionItemKindClass, Detail: "64-bit signed integer"},
-		{Label: "uint8", Kind: protocol.CompletionItemKindClass, Detail: "8-bit unsigned integer"},
-		{Label: "uint16", Kind: protocol.CompletionItemKindClass, Detail: "16-bit unsigned integer"},
-		{Label: "uint32", Kind: protocol.CompletionItemKindClass, Detail: "32-bit unsigned integer"},
-		{Label: "uint64", Kind: protocol.CompletionItemKindClass, Detail: "64-bit unsigned integer"},
-		{Label: "float32", Kind: protocol.CompletionItemKindClass, Detail: "32-bit floating point"},
-		{Label: "float64", Kind: protocol.CompletionItemKindClass, Detail: "64-bit floating point"},
-		{Label: "timestamp", Kind: protocol.CompletionItemKindClass, Detail: "Timestamp type"},
-		{Label: "timespan", Kind: protocol.CompletionItemKindClass, Detail: "Duration/timespan type"},
-		{Label: "time_range", Kind: protocol.CompletionItemKindClass, Detail: "Time range type (start, end)"},
-		{Label: "record", Kind: protocol.CompletionItemKindClass, Detail: "Record type (untyped key-value map)"},
-		{Label: "bytes", Kind: protocol.CompletionItemKindClass, Detail: "Byte array type"},
+		{
+			Label:  "uuid",
+			Kind:   protocol.CompletionItemKindClass,
+			Detail: protocol.NewOptional("UUID type"),
+		},
+		{
+			Label:  "string",
+			Kind:   protocol.CompletionItemKindClass,
+			Detail: protocol.NewOptional("String type"),
+		},
+		{
+			Label:  "bool",
+			Kind:   protocol.CompletionItemKindClass,
+			Detail: protocol.NewOptional("Boolean type"),
+		},
+		{
+			Label:  "int8",
+			Kind:   protocol.CompletionItemKindClass,
+			Detail: protocol.NewOptional("8-bit signed integer"),
+		},
+		{
+			Label:  "int16",
+			Kind:   protocol.CompletionItemKindClass,
+			Detail: protocol.NewOptional("16-bit signed integer"),
+		},
+		{
+			Label:  "int32",
+			Kind:   protocol.CompletionItemKindClass,
+			Detail: protocol.NewOptional("32-bit signed integer"),
+		},
+		{
+			Label:  "int64",
+			Kind:   protocol.CompletionItemKindClass,
+			Detail: protocol.NewOptional("64-bit signed integer"),
+		},
+		{
+			Label:  "uint8",
+			Kind:   protocol.CompletionItemKindClass,
+			Detail: protocol.NewOptional("8-bit unsigned integer"),
+		},
+		{
+			Label:  "uint16",
+			Kind:   protocol.CompletionItemKindClass,
+			Detail: protocol.NewOptional("16-bit unsigned integer"),
+		},
+		{
+			Label:  "uint32",
+			Kind:   protocol.CompletionItemKindClass,
+			Detail: protocol.NewOptional("32-bit unsigned integer"),
+		},
+		{
+			Label:  "uint64",
+			Kind:   protocol.CompletionItemKindClass,
+			Detail: protocol.NewOptional("64-bit unsigned integer"),
+		},
+		{
+			Label:  "float32",
+			Kind:   protocol.CompletionItemKindClass,
+			Detail: protocol.NewOptional("32-bit floating-point number"),
+		},
+		{
+			Label:  "float64",
+			Kind:   protocol.CompletionItemKindClass,
+			Detail: protocol.NewOptional("64-bit floating-point number"),
+		},
+		{
+			Label:  "record",
+			Kind:   protocol.CompletionItemKindClass,
+			Detail: protocol.NewOptional("Record type (untyped key-value map)"),
+		},
+		{
+			Label:  "bytes",
+			Kind:   protocol.CompletionItemKindClass,
+			Detail: protocol.NewOptional("Byte array type"),
+		},
 	}
 
 	domainNameCompletions = []protocol.CompletionItem{
-		{Label: "id", Kind: protocol.CompletionItemKindProperty, Detail: "Marks field as primary key"},
-		{Label: "validate", Kind: protocol.CompletionItemKindProperty, Detail: "Validation constraints"},
-		{Label: "ontology", Kind: protocol.CompletionItemKindProperty, Detail: "Ontology type mapping"},
-		{Label: "doc", Kind: protocol.CompletionItemKindProperty, Detail: "Documentation for the field/struct"},
-		{Label: "go", Kind: protocol.CompletionItemKindProperty, Detail: "Go output configuration"},
-		{Label: "ts", Kind: protocol.CompletionItemKindProperty, Detail: "TypeScript output configuration"},
-		{Label: "py", Kind: protocol.CompletionItemKindProperty, Detail: "Python output configuration"},
+		{
+			Label:  "doc",
+			Kind:   protocol.CompletionItemKindProperty,
+			Detail: protocol.NewOptional("Documentation for the declaration"),
+		},
+		{
+			Label:  "key",
+			Kind:   protocol.CompletionItemKindProperty,
+			Detail: protocol.NewOptional("Marks the field as the primary key"),
+		},
+		{
+			Label:  "validate",
+			Kind:   protocol.CompletionItemKindProperty,
+			Detail: protocol.NewOptional("Validation constraints"),
+		},
+		{
+			Label:  "filter",
+			Kind:   protocol.CompletionItemKindProperty,
+			Detail: protocol.NewOptional("Retrieve requests can filter on the field"),
+		},
+		{
+			Label:  "ontology",
+			Kind:   protocol.CompletionItemKindProperty,
+			Detail: protocol.NewOptional("Ontology resource type"),
+		},
+		{
+			Label:  "create",
+			Kind:   protocol.CompletionItemKindProperty,
+			Detail: protocol.NewOptional("Generate a create endpoint"),
+		},
+		{
+			Label:  "retrieve",
+			Kind:   protocol.CompletionItemKindProperty,
+			Detail: protocol.NewOptional("Generate a retrieve endpoint"),
+		},
+		{
+			Label:  "search",
+			Kind:   protocol.CompletionItemKindProperty,
+			Detail: protocol.NewOptional("Index the resource for search"),
+		},
+		{
+			Label:  "index",
+			Kind:   protocol.CompletionItemKindProperty,
+			Detail: protocol.NewOptional("Index configuration for the field"),
+		},
+		{
+			Label:  "go",
+			Kind:   protocol.CompletionItemKindProperty,
+			Detail: protocol.NewOptional("Go output configuration"),
+		},
+		{
+			Label:  "ts",
+			Kind:   protocol.CompletionItemKindProperty,
+			Detail: protocol.NewOptional("TypeScript output configuration"),
+		},
+		{
+			Label:  "py",
+			Kind:   protocol.CompletionItemKindProperty,
+			Detail: protocol.NewOptional("Python output configuration"),
+		},
+		{
+			Label:  "cpp",
+			Kind:   protocol.CompletionItemKindProperty,
+			Detail: protocol.NewOptional("C++ output configuration"),
+		},
+		{
+			Label:  "pb",
+			Kind:   protocol.CompletionItemKindProperty,
+			Detail: protocol.NewOptional("Protobuf output configuration"),
+		},
 	}
 
 	validateExpressionCompletions = []protocol.CompletionItem{
-		{Label: "required", Kind: protocol.CompletionItemKindValue, Detail: "Field is required"},
-		{Label: "min_length", Kind: protocol.CompletionItemKindValue, Detail: "Minimum string length"},
-		{Label: "max_length", Kind: protocol.CompletionItemKindValue, Detail: "Maximum string length"},
-		{Label: "pattern", Kind: protocol.CompletionItemKindValue, Detail: "Regex pattern constraint"},
-		{Label: "min", Kind: protocol.CompletionItemKindValue, Detail: "Minimum numeric value"},
-		{Label: "max", Kind: protocol.CompletionItemKindValue, Detail: "Maximum numeric value"},
-		{Label: "email", Kind: protocol.CompletionItemKindValue, Detail: "Email format validation"},
-		{Label: "url", Kind: protocol.CompletionItemKindValue, Detail: "URL format validation"},
-		{Label: "default", Kind: protocol.CompletionItemKindValue, Detail: "Default value"},
+		{
+			Label:  "required",
+			Kind:   protocol.CompletionItemKindValue,
+			Detail: protocol.NewOptional("Field must be set"),
+		},
+		{
+			Label:  "skip",
+			Kind:   protocol.CompletionItemKindValue,
+			Detail: protocol.NewOptional("Skip validation for this field"),
+		},
+		{
+			Label:  "min_length",
+			Kind:   protocol.CompletionItemKindValue,
+			Detail: protocol.NewOptional("Minimum string length"),
+		},
+		{
+			Label:  "max_length",
+			Kind:   protocol.CompletionItemKindValue,
+			Detail: protocol.NewOptional("Maximum string length"),
+		},
+		{
+			Label:  "min",
+			Kind:   protocol.CompletionItemKindValue,
+			Detail: protocol.NewOptional("Minimum numeric value"),
+		},
+		{
+			Label:  "max",
+			Kind:   protocol.CompletionItemKindValue,
+			Detail: protocol.NewOptional("Maximum numeric value"),
+		},
+		{
+			Label:  "pattern",
+			Kind:   protocol.CompletionItemKindValue,
+			Detail: protocol.NewOptional("Regex pattern constraint"),
+		},
 	}
 
 	outputExpressionCompletions = []protocol.CompletionItem{
-		{Label: "output", Kind: protocol.CompletionItemKindValue, Detail: "Output path for generated code"},
-		{Label: "omit", Kind: protocol.CompletionItemKindValue, Detail: "Skip code generation for this struct/enum"},
+		{
+			Label:  "output",
+			Kind:   protocol.CompletionItemKindValue,
+			Detail: protocol.NewOptional("Output path for generated code"),
+		},
+		{
+			Label:  "omit",
+			Kind:   protocol.CompletionItemKindValue,
+			Detail: protocol.NewOptional("Skip code generation for this declaration"),
+		},
 	}
 
 	ontologyExpressionCompletions = []protocol.CompletionItem{
-		{Label: "type", Kind: protocol.CompletionItemKindValue, Detail: "Ontology type name"},
+		{
+			Label:  "type",
+			Kind:   protocol.CompletionItemKindValue,
+			Detail: protocol.NewOptional("Ontology type name"),
+		},
 	}
 
 	tsExpressionCompletions = []protocol.CompletionItem{
-		{Label: "output", Kind: protocol.CompletionItemKindValue, Detail: "Output path for generated code"},
-		{Label: "use_input", Kind: protocol.CompletionItemKindValue, Detail: "Use z.input instead of z.infer for type"},
-		{Label: "name", Kind: protocol.CompletionItemKindValue, Detail: "Override generated type/schema name"},
+		{
+			Label:  "output",
+			Kind:   protocol.CompletionItemKindValue,
+			Detail: protocol.NewOptional("Output path for generated code"),
+		},
+		{
+			Label:  "use_input",
+			Kind:   protocol.CompletionItemKindValue,
+			Detail: protocol.NewOptional("Use z.input instead of z.infer for type"),
+		},
+		{
+			Label:  "name",
+			Kind:   protocol.CompletionItemKindValue,
+			Detail: protocol.NewOptional("Override generated type/schema name"),
+		},
 	}
 )
 
 // Completion handles completion requests.
-func (s *Server) Completion(_ context.Context, params *protocol.CompletionParams) (*protocol.CompletionList, error) {
+func (s *Server) Completion(
+	_ context.Context,
+	params *protocol.CompletionParams,
+) (protocol.CompletionResult, error) {
 	doc, ok := s.getDocument(params.TextDocument.URI)
 	if !ok {
 		return &protocol.CompletionList{Items: []protocol.CompletionItem{}}, nil
@@ -117,54 +320,39 @@ func (s *Server) Completion(_ context.Context, params *protocol.CompletionParams
 }
 
 func getCompletionsForContext(linePrefix string) []protocol.CompletionItem {
-	trimmed := strings.TrimSpace(linePrefix)
-
-	if strings.Contains(linePrefix, "domain validate") || isInsideDomain(linePrefix, "validate") {
-		return validateExpressionCompletions
-	}
-	if strings.Contains(linePrefix, "domain ts") || isInsideDomain(linePrefix, "ts") {
-		return tsExpressionCompletions
-	}
-	if strings.Contains(linePrefix, "domain ontology") || isInsideDomain(linePrefix, "ontology") {
-		return ontologyExpressionCompletions
-	}
-	if strings.Contains(linePrefix, "domain go") ||
-		strings.Contains(linePrefix, "domain py") ||
-		isInsideDomain(linePrefix, "go") ||
-		isInsideDomain(linePrefix, "py") {
-		return outputExpressionCompletions
-	}
-
-	if strings.HasSuffix(trimmed, "domain") {
-		return domainNameCompletions
-	}
-
-	if strings.Contains(trimmed, "field ") && !strings.Contains(trimmed, "{") {
-		parts := strings.Fields(trimmed)
-		if len(parts) >= 2 && parts[0] == "field" {
-			return primitiveTypeCompletions
+	trimmed := strings.TrimLeft(linePrefix, " \t")
+	if i := strings.LastIndex(trimmed, "@"); i >= 0 {
+		rest := trimmed[i+1:]
+		switch {
+		case strings.HasPrefix(rest, "validate "):
+			return validateExpressionCompletions
+		case strings.HasPrefix(rest, "ts "):
+			return tsExpressionCompletions
+		case strings.HasPrefix(rest, "ontology "):
+			return ontologyExpressionCompletions
+		case strings.HasPrefix(rest, "go "),
+			strings.HasPrefix(rest, "py "),
+			strings.HasPrefix(rest, "cpp "),
+			strings.HasPrefix(rest, "pb "):
+			return outputExpressionCompletions
+		default:
+			return domainNameCompletions
 		}
 	}
-
-	if trimmed == "" || !strings.Contains(trimmed, "{") {
+	if strings.TrimSpace(trimmed) == "" {
 		return keywordCompletions
 	}
-
 	all := make([]protocol.CompletionItem, 0)
 	all = append(all, keywordCompletions...)
 	all = append(all, primitiveTypeCompletions...)
-	all = append(all, domainNameCompletions...)
 	return all
-}
-
-func isInsideDomain(linePrefix, domainName string) bool {
-	return strings.Contains(linePrefix, domainName) && strings.Contains(linePrefix, "{")
 }
 
 func extractPrefix(linePrefix string) string {
 	for i := len(linePrefix) - 1; i >= 0; i-- {
 		ch := linePrefix[i]
-		if ch == ' ' || ch == '\t' || ch == '{' || ch == '}' || ch == '[' || ch == ']' {
+		if ch == ' ' || ch == '\t' || ch == '{' || ch == '}' || ch == '[' ||
+			ch == ']' || ch == '@' {
 			return linePrefix[i+1:]
 		}
 	}

@@ -9,25 +9,22 @@
 
 """Modbus invalid configuration integration tests.
 
-Each test attempts to configure a task with an invalid setting and verifies
-the driver rejects it with a ConfigurationError or reports a runtime error.
+Each test saves a task with an invalid setting and verifies the driver rejects
+it with an error status when the task is started.
 """
 
 from examples.modbus import ModbusSim
-from pydantic import ValidationError
 
 import synnax as sy
 from tests.driver.simulator_case import SimulatorCase
-from tests.driver.task import create_channel, create_index
-
-
-def _cleanup_task(client: sy.Synnax, task: sy.Task) -> None:
-    """Delete the task if it was assigned a key during configure."""
-    if task.key and task.key != 0:
-        try:
-            client.tasks.delete(task.key)
-        except sy.NotFoundError:
-            pass
+from tests.driver.task import (
+    assert_configure_rejected,
+    assert_start_rejected,
+    cleanup_task,
+    create_channel,
+    create_index,
+    run_and_expect_rejection,
+)
 
 
 class ModbusInvalidConfig(SimulatorCase):
@@ -35,7 +32,7 @@ class ModbusInvalidConfig(SimulatorCase):
 
     Tests (run sequentially):
         1. Nonexistent device — device key that doesn't exist.
-        2. Zero stream rate — stream rate of zero.
+        2. Zero stream rate — heals to the schema default.
         3. Invalid rates — sample rate less than stream rate.
         4. Nonexistent channel key — Synnax channel that doesn't exist.
         5. Invalid address — register address the device doesn't serve.
@@ -65,9 +62,8 @@ class ModbusInvalidConfig(SimulatorCase):
             device="nonexistent_device_key_12345",
             sample_rate=50 * sy.Rate.HZ,
             stream_rate=10 * sy.Rate.HZ,
-            data_saving=True,
             channels=[
-                sy.modbus.InputRegisterChan(
+                sy.modbus.InputRegisterReadChannel(
                     channel=create_channel(
                         self.client,
                         name="modbus_inv_dev_ch",
@@ -79,24 +75,24 @@ class ModbusInvalidConfig(SimulatorCase):
                 ),
             ],
         )
-        self._assert_configure_fails(
-            task,
-            "nonexistent device",
-            accept=(sy.ConfigurationError, sy.NotFoundError),
-        )
+        message = assert_configure_rejected(self.client, task, "nonexistent device")
+        self.log(f"  Correctly rejected (nonexistent device): {message}")
 
     def test_zero_stream_rate(self) -> None:
-        """Configure a read task with stream rate of zero."""
-        self.log("Testing: Zero stream rate")
+        """Configure a read task with a stream rate of zero.
+
+        A zero rate means unset, so the core heals it to the schema default
+        instead of rejecting the task.
+        """
+        self.log("Testing: Zero stream rate heals to the schema default")
         idx = create_index(self.client, "modbus_inv_rate0_idx")
         task = sy.modbus.ReadTask(
             name="Modbus Zero Stream Rate Test",
             device=self.device.key,
             sample_rate=50 * sy.Rate.HZ,
             stream_rate=0,
-            data_saving=True,
             channels=[
-                sy.modbus.InputRegisterChan(
+                sy.modbus.InputRegisterReadChannel(
                     channel=create_channel(
                         self.client,
                         name="modbus_inv_rate0_ch",
@@ -108,43 +104,41 @@ class ModbusInvalidConfig(SimulatorCase):
                 ),
             ],
         )
-        self._assert_configure_fails(task, "zero stream rate")
+        self.client.tasks.configure(task)
+        try:
+            stored = self.client.tasks.retrieve(keys=[task.key])[0]
+            rate = stored.config.get("stream_rate", stored.config.get("streamRate"))
+            assert rate == 5, f"stream rate should heal to the default 5, got {rate}"
+            self.log(f"  Healed to default stream rate: {rate}")
+        finally:
+            cleanup_task(self.client, task)
 
     def test_invalid_rates(self) -> None:
-        """Construct a read task with sample rate less than stream rate.
+        """Start a read task with sample rate less than stream rate.
 
-        The Modbus Python SDK validates this in Pydantic before reaching
-        the driver, so the error is a ValidationError at construction time.
+        The driver validates the rate relation when the task deploys.
         """
         self.log("Testing: Invalid rates (sample_rate < stream_rate)")
         idx = create_index(self.client, "modbus_inv_rate_idx")
-        try:
-            sy.modbus.ReadTask(
-                name="Modbus Invalid Rate Test",
-                device=self.device.key,
-                sample_rate=10 * sy.Rate.HZ,
-                stream_rate=100 * sy.Rate.HZ,
-                data_saving=True,
-                channels=[
-                    sy.modbus.InputRegisterChan(
-                        channel=create_channel(
-                            self.client,
-                            name="modbus_inv_rate_ch",
-                            data_type=sy.DataType.UINT8,
-                            index=idx.key,
-                        ),
-                        address=0,
-                        data_type="uint8",
+        task = sy.modbus.ReadTask(
+            name="Modbus Invalid Rate Test",
+            device=self.device.key,
+            sample_rate=10 * sy.Rate.HZ,
+            stream_rate=100 * sy.Rate.HZ,
+            channels=[
+                sy.modbus.InputRegisterReadChannel(
+                    channel=create_channel(
+                        self.client,
+                        name="modbus_inv_rate_ch",
+                        data_type=sy.DataType.UINT8,
+                        index=idx.key,
                     ),
-                ],
-            )
-        except Exception as e:
-            self.log(f"  Correctly rejected (invalid rates): {e}")
-            return
-        self.fail(
-            "Driver did not reject invalid rates — "
-            "task construction succeeded unexpectedly"
+                    address=0,
+                    data_type="uint8",
+                ),
+            ],
         )
+        self._assert_deploy_fails(task, "invalid rates")
 
     def test_nonexistent_channel_key(self) -> None:
         """Configure a read task with a Synnax channel key that doesn't exist."""
@@ -154,16 +148,15 @@ class ModbusInvalidConfig(SimulatorCase):
             device=self.device.key,
             sample_rate=50 * sy.Rate.HZ,
             stream_rate=10 * sy.Rate.HZ,
-            data_saving=True,
             channels=[
-                sy.modbus.InputRegisterChan(
+                sy.modbus.InputRegisterReadChannel(
                     channel=999999999,
                     address=0,
                     data_type="uint8",
                 ),
             ],
         )
-        self._assert_configure_fails(task, "nonexistent channel key")
+        self._assert_deploy_fails(task, "nonexistent channel key")
 
     def test_invalid_address(self) -> None:
         """Start a read task with a register address the simulator doesn't serve."""
@@ -174,9 +167,8 @@ class ModbusInvalidConfig(SimulatorCase):
             device=self.device.key,
             sample_rate=50 * sy.Rate.HZ,
             stream_rate=10 * sy.Rate.HZ,
-            data_saving=True,
             channels=[
-                sy.modbus.InputRegisterChan(
+                sy.modbus.InputRegisterReadChannel(
                     channel=create_channel(
                         self.client,
                         name="modbus_inv_addr_ch",
@@ -188,11 +180,7 @@ class ModbusInvalidConfig(SimulatorCase):
                 ),
             ],
         )
-        try:
-            self.client.tasks.configure(task)
-            self._assert_task_error(task, "invalid address")
-        finally:
-            _cleanup_task(self.client, task)
+        self._assert_deploy_fails(task, "invalid address")
 
     def test_duplicate_channel(self) -> None:
         """Configure and run two tasks that use the same channel."""
@@ -211,9 +199,8 @@ class ModbusInvalidConfig(SimulatorCase):
                 device=self.device.key,
                 sample_rate=50 * sy.Rate.HZ,
                 stream_rate=10 * sy.Rate.HZ,
-                data_saving=True,
                 channels=[
-                    sy.modbus.InputRegisterChan(
+                    sy.modbus.InputRegisterReadChannel(
                         channel=shared_ch_key,
                         address=0,
                         data_type="uint8",
@@ -230,10 +217,15 @@ class ModbusInvalidConfig(SimulatorCase):
         try:
             with task_a.run():
                 self.log("  Task A running")
-                rejected = self._try_configure_and_run(task_b)
+                self.client.tasks.configure(task_b)
+                self.log("  Task B configured (attempting run)")
+                message = run_and_expect_rejection(self.client, task_b)
+                if message is not None:
+                    self.log(f"  Correctly rejected on run: {message}")
+                    rejected = True
         finally:
-            _cleanup_task(self.client, task_a)
-            _cleanup_task(self.client, task_b)
+            cleanup_task(self.client, task_a)
+            cleanup_task(self.client, task_b)
 
         if not rejected:
             self.fail(
@@ -241,89 +233,7 @@ class ModbusInvalidConfig(SimulatorCase):
                 "same channel — both tasks ran simultaneously"
             )
 
-    def _try_configure_and_run(self, task: sy.Task) -> bool:
-        """Try to configure and start a task. Return True if rejected."""
-        try:
-            self.client.tasks.configure(task)
-        except (sy.ConfigurationError, TimeoutError) as e:
-            self.log(f"  Correctly rejected on configure: {e}")
-            return True
-
-        self.log("  Task B configured (attempting run)")
-        with self.client.open_streamer(["sy_status_set"]) as streamer:
-            task._internal.execute_command("start")
-            timeout = 10 * sy.TimeSpan.SECOND
-            timer = sy.Timer()
-            while timer.elapsed() < timeout:
-                frame = streamer.read(timeout=timeout)
-                if frame is None:
-                    break
-                if "sy_status_set" not in frame:
-                    continue
-                for raw in frame["sy_status_set"]:
-                    try:
-                        status = sy.task.Status.model_validate(raw)
-                    except ValidationError:
-                        continue
-                    if status.details is None or status.details.task != task.key:
-                        continue
-                    if status.variant in ("warning", "error"):
-                        self.log(f"  Correctly rejected on run: {status.message}")
-                        task._internal.execute_command("stop")
-                        return True
-
-        task._internal.execute_command("stop")
-        return False
-
-    def _assert_task_error(
-        self,
-        task: sy.Task,
-        label: str,
-        timeout: sy.TimeSpan = 10 * sy.TimeSpan.SECOND,
-    ) -> None:
-        """Start a task and assert the driver emits a warning or error status."""
-        with self.client.open_streamer(["sy_status_set"]) as streamer:
-            task.start()
-            try:
-                timer = sy.Timer()
-                while timer.elapsed() < timeout:
-                    frame = streamer.read(timeout=timeout)
-                    if frame is None:
-                        break
-                    if "sy_status_set" not in frame:
-                        continue
-                    for raw in frame["sy_status_set"]:
-                        try:
-                            status = sy.task.Status.model_validate(raw)
-                        except ValidationError:
-                            continue
-                        if status.details is None or status.details.task != task.key:
-                            continue
-                        if status.variant in ("warning", "error"):
-                            self.log(
-                                f"  Correctly reported {status.variant} "
-                                f"({label}): {status.message}"
-                            )
-                            return
-            finally:
-                task.stop()
-        self.fail(f"Driver did not report error for {label}")
-
-    def _assert_configure_fails(
-        self,
-        task: sy.Task,
-        label: str,
-        accept: tuple[type[Exception], ...] = (sy.ConfigurationError,),
-    ) -> None:
-        """Attempt to configure a task and assert it raises an expected error."""
-        try:
-            self.client.tasks.configure(task)
-        except accept as e:
-            self.log(f"  Correctly rejected ({label}): {e}")
-            _cleanup_task(self.client, task)
-            return
-        except Exception as e:
-            _cleanup_task(self.client, task)
-            self.fail(f"Expected {accept} for {label}, got {type(e).__name__}: {e}")
-        _cleanup_task(self.client, task)
-        self.fail(f"Driver did not reject {label} — configure succeeded unexpectedly")
+    def _assert_deploy_fails(self, task: sy.Task, label: str) -> None:
+        """Save a task and assert the driver rejects it on start."""
+        message = assert_start_rejected(self.client, task, label)
+        self.log(f"  Correctly rejected ({label}): {message}")

@@ -9,73 +9,52 @@
 
 import { type log } from "@synnaxlabs/client";
 import { primitive, TimeSpan } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement, useMemo } from "react";
 
 import { streamMultiChannelLog } from "@/log/aether/telem/sources";
 import { Base, type BaseProps } from "@/log/Base";
-import { useRedo, useRetrieveSuspended, useUndo } from "@/log/queries";
+import { use, useRedo, useUndo } from "@/log/queries";
+import { useKey } from "@/log/Suspended";
+import { type Menu } from "@/menu";
 import { Triggers } from "@/triggers";
 
-const DEFAULT_RETENTION = TimeSpan.days(1);
+const DEFAULT_RETENTION = TimeSpan.days(7);
 const PRELOAD = TimeSpan.seconds(30);
 
-type UndoRedoMode = "undo" | "redo" | "default";
-
-const UNDO_REDO_CONFIG: Triggers.ModeConfig<UndoRedoMode> = {
-  undo: [["Control", "Z"]],
-  redo: [["Control", "Shift", "Z"]],
-  default: [],
-  defaultMode: "default",
-};
-
-const UNDO_REDO_TRIGGERS = Triggers.flattenConfig(UNDO_REDO_CONFIG);
-
-const useUndoRedoTriggers = (
+const useUndoRedo = (
   key: log.Key,
-  enabled?: boolean | (() => boolean),
-): void => {
-  const { undo } = useUndo({ key });
-  const { redo } = useRedo({ key });
-  Triggers.use({
-    triggers: UNDO_REDO_TRIGGERS,
-    callback: useCallback(
-      ({ triggers, stage }: Triggers.UseEvent) => {
-        if (stage !== "start") return;
-        if (enabled === false) return;
-        if (typeof enabled === "function" && !enabled()) return;
-        const mode = Triggers.determineMode(UNDO_REDO_CONFIG, triggers);
-        if (mode === "undo") undo();
-        else if (mode === "redo") redo();
-      },
-      [undo, redo, enabled],
-    ),
-  });
+  enabled?: Triggers.Condition,
+): Menu.UndoRedoItemsProps => {
+  const { undo, canUndo } = useUndo({ key });
+  const { redo, canRedo } = useRedo({ key });
+  Triggers.useUndoRedo({ undo, redo, enabled });
+  return useMemo(
+    () => ({ undo, redo, canUndo, canRedo }),
+    [undo, redo, canUndo, canRedo],
+  );
 };
 
 export interface LogProps extends Omit<
   BaseProps,
   | "channels"
   | "telem"
-  | "showChannelNames"
-  | "showReceiptTimestamp"
+  | "channelNamesHidden"
+  | "receiptTimestampHidden"
   | "timestampPrecision"
-> {
-  resourceKey: log.Key;
-}
+> {}
 
 // Log is the connected log visualization. It reads the full log document from the
-// Pluto flux store keyed by resourceKey, builds the streaming telemetry source
-// internally, and renders the Base primitive. Cmd+Z / Cmd+Shift+Z are wired to undo
-// and redo, gated by enableTriggers. The component suspends until the record is in
-// cache, so callers must ensure it is loadable (e.g. created on the server).
-export const Log = ({
-  resourceKey: key,
-  enableTriggers,
-  ...rest
-}: LogProps): ReactElement | null => {
-  const { channels, showChannelNames, showReceiptTimestamp, timestampPrecision } =
-    useRetrieveSuspended({ key });
-  useUndoRedoTriggers(key, enableTriggers);
+// Pluto flux store keyed by the surrounding Log scope, builds the streaming telemetry
+// source internally, and renders the Base primitive. Cmd+Z / Cmd+Shift+Z are wired to
+// undo and redo, gated by enableTriggers. The component suspends until the record is in
+// cache, so callers must render it within a Log.Suspended boundary.
+export const Log = ({ enableTriggers, ...rest }: LogProps): ReactElement | null => {
+  const key = useKey();
+  const { channels, channelNamesHidden, receiptTimestampHidden, timestampPrecision } =
+    use({
+      key,
+    });
+  const undoRedo = useUndoRedo(key, enableTriggers);
   // A channel entry with key 0 is an unconfigured placeholder row; the telem source
   // must not subscribe to it.
   const activeChannels = channels.filter((e) => !primitive.isZero(e.channel));
@@ -88,10 +67,11 @@ export const Log = ({
     <Base
       telem={telem}
       channels={activeChannels}
-      showChannelNames={showChannelNames}
-      showReceiptTimestamp={showReceiptTimestamp}
+      channelNamesHidden={channelNamesHidden}
+      receiptTimestampHidden={receiptTimestampHidden}
       timestampPrecision={timestampPrecision}
       enableTriggers={enableTriggers}
+      undoRedo={undoRedo}
       {...rest}
     />
   );

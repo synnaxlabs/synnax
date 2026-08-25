@@ -12,7 +12,7 @@ import { errors } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { Button } from "@/button";
-import { useRetrieve, useUpdateAlias } from "@/channel/queries";
+import { useResultAliasAndName, useUpdateAlias } from "@/channel/queries";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { Status } from "@/status/base";
@@ -21,7 +21,6 @@ import { Text } from "@/text";
 export interface AliasInputProps extends Input.TextProps {
   channel: channel.Key;
   range?: string;
-  shadow?: boolean;
   // isDefault reports whether value is the derived default rather than a stored
   // override. The reset button is shown only when an override is present.
   isDefault?: boolean;
@@ -32,8 +31,6 @@ export interface AliasInputProps extends Input.TextProps {
 export const AliasInput = ({
   channel,
   range,
-  shadow,
-  className,
   isDefault,
   onReset,
   ...rest
@@ -41,7 +38,9 @@ export const AliasInput = ({
   const { value } = rest;
   const [loading, setLoading] = useState(false);
   const { update } = useUpdateAlias();
-  const { data } = useRetrieve({ key: channel, rangeKey: range });
+  const { data } = useResultAliasAndName(
+    channel > 0 ? { key: channel, rangeKey: range } : null,
+  );
   const setAlias = async (value: string) => {
     update({ alias: value, range, channel });
   };
@@ -69,15 +68,15 @@ export const AliasInput = ({
   const setAliasTooltip =
     channel === 0 ? (
       <Text.Text level="small">
-        Select a channel to enable alias syncing with this label
+        Select a channel to sync its alias with this label
       </Text.Text>
     ) : setAlias == null ? (
       <Text.Text level="small">
-        Select a range to enable alias syncing with this label
+        Select a range to sync the alias with this label
       </Text.Text>
     ) : value.length === 0 ? (
       <Text.Text level="small">
-        Enter a value to enable alias syncing with this label
+        Enter a value to sync the alias with this label
       </Text.Text>
     ) : alias === value ? (
       <Text.Text level="small">Alias synced with this label</Text.Text>
@@ -85,6 +84,7 @@ export const AliasInput = ({
       <Text.Text level="small">Sync alias for {name} with this label</Text.Text>
     );
 
+  if (rest.preview === true) return <Input.Text selectOnFocus {...rest} />;
   return (
     <Input.Text selectOnFocus {...rest}>
       {onReset != null && isDefault === false && (

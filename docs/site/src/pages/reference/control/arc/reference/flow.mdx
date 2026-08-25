@@ -3,7 +3,7 @@ layout: "@/layouts/Reference.astro"
 title: "Flow"
 description:
   "Arc flow reference: continuous and conditional flow operators, transitions,
-  expressions in flows, routing tables, the select built-in, and inline case bodies"
+  expressions in flows, routing tables, and inline case bodies"
 prev: "Operators"
 prevURL: "/reference/control/arc/reference/operators"
 next: "Sequences"
@@ -32,16 +32,16 @@ function bodies.
 
 Runs every execution cycle when the source produces data:
 
-```arc
+```arc channels="sensor, output"
 sensor -> filter{} -> output
 ```
 
 Continuous flows chain: each `->` connects the previous node's output to the next node's
 input. The chain executes whenever the leftmost source fires.
 
-```arc
+```arc channels="valve_cmd, sensor, output"
 stage active {
-    1 -> valve_cmd                  // keeps valve open every cycle
+    true -> valve_cmd               // keeps valve open every cycle
     sensor -> filter{} -> output    // processes every sample
 }
 ```
@@ -56,7 +56,7 @@ line order wins.
 Fires on ticks where the source expression is
 [truthy](/reference/control/arc/reference/operators#truthiness):
 
-```arc
+```arc channels="pressure, abort_btn" bodies="abort"
 pressure > 500 => next
 abort_btn => abort
 ```
@@ -101,7 +101,7 @@ sequence test {
 
 ### Named Stage Transitions
 
-```arc
+```arc channels="start_btn, pressure, abort_btn" bodies="pressurize, hold, idle, complete"
 sequence test {
     stage idle {
         start_btn => pressurize
@@ -121,7 +121,7 @@ sequence test {
 
 ### Cross-Sequence Transitions
 
-```arc
+```arc channels="emergency, all_valves_cmd" bodies="abort"
 sequence main {
     stage pressurize {
         emergency => abort // jumps to abort sequence
@@ -130,7 +130,7 @@ sequence main {
 
 sequence abort {
     stage safed {
-        0 -> all_valves_cmd
+        false -> all_valves_cmd
     }
 }
 ```
@@ -147,7 +147,7 @@ Cross-sequence transitions:
 
 Inline expressions act as implicit functions:
 
-```arc
+```arc channels="temperature, sensor_1, sensor_2, display, pressure, emergency"
 temperature > 100 -> alarm{}
 (sensor_1 + sensor_2) / 2.0 -> display
 pressure > 100 or emergency -> shutdown{}
@@ -161,68 +161,40 @@ variables from function bodies.
 ## Routing Tables
 
 A **routing table** is a brace-delimited map written on either end of a flow operator.
-It either gathers several sources into one function's inputs, or fans one function's
-outputs out to several destinations. Routing is how an Arc flow branches: a value is
-sent to one of several named destinations instead of running through an `if`/`else`.
+An input table gathers several sources into one function's inputs. An output table
+branches the flow: the output that fires decides which entry runs, instead of an
+`if`/`else`.
 
-```arc
+```arc channels="sensor_1, sensor_2, sensor, log"
 // Input routing: many sources -> one function
 { sensor_1: a, sensor_2: b } -> average{}
 
-// Output routing: one function -> many destinations
-sensor -> demux{} -> { high: alarm{}, low: logger{} }
-```
-
-### Select
-
-`select` is the built-in boolean router. It takes a `u8` input and exposes two outputs,
-`true` and `false`. Values equal to `1` are routed to `true`; all other values are
-routed to `false`.
-
-```arc
-flag -> select{} -> {
-    true: open_valve,
-    false: shut_valve
-}
-```
-
-`select` is part of the ambient prelude, so it needs no `import`. It is also available
-under its qualified name `selector.select` if you prefer to be explicit.
-
-| Output  | Type | Fires when             |
-| ------- | ---- | ---------------------- |
-| `true`  | `u8` | input value is `1`     |
-| `false` | `u8` | input value is not `1` |
-
-A routing table may bind only the branches it cares about. Omitting `false` is valid:
-
-```arc
-flag -> select{} -> {
-    true: stage { 1 -> alarm_cmd }
-}
+// Output routing: the fired output picks the entry that runs
+sensor -> demux{} -> { high: "high" -> log, low: "low" -> log }
 ```
 
 ### Custom Routing
 
-`select` is just a function with two named outputs. Any function with multiple named
-outputs can drive a routing table: declare the branches your logic needs as outputs, set
-the matching one in the function body, and route each output by name.
+[`select`](/reference/control/arc/reference/standard-library/select) is just a function
+with two named outputs. Any function with multiple named outputs can drive a routing
+table: declare the branches your logic needs as outputs, set the matching one in the
+function body, and route each output by name.
 
-```arc
-func decide_stage{low f64, high f64} (value f64) (vent u8, press u8, abort u8) {
-    if (value < low) {
-        vent = 1
-    } else if (value <= high) {
-        press = 1
+```arc channels="tank_pressure, open_vent" bodies="pressurize, safe_state"
+func decide_stage{low f64, high f64} (value f64) (vent bool, press bool, abort bool) {
+    if value < low {
+        vent = true
+    } else if value <= high {
+        press = true
     } else {
-        abort = 1
+        abort = true
     }
 }
 
 tank_pressure -> decide_stage{low=10.0, high=80.0} -> {
-    vent:  open_vent,
-    press: pressurize,
-    abort: safe_state
+    vent:  true -> open_vent,  // write a channel
+    press: true => pressurize, // activate sequence: `pressurize`
+    abort: true => safe_state  // activate sequence: `safe_state`
 }
 ```
 
@@ -230,28 +202,12 @@ Output names are arbitrary identifiers declared with the function's
 [named outputs](/reference/control/arc/reference/functions#multiple-named-outputs), and
 the routing table keys must match them exactly.
 
-### Case Body Forms
+### Case Bodies
 
-The right side of an output routing entry, the **case body**, is not limited to a single
-channel. It accepts any of the following.
+The right side of an output routing entry, the **case body**, is a full flow statement
+or an inline body. A bare target (`true: next`, `false: shut_cmd`) is an error.
 
-#### Single Target
-
-A channel, stage, or sequence name:
-
-```arc
-flag -> select{} -> {
-    true: open_valve,      // sequence name: activates the sequence
-    false: shut_cmd        // channel: receives the routed value
-}
-```
-
-#### Flow-Node Chains
-
-A case body can be a chain of flow nodes joined with `->`, exactly like a top-level
-flow. The routed output feeds the first node, and types are threaded through the chain:
-
-```arc
+```arc channels="flag, log_str, sensor, log_num"
 flag -> select{} -> {
     true:  "on"  -> log_str,
     false: "off" -> log_str
@@ -268,10 +224,14 @@ sensor -> demux{} -> {
 An anonymous `stage { ... }` written directly as a case body. Its flows run in parallel
 while the branch is active:
 
-```arc
+```arc channels="flag, vent_cmd, log, pressure" bodies="shutdown"
 flag -> select{} -> {
-    true:  stage { 1 -> vent_cmd, "venting" -> log },
-    false: stage { 0 -> vent_cmd }
+    true:  stage {
+        "venting" -> log,
+        true -> vent_cmd,
+        pressure < 15 => shutdown
+    },
+    false: false -> vent_cmd
 }
 ```
 
@@ -279,12 +239,12 @@ flag -> select{} -> {
 
 An anonymous `sequence { ... }` written directly as a case body. Its items run in order:
 
-```arc
+```arc channels="sensor, cooler_cmd"
 sensor -> decide_stage{low=30.0, high=80.0} -> {
     abort: sequence {
-        1 -> cooler_cmd
+        true -> cooler_cmd
         time.wait{2s}
-        0 -> cooler_cmd
+        false -> cooler_cmd
     }
 }
 ```
@@ -293,11 +253,11 @@ sensor -> decide_stage{low=30.0, high=80.0} -> {
 
 A single routing table may freely mix all of the above:
 
-```arc
+```arc channels="sensor, log, cooler_cmd, open_vent"
 sensor -> decide_stage{low=30.0, high=80.0} -> {
-    vent:  open_vent,                            // single target
-    press: "nominal" -> log,                     // chain
-    abort: stage { 1 -> cooler_cmd }             // inline body
+    vent:  true -> open_vent,                    // flow statement
+    press: "nominal" -> log,                     // flow statement
+    abort: stage { true -> cooler_cmd }          // inline body
 }
 ```
 
@@ -308,7 +268,7 @@ Items inside an inline body are separated by newlines or commas; both are accept
 An input routing table precedes a function invocation and maps each source to a named
 input parameter:
 
-```arc
+```arc channels="sensor_1, sensor_2, avg_out"
 func average(a f64, b f64) f64 {
     return (a + b) / 2.0
 }
@@ -333,7 +293,7 @@ is an error.
 An output routing table follows a function invocation and maps each named output to a
 destination:
 
-```arc
+```arc channels="sensor" bodies="high_out, low_out"
 func demux{threshold f64} (value f64) (high f64, low f64) {
     if value > threshold {
         high = value
@@ -343,15 +303,14 @@ func demux{threshold f64} (value f64) (high f64, low f64) {
 }
 
 sensor -> demux{threshold=50.0} -> {
-    high: high_out,
-    low: low_out
+    high: true => high_out,
+    low: true => low_out
 }
 ```
 
-Each entry is `output: destination`. The key on the left is one of the function's named
-outputs; the right side is where that output is routed. Only the outputs the function
-actually writes on a given cycle propagate. In the example above, a reading of `75.0`
-writes `high_out` and leaves `low_out` untouched.
+Each entry is `output: flow statement`. The key is one of the function's named outputs;
+the body runs when the function sets that output. A reading of `75.0` runs the `high`
+entry and leaves `low` untouched.
 
 <Divider.Divider x />
 
@@ -374,7 +333,7 @@ stage or sequence if a branch needs to advance the enclosing sequence.
 **Cross-stage navigation works.** An inline body can transition to a named stage, just
 like a normal transition:
 
-```arc
+```arc channels="flag" bodies="named_body"
 flag -> select{} -> {
     true: stage { time.wait{1s} => named_body }
 }

@@ -14,7 +14,6 @@ import pytest
 from pydantic import BaseModel
 
 import freighter.exceptions
-from freighter.codec import Codec, JSONCodec, MsgPackCodec
 from freighter.context import Context
 from freighter.http import HTTPClient
 from freighter.transport import AsyncNext, Next, P
@@ -25,6 +24,7 @@ from freighter.websocket import (
     WebsocketClient,
 )
 from freighter.websocket import Message as WebsocketMessage
+from x.codec import Codec, JSONCodec, MessagePackCodec
 
 from .interface import Error, Message
 
@@ -49,19 +49,18 @@ class MyVerySpecialCustomCodec(Codec):
 @pytest.fixture
 def async_client(endpoint: URL) -> AsyncWebsocketClient:
     ws_endpoint = endpoint.child("stream")
-    return AsyncWebsocketClient(encoder=MsgPackCodec(), base_url=ws_endpoint)
+    return AsyncWebsocketClient(encoder=MessagePackCodec(), base_url=ws_endpoint)
 
 
 @pytest.fixture
 def sync_client(endpoint: URL) -> WebsocketClient:
     ws_endpoint = endpoint.child("stream")
-    return WebsocketClient(encoder=MsgPackCodec(), base_url=ws_endpoint)
+    return WebsocketClient(encoder=MessagePackCodec(), base_url=ws_endpoint)
 
 
 @pytest.fixture
 def unary_client(endpoint: URL) -> HTTPClient:
-    http_endpoint = endpoint.child("unary")
-    return HTTPClient(http_endpoint, JSONCodec())
+    return HTTPClient(endpoint.child("unary"), JSONCodec())
 
 
 @pytest.mark.ws

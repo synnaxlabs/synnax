@@ -9,10 +9,9 @@
 
 import "@/log/Log.css";
 
-import { box, location, strings } from "@synnaxlabs/x";
+import { box, strings } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useCallback, useRef } from "react";
 
-import { Button } from "@/button";
 import { CSS } from "@/css";
 import { type Flex } from "@/flex";
 import { useCombinedRefs } from "@/hooks/ref";
@@ -24,6 +23,7 @@ import { Triggers } from "@/triggers";
 import { Canvas } from "@/vis/canvas";
 
 const COPY_TRIGGER: Triggers.Trigger = ["Control", "C"];
+export const PAUSE_TRIGGER: Triggers.Trigger = ["H"];
 
 // Select-all sends "to end" rather than a concrete index so the entry count never
 // has to be synced from the worker on every batch. The worker holds entries.length
@@ -33,11 +33,13 @@ const SELECT_ALL_END = Number.MAX_SAFE_INTEGER;
 type Mode = "selectAll" | "clearSelection" | "togglePause" | "default";
 
 const TRIGGER_CONFIG: Triggers.ModeConfig<Mode> = {
-  selectAll: [["Control", "A"]],
-  clearSelection: [["Escape"]],
-  togglePause: [["H"]],
-  default: [],
   defaultMode: "default",
+  modes: {
+    selectAll: [["Control", "A"]],
+    clearSelection: [Triggers.ESCAPE],
+    togglePause: [PAUSE_TRIGGER],
+    default: [],
+  },
 };
 
 const FLATTENED_TRIGGERS = Triggers.flattenConfig(TRIGGER_CONFIG);
@@ -45,7 +47,9 @@ const FLATTENED_TRIGGERS = Triggers.flattenConfig(TRIGGER_CONFIG);
 export interface BaseProps extends UseProps, Omit<Flex.BoxProps, "color"> {
   emptyContent?: ReactElement;
   extraContextMenuItems?: ReactNode;
-  enableTriggers?: boolean | (() => boolean);
+  /** When set, the context menu offers undo and redo for the host document. */
+  undoRedo?: Menu.UndoRedoItemsProps;
+  enableTriggers?: Triggers.Condition;
 }
 
 export const Base = ({
@@ -53,31 +57,37 @@ export const Base = ({
   font,
   className,
   visible,
-  showChannelNames,
-  showReceiptTimestamp,
+  channelNamesHidden,
+  receiptTimestampHidden,
   timestampPrecision,
   channels,
   emptyContent = (
     <Status.Summary center level="h3" variant="disabled" hideIcon>
-      Empty Log
+      No log entries
     </Status.Summary>
   ),
   color,
   telem,
   extraContextMenuItems,
+  undoRedo,
   enableTriggers,
+  hold,
+  onHold,
+  children,
   ...rest
 }: BaseProps): ReactElement | null => {
   const { state, setState } = use({
     aetherKey,
     font,
     visible,
-    showChannelNames,
-    showReceiptTimestamp,
+    channelNamesHidden,
+    receiptTimestampHidden,
     timestampPrecision,
     channels,
     color,
     telem,
+    hold,
+    onHold,
   });
 
   const {
@@ -89,6 +99,14 @@ export const Base = ({
     visibleStart,
     computedLineHeight,
   } = state;
+
+  const setHold = useCallback(
+    (hold: boolean) => {
+      setState((s) => ({ ...s, scrolling: hold }));
+      onHold?.(hold);
+    },
+    [setState, onHold],
+  );
 
   const resizeRef = Canvas.useRegion(
     useCallback((b) => setState((s) => ({ ...s, region: b })), [setState]),
@@ -148,6 +166,7 @@ export const Base = ({
   }, [selectedLines]);
 
   const addStatus = Status.useAdder();
+  const handleError = Status.useErrorHandler();
   const notifyCopied = useCallback(
     (count: number) =>
       addStatus({
@@ -164,16 +183,18 @@ export const Base = ({
       "text/plain": new Blob([selectedText], { type: "text/plain" }),
     });
     const count = selectedLines.length;
-    void navigator.clipboard.write([item]).then(() => notifyCopied(count));
-  }, [selectedText, selectedLines.length, buildCopyHTML, notifyCopied]);
+    handleError(async () => {
+      await navigator.clipboard.write([item]);
+      notifyCopied(count);
+    }, "Failed to copy to clipboard");
+  }, [selectedText, selectedLines.length, buildCopyHTML, notifyCopied, handleError]);
 
   Triggers.use({
     triggers: FLATTENED_TRIGGERS,
+    enabled: enableTriggers,
     callback: useCallback(
       ({ triggers, stage }: Triggers.UseEvent) => {
         if (stage !== "start") return;
-        if (enableTriggers === false) return;
-        if (typeof enableTriggers === "function" && !enableTriggers()) return;
         const mode = Triggers.determineMode(TRIGGER_CONFIG, triggers);
         if (mode === "selectAll")
           setState((s) => ({ ...s, selectionStart: 0, selectionEnd: SELECT_ALL_END }));
@@ -184,10 +205,9 @@ export const Base = ({
             selectionEnd: -1,
             selectedText: "",
           }));
-        else if (mode === "togglePause")
-          setState((s) => ({ ...s, scrolling: !s.scrolling }));
+        else if (mode === "togglePause") setHold(!scrolling);
       },
-      [setState, enableTriggers],
+      [setState, scrolling, setHold],
     ),
   });
 
@@ -204,6 +224,12 @@ export const Base = ({
   const menuContent = useCallback(
     () => (
       <Menu.Menu level="small" onChange={handleMenuSelect}>
+        {undoRedo != null && (
+          <>
+            <Menu.UndoRedoItems {...undoRedo} />
+            <Menu.Divider />
+          </>
+        )}
         <Menu.Item
           itemKey="copy"
           trigger={COPY_TRIGGER}
@@ -221,21 +247,18 @@ export const Base = ({
         )}
       </Menu.Menu>
     ),
-    [handleMenuSelect, hasSelection, extraContextMenuItems],
+    [handleMenuSelect, hasSelection, extraContextMenuItems, undoRedo],
   );
 
   return (
     <Menu.ContextMenu className={menuClassName} menu={menuContent} {...menuProps}>
       <div
         ref={combinedRef}
-        tabIndex={0}
-        className={CSS(CSS.B("log"), className)}
+        tabIndex={-1}
+        className={CSS.cls(CSS.B("log"), className)}
         onWheel={(e) => {
-          setState((s) => ({
-            ...s,
-            wheelPos: s.wheelPos - e.deltaY,
-            scrolling: s.scrolling ? s.scrolling : e.deltaY < 0,
-          }));
+          if (e.deltaY < 0 && !scrolling) setHold(true);
+          setState((s) => ({ ...s, wheelPos: s.wheelPos - e.deltaY }));
         }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
@@ -250,19 +273,7 @@ export const Base = ({
         onContextMenu={menuProps.open}
         {...rest}
       >
-        {empty ? (
-          emptyContent
-        ) : (
-          <Button.Button
-            className={CSS(CSS.BE("log", "live"), scrolling && CSS.M("active"))}
-            variant="outlined"
-            onClick={() => setState((s) => ({ ...s, scrolling: !s.scrolling }))}
-            tooltip={scrolling ? "Resume Scrolling" : "Pause Scrolling"}
-            tooltipLocation={location.BOTTOM_LEFT}
-          >
-            <Icon.Dynamic />
-          </Button.Button>
-        )}
+        {empty ? emptyContent : children}
       </div>
     </Menu.ContextMenu>
   );

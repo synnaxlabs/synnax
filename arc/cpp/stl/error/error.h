@@ -12,6 +12,8 @@
 #include <cstdio>
 #include <string>
 
+#include "wasmtime.hh"
+
 #include "x/cpp/errors/errors.h"
 
 #include "arc/cpp/runtime/errors/errors.h"

@@ -10,6 +10,7 @@
 import "@/tree/Item.css";
 
 import { type record } from "@synnaxlabs/x";
+import { useMemo } from "react";
 
 import { type Button } from "@/button";
 import { Caret } from "@/caret";
@@ -38,20 +39,27 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
 }: ItemProps<K, E>) => {
   const { index } = rest;
   const { expanded, depth, hasChildren } = useContext("Tree.Item")[index];
+  const itemStyle = useMemo(
+    () => ({
+      [CSS.variable("tree-item-offset")]: `${depth * offsetMultiplier + 1.5}rem`,
+      ...style,
+    }),
+    [depth, offsetMultiplier, style],
+  );
   return (
     <Select.ListItem
-      className={CSS(
+      className={CSS.cls(
         CSS.BE("tree", "item"),
         depth !== 0 && CSS.M("show-rules"),
         useMargin && CSS.M("margin"),
         className,
       )}
-      style={{
-        [CSS.var("tree-item-offset")]: `${depth * offsetMultiplier + 1.5}rem`,
-        ...style,
-      }}
+      style={itemStyle}
       gap="small"
       align="center"
+      role="treeitem"
+      aria-level={depth + 1}
+      aria-expanded={hasChildren ? expanded : undefined}
       {...rest}
     >
       {hasChildren && (

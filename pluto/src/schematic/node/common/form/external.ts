@@ -8,9 +8,11 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/schematic/node/common/form/ActivationDelay";
+export * from "@/schematic/node/common/form/Bounds";
 export * from "@/schematic/node/common/form/Color";
 export * from "@/schematic/node/common/form/Control";
 export * from "@/schematic/node/common/form/input";
+export * from "@/schematic/node/common/form/Radius";
 export * from "@/schematic/node/common/form/Scale";
 export * from "@/schematic/node/common/form/Size";
 export * from "@/schematic/node/common/form/StateMapping";

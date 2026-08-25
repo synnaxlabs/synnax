@@ -8,16 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { type color, type notation, primitive } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { type notation, primitive } from "@synnaxlabs/x";
+import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
-import { Color } from "@/color";
 import { Flex } from "@/flex";
 import { Form } from "@/form";
 import { Input } from "@/input";
 import { Notation } from "@/notation";
-import { Theming } from "@/theming";
+import { Status } from "@/status";
+import { Synnax } from "@/synnax";
+import { Staleness } from "@/vis/staleness";
 
 interface ValueTelemFormT {
   channel?: channel.Key;
@@ -33,16 +34,15 @@ export interface TelemFormProps {
 export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
   const { set } = Form.useContext();
   const { value, onChange } = Form.useField<ValueTelemFormT>(path);
-  const theme = Theming.use();
 
-  const { retrieve } = Channel.useRetrieveObservable({
-    onChange: useCallback(
-      ({ data }) => data != null && set(`${path}.tooltip`, [data.name]),
-      [set, path],
-    ),
-  });
+  const client = Synnax.use();
+  const handleError = Status.useErrorHandler();
   const handleSourceChange = (key: channel.Key | null): void => {
-    if (primitive.isNonZero(key)) retrieve({ key });
+    if (primitive.isNonZero(key) && client != null)
+      handleError(async () => {
+        const { name } = await client.channels.retrieve({ key });
+        set(`${path}.tooltip`, [name]);
+      }, "Failed to retrieve channel");
     onChange({ ...value, channel: key ?? undefined });
   };
 
@@ -59,7 +59,7 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
 
   return (
     <>
-      <Input.Item label="Input channel" grow>
+      <Input.Item label="Channel" grow>
         <Channel.SelectSingle value={channelKey} onChange={handleSourceChange} />
       </Input.Item>
       <Flex.Box x>
@@ -83,28 +83,7 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
             onChange={handleRollingAverageChange}
           />
         </Input.Item>
-        <Form.Field<color.Crude>
-          hideIfNull={false}
-          label="Stale color"
-          align="start"
-          path="stalenessColor"
-        >
-          {({ value, onChange }) => (
-            <Color.Swatch
-              value={value ?? theme.colors.warning.m1}
-              onChange={onChange}
-              bordered
-            />
-          )}
-        </Form.Field>
-        <Form.NumericField
-          path="stalenessTimeout"
-          label="Stale timeout"
-          inputProps={{
-            bounds: { lower: 1, upper: Infinity },
-            endContent: "s",
-          }}
-        />
+        <Staleness.Fields />
       </Flex.Box>
     </>
   );

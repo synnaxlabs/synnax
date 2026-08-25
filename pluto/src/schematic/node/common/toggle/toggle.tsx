@@ -16,6 +16,8 @@ import { Label } from "@/schematic/node/common/label";
 import * as CommonTelem from "@/schematic/node/common/telem";
 import { type ButtonProps } from "@/schematic/node/common/toggle/Button";
 import { type NodeProps } from "@/schematic/node/spec";
+import { Theming } from "@/theming";
+import { Staleness } from "@/vis/staleness";
 import { Toggle as Base } from "@/vis/toggle";
 
 export const toggleConfigZ = schematic.toggleConfigZ;
@@ -24,6 +26,7 @@ export type ToggleConfig = schematic.ToggleConfig;
 export const ZERO_TOGGLE_DEFAULTS: Partial<ToggleConfig> = {
   control: { show: true },
   onClickDelay: 0,
+  ...Staleness.ZERO_CONFIG,
 };
 
 export const ZERO_DUMMY_TOGGLE_DEFAULTS: Partial<DummyToggleConfig> = {
@@ -46,7 +49,7 @@ export const createToggle = <C extends ToggleConfig>(
     onConfigChange,
     selected,
     config,
-  }: NodeProps<ToggleConfig>): ReactElement => {
+  }: NodeProps<schematic.ToggleSymbolConfig>): ReactElement => {
     const {
       control,
       stateChannel,
@@ -54,8 +57,12 @@ export const createToggle = <C extends ToggleConfig>(
       label,
       orientation = "left",
       onClickDelay,
+      stalenessTimeout,
+      stalenessColor,
+      color: symbolColor,
       ...rest
     } = config;
+    const theme = Theming.use();
     const source = useMemo(
       () => CommonTelem.booleanSource(stateChannel),
       [stateChannel],
@@ -64,7 +71,12 @@ export const createToggle = <C extends ToggleConfig>(
       () => CommonTelem.booleanSink(commandChannel),
       [commandChannel],
     );
-    const { enabled, toggle } = Base.use({ aetherKey: nodeKey, source, sink });
+    const { enabled, toggle, stale } = Base.use({
+      aetherKey: nodeKey,
+      source,
+      sink,
+      stalenessTimeout,
+    });
     const scaleResize = Grid.useScaleResize(config, onConfigChange);
     return (
       <Grid.Grid
@@ -86,6 +98,7 @@ export const createToggle = <C extends ToggleConfig>(
           onClick={toggle}
           onClickDelay={onClickDelay}
           orientation={orientation}
+          color={stale ? Staleness.resolveColor(stalenessColor, theme) : symbolColor}
           {...rest}
         />
       </Grid.Grid>

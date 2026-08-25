@@ -28,7 +28,7 @@ export type Weight = z.infer<typeof weightZ>;
 
 export const specZ = z.object({
   size: z.number(),
-  weight: z.union([z.number(), z.string()]),
+  weight: weightZ,
   lineHeight: z.number(),
   textTransform: z.string().optional(),
 });

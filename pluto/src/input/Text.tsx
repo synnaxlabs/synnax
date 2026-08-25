@@ -9,8 +9,8 @@
 
 import "@/input/Input.css";
 
-import { type status } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode, useRef, useState } from "react";
+import { type status } from "@synnaxlabs/client";
+import { type ReactElement, type ReactNode, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/button";
 import { SIZE_TEXT_LEVELS } from "@/component/text";
@@ -18,9 +18,12 @@ import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Generic } from "@/generic";
 import { useCombinedRefs } from "@/hooks";
+import { useLabelledBy } from "@/input/Item";
 import { type InputProps, type Variant } from "@/input/types";
 import { Text as BaseText } from "@/text";
 import { type Tooltip } from "@/tooltip";
+
+const DATE_INPUT_TYPES = new Set(["date", "time", "datetime-local"]);
 
 export interface TextProps
   extends
@@ -38,6 +41,7 @@ export interface TextProps
   startContent?: ReactNode;
   onlyChangeOnBlur?: boolean;
   area?: boolean;
+  flush?: boolean;
 }
 
 /**
@@ -54,6 +58,8 @@ export interface TextProps
  * blurred while empty.
  * @param props.onlyChangeOnBlur - If true, the input will only call `onChange` when the
  * user blurs the input or the user presses 'Enter'.
+ * @param props.flush - Marks the input as its surface's sole keystroke target,
+ * removing the focus ring and widening the content inset.
  */
 export const Text = ({
   size = "medium",
@@ -74,7 +80,6 @@ export const Text = ({
   status,
   weight,
   style,
-  contrast,
   color: pColor,
   sharp,
   onlyChangeOnBlur = false,
@@ -96,11 +101,12 @@ export const Text = ({
   onClickDelay,
   startContent,
   tooltip,
-  tooltipDelay,
   tooltipLocation,
   hideTooltip,
-  ghost,
+  reveal,
   area,
+  flush = false,
+  preview,
   propagateClick,
   ...rest
 }: TextProps): ReactElement => {
@@ -148,13 +154,24 @@ export const Text = ({
 
   const combinedRef = useCombinedRefs(ref, internalRef);
 
+  const inputStyle = useMemo(() => ({ fontWeight: weight }), [weight]);
+
+  const ariaLabelledBy = useLabelledBy(rest);
+
   const showPlaceholder =
+    preview !== true &&
     (value == null || value.length === 0) &&
     tempValue == null &&
     placeholder != null &&
     typeof placeholder !== "string";
 
-  tabIndex ??= variant === "preview" ? -1 : undefined;
+  tabIndex ??= preview ? -1 : undefined;
+
+  // A native date input formats its value for display, so a preview keeps the
+  // element. Every other type renders static text: an input cannot shrink to its
+  // content, which strands end content far from the value.
+  const staticPreview =
+    preview === true && !DATE_INPUT_TYPES.has((rest as { type?: string }).type ?? "");
 
   const outerProps: Flex.BoxProps = {
     style,
@@ -171,8 +188,11 @@ export const Text = ({
       x
       empty
       align="center"
-      className={CSS(
+      className={CSS.cls(
         CSS.B("input"),
+        CSS.M("focus-frozen"),
+        flush && CSS.M("flush"),
+        variant === "shadow" && CSS.M("shadow"),
         CSS.disabled(disabled),
         status != null && CSS.M(status),
         className,
@@ -180,14 +200,14 @@ export const Text = ({
       size={size}
       level={level}
       color={pColor}
-      contrast={contrast}
       sharp={sharp}
       status={status}
       bordered={bordered}
       borderColor={borderColor}
       borderWidth={borderWidth}
       pack
-      variant={variant}
+      variant={variant === "shadow" ? "outlined" : variant}
+      preview={preview}
       rounded={rounded}
       tabIndex={tabIndex}
       trigger={trigger}
@@ -197,16 +217,15 @@ export const Text = ({
       preventClick={preventClick}
       onClickDelay={onClickDelay}
       tooltip={tooltip}
-      tooltipDelay={tooltipDelay}
       tooltipLocation={tooltipLocation}
       hideTooltip={hideTooltip}
-      ghost={ghost}
+      reveal={reveal}
       propagateClick={propagateClick}
       {...restButtonProps}
     >
       {showPlaceholder && (
         <BaseText.Text
-          className={CSS(
+          className={CSS.cls(
             CSS.visible(false),
             CSS.BE("input", "placeholder"),
             centerPlaceholder && CSS.M("centered"),
@@ -224,25 +243,36 @@ export const Text = ({
           {startContent}
         </BaseText.Text>
       )}
-      <Generic.Element<"textarea" | "input">
-        el={area ? "textarea" : "input"}
-        ref={combinedRef}
-        value={tempValue ?? value}
-        role="textbox"
-        onChange={handleChange}
-        autoCapitalize="off"
-        autoComplete="off"
-        autoCorrect="off"
-        onFocus={handleFocus}
-        onKeyDown={handleKeyDown}
-        tabIndex={tabIndex}
-        onMouseUp={handleMouseUp}
-        onBlur={handleBlur}
-        disabled={disabled}
-        placeholder={typeof placeholder === "string" ? placeholder : undefined}
-        style={{ fontWeight: weight }}
-        {...rest}
-      />
+      {staticPreview ? (
+        <BaseText.Text
+          className={CSS.BE("input", "preview-value")}
+          level={level ?? SIZE_TEXT_LEVELS[size]}
+          overflow={area ? undefined : "nowrap"}
+        >
+          {value}
+        </BaseText.Text>
+      ) : (
+        <Generic.Element<"textarea" | "input">
+          el={area ? "textarea" : "input"}
+          ref={combinedRef}
+          value={tempValue ?? value}
+          role="textbox"
+          onChange={handleChange}
+          autoCapitalize="off"
+          autoComplete="off"
+          autoCorrect="off"
+          onFocus={handleFocus}
+          onKeyDown={handleKeyDown}
+          tabIndex={tabIndex}
+          onMouseUp={handleMouseUp}
+          onBlur={handleBlur}
+          disabled={disabled}
+          placeholder={typeof placeholder === "string" ? placeholder : undefined}
+          style={inputStyle}
+          {...rest}
+          aria-labelledby={ariaLabelledBy}
+        />
+      )}
       {endContent != null && (
         <BaseText.Text
           className={CSS.BE("input", "end-content")}

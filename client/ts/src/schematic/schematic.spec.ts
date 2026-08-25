@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { uuid } from "@synnaxlabs/x";
+import { id, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
 import { NotFoundError, ValidationError } from "@/errors";
+import { query } from "@/query";
 import { schematic } from "@/schematic";
-import { createTestClient } from "@/testutil/client";
+import { createTestClient, expectDeleted } from "@/testutil";
 
 const newProjectSchematic = async (client: ReturnType<typeof createTestClient>) => {
   const proj = await client.projects.create({ name: "dispatch", layout: {} });
@@ -36,7 +37,7 @@ describe("Schematic", () => {
       });
       expect(schem.name).toEqual("Schematic");
       expect(schem.key).not.toEqual(uuid.ZERO);
-      const retrieved = await client.schematics.retrieve({ key: schem.key });
+      const retrieved = await client.schematics.retrieve(schem.key);
       expect(retrieved.key).toEqual(schem.key);
     });
   });
@@ -51,7 +52,7 @@ describe("Schematic", () => {
         name: "Schematic",
       });
       await client.schematics.rename(schem.key, "Schematic2");
-      const res = await client.schematics.retrieve({ key: schem.key });
+      const res = await client.schematics.retrieve(schem.key);
       expect(res.name).toEqual("Schematic2");
     });
   });
@@ -66,7 +67,7 @@ describe("Schematic", () => {
         name: "Schematic",
       });
       await client.schematics.delete(schem.key);
-      await expect(client.schematics.retrieve({ key: schem.key })).rejects.toThrow(
+      await expect(client.schematics.retrieve(schem.key)).rejects.toThrow(
         NotFoundError,
       );
     });
@@ -124,8 +125,10 @@ describe("Schematic", () => {
           snapshot: true,
         });
         await expect(
-          client.schematics.dispatch(schem2.key, "sess-1", [
-            schematic.setNode({ node: { key: "n1", position: { x: 0, y: 0 } } }),
+          client.schematics.dispatch(schem2.key, [
+            schematic.setNode({
+              node: { key: "n1", position: { x: 0, y: 0 } },
+            }),
           ]),
         ).rejects.toThrow(ValidationError);
       });
@@ -135,26 +138,26 @@ describe("Schematic", () => {
   describe("dispatch", () => {
     test("setNodePosition moves the matching node", async () => {
       const { schem } = await newProjectSchematic(client);
-      await client.schematics.dispatch(schem.key, "sess-1", [
+      await client.schematics.dispatch(schem.key, [
         schematic.setNode({ node: { key: "n1", position: { x: 0, y: 0 } } }),
       ]);
-      await client.schematics.dispatch(schem.key, "sess-1", [
+      await client.schematics.dispatch(schem.key, [
         schematic.setNodePosition({ key: "n1", position: { x: 100, y: 200 } }),
       ]);
-      const res = await client.schematics.retrieve({ key: schem.key });
+      const res = await client.schematics.retrieve(schem.key);
       expect(res.nodes).toHaveLength(1);
       expect(res.nodes[0].position).toEqual({ x: 100, y: 200 });
     });
 
     test("setNode inserts a node and writes its config", async () => {
       const { schem } = await newProjectSchematic(client);
-      await client.schematics.dispatch(schem.key, "sess-1", [
+      await client.schematics.dispatch(schem.key, [
         schematic.setNode({
           node: { key: "n1", position: { x: 1, y: 2 } },
           config: { variant: "tank", label: { label: "Pump" } },
         }),
       ]);
-      const res = await client.schematics.retrieve({ key: schem.key });
+      const res = await client.schematics.retrieve(schem.key);
       expect(res.nodes).toHaveLength(1);
       expect(res.nodes[0]).toMatchObject({ key: "n1", position: { x: 1, y: 2 } });
       expect(res.configs.n1).toMatchObject({
@@ -165,7 +168,7 @@ describe("Schematic", () => {
 
     test("removeNode removes the node and drops its config", async () => {
       const { schem } = await newProjectSchematic(client);
-      await client.schematics.dispatch(schem.key, "sess-1", [
+      await client.schematics.dispatch(schem.key, [
         schematic.setNode({
           node: { key: "n1", position: { x: 0, y: 0 } },
           config: { variant: "tank", label: { label: "Pump" } },
@@ -175,10 +178,10 @@ describe("Schematic", () => {
           config: { variant: "tank", label: { label: "Tank" } },
         }),
       ]);
-      await client.schematics.dispatch(schem.key, "sess-1", [
+      await client.schematics.dispatch(schem.key, [
         schematic.removeNode({ key: "n1" }),
       ]);
-      const res = await client.schematics.retrieve({ key: schem.key });
+      const res = await client.schematics.retrieve(schem.key);
       expect(res.nodes).toHaveLength(1);
       expect(res.nodes[0]).toMatchObject({ key: "n2", position: { x: 1, y: 1 } });
       expect(Object.keys(res.configs)).toEqual(["n2"]);
@@ -201,15 +204,15 @@ describe("Schematic", () => {
         source: { node: srcNode, param: srcParam },
         target: { node: tgtNode, param: tgtParam },
       });
-      await client.schematics.dispatch(schem.key, "sess-1", [
+      await client.schematics.dispatch(schem.key, [
         schematic.addEdge({ edge: e("e1", "a", "o", "b", "i") }),
         schematic.addEdge({ edge: e("e2", "b", "o", "c", "i") }),
       ]);
-      await client.schematics.dispatch(schem.key, "sess-1", [
+      await client.schematics.dispatch(schem.key, [
         schematic.addEdge({ edge: e("e2", "x", "y", "z", "w") }),
         schematic.addEdge({ edge: e("e3", "c", "o", "d", "i") }),
       ]);
-      const res = await client.schematics.retrieve({ key: schem.key });
+      const res = await client.schematics.retrieve(schem.key);
       expect(res.edges).toEqual([
         e("e1", "a", "o", "b", "i"),
         e("e2", "b", "o", "c", "i"),
@@ -219,7 +222,7 @@ describe("Schematic", () => {
 
     test("removeEdge removes the matching edge", async () => {
       const { schem } = await newProjectSchematic(client);
-      await client.schematics.dispatch(schem.key, "sess-1", [
+      await client.schematics.dispatch(schem.key, [
         schematic.addEdge({
           edge: {
             key: "e1",
@@ -228,16 +231,16 @@ describe("Schematic", () => {
           },
         }),
       ]);
-      await client.schematics.dispatch(schem.key, "sess-1", [
+      await client.schematics.dispatch(schem.key, [
         schematic.removeEdge({ key: "e1" }),
       ]);
-      const res = await client.schematics.retrieve({ key: schem.key });
+      const res = await client.schematics.retrieve(schem.key);
       expect(res.edges).toEqual([]);
     });
 
     test("setConfig upserts config under the given key", async () => {
       const { schem } = await newProjectSchematic(client);
-      await client.schematics.dispatch(schem.key, "sess-1", [
+      await client.schematics.dispatch(schem.key, [
         schematic.setConfig({
           key: "n1",
           config: { variant: "tank", label: { label: "Original" } },
@@ -253,9 +256,13 @@ describe("Schematic", () => {
 
     test("applies a multi-action sequence atomically", async () => {
       const { schem } = await newProjectSchematic(client);
-      await client.schematics.dispatch(schem.key, "sess-1", [
-        schematic.setNode({ node: { key: "pump", position: { x: 0, y: 0 } } }),
-        schematic.setNode({ node: { key: "valve", position: { x: 100, y: 0 } } }),
+      await client.schematics.dispatch(schem.key, [
+        schematic.setNode({
+          node: { key: "pump", position: { x: 0, y: 0 } },
+        }),
+        schematic.setNode({
+          node: { key: "valve", position: { x: 100, y: 0 } },
+        }),
         schematic.addEdge({
           edge: {
             key: "e1",
@@ -268,7 +275,7 @@ describe("Schematic", () => {
           config: { variant: "tank", label: { label: "Main Pump" } },
         }),
       ]);
-      const res = await client.schematics.retrieve({ key: schem.key });
+      const res = await client.schematics.retrieve(schem.key);
       expect(res.nodes).toHaveLength(2);
       expect(res.edges).toHaveLength(1);
       expect(res.configs.pump).toMatchObject({
@@ -279,20 +286,22 @@ describe("Schematic", () => {
 
     test("converges to the final position after a 30-action drag storm", async () => {
       const { schem } = await newProjectSchematic(client);
-      await client.schematics.dispatch(schem.key, "sess-1", [
-        schematic.setNode({ node: { key: "pump", position: { x: 0, y: 0 } } }),
+      await client.schematics.dispatch(schem.key, [
+        schematic.setNode({
+          node: { key: "pump", position: { x: 0, y: 0 } },
+        }),
       ]);
       const actions = Array.from({ length: 30 }, (_, i) =>
         schematic.setNodePosition({ key: "pump", position: { x: i, y: i * 2 } }),
       );
-      await client.schematics.dispatch(schem.key, "sess-1", actions);
-      const res = await client.schematics.retrieve({ key: schem.key });
+      await client.schematics.dispatch(schem.key, actions);
+      const res = await client.schematics.retrieve(schem.key);
       expect(res.nodes[0].position).toEqual({ x: 29, y: 58 });
     });
 
     test("round-trips telem args through dispatch", async () => {
       const { schem } = await newProjectSchematic(client);
-      await client.schematics.dispatch(schem.key, "sess-1", [
+      await client.schematics.dispatch(schem.key, [
         schematic.setConfig({
           key: "valveNode_B2",
           config: { variant: "valve", stateChannel: 12, commandChannel: 13 },
@@ -306,5 +315,21 @@ describe("Schematic", () => {
       expect(config.stateChannel).toBe(12);
       expect(config.commandChannel).toBe(13);
     });
+  });
+});
+
+describe("store", () => {
+  it("tombstones deletes from live delete signals", async () => {
+    await client.connect();
+    const project = await client.projects.create({ name: `sch-${id.create()}` });
+    const created = await client.schematics.create(project.key, {
+      name: `schematic-${id.create()}`,
+    });
+    await client.schematics.delete(created.key);
+    await expect
+      .poll(() => query.Deleted.matches(client.schematics.getCached(created.key)))
+      .toBe(true);
+    const cached = expectDeleted(client.schematics.getCached(created.key));
+    expect(cached.corpse.name).toEqual(created.name);
   });
 });

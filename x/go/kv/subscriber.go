@@ -40,7 +40,8 @@ type Subscriber[S any] struct {
 	mu sync.Mutex
 }
 
-// Flush is the handler to bind to the Observable.
+// Flush is the handler to bind to the Observable. The write runs on the calling
+// goroutine, so a store closed after its observers stop firing cannot race a flush.
 func (f *Subscriber[S]) Flush(ctx context.Context, state S) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -48,12 +49,16 @@ func (f *Subscriber[S]) Flush(ctx context.Context, state S) {
 		return
 	}
 	f.LastFlush = time.Now()
-	go f.FlushSync(ctx, state)
+	f.FlushSync(ctx, state)
 }
 
 // FlushSync synchronously flushes the given state to the store.
 func (f *Subscriber[S]) FlushSync(ctx context.Context, state S) {
-	if err := f.Store.Set(ctx, f.Key, lo.Must(f.Encoder.Encode(ctx, state))); err != nil {
+	if err := f.Store.Set(
+		ctx,
+		f.Key,
+		lo.Must(f.Encoder.Encode(ctx, state)),
+	); err != nil {
 		f.L.Error("failed to flush", zap.Error(err))
 	}
 }

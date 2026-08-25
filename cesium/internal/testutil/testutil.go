@@ -42,7 +42,7 @@ func GenerateDataAndChannels(
 				Name:     fmt.Sprintf("index-%d", i),
 				Key:      cesium.ChannelKey(i),
 				IsIndex:  true,
-				DataType: telem.TimeStampT,
+				DataType: telem.TimestampT,
 			}
 		} else if i <= numIndexChannels+numDataChannels {
 			correspondingIndexChannel := cesium.ChannelKey(i%numIndexChannels + 1)
@@ -58,7 +58,7 @@ func GenerateDataAndChannels(
 		channels[i-1] = ch
 	}
 
-	var data = make([]int64, numSamplesPerDomain)
+	data := make([]int64, numSamplesPerDomain)
 	for i := range numSamplesPerDomain {
 		data[i] = rand.Int63()
 	}

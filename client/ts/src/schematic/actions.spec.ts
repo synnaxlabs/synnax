@@ -15,6 +15,7 @@ import { schematic } from "@/schematic";
 const node = (key: string, x: number, y: number): schematic.Node => ({
   key,
   position: { x, y },
+  zIndex: 0,
 });
 
 const edge = (
@@ -30,7 +31,7 @@ const edge = (
 });
 
 const empty = (overrides: Partial<schematic.Schematic> = {}): schematic.Schematic =>
-  schematic.newZ.parse({ name: "", ...overrides });
+  schematic.schematicZ.parse({ name: "Test Schematic", ...overrides });
 
 const cfg = (raw: unknown): schematic.ElementConfig =>
   schematic.elementConfigZ.parse(raw);
@@ -495,12 +496,11 @@ describe("schematic reducer inverses", () => {
     expect(restored).toEqual(state);
   };
 
-  // Acknowledges the documented gap in setConfig's inverse: keys newly added
-  // by a SetConfig action cannot be removed by the inverse (SetConfig is a
-  // merge, not a replace). Asserts that nodes and edges round-trip cleanly,
-  // and that every config key present in the original is restored to its
-  // original value. Keys absent from the original may persist as phantom
-  // entries on the restored state.
+  // Acknowledges the documented gap in setConfig's inverse: keys newly added by a
+  // SetConfig action cannot be removed by the inverse (SetConfig is a merge, not a
+  // replace). Asserts that nodes and edges round-trip cleanly, and that every config
+  // key present in the original is restored to its original value. Keys absent from the
+  // original may persist as phantom entries on the restored state.
   const expectUserVisibleRoundTrip = (
     state: schematic.Schematic,
     actions: schematic.Action[],
@@ -578,10 +578,9 @@ describe("schematic reducer inverses", () => {
 
   describe("removeNode", () => {
     it("should invert by re-inserting the node and its config (order not preserved)", () => {
-      // setNode appends rather than inserting at a specific index, so a
-      // remove + undo cycle can rearrange the nodes array. The contents are
-      // restored but the original index is lost. Would be addressed by an
-      // InsertNode(node, idx) action.
+      // setNode appends rather than inserting at a specific index, so a remove + undo
+      // cycle can rearrange the nodes array. The contents are restored but the original
+      // index is lost. Would be addressed by an InsertNode(node, idx) action.
       const state = empty({
         nodes: [node("n1", 0, 0), node("n2", 1, 1)],
         configs: { n1: tank("Pump"), n2: tank("Tank") },
@@ -654,30 +653,6 @@ describe("schematic reducer inverses", () => {
     });
   });
 
-  describe("setNodeMeasured", () => {
-    it("should be reported as not undoable", () => {
-      expect(
-        schematic.isUndoable(
-          schematic.setNodeMeasured({ key: "n1", measured: { width: 10, height: 20 } }),
-        ),
-      ).toBe(false);
-    });
-    it("should produce an empty inverse", () => {
-      const state = empty({ nodes: [node("n1", 0, 0)] });
-      const { inverse } = schematic.reduceAll(state, [
-        schematic.setNodeMeasured({ key: "n1", measured: { width: 10, height: 20 } }),
-      ]);
-      expect(inverse).toEqual([]);
-    });
-    it("should report no targets so it does not invalidate concurrent undoables", () => {
-      const state = empty({ nodes: [node("n1", 0, 0)] });
-      const { targets } = schematic.reduceAll(state, [
-        schematic.setNodeMeasured({ key: "n1", measured: { width: 10, height: 20 } }),
-      ]);
-      expect(targets).toEqual([]);
-    });
-  });
-
   describe("multi-action transactions", () => {
     it("should invert a build sequence (nodes and edges restored; phantom edge config persists)", () => {
       // Inverse cannot strip the e1 config that setConfig added — see
@@ -708,30 +683,6 @@ describe("schematic reducer inverses", () => {
           config: { variant: "tank", label: { label: "Pump" } },
         }),
       ]);
-    });
-  });
-
-  describe("isUndoable", () => {
-    it("should return true for every action other than setNodeMeasured", () => {
-      expect(schematic.isUndoable(schematic.rename({ name: "x" }))).toBe(true);
-      expect(
-        schematic.isUndoable(
-          schematic.setNodePosition({ key: "n1", position: { x: 0, y: 0 } }),
-        ),
-      ).toBe(true);
-      expect(schematic.isUndoable(schematic.setNode({ node: node("n1", 0, 0) }))).toBe(
-        true,
-      );
-      expect(schematic.isUndoable(schematic.removeNode({ key: "n1" }))).toBe(true);
-      expect(
-        schematic.isUndoable(
-          schematic.addEdge({ edge: edge("e1", "a", "o", "b", "i") }),
-        ),
-      ).toBe(true);
-      expect(schematic.isUndoable(schematic.removeEdge({ key: "e1" }))).toBe(true);
-      expect(schematic.isUndoable(schematic.setConfig({ key: "n1", config: {} }))).toBe(
-        true,
-      );
     });
   });
 

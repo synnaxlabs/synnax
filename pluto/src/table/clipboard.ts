@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { table } from "@synnaxlabs/client";
+import { query, table } from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
 import { type ClipboardEventHandler, useCallback } from "react";
 
-import { Flux } from "@/flux";
 import { useSyncedRef } from "@/hooks";
+import { Synnax } from "@/synnax";
 import { Cell } from "@/table/cells";
-import { findCellPosition, type FluxSubStore, useDispatch } from "@/table/queries";
+import { findCellPosition, useDispatch } from "@/table/queries";
 
 // The "web " prefix is required: Chrome silently drops custom MIME types from
 // the clipboard without it.
@@ -37,14 +37,13 @@ interface Payload {
 const describe = (p: Payload): string =>
   `${p.cells.length} cell${p.cells.length === 1 ? "" : "s"}`;
 
-export interface UseClipboardArgs {
+export interface UseClipboardParams {
   key: table.Key;
   selected?: string[];
-  // onPaste fires after a successful paste with the keys of every cell whose
-  // contents were overwritten. Consumers can use this to update the visible
-  // selection to the just-pasted region. Paste uses the last entry in
-  // `selected` as the top-left anchor; if `selected` is empty when paste
-  // fires, paste is a no-op.
+  // onPaste fires after a successful paste with the keys of every cell whose contents
+  // were overwritten. Consumers can use this to update the visible selection to the
+  // just-pasted region. Paste uses the last entry in `selected` as the top-left anchor;
+  // if `selected` is empty when paste fires, paste is a no-op.
   onPaste?: (overwrittenKeys: string[]) => void;
 }
 
@@ -57,17 +56,23 @@ export const useClipboard = ({
   key,
   selected,
   onPaste,
-}: UseClipboardArgs): UseClipboardReturn => {
+}: UseClipboardParams): UseClipboardReturn => {
   const { dispatch } = useDispatch();
-  const store = Flux.useStore<FluxSubStore>();
+  const client = Synnax.use();
   const selectedRef = useSyncedRef(selected ?? []);
+
+  const getTable = useCallback((): table.Table | undefined => {
+    const cached = client?.tables.getCached(key);
+    if (!query.isLive(cached)) return undefined;
+    return cached;
+  }, [client, key]);
 
   const handleCopy = useCallback<ClipboardEventHandler>(
     (e) => {
       // Defer to the browser if the user has a real text selection.
       const text = window.getSelection()?.toString();
       if (text != null && text.length > 0) return;
-      const t = store.tables.get(key);
+      const t = getTable();
       if (t == null) return;
       const sel = selectedRef.current;
       if (sel.length === 0) return;
@@ -95,7 +100,7 @@ export const useClipboard = ({
       e.clipboardData.setData(MIME, JSON.stringify(payload));
       e.clipboardData.setData("text/plain", describe(payload));
     },
-    [key, store],
+    [key, getTable],
   );
 
   const handlePaste = useCallback<ClipboardEventHandler>(
@@ -112,7 +117,7 @@ export const useClipboard = ({
       const sel = selectedRef.current;
       const anchorKey = sel[sel.length - 1] ?? null;
       if (anchorKey == null) return;
-      const t = store.tables.get(key);
+      const t = getTable();
       if (t == null) return;
       const anchorPos = findCellPosition(t.rows, anchorKey);
       if (anchorPos == null) return;
@@ -134,7 +139,7 @@ export const useClipboard = ({
       const actions: table.Action[] = [];
       const defaultConfig = Cell.defaultConfig("text");
       // keyAt maps a final-state grid position to the cell key at that
-      // position. Existing positions use the current store keys; newly-added
+      // position. Existing positions use the current document keys; newly-added
       // positions get fresh UUIDs that are baked into the addCol/addRow
       // actions below so the post-batch state is fully resolved.
       const keyAt: Record<string, string> = {};
@@ -193,7 +198,7 @@ export const useClipboard = ({
       dispatch({ key, actions });
       if (actions.length > 0) onPaste?.(overwritten);
     },
-    [key, store, dispatch, onPaste],
+    [key, getTable, dispatch, onPaste],
   );
 
   return { onCopy: handleCopy, onPaste: handlePaste };

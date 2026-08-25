@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { box, scale, text, xy } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
-import * as CommonTelem from "@/schematic/node/common/telem";
-import { type Config } from "@/schematic/node/general/value/config";
 import { Value } from "@/schematic/node/general/value/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
@@ -43,11 +42,11 @@ export const Symbol = ({
     stalenessTimeout,
     redline,
   },
-}: NodeProps<Config>): ReactElement => {
+}: NodeProps<schematic.ValueNodeConfig>): ReactElement => {
   const font = Theming.useTypography(level);
   const valueBoxHeight = (font.lineHeight + 0.5) * font.baseSize + 2;
   const t = useMemo(
-    () => CommonTelem.stringSource({ channel, rollingAverage, precision, notation }),
+    () => BaseValue.stringSource({ channel, rollingAverage, precision, notation }),
     [channel, rollingAverage, precision, notation],
   );
   const backgroundTelem = useMemo(() => {

@@ -66,7 +66,9 @@ func compileForTwoIdent(
 	return compileForSeriesIteration(ctx, clause, elemName, indexName, expr)
 }
 
-func isRangeCallExpr(expr parser.IExpressionContext) (parser.IFunctionCallSuffixContext, bool) {
+func isRangeCallExpr(
+	expr parser.IExpressionContext,
+) (parser.IFunctionCallSuffixContext, bool) {
 	primary := parser.GetPrimaryExpression(expr)
 	if primary == nil || primary.IDENTIFIER() == nil {
 		return nil, false
@@ -80,8 +82,8 @@ func isRangeCallExpr(expr parser.IExpressionContext) (parser.IFunctionCallSuffix
 		AllRelationalExpression()[0].
 		AllAdditiveExpression()[0].
 		AllMultiplicativeExpression()[0].
-		AllPowerExpression()[0].
-		UnaryExpression().
+		AllUnaryExpression()[0].
+		PowerExpression().
 		PostfixExpression()
 	if postfix == nil {
 		return nil, false

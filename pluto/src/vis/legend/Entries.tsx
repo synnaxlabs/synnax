@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type color, type optional } from "@synnaxlabs/x";
+import { type color, type optional, type state } from "@synnaxlabs/x";
 import { memo, type ReactElement } from "react";
 
 import { Button } from "@/button";
@@ -15,7 +15,6 @@ import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
-import { type state } from "@/state";
 import { Text } from "@/text";
 import { type Theming } from "@/theming";
 import { stopPropagation } from "@/util/event";
@@ -86,7 +85,7 @@ const Entry = ({
   return (
     <Flex.Box
       align="center"
-      className={CSS(CSS.B("legend-entry"), className)}
+      className={CSS.cls(CSS.B("legend-entry"), className)}
       gap="small"
       key={key}
       x
@@ -112,8 +111,7 @@ const Entry = ({
       </Flex.Box>
       {allowVisibleChange && onVisibleChange != null && (
         <Button.Button
-          className={CSS.B("visible-toggle")}
-          contrast={background}
+          className={CSS.cls(CSS.B("visible-toggle"), CSS.BM("btn", "glyph"))}
           onClick={() => onVisibleChange(key, !visible)}
           onDoubleClick={stopPropagation}
           size="tiny"

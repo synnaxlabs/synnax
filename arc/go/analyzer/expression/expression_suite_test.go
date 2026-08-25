@@ -44,10 +44,17 @@ func expectSuccess(specCtx context.Context, code string, extras []symbol.Symbol)
 	Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 }
 
-func expectFailure(specCtx context.Context, code string, extras []symbol.Symbol, expectedMsg string) {
+func expectFailure(
+	specCtx context.Context,
+	code string,
+	extras []symbol.Symbol,
+	expectedMsg string,
+) {
 	ast := MustSucceed(parser.Parse(code))
 	ctx := acontext.NewRoot(specCtx, ast, buildExpressionRoot(extras))
 	analyzer.AnalyzeProgram(ctx)
 	Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 	Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(expectedMsg))
 }
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

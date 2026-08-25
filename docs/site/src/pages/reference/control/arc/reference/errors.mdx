@@ -2,7 +2,7 @@
 layout: "@/layouts/Reference.astro"
 title: "Errors"
 description: "Arc error code reference for compile-time and runtime errors"
-prev: "Time"
+prev: "`time`"
 prevURL: "/reference/control/arc/reference/standard-library/time"
 ---
 
@@ -170,25 +170,6 @@ if index < len(data) {
 }
 ```
 
-### Channel Errors
-
-| Error         | Cause                                                         |
-| ------------- | ------------------------------------------------------------- |
-| Type mismatch | Writing wrong type to channel (if not caught at compile time) |
-
-<Divider.Divider x />
-
-## Error Severity Levels
-
-| Level   | Description                             |
-| ------- | --------------------------------------- |
-| Error   | Prevents compilation or stops execution |
-| Warning | Potential problem, compiles anyway      |
-| Info    | Informational message                   |
-| Hint    | Suggested improvement                   |
-
-The text editor shows errors inline with severity indicators.
-
 <Divider.Divider x />
 
 ## Error Isolation
@@ -221,10 +202,12 @@ The text editor shows compile-time errors inline:
 
 Write intermediate values to channels for debugging:
 
-```arc
+```arc channels="setpoint, gain, debug_error"
 func debug_controller(value f64) f64 {
     error := value - setpoint
-    debug_error = error // Write to channel for visibility
+
+    // Write to channel for visibility
+    debug_error = f"Error is: {error}"
     return error * gain
 }
 ```

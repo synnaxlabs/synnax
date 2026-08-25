@@ -15,10 +15,10 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -84,18 +84,18 @@ func (s *Service) Create(
 
 type (
 	RetrieveRequest struct {
-		Embedded      *bool      `json:"embedded" msgpack:"embedded"`
-		HostIsNode    *bool      `json:"host_is_node" msgpack:"host_is_node"`
-		SearchTerm    string     `json:"search_term" msgpack:"search_term"`
-		Keys          []rack.Key `json:"keys" msgpack:"keys"`
-		Names         []string   `json:"names" msgpack:"names"`
-		Integration   string     `json:"integration" msgpack:"integration"`
-		Limit         int        `json:"limit" msgpack:"limit"`
-		Offset        int        `json:"offset" msgpack:"offset"`
+		Embedded      *bool      `json:"embedded"       msgpack:"embedded"`
+		HostIsNode    *bool      `json:"host_is_node"   msgpack:"host_is_node"`
+		SearchTerm    string     `json:"search_term"    msgpack:"search_term"`
+		Keys          []rack.Key `json:"keys"           msgpack:"keys"`
+		Names         []string   `json:"names"          msgpack:"names"`
+		Integration   string     `json:"integration"    msgpack:"integration"`
+		Limit         int        `json:"limit"          msgpack:"limit"`
+		Offset        int        `json:"offset"         msgpack:"offset"`
 		IncludeStatus bool       `json:"include_status" msgpack:"include_status"`
 	}
 	RetrieveResponse struct {
-		Racks []rack.Rack `json:"racks" msgpack:"racks"`
+		Racks []rack.Rack `json:"racks,omitzero" msgpack:"racks,omitzero"`
 	}
 )
 
@@ -142,10 +142,6 @@ func (s *Service) Retrieve(
 	}
 
 	if req.IncludeStatus {
-		keys := make([]rack.Key, len(resRacks))
-		for i := range resRacks {
-			keys[i] = resRacks[i].Key
-		}
 		statuses := make([]rack.Status, 0, len(resRacks))
 		if err := status.NewRetrieve[rack.StatusDetails](s.status).
 			Where(status.MatchKeys[rack.StatusDetails](ontology.IDsToKeys(rack.OntologyIDsFromRacks(resRacks))...)).
@@ -154,7 +150,7 @@ func (s *Service) Retrieve(
 			return RetrieveResponse{}, err
 		}
 		for i, stat := range statuses {
-			resRacks[i].Status = (*rack.Status)(&stat)
+			resRacks[i].Status = &stat
 		}
 	}
 
@@ -191,7 +187,9 @@ func (s *Service) Delete(
 	}); err != nil {
 		return types.Nil{}, err
 	}
-	exists, err := s.device.NewRetrieve().Where(device.MatchRacks(req.Keys...)).Exists(ctx, tx)
+	exists, err := s.device.NewRetrieve().
+		Where(device.MatchRacks(req.Keys...)).
+		Exists(ctx, tx)
 	if err != nil {
 		return types.Nil{}, err
 	}
@@ -218,6 +216,11 @@ func (s *Service) Delete(
 		if err := w.DeleteGuard(ctx, k, embeddedGuard); err != nil {
 			return types.Nil{}, err
 		}
+	}
+	// Only internal tasks are left: the check above rejects the delete while the user
+	// still has tasks of their own on the rack.
+	if err := s.task.NewWriter(tx).DeleteByRacks(ctx, req.Keys...); err != nil {
+		return types.Nil{}, err
 	}
 	return types.Nil{}, nil
 }

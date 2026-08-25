@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { control } from "@synnaxlabs/client";
-import { type status, TimeStamp } from "@synnaxlabs/x";
+import { control, status } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 import { type z } from "zod";
 
@@ -19,20 +18,20 @@ import { tooltipMessage } from "@/telem/control/Chip";
 const makeStatus = (
   variant: status.Variant,
   details: Partial<z.infer<typeof controlAether.chipStatusDetailsZ>> = {},
-): status.Status<typeof controlAether.chipStatusDetailsZ> => ({
-  key: "test",
-  name: "test",
-  variant,
-  message: "",
-  time: TimeStamp.now(),
-  details: { authority: undefined, valid: false, ...details },
-});
+): status.Status<typeof controlAether.chipStatusDetailsZ> =>
+  status.create<typeof controlAether.chipStatusDetailsZ>({
+    key: "test",
+    name: "test",
+    variant,
+    message: "",
+    details: { authority: undefined, valid: false, ...details },
+  });
 
 describe("tooltipMessage", () => {
   it("should return controlled style when the user has control", () => {
     const result = tooltipMessage(makeStatus("success"));
     expect(result).toEqual({
-      message: "You're in control. Release schematic to release control.",
+      message: "You're in control. Release the schematic to give up control.",
       chipColor: "var(--pluto-primary-z)",
       chipIcon: Icon.Circle,
     });
@@ -63,7 +62,7 @@ describe("tooltipMessage", () => {
     const result = tooltipMessage(makeStatus("disabled", { valid: true }));
     expect(result).toEqual({
       message: "Uncontrolled. Click to take control.",
-      chipColor: "var(--pluto-gray-l12)",
+      chipColor: "var(--pluto-gray-l11)",
       chipIcon: Icon.Circle,
     });
   });
@@ -71,8 +70,8 @@ describe("tooltipMessage", () => {
   it("should return disabled style when no channel is connected", () => {
     const result = tooltipMessage(makeStatus("disabled", { valid: false }));
     expect(result).toEqual({
-      message: "No channel connected. This element cannot be controlled.",
-      chipColor: "var(--pluto-gray-l7)",
+      message: "No channel connected",
+      chipColor: "var(--pluto-text-disabled)",
       chipIcon: Icon.Circle,
       disabled: true,
     });
@@ -81,7 +80,7 @@ describe("tooltipMessage", () => {
   it("should return error style for an unexpected variant", () => {
     const result = tooltipMessage(makeStatus("info"));
     expect(result).toEqual({
-      message: "Unexpected status.",
+      message: "Unexpected status",
       chipColor: "var(--pluto-error-z)",
       chipIcon: Icon.Square,
     });

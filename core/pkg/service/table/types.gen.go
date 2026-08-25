@@ -12,68 +12,55 @@
 package table
 
 import (
-	"encoding/json"
-	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/notation"
-	"github.com/synnaxlabs/x/spatial"
-	"github.com/synnaxlabs/x/text"
+	"github.com/synnaxlabs/synnax/pkg/service/table/versions"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Key is a unique identifier for a table, represented as a UUID.
-type Key = uuid.UUID
+type Key = versions.Key
 
-// TextCellConfig is the configuration for static text cells.
-type TextCellConfig struct {
-	// Value is the text content of the cell.
-	Value string `json:"value" msgpack:"value"`
-	// Level is the typography level of the cell text.
-	Level text.Level `json:"level" msgpack:"level"`
-	// Weight is the font weight of the cell text.
-	Weight float64 `json:"weight" msgpack:"weight"`
-	// Align is the alignment of the cell text along the row axis.
-	Align spatial.Alignment `json:"align" msgpack:"align"`
-	// BackgroundColor is the background color of the cell. When absent the cell renders
-	// with a transparent background.
-	BackgroundColor *color.Color `json:"background_color,omitempty" msgpack:"background_color,omitempty"`
-}
+// FlexAlignment is a cross-axis flex alignment for laid-out content.
+type FlexAlignment = versions.FlexAlignment
+
+const (
+	FlexAlignmentStart   FlexAlignment = versions.FlexAlignmentStart
+	FlexAlignmentCenter  FlexAlignment = versions.FlexAlignmentCenter
+	FlexAlignmentEnd     FlexAlignment = versions.FlexAlignmentEnd
+	FlexAlignmentStretch FlexAlignment = versions.FlexAlignmentStretch
+)
 
 // Redline maps a numeric range to a color gradient for limit visualization.
-type Redline struct {
-	// Bounds is the numeric range mapped onto the gradient.
-	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
-	// Gradient is the color gradient applied across the bounds.
-	Gradient []color.Stop `json:"gradient" msgpack:"gradient"`
-}
+type Redline = versions.Redline
+
+// CellConfig is the per-cell configuration stored in the table cells map. The variant
+// selects which Pluto cell component renders the cell.
+type CellConfig = versions.CellConfig
+type CellConfigVariant = versions.CellConfigVariant
+type CellConfigType = versions.CellConfigType
+
+const (
+	// TextCellConfigType is the configuration for static text cells.
+	TextCellConfigType CellConfigType = versions.TextCellConfigType
+	// ValueCellConfigType is the configuration for live telemetry value cells.
+	ValueCellConfigType CellConfigType = versions.ValueCellConfigType
+)
+
+// TextCellConfig is the configuration for static text cells.
+type TextCellConfig = versions.TextCellConfig
 
 // ValueCellConfig is the configuration for live telemetry value cells.
-type ValueCellConfig struct {
-	// Channel is the channel whose value the cell displays.
-	Channel channel.Key `json:"channel" msgpack:"channel"`
-	// RollingAverage is the sample window for rolling-average smoothing.
-	RollingAverage int32 `json:"rolling_average" msgpack:"rolling_average"`
-	// Precision is the number of decimal places shown.
-	Precision float64 `json:"precision" msgpack:"precision"`
-	// Notation is the numeric notation used to format the value.
-	Notation notation.Notation `json:"notation" msgpack:"notation"`
-	// Redline is the bounds-to-gradient mapping applied to the background.
-	Redline Redline `json:"redline" msgpack:"redline"`
-	// Level is the typography level of the displayed value.
-	Level text.Level `json:"level" msgpack:"level"`
-	// Color is the color of the displayed text. When absent the value renders with a
-	// theme-derived legible color.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// Units is the unit suffix displayed after the value.
-	Units string `json:"units" msgpack:"units"`
-	// StalenessTimeout is the duration in seconds after which the value is considered
-	// stale.
-	StalenessTimeout float64 `json:"staleness_timeout" msgpack:"staleness_timeout"`
-	// StalenessColor is the color applied when the value is stale. When absent the value
-	// renders with the theme warning color.
-	StalenessColor *color.Color `json:"staleness_color,omitempty" msgpack:"staleness_color,omitempty"`
-}
+type ValueCellConfig = versions.ValueCellConfig
+
+// Row is a single row in a table, with height and ordered cell keys.
+type Row = versions.Row
+
+// Column is a single column in a table, with width.
+type Column = versions.Column
+
+// Table is a tabular data display component for viewing structured telemetry data.
+// Tables support multiple columns, channel data sources, and customizable formatting
+// options.
+type Table = versions.Table
 
 // Cell is a keyed cell configuration used by actions that address cells explicitly.
 // Inside the table state itself, cell configurations are stored in the cells map keyed
@@ -85,123 +72,15 @@ type Cell struct {
 	Config CellConfig `json:"config" msgpack:"config"`
 }
 
-// Row is a single row in a table, with height and ordered cell keys.
-type Row struct {
-	// Size is the height of the row in pixels.
-	Size float64 `json:"size" msgpack:"size"`
-	// Cells is the ordered list of cell keys in this row from left to right. Each key
-	// points at an entry in the table's cells map.
-	Cells []string `json:"cells" msgpack:"cells"`
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (c *Cell) ApplyDefaults() {
+	c.Config.ApplyDefaults()
 }
 
-// Column is a single column in a table, with width.
-type Column struct {
-	// Size is the width of the column in pixels.
-	Size float64 `json:"size" msgpack:"size"`
-}
-
-// Table is a tabular data display component for viewing structured telemetry data.
-// Tables support multiple columns, channel data sources, and customizable formatting
-// options.
-type Table struct {
-	// Key is the unique identifier for this table.
-	Key Key `json:"key" msgpack:"key"`
-	// Name is a human-readable name for the table.
-	Name string `json:"name" msgpack:"name"`
-	// Rows are the table rows in display order, top to bottom.
-	Rows []Row `json:"rows" msgpack:"rows"`
-	// Columns are the table columns in display order, left to right.
-	Columns []Column `json:"columns" msgpack:"columns"`
-	// Cells contains all cells in the table, keyed by cell key. Cell positions are derived
-	// from rows[*].cells[*] references; cells not referenced by any row are orphaned and
-	// will be pruned on the next structural edit.
-	Cells map[string]CellConfig `json:"cells" msgpack:"cells"`
-}
-
-type CellConfigType string
-
-const (
-	CellConfigTypeText  CellConfigType = "text"
-	CellConfigTypeValue CellConfigType = "value"
-)
-
-type CellConfigVariant interface {
-	isCellConfigVariant()
-}
-
-type CellConfigText struct {
-	TextCellConfig
-}
-
-func (CellConfigText) isCellConfigVariant() {}
-
-type CellConfigValue struct {
-	ValueCellConfig
-}
-
-func (CellConfigValue) isCellConfigVariant() {}
-
-// CellConfig is the per-cell configuration stored in the table cells map. The variant
-// selects which Pluto cell component renders the cell.
-type CellConfig struct {
-	Variant CellConfigVariant
-}
-
-func (u CellConfig) MarshalJSON() ([]byte, error) {
-	if u.Variant == nil {
-		return []byte("null"), nil
-	}
-	var t CellConfigType
-	switch u.Variant.(type) {
-	case CellConfigText:
-		t = CellConfigTypeText
-	case CellConfigValue:
-		t = CellConfigTypeValue
-	default:
-		return nil, errors.Newf("CellConfig: nil or unknown variant %T", u.Variant)
-	}
-	raw, err := json.Marshal(u.Variant)
-	if err != nil {
-		return nil, err
-	}
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		return nil, err
-	}
-	tag, err := json.Marshal(t)
-	if err != nil {
-		return nil, err
-	}
-	fields["variant"] = tag
-	return json.Marshal(fields)
-}
-
-func (u *CellConfig) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
-		u.Variant = nil
-		return nil
-	}
-	var disc struct {
-		Type CellConfigType `json:"variant"`
-	}
-	if err := json.Unmarshal(data, &disc); err != nil {
-		return err
-	}
-	switch disc.Type {
-	case CellConfigTypeText:
-		var v CellConfigText
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case CellConfigTypeValue:
-		var v CellConfigValue
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	default:
-		return errors.Newf("CellConfig: unknown variant %q", disc.Type)
-	}
-	return nil
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c Cell) Validate() error {
+	v := validate.New("Cell")
+	v.Exec(func() error { return validate.PathedError(c.Config.Validate(), "config") })
+	return v.Error()
 }

@@ -14,16 +14,15 @@ import (
 	stdio "io"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	v55 "github.com/synnaxlabs/synnax/pkg/service/table/migrations/v55"
-	v56 "github.com/synnaxlabs/synnax/pkg/service/table/migrations/v56"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/table/versions"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
@@ -33,27 +32,36 @@ import (
 // ServiceConfig is the configuration for opening a table service.
 type ServiceConfig struct {
 	// Instrumentation for logging, tracing, and metrics.
+	//
+	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
 	// DB is the database that the table service will store tables in.
+	//
 	// [REQUIRED]
 	DB *gorp.DB
 	// Ontology is used to define relationships between tables and other entities in the
 	// Synnax resource graph.
+	//
+	// [REQUIRED]
 	Ontology *ontology.Ontology
 	// Search is the search index for fuzzy searching tables.
+	//
 	// [REQUIRED]
 	Search *search.Index
-	// Signals is used to propagate changes to tables throughout the cluster. When
-	// nil, the service does not broadcast action sequences and gorp delete events
-	// are not published. Dispatch still applies actions to local state.
+	// Signals is used to propagate changes to tables throughout the cluster. When nil,
+	// the service does not broadcast action sequences and gorp delete events are not
+	// published. Dispatch still applies actions to local state.
+	//
+	// [OPTIONAL] - Defaults to nil, which disables signal broadcasting.
 	Signals *signals.Provider
+	// ImEx is the import/export registry the table service registers itself with as the
+	// exporter for table resources during OpenService.
+	//
+	// [REQUIRED]
+	ImEx *imex.Service
 }
 
-var (
-	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultServiceConfig is the default configuration for opening a table service.
-	DefaultServiceConfig = ServiceConfig{}
-)
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
@@ -62,6 +70,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Search = override.Nil(c.Search, other.Search)
 	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.ImEx = override.Nil(c.ImEx, other.ImEx)
 	return c
 }
 
@@ -71,12 +80,13 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "search", c.Search)
+	validate.NotNil(v, "imex", c.ImEx)
 	return v.Error()
 }
 
 // Service is the primary service for retrieving and modifying tables from Synnax.
 type Service struct {
-	ServiceConfig
+	cfg    ServiceConfig
 	closer io.MultiCloser
 	table  *gorp.Table[Key, Table]
 	state  *actions.State[Key, Action]
@@ -86,38 +96,25 @@ type Service struct {
 // configuration will be used as an override for the previous configuration in the list.
 // See the Config struct for information on which fields should be set.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
-	cfg, err := config.New(DefaultServiceConfig, cfgs...)
+	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{ServiceConfig: cfg, state: actions.NewState[Key, Action]()}
+	s = &Service{cfg: cfg, state: actions.NewState[Key, Action](cfg.DB)}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	if s.table, err = gorp.OpenTable[Key, Table](ctx, gorp.TableConfig[Key, Table]{
-		DB: cfg.DB,
-		Migrations: []migrate.Migration{
-			gorp.CodecMigration[Key, v55.Table]("msgpack_to_orc"),
-			migrate.WithAddedDeps(
-				gorp.NewEntryMigration[Key, Key, v55.Table, v56.Table](
-					"v55_lift_typed_table",
-					v56.MigrateTable,
-				),
-				"msgpack_to_orc",
-			),
-			migrate.WithAddedDeps(
-				gorp.NewEntryMigration[Key, Key, v56.Table, Table](
-					"v56_typed_cell_configs",
-					MigrateTable,
-				),
-				"v55_lift_typed_table",
-			),
-		},
+	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Table]{
+		DB:              cfg.DB,
+		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
+	if err = cfg.ImEx.RegisterImportExporter(s); !ok(err, nil) {
+		return nil, err
+	}
 	if cfg.Signals != nil {
 		var sig stdio.Closer
 		if sig, err = actions.PublishSignals(ctx, actions.SignalsConfig[Key, Action]{
@@ -129,7 +126,14 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		}
 		deleteCfg := signals.GorpPublisherConfigUUID(s.table.Observe())
 		deleteCfg.DisableSet = true
-		if sig, err = signals.PublishFromGorp(ctx, cfg.Signals, deleteCfg); !ok(err, sig) {
+		if sig, err = signals.PublishFromGorp(
+			ctx,
+			cfg.Signals,
+			deleteCfg,
+		); !ok(
+			err,
+			sig,
+		) {
 			return nil, err
 		}
 	}
@@ -141,24 +145,43 @@ func (s *Service) Close() error {
 	return s.closer.Close()
 }
 
-// OnAction subscribes the given handler to the action stream emitted by
-// Writer.Dispatch. The handler runs synchronously inside Dispatch after the
-// underlying transaction commits. The returned Disconnect removes the handler.
+// OnAction subscribes the given handler to the action stream emitted by Dispatch. The
+// handler runs synchronously inside Dispatch after the underlying transaction commits.
+// The returned Disconnect removes the handler.
 func (s *Service) OnAction(
 	handler func(context.Context, actions.Scoped[Key, Action]),
 ) observe.Disconnect {
 	return s.state.OnAction(handler)
 }
 
+// Dispatch applies a sequence of actions atomically to the table with the given key.
+// Dispatches for the same table run one at a time, each in its own transaction
+// committed before the actions are notified, so two concurrent dispatches can never
+// overwrite each other's edits. dispatchKey is a client-generated identifier carried
+// verbatim onto the broadcast so the originating client can recognize its own echo.
+func (s *Service) Dispatch(
+	ctx context.Context,
+	key Key,
+	dispatchKey string,
+	acts []Action,
+) error {
+	return s.state.Dispatch(ctx, key, dispatchKey, acts, func(tx gorp.Tx) error {
+		return s.table.NewUpdate().Where(gorp.MatchKeys[Key, Table](key)).
+			ChangeErr(func(_ gorp.Context, t Table) (Table, error) {
+				return Reduce(t, acts...)
+			}).Exec(ctx, tx)
+	})
+}
+
 // NewWriter opens a new writer for creating, updating, and deleting tables in Synnax.
 // If tx is provided, the writer will use that transaction. If tx is nil, the Writer
 // will execute the operations directly on the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	tx = gorp.OverrideTx(s.DB, tx)
+	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
 		tx:         tx,
-		otgWriter:  s.Ontology.NewWriter(tx),
-		otg:        s.Ontology,
+		otgWriter:  s.cfg.Ontology.NewWriter(tx),
+		otg:        s.cfg.Ontology,
 		tbl:        s.table,
 		dispatcher: s.state.Dispatcher(),
 	}
@@ -168,6 +191,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		gorp:   s.table.NewRetrieve(),
-		baseTX: s.DB,
+		baseTX: s.cfg.DB,
 	}
 }

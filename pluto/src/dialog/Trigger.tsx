@@ -17,34 +17,41 @@ import { CSS } from "@/css";
 import { useContext } from "@/dialog/Frame";
 import { type Icon } from "@/icon";
 
+/** Props for {@link Trigger}. */
 export interface TriggerProps extends Button.ButtonProps {
   hideCaret?: boolean;
 }
 
+/**
+ * The button that opens and closes the enclosing {@link Frame}, carrying a caret that
+ * turns with the dialog.
+ */
 export const Trigger = ({
   onClick,
   className,
   hideCaret = false,
   children,
   variant: triggerVariant,
+  preview,
   ...rest
 }: TriggerProps): ReactElement => {
   const { toggle, visible, variant } = useContext();
   let endIcon: Icon.ReactElement | undefined;
-  if (triggerVariant === "preview") hideCaret = true;
+  if (preview === true) hideCaret = true;
   if (variant !== "modal" && !hideCaret)
     endIcon = (
       <Caret.Animated enabled={visible} enabledLoc="bottom" disabledLoc="left" />
     );
   return (
     <Button.Button
-      className={CSS(CSS.BE("dialog", "trigger"), className)}
+      className={CSS.cls(CSS.BE("dialog", "trigger"), className)}
       onClick={(e) => {
         onClick?.(e);
         toggle();
       }}
       full="x"
       variant={triggerVariant}
+      preview={preview}
       {...rest}
     >
       {children}

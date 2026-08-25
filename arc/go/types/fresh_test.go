@@ -171,7 +171,6 @@ var _ = Describe("Freshen", func() {
 		Expect(fresh.Kind).To(Equal(types.KindFunction))
 		Expect(fresh.Inputs).To(BeNil())
 		Expect(fresh.Outputs).To(BeNil())
-		Expect(fresh.Config).To(BeNil())
 	})
 
 	It("Should handle multiple distinct type variables", func() {

@@ -46,9 +46,8 @@ describe("Primitive shape wrappers", () => {
   });
 
   it("should let caller-supplied vectorEffect override the injected default", () => {
-    // {...props} is spread after vectorEffect, so a caller can intentionally
-    // turn off non-scaling-stroke if they want a hairline that scales with the
-    // viewport.
+    // {...props} is spread after vectorEffect, so a caller can intentionally turn off
+    // non-scaling-stroke if they want a hairline that scales with the viewport.
     const c = renderInSVG(<Primitive.Path d="M0 0 L1 1" vectorEffect="none" />);
     expect(c.querySelector("path")?.getAttribute("vector-effect")).toBe("none");
   });

@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
+
 import { Box } from "@/schematic/node/general/box";
 import { Button } from "@/schematic/node/general/button";
 import { Circle } from "@/schematic/node/general/circle";
@@ -15,9 +17,11 @@ import { Input } from "@/schematic/node/general/input";
 import { Light } from "@/schematic/node/general/light";
 import { OffPageReference } from "@/schematic/node/general/offPageReference";
 import { Polygon } from "@/schematic/node/general/polygon";
+import { Scale } from "@/schematic/node/general/scale";
 import { Select } from "@/schematic/node/general/select";
 import { Setpoint } from "@/schematic/node/general/setpoint";
 import { StateIndicator } from "@/schematic/node/general/stateIndicator";
+import { StringDisplay } from "@/schematic/node/general/stringDisplay";
 import { Switch } from "@/schematic/node/general/switch";
 import { TextBox } from "@/schematic/node/general/textBox";
 import { Value } from "@/schematic/node/general/value";
@@ -31,10 +35,12 @@ export const REGISTRY = {
   light: Light.spec,
   off_page_reference: OffPageReference.spec,
   polygon: Polygon.spec,
+  scale: Scale.spec,
   select: Select.spec,
   setpoint: Setpoint.spec,
   state_indicator: StateIndicator.spec,
+  string_display: StringDisplay.spec,
   switch: Switch.spec,
   text_box: TextBox.spec,
   value: Value.spec,
-} as const;
+} as const satisfies Partial<Record<schematic.NodeConfigType, unknown>>;

@@ -15,8 +15,8 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -63,7 +63,7 @@ var _ = Describe("Writer", func() {
 
 			var res ontology.Resource
 			Expect(otg.NewRetrieve().
-				WhereIDs(role.OntologyID(r.Key)).
+				WhereIDs(r.OntologyID()).
 				Entry(&res).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(res.ID.Key).To(Equal(r.Key.String()))
@@ -79,7 +79,7 @@ var _ = Describe("Writer", func() {
 
 			var parents []ontology.Resource
 			Expect(otg.NewRetrieve().
-				WhereIDs(role.OntologyID(r.Key)).
+				WhereIDs(r.OntologyID()).
 				TraverseTo(ontology.ParentsTraverser).
 				WhereTypes("group").
 				Entries(&parents).
@@ -87,26 +87,33 @@ var _ = Describe("Writer", func() {
 			Expect(parents).ToNot(BeEmpty())
 		})
 
-		It("Should create an internal role when allowInternal is true", func(ctx SpecContext) {
-			r := &role.Role{
-				Name:        "builtin-role",
-				Description: "A builtin role",
-				Internal:    true,
-			}
-			Expect(w.Create(ctx, r)).To(Succeed())
-			Expect(r.Key).ToNot(Equal(uuid.Nil))
-		})
+		It(
+			"Should create an internal role when allowInternal is true",
+			func(ctx SpecContext) {
+				r := &role.Role{
+					Name:        "builtin-role",
+					Description: "A builtin role",
+					Internal:    true,
+				}
+				Expect(w.Create(ctx, r)).To(Succeed())
+				Expect(r.Key).ToNot(Equal(uuid.Nil))
+			},
+		)
 
-		It("Should fail to create an internal role when allowInternal is false", func(ctx SpecContext) {
-			restrictedWriter := svc.NewWriter(tx, false)
-			r := &role.Role{
-				Name:        "builtin-role",
-				Description: "A builtin role",
-				Internal:    true,
-			}
-			Expect(restrictedWriter.Create(ctx, r)).
-				Error().To(MatchError(ContainSubstring("cannot create internal role")))
-		})
+		It(
+			"Should fail to create an internal role when allowInternal is false",
+			func(ctx SpecContext) {
+				restrictedWriter := svc.NewWriter(tx, false)
+				r := &role.Role{
+					Name:        "builtin-role",
+					Description: "A builtin role",
+					Internal:    true,
+				}
+				Expect(restrictedWriter.Create(ctx, r)).
+					Error().
+					To(MatchError(ContainSubstring("cannot create internal role")))
+			},
+		)
 	})
 
 	Describe("CreateMany", func() {
@@ -148,36 +155,49 @@ var _ = Describe("Writer", func() {
 			Expect(w.Delete(ctx, roles[0].Key)).To(Succeed())
 
 			var r role.Role
-			err := svc.NewRetrieve().Where(role.MatchKeys(roles[0].Key)).Entry(&r).Exec(ctx, tx)
+			err := svc.NewRetrieve().
+				Where(role.MatchKeys(roles[0].Key)).
+				Entry(&r).
+				Exec(ctx, tx)
 			Expect(err).To(MatchError(query.ErrNotFound))
 		})
 
-		It("Should delete an internal role when allowInternal is true", func(ctx SpecContext) {
-			r := &role.Role{
-				Name:        "internal-to-delete",
-				Description: "Internal role to delete",
-				Internal:    true,
-			}
-			Expect(w.Create(ctx, r)).To(Succeed())
-			Expect(w.Delete(ctx, r.Key)).To(Succeed())
+		It(
+			"Should delete an internal role when allowInternal is true",
+			func(ctx SpecContext) {
+				r := &role.Role{
+					Name:        "internal-to-delete",
+					Description: "Internal role to delete",
+					Internal:    true,
+				}
+				Expect(w.Create(ctx, r)).To(Succeed())
+				Expect(w.Delete(ctx, r.Key)).To(Succeed())
 
-			var retrieved role.Role
-			err := svc.NewRetrieve().Where(role.MatchKeys(r.Key)).Entry(&retrieved).Exec(ctx, tx)
-			Expect(err).To(MatchError(query.ErrNotFound))
-		})
+				var retrieved role.Role
+				err := svc.NewRetrieve().
+					Where(role.MatchKeys(r.Key)).
+					Entry(&retrieved).
+					Exec(ctx, tx)
+				Expect(err).To(MatchError(query.ErrNotFound))
+			},
+		)
 
-		It("Should fail to delete an internal role when allowInternal is false", func(ctx SpecContext) {
-			r := &role.Role{
-				Name:        "internal-protected",
-				Description: "Internal role that cannot be deleted",
-				Internal:    true,
-			}
-			Expect(w.Create(ctx, r)).To(Succeed())
+		It(
+			"Should fail to delete an internal role when allowInternal is false",
+			func(ctx SpecContext) {
+				r := &role.Role{
+					Name:        "internal-protected",
+					Description: "Internal role that cannot be deleted",
+					Internal:    true,
+				}
+				Expect(w.Create(ctx, r)).To(Succeed())
 
-			restrictedWriter := svc.NewWriter(tx, false)
-			Expect(restrictedWriter.Delete(ctx, r.Key)).
-				Error().To(MatchError(ContainSubstring("cannot delete builtin role")))
-		})
+				restrictedWriter := svc.NewWriter(tx, false)
+				Expect(restrictedWriter.Delete(ctx, r.Key)).
+					Error().
+					To(MatchError(ContainSubstring("cannot delete builtin role")))
+			},
+		)
 	})
 
 	Describe("AssignRole", func() {
@@ -192,7 +212,7 @@ var _ = Describe("Writer", func() {
 			}
 			Expect(w.Create(ctx, r)).To(Succeed())
 			subject = ontology.ID{Type: "user", Key: uuid.New().String()}
-			Expect(otg.NewWriter(tx).DefineResource(ctx, subject)).To(Succeed())
+			Expect(otg.NewWriter(tx).DefineResources(ctx, subject)).To(Succeed())
 		})
 
 		It("Should assign role to subject", func(ctx SpecContext) {
@@ -240,7 +260,7 @@ var _ = Describe("Writer", func() {
 			}
 			Expect(w.Create(ctx, r)).To(Succeed())
 			subject = ontology.ID{Type: "user", Key: uuid.New().String()}
-			Expect(otg.NewWriter(tx).DefineResource(ctx, subject)).To(Succeed())
+			Expect(otg.NewWriter(tx).DefineResources(ctx, subject)).To(Succeed())
 			Expect(w.AssignRole(ctx, subject, r.Key)).To(Succeed())
 		})
 
@@ -271,7 +291,6 @@ var _ = Describe("Writer", func() {
 			Expect(parents).To(BeEmpty())
 		})
 	})
-
 })
 
 var _ = Describe("Retrieve", func() {
@@ -417,6 +436,33 @@ var _ = Describe("Retrieve", func() {
 	})
 })
 
+var _ = Describe("Search", func() {
+	// Writes commit directly so the search index observes them; indexing is
+	// asynchronous, hence the Eventually.
+	It("Should retrieve roles matching the search term", func(ctx SpecContext) {
+		w := svc.NewWriter(nil, true)
+		r := role.Role{Name: "quasar-operator", Description: "Quasar operator"}
+		Expect(w.Create(ctx, &r)).To(Succeed())
+		Eventually(func(g Gomega) {
+			var rs []role.Role
+			g.Expect(svc.NewRetrieve().
+				Search("quasar").
+				Entries(&rs).
+				Exec(ctx, nil)).To(Succeed())
+			g.Expect(rs).To(ContainElement(HaveField("Key", r.Key)))
+		}).Should(Succeed())
+	})
+
+	It("Should return no roles when nothing matches", func(ctx SpecContext) {
+		var rs []role.Role
+		Expect(svc.NewRetrieve().
+			Search("zzz-no-such-role").
+			Entries(&rs).
+			Exec(ctx, nil)).To(Succeed())
+		Expect(rs).To(BeEmpty())
+	})
+})
+
 var _ = Describe("Ontology Integration", func() {
 	var tx gorp.Tx
 	BeforeEach(func(ctx SpecContext) { tx = db.OpenTx() })
@@ -425,13 +471,6 @@ var _ = Describe("Ontology Integration", func() {
 	Describe("Type", func() {
 		It("Should return correct ontology type", func(ctx SpecContext) {
 			Expect(svc.Type()).To(Equal(ontology.ResourceTypeRole))
-		})
-	})
-
-	Describe("Schema", func() {
-		It("Should return a valid schema", func(ctx SpecContext) {
-			schema := svc.Schema()
-			Expect(schema).ToNot(BeNil())
 		})
 	})
 

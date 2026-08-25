@@ -8,9 +8,8 @@
 // included in the file licenses/APL.txt.
 
 #include <chrono>
-#include <thread>
 
-#include "glog/logging.h"
+#include "absl/log/log.h"
 #include <windows.h>
 
 // timeBeginPeriod/timeEndPeriod from winmm.lib. We declare them manually instead of
@@ -41,7 +40,7 @@ public:
         std::shared_ptr<x::thread::rt::Handle> rt_handle = nullptr
     ):
         config_(config), rt_handle_(std::move(rt_handle)) {
-        if (this->config_.lock_memory) {
+        if (this->config_.memory_locked) {
             LOG(WARNING) << "[arc.loop] Memory locking on Windows requires "
                          << "VirtualLock API (not implemented)";
         }

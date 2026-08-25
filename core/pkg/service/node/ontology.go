@@ -18,8 +18,9 @@ import (
 	"strconv"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/cluster"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
@@ -44,9 +45,6 @@ var (
 
 // Type implements ontology.Service.
 func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeNode }
-
-// Schema implements ontology.Service.
-func (s *Service) Schema() zyn.Schema { return schema }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(
@@ -84,7 +82,7 @@ func (s *Service) OpenNexter(
 func (s *Service) OnChange(
 	f func(context.Context, iter.Seq[ontology.Change]),
 ) observe.Disconnect {
-	onChange := func(ctx context.Context, ch ClusterChange) {
+	onChange := func(ctx context.Context, ch cluster.Change) {
 		f(ctx, slices.Values(lo.Map(ch.Changes, translateChange)))
 	}
 	return s.cfg.Cluster.OnChange(onChange)

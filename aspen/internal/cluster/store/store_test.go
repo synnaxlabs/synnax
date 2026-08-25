@@ -20,32 +20,26 @@ import (
 )
 
 var _ = Describe("Store", func() {
-
 	var s store.Store
 
 	BeforeEach(func() { s = store.New(context.Background()) })
 
 	Describe("Name", func() {
-
 		It("Should open a new Store with empty state", func() {
 			Expect(s.CopyState().Nodes).ToNot(BeNil())
 		})
-
 	})
 
 	Describe("SetNode and Node", func() {
-
 		It("Should set a node in Store", func(ctx SpecContext) {
 			s.SetNode(ctx, node.Node{Key: 1})
 			n, ok := s.GetNode(1)
 			Expect(ok).To(BeTrue())
 			Expect(n.Key).To(Equal(node.Key(1)))
 		})
-
 	})
 
 	Describe("Apply", func() {
-
 		It("Should add nonexistent nodes", func(ctx SpecContext) {
 			s.Merge(ctx, node.Group{1: node.Node{Key: 1}})
 			n, ok := s.GetNode(1)
@@ -64,11 +58,9 @@ var _ = Describe("Store", func() {
 			Expect(n.Key).To(Equal(node.Key(1)))
 			Expect(n.Heartbeat.Version).To(Equal(uint32(1)))
 		})
-
 	})
 
 	Describe("Lease", func() {
-
 		It("Should set and get the host correctly", func(ctx SpecContext) {
 			s.SetHost(ctx, node.Node{Key: 1})
 			Expect(s.GetHost().Key).To(Equal(node.Key(1)))
@@ -77,7 +69,5 @@ var _ = Describe("Store", func() {
 		It("Should return an empty host when not set", func() {
 			Expect(s.GetHost()).To(Equal(node.Node{}))
 		})
-
 	})
-
 })

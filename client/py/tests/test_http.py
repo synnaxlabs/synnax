@@ -7,11 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from random import randint
-
 import pytest
 
 import synnax as sy
+from x.strings import random_name
 
 
 @pytest.mark.http
@@ -26,7 +25,7 @@ class TestHTTPReadTask:
                 "data": {
                     "device": "http-device-key",
                     "rate": 1.0,
-                    "data_saving": True,
+                    "data_saving_disabled": False,
                     "auto_start": False,
                     "endpoints": [
                         {
@@ -39,7 +38,7 @@ class TestHTTPReadTask:
                                     "pointer": "/temperature",
                                     "channel": 1234,
                                     "data_type": "float64",
-                                    "enabled": True,
+                                    "disabled": False,
                                     "name": "Temperature",
                                 },
                             ],
@@ -52,7 +51,7 @@ class TestHTTPReadTask:
                 "data": {
                     "device": "http-device-key",
                     "rate": 5.0,
-                    "data_saving": False,
+                    "data_saving_disabled": True,
                     "auto_start": True,
                     "endpoints": [
                         {
@@ -66,7 +65,7 @@ class TestHTTPReadTask:
                                     "pointer": "/count",
                                     "channel": 5678,
                                     "data_type": "int32",
-                                    "enabled": True,
+                                    "disabled": False,
                                     "name": "Count",
                                 },
                             ],
@@ -79,7 +78,7 @@ class TestHTTPReadTask:
                 "data": {
                     "device": "http-device-key",
                     "rate": 2.0,
-                    "data_saving": True,
+                    "data_saving_disabled": False,
                     "auto_start": False,
                     "endpoints": [
                         {
@@ -92,14 +91,14 @@ class TestHTTPReadTask:
                                     "pointer": "/temperature",
                                     "channel": 1000,
                                     "data_type": "float64",
-                                    "enabled": True,
+                                    "disabled": False,
                                 },
                                 {
                                     "key": "f-2",
                                     "pointer": "/pressure",
                                     "channel": 2000,
                                     "data_type": "float64",
-                                    "enabled": True,
+                                    "disabled": False,
                                 },
                             ],
                         },
@@ -113,7 +112,7 @@ class TestHTTPReadTask:
                                     "pointer": "/sensors/sensor_0",
                                     "channel": 3000,
                                     "data_type": "float64",
-                                    "enabled": True,
+                                    "disabled": False,
                                 },
                             ],
                         },
@@ -125,7 +124,7 @@ class TestHTTPReadTask:
                 "data": {
                     "device": "http-device-key",
                     "rate": 1.0,
-                    "data_saving": True,
+                    "data_saving_disabled": False,
                     "auto_start": False,
                     "endpoints": [
                         {
@@ -142,7 +141,7 @@ class TestHTTPReadTask:
                                     "pointer": "/temperature",
                                     "channel": 1234,
                                     "data_type": "float64",
-                                    "enabled": True,
+                                    "disabled": False,
                                 },
                             ],
                         },
@@ -150,11 +149,11 @@ class TestHTTPReadTask:
                 },
             },
             {
-                "name": "field_with_timestamp_format",
+                "name": "field_with_time_format",
                 "data": {
                     "device": "http-device-key",
                     "rate": 1.0,
-                    "data_saving": True,
+                    "data_saving_disabled": False,
                     "auto_start": False,
                     "endpoints": [
                         {
@@ -168,15 +167,15 @@ class TestHTTPReadTask:
                                     "pointer": "/timestamp",
                                     "channel": 100,
                                     "data_type": "timestamp",
-                                    "timestamp_format": "unix_sec",
-                                    "enabled": True,
+                                    "time_format": "unix_sec",
+                                    "disabled": False,
                                 },
                                 {
                                     "key": "val-field",
                                     "pointer": "/value",
                                     "channel": 200,
                                     "data_type": "float64",
-                                    "enabled": True,
+                                    "disabled": False,
                                 },
                             ],
                         },
@@ -188,7 +187,7 @@ class TestHTTPReadTask:
                 "data": {
                     "device": "http-device-key",
                     "rate": 1.0,
-                    "data_saving": True,
+                    "data_saving_disabled": False,
                     "auto_start": False,
                     "endpoints": [
                         {
@@ -201,7 +200,7 @@ class TestHTTPReadTask:
                                     "pointer": "/power",
                                     "channel": 1234,
                                     "data_type": "float64",
-                                    "enabled": True,
+                                    "disabled": False,
                                     "enum_values": [
                                         {"label": "OFF", "value": 0},
                                         {"label": "ON", "value": 1},
@@ -215,50 +214,53 @@ class TestHTTPReadTask:
         ],
     )
     def test_parse_http_read_task(self, test_data):
-        """Test that ReadTaskConfig can parse various endpoint configurations."""
-        sy.http.ReadTaskConfig.model_validate(test_data["data"])
+        """Test that ReadConfig can parse various endpoint configurations."""
+        sy.http.ReadConfig.model_validate(test_data["data"])
 
-    def test_read_field_auto_key_generation(self):
-        """Test that ReadField auto-generates a key if not provided."""
-        field = sy.http.ReadField(pointer="/temperature", channel=1234)
-        assert field.key != ""
-        assert len(field.key) > 0
-
-    def test_read_endpoint_auto_key_generation(self):
-        """Test that ReadEndpoint auto-generates a key if not provided."""
-        ep = sy.http.ReadEndpoint(
-            path="/api/v1/data",
-            fields=[sy.http.ReadField(pointer="/value", channel=1)],
+    def test_read_task_auto_key_generation(self):
+        """Test that the ReadTask assigns keys to endpoints and fields missing one."""
+        task = sy.http.ReadTask(
+            name="test",
+            device="dev-key",
+            endpoints=[
+                sy.http.ReadEndpoint(
+                    path="/api/v1/data",
+                    fields=[sy.http.ReadField(pointer="/value", channel=1)],
+                ),
+            ],
         )
+        ep = task.config.endpoints[0]
         assert ep.key != ""
         assert len(ep.key) > 0
+        assert ep.fields[0].key != ""
+        assert len(ep.fields[0].key) > 0
 
     def test_read_field_defaults(self):
         """Test that ReadField has correct defaults."""
         field = sy.http.ReadField(pointer="/value", channel=1234)
-        assert field.enabled is True
+        assert field.disabled is False
         assert field.data_type == "float64"
         assert field.name == ""
-        assert field.timestamp_format is None
-        assert field.enum_values is None
+        assert field.time_format is None
+        assert field.enum_values == []
 
     def test_read_endpoint_defaults(self):
         """Test that ReadEndpoint has correct defaults."""
         ep = sy.http.ReadEndpoint(path="/data", fields=[])
         assert ep.method == "GET"
-        assert ep.headers is None
-        assert ep.query_params is None
-        assert ep.body is None
-        assert ep.index is None
+        assert ep.headers == []
+        assert ep.query_params == []
+        assert ep.body == ""
+        assert ep.index == ""
 
-    def test_read_task_config_defaults(self):
-        """Test that ReadTaskConfig has correct defaults."""
-        config = sy.http.ReadTaskConfig(
+    def test_read_config_defaults(self):
+        """Test that ReadConfig has correct defaults."""
+        config = sy.http.ReadConfig(
             device="dev-key",
-            rate=1.0,
+            rate=sy.Rate(1),
             endpoints=[],
         )
-        assert config.data_saving is True
+        assert config.data_saving_disabled is False
         assert config.auto_start is False
 
     def test_read_task_none_excluded_from_serialization(self):
@@ -276,12 +278,12 @@ class TestHTTPReadTask:
         )
         payload = task.to_payload()
         ep = payload.config["endpoints"][0]
-        assert "query_params" not in ep
-        assert "body" not in ep
-        assert "headers" not in ep
+        assert ep["body"] == ""
+        assert ep["headers"] == []
+        assert ep["query_params"] == []
         field = ep["fields"][0]
         assert "timestamp_format" not in field
-        assert "enum_values" not in field
+        assert field["enum_values"] == []
 
     def test_create_and_retrieve_read_task(self, client: sy.Synnax):
         """Test that ReadTask can be created and retrieved from the database."""
@@ -289,7 +291,6 @@ class TestHTTPReadTask:
             name="test-http-read-task",
             device="some-device-key",
             rate=2.0,
-            data_saving=True,
             endpoints=[
                 sy.http.ReadEndpoint(
                     key="ep-1",
@@ -405,14 +406,14 @@ class TestHTTPWriteTask:
                                     "pointer": "/source",
                                     "json_type": "string",
                                     "type": "static",
-                                    "value": "python-client",
+                                    "value": {"source": "python-client"},
                                 },
                                 {
                                     "key": "sf-2",
                                     "pointer": "/priority",
                                     "json_type": "number",
                                     "type": "static",
-                                    "value": 1,
+                                    "value": {"priority": 1},
                                 },
                             ],
                         },
@@ -485,17 +486,33 @@ class TestHTTPWriteTask:
         ],
     )
     def test_parse_http_write_task(self, test_data):
-        """Test that WriteTaskConfig can parse various endpoint configurations."""
-        sy.http.WriteTaskConfig.model_validate(test_data["data"])
+        """Test that WriteConfig can parse various endpoint configurations."""
+        sy.http.WriteConfig.model_validate(test_data["data"])
 
     def test_write_endpoint_auto_key_generation(self):
-        """Test that WriteEndpoint auto-generates a key if not provided."""
-        ep = sy.http.WriteEndpoint(
-            path="/api/v1/control",
-            channel=sy.http.ChannelField(pointer="/value", channel=1),
+        """Test that the WriteTask assigns keys to endpoints and fields missing one."""
+        task = sy.http.WriteTask(
+            name="test",
+            device="dev-key",
+            endpoints=[
+                sy.http.WriteEndpoint(
+                    path="/api/v1/control",
+                    channel=sy.http.ChannelField(pointer="/value", channel=1),
+                    fields=[
+                        sy.http.GeneratedWriteField(
+                            type="generated",
+                            pointer="/id",
+                            generator="uuid",
+                        ),
+                    ],
+                ),
+            ],
         )
+        ep = task.config.endpoints[0]
         assert ep.key != ""
         assert len(ep.key) > 0
+        assert ep.fields[0].key != ""
+        assert len(ep.fields[0].key) > 0
 
     def test_write_endpoint_defaults(self):
         """Test that WriteEndpoint has correct defaults."""
@@ -503,10 +520,10 @@ class TestHTTPWriteTask:
             path="/control",
             channel=sy.http.ChannelField(pointer="/value", channel=1),
         )
-        assert ep.enabled is True
+        assert ep.disabled is False
         assert ep.method == "POST"
-        assert ep.headers is None
-        assert ep.query_params is None
+        assert ep.headers == []
+        assert ep.query_params == []
         assert ep.fields == []
 
     def test_channel_field_defaults(self):
@@ -517,17 +534,24 @@ class TestHTTPWriteTask:
         assert cf.name == ""
         assert cf.time_format is None
 
-    def test_static_field_auto_key_generation(self):
-        """Test that StaticField auto-generates a key if not provided."""
-        sf = sy.http.StaticField(pointer="/source", json_type="string", value="test")
-        assert sf.key != ""
+    def test_static_field_type(self):
+        """Test that StaticWriteField carries the static discriminator."""
+        sf = sy.http.StaticWriteField(
+            type="static",
+            pointer="/source",
+            json_type="string",
+            value={"source": "test"},
+        )
         assert sf.type == "static"
+        assert sf.value == {"source": "test"}
 
-    def test_generated_field_auto_key_generation(self):
-        """Test that GeneratedField auto-generates a key if not provided."""
-        gf = sy.http.GeneratedField(pointer="/id", generator="uuid")
-        assert gf.key != ""
+    def test_generated_field_type(self):
+        """Test that GeneratedWriteField carries the generated discriminator."""
+        gf = sy.http.GeneratedWriteField(
+            type="generated", pointer="/id", generator="uuid"
+        )
         assert gf.type == "generated"
+        assert gf.generator == "uuid"
 
     def test_write_task_none_excluded_from_serialization(self):
         """Test that None values are excluded from serialized config."""
@@ -543,8 +567,8 @@ class TestHTTPWriteTask:
         )
         payload = task.to_payload()
         ep = payload.config["endpoints"][0]
-        assert "query_params" not in ep
-        assert "headers" not in ep
+        assert ep["headers"] == []
+        assert ep["query_params"] == []
         assert "time_format" not in ep["channel"]
 
     def test_create_and_retrieve_write_task(self, client: sy.Synnax):
@@ -589,11 +613,12 @@ class TestHTTPWriteTask:
                         name="Setpoint",
                     ),
                     fields=[
-                        sy.http.StaticField(
+                        sy.http.StaticWriteField(
+                            type="static",
                             key="sf-1",
                             pointer="/source",
                             json_type="string",
-                            value="python",
+                            value={"source": "python"},
                         ),
                     ],
                 ),
@@ -765,7 +790,7 @@ class TestHTTPHealthCheck:
             host="localhost:8080",
             health_check=sy.http.HealthCheck(
                 path="/api/status",
-                headers=[sy.http.HeaderEntry(name="Accept", value="application/json")],
+                headers=[sy.http.Header(name="Accept", value="application/json")],
             ),
         )
         hc = dev.properties["health_check"]
@@ -787,9 +812,9 @@ class TestHTTPDevicePropertyUpdates:
             name="Test HTTP Read Device",
             rack=rack.key,
         )
-        device = client.devices.create(device)
+        client.devices.create(device)
 
-        suffix = randint(0, 100000)
+        suffix = random_name()
         time_ch = client.channels.create(
             name=f"http_time_{suffix}",
             data_type=sy.DataType.TIMESTAMP,
@@ -845,9 +870,9 @@ class TestHTTPDevicePropertyUpdates:
             name="Test HTTP Write Device",
             rack=rack.key,
         )
-        device = client.devices.create(device)
+        client.devices.create(device)
 
-        suffix = randint(0, 100000)
+        suffix = random_name()
         cmd_time = client.channels.create(
             name=f"http_cmd_time_{suffix}",
             data_type=sy.DataType.TIMESTAMP,

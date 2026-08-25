@@ -7,44 +7,71 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, render } from "@testing-library/react";
-import { type ReactElement, useState } from "react";
-import { describe, expect, it } from "vitest";
+import { act, renderHook } from "@testing-library/react";
+import { type PropsWithChildren, type ReactElement } from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { Input } from "@/input";
 import { Theming } from "@/theming";
 
-const TestThemeContent = (): ReactElement => {
-  const { theme, toggleTheme } = Theming.useContext();
-  const [checked, setChecked] = useState(false);
-  const handleChange = (value: boolean) => {
-    setChecked(value);
-    toggleTheme();
-  };
-  return (
-    <div>
-      {theme.name}
-      <Input.Switch aria-label="theme-switch" value={checked} onChange={handleChange} />
-    </div>
-  );
-};
-
-const TestTheme = (): ReactElement => (
-  <Theming.Provider>
-    <TestThemeContent />
-  </Theming.Provider>
-);
+const renderTheming = (theme?: Theming.ProviderProps["theme"]) =>
+  renderHook(() => Theming.useContext(), {
+    wrapper: ({ children }: PropsWithChildren): ReactElement => (
+      <Theming.Provider theme={theme}>{children}</Theming.Provider>
+    ),
+  });
 
 describe("Theming", () => {
-  it("should render a theme", () => {
-    const { getByText } = render(<TestTheme />);
-    expect(getByText("Synnax Dark")).toBeTruthy();
+  it("should provide the dark theme by default", () => {
+    const { result } = renderTheming();
+    expect(result.current.theme.name).toBe("Synnax Dark");
   });
+
   it("should toggle a theme", () => {
-    const { getByText, getByLabelText } = render(<TestTheme />);
-    expect(getByText("Synnax Dark")).toBeTruthy();
-    const btn = getByLabelText("theme-switch");
-    fireEvent.click(btn);
-    expect(getByText("Synnax Light")).toBeTruthy();
+    const { result } = renderTheming();
+    expect(result.current.theme.name).toBe("Synnax Dark");
+    act(() => result.current.toggleTheme());
+    expect(result.current.theme.name).toBe("Synnax Light");
+  });
+
+  describe("OS color-scheme sync", () => {
+    let matches = false;
+    let listener: ((e: MediaQueryListEvent) => void) | null = null;
+    const mql = {
+      get matches() {
+        return matches;
+      },
+      addEventListener: (_: string, cb: (e: MediaQueryListEvent) => void) => {
+        listener = cb;
+      },
+      removeEventListener: () => {
+        listener = null;
+      },
+    } as unknown as MediaQueryList;
+    const fireOSChange = (next: boolean): void => {
+      matches = next;
+      listener?.({ matches: next } as MediaQueryListEvent);
+    };
+
+    afterEach(() => {
+      matches = false;
+      listener = null;
+      vi.unstubAllGlobals();
+    });
+
+    it("follows OS changes when no theme prop is supplied", () => {
+      vi.stubGlobal("matchMedia", vi.fn().mockReturnValue(mql));
+      const { result } = renderTheming();
+      expect(result.current.theme.name).toBe("Synnax Light");
+      act(() => fireOSChange(true));
+      expect(result.current.theme.name).toBe("Synnax Dark");
+    });
+
+    it("ignores OS changes once a caller pins an explicit theme", () => {
+      vi.stubGlobal("matchMedia", vi.fn().mockReturnValue(mql));
+      const { result } = renderTheming({ key: "synnaxLight" });
+      expect(result.current.theme.name).toBe("Synnax Light");
+      act(() => fireOSChange(true));
+      expect(result.current.theme.name).toBe("Synnax Light");
+    });
   });
 });

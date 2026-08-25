@@ -1,0 +1,41 @@
+{
+  "type": "labjack_read",
+  "auto_start": true,
+  "device": "fixture-labjack-device",
+  "data_saving": false,
+  "sample_rate": 875,
+  "stream_rate": 87,
+  "channels": [
+    {
+      "key": "ch-lj-py-ai",
+      "enabled": true,
+      "port": "AIN2",
+      "type": "AI",
+      "channel": 7110,
+      "range": 4.5,
+      "neg_chan": 5,
+      "pos_chan": 2
+    },
+    {
+      "key": "ch-lj-py-tc",
+      "enabled": false,
+      "port": "AIN4",
+      "type": "TC",
+      "channel": 7130,
+      "thermocouple_type": "E",
+      "cjc_source": "TEMPERATURE_AIR_K",
+      "cjc_slope": 1.125,
+      "cjc_offset": -0.25,
+      "units": "F",
+      "neg_chan": 5,
+      "pos_chan": 4
+    },
+    {
+      "key": "ch-lj-py-di",
+      "enabled": true,
+      "port": "DIO6",
+      "type": "DI",
+      "channel": 7120
+    }
+  ]
+}

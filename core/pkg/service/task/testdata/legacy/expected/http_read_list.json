@@ -1,0 +1,97 @@
+{
+  "auto_start": true,
+  "data_saving_disabled": true,
+  "device": "fixture-http-device",
+  "endpoints": [
+    {
+      "body": "",
+      "fields": [
+        {
+          "channel": 10110,
+          "data_type": "timestamp",
+          "disabled": false,
+          "key": "fld-list-ts",
+          "name": "fixture_http_list_timestamp",
+          "pointer": "/data/timestamp",
+          "time_format": "iso8601"
+        },
+        {
+          "channel": 10120,
+          "data_type": "uint8",
+          "disabled": false,
+          "enum_values": [
+            {
+              "label": "idle",
+              "value": 1
+            },
+            {
+              "label": "running",
+              "value": 2
+            },
+            {
+              "label": "faulted",
+              "value": 3
+            }
+          ],
+          "key": "fld-list-mode",
+          "name": "fixture_http_list_mode",
+          "pointer": "/data/modeLabel"
+        }
+      ],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "X-Api-Key",
+          "value": "fixture-api-key-456"
+        }
+      ],
+      "index": "fixture_http_list_index",
+      "key": "ep-list-get",
+      "method": "GET",
+      "path": "/api/v1/fixtureListTelemetry",
+      "query_params": [
+        {
+          "parameter": "siteId",
+          "value": "fixture-site-9"
+        },
+        {
+          "parameter": "verbose",
+          "value": "false"
+        }
+      ]
+    },
+    {
+      "body": "{\"deviceId\": \"fixture-43\"}",
+      "fields": [
+        {
+          "channel": 10140,
+          "data_type": "float64",
+          "disabled": true,
+          "key": "fld-list-temp",
+          "name": "fixture_http_list_temperature",
+          "pointer": "/results/0/tempC"
+        }
+      ],
+      "headers": [
+        {
+          "name": "X-Request-Source",
+          "value": "fixture"
+        }
+      ],
+      "index": "",
+      "key": "ep-list-post",
+      "method": "POST",
+      "path": "/api/v1/fixtureListQuery",
+      "query_params": [
+        {
+          "parameter": "limitCount",
+          "value": "50"
+        }
+      ]
+    }
+  ],
+  "rate": 2.5
+}

@@ -7,14 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.pagerduty.types import (
-    AlertConfig,
-    AlertTask,
-    AlertTaskConfig,
-)
+from synnax.pagerduty.types import AlertTask
+from synnax.pagerduty.types_gen import Alert, TaskConfig
 
 __all__ = [
-    "AlertConfig",
+    "Alert",
     "AlertTask",
-    "AlertTaskConfig",
+    "TaskConfig",
 ]

@@ -13,7 +13,11 @@ import { type ReactElement, type ReactNode, useCallback, useMemo } from "react";
 import { Icon } from "@/icon";
 import { Menu } from "@/menu";
 import { getCellColumn } from "@/table/Indicator";
-import { useCellPosition, useSelectRows } from "@/table/queries";
+import { useCellPosition, useRedo, useRows, useUndo } from "@/table/queries";
+import { type Triggers } from "@/triggers";
+
+/** Erases the selected cells. Registered by {@link Table}; shown on the erase item. */
+export const ERASE_TRIGGER: Triggers.Trigger = ["Delete"];
 
 export interface DefaultContextMenuProps {
   resourceKey: table.Key;
@@ -21,12 +25,15 @@ export interface DefaultContextMenuProps {
   selected: string[];
   editable: boolean;
   onEditableChange?: (editable: boolean) => void;
-  // showIndicators reflects whether the row/column indicator strips are
-  // currently visible. When onShowIndicatorsChange is also provided and
-  // editable is false, the context menu surfaces a Show / Hide indicators
-  // item.
+  // showIndicators reflects whether the row/column indicator strips are currently
+  // visible. When onShowIndicatorsChange is also provided and editable is false, the
+  // context menu surfaces a Show / Hide indicators item.
   showIndicators?: boolean;
   onShowIndicatorsChange?: (next: boolean) => void;
+  /** Whether the table is centered in its container. */
+  centered?: boolean;
+  /** When defined, surfaces a Center / Align item in the menu. */
+  onCenteredChange?: (next: boolean) => void;
   onAddRow: (index?: number) => void;
   onAddCol: (index?: number) => void;
   onRemoveRow: (indices: number[]) => void;
@@ -52,6 +59,8 @@ export const DefaultContextMenu = ({
   onEditableChange,
   showIndicators = true,
   onShowIndicatorsChange,
+  centered = false,
+  onCenteredChange,
   onAddRow,
   onAddCol,
   onRemoveRow,
@@ -64,12 +73,11 @@ export const DefaultContextMenu = ({
   const cellPos = useCellPosition({ key: resourceKey, cellKey: cellKey ?? "" });
   const rowIdx = resizer?.dir === "y" ? resizer.index : (cellPos?.y ?? null);
   const colIdx = resizer?.dir === "x" ? resizer.index : (cellPos?.x ?? null);
-  const rows = useSelectRows({ key: resourceKey });
+  const rows = useRows({ key: resourceKey });
   const selectedSet = useMemo(() => new Set(selected), [selected]);
-  // fullySelectedRows / fullySelectedCols: indices where every cell along
-  // that axis is in the selection. When the right-clicked row/col is part
-  // of this set, the delete action operates on the whole set; otherwise
-  // just the clicked one.
+  // fullySelectedRows / fullySelectedCols: indices where every cell along that axis is
+  // in the selection. When the right-clicked row/col is part of this set, the delete
+  // action operates on the whole set; otherwise just the clicked one.
   const fullySelectedRows = useMemo(() => {
     const out: number[] = [];
     rows.forEach((row, i) => {
@@ -111,9 +119,26 @@ export const DefaultContextMenu = ({
     () => onShowIndicatorsChange?.(!showIndicators),
     [onShowIndicatorsChange, showIndicators],
   );
+  const handleToggleCentered = useCallback(
+    () => onCenteredChange?.(!centered),
+    [onCenteredChange, centered],
+  );
   const showIndicatorToggle = !editable && onShowIndicatorsChange != null;
+  const { undo, canUndo } = useUndo({ key: resourceKey });
+  const { redo, canRedo } = useRedo({ key: resourceKey });
   return (
     <Menu.Menu level="small" gap="small">
+      {editable && (
+        <>
+          <Menu.UndoRedoItems
+            undo={undo}
+            redo={redo}
+            canUndo={canUndo}
+            canRedo={canRedo}
+          />
+          <Menu.Divider />
+        </>
+      )}
       {editable && rowIdx != null && (
         <>
           <Menu.Item
@@ -183,6 +208,7 @@ export const DefaultContextMenu = ({
           size="small"
           itemKey="eraseCells"
           onClick={() => onEraseCells(selected)}
+          triggerIndicator={ERASE_TRIGGER}
         >
           <Icon.Eraser />
           {selected.length > 1 ? "Erase cells" : "Erase cell"}
@@ -205,6 +231,12 @@ export const DefaultContextMenu = ({
         >
           {showIndicators ? <Icon.Hidden /> : <Icon.Visible />}
           {`${showIndicators ? "Hide" : "Show"} indicators`}
+        </Menu.Item>
+      )}
+      {onCenteredChange != null && (
+        <Menu.Item size="small" itemKey="toggleCentered" onClick={handleToggleCentered}>
+          {centered ? <Icon.Align.BoxTopLeft /> : <Icon.Align.BoxCenter />}
+          {centered ? "Align table to top left" : "Center table"}
         </Menu.Item>
       )}
       {extra != null && (

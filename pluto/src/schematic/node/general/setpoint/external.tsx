@@ -7,21 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Label } from "@/schematic/node/common/label";
-import { type Config, VARIANT } from "@/schematic/node/general/setpoint/config";
 import { SetpointForm } from "@/schematic/node/general/setpoint/Form";
 import { Setpoint } from "@/schematic/node/general/setpoint/Primitive";
 import { Symbol } from "@/schematic/node/general/setpoint/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 import { type Theming } from "@/theming";
 
-export * from "@/schematic/node/general/setpoint/config";
-
-export const defaultConfig = (t: Theming.Theme): Config => ({
-  variant: VARIANT,
+export const defaultConfig = (t: Theming.Theme): schematic.SetpointNodeConfig => ({
+  variant: "setpoint",
   orientation: "left",
   units: "mV",
   color: t.colors.gray.l11,
@@ -30,20 +28,18 @@ export const defaultConfig = (t: Theming.Theme): Config => ({
   control: { show: true },
 });
 
-const Preview = ({ ...rest }: Config): ReactElement => (
+const Preview = ({ ...rest }: schematic.SetpointNodeConfig): ReactElement => (
   <Setpoint
-    value={12}
     onChange={() => {}}
     units="mV"
-    style={{ width: 120, transform: "scale(0.95)" }}
     className={CSS.BM("setpoint", "preview")}
     disabled
     {...rest}
   />
 );
 
-export const spec: Spec<typeof VARIANT, Config> = {
-  key: VARIANT,
+export const spec: Spec<"setpoint", schematic.SetpointNodeConfig> = {
+  key: "setpoint",
   name: "Setpoint",
   Form: SetpointForm,
   Node: Symbol,

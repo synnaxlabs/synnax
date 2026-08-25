@@ -8,14 +8,15 @@
 // included in the file licenses/APL.txt.
 
 export { access } from "@/access";
+export type { Policy } from "@/access/policy/types.gen";
+export type { Role } from "@/access/role/types.gen";
 export { actions } from "@/actions";
 export { arc } from "@/arc";
+export type { Param } from "@/arc/types/types.gen";
 export { channel } from "@/channel";
 export { Channel, isCalculated } from "@/channel/client";
 export {
-  checkConnection,
-  type CheckConnectionParams,
-  newConnectionChecker,
+  type ConnectOptions,
   default as Synnax,
   type SynnaxParams,
   synnaxParamsZ,
@@ -24,9 +25,11 @@ export * from "@/connection";
 export { control } from "@/control";
 export { device } from "@/device";
 export {
+  AccessDeniedError,
   AuthError,
   ContiguityError,
   DisconnectedError,
+  isConnectionError,
   MultipleFoundError,
   NotFoundError,
   QueryError,
@@ -34,23 +37,32 @@ export {
   UnexpectedError,
   ValidationError,
 } from "@/errors";
+export { ethercat } from "@/ethercat";
 export { framer } from "@/framer";
 export { Frame } from "@/framer/frame";
 export { group } from "@/group";
+export { http } from "@/http";
+export { imex } from "@/imex";
 export { label } from "@/label";
+export { labjack } from "@/labjack";
 export { lineplot } from "@/lineplot";
 export { log } from "@/log";
+export { modbus } from "@/modbus";
+export { ni } from "@/ni";
+export { node } from "@/node";
 export { ontology } from "@/ontology";
+export { opcua } from "@/opcua";
+export { pagerduty } from "@/pagerduty";
 export { panel } from "@/panel";
 export { project } from "@/project";
+export { query } from "@/query";
 export { rack } from "@/rack";
 export { ranger } from "@/ranger";
 export { schematic } from "@/schematic";
 export { status } from "@/status";
+export type { StatusZodObject } from "@/status/types.gen";
 export { table } from "@/table";
 export { task } from "@/task";
-export { createTestClientWithPolicy } from "@/testutil/access";
-export { createTestClient, TEST_CLIENT_PARAMS } from "@/testutil/client";
 export { user } from "@/user";
 export { view } from "@/view";
 export {

@@ -7,11 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, type ontology } from "@synnaxlabs/client";
+import { type ontology } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
+import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 import { User } from "@/user";
 
@@ -51,7 +54,7 @@ describe("User queries", () => {
         expect(result.current.variant).toEqual("success");
       });
 
-      await expect(client.users.retrieve({ key: testUser.key })).rejects.toThrow();
+      await expect(client.users.retrieve(testUser.key)).rejects.toThrow();
     });
 
     it("should delete multiple users", async () => {
@@ -78,8 +81,8 @@ describe("User queries", () => {
         expect(result.current.variant).toEqual("success");
       });
 
-      await expect(client.users.retrieve({ key: user1.key })).rejects.toThrow();
-      await expect(client.users.retrieve({ key: user2.key })).rejects.toThrow();
+      await expect(client.users.retrieve(user1.key)).rejects.toThrow();
+      await expect(client.users.retrieve(user2.key)).rejects.toThrow();
     });
   });
 
@@ -106,26 +109,44 @@ describe("User queries", () => {
         expect(result.current.variant).toEqual("success");
       });
 
-      const retrieved = await client.users.retrieve({ key: testUser.key });
+      const retrieved = await client.users.retrieve(testUser.key);
       expect(retrieved.username).toBe(newUsername);
+    });
+
+    it("should apply the rename optimistically", async () => {
+      const testUser = await client.users.create({
+        username: `original-${id.create()}`,
+        firstName: "Test",
+        lastName: "User",
+        password: "password123",
+      });
+      const afterOptimistic = vi.fn();
+      const { result } = renderHook(() => User.useRename({ afterOptimistic }), {
+        wrapper,
+      });
+      await act(async () => {
+        await result.current.updateAsync({
+          key: testUser.key,
+          username: `renamed-${id.create()}`,
+        });
+      });
+      expect(afterOptimistic).toHaveBeenCalledOnce();
     });
   });
 
-  describe("useRetrieveGroupID", () => {
+  describe("useGroupID", () => {
     it("should retrieve the Users group ID", async () => {
-      const { result } = renderHook(() => User.useRetrieveGroupID({}), { wrapper });
-
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
+      const { result } = await renderHookSuspended(() => User.useGroupID({}), {
+        wrapper,
       });
 
-      expect(result.current.data).toBeDefined();
-      const res = await client.ontology.retrieve(result.current.data as ontology.ID);
+      await waitFor(() => expect(result.current).not.toBeNull());
+      const res = await client.ontology.retrieve(result.current as ontology.ID);
       expect(res.name).toBe("Users");
     });
   });
 
-  describe("useRetrieve", () => {
+  describe("use", () => {
     it("should retrieve a user by key", async () => {
       const testUser = await client.users.create({
         username: `retrieve-test-${Date.now()}`,
@@ -134,30 +155,35 @@ describe("User queries", () => {
         password: "password123",
       });
 
-      const { result } = renderHook(() => User.useRetrieve({ key: testUser.key }), {
+      const { result } = await renderHookSuspended(
+        () => User.use({ key: testUser.key }),
+        {
+          wrapper,
+        },
+      );
+
+      await waitFor(() => {
+        expect(result.current).not.toBeNull();
+      });
+
+      expect(result.current?.key).toEqual(testUser.key);
+      expect(result.current?.username).toEqual(testUser.username);
+      expect(result.current?.firstName).toEqual(testUser.firstName);
+      expect(result.current?.lastName).toEqual(testUser.lastName);
+    });
+
+    it("should retrieve the current authenticated user when no key provided", async () => {
+      const { result } = await renderHookSuspended(() => User.use({}), {
         wrapper,
       });
 
       await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
+        expect(result.current).not.toBeNull();
       });
 
-      expect(result.current.data?.key).toEqual(testUser.key);
-      expect(result.current.data?.username).toEqual(testUser.username);
-      expect(result.current.data?.firstName).toEqual(testUser.firstName);
-      expect(result.current.data?.lastName).toEqual(testUser.lastName);
-    });
-
-    it("should retrieve the current authenticated user when no key provided", async () => {
-      const { result } = renderHook(() => User.useRetrieve({}), { wrapper });
-
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
-
-      expect(result.current.data).toBeDefined();
-      expect(result.current.data?.key).toEqual(client.auth?.user?.key);
-      expect(result.current.data?.username).toEqual(client.auth?.user?.username);
+      expect(result.current).not.toBeNull();
+      expect(result.current?.key).toEqual(client.auth?.user?.key);
+      expect(result.current?.username).toEqual(client.auth?.user?.username);
     });
 
     it("should cache retrieved users", async () => {
@@ -168,25 +194,25 @@ describe("User queries", () => {
         password: "password123",
       });
 
-      const { result: result1 } = renderHook(
-        () => User.useRetrieve({ key: testUser.key }),
+      const { result: result1 } = await renderHookSuspended(
+        () => User.use({ key: testUser.key }),
         { wrapper },
       );
-      await waitFor(() => expect(result1.current.variant).toEqual("success"));
+      await waitFor(() => expect(result1.current).not.toBeNull());
 
-      const { result: result2 } = renderHook(
-        () => User.useRetrieve({ key: testUser.key }),
+      const { result: result2 } = await renderHookSuspended(
+        () => User.use({ key: testUser.key }),
         { wrapper },
       );
-      await waitFor(() => expect(result2.current.variant).toEqual("success"));
-      expect(result2.current.data).toEqual(result1.current.data);
+      await waitFor(() => expect(result2.current).not.toBeNull());
+      expect(result2.current).toEqual(result1.current);
     });
   });
 
   describe("useForm", () => {
     describe("create mode", () => {
       it("should initialize with default values for new user", async () => {
-        const { result } = renderHook(() => User.useForm({ query: {} }), {
+        const { result } = renderHook(() => User.useForm({ query: null }), {
           wrapper,
         });
 
@@ -201,7 +227,7 @@ describe("User queries", () => {
       });
 
       it("should create a new user on save", async () => {
-        const { result } = renderHook(() => User.useForm({ query: {} }), {
+        const { result } = renderHook(() => User.useForm({ query: null }), {
           wrapper,
         });
 
@@ -225,7 +251,7 @@ describe("User queries", () => {
       });
 
       it("should validate required fields", async () => {
-        const { result } = renderHook(() => User.useForm({ query: {} }), {
+        const { result } = renderHook(() => User.useForm({ query: null }), {
           wrapper,
         });
 
@@ -249,7 +275,7 @@ describe("User queries", () => {
 
     describe("validation", () => {
       it("should validate username field", async () => {
-        const { result } = renderHook(() => User.useForm({ query: {} }), {
+        const { result } = renderHook(() => User.useForm({ query: null }), {
           wrapper,
         });
 
@@ -264,11 +290,11 @@ describe("User queries", () => {
 
         const usernameField = result.current.form.get("username");
         expect(usernameField.status.variant).toBe("error");
-        expect(usernameField.status.message).toContain("Username is required");
+        expect(usernameField.status.message).toContain("username is required");
       });
 
       it("should validate all required fields", async () => {
-        const { result } = renderHook(() => User.useForm({ query: {} }), {
+        const { result } = renderHook(() => User.useForm({ query: null }), {
           wrapper,
         });
 

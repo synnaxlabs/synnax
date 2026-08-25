@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, NotFoundError } from "@synnaxlabs/client";
+import { NotFoundError } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
@@ -135,9 +136,7 @@ describe("View queries", () => {
         await result.current.updateAsync(view.key);
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
-      await expect(client.views.retrieve({ key: view.key })).rejects.toThrow(
-        NotFoundError,
-      );
+      await expect(client.views.retrieve(view.key)).rejects.toThrow(NotFoundError);
     });
     it("should delete multiple views", async () => {
       const view1 = await client.views.create({
@@ -155,17 +154,13 @@ describe("View queries", () => {
         await result.current.updateAsync([view1.key, view2.key]);
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
-      await expect(client.views.retrieve({ key: view1.key })).rejects.toThrow(
-        NotFoundError,
-      );
-      await expect(client.views.retrieve({ key: view2.key })).rejects.toThrow(
-        NotFoundError,
-      );
+      await expect(client.views.retrieve(view1.key)).rejects.toThrow(NotFoundError);
+      await expect(client.views.retrieve(view2.key)).rejects.toThrow(NotFoundError);
     });
   });
   describe("useForm", () => {
     it("should create a new view", async () => {
-      const { result } = renderHook(() => View.useForm({ query: {} }), { wrapper });
+      const { result } = renderHook(() => View.useForm({ query: null }), { wrapper });
       act(() => {
         result.current.form.set("name", "new-view");
         result.current.form.set("type", "lineplot");
@@ -241,7 +236,7 @@ describe("View queries", () => {
       await act(async () => {
         await result.current.updateAsync({ key: view.key, name: "renamed-view" });
       });
-      const retrieved = await client.views.retrieve({ key: view.key });
+      const retrieved = await client.views.retrieve(view.key);
       expect(retrieved.name).toEqual("renamed-view");
     });
   });

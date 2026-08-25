@@ -13,8 +13,6 @@ import { type bounds } from "@synnaxlabs/x";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 
-export { stringSource, type StringSourceArgs } from "@/vis/value/telem";
-
 export const DEFAULT_THRESHOLD: bounds.Bounds = { lower: 0.9, upper: 1.1 };
 
 /** booleanSource builds the boolean read pipeline for a state channel. */
@@ -64,6 +62,25 @@ export const numberSource = (channel: channel.Key = 0): telem.NumberSourceSpec =
     connections: [],
     segments: { valueStream: telem.streamChannelValue({ channel }) },
     outlet: "valueStream",
+  });
+
+export interface SmoothedNumberSourceArgs {
+  channel?: channel.Key;
+  rollingAverage?: number;
+}
+
+/** smoothedNumberSource builds the rolling-average read pipeline for a value channel. */
+export const smoothedNumberSource = ({
+  channel = 0,
+  rollingAverage = 1,
+}: SmoothedNumberSourceArgs): telem.NumberSourceSpec =>
+  telem.sourcePipeline("number", {
+    connections: [{ from: "valueStream", to: "rollingAverage" }],
+    segments: {
+      valueStream: telem.streamChannelValue({ channel }),
+      rollingAverage: telem.rollingAverage({ windowSize: rollingAverage }),
+    },
+    outlet: "rollingAverage",
   });
 
 export interface ControlChipArgs {

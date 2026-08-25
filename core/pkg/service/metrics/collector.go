@@ -14,8 +14,6 @@ import (
 	"time"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
@@ -46,7 +44,7 @@ func (c *collector) Flow(sCtx signal.Context, opts ...confluence.Option) {
 			case <-c.stop:
 				return nil
 			case <-t.C:
-				var fr frame.Frame
+				var fr framer.Frame
 				fr.Grow(len(c.metrics))
 				for _, metric := range c.metrics {
 					value, err := metric.collect()
@@ -63,7 +61,7 @@ func (c *collector) Flow(sCtx signal.Context, opts ...confluence.Option) {
 				if err := signal.SendUnderContext(
 					ctx,
 					c.Out.Inlet(),
-					framer.WriterRequest{Command: writer.CommandWrite, Frame: fr},
+					framer.WriterRequest{Command: framer.WriterCommandWrite, Frame: fr},
 				); err != nil {
 					return err
 				}

@@ -25,17 +25,17 @@ SOME_CONST_1 f32 := 42.0
 SOME_CONST_2 f32 := -49.5
 start_lifecycle_cmd => main
 
-func check_high_pressure(p f32) u8 {
+func check_high_pressure(p f32) bool {
     return p > PRESS_HIGH_LIMIT
 }
 
 press_pt -> check_high_pressure{} -> stable.for{500ms} -> select{} -> {
-    true: status.set{
+    true: true -> status.set{
         key_or_name="lifecycle_press_alarm",
         variant="warning",
         message="Pressure stable above 25 PSI"
     },
-    false: status.set{
+    false: true -> status.set{
         key_or_name="lifecycle_press_normal",
         variant="warning",
         message="Pressure below 25 PSI"
@@ -173,8 +173,8 @@ class Lifecycle(ArcCase, ConsoleCase):
             self.fail("Notification 'Pressure stable above 25 PSI' not found")
 
         # --- 2. Verify select false branch: initial pressure=0 causes
-        # check_high_pressure to return 0, stable for 500ms, then select routes
-        # to false.
+        # check_high_pressure to return false, stable for 500ms, then select
+        # routes to false.
         self.log("Checking for 'Pressure below 25 PSI' (select false branch)")
         if not self.wait_for_notification("Pressure below 25 PSI"):
             self.fail("Notification 'Pressure below 25 PSI' not found")
@@ -223,15 +223,15 @@ class Lifecycle(ArcCase, ConsoleCase):
         self.log("Opening renamed Arc")
         self.console.arc.open(self.new_name)
 
-        self.log("Re-configuring with new name")
+        self.log("Re-deploying with new name")
         assert self.rack is not None
         self.console.arc.select_rack(self.rack.name)
-        self.console.arc.configure()
+        self.console.arc.deploy()
 
         # Re-deploy auto-starts the task (auto_start is set in the task config
         # by load_arc), so the Arc is already running with the new name here.
 
-        # --- 6. Stop, then delete and verify tab removal ---
+        # --- 6. Stop, then delete and verify the tab tombstones ---
         self.log("Stopping Arc")
         self.console.arc.stop()
 
@@ -244,6 +244,8 @@ class Lifecycle(ArcCase, ConsoleCase):
         self.console.arc.delete(self.new_name)
         self.remove_arc(old_name)
 
-        self.log("Verifying tab removed from mosaic")
-        tab = self.console.layout.get_tab(self.new_name)
-        tab.wait_for(state="hidden", timeout=5000)
+        # A deleted resource's tab stays open and tombstones; it is not closed
+        # out from under the user. The tombstone renders inside that tab.
+        self.log("Verifying tab tombstones in place")
+        tombstone = self.console.layout.get_tombstone(self.new_name)
+        tombstone.wait_for(state="visible", timeout=5000)

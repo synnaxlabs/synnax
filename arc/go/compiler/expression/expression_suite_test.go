@@ -29,7 +29,12 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func expectExpression(bCtx SpecContext, expression string, expectedType types.Type, expectedOpcodes ...any) {
+func expectExpression(
+	bCtx SpecContext,
+	expression string,
+	expectedType types.Type,
+	expectedOpcodes ...any,
+) {
 	bytecode, exprType := compileExpression(bCtx, expression)
 	Expect(bytecode).To(MatchOpcodes(expectedOpcodes...))
 	Expect(exprType).To(Equal(expectedType))
@@ -39,22 +44,69 @@ func compileExpression(bCtx context.Context, source string) ([]byte, types.Type)
 	return compileWithCtx(NewContext(bCtx), source)
 }
 
-func compileWithCtx(ctx ccontext.Context[antlr.ParserRuleContext], source string) ([]byte, types.Type) {
+// expectCompileError compiles source in a scope holding series "s" (i64), "b"
+// (bool), and "f" (f64), asserting the compile fails with a message containing substr.
+func expectCompileError(bCtx SpecContext, source, substr string) {
+	ctx := NewContext(bCtx)
+	MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+		Name: "s",
+		Kind: symbol.KindVariable,
+		Type: types.Series(types.I64()),
+	}))
+	MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+		Name: "b",
+		Kind: symbol.KindVariable,
+		Type: types.Series(types.Bool()),
+	}))
+	MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+		Name: "f",
+		Kind: symbol.KindVariable,
+		Type: types.Series(types.F64()),
+	}))
+	expr := MustSucceed(parser.ParseExpression(source))
+	Expect(expression.Compile(ccontext.Child(ctx, expr))).Error().
+		To(MatchError(ContainSubstring(substr)))
+}
+
+func compileWithCtx(
+	ctx ccontext.Context[antlr.ParserRuleContext],
+	source string,
+) ([]byte, types.Type) {
 	var (
-		expr     = MustSucceedWithOffset[parser.IExpressionContext](2)(parser.ParseExpression(source))
-		exprType = MustSucceedWithOffset[types.Type](2)(expression.Compile(ccontext.Child(ctx, expr)))
+		expr = MustSucceedWithOffset[parser.IExpressionContext](
+			2,
+		)(
+			parser.ParseExpression(source),
+		)
+		exprType = MustSucceedWithOffset[types.Type](
+			2,
+		)(
+			expression.Compile(ccontext.Child(ctx, expr)),
+		)
 	)
 	return FinalizeContext(ctx), exprType
 }
 
-func compileWithCtxAndHint(ctx ccontext.Context[antlr.ParserRuleContext], source string, hint types.Type) ([]byte, types.Type) {
-	expr := MustSucceedWithOffset[parser.IExpressionContext](2)(parser.ParseExpression(source))
+func compileWithCtxAndHint(
+	ctx ccontext.Context[antlr.ParserRuleContext],
+	source string,
+	hint types.Type,
+) ([]byte, types.Type) {
+	expr := MustSucceedWithOffset[parser.IExpressionContext](
+		2,
+	)(
+		parser.ParseExpression(source),
+	)
 	if hint.Kind == types.KindSeries {
 		if lit := parser.GetLiteral(expr); lit != nil {
 			ctx.TypeMap[lit] = hint
 		}
 	}
-	exprType := MustSucceedWithOffset[types.Type](2)(expression.Compile(ccontext.Child(ctx, expr)))
+	exprType := MustSucceedWithOffset[types.Type](
+		2,
+	)(
+		expression.Compile(ccontext.Child(ctx, expr)),
+	)
 	return FinalizeContext(ctx), exprType
 }
 
@@ -75,7 +127,11 @@ func autoImportSTL(bCtx context.Context, root *symbol.Symbol) {
 	}
 }
 
-func compileWithAnalyzer(bCtx context.Context, exprSource string, channels []symbol.Symbol) ([]byte, types.Type) {
+func compileWithAnalyzer(
+	bCtx context.Context,
+	exprSource string,
+	channels []symbol.Symbol,
+) ([]byte, types.Type) {
 	expr := MustSucceed(parser.ParseExpression(exprSource))
 	root := symbol.NewRoot(nil, stl.NewSymbols())
 	for i := range channels {
@@ -92,12 +148,18 @@ func compileWithAnalyzer(bCtx context.Context, exprSource string, channels []sym
 			analyzerCtx.TypeMap[node] = analyzerCtx.Constraints.ApplySubstitutions(typ)
 		}
 	}
-	compilerCtx := ccontext.NewRoot(bCtx, analyzerCtx.Scope, analyzerCtx.TypeMap, resolve.NewResolver())
+	compilerCtx := ccontext.NewRoot(
+		bCtx,
+		analyzerCtx.Scope,
+		analyzerCtx.TypeMap,
+		resolve.NewResolver(),
+	)
 	exprType := MustSucceed(expression.Compile(ccontext.Child(compilerCtx, expr)))
 	return FinalizeContext(compilerCtx), exprType
 }
 
-// expectSeriesExpression is a test helper for series operations that require symbol resolution
+// expectSeriesExpression is a test helper for series operations that require symbol
+// resolution.
 func expectSeriesExpression(
 	bCtx SpecContext,
 	expr string,
@@ -179,7 +241,12 @@ func expectSeriesLiteralWithHint(
 		}
 	}
 
-	compilerCtx := ccontext.NewRoot(bCtx, analyzerCtx.Scope, analyzerCtx.TypeMap, resolve.NewResolver())
+	compilerCtx := ccontext.NewRoot(
+		bCtx,
+		analyzerCtx.Scope,
+		analyzerCtx.TypeMap,
+		resolve.NewResolver(),
+	)
 	exprType := MustSucceed(expression.Compile(ccontext.Child(compilerCtx, parsedExpr)))
 	Expect(FinalizeContext(compilerCtx)).To(MatchOpcodes(expectedOpcodes...))
 	Expect(exprType).To(Equal(hint))
@@ -189,3 +256,5 @@ func TestExpression(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Compiler Expression Suite")
 }
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

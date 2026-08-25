@@ -1,3 +1,12 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
 cc_library(
@@ -11,5 +20,61 @@ cc_library(
         "//x/cpp/breaker",
         "//x/cpp/errors",
         "//x/cpp/notify",
+    ],
+)
+
+cc_library(
+    name = "compile",
+    hdrs = [
+        "compile.h",
+    ],
+    copts = select({
+        "@platforms//os:windows": ["/wd4201"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+    deps = [
+        "//arc/cpp/program",
+        "//client/cpp:synnax",
+        "//client/cpp/testutil",
+        "//x/cpp/telem",
+    ],
+)
+
+cc_library(
+    name = "harness",
+    hdrs = [
+        "harness.h",
+    ],
+    copts = select({
+        "@platforms//os:windows": ["/wd4201"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":compile",
+        "//arc/cpp/ir",
+        "//arc/cpp/program",
+        "//arc/cpp/runtime/errors",
+        "//arc/cpp/runtime/loop",
+        "//arc/cpp/runtime/node",
+        "//arc/cpp/runtime/scheduler",
+        "//arc/cpp/runtime/state",
+        "//arc/cpp/runtime/wasm",
+        "//arc/cpp/stl/channels",
+        "//arc/cpp/stl/channels:state",
+        "//arc/cpp/stl/constant",
+        "//arc/cpp/stl/control",
+        "//arc/cpp/stl/error",
+        "//arc/cpp/stl/math",
+        "//arc/cpp/stl/selector",
+        "//arc/cpp/stl/series",
+        "//arc/cpp/stl/stable",
+        "//arc/cpp/stl/stateful",
+        "//arc/cpp/stl/strings",
+        "//arc/cpp/stl/time",
+        "//arc/cpp/stl/variable",
+        "//client/cpp:synnax",
+        "//x/cpp/telem",
     ],
 )

@@ -12,41 +12,34 @@ package lsp
 import (
 	"context"
 	"io"
-	"path/filepath"
-
 	"strings"
 	"sync"
 
 	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/formatter"
 	"github.com/synnaxlabs/oracle/parser"
+	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/resolution"
-	"github.com/synnaxlabs/x/diagnostics"
 	xlsp "github.com/synnaxlabs/x/lsp"
-	"github.com/synnaxlabs/x/lsp/protocol"
 	"go.lsp.dev/jsonrpc2"
-	"go.uber.org/zap"
+	"go.lsp.dev/protocol"
+	"go.lsp.dev/uri"
 )
 
 // Server implements the Language Server Protocol for Oracle schema files.
 type Server struct {
-	xlsp.NoopServer
+	protocol.UnimplementedServer
 	capabilities protocol.ServerCapabilities
-	documents    map[protocol.DocumentURI]*Document
+	documents    map[uri.URI]*Document
 	client       protocol.Client
 	mu           sync.RWMutex
 }
 
-var translateCfg = xlsp.TranslateConfig{Source: "oracle-analyzer"}
+const translateSource = "oracle-analyzer"
 
 // Document represents an open document in the LSP server.
 type Document struct {
-	Schema      parser.ISchemaContext
-	Table       *resolution.Table
-	Diagnostics *diagnostics.Diagnostics
-	URI         protocol.DocumentURI
-	Content     string
-	Version     int32
+	Content string
 }
 
 var _ protocol.Server = (*Server)(nil)
@@ -54,177 +47,195 @@ var _ protocol.Server = (*Server)(nil)
 // New creates a new Oracle LSP server.
 func New() *Server {
 	return &Server{
-		documents: make(map[protocol.DocumentURI]*Document),
+		documents: make(map[uri.URI]*Document),
 		capabilities: protocol.ServerCapabilities{
-			TextDocumentSync: protocol.TextDocumentSyncOptions{
-				OpenClose: true,
-				Change:    protocol.TextDocumentSyncKindFull,
+			TextDocumentSync: &protocol.TextDocumentSyncOptions{
+				OpenClose: new(true),
+				Change:    new(protocol.TextDocumentSyncKindFull),
 			},
-			HoverProvider:              true,
+			HoverProvider:              protocol.Boolean(true),
 			CompletionProvider:         &protocol.CompletionOptions{},
-			DocumentFormattingProvider: true,
-			SemanticTokensProvider: map[string]any{
-				"legend": protocol.SemanticTokensLegend{
-					TokenTypes: xlsp.ConvertToSemanticTokenTypes(semanticTokenTypes),
-				},
-				"full": true,
+			DocumentFormattingProvider: protocol.Boolean(true),
+			SemanticTokensProvider: &protocol.SemanticTokensOptions{
+				Legend: protocol.SemanticTokensLegend{TokenTypes: semanticTokenTypes},
+				Full:   protocol.Boolean(true),
 			},
 		},
 	}
 }
 
+// gatedStream delays the first Read until ready closes, so the connection cannot
+// dispatch a handler before Serve wires the client.
+type gatedStream struct {
+	jsonrpc2.Stream
+	ready chan struct{}
+}
+
+func (g *gatedStream) Read(ctx context.Context) (jsonrpc2.Message, int64, error) {
+	select {
+	case <-g.ready:
+	case <-ctx.Done():
+		return nil, 0, ctx.Err()
+	}
+	return g.Stream.Read(ctx)
+}
+
 // Serve starts the LSP server on the given ReadWriteCloser (typically xos.StdIO).
 func (s *Server) Serve(ctx context.Context, rwc io.ReadWriteCloser) error {
-	stream := jsonrpc2.NewStream(rwc)
-	conn := jsonrpc2.NewConn(stream)
-	logger := zap.NewNop() // Use noop logger to avoid nil pointer
-	s.client = protocol.ClientDispatcher(conn, logger)
-	conn.Go(ctx, protocol.ServerHandler(s, nil))
+	stream := &gatedStream{Stream: jsonrpc2.NewStream(rwc), ready: make(chan struct{})}
+	conn, client := xlsp.NewConn(ctx, s, stream)
+	s.client = client
+	close(stream.ready)
 	<-conn.Done()
 	return conn.Err()
 }
 
 // SetClient sets the LSP client for sending notifications.
-func (s *Server) SetClient(client protocol.Client) {
-	s.client = client
-}
+func (s *Server) SetClient(client protocol.Client) { s.client = client }
 
 // getDocument retrieves a document from the cache by URI.
-func (s *Server) getDocument(uri protocol.DocumentURI) (*Document, bool) {
+func (s *Server) getDocument(docURI uri.URI) (*Document, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	doc, ok := s.documents[uri]
+	doc, ok := s.documents[docURI]
 	return doc, ok
 }
 
 // Initialize handles the initialize request.
-func (s *Server) Initialize(_ context.Context, params *protocol.InitializeParams) (*protocol.InitializeResult, error) {
+func (s *Server) Initialize(
+	_ context.Context,
+	params *protocol.InitializeParams,
+) (*protocol.InitializeResult, error) {
 	return &protocol.InitializeResult{
 		Capabilities: s.capabilities,
-		ServerInfo:   &protocol.ServerInfo{Name: "oracle-lsp", Version: "0.1.0"},
+		ServerInfo: protocol.ServerInfo{
+			Name:    "oracle-lsp",
+			Version: protocol.NewOptional("0.1.0"),
+		},
 	}, nil
 }
 
-// Initialized handles the initialized notification.
-func (s *Server) Initialized(context.Context, *protocol.InitializedParams) error {
-	return nil
-}
-
 // Shutdown handles the shutdown request.
-func (s *Server) Shutdown(_ context.Context) error {
-	return nil
-}
+func (*Server) Shutdown(context.Context) error { return nil }
 
 // DidOpen handles opening a document.
-func (s *Server) DidOpen(ctx context.Context, params *protocol.DidOpenTextDocumentParams) error {
-	uri := params.TextDocument.URI
+func (s *Server) DidOpen(
+	ctx context.Context,
+	params *protocol.DidOpenTextDocumentParams,
+) error {
+	docURI := params.TextDocument.URI
 	s.mu.Lock()
-	s.documents[uri] = &Document{
-		URI:     uri,
-		Version: params.TextDocument.Version,
-		Content: params.TextDocument.Text,
-	}
+	s.documents[docURI] = &Document{Content: params.TextDocument.Text}
 	s.mu.Unlock()
-	s.publishDiagnostics(ctx, uri, params.TextDocument.Text)
+	s.publishDiagnostics(ctx, docURI, params.TextDocument.Text)
 	return nil
 }
 
 // DidChange handles document changes.
-func (s *Server) DidChange(ctx context.Context, params *protocol.DidChangeTextDocumentParams) error {
-	uri := params.TextDocument.URI
+func (s *Server) DidChange(
+	ctx context.Context,
+	params *protocol.DidChangeTextDocumentParams,
+) error {
+	docURI := params.TextDocument.URI
 	s.mu.Lock()
-	if doc, ok := s.documents[uri]; ok {
+	if doc, ok := s.documents[docURI]; ok {
 		if len(params.ContentChanges) > 0 {
-			doc.Version = params.TextDocument.Version
-			doc.Content = params.ContentChanges[0].Text
+			for _, change := range params.ContentChanges {
+				doc.Content = xlsp.ApplyIncrementalChange(doc.Content, change)
+			}
 		}
 	}
 	s.mu.Unlock()
 	s.mu.RLock()
-	content := ""
-	if doc, ok := s.documents[uri]; ok {
+	var content string
+	if doc, ok := s.documents[docURI]; ok {
 		content = doc.Content
 	}
 	s.mu.RUnlock()
-	s.publishDiagnostics(ctx, uri, content)
+	s.publishDiagnostics(ctx, docURI, content)
 	return nil
 }
 
 // DidClose handles closing a document.
-func (s *Server) DidClose(ctx context.Context, params *protocol.DidCloseTextDocumentParams) error {
-	uri := params.TextDocument.URI
+func (s *Server) DidClose(
+	ctx context.Context,
+	params *protocol.DidCloseTextDocumentParams,
+) error {
+	docURI := params.TextDocument.URI
 	s.mu.Lock()
-	delete(s.documents, uri)
+	delete(s.documents, docURI)
 	s.mu.Unlock()
-	return s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
-		URI:         uri,
+	// A notification handler error fails the jsonrpc2 v1 connection; drop it instead.
+	_ = s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
+		URI:         docURI,
 		Diagnostics: []protocol.Diagnostic{},
 	})
+	return nil
 }
 
 // publishDiagnostics parses the document and publishes diagnostics.
-func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentURI, content string) {
+func (s *Server) publishDiagnostics(
+	ctx context.Context,
+	docURI uri.URI,
+	content string,
+) {
 	s.mu.Lock()
-	doc, ok := s.documents[uri]
+	_, ok := s.documents[docURI]
 	s.mu.Unlock()
 	if !ok {
 		return
 	}
 
-	ast, parseDiag := parser.Parse(content)
+	_, parseDiag := parser.Parse(content)
 	if parseDiag != nil && !parseDiag.Ok() {
-		doc.Diagnostics = parseDiag
 		_ = s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
-			URI:         uri,
-			Diagnostics: xlsp.TranslateDiagnostics(*parseDiag, translateCfg),
+			URI:         docURI,
+			Diagnostics: xlsp.TranslateDiagnostics(*parseDiag, translateSource),
 		})
 		return
 	}
-
-	doc.Schema = ast
-	namespace := deriveNamespaceFromURI(uri)
-	table, analyzeDiag := analyzer.AnalyzeSource(ctx, content, namespace, noopLoader{})
+	namespace := deriveNamespaceFromURI(docURI)
+	// The real file path distinguishes version files from live schemas so the
+	// analyzer's placement rules key correctly.
+	filePath := strings.TrimPrefix(string(docURI), "file://")
+	table := resolution.NewTable()
+	analyzeDiag := analyzer.AnalyzeSeeded(
+		ctx, content, filePath, namespace, noopLoader{}, table,
+	)
 	if analyzeDiag != nil {
-		doc.Diagnostics = analyzeDiag
-		doc.Table = table
+		flat := analyzeDiag.Flat()
 		_ = s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
-			URI:         uri,
-			Diagnostics: xlsp.TranslateDiagnostics(*analyzeDiag, translateCfg),
+			URI:         docURI,
+			Diagnostics: xlsp.TranslateDiagnostics(flat, translateSource),
 		})
 		return
 	}
-
-	doc.Table = table
-	doc.Diagnostics = &diagnostics.Diagnostics{}
 	_ = s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
-		URI:         uri,
+		URI:         docURI,
 		Diagnostics: []protocol.Diagnostic{},
 	})
 }
 
-// deriveNamespaceFromURI extracts a namespace from the document URI.
-func deriveNamespaceFromURI(uri protocol.DocumentURI) string {
-	path := string(uri)
-	path = strings.TrimPrefix(path, "file://")
-	base := filepath.Base(path)
-	ext := filepath.Ext(base)
-	if ext != "" {
-		base = base[:len(base)-len(ext)]
-	}
-	return base
+// deriveNamespaceFromURI extracts a namespace from the document URI. A version file's
+// namespace is its resource ("crdt" for versions/crdt/v0.oracle), never the vN base
+// name.
+func deriveNamespaceFromURI(docURI uri.URI) string {
+	return paths.DeriveNamespace(strings.TrimPrefix(string(docURI), "file://"))
 }
 
-// noopLoader is a FileLoader that doesn't load any files.
-// It's used by the LSP server for analyzing single files without import resolution.
+// noopLoader is a FileLoader that doesn't load any files. It's used by the LSP server
+// for analyzing single files without import resolution.
 type noopLoader struct{}
 
 func (noopLoader) Load(path string) (source, filePath string, err error) {
 	return "", path, nil
 }
 
-func (noopLoader) RepoRoot() string {
-	return ""
-}
+// Versioned reports every resource as versioned: with no files to consult, the stricter
+// answer keeps the editor from suggesting an import the pipeline rejects.
+func (noopLoader) Versioned(string) bool { return true }
+
+func (noopLoader) RepoRoot() string { return "" }
 
 // Formatting handles document formatting requests.
 func (s *Server) Formatting(

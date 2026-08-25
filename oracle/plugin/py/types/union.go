@@ -10,9 +10,12 @@
 package types
 
 import (
+	"slices"
+
 	"github.com/synnaxlabs/oracle/domain/doc"
-	"github.com/synnaxlabs/oracle/plugin/internal/casing"
+	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/py/keywords"
+	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 )
 
@@ -75,26 +78,27 @@ func processUnion(
 			Value:     v.Name,
 			Doc:       doc.Get(v.Domains),
 		}
-		for _, ext := range form.Extends {
+		inherited, declared := resolver.VariantBases(form, v, table)
+		for _, ext := range inherited {
 			if parent, ok := ext.Resolve(table); ok {
-				vd.Parents = append(vd.Parents, buildExtendsExpr(ext, parent, table, data))
+				vd.Parents = append(
+					vd.Parents,
+					buildExtendsExpr(ext, parent, table, data),
+				)
 			}
 		}
 		if payload, ok := v.Type.Resolve(table); ok {
 			if v.Inline {
 				pform := payload.Form.(resolution.StructForm)
-				for _, ext := range pform.Extends {
-					if parent, ok := ext.Resolve(table); ok {
-						vd.Parents = append(vd.Parents,
-							buildExtendsExpr(ext, parent, table, data))
-					}
-				}
-				for _, f := range pform.Fields {
+				for _, f := range append(slices.Clone(declared), pform.Fields...) {
 					vd.Fields = append(vd.Fields,
 						processField(f, table, data, keyFields, nil))
 				}
 			} else {
-				vd.Parents = append(vd.Parents, buildExtendsExpr(v.Type, payload, table, data))
+				vd.Parents = append(
+					vd.Parents,
+					buildExtendsExpr(v.Type, payload, table, data),
+				)
 			}
 		}
 		if len(vd.Parents) == 0 {

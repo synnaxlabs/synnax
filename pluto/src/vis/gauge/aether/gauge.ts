@@ -16,8 +16,8 @@ import { theming } from "@/theming/aether";
 import { type Element } from "@/vis/diagram/aether/Diagram";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
+import { staleness } from "@/vis/staleness/aether";
 
-// Define gauge size presets
 export const GAUGE_SIZES = {
   small: 80,
   medium: 120,
@@ -28,12 +28,12 @@ export const GAUGE_SIZES = {
 export type GaugeSize = keyof typeof GAUGE_SIZES;
 export const gaugeSizeZ = z.enum(["small", "medium", "large", "huge"]);
 
-const gaugeState = z.object({
+const gaugeState = staleness.configZ.extend({
   box: box.box,
   telem: telem.stringSourceSpecZ.default(telem.noopStringSourceSpec),
-  backgroundTelem: telem.colorSourceSpecZ.default(telem.noopColorSourceSpec),
   level: text.levelZ.default("p"),
   color: color.colorZ.default(color.ZERO),
+  stalenessColor: color.colorZ.default(color.ZERO),
   precision: z.number().default(2),
   minWidth: z.number().default(60),
   width: z.number().optional(),
@@ -57,8 +57,9 @@ interface InternalState {
   telem: telem.StringSource;
   draw2d: Draw2D;
   stopListening?: () => void;
-  backgroundTelem: telem.ColorSource;
-  stopListeningBackground?: () => void;
+  staleness: staleness.Registration;
+  // Staleness stays on the worker here, which draws the gauge itself.
+  stale: boolean;
   requestRender: render.Requestor | null;
   textColor: color.Color;
   strokeColor: color.Color;
@@ -90,25 +91,27 @@ export class Gauge
     const { internal: i } = this;
     i.render = render.Context.use(ctx);
     i.theme = theming.use(ctx);
-    if (color.isZero(this.state.color)) i.textColor = i.theme.colors.gray.l8;
+    if (color.isZero(this.state.color)) i.textColor = i.theme.colors.gray.l9;
     else i.textColor = this.state.color;
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
-    i.stopListening?.();
-    i.stopListening = i.telem.onChange(() => this.requestRender());
-    i.backgroundTelem = telem.useSource(
+    i.staleness = staleness.useInternalRegistration(
       ctx,
-      this.state.backgroundTelem,
-      i.backgroundTelem,
+      i.staleness,
+      this,
+      i.telem,
+      () => this.requestRender(),
     );
-    i.stopListeningBackground?.();
-    i.stopListeningBackground = i.backgroundTelem.onChange(() => this.requestRender());
+    i.stopListening?.();
+    i.stopListening = i.telem.onChange(() => {
+      i.staleness.received();
+      this.requestRender();
+    });
     i.requestRender = render.useOptionalRequestor(ctx);
 
     i.strokeColor = color.isZero(this.state.color)
       ? i.theme.colors.visualization.palettes.default[0]
       : this.state.color;
 
-    // Pre-calculate gauge geometry
     const b = this.state.box;
     const baseRadius = box.width(b) / 2;
     const { barWidth } = this.state;
@@ -122,7 +125,6 @@ export class Gauge
     i.gaugeAngleRange = 2 * Math.PI - gapSize; // Total arc is 270 degrees
     i.gaugeEndAngle = i.gaugeStartAngle + i.gaugeAngleRange;
 
-    // Calculate label positions
     i.labelRadius = i.outerRadius + 12;
     i.labelInwardShift = 12;
     i.centerPos = box.center(b);
@@ -151,9 +153,8 @@ export class Gauge
   afterDelete(): void {
     const { internal: i } = this;
     i.stopListening?.();
-    i.stopListeningBackground?.();
+    i.staleness?.cleanup();
     i.telem.cleanup?.();
-    i.backgroundTelem.cleanup?.();
     if (i.requestRender == null)
       i.render.erase(box.construct(this.state.box), xy.ZERO, ...CANVAS_VARIANTS);
     else i.requestRender("layout");
@@ -171,18 +172,21 @@ export class Gauge
     const draw2d = new Draw2D(upper2d, i.theme);
     const value = i.telem.value();
 
-    // Calculate value angle (only thing that changes per render)
     const { lower, upper } = this.state.bounds;
     const valueNum = Number(value);
     const clampedValue = bounds.clamp(this.state.bounds, valueNum);
     const range = upper - lower;
     const valueRatio = range === 0 ? 0 : (clampedValue - lower) / range;
     const valueAngle = i.gaugeStartAngle + valueRatio * i.gaugeAngleRange;
+    const staleColor = this.internal.stale
+      ? staleness.resolveColor(this.state.stalenessColor, i.theme)
+      : undefined;
 
     draw2d.text({
       text: value,
       position: i.valueTextPos,
       shade: 10,
+      color: staleColor,
       level: i.textLevel,
       align: "middle",
       justify: "center",
@@ -201,7 +205,6 @@ export class Gauge
       useAtlas: true,
     });
 
-    // Add min/max labels at the gap endpoints
     draw2d.text({
       text: lower.toString(),
       position: i.minLabelPos,
@@ -233,7 +236,7 @@ export class Gauge
     });
 
     draw2d.circle({
-      stroke: i.strokeColor,
+      stroke: staleColor ?? i.strokeColor,
       radius: { inner: i.innerRadius, outer: i.outerRadius },
       position: i.centerPos,
       angle: {

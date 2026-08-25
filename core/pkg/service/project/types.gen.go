@@ -11,26 +11,12 @@
 
 package project
 
-import (
-	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/x/encoding/msgpack"
-)
+import "github.com/synnaxlabs/synnax/pkg/service/project/versions"
 
 // Key is a unique identifier for a project, represented as a UUID.
-type Key = uuid.UUID
+type Key = versions.Key
 
 // Project is a named, persistable container that stores the layout and organization of
 // the Console application. Projects allow users to save and restore custom arrangements
 // of visualizations, tabs, and window configurations.
-type Project struct {
-	// Key is the unique identifier for this project.
-	Key Key `json:"key" msgpack:"key"`
-	// Name is a human-readable name for the project.
-	Name string `json:"name" msgpack:"name"`
-	// Author is the UUID of the user who created this project.
-	Author user.Key `json:"author" msgpack:"author"`
-	// Layout is the mosaic tree structure that defines how visualizations are arranged.
-	// Contains tab layout, split configurations, and window positions.
-	Layout msgpack.EncodedJSON `json:"layout" msgpack:"layout"`
-}
+type Project = versions.Project

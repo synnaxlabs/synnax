@@ -11,34 +11,57 @@
 
 #pragma once
 
-#include <cstdint>
 #include <optional>
 #include <string>
 #include <type_traits>
 #include <utility>
 
+#include "client/cpp/device/key.h"
 #include "client/cpp/ontology/id.h"
+#include "client/cpp/rack/key.h"
+#include "client/cpp/status/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/status/types.gen.h"
+#include "x/cpp/telem/types.gen.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "core/pkg/service/task/pb/task.pb.h"
 
 namespace synnax::task {
 
+struct KeyedConfig;
 struct Command;
+struct StartConfig;
+struct ScanConfig;
+struct PersistConfig;
+struct ReadConfig;
+struct WriteConfig;
 
-using Key = std::uint64_t;
+using Key = x::uuid::UUID;
+
+/// @brief KeyedConfig is the base for every stored task configuration record.
+struct KeyedConfig {
+    /// @brief key is the unique identifier for the stored configuration record.
+    x::uuid::UUID key;
+
+    static KeyedConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
 
 /// @brief StatusDetails contains task-specific status details including execution
 /// state.
 struct StatusDetails {
     /// @brief task is the key of the task this status pertains to.
-    Key task = 0;
+    Key task;
     /// @brief running is true if the task is currently executing.
     bool running = false;
     /// @brief cmd is the last command executed on this task.
-    std::string cmd;
+    std::string cmd = "";
+    /// @brief config_hash is the hash of the config the running task instance was built
+    /// from. Empty when no instance exists.
+    std::string config_hash = "";
+    /// @brief rack is the key of the rack running the task instance.
+    ::synnax::rack::Key rack = ::synnax::rack::Key(0);
     /// @brief data contains task-specific status data.
     std::optional<x::json::json::object_t> data;
 
@@ -55,13 +78,17 @@ struct StatusDetails {
 /// @brief Command is a command to execute on a task in the Driver system.
 struct Command {
     /// @brief task is the key of the target task.
-    Key task = 0;
+    Key task;
     /// @brief type is the command type (e.g., 'start', 'stop', 'configure').
     std::string type;
     /// @brief key is a unique identifier for this command instance.
     std::string key;
+    /// @brief config_hash is the config hash the sender wants running. Empty when the
+    /// sender does not know it. The Driver reuses its live instance when the hash
+    /// matches and redeploys when it differs.
+    std::string config_hash = "";
     /// @brief args contains optional arguments for the command.
-    x::json::json::object_t args;
+    x::json::json::object_t args = {};
 
     static Command parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -73,14 +100,50 @@ struct Command {
     from_proto(const ::service::task::pb::Command &pb);
 };
 
-using Status = ::x::status::Status<StatusDetails>;
+/// @brief StartConfig carries the configuration fields shared by every task.
+struct StartConfig : public KeyedConfig {
+    /// @brief auto_start is true when the task should start as soon as it is
+    /// configured.
+    bool auto_start = false;
+
+    static StartConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ScanConfig carries the fields shared by every scan task configuration.
+struct ScanConfig : public KeyedConfig {
+    /// @brief rate is the rate at which the scan runs, in Hertz.
+    ::x::telem::Rate rate = ::x::telem::Rate(0.200000);
+    /// @brief disabled is true when scanning is paused.
+    bool disabled = false;
+
+    static ScanConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+using Status = ::synnax::status::Status<StatusDetails>;
+
+/// @brief PersistConfig carries the configuration fields shared by tasks that write
+/// telemetry.
+struct PersistConfig : public StartConfig {
+    /// @brief data_saving_disabled is true when task telemetry is not persisted to
+    /// disk.
+    bool data_saving_disabled = false;
+
+    static PersistConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
 
 /// @brief Task is an executable unit of work in the Driver system. Tasks represent
 /// specific hardware operations such as reading sensor data, writing control signals,
 /// or scanning for devices.
 struct Task {
-    /// @brief key is the composite identifier for this task.
-    Key key = 0;
+    /// @brief key is the unique identifier for this task.
+    Key key;
+    /// @brief rack is the key of the rack this task deploys to. Zero for a draft that
+    /// has
+    /// not been assigned a rack; required to start.
+    ::synnax::rack::Key rack = ::synnax::rack::Key(0);
     /// @brief name is a human-readable name for the task.
     std::string name;
     /// @brief type is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
@@ -89,9 +152,15 @@ struct Task {
     /// @brief config is task-specific configuration stored as JSON. Structure varies by
     /// task type.
     x::json::json::object_t config;
+    /// @brief config_hash is the Core-assigned hash of config, rewritten on every write
+    /// and
+    /// ignored on writes from clients. Compare against a status's config_hash to detect
+    /// drift.
+    std::string config_hash = "";
     /// @brief internal is true if this is an internal system task.
     bool internal = false;
-    /// @brief snapshot indicates whether to persist this task's configuration.
+    /// @brief snapshot is true if this task is an immutable snapshot copy of another
+    /// task.
     bool snapshot = false;
     /// @brief status is the current execution status of the task.
     std::optional<Status> status;
@@ -106,9 +175,32 @@ struct Task {
     from_proto(const ::service::task::pb::Task &pb);
 };
 
+/// @brief ReadConfig carries the configuration fields shared by hardware acquisition
+/// tasks.
+struct ReadConfig : public PersistConfig {
+    /// @brief sample_rate is the per-channel hardware sample rate, in Hertz.
+    ::x::telem::Rate sample_rate = ::x::telem::Rate(10);
+    /// @brief stream_rate is the rate at which samples are streamed to Synnax, in
+    /// Hertz.
+    ::x::telem::Rate stream_rate = ::x::telem::Rate(5);
+
+    static ReadConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief WriteConfig carries the configuration fields shared by hardware control
+/// tasks.
+struct WriteConfig : public PersistConfig {
+    /// @brief device is the key of the device the task writes to.
+    ::synnax::device::Key device = "";
+
+    static WriteConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 const synnax::ontology::ID ONTOLOGY_TYPE("task", "");
 
 inline synnax::ontology::ID ontology_id(const Key &key) {
-    return synnax::ontology::ID("task", std::to_string(key));
+    return synnax::ontology::ID("task", key.to_string());
 }
 }

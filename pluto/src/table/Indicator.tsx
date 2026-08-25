@@ -7,24 +7,33 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/table/Table.css";
+
 import { type table } from "@synnaxlabs/client";
 import { box, direction } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback, useMemo, useRef } from "react";
 
 import { CSS } from "@/css";
+import { Cursor } from "@/cursor";
 import { useSyncedRef } from "@/hooks";
-import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { Menu } from "@/menu";
 import { Text } from "@/text";
 import { stopPropagation } from "@/util/event";
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
-// getCellColumn maps a 0-based column index to a spreadsheet-style letter
-// ("A", "B", "C", ...). Defined here so consumers building UI chrome (e.g.,
-// breadcrumb labels in a toolbar) can label cells using the same convention
-// the table renders.
-export const getCellColumn = (index: number): string => ALPHABET[index];
+/** Pixel size of an indicator strip, mirroring --pluto-table-indicator-size. */
+export const INDICATOR_SIZE = 4.5 * 6;
+
+// getCellColumn maps a 0-based column index to a spreadsheet-style label ("A", "B",
+// ... "Z", "AA", "AB", ...). Exported so consumers labeling cells outside the table
+// (toolbar breadcrumbs, menu items) use the same convention the table renders.
+export const getCellColumn = (index: number): string => {
+  let label = "";
+  for (let i = index; i >= 0; i = Math.floor(i / ALPHABET.length) - 1)
+    label = ALPHABET[i % ALPHABET.length] + label;
+  return label;
+};
 
 export interface ColumnIndicatorsProps {
   columns: number[];
@@ -67,9 +76,9 @@ export const ColumnIndicators = memo(
     );
     const allSelected = totalCells > 0 && selected.length >= totalCells;
     return (
-      <tr className={CSS(CSS.BE("table", "row"), CSS.BE("table", "col-resizer"))}>
+      <tr className={CSS.cls(CSS.BE("table", "row"), CSS.BE("table", "col-resizer"))}>
         <td
-          className={CSS(CSS.BE("table", "select-all"), CSS.selected(allSelected))}
+          className={CSS.cls(CSS.BE("table", "select-all"), CSS.selected(allSelected))}
           onClick={onSelectAll}
           onContextMenu={onSelectAll}
         />
@@ -112,7 +121,7 @@ export const Indicator = ({
 }: IndicatorProps): ReactElement => {
   const valueRef = useSyncedRef(value);
   const sizeRef = useRef(value);
-  const onDragStart = useCursorDrag({
+  const onDragStart = Cursor.useDrag({
     onStart: useCallback(() => {
       sizeRef.current = valueRef.current;
     }, []),
@@ -121,25 +130,33 @@ export const Indicator = ({
       [onChange, index, dir],
     ),
   });
+  const style = useMemo(() => ({ [direction.dimension(dir)]: value }), [dir, value]);
+  const label = dir === "x" ? getCellColumn(index) : index + 1;
   return (
     <td
       id={`resizer-${dir}-${index}`}
-      className={CSS(
+      className={CSS.cls(
         CSS.BE("table", "resizer"),
         CSS.dir(dir),
         CSS.selected(selected),
         Menu.CONTEXT_TARGET,
         selected && Menu.CONTEXT_SELECTED,
       )}
-      style={{ [direction.dimension(dir)]: value }}
+      style={style}
       onClick={(e) => onSelect(index, e)}
       onContextMenu={(e) => onSelect(index, e)}
     >
       <Text.Text full="x" justify="center" align="center" square={false}>
-        {dir === "x" ? ALPHABET[index] : index + 1}
+        {label}
       </Text.Text>
       {editable && (
-        <button onClick={stopPropagation} onDragStart={onDragStart} draggable />
+        <button
+          aria-label={`Resize ${dir === "x" ? "column" : "row"} ${label}`}
+          tabIndex={-1}
+          className={Cursor.DRAG_CLASS}
+          onClick={stopPropagation}
+          onPointerDown={onDragStart}
+        />
       )}
     </td>
   );

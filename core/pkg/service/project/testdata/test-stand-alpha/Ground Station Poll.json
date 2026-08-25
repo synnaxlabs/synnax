@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "type": "pagerduty_alert",
+  "name": "Ground Station Poll",
+  "routing_key": "0123456789abcdef0123456789abcdef",
+  "auto_start": false,
+  "alerts": [
+    {
+      "key": "a1",
+      "disabled": false,
+      "status": "sy_rack_1_heartbeat"
+    }
+  ]
+}

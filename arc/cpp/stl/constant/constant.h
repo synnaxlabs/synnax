@@ -22,28 +22,44 @@
 #include "arc/cpp/types/types.h"
 
 namespace arc::stl::constant {
-/// @brief Node that outputs a constant value once on initialization,
-/// or after reset() has been called.
+/// @brief Node that outputs a configured or var-bound value. Entry nodes fire
+/// once per activation; triggered constants fire on every run.
 class Constant : public runtime::node::Node {
     runtime::state::Node state;
     x::telem::MonoClock clock;
     x::telem::SampleValue value;
+    bool is_entry_node;
     bool initialized = false;
 
 public:
     Constant(
         runtime::state::Node &&state,
         const x::telem::SampleValue &value,
-        const x::telem::DataType &data_type
+        const x::telem::DataType &data_type,
+        const bool is_entry_node
     ):
-        state(std::move(state)), value(data_type.cast(value)) {}
+        state(std::move(state)),
+        value(data_type.cast(value)),
+        is_entry_node(is_entry_node) {}
 
     x::errors::Error next(runtime::node::Context &ctx) override {
-        if (this->initialized) return x::errors::NIL;
-        this->initialized = true;
+        if (this->is_entry_node) {
+            if (this->initialized) return x::errors::NIL;
+            this->initialized = true;
+        }
         const auto &o = this->state.output(0);
         const auto &o_time = this->state.output_time(0);
-        if (o->data_type().is_variable())
+        // A var-bound value input emits the referenced variable's latest value;
+        // otherwise the configured value is emitted.
+        if (const auto s = this->state.ref_input(0);
+            this->state.ref_sourced(0) && s != nullptr && s->size() > 0) {
+            if (s->data_type().is_variable())
+                *o = x::telem::Series(s->at<std::string>(-1), s->data_type());
+            else {
+                o->resize(1);
+                o->set(0, s->at(-1));
+            }
+        } else if (o->data_type().is_variable())
             *o = x::telem::Series(this->value);
         else {
             o->resize(1);
@@ -71,7 +87,7 @@ public:
     std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
     create(runtime::node::Config &&cfg) override {
         if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
-        const auto &param = cfg.node.config["value"];
+        const auto &param = cfg.node.inputs["value"];
         auto sample_value = types::to_sample_value(param.value, param.type);
         if (!sample_value.has_value())
             return {
@@ -82,8 +98,14 @@ public:
                 )
             };
         auto data_type = cfg.node.outputs[0].type.telem();
+        const bool is_entry = ir::is_entry_node(cfg.prog, cfg.node);
         return {
-            std::make_unique<Constant>(std::move(cfg.state), *sample_value, data_type),
+            std::make_unique<Constant>(
+                std::move(cfg.state),
+                *sample_value,
+                data_type,
+                is_entry
+            ),
             x::errors::NIL
         };
     }

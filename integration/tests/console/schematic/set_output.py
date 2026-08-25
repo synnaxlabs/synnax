@@ -14,38 +14,12 @@ from console.schematic.schematic import Schematic
 from x import random_name
 
 
-def assert_setpoint(
-    schematic: Schematic,
-    channel_name: str,
-    expected_value: float,
-    poll_interval: float = 0.1,
-) -> None:
-    """Assert that the setpoint value in the Core matches expected.
-
-    Retries until the value matches or timeout is reached.
-    """
-    elapsed = 0.0
-    while elapsed < 3.0:
-        actual_value = schematic.get_value(channel_name)
-        if actual_value == expected_value:
-            return
-        sy.sleep(poll_interval)
-        elapsed += poll_interval
-
-    actual_value = schematic.get_value(channel_name)
-    assert actual_value == expected_value, (
-        f"Setpoint value mismatch after 3.0s!\n"
-        f"Actual: {actual_value}\nExpected: {expected_value}"
-    )
-
-
 class SetOutput(ConsoleCase):
     """
     Add a value component and edit its properties
     """
 
     def run(self) -> None:
-
         console = self.console
         client = self.client
         CHANNEL_NAME = f"command_channel_{random_name()}"
@@ -66,7 +40,7 @@ class SetOutput(ConsoleCase):
         )
 
         self.log("Creating schematic symbols")
-        schematic = console.project.create_schematic("set_output_schematic")
+        schematic = console.pages.create(Schematic, "set_output_schematic")
         self._cleanup_pages.append(schematic.page_name)
 
         setpoint_symbol = schematic.create_symbol(
