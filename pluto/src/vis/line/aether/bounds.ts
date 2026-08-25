@@ -85,7 +85,7 @@ export const windowBounds = (
       if (b.lower < lower) lower = b.lower;
       if (b.upper > upper) upper = b.upper;
     }
-  const b = { lower, upper };
-  if (!bounds.isFinite(b)) return fallback;
-  return b;
+  const result = { lower, upper };
+  if (!bounds.isFinite(result)) return fallback;
+  return result;
 };
