@@ -9,6 +9,14 @@
  * included in the file licenses/APL.txt.
  */
 
+.console-user-badge__copy {
+    opacity: 0;
+}
+
+.console-user-badge__core:hover .console-user-badge__copy {
+    opacity: 1;
+}
+
 .console-user-badge__dialog {
     width: 260px;
 

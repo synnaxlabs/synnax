@@ -13,6 +13,14 @@
     max-width: 250px;
 }
 
+.console-core-list-item__copy {
+    opacity: 0;
+}
+
+.console-core-list-item:hover .console-core-list-item__copy {
+    opacity: 1;
+}
+
 .console-core-list__items.console-core-list__items {
     gap: 1rem;
 }
