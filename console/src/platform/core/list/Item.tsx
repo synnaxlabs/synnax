@@ -102,7 +102,7 @@ const Base = ({ item, loading, ...rest }: ListItemProps): ReactElement | null =>
         <Button.Button
           variant="text"
           size="tiny"
-          className={CSS.BE("core-list-item", "copy")}
+          reveal
           onClick={() => copy(`${item.host}:${item.port}`, "Core address")}
         >
           <Icon.Copy />

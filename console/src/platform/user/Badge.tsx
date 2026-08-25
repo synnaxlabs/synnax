@@ -12,6 +12,7 @@ import "@/platform/user/Badge.css";
 import {
   Access,
   Button,
+  CSS as PCSS,
   Dialog,
   Divider,
   Flex,
@@ -70,19 +71,14 @@ export const Badge = (): ReactElement | null => {
               <Text.Text weight={500} color={10} overflow="ellipsis">
                 {core.name}
               </Text.Text>
-              <Flex.Box
-                x
-                align="center"
-                gap="small"
-                className={CSS.BE("user-badge", "core")}
-              >
+              <Flex.Box x align="center" gap="small" className={PCSS.M("reveals")}>
                 <Text.Text level="small" color={9} overflow="ellipsis">
                   {core.host}:{core.port}
                 </Text.Text>
                 <Button.Button
                   variant="text"
                   size="tiny"
-                  className={CSS.BE("user-badge", "copy")}
+                  reveal
                   onClick={() => copy(`${core.host}:${core.port}`, "Core address")}
                 >
                   <Icon.Copy />
