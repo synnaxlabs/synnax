@@ -18,13 +18,11 @@ import { Errors } from "@/errors";
 import { Table } from "@/table";
 import { table as aetherTable } from "@/table/aether";
 import { INDICATOR_SIZE } from "@/table/Indicator";
-import { telemTest } from "@/telem/aether/test";
 import { mockBoundingClientRect } from "@/testutil/dom";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 import { Theming } from "@/theming";
 import { Triggers } from "@/triggers";
 import { canvasTest } from "@/vis/render/test";
-import { Value } from "@/vis/value";
 import { value } from "@/vis/value/aether";
 
 const client = createTestClient();
@@ -97,30 +95,17 @@ describe("Table", () => {
       client,
       additionalRegistry: { ...aetherTable.REGISTRY, ...value.REGISTRY },
       renderContext: recorder,
-      telemFactories: [new telemTest.TestFactory()],
+      telemFactories: [],
     });
     const project = await client.projects.create({ name: "center", layout: {} });
     // A value cell, not a text cell: value is the variant that draws on the
     // canvas, so its recorded draw calls pin the centering offset into the
     // canvas path alongside the DOM transform.
-    const source = telemTest.source("42.5");
     const created = await client.tables.create(project.key, {
       name: "center_table",
       rows: [{ size: ROW_SIZE, cells: ["a"] }],
       columns: [{ size: COL_SIZE }],
-      cells: {
-        a: {
-          key: "a",
-          variant: "value",
-          props: {
-            telem: telemTest.stringSourceSpec(source),
-            redline: Value.ZERO_READLINE,
-            level: "h5",
-            color: "#000000",
-            units: "",
-          },
-        },
-      },
+      cells: { a: { variant: "value", level: "h5", color: "#000000" } },
     });
     key = created.key;
     await loadTable(wrapper, key);
@@ -306,7 +291,7 @@ describe("Table", () => {
         name: "undo_table",
         rows: [{ size: ROW_SIZE, cells: ["a"] }],
         columns: [{ size: COL_SIZE }],
-        cells: { a: { key: "a", variant: "text", props: { value: "before" } } },
+        cells: { a: { variant: "text", value: "before" } },
       });
       await loadTable(wrapper, created.key);
       return created.key;
@@ -331,7 +316,7 @@ describe("Table", () => {
           key: textKey,
           actions: [
             table.setCell({
-              cell: { key: "a", variant: "text", props: { value: "after" } },
+              cell: { key: "a", config: { variant: "text", value: "after" } },
             }),
           ],
         });
@@ -358,7 +343,7 @@ describe("Table", () => {
           key: textKey,
           actions: [
             table.setCell({
-              cell: { key: "a", variant: "text", props: { value: "after" } },
+              cell: { key: "a", config: { variant: "text", value: "after" } },
             }),
           ],
         });
@@ -387,23 +372,16 @@ describe("Table", () => {
       cols: number,
       showIndicators: boolean,
     ): Promise<unknown[]> => {
-      const source = telemTest.source("1");
-      const cells: Record<string, table.Cell> = {};
+      const cells: Record<string, table.CellConfig> = {};
       const rowSpecs = Array.from({ length: rows }, (_, r) => ({
         size: ROW_SIZE,
         cells: Array.from({ length: cols }, (_, c) => {
           const cellKey = `${r}-${c}`;
-          cells[cellKey] = {
-            key: cellKey,
+          cells[cellKey] = table.cellConfigZ.parse({
             variant: "value",
-            props: {
-              telem: telemTest.stringSourceSpec(source),
-              redline: Value.ZERO_READLINE,
-              level: "h5",
-              color: "#000000",
-              units: "",
-            },
-          };
+            level: "h5",
+            color: "#000000",
+          });
           return cellKey;
         }),
       }));
@@ -455,17 +433,16 @@ describe("Table", () => {
     });
   });
 
-  describe("sparse cell props", () => {
-    // An imported legacy state can carry a value cell with empty props. The
-    // renderer merges wire props over the variant's defaults, so the cell
-    // renders instead of crashing on the missing fields.
-    it("renders a value cell whose wire props are empty", async () => {
+  describe("sparse cell configs", () => {
+    // A value cell stored with only its variant takes every other field from the
+    // schema defaults, so it renders instead of crashing on missing fields.
+    it("renders a value cell carrying only its variant", async () => {
       const project = await client.projects.create({ name: "sparse", layout: {} });
       const created = await client.tables.create(project.key, {
         name: "sparse_table",
         rows: [{ size: ROW_SIZE, cells: ["a"] }],
         columns: [{ size: COL_SIZE }],
-        cells: { a: { key: "a", variant: "value", props: {} } },
+        cells: { a: { variant: "value" } },
       });
       await loadTable(wrapper, created.key);
       const Wrapped = (): ReactElement => (

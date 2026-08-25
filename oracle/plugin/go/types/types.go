@@ -492,14 +492,21 @@ func renderGoFile(
 		SubstituteDefaultedTypeParams: true,
 	}
 
+	importResolver := &GoImportResolver{
+		RepoRoot:       repoRoot,
+		CurrentPackage: pkg,
+		AliasOverrides: aliasOverrides,
+	}
 	r := &resolver.Resolver{
-		Formatter: GoFormatter(),
-		ImportResolver: &GoImportResolver{
-			RepoRoot:       repoRoot,
-			CurrentPackage: pkg,
-			AliasOverrides: aliasOverrides,
-		},
+		Formatter:       GoFormatter(),
+		ImportResolver:  importResolver,
 		ImportAdder:     imports,
+		PrimitiveMapper: primitiveMapper,
+	}
+	probeResolver := &resolver.Resolver{
+		Formatter:       GoFormatter(),
+		ImportResolver:  importResolver,
+		ImportAdder:     discardedImports{},
 		PrimitiveMapper: primitiveMapper,
 	}
 
@@ -511,6 +518,7 @@ func renderGoFile(
 		table:          table,
 		repoRoot:       repoRoot,
 		resolver:       r,
+		probeResolver:  probeResolver,
 		ctx:            ctx,
 		aliasOverrides: aliasOverrides,
 	}
@@ -591,6 +599,23 @@ const (
 type orderedDecl struct {
 	kind declKind
 	typ  resolution.Type
+}
+
+// discardedImports drops every import registered through it. Resolution registers the
+// imports a rendering needs as a side effect, which is wrong when the rendering is
+// thrown away.
+type discardedImports struct{}
+
+// AddImport implements resolver.ImportAdder.
+func (discardedImports) AddImport(string, string, string) {}
+
+// probe returns a view of d whose resolution registers no imports. Predicates that ask
+// whether a field renders anything build the rendering to find out and discard it; the
+// imports that rendering would need belong to the file only if it is emitted.
+func (d *templateData) probe() *templateData {
+	probed := *d
+	probed.resolver = d.probeResolver
+	return &probed
 }
 
 // orderDecls merges the kind-grouped type lists into schema declaration order. An
@@ -993,6 +1018,9 @@ type templateData struct {
 	// latest, when set, resolves omitted (memory-only) fields against the latest table
 	// so they track dependencies' current versions.
 	latest *templateData
+	// probeResolver resolves exactly like resolver but discards the imports it would
+	// register, for predicates that build a rendering only to ask whether one exists.
+	probeResolver *resolver.Resolver
 	// aliasOverrides remaps specific output paths to explicit import aliases
 	// during the conflict re-render pass.
 	aliasOverrides map[string]string

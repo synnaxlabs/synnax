@@ -13,14 +13,43 @@ package table
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions"
-	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Key is a unique identifier for a table, represented as a UUID.
 type Key = versions.Key
 
-// Cell is a single cell in a table, identified by key and variant.
-type Cell = versions.Cell
+// FlexAlignment is a cross-axis flex alignment for laid-out content.
+type FlexAlignment = versions.FlexAlignment
+
+const (
+	FlexAlignmentStart   FlexAlignment = versions.FlexAlignmentStart
+	FlexAlignmentCenter  FlexAlignment = versions.FlexAlignmentCenter
+	FlexAlignmentEnd     FlexAlignment = versions.FlexAlignmentEnd
+	FlexAlignmentStretch FlexAlignment = versions.FlexAlignmentStretch
+)
+
+// Redline maps a numeric range to a color gradient for limit visualization.
+type Redline = versions.Redline
+
+// CellConfig is the per-cell configuration stored in the table cells map. The variant
+// selects which Pluto cell component renders the cell.
+type CellConfig = versions.CellConfig
+type CellConfigVariant = versions.CellConfigVariant
+type CellConfigType = versions.CellConfigType
+
+const (
+	// TextCellConfigType is the configuration for static text cells.
+	TextCellConfigType CellConfigType = versions.TextCellConfigType
+	// ValueCellConfigType is the configuration for live telemetry value cells.
+	ValueCellConfigType CellConfigType = versions.ValueCellConfigType
+)
+
+// TextCellConfig is the configuration for static text cells.
+type TextCellConfig = versions.TextCellConfig
+
+// ValueCellConfig is the configuration for live telemetry value cells.
+type ValueCellConfig = versions.ValueCellConfig
 
 // Row is a single row in a table, with height and ordered cell keys.
 type Row = versions.Row
@@ -33,15 +62,25 @@ type Column = versions.Column
 // options.
 type Table = versions.Table
 
-// CellTemplate is a variant + props pair describing what a cell should look like,
-// without identifying which cell. Used by actions that overwrite existing cells in
-// place (EraseCells), where the target cell's key is provided separately.
-type CellTemplate struct {
-	// Variant is the cell variant identifier (e.g. "text", "value"). The variant
-	// determines the shape of props and which Pluto cell component renders the cell.
-	Variant string `json:"variant" msgpack:"variant"`
-	// Props is the variant-specific cell configuration. The shape is determined by the
-	// variant; the wire format intentionally stores it as an opaque record so new
-	// variants can be added without a schema migration.
-	Props msgpack.EncodedJSON `json:"props,omitzero" msgpack:"props,omitzero"`
+// Cell is a keyed cell configuration used by actions that address cells explicitly.
+// Inside the table state itself, cell configurations are stored in the cells map keyed
+// by cell key.
+type Cell struct {
+	// Key is the unique identifier for this cell within the table.
+	Key string `json:"key" msgpack:"key"`
+	// Config is the cell's variant-discriminated configuration.
+	Config CellConfig `json:"config" msgpack:"config"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (c *Cell) ApplyDefaults() {
+	c.Config.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c Cell) Validate() error {
+	v := validate.New("Cell")
+	v.Exec(func() error { return validate.PathedError(c.Config.Validate(), "config") })
+	return v.Error()
 }

@@ -13,7 +13,7 @@
       "key": "c1",
       "variant": "text",
       "selected": false,
-      "props": { "fooBar": 3 }
+      "props": { "weight": 700 }
     },
     "c2": { "key": "c2", "variant": "value", "selected": true, "props": {} }
   }

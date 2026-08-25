@@ -14,7 +14,6 @@ package v1
 import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // Key is a unique identifier for a table, represented as a UUID.
@@ -64,12 +63,4 @@ type Table struct {
 	// derived from rows[*].cells[*] references; cells not referenced by any row are
 	// orphaned and will be pruned on the next structural edit.
 	Cells map[string]Cell `json:"cells,omitzero" msgpack:"cells,omitzero"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (t Table) Validate() error {
-	v := validate.New("Table")
-	validate.NotEmptyString(v, "name", t.Name)
-	return v.Error()
 }

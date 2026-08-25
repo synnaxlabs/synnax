@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v1"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v2"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
@@ -41,7 +42,13 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Table, error) {
 			if err = imex.RequireFields(
 				body, "a table", "layout", "cells",
 			); err == nil {
-				t, err = v1.MigrateTable(ctx, v0.Table{Name: env.Name, Data: body})
+				var t1 v1.Table
+				if t1, err = v1.MigrateTable(
+					ctx,
+					v0.Table{Name: env.Name, Data: body},
+				); err == nil {
+					t, err = v2.MigrateTable(ctx, t1)
+				}
 			}
 		}
 	}

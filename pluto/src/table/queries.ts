@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type project, type table } from "@synnaxlabs/client";
+import { type project, table } from "@synnaxlabs/client";
 import { compare, grid, id, uuid, verbs, type xy } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
@@ -15,10 +15,11 @@ import { Flux } from "@/flux";
 import { useSyncedRef } from "@/hooks/ref";
 import { Cell } from "@/table/cells";
 import { Scope } from "@/table/scope";
-import { Theming } from "@/theming";
 
-const BASE_ROW_SIZE = 36;
-const BASE_COL_SIZE = 72;
+// The base sizes come from the schema, which declares the default size of a row and a
+// column.
+const BASE_ROW_SIZE = table.rowZ.parse({}).size;
+const BASE_COL_SIZE = table.columnZ.parse({}).size;
 
 const RESOURCE_NAME = "table";
 
@@ -51,7 +52,7 @@ export interface CellParams extends KeyParams {
 
 export const useCell = Scope.bindHook(
   createSelector<Cell.Config | undefined, CellParams>(
-    ({ cells }, { cellKey }) => cells?.[cellKey] as Cell.Config | undefined,
+    ({ cells }, { cellKey }) => cells?.[cellKey],
   ),
 );
 
@@ -66,7 +67,7 @@ export const useCells = Scope.bindHook(
   createSelector<Map<string, Cell.Config>, CellsParams>(({ cells }, { cellKeys }) => {
     const result = new Map<string, Cell.Config>();
     for (const cellKey of cellKeys) {
-      const cell = cells?.[cellKey] as Cell.Config | undefined;
+      const cell = cells?.[cellKey];
       if (cell != null) result.set(cellKey, cell);
     }
     return result;
@@ -90,20 +91,16 @@ export interface CreateParams extends table.New {
   project?: project.Key;
 }
 
-const createDefaultLayout = (
-  theme: ReturnType<typeof Theming.use>,
-): Pick<table.Table, "rows" | "columns" | "cells"> => {
+const createDefaultLayout = (): Pick<table.Table, "rows" | "columns" | "cells"> => {
   const cellKeys = [id.create(), id.create(), id.create(), id.create()];
-  const props = Cell.REGISTRY.text.defaultProps(theme);
+  const config = Cell.defaultConfig("text");
   return {
     rows: [
       { size: BASE_ROW_SIZE, cells: [cellKeys[0], cellKeys[1]] },
       { size: BASE_ROW_SIZE, cells: [cellKeys[2], cellKeys[3]] },
     ],
     columns: [{ size: BASE_COL_SIZE }, { size: BASE_COL_SIZE }],
-    cells: Object.fromEntries(
-      cellKeys.map((k) => [k, { key: k, variant: "text", props }]),
-    ),
+    cells: Object.fromEntries(cellKeys.map((k) => [k, config])),
   };
 };
 
@@ -122,11 +119,10 @@ const { useUpdate: useCreateBase } = Flux.createUpdate<CreateParams, table.Table
 export const useCreate: typeof useCreateBase = (args) => {
   const base = useCreateBase(args);
   const baseRef = useSyncedRef(base);
-  const themeRef = useSyncedRef(Theming.use());
   const withDefaultLayout = useCallback(
     (data: CreateParams): CreateParams =>
       (data.rows?.length ?? 0) === 0 && (data.columns?.length ?? 0) === 0
-        ? { ...data, ...createDefaultLayout(themeRef.current) }
+        ? { ...data, ...createDefaultLayout() }
         : data,
     [],
   );

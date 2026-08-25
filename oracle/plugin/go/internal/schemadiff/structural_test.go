@@ -62,6 +62,30 @@ var _ = Describe("StructurallyEqual", func() {
 		)).To(BeFalse())
 	})
 
+	It("Should distinguish declarations by field default", func() {
+		a := analyze("Row struct {\n\tsize float64\n}\n")
+		b := analyze("Row struct {\n\tsize float64 = 36\n}\n")
+		Expect(schemadiff.StructurallyEqual(
+			typeOf(a, "Row"), typeOf(b, "Row"), a, b,
+		)).To(BeFalse())
+	})
+
+	It("Should distinguish declarations by default value", func() {
+		a := analyze("Row struct {\n\tsize float64 = 36\n}\n")
+		b := analyze("Row struct {\n\tsize float64 = 72\n}\n")
+		Expect(schemadiff.StructurallyEqual(
+			typeOf(a, "Row"), typeOf(b, "Row"), a, b,
+		)).To(BeFalse())
+	})
+
+	It("Should equate declarations with identical defaults", func() {
+		a := analyze("Row struct {\n\tsize float64 = 36\n}\n")
+		b := analyze("Row struct {\n\tsize float64 = 36\n}\n")
+		Expect(schemadiff.StructurallyEqual(
+			typeOf(a, "Row"), typeOf(b, "Row"), a, b,
+		)).To(BeTrue())
+	})
+
 	It("Should distinguish enums by member list", func() {
 		a := analyze("State enum {\n\tidle = 0\n}\n")
 		b := analyze("State enum {\n\tidle = 0\n\trunning = 1\n}\n")

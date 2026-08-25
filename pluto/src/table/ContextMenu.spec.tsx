@@ -58,7 +58,7 @@ describe("table DefaultContextMenu", () => {
       name: "menu_table",
       rows: [{ size: 36, cells: ["a"] }],
       columns: [{ size: 72 }],
-      cells: { a: { key: "a", variant: "text", props: { value: "A" } } },
+      cells: { a: { variant: "text", value: "A" } },
     });
     key = created.key;
     await loadTable(wrapper, key);

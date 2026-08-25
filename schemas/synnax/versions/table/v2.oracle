@@ -1,0 +1,167 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/channel/v0"
+import "schemas/x/versions/color/v0"
+import "schemas/x/versions/notation/v0"
+import "schemas/x/versions/spatial/v0"
+import "schemas/x/versions/text/v0"
+
+Key = v0.Key
+
+FlexAlignment enum {
+    start   = "start"
+    center  = "center"
+    end     = "end"
+    stretch = "stretch"
+
+    @doc value "is a cross-axis flex alignment for laid-out content."
+}
+
+Redline struct {
+    bounds   spatial.Bounds {
+        @doc value "is the numeric range mapped onto the gradient."
+    }
+    gradient color.Stop[]   {
+        @doc value "is the color gradient applied across the bounds."
+    }
+
+    @doc value  "maps a numeric range to a color gradient for limit visualization."
+    @go marshal
+}
+
+CellConfig union on variant {
+    text {
+        value            string = "" {
+            @doc value "is the text content of the cell."
+        }
+        level            text.Level = text.LevelH5 {
+            @doc value "is the typography level of the cell text."
+        }
+        weight           float64 = 400 {
+            @doc value "is the font weight of the cell text."
+        }
+        align            FlexAlignment = FlexAlignmentCenter {
+            @doc value "is the alignment of the cell text along the row axis."
+        }
+        background_color color.Color?  {
+            @doc value """
+                is the background color of the cell. When absent the theme picks the
+                fill; a fully transparent value paints nothing.
+            """
+        }
+
+        @doc value "is the configuration for static text cells."
+    }
+    value {
+        channel           channel.Key = 0 {
+            @doc value "is the channel whose value the cell displays."
+        }
+        rolling_average   int32 = 1 {
+            @doc value "is the sample window for rolling-average smoothing."
+        }
+        precision         int32?            {
+            @doc value """
+                is the number of decimal places shown. When absent the formatter picks
+                the precision; zero shows whole numbers.
+            """
+        }
+        notation          notation.Notation = notation.NotationStandard {
+            @doc value "is the numeric notation used to format the value."
+        }
+        redline           Redline?          {
+            @doc value """
+                is the bounds-to-gradient mapping applied to the background. When absent
+                the cell paints no redline.
+            """
+        }
+        level             text.Level = text.LevelH5 {
+            @doc value "is the typography level of the displayed value."
+        }
+        color             color.Color?      {
+            @doc value """
+                is the color of the displayed text. When absent the value renders with a
+                theme-derived legible color.
+            """
+        }
+        units             string = "" {
+            @doc value "is the unit suffix displayed after the value."
+        }
+        staleness_timeout float64 = 5 {
+            @doc value """
+                is the duration in seconds after which the value is considered stale.
+            """
+        }
+        staleness_color   color.Color?      {
+            @doc value """
+                is the color applied when the value is stale. When absent the value
+                renders with the theme warning color.
+            """
+        }
+
+        @doc value "is the configuration for live telemetry value cells."
+    }
+
+    @doc value  """
+        is the per-cell configuration stored in the table cells map. The variant selects
+        which Pluto cell component renders the cell.
+    """
+    @go marshal
+}
+
+Row struct {
+    size  float64 = 36 {
+        @doc value "is the height of the row in pixels."
+    }
+    cells string[] {
+        @doc value """
+            is the ordered list of cell keys in this row from left to right. Each key
+            points at an entry in the table's cells map.
+        """
+    }
+
+    @doc value  "is a single row in a table, with height and ordered cell keys."
+    @go marshal
+}
+
+Column struct {
+    size float64 = 72 {
+        @doc value "is the width of the column in pixels."
+    }
+
+    @doc value  "is a single column in a table, with width."
+    @go marshal
+}
+
+Table struct {
+    key     Key = create {
+        @doc value "is the unique identifier for this table."
+        @key
+    }
+    name    string                  {
+        @doc value "is a human-readable name for the table."
+    }
+    rows    Row[] = [] {
+        @doc value "are the table rows in display order, top to bottom."
+    }
+    columns Column[] = [] {
+        @doc value "are the table columns in display order, left to right."
+    }
+    cells   map<string, CellConfig> = {} {
+        @doc value """
+            contains all cells in the table, keyed by cell key. Cell positions are
+            derived from rows[*].cells[*] references; cells not referenced by any row
+            are orphaned and will be pruned on the next structural edit.
+        """
+    }
+
+    @go imex
+    @go marshal
+    @go migrate
+}

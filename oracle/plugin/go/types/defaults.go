@@ -391,14 +391,15 @@ type recurseStepData struct {
 type fieldHasOwn func(resolution.Field, *templateData) bool
 
 func defaultsHasOwn(f resolution.Field, data *templateData) bool {
-	return len(goDefaultFills(f, data)) > 0
+	return len(goDefaultFills(f, data.probe())) > 0
 }
 
 func validateHasOwn(f resolution.Field, data *templateData) bool {
-	if _, ok := goEnumCheck(f, data); ok {
+	probe := data.probe()
+	if _, ok := goEnumCheck(f, probe); ok {
 		return true
 	}
-	return len(goConstraintChecks(f, data)) > 0
+	return len(goConstraintChecks(f, probe)) > 0
 }
 
 // neverSkip is the skip predicate for ApplyDefaults: defaults apply to every field.

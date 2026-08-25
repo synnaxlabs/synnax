@@ -15,7 +15,6 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
-	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
 var _ = Describe("Writer", func() {
@@ -27,17 +26,9 @@ var _ = Describe("Writer", func() {
 			Name:    "test",
 			Rows:    []table.Row{{Size: 30, Cells: []string{"a", "b"}}},
 			Columns: []table.Column{{Size: 80}, {Size: 100}},
-			Cells: map[string]table.Cell{
-				"a": {
-					Key:     "a",
-					Variant: "text",
-					Props:   msgpack.EncodedJSON{"value": "A"},
-				},
-				"b": {
-					Key:     "b",
-					Variant: "text",
-					Props:   msgpack.EncodedJSON{"value": "B"},
-				},
+			Cells: map[string]table.CellConfig{
+				"a": textCfg("A"),
+				"b": textCfg("B"),
 			},
 		}
 		Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &s)).To(Succeed())
@@ -58,12 +49,8 @@ var _ = Describe("Writer", func() {
 				Name:    "test",
 				Rows:    []table.Row{{Size: 30, Cells: []string{"a"}}},
 				Columns: []table.Column{{Size: 80}},
-				Cells: map[string]table.Cell{
-					"a": {
-						Key:     "a",
-						Variant: "text",
-						Props:   msgpack.EncodedJSON{"value": "hello"},
-					},
+				Cells: map[string]table.CellConfig{
+					"a": textCfg("hello"),
 				},
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &t)).To(Succeed())
@@ -123,23 +110,18 @@ var _ = Describe("Writer", func() {
 						Index: 1,
 						Size:  40,
 						Cells: []table.Cell{
-							{Key: "c", Variant: "text"},
-							{Key: "d", Variant: "text"},
+							cell("c", textCfg("")),
+							cell("d", textCfg("")),
 						},
 					}),
 					table.NewSetCellAction(table.SetCellPayload{
-						Cell: table.Cell{
-							Key:     "c",
-							Variant: "value",
-							Props:   msgpack.EncodedJSON{"telem": "ch1"},
-						},
+						Cell: cell("c", valueCfg("psi")),
 					}),
 				})).To(Succeed())
 				res := retrieve(ctx, s.Key)
 				Expect(res.Name).To(Equal("multi"))
 				Expect(res.Rows).To(HaveLen(2))
-				Expect(res.Cells["c"].Variant).To(Equal("value"))
-				Expect(res.Cells["c"].Props["telem"]).To(Equal("ch1"))
+				Expect(res.Cells["c"]).To(Equal(valueCfg("psi")))
 			},
 		)
 

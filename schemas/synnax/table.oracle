@@ -7,6 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/channel"
+import "schemas/x/color"
+import "schemas/x/notation"
+import "schemas/x/spatial"
+import "schemas/x/text"
+
 @go output "core/pkg/service/table"
 @ts output "client/ts/src/table"
 
@@ -14,43 +20,129 @@ Key = uuid {
     @doc value "is a unique identifier for a table, represented as a UUID."
 }
 
-Cell struct {
-    key     string {
-        @doc value "is the unique identifier for this cell within the table."
+FlexAlignment enum {
+    start   = "start"
+    center  = "center"
+    end     = "end"
+    stretch = "stretch"
+
+    @doc value "is a cross-axis flex alignment for laid-out content."
+}
+
+Redline struct {
+    bounds   spatial.Bounds {
+        @doc value "is the numeric range mapped onto the gradient."
     }
-    variant string {
-        @doc value """
-            is the cell variant identifier (e.g. "text", "value"). The variant
-            determines the shape of props and which Pluto cell component renders the
-            cell.
-        """
-    }
-    props   record {
-        @doc value        """
-            is the variant-specific cell configuration. The shape is determined by the
-            variant; the wire format intentionally stores it as an opaque record so new
-            variants can be added without a schema migration.
-        """
-        @ts preserve_case
+    gradient color.Stop[]   {
+        @doc value "is the color gradient applied across the bounds."
     }
 
-    @doc value  "is a single cell in a table, identified by key and variant."
+    @doc value  "maps a numeric range to a color gradient for limit visualization."
     @go marshal
 }
 
-CellTemplate struct extends Cell {
-    -key
+CellConfig union on variant {
+    text {
+        value            string = "" {
+            @doc value "is the text content of the cell."
+        }
+        level            text.Level = text.LevelH5 {
+            @doc value "is the typography level of the cell text."
+        }
+        weight           float64 = 400 {
+            @doc value    "is the font weight of the cell text."
+            @validate max 1000
+            @validate min 1
+        }
+        align            FlexAlignment = FlexAlignmentCenter {
+            @doc value "is the alignment of the cell text along the row axis."
+        }
+        background_color color.Color?  {
+            @doc value """
+                is the background color of the cell. When absent the theme picks the
+                fill; a fully transparent value paints nothing.
+            """
+        }
+
+        @doc value "is the configuration for static text cells."
+    }
+    value {
+        channel           channel.Key = 0 {
+            @doc value "is the channel whose value the cell displays."
+        }
+        rolling_average   int32 = 1 {
+            @doc value    "is the sample window for rolling-average smoothing."
+            @validate min 1
+        }
+        precision         int32?            {
+            @doc value """
+                is the number of decimal places shown. When absent the formatter picks
+                the precision; zero shows whole numbers.
+            """
+        }
+        notation          notation.Notation = notation.NotationStandard {
+            @doc value "is the numeric notation used to format the value."
+        }
+        redline           Redline?          {
+            @doc value """
+                is the bounds-to-gradient mapping applied to the background. When absent
+                the cell paints no redline.
+            """
+        }
+        level             text.Level = text.LevelH5 {
+            @doc value "is the typography level of the displayed value."
+        }
+        color             color.Color?      {
+            @doc value """
+                is the color of the displayed text. When absent the value renders with a
+                theme-derived legible color.
+            """
+        }
+        units             string = "" {
+            @doc value "is the unit suffix displayed after the value."
+        }
+        staleness_timeout float64 = 5 {
+            @doc value    """
+                is the duration in seconds after which the value is considered stale.
+            """
+            @validate min 1
+        }
+        staleness_color   color.Color?      {
+            @doc value """
+                is the color applied when the value is stale. When absent the value
+                renders with the theme warning color.
+            """
+        }
+
+        @doc value "is the configuration for live telemetry value cells."
+    }
+
+    @doc value  """
+        is the per-cell configuration stored in the table cells map. The variant selects
+        which Pluto cell component renders the cell.
+    """
+    @go marshal
+}
+
+Cell struct {
+    key    string     {
+        @doc value "is the unique identifier for this cell within the table."
+    }
+    config CellConfig {
+        @doc value "is the cell's variant-discriminated configuration."
+    }
 
     @doc value """
-        is a variant + props pair describing what a cell should look like, without
-        identifying which cell. Used by actions that overwrite existing cells in place
-        (EraseCells), where the target cell's key is provided separately.
+        is a keyed cell configuration used by actions that address cells explicitly.
+        Inside the table state itself, cell configurations are stored in the cells map
+        keyed by cell key.
     """
 }
 
 Row struct {
-    size  float64  {
-        @doc value "is the height of the row in pixels."
+    size  float64 = 36 {
+        @doc value    "is the height of the row in pixels."
+        @validate min 1
     }
     cells string[] {
         @doc value """
@@ -64,8 +156,9 @@ Row struct {
 }
 
 Column struct {
-    size float64 {
-        @doc value "is the width of the column in pixels."
+    size float64 = 72 {
+        @doc value    "is the width of the column in pixels."
+        @validate min 1
     }
 
     @doc value  "is a single column in a table, with width."
@@ -77,7 +170,7 @@ Table struct {
         @doc value "is the unique identifier for this table."
         @key
     }
-    name    string            {
+    name    string                  {
         @doc value         "is a human-readable name for the table."
         @validate required
     }
@@ -87,13 +180,13 @@ Table struct {
     columns Column[] = [] {
         @doc value "are the table columns in display order, left to right."
     }
-    cells   map<string, Cell> = {} {
+    cells   map<string, CellConfig> = {} {
         @doc value        """
             contains all cells in the table, keyed by cell key. Cell positions are
             derived from rows[*].cells[*] references; cells not referenced by any row
             are orphaned and will be pruned on the next structural edit.
         """
-        @ts preserve_case
+        @ts preserve_keys
     }
 
     action Create {
@@ -209,14 +302,14 @@ Table struct {
 
     action EraseCells {
         cells    string[]
-        template CellTemplate
+        template CellConfig
 
         @doc value """
             erases the cells whose keys are in cells. Any row whose every cell is in the
             selection is removed entirely; same for columns. Cells that survive that
-            row/column removal have their variant and props replaced with the
-            template's, keeping their original keys. Cells in the selection whose keys
-            are not in the table's cells map are silently skipped.
+            row/column removal have their config replaced with the template, keeping
+            their original keys. Cells in the selection whose keys are not in the
+            table's cells map are silently skipped.
         """
     }
 
