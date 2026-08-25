@@ -13,7 +13,7 @@ import {
   Unreachable,
   type WebSocketClient,
 } from "@synnaxlabs/freighter";
-import { errors, Rate, TimeSpan, zod } from "@synnaxlabs/x";
+import { errors, Rate, sync, TimeSpan, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type channel } from "@/channel";
@@ -100,6 +100,11 @@ export interface StreamOpener {
   (config: StreamerConfig): Promise<Streamer>;
 }
 
+// Deadline for the Core to acknowledge a streamer once the socket is open. The
+// handshake already proved the connection, so only a death in the window between the
+// two reaches this.
+const OPEN_ACK_TIMEOUT = TimeSpan.seconds(30);
+
 /**
  * Creates a function that opens streamers with the given channel resolver and client.
  * @param retrieveChannels - Resolves channel params to payloads for the codec
@@ -130,8 +135,24 @@ export const createStreamOpener =
     });
     // A keepalive can beat the open ack onto the wire, so the ack is the first
     // non-keepalive response.
-    let res = await stream.receive();
-    while (res.keepalive === true) res = await stream.receive();
+    const ack = (async () => {
+      let res = await stream.receive();
+      while (res.keepalive === true) res = await stream.receive();
+    })();
+    const span = OPEN_ACK_TIMEOUT.toString();
+    try {
+      await sync.withTimeout(
+        ack,
+        OPEN_ACK_TIMEOUT,
+        () =>
+          new Unreachable({
+            message: `streamer was not acknowledged within ${span}`,
+          }),
+      );
+    } catch (err) {
+      streamer.close();
+      throw errors.fromUnknown(err);
+    }
     return streamer;
   };
 
