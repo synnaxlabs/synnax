@@ -124,7 +124,7 @@ func NewSymbols() []*symbol.Symbol {
 func rejectNonPositiveSpan(param string) symbol.ArgumentsHook {
 	return func(diags *diagnostics.Diagnostics, args []symbol.Argument) {
 		for _, arg := range args {
-			if arg.Name != param && !(arg.Name == "" && arg.Index == 0) {
+			if arg.Name != param && (arg.Name != "" || arg.Index != 0) {
 				continue
 			}
 			if arg.Expr == nil || !parser.IsLiteral(arg.Expr) {
