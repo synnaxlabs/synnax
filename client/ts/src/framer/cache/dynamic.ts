@@ -65,7 +65,7 @@ const fits = (buffer: Series, series: Series): boolean =>
 // Bounds on compacting a buffer that rotated early. Both have to trip: the fraction
 // spares a nearly full buffer, the floor one whose waste is not worth a copy.
 const COMPACT_MAX_FILL = 0.25;
-const COMPACT_MIN_WASTE = Size.kilobytes(64);
+const COMPACT_MIN_WASTE = Size.kilobytes(256);
 
 /**
  * @returns true when copying the buffer's samples into a right-sized series is worth

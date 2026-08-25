@@ -671,9 +671,9 @@ describe("DynamicCache", () => {
   });
 
   describe("compaction", () => {
-    // 40k samples of float32 is 160KB, so a buffer holding a handful of them wastes
+    // 100k samples of float32 is 400KB, so a buffer holding a handful of them wastes
     // far more than the floor and sits well under the fill fraction.
-    const ROOMY = 40_000;
+    const ROOMY = 100_000;
 
     it("should right-size a buffer that rotates nearly empty", () => {
       const cache = new Dynamic({ dynamicBufferSize: ROOMY });
@@ -742,7 +742,7 @@ describe("DynamicCache", () => {
     });
 
     it("should right-size a variable-length buffer", () => {
-      const cache = new Dynamic({ dynamicBufferSize: 5_000 });
+      const cache = new Dynamic({ dynamicBufferSize: 10_000 });
       const first = cache.write(
         new MultiSeries([new Series({ data: ["one"], dataType: DataType.STRING })]),
       );
@@ -750,7 +750,7 @@ describe("DynamicCache", () => {
       const { flushed } = cache.write(
         new MultiSeries([
           new Series({
-            data: Array.from({ length: 5_000 }, () => "x".repeat(40)),
+            data: Array.from({ length: 10_000 }, () => "x".repeat(40)),
             dataType: DataType.STRING,
           }).reAlign(1n),
         ]),
