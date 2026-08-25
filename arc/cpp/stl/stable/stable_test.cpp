@@ -740,7 +740,7 @@ TEST_P(StableForTypePreservationTest, DebouncesAndEmitsFullWidthValue) {
     ASSERT_NIL(node.next(ctx));
     EXPECT_FALSE(fired);
 
-    now = x::telem::TimeStamp(2 * x::telem::SECOND);
+    ctx.now = x::telem::TimeStamp(2 * x::telem::SECOND);
     source.output(0) = x::mem::make_local_shared<x::telem::Series>(p.dt, 0);
     source.output_time(
         0

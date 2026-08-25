@@ -96,7 +96,7 @@ public:
         this->settle();
     }
 
-    [[nodiscard]] x::telem::Frame flush() const { return this->harness.flush(); }
+    [[nodiscard]] x::telem::Frame flush() { return this->harness.flush(); }
 };
 
 /// @brief returns every sample in a series as T.
@@ -134,7 +134,7 @@ int count_of(
 
 /// @brief appends every sample a flushed frame wrote to the given channel.
 template<typename T>
-void drain(const Sequence &h, const std::string &name, std::vector<T> &got) {
+void drain(Sequence &h, const std::string &name, std::vector<T> &got) {
     auto vals = collect<T>(h.flush(), h.key(name));
     got.insert(
         got.end(),

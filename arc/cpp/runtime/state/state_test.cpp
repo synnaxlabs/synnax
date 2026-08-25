@@ -206,6 +206,7 @@ TEST(StateTest, RefreshInputs_WatermarkTracking) {
     o->set(2, 3.0f);
     o_time->resize(3);
     o_time->set(2, x::telem::TimeStamp(3 * x::telem::MICROSECOND));
+    producer_node.mark_fresh(0);
 
     ASSERT_TRUE(consumer_node.refresh_inputs());
     EXPECT_EQ(consumer_node.input(0)->size(), 3);

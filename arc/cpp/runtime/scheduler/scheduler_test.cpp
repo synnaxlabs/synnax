@@ -37,6 +37,8 @@ struct MockNode final : public node::Node {
     int next_called = 0;
     int reset_called = 0;
     std::vector<x::telem::TimeSpan> elapsed_values;
+    /// @brief the cycle stamp each reset ran with, in call order.
+    std::vector<x::telem::TimeStamp> reset_now;
 
     /// @brief output_truthy[i] reports whether output ordinal i is
     /// truthy. Drives is_output_truthy and (unless suppress_auto_mark
@@ -69,7 +71,10 @@ struct MockNode final : public node::Node {
         return x::errors::NIL;
     }
 
-    void reset(node::Context &) override { reset_called++; }
+    void reset(node::Context &ctx) override {
+        reset_called++;
+        reset_now.push_back(ctx.now);
+    }
 
     [[nodiscard]] bool is_output_truthy(const size_t output_idx) const override {
         if (output_idx >= output_truthy.size()) return false;
@@ -684,6 +689,44 @@ TEST_F(SchedulerTest, GatedScopeActivatesOnceHandleFires) {
     );
     EXPECT_EQ(stage_node.next_called, 2);
     EXPECT_EQ(stage_node.reset_called, 1); // no re-activation
+}
+
+// Stopping a program calls Scheduler::reset outside any cycle, so the context it
+// hands nodes still holds the last cycle's stamp. The stage re-activation on the
+// next run resets the node again from inside a cycle, so nothing carries the old
+// stamp into a value a downstream node can read.
+TEST_F(SchedulerTest, ReactivationAfterResetStampsFromTheNewCycle) {
+    mock("trigger", {true});
+    auto &stage_node = mock("stage_node");
+    ir::Handle act{"trigger", "output"};
+    auto gated = parallel_scope("stage", {stratum_of({ir::node_member("stage_node")})});
+    gated.activation = act;
+    auto ir = program_of(
+        {ir_node("trigger", {"output"}), ir_node("stage_node")},
+        {},
+        root_scope({ir::node_member("trigger"), ir::scope_member(std::move(gated))})
+    );
+    const auto s = build(std::move(ir));
+
+    const auto first = x::telem::TimeStamp(5 * x::telem::SECOND);
+    s->next(
+        {.now = first,
+         .elapsed = x::telem::MILLISECOND,
+         .reason = node::RunReason::TimerTick}
+    );
+    ASSERT_EQ(stage_node.reset_now.size(), 1);
+    EXPECT_EQ(stage_node.reset_now[0], first);
+
+    s->reset();
+    EXPECT_EQ(stage_node.reset_now.back(), first);
+
+    const auto second = x::telem::TimeStamp(9 * x::telem::SECOND);
+    s->next(
+        {.now = second,
+         .elapsed = x::telem::MILLISECOND,
+         .reason = node::RunReason::TimerTick}
+    );
+    EXPECT_EQ(stage_node.reset_now.back(), second);
 }
 
 // ----- Activation cascading & reset -----
