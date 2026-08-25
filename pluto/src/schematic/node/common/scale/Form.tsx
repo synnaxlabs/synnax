@@ -8,7 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { location, type notation, primitive, type text } from "@synnaxlabs/x";
+import {
+  caseconv,
+  type direction,
+  location,
+  type notation,
+  primitive,
+  type text,
+} from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
@@ -21,6 +28,7 @@ import { Form as NodeForm } from "@/schematic/node/common/form";
 import {
   type Config,
   createTelem,
+  DEFAULT_SIDE,
   defaultConfig,
   parseTelem,
   type TelemProps,
@@ -40,14 +48,10 @@ const NotationSelect = Component.renderProp(
   ),
 );
 
-const SideSelect = Component.renderProp(
-  ({ value, onChange }: Input.Control<location.X>): ReactElement => (
-    <Select.Buttons value={value} onChange={onChange} keys={location.X_LOCATIONS}>
-      <Select.Button itemKey="left">Left</Select.Button>
-      <Select.Button itemKey="right">Right</Select.Button>
-    </Select.Buttons>
-  ),
-);
+const SIDES: readonly location.Outer[] = [
+  ...location.Y_LOCATIONS,
+  ...location.X_LOCATIONS,
+];
 
 export interface FormProps {
   /** Path to the scale config within the symbol's config. */
@@ -55,6 +59,36 @@ export interface FormProps {
 }
 
 const field = (path: string, name: string): string => `${path}.${name}`;
+
+interface SideFieldProps {
+  path: string;
+  label: string;
+  /** The sides to offer. A symbol with a fixed axis offers only the two it can use. */
+  sides: readonly location.Outer[];
+}
+
+// A field on the other axis takes the side facing the same way as the default.
+const defaultSide = (sides: readonly location.Outer[]): location.Outer =>
+  sides.includes(DEFAULT_SIDE) ? DEFAULT_SIDE : location.swapAxis(DEFAULT_SIDE);
+
+const SideField = ({ path, label, sides }: SideFieldProps): ReactElement => (
+  <Base.Field<location.Outer>
+    path={path}
+    label={label}
+    padHelpText={false}
+    defaultValue={defaultSide(sides)}
+  >
+    {({ value, onChange }) => (
+      <Select.Buttons value={value} onChange={onChange} keys={sides}>
+        {sides.map((side) => (
+          <Select.Button key={side} itemKey={side}>
+            {caseconv.capitalize(side)}
+          </Select.Button>
+        ))}
+      </Select.Buttons>
+    )}
+  </Base.Field>
+);
 
 export interface TelemFormProps extends FormProps {
   /** When true, clearing the channel unbinds the scale instead of pinning it to 0. */
@@ -126,8 +160,16 @@ export const TelemForm = ({
   );
 };
 
-/** Which parts of the scale are drawn, and which side its axis sits on. */
-export const DisplayFields = ({ path }: FormProps): ReactElement => (
+export interface DisplayFieldsProps extends FormProps {
+  /** The axis the bar fills along, which the ticks must sit clear of. */
+  axis?: direction.Direction;
+}
+
+/** Which parts of the scale are drawn, and the sides the ticks and readout sit on. */
+export const DisplayFields = ({
+  path,
+  axis = "y",
+}: DisplayFieldsProps): ReactElement => (
   <>
     <Base.SwitchField path={field(path, "showFill")} label="Fill" padHelpText={false} />
     <Base.SwitchField
@@ -140,9 +182,12 @@ export const DisplayFields = ({ path }: FormProps): ReactElement => (
       label="Scale"
       padHelpText={false}
     />
-    <Base.Field<location.X> path={field(path, "side")} label="Side" padHelpText={false}>
-      {SideSelect}
-    </Base.Field>
+    <SideField path={field(path, "caretSide")} label="Value side" sides={SIDES} />
+    <SideField
+      path={field(path, "side")}
+      label="Scale side"
+      sides={axis === "y" ? location.X_LOCATIONS : location.Y_LOCATIONS}
+    />
   </>
 );
 

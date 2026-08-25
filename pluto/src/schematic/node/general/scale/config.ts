@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, dimensions, xy } from "@synnaxlabs/x";
+import { color, dimensions, type direction, type location, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Label } from "@/schematic/node/common/label";
@@ -15,7 +15,8 @@ import { Scale } from "@/schematic/node/common/scale";
 
 export const VARIANT = "scale" as const;
 
-export const DEFAULT_DIMENSIONS: dimensions.Dimensions = { width: 60, height: 160 };
+// The bar's own size. The scale gutter sits beside it, so the symbol occupies more.
+export const DEFAULT_DIMENSIONS: dimensions.Dimensions = { width: 34, height: 160 };
 
 export const configZ = Label.labeledConfigZ.extend({
   variant: z.literal(VARIANT),
@@ -27,3 +28,11 @@ export const configZ = Label.labeledConfigZ.extend({
   indicator: Scale.configZ.default(() => Scale.defaultConfig()),
 });
 export type Config = z.infer<typeof configZ>;
+
+/**
+ * The axis the bar fills along. Rotation writes only "top" or "right", so any other
+ * orientation comes from a config written before the bar could rotate, whose bar was
+ * vertical.
+ */
+export const axis = (orientation?: location.Outer): direction.Direction =>
+  orientation === "right" ? "x" : "y";
