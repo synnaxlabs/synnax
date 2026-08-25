@@ -54,6 +54,14 @@ const MAX_DEF_WRITES = 100;
 const VARIABLE_DT_MULTIPLIER = 40;
 
 /**
+ * @returns true when every byte of the series fits in the buffer's free space. Measured
+ * in bytes because a variable-length buffer counts its capacity that way.
+ */
+const fits = (buffer: Series, series: Series): boolean =>
+  series.byteLength.valueOf() <=
+  buffer.byteCapacity.valueOf() - buffer.byteLength.valueOf();
+
+/**
  * A cache for channel data that maintains a single, rolling Series as a buffer
  * for channel data. The buffer's data type is derived from the first written series,
  * so the cache needs no channel metadata.
@@ -127,7 +135,6 @@ export class Dynamic {
     alignment: bigint,
     start: TimeStamp,
     source: Series,
-    sampleIndex: number,
   ): Series {
     this.counter++;
     const dt = this.props.transform.resolveDataType(source.dataType);
@@ -139,8 +146,7 @@ export class Dynamic {
     let sampleOffset: math.Numeric = 0;
     if (narrowing)
       if (source.dataType.equals(DataType.TIMESTAMP)) sampleOffset = start.valueOf();
-      else if (sampleIndex < source.length)
-        sampleOffset = BigInt(source.data[sampleIndex].valueOf());
+      else if (source.length > 0) sampleOffset = BigInt(source.data[0].valueOf());
     return Series.alloc({
       capacity: dt.isVariable ? capacity * VARIABLE_DT_MULTIPLIER : capacity,
       dataType: dt,
@@ -152,25 +158,30 @@ export class Dynamic {
     });
   }
 
+  /**
+   * @returns the sample capacity for a buffer that must hold the given series whole:
+   * the configured size, or the series' own size when that is larger.
+   */
+  private capacityFor(source: Series): number {
+    const dt = this.props.transform.resolveDataType(source.dataType);
+    const required = dt.isVariable
+      ? Math.ceil(source.byteLength.valueOf() / VARIABLE_DT_MULTIPLIER)
+      : source.length;
+    return Math.max(this.nextBufferSize(), required);
+  }
+
   // Unstamped series (virtual channels, writes without an in-frame index) fall back
   // to the wall clock.
   private allocStart(series: Series): TimeStamp {
     return series.timeRange.isZero ? this.now() : series.timeRange.start;
   }
 
-  private allocCurr(
-    res: WriteResponse,
-    alignment: bigint,
-    start: TimeStamp,
-    source: Series,
-    sampleIndex: number,
-  ): Series {
+  private allocCurr(res: WriteResponse, source: Series): Series {
     this.curr = this.allocate(
-      this.nextBufferSize(),
-      alignment,
-      start,
+      this.capacityFor(source),
+      source.alignment,
+      this.allocStart(source),
       source,
-      sampleIndex,
     );
     res.allocated.push(this.curr);
     return this.curr;
@@ -206,9 +217,7 @@ export class Dynamic {
       }
     }
     let curr = this.curr;
-    if (curr == null)
-      curr = this.allocCurr(res, series.alignment, this.allocStart(series), series, 0);
-    else {
+    if (curr != null) {
       // overlap > 0: the incoming series steps back into samples the current buffer
       // already holds. overlap < 0: there is a gap between the buffer and the series.
       const overlap = Number(curr.alignment + BigInt(curr.length) - series.alignment);
@@ -219,36 +228,28 @@ export class Dynamic {
         series = series.sub(overlap);
       } else if (overlap < 0) {
         this.flushCurr(res);
-        curr = this.allocCurr(
-          res,
-          series.alignment,
-          this.allocStart(series),
-          series,
-          0,
-        );
+        curr = null;
       }
     }
-    while (true) {
-      const converted = transform.convert(series, curr.sampleOffset);
-      const amountWritten = curr.write(converted);
-      if (amountWritten === series.length) {
-        this.currDataEnd = series.timeRange.isZero ? null : series.timeRange.end;
-        this.updateAvgRate(series);
-        return;
+    const convert = (buffer: Series): Series =>
+      transform.convert(series, buffer.sampleOffset);
+    if (curr != null) {
+      const converted = convert(curr);
+      // A series never splits across two buffers. The timestamp where a split falls is
+      // not in the data, so both sides would have to guess the boundary they share, and
+      // a guess lands outside the data whenever samples are irregular.
+      if (fits(curr, converted)) curr.write(converted);
+      else {
+        this.flushCurr(res);
+        curr = null;
       }
-      // The timestamp at the split point is unknowable from the data series, so
-      // both sides fall back to the wall clock.
-      this.currDataEnd = null;
-      this.flushCurr(res);
-      curr = this.allocCurr(
-        res,
-        series.alignment + BigInt(amountWritten),
-        this.now(),
-        series,
-        amountWritten,
-      );
-      series = series.slice(amountWritten);
     }
+    if (curr == null) {
+      curr = this.allocCurr(res, series);
+      curr.write(convert(curr));
+    }
+    this.currDataEnd = series.timeRange.isZero ? null : series.timeRange.end;
+    this.updateAvgRate(series);
   }
 
   private updateAvgRate(series: Series): void {
