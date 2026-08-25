@@ -379,7 +379,6 @@ func (r *avgNode) Next(ctx node.Context) {
 	if shouldReset {
 		r.sampleCount = 0
 		r.Output(0).Resize(0)
-		inputTime = r.InputTime(r.inputIdx)
 	}
 	inputData := r.Input(r.inputIdx)
 	if inputData.Len() == 0 {

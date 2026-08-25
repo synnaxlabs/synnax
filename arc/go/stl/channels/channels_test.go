@@ -1439,7 +1439,10 @@ var _ = Describe("Channel", func() {
 					sink.Next(nCtx)
 					sink.Reset(nCtx)
 					sink.Next(nCtx)
-					fr, _, flushed := channelState.Flush(telem.Frame[uint32]{}, flushNow)
+					fr, _, flushed := channelState.Flush(
+						telem.Frame[uint32]{},
+						flushNow,
+					)
 					Expect(flushed).To(BeTrue())
 					Expect(
 						fr.Get(100).Series[0],
