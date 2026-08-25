@@ -1143,11 +1143,9 @@ export class Series<T extends TelemValue = TelemValue>
   }
 
   /**
-   * Copies the series into a buffer sized to exactly the samples it holds, so an
-   * allocated series stops holding the room it never used.
-   * @returns the copy, or this series when it has no spare capacity. The copy is a
-   * separate object, so a caller relying on reference identity or on an acquired GPU
-   * buffer must keep using the original.
+   * @returns a copy sized to exactly the samples held, or this series when it has no
+   * spare capacity. The copy is a separate object, so a caller holding the original by
+   * reference or by an acquired GPU buffer must keep using it.
    */
   compact(): Series {
     if (this.writePos === FULL_BUFFER || this.writePos === this.capacity) return this;
