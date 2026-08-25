@@ -771,8 +771,9 @@ TEST(ChannelStateTest, ResetClearsReadsAndWrites) {
     EXPECT_TRUE(data_after.series.empty());
 }
 
-/// @brief Test that Node::reset clears watermark tracking
-TEST(StateTest, NodeReset_ClearsWatermarks) {
+/// @brief Test that Node::reset leaves an edge-fed input consumed, so a re-entered
+/// stage does not re-emit a value it already emitted.
+TEST(StateTest, NodeReset_KeepsAnEdgeFedInputConsumed) {
     arc::types::Param output_param;
     output_param.name = "output";
     output_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
@@ -828,7 +829,7 @@ TEST(StateTest, NodeReset_ClearsWatermarks) {
 
     consumer_node.reset();
 
-    ASSERT_TRUE(consumer_node.refresh_inputs());
+    ASSERT_FALSE(consumer_node.refresh_inputs());
 }
 
 /// @brief Test that is_series_truthy returns false for empty series
