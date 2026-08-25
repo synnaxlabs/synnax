@@ -1411,7 +1411,7 @@ var _ = Describe("Channel", func() {
 					fr.Get(101).Series[0],
 				).To(telem.MatchSeries(telem.NewSeriesSecondsTSV(500, 501)))
 			})
-			It("Should report an error and skip the write when the time length does not match", func(ctx SpecContext) {
+			It("Should error and skip on a length mismatch", func(ctx SpecContext) {
 				sink := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
 						Type: "write",
