@@ -11,6 +11,7 @@ import { control, DataType, id, TimeRange, TimeSpan, TimeStamp } from "@synnaxla
 import { beforeAll, describe, expect, it, test, vi } from "vitest";
 
 import { Channel } from "@/channel/client";
+import type Synnax from "@/client";
 import { NotFoundError } from "@/errors";
 import { query } from "@/query";
 import {
@@ -423,6 +424,9 @@ describe("Channel", () => {
   });
 });
 
+const spyOnSendOf = (client: Synnax, field: "transport") =>
+  vi.spyOn(client[field].unary, "send");
+
 const createVirtual = async (c = client) =>
   await c.channels.create({
     name: `qry_${id.create()}`,
@@ -464,6 +468,22 @@ describe("cached reads", () => {
       await client.channels.retrieve(b.key);
       const res = await client.channels.retrieve([a.key, b.key]);
       expect(res.map((c) => c.key)).toEqual([a.key, b.key]);
+    });
+
+    // A plot panel resolves one channel per telemetry source in the same tick, so a
+    // single retrieve that skips the record table costs one request per channel.
+    it("coalesces concurrent single retrieves into one request", async () => {
+      const created = [await createVirtual(), await createVirtual()];
+      const local = createTestClient();
+      await local.connect();
+      const send = spyOnSendOf(local, "transport");
+      const res = await Promise.all(
+        created.map(async ({ key }) => await local.channels.retrieve(key)),
+      );
+      expect(res.map(({ key }) => key)).toEqual(created.map(({ key }) => key));
+      expect(
+        send.mock.calls.filter(([target]) => target === "/channel/retrieve"),
+      ).toHaveLength(1);
     });
   });
 

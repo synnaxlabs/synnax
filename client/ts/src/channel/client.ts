@@ -765,10 +765,11 @@ export class Client extends query.Retriever<
     const { key, rangeKey } = query;
     let ch = this.store.get(key);
     if (ch == null) {
-      const payloads = await this.execRetrieve([key]);
-      checkForMultipleOrNoResults("channel", key, payloads, true);
-      ch = this.sugar(stripComposed(payloads[0]));
-      this.store.set(key, ch);
+      // Through the table, so concurrent misses coalesce into one request. A plot
+      // panel resolves one channel per telemetry source, all in the same tick.
+      const fetched = await this.store.retrieve([key]);
+      checkForMultipleOrNoResults("channel", key, fetched, true);
+      [ch] = fetched;
     }
     // A cached calculated channel without a cached status is ambiguous: the
     // status may not exist, or may simply never have been fetched.
