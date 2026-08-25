@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, MultiSeries, Series, TimeRange, TimeStamp } from "@synnaxlabs/x";
+import {
+  DataType,
+  MultiSeries,
+  Series,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { Unary } from "@/framer/cache/unary";
@@ -71,6 +78,40 @@ describe("Unary", () => {
       expect(gaps[0].equals(TimeStamp.seconds(2).range(TimeStamp.seconds(8)))).toBe(
         true,
       );
+    });
+
+    // The buffer's own time range ends at the provisional TimeStamp.MAX, which must not
+    // let it leak into reads of spans it holds no samples for.
+    it("should exclude the buffer when the read starts after its data ends", () => {
+      const u = newUnary();
+      u.writeDynamic(stamped(10, 13, [1, 2, 3], LEADING_ALIGNMENT));
+      const { series, gaps } = u.read(
+        TimeStamp.seconds(14).range(TimeStamp.seconds(20)),
+      );
+      expect(series.series).toHaveLength(0);
+      expect(gaps).toHaveLength(1);
+      expect(gaps[0].equals(TimeStamp.seconds(14).range(TimeStamp.seconds(20)))).toBe(
+        true,
+      );
+    });
+
+    it("should include an unstamped buffer for a read spanning the present", () => {
+      const u = newUnary();
+      u.writeDynamic(
+        new MultiSeries([
+          new Series({
+            data: new Float32Array([1, 2, 3]),
+            dataType: DataType.FLOAT32,
+            alignment: LEADING_ALIGNMENT,
+          }),
+        ]),
+      );
+      const now = TimeStamp.now();
+      const { series } = u.read(
+        now.sub(TimeSpan.seconds(5)).range(now.add(TimeSpan.seconds(5))),
+      );
+      expect(series.series).toHaveLength(1);
+      expect(series.series[0]).toBe(u.leadingBuffer);
     });
 
     it("should compute gaps from fetched entries alone", () => {
