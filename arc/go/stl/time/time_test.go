@@ -206,6 +206,26 @@ var _ = Describe("Time", func() {
 				Expect(n).ToNot(BeNil())
 			},
 		)
+		It(
+			"Should not fold a zero var-bound period into the timing base",
+			func(ctx SpecContext) {
+				cfg := node.Config{
+					Node: ir.Node{
+						Type: "interval",
+						Inputs: types.Params{
+							{
+								Name:  "period",
+								Type:  types.VarRef(types.TimeSpan(), "p"),
+								Value: telem.TimeSpan(0),
+							},
+						},
+					},
+					State: s.Node("interval_1"),
+				}
+				MustSucceed(factory.Create(ctx, cfg))
+				Expect(factory.BaseInterval).To(Equal(telem.TimeSpanMax))
+			},
+		)
 		It("Should fire immediately on first tick", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node: ir.Node{

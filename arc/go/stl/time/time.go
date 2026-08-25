@@ -276,6 +276,11 @@ func (h *Host) foldReassignedSpans(cfg node.Config, p types.Param) {
 }
 
 func (h *Host) updateBaseInterval(span telem.TimeSpan) {
+	// A non-positive span is not a real timer period. Folding it in would
+	// poison the GCD and drive the loop cadence off a parked timer.
+	if span <= 0 {
+		return
+	}
 	if h.BaseInterval == unsetBaseInterval {
 		h.BaseInterval = span
 	} else {
@@ -396,9 +401,9 @@ func (w *Wait) Next(ctx node.Context) {
 		return
 	}
 	duration := liveSpan(w.State, durationInputParam)
-	// A non-positive duration is a configuration error, not an instant fire.
-	// Park without starting the timer; a later reassignment to a positive
-	// value starts it.
+	// A non-positive duration is a configuration error, not an instant fire:
+	// park instead. Timing stays anchored to startTime, so recovery re-checks
+	// the live duration against the original activation.
 	if duration <= 0 {
 		if !w.invalidSpanReported {
 			ctx.ReportError(errors.Wrapf(

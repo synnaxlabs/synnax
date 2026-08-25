@@ -232,6 +232,22 @@ TEST(TimeModuleTest, BaseIntervalSetToFirstInterval) {
 }
 
 /// @brief Test that base_interval computes GCD across multiple intervals.
+/// @brief Test that a zero var-bound period does not fold into the base
+/// interval, so a parked timer cannot drive the loop cadence.
+TEST(TimeModuleTest, BaseIntervalUnsetForZeroVarBoundPeriod) {
+    TestSetup setup("interval", "period", 0);
+    auto ir_node = setup.ir.nodes[0];
+    ir_node.inputs[0].type = types::Type{
+        .kind = types::Kind::VarRef,
+        .elem = x::mem::indirect<types::Type>(types::Type{.kind = types::Kind::I64})
+    };
+    Module factory;
+    ASSERT_NIL_P(
+        factory.create(runtime::node::Config(setup.ir, ir_node, setup.make_node()))
+    );
+    EXPECT_EQ(factory.base_interval(), UNSET_BASE_INTERVAL);
+}
+
 TEST(TimeModuleTest, BaseIntervalComputesGCDAcrossNodes) {
     TestSetup setup1("interval", "period", (600 * x::telem::MILLISECOND).nanoseconds());
     TestSetup setup2("wait", "duration", (400 * x::telem::MILLISECOND).nanoseconds());

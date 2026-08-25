@@ -189,8 +189,8 @@ public:
         if (this->fired) return x::errors::NIL;
         const auto duration = live_span(this->state, "duration");
         // A non-positive duration is a configuration error, not an instant
-        // fire. Park without starting the timer; a later reassignment to a
-        // positive value starts it.
+        // fire: park instead. Timing stays anchored to start_time, so recovery
+        // re-checks the live duration against the original activation.
         if (duration.nanoseconds() <= 0) {
             if (!this->invalid_span_reported) {
                 ctx.report_error(
@@ -349,6 +349,9 @@ private:
     }
 
     void update_base_interval(const x::telem::TimeSpan span) {
+        // A non-positive span is not a real timer period. Folding it in would
+        // poison the GCD and drive the loop cadence off a parked timer.
+        if (span.nanoseconds() <= 0) return;
         if (this->base == UNSET_BASE_INTERVAL)
             this->base = span;
         else
