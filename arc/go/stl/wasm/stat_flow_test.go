@@ -18,6 +18,9 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
+// flushNow stands in for the cycle stamp a runtime loop passes to Flush.
+const flushNow = 1000 * telem.SecondTS
+
 func channelSymbols(channels map[string]struct {
 	dt types.Type
 	id int
@@ -224,7 +227,8 @@ var _ = Describe("Stat Flow Chains", func() {
 				h.Execute(ctx, "avg_0")
 				h.Execute(ctx, "write_output_sensor_0")
 
-				out, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
+				out, _, changed := h.ChannelState().
+					Flush(telem.Frame[uint32]{}, flushNow)
 				Expect(changed).To(BeTrue())
 				Expect(out.Get(200).Series).To(HaveLen(1))
 				Expect(out.Get(200).Series[0]).To(telem.MatchSeriesDataV[float64](20.0))
@@ -255,7 +259,8 @@ var _ = Describe("Stat Flow Chains", func() {
 				h.Execute(ctx, "min_0")
 				h.Execute(ctx, "write_min_psi_0")
 
-				out, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
+				out, _, changed := h.ChannelState().
+					Flush(telem.Frame[uint32]{}, flushNow)
 				Expect(changed).To(BeTrue())
 				Expect(out.Get(200).Series[0]).To(telem.MatchSeriesDataV[float64](10.0))
 			},

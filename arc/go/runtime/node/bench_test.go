@@ -113,7 +113,7 @@ func BenchmarkWriteChannelU8SameKeyFlush(b *testing.B) {
 		for j := range writesPerCycle {
 			s.WriteChannelU8(1, uint8(j))
 		}
-		_, _ = s.Flush(telem.Frame[uint32]{})
+		_, _, _ = s.Flush(telem.Frame[uint32]{}, 0)
 	}
 }
 
@@ -130,6 +130,6 @@ func BenchmarkFlushManyKeysSingleWrite(b *testing.B) {
 		for k := range keys {
 			s.WriteChannelU8(uint32(k+1), uint8(k))
 		}
-		_, _ = s.Flush(telem.Frame[uint32]{})
+		_, _, _ = s.Flush(telem.Frame[uint32]{}, 0)
 	}
 }

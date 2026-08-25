@@ -521,10 +521,9 @@ func (d *dataRuntime) next(
 	}
 	d.state.series.Clear()
 	d.state.strings.Clear()
-	if fr, changed := d.state.channel.Flush(
-		telem.Frame[uint32]{},
-	); changed &&
-		d.Out != nil {
+	fr, highest, changed := d.state.channel.Flush(telem.Frame[uint32]{}, cycle.Now)
+	d.clock.Advance(highest)
+	if changed && d.Out != nil {
 		req := framer.WriterRequest{
 			Frame:   frame.NewFromStorage(fr),
 			Command: framer.WriterCommandWrite,

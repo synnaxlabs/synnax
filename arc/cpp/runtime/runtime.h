@@ -162,7 +162,7 @@ public:
                 this->scheduler->next(cycle);
                 Output out;
                 out.authority_changes = this->state->flush_authority_changes();
-                this->state->flush_into(out.frame);
+                this->clock.advance(this->state->flush_into(out.frame, cycle.now));
                 if (!out.frame.empty() || !out.authority_changes.empty()) {
                     if (!this->outputs.push(std::move(out))) {
                         if (this->outputs.closed()) break;

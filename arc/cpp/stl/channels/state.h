@@ -36,7 +36,6 @@ class State {
     std::unordered_map<types::ChannelKey, std::vector<Series>> reads;
     std::unordered_map<types::ChannelKey, Series> writes;
     std::vector<types::ChannelKey> active_write_keys;
-    ::x::telem::MonoClock clock;
 
     template<typename T>
     void append_fixed_sample(types::ChannelKey key, x::telem::DataType dt, T value) {
@@ -59,18 +58,18 @@ class State {
         buf->write(value);
     }
 
+    /// @brief fills every empty index buffer whose channels wrote this cycle, and
+    /// returns the highest timestamp it wrote. A non-empty buffer already holds the
+    /// provenance a sink forwarded and is left alone. Every member of a group starts
+    /// at now, so one cycle's writes stay aligned across channels.
+    x::telem::TimeStamp stamp_indexes(x::telem::TimeStamp now);
+
 public:
     template<typename T>
     void write_channel_typed(types::ChannelKey key, x::telem::DataType dt, T value) {
         this->append_fixed_sample(key, dt, value);
-        if (const auto idx_iter = this->indexes.find(key);
-            idx_iter != this->indexes.end() && idx_iter->second != 0)
-            this->append_fixed_sample(
-                idx_iter->second,
-                x::telem::TIMESTAMP_T,
-                this->clock.now()
-            );
     }
+
     explicit State(const std::vector<Digest> &digests);
 
     State() = default;
@@ -99,8 +98,11 @@ public:
     void write_series(types::ChannelKey key, const Series &data, const Series &time);
 
     /// @brief flushes read and write state directly into the provided frame, avoiding
-    /// intermediate allocations.
-    void flush_into(x::telem::Frame &out);
+    /// intermediate allocations. An index whose channels wrote no timestamps of their
+    /// own is stamped from now, one sample per data sample, spaced 1ns apart.
+    /// @returns the highest timestamp it synthesized, so the caller's clock can resume
+    /// above it. Zero when nothing was synthesized.
+    x::telem::TimeStamp flush_into(x::telem::Frame &out, x::telem::TimeStamp now);
 
     void reset();
 };

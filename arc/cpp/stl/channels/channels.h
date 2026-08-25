@@ -216,7 +216,6 @@ public:
 class Module : public stl::Module {
     std::shared_ptr<State> channel;
     std::shared_ptr<strings::State> str_state;
-    x::telem::MonoClock clock;
 
 public:
     Module(std::shared_ptr<State> channel, std::shared_ptr<strings::State> str_state):
@@ -376,19 +375,16 @@ private:
             .func_wrap(
                 MODULE_NAME,
                 "write_str",
-                [this, ch, ss](uint32_t channel_id, uint32_t str_handle) {
+                [ch, ss](uint32_t channel_id, uint32_t str_handle) {
                     std::string str_value = ss->get(str_handle);
                     if (str_value.empty()) return;
                     const auto data = x::mem::make_local_shared<x::telem::Series>(
                         str_value
                     );
-                    const auto time = x::mem::make_local_shared<x::telem::Series>(
-                        this->clock.now()
-                    );
                     ch->write_value(
                         static_cast<types::ChannelKey>(channel_id),
                         data,
-                        time
+                        Series()
                     );
                 }
             )

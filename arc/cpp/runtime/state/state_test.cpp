@@ -21,6 +21,9 @@
 
 namespace arc::runtime::state {
 
+/// @brief stands in for the cycle stamp a runtime loop passes to flush_into.
+constexpr auto FLUSH_NOW = x::telem::TimeStamp(1000LL * 1000 * 1000 * 1000);
+
 /// @brief Test basic state creation and node retrieval
 TEST(StateTest, CreateStateAndGetNode) {
     arc::ir::Node ir_node;
@@ -606,7 +609,7 @@ TEST(ChannelStateTest, FlushPreservesLatestSeries) {
     ASSERT_EQ(data_before.series.size(), 2);
 
     x::telem::Frame out;
-    s.flush_into(out);
+    s.flush_into(out, FLUSH_NOW);
 
     auto [data_after, ok_after] = s.read_value(10);
     ASSERT_TRUE(ok_after);
@@ -631,7 +634,7 @@ TEST(ChannelStateTest, FlushPreservesMultipleChannels) {
     s.ingest(x::telem::Frame(20, std::move(series2)));
 
     x::telem::Frame out;
-    s.flush_into(out);
+    s.flush_into(out, FLUSH_NOW);
 
     auto [data10, ok10] = s.read_value(10);
     ASSERT_TRUE(ok10);
@@ -652,7 +655,7 @@ TEST(ChannelStateTest, PreservedDataAvailableNextCycle) {
     series1.write(2.0f);
     s.ingest(x::telem::Frame(10, std::move(series1)));
     x::telem::Frame out1;
-    s.flush_into(out1);
+    s.flush_into(out1, FLUSH_NOW);
 
     auto series2 = x::telem::Series(x::telem::FLOAT32_T, 2);
     series2.write(3.0f);
@@ -668,7 +671,7 @@ TEST(ChannelStateTest, PreservedDataAvailableNextCycle) {
     EXPECT_EQ(data20.series[0].at<float>(-1), 4.0f);
 
     x::telem::Frame out2;
-    s.flush_into(out2);
+    s.flush_into(out2, FLUSH_NOW);
 
     auto [data10_2, ok10_2] = s.read_value(10);
     ASSERT_TRUE(ok10_2);
@@ -686,7 +689,7 @@ TEST(ChannelStateTest, NewDataOverwritesPreserved) {
     series1.write(100.0f);
     s.ingest(x::telem::Frame(10, std::move(series1)));
     x::telem::Frame out1;
-    s.flush_into(out1);
+    s.flush_into(out1, FLUSH_NOW);
 
     auto [data1, ok1] = s.read_value(10);
     ASSERT_TRUE(ok1);
@@ -696,7 +699,7 @@ TEST(ChannelStateTest, NewDataOverwritesPreserved) {
     series2.write(200.0f);
     s.ingest(x::telem::Frame(10, std::move(series2)));
     x::telem::Frame out2;
-    s.flush_into(out2);
+    s.flush_into(out2, FLUSH_NOW);
 
     auto [data2, ok2] = s.read_value(10);
     ASSERT_TRUE(ok2);
@@ -714,7 +717,7 @@ TEST(ChannelStateTest, SingleSeriesNoOp) {
     s.ingest(x::telem::Frame(10, std::move(series)));
 
     x::telem::Frame out;
-    s.flush_into(out);
+    s.flush_into(out, FLUSH_NOW);
 
     auto [data, ok] = s.read_value(10);
     ASSERT_TRUE(ok);
@@ -729,7 +732,7 @@ TEST(ChannelStateTest, EmptyState) {
     stl::channels::State s;
 
     x::telem::Frame out;
-    s.flush_into(out);
+    s.flush_into(out, FLUSH_NOW);
 
     auto [data, ok] = s.read_value(10);
     ASSERT_FALSE(ok);

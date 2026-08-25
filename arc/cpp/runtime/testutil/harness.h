@@ -58,9 +58,12 @@ class Harness {
     std::unique_ptr<scheduler::Scheduler> sched;
     std::shared_ptr<stl::time::Module> time_mod;
     x::telem::MonoClock clock;
+    /// @brief the stamp the last tick ran with. drain() and flush() stamp indexes
+    /// from it, matching what the runtime loop does after every pass.
+    x::telem::TimeStamp cycle_now;
     x::telem::Alignment alignment;
     /// @brief holds writes drained by advance() until the next flush().
-    mutable x::telem::Frame pending;
+    x::telem::Frame pending;
 
 public:
     Harness(const synnax::Synnax &client, const std::string &source):
@@ -176,6 +179,7 @@ public:
             .elapsed = elapsed,
             .reason = node::RunReason::TimerTick
         };
+        this->cycle_now = cycle.now;
         this->time_mod->set_now(cycle.now);
         this->sched->next(cycle);
     }
@@ -205,10 +209,14 @@ public:
 
     /// @brief drains the cycle's writes into the pending frame, matching what the
     /// runtime loop does after every tick.
-    void drain() const { this->node_state->flush_into(this->pending); }
+    void drain() {
+        this->clock.advance(
+            this->node_state->flush_into(this->pending, this->cycle_now)
+        );
+    }
 
-    [[nodiscard]] x::telem::Frame flush() const {
-        this->node_state->flush_into(this->pending);
+    [[nodiscard]] x::telem::Frame flush() {
+        this->drain();
         auto out = std::move(this->pending);
         this->pending = x::telem::Frame();
         return out;

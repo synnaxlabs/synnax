@@ -333,7 +333,6 @@ func bindI32[T i32Compatible](
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID, val uint32) {
 			appendFixedWriteSample(cs, chID, T(val))
-			cs.writeIndexedTimestamp(chID)
 		}).Export("write_" + suffix)
 	return builder
 }
@@ -358,7 +357,6 @@ func bindI64[T i64Compatible](
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32, val uint64) {
 			appendFixedWriteSample(cs, chID, T(val))
-			cs.writeIndexedTimestamp(chID)
 		}).Export("write_" + suffix)
 	return builder
 }
@@ -381,7 +379,6 @@ func bindBool(
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID, val uint32) {
 			appendFixedWriteSample(cs, chID, val != 0)
-			cs.writeIndexedTimestamp(chID)
 		}).Export("write_bool")
 	return builder
 }
