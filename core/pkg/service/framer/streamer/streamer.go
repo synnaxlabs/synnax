@@ -32,7 +32,7 @@ type (
 	responseSegment = confluence.Segment[Response, Response]
 )
 
-// MinKeepAlive is the fastest keepalive cadence a streamer accepts. Faster cadences
+// MinKeepAlive is the fastest keep-alive cadence a streamer accepts. Faster cadences
 // buy no useful detection latency and let a client multiply its per-stream send rate.
 const MinKeepAlive = 2 * telem.Second
 
@@ -51,7 +51,7 @@ type Config struct {
 	// ExcludeGroups are writer group IDs whose frames are filtered out before delivery
 	// (see relay ExcludeGroups).
 	ExcludeGroups []uint32 `json:"exclude_groups" msgpack:"exclude_groups"`
-	// KeepAlive is the interval at which the wire sender emits empty keepalive
+	// KeepAlive is the interval at which the wire sender emits empty keep-alive
 	// responses so the client can detect a silently dead connection. Zero disables
 	// them. Applied at open; ignored on later requests.
 	KeepAlive telem.TimeSpan `json:"keep_alive" msgpack:"keep_alive"`

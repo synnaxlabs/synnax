@@ -103,7 +103,7 @@ var _ = Describe("Streamer", Ordered, func() {
 					MatchError("keep_alive: must be greater than or equal to 2s"),
 				)
 			},
-			Entry("zero disables keepalives", telem.TimeSpan(0), true),
+			Entry("zero disables keep-alives", telem.TimeSpan(0), true),
 			Entry("the minimum interval is accepted", streamer.MinKeepAlive, true),
 			Entry(
 				"a nonzero interval below the minimum is rejected",

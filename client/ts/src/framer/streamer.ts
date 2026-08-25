@@ -59,7 +59,7 @@ const intermediateStreamerConfigZ = z.object({
   /** excludeGroups sets writer group IDs whose frames should be filtered out by the
    Core. Used for telemetry bypass deduplication. */
   excludeGroups: z.uint32().array().default([]),
-  /** Interval at which the Core emits keepalive responses so a silently dead
+  /** Interval at which the Core emits keep-alive responses so a silently dead
    connection fails reads instead of hanging forever. TimeSpan.ZERO disables
    detection. Defaults to 5 seconds. */
   keepAlive: TimeSpan.z.default(TimeSpan.seconds(5)),
@@ -89,8 +89,8 @@ export interface Streamer extends AsyncIterator<Frame>, AsyncIterable<Frame> {
   close: () => void;
   /**
    * Read the next frame of telemetry.
-   * @throws {Unreachable} if keepalives were flowing and the stream then stays silent
-   * past the keepalive deadline: the connection is presumed dead.
+   * @throws {Unreachable} if keep-alives were flowing and the stream then stays silent
+   * past the keep-alive deadline: the connection is presumed dead.
    */
   read: () => Promise<Frame>;
 }
@@ -128,8 +128,8 @@ export const createStreamOpener =
       excludeGroups: cfg.excludeGroups,
       keepAlive: cfg.keepAlive,
     });
-    // A keepalive can beat the open ack onto the wire, so the ack is the first
-    // non-keepalive response.
+    // A keep-alive can beat the open ack onto the wire, so the ack is the first
+    // non-keep-alive response.
     let res = await stream.receive();
     while (res.keepAlive === true) res = await stream.receive();
     return streamer;
@@ -147,7 +147,7 @@ export const openStreamer = async (
   config: StreamerConfig,
 ): Promise<Streamer> => await createStreamOpener(retrieveChannels, client)(config);
 
-// Missing this many keepalive intervals in a row fails the pending read: one is normal
+// Missing this many keep-alive intervals in a row fails the pending read: one is normal
 // jitter, three is a dead connection.
 const KEEP_ALIVE_DEADLINE_FACTOR = 3;
 
@@ -158,7 +158,7 @@ class BaseStreamer implements Streamer {
   private readonly throttleRate: Rate;
   private readonly excludeGroups: number[];
   private readonly deadline: TimeSpan;
-  // Set once the Core proves keepalive support by sending one, so the deadline never
+  // Set once the Core proves keep-alive support by sending one, so the deadline never
   // arms against a Core that will not send them.
   private armed = false;
 

@@ -25,7 +25,7 @@ import (
 type Sender[M freighter.Payload] struct {
 	Sender freighter.StreamSenderCloser[M]
 	// KeepAliveInterval, when positive, emits NewKeepAlive() on this cadence so the
-	// peer can detect a silently dead connection. Zero disables keepalives.
+	// peer can detect a silently dead connection. Zero disables keep-alives.
 	KeepAliveInterval time.Duration
 	// NewKeepAlive constructs the message emitted every KeepAliveInterval. Required
 	// when KeepAliveInterval is positive.
@@ -42,11 +42,11 @@ func (s *Sender[M]) send(ctx context.Context) (err error) {
 	defer func() {
 		err = errors.Combine(s.Sender.CloseSend(), err)
 	}()
-	// A nil channel never fires, so the keepalive case is inert when disabled.
+	// A nil channel never fires, so the keep-alive case is inert when disabled.
 	var keepAlive <-chan time.Time
 	if s.KeepAliveInterval > 0 {
 		if s.NewKeepAlive == nil {
-			return errors.New("keepalive interval set without a message constructor")
+			return errors.New("keep-alive interval set without a message constructor")
 		}
 		ticker := time.NewTicker(s.KeepAliveInterval)
 		defer ticker.Stop()
