@@ -51,9 +51,10 @@ export interface ProviderProps {
 }
 
 /**
- * The most ranges the annotation strip fetches for one window. A dense window can
- * overlap tens of thousands of ranges, which the strip cannot draw legibly in 32
- * pixels and the worker cannot write through the cache without stalling for seconds.
+ * The most ranges the annotation strip draws for one window. A denser window draws
+ * none: the strip cannot label them legibly in 32 pixels, and the Core answers a
+ * limited query in key order, so drawing a truncated answer would show an arbitrary
+ * subset that changes as the window moves.
  */
 export const MAX_ANNOTATIONS = 100;
 
@@ -105,10 +106,12 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     if (i.client != null)
       i.retrieve.update(i.client, {
         overlapsWith: quantize(timeRange),
-        limit: MAX_ANNOTATIONS,
+        // One over the cap, so a saturated answer is distinguishable from a full one.
+        limit: MAX_ANNOTATIONS + 1,
       });
     const { draw } = i;
-    const ranges = i.retrieve.value ?? [];
+    const fetched = i.retrieve.value ?? [];
+    const ranges = fetched.length > MAX_ANNOTATIONS ? [] : fetched;
     const visible = this.state.visible !== false;
     const regionScale = dataToDecimalScale.scale(box.xBounds(region));
     const cursor = this.state.cursor == null ? null : this.state.cursor.x;

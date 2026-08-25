@@ -65,28 +65,32 @@ const mount = (): Provider => {
 };
 
 describe("Provider", () => {
-  // A window over a Core an Arc fills with ranges overlaps far more than the strip can
-  // draw, and writing the unbounded answer through the cache stalls the worker for
-  // seconds, which freezes every plot in the window.
-  it("draws no more annotations than the fetch limit", async () => {
+  // A window an Arc fills with ranges overlaps far more than the strip can draw, and
+  // writing the unbounded answer through the cache stalls the worker for seconds,
+  // which freezes every plot in the window.
+  it("stops drawing annotations once the window passes the cap", async () => {
     const client = createTestClient();
-    const start = TimeStamp.now();
-    const timeRange = new TimeRange(start, start.add(TimeSpan.seconds(10)));
-    await client.ranges.create(
-      Array.from({ length: MAX_ANNOTATIONS + 20 }, () => ({
-        name: `annotation-${id.create()}`,
-        timeRange,
-        color: "#7C3AED",
-      })),
-    );
+    // Far out enough that no other spec's ranges overlap the window, and stepped by
+    // the clock so ranges an earlier run left on the Core stay outside it.
+    const start = TimeStamp.now().add(TimeSpan.days(3650));
+    const timeRange = new TimeRange(start, start.add(TimeSpan.seconds(1)));
+    const create = async (count: number) =>
+      await client.ranges.create(
+        Array.from({ length: count }, () => ({
+          name: `annotation-${id.create()}`,
+          timeRange,
+          color: "#7C3AED",
+        })),
+      );
+    await create(5);
     const provider = mount();
     const props = renderProps(timeRange);
-    await expect
-      .poll(() => {
-        provider.render(props);
-        return provider.state.count;
-      })
-      .toBeGreaterThan(0);
-    expect(provider.state.count).toBeLessThanOrEqual(MAX_ANNOTATIONS);
+    const drawn = () => {
+      provider.render(props);
+      return provider.state.count;
+    };
+    await expect.poll(drawn).toEqual(5);
+    await create(MAX_ANNOTATIONS - 4);
+    await expect.poll(drawn).toEqual(0);
   });
 });
