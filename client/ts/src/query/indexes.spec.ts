@@ -130,3 +130,42 @@ describe("indexes", () => {
     expect(byKey.get("k1")).toEqual([]);
   });
 });
+
+describe("partial indexes", () => {
+  interface Entry extends record.Keyed<string> {
+    key: string;
+    group: string | null;
+  }
+
+  const newIndexed = () => {
+    const byGroup = new query.LookupIndex<string, Entry>((e) => e.group);
+    const table = new query.Table<string, Entry>({
+      onError: noopError,
+      indexes: [byGroup],
+    });
+    return { table, byGroup };
+  };
+
+  it("should leave entries whose extract returns null out of the index", () => {
+    const { table, byGroup } = newIndexed();
+    table.set([
+      { key: "k1", group: "a" },
+      { key: "k2", group: null },
+    ]);
+    expect(byGroup.get("a")).toEqual([{ key: "k1", group: "a" }]);
+  });
+
+  it("should unindex an entry whose extracted value becomes null", () => {
+    const { table, byGroup } = newIndexed();
+    table.set("k1", { key: "k1", group: "a" });
+    table.set("k1", { key: "k1", group: null });
+    expect(byGroup.get("a")).toEqual([]);
+  });
+
+  it("should index an entry whose extracted value appears", () => {
+    const { table, byGroup } = newIndexed();
+    table.set("k1", { key: "k1", group: null });
+    table.set("k1", { key: "k1", group: "a" });
+    expect(byGroup.get("a")).toEqual([{ key: "k1", group: "a" }]);
+  });
+});

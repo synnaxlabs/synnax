@@ -398,6 +398,8 @@ export interface ClientConfig {
   ranges: ranger.Client;
   cache: query.Cache;
   statusStore: query.Table<status.Key, status.Status>;
+  /** Statuses indexed by the task their details reference. */
+  statusesByTask: query.LookupIndex<status.Key, status.Status>;
 }
 
 /**
@@ -723,9 +725,10 @@ export class Client extends query.Retriever<
   // whose details reference the task; the freshest wins. Rows are parsed
   // because the status table holds every domain's statuses generically.
   private latestStatusOf(key: Key): Status | undefined {
-    const taskKey = statusKey(key);
-    const candidates = this.cfg.statusStore
-      .get((s) => s.key === taskKey || status.detailsOf(s)?.task === key)
+    const direct = this.cfg.statusStore.get(statusKey(key));
+    const rows = this.cfg.statusesByTask.get(key);
+    if (direct != null) rows.push(direct);
+    const candidates = rows
       .map((s) => statusZ().safeParse(s))
       .filter((p) => p.success)
       .map((p) => p.data);

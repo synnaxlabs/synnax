@@ -1063,3 +1063,45 @@ describe("drifted", () => {
     expect(task.drifted(newPayload({ statusHash: "", statusRack: 2 }))).toBe(false);
   });
 });
+
+// SY-4752 regression: composing a task once scanned the whole status table with a
+// parse per row on every status event.
+describe("status composition", () => {
+  it("should not scan the status table when composing a task", async () => {
+    const testRack = await client.racks.create({ name: "status-scan-pin" });
+    const t = await testRack.createTask({
+      name: "test",
+      config: { routingKey: "dog" },
+      type: "pagerduty_alert",
+    });
+    const communicatedStatus: task.Status = {
+      key: ontology.idToString(task.ontologyID(t.key)),
+      name: "test",
+      variant: "success",
+      details: {
+        task: t.key,
+        running: false,
+        cmd: "",
+        configHash: "",
+        rack: testRack.key,
+        data: undefined,
+      },
+      message: "test",
+      description: "",
+      time: TimeStamp.now(),
+    };
+    const spy = vi.spyOn(client.statuses.store, "get");
+    await client.statuses.set(communicatedStatus);
+    await expect
+      .poll(async () => {
+        const retrieved = await client.tasks.retrieve({
+          key: t.key,
+          includeStatus: true,
+        });
+        return retrieved.status?.variant === communicatedStatus.variant;
+      })
+      .toBe(true);
+    for (const [arg] of spy.mock.calls) expect(typeof arg).not.toBe("function");
+    spy.mockRestore();
+  });
+});
