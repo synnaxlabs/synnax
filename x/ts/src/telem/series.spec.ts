@@ -1316,6 +1316,99 @@ describe("Series", () => {
         expect(copy.at(1)).toBe(3); // 2.5 + 0.5
         expect(copy.at(2)).toBe(4); // 3.5 + 0.5
       });
+
+      // Every method below builds a new series from an existing one, so each asserts
+      // the full property set. A field dropped from one of these constructions is
+      // invisible until something downstream reads it.
+      const decimated = (): Series =>
+        new Series({
+          data: new Float32Array([1, 2, 3, 4, 5]),
+          dataType: DataType.FLOAT32,
+          timeRange: new TimeRange(TimeStamp.seconds(100), TimeStamp.seconds(200)),
+          sampleOffset: 10,
+          alignment: 100n,
+          // Above one whenever the samples average or decimate raw data.
+          alignmentMultiple: 5n,
+          key: "original-key",
+        });
+
+      it("should preserve properties through convert", () => {
+        const original = decimated();
+        const converted = original.convert(DataType.FLOAT64);
+        expect(converted.dataType).toEqual(DataType.FLOAT64);
+        expect(converted.timeRange).toEqual(original.timeRange);
+        expect(converted.sampleOffset).toBe(0);
+        expect(converted.alignment).toBe(100n);
+        expect(converted.alignmentMultiple).toBe(5n);
+        expect(converted.length).toBe(5);
+        expect(converted.alignmentBounds).toEqual({ lower: 100n, upper: 125n });
+        // The conversion holds different samples, so it is a different series.
+        expect(converted.key).not.toBe(original.key);
+      });
+
+      it("should preserve properties through slice", () => {
+        const original = decimated();
+        const sliced = original.slice(1, 3);
+        expect(sliced.dataType).toEqual(original.dataType);
+        expect(sliced.timeRange).toEqual(original.timeRange);
+        expect(sliced.sampleOffset).toBe(10);
+        expect(sliced.alignmentMultiple).toBe(5n);
+        // Each sample steps the alignment by the multiple, so dropping one sample
+        // moves the start by five.
+        expect(sliced.alignment).toBe(105n);
+        expect(sliced.length).toBe(2);
+        expect(sliced.alignmentBounds).toEqual({ lower: 105n, upper: 115n });
+        expect(sliced.key).not.toBe(original.key);
+      });
+
+      it("should preserve properties through sub", () => {
+        const original = decimated();
+        const subbed = original.sub(1, 3);
+        expect(subbed.dataType).toEqual(original.dataType);
+        expect(subbed.timeRange).toEqual(original.timeRange);
+        expect(subbed.sampleOffset).toBe(10);
+        expect(subbed.alignmentMultiple).toBe(5n);
+        expect(subbed.alignment).toBe(105n);
+        expect(subbed.length).toBe(2);
+        expect(subbed.alignmentBounds).toEqual({ lower: 105n, upper: 115n });
+        expect(subbed.key).not.toBe(original.key);
+      });
+
+      it("should preserve properties through reAlign", () => {
+        const original = decimated();
+        const realigned = original.reAlign(500n);
+        expect(realigned.dataType).toEqual(original.dataType);
+        expect(realigned.sampleOffset).toBe(10);
+        expect(realigned.alignmentMultiple).toBe(5n);
+        expect(realigned.alignment).toBe(500n);
+        expect(realigned.length).toBe(5);
+        expect(realigned.alignmentBounds).toEqual({ lower: 500n, upper: 525n });
+        // A realigned series is deliberately unstamped: the caller is placing it in a
+        // new alignment space, not asserting when it was recorded.
+        expect(realigned.timeRange).toEqual(TimeRange.ZERO);
+        expect(realigned.key).not.toBe(original.key);
+      });
+
+      it("should preserve properties through alloc", () => {
+        const allocated = Series.alloc({
+          capacity: 10,
+          dataType: DataType.FLOAT32,
+          timeRange: new TimeRange(TimeStamp.seconds(100), TimeStamp.seconds(200)),
+          sampleOffset: 10,
+          alignment: 100n,
+          alignmentMultiple: 5n,
+          key: "alloc-key",
+        });
+        expect(allocated.dataType).toEqual(DataType.FLOAT32);
+        expect(allocated.timeRange).toEqual(
+          new TimeRange(TimeStamp.seconds(100), TimeStamp.seconds(200)),
+        );
+        expect(allocated.sampleOffset).toBe(10);
+        expect(allocated.alignment).toBe(100n);
+        expect(allocated.alignmentMultiple).toBe(5n);
+        expect(allocated.capacity).toBe(10);
+        expect(allocated.key).toBe("alloc-key");
+      });
     });
   });
 

@@ -635,6 +635,7 @@ export class Series<T extends TelemValue = TelemValue>
       sampleOffset,
       glBufferUsage: this.gl.bufferUsage,
       alignment: this.alignment,
+      alignmentMultiple: this.alignmentMultiple,
     });
   }
 
@@ -1106,7 +1107,9 @@ export class Series<T extends TelemValue = TelemValue>
     return this.derive(this.data.subarray(start, end), start);
   }
 
-  // Builds the series produced by a slice, offsetting the alignment by start.
+  // Builds the series produced by a slice, offsetting the alignment by start. Each
+  // sample advances the alignment by alignmentMultiple, which is above one when the
+  // samples are a decimated or averaged view of the raw data.
   private derive(data: TypedArray, start: number): Series {
     return new Series({
       data,
@@ -1114,7 +1117,8 @@ export class Series<T extends TelemValue = TelemValue>
       timeRange: this.timeRange,
       sampleOffset: this.sampleOffset,
       glBufferUsage: this.gl.bufferUsage,
-      alignment: this.alignment + BigInt(start),
+      alignment: this.alignment + BigInt(start) * this.alignmentMultiple,
+      alignmentMultiple: this.alignmentMultiple,
     });
   }
 
@@ -1150,6 +1154,7 @@ export class Series<T extends TelemValue = TelemValue>
       sampleOffset: this.sampleOffset,
       glBufferUsage: "static",
       alignment,
+      alignmentMultiple: this.alignmentMultiple,
     });
   }
 
