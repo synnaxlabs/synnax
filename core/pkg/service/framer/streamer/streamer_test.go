@@ -100,7 +100,7 @@ var _ = Describe("Streamer", Ordered, func() {
 					return
 				}
 				Expect(streamerSvc.New(ctx, cfg)).Error().To(
-					MatchError("keepalive: must be greater than or equal to 10ms"),
+					MatchError("keepalive: must be greater than or equal to 2s"),
 				)
 			},
 			Entry("zero disables keepalives", telem.TimeSpan(0), true),

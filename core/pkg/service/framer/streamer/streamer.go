@@ -32,9 +32,9 @@ type (
 	responseSegment = confluence.Segment[Response, Response]
 )
 
-// MinKeepalive is the fastest keepalive cadence a streamer accepts. Anything faster is
-// client misconfiguration, not liveness detection.
-const MinKeepalive = 10 * telem.Millisecond
+// MinKeepalive is the fastest keepalive cadence a streamer accepts. Faster cadences
+// buy no useful detection latency and let a client multiply its per-stream send rate.
+const MinKeepalive = 2 * telem.Second
 
 type Config struct {
 	// Keys are the channels to stream live samples from.

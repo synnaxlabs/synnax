@@ -26,9 +26,15 @@ import {
 
 const client = createTestClient();
 
-const KEEPALIVE = TimeSpan.milliseconds(100);
+// The Core's minimum accepted cadence, so the specs pin the fastest detection a
+// client can actually get.
+const KEEPALIVE = TimeSpan.seconds(2);
 // KEEPALIVE_DEADLINE_FACTOR x KEEPALIVE: how long a read may stay silent once armed.
-const DEADLINE = TimeSpan.milliseconds(300);
+const DEADLINE = TimeSpan.seconds(6);
+// One keepalive interval plus slack, so the client has seen a keepalive and armed.
+const ARMED = TimeSpan.milliseconds(2500);
+// Covers a full deadline trip plus the reconnect that follows it.
+const POLL = { timeout: DEADLINE.milliseconds * 2 };
 
 const write = async (ch: channel.Channel, values: number[]): Promise<void> => {
   const writer = await client.openWriter({ start: TimeStamp.now(), channels: ch.key });
@@ -48,7 +54,7 @@ describe("streamer keepalive", () => {
     });
     try {
       // Let several keepalives queue up so the read has to skip past them.
-      await sleep.sleep(TimeSpan.milliseconds(250));
+      await sleep.sleep(KEEPALIVE.mult(2.5));
       await write(ch, [1, 2, 3]);
       const frame = await streamer.read();
       expect(Array.from(frame.get(ch.key))).toEqual([1, 2, 3]);
@@ -60,8 +66,8 @@ describe("streamer keepalive", () => {
   it("should reject an interval below the Core's minimum", async () => {
     const ch = await newVirtualChannel(client);
     await expect(
-      client.openStreamer({ channels: ch.key, keepalive: TimeSpan.milliseconds(5) }),
-    ).rejects.toThrow("keepalive: must be greater than or equal to 10ms");
+      client.openStreamer({ channels: ch.key, keepalive: TimeSpan.seconds(1) }),
+    ).rejects.toThrow("keepalive: must be greater than or equal to 2s");
   });
 
   it("should reject a silent read with Unreachable after the deadline", async () => {
@@ -74,7 +80,7 @@ describe("streamer keepalive", () => {
         keepalive: KEEPALIVE,
       });
       // Receive at least one keepalive so the deadline is armed.
-      await sleep.sleep(TimeSpan.milliseconds(250));
+      await sleep.sleep(ARMED);
       expect(proxy.blackholeStreams()).toBeGreaterThan(0);
       const started = performance.now();
       await expect(streamer.read()).rejects.toSatisfy(
@@ -91,7 +97,7 @@ describe("streamer keepalive", () => {
     } finally {
       await proxy.close();
     }
-  });
+  }, 30_000);
 
   it("should reconnect and resume streaming after a silent death", async () => {
     const proxy = await createSeverableProxy();
@@ -110,14 +116,14 @@ describe("streamer keepalive", () => {
       try {
         await write(ch, [1]);
         expect(Array.from((await hardened.read()).get(ch.key))).toEqual([1]);
-        await sleep.sleep(TimeSpan.milliseconds(250));
+        await sleep.sleep(ARMED);
         expect(proxy.blackholeStreams()).toBeGreaterThan(0);
         // The proxy still forwards new connections, so the deadline trip inside this
         // read reconnects and the read stays pending for the next frame.
         const pending = hardened.read();
-        await expect.poll(() => onDrop.mock.calls.length, { timeout: 5000 }).toBe(1);
+        await expect.poll(() => onDrop.mock.calls.length, POLL).toBe(1);
         expect(Unreachable.matches(onDrop.mock.calls[0][0])).toBe(true);
-        await expect.poll(() => onReopen.mock.calls.length, { timeout: 5000 }).toBe(1);
+        await expect.poll(() => onReopen.mock.calls.length, POLL).toBe(1);
         await write(ch, [2]);
         expect(Array.from((await pending).get(ch.key))).toEqual([2]);
       } finally {
@@ -126,7 +132,7 @@ describe("streamer keepalive", () => {
     } finally {
       await proxy.close();
     }
-  });
+  }, 30_000);
 
   it("should leave a silent read pending when keepalive is disabled", async () => {
     const proxy = await createSeverableProxy();
