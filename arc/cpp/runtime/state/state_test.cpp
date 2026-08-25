@@ -771,8 +771,9 @@ TEST(ChannelStateTest, ResetClearsReadsAndWrites) {
     EXPECT_TRUE(data_after.series.empty());
 }
 
-/// @brief Test that Node::reset clears watermark tracking
-TEST(StateTest, NodeReset_ClearsWatermarks) {
+/// @brief Test that Node::reset leaves an edge-fed input consumed, so a re-entered
+/// stage does not re-emit a value it already emitted.
+TEST(StateTest, NodeReset_KeepsAnEdgeFedInputConsumed) {
     arc::types::Param output_param;
     output_param.name = "output";
     output_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
@@ -828,7 +829,7 @@ TEST(StateTest, NodeReset_ClearsWatermarks) {
 
     consumer_node.reset();
 
-    ASSERT_TRUE(consumer_node.refresh_inputs());
+    ASSERT_FALSE(consumer_node.refresh_inputs());
 }
 
 /// @brief Test that is_series_truthy returns false for empty series
@@ -1429,6 +1430,116 @@ TEST(ConsumeInputTest, ReturnsFalseForAReferenceInput) {
     auto reader = ASSERT_NIL_P(s->node("reader"));
     *reg.output(0) = x::telem::Series(std::vector<uint32_t>{7});
     EXPECT_FALSE(reader.consume_input(0).second);
+}
+
+/// @brief new_literal_and_edge_state builds src (i32 output) -> sink param b, with
+/// sink param a carrying a configured value.
+std::shared_ptr<State> new_literal_and_edge_state() {
+    ir::IR prog;
+    prog.nodes.push_back(make_node(
+        "src",
+        "src",
+        {},
+        {value_param(ir::default_output_param, types::Kind::I32)}
+    ));
+    prog.nodes.push_back(make_node(
+        "sink",
+        "sink",
+        {value_param(ir::lhs_input_param, types::Kind::I32, 5),
+         value_param(ir::rhs_input_param, types::Kind::I32)},
+        {value_param(ir::default_output_param, types::Kind::I32)}
+    ));
+    prog.edges.emplace_back(
+        ir::Handle("src", ir::default_output_param),
+        ir::Handle("sink", ir::rhs_input_param)
+    );
+    return std::make_shared<State>(Config{.ir = prog});
+}
+
+/// @brief provenance_idx should skip a literal input and pick the edge-fed one.
+TEST(ProvenanceIdxTest, SkipsALiteralInputAndPicksTheEdgeFedOne) {
+    const auto s = new_literal_and_edge_state();
+    const auto src = ASSERT_NIL_P(s->node("src"));
+    auto sink = ASSERT_NIL_P(s->node("sink"));
+    emit<int32_t>(src, 1, 777);
+    ASSERT_TRUE(sink.refresh_inputs());
+    EXPECT_EQ(sink.provenance_idx(), 1);
+}
+
+/// @brief provenance_idx should pick the longest input when several are edge-fed.
+TEST(ProvenanceIdxTest, PicksTheLongestInputWhenSeveralAreEdgeFed) {
+    const auto s = new_pair_state();
+    const auto a = ASSERT_NIL_P(s->node("a"));
+    const auto b = ASSERT_NIL_P(s->node("b"));
+    auto target = ASSERT_NIL_P(s->node("target"));
+    emit<int32_t>(a, 1, 1);
+    *b.output(0) = x::telem::Series(std::vector<int32_t>{1, 2, 3});
+    *b.output_time(0) = x::telem::Series(std::vector<int64_t>{7000, 8000, 9000});
+    b.mark_fresh(0);
+    ASSERT_TRUE(target.refresh_inputs());
+    EXPECT_EQ(target.provenance_idx(), 1);
+}
+
+/// @brief provenance_idx should report none when every input is a literal.
+TEST(ProvenanceIdxTest, ReportsNoneWhenEveryInputIsALiteral) {
+    ir::IR prog;
+    prog.nodes.push_back(make_node(
+        "sink",
+        "sink",
+        {value_param(ir::lhs_input_param, types::Kind::I32, 5)},
+        {value_param(ir::default_output_param, types::Kind::I32)}
+    ));
+    const auto s = std::make_shared<State>(Config{.ir = prog});
+    auto sink = ASSERT_NIL_P(s->node("sink"));
+    ASSERT_TRUE(sink.refresh_inputs());
+    EXPECT_EQ(sink.provenance_idx(), -1);
+}
+
+/// @brief stamp_cycle should replace the output time with one cycle stamp.
+TEST(StampCycleTest, ReplacesOutputTimeWithTheCycleStamp) {
+    ir::IR prog;
+    prog.nodes.push_back(make_node(
+        "sink",
+        "sink",
+        {value_param(ir::lhs_input_param, types::Kind::I32, 5)},
+        {value_param(ir::default_output_param, types::Kind::I32)}
+    ));
+    const auto s = std::make_shared<State>(Config{.ir = prog});
+    auto sink = ASSERT_NIL_P(s->node("sink"));
+    *sink.output_time(0) = x::telem::Series(std::vector<int64_t>{10, 20, 30});
+    sink.stamp_cycle(x::telem::TimeStamp(1234), 0);
+    ASSERT_EQ(sink.output_time(0)->size(), 1);
+    EXPECT_EQ(sink.output_time(0)->at<int64_t>(0), 1234);
+}
+
+/// @brief reset should keep an edge-fed input the node already consumed.
+TEST(ResetTest, KeepsAConsumedEdgeFedInput) {
+    const auto s = new_linked_state();
+    const auto src = ASSERT_NIL_P(s->node("src"));
+    auto dst = ASSERT_NIL_P(s->node("dst"));
+    emit<int32_t>(src, 1, 10);
+    ASSERT_TRUE(dst.refresh_inputs());
+    dst.reset();
+    EXPECT_FALSE(dst.refresh_inputs());
+    emit<int32_t>(src, 2, 20);
+    EXPECT_TRUE(dst.refresh_inputs());
+}
+
+/// @brief reset should re-arm a literal input so the node re-runs.
+TEST(ResetTest, ReArmsALiteralInput) {
+    ir::IR prog;
+    prog.nodes.push_back(make_node(
+        "sink",
+        "sink",
+        {value_param(ir::lhs_input_param, types::Kind::I32, 5)},
+        {value_param(ir::default_output_param, types::Kind::I32)}
+    ));
+    const auto s = std::make_shared<State>(Config{.ir = prog});
+    auto sink = ASSERT_NIL_P(s->node("sink"));
+    ASSERT_TRUE(sink.refresh_inputs());
+    ASSERT_FALSE(sink.refresh_inputs());
+    sink.reset();
+    EXPECT_TRUE(sink.refresh_inputs());
 }
 
 /// @brief refresh_inputs should leave an unpublished write invisible to the reader.

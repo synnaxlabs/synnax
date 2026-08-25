@@ -1916,6 +1916,51 @@ var _ = Describe("ProgramState", func() {
 		)
 
 		It(
+			"Should not re-arm a consumed edge-fed input",
+			func(ctx SpecContext) {
+				g := graph.Graph{
+					Functions: []ir.Function{
+						{
+							Key: "src",
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.I64()},
+							},
+						},
+						{
+							Key: "dst",
+							Inputs: types.Params{
+								{Name: ir.DefaultInputParam, Type: types.I64()},
+							},
+						},
+					},
+					Nodes: []graph.Node{{Key: "src"}, {Key: "dst"}},
+					Inputs: map[string]msgpack.EncodedJSON{
+						"src": {"type": "src"},
+						"dst": {"type": "dst"},
+					},
+					Edges: graph.Edges{{Edge: ir.Edge{
+						Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "dst", Param: ir.DefaultInputParam},
+					}}},
+				}
+				prog, diagnostics := graph.Analyze(ctx, g, nil)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				s := node.New(prog)
+				src, dst := s.Node("src"), s.Node("dst")
+				*src.Output(0) = telem.NewSeriesV[int64](1)
+				*src.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+				src.MarkFresh(0)
+				Expect(dst.RefreshInputs()).To(BeTrue())
+				dst.Reset(node.Context{})
+				Expect(dst.RefreshInputs()).To(BeFalse())
+				*src.Output(0) = telem.NewSeriesV[int64](2)
+				*src.OutputTime(0) = telem.NewSeriesSecondsTSV(20)
+				src.MarkFresh(0)
+				Expect(dst.RefreshInputs()).To(BeTrue())
+			},
+		)
+
+		It(
 			"Should not re-arm a consumed variable register read",
 			func(ctx SpecContext) {
 				g := graph.Graph{
@@ -2304,6 +2349,130 @@ var _ = Describe("ProgramState", func() {
 				To(telem.MatchSeries(telem.NewSeriesV[float32](0)))
 			_, ok := reader.LastChanged()
 			Expect(ok).To(BeFalse())
+		})
+	})
+
+	Describe("ProvenanceIdx and StampCycle", func() {
+		literalAndEdge := func(literalValue any) ir.IR {
+			return ir.IR{
+				Nodes: ir.Nodes{
+					{
+						Key:  "src",
+						Type: "f",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
+						},
+					},
+					{
+						Key:  "sink",
+						Type: "f",
+						Inputs: types.Params{
+							{Name: "a", Type: types.I64(), Value: literalValue},
+							{Name: "b", Type: types.I64()},
+						},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
+						},
+					},
+				},
+				Edges: ir.Edges{{
+					Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
+					Target: ir.Handle{Node: "sink", Param: "b"},
+				}},
+			}
+		}
+
+		It("Should skip a literal input and pick the edge-fed one", func() {
+			s := node.New(literalAndEdge(int64(5)))
+			src, sink := s.Node("src"), s.Node("sink")
+			*src.Output(0) = telem.NewSeriesV[int64](1)
+			*src.OutputTime(0) = telem.NewSeriesSecondsTSV(777)
+			src.MarkFresh(0)
+			Expect(sink.RefreshInputs()).To(BeTrue())
+			Expect(sink.ProvenanceIdx()).To(Equal(1))
+		})
+
+		It("Should pick the longest input when several are edge-fed", func() {
+			inter := ir.IR{
+				Nodes: ir.Nodes{
+					{
+						Key:  "short",
+						Type: "f",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
+						},
+					},
+					{
+						Key:  "long",
+						Type: "f",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
+						},
+					},
+					{
+						Key:  "sink",
+						Type: "f",
+						Inputs: types.Params{
+							{Name: "a", Type: types.I64()},
+							{Name: "b", Type: types.I64()},
+						},
+					},
+				},
+				Edges: ir.Edges{
+					{
+						Source: ir.Handle{
+							Node:  "short",
+							Param: ir.DefaultOutputParam,
+						},
+						Target: ir.Handle{Node: "sink", Param: "a"},
+					},
+					{
+						Source: ir.Handle{Node: "long", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "sink", Param: "b"},
+					},
+				},
+			}
+			s := node.New(inter)
+			short, long, sink := s.Node("short"), s.Node("long"), s.Node("sink")
+			*short.Output(0) = telem.NewSeriesV[int64](1)
+			*short.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+			short.MarkFresh(0)
+			*long.Output(0) = telem.NewSeriesV[int64](1, 2, 3)
+			*long.OutputTime(0) = telem.NewSeriesSecondsTSV(7, 8, 9)
+			long.MarkFresh(0)
+			Expect(sink.RefreshInputs()).To(BeTrue())
+			Expect(sink.ProvenanceIdx()).To(Equal(1))
+		})
+
+		It("Should report no provenance when every input is a literal", func() {
+			inter := ir.IR{Nodes: ir.Nodes{{
+				Key:  "sink",
+				Type: "f",
+				Inputs: types.Params{
+					{Name: "a", Type: types.I64(), Value: int64(5)},
+				},
+				Outputs: types.Params{
+					{Name: ir.DefaultOutputParam, Type: types.I64()},
+				},
+			}}}
+			sink := node.New(inter).Node("sink")
+			Expect(sink.RefreshInputs()).To(BeTrue())
+			Expect(sink.ProvenanceIdx()).To(Equal(-1))
+		})
+
+		It("Should overwrite the output time with the cycle stamp", func() {
+			inter := ir.IR{Nodes: ir.Nodes{{
+				Key:  "sink",
+				Type: "f",
+				Outputs: types.Params{
+					{Name: ir.DefaultOutputParam, Type: types.I64()},
+				},
+			}}}
+			sink := node.New(inter).Node("sink")
+			*sink.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
+			sink.StampCycle(node.Context{Now: 1234 * telem.SecondTS}, 0)
+			Expect(*sink.OutputTime(0)).
+				To(telem.MatchSeries(telem.NewSeriesSecondsTSV(1234)))
 		})
 	})
 

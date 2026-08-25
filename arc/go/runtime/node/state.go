@@ -66,6 +66,7 @@ func (s *ProgramState) Node(key string) *State {
 		alignedData  = make([]telem.Series, len(n.Inputs))
 		alignedTime  = make([]telem.Series, len(alignedData))
 		accumulated  = make([]inputEntry, len(n.Inputs))
+		literal      = make([]bool, len(n.Inputs))
 		inputSources = make([]*value, len(n.Inputs))
 		isReference  = make([]bool, len(n.Inputs))
 	)
@@ -122,6 +123,7 @@ func (s *ProgramState) Node(key string) *State {
 			alignedData[i] = data
 			alignedTime[i] = time
 			accumulated[i] = inputEntry{data: data, time: time}
+			literal[i] = true
 			if _, exists := s.outputs[syntheticSource]; !exists {
 				s.outputs[syntheticSource] = &value{data: data, time: time}
 			}
@@ -147,6 +149,7 @@ func (s *ProgramState) Node(key string) *State {
 			accumulated = append(accumulated, inputEntry{})
 			inputSources = append(inputSources, s.outputs[e.Source])
 			isReference = append(isReference, false)
+			literal = append(literal, false)
 		}
 	}
 
@@ -217,6 +220,7 @@ func (s *ProgramState) Node(key string) *State {
 	nd.inputSources = inputSources
 	nd.outputCache = outputCache
 	nd.isReference = isReference
+	nd.literal = literal
 	nd.progRev = &s.rev
 	return nd
 }
@@ -257,6 +261,9 @@ type State struct {
 	// isReference marks inputs that are channel references rather than value
 	// streams. Reference inputs carry no data series and never gate execution.
 	isReference []bool
+	// literal marks inputs fed by a configured value rather than an edge. A
+	// configured value has no time of its own.
+	literal []bool
 	// rearm[i] selects when a consumed input i fires again.
 	rearm       []rearmRule
 	accumulated []inputEntry
@@ -290,15 +297,23 @@ func (n *State) MarkFresh(paramIndex int) {
 	n.outputCache[paramIndex].rev = *n.progRev
 }
 
-// Reset re-arms every input when the node's stage is (re)activated, so a node
-// whose gating inputs are all literal-valued re-runs instead of staying consumed.
+// Reset re-arms the node's inputs when its stage is (re)activated, so a node
+// whose inputs are all literal-valued re-runs instead of staying consumed. An
+// edge-fed input keeps what it consumed: re-arming one makes the node re-emit a
+// value it already emitted, which duplicates writes downstream.
 func (n *State) Reset(Context) {
 	for i := range n.accumulated {
 		switch n.rearm[i] {
 		case rearmOnFresh:
 		case rearmOnArrival:
 			n.absorbInput(i)
-		case rearmAlways, rearmOnReset:
+		case rearmAlways:
+			if !n.literal[i] {
+				continue
+			}
+			n.accumulated[i].consumed = false
+			n.accumulated[i].lastRev = 0
+		case rearmOnReset:
 			n.accumulated[i].consumed = false
 			n.accumulated[i].lastRev = 0
 		}
@@ -492,6 +507,34 @@ func (n *State) LastChanged() (telem.Series, bool) {
 		consumed: true,
 	}
 	return src.data, true
+}
+
+// ProvenanceIdx returns the index of the input carrying the most upstream
+// timestamps, or -1 when no input carries any. A node stamps its output from
+// that input's time series; on -1 it has no provenance to forward and stamps
+// the cycle instead. Literal and reference inputs are never candidates: a
+// configured value has no time, so forwarding one stamps a placeholder.
+// Picking the longest matches how nodes broadcast a shorter input up to a
+// longer one, keeping one timestamp per output sample.
+func (n *State) ProvenanceIdx() int {
+	best, bestLen := -1, int64(0)
+	for i := range n.ir.inputs {
+		if n.isReference[i] || n.literal[i] || n.aligned.time[i].Len() == 0 {
+			continue
+		}
+		if l := n.aligned.data[i].Len(); l > bestLen {
+			best, bestLen = i, l
+		}
+	}
+	return best
+}
+
+// StampCycle overwrites the output's time series with a single sample of the
+// cycle stamp, reusing its buffer. Nodes with no provenance to forward use it.
+func (n *State) StampCycle(ctx Context, outputIdx int) {
+	t := n.OutputTime(outputIdx)
+	t.Resize(1)
+	telem.SetValueAt(*t, 0, ctx.Now)
 }
 
 // InputTime returns the timestamp series for the input at the given parameter

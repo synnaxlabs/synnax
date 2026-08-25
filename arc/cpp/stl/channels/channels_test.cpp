@@ -684,8 +684,8 @@ TEST(WriteTest, NextReportsErrorOnTimeLengthMismatch) {
     EXPECT_TRUE(out.empty());
 }
 
-/// @brief reset() re-arms inputs so the sink re-runs on stage re-entry.
-TEST(WriteTest, ResetRearmsInputsOnStageReentry) {
+/// @brief reset() keeps a consumed edge-fed input on stage re-entry.
+TEST(WriteTest, ResetKeepsConsumedEdgeFedInput) {
     types::Param upstream_output;
     upstream_output.name = ir::default_output_param;
     upstream_output.type.kind = types::Kind::F32;
@@ -711,7 +711,9 @@ TEST(WriteTest, ResetRearmsInputsOnStageReentry) {
 
     types::Param channel_config;
     channel_config.name = "channel";
-    channel_config.type.kind = types::Kind::U32;
+    // Production IR types a channel param as Chan, which the state treats as a
+    // reference: it carries no data and never gates or re-arms.
+    channel_config.type.kind = types::Kind::Chan;
     channel_config.value = static_cast<uint32_t>(100);
     sink_node.inputs.push_back(channel_config);
 
@@ -756,9 +758,20 @@ TEST(WriteTest, ResetRearmsInputsOnStageReentry) {
     ASSERT_NIL(sink->next(ctx));
     EXPECT_EQ(changes, 0);
 
-    // Stage re-entry re-arms the inputs so the sink runs again.
+    // Stage re-entry keeps the consumed input, so the sink does not rewrite it.
     sink->reset(ctx);
     changes = 0;
+    ASSERT_NIL(sink->next(ctx));
+    EXPECT_EQ(changes, 0);
+
+    // A new upstream value runs it again.
+    upstream.output(0) = x::mem::make_local_shared<::x::telem::Series>(
+        std::vector<float>{9.9f}
+    );
+    upstream.output_time(0) = x::mem::make_local_shared<::x::telem::Series>(
+        std::vector<int64_t>{502}
+    );
+    upstream.mark_fresh(0);
     ASSERT_NIL(sink->next(ctx));
     EXPECT_EQ(changes, 1);
 }
