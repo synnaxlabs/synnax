@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/debounce"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -44,7 +45,7 @@ type Writer struct {
 	table      *gorp.Table[Key, Arc]
 	dispatcher actions.Dispatcher[Key, Action]
 	sweeper    textSweeper
-	taskSync   *taskSync
+	taskSync   *debounce.Keyed[Key]
 }
 
 // Create creates the given Arc. If the Arc does not have a key,
@@ -116,7 +117,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 			return err
 		}
 		w.sweeper.forget(key)
-		w.taskSync.forget(key)
+		w.taskSync.Forget(key)
 	}
 	return nil
 }

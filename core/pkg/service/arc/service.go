@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/debounce"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
@@ -151,7 +152,7 @@ type Service struct {
 	state    *actions.State[Key, Action]
 	locks    xsync.KeyedMutex[Key]
 	sweeper  textSweeper
-	taskSync *taskSync
+	taskSync *debounce.Keyed[Key]
 }
 
 // NewRoot builds the production analysis root: the STL, status, and ranges modules
@@ -194,10 +195,7 @@ func (s *Service) NewLSP() (*lsp.Server, error) {
 	})
 }
 
-func (s *Service) Close() error {
-	s.taskSync.close()
-	return s.closer.Close()
-}
+func (s *Service) Close() error { return s.closer.Close() }
 
 // AllowDashedNames reports whether Arc may treat '-' as an identifier character, which
 // is permitted exactly when channel-name validation is disabled.
@@ -251,7 +249,6 @@ func OpenService(
 			cfg.TextSweepThreshold,
 		),
 	}
-	s.taskSync = newTaskSync(cfg.TaskSyncDebounce.Duration(), s.resyncTask)
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Arc]{
@@ -259,6 +256,13 @@ func OpenService(
 		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
+		return nil, err
+	}
+	if s.taskSync, err = debounce.NewKeyed(debounce.KeyedConfig[Key]{
+		Delay:    cfg.TaskSyncDebounce.Duration(),
+		MaxDelay: cfg.TaskSyncDebounce.Duration() * 4,
+		Callback: s.resyncTask,
+	}); !ok(err, s.taskSync) {
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)

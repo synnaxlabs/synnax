@@ -11,11 +11,8 @@ package arc
 
 import (
 	"context"
-	"sync"
-	"time"
 
 	"github.com/synnaxlabs/x/crdt"
-	"github.com/synnaxlabs/x/debounce"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -76,14 +73,14 @@ func (s *Service) Dispatch(
 		if len(sweep) > 0 {
 			dispatcher.Notify(ctx, key, "", sweep)
 		}
-		return s.taskSync.trigger(key)
+		s.taskSync.Trigger(key)
+		return nil
 	})
 }
 
 // resyncTask rewrites the Arc's task config from its current content. It runs on the
 // task-sync debouncer, so it has no caller to return errors to and logs them instead. A
-// cancelled context (a newer edit superseded this sync) and a deleted Arc are not
-// errors.
+// cancelled context (the service closed) and a deleted Arc are not errors.
 func (s *Service) resyncTask(ctx context.Context, key Key) {
 	err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		var a Arc
@@ -100,88 +97,4 @@ func (s *Service) resyncTask(ctx context.Context, key Key) {
 		return
 	}
 	s.cfg.L.Error("failed to sync arc task", zap.Error(err), zap.Stringer("key", key))
-}
-
-// taskSync debounces per-Arc task config rewrites.
-type taskSync struct {
-	delay time.Duration
-	sync  func(context.Context, Key)
-	// mu guards debouncers and closed. wg.Add only runs under mu while closed is false,
-	// so close observes every in-flight run.
-	mu         sync.Mutex
-	closed     bool
-	debouncers map[Key]*debounce.Debouncer
-	wg         sync.WaitGroup
-}
-
-func newTaskSync(delay time.Duration, sync func(context.Context, Key)) *taskSync {
-	return &taskSync{
-		delay:      delay,
-		sync:       sync,
-		debouncers: make(map[Key]*debounce.Debouncer),
-	}
-}
-
-// trigger schedules a sync for the Arc, superseding any pending or in-flight one. A
-// no-op once the taskSync is closed.
-func (t *taskSync) trigger(key Key) error {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	if t.closed {
-		return nil
-	}
-	d, ok := t.debouncers[key]
-	if !ok {
-		var err error
-		if d, err = debounce.New(debounce.Config{
-			Delay:    t.delay,
-			MaxDelay: t.delay * 4,
-			Callback: func(ctx context.Context) { t.run(ctx, key) },
-		}); err != nil {
-			return err
-		}
-		t.debouncers[key] = d
-	}
-	d.Trigger()
-	return nil
-}
-
-func (t *taskSync) run(ctx context.Context, key Key) {
-	t.mu.Lock()
-	if t.closed {
-		t.mu.Unlock()
-		return
-	}
-	t.wg.Add(1)
-	t.mu.Unlock()
-	defer t.wg.Done()
-	t.sync(ctx, key)
-}
-
-// forget drops the Arc's debouncer, discarding any pending sync. It is called when the
-// Arc is deleted.
-func (t *taskSync) forget(key Key) {
-	t.mu.Lock()
-	d, ok := t.debouncers[key]
-	delete(t.debouncers, key)
-	t.mu.Unlock()
-	if ok {
-		d.Stop()
-	}
-}
-
-// close discards pending syncs, cancels in-flight ones, and waits for them to return.
-func (t *taskSync) close() {
-	t.mu.Lock()
-	t.closed = true
-	ds := make([]*debounce.Debouncer, 0, len(t.debouncers))
-	for _, d := range t.debouncers {
-		ds = append(ds, d)
-	}
-	clear(t.debouncers)
-	t.mu.Unlock()
-	for _, d := range ds {
-		d.Stop()
-	}
-	t.wg.Wait()
 }
