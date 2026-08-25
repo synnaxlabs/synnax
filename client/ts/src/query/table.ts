@@ -197,13 +197,11 @@ export class Table<
           });
   }
 
-  /** Every live-entry write funnels through here so indexes stay current. */
   private applySet(key: Key, value: Value): void {
     this.entries.set(key, value);
     for (const index of this.indexes) index.set(key, value);
   }
 
-  /** Every live-entry removal funnels through here so indexes stay current. */
   private applyDelete(key: Key): void {
     this.entries.delete(key);
     for (const index of this.indexes) index.delete(key);
