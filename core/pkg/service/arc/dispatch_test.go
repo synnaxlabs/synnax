@@ -177,6 +177,7 @@ var _ = Describe("Collaborative text", func() {
 		return out
 	}
 	fetch := func(ctx SpecContext, key arc.Key) arc.Arc {
+		GinkgoHelper()
 		var got arc.Arc
 		Expect(
 			svc.NewRetrieve().Where(arc.MatchKeys(key)).Entry(&got).Exec(ctx, nil),
