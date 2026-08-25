@@ -76,36 +76,51 @@ const stripSourcesContent = (): Plugin => ({
 // paths and marks them @vite-ignore, so this build neither rewrites them nor emits the
 // files. Copying each referenced worker to the address it already names is what makes
 // it load, both in the desktop bundle and in the copy the Core serves.
-const plutoWorkers = (): Plugin => ({
-  name: "pluto-workers",
-  async writeBundle(options, bundle) {
-    const dir = options.dir;
-    if (dir == null) return;
-    const names = new Set<string>();
-    Object.values(bundle).forEach((chunk) => {
-      if (chunk.type !== "chunk") return;
-      for (const [, name] of chunk.code.matchAll(/\/pluto\/assets\/([\w.-]+)/g))
-        names.add(name);
-    });
-    if (names.size === 0)
-      throw new Error(
-        "no /pluto/assets worker addresses in the bundle. Pluto's worker URL format " +
-          "changed; update the pattern above.",
-      );
-    const out = path.join(dir, "pluto", "assets");
-    await fs.mkdir(out, { recursive: true });
-    await Promise.all(
-      Array.from(names, async (name) => {
+const plutoWorkers = (): Plugin => {
+  const PATTERN = /\/pluto\/assets\/([\w.-]+)/g;
+  /** Adds every address in code to seen, returning only the ones new to it. */
+  const scan = (code: string, seen: Set<string>): string[] => {
+    const fresh: string[] = [];
+    for (const [, name] of code.matchAll(PATTERN))
+      if (!seen.has(name)) {
+        seen.add(name);
+        fresh.push(name);
+      }
+    return fresh;
+  };
+  return {
+    name: "pluto-workers",
+    async writeBundle(options, bundle) {
+      const dir = options.dir;
+      if (dir == null) return;
+      const seen = new Set<string>();
+      const pending: string[] = [];
+      Object.values(bundle).forEach((chunk) => {
+        if (chunk.type !== "chunk") return;
+        pending.push(...scan(chunk.code, seen));
+      });
+      if (seen.size === 0)
+        throw new Error(
+          "no /pluto/assets worker addresses in the bundle. Pluto's worker URL " +
+            "format changed; update the pattern above.",
+        );
+      const out = path.join(dir, "pluto", "assets");
+      await fs.mkdir(out, { recursive: true });
+      // A worker imports its own chunks, which the Console's bundle never names.
+      for (let name = pending.pop(); name != null; name = pending.pop()) {
         const from = path.resolve(repoRoot, "pluto/dist/assets", name);
+        let code: string;
         try {
-          await fs.copyFile(from, path.join(out, name));
+          code = await fs.readFile(from, "utf-8");
         } catch (err) {
           throw new Error(`missing ${from}. Run pnpm build:pluto.`, { cause: err });
         }
-      }),
-    );
-  },
-});
+        await fs.writeFile(path.join(out, name), code);
+        pending.push(...scan(code, seen));
+      }
+    },
+  };
+};
 
 export default defineConfig({
   clearScreen: false,
