@@ -25,11 +25,7 @@ class Explorer(Surface):
     """The Range Explorer page. Shows all persisted ranges."""
 
     ITEM_SELECTOR = ".console-range__list-item"
-    # The view tabs above the ranges are a list too, so exclude them: they carry no
-    # range rows and scrolling them does nothing.
-    LIST_SELECTOR = (
-        ".console-range-explorer .pluto-list__items:not(.console-view__views)"
-    )
+    LIST_SELECTOR = ".console-range-explorer .pluto-list__items"
     SEARCH_INPUT_PLACEHOLDER = "Search ranges..."
     STATIC_VIEW_NAME = "All ranges"
     # The explorer list must stay the same height at the bottom for longer than a page

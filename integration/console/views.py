@@ -17,7 +17,7 @@ from console.base import ResourceClient
 from console.layout import LayoutClient
 
 STRIP_SELECTOR = ".console-view__views"
-ITEM_SELECTOR = ".pluto-select-btn"
+ITEM_SELECTOR = ".pluto-tabs__tab"
 # Every list item names its text element after its key, per List.itemNameID.
 ITEM_LABEL_SELECTOR = "[id$='-name']"
 SELECTED_CLASS = "pluto--selected"
