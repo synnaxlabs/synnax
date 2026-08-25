@@ -821,9 +821,6 @@ describe("store", () => {
   });
 });
 
-// SY-4751 regression: writing a fetch response through the cache once cost (ranges in
-// the response) x (relationships cached), because every write recomposed against full
-// scans of the relationships table and notified subscribers per range.
 describe("write-through", () => {
   const LABELS_PER_RANGE = 3;
   const BATCH = 50;

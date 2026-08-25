@@ -1064,8 +1064,6 @@ describe("drifted", () => {
   });
 });
 
-// SY-4752 regression: composing a task once scanned the whole status table with a
-// parse per row on every status event.
 describe("status composition", () => {
   it("should not scan the status table when composing a task", async () => {
     const testRack = await client.racks.create({ name: "status-scan-pin" });
