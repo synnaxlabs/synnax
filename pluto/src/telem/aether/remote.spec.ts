@@ -13,6 +13,7 @@ import {
   type framer,
   type status as cstatus,
   TimeRange,
+  ValidationError,
 } from "@synnaxlabs/client";
 import { bounds, id, MultiSeries, Series, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
@@ -818,7 +819,7 @@ describe("remote", () => {
         cd.cleanup();
       });
 
-      it("should retry the back-fill after a failure", async () => {
+      it("should retry the back-fill under the breaker after a failure", async () => {
         const now = TimeStamp.now();
         const series = new Series({
           data: new Float32Array([1, 2, 3]),
@@ -833,16 +834,89 @@ describe("remote", () => {
           if (calls === 1) throw new Error("transient");
           return new MultiSeries([series]);
         };
-        const cd = new StreamChannelData(c, {
-          timeSpan: TimeSpan.MAX,
-          channel: c.channel.key,
-        });
+        const cd = new StreamChannelData(
+          c,
+          { timeSpan: TimeSpan.MAX, channel: c.channel.key },
+          {},
+          undefined,
+          { sleepFn: async () => {} },
+        );
         await waitForStream(cd, c);
-        // The failure invalidated the read, so the next value() call retries.
+        // The retry runs on its own; the polled value() calls only observe it.
         await expect.poll(() => cd.value()[1].series.length).toBe(1);
-        expect(calls).toBeGreaterThanOrEqual(2);
+        expect(calls).toBe(2);
         expect(cd.value()[1].series[0]).toBe(series);
         cd.cleanup();
+      });
+
+      it("should post one status per distinct failure across retries", async () => {
+        const statuses: cstatus.Crude[] = [];
+        let calls = 0;
+        const failures = ["boom", "boom", "other"];
+        c.feed.read = async (): Promise<MultiSeries> => {
+          const failure = failures[calls];
+          calls++;
+          if (failure != null) throw new Error(failure);
+          return new MultiSeries([]);
+        };
+        const cd = new StreamChannelData(
+          c,
+          { timeSpan: TimeSpan.MAX, channel: c.channel.key },
+          { onStatusChange: (s) => statuses.push(s) },
+          undefined,
+          { sleepFn: async () => {} },
+        );
+        cd.value();
+        await expect.poll(() => calls).toBe(4);
+        expect(statuses.map((s) => s.description)).toEqual(["boom", "other"]);
+        cd.cleanup();
+      });
+
+      it("should park without retrying on a definitive rejection", async () => {
+        const statuses: cstatus.Crude[] = [];
+        let calls = 0;
+        c.feed.read = async (): Promise<MultiSeries> => {
+          calls++;
+          throw new ValidationError("bad request");
+        };
+        const cd = new StreamChannelData(
+          c,
+          { timeSpan: TimeSpan.MAX, channel: c.channel.key },
+          { onStatusChange: (s) => statuses.push(s) },
+          undefined,
+          { sleepFn: async () => {} },
+        );
+        await waitForStream(cd, c);
+        await expect.poll(() => statuses.length).toBe(1);
+        // Neither time nor further value() calls restart a parked source.
+        cd.value();
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        expect(calls).toBe(1);
+        // The live stream opened before the back-fill and stays open while parked.
+        expect(c.streamDestructorF).not.toHaveBeenCalled();
+        cd.cleanup();
+      });
+
+      it("should stop retrying at cleanup", async () => {
+        let calls = 0;
+        c.feed.read = async (): Promise<MultiSeries> => {
+          calls++;
+          throw new Error("boom");
+        };
+        const cd = new StreamChannelData(
+          c,
+          { timeSpan: TimeSpan.MAX, channel: c.channel.key },
+          {},
+          undefined,
+          { baseInterval: TimeSpan.milliseconds(1), scale: 1, jitter: 0 },
+        );
+        cd.value();
+        // Retries pace themselves on the breaker's own timer while the source lives.
+        await expect.poll(() => calls >= 3).toBe(true);
+        cd.cleanup();
+        const settled = calls;
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        expect(calls).toBe(settled);
       });
 
       it("should insert a late back-fill in front of live series", async () => {
