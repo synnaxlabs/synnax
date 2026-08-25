@@ -35,6 +35,7 @@ import {
   Cache,
   RELATIONSHIP_DELETE_CHANNEL_NAME,
   RELATIONSHIP_SET_CHANNEL_NAME,
+  type RelationshipIndexes,
   RESOURCE_DELETE_CHANNEL_NAME,
   RESOURCE_SET_CHANNEL_NAME,
 } from "@/ontology/store";
@@ -194,10 +195,15 @@ export class Client extends query.Retriever<
 
   constructor(cfg: ClientConfig) {
     const { unary, cache } = cfg;
+    const relationshipIndexes: RelationshipIndexes = {
+      byTo: new query.LookupIndex<string, Relationship>((r) => idToString(r.to)),
+      byFrom: new query.LookupIndex<string, Relationship>((r) => idToString(r.from)),
+    };
     const relationships = cache.createTable<string, Relationship>({
       name: "relationships",
       equal: (a, b) =>
         idsEqual(a.from, b.from) && idsEqual(a.to, b.to) && a.type === b.type,
+      indexes: [relationshipIndexes.byTo, relationshipIndexes.byFrom],
       listen: [
         query.createSetListener(RELATIONSHIP_SET_CHANNEL_NAME, relationshipZ, {
           key: (changed) => relationshipToString(changed),
@@ -244,7 +250,7 @@ export class Client extends query.Retriever<
     });
     this.cfg = cfg;
     this.writer = new Writer(unary);
-    this.cache = new Cache(relationships, resources);
+    this.cache = new Cache(relationships, resources, relationshipIndexes);
     this.children = this.dependentSurface(cache, "children", "to");
     this.parents = this.dependentSurface(cache, "parents", "from");
   }
@@ -466,13 +472,14 @@ export class Client extends query.Retriever<
   ): boolean {
     if (q.types != null && !q.types.includes(resource.id.type)) return false;
     const anchor = oppositeRelationshipDirection(direction);
-    return (
-      this.cache.relationships.get(
-        (rel) =>
-          rel.type === PARENT_OF_RELATIONSHIP_TYPE &&
-          q.ids.includes(idToString(rel[anchor])) &&
-          idsEqual(rel[direction], resource.id),
-      ).length > 0
+    const rels =
+      direction === "to"
+        ? this.cache.relationshipsTo(resource.id)
+        : this.cache.relationshipsFrom(resource.id);
+    return rels.some(
+      (rel) =>
+        rel.type === PARENT_OF_RELATIONSHIP_TYPE &&
+        q.ids.includes(idToString(rel[anchor])),
     );
   }
 

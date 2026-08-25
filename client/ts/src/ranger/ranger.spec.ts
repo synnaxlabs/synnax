@@ -7,18 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type UnaryClient, WebSocketClient } from "@synnaxlabs/freighter";
 import {
+  binary,
   DataType,
   id,
   math,
   TimeRange,
   TimeSpan,
   TimeStamp,
+  url,
   uuid,
 } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
+import { type z } from "zod";
 
 import { NotFoundError } from "@/errors";
+import { framer } from "@/framer";
+import { label } from "@/label";
+import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { ranger } from "@/ranger";
 import { createTestClient, expectDeleted, expectLive } from "@/testutil";
@@ -811,5 +818,100 @@ describe("store", () => {
       .toBe(true);
     const cached = expectDeleted(client.ranges.getCached(range.key));
     expect(cached.corpse.name).toEqual(range.name);
+  });
+});
+
+// SY-4751 regression: writing a fetch response through the cache once cost (ranges in
+// the response) x (relationships cached), because every write recomposed against full
+// scans of the relationships table and notified subscribers per range.
+describe("write-through", () => {
+  const LABELS_PER_RANGE = 3;
+  const BATCH = 50;
+
+  const createDetachedClient = () => {
+    const makeRange = () => ({
+      key: uuid.create(),
+      name: "range",
+      timeRange: { start: 0, end: 1 },
+      labels: Array.from({ length: LABELS_PER_RANGE }, () => ({
+        key: uuid.create(),
+        name: "label",
+        color: "#000000",
+      })),
+      parent: { key: uuid.create(), name: "parent", timeRange: { start: 0, end: 1 } },
+    });
+    const unary: UnaryClient = {
+      use: () => {},
+      send: async <RQ extends z.ZodType, RS extends z.ZodType>(
+        target: string,
+        req: z.input<RQ> | z.infer<RQ>,
+        _reqZ: RQ,
+        resZ: RS,
+      ): Promise<z.infer<RS>> => {
+        if (target !== "/range/retrieve") return resZ.parse({});
+        // Key fetches are parent backfills; echo bare ranges so the cache settles
+        // without growing the label or relationship tables.
+        const { keys } = req as ranger.RetrieveRequest;
+        if (keys != null)
+          return resZ.parse({
+            ranges: keys.map((key) => ({
+              key,
+              name: "parent",
+              timeRange: { start: 0, end: 1 },
+            })),
+          });
+        return resZ.parse({ ranges: Array.from({ length: BATCH }, makeRange) });
+      },
+    };
+    const cache = new query.Cache({ openStreamer: null, onError: () => {} });
+    const ontologyClient = new ontology.Client({ unary, cache });
+    const labels = new label.Client({ unary, cache, ontology: ontologyClient });
+    const frameClient = new framer.Client({
+      stream: new WebSocketClient(
+        new url.URL({ host: "localhost", port: 9090 }),
+        binary.JSON_CODEC,
+      ),
+      unary,
+      retrieveChannels: async () => [],
+    });
+    const ranges = new ranger.Client({
+      unary,
+      cache,
+      labels,
+      ontology: ontologyClient,
+      framer: frameClient,
+      channels: async () => [],
+    });
+    return { ranges, labels, relationships: ontologyClient.cache.relationships };
+  };
+
+  let window = 0;
+  const fetchBatch = async (ranges: ranger.Client) =>
+    await ranges.retrieve({
+      overlapsWith: new TimeRange({
+        start: TimeStamp.seconds(window * 1e3),
+        end: TimeStamp.seconds(window++ * 1e3 + 1),
+      }),
+    });
+
+  it("should not scan the relationships table when writing a fetch through", async () => {
+    const { ranges, relationships } = createDetachedClient();
+    expect(await fetchBatch(ranges)).toHaveLength(BATCH);
+    const spy = vi.spyOn(relationships, "get");
+    await fetchBatch(ranges);
+    for (const [arg] of spy.mock.calls) expect(typeof arg).not.toBe("function");
+    spy.mockRestore();
+  });
+
+  it("should flush the label and relationship tables once per fetch", async () => {
+    const { ranges, labels, relationships } = createDetachedClient();
+    await fetchBatch(ranges);
+    let relationshipFlushes = 0;
+    let labelFlushes = 0;
+    relationships.subscribeBatch(() => relationshipFlushes++);
+    labels.store.subscribeBatch(() => labelFlushes++);
+    await fetchBatch(ranges);
+    expect(relationshipFlushes).toBe(1);
+    expect(labelFlushes).toBe(1);
   });
 });
