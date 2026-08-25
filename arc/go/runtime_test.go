@@ -46,6 +46,8 @@ type runtimeHarness struct {
 	channelState   *channels.ProgramState
 	authorityState *control.ProgramState
 	nodeState      *node.ProgramState
+	timeMod        *time.Host
+	clock          telem.MonoClock
 	wasmRT         wazero.Runtime
 	closers        []func(context.Context) error
 	alignment      telem.Alignment
@@ -130,6 +132,7 @@ func newRuntimeHarness(
 
 	tolerance := time.CalculateTolerance(timeMod.BaseInterval)
 	h.scheduler = scheduler.New(prog.IR, nodes, tolerance)
+	h.timeMod = timeMod
 
 	h.closers = append(h.closers, func(ctx context.Context) error {
 		return wasmRT.Close(ctx)
@@ -145,7 +148,13 @@ func (h *runtimeHarness) Close(ctx context.Context) {
 }
 
 func (h *runtimeHarness) Tick(ctx context.Context, elapsed telem.TimeSpan) {
-	h.scheduler.Next(ctx, elapsed, node.ReasonTimerTick)
+	cycle := node.Cycle{
+		Now:     h.clock.Now(),
+		Elapsed: elapsed,
+		Reason:  node.ReasonTimerTick,
+	}
+	h.timeMod.SetNow(cycle.Now)
+	h.scheduler.Next(ctx, cycle)
 }
 
 func (h *runtimeHarness) Ingest(channelKey uint32, data telem.Series) {

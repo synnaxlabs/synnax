@@ -844,7 +844,7 @@ var _ = Describe("Derivative", func() {
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2)
 		nextChanged(ctx, s.n)
 
-		s.n.Reset()
+		s.n.Reset(node.Context{})
 
 		*s.inputNode.Output(0) = telem.NewSeriesV(100.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(10)

@@ -53,7 +53,6 @@ type nodeImpl struct {
 	initialized   bool
 	isEntryNode   bool
 	selIdx        int
-	clock         telem.MonoClock
 	nodeKeySetter NodeKeySetter
 	stringInputs  []bool
 	chanInputs    []bool
@@ -257,7 +256,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 		}
 		var ts uint64
 		if clockStamp {
-			ts = uint64(n.clock.Now())
+			ts = uint64(ctx.Now)
 		} else {
 			ts = valueAt(longestInputTime, int(i))
 		}
@@ -299,13 +298,13 @@ func (n *nodeImpl) Next(ctx node.Context) {
 		}
 		n.OutputTime(j).Resize(int64(n.offsets[j]))
 		if n.offsets[j] > 0 {
-			ctx.MarkChanged(j)
+			n.Emit(ctx, j)
 		}
 	}
 }
 
-func (n *nodeImpl) Reset() {
-	n.State.Reset()
+func (n *nodeImpl) Reset(ctx node.Context) {
+	n.State.Reset(ctx)
 	n.initialized = false
 	if n.nodeKeySetter != nil {
 		n.nodeKeySetter.ClearNode(n.ir.Key)

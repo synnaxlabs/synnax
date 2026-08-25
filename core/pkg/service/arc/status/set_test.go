@@ -221,7 +221,7 @@ var _ = Describe("Module", func() {
 		It("Should construct a set node from valid inputs", func(ctx SpecContext) {
 			n := MustSucceed(mod.Create(ctx, set.Config("alarm", "msg", "info")))
 			Expect(n).ToNot(BeNil())
-			Expect(func() { n.Reset() }).ToNot(Panic())
+			Expect(func() { n.Reset(node.Context{}) }).ToNot(Panic())
 			// Output(0) hasn't been written yet; truthiness reads the empty cache.
 			Expect(n.IsOutputTruthy(0)).To(BeFalse())
 		})

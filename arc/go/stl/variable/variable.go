@@ -79,7 +79,6 @@ func stampNow(ts *telem.Series, now telem.TimeStamp) {
 // derivation index. Writes are last-wins; the unedged f0 holds the initial value.
 type register struct {
 	*node.State
-	clock    telem.MonoClock
 	stateful bool
 }
 
@@ -87,13 +86,14 @@ var _ node.Node = (*register)(nil)
 
 // Reset restores a `:=` variable's initial value on scope entry. A `$=`
 // persists. The value is emitted immediately, superseding any pending feeder.
-func (v *register) Reset() {
+func (v *register) Reset(ctx node.Context) {
 	if v.stateful {
 		return
 	}
 	v.AbsorbInputs()
 	v.Output(0).CopyFrom(v.Input(0))
-	stampNow(v.OutputTime(0), v.clock.Now())
+	stampNow(v.OutputTime(0), ctx.Now)
+	v.MarkFresh(0)
 }
 
 func (v *register) Next(ctx node.Context) {
@@ -104,22 +104,21 @@ func (v *register) Next(ctx node.Context) {
 	// Feeders reuse their output buffers in place; the register value must not alias
 	// them.
 	v.Output(0).CopyFrom(data)
-	stampNow(v.OutputTime(0), v.clock.Now())
-	ctx.MarkChanged(0)
+	stampNow(v.OutputTime(0), ctx.Now)
+	v.Emit(ctx, 0)
 }
 
 // exprRead derefs its variable's dispatcher: values pending at a re-point
 // predate it and are absorbed, so only later inputs fire.
 type exprRead struct {
 	*node.State
-	clock  telem.MonoClock
 	selIdx int
 }
 
 var _ node.Node = (*exprRead)(nil)
 
 // Reset absorbs pending inputs, initial sel included, so only post-entry values fire.
-func (v *exprRead) Reset() { v.AbsorbInputs() }
+func (v *exprRead) Reset(node.Context) { v.AbsorbInputs() }
 
 // Next re-points on sel first: the dispatcher never emits on a sel-only change,
 // so a value paired with a fresh sel predates the re-point.
@@ -135,6 +134,6 @@ func (v *exprRead) Next(ctx node.Context) {
 		return
 	}
 	v.Output(0).CopyFrom(data)
-	stampNow(v.OutputTime(0), v.clock.Now())
-	ctx.MarkChanged(0)
+	stampNow(v.OutputTime(0), ctx.Now)
+	v.Emit(ctx, 0)
 }

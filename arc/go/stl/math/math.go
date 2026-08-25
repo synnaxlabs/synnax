@@ -330,8 +330,8 @@ type avgNode struct {
 
 var _ node.Node = (*avgNode)(nil)
 
-func (r *avgNode) Reset() {
-	r.State.Reset()
+func (r *avgNode) Reset(ctx node.Context) {
+	r.State.Reset(ctx)
 	r.sampleCount = 0
 	r.startTime = 0
 	r.lastResetTime = 0
@@ -407,7 +407,7 @@ func (r *avgNode) Next(ctx node.Context) {
 	r.Output(0).TimeRange = timeRange
 	r.OutputTime(0).Alignment = alignment
 	r.OutputTime(0).TimeRange = timeRange
-	ctx.MarkChanged(0)
+	r.Emit(ctx, 0)
 }
 
 var (
@@ -486,8 +486,8 @@ type derivativeNode struct {
 
 var _ node.Node = (*derivativeNode)(nil)
 
-func (d *derivativeNode) Reset() {
-	d.State.Reset()
+func (d *derivativeNode) Reset(ctx node.Context) {
+	d.State.Reset(ctx)
 	d.prevValue = 0
 	d.prevTimestamp = 0
 	d.hasPrev = false
@@ -511,7 +511,7 @@ func (d *derivativeNode) Next(ctx node.Context) {
 	d.Output(0).TimeRange = inputData.TimeRange
 	d.OutputTime(0).Alignment = inputData.Alignment
 	d.OutputTime(0).TimeRange = inputData.TimeRange
-	ctx.MarkChanged(0)
+	d.Emit(ctx, 0)
 }
 
 type i32Powable interface {

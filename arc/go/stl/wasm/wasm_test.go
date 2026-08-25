@@ -560,13 +560,13 @@ var _ = Describe("WASM", func() {
 				telem.UnmarshalSeries[int64](h.Output("counter", 0))[0],
 			).To(Equal(int64(1)))
 
-			n.Reset()
+			n.Reset(node.Context{})
 			h.NextChanged(ctx, n, "counter")
 			Expect(
 				telem.UnmarshalSeries[int64](h.Output("counter", 0))[0],
 			).To(Equal(int64(1)))
 
-			n.Reset()
+			n.Reset(node.Context{})
 			h.NextChanged(ctx, n, "counter")
 			Expect(
 				telem.UnmarshalSeries[int64](h.Output("counter", 0))[0],
@@ -627,13 +627,13 @@ var _ = Describe("WASM", func() {
 					telem.UnmarshalSeries[int64](h.Output("c2", 0))[0],
 				).To(Equal(int64(10)))
 
-				n1.Reset()
+				n1.Reset(node.Context{})
 				n1.Next(nCtx)
 				Expect(
 					telem.UnmarshalSeries[int64](h.Output("c1", 0))[0],
 				).To(Equal(int64(1)))
 
-				n2.Reset()
+				n2.Reset(node.Context{})
 				n2.Next(nCtx)
 				Expect(
 					telem.UnmarshalSeries[int64](h.Output("c2", 0))[0],
@@ -692,19 +692,19 @@ var _ = Describe("WASM", func() {
 
 				// Reset re-initializes counter_a's own state, leaving counter_b's
 				// intact
-				n1.Reset()
+				n1.Reset(node.Context{})
 				n1.Next(nCtx)
 				Expect(
 					telem.UnmarshalSeries[int64](h.Output("counter_a", 0))[0],
 				).To(Equal(int64(1)))
 
-				n2.Reset()
+				n2.Reset(node.Context{})
 				n2.Next(nCtx)
 				Expect(
 					telem.UnmarshalSeries[int64](h.Output("counter_b", 0))[0],
 				).To(Equal(int64(1)))
 
-				n1.Reset()
+				n1.Reset(node.Context{})
 				n1.Next(nCtx)
 				Expect(
 					telem.UnmarshalSeries[int64](h.Output("counter_a", 0))[0],
@@ -2249,7 +2249,7 @@ trigger_ch -> emit_period{period=1s}
 				Expect(changed.Contains(ir.DefaultOutputParam)).To(BeFalse())
 
 				// Reset the node (simulating stage re-entry)
-				n.Reset()
+				n.Reset(node.Context{})
 
 				// Third call - should execute again after reset
 				changed = h.NextChanged(ctx, n, "init_counter")
@@ -2811,7 +2811,7 @@ trigger_ch -> emit_period{period=1s}
 					timestamps := make([]telem.TimeStamp, 3)
 
 					for i := range 3 {
-						n.Reset()
+						n.Reset(node.Context{})
 						n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 						fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 						Expect(changed).To(BeTrue())
@@ -3159,7 +3159,7 @@ trigger_ch -> emit_period{period=1s}
 				n := h.CreateNode(ctx, "void_with_state")
 				nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
 
-				n.Reset()
+				n.Reset(node.Context{})
 				n.Next(nCtx)
 				fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
@@ -3241,7 +3241,7 @@ trigger_ch -> emit_period{period=1s}
 				).To(Equal(int64(1)))
 				Expect(executions).To(Equal(1))
 
-				n.Reset()
+				n.Reset(node.Context{})
 
 				n.Next(nCtx)
 				Expect(executions).To(Equal(2))
@@ -5153,13 +5153,13 @@ input_ch -> count_local{} -> sink_ch
 					telem.UnmarshalSeries[int64](h.Output("loop_state", 0))[0],
 				).To(Equal(int64(3)))
 
-				n.Reset()
+				n.Reset(node.Context{})
 				n.Next(nCtx)
 				Expect(
 					telem.UnmarshalSeries[int64](h.Output("loop_state", 0))[0],
 				).To(Equal(int64(3)))
 
-				n.Reset()
+				n.Reset(node.Context{})
 				n.Next(nCtx)
 				Expect(
 					telem.UnmarshalSeries[int64](h.Output("loop_state", 0))[0],
@@ -5202,7 +5202,7 @@ var _ = Describe("Graph function variable parity", func() {
 			Expect(
 				telem.UnmarshalSeries[int64](h.Output("fresh", 0))[0],
 			).To(Equal(int64(1)))
-			n.Reset()
+			n.Reset(node.Context{})
 		}
 	})
 
@@ -5235,7 +5235,7 @@ var _ = Describe("Graph function variable parity", func() {
 			Expect(
 				telem.UnmarshalSeries[int64](h.Output("acc", 0))[0],
 			).To(Equal(int64(3)))
-			n.Reset()
+			n.Reset(node.Context{})
 			h.NextChanged(ctx, n, "acc")
 			Expect(
 				telem.UnmarshalSeries[int64](h.Output("acc", 0))[0],

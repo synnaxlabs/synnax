@@ -56,7 +56,10 @@ type Calculator struct {
 	cfg       Config
 	deps      runtime.Dependencies
 	start     telem.TimeStamp
-	closer    io.MultiCloser
+	// clock stamps every cycle. Producers without an upstream timestamp to carry
+	// forward stamp from it; provenance timestamps take precedence over it.
+	clock  telem.MonoClock
+	closer io.MultiCloser
 }
 
 type Config struct {
@@ -247,7 +250,11 @@ func (c *Calculator) Next(
 		changed     bool
 	)
 	for {
-		c.scheduler.Next(ctx, telem.Since(c.start), node.ReasonChannelInput)
+		c.scheduler.Next(ctx, node.Cycle{
+			Now:     c.clock.Now(),
+			Elapsed: telem.Since(c.start),
+			Reason:  node.ReasonChannelInput,
+		})
 		ofr, currChanged = c.state.channel.Flush(ofr)
 		// Series and strings must be cleared after every flush, not just at the end
 		// of the loop. On each iteration the scheduler may create new series/string

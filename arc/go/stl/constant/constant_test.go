@@ -175,7 +175,7 @@ var _ = Describe("Constant", func() {
 			Expect(out.Len()).To(Equal(int64(1)))
 		})
 
-		It("Should set output time on Next", func(ctx SpecContext) {
+		It("Should stamp the output time from the cycle", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "constant",
@@ -186,11 +186,12 @@ var _ = Describe("Constant", func() {
 				State: s.Node("const"),
 			}
 			n := MustSucceed(factory.Create(ctx, cfg))
-			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
+			now := telem.SecondTS * 42
+			n.Next(node.Context{Context: ctx, Now: now, MarkChanged: func(int) {}})
 			outTime := s.Node("const").OutputTime(0)
 			Expect(outTime.Len()).To(Equal(int64(1)))
 			times := telem.UnmarshalSeries[telem.TimeStamp](*outTime)
-			Expect(times[0]).To(BeNumerically(">", int64(0)))
+			Expect(times[0]).To(Equal(now))
 		})
 
 		It("Should handle float64 constant", func(ctx SpecContext) {
@@ -296,7 +297,11 @@ var _ = Describe("Constant", func() {
 			constNode := s.Node("const")
 			*constNode.Output(0) = telem.NewSeriesV[int64](0)
 			n := MustSucceed(factory.Create(ctx, cfg))
-			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
+			n.Next(node.Context{
+				Context:     ctx,
+				Now:         telem.SecondTS,
+				MarkChanged: func(int) {},
+			})
 			sink := s.Node("sink")
 			recalc := sink.RefreshInputs()
 			Expect(recalc).To(BeTrue())
@@ -386,7 +391,7 @@ var _ = Describe("Constant", func() {
 					marked = append(marked, i)
 				}})
 				Expect(marked).To(HaveLen(1))
-				n.Reset()
+				n.Reset(node.Context{})
 				n.Next(node.Context{Context: ctx, MarkChanged: func(i int) {
 					marked = append(marked, i)
 				}})

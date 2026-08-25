@@ -558,7 +558,7 @@ var _ = Describe("Channel", func() {
 			)
 
 			It(
-				"Should generate monotonically increasing timestamps across calls for virtual channels",
+				"Should stamp virtual channel reads from the cycle",
 				func(ctx SpecContext) {
 					source := MustSucceed(factory.Create(ctx, rnode.Config{
 						Node: ir.Node{
@@ -570,16 +570,17 @@ var _ = Describe("Channel", func() {
 						State: progState.Node("source"),
 					}))
 					nodeState := progState.Node("source")
-					var prevTS telem.TimeStamp
 					for i := range 10 {
 						d := telem.NewSeriesV(int32(i))
 						d.Alignment = telem.NewAlignment(1, uint32(i))
 						channelState.Ingest(telem.UnaryFrame[uint32](20, d))
 
 						var triggered bool
+						now := telem.SecondTS * telem.TimeStamp(i+1)
 						source.Next(
 							rnode.Context{
 								Context:     ctx,
+								Now:         now,
 								MarkChanged: func(int) { triggered = true },
 							},
 						)
@@ -588,9 +589,7 @@ var _ = Describe("Channel", func() {
 							*nodeState.OutputTime(0),
 							0,
 						)
-						Expect(ts).To(BeNumerically(">", prevTS),
-							"timestamp must strictly increase across consecutive source outputs")
-						prevTS = ts
+						Expect(ts).To(Equal(now))
 						channelState.ClearReads()
 					}
 				},
@@ -675,7 +674,7 @@ var _ = Describe("Channel", func() {
 					fr1 = fr1.Append(11, t1)
 					channelState.Ingest(fr1)
 
-					source.Reset()
+					source.Reset(rnode.Context{})
 
 					var triggered bool
 					source.Next(
@@ -718,7 +717,7 @@ var _ = Describe("Channel", func() {
 					},
 					State: progState.Node("source"),
 				}))
-				Expect(func() { source.Reset() }).ToNot(Panic())
+				Expect(func() { source.Reset(rnode.Context{}) }).ToNot(Panic())
 				var triggered bool
 				source.Next(
 					rnode.Context{
@@ -1290,7 +1289,7 @@ var _ = Describe("Channel", func() {
 					writeIndexNoise(99, 100, al(0))
 					writeData(10, 99, 1, 200, al(1))
 					writeIndexNoise(99, 300, al(2))
-					src.Reset()
+					src.Reset(rnode.Context{})
 					Expect(
 						firesOn(ctx, src),
 					).To(BeFalse(), "pre-reset data must not fire after reset")
@@ -1378,6 +1377,7 @@ var _ = Describe("Channel", func() {
 				}
 				*upstream.Output(0) = inputData
 				*upstream.OutputTime(0) = telem.NewSeriesSecondsTSV(500, 501)
+				upstream.MarkFresh(0)
 				changed := false
 				sink.Next(
 					rnode.Context{
@@ -1460,6 +1460,7 @@ var _ = Describe("Channel", func() {
 				upstream := progState.Node("upstream")
 				*upstream.Output(0) = telem.NewSeriesV[float32](1.0)
 				*upstream.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+				upstream.MarkFresh(0)
 				Expect(progState.Node("sink").RefreshInputs()).To(BeTrue())
 				sink.Next(rnode.Context{Context: ctx, MarkChanged: func(int) {}})
 				fr1, changed := channelState.Flush(telem.Frame[uint32]{})
@@ -1469,6 +1470,7 @@ var _ = Describe("Channel", func() {
 				).To(telem.MatchSeries(telem.NewSeriesV[float32](1.0)))
 				*upstream.Output(0) = telem.NewSeriesV[float32](2.0)
 				*upstream.OutputTime(0) = telem.NewSeriesSecondsTSV(20)
+				upstream.MarkFresh(0)
 				Expect(progState.Node("sink").RefreshInputs()).To(BeTrue())
 				sink.Next(rnode.Context{Context: ctx, MarkChanged: func(int) {}})
 				fr2, changed := channelState.Flush(telem.Frame[uint32]{})
@@ -1808,7 +1810,7 @@ var _ = Describe("Source Rebind", func() {
 		func(ctx SpecContext) {
 			*progState.Node("bind").Output(0) = telem.NewSeriesV[uint32](20)
 			ingest(20, 0, 9.9)
-			source.Reset()
+			source.Reset(rnode.Context{})
 			changed := false
 			source.Next(
 				rnode.Context{Context: ctx, MarkChanged: func(int) { changed = true }},

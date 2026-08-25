@@ -120,10 +120,15 @@ type Host struct {
 	// BaseInterval is the GCD of known timer periods, declared and literal
 	// reassignments. Its only use is deriving the timing tolerance.
 	BaseInterval telem.TimeSpan
-	// clock provides monotonically increasing timestamps, avoiding
-	// duplicate values on platforms with coarse clock resolution.
-	clock telem.MonoClock
+	// now is the current cycle's stamp, set by the runtime loop before each pass.
+	// The `now` WASM binding is called from guest code, which has no node Context
+	// to read, so the value is pushed here instead.
+	now telem.TimeStamp
 }
+
+// SetNow binds the cycle stamp the `now` host function returns for the coming pass.
+// The runtime loop calls it before every Scheduler.Next.
+func (h *Host) SetNow(now telem.TimeStamp) { h.now = now }
 
 // NewHost registers the time module's `now` WASM host binding with rt and
 // returns a Host handle that acts as the node factory for interval / wait.
@@ -135,7 +140,7 @@ func NewHost(ctx context.Context, rt wazero.Runtime) (*Host, error) {
 	builder := rt.NewHostModuleBuilder(name)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context) uint64 {
-			return uint64(h.clock.Now())
+			return uint64(h.now)
 		}).Export("now")
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
@@ -159,7 +164,6 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		return &Interval{
 			State:     cfg.State,
 			lastFired: -period,
-			clock:     &h.clock,
 		}, nil
 
 	case waitSymbolName:
@@ -177,11 +181,10 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 			State:     cfg.State,
 			startTime: -1,
 			fired:     false,
-			clock:     &h.clock,
 		}, nil
 
 	case nowSymbolName:
-		return &Now{State: cfg.State, clock: &h.clock}, nil
+		return &Now{State: cfg.State}, nil
 
 	default:
 		return nil, query.ErrNotFound
@@ -264,7 +267,6 @@ func liveSpan(s *node.State, name string) telem.TimeSpan {
 type Interval struct {
 	*node.State
 	lastFired telem.TimeSpan
-	clock     *telem.MonoClock
 }
 
 func (i *Interval) Init(_ node.Context) {}
@@ -284,18 +286,18 @@ func (i *Interval) Next(ctx node.Context) {
 	i.lastFired = ctx.Elapsed
 	ctx.MarkSelfChanged()
 	ctx.SetDeadline(i.lastFired + period)
-	ctx.MarkChanged(0)
+	i.Emit(ctx, 0)
 	output := i.Output(0)
 	outputTime := i.OutputTime(0)
 	output.Resize(1)
 	outputTime.Resize(1)
 	telem.SetValueAt[uint8](*output, 0, uint8(1))
-	telem.SetValueAt[telem.TimeStamp](*outputTime, 0, i.clock.Now())
+	telem.SetValueAt[telem.TimeStamp](*outputTime, 0, ctx.Now)
 }
 
 // Reset resets the interval so it fires immediately on the next timer tick.
-func (i *Interval) Reset() {
-	i.State.Reset()
+func (i *Interval) Reset(ctx node.Context) {
+	i.State.Reset(ctx)
 	i.lastFired = -liveSpan(i.State, periodInputParam)
 }
 
@@ -304,7 +306,6 @@ type Wait struct {
 	*node.State
 	startTime telem.TimeSpan
 	fired     bool
-	clock     *telem.MonoClock
 }
 
 func (w *Wait) Init(_ node.Context) {}
@@ -332,12 +333,12 @@ func (w *Wait) Next(ctx node.Context) {
 	output.Resize(1)
 	outputTime.Resize(1)
 	telem.SetValueAt[uint8](*output, 0, uint8(1))
-	telem.SetValueAt[telem.TimeStamp](*outputTime, 0, w.clock.Now())
-	ctx.MarkChanged(0)
+	telem.SetValueAt[telem.TimeStamp](*outputTime, 0, ctx.Now)
+	w.Emit(ctx, 0)
 }
 
-func (w *Wait) Reset() {
-	w.State.Reset()
+func (w *Wait) Reset(ctx node.Context) {
+	w.State.Reset(ctx)
 	w.startTime = -1
 	w.fired = false
 }
@@ -345,20 +346,19 @@ func (w *Wait) Reset() {
 // Now outputs the current wall-clock timestamp when triggered.
 type Now struct {
 	*node.State
-	clock *telem.MonoClock
 }
 
 func (n *Now) Init(_ node.Context) {}
 
 func (n *Now) Next(ctx node.Context) {
-	ts := n.clock.Now()
+	ts := ctx.Now
 	output := n.Output(0)
 	outputTime := n.OutputTime(0)
 	output.Resize(1)
 	outputTime.Resize(1)
 	telem.SetValueAt[telem.TimeStamp](*output, 0, ts)
 	telem.SetValueAt[telem.TimeStamp](*outputTime, 0, ts)
-	ctx.MarkChanged(0)
+	n.Emit(ctx, 0)
 }
 
-func (n *Now) Reset() { n.State.Reset() }
+func (n *Now) Reset(ctx node.Context) { n.State.Reset(ctx) }
