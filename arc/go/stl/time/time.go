@@ -328,13 +328,33 @@ func liveSpan(s *node.State, name string) telem.TimeSpan {
 	return telem.TimeSpan(node.NumericInput[int64](s, name))
 }
 
+// spanGuard guards a live timer span against non-positive values. It reports
+// the first offense only, so a parked node does not re-report on every pass.
+type spanGuard struct{ reported bool }
+
+// usable reports whether span can drive a deadline. A non-positive span
+// reports a validation error naming label and returns false.
+func (g *spanGuard) usable(ctx node.Context, span telem.TimeSpan, label string) bool {
+	if span > 0 {
+		g.reported = false
+		return true
+	}
+	if !g.reported {
+		ctx.ReportError(errors.Wrapf(
+			validate.ErrValidation, "%s must be positive, got %s", label, span,
+		))
+		g.reported = true
+	}
+	return false
+}
+
+func (g *spanGuard) reset() { g.reported = false }
+
 // Interval is a node that fires repeatedly at a specified period.
 type Interval struct {
 	*node.State
 	lastFired telem.TimeSpan
-	// invalidSpanReported dedupes the non-positive period error so a parked
-	// node does not re-report on every scheduler pass.
-	invalidSpanReported bool
+	guard     spanGuard
 }
 
 func (i *Interval) Init(_ node.Context) {}
@@ -344,17 +364,9 @@ func (i *Interval) Next(ctx node.Context) {
 	// A non-positive period would keep the deadline permanently in the past,
 	// spinning the scheduler loop. Park without a deadline instead; a later
 	// reassignment to a positive value resumes the timer.
-	if period <= 0 {
-		if !i.invalidSpanReported {
-			ctx.ReportError(errors.Wrapf(
-				validate.ErrValidation,
-				"interval period must be positive, got %s", period,
-			))
-			i.invalidSpanReported = true
-		}
+	if !i.guard.usable(ctx, period, "interval period") {
 		return
 	}
-	i.invalidSpanReported = false
 	if ctx.Reason != node.ReasonTimerTick {
 		ctx.MarkSelfChanged()
 		ctx.SetDeadline(i.lastFired + period)
@@ -381,7 +393,7 @@ func (i *Interval) Next(ctx node.Context) {
 func (i *Interval) Reset() {
 	i.State.Reset()
 	i.lastFired = -liveSpan(i.State, periodInputParam)
-	i.invalidSpanReported = false
+	i.guard.reset()
 }
 
 // Wait is a one-shot timer that fires once after a specified duration.
@@ -389,9 +401,7 @@ type Wait struct {
 	*node.State
 	startTime telem.TimeSpan
 	fired     bool
-	// invalidSpanReported dedupes the non-positive duration error so a parked
-	// node does not re-report on every scheduler pass.
-	invalidSpanReported bool
+	guard     spanGuard
 }
 
 func (w *Wait) Init(_ node.Context) {}
@@ -404,17 +414,9 @@ func (w *Wait) Next(ctx node.Context) {
 	// A non-positive duration is a configuration error, not an instant fire:
 	// park instead. Timing stays anchored to startTime, so recovery re-checks
 	// the live duration against the original activation.
-	if duration <= 0 {
-		if !w.invalidSpanReported {
-			ctx.ReportError(errors.Wrapf(
-				validate.ErrValidation,
-				"wait duration must be positive, got %s", duration,
-			))
-			w.invalidSpanReported = true
-		}
+	if !w.guard.usable(ctx, duration, "wait duration") {
 		return
 	}
-	w.invalidSpanReported = false
 	if w.startTime < 0 {
 		w.startTime = ctx.Elapsed
 	}
@@ -441,7 +443,7 @@ func (w *Wait) Reset() {
 	w.State.Reset()
 	w.startTime = -1
 	w.fired = false
-	w.invalidSpanReported = false
+	w.guard.reset()
 }
 
 // Now outputs the current wall-clock timestamp when triggered.

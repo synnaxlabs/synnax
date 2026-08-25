@@ -68,6 +68,38 @@ validate_static_span(const x::telem::TimeSpan span, const types::Param &p) {
     );
 }
 
+/// @brief guards a live timer span against non-positive values. Reports the
+/// first offense only, so a parked node does not re-report on every pass.
+class SpanGuard {
+    bool reported = false;
+
+public:
+    /// @brief returns true when span can drive a deadline. A non-positive span
+    /// reports a validation error naming label and returns false.
+    bool usable(
+        runtime::node::Context &ctx,
+        const x::telem::TimeSpan span,
+        const std::string &label
+    ) {
+        if (span.nanoseconds() > 0) {
+            this->reported = false;
+            return true;
+        }
+        if (!this->reported) {
+            ctx.report_error(
+                x::errors::Error(
+                    x::errors::VALIDATION,
+                    label + " must be positive, got " + span.to_string()
+                )
+            );
+            this->reported = true;
+        }
+        return false;
+    }
+
+    void reset() { this->reported = false; }
+};
+
 struct IntervalInputs {
     x::telem::TimeSpan interval;
 
@@ -92,9 +124,7 @@ struct IntervalInputs {
 class Interval : public runtime::node::Node {
     runtime::state::Node state;
     x::telem::TimeSpan last_fired;
-    /// @brief dedupes the non-positive period error so a parked node does not
-    /// re-report on every scheduler pass.
-    bool invalid_span_reported = false;
+    SpanGuard guard;
 
 public:
     explicit Interval(runtime::state::Node &&state, const x::telem::TimeSpan period):
@@ -105,19 +135,7 @@ public:
         // A non-positive period would keep the deadline permanently in the
         // past, spinning the scheduler loop. Park without a deadline instead;
         // a later reassignment to a positive value resumes the timer.
-        if (period.nanoseconds() <= 0) {
-            if (!this->invalid_span_reported) {
-                ctx.report_error(
-                    x::errors::Error(
-                        x::errors::VALIDATION,
-                        "interval period must be positive, got " + period.to_string()
-                    )
-                );
-                this->invalid_span_reported = true;
-            }
-            return x::errors::NIL;
-        }
-        this->invalid_span_reported = false;
+        if (!this->guard.usable(ctx, period, "interval period")) return x::errors::NIL;
         if (ctx.reason != runtime::node::RunReason::TimerTick) {
             ctx.mark_self_changed();
             ctx.set_deadline(this->last_fired + period);
@@ -145,7 +163,7 @@ public:
     void reset() override {
         this->state.reset();
         this->last_fired = -1 * live_span(this->state, "period");
-        this->invalid_span_reported = false;
+        this->guard.reset();
     }
 
     [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
@@ -178,9 +196,7 @@ class Wait : public runtime::node::Node {
     runtime::state::Node state;
     x::telem::TimeSpan start_time = x::telem::TimeSpan(-1);
     bool fired = false;
-    /// @brief dedupes the non-positive duration error so a parked node does
-    /// not re-report on every scheduler pass.
-    bool invalid_span_reported = false;
+    SpanGuard guard;
 
 public:
     explicit Wait(runtime::state::Node &&state): state(std::move(state)) {}
@@ -191,19 +207,7 @@ public:
         // A non-positive duration is a configuration error, not an instant
         // fire: park instead. Timing stays anchored to start_time, so recovery
         // re-checks the live duration against the original activation.
-        if (duration.nanoseconds() <= 0) {
-            if (!this->invalid_span_reported) {
-                ctx.report_error(
-                    x::errors::Error(
-                        x::errors::VALIDATION,
-                        "wait duration must be positive, got " + duration.to_string()
-                    )
-                );
-                this->invalid_span_reported = true;
-            }
-            return x::errors::NIL;
-        }
-        this->invalid_span_reported = false;
+        if (!this->guard.usable(ctx, duration, "wait duration")) return x::errors::NIL;
         if (this->start_time.nanoseconds() < 0) this->start_time = ctx.elapsed;
         ctx.set_deadline(this->start_time + duration);
         if (ctx.reason != runtime::node::RunReason::TimerTick) {
@@ -229,7 +233,7 @@ public:
         this->state.reset();
         this->start_time = x::telem::TimeSpan(-1);
         this->fired = false;
-        this->invalid_span_reported = false;
+        this->guard.reset();
     }
 
     [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
