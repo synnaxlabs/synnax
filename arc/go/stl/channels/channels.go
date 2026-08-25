@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/zyn"
@@ -281,11 +282,23 @@ func (s *sink) Next(ctx node.Context) {
 		return
 	}
 	data := s.Input(s.inputIdx)
-	time := s.InputTime(s.inputIdx)
 	if data.Len() == 0 {
 		return
 	}
-	s.state.writeChannel(boundKey(s.State, s.channelIdx, s.key), data, time)
+	key := boundKey(s.State, s.channelIdx, s.key)
+	time := s.InputTime(s.inputIdx)
+	// A length disagreement is an upstream aligner bug. Refuse the write instead
+	// of persisting a corrupt index.
+	if time.Len() != data.Len() {
+		ctx.ReportError(errors.Newf(
+			"write to channel %d: sample count %d does not match timestamp count %d",
+			key,
+			data.Len(),
+			time.Len(),
+		))
+		return
+	}
+	s.state.writeChannel(key, data, time)
 	lastTS := telem.ValueAt[telem.TimeStamp](time, -1)
 	out := s.Output(0)
 	out.Resize(1)
