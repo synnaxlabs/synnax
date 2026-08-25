@@ -87,6 +87,11 @@ const plutoWorkers = (): Plugin => ({
       for (const [, name] of chunk.code.matchAll(/\/pluto\/assets\/([\w.-]+)/g))
         names.add(name);
     });
+    if (names.size === 0)
+      throw new Error(
+        "no /pluto/assets worker addresses in the bundle. Pluto's worker URL format " +
+          "changed; update the pattern above.",
+      );
     const out = path.join(dir, "pluto", "assets");
     await fs.mkdir(out, { recursive: true });
     await Promise.all(
