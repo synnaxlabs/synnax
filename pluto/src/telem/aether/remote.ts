@@ -17,7 +17,6 @@ import {
   bounds,
   DataType,
   type destructor,
-  errors,
   MultiSeries,
   primitive,
   type Series,
@@ -313,30 +312,14 @@ export class StreamChannelData
       this.onStatusChange?.(DISCONNECTED_STATUS);
       return;
     }
+    const { channel, useIndexOfChannel, timeSpan } = this.props;
+    // The live stream opens before the historical back-fill runs, so a stalled or
+    // failed back-fill never blocks live data.
+    let fetched: SelectedChannelProperties;
     try {
-      const { channel, useIndexOfChannel, timeSpan } = this.props;
-      const fetched = await fetchChannelProperties(client, channel, useIndexOfChannel);
+      fetched = await fetchChannelProperties(client, channel, useIndexOfChannel);
       if (generation !== this.generation) return;
       this.channel = fetched;
-      const tr = this.now().spanRange(-timeSpan);
-      if (!this.channel.virtual || this.channel.isCalculated)
-        try {
-          const res = await client.feed.read(tr, this.channel.key);
-          if (generation !== this.generation) return;
-          this.pushNew(res.series);
-        } catch (e) {
-          // Certain calculated channels can fail to read because they need access to
-          // virtual channels that cannot be read from historically.
-          if (
-            e instanceof Error &&
-            (e.message.includes("cannot open iterator on virtual channel") ||
-              e.message.includes("cannot read from free channel"))
-          )
-            console.warn("failed to read calculated channel data", e);
-          else throw errors.fromUnknown(e);
-        }
-
-      this.stopStreaming?.();
       const handler: framer.StreamHandler = (res) => {
         if (generation !== this.generation || this.channel == null) return;
         const series = res.get(this.channel.key);
@@ -345,22 +328,53 @@ export class StreamChannelData
         this.notify();
         this.gcOutOfRangeData();
       };
-      if (generation !== this.generation) return;
-      this.stopStreaming = client.feed.stream(handler, [this.channel.key]).close;
-      this.notify();
+      this.stopStreaming?.();
+      this.stopStreaming = client.feed.stream(handler, [fetched.key]).close;
     } catch (e) {
       this.valid = false;
       this.onStatusChange?.(cstatus.fromException(e, "Failed to stream channel data"));
+      return;
     }
+    if (!fetched.virtual || fetched.isCalculated)
+      try {
+        const res = await client.feed.read(
+          this.now().spanRange(-timeSpan),
+          fetched.key,
+        );
+        if (generation !== this.generation) return;
+        this.pushNew(res.series);
+      } catch (e) {
+        // Certain calculated channels can fail to read because they need access to
+        // virtual channels that cannot be read from historically.
+        if (
+          e instanceof Error &&
+          (e.message.includes("cannot open iterator on virtual channel") ||
+            e.message.includes("cannot read from free channel"))
+        )
+          console.warn("failed to read calculated channel data", e);
+        else {
+          // The stream stays open; invalidating lets the next value() call retry the
+          // back-fill.
+          this.valid = false;
+          this.onStatusChange?.(
+            cstatus.fromException(e, "Failed to read channel data"),
+          );
+          return;
+        }
+      }
+    this.notify();
   }
 
-  // feed.read returns the live leading buffer that the stream's first delivery
-  // repeats, so series already held by identity are skipped.
+  // feed.read returns the live leading buffer that the stream's first delivery repeats,
+  // so series already held by identity are skipped. A late back-fill is inserted by
+  // alignment: consumers assume the array is chronological.
   private pushNew(series: Series[]): void {
     for (const s of series) {
       if (this.data.series.includes(s)) continue;
       s.acquire();
-      this.data.push(s);
+      const at = this.data.series.findIndex((held) => held.alignment > s.alignment);
+      if (at === -1) this.data.push(s);
+      else this.data.series.splice(at, 0, s);
     }
   }
 

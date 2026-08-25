@@ -764,7 +764,139 @@ describe("remote", () => {
       expect(c.streamF).toHaveBeenCalledWith(c.streamHandler, [c.channel.key]);
     });
 
-    it("should not subscribe or retain data when cleaned up while reading", async () => {
+    // The stream must open before the back-fill read resolves, so a stalled or failed
+    // back-fill cannot block live data.
+    describe("live stream before back-fill", () => {
+      it("should serve live data while the back-fill read is pending", async () => {
+        let release = (): void => {};
+        const gate = new Promise<void>((resolve) => (release = resolve));
+        c.feed.read = async (): Promise<MultiSeries> => {
+          await gate;
+          return new MultiSeries([]);
+        };
+        const cd = new StreamChannelData(c, {
+          timeSpan: TimeSpan.MAX,
+          channel: c.channel.key,
+        });
+        await waitForStream(cd, c);
+        const live = new Series({
+          data: new Float32Array([1, 2, 3]),
+          timeRange: new TimeRange(TimeStamp.now(), TimeStamp.MAX),
+        });
+        c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([live])]]));
+        const [b, data] = cd.value();
+        expect(b).toStrictEqual({ lower: 1, upper: 3 });
+        expect(data.series).toHaveLength(1);
+        expect(data.series[0]).toBe(live);
+        cd.cleanup();
+        release();
+      });
+
+      it("should serve live data and post a status on back-fill failure", async () => {
+        const statuses: cstatus.Crude[] = [];
+        c.feed.read = async (): Promise<MultiSeries> => {
+          throw new Error("read exploded");
+        };
+        const cd = new StreamChannelData(
+          c,
+          { timeSpan: TimeSpan.MAX, channel: c.channel.key },
+          { onStatusChange: (s) => statuses.push(s) },
+        );
+        await waitForStream(cd, c);
+        await expect.poll(() => statuses.length > 0).toBe(true);
+        expect(statuses[0].variant).toEqual("error");
+        expect(statuses[0].message).toEqual("Failed to read channel data");
+        expect(statuses[0].description).toEqual("read exploded");
+        const live = new Series({
+          data: new Float32Array([4, 5]),
+          timeRange: new TimeRange(TimeStamp.now(), TimeStamp.MAX),
+        });
+        c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([live])]]));
+        const [, data] = cd.value();
+        expect(data.series).toHaveLength(1);
+        expect(data.series[0]).toBe(live);
+        cd.cleanup();
+      });
+
+      it("should retry the back-fill after a failure", async () => {
+        const now = TimeStamp.now();
+        const series = new Series({
+          data: new Float32Array([1, 2, 3]),
+          timeRange: new TimeRange(
+            now.sub(TimeSpan.milliseconds(3)),
+            now.add(TimeSpan.milliseconds(1)),
+          ),
+        });
+        let calls = 0;
+        c.feed.read = async (): Promise<MultiSeries> => {
+          calls++;
+          if (calls === 1) throw new Error("transient");
+          return new MultiSeries([series]);
+        };
+        const cd = new StreamChannelData(c, {
+          timeSpan: TimeSpan.MAX,
+          channel: c.channel.key,
+        });
+        await waitForStream(cd, c);
+        // The failure invalidated the read, so the next value() call retries.
+        await expect.poll(() => cd.value()[1].series.length).toBe(1);
+        expect(calls).toBeGreaterThanOrEqual(2);
+        expect(cd.value()[1].series[0]).toBe(series);
+        cd.cleanup();
+      });
+
+      it("should insert a late back-fill in front of live series", async () => {
+        const now = TimeStamp.now();
+        const historical = new Series({
+          data: new Float32Array([1, 2]),
+          timeRange: new TimeRange(now.sub(TimeSpan.seconds(2)), now),
+          alignment: 0n,
+        });
+        let release = (): void => {};
+        const gate = new Promise<void>((resolve) => (release = resolve));
+        c.feed.read = async (): Promise<MultiSeries> => {
+          await gate;
+          return new MultiSeries([historical]);
+        };
+        const cd = new StreamChannelData(c, {
+          timeSpan: TimeSpan.MAX,
+          channel: c.channel.key,
+        });
+        await waitForStream(cd, c);
+        const live = new Series({
+          data: new Float32Array([3, 4]),
+          timeRange: new TimeRange(now, TimeStamp.MAX),
+          alignment: 2n,
+        });
+        c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([live])]]));
+        release();
+        await expect.poll(() => cd.value()[1].series.length).toBe(2);
+        const [, data] = cd.value();
+        expect(data.series[0]).toBe(historical);
+        expect(data.series[1]).toBe(live);
+        cd.cleanup();
+      });
+    });
+
+    it("should not subscribe when cleaned up during channel retrieval", async () => {
+      let release = (): void => {};
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      c.channels.retrieve = async (): Promise<channel.Channel> => {
+        await gate;
+        return c.channel;
+      };
+      const cd = new StreamChannelData(c, {
+        timeSpan: TimeSpan.MAX,
+        channel: c.channel.key,
+      });
+      cd.value();
+      cd.cleanup();
+      release();
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      expect(c.streamF).not.toHaveBeenCalled();
+    });
+
+    it("should stop streaming and drop a back-fill pending at cleanup", async () => {
       const series = new Series({ data: new Float32Array([1, 2, 3]) });
       let release = (): void => {};
       const gate = new Promise<void>((resolve) => (release = resolve));
@@ -776,11 +908,11 @@ describe("remote", () => {
         timeSpan: TimeSpan.MAX,
         channel: c.channel.key,
       });
-      cd.value();
+      await waitForStream(cd, c);
       cd.cleanup();
+      expect(c.streamDestructorF).toHaveBeenCalled();
       release();
       await new Promise((resolve) => setTimeout(resolve, 5));
-      expect(c.streamF).not.toHaveBeenCalled();
       expect(series.refCount).toBe(0);
     });
 
