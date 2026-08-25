@@ -83,9 +83,9 @@ export class Unary {
     this.checkOpen("read");
     const res = this.static.dirtyRead(tr);
     const buf = this.dynamic.leadingBuffer;
-    if (buf == null || buf.length === 0) return res;
     const dataTr = this.dynamic.dataTimeRange;
-    if (dataTr == null || !dataTr.overlapsWith(tr)) return res;
+    if (buf == null || dataTr == null || buf.length === 0 || !dataTr.overlapsWith(tr))
+      return res;
     res.series.push(buf);
     return res;
   }
