@@ -20,10 +20,12 @@ import {
 import { describe, expect, it, test, vi } from "vitest";
 
 import { type channel } from "@/channel";
+import { payloadZ } from "@/channel/types.gen";
 import { AccessDeniedError, ExpiredTokenError } from "@/errors";
+import { type ChannelRetriever } from "@/framer/adapter";
 import { Frame } from "@/framer/frame";
 import { HardenedStreamer, ObservableStreamer } from "@/framer/hardened";
-import { type Streamer, streamerConfigZ } from "@/framer/streamer";
+import { createStreamOpener, type Streamer, streamerConfigZ } from "@/framer/streamer";
 import {
   createTestClient,
   newIndexedPair,
@@ -1180,6 +1182,41 @@ describe("Streamer", () => {
       await observable.close();
 
       expect(onDead).not.toHaveBeenCalled();
+    });
+  });
+
+  // The socket is open by the time the acknowledgement is awaited, so the keepalive
+  // deadline is not yet armed and cannot cover it.
+  describe("open acknowledgement", () => {
+    const retrieveChannels: ChannelRetriever = async () => [
+      payloadZ.parse({ key: 1, name: "silent", dataType: DataType.FLOAT64.toString() }),
+    ];
+
+    it("should reject an acknowledgement that never arrives", async () => {
+      let closed = false;
+      // A client whose socket opens and is then never spoken to again.
+      const silent = {
+        withCodec: () => silent,
+        stream: async () => ({
+          send: () => {},
+          receive: async () => await new Promise<never>(() => {}),
+          received: () => false,
+          closeSend: () => {
+            closed = true;
+          },
+        }),
+      };
+      vi.useFakeTimers();
+      try {
+        const open = createStreamOpener(retrieveChannels, silent)({ channels: [1] });
+        const settled = expect(open).rejects.toThrow(Unreachable);
+        await vi.advanceTimersByTimeAsync(31_000);
+        await settled;
+        // The socket is released rather than left open with nobody holding it.
+        expect(closed).toBe(true);
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 });

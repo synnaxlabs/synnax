@@ -13,7 +13,7 @@ import {
   Unreachable,
   type WebSocketClient,
 } from "@synnaxlabs/freighter";
-import { errors, Rate, TimeSpan, zod } from "@synnaxlabs/x";
+import { type binary, errors, Rate, sync, TimeSpan, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type channel } from "@/channel";
@@ -100,6 +100,17 @@ export interface StreamOpener {
   (config: StreamerConfig): Promise<Streamer>;
 }
 
+// Deadline for the Core to acknowledge a streamer once the socket is open. The
+// handshake already proved the connection, so only a death in the window between the
+// two reaches this.
+const OPEN_ACK_TIMEOUT = TimeSpan.seconds(30);
+
+/** The slice of a {@link WebSocketClient} that opening a streamer needs. */
+export interface StreamOpenerClient {
+  withCodec: (codec: binary.Codec) => StreamOpenerClient;
+  stream: WebSocketClient["stream"];
+}
+
 /**
  * Creates a function that opens streamers with the given channel resolver and client.
  * @param retrieveChannels - Resolves channel params to payloads for the codec
@@ -107,7 +118,7 @@ export interface StreamOpener {
  * @returns A function that opens streamers with the given configuration
  */
 export const createStreamOpener =
-  (retrieveChannels: ChannelRetriever, client: WebSocketClient): StreamOpener =>
+  (retrieveChannels: ChannelRetriever, client: StreamOpenerClient): StreamOpener =>
   async (config) => {
     const cfg = zod.parse(streamerConfigZ, config, { label: "streamer config" });
     const adapter = await ReadAdapter.open(retrieveChannels, cfg.channels);
@@ -130,8 +141,24 @@ export const createStreamOpener =
     });
     // A keepalive can beat the open ack onto the wire, so the ack is the first
     // non-keepalive response.
-    let res = await stream.receive();
-    while (res.keepalive === true) res = await stream.receive();
+    const ack = (async () => {
+      let res = await stream.receive();
+      while (res.keepalive === true) res = await stream.receive();
+    })();
+    const span = OPEN_ACK_TIMEOUT.toString();
+    try {
+      await sync.withTimeout(
+        ack,
+        OPEN_ACK_TIMEOUT,
+        () =>
+          new Unreachable({
+            message: `streamer was not acknowledged within ${span}`,
+          }),
+      );
+    } catch (err) {
+      streamer.close();
+      throw errors.fromUnknown(err);
+    }
     return streamer;
   };
 
@@ -208,24 +235,15 @@ class BaseStreamer implements Streamer {
   private async receiveWithDeadline(): Promise<z.infer<typeof resZ>> {
     const received = this.stream.receive();
     if (!this.armed) return await received;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const deadline = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => {
-        const silence = this.deadline.toString();
-        const message = `streamer received no response for ${silence}`;
-        reject(new Unreachable({ message }));
-      }, this.deadline.milliseconds);
-    });
-    try {
-      return await Promise.race([received, deadline]);
-    } catch (err) {
-      // The read already failed for its caller; a late settle of the losing receive
-      // must not surface as an unhandled rejection.
-      received.catch(() => {});
-      throw errors.fromUnknown(err);
-    } finally {
-      clearTimeout(timer);
-    }
+    const silence = this.deadline.toString();
+    return await sync.withTimeout(
+      received,
+      this.deadline,
+      () =>
+        new Unreachable({
+          message: `streamer received no response for ${silence}`,
+        }),
+    );
   }
 
   async update(channels: channel.Params): Promise<void> {
