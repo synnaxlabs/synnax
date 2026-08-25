@@ -1393,6 +1393,46 @@ TEST(MathArithmeticTest, HandlesMismatchedSeriesLengths) {
     ASSERT_NIL(node->next(ctx));
     auto checker = setup.make_target_node();
     EXPECT_EQ(checker.output(0)->size(), 5);
+    EXPECT_EQ(checker.output_time(0)->size(), 5);
+}
+
+TEST(MathArithmeticTest, TakesTimeFromTheLongerInput) {
+    BinaryTestSetup setup(types::Kind::F64, "add");
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[2], setup.make_target_node())
+    ));
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto lhs = setup.make_lhs_node();
+    auto rhs = setup.make_rhs_node();
+    write_lhs_f64(lhs, {1.0}, {99 * sec});
+    write_rhs_f64(rhs, {10.0, 20.0, 30.0}, {7 * sec, 8 * sec, 9 * sec});
+    auto ctx = make_context();
+    ASSERT_NIL(node->next(ctx));
+    auto checker = setup.make_target_node();
+    EXPECT_EQ(checker.output(0)->size(), 3);
+    ASSERT_EQ(checker.output_time(0)->size(), 3);
+    EXPECT_EQ(checker.output_time(0)->at<int64_t>(0), 7 * sec);
+    EXPECT_EQ(checker.output_time(0)->at<int64_t>(2), 9 * sec);
+}
+
+TEST(MathArithmeticTest, KeepsLhsTimeWhenLengthsMatch) {
+    BinaryTestSetup setup(types::Kind::F64, "add");
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[2], setup.make_target_node())
+    ));
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto lhs = setup.make_lhs_node();
+    auto rhs = setup.make_rhs_node();
+    write_lhs_f64(lhs, {1.0, 2.0}, {sec, 2 * sec});
+    write_rhs_f64(rhs, {10.0, 20.0}, {7 * sec, 8 * sec});
+    auto ctx = make_context();
+    ASSERT_NIL(node->next(ctx));
+    auto checker = setup.make_target_node();
+    ASSERT_EQ(checker.output_time(0)->size(), 2);
+    EXPECT_EQ(checker.output_time(0)->at<int64_t>(0), sec);
+    EXPECT_EQ(checker.output_time(0)->at<int64_t>(1), 2 * sec);
 }
 
 TEST(MathArithmeticTest, NoChangeWhenInputsNotRefreshed) {
@@ -1443,6 +1483,28 @@ TEST(MathArithmeticTest, PropagatesAlignmentFromBothInputs) {
     EXPECT_EQ(checker.output(0)->time_range.start, x::telem::TimeStamp(5000));
     EXPECT_EQ(checker.output(0)->time_range.end, x::telem::TimeStamp(30000));
     EXPECT_EQ(checker.output_time(0)->alignment, x::telem::Alignment(150));
+}
+
+TEST(MathArithmeticTest, DoesNotMutateTheInputTimeSeries) {
+    BinaryTestSetup setup(types::Kind::F64, "add");
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[2], setup.make_target_node())
+    ));
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto lhs = setup.make_lhs_node();
+    auto rhs = setup.make_rhs_node();
+    write_lhs_f64(lhs, {1.0, 2.0}, {sec, 2 * sec});
+    write_rhs_f64(rhs, {10.0, 20.0}, {sec, 2 * sec});
+    lhs.output(0)->alignment = x::telem::Alignment(100);
+    rhs.output(0)->alignment = x::telem::Alignment(50);
+    lhs.output_time(0)->alignment = x::telem::Alignment(100);
+    auto ctx = make_context();
+    ASSERT_NIL(node->next(ctx));
+    auto checker = setup.make_target_node();
+    EXPECT_EQ(checker.output_time(0)->alignment, x::telem::Alignment(150));
+    auto lhs_checker = setup.make_lhs_node();
+    EXPECT_EQ(lhs_checker.output_time(0)->alignment, x::telem::Alignment(100));
 }
 
 TEST(MathArithmeticTest, NegPropagatesAlignmentFromInput) {

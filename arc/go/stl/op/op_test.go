@@ -96,6 +96,26 @@ var _ = Describe("OP", func() {
 			Expect(*s.Node("op").OutputTime(0)).To(telem.MatchSeries(outputTime))
 		},
 		Entry(
+			"Broadcasts the rhs and takes its time when the rhs is longer",
+			"gt",
+			telem.NewSeriesV[float32](2),
+			telem.NewSeriesSecondsTSV(99),
+			telem.NewSeriesV[float32](1, 2, 3),
+			telem.NewSeriesSecondsTSV(7, 8, 9),
+			telem.NewSeriesV[bool](true, false, false),
+			telem.NewSeriesSecondsTSV(7, 8, 9),
+		),
+		Entry(
+			"Keeps the lhs time when both inputs are the same length",
+			"gt",
+			telem.NewSeriesV[float32](2, 2, 2),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[float32](1, 2, 3),
+			telem.NewSeriesSecondsTSV(7, 8, 9),
+			telem.NewSeriesV[bool](true, false, false),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+		),
+		Entry(
 			"Float32 GE",
 			"ge",
 			telem.NewSeriesV[float32](1, 2, 3),
