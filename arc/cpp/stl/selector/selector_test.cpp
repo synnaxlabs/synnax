@@ -194,7 +194,7 @@ TEST(SelectTest, ResetRearmsInputsOnStageReentry) {
     EXPECT_EQ(changes, 0);
 
     // Stage re-entry re-arms the inputs so the node runs again.
-    node.reset();
+    node.reset(ctx);
     changes = 0;
     ASSERT_NIL(node.next(ctx));
     EXPECT_GT(changes, 0);

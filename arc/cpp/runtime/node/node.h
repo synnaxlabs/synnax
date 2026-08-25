@@ -25,7 +25,25 @@ enum class RunReason {
     ChannelInput,
 };
 
+/// @brief carries the timing shared by every producer in one scheduler pass.
+/// The runtime loop reads the clock once, builds a Cycle, and hands it to
+/// Scheduler::next; nothing downstream reads a clock of its own.
+struct Cycle {
+    /// @brief the wall clock sampled once at the top of the pass. Producers
+    /// that have no upstream timestamp to carry forward stamp their output from
+    /// it, so everything one pass writes shares a single reference.
+    x::telem::TimeStamp now;
+    /// @brief the time elapsed since the runtime started. Used by time-based
+    /// nodes (interval, wait) to track timing.
+    x::telem::TimeSpan elapsed;
+    /// @brief Indicates what triggered this scheduler run.
+    /// Time-based nodes should only fire when reason is TimerTick.
+    RunReason reason;
+};
+
 struct Context {
+    /// @brief the current cycle's wall-clock stamp. See Cycle::now.
+    x::telem::TimeStamp now;
     x::telem::TimeSpan elapsed;
     x::telem::TimeSpan tolerance;
     /// @brief Indicates what triggered this scheduler run.
@@ -47,10 +65,12 @@ public:
 
     virtual x::errors::Error next(Context &ctx) = 0;
 
-    /// Reset is called when a stage containing this node is activated.
-    /// Nodes can override to reset their internal state (e.g., timers, counters).
+    /// Reset is called when a stage containing this node is activated. Nodes
+    /// can override to reset their internal state (e.g., timers, counters).
+    /// Activation happens inside a cycle, so ctx carries that cycle's timing; a
+    /// node that stamps an output on reset uses ctx.now like it would in next.
     /// Default implementation does nothing.
-    virtual void reset() {}
+    virtual void reset(Context &) {}
 
     /// @brief reports whether the output at the given 0-based ordinal is
     /// truthy. Used by the scheduler to evaluate conditional edges and

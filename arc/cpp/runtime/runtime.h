@@ -82,6 +82,12 @@ class Runtime {
     std::shared_ptr<state::State> state;
     std::unique_ptr<scheduler::Scheduler> scheduler;
     std::unique_ptr<loop::Loop> loop;
+    /// @brief receives each cycle's stamp so the `now` WASM binding, which guest
+    /// code calls without a node Context, returns the same value as everything else.
+    std::shared_ptr<stl::time::Module> time_module;
+    /// @brief stamps every cycle. It is the runtime's only clock: nodes and host
+    /// functions read the stamp it produces instead of sampling their own.
+    x::telem::MonoClock clock;
     x::queue::SPSC<x::telem::Frame> inputs;
     x::queue::SPSC<Output> outputs;
     std::chrono::steady_clock::time_point start_time_steady_;
@@ -96,6 +102,7 @@ public:
         std::shared_ptr<state::State> state,
         std::unique_ptr<scheduler::Scheduler> scheduler,
         std::unique_ptr<loop::Loop> loop,
+        std::shared_ptr<stl::time::Module> time_module,
         const std::vector<types::ChannelKey> &read_channels,
         std::vector<types::ChannelKey> write_channels,
         errors::Handler error_handler = errors::noop_handler
@@ -105,6 +112,7 @@ public:
         state(std::move(state)),
         scheduler(std::move(scheduler)),
         loop(std::move(loop)),
+        time_module(std::move(time_module)),
         inputs(x::queue::SPSC<x::telem::Frame>(cfg.input_queue_capacity)),
         outputs(x::queue::SPSC<Output>(cfg.output_queue_capacity)),
         error_handler(std::move(error_handler)),
@@ -145,7 +153,13 @@ public:
                     )
                         .count()
                 );
-                this->scheduler->next(elapsed, reason);
+                const node::Cycle cycle{
+                    .now = this->clock.now(),
+                    .elapsed = elapsed,
+                    .reason = reason
+                };
+                this->time_module->set_now(cycle.now);
+                this->scheduler->next(cycle);
                 Output out;
                 out.authority_changes = this->state->flush_authority_changes();
                 this->state->flush_into(out.frame);
@@ -337,6 +351,7 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
             state,
             std::move(sched),
             std::move(loop),
+            time_module,
             std::vector(reads.begin(), reads.end()),
             std::vector(writes.begin(), writes.end()),
             std::move(error_handler)

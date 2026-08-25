@@ -56,6 +56,8 @@ class Harness {
     std::shared_ptr<state::State> node_state;
     std::shared_ptr<wasm::Module> wasm_module;
     std::unique_ptr<scheduler::Scheduler> sched;
+    std::shared_ptr<stl::time::Module> time_mod;
+    x::telem::MonoClock clock;
     x::telem::Alignment alignment;
     /// @brief holds writes drained by advance() until the next flush().
     mutable x::telem::Frame pending;
@@ -107,6 +109,7 @@ public:
         );
 
         auto time_mod = std::make_shared<stl::time::Module>();
+        this->time_mod = time_mod;
         const std::vector<std::shared_ptr<stl::Module>> stl_modules{
             std::make_shared<stl::channels::Module>(this->channel_state, str_st),
             std::make_shared<stl::stateful::Module>(var_st, series_st, str_st),
@@ -168,7 +171,13 @@ public:
     }
 
     void tick(const x::telem::TimeSpan elapsed) {
-        this->sched->next(elapsed, node::RunReason::TimerTick);
+        const node::Cycle cycle{
+            .now = this->clock.now(),
+            .elapsed = elapsed,
+            .reason = node::RunReason::TimerTick
+        };
+        this->time_mod->set_now(cycle.now);
+        this->sched->next(cycle);
     }
 
     void ingest(const types::ChannelKey channel_key, x::telem::Series &&data) {

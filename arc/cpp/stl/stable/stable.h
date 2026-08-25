@@ -51,14 +51,12 @@ struct StableForInputs {
 /// @brief StableFor debounces a signal: emits a value only after it stays
 /// stable for the given duration, suppressing transient fluctuations.
 ///
-/// Stability is measured from the input sample's timestamp (not scheduler
-/// elapsed time), and the current time is obtained via an injectable now()
-/// function, matching the Go runtime behavior.
+/// Stability is measured from the input sample's timestamp, not scheduler
+/// elapsed time. The window closes against the cycle stamp.
 class StableFor : public runtime::node::Node {
     runtime::state::Node state;
     x::telem::TimeSpan duration;
     size_t input_idx;
-    x::telem::MonoClock clock;
     std::optional<std::vector<uint8_t>> value;
     std::optional<std::vector<uint8_t>> last_sent;
     x::telem::TimeStamp last_changed{0};
@@ -76,13 +74,9 @@ public:
     explicit StableFor(
         const StableForInputs &inputs,
         runtime::state::Node &&state,
-        size_t input_idx,
-        x::telem::NowFunc now = nullptr
+        size_t input_idx
     ):
-        state(std::move(state)),
-        duration(inputs.duration),
-        input_idx(input_idx),
-        clock(std::move(now)) {}
+        state(std::move(state)), duration(inputs.duration), input_idx(input_idx) {}
 
     x::errors::Error next(runtime::node::Context &ctx) override {
         if (this->state.refresh_inputs()) {
@@ -108,7 +102,7 @@ public:
         }
 
         if (!this->value.has_value()) return x::errors::NIL;
-        const auto current_time = this->clock.now();
+        const auto current_time = ctx.now;
         if (x::telem::TimeSpan(current_time - this->last_changed) >= this->duration) {
             if (!this->last_sent.has_value() || *this->last_sent != *this->value) {
                 const auto &o = this->state.output(0);
@@ -123,7 +117,7 @@ public:
         return x::errors::NIL;
     }
 
-    void reset() override {
+    void reset(runtime::node::Context &) override {
         this->state.absorb_inputs();
         this->value = std::nullopt;
         this->last_sent = std::nullopt;

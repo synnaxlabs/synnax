@@ -81,7 +81,6 @@ struct IntervalInputs {
 class Interval : public runtime::node::Node {
     runtime::state::Node state;
     x::telem::TimeSpan last_fired;
-    x::telem::MonoClock clock;
 
 public:
     explicit Interval(runtime::state::Node &&state, const x::telem::TimeSpan period):
@@ -107,13 +106,13 @@ public:
         o->resize(1);
         o_time->resize(1);
         o->set(0, static_cast<std::uint8_t>(1));
-        o_time->set(0, this->clock.now());
+        o_time->set(0, ctx.now);
         this->state.emit(ctx.mark_changed, 0);
         return x::errors::NIL;
     }
 
     /// @brief resets the interval so it fires immediately on the next timer tick.
-    void reset() override {
+    void reset(runtime::node::Context &) override {
         this->state.reset();
         this->last_fired = -1 * live_span(this->state, "period");
     }
@@ -149,7 +148,6 @@ class Wait : public runtime::node::Node {
     runtime::state::Node state;
     x::telem::TimeSpan start_time = x::telem::TimeSpan(-1);
     bool fired = false;
-    x::telem::MonoClock clock;
 
 public:
     explicit Wait(runtime::state::Node &&state): state(std::move(state)) {}
@@ -173,12 +171,12 @@ public:
         o->resize(1);
         o_time->resize(1);
         o->set(0, static_cast<std::uint8_t>(1));
-        o_time->set(0, this->clock.now());
+        o_time->set(0, ctx.now);
         this->state.emit(ctx.mark_changed, 0);
         return x::errors::NIL;
     }
 
-    void reset() override {
+    void reset(runtime::node::Context &) override {
         this->state.reset();
         this->start_time = x::telem::TimeSpan(-1);
         this->fired = false;
@@ -198,18 +196,13 @@ struct NowInputs {
 /// @brief Outputs the current wall-clock timestamp when triggered.
 class Now : public runtime::node::Node {
     runtime::state::Node state;
-    x::telem::MonoClock *clock;
 
 public:
-    explicit Now(
-        const NowInputs &,
-        runtime::state::Node &&state,
-        x::telem::MonoClock *clock
-    ):
-        state(std::move(state)), clock(clock) {}
+    explicit Now(const NowInputs &, runtime::state::Node &&state):
+        state(std::move(state)) {}
 
     x::errors::Error next(runtime::node::Context &ctx) override {
-        const auto ts = this->clock->now();
+        const auto ts = ctx.now;
         const auto &o = this->state.output(0);
         const auto &o_time = this->state.output_time(0);
         o->resize(1);
@@ -220,7 +213,7 @@ public:
         return x::errors::NIL;
     }
 
-    void reset() override { this->state.reset(); }
+    void reset(runtime::node::Context &) override { this->state.reset(); }
 
     [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
         return state.is_output_truthy(output_idx);
@@ -229,9 +222,16 @@ public:
 
 class Module : public stl::Module {
     x::telem::TimeSpan base = UNSET_BASE_INTERVAL;
-    x::telem::MonoClock clock;
+    /// @brief the current cycle's stamp, set by the runtime loop before each
+    /// pass. The `now` WASM binding is called from guest code, which has no node
+    /// Context to read, so the value is pushed here instead.
+    x::telem::TimeStamp now;
 
 public:
+    /// @brief binds the cycle stamp the `now` host function returns for the
+    /// coming pass. The runtime loop calls it before every Scheduler::next.
+    void set_now(const x::telem::TimeStamp now) { this->now = now; }
+
     /// @brief Returns the GCD of all interval/wait durations seen during node
     /// creation. Returns UNSET_BASE_INTERVAL if no time nodes were created.
     [[nodiscard]] x::telem::TimeSpan base_interval() const { return this->base; }
@@ -263,7 +263,7 @@ public:
             auto [inputs, err] = NowInputs::create(cfg.node.inputs);
             if (err) return {nullptr, err};
             return {
-                std::make_unique<Now>(inputs, std::move(cfg.state), &this->clock),
+                std::make_unique<Now>(inputs, std::move(cfg.state)),
                 x::errors::NIL
             };
         }
@@ -275,7 +275,7 @@ public:
             .func_wrap(
                 MODULE_NAME,
                 "now",
-                [this]() -> int64_t { return this->clock.now().nanoseconds(); }
+                [this]() -> int64_t { return this->now.nanoseconds(); }
             )
             .unwrap();
     }

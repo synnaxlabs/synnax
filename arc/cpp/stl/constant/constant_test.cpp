@@ -145,7 +145,7 @@ TEST(ConstantTest, ResetAllowsValueToBeOutputAgain) {
     const auto &output = checker.output(0);
     output->set(0, 999.0f);
 
-    node.reset();
+    node.reset(ctx);
     node.next(ctx);
 
     EXPECT_FLOAT_EQ(output->at<float>(0), 42.5f);
@@ -308,7 +308,7 @@ TEST(ConstantTest, StringResetAllowsValueToBeOutputAgain) {
 
     auto ctx = make_context();
     node.next(ctx);
-    node.reset();
+    node.reset(ctx);
     ASSERT_NIL(node.next(ctx));
 
     auto checker = setup.make_node();
@@ -329,7 +329,7 @@ TEST(ConstantTest, ResetProducesNewTimestamp) {
     const auto &output_time = checker.output_time(0);
     const auto ts1 = output_time->at<int64_t>(0);
 
-    node.reset();
+    node.reset(ctx);
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
     node.next(ctx);
 

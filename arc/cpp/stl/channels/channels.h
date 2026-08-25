@@ -54,7 +54,6 @@ class On : public runtime::node::Node {
     /// alias-bound.
     size_t channel_idx;
     ::x::telem::Alignment high_water_mark{0};
-    ::x::telem::MonoClock clock;
 
     /// @brief re-points the source at key. A rebind is not a value:
     /// only values arriving afterward fire
@@ -111,7 +110,7 @@ public:
                                                : std::move(index_data.series[i]);
 
             if (generate_synthetic) {
-                const auto now = this->clock.now();
+                const auto now = ctx.now;
                 for (size_t j = 0; j < ser.size(); j++)
                     time_series.write(
                         ::x::telem::TimeStamp(
@@ -138,7 +137,7 @@ public:
     /// @brief advances the high water mark to the current channel alignment,
     /// ensuring that when a stage is (re-)activated it only responds to
     /// data that arrives after activation rather than stale pre-existing data.
-    void reset() override {
+    void reset(runtime::node::Context &ctx) override {
         this->state.reset();
         if (const auto k = bound_key(this->state, this->channel_idx, this->key);
             k != this->curr_key) {
@@ -211,7 +210,7 @@ public:
         return this->state.is_output_truthy(output_idx);
     }
 
-    void reset() override { this->state.reset(); }
+    void reset(runtime::node::Context &) override { this->state.reset(); }
 };
 
 class Module : public stl::Module {

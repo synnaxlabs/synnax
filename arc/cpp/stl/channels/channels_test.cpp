@@ -753,7 +753,7 @@ TEST(WriteTest, ResetRearmsInputsOnStageReentry) {
     EXPECT_EQ(changes, 0);
 
     // Stage re-entry re-arms the inputs so the sink runs again.
-    sink->reset();
+    sink->reset(ctx);
     changes = 0;
     ASSERT_NIL(sink->next(ctx));
     EXPECT_EQ(changes, 1);
@@ -1402,9 +1402,9 @@ TEST(SourceRebindTest, RebindsOnResetAndAbsorbsDataBufferedOnTheNewChannel) {
     SourceRebind t;
     *t.node("bind").output(0) = ::x::telem::Series(static_cast<uint32_t>(20));
     t.ingest(20, 0, 9.9f);
-    t.source->reset();
     bool changed = false;
     auto ctx = make_context(&changed);
+    t.source->reset(ctx);
     ASSERT_NIL(t.source->next(ctx));
     EXPECT_FALSE(changed) << "pre-rebind data must be absorbed by Reset";
 

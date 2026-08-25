@@ -351,7 +351,7 @@ func double(val f32) f32 {
     EXPECT_EQ(changes, 0);
 
     // Stage re-entry re-arms the inputs so the node runs again.
-    node.reset();
+    node.reset(ctx);
     changes = 0;
     ASSERT_NIL(node.next(ctx));
     EXPECT_EQ(changes, 1);
@@ -720,7 +720,7 @@ constant{} -> )" + output_name;
     ASSERT_NIL(node.next(ctx));
     EXPECT_TRUE(changed_outputs.empty());
 
-    node.reset();
+    node.reset(ctx);
 
     changed_outputs.clear();
     ASSERT_NIL(node.next(ctx));
@@ -953,7 +953,7 @@ counter{} -> )" + output_name;
     auto s1 = ASSERT_NIL_P(state.node(func_node->key));
     EXPECT_EQ(s1.output(0)->at<int64_t>(0), 42);
 
-    node.reset();
+    node.reset(ctx);
 
     ASSERT_NIL(node.next(ctx));
     auto s2 = ASSERT_NIL_P(state.node(func_node->key));
@@ -1443,7 +1443,7 @@ counter{} -> )" + output_name;
         auto s = ASSERT_NIL_P(state->node(func_node->key));
         EXPECT_EQ(s.output(0)->at<int64_t>(0), 1)
             << "stateful variable must re-initialize after reset";
-        node.reset();
+        node.reset(ctx);
     }
 }
 
@@ -1533,7 +1533,7 @@ counter{} -> )" + output_a_name +
     var_st->set_current_node_key(counter_nodes[1]->key);
     ASSERT_EQ(var_st->load_i64(0, -1), 1);
 
-    node_a.reset();
+    node_a.reset(ctx);
 
     ASSERT_NIL(node_a.next(ctx));
     auto result_a = ASSERT_NIL_P(state->node(counter_nodes[0]->key));
@@ -3046,14 +3046,14 @@ func loop_state(trigger i64) i64 {
     ASSERT_EQ(r1.output(0)->size(), 1);
     EXPECT_EQ(r1.output(0)->at<int64_t>(0), 3);
 
-    node.reset();
+    node.reset(ctx);
     set_trigger(2);
     ASSERT_NIL(node.next(ctx));
     auto r2 = ASSERT_NIL_P(state->node(func_node->key));
     ASSERT_EQ(r2.output(0)->size(), 1);
     EXPECT_EQ(r2.output(0)->at<int64_t>(0), 6);
 
-    node.reset();
+    node.reset(ctx);
     set_trigger(3);
     ASSERT_NIL(node.next(ctx));
     auto r3 = ASSERT_NIL_P(state->node(func_node->key));
