@@ -71,6 +71,7 @@ func BenchmarkRefreshInputsSingleInput(b *testing.B) {
 			0,
 			telem.TimeStamp(i+1)*telem.SecondTS,
 		)
+		sourceNode.MarkFresh(0)
 		if !targetNode.RefreshInputs() {
 			b.Fatal("Failed to refresh inputs")
 		}
