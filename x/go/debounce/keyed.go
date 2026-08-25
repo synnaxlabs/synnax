@@ -11,11 +11,13 @@ package debounce
 
 import (
 	"context"
+	"io"
 	"sync"
 	"time"
 
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/signal"
 	xtime "github.com/synnaxlabs/x/time"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -71,10 +73,9 @@ func (c KeyedConfig[K]) Validate() error {
 // beyond the key's pending entry. Unlike Debouncer, a trigger does not cancel an
 // in-flight callback for the same key; it schedules another fire after it.
 type Keyed[K comparable] struct {
-	cfg    KeyedConfig[K]
-	cancel context.CancelFunc
-	done   chan struct{}
-	wake   chan struct{}
+	cfg      KeyedConfig[K]
+	shutdown io.Closer
+	wake     chan struct{}
 	// mu guards closed, timer, and pending.
 	mu      sync.Mutex
 	closed  bool
@@ -97,15 +98,17 @@ func NewKeyed[K comparable](configs ...KeyedConfig[K]) (*Keyed[K], error) {
 	if err != nil {
 		return nil, err
 	}
-	ctx, cancel := context.WithCancel(context.Background())
+	sCtx, cancel := signal.Isolated()
 	k := &Keyed[K]{
-		cfg:     cfg,
-		cancel:  cancel,
-		done:    make(chan struct{}),
-		wake:    make(chan struct{}, 1),
-		pending: make(map[K]window),
+		cfg:      cfg,
+		shutdown: signal.NewHardShutdown(sCtx, cancel),
+		wake:     make(chan struct{}, 1),
+		pending:  make(map[K]window),
 	}
-	go k.run(ctx)
+	sCtx.Go(func(ctx context.Context) error {
+		k.run(ctx)
+		return nil
+	}, signal.WithKey("debounce.keyed"))
 	return k, nil
 }
 
@@ -145,9 +148,7 @@ func (k *Keyed[K]) Close() error {
 	clear(k.pending)
 	k.stopTimerLocked()
 	k.mu.Unlock()
-	k.cancel()
-	<-k.done
-	return nil
+	return k.shutdown.Close()
 }
 
 // poke wakes the worker without blocking; a full wake channel already guarantees a
@@ -160,7 +161,6 @@ func (k *Keyed[K]) poke() {
 }
 
 func (k *Keyed[K]) run(ctx context.Context) {
-	defer close(k.done)
 	for {
 		select {
 		case <-ctx.Done():
