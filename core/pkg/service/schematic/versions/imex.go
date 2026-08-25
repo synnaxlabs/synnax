@@ -18,6 +18,7 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v0"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v7"
 	v8 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v8"
+	v9 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v9"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
@@ -45,7 +46,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 		}
 		var doc legacy.Export
 		if doc, err = imex.Decode[legacy.Export](ctx, env); err == nil {
-			sch, err = v8.ImportSchematic(ctx, v7.SchematicFromConsole(doc))
+			sch, err = importFromV7(ctx, v7.SchematicFromConsole(doc))
 		}
 	default:
 		// Console states embed the document inline: ride the storage lift, which
@@ -66,7 +67,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 		}); err != nil {
 			break
 		}
-		sch, err = v8.ImportSchematic(ctx, s7)
+		sch, err = importFromV7(ctx, s7)
 	}
 	if err != nil {
 		return Schematic{}, err
@@ -79,4 +80,15 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 	// here for every path.
 	sch.Name = env.Name
 	return sch, nil
+}
+
+// importFromV7 lifts a Console-era schematic through the storage chain into the current
+// shape. It rejects the whole schematic when the element config union does not accept
+// every config, so an import never silently drops one.
+func importFromV7(ctx context.Context, old v7.Schematic) (Schematic, error) {
+	s8, err := v8.MigrateSchematic(ctx, old)
+	if err != nil {
+		return Schematic{}, err
+	}
+	return v9.ImportSchematic(ctx, s8)
 }

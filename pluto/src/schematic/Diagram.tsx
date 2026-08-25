@@ -174,7 +174,6 @@ export const edgeChangesToActions = (changes: Base.EdgeChange[]): schematic.Acti
           schematic.addEdge({ edge: ch.edge }),
           schematic.setConfig({
             key: ch.edge.key,
-            // TODO: Remove this once schematic configs are strongly typed.
             config: Edge.REGISTRY.pipe.defaultConfig(),
           }),
         ];

@@ -19,14 +19,12 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v0"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v7"
 	v8 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v8"
-	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("MigrateNode", func() {
@@ -87,8 +85,8 @@ var _ = Describe("MigrateSchematic", func() {
 				Source: v7.Handle{Node: "valve", Param: "outlet"},
 				Target: v7.Handle{Node: "tank", Param: "inlet"},
 			}},
-			Configs: map[string]v8.ElementConfig{
-				"valve": {Variant: v8.ValveElementConfig{}},
+			Configs: map[string]msgpack.EncodedJSON{
+				"valve": {"variant": "valve"},
 			},
 		}))
 	})
@@ -146,181 +144,6 @@ var _ = Describe("Migration", func() {
 			{Key: "b", Position: spatial.XY{X: 3, Y: 4}},
 		}))
 		Expect(got.Edges).To(Equal(seed.Edges))
-		Expect(got.Configs).To(Equal(map[string]v8.ElementConfig{
-			"a": {Variant: v8.ValveElementConfig{}},
-		}))
-	})
-})
-
-var _ = Describe("Config typing", func() {
-	// typed runs a single v7 config entry through the v8 migration and returns the
-	// decoded union variant, failing the spec when the entry was dropped.
-	typed := func(ctx SpecContext, raw msgpack.EncodedJSON) v8.ElementConfigVariant {
-		GinkgoHelper()
-		out := MustSucceed(v8.MigrateSchematic(ctx, v7.Schematic{
-			Configs: map[string]msgpack.EncodedJSON{"n1": raw},
-		}))
-		cfg, ok := out.Configs["n1"]
-		Expect(ok).To(BeTrue(), "config was dropped")
-		return cfg.Variant
-	}
-
-	It("Should decode a node config into its variant", func(ctx SpecContext) {
-		Expect(typed(ctx, msgpack.EncodedJSON{
-			"variant": "valve",
-			"color":   "#ff0000",
-		})).To(Equal(v8.ValveElementConfig{
-			ToggleSymbolConfig: v8.ToggleSymbolConfig{
-				Color: new(MustSucceed(color.FromHex("#ff0000"))),
-			},
-		}))
-	})
-
-	It("Should decode a segmented edge config", func(ctx SpecContext) {
-		Expect(typed(ctx, msgpack.EncodedJSON{
-			"variant": "pipe",
-			"color":   "#0000ff",
-			"segments": []any{
-				map[string]any{"direction": "x", "length": 10.0},
-			},
-		})).To(Equal(v8.PipeElementConfig{
-			SegmentedEdgeConfig: v8.SegmentedEdgeConfig{
-				Color:    new(MustSucceed(color.FromHex("#0000ff"))),
-				Segments: []v8.Segment{{Direction: "x", Length: 10}},
-			},
-		}))
-	})
-
-	// The Console wrote its configs verbatim, so stored entries carry camelCase keys
-	// and camelCase variant discriminators.
-	It("Should normalize the camelCase the Console wrote", func(ctx SpecContext) {
-		Expect(typed(ctx, msgpack.EncodedJSON{
-			"variant":   "stringDisplay",
-			"textColor": "#00ff00",
-		})).To(Equal(v8.StringDisplayElementConfig{
-			TextColor: new(MustSucceed(color.FromHex("#00ff00"))),
-		}))
-	})
-
-	// v7 stored a whole telem pipeline spec; v8 stores the channel key the pipeline
-	// was built from.
-	It("Should rewrite a stored telem pipeline into its arguments", func(
-		ctx SpecContext,
-	) {
-		cfg, ok := typed(ctx, msgpack.EncodedJSON{
-			"variant": "value",
-			"telem": map[string]any{"props": map[string]any{
-				"segments": map[string]any{
-					"valueStream": map[string]any{
-						"props": map[string]any{"channel": 65537.0},
-					},
-					"rollingAverage": map[string]any{
-						"props": map[string]any{"windowSize": 5.0},
-					},
-				},
-			}},
-		}).(v8.ValueElementConfig)
-		Expect(ok).To(BeTrue())
-		Expect(cfg.Channel).To(HaveValue(BeEquivalentTo(65537)))
-		Expect(cfg.RollingAverage).To(HaveValue(BeEquivalentTo(5)))
-	})
-
-	It("Should drop an entry naming no known variant", func(ctx SpecContext) {
-		out := MustSucceed(v8.MigrateSchematic(ctx, v7.Schematic{
-			Configs: map[string]msgpack.EncodedJSON{
-				"n1": {"variant": "not-a-symbol"},
-				"n2": {"variant": "valve"},
-			},
-		}))
-		Expect(out.Configs).To(SatisfyAll(HaveLen(1), HaveKey("n2")))
-	})
-})
-
-var _ = Describe("ImportSchematic", func() {
-	It("Should decode every config the union accepts", func(ctx SpecContext) {
-		out := MustSucceed(v8.ImportSchematic(ctx, v7.Schematic{
-			Nodes:   []v7.Node{{Key: "n1", Position: spatial.XY{X: 1, Y: 2}}},
-			Configs: map[string]msgpack.EncodedJSON{"n1": {"variant": "valve"}},
-		}))
-		Expect(out.Nodes).To(Equal([]v8.Node{
-			{Key: "n1", Position: spatial.XY{X: 1, Y: 2}},
-		}))
-		Expect(out.Configs).To(Equal(map[string]v8.ElementConfig{
-			"n1": {Variant: v8.ValveElementConfig{}},
-		}))
-	})
-
-	It("Should reject the schematic when a config names no known variant", func(
-		ctx SpecContext,
-	) {
-		Expect(v8.ImportSchematic(ctx, v7.Schematic{
-			Configs: map[string]msgpack.EncodedJSON{
-				"n1": {"variant": "not-a-symbol"},
-				"n2": {"variant": "valve"},
-			},
-		})).Error().To(SatisfyAll(
-			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring(`node n1`)),
-			MatchError(ContainSubstring(`unknown variant "not-a-symbol"`)),
-		))
-	})
-
-	It("Should name every rejected node in one error", func(ctx SpecContext) {
-		Expect(v8.ImportSchematic(ctx, v7.Schematic{
-			Configs: map[string]msgpack.EncodedJSON{
-				"n1": {"variant": "not-a-symbol"},
-				"n2": {"variant": "also-not-a-symbol"},
-			},
-		})).Error().To(SatisfyAll(
-			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring("node n1")),
-			MatchError(ContainSubstring("node n2")),
-		))
-	})
-
-	It("Should reject a config carrying a field the variant cannot hold", func(
-		ctx SpecContext,
-	) {
-		Expect(v8.ImportSchematic(ctx, v7.Schematic{
-			Configs: map[string]msgpack.EncodedJSON{
-				"n1": {"variant": "circle", "radius": "wide"},
-			},
-		})).Error().To(SatisfyAll(
-			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring("node n1")),
-		))
-	})
-})
-
-var _ = Describe("DecodeElementConfig", func() {
-	It("Should decode a payload naming a known variant", func() {
-		Expect(MustSucceed(v8.DecodeElementConfig(msgpack.EncodedJSON{
-			"variant": "valve",
-		}))).To(Equal(v8.ElementConfig{Variant: v8.ValveElementConfig{}}))
-	})
-
-	// A null payload decodes to a nil variant without erroring, so the guard against it
-	// is the only thing keeping an unreadable entry out of the configs map.
-	It("Should reject a nil payload", func() {
-		Expect(v8.DecodeElementConfig(nil)).Error().To(SatisfyAll(
-			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring("names no variant")),
-		))
-	})
-
-	It("Should reject a payload carrying no variant", func() {
-		Expect(v8.DecodeElementConfig(msgpack.EncodedJSON{})).Error().To(SatisfyAll(
-			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring(`unknown variant ""`)),
-		))
-	})
-
-	It("Should reject a payload naming an unknown variant", func() {
-		Expect(v8.DecodeElementConfig(msgpack.EncodedJSON{
-			"variant": "not-a-symbol",
-		})).Error().To(SatisfyAll(
-			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring(`unknown variant "not-a-symbol"`)),
-		))
+		Expect(got.Configs).To(Equal(seed.Configs))
 	})
 })
