@@ -32,8 +32,8 @@ interface ReadRequest {
   gaps: TimeRange[];
 }
 
-// Tracks one read's outstanding fetches, so the read settles when its last fetch
-// lands. The first failure among them wins.
+// Tracks one read's outstanding fetches, so the read settles when its last fetch lands.
+// The first failure among them wins.
 interface Tracker {
   entry: debounce.Entry<ReadRequest>;
   remaining: number;
@@ -63,8 +63,8 @@ export interface ReaderProps {
    */
   overlapThreshold?: TimeSpan;
   /**
-   * Deadline for a single remote fetch. A fetch that does not settle within it
-   * rejects the reads it serves with an Unreachable error.
+   * Deadline for a single remote fetch. A fetch that does not settle within it rejects
+   * the reads it serves with an Unreachable error.
    * @default TimeSpan.seconds(30)
    */
   fetchTimeout?: TimeSpan;
@@ -78,8 +78,8 @@ export class Reader {
   private readonly props: Required<Omit<ReaderProps, "batchDebounce">>;
   private readonly batcher: debounce.Batcher<ReadRequest>;
   private closed = false;
-  // Reads whose fetches are in flight, so close can reject them without waiting
-  // on the fetches themselves.
+  // Reads whose fetches are in flight, so close can reject them without waiting on the
+  // fetches themselves.
   private readonly inFlight = new Set<Tracker>();
 
   constructor(props: ReaderProps) {
@@ -122,8 +122,8 @@ export class Reader {
     entries.forEach((entry) => {
       const unary = cache.get(entry.req.channel);
       entry.req.gaps.forEach((rawGap) => {
-        // An earlier batch or a streaming write may have filled part of the gap
-        // while this entry sat in the debounce window.
+        // An earlier batch or a streaming write may have filled part of the gap while
+        // this entry sat in the debounce window.
         unary.read(rawGap).gaps.forEach((gap) => {
           let tracker = trackers.get(entry);
           if (tracker == null) {
@@ -156,8 +156,8 @@ export class Reader {
     await Promise.all(batched.map(async (b) => await this.fetchGap(b)));
   }
 
-  // Never throws: every outcome, including a deadline expiry and a post-close
-  // arrival, settles through the trackers.
+  // Never throws: every outcome, including a deadline expiry and a post-close arrival,
+  // settles through the trackers.
   private async fetchGap({ gap, channels, trackers }: BatchFetch): Promise<void> {
     const { cache } = this.props;
     let failure: unknown;
@@ -208,8 +208,8 @@ export class Reader {
     try {
       return await Promise.race([fetched, deadline]);
     } catch (err) {
-      // The read already failed for its callers; a late settle of the losing
-      // fetch must not surface as an unhandled rejection.
+      // The read already failed for its callers; a late settle of the losing fetch must
+      // not surface as an unhandled rejection.
       fetched.catch(() => {});
       throw errors.fromUnknown(err);
     } finally {
@@ -218,8 +218,8 @@ export class Reader {
   }
 
   /**
-   * Closes the reader, rejecting every pending read with an UnexpectedError.
-   * In-flight fetch results are discarded when they arrive.
+   * Closes the reader, rejecting every pending read with an UnexpectedError. In-flight
+   * fetch results are discarded when they arrive.
    */
   async close(): Promise<void> {
     this.closed = true;

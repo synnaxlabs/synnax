@@ -426,6 +426,49 @@ describe("hung fetch", () => {
   });
 });
 
+describe("concurrent batches", () => {
+  // Batches no longer serialize, so two batches may fetch the same still-open gap.
+  // The cache discards the duplicate write and both reads must resolve.
+  it("should resolve both reads when two batches fetch the same range", async () => {
+    const cache = new Cache();
+    const calls: TimeRange[] = [];
+    const resolvers: Array<(f: Frame) => void> = [];
+    const readRemote: RemoteReader = async (tr) => {
+      calls.push(tr);
+      return await new Promise<Frame>((r) => resolvers.push(r));
+    };
+    const reader = new Reader({
+      cache,
+      readRemote,
+      batchDebounce: TimeSpan.milliseconds(10),
+    });
+    const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
+    const first = reader.read(tr, 1);
+    await new Promise((r) => setTimeout(r, 30));
+    const second = reader.read(tr, 1);
+    await new Promise((r) => setTimeout(r, 30));
+    expect(calls).toEqual([tr, tr]);
+    resolvers.forEach((resolve) =>
+      resolve(
+        new Frame(
+          [1],
+          [
+            new Series({
+              data: new Float32Array([1, 2, 3]),
+              alignment: 0n,
+              timeRange: tr,
+            }),
+          ],
+        ),
+      ),
+    );
+    const [a, b] = await Promise.all([first, second]);
+    expect(a).toHaveLength(3);
+    expect(b).toHaveLength(3);
+    cache.close();
+  });
+});
+
 describe("read spanning multiple fetches", () => {
   const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(8));
   const cached = new TimeRange(TimeSpan.seconds(3), TimeSpan.seconds(5));
