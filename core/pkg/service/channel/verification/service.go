@@ -56,7 +56,8 @@ type ServiceConfig struct {
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
 
-var retrieveKey = []byte("bGljZW5zZUtleQ==")
+// RetrieveKey is the key the license record is stored under.
+var RetrieveKey = []byte("bGljZW5zZUtleQ==")
 
 // Validate validates the configuration for use in the service.
 func (c ServiceConfig) Validate() error {
@@ -189,7 +190,7 @@ var (
 )
 
 func (s *Service) loadCache(ctx context.Context) error {
-	key, closer, err := s.cfg.Get(ctx, retrieveKey)
+	key, closer, err := s.cfg.Get(ctx, RetrieveKey)
 	if err != nil {
 		return err
 	}
@@ -214,7 +215,7 @@ func (s *Service) create(ctx context.Context, toCreate string) error {
 	if err != nil {
 		return err
 	}
-	if err = s.cfg.Set(ctx, retrieveKey, []byte(toCreate)); err != nil {
+	if err = s.cfg.Set(ctx, RetrieveKey, []byte(toCreate)); err != nil {
 		return err
 	}
 	s.info = licenseInf

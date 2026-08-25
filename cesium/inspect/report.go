@@ -16,6 +16,9 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
+// ChannelKey identifies a channel within the inspected database.
+type ChannelKey = channel.Key
+
 // Distribution summarizes the spread of an int64-valued sample set.
 type Distribution[T ~int64] struct {
 	Min T `json:"min"`

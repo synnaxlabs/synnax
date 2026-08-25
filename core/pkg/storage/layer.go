@@ -59,6 +59,12 @@ type (
 	TSEngine uint8
 )
 
+// KVDirName is the subdirectory of LayerConfig.Dirname holding the key-value store.
+const KVDirName = "kv"
+
+// TSDirName is the subdirectory of LayerConfig.Dirname holding the time-series store.
+const TSDirName = "cesium"
+
 //go:generate stringer -type=KVEngine
 const (
 	// KVEnginePebble uses CockroachDB's pebble key-value store.
@@ -353,7 +359,7 @@ func openKV(cfg LayerConfig, fs vfs.FS, cache *pebble.Cache) (kv.DB, error) {
 		)
 	}
 	ins := cfg.Child("kv")
-	dirname := filepath.Join(cfg.Dirname, "kv")
+	dirname := filepath.Join(cfg.Dirname, KVDirName)
 	requiresMigration, err := pebblekv.RequiresMigration(dirname, fs)
 	if err != nil {
 		return nil, err
@@ -426,7 +432,7 @@ func openTS(ctx context.Context, cfg LayerConfig, fs xfs.FS) (*ts.DB, error) {
 	}
 	return ts.Open(ctx, ts.Config{
 		Instrumentation: cfg.Child("ts"),
-		Dirname:         filepath.Join(cfg.Dirname, "cesium"),
+		Dirname:         filepath.Join(cfg.Dirname, TSDirName),
 		FS:              fs,
 	})
 }

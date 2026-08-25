@@ -54,7 +54,7 @@ func (r *recoveryServer) recoverPeer(
 	if err != nil {
 		return err
 	}
-	iter, err := r.Engine.OpenIterator(kv.IterPrefix([]byte(digestPrefix)))
+	iter, err := r.Engine.OpenIterator(kv.IterPrefix([]byte(DigestPrefix)))
 	if err != nil {
 		return err
 	}
@@ -124,7 +124,7 @@ func loadHighWater(
 	ctx context.Context,
 	cfg Config,
 ) (highWater version.Counter, err error) {
-	iter, err := cfg.Engine.OpenIterator(kv.IterPrefix([]byte(digestPrefix)))
+	iter, err := cfg.Engine.OpenIterator(kv.IterPrefix([]byte(DigestPrefix)))
 	if err != nil {
 		return highWater, err
 	}

@@ -202,8 +202,11 @@ func (e *Entries[K, E]) ensureCap(n int) {
 }
 
 const (
-	magicPrefix            = "gorp."
-	migrationVersionPrefix = "gorp.migration."
+	// KeyPrefix prefixes every key gorp writes to the underlying store.
+	KeyPrefix = "gorp."
+	// MigrationKeyPrefix prefixes the per-table applied-migration state keys. The
+	// table's namespace follows the prefix.
+	MigrationKeyPrefix = "gorp.migration."
 )
 
 // keyCodec encodes and decodes primary keys to and from prefixed
@@ -240,8 +243,11 @@ func newKeyCodec[K Key, E Entry[K]](prefix []byte) keyCodec[K, E] {
 
 // newKeyPrefix builds the gorp key prefix for entry type E.
 func newKeyPrefix[E any]() []byte {
-	return []byte(magicPrefix + types.Name[E]())
+	return []byte(KeyPrefix + types.Name[E]())
 }
+
+// Prefix returns the key prefix under which entries of type E are stored.
+func Prefix[E any]() []byte { return newKeyPrefix[E]() }
 
 func (k *keyCodec[K, E]) encode(key K) []byte {
 	switch k.kind {

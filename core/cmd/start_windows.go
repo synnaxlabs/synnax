@@ -31,7 +31,7 @@ func RunMain() {
 		return
 	}
 	if err := Cmd.Execute(); err != nil {
-		os.Exit(1)
+		os.Exit(exitCode(err))
 	}
 }
 

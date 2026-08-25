@@ -45,6 +45,17 @@ var _ = Describe("storage", func() {
 				},
 			)
 		})
+		Describe("Directory layout", func() {
+			It("Should store each engine under its exported dir name", func(
+				ctx SpecContext,
+			) {
+				MustOpen(storage.OpenLayer(ctx, cfg))
+				Expect(filepath.Join(cfg.Dirname, storage.KVDirName)).
+					To(BeADirectory())
+				Expect(filepath.Join(cfg.Dirname, storage.TSDirName)).
+					To(BeADirectory())
+			})
+		})
 		Describe("Permissions", func() {
 			// These two tests are failing on Windows because VFS cannot create a
 			// directory on Windows with custom permissions – all directories are

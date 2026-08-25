@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/gorp"
 	. "github.com/synnaxlabs/x/gorp/testutil"
+	"github.com/synnaxlabs/x/kv"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -93,6 +94,21 @@ type namedStringEntry struct {
 
 func (e namedStringEntry) GorpKey() namedStringKey { return e.ID }
 func (namedStringEntry) SetOptions() []any         { return nil }
+
+var _ = Describe("Prefix", func() {
+	It("Should return the prefix entries are stored under", func(ctx SpecContext) {
+		db := OpenGorpMsgpackDB()
+		defer func() { Expect(db.Close()).To(Succeed()) }()
+		Expect(
+			gorp.WrapWriter[int8, int8Entry](db).Set(ctx, int8Entry{ID: 1}),
+		).To(Succeed())
+		prefix := gorp.Prefix[int8Entry]()
+		Expect(prefix).To(Equal([]byte(gorp.KeyPrefix + "int8Entry")))
+		iter := MustSucceed(db.OpenIterator(kv.IterPrefix(prefix)))
+		defer func() { Expect(iter.Close()).To(Succeed()) }()
+		Expect(iter.First()).To(BeTrue())
+	})
+})
 
 var _ = Describe("KeyCodec", func() {
 	var tx gorp.Tx

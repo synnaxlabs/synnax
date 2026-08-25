@@ -99,8 +99,9 @@ func (d Digest) Operation() Operation {
 	}
 }
 
-const digestPrefix = "--dig/"
+// DigestPrefix prefixes operation-digest keys in the underlying store.
+const DigestPrefix = "--dig/"
 
 func digestKey(key []byte) (opKey []byte, err error) {
-	return xkv.CompositeKey(digestPrefix, key)
+	return xkv.CompositeKey(DigestPrefix, key)
 }

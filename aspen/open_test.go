@@ -16,6 +16,9 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -56,5 +59,58 @@ var _ = Describe("Open", func() {
 			).To(Succeed())
 		}
 		Expect(tx.Commit(ctx)).To(Succeed())
+	})
+})
+
+var _ = Describe("PeekClusterState", func() {
+	It("Should read the persisted state after the DB closes", func(ctx SpecContext) {
+		engine := memkv.New()
+		defer func() { Expect(engine.Close()).To(Succeed()) }()
+		db := MustSucceed(aspen.Open(
+			ctx,
+			"",
+			"localhost:22648",
+			[]address.Address{},
+			aspen.Bootstrap(),
+			aspen.WithEngine(engine),
+		))
+		Expect(db.Close()).To(Succeed())
+		state := MustSucceed(aspen.PeekClusterState(ctx, engine))
+		Expect(state.HostKey).To(Equal(aspen.NodeKeyBootstrapper))
+		Expect(state.Nodes).To(HaveKey(aspen.NodeKeyBootstrapper))
+	})
+
+	It("Should store digests and the version counter under the exported keys", func(
+		ctx SpecContext,
+	) {
+		engine := memkv.New()
+		defer func() { Expect(engine.Close()).To(Succeed()) }()
+		db := MustSucceed(aspen.Open(
+			ctx,
+			"",
+			"localhost:22649",
+			[]address.Address{},
+			aspen.Bootstrap(),
+			aspen.WithEngine(engine),
+		))
+		Expect(db.Set(ctx, []byte("dog"), []byte("woof"))).To(Succeed())
+		Expect(db.Close()).To(Succeed())
+		iter := MustSucceed(engine.OpenIterator(
+			kv.IterPrefix([]byte(aspen.DigestPrefix)),
+		))
+		defer func() { Expect(iter.Close()).To(Succeed()) }()
+		Expect(iter.First()).To(BeTrue())
+		v, closer := MustSucceed2(engine.Get(ctx, []byte(aspen.VersionCounterKey)))
+		Expect(v).ToNot(BeEmpty())
+		Expect(closer.Close()).To(Succeed())
+	})
+
+	It("Should return query.ErrNotFound when no state is persisted", func(
+		ctx SpecContext,
+	) {
+		engine := memkv.New()
+		defer func() { Expect(engine.Close()).To(Succeed()) }()
+		Expect(aspen.PeekClusterState(ctx, engine)).Error().
+			To(MatchError(query.ErrNotFound))
 	})
 })

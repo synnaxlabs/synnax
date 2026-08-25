@@ -10,6 +10,8 @@
 package aspen
 
 import (
+	"context"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/kv"
@@ -17,6 +19,7 @@ import (
 	"github.com/synnaxlabs/aspen/transport"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/io"
+	xkv "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/observe"
 	storex "github.com/synnaxlabs/x/store"
 )
@@ -78,6 +81,19 @@ const (
 )
 
 var ErrNodeNotFound = cluster.ErrNodeNotFound
+
+const (
+	// DigestPrefix prefixes operation-digest keys in the underlying store.
+	DigestPrefix = kv.DigestPrefix
+	// VersionCounterKey is the key holding the store's operation version counter.
+	VersionCounterKey = kv.VersionCounterKey
+)
+
+// PeekClusterState reads the cluster state persisted in reader without opening a DB.
+// It returns query.ErrNotFound when no state is persisted.
+func PeekClusterState(ctx context.Context, reader xkv.Reader) (ClusterState, error) {
+	return cluster.PeekState(ctx, reader)
+}
 
 // ObservableOption configures an observable returned by DB.NewObservable.
 type ObservableOption = kv.ObservableOption

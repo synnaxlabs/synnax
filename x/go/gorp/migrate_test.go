@@ -50,6 +50,36 @@ func migrateWithEntryV1(
 }
 
 var _ = Describe("Migrate", func() {
+	Describe("AppliedMigrations", func() {
+		It("Should return the recorded migration names", func(ctx SpecContext) {
+			testDB := OpenGorpMsgpackDB()
+			defer func() { Expect(testDB.Close()).To(Succeed()) }()
+			migration := gorp.NewMigration(
+				"first",
+				func(context.Context, gorp.Tx, alamos.Instrumentation) error {
+					return nil
+				},
+			)
+			Expect(
+				migrateWithEntryV1(ctx, testDB, []migrate.Migration{migration}),
+			).To(Succeed())
+			applied := MustSucceed(
+				gorp.AppliedMigrations(ctx, testDB, testNamespace),
+			)
+			Expect(applied.Contains("first")).To(BeTrue())
+		})
+
+		It("Should return an empty set for an unknown namespace", func(
+			ctx SpecContext,
+		) {
+			testDB := OpenGorpMsgpackDB()
+			defer func() { Expect(testDB.Close()).To(Succeed()) }()
+			Expect(
+				MustSucceed(gorp.AppliedMigrations(ctx, testDB, "missing")),
+			).To(BeEmpty())
+		})
+	})
+
 	Describe("NewMigration", func() {
 		It("Should provide a working gorp.Tx for read/write", func(ctx SpecContext) {
 			testDB := OpenGorpMsgpackDB()

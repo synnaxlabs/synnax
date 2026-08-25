@@ -22,6 +22,8 @@ import (
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter/mock"
 	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -89,6 +91,30 @@ var _ = Describe("Cluster", func() {
 			Expect(cluster.Open(ctx, cluster.FastConfig, cfg)).Error().To(MatchError(
 				ContainSubstring("retry_scale: must be greater than or equal to 1"),
 			))
+		})
+	})
+
+	Describe("PeekState", func() {
+		It("Should read the persisted state without opening a cluster", func(
+			ctx SpecContext,
+		) {
+			storage := memkv.New()
+			defer func() { Expect(storage.Close()).To(Succeed()) }()
+			c := MustSucceed(builder.New(clusterCtx, cluster.Config{
+				Storage: storage,
+			}))
+			Eventually(func() (cluster.State, error) {
+				return cluster.PeekState(ctx, storage)
+			}).Should(HaveField("HostKey", c.Host().Key))
+		})
+
+		It("Should return query.ErrNotFound when no state is persisted", func(
+			ctx SpecContext,
+		) {
+			storage := memkv.New()
+			defer func() { Expect(storage.Close()).To(Succeed()) }()
+			Expect(cluster.PeekState(ctx, storage)).Error().
+				To(MatchError(query.ErrNotFound))
 		})
 	})
 

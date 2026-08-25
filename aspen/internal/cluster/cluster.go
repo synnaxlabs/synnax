@@ -247,6 +247,20 @@ func (c *Cluster) goFlushStore(sCtx signal.Context) {
 	}
 }
 
+// PeekState reads the cluster state persisted in reader without opening a cluster.
+// It reads from the default storage key with the default codec, so it only applies to
+// stores written by clusters that did not override them. It returns query.ErrNotFound
+// when no state is persisted.
+func PeekState(ctx context.Context, reader kv.Reader) (State, error) {
+	var state State
+	encoded, closer, err := reader.Get(ctx, DefaultConfig.StorageKey)
+	if err != nil {
+		return state, err
+	}
+	err = DefaultConfig.Codec.Decode(ctx, encoded, &state)
+	return state, errors.Combine(err, closer.Close())
+}
+
 func tryLoadPersistedState(ctx context.Context, cfg Config) (store.State, error) {
 	var state store.State
 	if cfg.Storage == nil {

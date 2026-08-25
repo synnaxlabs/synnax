@@ -103,6 +103,7 @@ var _ = Describe("Rack", Ordered, func() {
 			func(ctx SpecContext) {
 				k := rack.NewKey(1, 2)
 				Expect(k.Node()).To(Equal(node.Key(1)))
+				Expect(k.LocalKey()).To(Equal(uint16(2)))
 				Expect(k).To(Equal(rack.Key(1<<16 | 2)))
 			},
 		)

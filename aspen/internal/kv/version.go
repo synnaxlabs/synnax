@@ -34,7 +34,8 @@ func getDigestFromKV(ctx context.Context, r kv.Reader, key []byte) (Digest, erro
 	return dig, err
 }
 
-const versionCounterKey = "ver"
+// VersionCounterKey is the key holding the store's operation version counter.
+const VersionCounterKey = "ver"
 
 type versionAssigner struct {
 	confluence.LinearTransform[TxRequest, TxRequest]
@@ -43,7 +44,7 @@ type versionAssigner struct {
 }
 
 func newVersionAssigner(ctx context.Context, cfg Config) (segment, error) {
-	c, err := kv.NewCounter(ctx, cfg.Engine, []byte(versionCounterKey))
+	c, err := kv.NewCounter(ctx, cfg.Engine, []byte(VersionCounterKey))
 	v := &versionAssigner{Config: cfg, counter: c}
 	v.Transform = v.assign
 	return v, err

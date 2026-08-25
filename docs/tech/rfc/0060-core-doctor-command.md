@@ -260,11 +260,12 @@ following the codebase's explicit-wiring-site rule, seeded from the hand list in
 |                            |          | type: traversal panics on it today           |
 |                            |          | (`core/pkg/service/ontology/service.go:55`)  |
 | `ontology.resource-orphan` | warning  | a resource whose backing entity is gone:     |
-|                            |          | queries silently drop it today               |
+|                            |          | queries silently drop it today, or whose     |
+|                            |          | type no table backs                          |
 | `ref.alias`                | warning  | a range alias whose range or channel is gone |
 | `ref.range-kv`             | warning  | a range KV pair whose range is gone          |
 | `ref.task-config`          | warning  | a task config entry with no task, or a task  |
-|                            |          | whose type has no config store               |
+|                            |          | with no stored configuration                 |
 | `ref.credentials`          | warning  | credentials whose user no longer exists      |
 | `ref.rack`                 | warning  | a task or device referencing a deleted rack  |
 | `ref.channel-index`        | error    | a channel whose index channel entry is gone  |
@@ -301,8 +302,9 @@ whether KV was reachable), a summary (totals, garbage, top offenders), the findi
 grouped by severity with one line per finding (`check-name  subject  message  hint`),
 and a closing verdict line. `--verbose` adds the per-channel stat table and info
 findings. `--json` emits the same content as one document: run metadata, the stats
-objects, and a flat findings array, so support tooling and tests consume it without
-scraping text.
+objects, and a flat findings array covering both stores, so support tooling and tests
+consume it without scraping text. The per-channel findings stay nested under the
+time-series report as well, where they carry their channel.
 
 ### 4.6 Testing
 

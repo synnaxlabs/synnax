@@ -334,7 +334,15 @@ func NormalizeKeysMigration[K Key, E Entry[K]](
 }
 
 func migrationKey(namespace string) []byte {
-	return []byte(migrationVersionPrefix + namespace)
+	return []byte(MigrationKeyPrefix + namespace)
+}
+
+// AppliedMigrations returns the migration names recorded as applied for the table
+// with the given namespace. A namespace with no recorded state returns an empty set.
+func AppliedMigrations(
+	ctx context.Context, tx Tx, namespace string,
+) (set.Set[string], error) {
+	return readAppliedMigrations(ctx, tx, namespace)
 }
 
 // readAppliedMigrations reads the set of applied migration names from the KV store.

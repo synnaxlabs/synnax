@@ -546,6 +546,97 @@ This command has no flags.
 
 <Divider.Divider x />
 
+## Doctor
+
+The `doctor` command inspects the data a Core stored on disk and reports problems with
+it: corrupt or unreadable telemetry, storage the garbage collector never reclaimed,
+implausible timestamps, and metadata that references entities which no longer exist.
+
+The command never writes to the data directory. Stop the Core before you run it: a
+running Core holds the key-value store open, and the command then checks the telemetry
+alone.
+
+### Examples
+
+```cmd
+synnax doctor --data /mnt/ssd1
+```
+
+Add `--verbose` for a per-channel table of domain counts, sample counts, disk use, and
+garbage. Add `--json` to write the whole report as one JSON document instead of text.
+
+### Exit codes
+
+<Table.Data
+  client:only="react"
+  columns={[
+    { key: "code", name: "Code", type: "code", width: 100 },
+    { key: "description", name: "Meaning", type: "html" },
+  ]}
+  data={[
+    { code: "0", description: "The command ran. No errors were found." },
+    { code: "1", description: "The command could not run." },
+    {
+      code: "2",
+      description: "The command ran and found at least one error in the stored data.",
+    },
+  ]}
+/>
+
+Warnings do not change the exit code.
+
+### Flags
+
+<Table.Data
+  client:only="react"
+  columns={[
+    { key: "option", name: "Flag", type: "code", width: 150 },
+    { key: "default", name: "Default", type: "code" },
+    { key: "description", name: "Description", type: "html" },
+  ]}
+  data={[
+    {
+      option: "--data/-d",
+      default: '"synnax-data"',
+      description: "The file path to the folder holding the data to inspect.",
+    },
+    {
+      option: "--channels",
+      default: "[]",
+      description: `A list of comma-separated channel keys. Restricts the telemetry checks to those
+            channels. The default inspects every channel.`,
+    },
+    {
+      option: "--skip-deep",
+      default: "false",
+      description: `Skip the checks that read sample bytes. These checks are the slowest, and the only
+            ones that read the telemetry itself.`,
+    },
+    {
+      option: "--skip-kv",
+      default: "false",
+      description: "Skip every check on the key-value store.",
+    },
+    {
+      option: "--skip-ts",
+      default: "false",
+      description: "Skip every check on the time-series store.",
+    },
+    {
+      option: "--json",
+      default: "false",
+      description: "Write the report as one JSON document instead of text.",
+    },
+    {
+      option: "--verbose/-v",
+      default: "false",
+      description: "Include notes and the per-channel statistics table.",
+    },
+  ]}
+/>
+
+<Divider.Divider x />
+
 ## Service (Windows Only)
 
 The `service` command manages Synnax as a Windows Service. These commands are only

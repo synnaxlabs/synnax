@@ -17,8 +17,10 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/synnax/cmd/cert"
+	"github.com/synnaxlabs/synnax/cmd/doctor"
 	"github.com/synnaxlabs/synnax/cmd/start"
 	"github.com/synnaxlabs/synnax/cmd/version"
+	"github.com/synnaxlabs/x/errors"
 	"go.uber.org/zap"
 )
 
@@ -37,10 +39,27 @@ var Cmd = &cobra.Command{
 
 func init() {
 	addFlags(Cmd)
-	Cmd.AddCommand(version.Cmd, cert.Cmd, start.Cmd)
+	Cmd.AddCommand(version.Cmd, cert.Cmd, start.Cmd, doctor.Cmd)
 	lo.Must0(viper.BindPFlags(Cmd.PersistentFlags()))
 	lo.Must0(viper.BindPFlags(Cmd.Flags()))
 	cobra.OnInitialize(initConfig)
+}
+
+// Exit codes the CLI returns. They follow the pg_amcheck convention: a clean run and a
+// run with warnings alone both succeed, so a warning never fails a script.
+const (
+	// ExitFailed is returned when a command could not run.
+	ExitFailed = 1
+	// ExitProblems is returned when synnax doctor found problems in stored data.
+	ExitProblems = 2
+)
+
+// exitCode maps a command error to the process exit code.
+func exitCode(err error) int {
+	if errors.Is(err, doctor.ErrProblems) {
+		return ExitProblems
+	}
+	return ExitFailed
 }
 
 func initConfig() {

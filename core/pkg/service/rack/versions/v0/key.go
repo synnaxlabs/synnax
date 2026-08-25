@@ -19,6 +19,10 @@ import (
 // Node returns the node that the rack is leased to.
 func (k Key) Node() node.Key { return node.Key(k >> 16) }
 
+// LocalKey returns the node-local portion of the key, the value drawn from the node's
+// rack key counter.
+func (k Key) LocalKey() uint16 { return uint16(k) }
+
 // OntologyID returns the unique ontology identifier for the rack.
 func (k Key) OntologyID() ontology.ID {
 	return ontology.ID{Type: ontology.ResourceTypeRack, Key: k.String()}
