@@ -95,6 +95,9 @@ class Node {
     // is_reference marks inputs that are channel references rather than value
     // streams. Reference inputs carry no data series and never gate execution.
     std::vector<bool> is_reference;
+    /// @brief marks inputs fed by a configured value rather than an edge. A
+    /// configured value has no time of its own.
+    std::vector<bool> literal;
     /// @brief rearm[i] selects when a consumed input i fires again.
     std::vector<Rearm> rearm;
     /// @brief params holds the node's input params with their configured values.
@@ -110,6 +113,7 @@ class Node {
         std::vector<Series> aligned_data,
         std::vector<Series> aligned_time,
         std::vector<bool> is_reference,
+        std::vector<bool> literal,
         std::vector<Rearm> rearm,
         types::Params params
     ):
@@ -122,6 +126,7 @@ class Node {
         aligned_data(std::move(aligned_data)),
         aligned_time(std::move(aligned_time)),
         is_reference(std::move(is_reference)),
+        literal(std::move(literal)),
         rearm(std::move(rearm)),
         params(std::move(params)) {}
 
@@ -164,6 +169,14 @@ public:
     /// during next call emit instead; this is for a write on reset, which has no
     /// running node for the scheduler to propagate from.
     void mark_fresh(size_t param_index) const;
+
+    /// @brief returns the index of the input carrying the most upstream
+    /// timestamps, or -1 when no input carries any. A node stamps its output
+    /// from that input's time series. Literal and reference inputs are never
+    /// candidates: a configured value has no time, so forwarding one stamps a
+    /// placeholder. Picking the longest matches how nodes broadcast a shorter
+    /// input up to a longer one, keeping one timestamp per output sample.
+    [[nodiscard]] int provenance_idx() const;
 
     /// Reads buffered data and time series from a channel. Returns (data, index_data,
     /// ok). If the channel has an associated index, both data and time are returned.
@@ -248,8 +261,11 @@ public:
     [[nodiscard]] std::pair<size_t, x::errors::Error>
     resolve_input(const std::string &name) const;
 
-    /// @brief Re-arms every input when the node's stage is (re)activated, so a node
-    /// whose gating inputs are all literal-valued re-runs instead of staying consumed.
+    /// @brief re-arms the node's inputs when its stage is (re)activated, so a
+    /// node whose inputs are all literal-valued re-runs instead of staying
+    /// consumed. An edge-fed input keeps what it consumed: re-arming one makes
+    /// the node re-emit a value it already emitted, which duplicates writes
+    /// downstream.
     void reset() {
         for (size_t i = 0; i < this->accumulated.size(); i++) {
             switch (this->rearm[i]) {
@@ -259,6 +275,10 @@ public:
                     this->absorb_input(i);
                     break;
                 case Rearm::Always:
+                    if (!this->literal[i]) break;
+                    this->accumulated[i].consumed = false;
+                    this->accumulated[i].last_rev = 0;
+                    break;
                 case Rearm::OnReset:
                     this->accumulated[i].consumed = false;
                     this->accumulated[i].last_rev = 0;

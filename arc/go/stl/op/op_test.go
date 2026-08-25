@@ -852,6 +852,75 @@ var _ = Describe("OP", func() {
 	})
 })
 
+var _ = Describe("Literal inputs", func() {
+	It(
+		"Should stamp the edge-fed input's time, not the literal's",
+		func(ctx SpecContext) {
+			g := graph.Graph{
+				Nodes: []graph.Node{{Key: "rhs"}, {Key: "op"}},
+				Inputs: map[string]msgpack.EncodedJSON{
+					"rhs": {"type": "rhs"},
+					"op":  {"type": "gt", "a": 5.0},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
+						Source: ir.Handle{Node: "rhs", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
+					}},
+				},
+				Functions: []ir.Function{{
+					Key: "rhs",
+					Outputs: types.Params{
+						{Name: ir.DefaultOutputParam, Type: types.F64()},
+					},
+				}},
+			}
+			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			s := node.New(analyzed)
+			rhsNode := s.Node("rhs")
+			*rhsNode.Output(0) = telem.NewSeriesV[float64](1)
+			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(777)
+			rhsNode.MarkFresh(0)
+			c := MustSucceed(op.NewHost().Create(ctx, node.Config{
+				Node:  analyzed.Nodes.Get("op"),
+				State: s.Node("op"),
+			}))
+			c.Next(node.Context{
+				Context:     ctx,
+				Now:         1234 * telem.SecondTS,
+				MarkChanged: func(int) {},
+			})
+			Expect(*s.Node("op").OutputTime(0)).
+				To(telem.MatchSeries(telem.NewSeriesSecondsTSV(777)))
+		},
+	)
+
+	It("Should stamp the cycle when every input is a literal", func(ctx SpecContext) {
+		prog := ir.IR{Nodes: ir.Nodes{{
+			Key:  "op",
+			Type: "gt",
+			Inputs: types.Params{
+				{Name: ir.LHSInputParam, Type: types.F64(), Value: 5.0},
+				{Name: ir.RHSInputParam, Type: types.F64(), Value: 1.0},
+			},
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+		}}}
+		s := node.New(prog)
+		c := MustSucceed(op.NewHost().Create(ctx, node.Config{
+			Node:  prog.Nodes[0],
+			State: s.Node("op"),
+		}))
+		c.Next(node.Context{
+			Context:     ctx,
+			Now:         1234 * telem.SecondTS,
+			MarkChanged: func(int) {},
+		})
+		Expect(*s.Node("op").OutputTime(0)).
+			To(telem.MatchSeries(telem.NewSeriesSecondsTSV(1234)))
+	})
+})
+
 var _ = Describe("Construction validation", func() {
 	DescribeTable("Should error at construction when an input param is missing",
 		func(ctx SpecContext, nodeType string) {

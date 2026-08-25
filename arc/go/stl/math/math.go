@@ -386,9 +386,11 @@ func (r *avgNode) Next(ctx node.Context) {
 		return
 	}
 	r.sampleCount = r.process(inputData, r.sampleCount, r.Output(0))
-	if inputTime.Len() > 0 {
-		lastTimestamp := telem.ValueAt[telem.TimeStamp](inputTime, -1)
-		*r.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](lastTimestamp)
+	if timeIdx := r.ProvenanceIdx(); timeIdx >= 0 {
+		t := r.InputTime(timeIdx)
+		*r.OutputTime(0) = telem.NewSeriesV(telem.ValueAt[telem.TimeStamp](t, -1))
+	} else {
+		r.StampCycle(ctx, 0)
 	}
 	alignment := inputData.Alignment
 	timeRange := inputData.TimeRange
@@ -507,6 +509,9 @@ func (d *derivativeNode) Next(ctx node.Context) {
 		&d.prevValue, &d.prevTimestamp, &d.hasPrev,
 		d.Output(0), d.OutputTime(0),
 	)
+	if d.ProvenanceIdx() < 0 {
+		d.StampCycle(ctx, 0)
+	}
 	d.Output(0).Alignment = inputData.Alignment
 	d.Output(0).TimeRange = inputData.TimeRange
 	d.OutputTime(0).Alignment = inputData.Alignment

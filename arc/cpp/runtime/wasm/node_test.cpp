@@ -271,8 +271,8 @@ func double(val f32) f32 {
     EXPECT_TRUE(changed_outputs.empty());
 }
 
-/// @brief reset() re-arms inputs so the node re-runs on stage re-entry.
-TEST(NodeTest, ResetRearmsInputsOnStageReentry) {
+/// @brief reset() keeps a consumed edge-fed input on stage re-entry.
+TEST(NodeTest, ResetKeepsConsumedEdgeFedInput) {
     const auto client = new_test_client();
 
     auto input_idx_name = random_name("input_idx");
@@ -350,9 +350,20 @@ func double(val f32) f32 {
     ASSERT_NIL(node.next(ctx));
     EXPECT_EQ(changes, 0);
 
-    // Stage re-entry re-arms the inputs so the node runs again.
+    // Stage re-entry keeps the consumed input, so the node does not re-run.
     node.reset();
     changes = 0;
+    ASSERT_NIL(node.next(ctx));
+    EXPECT_EQ(changes, 0);
+
+    // A new upstream value runs it again.
+    on_node_state.output(0) = x::mem::make_local_shared<x::telem::Series>(
+        std::vector{20.0f}
+    );
+    on_node_state.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
+        std::vector{x::telem::TimeStamp(4 * x::telem::MICROSECOND)}
+    );
+    on_node_state.mark_fresh(0);
     ASSERT_NIL(node.next(ctx));
     EXPECT_EQ(changes, 1);
 }

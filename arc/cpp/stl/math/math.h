@@ -174,7 +174,11 @@ public:
                 break;
         }
 
-        const auto &primary_time = this->state.input_time(this->input_idx);
+        // A literal input has no time to forward, so provenance skips it.
+        const auto avg_prov = this->state.provenance_idx();
+        const auto &primary_time = this->state.input_time(
+            avg_prov < 0 ? this->input_idx : static_cast<size_t>(avg_prov)
+        );
         if (primary_time->size() > 0) {
             auto last_ts = primary_time->at<int64_t>(-1);
             *this->state.output_time(0) = x::telem::Series(
@@ -455,9 +459,9 @@ public:
         }
         auto &output = this->state.output(0);
         auto &output_time = this->state.output_time(0);
-        // The op broadcasts the shorter input up to the longer one, so the
-        // timestamps have to come from the longer side to stay one per sample.
-        const auto time_idx = rhs->size() > lhs->size() ? this->rhs_idx : this->lhs_idx;
+        // A literal input has no time to forward, so provenance skips it.
+        const auto prov = this->state.provenance_idx();
+        const auto time_idx = prov < 0 ? this->lhs_idx : static_cast<size_t>(prov);
         output_time->copy_from(*this->state.input_time(time_idx));
         auto alignment = lhs->alignment + rhs->alignment;
         auto time_range = lhs->time_range;
@@ -557,7 +561,11 @@ public:
         }
         auto &output = this->state.output(0);
         auto &output_time = this->state.output_time(0);
-        output_time = this->state.input_time(this->input_idx);
+        // A literal input has no time to forward, so provenance skips it.
+        const auto prov = this->state.provenance_idx();
+        output_time = this->state.input_time(
+            prov < 0 ? this->input_idx : static_cast<size_t>(prov)
+        );
         output->alignment = input->alignment;
         output->time_range = input->time_range;
         output_time->alignment = input->alignment;

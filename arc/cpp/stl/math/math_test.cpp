@@ -218,8 +218,8 @@ TEST(MathAvgTest, ComputesRunningAverage) {
     EXPECT_EQ(checker.output_time(0)->at<int64_t>(0), 3 * sec);
 }
 
-/// @brief reset() re-arms inputs so the node re-runs on stage re-entry.
-TEST(MathAvgTest, ResetRearmsInputsOnStageReentry) {
+/// @brief reset() keeps a consumed edge-fed input on stage re-entry.
+TEST(MathAvgTest, ResetKeepsConsumedEdgeFedInput) {
     TestSetup setup(types::Kind::F64, "avg");
     Module module;
     auto node = ASSERT_NIL_P(module.create(
@@ -242,9 +242,14 @@ TEST(MathAvgTest, ResetRearmsInputsOnStageReentry) {
     ASSERT_NIL(node->next(ctx));
     EXPECT_EQ(changes, 0);
 
-    // Stage re-entry re-arms the inputs so the node runs again.
+    // Stage re-entry keeps the consumed input, so the node does not re-run.
     node->reset();
     changes = 0;
+    ASSERT_NIL(node->next(ctx));
+    EXPECT_EQ(changes, 0);
+
+    // A new source value runs it again.
+    write_source_f64(source, {40.0}, {4 * sec});
     ASSERT_NIL(node->next(ctx));
     EXPECT_GT(changes, 0);
 }

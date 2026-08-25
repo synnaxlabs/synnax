@@ -1411,6 +1411,43 @@ var _ = Describe("Channel", func() {
 					fr.Get(101).Series[0],
 				).To(telem.MatchSeries(telem.NewSeriesSecondsTSV(500, 501)))
 			})
+			It(
+				"Should not rewrite consumed data when the stage re-enters",
+				func(ctx SpecContext) {
+					sinkState := progState.Node("sink")
+					sink := MustSucceed(factory.Create(ctx, rnode.Config{
+						Node: ir.Node{
+							Type: "write",
+							Inputs: types.Params{
+								{
+									Name:  "channel",
+									Type:  types.U32(),
+									Value: uint32(100),
+								},
+							},
+						},
+						State: sinkState,
+					}))
+					upstream := progState.Node("upstream")
+					*upstream.Output(0) = telem.NewSeriesV[float32](7.7, 8.8)
+					*upstream.OutputTime(0) = telem.NewSeriesSecondsTSV(500, 501)
+					upstream.MarkFresh(0)
+					nCtx := rnode.Context{Context: ctx, MarkChanged: func(int) {}}
+					sink.Next(nCtx)
+					sink.Reset(nCtx)
+					sink.Next(nCtx)
+					fr, flushed := channelState.Flush(telem.Frame[uint32]{})
+					Expect(flushed).To(BeTrue())
+					Expect(
+						fr.Get(100).Series[0],
+					).To(telem.MatchSeriesDataV[float32](7.7, 8.8))
+					Expect(fr.Get(100).Series).To(HaveLen(1))
+					Expect(
+						fr.Get(101).Series[0],
+					).To(telem.MatchSeries(telem.NewSeriesSecondsTSV(500, 501)))
+					Expect(fr.Get(101).Series).To(HaveLen(1))
+				},
+			)
 			It("Should error and skip on a length mismatch", func(ctx SpecContext) {
 				sink := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
