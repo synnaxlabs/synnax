@@ -144,6 +144,7 @@ var _ = Describe("Select", func() {
 			source := s.Node("source")
 			*source.Output(0) = telem.NewSeriesV[bool]()
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV()
+			source.MarkFresh(0)
 			n, _ := factory.Create(ctx, cfg)
 			outputs := make(set.Set[int])
 			n.Next(
@@ -160,6 +161,7 @@ var _ = Describe("Select", func() {
 			source := s.Node("source")
 			*source.Output(0) = telem.NewSeriesV[bool](true, true, true)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
+			source.MarkFresh(0)
 			n, _ := factory.Create(ctx, cfg)
 			outputs := make(set.Set[int])
 			n.Next(
@@ -181,6 +183,7 @@ var _ = Describe("Select", func() {
 			source := s.Node("source")
 			*source.Output(0) = telem.NewSeriesV[bool](false, false, false, false)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(10, 20, 30, 40)
+			source.MarkFresh(0)
 			n, _ := factory.Create(ctx, cfg)
 			outputs := make(set.Set[int])
 			n.Next(
@@ -202,6 +205,7 @@ var _ = Describe("Select", func() {
 			source := s.Node("source")
 			*source.Output(0) = telem.NewSeriesV[bool](true, false, true, false, true)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)
+			source.MarkFresh(0)
 			n, _ := factory.Create(ctx, cfg)
 			outputs := make(set.Set[int])
 			n.Next(
@@ -227,6 +231,7 @@ var _ = Describe("Select", func() {
 			source := s.Node("source")
 			*source.Output(0) = telem.NewSeriesV[bool](true, false, true, false, true)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(10, 20, 30, 40, 50)
+			source.MarkFresh(0)
 			n, _ := factory.Create(ctx, cfg)
 			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			selectNode := s.Node("select")
@@ -246,6 +251,7 @@ var _ = Describe("Select", func() {
 			source := s.Node("source")
 			*source.Output(0) = telem.NewSeriesV[bool](true, false, true, false, true)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(10, 20, 30, 40, 50)
+			source.MarkFresh(0)
 			n, _ := factory.Create(ctx, cfg)
 			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			selectNode := s.Node("select")
@@ -264,6 +270,7 @@ var _ = Describe("Select", func() {
 			source := s.Node("source")
 			*source.Output(0) = telem.NewSeriesV[bool](true)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(100)
+			source.MarkFresh(0)
 			n, _ := factory.Create(ctx, cfg)
 			outputs := make(set.Set[int])
 			n.Next(
@@ -283,6 +290,7 @@ var _ = Describe("Select", func() {
 			source := s.Node("source")
 			*source.Output(0) = telem.NewSeriesV[bool](false)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(100)
+			source.MarkFresh(0)
 			n, _ := factory.Create(ctx, cfg)
 			outputs := make(set.Set[int])
 			n.Next(
@@ -308,6 +316,7 @@ var _ = Describe("Select", func() {
 			}
 			*source.Output(0) = telem.NewSeriesV(data...)
 			*source.OutputTime(0) = telem.NewSeriesV(times...)
+			source.MarkFresh(0)
 			n, _ := factory.Create(ctx, cfg)
 			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			selectNode := s.Node("select")
@@ -331,6 +340,7 @@ var _ = Describe("Select", func() {
 				false,
 			)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6)
+			source.MarkFresh(0)
 			n, _ := factory.Create(ctx, cfg)
 			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			selectNode := s.Node("select")
@@ -359,6 +369,7 @@ var _ = Describe("Select", func() {
 				true,
 			)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6)
+			source.MarkFresh(0)
 			n, _ := factory.Create(ctx, cfg)
 			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			selectNode := s.Node("select")
@@ -511,6 +522,7 @@ var _ = Describe("Select", func() {
 				}
 				*source.Output(0) = inputSeries
 				*source.OutputTime(0) = telem.NewSeriesSecondsTSV(50, 100, 150, 200)
+				source.MarkFresh(0)
 
 				n, _ := factory.Create(ctx, cfg)
 				n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})

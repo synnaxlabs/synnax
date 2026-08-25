@@ -145,6 +145,7 @@ func (h *testHarness) SetInput(nodeKey string, idx int, data, time telem.Series)
 	n := h.state.Node(nodeKey)
 	*n.Output(idx) = data
 	*n.OutputTime(idx) = time
+	n.MarkFresh(idx)
 }
 
 func (h *testHarness) CreateNode(ctx context.Context, nodeKey string) node.Node {

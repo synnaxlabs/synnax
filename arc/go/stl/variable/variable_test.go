@@ -108,6 +108,7 @@ func exprReadState(ctx SpecContext) *node.ProgramState {
 func emit[T telem.Sample](n *node.State, value T, seconds telem.TimeStamp) {
 	*n.Output(0) = telem.NewSeriesV(value)
 	*n.OutputTime(0) = telem.NewSeriesSecondsTSV(seconds)
+	n.MarkFresh(0)
 }
 
 var _ = Describe("Variable", func() {

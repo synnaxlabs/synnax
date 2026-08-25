@@ -118,6 +118,10 @@ func assertResult(result uint64, expected any) {
 	}
 }
 
+// cycleNow is the stamp bound to the time host, standing in for the one a runtime
+// loop pushes before each cycle. Guest calls to now() return it.
+const cycleNow = 1750 * telem.SecondTS
+
 // bindDefaultModules creates a state.ProgramState and binds all default STL modules
 // to the given wazero.Runtime. Returns the state, string module, string state, and
 // channel state for post-instantiation setup.
@@ -134,7 +138,7 @@ func bindDefaultModules(
 	stringsMod := MustSucceed(stlstrings.NewHost(ctx, r, stringsState, nil))
 	MustSucceed(stlmath.NewHost(ctx, r))
 	MustSucceed(stlerrors.NewHost(ctx, r, nil))
-	MustSucceed(stltime.NewHost(ctx, r))
+	MustSucceed(stltime.NewHost(ctx, r)).SetNow(cycleNow)
 	MustSucceed(stlchannels.NewHost(ctx, r, channelState, stringsState))
 	return s, stringsMod, stringsState, channelState
 }
@@ -4412,7 +4416,7 @@ var _ = Describe("Compiler", func() {
 			Expect(compute).ToNot(BeNil())
 
 			results := MustSucceed(compute.Call(ctx))
-			Expect(results[0]).To(BeNumerically(">", 0))
+			Expect(telem.TimeStamp(results[0])).To(Equal(cycleNow))
 		})
 
 		It(
@@ -4487,7 +4491,7 @@ var _ = Describe("Compiler", func() {
 			Expect(compute).ToNot(BeNil())
 
 			results := MustSucceed(compute.Call(ctx))
-			Expect(results[0]).To(BeNumerically(">", 0))
+			Expect(telem.TimeStamp(results[0])).To(Equal(cycleNow))
 		})
 	})
 })

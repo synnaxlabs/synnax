@@ -1424,6 +1424,7 @@ var _ = Describe("Channel", func() {
 				upstream := progState.Node("upstream")
 				*upstream.Output(0) = telem.NewSeriesV[float32](7.7, 8.8)
 				*upstream.OutputTime(0) = telem.NewSeriesSecondsTSV(500)
+				upstream.MarkFresh(0)
 				changed := false
 				var reported error
 				sink.Next(rnode.Context{

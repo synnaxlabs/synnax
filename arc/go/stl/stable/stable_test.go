@@ -109,6 +109,7 @@ var _ = Describe("StableFor", func() {
 			source := s.Node("source")
 			*source.Output(0) = telem.NewSeriesV[uint8]()
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV()
+			source.MarkFresh(0)
 			n, _ := module.Create(ctx, cfg)
 			outputs := make(set.Set[int])
 			n.Next(
@@ -129,6 +130,7 @@ var _ = Describe("StableFor", func() {
 				currentTime = 0
 				*source.Output(0) = telem.NewSeriesV[uint8](5)
 				*source.OutputTime(0) = telem.NewSeriesSecondsTSV(0)
+				source.MarkFresh(0)
 				n, _ := module.Create(ctx, cfg)
 				outputs := make(set.Set[int])
 				n.Next(
@@ -171,6 +173,7 @@ var _ = Describe("StableFor", func() {
 			// Send value 5 at time 1s
 			*source.Output(0) = telem.NewSeriesV[uint8](5)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+			source.MarkFresh(0)
 			n, _ := module.Create(ctx, cfg)
 			outputs := make(set.Set[int])
 			n.Next(
@@ -186,6 +189,7 @@ var _ = Describe("StableFor", func() {
 			currentTime = telem.SecondTS * 2
 			*source.Output(0) = telem.NewSeriesV[uint8]()
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV()
+			source.MarkFresh(0)
 			outputs = make(set.Set[int])
 			n.Next(
 				node.Context{
@@ -222,6 +226,7 @@ var _ = Describe("StableFor", func() {
 			// Send value 5 at time 0
 			*source.Output(0) = telem.NewSeriesV[uint8](5)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(0)
+			source.MarkFresh(0)
 			n, _ := module.Create(ctx, cfg)
 			n.Next(
 				node.Context{Context: ctx, Now: currentTime, MarkChanged: func(int) {}},
@@ -233,6 +238,7 @@ var _ = Describe("StableFor", func() {
 			// Send different value 10 at time 1s
 			*source.Output(0) = telem.NewSeriesV[uint8](10)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+			source.MarkFresh(0)
 			outputs := make(set.Set[int])
 			n.Next(
 				node.Context{
@@ -288,6 +294,7 @@ var _ = Describe("StableFor", func() {
 			// Send value 5 at time 1
 			*source.Output(0) = telem.NewSeriesV[uint8](5)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+			source.MarkFresh(0)
 			n, _ := module.Create(ctx, cfg)
 			n.Next(
 				node.Context{Context: ctx, Now: currentTime, MarkChanged: func(int) {}},
@@ -296,6 +303,7 @@ var _ = Describe("StableFor", func() {
 			currentTime = telem.SecondTS * 2
 			*source.Output(0) = telem.NewSeriesV[uint8]()
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV()
+			source.MarkFresh(0)
 			outputs := make(set.Set[int])
 			n.Next(
 				node.Context{
@@ -310,6 +318,7 @@ var _ = Describe("StableFor", func() {
 			currentTime = telem.SecondTS * 3
 			*source.Output(0) = telem.NewSeriesV[uint8]()
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV()
+			source.MarkFresh(0)
 			outputs = make(set.Set[int])
 			n.Next(
 				node.Context{
@@ -340,6 +349,7 @@ var _ = Describe("StableFor", func() {
 			// Send value 5
 			*source.Output(0) = telem.NewSeriesV[uint8](5)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(0)
+			source.MarkFresh(0)
 			n, _ := module.Create(ctx, cfg)
 			n.Next(
 				node.Context{Context: ctx, Now: currentTime, MarkChanged: func(int) {}},
@@ -355,6 +365,7 @@ var _ = Describe("StableFor", func() {
 			currentTime = telem.SecondTS * 2
 			*source.Output(0) = telem.NewSeriesV[uint8](10)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(2)
+			source.MarkFresh(0)
 			n.Next(
 				node.Context{Context: ctx, Now: currentTime, MarkChanged: func(int) {}},
 			)
@@ -402,6 +413,7 @@ var _ = Describe("StableFor", func() {
 				telem.SecondTS*3/10, // 0.3s = 300ms
 				telem.SecondTS*2/5,  // 0.4s = 400ms
 			)
+			source.MarkFresh(0)
 			n, _ := module.Create(ctx, cfg)
 			n.Next(
 				node.Context{Context: ctx, Now: currentTime, MarkChanged: func(int) {}},
@@ -445,6 +457,7 @@ var _ = Describe("StableFor", func() {
 				currentTime = 0
 				*source.Output(0) = telem.NewSeriesV[uint8](5)
 				*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+				source.MarkFresh(0)
 				n, _ := module.Create(ctx, cfg)
 				n.Next(
 					node.Context{
@@ -457,6 +470,7 @@ var _ = Describe("StableFor", func() {
 				currentTime = telem.SecondTS * 100 // Set current time far in future
 				*source.Output(0) = telem.NewSeriesV[uint8]()
 				*source.OutputTime(0) = telem.NewSeriesSecondsTSV()
+				source.MarkFresh(0)
 				outputs := make(set.Set[int])
 				n.Next(
 					node.Context{
@@ -498,6 +512,7 @@ var _ = Describe("StableFor", func() {
 				telem.SecondTS/5,    // 0.2s = 200ms
 				telem.SecondTS*3/10, // 0.3s = 300ms
 			)
+			source.MarkFresh(0)
 			n, _ := module.Create(ctx, cfg)
 			n.Next(
 				node.Context{Context: ctx, Now: currentTime, MarkChanged: func(int) {}},
@@ -603,6 +618,7 @@ var _ = Describe("StableFor", func() {
 				currentTime = 0
 				*source.Output(0) = telem.NewSeriesV[uint8](5)
 				*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+				source.MarkFresh(0)
 				n := MustSucceed(module.Create(ctx, cfg))
 				outputs := make(set.Set[int])
 				n.Next(
@@ -647,6 +663,7 @@ var _ = Describe("StableFor", func() {
 				currentTime = 0
 				*source.Output(0) = telem.NewSeriesV[uint8](5)
 				*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+				source.MarkFresh(0)
 				n := MustSucceed(module.Create(ctx, cfg))
 				n.Next(
 					node.Context{
@@ -658,6 +675,7 @@ var _ = Describe("StableFor", func() {
 
 				*source.Output(0) = telem.NewSeriesV[uint8](9)
 				*source.OutputTime(0) = telem.NewSeriesSecondsTSV(2)
+				source.MarkFresh(0)
 				n.Reset(node.Context{})
 
 				currentTime = telem.SecondTS * 10
@@ -780,6 +798,7 @@ var _ = Describe("Variable duration", func() {
 	ingest := func(v uint8, at telem.TimeStamp) {
 		*s.Node("source").Output(0) = telem.NewSeriesV(v)
 		*s.Node("source").OutputTime(0) = telem.NewSeriesV(at)
+		s.Node("source").MarkFresh(0)
 	}
 	next := func(ctx SpecContext, n node.Node) bool {
 		fired := false
@@ -909,6 +928,7 @@ var _ = Describe("StableFor type preservation", func() {
 			now = 0
 			*source.Output(0) = input
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+			source.MarkFresh(0)
 			fired := make(set.Set[int])
 			n.Next(
 				node.Context{
@@ -922,6 +942,7 @@ var _ = Describe("StableFor type preservation", func() {
 			now = telem.SecondTS * 2
 			*source.Output(0) = telem.Series{DataType: input.DataType}
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV()
+			source.MarkFresh(0)
 			fired = make(set.Set[int])
 			n.Next(
 				node.Context{
