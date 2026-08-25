@@ -56,6 +56,18 @@ live_span(const runtime::state::Node &s, const std::string &name) {
     return x::telem::TimeSpan(s.numeric_input<int64_t>(name));
 }
 
+/// @brief rejects a non-positive span stamped at compile time. Var-bound
+/// params are exempt: the runtime guard covers their live values.
+inline x::errors::Error
+validate_static_span(const x::telem::TimeSpan span, const types::Param &p) {
+    if (p.type.kind == types::Kind::VarRef || span.nanoseconds() > 0)
+        return x::errors::NIL;
+    return x::errors::Error(
+        x::errors::VALIDATION,
+        p.name + " must be positive, got " + span.to_string()
+    );
+}
+
 struct IntervalInputs {
     x::telem::TimeSpan interval;
 
@@ -71,16 +83,18 @@ struct IntervalInputs {
                     "interval node missing required period parameter"
                 )
             };
-        return {
-            {.interval = x::telem::TimeSpan(x::telem::cast<std::int64_t>(*sv))},
-            x::errors::NIL
-        };
+        const auto period = x::telem::TimeSpan(x::telem::cast<std::int64_t>(*sv));
+        if (auto err = validate_static_span(period, param)) return {{}, err};
+        return {{.interval = period}, x::errors::NIL};
     }
 };
 
 class Interval : public runtime::node::Node {
     runtime::state::Node state;
     x::telem::TimeSpan last_fired;
+    /// @brief dedupes the non-positive period error so a parked node does not
+    /// re-report on every scheduler pass.
+    bool invalid_span_reported = false;
 
 public:
     explicit Interval(runtime::state::Node &&state, const x::telem::TimeSpan period):
@@ -88,6 +102,22 @@ public:
 
     x::errors::Error next(runtime::node::Context &ctx) override {
         const auto period = live_span(this->state, "period");
+        // A non-positive period would keep the deadline permanently in the
+        // past, spinning the scheduler loop. Park without a deadline instead;
+        // a later reassignment to a positive value resumes the timer.
+        if (period.nanoseconds() <= 0) {
+            if (!this->invalid_span_reported) {
+                ctx.report_error(
+                    x::errors::Error(
+                        x::errors::VALIDATION,
+                        "interval period must be positive, got " + period.to_string()
+                    )
+                );
+                this->invalid_span_reported = true;
+            }
+            return x::errors::NIL;
+        }
+        this->invalid_span_reported = false;
         if (ctx.reason != runtime::node::RunReason::TimerTick) {
             ctx.mark_self_changed();
             ctx.set_deadline(this->last_fired + period);
@@ -115,6 +145,7 @@ public:
     void reset() override {
         this->state.reset();
         this->last_fired = -1 * live_span(this->state, "period");
+        this->invalid_span_reported = false;
     }
 
     [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
@@ -136,10 +167,9 @@ struct WaitInputs {
                     "wait node missing required duration parameter"
                 )
             };
-        return {
-            {.duration = x::telem::TimeSpan(x::telem::cast<std::int64_t>(*sv))},
-            x::errors::NIL
-        };
+        const auto duration = x::telem::TimeSpan(x::telem::cast<std::int64_t>(*sv));
+        if (auto err = validate_static_span(duration, param)) return {{}, err};
+        return {{.duration = duration}, x::errors::NIL};
     }
 };
 
@@ -148,14 +178,33 @@ class Wait : public runtime::node::Node {
     runtime::state::Node state;
     x::telem::TimeSpan start_time = x::telem::TimeSpan(-1);
     bool fired = false;
+    /// @brief dedupes the non-positive duration error so a parked node does
+    /// not re-report on every scheduler pass.
+    bool invalid_span_reported = false;
 
 public:
     explicit Wait(runtime::state::Node &&state): state(std::move(state)) {}
 
     x::errors::Error next(runtime::node::Context &ctx) override {
         if (this->fired) return x::errors::NIL;
-        if (this->start_time.nanoseconds() < 0) this->start_time = ctx.elapsed;
         const auto duration = live_span(this->state, "duration");
+        // A non-positive duration is a configuration error, not an instant
+        // fire. Park without starting the timer; a later reassignment to a
+        // positive value starts it.
+        if (duration.nanoseconds() <= 0) {
+            if (!this->invalid_span_reported) {
+                ctx.report_error(
+                    x::errors::Error(
+                        x::errors::VALIDATION,
+                        "wait duration must be positive, got " + duration.to_string()
+                    )
+                );
+                this->invalid_span_reported = true;
+            }
+            return x::errors::NIL;
+        }
+        this->invalid_span_reported = false;
+        if (this->start_time.nanoseconds() < 0) this->start_time = ctx.elapsed;
         ctx.set_deadline(this->start_time + duration);
         if (ctx.reason != runtime::node::RunReason::TimerTick) {
             ctx.mark_self_changed();
@@ -180,6 +229,7 @@ public:
         this->state.reset();
         this->start_time = x::telem::TimeSpan(-1);
         this->fired = false;
+        this->invalid_span_reported = false;
     }
 
     [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
