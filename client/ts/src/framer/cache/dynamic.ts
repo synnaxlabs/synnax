@@ -176,23 +176,31 @@ export class Dynamic {
     return series.timeRange.isZero ? this.now() : series.timeRange.start;
   }
 
-  private allocCurr(res: WriteResponse, source: Series): Series {
+  private allocCurr(
+    res: WriteResponse,
+    source: Series,
+    start: TimeStamp | null,
+  ): Series {
     this.curr = this.allocate(
       this.capacityFor(source),
       source.alignment,
-      this.allocStart(source),
+      start ?? this.allocStart(source),
       source,
     );
     res.allocated.push(this.curr);
     return this.curr;
   }
 
-  private flushCurr(res: WriteResponse): void {
-    if (this.curr == null) return;
-    this.curr.timeRange.end = this.currDataEnd ?? this.now();
+  /** @returns the timestamp the flushed buffer's end was stamped with, or null when
+   * there was no buffer. */
+  private flushCurr(res: WriteResponse): TimeStamp | null {
+    if (this.curr == null) return null;
+    const end = this.currDataEnd ?? this.now();
+    this.curr.timeRange.end = end;
     this.currDataEnd = null;
     res.flushed.push(this.curr);
     this.curr = null;
+    return end;
   }
 
   private _write(series: Series, res: WriteResponse): void {
@@ -217,6 +225,7 @@ export class Dynamic {
       }
     }
     let curr = this.curr;
+    let trimmed = false;
     if (curr != null) {
       // overlap > 0: the incoming series steps back into samples the current buffer
       // already holds. overlap < 0: there is a gap between the buffer and the series.
@@ -226,6 +235,7 @@ export class Dynamic {
         // the cache with overlapping series. sub() is zero-copy.
         if (overlap >= series.length) return;
         series = series.sub(overlap);
+        trimmed = true;
       } else if (overlap < 0) {
         this.flushCurr(res);
         curr = null;
@@ -233,6 +243,7 @@ export class Dynamic {
     }
     const convert = (buffer: Series): Series =>
       transform.convert(series, buffer.sampleOffset);
+    let rotationStart: TimeStamp | null = null;
     if (curr != null) {
       const converted = convert(curr);
       // A series never splits across two buffers. The timestamp where a split falls is
@@ -240,12 +251,16 @@ export class Dynamic {
       // a guess lands outside the data whenever samples are irregular.
       if (fits(curr, converted)) curr.write(converted);
       else {
-        this.flushCurr(res);
+        const end = this.flushCurr(res);
+        // A trimmed series keeps the whole frame's start, which is earlier than the
+        // samples it still holds. Those samples begin where the buffer they were
+        // trimmed against ends, so the next buffer starts there.
+        if (trimmed) rotationStart = end;
         curr = null;
       }
     }
     if (curr == null) {
-      curr = this.allocCurr(res, series);
+      curr = this.allocCurr(res, series, rotationStart);
       curr.write(convert(curr));
     }
     this.currDataEnd = series.timeRange.isZero ? null : series.timeRange.end;

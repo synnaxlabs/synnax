@@ -217,6 +217,36 @@ describe("DynamicCache", () => {
           );
           expect(cache.leadingBuffer?.timeRange.start).toEqual(TimeStamp.seconds(12));
         });
+
+        it("should start a rotation after a trim where the flushed buffer ends", () => {
+          const cache = new Dynamic({ dynamicBufferSize: 2, now: () => WALL });
+          cache.write(
+            new MultiSeries([
+              stamped([1, 2], TimeStamp.seconds(10).range(TimeStamp.seconds(12))),
+            ]),
+          );
+          // The re-sent frame starts at second 11 but its first new sample is at
+          // second 12. Trimming keeps the frame's own start, so the buffer would
+          // claim a second of time it holds nothing for.
+          const { flushed } = cache.write(
+            new MultiSeries([
+              stamped(
+                [2, 3, 4],
+                TimeStamp.seconds(11).range(TimeStamp.seconds(14)),
+                1n,
+              ),
+            ]),
+          );
+          expect(flushed.series[0].timeRange).toEqual(
+            TimeStamp.seconds(10).range(TimeStamp.seconds(12)),
+          );
+          expect(cache.leadingBuffer?.timeRange.start).toEqual(TimeStamp.seconds(12));
+          expect(
+            cache.dataTimeRange?.overlapsWith(
+              TimeStamp.seconds(11).range(TimeStamp.milliseconds(11500)),
+            ),
+          ).toEqual(false);
+        });
       });
 
       it("should correctly allocate a single new buffer when the current one is full", async () => {
