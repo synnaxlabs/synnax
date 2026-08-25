@@ -136,7 +136,8 @@ struct Config {
 
     friend std::ostream &operator<<(std::ostream &os, const Config &cfg) {
         os << "configuration:\n"
-           << cfg.connection << cfg.timing << "\n"
+           << cfg.connection << "\n"
+           << cfg.timing << "\n"
            << cfg.manager << "\n"
            << "  " << x::log::SHALE() << "enabled integrations" << x::log::RESET()
            << ": ";
@@ -144,7 +145,6 @@ struct Config {
             os << cfg.integrations[i];
             if (i < cfg.integrations.size() - 1) os << ", ";
         }
-        os << "\n";
         return os;
     }
 

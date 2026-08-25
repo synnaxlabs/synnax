@@ -340,16 +340,13 @@ const watchRelationships = <Q extends query.Params>(
     affectedRangeKeys(relOfEvent(event)),
   );
 
-const rangesWithLabel = (
-  relationships: query.Table<string, ontology.Relationship>,
-  key: label.Key,
-): Key[] | null => {
-  const keys = relationships
-    .get(
+const rangesWithLabel = (cache: ontology.Cache, key: label.Key): Key[] | null => {
+  const keys = cache
+    .relationshipsTo(label.ontologyID(key))
+    .filter(
       (r) =>
         r.type === label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE &&
-        r.from.type === "range" &&
-        r.to.key === key,
+        r.from.type === "range",
     )
     .map((r) => r.from.key);
   return keys.length === 0 ? null : keys;
@@ -358,10 +355,10 @@ const rangesWithLabel = (
 /** Projects label content changes onto the ranges they label. */
 const watchLabels = <Q extends query.Params>(
   labels: query.Table<label.Key, label.Label>,
-  relationships: query.Table<string, ontology.Relationship>,
+  cache: ontology.Cache,
 ): query.Watch<Q, Key> =>
   query.watch<Q, Key, label.Key, label.Label>(labels, (event) =>
-    rangesWithLabel(relationships, event.key),
+    rangesWithLabel(cache, event.key),
   );
 
 /** Config for {@link Client}. */
@@ -422,7 +419,9 @@ export class Client extends query.Retriever<
         query.deriveWatch(relationships, (event) =>
           affectedRangeKeys(relOfEvent(event)),
         ),
-        query.deriveWatch(labels, (event) => rangesWithLabel(relationships, event.key)),
+        query.deriveWatch(labels, (event) =>
+          rangesWithLabel(ontologyClient.cache, event.key),
+        ),
       ],
     });
     const single = cache.queries<Key | Name, Range, Key, Range>({
@@ -443,7 +442,7 @@ export class Client extends query.Retriever<
         matches: (r, query) => this.requestMatches(r, query),
         watch: [
           watchRelationships<RetrieveRequest>(relationships),
-          watchLabels<RetrieveRequest>(labels, relationships),
+          watchLabels<RetrieveRequest>(labels, ontologyClient.cache),
         ],
       },
       compose: (r) => this.composeOne(r),
@@ -597,7 +596,7 @@ export class Client extends query.Retriever<
   private composeOne(cached: Range): Range {
     const id = ontologyID(cached.key);
     const labels = label.cachedLabelsOf(
-      this.cfg.ontology.cache.relationships,
+      this.cfg.ontology.cache,
       this.cfg.labels.store,
       id,
     );
@@ -642,6 +641,17 @@ export class Client extends query.Retriever<
     }
   }
 
+  /** Writes a fetch response as one batch per table, so each table flushes once. */
+  private writeThroughMany(ranges: Range[]): void {
+    this.store.batch(() =>
+      this.cfg.labels.store.batch(() =>
+        this.cfg.ontology.cache.relationships.batch(() =>
+          ranges.forEach((r) => this.writeThrough(r)),
+        ),
+      ),
+    );
+  }
+
   /**
    * Fetches the given keys with labels and parents included, writing them and
    * their relationships through. Powers the table's fetch primitive.
@@ -652,7 +662,7 @@ export class Client extends query.Retriever<
       keys,
       ignoreNotFoundError: true,
     });
-    ranges.forEach((r) => this.writeThrough(r));
+    this.writeThroughMany(ranges);
     return ranges;
   }
 
@@ -686,7 +696,7 @@ export class Client extends query.Retriever<
   private async fetchRequest(query: RetrieveRequest): Promise<Range[]> {
     if (isKeysOnly(query)) return await this.store.retrieve(query.keys);
     const ranges = await this.execRetrieve({ ...BASE_REQUEST, ...query });
-    ranges.forEach((r) => this.writeThrough(r));
+    this.writeThroughMany(ranges);
     return ranges;
   }
 
@@ -701,7 +711,7 @@ export class Client extends query.Retriever<
       return false;
     if (primitive.isNonZero(req.hasLabels)) {
       const labels = label.cachedLabelsOf(
-        this.cfg.ontology.cache.relationships,
+        this.cfg.ontology.cache,
         this.cfg.labels.store,
         ontologyID(r.key),
       );
