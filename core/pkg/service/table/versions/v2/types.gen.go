@@ -13,6 +13,7 @@ package v2
 
 import (
 	"encoding/json"
+	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v1"
@@ -77,8 +78,8 @@ type TextCellConfig struct {
 	Weight float64 `json:"weight" msgpack:"weight"`
 	// Align is the alignment of the cell text along the row axis.
 	Align FlexAlignment `json:"align" msgpack:"align"`
-	// BackgroundColor is the background color of the cell. When absent the cell renders
-	// with a transparent background.
+	// BackgroundColor is the background color of the cell. When absent the theme picks
+	// the fill; a fully transparent value paints nothing.
 	BackgroundColor *color.Color `json:"background_color,omitempty" msgpack:"background_color,omitempty"`
 }
 
@@ -103,6 +104,8 @@ func (t TextCellConfig) Validate() error {
 	v := validate.New("TextCellConfig")
 	v.Ternaryf("level", !t.Level.IsValid(), "invalid level: %v", t.Level)
 	v.Ternaryf("align", !t.Align.IsValid(), "invalid align: %v", t.Align)
+	validate.GreaterThanEq(v, "weight", t.Weight, 1)
+	validate.LessThanEq(v, "weight", t.Weight, 1000)
 	return v.Error()
 }
 
@@ -112,12 +115,14 @@ type ValueCellConfig struct {
 	Channel channel.Key `json:"channel" msgpack:"channel"`
 	// RollingAverage is the sample window for rolling-average smoothing.
 	RollingAverage int32 `json:"rolling_average" msgpack:"rolling_average"`
-	// Precision is the number of decimal places shown.
-	Precision float64 `json:"precision" msgpack:"precision"`
+	// Precision is the number of decimal places shown. When absent the formatter picks
+	// the precision; zero shows whole numbers.
+	Precision *int32 `json:"precision,omitempty" msgpack:"precision,omitempty"`
 	// Notation is the numeric notation used to format the value.
 	Notation notation.Notation `json:"notation" msgpack:"notation"`
-	// Redline is the bounds-to-gradient mapping applied to the background.
-	Redline Redline `json:"redline" msgpack:"redline"`
+	// Redline is the bounds-to-gradient mapping applied to the background. When absent
+	// the cell paints no redline.
+	Redline *Redline `json:"redline,omitempty" msgpack:"redline,omitempty"`
 	// Level is the typography level of the displayed value.
 	Level text.Level `json:"level" msgpack:"level"`
 	// Color is the color of the displayed text. When absent the value renders with a
@@ -140,14 +145,8 @@ func (va *ValueCellConfig) ApplyDefaults() {
 	if va.RollingAverage == 0 {
 		va.RollingAverage = 1
 	}
-	if va.Precision == 0 {
-		va.Precision = 2
-	}
 	if va.Notation == "" {
 		va.Notation = notation.NotationStandard
-	}
-	if va.Redline.Bounds.Upper == 0 {
-		va.Redline.Bounds.Upper = 1
 	}
 	if va.Level == "" {
 		va.Level = text.LevelH5
@@ -163,6 +162,8 @@ func (va ValueCellConfig) Validate() error {
 	v := validate.New("ValueCellConfig")
 	v.Ternaryf("notation", !va.Notation.IsValid(), "invalid notation: %v", va.Notation)
 	v.Ternaryf("level", !va.Level.IsValid(), "invalid level: %v", va.Level)
+	validate.GreaterThanEq(v, "rolling_average", va.RollingAverage, 1)
+	validate.GreaterThanEq(v, "staleness_timeout", va.StalenessTimeout, 1)
 	return v.Error()
 }
 
@@ -259,10 +260,49 @@ func (u CellConfig) Validate() error {
 }
 
 // Row is a single row in a table, with height and ordered cell keys.
-type Row = v1.Row
+type Row struct {
+	// Size is the height of the row in pixels.
+	Size float64 `json:"size" msgpack:"size"`
+	// Cells is the ordered list of cell keys in this row from left to right. Each key
+	// points at an entry in the table's cells map.
+	Cells []string `json:"cells,omitzero" msgpack:"cells,omitzero"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (r *Row) ApplyDefaults() {
+	if r.Size == 0 {
+		r.Size = 36
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r Row) Validate() error {
+	v := validate.New("Row")
+	validate.GreaterThanEq(v, "size", r.Size, 1)
+	return v.Error()
+}
 
 // Column is a single column in a table, with width.
-type Column = v1.Column
+type Column struct {
+	// Size is the width of the column in pixels.
+	Size float64 `json:"size" msgpack:"size"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (c *Column) ApplyDefaults() {
+	if c.Size == 0 {
+		c.Size = 72
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c Column) Validate() error {
+	v := validate.New("Column")
+	validate.GreaterThanEq(v, "size", c.Size, 1)
+	return v.Error()
+}
 
 // Table is a tabular data display component for viewing structured telemetry data.
 // Tables support multiple columns, channel data sources, and customizable formatting
@@ -284,6 +324,12 @@ type Table struct {
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (t *Table) ApplyDefaults() {
+	for i := range t.Rows {
+		t.Rows[i].ApplyDefaults()
+	}
+	for i := range t.Columns {
+		t.Columns[i].ApplyDefaults()
+	}
 	for key, value := range t.Cells {
 		value.ApplyDefaults()
 		t.Cells[key] = value
@@ -295,6 +341,12 @@ func (t *Table) ApplyDefaults() {
 func (t Table) Validate() error {
 	v := validate.New("Table")
 	validate.NotEmptyString(v, "name", t.Name)
+	for i := range t.Rows {
+		v.Exec(func() error { return validate.PathedError(t.Rows[i].Validate(), "rows", strconv.Itoa(i)) })
+	}
+	for i := range t.Columns {
+		v.Exec(func() error { return validate.PathedError(t.Columns[i].Validate(), "columns", strconv.Itoa(i)) })
+	}
 	for key, value := range t.Cells {
 		v.Exec(func() error { return validate.PathedError(value.Validate(), "cells", key) })
 	}

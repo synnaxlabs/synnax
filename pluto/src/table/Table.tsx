@@ -61,8 +61,10 @@ const NAV_KEYS = new Set<Triggers.Key>([
   "ArrowDown",
 ]);
 
-const BASE_ROW_SIZE = 36;
-const BASE_COL_SIZE = 72;
+// The base sizes come from the schema, which declares the default size of a row and a
+// column.
+const BASE_ROW_SIZE = table.rowZ.parse({}).size;
+const BASE_COL_SIZE = table.columnZ.parse({}).size;
 
 const newDefaultCell = (): table.Cell => ({
   key: id.create(),

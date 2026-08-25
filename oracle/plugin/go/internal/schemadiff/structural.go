@@ -10,6 +10,7 @@
 package schemadiff
 
 import (
+	"reflect"
 	"strings"
 
 	"github.com/synnaxlabs/oracle/plugin/domain"
@@ -18,10 +19,10 @@ import (
 
 // StructurallyEqual reports whether two declarations share a persisted shape, resolving
 // each side's references through its own table. It is schemadiff's persisted-shape
-// equality with two tightenings: enums must match member-for-member, and the declared
-// field list — omitted fields and their marshal values included — must agree.
-// Wire-compatible enum additions need no migration, but they are still a shape change
-// the history must record.
+// equality with three tightenings: enums must match member-for-member, the declared
+// field list — omitted fields and their marshal values included — must agree, and the
+// declared defaults must agree. Wire-compatible enum additions need no migration, but
+// they are still a shape change the history must record.
 func StructurallyEqual(
 	old, new resolution.Type, oldTable, newTable *resolution.Table,
 ) bool {
@@ -41,7 +42,7 @@ func StructurallyEqual(
 			}
 		}
 	}
-	if !marshalEqual(old, new) {
+	if !marshalEqual(old, new) || !defaultsEqual(old, new) {
 		return false
 	}
 	return SchemasEqual(old, new, oldTable, newTable)
@@ -79,6 +80,24 @@ func marshalEqual(old, new resolution.Type) bool {
 			bareTypeName(n.Type) != bareTypeName(f.Type) ||
 			domain.GetStringFromField(n, "go", "marshal") !=
 				domain.GetStringFromField(f, "go", "marshal") {
+			return false
+		}
+	}
+	return true
+}
+
+// defaultsEqual compares the two declarations' static field defaults. A default is part
+// of the declared shape: it fills on write, so a version that adds one persists bytes
+// its predecessor never wrote. Callers run it after marshalEqual, which rejects a
+// differing form or field count.
+func defaultsEqual(old, new resolution.Type) bool {
+	oldForm, oldOK := old.Form.(resolution.StructForm)
+	newForm, newOK := new.Form.(resolution.StructForm)
+	if !oldOK || !newOK || len(oldForm.Fields) != len(newForm.Fields) {
+		return true
+	}
+	for i, f := range oldForm.Fields {
+		if !reflect.DeepEqual(f.Default, newForm.Fields[i].Default) {
 			return false
 		}
 	}

@@ -19,12 +19,19 @@ import (
 // minCellDim is the floor enforced on row and column sizes.
 const minCellDim = 32
 
-// baseRowDim and baseColDim are the defaults used when an action bootstraps
-// the opposing axis on an empty table.
-const (
-	baseRowDim = 36
-	baseColDim = 72
-)
+// baseRow and baseCol are the entries an action gives the opposing axis when it
+// bootstraps that axis on an empty table. Both take their size from the schema.
+func baseRow() Row {
+	var r Row
+	r.ApplyDefaults()
+	return r
+}
+
+func baseCol() Column {
+	var c Column
+	c.ApplyDefaults()
+	return c
+}
 
 // deriveCellKey returns the key for the index-th replica of template. Both
 // reducers run the same scheme so optimistic client state agrees with the
@@ -75,7 +82,7 @@ func (p AddRowPayload) Handle(state Table) (Table, error) {
 		cells = expandTemplate(*p.CellTemplate, n)
 	}
 	if len(state.Columns) == 0 && len(cells) > 0 {
-		state.Columns = slices.Repeat([]Column{{Size: baseColDim}}, len(cells))
+		state.Columns = slices.Repeat([]Column{baseCol()}, len(cells))
 	}
 	keys := make([]string, len(cells))
 	for i, c := range cells {
@@ -120,7 +127,7 @@ func (p AddColPayload) Handle(state Table) (Table, error) {
 		cells = expandTemplate(*p.CellTemplate, n)
 	}
 	if len(state.Rows) == 0 && len(cells) > 0 {
-		state.Rows = slices.Repeat([]Row{{Size: baseRowDim}}, len(cells))
+		state.Rows = slices.Repeat([]Row{baseRow()}, len(cells))
 	}
 	idx := min(int(p.Index), len(state.Columns))
 	state.Columns = slices.Insert(

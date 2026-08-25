@@ -21,13 +21,13 @@ import {
   resizeRow,
   setCell,
 } from "@/table/actions.gen";
-import { type Cell } from "@/table/types.gen";
+import { type Cell, columnZ, rowZ } from "@/table/types.gen";
 
 const MIN_CELL_DIM = 32;
-// BASE_ROW_DIM and BASE_COL_DIM are the defaults used when an action
-// bootstraps the opposing axis on an empty table.
-const BASE_ROW_DIM = 36;
-const BASE_COL_DIM = 72;
+// baseRow and baseCol are the entries an action gives the opposing axis when it
+// bootstraps that axis on an empty table. Both take their size from the schema.
+const baseRow = () => rowZ.parse({});
+const baseCol = () => columnZ.parse({});
 
 // deriveCellKey returns the key for the index-th replica of template. Both reducers run
 // the same scheme so optimistic client state agrees with the server.
@@ -70,7 +70,7 @@ const handlers: Handlers = {
         )
       : payload.cells;
     if (state.columns.length === 0 && cells.length > 0)
-      for (let i = 0; i < cells.length; i++) state.columns.push({ size: BASE_COL_DIM });
+      for (let i = 0; i < cells.length; i++) state.columns.push(baseCol());
     const index = Math.min(payload.index, state.rows.length);
     const keys = cells.map((c) => c.key);
     state.rows.splice(index, 0, {
@@ -108,8 +108,7 @@ const handlers: Handlers = {
         )
       : payload.cells;
     if (state.rows.length === 0 && cells.length > 0)
-      for (let i = 0; i < cells.length; i++)
-        state.rows.push({ size: BASE_ROW_DIM, cells: [] });
+      for (let i = 0; i < cells.length; i++) state.rows.push(baseRow());
     const idx = Math.min(payload.index, state.columns.length);
     state.columns.splice(idx, 0, { size: Math.max(payload.size, MIN_CELL_DIM) });
     for (let i = 0; i < state.rows.length; i++) {

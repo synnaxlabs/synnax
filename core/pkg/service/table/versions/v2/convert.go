@@ -10,6 +10,7 @@
 package v2
 
 import (
+	"math"
 	"strings"
 	"unicode"
 
@@ -106,7 +107,7 @@ func extractLegacyArgs(cfg map[string]any) {
 			cfg["rolling_average"] = w
 		}
 		if p, ok := segProp(cfg["telem"], "stringifier", "precision"); ok {
-			cfg["precision"] = p
+			cfg["precision"] = truncPrecision(p)
 		}
 		if n, ok := segProp(cfg["telem"], "stringifier", "notation"); ok {
 			cfg["notation"] = n
@@ -124,6 +125,19 @@ func extractLegacyArgs(cfg map[string]any) {
 			}
 		}
 	}
+}
+
+// truncPrecision rounds a stored decimal-place count to a whole number. The pre-typed
+// schema held it as a float, so a fractional value would fail to decode into the typed
+// int and degrade the whole cell.
+func truncPrecision(v any) any {
+	switch t := v.(type) {
+	case float64:
+		return int64(math.Round(t))
+	case float32:
+		return int64(math.Round(float64(t)))
+	}
+	return v
 }
 
 // segProp reads a property from a named segment of a stored pipeline spec, reporting

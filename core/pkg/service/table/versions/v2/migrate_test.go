@@ -123,6 +123,34 @@ var _ = Describe("MigrateTable", func() {
 		Expect(fields).NotTo(HaveKey("telem"))
 	})
 
+	It("Should round a fractional legacy precision to a whole count", func(
+		ctx SpecContext,
+	) {
+		cfg, ok := migrateCell(ctx, "value", `{
+			"telem": {"props": {"segments": {
+				"stringifier": {"props": {"precision": 2.6}}
+			}}}
+		}`).Variant.(v2.ValueCellConfig)
+		Expect(*MustBeOk(cfg, ok).Precision).To(Equal(int32(3)))
+	})
+
+	It("Should leave precision absent when the legacy spec carries none", func(
+		ctx SpecContext,
+	) {
+		cfg, ok := migrateCell(ctx, "value", `{"units": "psi"}`).
+			Variant.(v2.ValueCellConfig)
+		Expect(MustBeOk(cfg, ok).Precision).To(BeNil())
+	})
+
+	It("Should keep a legacy precision of zero", func(ctx SpecContext) {
+		cfg, ok := migrateCell(ctx, "value", `{
+			"telem": {"props": {"segments": {
+				"stringifier": {"props": {"precision": 0}}
+			}}}
+		}`).Variant.(v2.ValueCellConfig)
+		Expect(*MustBeOk(cfg, ok).Precision).To(Equal(int32(0)))
+	})
+
 	It("Should leave the channel at the zero sentinel for a legacy zero channel", func(
 		ctx SpecContext,
 	) {

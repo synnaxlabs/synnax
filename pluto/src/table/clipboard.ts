@@ -20,8 +20,10 @@ import { findCellPosition, useDispatch } from "@/table/queries";
 // the clipboard without it.
 const MIME = "web application/synnax-table+json";
 const VERSION = 1;
-const BASE_ROW_SIZE = 36;
-const BASE_COL_SIZE = 72;
+// The base sizes come from the schema, which declares the default size of a row and a
+// column.
+const BASE_ROW_SIZE = table.rowZ.parse({}).size;
+const BASE_COL_SIZE = table.columnZ.parse({}).size;
 
 interface CellPayload {
   row: number;

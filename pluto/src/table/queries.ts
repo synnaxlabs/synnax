@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type project, type table } from "@synnaxlabs/client";
+import { type project, table } from "@synnaxlabs/client";
 import { compare, grid, id, uuid, verbs, type xy } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
@@ -16,8 +16,10 @@ import { useSyncedRef } from "@/hooks/ref";
 import { Cell } from "@/table/cells";
 import { Scope } from "@/table/scope";
 
-const BASE_ROW_SIZE = 36;
-const BASE_COL_SIZE = 72;
+// The base sizes come from the schema, which declares the default size of a row and a
+// column.
+const BASE_ROW_SIZE = table.rowZ.parse({}).size;
+const BASE_COL_SIZE = table.columnZ.parse({}).size;
 
 const RESOURCE_NAME = "table";
 

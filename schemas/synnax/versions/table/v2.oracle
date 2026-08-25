@@ -52,8 +52,8 @@ CellConfig union on variant {
         }
         background_color color.Color?  {
             @doc value """
-                is the background color of the cell. When absent the cell renders with a
-                transparent background.
+                is the background color of the cell. When absent the theme picks the
+                fill; a fully transparent value paints nothing.
             """
         }
 
@@ -66,14 +66,20 @@ CellConfig union on variant {
         rolling_average   int32 = 1 {
             @doc value "is the sample window for rolling-average smoothing."
         }
-        precision         float64 = 2 {
-            @doc value "is the number of decimal places shown."
+        precision         int32?            {
+            @doc value """
+                is the number of decimal places shown. When absent the formatter picks
+                the precision; zero shows whole numbers.
+            """
         }
         notation          notation.Notation = notation.NotationStandard {
             @doc value "is the numeric notation used to format the value."
         }
-        redline           Redline = { bounds = { lower = 0, upper = 1 }, gradient = [] } {
-            @doc value "is the bounds-to-gradient mapping applied to the background."
+        redline           Redline?          {
+            @doc value """
+                is the bounds-to-gradient mapping applied to the background. When absent
+                the cell paints no redline.
+            """
         }
         level             text.Level = text.LevelH5 {
             @doc value "is the typography level of the displayed value."
@@ -109,9 +115,29 @@ CellConfig union on variant {
     @go marshal
 }
 
-Row = v1.Row
+Row struct {
+    size  float64 = 36 {
+        @doc value "is the height of the row in pixels."
+    }
+    cells string[] {
+        @doc value """
+            is the ordered list of cell keys in this row from left to right. Each key
+            points at an entry in the table's cells map.
+        """
+    }
 
-Column = v1.Column
+    @doc value  "is a single row in a table, with height and ordered cell keys."
+    @go marshal
+}
+
+Column struct {
+    size float64 = 72 {
+        @doc value "is the width of the column in pixels."
+    }
+
+    @doc value  "is a single column in a table, with width."
+    @go marshal
+}
 
 Table struct {
     key     Key = create {

@@ -55,9 +55,9 @@ var _ = Describe("Codec", func() {
 			Entry("value variant", v2.CellConfig{Variant: v2.ValueCellConfig{
 				Channel:        channel.Key(2),
 				RollingAverage: 3,
-				Precision:      3.5,
+				Precision:      new(int32(4)),
 				Notation:       notation.Notation("standard"),
-				Redline: v2.Redline{
+				Redline: new(v2.Redline{
 					Bounds: spatial.Bounds{},
 					Gradient: []color.Stop{
 						{
@@ -67,7 +67,7 @@ var _ = Describe("Codec", func() {
 							Switched: new(bool(true)),
 						},
 					},
-				},
+				}),
 				Level: text.Level("h1"),
 				Color: new(color.Color{
 					R: 15,
@@ -84,6 +84,21 @@ var _ = Describe("Codec", func() {
 					A: 24.5,
 				}),
 			}}),
+		)
+	})
+	Describe("Column", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v2.Column) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v2.Column
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v2.Column{Size: 1.5}),
+			Entry("zero values", v2.Column{Size: 0}),
 		)
 	})
 	Describe("Redline", func() {
@@ -115,6 +130,22 @@ var _ = Describe("Codec", func() {
 			}),
 			Entry("zero values", v2.Redline{Bounds: spatial.Bounds{}, Gradient: nil}),
 			Entry("empty collections", v2.Redline{Bounds: spatial.Bounds{}, Gradient: []color.Stop{}}),
+		)
+	})
+	Describe("Row", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v2.Row) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v2.Row
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v2.Row{Size: 1.5, Cells: []string{"test_2"}}),
+			Entry("zero values", v2.Row{Size: 0, Cells: nil}),
+			Entry("empty collections", v2.Row{Size: 1.5, Cells: []string{}}),
 		)
 	})
 	Describe("Table", func() {
@@ -194,6 +225,23 @@ func BenchmarkEncodeDecodeCellConfig(b *testing.B) {
 	}
 }
 
+func BenchmarkEncodeDecodeColumn(b *testing.B) {
+	seed := v2.Column{Size: 1.5}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v2.Column
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodeRedline(b *testing.B) {
 	seed := v2.Redline{
 		Bounds: spatial.Bounds{},
@@ -219,6 +267,23 @@ func BenchmarkEncodeDecodeRedline(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v2.Redline
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeRow(b *testing.B) {
+	seed := v2.Row{Size: 1.5, Cells: []string{"test_2"}}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v2.Row
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -286,9 +351,9 @@ func FuzzDecodeCellConfig(f *testing.F) {
 		seed := v2.CellConfig{Variant: v2.ValueCellConfig{
 			Channel:        channel.Key(2),
 			RollingAverage: 3,
-			Precision:      3.5,
+			Precision:      new(int32(4)),
 			Notation:       notation.Notation("standard"),
-			Redline: v2.Redline{
+			Redline: new(v2.Redline{
 				Bounds: spatial.Bounds{},
 				Gradient: []color.Stop{
 					{
@@ -298,7 +363,7 @@ func FuzzDecodeCellConfig(f *testing.F) {
 						Switched: new(bool(true)),
 					},
 				},
-			},
+			}),
 			Level: text.Level("h1"),
 			Color: new(color.Color{
 				R: 15,
@@ -333,6 +398,45 @@ func FuzzDecodeCellConfig(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v2.CellConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeColumn(f *testing.F) {
+	{
+		seed := v2.Column{Size: 1.5}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v2.Column{Size: 0}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v2.Column
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v2.Column
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -395,6 +499,53 @@ func FuzzDecodeRedline(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v2.Redline
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeRow(f *testing.F) {
+	{
+		seed := v2.Row{Size: 1.5, Cells: []string{"test_2"}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v2.Row{Size: 0, Cells: nil}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v2.Row{Size: 1.5, Cells: []string{}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v2.Row
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v2.Row
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

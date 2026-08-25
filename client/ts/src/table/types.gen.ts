@@ -31,7 +31,7 @@ export interface Redline extends z.infer<typeof redlineZ> {}
 /** Row is a single row in a table, with height and ordered cell keys. */
 export const rowZ = z.object({
   /** size is the height of the row in pixels. */
-  size: z.number(),
+  size: z.number().min(1).default(36),
   /**
    * cells is the ordered list of cell keys in this row from left to right. Each key
    * points at an entry in the table's cells map.
@@ -46,7 +46,7 @@ export interface Row extends z.infer<typeof rowZ> {}
 /** Column is a single column in a table, with width. */
 export const columnZ = z.object({
   /** size is the width of the column in pixels. */
-  size: z.number(),
+  size: z.number().min(1).default(72),
 });
 export interface Column extends z.infer<typeof columnZ> {}
 
@@ -61,12 +61,12 @@ export const textCellConfigZ = z.object({
   /** level is the typography level of the cell text. */
   level: text.levelZ.default("h5"),
   /** weight is the font weight of the cell text. */
-  weight: z.number().default(400),
+  weight: z.number().min(1).max(1000).default(400),
   /** align is the alignment of the cell text along the row axis. */
   align: flexAlignmentZ.default("center"),
   /**
-   * backgroundColor is the background color of the cell. When absent the cell renders
-   * with a transparent background.
+   * backgroundColor is the background color of the cell. When absent the theme picks
+   * the fill; a fully transparent value paints nothing.
    */
   backgroundColor: color.colorZ.optional(),
 });
@@ -78,13 +78,19 @@ export const valueCellConfigZ = z.object({
   /** channel is the channel whose value the cell displays. */
   channel: channel.keyZ.default(0),
   /** rollingAverage is the sample window for rolling-average smoothing. */
-  rollingAverage: z.int32().default(1),
-  /** precision is the number of decimal places shown. */
-  precision: z.number().default(2),
+  rollingAverage: z.int32().min(1).default(1),
+  /**
+   * precision is the number of decimal places shown. When absent the formatter picks
+   * the precision; zero shows whole numbers.
+   */
+  precision: z.int32().optional(),
   /** notation is the numeric notation used to format the value. */
   notation: notation.notationZ.default("standard"),
-  /** redline is the bounds-to-gradient mapping applied to the background. */
-  redline: redlineZ.prefault({ bounds: { lower: 0, upper: 1 }, gradient: [] }),
+  /**
+   * redline is the bounds-to-gradient mapping applied to the background. When absent
+   * the cell paints no redline.
+   */
+  redline: redlineZ.optional(),
   /** level is the typography level of the displayed value. */
   level: text.levelZ.default("h5"),
   /**
@@ -98,7 +104,7 @@ export const valueCellConfigZ = z.object({
    * stalenessTimeout is the duration in seconds after which the value is considered
    * stale.
    */
-  stalenessTimeout: z.number().default(5),
+  stalenessTimeout: z.number().min(1).default(5),
   /**
    * stalenessColor is the color applied when the value is stale. When absent the value
    * renders with the theme warning color.

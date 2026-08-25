@@ -50,15 +50,17 @@ CellConfig union on variant {
             @doc value "is the typography level of the cell text."
         }
         weight           float64 = 400 {
-            @doc value "is the font weight of the cell text."
+            @doc value    "is the font weight of the cell text."
+            @validate max 1000
+            @validate min 1
         }
         align            FlexAlignment = FlexAlignmentCenter {
             @doc value "is the alignment of the cell text along the row axis."
         }
         background_color color.Color?  {
             @doc value """
-                is the background color of the cell. When absent the cell renders with a
-                transparent background.
+                is the background color of the cell. When absent the theme picks the
+                fill; a fully transparent value paints nothing.
             """
         }
 
@@ -69,16 +71,23 @@ CellConfig union on variant {
             @doc value "is the channel whose value the cell displays."
         }
         rolling_average   int32 = 1 {
-            @doc value "is the sample window for rolling-average smoothing."
+            @doc value    "is the sample window for rolling-average smoothing."
+            @validate min 1
         }
-        precision         float64 = 2 {
-            @doc value "is the number of decimal places shown."
+        precision         int32?            {
+            @doc value """
+                is the number of decimal places shown. When absent the formatter picks
+                the precision; zero shows whole numbers.
+            """
         }
         notation          notation.Notation = notation.NotationStandard {
             @doc value "is the numeric notation used to format the value."
         }
-        redline           Redline = { bounds = { lower = 0, upper = 1 }, gradient = [] } {
-            @doc value "is the bounds-to-gradient mapping applied to the background."
+        redline           Redline?          {
+            @doc value """
+                is the bounds-to-gradient mapping applied to the background. When absent
+                the cell paints no redline.
+            """
         }
         level             text.Level = text.LevelH5 {
             @doc value "is the typography level of the displayed value."
@@ -93,9 +102,10 @@ CellConfig union on variant {
             @doc value "is the unit suffix displayed after the value."
         }
         staleness_timeout float64 = 5 {
-            @doc value """
+            @doc value    """
                 is the duration in seconds after which the value is considered stale.
             """
+            @validate min 1
         }
         staleness_color   color.Color?      {
             @doc value """
@@ -130,8 +140,9 @@ Cell struct {
 }
 
 Row struct {
-    size  float64  {
-        @doc value "is the height of the row in pixels."
+    size  float64 = 36 {
+        @doc value    "is the height of the row in pixels."
+        @validate min 1
     }
     cells string[] {
         @doc value """
@@ -145,8 +156,9 @@ Row struct {
 }
 
 Column struct {
-    size float64 {
-        @doc value "is the width of the column in pixels."
+    size float64 = 72 {
+        @doc value    "is the width of the column in pixels."
+        @validate min 1
     }
 
     @doc value  "is a single column in a table, with width."
