@@ -1143,6 +1143,27 @@ export class Series<T extends TelemValue = TelemValue>
   }
 
   /**
+   * Copies the series into a buffer sized to exactly the samples it holds, so an
+   * allocated series stops holding the room it never used.
+   * @returns the copy, or this series when it has no spare capacity. The copy is a
+   * separate object, so a caller relying on reference identity or on an acquired GPU
+   * buffer must keep using the original.
+   */
+  compact(): Series {
+    if (this.writePos === FULL_BUFFER || this.writePos === this.capacity) return this;
+    return new Series({
+      data: this.data.slice(),
+      dataType: this.dataType,
+      timeRange: this.timeRange,
+      sampleOffset: this.sampleOffset,
+      glBufferUsage: this.gl.bufferUsage,
+      alignment: this.alignment,
+      alignmentMultiple: this.alignmentMultiple,
+      key: this.key,
+    });
+  }
+
+  /**
    * Creates a new series with a different alignment.
    * @returns A new series with the specified alignment.
    */

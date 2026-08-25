@@ -13,6 +13,7 @@ import {
   math,
   MultiSeries,
   Series,
+  Size,
   TimeRange,
   type TimeSpan,
   TimeStamp,
@@ -60,6 +61,26 @@ const VARIABLE_DT_MULTIPLIER = 40;
 const fits = (buffer: Series, series: Series): boolean =>
   series.byteLength.valueOf() <=
   buffer.byteCapacity.valueOf() - buffer.byteLength.valueOf();
+
+// Bounds on compacting a buffer that rotated early. Both have to trip: the fraction
+// spares a nearly full buffer, the floor one whose waste is not worth a copy.
+const COMPACT_MAX_FILL = 0.25;
+const COMPACT_MIN_WASTE = Size.kilobytes(64);
+
+/**
+ * @returns true when copying the buffer's samples into a right-sized series is worth
+ * the copy. A held buffer never qualifies: the holder keeps the original alive, so a
+ * copy would only add a second allocation, and it would break the object identity a
+ * consumer that both reads and streams deduplicates on.
+ */
+const shouldCompact = (buffer: Series): boolean => {
+  if (buffer.refCount > 0 || buffer.length === 0) return false;
+  const used = buffer.byteLength.valueOf();
+  const capacity = buffer.byteCapacity.valueOf();
+  return (
+    capacity - used > COMPACT_MIN_WASTE.valueOf() && used < capacity * COMPACT_MAX_FILL
+  );
+};
 
 /**
  * A cache for channel data that maintains a single, rolling Series as a buffer
@@ -198,9 +219,21 @@ export class Dynamic {
     const end = this.currDataEnd ?? this.now();
     this.curr.timeRange.end = end;
     this.currDataEnd = null;
-    res.flushed.push(this.curr);
+    res.flushed.push(this.compacted(this.curr, res));
     this.curr = null;
     return end;
+  }
+
+  /**
+   * @returns a right-sized copy of a buffer that rotated with most of its space
+   * unused, or the buffer itself. A rotated buffer holds its whole allocation until
+   * it is collected, which is wasteful when an oversized series ended it early.
+   */
+  private compacted(buffer: Series, res: WriteResponse): Series {
+    // A buffer allocated during this same write has not reached its subscribers yet,
+    // so its reference count cannot yet report who is about to hold it.
+    if (!shouldCompact(buffer) || res.allocated.series.includes(buffer)) return buffer;
+    return buffer.compact();
   }
 
   private _write(series: Series, res: WriteResponse): void {
