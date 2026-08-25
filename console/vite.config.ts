@@ -72,6 +72,36 @@ const stripSourcesContent = (): Plugin => ({
   },
 });
 
+// Pluto hard-codes its Monaco worker addresses as root-absolute "/pluto/assets/..."
+// paths and marks them @vite-ignore, so this build neither rewrites them nor emits the
+// files. Copying each referenced worker to the address it already names is what makes
+// it load, both in the desktop bundle and in the copy the Core serves.
+const plutoWorkers = (): Plugin => ({
+  name: "pluto-workers",
+  async writeBundle(options, bundle) {
+    const dir = options.dir;
+    if (dir == null) return;
+    const names = new Set<string>();
+    Object.values(bundle).forEach((chunk) => {
+      if (chunk.type !== "chunk") return;
+      for (const [, name] of chunk.code.matchAll(/\/pluto\/assets\/([\w.-]+)/g))
+        names.add(name);
+    });
+    const out = path.join(dir, "pluto", "assets");
+    await fs.mkdir(out, { recursive: true });
+    await Promise.all(
+      Array.from(names, async (name) => {
+        const from = path.resolve(repoRoot, "pluto/dist/assets", name);
+        try {
+          await fs.copyFile(from, path.join(out, name));
+        } catch (err) {
+          throw new Error(`missing ${from}. Run pnpm build:pluto.`, { cause: err });
+        }
+      }),
+    );
+  },
+});
+
 export default defineConfig({
   clearScreen: false,
   server: { port: 5173, strictPort: true },
@@ -91,7 +121,7 @@ export default defineConfig({
       : {},
   },
   envPrefix: ["VITE_", "TAURI_"],
-  plugins: [react(), workspaceSourcemaps(), stripSourcesContent()],
+  plugins: [react(), workspaceSourcemaps(), stripSourcesContent(), plutoWorkers()],
   build: {
     target: process.env.TAURI_PLATFORM === "windows" ? "chrome111" : "safari16.4",
     minify: !isDev,
