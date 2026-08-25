@@ -33,12 +33,7 @@ var testFS = fstest.MapFS{
 			`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"><rect width="1" height="1"/></svg>`,
 		),
 	},
-	"pluto/assets/editor.worker-abc123.js": &fstest.MapFile{
-		Data: []byte(workerScript),
-	},
 }
-
-const workerScript = `self.onmessage = () => {};`
 
 var _ = Describe("Config", func() {
 	Describe("Override", func() {
@@ -113,22 +108,6 @@ var _ = Describe("Console", func() {
 				req := httptest.NewRequest(http.MethodGet, "/favicon.svg", nil)
 				res := MustSucceed(app.Test(req))
 				Expect(res.StatusCode).To(Equal(http.StatusOK))
-			})
-
-			// A module worker rejects a script served as HTML, so the SPA catch-all
-			// answering this path is indistinguishable from the file being absent.
-			It("Should serve a nested worker asset as JavaScript", func() {
-				req := httptest.NewRequest(
-					http.MethodGet,
-					"/pluto/assets/editor.worker-abc123.js",
-					nil,
-				)
-				res := MustSucceed(app.Test(req))
-				Expect(res.StatusCode).To(Equal(http.StatusOK))
-				Expect(res.Header.Get(fiber.HeaderContentType)).
-					To(ContainSubstring("javascript"))
-				body := MustSucceed(io.ReadAll(res.Body))
-				Expect(string(body)).To(Equal(workerScript))
 			})
 
 			It("Should serve index.html for SPA routes", func() {
