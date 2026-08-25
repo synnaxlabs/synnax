@@ -318,19 +318,23 @@ TEST(IntervalTest, FiresRepeatedly) {
     EXPECT_EQ(output->size(), 1);
 }
 
-/// @brief Test that Interval sets the timestamp to elapsed time when firing.
+/// @brief Test that Interval stamps wall-clock time when firing.
 TEST(IntervalTest, SetsTimestampOnFire) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
     const auto inputs = ASSERT_NIL_P(IntervalInputs::create(setup.ir.nodes[0].inputs));
     Interval node(setup.make_node(), inputs.interval);
 
+    const auto before = x::telem::TimeStamp::now();
     auto ctx = make_context(x::telem::SECOND * 5);
     ASSERT_NIL(node.next(ctx));
+    const auto after = x::telem::TimeStamp::now();
 
     auto checker = setup.make_node();
     const auto &output_time = checker.output_time(0);
     EXPECT_EQ(output_time->size(), 1);
-    EXPECT_EQ(output_time->at<int64_t>(0), (x::telem::SECOND * 5).nanoseconds());
+    const auto ts = output_time->at<int64_t>(0);
+    EXPECT_GE(ts, before.nanoseconds());
+    EXPECT_LE(ts, after.nanoseconds());
 }
 
 /// @brief Test that Interval calls mark_changed when firing.
@@ -758,7 +762,7 @@ TEST(WaitTest, CallsMarkSelfChangedOnChannelInputToSurvive) {
     EXPECT_TRUE(changed_called);
 }
 
-/// @brief Test that Wait sets the timestamp to elapsed time when firing.
+/// @brief Test that Wait stamps wall-clock time when firing.
 TEST(WaitTest, SetsTimestampOnFire) {
     TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
     Wait node(setup.make_node());
@@ -766,13 +770,17 @@ TEST(WaitTest, SetsTimestampOnFire) {
     auto ctx1 = make_context(x::telem::SECOND * 2);
     node.next(ctx1);
 
+    const auto before = x::telem::TimeStamp::now();
     auto ctx2 = make_context(x::telem::SECOND * 3);
     node.next(ctx2);
+    const auto after = x::telem::TimeStamp::now();
 
     auto checker = setup.make_node();
     const auto &output_time = checker.output_time(0);
     EXPECT_EQ(output_time->size(), 1);
-    EXPECT_EQ(output_time->at<int64_t>(0), (x::telem::SECOND * 3).nanoseconds());
+    const auto ts = output_time->at<int64_t>(0);
+    EXPECT_GE(ts, before.nanoseconds());
+    EXPECT_LE(ts, after.nanoseconds());
 }
 
 /// @brief Test that Wait calls mark_changed when firing.

@@ -6218,7 +6218,7 @@ var _ = Describe("Sequence", func() {
 			advance(h, ctx, 0)
 			advance(h, ctx, 60*telem.Millisecond)
 			out, _ := h.Flush()
-			Expect(countOf(out, 303, "v=3")).To(Equal(1))
+			Expect(countOf(out, 303, "v=3")).To(Equal(2))
 			h.Ingest(301, telem.NewSeriesV[uint8](9))
 			advance(h, ctx, 65*telem.Millisecond)
 			advance(h, ctx, 115*telem.Millisecond)

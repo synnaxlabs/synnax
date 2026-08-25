@@ -209,6 +209,7 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		return &Interval{
 			State:     cfg.State,
 			lastFired: -period,
+			clock:     &h.clock,
 		}, nil
 
 	case waitSymbolName:
@@ -229,6 +230,7 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 			State:     cfg.State,
 			startTime: -1,
 			fired:     false,
+			clock:     &h.clock,
 		}, nil
 
 	case nowSymbolName:
@@ -354,6 +356,7 @@ func (g *spanGuard) reset() { g.reported = false }
 type Interval struct {
 	*node.State
 	lastFired telem.TimeSpan
+	clock     *telem.MonoClock
 	guard     spanGuard
 }
 
@@ -386,7 +389,7 @@ func (i *Interval) Next(ctx node.Context) {
 	output.Resize(1)
 	outputTime.Resize(1)
 	telem.SetValueAt[uint8](*output, 0, uint8(1))
-	telem.SetValueAt[telem.TimeStamp](*outputTime, 0, telem.TimeStamp(ctx.Elapsed))
+	telem.SetValueAt[telem.TimeStamp](*outputTime, 0, i.clock.Now())
 }
 
 // Reset resets the interval so it fires immediately on the next timer tick.
@@ -401,6 +404,7 @@ type Wait struct {
 	*node.State
 	startTime telem.TimeSpan
 	fired     bool
+	clock     *telem.MonoClock
 	guard     spanGuard
 }
 
@@ -435,7 +439,7 @@ func (w *Wait) Next(ctx node.Context) {
 	output.Resize(1)
 	outputTime.Resize(1)
 	telem.SetValueAt[uint8](*output, 0, uint8(1))
-	telem.SetValueAt[telem.TimeStamp](*outputTime, 0, telem.TimeStamp(ctx.Elapsed))
+	telem.SetValueAt[telem.TimeStamp](*outputTime, 0, w.clock.Now())
 	ctx.MarkChanged(0)
 }
 
