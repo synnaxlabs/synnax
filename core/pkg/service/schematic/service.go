@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
@@ -98,6 +99,7 @@ type Service struct {
 	closer io.MultiCloser
 	table  *gorp.Table[Key, Schematic]
 	state  *actions.State[Key, Action]
+	exec   *actions.Executor[Key, Action]
 }
 
 // OpenService instantiates a new schematic service using the provided configurations.
@@ -109,6 +111,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	s = &Service{cfg: cfg, state: actions.NewState[Key, Action]()}
+	s.exec = actions.NewExecutor(cfg.DB, s.state.Dispatcher())
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Schematic]{
@@ -163,13 +166,47 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 // acquired.
 func (s *Service) Close() error { return s.closer.Close() }
 
-// OnAction subscribes the given handler to the action stream emitted by
-// Writer.Dispatch. The handler runs synchronously inside Dispatch after the underlying
-// transaction commits. The returned Disconnect removes the handler.
+// OnAction subscribes the given handler to the action stream emitted by Dispatch. The
+// handler runs synchronously inside Dispatch after the underlying transaction commits.
+// The returned Disconnect removes the handler.
 func (s *Service) OnAction(
 	handler func(context.Context, actions.Scoped[Key, Action]),
 ) observe.Disconnect {
 	return s.state.OnAction(handler)
+}
+
+// Dispatch applies a sequence of actions atomically to the schematic with the given
+// key. Dispatches for the same schematic run one at a time, each in its own transaction
+// committed before the actions are notified, so two concurrent dispatches can never
+// overwrite each other's edits. dispatchKey is a client-generated identifier carried
+// verbatim onto the broadcast so the originating client can recognize its own echo.
+// Snapshots are immutable except for Rename: returns validate.ErrValidation if the
+// target is a snapshot and any action other than Rename is included.
+func (s *Service) Dispatch(
+	ctx context.Context,
+	key Key,
+	dispatchKey string,
+	acts []Action,
+) error {
+	return s.exec.Dispatch(ctx, key, dispatchKey, acts, func(tx gorp.Tx) error {
+		return s.table.NewUpdate().Where(gorp.MatchKeys[Key, Schematic](key)).
+			ChangeErr(func(_ gorp.Context, sch Schematic) (Schematic, error) {
+				if sch.Snapshot {
+					for _, a := range acts {
+						if a.Type != ActionTypeRename {
+							return sch, errors.Wrapf(
+								validate.ErrValidation,
+								"[Schematic] - cannot dispatch %s on snapshot %s:%s",
+								a.Type,
+								key,
+								sch.Name,
+							)
+						}
+					}
+				}
+				return Reduce(sch, acts...)
+			}).Exec(ctx, tx)
+	})
 }
 
 // NewWriter opens a new writer for creating, updating, and deleting schematics in

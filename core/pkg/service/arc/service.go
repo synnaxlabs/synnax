@@ -86,6 +86,11 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL] - Defaults to 128.
 	TextSweepThreshold int
+	// TaskSyncDebounce is the trailing delay between an edit and the rewrite of the
+	// Arc's task config, so a burst of edits produces one rewrite.
+	//
+	// [OPTIONAL] - Defaults to 500 milliseconds.
+	TaskSyncDebounce telem.TimeSpan
 	// Now returns the current cluster time. It gates the text sweeper's quiescence
 	// check and is injectable for testing.
 	//
@@ -118,6 +123,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 		c.TextSweepThreshold,
 		other.TextSweepThreshold,
 	)
+	c.TaskSyncDebounce = override.Numeric(c.TaskSyncDebounce, other.TaskSyncDebounce)
 	c.Now = override.Nil(c.Now, other.Now)
 	return c
 }
@@ -132,16 +138,19 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "status", c.Status)
 	validate.NotNil(v, "search", c.Search)
 	validate.NotNil(v, "imex", c.ImEx)
+	validate.Positive(v, "task_sync_debounce", c.TaskSyncDebounce)
 	return v.Error()
 }
 
 // Service is the primary service for retrieving and modifying arcs from Synnax.
 type Service struct {
-	table   *gorp.Table[Key, Arc]
-	closer  xio.MultiCloser
-	cfg     ServiceConfig
-	state   *actions.State[Key, Action]
-	sweeper textSweeper
+	table    *gorp.Table[Key, Arc]
+	closer   xio.MultiCloser
+	cfg      ServiceConfig
+	state    *actions.State[Key, Action]
+	exec     *actions.Executor[Key, Action]
+	sweeper  textSweeper
+	taskSync *taskSync
 }
 
 // NewRoot builds the production analysis root: the STL, status, and ranges modules
@@ -184,7 +193,10 @@ func (s *Service) NewLSP() (*lsp.Server, error) {
 	})
 }
 
-func (s *Service) Close() error { return s.closer.Close() }
+func (s *Service) Close() error {
+	s.taskSync.close()
+	return s.closer.Close()
+}
 
 // AllowDashedNames reports whether Arc may treat '-' as an identifier character, which
 // is permitted exactly when channel-name validation is disabled.
@@ -223,6 +235,7 @@ func OpenService(
 	cfg, err := config.New(ServiceConfig{
 		TextSweepQuiescence: 5 * telem.Second,
 		TextSweepThreshold:  128,
+		TaskSyncDebounce:    500 * telem.Millisecond,
 		Now:                 telem.Now,
 	}, configs...)
 	if err != nil {
@@ -237,6 +250,8 @@ func OpenService(
 			cfg.TextSweepThreshold,
 		),
 	}
+	s.exec = actions.NewExecutor(cfg.DB, s.state.Dispatcher())
+	s.taskSync = newTaskSync(cfg.TaskSyncDebounce.Duration(), s.resyncTask)
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Arc]{
@@ -276,9 +291,9 @@ func OpenService(
 	return s, nil
 }
 
-// OnAction subscribes the given handler to the action stream emitted by
-// Writer.Dispatch. The handler runs synchronously inside Dispatch after the
-// underlying transaction commits. The returned Disconnect removes the handler.
+// OnAction subscribes the given handler to the action stream emitted by Dispatch. The
+// handler runs synchronously inside Dispatch after the underlying transaction commits.
+// The returned Disconnect removes the handler.
 func (s *Service) OnAction(
 	handler func(context.Context, actions.Scoped[Key, Action]),
 ) observe.Disconnect {
@@ -298,6 +313,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		table:      s.table,
 		dispatcher: s.state.Dispatcher(),
 		sweeper:    s.sweeper,
+		taskSync:   s.taskSync,
 	}
 }
 

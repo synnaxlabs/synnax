@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/x/crdt"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -45,6 +44,7 @@ type Writer struct {
 	table      *gorp.Table[Key, Arc]
 	dispatcher actions.Dispatcher[Key, Action]
 	sweeper    textSweeper
+	taskSync   *taskSync
 }
 
 // Create creates the given Arc. If the Arc does not have a key,
@@ -98,62 +98,6 @@ func (w Writer) CreateMany(ctx context.Context, arcs *[]Arc) error {
 	return nil
 }
 
-// Dispatch applies a sequence of actions atomically to the Arc with the given key.
-// After a successful update the actions are notified to the service-level observer so
-// subscribers (cluster signals) can broadcast them. dispatchKey is a client-generated
-// identifier carried verbatim onto the broadcast so the originating client can match
-// its own echo against the set of outstanding local replays and skip a redundant reduce
-// when no foreign action interleaved.
-//
-// When the Arc's text has gone quiet, Dispatch also reclaims the space held by
-// tombstoned characters: it forgets the characters that were already dead before this
-// dispatch and broadcasts that sweep as a separate frame with an empty dispatchKey, so
-// every editor (including the originator, which skips its own echo) applies it.
-func (w Writer) Dispatch(
-	ctx context.Context,
-	key Key,
-	dispatchKey string,
-	actions []Action,
-) error {
-	var (
-		sweep   []Action
-		updated Arc
-	)
-	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Arc](key)).
-		ChangeErr(func(_ gorp.Context, a Arc) (Arc, error) {
-			sweep = nil
-			var dead []crdt.ID
-			if w.sweeper.quiet(key) {
-				dead = w.sweeper.forgettable(a.Text.Doc)
-			}
-			a, err := Reduce(a, actions...)
-			if err != nil {
-				return a, err
-			}
-			if len(dead) > 0 {
-				sweep = []Action{NewForgetCharsAction(ForgetCharsPayload{IDs: dead})}
-				if a, err = Reduce(a, sweep...); err != nil {
-					return a, err
-				}
-			}
-			if containsTextEdit(actions) {
-				w.sweeper.recordEdit(key)
-			}
-			updated = a
-			return a, nil
-		}).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	if err := w.syncTask(ctx, updated); err != nil {
-		return err
-	}
-	w.dispatcher.Notify(ctx, key, dispatchKey, actions)
-	if len(sweep) > 0 {
-		w.dispatcher.Notify(ctx, key, "", sweep)
-	}
-	return nil
-}
-
 // Delete deletes the Arcs with the given keys. If the Arc has child tasks, those tasks
 // will also be deleted.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
@@ -172,6 +116,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 			return err
 		}
 		w.sweeper.forget(key)
+		w.taskSync.forget(key)
 	}
 	return nil
 }
