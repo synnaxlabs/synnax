@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type binary, errors, url, zod } from "@synnaxlabs/x";
+import { type binary, errors, sync, TimeSpan, url, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { EOF, StreamClosed } from "@/errors";
+import { EOF, StreamClosed, Unreachable } from "@/errors";
 import { CONTENT_TYPE_HEADER_KEY, FREIGHTER_METADATA_PREFIX } from "@/http";
 import { type Context, MiddlewareCollector } from "@/middleware";
 import { type Stream, type StreamClient } from "@/stream";
@@ -146,28 +146,49 @@ class WebSocketStream<
 const CLOSE_NORMAL = 1000;
 
 /**
+ * Generous by design: a handshake this slow is a dead connection, not a busy Core, so
+ * the deadline never fires on a healthy dial.
+ */
+const DEFAULT_HANDSHAKE_TIMEOUT = TimeSpan.seconds(30);
+
+/**
  * WebSocketClient is an implementation of StreamClient that is backed by websockets.
  */
 export class WebSocketClient extends MiddlewareCollector implements StreamClient {
   baseUrl: url.URL;
   encoder: binary.Codec;
   secure: boolean;
+  handshakeTimeout: TimeSpan;
 
   static readonly MESSAGE_TYPE = "arraybuffer";
 
   /**
    * @param encoder - The encoder to use for encoding messages and decoding responses.
    * @param baseEndpoint - A base url to use as a prefix for all requests.
+   * @param handshakeTimeout - Deadline for the socket to open and acknowledge. A
+   * connection that stops answering mid-handshake produces no error event, so without
+   * a deadline the dial never settles. A non-positive span disables the deadline.
    */
-  constructor(baseEndpoint: url.URL, encoder: binary.Codec, secure = false) {
+  constructor(
+    baseEndpoint: url.URL,
+    encoder: binary.Codec,
+    secure = false,
+    handshakeTimeout: TimeSpan = DEFAULT_HANDSHAKE_TIMEOUT,
+  ) {
     super();
     this.secure = secure;
     this.baseUrl = baseEndpoint.replace({ protocol: secure ? "wss" : "ws" });
     this.encoder = encoder;
+    this.handshakeTimeout = handshakeTimeout;
   }
 
   withCodec(codec: binary.Codec): WebSocketClient {
-    const c = new WebSocketClient(this.baseUrl, codec, this.secure);
+    const c = new WebSocketClient(
+      this.baseUrl,
+      codec,
+      this.secure,
+      this.handshakeTimeout,
+    );
     c.use(...this.middleware);
     return c;
   }
@@ -209,7 +230,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
     reqSchema: RQ,
     resSchema: RS,
   ): Promise<WebSocketStream<RQ, RS>> {
-    return await new Promise((resolve, reject) => {
+    const opened = new Promise<WebSocketStream<RQ, RS>>((resolve, reject) => {
       ws.onopen = () => {
         const oWs = new WebSocketStream<RQ, RS>(
           ws,
@@ -228,5 +249,24 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
         reject(new Error(ev_.message ?? "websocket error", { cause: ev_.error ?? ev }));
       };
     });
+    const endpoint = this.baseUrl.child(target);
+    const { handshakeTimeout } = this;
+    const span = handshakeTimeout.toString();
+    try {
+      return await sync.withTimeout(
+        opened,
+        handshakeTimeout,
+        () =>
+          new Unreachable({
+            url: endpoint,
+            message: `websocket handshake did not complete within ${span}`,
+          }),
+      );
+    } catch (err) {
+      // A failed dial leaves the socket live: it may still connect, with nobody
+      // holding it and its messages queueing behind a stream no caller received.
+      ws.close();
+      throw errors.fromUnknown(err);
+    }
   }
 }
