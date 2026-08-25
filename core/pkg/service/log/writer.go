@@ -94,28 +94,6 @@ func (w Writer) CreateMany(
 	return nil
 }
 
-// Dispatch applies a sequence of actions atomically to the log with the given key.
-// After a successful update the actions are notified to the service-level observer so
-// subscribers (cluster signals) can broadcast them. dispatchKey is a client-generated
-// identifier carried verbatim onto the broadcast so the originating client can match
-// its own echo against the set of outstanding local replays and skip a redundant reduce
-// when no foreign action interleaved.
-func (w Writer) Dispatch(
-	ctx context.Context,
-	key Key,
-	dispatchKey string,
-	actions []Action,
-) error {
-	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Log](key)).
-		ChangeErr(func(_ gorp.Context, l Log) (Log, error) {
-			return Reduce(l, actions...)
-		}).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	w.dispatcher.Notify(ctx, key, dispatchKey, actions)
-	return nil
-}
-
 // Delete deletes the logs with the given keys.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	if err := w.
