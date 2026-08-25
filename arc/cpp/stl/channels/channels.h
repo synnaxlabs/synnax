@@ -179,14 +179,13 @@ public:
         if (!this->state.refresh_inputs()) return x::errors::NIL;
         const auto &data = this->state.input(this->input_idx);
         if (data->empty()) return x::errors::NIL;
-        const auto start = this->clock.now();
-        const auto time = x::mem::local_shared(
-            ::x::telem::Series::linspace(
-                start,
-                start + 100 * ::x::telem::MICROSECOND,
-                data->size()
-            )
-        );
+        auto time = this->state.input_time(this->input_idx);
+        if (time.get() == nullptr || time->size() != data->size()) {
+            auto synth = ::x::telem::Series(::x::telem::TIMESTAMP_T, data->size());
+            for (size_t i = 0; i < data->size(); ++i)
+                synth.write(this->clock.now());
+            time = x::mem::local_shared(std::move(synth));
+        }
         this->state.write_series(
             bound_key(this->state, this->channel_idx, this->key),
             data,

@@ -254,6 +254,38 @@ var _ = Describe("Time", func() {
 			})
 			Expect(changedOutputs).To(HaveLen(1))
 		})
+		It("Should stamp wall-clock time in the output time", func(ctx SpecContext) {
+			cfg := node.Config{
+				Node: ir.Node{
+					Type: "interval",
+					Inputs: types.Params{
+						{Name: "period", Type: types.TimeSpan(), Value: telem.Second},
+					},
+				},
+				State: s.Node("interval_1"),
+			}
+			n := MustSucceed(factory.Create(ctx, cfg))
+			intervalNode := s.Node("interval_1")
+			*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
+			*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
+
+			before := telem.Now()
+			n.Next(node.Context{
+				Context:         ctx,
+				Elapsed:         5 * telem.Second,
+				Reason:          node.ReasonTimerTick,
+				MarkChanged:     func(int) {},
+				MarkSelfChanged: func() {},
+				SetDeadline:     func(_ telem.TimeSpan) {},
+			})
+			after := telem.Now()
+
+			outputTime := intervalNode.OutputTime(0)
+			Expect(outputTime.Len()).To(Equal(int64(1)))
+			ts := telem.ValueAt[telem.TimeStamp](*outputTime, 0)
+			Expect(ts).To(BeNumerically(">=", before))
+			Expect(ts).To(BeNumerically("<=", after))
+		})
 		It("Should update timing base", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node: ir.Node{
@@ -529,6 +561,46 @@ var _ = Describe("Time", func() {
 			})
 			Expect(changedOutputs).To(HaveLen(1))
 			Expect(changedOutputs[0]).To(Equal(0))
+		})
+		It("Should stamp wall-clock time in the output time", func(ctx SpecContext) {
+			cfg := node.Config{
+				Node: ir.Node{
+					Type: "wait",
+					Inputs: types.Params{
+						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
+					},
+				},
+				State: s.Node("wait_1"),
+			}
+			n := MustSucceed(factory.Create(ctx, cfg))
+			waitNode := s.Node("wait_1")
+			*waitNode.Output(0) = telem.NewSeriesV[uint8]()
+			*waitNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
+
+			n.Next(node.Context{
+				Context:         ctx,
+				Elapsed:         2 * telem.Second,
+				Reason:          node.ReasonTimerTick,
+				MarkChanged:     func(int) {},
+				MarkSelfChanged: func() {},
+				SetDeadline:     func(_ telem.TimeSpan) {},
+			})
+			before := telem.Now()
+			n.Next(node.Context{
+				Context:         ctx,
+				Elapsed:         3 * telem.Second,
+				Reason:          node.ReasonTimerTick,
+				MarkChanged:     func(int) {},
+				MarkSelfChanged: func() {},
+				SetDeadline:     func(_ telem.TimeSpan) {},
+			})
+			after := telem.Now()
+
+			outputTime := waitNode.OutputTime(0)
+			Expect(outputTime.Len()).To(Equal(int64(1)))
+			ts := telem.ValueAt[telem.TimeStamp](*outputTime, 0)
+			Expect(ts).To(BeNumerically(">=", before))
+			Expect(ts).To(BeNumerically("<=", after))
 		})
 		It("Should only fire once", func(ctx SpecContext) {
 			cfg := node.Config{

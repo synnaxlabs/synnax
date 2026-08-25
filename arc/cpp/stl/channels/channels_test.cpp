@@ -590,6 +590,9 @@ TEST(WriteTest, NextWritesDataWhenInputAvailable) {
     ASSERT_TRUE(out.contains(100));
     EXPECT_FLOAT_EQ(out.at<float>(100, 0), 7.7f);
     EXPECT_FLOAT_EQ(out.at<float>(100, 1), 8.8f);
+    ASSERT_TRUE(out.contains(101));
+    EXPECT_EQ(out.at<int64_t>(101, 0), 500);
+    EXPECT_EQ(out.at<int64_t>(101, 1), 501);
 }
 
 /// @brief reset() re-arms inputs so the sink re-runs on stage re-entry.

@@ -81,6 +81,7 @@ struct IntervalInputs {
 class Interval : public runtime::node::Node {
     runtime::state::Node state;
     x::telem::TimeSpan last_fired;
+    x::telem::MonoClock clock;
 
 public:
     explicit Interval(runtime::state::Node &&state, const x::telem::TimeSpan period):
@@ -106,7 +107,7 @@ public:
         o->resize(1);
         o_time->resize(1);
         o->set(0, static_cast<std::uint8_t>(1));
-        o_time->set(0, ctx.elapsed.nanoseconds());
+        o_time->set(0, this->clock.now());
         ctx.mark_changed(0);
         return x::errors::NIL;
     }
@@ -148,6 +149,7 @@ class Wait : public runtime::node::Node {
     runtime::state::Node state;
     x::telem::TimeSpan start_time = x::telem::TimeSpan(-1);
     bool fired = false;
+    x::telem::MonoClock clock;
 
 public:
     explicit Wait(runtime::state::Node &&state): state(std::move(state)) {}
@@ -171,7 +173,7 @@ public:
         o->resize(1);
         o_time->resize(1);
         o->set(0, static_cast<std::uint8_t>(1));
-        o_time->set(0, ctx.elapsed.nanoseconds());
+        o_time->set(0, this->clock.now());
         ctx.mark_changed(0);
         return x::errors::NIL;
     }
