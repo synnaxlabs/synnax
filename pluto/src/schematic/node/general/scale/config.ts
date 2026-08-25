@@ -30,9 +30,8 @@ export const configZ = Label.labeledConfigZ.extend({
 export type Config = z.infer<typeof configZ>;
 
 /**
- * The axis the bar fills along. Rotation writes only "top" or "right", so any other
- * orientation comes from a config written before the bar could rotate, whose bar was
- * vertical.
+ * The axis the bar fills along. Rotation writes "top" or "right"; every other
+ * orientation, including the "left" that older configs carry, is vertical.
  */
 export const axis = (orientation?: location.Outer): direction.Direction =>
   orientation === "right" ? "x" : "y";

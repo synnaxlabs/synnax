@@ -71,6 +71,8 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 	if err != nil {
 		return Schematic{}, err
 	}
+	// An envelope carries the same stale scale geometry the storage migration rewrites.
+	v8.NormalizeScales(sch)
 	// Importing always materializes a new resource, so any key on the wire is dropped
 	// and the importer mints a fresh one.
 	sch.Key = uuid.Nil
