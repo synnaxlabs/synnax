@@ -1411,6 +1411,35 @@ var _ = Describe("Channel", func() {
 					fr.Get(101).Series[0],
 				).To(telem.MatchSeries(telem.NewSeriesSecondsTSV(500, 501)))
 			})
+			It("Should report an error and skip the write when the time length does not match", func(ctx SpecContext) {
+				sink := MustSucceed(factory.Create(ctx, rnode.Config{
+					Node: ir.Node{
+						Type: "write",
+						Inputs: types.Params{
+							{Name: "channel", Type: types.U32(), Value: uint32(100)},
+						},
+					},
+					State: progState.Node("sink"),
+				}))
+				upstream := progState.Node("upstream")
+				*upstream.Output(0) = telem.NewSeriesV[float32](7.7, 8.8)
+				*upstream.OutputTime(0) = telem.NewSeriesSecondsTSV(500)
+				changed := false
+				var reported error
+				sink.Next(rnode.Context{
+					Context:     ctx,
+					MarkChanged: func(int) { changed = true },
+					ReportError: func(err error) { reported = err },
+				})
+				Expect(changed).To(BeFalse())
+				Expect(reported).To(MatchError(ContainSubstring(
+					"write to channel 100: sample count 2 does not match timestamp count 1",
+				)))
+				fr, flushed := channelState.Flush(telem.Frame[uint32]{})
+				Expect(flushed).To(BeFalse())
+				Expect(fr.Get(100).Series).To(BeEmpty())
+				Expect(fr.Get(101).Series).To(BeEmpty())
+			})
 			It("Should respect RefreshInputs guard", func(ctx SpecContext) {
 				sink := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{

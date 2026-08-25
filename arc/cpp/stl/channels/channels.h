@@ -161,7 +161,6 @@ class Write : public runtime::node::Node {
     /// @brief channel_idx is the channel ref input's index; NO_CHANNEL when not
     /// alias-bound.
     size_t channel_idx;
-    ::x::telem::MonoClock clock;
 
 public:
     Write(
@@ -179,18 +178,21 @@ public:
         if (!this->state.refresh_inputs()) return x::errors::NIL;
         const auto &data = this->state.input(this->input_idx);
         if (data->empty()) return x::errors::NIL;
-        auto time = this->state.input_time(this->input_idx);
-        if (time.get() == nullptr || time->size() != data->size()) {
-            auto synth = ::x::telem::Series(::x::telem::TIMESTAMP_T, data->size());
-            for (size_t i = 0; i < data->size(); ++i)
-                synth.write(this->clock.now());
-            time = x::mem::local_shared(std::move(synth));
+        const auto k = bound_key(this->state, this->channel_idx, this->key);
+        const auto &time = this->state.input_time(this->input_idx);
+        // A length disagreement is an upstream aligner bug. Refuse the write
+        // instead of persisting a corrupt index.
+        if (time->size() != data->size()) {
+            ctx.report_error(
+                x::errors::Error(
+                    "write to channel " + std::to_string(k) + ": sample count " +
+                    std::to_string(data->size()) + " does not match timestamp count " +
+                    std::to_string(time->size())
+                )
+            );
+            return x::errors::NIL;
         }
-        this->state.write_series(
-            bound_key(this->state, this->channel_idx, this->key),
-            data,
-            time
-        );
+        this->state.write_series(k, data, time);
         auto &out = this->state.output(0);
         out->resize(1);
         out->set(0, static_cast<uint8_t>(1));
