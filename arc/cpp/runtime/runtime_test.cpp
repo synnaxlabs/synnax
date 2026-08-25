@@ -38,6 +38,7 @@ std::shared_ptr<Runtime> create_test_runtime(
         nullptr,
         nullptr,
         nullptr,
+        std::make_shared<stl::time::Module>(),
         std::vector<arc::types::ChannelKey>{},
         std::vector<arc::types::ChannelKey>{},
         std::move(error_handler)
@@ -76,6 +77,7 @@ create_lifecycle_runtime(std::unique_ptr<testutil::MockLoop> loop) {
         state,
         std::move(scheduler),
         std::move(loop),
+        std::make_shared<stl::time::Module>(),
         std::vector<arc::types::ChannelKey>{},
         std::vector<arc::types::ChannelKey>{},
         arc::runtime::errors::noop_handler
@@ -320,6 +322,7 @@ TEST(RuntimeLifecycleTest, LoopStartFailureCallsErrorHandler) {
         state,
         std::move(scheduler),
         std::move(mock),
+        std::make_shared<stl::time::Module>(),
         std::vector<arc::types::ChannelKey>{},
         std::vector<arc::types::ChannelKey>{},
         [&](const x::errors::Error &err) {
@@ -440,6 +443,7 @@ struct DeadlineRuntimeFixture {
             state,
             std::move(scheduler),
             std::move(mock_loop),
+            std::make_shared<stl::time::Module>(),
             std::vector<arc::types::ChannelKey>{},
             std::vector<arc::types::ChannelKey>{},
             arc::runtime::errors::noop_handler
