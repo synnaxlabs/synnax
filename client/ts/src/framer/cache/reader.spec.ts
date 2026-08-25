@@ -473,7 +473,7 @@ describe("read spanning multiple fetches", () => {
   const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(8));
   const cached = new TimeRange(TimeSpan.seconds(3), TimeSpan.seconds(5));
 
-  const seedMiddle = (cache: Cache): void =>
+  const createMiddleEntry = (cache: Cache): void =>
     cache.get(1).writeStatic(
       new MultiSeries([
         new Series({
@@ -488,7 +488,7 @@ describe("read spanning multiple fetches", () => {
     const cache = new Cache();
     const remoteReadF = vi.fn();
     const reader = new Reader({ cache, readRemote: basicRemoteReadFunc(remoteReadF) });
-    seedMiddle(cache);
+    createMiddleEntry(cache);
     await reader.read(tr, 1);
     expect(remoteReadF).toHaveBeenCalledTimes(2);
     expect(remoteReadF).toHaveBeenCalledWith(
@@ -520,7 +520,7 @@ describe("read spanning multiple fetches", () => {
       );
     };
     const reader = new Reader({ cache, readRemote });
-    seedMiddle(cache);
+    createMiddleEntry(cache);
     await expect(reader.read(tr, 1)).rejects.toThrow("read exploded");
     cache.close();
   });
