@@ -1317,6 +1317,18 @@ describe("Table", () => {
       expect(results).toEqual([item("a", "a-fresh")]);
     });
 
+    it("should tombstone a refreshed key the fetch omits", async () => {
+      const fetch = vi.fn(async (keys: string[]) =>
+        keys.filter((k) => k !== "gone").map((k) => item(k, `${k}-fresh`)),
+      );
+      const table = fetchTable(fetch);
+      table.set([item("a", "stale"), item("gone", "stale")]);
+      const results = await table.retrieve(["a", "gone"], { refresh: true });
+      expect(results).toEqual([item("a", "a-fresh")]);
+      expect(table.get("gone")).toBeUndefined();
+      expect(table.getTombstone("gone")).toBeDefined();
+    });
+
     it("should not clobber existing entries under if-absent hydration", async () => {
       const fetch = async (keys: string[]) => keys.map((k) => item(k, `${k}-fetched`));
       const table = fetchTable(fetch, "if-absent");

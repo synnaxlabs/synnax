@@ -327,9 +327,10 @@ export class Table<
   /**
    * Resolves the given keys to records: serves cached entries and fetches the misses
    * through the table's fetch, hydrating results under the declared mode. With refresh,
-   * every key is fetched regardless of presence. Returns the table's entries for the
-   * found keys in input order, deduplicated; keys the cluster no longer has are
-   * omitted. Tables without a fetch serve cached entries only.
+   * every key is fetched regardless of presence and cached entries the fetch omits are
+   * tombstoned. Returns the table's entries for the found keys in input order,
+   * deduplicated; keys the cluster no longer has are omitted. Tables without a fetch
+   * serve cached entries only.
    */
   async retrieve(keys: Key[], opts: { refresh?: boolean } = {}): Promise<Value[]> {
     if (this.fetchBatcher != null) {
@@ -338,9 +339,19 @@ export class Table<
       if (misses.length > 0) {
         const gen = this.gen;
         const fetched = await this.fetchBatcher.enqueue(misses);
-        if (gen === this.gen && fetched.length > 0)
-          if (opts.refresh === true) this.set(fetched);
-          else this.ingest(fetched);
+        if (gen === this.gen)
+          if (opts.refresh === true) {
+            // A refresh is authoritative for its keys: cached entries the
+            // fetch omitted vanished from the cluster and are tombstoned.
+            const present = new Set<Key>(fetched.map(({ key }) => key));
+            const vanished = misses.filter(
+              (key) => !present.has(key) && this.entries.has(key),
+            );
+            this.batch(() => {
+              if (vanished.length > 0) this.delete(vanished);
+              if (fetched.length > 0) this.set(fetched);
+            });
+          } else if (fetched.length > 0) this.ingest(fetched);
       }
     }
     const seen = new Set<Key>();
