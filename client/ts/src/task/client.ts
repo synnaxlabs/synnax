@@ -91,6 +91,12 @@ const COMMAND_DEADLINE = TimeSpan.seconds(10);
 
 const STATUS_NAME = "Task Status";
 
+/**
+ * The task status schema without a details-data schema. Hoisted because statusZ()
+ * builds a fresh schema per call, which costs far more than the parse itself.
+ */
+export const defaultStatusZ = statusZ();
+
 const retrieveSnapshottedTo = async (taskKey: Key, ontologyClient: ontology.Client) => {
   const parents = await ontologyClient.parents.retrieve({ ids: ontologyID(taskKey) });
   if (parents.length === 0) return null;
@@ -398,8 +404,6 @@ export interface ClientConfig {
   ranges: ranger.Client;
   cache: query.Cache;
   statusStore: query.Table<status.Key, status.Status>;
-  /** Statuses indexed by the task their details reference. */
-  statusesByTask: query.LookupIndex<status.Key, status.Status>;
 }
 
 /**
@@ -417,10 +421,14 @@ export class Client extends query.Retriever<
   /** The task record table; injected into sibling clients at wiring. */
   readonly store: query.Table<Key, Omit<Task, "status">>;
   private readonly cfg: ClientConfig;
+  private readonly statusesByTask: query.LookupIndex<status.Key, status.Status>;
   private readonly commandDeadlines = new Map<Key, ReturnType<typeof setTimeout>>();
 
   constructor(cfg: ClientConfig) {
     const { cache, statusStore } = cfg;
+    const statusesByTask = statusStore.index(
+      new query.LookupIndex<status.Key, status.Status>(statusTaskKey),
+    );
     const store = cache.createTable<Key, Omit<Task, "status">>({
       name: "tasks",
       equal: (a, b) => deep.equal(a.payload, b.payload),
@@ -460,7 +468,9 @@ export class Client extends query.Retriever<
           commands.forEach((changed) => {
             if (!LOADING_COMMANDS.includes(changed.type)) return;
             const key = statusKey(changed.task);
-            if (statusStore.get(key) == null) return;
+            // Commands reach every client, so one for a task this client neither
+            // tracks nor holds a status for is dropped.
+            if (store.get(changed.task) == null && statusStore.get(key) == null) return;
             const optimistic = this.optimisticStatus(changed);
             statusStore.set(key, optimistic);
             if (optimistic.variant === "loading")
@@ -473,7 +483,7 @@ export class Client extends query.Retriever<
       source: store,
       compose: (record) => this.compose(record),
       equal: (a, b) => deep.equal(a.payload, b.payload),
-      watch: [query.deriveWatch(statusStore, (event) => affectedTaskKeys(event))],
+      watch: [query.deriveWatch(statusStore, (event) => affectedKeys(event))],
     });
     const single = cache.queries<SingleRequest, Task, Key, Task>({
       name: "task",
@@ -491,13 +501,14 @@ export class Client extends query.Retriever<
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.fetchThrough(req),
         matches: (t, req) => requestFilter(req)(t),
-        watch: [query.watch(statusStore, (event) => affectedTaskKeys(event))],
+        watch: [query.watch(statusStore, (event) => affectedKeys(event))],
       },
       compose: (record) => this.compose(record),
       single: { schema: singleQueryZ, space: single },
     });
     this.cfg = cfg;
     this.store = store;
+    this.statusesByTask = statusesByTask;
   }
 
   async create(task: New): Promise<Task>;
@@ -721,21 +732,25 @@ export class Client extends query.Retriever<
     );
   }
 
-  // A task's status may live under the "task:<key>" row or under any status
-  // whose details reference the task; the freshest wins. Rows are parsed
-  // because the status table holds every domain's statuses generically.
+  // A task's status may live under the "task:<key>" row or under any status whose
+  // details reference the task; the freshest wins, ties going to the more severe. Rows
+  // are parsed because the status table holds every domain's statuses generically.
   private latestStatusOf(key: Key): Status | undefined {
     const direct = this.cfg.statusStore.get(statusKey(key));
-    const rows = this.cfg.statusesByTask.get(key);
-    if (direct != null) rows.push(direct);
+    const rows = this.statusesByTask.get(key);
+    // A task status names its task in details too, so the index usually holds it.
+    if (direct != null && !rows.includes(direct)) rows.push(direct);
     const candidates = rows
-      .map((s) => statusZ().safeParse(s))
+      .map((s) => defaultStatusZ.safeParse(s))
       .filter((p) => p.success)
       .map((p) => p.data);
     if (candidates.length === 0) return undefined;
-    return candidates.reduce((latest, s) =>
-      new TimeStamp(s.time).afterEq(new TimeStamp(latest.time)) ? s : latest,
-    );
+    return candidates.reduce((latest, s) => {
+      const time = new TimeStamp(s.time);
+      const latestTime = new TimeStamp(latest.time);
+      if (!time.equals(latestTime)) return time.after(latestTime) ? s : latest;
+      return status.moreSevere(s.variant, latest.variant) ? s : latest;
+    });
   }
 
   /** Writes a fetched task and its included status. */
@@ -869,17 +884,28 @@ export class Client extends query.Retriever<
 /** @returns the key of the status that reports on the given task. */
 export const statusKey = (key: Key): string => ontology.idToString(ontologyID(key));
 
-const taskStatusZ = z.object({ details: z.object({ task: keyZ }) });
+/**
+ * @returns the key of the task the status reports on, or null when it names none.
+ * Guarded before the key parse: most statuses in the table belong to other domains,
+ * and a failed zod parse costs orders of magnitude more than the miss is worth.
+ */
+const statusTaskKey = (s: status.Status): Key | null => {
+  const task = status.detailsOf(s)?.task;
+  if (typeof task !== "string") return null;
+  return keyZ.safeParse(task).success ? task : null;
+};
 
-// Task statuses may arrive under any status key; the referenced task lives in
-// the details, with the "task:<key>" status key as a fallback.
-const affectedTaskKeys = (
+/**
+ * @returns the keys of the tasks a status change affects, or null when none. A status
+ * names its task in `details.task`, with the "task:<key>" status key as a fallback.
+ */
+export const affectedKeys = (
   event: query.TableEvent<status.Key, status.Status>,
 ): Key[] | null => {
   const keys: Key[] = [];
   if (event.variant === "set") {
-    const parsed = taskStatusZ.safeParse(event.value);
-    if (parsed.success) keys.push(parsed.data.details.task);
+    const task = statusTaskKey(event.value);
+    if (task != null) keys.push(task);
   }
   const [type, key] = event.key.split(":");
   if (type === "task" && primitive.isNonZero(key) && !keys.includes(key))
