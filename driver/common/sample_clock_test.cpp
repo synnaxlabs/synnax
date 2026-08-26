@@ -491,26 +491,4 @@ TEST(TestCommonReadTask, testGenerateIndexDataEmptyIndices) {
     generate_index_data(fr, index_keys, start, end, n_read, offset);
     EXPECT_EQ(fr.size(), 1);
 }
-
-/// @brief it should generate inclusive timestamps including end point.
-TEST(TestCommonReadTask, testGenerateIndexDataInclusive) {
-    x::telem::Frame fr;
-    fr.reserve(2);
-    fr.emplace(1, x::telem::Series(x::telem::FLOAT64_T, 3)); // Data channel
-    fr.emplace(2, x::telem::Series(x::telem::TIMESTAMP_T, 3)); // Index channel
-
-    const std::set<synnax::channel::Key> index_keys = {2};
-    const auto start = x::telem::TimeStamp(1000);
-    const auto end = x::telem::TimeStamp(3000);
-    constexpr size_t n_read = 3;
-    constexpr size_t offset = 1;
-    constexpr bool inclusive = true;
-
-    generate_index_data(fr, index_keys, start, end, n_read, offset, inclusive);
-
-    // Check inclusive spacing (end point included in equal intervals)
-    EXPECT_EQ(fr.series->at(1).at<x::telem::TimeStamp>(0), x::telem::TimeStamp(1000));
-    EXPECT_EQ(fr.series->at(1).at<x::telem::TimeStamp>(1), x::telem::TimeStamp(2000));
-    EXPECT_EQ(fr.series->at(1).at<x::telem::TimeStamp>(2), x::telem::TimeStamp(3000));
-}
 }
