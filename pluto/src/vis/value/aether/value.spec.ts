@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, color } from "@synnaxlabs/x";
+import { box, color, xy } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { telemTest } from "@/telem/aether/test";
 import { renderAether } from "@/testutil/renderAether";
+import { AtlasRegistry } from "@/text/aether/atlas";
 import { SYNNAX_DARK, type Theme, themeZ } from "@/theming/base/theme";
+import { SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d/canvas";
 import { canvasTest } from "@/vis/render/test";
 import { value } from "@/vis/value/aether";
 
@@ -25,6 +27,7 @@ interface SetupOptions {
   background?: color.Color;
   state?: Record<string, unknown>;
   theme?: Theme;
+  render?: canvasTest.Recorder;
 }
 
 // Mounts a Value under the real provider stack with a recording render context. The
@@ -37,6 +40,7 @@ const setup = ({
   background,
   state = {},
   theme = THEME,
+  render,
 }: SetupOptions = {}) => {
   const source = telemTest.source<string>(initialValue);
   const backgroundSource =
@@ -53,7 +57,7 @@ const setup = ({
   const h = renderAether(value.Value, {
     state: parsed,
     theming: { theme, fontURLs: [] },
-    render: recorder,
+    render: render ?? recorder,
   });
   return {
     h,
@@ -91,6 +95,88 @@ const fillTextAt = (
 
 const fillRectArgs = (recorder: canvasTest.Recorder): number[] =>
   drawCalls(recorder, "fillRect")[0].args as number[];
+
+// Ink width the stubbed canvas reports for a digit, plus the atlas's per-cell padding.
+// Their sum is the advance the atlas lays glyphs out on.
+const ATLAS_INK = 6;
+const ATLAS_PADDING = 2;
+
+const atlasMetrics = (ascent: number, descent: number): TextMetrics =>
+  ({
+    actualBoundingBoxLeft: 0,
+    actualBoundingBoxRight: ATLAS_INK,
+    actualBoundingBoxAscent: ascent,
+    actualBoundingBoxDescent: descent,
+  }) as TextMetrics;
+
+interface AtlasSurface {
+  ctx: SugaredOffscreenCanvasRenderingContext2D;
+  /** Where the atlas copied each glyph out to, in draw order. */
+  glyphs: () => xy.XY[];
+  clear: () => void;
+}
+
+// The production text path over a recording surface: a real Sugared context and a real
+// atlas. The recorder above sits over that path and never reaches the atlas.
+const atlasSurface = (): AtlasSurface => {
+  class Canvas {
+    constructor(
+      readonly width: number,
+      readonly height: number,
+    ) {}
+
+    getContext() {
+      return {
+        scale: () => {},
+        clearRect: () => {},
+        measureText: (t: string) => atlasMetrics(t === "0" ? 8 : 9, t === "0" ? 0 : 3),
+        fillText: () => {},
+      };
+    }
+  }
+  vi.stubGlobal("OffscreenCanvas", Canvas);
+  const copies: xy.XY[] = [];
+  const props: Record<string, unknown> = {
+    font: "",
+    fillStyle: "#000000",
+    textAlign: "start",
+    textBaseline: "alphabetic",
+  };
+  const surface = {
+    measureText: () => atlasMetrics(8, 0),
+    fillText: () => {},
+    fillRect: () => {},
+    drawImage: (_: unknown, ...rest: number[]) =>
+      copies.push(xy.construct(rest[4], rest[5])),
+  } as unknown as OffscreenCanvasRenderingContext2D;
+  Object.keys(props).forEach((prop) =>
+    Object.defineProperty(surface, prop, {
+      get: () => props[prop],
+      set: (v: unknown) => (props[prop] = v),
+    }),
+  );
+  return {
+    ctx: new SugaredOffscreenCanvasRenderingContext2D(surface, new AtlasRegistry(), 1),
+    glyphs: () => [...copies],
+    clear: () => {
+      copies.length = 0;
+    },
+  };
+};
+
+// RenderProvider injects any render.Context-shaped value; the cast satisfies the setup
+// option's recorder type.
+const atlasRenderContext = (ctx: SugaredOffscreenCanvasRenderingContext2D) =>
+  ({
+    upper2d: ctx,
+    lower2d: ctx,
+    gl: ctx,
+    region: box.ZERO,
+    dpr: 1,
+    loop: { set: () => {} },
+    scissor: () => () => {},
+    erase: () => {},
+  }) as unknown as canvasTest.Recorder;
 
 describe("value/aether/Value", () => {
   describe("schema", () => {
@@ -221,6 +307,42 @@ describe("value/aether/Value", () => {
       expect(sign?.x).toBeCloseTo((digit?.x ?? 0) - FONT_HEIGHT * 0.6);
       expect(sign?.y).toBeCloseTo(digit?.y ?? 0);
       expect(sign?.x ?? 0).toBeLessThan(digit?.x ?? 0);
+    });
+  });
+
+  describe("ambient canvas text state", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    // What Draw2D.text leaves on the shared canvas after a gauge or a scale symbol,
+    // which passes justify "center" and align "middle" and restores neither.
+    const glyphsAfter = (
+      align: CanvasTextAlign,
+      baseline: CanvasTextBaseline = "alphabetic",
+    ): xy.XY[] => {
+      const surface = atlasSurface();
+      const { component } = setup({
+        value: "72.55",
+        render: atlasRenderContext(surface.ctx),
+      });
+      surface.ctx.textAlign = align;
+      surface.ctx.textBaseline = baseline;
+      surface.clear();
+      component.render({});
+      return surface.glyphs();
+    };
+
+    it("should draw the value in the same place whatever text state the canvas holds", () => {
+      const pinned = glyphsAfter("start");
+      expect(pinned).toHaveLength("72.55".length);
+      expect(glyphsAfter("center", "middle")).toEqual(pinned);
+      expect(glyphsAfter("right", "top")).toEqual(pinned);
+    });
+
+    it("should draw the value from the left label offset", () => {
+      const [first] = glyphsAfter("center", "middle");
+      expect(first.x).toBeCloseTo(6 + FONT_HEIGHT * 0.75);
     });
   });
 
