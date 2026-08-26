@@ -133,6 +133,9 @@ export const createForm = <S extends task.Schemas = task.Schemas>({
     },
     update: async ({ client, ...form }) => {
       const value = form.value();
+      // The status is never written back. It belongs to the Driver, and the copy
+      // held here is behind the Core whenever a newer one is still in flight, so
+      // sending it would overwrite the report of a deploy this save just issued.
       const created = await client.tasks.create(
         {
           key: value.key,
@@ -141,7 +144,6 @@ export const createForm = <S extends task.Schemas = task.Schemas>({
           type: value.type,
           config: value.config,
           snapshot: value.snapshot,
-          status: value.status ?? undefined,
         },
         schemas,
       );
