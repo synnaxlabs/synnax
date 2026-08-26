@@ -75,8 +75,6 @@ export interface ClientConfig {
   cache: query.Cache;
   ontology: ontology.Client;
   labels: label.Client;
-  /** Secondary indexes to register on the status table. */
-  indexes?: Array<query.LookupIndex<Key, Status>>;
 }
 
 export class Client extends query.Retriever<
@@ -96,7 +94,6 @@ export class Client extends query.Retriever<
     const store = cache.createTable<Key, Status>({
       name: "statuses",
       fetch: async (keys) => await this.fetchThrough({ keys }),
-      indexes: cfg.indexes,
       listen: [
         query.createSetListener(SET_CHANNEL_NAME, statusZ(), {
           value: (changed, prev) => {
