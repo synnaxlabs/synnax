@@ -284,6 +284,38 @@ describe("schematic queries", () => {
       expect(result.current.size).toBe(0);
     });
 
+    it("useParentOf maps members to their group", async () => {
+      const isolated = await createTestSchematic(proj.key);
+      await loadSchematic(Wrapper, isolated.key);
+      const { result } = renderHook(
+        () => ({
+          parentOf: Schematic.useParentOf({ key: isolated.key }),
+          dispatch: Schematic.useDispatch(),
+        }),
+        { wrapper: Wrapper },
+      );
+      expect(result.current.parentOf.size).toBe(0);
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: isolated.key,
+          actions: [
+            schematic.setNode({
+              node: { key: "g1", position: { x: 0, y: 0 } },
+              config: {
+                variant: "groupBox",
+                members: ["n1", "n2"],
+                dimensions: { width: 10, height: 10 },
+              },
+            }),
+          ],
+        });
+      });
+      await waitFor(() => {
+        expect(result.current.parentOf.get("n1")).toBe("g1");
+        expect(result.current.parentOf.get("n2")).toBe("g1");
+      });
+    });
+
     it("useNodes keeps its reference when an unrelated node changes", async () => {
       const isolated = await createTestSchematic(proj.key);
       await loadSchematic(Wrapper, isolated.key);
