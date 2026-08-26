@@ -155,37 +155,42 @@ export const withMembers = (
 };
 
 /**
- * fanOutGroupMoves applies a moved group's delta to every symbol inside it. Keys
- * already in the change set are skipped. Zero deltas still fan out, so every
+ * fanOutMoves applies a moved group's delta to every symbol inside it. Keys
+ * already moved in the batch are skipped. Zero deltas still fan out, so every
  * drag frame targets the same keys and coalesces into one undo step.
  */
-export const fanOutGroupMoves = (
-  changes: readonly Diagram.NodeChange[],
-  nodes: readonly schematic.Node[],
-  configs: Record<string, record.Unknown>,
-): Diagram.NodeChange[] => {
-  const changed = new Set(changes.map((c) => c.key));
+export const fanOutMoves = (
+  current: schematic.Schematic,
+  actions: schematic.Action[],
+): schematic.Action[] => {
+  const { nodes, configs } = current;
+  const moved = new Set<string>();
+  for (const a of actions)
+    if (a.type === "set_node_position") moved.add(a.setNodePosition.key);
+  if (moved.size === 0) return actions;
   const nodeByKey = new Map(nodes.map((n) => [n.key, n]));
-  const out = [...changes];
-  for (const change of changes) {
-    if (change.type !== "position" || !isConfig(configs[change.key])) continue;
-    const prev = nodeByKey.get(change.key);
+  const out = [...actions];
+  for (const action of actions) {
+    if (action.type !== "set_node_position") continue;
+    const { key, position } = action.setNodePosition;
+    if (!isConfig(configs[key])) continue;
+    const prev = nodeByKey.get(key);
     if (prev == null) continue;
-    const dx = change.position.x - prev.position.x;
-    const dy = change.position.y - prev.position.y;
+    const dx = position.x - prev.position.x;
+    const dy = position.y - prev.position.y;
     const members = new Set<string>();
-    collectMembers(change.key, configs, members);
-    for (const key of members) {
-      if (changed.has(key)) continue;
-      const node = nodeByKey.get(key);
+    collectMembers(key, configs, members);
+    for (const m of members) {
+      if (moved.has(m)) continue;
+      const node = nodeByKey.get(m);
       if (node == null) continue;
-      changed.add(key);
-      out.push({
-        type: "position",
-        key,
-        position: { x: node.position.x + dx, y: node.position.y + dy },
-        dragging: change.dragging,
-      });
+      moved.add(m);
+      out.push(
+        schematic.setNodePosition({
+          key: m,
+          position: { x: node.position.x + dx, y: node.position.y + dy },
+        }),
+      );
     }
   }
   return out;
@@ -193,7 +198,7 @@ export const fanOutGroupMoves = (
 
 /**
  * lockMembers marks every symbol inside a group as non-draggable; a group moves
- * its members via fanOutGroupMoves. Returns the input array unchanged when there
+ * its members via fanOutMoves. Returns the input array unchanged when there
  * are no groups.
  */
 export const lockMembers = (

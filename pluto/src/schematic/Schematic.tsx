@@ -87,12 +87,7 @@ export const Schematic = ({
   );
   const dispatch = useSingleDispatch();
   const handleNodesChange = useCallback(
-    (changes: BaseDiagram.NodeChange[]) =>
-      dispatch(
-        nodeChangesToActions(
-          Group.fanOutGroupMoves(changes, nodesRef.current, configsRef.current),
-        ),
-      ),
+    (changes: BaseDiagram.NodeChange[]) => dispatch(nodeChangesToActions(changes)),
     [dispatch],
   );
 

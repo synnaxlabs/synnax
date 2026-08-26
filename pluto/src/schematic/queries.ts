@@ -199,7 +199,9 @@ export const {
   useSingleDispatch: useSingleDispatchBase,
 } = Flux.createDispatch<schematic.Key, schematic.Schematic, schematic.Action>({
   domain: (client) => client.schematics,
-  preprocess: augmentWithEdgeSegments,
+  // Group fan-out runs first so member moves also get edge segment updates.
+  preprocess: (current, actions) =>
+    augmentWithEdgeSegments(current, Group.fanOutMoves(current, actions)),
 });
 
 export const useSingleDispatch = Scope.bindHook(useSingleDispatchBase);

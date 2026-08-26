@@ -151,6 +151,12 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
   const selectedNodes = Schematic.useNodes({ keys: selected });
   const dispatch = Schematic.useSingleDispatch();
   const getViewport = Session.Schematic.useGetViewport();
+  const parentOf = Schematic.useParentOf();
+  // Grouped symbols never move alone: boxes align, the dispatch fans out to members.
+  const movable = useMemo(
+    () => selected.filter((k) => !parentOf.has(k)),
+    [selected, parentOf],
+  );
 
   const nodesByKey = useMemo(() => {
     const m = new Map<string, schematic.Node>();
@@ -208,7 +214,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
 
   const getLayoutsForAlignment = () => {
     const zoom = getZoom();
-    return selected
+    return movable
       .map((nodeKey) => {
         const node = nodesByKey.get(nodeKey);
         if (node == null) return null;
@@ -240,7 +246,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
   } => {
     const zoom = getViewport({ key: schematicKey }).zoom;
     const topOffsets = new Map<string, number>();
-    const layouts = selected
+    const layouts = movable
       .map((nodeKey) => {
         const node = nodesByKey.get(nodeKey);
         if (node == null) return null;
