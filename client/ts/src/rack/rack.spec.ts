@@ -14,7 +14,7 @@ import { query } from "@/query";
 import { type rack } from "@/rack";
 import { statusKey } from "@/rack/client";
 import { status } from "@/status";
-import { createTestClient } from "@/testutil";
+import { createTestClient, spyOnSend } from "@/testutil";
 
 const client = createTestClient();
 
@@ -67,6 +67,23 @@ describe("Rack", () => {
     });
   });
   describe("retrieve", () => {
+    it("coalesces concurrent single retrieves into one request", async () => {
+      const created = [
+        await client.racks.create({ name: "coalesce-a" }),
+        await client.racks.create({ name: "coalesce-b" }),
+      ];
+      const local = createTestClient();
+      await local.connect();
+      const send = spyOnSend(local);
+      const res = await Promise.all(
+        created.map(async ({ key }) => await local.racks.retrieve(key)),
+      );
+      expect(res.map(({ key }) => key)).toEqual(created.map(({ key }) => key));
+      expect(
+        send.mock.calls.filter(([target]) => target === "/rack/retrieve"),
+      ).toHaveLength(1);
+    });
+
     it("should retrieve a rack by its key", async () => {
       const r = await client.racks.create({ name: "test" });
       const retrieved = await client.racks.retrieve(r.key);

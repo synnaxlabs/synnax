@@ -15,7 +15,7 @@ import { group } from "@/group";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { status } from "@/status";
-import { createTestClient, expectLive } from "@/testutil";
+import { createTestClient, expectLive, spyOnSend } from "@/testutil";
 
 const client = createTestClient();
 
@@ -229,6 +229,32 @@ describe("Status", () => {
   });
 
   describe("retrieve", () => {
+    it("coalesces concurrent single retrieves into one request", async () => {
+      const keys = [id.create(), id.create()];
+      await Promise.all(
+        keys.map(
+          async (key) =>
+            await client.statuses.set({
+              key,
+              name: "Coalesce Test",
+              variant: "info",
+              message: "coalesce",
+              time: TimeStamp.now(),
+            }),
+        ),
+      );
+      const local = createTestClient();
+      await local.connect();
+      const send = spyOnSend(local);
+      const res = await Promise.all(
+        keys.map(async (key) => await local.statuses.retrieve(key)),
+      );
+      expect(res.map(({ key }) => key)).toEqual(keys);
+      expect(
+        send.mock.calls.filter(([target]) => target === "/status/retrieve"),
+      ).toHaveLength(1);
+    });
+
     it("should retrieve a status by key", async () => {
       const created = await client.statuses.set({
         name: "Retrieve Test",

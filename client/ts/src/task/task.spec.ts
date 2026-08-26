@@ -16,7 +16,7 @@ import { query } from "@/query";
 import { rack } from "@/rack";
 import { type status } from "@/status";
 import { task } from "@/task";
-import { createTestClient, waitForStreamLive } from "@/testutil";
+import { createTestClient, spyOnSend, waitForStreamLive } from "@/testutil";
 
 const client = createTestClient();
 
@@ -106,6 +106,31 @@ describe("Task", async () => {
     });
   });
   describe("retrieve", () => {
+    it("coalesces concurrent single retrieves into one request", async () => {
+      const created = [
+        await testRack.createTask({
+          name: "coalesce-a",
+          config: { routingKey: "dog" },
+          type: "pagerduty_alert",
+        }),
+        await testRack.createTask({
+          name: "coalesce-b",
+          config: { routingKey: "dog" },
+          type: "pagerduty_alert",
+        }),
+      ];
+      const local = createTestClient();
+      await local.connect();
+      const send = spyOnSend(local);
+      const res = await Promise.all(
+        created.map(async ({ key }) => await local.tasks.retrieve(key)),
+      );
+      expect(res.map(({ key }) => key)).toEqual(created.map(({ key }) => key));
+      expect(
+        send.mock.calls.filter(([target]) => target === "/task/retrieve"),
+      ).toHaveLength(1);
+    });
+
     it("should retrieve a task by its key", async () => {
       const m = await testRack.createTask({
         name: "test",

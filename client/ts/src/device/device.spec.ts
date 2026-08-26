@@ -13,7 +13,7 @@ import { z } from "zod";
 
 import { device } from "@/device";
 import { query } from "@/query";
-import { createTestClient, expectLive } from "@/testutil";
+import { createTestClient, expectLive, spyOnSend } from "@/testutil";
 
 const client = createTestClient();
 
@@ -153,6 +153,33 @@ describe("Device", async () => {
   });
 
   describe("retrieve", () => {
+    it("coalesces concurrent single retrieves into one request", async () => {
+      const created = await Promise.all(
+        [id.create(), id.create()].map(
+          async (key) =>
+            await client.devices.create({
+              key,
+              rack: testRack.key,
+              location: `coalesce_${key}`,
+              name: `coalesce-${key}`,
+              make: "ni",
+              model: "dog",
+              properties: {},
+            }),
+        ),
+      );
+      const local = createTestClient();
+      await local.connect();
+      const send = spyOnSend(local);
+      const res = await Promise.all(
+        created.map(async ({ key }) => await local.devices.retrieve(key)),
+      );
+      expect(res.map(({ key }) => key)).toEqual(created.map(({ key }) => key));
+      expect(
+        send.mock.calls.filter(([target]) => target === "/device/retrieve"),
+      ).toHaveLength(1);
+    });
+
     it("should retrieve a device by its key", async () => {
       const d = await client.devices.create({
         key: id.create(),
