@@ -44,6 +44,14 @@ export const useAllNodes = Scope.bindHook(createSelector(({ nodes }) => nodes));
 
 export const useAllEdges = Scope.bindHook(createSelector(({ edges }) => edges));
 
+export const useAllConfigs = Scope.bindHook(createSelector(({ configs }) => configs));
+
+// Value equality keeps the map's reference stable across unrelated config edits,
+// so consumers memoizing on it re-run only when group membership changes.
+export const useParentOf = Scope.bindHook(
+  createSelector(({ configs }) => Group.buildParentOf(configs), compare.mapsEqual),
+);
+
 export interface ConfigParams extends KeyParams {
   elKey: string;
 }
@@ -245,9 +253,9 @@ export const useAddNode = () => {
 };
 
 /**
- * useGroup returns a callback that groups the given selection into a new
- * container, dispatched as a single undoable step. Returns the container's key,
- * or null when the selection cannot be grouped.
+ * useGroup returns a callback that groups the given selection, dispatched as a
+ * single undoable step. Returns the new group's key, or null when the selection
+ * cannot be grouped.
  */
 export const useGroup = (): ((
   selected: readonly string[],

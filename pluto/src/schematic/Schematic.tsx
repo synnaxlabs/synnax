@@ -10,7 +10,7 @@
 import "@/schematic/Schematic.css";
 
 import { box, type dimensions, TimeSpan, xy } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useRef } from "react";
+import { type ReactElement, useCallback, useMemo, useRef } from "react";
 
 import { type Component } from "@/component";
 import { CSS } from "@/css";
@@ -24,13 +24,16 @@ import {
   edgeChangesToActions,
   nodeChangesToActions,
 } from "@/schematic/Diagram";
+import { Group } from "@/schematic/group";
 import { canDropHaulItem, filterHaulItems } from "@/schematic/haul";
 import { Node } from "@/schematic/node";
 import {
   useAddNode,
+  useAllConfigs,
   useAllEdges,
   useAllNodes,
   useGroup,
+  useParentOf,
   useRedo,
   useSingleDispatch,
   useUndo,
@@ -75,9 +78,21 @@ export const Schematic = ({
   const nodesRef = useSyncedRef(nodes);
   const edges = useAllEdges();
   const edgesRef = useSyncedRef(edges);
+  const configs = useAllConfigs();
+  const configsRef = useSyncedRef(configs);
+  const parentOf = useParentOf();
+  const lockedNodes = useMemo(
+    () => Group.lockMembers(nodes, parentOf),
+    [nodes, parentOf],
+  );
   const dispatch = useSingleDispatch();
   const handleNodesChange = useCallback(
-    (changes: BaseDiagram.NodeChange[]) => dispatch(nodeChangesToActions(changes)),
+    (changes: BaseDiagram.NodeChange[]) =>
+      dispatch(
+        nodeChangesToActions(
+          Group.fanOutGroupMoves(changes, nodesRef.current, configsRef.current),
+        ),
+      ),
     [dispatch],
   );
 
@@ -227,7 +242,7 @@ export const Schematic = ({
       onCopy={onCopy}
       onCut={onCut}
       onPaste={onPaste}
-      nodes={nodes}
+      nodes={lockedNodes}
       edges={edges}
       selected={selected}
       {...dropProps}

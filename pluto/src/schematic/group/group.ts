@@ -11,6 +11,7 @@ import { schematic } from "@synnaxlabs/client";
 import { compare, type dimensions, type record, uuid } from "@synnaxlabs/x";
 
 import { Node } from "@/schematic/node";
+import { type Diagram } from "@/vis/diagram";
 
 const PADDING = 30;
 
@@ -20,16 +21,16 @@ export type Measure = (key: string) => dimensions.Dimensions | null;
 const isConfig = (c: record.Unknown | undefined): c is Node.GroupBox.Config =>
   c?.variant === Node.GroupBox.VARIANT;
 
-// Membership forms a forest: a container's config lists its member symbols' keys,
-// and a container is itself a symbol, so it can be a member of another container.
-// parentOf is that relation inverted.
-const buildParentOf = (
+// Membership forms a forest: a group's config lists its member symbols' keys, and
+// a group is itself a symbol, so it can be a member of another group. parentOf is
+// that relation inverted.
+export const buildParentOf = (
   configs: Record<string, record.Unknown>,
 ): Map<string, string> => {
   const parentOf = new Map<string, string>();
   for (const [key, config] of Object.entries(configs)) {
     if (!isConfig(config)) continue;
-    // First wins: corrupt data claiming a key for two containers keeps the first.
+    // First wins: corrupt data claiming a key for two groups keeps the first.
     for (const m of config.members) if (!parentOf.has(m)) parentOf.set(m, key);
   }
   return parentOf;
@@ -56,15 +57,15 @@ export interface CreateParams {
 
 export interface CreateResult {
   actions: schematic.Action[];
-  /** key is the new container's key. */
+  /** key is the new group's key. */
   key: string;
 }
 
 /**
- * createActions builds the single action batch that groups the selection: one
- * setNode inserting a container whose members are the outermost containers (or
- * loose symbols) the selection resolves to, positioned on their bounding box.
- * Returns null when fewer than two resolve or one is not measurable.
+ * createActions builds the one-batch group action: a setNode inserting a group
+ * whose members are the outermost groups (or ungrouped symbols) the selection
+ * resolves to, positioned on their bounding box. Returns null when fewer than
+ * two resolve or one is not measurable.
  */
 export const createActions = ({
   selected,
@@ -75,8 +76,8 @@ export const createActions = ({
   const nodeByKey = new Map(nodes.map((n) => [n.key, n]));
   const sel = selected.filter((k) => nodeByKey.has(k));
   const parentOf = buildParentOf(configs);
-  // Selected keys resolve to their outermost container (or themselves when
-  // parentless): grouping nests whole groups, and no symbol ever gains two parents.
+  // Selected keys resolve to their outermost group (or themselves when ungrouped):
+  // grouping nests whole groups, and no symbol ever gains two parents.
   const memberNodes = [...new Set(sel.map((k) => rootOf(parentOf, k)))]
     .map((k) => nodeByKey.get(k))
     .filter((n) => n != null);
@@ -110,15 +111,78 @@ export const createActions = ({
   return { actions: [schematic.setNode({ node, config })], key };
 };
 
+const collectMembers = (
+  key: string,
+  configs: Record<string, record.Unknown>,
+  out: Set<string>,
+): void => {
+  const config = configs[key];
+  if (!isConfig(config)) return;
+  for (const m of config.members) {
+    if (out.has(m)) continue;
+    out.add(m);
+    collectMembers(m, configs, out);
+  }
+};
+
+/**
+ * fanOutGroupMoves applies a moved group's delta to every symbol inside it. Keys
+ * already in the change set are skipped. Zero deltas still fan out, so every
+ * drag frame targets the same keys and coalesces into one undo step.
+ */
+export const fanOutGroupMoves = (
+  changes: readonly Diagram.NodeChange[],
+  nodes: readonly schematic.Node[],
+  configs: Record<string, record.Unknown>,
+): Diagram.NodeChange[] => {
+  const changed = new Set(changes.map((c) => c.key));
+  const nodeByKey = new Map(nodes.map((n) => [n.key, n]));
+  const out = [...changes];
+  for (const change of changes) {
+    if (change.type !== "position" || !isConfig(configs[change.key])) continue;
+    const prev = nodeByKey.get(change.key);
+    if (prev == null) continue;
+    const dx = change.position.x - prev.position.x;
+    const dy = change.position.y - prev.position.y;
+    const members = new Set<string>();
+    collectMembers(change.key, configs, members);
+    for (const key of members) {
+      if (changed.has(key)) continue;
+      const node = nodeByKey.get(key);
+      if (node == null) continue;
+      changed.add(key);
+      out.push({
+        type: "position",
+        key,
+        position: { x: node.position.x + dx, y: node.position.y + dy },
+        dragging: change.dragging,
+      });
+    }
+  }
+  return out;
+};
+
+/**
+ * lockMembers marks every symbol inside a group as non-draggable; a group moves
+ * its members via fanOutGroupMoves. Returns the input array unchanged when there
+ * are no groups.
+ */
+export const lockMembers = (
+  nodes: schematic.Node[],
+  parentOf: Map<string, string>,
+): Diagram.Node[] => {
+  if (parentOf.size === 0) return nodes;
+  return nodes.map((n) => (parentOf.has(n.key) ? { ...n, draggable: false } : n));
+};
+
 export interface UngroupResult {
   actions: schematic.Action[];
-  /** freed lists the direct members of the dissolved containers. */
+  /** freed lists the direct members of the removed groups. */
   freed: string[];
 }
 
-// Expands a member to its surviving representation: dissolved containers are
-// replaced by their own members, recursively.
-const expandDissolved = (
+// Resolves an ungrouped group to its members, recursively.
+const resolveUngrouped = (
   key: string,
   targets: Set<string>,
   configs: Record<string, record.Unknown>,
@@ -129,14 +193,14 @@ const expandDissolved = (
   visited.add(key);
   const config = configs[key];
   if (!isConfig(config)) return [];
-  return config.members.flatMap((m) => expandDissolved(m, targets, configs, visited));
+  return config.members.flatMap((m) => resolveUngrouped(m, targets, configs, visited));
 };
 
 /**
- * ungroupActions builds the single action batch that dissolves the containers the
- * selection resolves to: selected containers and the immediate parents of selected
- * members. A dissolved container's members are promoted into its nearest surviving
- * ancestor. Returns null when the selection touches no group.
+ * ungroupActions builds the one-batch ungroup action: removes the selected
+ * groups and the immediate parents of selected members, promoting a removed
+ * group's members into the closest enclosing group that remains. Returns null
+ * when the selection touches no group.
  */
 export const ungroupActions = (
   selected: readonly string[],
@@ -155,7 +219,7 @@ export const ungroupActions = (
   for (const [key, config] of Object.entries(configs)) {
     if (!isConfig(config) || targets.has(key)) continue;
     const next = config.members.flatMap((m) =>
-      expandDissolved(m, targets, configs, new Set()),
+      resolveUngrouped(m, targets, configs, new Set()),
     );
     if (!compare.arraysEqual(next, config.members))
       actions.push(schematic.setConfig({ key, config: { members: next } }));
