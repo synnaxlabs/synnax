@@ -10,6 +10,8 @@
 package cert_test
 
 import (
+	"crypto/x509"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
@@ -86,6 +88,45 @@ var _ = Describe("Factory", func() {
 			Expect(f.CreateCAPair()).To(Succeed())
 			Expect(f.CreateNodePair()).
 				Error().To(MatchError(ContainSubstring("no hosts provided")))
+		})
+	})
+	Describe("Chain Verification", func() {
+		// A leaf whose subject matches its issuer's carries no authority key
+		// identifier, and every verifier outside Go reads it as self-signed and stops
+		// at depth zero.
+		expectChainsToCA := func(f *cert.Factory, leaf *x509.Certificate) {
+			GinkgoHelper()
+			ca, _ := MustSucceed2(f.Loader.LoadCAPair())
+			Expect(leaf.Subject.String()).ToNot(Equal(ca.Subject.String()))
+			Expect(leaf.AuthorityKeyId).To(Equal(ca.SubjectKeyId))
+			Expect(leaf.AuthorityKeyId).ToNot(BeEmpty())
+			roots := x509.NewCertPool()
+			roots.AddCert(ca)
+			Expect(leaf.Verify(x509.VerifyOptions{
+				Roots:     roots,
+				DNSName:   "synnaxlabs.com",
+				KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+			})).Error().ToNot(HaveOccurred())
+		}
+		It("Should chain a node certificate on disk to the CA", func() {
+			f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
+				LoaderConfig: cert.LoaderConfig{FS: fs},
+				Hosts:        []address.Address{"synnaxlabs.com"},
+				KeySize:      mock.SmallKeySize,
+			}))
+			Expect(f.CreateCAPair()).To(Succeed())
+			Expect(f.CreateNodePair()).To(Succeed())
+			c, _ := MustSucceed2(f.Loader.LoadNodePair())
+			expectChainsToCA(f, c)
+		})
+		It("Should chain an in-memory node certificate to the CA", func() {
+			f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
+				LoaderConfig: cert.LoaderConfig{FS: fs},
+				KeySize:      mock.SmallKeySize,
+			}))
+			Expect(f.CreateCAPair()).To(Succeed())
+			tlsC := MustSucceed(f.SignNodeCert([]address.Address{"synnaxlabs.com"}))
+			expectChainsToCA(f, MustSucceed(x509.ParseCertificate(tlsC.Certificate[0])))
 		})
 	})
 })

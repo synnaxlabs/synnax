@@ -15,6 +15,7 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/pem"
 	"net"
 	"os"
@@ -214,6 +215,7 @@ func (f *Factory) signNodeCert(
 	if err != nil {
 		return nil, err
 	}
+	base.Subject = pkix.Name{CommonName: nodeCommonName}
 	base.ExtKeyUsage = []x509.ExtKeyUsage{
 		x509.ExtKeyUsageServerAuth,
 		x509.ExtKeyUsageClientAuth,
