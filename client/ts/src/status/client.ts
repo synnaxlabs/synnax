@@ -319,9 +319,7 @@ export class Client extends query.Retriever<
   }
 
   private async fetchSingle(key: Key): Promise<Status> {
-    const cached = this.store.get(key);
-    if (cached != null) return cached;
-    const statuses = await this.fetchThrough({ keys: [key] });
+    const statuses = await this.store.retrieve([key]);
     checkForMultipleOrNoResults("Status", key, statuses, true);
     return statuses[0];
   }

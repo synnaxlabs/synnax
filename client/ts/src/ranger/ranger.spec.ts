@@ -28,7 +28,7 @@ import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { ranger } from "@/ranger";
-import { createTestClient, expectDeleted, expectLive } from "@/testutil";
+import { createTestClient, expectDeleted, expectLive, spyOnSend } from "@/testutil";
 
 const client = createTestClient();
 
@@ -582,6 +582,34 @@ describe("cached reads", () => {
   beforeAll(async () => await client.connect());
 
   describe("retrieve", () => {
+    it("coalesces concurrent single retrieves into one request", async () => {
+      const created = [await createRange(), await createRange()];
+      const local = createTestClient();
+      await local.connect();
+      const send = spyOnSend(local);
+      const res = await Promise.all(
+        created.map(async ({ key }) => await local.ranges.retrieve(key)),
+      );
+      expect(res.map(({ key }) => key)).toEqual(created.map(({ key }) => key));
+      expect(
+        send.mock.calls.filter(([target]) => target === "/range/retrieve"),
+      ).toHaveLength(1);
+    });
+
+    it("does not reject concurrent retrieves when a key in the window is missing", async () => {
+      const rng = await createRange();
+      const local = createTestClient();
+      await local.connect();
+      const [ok, missing] = await Promise.allSettled([
+        local.ranges.retrieve(rng.key),
+        local.ranges.retrieve(uuid.create()),
+      ]);
+      expect(ok.status).toEqual("fulfilled");
+      expect(missing.status).toEqual("rejected");
+      if (missing.status === "rejected")
+        expect(NotFoundError.matches(missing.reason)).toBe(true);
+    });
+
     it("reflects remote changes on an unsubscribed repeat retrieve", async () => {
       const rng = await createRange();
       const first = await client.ranges.retrieve(rng.key);
@@ -720,6 +748,51 @@ describe("cached reads", () => {
         off();
       }
     });
+
+    it("pages children with limit and offset in a stable order", async () => {
+      const parent = await createRange();
+      await Promise.all(
+        Array.from({ length: 5 }, () =>
+          createRange(client, { parent: { key: parent.key } }),
+        ),
+      );
+      const all = await client.ranges.children.retrieve(parent.key);
+      expect(all).toHaveLength(5);
+      const first = await client.ranges.children.retrieve({
+        key: parent.key,
+        limit: 3,
+        offset: 0,
+      });
+      const second = await client.ranges.children.retrieve({
+        key: parent.key,
+        limit: 3,
+        offset: 3,
+      });
+      expect(first).toHaveLength(3);
+      expect(second).toHaveLength(2);
+      const paged = [...first, ...second].map((r) => r.key).sort();
+      expect(paged).toEqual(all.map((r) => r.key).sort());
+    });
+
+    it("sends the page bounds to the cluster instead of fetching every child", async () => {
+      const parent = await createRange();
+      await Promise.all(
+        Array.from({ length: 3 }, () =>
+          createRange(client, { parent: { key: parent.key } }),
+        ),
+      );
+      const spy = vi.spyOn(client.ontology.children, "retrieve");
+      try {
+        const page = await client.ranges.children.retrieve({
+          key: parent.key,
+          limit: 2,
+        });
+        expect(page).toHaveLength(2);
+        expect(spy).toHaveBeenCalledWith(expect.objectContaining({ limit: 2 }));
+      } finally {
+        spy.mockRestore();
+      }
+    });
   });
 
   describe("parent", () => {
@@ -821,9 +894,6 @@ describe("store", () => {
   });
 });
 
-// SY-4751 regression: writing a fetch response through the cache once cost (ranges in
-// the response) x (relationships cached), because every write recomposed against full
-// scans of the relationships table and notified subscribers per range.
 describe("write-through", () => {
   const LABELS_PER_RANGE = 3;
   const BATCH = 50;

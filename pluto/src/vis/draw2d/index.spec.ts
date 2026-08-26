@@ -48,6 +48,7 @@ interface FakeContext {
   save: Mock<() => void>;
   restore: Mock<() => void>;
   font: string;
+  textBaseline: CanvasTextBaseline;
   fillStyle: string | CanvasGradient | CanvasPattern;
   strokeStyle: string | CanvasGradient | CanvasPattern;
   lineWidth: number;
@@ -69,6 +70,7 @@ const createFakeContext = (): FakeContext => ({
   closePath: vi.fn(),
   save: vi.fn(),
   restore: vi.fn(),
+  textBaseline: "top",
   font: "10px sans-serif",
   fillStyle: "#000000",
   strokeStyle: "#000000",
@@ -157,6 +159,28 @@ describe("Draw2D", () => {
       const [d, fake] = create();
       d.measureInkOffsetY("p", 20);
       expect(fake.font).not.toEqual("10px sans-serif");
+    });
+  });
+
+  describe("text centered on a point", () => {
+    const draw = (): FakeContext => {
+      const [d, fake] = create();
+      d.text({
+        text: "50",
+        position: xy.construct(10, 20),
+        level: "p",
+        align: "center",
+      });
+      return fake;
+    };
+
+    // The fake's ink is 10 tall, so the baseline sits 5 below the position.
+    it("should drop the baseline half the ink height below the position", () => {
+      expect(draw().fillText).toHaveBeenCalledWith("50", 10, 25, undefined);
+    });
+
+    it("should draw on the alphabetic baseline", () => {
+      expect(draw().textBaseline).toEqual("alphabetic");
     });
   });
 

@@ -35,9 +35,11 @@ export const { useUpdate: useSetDataSaving } = Flux.createUpdate<SetDataSavingPa
     if ((config as Record<string, unknown>).dataSavingDisabled === dataSavingDisabled)
       return data;
     const wasRunning = t.status?.details.running === true;
+    // Never write the status back: the Driver owns it and this copy may be stale.
     await client.tasks.create({
       ...t.payload,
       config: { ...config, dataSavingDisabled },
+      status: undefined,
     });
     if (wasRunning) await client.tasks.executeCommand({ task: key, type: "start" });
     return data;

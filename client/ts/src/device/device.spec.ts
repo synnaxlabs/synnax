@@ -12,8 +12,9 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { device } from "@/device";
+import { NotFoundError } from "@/errors";
 import { query } from "@/query";
-import { createTestClient, expectLive } from "@/testutil";
+import { createTestClient, expectLive, spyOnSend } from "@/testutil";
 
 const client = createTestClient();
 
@@ -153,6 +154,55 @@ describe("Device", async () => {
   });
 
   describe("retrieve", () => {
+    it("coalesces concurrent single retrieves into one request", async () => {
+      const created = await Promise.all(
+        [id.create(), id.create()].map(
+          async (key) =>
+            await client.devices.create({
+              key,
+              rack: testRack.key,
+              location: `coalesce_${key}`,
+              name: `coalesce-${key}`,
+              make: "ni",
+              model: "dog",
+              properties: {},
+            }),
+        ),
+      );
+      const local = createTestClient();
+      await local.connect();
+      const send = spyOnSend(local);
+      const res = await Promise.all(
+        created.map(async ({ key }) => await local.devices.retrieve(key)),
+      );
+      expect(res.map(({ key }) => key)).toEqual(created.map(({ key }) => key));
+      expect(
+        send.mock.calls.filter(([target]) => target === "/device/retrieve"),
+      ).toHaveLength(1);
+    });
+
+    it("does not reject concurrent retrieves when a key in the window is missing", async () => {
+      const d = await client.devices.create({
+        key: id.create(),
+        rack: testRack.key,
+        location: "isolation",
+        name: "isolation",
+        make: "ni",
+        model: "dog",
+        properties: {},
+      });
+      const local = createTestClient();
+      await local.connect();
+      const [ok, missing] = await Promise.allSettled([
+        local.devices.retrieve(d.key),
+        local.devices.retrieve(`missing-${id.create()}`),
+      ]);
+      expect(ok.status).toEqual("fulfilled");
+      expect(missing.status).toEqual("rejected");
+      if (missing.status === "rejected")
+        expect(NotFoundError.matches(missing.reason)).toBe(true);
+    });
+
     it("should retrieve a device by its key", async () => {
       const d = await client.devices.create({
         key: id.create(),
