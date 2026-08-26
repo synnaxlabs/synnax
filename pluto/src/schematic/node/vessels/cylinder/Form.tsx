@@ -15,7 +15,7 @@ import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
 export const CylinderForm = (): ReactElement => (
-  <Form.Wrapper x align="stretch">
+  <Form.Wrapper lockable x align="stretch">
     <Flex.Box y grow>
       <Label.Form path="label" />
       <Flex.Box x>

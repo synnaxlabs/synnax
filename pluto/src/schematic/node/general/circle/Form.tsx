@@ -21,7 +21,7 @@ const RADIUS_INPUT_PROPS: Partial<Input.NumericProps> = {
 };
 
 export const CircleForm = (): ReactElement => (
-  <Form.Wrapper direction="x" align="stretch">
+  <Form.Wrapper lockable direction="x" align="stretch">
     <Flex.Box direction="y" grow>
       <Label.Form path="label" />
       <Flex.Box direction="x">

@@ -83,7 +83,7 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
   }, [client, schematicKey, handleError]);
   const handlePageChange = useHandlePageChange();
   return (
-    <Form.Wrapper x align="stretch">
+    <Form.Wrapper lockable x align="stretch">
       <Flex.Box x grow align="stretch">
         <Base.TextField path="label.label" label="Label" padHelpText={false} grow />
         <Base.Field<string>

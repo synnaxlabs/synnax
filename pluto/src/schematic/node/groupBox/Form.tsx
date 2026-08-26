@@ -13,7 +13,7 @@ import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 
 export const GroupBoxForm = (): ReactElement => (
-  <Form.Wrapper x>
+  <Form.Wrapper lockable x>
     <Label.Form path="label" />
   </Form.Wrapper>
 );

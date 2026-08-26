@@ -41,7 +41,7 @@ export const GaugeForm = (): ReactElement => (
       <Tabs.Tab itemKey="telemetry">Telemetry</Tabs.Tab>
     </Tabs.Selector>
     <Tabs.Content itemKey="properties">
-      <Form.Wrapper x>
+      <Form.Wrapper lockable x>
         <Flex.Box y grow>
           <Label.Form path="label" />
           <Flex.Box x>

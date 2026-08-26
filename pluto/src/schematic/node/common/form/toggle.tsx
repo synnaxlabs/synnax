@@ -54,7 +54,7 @@ export const ToggleForm = ({
 );
 
 export const DummyToggleForm = (): ReactElement => (
-  <Wrapper x align="stretch">
+  <Wrapper lockable x align="stretch">
     <Flex.Box y grow>
       <Label.Form path="label" />
       <Flex.Box x grow>

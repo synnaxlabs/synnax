@@ -60,7 +60,7 @@ const TelemForm = (): ReactElement => {
 };
 
 const StyleForm = (): ReactElement => (
-  <Form.Wrapper x>
+  <Form.Wrapper lockable x>
     <Flex.Box y grow>
       <Label.Form path="label" />
       <Flex.Box x>

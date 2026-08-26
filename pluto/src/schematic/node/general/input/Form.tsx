@@ -86,7 +86,7 @@ export const InputForm = (): ReactElement => (
       <Tabs.Tab itemKey="control">Control</Tabs.Tab>
     </Tabs.Selector>
     <Tabs.Content itemKey="style">
-      <Form.Wrapper x>
+      <Form.Wrapper lockable x>
         <Flex.Box y align="stretch" grow gap="small">
           <Label.Form path="label" />
           <Flex.Box x>

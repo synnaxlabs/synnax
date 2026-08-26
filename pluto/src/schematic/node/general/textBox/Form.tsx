@@ -31,7 +31,7 @@ const WRAP_WIDTH_INPUT_PROPS: Partial<Input.NumericProps> = {
 export const TextBoxForm = (): ReactElement => {
   const autoFit = Base.useField<boolean>("autoFit", { optional: true });
   return (
-    <Form.Wrapper x align="stretch" grow>
+    <Form.Wrapper lockable x align="stretch" grow>
       <Flex.Box y grow>
         <Flex.Box x align="stretch">
           <Base.TextField path="value" label="Text" padHelpText={false} grow />

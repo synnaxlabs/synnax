@@ -49,7 +49,7 @@ export const TankForm = ({
   showFillTab = false,
 }: TankFormProps): ReactElement => {
   const properties = (
-    <Form.Wrapper x align="stretch">
+    <Form.Wrapper lockable x align="stretch">
       <Flex.Box y grow>
         <Label.Form path="label" />
         <Flex.Box x>
