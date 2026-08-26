@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, color } from "@synnaxlabs/x";
+import { box, color, type xy } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { telemTest } from "@/telem/aether/test";
+import { type ProviderOptions } from "@/testutil/providers";
 import { renderAether } from "@/testutil/renderAether";
 import { SYNNAX_DARK, type Theme, themeZ } from "@/theming/base/theme";
 import { canvasTest } from "@/vis/render/test";
@@ -25,6 +26,7 @@ interface SetupOptions {
   background?: color.Color;
   state?: Record<string, unknown>;
   theme?: Theme;
+  render?: ProviderOptions["render"];
 }
 
 // Mounts a Value under the real provider stack with a recording render context. The
@@ -37,6 +39,7 @@ const setup = ({
   background,
   state = {},
   theme = THEME,
+  render,
 }: SetupOptions = {}) => {
   const source = telemTest.source<string>(initialValue);
   const backgroundSource =
@@ -53,7 +56,7 @@ const setup = ({
   const h = renderAether(value.Value, {
     state: parsed,
     theming: { theme, fontURLs: [] },
-    render: recorder,
+    render: render ?? recorder,
   });
   return {
     h,
@@ -221,6 +224,39 @@ describe("value/aether/Value", () => {
       expect(sign?.x).toBeCloseTo((digit?.x ?? 0) - FONT_HEIGHT * 0.6);
       expect(sign?.y).toBeCloseTo(digit?.y ?? 0);
       expect(sign?.x ?? 0).toBeLessThan(digit?.x ?? 0);
+    });
+  });
+
+  describe("ambient canvas text state", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    // What Draw2D.text leaves on the shared canvas after a gauge or a scale symbol,
+    // which passes justify "center" and align "middle" and restores neither.
+    const glyphsAfter = (
+      align: CanvasTextAlign,
+      baseline: CanvasTextBaseline = "alphabetic",
+    ): xy.XY[] => {
+      const surface = canvasTest.atlasSurface();
+      const { component } = setup({ value: "72.55", render: surface.context });
+      surface.canvas.textAlign = align;
+      surface.canvas.textBaseline = baseline;
+      surface.clear();
+      component.render({});
+      return surface.glyphs();
+    };
+
+    it("should draw the value in the same place whatever text state the canvas holds", () => {
+      const pinned = glyphsAfter("start");
+      expect(pinned).toHaveLength("72.55".length);
+      expect(glyphsAfter("center", "middle")).toEqual(pinned);
+      expect(glyphsAfter("right", "top")).toEqual(pinned);
+    });
+
+    it("should draw the value from the left label offset", () => {
+      const [first] = glyphsAfter("center", "middle");
+      expect(first.x).toBeCloseTo(6 + FONT_HEIGHT * 0.75);
     });
   });
 

@@ -175,6 +175,8 @@ export class Value
     const canvas = renderCtx.upper2d.applyScale(viewportScale);
     let value = telem.value();
     canvas.font = fontString;
+    canvas.textAlign = "left";
+    canvas.textBaseline = "alphabetic";
     const fontHeight = this.fontHeight;
     const isNegative = value[0] == "-";
     if (isNegative) value = value.slice(1);
