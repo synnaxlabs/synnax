@@ -92,8 +92,7 @@ export const Schematic = ({
   const dispatch = useSingleDispatch();
   const addStatus = Status.useAdder();
   const lockedSelected = useCallback(
-    () =>
-      Group.lockedKeys(selectedRef.current ?? [], parentOfRef.current).length > 0,
+    () => Group.lockedKeys(selectedRef.current ?? [], parentOfRef.current).length > 0,
     [],
   );
   const blockLocked = useCallback(

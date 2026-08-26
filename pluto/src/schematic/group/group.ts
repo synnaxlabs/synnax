@@ -57,8 +57,7 @@ const resolveOutermost = (
 ): schematic.Node[] => {
   const nodeByKey = new Map(nodes.map((n) => [n.key, n]));
   const keys = new Set<string>();
-  for (const key of selected)
-    if (nodeByKey.has(key)) keys.add(rootOf(parentOf, key));
+  for (const key of selected) if (nodeByKey.has(key)) keys.add(rootOf(parentOf, key));
   return [...keys].map((k) => nodeByKey.get(k)).filter((n) => n != null);
 };
 
