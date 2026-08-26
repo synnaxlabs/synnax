@@ -130,15 +130,18 @@ var _ = Describe("Factory", func() {
 			c, _ := MustSucceed2(grown.Loader.LoadNodePair())
 			Expect(c.DNSNames).To(ConsistOf("synnaxlabs.com", "docs.synnaxlabs.com"))
 		})
-		It("Should replace a certificate covering none of the configured hosts", func() {
-			f := newFactory("old.synnaxlabs.com")
-			Expect(f.CreateCAPair()).To(Succeed())
-			Expect(f.CreateNodePairIfStale()).To(Succeed())
-			moved := newFactory("new.synnaxlabs.com")
-			Expect(moved.CreateNodePairIfStale()).To(Succeed())
-			c, _ := MustSucceed2(moved.Loader.LoadNodePair())
-			Expect(c.DNSNames).To(ConsistOf("new.synnaxlabs.com"))
-		})
+		It(
+			"Should replace a certificate covering none of the configured hosts",
+			func() {
+				f := newFactory("old.synnaxlabs.com")
+				Expect(f.CreateCAPair()).To(Succeed())
+				Expect(f.CreateNodePairIfStale()).To(Succeed())
+				moved := newFactory("new.synnaxlabs.com")
+				Expect(moved.CreateNodePairIfStale()).To(Succeed())
+				c, _ := MustSucceed2(moved.Loader.LoadNodePair())
+				Expect(c.DNSNames).To(ConsistOf("new.synnaxlabs.com"))
+			},
+		)
 		It("Should keep the existing pair when signing fails", func() {
 			f := newFactory("old.synnaxlabs.com")
 			Expect(f.CreateCAPair()).To(Succeed())

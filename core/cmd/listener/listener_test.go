@@ -308,17 +308,20 @@ var _ = Describe("Listener", func() {
 				Error().To(MatchError(ContainSubstring("unknown certificate source")))
 		})
 
-		It("Should accept an advertised certificate covering the advertised host", func() {
-			listeners := MustSucceed(listener.Configs{
-				{
-					Address:   "localhost:9090",
-					Cert:      listener.CertConfig{Source: file.SourceType},
-					Advertise: true,
-				},
-			}.Resolve(prov, coreFC, false, true))
-			Expect(listeners).To(HaveLen(1))
-			Expect(listeners[0].TLS).ToNot(BeNil())
-		})
+		It(
+			"Should accept an advertised certificate covering the advertised host",
+			func() {
+				listeners := MustSucceed(listener.Configs{
+					{
+						Address:   "localhost:9090",
+						Cert:      listener.CertConfig{Source: file.SourceType},
+						Advertise: true,
+					},
+				}.Resolve(prov, coreFC, false, true))
+				Expect(listeners).To(HaveLen(1))
+				Expect(listeners[0].TLS).ToNot(BeNil())
+			},
+		)
 
 		It(
 			"Should accept an advertised certificate an unrelated CA signed when the Core CA is not required",
@@ -365,28 +368,34 @@ var _ = Describe("Listener", func() {
 			},
 		)
 
-		It("Should reject an advertised certificate missing the advertised host", func() {
-			Expect(listener.Configs{
-				{
-					Address:   "0.0.0.0:9090",
-					Cert:      listener.CertConfig{Source: file.SourceType},
-					Advertise: true,
-				},
-			}.Resolve(prov, coreFC, false, true)).
-				Error().
-				To(MatchError(ContainSubstring("does not cover that host")))
-		})
+		It(
+			"Should reject an advertised certificate missing the advertised host",
+			func() {
+				Expect(listener.Configs{
+					{
+						Address:   "0.0.0.0:9090",
+						Cert:      listener.CertConfig{Source: file.SourceType},
+						Advertise: true,
+					},
+				}.Resolve(prov, coreFC, false, true)).
+					Error().
+					To(MatchError(ContainSubstring("does not cover that host")))
+			},
+		)
 
-		It("Should not contact tailscaled for an advertised Tailscale listener", func() {
-			listeners := MustSucceed(listener.Configs{
-				{
-					Address:   "node01.example-tailnet.ts.net:9090",
-					Cert:      listener.CertConfig{Source: tailscale.SourceType},
-					Advertise: true,
-				},
-			}.Resolve(prov, coreFC, false, false))
-			Expect(listeners).To(HaveLen(1))
-		})
+		It(
+			"Should not contact tailscaled for an advertised Tailscale listener",
+			func() {
+				listeners := MustSucceed(listener.Configs{
+					{
+						Address:   "node01.example-tailnet.ts.net:9090",
+						Cert:      listener.CertConfig{Source: tailscale.SourceType},
+						Advertise: true,
+					},
+				}.Resolve(prov, coreFC, false, false))
+				Expect(listeners).To(HaveLen(1))
+			},
+		)
 
 		It("Should not check a listener that is not advertised", func() {
 			listeners := MustSucceed(listener.Configs{

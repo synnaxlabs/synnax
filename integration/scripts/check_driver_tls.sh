@@ -26,7 +26,7 @@ DEADLINE=60
 rm -rf "$WORK"
 mkdir -p "$WORK/certs"
 
-cat > "$WORK/config.yaml" <<EOF
+cat > "$WORK/config.yaml" << EOF
 listen:
   - address: localhost:$PORT
     advertise: true
@@ -50,17 +50,17 @@ echo "Starting Synnax with TLS on localhost:$PORT..."
 PID=$!
 
 cleanup() {
-    kill -TERM "$PID" 2>/dev/null || true
-    wait "$PID" 2>/dev/null || true
+    kill -TERM "$PID" 2> /dev/null || true
+    wait "$PID" 2> /dev/null || true
 }
 trap cleanup EXIT
 
 for _ in $(seq 1 "$DEADLINE"); do
-    if grep -q "started successfully" "$WORK/core.log" 2>/dev/null; then
+    if grep -q "started successfully" "$WORK/core.log" 2> /dev/null; then
         echo "Embedded Driver connected over TLS"
         exit 0
     fi
-    if ! kill -0 "$PID" 2>/dev/null; then
+    if ! kill -0 "$PID" 2> /dev/null; then
         break
     fi
     sleep 1
