@@ -17,7 +17,7 @@ import {
   type PropsWithChildren,
   type ReactElement,
 } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { assert, describe, expect, it, vi } from "vitest";
 
 import { Errors } from "@/errors";
 import { Schematic } from "@/schematic";
@@ -427,13 +427,12 @@ describe("schematic clipboard", () => {
         (k) =>
           (result.current.configs[k] as GroupCfg | undefined)?.variant === "groupBox",
       );
-      expect(pastedGroupKey).toBeDefined();
-      const members =
-        (result.current.configs[pastedGroupKey ?? ""] as GroupCfg | undefined)
-          ?.members ?? [];
-      expect(members).toHaveLength(2);
-      expect(members.every((m) => pastedKeys.includes(m))).toEqual(true);
-      expect(members.some((m) => originals.has(m))).toEqual(false);
+      assert(pastedGroupKey != null);
+      const pasted = result.current.configs[pastedGroupKey] as GroupCfg;
+      assert(pasted.members != null);
+      expect(pasted.members).toHaveLength(2);
+      expect(pasted.members.every((m) => pastedKeys.includes(m))).toEqual(true);
+      expect(pasted.members.some((m) => originals.has(m))).toEqual(false);
     });
 
     it("does nothing when the clipboard has no Synnax payload", async () => {

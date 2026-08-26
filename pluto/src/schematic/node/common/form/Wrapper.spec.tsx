@@ -11,7 +11,7 @@ import { type schematic } from "@synnaxlabs/client";
 import { type record } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { Form as Base } from "@/form";
@@ -180,7 +180,8 @@ describe("Form.StyleLock", () => {
         configs,
         measure,
       });
-      apply(configs, grouped?.actions ?? []);
+      assert(grouped != null);
+      apply(configs, grouped.actions);
       const view = render(
         <Host values={values} locked={lockedFor(configs)}>
           <spec.Form />
@@ -189,9 +190,10 @@ describe("Form.StyleLock", () => {
       expect(view.getByText(NOTICE)).toBeDefined();
       expect(view.queryByText("Label")).toBeNull();
 
-      const groupKey = grouped?.selection[0] ?? "";
+      const groupKey = grouped.selection[0];
       const ungrouped = Group.ungroupActions([groupKey, "a", "b"], configs);
-      apply(configs, ungrouped?.actions ?? []);
+      assert(ungrouped != null);
+      apply(configs, ungrouped.actions);
       view.rerender(
         <Host values={values} locked={lockedFor(configs)}>
           <spec.Form />
@@ -206,7 +208,8 @@ describe("Form.StyleLock", () => {
         configs,
         measure,
       });
-      apply(configs, regrouped?.actions ?? []);
+      assert(regrouped != null);
+      apply(configs, regrouped.actions);
       view.rerender(
         <Host values={values} locked={lockedFor(configs)}>
           <spec.Form />
@@ -226,7 +229,8 @@ describe("Form.StyleLock", () => {
         Group.withMembers(["outer"], configs),
         configs,
       );
-      apply(configs, result?.actions ?? []);
+      assert(result != null);
+      apply(configs, result.actions);
       const { getByText } = render(
         <Host values={configOf(spec)} locked={lockedFor(configs)}>
           <spec.Form />
