@@ -11,20 +11,21 @@ import { type record, type state } from "@synnaxlabs/x";
 
 /**
  * An exact-match secondary index over a table's live entries. `extract` reads one
- * index value from each entry. Register the index on its owning table's `indexes`
- * param; the table keeps it current across every mutation, rollbacks and resets
- * included. Tombstones are never indexed.
+ * index value from each entry; a null leaves the entry out of the index. Register
+ * the index on its owning table's `indexes` param; the table keeps it current
+ * across every mutation, rollbacks and resets included. Tombstones are never
+ * indexed.
  */
 export class LookupIndex<
   Key extends record.Key = record.Key,
   Value extends state.State = state.State,
   IndexValue extends record.Key = record.Key,
 > {
-  private readonly extract: (value: Value) => IndexValue;
+  private readonly extract: (value: Value) => IndexValue | null;
   private readonly buckets = new Map<IndexValue, Map<Key, Value>>();
   private readonly indexed = new Map<Key, IndexValue>();
 
-  constructor(extract: (value: Value) => IndexValue) {
+  constructor(extract: (value: Value) => IndexValue | null) {
     this.extract = extract;
   }
 
@@ -43,6 +44,10 @@ export class LookupIndex<
     const next = this.extract(value);
     const prev = this.indexed.get(key);
     if (prev !== undefined && prev !== next) this.unbucket(prev, key);
+    if (next == null) {
+      this.indexed.delete(key);
+      return;
+    }
     let bucket = this.buckets.get(next);
     if (bucket == null) {
       bucket = new Map();

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { id, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
-import { assert, beforeAll, describe, expect, it, vi } from "vitest";
+import { assert, beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import { z } from "zod";
 
 import { NotFoundError } from "@/errors";
@@ -885,6 +885,57 @@ describe("Task", async () => {
       }
     });
 
+    it("writes the optimistic status for a task whose status has not synced", async () => {
+      const t = await testRack.createTask({
+        name: `status-uncached-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const params = { key: t.key };
+      const loading: Array<NonNullable<task.Task["status"]>> = [];
+      const off = client.tasks.onChange(params, (cached) => {
+        if (!query.isLive(cached)) return;
+        const { status } = cached;
+        if (status?.variant === "loading") loading.push(status);
+      });
+      try {
+        await client.tasks.retrieve(params);
+        await client.statuses.set({
+          key: id.create(),
+          name: "Task Status",
+          variant: "success",
+          message: "task started",
+          time: TimeStamp.now(),
+          details: {
+            task: t.key,
+            running: true,
+            cmd: "",
+            configHash: "deadbeef",
+            rack: testRack.key,
+            data: {},
+          },
+        });
+        await expect
+          .poll(() => {
+            const cached = client.tasks.getCached(params);
+            if (!query.isLive(cached)) return undefined;
+            return cached.status?.details.configHash;
+          })
+          .toBe("deadbeef");
+        await setRackStatus(testRack.key, "success", "Driver is running");
+        // A reconnect empties the status table while the task stays known. The
+        // command must still get an optimistic status carrying the deploy info.
+        const key = task.statusKey(t.key);
+        client.statuses.store.delete(key);
+        expect(client.statuses.store.get(key)).toBeUndefined();
+        await client.tasks.executeCommand({ task: t.key, type: "stop" });
+        await expect.poll(() => loading.length).toBeGreaterThan(0);
+        expect(loading[0].details.configHash).toBe("deadbeef");
+      } finally {
+        off();
+      }
+    });
+
     it("stands the rack's problem in for a wait its Driver cannot answer", async () => {
       const down = await client.racks.create({ name: `down-${id.create()}` });
       const t = await down.createTask({
@@ -1105,5 +1156,91 @@ describe("drifted", () => {
     // The optimistic command-loading status reports running with an empty hash.
     expect(task.drifted(newPayload({ statusHash: "", taskHash: EDITED }))).toBe(false);
     expect(task.drifted(newPayload({ statusHash: "", statusRack: 2 }))).toBe(false);
+  });
+});
+
+describe("status composition", () => {
+  it("should compose without a predicate scan of the status table", async () => {
+    const testRack = await client.racks.create({ name: "status-scan-pin" });
+    const t = await testRack.createTask({
+      name: "test",
+      config: { routingKey: "dog" },
+      type: "pagerduty_alert",
+    });
+    const communicatedStatus: task.Status = {
+      key: ontology.idToString(task.ontologyID(t.key)),
+      name: "test",
+      variant: "success",
+      details: {
+        task: t.key,
+        running: false,
+        cmd: "",
+        configHash: "",
+        rack: testRack.key,
+        data: undefined,
+      },
+      message: "test",
+      description: "",
+      time: TimeStamp.now(),
+    };
+    const spy = vi.spyOn(client.statuses.store, "get");
+    onTestFinished(() => spy.mockRestore());
+    await client.statuses.set(communicatedStatus);
+    await expect
+      .poll(async () => {
+        const retrieved = await client.tasks.retrieve({
+          key: t.key,
+          includeStatus: true,
+        });
+        return retrieved.status?.variant === communicatedStatus.variant;
+      })
+      .toBe(true);
+    for (const [arg] of spy.mock.calls) expect(typeof arg).not.toBe("function");
+  });
+
+  it("should break a tie on time with the more severe status", async () => {
+    const testRack = await client.racks.create({ name: "status-tie-break" });
+    const t = await testRack.createTask({
+      name: `tie-${id.create()}`,
+      config: { routingKey: "dog" },
+      type: "pagerduty_alert",
+    });
+    const params = { key: t.key };
+    const off = client.tasks.onChange(params, vi.fn());
+    const composed = () => {
+      const cached = client.tasks.getCached(params);
+      return query.isLive(cached) ? cached.status?.message : undefined;
+    };
+    try {
+      await client.tasks.retrieve(params);
+      const time = TimeStamp.now();
+      const details = { task: t.key, running: false, cmd: "", data: undefined };
+      await client.statuses.set({
+        key: ontology.idToString(task.ontologyID(t.key)),
+        name: "test",
+        variant: "error",
+        message: "boom",
+        description: "",
+        time,
+        details,
+      });
+      await expect.poll(composed).toBe("boom");
+      // Written last, so insertion order alone would let this equally fresh
+      // success win. Severity has to be what keeps the error showing.
+      const indirectKey = id.create();
+      await client.statuses.set({
+        key: indirectKey,
+        name: "test",
+        variant: "success",
+        message: "all good",
+        description: "",
+        time,
+        details,
+      });
+      expect(client.statuses.store.get(indirectKey)?.message).toBe("all good");
+      await expect.poll(composed).toBe("boom");
+    } finally {
+      off();
+    }
   });
 });
