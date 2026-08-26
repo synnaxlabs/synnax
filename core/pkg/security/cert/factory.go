@@ -30,6 +30,10 @@ import (
 	"go.uber.org/zap"
 )
 
+// nextSuffix names the files a replacement is written to before it is renamed over the
+// pair in use, so a failed signature or write never destroys the pair on disk.
+const nextSuffix = ".next"
+
 // FactoryConfig is the configuration for creating a new Factory.
 type FactoryConfig struct {
 	// AllowKeyReuse allows the CA key to be reused if it already exists.
@@ -179,13 +183,20 @@ func (f *Factory) CreateNodePairIfStale() error {
 		zap.String("cert", f.AbsoluteNodeCertPath()),
 		zap.String("key", f.AbsoluteNodeKeyPath()),
 	)
-	if err = f.FS.Remove(f.NodeCertPath); err != nil {
+	certPath, keyPath := f.NodeCertPath+nextSuffix, f.NodeKeyPath+nextSuffix
+	if err = f.FS.Remove(certPath); err != nil {
 		return err
 	}
-	if err = f.FS.Remove(f.NodeKeyPath); err != nil {
+	if err = f.FS.Remove(keyPath); err != nil {
 		return err
 	}
-	return f.CreateNodePair()
+	if err = f.writeNodePair(certPath, keyPath); err != nil {
+		return err
+	}
+	if err = f.FS.Rename(keyPath, f.NodeKeyPath); err != nil {
+		return err
+	}
+	return f.FS.Rename(certPath, f.NodeCertPath)
 }
 
 // uncoveredHosts returns the hosts in Hosts that c is not valid for, using the same
@@ -202,6 +213,12 @@ func (f *Factory) uncoveredHosts(c *x509.Certificate) []string {
 
 // CreateNodePair creates a new node certificate and its private key.
 func (f *Factory) CreateNodePair() error {
+	return f.writeNodePair(f.NodeCertPath, f.NodeKeyPath)
+}
+
+// writeNodePair generates a key, signs a certificate for Hosts with the CA, and writes
+// both to the given paths.
+func (f *Factory) writeNodePair(certPath, keyPath string) error {
 	nodeKey, err := rsa.GenerateKey(nil, f.KeySize)
 	if err != nil {
 		return err
@@ -214,10 +231,10 @@ func (f *Factory) CreateNodePair() error {
 	if err != nil {
 		return err
 	}
-	if err = f.writePEM(f.NodeKeyPath, keyP, false); err != nil {
+	if err = f.writePEM(keyPath, keyP, false); err != nil {
 		return err
 	}
-	return f.writePEM(f.NodeCertPath, xpem.FromCertBytes(b) /* multi */, false)
+	return f.writePEM(certPath, xpem.FromCertBytes(b) /* multi */, false)
 }
 
 // SignNodeCert signs an in-memory node certificate for the given hosts using the CA,

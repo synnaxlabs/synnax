@@ -286,8 +286,7 @@ func BootupCore(
 		securityProvider,
 		cfg.certFactoryConfig,
 		*cfg.insecure,
-		cfg.advertisedNeedsCoreCA() ||
-			len(distributionLayer.Cluster.Nodes()) > 1,
+		cfg.advertisedNeedsCoreCA() || len(distributionLayer.Cluster.Nodes()) > 1,
 	)
 	if !ok(err, nil) {
 		return err
