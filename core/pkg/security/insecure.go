@@ -33,8 +33,11 @@ func (p *insecureProvider) TLSConfigFor(cert.Source) *tls.Config { return nil }
 // NodeClientConfig implements TLSProvider.
 func (p *insecureProvider) NodeClientConfig() *tls.Config { return nil }
 
-// VerifyCoreCert implements TLSProvider.
-func (p *insecureProvider) VerifyCoreCert(cert.Source, string) error { return nil }
+// VerifyCertHost implements TLSProvider.
+func (p *insecureProvider) VerifyCertHost(cert.Source, string) error { return nil }
+
+// VerifyCertCoreCA implements TLSProvider.
+func (p *insecureProvider) VerifyCertCoreCA(cert.Source) error { return nil }
 
 // NodePrivate implements KeyProvider.
 func (p *insecureProvider) NodePrivate() crypto.PrivateKey { return p.nodeSecret }

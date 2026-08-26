@@ -82,20 +82,34 @@ func (p *secureProvider) NodeClientConfig() *tls.Config {
 	return p.baseTLSConfig(p.getNodeCert)
 }
 
-// VerifyCoreCert implements TLSProvider.
-func (p *secureProvider) VerifyCoreCert(src cert.Source, host string) error {
-	c, err := src.GetCertificate(&tls.ClientHelloInfo{})
+// VerifyCertHost implements TLSProvider.
+func (p *secureProvider) VerifyCertHost(src cert.Source, host string) error {
+	leaf, err := leafOf(src)
 	if err != nil {
 		return err
 	}
-	leaf := c.Leaf
-	if leaf == nil {
-		if leaf, err = x509.ParseCertificate(c.Certificate[0]); err != nil {
-			return err
-		}
+	return leaf.VerifyHostname(host)
+}
+
+// VerifyCertCoreCA implements TLSProvider.
+func (p *secureProvider) VerifyCertCoreCA(src cert.Source) error {
+	leaf, err := leafOf(src)
+	if err != nil {
+		return err
 	}
-	_, err = leaf.Verify(x509.VerifyOptions{Roots: p.certPool, DNSName: host})
+	_, err = leaf.Verify(x509.VerifyOptions{Roots: p.certPool})
 	return err
+}
+
+func leafOf(src cert.Source) (*x509.Certificate, error) {
+	c, err := src.GetCertificate(&tls.ClientHelloInfo{})
+	if err != nil {
+		return nil, err
+	}
+	if c.Leaf != nil {
+		return c.Leaf, nil
+	}
+	return x509.ParseCertificate(c.Certificate[0])
 }
 
 func (p *secureProvider) baseTLSConfig(

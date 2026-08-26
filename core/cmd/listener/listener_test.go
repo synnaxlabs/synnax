@@ -304,12 +304,24 @@ var _ = Describe("Listener", func() {
 		It("Should reject an unknown certificate source", func() {
 			Expect(listener.Configs{
 				{Address: "localhost:9090", Cert: listener.CertConfig{Source: "bogus"}},
-			}.Resolve(prov, coreFC, false, false)).
+			}.Resolve(prov, coreFC, false, true)).
 				Error().To(MatchError(ContainSubstring("unknown certificate source")))
 		})
 
+		It("Should accept an advertised certificate covering the advertised host", func() {
+			listeners := MustSucceed(listener.Configs{
+				{
+					Address:   "localhost:9090",
+					Cert:      listener.CertConfig{Source: file.SourceType},
+					Advertise: true,
+				},
+			}.Resolve(prov, coreFC, false, true))
+			Expect(listeners).To(HaveLen(1))
+			Expect(listeners[0].TLS).ToNot(BeNil())
+		})
+
 		It(
-			"Should verify the advertised listener against the Core CA when peers are configured",
+			"Should accept an advertised certificate an unrelated CA signed when the Core CA is not required",
 			func() {
 				listeners := MustSucceed(listener.Configs{
 					{
@@ -317,14 +329,14 @@ var _ = Describe("Listener", func() {
 						Cert:      listener.CertConfig{Source: file.SourceType},
 						Advertise: true,
 					},
-				}.Resolve(prov, coreFC, false, true))
+				}.Resolve(prov, foreignFC, false, false))
 				Expect(listeners).To(HaveLen(1))
 				Expect(listeners[0].TLS).ToNot(BeNil())
 			},
 		)
 
 		It(
-			"Should reject an advertised certificate the Core CA cannot verify when peers are configured",
+			"Should reject an advertised certificate an unrelated CA signed when the Core CA is required",
 			func() {
 				Expect(listener.Configs{
 					{
@@ -334,23 +346,61 @@ var _ = Describe("Listener", func() {
 					},
 				}.Resolve(prov, foreignFC, false, true)).
 					Error().
-					To(MatchError(ContainSubstring("must serve a certificate the Core CA signs")))
+					To(MatchError(ContainSubstring("the Core CA did not sign")))
 			},
 		)
 
 		It(
-			"Should skip advertised certificate verification when no peers are configured",
+			"Should check the advertised host even when the Core CA is not required",
 			func() {
-				listeners := MustSucceed(listener.Configs{
+				Expect(listener.Configs{
 					{
 						Address:   "0.0.0.0:9090",
 						Cert:      listener.CertConfig{Source: file.SourceType},
 						Advertise: true,
 					},
-				}.Resolve(prov, foreignFC, false, false))
-				Expect(listeners).To(HaveLen(1))
-				Expect(listeners[0].TLS).ToNot(BeNil())
+				}.Resolve(prov, foreignFC, false, false)).
+					Error().
+					To(MatchError(ContainSubstring("does not cover that host")))
 			},
 		)
+
+		It("Should reject an advertised certificate missing the advertised host", func() {
+			Expect(listener.Configs{
+				{
+					Address:   "0.0.0.0:9090",
+					Cert:      listener.CertConfig{Source: file.SourceType},
+					Advertise: true,
+				},
+			}.Resolve(prov, coreFC, false, true)).
+				Error().
+				To(MatchError(ContainSubstring("does not cover that host")))
+		})
+
+		It("Should not contact tailscaled for an advertised Tailscale listener", func() {
+			listeners := MustSucceed(listener.Configs{
+				{
+					Address:   "node01.example-tailnet.ts.net:9090",
+					Cert:      listener.CertConfig{Source: tailscale.SourceType},
+					Advertise: true,
+				},
+			}.Resolve(prov, coreFC, false, false))
+			Expect(listeners).To(HaveLen(1))
+		})
+
+		It("Should not check a listener that is not advertised", func() {
+			listeners := MustSucceed(listener.Configs{
+				{
+					Address:   "localhost:9090",
+					Cert:      listener.CertConfig{Source: file.SourceType},
+					Advertise: true,
+				},
+				{
+					Address: "0.0.0.0:9091",
+					Cert:    listener.CertConfig{Source: file.SourceType},
+				},
+			}.Resolve(prov, coreFC, false, true))
+			Expect(listeners).To(HaveLen(2))
+		})
 	})
 })

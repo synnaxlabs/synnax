@@ -112,10 +112,10 @@ func (cs Configs) Validate() error {
 	return v.Error()
 }
 
-// ValidateAdvertiseSource rejects a Tailscale source on the advertised listener. Peers
-// dial the advertised address and verify the certificate against the Core CA, which a
-// public-CA Tailscale certificate cannot satisfy. It applies only in secure mode with
-// peers configured, so the caller gates it on the insecure flag and the peer list.
+// ValidateAdvertiseSource rejects a Tailscale source on the advertised listener. It
+// applies only when a peer or the embedded Driver dials the advertised address, since
+// a public-CA Tailscale certificate cannot chain to the Core CA those two verify
+// against. The caller decides when that holds.
 func (cs Configs) ValidateAdvertiseSource() error {
 	v := validate.New("listeners")
 	if len(cs) == 0 {
@@ -124,7 +124,7 @@ func (cs Configs) ValidateAdvertiseSource() error {
 	v.Ternary(
 		"advertise",
 		cs.advertised().Cert.Source == tailscale.SourceType,
-		"advertised listener cannot use the Tailscale source; peers verify certificates against the Core CA",
+		"advertised listener cannot use the Tailscale source; peers and the embedded Driver verify certificates against the Core CA",
 	)
 	return v.Error()
 }
@@ -145,12 +145,17 @@ func (cs Configs) AdvertiseAddress() address.Address { return cs.advertised().Ad
 
 // Resolve resolves each listener config into a server.Listener, backing every secure
 // listener with a TLS config from its certificate source. fc supplies the node-wide
-// filesystem and CA authority. Without peers the advertised cert check is skipped.
+// filesystem and CA authority. It fails when the advertised listener serves a
+// certificate that does not cover the advertised host, which every client rejects, and
+// when requireCoreCA is set and that certificate does not chain to the Core CA, which
+// peers and the embedded Driver reject. It never probes a Tailscale advertised
+// listener: tailscaled resolves by FQDN, so the host always matches, and asking costs
+// a call to a daemon that may not be up yet.
 func (cs Configs) Resolve(
 	p security.Provider,
 	fc cert.FactoryConfig,
 	insecure bool,
-	hasPeers bool,
+	requireCoreCA bool,
 ) ([]server.Listener, error) {
 	out := make([]server.Listener, len(cs))
 	if insecure {
@@ -173,13 +178,24 @@ func (cs Configs) Resolve(
 		if err != nil {
 			return nil, err
 		}
-		if c.Address == advertised && hasPeers {
-			if err = p.VerifyCoreCert(src, advertised.Host()); err != nil {
+		if c.Address == advertised && c.Cert.Source != tailscale.SourceType {
+			if err = p.VerifyCertHost(src, advertised.Host()); err != nil {
 				return nil, errors.Wrapf(
 					err,
-					"advertised listener %q must serve a certificate the Core CA signs for that host; peers cannot verify it otherwise",
+					"advertised listener %q serves a certificate that does not cover that host; no client can verify it",
 					c.Address,
 				)
+			}
+			if requireCoreCA {
+				if err = p.VerifyCertCoreCA(src); err != nil {
+					return nil, errors.Wrapf(
+						err,
+						"advertised listener %q serves a certificate the Core CA did not sign; peers and the embedded Driver cannot verify it. Advertise a listener using the %q or %q source, or start with --no-driver and no peers",
+						c.Address,
+						auto.SourceType,
+						file.SourceType,
+					)
+				}
 			}
 		}
 		out[i] = server.Listener{Address: c.Address, TLS: p.TLSConfigFor(src)}

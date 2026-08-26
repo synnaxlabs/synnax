@@ -77,6 +77,12 @@ var DefaultCoreConfig = CoreConfig{
 	certFactoryConfig: cert.DefaultFactoryConfig,
 }
 
+// advertisedNeedsCoreCA reports whether something that trusts only the Core CA dials
+// the advertised address: a configured peer, or the embedded Driver.
+func (c CoreConfig) advertisedNeedsCoreCA() bool {
+	return len(c.peers) > 0 || (c.noDriver != nil && !*c.noDriver)
+}
+
 func (c CoreConfig) Validate() error {
 	v := validate.New("core.config")
 	validate.NotNil(v, "insecure", c.insecure)
@@ -84,8 +90,7 @@ func (c CoreConfig) Validate() error {
 	validate.NotNil(v, "auto_cert", c.autoCert)
 	validate.NotNil(v, "mem_backed", c.memBacked)
 	v.Exec(c.listeners.Validate)
-	// Without peers nothing dials the advertised address, so any source is valid.
-	if c.insecure != nil && !*c.insecure && len(c.peers) > 0 {
+	if c.insecure != nil && !*c.insecure && c.advertisedNeedsCoreCA() {
 		v.Exec(c.listeners.ValidateAdvertiseSource)
 	}
 	validate.NotEmptyString(v, "data_path", c.dataPath)
@@ -281,7 +286,8 @@ func BootupCore(
 		securityProvider,
 		cfg.certFactoryConfig,
 		*cfg.insecure,
-		len(cfg.peers) > 0 || len(distributionLayer.Cluster.Nodes()) > 1,
+		cfg.advertisedNeedsCoreCA() ||
+			len(distributionLayer.Cluster.Nodes()) > 1,
 	)
 	if !ok(err, nil) {
 		return err
