@@ -510,6 +510,20 @@ describe("cached reads", () => {
       expect(targets.filter((t) => t === "/channel/retrieve")).toHaveLength(1);
       expect(targets.filter((t) => t === "/status/retrieve")).toHaveLength(1);
     });
+
+    it("does not reject concurrent retrieves when a key in the window is missing", async () => {
+      const ch = await createVirtual();
+      const local = createTestClient();
+      await local.connect();
+      const [ok, missing] = await Promise.allSettled([
+        local.channels.retrieve(ch.key),
+        local.channels.retrieve(999999999),
+      ]);
+      expect(ok.status).toEqual("fulfilled");
+      expect(missing.status).toEqual("rejected");
+      if (missing.status === "rejected")
+        expect(NotFoundError.matches(missing.reason)).toBe(true);
+    });
   });
 
   describe("getCached", () => {

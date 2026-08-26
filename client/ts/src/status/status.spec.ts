@@ -11,6 +11,7 @@ import { color, id, TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import z from "zod";
 
+import { NotFoundError } from "@/errors";
 import { group } from "@/group";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
@@ -253,6 +254,26 @@ describe("Status", () => {
       expect(
         send.mock.calls.filter(([target]) => target === "/status/retrieve"),
       ).toHaveLength(1);
+    });
+
+    it("does not reject concurrent retrieves when a key in the window is missing", async () => {
+      const s = await client.statuses.set({
+        key: id.create(),
+        name: "Isolation Test",
+        variant: "info",
+        message: "isolation",
+        time: TimeStamp.now(),
+      });
+      const local = createTestClient();
+      await local.connect();
+      const [ok, missing] = await Promise.allSettled([
+        local.statuses.retrieve(s.key),
+        local.statuses.retrieve(`missing-${id.create()}`),
+      ]);
+      expect(ok.status).toEqual("fulfilled");
+      expect(missing.status).toEqual("rejected");
+      if (missing.status === "rejected")
+        expect(NotFoundError.matches(missing.reason)).toBe(true);
     });
 
     it("should retrieve a status by key", async () => {

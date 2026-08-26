@@ -12,6 +12,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { device } from "@/device";
+import { NotFoundError } from "@/errors";
 import { query } from "@/query";
 import { createTestClient, expectLive, spyOnSend } from "@/testutil";
 
@@ -178,6 +179,28 @@ describe("Device", async () => {
       expect(
         send.mock.calls.filter(([target]) => target === "/device/retrieve"),
       ).toHaveLength(1);
+    });
+
+    it("does not reject concurrent retrieves when a key in the window is missing", async () => {
+      const d = await client.devices.create({
+        key: id.create(),
+        rack: testRack.key,
+        location: "isolation",
+        name: "isolation",
+        make: "ni",
+        model: "dog",
+        properties: {},
+      });
+      const local = createTestClient();
+      await local.connect();
+      const [ok, missing] = await Promise.allSettled([
+        local.devices.retrieve(d.key),
+        local.devices.retrieve(`missing-${id.create()}`),
+      ]);
+      expect(ok.status).toEqual("fulfilled");
+      expect(missing.status).toEqual("rejected");
+      if (missing.status === "rejected")
+        expect(NotFoundError.matches(missing.reason)).toBe(true);
     });
 
     it("should retrieve a device by its key", async () => {

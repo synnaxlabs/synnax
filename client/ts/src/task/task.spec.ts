@@ -11,6 +11,7 @@ import { id, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { assert, beforeAll, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
+import { NotFoundError } from "@/errors";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { rack } from "@/rack";
@@ -129,6 +130,24 @@ describe("Task", async () => {
       expect(
         send.mock.calls.filter(([target]) => target === "/task/retrieve"),
       ).toHaveLength(1);
+    });
+
+    it("does not reject concurrent retrieves when a key in the window is missing", async () => {
+      const created = await testRack.createTask({
+        name: "isolation",
+        config: { routingKey: "dog" },
+        type: "pagerduty_alert",
+      });
+      const local = createTestClient();
+      await local.connect();
+      const [ok, missing] = await Promise.allSettled([
+        local.tasks.retrieve(created.key),
+        local.tasks.retrieve(uuid.create()),
+      ]);
+      expect(ok.status).toEqual("fulfilled");
+      expect(missing.status).toEqual("rejected");
+      if (missing.status === "rejected")
+        expect(NotFoundError.matches(missing.reason)).toBe(true);
     });
 
     it("should retrieve a task by its key", async () => {

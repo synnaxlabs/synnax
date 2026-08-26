@@ -186,7 +186,27 @@ export class Table<
             exec: async (requests) => {
               const keys = new Set<Key>();
               requests.forEach(({ req }) => req.forEach((key) => keys.add(key)));
-              const fetched = await fetch(Array.from(keys));
+              let fetched: Array<Keyed<Key, Value>>;
+              try {
+                fetched = await fetch(Array.from(keys));
+              } catch (exc) {
+                if (!NotFoundError.matches(exc) || requests.length === 1)
+                  throw errors.fromUnknown(exc);
+                // A strict fetch rejects the whole batch when any caller's key
+                // has vanished. Refetch per caller so each settles exactly as
+                // its own request would have, keeping the batch transparent.
+                await Promise.all(
+                  requests.map(async ({ req, resolve, reject }) => {
+                    try {
+                      const mine = new Set(req);
+                      resolve((await fetch(req)).filter(({ key }) => mine.has(key)));
+                    } catch (exc) {
+                      reject(exc);
+                    }
+                  }),
+                );
+                return;
+              }
               // The window's fetch carries other callers' keys too; each caller
               // hydrates only the entries it asked for.
               requests.forEach(({ req, resolve }) => {

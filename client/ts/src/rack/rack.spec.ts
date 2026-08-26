@@ -10,6 +10,7 @@
 import { id, TimeStamp, zod } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
+import { NotFoundError } from "@/errors";
 import { query } from "@/query";
 import { type rack } from "@/rack";
 import { statusKey } from "@/rack/client";
@@ -82,6 +83,20 @@ describe("Rack", () => {
       expect(
         send.mock.calls.filter(([target]) => target === "/rack/retrieve"),
       ).toHaveLength(1);
+    });
+
+    it("does not reject concurrent retrieves when a key in the window is missing", async () => {
+      const created = await client.racks.create({ name: "isolation" });
+      const local = createTestClient();
+      await local.connect();
+      const [ok, missing] = await Promise.allSettled([
+        local.racks.retrieve(created.key),
+        local.racks.retrieve(4123456789),
+      ]);
+      expect(ok.status).toEqual("fulfilled");
+      expect(missing.status).toEqual("rejected");
+      if (missing.status === "rejected")
+        expect(NotFoundError.matches(missing.reason)).toBe(true);
     });
 
     it("should retrieve a rack by its key", async () => {

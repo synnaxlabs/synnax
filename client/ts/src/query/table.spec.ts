@@ -10,6 +10,7 @@
 import { type record, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
+import { NotFoundError } from "@/errors";
 import { query } from "@/query";
 
 const noopError = (_: Error) => {};
@@ -1315,6 +1316,32 @@ describe("Table", () => {
       const results = await table.retrieve(["a"], { refresh: true });
       expect(fetch).toHaveBeenCalledWith(["a"]);
       expect(results).toEqual([item("a", "a-fresh")]);
+    });
+
+    it("should refetch per caller when a strict fetch rejects the shared batch", async () => {
+      const fetch = vi.fn(async (keys: string[]) => {
+        if (keys.includes("gone")) throw new NotFoundError("gone");
+        return keys.map((k) => item(k, k));
+      });
+      const table = fetchTable(fetch);
+      const [a, gone] = await Promise.allSettled([
+        table.retrieve(["a"]),
+        table.retrieve(["gone"]),
+      ]);
+      expect(a).toEqual({ status: "fulfilled", value: [item("a", "a")] });
+      expect(gone.status).toEqual("rejected");
+      if (gone.status === "rejected")
+        expect(NotFoundError.matches(gone.reason)).toBe(true);
+      expect(fetch).toHaveBeenCalledTimes(3);
+    });
+
+    it("should reject a lone strict retrieve with the fetch error", async () => {
+      const fetch = vi.fn(async (keys: string[]): Promise<Item[]> => {
+        throw new NotFoundError(keys.join(","));
+      });
+      const table = fetchTable(fetch);
+      await expect(table.retrieve(["a", "gone"])).rejects.toThrow(NotFoundError);
+      expect(fetch).toHaveBeenCalledTimes(1);
     });
 
     it("should tombstone a refreshed key the fetch omits", async () => {

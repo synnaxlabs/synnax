@@ -596,6 +596,20 @@ describe("cached reads", () => {
       ).toHaveLength(1);
     });
 
+    it("does not reject concurrent retrieves when a key in the window is missing", async () => {
+      const rng = await createRange();
+      const local = createTestClient();
+      await local.connect();
+      const [ok, missing] = await Promise.allSettled([
+        local.ranges.retrieve(rng.key),
+        local.ranges.retrieve(uuid.create()),
+      ]);
+      expect(ok.status).toEqual("fulfilled");
+      expect(missing.status).toEqual("rejected");
+      if (missing.status === "rejected")
+        expect(NotFoundError.matches(missing.reason)).toBe(true);
+    });
+
     it("reflects remote changes on an unsubscribed repeat retrieve", async () => {
       const rng = await createRange();
       const first = await client.ranges.retrieve(rng.key);
