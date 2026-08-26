@@ -85,7 +85,7 @@ import {
   IoTime,
   IoTvOutline,
 } from "react-icons/io5";
-import { LuSquareFunction } from "react-icons/lu";
+import { LuSquareFunction, LuUngroup } from "react-icons/lu";
 import {
   MdAccessTime,
   MdAlignHorizontalCenter,
@@ -348,6 +348,7 @@ export const Node = wrapSVGIcon(MdOutlineDeviceHub, "node");
 export const Channel = wrapSVGIcon(MdSensors, "channel");
 export const Resources = wrapSVGIcon(AiFillFolder, "resources");
 export const Group = wrapSVGIcon(AiFillFolder, "group");
+export const Ungroup = wrapSVGIcon(LuUngroup, "ungroup");
 export const Project = wrapSVGIcon(MdWorkspacesFilled, "project");
 export const Box = wrapSVGIcon(AiOutlineBorder, "box");
 export const Boxes = wrapSVGIcon(VscChromeRestore, "boxes");
@@ -618,6 +619,7 @@ const icons = {
   Channel,
   Resources,
   Group,
+  Ungroup,
   Project,
   Box,
   Boxes,

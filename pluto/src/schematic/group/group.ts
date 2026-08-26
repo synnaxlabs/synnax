@@ -48,6 +48,27 @@ const rootOf = (parentOf: Map<string, string>, key: string): string => {
   }
 };
 
+// Selected keys resolve to their outermost group (or themselves when ungrouped):
+// grouping nests whole groups, and no symbol ever gains two parents.
+const resolveOutermost = (
+  selected: readonly string[],
+  nodes: readonly schematic.Node[],
+  parentOf: Map<string, string>,
+): schematic.Node[] => {
+  const nodeByKey = new Map(nodes.map((n) => [n.key, n]));
+  const keys = new Set<string>();
+  for (const key of selected)
+    if (nodeByKey.has(key)) keys.add(rootOf(parentOf, key));
+  return [...keys].map((k) => nodeByKey.get(k)).filter((n) => n != null);
+};
+
+/** canGroup returns whether the selection resolves to two or more outermost symbols. */
+export const canGroup = (
+  selected: readonly string[],
+  nodes: readonly schematic.Node[],
+  parentOf: Map<string, string>,
+): boolean => resolveOutermost(selected, nodes, parentOf).length >= 2;
+
 export interface CreateParams {
   selected: readonly string[];
   nodes: readonly schematic.Node[];
@@ -73,14 +94,7 @@ export const createActions = ({
   configs,
   measure,
 }: CreateParams): CreateResult | null => {
-  const nodeByKey = new Map(nodes.map((n) => [n.key, n]));
-  const sel = selected.filter((k) => nodeByKey.has(k));
-  const parentOf = buildParentOf(configs);
-  // Selected keys resolve to their outermost group (or themselves when ungrouped):
-  // grouping nests whole groups, and no symbol ever gains two parents.
-  const memberNodes = [...new Set(sel.map((k) => rootOf(parentOf, k)))]
-    .map((k) => nodeByKey.get(k))
-    .filter((n) => n != null);
+  const memberNodes = resolveOutermost(selected, nodes, buildParentOf(configs));
   if (memberNodes.length < 2) return null;
   let minX = Infinity;
   let minY = Infinity;
@@ -220,6 +234,12 @@ export const lockedKeys = (
     return parent != null && !keySet.has(parent);
   });
 };
+
+/** canUngroup returns whether the selection includes a group. */
+export const canUngroup = (
+  selected: readonly string[],
+  configs: Record<string, record.Unknown>,
+): boolean => selected.some((key) => isConfig(configs[key]));
 
 export interface UngroupResult {
   actions: schematic.Action[];

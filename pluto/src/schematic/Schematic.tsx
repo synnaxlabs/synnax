@@ -216,6 +216,15 @@ export const Schematic = ({
     if (freed != null) onSelectionChange?.(freed);
   }, [ungroup, onSelectionChange]);
 
+  const canGroup = useMemo(
+    () => Group.canGroup(selected ?? [], nodes, parentOf),
+    [selected, nodes, parentOf],
+  );
+  const canUngroup = useMemo(
+    () => Group.canUngroup(selected ?? [], configs),
+    [selected, configs],
+  );
+
   // Selecting a group selects its members; delete, copy, and cut then cover them.
   const handleSelectionChange = useCallback(
     (keys: string[]) =>
@@ -246,6 +255,17 @@ export const Schematic = ({
               paste={paste}
               hasSelection={(selected?.length ?? 0) > 0}
             />
+            {(canGroup || canUngroup) && (
+              <>
+                <Menu.Divider />
+                <BaseDiagram.Menu.GroupItems
+                  group={handleGroup}
+                  ungroup={handleUngroup}
+                  canGroup={canGroup}
+                  canUngroup={canUngroup}
+                />
+              </>
+            )}
             <Menu.Divider />
             <Menu.UndoRedoItems
               undo={undo}
@@ -270,6 +290,10 @@ export const Schematic = ({
       cut,
       copy,
       paste,
+      canGroup,
+      canUngroup,
+      handleGroup,
+      handleUngroup,
     ],
   );
 
