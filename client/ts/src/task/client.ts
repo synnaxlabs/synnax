@@ -759,6 +759,12 @@ export class Client extends query.Retriever<
     // no status or the status may not have synced. Only both count as a hit.
     if (cached != null && this.cfg.statusStore.has(statusKey(cached.key)))
       return this.compose(cached);
+    if (primitive.isNonZero(q.keys)) {
+      // The refresh covers a cached task whose status has not synced.
+      const tasks = await this.store.retrieve(q.keys, { refresh: true });
+      checkForMultipleOrNoResults("Task", q, tasks, true);
+      return this.compose(tasks[0]);
+    }
     const tasks = await this.execRetrieve({ ...q, includeStatus: true });
     checkForMultipleOrNoResults("Task", q, tasks, true);
     this.writeThrough(tasks[0]);

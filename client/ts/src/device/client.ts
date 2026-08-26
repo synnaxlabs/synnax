@@ -424,10 +424,11 @@ export class Client extends query.Retriever<
   }
 
   private async fetchSingle(q: SingleQuery): Promise<Device> {
-    // A status-bearing hit needs both the record and its status cached.
+    // Status-bearing queries bypass the table, which never holds status.
     if (q.includeStatus !== true) {
-      const cached = this.store.get(q.key);
-      if (cached != null) return cached;
+      const devices = await this.store.retrieve([q.key]);
+      checkForMultipleOrNoResults("Device", q, devices, true);
+      return devices[0];
     }
     const devices = await this.execRetrieve(q);
     checkForMultipleOrNoResults("Device", q, devices, true);

@@ -28,7 +28,7 @@ import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { ranger } from "@/ranger";
-import { createTestClient, expectDeleted, expectLive } from "@/testutil";
+import { createTestClient, expectDeleted, expectLive, spyOnSend } from "@/testutil";
 
 const client = createTestClient();
 
@@ -582,6 +582,34 @@ describe("cached reads", () => {
   beforeAll(async () => await client.connect());
 
   describe("retrieve", () => {
+    it("coalesces concurrent single retrieves into one request", async () => {
+      const created = [await createRange(), await createRange()];
+      const local = createTestClient();
+      await local.connect();
+      const send = spyOnSend(local);
+      const res = await Promise.all(
+        created.map(async ({ key }) => await local.ranges.retrieve(key)),
+      );
+      expect(res.map(({ key }) => key)).toEqual(created.map(({ key }) => key));
+      expect(
+        send.mock.calls.filter(([target]) => target === "/range/retrieve"),
+      ).toHaveLength(1);
+    });
+
+    it("does not reject concurrent retrieves when a key in the window is missing", async () => {
+      const rng = await createRange();
+      const local = createTestClient();
+      await local.connect();
+      const [ok, missing] = await Promise.allSettled([
+        local.ranges.retrieve(rng.key),
+        local.ranges.retrieve(uuid.create()),
+      ]);
+      expect(ok.status).toEqual("fulfilled");
+      expect(missing.status).toEqual("rejected");
+      if (missing.status === "rejected")
+        expect(NotFoundError.matches(missing.reason)).toBe(true);
+    });
+
     it("reflects remote changes on an unsubscribed repeat retrieve", async () => {
       const rng = await createRange();
       const first = await client.ranges.retrieve(rng.key);

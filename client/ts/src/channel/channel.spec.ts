@@ -11,7 +11,7 @@ import { control, DataType, id, TimeRange, TimeSpan, TimeStamp } from "@synnaxla
 import { beforeAll, describe, expect, it, test, vi } from "vitest";
 
 import { Channel } from "@/channel/client";
-import type Synnax from "@/client";
+import { statusKey } from "@/channel/payload";
 import { NotFoundError } from "@/errors";
 import { query } from "@/query";
 import {
@@ -20,6 +20,7 @@ import {
   expectDeleted,
   expectLive,
   FAST_RETRY,
+  spyOnSend,
   TEST_CLIENT_PARAMS,
 } from "@/testutil";
 
@@ -424,9 +425,6 @@ describe("Channel", () => {
   });
 });
 
-const spyOnSendOf = (client: Synnax, field: "transport") =>
-  vi.spyOn(client[field].unary, "send");
-
 const createVirtual = async (c = client) =>
   await c.channels.create({
     name: `qry_${id.create()}`,
@@ -476,7 +474,7 @@ describe("cached reads", () => {
       const created = [await createVirtual(), await createVirtual()];
       const local = createTestClient();
       await local.connect();
-      const send = spyOnSendOf(local, "transport");
+      const send = spyOnSend(local);
       const res = await Promise.all(
         created.map(async ({ key }) => await local.channels.retrieve(key)),
       );
@@ -484,6 +482,62 @@ describe("cached reads", () => {
       expect(
         send.mock.calls.filter(([target]) => target === "/channel/retrieve"),
       ).toHaveLength(1);
+    });
+
+    it("coalesces the status lookups of concurrent calculated retrieves", async () => {
+      const source = await createVirtual();
+      const created = await Promise.all([
+        client.channels.create({
+          name: `qry_${id.create()}`,
+          dataType: DataType.FLOAT32,
+          virtual: true,
+          expression: `return ${source.name} * 2`,
+        }),
+        client.channels.create({
+          name: `qry_${id.create()}`,
+          dataType: DataType.FLOAT32,
+          virtual: true,
+          expression: `return ${source.name} + 1`,
+        }),
+      ]);
+      // One status request needs both statuses to exist: the calculation
+      // engine only writes them once data flows, so seed them directly.
+      await Promise.all(
+        created.map(
+          async ({ key }) =>
+            await client.statuses.set({
+              key: statusKey(key),
+              name: "Calculation Status",
+              variant: "info",
+              message: "calculating",
+              time: TimeStamp.now(),
+            }),
+        ),
+      );
+      const local = createTestClient();
+      await local.connect();
+      const send = spyOnSend(local);
+      const res = await Promise.all(
+        created.map(async ({ key }) => await local.channels.retrieve(key)),
+      );
+      expect(res.map(({ key }) => key)).toEqual(created.map(({ key }) => key));
+      const targets = send.mock.calls.map(([target]) => target);
+      expect(targets.filter((t) => t === "/channel/retrieve")).toHaveLength(1);
+      expect(targets.filter((t) => t === "/status/retrieve")).toHaveLength(1);
+    });
+
+    it("does not reject concurrent retrieves when a key in the window is missing", async () => {
+      const ch = await createVirtual();
+      const local = createTestClient();
+      await local.connect();
+      const [ok, missing] = await Promise.allSettled([
+        local.channels.retrieve(ch.key),
+        local.channels.retrieve(999999999),
+      ]);
+      expect(ok.status).toEqual("fulfilled");
+      expect(missing.status).toEqual("rejected");
+      if (missing.status === "rejected")
+        expect(NotFoundError.matches(missing.reason)).toBe(true);
     });
   });
 

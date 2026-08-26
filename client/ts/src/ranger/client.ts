@@ -694,8 +694,12 @@ export class Client extends query.Retriever<
   private async fetchSingle(query: Key | Name): Promise<Range> {
     const cached = this.store.get(query);
     if (cached != null) return this.composeOne(cached);
-    const req = keyZ.safeParse(query).success ? { keys: [query] } : { names: [query] };
-    const ranges = await this.execRetrieve({ ...BASE_REQUEST, ...req });
+    if (keyZ.safeParse(query).success) {
+      const ranges = await this.store.retrieve([query]);
+      checkForMultipleOrNoResults("Range", query, ranges, true);
+      return this.composeOne(ranges[0]);
+    }
+    const ranges = await this.execRetrieve({ ...BASE_REQUEST, names: [query] });
     checkForMultipleOrNoResults("Range", query, ranges, true);
     this.writeThrough(ranges[0]);
     return ranges[0];

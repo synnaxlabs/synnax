@@ -186,7 +186,27 @@ export class Table<
             exec: async (requests) => {
               const keys = new Set<Key>();
               requests.forEach(({ req }) => req.forEach((key) => keys.add(key)));
-              const fetched = await fetch(Array.from(keys));
+              let fetched: Array<Keyed<Key, Value>>;
+              try {
+                fetched = await fetch(Array.from(keys));
+              } catch (exc) {
+                if (!NotFoundError.matches(exc) || requests.length === 1)
+                  throw errors.fromUnknown(exc);
+                // A strict fetch rejects the whole batch when any caller's key
+                // has vanished. Refetch per caller so each settles exactly as
+                // its own request would have, keeping the batch transparent.
+                await Promise.all(
+                  requests.map(async ({ req, resolve, reject }) => {
+                    try {
+                      const mine = new Set(req);
+                      resolve((await fetch(req)).filter(({ key }) => mine.has(key)));
+                    } catch (exc) {
+                      reject(exc);
+                    }
+                  }),
+                );
+                return;
+              }
               // The window's fetch carries other callers' keys too; each caller
               // hydrates only the entries it asked for.
               requests.forEach(({ req, resolve }) => {
@@ -327,9 +347,10 @@ export class Table<
   /**
    * Resolves the given keys to records: serves cached entries and fetches the misses
    * through the table's fetch, hydrating results under the declared mode. With refresh,
-   * every key is fetched regardless of presence. Returns the table's entries for the
-   * found keys in input order, deduplicated; keys the cluster no longer has are
-   * omitted. Tables without a fetch serve cached entries only.
+   * every key is fetched regardless of presence and cached entries the fetch omits are
+   * tombstoned. Returns the table's entries for the found keys in input order,
+   * deduplicated; keys the cluster no longer has are omitted. Tables without a fetch
+   * serve cached entries only.
    */
   async retrieve(keys: Key[], opts: { refresh?: boolean } = {}): Promise<Value[]> {
     if (this.fetchBatcher != null) {
@@ -338,9 +359,19 @@ export class Table<
       if (misses.length > 0) {
         const gen = this.gen;
         const fetched = await this.fetchBatcher.enqueue(misses);
-        if (gen === this.gen && fetched.length > 0)
-          if (opts.refresh === true) this.set(fetched);
-          else this.ingest(fetched);
+        if (gen === this.gen)
+          if (opts.refresh === true) {
+            // A refresh is authoritative for its keys: cached entries the
+            // fetch omitted vanished from the cluster and are tombstoned.
+            const present = new Set<Key>(fetched.map(({ key }) => key));
+            const vanished = misses.filter(
+              (key) => !present.has(key) && this.entries.has(key),
+            );
+            this.batch(() => {
+              if (vanished.length > 0) this.delete(vanished);
+              if (fetched.length > 0) this.set(fetched);
+            });
+          } else if (fetched.length > 0) this.ingest(fetched);
       }
     }
     const seen = new Set<Key>();
