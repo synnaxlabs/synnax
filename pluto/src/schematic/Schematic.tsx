@@ -167,13 +167,20 @@ export const Schematic = ({
   const group = useGroup();
   const ungroup = useUngroup();
   const handleGroup = useCallback(() => {
-    const key = group(selectedRef.current ?? [], measure);
-    if (key != null) onSelectionChange?.([key]);
+    const selection = group(selectedRef.current ?? [], measure);
+    if (selection != null) onSelectionChange?.(selection);
   }, [group, measure, onSelectionChange]);
   const handleUngroup = useCallback(() => {
     const freed = ungroup(selectedRef.current ?? []);
     if (freed != null) onSelectionChange?.(freed);
   }, [ungroup, onSelectionChange]);
+
+  // Selecting a group selects its members; delete, copy, and cut then cover them.
+  const handleSelectionChange = useCallback(
+    (keys: string[]) =>
+      onSelectionChange?.(Group.withMembers(keys, configsRef.current)),
+    [onSelectionChange],
+  );
 
   BaseDiagram.useTriggers({
     onSelectAll: handleSelectAll,
@@ -234,7 +241,7 @@ export const Schematic = ({
       onNodesChange={handleNodesChange}
       onEdgesChange={handleEdgesChange}
       viewport={viewport}
-      onSelectionChange={onSelectionChange}
+      onSelectionChange={handleSelectionChange}
       edgesReconnectable={false}
       editable={editable}
       onDoubleClick={onDoubleClick}

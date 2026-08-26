@@ -349,7 +349,7 @@ describe("clipboard", () => {
       // offset = cursor - anchor = (100, 200)
       expect(result.nodes[0].node.position).toEqual({ x: 100, y: 200 });
       expect(result.nodes[1].node.position).toEqual({ x: 110, y: 210 });
-      expect(result.newKeys).toEqual(result.nodes.map((n) => n.node.key));
+      expect(Object.values(result.remap)).toEqual(result.nodes.map((n) => n.node.key));
     });
 
     it("should preserve other node fields while replacing the key", () => {

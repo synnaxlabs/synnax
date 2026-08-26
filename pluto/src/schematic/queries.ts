@@ -254,13 +254,13 @@ export const useAddNode = () => {
 
 /**
  * useGroup returns a callback that groups the given selection, dispatched as a
- * single undoable step. Returns the new group's key, or null when the selection
- * cannot be grouped.
+ * single undoable step. Returns the keys to select, the new group first, or null
+ * when the selection cannot be grouped.
  */
 export const useGroup = (): ((
   selected: readonly string[],
   measure: Group.Measure,
-) => string | null) => {
+) => string[] | null) => {
   const key = Scope.use();
   const client = Synnax.use();
   const dispatch = useSingleDispatch();
@@ -276,7 +276,7 @@ export const useGroup = (): ((
       });
       if (result == null) return null;
       dispatch(result.actions);
-      return result.key;
+      return result.selection;
     },
     [client, key, dispatch],
   );

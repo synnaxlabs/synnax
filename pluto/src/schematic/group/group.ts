@@ -57,8 +57,8 @@ export interface CreateParams {
 
 export interface CreateResult {
   actions: schematic.Action[];
-  /** key is the new group's key. */
-  key: string;
+  /** selection lists the keys to select: the new group first, then its members. */
+  selection: string[];
 }
 
 /**
@@ -95,9 +95,10 @@ export const createActions = ({
     maxY = Math.max(maxY, node.position.y + dims.height);
   }
   const key = uuid.create();
+  const members = memberNodes.map((n) => n.key);
   const config: Node.GroupBox.Config = {
     ...Node.GroupBox.defaultConfig(),
-    members: memberNodes.map((n) => n.key),
+    members,
     dimensions: {
       width: maxX - minX + 2 * PADDING,
       height: maxY - minY + 2 * PADDING,
@@ -108,7 +109,10 @@ export const createActions = ({
     position: { x: minX - PADDING, y: minY - PADDING },
     zIndex: -1,
   };
-  return { actions: [schematic.setNode({ node, config })], key };
+  return {
+    actions: [schematic.setNode({ node, config })],
+    selection: [key, ...withMembers(members, configs)],
+  };
 };
 
 const collectMembers = (
@@ -123,6 +127,31 @@ const collectMembers = (
     out.add(m);
     collectMembers(m, configs, out);
   }
+};
+
+/**
+ * remapMembers rewrites a pasted group config's members onto the pasted keys,
+ * dropping members that were not pasted. Non-group configs pass through.
+ */
+export const remapMembers = (
+  config: record.Unknown | undefined,
+  remap: Record<string, string>,
+): record.Unknown | undefined => {
+  if (!isConfig(config)) return config;
+  const members = config.members.map((m) => remap[m]).filter((m) => m != null);
+  return { ...config, members };
+};
+
+/**
+ * withMembers returns the keys plus every selected group's members, recursively.
+ */
+export const withMembers = (
+  keys: readonly string[],
+  configs: Record<string, record.Unknown>,
+): string[] => {
+  const out = new Set(keys);
+  for (const key of keys) collectMembers(key, configs, out);
+  return [...out];
 };
 
 /**
@@ -177,7 +206,7 @@ export const lockMembers = (
 
 export interface UngroupResult {
   actions: schematic.Action[];
-  /** freed lists the direct members of the removed groups. */
+  /** freed lists the removed groups' members, nested contents included. */
   freed: string[];
 }
 
@@ -231,5 +260,5 @@ export const ungroupActions = (
     if (!isConfig(config)) continue;
     for (const m of config.members) if (!targets.has(m)) freed.push(m);
   }
-  return { actions, freed };
+  return { actions, freed: withMembers(freed, configs) };
 };
