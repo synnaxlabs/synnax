@@ -101,6 +101,24 @@ func (p *secureProvider) VerifyCertCoreCA(src cert.Source) error {
 	return err
 }
 
+// VerifyCertTrustAnchors implements TLSProvider.
+func (p *secureProvider) VerifyCertTrustAnchors(src cert.Source) error {
+	leaf, err := leafOf(src)
+	if err != nil {
+		return err
+	}
+	anchors, err := p.loader.TrustAnchorsPEM()
+	if err != nil {
+		return err
+	}
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM(anchors) {
+		return errors.New("no trust anchors could be parsed")
+	}
+	_, err = leaf.Verify(x509.VerifyOptions{Roots: pool})
+	return err
+}
+
 func leafOf(src cert.Source) (*x509.Certificate, error) {
 	c, err := src.GetCertificate(&tls.ClientHelloInfo{})
 	if err != nil {

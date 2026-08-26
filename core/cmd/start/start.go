@@ -77,11 +77,8 @@ var DefaultCoreConfig = CoreConfig{
 	certFactoryConfig: cert.DefaultFactoryConfig,
 }
 
-// advertisedNeedsCoreCA reports whether something that trusts only the Core CA dials
-// the advertised address: a configured peer, or the embedded Driver.
-func (c CoreConfig) advertisedNeedsCoreCA() bool {
-	return len(c.peers) > 0 || (c.noDriver != nil && !*c.noDriver)
-}
+// driverEnabled reports whether the embedded Driver starts with this Core.
+func (c CoreConfig) driverEnabled() bool { return c.noDriver != nil && !*c.noDriver }
 
 func (c CoreConfig) Validate() error {
 	v := validate.New("core.config")
@@ -90,7 +87,7 @@ func (c CoreConfig) Validate() error {
 	validate.NotNil(v, "auto_cert", c.autoCert)
 	validate.NotNil(v, "mem_backed", c.memBacked)
 	v.Exec(c.listeners.Validate)
-	if c.insecure != nil && !*c.insecure && c.advertisedNeedsCoreCA() {
+	if c.insecure != nil && !*c.insecure && (len(c.peers) > 0 || c.driverEnabled()) {
 		v.Exec(c.listeners.ValidateAdvertiseSource)
 	}
 	validate.NotEmptyString(v, "data_path", c.dataPath)
@@ -286,7 +283,8 @@ func BootupCore(
 		securityProvider,
 		cfg.certFactoryConfig,
 		*cfg.insecure,
-		cfg.advertisedNeedsCoreCA() || len(distributionLayer.Cluster.Nodes()) > 1,
+		len(cfg.peers) > 0 || len(distributionLayer.Cluster.Nodes()) > 1,
+		cfg.driverEnabled(),
 	)
 	if !ok(err, nil) {
 		return err

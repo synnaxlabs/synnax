@@ -146,16 +146,16 @@ func (cs Configs) AdvertiseAddress() address.Address { return cs.advertised().Ad
 // Resolve resolves each listener config into a server.Listener, backing every secure
 // listener with a TLS config from its certificate source. fc supplies the node-wide
 // filesystem and CA authority. It fails when the advertised listener serves a
-// certificate that does not cover the advertised host, which every client rejects, and
-// when requireCoreCA is set and that certificate does not chain to the Core CA, which
-// peers and the embedded Driver reject. It never probes a Tailscale advertised
-// listener: tailscaled resolves by FQDN, so the host always matches, and asking costs
-// a call to a daemon that may not be up yet.
+// certificate that does not cover the advertised host, that does not chain to the Core
+// CA when hasPeers is set, or that chains to no Core trust anchor when hasDriver is
+// set. It never probes a Tailscale advertised listener: tailscaled resolves by FQDN,
+// so the host always matches, and the daemon may not be up yet.
 func (cs Configs) Resolve(
 	p security.Provider,
 	fc cert.FactoryConfig,
 	insecure bool,
-	requireCoreCA bool,
+	hasPeers bool,
+	hasDriver bool,
 ) ([]server.Listener, error) {
 	out := make([]server.Listener, len(cs))
 	if insecure {
@@ -186,14 +186,22 @@ func (cs Configs) Resolve(
 					c.Address,
 				)
 			}
-			if requireCoreCA {
+			if hasPeers {
 				if err = p.VerifyCertCoreCA(src); err != nil {
 					return nil, errors.Wrapf(
 						err,
-						"advertised listener %q serves a certificate the Core CA did not sign; peers and the embedded Driver cannot verify it. Advertise a listener using the %q or %q source, or start with --no-driver and no peers",
+						"advertised listener %q serves a certificate the Core CA did not sign; peers cannot verify it. Use the %q source or a certificate the Core CA signs",
 						c.Address,
 						auto.SourceType,
-						file.SourceType,
+					)
+				}
+			} else if hasDriver {
+				if err = p.VerifyCertTrustAnchors(src); err != nil {
+					return nil, errors.Wrapf(
+						err,
+						"advertised listener %q serves a certificate outside the Core's trust anchors; the embedded Driver cannot verify it. Serve the node certificate, use the %q source, or start with --no-driver",
+						c.Address,
+						auto.SourceType,
 					)
 				}
 			}

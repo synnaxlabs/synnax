@@ -153,6 +153,52 @@ var _ = Describe("OtelProvider", func() {
 				Expect(prov.VerifyCertCoreCA(foreign)).ToNot(Succeed())
 			})
 		})
+		Describe("VerifyCertTrustAnchors", func() {
+			It("Should accept a certificate the Core CA signed", func() {
+				fs := xfs.NewMem()
+				mock.GenerateCerts(fs)
+				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
+					LoaderConfig: cert.LoaderConfig{FS: fs},
+					KeySize:      mock.SmallKeySize,
+					Insecure:     new(false),
+				}))
+				src := MustSucceed(file.NewSource(fs,
+					"/usr/local/synnax/certs/node.crt",
+					"/usr/local/synnax/certs/node.key",
+				))
+				Expect(prov.VerifyCertTrustAnchors(src)).To(Succeed())
+			})
+			It("Should accept the node certificate when its CA is absent", func() {
+				fs := xfs.NewMem()
+				mock.GenerateCerts(fs)
+				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
+					LoaderConfig: cert.LoaderConfig{FS: fs, CACertPath: "absent.crt"},
+					KeySize:      mock.SmallKeySize,
+					Insecure:     new(false),
+				}))
+				src := MustSucceed(file.NewSource(fs,
+					"/usr/local/synnax/certs/node.crt",
+					"/usr/local/synnax/certs/node.key",
+				))
+				Expect(prov.VerifyCertTrustAnchors(src)).To(Succeed())
+			})
+			It("Should reject a certificate outside the trust anchors", func() {
+				fs := xfs.NewMem()
+				mock.GenerateCerts(fs)
+				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
+					LoaderConfig: cert.LoaderConfig{FS: fs},
+					KeySize:      mock.SmallKeySize,
+					Insecure:     new(false),
+				}))
+				foreignFS := xfs.NewMem()
+				mock.GenerateCerts(foreignFS)
+				foreign := MustSucceed(file.NewSource(foreignFS,
+					"/usr/local/synnax/certs/node.crt",
+					"/usr/local/synnax/certs/node.key",
+				))
+				Expect(prov.VerifyCertTrustAnchors(foreign)).ToNot(Succeed())
+			})
+		})
 	})
 	Describe("Insecure", func() {
 		Describe("TLS Properties", func() {
@@ -181,6 +227,7 @@ var _ = Describe("OtelProvider", func() {
 				}))
 				Expect(prov.VerifyCertHost(nil, "")).To(Succeed())
 				Expect(prov.VerifyCertCoreCA(nil)).To(Succeed())
+				Expect(prov.VerifyCertTrustAnchors(nil)).To(Succeed())
 			})
 		})
 	})

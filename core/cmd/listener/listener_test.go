@@ -304,7 +304,7 @@ var _ = Describe("Listener", func() {
 		It("Should reject an unknown certificate source", func() {
 			Expect(listener.Configs{
 				{Address: "localhost:9090", Cert: listener.CertConfig{Source: "bogus"}},
-			}.Resolve(prov, coreFC, false, true)).
+			}.Resolve(prov, coreFC, false, true, false)).
 				Error().To(MatchError(ContainSubstring("unknown certificate source")))
 		})
 
@@ -317,14 +317,14 @@ var _ = Describe("Listener", func() {
 						Cert:      listener.CertConfig{Source: file.SourceType},
 						Advertise: true,
 					},
-				}.Resolve(prov, coreFC, false, true))
+				}.Resolve(prov, coreFC, false, true, false))
 				Expect(listeners).To(HaveLen(1))
 				Expect(listeners[0].TLS).ToNot(BeNil())
 			},
 		)
 
 		It(
-			"Should accept an advertised certificate an unrelated CA signed when the Core CA is not required",
+			"Should accept an advertised certificate an unrelated CA signed when nothing dials the advertised address",
 			func() {
 				listeners := MustSucceed(listener.Configs{
 					{
@@ -332,14 +332,14 @@ var _ = Describe("Listener", func() {
 						Cert:      listener.CertConfig{Source: file.SourceType},
 						Advertise: true,
 					},
-				}.Resolve(prov, foreignFC, false, false))
+				}.Resolve(prov, foreignFC, false, false, false))
 				Expect(listeners).To(HaveLen(1))
 				Expect(listeners[0].TLS).ToNot(BeNil())
 			},
 		)
 
 		It(
-			"Should reject an advertised certificate an unrelated CA signed when the Core CA is required",
+			"Should reject an advertised certificate an unrelated CA signed when peers dial the advertised address",
 			func() {
 				Expect(listener.Configs{
 					{
@@ -347,14 +347,14 @@ var _ = Describe("Listener", func() {
 						Cert:      listener.CertConfig{Source: file.SourceType},
 						Advertise: true,
 					},
-				}.Resolve(prov, foreignFC, false, true)).
+				}.Resolve(prov, foreignFC, false, true, false)).
 					Error().
 					To(MatchError(ContainSubstring("the Core CA did not sign")))
 			},
 		)
 
 		It(
-			"Should check the advertised host even when the Core CA is not required",
+			"Should check the advertised host even when nothing dials the advertised address",
 			func() {
 				Expect(listener.Configs{
 					{
@@ -362,7 +362,7 @@ var _ = Describe("Listener", func() {
 						Cert:      listener.CertConfig{Source: file.SourceType},
 						Advertise: true,
 					},
-				}.Resolve(prov, foreignFC, false, false)).
+				}.Resolve(prov, foreignFC, false, false, false)).
 					Error().
 					To(MatchError(ContainSubstring("does not cover that host")))
 			},
@@ -377,7 +377,7 @@ var _ = Describe("Listener", func() {
 						Cert:      listener.CertConfig{Source: file.SourceType},
 						Advertise: true,
 					},
-				}.Resolve(prov, coreFC, false, true)).
+				}.Resolve(prov, coreFC, false, true, false)).
 					Error().
 					To(MatchError(ContainSubstring("does not cover that host")))
 			},
@@ -392,7 +392,7 @@ var _ = Describe("Listener", func() {
 						Cert:      listener.CertConfig{Source: tailscale.SourceType},
 						Advertise: true,
 					},
-				}.Resolve(prov, coreFC, false, false))
+				}.Resolve(prov, coreFC, false, false, false))
 				Expect(listeners).To(HaveLen(1))
 			},
 		)
@@ -408,8 +408,47 @@ var _ = Describe("Listener", func() {
 					Address: "0.0.0.0:9091",
 					Cert:    listener.CertConfig{Source: file.SourceType},
 				},
-			}.Resolve(prov, coreFC, false, true))
+			}.Resolve(prov, coreFC, false, true, false))
 			Expect(listeners).To(HaveLen(2))
 		})
+
+		It(
+			"Should accept an externally issued node certificate when only the Driver dials",
+			func() {
+				lc := foreignFC.LoaderConfig
+				lc.CACertPath = "absent.crt"
+				extProv := MustSucceed(security.NewProvider(security.ProviderConfig{
+					LoaderConfig: lc,
+					KeySize:      mock.SmallKeySize,
+					Insecure:     new(false),
+				}))
+				extFC := foreignFC
+				extFC.LoaderConfig = lc
+				listeners := MustSucceed(listener.Configs{
+					{
+						Address:   "localhost:9090",
+						Cert:      listener.CertConfig{Source: file.SourceType},
+						Advertise: true,
+					},
+				}.Resolve(extProv, extFC, false, false, true))
+				Expect(listeners).To(HaveLen(1))
+				Expect(listeners[0].TLS).ToNot(BeNil())
+			},
+		)
+
+		It(
+			"Should reject a certificate outside the trust anchors when only the Driver dials",
+			func() {
+				Expect(listener.Configs{
+					{
+						Address:   "localhost:9090",
+						Cert:      listener.CertConfig{Source: file.SourceType},
+						Advertise: true,
+					},
+				}.Resolve(prov, foreignFC, false, false, true)).
+					Error().
+					To(MatchError(ContainSubstring("the embedded Driver cannot verify it")))
+			},
+		)
 	})
 })
