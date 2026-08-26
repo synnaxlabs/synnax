@@ -50,12 +50,16 @@ import { Session } from "@/session";
 export const Properties = memo((): ReactElement => {
   const selected = Session.Schematic.useSelectSelected();
   const configByKey = Schematic.useConfigs({ keys: selected });
+  const parentOf = Schematic.useParentOf();
   if (selected.length === 0 || configByKey.size === 0)
     return (
       <Text.Text status="disabled" center>
         Select a schematic element to configure its properties
       </Text.Text>
     );
+  const unparented = selected.filter((k) => !parentOf.has(k));
+  if (unparented.length === 1)
+    return <IndividualConfig key={unparented[0]} elKey={unparented[0]} />;
   if (selected.length > 1) return <MultiConfig configByKey={configByKey} />;
   const elKey = selected[0];
   return <IndividualConfig key={elKey} elKey={elKey} />;
