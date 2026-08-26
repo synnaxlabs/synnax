@@ -281,6 +281,18 @@ export const ungroupActions = (
       if (parent != null) targets.add(parent);
     }
   if (targets.size === 0) return null;
+  // A selected group's nested groups are selected too; ungroup only the outermost.
+  const nested = [...targets].filter((key) => {
+    const visited = new Set<string>();
+    let parent = parentOf.get(key);
+    while (parent != null && !visited.has(parent)) {
+      if (targets.has(parent)) return true;
+      visited.add(parent);
+      parent = parentOf.get(parent);
+    }
+    return false;
+  });
+  for (const key of nested) targets.delete(key);
   const actions: schematic.Action[] = [];
   for (const [key, config] of Object.entries(configs)) {
     if (!isConfig(config) || targets.has(key)) continue;
