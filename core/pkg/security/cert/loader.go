@@ -161,6 +161,36 @@ func (l *Loader) LoadNodeTLS() (c *tls.Certificate, err error) {
 	return c, err
 }
 
+// TrustAnchorsPEM returns the certificates a client verifies this Core against: the CA
+// that signs every certificate the Core issues, and the node certificate a Core with an
+// externally issued identity serves directly. Either one may be absent, and a client
+// accepts a chain to any of them. It returns validate.ErrValidation if neither exists.
+func (l *Loader) TrustAnchorsPEM() ([]byte, error) {
+	var anchors []byte
+	for _, p := range []string{l.CACertPath, l.NodeCertPath} {
+		exists, err := l.FS.Exists(p)
+		if err != nil {
+			return nil, err
+		}
+		if !exists {
+			continue
+		}
+		b, err := l.readAll(p)
+		if err != nil {
+			return nil, err
+		}
+		anchors = append(anchors, b...)
+	}
+	if len(anchors) == 0 {
+		return nil, errors.Wrapf(
+			validate.ErrValidation,
+			"no trust anchors found in %s",
+			l.CertsDir,
+		)
+	}
+	return anchors, nil
+}
+
 func (l *Loader) loadX509(
 	certPath, keyPath string,
 ) (*x509.Certificate, crypto.PrivateKey, error) {

@@ -322,6 +322,21 @@ func BootupCore(
 		return nil
 	}
 
+	// The embedded Driver dials the advertised listener, which does not always serve
+	// the node certificate.
+	var driverTrustAnchors []byte
+	if !*cfg.insecure {
+		var certLoader *cert.Loader
+		if certLoader, err = cert.NewLoader(
+			cfg.certFactoryConfig.LoaderConfig,
+		); !ok(err, nil) {
+			return err
+		}
+		if driverTrustAnchors, err = certLoader.TrustAnchorsPEM(); !ok(err, nil) {
+			return err
+		}
+	}
+
 	if embeddedDriver, err := driver.Open(
 		ctx,
 		driver.Config{
@@ -337,7 +352,7 @@ func BootupCore(
 			ClusterKey:          distributionLayer.Cluster.Key(),
 			Credentials:         cfg.rootCredentials,
 			Debug:               cfg.debug,
-			CACertPath:          cfg.certFactoryConfig.AbsoluteNodeCertPath(),
+			TrustAnchorsPEM:     driverTrustAnchors,
 			ClientCertFile:      cfg.certFactoryConfig.AbsoluteCACertPath(),
 			ClientKeyFile:       cfg.certFactoryConfig.AbsoluteCAKeyPath(),
 			ParentDirname:       workDir,
