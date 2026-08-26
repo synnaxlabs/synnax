@@ -468,7 +468,9 @@ export class Client extends query.Retriever<
           commands.forEach((changed) => {
             if (!LOADING_COMMANDS.includes(changed.type)) return;
             const key = statusKey(changed.task);
-            if (statusStore.get(key) == null) return;
+            // Commands reach every client, so one for a task this client neither
+            // tracks nor holds a status for is dropped.
+            if (store.get(changed.task) == null && statusStore.get(key) == null) return;
             const optimistic = this.optimisticStatus(changed);
             statusStore.set(key, optimistic);
             if (optimistic.variant === "loading")

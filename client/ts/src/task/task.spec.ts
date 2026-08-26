@@ -841,6 +841,57 @@ describe("Task", async () => {
       }
     });
 
+    it("writes the optimistic status for a task whose status has not synced", async () => {
+      const t = await testRack.createTask({
+        name: `status-uncached-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const params = { key: t.key };
+      const loading: Array<NonNullable<task.Task["status"]>> = [];
+      const off = client.tasks.onChange(params, (cached) => {
+        if (!query.isLive(cached)) return;
+        const { status } = cached;
+        if (status?.variant === "loading") loading.push(status);
+      });
+      try {
+        await client.tasks.retrieve(params);
+        await client.statuses.set({
+          key: id.create(),
+          name: "Task Status",
+          variant: "success",
+          message: "task started",
+          time: TimeStamp.now(),
+          details: {
+            task: t.key,
+            running: true,
+            cmd: "",
+            configHash: "deadbeef",
+            rack: testRack.key,
+            data: {},
+          },
+        });
+        await expect
+          .poll(() => {
+            const cached = client.tasks.getCached(params);
+            if (!query.isLive(cached)) return undefined;
+            return cached.status?.details.configHash;
+          })
+          .toBe("deadbeef");
+        await setRackStatus(testRack.key, "success", "Driver is running");
+        // A reconnect empties the status table while the task stays known. The
+        // command must still get an optimistic status carrying the deploy info.
+        const key = task.statusKey(t.key);
+        client.statuses.store.delete(key);
+        expect(client.statuses.store.get(key)).toBeUndefined();
+        await client.tasks.executeCommand({ task: t.key, type: "stop" });
+        await expect.poll(() => loading.length).toBeGreaterThan(0);
+        expect(loading[0].details.configHash).toBe("deadbeef");
+      } finally {
+        off();
+      }
+    });
+
     it("stands the rack's problem in for a wait its Driver cannot answer", async () => {
       const down = await client.racks.create({ name: `down-${id.create()}` });
       const t = await down.createTask({
