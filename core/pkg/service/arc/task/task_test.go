@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -346,6 +347,26 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(factory.ConfigureTask(ctx, svcTask, "cmd-1")).Error().
 				To(MatchError(query.ErrNotFound))
 		})
+
+		It(
+			"Should reject a zero-period interval program at configure",
+			func(ctx SpecContext) {
+				out := createVirtualCh(ctx, "zero_period", telem.Uint8T)
+				factory := newTextFactory(ctx, arc.Text{Raw: fmt.Sprintf(
+					"interval{period=0ms} -> %s\n", out.Name,
+				)})
+				svcTask := task.Task{
+					Key:    uuid.New(),
+					Name:   "test-zero-period",
+					Type:   arctask.Type,
+					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+				}
+				Expect(factory.ConfigureTask(ctx, svcTask, "cmd-1")).Error().
+					To(MatchError(ContainSubstring(
+						"period must be positive, got 0s",
+					)))
+			},
+		)
 
 		It("Should set error status when config is invalid", func(ctx SpecContext) {
 			factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
@@ -1147,6 +1168,71 @@ var _ = Describe("Task", Ordered, func() {
 				telem.ValueAt[uint8](fr.Frame.Get(dataCh.Key()).Series[0], 0),
 			).To(Equal(uint8(42)))
 		})
+
+		It("Should stamp wall-clock index timestamps for interval -> channel flows",
+			func(ctx SpecContext) {
+				idxCh := &channel.Channel{
+					Name:     "timer_wall_idx_" + uuid.NewString()[:8],
+					IsIndex:  true,
+					DataType: telem.TimestampT,
+				}
+				Expect(channelWriter.Create(ctx, idxCh)).To(Succeed())
+				dataCh := &channel.Channel{
+					Name:       "timer_wall_data_" + uuid.NewString()[:8],
+					LocalIndex: idxCh.LocalKey,
+					DataType:   telem.Uint8T,
+				}
+				Expect(channelWriter.Create(ctx, dataCh)).To(Succeed())
+
+				prog := arc.Text{Raw: fmt.Sprintf(
+					"interval{period=50ms} -> %s\n", dataCh.Name,
+				)}
+				responses, closeStreamer := openTestStreamer(
+					ctx, channel.Keys{idxCh.Key(), dataCh.Key()}, 10,
+				)
+				defer closeStreamer()
+
+				wallStart := telem.Now()
+				t := newTask(ctx, newTextFactory(ctx, prog))
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+
+				var streamed []telem.TimeStamp
+				for len(streamed) < 3 {
+					var fr framer.StreamerResponse
+					Eventually(responses).Should(Receive(&fr))
+					for _, ser := range fr.Frame.Get(idxCh.Key()).Series {
+						for i := range int(ser.Len()) {
+							streamed = append(
+								streamed, telem.ValueAt[telem.TimeStamp](ser, i),
+							)
+						}
+					}
+				}
+				for _, ts := range streamed {
+					Expect(ts).To(BeNumerically(">=", wallStart))
+				}
+				Expect(t.Stop(true)).To(Succeed())
+
+				iter := MustOpen(framerSvc.OpenIterator(ctx, framer.IteratorConfig{
+					Keys:   []channel.Key{idxCh.Key(), dataCh.Key()},
+					Bounds: telem.TimeRangeMax,
+				}))
+				var persisted []telem.TimeStamp
+				Expect(iter.SeekFirst()).To(BeTrue())
+				for iter.Next(iterator.AutoSpan) {
+					for _, ser := range iter.Value().Get(idxCh.Key()).Series {
+						for i := range int(ser.Len()) {
+							persisted = append(
+								persisted, telem.ValueAt[telem.TimeStamp](ser, i),
+							)
+						}
+					}
+				}
+				Expect(len(persisted)).To(BeNumerically(">=", 3))
+				for _, ts := range persisted {
+					Expect(ts).To(BeNumerically(">=", wallStart))
+				}
+			})
 
 		It("Should process both intervals and streaming data", func(ctx SpecContext) {
 			inputCh := createVirtualCh(ctx, "combined_input", telem.Float32T)

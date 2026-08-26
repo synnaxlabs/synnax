@@ -20,6 +20,7 @@ import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/test";
 import { theming } from "@/theming/aether";
 import { SYNNAX_LIGHT } from "@/theming/base/theme";
+import { type render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/test";
 import { staleness } from "@/vis/staleness/aether";
 
@@ -54,9 +55,9 @@ export interface ProviderOptions {
   /** Staleness provider. Defaults on with a 250ms sweep. */
   staleness?: false | z.input<typeof staleness.Provider.z>;
   /** Canvas render context. Off by default. `true` injects a fresh recorder; pass a
-   * {@link canvasTest.Recorder} (or any `render.Context`-shaped value) to supply your
-   * own and assert on it afterward. */
-  render?: boolean | canvasTest.Recorder;
+   * {@link canvasTest.Recorder} to supply your own and assert on it afterward, or any
+   * other `render.Context`-shaped value to draw through it. */
+  render?: boolean | canvasTest.Recorder | render.Context;
   /** Extra component types to register on the worker tree. */
   registry?: aether.ComponentRegistry;
   /** Instrumentation for the worker driver. */
@@ -77,7 +78,8 @@ export interface MountedProviders {
 
 /** Result of {@link buildStack}: the worker driver, the path where the deepest provider
  * sits (descendants mount under it), the mounted provider instances, and the render
- * recorder if one was created or supplied. */
+ * recorder if one was created or supplied. The recorder is null when the caller
+ * supplied a plain render context instead. */
 export interface BuiltStack {
   driver: aetherTest.Driver;
   basePath: string[];
@@ -112,12 +114,15 @@ const buildTelemProvider = (
 export const buildStack = (options: ProviderOptions = {}): BuiltStack => {
   const { registry = {}, instrumentation, render: renderOpt } = options;
 
+  const supplied =
+    renderOpt == null || typeof renderOpt === "boolean" ? null : renderOpt;
   const recorder: canvasTest.Recorder | null =
     renderOpt === true
       ? canvasTest.record()
-      : renderOpt != null && renderOpt !== false
-        ? renderOpt
+      : supplied instanceof canvasTest.Recorder
+        ? supplied
         : null;
+  const renderContext = recorder ?? supplied;
 
   const telemFactories =
     typeof options.telem === "object" ? options.telem.factories : undefined;
@@ -204,9 +209,9 @@ export const buildStack = (options: ProviderOptions = {}): BuiltStack => {
     );
     providers.staleness = driver.find<staleness.Provider>([...path]);
   }
-  if (recorder != null) {
+  if (renderContext != null) {
     path.push(RENDER_KEY);
-    driver.update(path, canvasTest.RenderProvider.TYPE, { context: recorder });
+    driver.update(path, canvasTest.RenderProvider.TYPE, { context: renderContext });
     providers.render = driver.find<canvasTest.RenderProvider>([...path]);
   }
 

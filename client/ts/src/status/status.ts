@@ -192,6 +192,20 @@ export const removeVariants = (
   return remove === variant ? undefined : variant;
 };
 
+/** Rank of each variant by severity, most severe lowest. */
+const SEVERITY: Record<Variant, number> = {
+  error: 0,
+  warning: 1,
+  loading: 2,
+  success: 3,
+  info: 4,
+  disabled: 5,
+};
+
+/** @returns true when a is more severe than b. */
+export const moreSevere = (a: Variant, b: Variant): boolean =>
+  SEVERITY[a] < SEVERITY[b];
+
 /** Options for {@link toString}. */
 export interface ToStringOptions {
   includeTimestamp?: boolean;

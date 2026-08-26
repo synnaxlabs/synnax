@@ -23,6 +23,7 @@ import type z from "zod";
 
 import { NotFoundError } from "@/errors";
 import { Deleted } from "@/query/deleted";
+import { type LookupIndex } from "@/query/indexes";
 import { type Listener } from "@/query/streamer";
 
 /**
@@ -98,6 +99,11 @@ export interface TableParams<
    * @default TimeSpan.milliseconds(10)
    */
   fetchDebounce?: CrudeTimeSpan;
+  /**
+   * Secondary indexes over the table's live entries. The table keeps each current
+   * across every mutation, rollbacks and resets included.
+   */
+  indexes?: Array<LookupIndex<Key, Value>>;
 }
 
 /**
@@ -156,6 +162,7 @@ export class Table<
     Key[],
     Array<Keyed<Key, Value>>
   > | null;
+  private readonly indexes: Array<LookupIndex<Key, Value>>;
   private gen = 0;
 
   constructor({
@@ -164,11 +171,13 @@ export class Table<
     fetch,
     hydrate = "set",
     fetchDebounce = DEFAULT_FETCH_DEBOUNCE,
+    indexes = [],
   }: TableParams<Key, Value>) {
     this.onError = onError;
     this.equal = equal;
     this.fetchEntries = fetch;
     this.hydrateMode = hydrate;
+    this.indexes = [...indexes];
     this.fetchBatcher =
       fetch == null
         ? null
@@ -177,7 +186,27 @@ export class Table<
             exec: async (requests) => {
               const keys = new Set<Key>();
               requests.forEach(({ req }) => req.forEach((key) => keys.add(key)));
-              const fetched = await fetch(Array.from(keys));
+              let fetched: Array<Keyed<Key, Value>>;
+              try {
+                fetched = await fetch(Array.from(keys));
+              } catch (exc) {
+                if (!NotFoundError.matches(exc) || requests.length === 1)
+                  throw errors.fromUnknown(exc);
+                // A strict fetch rejects the whole batch when any caller's key
+                // has vanished. Refetch per caller so each settles exactly as
+                // its own request would have, keeping the batch transparent.
+                await Promise.all(
+                  requests.map(async ({ req, resolve, reject }) => {
+                    try {
+                      const mine = new Set(req);
+                      resolve((await fetch(req)).filter(({ key }) => mine.has(key)));
+                    } catch (exc) {
+                      reject(exc);
+                    }
+                  }),
+                );
+                return;
+              }
               // The window's fetch carries other callers' keys too; each caller
               // hydrates only the entries it asked for.
               requests.forEach(({ req, resolve }) => {
@@ -186,6 +215,27 @@ export class Table<
               });
             },
           });
+  }
+
+  private applySet(key: Key, value: Value): void {
+    this.entries.set(key, value);
+    for (const index of this.indexes) index.set(key, value);
+  }
+
+  private applyDelete(key: Key): void {
+    this.entries.delete(key);
+    for (const index of this.indexes) index.delete(key);
+  }
+
+  /**
+   * Registers a secondary index and backfills it from the live entries, for a
+   * domain that owns an index's meaning but not the table it reads.
+   * @returns the index.
+   */
+  index<I extends LookupIndex<Key, Value>>(index: I): I {
+    this.entries.forEach((value, key) => index.set(key, value));
+    this.indexes.push(index);
+    return index;
   }
 
   private setOne(
@@ -197,16 +247,16 @@ export class Table<
     if (next == null || (prev != null && this.equal(next, prev, key))) return undefined;
     const prevTombstone = this.tombstones.get(key);
     this.tombstones.delete(key);
-    this.entries.set(key, next);
+    this.applySet(key, next);
     this.notify({ variant: "set", key, value: next });
 
     return () => {
       if (prev === undefined) {
-        this.entries.delete(key);
+        this.applyDelete(key);
         if (prevTombstone != null) this.tombstones.set(key, prevTombstone);
         this.notify({ variant: "delete", key });
       } else {
-        this.entries.set(key, prev);
+        this.applySet(key, prev);
         this.notify({ variant: "set", key, value: prev });
       }
     };
@@ -308,9 +358,10 @@ export class Table<
   /**
    * Resolves the given keys to records: serves cached entries and fetches the misses
    * through the table's fetch, hydrating results under the declared mode. With refresh,
-   * every key is fetched regardless of presence. Returns the table's entries for the
-   * found keys in input order, deduplicated; keys the cluster no longer has are
-   * omitted. Tables without a fetch serve cached entries only.
+   * every key is fetched regardless of presence and cached entries the fetch omits are
+   * tombstoned. Returns the table's entries for the found keys in input order,
+   * deduplicated; keys the cluster no longer has are omitted. Tables without a fetch
+   * serve cached entries only.
    */
   async retrieve(keys: Key[], opts: { refresh?: boolean } = {}): Promise<Value[]> {
     if (this.fetchBatcher != null) {
@@ -319,9 +370,19 @@ export class Table<
       if (misses.length > 0) {
         const gen = this.gen;
         const fetched = await this.fetchBatcher.enqueue(misses);
-        if (gen === this.gen && fetched.length > 0)
-          if (opts.refresh === true) this.set(fetched);
-          else this.ingest(fetched);
+        if (gen === this.gen)
+          if (opts.refresh === true) {
+            // A refresh is authoritative for its keys: cached entries the
+            // fetch omitted vanished from the cluster and are tombstoned.
+            const present = new Set<Key>(fetched.map(({ key }) => key));
+            const vanished = misses.filter(
+              (key) => !present.has(key) && this.entries.has(key),
+            );
+            this.batch(() => {
+              if (vanished.length > 0) this.delete(vanished);
+              if (fetched.length > 0) this.set(fetched);
+            });
+          } else if (fetched.length > 0) this.ingest(fetched);
       }
     }
     const seen = new Set<Key>();
@@ -375,7 +436,7 @@ export class Table<
 
     this.batch(() =>
       toDelete.forEach(({ key: k, value }) => {
-        this.entries.delete(k);
+        this.applyDelete(k);
         if (tombstone && value != null)
           this.tombstones.set(k, new Deleted(value, TimeStamp.now()));
         this.notify({ variant: "delete", key: k });
@@ -387,7 +448,7 @@ export class Table<
         toDelete.forEach(({ key: k, value }) => {
           if (value == null) return;
           this.tombstones.delete(k);
-          this.entries.set(k, value);
+          this.applySet(k, value);
           this.notify({ variant: "set", key: k, value });
         }),
       );
@@ -426,6 +487,7 @@ export class Table<
     this.gen++;
     this.entries.clear();
     this.tombstones.clear();
+    for (const index of this.indexes) index.reset();
   }
 
   /**

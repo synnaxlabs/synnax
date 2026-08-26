@@ -8,19 +8,23 @@
 // included in the file licenses/APL.txt.
 
 import {
+  AccessDeniedError,
   channel,
   type framer,
   NotFoundError,
   status as cstatus,
+  ValidationError,
 } from "@synnaxlabs/client";
 import {
   bounds,
+  breaker,
   DataType,
   type destructor,
   errors,
   MultiSeries,
   primitive,
   type Series,
+  sync,
   TimeRange,
   TimeSpan,
   TimeStamp,
@@ -274,6 +278,9 @@ export class StreamChannelData
   private stopStreaming?: destructor.Destructor;
   private valid: boolean = false;
   private generation = 0;
+  private readonly breaker: breaker.Breaker;
+  private readonly retryNotifier = new sync.Notifier();
+  private lastFailure?: string;
   schema = streamChannelDataPropsZ;
 
   constructor(
@@ -281,11 +288,27 @@ export class StreamChannelData
     props: unknown,
     options?: CreateOptions,
     now: () => TimeStamp = () => TimeStamp.now(),
+    breakerConfig?: breaker.Config,
   ) {
     super(props);
     this.client = client;
     this.now = now;
     this.onStatusChange = options?.onStatusChange;
+    this.breaker = new breaker.Breaker({
+      baseInterval: TimeSpan.seconds(1),
+      // A tall interval cap: live data flows independently of this loop, and a
+      // back-fill loses value as the window fills with live samples.
+      maxInterval: TimeSpan.seconds(30),
+      maxRetries: Infinity,
+      scale: 2,
+      jitter: 0.25,
+      // cleanup interrupts a pending backoff so a retired source's retry loop ends
+      // promptly instead of sleeping through it
+      sleepFn: async (duration) => {
+        await this.retryNotifier.wait(duration);
+      },
+      ...breakerConfig,
+    });
   }
 
   value(): [bounds.Bounds, MultiSeries] {
@@ -304,7 +327,10 @@ export class StreamChannelData
     return [b, this.data];
   }
 
-  /** Never rejects: a failure invalidates the read and reaches onStatusChange. */
+  /**
+   * Never rejects. A connectivity failure retries under the breaker; a definitive
+   * rejection parks the source. Every distinct failure reaches onStatusChange.
+   */
   private async read(): Promise<void> {
     const generation = this.generation;
     this.valid = true;
@@ -313,30 +339,35 @@ export class StreamChannelData
       this.onStatusChange?.(DISCONNECTED_STATUS);
       return;
     }
+    while (generation === this.generation)
+      try {
+        await this.attempt(generation, client);
+        this.breaker.reset();
+        this.lastFailure = undefined;
+        return;
+      } catch (e) {
+        // Retrying only fixes connectivity; a definitive rejection recurs on every
+        // attempt.
+        if (
+          AccessDeniedError.matches(e) ||
+          ValidationError.matches(e) ||
+          NotFoundError.matches(e)
+        )
+          return;
+        if (!(await this.breaker.wait())) return;
+      }
+  }
+
+  // One full read attempt: it opens the live stream, then runs the historical
+  // back-fill, so a stalled or failed back-fill never blocks live data. Throws the
+  // failure after posting its status.
+  private async attempt(generation: number, client: Client): Promise<void> {
+    const { channel, useIndexOfChannel, timeSpan } = this.props;
+    let fetched: SelectedChannelProperties;
     try {
-      const { channel, useIndexOfChannel, timeSpan } = this.props;
-      const fetched = await fetchChannelProperties(client, channel, useIndexOfChannel);
+      fetched = await fetchChannelProperties(client, channel, useIndexOfChannel);
       if (generation !== this.generation) return;
       this.channel = fetched;
-      const tr = this.now().spanRange(-timeSpan);
-      if (!this.channel.virtual || this.channel.isCalculated)
-        try {
-          const res = await client.feed.read(tr, this.channel.key);
-          if (generation !== this.generation) return;
-          this.pushNew(res.series);
-        } catch (e) {
-          // Certain calculated channels can fail to read because they need access to
-          // virtual channels that cannot be read from historically.
-          if (
-            e instanceof Error &&
-            (e.message.includes("cannot open iterator on virtual channel") ||
-              e.message.includes("cannot read from free channel"))
-          )
-            console.warn("failed to read calculated channel data", e);
-          else throw errors.fromUnknown(e);
-        }
-
-      this.stopStreaming?.();
       const handler: framer.StreamHandler = (res) => {
         if (generation !== this.generation || this.channel == null) return;
         const series = res.get(this.channel.key);
@@ -345,22 +376,57 @@ export class StreamChannelData
         this.notify();
         this.gcOutOfRangeData();
       };
-      if (generation !== this.generation) return;
-      this.stopStreaming = client.feed.stream(handler, [this.channel.key]).close;
-      this.notify();
+      this.stopStreaming?.();
+      this.stopStreaming = client.feed.stream(handler, [fetched.key]).close;
     } catch (e) {
-      this.valid = false;
-      this.onStatusChange?.(cstatus.fromException(e, "Failed to stream channel data"));
+      this.reportFailure(e, "Failed to stream channel data");
+      throw errors.fromUnknown(e);
     }
+    if (!fetched.virtual || fetched.isCalculated)
+      try {
+        const res = await client.feed.read(
+          this.now().spanRange(-timeSpan),
+          fetched.key,
+        );
+        if (generation !== this.generation) return;
+        this.pushNew(res.series);
+      } catch (e) {
+        // Certain calculated channels can fail to read because they need access to
+        // virtual channels that cannot be read from historically.
+        if (
+          e instanceof Error &&
+          (e.message.includes("cannot open iterator on virtual channel") ||
+            e.message.includes("cannot read from free channel"))
+        )
+          console.warn("failed to read calculated channel data", e);
+        else {
+          this.reportFailure(e, "Failed to read channel data");
+          throw errors.fromUnknown(e);
+        }
+      }
+    this.notify();
   }
 
-  // feed.read returns the live leading buffer that the stream's first delivery
-  // repeats, so series already held by identity are skipped.
+  // Retries repeat at the breaker's pace, so an incident posts one status when it
+  // starts and again only when the failure changes. Success clears the memory.
+  private reportFailure(e: unknown, message: string): void {
+    const failure = cstatus.fromException(e, message);
+    const key = `${failure.message}: ${failure.description}`;
+    if (this.lastFailure === key) return;
+    this.lastFailure = key;
+    this.onStatusChange?.(failure);
+  }
+
+  // feed.read returns the live leading buffer that the stream's first delivery repeats,
+  // so series already held by identity are skipped. A late back-fill is inserted by
+  // alignment: consumers assume the array is chronological.
   private pushNew(series: Series[]): void {
     for (const s of series) {
       if (this.data.series.includes(s)) continue;
       s.acquire();
-      this.data.push(s);
+      const at = this.data.series.findIndex((held) => held.alignment > s.alignment);
+      if (at === -1) this.data.push(s);
+      else this.data.series.splice(at, 0, s);
     }
   }
 
@@ -374,6 +440,7 @@ export class StreamChannelData
 
   cleanup(): void {
     this.generation++;
+    this.retryNotifier.notify();
     this.stopStreaming?.();
     this.stopStreaming = undefined;
     this.data.release();

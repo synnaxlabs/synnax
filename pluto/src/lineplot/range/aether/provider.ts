@@ -43,12 +43,20 @@ interface InternalState {
   runAsync: status.ErrorHandler;
 }
 
-interface ProviderProps {
+export interface ProviderProps {
   dataToDecimalScale: scale.Scale;
   viewport: box.Box;
   region: box.Box;
   timeRange: TimeRange;
 }
+
+/**
+ * The most ranges the annotation strip draws for one window. A denser window draws
+ * none: the strip cannot label them legibly in 32 pixels, and the Core answers a
+ * limited query in key order, so drawing a truncated answer would show an arbitrary
+ * subset that changes as the window moves.
+ */
+export const MAX_ANNOTATIONS = 100;
 
 // Snaps fetch boundaries outward to a grid roughly an eighth of the viewport wide,
 // so a requery takes a meaningful pan or zoom at any zoom level. Power-of-two grid
@@ -66,6 +74,7 @@ const quantize = (timeRange: TimeRange): TimeRange => {
 
 export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> {
   static readonly TYPE = "range-provider";
+  static readonly stateZ = providerStateZ;
   schema = providerStateZ;
 
   afterUpdate(ctx: aether.Context): void {
@@ -95,9 +104,14 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     const { dataToDecimalScale, region, viewport, timeRange } = props;
     const { internal: i } = this;
     if (i.client != null)
-      i.retrieve.update(i.client, { overlapsWith: quantize(timeRange) });
+      i.retrieve.update(i.client, {
+        overlapsWith: quantize(timeRange),
+        // One over the cap, so a saturated answer is distinguishable from a full one.
+        limit: MAX_ANNOTATIONS + 1,
+      });
     const { draw } = i;
-    const ranges = i.retrieve.value ?? [];
+    const fetched = i.retrieve.value ?? [];
+    const ranges = fetched.length > MAX_ANNOTATIONS ? [] : fetched;
     const visible = this.state.visible !== false;
     const regionScale = dataToDecimalScale.scale(box.xBounds(region));
     const cursor = this.state.cursor == null ? null : this.state.cursor.x;

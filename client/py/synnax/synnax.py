@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import warnings
+import weakref
 from importlib.metadata import version as _version
 
 from alamos import NOOP, Instrumentation
@@ -135,6 +136,10 @@ class Synnax(framer.Client):
             client_version=_version("synnax"),
             clock_skew_threshold=clock_skew_threshold,
         )
+        # Not __del__: interpreter finalization would run it after daemon threads
+        # are frozen, deadlocking stop()'s join. finalize runs at atexit, before
+        # that, and when an unclosed client is garbage collected.
+        self._finalizer = weakref.finalize(self, self.connectivity.stop)
 
         cluster_retriever = channel.ClusterRetriever(
             self._transport.unary, instrumentation
@@ -213,14 +218,7 @@ class Synnax(framer.Client):
         """Shuts down the client and closes all connections. All open iterators or
         writers must be closed before calling this method.
         """
-        # getattr guard: if the constructor failed before connectivity was assigned,
-        # __del__ still calls close() and we need to handle the missing attribute.
-        conn = getattr(self, "connectivity", None)
-        if conn is not None:
-            conn.stop()
-
-    def __del__(self) -> None:
-        self.close()
+        self._finalizer()
 
 
 def _configure_transport(

@@ -91,6 +91,28 @@ var _ = Describe("Streamer", Ordered, func() {
 		}))
 	})
 
+	Describe("Config Validation", func() {
+		DescribeTable("KeepAlive",
+			func(ctx SpecContext, keepAlive telem.TimeSpan, valid bool) {
+				cfg := streamer.Config{KeepAlive: keepAlive}
+				if valid {
+					MustSucceed(streamerSvc.New(ctx, cfg))
+					return
+				}
+				Expect(streamerSvc.New(ctx, cfg)).Error().To(
+					MatchError("keep_alive: must be greater than or equal to 2s"),
+				)
+			},
+			Entry("zero disables keep-alives", telem.TimeSpan(0), true),
+			Entry("the minimum interval is accepted", streamer.MinKeepAlive, true),
+			Entry(
+				"a nonzero interval below the minimum is rejected",
+				streamer.MinKeepAlive-1,
+				false,
+			),
+		)
+	})
+
 	Describe("Happy Path", func() {
 		It("Should stream data", func(ctx SpecContext) {
 			ch := &channel.Channel{
