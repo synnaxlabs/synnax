@@ -40,6 +40,7 @@ import {
   useUngroup,
 } from "@/schematic/queries";
 import { useKey } from "@/schematic/Suspended";
+import { Status } from "@/status";
 import { type Triggers } from "@/triggers";
 import { Diagram as BaseDiagram } from "@/vis/diagram";
 
@@ -59,6 +60,7 @@ export interface SchematicProps extends Omit<
 }
 const AUTO_RENDER_INTERVAL = TimeSpan.seconds(1).milliseconds;
 const DRAG_HANDLE_SELECTOR = `.${Node.DRAG_HANDLE_CLASS}`;
+const CUT_LOCKED_MESSAGE = "Cannot cut grouped symbols. Ungroup first.";
 
 export const Schematic = ({
   className,
@@ -80,20 +82,49 @@ export const Schematic = ({
   const edgesRef = useSyncedRef(edges);
   const configs = useAllConfigs();
   const configsRef = useSyncedRef(configs);
+  const selectedRef = useSyncedRef(selected);
   const parentOf = useParentOf();
+  const parentOfRef = useSyncedRef(parentOf);
   const lockedNodes = useMemo(
     () => Group.lockMembers(nodes, parentOf),
     [nodes, parentOf],
   );
   const dispatch = useSingleDispatch();
+  const addStatus = Status.useAdder();
+  const lockedSelected = useCallback(
+    () =>
+      Group.lockedKeys(selectedRef.current ?? [], parentOfRef.current).length > 0,
+    [],
+  );
+  const blockLocked = useCallback(
+    (message: string): boolean => {
+      if (!lockedSelected()) return false;
+      addStatus({ variant: "error", message });
+      return true;
+    },
+    [lockedSelected, addStatus],
+  );
   const handleNodesChange = useCallback(
-    (changes: BaseDiagram.NodeChange[]) => dispatch(nodeChangesToActions(changes)),
-    [dispatch],
+    (changes: BaseDiagram.NodeChange[]) => {
+      let allowed = changes;
+      if (
+        changes.some((c) => c.type === "remove") &&
+        blockLocked("Cannot delete grouped symbols. Ungroup first.")
+      )
+        allowed = changes.filter((c) => c.type !== "remove");
+      dispatch(nodeChangesToActions(allowed));
+    },
+    [dispatch, blockLocked],
   );
 
   const handleEdgesChange = useCallback(
-    (changes: BaseDiagram.EdgeChange[]) => dispatch(edgeChangesToActions(changes)),
-    [dispatch],
+    (changes: BaseDiagram.EdgeChange[]) => {
+      let allowed = changes;
+      if (changes.some((c) => c.type === "remove") && lockedSelected())
+        allowed = changes.filter((c) => c.type !== "remove");
+      dispatch(edgeChangesToActions(allowed));
+    },
+    [dispatch, lockedSelected],
   );
 
   const handleAddNode = useAddNode();
@@ -139,12 +170,28 @@ export const Schematic = ({
   const { undo, canUndo } = useUndo();
   const { redo, canRedo } = useRedo();
 
-  const { onCopy, onCut, onPaste, copy, cut, paste } = useClipboard({
+  const {
+    onCopy,
+    onCut: baseOnCut,
+    onPaste,
+    copy,
+    cut: baseCut,
+    paste,
+  } = useClipboard({
     selected,
     onCut: onSelectionChange,
     onPaste: onSelectionChange,
     container: ref,
   });
+  const onCut = useCallback<BaseDiagram.ClipboardHandler>(
+    (e, cursor) => {
+      if (!blockLocked(CUT_LOCKED_MESSAGE)) baseOnCut(e, cursor);
+    },
+    [blockLocked, baseOnCut],
+  );
+  const cut = useCallback(() => {
+    if (!blockLocked(CUT_LOCKED_MESSAGE)) baseCut();
+  }, [blockLocked, baseCut]);
 
   // Sizes come from the DOM: measured dimensions are not persisted, and this
   // component sits outside the React Flow provider.
@@ -158,7 +205,6 @@ export const Schematic = ({
     }
   }, []);
 
-  const selectedRef = useSyncedRef(selected);
   const group = useGroup();
   const ungroup = useUngroup();
   const handleGroup = useCallback(() => {

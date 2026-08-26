@@ -209,6 +209,18 @@ export const lockMembers = (
   return nodes.map((n) => (parentOf.has(n.key) ? { ...n, draggable: false } : n));
 };
 
+/** lockedKeys returns the grouped symbols in keys whose group is absent. */
+export const lockedKeys = (
+  keys: readonly string[],
+  parentOf: Map<string, string>,
+): string[] => {
+  const keySet = new Set(keys);
+  return keys.filter((k) => {
+    const parent = parentOf.get(k);
+    return parent != null && !keySet.has(parent);
+  });
+};
+
 export interface UngroupResult {
   actions: schematic.Action[];
   /** freed lists the removed groups' members, nested contents included. */
