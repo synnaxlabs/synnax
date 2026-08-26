@@ -177,7 +177,7 @@ export class Table<
     this.equal = equal;
     this.fetchEntries = fetch;
     this.hydrateMode = hydrate;
-    this.indexes = indexes;
+    this.indexes = [...indexes];
     this.fetchBatcher =
       fetch == null
         ? null
@@ -205,6 +205,17 @@ export class Table<
   private applyDelete(key: Key): void {
     this.entries.delete(key);
     for (const index of this.indexes) index.delete(key);
+  }
+
+  /**
+   * Registers a secondary index and backfills it from the live entries, for a
+   * domain that owns an index's meaning but not the table it reads.
+   * @returns the index.
+   */
+  index<I extends LookupIndex<Key, Value>>(index: I): I {
+    this.entries.forEach((value, key) => index.set(key, value));
+    this.indexes.push(index);
+    return index;
   }
 
   private setOne(

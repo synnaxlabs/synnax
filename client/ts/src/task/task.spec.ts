@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { id, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
-import { assert, beforeAll, describe, expect, it, vi } from "vitest";
+import { assert, beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import { z } from "zod";
 
 import { ontology } from "@/ontology";
@@ -1065,7 +1065,7 @@ describe("drifted", () => {
 });
 
 describe("status composition", () => {
-  it("should not scan the status table when composing a task", async () => {
+  it("should compose without a predicate scan of the status table", async () => {
     const testRack = await client.racks.create({ name: "status-scan-pin" });
     const t = await testRack.createTask({
       name: "test",
@@ -1089,6 +1089,7 @@ describe("status composition", () => {
       time: TimeStamp.now(),
     };
     const spy = vi.spyOn(client.statuses.store, "get");
+    onTestFinished(() => spy.mockRestore());
     await client.statuses.set(communicatedStatus);
     await expect
       .poll(async () => {
@@ -1100,6 +1101,51 @@ describe("status composition", () => {
       })
       .toBe(true);
     for (const [arg] of spy.mock.calls) expect(typeof arg).not.toBe("function");
-    spy.mockRestore();
+  });
+
+  it("should break a tie on time with the more severe status", async () => {
+    const testRack = await client.racks.create({ name: "status-tie-break" });
+    const t = await testRack.createTask({
+      name: `tie-${id.create()}`,
+      config: { routingKey: "dog" },
+      type: "pagerduty_alert",
+    });
+    const params = { key: t.key };
+    const off = client.tasks.onChange(params, vi.fn());
+    const composed = () => {
+      const cached = client.tasks.getCached(params);
+      return query.isLive(cached) ? cached.status?.message : undefined;
+    };
+    try {
+      await client.tasks.retrieve(params);
+      const time = TimeStamp.now();
+      const details = { task: t.key, running: false, cmd: "", data: undefined };
+      await client.statuses.set({
+        key: ontology.idToString(task.ontologyID(t.key)),
+        name: "test",
+        variant: "error",
+        message: "boom",
+        description: "",
+        time,
+        details,
+      });
+      await expect.poll(composed).toBe("boom");
+      // Written last, so insertion order alone would let this equally fresh
+      // success win. Severity has to be what keeps the error showing.
+      const indirectKey = id.create();
+      await client.statuses.set({
+        key: indirectKey,
+        name: "test",
+        variant: "success",
+        message: "all good",
+        description: "",
+        time,
+        details,
+      });
+      expect(client.statuses.store.get(indirectKey)?.message).toBe("all good");
+      await expect.poll(composed).toBe("boom");
+    } finally {
+      off();
+    }
   });
 });
