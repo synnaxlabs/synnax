@@ -12,7 +12,16 @@ import { useCallback } from "react";
 
 import { Triggers } from "@/triggers";
 
-type Mode = "copy" | "paste" | "clear" | "all" | "undo" | "redo" | "default";
+type Mode =
+  | "copy"
+  | "paste"
+  | "clear"
+  | "all"
+  | "undo"
+  | "redo"
+  | "group"
+  | "ungroup"
+  | "default";
 
 const CONFIG: Triggers.ModeConfig<Mode> = {
   defaultMode: "default",
@@ -23,13 +32,15 @@ const CONFIG: Triggers.ModeConfig<Mode> = {
     clear: [Triggers.ESCAPE],
     undo: [Triggers.UNDO],
     redo: [Triggers.REDO],
+    group: [["Control", "G"]],
+    ungroup: [["Control", "U"]],
     default: [],
   },
 };
 
 const FLATTENED_CONFIG = Triggers.flattenConfig(CONFIG);
 
-const MUTATING_MODES = new Set<Mode>(["undo", "redo", "paste"]);
+const MUTATING_MODES = new Set<Mode>(["undo", "redo", "paste", "group", "ungroup"]);
 
 export interface UseTriggersProps {
   onUndo?: () => void;
@@ -38,6 +49,8 @@ export interface UseTriggersProps {
   onPaste?: (cursor: xy.XY) => void;
   onClearSelection?: () => void;
   onSelectAll?: () => void;
+  onGroup?: () => void;
+  onUngroup?: () => void;
   enabled?: Triggers.Condition;
   /** Withholds the shortcuts that change the diagram. Copying and the selection
    * shortcuts stay live, so a read-only diagram is still navigable. Defaults to true.
@@ -52,6 +65,8 @@ export const useTriggers = ({
   onSelectAll,
   onUndo,
   onRedo,
+  onGroup,
+  onUngroup,
   enabled,
   editable = true,
 }: UseTriggersProps) => {
@@ -70,8 +85,20 @@ export const useTriggers = ({
         if (mode == "paste") return onPaste?.(cursor);
         if (mode == "clear") return onClear?.();
         if (mode == "all") return onSelectAll?.();
+        if (mode == "group") return onGroup?.();
+        if (mode == "ungroup") return onUngroup?.();
       },
-      [onUndo, onRedo, onCopy, onPaste, onClear, onSelectAll, editable],
+      [
+        onUndo,
+        onRedo,
+        onCopy,
+        onPaste,
+        onClear,
+        onSelectAll,
+        onGroup,
+        onUngroup,
+        editable,
+      ],
     ),
   });
 };

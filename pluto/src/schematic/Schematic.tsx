@@ -9,7 +9,7 @@
 
 import "@/schematic/Schematic.css";
 
-import { box, TimeSpan, xy } from "@synnaxlabs/x";
+import { box, type dimensions, TimeSpan, xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useRef } from "react";
 
 import { type Component } from "@/component";
@@ -30,9 +30,11 @@ import {
   useAddNode,
   useAllEdges,
   useAllNodes,
+  useGroup,
   useRedo,
   useSingleDispatch,
   useUndo,
+  useUngroup,
 } from "@/schematic/queries";
 import { useKey } from "@/schematic/Suspended";
 import { type Triggers } from "@/triggers";
@@ -134,11 +136,37 @@ export const Schematic = ({
     container: ref,
   });
 
+  // Sizes come from the DOM: measured dimensions are not persisted, and this
+  // component sits outside the React Flow provider.
+  const measure = useCallback((key: string): dimensions.Dimensions | null => {
+    try {
+      const { width, height } = BaseDiagram.selectNode(key).getBoundingClientRect();
+      const zoom = viewportRef.current.zoom;
+      return { width: width / zoom, height: height / zoom };
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const selectedRef = useSyncedRef(selected);
+  const group = useGroup();
+  const ungroup = useUngroup();
+  const handleGroup = useCallback(() => {
+    const key = group(selectedRef.current ?? [], measure);
+    if (key != null) onSelectionChange?.([key]);
+  }, [group, measure, onSelectionChange]);
+  const handleUngroup = useCallback(() => {
+    const freed = ungroup(selectedRef.current ?? []);
+    if (freed != null) onSelectionChange?.(freed);
+  }, [ungroup, onSelectionChange]);
+
   BaseDiagram.useTriggers({
     onSelectAll: handleSelectAll,
     onClearSelection: handleClearSelection,
     onUndo: undo,
     onRedo: redo,
+    onGroup: handleGroup,
+    onUngroup: handleUngroup,
     enabled: enableTriggers,
     editable,
   });

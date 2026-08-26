@@ -14,6 +14,7 @@ import { useCallback } from "react";
 import { Flux } from "@/flux";
 import { Edge } from "@/schematic/edge";
 import { type ElementConfig } from "@/schematic/element";
+import { Group } from "@/schematic/group";
 import { Node } from "@/schematic/node";
 import { Scope } from "@/schematic/scope";
 import { Synnax } from "@/synnax";
@@ -240,5 +241,57 @@ export const useAddNode = () => {
       );
     },
     [dispatch, theme, client],
+  );
+};
+
+/**
+ * useGroup returns a callback that groups the given selection into a new
+ * container, dispatched as a single undoable step. Returns the container's key,
+ * or null when the selection cannot be grouped.
+ */
+export const useGroup = (): ((
+  selected: readonly string[],
+  measure: Group.Measure,
+) => string | null) => {
+  const key = Scope.use();
+  const client = Synnax.use();
+  const dispatch = useSingleDispatch();
+  return useCallback(
+    (selected, measure) => {
+      const s = client?.schematics.getCached({ key });
+      if (!query.isLive(s)) return null;
+      const result = Group.createActions({
+        selected,
+        nodes: s.nodes,
+        configs: s.configs,
+        measure,
+      });
+      if (result == null) return null;
+      dispatch(result.actions);
+      return result.key;
+    },
+    [client, key, dispatch],
+  );
+};
+
+/**
+ * useUngroup returns a callback that dissolves the groups the given selection
+ * resolves to, dispatched as a single undoable step. Returns the freed member
+ * keys, or null when the selection touches no group.
+ */
+export const useUngroup = (): ((selected: readonly string[]) => string[] | null) => {
+  const key = Scope.use();
+  const client = Synnax.use();
+  const dispatch = useSingleDispatch();
+  return useCallback(
+    (selected) => {
+      const s = client?.schematics.getCached({ key });
+      if (!query.isLive(s)) return null;
+      const result = Group.ungroupActions(selected, s.configs);
+      if (result == null) return null;
+      dispatch(result.actions);
+      return result.freed;
+    },
+    [client, key, dispatch],
   );
 };

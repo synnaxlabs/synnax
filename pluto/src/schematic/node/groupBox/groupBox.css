@@ -1,0 +1,54 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.pluto-group-box {
+    border: 2px dashed transparent;
+    border-radius: 6px;
+}
+
+.react-flow__node:has(.pluto-group-box) .pluto-symbol__label {
+    display: none;
+}
+
+.react-flow__node.selected .pluto-group-box {
+    border-color: var(--pluto-primary-z) !important;
+}
+
+.pluto-group-box__move {
+    display: none;
+    position: absolute;
+    top: -6rem;
+    left: -6rem;
+    z-index: 30;
+    width: 3.5rem;
+    height: 3.5rem;
+    font-size: 2.5rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--pluto-border-radius);
+    background: var(--pluto-primary-z);
+    color: var(--pluto-text-on-primary);
+    cursor: grab;
+}
+
+.pluto-diagram.pluto--editable {
+    .pluto-group-box {
+        border-color: var(--pluto-gray-l9);
+    }
+
+    .react-flow__node:has(.pluto-group-box) .pluto-symbol__label {
+        display: block;
+    }
+
+    .react-flow__node.selected .pluto-group-box__move {
+        display: flex;
+    }
+}
