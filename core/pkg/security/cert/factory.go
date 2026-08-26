@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/x/override"
 	xpem "github.com/synnaxlabs/x/pem"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
 )
 
 // FactoryConfig is the configuration for creating a new Factory.
@@ -152,17 +153,51 @@ func (f *Factory) CreateCAPairIfMissing() error {
 	return f.CreateCAPair()
 }
 
-// CreateNodePairIfMissing creates a new node certificate and its private key if they do
-// not already exist.
-func (f *Factory) CreateNodePairIfMissing() error {
+// CreateNodePairIfStale creates the node certificate and its private key if they do not
+// exist, and replaces them when the existing certificate does not cover every host in
+// Hosts. A covering certificate is left untouched. Callers that do not own the files on
+// disk must not use it.
+func (f *Factory) CreateNodePairIfStale() error {
 	exists, err := f.FS.Exists(f.NodeCertPath)
 	if err != nil {
 		return err
 	}
-	if exists {
+	if !exists {
+		return f.CreateNodePair()
+	}
+	c, _, err := f.Loader.LoadNodePair()
+	if err != nil {
+		return err
+	}
+	uncovered := f.uncoveredHosts(c)
+	if len(uncovered) == 0 {
 		return nil
 	}
+	f.L.Info(
+		"replacing node certificate and key: they do not cover every configured listener",
+		zap.Strings("uncovered_hosts", uncovered),
+		zap.String("cert", f.AbsoluteNodeCertPath()),
+		zap.String("key", f.AbsoluteNodeKeyPath()),
+	)
+	if err = f.FS.Remove(f.NodeCertPath); err != nil {
+		return err
+	}
+	if err = f.FS.Remove(f.NodeKeyPath); err != nil {
+		return err
+	}
 	return f.CreateNodePair()
+}
+
+// uncoveredHosts returns the hosts in Hosts that c is not valid for, using the same
+// matcher a client applies during a handshake.
+func (f *Factory) uncoveredHosts(c *x509.Certificate) []string {
+	var uncovered []string
+	for _, h := range f.Hosts {
+		if c.VerifyHostname(h.Host()) != nil {
+			uncovered = append(uncovered, h.Host())
+		}
+	}
+	return uncovered
 }
 
 // CreateNodePair creates a new node certificate and its private key.
