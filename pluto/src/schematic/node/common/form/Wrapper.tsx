@@ -17,6 +17,7 @@ import { Text } from "@/text";
 
 /** StyleLockContext marks the style fields below it as locked while grouped. */
 export const StyleLockContext = createContext(false);
+StyleLockContext.displayName = "StyleLockContext";
 
 interface WrapperProps extends Flex.BoxProps {
   /** lockable marks style fields, replaced by a notice under StyleLockContext. */

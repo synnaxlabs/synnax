@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { schematic } from "@synnaxlabs/client";
+import { type schematic } from "@synnaxlabs/client";
 import { type record } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
@@ -27,7 +27,7 @@ const schema = z.record(z.string(), z.unknown());
 const SPECS = Object.values(REGISTRY);
 
 const configOf = (spec: (typeof SPECS)[number]): Record<string, unknown> =>
-  spec.defaultConfig(theme) as Record<string, unknown>;
+  spec.defaultConfig(theme);
 
 const groupOf = (members: string[]): record.Unknown => ({
   ...(REGISTRY.groupBox.defaultConfig(theme) as record.Unknown),
