@@ -21,13 +21,15 @@ export const Symbol = ({
   nodeKey,
   onConfigChange,
   selected,
+  draggable,
   config: { label, dimensions },
 }: NodeProps<Config>): ReactElement => (
   <Grid.Grid allowCenter allowRotate={false} editable={selected} nodeKey={nodeKey}>
     <Label.Label config={label} onChange={onConfigChange} />
     <Primitive dimensions={dimensions} />
-    {/* Visual anchor only. The whole box drags; this marks where to grab it. */}
-    {selected && (
+    {/* Visual anchor only: the whole box drags. A nested group is locked to its
+    parent, so it gets no anchor. */}
+    {selected && draggable !== false && (
       <div className={CSS.BE("group-box", "move")}>
         <Icon.Pan />
       </div>
