@@ -673,6 +673,35 @@ describe("cached reads", () => {
         await proxy.close();
       }
     }, 30000);
+
+    it("resolves cached names without scanning the table", async () => {
+      const ch = await createVirtual();
+      const spy = vi.spyOn(client.channels.store, "get");
+      const res = await client.channels.retrieve([ch.name]);
+      expect(res).toHaveLength(1);
+      expect(res[0].key).toEqual(ch.key);
+      for (const [arg] of spy.mock.calls) expect(typeof arg).not.toBe("function");
+      spy.mockRestore();
+    });
+
+    it("stops resolving a stale name after a rename", async () => {
+      const ch = await createVirtual();
+      const renamed = `qry_${id.create()}`;
+      await client.channels.rename(ch.key, renamed);
+      expect(await client.channels.retrieve([ch.name])).toHaveLength(0);
+      const res = await client.channels.retrieve([renamed]);
+      expect(res).toHaveLength(1);
+      expect(res[0].key).toEqual(ch.key);
+    });
+
+    it("evicts a deleted name without scanning the table", async () => {
+      const ch = await createVirtual();
+      const spy = vi.spyOn(client.channels.store, "get");
+      await client.channels.delete([ch.name]);
+      for (const [arg] of spy.mock.calls) expect(typeof arg).not.toBe("function");
+      spy.mockRestore();
+      await expect(client.channels.retrieve(ch.key)).rejects.toThrow(NotFoundError);
+    });
   });
 
   describe("onChange", () => {

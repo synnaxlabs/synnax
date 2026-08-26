@@ -389,12 +389,14 @@ export class Client extends query.Retriever<
   private readonly cfg: ClientConfig;
   readonly writer: Writer;
   readonly store: query.Table<Key, Channel>;
+  private readonly byName: query.LookupIndex<Key, Channel>;
 
   constructor(cfg: ClientConfig) {
     const { writer, statuses, ranges, cache } = cfg;
     const statusStore = statuses.store;
     const aliasStore = ranges.aliases;
     const sugar = (payload: Payload): Channel => this.sugar(payload);
+    const byName = new query.LookupIndex<Key, Channel>((ch) => ch.name);
     const store = cache.createTable<Key, Channel>({
       name: "channels",
       equal: (a, b) => deep.equal(a.payload, b.payload),
@@ -406,6 +408,7 @@ export class Client extends query.Retriever<
         }),
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
       ],
+      indexes: [byName],
     });
     const composed = cache.derive<Key, Channel, Channel>({
       name: "channel.composed",
@@ -461,6 +464,7 @@ export class Client extends query.Retriever<
     this.cfg = cfg;
     this.writer = writer;
     this.store = store;
+    this.byName = byName;
   }
 
   /**
@@ -640,7 +644,7 @@ export class Client extends query.Retriever<
     }
     const names = normalized;
     await this.writer.delete({ names });
-    const cached = this.store.get((ch) => names.includes(ch.name));
+    const cached = this.byName.get(names);
     if (cached.length > 0) this.store.delete(cached.map((ch) => ch.key));
   }
 
@@ -795,7 +799,7 @@ export class Client extends query.Retriever<
     const resolved: Channel[] = [];
     const missing: string[] = [];
     for (const name of new Set(names)) {
-      const matches = this.store.get((ch) => ch.name === name);
+      const matches = this.byName.get(name);
       if (matches.length > 1) return null;
       if (matches.length === 0) missing.push(name);
       else resolved.push(matches[0]);
