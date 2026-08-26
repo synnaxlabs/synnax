@@ -189,7 +189,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
   const colorGroups = useMemo(() => {
     const groups: Record<color.Hex, string[]> = {};
     configByKey.forEach((cfg, key) => {
-      if (cfg.color == null) return;
+      if (!("color" in cfg) || cfg.color == null) return;
       const hex = color.hex(cfg.color);
       if (!(hex in groups)) groups[hex] = [];
       groups[hex].push(key);
