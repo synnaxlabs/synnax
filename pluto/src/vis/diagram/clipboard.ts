@@ -222,8 +222,11 @@ export const useClipboard = <N extends ClipboardNode, E extends ClipboardEdge>({
   const cut = useCallback(() => {
     // Native cut events only fire in editable DOM, so cut copies, then removes.
     cutPendingRef.current = true;
-    exec("copy");
-    cutPendingRef.current = false;
+    try {
+      exec("copy");
+    } finally {
+      cutPendingRef.current = false;
+    }
   }, [exec]);
 
   const paste = useCallback(() => exec("paste"), [exec]);
