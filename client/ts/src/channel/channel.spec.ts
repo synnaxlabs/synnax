@@ -11,6 +11,7 @@ import { control, DataType, id, TimeRange, TimeSpan, TimeStamp } from "@synnaxla
 import { beforeAll, describe, expect, it, test, vi } from "vitest";
 
 import { Channel } from "@/channel/client";
+import { statusKey } from "@/channel/payload";
 import { NotFoundError } from "@/errors";
 import { query } from "@/query";
 import {
@@ -499,6 +500,20 @@ describe("cached reads", () => {
           expression: `return ${source.name} + 1`,
         }),
       ]);
+      // One status request needs both statuses to exist: the calculation
+      // engine only writes them once data flows, so seed them directly.
+      await Promise.all(
+        created.map(
+          async ({ key }) =>
+            await client.statuses.set({
+              key: statusKey(key),
+              name: "Calculation Status",
+              variant: "info",
+              message: "calculating",
+              time: TimeStamp.now(),
+            }),
+        ),
+      );
       const local = createTestClient();
       await local.connect();
       const send = spyOnSend(local);

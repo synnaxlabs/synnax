@@ -93,8 +93,7 @@ export class Client extends query.Retriever<
     const { relationships } = ontologyClient.cache;
     const store = cache.createTable<Key, Status>({
       name: "statuses",
-      fetch: async (keys) =>
-        await this.fetchThrough({ keys, ignoreNotFoundError: true }),
+      fetch: async (keys) => await this.fetchThrough({ keys }),
       listen: [
         query.createSetListener(SET_CHANNEL_NAME, statusZ(), {
           value: (changed, prev) => {
