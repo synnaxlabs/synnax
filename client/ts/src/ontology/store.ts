@@ -13,7 +13,6 @@ import {
   type ID,
   idsEqual,
   idToString,
-  matchRelationship,
   PARENT_OF_RELATIONSHIP_TYPE,
   type Relationship,
   type Resource,
@@ -26,26 +25,49 @@ export const RESOURCE_DELETE_CHANNEL_NAME = "sy_ontology_resource_delete";
 export const RELATIONSHIP_SET_CHANNEL_NAME = "sy_ontology_relationship_set";
 export const RELATIONSHIP_DELETE_CHANNEL_NAME = "sy_ontology_relationship_delete";
 
+/**
+ * The secondary indexes registered on the relationships table, one per endpoint.
+ * Type filtering runs at the call site over the matched handful.
+ */
+export interface RelationshipIndexes {
+  /** Keyed by the stringified `to` end. */
+  byTo: query.LookupIndex<string, Relationship>;
+  /** Keyed by the stringified `from` end. */
+  byFrom: query.LookupIndex<string, Relationship>;
+}
+
 /** The ontology record tables: resources and the relationships between them. */
 export class Cache {
   readonly relationships: query.Table<string, Relationship>;
   readonly resources: query.Table<string, Resource>;
+  private readonly indexes: RelationshipIndexes;
 
   constructor(
     relationships: query.Table<string, Relationship>,
     resources: query.Table<string, Resource>,
+    indexes: RelationshipIndexes,
   ) {
     this.relationships = relationships;
     this.resources = resources;
+    this.indexes = indexes;
+  }
+
+  /** Returns the cached relationships pointing at the given ID. */
+  relationshipsTo(id: ID): Relationship[] {
+    return this.indexes.byTo.get(idToString(id));
+  }
+
+  /** Returns the cached relationships originating at the given ID. */
+  relationshipsFrom(id: ID): Relationship[] {
+    return this.indexes.byFrom.get(idToString(id));
   }
 
   /** Returns the cached parent ID of the given ontology ID, or null if unknown. */
   parentID(id: ID): ID | null {
-    const res = this.relationships.get((r) =>
-      matchRelationship(r, { type: PARENT_OF_RELATIONSHIP_TYPE, to: id }),
+    const rel = this.relationshipsTo(id).find(
+      (r) => r.type === PARENT_OF_RELATIONSHIP_TYPE,
     );
-    if (res.length === 0) return null;
-    return res[0].from;
+    return rel?.from ?? null;
   }
 
   /**

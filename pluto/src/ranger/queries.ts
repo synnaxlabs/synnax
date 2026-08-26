@@ -52,18 +52,18 @@ export const useListChildren = Flux.createList<
   ranger.Range
 >({
   name: PLURAL_CHILDREN_RESOURCE_NAME,
-  retrieve: async ({ client, query: { key } }) => {
+  retrieve: async ({ client, query: { key, limit, offset } }) => {
     if (key == null) return [];
-    return await client.ranges.children.retrieve(key);
+    return await client.ranges.children.retrieve({ key, limit, offset });
   },
   retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-  onChange: ({ client, query: { key } }, handler) => {
+  onChange: ({ client, query: { key, limit, offset } }, handler) => {
     if (key == null) return () => {};
-    return client.ranges.children.onChange(key, handler);
+    return client.ranges.children.onChange({ key, limit, offset }, handler);
   },
-  getCached: ({ client, query: { key } }) => {
+  getCached: ({ client, query: { key, limit, offset } }) => {
     if (key == null) return undefined;
-    return client.ranges.children.getCached(key);
+    return client.ranges.children.getCached({ key, limit, offset });
   },
 });
 

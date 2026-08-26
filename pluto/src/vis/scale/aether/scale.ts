@@ -360,7 +360,7 @@ export class Scale
         ? 0
         : ctx.textDimensions(units, { useAtlas: true }).width + UNITS_GAP;
     const width = value.width + unitsWidth + 8;
-    const height = value.height + 6;
+    const height = value.height + 8;
     const { outward: dir } = this;
     const inner = edge + dir * CARET_SIZE;
     const region =
@@ -381,15 +381,18 @@ export class Scale
       borderWidth: 1,
       backgroundColor: theme.colors.gray.l1,
     });
-    const center = xy.translateY(box.center(region), 1);
+    const center = box.center(region);
     const left = center.x - (value.width + unitsWidth) / 2;
+    // One baseline for both texts, centering the value's ink on the box. Canvas
+    // centers the em box on a "middle" baseline, which the engines place differently.
+    const baseline = center.y + value.height / 2;
     const text = (text: string, x: number): void =>
       draw.text({
         text,
-        position: xy.construct(x, center.y),
+        position: xy.construct(x, baseline),
         level: tickLevel,
         justify: "left",
-        align: "middle",
+        align: "alphabetic",
         shade: 11,
         color: stale ? valueColor : undefined,
         code: true,
@@ -425,11 +428,11 @@ export class Scale
         const y = box.bottom(bar) - position;
         line(xy.construct(edge, y), xy.construct(edge + dir * TICK_LENGTH, y));
         draw.text({
+          align: "center",
           text: label,
           position: xy.construct(edge + dir * (TICK_LENGTH + TICK_LABEL_GAP), y),
           level: tickLevel,
           color: textColor,
-          align: "middle",
           justify: dir > 0 ? "left" : "right",
           code: true,
           useAtlas: true,

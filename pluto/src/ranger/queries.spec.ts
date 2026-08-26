@@ -17,7 +17,7 @@ import {
   type ReactElement,
   Suspense,
 } from "react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Ranger } from "@/ranger";
 import { renderHookSuspended } from "@/testutil/render";
@@ -424,6 +424,37 @@ describe("queries", () => {
       expect(result.current.data.length).toBeGreaterThanOrEqual(2);
       expect(result.current.data).toContain(child1.key);
       expect(result.current.data).toContain(child2.key);
+    });
+
+    it("should forward the page bounds to the client", async () => {
+      const parentRange = await client.ranges.create({
+        name: "pagedParent",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(10)),
+      });
+      await Promise.all(
+        Array.from({ length: 3 }, (_, i) =>
+          client.ranges.create({
+            name: `pagedChild${i}`,
+            timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+            parent: parentRange,
+          }),
+        ),
+      );
+      const spy = vi.spyOn(client.ranges.children, "retrieve");
+      try {
+        const { result } = renderHook(() => Ranger.useListChildren(), { wrapper });
+        act(() => {
+          result.current.retrieve(
+            { key: parentRange.key, limit: 2, offset: 0 },
+            { signal: controller.signal },
+          );
+        });
+        await waitFor(() => expect(result.current.variant).toEqual("success"));
+        expect(result.current.data).toHaveLength(2);
+        expect(spy).toHaveBeenCalledWith({ key: parentRange.key, limit: 2, offset: 0 });
+      } finally {
+        spy.mockRestore();
+      }
     });
 
     it("should get individual child ranges using getItem", async () => {

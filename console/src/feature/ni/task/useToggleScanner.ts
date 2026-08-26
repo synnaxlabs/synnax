@@ -27,10 +27,15 @@ export const useToggleScanner = (rackKey: rack.Key) => {
           rack: rackKey,
           schemas: SCAN_SCHEMAS,
         });
+        // Never write the status back: the Driver owns it and this copy may be stale.
         const {
           config: { disabled },
         } = await client.tasks.create(
-          { ...payload, config: { ...config, disabled: !config.disabled } },
+          {
+            ...payload,
+            config: { ...config, disabled: !config.disabled },
+            status: undefined,
+          },
           SCAN_SCHEMAS,
         );
         addStatus({

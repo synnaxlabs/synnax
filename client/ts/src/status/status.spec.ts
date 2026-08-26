@@ -11,11 +11,12 @@ import { color, id, TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import z from "zod";
 
+import { NotFoundError } from "@/errors";
 import { group } from "@/group";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { status } from "@/status";
-import { createTestClient, expectLive } from "@/testutil";
+import { createTestClient, expectLive, spyOnSend } from "@/testutil";
 
 const client = createTestClient();
 
@@ -229,6 +230,52 @@ describe("Status", () => {
   });
 
   describe("retrieve", () => {
+    it("coalesces concurrent single retrieves into one request", async () => {
+      const keys = [id.create(), id.create()];
+      await Promise.all(
+        keys.map(
+          async (key) =>
+            await client.statuses.set({
+              key,
+              name: "Coalesce Test",
+              variant: "info",
+              message: "coalesce",
+              time: TimeStamp.now(),
+            }),
+        ),
+      );
+      const local = createTestClient();
+      await local.connect();
+      const send = spyOnSend(local);
+      const res = await Promise.all(
+        keys.map(async (key) => await local.statuses.retrieve(key)),
+      );
+      expect(res.map(({ key }) => key)).toEqual(keys);
+      expect(
+        send.mock.calls.filter(([target]) => target === "/status/retrieve"),
+      ).toHaveLength(1);
+    });
+
+    it("does not reject concurrent retrieves when a key in the window is missing", async () => {
+      const s = await client.statuses.set({
+        key: id.create(),
+        name: "Isolation Test",
+        variant: "info",
+        message: "isolation",
+        time: TimeStamp.now(),
+      });
+      const local = createTestClient();
+      await local.connect();
+      const [ok, missing] = await Promise.allSettled([
+        local.statuses.retrieve(s.key),
+        local.statuses.retrieve(`missing-${id.create()}`),
+      ]);
+      expect(ok.status).toEqual("fulfilled");
+      expect(missing.status).toEqual("rejected");
+      if (missing.status === "rejected")
+        expect(NotFoundError.matches(missing.reason)).toBe(true);
+    });
+
     it("should retrieve a status by key", async () => {
       const created = await client.statuses.set({
         name: "Retrieve Test",

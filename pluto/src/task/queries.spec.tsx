@@ -1263,6 +1263,68 @@ describe("queries", () => {
       expect(result.current.form.get("name").touched).toBe(false);
     });
 
+    it("should not write the status back to the core on save", async () => {
+      const testTask = await testRack.createTask({
+        name: "statusClobberTask",
+        type: "pagerduty_alert",
+        config: { routingKey: "initial" },
+      });
+      const stale = (
+        await client.tasks.retrieve({ key: testTask.key, includeStatus: true })
+      ).status;
+
+      const useForm = Task.createForm({
+        schemas: {
+          type: z.literal("pagerduty_alert"),
+          config: z.object({ routingKey: z.string() }),
+          statusData: z.any().optional(),
+        },
+        initialValues: {
+          key: testTask.key,
+          rack: testRack.key,
+          name: "statusClobberTask",
+          type: "pagerduty_alert",
+          config: { routingKey: "initial" },
+          status: stale,
+        },
+      });
+
+      // No query means no listener, so the form keeps the status it started with,
+      // the way a live form does while a newer status is still in flight to it.
+      const { result } = renderHook(() => useForm({ query: null }), { wrapper });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+
+      const reported: task.Status = status.create<task.StatusDetailsZodObject>({
+        key: task.statusKey(testTask.key),
+        variant: "success",
+        message: "Task started successfully",
+        details: {
+          task: testTask.key,
+          running: true,
+          cmd: "",
+          configHash: "",
+          rack: testRack.key,
+        },
+      });
+      await client.statuses.set(reported);
+
+      act(() => {
+        result.current.form.set("config.routingKey", "edited");
+      });
+      await act(async () => {
+        result.current.save();
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+
+      const saved = await client.tasks.retrieve({
+        key: testTask.key,
+        includeStatus: true,
+      });
+      expect(saved.config).toMatchObject({ routingKey: "edited" });
+      expect(saved.status?.message).toEqual("Task started successfully");
+      expect(saved.status?.details.running).toBe(true);
+    });
+
     it("should not mark form as touched when task metadata updates from server listener", async () => {
       const testTask = await testRack.createTask({
         name: "serverUpdateTask",

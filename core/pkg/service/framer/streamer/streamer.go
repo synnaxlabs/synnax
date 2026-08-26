@@ -32,12 +32,29 @@ type (
 	responseSegment = confluence.Segment[Response, Response]
 )
 
+// MinKeepAlive is the fastest keep-alive cadence a streamer accepts. Faster cadences
+// buy no useful detection latency and let a client multiply its per-stream send rate.
+const MinKeepAlive = 2 * telem.Second
+
 type Config struct {
-	Keys             channel.Keys `json:"keys"              msgpack:"keys"`
-	SendOpenAck      bool         `json:"send_open_ack"     msgpack:"send_open_ack"`
-	DownsampleFactor int          `json:"downsample_factor" msgpack:"downsample_factor"`
-	ThrottleRate     telem.Rate   `json:"throttle_rate"     msgpack:"throttle_rate"`
-	ExcludeGroups    []uint32     `json:"exclude_groups"    msgpack:"exclude_groups"`
+	// Keys are the channels to stream live samples from.
+	Keys channel.Keys `json:"keys" msgpack:"keys"`
+	// SendOpenAck sets whether an empty readiness response is sent once the relay has
+	// applied the streamer's demands.
+	SendOpenAck bool `json:"send_open_ack" msgpack:"send_open_ack"`
+	// DownsampleFactor keeps every n-th sample of each frame. Values below 2 keep
+	// every sample.
+	DownsampleFactor int `json:"downsample_factor" msgpack:"downsample_factor"`
+	// ThrottleRate caps the rate at which frames are delivered. Zero disables
+	// throttling.
+	ThrottleRate telem.Rate `json:"throttle_rate" msgpack:"throttle_rate"`
+	// ExcludeGroups are writer group IDs whose frames are filtered out before delivery
+	// (see relay ExcludeGroups).
+	ExcludeGroups []uint32 `json:"exclude_groups" msgpack:"exclude_groups"`
+	// KeepAlive is the interval at which the wire sender emits empty keep-alive
+	// responses so the client can detect a silently dead connection. Zero disables
+	// them. Applied at open; ignored on later requests.
+	KeepAlive telem.TimeSpan `json:"keep_alive" msgpack:"keep_alive"`
 }
 
 var _ config.Config[Config] = Config{}
@@ -47,6 +64,9 @@ func (c Config) Validate() error {
 	v := validate.New("streamer.config")
 	validate.GreaterThanEq(v, "downsample_factor", c.DownsampleFactor, 0)
 	validate.GreaterThanEq(v, "throttle_rate", c.ThrottleRate, 0)
+	if c.KeepAlive != 0 {
+		validate.GreaterThanEq(v, "keep_alive", c.KeepAlive, MinKeepAlive)
+	}
 	return v.Error()
 }
 
@@ -57,6 +77,7 @@ func (c Config) Override(other Config) Config {
 	c.DownsampleFactor = override.Numeric(c.DownsampleFactor, other.DownsampleFactor)
 	c.ThrottleRate = override.Numeric(c.ThrottleRate, other.ThrottleRate)
 	c.ExcludeGroups = override.Slice(c.ExcludeGroups, other.ExcludeGroups)
+	c.KeepAlive = override.Numeric(c.KeepAlive, other.KeepAlive)
 	return c
 }
 

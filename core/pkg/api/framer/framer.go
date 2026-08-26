@@ -232,14 +232,20 @@ func (s *Service) Stream(ctx context.Context, stream StreamerStream) error {
 		ctx, signal.WithInstrumentation(s.Child("frame_streamer")),
 	)
 	defer cancel()
-	streamer, err := s.openStreamer(sCtx, auth.GetSubject(ctx), stream)
+	streamer, req, err := s.openStreamer(sCtx, auth.GetSubject(ctx), stream)
 	if err != nil {
 		return err
 	}
 	var (
 		receiver = &freightfluence.Receiver[StreamerRequest]{Receiver: stream}
 		sender   = &freightfluence.Sender[StreamerResponse]{
-			Sender: freighter.SenderNopCloser[StreamerResponse]{StreamSender: stream},
+			Sender: freighter.SenderNopCloser[StreamerResponse]{
+				StreamSender: stream,
+			},
+			KeepAliveInterval: req.KeepAlive.Duration(),
+			NewKeepAlive: func() StreamerResponse {
+				return StreamerResponse{KeepAlive: true}
+			},
 		}
 		pipe = plumber.New()
 	)
@@ -261,22 +267,26 @@ func (s *Service) openStreamer(
 	ctx context.Context,
 	subject ontology.ID,
 	stream StreamerStream,
-) (framer.Streamer, error) {
+) (framer.Streamer, StreamerRequest, error) {
 	req, err := stream.Receive()
 	if err != nil {
-		return nil, err
+		return nil, req, err
 	}
 	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: subject,
 		Action:  access.ActionRetrieve,
 		Objects: framer.OntologyIDs(req.Keys),
 	}); err != nil {
-		return nil, err
+		return nil, req, err
 	}
 	// The ack fires only after the relay applies this streamer's demands, so a write
 	// issued after the client sees it is guaranteed to be delivered.
 	req.SendOpenAck = true
-	return s.internal.NewStreamer(ctx, req)
+	streamer, err := s.internal.NewStreamer(ctx, req)
+	if err != nil {
+		return nil, req, err
+	}
+	return streamer, req, nil
 }
 
 type WriterCommand = framer.WriterCommand

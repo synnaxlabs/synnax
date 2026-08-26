@@ -2102,7 +2102,7 @@ wheels = [
 
 [[package]]
 name = "synnax"
-version = "0.57.0"
+version = "0.57.1"
 source = { editable = "client/py" }
 dependencies = [
     { name = "alamos" },
