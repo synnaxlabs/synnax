@@ -712,4 +712,128 @@ describe("schematic queries", () => {
       });
     });
   });
+
+  describe("useGroup / useUngroup", () => {
+    const measure = (): { width: number; height: number } => ({
+      width: 10,
+      height: 10,
+    });
+
+    interface GroupCfg {
+      variant?: string;
+      members?: string[];
+    }
+
+    let schem: schematic.Schematic;
+    let ScopedWrapper: FC<PropsWithChildren>;
+
+    beforeEach(async () => {
+      schem = await createTestSchematic(proj.key);
+      await loadSchematic(Wrapper, schem.key);
+      const Scoped: FC<PropsWithChildren> = ({ children }) => (
+        <Wrapper>
+          <Schematic.Scope.Provider value={schem.key}>
+            {children}
+          </Schematic.Scope.Provider>
+        </Wrapper>
+      );
+      Scoped.displayName = "ScopedWrapper";
+      ScopedWrapper = Scoped;
+    });
+
+    it("should insert a group and return the keys to select, group first", async () => {
+      const { result } = renderHook(
+        () => ({
+          group: Schematic.useGroup(),
+          nodes: Schematic.useAllNodes(),
+          configs: Schematic.useAllConfigs(),
+        }),
+        { wrapper: ScopedWrapper },
+      );
+      let selection: string[] | null = null;
+      await act(async () => {
+        selection = result.current.group(["n1", "n2"], measure);
+      });
+      expect(selection?.slice(1)).toEqual(["n1", "n2"]);
+      const groupKey = selection?.[0] ?? "";
+      await waitFor(() => {
+        const cfg = result.current.configs[groupKey] as GroupCfg | undefined;
+        expect(cfg?.variant).toEqual("groupBox");
+        expect(cfg?.members).toEqual(["n1", "n2"]);
+        const groupNode = result.current.nodes.find((n) => n.key === groupKey);
+        expect(groupNode?.zIndex).toEqual(-1);
+        expect(groupNode?.position).toEqual({ x: -30, y: -30 });
+      });
+    });
+
+    it("should group as one undoable step", async () => {
+      const { result } = renderHook(
+        () => ({
+          group: Schematic.useGroup(),
+          configs: Schematic.useAllConfigs(),
+          undo: Schematic.useUndo(),
+        }),
+        { wrapper: ScopedWrapper },
+      );
+      let selection: string[] | null = null;
+      await act(async () => {
+        selection = result.current.group(["n1", "n2"], measure);
+      });
+      const groupKey = selection?.[0] ?? "";
+      await waitFor(() => expect(result.current.configs[groupKey]).toBeDefined());
+      await act(async () => {
+        result.current.undo.undo();
+      });
+      await waitFor(() => expect(result.current.configs[groupKey]).toBeUndefined());
+    });
+
+    it("should remove the group on ungroup and return the freed members", async () => {
+      const { result } = renderHook(
+        () => ({
+          group: Schematic.useGroup(),
+          ungroup: Schematic.useUngroup(),
+          nodes: Schematic.useAllNodes(),
+          configs: Schematic.useAllConfigs(),
+        }),
+        { wrapper: ScopedWrapper },
+      );
+      let selection: string[] | null = null;
+      await act(async () => {
+        selection = result.current.group(["n1", "n2"], measure);
+      });
+      const groupKey = selection?.[0] ?? "";
+      await waitFor(() => expect(result.current.configs[groupKey]).toBeDefined());
+      let freed: string[] | null = null;
+      await act(async () => {
+        freed = result.current.ungroup([groupKey]);
+      });
+      expect(freed).toEqual(["n1", "n2"]);
+      await waitFor(() => {
+        expect(result.current.configs[groupKey]).toBeUndefined();
+        expect(result.current.nodes.some((n) => n.key === groupKey)).toEqual(false);
+      });
+    });
+
+    it("should return null when the selection cannot be grouped", async () => {
+      const { result } = renderHook(() => Schematic.useGroup(), {
+        wrapper: ScopedWrapper,
+      });
+      let selection: string[] | null = null;
+      await act(async () => {
+        selection = result.current(["n1"], measure);
+      });
+      expect(selection).toBeNull();
+    });
+
+    it("should return null when ungrouping a selection with no group", async () => {
+      const { result } = renderHook(() => Schematic.useUngroup(), {
+        wrapper: ScopedWrapper,
+      });
+      let freed: string[] | null = null;
+      await act(async () => {
+        freed = result.current(["n1"]);
+      });
+      expect(freed).toBeNull();
+    });
+  });
 });

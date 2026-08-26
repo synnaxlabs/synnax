@@ -81,6 +81,26 @@ describe("Diagram.useTriggers", () => {
     fireEvent.keyUp(document.body, { code: "ControlLeft" });
   });
 
+  it("should call onGroup when Control+G is pressed", () => {
+    const onGroup = vi.fn();
+    renderTriggers({ onGroup });
+    fireEvent.keyDown(document.body, { code: "ControlLeft" });
+    fireEvent.keyDown(document.body, { code: "KeyG", ctrlKey: true });
+    expect(onGroup).toHaveBeenCalledOnce();
+    fireEvent.keyUp(document.body, { code: "KeyG" });
+    fireEvent.keyUp(document.body, { code: "ControlLeft" });
+  });
+
+  it("should call onUngroup when Control+U is pressed", () => {
+    const onUngroup = vi.fn();
+    renderTriggers({ onUngroup });
+    fireEvent.keyDown(document.body, { code: "ControlLeft" });
+    fireEvent.keyDown(document.body, { code: "KeyU", ctrlKey: true });
+    expect(onUngroup).toHaveBeenCalledOnce();
+    fireEvent.keyUp(document.body, { code: "KeyU" });
+    fireEvent.keyUp(document.body, { code: "ControlLeft" });
+  });
+
   it("should call onClear when Escape is pressed", () => {
     const onClearSelection = vi.fn();
     renderTriggers({ onClearSelection });
@@ -109,15 +129,21 @@ describe("Diagram.useTriggers", () => {
       const onUndo = vi.fn();
       const onRedo = vi.fn();
       const onPaste = vi.fn();
-      renderTriggers({ onUndo, onRedo, onPaste, editable: false });
+      const onGroup = vi.fn();
+      const onUngroup = vi.fn();
+      renderTriggers({ onUndo, onRedo, onPaste, onGroup, onUngroup, editable: false });
       // The context menu already withholds undo and redo from a viewer. The keyboard
       // route has to agree, or a read-only diagram rewrites itself on Control+Z.
       press("ControlLeft", "KeyZ");
       press("ControlLeft", "ShiftLeft", "KeyZ");
       press("ControlLeft", "KeyV");
+      press("ControlLeft", "KeyG");
+      press("ControlLeft", "KeyU");
       expect(onUndo).not.toHaveBeenCalled();
       expect(onRedo).not.toHaveBeenCalled();
       expect(onPaste).not.toHaveBeenCalled();
+      expect(onGroup).not.toHaveBeenCalled();
+      expect(onUngroup).not.toHaveBeenCalled();
     });
 
     it("should keep a read-only diagram navigable", () => {

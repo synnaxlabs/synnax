@@ -367,6 +367,75 @@ describe("schematic clipboard", () => {
       expect(pasteEvent.preventDefault).toHaveBeenCalled();
     });
 
+    it("remaps a pasted group's members onto the pasted keys", async () => {
+      interface GroupCfg {
+        variant?: string;
+        members?: string[];
+      }
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const proj = await client.projects.create({
+        name: `project_${uuid.create()}`,
+        layout: {},
+      });
+      const schem = await client.schematics.create(proj.key, {
+        name: `schem_${uuid.create()}`,
+        nodes: [
+          { key: "g1", position: { x: -30, y: -30 }, zIndex: -1 },
+          { key: "n1", position: { x: 0, y: 0 } },
+          { key: "n2", position: { x: 100, y: 100 } },
+        ],
+        edges: [],
+        configs: {
+          g1: {
+            variant: "groupBox",
+            members: ["n1", "n2"],
+            dimensions: { width: 160, height: 160 },
+          },
+          n1: { variant: "tank", label: "Pump" },
+          n2: { variant: "tank", label: "Valve" },
+        },
+      });
+      await loadSchematic(Wrapper, schem.key);
+
+      const { result } = renderHook(
+        () => ({
+          clipboard: Schematic.useClipboard({ selected: ["g1", "n1", "n2"] }),
+          nodes: Schematic.useAllNodes({ key: schem.key }),
+          configs: Schematic.useAllConfigs({ key: schem.key }),
+        }),
+        { wrapper: scoped(Wrapper, schem.key) },
+      );
+
+      const copyData = createDataTransfer();
+      act(() =>
+        result.current.clipboard.onCopy(createClipboardEvent(copyData), xy.ZERO),
+      );
+      const raw = copyData.getData(MIME);
+      expect(raw).not.toBe("");
+
+      const pasteEvent = createClipboardEvent(createDataTransfer({ [MIME]: raw }));
+      await act(async () => {
+        result.current.clipboard.onPaste(pasteEvent, { x: 500, y: 500 });
+      });
+      await waitFor(() => expect(result.current.nodes).toHaveLength(6));
+
+      const originals = new Set(["g1", "n1", "n2"]);
+      const pastedKeys = result.current.nodes
+        .map((n) => n.key)
+        .filter((k) => !originals.has(k));
+      const pastedGroupKey = pastedKeys.find(
+        (k) =>
+          (result.current.configs[k] as GroupCfg | undefined)?.variant === "groupBox",
+      );
+      expect(pastedGroupKey).toBeDefined();
+      const members =
+        (result.current.configs[pastedGroupKey ?? ""] as GroupCfg | undefined)
+          ?.members ?? [];
+      expect(members).toHaveLength(2);
+      expect(members.every((m) => pastedKeys.includes(m))).toEqual(true);
+      expect(members.some((m) => originals.has(m))).toEqual(false);
+    });
+
     it("does nothing when the clipboard has no Synnax payload", async () => {
       const Wrapper = await createAsyncSynnaxWrapper({ client });
       const schem = await createSchematicWithGraph();
