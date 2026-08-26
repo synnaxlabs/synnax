@@ -99,7 +99,7 @@ export class Client extends query.Retriever<
           value: (changed, prev) => {
             const next = { ...prev, ...changed };
             const id = ontologyID(changed.key);
-            next.labels = label.cachedLabelsOf(relationships, labels.store, id);
+            next.labels = label.cachedLabelsOf(ontologyClient.cache, labels.store, id);
             return next;
           },
         }),
@@ -278,7 +278,7 @@ export class Client extends query.Retriever<
   /** Rebuilds a cached status with its cached labels attached. */
   private compose(cached: Status): Status {
     const labels = label.cachedLabelsOf(
-      this.cfg.ontology.cache.relationships,
+      this.cfg.ontology.cache,
       this.cfg.labels.store,
       ontologyID(cached.key),
     );
@@ -307,14 +307,19 @@ export class Client extends query.Retriever<
   /** Fetches statuses and writes their included labels through the caches. */
   private async fetchThrough(req: RetrieveRequest): Promise<Status[]> {
     const statuses = await this.execRetrieve({ ...BASE_REQUEST, ...req });
-    statuses.forEach((s) => this.writeThrough(s));
+    // One batch per table, so each table flushes once for the whole response.
+    this.store.batch(() =>
+      this.cfg.labels.store.batch(() =>
+        this.cfg.ontology.cache.relationships.batch(() =>
+          statuses.forEach((s) => this.writeThrough(s)),
+        ),
+      ),
+    );
     return statuses;
   }
 
   private async fetchSingle(key: Key): Promise<Status> {
-    const cached = this.store.get(key);
-    if (cached != null) return cached;
-    const statuses = await this.fetchThrough({ keys: [key] });
+    const statuses = await this.store.retrieve([key]);
     checkForMultipleOrNoResults("Status", key, statuses, true);
     return statuses[0];
   }
@@ -362,13 +367,12 @@ export class Client extends query.Retriever<
 
   /** Returns the keys of cached statuses labeled by the given label. */
   private statusesLabeledBy(labelKey: label.Key): Key[] {
-    return this.cfg.ontology.cache.relationships
-      .get(
+    return this.cfg.ontology.cache
+      .relationshipsTo(label.ontologyID(labelKey))
+      .filter(
         (r) =>
           r.type === label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE &&
-          r.from.type === "status" &&
-          r.to.type === "label" &&
-          r.to.key === labelKey,
+          r.from.type === "status",
       )
       .map((r) => r.from.key);
   }

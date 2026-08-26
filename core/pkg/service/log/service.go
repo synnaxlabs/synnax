@@ -98,7 +98,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, state: actions.NewState[Key, Action]()}
+	s = &Service{cfg: cfg, state: actions.NewState[Key, Action](cfg.DB)}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Log]{
@@ -138,13 +138,32 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 // Close closes the log service and releases any resources.
 func (s *Service) Close() error { return s.closer.Close() }
 
-// OnAction subscribes the given handler to the action stream emitted by
-// Writer.Dispatch. The handler runs synchronously inside Dispatch after the underlying
-// transaction commits. The returned Disconnect removes the handler.
+// OnAction subscribes the given handler to the action stream emitted by Dispatch. The
+// handler runs synchronously inside Dispatch after the underlying transaction commits.
+// The returned Disconnect removes the handler.
 func (s *Service) OnAction(
 	handler func(context.Context, actions.Scoped[Key, Action]),
 ) observe.Disconnect {
 	return s.state.OnAction(handler)
+}
+
+// Dispatch applies a sequence of actions atomically to the log with the given key.
+// Dispatches for the same log run one at a time, each in its own transaction committed
+// before the actions are notified, so two concurrent dispatches can never overwrite
+// each other's edits. dispatchKey is a client-generated identifier carried verbatim
+// onto the broadcast so the originating client can recognize its own echo.
+func (s *Service) Dispatch(
+	ctx context.Context,
+	key Key,
+	dispatchKey string,
+	acts []Action,
+) error {
+	return s.state.Dispatch(ctx, key, dispatchKey, acts, func(tx gorp.Tx) error {
+		return s.table.NewUpdate().Where(gorp.MatchKeys[Key, Log](key)).
+			ChangeErr(func(_ gorp.Context, l Log) (Log, error) {
+				return Reduce(l, acts...)
+			}).Exec(ctx, tx)
+	})
 }
 
 // NewWriter opens a new writer for creating, updating, and deleting logs in Synnax. If

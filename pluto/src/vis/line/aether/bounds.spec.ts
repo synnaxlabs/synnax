@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
-  bounds,
+  type bounds,
   DataType,
   MultiSeries,
   Series,
@@ -54,8 +54,10 @@ const xWindow = (loSec: number, hiSec: number): bounds.Bounds => ({
   upper: Number(TimeStamp.seconds(hiSec).valueOf()),
 });
 
+const FALLBACK: bounds.Bounds = { lower: -1234, upper: 1234 };
+
 const calc = (x: Series[], y: Series[], win: bounds.Bounds): bounds.Bounds =>
-  windowBounds(new MultiSeries(x), new MultiSeries(y), win, THRESHOLD);
+  windowBounds(new MultiSeries(x), new MultiSeries(y), win, THRESHOLD, FALLBACK);
 
 describe("windowBounds", () => {
   it("should bound only the samples inside the window", () => {
@@ -70,10 +72,22 @@ describe("windowBounds", () => {
     expect(calc([x], [y], xWindow(1, 9))).toStrictEqual({ lower: -250, upper: -200 });
   });
 
-  it("should return non-finite bounds when no samples fall in the window", () => {
+  it("should return the fallback when the window is beyond all samples", () => {
     const x = stamps(0, 10);
     const y = values(0, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
-    expect(bounds.isFinite(calc([x], [y], xWindow(20, 30)))).toBe(false);
+    expect(calc([x], [y], xWindow(20, 30))).toStrictEqual(FALLBACK);
+  });
+
+  it("should return the fallback when the window predates all samples", () => {
+    const x = stamps(20, 10);
+    const y = values(20, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    expect(calc([x], [y], xWindow(0, 10))).toStrictEqual(FALLBACK);
+  });
+
+  it("should return the fallback when every value in the window is NaN", () => {
+    const x = stamps(0, 3);
+    const y = values(0, [NaN, NaN, NaN]);
+    expect(calc([x], [y], xWindow(0, 3))).toStrictEqual(FALLBACK);
   });
 
   it("should pair series with offset alignments", () => {
@@ -97,7 +111,7 @@ describe("windowBounds", () => {
   it("should not pair series whose time ranges do not overlap", () => {
     const x = stamps(0, 5, 0n);
     const y = values(100, [1, 2, 3, 4, 5], 0n);
-    expect(bounds.isFinite(calc([x], [y], xWindow(0, 5)))).toBe(false);
+    expect(calc([x], [y], xWindow(0, 5))).toStrictEqual(FALLBACK);
   });
 
   it("should apply the series sample offset", () => {

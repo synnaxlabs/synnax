@@ -307,11 +307,12 @@ export class Client extends query.Retriever<
   }
 
   private async fetchSingle(q: SingleQuery): Promise<Rack> {
-    // Names are not unique, so only key queries can be served from the table.
-    // A status-bearing hit needs both the record and its status cached.
+    // Names are not unique and the table never holds status, so only keyed status-free
+    // queries can be served from it.
     if ("key" in q && q.includeStatus !== true) {
-      const cached = this.store.get(q.key);
-      if (cached != null) return this.sugar(cached);
+      const racks = await this.store.retrieve([q.key]);
+      checkForMultipleOrNoResults("Rack", q, racks, true);
+      return this.sugar(racks[0]);
     }
     const racks = await this.execRetrieve(q);
     checkForMultipleOrNoResults("Rack", q, racks, true);
