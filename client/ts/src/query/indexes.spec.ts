@@ -44,6 +44,33 @@ describe("indexes", () => {
     expect(byGroup.get("c")).toEqual([]);
   });
 
+  it("should serve multiple values in a single get", () => {
+    const { table, byGroup } = newIndexed();
+    table.set([
+      { key: "k1", group: "a" },
+      { key: "k2", group: "b" },
+      { key: "k3", group: "c" },
+    ]);
+    expect(byGroup.get(["c", "a"])).toEqual([
+      { key: "k3", group: "c" },
+      { key: "k1", group: "a" },
+    ]);
+    expect(byGroup.get(["z"])).toEqual([]);
+    expect(byGroup.get([])).toEqual([]);
+  });
+
+  it("should return an entry once when a value repeats", () => {
+    const { table, byGroup } = newIndexed();
+    table.set([
+      { key: "k1", group: "a" },
+      { key: "k2", group: "a" },
+    ]);
+    expect(byGroup.get(["a", "a"])).toEqual([
+      { key: "k1", group: "a" },
+      { key: "k2", group: "a" },
+    ]);
+  });
+
   it("should relocate an entry whose indexed value changes", () => {
     const { table, byGroup } = newIndexed();
     table.set("k1", { key: "k1", group: "a" });
@@ -128,5 +155,44 @@ describe("indexes", () => {
     table.delete("k1");
     expect(byGroup.get("a")).toEqual([]);
     expect(byKey.get("k1")).toEqual([]);
+  });
+});
+
+describe("partial indexes", () => {
+  interface Entry extends record.Keyed<string> {
+    key: string;
+    group: string | null;
+  }
+
+  const newIndexed = () => {
+    const byGroup = new query.LookupIndex<string, Entry>((e) => e.group);
+    const table = new query.Table<string, Entry>({
+      onError: noopError,
+      indexes: [byGroup],
+    });
+    return { table, byGroup };
+  };
+
+  it("should leave entries whose extract returns null out of the index", () => {
+    const { table, byGroup } = newIndexed();
+    table.set([
+      { key: "k1", group: "a" },
+      { key: "k2", group: null },
+    ]);
+    expect(byGroup.get("a")).toEqual([{ key: "k1", group: "a" }]);
+  });
+
+  it("should unindex an entry whose extracted value becomes null", () => {
+    const { table, byGroup } = newIndexed();
+    table.set("k1", { key: "k1", group: "a" });
+    table.set("k1", { key: "k1", group: null });
+    expect(byGroup.get("a")).toEqual([]);
+  });
+
+  it("should index an entry whose extracted value appears", () => {
+    const { table, byGroup } = newIndexed();
+    table.set("k1", { key: "k1", group: null });
+    table.set("k1", { key: "k1", group: "a" });
+    expect(byGroup.get("a")).toEqual([{ key: "k1", group: "a" }]);
   });
 });

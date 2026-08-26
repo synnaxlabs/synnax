@@ -67,7 +67,12 @@ export interface DrawTextProps extends FillTextOptions {
   position: xy.XY;
   level: text.Level;
   justify?: CanvasTextAlign;
-  align?: CanvasTextBaseline;
+  /**
+   * Vertical placement. The canvas baselines place the em box, which the engines
+   * disagree on, so "center" centers the ink instead, for glyphs sitting on the
+   * baseline.
+   */
+  align?: CanvasTextBaseline | "center";
   weight?: text.Weight;
   shade?: theming.Shade;
   maxWidth?: number;
@@ -428,11 +433,14 @@ export class Draw2D {
     else if (shade == null) this.canvas.fillStyle = color.hex(this.theme.colors.text);
     else this.canvas.fillStyle = color.hex(this.theme.colors.gray[`l${shade}`]);
     this.canvas.textAlign = justify;
-    this.canvas.textBaseline = align;
+    const centered = align === "center";
+    this.canvas.textBaseline = centered ? "alphabetic" : align;
+    let y = position.y;
+    if (centered) y += this.canvas.textDimensions(text, { useAtlas }).height / 2;
     let removeScissor: destructor.Destructor | undefined;
     if (maxWidth != null)
       removeScissor = this.canvas.scissor(box.construct(position, maxWidth, 1000));
-    this.canvas.fillText(text, position.x, position.y, undefined, { useAtlas });
+    this.canvas.fillText(text, position.x, y, undefined, { useAtlas });
     removeScissor?.();
   }
 }
