@@ -644,7 +644,7 @@ export class Client extends query.Retriever<
     }
     const names = normalized;
     await this.writer.delete({ names });
-    const cached = Array.from(new Set(names), (name) => this.byName.get(name)).flat();
+    const cached = this.byName.get(names);
     if (cached.length > 0) this.store.delete(cached.map((ch) => ch.key));
   }
 
