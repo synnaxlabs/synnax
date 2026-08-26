@@ -91,8 +91,9 @@ There are four important command line options for configuring TLS:
 
 When starting the Core with TLS, you'll need to specify the correct options and start
 the Core with the correct hostname in the `--listen` option. **The hostname must match
-the hostname in the node certificate**. Here's an example for a let's encrypt
-certificate:
+the hostname in the node certificate**. The Core checks this at startup and refuses to
+start when the certificate does not cover the address it advertises. Here's an example
+for a let's encrypt certificate:
 
 ```sh
 synnax start \
@@ -121,6 +122,13 @@ Please note that the `--auto-cert` option will require you to install the genera
 certificate on your client machine in order to trust the self-signed certificate
 authority. We have a guide on
 [deploying Synnax with self-signed certificates](/reference/core/installing-certificates).
+
+`--auto-cert` also keeps the certificate current. If you change the address the Core
+listens on, the next start issues a replacement pair that covers it and logs the
+addresses the old one missed. A certificate that already covers every address is left
+untouched. Without `--auto-cert` the Core never writes these files. `synnax cert node`
+refuses to overwrite an existing pair, so delete `node.crt` and `node.key` before you
+reissue them.
 
 ### Using Let's Encrypt with Certbot
 
@@ -230,10 +238,14 @@ Peers dial one agreed address to join the cluster, so exactly one listener is
 **advertised**. Set `advertise: true` on that listener. If no listener sets it, the
 first listener is advertised. Setting it on more than one listener is a startup error.
 
+Peers are not the only clients that dial this address. The embedded Driver dials it as
+well, and both verify the certificate against the cluster CA, so the advertised listener
+needs a certificate that CA signed.
+
 <Note.Note variant="warning">
-  When `peers` are configured, the advertised listener cannot use the `tailscale`
-  source. Peers verify its certificate against the cluster CA, which a public-CA
-  certificate cannot satisfy.
+  The advertised listener cannot use the `tailscale` source, because a public-CA
+  certificate cannot chain to the cluster CA. The exception is a Core started with
+  `--no-driver` and no `peers`, which has neither client to satisfy.
 </Note.Note>
 
 ### Rules
@@ -246,6 +258,16 @@ The Core enforces these at startup:
   neither.
 - A `listen` list cannot be combined with the global `--auto-cert`, `--node-cert`, or
   `--node-key` flags. Configure each listener's certificate in its `cert` block instead.
+- The advertised listener must serve a certificate valid for the advertised host. No
+  client can verify one that omits it.
+- With `peers` configured or the embedded Driver enabled, the advertised certificate
+  must also chain to the cluster CA.
+
+<Note.Note variant="info">
+  A `listen` list rejects `--auto-cert`, but the Core still loads `node.crt` and
+  `node.key` at startup, whatever sources the listeners use. Create them first with
+  `synnax cert ca` and `synnax cert node`.
+</Note.Note>
 
 `--insecure` remains a whole-node switch: it disables TLS on every listener and ignores
 all certificate sources.
