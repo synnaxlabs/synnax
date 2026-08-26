@@ -720,6 +720,51 @@ describe("cached reads", () => {
         off();
       }
     });
+
+    it("pages children with limit and offset in a stable order", async () => {
+      const parent = await createRange();
+      await Promise.all(
+        Array.from({ length: 5 }, () =>
+          createRange(client, { parent: { key: parent.key } }),
+        ),
+      );
+      const all = await client.ranges.children.retrieve(parent.key);
+      expect(all).toHaveLength(5);
+      const first = await client.ranges.children.retrieve({
+        key: parent.key,
+        limit: 3,
+        offset: 0,
+      });
+      const second = await client.ranges.children.retrieve({
+        key: parent.key,
+        limit: 3,
+        offset: 3,
+      });
+      expect(first).toHaveLength(3);
+      expect(second).toHaveLength(2);
+      const paged = [...first, ...second].map((r) => r.key).sort();
+      expect(paged).toEqual(all.map((r) => r.key).sort());
+    });
+
+    it("sends the page bounds to the cluster instead of fetching every child", async () => {
+      const parent = await createRange();
+      await Promise.all(
+        Array.from({ length: 3 }, () =>
+          createRange(client, { parent: { key: parent.key } }),
+        ),
+      );
+      const spy = vi.spyOn(client.ontology.children, "retrieve");
+      try {
+        const page = await client.ranges.children.retrieve({
+          key: parent.key,
+          limit: 2,
+        });
+        expect(page).toHaveLength(2);
+        expect(spy).toHaveBeenCalledWith(expect.objectContaining({ limit: 2 }));
+      } finally {
+        spy.mockRestore();
+      }
+    });
   });
 
   describe("parent", () => {
