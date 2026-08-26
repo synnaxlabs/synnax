@@ -52,6 +52,12 @@ export const useClipboard = ({
       dispatch(actions);
       if (actions.length > 0) onPaste?.(newKeys);
     },
+    remove: ({ nodes, edges }) => {
+      dispatch([
+        ...nodes.map((key) => schematic.removeNode({ key })),
+        ...edges.map((key) => schematic.removeEdge({ key })),
+      ]);
+    },
   };
   return Diagram.useClipboard({ adapter, selected });
 };

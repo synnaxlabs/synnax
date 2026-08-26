@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type record, uuid, xy } from "@synnaxlabs/x";
-import { useCallback } from "react";
+import { type ClipboardEvent, useCallback } from "react";
 
 import { useSyncedRef } from "@/hooks";
 import { type ClipboardHandler } from "@/vis/diagram/Diagram";
@@ -67,8 +67,14 @@ export interface PasteResult<N extends ClipboardNode, E extends ClipboardEdge> {
   newKeys: string[];
 }
 
+/** SelectionKeys identifies clipboard items by key, split by kind. */
+export interface SelectionKeys {
+  nodes: string[];
+  edges: string[];
+}
+
 /**
- * ClipboardAdapter binds the generic copy/paste mechanics to a diagram domain.
+ * ClipboardAdapter binds the generic cut/copy/paste mechanics to a diagram domain.
  * It deals only in plain diagram data: the adapter reads a snapshot to copy and
  * receives a paste result to apply. The diagram has no knowledge of how that data
  * is stored or persisted.
@@ -85,6 +91,8 @@ export interface ClipboardAdapter<N extends ClipboardNode, E extends ClipboardEd
   getSnapshot: () => Snapshot<N, E> | null;
   /** apply persists a paste result. Called only when at least one item pasted. */
   apply: (result: PasteResult<N, E>) => void;
+  /** remove deletes the given items from the diagram. Called by cut after it copies. */
+  remove: (keys: SelectionKeys) => void;
 }
 
 export interface UseClipboardParams<N extends ClipboardNode, E extends ClipboardEdge> {
@@ -94,6 +102,7 @@ export interface UseClipboardParams<N extends ClipboardNode, E extends Clipboard
 
 export interface UseClipboardReturn {
   onCopy: ClipboardHandler;
+  onCut: ClipboardHandler;
   onPaste: ClipboardHandler;
 }
 
@@ -110,8 +119,8 @@ const centroid = (nodes: ClipboardNode[]): xy.XY => {
 };
 
 /**
- * useClipboard provides copy and paste handlers for a node/edge diagram. It owns
- * the clipboard mechanics (MIME plumbing, version gating, anchor geometry, key
+ * useClipboard provides copy, cut, and paste handlers for a node/edge diagram. It
+ * owns the clipboard mechanics (MIME plumbing, version gating, anchor geometry, key
  * remapping); the adapter supplies the diagram data and persists the result.
  */
 export const useClipboard = <N extends ClipboardNode, E extends ClipboardEdge>({
@@ -121,34 +130,57 @@ export const useClipboard = <N extends ClipboardNode, E extends ClipboardEdge>({
   const adapterRef = useSyncedRef(adapter);
   const selectedRef = useSyncedRef(selected ?? []);
 
-  const onCopy = useCallback<ClipboardHandler>((e) => {
-    // Defer to the browser if the user has a real text selection.
-    const text = window.getSelection()?.toString();
-    if (text != null && text.length > 0) return;
-    const { mime, edgeKey, getSnapshot } = adapterRef.current;
-    const snapshot = getSnapshot();
-    if (snapshot == null) return;
-    const sel = new Set(selectedRef.current);
-    if (sel.size === 0) return;
-    const nodes = snapshot.nodes.filter((n) => sel.has(n.key));
-    const edges = snapshot.edges.filter((edge) => sel.has(edgeKey(edge)));
-    if (nodes.length === 0 && edges.length === 0) return;
-    const configs: Record<string, record.Unknown> = {};
-    for (const k of [...nodes.map((n) => n.key), ...edges.map(edgeKey)]) {
-      const c = snapshot.configs[k];
-      if (c != null) configs[k] = c;
-    }
-    const payload: Payload<N, E> = {
-      version: VERSION,
-      nodes,
-      edges,
-      configs,
-      anchor: centroid(nodes),
-    };
-    e.preventDefault();
-    e.clipboardData.setData(mime, JSON.stringify(payload));
-    e.clipboardData.setData("text/plain", describe(nodes.length, edges.length));
-  }, []);
+  // Writes the selection to the event's clipboard data. Returns the written keys,
+  // or null when nothing was written.
+  const writeSelection = useCallback(
+    (e: ClipboardEvent<HTMLDivElement>): SelectionKeys | null => {
+      // Defer to the browser if the user has a real text selection.
+      const text = window.getSelection()?.toString();
+      if (text != null && text.length > 0) return null;
+      const { mime, edgeKey, getSnapshot } = adapterRef.current;
+      const snapshot = getSnapshot();
+      if (snapshot == null) return null;
+      const sel = new Set(selectedRef.current);
+      if (sel.size === 0) return null;
+      const nodes = snapshot.nodes.filter((n) => sel.has(n.key));
+      const edges = snapshot.edges.filter((edge) => sel.has(edgeKey(edge)));
+      if (nodes.length === 0 && edges.length === 0) return null;
+      const keys: SelectionKeys = {
+        nodes: nodes.map((n) => n.key),
+        edges: edges.map(edgeKey),
+      };
+      const configs: Record<string, record.Unknown> = {};
+      for (const k of [...keys.nodes, ...keys.edges]) {
+        const c = snapshot.configs[k];
+        if (c != null) configs[k] = c;
+      }
+      const payload: Payload<N, E> = {
+        version: VERSION,
+        nodes,
+        edges,
+        configs,
+        anchor: centroid(nodes),
+      };
+      e.preventDefault();
+      e.clipboardData.setData(mime, JSON.stringify(payload));
+      e.clipboardData.setData("text/plain", describe(nodes.length, edges.length));
+      return keys;
+    },
+    [],
+  );
+
+  const onCopy = useCallback<ClipboardHandler>(
+    (e) => void writeSelection(e),
+    [writeSelection],
+  );
+
+  const onCut = useCallback<ClipboardHandler>(
+    (e) => {
+      const keys = writeSelection(e);
+      if (keys != null) adapterRef.current.remove(keys);
+    },
+    [writeSelection],
+  );
 
   const onPaste = useCallback<ClipboardHandler>((e, cursor) => {
     const { mime, edgeKey, apply } = adapterRef.current;
@@ -190,5 +222,5 @@ export const useClipboard = <N extends ClipboardNode, E extends ClipboardEdge>({
     apply({ nodes, edges, newKeys: Object.values(remap) });
   }, []);
 
-  return { onCopy, onPaste };
+  return { onCopy, onCut, onPaste };
 };

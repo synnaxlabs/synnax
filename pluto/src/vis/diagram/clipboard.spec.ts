@@ -73,6 +73,7 @@ const makeAdapter = (
   edgeKey,
   getSnapshot: () => snapshot,
   apply: vi.fn(),
+  remove: vi.fn(),
 });
 
 const pasteResultOf = (
@@ -223,6 +224,61 @@ describe("clipboard", () => {
       onCopy(event, xy.ZERO);
       expect(preventDefault).not.toHaveBeenCalled();
       expect(store.has(MIME)).toBe(false);
+    });
+  });
+
+  describe("onCut", () => {
+    it("should write the selection and remove it from the diagram", () => {
+      const snapshot: Snapshot<Node, Edge> = {
+        nodes: [node("a", xy.ZERO), node("b", xy.ZERO)],
+        edges: [edge("e1", "a", "b")],
+        configs: {},
+      };
+      const adapter = makeAdapter(snapshot);
+      const { onCut } = renderClipboard(adapter, ["a", "b", "e1"]);
+      const { event, store, preventDefault } = fakeClipboardEvent();
+      onCut(event, xy.ZERO);
+      expect(preventDefault).toHaveBeenCalled();
+      const payload = readPayload(store);
+      expect(payload.nodes.map((n: Node) => n.key)).toEqual(["a", "b"]);
+      expect(payload.edges.map((e: Edge) => e.key)).toEqual(["e1"]);
+      expect(adapter.remove).toHaveBeenCalledWith({
+        nodes: ["a", "b"],
+        edges: ["e1"],
+      });
+    });
+
+    it("should not remove anything when nothing is selected", () => {
+      const snapshot: Snapshot<Node, Edge> = {
+        nodes: [node("a", xy.ZERO)],
+        edges: [],
+        configs: {},
+      };
+      const adapter = makeAdapter(snapshot);
+      const { onCut } = renderClipboard(adapter);
+      const { event, store, preventDefault } = fakeClipboardEvent();
+      onCut(event, xy.ZERO);
+      expect(preventDefault).not.toHaveBeenCalled();
+      expect(store.has(MIME)).toBe(false);
+      expect(adapter.remove).not.toHaveBeenCalled();
+    });
+
+    it("should defer to the browser when a text selection exists", () => {
+      vi.spyOn(window, "getSelection").mockReturnValue({
+        toString: () => "selected text",
+      } as Selection);
+      const snapshot: Snapshot<Node, Edge> = {
+        nodes: [node("a", xy.ZERO)],
+        edges: [],
+        configs: {},
+      };
+      const adapter = makeAdapter(snapshot);
+      const { onCut } = renderClipboard(adapter, ["a"]);
+      const { event, store, preventDefault } = fakeClipboardEvent();
+      onCut(event, xy.ZERO);
+      expect(preventDefault).not.toHaveBeenCalled();
+      expect(store.has(MIME)).toBe(false);
+      expect(adapter.remove).not.toHaveBeenCalled();
     });
   });
 

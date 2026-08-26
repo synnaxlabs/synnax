@@ -173,4 +173,28 @@ describe("arc graph clipboard", () => {
       .map((n) => n.key);
     expect(onPaste).toHaveBeenCalledWith(newKeys);
   });
+
+  it("should remove the cut subgraph from the cache", async () => {
+    const { result } = await setup([N1, N2, EDGE_KEY]);
+
+    const e = fakeClipboardEvent();
+    await act(async () => {
+      result.current.clipboard.onCut(e, xy.ZERO);
+    });
+
+    await waitFor(() => expect(result.current.nodes).toHaveLength(0));
+    expect(result.current.edges).toHaveLength(0);
+  });
+
+  it("should not change the cache when the selection cuts nothing", async () => {
+    const { result } = await setup(["does-not-exist"]);
+
+    const e = fakeClipboardEvent();
+    await act(async () => {
+      result.current.clipboard.onCut(e, xy.ZERO);
+    });
+
+    expect(result.current.nodes).toHaveLength(2);
+    expect(result.current.edges).toHaveLength(1);
+  });
 });

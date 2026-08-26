@@ -159,6 +159,56 @@ describe("schematic clipboard", () => {
       expect(event.preventDefault).not.toHaveBeenCalled();
     });
 
+    it("removes the cut nodes and edges from the schematic on cut", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createSchematicWithGraph();
+      await loadSchematic(Wrapper, schem.key);
+
+      const { result } = renderHook(
+        () => ({
+          clipboard: Schematic.useClipboard({ selected: ["n1", "n2", "e1"] }),
+          nodes: Schematic.useAllNodes({ key: schem.key }),
+          edges: Schematic.useAllEdges({ key: schem.key }),
+        }),
+        { wrapper: scoped(Wrapper, schem.key) },
+      );
+
+      const data = createDataTransfer();
+      const event = createClipboardEvent(data);
+      await act(async () => {
+        result.current.clipboard.onCut(event, xy.ZERO);
+      });
+
+      expect(data.getData(MIME)).not.toBe("");
+      await waitFor(() =>
+        expect(result.current.nodes.map((n) => n.key)).toEqual(["n3"]),
+      );
+      expect(result.current.edges).toHaveLength(0);
+      expect(event.preventDefault).toHaveBeenCalled();
+    });
+
+    it("does nothing on cut when nothing is selected", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createSchematicWithGraph();
+      await loadSchematic(Wrapper, schem.key);
+
+      const { result } = renderHook(
+        () => ({
+          clipboard: Schematic.useClipboard({ selected: [] }),
+          nodes: Schematic.useAllNodes({ key: schem.key }),
+        }),
+        { wrapper: scoped(Wrapper, schem.key) },
+      );
+
+      const data = createDataTransfer();
+      const event = createClipboardEvent(data);
+      act(() => result.current.clipboard.onCut(event, xy.ZERO));
+
+      expect(data.getData(MIME)).toBe("");
+      expect(result.current.nodes).toHaveLength(3);
+      expect(event.preventDefault).not.toHaveBeenCalled();
+    });
+
     it("pastes copied nodes and edges with fresh keys at the cursor offset", async () => {
       const Wrapper = await createAsyncSynnaxWrapper({ client });
       const schem = await createSchematicWithGraph();
