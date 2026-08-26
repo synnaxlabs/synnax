@@ -306,8 +306,10 @@ class StlMath(ArcCase):
         self,
         channel: str,
         values: list[float],
-        dt_ms: int = 20,
+        dt_ms: int = 200,
     ) -> None:
+        # Windows timers step in about 16 ms, so a spacing near that size makes the
+        # slope a measure of scheduler jitter instead of the data.
         for i, val in enumerate(values):
             self.writer.write(channel, val)
             if i < len(values) - 1:
@@ -393,8 +395,8 @@ class StlMath(ArcCase):
         self.wait_for_eq("stat_max_out", 30.0)
 
         self._write_spaced("stat_deriv_in", [0.0, 1.0])
-        self.log("[deriv] Expecting ≈ 50")
-        self.wait_for_near("stat_deriv_out", 50.0, tolerance=25.0)
+        self.log("[deriv] Expecting ≈ 5")
+        self.wait_for_near("stat_deriv_out", 5.0, tolerance=2.5)
 
     def _verify_stat_count_window(self) -> None:
         self.log("Count window (count=5): 15 samples, 3 windows")
@@ -466,8 +468,8 @@ class StlMath(ArcCase):
         self.wait_for_eq("stat_neg_max_out", 100.0)
 
         self._write_spaced("stat_deriv_in", [-1.0, 1.0])
-        self.log("[neg_deriv] Expecting ≈ 100")
-        self.wait_for_near("stat_deriv_out", 100.0, tolerance=50.0)
+        self.log("[neg_deriv] Expecting ≈ 10")
+        self.wait_for_near("stat_deriv_out", 10.0, tolerance=5.0)
 
     def _verify_stat_all_identical(self) -> None:
         self.log("All identical: [42, 42, 42, 42, 42]")
@@ -484,21 +486,21 @@ class StlMath(ArcCase):
         self.wait_for_eq("stat_edge_max_out", 3e12)
 
     def _verify_stat_derivative_constant(self) -> None:
-        self.log("Derivative constant: 2 x 5.0 at 20ms")
+        self.log("Derivative constant: 2 x 5.0 at 200ms")
         self._write_spaced("stat_deriv_in", [5.0, 5.0])
 
         self.log("[deriv] Expecting rate = 0")
         self.wait_for_eq("stat_deriv_out", 0.0)
 
     def _verify_stat_derivative_alternating(self) -> None:
-        self.log("Derivative positive: [0, 1.0] at 20ms")
+        self.log("Derivative positive: [0, 1.0] at 200ms")
         self._write_spaced("stat_deriv_in", [0.0, 1.0])
 
-        self.log("[deriv] Expecting ≈ 50")
-        self.wait_for_near("stat_deriv_out", 50.0, tolerance=25.0)
+        self.log("[deriv] Expecting ≈ 5")
+        self.wait_for_near("stat_deriv_out", 5.0, tolerance=2.5)
 
-        self.log("Derivative negative: [1.0, 0] at 20ms")
+        self.log("Derivative negative: [1.0, 0] at 200ms")
         self._write_spaced("stat_deriv_in", [1.0, 0.0])
 
-        self.log("[deriv] Expecting ≈ -50")
-        self.wait_for_near("stat_deriv_out", -50.0, tolerance=25.0)
+        self.log("[deriv] Expecting ≈ -5")
+        self.wait_for_near("stat_deriv_out", -5.0, tolerance=2.5)
