@@ -148,8 +148,8 @@ func (cs Configs) AdvertiseAddress() address.Address { return cs.advertised().Ad
 // filesystem and CA authority. It fails when the advertised listener serves a
 // certificate that does not cover the advertised host, that does not chain to the Core
 // CA when hasPeers is set, or that chains to no Core trust anchor when hasDriver is
-// set. It never probes a Tailscale advertised listener: tailscaled resolves by FQDN,
-// so the host always matches, and the daemon may not be up yet.
+// set. A Tailscale advertised listener is never probed: with hasPeers it is rejected
+// outright, and otherwise tailscaled guarantees the certificate covers its FQDN.
 func (cs Configs) Resolve(
 	p security.Provider,
 	fc cert.FactoryConfig,
@@ -177,6 +177,14 @@ func (cs Configs) Resolve(
 		src, err := c.source(fs, ca)
 		if err != nil {
 			return nil, err
+		}
+		if c.Address == advertised && c.Cert.Source == tailscale.SourceType &&
+			hasPeers {
+			return nil, errors.Wrapf(
+				validate.ErrValidation,
+				"advertised listener %q cannot use the Tailscale source; peers verify certificates against the Core CA",
+				c.Address,
+			)
 		}
 		if c.Address == advertised && c.Cert.Source != tailscale.SourceType {
 			if err = p.VerifyCertHost(src, advertised.Host()); err != nil {

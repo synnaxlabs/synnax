@@ -10,8 +10,15 @@
 package security_test
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
+	"math/big"
 	"os"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -22,6 +29,60 @@ import (
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+// generateChain builds a three-tier chain: a self-signed root, an intermediate it
+// signs, and a leaf for host the intermediate signs. It returns the root PEM, the
+// leaf-plus-intermediate chain PEM, and the leaf key PEM.
+func generateChain(host string) (rootPEM, chainPEM, keyPEM []byte) {
+	GinkgoHelper()
+	template := func(serial int64, cn string, ca bool) *x509.Certificate {
+		return &x509.Certificate{
+			SerialNumber:          big.NewInt(serial),
+			Subject:               pkix.Name{CommonName: cn},
+			NotBefore:             time.Now().Add(-time.Hour),
+			NotAfter:              time.Now().Add(time.Hour),
+			IsCA:                  ca,
+			BasicConstraintsValid: true,
+			KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature,
+		}
+	}
+	rootKey := MustSucceed(rsa.GenerateKey(rand.Reader, mock.SmallKeySize))
+	rootT := template(1, "Test Root", true)
+	rootDER := MustSucceed(
+		x509.CreateCertificate(rand.Reader, rootT, rootT, &rootKey.PublicKey, rootKey),
+	)
+	root := MustSucceed(x509.ParseCertificate(rootDER))
+	interKey := MustSucceed(rsa.GenerateKey(rand.Reader, mock.SmallKeySize))
+	interT := template(2, "Test Intermediate", true)
+	interDER := MustSucceed(
+		x509.CreateCertificate(rand.Reader, interT, root, &interKey.PublicKey, rootKey),
+	)
+	inter := MustSucceed(x509.ParseCertificate(interDER))
+	leafKey := MustSucceed(rsa.GenerateKey(rand.Reader, mock.SmallKeySize))
+	leafT := template(3, "Test Leaf", false)
+	leafT.DNSNames = []string{host}
+	leafDER := MustSucceed(
+		x509.CreateCertificate(rand.Reader, leafT, inter, &leafKey.PublicKey, interKey),
+	)
+	encode := func(der []byte) []byte {
+		return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+	}
+	rootPEM = encode(rootDER)
+	chainPEM = append(encode(leafDER), encode(interDER)...)
+	keyPEM = pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(leafKey),
+	})
+	return rootPEM, chainPEM, keyPEM
+}
+
+// writeFile writes data to path on fs, creating the file.
+func writeFile(fs xfs.FS, path string, data []byte) {
+	GinkgoHelper()
+	f := MustSucceed(fs.Open(path, os.O_CREATE|os.O_WRONLY))
+	MustSucceed(f.Write(data))
+	Expect(f.Close()).To(Succeed())
+}
 
 var _ = Describe("OtelProvider", func() {
 	Describe("Secure", func() {
@@ -152,6 +213,24 @@ var _ = Describe("OtelProvider", func() {
 				))
 				Expect(prov.VerifyCertCoreCA(foreign)).ToNot(Succeed())
 			})
+			It("Should verify a chain through a presented intermediate", func() {
+				fs := xfs.NewMem()
+				mock.GenerateCerts(fs)
+				rootPEM, chainPEM, keyPEM := generateChain("localhost")
+				writeFile(fs, "/usr/local/synnax/certs/root.crt", rootPEM)
+				writeFile(fs, "/usr/local/synnax/certs/chain.crt", chainPEM)
+				writeFile(fs, "/usr/local/synnax/certs/chain.key", keyPEM)
+				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
+					LoaderConfig: cert.LoaderConfig{FS: fs, CACertPath: "root.crt"},
+					KeySize:      mock.SmallKeySize,
+					Insecure:     new(false),
+				}))
+				src := MustSucceed(file.NewSource(fs,
+					"/usr/local/synnax/certs/chain.crt",
+					"/usr/local/synnax/certs/chain.key",
+				))
+				Expect(prov.VerifyCertCoreCA(src)).To(Succeed())
+			})
 		})
 		Describe("VerifyCertTrustAnchors", func() {
 			It("Should accept a certificate the Core CA signed", func() {
@@ -197,6 +276,24 @@ var _ = Describe("OtelProvider", func() {
 					"/usr/local/synnax/certs/node.key",
 				))
 				Expect(prov.VerifyCertTrustAnchors(foreign)).ToNot(Succeed())
+			})
+			It("Should verify a chain through a presented intermediate", func() {
+				fs := xfs.NewMem()
+				mock.GenerateCerts(fs)
+				rootPEM, chainPEM, keyPEM := generateChain("localhost")
+				writeFile(fs, "/usr/local/synnax/certs/root.crt", rootPEM)
+				writeFile(fs, "/usr/local/synnax/certs/chain.crt", chainPEM)
+				writeFile(fs, "/usr/local/synnax/certs/chain.key", keyPEM)
+				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
+					LoaderConfig: cert.LoaderConfig{FS: fs, CACertPath: "root.crt"},
+					KeySize:      mock.SmallKeySize,
+					Insecure:     new(false),
+				}))
+				src := MustSucceed(file.NewSource(fs,
+					"/usr/local/synnax/certs/chain.crt",
+					"/usr/local/synnax/certs/chain.key",
+				))
+				Expect(prov.VerifyCertTrustAnchors(src)).To(Succeed())
 			})
 		})
 	})

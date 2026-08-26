@@ -239,13 +239,14 @@ Peers dial one agreed address to join the cluster, so exactly one listener is
 first listener is advertised. Setting it on more than one listener is a startup error.
 
 Peers are not the only clients that dial this address. The embedded Driver dials it as
-well, and both verify the certificate against the cluster CA, so the advertised listener
-needs a certificate that CA signed.
+well. Peers trust the cluster CA alone. The Driver also trusts the node certificate, so
+an externally issued node certificate satisfies it.
 
 <Note.Note variant="warning">
   The advertised listener cannot use the `tailscale` source, because a public-CA
-  certificate cannot chain to the cluster CA. The exception is a Core started with
-  `--no-driver` and no `peers`, which has neither client to satisfy.
+  certificate cannot chain to the cluster CA. The exception is a single-node Core
+  started with `--no-driver` and no `peers`. A Core that already joined a cluster
+  refuses the `tailscale` source at startup even when `peers` is omitted.
 </Note.Note>
 
 ### Rules
@@ -260,8 +261,10 @@ The Core enforces these at startup:
   `--node-key` flags. Configure each listener's certificate in its `cert` block instead.
 - The advertised listener must serve a certificate valid for the advertised host. No
   client can verify one that omits it.
-- With `peers` configured or the embedded Driver enabled, the advertised certificate
-  must also chain to the cluster CA.
+- With `peers` configured or persisted cluster members, the advertised certificate must
+  also chain to the cluster CA.
+- With the embedded Driver enabled and no peers, the advertised certificate must chain
+  to one of the Core's trust anchors: the cluster CA or the node certificate.
 
 <Note.Note variant="info">
   A `listen` list rejects `--auto-cert`, but the Core still loads `node.crt` and

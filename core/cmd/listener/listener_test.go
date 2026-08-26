@@ -412,6 +412,18 @@ var _ = Describe("Listener", func() {
 			Expect(listeners).To(HaveLen(2))
 		})
 
+		It("Should reject a Tailscale advertised listener when peers dial", func() {
+			Expect(listener.Configs{
+				{
+					Address:   "node01.example-tailnet.ts.net:9090",
+					Cert:      listener.CertConfig{Source: tailscale.SourceType},
+					Advertise: true,
+				},
+			}.Resolve(prov, coreFC, false, true, false)).
+				Error().
+				To(MatchError(ContainSubstring("cannot use the Tailscale source")))
+		})
+
 		It(
 			"Should accept an externally issued node certificate when only the Driver dials",
 			func() {

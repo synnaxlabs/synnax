@@ -84,7 +84,7 @@ func (p *secureProvider) NodeClientConfig() *tls.Config {
 
 // VerifyCertHost implements TLSProvider.
 func (p *secureProvider) VerifyCertHost(src cert.Source, host string) error {
-	leaf, err := leafOf(src)
+	leaf, _, err := chainOf(src)
 	if err != nil {
 		return err
 	}
@@ -93,17 +93,20 @@ func (p *secureProvider) VerifyCertHost(src cert.Source, host string) error {
 
 // VerifyCertCoreCA implements TLSProvider.
 func (p *secureProvider) VerifyCertCoreCA(src cert.Source) error {
-	leaf, err := leafOf(src)
+	leaf, intermediates, err := chainOf(src)
 	if err != nil {
 		return err
 	}
-	_, err = leaf.Verify(x509.VerifyOptions{Roots: p.certPool})
+	_, err = leaf.Verify(x509.VerifyOptions{
+		Roots:         p.certPool,
+		Intermediates: intermediates,
+	})
 	return err
 }
 
 // VerifyCertTrustAnchors implements TLSProvider.
 func (p *secureProvider) VerifyCertTrustAnchors(src cert.Source) error {
-	leaf, err := leafOf(src)
+	leaf, intermediates, err := chainOf(src)
 	if err != nil {
 		return err
 	}
@@ -115,19 +118,31 @@ func (p *secureProvider) VerifyCertTrustAnchors(src cert.Source) error {
 	if !pool.AppendCertsFromPEM(anchors) {
 		return errors.New("no trust anchors could be parsed")
 	}
-	_, err = leaf.Verify(x509.VerifyOptions{Roots: pool})
+	_, err = leaf.Verify(x509.VerifyOptions{Roots: pool, Intermediates: intermediates})
 	return err
 }
 
-func leafOf(src cert.Source) (*x509.Certificate, error) {
+// chainOf returns src's leaf certificate and the intermediates it presents alongside.
+func chainOf(src cert.Source) (*x509.Certificate, *x509.CertPool, error) {
 	c, err := src.GetCertificate(&tls.ClientHelloInfo{})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	if c.Leaf != nil {
-		return c.Leaf, nil
+	leaf := c.Leaf
+	if leaf == nil {
+		if leaf, err = x509.ParseCertificate(c.Certificate[0]); err != nil {
+			return nil, nil, err
+		}
 	}
-	return x509.ParseCertificate(c.Certificate[0])
+	intermediates := x509.NewCertPool()
+	for _, der := range c.Certificate[1:] {
+		ic, err := x509.ParseCertificate(der)
+		if err != nil {
+			return nil, nil, err
+		}
+		intermediates.AddCert(ic)
+	}
+	return leaf, intermediates, nil
 }
 
 func (p *secureProvider) baseTLSConfig(
