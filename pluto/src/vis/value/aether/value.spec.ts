@@ -258,6 +258,14 @@ describe("value/aether/Value", () => {
       const [first] = glyphsAfter("center", "middle");
       expect(first.x).toBeCloseTo(6 + FONT_HEIGHT * 0.75);
     });
+
+    it("should center the value's ink on the box", () => {
+      const [first] = glyphsAfter("start");
+      const baseline = first.y + canvasTest.ATLAS_BASELINE_OFFSET;
+      expect(baseline - canvasTest.ATLAS_INK_HEIGHT / 2).toBeCloseTo(
+        box.height(BOX) / 2,
+      );
+    });
   });
 
   describe("width", () => {

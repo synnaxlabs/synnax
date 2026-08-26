@@ -22,7 +22,22 @@ export const ATLAS_ADVANCE = INK + PADDING;
 
 const RUN_ASCENT = 9;
 const RUN_DESCENT = 3;
-const GLYPH_ASCENT = 8;
+
+/** Ink height of a glyph the atlas draws, all of it above the baseline. */
+export const ATLAS_INK_HEIGHT = 8;
+/** Distance from the top of the cell the atlas copies out to its baseline. */
+export const ATLAS_BASELINE_OFFSET = Math.ceil(RUN_ASCENT) + PADDING;
+
+// Drop from the origin each text baseline sets to the alphabetic baseline, which an
+// engine reports through the ascent it measures under that baseline.
+const BASELINE_SHIFTS: Record<CanvasTextBaseline, number> = {
+  alphabetic: 0,
+  bottom: -RUN_DESCENT,
+  hanging: RUN_ASCENT,
+  ideographic: -RUN_DESCENT,
+  middle: (RUN_ASCENT - RUN_DESCENT) / 2,
+  top: RUN_ASCENT,
+};
 
 const metrics = (ascent: number, descent: number): TextMetrics =>
   ({
@@ -39,13 +54,19 @@ class StubOffscreenCanvas {
   ) {}
 
   getContext() {
-    return {
+    const ctx = {
+      textBaseline: "alphabetic" as CanvasTextBaseline,
       scale: () => {},
       clearRect: () => {},
-      measureText: (t: string) =>
-        t === "0" ? metrics(GLYPH_ASCENT, 0) : metrics(RUN_ASCENT, RUN_DESCENT),
+      measureText: (t: string) => {
+        const shift = BASELINE_SHIFTS[ctx.textBaseline];
+        return t === "0"
+          ? metrics(ATLAS_INK_HEIGHT - shift, shift)
+          : metrics(RUN_ASCENT - shift, RUN_DESCENT + shift);
+      },
       fillText: () => {},
     };
+    return ctx;
   }
 }
 
@@ -76,7 +97,7 @@ export const atlasSurface = (): AtlasSurface => {
     strokeStyle: "#000000",
     textAlign: "start",
     textBaseline: "alphabetic",
-    measureText: () => metrics(GLYPH_ASCENT, 0),
+    measureText: () => metrics(ATLAS_INK_HEIGHT, 0),
     drawImage: (_: unknown, ...rest: number[]) =>
       glyphs.push(xy.construct(rest[4], rest[5])),
   };

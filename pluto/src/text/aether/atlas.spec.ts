@@ -31,6 +31,17 @@ const metrics = (ascent: number, descent: number): TextMetrics =>
     actualBoundingBoxDescent: descent,
   }) as TextMetrics;
 
+// Drop from the origin each text baseline sets to the alphabetic baseline, which an
+// engine reports through the ascent it measures under that baseline.
+const baselineShifts = (descent: number): Record<CanvasTextBaseline, number> => ({
+  alphabetic: 0,
+  bottom: -descent,
+  hanging: SET_ASCENT,
+  ideographic: -descent,
+  middle: (SET_ASCENT - descent) / 2,
+  top: SET_ASCENT,
+});
+
 interface Glyph {
   char: string;
   x: number;
@@ -76,11 +87,14 @@ interface Harness {
   atlas: MonospacedAtlas;
   glyphs: Glyph[];
   glyphOf: (char: string) => Glyph;
-  copy: (text: string, x: number, y: number) => Copy[];
+  copy: (text: string, x: number, y: number, baseline?: CanvasTextBaseline) => Copy[];
+  /** Baseline the copies of `text` landed on, given the baseline asked for. */
+  baselineOf: (text: string, y: number, baseline?: CanvasTextBaseline) => number;
 }
 
 const setup = (characters?: string, descent = SET_DESCENT): Harness => {
   const glyphs: Glyph[] = [];
+  const shifts = baselineShifts(descent);
   class Canvas {
     readonly width: number;
     readonly height: number;
@@ -89,17 +103,22 @@ const setup = (characters?: string, descent = SET_DESCENT): Harness => {
       this.height = height;
     }
     getContext() {
-      return {
+      const ctx = {
         font: "",
         textAlign: "",
-        textBaseline: "",
+        textBaseline: "alphabetic" as CanvasTextBaseline,
         fillStyle: "",
         scale: () => {},
         clearRect: () => {},
-        measureText: (t: string) =>
-          t === "0" ? metrics(DIGIT_ASCENT, 0) : metrics(SET_ASCENT, descent),
+        measureText: (t: string) => {
+          const shift = shifts[ctx.textBaseline];
+          return t === "0"
+            ? metrics(DIGIT_ASCENT - shift, shift)
+            : metrics(SET_ASCENT - shift, descent + shift);
+        },
         fillText: (char: string, x: number, y: number) => glyphs.push({ char, x, y }),
       };
+      return ctx;
     }
   }
   vi.stubGlobal("OffscreenCanvas", Canvas);
@@ -108,11 +127,16 @@ const setup = (characters?: string, descent = SET_DESCENT): Harness => {
     textColor: "#ffffff",
     characters,
   });
-  const copy = (text: string, x: number, y: number): Copy[] => {
+  const copy = (
+    text: string,
+    x: number,
+    y: number,
+    baseline: CanvasTextBaseline = "alphabetic",
+  ): Copy[] => {
     const copies: Copy[] = [];
     const ctx = {
       textAlign: "left",
-      textBaseline: "alphabetic",
+      textBaseline: baseline,
       drawImage: (
         _image: unknown,
         sx: number,
@@ -131,7 +155,17 @@ const setup = (characters?: string, descent = SET_DESCENT): Harness => {
     assert(glyph != null, `${char} is not in the atlas`);
     return glyph;
   };
-  return { atlas, glyphs, glyphOf, copy };
+  // A copy lands the cell whole, so the baseline sits as far below the copy's top as
+  // it sits below the cell's top in the atlas.
+  const baselineOf = (
+    text: string,
+    y: number,
+    baseline: CanvasTextBaseline = "alphabetic",
+  ): number => {
+    const [c] = copy(text, 0, y, baseline);
+    return c.dy + (glyphOf(text[0]).y - sourceOf(c).top);
+  };
+  return { atlas, glyphs, glyphOf, copy, baselineOf };
 };
 
 describe("MonospacedAtlas", () => {
@@ -172,14 +206,24 @@ describe("MonospacedAtlas", () => {
   });
 
   describe("placement", () => {
+    it("should place the baseline where the caller asked", () => {
+      expect(setup().baselineOf("0", 60)).toEqual(60);
+    });
+
     it("should place the baseline where the caller asked regardless of the set", () => {
-      const shallow = setup(undefined, 1);
-      const deep = setup(undefined, 6);
-      const baseline = ({ glyphOf, copy }: Harness): number => {
-        const [c] = copy("0", 40, 60);
-        return c.dy + (glyphOf("0").y - sourceOf(c).top);
-      };
-      expect(baseline(deep)).toEqual(baseline(shallow));
+      expect(setup(undefined, 6).baselineOf("0", 60)).toEqual(
+        setup(undefined, 1).baselineOf("0", 60),
+      );
+    });
+
+    it("should drop the baseline by what each text baseline asks for", () => {
+      const h = setup();
+      const shifts = baselineShifts(SET_DESCENT);
+      const got = Object.keys(shifts).map((b) => [
+        b,
+        h.baselineOf("0", 60, b as CanvasTextBaseline) - 60,
+      ]);
+      expect(Object.fromEntries(got)).toEqual(shifts);
     });
 
     it("should advance one character width per character", () => {
@@ -193,6 +237,12 @@ describe("MonospacedAtlas", () => {
     it("should report one character width per character", () => {
       const { atlas } = setup();
       expect(atlas.measureText("123").width).toEqual(CELL_WIDTH * 3);
+    });
+
+    // Callers center text on this height, so it must be the ink, not the cell.
+    it("should report the glyph ink height, without the cell padding", () => {
+      const { atlas } = setup();
+      expect(atlas.measureText("123").height).toEqual(DIGIT_ASCENT);
     });
   });
 });

@@ -183,45 +183,45 @@ export class Gauge
       : undefined;
 
     draw2d.text({
+      align: "center",
       text: value,
       position: i.valueTextPos,
       shade: 10,
       color: staleColor,
       level: i.textLevel,
-      align: "middle",
       justify: "center",
       weight: 450,
       code: true,
       useAtlas: true,
     });
     draw2d.text({
+      align: "center",
       text: this.state.units,
       position: i.unitsTextPos,
       shade: 8,
       level: text.downLevel(i.textLevel),
-      align: "middle",
       justify: "center",
       code: true,
       useAtlas: true,
     });
 
     draw2d.text({
+      align: "center",
       text: lower.toString(),
       position: i.minLabelPos,
       shade: 7,
       level: i.labelLevel,
-      align: "middle",
       justify: "center",
       code: true,
       useAtlas: true,
     });
 
     draw2d.text({
+      align: "center",
       text: upper.toString(),
       position: i.maxLabelPos,
       shade: 7,
       level: i.labelLevel,
-      align: "middle",
       justify: "center",
       code: true,
       useAtlas: true,
