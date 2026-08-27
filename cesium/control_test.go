@@ -325,7 +325,7 @@ var _ = Describe("Control", func() {
 				// gain control of the index when SetAuthority names only the
 				// data channel, since a data sample cannot be written without
 				// its timestamp.
-				Describe("SetAuthority Index Propagation", func() {
+				Describe("SetAuthority index propagation", func() {
 					It(
 						"Should raise an explicitly written index when its data channel is raised",
 						func(ctx SpecContext) {
