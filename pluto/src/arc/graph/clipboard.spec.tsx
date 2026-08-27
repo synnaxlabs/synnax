@@ -186,6 +186,18 @@ describe("arc graph clipboard", () => {
     expect(result.current.edges).toHaveLength(0);
   });
 
+  it("should remove the connected edge when cutting a node alone", async () => {
+    const { result } = await setup([N1]);
+
+    const e = fakeClipboardEvent();
+    await act(async () => {
+      result.current.clipboard.onCut(e, xy.ZERO);
+    });
+
+    await waitFor(() => expect(result.current.nodes.map((n) => n.key)).toEqual([N2]));
+    expect(result.current.edges).toHaveLength(0);
+  });
+
   it("should not change the cache when the selection cuts nothing", async () => {
     const { result } = await setup(["does-not-exist"]);
 

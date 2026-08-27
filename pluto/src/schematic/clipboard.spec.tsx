@@ -209,6 +209,100 @@ describe("schematic clipboard", () => {
       expect(event.preventDefault).not.toHaveBeenCalled();
     });
 
+    // Chain n1 -e1-> n2 -e2-> n3 for cut tests that leave connected edges
+    // unselected. Cut must remove those edges so no dangling edge persists.
+    const createChainSchematic = async (): Promise<schematic.Schematic> => {
+      const proj = await client.projects.create({
+        name: `project_${uuid.create()}`,
+        layout: {},
+      });
+      return await client.schematics.create(proj.key, {
+        name: `schem_${uuid.create()}`,
+        nodes: [
+          { key: "n1", position: { x: 0, y: 0 } },
+          { key: "n2", position: { x: 100, y: 100 } },
+          { key: "n3", position: { x: 200, y: 200 } },
+        ],
+        edges: [
+          {
+            key: "e1",
+            source: { node: "n1", param: "out" },
+            target: { node: "n2", param: "in" },
+          },
+          {
+            key: "e2",
+            source: { node: "n2", param: "out" },
+            target: { node: "n3", param: "in" },
+          },
+        ],
+        configs: {},
+      });
+    };
+
+    const setupChain = async (selected: string[]) => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createChainSchematic();
+      await loadSchematic(Wrapper, schem.key);
+      const { result } = renderHook(
+        () => ({
+          clipboard: Schematic.useClipboard({ selected }),
+          nodes: Schematic.useAllNodes({ key: schem.key }),
+          edges: Schematic.useAllEdges({ key: schem.key }),
+        }),
+        { wrapper: scoped(Wrapper, schem.key) },
+      );
+      return result;
+    };
+
+    it("removes both unselected connected edges when cutting a middle node", async () => {
+      const result = await setupChain(["n2"]);
+
+      const data = createDataTransfer();
+      const event = createClipboardEvent(data);
+      await act(async () => {
+        result.current.clipboard.onCut(event, xy.ZERO);
+      });
+
+      // The clipboard payload carries only the selection.
+      const payload = JSON.parse(data.getData(MIME));
+      expect(payload.nodes.map((n: schematic.Node) => n.key)).toEqual(["n2"]);
+      expect(payload.edges).toHaveLength(0);
+      await waitFor(() =>
+        expect(result.current.nodes.map((n) => n.key).sort()).toEqual(["n1", "n3"]),
+      );
+      expect(result.current.edges).toHaveLength(0);
+    });
+
+    it("keeps edges not connected to the cut node", async () => {
+      const result = await setupChain(["n1"]);
+
+      const data = createDataTransfer();
+      const event = createClipboardEvent(data);
+      await act(async () => {
+        result.current.clipboard.onCut(event, xy.ZERO);
+      });
+
+      await waitFor(() =>
+        expect(result.current.nodes.map((n) => n.key).sort()).toEqual(["n2", "n3"]),
+      );
+      expect(result.current.edges.map((e) => e.key)).toEqual(["e2"]);
+    });
+
+    it("cuts an edge alone without touching its endpoint nodes", async () => {
+      const result = await setupChain(["e1"]);
+
+      const data = createDataTransfer();
+      const event = createClipboardEvent(data);
+      await act(async () => {
+        result.current.clipboard.onCut(event, xy.ZERO);
+      });
+
+      await waitFor(() =>
+        expect(result.current.edges.map((e) => e.key)).toEqual(["e2"]),
+      );
+      expect(result.current.nodes).toHaveLength(3);
+    });
+
     it("pastes copied nodes and edges with fresh keys at the cursor offset", async () => {
       const Wrapper = await createAsyncSynnaxWrapper({ client });
       const schem = await createSchematicWithGraph();
