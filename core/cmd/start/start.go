@@ -80,6 +80,19 @@ var DefaultCoreConfig = CoreConfig{
 // driverEnabled reports whether the embedded Driver starts with this Core.
 func (c CoreConfig) driverEnabled() bool { return c.noDriver != nil && !*c.noDriver }
 
+// DriverTrustAnchors returns the PEM certificates the embedded Driver verifies the
+// Core against: the Core CA and the node certificate. It returns nil in insecure mode.
+func DriverTrustAnchors(insecure bool, lc cert.LoaderConfig) ([]byte, error) {
+	if insecure {
+		return nil, nil
+	}
+	l, err := cert.NewLoader(lc)
+	if err != nil {
+		return nil, err
+	}
+	return l.TrustAnchorsPEM()
+}
+
 func (c CoreConfig) Validate() error {
 	v := validate.New("core.config")
 	validate.NotNil(v, "insecure", c.insecure)
@@ -327,17 +340,12 @@ func BootupCore(
 
 	// The embedded Driver dials the advertised listener, which does not always serve
 	// the node certificate.
-	var driverTrustAnchors []byte
-	if !*cfg.insecure {
-		var certLoader *cert.Loader
-		if certLoader, err = cert.NewLoader(
-			cfg.certFactoryConfig.LoaderConfig,
-		); !ok(err, nil) {
-			return err
-		}
-		if driverTrustAnchors, err = certLoader.TrustAnchorsPEM(); !ok(err, nil) {
-			return err
-		}
+	driverTrustAnchors, err := DriverTrustAnchors(
+		*cfg.insecure,
+		cfg.certFactoryConfig.LoaderConfig,
+	)
+	if !ok(err, nil) {
+		return err
 	}
 
 	if embeddedDriver, err := driver.Open(

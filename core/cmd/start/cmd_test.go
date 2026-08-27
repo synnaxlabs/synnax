@@ -18,7 +18,10 @@ import (
 	"github.com/synnaxlabs/synnax/cmd/listener"
 	"github.com/synnaxlabs/synnax/cmd/start"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
+	"github.com/synnaxlabs/synnax/pkg/security/mock"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("GetCoreConfigFromViper", func() {
@@ -114,5 +117,27 @@ var _ = Describe("GetCoreConfigFromViper", func() {
 		Expect(cfg.Validate()).ToNot(MatchError(
 			ContainSubstring("advertised listener cannot use the Tailscale source"),
 		))
+	})
+})
+
+var _ = Describe("DriverTrustAnchors", func() {
+	It("Should return nil in insecure mode", func() {
+		Expect(MustSucceed(
+			start.DriverTrustAnchors(true, cert.LoaderConfig{}),
+		)).To(BeNil())
+	})
+
+	It("Should return the CA and node certificates", func() {
+		fs := xfs.NewMem()
+		mock.GenerateCerts(fs)
+		Expect(MustSucceed(
+			start.DriverTrustAnchors(false, cert.LoaderConfig{FS: fs}),
+		)).ToNot(BeEmpty())
+	})
+
+	It("Should fail when no certificates exist", func() {
+		Expect(start.DriverTrustAnchors(false, cert.LoaderConfig{FS: xfs.NewMem()})).
+			Error().
+			To(MatchError(validate.ErrValidation))
 	})
 })
