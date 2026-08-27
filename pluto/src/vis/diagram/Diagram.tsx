@@ -26,6 +26,7 @@ import {
   type ReactFlowProps,
   ReactFlowProvider,
   SelectionMode,
+  useNodesInitialized,
   useOnViewportChange as useRFOnViewportChange,
   type Viewport as RFViewport,
 } from "@xyflow/react";
@@ -315,10 +316,6 @@ export const create = ({
       FIT_VIEW_DEBOUNCE,
       [fitView],
     );
-    const handleInit = useCallback(
-      () => fitView(fitViewOptions),
-      [fitView, fitViewOptions],
-    );
 
     // React Flow fits its view against the container it mounts into, so mounting
     // against an unsized one (a tab whose content is not currently hosted in the DOM)
@@ -334,6 +331,20 @@ export const create = ({
         [setState, debouncedFitView, fitViewOnResize],
       ),
     );
+
+    // Fits once per React Flow mount, deferred until the nodes are measured so a
+    // schematic that mounts empty still fits when its first symbols arrive.
+    const nodesInitialized = useNodesInitialized();
+    const initialFitDone = useRef(false);
+    useEffect(() => {
+      if (!visible || !isSized) {
+        initialFitDone.current = false;
+        return;
+      }
+      if (initialFitDone.current || !nodesInitialized) return;
+      initialFitDone.current = true;
+      fitView(fitViewOptions);
+    }, [visible, isSized, nodesInitialized, fitView, fitViewOptions]);
 
     const triggers = useMemoCompare(
       () => pTriggers ?? BaseViewport.DEFAULT_TRIGGERS.zoom,
@@ -576,7 +587,6 @@ export const create = ({
                 nodeTypes={nodeTypes}
                 edgeTypes={edgeTypes}
                 ref={triggerRef}
-                onInit={handleInit}
                 onNodesChange={handleNodesChange}
                 onEdgesChange={handleEdgesChange}
                 onConnect={handleConnect}
