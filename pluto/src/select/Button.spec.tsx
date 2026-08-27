@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, render } from "@testing-library/react";
+import { fireEvent, render, type RenderResult } from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
+import { Component } from "@/component";
 import { Select } from "@/select";
 
 describe("Select.Button", () => {
@@ -113,4 +114,38 @@ describe("Select.Button", () => {
       expect(onChange).not.toHaveBeenCalled();
     });
   });
+});
+
+// Arrow keys walk the `keys` array, so buttons that drift out of that order break
+// navigation with nothing on screen to show it.
+describe("picker button order", () => {
+  const ids = (c: RenderResult): string[] =>
+    Array.from(c.container.querySelectorAll("button")).map((b) => b.id);
+
+  it("should render text levels from XS to XL", () =>
+    expect(ids(render(<Select.Text.Level value="h4" onChange={vi.fn()} />))).toEqual([
+      "small",
+      "h5",
+      "h4",
+      "h3",
+      "h2",
+    ]));
+
+  it("should render component sizes from XS to XL", () =>
+    expect(
+      ids(render(<Component.SelectSize value="medium" onChange={vi.fn()} />)),
+    ).toEqual(["tiny", "small", "medium", "large", "huge"]));
+
+  it("should render text weights from light to bold", () =>
+    expect(ids(render(<Select.Text.Weight value={400} onChange={vi.fn()} />))).toEqual([
+      "250",
+      "400",
+      "500",
+      "600",
+    ]));
+
+  it("should render alignments from start to end", () =>
+    expect(
+      ids(render(<Select.Flex.Alignment value="center" onChange={vi.fn()} />)),
+    ).toEqual(["start", "center", "end"]));
 });
