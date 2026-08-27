@@ -138,8 +138,9 @@ jobs:
       - name: Test
         timeout-minutes: 150
         run: >-
-          go run github.com/onsi/ginkgo/v2/ginkgo -r -p --randomize-all
-          --randomize-suites --fail-on-pending --fail-on-empty --keep-going --cover
+          go run github.com/onsi/ginkgo/v2/ginkgo -r ${{ runner.os == 'macOS' &&
+          '--procs=2 --compilers=2' || '-p' }} --randomize-all --randomize-suites
+          --fail-on-pending --fail-on-empty --keep-going --cover
           --coverprofile=cover.out --race --trace --timeout=2h --github-output ${{
           inputs.ginkgo_flags }}
         working-directory: ${{ inputs.directory }}
