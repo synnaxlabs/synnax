@@ -38,6 +38,13 @@ func (errSource) GetCertificate(*tls.ClientHelloInfo) (*tls.Certificate, error) 
 	return nil, errors.New("source failed")
 }
 
+// staticSource is a cert.Source serving a fixed certificate.
+type staticSource struct{ c tls.Certificate }
+
+func (s staticSource) GetCertificate(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+	return &s.c, nil
+}
+
 // generateChain builds a three-tier chain: a self-signed root, an intermediate it
 // signs, and a leaf for host the intermediate signs. It returns the root PEM, the
 // leaf-plus-intermediate chain PEM, and the leaf key PEM.
@@ -200,6 +207,37 @@ var _ = Describe("OtelProvider", func() {
 				Expect(prov.VerifyCertHost(errSource{}, "localhost")).
 					To(MatchError(ContainSubstring("source failed")))
 			})
+			It("Should fail on a leaf certificate that does not parse", func() {
+				fs := xfs.NewMem()
+				mock.GenerateCerts(fs)
+				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
+					LoaderConfig: cert.LoaderConfig{FS: fs},
+					KeySize:      mock.SmallKeySize,
+					Insecure:     new(false),
+				}))
+				src := staticSource{c: tls.Certificate{Certificate: [][]byte{{0x01}}}}
+				Expect(prov.VerifyCertHost(src, "localhost")).
+					To(MatchError(ContainSubstring("x509")))
+			})
+			It(
+				"Should fail on an intermediate certificate that does not parse",
+				func() {
+					fs := xfs.NewMem()
+					mock.GenerateCerts(fs)
+					prov := MustSucceed(security.NewProvider(security.ProviderConfig{
+						LoaderConfig: cert.LoaderConfig{FS: fs},
+						KeySize:      mock.SmallKeySize,
+						Insecure:     new(false),
+					}))
+					rootPEM, _, _ := generateChain("localhost")
+					block, _ := pem.Decode(rootPEM)
+					src := staticSource{c: tls.Certificate{
+						Certificate: [][]byte{block.Bytes, {0x01}},
+					}}
+					Expect(prov.VerifyCertHost(src, "localhost")).
+						To(MatchError(ContainSubstring("x509")))
+				},
+			)
 		})
 		Describe("VerifyCertCoreCA", func() {
 			It("Should accept a certificate the Core CA signed", func() {
