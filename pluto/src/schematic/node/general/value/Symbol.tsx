@@ -10,17 +10,18 @@
 import { box, scale, text, xy } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
+import { HEIGHTS } from "@/component/size";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
+import { levelSize } from "@/schematic/node/common/size";
 import { type Config } from "@/schematic/node/general/value/config";
 import { Value } from "@/schematic/node/general/value/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
-import { Theming } from "@/theming";
 import { Value as BaseValue } from "@/vis/value";
 
-const VALUE_BACKGROUND_OVERSCAN = xy.construct(10, -3);
-const VALUE_BACKGROUND_SHIFT = xy.construct(1, 1);
+const VALUE_BACKGROUND_OVERSCAN = xy.construct(1, -4);
+const VALUE_BACKGROUND_SHIFT = xy.construct(2, 2);
 
 export const Symbol = ({
   nodeKey,
@@ -41,8 +42,7 @@ export const Symbol = ({
     redline,
   },
 }: NodeProps<Config>): ReactElement => {
-  const font = Theming.useTypography(level);
-  const valueBoxHeight = (font.lineHeight + 0.5) * font.baseSize + 2;
+  const valueBoxHeight = HEIGHTS[levelSize(level)];
   const backgroundTelem = useMemo(() => {
     if (t == null || redline == null) return undefined;
     const { bounds, gradient } = redline;
