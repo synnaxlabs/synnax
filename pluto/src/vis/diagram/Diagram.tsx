@@ -27,7 +27,6 @@ import {
   ReactFlowProvider,
   SelectionMode,
   useOnViewportChange as useRFOnViewportChange,
-  useReactFlow,
   type Viewport as RFViewport,
 } from "@xyflow/react";
 import {
@@ -70,6 +69,7 @@ import {
   type Viewport,
 } from "@/vis/diagram/aether/types";
 import { Context } from "@/vis/diagram/Context";
+import { useFitView, useInitialFitView } from "@/vis/diagram/useFitView";
 import {
   calculateCursorPosition,
   internalNodeBox,
@@ -309,9 +309,9 @@ export const create = ({
       [visible, autoRenderInterval],
     );
 
-    const { fitView } = useReactFlow();
+    const fitView = useFitView();
     const debouncedFitView = useDebouncedCallback(
-      (args: diagram.FitViewOptions) => void fitView(args),
+      (args: diagram.FitViewOptions) => fitView(args),
       FIT_VIEW_DEBOUNCE,
       [fitView],
     );
@@ -330,6 +330,8 @@ export const create = ({
         [setState, debouncedFitView, fitViewOnResize],
       ),
     );
+
+    useInitialFitView(visible && isSized, fitViewOptions);
 
     const triggers = useMemoCompare(
       () => pTriggers ?? BaseViewport.DEFAULT_TRIGGERS.zoom,
@@ -461,7 +463,7 @@ export const create = ({
         ({ stage, cursor }: Triggers.UseEvent) => {
           const reg = triggerRef.current;
           if (reg == null || stage !== "start" || !box.contains(reg, cursor)) return;
-          void fitView();
+          fitView();
         },
         [fitView],
       ),
@@ -572,7 +574,6 @@ export const create = ({
                 nodeTypes={nodeTypes}
                 edgeTypes={edgeTypes}
                 ref={triggerRef}
-                fitView
                 onNodesChange={handleNodesChange}
                 onEdgesChange={handleEdgesChange}
                 onConnect={handleConnect}
@@ -585,7 +586,6 @@ export const create = ({
                 maxZoom={fitViewOptions.maxZoom}
                 isValidConnection={isValidConnection}
                 connectionMode={ConnectionMode.Loose}
-                fitViewOptions={fitViewOptions}
                 selectionMode={SelectionMode.Partial}
                 proOptions={PRO_OPTIONS}
                 deleteKeyCode={DELETE_KEY_CODES}
