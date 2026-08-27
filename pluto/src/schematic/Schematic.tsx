@@ -127,8 +127,9 @@ export const Schematic = ({
   const { undo, canUndo } = useUndo();
   const { redo, canRedo } = useRedo();
 
-  const { onCopy, onPaste } = useClipboard({
+  const { onCopy, onCut, onPaste } = useClipboard({
     selected,
+    onCut: onSelectionChange,
     onPaste: onSelectionChange,
   });
 
@@ -177,6 +178,7 @@ export const Schematic = ({
       onDoubleClick={onDoubleClick}
       onContextMenu={contextMenu.open}
       onCopy={onCopy}
+      onCut={onCut}
       onPaste={onPaste}
       nodes={nodes}
       edges={edges}

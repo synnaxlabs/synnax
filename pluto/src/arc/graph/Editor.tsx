@@ -127,9 +127,10 @@ export const Editor = ({
   const { undo, canUndo } = useUndo();
   const { redo, canRedo } = useRedo();
 
-  const { onCopy, onPaste } = useClipboard({
+  const { onCopy, onCut, onPaste } = useClipboard({
     key,
     selected,
+    onCut: onSelectionChange,
     onPaste: onSelectionChange,
   });
 
@@ -178,6 +179,7 @@ export const Editor = ({
         editable={editable}
         onContextMenu={contextMenu.open}
         onCopy={onCopy}
+        onCut={onCut}
         onPaste={onPaste}
         nodes={nodes}
         edges={edges}
