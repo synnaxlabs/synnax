@@ -9,9 +9,21 @@
 
 import "@/platform/user/Badge.css";
 
-import { Access, Button, Dialog, Flex, Icon, Tag, Text, User } from "@synnaxlabs/pluto";
+import {
+  Access,
+  Button,
+  CSS as PCSS,
+  Dialog,
+  Divider,
+  Flex,
+  Icon,
+  Tag,
+  Text,
+  User,
+} from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { Clipboard } from "@/platform/clipboard";
 import { CSS } from "@/platform/css";
 import { Session } from "@/session";
 
@@ -37,6 +49,7 @@ export const Badge = (): ReactElement | null => {
   const { data: firstName } = User.useResultFirstName({});
   const { data: lastName } = User.useResultLastName({});
   const core = Session.Core.useSelectSelected();
+  const copy = Clipboard.useCopy();
   const handleLogout = Session.useLogout();
   const username = remoteUsername ?? core?.username ?? "";
   const fullName = [firstName, lastName].filter((part) => part).join(" ");
@@ -52,18 +65,41 @@ export const Badge = (): ReactElement | null => {
         borderColor={7}
         className={CSS.BE("user-badge", "dialog")}
       >
-        <Flex.Box y gap="medium" className={CSS.BE("user-badge", "body")}>
-          <Flex.Box y gap="tiny">
+        {core != null && (
+          <>
+            <Flex.Box y gap="tiny" className={CSS.BE("user-badge", "body")}>
+              <Text.Text weight={500} color={10} overflow="ellipsis">
+                {core.name}
+              </Text.Text>
+              <Flex.Box x align="center" gap="small" className={PCSS.M("reveals")}>
+                <Text.Text level="small" color={9} overflow="ellipsis">
+                  {core.host}:{core.port}
+                </Text.Text>
+                <Button.Button
+                  variant="text"
+                  size="tiny"
+                  reveal
+                  onClick={() => copy(`${core.host}:${core.port}`, "Core address")}
+                >
+                  <Icon.Copy />
+                </Button.Button>
+              </Flex.Box>
+            </Flex.Box>
+            <Divider.Divider x />
+          </>
+        )}
+        <Flex.Box y gap="tiny" className={CSS.BE("user-badge", "body")}>
+          <Flex.Box x align="center" gap="small">
             <Text.Text weight={500} color={11} overflow="ellipsis">
               {name}
             </Text.Text>
-            {fullName !== "" && (
-              <Text.Text level="small" color={9} overflow="ellipsis">
-                {username}
-              </Text.Text>
-            )}
+            <Roles />
           </Flex.Box>
-          <Roles />
+          {fullName !== "" && (
+            <Text.Text level="small" color={9} overflow="ellipsis">
+              {username}
+            </Text.Text>
+          )}
         </Flex.Box>
         <Flex.Box x className={CSS.BE("user-badge", "actions")}>
           <Button.Button
