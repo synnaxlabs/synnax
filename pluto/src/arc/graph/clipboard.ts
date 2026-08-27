@@ -21,12 +21,14 @@ const MIME = "web application/synnax-arc+json";
 export interface UseClipboardParams {
   key: arc.Key;
   selected?: string[];
+  onCut?: (remaining: string[]) => void;
   onPaste?: (newKeys: string[]) => void;
 }
 
 export const useClipboard = ({
   key,
   selected,
+  onCut,
   onPaste,
 }: UseClipboardParams): Diagram.UseClipboardReturn => {
   const { dispatch } = useDispatch();
@@ -64,5 +66,5 @@ export const useClipboard = ({
       });
     },
   };
-  return Diagram.useClipboard({ adapter, selected });
+  return Diagram.useClipboard({ adapter, selected, onCut });
 };

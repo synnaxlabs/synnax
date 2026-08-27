@@ -129,6 +129,7 @@ export const Schematic = ({
 
   const { onCopy, onCut, onPaste } = useClipboard({
     selected,
+    onCut: onSelectionChange,
     onPaste: onSelectionChange,
   });
 

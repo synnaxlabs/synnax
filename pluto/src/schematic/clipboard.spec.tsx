@@ -239,13 +239,13 @@ describe("schematic clipboard", () => {
       });
     };
 
-    const setupChain = async (selected: string[]) => {
+    const setupChain = async (selected: string[], onCut?: (keys: string[]) => void) => {
       const Wrapper = await createAsyncSynnaxWrapper({ client });
       const schem = await createChainSchematic();
       await loadSchematic(Wrapper, schem.key);
       const { result } = renderHook(
         () => ({
-          clipboard: Schematic.useClipboard({ selected }),
+          clipboard: Schematic.useClipboard({ selected, onCut }),
           nodes: Schematic.useAllNodes({ key: schem.key }),
           edges: Schematic.useAllEdges({ key: schem.key }),
         }),
@@ -286,6 +286,19 @@ describe("schematic clipboard", () => {
         expect(result.current.nodes.map((n) => n.key).sort()).toEqual(["n2", "n3"]),
       );
       expect(result.current.edges.map((e) => e.key)).toEqual(["e2"]);
+    });
+
+    it("reports the surviving selection to onCut", async () => {
+      const onCut = vi.fn();
+      const result = await setupChain(["n2"], onCut);
+
+      const data = createDataTransfer();
+      const event = createClipboardEvent(data);
+      await act(async () => {
+        result.current.clipboard.onCut(event, xy.ZERO);
+      });
+
+      expect(onCut).toHaveBeenCalledWith([]);
     });
 
     it("cuts an edge alone without touching its endpoint nodes", async () => {

@@ -98,6 +98,8 @@ export interface ClipboardAdapter<N extends ClipboardNode, E extends ClipboardEd
 export interface UseClipboardParams<N extends ClipboardNode, E extends ClipboardEdge> {
   adapter: ClipboardAdapter<N, E>;
   selected?: string[];
+  /** onCut receives the selection that survives a cut. */
+  onCut?: (remaining: string[]) => void;
 }
 
 export interface UseClipboardReturn {
@@ -126,9 +128,11 @@ const centroid = (nodes: ClipboardNode[]): xy.XY => {
 export const useClipboard = <N extends ClipboardNode, E extends ClipboardEdge>({
   adapter,
   selected,
+  onCut: onCutProp,
 }: UseClipboardParams<N, E>): UseClipboardReturn => {
   const adapterRef = useSyncedRef(adapter);
   const selectedRef = useSyncedRef(selected ?? []);
+  const onCutRef = useSyncedRef(onCutProp);
 
   // Writes the selection to the event's clipboard data. Returns the written keys,
   // or null when nothing was written.
@@ -177,7 +181,10 @@ export const useClipboard = <N extends ClipboardNode, E extends ClipboardEdge>({
   const onCut = useCallback<ClipboardHandler>(
     (e) => {
       const keys = writeSelection(e);
-      if (keys != null) adapterRef.current.remove(keys);
+      if (keys == null) return;
+      adapterRef.current.remove(keys);
+      const removed = new Set([...keys.nodes, ...keys.edges]);
+      onCutRef.current?.(selectedRef.current.filter((k) => !removed.has(k)));
     },
     [writeSelection],
   );

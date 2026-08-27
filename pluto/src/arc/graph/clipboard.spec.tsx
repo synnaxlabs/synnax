@@ -95,14 +95,18 @@ const fakeClipboardEvent = () => {
 };
 
 describe("arc graph clipboard", () => {
-  const setup = async (selected: string[], onPaste?: (keys: string[]) => void) => {
+  const setup = async (
+    selected: string[],
+    onPaste?: (keys: string[]) => void,
+    onCut?: (keys: string[]) => void,
+  ) => {
     const { key } = await createGraphArc();
     await loadArc(key);
     const { result } = renderHook(
       () => ({
         nodes: Arc.useAllNodes({ key }),
         edges: Arc.useAllEdges({ key }),
-        clipboard: useClipboard({ key, selected, onPaste }),
+        clipboard: useClipboard({ key, selected, onPaste, onCut }),
       }),
       { wrapper },
     );
@@ -196,6 +200,18 @@ describe("arc graph clipboard", () => {
 
     await waitFor(() => expect(result.current.nodes.map((n) => n.key)).toEqual([N2]));
     expect(result.current.edges).toHaveLength(0);
+  });
+
+  it("should report the surviving selection to onCut", async () => {
+    const onCut = vi.fn();
+    const { result } = await setup([N1], undefined, onCut);
+
+    const e = fakeClipboardEvent();
+    await act(async () => {
+      result.current.clipboard.onCut(e, xy.ZERO);
+    });
+
+    expect(onCut).toHaveBeenCalledWith([]);
   });
 
   it("should not change the cache when the selection cuts nothing", async () => {

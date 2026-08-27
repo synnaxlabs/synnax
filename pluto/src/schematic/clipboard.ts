@@ -21,11 +21,13 @@ const MIME = "web application/synnax-schematic+json";
 
 export interface UseClipboardParams {
   selected?: string[];
+  onCut?: (remaining: string[]) => void;
   onPaste?: (newKeys: string[]) => void;
 }
 
 export const useClipboard = ({
   selected,
+  onCut,
   onPaste,
 }: UseClipboardParams): Diagram.UseClipboardReturn => {
   const key = useKey();
@@ -70,5 +72,5 @@ export const useClipboard = ({
       ]);
     },
   };
-  return Diagram.useClipboard({ adapter, selected });
+  return Diagram.useClipboard({ adapter, selected, onCut });
 };

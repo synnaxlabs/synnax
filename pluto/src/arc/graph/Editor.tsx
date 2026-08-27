@@ -130,6 +130,7 @@ export const Editor = ({
   const { onCopy, onCut, onPaste } = useClipboard({
     key,
     selected,
+    onCut: onSelectionChange,
     onPaste: onSelectionChange,
   });
 

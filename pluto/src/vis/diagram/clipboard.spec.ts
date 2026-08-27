@@ -80,8 +80,11 @@ const pasteResultOf = (
   adapter: ClipboardAdapter<Node, Edge>,
 ): PasteResult<Node, Edge> => vi.mocked(adapter.apply).mock.calls[0][0];
 
-const renderClipboard = (adapter: ClipboardAdapter<Node, Edge>, selected?: string[]) =>
-  renderHook(() => useClipboard({ adapter, selected })).result.current;
+const renderClipboard = (
+  adapter: ClipboardAdapter<Node, Edge>,
+  selected?: string[],
+  onCut?: (remaining: string[]) => void,
+) => renderHook(() => useClipboard({ adapter, selected, onCut })).result.current;
 
 const readPayload = (store: Map<string, string>) => JSON.parse(store.get(MIME) ?? "");
 
@@ -246,6 +249,38 @@ describe("clipboard", () => {
         nodes: ["a", "b"],
         edges: ["e1"],
       });
+    });
+
+    it("should report the surviving selection to onCut", () => {
+      const snapshot: Snapshot<Node, Edge> = {
+        nodes: [node("a", xy.ZERO), node("b", xy.ZERO)],
+        edges: [],
+        configs: {},
+      };
+      const onCutCb = vi.fn();
+      // "b" is selected but absent from the snapshot, so it survives the cut.
+      const snapshotOnlyA = { ...snapshot, nodes: [node("a", xy.ZERO)] };
+      const { onCut } = renderClipboard(
+        makeAdapter(snapshotOnlyA),
+        ["a", "b"],
+        onCutCb,
+      );
+      const { event } = fakeClipboardEvent();
+      onCut(event, xy.ZERO);
+      expect(onCutCb).toHaveBeenCalledWith(["b"]);
+    });
+
+    it("should not invoke onCut when nothing was written", () => {
+      const snapshot: Snapshot<Node, Edge> = {
+        nodes: [node("a", xy.ZERO)],
+        edges: [],
+        configs: {},
+      };
+      const onCutCb = vi.fn();
+      const { onCut } = renderClipboard(makeAdapter(snapshot), [], onCutCb);
+      const { event } = fakeClipboardEvent();
+      onCut(event, xy.ZERO);
+      expect(onCutCb).not.toHaveBeenCalled();
     });
 
     it("should not remove anything when nothing is selected", () => {
