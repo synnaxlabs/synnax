@@ -26,7 +26,6 @@ import {
   type ReactFlowProps,
   ReactFlowProvider,
   SelectionMode,
-  useNodesInitialized,
   useOnViewportChange as useRFOnViewportChange,
   type Viewport as RFViewport,
 } from "@xyflow/react";
@@ -70,7 +69,7 @@ import {
   type Viewport,
 } from "@/vis/diagram/aether/types";
 import { Context } from "@/vis/diagram/Context";
-import { useFitView } from "@/vis/diagram/useFitView";
+import { useFitView, useInitialFitView } from "@/vis/diagram/useFitView";
 import {
   calculateCursorPosition,
   internalNodeBox,
@@ -332,19 +331,7 @@ export const create = ({
       ),
     );
 
-    // Fits once per React Flow mount, deferred until the nodes are measured so a
-    // schematic that mounts empty still fits when its first symbols arrive.
-    const nodesInitialized = useNodesInitialized();
-    const initialFitDone = useRef(false);
-    useEffect(() => {
-      if (!visible || !isSized) {
-        initialFitDone.current = false;
-        return;
-      }
-      if (initialFitDone.current || !nodesInitialized) return;
-      initialFitDone.current = true;
-      fitView(fitViewOptions);
-    }, [visible, isSized, nodesInitialized, fitView, fitViewOptions]);
+    useInitialFitView(visible && isSized, fitViewOptions);
 
     const triggers = useMemoCompare(
       () => pTriggers ?? BaseViewport.DEFAULT_TRIGGERS.zoom,

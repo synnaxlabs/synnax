@@ -7,18 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import {
   type Node,
   ReactFlow,
   type ReactFlowProps,
   ReactFlowProvider,
+  useNodesInitialized,
   useReactFlow,
+  useUpdateNodeInternals,
 } from "@xyflow/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
-import { useFitView } from "@/vis/diagram/useFitView";
+import { useFitView, useInitialFitView } from "@/vis/diagram/useFitView";
 
 const CONTAINER = { width: 1000, height: 500 };
 
@@ -32,6 +34,18 @@ const NODES: Node[] = [
   { id: "a", type: "custom", position: { x: 100, y: 100 }, data: {} },
 ];
 
+const domRect = (x: number, y: number, width: number, height: number): DOMRect =>
+  ({
+    x,
+    y,
+    width,
+    height,
+    left: x,
+    top: y,
+    right: x + width,
+    bottom: y + height,
+  }) as DOMRect;
+
 const rect = (
   el: Element,
   x: number,
@@ -39,23 +53,13 @@ const rect = (
   width: number,
   height: number,
 ): void => {
-  el.getBoundingClientRect = () =>
-    ({
-      x,
-      y,
-      width,
-      height,
-      left: x,
-      top: y,
-      right: x + width,
-      bottom: y + height,
-    }) as DOMRect;
+  el.getBoundingClientRect = () => domRect(x, y, width, height);
 };
 
 const createWrapper = (props: ReactFlowProps = {}) => {
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <ReactFlowProvider>
-      <ReactFlow nodes={NODES} nodeTypes={NODE_TYPES} maxZoom={1} {...props} />
+      <ReactFlow defaultNodes={NODES} nodeTypes={NODE_TYPES} maxZoom={1} {...props} />
       {children}
     </ReactFlowProvider>
   );
@@ -114,8 +118,89 @@ describe("Diagram.useFitView", () => {
   });
 
   it("leaves the viewport alone when no node is rendered", () => {
-    const { result } = renderFitView({ nodes: [] });
+    const { result } = renderFitView({ defaultNodes: [] });
     act(() => result.current.fitView({ padding: 0 }));
+    expect(result.current.flow.getViewport()).toEqual({ x: 0, y: 0, zoom: 1 });
+  });
+});
+
+const FITTED = { x: 415, y: 125, zoom: 1 };
+const PADDING_NONE = { padding: 0 };
+
+describe("Diagram.useInitialFitView", () => {
+  // The fit fires on measurement, so rects must resolve before rendering. React
+  // Flow's measurement also needs DOMMatrixReadOnly, which jsdom lacks.
+  beforeAll(() => {
+    vi.stubGlobal(
+      "DOMMatrixReadOnly",
+      class {
+        m22: number;
+        constructor(transform?: string) {
+          this.m22 = Number(transform?.match(/scale\(([\d.]+)\)/)?.[1] ?? 1);
+        }
+      },
+    );
+    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(
+      CONTAINER.width,
+    );
+    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(
+      CONTAINER.height,
+    );
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (
+      this: Element,
+    ) {
+      if (this.matches('[data-id="a"]')) return domRect(100, 100, 50, 50);
+      if (this.matches('[data-testid="label"]')) return domRect(20, 110, 70, 20);
+      return domRect(0, 0, 0, 0);
+    });
+  });
+  afterAll(() => vi.restoreAllMocks());
+
+  // jsdom fires no ResizeObserver, so each test measures the node through React
+  // Flow's public useUpdateNodeInternals to make the nodes initialize.
+  const renderInitialFit = (enabled: boolean) =>
+    renderHook(
+      (props: { enabled: boolean }) => {
+        useInitialFitView(props.enabled, PADDING_NONE);
+        return {
+          flow: useReactFlow(),
+          measure: useUpdateNodeInternals(),
+          initialized: useNodesInitialized(),
+        };
+      },
+      { wrapper: createWrapper(), initialProps: { enabled } },
+    );
+
+  it("fits once the nodes initialize", async () => {
+    const { result } = renderInitialFit(true);
+    act(() => result.current.measure("a"));
+    await waitFor(() => expect(result.current.initialized).toBe(true));
+    await waitFor(() => expect(result.current.flow.getViewport()).toEqual(FITTED));
+  });
+
+  it("does not fit again while it stays enabled", async () => {
+    const { result, rerender } = renderInitialFit(true);
+    act(() => result.current.measure("a"));
+    await waitFor(() => expect(result.current.flow.getViewport()).toEqual(FITTED));
+    act(() => void result.current.flow.setViewport({ x: 0, y: 0, zoom: 1 }));
+    rerender({ enabled: true });
+    expect(result.current.flow.getViewport()).toEqual({ x: 0, y: 0, zoom: 1 });
+  });
+
+  it("fits again after a disable and re-enable cycle", async () => {
+    const { result, rerender } = renderInitialFit(true);
+    act(() => result.current.measure("a"));
+    await waitFor(() => expect(result.current.flow.getViewport()).toEqual(FITTED));
+    act(() => void result.current.flow.setViewport({ x: 0, y: 0, zoom: 1 }));
+    rerender({ enabled: false });
+    rerender({ enabled: true });
+    await waitFor(() => expect(result.current.flow.getViewport()).toEqual(FITTED));
+  });
+
+  it("does not fit while disabled", async () => {
+    const { result } = renderInitialFit(false);
+    act(() => result.current.measure("a"));
+    await new Promise((resolve) => setTimeout(resolve, 100));
     expect(result.current.flow.getViewport()).toEqual({ x: 0, y: 0, zoom: 1 });
   });
 });

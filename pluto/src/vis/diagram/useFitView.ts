@@ -8,8 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { box, type xy } from "@synnaxlabs/x";
-import { getViewportForBounds, useReactFlow, useStoreApi } from "@xyflow/react";
-import { useCallback } from "react";
+import {
+  getViewportForBounds,
+  useNodesInitialized,
+  useReactFlow,
+  useStoreApi,
+} from "@xyflow/react";
+import { useCallback, useEffect, useRef } from "react";
 
 import { type diagram } from "@/vis/diagram/aether";
 import { selectNodesScreenBounds } from "@/vis/diagram/util";
@@ -49,4 +54,27 @@ export const useFitView = (): ((options?: diagram.FitViewOptions) => void) => {
     },
     [store, screenToFlowPosition, setViewport],
   );
+};
+
+/**
+ * Fits the view once per mount while enabled, deferred until React Flow has measured
+ * the nodes, so a diagram that mounts empty still fits when its first nodes arrive.
+ * Disabling resets the fit, so the next enable fits again.
+ */
+export const useInitialFitView = (
+  enabled: boolean,
+  options?: diagram.FitViewOptions,
+): void => {
+  const fitView = useFitView();
+  const nodesInitialized = useNodesInitialized();
+  const done = useRef(false);
+  useEffect(() => {
+    if (!enabled) {
+      done.current = false;
+      return;
+    }
+    if (done.current || !nodesInitialized) return;
+    done.current = true;
+    fitView(options);
+  }, [enabled, nodesInitialized, fitView, options]);
 };
