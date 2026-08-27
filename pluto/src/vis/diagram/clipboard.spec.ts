@@ -73,14 +73,18 @@ const makeAdapter = (
   edgeKey,
   getSnapshot: () => snapshot,
   apply: vi.fn(),
+  remove: vi.fn(),
 });
 
 const pasteResultOf = (
   adapter: ClipboardAdapter<Node, Edge>,
 ): PasteResult<Node, Edge> => vi.mocked(adapter.apply).mock.calls[0][0];
 
-const renderClipboard = (adapter: ClipboardAdapter<Node, Edge>, selected?: string[]) =>
-  renderHook(() => useClipboard({ adapter, selected })).result.current;
+const renderClipboard = (
+  adapter: ClipboardAdapter<Node, Edge>,
+  selected?: string[],
+  onCut?: (remaining: string[]) => void,
+) => renderHook(() => useClipboard({ adapter, selected, onCut })).result.current;
 
 const readPayload = (store: Map<string, string>) => JSON.parse(store.get(MIME) ?? "");
 
@@ -223,6 +227,93 @@ describe("clipboard", () => {
       onCopy(event, xy.ZERO);
       expect(preventDefault).not.toHaveBeenCalled();
       expect(store.has(MIME)).toBe(false);
+    });
+  });
+
+  describe("onCut", () => {
+    it("should write the selection and remove it from the diagram", () => {
+      const snapshot: Snapshot<Node, Edge> = {
+        nodes: [node("a", xy.ZERO), node("b", xy.ZERO)],
+        edges: [edge("e1", "a", "b")],
+        configs: {},
+      };
+      const adapter = makeAdapter(snapshot);
+      const { onCut } = renderClipboard(adapter, ["a", "b", "e1"]);
+      const { event, store, preventDefault } = fakeClipboardEvent();
+      onCut(event, xy.ZERO);
+      expect(preventDefault).toHaveBeenCalled();
+      const payload = readPayload(store);
+      expect(payload.nodes.map((n: Node) => n.key)).toEqual(["a", "b"]);
+      expect(payload.edges.map((e: Edge) => e.key)).toEqual(["e1"]);
+      expect(adapter.remove).toHaveBeenCalledWith({
+        nodes: ["a", "b"],
+        edges: ["e1"],
+      });
+    });
+
+    it("should report the surviving selection to onCut", () => {
+      const snapshot: Snapshot<Node, Edge> = {
+        nodes: [node("a", xy.ZERO), node("b", xy.ZERO)],
+        edges: [],
+        configs: {},
+      };
+      const onCutCb = vi.fn();
+      // "b" is selected but absent from the snapshot, so it survives the cut.
+      const snapshotOnlyA = { ...snapshot, nodes: [node("a", xy.ZERO)] };
+      const { onCut } = renderClipboard(
+        makeAdapter(snapshotOnlyA),
+        ["a", "b"],
+        onCutCb,
+      );
+      const { event } = fakeClipboardEvent();
+      onCut(event, xy.ZERO);
+      expect(onCutCb).toHaveBeenCalledWith(["b"]);
+    });
+
+    it("should not invoke onCut when nothing was written", () => {
+      const snapshot: Snapshot<Node, Edge> = {
+        nodes: [node("a", xy.ZERO)],
+        edges: [],
+        configs: {},
+      };
+      const onCutCb = vi.fn();
+      const { onCut } = renderClipboard(makeAdapter(snapshot), [], onCutCb);
+      const { event } = fakeClipboardEvent();
+      onCut(event, xy.ZERO);
+      expect(onCutCb).not.toHaveBeenCalled();
+    });
+
+    it("should not remove anything when nothing is selected", () => {
+      const snapshot: Snapshot<Node, Edge> = {
+        nodes: [node("a", xy.ZERO)],
+        edges: [],
+        configs: {},
+      };
+      const adapter = makeAdapter(snapshot);
+      const { onCut } = renderClipboard(adapter);
+      const { event, store, preventDefault } = fakeClipboardEvent();
+      onCut(event, xy.ZERO);
+      expect(preventDefault).not.toHaveBeenCalled();
+      expect(store.has(MIME)).toBe(false);
+      expect(adapter.remove).not.toHaveBeenCalled();
+    });
+
+    it("should defer to the browser when a text selection exists", () => {
+      vi.spyOn(window, "getSelection").mockReturnValue({
+        toString: () => "selected text",
+      } as Selection);
+      const snapshot: Snapshot<Node, Edge> = {
+        nodes: [node("a", xy.ZERO)],
+        edges: [],
+        configs: {},
+      };
+      const adapter = makeAdapter(snapshot);
+      const { onCut } = renderClipboard(adapter, ["a"]);
+      const { event, store, preventDefault } = fakeClipboardEvent();
+      onCut(event, xy.ZERO);
+      expect(preventDefault).not.toHaveBeenCalled();
+      expect(store.has(MIME)).toBe(false);
+      expect(adapter.remove).not.toHaveBeenCalled();
     });
   });
 

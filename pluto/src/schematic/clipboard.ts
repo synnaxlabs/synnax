@@ -21,11 +21,13 @@ const MIME = "web application/synnax-schematic+json";
 
 export interface UseClipboardParams {
   selected?: string[];
+  onCut?: (remaining: string[]) => void;
   onPaste?: (newKeys: string[]) => void;
 }
 
 export const useClipboard = ({
   selected,
+  onCut,
   onPaste,
 }: UseClipboardParams): Diagram.UseClipboardReturn => {
   const key = useKey();
@@ -52,6 +54,23 @@ export const useClipboard = ({
       dispatch(actions);
       if (actions.length > 0) onPaste?.(newKeys);
     },
+    remove: ({ nodes, edges }) => {
+      // removeNode does not cascade, so cut unselected connected edges too;
+      // they would otherwise persist as invisible dangling edges.
+      const cut = new Set(nodes);
+      const cached = client?.schematics.getCached(key);
+      const connected = query.isLive(cached)
+        ? cached.edges
+            .filter((e) => cut.has(e.source.node) || cut.has(e.target.node))
+            .map((e) => e.key)
+        : [];
+      dispatch([
+        ...nodes.map((key) => schematic.removeNode({ key })),
+        ...[...new Set([...edges, ...connected])].map((key) =>
+          schematic.removeEdge({ key }),
+        ),
+      ]);
+    },
   };
-  return Diagram.useClipboard({ adapter, selected });
+  return Diagram.useClipboard({ adapter, selected, onCut });
 };
