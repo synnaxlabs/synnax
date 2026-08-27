@@ -17,6 +17,11 @@ import (
 	cmdcert "github.com/synnaxlabs/synnax/cmd/cert"
 	"github.com/synnaxlabs/synnax/cmd/listener"
 	"github.com/synnaxlabs/synnax/cmd/start"
+	"github.com/synnaxlabs/synnax/pkg/security/cert"
+	"github.com/synnaxlabs/synnax/pkg/security/mock"
+	xfs "github.com/synnaxlabs/x/io/fs"
+	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("GetCoreConfigFromViper", func() {
@@ -45,5 +50,94 @@ var _ = Describe("GetCoreConfigFromViper", func() {
 		Expect(start.GetCoreConfigFromViper(alamos.Instrumentation{})).
 			Error().
 			To(MatchError(ContainSubstring("cannot be combined with a listen list")))
+	})
+
+	It(
+		"Should accept a listen list when the node cert flags hold their defaults",
+		func() {
+			viper.SetDefault(
+				cmdcert.FlagNodeCert,
+				cert.DefaultLoaderConfig.NodeCertPath,
+			)
+			viper.SetDefault(cmdcert.FlagNodeKey, cert.DefaultLoaderConfig.NodeKeyPath)
+			viper.Set(listener.FlagListen, []any{
+				map[string]any{
+					"address": "core01:9090",
+					"cert":    map[string]any{"source": "auto"},
+				},
+			})
+			Expect(start.GetCoreConfigFromViper(alamos.Instrumentation{})).
+				Error().
+				ToNot(HaveOccurred())
+		},
+	)
+
+	It(
+		"Should reject a Tailscale advertised listener when peers are configured",
+		func() {
+			viper.Set(listener.FlagListen, []any{
+				map[string]any{
+					"address": "node01.example-tailnet.ts.net:9090",
+					"cert":    map[string]any{"source": "tailscale"},
+				},
+			})
+			viper.Set(start.FlagPeers, []string{"core02:9090"})
+			cfg := MustSucceed(start.GetCoreConfigFromViper(alamos.Instrumentation{}))
+			Expect(cfg.Validate()).To(MatchError(
+				ContainSubstring("advertised listener cannot use the Tailscale source"),
+			))
+		},
+	)
+
+	It(
+		"Should reject a Tailscale advertised listener when no peers are configured",
+		func() {
+			viper.Set(listener.FlagListen, []any{
+				map[string]any{
+					"address": "node01.example-tailnet.ts.net:9090",
+					"cert":    map[string]any{"source": "tailscale"},
+				},
+			})
+			cfg := MustSucceed(start.GetCoreConfigFromViper(alamos.Instrumentation{}))
+			Expect(cfg.Validate()).To(MatchError(
+				ContainSubstring("advertised listener cannot use the Tailscale source"),
+			))
+		},
+	)
+
+	It("Should allow a Tailscale advertised listener in insecure mode", func() {
+		viper.Set(listener.FlagListen, []any{
+			map[string]any{
+				"address": "node01.example-tailnet.ts.net:9090",
+				"cert":    map[string]any{"source": "tailscale"},
+			},
+		})
+		viper.Set(start.FlagInsecure, true)
+		cfg := MustSucceed(start.GetCoreConfigFromViper(alamos.Instrumentation{}))
+		Expect(cfg.Validate()).ToNot(MatchError(
+			ContainSubstring("advertised listener cannot use the Tailscale source"),
+		))
+	})
+})
+
+var _ = Describe("DriverTrustAnchors", func() {
+	It("Should return nil in insecure mode", func() {
+		Expect(MustSucceed(
+			start.DriverTrustAnchors(true, cert.LoaderConfig{}),
+		)).To(BeNil())
+	})
+
+	It("Should return the CA and node certificates", func() {
+		fs := xfs.NewMem()
+		mock.GenerateCerts(fs)
+		Expect(MustSucceed(
+			start.DriverTrustAnchors(false, cert.LoaderConfig{FS: fs}),
+		)).ToNot(BeEmpty())
+	})
+
+	It("Should fail when no certificates exist", func() {
+		Expect(start.DriverTrustAnchors(false, cert.LoaderConfig{FS: xfs.NewMem()})).
+			Error().
+			To(MatchError(validate.ErrValidation))
 	})
 })

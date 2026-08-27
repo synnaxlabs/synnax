@@ -112,10 +112,10 @@ func (cs Configs) Validate() error {
 	return v.Error()
 }
 
-// ValidateAdvertiseSource rejects a Tailscale source on the advertised listener. Peers
-// dial the advertised address and verify the certificate against the Core CA, which a
-// public-CA Tailscale certificate cannot satisfy. It applies only in secure mode, so
-// the caller gates it on the insecure flag.
+// ValidateAdvertiseSource rejects a Tailscale source on the advertised listener. It
+// applies only when a peer or the embedded Driver dials the advertised address, since
+// a public-CA Tailscale certificate cannot chain to the Core CA those two verify
+// against. The caller decides when that holds.
 func (cs Configs) ValidateAdvertiseSource() error {
 	v := validate.New("listeners")
 	if len(cs) == 0 {
@@ -124,7 +124,7 @@ func (cs Configs) ValidateAdvertiseSource() error {
 	v.Ternary(
 		"advertise",
 		cs.advertised().Cert.Source == tailscale.SourceType,
-		"advertised listener cannot use the Tailscale source; peers verify certificates against the Core CA",
+		"advertised listener cannot use the Tailscale source; peers and the embedded Driver verify certificates against the Core CA",
 	)
 	return v.Error()
 }
@@ -145,11 +145,17 @@ func (cs Configs) AdvertiseAddress() address.Address { return cs.advertised().Ad
 
 // Resolve resolves each listener config into a server.Listener, backing every secure
 // listener with a TLS config from its certificate source. fc supplies the node-wide
-// filesystem and CA authority that the file and auto sources draw on.
+// filesystem and CA authority. It fails when the advertised listener serves a
+// certificate that does not cover the advertised host, that does not chain to the Core
+// CA when hasPeers is set, or that chains to no Core trust anchor when hasDriver is
+// set. A Tailscale advertised listener is never probed: with hasPeers it is rejected
+// outright, and otherwise tailscaled guarantees the certificate covers its FQDN.
 func (cs Configs) Resolve(
 	p security.Provider,
 	fc cert.FactoryConfig,
 	insecure bool,
+	hasPeers bool,
+	hasDriver bool,
 ) ([]server.Listener, error) {
 	out := make([]server.Listener, len(cs))
 	if insecure {
@@ -172,13 +178,40 @@ func (cs Configs) Resolve(
 		if err != nil {
 			return nil, err
 		}
-		if c.Address == advertised {
-			if err = p.VerifyCoreCert(src, advertised.Host()); err != nil {
+		if c.Address == advertised && c.Cert.Source == tailscale.SourceType &&
+			hasPeers {
+			return nil, errors.Wrapf(
+				validate.ErrValidation,
+				"advertised listener %q cannot use the Tailscale source; peers verify certificates against the Core CA",
+				c.Address,
+			)
+		}
+		if c.Address == advertised && c.Cert.Source != tailscale.SourceType {
+			if err = p.VerifyCertHost(src, advertised.Host()); err != nil {
 				return nil, errors.Wrapf(
 					err,
-					"advertised listener %q must serve a certificate the Core CA signs for that host; peers cannot verify it otherwise",
+					"advertised listener %q serves a certificate that does not cover that host; no client can verify it",
 					c.Address,
 				)
+			}
+			if hasPeers {
+				if err = p.VerifyCertCoreCA(src); err != nil {
+					return nil, errors.Wrapf(
+						err,
+						"advertised listener %q serves a certificate the Core CA did not sign; peers cannot verify it. Use the %q source or a certificate the Core CA signs",
+						c.Address,
+						auto.SourceType,
+					)
+				}
+			} else if hasDriver {
+				if err = p.VerifyCertTrustAnchors(src); err != nil {
+					return nil, errors.Wrapf(
+						err,
+						"advertised listener %q serves a certificate outside the Core's trust anchors; the embedded Driver cannot verify it. Serve the node certificate, use the %q source, or start with --no-driver",
+						c.Address,
+						auto.SourceType,
+					)
+				}
 			}
 		}
 		out[i] = server.Listener{Address: c.Address, TLS: p.TLSConfigFor(src)}
@@ -236,18 +269,21 @@ func parseList(items []any) (Configs, error) {
 }
 
 // rejectGlobalCertFlags enforces that a listen list is not combined with a global flag
-// that configures the single node certificate. --certs-dir and the CA flags stay legal:
-// they locate the Core CA and node outbound identity, which every listener still
-// needs for gossip.
+// that configures the single node certificate. The node cert flags bind with defaults,
+// so only a non-default value counts as set. --certs-dir and the CA flags stay legal:
+// they locate the Core CA and node outbound identity, which every listener still needs
+// for gossip.
 func rejectGlobalCertFlags() error {
 	var offenders []string
 	if viper.GetBool(cmdcert.FlagAutoCert) {
 		offenders = append(offenders, "--"+cmdcert.FlagAutoCert)
 	}
-	if viper.GetString(cmdcert.FlagNodeCert) != "" {
+	nodeCert := viper.GetString(cmdcert.FlagNodeCert)
+	if nodeCert != "" && nodeCert != cert.DefaultLoaderConfig.NodeCertPath {
 		offenders = append(offenders, "--"+cmdcert.FlagNodeCert)
 	}
-	if viper.GetString(cmdcert.FlagNodeKey) != "" {
+	nodeKey := viper.GetString(cmdcert.FlagNodeKey)
+	if nodeKey != "" && nodeKey != cert.DefaultLoaderConfig.NodeKeyPath {
 		offenders = append(offenders, "--"+cmdcert.FlagNodeKey)
 	}
 	if len(offenders) == 0 {

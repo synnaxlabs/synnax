@@ -10,6 +10,9 @@
 package cert_test
 
 import (
+	"crypto/x509"
+	"os"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
@@ -86,6 +89,151 @@ var _ = Describe("Factory", func() {
 			Expect(f.CreateCAPair()).To(Succeed())
 			Expect(f.CreateNodePair()).
 				Error().To(MatchError(ContainSubstring("no hosts provided")))
+		})
+	})
+	Describe("CreateNodePairIfStale", func() {
+		newFactory := func(hosts ...address.Address) *cert.Factory {
+			GinkgoHelper()
+			return MustSucceed(cert.NewFactory(cert.FactoryConfig{
+				LoaderConfig: cert.LoaderConfig{FS: fs},
+				Hosts:        hosts,
+				KeySize:      mock.SmallKeySize,
+			}))
+		}
+		serialOf := func(f *cert.Factory) string {
+			GinkgoHelper()
+			c, _ := MustSucceed2(f.Loader.LoadNodePair())
+			return c.SerialNumber.String()
+		}
+		It("Should create the pair when it does not exist", func() {
+			f := newFactory("synnaxlabs.com")
+			Expect(f.CreateCAPair()).To(Succeed())
+			Expect(f.CreateNodePairIfStale()).To(Succeed())
+			c, _ := MustSucceed2(f.Loader.LoadNodePair())
+			Expect(c.DNSNames).To(ConsistOf("synnaxlabs.com"))
+		})
+		It("Should fail on a node certificate it cannot parse", func() {
+			f := newFactory("synnaxlabs.com")
+			Expect(f.CreateCAPair()).To(Succeed())
+			for _, p := range []string{
+				f.AbsoluteNodeCertPath(),
+				f.AbsoluteNodeKeyPath(),
+			} {
+				file := MustSucceed(fs.Open(p, os.O_CREATE|os.O_WRONLY))
+				MustSucceed(file.Write([]byte("not a certificate")))
+				Expect(file.Close()).To(Succeed())
+			}
+			Expect(f.CreateNodePairIfStale()).
+				To(MatchError(ContainSubstring("PEM")))
+		})
+
+		It("Should leave a certificate covering every host untouched", func() {
+			f := newFactory("synnaxlabs.com")
+			Expect(f.CreateCAPair()).To(Succeed())
+			Expect(f.CreateNodePairIfStale()).To(Succeed())
+			before := serialOf(f)
+			Expect(f.CreateNodePairIfStale()).To(Succeed())
+			Expect(serialOf(f)).To(Equal(before))
+		})
+		It("Should replace a certificate missing a configured host", func() {
+			f := newFactory("synnaxlabs.com")
+			Expect(f.CreateCAPair()).To(Succeed())
+			Expect(f.CreateNodePairIfStale()).To(Succeed())
+			before := serialOf(f)
+			grown := newFactory("synnaxlabs.com", "docs.synnaxlabs.com")
+			Expect(grown.CreateNodePairIfStale()).To(Succeed())
+			Expect(serialOf(grown)).ToNot(Equal(before))
+			c, _ := MustSucceed2(grown.Loader.LoadNodePair())
+			Expect(c.DNSNames).To(ConsistOf("synnaxlabs.com", "docs.synnaxlabs.com"))
+		})
+		It(
+			"Should replace a certificate covering none of the configured hosts",
+			func() {
+				f := newFactory("old.synnaxlabs.com")
+				Expect(f.CreateCAPair()).To(Succeed())
+				Expect(f.CreateNodePairIfStale()).To(Succeed())
+				moved := newFactory("new.synnaxlabs.com")
+				Expect(moved.CreateNodePairIfStale()).To(Succeed())
+				c, _ := MustSucceed2(moved.Loader.LoadNodePair())
+				Expect(c.DNSNames).To(ConsistOf("new.synnaxlabs.com"))
+			},
+		)
+		It("Should keep the existing pair when signing fails", func() {
+			f := newFactory("old.synnaxlabs.com")
+			Expect(f.CreateCAPair()).To(Succeed())
+			Expect(f.CreateNodePairIfStale()).To(Succeed())
+			before := serialOf(f)
+			Expect(fs.Remove("/usr/local/synnax/certs/ca.key")).To(Succeed())
+			moved := newFactory("new.synnaxlabs.com")
+			Expect(moved.CreateNodePairIfStale()).ToNot(Succeed())
+			Expect(serialOf(f)).To(Equal(before))
+			c, _ := MustSucceed2(f.Loader.LoadNodePair())
+			Expect(c.DNSNames).To(ConsistOf("old.synnaxlabs.com"))
+		})
+		It("Should replace the pair despite a leftover from a failed attempt", func() {
+			f := newFactory("old.synnaxlabs.com")
+			Expect(f.CreateCAPair()).To(Succeed())
+			Expect(f.CreateNodePairIfStale()).To(Succeed())
+			Expect(fs.Remove("/usr/local/synnax/certs/ca.key")).To(Succeed())
+			moved := newFactory("new.synnaxlabs.com")
+			Expect(moved.CreateNodePairIfStale()).ToNot(Succeed())
+			Expect(fs.Remove("/usr/local/synnax/certs/ca.crt")).To(Succeed())
+			Expect(f.CreateCAPair()).To(Succeed())
+			Expect(moved.CreateNodePairIfStale()).To(Succeed())
+			c, _ := MustSucceed2(moved.Loader.LoadNodePair())
+			Expect(c.DNSNames).To(ConsistOf("new.synnaxlabs.com"))
+		})
+		It("Should keep the certificate chaining to the unchanged CA", func() {
+			f := newFactory("synnaxlabs.com")
+			Expect(f.CreateCAPair()).To(Succeed())
+			Expect(f.CreateNodePairIfStale()).To(Succeed())
+			caBefore, _ := MustSucceed2(f.Loader.LoadCAPair())
+			grown := newFactory("synnaxlabs.com", "docs.synnaxlabs.com")
+			Expect(grown.CreateNodePairIfStale()).To(Succeed())
+			caAfter, _ := MustSucceed2(grown.Loader.LoadCAPair())
+			Expect(caAfter.SerialNumber).To(Equal(caBefore.SerialNumber))
+			c, _ := MustSucceed2(grown.Loader.LoadNodePair())
+			Expect(c.AuthorityKeyId).To(Equal(caAfter.SubjectKeyId))
+		})
+	})
+
+	Describe("Chain Verification", func() {
+		// A leaf whose subject matches its issuer's carries no authority key
+		// identifier, and every verifier outside Go reads it as self-signed and stops
+		// at depth zero.
+		expectChainsToCA := func(f *cert.Factory, leaf *x509.Certificate) {
+			GinkgoHelper()
+			ca, _ := MustSucceed2(f.Loader.LoadCAPair())
+			Expect(leaf.Subject.String()).ToNot(Equal(ca.Subject.String()))
+			Expect(leaf.AuthorityKeyId).To(Equal(ca.SubjectKeyId))
+			Expect(leaf.AuthorityKeyId).ToNot(BeEmpty())
+			roots := x509.NewCertPool()
+			roots.AddCert(ca)
+			Expect(leaf.Verify(x509.VerifyOptions{
+				Roots:     roots,
+				DNSName:   "synnaxlabs.com",
+				KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+			})).Error().ToNot(HaveOccurred())
+		}
+		It("Should chain a node certificate on disk to the CA", func() {
+			f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
+				LoaderConfig: cert.LoaderConfig{FS: fs},
+				Hosts:        []address.Address{"synnaxlabs.com"},
+				KeySize:      mock.SmallKeySize,
+			}))
+			Expect(f.CreateCAPair()).To(Succeed())
+			Expect(f.CreateNodePair()).To(Succeed())
+			c, _ := MustSucceed2(f.Loader.LoadNodePair())
+			expectChainsToCA(f, c)
+		})
+		It("Should chain an in-memory node certificate to the CA", func() {
+			f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
+				LoaderConfig: cert.LoaderConfig{FS: fs},
+				KeySize:      mock.SmallKeySize,
+			}))
+			Expect(f.CreateCAPair()).To(Succeed())
+			tlsC := MustSucceed(f.SignNodeCert([]address.Address{"synnaxlabs.com"}))
+			expectChainsToCA(f, MustSucceed(x509.ParseCertificate(tlsC.Certificate[0])))
 		})
 	})
 })

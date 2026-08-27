@@ -41,7 +41,8 @@ func BuildCertFactoryConfig(
 	}
 }
 
-// GenerateAuto generates a CA certificate and a certificate for the Core.
+// GenerateAuto generates a CA certificate and a certificate for the Core, replacing an
+// existing Core certificate that does not cover every configured listener.
 func GenerateAuto(cfg cert.FactoryConfig) error {
 	factory, err := cert.NewFactory(cfg)
 	if err != nil {
@@ -50,5 +51,5 @@ func GenerateAuto(cfg cert.FactoryConfig) error {
 	if err = factory.CreateCAPairIfMissing(); err != nil {
 		return err
 	}
-	return factory.CreateNodePairIfMissing()
+	return factory.CreateNodePairIfStale()
 }

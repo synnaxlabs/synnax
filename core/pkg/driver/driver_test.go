@@ -12,6 +12,7 @@ package driver_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -250,8 +251,48 @@ var _ = Describe("Open", func() {
 			Expect(d.Close()).To(Succeed())
 			Expect(buffer.String()).To(ContainSubstring("debug mode enabled"))
 		})
+
+		It("Should point the Driver at the trust anchors it is given", func(
+			ctx SpecContext,
+		) {
+			logger, _ := newTestLogger()
+			dir := GinkgoT().TempDir()
+			anchors := []byte("-----BEGIN CERTIFICATE-----\nanchors\n")
+			d := openMockDriver(ctx, logger, driver.Config{
+				Insecure:        new(false),
+				ParentDirname:   dir,
+				TrustAnchorsPEM: anchors,
+			})
+			conn := readDriverConnection(dir)
+			Expect(conn).To(HaveKeyWithValue("ca_cert_file", Not(BeEmpty())))
+			Expect(os.ReadFile(conn["ca_cert_file"].(string))).To(Equal(anchors))
+			Expect(d.Close()).To(Succeed())
+		})
+
+		It("Should write no trust anchors in insecure mode", func(ctx SpecContext) {
+			logger, _ := newTestLogger()
+			dir := GinkgoT().TempDir()
+			d := openMockDriver(ctx, logger, driver.Config{
+				ParentDirname:   dir,
+				TrustAnchorsPEM: []byte("-----BEGIN CERTIFICATE-----\nanchors\n"),
+			})
+			Expect(readDriverConnection(dir)).
+				To(HaveKeyWithValue("ca_cert_file", BeEmpty()))
+			Expect(d.Close()).To(Succeed())
+		})
 	})
 })
+
+// readDriverConnection returns the connection block of the config file the Driver was
+// started with. It must be called while the Driver is running, since the file is
+// removed once the process exits.
+func readDriverConnection(parentDirname string) map[string]any {
+	GinkgoHelper()
+	b := MustSucceed(os.ReadFile(filepath.Join(parentDirname, "driver", "config.json")))
+	var cfg map[string]any
+	Expect(json.Unmarshal(b, &cfg)).To(Succeed())
+	return cfg["connection"].(map[string]any)
+}
 
 var _ = Describe("restart", func() {
 	It(
