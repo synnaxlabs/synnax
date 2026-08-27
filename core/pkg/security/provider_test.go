@@ -26,9 +26,17 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/synnax/pkg/security/cert/file"
 	"github.com/synnaxlabs/synnax/pkg/security/mock"
+	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+// errSource is a cert.Source whose certificate load always fails.
+type errSource struct{}
+
+func (errSource) GetCertificate(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+	return nil, errors.New("source failed")
+}
 
 // generateChain builds a three-tier chain: a self-signed root, an intermediate it
 // signs, and a leaf for host the intermediate signs. It returns the root PEM, the
@@ -181,6 +189,17 @@ var _ = Describe("OtelProvider", func() {
 				))
 				Expect(prov.VerifyCertHost(foreign, "localhost")).To(Succeed())
 			})
+			It("Should surface a certificate source failure", func() {
+				fs := xfs.NewMem()
+				mock.GenerateCerts(fs)
+				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
+					LoaderConfig: cert.LoaderConfig{FS: fs},
+					KeySize:      mock.SmallKeySize,
+					Insecure:     new(false),
+				}))
+				Expect(prov.VerifyCertHost(errSource{}, "localhost")).
+					To(MatchError(ContainSubstring("source failed")))
+			})
 		})
 		Describe("VerifyCertCoreCA", func() {
 			It("Should accept a certificate the Core CA signed", func() {
@@ -230,6 +249,17 @@ var _ = Describe("OtelProvider", func() {
 					"/usr/local/synnax/certs/chain.key",
 				))
 				Expect(prov.VerifyCertCoreCA(src)).To(Succeed())
+			})
+			It("Should surface a certificate source failure", func() {
+				fs := xfs.NewMem()
+				mock.GenerateCerts(fs)
+				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
+					LoaderConfig: cert.LoaderConfig{FS: fs},
+					KeySize:      mock.SmallKeySize,
+					Insecure:     new(false),
+				}))
+				Expect(prov.VerifyCertCoreCA(errSource{})).
+					To(MatchError(ContainSubstring("source failed")))
 			})
 		})
 		Describe("VerifyCertTrustAnchors", func() {
@@ -294,6 +324,17 @@ var _ = Describe("OtelProvider", func() {
 					"/usr/local/synnax/certs/chain.key",
 				))
 				Expect(prov.VerifyCertTrustAnchors(src)).To(Succeed())
+			})
+			It("Should surface a certificate source failure", func() {
+				fs := xfs.NewMem()
+				mock.GenerateCerts(fs)
+				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
+					LoaderConfig: cert.LoaderConfig{FS: fs},
+					KeySize:      mock.SmallKeySize,
+					Insecure:     new(false),
+				}))
+				Expect(prov.VerifyCertTrustAnchors(errSource{})).
+					To(MatchError(ContainSubstring("source failed")))
 			})
 		})
 	})

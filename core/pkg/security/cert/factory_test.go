@@ -11,6 +11,7 @@ package cert_test
 
 import (
 	"crypto/x509"
+	"os"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -111,6 +112,21 @@ var _ = Describe("Factory", func() {
 			c, _ := MustSucceed2(f.Loader.LoadNodePair())
 			Expect(c.DNSNames).To(ConsistOf("synnaxlabs.com"))
 		})
+		It("Should fail on a node certificate it cannot parse", func() {
+			f := newFactory("synnaxlabs.com")
+			Expect(f.CreateCAPair()).To(Succeed())
+			for _, p := range []string{
+				f.AbsoluteNodeCertPath(),
+				f.AbsoluteNodeKeyPath(),
+			} {
+				file := MustSucceed(fs.Open(p, os.O_CREATE|os.O_WRONLY))
+				MustSucceed(file.Write([]byte("not a certificate")))
+				Expect(file.Close()).To(Succeed())
+			}
+			Expect(f.CreateNodePairIfStale()).
+				To(MatchError(ContainSubstring("PEM")))
+		})
+
 		It("Should leave a certificate covering every host untouched", func() {
 			f := newFactory("synnaxlabs.com")
 			Expect(f.CreateCAPair()).To(Succeed())

@@ -26,6 +26,14 @@ function Start-Core($listen, $log) {
     Start-Process -FilePath "cmd.exe" -ArgumentList $cmdArgs -WindowStyle Hidden -PassThru
 }
 
+# Stop-Process alone kills only the cmd.exe wrapper; the Core child keeps the port.
+function Stop-Core($process) {
+    if (-not $process.HasExited) {
+        & taskkill /PID $process.Id /T /F 2>$null | Out-Null
+    }
+    $process.WaitForExit()
+}
+
 Write-Host "Starting Synnax with --auto-cert on localhost:$port..."
 $log1 = "$work\core1.log"
 $process = Start-Core "localhost:$port" $log1
@@ -45,8 +53,7 @@ try {
         if (Test-Path $log1) { Get-Content $log1 -Tail 40 }
         exit 1
     }
-    if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
-    $process.WaitForExit()
+    Stop-Core $process
 
     Write-Host "Restarting on 127.0.0.1:$port to force a certificate refresh..."
     $log2 = "$work\core2.log"
@@ -77,5 +84,5 @@ try {
     }
     exit 1
 } finally {
-    if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
+    Stop-Core $process
 }
