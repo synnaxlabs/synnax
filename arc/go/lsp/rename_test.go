@@ -50,13 +50,8 @@ var _ = Describe("Rename", func() {
 
 			result := MustSucceed(
 				server.PrepareRename(ctx, &protocol.PrepareRenameParams{
-					TextDocument: protocol.TextDocumentIdentifier{
-						URI: uri,
-					},
-					Position: protocol.Position{
-						Line:      1,
-						Character: 4,
-					},
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 1, Character: 4},
 				}),
 			)
 			Expect(result).ToNot(BeNil())

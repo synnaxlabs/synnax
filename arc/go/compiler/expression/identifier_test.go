@@ -801,9 +801,7 @@ var _ = Describe("Identifier Compilation", func() {
 					analyzerCtx.TypeMap,
 					resolve.NewResolver(),
 				)
-				exprType := MustSucceed(
-					expression.Compile(compilerCtx.Child(expr)),
-				)
+				exprType := MustSucceed(expression.Compile(compilerCtx.Child(expr)))
 				Expect(exprType).To(Equal(types.TimeStamp()))
 				Expect(FinalizeContext(compilerCtx)).To(MatchOpcodes(OpCall, uint32(0)))
 			},
