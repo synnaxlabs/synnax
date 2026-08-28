@@ -572,19 +572,12 @@ func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
 			if err := r.next(ctx, res, runReason); err != nil {
 				return err
 			}
-			// Drain the timer channel before resetting to avoid stale
-			// values from a simultaneous fire during the select.
-			if !timer.Stop() {
-				select {
-				case <-timer.C:
-				default:
-				}
-			}
+			timer.Stop()
 			deadline := r.scheduler.NextDeadline()
 			elapsed := telem.Since(r.startTime)
 			if deadline == telem.TimeSpanMax {
-				// No active timers. Timer stays stopped (from the
-				// drain above). We'll only wake on channel input.
+				// No active timers. Timer stays stopped, so we only wake on
+				// channel input.
 			} else if deadline > elapsed {
 				timer.Reset((deadline - elapsed).Duration())
 			} else {
