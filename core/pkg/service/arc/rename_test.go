@@ -44,14 +44,9 @@ var _ = Describe("LSP Rename", func() {
 }`)
 
 			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
-				TextDocument: protocol.TextDocumentIdentifier{
-					URI: uri,
-				},
-				Position: protocol.Position{
-					Line:      1,
-					Character: 14,
-				},
-				NewName: "lsp_renamed_ch",
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+				Position:     protocol.Position{Line: 1, Character: 14},
+				NewName:      "lsp_renamed_ch",
 			}))
 			Expect(result).ToNot(BeNil())
 			Expect(result.Changes[uri]).To(HaveLen(2))

@@ -714,7 +714,8 @@ var _ = Describe("Composition migrations", func() {
 			viewTab := func(viewType string, args msgpack.EncodedJSON) v0.Tab {
 				return v0.Tab{Variant: v0.ViewTab{
 					Key:  uuid.New(),
-					Type: viewType, Args: args,
+					Type: viewType,
+					Args: args,
 				}}
 			}
 			table := openPanelTable(ctx, db)
