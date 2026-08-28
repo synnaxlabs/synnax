@@ -180,9 +180,7 @@ func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error
 	if len(cfg.Authorities) == 0 {
 		return nil
 	}
-	if *w.AutoIndex {
-		cfg = w.propagateAuthority(cfg)
-	}
+	cfg = w.propagateAuthority(cfg)
 	var (
 		u       = ControlUpdate{Transfers: make([]control.Transfer, 0, len(w.internal))}
 		getAuth = func(ch ChannelKey) (xcontrol.Authority, bool) {
@@ -349,7 +347,7 @@ func (w *streamWriter) autoStamp(fr Frame) Frame {
 
 // propagateAuthority synchronizes each idxWriter's per-data-channel authority tracking
 // with the incoming SetAuthority config and augments cfg with an updated authority for
-// each implicit index whose referencing data channels' max may have changed. Broadcast
+// each written index whose referencing data channels' max may have changed. Broadcast
 // calls (cfg.Channels empty) are forwarded unchanged — the caller already applies the
 // broadcast across every channel in the writer, including indexes — but the tracked
 // state is refreshed so the next per-channel call computes correctly. Indexes the
@@ -392,7 +390,7 @@ func (w *streamWriter) propagateAuthority(cfg WriterConfig) WriterConfig {
 		idx.setDataAuth(k, cfg.Authorities[i])
 	}
 	for _, idx := range w.internal {
-		if !idx.writingToIdx || idx.setAuthExplicit {
+		if !idx.writingToIdx || idx.setAuthExplicit || len(idx.dataAuth) == 0 {
 			continue
 		}
 		cfg.Channels = append(cfg.Channels, idx.idx.ch.Key)
@@ -494,10 +492,10 @@ type idxWriter struct {
 	// returned when Commit is called with no new data to commit.
 	lastCommitEnd telem.TimeStamp
 	// dataAuth tracks the most recent control authority for each data channel in this
-	// group (i.e. the keys of internal excluding the index itself). Populated only when
-	// the streamWriter has AutoIndex enabled and writingToIdx is true; updated by
-	// SetAuthority calls so that maxDataAuth can recompute the implicit index's
-	// authority as the max across its referencing data channels.
+	// group (i.e. the keys of internal excluding the index itself). Populated when
+	// writingToIdx is true; updated by SetAuthority calls so that maxDataAuth can
+	// recompute the written index's authority as the max across its referencing data
+	// channels.
 	dataAuth map[ChannelKey]xcontrol.Authority
 	// scanIdxPresent is a transient scratch field set during the single frame scan in
 	// streamWriter.autoStamp. True when the caller's frame already contains this
@@ -560,8 +558,7 @@ func (w *idxWriter) broadcastDataAuth(auth xcontrol.Authority) {
 }
 
 // maxDataAuth returns the maximum recorded authority across this group's data channels.
-// Returns 0 when the group has no data channels (which cannot occur for a writingToIdx
-// idxWriter under AutoIndex).
+// Returns 0 when the group has no data channels; propagateAuthority skips such groups.
 func (w *idxWriter) maxDataAuth() xcontrol.Authority {
 	var max xcontrol.Authority
 	for _, a := range w.dataAuth {
