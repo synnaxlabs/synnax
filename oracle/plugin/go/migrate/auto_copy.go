@@ -289,7 +289,8 @@ func (c *collector) aliasFunc(typ resolution.Type, form resolution.AliasForm) fu
 	newName := c.resolveNewTypeName(typ)
 	if isArr, elemRef := isArrayAlias(form, c.oldTable); isArr {
 		return decorateWithTypeParams(
-			c.sliceFunc(typ, goName, oldName, newName, elemRef), form.TypeParams)
+			c.sliceFunc(typ, goName, oldName, newName, elemRef), form.TypeParams,
+		)
 	}
 	targetResolved, ok := form.Target.Resolve(c.oldTable)
 	if !ok {
@@ -307,7 +308,8 @@ func (c *collector) aliasFunc(typ resolution.Type, form resolution.AliasForm) fu
 			}
 			return decorateWithTypeParams(
 				c.structFuncFromForms(goName, oldName, newName, oldSF, newSF),
-				form.TypeParams)
+				form.TypeParams,
+			)
 		}
 	}
 	return decorateWithTypeParams(c.castFunc(typ), form.TypeParams)
@@ -323,7 +325,8 @@ func (c *collector) distinctFunc(
 	if form.Base.Name == "Array" && len(form.Base.TypeArgs) > 0 {
 		return decorateWithTypeParams(
 			c.sliceFunc(typ, goName, oldName, newName, form.Base.TypeArgs[0]),
-			form.TypeParams)
+			form.TypeParams,
+		)
 	}
 	return decorateWithTypeParams(c.castFunc(typ), form.TypeParams)
 }

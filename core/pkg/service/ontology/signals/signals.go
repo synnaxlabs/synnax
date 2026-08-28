@@ -82,7 +82,8 @@ func Publish(
 				DataType: telem.StringT,
 				Internal: true,
 			},
-		})
+		},
+	)
 	if err != nil {
 		return nil, err
 	}

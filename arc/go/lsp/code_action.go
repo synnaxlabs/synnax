@@ -301,7 +301,8 @@ func deprecatedSymbolQuickFix(
 	if module := replacementModule(repl); module != "" {
 		edits = append(
 			buildAutoImportEditFromSnapshot(snap.Content, snap.Symbols, module),
-			edits...)
+			edits...,
+		)
 	}
 	return &protocol.CodeAction{
 		Title: fmt.Sprintf(

@@ -503,7 +503,8 @@ var _ = Describe("Task", Ordered, func() {
 					}),
 				}
 				t := MustSucceed(newGraphFactory(
-					simpleGraph(ch.Key())).
+					simpleGraph(ch.Key()),
+				).
 					ConfigureTask(ctx, svcTask, "cmd-1"))
 				Expect(t).ToNot(BeNil())
 				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
@@ -538,7 +539,8 @@ var _ = Describe("Task", Ordered, func() {
 					}),
 				}
 				t := MustSucceed(newGraphFactory(
-					simpleGraph(ch.Key())).
+					simpleGraph(ch.Key()),
+				).
 					ConfigureTask(ctx, svcTask, "cmd-1"))
 				Expect(t).ToNot(BeNil())
 				Expect(t.Stop(false)).To(Succeed())
@@ -650,7 +652,8 @@ var _ = Describe("Task", Ordered, func() {
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
 				t := MustSucceed(newGraphFactory(
-					simpleGraph(ch.Key())).
+					simpleGraph(ch.Key()),
+				).
 					ConfigureTask(ctx, svcTask, driver.NoCommand))
 				Expect(t).ToNot(BeNil())
 				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
@@ -680,7 +683,8 @@ var _ = Describe("Task", Ordered, func() {
 				}),
 			}
 			t := MustSucceed(newGraphFactory(
-				simpleGraph(ch.Key())).
+				simpleGraph(ch.Key()),
+			).
 				ConfigureTask(ctx, svcTask, driver.NoCommand))
 			Expect(t).ToNot(BeNil())
 			defer func() { Expect(t.Stop(true)).To(Succeed()) }()

@@ -81,7 +81,8 @@ var _ = Describe("Meta", func() {
 									Virtual:  true,
 									DataType: telem.Int64T,
 								},
-								json.Codec),
+								json.Codec,
+							),
 						)
 						Expect(createdChannel.Key).To(Equal(key))
 

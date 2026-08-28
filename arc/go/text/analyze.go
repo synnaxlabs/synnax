@@ -2025,10 +2025,12 @@ func processInlineBody(
 	switch decl := synth.AST.(type) {
 	case parser.IStageDeclarationContext:
 		scope, nodes, edges, ok = analyzeTopLevelStage(
-			acontext.Child(ctx, decl).WithScope(synth.Parent), kg, shell)
+			acontext.Child(ctx, decl).WithScope(synth.Parent), kg, shell,
+		)
 	case parser.ISequenceDeclarationContext:
 		scope, nodes, edges, ok = analyzeSequence(
-			acontext.Child(ctx, decl).WithScope(synth.Parent), kg, shell)
+			acontext.Child(ctx, decl).WithScope(synth.Parent), kg, shell,
+		)
 	}
 	if !ok {
 		return ir.Scope{}, false

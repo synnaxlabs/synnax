@@ -173,7 +173,8 @@ func (db *DB) Delete(
 	// Remove old pointers.
 	db.idx.mu.pointers = append(
 		db.idx.mu.pointers[:startDomain],
-		db.idx.mu.pointers[endDomain+1:]...)
+		db.idx.mu.pointers[endDomain+1:]...,
+	)
 
 	if startOffset != 0 {
 		newPointers = append(newPointers, pointer{

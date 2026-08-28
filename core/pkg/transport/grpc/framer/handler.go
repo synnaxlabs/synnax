@@ -455,10 +455,10 @@ func New(
 				) {
 					codec := codec.NewDynamic(channelResolver)
 					return frameStreamerRequestTranslator{
-							codec: codec,
-						}, frameStreamerResponseTranslator{
-							codec: codec,
-						}
+						codec: codec,
+					}, frameStreamerResponseTranslator{
+						codec: codec,
+					}
 				},
 				ServiceDesc: &FrameStreamerService_ServiceDesc,
 			},

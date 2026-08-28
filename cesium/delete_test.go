@@ -953,7 +953,8 @@ var _ = Describe("Delete", func() {
 									18,
 									19,
 								),
-							}),
+							},
+						),
 						))
 						MustSucceed(w.Commit())
 						Expect(w.Close()).To(Succeed())
@@ -1045,7 +1046,8 @@ var _ = Describe("Delete", func() {
 										18,
 										19,
 									),
-								}),
+								},
+							),
 							))
 							MustSucceed(w.Commit())
 							Expect(w.Close()).To(Succeed())
@@ -1142,7 +1144,8 @@ var _ = Describe("Delete", func() {
 									[]telem.Series{
 										telem.NewSeriesV[int64](100, 101, 102),
 										telem.NewSeriesSecondsTSV(10, 11, 12),
-									}),
+									},
+								),
 								))
 								MustSucceed(w.Commit())
 								Expect(w.Close()).To(Succeed())
@@ -1211,7 +1214,8 @@ var _ = Describe("Delete", func() {
 									telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14),
 									telem.NewSeriesV[int64](100, 101, 102, 103, 104),
 									telem.NewSeriesV[int64](100, 101, 102, 103, 104),
-								}),
+								},
+							),
 							))
 							Expect(w.Close()).To(Succeed())
 
@@ -1295,7 +1299,8 @@ var _ = Describe("Delete", func() {
 									telem.NewSeriesSecondsTSV(11, 12, 13, 14),
 									telem.NewSeriesV[int64](101, 102, 103, 104),
 									telem.NewSeriesV[int64](101, 102, 103, 104),
-								}),
+								},
+							),
 							))
 							Expect(w.Close()).To(Succeed())
 
@@ -1623,7 +1628,8 @@ var _ = Describe("Delete", func() {
 									telem.NewSeriesV[int64](100, 101, 102, 103, 104),
 									telem.NewSeriesV[int64](100, 101, 102, 103, 104),
 									telem.NewSeriesV[int64](100, 101, 102, 103, 104),
-								}),
+								},
+							),
 							)).To(Succeed())
 
 							err := db.DeleteTimeRange(

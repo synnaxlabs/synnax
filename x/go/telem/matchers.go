@@ -196,7 +196,8 @@ func MatchWrittenFrame[K xtypes.SizedNumeric](
 		expected: expected,
 		matchSeriesOpts: append(
 			[]SeriesMatcherOption{ExcludeSeriesFields("TimeRange", "Alignment")},
-			opts...),
+			opts...,
+		),
 	}
 }
 
@@ -220,7 +221,8 @@ func (m *frameMatcher[K]) Match(actual any) (success bool, err error) {
 		for i, s := range decodedSeries.Series {
 			matched, err := MatchSeries(
 				originalSeries.Series[i],
-				m.matchSeriesOpts...).Match(s)
+				m.matchSeriesOpts...,
+			).Match(s)
 			if !matched || err != nil {
 				return matched, err
 			}

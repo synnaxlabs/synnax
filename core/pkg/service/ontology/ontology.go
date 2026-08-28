@@ -112,7 +112,8 @@ func Open(ctx context.Context, configs ...Config) (_ *Ontology, err error) {
 			Instrumentation: cfg.Instrumentation,
 			Indexes:         o.relIndexes.all(),
 			Migrations:      versions.RelationshipMigrations,
-		}); !ok(err, o.relationshipTable) {
+		},
+	); !ok(err, o.relationshipTable) {
 		return nil, err
 	}
 

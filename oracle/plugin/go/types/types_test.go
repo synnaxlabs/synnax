@@ -2798,7 +2798,8 @@ Entry struct {
 					resp := MustGenerate(ctx, source, "user", loader, goPlugin)
 					Expect(resp.Files).To(HaveLen(1))
 					Expect(resp.Files[0].Path).To(
-						Equal("core/pkg/service/user/types.gen.go"))
+						Equal("core/pkg/service/user/types.gen.go"),
+					)
 					ExpectContent(resp, "types.gen.go").
 						ToContain("package user", "type User struct {").
 						ToNotContain("types/v")

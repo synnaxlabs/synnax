@@ -186,7 +186,8 @@ var _ = Describe("Context", func() {
 				analyzer.AnalyzeProgram(ctx)
 				seqDecl := ast.AllTopLevelItem()[0].SequenceDeclaration()
 				scope := MustSucceed(analyzerContext.ResolveOwnScope(
-					analyzerContext.Child(ctx, seqDecl)))
+					analyzerContext.Child(ctx, seqDecl),
+				))
 				Expect(scope.Name).To(Equal("main"))
 				Expect(scope.Kind).To(Equal(symbol.KindSequence))
 			},
@@ -206,7 +207,8 @@ var _ = Describe("Context", func() {
 				seqScope := MustSucceed(ctx.Scope.Resolve(ctx, "main"))
 				stageDecl := seqDecl.AllSequenceItem()[0].StageDeclaration()
 				scope := MustSucceed(analyzerContext.ResolveOwnScope(
-					analyzerContext.Child(ctx, stageDecl).WithScope(seqScope)))
+					analyzerContext.Child(ctx, stageDecl).WithScope(seqScope),
+				))
 				Expect(scope.Kind).To(Equal(symbol.KindStage))
 			},
 		)
