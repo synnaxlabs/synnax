@@ -200,7 +200,9 @@ var _ = Describe("format-string end-to-end runtime", func() {
 				"f64",
 				types.F64(),
 				telem.Float64T,
-				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float64](0.1234567890123456)) },
+				func(h *runtimeHarness) {
+					h.Ingest(100, telem.NewSeriesV(0.1234567890123456))
+				},
 				"x=0.1234567890123456",
 			),
 		)
@@ -483,7 +485,7 @@ trig -> f{}`, "v=false"),
 				"f64",
 				types.F64(),
 				telem.Float64T,
-				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float64](3.14159)) },
+				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV(3.14159)) },
 				"3.1416",
 			),
 			Entry(
@@ -492,7 +494,7 @@ trig -> f{}`, "v=false"),
 				"f64",
 				types.F64(),
 				telem.Float64T,
-				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float64](0.000123)) },
+				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV(0.000123)) },
 				"0.000123",
 			),
 		)
@@ -628,7 +630,7 @@ trig -> f{}`, "v=false"),
 					channels.Digest{Key: 101, DataType: telem.StringT},
 				)
 				defer h.Close(ctx)
-				h.Ingest(100, telem.NewSeriesV[float64](3.14159))
+				h.Ingest(100, telem.NewSeriesV(3.14159))
 				for range 5 {
 					h.Tick(ctx, telem.Millisecond)
 					h.channelState.ClearReads()

@@ -35,7 +35,7 @@ func compileForStatement(
 	case hasComma && len(idents) == 2:
 		return false, compileForTwoIdent(ctx, clause, expr)
 	case hasDeclare && len(idents) == 1:
-		return false, compileForSingleIdent(ctx, clause, idents[0].GetText(), expr)
+		return false, compileForSingleIdent(ctx, idents[0].GetText(), expr)
 	case expr != nil:
 		return false, compileForCondition(ctx, expr)
 	default:
@@ -45,14 +45,13 @@ func compileForStatement(
 
 func compileForSingleIdent(
 	ctx context.Context[parser.IForStatementContext],
-	clause parser.IForClauseContext,
 	name string,
 	expr parser.IExpressionContext,
 ) error {
 	if funcCall, ok := isRangeCallExpr(expr); ok {
-		return compileForRange(ctx, clause, name, funcCall)
+		return compileForRange(ctx, name, funcCall)
 	}
-	return compileForSeriesIteration(ctx, clause, name, "", expr)
+	return compileForSeriesIteration(ctx, name, "", expr)
 }
 
 func compileForTwoIdent(
@@ -63,7 +62,7 @@ func compileForTwoIdent(
 	idents := clause.AllIDENTIFIER()
 	indexName := idents[0].GetText()
 	elemName := idents[1].GetText()
-	return compileForSeriesIteration(ctx, clause, elemName, indexName, expr)
+	return compileForSeriesIteration(ctx, elemName, indexName, expr)
 }
 
 func isRangeCallExpr(
@@ -97,7 +96,6 @@ func isRangeCallExpr(
 
 func compileForRange(
 	ctx context.Context[parser.IForStatementContext],
-	clause parser.IForClauseContext,
 	name string,
 	funcCall parser.IFunctionCallSuffixContext,
 ) error {
@@ -244,9 +242,7 @@ func compileForRange(
 
 func compileForSeriesIteration(
 	ctx context.Context[parser.IForStatementContext],
-	clause parser.IForClauseContext,
-	elemName string,
-	indexName string,
+	elemName, indexName string,
 	expr parser.IExpressionContext,
 ) error {
 	loopScope, err := ctx.Scope.GetChildByParserRule(ctx.AST)

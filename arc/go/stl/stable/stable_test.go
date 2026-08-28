@@ -860,7 +860,7 @@ var _ = Describe("StableFor type preservation", func() {
 		Entry("i32", types.I32(), telem.NewSeriesV[int32](-100_000)),
 		Entry("i64", types.I64(), telem.NewSeriesV[int64](-5_000_000_000)),
 		Entry("f32", types.F32(), telem.NewSeriesV[float32](4.321)),
-		Entry("f64", types.F64(), telem.NewSeriesV[float64](4.321)),
-		Entry("bool", types.Bool(), telem.NewSeriesV[bool](true)),
+		Entry("f64", types.F64(), telem.NewSeriesV(4.321)),
+		Entry("bool", types.Bool(), telem.NewSeriesV(true)),
 	)
 })

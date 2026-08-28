@@ -53,7 +53,7 @@ func CollectDeclarations(ctx acontext.Context[parser.IProgramContext]) {
 			collectInput(ctx, fn.InputBlock(), &inputs)
 			parensStart := len(inputs)
 			collectInputs(ctx.Child(fn.TriggerList()), &inputs)
-			collectOutputs(ctx, fn.OutputType(), &outputs)
+			collectOutputs(fn.OutputType(), &outputs)
 
 			trigger := symbol.TriggerOnly
 			if len(inputs) > parensStart {
@@ -177,8 +177,7 @@ func collectInputs(
 }
 
 // collectOutputs extracts output types without adding them to scope.
-func collectOutputs[T antlr.ParserRuleContext](
-	ctx acontext.Context[T],
+func collectOutputs(
 	outputType parser.IOutputTypeContext,
 	outputs *types.Params,
 ) {

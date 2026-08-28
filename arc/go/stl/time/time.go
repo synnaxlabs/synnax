@@ -388,8 +388,8 @@ func (i *Interval) Next(ctx node.Context) {
 	outputTime := i.OutputTime(0)
 	output.Resize(1)
 	outputTime.Resize(1)
-	output.SetValueAt[uint8](0, uint8(1))
-	outputTime.SetValueAt[telem.TimeStamp](0, i.clock.Now())
+	output.SetValueAt(0, uint8(1))
+	outputTime.SetValueAt(0, i.clock.Now())
 }
 
 // Reset resets the interval so it fires immediately on the next timer tick.
@@ -438,8 +438,8 @@ func (w *Wait) Next(ctx node.Context) {
 	outputTime := w.OutputTime(0)
 	output.Resize(1)
 	outputTime.Resize(1)
-	output.SetValueAt[uint8](0, uint8(1))
-	outputTime.SetValueAt[telem.TimeStamp](0, w.clock.Now())
+	output.SetValueAt(0, uint8(1))
+	outputTime.SetValueAt(0, w.clock.Now())
 	ctx.MarkChanged(0)
 }
 
@@ -464,8 +464,8 @@ func (n *Now) Next(ctx node.Context) {
 	outputTime := n.OutputTime(0)
 	output.Resize(1)
 	outputTime.Resize(1)
-	output.SetValueAt[telem.TimeStamp](0, ts)
-	outputTime.SetValueAt[telem.TimeStamp](0, ts)
+	output.SetValueAt(0, ts)
+	outputTime.SetValueAt(0, ts)
 	ctx.MarkChanged(0)
 }
 

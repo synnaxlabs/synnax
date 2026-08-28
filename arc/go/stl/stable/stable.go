@@ -183,7 +183,7 @@ func (s *forNode) Next(ctx node.Context) {
 			out := s.Output(0)
 			out.Resize(1)
 			copy(out.Data, s.value)
-			*s.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](s.now())
+			*s.OutputTime(0) = telem.NewSeriesV(s.now())
 			s.lastSent = bytes.Clone(s.value)
 			ctx.MarkChanged(0)
 		}

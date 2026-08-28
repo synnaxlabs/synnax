@@ -715,8 +715,8 @@ var _ = Describe("Calculation", Ordered, func() {
 				expectReset(
 					ctx,
 					calc,
-					telem.NewSeriesV[bool](false, false, false),
-					telem.NewSeriesV[bool](true, false),
+					telem.NewSeriesV(false, false, false),
+					telem.NewSeriesV(true, false),
 				)
 			})
 

@@ -1161,8 +1161,8 @@ var _ = Describe("Bool expression pipelines end-to-end runtime", func() {
 		)
 		defer h.Close(ctx)
 
-		h.Ingest(100, telem.NewSeriesV[bool](true))
-		h.Ingest(200, telem.NewSeriesV[bool](true))
+		h.Ingest(100, telem.NewSeriesV(true))
+		h.Ingest(200, telem.NewSeriesV(true))
 		h.Tick(ctx, telem.Millisecond)
 		h.channelState.ClearReads()
 		out, changed := h.Flush()
@@ -1171,8 +1171,8 @@ var _ = Describe("Bool expression pipelines end-to-end runtime", func() {
 			out.Get(300).Series[0].Unmarshal[bool](),
 		).To(Equal([]bool{true}))
 
-		h.Ingest(100, telem.NewSeriesV[bool](true))
-		h.Ingest(200, telem.NewSeriesV[bool](false))
+		h.Ingest(100, telem.NewSeriesV(true))
+		h.Ingest(200, telem.NewSeriesV(false))
 		h.Tick(ctx, 2*telem.Millisecond)
 		h.channelState.ClearReads()
 		out2, _ := h.Flush()

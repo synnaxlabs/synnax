@@ -417,7 +417,7 @@ func applyTypeSubstitutionsToSymbols[T antlr.ParserRuleContext](
 		scope.Type = ctx.Constraints.ApplySubstitutions(scope.Type)
 	}
 	for _, child := range scope.Children() {
-		applyTypeSubstitutionsToSymbols[T](ctx, child)
+		applyTypeSubstitutionsToSymbols(ctx, child)
 	}
 }
 

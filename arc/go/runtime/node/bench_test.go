@@ -84,8 +84,7 @@ func benchmarkChannelStateForWrites(indexed bool) *channels.ProgramState {
 func BenchmarkWriteChannelU8Indexed(b *testing.B) {
 	s := benchmarkChannelStateForWrites(true)
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		s.WriteChannelU8(1, uint8(i))
 	}
 }
@@ -93,8 +92,7 @@ func BenchmarkWriteChannelU8Indexed(b *testing.B) {
 func BenchmarkWriteChannelU8NoIndex(b *testing.B) {
 	s := benchmarkChannelStateForWrites(false)
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		s.WriteChannelU8(1, uint8(i))
 	}
 }
@@ -103,8 +101,7 @@ func BenchmarkWriteChannelU8SameKeyFlush(b *testing.B) {
 	const writesPerCycle = 128
 	s := benchmarkChannelStateForWrites(true)
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		for j := range writesPerCycle {
 			s.WriteChannelU8(1, uint8(j))
 		}
@@ -120,8 +117,7 @@ func BenchmarkFlushManyKeysSingleWrite(b *testing.B) {
 	}
 	s := channels.NewProgramState(digests)
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		for k := range keys {
 			s.WriteChannelU8(uint32(k+1), uint8(k))
 		}

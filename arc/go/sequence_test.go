@@ -96,7 +96,7 @@ var _ = Describe("Sequence", func() {
 
 	// triggerBool is trigger for a bool channel: it ingests true instead of u8=1.
 	triggerBool := func(h *runtimeHarness, ctx SpecContext, key uint32) {
-		h.Ingest(key, telem.NewSeriesV[bool](true))
+		h.Ingest(key, telem.NewSeriesV(true))
 		for range 5 {
 			h.Tick(ctx, telem.Millisecond)
 			h.channelState.ClearReads()
@@ -671,7 +671,7 @@ var _ = Describe("Sequence", func() {
 			)
 		}
 		pushSrc := func(h *runtimeHarness, ctx SpecContext, v float32) {
-			h.Ingest(101, telem.NewSeriesV[float32](v))
+			h.Ingest(101, telem.NewSeriesV(v))
 			for range 5 {
 				advance(h, ctx, telem.Millisecond)
 			}
@@ -782,7 +782,7 @@ var _ = Describe("Sequence", func() {
 			)
 		}
 		pushC := func(h *runtimeHarness, ctx SpecContext, v uint8) {
-			h.Ingest(202, telem.NewSeriesV[uint8](v))
+			h.Ingest(202, telem.NewSeriesV(v))
 			for range 5 {
 				advance(h, ctx, telem.Millisecond)
 			}
@@ -1910,7 +1910,7 @@ var _ = Describe("Sequence", func() {
 			h.Ingest(102, telem.NewSeriesV[float64](5)) // cpu > 0
 			h.Ingest(
 				101,
-				telem.NewSeriesV[bool](true),
+				telem.NewSeriesV(true),
 			) // trigger -> select true -> enter body
 			h.Tick(ctx, telem.Millisecond)
 			h.channelState.ClearReads()
@@ -1923,7 +1923,7 @@ var _ = Describe("Sequence", func() {
 			h.Ingest(100, telem.NewSeriesV[uint8](1))
 			h.Tick(ctx, telem.Millisecond)
 			h.Ingest(102, telem.NewSeriesV[float64](5))
-			h.Ingest(101, telem.NewSeriesV[bool](true))
+			h.Ingest(101, telem.NewSeriesV(true))
 			h.Tick(ctx, telem.Millisecond)
 			h.channelState.ClearReads()
 			out, _ := h.Flush()
@@ -1945,7 +1945,7 @@ var _ = Describe("Sequence", func() {
 				defer h.Close(ctx)
 				enter(h, ctx)
 				for range 9 { // spam trigger -> re-activate the already-active stage
-					h.Ingest(101, telem.NewSeriesV[bool](true))
+					h.Ingest(101, telem.NewSeriesV(true))
 					h.Tick(ctx, telem.Millisecond)
 					h.channelState.ClearReads()
 				}
@@ -2014,7 +2014,7 @@ var _ = Describe("Sequence", func() {
 
 				h.Ingest(100, telem.NewSeriesV[uint8](1)) // activate WU -> router
 				h.Tick(ctx, telem.Millisecond)
-				h.Ingest(101, telem.NewSeriesV[bool](flag))
+				h.Ingest(101, telem.NewSeriesV(flag))
 				h.Tick(ctx, telem.Millisecond)
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
@@ -2070,7 +2070,7 @@ var _ = Describe("Sequence", func() {
 
 				h.Ingest(100, telem.NewSeriesV[uint8](1)) // activate WU -> router
 				h.Tick(ctx, telem.Millisecond)
-				h.Ingest(101, telem.NewSeriesV[float64](signal))
+				h.Ingest(101, telem.NewSeriesV(signal))
 				h.Tick(ctx, telem.Millisecond)
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
@@ -2109,7 +2109,7 @@ var _ = Describe("Sequence", func() {
 				)
 				defer h.Close(ctx)
 
-				h.Ingest(100, telem.NewSeriesV[bool](true))
+				h.Ingest(100, telem.NewSeriesV(true))
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 101)).To(Equal(uint8(1)),
@@ -2141,7 +2141,7 @@ var _ = Describe("Sequence", func() {
 				)
 				defer h.Close(ctx)
 
-				h.Ingest(101, telem.NewSeriesV[bool](true))
+				h.Ingest(101, telem.NewSeriesV(true))
 				advance(h, ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(out.Get(102).Series).To(BeEmpty(),
@@ -2149,7 +2149,7 @@ var _ = Describe("Sequence", func() {
 
 				h.Ingest(100, telem.NewSeriesV[uint8](1))
 				h.Tick(ctx, telem.Millisecond)
-				h.Ingest(101, telem.NewSeriesV[bool](true))
+				h.Ingest(101, telem.NewSeriesV(true))
 				h.Tick(ctx, telem.Millisecond)
 				out, _ = h.Flush()
 				Expect(lastU8(out, 102)).To(Equal(uint8(1)),
@@ -2180,7 +2180,7 @@ var _ = Describe("Sequence", func() {
 				)
 				defer h.Close(ctx)
 
-				h.Ingest(100, telem.NewSeriesV[bool](true))
+				h.Ingest(100, telem.NewSeriesV(true))
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 101)).To(Equal(uint8(1)),
@@ -2214,7 +2214,7 @@ var _ = Describe("Sequence", func() {
 
 				h.Ingest(100, telem.NewSeriesV[uint8](1))
 				h.Tick(ctx, telem.Millisecond)
-				h.Ingest(101, telem.NewSeriesV[bool](true))
+				h.Ingest(101, telem.NewSeriesV(true))
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 102)).To(Equal(uint8(1)),
@@ -2256,7 +2256,7 @@ var _ = Describe("Sequence", func() {
 
 				h.Ingest(100, telem.NewSeriesV[uint8](1))
 				h.Tick(ctx, telem.Millisecond)
-				h.Ingest(101, telem.NewSeriesV[bool](true))
+				h.Ingest(101, telem.NewSeriesV(true))
 				h.Tick(ctx, telem.Millisecond)
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
@@ -2296,7 +2296,7 @@ var _ = Describe("Sequence", func() {
 
 				h.Ingest(100, telem.NewSeriesV[uint8](1))
 				h.Tick(ctx, telem.Millisecond)
-				h.Ingest(101, telem.NewSeriesV[bool](true))
+				h.Ingest(101, telem.NewSeriesV(true))
 				h.Tick(ctx, telem.Millisecond)
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
@@ -2336,7 +2336,7 @@ var _ = Describe("Sequence", func() {
 
 				h.Ingest(100, telem.NewSeriesV[uint8](1))
 				h.Tick(ctx, telem.Millisecond)
-				h.Ingest(101, telem.NewSeriesV[bool](true))
+				h.Ingest(101, telem.NewSeriesV(true))
 				h.Tick(ctx, telem.Millisecond)
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
@@ -4630,7 +4630,7 @@ var _ = Describe("Sequence", func() {
 
 			var got []uint8
 			feed := func(v uint8) {
-				h.Ingest(201, telem.NewSeriesV[uint8](v))
+				h.Ingest(201, telem.NewSeriesV(v))
 				for range 5 {
 					advance(h, ctx, telem.Millisecond)
 				}
@@ -4664,7 +4664,7 @@ var _ = Describe("Sequence", func() {
 
 			var got []string
 			feed := func(v uint8) {
-				h.Ingest(201, telem.NewSeriesV[uint8](v))
+				h.Ingest(201, telem.NewSeriesV(v))
 				for range 5 {
 					advance(h, ctx, telem.Millisecond)
 				}
@@ -5113,7 +5113,7 @@ var _ = Describe("Sequence", func() {
 					}
 				}
 				step := func(val uint8) {
-					h.Ingest(200, telem.NewSeriesV[uint8](val))
+					h.Ingest(200, telem.NewSeriesV(val))
 					for range 5 {
 						advance(h, ctx, telem.Millisecond)
 					}
@@ -6037,7 +6037,7 @@ var _ = Describe("Sequence", func() {
 			)
 		}
 		pushVal := func(h *runtimeHarness, ctx SpecContext, v uint8) {
-			h.Ingest(301, telem.NewSeriesV[uint8](v))
+			h.Ingest(301, telem.NewSeriesV(v))
 			for range 5 {
 				advance(h, ctx, telem.Millisecond)
 			}
@@ -6258,7 +6258,7 @@ var _ = Describe("Sequence", func() {
 			)
 		}
 		pushTag := func(h *runtimeHarness, ctx SpecContext, v string) {
-			h.Ingest(301, telem.NewSeriesV[string](v))
+			h.Ingest(301, telem.NewSeriesV(v))
 			for range 5 {
 				advance(h, ctx, telem.Millisecond)
 			}
@@ -6344,7 +6344,7 @@ var _ = Describe("Sequence", func() {
 			)
 		}
 		pushTag := func(h *runtimeHarness, ctx SpecContext, v string) {
-			h.Ingest(311, telem.NewSeriesV[string](v))
+			h.Ingest(311, telem.NewSeriesV(v))
 			for range 5 {
 				advance(h, ctx, telem.Millisecond)
 			}
@@ -6431,7 +6431,7 @@ var _ = Describe("Sequence", func() {
 			)
 		}
 		pushData := func(h *runtimeHarness, ctx SpecContext, v float32) {
-			h.Ingest(321, telem.NewSeriesV[float32](v))
+			h.Ingest(321, telem.NewSeriesV(v))
 			for range 5 {
 				advance(h, ctx, telem.Millisecond)
 			}
@@ -6970,7 +6970,7 @@ var _ = Describe("Sequence", func() {
 			)
 			defer h.Close(ctx)
 			for _, sample := range []float32{2.5, 3.5, 4.5} {
-				h.Ingest(365, telem.NewSeriesV[float32](sample))
+				h.Ingest(365, telem.NewSeriesV(sample))
 				for range 5 {
 					advance(h, ctx, telem.Millisecond)
 				}

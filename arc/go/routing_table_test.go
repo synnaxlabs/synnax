@@ -853,7 +853,7 @@ var _ = Describe("Routing Table Runtime", func() {
 
 				// Tick 1: flag=1 (truthy). select routes to "true" output,
 				// activating open_valve.
-				h.Ingest(100, telem.NewSeriesV[bool](true))
+				h.Ingest(100, telem.NewSeriesV(true))
 				h.Tick(ctx, telem.Millisecond)
 				h.channelState.ClearReads()
 
@@ -872,7 +872,7 @@ var _ = Describe("Routing Table Runtime", func() {
 
 				// Tick 2: flag=0 (falsy). select routes to "false" output,
 				// activating shut_valve.
-				h.Ingest(100, telem.NewSeriesV[bool](false))
+				h.Ingest(100, telem.NewSeriesV(false))
 				h.Tick(ctx, 2*telem.Millisecond)
 				h.channelState.ClearReads()
 
@@ -923,7 +923,7 @@ var _ = Describe("Routing Table Runtime", func() {
 			)
 			defer h.Close(ctx)
 
-			h.Ingest(100, telem.NewSeriesV[bool](true))
+			h.Ingest(100, telem.NewSeriesV(true))
 			h.Tick(ctx, telem.Millisecond)
 			h.channelState.ClearReads()
 
@@ -958,7 +958,7 @@ var _ = Describe("Routing Table Runtime", func() {
 			defer h.Close(ctx)
 
 			// True branch: the entry writes its own literal true.
-			h.Ingest(100, telem.NewSeriesV[bool](true))
+			h.Ingest(100, telem.NewSeriesV(true))
 			h.Tick(ctx, telem.Millisecond)
 			h.channelState.ClearReads()
 
@@ -971,7 +971,7 @@ var _ = Describe("Routing Table Runtime", func() {
 
 			// False branch: the entry writes literal false, not the 1-valued
 			// pulse the select node emits to gate the branch.
-			h.Ingest(100, telem.NewSeriesV[bool](false))
+			h.Ingest(100, telem.NewSeriesV(false))
 			h.Tick(ctx, 2*telem.Millisecond)
 			h.channelState.ClearReads()
 
@@ -1005,7 +1005,7 @@ var _ = Describe("Routing Table Runtime", func() {
 
 				// True branch activates the inline stage; its body fires on
 				// activation with no upstream flow in the entry.
-				h.Ingest(100, telem.NewSeriesV[bool](true))
+				h.Ingest(100, telem.NewSeriesV(true))
 				h.Tick(ctx, telem.Millisecond)
 				h.channelState.ClearReads()
 
@@ -1018,7 +1018,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				Expect(out.Get(300).Series).To(BeEmpty())
 
 				// False branch activates the inline sequence the same way.
-				h.Ingest(100, telem.NewSeriesV[bool](false))
+				h.Ingest(100, telem.NewSeriesV(false))
 				h.Tick(ctx, 2*telem.Millisecond)
 				h.channelState.ClearReads()
 
