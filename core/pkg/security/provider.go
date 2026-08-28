@@ -30,10 +30,17 @@ type TLSProvider interface {
 	// NodeClientConfig returns the tls.Config the node uses when dialing peers, backed
 	// by the node's own certificate. It returns nil in insecure mode.
 	NodeClientConfig() *tls.Config
-	// VerifyCoreCert confirms src serves a certificate that chains to the Core CA and
-	// is valid for host, the two checks peers perform when dialing this node. It is a
-	// no-op in insecure mode.
-	VerifyCoreCert(src cert.Source, host string) error
+	// VerifyCertHost confirms src serves a certificate valid for host, the hostname
+	// check every client performs when dialing this node. It does not check the issuer:
+	// an externally issued certificate is a valid choice. No-op in insecure mode.
+	VerifyCertHost(src cert.Source, host string) error
+	// VerifyCertCoreCA confirms src serves a certificate chaining to the Core CA. Only
+	// peers need it, since they trust that CA alone. No-op in insecure mode.
+	VerifyCertCoreCA(src cert.Source) error
+	// VerifyCertTrustAnchors confirms src serves a certificate chaining to one of the
+	// Core's trust anchors, the list the embedded Driver verifies against. No-op in
+	// insecure mode.
+	VerifyCertTrustAnchors(src cert.Source) error
 }
 
 // KeyProvider provides information of private keys for the node.

@@ -333,6 +333,72 @@ describe("Writer", () => {
       expect(f.length).toEqual(10);
     });
 
+    test("setAuthority naming only the data channel", async () => {
+      // Covering the index is the server's job: a data sample cannot be
+      // written without its timestamp.
+      const channels = await newIndexedPair(client);
+      const start = TimeStamp.seconds(5);
+      const w1 = await client.openWriter({
+        start,
+        channels,
+        authorities: 10,
+      });
+      const w2 = await client.openWriter({
+        start,
+        channels,
+        authorities: 20,
+      });
+      const [index, data] = channels;
+      await w1.write({
+        [index.key]: secondsLinspace(5, 10),
+        [data.key]: randomSeries(10, data.dataType),
+      });
+      let f = await index.read(TimeRange.MAX);
+      expect(f.length).toEqual(0);
+
+      await w1.setAuthority({ [data.key]: 100 });
+      await w1.write({
+        [index.key]: secondsLinspace(5, 10),
+        [data.key]: randomSeries(10, data.dataType),
+      });
+      await w1.close();
+      await w2.close();
+      f = await index.read(TimeRange.MAX);
+      expect(f.length).toEqual(10);
+    });
+
+    test("setAuthority naming only the data channel by name", async () => {
+      const channels = await newIndexedPair(client);
+      const start = TimeStamp.seconds(5);
+      const w1 = await client.openWriter({
+        start,
+        channels,
+        authorities: 10,
+      });
+      const w2 = await client.openWriter({
+        start,
+        channels,
+        authorities: 20,
+      });
+      const [index, data] = channels;
+      await w1.write({
+        [index.key]: secondsLinspace(5, 10),
+        [data.key]: randomSeries(10, data.dataType),
+      });
+      let f = await index.read(TimeRange.MAX);
+      expect(f.length).toEqual(0);
+
+      await w1.setAuthority({ [data.name]: 100 });
+      await w1.write({
+        [index.key]: secondsLinspace(5, 10),
+        [data.key]: randomSeries(10, data.dataType),
+      });
+      await w1.close();
+      await w2.close();
+      f = await index.read(TimeRange.MAX);
+      expect(f.length).toEqual(10);
+    });
+
     test("setAuthority with name keys", async () => {
       const channels = await newIndexedPair(client);
       const start = TimeStamp.seconds(5);

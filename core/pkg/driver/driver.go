@@ -36,10 +36,14 @@ import (
 	"go.uber.org/zap"
 )
 
+// trustAnchorFileName is the file in the Driver's working directory that holds the
+// certificates it verifies the Core against.
+const trustAnchorFileName = "trust-anchors.pem"
+
 // Config is the configuration for opening an embedded Driver.
 type Config struct {
 	// Insecure sets whether not to use TLS for communication. If insecure is set to
-	// true, CACertPath, ClientCertFile, and ClientKeyFile are ignored.
+	// true, TrustAnchorsPEM, ClientCertFile, and ClientKeyFile are ignored.
 	Insecure *bool `json:"insecure"`
 	// Enabled is used to enable or disable the embedded Driver.
 	Enabled *bool `json:"enabled"`
@@ -50,10 +54,10 @@ type Config struct {
 	// Credentials are the authentication credentials the Driver should use when
 	// connecting to the Core.
 	Credentials auth.Credentials
-	// CACertPath sets the path to the CA certificate to use for authenticated/encrypted
-	// communication. Not required if the CA is universally recognized or already
-	// installed on the users' system.
-	CACertPath string `json:"ca_cert_path"`
+	// TrustAnchorsPEM holds the PEM certificates the Driver verifies the Core against.
+	// Not required if the Core serves a certificate the system trust store already
+	// recognizes. The Driver writes them to its own working directory.
+	TrustAnchorsPEM []byte `json:"trust_anchors_pem"`
 	// ClientCertFile sets the path to the client cert file to use for
 	// authenticated/encrypted communication.
 	ClientCertFile string `json:"client_cert_file"`
@@ -105,9 +109,11 @@ type Config struct {
 	TaskWorkerCount uint8 `json:"task_worker_count"`
 }
 
-func (c Config) format() map[string]any {
+// format renders the Driver's config file. trustAnchorFile is the path the Driver reads
+// its trust anchors from, empty when the Core has none to give.
+func (c Config) format(trustAnchorFile string) map[string]any {
 	if *c.Insecure {
-		c.CACertPath = ""
+		trustAnchorFile = ""
 		c.ClientCertFile = ""
 		c.ClientKeyFile = ""
 	}
@@ -116,7 +122,7 @@ func (c Config) format() map[string]any {
 			"host":             c.Address.Host(),
 			"port":             c.Address.Port(),
 			"credentials":      c.Credentials,
-			"ca_cert_file":     c.CACertPath,
+			"ca_cert_file":     trustAnchorFile,
 			"client_cert_file": c.ClientCertFile,
 			"client_key_file":  c.ClientKeyFile,
 		},
@@ -176,7 +182,7 @@ func (c Config) Override(other Config) Config {
 	c.ClusterKey = override.UUID(c.ClusterKey, other.ClusterKey)
 	c.Integrations = override.Slice(c.Integrations, other.Integrations)
 	c.Insecure = override.Nil(c.Insecure, other.Insecure)
-	c.CACertPath = override.String(c.CACertPath, other.CACertPath)
+	c.TrustAnchorsPEM = override.Slice(c.TrustAnchorsPEM, other.TrustAnchorsPEM)
 	c.ClientCertFile = override.String(c.ClientCertFile, other.ClientCertFile)
 	c.ClientKeyFile = override.String(c.ClientKeyFile, other.ClientKeyFile)
 	c.Credentials = override.Zero(c.Credentials, other.Credentials)
@@ -380,11 +386,15 @@ func (d *Driver) runOnce(
 	policy *restart.Policy,
 	startedOnce *sync.Once,
 ) (restart.Action, error) {
-	cmd, cfgFile, extractedBinary, err := d.setupCmd(ctx)
-	if cfgFile != "" {
+	cmd, tempFiles, extractedBinary, err := d.setupCmd(ctx)
+	for _, f := range tempFiles {
 		defer func() {
-			if rmErr := os.Remove(cfgFile); rmErr != nil {
-				d.cfg.L.Error("failed to remove config file", zap.Error(rmErr))
+			if rmErr := os.Remove(f); rmErr != nil {
+				d.cfg.L.Error(
+					"failed to remove driver file",
+					zap.String("path", f),
+					zap.Error(rmErr),
+				)
 			}
 		}()
 	}
@@ -464,33 +474,46 @@ func (d *Driver) close() error {
 	return d.shutdown.Close()
 }
 
-// setupCmd writes the config file, extracts the binary, and constructs the subprocess
-// command bound to ctx. Canceling ctx asks the Driver to stop gracefully (a STOP write
-// via cmd.Cancel) and escalates to a kill after StopTimeout (cmd.WaitDelay). It returns
-// the command and the paths of any temp files created so the caller can defer their
-// cleanup.
+// setupCmd writes the config file and trust anchors, extracts the binary, and
+// constructs the subprocess command bound to ctx. Canceling ctx asks the Driver to stop
+// gracefully (a STOP write via cmd.Cancel) and escalates to a kill after StopTimeout
+// (cmd.WaitDelay). It returns the command and the paths of any temp files created so
+// the caller can defer their cleanup.
 func (d *Driver) setupCmd(
 	ctx context.Context,
-) (_ *exec.Cmd, cfgFile, extractedBinary string, _ error) {
-	b, err := json.Marshal(d.cfg.format())
-	if err != nil {
-		return nil, "", "", err
-	}
+) (_ *exec.Cmd, tempFiles []string, extractedBinary string, _ error) {
 	workDir := filepath.Join(d.cfg.ParentDirname, "driver")
-	if err = os.MkdirAll(workDir, xfs.UserRWX); err != nil {
-		return nil, "", "", err
+	if err := os.MkdirAll(workDir, xfs.UserRWX); err != nil {
+		return nil, tempFiles, "", err
 	}
-	cfgFile = filepath.Join(workDir, "config.json")
+	var trustAnchorFile string
+	if len(d.cfg.TrustAnchorsPEM) > 0 && !*d.cfg.Insecure {
+		trustAnchorFile = filepath.Join(workDir, trustAnchorFileName)
+		if err := os.WriteFile(
+			trustAnchorFile,
+			d.cfg.TrustAnchorsPEM,
+			xfs.UserRW,
+		); err != nil {
+			return nil, tempFiles, "", err
+		}
+		tempFiles = append(tempFiles, trustAnchorFile)
+	}
+	b, err := json.Marshal(d.cfg.format(trustAnchorFile))
+	if err != nil {
+		return nil, tempFiles, "", err
+	}
+	cfgFile := filepath.Join(workDir, "config.json")
 	if err = os.WriteFile(cfgFile, b, xfs.UserRW); err != nil {
-		return nil, "", "", err
+		return nil, tempFiles, "", err
 	}
+	tempFiles = append(tempFiles, cfgFile)
 	data, err := fs.ReadFile(d.cfg.FS, driverName)
 	if err != nil {
-		return nil, cfgFile, "", err
+		return nil, tempFiles, "", err
 	}
 	extractedBinary = filepath.Join(workDir, driverName)
 	if err = os.WriteFile(extractedBinary, data, xfs.UserRWX); err != nil {
-		return nil, cfgFile, "", err
+		return nil, tempFiles, "", err
 	}
 	flags := []string{"start", "--standalone", "--disable-sig-stop", "--no-color"}
 	if *d.cfg.Debug {
@@ -501,12 +524,12 @@ func (d *Driver) setupCmd(
 	configureSysProcAttr(cmd)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
-		return nil, cfgFile, extractedBinary, err
+		return nil, tempFiles, extractedBinary, err
 	}
 	// On ctx cancellation, ask the Driver to stop gracefully via STOP instead of the
 	// default SIGKILL; WaitDelay then escalates to a kill if it does not exit in time
 	// and guarantees the stdin pipe is closed so cmd.Wait cannot block indefinitely.
 	cmd.Cancel = func() error { _, err := io.WriteString(stdin, "STOP\n"); return err }
 	cmd.WaitDelay = d.cfg.StopTimeout
-	return cmd, cfgFile, extractedBinary, nil
+	return cmd, tempFiles, extractedBinary, nil
 }
