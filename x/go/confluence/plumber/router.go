@@ -44,21 +44,19 @@ type UnaryRouter[V cfs.Value] struct {
 }
 
 func (u UnaryRouter[V]) Route(p *Pipeline) error {
-	return route(p, u.SourceTarget, u.SinkTarget, cfs.NewStream[V](u.Capacity))
+	return p.route(u.SourceTarget, u.SinkTarget, cfs.NewStream[V](u.Capacity))
 }
 
 func (u UnaryRouter[V]) MustRoute(p *Pipeline) {
 	lo.Must0(u.Route(p))
 }
 
-func MustConnect[V cfs.Value](pipe *Pipeline, source, sink address.Address, cap int) {
+func (p *Pipeline) MustConnect[V cfs.Value](source, sink address.Address, cap int) {
 	UnaryRouter[V]{
 		SourceTarget: source,
 		SinkTarget:   sink,
 		Capacity:     cap,
-	}.MustRoute(
-		pipe,
-	)
+	}.MustRoute(p)
 }
 
 type MultiRouter[V cfs.Value] struct {
@@ -87,7 +85,7 @@ func (m MultiRouter[V]) MustRoute(p *Pipeline) {
 func (m MultiRouter[V]) linear(p *Pipeline) error {
 	stream := cfs.NewStream[V](m.Capacity)
 	return m.iterAddresses(func(from, to address.Address) error {
-		return route(p, from, to, stream)
+		return p.route(from, to, stream)
 	})
 }
 
@@ -101,7 +99,7 @@ func (m MultiRouter[V]) convergent(p *Pipeline) error {
 	return iter(m.SinkTargets, func(to address.Address) error {
 		stream := cfs.NewStream[V](m.Capacity)
 		return iter(m.SourceTargets, func(from address.Address) error {
-			return route(p, from, to, stream)
+			return p.route(from, to, stream)
 		})
 	})
 }
@@ -125,16 +123,15 @@ func iter(targets []address.Address, f func(to address.Address) error) error {
 	return nil
 }
 
-func route[V cfs.Value](
-	p *Pipeline,
+func (p *Pipeline) route[V cfs.Value](
 	sourceTarget, sinkTarget address.Address,
 	stream *cfs.Stream[V],
 ) error {
-	source, err := GetSource[V](p, sourceTarget)
+	source, err := p.GetSource[V](sourceTarget)
 	if err != nil {
 		return err
 	}
-	sink, err := GetSink[V](p, sinkTarget)
+	sink, err := p.GetSink[V](sinkTarget)
 	if err != nil {
 		return err
 	}

@@ -90,12 +90,12 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // service.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("device")
-	validate.NotNil(v, "db", c.DB)
-	validate.NotNil(v, "ontology", c.Ontology)
-	validate.NotNil(v, "status", c.Status)
-	validate.NotNil(v, "group", c.Group)
-	validate.NotNil(v, "rack", c.Rack)
-	validate.NotNil(v, "search", c.Search)
+	v.NotNil("db", c.DB)
+	v.NotNil("ontology", c.Ontology)
+	v.NotNil("status", c.Status)
+	v.NotNil("group", c.Group)
+	v.NotNil("rack", c.Rack)
+	v.NotNil("search", c.Search)
 	return v.Error()
 }
 
@@ -145,11 +145,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	ok(nil, xio.NoFailCloserFunc(disconnect))
 	if cfg.Signals != nil {
 		var sig io.Closer
-		if sig, err = signals.PublishFromGorp(
+		if sig, err = cfg.Signals.PublishFromGorp(
 			ctx,
-			cfg.Signals,
 			signals.GorpPublisherConfigString(s.table.Observe()),
-		); !ok(err, sig) {
+		); !ok(
+			err,
+			sig,
+		) {
 			return nil, err
 		}
 	}
@@ -173,7 +175,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		tx:     tx,
 		otg:    s.cfg.Ontology.NewWriter(tx),
 		group:  s.group,
-		status: status.NewWriter[StatusDetails](s.cfg.Status, tx),
+		status: s.cfg.Status.NewWriter[StatusDetails](tx),
 		table:  s.table,
 	}
 }
@@ -206,7 +208,7 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {
 			Details:     StatusDetails{Rack: rackStat.Details.Rack, Device: device.Key},
 		}
 	}
-	if err := status.NewWriter[StatusDetails](s.cfg.Status, nil).
+	if err := s.cfg.Status.NewWriter[StatusDetails](nil).
 		SetMany(ctx, &statuses); err != nil {
 		s.cfg.L.Error("failed to set statuses on suspect rack", zap.Error(err))
 	}

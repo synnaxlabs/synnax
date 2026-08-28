@@ -43,7 +43,7 @@ type Config struct {
 // Validate implements config.Config
 func (cfg Config) Validate() error {
 	v := validate.New("falamos.config")
-	validate.NotNil(v, "instrumentation", cfg.Instrumentation)
+	v.NotNil("instrumentation", cfg.Instrumentation)
 	return v.Error()
 }
 

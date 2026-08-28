@@ -124,7 +124,7 @@ var _ = Describe("Writer", func() {
 			Expect(iter.SeekFirst()).To(BeTrue())
 			Expect(iter.Next(telem.TimeSpanMax)).To(BeTrue())
 			Expect(
-				telem.UnmarshalSeries[string](iter.Value().SeriesAt(0)),
+				iter.Value().SeriesAt(0).Unmarshal[string](),
 			).To(Equal([]string{"hello", "world", "foo"}))
 		})
 		It("Should write mixed fixed and variable channels", func(ctx SpecContext) {
@@ -158,7 +158,7 @@ var _ = Describe("Writer", func() {
 			Expect(iter.SeekFirst()).To(BeTrue())
 			Expect(iter.Next(telem.TimeSpanMax)).To(BeTrue())
 			Expect(
-				telem.UnmarshalSeries[string](iter.Value().SeriesAt(0)),
+				iter.Value().SeriesAt(0).Unmarshal[string](),
 			).To(Equal([]string{"a", "b", "c"}))
 		})
 	})
@@ -415,7 +415,7 @@ var _ = Describe("Writer", func() {
 				}))
 				Expect(iter.SeekFirst()).To(BeTrue())
 				Expect(iter.Next(telem.TimeSpanMax)).To(BeTrue())
-				ts := telem.UnmarshalSeries[telem.TimeStamp](iter.Value().SeriesAt(0))
+				ts := iter.Value().SeriesAt(0).Unmarshal[telem.TimeStamp]()
 				Expect(iter.Close()).To(Succeed())
 
 				Expect(ts).To(HaveLen(3))

@@ -54,7 +54,7 @@ func MigrateData(blob msgpack.EncodedJSON) (Data, error) {
 	}
 	switch version {
 	case v0.Version:
-		return imex.DecodeBlob[v0.Data](blob, "table data", version)
+		return version.DecodeBlob[v0.Data](blob, "table data")
 	default:
 		return Data{}, errors.Newf("unknown table data version %d", version)
 	}

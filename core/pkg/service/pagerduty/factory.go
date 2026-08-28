@@ -49,8 +49,8 @@ func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 // Validate validates the factory configuration.
 func (c FactoryConfig) Validate() error {
 	v := validate.New("pagerduty.factory")
-	validate.NotNil(v, "status", c.Status)
-	validate.NotNil(v, "sender", c.Sender)
+	v.NotNil("status", c.Status)
+	v.NotNil("sender", c.Sender)
 	return v.Error()
 }
 
@@ -131,7 +131,7 @@ func (f *factory) setConfigStatus(
 		Time:    telem.Now(),
 		Details: details,
 	}
-	if err := status.NewWriter[task.StatusDetails](f.cfg.Status, nil).
+	if err := f.cfg.Status.NewWriter[task.StatusDetails](nil).
 		Set(ctx, &stat); err != nil {
 		f.cfg.L.Error(
 			"failed to set configuration status",

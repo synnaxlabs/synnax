@@ -148,8 +148,8 @@ func (w Writer[D]) Delete(ctx context.Context, keys ...Key) error {
 
 func (w Writer[D]) validate(s Status[D]) error {
 	v := validate.New("status.status")
-	validate.NotEmptyString(v, "key", s.Key)
-	validate.Positive(v, "time", s.Time)
-	validate.NotEmptyString(v, "variant", s.Variant)
+	v.NotEmptyString("key", s.Key)
+	v.Positive("time", s.Time)
+	v.NotEmptyString("variant", s.Variant)
 	return v.Error()
 }

@@ -76,10 +76,9 @@ func PeekVersion(blob msgpack.EncodedJSON, resource string) (Version, error) {
 
 // DecodeBlob unmarshals blob as T, treating a nil blob as a zero T so empty entries
 // round-trip without erroring. resource and v name the blob in errors ("log data").
-func DecodeBlob[T any](
+func (v Version) DecodeBlob[T any](
 	blob msgpack.EncodedJSON,
 	resource string,
-	v Version,
 ) (T, error) {
 	var t T
 	if blob == nil {

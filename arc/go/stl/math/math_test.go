@@ -140,7 +140,7 @@ func nextChanged(ctx SpecContext, n node.Node) set.Set[int] {
 func expectOutput[T telem.NumericSample](s *node.ProgramState, values ...T) {
 	result := *s.Node("math").Output(0)
 	Expect(result.Len()).To(Equal(int64(len(values))))
-	vals := telem.UnmarshalSeries[T](result)
+	vals := result.Unmarshal[T]()
 	for i, v := range values {
 		Expect(vals[i]).To(BeNumerically("~", v, 0.01))
 	}
@@ -149,7 +149,7 @@ func expectOutput[T telem.NumericSample](s *node.ProgramState, values ...T) {
 func expectOutputTime(s *node.ProgramState, timestamps ...telem.TimeStamp) {
 	result := *s.Node("math").OutputTime(0)
 	Expect(result.Len()).To(Equal(int64(len(timestamps))))
-	vals := telem.UnmarshalSeries[telem.TimeStamp](result)
+	vals := result.Unmarshal[telem.TimeStamp]()
 	for i, ts := range timestamps {
 		Expect(vals[i]).To(Equal(ts))
 	}
@@ -802,7 +802,7 @@ var _ = Describe("Derivative", func() {
 	expectDerivOutput := func(s *node.ProgramState, values ...float64) {
 		result := *s.Node("deriv").Output(0)
 		Expect(result.Len()).To(Equal(int64(len(values))))
-		vals := telem.UnmarshalSeries[float64](result)
+		vals := result.Unmarshal[float64]()
 		for i, v := range values {
 			Expect(vals[i]).To(BeNumerically("~", v, 0.01))
 		}

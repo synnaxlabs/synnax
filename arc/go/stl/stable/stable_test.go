@@ -187,7 +187,7 @@ var _ = Describe("StableFor", func() {
 			stableNode := s.Node("stable")
 			output := stableNode.Output(0)
 			Expect(output.Len()).To(Equal(int64(1)))
-			outputVals := telem.UnmarshalSeries[uint8](*output)
+			outputVals := output.Unmarshal[uint8]()
 			Expect(outputVals).To(Equal([]uint8{5}))
 		})
 
@@ -327,7 +327,7 @@ var _ = Describe("StableFor", func() {
 
 			stableNode := s.Node("stable")
 			output := stableNode.Output(0)
-			outputVals := telem.UnmarshalSeries[uint8](*output)
+			outputVals := output.Unmarshal[uint8]()
 			Expect(outputVals).To(Equal([]uint8{10}))
 		})
 
@@ -369,7 +369,7 @@ var _ = Describe("StableFor", func() {
 
 			stableNode := s.Node("stable")
 			output := stableNode.Output(0)
-			outputVals := telem.UnmarshalSeries[uint8](*output)
+			outputVals := output.Unmarshal[uint8]()
 			Expect(outputVals).To(Equal([]uint8{7}))
 		})
 
@@ -410,7 +410,7 @@ var _ = Describe("StableFor", func() {
 
 				stableNode := s.Node("stable")
 				outputTime := stableNode.OutputTime(0)
-				outputTimes := telem.UnmarshalSeries[telem.TimeStamp](*outputTime)
+				outputTimes := outputTime.Unmarshal[telem.TimeStamp]()
 				Expect(outputTimes).To(Equal([]telem.TimeStamp{telem.SecondTS * 100}))
 			},
 		)
@@ -770,7 +770,7 @@ var _ = Describe("Variable duration", func() {
 			currentTime = 13 * telem.SecondTS
 			Expect(next(ctx, n)).To(BeTrue())
 			output := s.Node("stable").Output(0)
-			Expect(telem.UnmarshalSeries[uint8](*output)).To(Equal([]uint8{7}))
+			Expect(output.Unmarshal[uint8]()).To(Equal([]uint8{7}))
 		},
 	)
 })

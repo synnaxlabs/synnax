@@ -133,14 +133,14 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("arc")
-	validate.NotNil(v, "db", c.DB)
-	validate.NotNil(v, "ontology", c.Ontology)
-	validate.NotNil(v, "channel", c.Channel)
-	validate.NotNil(v, "task", c.Task)
-	validate.NotNil(v, "status", c.Status)
-	validate.NotNil(v, "search", c.Search)
-	validate.NotNil(v, "imex", c.ImEx)
-	validate.Positive(v, "task_sync_debounce", c.TaskSyncDebounce)
+	v.NotNil("db", c.DB)
+	v.NotNil("ontology", c.Ontology)
+	v.NotNil("channel", c.Channel)
+	v.NotNil("task", c.Task)
+	v.NotNil("status", c.Status)
+	v.NotNil("search", c.Search)
+	v.NotNil("imex", c.ImEx)
+	v.Positive("task_sync_debounce", c.TaskSyncDebounce)
 	return v.Error()
 }
 
@@ -281,11 +281,7 @@ func OpenService(
 		}
 		deleteCfg := signals.GorpPublisherConfigUUID(s.table.Observe())
 		deleteCfg.DisableSet = true
-		if sig, err = signals.PublishFromGorp(
-			ctx,
-			cfg.Signals,
-			deleteCfg,
-		); !ok(
+		if sig, err = cfg.Signals.PublishFromGorp(ctx, deleteCfg); !ok(
 			err,
 			sig,
 		) {

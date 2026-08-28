@@ -134,8 +134,8 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 // Validate implements config.Config.
 func (c LayerConfig) Validate() error {
 	v := validate.New("service")
-	validate.NotNil(v, "distribution", c.Distribution)
-	validate.NotNil(v, "security", c.Security)
+	v.NotNil("distribution", c.Distribution)
+	v.NotNil("security", c.Security)
 	return v.Error()
 }
 
@@ -360,11 +360,13 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, closer) {
 		return nil, err
 	}
-	if closer, err := signals.PublishFromGorp(
+	if closer, err := l.Signals.PublishFromGorp(
 		ctx,
-		l.Signals,
 		signals.GorpPublisherConfigUUID(l.Group.Observe()),
-	); !ok(err, closer) {
+	); !ok(
+		err,
+		closer,
+	) {
 		return nil, err
 	}
 	if closer, err := ontologysignals.Publish(
@@ -375,18 +377,22 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, closer) {
 		return nil, err
 	}
-	if closer, err := signals.PublishFromGorp(
+	if closer, err := l.Signals.PublishFromGorp(
 		ctx,
-		l.Signals,
 		signals.GorpPublisherConfigUUID(l.Label.Observe()),
-	); !ok(err, closer) {
+	); !ok(
+		err,
+		closer,
+	) {
 		return nil, err
 	}
-	if closer, err := signals.PublishFromGorp(
+	if closer, err := l.Signals.PublishFromGorp(
 		ctx,
-		l.Signals,
 		signals.GorpPublisherConfigString(l.Status.Observe()),
-	); !ok(err, closer) {
+	); !ok(
+		err,
+		closer,
+	) {
 		return nil, err
 	}
 	if l.Control, err = control.OpenService(ctx, control.ServiceConfig{
@@ -518,11 +524,13 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Rack) {
 		return nil, err
 	}
-	if closer, err := signals.PublishFromGorp(
+	if closer, err := l.Signals.PublishFromGorp(
 		ctx,
-		l.Signals,
 		signals.GorpPublisherConfigNumeric(l.Rack.Observe(), telem.Uint32T),
-	); !ok(err, closer) {
+	); !ok(
+		err,
+		closer,
+	) {
 		return nil, err
 	}
 	if l.Device, err = device.OpenService(ctx, device.ServiceConfig{

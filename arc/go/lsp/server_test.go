@@ -319,8 +319,8 @@ var _ = Describe("Incremental Sync", func() {
 		// In "\tx := 42", tab=0, x=1, ' '=2, :=3, ==4, ' '=5, 4=6, 2=7
 		Expect(server.DidChange(ctx, &protocol.DidChangeTextDocumentParams{
 			TextDocument: protocol.VersionedTextDocumentIdentifier{
-				TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: docURI},
-				Version:                2,
+				URI:     docURI,
+				Version: 2,
 			},
 			ContentChanges: []protocol.TextDocumentContentChangeEvent{
 				&protocol.TextDocumentContentChangePartial{
@@ -354,9 +354,7 @@ var _ = Describe("Incremental Sync", func() {
 			// content to just "\n".
 			Expect(server.DidChange(ctx, &protocol.DidChangeTextDocumentParams{
 				TextDocument: protocol.VersionedTextDocumentIdentifier{
-					TextDocumentIdentifier: protocol.TextDocumentIdentifier{
-						URI: docURI,
-					},
+					URI:     docURI,
 					Version: 2,
 				},
 				ContentChanges: []protocol.TextDocumentContentChangeEvent{
@@ -393,9 +391,7 @@ var _ = Describe("Incremental Sync", func() {
 			// Enter (replacing the selection with a newline).
 			Expect(server.DidChange(ctx, &protocol.DidChangeTextDocumentParams{
 				TextDocument: protocol.VersionedTextDocumentIdentifier{
-					TextDocumentIdentifier: protocol.TextDocumentIdentifier{
-						URI: docURI,
-					},
+					URI:     docURI,
 					Version: 2,
 				},
 				ContentChanges: []protocol.TextDocumentContentChangeEvent{
@@ -636,9 +632,7 @@ var _ = Describe("Server Lifecycle", func() {
 		It("Should ignore a change for an unopened document", func(ctx SpecContext) {
 			Expect(server.DidChange(ctx, &protocol.DidChangeTextDocumentParams{
 				TextDocument: protocol.VersionedTextDocumentIdentifier{
-					TextDocumentIdentifier: protocol.TextDocumentIdentifier{
-						URI: "file:///unknown.arc",
-					},
+					URI:     "file:///unknown.arc",
 					Version: 2,
 				},
 				ContentChanges: []protocol.TextDocumentContentChangeEvent{

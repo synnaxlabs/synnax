@@ -290,7 +290,7 @@ func (n *State) RefreshInputs() (recalculate bool) {
 		hasDataInput = true
 		src := n.inputSources[i]
 		if src != nil && src.time.Len() > 0 {
-			ts := telem.ValueAt[telem.TimeStamp](src.time, -1)
+			ts := src.time.ValueAt[telem.TimeStamp](-1)
 			if ts > n.accumulated[i].lastTimestamp {
 				consumed := false
 				if n.rearm[i] == rearmOnReset {
@@ -366,13 +366,13 @@ func (n *State) StringInput(name string) string {
 // NumericInput returns the named input's current value: the referenced
 // variable's value when var-bound (its declared initial until first written),
 // else the configured value.
-func NumericInput[T telem.NumericSample](n *State, name string) T {
+func (n *State) NumericInput[T telem.NumericSample](name string) T {
 	i, err := n.ResolveInput(name)
 	if err != nil {
 		return 0
 	}
 	if s := n.RefInput(i); s.Len() > 0 {
-		return telem.ValueAt[T](s, -1)
+		return s.ValueAt[T](-1)
 	}
 	if v := n.params[i].Value; v != nil {
 		return telem.CastNumeric[T](v)
@@ -399,7 +399,7 @@ func (n *State) absorbInput(i int) {
 	}
 	var ts telem.TimeStamp
 	if src.time.Len() > 0 {
-		ts = telem.ValueAt[telem.TimeStamp](src.time, -1)
+		ts = src.time.ValueAt[telem.TimeStamp](-1)
 	}
 	n.accumulated[i] = inputEntry{
 		data:          src.data,
@@ -421,7 +421,7 @@ func (n *State) ConsumeInput(i int) (telem.Series, bool) {
 	}
 	var ts telem.TimeStamp
 	if src.time.Len() > 0 {
-		ts = telem.ValueAt[telem.TimeStamp](src.time, -1)
+		ts = src.time.ValueAt[telem.TimeStamp](-1)
 	}
 	if ts <= n.accumulated[i].lastTimestamp && n.accumulated[i].consumed {
 		return telem.Series{}, false
@@ -446,7 +446,7 @@ func (n *State) InputFresh(i int) bool {
 	}
 	var ts telem.TimeStamp
 	if src.time.Len() > 0 {
-		ts = telem.ValueAt[telem.TimeStamp](src.time, -1)
+		ts = src.time.ValueAt[telem.TimeStamp](-1)
 	}
 	return ts > n.accumulated[i].lastTimestamp || !n.accumulated[i].consumed
 }
@@ -465,7 +465,7 @@ func (n *State) LastChanged() (telem.Series, bool) {
 		}
 		var ts telem.TimeStamp
 		if src.time.Len() > 0 {
-			ts = telem.ValueAt[telem.TimeStamp](src.time, -1)
+			ts = src.time.ValueAt[telem.TimeStamp](-1)
 		}
 		if ts <= n.accumulated[i].lastTimestamp && n.accumulated[i].consumed {
 			continue
@@ -552,29 +552,29 @@ func isSeriesTruthy(s telem.Series) bool {
 	dt := s.DataType
 	switch dt {
 	case telem.Float64T:
-		return telem.ValueAt[float64](s, -1) != 0
+		return s.ValueAt[float64](-1) != 0
 	case telem.Float32T:
-		return telem.ValueAt[float32](s, -1) != 0
+		return s.ValueAt[float32](-1) != 0
 	case telem.Int64T:
-		return telem.ValueAt[int64](s, -1) != 0
+		return s.ValueAt[int64](-1) != 0
 	case telem.Int32T:
-		return telem.ValueAt[int32](s, -1) != 0
+		return s.ValueAt[int32](-1) != 0
 	case telem.Int16T:
-		return telem.ValueAt[int16](s, -1) != 0
+		return s.ValueAt[int16](-1) != 0
 	case telem.Int8T:
-		return telem.ValueAt[int8](s, -1) != 0
+		return s.ValueAt[int8](-1) != 0
 	case telem.Uint64T:
-		return telem.ValueAt[uint64](s, -1) != 0
+		return s.ValueAt[uint64](-1) != 0
 	case telem.Uint32T:
-		return telem.ValueAt[uint32](s, -1) != 0
+		return s.ValueAt[uint32](-1) != 0
 	case telem.Uint16T:
-		return telem.ValueAt[uint16](s, -1) != 0
+		return s.ValueAt[uint16](-1) != 0
 	case telem.Uint8T:
-		return telem.ValueAt[uint8](s, -1) != 0
+		return s.ValueAt[uint8](-1) != 0
 	case telem.BooleanT:
-		return telem.ValueAt[bool](s, -1)
+		return s.ValueAt[bool](-1)
 	case telem.TimestampT:
-		return telem.ValueAt[telem.TimeStamp](s, -1) != 0
+		return s.ValueAt[telem.TimeStamp](-1) != 0
 	case telem.StringT:
 		return len(s.At(-1)) > 0
 	default:

@@ -284,7 +284,7 @@ func (s *Service) Retrieve(
 	if req.IncludeStatus {
 		ids := channel.OntologyIDsFromChannels(resChannels)
 		statuses := make([]Status, 0, len(resChannels))
-		if err := status.NewRetrieve[types.Nil](s.status).
+		if err := s.status.NewRetrieve[types.Nil]().
 			Where(status.MatchKeys[types.Nil](ontology.IDsToKeys(ids)...)).
 			Entries(&statuses).
 			Exec(ctx, nil); err != nil {

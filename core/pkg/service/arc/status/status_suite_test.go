@@ -63,5 +63,5 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Label:    labelSvc,
 		Search:   searchIdx,
 	}))
-	writer = statSvc.NewWriter(nil)
+	writer = statSvc.NewWriter[any](nil)
 })

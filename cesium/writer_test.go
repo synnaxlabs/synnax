@@ -1433,7 +1433,7 @@ var _ = Describe("Writer Behavior", func() {
 							),
 						)
 						Expect(
-							telem.UnmarshalSeries[string](f.Get(strChan).Series[0]),
+							f.Get(strChan).Series[0].Unmarshal[string](),
 						).To(Equal([]string{"hello", "world", "foo"}))
 					})
 					Specify(
@@ -1482,12 +1482,10 @@ var _ = Describe("Writer Behavior", func() {
 								),
 							)
 							Expect(
-								telem.UnmarshalSeries[float64](f.Get(fixed).Series[0]),
+								f.Get(fixed).Series[0].Unmarshal[float64](),
 							).To(Equal([]float64{1.1, 2.2, 3.3, 4.4}))
 							Expect(
-								telem.UnmarshalSeries[string](
-									f.Get(variable).Series[0],
-								),
+								f.Get(variable).Series[0].Unmarshal[string](),
 							).To(Equal([]string{"a", "b", "c", "d"}))
 						},
 					)
@@ -1541,7 +1539,7 @@ var _ = Describe("Writer Behavior", func() {
 								),
 							)
 							Expect(
-								telem.UnmarshalSeries[string](f.Get(strCh).Series[0]),
+								f.Get(strCh).Series[0].Unmarshal[string](),
 							).To(Equal([]string{"alpha", "beta"}))
 							Expect(f.Get(jsonCh).Series[0].Len()).To(Equal(int64(2)))
 						},
@@ -1581,7 +1579,7 @@ var _ = Describe("Writer Behavior", func() {
 							),
 						)
 						Expect(
-							telem.UnmarshalSeries[string](f.Get(data).Series[0]),
+							f.Get(data).Series[0].Unmarshal[string](),
 						).To(Equal(
 							[]string{"line1\nline2\nline3", "no newline"},
 						))
@@ -1628,7 +1626,7 @@ var _ = Describe("Writer Behavior", func() {
 								),
 							)
 							Expect(
-								telem.UnmarshalSeries[string](f.Get(data).Series[0]),
+								f.Get(data).Series[0].Unmarshal[string](),
 							).To(Equal([]string{"p1", "p2", "p3"}))
 							Expect(subDB.Close()).To(Succeed())
 						},
@@ -1680,7 +1678,7 @@ var _ = Describe("Writer Behavior", func() {
 								),
 							)
 							Expect(
-								telem.UnmarshalSeries[string](f.Get(data).Series[0]),
+								f.Get(data).Series[0].Unmarshal[string](),
 							).To(Equal([]string{"x", "y"}))
 						},
 					)

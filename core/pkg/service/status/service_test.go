@@ -46,7 +46,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 		svc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB: db, Ontology: otg, Group: g, Label: labelSvc, Search: searchIdx,
 		}))
-		writer = svc.NewWriter(nil)
+		writer = svc.NewWriter[any](nil)
 		Expect(searchIdx.Initialize(ctx)).To(Succeed())
 	})
 
@@ -94,7 +94,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 					Expect(svc.SetByKeyOrName(ctx, name, "msg", "bogus")).
 						Error().
 						To(SatisfyAll(MatchError(validate.ErrValidation), MatchError(ContainSubstring("invalid status variant"))))
-					Expect(svc.NewRetrieve().Where(status.MatchKeys[any](name)).
+					Expect(svc.NewRetrieve[any]().Where(status.MatchKeys[any](name)).
 						Entry(&status.Status[any]{}).
 						Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 				},
@@ -124,7 +124,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 
 					var s status.Status[any]
 					Expect(
-						svc.NewRetrieve().
+						svc.NewRetrieve[any]().
 							Where(status.MatchKeys[any](key)).
 							Entry(&s).
 							Exec(ctx, nil),
@@ -203,7 +203,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 
 					var s status.Status[any]
 					Expect(
-						svc.NewRetrieve().
+						svc.NewRetrieve[any]().
 							Where(status.MatchKeys[any](existingKey)).
 							Entry(&s).
 							Exec(ctx, nil),
@@ -241,7 +241,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 
 					var rows []status.Status[any]
 					Expect(
-						svc.NewRetrieve().
+						svc.NewRetrieve[any]().
 							Where(status.MatchKeys[any](firstKey, secondKey)).
 							Entries(&rows).
 							Exec(ctx, nil),
@@ -276,7 +276,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 					Expect(gotKey).To(Equal(existingKey))
 					var s status.Status[any]
 					Expect(
-						svc.NewRetrieve().
+						svc.NewRetrieve[any]().
 							Where(status.MatchKeys[any](gotKey)).
 							Entry(&s).
 							Exec(ctx, nil),
@@ -305,7 +305,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 
 					var s status.Status[any]
 					Expect(
-						svc.NewRetrieve().
+						svc.NewRetrieve[any]().
 							Where(status.MatchKeys[any](gotKey)).
 							Entry(&s).
 							Exec(ctx, nil),
@@ -342,7 +342,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 
 					var s status.Status[any]
 					Expect(
-						svc.NewRetrieve().
+						svc.NewRetrieve[any]().
 							Where(status.MatchKeys[any](gotKey)).
 							Entry(&s).
 							Exec(ctx, nil),

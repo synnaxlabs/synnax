@@ -97,12 +97,12 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements [config.Config].
 func (c ServiceConfig) Validate() error {
 	v := validate.New("user")
-	validate.NotNil(v, "db", c.DB)
-	validate.NotNil(v, "ontology", c.Ontology)
-	validate.NotNil(v, "group", c.Group)
-	validate.NotNil(v, "search", c.Search)
+	v.NotNil("db", c.DB)
+	v.NotNil("ontology", c.Ontology)
+	v.NotNil("group", c.Group)
+	v.NotNil("search", c.Search)
 	if c.RootCredentials.Username != "" {
-		validate.NotNil(v, "auth", c.Auth)
+		v.NotNil("auth", c.Auth)
 		v.Exec(c.RootCredentials.Validate)
 	}
 	return v.Error()
@@ -140,11 +140,13 @@ func OpenService(
 	cfg.Search.RegisterService(s)
 	if cfg.Signals != nil {
 		var sig io.Closer
-		if sig, err = signals.PublishFromGorp(
+		if sig, err = cfg.Signals.PublishFromGorp(
 			ctx,
-			cfg.Signals,
 			signals.GorpPublisherConfigUUID(s.table.Observe()),
-		); !ok(err, sig) {
+		); !ok(
+			err,
+			sig,
+		) {
 			return nil, err
 		}
 	}

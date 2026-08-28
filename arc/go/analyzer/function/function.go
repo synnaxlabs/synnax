@@ -52,7 +52,7 @@ func CollectDeclarations(ctx acontext.Context[parser.IProgramContext]) {
 			var inputs, outputs types.Params
 			collectInput(ctx, fn.InputBlock(), &inputs)
 			parensStart := len(inputs)
-			collectInputs(acontext.Child(ctx, fn.TriggerList()), &inputs)
+			collectInputs(ctx.Child(fn.TriggerList()), &inputs)
 			collectOutputs(ctx, fn.OutputType(), &outputs)
 
 			trigger := symbol.TriggerOnly
@@ -96,7 +96,7 @@ func collectInput[T antlr.ParserRuleContext](
 
 		var defaultValue any
 		if lit := cfg.Literal(); lit != nil {
-			value, err := literal.Parse(acontext.Child(ctx, lit).AST, inputType)
+			value, err := literal.Parse(ctx.Child(lit).AST, inputType)
 			if err != nil {
 				ctx.Diagnostics.Add(diagnostics.Error(
 					errors.Wrapf(
@@ -145,7 +145,7 @@ func collectInputs(
 
 		var defaultValue any
 		if lit := input.Literal(); lit != nil {
-			value, err := literal.Parse(acontext.Child(ctx, lit).AST, inputType)
+			value, err := literal.Parse(ctx.Child(lit).AST, inputType)
 			if err != nil {
 				ctx.Diagnostics.Add(diagnostics.Error(
 					errors.Wrapf(
@@ -237,11 +237,11 @@ func Analyze(ctx acontext.Context[parser.IFunctionDeclarationContext]) {
 	// Add inputs and outputs to the function's scope
 	// (types are already populated by CollectDeclarations)
 	addInputToScope(ctx, ctx.AST.InputBlock(), fn)
-	addInputsToScope(acontext.Child(ctx, ctx.AST.TriggerList()).WithScope(fn))
+	addInputsToScope(ctx.Child(ctx.AST.TriggerList()).WithScope(fn))
 	addOutputsToScope(ctx, ctx.AST.OutputType(), fn)
 
 	if block := ctx.AST.Block(); block != nil {
-		statement.AnalyzeBlock(acontext.Child(ctx, block).WithScope(fn))
+		statement.AnalyzeBlock(ctx.Child(block).WithScope(fn))
 		oParam, hasOutput := fn.Type.Outputs.Get(ir.DefaultOutputParam)
 		if hasOutput && !BlockAlwaysReturns(block) {
 			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
@@ -369,7 +369,7 @@ func addInputsToScope(
 
 		var defaultValue any
 		if lit := input.Literal(); lit != nil {
-			value, err := literal.Parse(acontext.Child(ctx, lit).AST, inputType)
+			value, err := literal.Parse(ctx.Child(lit).AST, inputType)
 			if err != nil {
 				ctx.Diagnostics.Add(diagnostics.Error(
 					errors.Wrapf(
@@ -444,7 +444,7 @@ func addInputToScope[T antlr.ParserRuleContext](
 
 		var defaultValue any
 		if lit := cfg.Literal(); lit != nil {
-			value, err := literal.Parse(acontext.Child(ctx, lit).AST, inputType)
+			value, err := literal.Parse(ctx.Child(lit).AST, inputType)
 			if err != nil {
 				ctx.Diagnostics.Add(diagnostics.Error(
 					errors.Wrapf(

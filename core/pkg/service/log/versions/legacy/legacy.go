@@ -44,9 +44,9 @@ func MigrateData(blob msgpack.EncodedJSON) (Data, error) {
 	}
 	switch version {
 	case v1.Version:
-		return imex.DecodeBlob[v1.Data](blob, "log data", version)
+		return version.DecodeBlob[v1.Data](blob, "log data")
 	case v0.Version:
-		d, err := imex.DecodeBlob[v0.Data](blob, "log data", version)
+		d, err := version.DecodeBlob[v0.Data](blob, "log data")
 		if err != nil {
 			return Data{}, err
 		}

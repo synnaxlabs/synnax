@@ -43,7 +43,7 @@ func (c Credentials) IsZero() bool { return c == Credentials{} }
 // Validate validates the Credentials.
 func (c Credentials) Validate() error {
 	v := validate.New("auth.credentials")
-	validate.NotEmptyString(v, "username", c.Username)
-	validate.NotEmptyString(v, "password", c.Password)
+	v.NotEmptyString("username", c.Username)
+	v.NotEmptyString("password", c.Password)
 	return v.Error()
 }

@@ -73,16 +73,16 @@ func (db *DB) NewStreamer(
 	ctx context.Context,
 	cfg StreamerConfig,
 ) (Streamer[StreamerRequest, StreamerResponse], error) {
-	return NewTranslatedStreamer(
-		db,
+	return db.NewTranslatedStreamer(
 		cfg,
 		passThroughStreamerRequestTranslator,
 		passThroughStreamerResponseTranslator,
 	)
 }
 
-func NewTranslatedStreamer[I, O any](
-	db *DB,
+// NewTranslatedStreamer opens a Streamer that maps requests from I and responses to O
+// through the given translators. To start receiving frames, call Streamer.Flow.
+func (db *DB) NewTranslatedStreamer[I, O any](
 	cfg StreamerConfig,
 	translateRequest func(I) StreamerRequest,
 	translateResponse func(StreamerResponse) O,

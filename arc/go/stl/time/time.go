@@ -327,7 +327,7 @@ func parseTime(v any, name string) (telem.TimeSpan, error) {
 // liveSpan returns the named input's current span: the referenced variable's
 // latest value when var-bound, else the value stamped at compile time.
 func liveSpan(s *node.State, name string) telem.TimeSpan {
-	return telem.TimeSpan(node.NumericInput[int64](s, name))
+	return telem.TimeSpan(s.NumericInput[int64](name))
 }
 
 // spanGuard guards a live timer span against non-positive values. It reports
@@ -388,8 +388,8 @@ func (i *Interval) Next(ctx node.Context) {
 	outputTime := i.OutputTime(0)
 	output.Resize(1)
 	outputTime.Resize(1)
-	telem.SetValueAt[uint8](*output, 0, uint8(1))
-	telem.SetValueAt[telem.TimeStamp](*outputTime, 0, i.clock.Now())
+	output.SetValueAt[uint8](0, uint8(1))
+	outputTime.SetValueAt[telem.TimeStamp](0, i.clock.Now())
 }
 
 // Reset resets the interval so it fires immediately on the next timer tick.
@@ -438,8 +438,8 @@ func (w *Wait) Next(ctx node.Context) {
 	outputTime := w.OutputTime(0)
 	output.Resize(1)
 	outputTime.Resize(1)
-	telem.SetValueAt[uint8](*output, 0, uint8(1))
-	telem.SetValueAt[telem.TimeStamp](*outputTime, 0, w.clock.Now())
+	output.SetValueAt[uint8](0, uint8(1))
+	outputTime.SetValueAt[telem.TimeStamp](0, w.clock.Now())
 	ctx.MarkChanged(0)
 }
 
@@ -464,8 +464,8 @@ func (n *Now) Next(ctx node.Context) {
 	outputTime := n.OutputTime(0)
 	output.Resize(1)
 	outputTime.Resize(1)
-	telem.SetValueAt[telem.TimeStamp](*output, 0, ts)
-	telem.SetValueAt[telem.TimeStamp](*outputTime, 0, ts)
+	output.SetValueAt[telem.TimeStamp](0, ts)
+	outputTime.SetValueAt[telem.TimeStamp](0, ts)
 	ctx.MarkChanged(0)
 }
 

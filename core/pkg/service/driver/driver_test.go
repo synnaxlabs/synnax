@@ -237,7 +237,7 @@ var _ = Describe("Driver", func() {
 				Eventually(func() bool { return configured.Load() }).Should(BeTrue())
 
 				var stat task.Status
-				Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchKeys[task.StatusDetails](
 						task.OntologyID(ghost).String(),
 					)).
@@ -569,8 +569,7 @@ var _ = Describe("Driver", func() {
 									Time:    telem.Now(),
 									Details: task.NewStatusDetails(t, false),
 								}
-								return status.NewWriter[task.StatusDetails](
-									statusSvc,
+								return statusSvc.NewWriter[task.StatusDetails](
 									nil,
 								).Set(ctx, &stat)
 							},
@@ -594,7 +593,7 @@ var _ = Describe("Driver", func() {
 				Expect(taskWriter.Delete(ctx, t.Key, false)).To(Succeed())
 				Eventually(func() bool { return stopped.Load() }).Should(BeTrue())
 				var stat task.Status
-				Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchKeys[task.StatusDetails](
 						t.OntologyID().String(),
 					)).
@@ -765,7 +764,7 @@ var _ = Describe("Driver", func() {
 
 				Eventually(func(g Gomega) {
 					var statuses []status.Status[task.StatusDetails]
-					g.Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+					g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 						Where(status.MatchKeys[task.StatusDetails](
 							task.OntologyID(t.Key).String(),
 						)).
@@ -796,7 +795,7 @@ var _ = Describe("Driver", func() {
 
 				Eventually(func(g Gomega) {
 					var stat status.Status[task.StatusDetails]
-					g.Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+					g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 						Where(status.MatchKeys[task.StatusDetails](
 							task.OntologyID(t.Key).String(),
 						)).
@@ -1250,7 +1249,7 @@ var _ = Describe("Driver", func() {
 			statusKey := embeddedRackKey(ctx).OntologyID().String()
 			Eventually(func(g Gomega) {
 				var statuses []rack.Status
-				g.Expect(status.NewRetrieve[rack.StatusDetails](statusSvc).
+				g.Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
 					Where(status.MatchKeys[rack.StatusDetails](statusKey)).
 					Entries(&statuses).
 					Exec(ctx, node.DB)).To(Succeed())
@@ -1276,7 +1275,7 @@ var _ = Describe("Driver", func() {
 			var firstTime telem.TimeStamp
 			Eventually(func(g Gomega) {
 				var statuses []rack.Status
-				g.Expect(status.NewRetrieve[rack.StatusDetails](statusSvc).
+				g.Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
 					Where(status.MatchKeys[rack.StatusDetails](statusKey)).
 					Entries(&statuses).
 					Exec(ctx, node.DB)).To(Succeed())
@@ -1286,7 +1285,7 @@ var _ = Describe("Driver", func() {
 
 			Eventually(func(g Gomega) {
 				var statuses []rack.Status
-				g.Expect(status.NewRetrieve[rack.StatusDetails](statusSvc).
+				g.Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
 					Where(status.MatchKeys[rack.StatusDetails](statusKey)).
 					Entries(&statuses).
 					Exec(ctx, node.DB)).To(Succeed())
@@ -1311,7 +1310,7 @@ var _ = Describe("Driver", func() {
 			statusKey := embeddedRackKey(ctx).OntologyID().String()
 			Eventually(func(g Gomega) {
 				var statuses []rack.Status
-				g.Expect(status.NewRetrieve[rack.StatusDetails](statusSvc).
+				g.Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
 					Where(status.MatchKeys[rack.StatusDetails](statusKey)).
 					Entries(&statuses).
 					Exec(ctx, node.DB)).To(Succeed())
@@ -1322,7 +1321,7 @@ var _ = Describe("Driver", func() {
 
 			var lastTime telem.TimeStamp
 			var statuses []rack.Status
-			Expect(status.NewRetrieve[rack.StatusDetails](statusSvc).
+			Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
 				Where(status.MatchKeys[rack.StatusDetails](statusKey)).
 				Entries(&statuses).
 				Exec(ctx, node.DB)).To(Succeed())
@@ -1330,7 +1329,7 @@ var _ = Describe("Driver", func() {
 
 			Consistently(func(g Gomega) {
 				var statuses []rack.Status
-				g.Expect(status.NewRetrieve[rack.StatusDetails](statusSvc).
+				g.Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
 					Where(status.MatchKeys[rack.StatusDetails](statusKey)).
 					Entries(&statuses).
 					Exec(ctx, node.DB)).To(Succeed())
@@ -1783,7 +1782,7 @@ var _ = Describe("Driver", func() {
 			// the start command an answer.
 			Eventually(func(g Gomega) {
 				var stat status.Status[task.StatusDetails]
-				g.Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+				g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchKeys[task.StatusDetails](
 						task.OntologyID(t.Key).String(),
 					)).

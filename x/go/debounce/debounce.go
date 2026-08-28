@@ -60,10 +60,10 @@ func (c Config) Override(other Config) Config {
 // Validate returns an error if c contains invalid values.
 func (c Config) Validate() error {
 	v := validate.New("debounce")
-	validate.GreaterThan(v, "delay", c.Delay, 0)
-	validate.GreaterThanEq(v, "max_delay", c.MaxDelay, 0)
-	validate.NotNil(v, "clock", c.Clock)
-	validate.NotNil(v, "callback", c.Callback)
+	v.GreaterThan("delay", c.Delay, 0)
+	v.GreaterThanEq("max_delay", c.MaxDelay, 0)
+	v.NotNil("clock", c.Clock)
+	v.NotNil("callback", c.Callback)
 	return v.Error()
 }
 

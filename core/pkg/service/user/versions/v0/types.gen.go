@@ -39,6 +39,6 @@ type User struct {
 // schema constraints.
 func (u User) Validate() error {
 	v := validate.New("User")
-	validate.NotEmptyString(v, "username", u.Username)
+	v.NotEmptyString("username", u.Username)
 	return v.Error()
 }

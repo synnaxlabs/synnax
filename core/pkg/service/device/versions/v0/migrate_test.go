@@ -83,7 +83,7 @@ var _ = Describe("Migration", func() {
 			runMigration(ctx)
 
 			var restoredStatus status.Status[v0.StatusDetails]
-			Expect(status.NewRetrieve[v0.StatusDetails](statusSvc).
+			Expect(statusSvc.NewRetrieve[v0.StatusDetails]().
 				Where(status.MatchKeys[v0.StatusDetails](d.OntologyID().String())).
 				Entry(&restoredStatus).
 				Exec(ctx, nil)).To(Succeed())
@@ -118,13 +118,13 @@ var _ = Describe("Migration", func() {
 				Time:    telem.Now(),
 				Details: v0.StatusDetails{Rack: d.Rack, Device: d.Key},
 			}
-			Expect(status.NewWriter[v0.StatusDetails](statusSvc, nil).
+			Expect(statusSvc.NewWriter[v0.StatusDetails](nil).
 				Set(ctx, &existing)).To(Succeed())
 
 			runMigration(ctx)
 
 			var deviceStatus status.Status[v0.StatusDetails]
-			Expect(status.NewRetrieve[v0.StatusDetails](statusSvc).
+			Expect(statusSvc.NewRetrieve[v0.StatusDetails]().
 				Where(status.MatchKeys[v0.StatusDetails](d.OntologyID().String())).
 				Entry(&deviceStatus).
 				Exec(ctx, nil)).To(Succeed())

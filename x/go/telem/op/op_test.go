@@ -27,7 +27,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.GreaterThanF32(a, b, &output)
 
 				expected := []uint8{0, 1, 0, 1, 0}
-				Expect(telem.UnmarshalSeries[uint8](output)).To(Equal(expected))
+				Expect(output.Unmarshal[uint8]()).To(Equal(expected))
 			})
 
 			It("should perform LessThanF64", func() {
@@ -38,7 +38,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.LessThanF64(a, b, &output)
 
 				expected := []uint8{1, 0, 1}
-				Expect(telem.UnmarshalSeries[uint8](output)).To(Equal(expected))
+				Expect(output.Unmarshal[uint8]()).To(Equal(expected))
 			})
 
 			It("should perform EqualI32", func() {
@@ -49,7 +49,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.EqualI32(a, b, &output)
 
 				expected := []uint8{1, 0, 1, 0}
-				Expect(telem.UnmarshalSeries[uint8](output)).To(Equal(expected))
+				Expect(output.Unmarshal[uint8]()).To(Equal(expected))
 			})
 		})
 
@@ -66,7 +66,7 @@ var _ = Describe("Vectorized Operations", func() {
 				// result:   [0,   1,   1,   1,   1]
 				expected := []uint8{0, 1, 1, 1, 1}
 				Expect(output.Len()).To(Equal(int64(5)))
-				Expect(telem.UnmarshalSeries[uint8](output)).To(Equal(expected))
+				Expect(output.Unmarshal[uint8]()).To(Equal(expected))
 			})
 
 			It("should repeat last value of shorter 'b' series", func() {
@@ -81,7 +81,7 @@ var _ = Describe("Vectorized Operations", func() {
 				// result:   [1,  1,  0,  0,  0]
 				expected := []uint8{1, 1, 0, 0, 0}
 				Expect(output.Len()).To(Equal(int64(5)))
-				Expect(telem.UnmarshalSeries[uint8](output)).To(Equal(expected))
+				Expect(output.Unmarshal[uint8]()).To(Equal(expected))
 			})
 
 			It("should handle single element series", func() {
@@ -96,7 +96,7 @@ var _ = Describe("Vectorized Operations", func() {
 				// result:   [1,   1,   0,   0]
 				expected := []uint8{1, 1, 0, 0}
 				Expect(output.Len()).To(Equal(int64(4)))
-				Expect(telem.UnmarshalSeries[uint8](output)).To(Equal(expected))
+				Expect(output.Unmarshal[uint8]()).To(Equal(expected))
 			})
 		})
 	})
@@ -111,7 +111,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.AddF32(a, b, &output)
 
 				expected := []float32{1.5, 3.5, 5.5, 7.5}
-				Expect(telem.UnmarshalSeries[float32](output)).To(Equal(expected))
+				Expect(output.Unmarshal[float32]()).To(Equal(expected))
 			})
 
 			It("should perform SubtractF64", func() {
@@ -122,7 +122,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.SubtractF64(a, b, &output)
 
 				expected := []float64{7.0, 15.0, 23.0}
-				Expect(telem.UnmarshalSeries[float64](output)).To(Equal(expected))
+				Expect(output.Unmarshal[float64]()).To(Equal(expected))
 			})
 
 			It("should perform MultiplyI32", func() {
@@ -133,7 +133,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.MultiplyI32(a, b, &output)
 
 				expected := []int32{6, 12, 20, 30}
-				Expect(telem.UnmarshalSeries[int32](output)).To(Equal(expected))
+				Expect(output.Unmarshal[int32]()).To(Equal(expected))
 			})
 
 			It("should perform DivideI64", func() {
@@ -144,7 +144,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.DivideI64(a, b, &output)
 
 				expected := []int64{10, 10, 10, 10}
-				Expect(telem.UnmarshalSeries[int64](output)).To(Equal(expected))
+				Expect(output.Unmarshal[int64]()).To(Equal(expected))
 			})
 		})
 
@@ -161,7 +161,7 @@ var _ = Describe("Vectorized Operations", func() {
 				// result:   [11.0, 22.0, 32.0, 42.0, 52.0]
 				expected := []float64{11.0, 22.0, 32.0, 42.0, 52.0}
 				Expect(output.Len()).To(Equal(int64(5)))
-				Expect(telem.UnmarshalSeries[float64](output)).To(Equal(expected))
+				Expect(output.Unmarshal[float64]()).To(Equal(expected))
 			})
 
 			It(
@@ -178,7 +178,7 @@ var _ = Describe("Vectorized Operations", func() {
 					// result:   [90,  180, 280, 380]
 					expected := []int64{90, 180, 280, 380}
 					Expect(output.Len()).To(Equal(int64(4)))
-					Expect(telem.UnmarshalSeries[int64](output)).To(Equal(expected))
+					Expect(output.Unmarshal[int64]()).To(Equal(expected))
 				},
 			)
 
@@ -194,7 +194,7 @@ var _ = Describe("Vectorized Operations", func() {
 				// result:   [10.0, 15.0, 20.0]
 				expected := []float32{10.0, 15.0, 20.0}
 				Expect(output.Len()).To(Equal(int64(3)))
-				Expect(telem.UnmarshalSeries[float32](output)).To(Equal(expected))
+				Expect(output.Unmarshal[float32]()).To(Equal(expected))
 			})
 
 			It("should repeat last value for division", func() {
@@ -209,7 +209,7 @@ var _ = Describe("Vectorized Operations", func() {
 				// result:   [10,  40,  60,  80,  100]
 				expected := []int32{10, 40, 60, 80, 100}
 				Expect(output.Len()).To(Equal(int64(5)))
-				Expect(telem.UnmarshalSeries[int32](output)).To(Equal(expected))
+				Expect(output.Unmarshal[int32]()).To(Equal(expected))
 			})
 		})
 
@@ -224,7 +224,7 @@ var _ = Describe("Vectorized Operations", func() {
 				// [10%3, 15%4, 23%5, 7%3] = [1, 3, 3, 1]
 				expected := []int32{1, 3, 3, 1}
 				Expect(output.Len()).To(Equal(int64(4)))
-				Expect(telem.UnmarshalSeries[int32](output)).To(Equal(expected))
+				Expect(output.Unmarshal[int32]()).To(Equal(expected))
 			})
 
 			It("should perform ModuloU64 on equal length series", func() {
@@ -237,7 +237,7 @@ var _ = Describe("Vectorized Operations", func() {
 				// [100%7, 250%7, 17%7] = [2, 5, 3]
 				expected := []uint64{2, 5, 3}
 				Expect(output.Len()).To(Equal(int64(3)))
-				Expect(telem.UnmarshalSeries[uint64](output)).To(Equal(expected))
+				Expect(output.Unmarshal[uint64]()).To(Equal(expected))
 			})
 
 			It("should repeat last value for modulo with different lengths", func() {
@@ -252,7 +252,7 @@ var _ = Describe("Vectorized Operations", func() {
 				// result:   [1,  6,  2,  5]
 				expected := []int64{1, 6, 2, 5}
 				Expect(output.Len()).To(Equal(int64(4)))
-				Expect(telem.UnmarshalSeries[int64](output)).To(Equal(expected))
+				Expect(output.Unmarshal[int64]()).To(Equal(expected))
 			})
 
 			It("should perform ModuloF64 using math.Mod", func() {
@@ -265,7 +265,7 @@ var _ = Describe("Vectorized Operations", func() {
 				// math.Mod(10.5, 3.0) = 1.5
 				// math.Mod(15.3, 4.0) = 3.3
 				// math.Mod(7.8, 2.5) = 0.3
-				result := telem.UnmarshalSeries[float64](output)
+				result := output.Unmarshal[float64]()
 				Expect(output.Len()).To(Equal(int64(3)))
 				Expect(result[0]).To(BeNumerically("~", 1.5, 0.001))
 				Expect(result[1]).To(BeNumerically("~", 3.3, 0.001))
@@ -283,7 +283,7 @@ var _ = Describe("Vectorized Operations", func() {
 
 				expected := []uint64{50}
 				Expect(output.Len()).To(Equal(int64(1)))
-				Expect(telem.UnmarshalSeries[uint64](output)).To(Equal(expected))
+				Expect(output.Unmarshal[uint64]()).To(Equal(expected))
 			})
 
 			It("should resize output correctly when initially empty", func() {
@@ -295,7 +295,7 @@ var _ = Describe("Vectorized Operations", func() {
 
 				expected := []uint16{4, 10, 18}
 				Expect(output.Len()).To(Equal(int64(3)))
-				Expect(telem.UnmarshalSeries[uint16](output)).To(Equal(expected))
+				Expect(output.Unmarshal[uint16]()).To(Equal(expected))
 			})
 		})
 	})
@@ -311,7 +311,7 @@ var _ = Describe("Vectorized Operations", func() {
 
 				// Truth table: T&&T=T, T&&F=F, F&&T=F, F&&F=F
 				expected := []bool{true, false, false, false}
-				Expect(telem.UnmarshalSeries[bool](output)).To(Equal(expected))
+				Expect(output.Unmarshal[bool]()).To(Equal(expected))
 			})
 
 			It(
@@ -328,7 +328,7 @@ var _ = Describe("Vectorized Operations", func() {
 					// result:   [T, F, F, F, F]
 					expected := []bool{true, false, false, false, false}
 					Expect(output.Len()).To(Equal(int64(5)))
-					Expect(telem.UnmarshalSeries[bool](output)).To(Equal(expected))
+					Expect(output.Unmarshal[bool]()).To(Equal(expected))
 				},
 			)
 
@@ -340,7 +340,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.And(a, b, &output)
 
 				expected := []bool{true, false, true}
-				Expect(telem.UnmarshalSeries[bool](output)).To(Equal(expected))
+				Expect(output.Unmarshal[bool]()).To(Equal(expected))
 			})
 		})
 
@@ -354,7 +354,7 @@ var _ = Describe("Vectorized Operations", func() {
 
 				// Truth table: T||T=T, T||F=T, F||T=T, F||F=F
 				expected := []bool{true, true, true, false}
-				Expect(telem.UnmarshalSeries[bool](output)).To(Equal(expected))
+				Expect(output.Unmarshal[bool]()).To(Equal(expected))
 			})
 
 			It(
@@ -371,7 +371,7 @@ var _ = Describe("Vectorized Operations", func() {
 					// result:   [T, F, F, F, F]
 					expected := []bool{true, false, false, false, false}
 					Expect(output.Len()).To(Equal(int64(5)))
-					Expect(telem.UnmarshalSeries[bool](output)).To(Equal(expected))
+					Expect(output.Unmarshal[bool]()).To(Equal(expected))
 				},
 			)
 
@@ -383,7 +383,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.Or(a, b, &output)
 
 				expected := []bool{true, true, true}
-				Expect(telem.UnmarshalSeries[bool](output)).To(Equal(expected))
+				Expect(output.Unmarshal[bool]()).To(Equal(expected))
 			})
 		})
 
@@ -396,7 +396,7 @@ var _ = Describe("Vectorized Operations", func() {
 
 				// Logical NOT: !T=F, !F=T
 				expected := []bool{false, true, false, true}
-				Expect(telem.UnmarshalSeries[bool](output)).To(Equal(expected))
+				Expect(output.Unmarshal[bool]()).To(Equal(expected))
 			})
 
 			It("should handle empty series", func() {
@@ -415,7 +415,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.Not(input, &output)
 
 				expected := []bool{false}
-				Expect(telem.UnmarshalSeries[bool](output)).To(Equal(expected))
+				Expect(output.Unmarshal[bool]()).To(Equal(expected))
 			})
 
 			It("should work with all value combinations", func() {
@@ -425,7 +425,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.Not(input, &output)
 
 				expected := []bool{false, true, false, true, false, true}
-				Expect(telem.UnmarshalSeries[bool](output)).To(Equal(expected))
+				Expect(output.Unmarshal[bool]()).To(Equal(expected))
 			})
 		})
 
@@ -435,7 +435,7 @@ var _ = Describe("Vectorized Operations", func() {
 					series := telem.NewSeriesV[bool](true, false)
 					output := telem.Series{DataType: telem.BooleanT}
 					op.AndScalar(series, scalar, &output)
-					Expect(telem.UnmarshalSeries[bool](output)).To(Equal(expected))
+					Expect(output.Unmarshal[bool]()).To(Equal(expected))
 				},
 				Entry("true is identity", true, []bool{true, false}),
 				Entry("false zeroes", false, []bool{false, false}),
@@ -446,7 +446,7 @@ var _ = Describe("Vectorized Operations", func() {
 					series := telem.NewSeriesV[bool](true, false)
 					output := telem.Series{DataType: telem.BooleanT}
 					op.OrScalar(series, scalar, &output)
-					Expect(telem.UnmarshalSeries[bool](output)).To(Equal(expected))
+					Expect(output.Unmarshal[bool]()).To(Equal(expected))
 				},
 				Entry("true fills", true, []bool{true, true}),
 				Entry("false is identity", false, []bool{true, false}),
@@ -474,7 +474,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.Or(andResult, c, &orResult)
 
 				expected := []bool{true, true, true, true}
-				Expect(telem.UnmarshalSeries[bool](orResult)).To(Equal(expected))
+				Expect(orResult.Unmarshal[bool]()).To(Equal(expected))
 			})
 
 			It("should allow NOT of AND result", func() {
@@ -490,7 +490,7 @@ var _ = Describe("Vectorized Operations", func() {
 				// AND: [T, F, F, F]
 				// NOT: [F, T, T, T]
 				expected := []bool{false, true, true, true}
-				Expect(telem.UnmarshalSeries[bool](notResult)).To(Equal(expected))
+				Expect(notResult.Unmarshal[bool]()).To(Equal(expected))
 			})
 		})
 	})
@@ -504,7 +504,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.AddScalarF64(series, 10.0, &output)
 
 				expected := []float64{11.0, 12.0, 13.0}
-				Expect(telem.UnmarshalSeries[float64](output)).To(Equal(expected))
+				Expect(output.Unmarshal[float64]()).To(Equal(expected))
 			})
 
 			It("should subtract scalar from all elements for I32", func() {
@@ -514,7 +514,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.SubtractScalarI32(series, 5, &output)
 
 				expected := []int32{5, 15, 25}
-				Expect(telem.UnmarshalSeries[int32](output)).To(Equal(expected))
+				Expect(output.Unmarshal[int32]()).To(Equal(expected))
 			})
 
 			It("should multiply all elements by scalar for U8", func() {
@@ -524,7 +524,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.MultiplyScalarU8(series, 3, &output)
 
 				expected := []uint8{6, 12, 18}
-				Expect(telem.UnmarshalSeries[uint8](output)).To(Equal(expected))
+				Expect(output.Unmarshal[uint8]()).To(Equal(expected))
 			})
 
 			It("should divide all elements by scalar for F32", func() {
@@ -534,7 +534,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.DivideScalarF32(series, 2.0, &output)
 
 				expected := []float32{5.0, 10.0, 15.0}
-				Expect(telem.UnmarshalSeries[float32](output)).To(Equal(expected))
+				Expect(output.Unmarshal[float32]()).To(Equal(expected))
 			})
 
 			It("should handle I64 scalar operations", func() {
@@ -544,7 +544,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.AddScalarI64(series, 50, &output)
 
 				expected := []int64{150, 250, 350}
-				Expect(telem.UnmarshalSeries[int64](output)).To(Equal(expected))
+				Expect(output.Unmarshal[int64]()).To(Equal(expected))
 			})
 
 			It("should handle U64 scalar operations", func() {
@@ -554,7 +554,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.MultiplyScalarU64(series, 2, &output)
 
 				expected := []uint64{2000, 4000, 6000}
-				Expect(telem.UnmarshalSeries[uint64](output)).To(Equal(expected))
+				Expect(output.Unmarshal[uint64]()).To(Equal(expected))
 			})
 
 			It("should handle empty series", func() {
@@ -573,7 +573,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.MultiplyScalarI32(series, 2, &output)
 
 				expected := []int32{84}
-				Expect(telem.UnmarshalSeries[int32](output)).To(Equal(expected))
+				Expect(output.Unmarshal[int32]()).To(Equal(expected))
 			})
 
 			It("should perform modulo scalar for I32", func() {
@@ -584,7 +584,7 @@ var _ = Describe("Vectorized Operations", func() {
 
 				// [10%3, 15%3, 23%3, 7%3] = [1, 0, 2, 1]
 				expected := []int32{1, 0, 2, 1}
-				Expect(telem.UnmarshalSeries[int32](output)).To(Equal(expected))
+				Expect(output.Unmarshal[int32]()).To(Equal(expected))
 			})
 
 			It("should perform modulo scalar for U64", func() {
@@ -595,7 +595,7 @@ var _ = Describe("Vectorized Operations", func() {
 
 				// [100%7, 250%7, 17%7] = [2, 5, 3]
 				expected := []uint64{2, 5, 3}
-				Expect(telem.UnmarshalSeries[uint64](output)).To(Equal(expected))
+				Expect(output.Unmarshal[uint64]()).To(Equal(expected))
 			})
 
 			It("should perform modulo scalar for F64 using math.Mod", func() {
@@ -607,7 +607,7 @@ var _ = Describe("Vectorized Operations", func() {
 				// math.Mod(10.5, 3.0) = 1.5
 				// math.Mod(15.3, 3.0) = 0.3
 				// math.Mod(7.8, 3.0) = 1.8
-				result := telem.UnmarshalSeries[float64](output)
+				result := output.Unmarshal[float64]()
 				Expect(output.Len()).To(Equal(int64(3)))
 				Expect(result[0]).To(BeNumerically("~", 1.5, 0.001))
 				Expect(result[1]).To(BeNumerically("~", 0.3, 0.001))
@@ -623,7 +623,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.GreaterThanScalarF64(series, 2.0, &output)
 
 				expected := []uint8{0, 1, 1}
-				Expect(telem.UnmarshalSeries[uint8](output)).To(Equal(expected))
+				Expect(output.Unmarshal[uint8]()).To(Equal(expected))
 			})
 
 			It("should compare greater than or equal scalar for I32", func() {
@@ -633,7 +633,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.GreaterThanOrEqualScalarI32(series, 3, &output)
 
 				expected := []uint8{0, 0, 1, 1}
-				Expect(telem.UnmarshalSeries[uint8](output)).To(Equal(expected))
+				Expect(output.Unmarshal[uint8]()).To(Equal(expected))
 			})
 
 			It("should compare less than scalar for F32", func() {
@@ -643,7 +643,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.LessThanScalarF32(series, 3.0, &output)
 
 				expected := []uint8{1, 0, 0}
-				Expect(telem.UnmarshalSeries[uint8](output)).To(Equal(expected))
+				Expect(output.Unmarshal[uint8]()).To(Equal(expected))
 			})
 
 			It("should compare less than or equal scalar for I64", func() {
@@ -653,7 +653,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.LessThanOrEqualScalarI64(series, 25, &output)
 
 				expected := []uint8{1, 1, 0, 0}
-				Expect(telem.UnmarshalSeries[uint8](output)).To(Equal(expected))
+				Expect(output.Unmarshal[uint8]()).To(Equal(expected))
 			})
 
 			It("should compare equal to scalar for I32", func() {
@@ -663,7 +663,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.EqualScalarI32(series, 2, &output)
 
 				expected := []uint8{0, 1, 1, 0}
-				Expect(telem.UnmarshalSeries[uint8](output)).To(Equal(expected))
+				Expect(output.Unmarshal[uint8]()).To(Equal(expected))
 			})
 
 			It("should compare not equal to scalar for U8", func() {
@@ -673,7 +673,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.NotEqualScalarU8(series, 2, &output)
 
 				expected := []uint8{1, 0, 1, 0, 1}
-				Expect(telem.UnmarshalSeries[uint8](output)).To(Equal(expected))
+				Expect(output.Unmarshal[uint8]()).To(Equal(expected))
 			})
 
 			It("should handle empty series comparison", func() {
@@ -692,7 +692,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.GreaterThanScalarI32(series, 0, &output)
 
 				expected := []uint8{1, 1, 1, 1}
-				Expect(telem.UnmarshalSeries[uint8](output)).To(Equal(expected))
+				Expect(output.Unmarshal[uint8]()).To(Equal(expected))
 			})
 
 			It("should handle all false comparison", func() {
@@ -702,7 +702,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.GreaterThanScalarI32(series, 100, &output)
 
 				expected := []uint8{0, 0, 0, 0}
-				Expect(telem.UnmarshalSeries[uint8](output)).To(Equal(expected))
+				Expect(output.Unmarshal[uint8]()).To(Equal(expected))
 			})
 		})
 
@@ -715,7 +715,7 @@ var _ = Describe("Vectorized Operations", func() {
 
 				// 10.0 - [1.0, 2.0, 3.0] = [9.0, 8.0, 7.0]
 				expected := []float64{9.0, 8.0, 7.0}
-				Expect(telem.UnmarshalSeries[float64](output)).To(Equal(expected))
+				Expect(output.Unmarshal[float64]()).To(Equal(expected))
 			})
 
 			It("should perform scalar / series (reverse divide) for F64", func() {
@@ -726,7 +726,7 @@ var _ = Describe("Vectorized Operations", func() {
 
 				// 20.0 / [2.0, 4.0, 5.0] = [10.0, 5.0, 4.0]
 				expected := []float64{10.0, 5.0, 4.0}
-				Expect(telem.UnmarshalSeries[float64](output)).To(Equal(expected))
+				Expect(output.Unmarshal[float64]()).To(Equal(expected))
 			})
 
 			It("should perform reverse subtract for I32", func() {
@@ -737,7 +737,7 @@ var _ = Describe("Vectorized Operations", func() {
 
 				// 20 - [5, 10, 15] = [15, 10, 5]
 				expected := []int32{15, 10, 5}
-				Expect(telem.UnmarshalSeries[int32](output)).To(Equal(expected))
+				Expect(output.Unmarshal[int32]()).To(Equal(expected))
 			})
 
 			It("should perform reverse divide for I64", func() {
@@ -748,7 +748,7 @@ var _ = Describe("Vectorized Operations", func() {
 
 				// 100 / [2, 5, 10] = [50, 20, 10]
 				expected := []int64{50, 20, 10}
-				Expect(telem.UnmarshalSeries[int64](output)).To(Equal(expected))
+				Expect(output.Unmarshal[int64]()).To(Equal(expected))
 			})
 
 			It("should perform reverse subtract for F32", func() {
@@ -759,7 +759,7 @@ var _ = Describe("Vectorized Operations", func() {
 
 				// 5.0 - [1.5, 2.5, 3.5] = [3.5, 2.5, 1.5]
 				expected := []float32{3.5, 2.5, 1.5}
-				Expect(telem.UnmarshalSeries[float32](output)).To(Equal(expected))
+				Expect(output.Unmarshal[float32]()).To(Equal(expected))
 			})
 
 			It("should perform reverse divide for U8", func() {
@@ -770,7 +770,7 @@ var _ = Describe("Vectorized Operations", func() {
 
 				// 20 / [2, 4, 5] = [10, 5, 4]
 				expected := []uint8{10, 5, 4}
-				Expect(telem.UnmarshalSeries[uint8](output)).To(Equal(expected))
+				Expect(output.Unmarshal[uint8]()).To(Equal(expected))
 			})
 
 			It("should handle empty series for reverse subtract", func() {
@@ -790,7 +790,7 @@ var _ = Describe("Vectorized Operations", func() {
 
 				// 100 / [5] = [20]
 				expected := []int32{20}
-				Expect(telem.UnmarshalSeries[int32](output)).To(Equal(expected))
+				Expect(output.Unmarshal[int32]()).To(Equal(expected))
 			})
 		})
 
@@ -801,7 +801,7 @@ var _ = Describe("Vectorized Operations", func() {
 
 				op.ReverseModuloScalarF64(series, 10.5, &output)
 
-				result := telem.UnmarshalSeries[float64](output)
+				result := output.Unmarshal[float64]()
 				Expect(output.Len()).To(Equal(int64(3)))
 				Expect(result[0]).To(BeNumerically("~", 1.5, 0.001))
 				Expect(result[1]).To(BeNumerically("~", 2.5, 0.001))
@@ -814,7 +814,7 @@ var _ = Describe("Vectorized Operations", func() {
 
 				op.ReverseModuloScalarF32(series, 10.5, &output)
 
-				result := telem.UnmarshalSeries[float32](output)
+				result := output.Unmarshal[float32]()
 				Expect(output.Len()).To(Equal(int64(3)))
 				Expect(result[0]).To(BeNumerically("~", 1.5, 0.001))
 				Expect(result[1]).To(BeNumerically("~", 2.5, 0.001))
@@ -828,7 +828,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.ReverseModuloScalarI64(series, 10, &output)
 
 				expected := []int64{1, 2, 3}
-				Expect(telem.UnmarshalSeries[int64](output)).To(Equal(expected))
+				Expect(output.Unmarshal[int64]()).To(Equal(expected))
 			})
 
 			It("should perform reverse modulo for I32", func() {
@@ -838,7 +838,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.ReverseModuloScalarI32(series, 17, &output)
 
 				expected := []int32{2, 3, 2}
-				Expect(telem.UnmarshalSeries[int32](output)).To(Equal(expected))
+				Expect(output.Unmarshal[int32]()).To(Equal(expected))
 			})
 
 			It("should perform reverse modulo for I16", func() {
@@ -848,7 +848,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.ReverseModuloScalarI16(series, 11, &output)
 
 				expected := []int16{2, 3, 1}
-				Expect(telem.UnmarshalSeries[int16](output)).To(Equal(expected))
+				Expect(output.Unmarshal[int16]()).To(Equal(expected))
 			})
 
 			It("should perform reverse modulo for I8", func() {
@@ -858,7 +858,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.ReverseModuloScalarI8(series, 11, &output)
 
 				expected := []int8{2, 3, 1}
-				Expect(telem.UnmarshalSeries[int8](output)).To(Equal(expected))
+				Expect(output.Unmarshal[int8]()).To(Equal(expected))
 			})
 
 			It("should perform reverse modulo for U64", func() {
@@ -868,7 +868,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.ReverseModuloScalarU64(series, 100, &output)
 
 				expected := []uint64{1, 2, 1}
-				Expect(telem.UnmarshalSeries[uint64](output)).To(Equal(expected))
+				Expect(output.Unmarshal[uint64]()).To(Equal(expected))
 			})
 
 			It("should perform reverse modulo for U32", func() {
@@ -878,7 +878,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.ReverseModuloScalarU32(series, 100, &output)
 
 				expected := []uint32{1, 2, 1}
-				Expect(telem.UnmarshalSeries[uint32](output)).To(Equal(expected))
+				Expect(output.Unmarshal[uint32]()).To(Equal(expected))
 			})
 
 			It("should perform reverse modulo for U16", func() {
@@ -888,7 +888,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.ReverseModuloScalarU16(series, 11, &output)
 
 				expected := []uint16{2, 3, 1}
-				Expect(telem.UnmarshalSeries[uint16](output)).To(Equal(expected))
+				Expect(output.Unmarshal[uint16]()).To(Equal(expected))
 			})
 
 			It("should perform reverse modulo for U8", func() {
@@ -898,7 +898,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.ReverseModuloScalarU8(series, 11, &output)
 
 				expected := []uint8{2, 3, 1}
-				Expect(telem.UnmarshalSeries[uint8](output)).To(Equal(expected))
+				Expect(output.Unmarshal[uint8]()).To(Equal(expected))
 			})
 
 			It("should handle empty series for reverse modulo", func() {
@@ -917,7 +917,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.ReverseModuloScalarI32(series, 23, &output)
 
 				expected := []int32{2}
-				Expect(telem.UnmarshalSeries[int32](output)).To(Equal(expected))
+				Expect(output.Unmarshal[int32]()).To(Equal(expected))
 			})
 		})
 	})
@@ -943,12 +943,12 @@ var _ = Describe("Vectorized Operations", func() {
 			)
 
 			Expect(outData.Len()).To(Equal(int64(3)))
-			vals := telem.UnmarshalSeries[float64](outData)
+			vals := outData.Unmarshal[float64]()
 			Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
 			Expect(vals[1]).To(BeNumerically("~", 10.0, 0.01))
 			Expect(vals[2]).To(BeNumerically("~", 10.0, 0.01))
 			Expect(outTime.Len()).To(Equal(int64(3)))
-			timeVals := telem.UnmarshalSeries[telem.TimeStamp](outTime)
+			timeVals := outTime.Unmarshal[telem.TimeStamp]()
 			Expect(timeVals[0]).To(Equal(telem.SecondTS))
 			Expect(timeVals[1]).To(Equal(2 * telem.SecondTS))
 			Expect(timeVals[2]).To(Equal(4 * telem.SecondTS))
@@ -985,9 +985,9 @@ var _ = Describe("Vectorized Operations", func() {
 				&outTime,
 			)
 
-			vals := telem.UnmarshalSeries[float64](outData)
+			vals := outData.Unmarshal[float64]()
 			Expect(vals[0]).To(BeNumerically("~", 10.0, 0.01))
-			timeVals := telem.UnmarshalSeries[telem.TimeStamp](outTime)
+			timeVals := outTime.Unmarshal[telem.TimeStamp]()
 			Expect(timeVals[0]).To(Equal(4 * telem.SecondTS))
 		})
 
@@ -1010,7 +1010,7 @@ var _ = Describe("Vectorized Operations", func() {
 				&outTime,
 			)
 
-			vals := telem.UnmarshalSeries[float64](outData)
+			vals := outData.Unmarshal[float64]()
 			Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
 			Expect(vals[1]).To(BeNumerically("~", 0.0, 0.01))
 		})
@@ -1034,11 +1034,11 @@ var _ = Describe("Vectorized Operations", func() {
 				&outTime,
 			)
 
-			vals := telem.UnmarshalSeries[float64](outData)
+			vals := outData.Unmarshal[float64]()
 			Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
 			Expect(vals[1]).To(BeNumerically("~", -20.0, 0.01))
 			Expect(vals[2]).To(BeNumerically("~", -15.0, 0.01))
-			timeVals := telem.UnmarshalSeries[telem.TimeStamp](outTime)
+			timeVals := outTime.Unmarshal[telem.TimeStamp]()
 			Expect(timeVals[0]).To(Equal(telem.SecondTS))
 			Expect(timeVals[1]).To(Equal(2 * telem.SecondTS))
 			Expect(timeVals[2]).To(Equal(4 * telem.SecondTS))
@@ -1063,7 +1063,7 @@ var _ = Describe("Vectorized Operations", func() {
 				&outTime,
 			)
 
-			vals := telem.UnmarshalSeries[float64](outData)
+			vals := outData.Unmarshal[float64]()
 			Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
 			Expect(vals[1]).To(BeNumerically("~", 100.0, 0.01))
 			Expect(vals[2]).To(BeNumerically("~", 100.0, 0.01))
@@ -1112,7 +1112,7 @@ var _ = Describe("Vectorized Operations", func() {
 				&outTime,
 			)
 
-			vals := telem.UnmarshalSeries[float64](outData)
+			vals := outData.Unmarshal[float64]()
 			Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
 			Expect(vals[1]).To(BeNumerically("~", 10.0, 0.01))
 			Expect(vals[2]).To(BeNumerically("~", 10.0, 0.01))
@@ -1137,7 +1137,7 @@ var _ = Describe("Vectorized Operations", func() {
 				&outTime,
 			)
 
-			vals := telem.UnmarshalSeries[float64](outData)
+			vals := outData.Unmarshal[float64]()
 			Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
 			Expect(vals[1]).To(BeNumerically("~", -20.0, 0.01))
 			Expect(vals[2]).To(BeNumerically("~", -15.0, 0.01))
@@ -1151,7 +1151,7 @@ var _ = Describe("Vectorized Operations", func() {
 			op.NegateU8(input, &output)
 			Expect(output.DataType).To(Equal(telem.Int16T))
 			Expect(
-				telem.UnmarshalSeries[int16](output),
+				output.Unmarshal[int16](),
 			).To(Equal([]int16{-5, -10, -255}))
 		})
 		It("should negate uint16 to int32", func() {
@@ -1160,7 +1160,7 @@ var _ = Describe("Vectorized Operations", func() {
 			op.NegateU16(input, &output)
 			Expect(output.DataType).To(Equal(telem.Int32T))
 			Expect(
-				telem.UnmarshalSeries[int32](output),
+				output.Unmarshal[int32](),
 			).To(Equal([]int32{-100, -500, -65535}))
 		})
 		It("should negate uint32 to int64", func() {
@@ -1169,7 +1169,7 @@ var _ = Describe("Vectorized Operations", func() {
 			op.NegateU32(input, &output)
 			Expect(output.DataType).To(Equal(telem.Int64T))
 			Expect(
-				telem.UnmarshalSeries[int64](output),
+				output.Unmarshal[int64](),
 			).To(Equal([]int64{-1000, -50000, -4294967295}))
 		})
 		It("should negate uint64 to float64", func() {
@@ -1178,7 +1178,7 @@ var _ = Describe("Vectorized Operations", func() {
 			op.NegateU64(input, &output)
 			Expect(output.DataType).To(Equal(telem.Float64T))
 			Expect(
-				telem.UnmarshalSeries[float64](output),
+				output.Unmarshal[float64](),
 			).To(Equal([]float64{-100, -200, -300}))
 		})
 	})

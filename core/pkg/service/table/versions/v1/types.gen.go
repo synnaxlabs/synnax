@@ -70,6 +70,6 @@ type Table struct {
 // schema constraints.
 func (t Table) Validate() error {
 	v := validate.New("Table")
-	validate.NotEmptyString(v, "name", t.Name)
+	v.NotEmptyString("name", t.Name)
 	return v.Error()
 }

@@ -352,7 +352,7 @@ var _ = Describe("Vars", func() {
 				),
 			)
 			Expect(ser2.Len()).To(Equal(int64(2)))
-			Expect(telem.ValueAt[float64](ser2, 0)).To(Equal(10.0))
+			Expect(ser2.ValueAt[float64](0)).To(Equal(10.0))
 		})
 
 		It("Should load and store bool series via handles", func(ctx SpecContext) {
@@ -374,7 +374,7 @@ var _ = Describe("Vars", func() {
 				),
 			)
 			Expect(ser2.Len()).To(Equal(int64(2)))
-			Expect(telem.ValueAt[bool](ser2, 0)).To(BeFalse())
+			Expect(ser2.ValueAt[bool](0)).To(BeFalse())
 		})
 
 		It(
@@ -395,7 +395,7 @@ var _ = Describe("Vars", func() {
 						),
 					),
 				)
-				Expect(telem.ValueAt[int32](stored, 0)).To(Equal(int32(1)))
+				Expect(stored.ValueAt[int32](0)).To(Equal(int32(1)))
 			},
 		)
 
@@ -422,7 +422,7 @@ var _ = Describe("Vars", func() {
 						),
 					),
 				)
-				Expect(telem.ValueAt[int32](stored, 0)).To(Equal(int32(10)))
+				Expect(stored.ValueAt[int32](0)).To(Equal(int32(10)))
 			},
 		)
 

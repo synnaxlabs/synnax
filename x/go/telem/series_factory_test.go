@@ -29,12 +29,12 @@ func newFixedSeriesRoundtripTest[T telem.FixedSample](
 		ExpectWithOffset(1, s.DataType).To(Equal(dt))
 		ExpectWithOffset(1, s.Len()).To(BeEquivalentTo(len(data)))
 		for i, v := range data {
-			ExpectWithOffset(1, telem.ValueAt[T](s, i)).To(Equal(v))
+			ExpectWithOffset(1, s.ValueAt[T](i)).To(Equal(v))
 		}
 		if len(data) > 0 {
-			ExpectWithOffset(1, telem.UnmarshalSeries[T](s)).To(Equal(data))
+			ExpectWithOffset(1, s.Unmarshal[T]()).To(Equal(data))
 		} else {
-			ExpectWithOffset(1, telem.UnmarshalSeries[T](s)).To(BeNil())
+			ExpectWithOffset(1, s.Unmarshal[T]()).To(BeNil())
 		}
 		ExpectWithOffset(1, telem.NewSeriesV(data...)).To(Equal(s))
 	}
@@ -49,9 +49,9 @@ func newVariableSeriesRoundtripTest[T telem.VariableSample](
 		ExpectWithOffset(1, s.DataType).To(Equal(dt))
 		ExpectWithOffset(1, s.Len()).To(BeEquivalentTo(len(data)))
 		if len(data) > 0 {
-			ExpectWithOffset(1, telem.UnmarshalSeries[T](s)).To(Equal(data))
+			ExpectWithOffset(1, s.Unmarshal[T]()).To(Equal(data))
 		} else {
-			ExpectWithOffset(1, telem.UnmarshalSeries[T](s)).To(BeEmpty())
+			ExpectWithOffset(1, s.Unmarshal[T]()).To(BeEmpty())
 		}
 		ExpectWithOffset(1, telem.NewSeriesV(data...)).To(Equal(s))
 	}
@@ -120,7 +120,7 @@ var _ = Describe("SeriesFactory", func() {
 				s := telem.NewSeries[int64](nil)
 				Expect(s.DataType).To(Equal(telem.Int64T))
 				Expect(s.Len()).To(BeZero())
-				Expect(telem.UnmarshalSeries[int64](s)).To(BeNil())
+				Expect(s.Unmarshal[int64]()).To(BeNil())
 			})
 			Specify(
 				"single value",
@@ -216,7 +216,7 @@ var _ = Describe("SeriesFactory", func() {
 			s := telem.NewSeriesSecondsTSV(1, 2, 3)
 			Expect(s.DataType).To(Equal(telem.TimestampT))
 			Expect(s.Len()).To(BeEquivalentTo(3))
-			data := telem.UnmarshalSeries[telem.TimeStamp](s)
+			data := s.Unmarshal[telem.TimeStamp]()
 			Expect(data[0]).To(Equal(telem.SecondTS))
 			Expect(data[1]).To(Equal(2 * telem.SecondTS))
 			Expect(data[2]).To(Equal(3 * telem.SecondTS))
@@ -225,13 +225,13 @@ var _ = Describe("SeriesFactory", func() {
 		It("Should handle a single timestamp", func() {
 			s := telem.NewSeriesSecondsTSV(5)
 			Expect(s.Len()).To(BeEquivalentTo(1))
-			data := telem.UnmarshalSeries[telem.TimeStamp](s)
+			data := s.Unmarshal[telem.TimeStamp]()
 			Expect(data).To(Equal([]telem.TimeStamp{5 * telem.SecondTS}))
 		})
 
 		It("Should handle zero", func() {
 			s := telem.NewSeriesSecondsTSV(0)
-			data := telem.UnmarshalSeries[telem.TimeStamp](s)
+			data := s.Unmarshal[telem.TimeStamp]()
 			Expect(data).To(Equal([]telem.TimeStamp{0}))
 		})
 	})
@@ -243,7 +243,7 @@ var _ = Describe("SeriesFactory", func() {
 			Expect(s.DataType).To(Equal(telem.JSONT))
 			Expect(s.Len()).To(BeEquivalentTo(1))
 			Expect(string(s.At(0))).To(Equal(`{"cat":{"one":"two"}}`))
-			Expect(telem.UnmarshalJSONSeries[map[string]any](s)).To(Equal(data))
+			Expect(s.DecodeJSON[map[string]any]()).To(Equal(data))
 		})
 
 		It("Should marshal multiple values", func() {
@@ -280,7 +280,7 @@ var _ = Describe("SeriesFactory", func() {
 
 		It("Should roundtrip through UnmarshalJSONSeries", func() {
 			s := MustSucceed(telem.NewJSONSeriesV([]int{1, 2, 3}))
-			unmarshalled := MustSucceed(telem.UnmarshalJSONSeries[[]int](s))
+			unmarshalled := MustSucceed(s.DecodeJSON[[]int]())
 			Expect(unmarshalled).To(Equal([][]int{{1, 2, 3}}))
 		})
 
@@ -293,7 +293,7 @@ var _ = Describe("SeriesFactory", func() {
 	Describe("UnmarshalJSONSeries", func() {
 		It("Should unmarshal JSON into typed values", func() {
 			s := MustSucceed(telem.NewJSONSeriesV([]int{1, 2, 3}))
-			data := MustSucceed(telem.UnmarshalJSONSeries[[]int](s))
+			data := MustSucceed(s.DecodeJSON[[]int]())
 			Expect(data).To(Equal([][]int{{1, 2, 3}}))
 		})
 
@@ -302,7 +302,7 @@ var _ = Describe("SeriesFactory", func() {
 				map[string]any{"a": 1.0},
 				map[string]any{"b": 2.0},
 			))
-			data := MustSucceed(telem.UnmarshalJSONSeries[map[string]any](s))
+			data := MustSucceed(s.DecodeJSON[map[string]any]())
 			Expect(data).To(HaveLen(2))
 			Expect(data[0]).To(HaveKeyWithValue("a", 1.0))
 			Expect(data[1]).To(HaveKeyWithValue("b", 2.0))
@@ -310,7 +310,7 @@ var _ = Describe("SeriesFactory", func() {
 
 		It("Should return an error when unmarshalling into wrong type", func() {
 			s := MustSucceed(telem.NewJSONSeriesV([]int{1, 2, 3}))
-			Expect(telem.UnmarshalJSONSeries[string](s)).Error().
+			Expect(s.DecodeJSON[string]()).Error().
 				To(MatchError(ContainSubstring(
 					"json: cannot unmarshal array into Go value of type string",
 				)))
@@ -372,7 +372,7 @@ var _ = Describe("SeriesFactory", func() {
 			s := telem.Arrange[int64](0, 5, 2)
 			Expect(s.Len()).To(BeEquivalentTo(5))
 			Expect(s.DataType).To(Equal(telem.Int64T))
-			Expect(telem.UnmarshalSeries[int64](s)).To(Equal([]int64{0, 2, 4, 6, 8}))
+			Expect(s.Unmarshal[int64]()).To(Equal([]int64{0, 2, 4, 6, 8}))
 		})
 
 		It("Should create a series with the correct values for float64", func() {
@@ -380,7 +380,7 @@ var _ = Describe("SeriesFactory", func() {
 			Expect(s.Len()).To(BeEquivalentTo(5))
 			Expect(s.DataType).To(Equal(telem.Float64T))
 			Expect(
-				telem.UnmarshalSeries[float64](s),
+				s.Unmarshal[float64](),
 			).To(Equal([]float64{0.0, 0.5, 1.0, 1.5, 2.0}))
 		})
 
@@ -388,19 +388,19 @@ var _ = Describe("SeriesFactory", func() {
 			s := telem.Arrange[int32](10, 1, 5)
 			Expect(s.Len()).To(BeEquivalentTo(1))
 			Expect(s.DataType).To(Equal(telem.Int32T))
-			Expect(telem.UnmarshalSeries[int32](s)).To(Equal([]int32{10}))
+			Expect(s.Unmarshal[int32]()).To(Equal([]int32{10}))
 		})
 
 		It("Should create a series with negative spacing", func() {
 			s := telem.Arrange[int64](10, 5, -2)
 			Expect(s.Len()).To(BeEquivalentTo(5))
-			Expect(telem.UnmarshalSeries[int64](s)).To(Equal([]int64{10, 8, 6, 4, 2}))
+			Expect(s.Unmarshal[int64]()).To(Equal([]int64{10, 8, 6, 4, 2}))
 		})
 
 		It("Should create a series with timestamps", func() {
 			s := telem.Arrange[telem.TimeStamp](0, 3, 100)
 			Expect(s.DataType).To(Equal(telem.TimestampT))
-			Expect(telem.UnmarshalSeries[telem.TimeStamp](s)).
+			Expect(s.Unmarshal[telem.TimeStamp]()).
 				To(Equal([]telem.TimeStamp{0, 100, 200}))
 		})
 

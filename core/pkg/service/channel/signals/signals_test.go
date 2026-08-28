@@ -61,9 +61,7 @@ var _ = Describe("Signals", func() {
 		Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
 		var res framer.StreamerResponse
 		Eventually(responses.Outlet()).Should(Receive(&res))
-		payloads := MustSucceed(telem.UnmarshalJSONSeries[channelPayload](
-			res.Frame.SeriesAt(0),
-		))
+		payloads := MustSucceed(res.Frame.SeriesAt(0).DecodeJSON[channelPayload]())
 		names := make([]string, len(payloads))
 		for i, p := range payloads {
 			names[i] = p.Name
@@ -84,9 +82,7 @@ var _ = Describe("Signals", func() {
 			Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
 			var res framer.StreamerResponse
 			Eventually(responses.Outlet()).Should(Receive(&res))
-			payloads := MustSucceed(telem.UnmarshalJSONSeries[map[string]any](
-				res.Frame.SeriesAt(0),
-			))
+			payloads := MustSucceed(res.Frame.SeriesAt(0).DecodeJSON[map[string]any]())
 			payload := MustBeOk(lo.Find(payloads, func(p map[string]any) bool {
 				return p["name"] == ch.Name
 			}))
@@ -108,7 +104,7 @@ var _ = Describe("Signals", func() {
 			Expect(channelSvc.NewWriter(nil).Delete(ctx, ch.Key(), false)).To(Succeed())
 			var res framer.StreamerResponse
 			Eventually(responses.Outlet()).Should(Receive(&res))
-			keys := telem.UnmarshalSeries[uint32](res.Frame.SeriesAt(0))
+			keys := res.Frame.SeriesAt(0).Unmarshal[uint32]()
 			Expect(keys).To(ContainElement(uint32(ch.Key())))
 			requests.Close()
 			Eventually(responses.Outlet()).Should(BeClosed())

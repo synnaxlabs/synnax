@@ -37,7 +37,7 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("service.ranger.kv")
-	validate.NotNil(v, "db", c.DB)
+	v.NotNil("db", c.DB)
 	return v.Error()
 }
 
@@ -77,11 +77,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		signalsCfg.SetName = "sy_range_kv_set"
 		signalsCfg.DeleteName = "sy_range_kv_delete"
 		var sig io.Closer
-		if sig, err = signals.PublishFromGorp(
-			ctx,
-			cfg.Signals,
-			signalsCfg,
-		); !ok(
+		if sig, err = cfg.Signals.PublishFromGorp(ctx, signalsCfg); !ok(
 			err,
 			sig,
 		) {

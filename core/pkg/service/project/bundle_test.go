@@ -139,7 +139,7 @@ func addToGroup(ctx SpecContext, child, to ontology.ID) {
 
 func resourceTab(id ontology.ID) panel.Tab {
 	return panel.Tab{Variant: panel.ResourceTab{
-		TabBase:  panel.TabBase{Key: uuid.New()},
+		Key:      uuid.New(),
 		Resource: id,
 	}}
 }

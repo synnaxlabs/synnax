@@ -1038,7 +1038,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 		})
 
 		Context("field that restates an inherited default", func() {
-			It("Should build the test literal through the embedded parent", func() {
+			It("Should key the test literal with the promoted parent field", func() {
 				source := `
 					@go output "core/pkg/test"
 					@go marshal
@@ -1055,10 +1055,11 @@ var _ = Describe("Go Marshal Plugin", func() {
 				`
 				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
 				gen := MustContentOf(resp, "codec_gen_test.go")
-				// Child has no port member of its own, so a Child literal that
-				// assigned one would not compile.
-				Expect(strings.Count(gen, "Port:")).
-					To(Equal(strings.Count(gen, "Base{")))
+				// Child has no port member of its own, so the literal reaches
+				// Base.Port through the promoted field key.
+				Expect(gen).
+					To(ContainSubstring(`test.Child{Port: "test_1", Name: "test_2"}`))
+				Expect(gen).ToNot(ContainSubstring("Base: "))
 			})
 		})
 	})

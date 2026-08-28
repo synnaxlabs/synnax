@@ -596,15 +596,12 @@ var _ = Describe("Graph", func() {
 					Nodes:  nodes,
 					Inputs: inputs,
 					Edges: graph.Edges{
-						{Edge: ir.Edge{
-							Source: ir.Handle{
-								Node:  "src",
-								Param: ir.DefaultOutputParam,
-							},
-							Target: ir.Handle{
-								Node:  "nonexistent",
-								Param: ir.DefaultOutputParam,
-							}, // Invalid target node
+						{Source: ir.Handle{
+							Node:  "src",
+							Param: ir.DefaultOutputParam,
+						}, Target: ir.Handle{
+							Node:  "nonexistent",
+							Param: ir.DefaultOutputParam,
 						}},
 					},
 				}
@@ -641,15 +638,12 @@ var _ = Describe("Graph", func() {
 						Nodes:  nodes,
 						Inputs: inputs,
 						Edges: graph.Edges{
-							{Edge: ir.Edge{
-								Source: ir.Handle{
-									Node:  "src",
-									Param: ir.DefaultOutputParam,
-								},
-								Target: ir.Handle{
-									Node:  "snk",
-									Param: "invalid_param",
-								}, // Invalid parameter
+							{Source: ir.Handle{
+								Node:  "src",
+								Param: ir.DefaultOutputParam,
+							}, Target: ir.Handle{
+								Node:  "snk",
+								Param: "invalid_param",
 							}},
 						},
 					}

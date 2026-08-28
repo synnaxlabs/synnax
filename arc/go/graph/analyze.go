@@ -113,7 +113,7 @@ func Analyze(
 				))
 				return ir.IR{}, aCtx.Diagnostics
 			}
-			analyzer.AnalyzeBlock(acontext.Child(aCtx, blockCtx).WithScope(funcScope))
+			analyzer.AnalyzeBlock(aCtx.Child(blockCtx).WithScope(funcScope))
 			if !aCtx.Diagnostics.Ok() {
 				return ir.IR{}, aCtx.Diagnostics
 			}

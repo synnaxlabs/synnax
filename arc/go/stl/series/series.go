@@ -250,14 +250,14 @@ func bindBool(
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, handle, index, value uint32) uint32 {
 			if ser, ok := s.Get(handle); ok && int64(index) < ser.Len() {
-				telem.SetValueAt[bool](ser, int(index), value != 0)
+				ser.SetValueAt[bool](int(index), value != 0)
 			}
 			return handle
 		}).Export("set_element_bool")
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, handle, index uint32) uint32 {
 			if ser, ok := s.Get(handle); ok && int64(index) < ser.Len() &&
-				telem.ValueAt[bool](ser, int(index)) {
+				ser.ValueAt[bool](int(index)) {
 				return 1
 			}
 			return 0
@@ -343,7 +343,7 @@ func bindI32Type[T i32Scalar](
 		WithFunc(func(_ context.Context, handle, index, value uint32) uint32 {
 			if ser, ok := s.Get(handle); ok {
 				if int64(index) < ser.Len() {
-					telem.SetValueAt[T](ser, int(index), T(value))
+					ser.SetValueAt[T](int(index), T(value))
 				}
 			}
 			return handle
@@ -352,7 +352,7 @@ func bindI32Type[T i32Scalar](
 		WithFunc(func(_ context.Context, handle, index uint32) uint32 {
 			if ser, ok := s.Get(handle); ok {
 				if int64(index) < ser.Len() {
-					return uint32(telem.ValueAt[T](ser, int(index)))
+					return uint32(ser.ValueAt[T](int(index)))
 				}
 			}
 			return 0
@@ -581,7 +581,7 @@ func bindI64Type[T uint64 | int64](
 		WithFunc(func(_ context.Context, handle, index uint32, value uint64) uint32 {
 			if ser, ok := s.Get(handle); ok {
 				if int64(index) < ser.Len() {
-					telem.SetValueAt[T](ser, int(index), T(value))
+					ser.SetValueAt[T](int(index), T(value))
 				}
 			}
 			return handle
@@ -590,7 +590,7 @@ func bindI64Type[T uint64 | int64](
 		WithFunc(func(_ context.Context, handle, index uint32) uint64 {
 			if ser, ok := s.Get(handle); ok {
 				if int64(index) < ser.Len() {
-					return uint64(telem.ValueAt[T](ser, int(index)))
+					return uint64(ser.ValueAt[T](int(index)))
 				}
 			}
 			return 0
@@ -706,7 +706,7 @@ func bindFloatType[T float32 | float64](
 		WithFunc(func(_ context.Context, handle, index uint32, value T) uint32 {
 			if ser, ok := s.Get(handle); ok {
 				if int64(index) < ser.Len() {
-					telem.SetValueAt[T](ser, int(index), value)
+					ser.SetValueAt[T](int(index), value)
 				}
 			}
 			return handle
@@ -715,7 +715,7 @@ func bindFloatType[T float32 | float64](
 		WithFunc(func(_ context.Context, handle, index uint32) T {
 			if ser, ok := s.Get(handle); ok {
 				if int64(index) < ser.Len() {
-					return telem.ValueAt[T](ser, int(index))
+					return ser.ValueAt[T](int(index))
 				}
 			}
 			return 0

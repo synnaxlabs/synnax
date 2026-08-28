@@ -119,18 +119,20 @@ var _ = Describe("DecodeBlob", func() {
 	}
 
 	It("Should decode a nil blob as a zero value", func() {
-		Expect(imex.DecodeBlob[payload](nil, "test data", 0)).To(Equal(payload{}))
+		Expect(
+			imex.Version(0).DecodeBlob[payload](nil, "test data"),
+		).To(Equal(payload{}))
 	})
 
 	It("Should decode the blob as the target type", func() {
 		blob := msgpack.EncodedJSON{"name": "n"}
-		Expect(imex.DecodeBlob[payload](blob, "test data", 1)).
+		Expect(imex.Version(1).DecodeBlob[payload](blob, "test data")).
 			To(Equal(payload{Name: "n"}))
 	})
 
 	It("Should error on a shape mismatch, naming the version and resource", func() {
 		blob := msgpack.EncodedJSON{"name": 42}
-		Expect(imex.DecodeBlob[payload](blob, "test data", 2)).Error().
+		Expect(imex.Version(2).DecodeBlob[payload](blob, "test data")).Error().
 			To(MatchError(ContainSubstring("decode v2 test data")))
 	})
 })

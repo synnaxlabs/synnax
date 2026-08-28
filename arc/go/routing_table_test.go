@@ -56,7 +56,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				highResult := h.Output("demux_0", 0)
 				Expect(highResult.Len()).To(Equal(int64(1)))
 				Expect(
-					telem.UnmarshalSeries[float64](highResult),
+					highResult.Unmarshal[float64](),
 				).To(Equal([]float64{75.0}))
 
 				highTime := h.OutputTime("demux_0", 0)
@@ -71,7 +71,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				Expect(changed).To(BeTrue())
 				Expect(out.Get(200).Series).To(HaveLen(1))
 				Expect(
-					telem.UnmarshalSeries[float64](out.Get(200).Series[0]),
+					out.Get(200).Series[0].Unmarshal[float64](),
 				).To(Equal([]float64{1.0}))
 				Expect(out.Get(300).Series).To(BeEmpty())
 			},
@@ -107,7 +107,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				lowResult := h.Output("demux_0", 1)
 				Expect(lowResult.Len()).To(Equal(int64(1)))
 				Expect(
-					telem.UnmarshalSeries[float64](lowResult),
+					lowResult.Unmarshal[float64](),
 				).To(Equal([]float64{25.0}))
 
 				lowTime := h.OutputTime("demux_0", 1)
@@ -118,7 +118,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				Expect(out.Get(200).Series).To(BeEmpty())
 				Expect(out.Get(300).Series).To(HaveLen(1))
 				Expect(
-					telem.UnmarshalSeries[float64](out.Get(300).Series[0]),
+					out.Get(300).Series[0].Unmarshal[float64](),
 				).To(Equal([]float64{2.0}))
 			},
 		)
@@ -149,13 +149,13 @@ var _ = Describe("Routing Table Runtime", func() {
 
 				highResult := h.Output("demux_0", 0)
 				Expect(
-					telem.UnmarshalSeries[float64](highResult),
+					highResult.Unmarshal[float64](),
 				).To(Equal([]float64{80.0, 90.0}))
 				Expect(h.OutputTime("demux_0", 0).Len()).To(Equal(int64(2)))
 
 				lowResult := h.Output("demux_0", 1)
 				Expect(
-					telem.UnmarshalSeries[float64](lowResult),
+					lowResult.Unmarshal[float64](),
 				).To(Equal([]float64{20.0, 10.0}))
 				Expect(h.OutputTime("demux_0", 1).Len()).To(Equal(int64(2)))
 
@@ -164,10 +164,10 @@ var _ = Describe("Routing Table Runtime", func() {
 				out, changed := h.Flush()
 				Expect(changed).To(BeTrue())
 				Expect(
-					telem.UnmarshalSeries[float64](out.Get(200).Series[0]),
+					out.Get(200).Series[0].Unmarshal[float64](),
 				).To(Equal([]float64{1.0}))
 				Expect(
-					telem.UnmarshalSeries[float64](out.Get(300).Series[0]),
+					out.Get(300).Series[0].Unmarshal[float64](),
 				).To(Equal([]float64{2.0}))
 			},
 		)
@@ -209,24 +209,24 @@ var _ = Describe("Routing Table Runtime", func() {
 				h.channelState.ClearReads()
 
 				negResult := h.Output("classify_0", 0)
-				Expect(telem.UnmarshalSeries[int64](negResult)).To(Equal([]int64{-5}))
+				Expect(negResult.Unmarshal[int64]()).To(Equal([]int64{-5}))
 
 				zeroResult := h.Output("classify_0", 1)
-				Expect(telem.UnmarshalSeries[int64](zeroResult)).To(Equal([]int64{0}))
+				Expect(zeroResult.Unmarshal[int64]()).To(Equal([]int64{0}))
 
 				posResult := h.Output("classify_0", 2)
-				Expect(telem.UnmarshalSeries[int64](posResult)).To(Equal([]int64{42}))
+				Expect(posResult.Unmarshal[int64]()).To(Equal([]int64{42}))
 
 				out, changed := h.Flush()
 				Expect(changed).To(BeTrue())
 				Expect(
-					telem.UnmarshalSeries[int64](out.Get(200).Series[0]),
+					out.Get(200).Series[0].Unmarshal[int64](),
 				).To(Equal([]int64{-1}))
 				Expect(
-					telem.UnmarshalSeries[int64](out.Get(300).Series[0]),
+					out.Get(300).Series[0].Unmarshal[int64](),
 				).To(Equal([]int64{0}))
 				Expect(
-					telem.UnmarshalSeries[int64](out.Get(400).Series[0]),
+					out.Get(400).Series[0].Unmarshal[int64](),
 				).To(Equal([]int64{1}))
 			},
 		)
@@ -263,21 +263,21 @@ var _ = Describe("Routing Table Runtime", func() {
 
 				// mode is written first, so a too-wide bool store clobbers it.
 				Expect(
-					telem.UnmarshalSeries[bool](h.Output("split_0", 0)),
+					h.Output("split_0", 0).Unmarshal[bool](),
 				).To(Equal([]bool{true}))
 				Expect(
-					telem.UnmarshalSeries[uint8](h.Output("split_0", 1)),
+					h.Output("split_0", 1).Unmarshal[uint8](),
 				).To(Equal([]uint8{2}))
 
 				out, changed := h.Flush()
 				Expect(changed).To(BeTrue())
 				Expect(out.Get(200).Series).To(HaveLen(1))
 				Expect(
-					telem.UnmarshalSeries[uint8](out.Get(200).Series[0]),
+					out.Get(200).Series[0].Unmarshal[uint8](),
 				).To(Equal([]uint8{1}))
 				Expect(out.Get(300).Series).To(HaveLen(1))
 				Expect(
-					telem.UnmarshalSeries[uint8](out.Get(300).Series[0]),
+					out.Get(300).Series[0].Unmarshal[uint8](),
 				).To(Equal([]uint8{2}))
 			},
 		)
@@ -336,22 +336,22 @@ var _ = Describe("Routing Table Runtime", func() {
 				h.channelState.ClearReads()
 
 				Expect(
-					telem.UnmarshalSeries[uint16](h.Output("spread_0", 0)),
+					h.Output("spread_0", 0).Unmarshal[uint16](),
 				).To(Equal([]uint16{300}))
 				Expect(
-					telem.UnmarshalSeries[int32](h.Output("spread_0", 1)),
+					h.Output("spread_0", 1).Unmarshal[int32](),
 				).To(Equal([]int32{-3}))
 				Expect(
-					telem.UnmarshalSeries[int64](h.Output("spread_0", 2)),
+					h.Output("spread_0", 2).Unmarshal[int64](),
 				).To(Equal([]int64{5000000000}))
 				Expect(
-					telem.UnmarshalSeries[float32](h.Output("spread_0", 3)),
+					h.Output("spread_0", 3).Unmarshal[float32](),
 				).To(Equal([]float32{1.5}))
 				Expect(
-					telem.UnmarshalSeries[float64](h.Output("spread_0", 4)),
+					h.Output("spread_0", 4).Unmarshal[float64](),
 				).To(Equal([]float64{75.0}))
 				Expect(
-					telem.UnmarshalSeries[string](h.Output("spread_0", 5)),
+					h.Output("spread_0", 5).Unmarshal[string](),
 				).To(Equal([]string{"ok"}))
 
 				out, changed := h.Flush()
@@ -359,7 +359,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				for i, key := range []uint32{200, 300, 400, 500, 600, 700} {
 					Expect(out.Get(key).Series).To(HaveLen(1))
 					Expect(
-						telem.UnmarshalSeries[uint8](out.Get(key).Series[0]),
+						out.Get(key).Series[0].Unmarshal[uint8](),
 					).To(Equal([]uint8{uint8(i + 1)}))
 				}
 			},
@@ -402,7 +402,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				Expect(changed).To(BeTrue())
 				Expect(out.Get(200).Series).To(HaveLen(1))
 				Expect(
-					telem.UnmarshalSeries[uint8](out.Get(200).Series[0]),
+					out.Get(200).Series[0].Unmarshal[uint8](),
 				).To(Equal([]uint8{1}))
 			},
 		)
@@ -435,21 +435,21 @@ var _ = Describe("Routing Table Runtime", func() {
 
 				demuxHigh := h.Output("demux_0", 0)
 				Expect(
-					telem.UnmarshalSeries[float64](demuxHigh),
+					demuxHigh.Unmarshal[float64](),
 				).To(Equal([]float64{80.0}))
 
 				// amplify computes from the entry's constant, not the routed
 				// value: 2.0 * 2.0.
 				amplifyResult := h.Output("amplify_0", 0)
 				Expect(
-					telem.UnmarshalSeries[float64](amplifyResult),
+					amplifyResult.Unmarshal[float64](),
 				).To(Equal([]float64{4.0}))
 				Expect(h.OutputTime("amplify_0", 0).Len()).To(Equal(int64(1)))
 
 				out, changed := h.Flush()
 				Expect(changed).To(BeTrue())
 				Expect(
-					telem.UnmarshalSeries[float64](out.Get(200).Series[0]),
+					out.Get(200).Series[0].Unmarshal[float64](),
 				).To(Equal([]float64{4.0}))
 			},
 		)
@@ -515,7 +515,7 @@ var _ = Describe("Routing Table Runtime", func() {
 
 				demuxHigh := h.Output("demux_0", 0)
 				Expect(
-					telem.UnmarshalSeries[float64](demuxHigh),
+					demuxHigh.Unmarshal[float64](),
 				).To(Equal([]float64{80.0, 90.0}))
 				Expect(h.OutputTime("demux_0", 0).Len()).To(Equal(int64(2)))
 
@@ -523,14 +523,14 @@ var _ = Describe("Routing Table Runtime", func() {
 				// emits a single sample.
 				amplifyResult := h.Output("amplify_0", 0)
 				Expect(
-					telem.UnmarshalSeries[float64](amplifyResult),
+					amplifyResult.Unmarshal[float64](),
 				).To(Equal([]float64{4.0}))
 				Expect(h.OutputTime("amplify_0", 0).Len()).To(Equal(int64(1)))
 
 				out, changed := h.Flush()
 				Expect(changed).To(BeTrue())
 				Expect(
-					telem.UnmarshalSeries[float64](out.Get(200).Series[0]),
+					out.Get(200).Series[0].Unmarshal[float64](),
 				).To(Equal([]float64{4.0}))
 			},
 		)
@@ -558,7 +558,7 @@ var _ = Describe("Routing Table Runtime", func() {
 					Expect(out.Get(200).Series).ToNot(BeEmpty(),
 						"log should be written on every upstream trigger (fire %d)", i)
 					timestamps = append(timestamps,
-						telem.ValueAt[telem.TimeStamp](h.OutputTime("const_0", 0), 0))
+						h.OutputTime("const_0", 0).ValueAt[telem.TimeStamp](0))
 				}
 				for i := 1; i < len(timestamps); i++ {
 					Expect(timestamps[i]).To(BeNumerically(">", timestamps[i-1]),
@@ -610,7 +610,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				Expect(changed).To(BeTrue())
 				Expect(out.Get(200).Series).To(HaveLen(1))
 				Expect(
-					telem.UnmarshalSeries[uint8](out.Get(200).Series[0]),
+					out.Get(200).Series[0].Unmarshal[uint8](),
 				).To(Equal([]uint8{1}))
 
 				// Tick 2: the constant node already fired. No new writes
@@ -722,7 +722,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				Expect(changed).To(BeTrue())
 				Expect(out.Get(200).Series).To(HaveLen(1))
 				Expect(
-					telem.UnmarshalSeries[uint8](out.Get(200).Series[0]),
+					out.Get(200).Series[0].Unmarshal[uint8](),
 				).To(Equal([]uint8{1}))
 				Expect(out.Get(300).Series).To(BeEmpty())
 
@@ -737,7 +737,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				Expect(out2.Get(200).Series).To(BeEmpty())
 				Expect(out2.Get(300).Series).To(HaveLen(1))
 				Expect(
-					telem.UnmarshalSeries[uint8](out2.Get(300).Series[0]),
+					out2.Get(300).Series[0].Unmarshal[uint8](),
 				).To(Equal([]uint8{1}))
 			},
 		)
@@ -793,7 +793,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				out, changed := h.Flush()
 				Expect(changed).To(BeTrue())
 				Expect(
-					telem.UnmarshalSeries[uint8](out.Get(200).Series[0]),
+					out.Get(200).Series[0].Unmarshal[uint8](),
 				).To(Equal([]uint8{1}))
 
 				// Tick 2: pressure rises above 100. check_pressure returns truthy,
@@ -806,7 +806,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				out2, changed2 := h.Flush()
 				Expect(changed2).To(BeTrue())
 				Expect(
-					telem.UnmarshalSeries[uint8](out2.Get(200).Series[0]),
+					out2.Get(200).Series[0].Unmarshal[uint8](),
 				).To(Equal([]uint8{0}))
 
 				// Tick 3: no new data. Hold stage constant already fired.
@@ -866,7 +866,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				Expect(changed).To(BeTrue())
 				Expect(out.Get(200).Series).To(HaveLen(1))
 				Expect(
-					telem.UnmarshalSeries[uint8](out.Get(200).Series[0]),
+					out.Get(200).Series[0].Unmarshal[uint8](),
 				).To(Equal([]uint8{1}))
 				Expect(out.Get(300).Series).To(BeEmpty())
 
@@ -886,7 +886,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				Expect(out2.Get(200).Series).To(BeEmpty())
 				Expect(out2.Get(300).Series).To(HaveLen(1))
 				Expect(
-					telem.UnmarshalSeries[uint8](out2.Get(300).Series[0]),
+					out2.Get(300).Series[0].Unmarshal[uint8](),
 				).To(Equal([]uint8{1}))
 			},
 		)
@@ -936,7 +936,7 @@ var _ = Describe("Routing Table Runtime", func() {
 			Expect(changed).To(BeTrue())
 			Expect(out.Get(200).Series).To(HaveLen(1))
 			Expect(
-				telem.UnmarshalSeries[uint8](out.Get(200).Series[0]),
+				out.Get(200).Series[0].Unmarshal[uint8](),
 			).To(Equal([]uint8{1}))
 			Expect(out.Get(300).Series).To(BeEmpty())
 		})
@@ -966,7 +966,7 @@ var _ = Describe("Routing Table Runtime", func() {
 			Expect(changed).To(BeTrue())
 			Expect(out.Get(200).Series).To(HaveLen(1))
 			Expect(
-				telem.UnmarshalSeries[bool](out.Get(200).Series[0]),
+				out.Get(200).Series[0].Unmarshal[bool](),
 			).To(Equal([]bool{true}))
 
 			// False branch: the entry writes literal false, not the 1-valued
@@ -979,7 +979,7 @@ var _ = Describe("Routing Table Runtime", func() {
 			Expect(changed2).To(BeTrue())
 			Expect(out2.Get(200).Series).To(HaveLen(1))
 			Expect(
-				telem.UnmarshalSeries[bool](out2.Get(200).Series[0]),
+				out2.Get(200).Series[0].Unmarshal[bool](),
 			).To(Equal([]bool{false}))
 		})
 
@@ -1013,7 +1013,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				Expect(changed).To(BeTrue())
 				Expect(out.Get(200).Series).To(HaveLen(1))
 				Expect(
-					telem.UnmarshalSeries[uint8](out.Get(200).Series[0]),
+					out.Get(200).Series[0].Unmarshal[uint8](),
 				).To(Equal([]uint8{1}))
 				Expect(out.Get(300).Series).To(BeEmpty())
 
@@ -1027,7 +1027,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				Expect(out2.Get(200).Series).To(BeEmpty())
 				Expect(out2.Get(300).Series).To(HaveLen(1))
 				Expect(
-					telem.UnmarshalSeries[uint8](out2.Get(300).Series[0]),
+					out2.Get(300).Series[0].Unmarshal[uint8](),
 				).To(Equal([]uint8{1}))
 			},
 		)
@@ -1089,7 +1089,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				Expect(changed2).To(BeTrue())
 				Expect(out.Get(200).Series).To(HaveLen(1))
 				Expect(
-					telem.UnmarshalSeries[uint8](out.Get(200).Series[0]),
+					out.Get(200).Series[0].Unmarshal[uint8](),
 				).To(Equal([]uint8{1}))
 			},
 		)

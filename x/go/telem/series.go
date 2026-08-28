@@ -226,18 +226,18 @@ func (s *Series) Resize(length int64) {
 }
 
 // ValueAt returns the numeric value at the given index in the series. ValueAt supports
-// negative indices, which will be wrapped around the end of the series. This function
-// cannot be used for variable density series.
-func ValueAt[T FixedSample](s Series, i int) T {
+// negative indices, which will be wrapped around the end of the series. ValueAt cannot
+// be used for variable density series.
+func (s Series) ValueAt[T FixedSample](i int) T {
 	i = xslices.ConvertNegativeIndex(i, int(s.Len()))
 	data := xunsafe.CastSlice[byte, T](s.Data)
 	return data[i]
 }
 
 // SetValueAt sets the value at the given index in the series. SetValueAt supports
-// negative indices, which will be wrapped around the end of the series. This function
+// negative indices, which will be wrapped around the end of the series. SetValueAt
 // cannot be used for variable density series.
-func SetValueAt[T FixedSample](s Series, i int, v T) {
+func (s Series) SetValueAt[T FixedSample](i int, v T) {
 	i = xslices.ConvertNegativeIndex(i, int(s.Len()))
 	data := xunsafe.CastSlice[byte, T](s.Data)
 	data[i] = v
@@ -347,33 +347,33 @@ func (s Series) DataString() string {
 		return "[]"
 	}
 	if s.DataType.IsVariable() {
-		return truncateAndFormatSlice(UnmarshalSeries[string](s))
+		return truncateAndFormatSlice(s.Unmarshal[string]())
 	}
 	switch s.DataType {
 	case Float64T:
-		return truncateAndFormatSlice(UnmarshalSeries[float64](s))
+		return truncateAndFormatSlice(s.Unmarshal[float64]())
 	case Float32T:
-		return truncateAndFormatSlice(UnmarshalSeries[float32](s))
+		return truncateAndFormatSlice(s.Unmarshal[float32]())
 	case Int64T:
-		return truncateAndFormatSlice(UnmarshalSeries[int64](s))
+		return truncateAndFormatSlice(s.Unmarshal[int64]())
 	case Int32T:
-		return truncateAndFormatSlice(UnmarshalSeries[int32](s))
+		return truncateAndFormatSlice(s.Unmarshal[int32]())
 	case Int16T:
-		return truncateAndFormatSlice(UnmarshalSeries[int16](s))
+		return truncateAndFormatSlice(s.Unmarshal[int16]())
 	case Int8T:
-		return truncateAndFormatSlice(UnmarshalSeries[int8](s))
+		return truncateAndFormatSlice(s.Unmarshal[int8]())
 	case Uint64T:
-		return truncateAndFormatSlice(UnmarshalSeries[uint64](s))
+		return truncateAndFormatSlice(s.Unmarshal[uint64]())
 	case Uint32T:
-		return truncateAndFormatSlice(UnmarshalSeries[uint32](s))
+		return truncateAndFormatSlice(s.Unmarshal[uint32]())
 	case Uint16T:
-		return truncateAndFormatSlice(UnmarshalSeries[uint16](s))
+		return truncateAndFormatSlice(s.Unmarshal[uint16]())
 	case Uint8T:
-		return truncateAndFormatSlice(UnmarshalSeries[uint8](s))
+		return truncateAndFormatSlice(s.Unmarshal[uint8]())
 	case BooleanT:
-		return truncateAndFormatSlice(UnmarshalSeries[bool](s))
+		return truncateAndFormatSlice(s.Unmarshal[bool]())
 	case TimestampT:
-		first, last := xslices.Truncate(UnmarshalSeries[TimeStamp](s), maxDisplayValues)
+		first, last := xslices.Truncate(s.Unmarshal[TimeStamp](), maxDisplayValues)
 		firstDeltas := make([]string, len(first)-1)
 		for i := 1; i < len(first); i++ {
 			firstDeltas[i-1] = "+" + TimeSpan(first[i]-first[0]).String()
@@ -432,11 +432,11 @@ func NewMultiSeries(series []Series) MultiSeries {
 	return MultiSeries{Series: series}
 }
 
-// MultiSeriesAtAlignment returns the value at the given alignment in the MultiSeries.
-func MultiSeriesAtAlignment[T FixedSample](ms MultiSeries, alignment Alignment) T {
+// AtAlignment returns the value at the given alignment in the MultiSeries.
+func (ms MultiSeries) AtAlignment[T FixedSample](alignment Alignment) T {
 	for _, s := range ms.Series {
 		if s.AlignmentBounds().Contains(alignment) {
-			return ValueAt[T](s, int(alignment-s.Alignment))
+			return s.ValueAt[T](int(alignment - s.Alignment))
 		}
 	}
 	panic(fmt.Sprintf(

@@ -2324,21 +2324,21 @@ var _ = Describe("ProgramState", func() {
 		It("Should return the referenced variable's latest value", func() {
 			s := build()
 			*s.Node("v").Output(0) = telem.NewSeriesV[uint8](3, 7)
-			Expect(node.NumericInput[uint8](s.Node("c"), "gain")).To(Equal(uint8(7)))
+			Expect(s.Node("c").NumericInput[uint8]("gain")).To(Equal(uint8(7)))
 		})
 
 		It("Should read the declared initial before any write", func() {
-			Expect(node.NumericInput[uint8](build().Node("c"), "gain")).
+			Expect(build().Node("c").NumericInput[uint8]("gain")).
 				To(Equal(uint8(5)))
 		})
 
 		It("Should return a literal param's configured value", func() {
-			Expect(node.NumericInput[uint8](build().Node("c"), "offset")).
+			Expect(build().Node("c").NumericInput[uint8]("offset")).
 				To(Equal(uint8(9)))
 		})
 
 		It("Should return zero for an unknown input", func() {
-			Expect(node.NumericInput[uint8](build().Node("c"), "nope")).To(BeZero())
+			Expect(build().Node("c").NumericInput[uint8]("nope")).To(BeZero())
 		})
 	})
 })
@@ -2532,7 +2532,7 @@ var _ = Describe("Gating and Absorb Edge Cases", func() {
 			*s.Node("bind").Output(0) = telem.NewSeriesV[uint32](9)
 			reader.AbsorbInputs()
 			Expect(reader.RefSourced(0)).To(BeTrue())
-			Expect(telem.ValueAt[uint32](reader.RefInput(0), -1)).To(Equal(uint32(9)))
+			Expect(reader.RefInput(0).ValueAt[uint32](-1)).To(Equal(uint32(9)))
 		},
 	)
 })
