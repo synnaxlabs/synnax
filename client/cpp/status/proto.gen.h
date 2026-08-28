@@ -39,7 +39,7 @@ variant_to_pb(const std::string &cpp) {
             {VARIANT_ERROR, ::service::status::pb::VARIANT_ERROR},
             {VARIANT_LOADING, ::service::status::pb::VARIANT_LOADING},
             {VARIANT_DISABLED, ::service::status::pb::VARIANT_DISABLED},
-    };
+        };
     auto it = kMap.find(cpp);
     if (it == kMap.end())
         return {{}, x::errors::Error("unrecognized Variant value: " + cpp)};
