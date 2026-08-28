@@ -569,9 +569,7 @@ var _ = Describe("Driver", func() {
 									Time:    telem.Now(),
 									Details: task.NewStatusDetails(t, false),
 								}
-								return statusSvc.NewWriter(
-									nil,
-								).Set(ctx, &stat)
+								return statusSvc.NewWriter(nil).Set(ctx, &stat)
 							},
 						}, nil
 					},

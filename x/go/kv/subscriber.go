@@ -21,9 +21,7 @@ import (
 )
 
 // Subscriber is used to flush an observable that flushes changes
-// to an underlying key-value store. A single Subscriber serves every state type: the
-// type parameter lives on Flush and FlushSync, which infer it from their argument or
-// from the handler type they are bound to.
+// to an underlying key-value store.
 type Subscriber struct {
 	alamos.Instrumentation
 	// LastFlush stores the last time the observable was flushed.

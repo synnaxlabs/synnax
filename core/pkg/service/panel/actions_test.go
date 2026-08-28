@@ -28,18 +28,12 @@ func tabResource(key uuid.UUID) ontology.ID {
 // tab constructs a resource Tab with a fixed UUID and a key-derived resource. Tests
 // use the UUID directly to assert on tab identity.
 func tab(key uuid.UUID) panel.Tab {
-	return panel.Tab{Variant: panel.ResourceTab{
-		Key:      key,
-		Resource: tabResource(key),
-	}}
+	return panel.Tab{Variant: panel.ResourceTab{Key: key, Resource: tabResource(key)}}
 }
 
 // viewTab constructs a view Tab with a fixed UUID and an inline view of the given type.
 func viewTab(key uuid.UUID, viewType string) panel.Tab {
-	return panel.Tab{Variant: panel.ViewTab{
-		Key:  key,
-		Type: viewType,
-	}}
+	return panel.Tab{Variant: panel.ViewTab{Key: key, Type: viewType}}
 }
 
 // leafNode wraps a tab list as a leaf node.

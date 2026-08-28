@@ -262,10 +262,7 @@ var _ = Describe("ResourceRefs", func() {
 		return ontology.ID{Type: ontology.ResourceTypeTask, Key: uuid.NewString()}
 	}
 	taskTab := func(id ontology.ID) panel.Tab {
-		return panel.Tab{Variant: panel.ResourceTab{
-			Key:      uuid.New(),
-			Resource: id,
-		}}
+		return panel.Tab{Variant: panel.ResourceTab{Key: uuid.New(), Resource: id}}
 	}
 
 	It("Should collect every resource the tree's resource tabs reference", func() {

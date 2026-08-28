@@ -322,14 +322,7 @@ var _ = Describe("Select", func() {
 				State: s.Node("select"),
 			}
 			source := s.Node("source")
-			*source.Output(0) = telem.NewSeriesV(
-				false,
-				false,
-				true,
-				true,
-				true,
-				false,
-			)
+			*source.Output(0) = telem.NewSeriesV(false, false, true, true, true, false)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6)
 			n, _ := factory.Create(ctx, cfg)
 			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})

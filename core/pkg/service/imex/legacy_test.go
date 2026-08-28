@@ -119,9 +119,7 @@ var _ = Describe("DecodeBlob", func() {
 	}
 
 	It("Should decode a nil blob as a zero value", func() {
-		Expect(
-			imex.DecodeBlob[payload](nil, "test data", 0),
-		).To(Equal(payload{}))
+		Expect(imex.DecodeBlob[payload](nil, "test data", 0)).To(Equal(payload{}))
 	})
 
 	It("Should decode the blob as the target type", func() {
