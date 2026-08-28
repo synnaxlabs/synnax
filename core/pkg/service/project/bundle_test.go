@@ -138,10 +138,7 @@ func addToGroup(ctx SpecContext, child, to ontology.ID) {
 }
 
 func resourceTab(id ontology.ID) panel.Tab {
-	return panel.Tab{Variant: panel.ResourceTab{
-		Key:      uuid.New(),
-		Resource: id,
-	}}
+	return panel.Tab{Variant: panel.ResourceTab{Key: uuid.New(), Resource: id}}
 }
 
 func leaf(tabs ...panel.Tab) panel.Node {

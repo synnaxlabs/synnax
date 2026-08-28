@@ -20,8 +20,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Writer is used to create and update statuses within the DB. A single Writer serves
-// every details type: the type parameter lives on the methods that name a Status.
+// Writer is used to create and update statuses within the DB.
 type Writer struct {
 	tx        gorp.Tx
 	otgWriter ontology.Writer
@@ -138,7 +137,6 @@ func (w Writer) SetManyWithParent[D any](
 }
 
 // Delete deletes the statuses with the given keys. Delete is idempotent.
-// Delete needs no details type: every Status[D] shares the "Status" gorp namespace.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	if err := gorp.NewDelete[Key, Status[any]]().
 		Where(gorp.MatchKeys[Key, Status[any]](keys...)).
