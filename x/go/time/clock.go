@@ -14,9 +14,9 @@ import (
 	"time"
 )
 
-// Timer is a single-shot timer scheduled via Clock.AfterFunc. Stop prevents the timer
-// from firing and returns true if the call stopped the timer, or false if the timer
-// has already fired or been stopped.
+// Timer is a single-shot timer scheduled by a Clock. Stop prevents the timer from
+// firing and returns true if the call stopped the timer, or false if the timer has
+// already fired or been stopped.
 type Timer interface {
 	// Stop prevents the timer from firing and returns true if the call stopped the
 	// timer, or false if the timer has already fired or been stopped.
@@ -34,6 +34,12 @@ type Clock interface {
 	// Timer that can be used to cancel the call. If Stop is called before fn would have
 	// run, fn is not called.
 	AfterFunc(time.Duration, func()) Timer
+	// AfterFuncAt schedules fn to be called at the deadline and returns a Timer that
+	// can be used to cancel the call. fn runs immediately if the deadline has already
+	// passed. Prefer it over AfterFunc whenever the caller holds a deadline: the clock
+	// resolves it in one step, so time advancing since the Now that produced the
+	// deadline cannot push the call late.
+	AfterFuncAt(time.Time, func()) Timer
 }
 
 type real struct{}
@@ -46,6 +52,10 @@ func (real) Now() time.Time { return time.Now() }
 func (real) After(d time.Duration) <-chan time.Time { return time.After(d) }
 
 func (real) AfterFunc(d time.Duration, f func()) Timer { return time.AfterFunc(d, f) }
+
+func (real) AfterFuncAt(t time.Time, f func()) Timer {
+	return time.AfterFunc(time.Until(t), f)
+}
 
 // Fake is a Clock that uses a fake time source and timer scheduler for testing.
 type Fake struct {
@@ -74,19 +84,55 @@ func (f *Fake) Now() time.Time {
 func (f *Fake) After(d time.Duration) <-chan time.Time {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	return f.scheduleLocked(f.now.Add(d))
+}
+
+func (f *Fake) afterAt(t time.Time) <-chan time.Time {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.scheduleLocked(t)
+}
+
+// scheduleLocked returns a channel that receives at the given deadline. A deadline at
+// or before the current time is delivered right away instead of joining the pending
+// list, where only a later Advance would reach it.
+func (f *Fake) scheduleLocked(at time.Time) <-chan time.Time {
 	ch := make(chan time.Time, 1)
-	t := &fakeTimer{at: f.now.Add(d), ch: ch}
-	f.timers = append(f.timers, t)
+	if !at.After(f.now) {
+		ch <- f.now
+		close(ch)
+		return ch
+	}
+	f.timers = append(f.timers, &fakeTimer{at: at, ch: ch})
 	return ch
 }
 
 // AfterFunc schedules fn to run from a goroutine after the duration elapses, calling it
-// unless the returned Timer's Stop method wins the race first. Stop also releases the
-// goroutine when the timer is cancelled before Advance crosses its deadline; otherwise
-// a never-fired timer would leak its goroutine.
+// unless the returned Timer's Stop method wins the race first.
 func (f *Fake) AfterFunc(d time.Duration, fn func()) Timer {
+	return newFakeFuncTimer(f.After(d), fn)
+}
+
+// AfterFuncAt schedules fn to run from a goroutine at the given deadline, calling it
+// unless the returned Timer's Stop method wins the race first.
+func (f *Fake) AfterFuncAt(t time.Time, fn func()) Timer {
+	return newFakeFuncTimer(f.afterAt(t), fn)
+}
+
+// fakeFuncTimer coordinates the race between Stop and the timer goroutine: whoever
+// calls claim first wins. Stop winning suppresses fn and releases the goroutine; the
+// goroutine winning runs fn.
+type fakeFuncTimer struct {
+	mu      sync.Mutex
+	claimed bool
+	stop    chan struct{}
+}
+
+// newFakeFuncTimer calls fn once ch receives. Stop releases the goroutine when the
+// timer is cancelled before Advance crosses its deadline; otherwise a never-fired timer
+// would leak its goroutine.
+func newFakeFuncTimer(ch <-chan time.Time, fn func()) Timer {
 	t := &fakeFuncTimer{stop: make(chan struct{})}
-	ch := f.After(d)
 	go func() {
 		select {
 		case <-ch:
@@ -97,15 +143,6 @@ func (f *Fake) AfterFunc(d time.Duration, fn func()) Timer {
 		}
 	}()
 	return t
-}
-
-// fakeFuncTimer coordinates the race between Stop and the AfterFunc goroutine: whoever
-// calls claim first wins. Stop winning suppresses fn and releases the goroutine; the
-// goroutine winning runs fn.
-type fakeFuncTimer struct {
-	mu      sync.Mutex
-	claimed bool
-	stop    chan struct{}
 }
 
 func (t *fakeFuncTimer) claim() bool {

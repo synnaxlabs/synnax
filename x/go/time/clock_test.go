@@ -42,6 +42,26 @@ var _ = Describe("Clock", func() {
 			Expect(t.Stop()).To(BeTrue())
 			Consistently(called.Load, time.Millisecond*20).Should(BeFalse())
 		})
+		It("Should call AfterFuncAt functions once the deadline passes", func() {
+			done := make(chan struct{})
+			xtime.Real.AfterFuncAt(time.Now().Add(5*time.Millisecond), func() {
+				close(done)
+			})
+			Eventually(done, time.Millisecond*100).Should(BeClosed())
+		})
+		It("Should call AfterFuncAt functions with a past deadline", func() {
+			done := make(chan struct{})
+			xtime.Real.AfterFuncAt(time.Now().Add(-time.Hour), func() { close(done) })
+			Eventually(done, time.Millisecond*100).Should(BeClosed())
+		})
+		It("Should let Stop cancel a pending AfterFuncAt timer", func() {
+			var called atomic.Bool
+			t := xtime.Real.AfterFuncAt(time.Now().Add(time.Hour), func() {
+				called.Store(true)
+			})
+			Expect(t.Stop()).To(BeTrue())
+			Consistently(called.Load, time.Millisecond*20).Should(BeFalse())
+		})
 	})
 
 	Describe("Fake", func() {
@@ -91,6 +111,11 @@ var _ = Describe("Clock", func() {
 				f.Advance(500 * time.Millisecond)
 				go f.Advance(700 * time.Millisecond)
 				Eventually(ch).Should(Receive())
+			})
+			It("Should deliver immediately for a non-positive duration", func() {
+				f := &xtime.Fake{}
+				f.Advance(time.Second)
+				Expect(f.After(0)).To(Receive(Equal(time.Time{}.Add(time.Second))))
 			})
 		})
 
@@ -145,6 +170,47 @@ var _ = Describe("Clock", func() {
 				t := f.AfterFunc(time.Second, func() {})
 				Expect(t.Stop()).To(BeTrue())
 				Expect(t.Stop()).To(BeFalse())
+			})
+		})
+
+		Describe("AfterFuncAt", func() {
+			It("Should call scheduled functions when Advance crosses the deadline",
+				func() {
+					f := &xtime.Fake{}
+					done := make(chan struct{})
+					f.AfterFuncAt(time.Time{}.Add(time.Second), func() { close(done) })
+					go f.Advance(2 * time.Second)
+					Eventually(done).Should(BeClosed())
+				},
+			)
+			It("Should call scheduled functions whose deadline has already passed",
+				func() {
+					f := &xtime.Fake{}
+					done := make(chan struct{})
+					f.Advance(2 * time.Second)
+					f.AfterFuncAt(time.Time{}.Add(time.Second), func() { close(done) })
+					Eventually(done).Should(BeClosed())
+				},
+			)
+			It("Should not call functions whose deadline has not been crossed", func() {
+				f := &xtime.Fake{}
+				var called atomic.Int32
+				t := f.AfterFuncAt(time.Time{}.Add(time.Second), func() {
+					called.Add(1)
+				})
+				DeferCleanup(func() { t.Stop() })
+				f.Advance(500 * time.Millisecond)
+				Consistently(called.Load, time.Millisecond*20).Should(Equal(int32(0)))
+			})
+			It("Should let Stop cancel a pending timer", func() {
+				f := &xtime.Fake{}
+				var called atomic.Int32
+				t := f.AfterFuncAt(time.Time{}.Add(time.Second), func() {
+					called.Add(1)
+				})
+				Expect(t.Stop()).To(BeTrue())
+				go f.Advance(2 * time.Second)
+				Consistently(called.Load, time.Millisecond*20).Should(Equal(int32(0)))
 			})
 		})
 	})
