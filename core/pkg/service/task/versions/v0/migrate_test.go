@@ -103,8 +103,7 @@ var _ = Describe("Migration", func() {
 				Time:    telem.Now(),
 				Details: v0.StatusDetails{Task: t.Key},
 			}
-			Expect(statusSvc.NewWriter(nil).
-				Set(ctx, &existing)).To(Succeed())
+			Expect(statusSvc.NewWriter(nil).Set(ctx, &existing)).To(Succeed())
 
 			runMigration(ctx)
 

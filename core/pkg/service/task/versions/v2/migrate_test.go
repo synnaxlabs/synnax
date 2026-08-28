@@ -110,9 +110,7 @@ var _ = Describe("Migrations", func() {
 					"cmd":     "start",
 				},
 			}
-			Expect(
-				stat.NewWriter(nil).Set(ctx, &legacyStatus),
-			).To(Succeed())
+			Expect(stat.NewWriter(nil).Set(ctx, &legacyStatus)).To(Succeed())
 
 			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
 			configs := MustSucceed(config.NewRegistry(pd.Stores()...))
