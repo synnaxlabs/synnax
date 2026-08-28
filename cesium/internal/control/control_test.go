@@ -155,9 +155,7 @@ var _ = Describe("Control", func() {
 					count := 0
 					cfg.OpenResource = func() (testResource, error) {
 						count++
-						return testResource{
-							value: 11,
-						}, errors.Wrapf(
+						return testResource{value: 11}, errors.Wrapf(
 							validate.ErrValidation,
 							"could not great gate",
 						)
