@@ -30,7 +30,6 @@ on:
       - pnpm-lock.yaml
       - pyproject.toml
       - uv.lock
-      - uv.toml
       - x/go/**
       - x/ts/**
   push:
@@ -56,7 +55,6 @@ on:
       - pnpm-lock.yaml
       - pyproject.toml
       - uv.lock
-      - uv.toml
       - x/go/**
       - x/ts/**
   workflow_dispatch:

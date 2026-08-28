@@ -21,7 +21,6 @@ on:
       - client/py/**
       - pyproject.toml
       - uv.lock
-      - uv.toml
   workflow_dispatch:
 
 jobs:
