@@ -136,6 +136,9 @@ export const {
   useInvalidate: useInvalidatePermissions,
 } = Flux.createRetrieve<LoadPermissionsQuery, access.policy.Policy[]>({
   name: PERMISSION_PLURAL_RESOURCE_NAME,
+  // No workspace renders until this read lands, so a moment of dead connection must not
+  // settle into a wall the subject has to clear by hand.
+  retryUnreachable: true,
   retrieve: async ({ client, query }) => {
     const subject = await resolveSubjectAsync(client, query.subject);
     if (subject == null) return [];
