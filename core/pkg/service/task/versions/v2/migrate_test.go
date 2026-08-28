@@ -111,7 +111,7 @@ var _ = Describe("Migrations", func() {
 				},
 			}
 			Expect(
-				stat.NewWriter[any](nil).Set(ctx, &legacyStatus),
+				stat.NewWriter(nil).Set(ctx, &legacyStatus),
 			).To(Succeed())
 
 			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))

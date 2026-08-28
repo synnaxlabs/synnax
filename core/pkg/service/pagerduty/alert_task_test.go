@@ -63,7 +63,7 @@ var _ = Describe("AlertTask", func() {
 	) {
 		tx := db.OpenTx()
 		defer func() { Expect(tx.Close()).To(Succeed()) }()
-		w := statusSvc.NewWriter[any](tx)
+		w := statusSvc.NewWriter(tx)
 		Expect(w.Set(ctx, &status.Status[any]{
 			Key:     key,
 			Name:    "Test Source",
@@ -320,7 +320,7 @@ var _ = Describe("AlertTask", func() {
 
 				tx := db.OpenTx()
 				defer func() { Expect(tx.Close()).To(Succeed()) }()
-				w := statusSvc.NewWriter[any](tx)
+				w := statusSvc.NewWriter(tx)
 				Expect(w.Set(ctx, &status.Status[any]{
 					Key:         "payload-test",
 					Name:        "Temperature Sensor",

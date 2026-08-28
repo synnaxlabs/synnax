@@ -697,7 +697,7 @@ var _ = Describe("Rack", Ordered, func() {
 				r := rack.Rack{Name: "heal rack"}
 				Expect(writer.Create(ctx, &r)).To(Succeed())
 
-				Expect(stat.NewWriter[rack.StatusDetails](tx).
+				Expect(stat.NewWriter(tx).
 					Delete(ctx, r.OntologyID().String())).To(Succeed())
 				Expect(stat.NewRetrieve[rack.StatusDetails]().
 					Where(status.MatchKeys[rack.StatusDetails](r.OntologyID().String())).
@@ -776,7 +776,7 @@ var _ = Describe("Rack", Ordered, func() {
 				Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
 
 				Expect(
-					stat.NewWriter[rack.StatusDetails](nil).Set(ctx, &rack.Status{
+					stat.NewWriter(nil).Set(ctx, &rack.Status{
 						Key:     r.OntologyID().String(),
 						Name:    r.Name,
 						Time:    telem.Now(),
@@ -856,7 +856,7 @@ var _ = Describe("Rack", Ordered, func() {
 				Eventually(getCount).Should(Equal(1))
 
 				Expect(
-					stat.NewWriter[rack.StatusDetails](nil).Set(ctx, &rack.Status{
+					stat.NewWriter(nil).Set(ctx, &rack.Status{
 						Key:     r.OntologyID().String(),
 						Name:    r.Name,
 						Time:    telem.Now(),

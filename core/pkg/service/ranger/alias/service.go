@@ -109,10 +109,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		signalsCfg.SetName = "sy_range_alias_set"
 		signalsCfg.DeleteName = "sy_range_alias_delete"
 		var sig io.Closer
-		if sig, err = cfg.Signals.PublishFromGorp(ctx, signalsCfg); !ok(
-			err,
-			sig,
-		) {
+		if sig, err = cfg.Signals.PublishFromGorp(ctx, signalsCfg); !ok(err, sig) {
 			return nil, err
 		}
 	}

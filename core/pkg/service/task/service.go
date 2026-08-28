@@ -237,7 +237,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		otgWriter: s.cfg.Ontology.NewWriter(tx),
 		otg:       s.cfg.Ontology,
 		group:     s.group,
-		status:    s.cfg.Status.NewWriter[StatusDetails](tx),
+		status:    s.cfg.Status.NewWriter(tx),
 		table:     s.table,
 		configs:   s.cfg.Configs,
 	}
@@ -294,7 +294,7 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {
 			Details:     details,
 		}
 	}
-	if err := s.cfg.Status.NewWriter[StatusDetails](nil).
+	if err := s.cfg.Status.NewWriter(nil).
 		SetMany(ctx, &statuses); err != nil {
 		s.cfg.L.Error("failed to set statuses on suspect rack", zap.Error(err))
 	}

@@ -103,7 +103,7 @@ var _ = Describe("Migration", func() {
 				Time:    telem.Now(),
 				Details: v0.StatusDetails{Task: t.Key},
 			}
-			Expect(statusSvc.NewWriter[v0.StatusDetails](nil).
+			Expect(statusSvc.NewWriter(nil).
 				Set(ctx, &existing)).To(Succeed())
 
 			runMigration(ctx)
@@ -170,7 +170,7 @@ var _ = Describe("Status backfill", func() {
 				},
 			}
 			Expect(
-				statusSvc.NewWriter[any](nil).Set(ctx, &legacyStatus),
+				statusSvc.NewWriter(nil).Set(ctx, &legacyStatus),
 			).To(Succeed())
 
 			// The backfill reads existing statuses as Status[StatusDetails]. This would

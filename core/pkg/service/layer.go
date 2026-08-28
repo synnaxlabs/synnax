@@ -363,10 +363,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if closer, err := l.Signals.PublishFromGorp(
 		ctx,
 		signals.GorpPublisherConfigUUID(l.Group.Observe()),
-	); !ok(
-		err,
-		closer,
-	) {
+	); !ok(err, closer) {
 		return nil, err
 	}
 	if closer, err := ontologysignals.Publish(
@@ -380,19 +377,13 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if closer, err := l.Signals.PublishFromGorp(
 		ctx,
 		signals.GorpPublisherConfigUUID(l.Label.Observe()),
-	); !ok(
-		err,
-		closer,
-	) {
+	); !ok(err, closer) {
 		return nil, err
 	}
 	if closer, err := l.Signals.PublishFromGorp(
 		ctx,
 		signals.GorpPublisherConfigString(l.Status.Observe()),
-	); !ok(
-		err,
-		closer,
-	) {
+	); !ok(err, closer) {
 		return nil, err
 	}
 	if l.Control, err = control.OpenService(ctx, control.ServiceConfig{
@@ -527,10 +518,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if closer, err := l.Signals.PublishFromGorp(
 		ctx,
 		signals.GorpPublisherConfigNumeric(l.Rack.Observe(), telem.Uint32T),
-	); !ok(
-		err,
-		closer,
-	) {
+	); !ok(err, closer) {
 		return nil, err
 	}
 	if l.Device, err = device.OpenService(ctx, device.ServiceConfig{

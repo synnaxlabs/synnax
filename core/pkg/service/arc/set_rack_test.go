@@ -131,7 +131,7 @@ var _ = Describe("SetRack", func() {
 			Time:    telem.Now(),
 			Details: task.NewStatusDetails(stored, true),
 		}
-		Expect(statusSvc.NewWriter[task.StatusDetails](tx).Set(ctx, &stat)).
+		Expect(statusSvc.NewWriter(tx).Set(ctx, &stat)).
 			To(Succeed())
 		Expect(w.SetRack(ctx, a.Key, 0)).Error().
 			To(MatchError(validate.ErrValidation))

@@ -196,7 +196,7 @@ func (s *Service) SetByKeyOrName(
 			return err
 		}
 		st := SetTarget(matches, keyOrName, message, variant)
-		if err = s.NewWriter[any](tx).Set(ctx, &st); err != nil {
+		if err = s.NewWriter(tx).Set(ctx, &st); err != nil {
 			return err
 		}
 		key, multipleMatches = st.Key, len(matches) > 1
@@ -209,8 +209,8 @@ func (s *Service) SetByKeyOrName(
 
 // NewWriter opens a Writer for statuses whose details are of type D. Pass a nil tx to
 // write directly against the service's DB.
-func (s *Service) NewWriter[D any](tx gorp.Tx) Writer[D] {
-	return Writer[D]{
+func (s *Service) NewWriter(tx gorp.Tx) Writer {
+	return Writer{
 		tx:        gorp.OverrideTx(s.cfg.DB, tx),
 		otg:       s.cfg.Ontology,
 		otgWriter: s.cfg.Ontology.NewWriter(tx),

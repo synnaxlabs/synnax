@@ -37,7 +37,7 @@ var (
 	groupSvc *group.Service
 	labelSvc *label.Service
 	statSvc  *status.Service
-	writer   status.Writer[any]
+	writer   status.Writer
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -63,5 +63,5 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Label:    labelSvc,
 		Search:   searchIdx,
 	}))
-	writer = statSvc.NewWriter[any](nil)
+	writer = statSvc.NewWriter(nil)
 })

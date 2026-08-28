@@ -102,12 +102,13 @@ var _ = Describe("JSON", func() {
 				Framer:  framerSvc,
 			}))
 			obs = observe.New[jsonPayload]()
-			closer = MustSucceed(
-				sigs.PublishJSON(ctx, signals.JSONPublisherConfig[jsonPayload]{
+			closer = MustSucceed(sigs.PublishJSON(
+				ctx,
+				signals.JSONPublisherConfig[jsonPayload]{
 					Observable: obs,
 					SetName:    jsonSetChannelName,
-				}),
-			)
+				},
+			))
 			Expect(channelSvc.NewRetrieve().
 				Where(channel.MatchNames(jsonSetChannelName)).
 				Entry(&ch).

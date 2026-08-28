@@ -392,7 +392,7 @@ var _ = Describe("Device", func() {
 				}
 				Expect(w.Create(ctx, &d)).To(Succeed())
 
-				Expect(stat.NewWriter[device.StatusDetails](tx).
+				Expect(stat.NewWriter(tx).
 					Delete(ctx, d.OntologyID().String())).To(Succeed())
 				Expect(stat.NewRetrieve[device.StatusDetails]().
 					Where(status.MatchKeys[device.StatusDetails](d.OntologyID().String())).
