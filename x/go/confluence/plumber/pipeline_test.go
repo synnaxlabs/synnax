@@ -29,15 +29,15 @@ var _ = Describe("Pipeline", func() {
 	Describe("Basic Usage", func() {
 		It("Should set and get a source", func() {
 			emitter := &confluence.Emitter[int]{}
-			SetSource(pipe, "source", emitter)
-			source := MustSucceed(GetSource[int](pipe, "source"))
+			pipe.SetSource("source", emitter)
+			source := MustSucceed(pipe.GetSource[int]("source"))
 			Expect(source).To(Equal(emitter))
 		})
 
 		It("Should set and get a sink", func() {
 			unarySink := &confluence.UnarySink[int]{}
-			SetSink(pipe, "sink", unarySink)
-			sink := MustSucceed(GetSink[int](pipe, "sink"))
+			pipe.SetSink("sink", unarySink)
+			sink := MustSucceed(pipe.GetSink[int]("sink"))
 			Expect(sink).To(Equal(unarySink))
 		})
 	})
@@ -48,13 +48,13 @@ var _ = Describe("Pipeline", func() {
 			t1.Transform = func(ctx context.Context, v int) (int, bool, error) {
 				return v * 2, true, nil
 			}
-			SetSegment[int, int](pipe, "t1", t1, confluence.CloseOutputInletsOnExit())
+			pipe.SetSegment[int, int]("t1", t1, confluence.CloseOutputInletsOnExit())
 
 			t2 := &confluence.LinearTransform[int, int]{}
 			t2.Transform = func(ctx context.Context, v int) (int, bool, error) {
 				return v * 2, true, nil
 			}
-			SetSegment[int, int](pipe, "t2", t2, confluence.CloseOutputInletsOnExit())
+			pipe.SetSegment[int, int]("t2", t2, confluence.CloseOutputInletsOnExit())
 
 			Expect(UnaryRouter[int]{
 				SourceTarget: "t1",
@@ -85,23 +85,23 @@ var _ = Describe("Pipeline", func() {
 
 	Describe("GetSink", func() {
 		It("Should return an error if the sink is not found", func() {
-			_, err := GetSink[int](pipe, "sink")
+			_, err := pipe.GetSink[int]("sink")
 			Expect(err).To(HaveOccurred())
 		})
 		It("Should return an error if the sink is of the wrong type", func() {
-			SetSink[int](pipe, "sink", &confluence.UnarySink[int]{})
-			_, err := GetSink[[]int](pipe, "sink")
+			pipe.SetSink[int]("sink", &confluence.UnarySink[int]{})
+			_, err := pipe.GetSink[[]int]("sink")
 			Expect(err).To(HaveOccurred())
 		})
 	})
 	Describe("GetSource", func() {
 		It("Should return an error if the source is not found", func() {
-			_, err := GetSource[int](pipe, "source")
+			_, err := pipe.GetSource[int]("source")
 			Expect(err).To(HaveOccurred())
 		})
 		It("Should return an error if the sink is of the wrong type", func() {
-			SetSource[int](pipe, "sink", &confluence.Emitter[int]{})
-			_, err := GetSink[[]int](pipe, "sink")
+			pipe.SetSource[int]("sink", &confluence.Emitter[int]{})
+			_, err := pipe.GetSink[[]int]("sink")
 			Expect(err).To(HaveOccurred())
 		})
 	})
@@ -117,7 +117,7 @@ var _ = Describe("Pipeline", func() {
 				}
 				return c1, nil
 			}
-			SetSource[int](pipe, "emitterOne", emitterOne)
+			pipe.SetSource[int]("emitterOne", emitterOne)
 
 			emitterTwo := &confluence.Emitter[int]{Interval: 1 * time.Millisecond}
 			c2 := 0
@@ -128,19 +128,19 @@ var _ = Describe("Pipeline", func() {
 				}
 				return c2, nil
 			}
-			SetSource[int](pipe, "emitterTwo", emitterTwo)
+			pipe.SetSource[int]("emitterTwo", emitterTwo)
 
 			t1 := &confluence.LinearTransform[int, int]{}
 			t1.Transform = func(ctx context.Context, v int) (int, bool, error) {
 				return v * 2, true, nil
 			}
-			SetSegment[int, int](pipe, "t1", t1)
+			pipe.SetSegment[int, int]("t1", t1)
 
 			t2 := &confluence.LinearTransform[int, int]{}
 			t2.Transform = func(ctx context.Context, v int) (int, bool, error) {
 				return v * 3, true, nil
 			}
-			SetSegment[int, int](pipe, "t2", t2)
+			pipe.SetSegment[int, int]("t2", t2)
 
 			var evens, odds []int
 
@@ -149,14 +149,14 @@ var _ = Describe("Pipeline", func() {
 				evens = append(evens, v)
 				return nil
 			}
-			SetSink[int](pipe, "even", evenSink)
+			pipe.SetSink[int]("even", evenSink)
 
 			oddSink := &confluence.UnarySink[int]{}
 			oddSink.Sink = func(ctx context.Context, v int) error {
 				odds = append(odds, v)
 				return nil
 			}
-			SetSink[int](pipe, "odd", oddSink)
+			pipe.SetSink[int]("odd", oddSink)
 
 			sw := &confluence.Switch[int]{}
 			sw.Switch = func(ctx context.Context, v int) (address.Address, bool, error) {
@@ -165,7 +165,7 @@ var _ = Describe("Pipeline", func() {
 				}
 				return "odd", true, nil
 			}
-			SetSegment[int, int](pipe, "switch", sw)
+			pipe.SetSegment[int, int]("switch", sw)
 
 			MultiRouter[int]{
 				SourceTargets: []address.Address{"emitterOne", "emitterTwo"},

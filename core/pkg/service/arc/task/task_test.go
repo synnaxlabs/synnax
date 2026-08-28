@@ -385,7 +385,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(factory.ConfigureTask(ctx, svcTask, "cmd-1")).Error().
 				To(HaveOccurred())
 			var stat task.Status
-			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+			Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 				Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
 				Entry(&stat).Exec(ctx, nil)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("error"))
@@ -410,7 +410,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(factory.ConfigureTask(ctx, svcTask, "cmd-1")).Error().
 				To(MatchError(query.ErrNotFound))
 			var stat task.Status
-			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+			Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 				Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
 				Entry(&stat).Exec(ctx, nil)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("error"))
@@ -440,7 +440,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(t).ToNot(BeNil())
 				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 				var stat task.Status
-				Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
 					Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 			},
@@ -473,7 +473,7 @@ var _ = Describe("Task", Ordered, func() {
 					Key:  "cmd-start",
 				})).To(Succeed())
 				var stat task.Status
-				Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				Expect(stat.Name).To(Equal(svcTask.Name))
@@ -507,7 +507,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(t).ToNot(BeNil())
 				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 				var stat task.Status
-				Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				Expect(stat.Variant).To(BeEquivalentTo("success"))
@@ -541,7 +541,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(t).ToNot(BeNil())
 				Expect(t.Stop(false)).To(Succeed())
 				var stat task.Status
-				Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				Expect(stat.Message).To(Equal("Task started successfully"))
@@ -568,7 +568,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(factory.ConfigureTask(ctx, svcTask, driver.NoCommand)).Error().
 					To(HaveOccurred())
 				var stat task.Status
-				Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
 					Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 			},
@@ -593,7 +593,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(factory.ConfigureTask(ctx, svcTask, driver.NoCommand)).Error().
 					To(MatchError(query.ErrNotFound))
 				var stat task.Status
-				Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
 					Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 			},
@@ -621,7 +621,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(factory.ConfigureTask(ctx, svcTask, driver.NoCommand)).Error().
 					To(MatchError(query.ErrNotFound))
 				var stat task.Status
-				Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				Expect(stat.Variant).To(BeEquivalentTo("error"))
@@ -652,7 +652,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(t).ToNot(BeNil())
 				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 				var stat task.Status
-				Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
 					Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 			},
@@ -681,7 +681,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(t).ToNot(BeNil())
 			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 			var stat task.Status
-			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+			Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 				Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
 				Entry(&stat).Exec(ctx, nil)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("success"))
@@ -949,7 +949,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(w.Close()).To(Succeed())
 			Eventually(func(g Gomega) {
 				var stat svcarc.Status
-				g.Expect(status.NewRetrieve[svcarc.StatusDetails](statusSvc).
+				g.Expect(statusSvc.NewRetrieve[svcarc.StatusDetails]().
 					Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *svcarc.Status) (bool, error) {
 						return s.Name == "ox_alarm", nil
 					})).
@@ -1000,7 +1000,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			byName := func(name string) svcarc.Status {
 				var stat svcarc.Status
-				Expect(status.NewRetrieve[svcarc.StatusDetails](statusSvc).
+				Expect(statusSvc.NewRetrieve[svcarc.StatusDetails]().
 					Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *svcarc.Status) (bool, error) {
 						return s.Name == name, nil
 					})).
@@ -1009,7 +1009,7 @@ var _ = Describe("Task", Ordered, func() {
 			}
 
 			Eventually(func(g Gomega) {
-				g.Expect(status.NewRetrieve[svcarc.StatusDetails](statusSvc).
+				g.Expect(statusSvc.NewRetrieve[svcarc.StatusDetails]().
 					Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *svcarc.Status) (bool, error) {
 						return s.Name == base+"_d", nil
 					})).
@@ -1034,7 +1034,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
 
 				dupName := "dup_alarm_" + uuid.NewString()[:8]
-				w := status.NewWriter[any](statusSvc, nil)
+				w := statusSvc.NewWriter[any](nil)
 				Expect(w.Set(ctx, &status.Status[any]{
 					Key: uuid.NewString(), Name: dupName, Variant: status.VariantInfo,
 					Message: "first", Time: telem.Now(),
@@ -1099,7 +1099,7 @@ var _ = Describe("Task", Ordered, func() {
 				taskKey := svcTask.OntologyID().String()
 				Eventually(func(g Gomega) {
 					var stat task.Status
-					g.Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+					g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 						Where(status.MatchKeys[task.StatusDetails](taskKey)).
 						Entry(&stat).Exec(ctx, nil)).To(Succeed())
 					g.Expect(stat.Variant).To(BeEquivalentTo("warning"))
@@ -1151,17 +1151,17 @@ var _ = Describe("Task", Ordered, func() {
 			Eventually(responses).Should(Receive(&fr))
 			Expect(fr.Frame.Get(dataCh.Key()).Len()).To(BeEquivalentTo(1))
 			Expect(
-				telem.ValueAt[uint8](fr.Frame.Get(dataCh.Key()).Series[0], 0),
+				fr.Frame.Get(dataCh.Key()).Series[0].ValueAt[uint8](0),
 			).To(Equal(uint8(42)))
 
 			Eventually(responses).Should(Receive(&fr))
 			Expect(
-				telem.ValueAt[uint8](fr.Frame.Get(dataCh.Key()).Series[0], 0),
+				fr.Frame.Get(dataCh.Key()).Series[0].ValueAt[uint8](0),
 			).To(Equal(uint8(42)))
 
 			Eventually(responses).Should(Receive(&fr))
 			Expect(
-				telem.ValueAt[uint8](fr.Frame.Get(dataCh.Key()).Series[0], 0),
+				fr.Frame.Get(dataCh.Key()).Series[0].ValueAt[uint8](0),
 			).To(Equal(uint8(42)))
 		})
 
@@ -1199,7 +1199,7 @@ var _ = Describe("Task", Ordered, func() {
 					for _, ser := range fr.Frame.Get(idxCh.Key()).Series {
 						for i := range int(ser.Len()) {
 							streamed = append(
-								streamed, telem.ValueAt[telem.TimeStamp](ser, i),
+								streamed, ser.ValueAt[telem.TimeStamp](i),
 							)
 						}
 					}
@@ -1219,7 +1219,7 @@ var _ = Describe("Task", Ordered, func() {
 					for _, ser := range iter.Value().Get(idxCh.Key()).Series {
 						for i := range int(ser.Len()) {
 							persisted = append(
-								persisted, telem.ValueAt[telem.TimeStamp](ser, i),
+								persisted, ser.ValueAt[telem.TimeStamp](i),
 							)
 						}
 					}
@@ -1300,7 +1300,7 @@ var _ = Describe("Task", Ordered, func() {
 			Eventually(responses).Should(Receive(&fr))
 			Expect(fr.Frame.Get(outputCh.Key()).Len()).To(BeEquivalentTo(1))
 			Expect(
-				telem.ValueAt[uint8](fr.Frame.Get(outputCh.Key()).Series[0], 0),
+				fr.Frame.Get(outputCh.Key()).Series[0].ValueAt[uint8](0),
 			).To(Equal(uint8(1)))
 		})
 
@@ -1342,19 +1342,13 @@ var _ = Describe("Task", Ordered, func() {
 					Eventually(responses).Should(Receive(&fr))
 					if fr.Frame.Get(output1Ch.Key()).Len() > 0 {
 						Expect(
-							telem.ValueAt[uint8](
-								fr.Frame.Get(output1Ch.Key()).Series[0],
-								0,
-							),
+							fr.Frame.Get(output1Ch.Key()).Series[0].ValueAt[uint8](0),
 						).To(Equal(uint8(1)))
 						count1++
 					}
 					if fr.Frame.Get(output2Ch.Key()).Len() > 0 {
 						Expect(
-							telem.ValueAt[uint8](
-								fr.Frame.Get(output2Ch.Key()).Series[0],
-								0,
-							),
+							fr.Frame.Get(output2Ch.Key()).Series[0].ValueAt[uint8](0),
 						).To(Equal(uint8(2)))
 						count2++
 					}
@@ -1402,7 +1396,7 @@ var _ = Describe("Task", Ordered, func() {
 
 				var fr framer.StreamerResponse
 				Eventually(responses).Should(Receive(&fr))
-				Expect(telem.ValueAt[uint8](fr.Frame.Get(outputCh.Key()).Series[0], 0)).
+				Expect(fr.Frame.Get(outputCh.Key()).Series[0].ValueAt[uint8](0)).
 					To(Equal(uint8(42)))
 				Consistently(responses, 100*time.Millisecond).ShouldNot(Receive())
 			},
@@ -1440,13 +1434,13 @@ var _ = Describe("Task", Ordered, func() {
 					Eventually(responses).Should(Receive(&fr))
 					if s := fr.Frame.Get(constOut.Key()); s.Len() > 0 {
 						Expect(
-							telem.ValueAt[uint8](s.Series[0], 0),
+							s.Series[0].ValueAt[uint8](0),
 						).To(Equal(uint8(42)))
 						gotConst = true
 					}
 					if s := fr.Frame.Get(exprOut.Key()); s.Len() > 0 {
 						Expect(
-							telem.ValueAt[uint8](s.Series[0], 0),
+							s.Series[0].ValueAt[uint8](0),
 						).To(Equal(uint8(42)))
 						gotExpr = true
 					}
@@ -1469,7 +1463,7 @@ var _ = Describe("Task", Ordered, func() {
 					var fr framer.StreamerResponse
 					Eventually(responses).Should(Receive(&fr))
 					if s := fr.Frame.Get(triggerOut.Key()); s.Len() > 0 {
-						Expect(telem.ValueAt[uint8](s.Series[0], 0)).To(Equal(uint8(7)))
+						Expect(s.Series[0].ValueAt[uint8](0)).To(Equal(uint8(7)))
 						gotTrigger = true
 					}
 				}
@@ -1511,13 +1505,13 @@ var _ = Describe("Task", Ordered, func() {
 					Eventually(responses).Should(Receive(&fr))
 					if s := fr.Frame.Get(constOut.Key()); s.Len() > 0 {
 						Expect(
-							telem.ValueAt[uint8](s.Series[0], 0),
+							s.Series[0].ValueAt[uint8](0),
 						).To(Equal(uint8(42)))
 						constCount++
 					}
 					if s := fr.Frame.Get(exprOut.Key()); s.Len() > 0 {
 						Expect(
-							telem.ValueAt[uint8](s.Series[0], 0),
+							s.Series[0].ValueAt[uint8](0),
 						).To(Equal(uint8(42)))
 						exprCount++
 					}
@@ -1810,7 +1804,7 @@ var _ = Describe("Task", Ordered, func() {
 						Eventually(responses).Should(Receive(&fr))
 						Expect(fr.Frame.Get(c.ch.Key()).Len()).To(BeEquivalentTo(1))
 						Expect(
-							telem.ValueAt[uint8](fr.Frame.Get(c.ch.Key()).Series[0], 0),
+							fr.Frame.Get(c.ch.Key()).Series[0].ValueAt[uint8](0),
 						).To(Equal(uint8(42)))
 					},
 				)
@@ -2065,7 +2059,7 @@ var _ = Describe("Task", Ordered, func() {
 						Eventually(responses).Should(Receive(&fr))
 						Expect(fr.Frame.Get(c.ch.Key()).Len()).To(BeEquivalentTo(1))
 						Expect(
-							telem.ValueAt[uint8](fr.Frame.Get(c.ch.Key()).Series[0], 0),
+							fr.Frame.Get(c.ch.Key()).Series[0].ValueAt[uint8](0),
 						).To(Equal(uint8(1)))
 
 						Expect(operator.Write(sample(c, 0))).To(BeFalse())
@@ -2238,7 +2232,7 @@ var _ = Describe("Task", Ordered, func() {
 						Eventually(responses).Should(Receive(&fr))
 						Expect(fr.Frame.Get(c.ch.Key()).Len()).To(BeEquivalentTo(1))
 						Expect(
-							telem.ValueAt[uint8](fr.Frame.Get(c.ch.Key()).Series[0], 0),
+							fr.Frame.Get(c.ch.Key()).Series[0].ValueAt[uint8](0),
 						).To(Equal(uint8(42)))
 					},
 				)
@@ -2475,7 +2469,7 @@ var _ = Describe("Task", Ordered, func() {
 
 				Eventually(func(g Gomega) {
 					var stat task.Status
-					g.Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+					g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 						Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
 						Entry(&stat).Exec(ctx, nil)).To(Succeed())
 					g.Expect(stat.Variant).To(BeEquivalentTo("warning"))
@@ -2563,7 +2557,7 @@ var _ = Describe("Task", Ordered, func() {
 				Eventually(responses).Should(Receive(&fr))
 				series := fr.Frame.Get(counterCh.Key())
 				if series.Len() > 0 {
-					val := telem.ValueAt[float32](series.Series[0], -1)
+					val := series.Series[0].ValueAt[float32](-1)
 					if val >= 5.0 {
 						foundExpected = true
 					}
@@ -2619,7 +2613,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			Eventually(func(g Gomega) {
 				var stat task.Status
-				g.Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+				g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				g.Expect(stat.Variant).To(BeEquivalentTo("warning"))
@@ -2637,10 +2631,7 @@ var _ = Describe("Task", Ordered, func() {
 				var fr framer.StreamerResponse
 				Eventually(responses).Should(Receive(&fr))
 				if fr.Frame.Get(outputCh.Key()).Len() > 0 {
-					val := telem.ValueAt[int32](
-						fr.Frame.Get(outputCh.Key()).Series[0],
-						0,
-					)
+					val := fr.Frame.Get(outputCh.Key()).Series[0].ValueAt[int32](0)
 					if val == 5 {
 						foundValid = true
 					}

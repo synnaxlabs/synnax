@@ -179,7 +179,7 @@ type nodeInputs struct {
 // latest key when present, otherwise the configured key.
 func boundKey(s *node.State, channelIdx int, configured uint32) uint32 {
 	if t := s.RefInput(channelIdx); t.Len() > 0 {
-		return telem.ValueAt[uint32](t, -1)
+		return t.ValueAt[uint32](-1)
 	}
 	return configured
 }
@@ -300,15 +300,15 @@ func (s *sink) Next(ctx node.Context) {
 		return
 	}
 	s.state.writeChannel(key, data, time)
-	lastTS := telem.ValueAt[telem.TimeStamp](time, -1)
+	lastTS := time.ValueAt[telem.TimeStamp](-1)
 	out := s.Output(0)
 	out.Resize(1)
-	telem.SetValueAt[uint8](*out, 0, 1)
+	out.SetValueAt[uint8](0, 1)
 	out.Alignment = data.Alignment
 	out.TimeRange = data.TimeRange
 	outTime := s.OutputTime(0)
 	outTime.Resize(1)
-	telem.SetValueAt(*outTime, 0, lastTS)
+	outTime.SetValueAt(0, lastTS)
 	outTime.Alignment = data.Alignment
 	outTime.TimeRange = data.TimeRange
 	ctx.MarkChanged(0)
@@ -329,7 +329,7 @@ func bindI32[T i32Compatible](
 			if !ok || series.Len() == 0 {
 				return 0
 			}
-			return uint32(telem.ValueAt[T](series, -1))
+			return uint32(series.ValueAt[T](-1))
 		}).Export("read_" + suffix)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID, val uint32) {
@@ -354,7 +354,7 @@ func bindI64[T i64Compatible](
 			if !ok || series.Len() == 0 {
 				return 0
 			}
-			return uint64(telem.ValueAt[T](series, -1))
+			return uint64(series.ValueAt[T](-1))
 		}).Export("read_" + suffix)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32, val uint64) {
@@ -374,7 +374,7 @@ func bindBool(
 			if !ok || series.Len() == 0 {
 				return 0
 			}
-			if telem.ValueAt[bool](series, -1) {
+			if series.ValueAt[bool](-1) {
 				return 1
 			}
 			return 0
@@ -397,7 +397,7 @@ func bindF32(
 			if !ok || series.Len() == 0 {
 				return 0
 			}
-			return telem.ValueAt[float32](series, -1)
+			return series.ValueAt[float32](-1)
 		}).Export("read_f32")
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32, val float32) {
@@ -416,7 +416,7 @@ func bindF64(
 			if !ok || series.Len() == 0 {
 				return 0
 			}
-			return telem.ValueAt[float64](series, -1)
+			return series.ValueAt[float64](-1)
 		}).Export("read_f64")
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32, val float64) {
@@ -436,7 +436,7 @@ func bindStr(
 			if !ok || series.Len() == 0 {
 				return 0
 			}
-			unmarshaled := telem.UnmarshalSeries[string](series)
+			unmarshaled := series.Unmarshal[string]()
 			if len(unmarshaled) == 0 {
 				return 0
 			}

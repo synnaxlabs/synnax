@@ -56,7 +56,7 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 
 				var s status.Status[any]
 				Expect(
-					statusSvc.NewRetrieve().
+					statusSvc.NewRetrieve[any]().
 						Where(status.MatchKeys[any](res.Key)).
 						Entry(&s).
 						Exec(ctx, nil),
@@ -71,7 +71,7 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 			"Should update an existing row when the input matches its Key",
 			func(ctx SpecContext) {
 				key := uuid.NewString()
-				Expect(statusSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
+				Expect(statusSvc.NewWriter[any](nil).Set(ctx, &status.Status[any]{
 					Variant: status.VariantInfo, Message: "orig", Time: telem.Now(),
 					Key: key, Name: "api_uuid",
 				})).To(Succeed())
@@ -99,11 +99,11 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 			"Should report multipleMatches when the name resolves to multiple rows",
 			func(ctx SpecContext) {
 				name := "api_multi_" + uuid.New().String()
-				Expect(statusSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
+				Expect(statusSvc.NewWriter[any](nil).Set(ctx, &status.Status[any]{
 					Variant: status.VariantInfo, Message: "a", Time: telem.Now(),
 					Key: uuid.NewString(), Name: name,
 				})).To(Succeed())
-				Expect(statusSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
+				Expect(statusSvc.NewWriter[any](nil).Set(ctx, &status.Status[any]{
 					Variant: status.VariantInfo, Message: "b", Time: telem.Now(),
 					Key: uuid.NewString(), Name: name,
 				})).To(Succeed())
@@ -184,7 +184,7 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 				).Error().
 					To(MatchError(access.ErrDenied))
 
-				Expect(statusSvc.NewRetrieve().Where(status.MatchKeys[any](name)).
+				Expect(statusSvc.NewRetrieve[any]().Where(status.MatchKeys[any](name)).
 					Entry(&status.Status[any]{}).
 					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 			},
@@ -227,7 +227,7 @@ func createStatus(ctx SpecContext, name string) status.Status[any] {
 		Variant: status.VariantInfo,
 		Time:    telem.Now(),
 	}
-	Expect(statusSvc.NewWriter(nil).Set(ctx, &s)).To(Succeed())
+	Expect(statusSvc.NewWriter[any](nil).Set(ctx, &s)).To(Succeed())
 	return s
 }
 

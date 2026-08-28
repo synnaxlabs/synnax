@@ -72,11 +72,11 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements config.Config
 func (c ServiceConfig) Validate() error {
 	v := validate.New("service.status")
-	validate.NotNil(v, "db", c.DB)
-	validate.NotNil(v, "ontology", c.Ontology)
-	validate.NotNil(v, "group", c.Group)
-	validate.NotNil(v, "label", c.Label)
-	validate.NotNil(v, "search", c.Search)
+	v.NotNil("db", c.DB)
+	v.NotNil("ontology", c.Ontology)
+	v.NotNil("group", c.Group)
+	v.NotNil("label", c.Label)
+	v.NotNil("search", c.Search)
 	return v.Error()
 }
 
@@ -133,14 +133,6 @@ func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Status[any]]] 
 	return s.table.Observe()
 }
 
-// NewWriter opens a new Writer to create, update, and delete statuses. If tx is not
-// nil, the writer will use it to execute all operations. If tx is nil, the writer will
-// execute all operations directly against the underlying gorp.DB.
-func (s *Service) NewWriter(tx gorp.Tx) Writer[any] { return NewWriter[any](s, tx) }
-
-// NewRetrieve opens a new Retrieve query to fetch statuses from the database.
-func (s *Service) NewRetrieve() Retrieve[any] { return NewRetrieve[any](s) }
-
 // ResolveKeyOrName returns all statuses matching keyOrName, preferring an exact key
 // match over name matches. Read-only; callers enforce access on and write the result.
 func (s *Service) ResolveKeyOrName(
@@ -153,7 +145,9 @@ func (s *Service) ResolveKeyOrName(
 	}
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	var st Status[any]
-	err := s.NewRetrieve().Where(MatchKeys[any](keyOrName)).Entry(&st).Exec(ctx, tx)
+	err := s.NewRetrieve[any]().Where(MatchKeys[any](keyOrName)).
+		Entry(&st).
+		Exec(ctx, tx)
 	if err == nil {
 		return []Status[any]{st}, nil
 	}
@@ -161,7 +155,7 @@ func (s *Service) ResolveKeyOrName(
 		return nil, err
 	}
 	var matches []Status[any]
-	if err = s.NewRetrieve().
+	if err = s.NewRetrieve[any]().
 		Where(MatchNames[any](keyOrName)).
 		Entries(&matches).
 		Exec(ctx, tx); err != nil {
@@ -202,7 +196,7 @@ func (s *Service) SetByKeyOrName(
 			return err
 		}
 		st := SetTarget(matches, keyOrName, message, variant)
-		if err = s.NewWriter(tx).Set(ctx, &st); err != nil {
+		if err = s.NewWriter[any](tx).Set(ctx, &st); err != nil {
 			return err
 		}
 		key, multipleMatches = st.Key, len(matches) > 1
@@ -213,7 +207,9 @@ func (s *Service) SetByKeyOrName(
 	return key, multipleMatches, nil
 }
 
-func NewWriter[D any](s *Service, tx gorp.Tx) Writer[D] {
+// NewWriter opens a Writer for statuses whose details are of type D. Pass a nil tx to
+// write directly against the service's DB.
+func (s *Service) NewWriter[D any](tx gorp.Tx) Writer[D] {
 	return Writer[D]{
 		tx:        gorp.OverrideTx(s.cfg.DB, tx),
 		otg:       s.cfg.Ontology,
@@ -222,7 +218,8 @@ func NewWriter[D any](s *Service, tx gorp.Tx) Writer[D] {
 	}
 }
 
-func NewRetrieve[D any](s *Service) Retrieve[D] {
+// NewRetrieve opens a Retrieve query for statuses whose details are of type D.
+func (s *Service) NewRetrieve[D any]() Retrieve[D] {
 	return Retrieve[D]{
 		gorp:   gorp.NewRetrieve[Key, Status[D]](),
 		baseTX: s.cfg.DB,

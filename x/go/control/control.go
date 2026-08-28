@@ -29,7 +29,7 @@ func (s Subject) Override(other Subject) Subject {
 // Validate validates the Subject, ensuring that the Key is non-empty.
 func (s Subject) Validate() error {
 	v := validate.New("control.subject")
-	validate.NotEmptyString(v, "key", s.Key)
+	v.NotEmptyString("key", s.Key)
 	return v.Error()
 }
 

@@ -28,7 +28,7 @@ const Latest = v5.Version
 func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (LinePlot, error) {
 	switch env.Version {
 	case v5.Version:
-		return imex.Decode[LinePlot](ctx, env)
+		return env.Decode[LinePlot](ctx)
 	}
 	return LinePlot{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)
 }

@@ -72,27 +72,27 @@ func MigrateData(blob msgpack.EncodedJSON) (Data, error) {
 	}
 	switch version {
 	case v4.Version:
-		return imex.DecodeBlob[v4.Data](blob, "line plot data", version)
+		return version.DecodeBlob[v4.Data](blob, "line plot data")
 	case v3.Version:
-		d, err := imex.DecodeBlob[v3.Data](blob, "line plot data", version)
+		d, err := version.DecodeBlob[v3.Data](blob, "line plot data")
 		if err != nil {
 			return Data{}, err
 		}
 		return v4.Migrate(d), nil
 	case v2.Version:
-		d, err := imex.DecodeBlob[v2.Data](blob, "line plot data", version)
+		d, err := version.DecodeBlob[v2.Data](blob, "line plot data")
 		if err != nil {
 			return Data{}, err
 		}
 		return v4.Migrate(v3.Migrate(d)), nil
 	case v1.Version:
-		d, err := imex.DecodeBlob[v1.Data](blob, "line plot data", version)
+		d, err := version.DecodeBlob[v1.Data](blob, "line plot data")
 		if err != nil {
 			return Data{}, err
 		}
 		return v4.Migrate(v3.Migrate(v2.Migrate(d))), nil
 	case v0.Version:
-		d, err := imex.DecodeBlob[v0.Data](blob, "line plot data", version)
+		d, err := version.DecodeBlob[v0.Data](blob, "line plot data")
 		if err != nil {
 			return Data{}, err
 		}

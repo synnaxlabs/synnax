@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 )
 
 type testFileOutput struct {
@@ -544,25 +545,21 @@ func (b *testValueBuilder) buildStructFieldExprs(
 func (b *testValueBuilder) buildEmbeddedStructFieldExprs(
 	form resolution.StructForm,
 ) ([]string, error) {
-	var exprs []string
+	type embed struct {
+		ref    resolution.TypeRef
+		fields []string
+	}
+	var embeds []embed
 	for _, extendsRef := range form.Extends {
 		parent, ok := extendsRef.Resolve(b.table)
 		if !ok {
 			continue
 		}
-		parentGoName := naming.GetGoName(parent)
-		parentGoType, err := b.goTypeName(parent)
-		if err != nil {
-			return nil, err
-		}
 		parentFieldExprs, err := b.buildStructFieldExprs(parent)
 		if err != nil {
 			return nil, err
 		}
-		exprs = append(
-			exprs,
-			parentGoName+": "+b.formatComposite(parentGoType, parentFieldExprs),
-		)
+		embeds = append(embeds, embed{ref: extendsRef, fields: parentFieldExprs})
 	}
 	childFieldExprs, err := b.buildFieldExprs(
 		declaredFields(form.Extends, form.Fields, b.table),
@@ -570,8 +567,56 @@ func (b *testValueBuilder) buildEmbeddedStructFieldExprs(
 	if err != nil {
 		return nil, err
 	}
+	taken := literalKeys(childFieldExprs)
+	var exprs []string
+	for _, e := range embeds {
+		// A promoted field may key the outer literal directly, so the embedded
+		// wrapper is only needed when the name is already spoken for.
+		if len(e.fields) > 0 && !anyKeyTaken(taken, e.fields) {
+			for _, f := range e.fields {
+				taken.Add(literalKey(f))
+			}
+			exprs = append(exprs, e.fields...)
+			continue
+		}
+		parent, ok := e.ref.Resolve(b.table)
+		if !ok {
+			continue
+		}
+		parentGoType, err := b.goTypeName(parent)
+		if err != nil {
+			return nil, err
+		}
+		exprs = append(
+			exprs,
+			naming.GetGoName(parent)+": "+b.formatComposite(parentGoType, e.fields),
+		)
+	}
 	exprs = append(exprs, childFieldExprs...)
 	return exprs, nil
+}
+
+// literalKey returns the field name a "Name: value" literal entry sets.
+func literalKey(expr string) string {
+	name, _, _ := strings.Cut(expr, ":")
+	return strings.TrimSpace(name)
+}
+
+func literalKeys(exprs []string) set.Set[string] {
+	keys := make(set.Set[string], len(exprs))
+	for _, e := range exprs {
+		keys.Add(literalKey(e))
+	}
+	return keys
+}
+
+func anyKeyTaken(taken set.Set[string], exprs []string) bool {
+	for _, e := range exprs {
+		if taken.Contains(literalKey(e)) {
+			return true
+		}
+	}
+	return false
 }
 
 // declaredFields drops fields that restate an inherited default without changing

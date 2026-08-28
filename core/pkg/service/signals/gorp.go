@@ -106,14 +106,14 @@ func (g GorpPublisherConfig[K, E]) Validate() error {
 		"at least one of the set or delete channel must be enabled",
 	)
 	if setEnabled {
-		validate.NotEmptyString(v, "set_data_type", g.SetDataType)
-		validate.NotNil(v, "marshal_set", g.MarshalSet)
+		v.NotEmptyString("set_data_type", g.SetDataType)
+		v.NotNil("marshal_set", g.MarshalSet)
 	}
 	if deleteEnabled {
-		validate.NotEmptyString(v, "delete_data_type", g.DeleteDataType)
-		validate.NotNil(v, "marshal_delete", g.MarshalDelete)
+		v.NotEmptyString("delete_data_type", g.DeleteDataType)
+		v.NotNil("marshal_delete", g.MarshalDelete)
 	}
-	validate.NotNil(v, "observable", g.Observable)
+	v.NotNil("observable", g.Observable)
 	return v.Error()
 }
 
@@ -136,7 +136,7 @@ func GorpPublisherConfigUUID[E gorp.Entry[uuid.UUID]](
 		DeleteDataType: telem.UUIDT,
 		SetDataType:    telem.JSONT,
 		MarshalDelete:  func(k uuid.UUID) ([]byte, error) { return k[:], nil },
-		MarshalSet:     MarshalJSON[uuid.UUID, E],
+		MarshalSet:     MarshalJSON,
 	}
 }
 
@@ -164,7 +164,7 @@ func GorpPublisherConfigNumeric[K types.SizedNumeric, E gorp.Entry[K]](
 		DeleteDataType: dt,
 		SetDataType:    telem.JSONT,
 		MarshalDelete:  func(k K) ([]byte, error) { return unsafe.CastToBytes(k), nil },
-		MarshalSet:     MarshalJSON[K, E],
+		MarshalSet:     MarshalJSON,
 	}
 }
 
@@ -178,16 +178,15 @@ func GorpPublisherConfigString[E gorp.Entry[string]](
 		MarshalDelete: func(k string) ([]byte, error) {
 			return telem.MarshalVariableSample([]byte(k)), nil
 		},
-		MarshalSet: MarshalJSON[string, E],
+		MarshalSet: MarshalJSON,
 	}
 }
 
 // PublishFromGorp opens a Signals pipeline that subscribes to the sets and deletes of a
 // particular entry type in the configured gorp.DB. The returned io.Closer should be
 // closed to stop the Signals pipeline.
-func PublishFromGorp[K gorp.Key, E gorp.Entry[K]](
+func (p *Provider) PublishFromGorp[K gorp.Key, E gorp.Entry[K]](
 	ctx context.Context,
-	p *Provider,
 	cfgs ...GorpPublisherConfig[K, E],
 ) (io.Closer, error) {
 	cfg, err := config.New(DefaultGorpPublisherConfig[K, E](), cfgs...)

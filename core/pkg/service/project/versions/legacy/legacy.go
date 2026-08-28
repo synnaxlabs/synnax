@@ -272,7 +272,7 @@ func convertNode(n *mosaicNode, refs map[string]ontology.ID) *panel.Node {
 			continue
 		}
 		tabs = append(tabs, panel.Tab{Variant: panel.ResourceTab{
-			TabBase:  panel.TabBase{Key: uuid.New()},
+			Key:      uuid.New(),
 			Resource: id,
 		}})
 	}

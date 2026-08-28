@@ -96,7 +96,7 @@ var _ = Describe("Migration", func() {
 		runMigration(ctx)
 
 		var restoredStatus status.Status[v0.StatusDetails]
-		Expect(status.NewRetrieve[v0.StatusDetails](statusSvc).
+		Expect(statusSvc.NewRetrieve[v0.StatusDetails]().
 			Where(status.MatchKeys[v0.StatusDetails](r.OntologyID().String())).
 			Entry(&restoredStatus).
 			Exec(ctx, nil)).To(Succeed())
@@ -210,7 +210,7 @@ var _ = Describe("Status backfill", func() {
 				},
 			}
 			Expect(
-				status.NewWriter[any](statusSvc, nil).Set(ctx, &legacyStatus),
+				statusSvc.NewWriter[any](nil).Set(ctx, &legacyStatus),
 			).To(Succeed())
 
 			// The backfill reads existing statuses as Status[StatusDetails]. This would
@@ -227,7 +227,7 @@ var _ = Describe("Status backfill", func() {
 
 			// Verify the status is readable with the correct typed key.
 			var restoredStatus status.Status[v0.StatusDetails]
-			Expect(status.NewRetrieve[v0.StatusDetails](statusSvc).
+			Expect(statusSvc.NewRetrieve[v0.StatusDetails]().
 				Where(status.MatchKeys[v0.StatusDetails](rackKey.OntologyID().String())).
 				Entry(&restoredStatus).
 				Exec(ctx, nil)).To(Succeed())

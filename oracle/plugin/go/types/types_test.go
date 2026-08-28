@@ -3288,11 +3288,9 @@ func (u *rtChan) UnmarshalJSON(data []byte) error {
 var _ = Describe("Union codec round trip", func() {
 	It("Should round-trip an internally-tagged union with a nested union", func() {
 		in := rtChan{Variant: rtChanV{
-			rtBase: rtBase{Port: 7},
-			rtVoltage: rtVoltage{
-				MinVal: -10,
-				Scale:  rtScale{Variant: rtLinearScale{rtLinearParams{Slope: 1.5}}},
-			},
+			Port:   7,
+			MinVal: -10,
+			Scale:  rtScale{Variant: rtLinearScale{rtLinearParams{Slope: 1.5}}},
 		}}
 		data := MustSucceed(gojson.Marshal(in))
 		var m map[string]any

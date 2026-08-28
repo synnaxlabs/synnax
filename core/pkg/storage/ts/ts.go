@@ -79,7 +79,7 @@ var (
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("ts")
-	validate.NotNil(v, "fs", c.FS)
+	v.NotNil("fs", c.FS)
 	return v.Error()
 }
 

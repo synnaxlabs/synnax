@@ -344,7 +344,7 @@ func (r *avgNode) Next(ctx node.Context) {
 
 	inputTime := r.InputTime(r.inputIdx)
 	if r.startTime == 0 && inputTime.Len() > 0 {
-		r.startTime = telem.ValueAt[telem.TimeStamp](inputTime, 0)
+		r.startTime = inputTime.ValueAt[telem.TimeStamp](0)
 	}
 
 	shouldReset := false
@@ -353,19 +353,19 @@ func (r *avgNode) Next(ctx node.Context) {
 		resetData := r.Input(r.resetIdx)
 		resetTime := r.InputTime(r.resetIdx)
 		for i := int64(0); i < resetData.Len(); i++ {
-			ts := telem.ValueAt[telem.TimeStamp](resetTime, int(i))
-			if ts > r.lastResetTime && telem.ValueAt[bool](resetData, int(i)) {
+			ts := resetTime.ValueAt[telem.TimeStamp](int(i))
+			if ts > r.lastResetTime && resetData.ValueAt[bool](int(i)) {
 				shouldReset = true
 				break
 			}
 		}
 		if resetTime.Len() > 0 {
-			r.lastResetTime = telem.ValueAt[telem.TimeStamp](resetTime, -1)
+			r.lastResetTime = resetTime.ValueAt[telem.TimeStamp](-1)
 		}
 	}
 
 	if r.inputs.Duration > 0 && inputTime.Len() > 0 {
-		currentTime := telem.ValueAt[telem.TimeStamp](inputTime, -1)
+		currentTime := inputTime.ValueAt[telem.TimeStamp](-1)
 		if telem.TimeSpan(currentTime-r.startTime) >= r.inputs.Duration {
 			shouldReset = true
 			r.startTime = currentTime
@@ -387,7 +387,7 @@ func (r *avgNode) Next(ctx node.Context) {
 	}
 	r.sampleCount = r.process(inputData, r.sampleCount, r.Output(0))
 	if inputTime.Len() > 0 {
-		lastTimestamp := telem.ValueAt[telem.TimeStamp](inputTime, -1)
+		lastTimestamp := inputTime.ValueAt[telem.TimeStamp](-1)
 		*r.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](lastTimestamp)
 	}
 	alignment := inputData.Alignment

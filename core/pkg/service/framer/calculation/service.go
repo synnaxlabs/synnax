@@ -74,10 +74,10 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("calculate")
-	validate.NotNil(v, "framer", c.Framer)
-	validate.NotNil(v, "writer", c.Writer)
-	validate.NotNil(v, "channel", c.Channel)
-	validate.NotNil(v, "status", c.Status)
+	v.NotNil("framer", c.Framer)
+	v.NotNil("writer", c.Writer)
+	v.NotNil("channel", c.Channel)
+	v.NotNil("status", c.Status)
 	return v.Error()
 }
 
@@ -120,7 +120,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 
 	s := &Service{
 		cfg:          cfg,
-		statusWriter: status.NewWriter[types.Nil](cfg.Status, nil),
+		statusWriter: cfg.Status.NewWriter[types.Nil](nil),
 	}
 	s.disconnectFromChannelChanges = cfg.Channel.Observe().OnChange(s.handleChange)
 	s.mu.graph = g

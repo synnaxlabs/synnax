@@ -61,16 +61,16 @@ var _ = Describe("ProgramState", func() {
 			h := s.Store(ser)
 			retrieved := MustBeOk(s.Get(h))
 			Expect(retrieved.Len()).To(Equal(int64(4)))
-			Expect(telem.ValueAt[float64](retrieved, 0)).To(Equal(math.MaxFloat64))
-			Expect(math.IsNaN(telem.ValueAt[float64](retrieved, 3))).To(BeTrue())
+			Expect(retrieved.ValueAt[float64](0)).To(Equal(math.MaxFloat64))
+			Expect(math.IsNaN(retrieved.ValueAt[float64](3))).To(BeTrue())
 		})
 
 		It("Should store series with max/min integer values", func() {
 			ser := telem.NewSeriesV[int32](math.MaxInt32, math.MinInt32)
 			h := s.Store(ser)
 			retrieved := MustBeOk(s.Get(h))
-			Expect(telem.ValueAt[int32](retrieved, 0)).To(Equal(int32(math.MaxInt32)))
-			Expect(telem.ValueAt[int32](retrieved, 1)).To(Equal(int32(math.MinInt32)))
+			Expect(retrieved.ValueAt[int32](0)).To(Equal(int32(math.MaxInt32)))
+			Expect(retrieved.ValueAt[int32](1)).To(Equal(int32(math.MinInt32)))
 		})
 
 		It("Should handle many successive stores", func() {
@@ -80,7 +80,7 @@ var _ = Describe("ProgramState", func() {
 			}
 			for i, h := range handles {
 				ser := MustBeOk(s.Get(h))
-				Expect(telem.ValueAt[int32](ser, 0)).To(Equal(int32(i)))
+				Expect(ser.ValueAt[int32](0)).To(Equal(int32(i)))
 			}
 		})
 

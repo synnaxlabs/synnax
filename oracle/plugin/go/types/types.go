@@ -1320,17 +1320,17 @@ func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 {{- end}}
 {{- range $s.ConstraintChecks}}
 {{- if eq .Kind "non_empty_string"}}
-	validate.NotEmptyString(v, "{{.FieldName}}", {{$s.Receiver}}.{{.GoName}})
+	v.NotEmptyString("{{.FieldName}}", {{$s.Receiver}}.{{.GoName}})
 {{- else if eq .Kind "non_zero"}}
-	validate.NonZero(v, "{{.FieldName}}", {{$s.Receiver}}.{{.GoName}})
+	v.NonZero("{{.FieldName}}", {{$s.Receiver}}.{{.GoName}})
 {{- else if eq .Kind "min_len"}}
 	v.Ternaryf("{{.FieldName}}", len({{$s.Receiver}}.{{.GoName}}) < {{.Arg}}, "must be at least {{.Arg}} characters long")
 {{- else if eq .Kind "max_len"}}
 	v.Ternaryf("{{.FieldName}}", len({{$s.Receiver}}.{{.GoName}}) > {{.Arg}}, "must be at most {{.Arg}} characters long")
 {{- else if eq .Kind "ge"}}
-	validate.GreaterThanEq(v, "{{.FieldName}}", {{$s.Receiver}}.{{.GoName}}, {{.Arg}})
+	v.GreaterThanEq("{{.FieldName}}", {{$s.Receiver}}.{{.GoName}}, {{.Arg}})
 {{- else if eq .Kind "le"}}
-	validate.LessThanEq(v, "{{.FieldName}}", {{$s.Receiver}}.{{.GoName}}, {{.Arg}})
+	v.LessThanEq("{{.FieldName}}", {{$s.Receiver}}.{{.GoName}}, {{.Arg}})
 {{- end}}
 {{- end}}
 {{- range $s.ValidateRecurse}}
@@ -1437,17 +1437,17 @@ func ({{$vt.Receiver}} {{$vt.TypeName}}) Validate() error {
 {{- end}}
 {{- range $vt.ConstraintChecks}}
 {{- if eq .Kind "non_empty_string"}}
-	validate.NotEmptyString(v, "{{.FieldName}}", {{$vt.Receiver}}.{{.GoName}})
+	v.NotEmptyString("{{.FieldName}}", {{$vt.Receiver}}.{{.GoName}})
 {{- else if eq .Kind "non_zero"}}
-	validate.NonZero(v, "{{.FieldName}}", {{$vt.Receiver}}.{{.GoName}})
+	v.NonZero("{{.FieldName}}", {{$vt.Receiver}}.{{.GoName}})
 {{- else if eq .Kind "min_len"}}
 	v.Ternaryf("{{.FieldName}}", len({{$vt.Receiver}}.{{.GoName}}) < {{.Arg}}, "must be at least {{.Arg}} characters long")
 {{- else if eq .Kind "max_len"}}
 	v.Ternaryf("{{.FieldName}}", len({{$vt.Receiver}}.{{.GoName}}) > {{.Arg}}, "must be at most {{.Arg}} characters long")
 {{- else if eq .Kind "ge"}}
-	validate.GreaterThanEq(v, "{{.FieldName}}", {{$vt.Receiver}}.{{.GoName}}, {{.Arg}})
+	v.GreaterThanEq("{{.FieldName}}", {{$vt.Receiver}}.{{.GoName}}, {{.Arg}})
 {{- else if eq .Kind "le"}}
-	validate.LessThanEq(v, "{{.FieldName}}", {{$vt.Receiver}}.{{.GoName}}, {{.Arg}})
+	v.LessThanEq("{{.FieldName}}", {{$vt.Receiver}}.{{.GoName}}, {{.Arg}})
 {{- end}}
 {{- end}}
 {{- range $vt.ValidateRecurse}}

@@ -71,7 +71,7 @@ func (c StreamerConfig) Override(other StreamerConfig) StreamerConfig {
 // Validate implements config.Config.
 func (c StreamerConfig) Validate() error {
 	v := validate.New("streamer_config")
-	validate.NotNil(v, "send_open_ack", c.SendOpenAck)
+	v.NotNil("send_open_ack", c.SendOpenAck)
 	return v.Error()
 }
 

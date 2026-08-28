@@ -60,7 +60,7 @@ var _ config.Config[Config] = Config{}
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("ontology")
-	validate.NotNil(v, "db", c.DB)
+	v.NotNil("db", c.DB)
 	return v.Error()
 }
 

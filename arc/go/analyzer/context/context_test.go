@@ -48,7 +48,7 @@ var _ = Describe("Context", func() {
 				parentAST = testutil.NewMockAST(1)
 				childAST  = testutil.NewMockAST(2)
 				parent    = analyzerContext.NewRoot(specCtx, parentAST, nil)
-				child     = analyzerContext.Child(parent, childAST)
+				child     = parent.Child(childAST)
 			)
 			Expect(child.AST).To(Equal(childAST))
 			Expect(child.AST).ToNot(Equal(parent.AST))
@@ -66,7 +66,7 @@ var _ = Describe("Context", func() {
 				parentAST = testutil.NewMockAST(1)
 				childAST  = testutil.NewMockAST(2)
 				parent    = analyzerContext.NewRoot(ctx, parentAST, nil)
-				child     = analyzerContext.Child(parent, childAST)
+				child     = parent.Child(childAST)
 			)
 			child.Diagnostics.Add(diagnostics.Infof(childAST, "test diagnostic"))
 			Expect(*parent.Diagnostics).To(HaveLen(1))
@@ -83,7 +83,7 @@ var _ = Describe("Context", func() {
 				parent := analyzerContext.NewRoot(ctx, parentAST, nil)
 				parent.TypeHint = types.F64()
 				parent.InTypeInferenceMode = true
-				child := analyzerContext.Child(parent, childAST)
+				child := parent.Child(childAST)
 				Expect(child.TypeHint).To(Equal(types.F64()))
 				Expect(child.InTypeInferenceMode).To(BeTrue())
 			},
@@ -164,7 +164,7 @@ var _ = Describe("Context", func() {
 						Type: types.I32(),
 					}))
 					mockChild = testutil.NewMockAST(99)
-					finalCtx  = analyzerContext.Child(rootCtx, mockChild).
+					finalCtx  = rootCtx.Child(mockChild).
 							WithScope(newScope).
 							WithTypeHint(types.String())
 				)
@@ -186,7 +186,7 @@ var _ = Describe("Context", func() {
 				analyzer.AnalyzeProgram(ctx)
 				seqDecl := ast.AllTopLevelItem()[0].SequenceDeclaration()
 				scope := MustSucceed(analyzerContext.ResolveOwnScope(
-					analyzerContext.Child(ctx, seqDecl),
+					ctx.Child(seqDecl),
 				))
 				Expect(scope.Name).To(Equal("main"))
 				Expect(scope.Kind).To(Equal(symbol.KindSequence))
@@ -207,7 +207,7 @@ var _ = Describe("Context", func() {
 				seqScope := MustSucceed(ctx.Scope.Resolve(ctx, "main"))
 				stageDecl := seqDecl.AllSequenceItem()[0].StageDeclaration()
 				scope := MustSucceed(analyzerContext.ResolveOwnScope(
-					analyzerContext.Child(ctx, stageDecl).WithScope(seqScope),
+					ctx.Child(stageDecl).WithScope(seqScope),
 				))
 				Expect(scope.Kind).To(Equal(symbol.KindStage))
 			},

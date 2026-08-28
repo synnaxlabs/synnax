@@ -22,7 +22,7 @@ var _ = Describe("format-string end-to-end runtime", func() {
 		ch := fr.Get(key)
 		Expect(ch.Series).ToNot(BeEmpty(), "channel %d not written", key)
 		s := ch.Series[len(ch.Series)-1]
-		vals := telem.UnmarshalSeries[string](s)
+		vals := s.Unmarshal[string]()
 		Expect(vals).ToNot(BeEmpty())
 		return vals[len(vals)-1]
 	}

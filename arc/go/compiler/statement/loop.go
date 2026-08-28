@@ -211,7 +211,7 @@ func compileForRange(
 	})
 
 	if block := ctx.AST.Block(); block != nil {
-		if _, err = CompileBlock(context.Child(bodyCtx, block)); err != nil {
+		if _, err = CompileBlock(bodyCtx.Child(block)); err != nil {
 			return err
 		}
 	}
@@ -278,7 +278,7 @@ func compileForSeriesIteration(
 	elemIdx := elemSym.ID
 	elemType := elemSym.Type
 
-	if _, err = expression.Compile(context.Child(loopCtx, expr)); err != nil {
+	if _, err = expression.Compile(loopCtx.Child(expr)); err != nil {
 		return err
 	}
 	ctx.Writer.WriteLocalSet(handleIdx)
@@ -330,7 +330,7 @@ func compileForSeriesIteration(
 	})
 
 	if block := ctx.AST.Block(); block != nil {
-		if _, err = CompileBlock(context.Child(bodyCtx, block)); err != nil {
+		if _, err = CompileBlock(bodyCtx.Child(block)); err != nil {
 			return err
 		}
 	}
@@ -380,14 +380,14 @@ func compileForCondition(
 		ContinueDepth: continueDepth,
 	})
 
-	if _, err = expression.Compile(context.Child(bodyCtx, expr)); err != nil {
+	if _, err = expression.Compile(bodyCtx.Child(expr)); err != nil {
 		return err
 	}
 	ctx.Writer.WriteI32Eqz()
 	ctx.Writer.WriteBrIf(1) // br to $break if condition is false
 
 	if block := ctx.AST.Block(); block != nil {
-		if _, err = CompileBlock(context.Child(bodyCtx, block)); err != nil {
+		if _, err = CompileBlock(bodyCtx.Child(block)); err != nil {
 			return err
 		}
 	}
@@ -429,7 +429,7 @@ func compileForInfinite(
 	})
 
 	if block := ctx.AST.Block(); block != nil {
-		if _, err = CompileBlock(context.Child(bodyCtx, block)); err != nil {
+		if _, err = CompileBlock(bodyCtx.Child(block)); err != nil {
 			return err
 		}
 	}
@@ -479,7 +479,7 @@ func compileAndCast(
 	expr parser.IExpressionContext,
 	target types.Type,
 ) error {
-	compiledType, err := expression.Compile(context.Child(ctx, expr))
+	compiledType, err := expression.Compile(ctx.Child(expr))
 	if err != nil {
 		return err
 	}

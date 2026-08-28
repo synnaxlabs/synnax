@@ -85,9 +85,9 @@ var _ config.Config[Config] = Config{}
 
 func (c Config) Validate() error {
 	v := validate.New("service.channel.calculation.graph")
-	validate.NotNil(v, "db", c.DB)
-	validate.NotNil(v, "channel", c.Channel)
-	validate.NotNil(v, "status", c.Status)
+	v.NotNil("db", c.DB)
+	v.NotNil("channel", c.Channel)
+	v.NotNil("status", c.Status)
 	return v.Error()
 }
 
@@ -113,7 +113,7 @@ func Open(
 		Instrumentation: cfg.Instrumentation,
 		db:              cfg.DB,
 		svc:             cfg.Channel,
-		status:          status.NewWriter[types.Nil](cfg.Status, nil),
+		status:          cfg.Status.NewWriter[types.Nil](nil),
 	}
 	s.mu.nodes = make(map[channel.Key]node)
 	s.mu.dependents = make(map[channel.Key]set.Set[channel.Key])

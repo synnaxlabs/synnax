@@ -39,7 +39,7 @@ func AnalyzeBlock(ctx context.Context[parser.IBlockContext]) {
 		return
 	}
 	for _, stmt := range ctx.AST.AllStatement() {
-		Analyze(context.Child(ctx, stmt).WithScope(blockScope))
+		Analyze(ctx.Child(stmt).WithScope(blockScope))
 	}
 }
 
@@ -48,21 +48,21 @@ func AnalyzeBlock(ctx context.Context[parser.IBlockContext]) {
 func Analyze(ctx context.Context[parser.IStatementContext]) {
 	switch {
 	case ctx.AST.VariableDeclaration() != nil:
-		analyzeVariableDeclaration(context.Child(ctx, ctx.AST.VariableDeclaration()))
+		analyzeVariableDeclaration(ctx.Child(ctx.AST.VariableDeclaration()))
 	case ctx.AST.IfStatement() != nil:
-		analyzeIfStatement(context.Child(ctx, ctx.AST.IfStatement()))
+		analyzeIfStatement(ctx.Child(ctx.AST.IfStatement()))
 	case ctx.AST.ForStatement() != nil:
-		analyzeForStatement(context.Child(ctx, ctx.AST.ForStatement()))
+		analyzeForStatement(ctx.Child(ctx.AST.ForStatement()))
 	case ctx.AST.BreakStatement() != nil:
-		analyzeBreakStatement(context.Child(ctx, ctx.AST.BreakStatement()))
+		analyzeBreakStatement(ctx.Child(ctx.AST.BreakStatement()))
 	case ctx.AST.ContinueStatement() != nil:
-		analyzeContinueStatement(context.Child(ctx, ctx.AST.ContinueStatement()))
+		analyzeContinueStatement(ctx.Child(ctx.AST.ContinueStatement()))
 	case ctx.AST.ReturnStatement() != nil:
-		analyzeReturnStatement(context.Child(ctx, ctx.AST.ReturnStatement()))
+		analyzeReturnStatement(ctx.Child(ctx.AST.ReturnStatement()))
 	case ctx.AST.Assignment() != nil:
-		analyzeAssignment(context.Child(ctx, ctx.AST.Assignment()))
+		analyzeAssignment(ctx.Child(ctx.AST.Assignment()))
 	case ctx.AST.Expression() != nil:
-		expression.Analyze(context.Child(ctx, ctx.AST.Expression()))
+		expression.Analyze(ctx.Child(ctx.AST.Expression()))
 	}
 }
 
@@ -118,7 +118,7 @@ func inferVarKind(ctx context.Context[parser.IVariableDeclarationContext]) {
 	if sym.SourceID != nil || sym.Type.Kind == types.KindChan {
 		return
 	}
-	if expr == nil || isLiteralExpression(context.Child(ctx, expr)) {
+	if expr == nil || isLiteralExpression(ctx.Child(expr)) {
 		return
 	}
 	// A bare identifier bound to a reactive variable is itself reactive.
@@ -147,7 +147,7 @@ func inferVarKind(ctx context.Context[parser.IVariableDeclarationContext]) {
 	// A complex initializer that reads channels is reactive: retype it as a
 	// read-only channel. AnalyzeSingleExpression also registers the reactive flow.
 	if local != nil {
-		flow.AnalyzeSingleExpression(context.Child(ctx, expr))
+		flow.AnalyzeSingleExpression(ctx.Child(expr))
 		if synth, serr := ctx.Scope.Root().GetChildByParserRule(expr); serr == nil &&
 			len(synth.Channels.Read) > 0 {
 			sym.Type = types.ReadChan(sym.Type)
@@ -164,7 +164,7 @@ func rhsTracksChannel[T antlr.ParserRuleContext](
 	if expr == nil {
 		return false
 	}
-	childCtx := context.Child(ctx, expr)
+	childCtx := ctx.Child(expr)
 	if isLiteralExpression(childCtx) {
 		return false
 	}
@@ -213,11 +213,11 @@ func analyzeVariableDeclaration(
 	ctx context.Context[parser.IVariableDeclarationContext],
 ) {
 	if local := ctx.AST.LocalVariable(); local != nil {
-		analyzeLocalVariable(context.Child(ctx, local))
+		analyzeLocalVariable(ctx.Child(local))
 		return
 	}
 	if stateful := ctx.AST.StatefulVariable(); stateful != nil {
-		analyzeStatefulVariable(context.Child(ctx, stateful))
+		analyzeStatefulVariable(ctx.Child(stateful))
 	}
 }
 
@@ -234,7 +234,7 @@ func analyzeVariableDeclarationType[ASTNode antlr.ParserRuleContext](
 			return types.Type{}
 		}
 		if expression != nil {
-			exprType := atypes.InferFromExpression(context.Child(ctx, expression))
+			exprType := atypes.InferFromExpression(ctx.Child(expression))
 			if exprType.IsValid() && varType.IsValid() {
 				// Check magnitude safety for unit conversions (warnings only)
 				if varType.Unit != nil && exprType.Unit != nil {
@@ -256,7 +256,7 @@ func analyzeVariableDeclarationType[ASTNode antlr.ParserRuleContext](
 						return types.Type{}
 					}
 				} else {
-					isLiteral := isLiteralExpression(context.Child(ctx, expression))
+					isLiteral := isLiteralExpression(ctx.Child(expression))
 					if (isLiteral && !atypes.LiteralAssignmentCompatible(varType, exprType)) ||
 						(!isLiteral && !atypes.Compatible(varType, exprType)) {
 						ctx.Diagnostics.Add(diagnostics.Errorf(
@@ -274,7 +274,7 @@ func analyzeVariableDeclarationType[ASTNode antlr.ParserRuleContext](
 		return varType
 	}
 	if expression != nil {
-		return atypes.InferFromExpression(context.Child(ctx, expression))
+		return atypes.InferFromExpression(ctx.Child(expression))
 	}
 	ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "no type declaration found"))
 	return types.Type{}
@@ -319,7 +319,7 @@ func analyzeLocalVariable(ctx context.Context[parser.ILocalVariableContext]) {
 	expr := ctx.AST.Expression()
 
 	if expr != nil && ctx.AST.Type_() == nil {
-		childCtx := context.Child(ctx, expr)
+		childCtx := ctx.Child(expr)
 		if chanSym := getChannelSymbol(childCtx); chanSym != nil {
 			// Global channel - create a variable that holds the channel key
 			// Use KindVariable so it gets a WASM local assigned
@@ -341,7 +341,7 @@ func analyzeLocalVariable(ctx context.Context[parser.ILocalVariableContext]) {
 	}
 
 	if expr != nil {
-		expression.Analyze(context.Child(ctx, expr))
+		expression.Analyze(ctx.Child(expr))
 	}
 	varType := analyzeVariableDeclarationType(
 		ctx,
@@ -468,7 +468,7 @@ func analyzeStatefulVariable(ctx context.Context[parser.IStatefulVariableContext
 		return
 	}
 	if expr != nil {
-		expression.Analyze(context.Child(ctx, expr))
+		expression.Analyze(ctx.Child(expr))
 	}
 }
 
@@ -485,25 +485,25 @@ func analyzeCondition(ctx context.Context[parser.IExpressionContext]) {
 
 func analyzeIfStatement(ctx context.Context[parser.IIfStatementContext]) {
 	if expr := ctx.AST.Expression(); expr != nil {
-		analyzeCondition(context.Child(ctx, expr))
+		analyzeCondition(ctx.Child(expr))
 	}
 
 	if block := ctx.AST.Block(); block != nil {
-		AnalyzeBlock(context.Child(ctx, block))
+		AnalyzeBlock(ctx.Child(block))
 	}
 
 	for _, elseIfClause := range ctx.AST.AllElseIfClause() {
 		if expr := elseIfClause.Expression(); expr != nil {
-			analyzeCondition(context.Child(ctx, expr))
+			analyzeCondition(ctx.Child(expr))
 		}
 		if block := elseIfClause.Block(); block != nil {
-			AnalyzeBlock(context.Child(ctx, block))
+			AnalyzeBlock(ctx.Child(block))
 		}
 	}
 
 	if elseClause := ctx.AST.ElseClause(); elseClause != nil {
 		if block := elseClause.Block(); block != nil {
-			AnalyzeBlock(context.Child(ctx, block))
+			AnalyzeBlock(ctx.Child(block))
 		}
 	}
 }
@@ -536,11 +536,11 @@ func analyzeForStatement(ctx context.Context[parser.IForStatementContext]) {
 	case hasDeclare && len(idents) == 1:
 		analyzeForSingleIdent(loopCtx, clause, idents[0], expr)
 	case expr != nil:
-		expression.Analyze(context.Child(loopCtx, expr))
+		expression.Analyze(loopCtx.Child(expr))
 	}
 
 	if block := ctx.AST.Block(); block != nil {
-		AnalyzeBlock(context.Child(loopCtx, block))
+		AnalyzeBlock(loopCtx.Child(block))
 	}
 }
 
@@ -586,8 +586,8 @@ func analyzeForSingleIdent(
 		return
 	}
 
-	expression.Analyze(context.Child(ctx, expr))
-	exprType := atypes.InferFromExpression(context.Child(ctx, expr))
+	expression.Analyze(ctx.Child(expr))
+	exprType := atypes.InferFromExpression(ctx.Child(expr))
 
 	if exprType.Kind == types.KindSeries && exprType.Elem != nil {
 		elemType := *exprType.Elem
@@ -622,8 +622,8 @@ func analyzeForTwoIdent(
 	indexName := idents[0].GetText()
 	elemName := idents[1].GetText()
 
-	expression.Analyze(context.Child(ctx, expr))
-	exprType := atypes.InferFromExpression(context.Child(ctx, expr))
+	expression.Analyze(ctx.Child(expr))
+	exprType := atypes.InferFromExpression(ctx.Child(expr))
 
 	if exprType.Kind != types.KindSeries || exprType.Elem == nil {
 		ctx.Diagnostics.Add(diagnostics.Errorf(
@@ -686,8 +686,8 @@ func analyzeForRange(
 
 	var argTypes []types.Type
 	for i, argExpr := range argExprs {
-		expression.Analyze(context.Child(ctx, argExpr))
-		argType := atypes.InferFromExpression(context.Child(ctx, argExpr))
+		expression.Analyze(ctx.Child(argExpr))
+		argType := atypes.InferFromExpression(ctx.Child(argExpr))
 		if !argType.IsValid() {
 			return
 		}
@@ -844,8 +844,8 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 	}
 	returnExpr := ctx.AST.Expression()
 	if returnExpr != nil {
-		expression.Analyze(context.Child(ctx, returnExpr))
-		actualReturnType := atypes.InferFromExpression(context.Child(ctx, returnExpr).WithTypeHint(expectedReturnType)).
+		expression.Analyze(ctx.Child(returnExpr))
+		actualReturnType := atypes.InferFromExpression(ctx.Child(returnExpr).WithTypeHint(expectedReturnType)).
 			UnwrapChan()
 
 		// Check for void function first - this error applies even in type inference
@@ -879,7 +879,7 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 					return
 				}
 			} else {
-				isLiteral := isLiteralExpression(context.Child(ctx, returnExpr))
+				isLiteral := isLiteralExpression(ctx.Child(returnExpr))
 				if isLiteral {
 					if !atypes.LiteralAssignmentCompatible(
 						expectedReturnType,
@@ -927,14 +927,14 @@ func analyzeExprReadReassignment(
 	if expr == nil {
 		return
 	}
-	expression.Analyze(context.Child(ctx, expr))
+	expression.Analyze(ctx.Child(expr))
 	if !rhsTracksChannel(ctx, expr) && !rhsReadsVariable(ctx, expr) {
 		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
 			"type mismatch: cannot reassign '%s' (%s) from a constant value",
 			sym.Name, sym.Type.Unwrap()))
 		return
 	}
-	exprType := atypes.InferFromExpression(context.Child(ctx, expr)).UnwrapChan()
+	exprType := atypes.InferFromExpression(ctx.Child(expr)).UnwrapChan()
 	if exprType.IsValid() && !types.StructuralMatch(sym.Type.Unwrap(), exprType) {
 		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
 			"type mismatch: cannot reassign '%s' (%s) from a %s expression",
@@ -1016,9 +1016,9 @@ func analyzeChannelAssignment(
 	if expr == nil {
 		return
 	}
-	expression.Analyze(context.Child(ctx, expr))
+	expression.Analyze(ctx.Child(expr))
 
-	exprType := atypes.InferFromExpression(context.Child(ctx, expr))
+	exprType := atypes.InferFromExpression(ctx.Child(expr))
 	chanValueType := channelSym.Type.Unwrap()
 
 	if !exprType.IsValid() || !chanValueType.IsValid() {
@@ -1043,7 +1043,7 @@ func analyzeChannelAssignment(
 			return
 		}
 	} else {
-		isLiteral := isLiteralExpression(context.Child(ctx, expr))
+		isLiteral := isLiteralExpression(ctx.Child(expr))
 		if (isLiteral && !atypes.LiteralAssignmentCompatible(chanValueType, exprType)) ||
 			(!isLiteral && !atypes.Compatible(chanValueType, exprType)) {
 			channelName := ctx.AST.IDENTIFIER().GetText()
@@ -1085,14 +1085,14 @@ func analyzeIndexedAssignment(
 	if len(indexExprs) != 1 {
 		return
 	}
-	expression.Analyze(context.Child(ctx, indexExprs[0]))
+	expression.Analyze(ctx.Child(indexExprs[0]))
 
 	// 4. Analyze value expression and check type compatibility
 	valueExpr := ctx.AST.Expression()
-	expression.Analyze(context.Child(ctx, valueExpr))
+	expression.Analyze(ctx.Child(valueExpr))
 
 	elemType := *varScope.Type.Elem
-	exprType := atypes.InferFromExpression(context.Child(ctx, valueExpr))
+	exprType := atypes.InferFromExpression(ctx.Child(valueExpr))
 
 	if !exprType.IsValid() || !elemType.IsValid() {
 		return
@@ -1112,7 +1112,7 @@ func analyzeIndexedAssignment(
 		return
 	}
 
-	isLiteral := isLiteralExpression(context.Child(ctx, valueExpr))
+	isLiteral := isLiteralExpression(ctx.Child(valueExpr))
 	if (isLiteral && !atypes.LiteralAssignmentCompatible(elemType, exprType)) ||
 		(!isLiteral && !atypes.Compatible(elemType, exprType)) {
 		ctx.Diagnostics.Add(diagnostics.Errorf(
@@ -1171,15 +1171,15 @@ func analyzeIndexedCompoundAssignment(
 	if len(indexExpressions) != 1 {
 		return
 	}
-	expression.Analyze(context.Child(ctx, indexExpressions[0]))
+	expression.Analyze(ctx.Child(indexExpressions[0]))
 
 	expr := ctx.AST.Expression()
 	if expr == nil {
 		return
 	}
-	expression.Analyze(context.Child(ctx, expr))
+	expression.Analyze(ctx.Child(expr))
 
-	exprType := atypes.InferFromExpression(context.Child(ctx, expr))
+	exprType := atypes.InferFromExpression(ctx.Child(expr))
 	if !exprType.IsValid() || !elemType.IsValid() {
 		return
 	}
@@ -1192,7 +1192,7 @@ func analyzeIndexedCompoundAssignment(
 		return
 	}
 
-	isLiteral := isLiteralExpression(context.Child(ctx, expr))
+	isLiteral := isLiteralExpression(ctx.Child(expr))
 	if (isLiteral && !atypes.LiteralAssignmentCompatible(elemType, exprType)) ||
 		(!isLiteral && !atypes.Compatible(elemType, exprType)) {
 		ctx.Diagnostics.Add(diagnostics.Errorf(
@@ -1235,9 +1235,9 @@ func analyzeSeriesCompoundAssignment(
 	if expr == nil {
 		return
 	}
-	expression.Analyze(context.Child(ctx, expr))
+	expression.Analyze(ctx.Child(expr))
 
-	exprType := atypes.InferFromExpression(context.Child(ctx, expr))
+	exprType := atypes.InferFromExpression(ctx.Child(expr))
 	if !exprType.IsValid() || !elemType.IsValid() {
 		return
 	}
@@ -1266,7 +1266,7 @@ func analyzeSeriesCompoundAssignment(
 			))
 		}
 	} else {
-		isLiteral := isLiteralExpression(context.Child(ctx, expr))
+		isLiteral := isLiteralExpression(ctx.Child(expr))
 		if (isLiteral && !atypes.LiteralAssignmentCompatible(elemType, exprType)) ||
 			(!isLiteral && !atypes.Compatible(elemType, exprType)) {
 			ctx.Diagnostics.Add(diagnostics.Errorf(
@@ -1326,8 +1326,8 @@ func analyzeCompoundAssignment(
 	if expr == nil {
 		return
 	}
-	expression.Analyze(context.Child(ctx, expr))
-	exprType := atypes.InferFromExpression(context.Child(ctx, expr))
+	expression.Analyze(ctx.Child(expr))
+	exprType := atypes.InferFromExpression(ctx.Child(expr))
 	if !exprType.IsValid() || !varType.IsValid() {
 		return
 	}
@@ -1413,8 +1413,8 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
 	if expr == nil {
 		return
 	}
-	expression.Analyze(context.Child(ctx, expr))
-	exprType := atypes.InferFromExpression(context.Child(ctx, expr)).UnwrapChan()
+	expression.Analyze(ctx.Child(expr))
+	exprType := atypes.InferFromExpression(ctx.Child(expr)).UnwrapChan()
 	if !exprType.IsValid() || !varScope.Type.IsValid() {
 		return
 	}
@@ -1486,9 +1486,9 @@ func AnalyzeFunctionBody(ctx context.Context[parser.IBlockContext]) types.Type {
 	}
 	var collectedReturnTypes []types.Type
 	for _, stmt := range ctx.AST.AllStatement() {
-		Analyze(context.Child(ctx, stmt).WithScope(blockScope))
+		Analyze(ctx.Child(stmt).WithScope(blockScope))
 		returnTypes := collectStatementReturnTypes(
-			context.Child(ctx, stmt).WithScope(blockScope),
+			ctx.Child(stmt).WithScope(blockScope),
 		)
 		for _, rt := range returnTypes {
 			if rt.IsValid() {
@@ -1517,7 +1517,7 @@ func collectStatementReturnTypes(
 			// Return statement with no expression (void return)
 			return []types.Type{{}}
 		}
-		returnType := atypes.InferFromExpression(context.Child(ctx, returnExpr))
+		returnType := atypes.InferFromExpression(ctx.Child(returnExpr))
 		if returnType.IsValid() {
 			return []types.Type{returnType}
 		}
@@ -1525,7 +1525,7 @@ func collectStatementReturnTypes(
 
 	case ctx.AST.IfStatement() != nil:
 		_, returnTypes := getIfStatementReturnTypes(
-			context.Child(ctx, ctx.AST.IfStatement()),
+			ctx.Child(ctx.AST.IfStatement()),
 		)
 		return returnTypes
 
@@ -1545,7 +1545,7 @@ func getIfStatementReturnTypes(
 	// Check main if block
 	if block := ctx.AST.Block(); block != nil {
 		hasReturn, blockTypes := getBlockReturnTypes(
-			context.Child(ctx, block),
+			ctx.Child(block),
 		)
 		if hasReturn {
 			returnTypes = append(returnTypes, blockTypes...)
@@ -1558,7 +1558,7 @@ func getIfStatementReturnTypes(
 	for _, elseIfClause := range ctx.AST.AllElseIfClause() {
 		if block := elseIfClause.Block(); block != nil {
 			hasReturn, blockTypes := getBlockReturnTypes(
-				context.Child(ctx, block),
+				ctx.Child(block),
 			)
 			if hasReturn {
 				returnTypes = append(returnTypes, blockTypes...)
@@ -1572,7 +1572,7 @@ func getIfStatementReturnTypes(
 	if elseClause := ctx.AST.ElseClause(); elseClause != nil {
 		if block := elseClause.Block(); block != nil {
 			hasReturn, blockTypes := getBlockReturnTypes(
-				context.Child(ctx, block),
+				ctx.Child(block),
 			)
 			if hasReturn {
 				returnTypes = append(returnTypes, blockTypes...)
@@ -1595,7 +1595,7 @@ func getBlockReturnTypes(
 ) (bool, []types.Type) {
 	var returnTypes []types.Type
 	for _, stmt := range ctx.AST.AllStatement() {
-		stmtTypes := collectStatementReturnTypes(context.Child(ctx, stmt))
+		stmtTypes := collectStatementReturnTypes(ctx.Child(stmt))
 		for _, rt := range stmtTypes {
 			if rt.IsValid() {
 				returnTypes = append(returnTypes, rt)

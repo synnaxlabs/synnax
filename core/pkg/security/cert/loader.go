@@ -88,12 +88,12 @@ func (l LoaderConfig) Override(other LoaderConfig) LoaderConfig {
 // Validate implements Properties.
 func (l LoaderConfig) Validate() error {
 	v := validate.New("cert.loader")
-	validate.NotEmptyString(v, "certs_dir", l.CertsDir)
-	validate.NotEmptyString(v, "ca_key_path", l.CAKeyPath)
-	validate.NotEmptyString(v, "ca_cert_path", l.CACertPath)
-	validate.NotEmptyString(v, "node_key_path", l.NodeKeyPath)
-	validate.NotEmptyString(v, "node_cert_path", l.NodeCertPath)
-	validate.NotNil(v, "fs", l.FS)
+	v.NotEmptyString("certs_dir", l.CertsDir)
+	v.NotEmptyString("ca_key_path", l.CAKeyPath)
+	v.NotEmptyString("ca_cert_path", l.CACertPath)
+	v.NotEmptyString("node_key_path", l.NodeKeyPath)
+	v.NotEmptyString("node_cert_path", l.NodeCertPath)
+	v.NotNil("fs", l.FS)
 	return v.Error()
 }
 

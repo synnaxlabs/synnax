@@ -155,7 +155,7 @@ var _ = Describe("Composition migrations", func() {
 		}}
 	}
 	appViewTab := func(viewType string) v0.Tab {
-		return v0.Tab{Variant: v0.ViewTab{View: v0.View{Type: viewType}}}
+		return v0.Tab{Variant: v0.ViewTab{Type: viewType}}
 	}
 	leaf := func(tabs ...v0.Tab) *v0.Node {
 		return &v0.Node{Variant: v0.LeafNode{Tabs: tabs}}
@@ -713,8 +713,8 @@ var _ = Describe("Composition migrations", func() {
 			taskKey := uuid.New()
 			viewTab := func(viewType string, args msgpack.EncodedJSON) v0.Tab {
 				return v0.Tab{Variant: v0.ViewTab{
-					TabBase: v0.TabBase{Key: uuid.New()},
-					View:    v0.View{Type: viewType, Args: args},
+					Key:  uuid.New(),
+					Type: viewType, Args: args,
 				}}
 			}
 			table := openPanelTable(ctx, db)

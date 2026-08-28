@@ -460,7 +460,7 @@ var _ = Describe("Iterator Behavior", func() {
 							for _, s := range i.Value().RawSeries() {
 								got = append(
 									got,
-									telem.UnmarshalSeries[int64](s)...,
+									s.Unmarshal[int64]()...,
 								)
 							}
 						}
@@ -489,7 +489,7 @@ var _ = Describe("Iterator Behavior", func() {
 						for i.Prev(cesium.AutoSpan) {
 							var batch []int64
 							for _, s := range i.Value().RawSeries() {
-								vals := telem.UnmarshalSeries[int64](s)
+								vals := s.Unmarshal[int64]()
 								Expect(s.Alignment).To(Equal(
 									telem.NewAlignment(0, uint32(vals[0])),
 								))
@@ -574,7 +574,7 @@ var _ = Describe("Iterator Behavior", func() {
 						var got []int64
 						for i.Next(cesium.AutoSpan) {
 							for _, s := range i.Value().RawSeries() {
-								got = append(got, telem.UnmarshalSeries[int64](s)...)
+								got = append(got, s.Unmarshal[int64]()...)
 							}
 						}
 						Expect(i.Close()).To(Succeed())
@@ -658,7 +658,7 @@ var _ = Describe("Iterator Behavior", func() {
 							for _, s := range i.Value().RawSeries() {
 								got = append(
 									got,
-									telem.UnmarshalSeries[int64](s)...,
+									s.Unmarshal[int64]()...,
 								)
 							}
 						}
@@ -757,9 +757,7 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(i.SeekFirst()).To(BeTrue())
 					Expect(i.Next(telem.TimeSpanMax)).To(BeTrue())
 					Expect(
-						telem.UnmarshalSeries[string](
-							i.Value().Get(varDataKey).Series[0],
-						),
+						i.Value().Get(varDataKey).Series[0].Unmarshal[string](),
 					).To(
 						Equal([]string{"s2", "s3", "s4", "s5"}),
 					)
@@ -773,9 +771,7 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(i.SeekGE(105 * telem.SecondTS)).To(BeTrue())
 					Expect(i.Next(3 * telem.Second)).To(BeTrue())
 					Expect(
-						telem.UnmarshalSeries[string](
-							i.Value().Get(varDataKey).Series[0],
-						),
+						i.Value().Get(varDataKey).Series[0].Unmarshal[string](),
 					).To(
 						Equal([]string{"s5", "s6", "s7"}),
 					)
@@ -845,10 +841,10 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(i.SeekFirst()).To(BeTrue())
 					Expect(i.Next(telem.TimeSpanMax)).To(BeTrue())
 					f := i.Value()
-					Expect(telem.UnmarshalSeries[string](f.Get(varKey).Series[0])).To(
+					Expect(f.Get(varKey).Series[0].Unmarshal[string]()).To(
 						Equal([]string{"s3", "s4", "s5", "s6"}),
 					)
-					Expect(telem.UnmarshalSeries[int64](f.Get(fixedKey).Series[0])).To(
+					Expect(f.Get(fixedKey).Series[0].Unmarshal[int64]()).To(
 						Equal([]int64{3, 4, 5, 6}),
 					)
 					Expect(i.Close()).To(Succeed())

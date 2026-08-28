@@ -95,8 +95,8 @@ func AnalyzeFmtStrSegments[T antlr.ParserRuleContext](
 				"invalid placeholder expression %q: %s", seg.Text, diags.String()))
 			continue
 		}
-		Analyze(context.Child(ctx, expr))
-		t := types.InferFromExpression(context.Child(ctx, expr)).UnwrapChan()
+		Analyze(ctx.Child(expr))
+		t := types.InferFromExpression(ctx.Child(expr)).UnwrapChan()
 		if !t.IsNumeric() && t.Kind != basetypes.KindString &&
 			t.Kind != basetypes.KindBool {
 			emit(diagnostics.Errorf(

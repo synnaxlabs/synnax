@@ -39,7 +39,7 @@ var _ = Describe("StatusHandler", func() {
 	retrieve := func(ctx SpecContext) task.Status {
 		GinkgoHelper()
 		var stat task.Status
-		Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+		Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 			Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
 			Entry(&stat).Exec(ctx, nil)).To(Succeed())
 		return stat
@@ -120,7 +120,7 @@ var _ = Describe("StatusHandler", func() {
 		It("should correct facts another writer left stale", func(ctx SpecContext) {
 			// The core blanks these for every task on a rack it thinks is
 			// unreachable, without stopping the live instance.
-			Expect(status.NewWriter[task.StatusDetails](statusSvc, nil).
+			Expect(statusSvc.NewWriter[task.StatusDetails](nil).
 				Set(ctx, &task.Status{
 					Key:     t.OntologyID().String(),
 					Name:    t.Name,

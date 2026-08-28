@@ -287,9 +287,9 @@ var _ = Describe("setNode.Next", func() {
 		n := MustSucceed(mod.Create(ctx, cfg))
 		n.Next(nodeCtx(ctx))
 
-		newKey := telem.UnmarshalSeries[string](*cfg.State.Output(0))[0]
+		newKey := cfg.State.Output(0).Unmarshal[string]()[0]
 		var st status.Status[any]
-		Expect(statSvc.NewRetrieve().Where(status.MatchKeys[any](newKey)).
+		Expect(statSvc.NewRetrieve[any]().Where(status.MatchKeys[any](newKey)).
 			Entry(&st).Exec(ctx, nil)).To(Succeed())
 		Expect(st.Message).To(Equal("live message"))
 		Expect(rep.get()).To(BeEmpty())
@@ -303,7 +303,7 @@ var _ = Describe("setNode.Next", func() {
 			n.Next(nodeCtx(ctx))
 
 			out := *state.Output(0)
-			keys := telem.UnmarshalSeries[string](out)
+			keys := out.Unmarshal[string]()
 			Expect(keys).To(HaveLen(1))
 			newKey := keys[0]
 			MustSucceed(uuid.Parse(newKey))
@@ -311,7 +311,7 @@ var _ = Describe("setNode.Next", func() {
 
 			var s status.Status[any]
 			Expect(
-				statSvc.NewRetrieve().
+				statSvc.NewRetrieve[any]().
 					Where(status.MatchKeys[any](newKey)).
 					Entry(&s).
 					Exec(ctx, nil),
@@ -357,7 +357,7 @@ var _ = Describe("setNode.Next", func() {
 
 		var s status.Status[any]
 		Expect(
-			statSvc.NewRetrieve().
+			statSvc.NewRetrieve[any]().
 				Where(status.MatchKeys[any](existingKey)).
 				Entry(&s).
 				Exec(ctx, nil),
@@ -379,11 +379,11 @@ var _ = Describe("setNode.Next", func() {
 		n, state := build(ctx, key, "via uuid", "error")
 		n.Next(nodeCtx(ctx))
 
-		Expect(telem.UnmarshalSeries[string](*state.Output(0))).To(Equal([]string{key}))
+		Expect(state.Output(0).Unmarshal[string]()).To(Equal([]string{key}))
 
 		var s status.Status[any]
 		Expect(
-			statSvc.NewRetrieve().
+			statSvc.NewRetrieve[any]().
 				Where(status.MatchKeys[any](key)).
 				Entry(&s).
 				Exec(ctx, nil),
@@ -399,9 +399,9 @@ var _ = Describe("setNode.Next", func() {
 			n, state := build(ctx, name, "msg", "info")
 			nctx := nodeCtx(ctx)
 			n.Next(nctx)
-			first := telem.ValueAt[telem.TimeStamp](*state.OutputTime(0), 0)
+			first := state.OutputTime(0).ValueAt[telem.TimeStamp](0)
 			n.Next(nctx)
-			second := telem.ValueAt[telem.TimeStamp](*state.OutputTime(0), 0)
+			second := state.OutputTime(0).ValueAt[telem.TimeStamp](0)
 			Expect(second).To(BeNumerically(">=", first))
 		},
 	)
@@ -417,12 +417,12 @@ var _ = Describe("setNode.Next", func() {
 		Expect(calls[0].message).To(HavePrefix("status.set:"))
 		Expect(calls[0].message).To(ContainSubstring("invalid status variant"))
 
-		Expect(statSvc.NewRetrieve().Where(status.MatchKeys[any](name)).
+		Expect(statSvc.NewRetrieve[any]().Where(status.MatchKeys[any](name)).
 			Entry(&status.Status[any]{}).
 			Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 
 		// On invalid variant, Output(0) carries a single empty-string sample.
-		Expect(telem.UnmarshalSeries[string](*state.Output(0))).To(Equal([]string{""}))
+		Expect(state.Output(0).Unmarshal[string]()).To(Equal([]string{""}))
 	})
 
 	It("Should reject upper-cased variants as case-sensitive", func(ctx SpecContext) {
@@ -469,14 +469,14 @@ var _ = Describe("setNode.Next", func() {
 				re.MatchString(calls[0].message),
 			).To(BeTrue(), "got: %q", calls[0].message)
 
-			resolvedRows := telem.UnmarshalSeries[string](*state.Output(0))
+			resolvedRows := state.Output(0).Unmarshal[string]()
 			Expect(resolvedRows).To(HaveLen(1))
 			Expect(resolvedRows[0]).To(SatisfyAny(Equal(k1), Equal(k2)))
 
 			// Only one row picked up the new variant.
 			var rows []status.Status[any]
 			Expect(
-				statSvc.NewRetrieve().
+				statSvc.NewRetrieve[any]().
 					Where(status.MatchKeys[any](k1, k2)).
 					Entries(&rows).
 					Exec(ctx, nil),
@@ -508,7 +508,7 @@ var _ = Describe("setNode.Next", func() {
 			Expect(calls[0].message).To(HavePrefix("status.set:"))
 
 			Expect(
-				telem.UnmarshalSeries[string](*state.Output(0)),
+				state.Output(0).Unmarshal[string](),
 			).To(Equal([]string{""}))
 		},
 	)
@@ -751,7 +751,7 @@ var _ = Describe("WASM host functions", func() {
 
 				var s status.Status[any]
 				Expect(
-					statSvc.NewRetrieve().
+					statSvc.NewRetrieve[any]().
 						Where(status.MatchKeys[any](newKey)).
 						Entry(&s).
 						Exec(ctx, nil),

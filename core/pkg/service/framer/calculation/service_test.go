@@ -786,7 +786,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				).To(Succeed())
 				var st calculation.Status
 				statusKey := calc.OntologyID().String()
-				Expect(status.NewRetrieve[types.Nil](statusSvc).
+				Expect(statusSvc.NewRetrieve[types.Nil]().
 					Where(status.MatchKeys[types.Nil](statusKey)).
 					Entry(&st).
 					Exec(ctx, nil)).To(Succeed())
@@ -827,7 +827,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				var st calculation.Status
 				statusKey := calc.OntologyID().String()
 				Eventually(func(g Gomega) {
-					g.Expect(status.NewRetrieve[types.Nil](statusSvc).
+					g.Expect(statusSvc.NewRetrieve[types.Nil]().
 						Where(status.MatchKeys[types.Nil](statusKey)).
 						Entry(&st).
 						Exec(ctx, nil)).To(Succeed())
@@ -857,7 +857,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(rm.Set(ctx, channel.Keys{calc.Key()})).To(Succeed())
 			var st calculation.Status
 			expectedKey := calc.OntologyID().String()
-			Expect(status.NewRetrieve[types.Nil](statusSvc).
+			Expect(statusSvc.NewRetrieve[types.Nil]().
 				Where(status.MatchKeys[types.Nil](expectedKey)).
 				Entry(&st).
 				Exec(ctx, nil)).To(Succeed())

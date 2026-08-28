@@ -47,6 +47,6 @@ type Range struct {
 // schema constraints.
 func (r Range) Validate() error {
 	v := validate.New("Range")
-	validate.NotEmptyString(v, "name", r.Name)
+	v.NotEmptyString("name", r.Name)
 	return v.Error()
 }

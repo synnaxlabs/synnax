@@ -210,18 +210,18 @@ func (c Config) Override(other Config) Config {
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("driver.embedded")
-	validate.NotNil(v, "enabled", c.Enabled)
-	validate.NotNil(v, "insecure", c.Insecure)
+	v.NotNil("enabled", c.Enabled)
+	v.NotNil("insecure", c.Insecure)
 	if v.Error() != nil {
 		return v.Error()
 	}
 	if !*c.Enabled {
 		return nil
 	}
-	validate.NotEmptyString(v, "address", c.Address)
-	validate.NotNil(v, "debug", c.Debug)
-	validate.NotEmptyString(v, "parent_dirname", c.ParentDirname)
-	validate.InBounds(v, "task_worker_count", c.TaskWorkerCount, 1, 64)
+	v.NotEmptyString("address", c.Address)
+	v.NotNil("debug", c.Debug)
+	v.NotEmptyString("parent_dirname", c.ParentDirname)
+	v.InBounds("task_worker_count", c.TaskWorkerCount, 1, 64)
 	return v.Error()
 }
 

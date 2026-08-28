@@ -333,7 +333,7 @@ var _ = Describe("createNode.Next", func() {
 			n, state := build(ctx, name, "", "")
 			n.Next(nodeCtx(ctx))
 
-			keys := telem.UnmarshalSeries[string](*state.Output(0))
+			keys := state.Output(0).Unmarshal[string]()
 			Expect(keys).To(HaveLen(1))
 			newKey := keys[0]
 			MustSucceed(uuid.Parse(newKey))
@@ -356,7 +356,7 @@ var _ = Describe("createNode.Next", func() {
 			n, state := build(ctx, name, "", "#DF6D38")
 			n.Next(nodeCtx(ctx))
 
-			newKey := telem.UnmarshalSeries[string](*state.Output(0))[0]
+			newKey := state.Output(0).Unmarshal[string]()[0]
 			r := MustSucceed(retrieveRange(ctx, newKey))
 			Expect(*r.Color).To(Equal(MustSucceed(color.FromCSS("#DF6D38"))))
 			Expect(rep.get()).To(BeEmpty())
@@ -367,7 +367,7 @@ var _ = Describe("createNode.Next", func() {
 		name := "create_rgb_" + uuid.NewString()
 		n, state := build(ctx, name, "", "rgb(223, 109, 56)")
 		n.Next(nodeCtx(ctx))
-		newKey := telem.UnmarshalSeries[string](*state.Output(0))[0]
+		newKey := state.Output(0).Unmarshal[string]()[0]
 		r := MustSucceed(retrieveRange(ctx, newKey))
 		Expect(*r.Color).To(Equal(MustSucceed(color.FromCSS("rgb(223, 109, 56)"))))
 		Expect(rep.get()).To(BeEmpty())
@@ -381,7 +381,7 @@ var _ = Describe("createNode.Next", func() {
 			n.Next(nodeCtx(ctx))
 
 			Expect(
-				telem.UnmarshalSeries[string](*state.Output(0)),
+				state.Output(0).Unmarshal[string](),
 			).To(Equal([]string{""}))
 			Expect(rangeSvc.
 				NewRetrieve().
@@ -410,7 +410,7 @@ var _ = Describe("createNode.Next", func() {
 			n, state := build(ctx, "child_"+uuid.NewString(), parent.Key.String(), "")
 			n.Next(nodeCtx(ctx))
 
-			newKey := telem.UnmarshalSeries[string](*state.Output(0))[0]
+			newKey := state.Output(0).Unmarshal[string]()[0]
 			Expect(newKey).ToNot(BeEmpty())
 			MustSucceed(retrieveRange(ctx, newKey))
 			Expect(rep.get()).To(BeEmpty())
@@ -424,7 +424,7 @@ var _ = Describe("createNode.Next", func() {
 			n.Next(nodeCtx(ctx))
 
 			Expect(
-				telem.UnmarshalSeries[string](*state.Output(0)),
+				state.Output(0).Unmarshal[string](),
 			).To(Equal([]string{""}))
 			calls := rep.get()
 			Expect(calls).To(HaveLen(1))
@@ -443,7 +443,7 @@ var _ = Describe("createNode.Next", func() {
 		n.Next(nodeCtx(ctx))
 
 		Expect(
-			telem.UnmarshalSeries[string](*cfg.State.Output(0)),
+			cfg.State.Output(0).Unmarshal[string](),
 		).To(Equal([]string{""}))
 		calls := rep.get()
 		Expect(calls).To(HaveLen(1))
@@ -484,7 +484,7 @@ var _ = Describe("endNode.Next", func() {
 		n.Next(nodeCtx(ctx))
 
 		Expect(
-			telem.UnmarshalSeries[string](*state.Output(0)),
+			state.Output(0).Unmarshal[string](),
 		).To(Equal([]string{r.Key.String()}))
 		updated := MustSucceed(retrieveRange(ctx, r.Key.String()))
 		Expect(updated.TimeRange.End).To(BeNumerically(">=", before))
@@ -500,7 +500,7 @@ var _ = Describe("endNode.Next", func() {
 			n.Next(nodeCtx(ctx))
 
 			Expect(
-				telem.UnmarshalSeries[string](*state.Output(0)),
+				state.Output(0).Unmarshal[string](),
 			).To(Equal([]string{""}))
 			calls := rep.get()
 			Expect(calls).To(HaveLen(1))
@@ -515,7 +515,7 @@ var _ = Describe("endNode.Next", func() {
 		n, state := build(ctx, uuid.NewString())
 		n.Next(nodeCtx(ctx))
 
-		Expect(telem.UnmarshalSeries[string](*state.Output(0))).To(Equal([]string{""}))
+		Expect(state.Output(0).Unmarshal[string]()).To(Equal([]string{""}))
 		calls := rep.get()
 		Expect(calls).To(HaveLen(1))
 		Expect(calls[0].variant).To(Equal(status.VariantWarning))

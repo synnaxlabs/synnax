@@ -65,12 +65,8 @@ func BenchmarkRefreshInputsSingleInput(b *testing.B) {
 	*sourceNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
 	b.ReportAllocs()
 	for i := 0; b.Loop(); i++ {
-		telem.SetValueAt(*sourceNode.Output(0), 0, float32(i))
-		telem.SetValueAt(
-			*sourceNode.OutputTime(0),
-			0,
-			telem.TimeStamp(i+1)*telem.SecondTS,
-		)
+		sourceNode.Output(0).SetValueAt(0, float32(i))
+		sourceNode.OutputTime(0).SetValueAt(0, telem.TimeStamp(i+1)*telem.SecondTS)
 		if !targetNode.RefreshInputs() {
 			b.Fatal("Failed to refresh inputs")
 		}

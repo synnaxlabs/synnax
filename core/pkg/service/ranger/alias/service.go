@@ -59,11 +59,11 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("service.ranger.alias")
-	validate.NotNil(v, "db", c.DB)
-	validate.NotNil(v, "ontology", c.Ontology)
-	validate.NotNil(v, "search", c.Search)
-	validate.NotNil(v, "channel", c.Channel)
-	validate.NotNil(v, "parent_retriever", c.ParentRetriever)
+	v.NotNil("db", c.DB)
+	v.NotNil("ontology", c.Ontology)
+	v.NotNil("search", c.Search)
+	v.NotNil("channel", c.Channel)
+	v.NotNil("parent_retriever", c.ParentRetriever)
 	return v.Error()
 }
 
@@ -109,11 +109,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		signalsCfg.SetName = "sy_range_alias_set"
 		signalsCfg.DeleteName = "sy_range_alias_delete"
 		var sig io.Closer
-		if sig, err = signals.PublishFromGorp(
-			ctx,
-			cfg.Signals,
-			signalsCfg,
-		); !ok(
+		if sig, err = cfg.Signals.PublishFromGorp(ctx, signalsCfg); !ok(
 			err,
 			sig,
 		) {

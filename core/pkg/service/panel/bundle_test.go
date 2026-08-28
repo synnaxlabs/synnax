@@ -229,7 +229,7 @@ var _ = Describe("DecodeBundle", func() {
 		env := imex.Envelope{
 			Version: versions.Latest + 1, Type: "panel", Name: "Controls",
 		}
-		Expect(imex.Encode(&env, map[string]any{
+		Expect(env.Encode(map[string]any{
 			"root": map[string]any{"variant": "leaf", "tabs": []any{}},
 		})).To(Succeed())
 		Expect(panel.DecodeBundle(ctx, WireRoundTrip(env), nil)).Error().To(SatisfyAll(
@@ -240,7 +240,7 @@ var _ = Describe("DecodeBundle", func() {
 
 	It("Should reject a resource tab without a path", func(ctx SpecContext) {
 		env := imex.Envelope{Version: 0, Type: "panel", Name: "Controls"}
-		Expect(imex.Encode(&env, map[string]any{
+		Expect(env.Encode(map[string]any{
 			"root": map[string]any{
 				"variant": "leaf",
 				"tabs": []any{map[string]any{
@@ -263,7 +263,7 @@ var _ = Describe("ResourceRefs", func() {
 	}
 	taskTab := func(id ontology.ID) panel.Tab {
 		return panel.Tab{Variant: panel.ResourceTab{
-			TabBase:  panel.TabBase{Key: uuid.New()},
+			Key:      uuid.New(),
 			Resource: id,
 		}}
 	}

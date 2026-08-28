@@ -70,31 +70,31 @@ func MigrateData(blob msgpack.EncodedJSON) (Data, error) {
 	var d Data
 	switch version {
 	case v5.Version:
-		d, err = imex.DecodeBlob[v5.Data](blob, "schematic data", version)
+		d, err = version.DecodeBlob[v5.Data](blob, "schematic data")
 	case v4.Version:
 		var old v4.Data
-		old, err = imex.DecodeBlob[v4.Data](blob, "schematic data", version)
+		old, err = version.DecodeBlob[v4.Data](blob, "schematic data")
 		if err != nil {
 			break
 		}
 		d = v5.Migrate(old)
 	case v3.Version:
 		var old v3.Data
-		old, err = imex.DecodeBlob[v3.Data](blob, "schematic data", version)
+		old, err = version.DecodeBlob[v3.Data](blob, "schematic data")
 		if err != nil {
 			break
 		}
 		d = v5.Migrate(v4.Migrate(old))
 	case v2.Version:
 		var old v2.Data
-		old, err = imex.DecodeBlob[v2.Data](blob, "schematic data", version)
+		old, err = version.DecodeBlob[v2.Data](blob, "schematic data")
 		if err != nil {
 			break
 		}
 		d = v5.Migrate(v4.Migrate(v3.Migrate(old)))
 	case v1.Version:
 		var old v1.Data
-		old, err = imex.DecodeBlob[v1.Data](blob, "schematic data", version)
+		old, err = version.DecodeBlob[v1.Data](blob, "schematic data")
 		if err != nil {
 			break
 		}
@@ -103,7 +103,7 @@ func MigrateData(blob msgpack.EncodedJSON) (Data, error) {
 		)
 	case v0.Version:
 		var old v0.Data
-		old, err = imex.DecodeBlob[v0.Data](blob, "schematic data", version)
+		old, err = version.DecodeBlob[v0.Data](blob, "schematic data")
 		if err != nil {
 			break
 		}
