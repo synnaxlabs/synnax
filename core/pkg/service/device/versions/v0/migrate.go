@@ -97,7 +97,7 @@ func newMigration(cfg MigrationConfig) migrate.Migration {
 				"creating unknown statuses for existing devices",
 				zap.Int("count", len(missingStatuses)),
 			)
-			return cfg.Status.NewWriter[StatusDetails](
+			return cfg.Status.NewWriter(
 				tx,
 			).SetMany(ctx, &missingStatuses)
 		},

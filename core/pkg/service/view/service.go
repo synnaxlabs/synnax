@@ -113,10 +113,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if sig, err = s.cfg.Signals.PublishFromGorp(
 		ctx,
 		signals.GorpPublisherConfigUUID(s.table.Observe()),
-	); !ok(
-		err,
-		sig,
-	) {
+	); !ok(err, sig) {
 		return nil, err
 	}
 	return s, nil

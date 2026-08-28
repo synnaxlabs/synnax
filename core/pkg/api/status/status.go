@@ -81,7 +81,7 @@ func (s *Service) Set(
 	}); err != nil {
 		return SetResponse{}, err
 	}
-	if err := s.internal.NewWriter[any](tx).SetManyWithParent(
+	if err := s.internal.NewWriter(tx).SetManyWithParent(
 		ctx,
 		&req.Statuses,
 		req.Parent,
@@ -137,7 +137,7 @@ func (s *Service) SetByKeyOrName(
 	}); err != nil {
 		return SetByKeyOrNameResponse{}, err
 	}
-	if err := s.internal.NewWriter[any](tx).Set(ctx, &st); err != nil {
+	if err := s.internal.NewWriter(tx).Set(ctx, &st); err != nil {
 		return SetByKeyOrNameResponse{}, err
 	}
 	return SetByKeyOrNameResponse{
@@ -242,5 +242,5 @@ func (s *Service) Delete(
 	}); err != nil {
 		return types.Nil{}, err
 	}
-	return types.Nil{}, s.internal.NewWriter[any](tx).Delete(ctx, req.Keys...)
+	return types.Nil{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }

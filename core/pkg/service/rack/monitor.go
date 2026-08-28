@@ -114,7 +114,7 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 	if len(statuses) == 0 {
 		return nil
 	}
-	if err := m.svc.Status.NewWriter[StatusDetails](nil).
+	if err := m.svc.Status.NewWriter(nil).
 		SetMany(ctx, &statuses); err != nil {
 		return err
 	}

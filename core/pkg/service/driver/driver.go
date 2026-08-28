@@ -111,7 +111,7 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 }
 
 func (d *Driver) startHeartbeat() {
-	statusWriter := d.cfg.Status.NewWriter[rack.StatusDetails](nil)
+	statusWriter := d.cfg.Status.NewWriter(nil)
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(d.cfg.Instrumentation))
 	d.closer = append(d.closer, signal.NewHardShutdown(sCtx, cancel))
 	signal.GoTick(
@@ -277,7 +277,7 @@ func (d *Driver) ackFailure(
 ) {
 	details := task.NewStatusDetails(t, false)
 	details.Cmd = cmd.Key
-	if sErr := d.cfg.Status.NewWriter[task.StatusDetails](nil).
+	if sErr := d.cfg.Status.NewWriter(nil).
 		Set(ctx, &status.Status[task.StatusDetails]{
 			Key:     task.OntologyID(t.Key).String(),
 			Name:    t.Name,

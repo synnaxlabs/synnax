@@ -1034,7 +1034,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
 
 				dupName := "dup_alarm_" + uuid.NewString()[:8]
-				w := statusSvc.NewWriter[any](nil)
+				w := statusSvc.NewWriter(nil)
 				Expect(w.Set(ctx, &status.Status[any]{
 					Key: uuid.NewString(), Name: dupName, Variant: status.VariantInfo,
 					Message: "first", Time: telem.Now(),

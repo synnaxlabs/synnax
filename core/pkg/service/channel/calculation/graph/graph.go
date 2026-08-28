@@ -12,7 +12,6 @@ package graph
 import (
 	"context"
 	"fmt"
-	"go/types"
 	"sync"
 
 	"github.com/synnaxlabs/alamos"
@@ -45,7 +44,7 @@ type Graph struct {
 	alamos.Instrumentation
 	db         *gorp.DB
 	svc        *channel.Service
-	status     status.Writer[types.Nil]
+	status     status.Writer
 	disconnect observe.Disconnect
 	mu         struct {
 		nodes            map[channel.Key]node
@@ -113,7 +112,7 @@ func Open(
 		Instrumentation: cfg.Instrumentation,
 		db:              cfg.DB,
 		svc:             cfg.Channel,
-		status:          cfg.Status.NewWriter[types.Nil](nil),
+		status:          cfg.Status.NewWriter(nil),
 	}
 	s.mu.nodes = make(map[channel.Key]node)
 	s.mu.dependents = make(map[channel.Key]set.Set[channel.Key])

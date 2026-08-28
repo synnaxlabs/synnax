@@ -153,7 +153,7 @@ func writeConfigFailure(ctx context.Context, t task.Task, cmdKey string, err err
 	}
 	details := task.NewStatusDetails(t, false)
 	details.Cmd = cmdKey
-	Expect(statusSvc.NewWriter[task.StatusDetails](nil).
+	Expect(statusSvc.NewWriter(nil).
 		Set(ctx, &task.Status{
 			Key:     t.OntologyID().String(),
 			Name:    t.Name,

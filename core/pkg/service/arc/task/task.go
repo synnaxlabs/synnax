@@ -576,8 +576,8 @@ func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
 			deadline := r.scheduler.NextDeadline()
 			elapsed := telem.Since(r.startTime)
 			if deadline == telem.TimeSpanMax {
-				// No active timers. Timer stays stopped, so we only wake on
-				// channel input.
+				// No active timers. Timer stays stopped, so we only wake on channel
+				// input.
 			} else if deadline > elapsed {
 				timer.Reset((deadline - elapsed).Duration())
 			} else {

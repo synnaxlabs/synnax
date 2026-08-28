@@ -120,7 +120,7 @@ var _ = Describe("StatusHandler", func() {
 		It("should correct facts another writer left stale", func(ctx SpecContext) {
 			// The core blanks these for every task on a rack it thinks is
 			// unreachable, without stopping the live instance.
-			Expect(statusSvc.NewWriter[task.StatusDetails](nil).
+			Expect(statusSvc.NewWriter(nil).
 				Set(ctx, &task.Status{
 					Key:     t.OntologyID().String(),
 					Name:    t.Name,

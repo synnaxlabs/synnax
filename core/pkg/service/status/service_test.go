@@ -30,7 +30,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 	var (
 		db     *gorp.DB
 		svc    *status.Service
-		writer status.Writer[any]
+		writer status.Writer
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
@@ -46,7 +46,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 		svc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB: db, Ontology: otg, Group: g, Label: labelSvc, Search: searchIdx,
 		}))
-		writer = svc.NewWriter[any](nil)
+		writer = svc.NewWriter(nil)
 		Expect(searchIdx.Initialize(ctx)).To(Succeed())
 	})
 

@@ -229,7 +229,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		otg:    s.Ontology.NewWriter(tx),
 		newKey: s.newKey,
 		group:  s.group,
-		status: s.Status.NewWriter[StatusDetails](tx),
+		status: s.Status.NewWriter(tx),
 		table:  s.table,
 	}
 }

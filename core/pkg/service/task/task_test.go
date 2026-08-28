@@ -834,7 +834,7 @@ var _ = Describe("Task", Ordered, func() {
 				}
 				Expect(w.Create(ctx, t)).To(Succeed())
 
-				Expect(stat.NewWriter[task.StatusDetails](tx).
+				Expect(stat.NewWriter(tx).
 					Delete(ctx, t.OntologyID().String())).To(Succeed())
 				Expect(stat.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).

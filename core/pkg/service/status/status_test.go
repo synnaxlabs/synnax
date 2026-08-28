@@ -30,7 +30,7 @@ var _ = Describe("Status", Ordered, func() {
 	var (
 		db       *gorp.DB
 		svc      *status.Service
-		w        status.Writer[any]
+		w        status.Writer
 		labelSvc *label.Service
 		otg      *ontology.Ontology
 		tx       gorp.Tx
@@ -65,7 +65,7 @@ var _ = Describe("Status", Ordered, func() {
 	})
 	BeforeEach(func(ctx SpecContext) {
 		tx = db.OpenTx()
-		w = svc.NewWriter[any](tx)
+		w = svc.NewWriter(tx)
 	})
 	AfterEach(func(ctx SpecContext) {
 		Expect(tx.Close()).To(Succeed())
@@ -270,7 +270,7 @@ var _ = Describe("Status", Ordered, func() {
 			Expect(w.SetMany(ctx, &statuses)).To(Succeed())
 			Expect(tx.Commit(ctx)).To(Succeed())
 			tx = db.OpenTx()
-			w = svc.NewWriter[any](tx)
+			w = svc.NewWriter(tx)
 		})
 
 		Describe("WhereKeys", func() {
@@ -505,7 +505,7 @@ var _ = Describe("Status", Ordered, func() {
 						Variant: status.VariantInfo,
 						Time:    telem.Now(),
 					}
-					Expect(svc.NewWriter[any](tx).Set(ctx, s)).To(Succeed())
+					Expect(svc.NewWriter(tx).Set(ctx, s)).To(Succeed())
 					Expect(
 						labelSvc.NewWriter(tx).
 							Label(ctx, s.OntologyID(), []label.Key{l.Key}),
@@ -604,7 +604,7 @@ var _ = Describe("Status", Ordered, func() {
 				type IntDetails struct {
 					Count int
 				}
-				intWriter := svc.NewWriter[IntDetails](tx)
+				intWriter := svc.NewWriter(tx)
 				s := &status.Status[IntDetails]{
 					Key:     "typed-int-status",
 					Name:    "Typed Int Status",
@@ -632,7 +632,7 @@ var _ = Describe("Status", Ordered, func() {
 				type StringDetails struct {
 					Message string
 				}
-				typedWriter := svc.NewWriter[StringDetails](tx)
+				typedWriter := svc.NewWriter(tx)
 				s := &status.Status[StringDetails]{
 					Key:     "typed-string-status",
 					Name:    "Typed String Status",
@@ -666,8 +666,8 @@ var _ = Describe("Status", Ordered, func() {
 				type TypeA struct{ ValueA int }
 				type TypeB struct{ ValueB string }
 
-				writerA := svc.NewWriter[TypeA](tx)
-				writerB := svc.NewWriter[TypeB](tx)
+				writerA := svc.NewWriter(tx)
+				writerB := svc.NewWriter(tx)
 
 				Expect(writerA.Set(ctx, &status.Status[TypeA]{
 					Key: "generic-type-a", Name: "Type A", Variant: "info",
@@ -700,7 +700,7 @@ var _ = Describe("Status", Ordered, func() {
 					FieldB string
 					FieldA int
 				}
-				writerA := svc.NewWriter[TypeA](tx)
+				writerA := svc.NewWriter(tx)
 				Expect(writerA.Set(ctx, &status.Status[TypeA]{
 					Key: "mismatch-test", Name: "Mismatch Test", Variant: "info",
 					Details: TypeA{FieldA: 42, FieldB: "hello"}, Time: telem.Now(),
@@ -731,7 +731,7 @@ var _ = Describe("Status", Ordered, func() {
 		It("should not work when details are not a struct", func(ctx SpecContext) {
 			type DetailsA int
 			type DetailsB string
-			writerB := svc.NewWriter[DetailsB](tx)
+			writerB := svc.NewWriter(tx)
 			Expect(writerB.Set(ctx, &status.Status[DetailsB]{
 				Key: "details-b", Name: "Details B", Variant: "info",
 				Details: DetailsB("hello"), Time: telem.Now(),
@@ -746,7 +746,7 @@ var _ = Describe("Status", Ordered, func() {
 		It("Should notify when a status is created", func(ctx SpecContext) {
 			tx := db.OpenTx()
 			defer func() { Expect(tx.Close()).To(Succeed()) }()
-			w := svc.NewWriter[any](tx)
+			w := svc.NewWriter(tx)
 			s := &status.Status[any]{
 				Key: "observe-test", Name: "Observe Test",
 				Variant: status.VariantSuccess, Time: telem.Now(),
