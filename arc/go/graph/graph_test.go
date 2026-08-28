@@ -595,15 +595,16 @@ var _ = Describe("Graph", func() {
 					},
 					Nodes:  nodes,
 					Inputs: inputs,
-					Edges: graph.Edges{
-						{Source: ir.Handle{
+					Edges: graph.Edges{{
+						Source: ir.Handle{
 							Node:  "src",
 							Param: ir.DefaultOutputParam,
-						}, Target: ir.Handle{
+						},
+						Target: ir.Handle{
 							Node:  "nonexistent",
 							Param: ir.DefaultOutputParam,
-						}},
-					},
+						},
+					}},
 				}
 				g = MustSucceed(graph.Parse(g))
 				_, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))

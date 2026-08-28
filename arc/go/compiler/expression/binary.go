@@ -145,9 +145,7 @@ func compileBinaryMultiplicative(
 		if firstIsSeries {
 			operandHint = elemType
 		}
-		operandType, err := compileUnary(
-			ctx.Child(unaries[i]).WithHint(operandHint),
-		)
+		operandType, err := compileUnary(ctx.Child(unaries[i]).WithHint(operandHint))
 		if err != nil {
 			return types.Type{}, err
 		}

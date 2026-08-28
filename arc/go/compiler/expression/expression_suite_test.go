@@ -80,9 +80,7 @@ func compileWithCtx(
 		)
 		exprType = MustSucceedWithOffset[types.Type](
 			2,
-		)(
-			expression.Compile(ctx.Child(expr)),
-		)
+		)(expression.Compile(ctx.Child(expr)))
 	)
 	return FinalizeContext(ctx), exprType
 }
@@ -104,9 +102,7 @@ func compileWithCtxAndHint(
 	}
 	exprType := MustSucceedWithOffset[types.Type](
 		2,
-	)(
-		expression.Compile(ctx.Child(expr)),
-	)
+	)(expression.Compile(ctx.Child(expr)))
 	return FinalizeContext(ctx), exprType
 }
 

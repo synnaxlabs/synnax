@@ -266,37 +266,37 @@ type State struct {
 
 // Reset re-arms every input when the node's stage is (re)activated, so a node
 // whose gating inputs are all literal-valued re-runs instead of staying consumed.
-func (n *State) Reset() {
-	for i := range n.accumulated {
-		switch n.rearm[i] {
+func (s *State) Reset() {
+	for i := range s.accumulated {
+		switch s.rearm[i] {
 		case rearmOnFresh:
 		case rearmOnArrival:
-			n.absorbInput(i)
+			s.absorbInput(i)
 		case rearmAlways, rearmOnReset:
-			n.accumulated[i].consumed = false
-			n.accumulated[i].lastTimestamp = 0
+			s.accumulated[i].consumed = false
+			s.accumulated[i].lastTimestamp = 0
 		}
 	}
 }
 
 // RefreshInputs performs temporal alignment of node inputs and returns whether
 // the node should execute.
-func (n *State) RefreshInputs() (recalculate bool) {
+func (s *State) RefreshInputs() (recalculate bool) {
 	hasDataInput, hasUnconsumed := false, false
-	for i := range n.ir.inputs {
-		if n.isReference[i] {
+	for i := range s.ir.inputs {
+		if s.isReference[i] {
 			continue
 		}
 		hasDataInput = true
-		src := n.inputSources[i]
+		src := s.inputSources[i]
 		if src != nil && src.time.Len() > 0 {
 			ts := src.time.ValueAt[telem.TimeStamp](-1)
-			if ts > n.accumulated[i].lastTimestamp {
+			if ts > s.accumulated[i].lastTimestamp {
 				consumed := false
-				if n.rearm[i] == rearmOnReset {
-					consumed = n.accumulated[i].consumed
+				if s.rearm[i] == rearmOnReset {
+					consumed = s.accumulated[i].consumed
 				}
-				n.accumulated[i] = inputEntry{
+				s.accumulated[i] = inputEntry{
 					data:          src.data,
 					time:          src.time,
 					lastTimestamp: ts,
@@ -304,10 +304,10 @@ func (n *State) RefreshInputs() (recalculate bool) {
 				}
 			}
 		}
-		if n.accumulated[i].data.Len() == 0 {
+		if s.accumulated[i].data.Len() == 0 {
 			return false
 		}
-		if !n.accumulated[i].consumed {
+		if !s.accumulated[i].consumed {
 			hasUnconsumed = true
 		}
 	}
@@ -317,29 +317,29 @@ func (n *State) RefreshInputs() (recalculate bool) {
 	if !hasUnconsumed {
 		return false
 	}
-	for i := range n.ir.inputs {
-		if n.isReference[i] {
+	for i := range s.ir.inputs {
+		if s.isReference[i] {
 			continue
 		}
-		n.aligned.data[i] = n.accumulated[i].data
-		n.aligned.time[i] = n.accumulated[i].time
-		n.accumulated[i].consumed = true
+		s.aligned.data[i] = s.accumulated[i].data
+		s.aligned.time[i] = s.accumulated[i].time
+		s.accumulated[i].consumed = true
 	}
 	return true
 }
 
 // RefSourced reports whether the reference input at paramIndex is edge-fed.
-func (n *State) RefSourced(paramIndex int) bool {
-	return paramIndex >= 0 && paramIndex < len(n.inputSources) &&
-		n.isReference[paramIndex] && n.inputSources[paramIndex] != nil
+func (s *State) RefSourced(paramIndex int) bool {
+	return paramIndex >= 0 && paramIndex < len(s.inputSources) &&
+		s.isReference[paramIndex] && s.inputSources[paramIndex] != nil
 }
 
 // RefInput returns the current data of an edge-fed reference input, or an
 // empty series when the input is unedged.
-func (n *State) RefInput(paramIndex int) telem.Series {
-	if paramIndex >= 0 && paramIndex < len(n.inputSources) &&
-		n.isReference[paramIndex] {
-		if src := n.inputSources[paramIndex]; src != nil {
+func (s *State) RefInput(paramIndex int) telem.Series {
+	if paramIndex >= 0 && paramIndex < len(s.inputSources) &&
+		s.isReference[paramIndex] {
+		if src := s.inputSources[paramIndex]; src != nil {
 			return src.data
 		}
 	}
@@ -349,15 +349,15 @@ func (n *State) RefInput(paramIndex int) telem.Series {
 // StringInput returns the named input's current value: the referenced
 // variable's value when var-bound (its declared initial until first written),
 // else the configured value.
-func (n *State) StringInput(name string) string {
-	i, err := n.ResolveInput(name)
+func (s *State) StringInput(name string) string {
+	i, err := s.ResolveInput(name)
 	if err != nil {
 		return ""
 	}
-	if s := n.RefInput(i); s.Len() > 0 {
+	if s := s.RefInput(i); s.Len() > 0 {
 		return string(s.At(-1))
 	}
-	if v, ok := n.params[i].Value.(string); ok {
+	if v, ok := s.params[i].Value.(string); ok {
 		return v
 	}
 	return ""
@@ -366,15 +366,15 @@ func (n *State) StringInput(name string) string {
 // NumericInput returns the named input's current value: the referenced
 // variable's value when var-bound (its declared initial until first written),
 // else the configured value.
-func (n *State) NumericInput[T telem.NumericSample](name string) T {
-	i, err := n.ResolveInput(name)
+func (s *State) NumericInput[T telem.NumericSample](name string) T {
+	i, err := s.ResolveInput(name)
 	if err != nil {
 		return 0
 	}
-	if s := n.RefInput(i); s.Len() > 0 {
+	if s := s.RefInput(i); s.Len() > 0 {
 		return s.ValueAt[T](-1)
 	}
-	if v := n.params[i].Value; v != nil {
+	if v := s.params[i].Value; v != nil {
 		return telem.CastNumeric[T](v)
 	}
 	return 0
@@ -382,18 +382,18 @@ func (n *State) NumericInput[T telem.NumericSample](name string) T {
 
 // AbsorbInputs marks every data input consumed at its current source timestamp,
 // so only writes after this call re-fire the node.
-func (n *State) AbsorbInputs() {
-	for i := range n.ir.inputs {
-		n.absorbInput(i)
+func (s *State) AbsorbInputs() {
+	for i := range s.ir.inputs {
+		s.absorbInput(i)
 	}
 }
 
 // absorbInput marks input i consumed at its current source timestamp.
-func (n *State) absorbInput(i int) {
-	if n.isReference[i] {
+func (s *State) absorbInput(i int) {
+	if s.isReference[i] {
 		return
 	}
-	src := n.inputSources[i]
+	src := s.inputSources[i]
 	if src == nil {
 		return
 	}
@@ -401,7 +401,7 @@ func (n *State) absorbInput(i int) {
 	if src.time.Len() > 0 {
 		ts = src.time.ValueAt[telem.TimeStamp](-1)
 	}
-	n.accumulated[i] = inputEntry{
+	s.accumulated[i] = inputEntry{
 		data:          src.data,
 		time:          src.time,
 		lastTimestamp: ts,
@@ -411,11 +411,11 @@ func (n *State) absorbInput(i int) {
 
 // ConsumeInput returns input i's unconsumed data, marking it consumed. ok is
 // false when input i is a reference or has no new data.
-func (n *State) ConsumeInput(i int) (telem.Series, bool) {
-	if i < 0 || i >= len(n.ir.inputs) || n.isReference[i] {
+func (s *State) ConsumeInput(i int) (telem.Series, bool) {
+	if i < 0 || i >= len(s.ir.inputs) || s.isReference[i] {
 		return telem.Series{}, false
 	}
-	src := n.inputSources[i]
+	src := s.inputSources[i]
 	if src == nil || src.data.Len() == 0 {
 		return telem.Series{}, false
 	}
@@ -423,10 +423,10 @@ func (n *State) ConsumeInput(i int) (telem.Series, bool) {
 	if src.time.Len() > 0 {
 		ts = src.time.ValueAt[telem.TimeStamp](-1)
 	}
-	if ts <= n.accumulated[i].lastTimestamp && n.accumulated[i].consumed {
+	if ts <= s.accumulated[i].lastTimestamp && s.accumulated[i].consumed {
 		return telem.Series{}, false
 	}
-	n.accumulated[i] = inputEntry{
+	s.accumulated[i] = inputEntry{
 		data:          src.data,
 		time:          src.time,
 		lastTimestamp: ts,
@@ -436,11 +436,11 @@ func (n *State) ConsumeInput(i int) (telem.Series, bool) {
 }
 
 // InputFresh reports whether input i has unconsumed data, without consuming it.
-func (n *State) InputFresh(i int) bool {
-	if i < 0 || i >= len(n.ir.inputs) || n.isReference[i] {
+func (s *State) InputFresh(i int) bool {
+	if i < 0 || i >= len(s.ir.inputs) || s.isReference[i] {
 		return false
 	}
-	src := n.inputSources[i]
+	src := s.inputSources[i]
 	if src == nil || src.data.Len() == 0 {
 		return false
 	}
@@ -448,18 +448,18 @@ func (n *State) InputFresh(i int) bool {
 	if src.time.Len() > 0 {
 		ts = src.time.ValueAt[telem.TimeStamp](-1)
 	}
-	return ts > n.accumulated[i].lastTimestamp || !n.accumulated[i].consumed
+	return ts > s.accumulated[i].lastTimestamp || !s.accumulated[i].consumed
 }
 
 // LastChanged returns the series of the most-recently-changed input, marking it
 // consumed for last-write-wins. ok is false when no input has new data.
-func (n *State) LastChanged() (telem.Series, bool) {
+func (s *State) LastChanged() (telem.Series, bool) {
 	best, bestTS, found := -1, telem.TimeStamp(0), false
-	for i := range n.ir.inputs {
-		if n.isReference[i] {
+	for i := range s.ir.inputs {
+		if s.isReference[i] {
 			continue
 		}
-		src := n.inputSources[i]
+		src := s.inputSources[i]
 		if src == nil || src.data.Len() == 0 {
 			continue
 		}
@@ -467,7 +467,7 @@ func (n *State) LastChanged() (telem.Series, bool) {
 		if src.time.Len() > 0 {
 			ts = src.time.ValueAt[telem.TimeStamp](-1)
 		}
-		if ts <= n.accumulated[i].lastTimestamp && n.accumulated[i].consumed {
+		if ts <= s.accumulated[i].lastTimestamp && s.accumulated[i].consumed {
 			continue
 		}
 		if !found || ts > bestTS {
@@ -477,8 +477,8 @@ func (n *State) LastChanged() (telem.Series, bool) {
 	if !found {
 		return telem.Series{}, false
 	}
-	src := n.inputSources[best]
-	n.accumulated[best] = inputEntry{
+	src := s.inputSources[best]
+	s.accumulated[best] = inputEntry{
 		data:          src.data,
 		time:          src.time,
 		lastTimestamp: bestTS,
@@ -489,15 +489,15 @@ func (n *State) LastChanged() (telem.Series, bool) {
 
 // InputTime returns the timestamp series for the input at the given parameter
 // index.
-func (n *State) InputTime(paramIndex int) telem.Series {
-	return n.aligned.time[paramIndex]
+func (s *State) InputTime(paramIndex int) telem.Series {
+	return s.aligned.time[paramIndex]
 }
 
 // InitInput initializes an input's source output with dummy values.
-func (n *State) InitInput(paramIndex int, data, time telem.Series) {
-	if paramIndex >= 0 && paramIndex < len(n.ir.inputs) {
-		sourceHandle := n.ir.inputs[paramIndex].Source
-		if v, ok := n.nodeOutputs[sourceHandle]; ok {
+func (s *State) InitInput(paramIndex int, data, time telem.Series) {
+	if paramIndex >= 0 && paramIndex < len(s.ir.inputs) {
+		sourceHandle := s.ir.inputs[paramIndex].Source
+		if v, ok := s.nodeOutputs[sourceHandle]; ok {
 			v.data = data
 			v.time = time
 		}
@@ -505,8 +505,8 @@ func (n *State) InitInput(paramIndex int, data, time telem.Series) {
 }
 
 // Input returns the data series for the input at the given parameter index.
-func (n *State) Input(paramIndex int) telem.Series {
-	return n.aligned.data[paramIndex]
+func (s *State) Input(paramIndex int) telem.Series {
+	return s.aligned.data[paramIndex]
 }
 
 // ErrInputNotFound is returned by ResolveInput when a node has no input param
@@ -516,8 +516,8 @@ var ErrInputNotFound = errors.New("input not found")
 // ResolveInput returns the position of the named input, or ErrInputNotFound if
 // the node has no such param. Resolve at construction so wiring mistakes fail at
 // load.
-func (n *State) ResolveInput(name string) (int, error) {
-	idx, ok := n.inputIndex[name]
+func (s *State) ResolveInput(name string) (int, error) {
+	idx, ok := s.inputIndex[name]
 	if !ok {
 		return 0, errors.Wrapf(ErrInputNotFound, "node has no input named %q", name)
 	}
@@ -526,23 +526,23 @@ func (n *State) ResolveInput(name string) (int, error) {
 
 // Output returns a mutable pointer to the data series for the output at the
 // given parameter index.
-func (n *State) Output(paramIndex int) *telem.Series {
-	return &n.outputCache[paramIndex].data
+func (s *State) Output(paramIndex int) *telem.Series {
+	return &s.outputCache[paramIndex].data
 }
 
 // OutputTime returns a mutable pointer to the timestamp series for the output
 // at the given parameter index.
-func (n *State) OutputTime(paramIndex int) *telem.Series {
-	return &n.outputCache[paramIndex].time
+func (s *State) OutputTime(paramIndex int) *telem.Series {
+	return &s.outputCache[paramIndex].time
 }
 
 // IsOutputTruthy reports whether the output at the given 0-based ordinal
 // is truthy. Out-of-range ordinals report false.
-func (n *State) IsOutputTruthy(outputIdx int) bool {
-	if outputIdx < 0 || outputIdx >= len(n.outputCache) {
+func (s *State) IsOutputTruthy(outputIdx int) bool {
+	if outputIdx < 0 || outputIdx >= len(s.outputCache) {
 		return false
 	}
-	return isSeriesTruthy(n.outputCache[outputIdx].data)
+	return isSeriesTruthy(s.outputCache[outputIdx].data)
 }
 
 func isSeriesTruthy(s telem.Series) bool {

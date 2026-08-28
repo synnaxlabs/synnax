@@ -231,8 +231,8 @@ func NewRoot[ASTNode antlr.ParserRuleContext](
 	}
 }
 
-// Child creates a new child context for a different AST node. Child is the primary
-// way to traverse the AST during analysis.
+// Child creates a new child context for a different AST node. Child is the primary way
+// to traverse the AST during analysis.
 //
 // The child context references the same shared state (Diagnostics, Constraints,
 // TypeMap, Scope) as the parent, points to a different AST node, and preserves the

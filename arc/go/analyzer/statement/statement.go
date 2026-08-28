@@ -845,8 +845,9 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 	returnExpr := ctx.AST.Expression()
 	if returnExpr != nil {
 		expression.Analyze(ctx.Child(returnExpr))
-		actualReturnType := atypes.InferFromExpression(ctx.Child(returnExpr).WithTypeHint(expectedReturnType)).
-			UnwrapChan()
+		actualReturnType := atypes.InferFromExpression(
+			ctx.Child(returnExpr).WithTypeHint(expectedReturnType),
+		).UnwrapChan()
 
 		// Check for void function first - this error applies even in type inference
 		// mode
@@ -1524,9 +1525,7 @@ func collectStatementReturnTypes(
 		return []types.Type{}
 
 	case ctx.AST.IfStatement() != nil:
-		_, returnTypes := getIfStatementReturnTypes(
-			ctx.Child(ctx.AST.IfStatement()),
-		)
+		_, returnTypes := getIfStatementReturnTypes(ctx.Child(ctx.AST.IfStatement()))
 		return returnTypes
 
 	default:
@@ -1544,9 +1543,7 @@ func getIfStatementReturnTypes(
 
 	// Check main if block
 	if block := ctx.AST.Block(); block != nil {
-		hasReturn, blockTypes := getBlockReturnTypes(
-			ctx.Child(block),
-		)
+		hasReturn, blockTypes := getBlockReturnTypes(ctx.Child(block))
 		if hasReturn {
 			returnTypes = append(returnTypes, blockTypes...)
 		} else {

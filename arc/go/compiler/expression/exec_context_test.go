@@ -35,9 +35,7 @@ var _ = Describe("ExecContext", func() {
 			Exec: symbol.ExecFlow,
 		}))
 		expr := MustSucceed(parser.ParseExpression("avg(10)"))
-		Expect(
-			expression.Compile(ctx.Child(expr)),
-		).Error().
+		Expect(expression.Compile(ctx.Child(expr))).Error().
 			To(MatchError(ContainSubstring("cannot be called inside a func block")))
 	})
 

@@ -17,7 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	xunsafe "github.com/synnaxlabs/x/unsafe"
+	"github.com/synnaxlabs/x/unsafe"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -1023,7 +1023,7 @@ var _ = Describe("Series", func() {
 			s := telem.NewSeriesV[int64](1, 2, 3, 4, 5)
 			values := make([]int64, 0, 5)
 			for sample := range s.Samples() {
-				values = append(values, MustSucceed(xunsafe.CastBytes[int64](sample)))
+				values = append(values, MustSucceed(unsafe.CastBytes[int64](sample)))
 			}
 			Expect(values).To(Equal([]int64{1, 2, 3, 4, 5}))
 		})
@@ -1042,7 +1042,7 @@ var _ = Describe("Series", func() {
 			values := make([]int64, 0, 3)
 			count := 0
 			for sample := range s.Samples() {
-				values = append(values, MustSucceed(xunsafe.CastBytes[int64](sample)))
+				values = append(values, MustSucceed(unsafe.CastBytes[int64](sample)))
 				count++
 				if count > 2 {
 					break
