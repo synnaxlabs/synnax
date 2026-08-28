@@ -236,24 +236,9 @@ func NewHost(ctx context.Context, rt wazero.Runtime) (*Host, error) {
 		}).Export("pow_f64")
 
 	builder = bindI32Unary(builder, "neg", "i8", func(a int8) int8 { return -a })
-	builder = bindI32Unary(
-		builder,
-		"neg",
-		"i16",
-		func(a int16) int16 { return -a },
-	)
-	builder = bindI32Unary(
-		builder,
-		"neg",
-		"i32",
-		func(a int32) int32 { return -a },
-	)
-	builder = bindI64Unary(
-		builder,
-		"neg",
-		"i64",
-		func(a int64) int64 { return -a },
-	)
+	builder = bindI32Unary(builder, "neg", "i16", func(a int16) int16 { return -a })
+	builder = bindI32Unary(builder, "neg", "i32", func(a int32) int32 { return -a })
+	builder = bindI64Unary(builder, "neg", "i64", func(a int64) int64 { return -a })
 	builder = bindF32Unary(builder, "neg", func(a float32) float32 { return -a })
 	builder = bindF64Unary(builder, "neg", func(a float64) float64 { return -a })
 

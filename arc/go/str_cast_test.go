@@ -181,7 +181,9 @@ var _ = Describe("str() typecast end-to-end runtime", func() {
 			"f64",
 			types.F64(),
 			telem.Float64T,
-			func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV(0.1234567890123456)) },
+			func(h *runtimeHarness) {
+				h.Ingest(100, telem.NewSeriesV(0.1234567890123456))
+			},
 			"0.1234567890123456",
 		),
 		Entry(
