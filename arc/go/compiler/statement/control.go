@@ -23,9 +23,7 @@ import (
 func compileIfStatement(
 	ctx context.Context[parser.IIfStatementContext],
 ) (diverged bool, err error) {
-	if _, err = expression.Compile(
-		ctx.Child(ctx.AST.Expression()),
-	); err != nil {
+	if _, err = expression.Compile(ctx.Child(ctx.AST.Expression())); err != nil {
 		return false, errors.Wrap(err, "failed to compile if condition")
 	}
 
@@ -51,9 +49,7 @@ func compileIfStatement(
 		elseIfCtx := innerCtx
 		for i, elseIfClause := range ctx.AST.AllElseIfClause() {
 			ctx.Writer.WriteElse()
-			_, err := expression.Compile(
-				elseIfCtx.Child(elseIfClause.Expression()),
-			)
+			_, err := expression.Compile(elseIfCtx.Child(elseIfClause.Expression()))
 			if err != nil {
 				return false, errors.Wrapf(
 					err,
@@ -63,9 +59,7 @@ func compileIfStatement(
 			}
 			ctx.Writer.WriteIf(wasm.BlockTypeEmpty)
 			elseIfCtx = elseIfCtx.EnterBlock()
-			elseIfDiverged, err := CompileBlock(
-				elseIfCtx.Child(elseIfClause.Block()),
-			)
+			elseIfDiverged, err := CompileBlock(elseIfCtx.Child(elseIfClause.Block()))
 			if err != nil {
 				return false, errors.Wrapf(
 					err,

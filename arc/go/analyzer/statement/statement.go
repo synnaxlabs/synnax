@@ -1554,9 +1554,7 @@ func getIfStatementReturnTypes(
 	// Check else-if clauses
 	for _, elseIfClause := range ctx.AST.AllElseIfClause() {
 		if block := elseIfClause.Block(); block != nil {
-			hasReturn, blockTypes := getBlockReturnTypes(
-				ctx.Child(block),
-			)
+			hasReturn, blockTypes := getBlockReturnTypes(ctx.Child(block))
 			if hasReturn {
 				returnTypes = append(returnTypes, blockTypes...)
 			} else {
@@ -1568,9 +1566,7 @@ func getIfStatementReturnTypes(
 	// Check else clause
 	if elseClause := ctx.AST.ElseClause(); elseClause != nil {
 		if block := elseClause.Block(); block != nil {
-			hasReturn, blockTypes := getBlockReturnTypes(
-				ctx.Child(block),
-			)
+			hasReturn, blockTypes := getBlockReturnTypes(ctx.Child(block))
 			if hasReturn {
 				returnTypes = append(returnTypes, blockTypes...)
 			} else {
