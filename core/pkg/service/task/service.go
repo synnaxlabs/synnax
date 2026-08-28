@@ -211,10 +211,10 @@ func OpenService(
 	disconnect := cfg.Rack.OnSuspect(s.onSuspectRack)
 	ok(nil, xio.NoFailCloserFunc(disconnect))
 	if cfg.Signals != nil {
-		pubCfg := signals.GorpPublisherConfigUUID[Task](s.table.Observe())
+		pubCfg := signals.GorpPublisherConfigUUID(s.table.Observe())
 		pubCfg.MarshalSet = func(t Task) ([]byte, error) {
 			t.Config, t.Status = nil, nil
-			return signals.MarshalJSON[Key, Task](t)
+			return signals.MarshalJSON(t)
 		}
 		var sig io.Closer
 		if sig, err = cfg.Signals.PublishFromGorp(ctx, pubCfg); !ok(err, sig) {

@@ -1541,13 +1541,13 @@ var _ = Describe("Task", Ordered, func() {
 		}
 		sample := func(c writeCh, v uint8) frame.Frame {
 			if c.idx == nil {
-				return frame.NewUnary(c.ch.Key(), telem.NewSeriesV[uint8](v))
+				return frame.NewUnary(c.ch.Key(), telem.NewSeriesV(v))
 			}
 			return frame.NewMulti(
 				[]channel.Key{c.idx.Key(), c.ch.Key()},
 				[]telem.Series{
 					telem.NewSeriesV(telem.Now()),
-					telem.NewSeriesV[uint8](v),
+					telem.NewSeriesV(v),
 				},
 			)
 		}

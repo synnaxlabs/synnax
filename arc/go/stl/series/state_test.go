@@ -55,7 +55,7 @@ var _ = Describe("ProgramState", func() {
 		})
 
 		It("Should store series with boundary float values", func() {
-			ser := telem.NewSeriesV[float64](
+			ser := telem.NewSeriesV(
 				math.MaxFloat64, math.SmallestNonzeroFloat64, math.Inf(1), math.NaN(),
 			)
 			h := s.Store(ser)
@@ -76,7 +76,7 @@ var _ = Describe("ProgramState", func() {
 		It("Should handle many successive stores", func() {
 			handles := make([]uint32, 1000)
 			for i := range handles {
-				handles[i] = s.Store(telem.NewSeriesV[int32](int32(i)))
+				handles[i] = s.Store(telem.NewSeriesV(int32(i)))
 			}
 			for i, h := range handles {
 				ser := MustBeOk(s.Get(h))
@@ -96,7 +96,7 @@ var _ = Describe("ProgramState", func() {
 
 	Describe("Get", func() {
 		It("Should retrieve a previously stored series", func() {
-			original := telem.NewSeriesV[float64](3.14, 2.71)
+			original := telem.NewSeriesV(3.14, 2.71)
 			h := s.Store(original)
 			retrieved := MustBeOk(s.Get(h))
 			Expect(retrieved).To(telem.MatchSeries(original))

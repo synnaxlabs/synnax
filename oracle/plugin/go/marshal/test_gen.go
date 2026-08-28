@@ -570,8 +570,8 @@ func (b *testValueBuilder) buildEmbeddedStructFieldExprs(
 	taken := literalKeys(childFieldExprs)
 	var exprs []string
 	for _, e := range embeds {
-		// A promoted field may key the outer literal directly, so the embedded
-		// wrapper is only needed when the name is already spoken for.
+		// A promoted field may key the outer literal directly, so the embedded wrapper
+		// is only needed when the name is already spoken for.
 		if len(e.fields) > 0 && !anyKeyTaken(taken, e.fields) {
 			for _, f := range e.fields {
 				taken.Add(literalKey(f))

@@ -1055,8 +1055,8 @@ var _ = Describe("Go Marshal Plugin", func() {
 				`
 				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
 				gen := MustContentOf(resp, "codec_gen_test.go")
-				// Child has no port member of its own, so the literal reaches
-				// Base.Port through the promoted field key.
+				// Child has no port member of its own, so the literal reaches Base.Port
+				// through the promoted field key.
 				Expect(gen).
 					To(ContainSubstring(`test.Child{Port: "test_1", Name: "test_2"}`))
 				Expect(gen).ToNot(ContainSubstring("Base: "))

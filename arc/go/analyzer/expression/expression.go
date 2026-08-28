@@ -329,13 +329,7 @@ func analyzeAdditive(ctx context.Context[parser.IAdditiveExpressionContext]) {
 	} else {
 		check = isNumeric
 	}
-	validateType[parser.IMultiplicativeExpressionContext](
-		ctx,
-		mults,
-		op,
-		types.InferMultiplicative,
-		check,
-	)
+	validateType(ctx, mults, op, types.InferMultiplicative, check)
 }
 
 func analyzeMultiplicative(
@@ -345,7 +339,7 @@ func analyzeMultiplicative(
 	for _, unary := range unaries {
 		analyzeUnary(ctx.Child(unary))
 	}
-	validateType[parser.IUnaryExpressionContext](
+	validateType(
 		ctx,
 		unaries,
 		getMultiplicativeOperator(ctx.AST),

@@ -1383,7 +1383,7 @@ func (f *formatter) formatTypeRef(ctx parser.ITypeRefContext) {
 	case *parser.TypeRefMapContext:
 		f.formatMapType(v.MapType())
 		if v.TypeModifiers() != nil {
-			f.formatTypeModifiers(v.TypeModifiers())
+			f.formatTypeModifiers()
 		}
 	case *parser.TypeRefNormalContext:
 		f.formatQualifiedIdent(v.QualifiedIdent())
@@ -1398,7 +1398,7 @@ func (f *formatter) formatTypeRef(ctx parser.ITypeRefContext) {
 			f.write("]")
 		}
 		if v.TypeModifiers() != nil {
-			f.formatTypeModifiers(v.TypeModifiers())
+			f.formatTypeModifiers()
 		}
 	}
 }
@@ -1424,9 +1424,7 @@ func (f *formatter) formatTypeArgs(ctx parser.ITypeArgsContext) {
 	f.write(">")
 }
 
-func (f *formatter) formatTypeModifiers(ctx parser.ITypeModifiersContext) {
-	f.write("?")
-}
+func (f *formatter) formatTypeModifiers() { f.write("?") }
 
 func (f *formatter) formatEnumDef(ctx parser.IEnumDefContext) {
 	f.write(ctx.IDENT().GetText())

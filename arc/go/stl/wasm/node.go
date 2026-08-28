@@ -293,7 +293,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	for j := range n.ir.Outputs {
 		if n.stringOutputs[j] {
 			out := n.Output(j)
-			out.Data = telem.NewSeriesV[string](stringResults[j]...).Data
+			out.Data = telem.NewSeriesV(stringResults[j]...).Data
 		} else {
 			n.Output(j).Resize(int64(n.offsets[j]))
 		}

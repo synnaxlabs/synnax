@@ -1788,9 +1788,9 @@ var _ = Describe("Source Rebind", func() {
 	})
 
 	ingest := func(key, offset uint32, v float32) {
-		d := telem.NewSeriesV[float32](v)
+		d := telem.NewSeriesV(v)
 		d.Alignment = telem.NewAlignment(1, offset)
-		channelState.Ingest(telem.UnaryFrame[uint32](key, d))
+		channelState.Ingest(telem.UnaryFrame(key, d))
 	}
 
 	It(

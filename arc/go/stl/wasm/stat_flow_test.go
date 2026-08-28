@@ -227,7 +227,7 @@ var _ = Describe("Stat Flow Chains", func() {
 				out, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
 				Expect(out.Get(200).Series).To(HaveLen(1))
-				Expect(out.Get(200).Series[0]).To(telem.MatchSeriesDataV[float64](20.0))
+				Expect(out.Get(200).Series[0]).To(telem.MatchSeriesDataV(20.0))
 			},
 		)
 
@@ -257,7 +257,7 @@ var _ = Describe("Stat Flow Chains", func() {
 
 				out, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
-				Expect(out.Get(200).Series[0]).To(telem.MatchSeriesDataV[float64](10.0))
+				Expect(out.Get(200).Series[0]).To(telem.MatchSeriesDataV(10.0))
 			},
 		)
 	})

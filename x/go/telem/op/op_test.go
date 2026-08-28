@@ -303,8 +303,8 @@ var _ = Describe("Vectorized Operations", func() {
 	Describe("Boolean Logical Operations", func() {
 		Context("AND Operation", func() {
 			It("should perform logical AND on equal length series", func() {
-				a := telem.NewSeriesV[bool](true, true, false, false)
-				b := telem.NewSeriesV[bool](true, false, true, false)
+				a := telem.NewSeriesV(true, true, false, false)
+				b := telem.NewSeriesV(true, false, true, false)
 				output := telem.Series{DataType: telem.BooleanT}
 
 				op.And(a, b, &output)
@@ -317,8 +317,8 @@ var _ = Describe("Vectorized Operations", func() {
 			It(
 				"should handle different length series with last value repetition",
 				func() {
-					a := telem.NewSeriesV[bool](true, false)
-					b := telem.NewSeriesV[bool](true, true, true, true, true)
+					a := telem.NewSeriesV(true, false)
+					b := telem.NewSeriesV(true, true, true, true, true)
 					output := telem.Series{DataType: telem.BooleanT}
 
 					op.And(a, b, &output)
@@ -333,8 +333,8 @@ var _ = Describe("Vectorized Operations", func() {
 			)
 
 			It("should work with an all-true operand", func() {
-				a := telem.NewSeriesV[bool](true, true, true)
-				b := telem.NewSeriesV[bool](true, false, true)
+				a := telem.NewSeriesV(true, true, true)
+				b := telem.NewSeriesV(true, false, true)
 				output := telem.Series{DataType: telem.BooleanT}
 
 				op.And(a, b, &output)
@@ -346,8 +346,8 @@ var _ = Describe("Vectorized Operations", func() {
 
 		Context("OR Operation", func() {
 			It("should perform logical OR on equal length series", func() {
-				a := telem.NewSeriesV[bool](true, true, false, false)
-				b := telem.NewSeriesV[bool](true, false, true, false)
+				a := telem.NewSeriesV(true, true, false, false)
+				b := telem.NewSeriesV(true, false, true, false)
 				output := telem.Series{DataType: telem.BooleanT}
 
 				op.Or(a, b, &output)
@@ -360,8 +360,8 @@ var _ = Describe("Vectorized Operations", func() {
 			It(
 				"should handle different length series with last value repetition",
 				func() {
-					a := telem.NewSeriesV[bool](true, false)
-					b := telem.NewSeriesV[bool](false, false, false, false, false)
+					a := telem.NewSeriesV(true, false)
+					b := telem.NewSeriesV(false, false, false, false, false)
 					output := telem.Series{DataType: telem.BooleanT}
 
 					op.Or(a, b, &output)
@@ -376,8 +376,8 @@ var _ = Describe("Vectorized Operations", func() {
 			)
 
 			It("should work with an all-true operand", func() {
-				a := telem.NewSeriesV[bool](true, true, true)
-				b := telem.NewSeriesV[bool](false, true, false)
+				a := telem.NewSeriesV(true, true, true)
+				b := telem.NewSeriesV(false, true, false)
 				output := telem.Series{DataType: telem.BooleanT}
 
 				op.Or(a, b, &output)
@@ -389,7 +389,7 @@ var _ = Describe("Vectorized Operations", func() {
 
 		Context("NOT Operation", func() {
 			It("should perform logical NOT", func() {
-				input := telem.NewSeriesV[bool](true, false, true, false)
+				input := telem.NewSeriesV(true, false, true, false)
 				output := telem.Series{DataType: telem.BooleanT}
 
 				op.Not(input, &output)
@@ -409,7 +409,7 @@ var _ = Describe("Vectorized Operations", func() {
 			})
 
 			It("should handle single element", func() {
-				input := telem.NewSeriesV[bool](true)
+				input := telem.NewSeriesV(true)
 				output := telem.Series{DataType: telem.BooleanT}
 
 				op.Not(input, &output)
@@ -419,7 +419,7 @@ var _ = Describe("Vectorized Operations", func() {
 			})
 
 			It("should work with all value combinations", func() {
-				input := telem.NewSeriesV[bool](true, false, true, false, true, false)
+				input := telem.NewSeriesV(true, false, true, false, true, false)
 				output := telem.Series{DataType: telem.BooleanT}
 
 				op.Not(input, &output)
@@ -432,7 +432,7 @@ var _ = Describe("Vectorized Operations", func() {
 		Context("Scalar Logical Operations", func() {
 			DescribeTable("AndScalar",
 				func(scalar bool, expected []bool) {
-					series := telem.NewSeriesV[bool](true, false)
+					series := telem.NewSeriesV(true, false)
 					output := telem.Series{DataType: telem.BooleanT}
 					op.AndScalar(series, scalar, &output)
 					Expect(output.Unmarshal[bool]()).To(Equal(expected))
@@ -443,7 +443,7 @@ var _ = Describe("Vectorized Operations", func() {
 
 			DescribeTable("OrScalar",
 				func(scalar bool, expected []bool) {
-					series := telem.NewSeriesV[bool](true, false)
+					series := telem.NewSeriesV(true, false)
 					output := telem.Series{DataType: telem.BooleanT}
 					op.OrScalar(series, scalar, &output)
 					Expect(output.Unmarshal[bool]()).To(Equal(expected))
@@ -462,9 +462,9 @@ var _ = Describe("Vectorized Operations", func() {
 
 		Context("Combined Logical Operations", func() {
 			It("should allow combining AND and OR operations", func() {
-				a := telem.NewSeriesV[bool](true, true, false, false)
-				b := telem.NewSeriesV[bool](true, false, true, false)
-				c := telem.NewSeriesV[bool](true, true, true, true)
+				a := telem.NewSeriesV(true, true, false, false)
+				b := telem.NewSeriesV(true, false, true, false)
+				c := telem.NewSeriesV(true, true, true, true)
 
 				// (a AND b) OR c
 				andResult := telem.Series{DataType: telem.BooleanT}
@@ -478,8 +478,8 @@ var _ = Describe("Vectorized Operations", func() {
 			})
 
 			It("should allow NOT of AND result", func() {
-				a := telem.NewSeriesV[bool](true, true, false, false)
-				b := telem.NewSeriesV[bool](true, false, true, false)
+				a := telem.NewSeriesV(true, true, false, false)
+				b := telem.NewSeriesV(true, false, true, false)
 
 				andResult := telem.Series{DataType: telem.BooleanT}
 				op.And(a, b, &andResult)

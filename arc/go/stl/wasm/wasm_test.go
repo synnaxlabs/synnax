@@ -859,7 +859,7 @@ var _ = Describe("WASM", func() {
 			h.SetInput(
 				"value",
 				0,
-				telem.NewSeriesV[float64](10.0, 20.0),
+				telem.NewSeriesV(10.0, 20.0),
 				telem.NewSeriesSecondsTSV(1, 2),
 			)
 			h.Execute(ctx, "scale")
@@ -949,7 +949,7 @@ var _ = Describe("WASM", func() {
 				h.SetInput(
 					"value",
 					0,
-					telem.NewSeriesV[float64](10.0, 20.0),
+					telem.NewSeriesV(10.0, 20.0),
 					telem.NewSeriesSecondsTSV(1, 2),
 				)
 				h.Execute(ctx, "scale")
@@ -1510,13 +1510,13 @@ trigger_ch -> emit_period{period=1s}
 			h.SetInput(
 				"base_src",
 				0,
-				telem.NewSeriesV[float64](2.0, 3.0, 4.0),
+				telem.NewSeriesV(2.0, 3.0, 4.0),
 				telem.NewSeriesSecondsTSV(1, 2, 3),
 			)
 			h.SetInput(
 				"exp_src",
 				0,
-				telem.NewSeriesV[float64](2.0),
+				telem.NewSeriesV(2.0),
 				telem.NewSeriesSecondsTSV(1),
 			)
 
@@ -1576,13 +1576,13 @@ trigger_ch -> emit_period{period=1s}
 			h.SetInput(
 				"base_src",
 				0,
-				telem.NewSeriesV[float64](3.0),
+				telem.NewSeriesV(3.0),
 				telem.NewSeriesSecondsTSV(1),
 			)
 			h.SetInput(
 				"exp_src",
 				0,
-				telem.NewSeriesV[float64](1.0, 2.0, 3.0),
+				telem.NewSeriesV(1.0, 2.0, 3.0),
 				telem.NewSeriesSecondsTSV(1, 2, 3),
 			)
 
@@ -1642,13 +1642,13 @@ trigger_ch -> emit_period{period=1s}
 			h.SetInput(
 				"base_src",
 				0,
-				telem.NewSeriesV[float64](4.0, 27.0),
+				telem.NewSeriesV(4.0, 27.0),
 				telem.NewSeriesSecondsTSV(1, 2),
 			)
 			h.SetInput(
 				"exp_src",
 				0,
-				telem.NewSeriesV[float64](0.5, 1.0/3.0),
+				telem.NewSeriesV(0.5, 1.0/3.0),
 				telem.NewSeriesSecondsTSV(1, 2),
 			)
 
@@ -1761,7 +1761,7 @@ trigger_ch -> emit_period{period=1s}
 			h.SetInput(
 				"val_src",
 				0,
-				telem.NewSeriesV[float64](1.5, -2.5, 3.5),
+				telem.NewSeriesV(1.5, -2.5, 3.5),
 				telem.NewSeriesSecondsTSV(1, 2, 3),
 			)
 			changed := h.Execute(ctx, "neg_cf")
@@ -1816,7 +1816,7 @@ trigger_ch -> emit_period{period=1s}
 				defer h.Close(ctx)
 
 				h.SetInput("source", 0,
-					telem.NewSeriesV[string]("hello", "world!", ""),
+					telem.NewSeriesV("hello", "world!", ""),
 					telem.NewSeriesSecondsTSV(1, 2, 3),
 				)
 
@@ -1871,7 +1871,7 @@ trigger_ch -> emit_period{period=1s}
 				defer h.Close(ctx)
 
 				h.SetInput("source", 0,
-					telem.NewSeriesV[string]("hello", "world!", ""),
+					telem.NewSeriesV("hello", "world!", ""),
 					telem.NewSeriesSecondsTSV(1, 2, 3),
 				)
 
@@ -1945,11 +1945,11 @@ trigger_ch -> emit_period{period=1s}
 				defer h.Close(ctx)
 
 				h.SetInput("src_a", 0,
-					telem.NewSeriesV[string]("hello"),
+					telem.NewSeriesV("hello"),
 					telem.NewSeriesSecondsTSV(1),
 				)
 				h.SetInput("src_b", 0,
-					telem.NewSeriesV[string](" world"),
+					telem.NewSeriesV(" world"),
 					telem.NewSeriesSecondsTSV(1),
 				)
 
@@ -2469,7 +2469,7 @@ trigger_ch -> emit_period{period=1s}
 			h.SetInput(
 				"input_source",
 				0,
-				telem.NewSeriesV[float64](10.0),
+				telem.NewSeriesV(10.0),
 				telem.NewSeriesSecondsTSV(1),
 			)
 
@@ -2588,7 +2588,7 @@ trigger_ch -> emit_period{period=1s}
 			h.SetInput(
 				"input_source",
 				0,
-				telem.NewSeriesV[float64](10.0),
+				telem.NewSeriesV(10.0),
 				telem.NewSeriesSecondsTSV(1),
 			)
 
@@ -3614,8 +3614,8 @@ trigger_ch -> emit_period{period=1s}
 				// Test: a=10.0, b=3.0
 				// Expected: sum=13.0, diff=7.0, product=30.0
 				fr := telem.Frame[uint32]{}
-				fr = fr.Append(200, telem.NewSeriesV[float64](10.0))
-				fr = fr.Append(201, telem.NewSeriesV[float64](3.0))
+				fr = fr.Append(200, telem.NewSeriesV(10.0))
+				fr = fr.Append(201, telem.NewSeriesV(3.0))
 				h.ChannelState().Ingest(fr)
 				h.Execute(ctx, "multi_op")
 				outFr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
