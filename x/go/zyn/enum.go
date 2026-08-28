@@ -170,7 +170,7 @@ func Enum[T comparable](values ...T) EnumZ {
 		anyValues[i] = v
 	}
 	e := EnumZ{
-		baseZ:  baseZ{dataType: EnumT, expectedType: reflect.TypeOf(values[0])},
+		dataType: EnumT, expectedType: reflect.TypeOf(values[0]),
 		values: anyValues,
 	}
 	e.wrapper = e

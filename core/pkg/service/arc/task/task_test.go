@@ -496,10 +496,8 @@ var _ = Describe("Task", Ordered, func() {
 					Name: "test-auto-start",
 					Type: arctask.Type,
 					Config: configToMap(arctask.Config{
-						PersistConfig: task.PersistConfig{
-							StartConfig: task.StartConfig{AutoStart: true},
-						},
-						ArcKey: uuid.New(),
+						AutoStart: true,
+						ArcKey:    uuid.New(),
 					}),
 				}
 				t := MustSucceed(newGraphFactory(
@@ -532,10 +530,8 @@ var _ = Describe("Task", Ordered, func() {
 					Name: "test-silent-stop",
 					Type: arctask.Type,
 					Config: configToMap(arctask.Config{
-						PersistConfig: task.PersistConfig{
-							StartConfig: task.StartConfig{AutoStart: true},
-						},
-						ArcKey: uuid.New(),
+						AutoStart: true,
+						ArcKey:    uuid.New(),
 					}),
 				}
 				t := MustSucceed(newGraphFactory(
@@ -618,10 +614,8 @@ var _ = Describe("Task", Ordered, func() {
 					Name: "test-boot-auto-start-failure",
 					Type: arctask.Type,
 					Config: configToMap(arctask.Config{
-						PersistConfig: task.PersistConfig{
-							StartConfig: task.StartConfig{AutoStart: true},
-						},
-						ArcKey: uuid.New(),
+						AutoStart: true,
+						ArcKey:    uuid.New(),
 					}),
 				}
 				Expect(factory.ConfigureTask(ctx, svcTask, driver.NoCommand)).Error().
@@ -676,10 +670,8 @@ var _ = Describe("Task", Ordered, func() {
 				Name: "test-boot-auto-start",
 				Type: arctask.Type,
 				Config: configToMap(arctask.Config{
-					PersistConfig: task.PersistConfig{
-						StartConfig: task.StartConfig{AutoStart: true},
-					},
-					ArcKey: uuid.New(),
+					AutoStart: true,
+					ArcKey:    uuid.New(),
 				}),
 			}
 			t := MustSucceed(newGraphFactory(
@@ -894,46 +886,46 @@ var _ = Describe("Task", Ordered, func() {
 				Nodes:  alarmNodes,
 				Inputs: alarmConfigs,
 				Edges: graph.Edges{
-					{Edge: ir.Edge{
+					{
 						Source: ir.Handle{Node: "on", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "ge", Param: ir.LHSInputParam},
-					}},
-					{Edge: ir.Edge{
+					},
+					{
 						Source: ir.Handle{
 							Node:  "constant",
 							Param: ir.DefaultOutputParam,
 						},
 						Target: ir.Handle{Node: "ge", Param: ir.RHSInputParam},
-					}},
-					{Edge: ir.Edge{
+					},
+					{
 						Source: ir.Handle{Node: "ge", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{
 							Node:  "stable_for",
 							Param: ir.DefaultInputParam,
 						},
-					}},
-					{Edge: ir.Edge{
+					},
+					{
 						Source: ir.Handle{
 							Node:  "stable_for",
 							Param: ir.DefaultOutputParam,
 						},
 						Target: ir.Handle{Node: "select", Param: ir.DefaultOutputParam},
-					}},
+					},
 					// status_success/error fire on select outputs (edges below).
-					{Edge: ir.Edge{
+					{
 						Source: ir.Handle{Node: "select", Param: "false"},
 						Target: ir.Handle{
 							Node:  "status_success",
 							Param: ir.DefaultOutputParam,
 						},
-					}},
-					{Edge: ir.Edge{
+					},
+					{
 						Source: ir.Handle{Node: "select", Param: "true"},
 						Target: ir.Handle{
 							Node:  "status_error",
 							Param: ir.DefaultOutputParam,
 						},
-					}},
+					},
 				},
 			}
 
@@ -1072,13 +1064,13 @@ var _ = Describe("Task", Ordered, func() {
 					Nodes:  reportNodes,
 					Inputs: reportConfigs,
 					Edges: graph.Edges{
-						{Edge: ir.Edge{
+						{
 							Source: ir.Handle{Node: "on", Param: ir.DefaultOutputParam},
 							Target: ir.Handle{
 								Node:  "status_set",
 								Param: ir.DefaultOutputParam,
 							},
-						}},
+						},
 					},
 				}
 
