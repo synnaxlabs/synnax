@@ -54,7 +54,7 @@ jobs:
       - name: Build the custom golangci-lint binary
         uses: golangci/golangci-lint-action@v9
         with:
-          version: v2.12.2
+          version: v2.13.2
           working-directory: ${{ inputs.directory }}
           install-only: true
 
@@ -123,7 +123,7 @@ jobs:
 
       - name: Install stringer
         if: matrix.codegen
-        run: go install golang.org/x/tools/cmd/stringer@v0.48.0
+        run: go install golang.org/x/tools/cmd/stringer@v0.49.0
 
       - name: Install antlr4
         if: matrix.codegen && inputs.install_antlr4
