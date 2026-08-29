@@ -73,6 +73,9 @@ export interface IsGrantedExtensionParams extends Omit<IsGrantedParams, "query">
 
 const { useResult: useResultGranted } = Flux.createRetrieve<PermissionsQuery, boolean>({
   name: PERMISSION_PLURAL_RESOURCE_NAME,
+  // A read that never lands reads as a denial, so a moment of dead connection would
+  // lock the subject out of surfaces it can in fact reach.
+  retryUnreachable: true,
   retrieve: async ({ client, query: { subject, objects, action } }) => {
     subject = await resolveSubjectAsync(client, subject);
     if (subject == null) return false;
