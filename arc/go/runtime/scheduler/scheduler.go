@@ -177,16 +177,13 @@ func (s *Scheduler) NextDeadline() telem.TimeSpan { return s.nextDeadline }
 // Next executes one cycle of the reactive computation, re-walking until changes
 // settle. Nodes with pending changes execute in stratum order; sequential scopes
 // advance via their transitions; gated scopes activate when their handle fires.
-func (s *Scheduler) Next(
-	ctx context.Context,
-	elapsed telem.TimeSpan,
-	reason rnode.RunReason,
-) {
+func (s *Scheduler) Next(ctx context.Context, cycle rnode.Cycle) {
 	s.nextDeadline = telem.TimeSpanMax
 	s.nodeCtx.Context = ctx
-	s.nodeCtx.Elapsed = elapsed
+	s.nodeCtx.Now = cycle.Now
+	s.nodeCtx.Elapsed = cycle.Elapsed
 	s.nodeCtx.Tolerance = s.tolerance
-	s.nodeCtx.Reason = reason
+	s.nodeCtx.Reason = cycle.Reason
 	// Re-pass until no change lands on an already-run node, bounded against cycles.
 	for range len(s.changedFlags) + 1 {
 		s.settled = true
@@ -317,7 +314,7 @@ func (s *Scheduler) evaluateTransitions(ss *scope) bool {
 func (s *Scheduler) resetLeafNode(m *member) {
 	if n := m.node; m.isNode() && n != nil {
 		s.selfChangedFlags[n.idx] = 0
-		n.Reset()
+		n.Reset(s.nodeCtx)
 	}
 }
 

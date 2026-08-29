@@ -29,10 +29,6 @@ type ProgramState struct {
 	writes          map[uint32]telem.Series
 	activeWriteKeys []uint32
 	indexes         map[uint32]uint32
-	// clock provides monotonically increasing timestamps for indexed
-	// channel writes, avoiding duplicate timestamps on platforms with
-	// coarse clock resolution (e.g. Windows).
-	clock telem.MonoClock
 }
 
 // NewProgramState creates a new ProgramState from channel digests.
@@ -59,13 +55,19 @@ func (cs *ProgramState) Ingest(fr telem.Frame[uint32]) {
 }
 
 // Flush extracts buffered channel writes into a frame and clears the write
-// buffer. Only channels written in the current cycle are flushed.
+// buffer. Only channels written in the current cycle are flushed. An index
+// whose channels wrote no timestamps of their own is stamped from now, one
+// sample per data sample, spaced 1ns apart. Flush returns the highest stamp it
+// synthesized, so the caller's clock can resume above it, and reports whether
+// anything was flushed. The highest stamp is zero when nothing was synthesized.
 func (cs *ProgramState) Flush(
 	fr telem.Frame[uint32],
-) (telem.Frame[uint32], bool) {
+	now telem.TimeStamp,
+) (telem.Frame[uint32], telem.TimeStamp, bool) {
 	if len(cs.activeWriteKeys) == 0 {
-		return fr, false
+		return fr, 0, false
 	}
+	highest := cs.stampIndexes(now)
 	flushed := false
 	for _, key := range cs.activeWriteKeys {
 		data, ok := cs.writes[key]
@@ -80,7 +82,34 @@ func (cs *ProgramState) Flush(
 		cs.writes[key] = data
 	}
 	cs.activeWriteKeys = cs.activeWriteKeys[:0]
-	return fr, flushed
+	return fr, highest, flushed
+}
+
+// stampIndexes fills every empty index buffer whose channels wrote this cycle,
+// and returns the highest timestamp it wrote. A non-empty buffer already holds
+// the provenance a sink forwarded and is left alone. Every member of a group
+// starts at now, so one cycle's writes stay aligned across channels.
+func (cs *ProgramState) stampIndexes(now telem.TimeStamp) (highest telem.TimeStamp) {
+	for _, key := range cs.activeWriteKeys {
+		idx := cs.indexes[key]
+		if idx == 0 || len(cs.writes[idx].Data) > 0 {
+			continue
+		}
+		data := cs.writes[key]
+		count := data.Len()
+		if count == 0 {
+			continue
+		}
+		stamps := telem.Arrange(now, int(count), 1*telem.NanosecondTS)
+		stamps.Alignment = data.Alignment
+		stamps.TimeRange = data.TimeRange
+		cs.writes[idx] = stamps
+		cs.activeWriteKeys = append(cs.activeWriteKeys, idx)
+		if last := telem.ValueAt[telem.TimeStamp](stamps, -1); last > highest {
+			highest = last
+		}
+	}
+	return highest
 }
 
 // clearReadsReallocThreshold is the backing array capacity above which
@@ -119,64 +148,46 @@ func (cs *ProgramState) ReadValue(key uint32) (telem.Series, bool) {
 // writeValue writes a single value to a channel (for WASM runtime bindings).
 func (cs *ProgramState) writeValue(key uint32, value telem.Series) {
 	cs.appendWriteSeries(key, value)
-	cs.writeIndexedTimestamp(key)
 }
 
 func (cs *ProgramState) WriteChannelU8(key uint32, v uint8) {
 	appendFixedWriteSample(cs, key, v)
-	cs.writeIndexedTimestamp(key)
 }
 
 func (cs *ProgramState) WriteChannelU16(key uint32, v uint16) {
 	appendFixedWriteSample(cs, key, v)
-	cs.writeIndexedTimestamp(key)
 }
 
 func (cs *ProgramState) WriteChannelU32(key, v uint32) {
 	appendFixedWriteSample(cs, key, v)
-	cs.writeIndexedTimestamp(key)
 }
 
 func (cs *ProgramState) WriteChannelU64(key uint32, v uint64) {
 	appendFixedWriteSample(cs, key, v)
-	cs.writeIndexedTimestamp(key)
 }
 
 func (cs *ProgramState) WriteChannelI8(key uint32, v int8) {
 	appendFixedWriteSample(cs, key, v)
-	cs.writeIndexedTimestamp(key)
 }
 
 func (cs *ProgramState) WriteChannelI16(key uint32, v int16) {
 	appendFixedWriteSample(cs, key, v)
-	cs.writeIndexedTimestamp(key)
 }
 
 func (cs *ProgramState) WriteChannelI32(key uint32, v int32) {
 	appendFixedWriteSample(cs, key, v)
-	cs.writeIndexedTimestamp(key)
 }
 
 func (cs *ProgramState) WriteChannelI64(key uint32, v int64) {
 	appendFixedWriteSample(cs, key, v)
-	cs.writeIndexedTimestamp(key)
 }
 
 func (cs *ProgramState) WriteChannelF32(key uint32, v float32) {
 	appendFixedWriteSample(cs, key, v)
-	cs.writeIndexedTimestamp(key)
 }
 
 func (cs *ProgramState) WriteChannelF64(key uint32, v float64) {
 	appendFixedWriteSample(cs, key, v)
-	cs.writeIndexedTimestamp(key)
-}
-
-func (cs *ProgramState) writeIndexedTimestamp(key uint32) {
-	idx := cs.indexes[key]
-	if idx != 0 {
-		appendFixedWriteSample(cs, idx, cs.clock.Now())
-	}
 }
 
 func appendFixedWriteSample[T telem.FixedSample](

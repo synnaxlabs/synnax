@@ -145,6 +145,7 @@ func (h *testHarness) SetInput(nodeKey string, idx int, data, time telem.Series)
 	n := h.state.Node(nodeKey)
 	*n.Output(idx) = data
 	*n.OutputTime(idx) = time
+	n.MarkFresh(idx)
 }
 
 func (h *testHarness) CreateNode(ctx context.Context, nodeKey string) node.Node {
@@ -560,13 +561,13 @@ var _ = Describe("WASM", func() {
 				telem.UnmarshalSeries[int64](h.Output("counter", 0))[0],
 			).To(Equal(int64(1)))
 
-			n.Reset()
+			n.Reset(node.Context{})
 			h.NextChanged(ctx, n, "counter")
 			Expect(
 				telem.UnmarshalSeries[int64](h.Output("counter", 0))[0],
 			).To(Equal(int64(1)))
 
-			n.Reset()
+			n.Reset(node.Context{})
 			h.NextChanged(ctx, n, "counter")
 			Expect(
 				telem.UnmarshalSeries[int64](h.Output("counter", 0))[0],
@@ -627,13 +628,13 @@ var _ = Describe("WASM", func() {
 					telem.UnmarshalSeries[int64](h.Output("c2", 0))[0],
 				).To(Equal(int64(10)))
 
-				n1.Reset()
+				n1.Reset(node.Context{})
 				n1.Next(nCtx)
 				Expect(
 					telem.UnmarshalSeries[int64](h.Output("c1", 0))[0],
 				).To(Equal(int64(1)))
 
-				n2.Reset()
+				n2.Reset(node.Context{})
 				n2.Next(nCtx)
 				Expect(
 					telem.UnmarshalSeries[int64](h.Output("c2", 0))[0],
@@ -692,19 +693,19 @@ var _ = Describe("WASM", func() {
 
 				// Reset re-initializes counter_a's own state, leaving counter_b's
 				// intact
-				n1.Reset()
+				n1.Reset(node.Context{})
 				n1.Next(nCtx)
 				Expect(
 					telem.UnmarshalSeries[int64](h.Output("counter_a", 0))[0],
 				).To(Equal(int64(1)))
 
-				n2.Reset()
+				n2.Reset(node.Context{})
 				n2.Next(nCtx)
 				Expect(
 					telem.UnmarshalSeries[int64](h.Output("counter_b", 0))[0],
 				).To(Equal(int64(1)))
 
-				n1.Reset()
+				n1.Reset(node.Context{})
 				n1.Next(nCtx)
 				Expect(
 					telem.UnmarshalSeries[int64](h.Output("counter_a", 0))[0],
@@ -2249,7 +2250,7 @@ trigger_ch -> emit_period{period=1s}
 				Expect(changed.Contains(ir.DefaultOutputParam)).To(BeFalse())
 
 				// Reset the node (simulating stage re-entry)
-				n.Reset()
+				n.Reset(node.Context{})
 
 				// Third call - should execute again after reset
 				changed = h.NextChanged(ctx, n, "init_counter")
@@ -2660,7 +2661,8 @@ trigger_ch -> emit_period{period=1s}
 
 					h.Execute(ctx, "write_test")
 
-					fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
+					fr, _, changed := h.ChannelState().
+						Flush(telem.Frame[uint32]{}, flushNow)
 					Expect(changed).To(BeTrue())
 					Expect(fr.Get(100).Series).To(HaveLen(1))
 					Expect(fr.Get(100).Series[0]).To(telem.MatchSeriesDataV[int32](42))
@@ -2693,7 +2695,8 @@ trigger_ch -> emit_period{period=1s}
 
 					h.Execute(ctx, "write_indexed")
 
-					fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
+					fr, _, changed := h.ChannelState().
+						Flush(telem.Frame[uint32]{}, flushNow)
 					Expect(changed).To(BeTrue())
 					Expect(fr.Get(100).Series).To(HaveLen(1))
 					Expect(fr.Get(100).Series[0]).To(telem.MatchSeriesDataV[int32](99))
@@ -2705,7 +2708,7 @@ trigger_ch -> emit_period{period=1s}
 			)
 
 			It(
-				"Should write timestamp that is approximately now",
+				"Should stamp the index from the cycle stamp",
 				func(ctx SpecContext) {
 					chans := []symbol.Symbol{
 						{
@@ -2726,16 +2729,18 @@ trigger_ch -> emit_period{period=1s}
 					)
 					defer h.Close(ctx)
 
-					before := telem.Now()
 					h.Execute(ctx, "write_ts")
-					after := telem.Now()
 
-					fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
+					fr, highest, changed := h.ChannelState().Flush(
+						telem.Frame[uint32]{},
+						flushNow,
+					)
 					Expect(changed).To(BeTrue())
+					Expect(highest).To(Equal(telem.TimeStamp(flushNow)))
 					Expect(fr.Get(201).Series).To(HaveLen(1))
-					ts := telem.UnmarshalSeries[telem.TimeStamp](fr.Get(201).Series[0])
-					Expect(ts[0]).To(BeNumerically(">=", before))
-					Expect(ts[0]).To(BeNumerically("<=", after))
+					Expect(
+						fr.Get(201).Series[0],
+					).To(telem.MatchSeries(telem.NewSeriesV(telem.TimeStamp(flushNow))))
 				},
 			)
 
@@ -2770,7 +2775,8 @@ trigger_ch -> emit_period{period=1s}
 
 					h.Execute(ctx, "multi_write")
 
-					fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
+					fr, _, changed := h.ChannelState().
+						Flush(telem.Frame[uint32]{}, flushNow)
 					Expect(changed).To(BeTrue())
 					Expect(fr.Get(10).Series).To(HaveLen(1))
 					Expect(fr.Get(10).Series[0]).To(telem.MatchSeriesDataV[int32](15))
@@ -2811,9 +2817,10 @@ trigger_ch -> emit_period{period=1s}
 					timestamps := make([]telem.TimeStamp, 3)
 
 					for i := range 3 {
-						n.Reset()
+						n.Reset(node.Context{})
 						n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
-						fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
+						fr, _, changed := h.ChannelState().
+							Flush(telem.Frame[uint32]{}, flushNow)
 						Expect(changed).To(BeTrue())
 						ts := telem.UnmarshalSeries[telem.TimeStamp](
 							fr.Get(301).Series[0],
@@ -2850,7 +2857,8 @@ trigger_ch -> emit_period{period=1s}
 
 				h.Execute(ctx, "i32_write")
 
-				fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
+				fr, _, changed := h.ChannelState().
+					Flush(telem.Frame[uint32]{}, flushNow)
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(700).Series).To(HaveLen(1))
 				Expect(fr.Get(700).Series[0]).To(telem.MatchSeriesDataV[int32](-50000))
@@ -2879,7 +2887,8 @@ trigger_ch -> emit_period{period=1s}
 
 				h.Execute(ctx, "u8_write")
 
-				fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
+				fr, _, changed := h.ChannelState().
+					Flush(telem.Frame[uint32]{}, flushNow)
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(800).Series).To(HaveLen(1))
 				Expect(fr.Get(800).Series[0]).To(telem.MatchSeriesDataV[uint8](255))
@@ -2910,7 +2919,8 @@ trigger_ch -> emit_period{period=1s}
 
 				h.Execute(ctx, "f64_write")
 
-				fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
+				fr, _, changed := h.ChannelState().
+					Flush(telem.Frame[uint32]{}, flushNow)
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(1100).Series).To(HaveLen(1))
 				Expect(fr.Get(1100).Series[0]).To(telem.MatchSeriesDataV(3.14159))
@@ -2939,7 +2949,8 @@ trigger_ch -> emit_period{period=1s}
 
 				h.Execute(ctx, "f32_write")
 
-				fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
+				fr, _, changed := h.ChannelState().
+					Flush(telem.Frame[uint32]{}, flushNow)
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(1200).Series).To(HaveLen(1))
 				Expect(
@@ -2957,7 +2968,8 @@ trigger_ch -> emit_period{period=1s}
 
 				h.Execute(ctx, "no_write")
 
-				fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
+				fr, _, changed := h.ChannelState().
+					Flush(telem.Frame[uint32]{}, flushNow)
 				Expect(changed).To(BeFalse())
 				Expect(fr.RawKeys()).To(BeEmpty())
 			})
@@ -2986,7 +2998,8 @@ trigger_ch -> emit_period{period=1s}
 
 					h.Execute(ctx, "zero_idx")
 
-					fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
+					fr, _, changed := h.ChannelState().
+						Flush(telem.Frame[uint32]{}, flushNow)
 					Expect(changed).To(BeTrue())
 					Expect(fr.Get(900).Series).To(HaveLen(1))
 					Expect(fr.Get(0).Series).To(BeEmpty())
@@ -3019,7 +3032,7 @@ trigger_ch -> emit_period{period=1s}
 
 					h.Execute(ctx, "imperative_vs_decl")
 
-					fr, _ := h.ChannelState().Flush(telem.Frame[uint32]{})
+					fr, _, _ := h.ChannelState().Flush(telem.Frame[uint32]{}, flushNow)
 					dataKeys := make(set.Set[uint32])
 					for _, key := range fr.RawKeys() {
 						dataKeys.Add(key)
@@ -3159,9 +3172,10 @@ trigger_ch -> emit_period{period=1s}
 				n := h.CreateNode(ctx, "void_with_state")
 				nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
 
-				n.Reset()
+				n.Reset(node.Context{})
 				n.Next(nCtx)
-				fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
+				fr, _, changed := h.ChannelState().
+					Flush(telem.Frame[uint32]{}, flushNow)
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(100).Series[0]).To(telem.MatchSeriesDataV[int32](1))
 
@@ -3172,7 +3186,7 @@ trigger_ch -> emit_period{period=1s}
 					telem.NewSeriesSecondsTSV(2),
 				)
 				n.Next(nCtx)
-				fr, changed = h.ChannelState().Flush(telem.Frame[uint32]{})
+				fr, _, changed = h.ChannelState().Flush(telem.Frame[uint32]{}, flushNow)
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(100).Series[0]).To(telem.MatchSeriesDataV[int32](2))
 			},
@@ -3241,7 +3255,7 @@ trigger_ch -> emit_period{period=1s}
 				).To(Equal(int64(1)))
 				Expect(executions).To(Equal(1))
 
-				n.Reset()
+				n.Reset(node.Context{})
 
 				n.Next(nCtx)
 				Expect(executions).To(Equal(2))
@@ -3329,7 +3343,8 @@ trigger_ch -> emit_period{period=1s}
 				fr = fr.Append(100, telem.NewSeriesV[float32](5.0))
 				h.ChannelState().Ingest(fr)
 				h.Execute(ctx, "increment_counter")
-				outFr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
+				outFr, _, changed := h.ChannelState().
+					Flush(telem.Frame[uint32]{}, flushNow)
 				Expect(changed).To(BeTrue())
 				Expect(outFr.Get(100).Series).To(HaveLen(1))
 				Expect(
@@ -3422,7 +3437,8 @@ trigger_ch -> emit_period{period=1s}
 					telem.NewSeriesSecondsTSV(1),
 				)
 				h.Execute(ctx, "count_rising")
-				outFr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
+				outFr, _, changed := h.ChannelState().
+					Flush(telem.Frame[uint32]{}, flushNow)
 				Expect(changed).To(BeFalse()) // input=0, no rising edge
 				Expect(outFr.Get(100).Series).To(BeEmpty())
 
@@ -3437,7 +3453,8 @@ trigger_ch -> emit_period{period=1s}
 					telem.NewSeriesSecondsTSV(2),
 				)
 				h.Execute(ctx, "count_rising")
-				outFr, changed = h.ChannelState().Flush(telem.Frame[uint32]{})
+				outFr, _, changed = h.ChannelState().
+					Flush(telem.Frame[uint32]{}, flushNow)
 				Expect(changed).To(BeTrue())
 				Expect(outFr.Get(100).Series).To(HaveLen(1))
 				Expect(
@@ -3455,7 +3472,8 @@ trigger_ch -> emit_period{period=1s}
 					telem.NewSeriesSecondsTSV(3),
 				)
 				h.Execute(ctx, "count_rising")
-				outFr, changed = h.ChannelState().Flush(telem.Frame[uint32]{})
+				outFr, _, changed = h.ChannelState().
+					Flush(telem.Frame[uint32]{}, flushNow)
 				Expect(changed).To(BeFalse()) // No rising edge
 				Expect(outFr.Get(100).Series).To(BeEmpty())
 
@@ -3470,7 +3488,8 @@ trigger_ch -> emit_period{period=1s}
 					telem.NewSeriesSecondsTSV(4),
 				)
 				h.Execute(ctx, "count_rising")
-				outFr, changed = h.ChannelState().Flush(telem.Frame[uint32]{})
+				outFr, _, changed = h.ChannelState().
+					Flush(telem.Frame[uint32]{}, flushNow)
 				Expect(changed).To(BeFalse()) // Falling edge, no increment
 				Expect(outFr.Get(100).Series).To(BeEmpty())
 
@@ -3485,7 +3504,8 @@ trigger_ch -> emit_period{period=1s}
 					telem.NewSeriesSecondsTSV(5),
 				)
 				h.Execute(ctx, "count_rising")
-				outFr, changed = h.ChannelState().Flush(telem.Frame[uint32]{})
+				outFr, _, changed = h.ChannelState().
+					Flush(telem.Frame[uint32]{}, flushNow)
 				Expect(changed).To(BeTrue())
 				Expect(outFr.Get(100).Series).To(HaveLen(1))
 				Expect(
@@ -3560,7 +3580,7 @@ trigger_ch -> emit_period{period=1s}
 			fr = fr.Append(101, telem.NewSeriesV[float32](101.3))
 			h.ChannelState().Ingest(fr)
 			h.Execute(ctx, "combine_sensors")
-			outFr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
+			outFr, _, changed := h.ChannelState().Flush(telem.Frame[uint32]{}, flushNow)
 			Expect(changed).To(BeTrue())
 			Expect(outFr.Get(102).Series).To(HaveLen(1))
 			Expect(
@@ -3656,7 +3676,8 @@ trigger_ch -> emit_period{period=1s}
 				fr = fr.Append(201, telem.NewSeriesV[float64](3.0))
 				h.ChannelState().Ingest(fr)
 				h.Execute(ctx, "multi_op")
-				outFr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
+				outFr, _, changed := h.ChannelState().
+					Flush(telem.Frame[uint32]{}, flushNow)
 				Expect(changed).To(BeTrue())
 
 				Expect(outFr.Get(202).Series).To(HaveLen(1))
@@ -3733,7 +3754,8 @@ trigger_ch -> emit_period{period=1s}
 				fr = fr.Append(300, telem.NewSeriesV[float32](7.0))
 				h.ChannelState().Ingest(fr)
 				h.Execute(ctx, "square_value")
-				outFr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
+				outFr, _, changed := h.ChannelState().
+					Flush(telem.Frame[uint32]{}, flushNow)
 				Expect(changed).To(BeTrue())
 				Expect(outFr.Get(301).Series).To(HaveLen(1))
 				Expect(
@@ -3745,7 +3767,8 @@ trigger_ch -> emit_period{period=1s}
 				fr = fr.Append(300, telem.NewSeriesV[float32](0.5))
 				h.ChannelState().Ingest(fr)
 				h.Execute(ctx, "square_value")
-				outFr, changed = h.ChannelState().Flush(telem.Frame[uint32]{})
+				outFr, _, changed = h.ChannelState().
+					Flush(telem.Frame[uint32]{}, flushNow)
 				Expect(changed).To(BeTrue())
 				Expect(outFr.Get(301).Series).To(HaveLen(1))
 				Expect(
@@ -4106,7 +4129,8 @@ input_ch -> writer{output=write_target} -> sink_ch
 				h.Execute(ctx, "writer_0")
 
 				// Check that the channel was written to with the correct value
-				fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
+				fr, _, changed := h.ChannelState().
+					Flush(telem.Frame[uint32]{}, flushNow)
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(200).Series).To(HaveLen(1))
 				Expect(fr.Get(200).Series[0]).To(telem.MatchSeriesDataV[float32](50.0))
@@ -4170,7 +4194,8 @@ input_ch -> writer{output=write_target} -> sink_ch
 				h.Execute(ctx, "writer_0")
 
 				// Check that the channel was written to with the correct value
-				fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
+				fr, _, changed := h.ChannelState().
+					Flush(telem.Frame[uint32]{}, flushNow)
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(200).Series).To(HaveLen(1))
 				Expect(fr.Get(200).Series[0]).To(telem.MatchSeriesDataV[float32](30.0))
@@ -4230,7 +4255,8 @@ input_ch -> writer{} -> sink_ch
 				h.Execute(ctx, "writer_0")
 
 				// Check that the channel was written to with the correct value
-				fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
+				fr, _, changed := h.ChannelState().
+					Flush(telem.Frame[uint32]{}, flushNow)
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(200).Series).To(HaveLen(1))
 				Expect(fr.Get(200).Series[0]).To(telem.MatchSeriesDataV[float32](20.0))
@@ -4293,7 +4319,8 @@ input_ch -> writer{} -> sink_ch
 				)
 				h.Execute(ctx, "writer_0")
 
-				fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
+				fr, _, changed := h.ChannelState().
+					Flush(telem.Frame[uint32]{}, flushNow)
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(200).Series).To(HaveLen(1))
 				Expect(fr.Get(200).Series[0]).To(telem.MatchSeriesDataV[float32](20.0))
@@ -4359,7 +4386,8 @@ input_ch -> writer{} -> sink_ch
 				)
 				h.Execute(ctx, "writer_0")
 
-				fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
+				fr, _, changed := h.ChannelState().
+					Flush(telem.Frame[uint32]{}, flushNow)
 				Expect(changed).To(BeTrue())
 				// Both writes are preserved in a single output series for the channel.
 				Expect(fr.Get(200).Series).To(HaveLen(1))
@@ -4529,7 +4557,8 @@ input_2 -> increment{counter=counter_2} -> sink_2
 				h.Execute(ctx, "increment_0")
 				h.Execute(ctx, "increment_1")
 
-				outFr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
+				outFr, _, changed := h.ChannelState().
+					Flush(telem.Frame[uint32]{}, flushNow)
 				Expect(changed).To(BeTrue())
 				Expect(
 					outFr.Get(201).Series,
@@ -4602,7 +4631,7 @@ input_ch -> count_local{} -> sink_ch
 				)
 				h.Execute(ctx, "count_local_0")
 
-				outFr, _ := h.ChannelState().Flush(telem.Frame[uint32]{})
+				outFr, _, _ := h.ChannelState().Flush(telem.Frame[uint32]{}, flushNow)
 				Expect(outFr.Get(200).Series).To(BeEmpty())
 
 				fr = telem.Frame[uint32]{}
@@ -4616,7 +4645,7 @@ input_ch -> count_local{} -> sink_ch
 				)
 				h.Execute(ctx, "count_local_0")
 
-				outFr, _ = h.ChannelState().Flush(telem.Frame[uint32]{})
+				outFr, _, _ = h.ChannelState().Flush(telem.Frame[uint32]{}, flushNow)
 				Expect(outFr.Get(200).Series).To(BeEmpty())
 			},
 		)
@@ -5153,13 +5182,13 @@ input_ch -> count_local{} -> sink_ch
 					telem.UnmarshalSeries[int64](h.Output("loop_state", 0))[0],
 				).To(Equal(int64(3)))
 
-				n.Reset()
+				n.Reset(node.Context{})
 				n.Next(nCtx)
 				Expect(
 					telem.UnmarshalSeries[int64](h.Output("loop_state", 0))[0],
 				).To(Equal(int64(3)))
 
-				n.Reset()
+				n.Reset(node.Context{})
 				n.Next(nCtx)
 				Expect(
 					telem.UnmarshalSeries[int64](h.Output("loop_state", 0))[0],
@@ -5202,7 +5231,7 @@ var _ = Describe("Graph function variable parity", func() {
 			Expect(
 				telem.UnmarshalSeries[int64](h.Output("fresh", 0))[0],
 			).To(Equal(int64(1)))
-			n.Reset()
+			n.Reset(node.Context{})
 		}
 	})
 
@@ -5235,7 +5264,7 @@ var _ = Describe("Graph function variable parity", func() {
 			Expect(
 				telem.UnmarshalSeries[int64](h.Output("acc", 0))[0],
 			).To(Equal(int64(3)))
-			n.Reset()
+			n.Reset(node.Context{})
 			h.NextChanged(ctx, n, "acc")
 			Expect(
 				telem.UnmarshalSeries[int64](h.Output("acc", 0))[0],

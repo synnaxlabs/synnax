@@ -79,25 +79,10 @@ func NewSymbols() []*symbol.Symbol {
 
 // Host is the runtime host-side support for the stable module: a node
 // factory for stable.for. Stable has no WASM host bindings.
-type Host struct {
-	now func() telem.TimeStamp
-}
+type Host struct{}
 
-// NewHost constructs a stable Host. By default uses telem.Now; pass
-// WithNow(fn) to override (used by tests for deterministic timestamps).
-func NewHost(opts ...func(*Host)) *Host {
-	h := &Host{now: telem.Now}
-	for _, opt := range opts {
-		opt(h)
-	}
-	return h
-}
-
-// WithNow overrides the clock used by stable nodes. Tests pass a
-// deterministic clock here.
-func WithNow(fn func() telem.TimeStamp) func(*Host) {
-	return func(h *Host) { h.now = fn }
-}
+// NewHost constructs a stable Host.
+func NewHost() *Host { return &Host{} }
 
 func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != bareSymbolName && cfg.Node.Type != qualifiedMemberName {
@@ -115,7 +100,6 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		State:    cfg.State,
 		inputIdx: inputIdx,
 		duration: inputs.Duration,
-		now:      h.now,
 	}, nil
 }
 
@@ -131,7 +115,6 @@ type forNode struct {
 	*node.State
 	value       []byte
 	lastSent    []byte
-	now         func() telem.TimeStamp
 	inputIdx    int
 	duration    telem.TimeSpan
 	lastChanged telem.TimeStamp
@@ -149,7 +132,7 @@ func (s *forNode) refreshDuration() {
 	}
 }
 
-func (s *forNode) Reset() {
+func (s *forNode) Reset(node.Context) {
 	s.AbsorbInputs()
 	s.value = nil
 	s.lastSent = nil
@@ -178,14 +161,14 @@ func (s *forNode) Next(ctx node.Context) {
 	if s.value == nil {
 		return
 	}
-	if telem.TimeSpan(s.now()-s.lastChanged) >= s.duration {
+	if telem.TimeSpan(ctx.Now-s.lastChanged) >= s.duration {
 		if s.lastSent == nil || !bytes.Equal(s.lastSent, s.value) {
 			out := s.Output(0)
 			out.Resize(1)
 			copy(out.Data, s.value)
-			*s.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](s.now())
+			*s.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](ctx.Now)
 			s.lastSent = bytes.Clone(s.value)
-			ctx.MarkChanged(0)
+			s.Emit(ctx, 0)
 		}
 	}
 }

@@ -288,7 +288,9 @@ Program build_sequential_with_vars(size_t n) {
 void run_tick_bench(benchmark::State &state, Program p) {
     Scheduler sched(std::move(p.ir), p.nodes, x::telem::TimeSpan(0));
     run_with_alloc_tracking(state, [&] {
-        sched.next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+        sched.next(
+            {.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick}
+        );
     });
 }
 

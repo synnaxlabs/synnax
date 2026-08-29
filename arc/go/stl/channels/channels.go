@@ -192,7 +192,6 @@ type source struct {
 	// channelIdx is the channel ref input's index; -1 when not alias-bound.
 	channelIdx    int
 	highWaterMark telem.Alignment
-	clock         telem.MonoClock
 }
 
 func (s *source) Init(node.Context) {}
@@ -219,8 +218,8 @@ func (s *source) raiseWaterMark() {
 // Reset advances the high water mark to the current channel alignment,
 // ensuring that when a stage is (re-)activated it only responds to
 // data that arrives after activation rather than stale pre-existing data.
-func (s *source) Reset() {
-	s.State.Reset()
+func (s *source) Reset(ctx node.Context) {
+	s.State.Reset(ctx)
 	if key := boundKey(s.State, s.channelIdx, s.key); key != s.currKey {
 		s.rebindTo(key)
 		return
@@ -245,7 +244,7 @@ func (s *source) Next(ctx node.Context) {
 		var timeSeries telem.Series
 		if indexData.DataType() == telem.UnknownT {
 			timeSeries = telem.Arrange(
-				s.clock.Now(),
+				ctx.Now,
 				int(ser.Len()),
 				1*telem.NanosecondTS,
 			)
@@ -264,7 +263,7 @@ func (s *source) Next(ctx node.Context) {
 		*s.Output(0) = ser
 		*s.OutputTime(0) = timeSeries
 		s.highWaterMark = ab.Upper
-		ctx.MarkChanged(0)
+		s.Emit(ctx, 0)
 		return
 	}
 }
@@ -311,7 +310,7 @@ func (s *sink) Next(ctx node.Context) {
 	telem.SetValueAt(*outTime, 0, lastTS)
 	outTime.Alignment = data.Alignment
 	outTime.TimeRange = data.TimeRange
-	ctx.MarkChanged(0)
+	s.Emit(ctx, 0)
 }
 
 type i32Compatible interface {
@@ -334,7 +333,6 @@ func bindI32[T i32Compatible](
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID, val uint32) {
 			appendFixedWriteSample(cs, chID, T(val))
-			cs.writeIndexedTimestamp(chID)
 		}).Export("write_" + suffix)
 	return builder
 }
@@ -359,7 +357,6 @@ func bindI64[T i64Compatible](
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32, val uint64) {
 			appendFixedWriteSample(cs, chID, T(val))
-			cs.writeIndexedTimestamp(chID)
 		}).Export("write_" + suffix)
 	return builder
 }
@@ -382,7 +379,6 @@ func bindBool(
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID, val uint32) {
 			appendFixedWriteSample(cs, chID, val != 0)
-			cs.writeIndexedTimestamp(chID)
 		}).Export("write_bool")
 	return builder
 }

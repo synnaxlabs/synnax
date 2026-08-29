@@ -46,6 +46,9 @@ type runtimeHarness struct {
 	channelState   *channels.ProgramState
 	authorityState *control.ProgramState
 	nodeState      *node.ProgramState
+	timeMod        *time.Host
+	clock          telem.MonoClock
+	cycleNow       telem.TimeStamp
 	wasmRT         wazero.Runtime
 	closers        []func(context.Context) error
 	alignment      telem.Alignment
@@ -130,6 +133,7 @@ func newRuntimeHarness(
 
 	tolerance := time.CalculateTolerance(timeMod.BaseInterval)
 	h.scheduler = scheduler.New(prog.IR, nodes, tolerance)
+	h.timeMod = timeMod
 
 	h.closers = append(h.closers, func(ctx context.Context) error {
 		return wasmRT.Close(ctx)
@@ -145,7 +149,14 @@ func (h *runtimeHarness) Close(ctx context.Context) {
 }
 
 func (h *runtimeHarness) Tick(ctx context.Context, elapsed telem.TimeSpan) {
-	h.scheduler.Next(ctx, elapsed, node.ReasonTimerTick)
+	cycle := node.Cycle{
+		Now:     h.clock.Now(),
+		Elapsed: elapsed,
+		Reason:  node.ReasonTimerTick,
+	}
+	h.cycleNow = cycle.Now
+	h.timeMod.SetNow(cycle.Now)
+	h.scheduler.Next(ctx, cycle)
 }
 
 func (h *runtimeHarness) Ingest(channelKey uint32, data telem.Series) {
@@ -172,7 +183,9 @@ func (h *runtimeHarness) IngestIndexed(
 }
 
 func (h *runtimeHarness) Flush() (telem.Frame[uint32], bool) {
-	return h.channelState.Flush(telem.Frame[uint32]{})
+	fr, highest, changed := h.channelState.Flush(telem.Frame[uint32]{}, h.cycleNow)
+	h.clock.Advance(highest)
+	return fr, changed
 }
 
 func (h *runtimeHarness) Output(nodeKey string, paramIdx int) telem.Series {

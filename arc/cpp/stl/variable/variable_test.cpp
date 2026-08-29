@@ -157,6 +157,7 @@ static void
 emit(const runtime::state::Node &n, T value, const x::telem::TimeStamp seconds) {
     *n.output(0) = x::telem::Series(std::vector<T>{std::move(value)});
     *n.output_time(0) = x::telem::Series(seconds);
+    n.mark_fresh(0);
 }
 
 /// @brief returns a second-precision timestamp.
@@ -355,7 +356,8 @@ TEST(RegisterTest, DoesNotAliasTheFeedersOutputBuffer) {
 TEST(RegisterScopedTest, RestoresTheInitialValueOnReset) {
     Program p(register_ir(types::Kind::I64, 42));
     const auto n = make_register(p, "variable");
-    n->reset();
+    runtime::node::Context ctx{};
+    n->reset(ctx);
     const auto v = p.node("v");
     EXPECT_EQ(v.output(0)->values<int64_t>(), std::vector<int64_t>{42});
     EXPECT_EQ(v.output_time(0)->size(), 1);
@@ -366,7 +368,7 @@ TEST(RegisterScopedTest, DoesNotDoubleEmitTheInitialValueOnNextAfterReset) {
     std::vector<size_t> marked;
     auto ctx = mark_context(marked);
     const auto n = make_register(p, "variable");
-    n->reset();
+    n->reset(ctx);
     ASSERT_NIL(n->next(ctx));
     EXPECT_TRUE(marked.empty());
 }
@@ -377,7 +379,7 @@ TEST(RegisterScopedTest, SupersedesAPendingFeederValueOnReset) {
     auto ctx = mark_context(marked);
     const auto n = make_register(p, "variable");
     emit(p.node("f"), int64_t(99), seconds(10));
-    n->reset();
+    n->reset(ctx);
     EXPECT_EQ(p.node("v").output(0)->values<int64_t>(), std::vector<int64_t>{42});
     ASSERT_NIL(n->next(ctx));
     EXPECT_TRUE(marked.empty());
@@ -388,20 +390,21 @@ TEST(RegisterScopedTest, RestoresTheInitialValueOnScopeReEntry) {
     std::vector<size_t> marked;
     auto ctx = mark_context(marked);
     const auto n = make_register(p, "variable");
-    n->reset();
+    n->reset(ctx);
     emit(p.node("f"), int64_t(7), seconds(10));
     ASSERT_NIL(n->next(ctx));
     EXPECT_EQ(p.node("v").output(0)->values<int64_t>(), std::vector<int64_t>{7});
-    n->reset();
+    n->reset(ctx);
     EXPECT_EQ(p.node("v").output(0)->values<int64_t>(), std::vector<int64_t>{42});
 }
 
 TEST(RegisterScopedTest, DoesNotAliasTheInitialValueOnReset) {
     Program p(register_ir(types::Kind::I64, 42));
     const auto n = make_register(p, "variable");
-    n->reset();
+    runtime::node::Context ctx{};
+    n->reset(ctx);
     p.node("v").output(0)->set(0, int64_t(9));
-    n->reset();
+    n->reset(ctx);
     EXPECT_EQ(p.node("v").output(0)->values<int64_t>(), std::vector<int64_t>{42});
 }
 
@@ -425,7 +428,7 @@ TEST(RegisterStatefulTest, PersistsItsValueAcrossReset) {
     emit(p.node("f"), int64_t(7), seconds(10));
     ASSERT_NIL(n->next(ctx));
     EXPECT_EQ(p.node("v").output(0)->values<int64_t>(), std::vector<int64_t>{7});
-    n->reset();
+    n->reset(ctx);
     EXPECT_EQ(p.node("v").output(0)->values<int64_t>(), std::vector<int64_t>{7});
 }
 
@@ -435,7 +438,7 @@ TEST(RegisterStatefulTest, LeavesPendingFeederValuesConsumableAfterReset) {
     auto ctx = mark_context(marked);
     const auto n = make_register(p, "stateful_variable");
     emit(p.node("f"), int64_t(7), seconds(10));
-    n->reset();
+    n->reset(ctx);
     ASSERT_NIL(n->next(ctx));
     EXPECT_EQ(marked, std::vector<size_t>{0});
     EXPECT_EQ(p.node("v").output(0)->values<int64_t>(), std::vector<int64_t>{7});
@@ -457,13 +460,13 @@ TEST(RegisterStringTest, InitializesAndEmitsStringValues) {
     const auto n = ASSERT_NIL_P(
         module.create(runtime::node::Config(p.ir(), ir_node, p.node("v")))
     );
-    n->reset();
+    n->reset(ctx);
     EXPECT_EQ(p.node("v").output(0)->strings(), std::vector<std::string>{"hello"});
     emit(p.node("f"), std::string("world"), seconds(10));
     ASSERT_NIL(n->next(ctx));
     EXPECT_EQ(marked, std::vector<size_t>{0});
     EXPECT_EQ(p.node("v").output(0)->strings(), std::vector<std::string>{"world"});
-    n->reset();
+    n->reset(ctx);
     EXPECT_EQ(p.node("v").output(0)->strings(), std::vector<std::string>{"hello"});
 }
 
@@ -570,7 +573,7 @@ TEST(ExprReadResetTest, FiresTheFirstValueAfterAResetAbsorbedInitialSel) {
     auto ctx = mark_context(marked);
     const auto n = make_expr_read(p);
     emit(p.node("selsrc"), uint32_t(0), seconds(5));
-    n->reset();
+    n->reset(ctx);
     emit(p.node("d"), int64_t(7), seconds(10));
     ASSERT_NIL(n->next(ctx));
     EXPECT_EQ(marked, std::vector<size_t>{0});
@@ -585,7 +588,7 @@ TEST(ExprReadResetTest, CoalescesValuesReplayedByReset) {
     emit(p.node("d"), int64_t(5), seconds(10));
     ASSERT_NIL(n->next(ctx));
     EXPECT_EQ(marked, std::vector<size_t>{0});
-    n->reset();
+    n->reset(ctx);
     ASSERT_NIL(n->next(ctx));
     EXPECT_EQ(marked.size(), 1);
     emit(p.node("d"), int64_t(6), seconds(20));
@@ -603,7 +606,7 @@ TEST(ExprReadResetTest, KeepsSelConsumedAcrossReset) {
     emit(p.node("d"), int64_t(9), seconds(10));
     ASSERT_NIL(n->next(ctx));
     EXPECT_TRUE(marked.empty());
-    n->reset();
+    n->reset(ctx);
     emit(p.node("d"), int64_t(11), seconds(20));
     // A replayed sel would count as a re-point and swallow the 11.
     ASSERT_NIL(n->next(ctx));

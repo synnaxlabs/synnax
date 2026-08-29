@@ -177,6 +177,7 @@ runtime::node::Context bench_context() {
 void prime(const runtime::state::Node &src) {
     *src.output(0) = x::telem::Series(std::vector<int64_t>{0});
     *src.output_time(0) = x::telem::Series(x::telem::TimeStamp(0));
+    src.mark_fresh(0);
 }
 
 /// @brief drives src with a fresh value and timestamp each iteration. Without a
@@ -193,6 +194,7 @@ void run_feed_bench(
         ++t;
         src.output(0)->set(0, t);
         src.output_time(0)->set(0, x::telem::TimeStamp(t * x::telem::SECOND));
+        src.mark_fresh(0);
         p.node->next(ctx);
     });
 }

@@ -200,11 +200,11 @@ public:
         output->time_range = time_range;
         output_time->alignment = alignment;
         output_time->time_range = time_range;
-        ctx.mark_changed(0);
+        this->state.emit(ctx.mark_changed, 0);
         return x::errors::NIL;
     }
 
-    void reset() override {
+    void reset(runtime::node::Context &) override {
         this->state.reset();
         this->sample_count = 0;
         this->start_time = x::telem::TimeStamp(0);
@@ -334,7 +334,7 @@ public:
         return x::errors::NIL;
     }
 
-    void reset() override {
+    void reset(runtime::node::Context &) override {
         this->state.reset();
         this->has_prev = false;
         this->prev_value = 0.0;
@@ -384,7 +384,7 @@ private:
         output->time_range = input_data->time_range;
         output_time->alignment = input_data->alignment;
         output_time->time_range = input_data->time_range;
-        ctx.mark_changed(0);
+        this->state.emit(ctx.mark_changed, 0);
     }
 };
 
@@ -469,11 +469,11 @@ public:
         output->time_range = time_range;
         output_time->alignment = alignment;
         output_time->time_range = time_range;
-        ctx.mark_changed(0);
+        this->state.emit(ctx.mark_changed, 0);
         return x::errors::NIL;
     }
 
-    void reset() override { this->state.reset(); }
+    void reset(runtime::node::Context &) override { this->state.reset(); }
 
     [[nodiscard]] bool is_output_truthy(size_t) const override { return false; }
 
@@ -562,11 +562,11 @@ public:
         output->time_range = input->time_range;
         output_time->alignment = input->alignment;
         output_time->time_range = input->time_range;
-        ctx.mark_changed(0);
+        this->state.emit(ctx.mark_changed, 0);
         return x::errors::NIL;
     }
 
-    void reset() override { this->state.reset(); }
+    void reset(runtime::node::Context &) override { this->state.reset(); }
 
     [[nodiscard]] bool is_output_truthy(size_t) const override { return false; }
 

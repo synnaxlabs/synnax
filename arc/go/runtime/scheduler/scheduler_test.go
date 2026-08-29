@@ -73,7 +73,7 @@ func (m *MockNode) Next(ctx node.Context) {
 	}
 }
 
-func (m *MockNode) Reset() { m.ResetCalled++ }
+func (m *MockNode) Reset(node.Context) { m.ResetCalled++ }
 
 func (m *MockNode) IsOutputTruthy(idx int) bool {
 	if idx < 0 || idx >= len(m.OutputTruthy) {
@@ -259,7 +259,13 @@ var _ = Describe("Scheduler", func() {
 			"Should run Next on an empty program without panicking",
 			func(ctx SpecContext) {
 				s := build(ir.IR{})
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 			},
 		)
 
@@ -279,7 +285,13 @@ var _ = Describe("Scheduler", func() {
 					),
 				)
 				s := build(prog)
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(mocks["A"].NextCalled).To(Equal(1))
 				Expect(mocks["B"].NextCalled).To(Equal(1))
 				Expect(mocks["C"].NextCalled).To(Equal(1))
@@ -298,9 +310,27 @@ var _ = Describe("Scheduler", func() {
 					rootScope(ir.NodeMember("A")),
 				)
 				s := build(prog)
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
-				s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
-				s.Next(ctx, 3*telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: 2 * telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: 3 * telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(nodeA.NextCalled).To(Equal(3))
 			},
 		)
@@ -319,7 +349,13 @@ var _ = Describe("Scheduler", func() {
 					),
 				)
 				s := build(prog)
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(nodeA.NextCalled).To(Equal(1))
 				Expect(nodeB.NextCalled).To(Equal(0))
 			},
@@ -340,7 +376,13 @@ var _ = Describe("Scheduler", func() {
 					),
 				)
 				s := build(prog)
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(nodeA.NextCalled).To(Equal(1))
 				Expect(nodeB.NextCalled).To(Equal(1))
 			},
@@ -362,13 +404,25 @@ var _ = Describe("Scheduler", func() {
 					),
 				)
 				s := build(prog)
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(nodeA.NextCalled).To(Equal(1))
 				Expect(nodeB.NextCalled).To(Equal(0))
 
 				// Flip A's output truthy; now the conditional edge fires.
 				nodeA.SetTruthy(0)
-				s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: 2 * telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(nodeB.NextCalled).To(Equal(1))
 			},
 		)
@@ -400,13 +454,31 @@ var _ = Describe("Scheduler", func() {
 					),
 				)
 				s := build(prog)
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				// Trigger ran but didn't mark; A is in phase 1 with no
 				// change pending, so it shouldn't have executed.
 				Expect(nodeA.NextCalled).To(Equal(0))
-				s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: 2 * telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(nodeA.NextCalled).To(Equal(1))
-				s.Next(ctx, 3*telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: 3 * telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(nodeA.NextCalled).To(Equal(2))
 			},
 		)
@@ -421,8 +493,20 @@ var _ = Describe("Scheduler", func() {
 				rootScope(ir.NodeMember("A")),
 			)
 			s := build(prog)
-			s.Next(ctx, 5*telem.Microsecond, node.ReasonTimerTick)
-			s.Next(ctx, 10*telem.Microsecond, node.ReasonTimerTick)
+			s.Next(
+				ctx,
+				node.Cycle{
+					Elapsed: 5 * telem.Microsecond,
+					Reason:  node.ReasonTimerTick,
+				},
+			)
+			s.Next(
+				ctx,
+				node.Cycle{
+					Elapsed: 10 * telem.Microsecond,
+					Reason:  node.ReasonTimerTick,
+				},
+			)
 			Expect(nodeA.ElapsedValues).To(Equal([]telem.TimeSpan{
 				5 * telem.Microsecond, 10 * telem.Microsecond,
 			}))
@@ -439,7 +523,10 @@ var _ = Describe("Scheduler", func() {
 				rootScope(ir.NodeMember("A"), ir.NodeMember("B")),
 			)
 			s := build(prog)
-			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			s.Next(
+				ctx,
+				node.Cycle{Elapsed: telem.Microsecond, Reason: node.ReasonTimerTick},
+			)
 			Expect(s.NextDeadline()).To(Equal(3 * telem.Microsecond))
 		})
 
@@ -455,7 +542,10 @@ var _ = Describe("Scheduler", func() {
 			s := build(prog)
 			h := &MockErrorHandler{}
 			s.SetErrorHandler(h)
-			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			s.Next(
+				ctx,
+				node.Cycle{Elapsed: telem.Microsecond, Reason: node.ReasonTimerTick},
+			)
 			Expect(h.Errors).To(HaveLen(1))
 			Expect(h.Errors[0].NodeKey).To(Equal("A"))
 			Expect(h.Errors[0].Err).To(Equal(targetErr))
@@ -477,7 +567,13 @@ var _ = Describe("Scheduler", func() {
 					rootScope(ir.NodeMember("trigger"), ir.ScopeMember(gated)),
 				)
 				s := build(prog)
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(trigger.NextCalled).To(Equal(1))
 				Expect(stage.NextCalled).To(Equal(0))
 			},
@@ -497,12 +593,24 @@ var _ = Describe("Scheduler", func() {
 					rootScope(ir.NodeMember("trigger"), ir.ScopeMember(gated)),
 				)
 				s := build(prog)
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(stage.NextCalled).To(Equal(1))
 				// Reset called once on activation.
 				Expect(stage.ResetCalled).To(Equal(1))
 				// Stays active in subsequent cycles without re-activating.
-				s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: 2 * telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(stage.NextCalled).To(Equal(2))
 				Expect(stage.ResetCalled).To(Equal(1))
 			},
@@ -548,14 +656,26 @@ var _ = Describe("Scheduler", func() {
 
 				// Cycle 1: trigger fires, main activates at `first`; first_node
 				// runs. first_node's output is not yet truthy, so no transition.
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(firstNode.NextCalled).To(Equal(1))
 				Expect(secondNode.NextCalled).To(Equal(0))
 
 				// Cycle 2: first_node becomes truthy, the transition fires; the
 				// sequence advances to `second` in the same cycle.
 				firstNode.SetTruthy(0)
-				s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: 2 * telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(firstNode.NextCalled).To(Equal(2))
 				Expect(secondNode.NextCalled).To(Equal(1))
 				// The transition cascaded within the same cycle: second_node
@@ -593,15 +713,30 @@ var _ = Describe("Scheduler", func() {
 				rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
 			)
 			s := build(prog)
-			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			s.Next(
+				ctx,
+				node.Cycle{Elapsed: telem.Microsecond, Reason: node.ReasonTimerTick},
+			)
 			Expect(firstNode.NextCalled).To(Equal(1))
 
 			// Trip exit transition on cycle 2. The exit deactivates main;
 			// trigger has already been released, so no re-activation.
 			firstNode.SetTruthy(0)
-			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
+			s.Next(
+				ctx,
+				node.Cycle{
+					Elapsed: 2 * telem.Microsecond,
+					Reason:  node.ReasonTimerTick,
+				},
+			)
 			countAtExit := firstNode.NextCalled
-			s.Next(ctx, 3*telem.Microsecond, node.ReasonTimerTick)
+			s.Next(
+				ctx,
+				node.Cycle{
+					Elapsed: 3 * telem.Microsecond,
+					Reason:  node.ReasonTimerTick,
+				},
+			)
 			Expect(firstNode.NextCalled).To(Equal(countAtExit))
 		})
 
@@ -646,9 +781,21 @@ var _ = Describe("Scheduler", func() {
 					rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
 				)
 				s := build(prog)
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				firstNode.SetTruthy(0)
-				s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: 2 * telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				// First-match-wins: `a` activated, `b` did not.
 				Expect(mocks["a_node"].NextCalled).To(Equal(1))
 				Expect(mocks["b_node"].NextCalled).To(Equal(0))
@@ -701,7 +848,13 @@ var _ = Describe("Scheduler", func() {
 				// Cycle 1 activates s1 and runs it. In that same cycle the
 				// transition fires (because s1's output is truthy already),
 				// s2 runs and triggers, s3 runs.
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(s1.NextCalled).To(Equal(1))
 				Expect(s2.NextCalled).To(Equal(1))
 				Expect(s3.NextCalled).To(Equal(1))
@@ -722,7 +875,10 @@ var _ = Describe("Scheduler", func() {
 				rootScope(ir.NodeMember("trigger"), ir.ScopeMember(stage)),
 			)
 			s := build(prog)
-			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			s.Next(
+				ctx,
+				node.Cycle{Elapsed: telem.Microsecond, Reason: node.ReasonTimerTick},
+			)
 			Expect(stageNode.ResetCalled).To(Equal(1))
 		})
 
@@ -741,7 +897,13 @@ var _ = Describe("Scheduler", func() {
 					rootScope(ir.NodeMember("trigger"), ir.ScopeMember(outer)),
 				)
 				s := build(prog)
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(inner.ResetCalled).To(Equal(1))
 				Expect(inner.NextCalled).To(Equal(1))
 			},
@@ -762,7 +924,13 @@ var _ = Describe("Scheduler", func() {
 					rootScope(ir.ScopeMember(stage)),
 				)
 				s := build(prog)
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(inner.ResetCalled).To(Equal(1))
 				Expect(inner.NextCalled).To(Equal(1))
 			},
@@ -783,7 +951,13 @@ var _ = Describe("Scheduler", func() {
 					rootScope(ir.ScopeMember(stage)),
 				)
 				s := build(prog)
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(inner.ResetCalled).To(Equal(0))
 				Expect(inner.NextCalled).To(Equal(0))
 			},
@@ -805,7 +979,13 @@ var _ = Describe("Scheduler", func() {
 					rootScope(ir.ScopeMember(outer)),
 				)
 				s := build(prog)
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(leaf.ResetCalled).To(Equal(1))
 				Expect(leaf.NextCalled).To(Equal(1))
 			},
@@ -833,7 +1013,13 @@ var _ = Describe("Scheduler", func() {
 					),
 				)
 				s := build(prog)
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(nodeB.NextCalled).To(Equal(1))
 				Expect(nodeC.NextCalled).To(Equal(0))
 			},
@@ -858,7 +1044,13 @@ var _ = Describe("Scheduler", func() {
 					),
 				)
 				s := build(prog)
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(nodeB.NextCalled).To(Equal(1))
 				Expect(nodeC.NextCalled).To(Equal(1))
 			},
@@ -888,7 +1080,13 @@ var _ = Describe("Scheduler", func() {
 					),
 				)
 				s := build(prog)
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(nodeA.NextCalled).To(Equal(1))
 				Expect(nodeB.NextCalled).To(Equal(1))
 				Expect(nodeC.NextCalled).To(Equal(1))
@@ -920,7 +1118,13 @@ var _ = Describe("Scheduler", func() {
 					),
 				)
 				s := build(prog)
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(nodeA.NextCalled).To(Equal(1))
 				Expect(nodeB.NextCalled).To(Equal(1))
 				Expect(nodeC.NextCalled).To(Equal(1))
@@ -952,7 +1156,10 @@ var _ = Describe("Scheduler", func() {
 				),
 			)
 			s := build(prog)
-			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			s.Next(
+				ctx,
+				node.Cycle{Elapsed: telem.Microsecond, Reason: node.ReasonTimerTick},
+			)
 			Expect(nodeD.NextCalled).To(Equal(1))
 		})
 
@@ -971,7 +1178,13 @@ var _ = Describe("Scheduler", func() {
 					),
 				)
 				s := build(prog)
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(nodeA.NextCalled).To(Equal(1))
 				Expect(nodeB.NextCalled).To(Equal(0))
 			},
@@ -993,9 +1206,27 @@ var _ = Describe("Scheduler", func() {
 					),
 				)
 				s := build(prog)
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
-				s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
-				s.Next(ctx, 3*telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: 2 * telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: 3 * telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(nodeB.NextCalled).To(Equal(3))
 			},
 		)
@@ -1014,11 +1245,23 @@ var _ = Describe("Scheduler", func() {
 					),
 				)
 				s := build(prog)
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(nodeB.NextCalled).To(Equal(1))
 
 				nodeA.OutputTruthy[0] = false
-				s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: 2 * telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(nodeB.NextCalled).To(Equal(1))
 			},
 		)
@@ -1040,7 +1283,13 @@ var _ = Describe("Scheduler", func() {
 					),
 				)
 				s := build(prog)
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(nodeB.NextCalled).To(Equal(1))
 			},
 		)
@@ -1070,7 +1319,13 @@ var _ = Describe("Scheduler", func() {
 					),
 				)
 				s := build(prog)
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(nodeB.NextCalled).To(Equal(1))
 				Expect(nodeC.NextCalled).To(Equal(0))
 			},
@@ -1113,23 +1368,31 @@ var _ = Describe("Scheduler", func() {
 				s := build(prog)
 				s.Next(
 					ctx,
-					telem.Microsecond,
-					node.ReasonTimerTick,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
 				) // initial run, marks self
 				s.Next(
 					ctx,
-					2*telem.Microsecond,
-					node.ReasonTimerTick,
+					node.Cycle{
+						Elapsed: 2 * telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
 				) // replay, marks self
 				s.Next(
 					ctx,
-					3*telem.Microsecond,
-					node.ReasonTimerTick,
+					node.Cycle{
+						Elapsed: 3 * telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
 				) // replay, stops marking
 				s.Next(
 					ctx,
-					4*telem.Microsecond,
-					node.ReasonTimerTick,
+					node.Cycle{
+						Elapsed: 4 * telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
 				) // should not replay
 				Expect(nodeA.NextCalled).To(Equal(3))
 			},
@@ -1174,13 +1437,22 @@ var _ = Describe("Scheduler", func() {
 				rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
 			)
 			s := build(prog)
-			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			s.Next(
+				ctx,
+				node.Cycle{Elapsed: telem.Microsecond, Reason: node.ReasonTimerTick},
+			)
 			// stage_node ran once during activation, self-marked, then
 			// transition fired. On the next cycle, with "first"
 			// deactivated, stage_node's selfChanged should have been
 			// cleared, so it should not re-run.
 			prior := stageNode.NextCalled
-			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
+			s.Next(
+				ctx,
+				node.Cycle{
+					Elapsed: 2 * telem.Microsecond,
+					Reason:  node.ReasonTimerTick,
+				},
+			)
 			Expect(stageNode.NextCalled).To(Equal(prior))
 		})
 	})
@@ -1196,7 +1468,13 @@ var _ = Describe("Scheduler", func() {
 					rootScope(ir.NodeMember("A")),
 				)
 				s := build(prog)
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(s.NextDeadline()).To(Equal(telem.TimeSpanMax))
 			},
 		)
@@ -1218,9 +1496,21 @@ var _ = Describe("Scheduler", func() {
 					rootScope(ir.NodeMember("A")),
 				)
 				s := build(prog)
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(s.NextDeadline()).To(Equal(telem.Second))
-				s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: 2 * telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(s.NextDeadline()).To(Equal(telem.TimeSpanMax))
 			},
 		)
@@ -1240,7 +1530,13 @@ var _ = Describe("Scheduler", func() {
 					rootScope(ir.NodeMember("trigger"), ir.ScopeMember(gated)),
 				)
 				s := build(prog)
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(s.NextDeadline()).To(Equal(2 * telem.Second))
 			},
 		)
@@ -1269,7 +1565,13 @@ var _ = Describe("Scheduler", func() {
 				s := build(prog)
 				h := &MockErrorHandler{}
 				s.SetErrorHandler(h)
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(nodeB.NextCalled).To(Equal(1))
 				Expect(nodeC.NextCalled).To(Equal(1))
 				Expect(h.Errors).To(HaveLen(1))
@@ -1290,7 +1592,10 @@ var _ = Describe("Scheduler", func() {
 			s := build(prog)
 			h := &MockErrorHandler{}
 			s.SetErrorHandler(h)
-			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			s.Next(
+				ctx,
+				node.Cycle{Elapsed: telem.Microsecond, Reason: node.ReasonTimerTick},
+			)
 			Expect(h.Errors).To(HaveLen(2))
 		})
 
@@ -1306,7 +1611,13 @@ var _ = Describe("Scheduler", func() {
 				)
 				s := build(prog)
 				Expect(func() {
-					s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+					s.Next(
+						ctx,
+						node.Cycle{
+							Elapsed: telem.Microsecond,
+							Reason:  node.ReasonTimerTick,
+						},
+					)
 				}).ToNot(Panic())
 				Expect(nodeA.NextCalled).To(Equal(1))
 			},
@@ -1322,7 +1633,7 @@ var _ = Describe("Scheduler", func() {
 				rootScope(ir.NodeMember("A")),
 			)
 			s := build(prog)
-			s.Next(ctx, 0, node.ReasonTimerTick)
+			s.Next(ctx, node.Cycle{Elapsed: 0, Reason: node.ReasonTimerTick})
 			Expect(nodeA.NextCalled).To(Equal(1))
 			Expect(nodeA.ElapsedValues[0]).To(Equal(telem.TimeSpan(0)))
 		})
@@ -1337,7 +1648,10 @@ var _ = Describe("Scheduler", func() {
 				rootScope(ir.NodeMember("A")),
 			)
 			s := build(prog)
-			s.Next(ctx, telem.Microsecond, node.ReasonChannelInput)
+			s.Next(
+				ctx,
+				node.Cycle{Elapsed: telem.Microsecond, Reason: node.ReasonChannelInput},
+			)
 			Expect(received).To(Equal(node.ReasonChannelInput))
 		})
 
@@ -1350,7 +1664,10 @@ var _ = Describe("Scheduler", func() {
 				rootScope(ir.NodeMember("A")),
 			)
 			s := build(prog)
-			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			s.Next(
+				ctx,
+				node.Cycle{Elapsed: telem.Microsecond, Reason: node.ReasonTimerTick},
+			)
 			// Phase 0 is unconditional, so A ran once. The self-loop adds
 			// A to `changed`, but `changed` is cleared at cycle end, and
 			// there is no higher phase to re-run into.
@@ -1373,7 +1690,13 @@ var _ = Describe("Scheduler", func() {
 			)
 			s := build(prog)
 			Expect(func() {
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 			}).ToNot(Panic())
 			Expect(trigger.NextCalled).To(Equal(1))
 		})
@@ -1394,12 +1717,30 @@ var _ = Describe("Scheduler", func() {
 					rootScope(ir.NodeMember("trigger"), ir.ScopeMember(gated)),
 				)
 				s := build(prog)
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(stageNode.ResetCalled).To(Equal(1))
 				// Trigger stays truthy but the scope is already active; no
 				// additional Reset should be issued.
-				s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
-				s.Next(ctx, 3*telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: 2 * telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: 3 * telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(stageNode.ResetCalled).To(Equal(1))
 			},
 		)
@@ -1432,7 +1773,10 @@ var _ = Describe("Scheduler", func() {
 				),
 			)
 			s := build(prog)
-			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			s.Next(
+				ctx,
+				node.Cycle{Elapsed: telem.Microsecond, Reason: node.ReasonTimerTick},
+			)
 			Expect(a.NextCalled).To(Equal(1))
 			Expect(b.NextCalled).To(Equal(0))
 		})
@@ -1459,7 +1803,13 @@ var _ = Describe("Scheduler", func() {
 					),
 				)
 				s := build(prog)
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(nodeB.NextCalled).To(Equal(1))
 				Expect(nodeC.NextCalled).To(Equal(1))
 			},
@@ -1504,18 +1854,24 @@ var _ = Describe("Scheduler", func() {
 				s := build(prog)
 				s.Next(
 					ctx,
-					telem.Microsecond,
-					node.ReasonTimerTick,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
 				) // activate + run + exit
 				s.Next(
 					ctx,
-					2*telem.Microsecond,
-					node.ReasonTimerTick,
+					node.Cycle{
+						Elapsed: 2 * telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
 				) // trigger released, no action
 				s.Next(
 					ctx,
-					3*telem.Microsecond,
-					node.ReasonTimerTick,
+					node.Cycle{
+						Elapsed: 3 * telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
 				) // trigger reasserted, main re-activates, runs, exits
 				// Two activations ⇒ two Reset calls on first_node.
 				Expect(firstNode.ResetCalled).To(Equal(2))
@@ -1569,12 +1925,24 @@ var _ = Describe("Scheduler", func() {
 					),
 				)
 				s := build(prog)
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 
 				// Main must remain active: the transition's source was
 				// never MarkChanged, so the exit must not have fired.
 				Expect(mocks["worker"].NextCalled).To(Equal(1))
-				s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: 2 * telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(mocks["worker"].NextCalled).To(Equal(2))
 			},
 		)
@@ -1633,7 +2001,13 @@ var _ = Describe("Scheduler", func() {
 				// once so the transition fires → b becomes active. worker_b
 				// runs this cycle; worker_a runs exactly once (before the
 				// transition).
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(mocks["worker_a"].NextCalled).To(Equal(1))
 				Expect(mocks["worker_b"].NextCalled).To(Equal(1))
 
@@ -1641,12 +2015,24 @@ var _ = Describe("Scheduler", func() {
 				// The transition's on-handle is external to main (owner=-1),
 				// so it is still evaluated each cycle. It must NOT re-fire.
 				// worker_b keeps running; worker_a must not be re-activated.
-				s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: 2 * telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(mocks["worker_a"].NextCalled).To(Equal(1))
 				Expect(mocks["worker_b"].NextCalled).To(Equal(2))
 
 				// Cycle 3: same invariant.
-				s.Next(ctx, 3*telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: 3 * telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(mocks["worker_a"].NextCalled).To(Equal(1))
 				Expect(mocks["worker_b"].NextCalled).To(Equal(3))
 			},
@@ -1700,10 +2086,22 @@ var _ = Describe("Scheduler", func() {
 				)
 				s := build(prog)
 				// Cycle 1: latch does not mark; transition does not fire.
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(mocks["worker_b"].NextCalled).To(Equal(0))
 				// Cycle 2: latch marks; transition fires → worker_b runs.
-				s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: 2 * telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(mocks["worker_b"].NextCalled).To(Equal(1))
 			},
 		)
@@ -1741,7 +2139,13 @@ var _ = Describe("Scheduler", func() {
 				s := build(prog)
 				done := make(chan struct{})
 				go func() {
-					s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+					s.Next(
+						ctx,
+						node.Cycle{
+							Elapsed: telem.Microsecond,
+							Reason:  node.ReasonTimerTick,
+						},
+					)
 					close(done)
 				}()
 				Eventually(done).Should(BeClosed())
@@ -1784,12 +2188,24 @@ var _ = Describe("Scheduler", func() {
 				s := build(prog)
 				// B's backward write lands on already-visited A, forcing a second
 				// pass within the same cycle.
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(mocks["A"].NextCalled).To(Equal(2))
 				// B's pass-1 run consumed its flag; no fresh mark, no re-run.
 				Expect(mocks["B"].NextCalled).To(Equal(1))
 				// The re-pass does not leak into the next cycle.
-				s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: 2 * telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(mocks["A"].NextCalled).To(Equal(3))
 				Expect(mocks["B"].NextCalled).To(Equal(1))
 			},
@@ -1816,10 +2232,22 @@ var _ = Describe("Scheduler", func() {
 				s := build(prog)
 				// B marks its falsy output each run; the gated backward edge
 				// never lands the change, so each cycle stays a single pass.
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(nodeA.NextCalled).To(Equal(1))
 				Expect(nodeB.NextCalled).To(Equal(1))
-				s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: 2 * telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(nodeA.NextCalled).To(Equal(2))
 				Expect(nodeB.NextCalled).To(Equal(2))
 			},
@@ -1836,9 +2264,21 @@ var _ = Describe("Scheduler", func() {
 					rootScope(ir.NodeMember("A")),
 				)
 				s := build(prog)
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(nodeA.NextCalled).To(Equal(1))
-				s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: 2 * telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(nodeA.NextCalled).To(Equal(2))
 			},
 		)
@@ -1864,7 +2304,13 @@ var _ = Describe("Scheduler", func() {
 				s := build(prog)
 				done := make(chan struct{})
 				go func() {
-					s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+					s.Next(
+						ctx,
+						node.Cycle{
+							Elapsed: telem.Microsecond,
+							Reason:  node.ReasonTimerTick,
+						},
+					)
 					close(done)
 				}()
 				Eventually(done).Should(BeClosed())
@@ -1914,7 +2360,13 @@ var _ = Describe("Scheduler", func() {
 					),
 				)
 				s := build(prog)
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				// The transition fires on pass 1, but second_node waits for the
 				// settle pass and runs after V has absorbed first_node's write.
 				Expect(order).To(Equal([]string{
@@ -1966,7 +2418,13 @@ var _ = Describe("Scheduler", func() {
 					),
 				)
 				s := build(prog)
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				// A's re-run proves a second pass happened.
 				Expect(nodeA.NextCalled).To(Equal(2))
 				Expect(worker.NextCalled).To(Equal(1))
@@ -2000,7 +2458,13 @@ var _ = Describe("Scheduler", func() {
 					),
 				)
 				s := build(prog)
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(nodeA.NextCalled).To(Equal(2))
 				Expect(nodeB.NextCalled).To(Equal(1))
 				Expect(nodeC.NextCalled).To(Equal(1))
@@ -2044,7 +2508,13 @@ var _ = Describe("Scheduler", func() {
 					),
 				)
 				s := build(prog)
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				// The entry re-runs each pass but marks once; the creator must
 				// dispatch exactly once, like a range create in a stage.
 				Expect(entry.NextCalled).To(Equal(2))
@@ -2078,7 +2548,13 @@ var _ = Describe("Scheduler", func() {
 					),
 				)
 				s := build(prog)
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				// C's write marked B after B ran; the fresh mark re-dispatches it.
 				Expect(nodeB.NextCalled).To(Equal(2))
 				Expect(nodeC.NextCalled).To(Equal(1))
@@ -2112,7 +2588,13 @@ var _ = Describe("Scheduler", func() {
 					),
 				)
 				s := build(prog)
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(nodeA.NextCalled).To(Equal(2))
 				Expect(silent.NextCalled).To(BeZero())
 			},
@@ -2148,7 +2630,13 @@ var _ = Describe("Scheduler", func() {
 					),
 				)
 				s := build(prog)
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				// The self-mark lands after consumption, so the re-pass delivers it.
 				Expect(looper.NextCalled).To(Equal(2))
 			},
@@ -2169,9 +2657,21 @@ var _ = Describe("Scheduler", func() {
 					),
 				)
 				s := build(prog)
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(worker.NextCalled).To(Equal(1))
-				s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: 2 * telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(worker.NextCalled).To(Equal(2))
 			},
 		)
@@ -2196,7 +2696,13 @@ var _ = Describe("Scheduler", func() {
 				)
 				s := build(prog)
 				base := nodeV.ResetCalled
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(nodeV.ResetCalled).To(Equal(base + 1))
 				Expect(stageNode.ResetCalled).To(Equal(1))
 			},
@@ -2253,16 +2759,34 @@ var _ = Describe("Scheduler", func() {
 				base := nodeV.ResetCalled
 				// Cycle 1: activation resets V; V runs via the trigger edge and
 				// marks itself.
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(nodeV.ResetCalled).To(Equal(base + 1))
 				Expect(nodeV.NextCalled).To(Equal(1))
 				// Cycle 2: V replays its self-change and re-marks; A exits main.
 				stageNode.SetTruthy(0)
-				s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: 2 * telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(nodeV.NextCalled).To(Equal(2))
 				// Cycle 3: re-activation resets V again and clears the pending
 				// self-change, so V does not replay.
-				s.Next(ctx, 3*telem.Microsecond, node.ReasonTimerTick)
+				s.Next(
+					ctx,
+					node.Cycle{
+						Elapsed: 3 * telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					},
+				)
 				Expect(nodeV.ResetCalled).To(Equal(base + 2))
 				Expect(nodeV.NextCalled).To(Equal(2))
 			},
@@ -2285,7 +2809,13 @@ var _ = Describe("Scheduler", func() {
 				)
 				s := build(prog)
 				Expect(func() {
-					s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+					s.Next(
+						ctx,
+						node.Cycle{
+							Elapsed: telem.Microsecond,
+							Reason:  node.ReasonTimerTick,
+						},
+					)
 				}).ToNot(Panic())
 				Expect(mocks["M"].NextCalled).To(Equal(1))
 			},

@@ -79,8 +79,10 @@ var _ = Describe("OP", func() {
 			rhsNode := s.Node("rhs")
 			*lhsNode.Output(0) = lhs
 			*lhsNode.OutputTime(0) = lhsTime
+			lhsNode.MarkFresh(0)
 			*rhsNode.Output(0) = rhs
 			*rhsNode.OutputTime(0) = rhsTime
+			rhsNode.MarkFresh(0)
 			c := MustSucceed(op.NewHost().Create(ctx, node.Config{
 				Node:  ir.Node{Type: t},
 				State: s.Node("op"),
@@ -442,6 +444,7 @@ var _ = Describe("OP", func() {
 			inputNode := s.Node("input")
 			*inputNode.Output(0) = input
 			*inputNode.OutputTime(0) = inputTime
+			inputNode.MarkFresh(0)
 			c := MustSucceed(op.NewHost().Create(ctx, node.Config{
 				Node:  ir.Node{Type: t},
 				State: s.Node("op"),
@@ -524,8 +527,10 @@ var _ = Describe("OP", func() {
 			rhsNode := s.Node("rhs")
 			*lhsNode.Output(0) = telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6, 7)
 			*lhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6, 7)
+			lhsNode.MarkFresh(0)
 			*rhsNode.Output(0) = telem.NewSeriesV[float32](2, 3, 4)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
+			rhsNode.MarkFresh(0)
 			c := MustSucceed(op.NewHost().Create(ctx, node.Config{
 				Node:  ir.Node{Type: "ge"},
 				State: s.Node("op"),
@@ -582,8 +587,10 @@ var _ = Describe("OP", func() {
 			rhsNode := s.Node("rhs")
 			*lhsNode.Output(0) = telem.NewSeriesV[int16](10, 20)
 			*lhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(5, 10)
+			lhsNode.MarkFresh(0)
 			*rhsNode.Output(0) = telem.NewSeriesV[int16](10, 20, 30, 40, 50)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(5, 10, 15, 20, 25)
+			rhsNode.MarkFresh(0)
 			c := MustSucceed(op.NewHost().Create(ctx, node.Config{
 				Node:  ir.Node{Type: "eq"},
 				State: s.Node("op"),
@@ -641,8 +648,10 @@ var _ = Describe("OP", func() {
 			rhsNode := s.Node("rhs")
 			*lhsNode.Output(0) = telem.NewSeriesV[bool](false, true, false, true, true)
 			*lhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)
+			lhsNode.MarkFresh(0)
 			*rhsNode.Output(0) = telem.NewSeriesV[bool](true, false)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2)
+			rhsNode.MarkFresh(0)
 			c := MustSucceed(op.NewHost().Create(ctx, node.Config{
 				Node:  ir.Node{Type: "or"},
 				State: s.Node("op"),
@@ -700,8 +709,10 @@ var _ = Describe("OP", func() {
 			rhsNode := s.Node("rhs")
 			*lhsNode.Output(0) = telem.NewSeriesV[bool](true, true)
 			*lhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2)
+			lhsNode.MarkFresh(0)
 			*rhsNode.Output(0) = telem.NewSeriesV[bool](true, false, true, true, false)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)
+			rhsNode.MarkFresh(0)
 			c := MustSucceed(op.NewHost().Create(ctx, node.Config{
 				Node:  ir.Node{Type: "and"},
 				State: s.Node("op"),
@@ -759,8 +770,10 @@ var _ = Describe("OP", func() {
 			rhsNode := s.Node("rhs")
 			*lhsNode.Output(0) = telem.NewSeriesV[bool](false)
 			*lhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+			lhsNode.MarkFresh(0)
 			*rhsNode.Output(0) = telem.NewSeriesV[bool](true)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+			rhsNode.MarkFresh(0)
 			c := MustSucceed(op.NewHost().Create(ctx, node.Config{
 				Node:  ir.Node{Type: "or"},
 				State: s.Node("op"),
@@ -819,8 +832,10 @@ var _ = Describe("OP", func() {
 			rhsNode := s.Node("rhs")
 			*lhsNode.Output(0) = telem.NewSeriesV[bool](true)
 			*lhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+			lhsNode.MarkFresh(0)
 			*rhsNode.Output(0) = telem.NewSeriesV[bool](true)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+			rhsNode.MarkFresh(0)
 			c := MustSucceed(op.NewHost().Create(ctx, node.Config{
 				Node:  ir.Node{Type: "and"},
 				State: s.Node("op"),

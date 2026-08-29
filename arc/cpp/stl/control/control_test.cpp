@@ -237,7 +237,7 @@ TEST_P(SetAuthorityInputsTest, AllowsReFireAfterReset) {
     auto ctx = make_context();
     ASSERT_NIL(n->next(ctx));
     EXPECT_EQ(this->auth->flush_authority_changes().size(), 1);
-    n->reset();
+    n->reset(ctx);
     ASSERT_NIL(n->next(ctx));
     EXPECT_EQ(this->auth->flush_authority_changes().size(), 1);
 }
@@ -251,7 +251,7 @@ TEST_P(SetAuthorityInputsTest, ProducesSameAuthorityOnReFire) {
     const auto first = this->auth->flush_authority_changes();
     ASSERT_EQ(first.size(), 1);
     EXPECT_EQ(first[0].authority, 200);
-    n->reset();
+    n->reset(ctx);
     ASSERT_NIL(n->next(ctx));
     const auto second = this->auth->flush_authority_changes();
     ASSERT_EQ(second.size(), 1);
@@ -305,7 +305,7 @@ TEST(SetAuthorityVarTest, ReadsTheLatestVarValueOnReFireAfterReset) {
     auto ctx = make_context();
     ASSERT_NIL(n->next(ctx));
     EXPECT_EQ(auth->flush_authority_changes()[0].authority, 77);
-    n->reset();
+    n->reset(ctx);
     v->set(33);
     ASSERT_NIL(n->next(ctx));
     const auto changes = auth->flush_authority_changes();

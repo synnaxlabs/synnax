@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <thread>
-
 #include "gtest/gtest.h"
 
 #include "x/cpp/mem/indirect.h"
@@ -145,7 +143,7 @@ TEST(ConstantTest, ResetAllowsValueToBeOutputAgain) {
     const auto &output = checker.output(0);
     output->set(0, 999.0f);
 
-    node.reset();
+    node.reset(ctx);
     node.next(ctx);
 
     EXPECT_FLOAT_EQ(output->at<float>(0), 42.5f);
@@ -271,18 +269,19 @@ TEST(ConstantTest, MarkChangedNotCalledOnSubsequentNext) {
     EXPECT_EQ(call_count, 0);
 }
 
-/// @brief Test that timestamp is populated on first next().
+/// @brief Test that the cycle stamp is populated on first next().
 TEST(ConstantTest, TimestampOutputOnFirstNext) {
     TestSetup setup(types::Kind::F32, 42.5f);
     Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T, true);
 
     auto ctx = make_context();
+    ctx.now = x::telem::TimeStamp(5 * x::telem::SECOND);
     node.next(ctx);
 
     auto checker = setup.make_node();
     const auto &output_time = checker.output_time(0);
     EXPECT_EQ(output_time->size(), 1);
-    EXPECT_GT(output_time->at<int64_t>(0), 0);
+    EXPECT_EQ(output_time->at<int64_t>(0), ctx.now.nanoseconds());
 }
 
 /// @brief Test that string values are correctly output.
@@ -308,7 +307,7 @@ TEST(ConstantTest, StringResetAllowsValueToBeOutputAgain) {
 
     auto ctx = make_context();
     node.next(ctx);
-    node.reset();
+    node.reset(ctx);
     ASSERT_NIL(node.next(ctx));
 
     auto checker = setup.make_node();
@@ -317,24 +316,26 @@ TEST(ConstantTest, StringResetAllowsValueToBeOutputAgain) {
     EXPECT_EQ(output->at<std::string>(0), val);
 }
 
-/// @brief Test that reset produces a new timestamp on subsequent next().
+/// @brief Test that a re-emission after reset carries the later cycle's stamp.
 TEST(ConstantTest, ResetProducesNewTimestamp) {
     TestSetup setup(types::Kind::F32, 42.5f);
     Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T, true);
 
     auto ctx = make_context();
+    ctx.now = x::telem::TimeStamp(5 * x::telem::SECOND);
     node.next(ctx);
 
     const auto checker = setup.make_node();
     const auto &output_time = checker.output_time(0);
     const auto ts1 = output_time->at<int64_t>(0);
 
-    node.reset();
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    node.reset(ctx);
+    ctx.now = x::telem::TimeStamp(6 * x::telem::SECOND);
     node.next(ctx);
 
     const auto ts2 = output_time->at<int64_t>(0);
-    EXPECT_GT(ts2, ts1);
+    EXPECT_EQ(ts1, (5 * x::telem::SECOND).nanoseconds());
+    EXPECT_EQ(ts2, (6 * x::telem::SECOND).nanoseconds());
 }
 
 /// @brief wires a constant whose value input references variable node "v" and gives

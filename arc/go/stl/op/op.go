@@ -94,7 +94,7 @@ func (n *binary) Next(ctx node.Context) {
 	n.Output(0).TimeRange = timeRange
 	n.OutputTime(0).Alignment = alignment
 	n.OutputTime(0).TimeRange = timeRange
-	ctx.MarkChanged(0)
+	n.Emit(ctx, 0)
 }
 
 type unary struct {
@@ -116,5 +116,5 @@ func (n *unary) Next(ctx node.Context) {
 	n.Output(0).TimeRange = input.TimeRange
 	n.OutputTime(0).Alignment = input.Alignment
 	n.OutputTime(0).TimeRange = input.TimeRange
-	ctx.MarkChanged(0)
+	n.Emit(ctx, 0)
 }

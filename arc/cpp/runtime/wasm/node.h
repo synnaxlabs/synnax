@@ -40,7 +40,6 @@ class Node : public node::Node {
     /// @brief marks a node with no $sel input.
     static constexpr size_t NO_SEL = ~size_t{0};
     size_t sel_idx = NO_SEL;
-    x::telem::MonoClock clock;
 
     /// @brief reports whether any input other than $sel has unconsumed data.
     [[nodiscard]] bool data_fresh() const {
@@ -225,7 +224,7 @@ public:
 
             x::telem::TimeStamp ts;
             if (clock_stamp)
-                ts = this->clock.now();
+                ts = ctx.now;
             else
                 ts = longest_input_time->at<x::telem::TimeStamp>(i);
 
@@ -254,13 +253,13 @@ public:
             else
                 out->resize(off);
             this->state.output_time(j)->resize(off);
-            if (off > 0) ctx.mark_changed(j);
+            if (off > 0) this->state.emit(ctx.mark_changed, j);
         }
 
         return x::errors::NIL;
     }
 
-    void reset() override {
+    void reset(node::Context &) override {
         this->initialized = false;
         this->state.reset();
         this->state.clear_node(this->ir.key);

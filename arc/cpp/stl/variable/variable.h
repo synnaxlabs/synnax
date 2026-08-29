@@ -33,7 +33,6 @@ inline void stamp_now(const runtime::state::Series &ts, const x::telem::TimeStam
 /// value.
 class Register : public runtime::node::Node {
     runtime::state::Node state;
-    x::telem::MonoClock clock;
     bool stateful;
 
 public:
@@ -42,11 +41,12 @@ public:
 
     /// @brief Reset restores a `:=` variable's initial value on scope entry. A `$=`
     /// persists. The value is emitted immediately, superseding any pending feeder.
-    void reset() override {
+    void reset(runtime::node::Context &ctx) override {
         if (this->stateful) return;
         this->state.absorb_inputs();
         this->state.output(0)->copy_from(*this->state.input(0));
-        stamp_now(this->state.output_time(0), this->clock.now());
+        stamp_now(this->state.output_time(0), ctx.now);
+        this->state.mark_fresh(0);
     }
 
     x::errors::Error next(runtime::node::Context &ctx) override {
@@ -55,8 +55,8 @@ public:
         // Feeders reuse their output buffers in place; the register value must not
         // alias them.
         this->state.output(0)->copy_from(*data);
-        stamp_now(this->state.output_time(0), this->clock.now());
-        ctx.mark_changed(0);
+        stamp_now(this->state.output_time(0), ctx.now);
+        this->state.emit(ctx.mark_changed, 0);
         return x::errors::NIL;
     }
 
@@ -69,7 +69,6 @@ public:
 /// predate it and are absorbed, so only later inputs fire.
 class ExprRead : public runtime::node::Node {
     runtime::state::Node state;
-    x::telem::MonoClock clock;
     size_t sel_idx;
 
 public:
@@ -81,7 +80,7 @@ public:
 
     /// @brief Reset absorbs pending inputs, initial sel included, so only
     /// post-entry values fire.
-    void reset() override { this->state.absorb_inputs(); }
+    void reset(runtime::node::Context &) override { this->state.absorb_inputs(); }
 
     /// @brief Next re-points on sel first: the dispatcher never emits on a
     /// sel-only change, so a value paired with a fresh sel predates the re-point.
@@ -92,8 +91,8 @@ public:
         auto [data, ok] = this->state.consume_input(0);
         if (!ok || repointed) return x::errors::NIL;
         this->state.output(0)->copy_from(*data);
-        stamp_now(this->state.output_time(0), this->clock.now());
-        ctx.mark_changed(0);
+        stamp_now(this->state.output_time(0), ctx.now);
+        this->state.emit(ctx.mark_changed, 0);
         return x::errors::NIL;
     }
 

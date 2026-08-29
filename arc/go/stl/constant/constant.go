@@ -64,7 +64,6 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 
 type constant struct {
 	*node.State
-	clock       telem.MonoClock
 	value       any
 	isEntryNode bool
 	initialized bool
@@ -95,8 +94,8 @@ func (c *constant) Next(ctx node.Context) {
 		*d = telem.NewSeriesFromAny(c.value, d.DataType)
 	}
 	t := c.OutputTime(0)
-	*t = telem.NewSeriesV[telem.TimeStamp](c.clock.Now())
-	ctx.MarkChanged(0)
+	*t = telem.NewSeriesV[telem.TimeStamp](ctx.Now)
+	c.Emit(ctx, 0)
 }
 
-func (c *constant) Reset() { c.initialized = false }
+func (c *constant) Reset(node.Context) { c.initialized = false }

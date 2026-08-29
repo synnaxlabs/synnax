@@ -264,7 +264,7 @@ var _ = Describe("Module", func() {
 		It("Should construct a create node from valid inputs", func(ctx SpecContext) {
 			n := MustSucceed(mod.Create(ctx, create.Config("rng", "", "")))
 			Expect(n).ToNot(BeNil())
-			Expect(func() { n.Reset() }).ToNot(Panic())
+			Expect(func() { n.Reset(node.Context{}) }).ToNot(Panic())
 			Expect(n.IsOutputTruthy(0)).To(BeFalse())
 		})
 

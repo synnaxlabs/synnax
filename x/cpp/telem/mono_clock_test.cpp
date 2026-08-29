@@ -54,6 +54,34 @@ TEST(MonoClockTests, testBumpsOnRegression) {
     ASSERT_EQ(t3.nanoseconds(), 1002);
 }
 
+/// @brief it should push the next timestamp past an advanced stamp.
+TEST(MonoClockTests, testAdvanceRaisesFloor) {
+    const auto fixed = TimeStamp(100);
+    MonoClock clock([fixed] { return fixed; });
+    ASSERT_EQ(clock.now().nanoseconds(), 100);
+    clock.advance(TimeStamp(500));
+    ASSERT_EQ(clock.now().nanoseconds(), 501);
+}
+
+/// @brief it should ignore a stamp at or below the last.
+TEST(MonoClockTests, testAdvanceIgnoresStaleStamp) {
+    const auto fixed = TimeStamp(1000);
+    MonoClock clock([fixed] { return fixed; });
+    ASSERT_EQ(clock.now().nanoseconds(), 1000);
+    clock.advance(TimeStamp(1000));
+    clock.advance(TimeStamp(10));
+    ASSERT_EQ(clock.now().nanoseconds(), 1001);
+}
+
+/// @brief it should not block a source that has already moved past the advance.
+TEST(MonoClockTests, testAdvanceDoesNotBlockLaterSource) {
+    auto cursor = TimeStamp(100);
+    MonoClock clock([&cursor] { return cursor; });
+    clock.advance(TimeStamp(500));
+    cursor = TimeStamp(900);
+    ASSERT_EQ(clock.now().nanoseconds(), 900);
+}
+
 /// @brief it should default to TimeStamp::now when no source is provided.
 TEST(MonoClockTests, testDefaultSourceMonotonic) {
     MonoClock clock;

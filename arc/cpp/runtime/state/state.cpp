@@ -162,7 +162,7 @@ std::pair<Node, x::errors::Error> State::node(const std::string &key) {
                 );
                 input_source_idx[i] = idx;
                 accumulated[i].source = idx;
-                accumulated[i].last_timestamp = x::telem::TimeStamp(0);
+                accumulated[i].last_rev = 0;
                 // Starting armed lets an OnReset input, which preserves this flag,
                 // fire on its first arrival.
                 accumulated[i].consumed = false;
@@ -184,7 +184,7 @@ std::pair<Node, x::errors::Error> State::node(const std::string &key) {
 
             accumulated[i].data = data_series;
             accumulated[i].time = time_series;
-            accumulated[i].last_timestamp = x::telem::TimeStamp(0);
+            accumulated[i].last_rev = 0;
             accumulated[i].consumed = false;
 
             if (!this->value_index.contains(synthetic_handle)) {
@@ -213,7 +213,7 @@ std::pair<Node, x::errors::Error> State::node(const std::string &key) {
             if (const auto it = this->value_index.find(e.source);
                 it != this->value_index.end())
                 entry.source = it->second;
-            entry.last_timestamp = x::telem::TimeStamp(0);
+            entry.last_rev = 0;
             entry.consumed = false;
             input_source_idx.push_back(entry.source);
             accumulated.push_back(std::move(entry));
@@ -284,10 +284,12 @@ void State::ingest(const x::telem::Frame &frame) {
     this->channel->ingest(frame);
 }
 
-void State::flush_into(x::telem::Frame &out) {
-    this->channel->flush_into(out);
+x::telem::TimeStamp
+State::flush_into(x::telem::Frame &out, const x::telem::TimeStamp now) {
+    const auto highest = this->channel->flush_into(out, now);
     this->series->clear();
     this->strings->clear();
+    return highest;
 }
 
 void State::reset() {
@@ -317,10 +319,15 @@ void Node::init_input(size_t param_index, const Series &data, const Series &time
     auto &src = this->state.values[this->accumulated[param_index].source];
     src.data = data;
     src.time = time;
+    src.rev = ++this->state.rev;
     this->accumulated[param_index].data = data;
     this->accumulated[param_index].time = time;
-    this->accumulated[param_index].last_timestamp = x::telem::TimeStamp(0);
+    this->accumulated[param_index].last_rev = 0;
     this->accumulated[param_index].consumed = false;
+}
+
+void Node::mark_fresh(const size_t param_index) const {
+    this->state.values[this->output_idx[param_index]].rev = ++this->state.rev;
 }
 
 bool Node::refresh_inputs() {
@@ -331,20 +338,14 @@ bool Node::refresh_inputs() {
         has_data_input = true;
         if (this->accumulated[i].source != NO_SOURCE) {
             const Value &src = this->state.values[this->accumulated[i].source];
-            const auto *time_ptr = src.time.get();
-            const auto *data_ptr = src.data.get();
-            if (time_ptr != nullptr && data_ptr != nullptr && time_ptr->size() > 0 &&
-                data_ptr->size() > 0) {
-                if (auto ts = time_ptr->at<x::telem::TimeStamp>(-1);
-                    ts > this->accumulated[i].last_timestamp) {
-                    bool consumed = false;
-                    if (this->rearm[i] == Rearm::OnReset)
-                        consumed = this->accumulated[i].consumed;
-                    this->accumulated[i].data = src.data;
-                    this->accumulated[i].time = src.time;
-                    this->accumulated[i].last_timestamp = ts;
-                    this->accumulated[i].consumed = consumed;
-                }
+            if (src.rev > this->accumulated[i].last_rev) {
+                bool consumed = false;
+                if (this->rearm[i] == Rearm::OnReset)
+                    consumed = this->accumulated[i].consumed;
+                this->accumulated[i].data = src.data;
+                this->accumulated[i].time = src.time;
+                this->accumulated[i].last_rev = src.rev;
+                this->accumulated[i].consumed = consumed;
             }
         }
         if (this->accumulated[i].data == nullptr || this->accumulated[i].data->empty())
@@ -397,13 +398,10 @@ void Node::absorb_input(const size_t i) {
     const auto src_idx = this->input_source_idx[i];
     if (src_idx == NO_SOURCE) return;
     const Value &src = this->state.values[src_idx];
-    x::telem::TimeStamp ts(0);
-    if (src.time != nullptr && src.time->size() > 0)
-        ts = src.time->at<x::telem::TimeStamp>(-1);
     this->accumulated[i].source = src_idx;
     this->accumulated[i].data = src.data;
     this->accumulated[i].time = src.time;
-    this->accumulated[i].last_timestamp = ts;
+    this->accumulated[i].last_rev = src.rev;
     this->accumulated[i].consumed = true;
 }
 
@@ -413,15 +411,12 @@ std::pair<Series, bool> Node::consume_input(const size_t i) {
     if (src_idx == NO_SOURCE) return {Series(), false};
     const Value &src = this->state.values[src_idx];
     if (src.data == nullptr || src.data->empty()) return {Series(), false};
-    x::telem::TimeStamp ts(0);
-    if (src.time != nullptr && src.time->size() > 0)
-        ts = src.time->at<x::telem::TimeStamp>(-1);
-    if (ts <= this->accumulated[i].last_timestamp && this->accumulated[i].consumed)
+    if (src.rev <= this->accumulated[i].last_rev && this->accumulated[i].consumed)
         return {Series(), false};
     this->accumulated[i].source = src_idx;
     this->accumulated[i].data = src.data;
     this->accumulated[i].time = src.time;
-    this->accumulated[i].last_timestamp = ts;
+    this->accumulated[i].last_rev = src.rev;
     this->accumulated[i].consumed = true;
     return {src.data, true};
 }
@@ -432,15 +427,12 @@ bool Node::input_fresh(const size_t i) const {
     if (src_idx == NO_SOURCE) return false;
     const Value &src = this->state.values[src_idx];
     if (src.data == nullptr || src.data->empty()) return false;
-    x::telem::TimeStamp ts(0);
-    if (src.time != nullptr && src.time->size() > 0)
-        ts = src.time->at<x::telem::TimeStamp>(-1);
-    return ts > this->accumulated[i].last_timestamp || !this->accumulated[i].consumed;
+    return src.rev > this->accumulated[i].last_rev || !this->accumulated[i].consumed;
 }
 
 std::pair<Series, bool> Node::last_changed() {
     size_t best = 0;
-    x::telem::TimeStamp best_ts(0);
+    uint64_t best_rev = 0;
     bool found = false;
     for (size_t i = 0; i < this->inputs.size(); i++) {
         if (this->is_reference[i]) continue;
@@ -448,14 +440,11 @@ std::pair<Series, bool> Node::last_changed() {
         if (src_idx == NO_SOURCE) continue;
         const Value &src = this->state.values[src_idx];
         if (src.data == nullptr || src.data->empty()) continue;
-        x::telem::TimeStamp ts(0);
-        if (src.time != nullptr && src.time->size() > 0)
-            ts = src.time->at<x::telem::TimeStamp>(-1);
-        if (ts <= this->accumulated[i].last_timestamp && this->accumulated[i].consumed)
+        if (src.rev <= this->accumulated[i].last_rev && this->accumulated[i].consumed)
             continue;
-        if (!found || ts > best_ts) {
+        if (!found || src.rev > best_rev) {
             best = i;
-            best_ts = ts;
+            best_rev = src.rev;
             found = true;
         }
     }
@@ -464,7 +453,7 @@ std::pair<Series, bool> Node::last_changed() {
     this->accumulated[best].source = this->input_source_idx[best];
     this->accumulated[best].data = src.data;
     this->accumulated[best].time = src.time;
-    this->accumulated[best].last_timestamp = best_ts;
+    this->accumulated[best].last_rev = best_rev;
     this->accumulated[best].consumed = true;
     return {src.data, true};
 }

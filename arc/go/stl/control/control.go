@@ -117,8 +117,8 @@ type setAuthority struct {
 	initialized bool
 }
 
-func (s *setAuthority) Reset() {
-	s.State.Reset()
+func (s *setAuthority) Reset(ctx node.Context) {
+	s.State.Reset(ctx)
 	s.initialized = false
 }
 

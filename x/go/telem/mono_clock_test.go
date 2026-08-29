@@ -57,6 +57,33 @@ var _ = Describe("MonoClock", func() {
 		Expect(c.Now()).To(Equal(telem.TimeStamp(2000)))
 	})
 
+	Describe("Advance", func() {
+		It("Should push the next timestamp past the given stamp", func() {
+			cursor := telem.TimeStamp(100)
+			c := telem.MonoClock{Source: func() telem.TimeStamp { return cursor }}
+			Expect(c.Now()).To(Equal(telem.TimeStamp(100)))
+			c.Advance(500)
+			Expect(c.Now()).To(Equal(telem.TimeStamp(501)))
+		})
+
+		It("Should ignore a stamp at or below the last", func() {
+			cursor := telem.TimeStamp(1000)
+			c := telem.MonoClock{Source: func() telem.TimeStamp { return cursor }}
+			Expect(c.Now()).To(Equal(telem.TimeStamp(1000)))
+			c.Advance(1000)
+			c.Advance(10)
+			Expect(c.Now()).To(Equal(telem.TimeStamp(1001)))
+		})
+
+		It("Should not block a source that has already moved past it", func() {
+			cursor := telem.TimeStamp(100)
+			c := telem.MonoClock{Source: func() telem.TimeStamp { return cursor }}
+			c.Advance(500)
+			cursor = 900
+			Expect(c.Now()).To(Equal(telem.TimeStamp(900)))
+		})
+	})
+
 	It("Should default to the package-level Now when no source is set", func() {
 		var c telem.MonoClock
 		ts := c.Now()

@@ -269,6 +269,7 @@ func (t *impl) open(ctx context.Context) (err error) {
 
 	tolerance := time.CalculateTolerance(timeMod.BaseInterval)
 	drt.scheduler = scheduler.New(t.prog.Program.IR, nodes, tolerance)
+	drt.timeMod = timeMod
 
 	drt.scheduler.SetErrorHandler(
 		scheduler.ErrorHandlerFunc(
@@ -488,7 +489,13 @@ type state struct {
 type dataRuntime struct {
 	confluence.AbstractLinear[framer.StreamerResponse, framer.WriterRequest]
 	startTime telem.TimeStamp
+	// clock stamps every cycle. It is the runtime's only clock: nodes and host
+	// functions read the stamp it produces instead of sampling their own.
+	clock     telem.MonoClock
 	scheduler *scheduler.Scheduler
+	// timeMod receives each cycle's stamp so the `now` WASM binding, which guest
+	// code calls without a node Context, returns the same value as everything else.
+	timeMod   *time.Host
 	writeKeys channel.Keys
 	state     state
 }
@@ -499,7 +506,13 @@ func (d *dataRuntime) next(
 	reason node.RunReason,
 ) error {
 	d.state.channel.Ingest(res.Frame.ToStorage())
-	d.scheduler.Next(ctx, telem.Since(d.startTime), reason)
+	cycle := node.Cycle{
+		Now:     d.clock.Now(),
+		Elapsed: telem.Since(d.startTime),
+		Reason:  reason,
+	}
+	d.timeMod.SetNow(cycle.Now)
+	d.scheduler.Next(ctx, cycle)
 	d.state.channel.ClearReads()
 	if d.Out != nil {
 		if err := d.flushAuthorityChanges(ctx); err != nil {
@@ -508,10 +521,9 @@ func (d *dataRuntime) next(
 	}
 	d.state.series.Clear()
 	d.state.strings.Clear()
-	if fr, changed := d.state.channel.Flush(
-		telem.Frame[uint32]{},
-	); changed &&
-		d.Out != nil {
+	fr, highest, changed := d.state.channel.Flush(telem.Frame[uint32]{}, cycle.Now)
+	d.clock.Advance(highest)
+	if changed && d.Out != nil {
 		req := framer.WriterRequest{
 			Frame:   frame.NewFromStorage(fr),
 			Command: framer.WriterCommandWrite,

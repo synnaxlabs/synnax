@@ -144,9 +144,9 @@ func (s *selectNode) Next(ctx node.Context) {
 		}
 	}
 	if trueData.Len() > 0 {
-		ctx.MarkChanged(0)
+		s.Emit(ctx, 0)
 	}
 	if falseData.Len() > 0 {
-		ctx.MarkChanged(1)
+		s.Emit(ctx, 1)
 	}
 }
