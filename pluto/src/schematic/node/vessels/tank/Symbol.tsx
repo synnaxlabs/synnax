@@ -7,17 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { border, box, type dimensions, xy } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type ReactElement, useMemo } from "react";
 
 import { Border } from "@/schematic/node/common/border";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
-import { type Scale } from "@/schematic/node/common/scale";
+import { Scale } from "@/schematic/node/common/scale";
 import { type NodeProps } from "@/schematic/node/spec";
-import { type Config } from "@/schematic/node/vessels/tank/config";
 import { Tank } from "@/schematic/node/vessels/tank/Primitive";
-import { Scale as BaseScale } from "@/vis/scale";
+import { Scale as VisScale } from "@/vis/scale";
 
 const STROKE_WIDTH = 2;
 // The canvas fill and the DOM wall round to device pixels independently, so the fill is
@@ -27,7 +27,7 @@ const OVERLAP = STROKE_WIDTH / 2;
 // Converts the tank's percentage-based CSS border radius into the pixel radii of the
 // curve the fill is clipped to, inset by the same overlap.
 const cornerRadii = (
-  borderRadius: Config["borderRadius"],
+  borderRadius: schematic.TankNodeConfig["borderRadius"],
   dims: dimensions.Dimensions,
 ): border.Radius => {
   const detailed = border.constructRadius(borderRadius ?? Border.DEFAULT_RADIUS);
@@ -44,7 +44,7 @@ const cornerRadii = (
   };
 };
 
-interface FillProps extends Pick<Config, "borderRadius"> {
+interface FillProps extends Pick<schematic.TankNodeConfig, "borderRadius"> {
   nodeKey: string;
   position?: xy.XY;
   dimensions: dimensions.Dimensions;
@@ -58,8 +58,10 @@ const Fill = ({
   fill,
   borderRadius,
 }: FillProps): null => {
-  BaseScale.use({
+  const telem = useMemo(() => Scale.source(fill), [fill]);
+  VisScale.use({
     ...fill,
+    telem,
     aetherKey: nodeKey,
     box: box.construct(xy.translate(position ?? xy.ZERO, OVERLAP), {
       width: dims.width - OVERLAP * 2,
@@ -86,7 +88,7 @@ export const Symbol = ({
     borderRadius,
     fill,
   },
-}: NodeProps<Config>): ReactElement => (
+}: NodeProps<schematic.TankNodeConfig>): ReactElement => (
   <Grid.Grid
     allowCenter
     allowRotate={false}
@@ -95,7 +97,7 @@ export const Symbol = ({
     onResize={(dimensions) => onConfigChange({ dimensions })}
   >
     <Label.Label config={label} onChange={onConfigChange} />
-    {fill?.telem != null && (
+    {fill?.channel != null && (
       <Fill
         nodeKey={nodeKey}
         position={position}

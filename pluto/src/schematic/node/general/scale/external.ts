@@ -7,33 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 
 import { Label } from "@/schematic/node/common/label";
 import { Scale as BaseScale } from "@/schematic/node/common/scale";
-import {
-  type Config,
-  DEFAULT_DIMENSIONS,
-  VARIANT,
-} from "@/schematic/node/general/scale/config";
 import { ScaleForm } from "@/schematic/node/general/scale/Form";
 import { Scale } from "@/schematic/node/general/scale/Primitive";
 import { Symbol } from "@/schematic/node/general/scale/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 
-export * from "@/schematic/node/general/scale/config";
-
-export const defaultConfig = (): Config => ({
-  variant: VARIANT,
+export const defaultConfig = (): schematic.ScaleNodeConfig => ({
+  variant: "scale",
   orientation: "left",
-  dimensions: { ...DEFAULT_DIMENSIONS },
+  dimensions: { ...BaseScale.DEFAULT_DIMENSIONS },
   color: color.ZERO,
   label: Label.defaultConfig("Scale"),
-  indicator: BaseScale.defaultConfig({ telem: BaseScale.createTelem() }),
+  indicator: BaseScale.defaultConfig({ channel: 0 }),
 });
 
-export const spec: Spec<typeof VARIANT, Config> = {
-  key: VARIANT,
+export const spec: Spec<"scale", schematic.ScaleNodeConfig> = {
+  key: "scale",
   name: "Scale",
   Form: ScaleForm,
   Node: Symbol,

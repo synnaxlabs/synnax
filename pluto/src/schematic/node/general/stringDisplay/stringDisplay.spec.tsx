@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { schematic } from "@synnaxlabs/client";
 import { color, deep } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
-import { z } from "zod";
 
 import { CSS } from "@/css";
 import { Form } from "@/form";
@@ -19,19 +19,22 @@ import { GROUP } from "@/schematic/node/general/group";
 import { StringDisplay } from "@/schematic/node/general/stringDisplay";
 import { StringDisplayForm } from "@/schematic/node/general/stringDisplay/Form";
 import { StringDisplay as Primitive } from "@/schematic/node/general/stringDisplay/Primitive";
-import { telem } from "@/telem/aether";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { SYNNAX_DARK, type Theme, themeZ } from "@/theming/base/theme";
 
 const SynnaxWrapper = createSynnaxWrapper({ client: null });
 
+const THEME: Theme = themeZ.parse(SYNNAX_DARK);
+const CONFIG_Z = schematic.stringDisplayNodeConfigZ;
+
 const FormWrapper = ({ children }: PropsWithChildren): ReactElement => {
-  const methods = Form.use<typeof StringDisplay.configZ>({
-    values: deep.copy(StringDisplay.defaultConfig()),
-    schema: StringDisplay.configZ,
+  const methods = Form.use<typeof CONFIG_Z>({
+    values: deep.copy(StringDisplay.defaultConfig(THEME)),
+    schema: CONFIG_Z,
   });
   return (
     <SynnaxWrapper>
-      <Form.Form<typeof StringDisplay.configZ> {...methods}>{children}</Form.Form>
+      <Form.Form<typeof CONFIG_Z> {...methods}>{children}</Form.Form>
     </SynnaxWrapper>
   );
 };
@@ -53,29 +56,8 @@ const LONG_VALUE = "a".repeat(500);
 describe("StringDisplay", () => {
   describe("defaultConfig", () => {
     it("should produce a config that satisfies its own schema", () => {
-      const config = StringDisplay.defaultConfig();
-      expect(StringDisplay.configZ.parse(config)).toEqual(config);
-    });
-
-    it("should source telemetry from a bare string source, not a pipeline", () => {
-      const { telem: t } = StringDisplay.defaultConfig();
-      expect(t?.variant).toBe("source");
-      expect(t?.valueType).toBe("string");
-      expect(t?.type).toBe("stream-channel-string-value");
-    });
-  });
-
-  describe("configZ", () => {
-    it("should reject a telem spec that emits numbers", () => {
-      const config = {
-        ...StringDisplay.defaultConfig(),
-        telem: telem.streamChannelValue({ channel: 1 }),
-      };
-      const { success, error } = StringDisplay.configZ.safeParse(config);
-      expect(success).toBe(false);
-      expect(error).toBeInstanceOf(z.ZodError);
-      expect(error?.issues).toHaveLength(1);
-      expect(error?.issues[0].path).toEqual(["telem", "valueType"]);
+      const config = StringDisplay.defaultConfig(THEME);
+      expect(CONFIG_Z.parse(config)).toEqual(config);
     });
   });
 
@@ -96,7 +78,7 @@ describe("StringDisplay", () => {
       const { container } = render(
         <Primitive
           value="hello"
-          textColor="#ffffff"
+          textColor={color.construct("#ffffff")}
           stalenessColor={color.construct("#ff0000")}
         />,
       );
@@ -107,7 +89,7 @@ describe("StringDisplay", () => {
       const { container } = render(
         <Primitive
           value="hello"
-          textColor="#ffffff"
+          textColor={color.construct("#ffffff")}
           stalenessColor={color.construct("#ff0000")}
           stale
         />,
@@ -158,6 +140,6 @@ describe("StringDisplay", () => {
   // Console's StaticSymbolList filters by group, so a symbol missing from
   // GROUP.symbols is reachable only through search.
   it("should be listed in the general group", () => {
-    expect(GROUP.symbols).toContain("stringDisplay");
+    expect(GROUP.symbols).toContain("string_display");
   });
 });

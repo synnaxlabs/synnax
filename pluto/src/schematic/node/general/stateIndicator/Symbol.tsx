@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import { type schematic } from "@synnaxlabs/client";
+import { type ReactElement, useMemo } from "react";
 
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
-import { type Config } from "@/schematic/node/general/stateIndicator/config";
+import * as CommonTelem from "@/schematic/node/common/telem";
 import { StateIndicator } from "@/schematic/node/general/stateIndicator/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
 import { Theming } from "@/theming";
@@ -24,15 +25,16 @@ export const Symbol = ({
   selected,
   config: {
     label,
-    source,
+    channel,
     options,
     color,
     inlineSize,
     stalenessTimeout,
     stalenessColor,
   },
-}: NodeProps<Config>): ReactElement => {
+}: NodeProps<schematic.StateIndicatorNodeConfig>): ReactElement => {
   const theme = Theming.use();
+  const source = useMemo(() => CommonTelem.numberSource(channel), [channel]);
   const { key: optKey, stale } = BaseStateIndicator.use({
     aetherKey: nodeKey,
     source,

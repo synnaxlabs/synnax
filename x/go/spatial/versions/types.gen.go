@@ -77,6 +77,39 @@ type Dimensions = v0.Dimensions
 // Viewport is the camera state of a viewport.
 type Viewport = v0.Viewport
 
+// Location is a position indicator covering the four outer edges of a container and its
+// center.
+type Location = v0.Location
+
+const (
+	LocationTop    Location = v0.LocationTop
+	LocationRight  Location = v0.LocationRight
+	LocationBottom Location = v0.LocationBottom
+	LocationLeft   Location = v0.LocationLeft
+	LocationCenter Location = v0.LocationCenter
+)
+
+// XCenterLocation is a horizontal-axis location at the left, right, or center.
+type XCenterLocation = v0.XCenterLocation
+
+const (
+	XCenterLocationLeft   XCenterLocation = v0.XCenterLocationLeft
+	XCenterLocationRight  XCenterLocation = v0.XCenterLocationRight
+	XCenterLocationCenter XCenterLocation = v0.XCenterLocationCenter
+)
+
+// YCenterLocation is a vertical-axis location at the top, bottom, or center.
+type YCenterLocation = v0.YCenterLocation
+
+const (
+	YCenterLocationTop    YCenterLocation = v0.YCenterLocationTop
+	YCenterLocationBottom YCenterLocation = v0.YCenterLocationBottom
+	YCenterLocationCenter YCenterLocation = v0.YCenterLocationCenter
+)
+
+// LocationXY is a per-axis location pair anchoring content within a region.
+type LocationXY = v0.LocationXY
+
 // Decimal is a normalized value in [0, 1] expressed as a decimal fraction of a whole,
 // such as a container's extent.
 type Decimal = v0.Decimal

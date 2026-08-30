@@ -9,21 +9,20 @@
 
 import "@/schematic/edge/jacketed/Jacketed.css";
 
+import { type schematic } from "@synnaxlabs/client";
 import { xy } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
 import { Base } from "@/schematic/edge/common/base";
 import { Path } from "@/schematic/edge/common/path";
 import { Segmented } from "@/schematic/edge/common/segmented";
-import { NAME, VARIANT } from "@/schematic/edge/jacketed/config";
+import { type Spec } from "@/schematic/edge/spec";
 
 const JACKET_OFFSET = 6;
 const JACKET_CLASS = CSS.B("schematic-edge-jacket");
 
-export const spec = Segmented.createSpec(
-  VARIANT,
-  NAME,
-  ({ points, crossings, color }) => {
+export const spec: Spec<"jacketed", schematic.JacketedEdgeConfig> =
+  Segmented.createSpec("jacketed", "Jacketed", ({ points, crossings, color }) => {
     const miters = xy.calculateMiters(points, JACKET_OFFSET);
     const above = points.map((p, i) => xy.translate(p, miters[i]));
     const below = points.map((p, i) => xy.translate(p, xy.scale(miters[i], -1)));
@@ -42,5 +41,4 @@ export const spec = Segmented.createSpec(
         />
       </>
     );
-  },
-);
+  });

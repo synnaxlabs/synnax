@@ -18,21 +18,16 @@ import { Form as Base } from "@/form";
 import { Input } from "@/input";
 import { Notation } from "@/notation";
 import { Form as NodeForm } from "@/schematic/node/common/form";
-import {
-  type Config,
-  createTelem,
-  defaultConfig,
-  parseTelem,
-  type TelemProps,
-} from "@/schematic/node/common/scale/config";
+import { type Config, defaultConfig } from "@/schematic/node/common/scale/config";
 import { Select } from "@/select";
-import { type telem } from "@/telem/aether";
 import { Staleness } from "@/vis/staleness";
 
 const PRECISION_INPUT_PROPS: Partial<Input.NumericProps> = {
   bounds: { lower: 0, upper: 10 },
 };
-const WINDOW_SIZE_BOUNDS = { lower: 1, upper: 100 };
+const WINDOW_SIZE_INPUT_PROPS: Partial<Input.NumericProps> = {
+  bounds: { lower: 1, upper: 100 },
+};
 
 const NotationSelect = Component.renderProp(
   ({ value, onChange }: Input.Control<notation.Notation>): ReactElement => (
@@ -70,23 +65,20 @@ export const TelemForm = ({
 }: TelemFormProps): ReactElement => {
   const { set } = Base.useContext();
   const config = Base.useField<Config | undefined>(path, { optional: true })?.value;
-  const props = parseTelem(config?.telem);
-  const setTelem = (telem?: telem.NumberSourceSpec): void => {
-    if (config != null) return set(field(path, "telem"), telem);
-    if (telem != null) set(path, defaultConfig({ ...defaults, telem }));
+  const setChannel = (channel?: channel.Key): void => {
+    if (config != null) return set(field(path, "channel"), channel);
+    if (channel != null) set(path, defaultConfig({ ...defaults, channel }));
   };
-  const handleChange = (next: Partial<TelemProps>): void =>
-    setTelem(createTelem({ ...props, ...next }));
   const handleChannelChange = (key: channel.Key | null): void => {
-    if (allowNone && !primitive.isNonZero(key)) return setTelem(undefined);
-    handleChange({ channel: key ?? 0 });
+    if (allowNone && !primitive.isNonZero(key)) return setChannel(undefined);
+    setChannel(key ?? 0);
   };
   return (
     <>
       <Flex.Box x>
         <Input.Item label="Channel" grow padHelpText={false}>
           <Channel.SelectSingle
-            value={props.channel}
+            value={config?.channel ?? 0}
             onChange={handleChannelChange}
             allowNone={allowNone}
           />
@@ -113,13 +105,13 @@ export const TelemForm = ({
           />
           <NodeForm.UnitsField path={field(path, "units")} />
           <Staleness.Fields path={path} />
-          <Input.Item label="Averaging window" align="start" grow>
-            <Input.Numeric
-              value={props.windowSize}
-              bounds={WINDOW_SIZE_BOUNDS}
-              onChange={(windowSize) => handleChange({ windowSize })}
-            />
-          </Input.Item>
+          <Base.NumericField
+            path={field(path, "rollingAverage")}
+            label="Averaging window"
+            align="start"
+            grow
+            inputProps={WINDOW_SIZE_INPUT_PROPS}
+          />
         </Flex.Box>
       )}
     </>

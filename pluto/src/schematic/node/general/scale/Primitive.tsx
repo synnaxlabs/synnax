@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
-import { type Config } from "@/schematic/node/general/scale/config";
 import { symbolColorVar } from "@/schematic/symbolColor";
 
-interface RenderProps extends Pick<Config, "indicator"> {
+interface RenderProps extends Pick<schematic.ScaleNodeConfig, "indicator"> {
   className?: string;
 }
 
@@ -46,7 +46,7 @@ const TICK_YS = TICK_RATIOS.map(alongBar);
 const AXIS_FALLBACK = "var(--pluto-gray-l8)";
 
 export const Scale = ({
-  indicator: { color: c, axisColor, showFill, showCaret },
+  indicator: { color: c, axisColor, showFill, showCaret } = {},
   className,
 }: RenderProps): ReactElement => {
   const containerStyle = useMemo<CSSProperties>(

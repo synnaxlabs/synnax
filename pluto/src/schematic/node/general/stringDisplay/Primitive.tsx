@@ -9,19 +9,22 @@
 
 import "@/schematic/node/general/stringDisplay/stringDisplay.css";
 
+import { type schematic } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
-import { type Config } from "@/schematic/node/general/stringDisplay/config";
 import { symbolColorVar } from "@/schematic/symbolColor";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { Staleness } from "@/vis/staleness";
 
-interface RenderProps extends Omit<Config, "label" | "variant"> {
+interface RenderProps extends Omit<
+  schematic.StringDisplayNodeConfig,
+  "label" | "variant"
+> {
   className?: string;
   value?: string;
   stale?: boolean;

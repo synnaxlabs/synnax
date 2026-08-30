@@ -7,20 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/schematic/node/general/button/button.css";
 import "@/schematic/node/general/input/input.css";
 
-import { type ReactElement, useMemo, useState } from "react";
+import { type schematic } from "@synnaxlabs/client";
+import { type ReactElement, useState } from "react";
 
 import { Button as BaseButton } from "@/button";
 import { CSS } from "@/css";
 import { Input as BaseInput } from "@/input";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
-import { type Config } from "@/schematic/node/general/input/config";
-import { symbolColorVar } from "@/schematic/symbolColor";
 
-interface PrimitiveProps extends Omit<Config, "variant"> {
+interface PrimitiveProps extends Omit<schematic.InputNodeConfig, "variant"> {
   initialValue?: string;
   className?: string;
   onSend?: (value: string) => void;
@@ -36,15 +34,10 @@ export const Input = ({
   disabled,
 }: PrimitiveProps): ReactElement => {
   const [value, setValue] = useState(initialValue);
-  const style = useMemo(
-    () => ({ [CSS.variable("symbol-color")]: symbolColorVar(color) }),
-    [color],
-  );
   return (
     <Primitive.Div
       orientation={orientation}
-      className={CSS.cls(CSS.B("input-symbol"), CSS.B("symbol-colored"), className)}
-      style={style}
+      className={CSS.cls(CSS.B("input-symbol"), className)}
     >
       <Handle.Rectangle
         orientation={orientation}
@@ -59,12 +52,13 @@ export const Input = ({
         size={size}
         borderWidth={1}
         disabled={disabled}
+        color={color}
       >
         <BaseButton.Button
           size={size}
           variant="filled"
-          className={CSS.B("symbol-button")}
           onClick={() => onSend?.(value)}
+          color={color}
         >
           Send
         </BaseButton.Button>

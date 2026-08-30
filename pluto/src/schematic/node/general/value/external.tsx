@@ -7,56 +7,42 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Label } from "@/schematic/node/common/label";
-import { type Config, VARIANT } from "@/schematic/node/general/value/config";
 import { ValueForm } from "@/schematic/node/general/value/Form";
 import { Value } from "@/schematic/node/general/value/Primitive";
 import { Symbol } from "@/schematic/node/general/value/Symbol";
 import { type Spec } from "@/schematic/node/spec";
-import { telem } from "@/telem/aether";
 import { Text } from "@/text";
-import { Staleness } from "@/vis/staleness";
+import { type Theming } from "@/theming";
 import { Value as BaseValue } from "@/vis/value";
 
-export * from "@/schematic/node/general/value/config";
-
-export const defaultConfig = (): Config => ({
-  variant: VARIANT,
+export const defaultConfig = (t: Theming.Theme): schematic.ValueNodeConfig => ({
+  variant: "value",
   orientation: "left",
   color: color.ZERO,
   units: "psi",
   level: "h5",
   inlineSize: 70,
   label: Label.defaultConfig("Value"),
-  ...Staleness.ZERO_CONFIG,
-  telem: telem.sourcePipeline("string", {
-    connections: [
-      { from: "valueStream", to: "rollingAverage" },
-      { from: "rollingAverage", to: "stringifier" },
-    ],
-    segments: {
-      valueStream: telem.streamChannelValue({ channel: 0 }),
-      rollingAverage: telem.rollingAverage({ windowSize: 1 }),
-      stringifier: telem.stringifyNumber({ precision: 2, notation: "standard" }),
-    },
-    outlet: "stringifier",
-  }),
+  stalenessTimeout: 5,
+  stalenessColor: t.colors.warning.m1,
   redline: BaseValue.ZERO_READLINE,
 });
 
 const PREVIEW_DIMENSIONS = { width: 60, height: 25 };
 
-const Preview = ({ color }: Config): ReactElement => (
+const Preview = ({ color }: schematic.ValueNodeConfig): ReactElement => (
   <Value color={color} dimensions={PREVIEW_DIMENSIONS} units="psi">
     <Text.Text>50.00</Text.Text>
   </Value>
 );
 
-export const spec: Spec<typeof VARIANT, Config> = {
-  key: VARIANT,
+export const spec: Spec<"value", schematic.ValueNodeConfig> = {
+  key: "value",
   name: "Value",
   Form: ValueForm,
   Node: Symbol,

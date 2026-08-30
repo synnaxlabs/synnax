@@ -44,7 +44,7 @@ export const useHandleNodeClickAction = (schematicKey: string): NodeClickHandler
       const cached = client?.schematics.getCached(schematicKey);
       const config = query.isLive(cached) ? cached.configs?.[nodeId] : undefined;
       if (
-        config?.variant !== "offPageReference" ||
+        config?.variant !== "off_page_reference" ||
         typeof config.page !== "string" ||
         config.page.length === 0
       )

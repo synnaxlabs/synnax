@@ -15,7 +15,6 @@ import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { Scale } from "@/schematic/node/common/scale";
-import { DEFAULT_DIMENSIONS } from "@/schematic/node/general/scale/config";
 import { Tabs } from "@/tabs";
 
 export const ScaleForm = (): ReactElement => (
@@ -33,14 +32,14 @@ export const ScaleForm = (): ReactElement => (
               path="dimensions.width"
               label="Width"
               padHelpText={false}
-              defaultValue={DEFAULT_DIMENSIONS.width}
+              defaultValue={Scale.DEFAULT_DIMENSIONS.width}
               inputProps={Form.DIMENSIONS_INPUT_PROPS}
             />
             <Base.NumericField
               path="dimensions.height"
               label="Height"
               padHelpText={false}
-              defaultValue={DEFAULT_DIMENSIONS.height}
+              defaultValue={Scale.DEFAULT_DIMENSIONS.height}
               inputProps={Form.DIMENSIONS_INPUT_PROPS}
             />
             <Scale.DisplayFields path="indicator" />

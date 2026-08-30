@@ -26,7 +26,672 @@ type Handle = versions.Handle
 // Edge is a connection between two nodes in the schematic.
 type Edge = versions.Edge
 
+// Segment is a single orthogonal run in an edge's connector path.
+type Segment = versions.Segment
+
+// SegmentedEdgeConfig is the configuration shared by every segmented edge variant.
+type SegmentedEdgeConfig = versions.SegmentedEdgeConfig
+
+// EdgeConfig is the per-edge configuration stored in the schematic configs map. The
+// variant selects the visual style of the connection.
+type EdgeConfig = versions.EdgeConfig
+type EdgeConfigVariant = versions.EdgeConfigVariant
+type EdgeConfigType = versions.EdgeConfigType
+
+const (
+	PipeEdgeConfigType      EdgeConfigType = versions.PipeEdgeConfigType
+	ElectricEdgeConfigType  EdgeConfigType = versions.ElectricEdgeConfigType
+	SecondaryEdgeConfigType EdgeConfigType = versions.SecondaryEdgeConfigType
+	JacketedEdgeConfigType  EdgeConfigType = versions.JacketedEdgeConfigType
+	HydraulicEdgeConfigType EdgeConfigType = versions.HydraulicEdgeConfigType
+	PneumaticEdgeConfigType EdgeConfigType = versions.PneumaticEdgeConfigType
+	DataEdgeConfigType      EdgeConfigType = versions.DataEdgeConfigType
+)
+
+type PipeEdgeConfig = versions.PipeEdgeConfig
+type ElectricEdgeConfig = versions.ElectricEdgeConfig
+type SecondaryEdgeConfig = versions.SecondaryEdgeConfig
+type JacketedEdgeConfig = versions.JacketedEdgeConfig
+type HydraulicEdgeConfig = versions.HydraulicEdgeConfig
+type PneumaticEdgeConfig = versions.PneumaticEdgeConfig
+type DataEdgeConfig = versions.DataEdgeConfig
+
+// FlexAlignment is a cross-axis flex alignment for laid-out content.
+type FlexAlignment = versions.FlexAlignment
+
+const (
+	FlexAlignmentStart   FlexAlignment = versions.FlexAlignmentStart
+	FlexAlignmentCenter  FlexAlignment = versions.FlexAlignmentCenter
+	FlexAlignmentEnd     FlexAlignment = versions.FlexAlignmentEnd
+	FlexAlignmentStretch FlexAlignment = versions.FlexAlignmentStretch
+)
+
+// ComponentSize is a discrete size preset for interactive components.
+type ComponentSize = versions.ComponentSize
+
+const (
+	ComponentSizeTiny   ComponentSize = versions.ComponentSizeTiny
+	ComponentSizeSmall  ComponentSize = versions.ComponentSizeSmall
+	ComponentSizeMedium ComponentSize = versions.ComponentSizeMedium
+	ComponentSizeLarge  ComponentSize = versions.ComponentSizeLarge
+	ComponentSizeHuge   ComponentSize = versions.ComponentSizeHuge
+)
+
+// ButtonMode is the actuation behavior of a button: fire writes once on click,
+// momentary writes on press and clears on release, and pulse writes a one-cycle pulse.
+type ButtonMode = versions.ButtonMode
+
+const (
+	ButtonModeFire      ButtonMode = versions.ButtonModeFire
+	ButtonModeMomentary ButtonMode = versions.ButtonModeMomentary
+	ButtonModePulse     ButtonMode = versions.ButtonModePulse
+)
+
+// LabelConfig is the text label configuration shared by schematic symbols.
+type LabelConfig = versions.LabelConfig
+
+// LabeledConfig is the base configuration for any symbol that carries a label.
+type LabeledConfig = versions.LabeledConfig
+
+// ControlStateConfig is the control authority and state display configuration for
+// actuated symbols.
+type ControlStateConfig = versions.ControlStateConfig
+
+// ToggleConfig is the base configuration for symbols actuated through a boolean
+// telemetry pair.
+type ToggleConfig = versions.ToggleConfig
+
+// StaticSymbolConfig is the configuration for non-interactive labeled symbols.
+type StaticSymbolConfig = versions.StaticSymbolConfig
+
+// ToggleSymbolConfig is the configuration for telemetry-actuated toggle symbols.
+type ToggleSymbolConfig = versions.ToggleSymbolConfig
+
+// DummyToggleSymbolConfig is the configuration for symbols that toggle their appearance
+// from local state without binding to telemetry.
+type DummyToggleSymbolConfig = versions.DummyToggleSymbolConfig
+
+// StateMapping maps a numeric channel value to a named, colored state.
+type StateMapping = versions.StateMapping
+
+// Redline maps a numeric range to a color gradient for limit visualization.
+type Redline = versions.Redline
+
+// NodeConfig is the per-node configuration stored in the schematic configs map. The
+// variant selects the symbol rendered for the node and the fields that accompany it.
+type NodeConfig = versions.NodeConfig
+type NodeConfigVariant = versions.NodeConfigVariant
+type NodeConfigType = versions.NodeConfigType
+
+const (
+	CapNodeConfigType                           NodeConfigType = versions.CapNodeConfigType
+	FilterNodeConfigType                        NodeConfigType = versions.FilterNodeConfigType
+	FlowStraightenerNodeConfigType              NodeConfigType = versions.FlowStraightenerNodeConfigType
+	HeaterElementNodeConfigType                 NodeConfigType = versions.HeaterElementNodeConfigType
+	IsoCapNodeConfigType                        NodeConfigType = versions.IsoCapNodeConfigType
+	IsoFilterNodeConfigType                     NodeConfigType = versions.IsoFilterNodeConfigType
+	NozzleNodeConfigType                        NodeConfigType = versions.NozzleNodeConfigType
+	OrificeNodeConfigType                       NodeConfigType = versions.OrificeNodeConfigType
+	OrificePlateNodeConfigType                  NodeConfigType = versions.OrificePlateNodeConfigType
+	StrainerNodeConfigType                      NodeConfigType = versions.StrainerNodeConfigType
+	StrainerConeNodeConfigType                  NodeConfigType = versions.StrainerConeNodeConfigType
+	ThrusterNodeConfigType                      NodeConfigType = versions.ThrusterNodeConfigType
+	VentNodeConfigType                          NodeConfigType = versions.VentNodeConfigType
+	FlowmeterGeneralNodeConfigType              NodeConfigType = versions.FlowmeterGeneralNodeConfigType
+	FlowmeterElectromagneticNodeConfigType      NodeConfigType = versions.FlowmeterElectromagneticNodeConfigType
+	FlowmeterVariableAreaNodeConfigType         NodeConfigType = versions.FlowmeterVariableAreaNodeConfigType
+	FlowmeterCoriolisNodeConfigType             NodeConfigType = versions.FlowmeterCoriolisNodeConfigType
+	FlowmeterNozzleNodeConfigType               NodeConfigType = versions.FlowmeterNozzleNodeConfigType
+	FlowmeterVenturiNodeConfigType              NodeConfigType = versions.FlowmeterVenturiNodeConfigType
+	FlowmeterRingPistonNodeConfigType           NodeConfigType = versions.FlowmeterRingPistonNodeConfigType
+	FlowmeterPositiveDisplacementNodeConfigType NodeConfigType = versions.FlowmeterPositiveDisplacementNodeConfigType
+	FlowmeterTurbineNodeConfigType              NodeConfigType = versions.FlowmeterTurbineNodeConfigType
+	FlowmeterPulseNodeConfigType                NodeConfigType = versions.FlowmeterPulseNodeConfigType
+	FlowmeterFloatSensorNodeConfigType          NodeConfigType = versions.FlowmeterFloatSensorNodeConfigType
+	FlowmeterOrificeNodeConfigType              NodeConfigType = versions.FlowmeterOrificeNodeConfigType
+	// BoxNodeConfigType is the configuration for box annotation symbols.
+	BoxNodeConfigType NodeConfigType = versions.BoxNodeConfigType
+	// ButtonNodeConfigType is the configuration for button symbols.
+	ButtonNodeConfigType NodeConfigType = versions.ButtonNodeConfigType
+	// CircleNodeConfigType is the configuration for circle annotation symbols.
+	CircleNodeConfigType NodeConfigType = versions.CircleNodeConfigType
+	// GaugeNodeConfigType is the configuration for gauge symbols.
+	GaugeNodeConfigType NodeConfigType = versions.GaugeNodeConfigType
+	// InputNodeConfigType is the configuration for free-form input symbols.
+	InputNodeConfigType NodeConfigType = versions.InputNodeConfigType
+	// LightNodeConfigType is the configuration for indicator light symbols.
+	LightNodeConfigType NodeConfigType = versions.LightNodeConfigType
+	// OffPageReferenceNodeConfigType is the configuration for off-page reference
+	// symbols.
+	OffPageReferenceNodeConfigType NodeConfigType = versions.OffPageReferenceNodeConfigType
+	// PolygonNodeConfigType is the configuration for polygon annotation symbols.
+	PolygonNodeConfigType NodeConfigType = versions.PolygonNodeConfigType
+	// SelectNodeConfigType is the configuration for select symbols.
+	SelectNodeConfigType NodeConfigType = versions.SelectNodeConfigType
+	// ScaleNodeConfigType is the configuration for standalone scale symbols.
+	ScaleNodeConfigType NodeConfigType = versions.ScaleNodeConfigType
+	// SetpointNodeConfigType is the configuration for numeric setpoint symbols.
+	SetpointNodeConfigType NodeConfigType = versions.SetpointNodeConfigType
+	// StateIndicatorNodeConfigType is the configuration for multi-state indicator
+	// symbols.
+	StateIndicatorNodeConfigType NodeConfigType = versions.StateIndicatorNodeConfigType
+	// StringDisplayNodeConfigType is the configuration for live string display symbols.
+	StringDisplayNodeConfigType NodeConfigType = versions.StringDisplayNodeConfigType
+	SwitchNodeConfigType        NodeConfigType = versions.SwitchNodeConfigType
+	// TextBoxNodeConfigType is the configuration for text box annotation symbols.
+	TextBoxNodeConfigType NodeConfigType = versions.TextBoxNodeConfigType
+	// ValueNodeConfigType is the configuration for live telemetry value symbols.
+	ValueNodeConfigType                          NodeConfigType = versions.ValueNodeConfigType
+	AgitatorNodeConfigType                       NodeConfigType = versions.AgitatorNodeConfigType
+	CrossBeamAgitatorNodeConfigType              NodeConfigType = versions.CrossBeamAgitatorNodeConfigType
+	FlatBladeAgitatorNodeConfigType              NodeConfigType = versions.FlatBladeAgitatorNodeConfigType
+	HeatExchangerGeneralNodeConfigType           NodeConfigType = versions.HeatExchangerGeneralNodeConfigType
+	HeatExchangerMNodeConfigType                 NodeConfigType = versions.HeatExchangerMNodeConfigType
+	HeatExchangerStraightTubeNodeConfigType      NodeConfigType = versions.HeatExchangerStraightTubeNodeConfigType
+	HelicalAgitatorNodeConfigType                NodeConfigType = versions.HelicalAgitatorNodeConfigType
+	PaddleAgitatorNodeConfigType                 NodeConfigType = versions.PaddleAgitatorNodeConfigType
+	PropellerAgitatorNodeConfigType              NodeConfigType = versions.PropellerAgitatorNodeConfigType
+	RotaryMixerNodeConfigType                    NodeConfigType = versions.RotaryMixerNodeConfigType
+	StaticMixerNodeConfigType                    NodeConfigType = versions.StaticMixerNodeConfigType
+	CavityPumpNodeConfigType                     NodeConfigType = versions.CavityPumpNodeConfigType
+	CentrifugalCompressorNodeConfigType          NodeConfigType = versions.CentrifugalCompressorNodeConfigType
+	CompressorNodeConfigType                     NodeConfigType = versions.CompressorNodeConfigType
+	DiaphragmPumpNodeConfigType                  NodeConfigType = versions.DiaphragmPumpNodeConfigType
+	EjectionPumpNodeConfigType                   NodeConfigType = versions.EjectionPumpNodeConfigType
+	EjectorCompressorNodeConfigType              NodeConfigType = versions.EjectorCompressorNodeConfigType
+	LiquidRingCompressorNodeConfigType           NodeConfigType = versions.LiquidRingCompressorNodeConfigType
+	PistonPumpNodeConfigType                     NodeConfigType = versions.PistonPumpNodeConfigType
+	PumpNodeConfigType                           NodeConfigType = versions.PumpNodeConfigType
+	RollerVaneCompressorNodeConfigType           NodeConfigType = versions.RollerVaneCompressorNodeConfigType
+	ScrewPumpNodeConfigType                      NodeConfigType = versions.ScrewPumpNodeConfigType
+	TurboCompressorNodeConfigType                NodeConfigType = versions.TurboCompressorNodeConfigType
+	VacuumPumpNodeConfigType                     NodeConfigType = versions.VacuumPumpNodeConfigType
+	BurstDiscNodeConfigType                      NodeConfigType = versions.BurstDiscNodeConfigType
+	FlameArrestorNodeConfigType                  NodeConfigType = versions.FlameArrestorNodeConfigType
+	FlameArrestorDetonationNodeConfigType        NodeConfigType = versions.FlameArrestorDetonationNodeConfigType
+	FlameArrestorExplosionNodeConfigType         NodeConfigType = versions.FlameArrestorExplosionNodeConfigType
+	FlameArrestorFireResNodeConfigType           NodeConfigType = versions.FlameArrestorFireResNodeConfigType
+	FlameArrestorFireResDetonationNodeConfigType NodeConfigType = versions.FlameArrestorFireResDetonationNodeConfigType
+	IsoBurstDiscNodeConfigType                   NodeConfigType = versions.IsoBurstDiscNodeConfigType
+	AngledValveNodeConfigType                    NodeConfigType = versions.AngledValveNodeConfigType
+	AngledReliefValveNodeConfigType              NodeConfigType = versions.AngledReliefValveNodeConfigType
+	AngledSpringLoadedReliefValveNodeConfigType  NodeConfigType = versions.AngledSpringLoadedReliefValveNodeConfigType
+	BallValveNodeConfigType                      NodeConfigType = versions.BallValveNodeConfigType
+	BreatherValveNodeConfigType                  NodeConfigType = versions.BreatherValveNodeConfigType
+	ButterflyValveOneNodeConfigType              NodeConfigType = versions.ButterflyValveOneNodeConfigType
+	ButterflyValveTwoNodeConfigType              NodeConfigType = versions.ButterflyValveTwoNodeConfigType
+	CheckValveNodeConfigType                     NodeConfigType = versions.CheckValveNodeConfigType
+	CheckValveWithArrowNodeConfigType            NodeConfigType = versions.CheckValveWithArrowNodeConfigType
+	ElectricRegulatorNodeConfigType              NodeConfigType = versions.ElectricRegulatorNodeConfigType
+	ElectricRegulatorMotorizedNodeConfigType     NodeConfigType = versions.ElectricRegulatorMotorizedNodeConfigType
+	FourWayValveNodeConfigType                   NodeConfigType = versions.FourWayValveNodeConfigType
+	GateValveNodeConfigType                      NodeConfigType = versions.GateValveNodeConfigType
+	IsoCheckValveNodeConfigType                  NodeConfigType = versions.IsoCheckValveNodeConfigType
+	ManualValveNodeConfigType                    NodeConfigType = versions.ManualValveNodeConfigType
+	NeedleValveNodeConfigType                    NodeConfigType = versions.NeedleValveNodeConfigType
+	RegulatorNodeConfigType                      NodeConfigType = versions.RegulatorNodeConfigType
+	RegulatorManualNodeConfigType                NodeConfigType = versions.RegulatorManualNodeConfigType
+	ReliefValveNodeConfigType                    NodeConfigType = versions.ReliefValveNodeConfigType
+	// SolenoidValveNodeConfigType is the configuration for solenoid valve symbols.
+	SolenoidValveNodeConfigType           NodeConfigType = versions.SolenoidValveNodeConfigType
+	SpringLoadedReliefValveNodeConfigType NodeConfigType = versions.SpringLoadedReliefValveNodeConfigType
+	ThreeWayValveNodeConfigType           NodeConfigType = versions.ThreeWayValveNodeConfigType
+	ThreeWayBallValveNodeConfigType       NodeConfigType = versions.ThreeWayBallValveNodeConfigType
+	ValveNodeConfigType                   NodeConfigType = versions.ValveNodeConfigType
+	CrossJunctionNodeConfigType           NodeConfigType = versions.CrossJunctionNodeConfigType
+	// CylinderNodeConfigType is the configuration for cylinder vessel symbols.
+	CylinderNodeConfigType NodeConfigType = versions.CylinderNodeConfigType
+	// TankNodeConfigType is the configuration for tank vessel symbols.
+	TankNodeConfigType      NodeConfigType = versions.TankNodeConfigType
+	TJunctionNodeConfigType NodeConfigType = versions.TJunctionNodeConfigType
+	// CustomActuatorNodeConfigType is the configuration for user-defined actuator
+	// symbols.
+	CustomActuatorNodeConfigType NodeConfigType = versions.CustomActuatorNodeConfigType
+	// CustomStaticNodeConfigType is the configuration for user-defined static symbols.
+	CustomStaticNodeConfigType NodeConfigType = versions.CustomStaticNodeConfigType
+)
+
+type CapNodeConfig = versions.CapNodeConfig
+type FilterNodeConfig = versions.FilterNodeConfig
+type FlowStraightenerNodeConfig = versions.FlowStraightenerNodeConfig
+type HeaterElementNodeConfig = versions.HeaterElementNodeConfig
+type IsoCapNodeConfig = versions.IsoCapNodeConfig
+type IsoFilterNodeConfig = versions.IsoFilterNodeConfig
+type NozzleNodeConfig = versions.NozzleNodeConfig
+type OrificeNodeConfig = versions.OrificeNodeConfig
+type OrificePlateNodeConfig = versions.OrificePlateNodeConfig
+type StrainerNodeConfig = versions.StrainerNodeConfig
+type StrainerConeNodeConfig = versions.StrainerConeNodeConfig
+type ThrusterNodeConfig = versions.ThrusterNodeConfig
+type VentNodeConfig = versions.VentNodeConfig
+type FlowmeterGeneralNodeConfig = versions.FlowmeterGeneralNodeConfig
+type FlowmeterElectromagneticNodeConfig = versions.FlowmeterElectromagneticNodeConfig
+type FlowmeterVariableAreaNodeConfig = versions.FlowmeterVariableAreaNodeConfig
+type FlowmeterCoriolisNodeConfig = versions.FlowmeterCoriolisNodeConfig
+type FlowmeterNozzleNodeConfig = versions.FlowmeterNozzleNodeConfig
+type FlowmeterVenturiNodeConfig = versions.FlowmeterVenturiNodeConfig
+type FlowmeterRingPistonNodeConfig = versions.FlowmeterRingPistonNodeConfig
+type FlowmeterPositiveDisplacementNodeConfig = versions.FlowmeterPositiveDisplacementNodeConfig
+type FlowmeterTurbineNodeConfig = versions.FlowmeterTurbineNodeConfig
+type FlowmeterPulseNodeConfig = versions.FlowmeterPulseNodeConfig
+type FlowmeterFloatSensorNodeConfig = versions.FlowmeterFloatSensorNodeConfig
+type FlowmeterOrificeNodeConfig = versions.FlowmeterOrificeNodeConfig
+
+// BoxNodeConfig is the configuration for box annotation symbols.
+type BoxNodeConfig = versions.BoxNodeConfig
+
+// ButtonNodeConfig is the configuration for button symbols.
+type ButtonNodeConfig = versions.ButtonNodeConfig
+
+// CircleNodeConfig is the configuration for circle annotation symbols.
+type CircleNodeConfig = versions.CircleNodeConfig
+
+// GaugeNodeConfig is the configuration for gauge symbols.
+type GaugeNodeConfig = versions.GaugeNodeConfig
+
+// InputNodeConfig is the configuration for free-form input symbols.
+type InputNodeConfig = versions.InputNodeConfig
+
+// LightNodeConfig is the configuration for indicator light symbols.
+type LightNodeConfig = versions.LightNodeConfig
+
+// OffPageReferenceNodeConfig is the configuration for off-page reference symbols.
+type OffPageReferenceNodeConfig = versions.OffPageReferenceNodeConfig
+
+// PolygonNodeConfig is the configuration for polygon annotation symbols.
+type PolygonNodeConfig = versions.PolygonNodeConfig
+
+// SelectNodeConfig is the configuration for select symbols.
+type SelectNodeConfig = versions.SelectNodeConfig
+
+// ScaleNodeConfig is the configuration for standalone scale symbols.
+type ScaleNodeConfig = versions.ScaleNodeConfig
+
+// SetpointNodeConfig is the configuration for numeric setpoint symbols.
+type SetpointNodeConfig = versions.SetpointNodeConfig
+
+// StateIndicatorNodeConfig is the configuration for multi-state indicator symbols.
+type StateIndicatorNodeConfig = versions.StateIndicatorNodeConfig
+
+// StringDisplayNodeConfig is the configuration for live string display symbols.
+type StringDisplayNodeConfig = versions.StringDisplayNodeConfig
+type SwitchNodeConfig = versions.SwitchNodeConfig
+
+// TextBoxNodeConfig is the configuration for text box annotation symbols.
+type TextBoxNodeConfig = versions.TextBoxNodeConfig
+
+// ValueNodeConfig is the configuration for live telemetry value symbols.
+type ValueNodeConfig = versions.ValueNodeConfig
+type AgitatorNodeConfig = versions.AgitatorNodeConfig
+type CrossBeamAgitatorNodeConfig = versions.CrossBeamAgitatorNodeConfig
+type FlatBladeAgitatorNodeConfig = versions.FlatBladeAgitatorNodeConfig
+type HeatExchangerGeneralNodeConfig = versions.HeatExchangerGeneralNodeConfig
+type HeatExchangerMNodeConfig = versions.HeatExchangerMNodeConfig
+type HeatExchangerStraightTubeNodeConfig = versions.HeatExchangerStraightTubeNodeConfig
+type HelicalAgitatorNodeConfig = versions.HelicalAgitatorNodeConfig
+type PaddleAgitatorNodeConfig = versions.PaddleAgitatorNodeConfig
+type PropellerAgitatorNodeConfig = versions.PropellerAgitatorNodeConfig
+type RotaryMixerNodeConfig = versions.RotaryMixerNodeConfig
+type StaticMixerNodeConfig = versions.StaticMixerNodeConfig
+type CavityPumpNodeConfig = versions.CavityPumpNodeConfig
+type CentrifugalCompressorNodeConfig = versions.CentrifugalCompressorNodeConfig
+type CompressorNodeConfig = versions.CompressorNodeConfig
+type DiaphragmPumpNodeConfig = versions.DiaphragmPumpNodeConfig
+type EjectionPumpNodeConfig = versions.EjectionPumpNodeConfig
+type EjectorCompressorNodeConfig = versions.EjectorCompressorNodeConfig
+type LiquidRingCompressorNodeConfig = versions.LiquidRingCompressorNodeConfig
+type PistonPumpNodeConfig = versions.PistonPumpNodeConfig
+type PumpNodeConfig = versions.PumpNodeConfig
+type RollerVaneCompressorNodeConfig = versions.RollerVaneCompressorNodeConfig
+type ScrewPumpNodeConfig = versions.ScrewPumpNodeConfig
+type TurboCompressorNodeConfig = versions.TurboCompressorNodeConfig
+type VacuumPumpNodeConfig = versions.VacuumPumpNodeConfig
+type BurstDiscNodeConfig = versions.BurstDiscNodeConfig
+type FlameArrestorNodeConfig = versions.FlameArrestorNodeConfig
+type FlameArrestorDetonationNodeConfig = versions.FlameArrestorDetonationNodeConfig
+type FlameArrestorExplosionNodeConfig = versions.FlameArrestorExplosionNodeConfig
+type FlameArrestorFireResNodeConfig = versions.FlameArrestorFireResNodeConfig
+type FlameArrestorFireResDetonationNodeConfig = versions.FlameArrestorFireResDetonationNodeConfig
+type IsoBurstDiscNodeConfig = versions.IsoBurstDiscNodeConfig
+type AngledValveNodeConfig = versions.AngledValveNodeConfig
+type AngledReliefValveNodeConfig = versions.AngledReliefValveNodeConfig
+type AngledSpringLoadedReliefValveNodeConfig = versions.AngledSpringLoadedReliefValveNodeConfig
+type BallValveNodeConfig = versions.BallValveNodeConfig
+type BreatherValveNodeConfig = versions.BreatherValveNodeConfig
+type ButterflyValveOneNodeConfig = versions.ButterflyValveOneNodeConfig
+type ButterflyValveTwoNodeConfig = versions.ButterflyValveTwoNodeConfig
+type CheckValveNodeConfig = versions.CheckValveNodeConfig
+type CheckValveWithArrowNodeConfig = versions.CheckValveWithArrowNodeConfig
+type ElectricRegulatorNodeConfig = versions.ElectricRegulatorNodeConfig
+type ElectricRegulatorMotorizedNodeConfig = versions.ElectricRegulatorMotorizedNodeConfig
+type FourWayValveNodeConfig = versions.FourWayValveNodeConfig
+type GateValveNodeConfig = versions.GateValveNodeConfig
+type IsoCheckValveNodeConfig = versions.IsoCheckValveNodeConfig
+type ManualValveNodeConfig = versions.ManualValveNodeConfig
+type NeedleValveNodeConfig = versions.NeedleValveNodeConfig
+type RegulatorNodeConfig = versions.RegulatorNodeConfig
+type RegulatorManualNodeConfig = versions.RegulatorManualNodeConfig
+type ReliefValveNodeConfig = versions.ReliefValveNodeConfig
+
+// SolenoidValveNodeConfig is the configuration for solenoid valve symbols.
+type SolenoidValveNodeConfig = versions.SolenoidValveNodeConfig
+type SpringLoadedReliefValveNodeConfig = versions.SpringLoadedReliefValveNodeConfig
+type ThreeWayValveNodeConfig = versions.ThreeWayValveNodeConfig
+type ThreeWayBallValveNodeConfig = versions.ThreeWayBallValveNodeConfig
+type ValveNodeConfig = versions.ValveNodeConfig
+type CrossJunctionNodeConfig = versions.CrossJunctionNodeConfig
+
+// CylinderNodeConfig is the configuration for cylinder vessel symbols.
+type CylinderNodeConfig = versions.CylinderNodeConfig
+
+// TankNodeConfig is the configuration for tank vessel symbols.
+type TankNodeConfig = versions.TankNodeConfig
+type TJunctionNodeConfig = versions.TJunctionNodeConfig
+
+// CustomActuatorNodeConfig is the configuration for user-defined actuator symbols.
+type CustomActuatorNodeConfig = versions.CustomActuatorNodeConfig
+
+// CustomStaticNodeConfig is the configuration for user-defined static symbols.
+type CustomStaticNodeConfig = versions.CustomStaticNodeConfig
+
+// ElementConfig is the per-element configuration stored in the schematic configs map: a
+// node config or an edge config, discriminated by variant.
+type ElementConfig = versions.ElementConfig
+type ElementConfigVariant = versions.ElementConfigVariant
+type ElementConfigType = versions.ElementConfigType
+
+const (
+	CapElementConfigType                           ElementConfigType = versions.CapElementConfigType
+	FilterElementConfigType                        ElementConfigType = versions.FilterElementConfigType
+	FlowStraightenerElementConfigType              ElementConfigType = versions.FlowStraightenerElementConfigType
+	HeaterElementElementConfigType                 ElementConfigType = versions.HeaterElementElementConfigType
+	IsoCapElementConfigType                        ElementConfigType = versions.IsoCapElementConfigType
+	IsoFilterElementConfigType                     ElementConfigType = versions.IsoFilterElementConfigType
+	NozzleElementConfigType                        ElementConfigType = versions.NozzleElementConfigType
+	OrificeElementConfigType                       ElementConfigType = versions.OrificeElementConfigType
+	OrificePlateElementConfigType                  ElementConfigType = versions.OrificePlateElementConfigType
+	StrainerElementConfigType                      ElementConfigType = versions.StrainerElementConfigType
+	StrainerConeElementConfigType                  ElementConfigType = versions.StrainerConeElementConfigType
+	ThrusterElementConfigType                      ElementConfigType = versions.ThrusterElementConfigType
+	VentElementConfigType                          ElementConfigType = versions.VentElementConfigType
+	FlowmeterGeneralElementConfigType              ElementConfigType = versions.FlowmeterGeneralElementConfigType
+	FlowmeterElectromagneticElementConfigType      ElementConfigType = versions.FlowmeterElectromagneticElementConfigType
+	FlowmeterVariableAreaElementConfigType         ElementConfigType = versions.FlowmeterVariableAreaElementConfigType
+	FlowmeterCoriolisElementConfigType             ElementConfigType = versions.FlowmeterCoriolisElementConfigType
+	FlowmeterNozzleElementConfigType               ElementConfigType = versions.FlowmeterNozzleElementConfigType
+	FlowmeterVenturiElementConfigType              ElementConfigType = versions.FlowmeterVenturiElementConfigType
+	FlowmeterRingPistonElementConfigType           ElementConfigType = versions.FlowmeterRingPistonElementConfigType
+	FlowmeterPositiveDisplacementElementConfigType ElementConfigType = versions.FlowmeterPositiveDisplacementElementConfigType
+	FlowmeterTurbineElementConfigType              ElementConfigType = versions.FlowmeterTurbineElementConfigType
+	FlowmeterPulseElementConfigType                ElementConfigType = versions.FlowmeterPulseElementConfigType
+	FlowmeterFloatSensorElementConfigType          ElementConfigType = versions.FlowmeterFloatSensorElementConfigType
+	FlowmeterOrificeElementConfigType              ElementConfigType = versions.FlowmeterOrificeElementConfigType
+	// BoxElementConfigType is the configuration for box annotation symbols.
+	BoxElementConfigType ElementConfigType = versions.BoxElementConfigType
+	// ButtonElementConfigType is the configuration for button symbols.
+	ButtonElementConfigType ElementConfigType = versions.ButtonElementConfigType
+	// CircleElementConfigType is the configuration for circle annotation symbols.
+	CircleElementConfigType ElementConfigType = versions.CircleElementConfigType
+	// GaugeElementConfigType is the configuration for gauge symbols.
+	GaugeElementConfigType ElementConfigType = versions.GaugeElementConfigType
+	// InputElementConfigType is the configuration for free-form input symbols.
+	InputElementConfigType ElementConfigType = versions.InputElementConfigType
+	// LightElementConfigType is the configuration for indicator light symbols.
+	LightElementConfigType ElementConfigType = versions.LightElementConfigType
+	// OffPageReferenceElementConfigType is the configuration for off-page reference
+	// symbols.
+	OffPageReferenceElementConfigType ElementConfigType = versions.OffPageReferenceElementConfigType
+	// PolygonElementConfigType is the configuration for polygon annotation symbols.
+	PolygonElementConfigType ElementConfigType = versions.PolygonElementConfigType
+	// SelectElementConfigType is the configuration for select symbols.
+	SelectElementConfigType ElementConfigType = versions.SelectElementConfigType
+	// ScaleElementConfigType is the configuration for standalone scale symbols.
+	ScaleElementConfigType ElementConfigType = versions.ScaleElementConfigType
+	// SetpointElementConfigType is the configuration for numeric setpoint symbols.
+	SetpointElementConfigType ElementConfigType = versions.SetpointElementConfigType
+	// StateIndicatorElementConfigType is the configuration for multi-state indicator
+	// symbols.
+	StateIndicatorElementConfigType ElementConfigType = versions.StateIndicatorElementConfigType
+	// StringDisplayElementConfigType is the configuration for live string display
+	// symbols.
+	StringDisplayElementConfigType ElementConfigType = versions.StringDisplayElementConfigType
+	SwitchElementConfigType        ElementConfigType = versions.SwitchElementConfigType
+	// TextBoxElementConfigType is the configuration for text box annotation symbols.
+	TextBoxElementConfigType ElementConfigType = versions.TextBoxElementConfigType
+	// ValueElementConfigType is the configuration for live telemetry value symbols.
+	ValueElementConfigType                          ElementConfigType = versions.ValueElementConfigType
+	AgitatorElementConfigType                       ElementConfigType = versions.AgitatorElementConfigType
+	CrossBeamAgitatorElementConfigType              ElementConfigType = versions.CrossBeamAgitatorElementConfigType
+	FlatBladeAgitatorElementConfigType              ElementConfigType = versions.FlatBladeAgitatorElementConfigType
+	HeatExchangerGeneralElementConfigType           ElementConfigType = versions.HeatExchangerGeneralElementConfigType
+	HeatExchangerMElementConfigType                 ElementConfigType = versions.HeatExchangerMElementConfigType
+	HeatExchangerStraightTubeElementConfigType      ElementConfigType = versions.HeatExchangerStraightTubeElementConfigType
+	HelicalAgitatorElementConfigType                ElementConfigType = versions.HelicalAgitatorElementConfigType
+	PaddleAgitatorElementConfigType                 ElementConfigType = versions.PaddleAgitatorElementConfigType
+	PropellerAgitatorElementConfigType              ElementConfigType = versions.PropellerAgitatorElementConfigType
+	RotaryMixerElementConfigType                    ElementConfigType = versions.RotaryMixerElementConfigType
+	StaticMixerElementConfigType                    ElementConfigType = versions.StaticMixerElementConfigType
+	CavityPumpElementConfigType                     ElementConfigType = versions.CavityPumpElementConfigType
+	CentrifugalCompressorElementConfigType          ElementConfigType = versions.CentrifugalCompressorElementConfigType
+	CompressorElementConfigType                     ElementConfigType = versions.CompressorElementConfigType
+	DiaphragmPumpElementConfigType                  ElementConfigType = versions.DiaphragmPumpElementConfigType
+	EjectionPumpElementConfigType                   ElementConfigType = versions.EjectionPumpElementConfigType
+	EjectorCompressorElementConfigType              ElementConfigType = versions.EjectorCompressorElementConfigType
+	LiquidRingCompressorElementConfigType           ElementConfigType = versions.LiquidRingCompressorElementConfigType
+	PistonPumpElementConfigType                     ElementConfigType = versions.PistonPumpElementConfigType
+	PumpElementConfigType                           ElementConfigType = versions.PumpElementConfigType
+	RollerVaneCompressorElementConfigType           ElementConfigType = versions.RollerVaneCompressorElementConfigType
+	ScrewPumpElementConfigType                      ElementConfigType = versions.ScrewPumpElementConfigType
+	TurboCompressorElementConfigType                ElementConfigType = versions.TurboCompressorElementConfigType
+	VacuumPumpElementConfigType                     ElementConfigType = versions.VacuumPumpElementConfigType
+	BurstDiscElementConfigType                      ElementConfigType = versions.BurstDiscElementConfigType
+	FlameArrestorElementConfigType                  ElementConfigType = versions.FlameArrestorElementConfigType
+	FlameArrestorDetonationElementConfigType        ElementConfigType = versions.FlameArrestorDetonationElementConfigType
+	FlameArrestorExplosionElementConfigType         ElementConfigType = versions.FlameArrestorExplosionElementConfigType
+	FlameArrestorFireResElementConfigType           ElementConfigType = versions.FlameArrestorFireResElementConfigType
+	FlameArrestorFireResDetonationElementConfigType ElementConfigType = versions.FlameArrestorFireResDetonationElementConfigType
+	IsoBurstDiscElementConfigType                   ElementConfigType = versions.IsoBurstDiscElementConfigType
+	AngledValveElementConfigType                    ElementConfigType = versions.AngledValveElementConfigType
+	AngledReliefValveElementConfigType              ElementConfigType = versions.AngledReliefValveElementConfigType
+	AngledSpringLoadedReliefValveElementConfigType  ElementConfigType = versions.AngledSpringLoadedReliefValveElementConfigType
+	BallValveElementConfigType                      ElementConfigType = versions.BallValveElementConfigType
+	BreatherValveElementConfigType                  ElementConfigType = versions.BreatherValveElementConfigType
+	ButterflyValveOneElementConfigType              ElementConfigType = versions.ButterflyValveOneElementConfigType
+	ButterflyValveTwoElementConfigType              ElementConfigType = versions.ButterflyValveTwoElementConfigType
+	CheckValveElementConfigType                     ElementConfigType = versions.CheckValveElementConfigType
+	CheckValveWithArrowElementConfigType            ElementConfigType = versions.CheckValveWithArrowElementConfigType
+	ElectricRegulatorElementConfigType              ElementConfigType = versions.ElectricRegulatorElementConfigType
+	ElectricRegulatorMotorizedElementConfigType     ElementConfigType = versions.ElectricRegulatorMotorizedElementConfigType
+	FourWayValveElementConfigType                   ElementConfigType = versions.FourWayValveElementConfigType
+	GateValveElementConfigType                      ElementConfigType = versions.GateValveElementConfigType
+	IsoCheckValveElementConfigType                  ElementConfigType = versions.IsoCheckValveElementConfigType
+	ManualValveElementConfigType                    ElementConfigType = versions.ManualValveElementConfigType
+	NeedleValveElementConfigType                    ElementConfigType = versions.NeedleValveElementConfigType
+	RegulatorElementConfigType                      ElementConfigType = versions.RegulatorElementConfigType
+	RegulatorManualElementConfigType                ElementConfigType = versions.RegulatorManualElementConfigType
+	ReliefValveElementConfigType                    ElementConfigType = versions.ReliefValveElementConfigType
+	// SolenoidValveElementConfigType is the configuration for solenoid valve symbols.
+	SolenoidValveElementConfigType           ElementConfigType = versions.SolenoidValveElementConfigType
+	SpringLoadedReliefValveElementConfigType ElementConfigType = versions.SpringLoadedReliefValveElementConfigType
+	ThreeWayValveElementConfigType           ElementConfigType = versions.ThreeWayValveElementConfigType
+	ThreeWayBallValveElementConfigType       ElementConfigType = versions.ThreeWayBallValveElementConfigType
+	ValveElementConfigType                   ElementConfigType = versions.ValveElementConfigType
+	CrossJunctionElementConfigType           ElementConfigType = versions.CrossJunctionElementConfigType
+	// CylinderElementConfigType is the configuration for cylinder vessel symbols.
+	CylinderElementConfigType ElementConfigType = versions.CylinderElementConfigType
+	// TankElementConfigType is the configuration for tank vessel symbols.
+	TankElementConfigType      ElementConfigType = versions.TankElementConfigType
+	TJunctionElementConfigType ElementConfigType = versions.TJunctionElementConfigType
+	// CustomActuatorElementConfigType is the configuration for user-defined actuator
+	// symbols.
+	CustomActuatorElementConfigType ElementConfigType = versions.CustomActuatorElementConfigType
+	// CustomStaticElementConfigType is the configuration for user-defined static
+	// symbols.
+	CustomStaticElementConfigType ElementConfigType = versions.CustomStaticElementConfigType
+	PipeElementConfigType         ElementConfigType = versions.PipeElementConfigType
+	ElectricElementConfigType     ElementConfigType = versions.ElectricElementConfigType
+	SecondaryElementConfigType    ElementConfigType = versions.SecondaryElementConfigType
+	JacketedElementConfigType     ElementConfigType = versions.JacketedElementConfigType
+	HydraulicElementConfigType    ElementConfigType = versions.HydraulicElementConfigType
+	PneumaticElementConfigType    ElementConfigType = versions.PneumaticElementConfigType
+	DataElementConfigType         ElementConfigType = versions.DataElementConfigType
+)
+
+type CapElementConfig = versions.CapElementConfig
+type FilterElementConfig = versions.FilterElementConfig
+type FlowStraightenerElementConfig = versions.FlowStraightenerElementConfig
+type HeaterElementElementConfig = versions.HeaterElementElementConfig
+type IsoCapElementConfig = versions.IsoCapElementConfig
+type IsoFilterElementConfig = versions.IsoFilterElementConfig
+type NozzleElementConfig = versions.NozzleElementConfig
+type OrificeElementConfig = versions.OrificeElementConfig
+type OrificePlateElementConfig = versions.OrificePlateElementConfig
+type StrainerElementConfig = versions.StrainerElementConfig
+type StrainerConeElementConfig = versions.StrainerConeElementConfig
+type ThrusterElementConfig = versions.ThrusterElementConfig
+type VentElementConfig = versions.VentElementConfig
+type FlowmeterGeneralElementConfig = versions.FlowmeterGeneralElementConfig
+type FlowmeterElectromagneticElementConfig = versions.FlowmeterElectromagneticElementConfig
+type FlowmeterVariableAreaElementConfig = versions.FlowmeterVariableAreaElementConfig
+type FlowmeterCoriolisElementConfig = versions.FlowmeterCoriolisElementConfig
+type FlowmeterNozzleElementConfig = versions.FlowmeterNozzleElementConfig
+type FlowmeterVenturiElementConfig = versions.FlowmeterVenturiElementConfig
+type FlowmeterRingPistonElementConfig = versions.FlowmeterRingPistonElementConfig
+type FlowmeterPositiveDisplacementElementConfig = versions.FlowmeterPositiveDisplacementElementConfig
+type FlowmeterTurbineElementConfig = versions.FlowmeterTurbineElementConfig
+type FlowmeterPulseElementConfig = versions.FlowmeterPulseElementConfig
+type FlowmeterFloatSensorElementConfig = versions.FlowmeterFloatSensorElementConfig
+type FlowmeterOrificeElementConfig = versions.FlowmeterOrificeElementConfig
+
+// BoxElementConfig is the configuration for box annotation symbols.
+type BoxElementConfig = versions.BoxElementConfig
+
+// ButtonElementConfig is the configuration for button symbols.
+type ButtonElementConfig = versions.ButtonElementConfig
+
+// CircleElementConfig is the configuration for circle annotation symbols.
+type CircleElementConfig = versions.CircleElementConfig
+
+// GaugeElementConfig is the configuration for gauge symbols.
+type GaugeElementConfig = versions.GaugeElementConfig
+
+// InputElementConfig is the configuration for free-form input symbols.
+type InputElementConfig = versions.InputElementConfig
+
+// LightElementConfig is the configuration for indicator light symbols.
+type LightElementConfig = versions.LightElementConfig
+
+// OffPageReferenceElementConfig is the configuration for off-page reference symbols.
+type OffPageReferenceElementConfig = versions.OffPageReferenceElementConfig
+
+// PolygonElementConfig is the configuration for polygon annotation symbols.
+type PolygonElementConfig = versions.PolygonElementConfig
+
+// SelectElementConfig is the configuration for select symbols.
+type SelectElementConfig = versions.SelectElementConfig
+
+// ScaleElementConfig is the configuration for standalone scale symbols.
+type ScaleElementConfig = versions.ScaleElementConfig
+
+// SetpointElementConfig is the configuration for numeric setpoint symbols.
+type SetpointElementConfig = versions.SetpointElementConfig
+
+// StateIndicatorElementConfig is the configuration for multi-state indicator symbols.
+type StateIndicatorElementConfig = versions.StateIndicatorElementConfig
+
+// StringDisplayElementConfig is the configuration for live string display symbols.
+type StringDisplayElementConfig = versions.StringDisplayElementConfig
+type SwitchElementConfig = versions.SwitchElementConfig
+
+// TextBoxElementConfig is the configuration for text box annotation symbols.
+type TextBoxElementConfig = versions.TextBoxElementConfig
+
+// ValueElementConfig is the configuration for live telemetry value symbols.
+type ValueElementConfig = versions.ValueElementConfig
+type AgitatorElementConfig = versions.AgitatorElementConfig
+type CrossBeamAgitatorElementConfig = versions.CrossBeamAgitatorElementConfig
+type FlatBladeAgitatorElementConfig = versions.FlatBladeAgitatorElementConfig
+type HeatExchangerGeneralElementConfig = versions.HeatExchangerGeneralElementConfig
+type HeatExchangerMElementConfig = versions.HeatExchangerMElementConfig
+type HeatExchangerStraightTubeElementConfig = versions.HeatExchangerStraightTubeElementConfig
+type HelicalAgitatorElementConfig = versions.HelicalAgitatorElementConfig
+type PaddleAgitatorElementConfig = versions.PaddleAgitatorElementConfig
+type PropellerAgitatorElementConfig = versions.PropellerAgitatorElementConfig
+type RotaryMixerElementConfig = versions.RotaryMixerElementConfig
+type StaticMixerElementConfig = versions.StaticMixerElementConfig
+type CavityPumpElementConfig = versions.CavityPumpElementConfig
+type CentrifugalCompressorElementConfig = versions.CentrifugalCompressorElementConfig
+type CompressorElementConfig = versions.CompressorElementConfig
+type DiaphragmPumpElementConfig = versions.DiaphragmPumpElementConfig
+type EjectionPumpElementConfig = versions.EjectionPumpElementConfig
+type EjectorCompressorElementConfig = versions.EjectorCompressorElementConfig
+type LiquidRingCompressorElementConfig = versions.LiquidRingCompressorElementConfig
+type PistonPumpElementConfig = versions.PistonPumpElementConfig
+type PumpElementConfig = versions.PumpElementConfig
+type RollerVaneCompressorElementConfig = versions.RollerVaneCompressorElementConfig
+type ScrewPumpElementConfig = versions.ScrewPumpElementConfig
+type TurboCompressorElementConfig = versions.TurboCompressorElementConfig
+type VacuumPumpElementConfig = versions.VacuumPumpElementConfig
+type BurstDiscElementConfig = versions.BurstDiscElementConfig
+type FlameArrestorElementConfig = versions.FlameArrestorElementConfig
+type FlameArrestorDetonationElementConfig = versions.FlameArrestorDetonationElementConfig
+type FlameArrestorExplosionElementConfig = versions.FlameArrestorExplosionElementConfig
+type FlameArrestorFireResElementConfig = versions.FlameArrestorFireResElementConfig
+type FlameArrestorFireResDetonationElementConfig = versions.FlameArrestorFireResDetonationElementConfig
+type IsoBurstDiscElementConfig = versions.IsoBurstDiscElementConfig
+type AngledValveElementConfig = versions.AngledValveElementConfig
+type AngledReliefValveElementConfig = versions.AngledReliefValveElementConfig
+type AngledSpringLoadedReliefValveElementConfig = versions.AngledSpringLoadedReliefValveElementConfig
+type BallValveElementConfig = versions.BallValveElementConfig
+type BreatherValveElementConfig = versions.BreatherValveElementConfig
+type ButterflyValveOneElementConfig = versions.ButterflyValveOneElementConfig
+type ButterflyValveTwoElementConfig = versions.ButterflyValveTwoElementConfig
+type CheckValveElementConfig = versions.CheckValveElementConfig
+type CheckValveWithArrowElementConfig = versions.CheckValveWithArrowElementConfig
+type ElectricRegulatorElementConfig = versions.ElectricRegulatorElementConfig
+type ElectricRegulatorMotorizedElementConfig = versions.ElectricRegulatorMotorizedElementConfig
+type FourWayValveElementConfig = versions.FourWayValveElementConfig
+type GateValveElementConfig = versions.GateValveElementConfig
+type IsoCheckValveElementConfig = versions.IsoCheckValveElementConfig
+type ManualValveElementConfig = versions.ManualValveElementConfig
+type NeedleValveElementConfig = versions.NeedleValveElementConfig
+type RegulatorElementConfig = versions.RegulatorElementConfig
+type RegulatorManualElementConfig = versions.RegulatorManualElementConfig
+type ReliefValveElementConfig = versions.ReliefValveElementConfig
+
+// SolenoidValveElementConfig is the configuration for solenoid valve symbols.
+type SolenoidValveElementConfig = versions.SolenoidValveElementConfig
+type SpringLoadedReliefValveElementConfig = versions.SpringLoadedReliefValveElementConfig
+type ThreeWayValveElementConfig = versions.ThreeWayValveElementConfig
+type ThreeWayBallValveElementConfig = versions.ThreeWayBallValveElementConfig
+type ValveElementConfig = versions.ValveElementConfig
+type CrossJunctionElementConfig = versions.CrossJunctionElementConfig
+
+// CylinderElementConfig is the configuration for cylinder vessel symbols.
+type CylinderElementConfig = versions.CylinderElementConfig
+
+// TankElementConfig is the configuration for tank vessel symbols.
+type TankElementConfig = versions.TankElementConfig
+type TJunctionElementConfig = versions.TJunctionElementConfig
+
+// CustomActuatorElementConfig is the configuration for user-defined actuator symbols.
+type CustomActuatorElementConfig = versions.CustomActuatorElementConfig
+
+// CustomStaticElementConfig is the configuration for user-defined static symbols.
+type CustomStaticElementConfig = versions.CustomStaticElementConfig
+type PipeElementConfig = versions.PipeElementConfig
+type ElectricElementConfig = versions.ElectricElementConfig
+type SecondaryElementConfig = versions.SecondaryElementConfig
+type JacketedElementConfig = versions.JacketedElementConfig
+type HydraulicElementConfig = versions.HydraulicElementConfig
+type PneumaticElementConfig = versions.PneumaticElementConfig
+type DataElementConfig = versions.DataElementConfig
+
 // Schematic is a visual diagram editor component for drawing system schematics, control
 // flows, and process diagrams. Schematics support interactive symbols, connection
 // handles, and dynamic state visualization.
 type Schematic = versions.Schematic
+
+// ScaleIndicatorConfig is a live fill indicator driven by a channel, rendered by
+// symbols that show a level against a numeric range.
+type ScaleIndicatorConfig = versions.ScaleIndicatorConfig

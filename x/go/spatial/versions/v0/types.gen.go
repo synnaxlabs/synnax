@@ -216,6 +216,86 @@ func (vi *Viewport) ApplyDefaults() {
 	}
 }
 
+// Location is a position indicator covering the four outer edges of a container and its
+// center.
+type Location string
+
+const (
+	LocationTop    Location = "top"
+	LocationRight  Location = "right"
+	LocationBottom Location = "bottom"
+	LocationLeft   Location = "left"
+	LocationCenter Location = "center"
+)
+
+// IsValid reports whether l is one of the defined Location
+// values.
+func (l Location) IsValid() bool {
+	switch l {
+	case LocationTop, LocationRight, LocationBottom, LocationLeft, LocationCenter:
+		return true
+	default:
+		return false
+	}
+}
+
+// XCenterLocation is a horizontal-axis location at the left, right, or center.
+type XCenterLocation string
+
+const (
+	XCenterLocationLeft   XCenterLocation = "left"
+	XCenterLocationRight  XCenterLocation = "right"
+	XCenterLocationCenter XCenterLocation = "center"
+)
+
+// IsValid reports whether x is one of the defined XCenterLocation
+// values.
+func (x XCenterLocation) IsValid() bool {
+	switch x {
+	case XCenterLocationLeft, XCenterLocationRight, XCenterLocationCenter:
+		return true
+	default:
+		return false
+	}
+}
+
+// YCenterLocation is a vertical-axis location at the top, bottom, or center.
+type YCenterLocation string
+
+const (
+	YCenterLocationTop    YCenterLocation = "top"
+	YCenterLocationBottom YCenterLocation = "bottom"
+	YCenterLocationCenter YCenterLocation = "center"
+)
+
+// IsValid reports whether y is one of the defined YCenterLocation
+// values.
+func (y YCenterLocation) IsValid() bool {
+	switch y {
+	case YCenterLocationTop, YCenterLocationBottom, YCenterLocationCenter:
+		return true
+	default:
+		return false
+	}
+}
+
+// LocationXY is a per-axis location pair anchoring content within a region.
+type LocationXY struct {
+	// X is the horizontal anchor.
+	X XCenterLocation `json:"x" msgpack:"x"`
+	// Y is the vertical anchor.
+	Y YCenterLocation `json:"y" msgpack:"y"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (l LocationXY) Validate() error {
+	v := validate.New("LocationXY")
+	v.Ternaryf("x", !l.X.IsValid(), "invalid x: %v", l.X)
+	v.Ternaryf("y", !l.Y.IsValid(), "invalid y: %v", l.Y)
+	return v.Error()
+}
+
 // Decimal is a normalized value in [0, 1] expressed as a decimal fraction of a whole,
 // such as a container's extent.
 type Decimal = float64

@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions"
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -106,10 +107,9 @@ var _ = Describe("ImEx", func() {
 				)
 				Expect(res.Name).To(Equal("Console Typed"))
 				Expect(res.Nodes[0].ZIndex).To(Equal(int16(4)))
-				var cfg map[string]any
-				Expect(res.Configs["n1"].Unmarshal(&cfg)).To(Succeed())
-				Expect(cfg).To(HaveKeyWithValue("variant", "valve"))
-				Expect(cfg).To(HaveKey("strokeWidth"))
+				cfg, ok := res.Configs["n1"].Variant.(schematic.ValveElementConfig)
+				Expect(ok).To(BeTrue())
+				Expect(cfg.OnClickDelay).To(HaveValue(Equal(2.0)))
 			},
 		)
 
@@ -132,10 +132,10 @@ var _ = Describe("ImEx", func() {
 				Expect(res.Edges[0].Target).To(
 					Equal(schematic.Handle{Node: "n2", Param: "b"}),
 				)
-				var cfg map[string]any
-				Expect(res.Configs["n1"].Unmarshal(&cfg)).To(Succeed())
-				Expect(cfg).To(HaveKeyWithValue("variant", "valve"))
-				Expect(cfg).To(HaveKeyWithValue("color", "#ff0000"))
+				cfg, ok := res.Configs["n1"].Variant.(schematic.ValveElementConfig)
+				Expect(ok).To(BeTrue())
+				Expect(cfg.Color).
+					To(HaveValue(Equal(MustSucceed(color.FromHex("#ff0000")))))
 			},
 		)
 

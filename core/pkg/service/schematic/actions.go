@@ -10,8 +10,11 @@
 package schematic
 
 import (
+	"encoding/json"
 	"maps"
 
+	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions"
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
@@ -53,10 +56,14 @@ func (p SetNodePayload) Handle(state Schematic) (Schematic, error) {
 		state.Nodes = append(state.Nodes, p.Node)
 	}
 	if p.Config != nil {
-		if state.Configs == nil {
-			state.Configs = make(map[string]msgpack.EncodedJSON)
+		cfg, err := versions.DecodeElementConfig(versions.NormalizeConfigKeys(p.Config))
+		if err != nil {
+			return state, err
 		}
-		state.Configs[p.Node.Key] = p.Config
+		if state.Configs == nil {
+			state.Configs = make(map[string]ElementConfig)
+		}
+		state.Configs[p.Node.Key] = cfg
 	}
 	return state, nil
 }
@@ -105,34 +112,54 @@ func (p RemoveEdgePayload) Handle(state Schematic) (Schematic, error) {
 // key matches an edge whose source node carries a color, the source color
 // overrides whatever color (if any) was in the payload.
 func (p SetConfigPayload) Handle(state Schematic) (Schematic, error) {
-	if state.Configs == nil {
-		state.Configs = make(map[string]msgpack.EncodedJSON)
-	}
-	if existing := state.Configs[p.Key]; existing != nil {
-		merged := make(msgpack.EncodedJSON, len(existing)+len(p.Config))
-		maps.Copy(merged, existing)
-		maps.Copy(merged, p.Config)
+	if existing, ok := state.Configs[p.Key]; ok {
+		fields, err := versions.ElementConfigFields(existing)
+		if err != nil {
+			return state, err
+		}
+		maps.Copy(fields, versions.NormalizeConfigKeys(p.Config))
+		merged, err := versions.DecodeElementConfig(fields)
+		if err != nil {
+			return state, err
+		}
 		state.Configs[p.Key] = merged
 		return state, nil
 	}
-	cfg := p.Config
+	raw := versions.NormalizeConfigKeys(p.Config)
 	for _, e := range state.Edges {
 		if e.Key != p.Key {
 			continue
 		}
-		srcCfg := state.Configs[e.Source.Node]
-		if srcCfg == nil {
+		srcCfg, ok := state.Configs[e.Source.Node]
+		if !ok {
 			break
 		}
-		c, ok := srcCfg["color"]
+		srcFields, err := versions.ElementConfigFields(srcCfg)
+		if err != nil {
+			return state, err
+		}
+		c, ok := srcFields["color"]
 		if !ok || c == nil {
 			break
 		}
-		next := make(msgpack.EncodedJSON, len(cfg)+1)
-		maps.Copy(next, cfg)
+		if b, err := json.Marshal(c); err == nil {
+			var srcColor color.Color
+			if err := json.Unmarshal(b, &srcColor); err != nil || srcColor.IsZero() {
+				break
+			}
+		}
+		next := make(msgpack.EncodedJSON, len(raw)+1)
+		maps.Copy(next, raw)
 		next["color"] = c
-		cfg = next
+		raw = next
 		break
+	}
+	cfg, err := versions.DecodeElementConfig(raw)
+	if err != nil {
+		return state, err
+	}
+	if state.Configs == nil {
+		state.Configs = make(map[string]ElementConfig)
 	}
 	state.Configs[p.Key] = cfg
 	return state, nil

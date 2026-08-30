@@ -105,7 +105,7 @@ describe("Schematic toolbar Properties", () => {
       await renderProperties({
         nodeKeys: ["n1"],
         createConfig: () => ({
-          ...(PSchematic.Node.resolveSpec("customStatic").defaultConfig(
+          ...(PSchematic.Node.resolveSpec("custom_static").defaultConfig(
             theme,
           ) as Record<string, unknown>),
           specKey: uuid.create(),

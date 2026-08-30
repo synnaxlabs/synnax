@@ -81,9 +81,10 @@ describe("Border", () => {
     });
 
     it("DEFAULT_RADIUS should apply to every corner", () => {
-      const radius = border.constructRadius(Border.DEFAULT_RADIUS);
-      expect(radius.topLeft).toEqual(Border.DEFAULT_RADIUS);
-      expect(Border.cssRadius(radius)).toBe("50% 50% 50% 50% / 10% 10% 10% 10%");
+      expect(Border.DEFAULT_RADIUS).toEqual(border.constructRadius({ x: 50, y: 10 }));
+      expect(Border.cssRadius(Border.DEFAULT_RADIUS)).toBe(
+        "50% 50% 50% 50% / 10% 10% 10% 10%",
+      );
     });
   });
 });

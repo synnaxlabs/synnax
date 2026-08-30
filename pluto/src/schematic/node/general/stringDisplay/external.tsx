@@ -7,37 +7,34 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Label } from "@/schematic/node/common/label";
-import { type Config, VARIANT } from "@/schematic/node/general/stringDisplay/config";
 import { StringDisplayForm } from "@/schematic/node/general/stringDisplay/Form";
 import { StringDisplay } from "@/schematic/node/general/stringDisplay/Primitive";
 import { Symbol } from "@/schematic/node/general/stringDisplay/Symbol";
 import { type Spec } from "@/schematic/node/spec";
-import { telem } from "@/telem/aether";
-import { Staleness } from "@/vis/staleness";
+import { type Theming } from "@/theming";
 
-export * from "@/schematic/node/general/stringDisplay/config";
-
-export const defaultConfig = (): Config => ({
-  variant: VARIANT,
+export const defaultConfig = (t: Theming.Theme): schematic.StringDisplayNodeConfig => ({
+  variant: "string_display",
   orientation: "left",
   color: color.ZERO,
   level: "p",
   inlineSize: 100,
   label: Label.defaultConfig("String display"),
-  ...Staleness.ZERO_CONFIG,
-  telem: telem.streamChannelStringValue({ channel: 0 }),
+  stalenessTimeout: 5,
+  stalenessColor: t.colors.warning.m1,
 });
 
-const Preview = ({ color, level }: Config): ReactElement => (
+const Preview = ({ color, level }: schematic.StringDisplayNodeConfig): ReactElement => (
   <StringDisplay color={color} level={level} value="Hello world!" />
 );
 
-export const spec: Spec<typeof VARIANT, Config> = {
-  key: VARIANT,
+export const spec: Spec<"string_display", schematic.StringDisplayNodeConfig> = {
+  key: "string_display",
   name: "String display",
   Form: StringDisplayForm,
   Node: Symbol,

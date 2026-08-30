@@ -7,15 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import z from "zod";
+import { schematic } from "@synnaxlabs/client";
 
 import { Edge } from "@/schematic/edge";
 import { Node } from "@/schematic/node";
 
-export const elementConfigZ = z.discriminatedUnion("variant", [
-  ...Node.configZ.options,
-  ...Edge.configZ.options,
-]);
-export type ElementConfig = z.infer<typeof elementConfigZ>;
+export const elementConfigZ = schematic.elementConfigZ;
+export type ElementConfig = schematic.ElementConfig;
 
 export const ELEMENT_REGISTRY = { ...Node.REGISTRY, ...Edge.REGISTRY };

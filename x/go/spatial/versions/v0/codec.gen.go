@@ -78,6 +78,32 @@ func (d *Dimensions) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
+func (lxy LocationXY) EncodeOrc(w *orc.Writer) error {
+	w.String(string(lxy.X))
+	w.String(string(lxy.Y))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (lxy *LocationXY) DecodeOrc(r *orc.Reader) error {
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		lxy.X = XCenterLocation(rawV)
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		lxy.Y = YCenterLocation(rawV)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
 func (su StickyUnits) EncodeOrc(w *orc.Writer) error {
 	w.String(string(su.X))
 	w.String(string(su.Y))

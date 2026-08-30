@@ -9,20 +9,23 @@
 
 import "@/schematic/edge/electric/Electric.css";
 
+import { type schematic } from "@synnaxlabs/client";
+
 import { CSS } from "@/css";
 import { Base } from "@/schematic/edge/common/base";
 import { Path } from "@/schematic/edge/common/path";
 import { Segmented } from "@/schematic/edge/common/segmented";
-import { NAME, VARIANT } from "@/schematic/edge/electric/config";
+import { type Spec } from "@/schematic/edge/spec";
 
-export const spec = Segmented.createSpec(
-  VARIANT,
-  NAME,
-  ({ points, crossings, color }) => (
-    <Base.Base
-      path={Path.rounded(points, crossings)}
-      color={color}
-      className={CSS.B("schematic-edge-electric")}
-    />
-  ),
-);
+export const spec: Spec<"electric", schematic.ElectricEdgeConfig> =
+  Segmented.createSpec(
+    "electric",
+    "Electric signal",
+    ({ points, crossings, color }) => (
+      <Base.Base
+        path={Path.rounded(points, crossings)}
+        color={color}
+        className={CSS.B("schematic-edge-electric")}
+      />
+    ),
+  );

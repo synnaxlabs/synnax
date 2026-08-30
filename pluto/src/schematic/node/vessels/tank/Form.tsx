@@ -16,8 +16,14 @@ import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { Scale } from "@/schematic/node/common/scale";
 import { type FormProps as NodeFormProps } from "@/schematic/node/spec";
-import { FILL_DEFAULTS } from "@/schematic/node/vessels/tank/config";
 import { Tabs } from "@/tabs";
+
+/** Fill defaults for a tank, which draws its own wall and reads best with no scale. */
+export const FILL_DEFAULTS: Partial<Scale.Config> = {
+  showCaret: false,
+  showScale: false,
+  side: "left",
+};
 
 export interface TankFormProps extends NodeFormProps {
   showBorderRadius?: boolean;
@@ -26,13 +32,13 @@ export interface TankFormProps extends NodeFormProps {
 }
 
 const FillForm = (): ReactElement => {
-  const telem = Base.useFieldValue<Scale.Config["telem"]>("fill.telem", {
+  const channel = Base.useFieldValue<Scale.Config["channel"]>("fill.channel", {
     optional: true,
   });
   return (
     <Form.Wrapper y empty>
       <Scale.TelemForm path="fill" defaults={FILL_DEFAULTS} allowNone />
-      {telem != null && (
+      {channel != null && (
         <Flex.Box x>
           <Scale.DisplayFields path="fill" />
           <Form.ColorField path="fill.color" label="Fill color" />
@@ -55,22 +61,7 @@ export const TankForm = ({
         <Flex.Box x>
           <Form.ColorField path="color" />
           <Form.ColorField path="backgroundColor" label="Background color" />
-          <Base.NumericField
-            path="borderRadius.x"
-            hideIfNull
-            optional
-            label="X border radius"
-            grow
-            inputProps={Form.PERCENT_BORDER_RADIUS_INPUT_PROPS}
-          />
-          <Base.NumericField
-            path="borderRadius.y"
-            hideIfNull
-            optional
-            label="Y border radius"
-            grow
-            inputProps={Form.PERCENT_BORDER_RADIUS_INPUT_PROPS}
-          />
+          <Form.RadiusFields path="borderRadius" />
           {showBorderRadius && (
             <Base.NumericField
               path="borderRadius"

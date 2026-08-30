@@ -42,23 +42,30 @@ describe("Scale", () => {
     });
   });
 
-  describe("telem", () => {
-    it("should read back the properties a spec was built from", () => {
-      const props = { channel: 12, windowSize: 3 } as const;
-      expect(Scale.parseTelem(Scale.createTelem(props))).toEqual(props);
+  describe("source", () => {
+    it("should build the smoothed read pipeline for the configured channel", () => {
+      const spec = Scale.source(
+        Scale.defaultConfig({ channel: 12, rollingAverage: 3 }),
+      );
+      const { segments } = telem.sourcePipelinePropsZ.parse(spec.props);
+      expect(
+        telem.streamChannelValuePropsZ.parse(segments.valueStream.props).channel,
+      ).toEqual(12);
+      expect(
+        telem.rollingAverageProps.parse(segments.rollingAverage.props).windowSize,
+      ).toEqual(3);
     });
 
-    it("should use the defaults for an unset spec", () => {
-      expect(Scale.parseTelem()).toEqual({ channel: 0, windowSize: 1 });
-    });
-
-    it("should use the defaults for a spec built by a different pipeline", () => {
-      const spec = telem.sourcePipeline("number", {
-        connections: [],
-        segments: { other: telem.streamChannelValue({ channel: 9 }) },
-        outlet: "other",
-      });
-      expect(Scale.parseTelem(spec).channel).toEqual(0);
+    it("should read an unset channel as zero and no smoothing", () => {
+      const { segments } = telem.sourcePipelinePropsZ.parse(
+        Scale.source(Scale.defaultConfig()).props,
+      );
+      expect(
+        telem.streamChannelValuePropsZ.parse(segments.valueStream.props).channel,
+      ).toEqual(0);
+      expect(
+        telem.rollingAverageProps.parse(segments.rollingAverage.props).windowSize,
+      ).toEqual(1);
     });
   });
 });

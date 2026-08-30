@@ -77,6 +77,39 @@ type Dimensions = versions.Dimensions
 // Viewport is the camera state of a viewport.
 type Viewport = versions.Viewport
 
+// Location is a position indicator covering the four outer edges of a container and its
+// center.
+type Location = versions.Location
+
+const (
+	LocationTop    Location = versions.LocationTop
+	LocationRight  Location = versions.LocationRight
+	LocationBottom Location = versions.LocationBottom
+	LocationLeft   Location = versions.LocationLeft
+	LocationCenter Location = versions.LocationCenter
+)
+
+// XCenterLocation is a horizontal-axis location at the left, right, or center.
+type XCenterLocation = versions.XCenterLocation
+
+const (
+	XCenterLocationLeft   XCenterLocation = versions.XCenterLocationLeft
+	XCenterLocationRight  XCenterLocation = versions.XCenterLocationRight
+	XCenterLocationCenter XCenterLocation = versions.XCenterLocationCenter
+)
+
+// YCenterLocation is a vertical-axis location at the top, bottom, or center.
+type YCenterLocation = versions.YCenterLocation
+
+const (
+	YCenterLocationTop    YCenterLocation = versions.YCenterLocationTop
+	YCenterLocationBottom YCenterLocation = versions.YCenterLocationBottom
+	YCenterLocationCenter YCenterLocation = versions.YCenterLocationCenter
+)
+
+// LocationXY is a per-axis location pair anchoring content within a region.
+type LocationXY = versions.LocationXY
+
 // Decimal is a normalized value in [0, 1] expressed as a decimal fraction of a whole,
 // such as a container's extent.
 type Decimal = versions.Decimal
@@ -85,29 +118,6 @@ type Decimal = versions.Decimal
 // The TypeScript binding is generic over T so callers can express bounds over either
 // number or bigint values; other languages emit a concrete float64-based type.
 type Bounds = versions.Bounds
-
-// Location is a position indicator covering the four outer edges of a container and its
-// center.
-type Location string
-
-const (
-	LocationTop    Location = "top"
-	LocationRight  Location = "right"
-	LocationBottom Location = "bottom"
-	LocationLeft   Location = "left"
-	LocationCenter Location = "center"
-)
-
-// IsValid reports whether l is one of the defined Location
-// values.
-func (l Location) IsValid() bool {
-	switch l {
-	case LocationTop, LocationRight, LocationBottom, LocationLeft, LocationCenter:
-		return true
-	default:
-		return false
-	}
-}
 
 // Order is a positional ordering indicator for elements in a sequence.
 type Order string

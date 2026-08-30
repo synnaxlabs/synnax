@@ -10,15 +10,61 @@
 package schematic_test
 
 import (
+	"encoding/json"
+	"strconv"
+
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/union"
+	"github.com/synnaxlabs/x/validate"
 )
+
+// mustColor parses a crude hex color into its canonical form.
+func mustColor(hex string) color.Color {
+	var c color.Color
+	if err := json.Unmarshal([]byte(strconv.Quote(hex)), &c); err != nil {
+		panic(err)
+	}
+	return c
+}
+
+// tankCfg constructs a typed tank element config. hex is optional.
+func tankCfg(label, hex string) schematic.ElementConfig {
+	cfg := schematic.TankElementConfig{
+		LabeledConfig: schematic.LabeledConfig{
+			Label: new(schematic.LabelConfig{Label: new(label)}),
+		},
+	}
+	if hex != "" {
+		cfg.Color = new(mustColor(hex))
+	}
+	return schematic.ElementConfig{Variant: cfg}
+}
+
+// pipeCfg constructs a typed pipe edge config. hex is optional.
+func pipeCfg(hex string) schematic.ElementConfig {
+	cfg := schematic.SegmentedEdgeConfig{}
+	if hex != "" {
+		cfg.Color = new(mustColor(hex))
+	}
+	return schematic.ElementConfig{
+		Variant: schematic.PipeElementConfig{SegmentedEdgeConfig: cfg},
+	}
+}
+
+// tankPayload is the wire form of a tank config carrying only a label.
+func tankPayload(label string) msgpack.EncodedJSON {
+	return msgpack.EncodedJSON{
+		"variant": "tank",
+		"label":   map[string]any{"label": label},
+	}
+}
 
 // node constructs a node at the given coordinates. zIndex is left zero.
 func node(key string, x, y float64) schematic.Node {
@@ -112,17 +158,15 @@ var _ = Describe("Reducer", func() {
 					schematic.NewSetNodeAction(schematic.SetNodePayload{
 						Node: node("n1", 0, 0),
 						Config: msgpack.EncodedJSON{
-							"label": "Pump",
-							"color": "#ff0000",
+							"variant": "tank",
+							"label":   map[string]any{"label": "Pump"},
+							"color":   "#ff0000",
 						},
 					}),
 				),
 			)
 			Expect(out.Configs).To(HaveKey("n1"))
-			Expect(out.Configs["n1"]).To(Equal(msgpack.EncodedJSON{
-				"label": "Pump",
-				"color": "#ff0000",
-			}))
+			Expect(out.Configs["n1"]).To(Equal(tankCfg("Pump", "#ff0000")))
 		})
 		It("Should leave configs untouched when the action's config is nil", func() {
 			state := schematic.Schematic{}
@@ -166,9 +210,9 @@ var _ = Describe("Reducer", func() {
 			func() {
 				state := schematic.Schematic{
 					Nodes: []schematic.Node{node("n1", 0, 0), node("n2", 1, 1)},
-					Configs: map[string]msgpack.EncodedJSON{
-						"n1": {"label": "Pump"},
-						"n2": {"label": "Tank"},
+					Configs: map[string]schematic.ElementConfig{
+						"n1": tankCfg("Pump", ""),
+						"n2": tankCfg("Tank", ""),
 					},
 				}
 				out := MustSucceed(
@@ -206,7 +250,7 @@ var _ = Describe("Reducer", func() {
 		It("Should be a no-op when the key does not match any node", func() {
 			state := schematic.Schematic{
 				Nodes:   []schematic.Node{node("n1", 0, 0)},
-				Configs: map[string]msgpack.EncodedJSON{"n1": {"label": "Pump"}},
+				Configs: map[string]schematic.ElementConfig{"n1": tankCfg("Pump", "")},
 			}
 			out := MustSucceed(
 				schematic.Reduce(
@@ -263,9 +307,9 @@ var _ = Describe("Reducer", func() {
 						edge("e1", "a", "o", "b", "i"),
 						edge("e2", "b", "o", "c", "i"),
 					},
-					Configs: map[string]msgpack.EncodedJSON{
-						"e1": {"color": "#fff"},
-						"e2": {"color": "#000"},
+					Configs: map[string]schematic.ElementConfig{
+						"e1": pipeCfg("#ffffff"),
+						"e2": pipeCfg("#000000"),
 					},
 				}
 				out := MustSucceed(
@@ -286,7 +330,7 @@ var _ = Describe("Reducer", func() {
 		It("Should be a no-op when the key does not match any edge", func() {
 			state := schematic.Schematic{
 				Edges:   []schematic.Edge{edge("e1", "a", "o", "b", "i")},
-				Configs: map[string]msgpack.EncodedJSON{"e1": {"color": "#fff"}},
+				Configs: map[string]schematic.ElementConfig{"e1": pipeCfg("#ffffff")},
 			}
 			out := MustSucceed(
 				schematic.Reduce(
@@ -309,29 +353,51 @@ var _ = Describe("Reducer", func() {
 					state,
 					schematic.NewSetConfigAction(schematic.SetConfigPayload{
 						Key:    "n1",
-						Config: msgpack.EncodedJSON{"label": "Pump"},
+						Config: tankPayload("Pump"),
 					}),
 				),
 			)
-			Expect(out.Configs["n1"]).To(Equal(msgpack.EncodedJSON{"label": "Pump"}))
+			Expect(out.Configs["n1"]).To(Equal(tankCfg("Pump", "")))
 		})
 		It("Should merge payload fields into an existing config entry", func() {
-			state := schematic.Schematic{Configs: map[string]msgpack.EncodedJSON{
-				"n1": {"label": "Old", "color": "#ff0000"},
+			state := schematic.Schematic{Configs: map[string]schematic.ElementConfig{
+				"n1": tankCfg("Old", "#ff0000"),
 			}}
 			out := MustSucceed(
 				schematic.Reduce(
 					state,
 					schematic.NewSetConfigAction(schematic.SetConfigPayload{
-						Key:    "n1",
-						Config: msgpack.EncodedJSON{"label": "New"},
+						Key: "n1",
+						Config: msgpack.EncodedJSON{
+							"label": map[string]any{"label": "New"},
+						},
 					}),
 				),
 			)
-			Expect(out.Configs["n1"]).To(Equal(msgpack.EncodedJSON{
-				"label": "New",
-				"color": "#ff0000",
-			}))
+			Expect(out.Configs["n1"]).To(Equal(tankCfg("New", "#ff0000")))
+		})
+		// A nil config would otherwise store a null entry, which no client can read
+		// back, taking the whole schematic down with it.
+		It("Should reject a nil config", func() {
+			Expect(schematic.Reduce(
+				schematic.Schematic{},
+				schematic.NewSetConfigAction(schematic.SetConfigPayload{Key: "n1"}),
+			)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("names no variant")),
+			))
+		})
+		It("Should reject a config naming no known variant", func() {
+			Expect(schematic.Reduce(
+				schematic.Schematic{},
+				schematic.NewSetConfigAction(schematic.SetConfigPayload{
+					Key:    "n1",
+					Config: msgpack.EncodedJSON{"variant": "not-a-symbol"},
+				}),
+			)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(`unknown variant "not-a-symbol"`)),
+			))
 		})
 		It("Should accept a key that does not match any node or edge", func() {
 			state := schematic.Schematic{}
@@ -340,19 +406,32 @@ var _ = Describe("Reducer", func() {
 					state,
 					schematic.NewSetConfigAction(schematic.SetConfigPayload{
 						Key:    "orphan",
-						Config: msgpack.EncodedJSON{"data": 1},
+						Config: tankPayload("Floating"),
 					}),
 				),
 			)
-			Expect(out.Configs["orphan"]).To(Equal(msgpack.EncodedJSON{"data": 1}))
+			Expect(out.Configs["orphan"]).To(Equal(tankCfg("Floating", "")))
+		})
+		It("Should reject a config that does not match any element variant", func() {
+			state := schematic.Schematic{}
+			Expect(
+				schematic.Reduce(
+					state,
+					schematic.NewSetConfigAction(schematic.SetConfigPayload{
+						Key:    "orphan",
+						Config: msgpack.EncodedJSON{"data": 1},
+					}),
+				),
+			).Error().
+				To(MatchError(ContainSubstring("invalid element config")))
 		})
 		It(
 			"Should override the payload color with the edge's source color on insert",
 			func() {
 				state := schematic.Schematic{
 					Edges: []schematic.Edge{edge("e1", "src", "o", "tgt", "i")},
-					Configs: map[string]msgpack.EncodedJSON{
-						"src": {"color": "#00ff00"},
+					Configs: map[string]schematic.ElementConfig{
+						"src": tankCfg("Source", "#00ff00"),
 					},
 				}
 				out := MustSucceed(
@@ -367,10 +446,7 @@ var _ = Describe("Reducer", func() {
 						}),
 					),
 				)
-				Expect(out.Configs["e1"]).To(Equal(msgpack.EncodedJSON{
-					"variant": "pipe",
-					"color":   "#00ff00",
-				}))
+				Expect(out.Configs["e1"]).To(Equal(pipeCfg("#00ff00")))
 			},
 		)
 		It(
@@ -378,8 +454,8 @@ var _ = Describe("Reducer", func() {
 			func() {
 				state := schematic.Schematic{
 					Edges: []schematic.Edge{edge("e1", "src", "o", "tgt", "i")},
-					Configs: map[string]msgpack.EncodedJSON{
-						"src": {"color": "#00ff00"},
+					Configs: map[string]schematic.ElementConfig{
+						"src": tankCfg("Source", "#00ff00"),
 					},
 				}
 				out := MustSucceed(
@@ -391,10 +467,7 @@ var _ = Describe("Reducer", func() {
 						}),
 					),
 				)
-				Expect(out.Configs["e1"]).To(Equal(msgpack.EncodedJSON{
-					"variant": "pipe",
-					"color":   "#00ff00",
-				}))
+				Expect(out.Configs["e1"]).To(Equal(pipeCfg("#00ff00")))
 			},
 		)
 		It(
@@ -402,8 +475,8 @@ var _ = Describe("Reducer", func() {
 			func() {
 				state := schematic.Schematic{
 					Edges: []schematic.Edge{edge("e1", "src", "o", "tgt", "i")},
-					Configs: map[string]msgpack.EncodedJSON{
-						"src": {"label": "Pump"},
+					Configs: map[string]schematic.ElementConfig{
+						"src": tankCfg("Pump", ""),
 					},
 				}
 				out := MustSucceed(
@@ -418,10 +491,7 @@ var _ = Describe("Reducer", func() {
 						}),
 					),
 				)
-				Expect(out.Configs["e1"]).To(Equal(msgpack.EncodedJSON{
-					"variant": "pipe",
-					"color":   "#000000",
-				}))
+				Expect(out.Configs["e1"]).To(Equal(pipeCfg("#000000")))
 			},
 		)
 		It(
@@ -442,10 +512,7 @@ var _ = Describe("Reducer", func() {
 						}),
 					),
 				)
-				Expect(out.Configs["e1"]).To(Equal(msgpack.EncodedJSON{
-					"variant": "pipe",
-					"color":   "#000000",
-				}))
+				Expect(out.Configs["e1"]).To(Equal(pipeCfg("#000000")))
 			},
 		)
 		It(
@@ -453,9 +520,9 @@ var _ = Describe("Reducer", func() {
 			func() {
 				state := schematic.Schematic{
 					Edges: []schematic.Edge{edge("e1", "src", "o", "tgt", "i")},
-					Configs: map[string]msgpack.EncodedJSON{
-						"src": {"color": "#00ff00"},
-						"e1":  {"variant": "pipe", "color": "#000000"},
+					Configs: map[string]schematic.ElementConfig{
+						"src": tankCfg("Source", "#00ff00"),
+						"e1":  pipeCfg("#000000"),
 					},
 				}
 				out := MustSucceed(
@@ -467,9 +534,12 @@ var _ = Describe("Reducer", func() {
 						}),
 					),
 				)
-				Expect(out.Configs["e1"]).To(Equal(msgpack.EncodedJSON{
-					"variant": "electric",
-					"color":   "#000000",
+				Expect(out.Configs["e1"]).To(Equal(schematic.ElementConfig{
+					Variant: schematic.ElectricElementConfig{
+						SegmentedEdgeConfig: schematic.SegmentedEdgeConfig{
+							Color: new(mustColor("#000000")),
+						},
+					},
 				}))
 			},
 		)
@@ -517,7 +587,7 @@ var _ = Describe("Reducer", func() {
 				),
 				schematic.NewSetConfigAction(schematic.SetConfigPayload{
 					Key:    "pump",
-					Config: msgpack.EncodedJSON{"label": "Main Pump"},
+					Config: tankPayload("Main Pump"),
 				}),
 				schematic.NewSetConfigAction(schematic.SetConfigPayload{
 					Key:    "e1",
@@ -528,19 +598,19 @@ var _ = Describe("Reducer", func() {
 			Expect(out.Nodes).To(HaveLen(3))
 			Expect(out.Edges).To(HaveLen(2))
 			Expect(out.Configs).To(HaveLen(2))
-			Expect(
-				out.Configs["pump"],
-			).To(Equal(msgpack.EncodedJSON{"label": "Main Pump"}))
-			Expect(out.Configs["e1"]).To(Equal(msgpack.EncodedJSON{"variant": "pipe"}))
+			Expect(out.Configs["pump"]).To(Equal(tankCfg("Main Pump", "")))
+			Expect(out.Configs["e1"]).To(Equal(pipeCfg("")))
 		})
 
 		It(
 			"Should drop config but keep dangling edges when a node is removed and re-added",
 			func() {
 				state := schematic.Schematic{
-					Nodes:   []schematic.Node{node("n1", 0, 0), node("n2", 1, 1)},
-					Edges:   []schematic.Edge{edge("e1", "n1", "o", "n2", "i")},
-					Configs: map[string]msgpack.EncodedJSON{"n1": {"label": "v1"}},
+					Nodes: []schematic.Node{node("n1", 0, 0), node("n2", 1, 1)},
+					Edges: []schematic.Edge{edge("e1", "n1", "o", "n2", "i")},
+					Configs: map[string]schematic.ElementConfig{
+						"n1": tankCfg("v1", ""),
+					},
 				}
 				actions := []schematic.Action{
 					schematic.NewRemoveNodeAction(
@@ -624,10 +694,8 @@ var _ = Describe("Reducer", func() {
 					actions = append(
 						actions,
 						schematic.NewSetConfigAction(schematic.SetConfigPayload{
-							Key: "n" + string(rune('0'+i)),
-							Config: msgpack.EncodedJSON{
-								"label": "node " + string(rune('0'+i)),
-							},
+							Key:    "n" + string(rune('0'+i)),
+							Config: tankPayload("node " + string(rune('0'+i))),
 						}),
 					)
 				}
