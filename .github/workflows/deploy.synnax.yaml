@@ -312,16 +312,12 @@ jobs:
           CONSOLE_VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
           echo "CONSOLE_VERSION=${CONSOLE_VERSION}" >> $GITHUB_OUTPUT
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v6
-        if: github.ref == 'refs/heads/main'
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
+      - name: Set up pnpm and Node.js
+        uses: pnpm/setup@v2
         if: github.ref == 'refs/heads/main'
         with:
-          node-version-file: package.json
-          cache: pnpm
+          cache: true
+          install: false
 
       - name: Add Auto Update JSON File
         uses: actions/github-script@v9

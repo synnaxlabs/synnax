@@ -515,19 +515,11 @@ jobs:
         run: |
           Copy-Item -Force bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}.exe core/pkg/driver/assets/driver.exe
 
-      - name: Set up pnpm
+      - name: Set up pnpm and Node.js
         if: inputs.console
-        uses: pnpm/action-setup@v6
-
-      - name: Set up Node.js
-        if: inputs.console
-        uses: actions/setup-node@v7
+        uses: pnpm/setup@v2
         with:
-          node-version-file: package.json
-
-      - name: Install Node Dependencies
-        if: inputs.console
-        run: pnpm install
+          cache: true
 
       - name: Build Console Web Assets
         if: inputs.console
@@ -834,14 +826,10 @@ jobs:
             echo "VERSION=${CONSOLE_VERSION}-${GITHUB_SHA:0:7}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v6
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
+      - name: Set up pnpm and Node.js
+        uses: pnpm/setup@v2
         with:
-          node-version-file: package.json
-          cache: pnpm
+          cache: true
 
       - name: Adjust Auto Updater URL for Release Candidate
         if: inputs.sign_binaries && github.ref == 'refs/heads/rc'
@@ -856,9 +844,6 @@ jobs:
         with:
           cache-workspaces: console/src-tauri -> target
           cache-shared-key: ${{ runner.os }}
-
-      - name: Install Dependencies
-        run: pnpm install
 
       - name: Build TypeScript
         run: pnpm build:console-vite
