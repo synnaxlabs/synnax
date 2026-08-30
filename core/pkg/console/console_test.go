@@ -36,9 +36,13 @@ var testFS = fstest.MapFS{
 	"pluto/assets/editor.worker-abc123.js": &fstest.MapFile{
 		Data: []byte(workerScript),
 	},
+	"assets/index-abc123.js": &fstest.MapFile{Data: []byte(entryScript)},
 }
 
-const workerScript = `self.onmessage = () => {};`
+const (
+	workerScript = `self.onmessage = () => {};`
+	entryScript  = `export const main = () => {};`
+)
 
 var _ = Describe("Config", func() {
 	Describe("Override", func() {
@@ -138,6 +142,49 @@ var _ = Describe("Console", func() {
 				Expect(res.Header.Get(fiber.HeaderContentType)).
 					To(ContainSubstring(fiber.MIMETextHTML))
 			})
+
+			// A stored copy of index.html outlives the release it came from: it keeps
+			// its name, and its embedded modification time never moves, so a
+			// revalidation would answer 304 against the upgraded Core.
+			DescribeTable("Should keep re-read files out of the browser cache",
+				func(path string) {
+					req := httptest.NewRequest(http.MethodGet, path, nil)
+					res := MustSucceed(app.Test(req))
+					Expect(res.StatusCode).To(Equal(http.StatusOK))
+					Expect(
+						res.Header.Get(fiber.HeaderCacheControl),
+					).To(Equal("no-store"))
+				},
+				Entry("index.html", "/"),
+				Entry("an SPA route", "/some/spa/route"),
+				Entry("an unhashed asset", "/favicon.svg"),
+			)
+
+			DescribeTable("Should let the browser keep hashed assets forever",
+				func(path string) {
+					req := httptest.NewRequest(http.MethodGet, path, nil)
+					res := MustSucceed(app.Test(req))
+					Expect(res.StatusCode).To(Equal(http.StatusOK))
+					Expect(res.Header.Get(fiber.HeaderCacheControl)).
+						To(Equal("public, max-age=31536000, immutable"))
+				},
+				Entry("a bundle asset", "/assets/index-abc123.js"),
+				Entry("a nested worker asset", "/pluto/assets/editor.worker-abc123.js"),
+			)
+
+			// The app shell answers with status 200 and content type HTML, so a caller
+			// expecting a file fails on the content instead of the status. A module
+			// worker given HTML reports an error event carrying no message.
+			DescribeTable("Should answer 404 for a file the build does not emit",
+				func(path string) {
+					req := httptest.NewRequest(http.MethodGet, path, nil)
+					res := MustSucceed(app.Test(req))
+					Expect(res.StatusCode).To(Equal(http.StatusNotFound))
+				},
+				Entry("a stale bundle chunk", "/assets/index-stale.js"),
+				Entry("a stale worker", "/pluto/assets/editor.worker-stale.js"),
+				Entry("a missing stylesheet", "/index-stale.css"),
+			)
 		})
 
 		Describe("Use", func() {

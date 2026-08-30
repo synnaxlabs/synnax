@@ -10,12 +10,13 @@
 import "@/errors/Fallback.css";
 
 import { Logo } from "@synnaxlabs/media";
-import { primitive, type record } from "@synnaxlabs/x";
+import { errors, primitive, type record } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
   type ReactElement,
   useCallback,
   useEffect,
+  useMemo,
   useState,
 } from "react";
 import { z } from "zod";
@@ -44,6 +45,28 @@ export interface FallbackProps extends PropsWithChildren {
    * button. */
   extraInfo?: record.Unknown;
 }
+
+/** Longest chain of causes a report walks, in case one links back to itself. */
+const MAX_CAUSE_DEPTH = 10;
+
+/**
+ * @returns one line per `cause` beneath err, outermost first. A wrapper carries only
+ * its own message, so the reason the report is about is the last line.
+ */
+const causeChain = (err: Error): string[] => {
+  const lines: string[] = [];
+  let cause = err.cause;
+  while (cause != null && lines.length < MAX_CAUSE_DEPTH) {
+    const asError = errors.fromUnknown(cause);
+    lines.push(
+      asError instanceof z.core.$ZodError
+        ? z.prettifyError(asError)
+        : `${asError.name}: ${asError.message}`,
+    );
+    cause = cause instanceof Error ? cause.cause : null;
+  }
+  return lines;
+};
 
 /**
  * Default error fallback component. Can be used standalone or with ErrorBoundary.
@@ -89,18 +112,20 @@ export const Fallback = ({
   const message =
     error instanceof z.core.$ZodError ? z.prettifyError(error) : error.message;
   const multiline = message.includes("\n");
+  const causes = useMemo(() => causeChain(error), [error]);
 
   const getCopyText = useCallback(() => {
     const sections: string[] = [];
     sections.push(`Error: ${error.name}`);
     sections.push(`Message: ${error.message}`);
+    if (causes.length > 0) sections.push(`\nCaused by:\n${causes.join("\n")}`);
     if (displayStack) sections.push(`\nStack trace:\n${displayStack}\n`);
     if (displayComponentStack)
       sections.push(`\nComponent stack:\n${displayComponentStack}`);
     if (extraInfo && Object.keys(extraInfo).length > 0)
       sections.push(`\nAdditional info:\n${JSON.stringify(extraInfo, null, 2)}`);
     return sections.join("\n");
-  }, [error, displayStack, displayComponentStack, extraInfo]);
+  }, [error, causes, displayStack, displayComponentStack, extraInfo]);
 
   return (
     <Flex.Box className={CSS.BE("error-fallback", "container")} y grow center>
@@ -151,6 +176,16 @@ export const Fallback = ({
             >
               {message}
             </Text.Text>
+            {causes.length > 0 && (
+              <Text.Text
+                level="small"
+                variant="code"
+                color={9}
+                className={CSS.BE("error-fallback", "causes")}
+              >
+                {causes.map((cause) => `Caused by: ${cause}`).join("\n")}
+              </Text.Text>
+            )}
           </Flex.Box>
           <Divider.Divider x />
           <Text.Text level="h5" color={9}>
