@@ -63,6 +63,18 @@ describe("Fallback", () => {
     expect(c.getByText("Test error message")).toBeTruthy();
   });
 
+  it("should render the chain of causes beneath the message", () => {
+    const denied = new Error("insufficient permissions");
+    denied.name = "AccessDenied";
+    const wrapped = new Error("Failed to retrieve permissions", { cause: denied });
+    const c = render(
+      <Errors.Fallback error={wrapped} resetErrorBoundary={mockReset} />,
+    );
+    expect(
+      c.getByText("Caused by: AccessDenied: insufficient permissions"),
+    ).toBeTruthy();
+  });
+
   it("should render the default reload button", () => {
     const c = render(
       <Errors.Fallback error={mockError} resetErrorBoundary={mockReset} />,
@@ -257,6 +269,34 @@ describe("Fallback", () => {
       const copiedText = writeTextMock.mock.calls[0][0];
       expect(copiedText).toContain("Component stack:");
       expect(copiedText).toContain("at MyComponent");
+    });
+
+    it("should include the chain of causes in copied content", async () => {
+      const denied = new Error("insufficient permissions");
+      denied.name = "AccessDenied";
+      const wrapped = new Error("Failed to retrieve permissions", { cause: denied });
+      const c = render(
+        <Errors.Fallback error={wrapped} resetErrorBoundary={mockReset} />,
+      );
+      fireEvent.click(c.getByText("Copy diagnostics"));
+      await waitFor(() => {
+        expect(writeTextMock).toHaveBeenCalled();
+      });
+      const copiedText = writeTextMock.mock.calls[0][0];
+      expect(copiedText).toContain("Caused by:");
+      expect(copiedText).toContain("AccessDenied: insufficient permissions");
+    });
+
+    it("should not include a causes section for an error without one", async () => {
+      const c = render(
+        <Errors.Fallback error={mockError} resetErrorBoundary={mockReset} />,
+      );
+      fireEvent.click(c.getByText("Copy diagnostics"));
+      await waitFor(() => {
+        expect(writeTextMock).toHaveBeenCalled();
+      });
+      const copiedText = writeTextMock.mock.calls[0][0];
+      expect(copiedText).not.toContain("Caused by:");
     });
 
     it("should include extraInfo in copied content", async () => {
