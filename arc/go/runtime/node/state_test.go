@@ -2434,11 +2434,10 @@ func newRefState(ctx SpecContext) *node.ProgramState {
 		Inputs: map[string]msgpack.EncodedJSON{
 			"reg": {"type": "reg"}, "reader": {"type": "reader"},
 		},
-	}
-	g.Edges = graph.Edges{{
-		Source: ir.Handle{Node: "reg", Param: ir.DefaultOutputParam},
-		Target: ir.Handle{Node: "reader", Param: "channel"},
-	}}
+		Edges: graph.Edges{{
+			Source: ir.Handle{Node: "reg", Param: ir.DefaultOutputParam},
+			Target: ir.Handle{Node: "reader", Param: "channel"},
+		}}}
 	prog, diagnostics := graph.Analyze(ctx, g, nil)
 	Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 	return node.New(prog)
