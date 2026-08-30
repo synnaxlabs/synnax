@@ -28,7 +28,7 @@ import (
 
 var _ = Describe("Select", func() {
 	Describe("NewModule", func() {
-		It("Should create module", func(ctx SpecContext) {
+		It("Should create module", func() {
 			module := selector.NewHost()
 			Expect(module).ToNot(BeNil())
 		})
@@ -76,7 +76,7 @@ var _ = Describe("Select", func() {
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = node.New(analyzed)
 		})
-		It("Should create node for select type", func(ctx SpecContext) {
+		It("Should create node for select type", func() {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "select"},
 				State: s.Node("select"),
@@ -84,7 +84,7 @@ var _ = Describe("Select", func() {
 			n := MustSucceed(factory.Create(cfg))
 			Expect(n).ToNot(BeNil())
 		})
-		It("Should return NotFound for unknown type", func(ctx SpecContext) {
+		It("Should return NotFound for unknown type", func() {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "unknown"},
 				State: s.Node("select"),
@@ -546,7 +546,7 @@ var _ = Describe("Select", func() {
 var _ = Describe("Construction validation", func() {
 	It(
 		"Should error at construction when the input param is missing",
-		func(ctx SpecContext) {
+		func() {
 			prog := ir.IR{Nodes: ir.Nodes{{
 				Key:     "select",
 				Type:    "select",

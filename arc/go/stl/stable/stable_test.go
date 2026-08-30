@@ -89,14 +89,14 @@ var _ = Describe("StableFor", func() {
 	})
 
 	Describe("Factory.Create", func() {
-		It("Should create node for stable_for type", func(ctx SpecContext) {
+		It("Should create node for stable_for type", func() {
 			n := MustSucceed(module.Create(node.Config{
 				Node: irNode, State: s.Node(irNode.Key),
 			}))
 			Expect(n).ToNot(BeNil())
 		})
 
-		It("Should return NotFound for unknown type", func(ctx SpecContext) {
+		It("Should return NotFound for unknown type", func() {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "unknown"},
 				State: s.Node("stable"),
@@ -603,7 +603,7 @@ var _ = Describe("StableFor", func() {
 var _ = Describe("Construction validation", func() {
 	It(
 		"Should error at construction when the input param is missing",
-		func(ctx SpecContext) {
+		func() {
 			prog := ir.IR{Nodes: ir.Nodes{{
 				Key:  "stable",
 				Type: "stable_for",
@@ -624,7 +624,7 @@ var _ = Describe("Construction validation", func() {
 	)
 	It(
 		"Should error at construction when the duration input value is invalid",
-		func(ctx SpecContext) {
+		func() {
 			prog := ir.IR{Nodes: ir.Nodes{{
 				Key:  "stable",
 				Type: "stable_for",

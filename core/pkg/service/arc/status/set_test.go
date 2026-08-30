@@ -165,7 +165,7 @@ var _ = Describe("Module", func() {
 	Describe("Construction", func() {
 		It(
 			"Should construct without WASM wiring when rat is nil",
-			func(ctx SpecContext) {
+			func() {
 				Expect(mod).ToNot(BeNil())
 			},
 		)
@@ -213,12 +213,12 @@ var _ = Describe("Module", func() {
 	})
 
 	Describe("Create", func() {
-		It("Should return ErrNotFound for an unrecognized type", func(ctx SpecContext) {
+		It("Should return ErrNotFound for an unrecognized type", func() {
 			cfg := node.Config{Node: ir.Node{Type: "wrong_type"}}
 			Expect(mod.Create(cfg)).Error().To(MatchError(query.ErrNotFound))
 		})
 
-		It("Should construct a set node from valid inputs", func(ctx SpecContext) {
+		It("Should construct a set node from valid inputs", func() {
 			n := MustSucceed(mod.Create(set.Config("alarm", "msg", "info")))
 			Expect(n).ToNot(BeNil())
 			Expect(func() { n.Reset() }).ToNot(Panic())
@@ -229,32 +229,28 @@ var _ = Describe("Module", func() {
 		// Missing input returns an error instead of panicking on unchecked assertion.
 		It(
 			"Should return a clean error when set inputs are missing key_or_name",
-			func(ctx SpecContext) {
+			func() {
 				cfg := node.Config{
 					Node: ir.Node{Type: "set", Inputs: types.Params{
 						{Name: "message", Type: types.String(), Value: "x"},
 						{Name: "variant", Type: types.String(), Value: "info"},
 					}},
 				}
-				Expect(
-					mod.Create(cfg),
-				).Error().
+				Expect(mod.Create(cfg)).Error().
 					To(MatchError(ContainSubstring("status.set inputs")))
 			},
 		)
 
 		It(
 			"Should return a clean error when set inputs are missing variant",
-			func(ctx SpecContext) {
+			func() {
 				cfg := node.Config{
 					Node: ir.Node{Type: "set", Inputs: types.Params{
 						{Name: "key_or_name", Type: types.String(), Value: "x"},
 						{Name: "message", Type: types.String(), Value: "y"},
 					}},
 				}
-				Expect(
-					mod.Create(cfg),
-				).Error().
+				Expect(mod.Create(cfg)).Error().
 					To(MatchError(ContainSubstring("status.set inputs")))
 			},
 		)
@@ -271,7 +267,7 @@ var _ = Describe("setNode.Next", func() {
 		mod = newModule(ctx, rep)
 	})
 
-	build := func(ctx context.Context, keyOrName, message, variant string) (node.Node, *node.State) {
+	build := func(keyOrName, message, variant string) (node.Node, *node.State) {
 		cfg := set.Config(keyOrName, message, variant)
 		n := MustSucceed(mod.Create(cfg))
 		return n, cfg.State
@@ -299,7 +295,7 @@ var _ = Describe("setNode.Next", func() {
 		"Should upsert a new UUID-keyed row by name when none exists",
 		func(ctx SpecContext) {
 			name := "next_new_" + uuid.NewString()
-			n, state := build(ctx, name, "All good", "success")
+			n, state := build(name, "All good", "success")
 			n.Next(nodeCtx(ctx))
 
 			out := *state.Output(0)
@@ -331,11 +327,11 @@ var _ = Describe("setNode.Next", func() {
 		"Should report a truthy output on success so a sequence step advances",
 		func(ctx SpecContext) {
 			name := "next_truthy_" + uuid.NewString()
-			ok, _ := build(ctx, name, "msg", "info")
+			ok, _ := build(name, "msg", "info")
 			ok.Next(nodeCtx(ctx))
 			Expect(ok.IsOutputTruthy(0)).To(BeTrue())
 
-			failed, _ := build(ctx, "", "msg", "info")
+			failed, _ := build("", "msg", "info")
 			failed.Next(nodeCtx(ctx))
 			Expect(failed.IsOutputTruthy(0)).To(BeFalse())
 		},
@@ -352,7 +348,7 @@ var _ = Describe("setNode.Next", func() {
 			Time:    telem.Now(),
 		})).To(Succeed())
 
-		n, _ := build(ctx, name, "updated", "warning")
+		n, _ := build(name, "updated", "warning")
 		n.Next(nodeCtx(ctx))
 
 		var s status.Status[any]
@@ -376,7 +372,7 @@ var _ = Describe("setNode.Next", func() {
 			Time:    telem.Now(),
 		})).To(Succeed())
 
-		n, state := build(ctx, key, "via uuid", "error")
+		n, state := build(key, "via uuid", "error")
 		n.Next(nodeCtx(ctx))
 
 		Expect(telem.UnmarshalSeries[string](*state.Output(0))).To(Equal([]string{key}))
@@ -396,7 +392,7 @@ var _ = Describe("setNode.Next", func() {
 		"Should produce non-decreasing timestamps on successive Next calls",
 		func(ctx SpecContext) {
 			name := "next_time_" + uuid.NewString()
-			n, state := build(ctx, name, "msg", "info")
+			n, state := build(name, "msg", "info")
 			nctx := nodeCtx(ctx)
 			n.Next(nctx)
 			first := telem.ValueAt[telem.TimeStamp](*state.OutputTime(0), 0)
@@ -408,7 +404,7 @@ var _ = Describe("setNode.Next", func() {
 
 	It("Should warn and not write when the variant is unknown", func(ctx SpecContext) {
 		name := "next_iv_" + uuid.NewString()
-		n, state := build(ctx, name, "msg", "not_a_real_variant")
+		n, state := build(name, "msg", "not_a_real_variant")
 		n.Next(nodeCtx(ctx))
 
 		calls := rep.get()
@@ -427,7 +423,7 @@ var _ = Describe("setNode.Next", func() {
 
 	It("Should reject upper-cased variants as case-sensitive", func(ctx SpecContext) {
 		name := "next_iv_case_" + uuid.NewString()
-		n, _ := build(ctx, name, "msg", "SUCCESS")
+		n, _ := build(name, "msg", "SUCCESS")
 		n.Next(nodeCtx(ctx))
 		calls := rep.get()
 		Expect(calls).To(HaveLen(1))
@@ -454,7 +450,7 @@ var _ = Describe("setNode.Next", func() {
 				Time:    telem.Now(),
 			})).To(Succeed())
 
-			n, state := build(ctx, name, "now updated", "warning")
+			n, state := build(name, "now updated", "warning")
 			n.Next(nodeCtx(ctx))
 
 			calls := rep.get()
@@ -499,7 +495,7 @@ var _ = Describe("setNode.Next", func() {
 		"Should warn with a 'status.set:' prefix when the service returns an error",
 		func(ctx SpecContext) {
 			// Empty keyOrName trips the service-side required-input validation guard.
-			n, state := build(ctx, "", "msg", "info")
+			n, state := build("", "msg", "info")
 			n.Next(nodeCtx(ctx))
 
 			calls := rep.get()

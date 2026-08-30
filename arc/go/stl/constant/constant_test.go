@@ -28,7 +28,7 @@ import (
 
 var _ = Describe("Constant", func() {
 	Describe("NewModule", func() {
-		It("Should create module", func(ctx SpecContext) {
+		It("Should create module", func() {
 			factory := constant.NewHost()
 			Expect(factory).ToNot(BeNil())
 		})
@@ -57,7 +57,7 @@ var _ = Describe("Constant", func() {
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = node.New(analyzed)
 		})
-		It("Should create constant for constant type", func(ctx SpecContext) {
+		It("Should create constant for constant type", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type:   "constant",
@@ -67,14 +67,14 @@ var _ = Describe("Constant", func() {
 			}
 			Expect(MustSucceed(factory.Create(cfg))).ToNot(BeNil())
 		})
-		It("Should return NotFound for unknown type", func(ctx SpecContext) {
+		It("Should return NotFound for unknown type", func() {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "unknown"},
 				State: s.Node("const"),
 			}
 			Expect(factory.Create(cfg)).Error().To(MatchError(query.ErrNotFound))
 		})
-		It("Should handle float64 value", func(ctx SpecContext) {
+		It("Should handle float64 value", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "constant",
@@ -88,7 +88,7 @@ var _ = Describe("Constant", func() {
 			}
 			Expect(MustSucceed(factory.Create(cfg))).ToNot(BeNil())
 		})
-		It("Should handle int value", func(ctx SpecContext) {
+		It("Should handle int value", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "constant",
@@ -102,7 +102,7 @@ var _ = Describe("Constant", func() {
 			}
 			Expect(MustSucceed(factory.Create(cfg))).ToNot(BeNil())
 		})
-		It("Should handle uint8 value", func(ctx SpecContext) {
+		It("Should handle uint8 value", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "constant",

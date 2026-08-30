@@ -81,7 +81,7 @@ var _ = Describe("Time", func() {
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = node.New(analyzed)
 		})
-		It("Should create node for interval type", func(ctx SpecContext) {
+		It("Should create node for interval type", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "interval",
@@ -96,7 +96,7 @@ var _ = Describe("Time", func() {
 		})
 		It(
 			"Should create node for qualified time.interval via CompoundFactory",
-			func(ctx SpecContext) {
+			func() {
 				compound := node.CompoundFactory{factory}
 				cfg := node.Config{
 					Node: ir.Node{
@@ -115,7 +115,7 @@ var _ = Describe("Time", func() {
 				Expect(n).ToNot(BeNil())
 			},
 		)
-		It("Should return NotFound for unknown type", func(ctx SpecContext) {
+		It("Should return NotFound for unknown type", func() {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "unknown"},
 				State: s.Node("interval_1"),
@@ -125,7 +125,7 @@ var _ = Describe("Time", func() {
 		})
 		It(
 			"Should error at construction when the period input value is invalid",
-			func(ctx SpecContext) {
+			func() {
 				cfg := node.Config{
 					Node: ir.Node{
 						Type: "interval",
@@ -144,7 +144,7 @@ var _ = Describe("Time", func() {
 		)
 		It(
 			"Should error at construction when the period is zero",
-			func(ctx SpecContext) {
+			func() {
 				cfg := node.Config{
 					Node: ir.Node{
 						Type: "interval",
@@ -166,7 +166,7 @@ var _ = Describe("Time", func() {
 		)
 		It(
 			"Should error at construction when the period is negative",
-			func(ctx SpecContext) {
+			func() {
 				cfg := node.Config{
 					Node: ir.Node{
 						Type: "interval",
@@ -188,7 +188,7 @@ var _ = Describe("Time", func() {
 		)
 		It(
 			"Should allow a zero var-bound period at construction",
-			func(ctx SpecContext) {
+			func() {
 				cfg := node.Config{
 					Node: ir.Node{
 						Type: "interval",
@@ -208,7 +208,7 @@ var _ = Describe("Time", func() {
 		)
 		It(
 			"Should not fold a zero var-bound period into the timing base",
-			func(ctx SpecContext) {
+			func() {
 				cfg := node.Config{
 					Node: ir.Node{
 						Type: "interval",
@@ -371,7 +371,7 @@ var _ = Describe("Time", func() {
 			Expect(ts).To(BeNumerically(">=", before))
 			Expect(ts).To(BeNumerically("<=", after))
 		})
-		It("Should update timing base", func(ctx SpecContext) {
+		It("Should update timing base", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "interval",
@@ -524,7 +524,7 @@ var _ = Describe("Time", func() {
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = node.New(analyzed)
 		})
-		It("Should create node for wait type", func(ctx SpecContext) {
+		It("Should create node for wait type", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "wait",
@@ -539,7 +539,7 @@ var _ = Describe("Time", func() {
 		})
 		It(
 			"Should create node for qualified time.wait via CompoundFactory",
-			func(ctx SpecContext) {
+			func() {
 				compound := node.CompoundFactory{factory}
 				cfg := node.Config{
 					Node: ir.Node{
@@ -560,7 +560,7 @@ var _ = Describe("Time", func() {
 		)
 		It(
 			"Should error at construction when the duration input value is invalid",
-			func(ctx SpecContext) {
+			func() {
 				cfg := node.Config{
 					Node: ir.Node{
 						Type: "wait",
@@ -579,7 +579,7 @@ var _ = Describe("Time", func() {
 		)
 		It(
 			"Should error at construction when the duration is zero",
-			func(ctx SpecContext) {
+			func() {
 				cfg := node.Config{
 					Node: ir.Node{
 						Type: "wait",
@@ -1383,27 +1383,27 @@ var _ = Describe("Time", func() {
 		})
 	})
 	Describe("CalculateTolerance", func() {
-		It("Should return half of base interval for 100ms", func(ctx SpecContext) {
+		It("Should return half of base interval for 100ms", func() {
 			tolerance := time.CalculateTolerance(100 * telem.Millisecond)
 			Expect(tolerance).To(Equal(50 * telem.Millisecond))
 		})
 		It(
 			"Should return MinTolerance when half interval is less than MinTolerance",
-			func(ctx SpecContext) {
+			func() {
 				tolerance := time.CalculateTolerance(2 * telem.Millisecond)
 				Expect(tolerance).To(Equal(time.MinTolerance))
 			},
 		)
 		It(
 			"Should return MinTolerance for MaxInt64 base interval",
-			func(ctx SpecContext) {
+			func() {
 				tolerance := time.CalculateTolerance(telem.TimeSpan(math.MaxInt64))
 				Expect(tolerance).To(Equal(time.MinTolerance))
 			},
 		)
 		It(
 			"Should return exactly MinTolerance when half equals MinTolerance",
-			func(ctx SpecContext) {
+			func() {
 				tolerance := time.CalculateTolerance(2 * time.MinTolerance)
 				Expect(tolerance).To(Equal(time.MinTolerance))
 			},
@@ -2000,7 +2000,7 @@ var _ = Describe("Time", func() {
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = node.New(analyzed)
 		})
-		It("Should create node for now type", func(ctx SpecContext) {
+		It("Should create node for now type", func() {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "now"},
 				State: s.Node("now_1"),
@@ -2069,7 +2069,7 @@ var _ = Describe("Time", func() {
 		})
 		It(
 			"Should create node for qualified time.now via CompoundFactory",
-			func(ctx SpecContext) {
+			func() {
 				compound := node.CompoundFactory{factory}
 				cfg := node.Config{
 					Node:  ir.Node{Type: "time.now"},
@@ -2079,7 +2079,7 @@ var _ = Describe("Time", func() {
 				Expect(n).ToNot(BeNil())
 			},
 		)
-		It("Should not update base interval", func(ctx SpecContext) {
+		It("Should not update base interval", func() {
 			Expect(factory.BaseInterval).To(Equal(telem.TimeSpanMax))
 			cfg := node.Config{
 				Node:  ir.Node{Type: "now"},

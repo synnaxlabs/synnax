@@ -92,14 +92,14 @@ var _ = Describe("Control", func() {
 				Expect(MustSucceed(compound.Create(cfg))).ToNot(BeNil())
 			},
 		)
-		It("Should return NotFound for unknown type", func(ctx SpecContext) {
+		It("Should return NotFound for unknown type", func() {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "unknown"},
 				State: s.Node("set_auth"),
 			}
 			Expect(factory.Create(cfg)).Error().To(MatchError(query.ErrNotFound))
 		})
-		It("Should error when an input value is invalid", func(ctx SpecContext) {
+		It("Should error when an input value is invalid", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_authority",
