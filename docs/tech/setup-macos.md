@@ -2,29 +2,38 @@
 
 ## 0 Summary
 
-The following guide walks you through the setup process for developing Synnax on macOS.
-The setup guide for Windows is available [here](setup-windows.md). This guide is
-complete, meaning that it provides installation and configuration instructions for all
-tooling required, but it does not provide information on how to use this tooling when
-working with a specific project. For that information, see the project's `README.md`.
-Links to all project `README.md` files can be found in the
-[project index](../../README.md).
+This guide walks you through the setup process for developing Synnax on macOS. The setup
+guide for Windows is available [here](setup-windows.md). This guide is complete, meaning
+that it gives installation and configuration instructions for all the tooling you need,
+but it does not tell you how to use that tooling on a specific project. For that
+information, see the project's `README.md`. Links to all project `README.md` files are
+in the [project index](../../README.md).
 
-Certain tools may require running commands using `sudo` privileges.
+Sections 1 to 7 set up the tools that every contributor needs. Section 8 applies only if
+you work on the Console, and section 9 only if you work on the Driver.
 
-As a final note, this guide does not need to be followed verbatim. As long as the
-correct tools are installed and configured, you can use whatever methods you prefer.
+Some tools ask you to run commands with `sudo` privileges. This guide also does not need
+to be followed verbatim. As long as the correct tools are installed and configured, use
+whatever methods you prefer.
 
 ## 1 Install Homebrew
 
-We recommend using [Homebrew](https://brew.sh/) to install and manage tooling for Synnax
+We recommend [Homebrew](https://brew.sh/) to install and manage tooling for Synnax
 development.
 
 ```zsh
-/bin/cmd -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 ```
 
-## 2 Install Git
+## 2 Install the Xcode command line tools
+
+Go, Rust, and the Driver all build native code, which needs Apple's compiler toolchain.
+
+```zsh
+xcode-select --install
+```
+
+## 3 Install Git
 
 We use Git for all our version control.
 
@@ -32,256 +41,227 @@ We use Git for all our version control.
 brew install git
 ```
 
-## 3 Clone the repository
+## 4 Clone the repository
 
-The next step is to clone the Git repository. We recommend cloning it into
-`~/Desktop/synnaxlabs` as it makes it easier to follow the commands in other guides.
+We recommend cloning into `~/Desktop/synnaxlabs`, as it makes the commands in other
+guides easier to follow. The Driver keeps its C++ dependencies in submodules, so clone
+them at the same time.
 
 ```zsh
-mkdir ~/Desktop/synnaxlabs && cd ~/Desktop/synnaxlabs && git clone https://github.com/synnaxlabs/synnax
+mkdir ~/Desktop/synnaxlabs && cd ~/Desktop/synnaxlabs && git clone --recurse-submodules https://github.com/synnaxlabs/synnax
 ```
 
-## 4 Setup Go
+If you already cloned the repository without submodules, run
+`git submodule update --init --recursive` in the repository root.
 
-The next step is to install [Go](https://golang.org/). We use the latest version of go
-for all our development.
+## 5 Set up Go
+
+We use [Go](https://go.dev/) for the Core, Aspen, Cesium, Arc, Freighter, and Oracle.
 
 ```zsh
 brew install go
 ```
 
-To verify the installation, run:
+Verify the installation by running
 
 ```zsh
 go version
 ```
 
-The output should look something like:
+The output should look something like
 
-```zsh
-go version go1.20.x darwin/amd64
+```text
+go version go1.26.5 darwin/arm64
 ```
 
-As an additional verification, let's run some test cases to make sure everything is
-working as expected. In the root directory (`~/Desktop/synnaxlabs/synnax`), run
+Each Go module pins its toolchain in `go.mod`. The Core currently does not compile with
+Go 1.27, because a Pebble dependency uses runtime internals that 1.27 removed. If your
+local Go is newer than the pinned version, prefix commands in `core/` with
+`GOTOOLCHAIN=go1.26.5`, and Go downloads the correct toolchain for you.
+
+As an additional check, run some test cases. In the repository root, run
 
 ```zsh
 cd x/go && go test -v ./...
 ```
 
-This will run the tests for the common utilities used across Synnax's go projects. This
-might take a while when you run it for the first time, as go needs to download many
-packages. Future runs will be much faster. Eventually, you **should see a bunch of green
-output and no red output.**
+This runs the tests for the common utilities that all Synnax Go projects use. The first
+run can take a while, because Go downloads many packages. Later runs are much faster.
+You **should see a lot of green output and no red output.**
 
-## 5 Install Python
+## 6 Set up Python
 
-### 5.0 Install Python
+### 6.0 Install uv
 
-Getting Python setup correctly can be tricky, but luckily you'll only need to do it
-once.
-
-```zsh
-brew install python@3.12
-```
-
-To verify the installation, run:
-
-```zsh
-python --version
-```
-
-The output should look something like:
-
-```zsh
-Python 3.12.x
-```
-
-In many cases, running this command will result display an earlier version of Python.
-This is because macOS comes with an older version of Python pre-installed. To fix this
-issue, we recommend a zsh alias. First, make sure the command `python3.12` is correctly
-installed by running:
-
-```zsh
-python3.12 --version
-```
-
-The output should look something like:
-
-```zsh
-Python 3.12.x
-```
-
-If it does not, you'll need to make sure `/opt/homebrew/bin` is in your `PATH` variable.
-To do this, run:
-
-```zsh
-echo 'export PATH=/opt/homebrew/bin:$PATH' >> ~/.zshrc && source ~/.zshrc
-```
-
-Now, verify that the above command works by running:
-
-```zsh
-which python3.12
-```
-
-You should see something like:
-
-```zsh
-/opt/homebrew/bin/python3.12
-```
-
-Now, we can create the alias. Run:
-
-```zsh
-echo 'alias python=python3.12 \n alias pip=pip3.12' >> ~/.zshrc && source ~/.zshrc
-```
-
-Now, verify that the alias works by running:
-
-```zsh
-python --version
-```
-
-You should see something like:
-
-```zsh
-python: aliased to python3.12
-```
-
-Also, verify that pip is working by running:
-
-```zsh
-pip --version
-```
-
-You should see something like:
-
-```zsh
-pip: aliased to pip3.12
-```
-
-### 5.1 Install uv
-
-We use [uv](https://docs.astral.sh/uv/) to manage Python dependencies. To install uv,
-run:
+We use [uv](https://docs.astral.sh/uv/) to manage Python versions and dependencies.
 
 ```zsh
 brew install uv
 ```
 
-To verify the installation, run:
+Verify the installation by running
 
 ```zsh
 uv --version
 ```
 
-The output should look something like:
+The output should look something like
 
-```zsh
-uv 0.5.x
+```text
+uv 0.12.0
 ```
 
-### 5.2 Install Python dependencies
+### 6.1 Install Python
 
-Synnax uses a uv workspace with four Python projects: `alamos/py`, `freighter/py`,
-`client/py`, and `integration`. To install the dependencies for all projects, run from
-the repository root:
+uv installs and manages the interpreter, so you do not need Homebrew Python or a shell
+alias. The workspace needs Python 3.12.
+
+```zsh
+uv python install 3.12
+```
+
+### 6.2 Install dependencies
+
+Synnax uses a uv workspace with five Python projects: `alamos/py`, `client/py`,
+`freighter/py`, `integration`, and `x/py`. To install the dependencies for all five, run
+this from the repository root:
 
 ```zsh
 uv sync
 ```
 
-## 6 Front end build system
+Run Python commands with `uv run`, which selects the workspace interpreter and
+environment for you.
 
-### 6.0 Install Node.js
+## 7 Set up TypeScript
 
-We recommend using nvm to manage node versions.
+### 7.0 Install pnpm and Node.js
 
-```zsh
-brew install nvm
-```
-
-Then, install the latest version of node with
+We use [pnpm](https://pnpm.io/) as our package manager. pnpm installs itself and then
+installs Node.js for you, so you do not need nvm or Corepack.
 
 ```zsh
-nvm install 20
+curl -fsSL https://get.pnpm.io/install.sh | env PNPM_VERSION=12 sh -
 ```
 
-Make sure your installation is working by running
+Open a new shell, then install Node.js with
 
 ```zsh
-node --version
+pnpm runtime set node 24 -g
 ```
 
-You should see something like
+Verify both installations by running
 
 ```zsh
-v20.x.x
+pnpm --version && node --version
 ```
 
-To install pnpm, run
+The output should look something like
 
-```zsh
-brew install corepack
+```text
+12.1.0
+v24.20.0
 ```
 
-Then, prepare npm by running
+pnpm reads the versions this repository needs from the `devEngines` field in the root
+`package.json`, and downloads them when they are missing. To change the pnpm or Node.js
+version for everyone, edit that field.
 
-```zsh
-corepack prepare pnpm@latest --activate
-```
+### 7.1 Install dependencies
 
-### 6.1 Install dependencies
-
-In the root directory of the repository, run
+In the repository root, run
 
 ```zsh
 pnpm install
 ```
 
-### 6.2 Build the Pluto component library
+### 7.2 Build the Pluto component library
 
-We use [Turborepo](https://turbo.build/repo) to build our various TypeScript projects.
-It has great monorepo support, and intelligently caches builds to speed up to
-development. As a test to make sure the build system is working, we'll build the Synnax
-component library, [Pluto](../../pluto) by running
+We use [Turborepo](https://turbo.build/repo) to build our TypeScript projects. It has
+good monorepo support, and caches builds to speed up development. As a test that the
+build system works, build the Synnax component library, [Pluto](../../pluto):
 
 ```zsh
 pnpm build:pluto
 ```
 
-### 6.3 Start a Pluto dev server
+### 7.3 Start a Pluto dev server
 
-As another test, we'll start a development server for Pluto. We use this server to
-develop components in isolation before integrating them into the main Synnax
-application, [console](../../console). To start, run
+As another test, start a development server for Pluto. We use this server to develop
+components in isolation before we integrate them into the [Console](../../console).
 
 ```zsh
 pnpm dev:pluto
 ```
 
-You can now view the Pluto dev server in storybook format at http://localhost:6006.
+Vite serves the component sandbox at [localhost:5173](http://localhost:5173).
 
-## 7 Rust
+## 8 Set up Rust
 
-We use [Rust](https://www.rust-lang.org/) for the backend of our user interface built
-using [Tauri](https://tauri.app/). To install Rust, run
+The [Console](../../console) uses [Tauri](https://tauri.app/), which builds its back end
+with [Rust](https://www.rust-lang.org/). Install Rust with rustup, the toolchain manager
+that Tauri needs. Do not install the Homebrew `rust` formula, which does not manage
+toolchains.
 
 ```zsh
-brew install rust
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 
-To verify the installation, run:
+Open a new shell, then verify the installation by running
 
 ```zsh
 rustc --version
 ```
 
-The output should look something like:
+The output should look something like
 
-```zsh
-rustc 1.55.x (c8dfcfe04 2021-09-06)
+```text
+rustc 1.98.0 (88d9e12ae 2026-08-18)
 ```
 
-Then you are all set!
+## 9 Set up C++
+
+You only need this section if you work on the [Driver](../../driver).
+
+### 9.0 Install Bazel
+
+We build the Driver with [Bazel](https://bazel.build/). Install Bazelisk, which reads
+the Bazel version from `.bazeliskrc` and downloads it for you.
+
+```zsh
+brew install bazelisk
+```
+
+Verify the installation from the repository root by running
+
+```zsh
+bazel --version
+```
+
+### 9.1 Install clang-format
+
+We format all C++ with clang-format. CI pins version 22, and other versions format
+differently, so install that release. Homebrew keeps it keg-only, which means you must
+add it to your `PATH` yourself.
+
+```zsh
+brew install llvm@22
+echo 'export PATH="$(brew --prefix llvm@22)/bin:$PATH"' >> ~/.zshrc && source ~/.zshrc
+```
+
+Format the Driver with
+
+```zsh
+bash scripts/clang_format.sh driver
+```
+
+### 9.2 Build the Driver
+
+Make sure the submodules from section 4 are present, then run
+
+```zsh
+bazel build //driver
+```
+
+The first build takes a long time, because Bazel compiles all the vendored dependencies.
+Later builds use the cache.
