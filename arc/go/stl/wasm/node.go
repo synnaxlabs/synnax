@@ -49,6 +49,7 @@ type nodeImpl struct {
 	outputValues  []result
 	memBase       uint32
 	params        []uint64
+	stack         []uint64
 	offsets       []int
 	initialized   bool
 	isEntryNode   bool
@@ -62,17 +63,17 @@ type nodeImpl struct {
 	strings       *stlstrings.ProgramState
 }
 
-func (n *nodeImpl) call(ctx context.Context, params ...uint64) ([]result, error) {
+func (n *nodeImpl) call(ctx context.Context) ([]result, error) {
 	for i := range n.outputValues {
 		n.outputValues[i].Changed = false
 	}
-	results, err := n.fn.Call(ctx, params...)
-	if err != nil {
+	copy(n.stack, n.params)
+	if err := n.fn.CallWithStack(ctx, n.stack); err != nil {
 		return nil, err
 	}
 	if n.memBase == 0 {
 		if len(n.outputValues) > 0 {
-			n.outputValues[0] = result{Value: results[0], Changed: true}
+			n.outputValues[0] = result{Value: n.stack[0], Changed: true}
 		}
 		return n.outputValues, nil
 	}
@@ -244,7 +245,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 				n.params[j] = uint64(n.strings.Create(string(data)))
 			}
 		}
-		res, err := n.call(ctx.Context, n.params...)
+		res, err := n.call(ctx.Context)
 		if err != nil {
 			ctx.ReportError(errors.Wrapf(
 				err,

@@ -95,6 +95,11 @@ func (w *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		stringOutputs[i] = out.Type.Kind == types.KindString
 	}
 
+	// The reused call stack is separate from params because CallWithStack overwrites
+	// it with the results, and params holds literal values that persist across calls.
+	def := fn.Definition()
+	stack := make([]uint64, max(len(def.ParamTypes()), len(def.ResultTypes())))
+
 	selIdx := -1
 	if idx, err := cfg.State.ResolveInput("$sel"); err == nil {
 		selIdx = idx
@@ -109,6 +114,7 @@ func (w *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		outputValues:  make([]result, len(irFn.Outputs)),
 		memBase:       base,
 		params:        params,
+		stack:         stack,
 		offsets:       make([]int, len(irFn.Outputs)),
 		isEntryNode:   isEntryNode,
 		selIdx:        selIdx,
