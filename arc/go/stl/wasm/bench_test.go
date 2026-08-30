@@ -176,7 +176,7 @@ func BenchmarkWASMNodeSimpleArithmetic(b *testing.B) {
 	}
 
 	affineNode := s.Node("affine")
-	n, err := factory.Create(ctx, node.Config{
+	n, err := factory.Create(node.Config{
 		Node:    a.Nodes.Get("affine"),
 		State:   affineNode,
 		Program: mod,
@@ -339,7 +339,7 @@ func BenchmarkWASMNodeZeroAlloc(b *testing.B) {
 	}
 
 	affineNode := s.Node("affine")
-	n, err := factory.Create(ctx, node.Config{
+	n, err := factory.Create(node.Config{
 		Node:    a.Nodes.Get("affine"),
 		State:   affineNode,
 		Program: mod,

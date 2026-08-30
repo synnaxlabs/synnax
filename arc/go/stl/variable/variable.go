@@ -10,8 +10,6 @@
 package variable
 
 import (
-	"context"
-
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/symbol"
@@ -52,7 +50,7 @@ func NewHost() *Host { return &Host{} }
 
 // Create dispatches on shape: a value-carrying first input makes a register;
 // an edge-fed one an exprRead deref.
-func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+func (h *Host) Create(cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName && cfg.Node.Type != statefulSymbolName {
 		return nil, query.ErrNotFound
 	}

@@ -91,7 +91,7 @@ var _ = Describe("Time", func() {
 				},
 				State: s.Node("interval_1"),
 			}
-			n := MustSucceed(factory.Create(ctx, cfg))
+			n := MustSucceed(factory.Create(cfg))
 			Expect(n).ToNot(BeNil())
 		})
 		It(
@@ -111,7 +111,7 @@ var _ = Describe("Time", func() {
 					},
 					State: s.Node("interval_1"),
 				}
-				n := MustSucceed(compound.Create(ctx, cfg))
+				n := MustSucceed(compound.Create(cfg))
 				Expect(n).ToNot(BeNil())
 			},
 		)
@@ -120,7 +120,7 @@ var _ = Describe("Time", func() {
 				Node:  ir.Node{Type: "unknown"},
 				State: s.Node("interval_1"),
 			}
-			_, err := factory.Create(ctx, cfg)
+			_, err := factory.Create(cfg)
 			Expect(err).To(Equal(query.ErrNotFound))
 		})
 		It(
@@ -139,7 +139,7 @@ var _ = Describe("Time", func() {
 					},
 					State: s.Node("interval_1"),
 				}
-				Expect(factory.Create(ctx, cfg)).Error().To(BeAValidationPathError())
+				Expect(factory.Create(cfg)).Error().To(BeAValidationPathError())
 			},
 		)
 		It(
@@ -158,7 +158,7 @@ var _ = Describe("Time", func() {
 					},
 					State: s.Node("interval_1"),
 				}
-				Expect(factory.Create(ctx, cfg)).Error().To(SatisfyAll(
+				Expect(factory.Create(cfg)).Error().To(SatisfyAll(
 					BeAValidationPathError(),
 					MatchError(ContainSubstring("period: must be positive, got 0s")),
 				))
@@ -180,7 +180,7 @@ var _ = Describe("Time", func() {
 					},
 					State: s.Node("interval_1"),
 				}
-				Expect(factory.Create(ctx, cfg)).Error().To(SatisfyAll(
+				Expect(factory.Create(cfg)).Error().To(SatisfyAll(
 					BeAValidationPathError(),
 					MatchError(ContainSubstring("period: must be positive, got")),
 				))
@@ -202,7 +202,7 @@ var _ = Describe("Time", func() {
 					},
 					State: s.Node("interval_1"),
 				}
-				n := MustSucceed(factory.Create(ctx, cfg))
+				n := MustSucceed(factory.Create(cfg))
 				Expect(n).ToNot(BeNil())
 			},
 		)
@@ -222,7 +222,7 @@ var _ = Describe("Time", func() {
 					},
 					State: s.Node("interval_1"),
 				}
-				MustSucceed(factory.Create(ctx, cfg))
+				MustSucceed(factory.Create(cfg))
 				Expect(factory.BaseInterval).To(Equal(telem.TimeSpanMax))
 			},
 		)
@@ -236,7 +236,7 @@ var _ = Describe("Time", func() {
 				},
 				State: s.Node("interval_1"),
 			}
-			n := MustSucceed(factory.Create(ctx, cfg))
+			n := MustSucceed(factory.Create(cfg))
 			intervalNode := s.Node("interval_1")
 			*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
 			*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -265,7 +265,7 @@ var _ = Describe("Time", func() {
 				},
 				State: s.Node("interval_1"),
 			}
-			n := MustSucceed(factory.Create(ctx, cfg))
+			n := MustSucceed(factory.Create(cfg))
 			intervalNode := s.Node("interval_1")
 			*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
 			*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -307,7 +307,7 @@ var _ = Describe("Time", func() {
 				},
 				State: s.Node("interval_1"),
 			}
-			n := MustSucceed(factory.Create(ctx, cfg))
+			n := MustSucceed(factory.Create(cfg))
 			intervalNode := s.Node("interval_1")
 			*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
 			*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -349,7 +349,7 @@ var _ = Describe("Time", func() {
 				},
 				State: s.Node("interval_1"),
 			}
-			n := MustSucceed(factory.Create(ctx, cfg))
+			n := MustSucceed(factory.Create(cfg))
 			intervalNode := s.Node("interval_1")
 			*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
 			*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -385,7 +385,7 @@ var _ = Describe("Time", func() {
 				},
 				State: s.Node("interval_1"),
 			}
-			_, _ = factory.Create(ctx, cfg)
+			_, _ = factory.Create(cfg)
 			Expect(factory.BaseInterval).To(Equal(100 * telem.Millisecond))
 		})
 		It(
@@ -404,7 +404,7 @@ var _ = Describe("Time", func() {
 					},
 					State: s.Node("interval_1"),
 				}
-				n := MustSucceed(factory.Create(ctx, cfg))
+				n := MustSucceed(factory.Create(cfg))
 				intervalNode := s.Node("interval_1")
 				*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
 				*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -438,7 +438,7 @@ var _ = Describe("Time", func() {
 					},
 					State: s.Node("interval_1"),
 				}
-				n := MustSucceed(factory.Create(ctx, cfg))
+				n := MustSucceed(factory.Create(cfg))
 				intervalNode := s.Node("interval_1")
 				*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
 				*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -534,7 +534,7 @@ var _ = Describe("Time", func() {
 				},
 				State: s.Node("wait_1"),
 			}
-			n := MustSucceed(factory.Create(ctx, cfg))
+			n := MustSucceed(factory.Create(cfg))
 			Expect(n).ToNot(BeNil())
 		})
 		It(
@@ -554,7 +554,7 @@ var _ = Describe("Time", func() {
 					},
 					State: s.Node("wait_1"),
 				}
-				n := MustSucceed(compound.Create(ctx, cfg))
+				n := MustSucceed(compound.Create(cfg))
 				Expect(n).ToNot(BeNil())
 			},
 		)
@@ -574,7 +574,7 @@ var _ = Describe("Time", func() {
 					},
 					State: s.Node("wait_1"),
 				}
-				Expect(factory.Create(ctx, cfg)).Error().To(BeAValidationPathError())
+				Expect(factory.Create(cfg)).Error().To(BeAValidationPathError())
 			},
 		)
 		It(
@@ -593,7 +593,7 @@ var _ = Describe("Time", func() {
 					},
 					State: s.Node("wait_1"),
 				}
-				Expect(factory.Create(ctx, cfg)).Error().To(SatisfyAll(
+				Expect(factory.Create(cfg)).Error().To(SatisfyAll(
 					BeAValidationPathError(),
 					MatchError(ContainSubstring("duration: must be positive, got 0s")),
 				))
@@ -609,7 +609,7 @@ var _ = Describe("Time", func() {
 				},
 				State: s.Node("wait_1"),
 			}
-			n := MustSucceed(factory.Create(ctx, cfg))
+			n := MustSucceed(factory.Create(cfg))
 			waitNode := s.Node("wait_1")
 			*waitNode.Output(0) = telem.NewSeriesV[uint8]()
 			*waitNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -637,7 +637,7 @@ var _ = Describe("Time", func() {
 				},
 				State: s.Node("wait_1"),
 			}
-			n := MustSucceed(factory.Create(ctx, cfg))
+			n := MustSucceed(factory.Create(cfg))
 			waitNode := s.Node("wait_1")
 			*waitNode.Output(0) = telem.NewSeriesV[uint8]()
 			*waitNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -679,7 +679,7 @@ var _ = Describe("Time", func() {
 				},
 				State: s.Node("wait_1"),
 			}
-			n := MustSucceed(factory.Create(ctx, cfg))
+			n := MustSucceed(factory.Create(cfg))
 			waitNode := s.Node("wait_1")
 			*waitNode.Output(0) = telem.NewSeriesV[uint8]()
 			*waitNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -719,7 +719,7 @@ var _ = Describe("Time", func() {
 				},
 				State: s.Node("wait_1"),
 			}
-			n := MustSucceed(factory.Create(ctx, cfg))
+			n := MustSucceed(factory.Create(cfg))
 			waitNode := s.Node("wait_1")
 			*waitNode.Output(0) = telem.NewSeriesV[uint8]()
 			*waitNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -773,7 +773,7 @@ var _ = Describe("Time", func() {
 				},
 				State: s.Node("wait_1"),
 			}
-			n := MustSucceed(factory.Create(ctx, cfg))
+			n := MustSucceed(factory.Create(cfg))
 			waitNode := s.Node("wait_1")
 			*waitNode.Output(0) = telem.NewSeriesV[uint8]()
 			*waitNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -849,7 +849,7 @@ var _ = Describe("Time", func() {
 					},
 					State: s.Node("wait_1"),
 				}
-				n := MustSucceed(factory.Create(ctx, cfg))
+				n := MustSucceed(factory.Create(cfg))
 				waitNode := s.Node("wait_1")
 				*waitNode.Output(0) = telem.NewSeriesV[uint8]()
 				*waitNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -894,7 +894,7 @@ var _ = Describe("Time", func() {
 				},
 				State: s.Node("wait_1"),
 			}
-			n := MustSucceed(factory.Create(ctx, cfg))
+			n := MustSucceed(factory.Create(cfg))
 			waitNode := s.Node("wait_1")
 			*waitNode.Output(0) = telem.NewSeriesV[uint8]()
 			*waitNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -968,7 +968,7 @@ var _ = Describe("Time", func() {
 					},
 					State: s.Node("wait_1"),
 				}
-				n := MustSucceed(factory.Create(ctx, cfg))
+				n := MustSucceed(factory.Create(cfg))
 				waitNode := s.Node("wait_1")
 				*waitNode.Output(0) = telem.NewSeriesV[uint8]()
 				*waitNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -1041,7 +1041,7 @@ var _ = Describe("Time", func() {
 					},
 					State: s.Node("wait_1"),
 				}
-				n := MustSucceed(factory.Create(ctx, cfg))
+				n := MustSucceed(factory.Create(cfg))
 				waitNode := s.Node("wait_1")
 				*waitNode.Output(0) = telem.NewSeriesV[uint8]()
 				*waitNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -1114,7 +1114,7 @@ var _ = Describe("Time", func() {
 					},
 					State: s.Node("wait_1"),
 				}
-				n := MustSucceed(factory.Create(ctx, cfg))
+				n := MustSucceed(factory.Create(cfg))
 				waitNode := s.Node("wait_1")
 				*waitNode.Output(0) = telem.NewSeriesV[uint8]()
 				*waitNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -1190,7 +1190,7 @@ var _ = Describe("Time", func() {
 				},
 				State: s.Node(nodeKey),
 			}
-			n := MustSucceed(factory.Create(ctx, cfg))
+			n := MustSucceed(factory.Create(cfg))
 			ns := s.Node(nodeKey)
 			*ns.Output(0) = telem.NewSeriesV[uint8]()
 			*ns.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -1322,7 +1322,7 @@ var _ = Describe("Time", func() {
 				},
 				State: s.Node("interval_1"),
 			}
-			_, _ = factory.Create(ctx, cfg1)
+			_, _ = factory.Create(cfg1)
 			Expect(factory.BaseInterval).To(Equal(100 * telem.Millisecond))
 
 			// Create second interval with 150ms period
@@ -1339,7 +1339,7 @@ var _ = Describe("Time", func() {
 				},
 				State: s.Node("interval_2"),
 			}
-			_, _ = factory.Create(ctx, cfg2)
+			_, _ = factory.Create(cfg2)
 			// GCD(100ms, 150ms) = 50ms
 			Expect(factory.BaseInterval).To(Equal(50 * telem.Millisecond))
 		})
@@ -1461,7 +1461,7 @@ var _ = Describe("Time", func() {
 					},
 					State: s.Node("interval_1"),
 				}
-				n := MustSucceed(factory.Create(ctx, cfg))
+				n := MustSucceed(factory.Create(cfg))
 				intervalNode := s.Node("interval_1")
 				*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
 				*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -1508,7 +1508,7 @@ var _ = Describe("Time", func() {
 					},
 					State: s.Node("interval_1"),
 				}
-				n := MustSucceed(factory.Create(ctx, cfg))
+				n := MustSucceed(factory.Create(cfg))
 				intervalNode := s.Node("interval_1")
 				*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
 				*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -1557,7 +1557,7 @@ var _ = Describe("Time", func() {
 						},
 						State: s.Node("interval_1"),
 					}
-					n := MustSucceed(factory.Create(ctx, cfg))
+					n := MustSucceed(factory.Create(cfg))
 					intervalNode := s.Node("interval_1")
 					*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
 					*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -1602,7 +1602,7 @@ var _ = Describe("Time", func() {
 					},
 					State: s.Node("interval_1"),
 				}
-				n := MustSucceed(factory.Create(ctx, cfg))
+				n := MustSucceed(factory.Create(cfg))
 				intervalNode := s.Node("interval_1")
 				*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
 				*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -1682,7 +1682,7 @@ var _ = Describe("Time", func() {
 					},
 					State: waitState.Node("wait_1"),
 				}
-				n := MustSucceed(waitFactory.Create(ctx, cfg))
+				n := MustSucceed(waitFactory.Create(cfg))
 				waitNode := waitState.Node("wait_1")
 				*waitNode.Output(0) = telem.NewSeriesV[uint8]()
 				*waitNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -1760,7 +1760,7 @@ var _ = Describe("Time", func() {
 					},
 					State: s.Node("interval_1"),
 				}
-				n := MustSucceed(factory.Create(ctx, cfg))
+				n := MustSucceed(factory.Create(cfg))
 				intervalNode := s.Node("interval_1")
 				*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
 				*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -1790,7 +1790,7 @@ var _ = Describe("Time", func() {
 					},
 					State: s.Node("interval_1"),
 				}
-				n := MustSucceed(factory.Create(ctx, cfg))
+				n := MustSucceed(factory.Create(cfg))
 				intervalNode := s.Node("interval_1")
 				*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
 				*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -1854,7 +1854,7 @@ var _ = Describe("Time", func() {
 					},
 					State: s.Node("wait_1"),
 				}
-				n := MustSucceed(factory.Create(ctx, cfg))
+				n := MustSucceed(factory.Create(cfg))
 				waitNode := s.Node("wait_1")
 				*waitNode.Output(0) = telem.NewSeriesV[uint8]()
 				*waitNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -1884,7 +1884,7 @@ var _ = Describe("Time", func() {
 					},
 					State: s.Node("wait_1"),
 				}
-				n := MustSucceed(factory.Create(ctx, cfg))
+				n := MustSucceed(factory.Create(cfg))
 				waitNode := s.Node("wait_1")
 				*waitNode.Output(0) = telem.NewSeriesV[uint8]()
 				*waitNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -1931,7 +1931,7 @@ var _ = Describe("Time", func() {
 					},
 					State: s.Node("wait_1"),
 				}
-				n := MustSucceed(factory.Create(ctx, cfg))
+				n := MustSucceed(factory.Create(cfg))
 				waitNode := s.Node("wait_1")
 				*waitNode.Output(0) = telem.NewSeriesV[uint8]()
 				*waitNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -2005,7 +2005,7 @@ var _ = Describe("Time", func() {
 				Node:  ir.Node{Type: "now"},
 				State: s.Node("now_1"),
 			}
-			n := MustSucceed(factory.Create(ctx, cfg))
+			n := MustSucceed(factory.Create(cfg))
 			Expect(n).ToNot(BeNil())
 		})
 		It(
@@ -2015,7 +2015,7 @@ var _ = Describe("Time", func() {
 					Node:  ir.Node{Type: "now"},
 					State: s.Node("now_1"),
 				}
-				n := MustSucceed(factory.Create(ctx, cfg))
+				n := MustSucceed(factory.Create(cfg))
 				nowNode := s.Node("now_1")
 				*nowNode.Output(0) = telem.NewSeriesV[telem.TimeStamp]()
 				*nowNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -2047,7 +2047,7 @@ var _ = Describe("Time", func() {
 				Node:  ir.Node{Type: "now"},
 				State: s.Node("now_1"),
 			}
-			n := MustSucceed(factory.Create(ctx, cfg))
+			n := MustSucceed(factory.Create(cfg))
 			nowNode := s.Node("now_1")
 			*nowNode.Output(0) = telem.NewSeriesV[telem.TimeStamp]()
 			*nowNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -2075,7 +2075,7 @@ var _ = Describe("Time", func() {
 					Node:  ir.Node{Type: "time.now"},
 					State: s.Node("now_1"),
 				}
-				n := MustSucceed(compound.Create(ctx, cfg))
+				n := MustSucceed(compound.Create(cfg))
 				Expect(n).ToNot(BeNil())
 			},
 		)
@@ -2085,7 +2085,7 @@ var _ = Describe("Time", func() {
 				Node:  ir.Node{Type: "now"},
 				State: s.Node("now_1"),
 			}
-			MustSucceed(factory.Create(ctx, cfg))
+			MustSucceed(factory.Create(cfg))
 			Expect(factory.BaseInterval).To(Equal(telem.TimeSpanMax))
 		})
 		It("Should set matching output and output time", func(ctx SpecContext) {
@@ -2093,7 +2093,7 @@ var _ = Describe("Time", func() {
 				Node:  ir.Node{Type: "now"},
 				State: s.Node("now_1"),
 			}
-			n := MustSucceed(factory.Create(ctx, cfg))
+			n := MustSucceed(factory.Create(cfg))
 			nowNode := s.Node("now_1")
 			*nowNode.Output(0) = telem.NewSeriesV[telem.TimeStamp]()
 			*nowNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -2120,7 +2120,7 @@ var _ = Describe("Time", func() {
 				Node:  ir.Node{Type: "now"},
 				State: s.Node("now_1"),
 			}
-			n := MustSucceed(factory.Create(ctx, cfg))
+			n := MustSucceed(factory.Create(cfg))
 			nowNode := s.Node("now_1")
 			*nowNode.Output(0) = telem.NewSeriesV[telem.TimeStamp]()
 			*nowNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -2213,7 +2213,7 @@ var _ = Describe("Time", func() {
 				"Should honor the declared initial before any write",
 				func(ctx SpecContext) {
 					cfg, _ := varConfig("interval", "period", telem.Second)
-					n := MustSucceed(factory.Create(ctx, cfg))
+					n := MustSucceed(factory.Create(cfg))
 					Expect(tick(ctx, n, 0, node.ReasonTimerTick).fired).To(BeTrue())
 					Expect(
 						tick(ctx, n, 500*telem.Millisecond, node.ReasonTimerTick).fired,
@@ -2228,7 +2228,7 @@ var _ = Describe("Time", func() {
 				"Should adopt a shortened period at the next evaluation",
 				func(ctx SpecContext) {
 					cfg, set := varConfig("interval", "period", telem.Second)
-					n := MustSucceed(factory.Create(ctx, cfg))
+					n := MustSucceed(factory.Create(cfg))
 					Expect(tick(ctx, n, 0, node.ReasonTimerTick).fired).To(BeTrue())
 					set(100 * telem.Millisecond)
 					Expect(
@@ -2241,7 +2241,7 @@ var _ = Describe("Time", func() {
 				"Should adopt a lengthened period without firing early",
 				func(ctx SpecContext) {
 					cfg, set := varConfig("interval", "period", 100*telem.Millisecond)
-					n := MustSucceed(factory.Create(ctx, cfg))
+					n := MustSucceed(factory.Create(cfg))
 					Expect(tick(ctx, n, 0, node.ReasonTimerTick).fired).To(BeTrue())
 					set(telem.Second)
 					Expect(
@@ -2257,7 +2257,7 @@ var _ = Describe("Time", func() {
 				"Should report the deadline from the live period",
 				func(ctx SpecContext) {
 					cfg, set := varConfig("interval", "period", telem.Second)
-					n := MustSucceed(factory.Create(ctx, cfg))
+					n := MustSucceed(factory.Create(cfg))
 					Expect(
 						tick(ctx, n, 0, node.ReasonTimerTick).deadline,
 					).To(Equal(telem.Second))
@@ -2271,7 +2271,7 @@ var _ = Describe("Time", func() {
 				"Should fire immediately after Reset using the live period",
 				func(ctx SpecContext) {
 					cfg, set := varConfig("interval", "period", telem.Second)
-					n := MustSucceed(factory.Create(ctx, cfg))
+					n := MustSucceed(factory.Create(cfg))
 					Expect(tick(ctx, n, 0, node.ReasonTimerTick).fired).To(BeTrue())
 					Expect(
 						tick(ctx, n, telem.Second, node.ReasonTimerTick).fired,
@@ -2293,7 +2293,7 @@ var _ = Describe("Time", func() {
 				"Should seed the timing base from the declared value only",
 				func(ctx SpecContext) {
 					cfg, set := varConfig("interval", "period", 100*telem.Millisecond)
-					n := MustSucceed(factory.Create(ctx, cfg))
+					n := MustSucceed(factory.Create(cfg))
 					Expect(factory.BaseInterval).To(Equal(100 * telem.Millisecond))
 					set(telem.Millisecond)
 					Expect(tick(ctx, n, 0, node.ReasonTimerTick).fired).To(BeTrue())
@@ -2307,7 +2307,7 @@ var _ = Describe("Time", func() {
 				"Should honor the declared initial before any write",
 				func(ctx SpecContext) {
 					cfg, _ := varConfig("wait", "duration", telem.Second)
-					n := MustSucceed(factory.Create(ctx, cfg))
+					n := MustSucceed(factory.Create(cfg))
 					Expect(tick(ctx, n, 0, node.ReasonTimerTick).fired).To(BeFalse())
 					Expect(
 						tick(ctx, n, 500*telem.Millisecond, node.ReasonTimerTick).fired,
@@ -2322,7 +2322,7 @@ var _ = Describe("Time", func() {
 				"Should fire earlier when the duration is shortened mid-wait",
 				func(ctx SpecContext) {
 					cfg, set := varConfig("wait", "duration", 10*telem.Second)
-					n := MustSucceed(factory.Create(ctx, cfg))
+					n := MustSucceed(factory.Create(cfg))
 					Expect(tick(ctx, n, 0, node.ReasonTimerTick).fired).To(BeFalse())
 					set(telem.Second)
 					Expect(
@@ -2334,7 +2334,7 @@ var _ = Describe("Time", func() {
 				"Should fire later when the duration is lengthened mid-wait",
 				func(ctx SpecContext) {
 					cfg, set := varConfig("wait", "duration", telem.Second)
-					n := MustSucceed(factory.Create(ctx, cfg))
+					n := MustSucceed(factory.Create(cfg))
 					Expect(tick(ctx, n, 0, node.ReasonTimerTick).fired).To(BeFalse())
 					set(5 * telem.Second)
 					Expect(
@@ -2349,7 +2349,7 @@ var _ = Describe("Time", func() {
 				"Should report the deadline from the live duration",
 				func(ctx SpecContext) {
 					cfg, set := varConfig("wait", "duration", telem.Second)
-					n := MustSucceed(factory.Create(ctx, cfg))
+					n := MustSucceed(factory.Create(cfg))
 					Expect(
 						tick(ctx, n, 0, node.ReasonTimerTick).deadline,
 					).To(Equal(telem.Second))
@@ -2361,7 +2361,7 @@ var _ = Describe("Time", func() {
 			)
 			It("Should stay one-shot after a shortening write", func(ctx SpecContext) {
 				cfg, set := varConfig("wait", "duration", telem.Second)
-				n := MustSucceed(factory.Create(ctx, cfg))
+				n := MustSucceed(factory.Create(cfg))
 				Expect(tick(ctx, n, 0, node.ReasonTimerTick).fired).To(BeFalse())
 				Expect(
 					tick(ctx, n, telem.Second, node.ReasonTimerTick).fired,
@@ -2401,7 +2401,7 @@ var _ = Describe("TimingBase GCD matrix", func() {
 		s := node.New(prog.IR)
 		f := node.CompoundFactory{factory}
 		for _, n := range prog.Nodes {
-			if _, err := f.Create(ctx, node.Config{
+			if _, err := f.Create(node.Config{
 				Node: n, Program: prog, State: s.Node(n.Key),
 			}); err != nil && !errors.Is(err, query.ErrNotFound) {
 				Fail("create " + n.Key + ": " + err.Error())

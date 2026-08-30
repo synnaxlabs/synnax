@@ -215,11 +215,11 @@ var _ = Describe("Module", func() {
 	Describe("Create", func() {
 		It("Should return ErrNotFound for an unrecognized type", func(ctx SpecContext) {
 			cfg := node.Config{Node: ir.Node{Type: "wrong_type"}}
-			Expect(mod.Create(ctx, cfg)).Error().To(MatchError(query.ErrNotFound))
+			Expect(mod.Create(cfg)).Error().To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should construct a set node from valid inputs", func(ctx SpecContext) {
-			n := MustSucceed(mod.Create(ctx, set.Config("alarm", "msg", "info")))
+			n := MustSucceed(mod.Create(set.Config("alarm", "msg", "info")))
 			Expect(n).ToNot(BeNil())
 			Expect(func() { n.Reset() }).ToNot(Panic())
 			// Output(0) hasn't been written yet; truthiness reads the empty cache.
@@ -237,7 +237,7 @@ var _ = Describe("Module", func() {
 					}},
 				}
 				Expect(
-					mod.Create(ctx, cfg),
+					mod.Create(cfg),
 				).Error().
 					To(MatchError(ContainSubstring("status.set inputs")))
 			},
@@ -253,7 +253,7 @@ var _ = Describe("Module", func() {
 					}},
 				}
 				Expect(
-					mod.Create(ctx, cfg),
+					mod.Create(cfg),
 				).Error().
 					To(MatchError(ContainSubstring("status.set inputs")))
 			},
@@ -273,7 +273,7 @@ var _ = Describe("setNode.Next", func() {
 
 	build := func(ctx context.Context, keyOrName, message, variant string) (node.Node, *node.State) {
 		cfg := set.Config(keyOrName, message, variant)
-		n := MustSucceed(mod.Create(ctx, cfg))
+		n := MustSucceed(mod.Create(cfg))
 		return n, cfg.State
 	}
 
@@ -284,7 +284,7 @@ var _ = Describe("setNode.Next", func() {
 	It("Should read a var-bound message at fire time", func(ctx SpecContext) {
 		name := "var_msg_" + uuid.NewString()
 		cfg := set.Config(name, VarOf("live message"), "info")
-		n := MustSucceed(mod.Create(ctx, cfg))
+		n := MustSucceed(mod.Create(cfg))
 		n.Next(nodeCtx(ctx))
 
 		newKey := telem.UnmarshalSeries[string](*cfg.State.Output(0))[0]

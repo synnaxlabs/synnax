@@ -79,9 +79,9 @@ var _ = Describe("Control", func() {
 		})
 		It("Should create node for set_authority type", func(ctx SpecContext) {
 			constCfg := constConfig(ctx, 200, 42)
-			Expect(MustSucceed(factory.Create(ctx, constCfg))).ToNot(BeNil())
+			Expect(MustSucceed(factory.Create(constCfg))).ToNot(BeNil())
 			varCfg := setAuthority.Config(NewVarInput[uint8](200), uint32(42))
-			Expect(MustSucceed(factory.Create(ctx, varCfg))).ToNot(BeNil())
+			Expect(MustSucceed(factory.Create(varCfg))).ToNot(BeNil())
 		})
 		It(
 			"Should create node for control.set_authority via CompoundFactory",
@@ -89,7 +89,7 @@ var _ = Describe("Control", func() {
 				compound := node.CompoundFactory{factory}
 				cfg := constConfig(ctx, 200, 42)
 				cfg.Node.Type = "control.set_authority"
-				Expect(MustSucceed(compound.Create(ctx, cfg))).ToNot(BeNil())
+				Expect(MustSucceed(compound.Create(cfg))).ToNot(BeNil())
 			},
 		)
 		It("Should return NotFound for unknown type", func(ctx SpecContext) {
@@ -97,7 +97,7 @@ var _ = Describe("Control", func() {
 				Node:  ir.Node{Type: "unknown"},
 				State: s.Node("set_auth"),
 			}
-			Expect(factory.Create(ctx, cfg)).Error().To(MatchError(query.ErrNotFound))
+			Expect(factory.Create(cfg)).Error().To(MatchError(query.ErrNotFound))
 		})
 		It("Should error when an input value is invalid", func(ctx SpecContext) {
 			cfg := node.Config{
@@ -109,7 +109,7 @@ var _ = Describe("Control", func() {
 				},
 				State: s.Node("set_auth"),
 			}
-			Expect(factory.Create(ctx, cfg)).Error().To(BeAValidationPathError())
+			Expect(factory.Create(cfg)).Error().To(BeAValidationPathError())
 		})
 	})
 
@@ -128,7 +128,7 @@ var _ = Describe("Control", func() {
 		DescribeTable("Should buffer a per-channel authority change",
 			func(ctx SpecContext, value, channel any) {
 				n := MustSucceed(
-					factory.Create(ctx, setAuthority.Config(value, channel)),
+					factory.Create(setAuthority.Config(value, channel)),
 				)
 				n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 				changes := authorityState.Flush()
@@ -144,7 +144,7 @@ var _ = Describe("Control", func() {
 		DescribeTable("Should buffer a global authority change",
 			func(ctx SpecContext, value, channel any) {
 				n := MustSucceed(
-					factory.Create(ctx, setAuthority.Config(value, channel)),
+					factory.Create(setAuthority.Config(value, channel)),
 				)
 				n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 				changes := authorityState.Flush()
@@ -159,7 +159,7 @@ var _ = Describe("Control", func() {
 		DescribeTable("Should fire only once before Reset",
 			func(ctx SpecContext, value, channel any) {
 				n := MustSucceed(
-					factory.Create(ctx, setAuthority.Config(value, channel)),
+					factory.Create(setAuthority.Config(value, channel)),
 				)
 				nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
 				n.Next(nCtx)
@@ -176,7 +176,7 @@ var _ = Describe("Control", func() {
 		DescribeTable("Should not call MarkChanged",
 			func(ctx SpecContext, value, channel any) {
 				n := MustSucceed(
-					factory.Create(ctx, setAuthority.Config(value, channel)),
+					factory.Create(setAuthority.Config(value, channel)),
 				)
 				n.Next(node.Context{Context: ctx, MarkChanged: func(int) {
 					// setAuthority declares no outputs; MarkChanged should never fire.
@@ -189,7 +189,7 @@ var _ = Describe("Control", func() {
 		)
 
 		It("Should read params through a graph-compiled config", func(ctx SpecContext) {
-			n := MustSucceed(factory.Create(ctx, constConfig(ctx, 200, 42)))
+			n := MustSucceed(factory.Create(constConfig(ctx, 200, 42)))
 			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			changes := authorityState.Flush()
 			Expect(changes).To(HaveLen(1))
@@ -201,7 +201,7 @@ var _ = Describe("Control", func() {
 			"Should use the var's declared initial before any write",
 			func(ctx SpecContext) {
 				cfg := setAuthority.Config(NewVarInput[uint8](5), uint32(42))
-				n := MustSucceed(factory.Create(ctx, cfg))
+				n := MustSucceed(factory.Create(cfg))
 				n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 				changes := authorityState.Flush()
 				Expect(changes).To(HaveLen(1))
@@ -215,7 +215,7 @@ var _ = Describe("Control", func() {
 				v := NewVarInput[uint8](1)
 				cfg := setAuthority.Config(v, uint32(42))
 				v.Set(77)
-				n := MustSucceed(factory.Create(ctx, cfg))
+				n := MustSucceed(factory.Create(cfg))
 				nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
 				n.Next(nCtx)
 				v.Set(33)
@@ -232,7 +232,7 @@ var _ = Describe("Control", func() {
 				v := NewVarInput[uint8](1)
 				cfg := setAuthority.Config(v, uint32(42))
 				v.Set(77)
-				n := MustSucceed(factory.Create(ctx, cfg))
+				n := MustSucceed(factory.Create(cfg))
 				nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
 				n.Next(nCtx)
 				Expect(authorityState.Flush()[0].Authority).To(Equal(uint8(77)))
@@ -259,7 +259,7 @@ var _ = Describe("Control", func() {
 		DescribeTable("Should allow re-fire after Reset",
 			func(ctx SpecContext, value, channel any) {
 				n := MustSucceed(
-					factory.Create(ctx, setAuthority.Config(value, channel)),
+					factory.Create(setAuthority.Config(value, channel)),
 				)
 				nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
 				n.Next(nCtx)
@@ -277,7 +277,7 @@ var _ = Describe("Control", func() {
 		DescribeTable("Should produce same authority on re-fire",
 			func(ctx SpecContext, value, channel any) {
 				n := MustSucceed(
-					factory.Create(ctx, setAuthority.Config(value, channel)),
+					factory.Create(setAuthority.Config(value, channel)),
 				)
 				nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
 				n.Next(nCtx)
@@ -300,7 +300,7 @@ var _ = Describe("Control", func() {
 		It("Should always return false", func(ctx SpecContext) {
 			factory := control.NewHost(&control.ProgramState{})
 			cfg := constConfig(ctx, 200, 42)
-			n := MustSucceed(factory.Create(ctx, cfg))
+			n := MustSucceed(factory.Create(cfg))
 			Expect(n.IsOutputTruthy(0)).To(BeFalse())
 			Expect(n.IsOutputTruthy(1)).To(BeFalse())
 			Expect(n.IsOutputTruthy(-1)).To(BeFalse())

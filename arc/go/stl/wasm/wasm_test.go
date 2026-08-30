@@ -148,7 +148,7 @@ func (h *testHarness) SetInput(nodeKey string, idx int, data, time telem.Series)
 }
 
 func (h *testHarness) CreateNode(ctx context.Context, nodeKey string) node.Node {
-	return MustSucceed(h.factory.Create(ctx, node.Config{
+	return MustSucceed(h.factory.Create(node.Config{
 		Node:    h.analyzed.Nodes.Get(nodeKey),
 		State:   h.state.Node(nodeKey),
 		Program: h.prog,

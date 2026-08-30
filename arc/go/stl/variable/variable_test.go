@@ -158,7 +158,7 @@ var _ = Describe("Variable", func() {
 
 		It("Should return NotFound for an unknown node type", func(ctx SpecContext) {
 			cfg := node.Config{Node: ir.Node{Type: "unknown"}, State: s.Node("v")}
-			Expect(factory.Create(ctx, cfg)).Error().To(MatchError(query.ErrNotFound))
+			Expect(factory.Create(cfg)).Error().To(MatchError(query.ErrNotFound))
 		})
 
 		It(
@@ -173,7 +173,7 @@ var _ = Describe("Variable", func() {
 					},
 					State: s.Node("v"),
 				}
-				Expect(MustSucceed(factory.Create(ctx, cfg))).ToNot(BeNil())
+				Expect(MustSucceed(factory.Create(cfg))).ToNot(BeNil())
 			},
 		)
 
@@ -189,7 +189,7 @@ var _ = Describe("Variable", func() {
 					},
 					State: s.Node("v"),
 				}
-				Expect(MustSucceed(factory.Create(ctx, cfg))).ToNot(BeNil())
+				Expect(MustSucceed(factory.Create(cfg))).ToNot(BeNil())
 			},
 		)
 
@@ -201,12 +201,12 @@ var _ = Describe("Variable", func() {
 				},
 				State: s.Node("v"),
 			}
-			Expect(MustSucceed(factory.Create(ctx, cfg))).ToNot(BeNil())
+			Expect(MustSucceed(factory.Create(cfg))).ToNot(BeNil())
 		})
 
 		It("Should create a node for a variable with no inputs", func(ctx SpecContext) {
 			cfg := node.Config{Node: ir.Node{Type: "variable"}, State: s.Node("v")}
-			Expect(MustSucceed(factory.Create(ctx, cfg))).ToNot(BeNil())
+			Expect(MustSucceed(factory.Create(cfg))).ToNot(BeNil())
 		})
 
 		It(
@@ -219,7 +219,7 @@ var _ = Describe("Variable", func() {
 					},
 					State: s.Node("v"),
 				}
-				Expect(MustSucceed(factory.Create(ctx, cfg))).ToNot(BeNil())
+				Expect(MustSucceed(factory.Create(cfg))).ToNot(BeNil())
 			},
 		)
 	})
@@ -240,7 +240,7 @@ var _ = Describe("Variable", func() {
 				},
 				State: v,
 			}
-			return MustSucceed(factory.Create(ctx, cfg))
+			return MustSucceed(factory.Create(cfg))
 		}
 		BeforeEach(func(ctx SpecContext) {
 			s = registerState(ctx)
@@ -428,7 +428,7 @@ var _ = Describe("Variable", func() {
 					},
 					State: sv,
 				}
-				n := MustSucceed(factory.Create(ctx, cfg))
+				n := MustSucceed(factory.Create(cfg))
 				n.Reset()
 				Expect(*sv.Output(0)).To(telem.MatchSeriesDataV("hello"))
 				emit(sf, "world", 10)
@@ -459,7 +459,7 @@ var _ = Describe("Variable", func() {
 				},
 				State: v,
 			}
-			n = MustSucceed(factory.Create(ctx, cfg))
+			n = MustSucceed(factory.Create(cfg))
 		})
 
 		It("Should emit the dispatcher's value", func(ctx SpecContext) {
@@ -595,7 +595,7 @@ var _ = Describe("Variable", func() {
 					},
 					State: vNode,
 				}
-				soleN := MustSucceed(factory.Create(ctx, cfg))
+				soleN := MustSucceed(factory.Create(cfg))
 				emit(feeder, int64(5), 10)
 				soleN.Next(nodeCtx)
 				Expect(marked).To(ConsistOf(0))

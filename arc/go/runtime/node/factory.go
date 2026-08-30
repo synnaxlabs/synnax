@@ -10,7 +10,6 @@
 package node
 
 import (
-	"context"
 	"strings"
 
 	"github.com/synnaxlabs/alamos"
@@ -37,7 +36,7 @@ type Config struct {
 type Factory interface {
 	// Create constructs a node from the given configuration.
 	// Returns query.ErrNotFound if this factory cannot handle cfg.Node.Type.
-	Create(ctx context.Context, cfg Config) (Node, error)
+	Create(cfg Config) (Node, error)
 }
 
 // ModuleNamer is an optional interface that factories can implement to declare
@@ -53,7 +52,7 @@ type ModuleNamer interface {
 // returns query.ErrNotFound is skipped; any other error is returned immediately.
 type CompoundFactory []Factory
 
-func (f CompoundFactory) Create(ctx context.Context, cfg Config) (Node, error) {
+func (f CompoundFactory) Create(cfg Config) (Node, error) {
 	// Strip module prefix from the node type so factories only match bare names. The
 	// compiler emits qualified names (e.g. "time.interval", "control.set_authority")
 	// into the IR; normalizing here keeps prefix awareness out of individual factories.
@@ -73,7 +72,7 @@ func (f CompoundFactory) Create(ctx context.Context, cfg Config) (Node, error) {
 				}
 			}
 		}
-		n, err := factory.Create(ctx, cfg)
+		n, err := factory.Create(cfg)
 		if err == nil {
 			return n, nil
 		}

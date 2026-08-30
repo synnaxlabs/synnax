@@ -90,7 +90,7 @@ var _ = Describe("StableFor", func() {
 
 	Describe("Factory.Create", func() {
 		It("Should create node for stable_for type", func(ctx SpecContext) {
-			n := MustSucceed(module.Create(ctx, node.Config{
+			n := MustSucceed(module.Create(node.Config{
 				Node: irNode, State: s.Node(irNode.Key),
 			}))
 			Expect(n).ToNot(BeNil())
@@ -101,7 +101,7 @@ var _ = Describe("StableFor", func() {
 				Node:  ir.Node{Type: "unknown"},
 				State: s.Node("stable"),
 			}
-			Expect(module.Create(ctx, cfg)).Error().To(MatchError(query.ErrNotFound))
+			Expect(module.Create(cfg)).Error().To(MatchError(query.ErrNotFound))
 		})
 	})
 
@@ -111,7 +111,7 @@ var _ = Describe("StableFor", func() {
 			source := s.Node("source")
 			*source.Output(0) = telem.NewSeriesV[uint8]()
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV()
-			n, _ := module.Create(ctx, cfg)
+			n, _ := module.Create(cfg)
 			outputs := make(set.Set[int])
 			n.Next(
 				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
@@ -127,7 +127,7 @@ var _ = Describe("StableFor", func() {
 				currentTime = 0
 				*source.Output(0) = telem.NewSeriesV[uint8](5)
 				*source.OutputTime(0) = telem.NewSeriesSecondsTSV(0)
-				n, _ := module.Create(ctx, cfg)
+				n, _ := module.Create(cfg)
 				outputs := make(set.Set[int])
 				n.Next(
 					node.Context{
@@ -167,7 +167,7 @@ var _ = Describe("StableFor", func() {
 			// Send value 5 at time 1s
 			*source.Output(0) = telem.NewSeriesV[uint8](5)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
-			n, _ := module.Create(ctx, cfg)
+			n, _ := module.Create(cfg)
 			outputs := make(set.Set[int])
 			n.Next(
 				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
@@ -210,7 +210,7 @@ var _ = Describe("StableFor", func() {
 			// Send value 5 at time 0
 			*source.Output(0) = telem.NewSeriesV[uint8](5)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(0)
-			n, _ := module.Create(ctx, cfg)
+			n, _ := module.Create(cfg)
 			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 
 			// Advance time partway
@@ -262,7 +262,7 @@ var _ = Describe("StableFor", func() {
 			// Send value 5 at time 1
 			*source.Output(0) = telem.NewSeriesV[uint8](5)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
-			n, _ := module.Create(ctx, cfg)
+			n, _ := module.Create(cfg)
 			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 
 			currentTime = telem.SecondTS * 2
@@ -304,7 +304,7 @@ var _ = Describe("StableFor", func() {
 			// Send value 5
 			*source.Output(0) = telem.NewSeriesV[uint8](5)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(0)
-			n, _ := module.Create(ctx, cfg)
+			n, _ := module.Create(cfg)
 			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 
 			// Emit first value
@@ -356,7 +356,7 @@ var _ = Describe("StableFor", func() {
 				telem.SecondTS*3/10, // 0.3s = 300ms
 				telem.SecondTS*2/5,  // 0.4s = 400ms
 			)
-			n, _ := module.Create(ctx, cfg)
+			n, _ := module.Create(cfg)
 			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 
 			// Should track last value (7) with time 0.4s, so wait until 1.4s elapsed
@@ -393,7 +393,7 @@ var _ = Describe("StableFor", func() {
 				currentTime = 0
 				*source.Output(0) = telem.NewSeriesV[uint8](5)
 				*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
-				n, _ := module.Create(ctx, cfg)
+				n, _ := module.Create(cfg)
 				n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 
 				currentTime = telem.SecondTS * 100 // Set current time far in future
@@ -439,7 +439,7 @@ var _ = Describe("StableFor", func() {
 				telem.SecondTS/5,    // 0.2s = 200ms
 				telem.SecondTS*3/10, // 0.3s = 300ms
 			)
-			n, _ := module.Create(ctx, cfg)
+			n, _ := module.Create(cfg)
 			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 
 			// Should use time from first occurrence (0)
@@ -520,7 +520,7 @@ var _ = Describe("StableFor", func() {
 				compound := node.CompoundFactory{stable.NewHost()}
 				irNode := analyzed.Nodes[1]
 				irNode.Type = "stable.for"
-				n := MustSucceed(compound.Create(ctx, node.Config{
+				n := MustSucceed(compound.Create(node.Config{
 					Node:  irNode,
 					State: s.Node("stable"),
 				}))
@@ -538,7 +538,7 @@ var _ = Describe("StableFor", func() {
 				currentTime = 0
 				*source.Output(0) = telem.NewSeriesV[uint8](5)
 				*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
-				n := MustSucceed(module.Create(ctx, cfg))
+				n := MustSucceed(module.Create(cfg))
 				outputs := make(set.Set[int])
 				n.Next(
 					node.Context{
@@ -579,7 +579,7 @@ var _ = Describe("StableFor", func() {
 				currentTime = 0
 				*source.Output(0) = telem.NewSeriesV[uint8](5)
 				*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
-				n := MustSucceed(module.Create(ctx, cfg))
+				n := MustSucceed(module.Create(cfg))
 				n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 
 				*source.Output(0) = telem.NewSeriesV[uint8](9)
@@ -618,7 +618,7 @@ var _ = Describe("Construction validation", func() {
 			}}}
 			s := node.New(prog)
 			cfg := node.Config{Node: prog.Nodes[0], State: s.Node("stable")}
-			Expect(stable.NewHost().Create(ctx, cfg)).Error().
+			Expect(stable.NewHost().Create(cfg)).Error().
 				To(MatchError(node.ErrInputNotFound))
 		},
 	)
@@ -637,7 +637,7 @@ var _ = Describe("Construction validation", func() {
 			s := node.New(prog)
 			cfg := node.Config{Node: prog.Nodes[0], State: s.Node("stable")}
 			Expect(
-				stable.NewHost().Create(ctx, cfg),
+				stable.NewHost().Create(cfg),
 			).Error().
 				To(BeAValidationPathError())
 		},
@@ -716,7 +716,7 @@ var _ = Describe("Variable duration", func() {
 
 	It("Should honor the declared initial before any write", func(ctx SpecContext) {
 		build(telem.Second)
-		n := MustSucceed(module.Create(ctx, cfg))
+		n := MustSucceed(module.Create(cfg))
 		ingest(5, telem.SecondTS)
 		currentTime = telem.SecondTS
 		Expect(next(ctx, n)).To(BeFalse())
@@ -730,7 +730,7 @@ var _ = Describe("Variable duration", func() {
 		"Should adopt a shortening write at the next window, not mid-window",
 		func(ctx SpecContext) {
 			build(10 * telem.Second)
-			n := MustSucceed(module.Create(ctx, cfg))
+			n := MustSucceed(module.Create(cfg))
 			ingest(5, telem.SecondTS)
 			currentTime = telem.SecondTS
 			Expect(next(ctx, n)).To(BeFalse())
@@ -753,7 +753,7 @@ var _ = Describe("Variable duration", func() {
 		"Should adopt a lengthening write at the next window, not mid-window",
 		func(ctx SpecContext) {
 			build(telem.Second)
-			n := MustSucceed(module.Create(ctx, cfg))
+			n := MustSucceed(module.Create(cfg))
 			ingest(5, telem.SecondTS)
 			currentTime = telem.SecondTS
 			Expect(next(ctx, n)).To(BeFalse())
@@ -827,7 +827,7 @@ var _ = Describe("StableFor type preservation", func() {
 				State: state.Node("stable"),
 			}
 			source := state.Node("source")
-			n := MustSucceed(module.Create(ctx, cfg))
+			n := MustSucceed(module.Create(cfg))
 
 			clock = 0
 			*source.Output(0) = input

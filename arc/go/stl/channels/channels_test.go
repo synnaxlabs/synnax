@@ -295,7 +295,7 @@ var _ = Describe("Channel", func() {
 					},
 					State: rtState.Node("test"),
 				}
-				node := MustSucceed(factory.Create(ctx, cfg))
+				node := MustSucceed(factory.Create(cfg))
 				Expect(node).ToNot(BeNil())
 			})
 			It("Should parse channel from input", func(ctx SpecContext) {
@@ -308,7 +308,7 @@ var _ = Describe("Channel", func() {
 					},
 					State: rtState.Node("test"),
 				}
-				node := MustSucceed(factory.Create(ctx, cfg))
+				node := MustSucceed(factory.Create(cfg))
 				Expect(node).ToNot(BeNil())
 			})
 			It("Should coerce channel to uint32", func(ctx SpecContext) {
@@ -321,7 +321,7 @@ var _ = Describe("Channel", func() {
 					},
 					State: rtState.Node("test"),
 				}
-				node := MustSucceed(factory.Create(ctx, cfg))
+				node := MustSucceed(factory.Create(cfg))
 				Expect(node).ToNot(BeNil())
 			})
 		})
@@ -337,7 +337,7 @@ var _ = Describe("Channel", func() {
 					},
 					State: rtState.Node("writer"),
 				}
-				node := MustSucceed(factory.Create(ctx, cfg))
+				node := MustSucceed(factory.Create(cfg))
 				Expect(node).ToNot(BeNil())
 			})
 		})
@@ -355,7 +355,7 @@ var _ = Describe("Channel", func() {
 						},
 						State: rtState.Node("test"),
 					}
-					node, err := factory.Create(ctx, cfg)
+					node, err := factory.Create(cfg)
 					Expect(err).To(Equal(query.ErrNotFound))
 					Expect(node).To(BeNil())
 				},
@@ -370,7 +370,7 @@ var _ = Describe("Channel", func() {
 					},
 					State: rtState.Node("test"),
 				}
-				Expect(factory.Create(ctx, cfg)).Error().To(BeAValidationPathError())
+				Expect(factory.Create(cfg)).Error().To(BeAValidationPathError())
 			})
 			It("Should return error for missing channel", func(ctx SpecContext) {
 				cfg := rnode.Config{
@@ -380,7 +380,7 @@ var _ = Describe("Channel", func() {
 					},
 					State: rtState.Node("test"),
 				}
-				Expect(factory.Create(ctx, cfg)).Error().To(BeAValidationPathError())
+				Expect(factory.Create(cfg)).Error().To(BeAValidationPathError())
 			})
 			It(
 				"Should return error for a sink with neither a channel key nor a binding edge",
@@ -393,7 +393,7 @@ var _ = Describe("Channel", func() {
 						State: rtState.Node("test"),
 					}
 					Expect(
-						factory.Create(ctx, cfg),
+						factory.Create(cfg),
 					).Error().
 						To(BeAValidationPathError())
 				},
@@ -432,7 +432,7 @@ var _ = Describe("Channel", func() {
 
 		Describe("Data Reading", func() {
 			It("Should read channel data after ingestion", func(ctx SpecContext) {
-				source := MustSucceed(factory.Create(ctx, rnode.Config{
+				source := MustSucceed(factory.Create(rnode.Config{
 					Node: ir.Node{
 						Type: "on",
 						Inputs: types.Params{
@@ -462,7 +462,7 @@ var _ = Describe("Channel", func() {
 			})
 
 			It("Should handle channel without index", func(ctx SpecContext) {
-				source := MustSucceed(factory.Create(ctx, rnode.Config{
+				source := MustSucceed(factory.Create(rnode.Config{
 					Node: ir.Node{
 						Type: "on",
 						Inputs: types.Params{
@@ -490,7 +490,7 @@ var _ = Describe("Channel", func() {
 			})
 
 			It("Should not trigger on empty channel", func(ctx SpecContext) {
-				source := MustSucceed(factory.Create(ctx, rnode.Config{
+				source := MustSucceed(factory.Create(rnode.Config{
 					Node: ir.Node{
 						Type: "on",
 						Inputs: types.Params{
@@ -512,7 +512,7 @@ var _ = Describe("Channel", func() {
 			It(
 				"Should generate a time series matching the current series length for virtual channels with accumulated reads",
 				func(ctx SpecContext) {
-					source := MustSucceed(factory.Create(ctx, rnode.Config{
+					source := MustSucceed(factory.Create(rnode.Config{
 						Node: ir.Node{
 							Type: "on",
 							Inputs: types.Params{
@@ -560,7 +560,7 @@ var _ = Describe("Channel", func() {
 			It(
 				"Should generate monotonically increasing timestamps across calls for virtual channels",
 				func(ctx SpecContext) {
-					source := MustSucceed(factory.Create(ctx, rnode.Config{
+					source := MustSucceed(factory.Create(rnode.Config{
 						Node: ir.Node{
 							Type: "on",
 							Inputs: types.Params{
@@ -598,7 +598,7 @@ var _ = Describe("Channel", func() {
 
 			It("Should handle multiple series in MultiSeries", func(ctx SpecContext) {
 				nodeState := progState.Node("source")
-				source := MustSucceed(factory.Create(ctx, rnode.Config{
+				source := MustSucceed(factory.Create(rnode.Config{
 					Node: ir.Node{
 						Type: "on",
 						Inputs: types.Params{
@@ -657,7 +657,7 @@ var _ = Describe("Channel", func() {
 			It(
 				"Should advance the watermark to prevent stale data from triggering",
 				func(ctx SpecContext) {
-					source := MustSucceed(factory.Create(ctx, rnode.Config{
+					source := MustSucceed(factory.Create(rnode.Config{
 						Node: ir.Node{
 							Type: "on",
 							Inputs: types.Params{
@@ -709,7 +709,7 @@ var _ = Describe("Channel", func() {
 				},
 			)
 			It("Should be a no-op when channel has no data", func(ctx SpecContext) {
-				source := MustSucceed(factory.Create(ctx, rnode.Config{
+				source := MustSucceed(factory.Create(rnode.Config{
 					Node: ir.Node{
 						Type: "on",
 						Inputs: types.Params{
@@ -734,7 +734,7 @@ var _ = Describe("Channel", func() {
 			It(
 				"Should skip data when index series count mismatch",
 				func(ctx SpecContext) {
-					source := MustSucceed(factory.Create(ctx, rnode.Config{
+					source := MustSucceed(factory.Create(rnode.Config{
 						Node: ir.Node{
 							Type: "on",
 							Inputs: types.Params{
@@ -783,7 +783,7 @@ var _ = Describe("Channel", func() {
 				channelState := channels.NewProgramState([]channels.Digest{
 					{Key: 30, DataType: telem.Float64T, Index: 31},
 				})
-				source := MustSucceed(mod.Create(ctx, rnode.Config{
+				source := MustSucceed(mod.Create(rnode.Config{
 					Node: ir.Node{
 						Type: "on",
 						Inputs: types.Params{
@@ -867,7 +867,7 @@ var _ = Describe("Channel", func() {
 		keys := []string{"s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7"}
 
 		newSource := func(ctx SpecContext, nodeKey string, ch uint32) rnode.Node {
-			return MustSucceed(factory.Create(ctx, rnode.Config{
+			return MustSucceed(factory.Create(rnode.Config{
 				Node: ir.Node{
 					Type: "on",
 					Inputs: types.Params{
@@ -1360,7 +1360,7 @@ var _ = Describe("Channel", func() {
 		Describe("Data Writing", func() {
 			It("Should write channel data when input available", func(ctx SpecContext) {
 				sinkState := progState.Node("sink")
-				sink := MustSucceed(factory.Create(ctx, rnode.Config{
+				sink := MustSucceed(factory.Create(rnode.Config{
 					Node: ir.Node{
 						Type: "write",
 						Inputs: types.Params{
@@ -1412,7 +1412,7 @@ var _ = Describe("Channel", func() {
 				).To(telem.MatchSeries(telem.NewSeriesSecondsTSV(500, 501)))
 			})
 			It("Should error and skip on a length mismatch", func(ctx SpecContext) {
-				sink := MustSucceed(factory.Create(ctx, rnode.Config{
+				sink := MustSucceed(factory.Create(rnode.Config{
 					Node: ir.Node{
 						Type: "write",
 						Inputs: types.Params{
@@ -1441,7 +1441,7 @@ var _ = Describe("Channel", func() {
 				Expect(fr.Get(101).Series).To(BeEmpty())
 			})
 			It("Should respect RefreshInputs guard", func(ctx SpecContext) {
-				sink := MustSucceed(factory.Create(ctx, rnode.Config{
+				sink := MustSucceed(factory.Create(rnode.Config{
 					Node: ir.Node{
 						Type: "write",
 						Inputs: types.Params{
@@ -1456,7 +1456,7 @@ var _ = Describe("Channel", func() {
 				Expect(fr.Get(100).Series).To(BeEmpty())
 			})
 			It("Should not write when input is empty", func(ctx SpecContext) {
-				sink := MustSucceed(factory.Create(ctx, rnode.Config{
+				sink := MustSucceed(factory.Create(rnode.Config{
 					Node: ir.Node{
 						Type: "write",
 						Inputs: types.Params{
@@ -1477,7 +1477,7 @@ var _ = Describe("Channel", func() {
 		})
 		Describe("Multiple Writes", func() {
 			It("Should handle sequential writes", func(ctx SpecContext) {
-				sink := MustSucceed(factory.Create(ctx, rnode.Config{
+				sink := MustSucceed(factory.Create(rnode.Config{
 					Node: ir.Node{
 						Type: "write",
 						Inputs: types.Params{
@@ -1559,7 +1559,7 @@ var _ = Describe("Channel", func() {
 				analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue())
 				s := rnode.New(analyzed)
-				source := MustSucceed(mod.Create(ctx, rnode.Config{
+				source := MustSucceed(mod.Create(rnode.Config{
 					Node: ir.Node{
 						Type: "on",
 						Inputs: types.Params{
@@ -1568,7 +1568,7 @@ var _ = Describe("Channel", func() {
 					},
 					State: s.Node("read"),
 				}))
-				sink := MustSucceed(mod.Create(ctx, rnode.Config{
+				sink := MustSucceed(mod.Create(rnode.Config{
 					Node: ir.Node{
 						Type: "write",
 						Inputs: types.Params{
@@ -1672,7 +1672,7 @@ var _ = Describe("Channel", func() {
 					s := rnode.New(analyzed)
 
 					factory := mod
-					source1, _ := factory.Create(ctx, rnode.Config{
+					source1, _ := factory.Create(rnode.Config{
 						Node: ir.Node{
 							Type: "on",
 							Inputs: types.Params{
@@ -1681,7 +1681,7 @@ var _ = Describe("Channel", func() {
 						},
 						State: s.Node("read1"),
 					})
-					source2, _ := factory.Create(ctx, rnode.Config{
+					source2, _ := factory.Create(rnode.Config{
 						Node: ir.Node{
 							Type: "on",
 							Inputs: types.Params{
@@ -1690,7 +1690,7 @@ var _ = Describe("Channel", func() {
 						},
 						State: s.Node("read2"),
 					})
-					sink1, _ := factory.Create(ctx, rnode.Config{
+					sink1, _ := factory.Create(rnode.Config{
 						Node: ir.Node{
 							Type: "write",
 							Inputs: types.Params{
@@ -1699,7 +1699,7 @@ var _ = Describe("Channel", func() {
 						},
 						State: s.Node("write1"),
 					})
-					sink2, _ := factory.Create(ctx, rnode.Config{
+					sink2, _ := factory.Create(rnode.Config{
 						Node: ir.Node{
 							Type: "write",
 							Inputs: types.Params{
@@ -1788,7 +1788,7 @@ var _ = Describe("Source Rebind", func() {
 		})
 		progState = rnode.New(prog)
 		factory := MustSucceed(channels.NewHost(ctx, nil, channelState, nil))
-		source = MustSucceed(factory.Create(ctx, rnode.Config{
+		source = MustSucceed(factory.Create(rnode.Config{
 			Node: prog.Nodes[1], State: progState.Node("source"),
 		}))
 	})
@@ -1869,7 +1869,7 @@ var _ = Describe("Construction validation", func() {
 			s := rnode.New(prog)
 			factory := MustSucceed(channels.NewHost(ctx, nil, nil, nil))
 			cfg := rnode.Config{Node: prog.Nodes[0], State: s.Node("write")}
-			Expect(factory.Create(ctx, cfg)).Error().
+			Expect(factory.Create(cfg)).Error().
 				To(MatchError(rnode.ErrInputNotFound))
 		},
 	)

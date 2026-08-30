@@ -258,18 +258,18 @@ var _ = Describe("Module", func() {
 	Describe("Create", func() {
 		It("Should return ErrNotFound for an unrecognized type", func(ctx SpecContext) {
 			cfg := node.Config{Node: ir.Node{Type: "wrong_type"}}
-			Expect(mod.Create(ctx, cfg)).Error().To(MatchError(query.ErrNotFound))
+			Expect(mod.Create(cfg)).Error().To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should construct a create node from valid inputs", func(ctx SpecContext) {
-			n := MustSucceed(mod.Create(ctx, create.Config("rng", "", "")))
+			n := MustSucceed(mod.Create(create.Config("rng", "", "")))
 			Expect(n).ToNot(BeNil())
 			Expect(func() { n.Reset() }).ToNot(Panic())
 			Expect(n.IsOutputTruthy(0)).To(BeFalse())
 		})
 
 		It("Should construct an end node from valid inputs", func(ctx SpecContext) {
-			n := MustSucceed(mod.Create(ctx, end.Config(uuid.NewString())))
+			n := MustSucceed(mod.Create(end.Config(uuid.NewString())))
 			Expect(n).ToNot(BeNil())
 		})
 
@@ -283,7 +283,7 @@ var _ = Describe("Module", func() {
 				state := node.New(ir.IR{Nodes: ir.Nodes{cfg.Node}})
 				cfg.State = state.Node("")
 				Expect(
-					mod.Create(ctx, cfg),
+					mod.Create(cfg),
 				).Error().
 					To(MatchError(ContainSubstring("ranges.create inputs")))
 			},
@@ -302,7 +302,7 @@ var _ = Describe("Module", func() {
 				state := node.New(ir.IR{Nodes: ir.Nodes{cfg.Node}})
 				cfg.State = state.Node("")
 				Expect(
-					mod.Create(ctx, cfg),
+					mod.Create(cfg),
 				).Error().
 					To(MatchError(ContainSubstring("ranges.end inputs")))
 			},
@@ -322,7 +322,7 @@ var _ = Describe("createNode.Next", func() {
 
 	build := func(ctx context.Context, name, parent, colorHex string) (node.Node, *node.State) {
 		cfg := create.Config(name, parent, colorHex)
-		return MustSucceed(mod.Create(ctx, cfg)), cfg.State
+		return MustSucceed(mod.Create(cfg)), cfg.State
 	}
 
 	It(
@@ -439,7 +439,7 @@ var _ = Describe("createNode.Next", func() {
 		// The configured "" would succeed parentless; only the live slot value
 		// can produce this warning.
 		cfg := create.Config("var_parent_"+uuid.NewString(), VarOf("not-a-uuid"), "")
-		n := MustSucceed(mod.Create(ctx, cfg))
+		n := MustSucceed(mod.Create(cfg))
 		n.Next(nodeCtx(ctx))
 
 		Expect(
@@ -465,7 +465,7 @@ var _ = Describe("endNode.Next", func() {
 
 	build := func(ctx context.Context, key string) (node.Node, *node.State) {
 		cfg := end.Config(key)
-		return MustSucceed(mod.Create(ctx, cfg)), cfg.State
+		return MustSucceed(mod.Create(cfg)), cfg.State
 	}
 
 	openRange := func(ctx context.Context) ranger.Range {

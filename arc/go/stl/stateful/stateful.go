@@ -178,7 +178,7 @@ func NewSymbols() []*symbol.Symbol {
 	return []*symbol.Symbol{mod}
 }
 
-func (h *Host) Create(_ context.Context, _ node.Config) (node.Node, error) {
+func (h *Host) Create(_ node.Config) (node.Node, error) {
 	return nil, query.ErrNotFound
 }
 

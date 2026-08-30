@@ -10,7 +10,6 @@
 package wasm
 
 import (
-	"context"
 	"math"
 
 	"github.com/synnaxlabs/arc/runtime/node"
@@ -30,7 +29,7 @@ type Module struct {
 	NodeKeySetter NodeKeySetter
 }
 
-func (w *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+func (w *Module) Create(cfg node.Config) (node.Node, error) {
 	irFn, ok := cfg.Program.Functions.Find(cfg.Node.Type)
 	if !ok {
 		return nil, query.ErrNotFound
