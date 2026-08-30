@@ -972,8 +972,10 @@ func collectTypeParams(params parser.ITypeParamsContext) []resolution.TypeParam 
 	}
 	var result []resolution.TypeParam
 	for _, p := range params.AllTypeParam() {
-		tp := resolution.TypeParam{Name: p.IDENT().GetText()}
-		tp.Optional = p.QUESTION() != nil
+		tp := resolution.TypeParam{
+			Name:     p.IDENT().GetText(),
+			Optional: p.QUESTION() != nil,
+		}
 		typeRefs := p.AllTypeRef()
 		hasExtends := p.EXTENDS() != nil
 		hasEquals := p.EQUALS() != nil
