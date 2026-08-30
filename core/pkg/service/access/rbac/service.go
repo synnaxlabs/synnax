@@ -251,13 +251,22 @@ func (e *Enforcer) Enforce(ctx context.Context, req access.Request) error {
 	if err != nil {
 		return err
 	}
-	if allowRequest(req, v) {
+	denied, ok := firstDenied(req, v)
+	if !ok {
 		return nil
 	}
-	return access.ErrDenied
+	return errors.Wrapf(
+		access.ErrDenied,
+		"%s cannot %s %s",
+		req.Subject,
+		req.Action,
+		denied,
+	)
 }
 
-func allowRequest(req access.Request, policies []policy.Policy) bool {
+// firstDenied returns the first object in the request that no policy covers, and
+// whether there was one. A request is allowed only when every object is covered.
+func firstDenied(req access.Request, policies []policy.Policy) (ontology.ID, bool) {
 	for _, requestedObj := range req.Objects {
 		found := false
 		for _, p := range policies {
@@ -282,8 +291,8 @@ func allowRequest(req access.Request, policies []policy.Policy) bool {
 			}
 		}
 		if !found {
-			return false
+			return requestedObj, true
 		}
 	}
-	return true
+	return ontology.ID{}, false
 }
