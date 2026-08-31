@@ -172,7 +172,6 @@ describe("button symbol", () => {
   });
 });
 
-// A config from before the size control existed: no size key.
 const LEGACY_CONFIG: Config = {
   variant: "button",
   orientation: "left",
