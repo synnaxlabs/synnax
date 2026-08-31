@@ -105,10 +105,7 @@ type streamer[I any, O any] struct {
 	relay             *relay
 	translateRequest  func(I) StreamerRequest
 	translateResponse func(StreamerResponse) O
-	// keys is the set of channels the caller currently subscribes to. The relay
-	// broadcasts every frame to every streamer, so each one filters on the hot path
-	// and needs constant-time membership. It is rebuilt on every request.
-	keys set.Set[channel.Key]
+	keys              set.Set[channel.Key]
 	StreamerConfig
 }
 

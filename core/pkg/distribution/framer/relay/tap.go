@@ -282,10 +282,10 @@ type freeWriteTap struct {
 	confluence.AbstractUnarySource[Response]
 	freeWrites confluence.Outlet[Response]
 	// keys is the set of free channels currently being filtered in. It is updated
-	// synchronously by the tapper (setKeys) and read on every free write, so it is
-	// an atomic pointer: the read path takes a single lock-free atomic load and the
-	// write path publishes a new set without blocking the tapper. nil means no
-	// free channels are demanded yet, in which case all free writes are filtered out.
+	// synchronously by the tapper (setKeys) and read on every free write, so it is an
+	// atomic pointer: the read path takes a single lock-free atomic load and the write
+	// path publishes a new set without blocking the tapper. nil means no free channels
+	// are demanded yet, in which case all free writes are filtered out.
 	keys atomic.Pointer[set.Set[channel.Key]]
 }
 
