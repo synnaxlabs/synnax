@@ -475,19 +475,22 @@ func compileBuiltinLen(
 	case types.KindSeries:
 		if funcName == "string.len" {
 			return types.Type{}, errors.Newf(
-				"string.len() requires a string argument, got series")
+				"string.len() requires a string argument, got series",
+			)
 		}
 		ctx.Resolver.EmitSeriesLen(ctx.Writer, ctx.WriterID)
 		return types.I64(), nil
 	case types.KindString:
 		if funcName == "series.len" {
 			return types.Type{}, errors.Newf(
-				"series.len() requires a series argument, got string")
+				"series.len() requires a series argument, got string",
+			)
 		}
 		ctx.Resolver.EmitStringLen(ctx.Writer, ctx.WriterID)
 		return types.I64(), nil
 	default:
 		return types.Type{}, errors.Newf(
-			"argument 1 of %s: expected series or str, got %s", funcName, argType)
+			"argument 1 of %s: expected series or str, got %s", funcName, argType,
+		)
 	}
 }

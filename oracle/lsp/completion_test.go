@@ -38,22 +38,18 @@ var _ = Describe("Completion", func() {
 
 	completionAt := func(ctx context.Context, line, col uint32) *protocol.CompletionList {
 		result := MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
-			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-				TextDocument: protocol.TextDocumentIdentifier{
-					URI: "file:///test.oracle",
-				},
-				Position: protocol.Position{Line: line, Character: col},
+			TextDocument: protocol.TextDocumentIdentifier{
+				URI: "file:///test.oracle",
 			},
+			Position: protocol.Position{Line: line, Character: col},
 		}))
 		return result.(*protocol.CompletionList)
 	}
 
 	completionFor := func(ctx context.Context, docURI uri.URI, line, col uint32) *protocol.CompletionList {
 		result := MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
-			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-				TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
-				Position:     protocol.Position{Line: line, Character: col},
-			},
+			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+			Position:     protocol.Position{Line: line, Character: col},
 		}))
 		return result.(*protocol.CompletionList)
 	}
@@ -240,12 +236,10 @@ var _ = Describe("DidChange", func() {
 		})).To(Succeed())
 
 		result := MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
-			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-				TextDocument: protocol.TextDocumentIdentifier{
-					URI: "file:///change.oracle",
-				},
-				Position: protocol.Position{Line: 0, Character: 0},
+			TextDocument: protocol.TextDocumentIdentifier{
+				URI: "file:///change.oracle",
 			},
+			Position: protocol.Position{Line: 0, Character: 0},
 		}))
 		Expect(result.(*protocol.CompletionList).Items).ToNot(BeEmpty())
 	})
@@ -288,12 +282,10 @@ var _ = Describe("DidClose", func() {
 		})).To(Succeed())
 
 		result := MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
-			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-				TextDocument: protocol.TextDocumentIdentifier{
-					URI: "file:///close.oracle",
-				},
-				Position: protocol.Position{Line: 0, Character: 0},
+			TextDocument: protocol.TextDocumentIdentifier{
+				URI: "file:///close.oracle",
 			},
+			Position: protocol.Position{Line: 0, Character: 0},
 		}))
 		Expect(result.(*protocol.CompletionList).Items).To(BeEmpty())
 	})
@@ -315,10 +307,8 @@ var _ = Describe("Hover", func() {
 
 	hoverAt := func(ctx context.Context, docURI uri.URI, line, col uint32) *protocol.Hover {
 		return MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-				TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
-				Position:     protocol.Position{Line: line, Character: col},
-			},
+			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+			Position:     protocol.Position{Line: line, Character: col},
 		}))
 	}
 

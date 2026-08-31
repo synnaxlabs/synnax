@@ -45,10 +45,8 @@ var _ = Describe("Service", func() {
 					apiSvc.Create(rootCtx(ctx), db, apiuser.CreateRequest{
 						Users: []apiuser.NewUser{
 							{
-								Credentials: auth.Credentials{
-									Username: username,
-									Password: "p",
-								},
+								Username:  username,
+								Password:  "p",
 								FirstName: "First",
 								LastName:  "Last",
 							},
@@ -71,10 +69,8 @@ var _ = Describe("Service", func() {
 				fctx, _ := nonRootCtx(ctx)
 				Expect(apiSvc.Create(fctx, db, apiuser.CreateRequest{
 					Users: []apiuser.NewUser{{
-						Credentials: auth.Credentials{
-							Username: "should-not-exist-" + uuid.NewString(),
-							Password: "p",
-						},
+						Username: "should-not-exist-" + uuid.NewString(),
+						Password: "p",
 					}},
 				})).Error().To(MatchError(access.ErrDenied))
 			},
@@ -91,16 +87,12 @@ var _ = Describe("Service", func() {
 				Expect(apiSvc.Create(rootCtx(ctx), tx, apiuser.CreateRequest{
 					Users: []apiuser.NewUser{
 						{
-							Credentials: auth.Credentials{
-								Username: username,
-								Password: "p",
-							},
+							Username: username,
+							Password: "p",
 						},
 						{
-							Credentials: auth.Credentials{
-								Username: username,
-								Password: "p",
-							},
+							Username: username,
+							Password: "p",
 						},
 					},
 				})).Error().To(MatchError(auth.ErrRepeatedUsername))

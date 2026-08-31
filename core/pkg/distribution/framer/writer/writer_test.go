@@ -401,10 +401,10 @@ var _ = Describe("Writer", func() {
 					AutoIndex: new(true),
 					Start:     1 * telem.SecondTS,
 				}))
-				Expect((w.Write(frame.NewUnary(
+				Expect(w.Write(frame.NewUnary(
 					data.Key(),
 					telem.NewSeriesV(1.1, 2.2, 3.3),
-				)))).To(BeTrue())
+				))).To(BeTrue())
 				MustSucceed(w.Commit())
 				Expect(w.Close()).To(Succeed())
 				after := telem.Now()

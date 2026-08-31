@@ -30,8 +30,8 @@ var _ = Describe("Factory", func() {
 	Describe("CA Generation", func() {
 		It("Should generate a CA and a key", func() {
 			f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
-				LoaderConfig: cert.LoaderConfig{FS: fs},
-				KeySize:      mock.SmallKeySize,
+				FS:      fs,
+				KeySize: mock.SmallKeySize,
 			}))
 			Expect(f.CreateCAPair()).To(Succeed())
 			c, k := MustSucceed2(f.Loader.LoadCAPair())
@@ -42,15 +42,15 @@ var _ = Describe("Factory", func() {
 		})
 		It("Should not allow key reuse by default", func() {
 			f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
-				LoaderConfig: cert.LoaderConfig{FS: fs},
-				KeySize:      mock.SmallKeySize,
+				FS:      fs,
+				KeySize: mock.SmallKeySize,
 			}))
 			Expect(f.CreateCAPair()).To(Succeed())
 			Expect(f.CreateCAPair()).ToNot(Succeed())
 		})
 		It("Should reuse the CA and key if they already exist", func() {
 			f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
-				LoaderConfig:  cert.LoaderConfig{FS: fs},
+				FS:            fs,
 				AllowKeyReuse: new(true),
 				KeySize:       mock.SmallKeySize,
 			}))
@@ -61,9 +61,9 @@ var _ = Describe("Factory", func() {
 	Describe("Node Generation", func() {
 		It("Should generate a node certificate and a key", func() {
 			f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
-				LoaderConfig: cert.LoaderConfig{FS: fs},
-				Hosts:        []address.Address{"synnaxlabs.com"},
-				KeySize:      mock.SmallKeySize,
+				FS:      fs,
+				Hosts:   []address.Address{"synnaxlabs.com"},
+				KeySize: mock.SmallKeySize,
 			}))
 			Expect(f.CreateCAPair()).To(Succeed())
 			Expect(f.CreateNodePair()).To(Succeed())
@@ -75,16 +75,16 @@ var _ = Describe("Factory", func() {
 		})
 		It("Should fail to generate a node cert and key if no CA is present", func() {
 			f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
-				LoaderConfig: cert.LoaderConfig{FS: fs},
-				KeySize:      mock.SmallKeySize,
+				FS:      fs,
+				KeySize: mock.SmallKeySize,
 			}))
 			Expect(f.CreateNodePair()).
 				Error().To(MatchError(ContainSubstring("CA certificate not found")))
 		})
 		It("Should fail is no hosts are provided", func() {
 			f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
-				LoaderConfig: cert.LoaderConfig{FS: fs},
-				KeySize:      mock.SmallKeySize,
+				FS:      fs,
+				KeySize: mock.SmallKeySize,
 			}))
 			Expect(f.CreateCAPair()).To(Succeed())
 			Expect(f.CreateNodePair()).
@@ -95,9 +95,9 @@ var _ = Describe("Factory", func() {
 		newFactory := func(hosts ...address.Address) *cert.Factory {
 			GinkgoHelper()
 			return MustSucceed(cert.NewFactory(cert.FactoryConfig{
-				LoaderConfig: cert.LoaderConfig{FS: fs},
-				Hosts:        hosts,
-				KeySize:      mock.SmallKeySize,
+				FS:      fs,
+				Hosts:   hosts,
+				KeySize: mock.SmallKeySize,
 			}))
 		}
 		serialOf := func(f *cert.Factory) string {
@@ -217,9 +217,9 @@ var _ = Describe("Factory", func() {
 		}
 		It("Should chain a node certificate on disk to the CA", func() {
 			f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
-				LoaderConfig: cert.LoaderConfig{FS: fs},
-				Hosts:        []address.Address{"synnaxlabs.com"},
-				KeySize:      mock.SmallKeySize,
+				FS:      fs,
+				Hosts:   []address.Address{"synnaxlabs.com"},
+				KeySize: mock.SmallKeySize,
 			}))
 			Expect(f.CreateCAPair()).To(Succeed())
 			Expect(f.CreateNodePair()).To(Succeed())
@@ -228,8 +228,8 @@ var _ = Describe("Factory", func() {
 		})
 		It("Should chain an in-memory node certificate to the CA", func() {
 			f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
-				LoaderConfig: cert.LoaderConfig{FS: fs},
-				KeySize:      mock.SmallKeySize,
+				FS:      fs,
+				KeySize: mock.SmallKeySize,
 			}))
 			Expect(f.CreateCAPair()).To(Succeed())
 			tlsC := MustSucceed(f.SignNodeCert([]address.Address{"synnaxlabs.com"}))

@@ -2391,7 +2391,8 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						unary.WriterConfig{
 							Start:   1 * telem.SecondTS,
 							Subject: control.Subject{Key: "test"},
-						}),
+						},
+					),
 					)
 					MustSucceed(indexW.Write(telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)))
 					// Rollover 1
@@ -2414,7 +2415,8 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						unary.WriterConfig{
 							Start:   1 * telem.SecondTS,
 							Subject: control.Subject{Key: "test"},
-						}),
+						},
+					),
 					)
 
 					MustSucceed(
@@ -2443,7 +2445,8 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						unary.WriterConfig{
 							Start:   1 * telem.SecondTS,
 							Subject: control.Subject{Key: "test"},
-						}),
+						},
+					),
 					)
 
 					MustSucceed(

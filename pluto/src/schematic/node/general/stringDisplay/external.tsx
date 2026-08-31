@@ -25,7 +25,7 @@ export const defaultConfig = (): Config => ({
   variant: VARIANT,
   orientation: "left",
   color: color.ZERO,
-  level: "p",
+  level: "h4",
   inlineSize: 100,
   label: Label.defaultConfig("String display"),
   ...Staleness.ZERO_CONFIG,

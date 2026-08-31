@@ -146,10 +146,11 @@ func NewLookupIndex[K Key, E Entry[K], V comparable](
 	extract func(e *E) V,
 ) *LookupIndex[K, E, V] {
 	l := &LookupIndex[K, E, V]{
-		baseIndex: baseIndex[K, E]{name: name, populateDone: make(chan struct{})},
-		extract:   extract,
-		forward:   make(map[V][]K),
-		reverse:   make(map[K]V),
+		name:         name,
+		populateDone: make(chan struct{}),
+		extract:      extract,
+		forward:      make(map[V][]K),
+		reverse:      make(map[K]V),
 	}
 	l.overlay.commitSet = func(key K, value V) {
 		l.mu.Lock()
@@ -376,9 +377,10 @@ func NewSortedIndex[K Key, E Entry[K], V cmp.Ordered](
 	extract func(e *E) V,
 ) *SortedIndex[K, E, V] {
 	s := &SortedIndex[K, E, V]{
-		baseIndex: baseIndex[K, E]{name: name, populateDone: make(chan struct{})},
-		extract:   extract,
-		reverse:   make(map[K]V),
+		name:         name,
+		populateDone: make(chan struct{}),
+		extract:      extract,
+		reverse:      make(map[K]V),
 	}
 	s.overlay.commitSet = func(key K, value V) {
 		s.mu.Lock()

@@ -76,7 +76,8 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 
 		content, err := p.generateFile(
-			outputPath, structs, distinctTypes, unions, namespace, c.jsonPaths, req)
+			outputPath, structs, distinctTypes, unions, namespace, c.jsonPaths, req,
+		)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate json for %s", outputPath)
 		}

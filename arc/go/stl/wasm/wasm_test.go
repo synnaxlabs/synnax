@@ -303,16 +303,12 @@ func binaryOpGraph(
 		},
 		Edges: graph.Edges{
 			{
-				Edge: ir.Edge{
-					Source: ir.Handle{Node: lhsKey, Param: ir.DefaultOutputParam},
-					Target: ir.Handle{Node: opKey, Param: "lhs"},
-				},
+				Source: ir.Handle{Node: lhsKey, Param: ir.DefaultOutputParam},
+				Target: ir.Handle{Node: opKey, Param: "lhs"},
 			},
 			{
-				Edge: ir.Edge{
-					Source: ir.Handle{Node: rhsKey, Param: ir.DefaultOutputParam},
-					Target: ir.Handle{Node: opKey, Param: "rhs"},
-				},
+				Source: ir.Handle{Node: rhsKey, Param: ir.DefaultOutputParam},
+				Target: ir.Handle{Node: opKey, Param: "rhs"},
 			},
 		},
 	}
@@ -491,22 +487,18 @@ var _ = Describe("WASM", func() {
 					},
 					Edges: graph.Edges{
 						{
-							Edge: ir.Edge{
-								Source: ir.Handle{
-									Node:  "a",
-									Param: ir.DefaultOutputParam,
-								},
-								Target: ir.Handle{Node: "math_ops", Param: "a"},
+							Source: ir.Handle{
+								Node:  "a",
+								Param: ir.DefaultOutputParam,
 							},
+							Target: ir.Handle{Node: "math_ops", Param: "a"},
 						},
 						{
-							Edge: ir.Edge{
-								Source: ir.Handle{
-									Node:  "b",
-									Param: ir.DefaultOutputParam,
-								},
-								Target: ir.Handle{Node: "math_ops", Param: "b"},
+							Source: ir.Handle{
+								Node:  "b",
+								Param: ir.DefaultOutputParam,
 							},
+							Target: ir.Handle{Node: "math_ops", Param: "b"},
 						},
 					},
 				}
@@ -750,13 +742,11 @@ var _ = Describe("WASM", func() {
 					},
 					Edges: graph.Edges{
 						{
-							Edge: ir.Edge{
-								Source: ir.Handle{
-									Node:  "x",
-									Param: ir.DefaultOutputParam,
-								},
-								Target: ir.Handle{Node: "add", Param: "x"},
+							Source: ir.Handle{
+								Node:  "x",
+								Param: ir.DefaultOutputParam,
 							},
+							Target: ir.Handle{Node: "add", Param: "x"},
 						},
 					},
 				}
@@ -806,10 +796,8 @@ var _ = Describe("WASM", func() {
 				},
 				Edges: graph.Edges{
 					{
-						Edge: ir.Edge{
-							Source: ir.Handle{Node: "a", Param: ir.DefaultOutputParam},
-							Target: ir.Handle{Node: "compute", Param: "a"},
-						},
+						Source: ir.Handle{Node: "a", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "compute", Param: "a"},
 					},
 				},
 			}
@@ -857,13 +845,11 @@ var _ = Describe("WASM", func() {
 				},
 				Edges: graph.Edges{
 					{
-						Edge: ir.Edge{
-							Source: ir.Handle{
-								Node:  "value",
-								Param: ir.DefaultOutputParam,
-							},
-							Target: ir.Handle{Node: "scale", Param: "value"},
+						Source: ir.Handle{
+							Node:  "value",
+							Param: ir.DefaultOutputParam,
 						},
+						Target: ir.Handle{Node: "scale", Param: "value"},
 					},
 				},
 			}
@@ -949,13 +935,11 @@ var _ = Describe("WASM", func() {
 					},
 					Edges: graph.Edges{
 						{
-							Edge: ir.Edge{
-								Source: ir.Handle{
-									Node:  "value",
-									Param: ir.DefaultOutputParam,
-								},
-								Target: ir.Handle{Node: "scale", Param: "value"},
+							Source: ir.Handle{
+								Node:  "value",
+								Param: ir.DefaultOutputParam,
 							},
+							Target: ir.Handle{Node: "scale", Param: "value"},
 						},
 					},
 				}
@@ -1101,22 +1085,18 @@ trigger_ch -> emit_period{period=1s}
 					},
 					Edges: graph.Edges{
 						{
-							Edge: ir.Edge{
-								Source: ir.Handle{
-									Node:  "a",
-									Param: ir.DefaultOutputParam,
-								},
-								Target: ir.Handle{Node: "math_ops", Param: "a"},
+							Source: ir.Handle{
+								Node:  "a",
+								Param: ir.DefaultOutputParam,
 							},
+							Target: ir.Handle{Node: "math_ops", Param: "a"},
 						},
 						{
-							Edge: ir.Edge{
-								Source: ir.Handle{
-									Node:  "b",
-									Param: ir.DefaultOutputParam,
-								},
-								Target: ir.Handle{Node: "math_ops", Param: "b"},
+							Source: ir.Handle{
+								Node:  "b",
+								Param: ir.DefaultOutputParam,
 							},
+							Target: ir.Handle{Node: "math_ops", Param: "b"},
 						},
 					},
 				}
@@ -1724,10 +1704,10 @@ trigger_ch -> emit_period{period=1s}
 					"val_src": {"type": "val_src"},
 					"neg_c":   {"type": "neg_c"},
 				},
-				Edges: graph.Edges{{Edge: ir.Edge{
+				Edges: graph.Edges{{
 					Source: ir.Handle{Node: "val_src", Param: ir.DefaultOutputParam},
 					Target: ir.Handle{Node: "neg_c", Param: "val"},
-				}}},
+				}},
 			}
 			h := newHarness(ctx, g, nil)
 			defer h.Close(ctx)
@@ -1771,10 +1751,10 @@ trigger_ch -> emit_period{period=1s}
 					"val_src": {"type": "val_src"},
 					"neg_cf":  {"type": "neg_cf"},
 				},
-				Edges: graph.Edges{{Edge: ir.Edge{
+				Edges: graph.Edges{{
 					Source: ir.Handle{Node: "val_src", Param: ir.DefaultOutputParam},
 					Target: ir.Handle{Node: "neg_cf", Param: "val"},
-				}}},
+				}},
 			}
 			h := newHarness(ctx, g, nil)
 			defer h.Close(ctx)
@@ -1823,13 +1803,13 @@ trigger_ch -> emit_period{period=1s}
 						"str_len": {"type": "str_len"},
 					},
 					Edges: graph.Edges{
-						{Edge: ir.Edge{
+						{
 							Source: ir.Handle{
 								Node:  "source",
 								Param: ir.DefaultOutputParam,
 							},
 							Target: ir.Handle{Node: "str_len", Param: "s"},
-						}},
+						},
 					},
 				}
 				h := newHarness(ctx, g, nil)
@@ -1878,13 +1858,13 @@ trigger_ch -> emit_period{period=1s}
 						"qstr_len": {"type": "qstr_len"},
 					},
 					Edges: graph.Edges{
-						{Edge: ir.Edge{
+						{
 							Source: ir.Handle{
 								Node:  "source",
 								Param: ir.DefaultOutputParam,
 							},
 							Target: ir.Handle{Node: "qstr_len", Param: "s"},
-						}},
+						},
 					},
 				}
 				h := newHarness(ctx, g, nil)
@@ -1945,20 +1925,20 @@ trigger_ch -> emit_period{period=1s}
 						"qstr_concat": {"type": "qstr_concat"},
 					},
 					Edges: graph.Edges{
-						{Edge: ir.Edge{
+						{
 							Source: ir.Handle{
 								Node:  "src_a",
 								Param: ir.DefaultOutputParam,
 							},
 							Target: ir.Handle{Node: "qstr_concat", Param: "a"},
-						}},
-						{Edge: ir.Edge{
+						},
+						{
 							Source: ir.Handle{
 								Node:  "src_b",
 								Param: ir.DefaultOutputParam,
 							},
 							Target: ir.Handle{Node: "qstr_concat", Param: "b"},
-						}},
+						},
 					},
 				}
 				h := newHarness(ctx, g, nil)
@@ -2017,13 +1997,13 @@ trigger_ch -> emit_period{period=1s}
 						"labeler": {"type": "labeler"},
 					},
 					Edges: graph.Edges{
-						{Edge: ir.Edge{
+						{
 							Source: ir.Handle{
 								Node:  "source",
 								Param: ir.DefaultOutputParam,
 							},
 							Target: ir.Handle{Node: "labeler", Param: "x"},
-						}},
+						},
 					},
 				}
 				// The key assertion: this must not panic on Density() for
@@ -2076,13 +2056,13 @@ trigger_ch -> emit_period{period=1s}
 						"tagger": {"type": "tagger"},
 					},
 					Edges: graph.Edges{
-						{Edge: ir.Edge{
+						{
 							Source: ir.Handle{
 								Node:  "source",
 								Param: ir.DefaultOutputParam,
 							},
 							Target: ir.Handle{Node: "tagger", Param: "x"},
-						}},
+						},
 					},
 				}
 				// Must not panic even with multiple string outputs
@@ -2129,13 +2109,13 @@ trigger_ch -> emit_period{period=1s}
 						"stringify": {"type": "stringify"},
 					},
 					Edges: graph.Edges{
-						{Edge: ir.Edge{
+						{
 							Source: ir.Handle{
 								Node:  "source",
 								Param: ir.DefaultOutputParam,
 							},
 							Target: ir.Handle{Node: "stringify", Param: "x"},
-						}},
+						},
 					},
 				}
 				h := newHarness(ctx, g, nil)
@@ -2190,13 +2170,13 @@ trigger_ch -> emit_period{period=1s}
 						"labeler": {"type": "labeler"},
 					},
 					Edges: graph.Edges{
-						{Edge: ir.Edge{
+						{
 							Source: ir.Handle{
 								Node:  "source",
 								Param: ir.DefaultOutputParam,
 							},
 							Target: ir.Handle{Node: "labeler", Param: "x"},
-						}},
+						},
 					},
 				}
 				h := newHarness(ctx, g, nil)
@@ -2353,13 +2333,11 @@ trigger_ch -> emit_period{period=1s}
 				},
 				Edges: graph.Edges{
 					{
-						Edge: ir.Edge{
-							Source: ir.Handle{
-								Node:  "input_source",
-								Param: ir.DefaultOutputParam,
-							},
-							Target: ir.Handle{Node: "add_input", Param: "y"},
+						Source: ir.Handle{
+							Node:  "input_source",
+							Param: ir.DefaultOutputParam,
 						},
+						Target: ir.Handle{Node: "add_input", Param: "y"},
 					},
 				},
 			}
@@ -2419,13 +2397,11 @@ trigger_ch -> emit_period{period=1s}
 				},
 				Edges: graph.Edges{
 					{
-						Edge: ir.Edge{
-							Source: ir.Handle{
-								Node:  "input_source",
-								Param: ir.DefaultOutputParam,
-							},
-							Target: ir.Handle{Node: "multi_input", Param: "c"},
+						Source: ir.Handle{
+							Node:  "input_source",
+							Param: ir.DefaultOutputParam,
 						},
+						Target: ir.Handle{Node: "multi_input", Param: "c"},
 					},
 				},
 			}
@@ -2479,13 +2455,11 @@ trigger_ch -> emit_period{period=1s}
 				},
 				Edges: graph.Edges{
 					{
-						Edge: ir.Edge{
-							Source: ir.Handle{
-								Node:  "input_source",
-								Param: ir.DefaultOutputParam,
-							},
-							Target: ir.Handle{Node: "scale_input", Param: "value"},
+						Source: ir.Handle{
+							Node:  "input_source",
+							Param: ir.DefaultOutputParam,
 						},
+						Target: ir.Handle{Node: "scale_input", Param: "value"},
 					},
 				},
 			}
@@ -2539,13 +2513,11 @@ trigger_ch -> emit_period{period=1s}
 				},
 				Edges: graph.Edges{
 					{
-						Edge: ir.Edge{
-							Source: ir.Handle{
-								Node:  "input_source",
-								Param: ir.DefaultOutputParam,
-							},
-							Target: ir.Handle{Node: "offset_func", Param: "value"},
+						Source: ir.Handle{
+							Node:  "input_source",
+							Param: ir.DefaultOutputParam,
 						},
+						Target: ir.Handle{Node: "offset_func", Param: "value"},
 					},
 				},
 			}
@@ -2602,13 +2574,11 @@ trigger_ch -> emit_period{period=1s}
 				},
 				Edges: graph.Edges{
 					{
-						Edge: ir.Edge{
-							Source: ir.Handle{
-								Node:  "input_source",
-								Param: ir.DefaultOutputParam,
-							},
-							Target: ir.Handle{Node: "scale_neg", Param: "value"},
+						Source: ir.Handle{
+							Node:  "input_source",
+							Param: ir.DefaultOutputParam,
 						},
+						Target: ir.Handle{Node: "scale_neg", Param: "value"},
 					},
 				},
 			}
@@ -3061,13 +3031,11 @@ trigger_ch -> emit_period{period=1s}
 					},
 					Edges: graph.Edges{
 						{
-							Edge: ir.Edge{
-								Source: ir.Handle{
-									Node:  "trigger_source",
-									Param: ir.DefaultOutputParam,
-								},
-								Target: ir.Handle{Node: "void_func", Param: "trigger"},
+							Source: ir.Handle{
+								Node:  "trigger_source",
+								Param: ir.DefaultOutputParam,
 							},
+							Target: ir.Handle{Node: "void_func", Param: "trigger"},
 						},
 					},
 				}
@@ -3128,15 +3096,13 @@ trigger_ch -> emit_period{period=1s}
 					},
 					Edges: graph.Edges{
 						{
-							Edge: ir.Edge{
-								Source: ir.Handle{
-									Node:  "trigger_source",
-									Param: ir.DefaultOutputParam,
-								},
-								Target: ir.Handle{
-									Node:  "void_with_state",
-									Param: "trigger",
-								},
+							Source: ir.Handle{
+								Node:  "trigger_source",
+								Param: ir.DefaultOutputParam,
+							},
+							Target: ir.Handle{
+								Node:  "void_with_state",
+								Param: "trigger",
 							},
 						},
 					},
@@ -3395,13 +3361,11 @@ trigger_ch -> emit_period{period=1s}
 					},
 					Edges: graph.Edges{
 						{
-							Edge: ir.Edge{
-								Source: ir.Handle{
-									Node:  "input_source",
-									Param: ir.DefaultOutputParam,
-								},
-								Target: ir.Handle{Node: "count_rising", Param: "input"},
+							Source: ir.Handle{
+								Node:  "input_source",
+								Param: ir.DefaultOutputParam,
 							},
+							Target: ir.Handle{Node: "count_rising", Param: "input"},
 						},
 					},
 				}
@@ -3825,15 +3789,13 @@ trigger_ch -> emit_period{period=1s}
 					},
 					Edges: graph.Edges{
 						{
-							Edge: ir.Edge{
-								Source: ir.Handle{
-									Node:  "value_source",
-									Param: ir.DefaultOutputParam,
-								},
-								Target: ir.Handle{
-									Node:  "tolerance_check",
-									Param: "value",
-								},
+							Source: ir.Handle{
+								Node:  "value_source",
+								Param: ir.DefaultOutputParam,
+							},
+							Target: ir.Handle{
+								Node:  "tolerance_check",
+								Param: "value",
 							},
 						},
 					},

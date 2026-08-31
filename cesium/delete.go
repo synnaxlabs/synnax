@@ -78,7 +78,7 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 	// in case the channel is repeatedly created and deleted.
 	oldName := keyToDirName(ch)
 	newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
-	if err := (func() error {
+	if err := func() error {
 		db.mu.Lock()
 		defer db.mu.Unlock()
 		if err := db.removeChannel(ch); err != nil {
@@ -89,7 +89,7 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 			return nil
 		}
 		return err
-	})(); err != nil {
+	}(); err != nil {
 		return err
 	}
 	return db.fs.Remove(newName)

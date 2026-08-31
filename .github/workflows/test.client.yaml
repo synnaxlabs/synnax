@@ -47,7 +47,6 @@ on:
       - scripts/sanitizers/**
       - turbo.json
       - uv.lock
-      - uv.toml
       - x/cpp/**
       - x/go/**
       - x/ts/**
@@ -91,7 +90,6 @@ on:
       - scripts/sanitizers/**
       - turbo.json
       - uv.lock
-      - uv.toml
       - x/cpp/**
       - x/go/**
       - x/ts/**
@@ -146,7 +144,6 @@ jobs:
               - freighter/py/**
               - pyproject.toml
               - uv.lock
-              - uv.toml
             ts:
               - *shared
               - .github/actions/test-typescript/**

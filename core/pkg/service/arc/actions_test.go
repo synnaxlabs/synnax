@@ -29,12 +29,10 @@ func gnode(key string, x, y float64) graph.Node {
 // gedge constructs a continuous edge with the given key between two node parameters.
 func gedge(key, srcNode, srcParam, tgtNode, tgtParam string) graph.Edge {
 	return graph.Edge{
-		Edge: ir.Edge{
-			Source: ir.Handle{Node: srcNode, Param: srcParam},
-			Target: ir.Handle{Node: tgtNode, Param: tgtParam},
-			Kind:   ir.EdgeKindContinuous,
-		},
-		Key: key,
+		Source: ir.Handle{Node: srcNode, Param: srcParam},
+		Target: ir.Handle{Node: tgtNode, Param: tgtParam},
+		Kind:   ir.EdgeKindContinuous,
+		Key:    key,
 	}
 }
 

@@ -261,10 +261,10 @@ var _ = Describe("Constant", func() {
 					"sink":  {"type": "sink"},
 				},
 				Edges: graph.Edges{
-					{Edge: ir.Edge{
+					{
 						Source: ir.Handle{Node: "const", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "sink", Param: ir.DefaultInputParam},
-					}},
+					},
 				},
 				Functions: []ir.Function{
 					{

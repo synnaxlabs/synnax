@@ -333,12 +333,14 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			stores,
 			MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{
 				DB: db,
-			})).Stores()...)
+			})).Stores()...,
+		)
 		stores = append(
 			stores,
 			MustOpen(ethercat.OpenService(ctx, ethercat.ServiceConfig{
 				DB: db,
-			})).Stores()...)
+			})).Stores()...,
+		)
 		stores = append(stores, MustOpen(http.OpenService(ctx, http.ServiceConfig{
 			DB: db,
 		})).Stores()...)
@@ -358,12 +360,14 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			stores,
 			MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
 				DB: db,
-			})).Stores()...)
+			})).Stores()...,
+		)
 		stores = append(
 			stores,
 			MustOpen(racktask.OpenService(ctx, racktask.ServiceConfig{
 				DB: db,
-			})).Stores()...)
+			})).Stores()...,
+		)
 		configs = MustSucceed(config.NewRegistry(stores...))
 		imexSvc = imex.NewService()
 		svc = MustOpen(task.OpenService(ctx, task.ServiceConfig{

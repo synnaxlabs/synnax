@@ -165,7 +165,8 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 
 		content, err := p.generateProto(
-			outputPath, structs, enums, namespace, jsonPaths, protoPaths, req)
+			outputPath, structs, enums, namespace, jsonPaths, protoPaths, req,
+		)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate proto for %s", outputPath)
 		}
