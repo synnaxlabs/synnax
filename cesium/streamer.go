@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 )
 
@@ -92,6 +93,7 @@ func NewTranslatedStreamer[I, O any](
 	}
 	return &streamer[I, O]{
 		StreamerConfig:    cfg,
+		keys:              set.New(cfg.Channels...),
 		relay:             db.relay,
 		translateResponse: translateResponse,
 		translateRequest:  translateRequest,
@@ -103,6 +105,10 @@ type streamer[I any, O any] struct {
 	relay             *relay
 	translateRequest  func(I) StreamerRequest
 	translateResponse func(StreamerResponse) O
+	// keys is the set of channels the caller currently subscribes to. The relay
+	// broadcasts every frame to every streamer, so each one filters on the hot path
+	// and needs constant-time membership. It is rebuilt on every request.
+	keys set.Set[channel.Key]
 	StreamerConfig
 }
 
@@ -134,9 +140,9 @@ func (s *streamer[I, O]) Flow(sCtx signal.Context, opts ...confluence.Option) {
 				if !ok {
 					return nil
 				}
-				s.Channels = s.translateRequest(req).Channels
+				s.keys = set.New(s.translateRequest(req).Channels...)
 			case rf := <-frames.Outlet():
-				if filtered := rf.frame.KeepKeys(s.Channels); !filtered.Empty() {
+				if filtered := rf.frame.KeepKeysSet(s.keys); !filtered.Empty() {
 					if err := signal.SendUnderContext(
 						ctx,
 						s.Out.Inlet(),

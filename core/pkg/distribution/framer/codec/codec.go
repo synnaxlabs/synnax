@@ -26,13 +26,17 @@ import (
 	"github.com/synnaxlabs/x/bit"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
 type state struct {
-	keyDataTypes         map[channel.Key]telem.DataType
-	keys                 channel.Keys
+	keyDataTypes map[channel.Key]telem.DataType
+	keys         channel.Keys
+	// keySet mirrors keys, giving the encoder constant-time membership when it filters
+	// each frame down to the channels in this state.
+	keySet               set.Set[channel.Key]
 	hasVariableDataTypes bool
 }
 
@@ -291,6 +295,7 @@ func (c *Codec) Initialized() bool {
 func (c *Codec) update(keys channel.Keys, keyDataTypes map[channel.Key]telem.DataType) {
 	s := state{
 		keys:                 slices.Clone(keys),
+		keySet:               set.New(keys...),
 		keyDataTypes:         keyDataTypes,
 		hasVariableDataTypes: false,
 	}
@@ -573,7 +578,7 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 	c.processUpdates()
 	c.panicIfNotUpdated("Encode")
 	currState := c.mu.states[c.mu.seqNum]
-	src = src.KeepKeys(currState.keys)
+	src = src.KeepKeysSet(currState.keySet)
 
 	// First pass: validate and insert into sorter with pre-extracted data
 	for rawI, s := range src.RawSeries() {

@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -274,6 +275,83 @@ var _ = Describe("Frame", func() {
 			)
 			filtered := fr.KeepKeys([]int32{})
 			Expect(filtered.Count()).To(Equal(0))
+		})
+	})
+
+	Describe("KeepKeysSet", func() {
+		It(
+			"Should correctly filter keys for a frame with less than 128 entries",
+			func() {
+				fr := telem.MultiFrame(
+					[]int32{1, 2, 3},
+					[]telem.Series{
+						telem.NewSeriesV[int32](1, 2, 3),
+						telem.NewSeriesV[int32](4, 5, 6),
+						telem.NewSeriesV[int32](7, 8, 9),
+					},
+				)
+				filtered := fr.KeepKeysSet(set.New[int32](1, 3))
+
+				By("Filtering out the new frame")
+				Expect(filtered.KeysSlice()).To(Equal([]int32{1, 3}))
+				Expect(filtered.SeriesSlice()).To(Equal([]telem.Series{
+					telem.NewSeriesV[int32](1, 2, 3),
+					telem.NewSeriesV[int32](7, 8, 9),
+				}))
+
+				By("Keeping the original frame")
+				Expect(fr.KeysSlice()).To(Equal([]int32{1, 2, 3}))
+			},
+		)
+
+		It(
+			"Should correctly filter keys for a frame with more than 128 entries",
+			func() {
+				keys := make([]int32, 256)
+				series := make([]telem.Series, 256)
+				for i := range int32(256) {
+					keys[i] = i
+					series[i] = telem.NewSeriesV(i, 1+i, i+2)
+				}
+				fr := telem.MultiFrame(keys, series)
+				filtered := fr.KeepKeysSet(set.New[int32](1, 3, 5, 7, 9))
+				Expect(filtered.KeysSlice()).To(Equal([]int32{1, 3, 5, 7, 9}))
+				Expect(filtered.SeriesSlice()).To(Equal([]telem.Series{
+					telem.NewSeriesV[int32](1, 2, 3),
+					telem.NewSeriesV[int32](3, 4, 5),
+					telem.NewSeriesV[int32](5, 6, 7),
+					telem.NewSeriesV[int32](7, 8, 9),
+					telem.NewSeriesV[int32](9, 10, 11),
+				}))
+			},
+		)
+
+		It(
+			"Should correctly filter a frame that has multiple series for the same channel",
+			func() {
+				fr := telem.MultiFrame(
+					[]int32{1048578, 1048578, 1048581},
+					[]telem.Series{
+						telem.NewSeriesV[int32](1, 2, 3),
+						telem.NewSeriesV[int32](4, 5, 6),
+						telem.NewSeriesV[int32](7, 8, 9),
+					},
+				)
+				filtered := fr.KeepKeysSet(set.New[int32](1048578))
+				Expect(filtered.Count()).To(Equal(2))
+			},
+		)
+
+		It("Should return an empty frame if no keys are kept", func() {
+			fr := telem.MultiFrame(
+				[]int32{1048578, 1048579, 1048580},
+				[]telem.Series{
+					telem.NewSeriesV[int32](1, 2, 3),
+					telem.NewSeriesV[int32](4, 5, 6),
+					telem.NewSeriesV[int32](7, 8, 9),
+				},
+			)
+			Expect(fr.KeepKeysSet(set.New[int32]()).Count()).To(Equal(0))
 		})
 	})
 

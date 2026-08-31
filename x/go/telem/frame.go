@@ -19,6 +19,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/bit"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/unsafe"
 	"github.com/vmihailenco/msgpack/v5"
@@ -481,9 +482,16 @@ func (f Frame[K]) ShallowCopy() Frame[K] {
 }
 
 // KeepKeys filters the frame to only include the keys in the given slice, returning
-// a shallow copy of the filtered frame.
+// a shallow copy of the filtered frame. Membership is a linear scan over keys. Callers
+// that filter many frames against the same keys should use KeepKeysSet instead.
 func (f Frame[K]) KeepKeys(keys []K) Frame[K] {
-	return f.filter(keys, lo.Contains)
+	return filterFrame(f, keys, len(keys), lo.Contains)
+}
+
+// KeepKeysSet filters the frame to only include the keys in the given set, returning a
+// shallow copy of the filtered frame.
+func (f Frame[K]) KeepKeysSet(keys set.Set[K]) Frame[K] {
+	return filterFrame(f, keys, len(keys), set.Set[K].Contains)
 }
 
 // notContain is defined statically so that it doesn't accidentally escape to the heap,
@@ -496,25 +504,33 @@ func (f Frame[K]) ExcludeKeys(keys []K) Frame[K] {
 	if len(keys) == 0 {
 		return f
 	}
-	return f.filter(keys, notContains)
+	return filterFrame(f, keys, len(keys), notContains)
 }
 
-func (f Frame[K]) filter(keys []K, keep func([]K, K) bool) Frame[K] {
+// filterFrame returns a shallow copy of f holding only the entries whose key satisfies
+// keep against src. count sizes the copied key and series slices. keep is passed src
+// rather than closing over it so that call sites can use a static function value.
+func filterFrame[K types.SizedNumeric, S any](
+	f Frame[K],
+	src S,
+	count int,
+	keep func(S, K) bool,
+) Frame[K] {
 	if len(f.keys) < f.mask.Cap() {
 		f.mask.enabled = true
 		for i, key := range f.keys {
-			if !keep(keys, key) {
+			if !keep(src, key) {
 				f.mask.Mask128 = f.mask.Set(i, true)
 			}
 		}
 		return f
 	}
 	var (
-		fKeys   = make([]K, 0, len(keys))
-		fSeries = make([]Series, 0, len(keys))
+		fKeys   = make([]K, 0, count)
+		fSeries = make([]Series, 0, count)
 	)
 	for k, s := range f.Entries() {
-		if keep(keys, k) {
+		if keep(src, k) {
 			fKeys = append(fKeys, k)
 			fSeries = append(fSeries, s)
 		}

@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -32,6 +33,10 @@ type streamer struct {
 	relay   *Relay
 	addr    address.Address
 	cfg     StreamerConfig
+	// keys is the set of channels the caller currently demands. The relay broadcasts
+	// every frame to every streamer, so each one filters on the hot path and needs
+	// constant-time membership. It is rebuilt whenever a request arrives.
+	keys set.Set[channel.Key]
 }
 
 // StreamerConfig is the configuration for creating a new streamer.
@@ -85,6 +90,7 @@ func (r *Relay) NewStreamer(cfgs ...StreamerConfig) (Streamer, error) {
 	}
 	return &streamer{
 		cfg:     cfg,
+		keys:    set.New(cfg.Keys...),
 		addr:    address.Rand(),
 		demands: r.demands,
 		relay:   r,
@@ -161,7 +167,7 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 					return nil
 				}
 				req.Keys = lo.Uniq(req.Keys)
-				s.cfg.Keys = req.Keys
+				s.keys = set.New(req.Keys...)
 				d := demand{
 					Variant: change.VariantSet,
 					Key:     s.addr,
@@ -178,7 +184,7 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 				if r.Group != 0 && slices.Contains(s.cfg.ExcludeGroups, r.Group) {
 					continue
 				}
-				if filtered := r.Frame.KeepKeys(s.cfg.Keys); !filtered.Empty() {
+				if filtered := r.Frame.KeepKeysSet(s.keys); !filtered.Empty() {
 					res := Response{Frame: filtered, Group: r.Group}
 					if err := signal.SendUnderContext(
 						ctx,

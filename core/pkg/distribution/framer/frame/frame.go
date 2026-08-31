@@ -13,6 +13,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -87,6 +88,12 @@ func (f Frame) ToStorage() ts.Frame {
 // original frame is not modified.
 func (f Frame) KeepKeys(keys channel.Keys) Frame {
 	return Frame{Frame: f.Frame.KeepKeys(keys)}
+}
+
+// KeepKeysSet returns a new frame containing only the series for the keys in the given
+// set. The original frame is not modified.
+func (f Frame) KeepKeysSet(keys set.Set[channel.Key]) Frame {
+	return Frame{Frame: f.Frame.KeepKeysSet(keys)}
 }
 
 func (f Frame) ExcludeKeys(keys channel.Keys) Frame {
