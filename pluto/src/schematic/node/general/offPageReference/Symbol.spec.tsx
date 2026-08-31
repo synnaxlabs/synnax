@@ -59,6 +59,35 @@ describe("OffPageReference", () => {
     });
   });
 
+  describe("page type icon", () => {
+    it("should render the page type's icon when linked", () => {
+      const { container } = render(
+        <ThemeWrapper>
+          <OffPageReference linked pageType="lineplot" />
+        </ThemeWrapper>,
+      );
+      expect(container.querySelector(".pluto-icon--line-plot")).not.toBeNull();
+    });
+
+    it("should render the schematic icon by default when linked", () => {
+      const { container } = render(
+        <ThemeWrapper>
+          <OffPageReference linked />
+        </ThemeWrapper>,
+      );
+      expect(container.querySelector(".pluto-icon--schematic")).not.toBeNull();
+    });
+
+    it("should not render an icon when not linked", () => {
+      const { container } = render(
+        <ThemeWrapper>
+          <OffPageReference pageType="lineplot" />
+        </ThemeWrapper>,
+      );
+      expect(container.querySelector(".pluto-icon")).toBeNull();
+    });
+  });
+
   describe("linked fill state", () => {
     it("should add the linked class when linked", () => {
       const { container } = render(
