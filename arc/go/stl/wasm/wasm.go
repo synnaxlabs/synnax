@@ -94,8 +94,8 @@ func (w *Module) Create(cfg node.Config) (node.Node, error) {
 		stringOutputs[i] = out.Type.Kind == types.KindString
 	}
 
-	// The reused call stack is separate from params because CallWithStack overwrites
-	// it with the results, and params holds literal values that persist across calls.
+	// The reused call stack is separate from params because CallWithStack overwrites it
+	// with the results, and params holds literal values that persist across calls.
 	def := fn.Definition()
 	stack := make([]uint64, max(len(def.ParamTypes()), len(def.ResultTypes())))
 
