@@ -67,15 +67,14 @@ const offPageConfig = (
 
 const expectNavigatedTo = async (
   store: TestStore,
-  target: schematic.Schematic,
+  target: { key: string },
 ): Promise<void> => {
   const tab = await resolveFocusedTab(
     store,
     client,
     (t) => t.variant === "resource" && t.resource.key === target.key,
   );
-  if (tab.variant !== "resource")
-    throw new Error("focused tab is not a schematic resource");
+  if (tab.variant !== "resource") throw new Error("focused tab is not a resource");
   expect(tab.resource.key).toBe(target.key);
 };
 
@@ -90,7 +89,27 @@ describe("Schematic.useHandleNodeClickAction", () => {
   it("navigates to the referenced schematic on double click", async () => {
     const target = await createSchematic({ name: uniqueName("target") });
     const { result, store } = await renderNavigateHook({
+      configs: { n1: offPageConfig(`schematic:${target.key}`) },
+    });
+    act(() => result.current.handler("n1", true));
+    await expectNavigatedTo(store, target);
+  });
+
+  it("navigates to a schematic referenced by a legacy bare page string", async () => {
+    const target = await createSchematic({ name: uniqueName("target") });
+    const { result, store } = await renderNavigateHook({
       configs: { n1: offPageConfig(target.key) },
+    });
+    act(() => result.current.handler("n1", true));
+    await expectNavigatedTo(store, target);
+  });
+
+  it("navigates to a referenced line plot", async () => {
+    const target = await client.lineplots.create(await testProjectKey(), {
+      name: uniqueName("target"),
+    });
+    const { result, store } = await renderNavigateHook({
+      configs: { n1: offPageConfig(`lineplot:${target.key}`) },
     });
     act(() => result.current.handler("n1", true));
     await expectNavigatedTo(store, target);
@@ -179,6 +198,21 @@ describe("Schematic.useHandleNodeClickAction", () => {
         result.current.notifications.statuses.some(
           (st) =>
             st.variant === "error" && st.message === 'Schematic "Target Ref" not found',
+        ),
+      ).toBe(true),
+    );
+  });
+
+  it("raises an error status naming the page type when a typed target is missing", async () => {
+    const { result } = await renderNavigateHook({
+      configs: { n1: offPageConfig(`lineplot:${uuid.create()}`) },
+    });
+    act(() => result.current.handler("n1", true));
+    await waitFor(() =>
+      expect(
+        result.current.notifications.statuses.some(
+          (st) =>
+            st.variant === "error" && st.message === 'Line plot "Target Ref" not found',
         ),
       ).toBe(true),
     );

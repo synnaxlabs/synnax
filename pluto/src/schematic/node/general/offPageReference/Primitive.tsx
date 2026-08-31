@@ -15,7 +15,11 @@ import { type CSSProperties, type ReactElement, useMemo } from "react";
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
-import { type Config } from "@/schematic/node/general/offPageReference/config";
+import {
+  type Config,
+  PAGE_ICONS,
+  type PageType,
+} from "@/schematic/node/general/offPageReference/config";
 import { symbolColorVar } from "@/schematic/symbolColor";
 import { Text } from "@/text";
 
@@ -37,6 +41,7 @@ interface RenderProps extends Omit<
   className?: string;
   title?: string;
   linked?: boolean;
+  pageType?: PageType;
   onLabelChange?: (label: string) => void;
 }
 
@@ -48,8 +53,10 @@ export const OffPageReference = ({
   color: colorVal,
   level = "p",
   linked = false,
+  pageType = "schematic",
   onLabelChange,
 }: RenderProps): ReactElement => {
+  const PageIcon = PAGE_ICONS[pageType];
   const element = document.querySelector(`[data-id="${id}"]`);
   if (element) element.classList.add(orientation);
 
@@ -74,6 +81,8 @@ export const OffPageReference = ({
       <div className="wrapper">
         <div className="outline">
           <div className="bg">
+            {/* Size must track the level prop, which CSS cannot read. */}
+            {linked && <PageIcon style={{ fontSize: `var(--pluto-${level}-size)` }} />}
             <Text.MaybeEditable
               value={label}
               onChange={onLabelChange}

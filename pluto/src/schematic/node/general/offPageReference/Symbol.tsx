@@ -10,7 +10,10 @@
 import { type ReactElement } from "react";
 
 import { Grid } from "@/schematic/node/common/grid";
-import { type Config } from "@/schematic/node/general/offPageReference/config";
+import {
+  type Config,
+  parsePage,
+} from "@/schematic/node/general/offPageReference/config";
 import {
   OffPageReference,
   offPageReferenceTooltip,
@@ -35,6 +38,7 @@ export const Symbol = ({
     orientation={orientation}
     color={color}
     linked={page != null && page.length > 0}
+    pageType={parsePage(page).type}
     title={offPageReferenceTooltip(page, dblClickNav)}
   />
 );

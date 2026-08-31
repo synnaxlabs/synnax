@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { color, type record, type text } from "@synnaxlabs/x";
+import { color, type text } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { Component } from "@/component";
@@ -18,6 +18,13 @@ import { Form as Base } from "@/form";
 import { Project } from "@/project";
 import { Form } from "@/schematic/node/common/form";
 import { Orientation } from "@/schematic/node/common/orientation";
+import {
+  formatPage,
+  PAGE_ICONS,
+  PAGE_TYPES,
+  pageTypeZ,
+  parsePage,
+} from "@/schematic/node/general/offPageReference/config";
 import { type FormProps } from "@/schematic/node/spec";
 import { Select } from "@/select";
 import { Status } from "@/status/base";
@@ -68,18 +75,28 @@ const useHandlePageChange = (): ((v: string) => void) => {
 export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
-  const [siblings, setSiblings] = useState<record.KeyedNamed[]>([]);
+  const [siblings, setSiblings] = useState<Select.StaticEntry<string>[]>([]);
   useEffect(() => {
     setSiblings([]);
     if (client == null || schematicKey == null) return;
     handleError(async () => {
+      const children = await Project.retrieveChildren(client, {
+        resourceID: schematic.ontologyID(schematicKey),
+        types: [...PAGE_TYPES],
+      });
       setSiblings(
-        await Project.retrieveChildren(client, {
-          resourceID: schematic.ontologyID(schematicKey),
-          types: ["schematic"],
+        children.flatMap(({ key, name, type }) => {
+          const pageType = pageTypeZ.safeParse(type);
+          if (!pageType.success) return [];
+          const PageIcon = PAGE_ICONS[pageType.data];
+          return {
+            key: formatPage({ type: pageType.data, key }),
+            name,
+            icon: <PageIcon />,
+          };
         }),
       );
-    }, "Failed to retrieve schematic pages");
+    }, "Failed to retrieve project pages");
   }, [client, schematicKey, handleError]);
   const handlePageChange = useHandlePageChange();
   return (
@@ -97,11 +114,11 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
         >
           {({ value }) => (
             <Select.Static
-              value={value}
+              value={formatPage(parsePage(value))}
               onChange={handlePageChange}
               data={siblings}
-              resourceName="schematic"
-              emptyContent="No other schematics in this project"
+              resourceName="page"
+              emptyContent="No other pages in this project"
               allowNone
             />
           )}
