@@ -63,12 +63,12 @@ func New(pool *fgrpc.Pool) Transport {
 			},
 			ServiceDesc: &pb.RelayService_ServiceDesc,
 		},
-		server: &server{serverCore: serverCore{
+		server: &server{
 			Internal:           true,
 			RequestTranslator:  pb.RelayRequestTranslator{},
 			ResponseTranslator: pb.RelayResponseTranslator{},
 			ServiceDesc:        &pb.RelayService_ServiceDesc,
-		}},
+		},
 	}
 }
 

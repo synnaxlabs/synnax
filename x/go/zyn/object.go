@@ -252,8 +252,9 @@ func (o ObjectZ) Validate(data any) error {
 // validation schemas.
 func Object(fields map[string]Schema) ObjectZ {
 	o := ObjectZ{
-		baseZ:  baseZ{dataType: ObjectT, expectedType: reflect.TypeFor[struct{}]()},
-		fields: fields,
+		dataType:     ObjectT,
+		expectedType: reflect.TypeFor[struct{}](),
+		fields:       fields,
 	}
 	o.wrapper = o
 	return o.initializeFields()

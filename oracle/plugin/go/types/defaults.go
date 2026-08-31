@@ -102,7 +102,8 @@ func structDefaultFills(
 		if comp.Value.Kind == resolution.ValueKindStruct {
 			fills = append(
 				fills,
-				structDefaultFills(selector, f.Type, comp.Value, data)...)
+				structDefaultFills(selector, f.Type, comp.Value, data)...,
+			)
 			continue
 		}
 		if fill, ok := componentFill(selector, f.Type, &comp.Value, data); ok {

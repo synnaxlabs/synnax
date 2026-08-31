@@ -153,7 +153,8 @@ func parseFunction(
 		funcType.AnalyzeArguments,
 		ctx.AST,
 		funcType.Trigger.Target,
-		externallySatisfied...)
+		externallySatisfied...,
+	)
 
 	if prevNode == nil {
 		return
@@ -892,7 +893,8 @@ func analyzeRoutingTargetWithParam(
 			fnType.AnalyzeArguments,
 			fn,
 			fnType.Trigger.Target,
-			externallySatisfied...)
+			externallySatisfied...,
+		)
 
 		if targetParam != nil {
 			var outputType types.Type

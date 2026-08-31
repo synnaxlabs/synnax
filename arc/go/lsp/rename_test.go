@@ -116,12 +116,10 @@ var _ = Describe("Rename", func() {
 		It("should return nil when document not found", func(ctx SpecContext) {
 			result := MustSucceed(
 				server.PrepareRename(ctx, &protocol.PrepareRenameParams{
-					TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-						TextDocument: protocol.TextDocumentIdentifier{
-							URI: "file:///nonexistent.arc",
-						},
-						Position: protocol.Position{Line: 0, Character: 0},
+					TextDocument: protocol.TextDocumentIdentifier{
+						URI: "file:///nonexistent.arc",
 					},
+					Position: protocol.Position{Line: 0, Character: 0},
 				}),
 			)
 			Expect(result).To(BeNil())
@@ -297,13 +295,11 @@ func main() {
 
 		It("should return nil when document not found", func(ctx SpecContext) {
 			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{
-						URI: "file:///nonexistent.arc",
-					},
-					Position: protocol.Position{Line: 0, Character: 0},
+				TextDocument: protocol.TextDocumentIdentifier{
+					URI: "file:///nonexistent.arc",
 				},
-				NewName: "newName",
+				Position: protocol.Position{Line: 0, Character: 0},
+				NewName:  "newName",
 			}))
 			Expect(result).To(BeNil())
 		})
@@ -407,11 +403,9 @@ func main() {
 				OpenArcDocument(server, ctx, uri, channelContent)
 
 				result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
-					TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-						TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-						Position:     protocol.Position{Line: 1, Character: 14},
-					},
-					NewName: "renamed_sensor",
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 1, Character: 14},
+					NewName:      "renamed_sensor",
 				}))
 				Expect(result).ToNot(BeNil())
 				Expect(result.Changes).To(HaveKey(uri))
@@ -438,11 +432,9 @@ func main() {
 				OpenArcDocument(server, ctx, uri, channelContent)
 
 				Expect(server.Rename(ctx, &protocol.RenameParams{
-					TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-						TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-						Position:     protocol.Position{Line: 1, Character: 14},
-					},
-					NewName: "renamed_sensor",
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 1, Character: 14},
+					NewName:      "renamed_sensor",
 				})).Error().To(MatchError(renameErr))
 			},
 		)
@@ -504,11 +496,9 @@ func main() {
 				Expect(prepared).To(BeNil())
 
 				result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
-					TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-						TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-						Position:     protocol.Position{Line: 1, Character: 14},
-					},
-					NewName: "renamed",
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 1, Character: 14},
+					NewName:      "renamed",
 				}))
 				Expect(result).To(BeNil())
 			},

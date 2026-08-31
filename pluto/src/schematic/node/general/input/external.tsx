@@ -26,7 +26,7 @@ export const defaultConfig = (): Config => ({
   variant: VARIANT,
   orientation: "left",
   color: color.ZERO,
-  size: "small",
+  size: "medium",
   label: Label.defaultConfig("Input"),
   control: { show: true },
   sink: telem.sinkPipeline("string", {

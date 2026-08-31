@@ -61,15 +61,10 @@ var _ = Describe("Recovery (wire)", Ordered, Serial, func() {
 			uServer.BindTo(reg)
 
 			sServer := &streamServer{
-				StreamServerCore: fgrpc.StreamServerCore[
-					test.Request, *v1.Request,
-					test.Response, *v1.Response,
-				]{
-					RequestTranslator:  requestTranslator{},
-					ResponseTranslator: responseTranslator{},
-					ServiceDesc:        &v1.TestStreamService_ServiceDesc,
-					Internal:           true,
-				},
+				RequestTranslator:  requestTranslator{},
+				ResponseTranslator: responseTranslator{},
+				ServiceDesc:        &v1.TestStreamService_ServiceDesc,
+				Internal:           true,
 			}
 			sServer.BindHandler(func(
 				_ context.Context,

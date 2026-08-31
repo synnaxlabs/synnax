@@ -60,10 +60,10 @@ var _ = Describe("StableFor", func() {
 				"stable": {"type": "stable_for"},
 			},
 			Edges: graph.Edges{
-				{Edge: ir.Edge{
+				{
 					Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
 					Target: ir.Handle{Node: "stable", Param: ir.DefaultInputParam},
-				}},
+				},
 			},
 			Functions: []ir.Function{
 				{
@@ -484,7 +484,7 @@ var _ = Describe("StableFor", func() {
 						},
 					},
 					Edges: graph.Edges{
-						{Edge: ir.Edge{
+						{
 							Source: ir.Handle{
 								Node:  "source",
 								Param: ir.DefaultOutputParam,
@@ -493,7 +493,7 @@ var _ = Describe("StableFor", func() {
 								Node:  "stable",
 								Param: ir.DefaultInputParam,
 							},
-						}},
+						},
 					},
 					Functions: []ir.Function{
 						{
@@ -784,10 +784,10 @@ func newTypedState(ctx context.Context, t types.Type) *node.ProgramState {
 			"source": {"type": "source"},
 			"stable": {"type": "stable_for"},
 		},
-		Edges: graph.Edges{{Edge: ir.Edge{
+		Edges: graph.Edges{{
 			Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
 			Target: ir.Handle{Node: "stable", Param: ir.DefaultInputParam},
-		}}},
+		}},
 		Functions: []ir.Function{
 			{Key: "source", Outputs: types.Params{
 				{Name: ir.DefaultOutputParam, Type: t},

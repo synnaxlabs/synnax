@@ -3183,7 +3183,8 @@ var _ = Describe("Trigger call-site conflict", func() {
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(ctx.Diagnostics.String()).To(ContainSubstring(
-				"too many arguments for func 'consumer': expected at most 0"))
+				"too many arguments for func 'consumer': expected at most 0",
+			))
 		},
 	)
 })
@@ -3197,7 +3198,8 @@ var _ = Describe("Duplicate call-site argument", func() {
 		analyzer.AnalyzeProgram(ctx)
 		Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 		Expect(ctx.Diagnostics.String()).To(ContainSubstring(
-			"duplicate argument for parameter 'v' of func 'sink'"))
+			"duplicate argument for parameter 'v' of func 'sink'",
+		))
 	})
 })
 
@@ -3324,7 +3326,8 @@ var _ = Describe("Routing entry strictness", func() {
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(ctx.Diagnostics.String()).To(ContainSubstring(
-				"missing required argument for parameter 'value' of func 'amplify'"))
+				"missing required argument for parameter 'value' of func 'amplify'",
+			))
 		},
 	)
 

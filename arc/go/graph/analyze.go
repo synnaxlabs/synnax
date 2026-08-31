@@ -109,7 +109,8 @@ func Analyze(
 			blockCtx, ok := fn.Body.AST.(parser.IBlockContext)
 			if !ok {
 				aCtx.Diagnostics.Add(diagnostics.Errorf(
-					fn.Body.AST, "function body must be a block"))
+					fn.Body.AST, "function body must be a block",
+				))
 				return ir.IR{}, aCtx.Diagnostics
 			}
 			analyzer.AnalyzeBlock(acontext.Child(aCtx, blockCtx).WithScope(funcScope))

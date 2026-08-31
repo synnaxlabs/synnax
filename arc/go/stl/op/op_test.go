@@ -42,14 +42,14 @@ var _ = Describe("OP", func() {
 					"op":  {"type": t},
 				},
 				Edges: graph.Edges{
-					{Edge: ir.Edge{
+					{
 						Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
-					}},
-					{Edge: ir.Edge{
+					},
+					{
 						Source: ir.Handle{Node: "rhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
-					}},
+					},
 				},
 				Functions: []ir.Function{
 					{
@@ -419,10 +419,10 @@ var _ = Describe("OP", func() {
 					"op":    {"type": t},
 				},
 				Edges: graph.Edges{
-					{Edge: ir.Edge{
+					{
 						Source: ir.Handle{Node: "input", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.DefaultInputParam},
-					}},
+					},
 				},
 				Functions: []ir.Function{
 					{
@@ -493,14 +493,14 @@ var _ = Describe("OP", func() {
 					"op":  {"type": "ge"},
 				},
 				Edges: graph.Edges{
-					{Edge: ir.Edge{
+					{
 						Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
-					}},
-					{Edge: ir.Edge{
+					},
+					{
 						Source: ir.Handle{Node: "rhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
-					}},
+					},
 				},
 				Functions: []ir.Function{
 					{
@@ -551,14 +551,14 @@ var _ = Describe("OP", func() {
 					"op":  {"type": "eq"},
 				},
 				Edges: graph.Edges{
-					{Edge: ir.Edge{
+					{
 						Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
-					}},
-					{Edge: ir.Edge{
+					},
+					{
 						Source: ir.Handle{Node: "rhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
-					}},
+					},
 				},
 				Functions: []ir.Function{
 					{
@@ -610,14 +610,14 @@ var _ = Describe("OP", func() {
 					"op":  {"type": "or"},
 				},
 				Edges: graph.Edges{
-					{Edge: ir.Edge{
+					{
 						Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
-					}},
-					{Edge: ir.Edge{
+					},
+					{
 						Source: ir.Handle{Node: "rhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
-					}},
+					},
 				},
 				Functions: []ir.Function{
 					{
@@ -669,14 +669,14 @@ var _ = Describe("OP", func() {
 					"op":  {"type": "and"},
 				},
 				Edges: graph.Edges{
-					{Edge: ir.Edge{
+					{
 						Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
-					}},
-					{Edge: ir.Edge{
+					},
+					{
 						Source: ir.Handle{Node: "rhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
-					}},
+					},
 				},
 				Functions: []ir.Function{
 					{
@@ -728,14 +728,14 @@ var _ = Describe("OP", func() {
 					"op":  {"type": "or"},
 				},
 				Edges: graph.Edges{
-					{Edge: ir.Edge{
+					{
 						Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
-					}},
-					{Edge: ir.Edge{
+					},
+					{
 						Source: ir.Handle{Node: "rhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
-					}},
+					},
 				},
 				Functions: []ir.Function{
 					{
@@ -788,14 +788,14 @@ var _ = Describe("OP", func() {
 					"op":  {"type": "and"},
 				},
 				Edges: graph.Edges{
-					{Edge: ir.Edge{
+					{
 						Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
-					}},
-					{Edge: ir.Edge{
+					},
+					{
 						Source: ir.Handle{Node: "rhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
-					}},
+					},
 				},
 				Functions: []ir.Function{
 					{

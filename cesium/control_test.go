@@ -259,7 +259,8 @@ var _ = Describe("Control", func() {
 									[]telem.Series{
 										telem.NewSeriesSecondsTSV(10, 11, 12),
 										telem.NewSeriesV[int16](1, 2, 3),
-									}),
+									},
+								),
 							}
 
 							var d cesium.ControlUpdate

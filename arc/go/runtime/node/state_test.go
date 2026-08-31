@@ -40,27 +40,27 @@ var _ = Describe("ProgramState", func() {
 						"target": {"type": "target"},
 					},
 					Edges: graph.Edges{
-						{Edge: ir.Edge{
+						{
 							Source: ir.Handle{
 								Node:  "in2",
 								Param: ir.DefaultOutputParam,
 							},
 							Target: ir.Handle{Node: "target", Param: "in2"},
-						}},
-						{Edge: ir.Edge{
+						},
+						{
 							Source: ir.Handle{
 								Node:  "in1",
 								Param: ir.DefaultOutputParam,
 							},
 							Target: ir.Handle{Node: "target", Param: "in1"},
-						}},
-						{Edge: ir.Edge{
+						},
+						{
 							Source: ir.Handle{
 								Node:  "in3",
 								Param: ir.DefaultOutputParam,
 							},
 							Target: ir.Handle{Node: "target", Param: "in3"},
-						}},
+						},
 					},
 					Functions: []ir.Function{
 						{
@@ -139,10 +139,10 @@ var _ = Describe("ProgramState", func() {
 							},
 						},
 					},
-					Edges: graph.Edges{{Edge: ir.Edge{
+					Edges: graph.Edges{{
 						Source: ir.Handle{Node: "first", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "second", Param: ir.DefaultInputParam},
-					}}},
+					}},
 				}
 				ir, diagnostics := graph.Analyze(ctx, g, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -185,10 +185,10 @@ var _ = Describe("ProgramState", func() {
 					"dest": {"type": "dest"},
 				},
 				Edges: graph.Edges{
-					{Edge: ir.Edge{
+					{
 						Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "dest", Param: ir.DefaultInputParam},
-					}},
+					},
 				},
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
@@ -226,7 +226,7 @@ var _ = Describe("ProgramState", func() {
 					"consumer": {"type": "consumer"},
 				},
 				Edges: graph.Edges{
-					{Edge: ir.Edge{
+					{
 						Source: ir.Handle{
 							Node:  "producer",
 							Param: ir.DefaultOutputParam,
@@ -235,7 +235,7 @@ var _ = Describe("ProgramState", func() {
 							Node:  "consumer",
 							Param: ir.DefaultInputParam,
 						},
-					}},
+					},
 				},
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
@@ -283,14 +283,14 @@ var _ = Describe("ProgramState", func() {
 					"target": {"type": "target"},
 				},
 				Edges: graph.Edges{
-					{Edge: ir.Edge{
+					{
 						Source: ir.Handle{Node: "a", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "target", Param: ir.LHSInputParam},
-					}},
-					{Edge: ir.Edge{
+					},
+					{
 						Source: ir.Handle{Node: "b", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "target", Param: ir.RHSInputParam},
-					}},
+					},
 				},
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
@@ -347,14 +347,14 @@ var _ = Describe("ProgramState", func() {
 					"target": {"type": "target"},
 				},
 				Edges: graph.Edges{
-					{Edge: ir.Edge{
+					{
 						Source: ir.Handle{Node: "early", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "target", Param: ir.LHSInputParam},
-					}},
-					{Edge: ir.Edge{
+					},
+					{
 						Source: ir.Handle{Node: "late", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "target", Param: ir.RHSInputParam},
-					}},
+					},
 				},
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
@@ -400,7 +400,7 @@ var _ = Describe("ProgramState", func() {
 						"sink":   {"type": "sink"},
 					},
 					Edges: graph.Edges{
-						{Edge: ir.Edge{
+						{
 							Source: ir.Handle{
 								Node:  "source",
 								Param: ir.DefaultOutputParam,
@@ -409,7 +409,7 @@ var _ = Describe("ProgramState", func() {
 								Node:  "sink",
 								Param: ir.DefaultInputParam,
 							},
-						}},
+						},
 					},
 				}
 				ir, diagnostics := graph.Analyze(ctx, g, nil)
@@ -461,14 +461,14 @@ var _ = Describe("ProgramState", func() {
 					"target": {"type": "target"},
 				},
 				Edges: graph.Edges{
-					{Edge: ir.Edge{
+					{
 						Source: ir.Handle{Node: "a", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "target", Param: ir.LHSInputParam},
-					}},
-					{Edge: ir.Edge{
+					},
+					{
 						Source: ir.Handle{Node: "b", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "target", Param: ir.RHSInputParam},
-					}},
+					},
 				},
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
@@ -518,10 +518,10 @@ var _ = Describe("ProgramState", func() {
 					"dst": {"type": "dst"},
 				},
 				Edges: graph.Edges{
-					{Edge: ir.Edge{
+					{
 						Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "dst", Param: ir.DefaultInputParam},
-					}},
+					},
 				},
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
@@ -576,20 +576,20 @@ var _ = Describe("ProgramState", func() {
 						"op":  {"type": "op"},
 					},
 					Edges: graph.Edges{
-						{Edge: ir.Edge{
+						{
 							Source: ir.Handle{
 								Node:  "lhs",
 								Param: ir.DefaultOutputParam,
 							},
 							Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
-						}},
-						{Edge: ir.Edge{
+						},
+						{
 							Source: ir.Handle{
 								Node:  "rhs",
 								Param: ir.DefaultOutputParam,
 							},
 							Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
-						}},
+						},
 					},
 				}
 				ir, diagnostics := graph.Analyze(ctx, g, nil)
@@ -642,7 +642,7 @@ var _ = Describe("ProgramState", func() {
 							"compute": {"type": "compute"},
 						},
 						Edges: graph.Edges{
-							{Edge: ir.Edge{
+							{
 								Source: ir.Handle{
 									Node:  "a",
 									Param: ir.DefaultOutputParam,
@@ -651,8 +651,8 @@ var _ = Describe("ProgramState", func() {
 									Node:  "compute",
 									Param: ir.LHSInputParam,
 								},
-							}},
-							{Edge: ir.Edge{
+							},
+							{
 								Source: ir.Handle{
 									Node:  "b",
 									Param: ir.DefaultOutputParam,
@@ -661,7 +661,7 @@ var _ = Describe("ProgramState", func() {
 									Node:  "compute",
 									Param: ir.RHSInputParam,
 								},
-							}},
+							},
 						},
 					}
 					ir, diagnostics := graph.Analyze(ctx, g, nil)
@@ -716,7 +716,7 @@ var _ = Describe("ProgramState", func() {
 							"target": {"type": "target"},
 						},
 						Edges: graph.Edges{
-							{Edge: ir.Edge{
+							{
 								Source: ir.Handle{
 									Node:  "early",
 									Param: ir.DefaultOutputParam,
@@ -725,8 +725,8 @@ var _ = Describe("ProgramState", func() {
 									Node:  "target",
 									Param: ir.LHSInputParam,
 								},
-							}},
-							{Edge: ir.Edge{
+							},
+							{
 								Source: ir.Handle{
 									Node:  "late",
 									Param: ir.DefaultOutputParam,
@@ -735,7 +735,7 @@ var _ = Describe("ProgramState", func() {
 									Node:  "target",
 									Param: ir.RHSInputParam,
 								},
-							}},
+							},
 						},
 					}
 					ir, diagnostics := graph.Analyze(ctx, g, nil)
@@ -795,7 +795,7 @@ var _ = Describe("ProgramState", func() {
 							"processor": {"type": "processor"},
 						},
 						Edges: graph.Edges{
-							{Edge: ir.Edge{
+							{
 								Source: ir.Handle{
 									Node:  "x",
 									Param: ir.DefaultOutputParam,
@@ -804,8 +804,8 @@ var _ = Describe("ProgramState", func() {
 									Node:  "processor",
 									Param: ir.LHSInputParam,
 								},
-							}},
-							{Edge: ir.Edge{
+							},
+							{
 								Source: ir.Handle{
 									Node:  "y",
 									Param: ir.DefaultOutputParam,
@@ -814,7 +814,7 @@ var _ = Describe("ProgramState", func() {
 									Node:  "processor",
 									Param: ir.RHSInputParam,
 								},
-							}},
+							},
 						},
 					}
 					ir, diagnostics := graph.Analyze(ctx, g, nil)
@@ -879,18 +879,18 @@ var _ = Describe("ProgramState", func() {
 						"combiner": {"type": "combiner"},
 					},
 					Edges: graph.Edges{
-						{Edge: ir.Edge{
+						{
 							Source: ir.Handle{Node: "a", Param: ir.DefaultOutputParam},
 							Target: ir.Handle{Node: "combiner", Param: "in0"},
-						}},
-						{Edge: ir.Edge{
+						},
+						{
 							Source: ir.Handle{Node: "b", Param: ir.DefaultOutputParam},
 							Target: ir.Handle{Node: "combiner", Param: "in1"},
-						}},
-						{Edge: ir.Edge{
+						},
+						{
 							Source: ir.Handle{Node: "c", Param: ir.DefaultOutputParam},
 							Target: ir.Handle{Node: "combiner", Param: "in2"},
-						}},
+						},
 					},
 				}
 				ir, diagnostics := graph.Analyze(ctx, g, nil)
@@ -948,13 +948,13 @@ var _ = Describe("ProgramState", func() {
 						"processor": {"type": "processor"},
 					},
 					Edges: graph.Edges{
-						{Edge: ir.Edge{
+						{
 							Source: ir.Handle{
 								Node:  "source",
 								Param: ir.DefaultOutputParam,
 							},
 							Target: ir.Handle{Node: "processor", Param: "data"},
-						}},
+						},
 						// Note: "multiplier" input is not connected, should use default
 					},
 				}
@@ -1010,13 +1010,13 @@ var _ = Describe("ProgramState", func() {
 						"windowed": {"type": "windowed"},
 					},
 					Edges: graph.Edges{
-						{Edge: ir.Edge{
+						{
 							Source: ir.Handle{
 								Node:  "source",
 								Param: ir.DefaultOutputParam,
 							},
 							Target: ir.Handle{Node: "windowed", Param: "data"},
-						}},
+						},
 					},
 				}
 				inter, diagnostics := graph.Analyze(ctx, g, nil)
@@ -1072,20 +1072,20 @@ var _ = Describe("ProgramState", func() {
 						"processor":         {"type": "processor"},
 					},
 					Edges: graph.Edges{
-						{Edge: ir.Edge{
+						{
 							Source: ir.Handle{
 								Node:  "data_source",
 								Param: ir.DefaultOutputParam,
 							},
 							Target: ir.Handle{Node: "processor", Param: "value"},
-						}},
-						{Edge: ir.Edge{
+						},
+						{
 							Source: ir.Handle{
 								Node:  "multiplier_source",
 								Param: ir.DefaultOutputParam,
 							},
 							Target: ir.Handle{Node: "processor", Param: "factor"},
-						}},
+						},
 					},
 				}
 				ir, diagnostics := graph.Analyze(ctx, g, nil)
@@ -1144,13 +1144,13 @@ var _ = Describe("ProgramState", func() {
 						"calculator": {"type": "calculator"},
 					},
 					Edges: graph.Edges{
-						{Edge: ir.Edge{
+						{
 							Source: ir.Handle{
 								Node:  "input",
 								Param: ir.DefaultOutputParam,
 							},
 							Target: ir.Handle{Node: "calculator", Param: "x"},
-						}},
+						},
 						// "offset" and "scale" are unconnected, should use defaults
 					},
 				}
@@ -1210,20 +1210,20 @@ var _ = Describe("ProgramState", func() {
 						"combiner": {"type": "combiner"},
 					},
 					Edges: graph.Edges{
-						{Edge: ir.Edge{
+						{
 							Source: ir.Handle{
 								Node:  "src1",
 								Param: ir.DefaultOutputParam,
 							},
 							Target: ir.Handle{Node: "combiner", Param: "a"},
-						}},
-						{Edge: ir.Edge{
+						},
+						{
 							Source: ir.Handle{
 								Node:  "src2",
 								Param: ir.DefaultOutputParam,
 							},
 							Target: ir.Handle{Node: "combiner", Param: "c"},
-						}},
+						},
 						// "b" is unconnected, should use default value 20
 					},
 				}
@@ -1280,10 +1280,10 @@ var _ = Describe("ProgramState", func() {
 					"processor": {"type": "processor"},
 				},
 				Edges: graph.Edges{
-					{Edge: ir.Edge{
+					{
 						Source: ir.Handle{Node: "data", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "processor", Param: "data"},
-					}},
+					},
 				},
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
@@ -1334,13 +1334,13 @@ var _ = Describe("ProgramState", func() {
 						"processor": {"type": "processor"},
 					},
 					Edges: graph.Edges{
-						{Edge: ir.Edge{
+						{
 							Source: ir.Handle{
 								Node:  "source",
 								Param: ir.DefaultOutputParam,
 							},
 							Target: ir.Handle{Node: "processor", Param: "value"},
-						}},
+						},
 						// "offset" is unconnected, will use default
 					},
 				}
@@ -1415,13 +1415,13 @@ var _ = Describe("ProgramState", func() {
 						"adder": {"type": "adder"},
 					},
 					Edges: graph.Edges{
-						{Edge: ir.Edge{
+						{
 							Source: ir.Handle{
 								Node:  "input",
 								Param: ir.DefaultOutputParam,
 							},
 							Target: ir.Handle{Node: "adder", Param: "base"},
-						}},
+						},
 					},
 				}
 				ir, diagnostics := graph.Analyze(ctx, g, nil)
@@ -1815,10 +1815,10 @@ var _ = Describe("ProgramState", func() {
 					"src":    {"type": "src"},
 					"target": {"type": "target"},
 				},
-				Edges: graph.Edges{{Edge: ir.Edge{
+				Edges: graph.Edges{{
 					Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
 					Target: ir.Handle{Node: "target", Param: "x"},
-				}}},
+				}},
 				Functions: []ir.Function{
 					{
 						Key: "src",
@@ -1895,10 +1895,10 @@ var _ = Describe("ProgramState", func() {
 						"v":      {"type": "variable"},
 						"reader": {"type": "dst"},
 					},
-					Edges: graph.Edges{{Edge: ir.Edge{
+					Edges: graph.Edges{{
 						Source: ir.Handle{Node: "v", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "reader", Param: ir.DefaultInputParam},
-					}}},
+					}},
 				}
 				prog, diagnostics := graph.Analyze(ctx, g, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1998,20 +1998,20 @@ var _ = Describe("ProgramState", func() {
 						"reader": {"type": "dst"},
 					},
 					Edges: graph.Edges{
-						{Edge: ir.Edge{
+						{
 							Source: ir.Handle{
 								Node:  "feeder",
 								Param: ir.DefaultOutputParam,
 							},
 							Target: ir.Handle{Node: "v", Param: ir.DefaultInputParam},
-						}},
-						{Edge: ir.Edge{
+						},
+						{
 							Source: ir.Handle{Node: "v", Param: ir.DefaultOutputParam},
 							Target: ir.Handle{
 								Node:  "reader",
 								Param: ir.DefaultInputParam,
 							},
-						}},
+						},
 					},
 				}
 				prog, diagnostics := graph.Analyze(ctx, g, nil)
@@ -2361,10 +2361,10 @@ func newLinkedState(ctx SpecContext) *node.ProgramState {
 			"src": {"type": "src"},
 			"dst": {"type": "dst"},
 		},
-		Edges: graph.Edges{{Edge: ir.Edge{
+		Edges: graph.Edges{{
 			Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
 			Target: ir.Handle{Node: "dst", Param: ir.DefaultInputParam},
-		}}},
+		}},
 	}
 	prog, diagnostics := graph.Analyze(ctx, g, nil)
 	Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -2396,14 +2396,14 @@ func newPairState(ctx SpecContext) *node.ProgramState {
 			"a": {"type": "a"}, "b": {"type": "b"}, "target": {"type": "target"},
 		},
 		Edges: graph.Edges{
-			{Edge: ir.Edge{
+			{
 				Source: ir.Handle{Node: "a", Param: ir.DefaultOutputParam},
 				Target: ir.Handle{Node: "target", Param: ir.LHSInputParam},
-			}},
-			{Edge: ir.Edge{
+			},
+			{
 				Source: ir.Handle{Node: "b", Param: ir.DefaultOutputParam},
 				Target: ir.Handle{Node: "target", Param: ir.RHSInputParam},
-			}},
+			},
 		},
 	}
 	prog, diagnostics := graph.Analyze(ctx, g, nil)
@@ -2435,10 +2435,10 @@ func newRefState(ctx SpecContext) *node.ProgramState {
 			"reg": {"type": "reg"}, "reader": {"type": "reader"},
 		},
 	}
-	g.Edges = graph.Edges{{Edge: ir.Edge{
+	g.Edges = graph.Edges{{
 		Source: ir.Handle{Node: "reg", Param: ir.DefaultOutputParam},
 		Target: ir.Handle{Node: "reader", Param: "channel"},
-	}}}
+	}}
 	prog, diagnostics := graph.Analyze(ctx, g, nil)
 	Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 	return node.New(prog)

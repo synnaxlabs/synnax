@@ -22,9 +22,9 @@ const SmallKeySize = 1024
 
 func GenerateCerts(fs xfs.FS) {
 	f := testutil.MustSucceed(cert.NewFactory(cert.FactoryConfig{
-		LoaderConfig: cert.LoaderConfig{FS: fs},
-		KeySize:      1024,
-		Hosts:        []address.Address{"localhost:26260"},
+		FS:      fs,
+		KeySize: 1024,
+		Hosts:   []address.Address{"localhost:26260"},
 	}))
 	gomega.Expect(f.CreateCAPair()).To(gomega.Succeed())
 	gomega.Expect(f.CreateNodePair()).To(gomega.Succeed())

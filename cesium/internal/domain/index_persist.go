@@ -113,10 +113,8 @@ func (f *pointerCodec) decode(b []byte) []pointer {
 	for i := range len(b) / pointerByteSize {
 		base := i * pointerByteSize
 		pointers[i] = pointer{
-			TimeRange: telem.TimeRange{
-				Start: telem.TimeStamp(byteOrder.Uint64(b[base : base+8])),
-				End:   telem.TimeStamp(byteOrder.Uint64(b[base+8 : base+16])),
-			},
+			Start:   telem.TimeStamp(byteOrder.Uint64(b[base : base+8])),
+			End:     telem.TimeStamp(byteOrder.Uint64(b[base+8 : base+16])),
 			fileKey: byteOrder.Uint16(b[base+16 : base+18]),
 			offset:  byteOrder.Uint32(b[base+18 : base+22]),
 			size:    byteOrder.Uint32(b[base+22 : base+26]),
