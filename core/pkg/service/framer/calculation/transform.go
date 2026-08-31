@@ -56,7 +56,7 @@ func (g *transform) Flow(sCtx signal.Context, opts ...confluence.Option) {
 					g.Out.Inlet(),
 					framer.WriterRequest{
 						Command: framer.WriterCommandWrite,
-						Frame:   output.KeepKeysSet(writeTo),
+						Frame:   output.KeepKeys(writeTo),
 					},
 				); err != nil {
 					return err

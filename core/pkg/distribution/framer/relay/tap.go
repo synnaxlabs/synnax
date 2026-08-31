@@ -315,7 +315,7 @@ func (f *freeWriteTap) Flow(sCtx signal.Context, opts ...confluence.Option) {
 				if keys == nil {
 					continue
 				}
-				req.Frame = req.Frame.KeepKeysSet(*keys)
+				req.Frame = req.Frame.KeepKeys(*keys)
 				if !req.Frame.Empty() {
 					f.Out.Inlet() <- req
 				}

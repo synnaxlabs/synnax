@@ -84,16 +84,10 @@ func (f Frame) ToStorage() ts.Frame {
 	return telem.UnsafeReinterpretFrameKeysAs[channel.Key, ts.ChannelKey](f.Frame)
 }
 
-// KeepKeys returns a new frame containing only the series for the specified keys. The
-// original frame is not modified.
-func (f Frame) KeepKeys(keys channel.Keys) Frame {
-	return Frame{Frame: f.Frame.KeepKeys(keys)}
-}
-
-// KeepKeysSet returns a new frame containing only the series for the keys in the given
+// KeepKeys returns a new frame containing only the series for the keys in the given
 // set. The original frame is not modified.
-func (f Frame) KeepKeysSet(keys set.Set[channel.Key]) Frame {
-	return Frame{Frame: f.Frame.KeepKeysSet(keys)}
+func (f Frame) KeepKeys(keys set.Set[channel.Key]) Frame {
+	return Frame{Frame: f.Frame.KeepKeys(keys)}
 }
 
 func (f Frame) ExcludeKeys(keys channel.Keys) Frame {

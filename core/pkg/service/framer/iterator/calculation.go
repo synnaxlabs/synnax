@@ -108,7 +108,7 @@ func (t *calculationTransform) processBufferedFrames(
 			continue
 		}
 	}
-	mergedFrame = mergedFrame.KeepKeysSet(t.keepKeys)
+	mergedFrame = mergedFrame.KeepKeys(t.keepKeys)
 	if mergedFrame.Count() > 0 {
 		t.Out.Inlet() <- Response{
 			Variant: ResponseVariantData,

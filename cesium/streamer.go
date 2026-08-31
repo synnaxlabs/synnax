@@ -139,7 +139,7 @@ func (s *streamer[I, O]) Flow(sCtx signal.Context, opts ...confluence.Option) {
 				}
 				s.keys = set.New(s.translateRequest(req).Channels...)
 			case rf := <-frames.Outlet():
-				if filtered := rf.frame.KeepKeysSet(s.keys); !filtered.Empty() {
+				if filtered := rf.frame.KeepKeys(s.keys); !filtered.Empty() {
 					if err := signal.SendUnderContext(
 						ctx,
 						s.Out.Inlet(),

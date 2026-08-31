@@ -62,26 +62,14 @@ func newFilterFrame(total, demanded int) (telem.Frame[int32], []int32) {
 	return telem.MultiFrame(keys, series), demandedKeys
 }
 
-// BenchmarkKeepKeys benchmarks filtering a frame against a key slice.
+// BenchmarkKeepKeys benchmarks filtering a frame against a pre-built key set.
 func BenchmarkKeepKeys(b *testing.B) {
-	for _, c := range filterCases {
-		fr, demandedKeys := newFilterFrame(c.total, c.demanded)
-		b.Run(c.name, func(b *testing.B) {
-			for b.Loop() {
-				_ = fr.KeepKeys(demandedKeys)
-			}
-		})
-	}
-}
-
-// BenchmarkKeepKeysSet benchmarks filtering a frame against a pre-built key set.
-func BenchmarkKeepKeysSet(b *testing.B) {
 	for _, c := range filterCases {
 		fr, demandedKeys := newFilterFrame(c.total, c.demanded)
 		keys := set.New(demandedKeys...)
 		b.Run(c.name, func(b *testing.B) {
 			for b.Loop() {
-				_ = fr.KeepKeysSet(keys)
+				_ = fr.KeepKeys(keys)
 			}
 		})
 	}

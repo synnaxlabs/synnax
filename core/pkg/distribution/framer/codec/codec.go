@@ -578,7 +578,7 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 	c.processUpdates()
 	c.panicIfNotUpdated("Encode")
 	currState := c.mu.states[c.mu.seqNum]
-	src = src.KeepKeysSet(currState.keySet)
+	src = src.KeepKeys(currState.keySet)
 
 	// First pass: validate and insert into sorter with pre-extracted data
 	for rawI, s := range src.RawSeries() {

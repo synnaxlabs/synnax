@@ -184,7 +184,7 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 				if r.Group != 0 && slices.Contains(s.cfg.ExcludeGroups, r.Group) {
 					continue
 				}
-				if filtered := r.Frame.KeepKeysSet(s.keys); !filtered.Empty() {
+				if filtered := r.Frame.KeepKeys(s.keys); !filtered.Empty() {
 					res := Response{Frame: filtered, Group: r.Group}
 					if err := signal.SendUnderContext(
 						ctx,
