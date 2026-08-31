@@ -50,7 +50,8 @@ func (createMessageTranslator) Forward(
 				Virtual:     c.Virtual,
 				Concurrency: concurrency,
 			}, nil
-		})
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +82,8 @@ func (createMessageTranslator) Backward(
 				Virtual:     c.Virtual,
 				Concurrency: concurrency,
 			}, nil
-		})
+		},
+	)
 	if err != nil {
 		return channel.CreateMessage{}, err
 	}

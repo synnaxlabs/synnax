@@ -17,7 +17,7 @@ import (
 	"github.com/samber/lo"
 )
 
-var _ json.Marshaler = (Params)(nil)
+var _ json.Marshaler = Params(nil)
 
 // MarshalJSON implements the json.Marshal interface.
 func (p Params) MarshalJSON() ([]byte, error) {

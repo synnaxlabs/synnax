@@ -129,7 +129,8 @@ func (d *Driver) startHeartbeat() {
 				d.cfg.L.Error("failed to update rack status", zap.Error(err))
 			}
 			return nil
-		})
+		},
+	)
 }
 
 // startCommandStreaming initializes the command channel streamer. This is optional and

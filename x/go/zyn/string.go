@@ -27,7 +27,7 @@ type StringZ struct{ baseZ }
 // validation schemas.
 func String() StringZ {
 	s := StringZ{
-		baseZ: baseZ{dataType: StringT, expectedType: reflect.TypeFor[string]()},
+		dataType: StringT, expectedType: reflect.TypeFor[string](),
 	}
 	s.wrapper = s
 	return s

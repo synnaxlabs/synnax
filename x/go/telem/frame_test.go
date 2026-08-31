@@ -144,7 +144,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.KeepKeys([]int32{1, 3})
 			Expect(filtered.Count()).To(Equal(2))
 		})
@@ -177,7 +178,8 @@ var _ = Describe("Frame", func() {
 						telem.NewSeriesV[int32](1, 2, 3),
 						telem.NewSeriesV[int32](4, 5, 6),
 						telem.NewSeriesV[int32](7, 8, 9),
-					})
+					},
+				)
 				filtered := fr.KeepKeys([]int32{1, 3})
 
 				By("Filtering out the new frame")
@@ -226,7 +228,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.KeepKeys([]int32{1, 3}).KeepKeys([]int32{1})
 
 			By("Filtering out the new frame")
@@ -284,7 +287,8 @@ var _ = Describe("Frame", func() {
 						telem.NewSeriesV[int32](1, 2, 3),
 						telem.NewSeriesV[int32](4, 5, 6),
 						telem.NewSeriesV[int32](7, 8, 9),
-					})
+					},
+				)
 				filtered := fr.ExcludeKeys([]int32{2})
 
 				By("Excluding keys from the new frame")
@@ -343,7 +347,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
 					telem.NewSeriesV[int32](10, 11, 12),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{2, 4}).ExcludeKeys([]int32{3})
 
 			By("Excluding keys from the new frame")
@@ -390,7 +395,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{})
 
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 2, 3}))
@@ -408,7 +414,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{1, 2, 3})
 
 			Expect(filtered.Empty()).To(BeTrue())
@@ -423,7 +430,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{4, 5, 6})
 
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 2, 3}))
@@ -443,7 +451,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](7, 8, 9),
 					telem.NewSeriesV[int32](10, 11, 12),
 					telem.NewSeriesV[int32](13, 14, 15),
-				})
+				},
+			)
 
 			// First keep only 1, 2, 3, 4, then exclude 2, 4
 			filtered := fr.KeepKeys([]int32{1, 2, 3, 4}).ExcludeKeys([]int32{2, 4})
@@ -464,7 +473,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](5, 6),
 					telem.NewSeriesV[int32](7, 8),
 					telem.NewSeriesV[int32](9, 10),
-				})
+				},
+			)
 
 			filtered := fr.ExcludeKeys([]int32{2, 4})
 			keys := make([]int32, 0)
@@ -494,7 +504,8 @@ var _ = Describe("Frame", func() {
 						telem.NewSeriesV[int32](1, 2, 3),
 						telem.NewSeriesV[int32](4, 5, 6),
 						telem.NewSeriesV[int32](7, 8, 9),
-					})
+					},
+				)
 				filtered := fr.ExcludeKeys([]int32{2})
 
 				By("Excluding keys from the new frame")
@@ -553,7 +564,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
 					telem.NewSeriesV[int32](10, 11, 12),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{2, 4}).ExcludeKeys([]int32{3})
 
 			By("Excluding keys from the new frame")
@@ -600,7 +612,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{})
 
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 2, 3}))
@@ -618,7 +631,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{1, 2, 3})
 
 			Expect(filtered.Empty()).To(BeTrue())
@@ -633,7 +647,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{4, 5, 6})
 
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 2, 3}))
@@ -653,7 +668,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](7, 8, 9),
 					telem.NewSeriesV[int32](10, 11, 12),
 					telem.NewSeriesV[int32](13, 14, 15),
-				})
+				},
+			)
 
 			// First keep only 1, 2, 3, 4, then exclude 2, 4
 			filtered := fr.KeepKeys([]int32{1, 2, 3, 4}).ExcludeKeys([]int32{2, 4})
@@ -674,7 +690,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](5, 6),
 					telem.NewSeriesV[int32](7, 8),
 					telem.NewSeriesV[int32](9, 10),
-				})
+				},
+			)
 
 			filtered := fr.ExcludeKeys([]int32{2, 4})
 			keys := make([]int32, 0)
@@ -717,7 +734,8 @@ var _ = Describe("Frame", func() {
 						telem.NewSeriesV[int32](1, 2, 3),
 						telem.NewSeriesV[int32](4, 5, 6),
 						telem.NewSeriesV[int32](7, 8, 9),
-					})
+					},
+				)
 				filtered := fr.ExcludeKeys([]int32{2})
 
 				By("Excluding keys from the new frame")
@@ -776,7 +794,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
 					telem.NewSeriesV[int32](10, 11, 12),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{2, 4}).ExcludeKeys([]int32{3})
 
 			By("Excluding keys from the new frame")
@@ -823,7 +842,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{})
 
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 2, 3}))
@@ -841,7 +861,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{1, 2, 3})
 
 			Expect(filtered.Empty()).To(BeTrue())
@@ -856,7 +877,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{4, 5, 6})
 
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 2, 3}))
@@ -876,7 +898,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](7, 8, 9),
 					telem.NewSeriesV[int32](10, 11, 12),
 					telem.NewSeriesV[int32](13, 14, 15),
-				})
+				},
+			)
 
 			// First keep only 1, 2, 3, 4, then exclude 2, 4
 			filtered := fr.KeepKeys([]int32{1, 2, 3, 4}).ExcludeKeys([]int32{2, 4})
@@ -897,7 +920,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](5, 6),
 					telem.NewSeriesV[int32](7, 8),
 					telem.NewSeriesV[int32](9, 10),
-				})
+				},
+			)
 
 			filtered := fr.ExcludeKeys([]int32{2, 4})
 			keys := make([]int32, 0)
@@ -940,7 +964,8 @@ var _ = Describe("Frame", func() {
 						telem.NewSeriesV[int32](1, 2, 3),
 						telem.NewSeriesV[int32](4, 5, 6),
 						telem.NewSeriesV[int32](7, 8, 9),
-					})
+					},
+				)
 				filtered := fr.ExcludeKeys([]int32{2})
 
 				By("Excluding keys from the new frame")
@@ -999,7 +1024,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
 					telem.NewSeriesV[int32](10, 11, 12),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{2, 4}).ExcludeKeys([]int32{3})
 
 			By("Excluding keys from the new frame")
@@ -1046,7 +1072,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{})
 
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 2, 3}))
@@ -1064,7 +1091,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{1, 2, 3})
 
 			Expect(filtered.Empty()).To(BeTrue())
@@ -1079,7 +1107,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{4, 5, 6})
 
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 2, 3}))
@@ -1099,7 +1128,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](7, 8, 9),
 					telem.NewSeriesV[int32](10, 11, 12),
 					telem.NewSeriesV[int32](13, 14, 15),
-				})
+				},
+			)
 
 			// First keep only 1, 2, 3, 4, then exclude 2, 4
 			filtered := fr.KeepKeys([]int32{1, 2, 3, 4}).ExcludeKeys([]int32{2, 4})
@@ -1120,7 +1150,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](5, 6),
 					telem.NewSeriesV[int32](7, 8),
 					telem.NewSeriesV[int32](9, 10),
-				})
+				},
+			)
 
 			filtered := fr.ExcludeKeys([]int32{2, 4})
 			keys := make([]int32, 0)
@@ -1163,7 +1194,8 @@ var _ = Describe("Frame", func() {
 						telem.NewSeriesV[int32](1, 2, 3),
 						telem.NewSeriesV[int32](4, 5, 6),
 						telem.NewSeriesV[int32](7, 8, 9),
-					})
+					},
+				)
 				filtered := fr.ExcludeKeys([]int32{2})
 
 				By("Excluding keys from the new frame")
@@ -1222,7 +1254,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
 					telem.NewSeriesV[int32](10, 11, 12),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{2, 4}).ExcludeKeys([]int32{3})
 
 			By("Excluding keys from the new frame")
@@ -1269,7 +1302,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{})
 
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 2, 3}))
@@ -1287,7 +1321,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{1, 2, 3})
 
 			Expect(filtered.Empty()).To(BeTrue())
@@ -1302,7 +1337,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{4, 5, 6})
 
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 2, 3}))
@@ -1322,7 +1358,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](7, 8, 9),
 					telem.NewSeriesV[int32](10, 11, 12),
 					telem.NewSeriesV[int32](13, 14, 15),
-				})
+				},
+			)
 
 			// First keep only 1, 2, 3, 4, then exclude 2, 4
 			filtered := fr.KeepKeys([]int32{1, 2, 3, 4}).ExcludeKeys([]int32{2, 4})
@@ -1343,7 +1380,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](5, 6),
 					telem.NewSeriesV[int32](7, 8),
 					telem.NewSeriesV[int32](9, 10),
-				})
+				},
+			)
 
 			filtered := fr.ExcludeKeys([]int32{2, 4})
 			keys := make([]int32, 0)
@@ -1386,7 +1424,8 @@ var _ = Describe("Frame", func() {
 						telem.NewSeriesV[int32](1, 2, 3),
 						telem.NewSeriesV[int32](4, 5, 6),
 						telem.NewSeriesV[int32](7, 8, 9),
-					})
+					},
+				)
 				filtered := fr.ExcludeKeys([]int32{2})
 
 				By("Excluding keys from the new frame")
@@ -1445,7 +1484,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
 					telem.NewSeriesV[int32](10, 11, 12),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{2, 4}).ExcludeKeys([]int32{3})
 
 			By("Excluding keys from the new frame")
@@ -1492,7 +1532,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{})
 
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 2, 3}))
@@ -1510,7 +1551,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{1, 2, 3})
 
 			Expect(filtered.Empty()).To(BeTrue())
@@ -1525,7 +1567,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{4, 5, 6})
 
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 2, 3}))
@@ -1545,7 +1588,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](7, 8, 9),
 					telem.NewSeriesV[int32](10, 11, 12),
 					telem.NewSeriesV[int32](13, 14, 15),
-				})
+				},
+			)
 
 			// First keep only 1, 2, 3, 4, then exclude 2, 4
 			filtered := fr.KeepKeys([]int32{1, 2, 3, 4}).ExcludeKeys([]int32{2, 4})
@@ -1566,7 +1610,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](5, 6),
 					telem.NewSeriesV[int32](7, 8),
 					telem.NewSeriesV[int32](9, 10),
-				})
+				},
+			)
 
 			filtered := fr.ExcludeKeys([]int32{2, 4})
 			keys := make([]int32, 0)
@@ -1609,7 +1654,8 @@ var _ = Describe("Frame", func() {
 						telem.NewSeriesV[int32](1, 2, 3),
 						telem.NewSeriesV[int32](4, 5, 6),
 						telem.NewSeriesV[int32](7, 8, 9),
-					})
+					},
+				)
 				filtered := fr.ExcludeKeys([]int32{2})
 
 				By("Excluding keys from the new frame")
@@ -1668,7 +1714,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
 					telem.NewSeriesV[int32](10, 11, 12),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{2, 4}).ExcludeKeys([]int32{3})
 
 			By("Excluding keys from the new frame")
@@ -1715,7 +1762,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{})
 
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 2, 3}))
@@ -1733,7 +1781,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{1, 2, 3})
 
 			Expect(filtered.Empty()).To(BeTrue())
@@ -1748,7 +1797,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{4, 5, 6})
 
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 2, 3}))
@@ -1768,7 +1818,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](7, 8, 9),
 					telem.NewSeriesV[int32](10, 11, 12),
 					telem.NewSeriesV[int32](13, 14, 15),
-				})
+				},
+			)
 
 			// First keep only 1, 2, 3, 4, then exclude 2, 4
 			filtered := fr.KeepKeys([]int32{1, 2, 3, 4}).ExcludeKeys([]int32{2, 4})
@@ -1789,7 +1840,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](5, 6),
 					telem.NewSeriesV[int32](7, 8),
 					telem.NewSeriesV[int32](9, 10),
-				})
+				},
+			)
 
 			filtered := fr.ExcludeKeys([]int32{2, 4})
 			keys := make([]int32, 0)
@@ -1832,7 +1884,8 @@ var _ = Describe("Frame", func() {
 						telem.NewSeriesV[int32](1, 2, 3),
 						telem.NewSeriesV[int32](4, 5, 6),
 						telem.NewSeriesV[int32](7, 8, 9),
-					})
+					},
+				)
 				filtered := fr.ExcludeKeys([]int32{2})
 
 				By("Excluding keys from the new frame")
@@ -1891,7 +1944,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
 					telem.NewSeriesV[int32](10, 11, 12),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{2, 4}).ExcludeKeys([]int32{3})
 
 			By("Excluding keys from the new frame")
@@ -1938,7 +1992,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{})
 
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 2, 3}))
@@ -1956,7 +2011,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{1, 2, 3})
 
 			Expect(filtered.Empty()).To(BeTrue())
@@ -1971,7 +2027,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{4, 5, 6})
 
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 2, 3}))
@@ -1991,7 +2048,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](7, 8, 9),
 					telem.NewSeriesV[int32](10, 11, 12),
 					telem.NewSeriesV[int32](13, 14, 15),
-				})
+				},
+			)
 
 			// First keep only 1, 2, 3, 4, then exclude 2, 4
 			filtered := fr.KeepKeys([]int32{1, 2, 3, 4}).ExcludeKeys([]int32{2, 4})
@@ -2012,7 +2070,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](5, 6),
 					telem.NewSeriesV[int32](7, 8),
 					telem.NewSeriesV[int32](9, 10),
-				})
+				},
+			)
 
 			filtered := fr.ExcludeKeys([]int32{2, 4})
 			keys := make([]int32, 0)
@@ -2055,7 +2114,8 @@ var _ = Describe("Frame", func() {
 						telem.NewSeriesV[int32](1, 2, 3),
 						telem.NewSeriesV[int32](4, 5, 6),
 						telem.NewSeriesV[int32](7, 8, 9),
-					})
+					},
+				)
 				filtered := fr.ExcludeKeys([]int32{2})
 
 				By("Excluding keys from the new frame")
@@ -2114,7 +2174,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
 					telem.NewSeriesV[int32](10, 11, 12),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{2, 4}).ExcludeKeys([]int32{3})
 
 			By("Excluding keys from the new frame")
@@ -2161,7 +2222,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{})
 
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 2, 3}))
@@ -2179,7 +2241,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{1, 2, 3})
 
 			Expect(filtered.Empty()).To(BeTrue())
@@ -2194,7 +2257,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{4, 5, 6})
 
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 2, 3}))
@@ -2214,7 +2278,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](7, 8, 9),
 					telem.NewSeriesV[int32](10, 11, 12),
 					telem.NewSeriesV[int32](13, 14, 15),
-				})
+				},
+			)
 
 			// First keep only 1, 2, 3, 4, then exclude 2, 4
 			filtered := fr.KeepKeys([]int32{1, 2, 3, 4}).ExcludeKeys([]int32{2, 4})
@@ -2235,7 +2300,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](5, 6),
 					telem.NewSeriesV[int32](7, 8),
 					telem.NewSeriesV[int32](9, 10),
-				})
+				},
+			)
 
 			filtered := fr.ExcludeKeys([]int32{2, 4})
 			keys := make([]int32, 0)
@@ -2278,7 +2344,8 @@ var _ = Describe("Frame", func() {
 						telem.NewSeriesV[int32](1, 2, 3),
 						telem.NewSeriesV[int32](4, 5, 6),
 						telem.NewSeriesV[int32](7, 8, 9),
-					})
+					},
+				)
 				filtered := fr.ExcludeKeys([]int32{2})
 
 				By("Excluding keys from the new frame")
@@ -2337,7 +2404,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
 					telem.NewSeriesV[int32](10, 11, 12),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{2, 4}).ExcludeKeys([]int32{3})
 
 			By("Excluding keys from the new frame")
@@ -2384,7 +2452,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{})
 
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 2, 3}))
@@ -2402,7 +2471,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{1, 2, 3})
 
 			Expect(filtered.Empty()).To(BeTrue())
@@ -2417,7 +2487,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{4, 5, 6})
 
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 2, 3}))
@@ -2437,7 +2508,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](7, 8, 9),
 					telem.NewSeriesV[int32](10, 11, 12),
 					telem.NewSeriesV[int32](13, 14, 15),
-				})
+				},
+			)
 
 			// First keep only 1, 2, 3, 4, then exclude 2, 4
 			filtered := fr.KeepKeys([]int32{1, 2, 3, 4}).ExcludeKeys([]int32{2, 4})
@@ -2458,7 +2530,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](5, 6),
 					telem.NewSeriesV[int32](7, 8),
 					telem.NewSeriesV[int32](9, 10),
-				})
+				},
+			)
 
 			filtered := fr.ExcludeKeys([]int32{2, 4})
 			keys := make([]int32, 0)
@@ -2501,7 +2574,8 @@ var _ = Describe("Frame", func() {
 						telem.NewSeriesV[int32](1, 2, 3),
 						telem.NewSeriesV[int32](4, 5, 6),
 						telem.NewSeriesV[int32](7, 8, 9),
-					})
+					},
+				)
 				filtered := fr.ExcludeKeys([]int32{2})
 
 				By("Excluding keys from the new frame")
@@ -2560,7 +2634,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
 					telem.NewSeriesV[int32](10, 11, 12),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{2, 4}).ExcludeKeys([]int32{3})
 
 			By("Excluding keys from the new frame")
@@ -2607,7 +2682,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{})
 
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 2, 3}))
@@ -2625,7 +2701,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{1, 2, 3})
 
 			Expect(filtered.Empty()).To(BeTrue())
@@ -2640,7 +2717,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{4, 5, 6})
 
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 2, 3}))
@@ -2660,7 +2738,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](7, 8, 9),
 					telem.NewSeriesV[int32](10, 11, 12),
 					telem.NewSeriesV[int32](13, 14, 15),
-				})
+				},
+			)
 
 			// First keep only 1, 2, 3, 4, then exclude 2, 4
 			filtered := fr.KeepKeys([]int32{1, 2, 3, 4}).ExcludeKeys([]int32{2, 4})
@@ -2681,7 +2760,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](5, 6),
 					telem.NewSeriesV[int32](7, 8),
 					telem.NewSeriesV[int32](9, 10),
-				})
+				},
+			)
 
 			filtered := fr.ExcludeKeys([]int32{2, 4})
 			keys := make([]int32, 0)
@@ -2724,7 +2804,8 @@ var _ = Describe("Frame", func() {
 						telem.NewSeriesV[int32](1, 2, 3),
 						telem.NewSeriesV[int32](4, 5, 6),
 						telem.NewSeriesV[int32](7, 8, 9),
-					})
+					},
+				)
 				filtered := fr.ExcludeKeys([]int32{2})
 
 				By("Excluding keys from the new frame")
@@ -2783,7 +2864,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
 					telem.NewSeriesV[int32](10, 11, 12),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{2, 4}).ExcludeKeys([]int32{3})
 
 			By("Excluding keys from the new frame")
@@ -2830,7 +2912,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{})
 
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 2, 3}))
@@ -2848,7 +2931,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{1, 2, 3})
 
 			Expect(filtered.Empty()).To(BeTrue())
@@ -2863,7 +2947,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{4, 5, 6})
 
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 2, 3}))
@@ -2883,7 +2968,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](7, 8, 9),
 					telem.NewSeriesV[int32](10, 11, 12),
 					telem.NewSeriesV[int32](13, 14, 15),
-				})
+				},
+			)
 
 			// First keep only 1, 2, 3, 4, then exclude 2, 4
 			filtered := fr.KeepKeys([]int32{1, 2, 3, 4}).ExcludeKeys([]int32{2, 4})
@@ -2904,7 +2990,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](5, 6),
 					telem.NewSeriesV[int32](7, 8),
 					telem.NewSeriesV[int32](9, 10),
-				})
+				},
+			)
 
 			filtered := fr.ExcludeKeys([]int32{2, 4})
 			keys := make([]int32, 0)
@@ -2947,7 +3034,8 @@ var _ = Describe("Frame", func() {
 						telem.NewSeriesV[int32](1, 2, 3),
 						telem.NewSeriesV[int32](4, 5, 6),
 						telem.NewSeriesV[int32](7, 8, 9),
-					})
+					},
+				)
 				filtered := fr.ExcludeKeys([]int32{2})
 
 				By("Excluding keys from the new frame")
@@ -3006,7 +3094,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
 					telem.NewSeriesV[int32](10, 11, 12),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{2, 4}).ExcludeKeys([]int32{3})
 
 			By("Excluding keys from the new frame")
@@ -3053,7 +3142,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{})
 
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 2, 3}))
@@ -3071,7 +3161,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{1, 2, 3})
 
 			Expect(filtered.Empty()).To(BeTrue())
@@ -3086,7 +3177,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{4, 5, 6})
 
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 2, 3}))
@@ -3106,7 +3198,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](7, 8, 9),
 					telem.NewSeriesV[int32](10, 11, 12),
 					telem.NewSeriesV[int32](13, 14, 15),
-				})
+				},
+			)
 
 			// First keep only 1, 2, 3, 4, then exclude 2, 4
 			filtered := fr.KeepKeys([]int32{1, 2, 3, 4}).ExcludeKeys([]int32{2, 4})
@@ -3127,7 +3220,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](5, 6),
 					telem.NewSeriesV[int32](7, 8),
 					telem.NewSeriesV[int32](9, 10),
-				})
+				},
+			)
 
 			filtered := fr.ExcludeKeys([]int32{2, 4})
 			keys := make([]int32, 0)
@@ -3170,7 +3264,8 @@ var _ = Describe("Frame", func() {
 						telem.NewSeriesV[int32](1, 2, 3),
 						telem.NewSeriesV[int32](4, 5, 6),
 						telem.NewSeriesV[int32](7, 8, 9),
-					})
+					},
+				)
 				filtered := fr.ExcludeKeys([]int32{2})
 
 				By("Excluding keys from the new frame")
@@ -3229,7 +3324,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
 					telem.NewSeriesV[int32](10, 11, 12),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{2, 4}).ExcludeKeys([]int32{3})
 
 			By("Excluding keys from the new frame")
@@ -3276,7 +3372,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{})
 
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 2, 3}))
@@ -3294,7 +3391,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{1, 2, 3})
 
 			Expect(filtered.Empty()).To(BeTrue())
@@ -3309,7 +3407,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.ExcludeKeys([]int32{4, 5, 6})
 
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 2, 3}))
@@ -3329,7 +3428,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](7, 8, 9),
 					telem.NewSeriesV[int32](10, 11, 12),
 					telem.NewSeriesV[int32](13, 14, 15),
-				})
+				},
+			)
 
 			// First keep only 1, 2, 3, 4, then exclude 2, 4
 			filtered := fr.KeepKeys([]int32{1, 2, 3, 4}).ExcludeKeys([]int32{2, 4})
@@ -3350,7 +3450,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](5, 6),
 					telem.NewSeriesV[int32](7, 8),
 					telem.NewSeriesV[int32](9, 10),
-				})
+				},
+			)
 
 			filtered := fr.ExcludeKeys([]int32{2, 4})
 			keys := make([]int32, 0)
@@ -3378,7 +3479,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 
 			series := make([]telem.Series, 0)
 			for s := range fr.Series() {
@@ -3399,7 +3501,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 
 			filtered := fr.KeepKeys([]int32{1, 3})
 			series := make([]telem.Series, 0)
@@ -3422,7 +3525,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 
 			keys := make([]int32, 0)
 			for k := range fr.Keys() {
@@ -3439,7 +3543,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 
 			filtered := fr.KeepKeys([]int32{1, 3})
 			keys := make([]int32, 0)
@@ -3458,7 +3563,8 @@ var _ = Describe("Frame", func() {
 				[]telem.Series{
 					telem.NewSeriesV[int32](1, 2),
 					telem.NewSeriesV[int32](3, 4),
-				})
+				},
+			)
 
 			keys := make([]int32, 0)
 			series := make([]telem.Series, 0)
@@ -3482,7 +3588,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2),
 					telem.NewSeriesV[int32](3, 4),
 					telem.NewSeriesV[int32](5, 6),
-				})
+				},
+			)
 
 			filtered := fr.KeepKeys([]int32{1, 3})
 			keys := make([]int32, 0)
@@ -3509,7 +3616,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2),
 					telem.NewSeriesV[int32](3, 4),
 					telem.NewSeriesV[int32](5, 6),
-				})
+				},
+			)
 
 			series := fr.Get(1)
 			Expect(series).To(Equal(telem.MultiSeries{Series: []telem.Series{
@@ -3525,7 +3633,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2),
 					telem.NewSeriesV[int32](3, 4),
 					telem.NewSeriesV[int32](5, 6),
-				})
+				},
+			)
 
 			filtered := fr.KeepKeys([]int32{1})
 			series := filtered.Get(1)
@@ -3541,7 +3650,8 @@ var _ = Describe("Frame", func() {
 				[]telem.Series{
 					telem.NewSeriesV[int32](1, 2),
 					telem.NewSeriesV[int32](3, 4),
-				})
+				},
+			)
 
 			series := fr.Get(3)
 			Expect(series.Series).To(BeEmpty())
@@ -3566,7 +3676,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2),
 					telem.NewSeriesV[int32](3, 4),
 					telem.NewSeriesV[int32](5, 6),
-				})
+				},
+			)
 
 			filtered := fr.KeepKeys([]int32{4, 5})
 			Expect(filtered.Empty()).To(BeTrue())
@@ -3579,7 +3690,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2),
 					telem.NewSeriesV[int32](3, 4),
 					telem.NewSeriesV[int32](5, 6),
-				})
+				},
+			)
 
 			filtered := fr.KeepKeys([]int32{1, 2})
 			Expect(filtered.Empty()).To(BeFalse())
@@ -3598,7 +3710,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](5, 6),
 					telem.NewSeriesV[int32](7, 8),
 					telem.NewSeriesV[int32](9, 10),
-				})
+				},
+			)
 		})
 
 		It("Should support early exit in Series iteration", func() {
@@ -3766,7 +3879,8 @@ var _ = Describe("Frame", func() {
 					[]telem.Series{
 						telem.NewSeriesV[int32](1, 2, 3),
 						telem.NewSeriesV[int32](4, 5),
-					})
+					},
+				)
 				Expect(fr.Len()).To(Equal(int64(3)))
 			},
 		)
@@ -3780,7 +3894,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 
 			Expect(fr.SeriesAt(0)).To(Equal(telem.NewSeriesV[int32](1, 2, 3)))
 			Expect(fr.SeriesAt(1)).To(Equal(telem.NewSeriesV[int32](4, 5, 6)))
@@ -3804,7 +3919,8 @@ var _ = Describe("Frame", func() {
 				[]telem.Series{
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
-				})
+				},
+			)
 
 			Expect(func() { fr.SeriesAt(2) }).To(Panic())
 			Expect(func() { fr.SeriesAt(-3) }).To(Panic())
@@ -3822,7 +3938,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 
 			newSeries := telem.NewSeriesV[int32](10, 11, 12)
 			fr.SetSeriesAt(1, newSeries)
@@ -3856,7 +3973,8 @@ var _ = Describe("Frame", func() {
 						telem.NewSeriesV[int32](1, 2, 3),
 						telem.NewSeriesV[int32](4, 5, 6),
 						telem.NewSeriesV[int32](7, 8, 9),
-					})
+					},
+				)
 				Expect(func() { fr.SeriesAt(4) }).To(Panic())
 			},
 		)
@@ -3870,7 +3988,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 
 			filtered := fr.KeepKeys([]int32{1, 3})
 
@@ -3898,7 +4017,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			reinterpreted := telem.UnsafeReinterpretFrameKeysAs[int32, AltKey](fr)
 			keys := reinterpreted.KeysSlice()
 			Expect(keys).To(HaveLen(3))
@@ -3923,7 +4043,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 
 			copied := original.ShallowCopy()
 
@@ -3949,7 +4070,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
 					telem.NewSeriesV[int32](10, 11, 12),
-				})
+				},
+			)
 
 			filtered := original.KeepKeys([]int32{1, 3})
 			copied := filtered.ShallowCopy()
@@ -3979,14 +4101,16 @@ var _ = Describe("Frame", func() {
 				[]telem.Series{
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
-				})
+				},
+			)
 
 			frame2 := telem.MultiFrame(
 				[]int32{3, 4},
 				[]telem.Series{
 					telem.NewSeriesV[int32](7, 8, 9),
 					telem.NewSeriesV[int32](10, 11, 12),
-				})
+				},
+			)
 
 			extended := frame1.Extend(frame2)
 
@@ -4007,7 +4131,8 @@ var _ = Describe("Frame", func() {
 				[]telem.Series{
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
-				})
+				},
+			)
 
 			empty := telem.Frame[int32]{}
 			extended := frame.Extend(empty)
@@ -4033,7 +4158,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 
 			frame2 := telem.MultiFrame(
 				[]int32{4, 5, 6},
@@ -4041,7 +4167,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](10, 11, 12),
 					telem.NewSeriesV[int32](13, 14, 15),
 					telem.NewSeriesV[int32](16, 17, 18),
-				})
+				},
+			)
 			filtered1 := frame1.KeepKeys([]int32{1, 3})
 			filtered2 := frame2.KeepKeys([]int32{4, 6})
 			extended := filtered1.Extend(filtered2)
@@ -4061,14 +4188,16 @@ var _ = Describe("Frame", func() {
 				[]telem.Series{
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
-				})
+				},
+			)
 
 			frame2 := telem.MultiFrame(
 				[]int32{2, 3},
 				[]telem.Series{
 					telem.NewSeriesV[int32](7, 8, 9),
 					telem.NewSeriesV[int32](10, 11, 12),
-				})
+				},
+			)
 
 			extended := frame1.Extend(frame2)
 
@@ -4091,7 +4220,8 @@ var _ = Describe("Frame", func() {
 				[]telem.Series{
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
-				})
+				},
+			)
 			extended := frame.Extend()
 			Expect(extended.KeysSlice()).To(Equal([]int32{1, 2}))
 			Expect(extended.SeriesSlice()).To(Equal([]telem.Series{
@@ -4132,20 +4262,23 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1),
 					telem.NewSeriesV[int32](2),
 					telem.NewSeriesV[int32](3),
-				}).KeepKeys([]int32{1, 3})
+				},
+			).KeepKeys([]int32{1, 3})
 			frame2 := telem.MultiFrame(
 				[]int32{4, 5},
 				[]telem.Series{
 					telem.NewSeriesV[int32](4),
 					telem.NewSeriesV[int32](5),
-				})
+				},
+			)
 			frame3 := telem.MultiFrame(
 				[]int32{6, 7, 8},
 				[]telem.Series{
 					telem.NewSeriesV[int32](6),
 					telem.NewSeriesV[int32](7),
 					telem.NewSeriesV[int32](8),
-				}).ExcludeKeys([]int32{7})
+				},
+			).ExcludeKeys([]int32{7})
 			extended := frame1.Extend(frame2, frame3)
 			Expect(extended.KeysSlice()).To(Equal([]int32{1, 3, 4, 5, 6, 8}))
 		})
@@ -4195,7 +4328,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 
 			indices := make([]int32, 0)
 			series := make([]telem.Series, 0)
@@ -4222,7 +4356,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](7, 8, 9),
 					telem.NewSeriesV[int32](10, 11, 12),
 					telem.NewSeriesV[int32](13, 14, 15),
-				})
+				},
+			)
 
 			filtered := fr.KeepKeys([]int32{1, 3, 5})
 
@@ -4251,7 +4386,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](7, 8, 9),
 					telem.NewSeriesV[int32](10, 11, 12),
 					telem.NewSeriesV[int32](13, 14, 15),
-				})
+				},
+			)
 
 			// Test early exit
 			count := 0
@@ -4305,7 +4441,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](8),
 					telem.NewSeriesV[int32](9),
 					telem.NewSeriesV[int32](10),
-				})
+				},
+			)
 
 			// Select sparse keys
 			filtered := fr.KeepKeys([]int32{10, 50, 90})
@@ -4364,7 +4501,8 @@ var _ = Describe("Frame", func() {
 						telem.NewSeriesV[int32](1, 2, 3),
 						telem.NewSeriesV[int32](4, 5, 6),
 						telem.NewSeriesV[int32](7, 8, 9),
-					})
+					},
+				)
 				filtered := fr.KeepKeys([]int32{22})
 				Expect(filtered.HasData()).To(BeFalse())
 			},
@@ -4377,7 +4515,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 			filtered := fr.KeepKeys([]int32{2})
 			Expect(filtered.HasData()).To(BeTrue())
 		})
@@ -4468,7 +4607,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 
 			Expect(fr.ShouldExcludeRaw(0)).To(BeFalse())
 			Expect(fr.ShouldExcludeRaw(1)).To(BeFalse())
@@ -4482,7 +4622,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 
 			filtered := fr.KeepKeys([]int32{1, 3})
 

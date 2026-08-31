@@ -65,7 +65,8 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 		if err != nil {
 			db.L.Error(fmt.Sprintf(
 				"failed parsing existing folder <%s> to channel key",
-				i.Name()),
+				i.Name(),
+			),
 				zap.Error(err),
 			)
 			continue

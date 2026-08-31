@@ -397,11 +397,9 @@ var _ = Describe("txn", func() {
 				req := kv.TxRequest{
 					Context: ctx,
 					Operations: []kv.Operation{{
-						Change: xkv.Change{
-							Variant: change.VariantSet,
-							Key:     []byte("dedup-test"),
-							Value:   []byte("v1"),
-						},
+						Variant:     change.VariantSet,
+						Key:         []byte("dedup-test"),
+						Value:       []byte("v1"),
 						Version:     version.Counter(1_000_000),
 						Leaseholder: node.Key(2),
 					}},

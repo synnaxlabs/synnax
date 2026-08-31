@@ -609,7 +609,7 @@ var _ = Describe("ImEx", func() {
 					}
 					env := imex.Envelope{Version: 1}
 					Expect(imex.Encode(
-						&env, payload{base: base{Name: "n", Type: "log"}, Foo: 1},
+						&env, payload{Name: "n", Type: "log", Foo: 1},
 					)).To(Succeed())
 					Expect(env.Type).To(Equal("log"))
 					Expect(env.Name).To(Equal("n"))
@@ -688,7 +688,7 @@ var _ = Describe("ImEx", func() {
 					env := imex.Envelope{Version: 1}
 					Expect(imex.Encode(
 						&env,
-						payload{mid: mid{deep: deep{Name: "n"}, Type: "log"}, Foo: 1},
+						payload{Name: "n", Type: "log", Foo: 1},
 					)).To(Succeed())
 					b := MustSucceed(json.Marshal(env))
 					var round map[string]any
@@ -733,7 +733,7 @@ var _ = Describe("ImEx", func() {
 					}
 					env := imex.Envelope{Version: 1, Type: "log"}
 					Expect(imex.Encode(
-						&env, payload{Wrapped: Wrapped{Inner: "v"}, Name: "n"},
+						&env, payload{Inner: "v", Name: "n"},
 					)).To(Succeed())
 					b := MustSucceed(json.Marshal(env))
 					var round map[string]any

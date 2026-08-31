@@ -31,7 +31,6 @@ on:
       - pnpm-workspace.yaml
       - pyproject.toml
       - uv.lock
-      - uv.toml
       - turbo.json
       - x/go/**
       - x/ts/**
@@ -59,7 +58,6 @@ on:
       - pnpm-workspace.yaml
       - pyproject.toml
       - uv.lock
-      - uv.toml
       - turbo.json
       - x/go/**
       - x/ts/**
@@ -97,7 +95,6 @@ jobs:
               - freighter/py/**
               - pyproject.toml
               - uv.lock
-              - uv.toml
             ts:
               - *server
               - .github/actions/test-typescript/**

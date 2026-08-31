@@ -776,7 +776,8 @@ func (b *testValueBuilder) unionExpr(
 	payload, ok := v.Type.Resolve(b.table)
 	if !ok {
 		return "", errors.Newf(
-			"union %s variant %q: unresolved payload", actual.Name, v.Name)
+			"union %s variant %q: unresolved payload", actual.Name, v.Name,
+		)
 	}
 	if b.depth > 2 {
 		return fmt.Sprintf("%s{Variant: %s{}}", goType, variantType), nil

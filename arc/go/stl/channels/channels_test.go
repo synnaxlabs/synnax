@@ -252,13 +252,13 @@ var _ = Describe("Channel", func() {
 					"writer":   {"type": "write"},
 				},
 				Edges: graph.Edges{
-					{Edge: ir.Edge{
+					{
 						Source: ir.Handle{
 							Node:  "producer",
 							Param: ir.DefaultOutputParam,
 						},
 						Target: ir.Handle{Node: "writer", Param: ir.DefaultInputParam},
-					}},
+					},
 				},
 				Functions: []ir.Function{
 					{Key: "on"},
@@ -1321,13 +1321,13 @@ var _ = Describe("Channel", func() {
 					"sink":     {"type": "write"},
 				},
 				Edges: graph.Edges{
-					{Edge: ir.Edge{
+					{
 						Source: ir.Handle{
 							Node:  "upstream",
 							Param: ir.DefaultOutputParam,
 						},
 						Target: ir.Handle{Node: "sink", Param: ir.DefaultInputParam},
-					}},
+					},
 				},
 				Functions: []ir.Function{
 					{
@@ -1522,7 +1522,7 @@ var _ = Describe("Channel", func() {
 						"write": {"type": "write"},
 					},
 					Edges: graph.Edges{
-						{Edge: ir.Edge{
+						{
 							Source: ir.Handle{
 								Node:  "read",
 								Param: ir.DefaultOutputParam,
@@ -1531,7 +1531,7 @@ var _ = Describe("Channel", func() {
 								Node:  "write",
 								Param: ir.DefaultInputParam,
 							},
-						}},
+						},
 					},
 					Functions: []ir.Function{
 						{
@@ -1612,7 +1612,7 @@ var _ = Describe("Channel", func() {
 							"write2": {"type": "write2"},
 						},
 						Edges: graph.Edges{
-							{Edge: ir.Edge{
+							{
 								Source: ir.Handle{
 									Node:  "read1",
 									Param: ir.DefaultOutputParam,
@@ -1621,8 +1621,8 @@ var _ = Describe("Channel", func() {
 									Node:  "write1",
 									Param: ir.DefaultInputParam,
 								},
-							}},
-							{Edge: ir.Edge{
+							},
+							{
 								Source: ir.Handle{
 									Node:  "read2",
 									Param: ir.DefaultOutputParam,
@@ -1631,7 +1631,7 @@ var _ = Describe("Channel", func() {
 									Node:  "write2",
 									Param: ir.DefaultInputParam,
 								},
-							}},
+							},
 						},
 						Functions: []ir.Function{
 							{Key: "on", Outputs: types.Params{

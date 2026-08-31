@@ -17,7 +17,6 @@ on:
       - codecov.yaml
       - pyproject.toml
       - uv.lock
-      - uv.toml
       - x/py/**
   push:
     branches:
@@ -29,7 +28,6 @@ on:
       - codecov.yaml
       - pyproject.toml
       - uv.lock
-      - uv.toml
       - x/py/**
   workflow_dispatch:
 

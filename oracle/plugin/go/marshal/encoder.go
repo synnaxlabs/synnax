@@ -580,7 +580,8 @@ func buildUnionCodec(
 		parent, ok := ext.Resolve(table)
 		if !ok {
 			return concreteCodec{}, errors.Newf(
-				"union %s: unresolved base %s", entry.Name, ext.Name)
+				"union %s: unresolved base %s", entry.Name, ext.Name,
+			)
 		}
 		baseEmbeds = append(baseEmbeds, naming.GetGoName(parent))
 	}
@@ -596,7 +597,8 @@ func buildUnionCodec(
 		if !ok {
 			return concreteCodec{}, errors.Newf(
 				"union %s variant %q: unresolved payload %s",
-				entry.Name, v.Name, v.Type.Name)
+				entry.Name, v.Name, v.Type.Name,
+			)
 		}
 		variantType := casing.VariantTypeName(goName, v.Name)
 		var embeds []string
@@ -609,7 +611,8 @@ func buildUnionCodec(
 				if !ok {
 					return concreteCodec{}, errors.Newf(
 						"union %s variant %q: unresolved base %s",
-						entry.Name, v.Name, ext.Name)
+						entry.Name, v.Name, ext.Name,
+					)
 				}
 				embeds = append(embeds, naming.GetGoName(parent))
 			}
@@ -630,9 +633,11 @@ func buildUnionCodec(
 		)
 		for _, embed := range embeds {
 			enc = append(enc, fmt.Sprintf(
-				"\t\tif err := v.%s.EncodeOrc(w); err != nil { return err }", embed))
+				"\t\tif err := v.%s.EncodeOrc(w); err != nil { return err }", embed,
+			))
 			dec = append(dec, fmt.Sprintf(
-				"\t\tif err := v.%s.DecodeOrc(r); err != nil { return err }", embed))
+				"\t\tif err := v.%s.DecodeOrc(r); err != nil { return err }", embed,
+			))
 		}
 		if len(inlineFields) > 0 {
 			fb := &encoderBuilder{
@@ -657,7 +662,8 @@ func buildUnionCodec(
 		"\tdefault:",
 		fmt.Sprintf(
 			"\t\treturn errors.Newf(\"%s: nil or unknown variant %%T\", %s.Variant)",
-			goName, recv),
+			goName, recv,
+		),
 		"\t}",
 	)
 	dec = append(dec,
