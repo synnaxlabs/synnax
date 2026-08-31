@@ -101,7 +101,8 @@ func newMigration(cfg MigrationConfig) migrate.Migration {
 				cfg.Status,
 				tx,
 			).SetMany(ctx, &missingStatuses)
-		})
+		},
+	)
 }
 
 // codecMigration re-encodes stored devices from MessagePack to Orc.

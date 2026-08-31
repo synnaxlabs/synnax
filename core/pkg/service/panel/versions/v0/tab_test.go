@@ -20,13 +20,13 @@ var _ = Describe("Tab", func() {
 	Describe("Key", func() {
 		It("Should return the key of a resource-backed tab", func() {
 			k := uuid.New()
-			variant := v0.ResourceTab{TabBase: v0.TabBase{Key: k}}
+			variant := v0.ResourceTab{Key: k}
 			Expect(v0.Tab{Variant: variant}.Key()).To(Equal(k))
 		})
 
 		It("Should return the key of a view-backed tab", func() {
 			k := uuid.New()
-			variant := v0.ViewTab{TabBase: v0.TabBase{Key: k}}
+			variant := v0.ViewTab{Key: k}
 			Expect(v0.Tab{Variant: variant}.Key()).To(Equal(k))
 		})
 

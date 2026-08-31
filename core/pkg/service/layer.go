@@ -669,7 +669,8 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			Storage:         cfg.Storage,
 			Group:           l.Group,
 			Ontology:        l.Ontology,
-		}); !ok(err, l.Metrics) {
+		},
+	); !ok(err, l.Metrics) {
 		return nil, err
 	}
 	// Composition migrations move data across service boundaries, so they can only run

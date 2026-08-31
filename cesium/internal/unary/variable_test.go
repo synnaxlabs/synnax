@@ -400,7 +400,8 @@ var _ = Describe("Variable-length channel", func() {
 						for i := 0; i < frame.Count(); i++ {
 							got = append(
 								got,
-								telem.UnmarshalSeries[string](frame.SeriesAt(i))...)
+								telem.UnmarshalSeries[string](frame.SeriesAt(i))...,
+							)
 						}
 						Expect(got).To(Equal([]string{
 							"sampleA",
@@ -870,7 +871,8 @@ var _ = Describe("Variable-length channel", func() {
 						for i := 0; i < f.Count(); i++ {
 							all = append(
 								all,
-								telem.UnmarshalSeries[string](f.SeriesAt(i))...)
+								telem.UnmarshalSeries[string](f.SeriesAt(i))...,
+							)
 						}
 					}
 					Expect(all).To(Equal([]string{"x", "y", "z", "w", "v"}))

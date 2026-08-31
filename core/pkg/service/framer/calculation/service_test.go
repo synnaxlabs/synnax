@@ -777,7 +777,8 @@ var _ = Describe("Calculation", Ordered, func() {
 				}
 				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
 				Expect(channelWriter.Delete(
-					ctx, base.Key(), false),
+					ctx, base.Key(), false,
+				),
 				).To(Succeed())
 				rm := c.OpenRequestManager()
 				Expect(
@@ -820,7 +821,8 @@ var _ = Describe("Calculation", Ordered, func() {
 				// as an error status rather than synchronously.
 				Expect(channelWriter.Delete(ctx, base.Key(), false)).To(Succeed())
 				Expect(channelWriter.Rename(
-					ctx, calc.Key(), UniqueChannelName(), false),
+					ctx, calc.Key(), UniqueChannelName(), false,
+				),
 				).To(Succeed())
 				var st calculation.Status
 				statusKey := calc.OntologyID().String()

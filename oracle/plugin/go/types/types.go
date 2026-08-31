@@ -778,10 +778,12 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 	if genMethods && len(embeds) > 0 {
 		sd.DefaultRecurse = append(
 			sd.DefaultRecurse,
-			embedRecurseSteps(embeds, nil, data, defaultsHasOwn, neverSkip)...)
+			embedRecurseSteps(embeds, nil, data, defaultsHasOwn, neverSkip)...,
+		)
 		sd.ValidateRecurse = append(
 			sd.ValidateRecurse,
-			embedRecurseSteps(embeds, nil, data, validateHasOwn, validateSkip)...)
+			embedRecurseSteps(embeds, nil, data, validateHasOwn, validateSkip)...,
+		)
 	}
 	for _, field := range fields {
 		if !defaultOnly.Contains(field.Name) {
@@ -804,7 +806,8 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 		}
 		sd.ConstraintChecks = append(
 			sd.ConstraintChecks,
-			goConstraintChecks(field, data)...)
+			goConstraintChecks(field, data)...,
+		)
 		if step, ok := goRecurseStep(field, data, validateHasOwn, validateSkip); ok {
 			sd.ValidateRecurse = append(sd.ValidateRecurse, step)
 		}

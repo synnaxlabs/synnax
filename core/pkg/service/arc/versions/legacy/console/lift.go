@@ -53,11 +53,14 @@ func (p Params) lift() types.Params {
 
 func (t Type) lift() types.Type {
 	out := types.Type{
-		Kind: t.Kind, Name: t.Name, Unit: t.Unit, ChanDirection: t.ChanDirection,
+		Kind:          t.Kind,
+		Name:          t.Name,
+		Unit:          t.Unit,
+		ChanDirection: t.ChanDirection,
+		Inputs:        t.Inputs.lift(),
+		Outputs:       t.Outputs.lift(),
+		Config:        t.Config.lift(),
 	}
-	out.Inputs = t.Inputs.lift()
-	out.Outputs = t.Outputs.lift()
-	out.Config = t.Config.lift()
 	if t.Elem != nil {
 		elem := t.Elem.lift()
 		out.Elem = &elem

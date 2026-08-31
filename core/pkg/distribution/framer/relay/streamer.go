@@ -108,12 +108,10 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 			ack = make(chan struct{})
 		}
 		s.demands.Inlet() <- demand{
-			Change: change.Change[address.Address, Request]{
-				Variant: change.VariantSet,
-				Key:     s.addr,
-				Value:   Request{Keys: s.cfg.Keys},
-			},
-			ack: ack,
+			Variant: change.VariantSet,
+			Key:     s.addr,
+			Value:   Request{Keys: s.cfg.Keys},
+			ack:     ack,
 		}
 		// NOTE: BEYOND THIS POINT THERE IS AN INHERENT RISK OF DEADLOCKING THE RELAY.
 		// BE CAREFUL WHEN MAKING CHANGES TO THIS SECTION.
@@ -123,10 +121,10 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 			// we do this before updating our demands, otherwise we may deadlock.
 			disconnect()
 			// Tell the tapper that we are no longer requesting any channels.
-			s.demands.Inlet() <- demand{Change: change.Change[address.Address, Request]{
+			s.demands.Inlet() <- demand{
 				Variant: change.VariantDelete,
 				Key:     s.addr,
-			}}
+			}
 			// If we add this in AttachClosables, it may not be closed at the end of if
 			// the caller does not use the confluence.CloseOutputInletsOnExit option, so
 			// we explicitly close it here.
@@ -164,11 +162,11 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 				}
 				req.Keys = lo.Uniq(req.Keys)
 				s.cfg.Keys = req.Keys
-				d := demand{Change: change.Change[address.Address, Request]{
+				d := demand{
 					Variant: change.VariantSet,
 					Key:     s.addr,
 					Value:   req,
-				}}
+				}
 				if err := signal.SendUnderContext(
 					ctx,
 					s.demands.Inlet(),

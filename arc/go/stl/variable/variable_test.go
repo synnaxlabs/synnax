@@ -48,10 +48,10 @@ func registerState(ctx SpecContext) *node.ProgramState {
 			"f": {"type": "feeder"},
 			"v": {"type": "variable"},
 		},
-		Edges: graph.Edges{{Edge: ir.Edge{
+		Edges: graph.Edges{{
 			Source: ir.Handle{Node: "f", Param: ir.DefaultOutputParam},
 			Target: ir.Handle{Node: "v", Param: "f1"},
-		}}},
+		}},
 	}
 	analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 	Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -89,14 +89,14 @@ func exprReadState(ctx SpecContext) *node.ProgramState {
 			"v":      {"type": "variable"},
 		},
 		Edges: graph.Edges{
-			{Edge: ir.Edge{
+			{
 				Source: ir.Handle{Node: "d", Param: ir.DefaultOutputParam},
 				Target: ir.Handle{Node: "v", Param: "value"},
-			}},
-			{Edge: ir.Edge{
+			},
+			{
 				Source: ir.Handle{Node: "selsrc", Param: ir.DefaultOutputParam},
 				Target: ir.Handle{Node: "v", Param: "sel"},
-			}},
+			},
 		},
 	}
 	analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
@@ -407,10 +407,10 @@ var _ = Describe("Variable", func() {
 						"f": {"type": "feeder"},
 						"v": {"type": "variable"},
 					},
-					Edges: graph.Edges{{Edge: ir.Edge{
+					Edges: graph.Edges{{
 						Source: ir.Handle{Node: "f", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "v", Param: "f1"},
-					}}},
+					}},
 				}
 				analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -579,10 +579,10 @@ var _ = Describe("Variable", func() {
 						"d": {"type": "d"},
 						"v": {"type": "variable"},
 					},
-					Edges: graph.Edges{{Edge: ir.Edge{
+					Edges: graph.Edges{{
 						Source: ir.Handle{Node: "d", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "v", Param: "value"},
-					}}},
+					}},
 				}
 				analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())

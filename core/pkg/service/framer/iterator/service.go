@@ -236,7 +236,8 @@ func (s *Service) newCalculationTransform(
 		concreteBaseChannels,
 		func(item channel.Channel, index int) (channel.Key, bool) {
 			return item.Index(), !item.Virtual
-		})...,
+		},
+	)...,
 	))
 
 	// Remove ALL calculated keys (including nested ones) from cfg.Keys

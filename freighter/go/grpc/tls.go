@@ -77,16 +77,14 @@ func (c *MuxCredentials) ServerHandshake(
 		return nil, nil, errors.New(muxCredentialsNonTLSMsg)
 	}
 	return conn, credentials.TLSInfo{
-		State: tlsConn.ConnectionState(),
-		CommonAuthInfo: credentials.CommonAuthInfo{
-			SecurityLevel: credentials.PrivacyAndIntegrity,
-		},
+		State:         tlsConn.ConnectionState(),
+		SecurityLevel: credentials.PrivacyAndIntegrity,
 	}, nil
 }
 
 // Info implements grpc.TransportCredentials.
 func (c *MuxCredentials) Info() credentials.ProtocolInfo {
-	return credentials.ProtocolInfo{SecurityProtocol: "tls", ServerName: c.ServerName}
+	return credentials.ProtocolInfo{SecurityProtocol: "tls"}
 }
 
 // Clone implements grpc.TransportCredentials.

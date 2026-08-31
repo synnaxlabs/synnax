@@ -19,7 +19,7 @@ import (
 var _ = Describe("Relationship", func() {
 	Describe("ParseRelationship", func() {
 		It("Should parse a relationship from a string", func() {
-			Expect((ontology.ParseRelationship("channel:qux->parent->device:baz"))).
+			Expect(ontology.ParseRelationship("channel:qux->parent->device:baz")).
 				To(Equal(ontology.Relationship{
 					From: ontology.ID{Type: "channel", Key: "qux"},
 					To:   ontology.ID{Type: "device", Key: "baz"},
