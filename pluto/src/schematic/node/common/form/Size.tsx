@@ -12,7 +12,7 @@ import { type ReactElement } from "react";
 
 import { Component } from "@/component";
 import { Form } from "@/form";
-import { levelSize, SIZE_LEVELS } from "@/schematic/node/common/size";
+import { LEVEL_SIZES, SIZE_LEVELS } from "@/schematic/node/common/size";
 
 export const SizeField = (
   props: Partial<Form.FieldProps<Component.Size>>,
@@ -41,11 +41,21 @@ export const LevelSizeField = (
     padHelpText={false}
     {...props}
   >
-    {({ value, onChange }) => (
-      <Component.SelectSize
-        value={levelSize(value)}
-        onChange={(size: Component.Size) => onChange(SIZE_LEVELS[size])}
-      />
-    )}
+    {selectLevelSize}
   </Form.Field>
 );
+
+const SelectLevelSize = ({
+  value,
+  onChange,
+}: {
+  value: text.Level;
+  onChange: (level: text.Level) => void;
+}): ReactElement => (
+  <Component.SelectSize
+    value={LEVEL_SIZES[value]}
+    onChange={(size: Component.Size) => onChange(SIZE_LEVELS[size])}
+  />
+);
+
+const selectLevelSize = Component.renderProp(SelectLevelSize);

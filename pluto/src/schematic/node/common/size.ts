@@ -9,7 +9,7 @@
 
 import { type text } from "@synnaxlabs/x";
 
-import { type Size, SIZES } from "@/component/size";
+import { type Size } from "@/component/size";
 
 /** The text level a symbol renders at for each size rung. */
 export const SIZE_LEVELS: Record<Size, text.Level> = {
@@ -20,6 +20,13 @@ export const SIZE_LEVELS: Record<Size, text.Level> = {
   huge: "h2",
 };
 
-/** @returns the rung for a level, falling back to medium for unoffered levels. */
-export const levelSize = (level: text.Level): Size =>
-  SIZES.find((size) => SIZE_LEVELS[size] === level) ?? "medium";
+/** The rung for each text level. Unoffered levels map to medium. */
+export const LEVEL_SIZES: Record<text.Level, Size> = {
+  h1: "medium",
+  h2: "huge",
+  h3: "large",
+  h4: "medium",
+  h5: "small",
+  p: "medium",
+  small: "tiny",
+};

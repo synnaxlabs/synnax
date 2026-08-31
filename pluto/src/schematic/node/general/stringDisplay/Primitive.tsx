@@ -16,7 +16,7 @@ import { HEIGHTS } from "@/component/size";
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
-import { levelSize } from "@/schematic/node/common/size";
+import { LEVEL_SIZES } from "@/schematic/node/common/size";
 import { type Config } from "@/schematic/node/general/stringDisplay/config";
 import { symbolColorVar } from "@/schematic/symbolColor";
 import { Text } from "@/text";
@@ -44,7 +44,7 @@ export const StringDisplay = ({
     () => ({
       [CSS.variable("symbol-color")]: symbolColorVar(colorVal),
       width: inlineSize,
-      height: HEIGHTS[levelSize(level)],
+      height: HEIGHTS[LEVEL_SIZES[level]],
     }),
     [colorVal, inlineSize, level],
   );

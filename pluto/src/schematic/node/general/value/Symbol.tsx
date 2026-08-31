@@ -13,7 +13,7 @@ import { type ReactElement, useMemo } from "react";
 import { HEIGHTS } from "@/component/size";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
-import { levelSize } from "@/schematic/node/common/size";
+import { LEVEL_SIZES } from "@/schematic/node/common/size";
 import { type Config } from "@/schematic/node/general/value/config";
 import { Value } from "@/schematic/node/general/value/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
@@ -42,7 +42,7 @@ export const Symbol = ({
     redline,
   },
 }: NodeProps<Config>): ReactElement => {
-  const valueBoxHeight = HEIGHTS[levelSize(level)];
+  const valueBoxHeight = HEIGHTS[LEVEL_SIZES[level]];
   const backgroundTelem = useMemo(() => {
     if (t == null || redline == null) return undefined;
     const { bounds, gradient } = redline;
