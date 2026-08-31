@@ -572,9 +572,9 @@ func (b *testValueBuilder) buildEmbeddedStructFieldExprs(
 	if err != nil {
 		return nil, err
 	}
-	// An embedded name outranks a field promoted out of a sibling embed, and Go
-	// rejects a literal keying both an embed and a field promoted out of it. Reserve
-	// every embed name first so a colliding sibling keeps its wrapper.
+	// An embedded name outranks a field promoted out of a sibling embed, and Go rejects
+	// a literal keying both an embed and a field promoted out of it. Reserve every
+	// embed name first so a colliding sibling keeps its wrapper.
 	taken := literalKeys(childFieldExprs)
 	for _, e := range embeds {
 		taken.Add(e.goName)
