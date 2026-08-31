@@ -91,6 +91,7 @@
     "react-dom": "catalog:",
     "source-map-js": "^1.2.1",
     "stylelint": "catalog:",
+    "tsx": "catalog:",
     "typescript": "catalog:",
     "use-sync-external-store": "^1.6.0",
     "vite": "catalog:",

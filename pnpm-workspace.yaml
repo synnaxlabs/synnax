@@ -20,6 +20,17 @@ packages:
   - x/media
   - x/ts
 
+shellEmulator: true
+
+# Both entries are old major versions that predate provenance on their package, so the
+# downgrade is against a newer release the tree never installs.
+trustPolicy: no-downgrade
+trustPolicyExclude:
+  - 'chokidar@4.0.3'
+  - 'semver@6.3.1'
+catalogMode: strict
+catalogPrune: true
+
 allowBuilds:
   core-js: false
   esbuild: true
@@ -32,7 +43,7 @@ catalog:
   '@reduxjs/toolkit': ^2.12.0
   '@tauri-apps/api': ^2.11.1
   '@testing-library/react': ^16.3.2
-  '@types/node': ^26.1.2
+  '@types/node': ^24.13.3
   '@types/offscreencanvas': ^2019.7.3
   '@types/pluralize': ^0.0.33
   '@types/react': ^19.2.18
@@ -45,6 +56,7 @@ catalog:
   compromise: ^14.16.0
   compromise-dates: ^3.8.1
   eslint: ^10.8.0
+  fflate: ^0.8.2
   immer: ^11.1.15
   jsdom: ^30.0.1
   madge: ^8.0.0
@@ -55,6 +67,7 @@ catalog:
   react-redux: ^9.3.0
   stylelint: ^17.14.1
   stylelint-config-standard: ^40.0.0
+  tsx: ^4.23.13
   typescript: ^7.0.2
   vite: ^8.2.0
   vitest: ^4.1.10

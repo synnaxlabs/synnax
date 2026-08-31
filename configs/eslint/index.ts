@@ -17,11 +17,8 @@ import simpleImportSort from "eslint-plugin-simple-import-sort";
 import globals from "globals";
 import path from "path";
 import tseslint from "typescript-eslint";
-import { fileURLToPath } from "url";
 
-const filename = fileURLToPath(import.meta.url);
-const dirname = path.dirname(filename);
-const gitignorePath = path.join(dirname, "../../.gitignore");
+const gitignorePath = path.join(import.meta.dirname, "../../.gitignore");
 
 const config: Linter.Config[] = [
   includeIgnoreFile(gitignorePath),
@@ -42,7 +39,7 @@ const config: Linter.Config[] = [
         ecmaVersion: "latest",
         sourceType: "module",
         projectService: true,
-        tsconfigRootDir: path.dirname(filename),
+        tsconfigRootDir: import.meta.dirname,
       },
     },
     plugins: { "simple-import-sort": simpleImportSort, "@eslint-react": pluginReact2 },
