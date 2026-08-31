@@ -1062,6 +1062,34 @@ var _ = Describe("Go Marshal Plugin", func() {
 				Expect(gen).ToNot(ContainSubstring("Base: "))
 			})
 		})
+
+		Context("parent name a sibling parent's field shadows", func() {
+			It("Should keep the shadowing parent inside its wrapper", func() {
+				source := `
+					@go output "core/pkg/test"
+					@go marshal
+					@pb
+
+					Meta struct {
+						m string
+					}
+
+					Other struct {
+						meta string
+					}
+
+					Child struct extends Meta, Other {
+						c string
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				gen := MustContentOf(resp, "codec_gen_test.go")
+				// A top-level Meta key would set the embedded Meta struct, so Other
+				// cannot promote its meta field alongside Meta's own M.
+				Expect(gen).To(ContainSubstring(`M: "test_1"`))
+				Expect(gen).To(ContainSubstring(`Other: test.Other{Meta: "test_2"}`))
+			})
+		})
 	})
 })
 

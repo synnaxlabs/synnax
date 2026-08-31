@@ -2437,7 +2437,8 @@ func newRefState(ctx SpecContext) *node.ProgramState {
 		Edges: graph.Edges{{
 			Source: ir.Handle{Node: "reg", Param: ir.DefaultOutputParam},
 			Target: ir.Handle{Node: "reader", Param: "channel"},
-		}}}
+		}},
+	}
 	prog, diagnostics := graph.Analyze(ctx, g, nil)
 	Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 	return node.New(prog)

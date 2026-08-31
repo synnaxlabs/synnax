@@ -25,7 +25,8 @@ var _ = Describe("Linear", func() {
 		s := LinearTransform[int, int]{
 			Transform: func(_ context.Context, i int) (int, bool, error) {
 				return i * i, true, nil
-			}}
+			},
+		}
 		s.InFrom(i)
 		s.OutTo(o)
 		ctx, cancel := signal.Isolated()
@@ -40,7 +41,8 @@ var _ = Describe("Linear", func() {
 		s := LinearTransform[int, int]{
 			Transform: func(context.Context, int) (int, bool, error) {
 				return 0, false, nil
-			}}
+			},
+		}
 		s.InFrom(i)
 		s.OutTo(o)
 		ctx, cancel := signal.Isolated()

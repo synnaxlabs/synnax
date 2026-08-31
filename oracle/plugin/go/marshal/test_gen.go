@@ -546,7 +546,8 @@ func (b *testValueBuilder) buildEmbeddedStructFieldExprs(
 	form resolution.StructForm,
 ) ([]string, error) {
 	type embed struct {
-		ref    resolution.TypeRef
+		typ    resolution.Type
+		goName string
 		fields []string
 	}
 	var embeds []embed
@@ -559,7 +560,11 @@ func (b *testValueBuilder) buildEmbeddedStructFieldExprs(
 		if err != nil {
 			return nil, err
 		}
-		embeds = append(embeds, embed{ref: extendsRef, fields: parentFieldExprs})
+		embeds = append(embeds, embed{
+			typ:    parent,
+			goName: naming.GetGoName(parent),
+			fields: parentFieldExprs,
+		})
 	}
 	childFieldExprs, err := b.buildFieldExprs(
 		declaredFields(form.Extends, form.Fields, b.table),
@@ -567,7 +572,13 @@ func (b *testValueBuilder) buildEmbeddedStructFieldExprs(
 	if err != nil {
 		return nil, err
 	}
+	// An embedded name outranks a field promoted out of a sibling embed, and Go rejects
+	// a literal keying both an embed and a field promoted out of it. Reserve every
+	// embed name first so a colliding sibling keeps its wrapper.
 	taken := literalKeys(childFieldExprs)
+	for _, e := range embeds {
+		taken.Add(e.goName)
+	}
 	var exprs []string
 	for _, e := range embeds {
 		// A promoted field may key the outer literal directly, so the embedded wrapper
@@ -579,18 +590,11 @@ func (b *testValueBuilder) buildEmbeddedStructFieldExprs(
 			exprs = append(exprs, e.fields...)
 			continue
 		}
-		parent, ok := e.ref.Resolve(b.table)
-		if !ok {
-			continue
-		}
-		parentGoType, err := b.goTypeName(parent)
+		parentGoType, err := b.goTypeName(e.typ)
 		if err != nil {
 			return nil, err
 		}
-		exprs = append(
-			exprs,
-			naming.GetGoName(parent)+": "+b.formatComposite(parentGoType, e.fields),
-		)
+		exprs = append(exprs, e.goName+": "+b.formatComposite(parentGoType, e.fields))
 	}
 	exprs = append(exprs, childFieldExprs...)
 	return exprs, nil
