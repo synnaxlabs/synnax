@@ -99,7 +99,8 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 	if override := domain.GetStringFromType(entry, "go", "name"); override != "" {
 		name = override
 	}
-	data.AddExternal("encoding/json")
+	data.AddExternal("encoding/json/v2")
+	data.AddExternal("encoding/json/jsontext")
 	data.AddExternal("github.com/synnaxlabs/x/errors")
 
 	ud := unionData{

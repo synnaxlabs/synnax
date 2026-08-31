@@ -12,6 +12,8 @@ package types_test
 import (
 	"context"
 	gojson "encoding/json"
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"go/parser"
 	"go/token"
 	"os"
@@ -2891,11 +2893,10 @@ var _ = Describe("Go Union Generation", func() {
 			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").
 				ToContain(
-					`func (u Scale) MarshalJSON() ([]byte, error) {`,
+					`func (u Scale) MarshalJSONTo(enc *jsontext.Encoder) error {`,
 					`case LinearScale:`,
-					`t = LinearScaleType`,
-					`fields["type"] = tag`,
-					`func (u *Scale) UnmarshalJSON(data []byte) error {`,
+					`}{Type: LinearScaleType, LinearScale: v})`,
+					`func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {`,
 					`Type ScaleType `+"`"+`json:"type"`+"`",
 					`case LinearScaleType:`,
 					`var v LinearScale`,
@@ -3194,41 +3195,40 @@ func (rtLinearScale) isRtScaleVariant() {}
 
 type rtScale struct{ Variant rtScaleVariant }
 
-func (u rtScale) MarshalJSON() ([]byte, error) {
-	var t rtScaleType
-	switch u.Variant.(type) {
+func (u rtScale) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
 	case rtLinearScale:
-		t = rtLinearScaleType
+		return jsonv2.MarshalEncode(enc, struct {
+			Type rtScaleType `json:"type"`
+			rtLinearScale
+		}{Type: rtLinearScaleType, rtLinearScale: v})
 	default:
-		return nil, gotesterrors.Newf("rtScale: unknown variant %T", u.Variant)
+		return gotesterrors.Newf("rtScale: unknown variant %T", v)
 	}
-	raw, err := gojson.Marshal(u.Variant)
-	if err != nil {
-		return nil, err
-	}
-	fields := map[string]gojson.RawMessage{}
-	if err := gojson.Unmarshal(raw, &fields); err != nil {
-		return nil, err
-	}
-	tag, err := gojson.Marshal(t)
-	if err != nil {
-		return nil, err
-	}
-	fields["type"] = tag
-	return gojson.Marshal(fields)
 }
 
-func (u *rtScale) UnmarshalJSON(data []byte) error {
+func (u *rtScale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
 	var disc struct {
 		Type rtScaleType `json:"type"`
 	}
-	if err := gojson.Unmarshal(data, &disc); err != nil {
+	if err := jsonv2.Unmarshal(data, &disc, opts); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case rtLinearScaleType:
 		var v rtLinearScale
-		if err := gojson.Unmarshal(data, &v); err != nil {
+		if err := jsonv2.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
@@ -3262,23 +3262,20 @@ func (rtChanV) isRtChanVariant() {}
 
 type rtChan struct{ Variant rtChanVariant }
 
-func (u rtChan) MarshalJSON() ([]byte, error) {
-	raw, err := gojson.Marshal(u.Variant)
-	if err != nil {
-		return nil, err
+func (u rtChan) MarshalJSONTo(enc *jsontext.Encoder) error {
+	v, ok := u.Variant.(rtChanV)
+	if !ok {
+		return gotesterrors.Newf("rtChan: unknown variant %T", u.Variant)
 	}
-	fields := map[string]gojson.RawMessage{}
-	if err := gojson.Unmarshal(raw, &fields); err != nil {
-		return nil, err
-	}
-	tag, _ := gojson.Marshal(rtChanTypeV)
-	fields["type"] = tag
-	return gojson.Marshal(fields)
+	return jsonv2.MarshalEncode(enc, struct {
+		Type rtChanType `json:"type"`
+		rtChanV
+	}{Type: rtChanTypeV, rtChanV: v})
 }
 
-func (u *rtChan) UnmarshalJSON(data []byte) error {
+func (u *rtChan) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var v rtChanV
-	if err := gojson.Unmarshal(data, &v); err != nil {
+	if err := jsonv2.UnmarshalDecode(dec, &v); err != nil {
 		return err
 	}
 	u.Variant = v

@@ -816,7 +816,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 		})
 
 		Context("marshal flex on a distinct scalar type", func() {
-			It("Should generate DecodeMsgpack and UnmarshalJSON methods", func() {
+			It("Should generate DecodeMsgpack and UnmarshalJSONFrom methods", func() {
 				source := `
 					@go output "core/pkg/test"
 					@pb
@@ -835,8 +835,8 @@ var _ = Describe("Go Marshal Plugin", func() {
 				content.ToContain(
 					"func (kv *Key) DecodeMsgpack(dec *msgpack.Decoder) error",
 					"xmsgpack.UnmarshalUint64",
-					"func (kv *Key) UnmarshalJSON(b []byte) error",
-					"xjson.UnmarshalStringUint64",
+					"func (kv *Key) UnmarshalJSONFrom(dec *jsontext.Decoder) error",
+					"xjson.UnmarshalStringUint64From",
 				)
 			})
 
@@ -859,8 +859,8 @@ var _ = Describe("Go Marshal Plugin", func() {
 				content.ToContain(
 					"func (kv *Key) DecodeMsgpack(dec *msgpack.Decoder) error",
 					"xmsgpack.UnmarshalUint32",
-					"func (kv *Key) UnmarshalJSON(b []byte) error",
-					"xjson.UnmarshalStringUint32",
+					"func (kv *Key) UnmarshalJSONFrom(dec *jsontext.Decoder) error",
+					"xjson.UnmarshalStringUint32From",
 				)
 			})
 		})

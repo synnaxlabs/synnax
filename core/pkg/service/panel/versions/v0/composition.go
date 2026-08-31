@@ -14,6 +14,7 @@ import (
 	"cmp"
 	"context"
 	"encoding/json"
+	"encoding/json/jsontext"
 	"slices"
 	"strings"
 
@@ -76,7 +77,7 @@ type legacyLayout struct {
 	Name string `json:"name"`
 	// Args is the layout's renderer arguments, kept raw so one malformed record
 	// cannot fail the whole blob. Task layouts carry the task's key in args.
-	Args json.RawMessage `json:"args"`
+	Args jsontext.Value `json:"args"`
 }
 
 // legacyTab is a tab in a legacy mosaic leaf. TabKey is the key of the layout the tab

@@ -10,8 +10,8 @@
 package telem
 
 import (
-	"bytes"
-	"encoding/json"
+	"encoding/json/jsontext"
+	json "encoding/json/v2"
 	"fmt"
 	"iter"
 	"slices"
@@ -267,8 +267,8 @@ func (f Frame[K]) RawKeyAt(i int) K {
 }
 
 var (
-	_ json.Marshaler        = Frame[int8]{}
-	_ json.Unmarshaler      = &Frame[int8]{}
+	_ json.MarshalerTo      = Frame[int8]{}
+	_ json.UnmarshalerFrom  = &Frame[int8]{}
 	_ msgpack.CustomEncoder = Frame[int8]{}
 	_ msgpack.CustomDecoder = &Frame[int8]{}
 )
@@ -280,48 +280,18 @@ type serializableFrame[K comparable] struct {
 	Series []Series `json:"series" msgpack:"series"`
 }
 
-// MarshalJSON implements json.Marshaler to handle data masking.
-func (f Frame[K]) MarshalJSON() ([]byte, error) {
-	if !f.mask.enabled {
-		return json.Marshal(serializableFrame[K]{Keys: f.keys, Series: f.series})
-	}
-	var (
-		buf      bytes.Buffer
-		anyAdded bool
-	)
-	buf.WriteString(`{"keys":[`)
-	for k := range f.Keys() {
-		if anyAdded {
-			buf.WriteString(",")
-		}
-		keyBytes, err := json.Marshal(k)
-		if err != nil {
-			return nil, err
-		}
-		buf.Write(keyBytes)
-		anyAdded = true
-	}
-	buf.WriteString(`],"series":[`)
-	anyAdded = false
-	for s := range f.Series() {
-		if anyAdded {
-			buf.WriteString(",")
-		}
-		seriesBytes, err := json.Marshal(s)
-		if err != nil {
-			return nil, err
-		}
-		buf.Write(seriesBytes)
-		anyAdded = true
-	}
-	buf.WriteString(`]}`)
-	return buf.Bytes(), nil
+// MarshalJSONTo implements json.MarshalerTo to handle data masking.
+func (f Frame[K]) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, serializableFrame[K]{
+		Keys:   f.KeysSlice(),
+		Series: f.SeriesSlice(),
+	})
 }
 
-// UnmarshalJSON implements json.Marshaler to handle data masking.
-func (f *Frame[K]) UnmarshalJSON(data []byte) error {
+// UnmarshalJSONFrom implements json.UnmarshalerFrom to handle data masking.
+func (f *Frame[K]) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var frame serializableFrame[K]
-	if err := json.Unmarshal(data, &frame); err != nil {
+	if err := json.UnmarshalDecode(dec, &frame); err != nil {
 		return err
 	}
 	f.keys = frame.Keys

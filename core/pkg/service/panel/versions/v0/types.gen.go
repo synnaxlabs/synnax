@@ -12,7 +12,8 @@
 package v0
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"strconv"
 
 	"github.com/google/uuid"
@@ -96,58 +97,53 @@ type Tab struct {
 	Variant TabVariant
 }
 
-// MarshalJSON encodes the active variant with its "variant" tag injected.
-func (u Tab) MarshalJSON() ([]byte, error) {
-	if u.Variant == nil {
-		return []byte("null"), nil
-	}
-	var t TabType
-	switch u.Variant.(type) {
+// MarshalJSONTo encodes the active variant with its "variant" tag injected.
+func (u Tab) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
 	case ResourceTab:
-		t = ResourceTabType
+		return json.MarshalEncode(enc, struct {
+			Type TabType `json:"variant"`
+			ResourceTab
+		}{Type: ResourceTabType, ResourceTab: v})
 	case ViewTab:
-		t = ViewTabType
+		return json.MarshalEncode(enc, struct {
+			Type TabType `json:"variant"`
+			ViewTab
+		}{Type: ViewTabType, ViewTab: v})
 	default:
-		return nil, errors.Newf("Tab: nil or unknown variant %T", u.Variant)
+		return errors.Newf("Tab: unknown variant %T", v)
 	}
-	raw, err := json.Marshal(u.Variant)
-	if err != nil {
-		return nil, err
-	}
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		return nil, err
-	}
-	tag, err := json.Marshal(t)
-	if err != nil {
-		return nil, err
-	}
-	fields["variant"] = tag
-	return json.Marshal(fields)
 }
 
-// UnmarshalJSON decodes the variant selected by the "variant" field.
-func (u *Tab) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
+// UnmarshalJSONFrom decodes the variant selected by the "variant" field.
+func (u *Tab) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
 		u.Variant = nil
 		return nil
 	}
+	opts := dec.Options()
 	var disc struct {
 		Type TabType `json:"variant"`
 	}
-	if err := json.Unmarshal(data, &disc); err != nil {
+	if err := json.Unmarshal(data, &disc, opts); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case ResourceTabType:
 		var v ResourceTab
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case ViewTabType:
 		var v ViewTab
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
@@ -228,58 +224,53 @@ type Node struct {
 	Variant NodeVariant
 }
 
-// MarshalJSON encodes the active variant with its "variant" tag injected.
-func (u Node) MarshalJSON() ([]byte, error) {
-	if u.Variant == nil {
-		return []byte("null"), nil
-	}
-	var t NodeType
-	switch u.Variant.(type) {
+// MarshalJSONTo encodes the active variant with its "variant" tag injected.
+func (u Node) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
 	case LeafNode:
-		t = LeafNodeType
+		return json.MarshalEncode(enc, struct {
+			Type NodeType `json:"variant"`
+			LeafNode
+		}{Type: LeafNodeType, LeafNode: v})
 	case SplitNode:
-		t = SplitNodeType
+		return json.MarshalEncode(enc, struct {
+			Type NodeType `json:"variant"`
+			SplitNode
+		}{Type: SplitNodeType, SplitNode: v})
 	default:
-		return nil, errors.Newf("Node: nil or unknown variant %T", u.Variant)
+		return errors.Newf("Node: unknown variant %T", v)
 	}
-	raw, err := json.Marshal(u.Variant)
-	if err != nil {
-		return nil, err
-	}
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		return nil, err
-	}
-	tag, err := json.Marshal(t)
-	if err != nil {
-		return nil, err
-	}
-	fields["variant"] = tag
-	return json.Marshal(fields)
 }
 
-// UnmarshalJSON decodes the variant selected by the "variant" field.
-func (u *Node) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
+// UnmarshalJSONFrom decodes the variant selected by the "variant" field.
+func (u *Node) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
 		u.Variant = nil
 		return nil
 	}
+	opts := dec.Options()
 	var disc struct {
 		Type NodeType `json:"variant"`
 	}
-	if err := json.Unmarshal(data, &disc); err != nil {
+	if err := json.Unmarshal(data, &disc, opts); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case LeafNodeType:
 		var v LeafNode
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case SplitNodeType:
 		var v SplitNode
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v

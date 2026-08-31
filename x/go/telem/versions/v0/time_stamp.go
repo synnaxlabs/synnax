@@ -10,7 +10,8 @@
 package v0
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	json "encoding/json/v2"
 	"time"
 
 	"github.com/synnaxlabs/x/clamp"
@@ -25,13 +26,13 @@ const (
 )
 
 var (
-	_ json.Marshaler   = TimeStamp(0)
-	_ json.Unmarshaler = (*TimeStamp)(nil)
+	_ json.MarshalerTo     = TimeStamp(0)
+	_ json.UnmarshalerFrom = (*TimeStamp)(nil)
 )
 
-// UnmarshalJSON implements json.Unmarshaler.
-func (ts *TimeStamp) UnmarshalJSON(b []byte) error {
-	n, err := xjson.UnmarshalStringInt64(b)
+// UnmarshalJSONFrom implements json.UnmarshalerFrom.
+func (ts *TimeStamp) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	n, err := xjson.UnmarshalStringInt64From(dec)
 	if err != nil {
 		return err
 	}
@@ -39,9 +40,9 @@ func (ts *TimeStamp) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// MarshalJSON implements json.Marshaler.
-func (ts TimeStamp) MarshalJSON() ([]byte, error) {
-	return xjson.MarshalStringInt64(int64(ts)), nil
+// MarshalJSONTo implements json.MarshalerTo.
+func (ts TimeStamp) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return xjson.MarshalStringInt64To(enc, int64(ts))
 }
 
 // String returns the timestamp in the string format. All digits after are truncated.

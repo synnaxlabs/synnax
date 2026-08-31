@@ -10,7 +10,7 @@
 package v3_test
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -38,13 +38,13 @@ func createV2() v2.Data {
 				Target:       "n2",
 				SourceHandle: &srcH,
 				TargetHandle: &tgtH,
-				Data: json.RawMessage(
+				Data: jsontext.Value(
 					`{"segments":[{"direction":"x","length":10}]}`,
 				),
 			},
 		},
-		Props: map[string]json.RawMessage{
-			"n1": json.RawMessage(`{"key":"valve"}`),
+		Props: map[string]jsontext.Value{
+			"n1": jsontext.Value(`{"key":"valve"}`),
 		},
 	}
 }

@@ -63,6 +63,7 @@ type encoderFileOutput struct {
 	Package        string
 	ExtraImports   map[string]string
 	NeedsJSON      bool
+	NeedsJSONText  bool
 	HasFlex        bool
 	ConcreteCodecs []concreteCodec
 	GenericCodecs  []genericCodec
@@ -97,6 +98,7 @@ func generateEncoderCodecFile(
 		}
 		fo.FlexMethods = flexBuf.String()
 		fo.HasFlex = true
+		fo.NeedsJSONText = true
 		fo.ExtraImports["github.com/vmihailenco/msgpack/v5"] = "msgpack"
 		fo.ExtraImports["github.com/synnaxlabs/x/encoding/msgpack"] = "xmsgpack"
 		fo.ExtraImports["github.com/synnaxlabs/x/encoding/json"] = "xjson"
@@ -1288,6 +1290,9 @@ package {{.Package}}
 import (
 {{- if .NeedsJSON}}
 	"encoding/json"
+{{- end}}
+{{- if .NeedsJSONText}}
+	"encoding/json/jsontext"
 {{- end}}
 {{- if or .ConcreteCodecs .GenericCodecs}}
 

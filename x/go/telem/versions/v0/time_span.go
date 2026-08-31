@@ -10,7 +10,8 @@
 package v0
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	json "encoding/json/v2"
 	"fmt"
 	"strings"
 	"time"
@@ -26,18 +27,18 @@ const (
 )
 
 var (
-	_ json.Unmarshaler = (*TimeSpan)(nil)
-	_ json.Marshaler   = TimeSpan(0)
+	_ json.UnmarshalerFrom = (*TimeSpan)(nil)
+	_ json.MarshalerTo     = TimeSpan(0)
 )
 
-// MarshalJSON implements json.Marshaler.
-func (ts TimeSpan) MarshalJSON() ([]byte, error) {
-	return xjson.MarshalStringInt64(int64(ts)), nil
+// MarshalJSONTo implements json.MarshalerTo.
+func (ts TimeSpan) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return xjson.MarshalStringInt64To(enc, int64(ts))
 }
 
-// UnmarshalJSON implements json.Unmarshaler.
-func (ts *TimeSpan) UnmarshalJSON(b []byte) error {
-	n, err := xjson.UnmarshalStringInt64(b)
+// UnmarshalJSONFrom implements json.UnmarshalerFrom.
+func (ts *TimeSpan) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	n, err := xjson.UnmarshalStringInt64From(dec)
 	if err != nil {
 		return err
 	}

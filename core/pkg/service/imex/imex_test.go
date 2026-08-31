@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // wirePayload is the shape used by the envelope-level tests to exercise Decode and
@@ -139,6 +140,23 @@ var _ = Describe("ImEx", func() {
 				Expect(json.Unmarshal([]byte(`null`), &env)).To(
 					MatchError(ContainSubstring("envelope must be a JSON object")),
 				)
+			})
+
+			It("Should reject a duplicate object name", func() {
+				var env imex.Envelope
+				Expect(json.Unmarshal(
+					[]byte(`{"version":1,"name":"a","name":"b"}`), &env,
+				)).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("duplicate object member name")),
+				))
+			})
+
+			It("Should reject invalid UTF-8", func() {
+				var env imex.Envelope
+				Expect(json.Unmarshal(
+					[]byte("{\"version\":1,\"name\":\"\xff\"}"), &env,
+				)).To(MatchError(ContainSubstring("invalid UTF-8")))
 			})
 
 			It("Should accept an envelope without a type", func() {
@@ -822,6 +840,15 @@ var _ = Describe("ImEx", func() {
 			Entry("non-zero minor/patch", `"1.2.3"`),
 			Entry("not a semver", `"garbage"`),
 			Entry("wrong type", "true"),
+			Entry("fractional number", "1.5"),
+			Entry("negative number", "-1"),
+			Entry("composite value", "[1]"),
 		)
+
+		It("Should leave the receiver untouched on a JSON null", func() {
+			v := imex.Version(7)
+			Expect(json.Unmarshal([]byte("null"), &v)).To(Succeed())
+			Expect(v).To(Equal(imex.Version(7)))
+		})
 	})
 })

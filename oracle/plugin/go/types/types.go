@@ -1480,54 +1480,46 @@ func ({{$vt.Receiver}} {{$vt.TypeName}}) Validate() error {
 type {{.Name}} struct {
 	Variant {{.InterfaceName}}
 }
-
-// MarshalJSON encodes the active variant with its "{{.DiscJSONName}}" tag injected.
-func (u {{.Name}}) MarshalJSON() ([]byte, error) {
-	if u.Variant == nil {
-		return []byte("null"), nil
-	}
-	var t {{.DiscType}}
-	switch u.Variant.(type) {
+{{$u := .}}
+// MarshalJSONTo encodes the active variant with its "{{.DiscJSONName}}" tag injected.
+func (u {{.Name}}) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
 {{- range .Variants}}
 	case {{.TypeName}}:
-		t = {{.ConstName}}
+		return json.MarshalEncode(enc, struct {
+			Type {{$u.DiscType}} ` + "`" + `json:"{{$u.DiscJSONName}}"` + "`" + `
+			{{.TypeName}}
+		}{Type: {{.ConstName}}, {{.TypeName}}: v})
 {{- end}}
 	default:
-		return nil, errors.Newf("{{.Name}}: nil or unknown variant %T", u.Variant)
+		return errors.Newf("{{.Name}}: unknown variant %T", v)
 	}
-	raw, err := json.Marshal(u.Variant)
-	if err != nil {
-		return nil, err
-	}
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		return nil, err
-	}
-	tag, err := json.Marshal(t)
-	if err != nil {
-		return nil, err
-	}
-	fields["{{.DiscJSONName}}"] = tag
-	return json.Marshal(fields)
 }
 
-// UnmarshalJSON decodes the variant selected by the "{{.DiscJSONName}}" field.
-func (u *{{.Name}}) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
+// UnmarshalJSONFrom decodes the variant selected by the "{{.DiscJSONName}}" field.
+func (u *{{.Name}}) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
 		u.Variant = nil
 		return nil
 	}
+	opts := dec.Options()
 	var disc struct {
 		Type {{.DiscType}} ` + "`" + `json:"{{.DiscJSONName}}"` + "`" + `
 	}
-	if err := json.Unmarshal(data, &disc); err != nil {
+	if err := json.Unmarshal(data, &disc, opts); err != nil {
 		return err
 	}
 	switch disc.Type {
 {{- range .Variants}}
 	case {{.ConstName}}:
 		var v {{.TypeName}}
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v

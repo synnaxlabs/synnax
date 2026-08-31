@@ -12,7 +12,8 @@
 package v1
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	device "github.com/synnaxlabs/synnax/pkg/service/device/versions/v1"
@@ -96,58 +97,53 @@ type ReadChannel struct {
 	Variant ReadChannelVariant
 }
 
-// MarshalJSON encodes the active variant with its "type" tag injected.
-func (u ReadChannel) MarshalJSON() ([]byte, error) {
-	if u.Variant == nil {
-		return []byte("null"), nil
-	}
-	var t ReadChannelType
-	switch u.Variant.(type) {
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u ReadChannel) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
 	case AutomaticReadChannel:
-		t = AutomaticReadChannelType
+		return json.MarshalEncode(enc, struct {
+			Type ReadChannelType `json:"type"`
+			AutomaticReadChannel
+		}{Type: AutomaticReadChannelType, AutomaticReadChannel: v})
 	case ManualReadChannel:
-		t = ManualReadChannelType
+		return json.MarshalEncode(enc, struct {
+			Type ReadChannelType `json:"type"`
+			ManualReadChannel
+		}{Type: ManualReadChannelType, ManualReadChannel: v})
 	default:
-		return nil, errors.Newf("ReadChannel: nil or unknown variant %T", u.Variant)
+		return errors.Newf("ReadChannel: unknown variant %T", v)
 	}
-	raw, err := json.Marshal(u.Variant)
-	if err != nil {
-		return nil, err
-	}
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		return nil, err
-	}
-	tag, err := json.Marshal(t)
-	if err != nil {
-		return nil, err
-	}
-	fields["type"] = tag
-	return json.Marshal(fields)
 }
 
-// UnmarshalJSON decodes the variant selected by the "type" field.
-func (u *ReadChannel) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
 		u.Variant = nil
 		return nil
 	}
+	opts := dec.Options()
 	var disc struct {
 		Type ReadChannelType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc); err != nil {
+	if err := json.Unmarshal(data, &disc, opts); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case AutomaticReadChannelType:
 		var v AutomaticReadChannel
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case ManualReadChannelType:
 		var v ManualReadChannel
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
@@ -226,58 +222,53 @@ type WriteChannel struct {
 	Variant WriteChannelVariant
 }
 
-// MarshalJSON encodes the active variant with its "type" tag injected.
-func (u WriteChannel) MarshalJSON() ([]byte, error) {
-	if u.Variant == nil {
-		return []byte("null"), nil
-	}
-	var t WriteChannelType
-	switch u.Variant.(type) {
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u WriteChannel) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
 	case AutomaticWriteChannel:
-		t = AutomaticWriteChannelType
+		return json.MarshalEncode(enc, struct {
+			Type WriteChannelType `json:"type"`
+			AutomaticWriteChannel
+		}{Type: AutomaticWriteChannelType, AutomaticWriteChannel: v})
 	case ManualWriteChannel:
-		t = ManualWriteChannelType
+		return json.MarshalEncode(enc, struct {
+			Type WriteChannelType `json:"type"`
+			ManualWriteChannel
+		}{Type: ManualWriteChannelType, ManualWriteChannel: v})
 	default:
-		return nil, errors.Newf("WriteChannel: nil or unknown variant %T", u.Variant)
+		return errors.Newf("WriteChannel: unknown variant %T", v)
 	}
-	raw, err := json.Marshal(u.Variant)
-	if err != nil {
-		return nil, err
-	}
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		return nil, err
-	}
-	tag, err := json.Marshal(t)
-	if err != nil {
-		return nil, err
-	}
-	fields["type"] = tag
-	return json.Marshal(fields)
 }
 
-// UnmarshalJSON decodes the variant selected by the "type" field.
-func (u *WriteChannel) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
 		u.Variant = nil
 		return nil
 	}
+	opts := dec.Options()
 	var disc struct {
 		Type WriteChannelType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc); err != nil {
+	if err := json.Unmarshal(data, &disc, opts); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case AutomaticWriteChannelType:
 		var v AutomaticWriteChannel
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case ManualWriteChannelType:
 		var v ManualWriteChannel
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v

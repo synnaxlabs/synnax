@@ -10,6 +10,7 @@
 package telem_test
 
 import (
+	json "encoding/json/v2"
 	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -45,26 +46,26 @@ var _ = Describe("Alignment", func() {
 		})
 	})
 
-	Describe("MarshalJSON", func() {
+	Describe("MarshalJSONTo", func() {
 		It("Should marshal the alignment as a JSON string", func() {
 			a := telem.NewAlignment(2, 1)
-			marshalled := MustSucceed(a.MarshalJSON())
+			marshalled := MustSucceed(json.Marshal(a))
 			Expect(string(marshalled)).To(Equal(fmt.Sprintf(`"%v"`, uint64(a))))
 		})
 	})
 
-	Describe("UnmarshalJSON", func() {
+	Describe("UnmarshalJSONFrom", func() {
 		It("Should unmarshal the alignment from a JSON string", func() {
 			a := telem.NewAlignment(2, 1)
-			marshalled := MustSucceed(a.MarshalJSON())
+			marshalled := MustSucceed(json.Marshal(a))
 			var unmarshalled telem.Alignment
-			Expect(unmarshalled.UnmarshalJSON(marshalled)).To(Succeed())
+			Expect(json.Unmarshal(marshalled, &unmarshalled)).To(Succeed())
 			Expect(unmarshalled).To(Equal(a))
 		})
 
 		It("Should unmarshal the alignment from a number", func() {
 			var unmarshalled telem.Alignment
-			Expect(unmarshalled.UnmarshalJSON([]byte("123"))).To(Succeed())
+			Expect(json.Unmarshal([]byte("123"), &unmarshalled)).To(Succeed())
 			Expect(unmarshalled).To(Equal(telem.Alignment(123)))
 		})
 
@@ -72,7 +73,7 @@ var _ = Describe("Alignment", func() {
 			"Should return an error and leave the alignment untouched on invalid input",
 			func() {
 				a := telem.NewAlignment(2, 1)
-				Expect(a.UnmarshalJSON([]byte(`"not-a-number"`))).To(
+				Expect(json.Unmarshal([]byte(`"not-a-number"`), &a)).To(
 					MatchError(ContainSubstring("invalid syntax")),
 				)
 				Expect(a).To(Equal(telem.NewAlignment(2, 1)))
