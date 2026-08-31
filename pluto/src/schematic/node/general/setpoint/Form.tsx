@@ -88,9 +88,9 @@ export const SetpointForm = (): ReactElement => (
         <Flex.Box y align="stretch" grow gap="small">
           <Label.Form path="label" />
           <Flex.Box x>
-            <Form.UnitsField />
-            <Form.SizeField />
             <Form.ColorField path="color" />
+            <Form.SizeField />
+            <Form.UnitsField />
           </Flex.Box>
         </Flex.Box>
         <Orientation.Field path="" hideInner />
