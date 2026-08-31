@@ -485,13 +485,13 @@ func (f Frame[K]) ShallowCopy() Frame[K] {
 // a shallow copy of the filtered frame. Membership is a linear scan over keys. Callers
 // that filter many frames against the same keys should use KeepKeysSet instead.
 func (f Frame[K]) KeepKeys(keys []K) Frame[K] {
-	return filterFrame(f, keys, len(keys), lo.Contains)
+	return f.filter(keys, len(keys), lo.Contains)
 }
 
 // KeepKeysSet filters the frame to only include the keys in the given set, returning a
 // shallow copy of the filtered frame.
 func (f Frame[K]) KeepKeysSet(keys set.Set[K]) Frame[K] {
-	return filterFrame(f, keys, len(keys), set.Set[K].Contains)
+	return f.filter(keys, len(keys), set.Set[K].Contains)
 }
 
 // notContain is defined statically so that it doesn't accidentally escape to the heap,
@@ -504,18 +504,14 @@ func (f Frame[K]) ExcludeKeys(keys []K) Frame[K] {
 	if len(keys) == 0 {
 		return f
 	}
-	return filterFrame(f, keys, len(keys), notContains)
+	return f.filter(keys, len(keys), notContains)
 }
 
-// filterFrame returns a shallow copy of f holding only the entries whose key satisfies
-// keep against src. count sizes the copied key and series slices. keep is passed src
-// rather than closing over it so that call sites can use a static function value.
-func filterFrame[K types.SizedNumeric, S any](
-	f Frame[K],
-	src S,
-	count int,
-	keep func(S, K) bool,
-) Frame[K] {
+// filter returns a shallow copy of the frame holding only the entries whose key
+// satisfies keep against src. count sizes the copied key and series slices. keep is
+// passed src rather than closing over it so that call sites can use a static function
+// value.
+func (f Frame[K]) filter[S any](src S, count int, keep func(S, K) bool) Frame[K] {
 	if len(f.keys) < f.mask.Cap() {
 		f.mask.enabled = true
 		for i, key := range f.keys {
