@@ -10,7 +10,7 @@
 package crdt_test
 
 import (
-	"math/rand"
+	"math/rand/v2"
 	"regexp"
 	"strings"
 
@@ -31,15 +31,15 @@ type edit func(*crdt.Text)
 func randomEdit(rng *rand.Rand, d *crdt.Text) edit {
 	const alphabet = "abcdefghijklmnopqrstuvwxyz"
 	n := d.Len()
-	if n > 0 && rng.Intn(3) == 0 {
-		index := rng.Intn(n)
-		ops := d.Delete(index, 1+rng.Intn(n-index))
+	if n > 0 && rng.IntN(3) == 0 {
+		index := rng.IntN(n)
+		ops := d.Delete(index, 1+rng.IntN(n-index))
 		return func(t *crdt.Text) { t.ApplyDelete(ops...) }
 	}
-	index := rng.Intn(n + 1)
-	runes := make([]rune, 1+rng.Intn(4))
+	index := rng.IntN(n + 1)
+	runes := make([]rune, 1+rng.IntN(4))
 	for i := range runes {
-		runes[i] = rune(alphabet[rng.Intn(len(alphabet))])
+		runes[i] = rune(alphabet[rng.IntN(len(alphabet))])
 	}
 	ops := d.Insert(index, string(runes))
 	return func(t *crdt.Text) { t.ApplyInsert(ops...) }
@@ -48,7 +48,7 @@ func randomEdit(rng *rand.Rand, d *crdt.Text) edit {
 var _ = Describe("Convergence property", func() {
 	DescribeTable("random interleavings converge across replicas and delivery orders",
 		func(seed int64) {
-			rng := rand.New(rand.NewSource(seed))
+			rng := rand.New(rand.NewPCG(uint64(seed), 0))
 			const replicas, rounds = 4, 60
 			docs := make([]*crdt.Text, replicas)
 			for i := range docs {
@@ -114,11 +114,11 @@ var _ = Describe("Non-interleaving property", func() {
 	}
 	DescribeTable("concurrent same-position runs never interleave",
 		func(seed int64) {
-			rng := rand.New(rand.NewSource(seed))
+			rng := rand.New(rand.NewPCG(uint64(seed), 0))
 			base := crdt.New(1)
-			seedRunes := make([]rune, 1+rng.Intn(8))
+			seedRunes := make([]rune, 1+rng.IntN(8))
 			for i := range seedRunes {
-				seedRunes[i] = rune('a' + rng.Intn(26))
+				seedRunes[i] = rune('a' + rng.IntN(26))
 			}
 			base.Insert(0, string(seedRunes))
 			inserts, deletes := base.Snapshot()
@@ -126,8 +126,8 @@ var _ = Describe("Non-interleaving property", func() {
 			a.Load(inserts, deletes)
 			b.Load(inserts, deletes)
 
-			pos := rng.Intn(base.Len() + 1)
-			runLen := 2 + rng.Intn(4)
+			pos := rng.IntN(base.Len() + 1)
+			runLen := 2 + rng.IntN(4)
 			opsA := a.Insert(pos, strings.Repeat("A", runLen))
 			opsB := b.Insert(pos, strings.Repeat("B", runLen))
 			b.ApplyInsert(opsA...)

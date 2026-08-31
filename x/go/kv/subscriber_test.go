@@ -30,10 +30,13 @@ var _ = Describe("Flush", func() {
 		o := observe.New[dataStruct]()
 		db := DeferClose(memkv.New())
 		codec := gob.Codec
+		// The interval only has to outlast the two Notify calls below. A short one
+		// races the scheduler: once it expires between them, the second write lands
+		// and no later read can recover the first.
 		flush := &kv.Subscriber{
 			Key:         []byte("key"),
 			Store:       db,
-			MinInterval: 5 * time.Millisecond,
+			MinInterval: time.Hour,
 			Encoder:     codec,
 		}
 		o.OnChange(flush.Flush)
@@ -41,14 +44,12 @@ var _ = Describe("Flush", func() {
 		o.Notify(ctx, dataStruct{Value: []byte("hello")})
 		o.Notify(ctx, dataStruct{Value: []byte("world")})
 
-		Eventually(func(g Gomega) {
-			b, closer, err := db.Get(ctx, []byte("key"))
-			g.Expect(err).ToNot(HaveOccurred())
-			var ds dataStruct
-			g.Expect(codec.Decode(ctx, b, &ds)).To(Succeed())
-			g.Expect(ds.Value).To(Equal([]byte("hello")))
-			g.Expect(closer.Close()).To(Succeed())
-		}).Should(Succeed())
+		// Flush writes on the calling goroutine, so both writes are already done.
+		b, closer := MustSucceed2(db.Get(ctx, []byte("key")))
+		var ds dataStruct
+		Expect(codec.Decode(ctx, b, &ds)).To(Succeed())
+		Expect(ds.Value).To(Equal([]byte("hello")))
+		Expect(closer.Close()).To(Succeed())
 	})
 
 	It("Should write the state before returning to the caller", func(ctx SpecContext) {

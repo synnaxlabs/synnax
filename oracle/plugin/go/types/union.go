@@ -266,8 +266,8 @@ func embedFieldName(rendered string) string {
 	if i := strings.IndexByte(rendered, '['); i >= 0 {
 		rendered = rendered[:i]
 	}
-	if i := strings.LastIndexByte(rendered, '.'); i >= 0 {
-		return rendered[i+1:]
+	if _, name, ok := strings.CutLast(rendered, "."); ok {
+		return name
 	}
 	return rendered
 }

@@ -58,9 +58,8 @@ func (f CompoundFactory) Create(ctx context.Context, cfg Config) (Node, error) {
 	// compiler emits qualified names (e.g. "time.interval", "control.set_authority")
 	// into the IR; normalizing here keeps prefix awareness out of individual factories.
 	var modulePrefix string
-	if i := strings.LastIndex(cfg.Node.Type, "."); i >= 0 {
-		modulePrefix = cfg.Node.Type[:i]
-		cfg.Node.Type = cfg.Node.Type[i+1:]
+	if prefix, bare, ok := strings.CutLast(cfg.Node.Type, "."); ok {
+		modulePrefix, cfg.Node.Type = prefix, bare
 	}
 	for _, factory := range f {
 		// When the IR node has a module prefix (e.g. "control" from

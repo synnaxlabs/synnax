@@ -45,8 +45,8 @@ func ResolveUnionVariant(
 	}
 
 	memberName := identValue
-	if idx := strings.LastIndex(identValue, "."); idx >= 0 {
-		memberName = identValue[idx+1:]
+	if _, bare, ok := strings.CutLast(identValue, "."); ok {
+		memberName = bare
 	}
 
 	if variant, ok := unionForm.Variant(memberName); ok {

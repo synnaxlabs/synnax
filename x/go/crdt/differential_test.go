@@ -10,7 +10,7 @@
 package crdt_test
 
 import (
-	"math/rand"
+	"math/rand/v2"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -96,7 +96,7 @@ func (r recorded) applyTo(pr *pair) {
 var _ = Describe("Differential against the per-character reference", func() {
 	DescribeTable("random schedules match the reference model exactly",
 		func(seed int64) {
-			rng := rand.New(rand.NewSource(seed))
+			rng := rand.New(rand.NewPCG(uint64(seed), 0))
 			const replicas, rounds = 3, 30
 			const alphabet = "abcdefghijklmnopqrstuvwxyz"
 			pairs := make([]*pair, replicas)
@@ -108,22 +108,22 @@ var _ = Describe("Differential against the per-character reference", func() {
 				var roundOps []recorded
 				for i, pr := range pairs {
 					n := pr.p.Len()
-					if n > 0 && rng.Intn(3) == 0 {
-						index := rng.Intn(n)
-						length := 1 + rng.Intn(min(n-index, 5))
+					if n > 0 && rng.IntN(3) == 0 {
+						index := rng.IntN(n)
+						length := 1 + rng.IntN(min(n-index, 5))
 						roundOps = append(roundOps,
 							recorded{owner: i, deletes: pr.delete(index, length)})
 						continue
 					}
-					runes := make([]rune, 1+rng.Intn(4))
+					runes := make([]rune, 1+rng.IntN(4))
 					for j := range runes {
-						runes[j] = rune(alphabet[rng.Intn(len(alphabet))])
+						runes[j] = rune(alphabet[rng.IntN(len(alphabet))])
 					}
 					roundOps = append(
 						roundOps,
 						recorded{
 							owner:   i,
-							inserts: pr.insert(rng.Intn(n+1), string(runes)),
+							inserts: pr.insert(rng.IntN(n+1), string(runes)),
 						},
 					)
 				}

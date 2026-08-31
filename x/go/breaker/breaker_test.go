@@ -11,6 +11,7 @@ package breaker_test
 
 import (
 	"context"
+	"testing/synctest"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -26,44 +27,39 @@ var _ = Describe("Breaker", func() {
 		Expect(b.Wait()).To(BeFalse())
 		cancel()
 	})
-	It(
-		"Should be canceled as the underlying context is canceled",
-		func(specCtx SpecContext) {
-			ctx, cancel := context.WithCancel(specCtx)
-			done := make(chan struct{})
-			b := MustSucceed(
-				breaker.NewBreaker(ctx, breaker.Config{BaseInterval: 1 * time.Hour}),
-			)
+	It("Should be canceled as the underlying context is canceled", func() {
+		Bubble(func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			b := MustSucceed(breaker.NewBreaker(ctx, breaker.Config{
+				BaseInterval: 1 * time.Hour,
+				MaxRetries:   breaker.InfiniteRetries,
+			}))
 			go func() {
-				time.Sleep(500 * time.Millisecond)
+				defer GinkgoRecover()
+				synctest.Sleep(500 * time.Millisecond)
 				cancel()
 			}()
-			go func() {
-				Expect(b.Wait()).To(BeFalse())
-				done <- struct{}{}
-			}()
-			Eventually(done).Should(Receive())
-		},
-	)
-	It("Should scale the timeout every time it fails", func(ctx SpecContext) {
-		b := MustSucceed(breaker.NewBreaker(
-			ctx,
-			breaker.Config{
-				BaseInterval: 10 * time.Millisecond,
-				Scale:        2,
-				MaxRetries:   10,
-			},
-		),
-		)
-		start := time.Now()
-		Expect(b.Wait()).To(BeTrue()) // 10ms
-		Expect(b.Wait()).To(BeTrue()) // 20ms
-		Expect(b.Wait()).To(BeTrue()) // 40ms
-		Expect(b.Wait()).To(BeTrue()) // 80ms
-		Expect(b.Wait()).To(BeTrue()) // 160ms
-		duration := time.Since(start)
-		Expect(
-			duration,
-		).To(BeNumerically("~", 310*time.Millisecond, 100*time.Millisecond))
+			Expect(b.Wait()).To(BeFalse())
+		})
+	})
+	It("Should scale the timeout every time it fails", func() {
+		Bubble(func() {
+			b := MustSucceed(breaker.NewBreaker(
+				context.Background(),
+				breaker.Config{
+					BaseInterval: 10 * time.Millisecond,
+					Scale:        2,
+					MaxRetries:   10,
+				},
+			),
+			)
+			start := time.Now()
+			Expect(b.Wait()).To(BeTrue()) // 10ms
+			Expect(b.Wait()).To(BeTrue()) // 20ms
+			Expect(b.Wait()).To(BeTrue()) // 40ms
+			Expect(b.Wait()).To(BeTrue()) // 80ms
+			Expect(b.Wait()).To(BeTrue()) // 160ms
+			Expect(time.Since(start)).To(Equal(310 * time.Millisecond))
+		})
 	})
 })

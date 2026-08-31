@@ -44,8 +44,8 @@ func ResolveEnumVariant(
 	}
 
 	memberName := identValue
-	if idx := strings.LastIndex(identValue, "."); idx >= 0 {
-		memberName = identValue[idx+1:]
+	if _, bare, ok := strings.CutLast(identValue, "."); ok {
+		memberName = bare
 	}
 
 	// Direct match against the bare variant name, e.g. `= cfg_default`. This is the

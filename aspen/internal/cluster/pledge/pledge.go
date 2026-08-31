@@ -34,7 +34,7 @@ package pledge
 
 import (
 	"context"
-	"math/rand"
+	"math/rand/v2"
 	"slices"
 	"sync"
 	"time"
@@ -343,6 +343,5 @@ func highestNodeKey(candidates node.Group) node.Key {
 
 func introduceRandomJitter(retryInterval time.Duration) {
 	// sleep for a random percentage of the retry interval, somewhere between 0 and 25%.
-	t := rand.Intn(int(retryInterval / 4))
-	time.Sleep(time.Duration(t))
+	time.Sleep(rand.N(retryInterval / 4))
 }

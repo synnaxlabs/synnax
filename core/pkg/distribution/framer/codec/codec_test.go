@@ -14,7 +14,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"slices"
 	"testing"
 
@@ -1356,6 +1356,10 @@ func BenchmarkEncode(b *testing.B) {
 	}
 }
 
+// staticcheck SA9005 does not know the encoding/json/v2 marshaler interfaces, so it
+// reads Frame's MarshalJSONTo as an absence of custom marshaling.
+//
+//nolint:staticcheck
 func BenchmarkJSONEncode(b *testing.B) {
 	keys := channel.Keys{1}
 	fr := frame.NewMulti(
@@ -1391,6 +1395,10 @@ func BenchmarkDecode(b *testing.B) {
 	}
 }
 
+// staticcheck SA9005 does not know the encoding/json/v2 marshaler interfaces, so it
+// reads Frame's MarshalJSONTo as an absence of custom marshaling.
+//
+//nolint:staticcheck
 func BenchmarkJSONDecode(b *testing.B) {
 	keys := channel.Keys{1}
 	encoded, err := json.Marshal(frame.NewMulti(
