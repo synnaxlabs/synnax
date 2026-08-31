@@ -7,11 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
+import { color, deep } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
+import { type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { Form } from "@/form";
+import { type Config, configZ } from "@/schematic/node/general/button/config";
+import { ButtonForm } from "@/schematic/node/general/button/Form";
 import { Button } from "@/schematic/node/general/button/Primitive";
+import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 const getButton = (container: HTMLElement): HTMLElement => {
   const el = container.querySelector<HTMLElement>(".pluto-btn");
@@ -164,5 +169,49 @@ describe("button symbol", () => {
         expect(btn.style.getPropertyValue("--pluto-btn-delay")).toBe("");
       });
     });
+  });
+});
+
+// A config from before the size control existed: no size key.
+const LEGACY_CONFIG: Config = {
+  variant: "button",
+  orientation: "left",
+  color: "#000000",
+  label: { label: "Button", level: "h5", orientation: "top" },
+  mode: "fire",
+};
+
+const SynnaxWrapper = createSynnaxWrapper({ client: null });
+
+const FormWrapper = ({ children }: PropsWithChildren): ReactElement => {
+  const methods = Form.use<typeof configZ>({
+    values: deep.copy(LEGACY_CONFIG),
+    schema: configZ,
+  });
+  return (
+    <SynnaxWrapper>
+      <Form.Form<typeof configZ> {...methods}>{children}</Form.Form>
+    </SynnaxWrapper>
+  );
+};
+
+describe("ButtonForm", () => {
+  it("should show the size field with medium selected for a config without a size key", () => {
+    const { getByText } = render(
+      <FormWrapper>
+        <ButtonForm />
+      </FormWrapper>,
+    );
+    expect(getByText("Size")).toBeDefined();
+    expect(getByText("M").closest("button")?.classList).toContain("pluto--selected");
+  });
+
+  it("should not render the label size field", () => {
+    const { queryByText } = render(
+      <FormWrapper>
+        <ButtonForm />
+      </FormWrapper>,
+    );
+    expect(queryByText("Label size")).toBeNull();
   });
 });
