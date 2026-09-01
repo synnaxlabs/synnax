@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Access, Synnax } from "@synnaxlabs/pluto";
 import { fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
@@ -244,4 +245,90 @@ describe("connection guard permissions", () => {
       await screen.findByText("authenticated content", {}, { timeout: 10000 }),
     ).toBeTruthy();
   });
+
+  const PASSWORD = "password123";
+
+  const assignRole = async (
+    client: ReturnType<typeof createTestClient>,
+    user: string,
+    roleName: string,
+  ): Promise<void> => {
+    const roles = await client.access.roles.retrieve({});
+    const role = roles.find(({ name }) => name === roleName);
+    if (role == null) throw new Error(`${roleName} role not provisioned`);
+    await client.access.roles.assign({ user, role: role.key });
+  };
+
+  const createUserWithRole = async (
+    client: ReturnType<typeof createTestClient>,
+    roleName: string,
+  ): Promise<{ username: string; key: string }> => {
+    const username = uniqueName("role_user");
+    const { key } = await client.users.create({ username, password: PASSWORD });
+    await assignRole(client, key, roleName);
+    return { username, key };
+  };
+
+  const renderGuardedContent = async (): Promise<void> => {
+    pinLocationOrigin("http://localhost:9090");
+    const { wrapper } = await createSessionConsoleWrapper({ client: null });
+    render(
+      <Session.SettledProvider>
+        <Auth.Guard>
+          <Auth.ConnectionGuard>
+            <span>authenticated content</span>
+          </Auth.ConnectionGuard>
+        </Auth.Guard>
+      </Session.SettledProvider>,
+      { wrapper },
+    );
+  };
+
+  it("should explain a denied policy fetch and recover through Retry", async () => {
+    const client = createTestClient();
+    // The Host role cannot retrieve policies, so the permissions fetch is denied.
+    const { username, key } = await createUserWithRole(client, "Host");
+    await renderGuardedContent();
+    submitCredentials(username, PASSWORD);
+    expect(
+      await screen.findByText("Console access denied", {}, { timeout: 10000 }),
+    ).toBeTruthy();
+    expect(screen.getByText(`Check role permissions for ${username}.`)).toBeTruthy();
+    // The denial renders the calm surface, not the crash fallback.
+    expect(screen.queryByText("Stack trace")).toBeNull();
+    expect(screen.queryByText("authenticated content")).toBeNull();
+    await assignRole(client, key, "Operator");
+    fireEvent.click(findButton("Retry"));
+    expect(
+      await screen.findByText("authenticated content", {}, { timeout: 10000 }),
+    ).toBeTruthy();
+  });
+
+  it("should return to the login surface through Log out", async () => {
+    const client = createTestClient();
+    const { username } = await createUserWithRole(client, "Host");
+    await renderGuardedContent();
+    submitCredentials(username, PASSWORD);
+    await screen.findByText("Console access denied", {}, { timeout: 10000 });
+    fireEvent.click(findButton("Log out"));
+    await waitFor(() =>
+      expect(screen.getAllByText("Log in").length).toBeGreaterThan(0),
+    );
+    expect(screen.queryByText("Console access denied")).toBeNull();
+    expect(screen.queryByText("authenticated content")).toBeNull();
+  });
+
+  it.each(["Owner", "Engineer", "Operator", "Viewer"])(
+    "should render the workspace for the %s role",
+    async (roleName) => {
+      const client = createTestClient();
+      const { username } = await createUserWithRole(client, roleName);
+      await renderGuardedContent();
+      submitCredentials(username, PASSWORD);
+      expect(
+        await screen.findByText("authenticated content", {}, { timeout: 10000 }),
+      ).toBeTruthy();
+      expect(screen.queryByText("Console access denied")).toBeNull();
+    },
+  );
 });
