@@ -35,8 +35,6 @@ class Node : public node::Node {
     std::vector<bool> var_inputs;
     std::vector<bool> string_outputs;
     std::shared_ptr<stl::strings::State> str_state;
-    bool initialized = false;
-    bool is_entry_node = false;
     /// @brief marks a node with no $sel input.
     static constexpr size_t NO_SEL = ~size_t{0};
     size_t sel_idx = NO_SEL;
@@ -64,8 +62,7 @@ public:
         ir(node),
         state(std::move(state)),
         func(func),
-        str_state(std::move(str_state)),
-        is_entry_node(arc::ir::is_entry_node(prog, node)) {
+        str_state(std::move(str_state)) {
         const auto &func_ir = prog.function(node.type);
         this->inputs.resize(node.inputs.size());
         this->offsets.resize(node.outputs.size());
@@ -87,11 +84,6 @@ public:
     }
 
     x::errors::Error next(node::Context &ctx) override {
-        if (this->is_entry_node) {
-            if (this->initialized) return x::errors::NIL;
-            this->initialized = true;
-        }
-
         // A $sel-only change re-points without emitting; the value fires on the
         // next input.
         if (this->sel_idx != NO_SEL && !this->data_fresh()) {
@@ -261,7 +253,6 @@ public:
     }
 
     void reset() override {
-        this->initialized = false;
         this->state.reset();
         this->state.clear_node(this->ir.key);
     }
