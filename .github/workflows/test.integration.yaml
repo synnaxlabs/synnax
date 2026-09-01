@@ -217,6 +217,130 @@ jobs:
       flags: ${{ needs.setup.outputs.FLAGS }}
     secrets: inherit
 
+  binary-checks:
+    name: Binary Checks (${{ matrix.os-name }})
+    needs: [setup, build]
+    if:
+      ${{ !cancelled() && needs.setup.result == 'success' && (needs.build.result ==
+      'success' || needs.build.result == 'skipped') }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            os-name: linux
+            executable: ""
+          - os: windows-2025
+            os-name: windows
+            executable: .exe
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: integration/scripts
+
+      - name: Download Core Artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: synnax-core-${{ matrix.os-name }}
+          path: binaries
+          run-id: ${{ needs.setup.outputs.REF_RUN_ID }}
+          github-token: ${{ github.token }}
+
+      - name: Download Driver Artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: synnax-driver-${{ matrix.os-name }}
+          path: binaries
+          run-id: ${{ needs.setup.outputs.REF_RUN_ID }}
+          github-token: ${{ github.token }}
+
+      - name: Set Up Binaries
+        shell: bash
+        run: |
+          mkdir -p "$HOME/synnax-binaries"
+          cp binaries/synnax-v* "$HOME/synnax-binaries/synnax${{ matrix.executable }}"
+          cp binaries/synnax-driver-v* \
+            "$HOME/synnax-binaries/synnax-driver${{ matrix.executable }}"
+          chmod +x "$HOME"/synnax-binaries/synnax*
+
+      - name: Check Driver TLS (Windows)
+        if: runner.os == 'Windows'
+        timeout-minutes: 3
+        shell: powershell
+        env:
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+        run: integration/scripts/CheckDriverTLS.ps1
+
+      - name: Check Driver TLS (Unix)
+        if: runner.os == 'Linux'
+        timeout-minutes: 3
+        env:
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+        run: integration/scripts/check_driver_tls.sh
+
+      - name: Check Driver external cert (Windows)
+        if: runner.os == 'Windows'
+        timeout-minutes: 3
+        shell: powershell
+        env:
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+        run: integration/scripts/CheckDriverExternalCert.ps1
+
+      - name: Check Driver external cert (Unix)
+        if: runner.os == 'Linux'
+        timeout-minutes: 3
+        env:
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+        run: integration/scripts/check_driver_external_cert.sh
+
+      - name: Check unverifiable advertised cert (Windows)
+        if: runner.os == 'Windows'
+        timeout-minutes: 3
+        shell: powershell
+        env:
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+        run: integration/scripts/CheckDriverUnverifiableCert.ps1
+
+      - name: Check unverifiable advertised cert (Unix)
+        if: runner.os == 'Linux'
+        timeout-minutes: 3
+        env:
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+        run: integration/scripts/check_driver_unverifiable_cert.sh
+
+      - name: Check auto-cert refresh (Windows)
+        if: runner.os == 'Windows'
+        timeout-minutes: 4
+        shell: powershell
+        env:
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+        run: integration/scripts/CheckAutoCertRefresh.ps1
+
+      - name: Check auto-cert refresh (Unix)
+        if: runner.os == 'Linux'
+        timeout-minutes: 4
+        env:
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+        run: integration/scripts/check_auto_cert_refresh.sh
+
+      - name: Check Driver service lifecycle (Windows)
+        if: runner.os == 'Windows'
+        timeout-minutes: 4
+        shell: powershell
+        env:
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+        run: integration/scripts/CheckDriverService.ps1
+
+      - name: Check Driver service lifecycle (Unix)
+        if: runner.os == 'Linux'
+        timeout-minutes: 4
+        env:
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+        run: integration/scripts/check_driver_service.sh
+
   migration:
     name: Migration
     needs: [setup, build]
