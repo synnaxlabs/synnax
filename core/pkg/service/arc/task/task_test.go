@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -25,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/ranges"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -164,7 +166,9 @@ var _ = Describe("Task", Ordered, func() {
 	newTextFactory := func(ctx context.Context, prof arc.Text) driver.Factory {
 		return newFactoryWith(func(_ context.Context, _ uuid.UUID) (svcarc.Arc, error) {
 			resolver := channelSvc.NewArcSymbolResolver(nil)
-			root := arc.NewRoot(resolver, arcstatus.NewSymbols()...)
+			root := arc.NewRoot(resolver, slices.Concat(
+				arcstatus.NewSymbols(), ranges.NewSymbols(),
+			)...)
 			module, err := arc.CompileText(ctx, prof, root)
 			if err != nil {
 				return svcarc.Arc{}, err
@@ -1024,6 +1028,255 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(byName(base + "_c").Variant).To(BeEquivalentTo("warning"))
 			Expect(byName(base + "_d").Variant).To(BeEquivalentTo("loading"))
 		})
+	})
+
+	Describe("Entry node one-shot", func() {
+		It(
+			"Should create exactly one status for an untriggered status.set in a stage",
+			func(ctx SpecContext) {
+				trig := createVirtualCh(ctx, "entry_status_trig", telem.Uint8T)
+				name := "entry_status_" + uuid.NewString()[:8]
+				prog := arc.Text{Raw: fmt.Sprintf(`
+					import status
+
+					sequence main {
+					    stage report {
+					        status.set{key_or_name="%s", message="m", variant="info"}
+					    }
+					}
+
+					%s => main
+				`, name, trig.Name)}
+
+				svcTask := task.Task{
+					Key:    uuid.New(),
+					Name:   "test-entry-status-once",
+					Type:   arctask.Type,
+					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+				}
+				t := MustSucceed(
+					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
+				)
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+
+				time.Sleep(20 * time.Millisecond)
+				w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  []channel.Key{trig.Key()},
+					Start: telem.Now(),
+				}))
+				Expect(
+					w.Write(frame.NewUnary(trig.Key(), telem.NewSeriesV[uint8](1))),
+				).To(BeTrue())
+
+				oneRow := func(g Gomega) {
+					var rows []svcarc.Status
+					g.Expect(status.NewRetrieve[svcarc.StatusDetails](statusSvc).
+						Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *svcarc.Status) (bool, error) {
+							return s.Name == name, nil
+						})).
+						Entries(&rows).Exec(ctx, nil)).To(Succeed())
+					g.Expect(rows).To(HaveLen(1))
+				}
+				Eventually(oneRow).Should(Succeed())
+
+				// status.set upserts by name, so a re-fire keeps one row; the
+				// range spec below is the sharp duplicate detector.
+				for range 3 {
+					Expect(
+						w.Write(frame.NewUnary(trig.Key(), telem.NewSeriesV[uint8](1))),
+					).To(BeTrue())
+					time.Sleep(20 * time.Millisecond)
+				}
+				Expect(w.Close()).To(Succeed())
+				Consistently(oneRow).Should(Succeed())
+			},
+		)
+
+		It(
+			"Should create exactly one range for an untriggered ranges.create in a stage",
+			func(ctx SpecContext) {
+				trig := createVirtualCh(ctx, "entry_range_trig", telem.Uint8T)
+				name := "entry_range_" + uuid.NewString()[:8]
+				prog := arc.Text{Raw: fmt.Sprintf(`
+					import ranges
+
+					sequence main {
+					    stage report {
+					        ranges.create{name="%s"}
+					    }
+					}
+
+					%s => main
+				`, name, trig.Name)}
+
+				svcTask := task.Task{
+					Key:    uuid.New(),
+					Name:   "test-entry-range-once",
+					Type:   arctask.Type,
+					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+				}
+				t := MustSucceed(
+					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
+				)
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+
+				time.Sleep(20 * time.Millisecond)
+				w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  []channel.Key{trig.Key()},
+					Start: telem.Now(),
+				}))
+				Expect(
+					w.Write(frame.NewUnary(trig.Key(), telem.NewSeriesV[uint8](1))),
+				).To(BeTrue())
+
+				// Every extra fire creates a new identically-named range, so a
+				// stable count of one proves the entry node dispatched once.
+				oneRange := func(g Gomega) {
+					g.Expect(rangerSvc.NewRetrieve().
+						Where(ranger.MatchNames(name)).
+						Count(ctx, nil)).To(Equal(1))
+				}
+				Eventually(oneRange).Should(Succeed())
+
+				for range 3 {
+					Expect(
+						w.Write(frame.NewUnary(trig.Key(), telem.NewSeriesV[uint8](1))),
+					).To(BeTrue())
+					time.Sleep(20 * time.Millisecond)
+				}
+				Expect(w.Close()).To(Succeed())
+				Consistently(oneRange).Should(Succeed())
+			},
+		)
+	})
+
+	Describe("Routing entry host calls", func() {
+		It(
+			"Should fire a bare status.set routing entry once per truthy mark",
+			func(ctx SpecContext) {
+				data := createVirtualCh(ctx, "route_status_data", telem.BooleanT)
+				out := createVirtualCh(ctx, "route_status_out", telem.StringT)
+				name := "press_high_" + uuid.NewString()[:8]
+				prog := arc.Text{Raw: fmt.Sprintf(`
+					import status
+
+					%s -> select{} => {
+					    true: status.set{
+					        key_or_name="%s",
+					        message="tank pressure above limit",
+					        variant="warning"
+					    } -> %s
+					}
+				`, data.Name, name, out.Name)}
+
+				svcTask := task.Task{
+					Key:    uuid.New(),
+					Name:   "test-route-status-bare",
+					Type:   arctask.Type,
+					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+				}
+				t := MustSucceed(
+					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
+				)
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+
+				time.Sleep(20 * time.Millisecond)
+				w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  []channel.Key{data.Key()},
+					Start: telem.Now(),
+				}))
+				Expect(
+					w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV[bool](true))),
+				).To(BeTrue())
+
+				oneRow := func(g Gomega) {
+					var rows []svcarc.Status
+					g.Expect(status.NewRetrieve[svcarc.StatusDetails](statusSvc).
+						Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *svcarc.Status) (bool, error) {
+							return s.Name == name, nil
+						})).
+						Entries(&rows).Exec(ctx, nil)).To(Succeed())
+					g.Expect(rows).To(HaveLen(1))
+				}
+				Eventually(oneRow).Should(Succeed())
+
+				// Falsy samples pick the absent false branch: no re-fire.
+				for range 3 {
+					Expect(
+						w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV[bool](false))),
+					).To(BeTrue())
+					time.Sleep(20 * time.Millisecond)
+				}
+				Expect(w.Close()).To(Succeed())
+				Consistently(oneRow).Should(Succeed())
+			},
+		)
+
+		It(
+			"Should fire a bare ranges.create routing entry once per truthy mark",
+			func(ctx SpecContext) {
+				data := createVirtualCh(ctx, "route_range_data", telem.BooleanT)
+				out := createVirtualCh(ctx, "route_range_out", telem.StringT)
+				name := "overpressure_" + uuid.NewString()[:8]
+				prog := arc.Text{Raw: fmt.Sprintf(`
+					import ranges
+
+					%s -> select{} => {
+					    true: ranges.create{name="%s"} -> %s
+					}
+				`, data.Name, name, out.Name)}
+
+				svcTask := task.Task{
+					Key:    uuid.New(),
+					Name:   "test-route-range-bare",
+					Type:   arctask.Type,
+					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+				}
+				t := MustSucceed(
+					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
+				)
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+
+				time.Sleep(20 * time.Millisecond)
+				w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  []channel.Key{data.Key()},
+					Start: telem.Now(),
+				}))
+				rangeCount := func(want int) func(g Gomega) {
+					return func(g Gomega) {
+						g.Expect(rangerSvc.NewRetrieve().
+							Where(ranger.MatchNames(name)).
+							Count(ctx, nil)).To(Equal(want))
+					}
+				}
+
+				Expect(
+					w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV[bool](true))),
+				).To(BeTrue())
+				Eventually(rangeCount(1)).Should(Succeed())
+
+				// Falsy samples pick the absent false branch: no re-fire.
+				for range 2 {
+					Expect(
+						w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV[bool](false))),
+					).To(BeTrue())
+					time.Sleep(20 * time.Millisecond)
+				}
+				Consistently(rangeCount(1)).Should(Succeed())
+
+				// A fresh truthy mark fires the entry again: per-trigger, not
+				// per-activation.
+				Expect(
+					w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV[bool](true))),
+				).To(BeTrue())
+				Expect(w.Close()).To(Succeed())
+				Eventually(rangeCount(2)).Should(Succeed())
+			},
+		)
 	})
 
 	Describe("Status Reporting", func() {
