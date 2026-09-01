@@ -18,7 +18,8 @@ import { Primitive } from "@/schematic/node/common/primitive";
 import { type Toggle } from "@/schematic/node/common/toggle";
 import { symbolColorVar } from "@/schematic/symbolColor";
 
-export interface Props extends Omit<Toggle.ButtonProps, "onClick"> {
+export interface Props
+  extends Omit<Toggle.ButtonProps, "onClick">, Primitive.SVGBasedProps {
   onClick?: MouseEventHandler<HTMLElement>;
 }
 
@@ -27,10 +28,13 @@ export const Switch = ({
   onClick,
   orientation = "left",
   color: colorVal,
+  scale = 1,
 }: Props): ReactElement => {
   const colorVar = symbolColorVar(colorVal);
-  const style: CSSProperties | undefined =
-    colorVar != null ? { [CSS.variable("symbol-color")]: colorVar } : undefined;
+  const style: CSSProperties = {
+    [CSS.variable("switch-scale")]: scale,
+    [CSS.variable("symbol-color")]: colorVar,
+  };
   return (
     <Primitive.Div
       orientation={orientation}

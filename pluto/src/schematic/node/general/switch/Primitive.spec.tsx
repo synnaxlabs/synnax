@@ -71,6 +71,24 @@ describe("switch symbol", () => {
     });
   });
 
+  describe("scale", () => {
+    // The dimensions are computed from the scale var in Switch.css; jsdom cannot
+    // compute them, so we assert the source var.
+    it("should set the scale var from the scale prop", () => {
+      const { container } = render(<Switch scale={3} />);
+      expect(getRoot(container).style.getPropertyValue("--pluto-switch-scale")).toBe(
+        "3",
+      );
+    });
+
+    it("should default the scale var to 1", () => {
+      const { container } = render(<Switch />);
+      expect(getRoot(container).style.getPropertyValue("--pluto-switch-scale")).toBe(
+        "1",
+      );
+    });
+  });
+
   describe("enabled", () => {
     it("should reflect the enabled state on the input", () => {
       const { container } = render(<Switch enabled />);

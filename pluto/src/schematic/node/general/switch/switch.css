@@ -31,3 +31,23 @@
         background: var(--pluto-gray-l1);
     }
 }
+
+/*
+ * Zero the button chrome so the symbol box hugs the track at every scale.
+ */
+.pluto-symbol-primitive > .pluto-btn.pluto-input__switch {
+    min-height: 0;
+    padding: 0;
+
+    /* Geometry must track resize drags instantly, so transition only the colors
+       and the toggle slide. */
+    .pluto-input__switch-indicator {
+        transition: background 0.15s;
+    }
+
+    .pluto-input__switch-indicator::before {
+        transition:
+            transform 0.15s,
+            background 0.15s;
+    }
+}

@@ -42,12 +42,16 @@
         z-index: 100;
     }
 
+    /* --pluto-switch-scale (default 1) uniformly magnifies the control; the
+       schematic switch symbol sets it. */
     .pluto-input__switch-indicator {
         position: relative;
         display: inline-block;
-        width: 5rem;
-        height: 2.5rem;
-        border-radius: var(--pluto-border-radius-medium);
+        width: calc(5rem * var(--pluto-switch-scale, 1));
+        height: calc(2.5rem * var(--pluto-switch-scale, 1));
+
+        /* Half the track height: the pill shape holds at every scale. */
+        border-radius: calc(1.25rem * var(--pluto-switch-scale, 1));
         background: var(--pluto-gray-l4);
         cursor: pointer;
         transition: 0.15s;
@@ -56,10 +60,10 @@
     .pluto-input__switch-indicator::before {
         position: absolute;
         content: "";
-        height: 2rem;
-        width: 2rem;
-        left: 0.25rem;
-        bottom: 0.25rem;
+        height: calc(2rem * var(--pluto-switch-scale, 1));
+        width: calc(2rem * var(--pluto-switch-scale, 1));
+        left: calc(0.25rem * var(--pluto-switch-scale, 1));
+        bottom: calc(0.25rem * var(--pluto-switch-scale, 1));
         background: var(--pluto-gray-l7);
         transition: 0.15s;
         cursor: pointer;
@@ -71,7 +75,8 @@
     }
 
     input:checked ~ .pluto-input__switch-indicator::before {
-        transform: translateX(2.5rem);
+        /* 125% of the 2rem knob = 2.5rem of travel, scaling with the knob itself. */
+        transform: translateX(125%);
         background: var(--pluto-primary-p1);
     }
 
