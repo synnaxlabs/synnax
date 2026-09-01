@@ -59,10 +59,7 @@ public:
         const Module::Function &func,
         std::shared_ptr<stl::strings::State> str_state
     ):
-        ir(node),
-        state(std::move(state)),
-        func(func),
-        str_state(std::move(str_state)) {
+        ir(node), state(std::move(state)), func(func), str_state(std::move(str_state)) {
         const auto &func_ir = prog.function(node.type);
         this->inputs.resize(node.inputs.size());
         this->offsets.resize(node.outputs.size());

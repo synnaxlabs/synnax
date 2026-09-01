@@ -1206,7 +1206,9 @@ var _ = Describe("Task", Ordered, func() {
 				// Falsy samples pick the absent false branch: no re-fire.
 				for range 3 {
 					Expect(
-						w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV[bool](false))),
+						w.Write(
+							frame.NewUnary(data.Key(), telem.NewSeriesV[bool](false)),
+						),
 					).To(BeTrue())
 					time.Sleep(20 * time.Millisecond)
 				}
@@ -1262,7 +1264,9 @@ var _ = Describe("Task", Ordered, func() {
 				// Falsy samples pick the absent false branch: no re-fire.
 				for range 2 {
 					Expect(
-						w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV[bool](false))),
+						w.Write(
+							frame.NewUnary(data.Key(), telem.NewSeriesV[bool](false)),
+						),
 					).To(BeTrue())
 					time.Sleep(20 * time.Millisecond)
 				}
