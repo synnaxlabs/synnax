@@ -11,6 +11,10 @@ import { Tabs as Base } from "@synnaxlabs/pluto/tabs";
 import { Text } from "@synnaxlabs/pluto/text";
 import { type ReactElement, useEffect, useState } from "react";
 
+// Astro's React SSR camelCases dashed slot names; hydration passes them raw.
+const slotName = (key: string): string =>
+  key.replace(/[-_]([a-z])/g, (_, c: string) => c.toUpperCase());
+
 export interface TabEntry {
   tabKey: string;
   name: string;
@@ -61,7 +65,7 @@ export const Tabs = ({ tabs, queryParamKey, ...rest }: TabsProps): ReactElement 
       </Base.Selector>
       {tabs.map(({ tabKey }) => (
         <Base.Content key={tabKey} itemKey={tabKey}>
-          {rest[tabKey]}
+          {rest[tabKey] ?? rest[slotName(tabKey)]}
         </Base.Content>
       ))}
     </Base.Frame>
