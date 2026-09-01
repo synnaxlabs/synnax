@@ -89,6 +89,24 @@ describe("switch symbol", () => {
     });
   });
 
+  describe("orientation", () => {
+    // The box swap and rotation live in switch.css; jsdom cannot compute them, so we
+    // assert the location class that keys them.
+    it("should carry the location class for the orientation prop", () => {
+      const { container } = render(<Switch orientation="bottom" />);
+      expect(getRoot(container).getAttribute("class")).toContain(
+        "pluto--location-bottom",
+      );
+    });
+
+    it("should default to the left location", () => {
+      const { container } = render(<Switch />);
+      expect(getRoot(container).getAttribute("class")).toContain(
+        "pluto--location-left",
+      );
+    });
+  });
+
   describe("enabled", () => {
     it("should reflect the enabled state on the input", () => {
       const { container } = render(<Switch enabled />);

@@ -41,6 +41,7 @@ export const Switch = ({
       className={CSS.cls(
         colorVar != null && CSS.B("symbol-colored"),
         colorVar != null && CSS.BM("switch-symbol", "colored"),
+        CSS.loc(orientation),
       )}
       style={style}
     >
