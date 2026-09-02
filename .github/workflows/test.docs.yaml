@@ -60,6 +60,7 @@ jobs:
     env:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v7
@@ -68,7 +69,13 @@ jobs:
         uses: ./.github/actions/test-typescript
         with:
           package: docs
-          test: false
+          coverage_flag: docs
+          directory: docs/site
+
+      - name: Check Site
+        timeout-minutes: 15
+        working-directory: docs/site
+        run: pnpm check-site:build && pnpm check-site
 
       - name: Build
         run: pnpm build:docs
