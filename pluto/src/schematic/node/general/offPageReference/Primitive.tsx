@@ -24,10 +24,10 @@ import { symbolColorVar } from "@/schematic/symbolColor";
 import { Text } from "@/text";
 
 export const offPageReferenceTooltip = (
-  page?: string,
+  pageKey?: string,
   dblClickNav?: boolean,
 ): string | undefined => {
-  if (page == null || page.length === 0) return undefined;
+  if (pageKey == null || pageKey.length === 0) return undefined;
   const mode = dblClickNav !== false ? "Double" : "Single";
   return `${mode}-click to navigate`;
 };

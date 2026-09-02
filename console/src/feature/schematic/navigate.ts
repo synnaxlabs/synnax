@@ -7,15 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  lineplot,
-  log,
-  type ontology,
-  query,
-  schematic,
-  type Synnax as Client,
-  table,
-} from "@synnaxlabs/client";
+import { query, type Synnax as Client } from "@synnaxlabs/client";
 import { Schematic, Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
@@ -25,29 +17,24 @@ import { Session } from "@/session";
 interface PageTarget {
   noun: string;
   retrieve: (client: Client, key: string) => Promise<unknown>;
-  ontologyID: (key: string) => ontology.ID;
 }
 
 const PAGE_TARGETS: Record<Schematic.Node.OffPageReference.PageType, PageTarget> = {
   schematic: {
     noun: "Schematic",
     retrieve: (client, key) => client.schematics.retrieve(key),
-    ontologyID: schematic.ontologyID,
   },
   lineplot: {
     noun: "Line plot",
     retrieve: (client, key) => client.lineplots.retrieve(key),
-    ontologyID: lineplot.ontologyID,
   },
   log: {
     noun: "Log",
     retrieve: (client, key) => client.logs.retrieve(key),
-    ontologyID: log.ontologyID,
   },
   table: {
     noun: "Table",
     retrieve: (client, key) => client.tables.retrieve(key),
-    ontologyID: table.ontologyID,
   },
 };
 
@@ -65,16 +52,12 @@ export const useHandleNodeClickAction = (schematicKey: string): NodeClickHandler
       if (ui == null || ui.editable || client == null) return;
       const cached = client.schematics.getCached(schematicKey);
       const config = query.isLive(cached) ? cached.configs?.[nodeId] : undefined;
-      if (
-        config?.variant !== "offPageReference" ||
-        typeof config.page !== "string" ||
-        config.page.length === 0
-      )
-        return;
+      if (config?.variant !== "offPageReference") return;
+      const page = Schematic.Node.OffPageReference.parsePage(config.page);
+      if (page.key.length === 0) return;
       const dblClickNav = config.dblClickNav !== false;
       if (dblClick !== dblClickNav) return;
-      const { type, key } = Schematic.Node.OffPageReference.parsePage(config.page);
-      const target = PAGE_TARGETS[type];
+      const target = PAGE_TARGETS[page.type];
       const labelObj = config.label as { label?: string } | undefined;
       const label = labelObj?.label;
       const name =
@@ -82,8 +65,8 @@ export const useHandleNodeClickAction = (schematicKey: string): NodeClickHandler
           ? label
           : `Referenced ${target.noun.toLowerCase()}`;
       handleError(async () => {
-        await target.retrieve(client, key);
-        openTab({ variant: "resource", resource: target.ontologyID(key) });
+        await target.retrieve(client, page.key);
+        openTab({ variant: "resource", resource: page });
       }, `${target.noun} "${name}" not found`);
     },
     [getSchematic, schematicKey, openTab, handleError, client],

@@ -56,7 +56,7 @@ const renderNavigateHook = async ({
 };
 
 const offPageConfig = (
-  page: string,
+  page: unknown,
   overrides: Record<string, unknown> = {},
 ): Record<string, unknown> => ({
   variant: "offPageReference",
@@ -89,7 +89,7 @@ describe("Schematic.useHandleNodeClickAction", () => {
   it("navigates to the referenced schematic on double click", async () => {
     const target = await createSchematic({ name: uniqueName("target") });
     const { result, store } = await renderNavigateHook({
-      configs: { n1: offPageConfig(`schematic:${target.key}`) },
+      configs: { n1: offPageConfig({ type: "schematic", key: target.key }) },
     });
     act(() => result.current.handler("n1", true));
     await expectNavigatedTo(store, target);
@@ -109,7 +109,7 @@ describe("Schematic.useHandleNodeClickAction", () => {
       name: uniqueName("target"),
     });
     const { result, store } = await renderNavigateHook({
-      configs: { n1: offPageConfig(`lineplot:${target.key}`) },
+      configs: { n1: offPageConfig({ type: "lineplot", key: target.key }) },
     });
     act(() => result.current.handler("n1", true));
     await expectNavigatedTo(store, target);
@@ -205,7 +205,7 @@ describe("Schematic.useHandleNodeClickAction", () => {
 
   it("raises an error status naming the page type when a typed target is missing", async () => {
     const { result } = await renderNavigateHook({
-      configs: { n1: offPageConfig(`lineplot:${uuid.create()}`) },
+      configs: { n1: offPageConfig({ type: "lineplot", key: uuid.create() }) },
     });
     act(() => result.current.handler("n1", true));
     await waitFor(() =>

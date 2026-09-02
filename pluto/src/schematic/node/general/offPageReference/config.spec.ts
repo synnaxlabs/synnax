@@ -10,15 +10,16 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  formatPage,
+  configZ,
   type Page,
   PAGE_TYPES,
   parsePage,
 } from "@/schematic/node/general/offPageReference/config";
 
 describe("parsePage", () => {
-  it.each(PAGE_TYPES)("should parse a typed %s page string", (type) => {
-    expect(parsePage(`${type}:abc`)).toEqual({ type, key: "abc" });
+  it.each(PAGE_TYPES)("should return a valid %s page unchanged", (type) => {
+    const page: Page = { type, key: "abc" };
+    expect(parsePage(page)).toEqual(page);
   });
 
   it("should parse a legacy bare string as a schematic key", () => {
@@ -30,61 +31,52 @@ describe("parsePage", () => {
     expect(parsePage(key)).toEqual({ type: "schematic", key });
   });
 
-  it("should treat a string with an invalid type prefix as a schematic key", () => {
-    expect(parsePage("bogus:abc")).toEqual({ type: "schematic", key: "bogus:abc" });
-  });
-
-  it("should treat a wrongly cased type prefix as a schematic key", () => {
-    expect(parsePage("Lineplot:abc")).toEqual({
+  it("should treat a string with colons as a legacy schematic key", () => {
+    expect(parsePage("lineplot:abc")).toEqual({
       type: "schematic",
-      key: "Lineplot:abc",
+      key: "lineplot:abc",
     });
-  });
-
-  it("should treat a string with an empty prefix as a schematic key", () => {
-    expect(parsePage(":abc")).toEqual({ type: "schematic", key: ":abc" });
-  });
-
-  it("should keep colons after the first separator in the key", () => {
-    expect(parsePage("log:a:b")).toEqual({ type: "log", key: "a:b" });
-  });
-
-  it("should parse a typed string with an empty key", () => {
-    expect(parsePage("table:")).toEqual({ type: "table", key: "" });
   });
 
   it("should parse an empty or missing page as an empty schematic key", () => {
     expect(parsePage("")).toEqual({ type: "schematic", key: "" });
     expect(parsePage()).toEqual({ type: "schematic", key: "" });
   });
+
+  it("should normalize an object with an invalid type to an empty schematic key", () => {
+    expect(parsePage({ type: "bogus", key: "abc" })).toEqual({
+      type: "schematic",
+      key: "",
+    });
+  });
+
+  it("should normalize a malformed value to an empty schematic key", () => {
+    expect(parsePage(null)).toEqual({ type: "schematic", key: "" });
+    expect(parsePage(42)).toEqual({ type: "schematic", key: "" });
+    expect(parsePage({ key: "abc" })).toEqual({ type: "schematic", key: "" });
+  });
 });
 
-describe("formatPage", () => {
-  it.each(PAGE_TYPES)("should format a %s page with its prefix", (type) => {
-    expect(formatPage({ type, key: "abc" })).toBe(`${type}:abc`);
+describe("configZ", () => {
+  const base = { variant: "offPageReference", label: { label: "ref" } } as const;
+
+  it.each(PAGE_TYPES)("should accept a %s page object", (type) => {
+    const res = configZ.safeParse({ ...base, page: { type, key: "abc" } });
+    expect(res.success).toBe(true);
   });
 
-  it.each(PAGE_TYPES)("should format an empty %s key as an empty string", (type) => {
-    expect(formatPage({ type, key: "" })).toBe("");
+  it("should accept a legacy bare string page", () => {
+    const res = configZ.safeParse({ ...base, page: "abc" });
+    expect(res.success).toBe(true);
   });
 
-  it("should migrate a legacy bare string to canonical form via a round trip", () => {
-    expect(formatPage(parsePage("abc"))).toBe("schematic:abc");
+  it("should accept a missing page", () => {
+    const res = configZ.safeParse(base);
+    expect(res.success).toBe(true);
   });
 
-  it.each(PAGE_TYPES)(
-    "should leave a canonical %s string unchanged through a round trip",
-    (type) => {
-      expect(formatPage(parsePage(`${type}:abc`))).toBe(`${type}:abc`);
-    },
-  );
-
-  it("should leave an empty page unchanged through a round trip", () => {
-    expect(formatPage(parsePage(""))).toBe("");
-  });
-
-  it.each(PAGE_TYPES)("should invert parsePage for a %s page", (type) => {
-    const page: Page = { type, key: "abc" };
-    expect(parsePage(formatPage(page))).toEqual(page);
+  it("should reject a page object with an invalid type", () => {
+    const res = configZ.safeParse({ ...base, page: { type: "bogus", key: "abc" } });
+    expect(res.success).toBe(false);
   });
 });

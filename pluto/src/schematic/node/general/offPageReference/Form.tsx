@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { schematic } from "@synnaxlabs/client";
+import { ontology, schematic } from "@synnaxlabs/client";
 import { color, type text } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
@@ -19,10 +19,11 @@ import { Project } from "@/project";
 import { Form } from "@/schematic/node/common/form";
 import { Orientation } from "@/schematic/node/common/orientation";
 import {
-  formatPage,
+  type Page,
   PAGE_ICONS,
   PAGE_TYPES,
   pageTypeZ,
+  pageZ,
   parsePage,
 } from "@/schematic/node/general/offPageReference/config";
 import { type FormProps } from "@/schematic/node/spec";
@@ -57,16 +58,19 @@ const ClickModeSelect = Component.renderProp(
   },
 );
 
+const selectKey = (page: Page): string =>
+  page.key.length === 0 ? "" : ontology.idToString(page);
+
 const useHandlePageChange = (): ((v: string) => void) => {
   const theme = Theming.use();
   const ctx = Base.useContext();
   return useCallback(
     (v: string) => {
-      const prev = ctx.get<string>("page").value;
-      ctx.set("page", v);
-      const hadPage = prev != null && prev.length > 0;
-      const hasPage = v != null && v.length > 0;
-      if (!hadPage && hasPage) ctx.set("color", color.hex(theme.colors.primary.z));
+      const prev = ctx.get<Page | string>("page").value;
+      ctx.set("page", v.length === 0 ? "" : pageZ.parse(ontology.stringIDZ.parse(v)));
+      const hadPage = parsePage(prev).key.length > 0;
+      if (!hadPage && v.length > 0)
+        ctx.set("color", color.hex(theme.colors.primary.z));
     },
     [ctx, theme],
   );
@@ -90,7 +94,7 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
           if (!pageType.success) return [];
           const PageIcon = PAGE_ICONS[pageType.data];
           return {
-            key: formatPage({ type: pageType.data, key }),
+            key: ontology.idToString({ type: pageType.data, key }),
             name,
             icon: <PageIcon />,
           };
@@ -103,7 +107,7 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
     <Form.Wrapper x align="stretch">
       <Flex.Box x grow align="stretch">
         <Base.TextField path="label.label" label="Label" padHelpText={false} grow />
-        <Base.Field<string>
+        <Base.Field<Page | string>
           path="page"
           label="Page"
           padHelpText={false}
@@ -114,7 +118,7 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
         >
           {({ value }) => (
             <Select.Static
-              value={formatPage(parsePage(value))}
+              value={selectKey(parsePage(value))}
               onChange={handlePageChange}
               data={siblings}
               resourceName="page"

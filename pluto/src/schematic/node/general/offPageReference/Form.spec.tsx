@@ -24,7 +24,7 @@ const offPageRefSchema = z.object({
     level: z.string().optional(),
     orientation: z.string().optional(),
   }),
-  page: z.string(),
+  page: z.object({ type: z.string(), key: z.string() }).or(z.string()),
   dblClickNav: z.boolean(),
   color: z.string().nullable().optional(),
   orientation: z.string().optional(),
@@ -102,6 +102,35 @@ describe("OffPageReferenceForm", () => {
     const Wrapper = ({ children }: PropsWithChildren): ReactElement => {
       const methods = Form.use<typeof offPageRefSchema>({
         values: { ...deep.copy(offPageRefValues), page: target.key },
+        schema: offPageRefSchema,
+      });
+      return (
+        <SynnaxWrapper>
+          <Form.Form<typeof offPageRefSchema> {...methods}>{children}</Form.Form>
+        </SynnaxWrapper>
+      );
+    };
+    const { getByText } = render(
+      <Wrapper>
+        <OffPageReferenceForm schematicKey={source.key} />
+      </Wrapper>,
+    );
+    await waitFor(() => expect(getByText(targetName)).toBeDefined());
+  });
+
+  it("should select the entry for a page object value", async () => {
+    const client = createTestClient();
+    const SynnaxWrapper = await createAsyncSynnaxWrapper({ client });
+    const proj = await client.projects.create({ name: "off_page_form", layout: {} });
+    const source = await client.schematics.create(proj.key, { name: "source" });
+    const targetName = `target_${uuid.create().slice(0, 8)}`;
+    const target = await client.lineplots.create(proj.key, { name: targetName });
+    const Wrapper = ({ children }: PropsWithChildren): ReactElement => {
+      const methods = Form.use<typeof offPageRefSchema>({
+        values: {
+          ...deep.copy(offPageRefValues),
+          page: { type: "lineplot", key: target.key },
+        },
         schema: offPageRefSchema,
       });
       return (
