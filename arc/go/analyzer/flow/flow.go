@@ -723,7 +723,8 @@ func analyzeOutputRoutingTable(
 			!isInlineBody(flowNodes[0]) {
 			ctx.Diagnostics.Add(diagnostics.Errorf(
 				entry,
-				"routing entry '%s' must be a full statement (e.g. '%s: true => next')",
+				"routing entry must be a full statement, e.g. '%s: true => next' "+
+					"to transition or '%s: false -> some_chan' to send false",
 				outputName,
 				outputName,
 			))
