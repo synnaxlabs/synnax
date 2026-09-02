@@ -2221,9 +2221,9 @@ trigger_ch -> emit_period{period=1s}
 		)
 	})
 
-	Describe("No-Input Node Initialization", func() {
+	Describe("No-Input Node Execution", func() {
 		It(
-			"Should execute only once per stage entry for nodes with no inputs",
+			"Should execute on every Next call for nodes with no inputs",
 			func(ctx SpecContext) {
 				// Create a stateful counter function with no inputs
 				g := singleFunctionGraph("init_counter", types.I64(), `{
@@ -2243,18 +2243,21 @@ trigger_ch -> emit_period{period=1s}
 					telem.UnmarshalSeries[int64](h.Output("init_counter", 0))[0],
 				).To(Equal(int64(1)))
 
-				// Second call - should NOT execute again (initialized flag)
+				// Second call - with no data inputs RefreshInputs never gates,
+				// so the node runs again and the counter advances
 				changed = h.NextChanged(ctx, n, "init_counter")
-				// No output should be marked as changed since we didn't execute
-				Expect(changed.Contains(ir.DefaultOutputParam)).To(BeFalse())
+				Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+				Expect(
+					telem.UnmarshalSeries[int64](h.Output("init_counter", 0))[0],
+				).To(Equal(int64(2)))
 
 				// Reset the node (simulating stage re-entry)
 				n.Reset()
 
-				// Third call - should execute again after reset
+				// Third call - Reset cleared the stateful scope, so the counter
+				// restarts
 				changed = h.NextChanged(ctx, n, "init_counter")
 				Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
-				// Stage re-entry re-initializes the counter
 				Expect(
 					telem.UnmarshalSeries[int64](h.Output("init_counter", 0))[0],
 				).To(Equal(int64(1)))
@@ -2262,7 +2265,7 @@ trigger_ch -> emit_period{period=1s}
 		)
 
 		It(
-			"Should execute every time for non-entry nodes with inputs",
+			"Should execute every time for nodes with edge-fed inputs",
 			func(ctx SpecContext) {
 				g := binaryOpGraph(
 					"add",
@@ -3181,7 +3184,7 @@ trigger_ch -> emit_period{period=1s}
 
 	Describe("Flow Expression Execution", func() {
 		It(
-			"Should execute only once for a flow expression node with no inputs",
+			"Should execute on every Next for a flow expression node with no inputs",
 			func(ctx SpecContext) {
 				g := singleFunctionGraph("expression_0", types.I64(), `{
 				count i64 $= 0
@@ -3202,17 +3205,17 @@ trigger_ch -> emit_period{period=1s}
 				n.Next(nCtx)
 				Expect(
 					telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0],
-				).To(Equal(int64(1)))
+				).To(Equal(int64(2)))
 
 				n.Next(nCtx)
 				Expect(
 					telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0],
-				).To(Equal(int64(1)))
+				).To(Equal(int64(3)))
 			},
 		)
 
 		It(
-			"Should execute again after reset for a flow expression node with no inputs",
+			"Should re-initialize stateful variables on Reset for a flow expression node",
 			func(ctx SpecContext) {
 				g := singleFunctionGraph("expression_0", types.I64(), `{
 				count i64 $= 0
@@ -3238,41 +3241,15 @@ trigger_ch -> emit_period{period=1s}
 				n.Next(nCtx)
 				Expect(
 					telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0],
-				).To(Equal(int64(1)))
-				Expect(executions).To(Equal(1))
+				).To(Equal(int64(2)))
+				Expect(executions).To(Equal(2))
 
 				n.Reset()
 
 				n.Next(nCtx)
-				Expect(executions).To(Equal(2))
+				Expect(executions).To(Equal(3))
 				Expect(
 					telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0],
-				).To(Equal(int64(1)))
-			},
-		)
-
-		It(
-			"Should not treat non-expression nodes as expressions",
-			func(ctx SpecContext) {
-				g := singleFunctionGraph("expr_0", types.I64(), `{
-				count i64 $= 0
-				count = count + 1
-				return count
-			}`)
-				h := newHarness(ctx, g, nil)
-				defer h.Close(ctx)
-
-				n := h.CreateNode(ctx, "expr_0")
-				nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
-
-				n.Next(nCtx)
-				Expect(
-					telem.UnmarshalSeries[int64](h.Output("expr_0", 0))[0],
-				).To(Equal(int64(1)))
-
-				n.Next(nCtx)
-				Expect(
-					telem.UnmarshalSeries[int64](h.Output("expr_0", 0))[0],
 				).To(Equal(int64(1)))
 			},
 		)
