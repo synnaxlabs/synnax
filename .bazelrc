@@ -137,6 +137,15 @@ build:windows --copt=/wd4996  # disables warning C4996 (deprecated declarations)
 build:windows --copt=/MT
 build:windows --cxxopt=/MT
 
+# ===== CI (self-hosted Windows runners) =====
+
+# CI runners start a cold Bazel server each job, then revalidate ~6,500 cached actions
+# through a slow disk. Widen in-flight actions past the vCPU count, cache more digests
+# than the tree holds, and skip re-checking fetched repos Bazel never mutates.
+build:ci-windows --jobs=32
+build:ci-windows --cache_computed_file_digests=1000000
+build:ci-windows --experimental_check_external_repository_files=false
+
 # ===== Warning Suppression for External Dependencies =====
 
 # Only show output from workspace targets (filters out external dependency noise)
