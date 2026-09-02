@@ -723,7 +723,8 @@ func analyzeOutputRoutingTable(
 			!isInlineBody(flowNodes[0]) {
 			ctx.Diagnostics.Add(diagnostics.Errorf(
 				entry,
-				"routing entry '%s' must be a full statement (e.g. '%s: true => next')",
+				"routing entry must be a full statement, e.g. '%s: true => next' "+
+					"to transition or '%s: false -> some_chan' to send false",
 				outputName,
 				outputName,
 			))
@@ -751,6 +752,8 @@ func analyzeOutputRoutingTable(
 			}
 			analyzeRoutingTargetWithParam(
 				child,
+				flowNodes[i-1],
+				isLastNode,
 				nodeSourceType,
 				nextFuncType,
 				targetParam,
@@ -870,6 +873,8 @@ func analyzeInputRoutingTable(
 
 func analyzeRoutingTargetWithParam(
 	ctx context.Context[parser.IFlowNodeContext],
+	prevNode parser.IFlowNodeContext,
+	isLastNode bool,
 	sourceType types.Type,
 	nextFuncType types.Type,
 	targetParam *string,
@@ -934,47 +939,7 @@ func analyzeRoutingTargetWithParam(
 			)
 		}
 	} else if idNode := ctx.AST.Identifier(); idNode != nil {
-		idName := idNode.IDENTIFIER().GetText()
-		idSym, err := ctx.Resolve(idName)
-		if err != nil {
-			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-			return
-		}
-
-		// Allow channels, sequences, and stages as routing targets
-		if idSym.Kind != symbol.KindChannel && idSym.Kind != symbol.KindSequence &&
-			idSym.Kind != symbol.KindStage {
-			ctx.Diagnostics.Add(
-				diagnostics.Errorf(
-					ctx.AST,
-					"%s is not a channel, sequence, or stage",
-					idName,
-				),
-			)
-			return
-		}
-
-		// Only do type checking for channels (sequences/stages accept any input for
-		// activation)
-		if idSym.Kind == symbol.KindChannel {
-			valueType := idSym.Type.Unwrap()
-			if err = atypes.Check(
-				ctx.Constraints,
-				sourceType,
-				valueType,
-				ctx.AST,
-				"routing table output to channel",
-			); err != nil {
-				ctx.Diagnostics.Add(diagnostics.Errorf(
-					ctx.AST,
-					"type mismatch: output type %s does not match channel %s value type %s",
-					sourceType,
-					idName,
-					valueType,
-				))
-				return
-			}
-		}
+		analyzeIdentifier(context.Child(ctx, idNode), prevNode, isLastNode)
 	} else if expr := ctx.AST.Expression(); expr != nil {
 		AnalyzeSingleExpression(context.Child(ctx, expr))
 	}
