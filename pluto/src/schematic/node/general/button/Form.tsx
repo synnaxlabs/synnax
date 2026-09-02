@@ -97,7 +97,10 @@ export const ButtonForm = (): ReactElement => (
     <Tabs.Content itemKey="style">
       <Form.Wrapper x>
         <Flex.Box y align="stretch" grow gap="small">
-          <Label.Form path="label" omit={["align", "maxInlineSize", "level"]} />
+          <Label.Form
+            path="label"
+            omit={["align", "maxInlineSize", "level", "direction"]}
+          />
           <Flex.Box x>
             <Form.ColorField path="color" />
             <Form.SizeField defaultValue="medium" />

@@ -205,12 +205,13 @@ describe("ButtonForm", () => {
     expect(getByText("M").closest("button")?.classList).toContain("pluto--selected");
   });
 
-  it("should not render the label size field", () => {
+  it("should not render the label size and direction fields", () => {
     const { queryByText } = render(
       <FormWrapper>
         <ButtonForm />
       </FormWrapper>,
     );
     expect(queryByText("Label size")).toBeNull();
+    expect(queryByText("Label direction")).toBeNull();
   });
 });
