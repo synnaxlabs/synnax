@@ -30,15 +30,9 @@ type Clock interface {
 	// After returns a channel that will receive the current time after the duration
 	// elapses.
 	After(time.Duration) <-chan time.Time
-	// AfterFunc schedules fn to be called after the duration elapses and returns a
-	// Timer that can be used to cancel the call. If Stop is called before fn would have
-	// run, fn is not called.
-	AfterFunc(time.Duration, func()) Timer
 	// AfterFuncAt schedules fn to be called at the deadline and returns a Timer that
 	// can be used to cancel the call. fn runs immediately if the deadline has already
-	// passed. Prefer it over AfterFunc whenever the caller holds a deadline: the clock
-	// resolves it in one step, so time advancing since the Now that produced the
-	// deadline cannot push the call late.
+	// passed. If Stop is called before fn would have run, fn is not called.
 	AfterFuncAt(time.Time, func()) Timer
 }
 
@@ -50,8 +44,6 @@ var Real Clock = real{}
 func (real) Now() time.Time { return time.Now() }
 
 func (real) After(d time.Duration) <-chan time.Time { return time.After(d) }
-
-func (real) AfterFunc(d time.Duration, f func()) Timer { return time.AfterFunc(d, f) }
 
 func (real) AfterFuncAt(t time.Time, f func()) Timer {
 	return time.AfterFunc(time.Until(t), f)
@@ -80,7 +72,7 @@ func (f *Fake) Now() time.Time {
 
 // After returns a channel that will receive the current time after the duration
 // elapses. The channel is buffered so that Advance's send never blocks, even if an
-// AfterFunc goroutine reading it has already exited via Stop.
+// AfterFuncAt goroutine reading it has already exited via Stop.
 func (f *Fake) After(d time.Duration) <-chan time.Time {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -105,12 +97,6 @@ func (f *Fake) scheduleLocked(at time.Time) <-chan time.Time {
 	}
 	f.timers = append(f.timers, &fakeTimer{at: at, ch: ch})
 	return ch
-}
-
-// AfterFunc schedules fn to run from a goroutine after the duration elapses, calling it
-// unless the returned Timer's Stop method wins the race first.
-func (f *Fake) AfterFunc(d time.Duration, fn func()) Timer {
-	return newFakeFuncTimer(f.After(d), fn)
 }
 
 // AfterFuncAt schedules fn to run from a goroutine at the given deadline, calling it
@@ -156,7 +142,7 @@ func (t *fakeFuncTimer) claim() bool {
 }
 
 // Stop cancels the timer, returning true if it had not already fired or been stopped.
-// On the winning call it releases the AfterFunc goroutine.
+// On the winning call it releases the AfterFuncAt goroutine.
 func (t *fakeFuncTimer) Stop() bool {
 	if !t.claim() {
 		return false
@@ -167,7 +153,8 @@ func (t *fakeFuncTimer) Stop() bool {
 
 // Advance advances the clock by the given duration. It fires any timers whose deadline
 // has been crossed and removes them from the list of pending timers. Channel sends
-// happen after f.mu is released so that timer receivers (including AfterFunc callbacks)
+// happen after f.mu is released so that timer receivers (including AfterFuncAt
+// callbacks)
 // can safely call back into the clock without deadlocking.
 func (f *Fake) Advance(d time.Duration) {
 	f.mu.Lock()
