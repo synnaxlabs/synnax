@@ -50,8 +50,6 @@ type nodeImpl struct {
 	memBase       uint32
 	params        []uint64
 	offsets       []int
-	initialized   bool
-	isEntryNode   bool
 	selIdx        int
 	clock         telem.MonoClock
 	nodeKeySetter NodeKeySetter
@@ -110,13 +108,6 @@ func (n *nodeImpl) Next(ctx node.Context) {
 			ctx.ReportError(errors.Newf("WASM trap in node %s: %v", n.ir.Key, r))
 		}
 	}()
-
-	if n.isEntryNode {
-		if n.initialized {
-			return
-		}
-		n.initialized = true
-	}
 
 	// A $sel-only change re-points without emitting; the value fires on the next input.
 	if n.selIdx >= 0 && !n.dataFresh() {
@@ -306,7 +297,6 @@ func (n *nodeImpl) Next(ctx node.Context) {
 
 func (n *nodeImpl) Reset() {
 	n.State.Reset()
-	n.initialized = false
 	if n.nodeKeySetter != nil {
 		n.nodeKeySetter.ClearNode(n.ir.Key)
 	}
