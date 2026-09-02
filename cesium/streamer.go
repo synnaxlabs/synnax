@@ -92,7 +92,7 @@ func NewTranslatedStreamer[I, O any](
 		return nil, ErrDBClosed
 	}
 	return &streamer[I, O]{
-		StreamerConfig:    cfg,
+		sendOpenAck:       cfg.SendOpenAck,
 		keys:              set.New(cfg.Channels...),
 		relay:             db.relay,
 		translateResponse: translateResponse,
@@ -106,7 +106,7 @@ type streamer[I any, O any] struct {
 	translateRequest  func(I) StreamerRequest
 	translateResponse func(StreamerResponse) O
 	keys              set.Set[channel.Key]
-	StreamerConfig
+	sendOpenAck       bool
 }
 
 var _ Streamer[StreamerRequest, StreamerResponse] = (*streamer[StreamerRequest, StreamerResponse])(
@@ -120,7 +120,7 @@ func (s *streamer[I, O]) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	frames, disconnect := s.relay.connect()
 	sCtx.Go(func(ctx context.Context) error {
 		defer disconnect()
-		if s.SendOpenAck {
+		if s.sendOpenAck {
 			if err := signal.SendUnderContext(
 				ctx,
 				s.Out.Inlet(),
