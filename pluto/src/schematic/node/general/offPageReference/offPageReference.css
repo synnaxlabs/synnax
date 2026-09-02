@@ -10,6 +10,12 @@
  */
 
 .pluto-arrow {
+    /* Symbol containers unfill every svg. Restore fill-based icons. */
+    .pluto-icon[fill="currentColor"] {
+        fill: currentcolor;
+        stroke-width: 0;
+    }
+
     &.pluto--location-top {
         transform: rotate(-90deg);
     }
@@ -74,10 +80,6 @@
 
     * {
         color: inherit;
-    }
-
-    > .pluto-icon {
-        fill: var(--off-page-text-color);
     }
 }
 
