@@ -10,7 +10,7 @@
 
 import { Icon, Text, Flex } from "@synnaxlabs/pluto";
 import "@/styles/release-diagrams.css";
-const { date, version, title, breakingChanges } = Astro.props;
+const { date, version, title, breakingChanges, npmVersion = version } = Astro.props;
 const firstPart = version.split(".").slice(0, 2).join(".");
 ---
 
@@ -40,11 +40,15 @@ const firstPart = version.split(".").slice(0, 2).join(".");
             <Text.Text href={`https://pypi.org/project/synnax/${firstPart}/`}>
                 <Icon.Python className="link" />
             </Text.Text>
-            <Text.Text
-                href={`https://npmjs.com/package/@synnaxlabs/client/v/${version}`}
-            >
-                <Icon.TypeScript className="link" />
-            </Text.Text>
+            {
+                npmVersion != null && (
+                    <Text.Text
+                        href={`https://npmjs.com/package/@synnaxlabs/client/v/${npmVersion}`}
+                    >
+                        <Icon.TypeScript className="link" />
+                    </Text.Text>
+                )
+            }
         </Flex.Box>
     </Flex.Box>
     <Flex.Box direction="y" className="details">
