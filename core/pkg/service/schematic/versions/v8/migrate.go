@@ -35,51 +35,44 @@ var Migration = gorp.NewEntryMigration("v57_drop_node_measured", MigrateSchemati
 // A scale written before it could rotate stores "left" and sizes its bar together with
 // the tick gutter beside it.
 const (
-	scaleVariant     = "scale"
-	verticalScale    = "top"
-	horizontalScale  = "right"
-	scaleGutter      = 26
-	variantField     = "variant"
-	orientationField = "orientation"
-	dimensionsField  = "dimensions"
-	indicatorField   = "indicator"
-	showScaleField   = "showScale"
-	widthField       = "width"
+	verticalScale   = "top"
+	horizontalScale = "right"
+	scaleGutter     = 26
 )
 
 // NormalizeScales restates every stored scale in s as a vertical bar sized without its
 // gutter, leaving the rest of the configs untouched.
 func NormalizeScales(s Schematic) {
 	for _, cfg := range s.Configs {
-		variant, ok := cfg[variantField].(string)
-		if !ok || variant != scaleVariant {
+		variant, ok := cfg["variant"].(string)
+		if !ok || variant != "scale" {
 			continue
 		}
-		o, ok := cfg[orientationField].(string)
+		o, ok := cfg["orientation"].(string)
 		if ok && (o == verticalScale || o == horizontalScale) {
 			continue
 		}
-		cfg[orientationField] = verticalScale
+		cfg["orientation"] = verticalScale
 		narrowScaleBar(cfg)
 	}
 }
 
 // narrowScaleBar takes the gutter off cfg's width. Hidden ticks reserved none.
 func narrowScaleBar(cfg msgpack.EncodedJSON) {
-	if indicator, ok := cfg[indicatorField].(map[string]any); ok {
-		if shown, ok := indicator[showScaleField].(bool); ok && !shown {
+	if indicator, ok := cfg["indicator"].(map[string]any); ok {
+		if shown, ok := indicator["showScale"].(bool); ok && !shown {
 			return
 		}
 	}
-	dims, ok := cfg[dimensionsField].(map[string]any)
+	dims, ok := cfg["dimensions"].(map[string]any)
 	if !ok {
 		return
 	}
-	width, ok := dims[widthField].(float64)
+	width, ok := dims["width"].(float64)
 	if !ok {
 		return
 	}
-	dims[widthField] = math.Max(0, width-scaleGutter)
+	dims["width"] = math.Max(0, width-scaleGutter)
 }
 
 // ScaleMigration restates the axis and bar width of stored scales.
