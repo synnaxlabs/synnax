@@ -336,8 +336,8 @@ func expectOutput[T telem.Sample](
 
 var _ = Describe("WASM", func() {
 	Describe("Param count validation", func() {
-		// withInputCount returns a copy of prog whose "add" function declares n
-		// inputs, simulating a compiler that miscounts against the WASM export.
+		// withInputCount returns a copy of prog whose "add" function declares n inputs,
+		// simulating a compiler that miscounts against the WASM export.
 		withInputCount := func(prog program.Program, n int) program.Program {
 			functions := slices.Clone(prog.Functions)
 			for i := range functions {

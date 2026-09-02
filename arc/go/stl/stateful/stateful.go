@@ -178,9 +178,7 @@ func NewSymbols() []*symbol.Symbol {
 	return []*symbol.Symbol{mod}
 }
 
-func (*Host) Create(node.Config) (node.Node, error) {
-	return nil, query.ErrNotFound
-}
+func (*Host) Create(node.Config) (node.Node, error) { return nil, query.ErrNotFound }
 
 type i32Compatible interface {
 	uint8 | uint16 | uint32 | int8 | int16 | int32
