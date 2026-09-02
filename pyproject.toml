@@ -16,9 +16,6 @@ requires-python = ">=3.12,<4"
 [dependency-groups]
 dev = ["vermin>=1.8.0,<2"]
 
-[tool.uv]
-managed = true
-
 [tool.uv.workspace]
 members = ["alamos/py", "client/py", "freighter/py", "integration", "x/py"]
 

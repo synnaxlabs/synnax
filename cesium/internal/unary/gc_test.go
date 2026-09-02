@@ -496,7 +496,8 @@ var _ = Describe("Garbage Collection", func() {
 						for series := range f.Series() {
 							actual = append(
 								actual,
-								telem.UnmarshalSeries[int64](series)...)
+								telem.UnmarshalSeries[int64](series)...,
+							)
 						}
 						Expect(actual).To(Equal(expected))
 					},

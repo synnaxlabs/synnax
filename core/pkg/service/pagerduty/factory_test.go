@@ -207,9 +207,9 @@ var _ = Describe("Factory", func() {
 
 			It("Should configure and auto-start a task", func(ctx context.Context) {
 				cfg := encodeConfig(pd.TaskConfig{
-					StartConfig: task.StartConfig{AutoStart: true},
-					RoutingKey:  strings.Repeat("a", 32),
-					Alerts:      []pd.Alert{{Status: "test-status"}},
+					AutoStart:  true,
+					RoutingKey: strings.Repeat("a", 32),
+					Alerts:     []pd.Alert{{Status: "test-status"}},
 				})
 				t := task.Task{
 					Key: uuid.New(), Name: "PagerDuty Test",
@@ -249,9 +249,9 @@ var _ = Describe("Factory", func() {
 			It("Should write an error status for an invalid auto-start config at boot",
 				func(ctx context.Context) {
 					cfg := encodeConfig(pd.TaskConfig{
-						StartConfig: task.StartConfig{AutoStart: true},
-						RoutingKey:  "tooshort",
-						Alerts:      []pd.Alert{{Status: "test-status"}},
+						AutoStart:  true,
+						RoutingKey: "tooshort",
+						Alerts:     []pd.Alert{{Status: "test-status"}},
 					})
 					t := task.Task{
 						Key: uuid.New(), Name: "test", Type: pd.AlertTaskType,
@@ -271,9 +271,9 @@ var _ = Describe("Factory", func() {
 			It("Should auto-start at boot when auto_start is true",
 				func(ctx context.Context) {
 					cfg := encodeConfig(pd.TaskConfig{
-						StartConfig: task.StartConfig{AutoStart: true},
-						RoutingKey:  strings.Repeat("a", 32),
-						Alerts:      []pd.Alert{{Status: "test-status"}},
+						AutoStart:  true,
+						RoutingKey: strings.Repeat("a", 32),
+						Alerts:     []pd.Alert{{Status: "test-status"}},
 					})
 					t := task.Task{
 						Key: uuid.New(), Name: "PagerDuty Test",

@@ -9,7 +9,7 @@
 
 import "@/feature/auth/ConnectionGuard.css";
 
-import { type connection } from "@synnaxlabs/client";
+import { AccessDeniedError, type connection } from "@synnaxlabs/client";
 import {
   Access,
   Button,
@@ -66,21 +66,66 @@ const AwaitPermissions = ({ children }: PropsWithChildren): ReactNode => {
 };
 
 const PermissionsFallback = (props: Errors.FallbackProps): ReactElement => {
-  const { resetErrorBoundary } = props;
+  const { error, resetErrorBoundary } = props;
   const invalidate = Access.useInvalidatePermissions();
+  const logout = Session.useLogout();
+  const retry = (): void => {
+    invalidate({});
+    resetErrorBoundary();
+  };
+  // A denial is an expected state, not a crash, so it gets a calm surface.
+  if (AccessDeniedError.matches(error) || AccessDeniedError.matches(error.cause))
+    return <Denied retry={retry} />;
   return (
     <Errors.Fallback {...props}>
-      <Button.Button
-        variant="filled"
-        onClick={() => {
-          invalidate({});
-          resetErrorBoundary();
-        }}
-      >
+      <Button.Button variant="outlined" onClick={logout}>
+        <Icon.Logout />
+        Log out
+      </Button.Button>
+      <Button.Button variant="filled" onClick={retry}>
         <Icon.Refresh />
         Retry
       </Button.Button>
     </Errors.Fallback>
+  );
+};
+
+interface DeniedProps {
+  retry: () => void;
+}
+
+const Denied = ({ retry }: DeniedProps): ReactElement => {
+  const logout = Session.useLogout();
+  const target = Session.Core.useSelectSelected();
+  const subject =
+    target != null && target.username !== "" ? ` for ${target.username}` : "";
+  return (
+    <Shell.Frame className={CSS.B("connection")} connection={target}>
+      <Flex.Box
+        y
+        align="center"
+        justify="center"
+        gap={8}
+        className={CSS.cls(CSS.BE("connection", "body"), CSS.M("revealed"))}
+      >
+        <Status.Orbital core={<PlatformShell.Mark />} />
+        <Status.Summary
+          variant="warning"
+          message="Console access denied"
+          description={`Check role permissions${subject}.`}
+        />
+        <Flex.Box x gap="small">
+          <Button.Button variant="outlined" onClick={logout}>
+            <Icon.Logout />
+            Log out
+          </Button.Button>
+          <Button.Button variant="filled" onClick={retry}>
+            <Icon.Refresh />
+            Retry
+          </Button.Button>
+        </Flex.Box>
+      </Flex.Box>
+    </Shell.Frame>
   );
 };
 

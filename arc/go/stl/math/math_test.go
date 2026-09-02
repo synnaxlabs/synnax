@@ -39,10 +39,10 @@ func makeMathGraph(nodeType string, dt types.Type) graph.Graph {
 			"input": {"type": "input"},
 			"math":  {"type": nodeType},
 		},
-		Edges: graph.Edges{{Edge: ir.Edge{
+		Edges: graph.Edges{{
 			Source: ir.Handle{Node: "input", Param: ir.DefaultOutputParam},
 			Target: ir.Handle{Node: "math", Param: ir.DefaultInputParam},
-		}}},
+		}},
 		Functions: []ir.Function{{
 			Key:     "input",
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: dt}},
@@ -63,14 +63,14 @@ func makeMathGraphWithReset(nodeType string, dt, resetDt types.Type) graph.Graph
 			"math":         {"type": nodeType},
 		},
 		Edges: graph.Edges{
-			{Edge: ir.Edge{
+			{
 				Source: ir.Handle{Node: "input", Param: ir.DefaultOutputParam},
 				Target: ir.Handle{Node: "math", Param: ir.DefaultInputParam},
-			}},
-			{Edge: ir.Edge{
+			},
+			{
 				Source: ir.Handle{Node: "reset_signal", Param: ir.DefaultOutputParam},
 				Target: ir.Handle{Node: "math", Param: "reset"},
-			}},
+			},
 		},
 		Functions: []ir.Function{
 			{
@@ -103,7 +103,7 @@ func openMath(
 	s := node.New(analyzed)
 	inputNode := s.Node("input")
 	m := MustSucceed(stlmath.NewHost(ctx, nil))
-	n := MustSucceed(m.Create(ctx, node.Config{
+	n := MustSucceed(m.Create(node.Config{
 		Node:    ir.Node{Key: "math", Type: nodeType, Inputs: inputs},
 		State:   s.Node("math"),
 		Program: program.Program{IR: analyzed},
@@ -123,7 +123,7 @@ func openMathWithReset(
 	s := node.New(analyzed)
 	inputNode := s.Node("input")
 	m := MustSucceed(stlmath.NewHost(ctx, nil))
-	n := MustSucceed(m.Create(ctx, node.Config{
+	n := MustSucceed(m.Create(node.Config{
 		Node:    ir.Node{Key: "math", Type: nodeType, Inputs: inputs},
 		State:   s.Node("math"),
 		Program: program.Program{IR: analyzed},
@@ -363,7 +363,7 @@ var _ = Describe("Math", func() {
 					State:   s.Node("math"),
 					Program: program.Program{IR: analyzed},
 				}
-				n := MustSucceed(compound.Create(ctx, cfg))
+				n := MustSucceed(compound.Create(cfg))
 				Expect(n).ToNot(BeNil())
 			},
 		)
@@ -380,7 +380,7 @@ var _ = Describe("Math", func() {
 					Node:  ir.Node{Key: "math", Type: "math.derivative"},
 					State: s.Node("math"),
 				}
-				n := MustSucceed(compound.Create(ctx, cfg))
+				n := MustSucceed(compound.Create(cfg))
 				Expect(n).ToNot(BeNil())
 			},
 		)
@@ -774,10 +774,10 @@ var _ = Describe("Derivative", func() {
 				"input": {"type": "input"},
 				"deriv": {"type": "derivative"},
 			},
-			Edges: graph.Edges{{Edge: ir.Edge{
+			Edges: graph.Edges{{
 				Source: ir.Handle{Node: "input", Param: ir.DefaultOutputParam},
 				Target: ir.Handle{Node: "deriv", Param: ir.DefaultInputParam},
-			}}},
+			}},
 			Functions: []ir.Function{{
 				Key:     "input",
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: dt}},
@@ -792,7 +792,7 @@ var _ = Describe("Derivative", func() {
 		s := node.New(analyzed)
 		inputNode := s.Node("input")
 		m := MustSucceed(stlmath.NewHost(ctx, nil))
-		n := MustSucceed(m.Create(ctx, node.Config{
+		n := MustSucceed(m.Create(node.Config{
 			Node:  ir.Node{Type: "derivative"},
 			State: s.Node("deriv"),
 		}))
@@ -910,7 +910,7 @@ var _ = Describe("Construction validation", func() {
 				State:   s.Node("math"),
 				Program: program.Program{IR: prog},
 			}
-			Expect(m.Create(ctx, cfg)).Error().To(MatchError(node.ErrInputNotFound))
+			Expect(m.Create(cfg)).Error().To(MatchError(node.ErrInputNotFound))
 		},
 		Entry("avg", "avg"),
 		Entry("min", "min"),
@@ -936,7 +936,7 @@ var _ = Describe("Construction validation", func() {
 				State:   s.Node("math"),
 				Program: program.Program{IR: prog},
 			}
-			Expect(m.Create(ctx, cfg)).Error().To(BeAValidationPathError())
+			Expect(m.Create(cfg)).Error().To(BeAValidationPathError())
 		},
 	)
 })

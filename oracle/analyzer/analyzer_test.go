@@ -3042,7 +3042,8 @@ Mode enum {
 				Expect(viewForm.Fields[0].Name).To(Equal("type"))
 
 				fields := resolution.UnifiedVariantFields(
-					table.MustGet("panel.Tab"), form.Variants[1], table)
+					table.MustGet("panel.Tab"), form.Variants[1], table,
+				)
 				names := make([]string, len(fields))
 				for i, f := range fields {
 					names[i] = f.Name
@@ -3053,7 +3054,8 @@ Mode enum {
 				Expect(empty.Synthetic).To(BeTrue())
 				Expect(empty.Form.(resolution.StructForm).Fields).To(BeEmpty())
 				Expect(table.StructTypes()).NotTo(ContainElement(
-					HaveField("QualifiedName", "panel.TabViewPayload")))
+					HaveField("QualifiedName", "panel.TabViewPayload"),
+				))
 			},
 		)
 

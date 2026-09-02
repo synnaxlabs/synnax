@@ -105,8 +105,6 @@ type WriterConfig struct {
 	//
 	// When AutoIndex is true, any index channel referenced by a data channel in
 	// Channels but not present in Channels itself is implicitly opened for writing.
-	// SetAuthority calls that name a data channel propagate to its index channel,
-	// taking the max authority across all data channels referencing that index.
 	//
 	// When AutoIndex is true and Start is left as its zero value, Start is defaulted to
 	// telem.Now() at open time so the writer's domain aligns with the auto-stamped
@@ -216,11 +214,8 @@ func (db *DB) newStreamWriter(
 		domainWriters  = make(map[ChannelKey]*idxWriter)
 		virtualWriters map[ChannelKey]*virtual.Writer
 		controlUpdate  ControlUpdate
-		keyToIdx       map[ChannelKey]*idxWriter
+		keyToIdx       = make(map[ChannelKey]*idxWriter, len(cfg.Channels))
 	)
-	if *cfg.AutoIndex {
-		keyToIdx = make(map[ChannelKey]*idxWriter, len(cfg.Channels))
-	}
 	defer func() {
 		if err == nil {
 			return
@@ -291,10 +286,8 @@ func (db *DB) newStreamWriter(
 			idxW.writingToIdx = true
 			idxW.internal[key] = &unaryWriterState{Writer: *uW}
 			domainWriters[u.Channel().Index] = idxW
-			if *cfg.AutoIndex {
-				keyToIdx[key] = idxW
-				idxW.dataAuth = make(map[ChannelKey]xcontrol.Authority)
-			}
+			keyToIdx[key] = idxW
+			idxW.dataAuth = make(map[ChannelKey]xcontrol.Authority)
 		}
 		if transfer.Occurred() {
 			controlUpdate.Transfers = append(controlUpdate.Transfers, transfer)
@@ -330,11 +323,9 @@ func (db *DB) newStreamWriter(
 			controlUpdate.Transfers = append(controlUpdate.Transfers, transfer)
 		}
 		idxW.internal[key] = &unaryWriterState{Writer: *uW}
-		if *cfg.AutoIndex {
-			keyToIdx[key] = idxW
-			if idxW.writingToIdx {
-				idxW.dataAuth[key] = cfg.authority(i)
-			}
+		keyToIdx[key] = idxW
+		if idxW.writingToIdx {
+			idxW.dataAuth[key] = cfg.authority(i)
 		}
 	}
 

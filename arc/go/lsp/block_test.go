@@ -79,10 +79,8 @@ var _ = Describe("Block Expressions with GlobalResolver", func() {
 				})).To(Succeed())
 
 				hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-					TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-						TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-						Position:     protocol.Position{Line: 0, Character: 7},
-					},
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 0, Character: 7},
 				}))
 				Expect(hover).ToNot(BeNil())
 				Expect(HoverContents(hover)).To(ContainSubstring("chan f32"))
@@ -103,10 +101,8 @@ var _ = Describe("Block Expressions with GlobalResolver", func() {
 
 			// Hover over "temp_c" on line 0, position 13
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 13},
-				},
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+				Position:     protocol.Position{Line: 0, Character: 13},
 			}))
 			Expect(hover).ToNot(BeNil())
 			Expect(HoverContents(hover)).To(ContainSubstring("chan f32"))
@@ -304,11 +300,9 @@ var _ = Describe("Block Expressions with GlobalResolver", func() {
 			})).To(Succeed())
 
 			edit := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
-					Position:     protocol.Position{Line: 0, Character: 0},
-				},
-				NewName: "value",
+				TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+				Position:     protocol.Position{Line: 0, Character: 0},
+				NewName:      "value",
 			}))
 			Expect(edit).ToNot(BeNil())
 			Expect(edit.Changes).To(HaveKey(docURI))
@@ -333,11 +327,9 @@ var _ = Describe("Block Expressions with GlobalResolver", func() {
 				})).To(Succeed())
 
 				edit := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
-					TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-						TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
-						Position:     protocol.Position{Line: 0, Character: 7},
-					},
-					NewName: "newSensor",
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+					Position:     protocol.Position{Line: 0, Character: 7},
+					NewName:      "newSensor",
 				}))
 				Expect(edit).To(BeNil())
 			},

@@ -545,10 +545,8 @@ var _ = Describe("External Change Notifications", func() {
 				go func() {
 					defer wg.Done()
 					params := &protocol.PrepareRenameParams{
-						TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-							TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
-							Position:     protocol.Position{Line: 1, Character: 6},
-						},
+						TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+						Position:     protocol.Position{Line: 1, Character: 6},
 					}
 					for {
 						select {

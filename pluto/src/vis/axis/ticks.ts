@@ -101,7 +101,7 @@ class TimeTickFactory implements TickFactory {
   }
 
   normalTickLabel(date: Date): string {
-    let formatted: string = `:${date.getSeconds()}`;
+    let formatted: string = `${date.getSeconds()}`;
     const ms = date.getMilliseconds();
     if (ms !== 0) {
       const millisecondString = Math.round(date.getMilliseconds())
@@ -113,6 +113,7 @@ class TimeTickFactory implements TickFactory {
     // If we're on the minute, show the hour and minute in military time
     if (date.getSeconds() === 0 && ms === 0)
       formatted = `${date.getHours()}:${date.getMinutes().toString().padStart(2, "0")}`;
+    else formatted += "s";
     return formatted;
   }
 }

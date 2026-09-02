@@ -260,7 +260,7 @@ var _ = Describe("Actions", func() {
 				Expect(tabKeys(split.Last)).To(Equal([]uuid.UUID{tab2}))
 				refreshed := MustBeOk(tabByKey(next.Root, tab2))
 				Expect(refreshed.Variant).To(Equal(panel.ResourceTab{
-					TabBase:  panel.TabBase{Key: tab2},
+					Key:      tab2,
 					Resource: tabResource(tab2),
 				}))
 			},
@@ -371,7 +371,7 @@ var _ = Describe("Actions", func() {
 				Expect(tabKeys(split.Last)).To(Equal([]uuid.UUID{tab2}))
 				refreshed := MustBeOk(tabByKey(next.Root, tab2))
 				Expect(refreshed.Variant).To(Equal(panel.ResourceTab{
-					TabBase:  panel.TabBase{Key: tab2},
+					Key:      tab2,
 					Resource: tabResource(tab2),
 				}))
 			},
@@ -979,7 +979,7 @@ var _ = Describe("Actions", func() {
 				Expect(tabKeys(next.Root)).To(Equal([]uuid.UUID{tab1}))
 				refreshed := MustBeOk(tabByKey(next.Root, tab1))
 				Expect(refreshed.Variant).To(Equal(panel.ResourceTab{
-					TabBase:  panel.TabBase{Key: tab1},
+					Key:      tab1,
 					Resource: tabResource(tab3),
 				}))
 			},

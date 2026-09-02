@@ -987,7 +987,7 @@ sensor_chan -> {
 			)
 
 			It(
-				"Should detect when routing target is not a channel or sequence",
+				"Should reject a routing entry writing to a top-level variable",
 				func(bCtx SpecContext) {
 					localResolver := []symbol.Symbol{
 						{
@@ -995,17 +995,15 @@ sensor_chan -> {
 							Kind: symbol.KindChannel,
 							Type: types.Chan(types.F64()),
 						},
-						{
-							Name: "some_var",
-							Kind: symbol.KindVariable,
-							Type: types.F64(),
-						},
 					}
 					ast := MustSucceed(parser.Parse(`
 func demux(value f64) (high f64, low f64) {
     high = value
     low = value
 }
+
+some_var f64 := 0.0
+
 sensor_chan -> demux{} -> {
     high: true -> some_var
 }`))
@@ -1014,7 +1012,138 @@ sensor_chan -> demux{} -> {
 					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 					Expect(
 						(*ctx.Diagnostics)[0].Message,
-					).To(Equal("some_var is not a channel, sequence, or stage"))
+					).To(Equal("cannot write to top-level variable 'some_var'"))
+				},
+			)
+
+			It(
+				"Should accept a stage-scoped variable as a routing entry sink",
+				func(bCtx SpecContext) {
+					localResolver := []symbol.Symbol{
+						{
+							Name: "sensor_chan",
+							Kind: symbol.KindChannel,
+							Type: types.Chan(types.F64()),
+						},
+					}
+					ast := MustSucceed(parser.Parse(`
+func demux(value f64) (high f64, low f64) {
+    high = value
+    low = value
+}
+
+sequence main {
+    stage first {
+        v := false
+        sensor_chan -> demux{} -> {
+            high: true -> v
+        }
+    }
+}`))
+					ctx := context.NewRoot(bCtx, ast, NewRoot(nil, localResolver...))
+					analyzer.AnalyzeProgram(ctx)
+					Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				},
+			)
+
+			It(
+				"Should accept a channel alias as a routing entry sink",
+				func(bCtx SpecContext) {
+					localResolver := []symbol.Symbol{
+						{
+							Name: "sensor_chan",
+							Kind: symbol.KindChannel,
+							Type: types.Chan(types.F64()),
+						},
+						{
+							Name: "out_chan",
+							Kind: symbol.KindChannel,
+							Type: types.Chan(types.U8()),
+						},
+					}
+					ast := MustSucceed(parser.Parse(`
+func demux(value f64) (high f64, low f64) {
+    high = value
+    low = value
+}
+
+sequence main {
+    stage first {
+        sink := out_chan
+        sensor_chan -> demux{} -> {
+            high: true -> sink
+        }
+    }
+}`))
+					ctx := context.NewRoot(bCtx, ast, NewRoot(nil, localResolver...))
+					analyzer.AnalyzeProgram(ctx)
+					Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				},
+			)
+
+			It(
+				"Should reject a channel-read variable as a routing entry sink",
+				func(bCtx SpecContext) {
+					localResolver := []symbol.Symbol{
+						{
+							Name: "sensor_chan",
+							Kind: symbol.KindChannel,
+							Type: types.Chan(types.F64()),
+						},
+					}
+					ast := MustSucceed(parser.Parse(`
+func demux(value f64) (high f64, low f64) {
+    high = value
+    low = value
+}
+
+sequence main {
+    stage first {
+        v := sensor_chan * 2.0
+        sensor_chan -> demux{} -> {
+            high: 1.0 -> v
+        }
+    }
+}`))
+					ctx := context.NewRoot(bCtx, ast, NewRoot(nil, localResolver...))
+					analyzer.AnalyzeProgram(ctx)
+					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+					Expect(
+						(*ctx.Diagnostics)[0].Message,
+					).To(Equal("cannot write to channel-read variable v; it is read-only"))
+				},
+			)
+
+			It(
+				"Should reject a routing entry whose output does not match the variable sink type",
+				func(bCtx SpecContext) {
+					localResolver := []symbol.Symbol{
+						{
+							Name: "sensor_chan",
+							Kind: symbol.KindChannel,
+							Type: types.Chan(types.F64()),
+						},
+					}
+					ast := MustSucceed(parser.Parse(`
+func demux(value f64) (high f64, low f64) {
+    high = value
+    low = value
+}
+
+sequence main {
+    stage first {
+        v u8 := 0
+        sensor_chan -> demux{} -> {
+            high: "hello" -> v
+        }
+    }
+}`))
+					ctx := context.NewRoot(bCtx, ast, NewRoot(nil, localResolver...))
+					analyzer.AnalyzeProgram(ctx)
+					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+					Expect(
+						(*ctx.Diagnostics)[0].Message,
+					).To(ContainSubstring("does not match channel v value type u8"))
 				},
 			)
 
@@ -1338,7 +1467,7 @@ sequence main {
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect(
 					(*ctx.Diagnostics)[0].Message,
-				).To(ContainSubstring("type mismatch"))
+				).To(ContainSubstring("does not match channel log_str value type str"))
 			},
 		)
 
@@ -1373,7 +1502,9 @@ sequence main {
 				ctx := context.NewRoot(bCtx, ast, NewRoot(customResolver))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-				Expect(ctx.Diagnostics.String()).To(ContainSubstring("type mismatch"))
+				Expect(ctx.Diagnostics.String()).To(
+					ContainSubstring("does not match channel log_str value type str"),
+				)
 			},
 		)
 
@@ -3183,7 +3314,8 @@ var _ = Describe("Trigger call-site conflict", func() {
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(ctx.Diagnostics.String()).To(ContainSubstring(
-				"too many arguments for func 'consumer': expected at most 0"))
+				"too many arguments for func 'consumer': expected at most 0",
+			))
 		},
 	)
 })
@@ -3197,7 +3329,8 @@ var _ = Describe("Duplicate call-site argument", func() {
 		analyzer.AnalyzeProgram(ctx)
 		Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 		Expect(ctx.Diagnostics.String()).To(ContainSubstring(
-			"duplicate argument for parameter 'v' of func 'sink'"))
+			"duplicate argument for parameter 'v' of func 'sink'",
+		))
 	})
 })
 
@@ -3324,7 +3457,8 @@ var _ = Describe("Routing entry strictness", func() {
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(ctx.Diagnostics.String()).To(ContainSubstring(
-				"missing required argument for parameter 'value' of func 'amplify'"))
+				"missing required argument for parameter 'value' of func 'amplify'",
+			))
 		},
 	)
 

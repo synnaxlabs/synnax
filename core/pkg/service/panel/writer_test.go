@@ -333,7 +333,7 @@ var _ = Describe("Writer", func() {
 				tabs := MustBeOk(asLeaf(retrieve(ctx, key).Root)).Tabs
 				Expect(tabs).To(HaveLen(1))
 				Expect(tabs[0].Variant).To(Equal(panel.ResourceTab{
-					TabBase:  panel.TabBase{Key: tabKey},
+					Key:      tabKey,
 					Resource: tabResource(tabKey),
 				}))
 			},

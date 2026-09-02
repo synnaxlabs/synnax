@@ -962,7 +962,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						MustSucceed(w.Close())
 						Expect(w.Commit(ctx)).Error().To(SatisfyAll(
 							MatchError(unary.ErrWriterClosed),
-							MatchError(ContainSubstring("channel [gauss]<%d>", key))),
+							MatchError(ContainSubstring("channel [gauss]<%d>", key)),
+						),
 						)
 						Expect(w.Write(telem.Series{Data: []byte{1, 2, 3}})).
 							Error().To(MatchError(unary.ErrWriterClosed))

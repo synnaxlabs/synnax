@@ -22,7 +22,9 @@
     justify-content: center;
 
     & .pluto-string-display__content {
-        padding: 0.5rem 1.5rem;
+        /* No vertical padding: the root sets an explicit height per text level and
+        centers the line box, so padding here would push past it. */
+        padding: 0 1.5rem;
         flex-grow: 1;
 
         /* Lets the content shrink below the text's intrinsic width so the ellipsis

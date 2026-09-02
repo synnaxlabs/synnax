@@ -12,6 +12,8 @@ package wasm_test
 import (
 	"context"
 	"math"
+	"slices"
+	"strconv"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -148,7 +150,7 @@ func (h *testHarness) SetInput(nodeKey string, idx int, data, time telem.Series)
 }
 
 func (h *testHarness) CreateNode(ctx context.Context, nodeKey string) node.Node {
-	return MustSucceed(h.factory.Create(ctx, node.Config{
+	return MustSucceed(h.factory.Create(node.Config{
 		Node:    h.analyzed.Nodes.Get(nodeKey),
 		State:   h.state.Node(nodeKey),
 		Program: h.prog,
@@ -303,16 +305,12 @@ func binaryOpGraph(
 		},
 		Edges: graph.Edges{
 			{
-				Edge: ir.Edge{
-					Source: ir.Handle{Node: lhsKey, Param: ir.DefaultOutputParam},
-					Target: ir.Handle{Node: opKey, Param: "lhs"},
-				},
+				Source: ir.Handle{Node: lhsKey, Param: ir.DefaultOutputParam},
+				Target: ir.Handle{Node: opKey, Param: "lhs"},
 			},
 			{
-				Edge: ir.Edge{
-					Source: ir.Handle{Node: rhsKey, Param: ir.DefaultOutputParam},
-					Target: ir.Handle{Node: opKey, Param: "rhs"},
-				},
+				Source: ir.Handle{Node: rhsKey, Param: ir.DefaultOutputParam},
+				Target: ir.Handle{Node: opKey, Param: "rhs"},
 			},
 		},
 	}
@@ -330,13 +328,78 @@ func expectOutput[T telem.Sample](
 ) {
 	g := singleFunctionGraph(key, outType, body)
 	h := newHarness(ctx, g, chans)
-	defer h.Close(ctx)
+	DeferCleanup(h.Close)
 	h.Execute(ctx, key)
 	result := h.Output(key, 0)
 	Expect(telem.UnmarshalSeries[T](result)[0]).To(Equal(expected))
 }
 
 var _ = Describe("WASM", func() {
+	Describe("Param count validation", func() {
+		// withInputCount returns a copy of prog whose "add" function declares n inputs,
+		// simulating a compiler that miscounts against the WASM export.
+		withInputCount := func(prog program.Program, n int) program.Program {
+			functions := slices.Clone(prog.Functions)
+			for i := range functions {
+				if functions[i].Key != "add" {
+					continue
+				}
+				inputs := make(types.Params, n)
+				for j := range inputs {
+					inputs[j] = types.Param{Name: "lhs", Type: types.I64()}
+				}
+				functions[i].Inputs = inputs
+			}
+			prog.Functions = functions
+			return prog
+		}
+
+		DescribeTable("Should reject an input count the WASM export cannot accept",
+			func(ctx SpecContext, declared int) {
+				g := binaryOpGraph(
+					"add",
+					"lhs",
+					"rhs",
+					types.I64(),
+					types.I64(),
+					`{ return lhs + rhs }`,
+				)
+				h := newHarness(ctx, g, nil)
+				DeferCleanup(h.Close)
+
+				Expect(h.factory.Create(node.Config{
+					Node:    h.analyzed.Nodes.Get("add"),
+					State:   h.state.Node("add"),
+					Program: withInputCount(h.prog, declared),
+				})).Error().To(MatchError(ContainSubstring(
+					"node add declares " + strconv.Itoa(declared) +
+						" inputs, but \"add\" takes 2 params",
+				)))
+			},
+			Entry("too few", 1),
+			Entry("too many", 3),
+		)
+
+		It("Should accept a matching input count", func(ctx SpecContext) {
+			g := binaryOpGraph(
+				"add",
+				"lhs",
+				"rhs",
+				types.I64(),
+				types.I64(),
+				`{ return lhs + rhs }`,
+			)
+			h := newHarness(ctx, g, nil)
+			DeferCleanup(h.Close)
+
+			Expect(MustSucceed(h.factory.Create(node.Config{
+				Node:    h.analyzed.Nodes.Get("add"),
+				State:   h.state.Node("add"),
+				Program: withInputCount(h.prog, 2),
+			}))).ToNot(BeNil())
+		})
+	})
+
 	Describe("Next with mismatched input lengths", func() {
 		It(
 			"Should repeat shorter input values to match longest input",
@@ -350,7 +413,7 @@ var _ = Describe("WASM", func() {
 					`{ return lhs + rhs }`,
 				)
 				h := newHarness(ctx, g, nil)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				h.SetInput(
 					"lhs",
@@ -389,7 +452,7 @@ var _ = Describe("WASM", func() {
 				`{ return lhs * rhs }`,
 			)
 			h := newHarness(ctx, g, nil)
-			defer h.Close(ctx)
+			DeferCleanup(h.Close)
 
 			h.SetInput(
 				"a",
@@ -422,7 +485,7 @@ var _ = Describe("WASM", func() {
 					`{ return lhs - rhs }`,
 				)
 				h := newHarness(ctx, g, nil)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				h.SetInput(
 					"x",
@@ -491,27 +554,23 @@ var _ = Describe("WASM", func() {
 					},
 					Edges: graph.Edges{
 						{
-							Edge: ir.Edge{
-								Source: ir.Handle{
-									Node:  "a",
-									Param: ir.DefaultOutputParam,
-								},
-								Target: ir.Handle{Node: "math_ops", Param: "a"},
+							Source: ir.Handle{
+								Node:  "a",
+								Param: ir.DefaultOutputParam,
 							},
+							Target: ir.Handle{Node: "math_ops", Param: "a"},
 						},
 						{
-							Edge: ir.Edge{
-								Source: ir.Handle{
-									Node:  "b",
-									Param: ir.DefaultOutputParam,
-								},
-								Target: ir.Handle{Node: "math_ops", Param: "b"},
+							Source: ir.Handle{
+								Node:  "b",
+								Param: ir.DefaultOutputParam,
 							},
+							Target: ir.Handle{Node: "math_ops", Param: "b"},
 						},
 					},
 				}
 				h := newHarness(ctx, g, nil)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				h.SetInput(
 					"a",
@@ -551,7 +610,7 @@ var _ = Describe("WASM", func() {
 				return count
 			}`)
 			h := newHarness(ctx, g, nil)
-			defer h.Close(ctx)
+			DeferCleanup(h.Close)
 
 			n := h.CreateNode(ctx, "counter")
 
@@ -611,7 +670,7 @@ var _ = Describe("WASM", func() {
 					},
 				}
 				h := newHarness(ctx, g, nil)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				n1 := h.CreateNode(ctx, "c1")
 				n2 := h.CreateNode(ctx, "c2")
@@ -671,7 +730,7 @@ var _ = Describe("WASM", func() {
 					},
 				}
 				h := newHarness(ctx, g, nil)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				n1 := h.CreateNode(ctx, "counter_a")
 				n2 := h.CreateNode(ctx, "counter_b")
@@ -750,18 +809,16 @@ var _ = Describe("WASM", func() {
 					},
 					Edges: graph.Edges{
 						{
-							Edge: ir.Edge{
-								Source: ir.Handle{
-									Node:  "x",
-									Param: ir.DefaultOutputParam,
-								},
-								Target: ir.Handle{Node: "add", Param: "x"},
+							Source: ir.Handle{
+								Node:  "x",
+								Param: ir.DefaultOutputParam,
 							},
+							Target: ir.Handle{Node: "add", Param: "x"},
 						},
 					},
 				}
 				h := newHarness(ctx, g, nil)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				h.SetInput(
 					"x",
@@ -806,15 +863,13 @@ var _ = Describe("WASM", func() {
 				},
 				Edges: graph.Edges{
 					{
-						Edge: ir.Edge{
-							Source: ir.Handle{Node: "a", Param: ir.DefaultOutputParam},
-							Target: ir.Handle{Node: "compute", Param: "a"},
-						},
+						Source: ir.Handle{Node: "a", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "compute", Param: "a"},
 					},
 				},
 			}
 			h := newHarness(ctx, g, nil)
-			defer h.Close(ctx)
+			DeferCleanup(h.Close)
 
 			h.SetInput(
 				"a",
@@ -857,23 +912,21 @@ var _ = Describe("WASM", func() {
 				},
 				Edges: graph.Edges{
 					{
-						Edge: ir.Edge{
-							Source: ir.Handle{
-								Node:  "value",
-								Param: ir.DefaultOutputParam,
-							},
-							Target: ir.Handle{Node: "scale", Param: "value"},
+						Source: ir.Handle{
+							Node:  "value",
+							Param: ir.DefaultOutputParam,
 						},
+						Target: ir.Handle{Node: "scale", Param: "value"},
 					},
 				},
 			}
 			h := newHarness(ctx, g, nil)
-			defer h.Close(ctx)
+			DeferCleanup(h.Close)
 
 			h.SetInput(
 				"value",
 				0,
-				telem.NewSeriesV[float64](10.0, 20.0),
+				telem.NewSeriesV(10.0, 20.0),
 				telem.NewSeriesSecondsTSV(1, 2),
 			)
 			h.Execute(ctx, "scale")
@@ -897,7 +950,7 @@ var _ = Describe("WASM", func() {
 				g.Functions[0].Inputs[1].Value = int64(10)
 
 				h := newHarness(ctx, g, nil)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				h.SetInput(
 					"x",
@@ -949,23 +1002,21 @@ var _ = Describe("WASM", func() {
 					},
 					Edges: graph.Edges{
 						{
-							Edge: ir.Edge{
-								Source: ir.Handle{
-									Node:  "value",
-									Param: ir.DefaultOutputParam,
-								},
-								Target: ir.Handle{Node: "scale", Param: "value"},
+							Source: ir.Handle{
+								Node:  "value",
+								Param: ir.DefaultOutputParam,
 							},
+							Target: ir.Handle{Node: "scale", Param: "value"},
 						},
 					},
 				}
 				h := newHarness(ctx, g, nil)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				h.SetInput(
 					"value",
 					0,
-					telem.NewSeriesV[float64](10.0, 20.0),
+					telem.NewSeriesV(10.0, 20.0),
 					telem.NewSeriesSecondsTSV(1, 2),
 				)
 				h.Execute(ctx, "scale")
@@ -999,7 +1050,7 @@ trigger_ch -> emit_period{period=1s}
 				h := newTextHarness(ctx, source, chans,
 					channels.Digest{Key: 100, DataType: telem.Float32T},
 				)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				h.SetInput(
 					"on_trigger_ch_0",
@@ -1028,7 +1079,7 @@ trigger_ch -> emit_period{period=1s}
 					`{ return lhs + rhs }`,
 				)
 				h := newHarness(ctx, g, nil)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				lhsSeries := telem.NewSeriesV[int64](1, 2, 3)
 				lhsSeries.Alignment = 100
@@ -1101,27 +1152,23 @@ trigger_ch -> emit_period{period=1s}
 					},
 					Edges: graph.Edges{
 						{
-							Edge: ir.Edge{
-								Source: ir.Handle{
-									Node:  "a",
-									Param: ir.DefaultOutputParam,
-								},
-								Target: ir.Handle{Node: "math_ops", Param: "a"},
+							Source: ir.Handle{
+								Node:  "a",
+								Param: ir.DefaultOutputParam,
 							},
+							Target: ir.Handle{Node: "math_ops", Param: "a"},
 						},
 						{
-							Edge: ir.Edge{
-								Source: ir.Handle{
-									Node:  "b",
-									Param: ir.DefaultOutputParam,
-								},
-								Target: ir.Handle{Node: "math_ops", Param: "b"},
+							Source: ir.Handle{
+								Node:  "b",
+								Param: ir.DefaultOutputParam,
 							},
+							Target: ir.Handle{Node: "math_ops", Param: "b"},
 						},
 					},
 				}
 				h := newHarness(ctx, g, nil)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				aSeries := telem.NewSeriesV[int64](2, 3)
 				aSeries.Alignment = 200
@@ -1169,7 +1216,7 @@ trigger_ch -> emit_period{period=1s}
 							return history[0] }`,
 				)
 				h := newHarness(ctx, g, nil)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				n := h.CreateNode(ctx, "series_state")
 
@@ -1493,7 +1540,7 @@ trigger_ch -> emit_period{period=1s}
 				`{ return lhs ^ rhs }`,
 			)
 			h := newHarness(ctx, g, nil)
-			defer h.Close(ctx)
+			DeferCleanup(h.Close)
 
 			h.SetInput(
 				"base_src",
@@ -1525,18 +1572,18 @@ trigger_ch -> emit_period{period=1s}
 				`{ return lhs ^ rhs }`,
 			)
 			h := newHarness(ctx, g, nil)
-			defer h.Close(ctx)
+			DeferCleanup(h.Close)
 
 			h.SetInput(
 				"base_src",
 				0,
-				telem.NewSeriesV[float64](2.0, 3.0, 4.0),
+				telem.NewSeriesV(2.0, 3.0, 4.0),
 				telem.NewSeriesSecondsTSV(1, 2, 3),
 			)
 			h.SetInput(
 				"exp_src",
 				0,
-				telem.NewSeriesV[float64](2.0),
+				telem.NewSeriesV(2.0),
 				telem.NewSeriesSecondsTSV(1),
 			)
 
@@ -1559,7 +1606,7 @@ trigger_ch -> emit_period{period=1s}
 				`{ return lhs ^ rhs }`,
 			)
 			h := newHarness(ctx, g, nil)
-			defer h.Close(ctx)
+			DeferCleanup(h.Close)
 
 			h.SetInput(
 				"base_src",
@@ -1591,18 +1638,18 @@ trigger_ch -> emit_period{period=1s}
 				`{ return lhs ^ rhs }`,
 			)
 			h := newHarness(ctx, g, nil)
-			defer h.Close(ctx)
+			DeferCleanup(h.Close)
 
 			h.SetInput(
 				"base_src",
 				0,
-				telem.NewSeriesV[float64](3.0),
+				telem.NewSeriesV(3.0),
 				telem.NewSeriesSecondsTSV(1),
 			)
 			h.SetInput(
 				"exp_src",
 				0,
-				telem.NewSeriesV[float64](1.0, 2.0, 3.0),
+				telem.NewSeriesV(1.0, 2.0, 3.0),
 				telem.NewSeriesSecondsTSV(1, 2, 3),
 			)
 
@@ -1625,7 +1672,7 @@ trigger_ch -> emit_period{period=1s}
 				`{ return lhs ^ rhs }`,
 			)
 			h := newHarness(ctx, g, nil)
-			defer h.Close(ctx)
+			DeferCleanup(h.Close)
 
 			h.SetInput(
 				"base_src",
@@ -1657,18 +1704,18 @@ trigger_ch -> emit_period{period=1s}
 				`{ return lhs ^ rhs }`,
 			)
 			h := newHarness(ctx, g, nil)
-			defer h.Close(ctx)
+			DeferCleanup(h.Close)
 
 			h.SetInput(
 				"base_src",
 				0,
-				telem.NewSeriesV[float64](4.0, 27.0),
+				telem.NewSeriesV(4.0, 27.0),
 				telem.NewSeriesSecondsTSV(1, 2),
 			)
 			h.SetInput(
 				"exp_src",
 				0,
-				telem.NewSeriesV[float64](0.5, 1.0/3.0),
+				telem.NewSeriesV(0.5, 1.0/3.0),
 				telem.NewSeriesSecondsTSV(1, 2),
 			)
 
@@ -1724,13 +1771,13 @@ trigger_ch -> emit_period{period=1s}
 					"val_src": {"type": "val_src"},
 					"neg_c":   {"type": "neg_c"},
 				},
-				Edges: graph.Edges{{Edge: ir.Edge{
+				Edges: graph.Edges{{
 					Source: ir.Handle{Node: "val_src", Param: ir.DefaultOutputParam},
 					Target: ir.Handle{Node: "neg_c", Param: "val"},
-				}}},
+				}},
 			}
 			h := newHarness(ctx, g, nil)
-			defer h.Close(ctx)
+			DeferCleanup(h.Close)
 			h.SetInput(
 				"val_src",
 				0,
@@ -1771,17 +1818,17 @@ trigger_ch -> emit_period{period=1s}
 					"val_src": {"type": "val_src"},
 					"neg_cf":  {"type": "neg_cf"},
 				},
-				Edges: graph.Edges{{Edge: ir.Edge{
+				Edges: graph.Edges{{
 					Source: ir.Handle{Node: "val_src", Param: ir.DefaultOutputParam},
 					Target: ir.Handle{Node: "neg_cf", Param: "val"},
-				}}},
+				}},
 			}
 			h := newHarness(ctx, g, nil)
-			defer h.Close(ctx)
+			DeferCleanup(h.Close)
 			h.SetInput(
 				"val_src",
 				0,
-				telem.NewSeriesV[float64](1.5, -2.5, 3.5),
+				telem.NewSeriesV(1.5, -2.5, 3.5),
 				telem.NewSeriesSecondsTSV(1, 2, 3),
 			)
 			changed := h.Execute(ctx, "neg_cf")
@@ -1823,20 +1870,20 @@ trigger_ch -> emit_period{period=1s}
 						"str_len": {"type": "str_len"},
 					},
 					Edges: graph.Edges{
-						{Edge: ir.Edge{
+						{
 							Source: ir.Handle{
 								Node:  "source",
 								Param: ir.DefaultOutputParam,
 							},
 							Target: ir.Handle{Node: "str_len", Param: "s"},
-						}},
+						},
 					},
 				}
 				h := newHarness(ctx, g, nil)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				h.SetInput("source", 0,
-					telem.NewSeriesV[string]("hello", "world!", ""),
+					telem.NewSeriesV("hello", "world!", ""),
 					telem.NewSeriesSecondsTSV(1, 2, 3),
 				)
 
@@ -1878,20 +1925,20 @@ trigger_ch -> emit_period{period=1s}
 						"qstr_len": {"type": "qstr_len"},
 					},
 					Edges: graph.Edges{
-						{Edge: ir.Edge{
+						{
 							Source: ir.Handle{
 								Node:  "source",
 								Param: ir.DefaultOutputParam,
 							},
 							Target: ir.Handle{Node: "qstr_len", Param: "s"},
-						}},
+						},
 					},
 				}
 				h := newHarness(ctx, g, nil)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				h.SetInput("source", 0,
-					telem.NewSeriesV[string]("hello", "world!", ""),
+					telem.NewSeriesV("hello", "world!", ""),
 					telem.NewSeriesSecondsTSV(1, 2, 3),
 				)
 
@@ -1945,31 +1992,31 @@ trigger_ch -> emit_period{period=1s}
 						"qstr_concat": {"type": "qstr_concat"},
 					},
 					Edges: graph.Edges{
-						{Edge: ir.Edge{
+						{
 							Source: ir.Handle{
 								Node:  "src_a",
 								Param: ir.DefaultOutputParam,
 							},
 							Target: ir.Handle{Node: "qstr_concat", Param: "a"},
-						}},
-						{Edge: ir.Edge{
+						},
+						{
 							Source: ir.Handle{
 								Node:  "src_b",
 								Param: ir.DefaultOutputParam,
 							},
 							Target: ir.Handle{Node: "qstr_concat", Param: "b"},
-						}},
+						},
 					},
 				}
 				h := newHarness(ctx, g, nil)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				h.SetInput("src_a", 0,
-					telem.NewSeriesV[string]("hello"),
+					telem.NewSeriesV("hello"),
 					telem.NewSeriesSecondsTSV(1),
 				)
 				h.SetInput("src_b", 0,
-					telem.NewSeriesV[string](" world"),
+					telem.NewSeriesV(" world"),
 					telem.NewSeriesSecondsTSV(1),
 				)
 
@@ -2017,19 +2064,19 @@ trigger_ch -> emit_period{period=1s}
 						"labeler": {"type": "labeler"},
 					},
 					Edges: graph.Edges{
-						{Edge: ir.Edge{
+						{
 							Source: ir.Handle{
 								Node:  "source",
 								Param: ir.DefaultOutputParam,
 							},
 							Target: ir.Handle{Node: "labeler", Param: "x"},
-						}},
+						},
 					},
 				}
 				// The key assertion: this must not panic on Density() for
 				// string-typed named outputs in either the compiler or runtime.
 				h := newHarness(ctx, g, nil)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				h.SetInput("labeler", 0,
 					telem.NewSeriesV[int64](5),
@@ -2076,19 +2123,19 @@ trigger_ch -> emit_period{period=1s}
 						"tagger": {"type": "tagger"},
 					},
 					Edges: graph.Edges{
-						{Edge: ir.Edge{
+						{
 							Source: ir.Handle{
 								Node:  "source",
 								Param: ir.DefaultOutputParam,
 							},
 							Target: ir.Handle{Node: "tagger", Param: "x"},
-						}},
+						},
 					},
 				}
 				// Must not panic even with multiple string outputs
 				// contributing to the memory offset calculation.
 				h := newHarness(ctx, g, nil)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				h.SetInput("tagger", 0,
 					telem.NewSeriesV[int64](42),
@@ -2129,17 +2176,17 @@ trigger_ch -> emit_period{period=1s}
 						"stringify": {"type": "stringify"},
 					},
 					Edges: graph.Edges{
-						{Edge: ir.Edge{
+						{
 							Source: ir.Handle{
 								Node:  "source",
 								Param: ir.DefaultOutputParam,
 							},
 							Target: ir.Handle{Node: "stringify", Param: "x"},
-						}},
+						},
 					},
 				}
 				h := newHarness(ctx, g, nil)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				h.SetInput("source", 0,
 					telem.NewSeriesV[int64](1, 22, 333),
@@ -2190,17 +2237,17 @@ trigger_ch -> emit_period{period=1s}
 						"labeler": {"type": "labeler"},
 					},
 					Edges: graph.Edges{
-						{Edge: ir.Edge{
+						{
 							Source: ir.Handle{
 								Node:  "source",
 								Param: ir.DefaultOutputParam,
 							},
 							Target: ir.Handle{Node: "labeler", Param: "x"},
-						}},
+						},
 					},
 				}
 				h := newHarness(ctx, g, nil)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				h.SetInput("source", 0,
 					telem.NewSeriesV[int64](5, 10, 15),
@@ -2221,9 +2268,9 @@ trigger_ch -> emit_period{period=1s}
 		)
 	})
 
-	Describe("No-Input Node Initialization", func() {
+	Describe("No-Input Node Execution", func() {
 		It(
-			"Should execute only once per stage entry for nodes with no inputs",
+			"Should execute on every Next call for nodes with no inputs",
 			func(ctx SpecContext) {
 				// Create a stateful counter function with no inputs
 				g := singleFunctionGraph("init_counter", types.I64(), `{
@@ -2232,7 +2279,7 @@ trigger_ch -> emit_period{period=1s}
 				return count
 			}`)
 				h := newHarness(ctx, g, nil)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				n := h.CreateNode(ctx, "init_counter")
 
@@ -2243,18 +2290,21 @@ trigger_ch -> emit_period{period=1s}
 					telem.UnmarshalSeries[int64](h.Output("init_counter", 0))[0],
 				).To(Equal(int64(1)))
 
-				// Second call - should NOT execute again (initialized flag)
+				// Second call - with no data inputs RefreshInputs never gates,
+				// so the node runs again and the counter advances
 				changed = h.NextChanged(ctx, n, "init_counter")
-				// No output should be marked as changed since we didn't execute
-				Expect(changed.Contains(ir.DefaultOutputParam)).To(BeFalse())
+				Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+				Expect(
+					telem.UnmarshalSeries[int64](h.Output("init_counter", 0))[0],
+				).To(Equal(int64(2)))
 
 				// Reset the node (simulating stage re-entry)
 				n.Reset()
 
-				// Third call - should execute again after reset
+				// Third call - Reset cleared the stateful scope, so the counter
+				// restarts
 				changed = h.NextChanged(ctx, n, "init_counter")
 				Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
-				// Stage re-entry re-initializes the counter
 				Expect(
 					telem.UnmarshalSeries[int64](h.Output("init_counter", 0))[0],
 				).To(Equal(int64(1)))
@@ -2262,7 +2312,7 @@ trigger_ch -> emit_period{period=1s}
 		)
 
 		It(
-			"Should execute every time for non-entry nodes with inputs",
+			"Should execute every time for nodes with edge-fed inputs",
 			func(ctx SpecContext) {
 				g := binaryOpGraph(
 					"add",
@@ -2273,7 +2323,7 @@ trigger_ch -> emit_period{period=1s}
 					`{ return lhs + rhs }`,
 				)
 				h := newHarness(ctx, g, nil)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				n := h.CreateNode(ctx, "add")
 
@@ -2353,18 +2403,16 @@ trigger_ch -> emit_period{period=1s}
 				},
 				Edges: graph.Edges{
 					{
-						Edge: ir.Edge{
-							Source: ir.Handle{
-								Node:  "input_source",
-								Param: ir.DefaultOutputParam,
-							},
-							Target: ir.Handle{Node: "add_input", Param: "y"},
+						Source: ir.Handle{
+							Node:  "input_source",
+							Param: ir.DefaultOutputParam,
 						},
+						Target: ir.Handle{Node: "add_input", Param: "y"},
 					},
 				},
 			}
 			h := newHarness(ctx, g, nil)
-			defer h.Close(ctx)
+			DeferCleanup(h.Close)
 
 			// Set up input source output
 			h.SetInput(
@@ -2419,18 +2467,16 @@ trigger_ch -> emit_period{period=1s}
 				},
 				Edges: graph.Edges{
 					{
-						Edge: ir.Edge{
-							Source: ir.Handle{
-								Node:  "input_source",
-								Param: ir.DefaultOutputParam,
-							},
-							Target: ir.Handle{Node: "multi_input", Param: "c"},
+						Source: ir.Handle{
+							Node:  "input_source",
+							Param: ir.DefaultOutputParam,
 						},
+						Target: ir.Handle{Node: "multi_input", Param: "c"},
 					},
 				},
 			}
 			h := newHarness(ctx, g, nil)
-			defer h.Close(ctx)
+			DeferCleanup(h.Close)
 
 			h.SetInput(
 				"input_source",
@@ -2479,23 +2525,21 @@ trigger_ch -> emit_period{period=1s}
 				},
 				Edges: graph.Edges{
 					{
-						Edge: ir.Edge{
-							Source: ir.Handle{
-								Node:  "input_source",
-								Param: ir.DefaultOutputParam,
-							},
-							Target: ir.Handle{Node: "scale_input", Param: "value"},
+						Source: ir.Handle{
+							Node:  "input_source",
+							Param: ir.DefaultOutputParam,
 						},
+						Target: ir.Handle{Node: "scale_input", Param: "value"},
 					},
 				},
 			}
 			h := newHarness(ctx, g, nil)
-			defer h.Close(ctx)
+			DeferCleanup(h.Close)
 
 			h.SetInput(
 				"input_source",
 				0,
-				telem.NewSeriesV[float64](10.0),
+				telem.NewSeriesV(10.0),
 				telem.NewSeriesSecondsTSV(1),
 			)
 
@@ -2539,18 +2583,16 @@ trigger_ch -> emit_period{period=1s}
 				},
 				Edges: graph.Edges{
 					{
-						Edge: ir.Edge{
-							Source: ir.Handle{
-								Node:  "input_source",
-								Param: ir.DefaultOutputParam,
-							},
-							Target: ir.Handle{Node: "offset_func", Param: "value"},
+						Source: ir.Handle{
+							Node:  "input_source",
+							Param: ir.DefaultOutputParam,
 						},
+						Target: ir.Handle{Node: "offset_func", Param: "value"},
 					},
 				},
 			}
 			h := newHarness(ctx, g, nil)
-			defer h.Close(ctx)
+			DeferCleanup(h.Close)
 
 			h.SetInput(
 				"input_source",
@@ -2602,23 +2644,21 @@ trigger_ch -> emit_period{period=1s}
 				},
 				Edges: graph.Edges{
 					{
-						Edge: ir.Edge{
-							Source: ir.Handle{
-								Node:  "input_source",
-								Param: ir.DefaultOutputParam,
-							},
-							Target: ir.Handle{Node: "scale_neg", Param: "value"},
+						Source: ir.Handle{
+							Node:  "input_source",
+							Param: ir.DefaultOutputParam,
 						},
+						Target: ir.Handle{Node: "scale_neg", Param: "value"},
 					},
 				},
 			}
 			h := newHarness(ctx, g, nil)
-			defer h.Close(ctx)
+			DeferCleanup(h.Close)
 
 			h.SetInput(
 				"input_source",
 				0,
-				telem.NewSeriesV[float64](10.0),
+				telem.NewSeriesV(10.0),
 				telem.NewSeriesSecondsTSV(1),
 			)
 
@@ -2656,7 +2696,7 @@ trigger_ch -> emit_period{period=1s}
 					h := newHarness(ctx, g, chans,
 						channels.Digest{Key: 100, DataType: telem.Int32T},
 					)
-					defer h.Close(ctx)
+					DeferCleanup(h.Close)
 
 					h.Execute(ctx, "write_test")
 
@@ -2689,7 +2729,7 @@ trigger_ch -> emit_period{period=1s}
 					h := newHarness(ctx, g, chans,
 						channels.Digest{Key: 100, Index: 101, DataType: telem.Int32T},
 					)
-					defer h.Close(ctx)
+					DeferCleanup(h.Close)
 
 					h.Execute(ctx, "write_indexed")
 
@@ -2724,7 +2764,7 @@ trigger_ch -> emit_period{period=1s}
 					h := newHarness(ctx, g, chans,
 						channels.Digest{Key: 200, Index: 201, DataType: telem.Int32T},
 					)
-					defer h.Close(ctx)
+					DeferCleanup(h.Close)
 
 					before := telem.Now()
 					h.Execute(ctx, "write_ts")
@@ -2766,7 +2806,7 @@ trigger_ch -> emit_period{period=1s}
 						channels.Digest{Key: 10, Index: 11, DataType: telem.Int32T},
 						channels.Digest{Key: 20, Index: 21, DataType: telem.Int32T},
 					)
-					defer h.Close(ctx)
+					DeferCleanup(h.Close)
 
 					h.Execute(ctx, "multi_write")
 
@@ -2805,7 +2845,7 @@ trigger_ch -> emit_period{period=1s}
 					h := newHarness(ctx, g, chans,
 						channels.Digest{Key: 300, Index: 301, DataType: telem.Int32T},
 					)
-					defer h.Close(ctx)
+					DeferCleanup(h.Close)
 
 					n := h.CreateNode(ctx, "seq_write")
 					timestamps := make([]telem.TimeStamp, 3)
@@ -2846,7 +2886,7 @@ trigger_ch -> emit_period{period=1s}
 				h := newHarness(ctx, g, chans,
 					channels.Digest{Key: 700, Index: 701, DataType: telem.Int32T},
 				)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				h.Execute(ctx, "i32_write")
 
@@ -2875,7 +2915,7 @@ trigger_ch -> emit_period{period=1s}
 				h := newHarness(ctx, g, chans,
 					channels.Digest{Key: 800, Index: 801, DataType: telem.Uint8T},
 				)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				h.Execute(ctx, "u8_write")
 
@@ -2906,7 +2946,7 @@ trigger_ch -> emit_period{period=1s}
 				h := newHarness(ctx, g, chans,
 					channels.Digest{Key: 1100, Index: 1101, DataType: telem.Float64T},
 				)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				h.Execute(ctx, "f64_write")
 
@@ -2935,7 +2975,7 @@ trigger_ch -> emit_period{period=1s}
 				h := newHarness(ctx, g, chans,
 					channels.Digest{Key: 1200, Index: 1201, DataType: telem.Float32T},
 				)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				h.Execute(ctx, "f32_write")
 
@@ -2953,7 +2993,7 @@ trigger_ch -> emit_period{period=1s}
 			It("Should handle empty flush when no writes occur", func(ctx SpecContext) {
 				g := singleFunctionGraph("no_write", types.I32(), `{ return 42 }`)
 				h := newHarness(ctx, g, nil)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				h.Execute(ctx, "no_write")
 
@@ -2982,7 +3022,7 @@ trigger_ch -> emit_period{period=1s}
 					h := newHarness(ctx, g, chans,
 						channels.Digest{Key: 900, Index: 0, DataType: telem.Int32T},
 					)
-					defer h.Close(ctx)
+					DeferCleanup(h.Close)
 
 					h.Execute(ctx, "zero_idx")
 
@@ -3015,7 +3055,7 @@ trigger_ch -> emit_period{period=1s}
 					h := newHarness(ctx, g, chans,
 						channels.Digest{Key: 1000, Index: 1001, DataType: telem.Int32T},
 					)
-					defer h.Close(ctx)
+					DeferCleanup(h.Close)
 
 					h.Execute(ctx, "imperative_vs_decl")
 
@@ -3061,18 +3101,16 @@ trigger_ch -> emit_period{period=1s}
 					},
 					Edges: graph.Edges{
 						{
-							Edge: ir.Edge{
-								Source: ir.Handle{
-									Node:  "trigger_source",
-									Param: ir.DefaultOutputParam,
-								},
-								Target: ir.Handle{Node: "void_func", Param: "trigger"},
+							Source: ir.Handle{
+								Node:  "trigger_source",
+								Param: ir.DefaultOutputParam,
 							},
+							Target: ir.Handle{Node: "void_func", Param: "trigger"},
 						},
 					},
 				}
 				h := newHarness(ctx, g, nil)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				h.SetInput(
 					"trigger_source",
@@ -3128,15 +3166,13 @@ trigger_ch -> emit_period{period=1s}
 					},
 					Edges: graph.Edges{
 						{
-							Edge: ir.Edge{
-								Source: ir.Handle{
-									Node:  "trigger_source",
-									Param: ir.DefaultOutputParam,
-								},
-								Target: ir.Handle{
-									Node:  "void_with_state",
-									Param: "trigger",
-								},
+							Source: ir.Handle{
+								Node:  "trigger_source",
+								Param: ir.DefaultOutputParam,
+							},
+							Target: ir.Handle{
+								Node:  "void_with_state",
+								Param: "trigger",
 							},
 						},
 					},
@@ -3147,7 +3183,7 @@ trigger_ch -> emit_period{period=1s}
 					chans,
 					channels.Digest{Key: 100, DataType: telem.Int32T},
 				)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				h.SetInput(
 					"trigger_source",
@@ -3181,7 +3217,7 @@ trigger_ch -> emit_period{period=1s}
 
 	Describe("Flow Expression Execution", func() {
 		It(
-			"Should execute only once for a flow expression node with no inputs",
+			"Should execute on every Next for a flow expression node with no inputs",
 			func(ctx SpecContext) {
 				g := singleFunctionGraph("expression_0", types.I64(), `{
 				count i64 $= 0
@@ -3189,7 +3225,7 @@ trigger_ch -> emit_period{period=1s}
 				return count
 			}`)
 				h := newHarness(ctx, g, nil)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				n := h.CreateNode(ctx, "expression_0")
 				nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
@@ -3202,17 +3238,17 @@ trigger_ch -> emit_period{period=1s}
 				n.Next(nCtx)
 				Expect(
 					telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0],
-				).To(Equal(int64(1)))
+				).To(Equal(int64(2)))
 
 				n.Next(nCtx)
 				Expect(
 					telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0],
-				).To(Equal(int64(1)))
+				).To(Equal(int64(3)))
 			},
 		)
 
 		It(
-			"Should execute again after reset for a flow expression node with no inputs",
+			"Should re-initialize stateful variables on Reset for a flow expression node",
 			func(ctx SpecContext) {
 				g := singleFunctionGraph("expression_0", types.I64(), `{
 				count i64 $= 0
@@ -3220,7 +3256,7 @@ trigger_ch -> emit_period{period=1s}
 				return count
 			}`)
 				h := newHarness(ctx, g, nil)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				n := h.CreateNode(ctx, "expression_0")
 				var executions int
@@ -3238,41 +3274,15 @@ trigger_ch -> emit_period{period=1s}
 				n.Next(nCtx)
 				Expect(
 					telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0],
-				).To(Equal(int64(1)))
-				Expect(executions).To(Equal(1))
+				).To(Equal(int64(2)))
+				Expect(executions).To(Equal(2))
 
 				n.Reset()
 
 				n.Next(nCtx)
-				Expect(executions).To(Equal(2))
+				Expect(executions).To(Equal(3))
 				Expect(
 					telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0],
-				).To(Equal(int64(1)))
-			},
-		)
-
-		It(
-			"Should not treat non-expression nodes as expressions",
-			func(ctx SpecContext) {
-				g := singleFunctionGraph("expr_0", types.I64(), `{
-				count i64 $= 0
-				count = count + 1
-				return count
-			}`)
-				h := newHarness(ctx, g, nil)
-				defer h.Close(ctx)
-
-				n := h.CreateNode(ctx, "expr_0")
-				nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
-
-				n.Next(nCtx)
-				Expect(
-					telem.UnmarshalSeries[int64](h.Output("expr_0", 0))[0],
-				).To(Equal(int64(1)))
-
-				n.Next(nCtx)
-				Expect(
-					telem.UnmarshalSeries[int64](h.Output("expr_0", 0))[0],
 				).To(Equal(int64(1)))
 			},
 		)
@@ -3322,7 +3332,7 @@ trigger_ch -> emit_period{period=1s}
 				h := newHarness(ctx, g, chans,
 					channels.Digest{Key: 100, DataType: telem.Float32T},
 				)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				// Ingest initial channel value (5.0), execute, expect write (6.0)
 				fr := telem.Frame[uint32]{}
@@ -3395,13 +3405,11 @@ trigger_ch -> emit_period{period=1s}
 					},
 					Edges: graph.Edges{
 						{
-							Edge: ir.Edge{
-								Source: ir.Handle{
-									Node:  "input_source",
-									Param: ir.DefaultOutputParam,
-								},
-								Target: ir.Handle{Node: "count_rising", Param: "input"},
+							Source: ir.Handle{
+								Node:  "input_source",
+								Param: ir.DefaultOutputParam,
 							},
+							Target: ir.Handle{Node: "count_rising", Param: "input"},
 						},
 					},
 				}
@@ -3409,7 +3417,7 @@ trigger_ch -> emit_period{period=1s}
 				h := newHarness(ctx, g, chans,
 					channels.Digest{Key: 100, DataType: telem.Float32T},
 				)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				// Initial state: counter=0, input=0, prev initializes to 0
 				fr := telem.Frame[uint32]{}
@@ -3552,7 +3560,7 @@ trigger_ch -> emit_period{period=1s}
 				channels.Digest{Key: 101, DataType: telem.Float32T},
 				channels.Digest{Key: 102, DataType: telem.Float32T},
 			)
-			defer h.Close(ctx)
+			DeferCleanup(h.Close)
 
 			// Test: temp=25.5, pressure=101.3, expect result=126.8
 			fr := telem.Frame[uint32]{}
@@ -3647,13 +3655,13 @@ trigger_ch -> emit_period{period=1s}
 					channels.Digest{Key: 203, DataType: telem.Float64T},
 					channels.Digest{Key: 204, DataType: telem.Float64T},
 				)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				// Test: a=10.0, b=3.0
 				// Expected: sum=13.0, diff=7.0, product=30.0
 				fr := telem.Frame[uint32]{}
-				fr = fr.Append(200, telem.NewSeriesV[float64](10.0))
-				fr = fr.Append(201, telem.NewSeriesV[float64](3.0))
+				fr = fr.Append(200, telem.NewSeriesV(10.0))
+				fr = fr.Append(201, telem.NewSeriesV(3.0))
 				h.ChannelState().Ingest(fr)
 				h.Execute(ctx, "multi_op")
 				outFr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
@@ -3726,7 +3734,7 @@ trigger_ch -> emit_period{period=1s}
 					channels.Digest{Key: 300, DataType: telem.Float32T},
 					channels.Digest{Key: 301, DataType: telem.Float32T},
 				)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				// Test: value=7.0, expect squared=49.0
 				fr := telem.Frame[uint32]{}
@@ -3825,15 +3833,13 @@ trigger_ch -> emit_period{period=1s}
 					},
 					Edges: graph.Edges{
 						{
-							Edge: ir.Edge{
-								Source: ir.Handle{
-									Node:  "value_source",
-									Param: ir.DefaultOutputParam,
-								},
-								Target: ir.Handle{
-									Node:  "tolerance_check",
-									Param: "value",
-								},
+							Source: ir.Handle{
+								Node:  "value_source",
+								Param: ir.DefaultOutputParam,
+							},
+							Target: ir.Handle{
+								Node:  "tolerance_check",
+								Param: "value",
 							},
 						},
 					},
@@ -3842,7 +3848,7 @@ trigger_ch -> emit_period{period=1s}
 				h := newHarness(ctx, g, chans,
 					channels.Digest{Key: 400, DataType: telem.Float32T},
 				)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				// set_point=100.0, tolerance_upper=10.0, tolerance_lower=5.0
 				// upper_limit = 110.0, lower_limit = 95.0
@@ -3963,7 +3969,7 @@ input_val -> tolerance_alarm{tolerance_upper=10.0, tolerance_lower=5.0, set_poin
 					channels.Digest{Key: 200, DataType: telem.Float32T},
 					channels.Digest{Key: 300, DataType: telem.Uint8T},
 				)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				// set_point_ch has value 100.0
 				// tolerance_upper=10.0, tolerance_lower=5.0, samples=3
@@ -4094,7 +4100,7 @@ input_ch -> writer{output=write_target} -> sink_ch
 					channels.Digest{Key: 200, DataType: telem.Float32T},
 					channels.Digest{Key: 300, DataType: telem.Uint8T},
 				)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				// Set input value to 25.0, expect write_target to receive 50.0 (25 * 2)
 				h.SetInput(
@@ -4158,7 +4164,7 @@ input_ch -> writer{output=write_target} -> sink_ch
 					channels.Digest{Key: 200, DataType: telem.Float32T},
 					channels.Digest{Key: 300, DataType: telem.Uint8T},
 				)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				// Set input value to 10.0, expect write_target to receive 30.0 (10 * 3)
 				h.SetInput(
@@ -4218,7 +4224,7 @@ input_ch -> writer{} -> sink_ch
 					channels.Digest{Key: 200, DataType: telem.Float32T},
 					channels.Digest{Key: 300, DataType: telem.Uint8T},
 				)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				// Set input value to 5.0, expect output_ch to receive 20.0 (5 * 4)
 				h.SetInput(
@@ -4282,7 +4288,7 @@ input_ch -> writer{} -> sink_ch
 					channels.Digest{Key: 200, DataType: telem.Float32T},
 					channels.Digest{Key: 300, DataType: telem.Uint8T},
 				)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				// Set input value to 4.0, expect output_ch to receive 20.0 (4 * 5)
 				h.SetInput(
@@ -4345,7 +4351,7 @@ input_ch -> writer{} -> sink_ch
 					channels.Digest{Key: 200, DataType: telem.Float32T},
 					channels.Digest{Key: 300, DataType: telem.Uint8T},
 				)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				// Set input value to 10.0
 				// First write: 10 * 2 = 20
@@ -4413,7 +4419,7 @@ input_ch -> checker{} -> output_ch
 					channels.Digest{Key: 200, DataType: telem.Float32T},
 					channels.Digest{Key: 300, DataType: telem.Uint8T},
 				)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				// Set set_point_ch to 50.0
 				fr := telem.Frame[uint32]{}
@@ -4507,7 +4513,7 @@ input_2 -> increment{counter=counter_2} -> sink_2
 					channels.Digest{Key: 301, DataType: telem.Uint8T},
 					channels.Digest{Key: 302, DataType: telem.Uint8T},
 				)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				fr := telem.Frame[uint32]{}
 				fr = fr.Append(201, telem.NewSeriesV[float32](0.0))
@@ -4588,7 +4594,7 @@ input_ch -> count_local{} -> sink_ch
 					channels.Digest{Key: 200, DataType: telem.Float32T},
 					channels.Digest{Key: 300, DataType: telem.Uint8T},
 				)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				fr := telem.Frame[uint32]{}
 				fr = fr.Append(200, telem.NewSeriesV[float32](5.0))
@@ -4639,7 +4645,7 @@ input_ch -> count_local{} -> sink_ch
 					},
 				}
 				h := newHarness(ctx, g, nil)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 				h.Execute(ctx, "log_fn")
 			},
 		)
@@ -5143,7 +5149,7 @@ input_ch -> count_local{} -> sink_ch
 					return total
 				}`)
 				h := newHarness(ctx, g, nil)
-				defer h.Close(ctx)
+				DeferCleanup(h.Close)
 
 				n := h.CreateNode(ctx, "loop_state")
 				nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
@@ -5180,7 +5186,7 @@ var _ = Describe("Graph function variable parity", func() {
 			return x * 10
 		}`)
 			h := newHarness(ctx, g, nil)
-			defer h.Close(ctx)
+			DeferCleanup(h.Close)
 			h.Execute(ctx, "calc")
 			Expect(
 				telem.UnmarshalSeries[int64](h.Output("calc", 0))[0],
@@ -5195,7 +5201,7 @@ var _ = Describe("Graph function variable parity", func() {
 			return count
 		}`)
 		h := newHarness(ctx, g, nil)
-		defer h.Close(ctx)
+		DeferCleanup(h.Close)
 		n := h.CreateNode(ctx, "fresh")
 		for range 3 {
 			h.NextChanged(ctx, n, "fresh")
@@ -5212,7 +5218,7 @@ var _ = Describe("Graph function variable parity", func() {
 			return msg
 		}`)
 		h := newHarness(ctx, g, nil)
-		defer h.Close(ctx)
+		DeferCleanup(h.Close)
 		h.Execute(ctx, "greet")
 		Expect(
 			telem.UnmarshalSeries[string](h.Output("greet", 0))[0],
@@ -5229,7 +5235,7 @@ var _ = Describe("Graph function variable parity", func() {
 			return y
 		}`)
 			h := newHarness(ctx, g, nil)
-			defer h.Close(ctx)
+			DeferCleanup(h.Close)
 			n := h.CreateNode(ctx, "acc")
 			h.NextChanged(ctx, n, "acc")
 			Expect(

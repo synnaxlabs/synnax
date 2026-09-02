@@ -303,7 +303,8 @@ func (s *Graph) handleChanges(
 	}
 	updates = append(
 		updates,
-		s.reconcileQueued(ctx, nil, queued, unresolvedNames, analyzer)...)
+		s.reconcileQueued(ctx, nil, queued, unresolvedNames, analyzer)...,
+	)
 	s.mu.Unlock()
 	if len(updates) > 0 {
 		s.L.Info("updating channel data types", zap.Int("count", len(updates)))

@@ -15,6 +15,7 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/pem"
 	"net"
 	"os"
@@ -26,7 +27,12 @@ import (
 	"github.com/synnaxlabs/x/override"
 	xpem "github.com/synnaxlabs/x/pem"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
 )
+
+// nextSuffix names the files a replacement is written to before it is renamed over the
+// pair in use, so a failed signature or write never destroys the pair on disk.
+const nextSuffix = ".next"
 
 // FactoryConfig is the configuration for creating a new Factory.
 type FactoryConfig struct {
@@ -151,21 +157,68 @@ func (f *Factory) CreateCAPairIfMissing() error {
 	return f.CreateCAPair()
 }
 
-// CreateNodePairIfMissing creates a new node certificate and its private key if they do
-// not already exist.
-func (f *Factory) CreateNodePairIfMissing() error {
+// CreateNodePairIfStale creates the node certificate and its private key if they do not
+// exist, and replaces them when the existing certificate does not cover every host in
+// Hosts. A covering certificate is left untouched. Callers that do not own the files on
+// disk must not use it.
+func (f *Factory) CreateNodePairIfStale() error {
 	exists, err := f.FS.Exists(f.NodeCertPath)
 	if err != nil {
 		return err
 	}
-	if exists {
+	if !exists {
+		return f.CreateNodePair()
+	}
+	c, _, err := f.Loader.LoadNodePair()
+	if err != nil {
+		return err
+	}
+	uncovered := f.uncoveredHosts(c)
+	if len(uncovered) == 0 {
 		return nil
 	}
-	return f.CreateNodePair()
+	f.L.Info(
+		"replacing node certificate and key: they do not cover every configured listener",
+		zap.Strings("uncovered_hosts", uncovered),
+		zap.String("cert", f.AbsoluteNodeCertPath()),
+		zap.String("key", f.AbsoluteNodeKeyPath()),
+	)
+	certPath, keyPath := f.NodeCertPath+nextSuffix, f.NodeKeyPath+nextSuffix
+	if err = f.FS.Remove(certPath); err != nil {
+		return err
+	}
+	if err = f.FS.Remove(keyPath); err != nil {
+		return err
+	}
+	if err = f.writeNodePair(certPath, keyPath); err != nil {
+		return err
+	}
+	if err = f.FS.Rename(keyPath, f.NodeKeyPath); err != nil {
+		return err
+	}
+	return f.FS.Rename(certPath, f.NodeCertPath)
+}
+
+// uncoveredHosts returns the hosts in Hosts that c is not valid for, using the same
+// matcher a client applies during a handshake.
+func (f *Factory) uncoveredHosts(c *x509.Certificate) []string {
+	var uncovered []string
+	for _, h := range f.Hosts {
+		if c.VerifyHostname(h.Host()) != nil {
+			uncovered = append(uncovered, h.Host())
+		}
+	}
+	return uncovered
 }
 
 // CreateNodePair creates a new node certificate and its private key.
 func (f *Factory) CreateNodePair() error {
+	return f.writeNodePair(f.NodeCertPath, f.NodeKeyPath)
+}
+
+// writeNodePair generates a key, signs a certificate for Hosts with the CA, and writes
+// both to the given paths.
+func (f *Factory) writeNodePair(certPath, keyPath string) error {
 	nodeKey, err := rsa.GenerateKey(nil, f.KeySize)
 	if err != nil {
 		return err
@@ -178,10 +231,10 @@ func (f *Factory) CreateNodePair() error {
 	if err != nil {
 		return err
 	}
-	if err = f.writePEM(f.NodeKeyPath, keyP, false); err != nil {
+	if err = f.writePEM(keyPath, keyP, false); err != nil {
 		return err
 	}
-	return f.writePEM(f.NodeCertPath, xpem.FromCertBytes(b) /* multi */, false)
+	return f.writePEM(certPath, xpem.FromCertBytes(b) /* multi */, false)
 }
 
 // SignNodeCert signs an in-memory node certificate for the given hosts using the CA,
@@ -214,6 +267,7 @@ func (f *Factory) signNodeCert(
 	if err != nil {
 		return nil, err
 	}
+	base.Subject = pkix.Name{CommonName: nodeCommonName}
 	base.ExtKeyUsage = []x509.ExtKeyUsage{
 		x509.ExtKeyUsageServerAuth,
 		x509.ExtKeyUsageClientAuth,

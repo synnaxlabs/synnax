@@ -28,7 +28,7 @@ import (
 
 var _ = Describe("Select", func() {
 	Describe("NewModule", func() {
-		It("Should create module", func(ctx SpecContext) {
+		It("Should create module", func() {
 			module := selector.NewHost()
 			Expect(module).ToNot(BeNil())
 		})
@@ -48,10 +48,10 @@ var _ = Describe("Select", func() {
 					"select": {"type": "select"},
 				},
 				Edges: graph.Edges{
-					{Edge: ir.Edge{
+					{
 						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "select", Param: ir.DefaultOutputParam},
-					}},
+					},
 				},
 				Functions: []ir.Function{
 					{
@@ -76,20 +76,20 @@ var _ = Describe("Select", func() {
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = node.New(analyzed)
 		})
-		It("Should create node for select type", func(ctx SpecContext) {
+		It("Should create node for select type", func() {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "select"},
 				State: s.Node("select"),
 			}
-			n := MustSucceed(factory.Create(ctx, cfg))
+			n := MustSucceed(factory.Create(cfg))
 			Expect(n).ToNot(BeNil())
 		})
-		It("Should return NotFound for unknown type", func(ctx SpecContext) {
+		It("Should return NotFound for unknown type", func() {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "unknown"},
 				State: s.Node("select"),
 			}
-			_, err := factory.Create(ctx, cfg)
+			_, err := factory.Create(cfg)
 			Expect(err).To(Equal(query.ErrNotFound))
 		})
 	})
@@ -108,10 +108,10 @@ var _ = Describe("Select", func() {
 					"select": {"type": "select"},
 				},
 				Edges: graph.Edges{
-					{Edge: ir.Edge{
+					{
 						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "select", Param: ir.DefaultOutputParam},
-					}},
+					},
 				},
 				Functions: []ir.Function{
 					{
@@ -144,7 +144,7 @@ var _ = Describe("Select", func() {
 			source := s.Node("source")
 			*source.Output(0) = telem.NewSeriesV[bool]()
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV()
-			n, _ := factory.Create(ctx, cfg)
+			n, _ := factory.Create(cfg)
 			outputs := make(set.Set[int])
 			n.Next(
 				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
@@ -160,7 +160,7 @@ var _ = Describe("Select", func() {
 			source := s.Node("source")
 			*source.Output(0) = telem.NewSeriesV[bool](true, true, true)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
-			n, _ := factory.Create(ctx, cfg)
+			n, _ := factory.Create(cfg)
 			outputs := make(set.Set[int])
 			n.Next(
 				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
@@ -181,7 +181,7 @@ var _ = Describe("Select", func() {
 			source := s.Node("source")
 			*source.Output(0) = telem.NewSeriesV[bool](false, false, false, false)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(10, 20, 30, 40)
-			n, _ := factory.Create(ctx, cfg)
+			n, _ := factory.Create(cfg)
 			outputs := make(set.Set[int])
 			n.Next(
 				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
@@ -202,7 +202,7 @@ var _ = Describe("Select", func() {
 			source := s.Node("source")
 			*source.Output(0) = telem.NewSeriesV[bool](true, false, true, false, true)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)
-			n, _ := factory.Create(ctx, cfg)
+			n, _ := factory.Create(cfg)
 			outputs := make(set.Set[int])
 			n.Next(
 				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
@@ -227,7 +227,7 @@ var _ = Describe("Select", func() {
 			source := s.Node("source")
 			*source.Output(0) = telem.NewSeriesV[bool](true, false, true, false, true)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(10, 20, 30, 40, 50)
-			n, _ := factory.Create(ctx, cfg)
+			n, _ := factory.Create(cfg)
 			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			selectNode := s.Node("select")
 			trueTime := selectNode.OutputTime(0)
@@ -246,7 +246,7 @@ var _ = Describe("Select", func() {
 			source := s.Node("source")
 			*source.Output(0) = telem.NewSeriesV[bool](true, false, true, false, true)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(10, 20, 30, 40, 50)
-			n, _ := factory.Create(ctx, cfg)
+			n, _ := factory.Create(cfg)
 			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			selectNode := s.Node("select")
 			falseTime := selectNode.OutputTime(1)
@@ -264,7 +264,7 @@ var _ = Describe("Select", func() {
 			source := s.Node("source")
 			*source.Output(0) = telem.NewSeriesV[bool](true)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(100)
-			n, _ := factory.Create(ctx, cfg)
+			n, _ := factory.Create(cfg)
 			outputs := make(set.Set[int])
 			n.Next(
 				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
@@ -283,7 +283,7 @@ var _ = Describe("Select", func() {
 			source := s.Node("source")
 			*source.Output(0) = telem.NewSeriesV[bool](false)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(100)
-			n, _ := factory.Create(ctx, cfg)
+			n, _ := factory.Create(cfg)
 			outputs := make(set.Set[int])
 			n.Next(
 				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
@@ -308,7 +308,7 @@ var _ = Describe("Select", func() {
 			}
 			*source.Output(0) = telem.NewSeriesV(data...)
 			*source.OutputTime(0) = telem.NewSeriesV(times...)
-			n, _ := factory.Create(ctx, cfg)
+			n, _ := factory.Create(cfg)
 			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			selectNode := s.Node("select")
 			trueOut := selectNode.Output(0)
@@ -331,7 +331,7 @@ var _ = Describe("Select", func() {
 				false,
 			)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6)
-			n, _ := factory.Create(ctx, cfg)
+			n, _ := factory.Create(cfg)
 			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			selectNode := s.Node("select")
 			trueOut := selectNode.Output(0)
@@ -359,7 +359,7 @@ var _ = Describe("Select", func() {
 				true,
 			)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6)
-			n, _ := factory.Create(ctx, cfg)
+			n, _ := factory.Create(cfg)
 			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			selectNode := s.Node("select")
 			falseOut := selectNode.Output(1)
@@ -406,7 +406,7 @@ var _ = Describe("Select", func() {
 						"select": {"type": "select"},
 					},
 					Edges: graph.Edges{
-						{Edge: ir.Edge{
+						{
 							Source: ir.Handle{
 								Node:  "source",
 								Param: ir.DefaultOutputParam,
@@ -415,7 +415,7 @@ var _ = Describe("Select", func() {
 								Node:  "select",
 								Param: ir.DefaultOutputParam,
 							},
-						}},
+						},
 					},
 					Functions: []ir.Function{
 						{
@@ -444,7 +444,7 @@ var _ = Describe("Select", func() {
 					Node:  ir.Node{Key: "select", Type: "select"},
 					State: s.Node("select"),
 				}
-				n := MustSucceed(compound.Create(ctx, cfg))
+				n := MustSucceed(compound.Create(cfg))
 				Expect(n).ToNot(BeNil())
 			},
 		)
@@ -463,7 +463,7 @@ var _ = Describe("Select", func() {
 						"select": {"type": "select"},
 					},
 					Edges: graph.Edges{
-						{Edge: ir.Edge{
+						{
 							Source: ir.Handle{
 								Node:  "source",
 								Param: ir.DefaultOutputParam,
@@ -472,7 +472,7 @@ var _ = Describe("Select", func() {
 								Node:  "select",
 								Param: ir.DefaultOutputParam,
 							},
-						}},
+						},
 					},
 					Functions: []ir.Function{
 						{
@@ -512,7 +512,7 @@ var _ = Describe("Select", func() {
 				*source.Output(0) = inputSeries
 				*source.OutputTime(0) = telem.NewSeriesSecondsTSV(50, 100, 150, 200)
 
-				n, _ := factory.Create(ctx, cfg)
+				n, _ := factory.Create(cfg)
 				n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 
 				selectNode := s.Node("select")
@@ -546,7 +546,7 @@ var _ = Describe("Select", func() {
 var _ = Describe("Construction validation", func() {
 	It(
 		"Should error at construction when the input param is missing",
-		func(ctx SpecContext) {
+		func() {
 			prog := ir.IR{Nodes: ir.Nodes{{
 				Key:     "select",
 				Type:    "select",
@@ -554,7 +554,7 @@ var _ = Describe("Construction validation", func() {
 			}}}
 			s := node.New(prog)
 			cfg := node.Config{Node: prog.Nodes[0], State: s.Node("select")}
-			Expect(selector.NewHost().Create(ctx, cfg)).Error().
+			Expect(selector.NewHost().Create(cfg)).Error().
 				To(MatchError(node.ErrInputNotFound))
 		},
 	)

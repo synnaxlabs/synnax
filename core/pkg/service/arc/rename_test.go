@@ -84,10 +84,8 @@ var _ = Describe("LSP Rename", func() {
 }`)
 
 		prepared := MustSucceed(server.PrepareRename(ctx, &protocol.PrepareRenameParams{
-			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-				Position:     protocol.Position{Line: 1, Character: 14},
-			},
+			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+			Position:     protocol.Position{Line: 1, Character: 14},
 		}))
 		Expect(prepared).To(BeNil())
 

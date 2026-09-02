@@ -38,7 +38,8 @@ var _ = Describe("Codec", func() {
 			SatisfyAll(
 				ContainSubstring("failed to encode value"),
 				ContainSubstring("kind=chan, type=chan int"),
-			)),
+			),
+		),
 		)
 	})
 	It("Should include a stack trace on encoding errors", func(ctx SpecContext) {
