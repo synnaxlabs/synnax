@@ -29,8 +29,6 @@ var _ = Describe("Batch wrapper", func() {
 		})
 	})
 
-	// instantiate compiles source and returns the guest module plus its batch wrapper
-	// for the named function.
 	instantiate := func(
 		ctx SpecContext,
 		source, key string,

@@ -19,17 +19,13 @@ import (
 	"github.com/tetratelabs/wazero/api"
 )
 
-// pageSize is the WASM linear-memory page size in bytes.
 const pageSize = 65536
 
-// arena hands out scratch regions of guest linear memory by growing it past everything
-// the compiler reserved. Regions are never returned: a node that outgrows its region
-// takes a larger one, so total growth stays proportional to the longest series a
-// program batches.
+// arena carves scratch regions out of guest linear memory by growing it past
+// everything the compiler reserved. A region is never returned; a node that outgrows
+// one takes a larger one.
 type arena struct{ mem api.Memory }
 
-// alloc reserves at least size bytes and returns the region's base offset and its
-// page-rounded capacity. ok is false when the guest memory cannot grow.
 func (a *arena) alloc(size uint32) (base, capacity uint32, ok bool) {
 	pages := (size + pageSize - 1) / pageSize
 	prev, ok := a.mem.Grow(pages)
@@ -39,28 +35,25 @@ func (a *arena) alloc(size uint32) (base, capacity uint32, ok bool) {
 	return prev * pageSize, pages * pageSize, true
 }
 
-// batchCall drives a node's compiler-emitted batch wrapper together with the scratch
-// region of guest linear memory the wrapper reads its inputs from and writes its
-// output to.
+// batchCall drives a node's batch wrapper and owns the scratch region of guest linear
+// memory the wrapper reads its inputs from and writes its output to.
 type batchCall struct {
 	fn    api.Function
 	arena *arena
 	stack []uint64
-	// offsets and samples hold each input's byte offset within the scratch region and
-	// the number of samples staged there, recomputed per pass.
-	offsets []uint32
-	samples []uint32
-	// densities is the byte width of each input; outDensity that of the output.
+	// offsets and samples are recomputed each pass: where in the scratch region each
+	// input lands, and how many samples are staged there.
+	offsets    []uint32
+	samples    []uint32
 	densities  []int
 	outDensity int
-	// ptr and capacity bound the scratch region.
-	ptr      uint32
-	capacity uint32
+	ptr        uint32
+	capacity   uint32
 }
 
-// newBatchCall returns the vectorized driver for the node's function, or nil when the
-// guest exports no wrapper or the node's shape does not match one: a single returned
-// value, fixed-width samples throughout, and one host param per guest param.
+// newBatchCall returns nil when the guest exports no wrapper for the node's function,
+// or when the node's shape does not match one: a single returned value, fixed-width
+// samples throughout, and one host param per guest param.
 func (w *Module) newBatchCall(
 	cfg node.Config,
 	irFn ir.Function,
@@ -98,7 +91,6 @@ func (w *Module) newBatchCall(
 	}
 }
 
-// fixedDensity returns the byte width of t, or false when t has no fixed width.
 func fixedDensity(t types.Type) (int, bool) {
 	switch t.Kind {
 	case types.KindU8, types.KindU16, types.KindU32, types.KindU64,
@@ -112,7 +104,6 @@ func fixedDensity(t types.Type) (int, bool) {
 
 func align8(v uint32) uint32 { return (v + 7) &^ 7 }
 
-// putValue writes the low density bytes of v to dst in little-endian order.
 func putValue(dst []byte, density int, v uint64) {
 	switch density {
 	case 1:
@@ -126,11 +117,9 @@ func putValue(dst []byte, density int, v uint64) {
 	}
 }
 
-// runBatch computes the node's whole output series in a single guest call, staging
-// every input in guest memory first and reading the output block back after. It
-// returns false when the node's series do not match the wrapper's fixed-width layout,
-// leaving the caller on the per-sample path. Unlike that path, a trap aborts the
-// remaining samples: the error is reported and the node emits nothing.
+// runBatch computes the whole output series in one guest call, reporting false when
+// the node's series do not fit the wrapper's fixed-width layout. A trap aborts every
+// remaining sample, where the per-sample path would carry on.
 func (n *nodeImpl) runBatch(
 	ctx node.Context,
 	count int64,
@@ -158,8 +147,8 @@ func (n *nodeImpl) runBatch(
 		size += align8(samples * uint32(b.densities[i]))
 	}
 	if size > b.capacity {
-		// Doubling bounds the region a node abandons as its series grow: a run of
-		// ever-longer batches costs a logarithmic number of grows, not one per batch.
+		// Doubling bounds what a node abandons as its series grow: ever-longer
+		// batches cost a logarithmic number of grows, not one each.
 		base, capacity, ok := b.arena.alloc(max(size, 2*b.capacity))
 		if !ok {
 			return false
@@ -187,7 +176,6 @@ func (n *nodeImpl) runBatch(
 		case in.Len() == count:
 			copy(dst, in.Data)
 		default:
-			// A shorter input wraps, matching the per-sample path's modulo index.
 			for s := range int(count) {
 				src := (s % int(in.Len())) * density
 				copy(dst[s*density:], in.Data[src:src+density])
@@ -220,8 +208,6 @@ func (n *nodeImpl) runBatch(
 	return true
 }
 
-// batchEdgeFed reports whether input i streams a series rather than holding a single
-// value the host refreshes per pass.
 func (n *nodeImpl) batchEdgeFed(i int) bool {
 	return n.ir.Inputs[i].Value == nil && !n.chanInputs[i] && !n.varInputs[i]
 }

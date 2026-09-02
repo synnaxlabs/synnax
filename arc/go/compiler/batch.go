@@ -31,17 +31,15 @@ const (
 	BatchInputParam = 2
 )
 
-// batchTarget is a function whose signature admits a vectorized wrapper.
 type batchTarget struct {
 	key    string
 	inputs types.Params
 	output types.Type
 }
 
-// batchTargetFor reports whether fn admits a vectorized wrapper. A function qualifies
-// when every input and its single default output is a fixed-width numeric: strings,
-// channels and series cross the boundary as host-owned handles, so a guest-side loop
-// cannot index them out of linear memory.
+// batchTargetFor qualifies fn when every input and its single default output is a
+// fixed-width numeric. Strings, channels and series cross the boundary as host-owned
+// handles, so a guest-side loop cannot index them out of linear memory.
 func batchTargetFor(fn ir.Function) (batchTarget, bool) {
 	out, ok := fn.Outputs.Get(ir.DefaultOutputParam)
 	if !ok || len(fn.Outputs) != 1 || !batchable(out.Type) {
@@ -66,11 +64,9 @@ func batchable(t types.Type) bool {
 	}
 }
 
-// compileBatchWrapper emits the vectorized companion of t, exported under
-// t.key + BatchSuffix. The wrapper walks count samples, loading each input from
-// its own base pointer at its own stride and storing the scalar result into the
-// output block. A stride of zero repeats one sample across the whole series, which
-// is how the host feeds literals and shorter inputs.
+// compileBatchWrapper emits the wrapper exported under t.key + BatchSuffix: a loop
+// that loads each input from its own base pointer at its own stride, calls t.key, and
+// stores the result into the output block.
 func compileBatchWrapper(
 	rootCtx ccontext.Context[antlr.ParserRuleContext],
 	t batchTarget,
@@ -125,8 +121,8 @@ func compileBatchWrapper(
 	}
 }
 
-// batchLoadOp returns the load instruction and alignment hint for one sample of t.
-// Narrow integers widen without sign, matching how a host marshals a single sample.
+// batchLoadOp widens narrow integers without sign, matching how a host marshals a
+// single sample onto the call stack.
 func batchLoadOp(t types.Type) (wasm.Opcode, uint32) {
 	switch t.Density() {
 	case 1:
@@ -146,7 +142,6 @@ func batchLoadOp(t types.Type) (wasm.Opcode, uint32) {
 	}
 }
 
-// batchStoreOp returns the store instruction and alignment hint for one sample of t.
 func batchStoreOp(t types.Type) (wasm.Opcode, uint32) {
 	switch t.Density() {
 	case 1:

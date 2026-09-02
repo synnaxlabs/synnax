@@ -20,8 +20,6 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// stamps returns n one-second-apart timestamps, so every sample of a series carries a
-// distinct, increasing time.
 func stamps(n int64) telem.Series {
 	ts := make([]telem.TimeStamp, n)
 	for i := range ts {
@@ -30,14 +28,12 @@ func stamps(n int64) telem.Series {
 	return telem.NewSeries(ts)
 }
 
-// sampleAt returns the single sample of s at i as its own series.
 func sampleAt(s telem.Series, i int) telem.Series {
 	return telem.Series{DataType: s.DataType, Data: s.At(i)}
 }
 
 var _ = Describe("Batched execution", func() {
-	// runAdd executes lhs + rhs over whole series and returns the output series. A
-	// series longer than one sample takes the batched guest call; a single sample
+	// A series longer than one sample takes the batched guest call; a single sample
 	// stays on the per-sample path.
 	runAdd := func(
 		ctx context.Context,

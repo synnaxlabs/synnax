@@ -27,8 +27,7 @@ type Module struct {
 	Memory        api.Memory
 	Strings       *stlstrings.ProgramState
 	NodeKeySetter NodeKeySetter
-	// arena hands batched nodes their scratch regions of guest linear memory.
-	arena *arena
+	arena         *arena
 }
 
 func (w *Module) Create(cfg node.Config) (node.Node, error) {
