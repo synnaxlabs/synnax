@@ -27,6 +27,8 @@ type Module struct {
 	Memory        api.Memory
 	Strings       *stlstrings.ProgramState
 	NodeKeySetter NodeKeySetter
+	// arena hands batched nodes their scratch regions of guest linear memory.
+	arena *arena
 }
 
 func (w *Module) Create(cfg node.Config) (node.Node, error) {
@@ -107,6 +109,7 @@ func (w *Module) Create(cfg node.Config) (node.Node, error) {
 	if idx, err := cfg.State.ResolveInput("$sel"); err == nil {
 		selIdx = idx
 	}
+
 	n := &nodeImpl{
 		State:         cfg.State,
 		ir:            cfg.Node,
@@ -126,6 +129,7 @@ func (w *Module) Create(cfg node.Config) (node.Node, error) {
 		varInputs:     varInputs,
 		stringOutputs: stringOutputs,
 		strings:       w.Strings,
+		batch:         w.newBatchCall(cfg, irFn, base),
 	}
 	return n, nil
 }

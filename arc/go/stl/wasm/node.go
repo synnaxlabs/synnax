@@ -59,6 +59,9 @@ type nodeImpl struct {
 	varInputs     []bool
 	stringOutputs []bool
 	strings       *stlstrings.ProgramState
+	// batch drives the compiler-emitted wrapper that computes a whole series in one
+	// guest call. It is nil when the node's signature does not admit vectorization.
+	batch *batchCall
 }
 
 func (n *nodeImpl) call(ctx context.Context) ([]result, error) {
@@ -219,7 +222,10 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	if n.nodeKeySetter != nil {
 		n.nodeKeySetter.SetNodeKey(n.ir.Key)
 	}
-	for i := int64(0); i < maxLength; i++ {
+	// The per-sample loop runs only when the node's shape rules batching out.
+	batched := n.batch != nil && maxLength > 1 &&
+		n.runBatch(ctx, maxLength, longestInputTime, clockStamp)
+	for i := int64(0); !batched && i < maxLength; i++ {
 		for j := range n.ir.Inputs {
 			if n.ir.Inputs[j].Value != nil || n.chanInputs[j] || n.varInputs[j] {
 				continue
