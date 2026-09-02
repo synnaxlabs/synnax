@@ -34,9 +34,9 @@
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
     "fflate": "catalog:",
-    "nanoid": "^6.0.1",
+    "nanoid": "catalog:",
     "typescript": "catalog:",
-    "uuid": "^14.0.1",
+    "uuid": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"
   },

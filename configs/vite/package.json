@@ -19,7 +19,7 @@
     "@synnaxlabs/tsconfig": "workspace:^",
     "eslint": "catalog:",
     "typescript": "catalog:",
-    "unplugin-dts": "^1.0.3",
+    "unplugin-dts": "catalog:",
     "vite": "catalog:"
   }
 }
