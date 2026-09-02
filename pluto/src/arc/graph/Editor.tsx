@@ -127,11 +127,12 @@ export const Editor = ({
   const { undo, canUndo } = useUndo();
   const { redo, canRedo } = useRedo();
 
-  const { onCopy, onCut, onPaste } = useClipboard({
+  const { onCopy, onCut, onPaste, copy, cut, paste } = useClipboard({
     key,
     selected,
     onCut: onSelectionChange,
     onPaste: onSelectionChange,
+    container: ref,
   });
 
   BaseDiagram.useTriggers({
@@ -149,6 +150,13 @@ export const Editor = ({
       <Menu.Menu level="small" gap="small">
         {editable && (
           <>
+            <BaseDiagram.Menu.ClipboardItems
+              cut={cut}
+              copy={copy}
+              paste={paste}
+              hasSelection={(selected?.length ?? 0) > 0}
+            />
+            <Menu.Divider />
             <Menu.UndoRedoItems
               undo={undo}
               redo={redo}
@@ -161,7 +169,18 @@ export const Editor = ({
         {extraMenuItems?.(menuProps)}
       </Menu.Menu>
     ),
-    [undo, redo, canUndo, canRedo, editable, extraMenuItems],
+    [
+      undo,
+      redo,
+      canUndo,
+      canRedo,
+      editable,
+      extraMenuItems,
+      selected,
+      cut,
+      copy,
+      paste,
+    ],
   );
 
   return (

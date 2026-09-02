@@ -105,6 +105,16 @@ sequence flow_capture_seq {
         time.wait{100ms} -> 1 -> ranges_done
     }
 }
+
+// ──────────────────────── Entry One-Shot ─────────────────────────
+start_stl_ranges_cmd => one_shot_seq
+
+sequence one_shot_seq {
+    stage spin {
+        ranges.create{name="RangeOneShot"}
+        range_one_shot_tick -> range_one_shot_echo // For verification
+    }
+}
 """
 
 
@@ -151,6 +161,7 @@ CASES: list[Case] = [
     Case("RangeFlow_Parent", None, True, FLOW_END_DELAY),
     Case("RangeFlow_Child", sy.Color("rgb(10, 20, 30)"), False),
     Case("RangeFlow_Child_NoColor", None, False),
+    Case("RangeOneShot", None, False),
 ]
 
 # Each Arc-created parent range and the children its captured key must parent.
@@ -170,12 +181,18 @@ class StlRanges(ArcCase):
     arc_source = ARC_STL_RANGES_SOURCE
     arc_name_prefix = "ArcStlRanges"
     start_cmd_channel = "start_stl_ranges_cmd"
-    subscribe_channels = [DONE, FLOW_PARENT_KEY_OUT]
+    subscribe_channels = [DONE, FLOW_PARENT_KEY_OUT, "range_one_shot_echo"]
     collect_task_status = True
 
     def setup(self) -> None:
         create_virtual_channel(self.client, DONE, sy.DataType.UINT8)
         create_virtual_channel(self.client, FLOW_PARENT_KEY_OUT, sy.DataType.STRING)
+        create_virtual_channel(self.client, "range_one_shot_tick", sy.DataType.UINT8)
+        create_virtual_channel(self.client, "range_one_shot_echo", sy.DataType.UINT8)
+        # A leftover row from a prior run would break the one-shot count.
+        leftover = self.client.ranges.retrieve(names=["RangeOneShot"])
+        if leftover:
+            self.client.ranges.delete([r.key for r in leftover])
         self._before = sy.TimeStamp.now()
         super().setup()
 
@@ -207,6 +224,16 @@ class StlRanges(ArcCase):
 
         self._verify_parents(found)
         self._verify_invalid_color_rejected()
+        self._verify_entry_one_shot()
+
+    def _verify_entry_one_shot(self) -> None:
+        self.log("Driving extra passes: the untriggered create must not fire again")
+        for tick in (1, 2, 3):
+            self.writer.write("range_one_shot_tick", tick)
+        self.wait_for_eq("range_one_shot_echo", 3)
+        rows = self.client.ranges.retrieve(names=["RangeOneShot"])
+        if len(rows) != 1:
+            self.fail(f"RangeOneShot: expected 1 range, got {len(rows)}")
 
     def _verify_invalid_color_rejected(self) -> None:
         if not self.wait_for_task_status(

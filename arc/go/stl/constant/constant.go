@@ -53,30 +53,18 @@ func (h *Host) Create(cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName {
 		return nil, query.ErrNotFound
 	}
-	return &constant{
-		State:       cfg.State,
-		value:       cfg.Node.Inputs[0].Value,
-		isEntryNode: cfg.Node.IsEntryNode(cfg.Program.Edges),
-	}, nil
+	return &constant{State: cfg.State, value: cfg.Node.Inputs[0].Value}, nil
 }
 
 type constant struct {
 	*node.State
-	clock       telem.MonoClock
-	value       any
-	isEntryNode bool
-	initialized bool
+	clock telem.MonoClock
+	value any
 }
 
 var _ node.Node = (*constant)(nil)
 
 func (c *constant) Next(ctx node.Context) {
-	if c.isEntryNode {
-		if c.initialized {
-			return
-		}
-		c.initialized = true
-	}
 	d := c.Output(0)
 	// A var-bound value input emits the referenced variable's latest value;
 	// otherwise the configured value is emitted.
@@ -96,5 +84,3 @@ func (c *constant) Next(ctx node.Context) {
 	*t = telem.NewSeriesV[telem.TimeStamp](c.clock.Now())
 	ctx.MarkChanged(0)
 }
-
-func (c *constant) Reset() { c.initialized = false }
