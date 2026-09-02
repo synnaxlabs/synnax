@@ -1467,7 +1467,7 @@ sequence main {
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect(
 					(*ctx.Diagnostics)[0].Message,
-				).To(ContainSubstring("type mismatch"))
+				).To(ContainSubstring("does not match channel log_str value type str"))
 			},
 		)
 
@@ -1502,7 +1502,9 @@ sequence main {
 				ctx := context.NewRoot(bCtx, ast, NewRoot(customResolver))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-				Expect(ctx.Diagnostics.String()).To(ContainSubstring("type mismatch"))
+				Expect(ctx.Diagnostics.String()).To(
+					ContainSubstring("does not match channel log_str value type str"),
+				)
 			},
 		)
 
