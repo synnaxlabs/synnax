@@ -341,6 +341,15 @@ jobs:
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
         run: integration/scripts/check_driver_service.sh
 
+      - name: Upload check logs
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: binary-check-logs-${{ matrix.os-name }}
+          path: ~/synnax-*-check/**/*.log
+          retention-days: 7
+          if-no-files-found: ignore
+
   migration:
     name: Migration
     needs: [setup, build]
