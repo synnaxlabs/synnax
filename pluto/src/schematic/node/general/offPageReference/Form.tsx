@@ -69,8 +69,7 @@ const useHandlePageChange = (): ((v: string) => void) => {
       const prev = ctx.get<Page | string>("page").value;
       ctx.set("page", v.length === 0 ? "" : pageZ.parse(ontology.stringIDZ.parse(v)));
       const hadPage = parsePage(prev).key.length > 0;
-      if (!hadPage && v.length > 0)
-        ctx.set("color", color.hex(theme.colors.primary.z));
+      if (!hadPage && v.length > 0) ctx.set("color", color.hex(theme.colors.primary.z));
     },
     [ctx, theme],
   );
