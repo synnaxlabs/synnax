@@ -18,15 +18,23 @@ const ENTITIES: Record<string, string> = {
 export const unescapeHTML = (s: string): string =>
   s.replace(/&quot;|&amp;|&lt;|&gt;|&#39;/g, (m) => ENTITIES[m]);
 
+/**
+ * Matches a double- or single-quoted attribute value; the unmatched quote's capture
+ * group is undefined, so read `m[1] ?? m[2]`.
+ */
+export const QUOTED = `(?:"([^"]*)"|'([^']*)')`;
+
 /** Returns the values of attr across all occurrences of tag, entity-unescaped. */
 export const attrValues = (html: string, tag: string, attr: string): string[] => {
-  const re = new RegExp(`<${tag}\\b[^>]*\\s${attr}="([^"]*)"`, "g");
-  return [...html.matchAll(re)].map((m) => unescapeHTML(m[1]));
+  const re = new RegExp(`<${tag}\\b[^>]*\\s${attr}=${QUOTED}`, "g");
+  return [...html.matchAll(re)].map((m) => unescapeHTML(m[1] ?? m[2]));
 };
 
 /** Returns every id attribute value in the document. */
 export const idValues = (html: string): string[] =>
-  [...html.matchAll(/\sid="([^"]*)"/g)].map((m) => unescapeHTML(m[1]));
+  [...html.matchAll(new RegExp(`\\sid=${QUOTED}`, "g"))].map((m) =>
+    unescapeHTML(m[1] ?? m[2]),
+  );
 
 export interface Island {
   component: string;
@@ -36,8 +44,10 @@ export interface Island {
 
 const ISLAND_OPEN = /<astro-island\b[^>]*>/g;
 
-const attrOf = (tag: string, name: string): string | undefined =>
-  new RegExp(`\\s${name}="([^"]*)"`).exec(tag)?.[1];
+const attrOf = (tag: string, name: string): string | undefined => {
+  const m = new RegExp(`\\s${name}=${QUOTED}`).exec(tag);
+  return m == null ? undefined : (m[1] ?? m[2]);
+};
 
 // Astro serializes island props as [type, value] pairs; unwrap to plain values.
 const unwrapProp = (v: unknown): unknown => {

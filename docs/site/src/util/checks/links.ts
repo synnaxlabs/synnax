@@ -70,7 +70,6 @@ const checkRef = async (
   if (url.protocol !== "http:" && url.protocol !== "https:") return null;
   if (url.host !== "internal.invalid") {
     if (IGNORED_HOSTS.includes(url.host)) return null;
-    url.hash = "";
     return await ctx.fetchOk(externalURL(url));
   }
   const route = normalizeRoute(url.pathname);

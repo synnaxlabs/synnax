@@ -3,7 +3,9 @@
   "compilerOptions": {
     "allowImportingTsExtensions": true,
     "types": ["html-escaper", "offscreencanvas", "react", "react-dom"],
-    "paths": { "@/*": ["./src/*"] }
+    "paths": {
+      "@/*": ["./src/*"]
+    }
   },
   "include": [
     "src/**/*",
@@ -12,6 +14,7 @@
     "astro.config.ts",
     "astro-components.d.ts",
     "eslint.config.ts",
-    "stylelint.config.ts"
+    "stylelint.config.ts",
+    "vitest.config.ts"
   ]
 }

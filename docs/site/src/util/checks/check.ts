@@ -19,7 +19,8 @@ export interface Context {
   /** Base URL of the running docs server. */
   baseURL: string;
   /**
-   * Fetches a URL, returning null on success and a failure reason otherwise.
+   * Fetches a URL, returning null on success and a failure reason otherwise. A URL
+   * with a fragment also fails when the document lacks the anchor target.
    * External hosts get caching, retries, and per-host serialization; the checks' own
    * server is fetched directly.
    */

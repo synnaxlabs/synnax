@@ -44,6 +44,50 @@ interface Probe {
   hung: boolean;
 }
 
+// A null body is a page that answered but cannot be verified (a 429): the link
+// passes and its fragment goes unchecked.
+interface Body {
+  body: string | null;
+}
+
+// Fragment checks need the document itself, so GET with the same retry policy as
+// probe.
+const fetchBody = async (url: string): Promise<Body | Probe> => {
+  let last: number | string = 0;
+  for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
+    try {
+      const res = await fetch(url, {
+        headers: HEADERS,
+        redirect: "follow",
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      });
+      if (res.status < 400) return { body: await res.text() };
+      await res.body?.cancel();
+      if (res.status === 429) return { body: null };
+      last = res.status;
+      if (last === 404 || last === 410) break;
+    } catch (e) {
+      last = e instanceof Error ? e.message : String(e);
+    }
+    if (attempt < ATTEMPTS)
+      await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+  }
+  return { reason: `${url}: ${describe(last)}`, hung: typeof last !== "number" };
+};
+
+// Hosts whose pages render anchors client-side; their fragments go unchecked and
+// the link is probed for liveness alone.
+const SCRIPTED_ANCHOR_HOSTS = ["github.com", "www.github.com"];
+
+const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+// GitHub-style renderers prefix heading ids with user-content- and resolve the bare
+// fragment in script, so the prefixed id counts as the anchor.
+const hasAnchor = (body: string, fragment: string): boolean =>
+  new RegExp(
+    `\\s(?:id|name)=["']?(?:user-content-)?${escapeRegExp(fragment)}["'\\s>]`,
+  ).test(body);
+
 // Retries transient failures with backoff. A GET follows a failed HEAD only when the
 // host answered with a status: a HEAD that hung means the connection is the problem
 // and a GET would just burn another timeout.
@@ -105,9 +149,12 @@ const leave = (gate: Gate): void => {
 };
 
 // Deduplicates by URL and windows requests per host to stay polite with external
-// sites; the checks' own server bypasses that policy.
+// sites; the checks' own server bypasses that policy. A URL with a fragment is
+// fetched in full and its anchor target verified against the document, with the
+// page shared across fragments of the same URL.
 export const createFetcher = (baseURL: string): Context["fetchOk"] => {
   const cache = new Map<string, Promise<string | null>>();
+  const bodies = new Map<string, Promise<Body | Probe>>();
   const gates = new Map<string, Gate>();
   const hungCounts = new Map<string, number>();
   return (url) => {
@@ -118,7 +165,11 @@ export const createFetcher = (baseURL: string): Context["fetchOk"] => {
       cache.set(url, local);
       return local;
     }
-    const host = new URL(url).host;
+    const parsed = new URL(url);
+    const fragment = decodeURIComponent(parsed.hash).replace(/^#/, "");
+    parsed.hash = "";
+    const page = parsed.toString();
+    const host = parsed.host;
     let gate = gates.get(host);
     if (gate == null) gates.set(host, (gate = { active: 0, waiting: [] }));
     const run = async (): Promise<string | null> => {
@@ -127,10 +178,34 @@ export const createFetcher = (baseURL: string): Context["fetchOk"] => {
         // Checked after enter so queued requests see a breaker tripped mid-flight.
         if ((hungCounts.get(host) ?? 0) >= BREAKER_LIMIT)
           return `${url}: skipped, ${host} stopped answering`;
-        const res = await probe(url);
-        if (res == null) hungCounts.set(host, 0);
-        else if (res.hung) hungCounts.set(host, (hungCounts.get(host) ?? 0) + 1);
-        return res?.reason ?? null;
+        // A ":~:" fragment is a text directive, not an element anchor, and hosts
+        // that build their anchors in script cannot be checked from static HTML.
+        if (
+          fragment === "" ||
+          fragment.startsWith(":~:") ||
+          SCRIPTED_ANCHOR_HOSTS.includes(host)
+        ) {
+          const res = await probe(url);
+          if (res == null) hungCounts.set(host, 0);
+          else if (res.hung) hungCounts.set(host, (hungCounts.get(host) ?? 0) + 1);
+          return res?.reason ?? null;
+        }
+        let body = bodies.get(page);
+        if (body == null) {
+          // Breaker strikes land here, once per page, not once per awaiter.
+          body = fetchBody(page).then((res) => {
+            if ("reason" in res) {
+              if (res.hung) hungCounts.set(host, (hungCounts.get(host) ?? 0) + 1);
+            } else hungCounts.set(host, 0);
+            return res;
+          });
+          bodies.set(page, body);
+        }
+        const res = await body;
+        if ("reason" in res) return res.reason;
+        if (res.body != null && !hasAnchor(res.body, fragment))
+          return `${url}: missing anchor #${fragment}`;
+        return null;
       } finally {
         leave(gate);
       }
