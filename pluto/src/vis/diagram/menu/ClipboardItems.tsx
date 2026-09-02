@@ -11,11 +11,7 @@ import { type ReactElement } from "react";
 
 import { Icon } from "@/icon";
 import { Item } from "@/menu/Item";
-import { type Triggers } from "@/triggers";
-
-const CUT_TRIGGER: Triggers.Trigger = ["Control", "X"];
-const COPY_TRIGGER: Triggers.Trigger = ["Control", "C"];
-const PASTE_TRIGGER: Triggers.Trigger = ["Control", "V"];
+import { Triggers } from "@/triggers";
 
 /** Props for {@link ClipboardItems}. */
 export interface ClipboardItemsProps {
@@ -40,7 +36,7 @@ export const ClipboardItems = ({
       itemKey="cut"
       onClick={cut}
       disabled={!hasSelection}
-      triggerIndicator={CUT_TRIGGER}
+      triggerIndicator={Triggers.CUT}
     >
       <Icon.Cut />
       Cut
@@ -49,12 +45,12 @@ export const ClipboardItems = ({
       itemKey="copy"
       onClick={copy}
       disabled={!hasSelection}
-      triggerIndicator={COPY_TRIGGER}
+      triggerIndicator={Triggers.COPY}
     >
       <Icon.Copy />
       Copy
     </Item>
-    <Item itemKey="paste" onClick={paste} triggerIndicator={PASTE_TRIGGER}>
+    <Item itemKey="paste" onClick={paste} triggerIndicator={Triggers.PASTE}>
       <Icon.Paste />
       Paste
     </Item>
