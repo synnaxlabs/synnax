@@ -1090,6 +1090,34 @@ var _ = Describe("Go Marshal Plugin", func() {
 				Expect(gen).To(ContainSubstring(`Other: test.Other{Meta: "test_2"}`))
 			})
 		})
+
+		Context("parents sharing a field name", func() {
+			It("Should flatten both parents into the child", func() {
+				source := `
+					@go output "core/pkg/test"
+					@go marshal
+					@pb
+
+					Meta struct {
+						name string
+					}
+
+					Other struct {
+						name string
+					}
+
+					Child struct extends Meta, Other {
+						c string
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				gen := MustContentOf(resp, "codec_gen_test.go")
+				Expect(gen).
+					To(ContainSubstring(`test.Child{Name: "test_1", C: "test_2"}`))
+				Expect(gen).ToNot(ContainSubstring("Meta: test.Meta{"))
+				Expect(gen).ToNot(ContainSubstring("Other: test.Other{"))
+			})
+		})
 	})
 })
 

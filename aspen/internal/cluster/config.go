@@ -79,7 +79,7 @@ func (cfg Config) Validate() error {
 	v.NotEmptyString("host_address", cfg.HostAddress)
 	v.NotNil("codec", cfg.Codec)
 	v.NonZero("storage_flush_interval", cfg.StorageFlushInterval)
-	v.NotEmptySlice("local_key", cfg.StorageKey)
+	v.NotEmptySlice("storage_key", cfg.StorageKey)
 	return v.Error()
 }
 

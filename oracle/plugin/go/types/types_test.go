@@ -1207,6 +1207,40 @@ var _ = Describe("Go Types Plugin", func() {
 			)
 
 			It(
+				"Should flatten when two parents promote one name",
+				func(ctx SpecContext) {
+					source := `
+				@go output "core/user"
+
+				Base struct {
+					x string
+				}
+
+				A struct extends Base {
+					aa string
+				}
+
+				B struct {
+					base string
+				}
+
+				Child struct extends A, B {
+					c string
+				}
+			`
+					resp := MustGenerate(ctx, source, "user", loader, goPlugin)
+
+					content := string(resp.Files[0].Content)
+					// Embedding A and B promotes Base from both, and Go rejects an
+					// ambiguous promoted name as a selector and as a literal key.
+					Expect(content).NotTo(ContainSubstring("\tA\n"))
+					Expect(content).NotTo(ContainSubstring("\tB\n"))
+					Expect(content).To(ContainSubstring(`X string`))
+					Expect(content).To(ContainSubstring(`Base string`))
+				},
+			)
+
+			It(
 				"Should keep embedding when a field restates only a default",
 				func(ctx SpecContext) {
 					source := `
