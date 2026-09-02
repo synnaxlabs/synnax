@@ -38,6 +38,13 @@ func (w *Module) Create(cfg node.Config) (node.Node, error) {
 	if fn == nil {
 		return nil, query.ErrNotFound
 	}
+	def := fn.Definition()
+	if len(irFn.Inputs) != len(def.ParamTypes()) {
+		return nil, errors.Newf(
+			"node %s declares %d inputs, but %q takes %d params",
+			cfg.Node.Key, len(irFn.Inputs), cfg.Node.Type, len(def.ParamTypes()),
+		)
+	}
 	// Each input fills one WASM param slot. Edge-fed inputs (nil Value) are streamed
 	// per sample in Next; literal inputs get their constant value set once here.
 	params := make([]uint64, len(irFn.Inputs))
@@ -94,7 +101,6 @@ func (w *Module) Create(cfg node.Config) (node.Node, error) {
 
 	// The reused call stack is separate from params because CallWithStack overwrites it
 	// with the results, and params holds literal values that persist across calls.
-	def := fn.Definition()
 	stack := make([]uint64, max(len(def.ParamTypes()), len(def.ResultTypes())))
 
 	selIdx := -1
