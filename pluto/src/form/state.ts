@@ -9,7 +9,7 @@
 
 import { type status } from "@synnaxlabs/client";
 import { deep, map, observe, zod } from "@synnaxlabs/x";
-import { type z } from "zod";
+import { z } from "zod";
 
 export interface FieldState<V = unknown> {
   value: V;
@@ -265,8 +265,7 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     cachedRef.required = false;
     if (this.schema != null) {
       const fieldSchema = zod.getFieldSchema(this.schema, path, { optional: true });
-      if (fieldSchema != null)
-        cachedRef.required = !fieldSchema.safeParse(undefined).success;
+      if (fieldSchema != null) cachedRef.required = !z.validate(fieldSchema, undefined);
     }
     cachedRef.status = map.getOrSetDefault(this.statuses, path, {
       key: path,

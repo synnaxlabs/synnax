@@ -9,6 +9,7 @@
 
 import { DataType } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { HTTP } from "@/feature/http";
 
@@ -136,7 +137,7 @@ describe("HTTP Task Types", () => {
     });
 
     it("should validate statusData as undefined", () => {
-      expect(HTTP.Task.READ_SCHEMAS.statusData.safeParse(undefined).success).toBe(true);
+      expect(z.validate(HTTP.Task.READ_SCHEMAS.statusData, undefined)).toBe(true);
     });
   });
 
@@ -992,18 +993,18 @@ describe("HTTP Task Types", () => {
 describe("HTTP Scan Task", () => {
   describe("config", () => {
     it("should accept null", () => {
-      expect(HTTP.Task.SCAN_SCHEMAS.config.safeParse(null).success).toBe(true);
+      expect(z.validate(HTTP.Task.SCAN_SCHEMAS.config, null)).toBe(true);
     });
     it("should accept undefined", () => {
-      expect(HTTP.Task.SCAN_SCHEMAS.config.safeParse(undefined).success).toBe(true);
+      expect(z.validate(HTTP.Task.SCAN_SCHEMAS.config, undefined)).toBe(true);
     });
   });
   describe("statusData", () => {
     it("should accept null", () => {
-      expect(HTTP.Task.SCAN_SCHEMAS.statusData.safeParse(null).success).toBe(true);
+      expect(z.validate(HTTP.Task.SCAN_SCHEMAS.statusData, null)).toBe(true);
     });
     it("should accept undefined", () => {
-      expect(HTTP.Task.SCAN_SCHEMAS.statusData.safeParse(undefined).success).toBe(true);
+      expect(z.validate(HTTP.Task.SCAN_SCHEMAS.statusData, undefined)).toBe(true);
     });
   });
 });
@@ -1013,10 +1014,10 @@ describe("draft configs", () => {
   // accept every default config; retrieve parses with it.
   it("should accept the default read config", () => {
     const config = HTTP.Task.READ_SCHEMAS.config.parse({});
-    expect(HTTP.Task.READ_SCHEMAS.config.safeParse(config).success).toBe(true);
+    expect(z.validate(HTTP.Task.READ_SCHEMAS.config, config)).toBe(true);
   });
   it("should accept the default write config", () => {
     const config = HTTP.Task.WRITE_SCHEMAS.config.parse({});
-    expect(HTTP.Task.WRITE_SCHEMAS.config.safeParse(config).success).toBe(true);
+    expect(z.validate(HTTP.Task.WRITE_SCHEMAS.config, config)).toBe(true);
   });
 });

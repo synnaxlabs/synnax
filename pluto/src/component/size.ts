@@ -29,4 +29,4 @@ export const HEIGHTS: Record<Size, number> = {
 };
 
 /** @returns true if the value is one of {@link SIZES}. */
-export const isSize = (value: unknown): value is Size => size.safeParse(value).success;
+export const isSize = (value: unknown): value is Size => z.validate(size, value);

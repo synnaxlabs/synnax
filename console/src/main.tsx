@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "zod/compile";
+
 import { createRoot } from "react-dom/client";
 
 import { App } from "@/app";

@@ -417,8 +417,8 @@ catalogs:
       specifier: ^8.21.2
       version: 8.21.3
     zod:
-      specifier: ^4.4.3
-      version: 4.4.3
+      specifier: ^4.5.4
+      version: 4.5.4
   ts6:
     '@typescript/typescript6':
       specifier: ^6.0.2
@@ -533,7 +533,7 @@ importers:
         version: 11.1.18
       zod:
         specifier: 'catalog:'
-        version: 4.4.3
+        version: 4.5.4
     devDependencies:
       '@synnaxlabs/eslint-config':
         specifier: workspace:^
@@ -740,7 +740,7 @@ importers:
         version: 9.3.0(@types/react@19.2.18)(react@19.2.8)(redux@5.0.1)
       zod:
         specifier: 'catalog:'
-        version: 4.4.3
+        version: 4.5.4
     devDependencies:
       '@synnaxlabs/eslint-config':
         specifier: workspace:^
@@ -864,7 +864,7 @@ importers:
         version: 4.4.3
       zod:
         specifier: 'catalog:'
-        version: 4.4.3
+        version: 4.5.4
     devDependencies:
       '@astrojs/check':
         specifier: 'catalog:'
@@ -931,7 +931,7 @@ importers:
         version: 2.11.1
       zod:
         specifier: 'catalog:'
-        version: 4.4.3
+        version: 4.5.4
     devDependencies:
       '@reduxjs/toolkit':
         specifier: 'catalog:'
@@ -1001,7 +1001,7 @@ importers:
         version: link:../../x/ts
       zod:
         specifier: 'catalog:'
-        version: 4.4.3
+        version: 4.5.4
     devDependencies:
       '@synnaxlabs/eslint-config':
         specifier: workspace:^
@@ -1068,7 +1068,7 @@ importers:
         version: 10.1.1
       zod:
         specifier: 'catalog:'
-        version: 4.4.3
+        version: 4.5.4
     devDependencies:
       '@codingame/monaco-vscode-api':
         specifier: 'catalog:'
@@ -1288,7 +1288,7 @@ importers:
         version: 0.5.0
       zod:
         specifier: 'catalog:'
-        version: 4.4.3
+        version: 4.5.4
     devDependencies:
       '@synnaxlabs/eslint-config':
         specifier: workspace:^
@@ -7566,6 +7566,9 @@ packages:
   zod@4.4.3:
     resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
 
+  zod@4.5.4:
+    resolution: {integrity: sha512-sC95tT5iHHH9gtpj6A81kh+NEaRAUFN+qlUPDUbRfOMvNf5QCBqsb3WgvnpVtK5Y+4UfA6KqufotuTvMGiTlsA==}
+
   zustand@4.5.7:
     resolution: {integrity: sha512-CHOUy7mu3lbD6o6LJLfllpjkzhHXSBlX8B9+qPddUsIfeF5S/UZ5q0kmCsnRqT1UHFQZchNFDDzMbQsuesHWlw==}
     engines: {node: '>=12.7.0'}
@@ -10161,7 +10164,7 @@ snapshots:
       vitefu: 1.1.3(vite@8.2.0(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0))
       xxhash-wasm: 1.1.0
       yargs-parser: 22.0.0
-      zod: 4.4.3
+      zod: 4.5.4
     optionalDependencies:
       '@astrojs/markdown-remark': 7.2.2(supports-color@10.2.2)
       sharp: 0.35.3(@types/node@26.1.2)
@@ -14498,6 +14501,8 @@ snapshots:
   zod@4.1.11: {}
 
   zod@4.4.3: {}
+
+  zod@4.5.4: {}
 
   zustand@4.5.7(@types/react@19.2.18)(immer@11.1.15)(react@19.2.8):
     dependencies:
