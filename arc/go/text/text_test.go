@@ -7748,6 +7748,81 @@ time.wait{duration=500ms} -> output`
 				},
 			)
 		})
+
+		Context("Entry Node Classification", func() {
+			It(
+				"Should lower a config-only call in a stage to an entry node",
+				func(ctx SpecContext) {
+					resolver := []symbol.Symbol{
+						{
+							Name: "out",
+							Kind: symbol.KindChannel,
+							Type: types.Chan(types.String()),
+							ID:   10171,
+						},
+					}
+					source := `
+				func f{v str} () {
+				    out = v
+				}
+
+				sequence main {
+				    stage start {
+				        f{"x"}
+				    }
+				}`
+					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+					inter, diagnostics := text.Analyze(
+						ctx,
+						parsedText,
+						NewRoot(nil, resolver...),
+					)
+					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+					callNode := findNodeByType(inter.Nodes, "f")
+					for _, edge := range inter.Edges {
+						Expect(edge.Target.Node).ToNot(Equal(callNode.Key))
+					}
+					Expect(callNode.IsEntryNode(inter.Edges)).To(BeTrue())
+				},
+			)
+
+			It(
+				"Should keep a constant-triggered call off the entry set",
+				func(ctx SpecContext) {
+					resolver := []symbol.Symbol{
+						{
+							Name: "out",
+							Kind: symbol.KindChannel,
+							Type: types.Chan(types.String()),
+							ID:   10172,
+						},
+					}
+					source := `
+				func f{v str} () {
+				    out = v
+				}
+
+				true => f{"x"}`
+					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+					inter, diagnostics := text.Analyze(
+						ctx,
+						parsedText,
+						NewRoot(nil, resolver...),
+					)
+					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+					constNode := findNodeByType(inter.Nodes, "constant")
+					callNode := findNodeByType(inter.Nodes, "f")
+					Expect(inter.Edges).To(HaveLen(1))
+					edge := inter.Edges[0]
+					Expect(edge.Source.Node).To(Equal(constNode.Key))
+					Expect(edge.Target.Node).To(Equal(callNode.Key))
+					Expect(edge.Kind).To(Equal(ir.EdgeKindConditional))
+					Expect(callNode.IsEntryNode(inter.Edges)).To(BeFalse())
+				},
+			)
+		})
 	})
 
 	Describe("Synthesized Format-String Functions", func() {

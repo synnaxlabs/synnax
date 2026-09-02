@@ -52,6 +52,9 @@ type node struct {
 	key string
 	// idx is the node's position in changedFlags / selfChangedFlags.
 	idx int
+	// entry marks a node with no incoming edges and no channel reads. Entry
+	// nodes fire once per activation.
+	entry bool
 }
 
 // member mirrors an ir.Member: exactly one of node or scope is set.
@@ -128,6 +131,9 @@ type Scheduler struct {
 	// replay on the next cycle. Cleared when the replay runs or when the
 	// owning member is deactivated.
 	selfChangedFlags []uint8
+	// firedFlags[i] is set when node i runs and cleared on (re)activation. An
+	// entry node with the flag set skips the unconditional stratum-0 dispatch.
+	firedFlags []uint8
 	// markedFlags[i] is set when the (node, output) pair behind transition
 	// handle i fired truthy this cycle. Cleared at end of cycle so
 	// transitions fire on fresh marks, not stale truthiness.
@@ -250,9 +256,9 @@ func (s *Scheduler) walkSequential(ss *scope) {
 	}
 }
 
-// executeMember walks a nested-scope member or runs a leaf-node member.
-// A leaf runs when stratumIdx==0, when changedFlags is set, or when the
-// node was self-changed on a prior cycle. Running consumes the flag.
+// executeMember walks a nested-scope member or runs a leaf-node member. A leaf
+// runs when stratumIdx==0 (entry nodes: once per activation), on changedFlags,
+// or on a prior-cycle self-change. Running consumes the flag.
 func (s *Scheduler) executeMember(stratumIdx int, m *member) {
 	if m.scope != nil {
 		s.walk(m.scope)
@@ -267,8 +273,10 @@ func (s *Scheduler) executeMember(stratumIdx int, m *member) {
 	if wasSelfChanged {
 		s.selfChangedFlags[idx] = 0
 	}
-	if stratumIdx == 0 || s.changedFlags[idx] != 0 || wasSelfChanged {
+	forced := stratumIdx == 0 && (!m.node.entry || s.firedFlags[idx] == 0)
+	if forced || s.changedFlags[idx] != 0 || wasSelfChanged {
 		s.changedFlags[idx] = 0
+		s.firedFlags[idx] = 1
 		s.currNode = m.node
 		s.currNode.Next(s.nodeCtx)
 	}
@@ -313,10 +321,11 @@ func (s *Scheduler) evaluateTransitions(ss *scope) bool {
 	return false
 }
 
-// resetLeafNode clears selfChanged and calls Reset on m's node.
+// resetLeafNode clears selfChanged and fired and calls Reset on m's node.
 func (s *Scheduler) resetLeafNode(m *member) {
 	if n := m.node; m.isNode() && n != nil {
 		s.selfChangedFlags[n.idx] = 0
+		s.firedFlags[n.idx] = 0
 		n.Reset()
 	}
 }
