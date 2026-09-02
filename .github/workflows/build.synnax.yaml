@@ -262,6 +262,7 @@ jobs:
           export MSYS_NO_PATHCONV=1
           scripts/run_bazel.sh build $BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE_FLAGS \
             --config=ci-windows \
+            ${{ !inputs.sign_binaries && '--experimental_check_output_files=false' || '' }} \
             ${{ !inputs.debug && '--config=opt-windows' || '--output_groups=+pdb_file' }} //driver
 
       - name: Upload Windows Debug Symbols
@@ -477,8 +478,9 @@ jobs:
       - name: Rename Driver Binary
         if: inputs.driver
         shell: bash
+        # Copy, not move, so bazel-bin still matches Bazel's action cache next job.
         run: |
-          mv bazel-bin/driver/driver${{ matrix.executable }} bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }}
+          cp bazel-bin/driver/driver${{ matrix.executable }} bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }}
 
       - name: Upload Driver as Artifact
         if: inputs.driver
