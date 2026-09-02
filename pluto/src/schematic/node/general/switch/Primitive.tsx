@@ -9,6 +9,7 @@
 
 import "@/schematic/node/general/switch/switch.css";
 
+import { location } from "@synnaxlabs/x";
 import { type CSSProperties, type MouseEventHandler, type ReactElement } from "react";
 
 import { CSS } from "@/css";
@@ -18,9 +19,9 @@ import { Primitive } from "@/schematic/node/common/primitive";
 import { type Toggle } from "@/schematic/node/common/toggle";
 import { symbolColorVar } from "@/schematic/symbolColor";
 
-export interface Props
-  extends Omit<Toggle.ButtonProps, "onClick">, Primitive.SVGBasedProps {
+export interface Props extends Omit<Toggle.ButtonProps, "onClick"> {
   onClick?: MouseEventHandler<HTMLElement>;
+  scale?: number;
 }
 
 export const Switch = ({
@@ -41,7 +42,7 @@ export const Switch = ({
       className={CSS.cls(
         colorVar != null && CSS.B("symbol-colored"),
         colorVar != null && CSS.BM("switch-symbol", "colored"),
-        CSS.loc(orientation),
+        CSS.dir(location.direction(orientation)),
       )}
       style={style}
     >

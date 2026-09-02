@@ -58,20 +58,11 @@
  * rotating an HTML element leaves its layout box unrotated. So swap the box by hand
  * and rotate the flex-centered indicator inside it.
  */
-.pluto-symbol-primitive.pluto--location-top > .pluto-input__switch,
-.pluto-symbol-primitive.pluto--location-bottom > .pluto-input__switch {
-    width: calc(2.5rem * var(--pluto-switch-scale, 1));
-    height: calc(5rem * var(--pluto-switch-scale, 1));
+.pluto-symbol-primitive.pluto--direction-y > .pluto-input__switch {
+    width: var(--pluto-switch-height);
+    height: var(--pluto-switch-width);
 }
 
-.pluto-symbol-primitive.pluto--location-bottom .pluto-input__switch-indicator {
-    rotate: 90deg;
-}
-
-.pluto-symbol-primitive.pluto--location-top .pluto-input__switch-indicator {
+.pluto-symbol-primitive.pluto--direction-y .pluto-input__switch-indicator {
     rotate: -90deg;
-}
-
-.pluto-symbol-primitive.pluto--location-right .pluto-input__switch-indicator {
-    rotate: 180deg;
 }
