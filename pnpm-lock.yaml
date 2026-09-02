@@ -517,8 +517,8 @@ importers:
         specifier: 'catalog:'
         version: 8.0.0
       proxy-memoize:
-        specifier: 2.0.3
-        version: 2.0.3
+        specifier: ^3.0.1
+        version: 3.0.1
       react:
         specifier: 'catalog:'
         version: 19.2.8
@@ -5853,11 +5853,11 @@ packages:
   property-information@7.2.0:
     resolution: {integrity: sha512-IAtzIB6sUiWaJYrX9smp3V46pBGbBeLFRGdh25kg1334VcBlD8HzhPeNIWQH9zhGmo2itIe25EHt9dQP7G5hmg==}
 
-  proxy-compare@2.4.0:
-    resolution: {integrity: sha512-FD8KmQUQD6Mfpd0hywCOzcon/dbkFP8XBd9F1ycbKtvVsfv6TsFUKJ2eC0Iz2y+KzlkdT1Z8SY6ZSgm07zOyqg==}
+  proxy-compare@3.0.1:
+    resolution: {integrity: sha512-V9plBAt3qjMlS1+nC8771KNf6oJ12gExvaxnNzN/9yVRLdTv/lc+oJlnSzrdYDAvBfTStPCoiaCOTmTs0adv7Q==}
 
-  proxy-memoize@2.0.3:
-    resolution: {integrity: sha512-PpZzfNsZbOI89phkaq2BP6OfG7/0RDKYKEwTSlIikcWZ5ODN/dRzrHfg1zPMtlZY6FJRmrHamJ1ol2gIc+bruQ==}
+  proxy-memoize@3.0.1:
+    resolution: {integrity: sha512-VDdG/VYtOgdGkWJx7y0o7p+zArSf2383Isci8C+BP3YXgMYDoPd3cCBjw0JdWb6YBb9sFiOPbAADDVTPJnh+9g==}
 
   punycode@2.3.1:
     resolution: {integrity: sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==}
@@ -12355,11 +12355,11 @@ snapshots:
 
   property-information@7.2.0: {}
 
-  proxy-compare@2.4.0: {}
+  proxy-compare@3.0.1: {}
 
-  proxy-memoize@2.0.3:
+  proxy-memoize@3.0.1:
     dependencies:
-      proxy-compare: 2.4.0
+      proxy-compare: 3.0.1
 
   punycode@2.3.1: {}
 

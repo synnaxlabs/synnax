@@ -40,7 +40,7 @@
     "compromise-dates": "catalog:",
     "fflate": "catalog:",
     "pluralize": "catalog:",
-    "proxy-memoize": "2.0.3",
+    "proxy-memoize": "^3.0.1",
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-icons": "catalog:",
