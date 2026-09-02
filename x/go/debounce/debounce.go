@@ -132,9 +132,9 @@ func (d *Debouncer) Stop() {
 	d.firstAtSet = false
 }
 
-// onTimerFire is invoked by Clock.RunAt when the timer elapses. The gen check
-// guards against a timer that fired between a concurrent Trigger/Stop calling
-// timer.Stop (which returned false) and the firing goroutine acquiring d.mu.
+// onTimerFire is invoked by Clock.RunAt when the timer elapses. The gen check guards
+// against a timer that fired between a concurrent Trigger/Stop calling timer.Stop
+// (which returned false) and the firing goroutine acquiring d.mu.
 func (d *Debouncer) onTimerFire(gen uint64) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
