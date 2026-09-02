@@ -530,9 +530,45 @@ describe("clipboard", () => {
       return { current: el };
     };
 
+    // jsdom implements neither constructor the synthetic-paste fallback uses.
+    const stubSyntheticClipboard = () => {
+      class DataTransferStub {
+        private readonly data = new Map<string, string>();
+        setData(type: string, value: string): void {
+          this.data.set(type, value);
+        }
+        getData(type: string): string {
+          return this.data.get(type) ?? "";
+        }
+      }
+      class ClipboardEventStub extends Event {
+        readonly clipboardData: DataTransferStub | null;
+        constructor(
+          type: string,
+          init?: EventInit & { clipboardData?: DataTransferStub },
+        ) {
+          super(type, init);
+          this.clipboardData = init?.clipboardData ?? null;
+        }
+      }
+      vi.stubGlobal("DataTransfer", DataTransferStub);
+      vi.stubGlobal("ClipboardEvent", ClipboardEventStub);
+    };
+
+    const listenForPaste = (container: RefObject<HTMLDivElement | null>): string[] => {
+      const seen: string[] = [];
+      container.current?.addEventListener("paste", (e) => {
+        const data = (e as unknown as { clipboardData: DataTransfer | null })
+          .clipboardData;
+        seen.push(data?.getData(MIME) ?? "");
+      });
+      return seen;
+    };
+
     afterEach(() => {
       Reflect.deleteProperty(document, "execCommand");
       containers.splice(0).forEach((el) => el.remove());
+      vi.unstubAllGlobals();
     });
 
     it("should focus the container and fire a native copy", () => {
@@ -651,6 +687,55 @@ describe("clipboard", () => {
       const { paste } = renderClipboard(makeAdapter(SNAPSHOT), [], { container });
       paste();
       expect(execCommand).toHaveBeenCalledWith("paste");
+    });
+
+    it("should replay the last copied payload when the native paste is refused", () => {
+      const execCommand = stubExecCommand();
+      stubSyntheticClipboard();
+      const container = makeContainer();
+      const clipboard = renderClipboard(makeAdapter(SNAPSHOT), ["a", "e1"], {
+        container,
+      });
+      const { event } = fakeClipboardEvent();
+      execCommand.mockImplementation((command) => {
+        if (command !== "copy") return false;
+        clipboard.onCopy(event, xy.ZERO);
+        return true;
+      });
+      clipboard.copy();
+      const seen = listenForPaste(container);
+      clipboard.paste();
+      expect(seen).toHaveLength(1);
+      const payload = JSON.parse(seen[0]);
+      expect(payload.nodes.map((n: { key: string }) => n.key)).toEqual(["a"]);
+      expect(payload.edges.map((e: { key: string }) => e.key)).toEqual(["e1"]);
+    });
+
+    it("should not replay when the native paste succeeds", () => {
+      const execCommand = stubExecCommand();
+      stubSyntheticClipboard();
+      const container = makeContainer();
+      const clipboard = renderClipboard(makeAdapter(SNAPSHOT), ["a"], { container });
+      const { event } = fakeClipboardEvent();
+      execCommand.mockImplementation((command) => {
+        if (command === "copy") clipboard.onCopy(event, xy.ZERO);
+        return true;
+      });
+      clipboard.copy();
+      const seen = listenForPaste(container);
+      clipboard.paste();
+      expect(seen).toHaveLength(0);
+    });
+
+    it("should not replay before anything was copied", () => {
+      const execCommand = stubExecCommand();
+      stubSyntheticClipboard();
+      execCommand.mockImplementation(() => false);
+      const container = makeContainer();
+      const { paste } = renderClipboard(makeAdapter(SNAPSHOT), [], { container });
+      const seen = listenForPaste(container);
+      paste();
+      expect(seen).toHaveLength(0);
     });
 
     it("should compile only while the DOM standard defines execCommand", () => {

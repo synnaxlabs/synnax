@@ -139,6 +139,7 @@ export const useClipboard = <N extends ClipboardNode, E extends ClipboardEdge>({
   const selectedRef = useSyncedRef(selected ?? []);
   const onCutRef = useSyncedRef(onCutProp);
   const cutPendingRef = useRef(false);
+  const lastCopiedRef = useRef<string | null>(null);
 
   // Writes the selection to the event's clipboard data. Returns the written keys,
   // or null when nothing was written.
@@ -172,8 +173,10 @@ export const useClipboard = <N extends ClipboardNode, E extends ClipboardEdge>({
         anchor: centroid(nodes),
       };
       e.preventDefault();
-      e.clipboardData.setData(mime, JSON.stringify(payload));
+      const json = JSON.stringify(payload);
+      e.clipboardData.setData(mime, json);
       e.clipboardData.setData("text/plain", describe(nodes.length, edges.length));
+      lastCopiedRef.current = json;
       return keys;
     },
     [],
@@ -203,21 +206,21 @@ export const useClipboard = <N extends ClipboardNode, E extends ClipboardEdge>({
   );
 
   const exec = useCallback(
-    (command: "copy" | "paste") => {
+    (command: "copy" | "paste"): boolean => {
       const el = container?.current;
-      if (el == null) return;
+      if (el == null) return false;
       window.getSelection()?.removeAllRanges();
       el.focus({ preventScroll: true });
       // Monaco's clipboard menu actions call execCommand the same way. It is deprecated
       // with no replacement: WebKit's clipboard API rejects custom MIME types. Only
       // these menu triggers use it; the keyboard path fires native events.
       // eslint-disable-next-line @typescript-eslint/no-deprecated
-      document.execCommand(command);
+      return document.execCommand(command);
     },
     [container],
   );
 
-  const copy = useCallback(() => exec("copy"), [exec]);
+  const copy = useCallback(() => void exec("copy"), [exec]);
 
   const cut = useCallback(() => {
     // Native cut events only fire in editable DOM, so cut copies, then removes.
@@ -229,7 +232,19 @@ export const useClipboard = <N extends ClipboardNode, E extends ClipboardEdge>({
     }
   }, [exec]);
 
-  const paste = useCallback(() => exec("paste"), [exec]);
+  const paste = useCallback(() => {
+    // Chromium refuses execCommand("paste"). Replay the last copied payload as a
+    // synthetic event so it flows through the normal handler and its cursor math.
+    if (exec("paste")) return;
+    const el = container?.current;
+    const raw = lastCopiedRef.current;
+    if (el == null || raw == null) return;
+    const data = new DataTransfer();
+    data.setData(adapterRef.current.mime, raw);
+    el.dispatchEvent(
+      new globalThis.ClipboardEvent("paste", { clipboardData: data, bubbles: true }),
+    );
+  }, [exec, container]);
 
   const onPaste = useCallback<ClipboardHandler>((e, cursor) => {
     const { mime, edgeKey, apply } = adapterRef.current;
