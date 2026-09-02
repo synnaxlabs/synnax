@@ -1185,7 +1185,7 @@ var _ = Describe("Task", Ordered, func() {
 					Start: telem.Now(),
 				}))
 				Expect(
-					w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV[bool](true))),
+					w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV(true))),
 				).To(BeTrue())
 
 				oneRow := func(g Gomega) {
@@ -1203,7 +1203,7 @@ var _ = Describe("Task", Ordered, func() {
 				for range 3 {
 					Expect(
 						w.Write(
-							frame.NewUnary(data.Key(), telem.NewSeriesV[bool](false)),
+							frame.NewUnary(data.Key(), telem.NewSeriesV(false)),
 						),
 					).To(BeTrue())
 					time.Sleep(20 * time.Millisecond)
@@ -1260,7 +1260,7 @@ var _ = Describe("Task", Ordered, func() {
 				).To(BeTrue())
 				time.Sleep(20 * time.Millisecond)
 				Expect(
-					w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV[bool](true))),
+					w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV(true))),
 				).To(BeTrue())
 
 				oneRow := func(g Gomega) {
@@ -1278,7 +1278,7 @@ var _ = Describe("Task", Ordered, func() {
 				for range 3 {
 					Expect(
 						w.Write(
-							frame.NewUnary(data.Key(), telem.NewSeriesV[bool](false)),
+							frame.NewUnary(data.Key(), telem.NewSeriesV(false)),
 						),
 					).To(BeTrue())
 					time.Sleep(20 * time.Millisecond)
@@ -1336,7 +1336,7 @@ var _ = Describe("Task", Ordered, func() {
 				).To(BeTrue())
 				time.Sleep(20 * time.Millisecond)
 				Expect(
-					w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV[bool](true))),
+					w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV(true))),
 				).To(BeTrue())
 
 				oneRow := func(g Gomega) {
@@ -1354,7 +1354,7 @@ var _ = Describe("Task", Ordered, func() {
 				for range 3 {
 					Expect(
 						w.Write(
-							frame.NewUnary(data.Key(), telem.NewSeriesV[bool](false)),
+							frame.NewUnary(data.Key(), telem.NewSeriesV(false)),
 						),
 					).To(BeTrue())
 					time.Sleep(20 * time.Millisecond)
@@ -1404,7 +1404,7 @@ var _ = Describe("Task", Ordered, func() {
 				}
 
 				Expect(
-					w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV[bool](true))),
+					w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV(true))),
 				).To(BeTrue())
 				Eventually(rangeCount(1)).Should(Succeed())
 
@@ -1412,7 +1412,7 @@ var _ = Describe("Task", Ordered, func() {
 				for range 2 {
 					Expect(
 						w.Write(
-							frame.NewUnary(data.Key(), telem.NewSeriesV[bool](false)),
+							frame.NewUnary(data.Key(), telem.NewSeriesV(false)),
 						),
 					).To(BeTrue())
 					time.Sleep(20 * time.Millisecond)
@@ -1422,7 +1422,7 @@ var _ = Describe("Task", Ordered, func() {
 				// A fresh truthy mark fires the entry again: per-trigger, not
 				// per-activation.
 				Expect(
-					w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV[bool](true))),
+					w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV(true))),
 				).To(BeTrue())
 				Expect(w.Close()).To(Succeed())
 				Eventually(rangeCount(2)).Should(Succeed())
@@ -1480,7 +1480,7 @@ var _ = Describe("Task", Ordered, func() {
 				).To(BeTrue())
 				time.Sleep(20 * time.Millisecond)
 				Expect(
-					w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV[bool](true))),
+					w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV(true))),
 				).To(BeTrue())
 				Eventually(rangeCount(1)).Should(Succeed())
 
@@ -1488,7 +1488,7 @@ var _ = Describe("Task", Ordered, func() {
 				for range 2 {
 					Expect(
 						w.Write(
-							frame.NewUnary(data.Key(), telem.NewSeriesV[bool](false)),
+							frame.NewUnary(data.Key(), telem.NewSeriesV(false)),
 						),
 					).To(BeTrue())
 					time.Sleep(20 * time.Millisecond)
@@ -1498,7 +1498,7 @@ var _ = Describe("Task", Ordered, func() {
 				// A fresh truthy mark fires the entry again: per-trigger, not
 				// per-activation.
 				Expect(
-					w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV[bool](true))),
+					w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV(true))),
 				).To(BeTrue())
 				Expect(w.Close()).To(Succeed())
 				Eventually(rangeCount(2)).Should(Succeed())
@@ -1557,7 +1557,7 @@ var _ = Describe("Task", Ordered, func() {
 				).To(BeTrue())
 				time.Sleep(20 * time.Millisecond)
 				Expect(
-					w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV[bool](true))),
+					w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV(true))),
 				).To(BeTrue())
 				Eventually(rangeCount(1)).Should(Succeed())
 
@@ -1565,7 +1565,7 @@ var _ = Describe("Task", Ordered, func() {
 				for range 2 {
 					Expect(
 						w.Write(
-							frame.NewUnary(data.Key(), telem.NewSeriesV[bool](false)),
+							frame.NewUnary(data.Key(), telem.NewSeriesV(false)),
 						),
 					).To(BeTrue())
 					time.Sleep(20 * time.Millisecond)
@@ -1575,7 +1575,7 @@ var _ = Describe("Task", Ordered, func() {
 				// A fresh truthy mark fires the entry again: per-trigger, not
 				// per-activation.
 				Expect(
-					w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV[bool](true))),
+					w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV(true))),
 				).To(BeTrue())
 				Expect(w.Close()).To(Succeed())
 				Eventually(rangeCount(2)).Should(Succeed())
@@ -1619,7 +1619,7 @@ var _ = Describe("Task", Ordered, func() {
 					Start: telem.Now(),
 				}))
 				Expect(
-					w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV[bool](true))),
+					w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV(true))),
 				).To(BeTrue())
 
 				var rng ranger.Range
@@ -1695,7 +1695,7 @@ var _ = Describe("Task", Ordered, func() {
 				).To(BeTrue())
 				time.Sleep(20 * time.Millisecond)
 				Expect(
-					w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV[bool](true))),
+					w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV(true))),
 				).To(BeTrue())
 
 				var rng ranger.Range
@@ -1770,7 +1770,7 @@ var _ = Describe("Task", Ordered, func() {
 				).To(BeTrue())
 				time.Sleep(20 * time.Millisecond)
 				Expect(
-					w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV[bool](true))),
+					w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV(true))),
 				).To(BeTrue())
 
 				var rng ranger.Range
