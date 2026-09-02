@@ -70,5 +70,10 @@ jobs:
           package: docs
           test: false
 
+      - name: Check Site
+        timeout-minutes: 15
+        working-directory: docs/site
+        run: pnpm check-site:build && pnpm check-site
+
       - name: Build
         run: pnpm build:docs
