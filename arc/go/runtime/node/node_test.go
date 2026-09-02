@@ -42,7 +42,7 @@ type mockFactory struct {
 	createCalled int
 }
 
-func (m *mockFactory) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+func (m *mockFactory) Create(cfg node.Config) (node.Node, error) {
 	m.createCalled++
 	if cfg.Node.Type != m.nodeType {
 		return nil, query.ErrNotFound
@@ -73,7 +73,7 @@ var _ = Describe("Node", func() {
 			factory2 := &mockFactory{nodeType: "type2", returnNode: &mockNode{}}
 			factory3 := &mockFactory{nodeType: "type3"}
 			compound := node.CompoundFactory{factory1, factory2, factory3}
-			n := MustSucceed(compound.Create(ctx, newTestConfig(ctx, "type2")))
+			n := MustSucceed(compound.Create(newTestConfig(ctx, "type2")))
 			Expect(n).ToNot(BeNil())
 			Expect(factory1.createCalled).To(Equal(1))
 			Expect(factory2.createCalled).To(Equal(1))
@@ -85,7 +85,7 @@ var _ = Describe("Node", func() {
 			factory2 := &mockFactory{nodeType: "type2"}
 			compound := node.CompoundFactory{factory1, factory2}
 			Expect(
-				compound.Create(ctx, newTestConfig(ctx, "unknown")),
+				compound.Create(newTestConfig(ctx, "unknown")),
 			).Error().
 				To(MatchError(query.ErrNotFound))
 			Expect(factory1.createCalled).To(Equal(1))
@@ -99,7 +99,7 @@ var _ = Describe("Node", func() {
 			factory3 := &mockFactory{nodeType: "type3"}
 			compound := node.CompoundFactory{factory1, factory2, factory3}
 			Expect(
-				compound.Create(ctx, newTestConfig(ctx, "type2")),
+				compound.Create(newTestConfig(ctx, "type2")),
 			).Error().
 				To(MatchError(expectedErr))
 			Expect(factory1.createCalled).To(Equal(1))
@@ -110,7 +110,7 @@ var _ = Describe("Node", func() {
 		It("Should handle empty factory list", func(ctx SpecContext) {
 			compound := node.CompoundFactory{}
 			Expect(
-				compound.Create(ctx, newTestConfig(ctx, "test")),
+				compound.Create(newTestConfig(ctx, "test")),
 			).Error().
 				To(MatchError(query.ErrNotFound))
 		})
@@ -118,7 +118,7 @@ var _ = Describe("Node", func() {
 		It("Should handle single factory", func(ctx SpecContext) {
 			factory := &mockFactory{nodeType: "test", returnNode: &mockNode{}}
 			compound := node.CompoundFactory{factory}
-			n := MustSucceed(compound.Create(ctx, newTestConfig(ctx, "test")))
+			n := MustSucceed(compound.Create(newTestConfig(ctx, "test")))
 			Expect(n).ToNot(BeNil())
 			Expect(factory.createCalled).To(Equal(1))
 		})
@@ -129,7 +129,7 @@ var _ = Describe("Node", func() {
 			factory3 := &mockFactory{nodeType: "type3"}
 			compound := node.CompoundFactory{factory1, factory2, factory3}
 			Expect(
-				compound.Create(ctx, newTestConfig(ctx, "unknown")),
+				compound.Create(newTestConfig(ctx, "unknown")),
 			).Error().
 				To(MatchError(query.ErrNotFound))
 			Expect(factory1.createCalled).To(Equal(1))
@@ -143,7 +143,7 @@ var _ = Describe("Node", func() {
 			factory2 := &mockFactory{nodeType: "test", returnNode: expectedNode}
 			factory3 := &mockFactory{nodeType: "test", returnNode: &mockNode{}}
 			compound := node.CompoundFactory{factory1, factory2, factory3}
-			n := MustSucceed(compound.Create(ctx, newTestConfig(ctx, "test")))
+			n := MustSucceed(compound.Create(newTestConfig(ctx, "test")))
 			Expect(n).To(Equal(expectedNode))
 			Expect(factory3.createCalled).To(Equal(0))
 		})
@@ -154,7 +154,7 @@ var _ = Describe("Node", func() {
 				factory := &mockFactory{nodeType: "interval", returnNode: &mockNode{}}
 				compound := node.CompoundFactory{factory}
 				n := MustSucceed(
-					compound.Create(ctx, newTestConfig(ctx, "time.interval")),
+					compound.Create(newTestConfig(ctx, "time.interval")),
 				)
 				Expect(n).ToNot(BeNil())
 				Expect(factory.createCalled).To(Equal(1))
@@ -164,7 +164,7 @@ var _ = Describe("Node", func() {
 		It("Should leave bare node types unchanged", func(ctx SpecContext) {
 			factory := &mockFactory{nodeType: "set_authority", returnNode: &mockNode{}}
 			compound := node.CompoundFactory{factory}
-			n := MustSucceed(compound.Create(ctx, newTestConfig(ctx, "set_authority")))
+			n := MustSucceed(compound.Create(newTestConfig(ctx, "set_authority")))
 			Expect(n).ToNot(BeNil())
 			Expect(factory.createCalled).To(Equal(1))
 		})
@@ -187,7 +187,7 @@ var _ = Describe("Node", func() {
 				compound := node.CompoundFactory{statusFactory, controlFactory}
 
 				n := MustSucceed(
-					compound.Create(ctx, newTestConfig(ctx, "control.set")),
+					compound.Create(newTestConfig(ctx, "control.set")),
 				)
 				Expect(n).To(Equal(controlNode))
 				Expect(controlFactory.createCalled).To(Equal(1))
@@ -202,7 +202,7 @@ var _ = Describe("Node", func() {
 				noModule := &mockFactory{nodeType: "set", returnNode: &mockNode{}}
 				compound := node.CompoundFactory{wrongModule, noModule}
 
-				n := MustSucceed(compound.Create(ctx, newTestConfig(ctx, "status.set")))
+				n := MustSucceed(compound.Create(newTestConfig(ctx, "status.set")))
 				Expect(n).ToNot(BeNil())
 				Expect(wrongModule.createCalled).To(Equal(0))
 				Expect(noModule.createCalled).To(Equal(1))

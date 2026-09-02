@@ -27,7 +27,7 @@ import (
 
 var _ = Describe("Constant", func() {
 	Describe("NewModule", func() {
-		It("Should create module", func(ctx SpecContext) {
+		It("Should create module", func() {
 			factory := constant.NewHost()
 			Expect(factory).ToNot(BeNil())
 		})
@@ -56,7 +56,7 @@ var _ = Describe("Constant", func() {
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = node.New(analyzed)
 		})
-		It("Should create constant for constant type", func(ctx SpecContext) {
+		It("Should create constant for constant type", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type:   "constant",
@@ -64,16 +64,16 @@ var _ = Describe("Constant", func() {
 				},
 				State: s.Node("const"),
 			}
-			Expect(MustSucceed(factory.Create(ctx, cfg))).ToNot(BeNil())
+			Expect(MustSucceed(factory.Create(cfg))).ToNot(BeNil())
 		})
-		It("Should return NotFound for unknown type", func(ctx SpecContext) {
+		It("Should return NotFound for unknown type", func() {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "unknown"},
 				State: s.Node("const"),
 			}
-			Expect(factory.Create(ctx, cfg)).Error().To(MatchError(query.ErrNotFound))
+			Expect(factory.Create(cfg)).Error().To(MatchError(query.ErrNotFound))
 		})
-		It("Should handle float64 value", func(ctx SpecContext) {
+		It("Should handle float64 value", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "constant",
@@ -85,9 +85,9 @@ var _ = Describe("Constant", func() {
 				},
 				State: s.Node("const"),
 			}
-			Expect(MustSucceed(factory.Create(ctx, cfg))).ToNot(BeNil())
+			Expect(MustSucceed(factory.Create(cfg))).ToNot(BeNil())
 		})
-		It("Should handle int value", func(ctx SpecContext) {
+		It("Should handle int value", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "constant",
@@ -99,9 +99,9 @@ var _ = Describe("Constant", func() {
 				},
 				State: s.Node("const"),
 			}
-			Expect(MustSucceed(factory.Create(ctx, cfg))).ToNot(BeNil())
+			Expect(MustSucceed(factory.Create(cfg))).ToNot(BeNil())
 		})
-		It("Should handle uint8 value", func(ctx SpecContext) {
+		It("Should handle uint8 value", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "constant",
@@ -113,7 +113,7 @@ var _ = Describe("Constant", func() {
 				},
 				State: s.Node("const"),
 			}
-			Expect(MustSucceed(factory.Create(ctx, cfg))).ToNot(BeNil())
+			Expect(MustSucceed(factory.Create(cfg))).ToNot(BeNil())
 		})
 	})
 
@@ -151,7 +151,7 @@ var _ = Describe("Constant", func() {
 				},
 				State: s.Node("const"),
 			}
-			n := MustSucceed(factory.Create(ctx, cfg))
+			n := MustSucceed(factory.Create(cfg))
 			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) {
 				marked = append(marked, i)
 			}})
@@ -168,7 +168,7 @@ var _ = Describe("Constant", func() {
 				},
 				State: s.Node("const"),
 			}
-			n := MustSucceed(factory.Create(ctx, cfg))
+			n := MustSucceed(factory.Create(cfg))
 			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			out := s.Node("const").Output(0)
 			Expect(out.Len()).To(Equal(int64(1)))
@@ -184,7 +184,7 @@ var _ = Describe("Constant", func() {
 				},
 				State: s.Node("const"),
 			}
-			n := MustSucceed(factory.Create(ctx, cfg))
+			n := MustSucceed(factory.Create(cfg))
 			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			outTime := s.Node("const").OutputTime(0)
 			Expect(outTime.Len()).To(Equal(int64(1)))
@@ -204,7 +204,7 @@ var _ = Describe("Constant", func() {
 			}
 			constNode := s.Node("const")
 			*constNode.Output(0) = telem.NewSeriesV[float64](0)
-			n := MustSucceed(factory.Create(ctx, cfg))
+			n := MustSucceed(factory.Create(cfg))
 			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			out := constNode.Output(0)
 			vals := telem.UnmarshalSeries[float64](*out)
@@ -223,7 +223,7 @@ var _ = Describe("Constant", func() {
 			}
 			constNode := s.Node("const")
 			*constNode.Output(0) = telem.NewSeriesV[int32](0)
-			n := MustSucceed(factory.Create(ctx, cfg))
+			n := MustSucceed(factory.Create(cfg))
 			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			out := constNode.Output(0)
 			vals := telem.UnmarshalSeries[int32](*out)
@@ -242,7 +242,7 @@ var _ = Describe("Constant", func() {
 			}
 			constNode := s.Node("const")
 			*constNode.Output(0) = telem.NewSeriesV[uint8](0)
-			n := MustSucceed(factory.Create(ctx, cfg))
+			n := MustSucceed(factory.Create(cfg))
 			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			out := constNode.Output(0)
 			vals := telem.UnmarshalSeries[uint8](*out)
@@ -294,7 +294,7 @@ var _ = Describe("Constant", func() {
 			}
 			constNode := s.Node("const")
 			*constNode.Output(0) = telem.NewSeriesV[int64](0)
-			n := MustSucceed(factory.Create(ctx, cfg))
+			n := MustSucceed(factory.Create(cfg))
 			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			sink := s.Node("sink")
 			recalc := sink.RefreshInputs()
@@ -314,7 +314,7 @@ var _ = Describe("Constant", func() {
 			}
 			constNode := s.Node("const")
 			*constNode.Output(0) = telem.NewSeriesV[int64](0)
-			n := MustSucceed(factory.Create(ctx, cfg))
+			n := MustSucceed(factory.Create(cfg))
 			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			out := constNode.Output(0)
 			vals := telem.UnmarshalSeries[int64](*out)
@@ -333,7 +333,7 @@ var _ = Describe("Constant", func() {
 			}
 			constNode := s.Node("const")
 			*constNode.Output(0) = telem.NewSeriesV[int64](0)
-			n := MustSucceed(factory.Create(ctx, cfg))
+			n := MustSucceed(factory.Create(cfg))
 			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			out := constNode.Output(0)
 			vals := telem.UnmarshalSeries[int64](*out)
@@ -352,7 +352,7 @@ var _ = Describe("Constant", func() {
 			}
 			constNode := s.Node("const")
 			*constNode.Output(0) = telem.NewSeriesV[int64](0)
-			n := MustSucceed(factory.Create(ctx, cfg))
+			n := MustSucceed(factory.Create(cfg))
 			for range 3 {
 				n.Next(node.Context{Context: ctx, MarkChanged: func(i int) {
 					marked = append(marked, i)
@@ -373,7 +373,7 @@ var _ = Describe("Constant", func() {
 			}
 			constNode := s.Node("const")
 			*constNode.Output(0) = telem.NewSeriesV[int64](0)
-			n := MustSucceed(factory.Create(ctx, cfg))
+			n := MustSucceed(factory.Create(cfg))
 			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) {
 				marked = append(marked, i)
 			}})
@@ -398,7 +398,7 @@ var _ = Describe("Constant", func() {
 			}
 			constNode := s.Node("const")
 			*constNode.Output(0) = telem.NewSeriesV[int64](0)
-			n := MustSucceed(factory.Create(ctx, cfg))
+			n := MustSucceed(factory.Create(cfg))
 			noop := node.Context{Context: ctx, MarkChanged: func(int) {}}
 			n.Next(noop)
 			t0 := telem.ValueAt[telem.TimeStamp](*constNode.OutputTime(0), 0)
@@ -419,7 +419,7 @@ var _ = Describe("Constant", func() {
 			}
 			constNode := s.Node("const")
 			*constNode.Output(0) = telem.NewSeriesV[int64](0)
-			n := MustSucceed(factory.Create(ctx, cfg))
+			n := MustSucceed(factory.Create(cfg))
 			noop := node.Context{Context: ctx, MarkChanged: func(int) {}}
 			n.Next(noop)
 			*constNode.Output(0) = telem.NewSeriesV[int64](999)
@@ -463,7 +463,7 @@ var _ = Describe("Constant", func() {
 			"Should emit the declared initial before any variable write",
 			func(ctx SpecContext) {
 				cfg, state := build(types.I64(), int64(42))
-				n := MustSucceed(factory.Create(ctx, cfg))
+				n := MustSucceed(factory.Create(cfg))
 				next(ctx, n)
 				out := state.Node("n").Output(0)
 				Expect(out.Len()).To(Equal(int64(1)))
@@ -473,7 +473,7 @@ var _ = Describe("Constant", func() {
 
 		It("Should emit the live value after a variable write", func(ctx SpecContext) {
 			cfg, state := build(types.I64(), int64(42))
-			n := MustSucceed(factory.Create(ctx, cfg))
+			n := MustSucceed(factory.Create(cfg))
 			*state.Node("v").Output(0) = telem.NewSeriesV[int64](7)
 			next(ctx, n)
 			out := state.Node("n").Output(0)
@@ -484,7 +484,7 @@ var _ = Describe("Constant", func() {
 
 		It("Should track successive variable writes", func(ctx SpecContext) {
 			cfg, state := build(types.I64(), int64(42))
-			n := MustSucceed(factory.Create(ctx, cfg))
+			n := MustSucceed(factory.Create(cfg))
 			*state.Node("v").Output(0) = telem.NewSeriesV[int64](7)
 			next(ctx, n)
 			Expect(telem.ValueAt[int64](*state.Node("n").Output(0), 0)).
@@ -499,7 +499,7 @@ var _ = Describe("Constant", func() {
 			"Should emit only the latest sample of the variable's series",
 			func(ctx SpecContext) {
 				cfg, state := build(types.I64(), int64(42))
-				n := MustSucceed(factory.Create(ctx, cfg))
+				n := MustSucceed(factory.Create(cfg))
 				*state.Node("v").Output(0) = telem.NewSeriesV[int64](1, 2, 3)
 				next(ctx, n)
 				out := state.Node("n").Output(0)
@@ -512,7 +512,7 @@ var _ = Describe("Constant", func() {
 			"Should emit the declared string initial before any write",
 			func(ctx SpecContext) {
 				cfg, state := build(types.String(), "hello")
-				n := MustSucceed(factory.Create(ctx, cfg))
+				n := MustSucceed(factory.Create(cfg))
 				next(ctx, n)
 				out := state.Node("n").Output(0)
 				Expect(out.Len()).To(Equal(int64(1)))
@@ -522,7 +522,7 @@ var _ = Describe("Constant", func() {
 
 		It("Should emit the live string after a write", func(ctx SpecContext) {
 			cfg, state := build(types.String(), "hello")
-			n := MustSucceed(factory.Create(ctx, cfg))
+			n := MustSucceed(factory.Create(cfg))
 			*state.Node("v").Output(0) = telem.NewSeriesV("goodbye")
 			next(ctx, n)
 			out := state.Node("n").Output(0)
@@ -533,7 +533,7 @@ var _ = Describe("Constant", func() {
 
 		It("Should emit only the latest string sample", func(ctx SpecContext) {
 			cfg, state := build(types.String(), "hello")
-			n := MustSucceed(factory.Create(ctx, cfg))
+			n := MustSucceed(factory.Create(cfg))
 			*state.Node("v").Output(0) = telem.NewSeriesV("a", "b")
 			next(ctx, n)
 			out := state.Node("n").Output(0)
@@ -545,7 +545,7 @@ var _ = Describe("Constant", func() {
 			"Should emit a live float value from raw sample bytes",
 			func(ctx SpecContext) {
 				cfg, state := build(types.F64(), 1.5)
-				n := MustSucceed(factory.Create(ctx, cfg))
+				n := MustSucceed(factory.Create(cfg))
 				*state.Node("v").Output(0) = telem.NewSeriesV(2.5)
 				next(ctx, n)
 				out := state.Node("n").Output(0)
@@ -557,7 +557,7 @@ var _ = Describe("Constant", func() {
 			"Should re-emit on every Next, tracking the variable",
 			func(ctx SpecContext) {
 				cfg, state := build(types.I64(), int64(42))
-				n := MustSucceed(factory.Create(ctx, cfg))
+				n := MustSucceed(factory.Create(cfg))
 				var marked []int
 				mark := node.Context{Context: ctx, MarkChanged: func(i int) {
 					marked = append(marked, i)
@@ -575,7 +575,7 @@ var _ = Describe("Constant", func() {
 
 		It("Should keep tracking the variable after Reset", func(ctx SpecContext) {
 			cfg, state := build(types.I64(), int64(42))
-			n := MustSucceed(factory.Create(ctx, cfg))
+			n := MustSucceed(factory.Create(cfg))
 			*state.Node("v").Output(0) = telem.NewSeriesV[int64](7)
 			next(ctx, n)
 			n.Reset()
