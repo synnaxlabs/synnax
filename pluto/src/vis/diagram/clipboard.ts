@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type record, uuid, xy } from "@synnaxlabs/x";
-import { type ClipboardEvent, useCallback } from "react";
+import { type ClipboardEvent, type RefObject, useCallback, useRef } from "react";
 
 import { useSyncedRef } from "@/hooks";
 import { type ClipboardHandler } from "@/vis/diagram/Diagram";
@@ -100,12 +100,16 @@ export interface UseClipboardParams<N extends ClipboardNode, E extends Clipboard
   selected?: string[];
   /** onCut receives the selection that survives a cut. */
   onCut?: (remaining: string[]) => void;
+  container?: RefObject<HTMLDivElement | null>;
 }
 
 export interface UseClipboardReturn {
   onCopy: ClipboardHandler;
   onCut: ClipboardHandler;
   onPaste: ClipboardHandler;
+  copy: () => void;
+  cut: () => void;
+  paste: () => void;
 }
 
 const describe = (nodeCount: number, edgeCount: number): string =>
@@ -129,10 +133,13 @@ export const useClipboard = <N extends ClipboardNode, E extends ClipboardEdge>({
   adapter,
   selected,
   onCut: onCutProp,
+  container,
 }: UseClipboardParams<N, E>): UseClipboardReturn => {
   const adapterRef = useSyncedRef(adapter);
   const selectedRef = useSyncedRef(selected ?? []);
   const onCutRef = useSyncedRef(onCutProp);
+  const cutPendingRef = useRef(false);
+  const lastCopiedRef = useRef<string | null>(null);
 
   // Writes the selection to the event's clipboard data. Returns the written keys,
   // or null when nothing was written.
@@ -166,28 +173,78 @@ export const useClipboard = <N extends ClipboardNode, E extends ClipboardEdge>({
         anchor: centroid(nodes),
       };
       e.preventDefault();
-      e.clipboardData.setData(mime, JSON.stringify(payload));
+      const json = JSON.stringify(payload);
+      e.clipboardData.setData(mime, json);
       e.clipboardData.setData("text/plain", describe(nodes.length, edges.length));
+      lastCopiedRef.current = json;
       return keys;
     },
     [],
   );
 
+  // Removes the written keys and reports the surviving selection.
+  const removeWritten = useCallback((keys: SelectionKeys) => {
+    adapterRef.current.remove(keys);
+    const removed = new Set([...keys.nodes, ...keys.edges]);
+    onCutRef.current?.(selectedRef.current.filter((k) => !removed.has(k)));
+  }, []);
+
   const onCopy = useCallback<ClipboardHandler>(
-    (e) => void writeSelection(e),
-    [writeSelection],
+    (e) => {
+      const keys = writeSelection(e);
+      if (cutPendingRef.current && keys != null) removeWritten(keys);
+    },
+    [writeSelection, removeWritten],
   );
 
   const onCut = useCallback<ClipboardHandler>(
     (e) => {
       const keys = writeSelection(e);
-      if (keys == null) return;
-      adapterRef.current.remove(keys);
-      const removed = new Set([...keys.nodes, ...keys.edges]);
-      onCutRef.current?.(selectedRef.current.filter((k) => !removed.has(k)));
+      if (keys != null) removeWritten(keys);
     },
-    [writeSelection],
+    [writeSelection, removeWritten],
   );
+
+  const exec = useCallback(
+    (command: "copy" | "paste"): boolean => {
+      const el = container?.current;
+      if (el == null) return false;
+      window.getSelection()?.removeAllRanges();
+      el.focus({ preventScroll: true });
+      // Monaco's clipboard menu actions call execCommand the same way. It is deprecated
+      // with no replacement: WebKit's clipboard API rejects custom MIME types. Only
+      // these menu triggers use it; the keyboard path fires native events.
+      // eslint-disable-next-line @typescript-eslint/no-deprecated
+      return document.execCommand(command);
+    },
+    [container],
+  );
+
+  const copy = useCallback(() => void exec("copy"), [exec]);
+
+  const cut = useCallback(() => {
+    // Native cut events only fire in editable DOM, so cut copies, then removes.
+    cutPendingRef.current = true;
+    try {
+      exec("copy");
+    } finally {
+      cutPendingRef.current = false;
+    }
+  }, [exec]);
+
+  const paste = useCallback(() => {
+    // Chromium refuses execCommand("paste"). Replay the last copied payload as a
+    // synthetic event so it flows through the normal handler and its cursor math.
+    if (exec("paste")) return;
+    const el = container?.current;
+    const raw = lastCopiedRef.current;
+    if (el == null || raw == null) return;
+    const data = new DataTransfer();
+    data.setData(adapterRef.current.mime, raw);
+    el.dispatchEvent(
+      new globalThis.ClipboardEvent("paste", { clipboardData: data, bubbles: true }),
+    );
+  }, [exec, container]);
 
   const onPaste = useCallback<ClipboardHandler>((e, cursor) => {
     const { mime, edgeKey, apply } = adapterRef.current;
@@ -229,5 +286,5 @@ export const useClipboard = <N extends ClipboardNode, E extends ClipboardEdge>({
     apply({ nodes, edges, newKeys: Object.values(remap) });
   }, []);
 
-  return { onCopy, onCut, onPaste };
+  return { onCopy, onCut, onPaste, copy, cut, paste };
 };
