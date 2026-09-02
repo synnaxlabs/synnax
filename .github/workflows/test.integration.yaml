@@ -218,7 +218,7 @@ jobs:
     secrets: inherit
 
   binary-checks:
-    name: Binary Checks (${{ matrix.os-name }})
+    name: Binary Checks (${{ matrix.display }})
     needs: [setup, build]
     if:
       ${{ !cancelled() && needs.setup.result == 'success' && (needs.build.result ==
@@ -231,9 +231,11 @@ jobs:
         include:
           - os: ubuntu-24.04
             os-name: linux
+            display: ubuntu
             executable: ""
           - os: windows-2025
             os-name: windows
+            display: windows
             executable: .exe
     steps:
       - name: Checkout Repository
@@ -266,6 +268,10 @@ jobs:
             "$HOME/synnax-binaries/synnax-driver${{ matrix.executable }}"
           chmod +x "$HOME"/synnax-binaries/synnax*
 
+      - name: Create Driver State Directory (Ubuntu)
+        if: runner.os == 'Linux'
+        run: sudo install -d -m 777 /var/lib/synnax-driver
+
       - name: Check Driver TLS (Windows)
         if: runner.os == 'Windows'
         timeout-minutes: 3
@@ -274,7 +280,7 @@ jobs:
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
         run: integration/scripts/CheckDriverTLS.ps1
 
-      - name: Check Driver TLS (Unix)
+      - name: Check Driver TLS (Ubuntu)
         if: runner.os == 'Linux'
         timeout-minutes: 3
         env:
@@ -289,7 +295,7 @@ jobs:
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
         run: integration/scripts/CheckDriverExternalCert.ps1
 
-      - name: Check Driver external cert (Unix)
+      - name: Check Driver external cert (Ubuntu)
         if: runner.os == 'Linux'
         timeout-minutes: 3
         env:
@@ -304,7 +310,7 @@ jobs:
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
         run: integration/scripts/CheckDriverUnverifiableCert.ps1
 
-      - name: Check unverifiable advertised cert (Unix)
+      - name: Check unverifiable advertised cert (Ubuntu)
         if: runner.os == 'Linux'
         timeout-minutes: 3
         env:
@@ -319,7 +325,7 @@ jobs:
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
         run: integration/scripts/CheckAutoCertRefresh.ps1
 
-      - name: Check auto-cert refresh (Unix)
+      - name: Check auto-cert refresh (Ubuntu)
         if: runner.os == 'Linux'
         timeout-minutes: 4
         env:
@@ -334,7 +340,7 @@ jobs:
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
         run: integration/scripts/CheckDriverService.ps1
 
-      - name: Check Driver service lifecycle (Unix)
+      - name: Check Driver service lifecycle (Ubuntu)
         if: runner.os == 'Linux'
         timeout-minutes: 4
         env:
