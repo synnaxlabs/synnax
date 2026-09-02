@@ -190,7 +190,7 @@ func NewHost(ctx context.Context, rt wazero.Runtime) (*Host, error) {
 	return h, nil
 }
 
-func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+func (h *Host) Create(cfg node.Config) (node.Node, error) {
 	switch cfg.Node.Type {
 	case intervalSymbolName:
 		periodParam, ok := cfg.Node.Inputs.Get(periodInputParam)

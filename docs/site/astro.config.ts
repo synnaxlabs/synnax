@@ -42,10 +42,15 @@ export default defineConfig({
     "/guides/operations": "/reference/",
     "/guides/comparison": "/reference/",
     "/reference/device-drivers/standalone": "/reference/driver/installation",
+    "/reference/client": "/reference/client/quick-start",
+    "/reference/client/advanced": "/reference/client/advanced/auto-commit",
     "/reference/console/clusters": "/reference/console/get-started",
     "/reference/console/cores": "/reference/console/get-started",
     "/reference/console/requirements": "/reference/console/get-started",
     "/reference/console/workspaces": "/reference/console/projects",
+    "/reference/control/arc/concepts":
+      "/reference/control/arc/concepts/control-authority",
+    "/reference/control/arc/how-to": "/reference/control/arc/how-to/data-processing",
     "/reference/driver/timing": "/reference/driver/task-basics",
     "/reference/driver/http/get-started": "/reference/driver/http/connect-server",
     "/reference/driver/labjack/get-started":
