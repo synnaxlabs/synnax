@@ -291,6 +291,7 @@ const Strip = ({ onContextMenu }: StripProps): ReactElement => {
   return (
     <Tabs.Selector
       ref={ref}
+      aria-label="Views"
       size="small"
       sizing="content"
       onContextMenu={onContextMenu}
