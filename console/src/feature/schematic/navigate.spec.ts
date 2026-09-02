@@ -115,6 +115,28 @@ describe("Schematic.useHandleNodeClickAction", () => {
     await expectNavigatedTo(store, target);
   });
 
+  it("navigates to a referenced log", async () => {
+    const target = await client.logs.create(await testProjectKey(), {
+      name: uniqueName("target"),
+    });
+    const { result, store } = await renderNavigateHook({
+      configs: { n1: offPageConfig({ type: "log", key: target.key }) },
+    });
+    act(() => result.current.handler("n1", true));
+    await expectNavigatedTo(store, target);
+  });
+
+  it("navigates to a referenced table", async () => {
+    const target = await client.tables.create(await testProjectKey(), {
+      name: uniqueName("target"),
+    });
+    const { result, store } = await renderNavigateHook({
+      configs: { n1: offPageConfig({ type: "table", key: target.key }) },
+    });
+    act(() => result.current.handler("n1", true));
+    await expectNavigatedTo(store, target);
+  });
+
   it("ignores single clicks when double-click navigation is the default", async () => {
     const target = await createSchematic({ name: uniqueName("target") });
     const control = await createSchematic({ name: uniqueName("control") });
@@ -175,6 +197,21 @@ describe("Schematic.useHandleNodeClickAction", () => {
     await expectNotOpened(store, target.key);
   });
 
+  it("ignores references with an unknown page type", async () => {
+    const key = uuid.create();
+    const control = await createSchematic({ name: uniqueName("control") });
+    const { result, store } = await renderNavigateHook({
+      configs: {
+        n1: offPageConfig({ type: "bogus", key }),
+        ctl: offPageConfig(control.key),
+      },
+    });
+    act(() => result.current.handler("n1", true));
+    act(() => result.current.handler("ctl", true));
+    await expectNavigatedTo(store, control);
+    await expectNotOpened(store, key);
+  });
+
   it("ignores references with an empty page", async () => {
     const control = await createSchematic({ name: uniqueName("control") });
     const { result, store } = await renderNavigateHook({
@@ -213,6 +250,24 @@ describe("Schematic.useHandleNodeClickAction", () => {
         result.current.notifications.statuses.some(
           (st) =>
             st.variant === "error" && st.message === 'Line plot "Target Ref" not found',
+        ),
+      ).toBe(true),
+    );
+  });
+
+  it("names the reference by its page noun when it has no label", async () => {
+    const { result } = await renderNavigateHook({
+      configs: {
+        n1: offPageConfig({ type: "table", key: uuid.create() }, { label: {} }),
+      },
+    });
+    act(() => result.current.handler("n1", true));
+    await waitFor(() =>
+      expect(
+        result.current.notifications.statuses.some(
+          (st) =>
+            st.variant === "error" &&
+            st.message === 'Table "Referenced table" not found',
         ),
       ).toBe(true),
     );

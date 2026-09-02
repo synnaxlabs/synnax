@@ -61,15 +61,16 @@ const ClickModeSelect = Component.renderProp(
 const selectKey = (page: Page): string =>
   page.key.length === 0 ? "" : ontology.idToString(page);
 
-const useHandlePageChange = (): ((v: string) => void) => {
+const useHandlePageChange = (): ((v: string | null) => void) => {
   const theme = Theming.use();
   const ctx = Base.useContext();
   return useCallback(
-    (v: string) => {
+    (v: string | null) => {
       const prev = ctx.get<Page | string>("page").value;
-      ctx.set("page", v.length === 0 ? "" : pageZ.parse(ontology.stringIDZ.parse(v)));
+      const cleared = v == null || v.length === 0;
+      ctx.set("page", cleared ? "" : pageZ.parse(ontology.stringIDZ.parse(v)));
       const hadPage = parsePage(prev).key.length > 0;
-      if (!hadPage && v.length > 0) ctx.set("color", color.hex(theme.colors.primary.z));
+      if (!hadPage && !cleared) ctx.set("color", color.hex(theme.colors.primary.z));
     },
     [ctx, theme],
   );

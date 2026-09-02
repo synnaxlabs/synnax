@@ -10,9 +10,11 @@
 import { color } from "@synnaxlabs/x";
 import { render } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
+import { type Config } from "@/schematic/node/general/offPageReference/config";
 import { OffPageReference } from "@/schematic/node/general/offPageReference/Primitive";
+import { Symbol } from "@/schematic/node/general/offPageReference/Symbol";
 import { Theming } from "@/theming";
 
 const ThemeWrapper = ({ children }: PropsWithChildren): ReactElement => (
@@ -109,5 +111,43 @@ describe("OffPageReference", () => {
       const cls = container.querySelector(".pluto-arrow")?.getAttribute("class") ?? "";
       expect(cls.includes("pluto--linked")).toBe(false);
     });
+  });
+});
+
+describe("Symbol", () => {
+  const renderSymbol = (page: Config["page"]) =>
+    render(
+      <ThemeWrapper>
+        <Symbol
+          nodeKey="n1"
+          selected={false}
+          onConfigChange={vi.fn()}
+          config={{
+            variant: "offPageReference",
+            label: { label: "Ref" },
+            page,
+          }}
+        />
+      </ThemeWrapper>,
+    );
+
+  it("should render linked with the page type's icon for a typed page", () => {
+    const { container } = renderSymbol({ type: "lineplot", key: "abc" });
+    expect(container.querySelector(".pluto-icon--line-plot")).not.toBeNull();
+    expect(container.querySelector(".pluto-arrow")?.getAttribute("class")).toContain(
+      "pluto--linked",
+    );
+  });
+
+  it("should render the schematic icon for a legacy bare page string", () => {
+    const { container } = renderSymbol("abc");
+    expect(container.querySelector(".pluto-icon--schematic")).not.toBeNull();
+  });
+
+  it("should render unlinked with no icon when the page is empty", () => {
+    const { container } = renderSymbol("");
+    expect(container.querySelector(".pluto-icon")).toBeNull();
+    const cls = container.querySelector(".pluto-arrow")?.getAttribute("class") ?? "";
+    expect(cls.includes("pluto--linked")).toBe(false);
   });
 });
