@@ -14,7 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/compiler"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
@@ -38,7 +38,7 @@ var _ = Describe("Batch wrapper", func() {
 		GinkgoHelper()
 		output := MustSucceed(compile(ctx, source, nil))
 		mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-		return mod, mod.ExportedFunction(key + ir.BatchSuffix)
+		return mod, mod.ExportedFunction(key + compiler.BatchSuffix)
 	}
 
 	It("Should compute a whole series in one call", func(ctx SpecContext) {
@@ -99,7 +99,7 @@ var _ = Describe("Batch wrapper", func() {
 			compiled := MustSucceed(r.CompileModule(ctx, output.WASM))
 			DeferCleanup(compiled.Close)
 			Expect(compiled.ExportedFunctions()).
-				ToNot(HaveKey(key + ir.BatchSuffix))
+				ToNot(HaveKey(key + compiler.BatchSuffix))
 		},
 		Entry("string return", `
 		func label(x i64) str {

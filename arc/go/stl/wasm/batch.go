@@ -10,6 +10,7 @@
 package wasm
 
 import (
+	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/types"
@@ -65,7 +66,7 @@ func (w *Module) newBatchCall(
 	irFn ir.Function,
 	outputMemoryBase uint32,
 ) *batchCall {
-	fn := w.Module.ExportedFunction(cfg.Node.Type + ir.BatchSuffix)
+	fn := w.Module.ExportedFunction(cfg.Node.Type + compiler.BatchSuffix)
 	if fn == nil || outputMemoryBase != 0 {
 		return nil
 	}
@@ -89,7 +90,7 @@ func (w *Module) newBatchCall(
 	return &batchCall{
 		fn:         fn,
 		arena:      w.arena,
-		stack:      make([]uint64, ir.BatchInputParam+2*len(irFn.Inputs)),
+		stack:      make([]uint64, compiler.BatchInputParam+2*len(irFn.Inputs)),
 		offsets:    make([]uint32, len(irFn.Inputs)),
 		samples:    make([]uint32, len(irFn.Inputs)),
 		densities:  densities,
@@ -192,11 +193,11 @@ func (n *nodeImpl) runBatch(
 				copy(dst[s*density:], in.Data[src:src+density])
 			}
 		}
-		b.stack[ir.BatchInputParam+2*i] = uint64(b.ptr + off)
-		b.stack[ir.BatchInputParam+2*i+1] = stride
+		b.stack[compiler.BatchInputParam+2*i] = uint64(b.ptr + off)
+		b.stack[compiler.BatchInputParam+2*i+1] = stride
 	}
-	b.stack[ir.BatchCountParam] = uint64(count)
-	b.stack[ir.BatchOutParam] = uint64(b.ptr)
+	b.stack[compiler.BatchCountParam] = uint64(count)
+	b.stack[compiler.BatchOutParam] = uint64(b.ptr)
 	if err := b.fn.CallWithStack(ctx.Context, b.stack); err != nil {
 		ctx.ReportError(errors.Wrapf(
 			err,

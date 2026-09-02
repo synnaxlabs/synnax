@@ -17,6 +17,20 @@ import (
 	"github.com/synnaxlabs/arc/types"
 )
 
+// BatchSuffix names the vectorized companion the compiler exports beside every
+// element-wise function. The wrapper loops over a whole series inside the guest, so a
+// runtime crosses the host-guest boundary once per series instead of once per sample.
+const BatchSuffix = "$batch"
+
+// Parameter slots of a BatchSuffix wrapper: the sample count, the output block's base
+// pointer, then one (base pointer, byte stride) pair per input. A stride of zero
+// repeats a single sample across the whole series.
+const (
+	BatchCountParam = 0
+	BatchOutParam   = 1
+	BatchInputParam = 2
+)
+
 // batchTarget is a function whose signature admits a vectorized wrapper.
 type batchTarget struct {
 	key    string
@@ -53,7 +67,7 @@ func batchable(t types.Type) bool {
 }
 
 // compileBatchWrapper emits the vectorized companion of t, exported under
-// t.key + ir.BatchSuffix. The wrapper walks count samples, loading each input from
+// t.key + BatchSuffix. The wrapper walks count samples, loading each input from
 // its own base pointer at its own stride and storing the scalar result into the
 // output block. A stride of zero repeats one sample across the whole series, which
 // is how the host feeds literals and shorter inputs.
@@ -62,7 +76,7 @@ func compileBatchWrapper(
 	t batchTarget,
 ) compiledFunction {
 	ctx := rootCtx.WithNewWriter()
-	params := make([]wasm.ValueType, 0, ir.BatchInputParam+2*len(t.inputs))
+	params := make([]wasm.ValueType, 0, BatchInputParam+2*len(t.inputs))
 	params = append(params, wasm.I32, wasm.I32)
 	for range t.inputs {
 		params = append(params, wasm.I32, wasm.I32)
@@ -72,20 +86,20 @@ func compileBatchWrapper(
 		w = ctx.Writer
 		i = len(params)
 	)
-	w.WriteLocalGet(ir.BatchCountParam)
+	w.WriteLocalGet(BatchCountParam)
 	w.WriteI32Const(0)
 	w.WriteBinaryOp(wasm.OpI32GtS)
 	w.WriteIf(wasm.BlockTypeEmpty)
 	w.WriteLoop(wasm.BlockTypeEmpty)
-	w.WriteLocalGet(ir.BatchOutParam)
+	w.WriteLocalGet(BatchOutParam)
 	w.WriteLocalGet(i)
 	w.WriteI32Const(int32(t.output.Density()))
 	w.WriteBinaryOp(wasm.OpI32Mul)
 	w.WriteBinaryOp(wasm.OpI32Add)
 	for k, in := range t.inputs {
-		w.WriteLocalGet(ir.BatchInputParam + 2*k)
+		w.WriteLocalGet(BatchInputParam + 2*k)
 		w.WriteLocalGet(i)
-		w.WriteLocalGet(ir.BatchInputParam + 2*k + 1)
+		w.WriteLocalGet(BatchInputParam + 2*k + 1)
 		w.WriteBinaryOp(wasm.OpI32Mul)
 		w.WriteBinaryOp(wasm.OpI32Add)
 		op, align := batchLoadOp(in.Type)
@@ -98,13 +112,13 @@ func compileBatchWrapper(
 	w.WriteI32Const(1)
 	w.WriteBinaryOp(wasm.OpI32Add)
 	w.WriteLocalTee(i)
-	w.WriteLocalGet(ir.BatchCountParam)
+	w.WriteLocalGet(BatchCountParam)
 	w.WriteBinaryOp(wasm.OpI32LtS)
 	w.WriteBrIf(0)
 	w.WriteEnd()
 	w.WriteEnd()
 	return compiledFunction{
-		scopeName: t.key + ir.BatchSuffix,
+		scopeName: t.key + BatchSuffix,
 		typeIdx:   typeIdx,
 		locals:    []wasm.ValueType{wasm.I32},
 		writer:    w,
