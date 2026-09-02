@@ -202,7 +202,7 @@ func (k *Keyed[K]) collect() []K {
 	}
 	k.stopTimerLocked()
 	if !next.IsZero() {
-		k.timer = k.cfg.Clock.AfterFuncAt(next, k.poke)
+		k.timer = k.cfg.Clock.RunAt(next, k.poke)
 	}
 	return due
 }

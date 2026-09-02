@@ -27,25 +27,21 @@ var _ = Describe("Clock", func() {
 			Expect(got).To(BeTemporally(">=", before))
 			Expect(got).To(BeTemporally("<=", after))
 		})
-		It("Should deliver a value on After after the duration elapses", func() {
-			Eventually(xtime.Real.After(5*time.Millisecond), time.Millisecond*100).
-				Should(Receive())
-		})
-		It("Should call AfterFuncAt functions once the deadline passes", func() {
+		It("Should call RunAt functions once the deadline passes", func() {
 			done := make(chan struct{})
-			xtime.Real.AfterFuncAt(time.Now().Add(5*time.Millisecond), func() {
+			xtime.Real.RunAt(time.Now().Add(5*time.Millisecond), func() {
 				close(done)
 			})
 			Eventually(done, time.Millisecond*100).Should(BeClosed())
 		})
-		It("Should call AfterFuncAt functions with a past deadline", func() {
+		It("Should call RunAt functions with a past deadline", func() {
 			done := make(chan struct{})
-			xtime.Real.AfterFuncAt(time.Now().Add(-time.Hour), func() { close(done) })
+			xtime.Real.RunAt(time.Now().Add(-time.Hour), func() { close(done) })
 			Eventually(done, time.Millisecond*100).Should(BeClosed())
 		})
-		It("Should let Stop cancel a pending AfterFuncAt timer", func() {
+		It("Should let Stop cancel a pending RunAt timer", func() {
 			var called atomic.Bool
-			t := xtime.Real.AfterFuncAt(time.Now().Add(time.Hour), func() {
+			t := xtime.Real.RunAt(time.Now().Add(time.Hour), func() {
 				called.Store(true)
 			})
 			Expect(t.Stop()).To(BeTrue())
@@ -64,56 +60,12 @@ var _ = Describe("Clock", func() {
 			Expect(f.Now()).To(Equal(time.Time{}.Add(7 * time.Second)))
 		})
 
-		Describe("After", func() {
-			It("Should fire timers whose deadline has been crossed", func() {
-				f := &xtime.Fake{}
-				ch := f.After(time.Second)
-				go f.Advance(2 * time.Second)
-				var got time.Time
-				Eventually(ch).Should(Receive(&got))
-				Expect(got).To(Equal(time.Time{}.Add(2 * time.Second)))
-			})
-			It("Should close timer channels after firing", func() {
-				f := &xtime.Fake{}
-				ch := f.After(time.Second)
-				go f.Advance(2 * time.Second)
-				Eventually(ch).Should(Receive())
-				Eventually(ch).Should(BeClosed())
-			})
-			It("Should not fire timers whose deadline has not been crossed", func() {
-				f := &xtime.Fake{}
-				ch := f.After(time.Second)
-				f.Advance(500 * time.Millisecond)
-				Consistently(ch, time.Millisecond*50).ShouldNot(Receive())
-			})
-			It("Should fire only timers whose deadline has been crossed", func() {
-				f := &xtime.Fake{}
-				early := f.After(time.Second)
-				late := f.After(10 * time.Second)
-				go f.Advance(2 * time.Second)
-				Eventually(early).Should(Receive())
-				Consistently(late, time.Millisecond*50).ShouldNot(Receive())
-			})
-			It("Should fire previously-registered timers on a later Advance", func() {
-				f := &xtime.Fake{}
-				ch := f.After(time.Second)
-				f.Advance(500 * time.Millisecond)
-				go f.Advance(700 * time.Millisecond)
-				Eventually(ch).Should(Receive())
-			})
-			It("Should deliver immediately for a non-positive duration", func() {
-				f := &xtime.Fake{}
-				f.Advance(time.Second)
-				Expect(f.After(0)).To(Receive(Equal(time.Time{}.Add(time.Second))))
-			})
-		})
-
-		Describe("AfterFuncAt", func() {
+		Describe("RunAt", func() {
 			It("Should call scheduled functions when Advance crosses the deadline",
 				func() {
 					f := &xtime.Fake{}
 					done := make(chan struct{})
-					f.AfterFuncAt(time.Time{}.Add(time.Second), func() { close(done) })
+					f.RunAt(time.Time{}.Add(time.Second), func() { close(done) })
 					go f.Advance(2 * time.Second)
 					Eventually(done).Should(BeClosed())
 				},
@@ -123,24 +75,32 @@ var _ = Describe("Clock", func() {
 					f := &xtime.Fake{}
 					done := make(chan struct{})
 					f.Advance(2 * time.Second)
-					f.AfterFuncAt(time.Time{}.Add(time.Second), func() { close(done) })
+					f.RunAt(time.Time{}.Add(time.Second), func() { close(done) })
 					Eventually(done).Should(BeClosed())
 				},
 			)
 			It("Should not call functions whose deadline has not been crossed", func() {
 				f := &xtime.Fake{}
 				var called atomic.Int32
-				t := f.AfterFuncAt(time.Time{}.Add(time.Second), func() {
+				t := f.RunAt(time.Time{}.Add(time.Second), func() {
 					called.Add(1)
 				})
 				DeferCleanup(func() { t.Stop() })
 				f.Advance(500 * time.Millisecond)
 				Consistently(called.Load, time.Millisecond*20).Should(Equal(int32(0)))
 			})
+			It("Should call previously-scheduled functions on a later Advance", func() {
+				f := &xtime.Fake{}
+				done := make(chan struct{})
+				f.RunAt(time.Time{}.Add(time.Second), func() { close(done) })
+				f.Advance(500 * time.Millisecond)
+				go f.Advance(700 * time.Millisecond)
+				Eventually(done).Should(BeClosed())
+			})
 			It("Should let Stop cancel a pending timer", func() {
 				f := &xtime.Fake{}
 				var called atomic.Int32
-				t := f.AfterFuncAt(time.Time{}.Add(time.Second), func() {
+				t := f.RunAt(time.Time{}.Add(time.Second), func() {
 					called.Add(1)
 				})
 				Expect(t.Stop()).To(BeTrue())
@@ -151,10 +111,10 @@ var _ = Describe("Clock", func() {
 				f := &xtime.Fake{}
 				earlyFired := make(chan struct{})
 				var late atomic.Int32
-				early := f.AfterFuncAt(time.Time{}.Add(time.Second), func() {
+				early := f.RunAt(time.Time{}.Add(time.Second), func() {
 					close(earlyFired)
 				})
-				lateT := f.AfterFuncAt(time.Time{}.Add(10*time.Second), func() {
+				lateT := f.RunAt(time.Time{}.Add(10*time.Second), func() {
 					late.Add(1)
 				})
 				DeferCleanup(func() { early.Stop(); lateT.Stop() })
@@ -165,7 +125,7 @@ var _ = Describe("Clock", func() {
 			It("Should return false from Stop once the timer has fired", func() {
 				f := &xtime.Fake{}
 				fired := make(chan struct{})
-				t := f.AfterFuncAt(time.Time{}.Add(time.Second), func() {
+				t := f.RunAt(time.Time{}.Add(time.Second), func() {
 					close(fired)
 				})
 				go f.Advance(2 * time.Second)
@@ -174,7 +134,7 @@ var _ = Describe("Clock", func() {
 			})
 			It("Should return false from Stop after a prior Stop", func() {
 				f := &xtime.Fake{}
-				t := f.AfterFuncAt(time.Time{}.Add(time.Second), func() {})
+				t := f.RunAt(time.Time{}.Add(time.Second), func() {})
 				Expect(t.Stop()).To(BeTrue())
 				Expect(t.Stop()).To(BeFalse())
 			})

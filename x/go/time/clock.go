@@ -27,13 +27,10 @@ type Timer interface {
 type Clock interface {
 	// Now returns the current time.
 	Now() time.Time
-	// After returns a channel that will receive the current time after the duration
-	// elapses.
-	After(time.Duration) <-chan time.Time
-	// AfterFuncAt schedules fn to be called at the deadline and returns a Timer that
-	// can be used to cancel the call. fn runs immediately if the deadline has already
-	// passed. If Stop is called before fn would have run, fn is not called.
-	AfterFuncAt(time.Time, func()) Timer
+	// RunAt schedules fn to be called at the deadline and returns a Timer that can be
+	// used to cancel the call. fn runs immediately if the deadline has already passed.
+	// If Stop is called before fn would have run, fn is not called.
+	RunAt(time.Time, func()) Timer
 }
 
 type real struct{}
@@ -43,9 +40,7 @@ var Real Clock = real{}
 
 func (real) Now() time.Time { return time.Now() }
 
-func (real) After(d time.Duration) <-chan time.Time { return time.After(d) }
-
-func (real) AfterFuncAt(t time.Time, f func()) Timer {
+func (real) RunAt(t time.Time, f func()) Timer {
 	return time.AfterFunc(time.Until(t), f)
 }
 
@@ -70,25 +65,13 @@ func (f *Fake) Now() time.Time {
 	return f.now
 }
 
-// After returns a channel that will receive the current time after the duration
-// elapses. The channel is buffered so that Advance's send never blocks, even if an
-// AfterFuncAt goroutine reading it has already exited via Stop.
-func (f *Fake) After(d time.Duration) <-chan time.Time {
+// schedule returns a channel that receives at the given deadline. A deadline at or
+// before the current time is delivered right away instead of joining the pending list,
+// where only a later Advance would reach it. The channel is buffered so that Advance's
+// send never blocks, even if the goroutine reading it has already exited via Stop.
+func (f *Fake) schedule(at time.Time) <-chan time.Time {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return f.scheduleLocked(f.now.Add(d))
-}
-
-func (f *Fake) afterAt(t time.Time) <-chan time.Time {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	return f.scheduleLocked(t)
-}
-
-// scheduleLocked returns a channel that receives at the given deadline. A deadline at
-// or before the current time is delivered right away instead of joining the pending
-// list, where only a later Advance would reach it.
-func (f *Fake) scheduleLocked(at time.Time) <-chan time.Time {
 	ch := make(chan time.Time, 1)
 	if !at.After(f.now) {
 		ch <- f.now
@@ -99,10 +82,10 @@ func (f *Fake) scheduleLocked(at time.Time) <-chan time.Time {
 	return ch
 }
 
-// AfterFuncAt schedules fn to run from a goroutine at the given deadline, calling it
-// unless the returned Timer's Stop method wins the race first.
-func (f *Fake) AfterFuncAt(t time.Time, fn func()) Timer {
-	return newFakeFuncTimer(f.afterAt(t), fn)
+// RunAt schedules fn to run from a goroutine at the given deadline, calling it unless
+// the returned Timer's Stop method wins the race first.
+func (f *Fake) RunAt(t time.Time, fn func()) Timer {
+	return newFakeFuncTimer(f.schedule(t), fn)
 }
 
 // fakeFuncTimer coordinates the race between Stop and the timer goroutine: whoever
@@ -142,7 +125,7 @@ func (t *fakeFuncTimer) claim() bool {
 }
 
 // Stop cancels the timer, returning true if it had not already fired or been stopped.
-// On the winning call it releases the AfterFuncAt goroutine.
+// On the winning call it releases the RunAt goroutine.
 func (t *fakeFuncTimer) Stop() bool {
 	if !t.claim() {
 		return false
@@ -153,9 +136,8 @@ func (t *fakeFuncTimer) Stop() bool {
 
 // Advance advances the clock by the given duration. It fires any timers whose deadline
 // has been crossed and removes them from the list of pending timers. Channel sends
-// happen after f.mu is released so that timer receivers (including AfterFuncAt
-// callbacks)
-// can safely call back into the clock without deadlocking.
+// happen after f.mu is released so that RunAt callbacks can safely call back into the
+// clock without deadlocking.
 func (f *Fake) Advance(d time.Duration) {
 	f.mu.Lock()
 	f.now = f.now.Add(d)
