@@ -43,14 +43,14 @@ class Explorer(Surface):
         The name separates the list from the other range lists on the page, such as the
         toolbar's favorites.
         """
-        return self.layout.page.get_by_role("listbox", name="Ranges").first
+        return self.layout.page.get_by_role("list", name="Ranges").first
 
     def get_mounted_item(self, name: str) -> Locator:
         """Get a range row already mounted in the list, skipping the scroll sweep.
 
         :param name: Exact name of the range.
         """
-        return self._list().get_by_role("option", name=name, exact=True).first
+        return self._list().get_by_role("listitem", name=name, exact=True).first
 
     def get_item(self, name: str) -> Locator:
         """Get a range item locator from the explorer by name."""
@@ -105,7 +105,7 @@ class Explorer(Surface):
         :returns: The time range text (e.g. "Jan 1 00:00:00 → Jan 2 00:00:00").
         """
         item = self.get_item(name)
-        return item.get_by_label("Time range", exact=True).inner_text()
+        return item.get_by_role("group", name="Time range").inner_text()
 
     def exists(self, name: str) -> bool:
         """Check if a range exists in the explorer."""

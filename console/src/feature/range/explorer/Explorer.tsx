@@ -22,7 +22,7 @@ import { Range } from "@/platform/range";
 import { View } from "@/platform/view";
 
 const item = Component.renderProp((props: ItemProps) => (
-  <Item {...props} role="option" />
+  <Item {...props} role="listitem" />
 ));
 const contextMenu = Component.renderProp(ContextMenu);
 
@@ -59,12 +59,7 @@ const Internal = () => {
           </Button.Button>
         )}
       </View.Toolbar>
-      <View.Items
-        role="listbox"
-        aria-label="Ranges"
-        aria-multiselectable
-        contextMenu={contextMenu}
-      >
+      <View.Items role="list" aria-label="Ranges" contextMenu={contextMenu}>
         {item}
       </View.Items>
     </View.Form>

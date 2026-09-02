@@ -127,7 +127,7 @@ const Base = ({
             </Tag.Tags>
           )}
           {showTimeRange && (
-            <Telem.Text.TimeRange level="small" aria-label="Time range">
+            <Telem.Text.TimeRange level="small" role="group" aria-label="Time range">
               {timeRange}
             </Telem.Text.TimeRange>
           )}
