@@ -6,6 +6,8 @@
     "dev": "astro dev",
     "start": "astro dev",
     "build": "astro check && astro build",
+    "check-site": "node src/util/checks/main.ts",
+    "check-site:build": "astro build --config astro.check.config.ts",
     "check-types": "astro check",
     "preview": "astro preview",
     "astro": "astro",
@@ -15,6 +17,8 @@
     "madge": "madge --circular src",
     "format": "prettier --write .",
     "format-check": "prettier --check .",
+    "test": "vitest",
+    "cov": "vitest --coverage",
     "stylelint": "stylelint \"src/**/*.css\""
   },
   "dependencies": {
@@ -44,18 +48,22 @@
     "@synnaxlabs/madge": "workspace:^",
     "@synnaxlabs/stylelint-config": "workspace:^",
     "@synnaxlabs/tsconfig": "workspace:^",
+    "@testing-library/react": "catalog:",
     "@types/html-escaper": "catalog:",
     "@types/offscreencanvas": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
     "algoliasearch": "catalog:",
     "eslint": "catalog:",
     "gray-matter": "catalog:",
     "html-escaper": "catalog:",
+    "jsdom": "catalog:",
     "remark": "catalog:",
     "remark-gfm": "catalog:",
     "strip-markdown": "catalog:",
     "stylelint": "catalog:",
-    "typescript": "catalog:ts6"
+    "typescript": "catalog:ts6",
+    "vitest": "catalog:"
   }
 }

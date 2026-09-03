@@ -9,6 +9,7 @@
 
 import { query, schematic } from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
+import { type RefObject } from "react";
 
 import { useSingleDispatch } from "@/schematic/queries";
 import { useKey } from "@/schematic/Suspended";
@@ -23,12 +24,14 @@ export interface UseClipboardParams {
   selected?: string[];
   onCut?: (remaining: string[]) => void;
   onPaste?: (newKeys: string[]) => void;
+  container?: RefObject<HTMLDivElement | null>;
 }
 
 export const useClipboard = ({
   selected,
   onCut,
   onPaste,
+  container,
 }: UseClipboardParams): Diagram.UseClipboardReturn => {
   const key = useKey();
   const dispatch = useSingleDispatch();
@@ -72,5 +75,5 @@ export const useClipboard = ({
       ]);
     },
   };
-  return Diagram.useClipboard({ adapter, selected, onCut });
+  return Diagram.useClipboard({ adapter, selected, onCut, container });
 };

@@ -679,7 +679,7 @@ jobs:
       - name: Clean Build Caches (Windows)
         if: always() && matrix.os == 'windows-build-bot'
         shell: powershell
-        run: integration/scripts/CleanBuildCaches.ps1 -MinFreeGB 35
+        run: integration/scripts/CleanBuildCaches.ps1 -MinFreeGB 30
 
   docker:
     name: Build Docker Image
