@@ -63,6 +63,8 @@ describe("write adapt", () => {
 });
 
 await allocSuiteAsync("write adapt 10ch x 100smp", [
+  // `void` discards the result to give allocSuiteAsync the Promise<void> it expects.
+  // eslint-disable-next-line @typescript-eslint/no-meaningless-void-operator
   ["record by name", async () => void (await adapter.adapt(record))],
   [
     "adapt + encode record",

@@ -831,6 +831,7 @@ describe("connection", () => {
       expect(client.status.variant).toEqual("warning");
       expect(probes).toEqual(1);
       const checksAtDenial = checks;
+      // eslint-disable-next-line no-unmodified-loop-condition -- the probe hook counts.
       while (probes < 2) await sleep(TimeSpan.milliseconds(1));
       expect(checks - checksAtDenial).toBeGreaterThanOrEqual(3);
       expect(internal).toHaveLength(1);

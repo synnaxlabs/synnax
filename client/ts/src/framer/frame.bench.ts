@@ -44,6 +44,8 @@ describe("get", () => {
   const payload = createPayload(keys, 10);
   const frame = new Frame(payload);
   allocSuite("frame 100ch x 10smp", [
+    // `void` keeps this case in the same shape as the calls below it.
+    // eslint-disable-next-line @typescript-eslint/no-meaningless-void-operator
     ["from payload", () => void new Frame(payload)],
     ["get one key", () => void frame.get(keys[99])],
     [

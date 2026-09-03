@@ -55,6 +55,7 @@ const createFreighterTransport = ({
 
   const receiveLoop = async () => {
     try {
+      // eslint-disable-next-line no-unmodified-loop-condition -- close() sets isClosed.
       while (!isClosed) {
         let msg: LSPMessage;
         try {

@@ -46,6 +46,8 @@ const config: Linter.Config[] = [
     rules: {
       "no-constant-condition": ["error", { checkLoops: false }],
       "no-duplicate-imports": "error",
+      "no-loss-of-precision": "error",
+      "no-unmodified-loop-condition": ["error", { checkConditionalExpressions: true }],
       "use-isnan": ["error", { enforceForIndexOf: true }],
       "preserve-caught-error": ["error", { requireCatchParameter: true }],
       "valid-typeof": ["error", { requireStringLiterals: true }],
@@ -120,6 +122,12 @@ const config: Linter.Config[] = [
       ],
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-floating-promises": ["error", { checkThenables: true }],
+      "@typescript-eslint/no-meaningless-void-operator": "error",
+      "@typescript-eslint/no-misused-promises": [
+        "error",
+        { checksConditionals: { flagUnions: "strict" } },
+      ],
+      "@typescript-eslint/no-mixed-enums": "error",
       "@typescript-eslint/require-await": "off",
       "@typescript-eslint/no-duplicate-type-constituents": "off",
       "@typescript-eslint/return-await": ["error", "always"],

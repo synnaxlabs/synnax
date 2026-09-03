@@ -123,7 +123,7 @@ export class Value
   private requestRender(): void {
     const { requestRender } = this.internal;
     if (requestRender != null) requestRender("layout");
-    else void this.render({});
+    else this.render({});
   }
 
   get box(): box.Box {

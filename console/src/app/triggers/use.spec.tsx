@@ -66,7 +66,7 @@ const focusTab = (
   key: panel.Key = PANEL,
   tabKey: panel.TabKey = TAB,
 ): void =>
-  void act(() => {
+  act(() => {
     store.dispatch(
       Session.Panel.internalSelectTab({ key, tabKey, otherTabKeys: [tabKey] }),
     );
@@ -229,7 +229,7 @@ describe("app/triggers", () => {
   describe("close", () => {
     it("should close the top modal and leave the window open", async () => {
       const { result, store } = await renderTriggers();
-      act(() => void result.current.modals.push(Noop, {}, () => {}));
+      act(() => result.current.modals.push(Noop, {}, () => {}));
       expect(result.current.modals.isAnyOpen()).toBe(true);
       act(() => press(CONTROL, "KeyW"));
       expect(result.current.modals.isAnyOpen()).toBe(false);

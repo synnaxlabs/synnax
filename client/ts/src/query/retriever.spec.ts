@@ -46,6 +46,7 @@ const silentStreamer = (): framer.Streamer => {
     },
     next: async () => {
       // Blocks until closed so the read loop stays alive like a real stream.
+      // eslint-disable-next-line no-unmodified-loop-condition -- close() sets closed.
       while (!closed) await new Promise((resolve) => setTimeout(resolve, 5));
       return { done: true, value: undefined };
     },
