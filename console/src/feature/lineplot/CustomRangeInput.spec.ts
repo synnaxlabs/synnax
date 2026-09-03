@@ -15,7 +15,6 @@ import { parseSpan } from "@/feature/lineplot/CustomRangeInput";
 describe("parseSpan", () => {
   describe("valid durations", () => {
     it("should parse every unit", () => {
-      expect(parseSpan("5ns")).toEqual(Number(TimeSpan.nanoseconds(5)));
       expect(parseSpan("5us")).toEqual(Number(TimeSpan.microseconds(5)));
       expect(parseSpan("5µs")).toEqual(Number(TimeSpan.microseconds(5)));
       expect(parseSpan("5ms")).toEqual(Number(TimeSpan.milliseconds(5)));
@@ -43,6 +42,28 @@ describe("parseSpan", () => {
     it("should parse decimal values", () => {
       expect(parseSpan("1.5h")).toEqual(Number(TimeSpan.minutes(90)));
       expect(parseSpan("0.5s")).toEqual(Number(TimeSpan.milliseconds(500)));
+      expect(parseSpan(".5s")).toEqual(Number(TimeSpan.milliseconds(500)));
+    });
+
+    it("should parse a long token sequence", () => {
+      expect(parseSpan("1h ".repeat(50))).toEqual(Number(TimeSpan.hours(50)));
+    });
+
+    it("should parse mixed tokens with bare leading dots", () => {
+      expect(parseSpan(".5h 30m")).toEqual(Number(TimeSpan.hours(1)));
+      expect(parseSpan("1h .5m")).toEqual(
+        Number(TimeSpan.hours(1).add(TimeSpan.seconds(30))),
+      );
+      expect(parseSpan(".5h.25m")).toEqual(
+        Number(TimeSpan.minutes(30).add(TimeSpan.seconds(15))),
+      );
+    });
+
+    it("should allow whitespace between tokens and around the input", () => {
+      expect(parseSpan("1h   30m")).toEqual(Number(TimeSpan.minutes(90)));
+      expect(parseSpan(" 1h30m 45s ")).toEqual(
+        Number(TimeSpan.minutes(90).add(TimeSpan.seconds(45))),
+      );
     });
 
     it("should ignore case and surrounding whitespace", () => {
@@ -73,6 +94,7 @@ describe("parseSpan", () => {
 
     it("should reject unknown units", () => {
       expect(parseSpan("5x")).toBeNull();
+      expect(parseSpan("5ns")).toBeNull();
       expect(parseSpan("5 hours")).toBeNull();
       expect(parseSpan("5sec")).toBeNull();
     });
@@ -91,8 +113,26 @@ describe("parseSpan", () => {
       expect(parseSpan("5m foo")).toBeNull();
     });
 
+    it("should reject a space between a number and its unit", () => {
+      expect(parseSpan("5 m")).toBeNull();
+      expect(parseSpan("1.5 h")).toBeNull();
+      expect(parseSpan("1h 30 m")).toBeNull();
+    });
+
+    it("should reject a long valid prefix with an invalid suffix without hanging", () => {
+      expect(parseSpan(`${"1h ".repeat(50)}!`)).toBeNull();
+      expect(parseSpan(`${"1.5m  ".repeat(50)}5`)).toBeNull();
+    });
+
+    it("should reject bare dots and dotted tokens without units", () => {
+      expect(parseSpan(".")).toBeNull();
+      expect(parseSpan(".h")).toBeNull();
+      expect(parseSpan("1h .5")).toBeNull();
+      expect(parseSpan(".5 h")).toBeNull();
+    });
+
     it("should reject malformed numbers", () => {
-      expect(parseSpan(".5s")).toBeNull();
+      expect(parseSpan("5.s")).toBeNull();
       expect(parseSpan("1..5s")).toBeNull();
       expect(parseSpan("1,5s")).toBeNull();
     });

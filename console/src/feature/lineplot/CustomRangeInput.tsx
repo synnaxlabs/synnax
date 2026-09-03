@@ -12,8 +12,11 @@ import { Input, LinePlot } from "@synnaxlabs/pluto";
 import { TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
+// µs is the floor. Absolute windows pass through float64 timestamps, which quantize
+// to ~256 ns in this era, and there is no practical visual requirement to go lower.
+// SY-4816: Static range, when added, should stop at 1s, which also simplifies its
+// selector and UX.
 const SPAN_UNITS: Record<string, (value: number) => TimeSpan> = {
-  ns: (value) => TimeSpan.nanoseconds(value),
   us: (value) => TimeSpan.microseconds(value),
   µs: (value) => TimeSpan.microseconds(value),
   ms: (value) => TimeSpan.milliseconds(value),
@@ -27,9 +30,10 @@ const SPAN_UNITS: Record<string, (value: number) => TimeSpan> = {
 };
 
 // Two-letter units first so "ms" never parses as minutes then seconds.
-const UNIT = "mo|ms|ns|us|µs|[smhdwy]";
-const SPAN_TOKEN = new RegExp(`(\\d+(?:\\.\\d+)?)\\s*(${UNIT})`, "g");
-const SPAN_VALID = new RegExp(`^(?:\\s*\\d+(?:\\.\\d+)?\\s*(?:${UNIT}))+\\s*$`);
+const UNIT = "mo|ms|us|µs|[smhdwy]";
+const NUM = "(?:\\d+(?:\\.\\d+)?|\\.\\d+)";
+const SPAN_TOKEN = new RegExp(`(${NUM})(${UNIT})`, "g");
+const SPAN_VALID = new RegExp(`^\\s*(?:${NUM}(?:${UNIT})\\s*)+$`);
 
 /** Parses a duration like "45m" or "1h 30m" into nanoseconds. */
 export const parseSpan = (input: string): number | null => {
