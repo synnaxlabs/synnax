@@ -262,8 +262,18 @@ jobs:
           export MSYS_NO_PATHCONV=1
           scripts/run_bazel.sh build $BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE_FLAGS \
             --config=ci-windows \
+            --profile=bazel-profile.json.gz \
             ${{ !inputs.sign_binaries && '--experimental_check_output_files=false' || '' }} \
             ${{ !inputs.debug && '--config=opt-windows' || '--output_groups=+pdb_file' }} //driver
+
+      - name: Upload Bazel Profile (Windows)
+        if: inputs.driver && matrix.os == 'windows-build-bot'
+        uses: actions/upload-artifact@v7
+        with:
+          name: bazel-profile-windows
+          path: bazel-profile.json.gz
+          retention-days: 7
+          if-no-files-found: error
 
       - name: Upload Windows Debug Symbols
         if: inputs.driver && inputs.debug && matrix.os == 'windows-build-bot'
