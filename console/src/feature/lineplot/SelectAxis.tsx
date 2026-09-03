@@ -66,7 +66,8 @@ export const XAxisChannelSelect = ({
   const dispatch = LinePlot.useSingleDispatch();
   const rangeKey = Session.Range.useSelectSelectedKey();
   const handleChange = useCallback(
-    (channel: channel.Key) => dispatch(lineplot.setXChannel({ axisKey, channel })),
+    (channel: channel.Key | null) =>
+      dispatch(lineplot.setXChannel({ axisKey, channel: channel ?? 0 })),
     [dispatch, axisKey],
   );
   return (
