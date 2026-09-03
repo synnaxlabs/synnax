@@ -216,7 +216,12 @@ const Internal = (): ReactElement => {
         Range.CUSTOM_KEY,
         custom.variant === "dynamic"
           ? { variant: "dynamic", span: new TimeSpan(custom.span) }
-          : { variant: "static", timeRange: new TimeRange(custom.start, custom.end) },
+          : {
+              variant: "static",
+              // BigInt, not the constructor: TimeStamp parses a bare string as a
+              // date-time, not a decimal int64.
+              timeRange: new TimeRange(BigInt(custom.start), BigInt(custom.end)),
+            },
       );
     return m;
   }, [resolved, ranges.custom]);

@@ -76,11 +76,11 @@ NumericTimeSpan = TimeSpan {
     @ts hand
 }
 
-NumericTimeStamp = TimeStamp {
+StringTimeStamp = TimeStamp {
     @cpp omit
     @doc value """
-        is a TimeStamp alias whose TypeScript form is a plain number, for plain-data
-        document state.
+        is a TimeStamp alias whose TypeScript form is a decimal string, keeping int64
+        precision in plain-data document state.
     """
     @go omit
     @py omit

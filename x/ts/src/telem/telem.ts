@@ -1947,13 +1947,16 @@ export const numericTimeSpanZ = wireInt64Z;
  */
 export type NumericTimeSpan = z.infer<typeof numericTimeSpanZ>;
 
-export const numericTimeStampZ = wireInt64Z;
+export const stringTimeStampZ = z.preprocess(
+  (v) => (typeof v === "number" || typeof v === "bigint" ? String(v) : v),
+  z.string(),
+);
 
 /**
- * A timestamp backed by a number instead of a TimeStamp/BigInt.
- * Involves a loss of precision, but can be useful for serialization.
+ * A timestamp backed by a decimal string instead of a TimeStamp/BigInt.
+ * Keeps int64 precision in plain-data document state.
  */
-export type NumericTimeStamp = z.infer<typeof numericTimeStampZ>;
+export type StringTimeStamp = z.infer<typeof stringTimeStampZ>;
 
 export const typedArrayZ = z.union([
   z.instanceof(Uint8Array),

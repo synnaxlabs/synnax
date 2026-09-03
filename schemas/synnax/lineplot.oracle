@@ -130,13 +130,13 @@ CustomRange union on variant {
         @doc value "is a rolling window."
     }
     static {
-        start telem.TimeStamp = 0 {
+        start telem.TimeStamp {
             @doc value "is the inclusive start of the fixed window."
-            @ts type   telem.NumericTimeStamp
+            @ts type   telem.StringTimeStamp
         }
-        end   telem.TimeStamp = 0 {
+        end   telem.TimeStamp {
             @doc value "is the exclusive end of the fixed window."
-            @ts type   telem.NumericTimeStamp
+            @ts type   telem.StringTimeStamp
         }
 
         @doc value "is a fixed window."

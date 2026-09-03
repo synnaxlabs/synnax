@@ -167,9 +167,9 @@ export interface DynamicCustomRange extends z.infer<typeof dynamicCustomRangeZ> 
 export const staticCustomRangeZ = z.object({
   variant: z.literal("static"),
   /** start is the inclusive start of the fixed window. */
-  start: telem.numericTimeStampZ.default(0),
+  start: telem.stringTimeStampZ,
   /** end is the exclusive end of the fixed window. */
-  end: telem.numericTimeStampZ.default(0),
+  end: telem.stringTimeStampZ,
 });
 export interface StaticCustomRange extends z.infer<typeof staticCustomRangeZ> {}
 

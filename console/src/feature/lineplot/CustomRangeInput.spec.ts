@@ -15,6 +15,7 @@ import { parseSpan } from "@/feature/lineplot/CustomRangeInput";
 describe("parseSpan", () => {
   describe("valid durations", () => {
     it("should parse every unit", () => {
+      expect(parseSpan("5ns")).toEqual(Number(TimeSpan.nanoseconds(5)));
       expect(parseSpan("5us")).toEqual(Number(TimeSpan.microseconds(5)));
       expect(parseSpan("5µs")).toEqual(Number(TimeSpan.microseconds(5)));
       expect(parseSpan("5ms")).toEqual(Number(TimeSpan.milliseconds(5)));
@@ -94,7 +95,6 @@ describe("parseSpan", () => {
 
     it("should reject unknown units", () => {
       expect(parseSpan("5x")).toBeNull();
-      expect(parseSpan("5ns")).toBeNull();
       expect(parseSpan("5 hours")).toBeNull();
       expect(parseSpan("5sec")).toBeNull();
     });
