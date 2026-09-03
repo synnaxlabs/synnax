@@ -147,3 +147,77 @@ var _ = Describe("Migration", func() {
 		Expect(got.Configs).To(Equal(seed.Configs))
 	})
 })
+
+var _ = Describe("NormalizeScales", func() {
+	scale := func(cfg msgpack.EncodedJSON) v8.Schematic {
+		return v8.Schematic{Configs: map[string]msgpack.EncodedJSON{"s1": cfg}}
+	}
+
+	It("Should state a stored scale's orientation as its axis", func() {
+		s := scale(msgpack.EncodedJSON{"variant": "scale", "orientation": "left"})
+		v8.NormalizeScales(s)
+		Expect(s.Configs["s1"]["orientation"]).To(Equal("top"))
+	})
+
+	It("Should take the tick gutter off a stored scale's width", func() {
+		s := scale(msgpack.EncodedJSON{
+			"variant":    "scale",
+			"dimensions": map[string]any{"width": 60.0, "height": 160.0},
+		})
+		v8.NormalizeScales(s)
+		dims := s.Configs["s1"]["dimensions"]
+		Expect(dims).To(Equal(map[string]any{"width": 34.0, "height": 160.0}))
+	})
+
+	It("Should hold a narrow bar at zero rather than going negative", func() {
+		s := scale(msgpack.EncodedJSON{
+			"variant":    "scale",
+			"dimensions": map[string]any{"width": 10.0},
+		})
+		v8.NormalizeScales(s)
+		Expect(s.Configs["s1"]["dimensions"]).To(Equal(map[string]any{"width": 0.0}))
+	})
+
+	It("Should keep the width of a scale drawn without its ticks", func() {
+		s := scale(msgpack.EncodedJSON{
+			"variant":    "scale",
+			"dimensions": map[string]any{"width": 60.0},
+			"indicator":  map[string]any{"showScale": false},
+		})
+		v8.NormalizeScales(s)
+		Expect(s.Configs["s1"]["dimensions"]).To(Equal(map[string]any{"width": 60.0}))
+	})
+
+	It("Should leave a scale that already states its axis untouched", func() {
+		cfg := msgpack.EncodedJSON{
+			"variant":     "scale",
+			"orientation": "right",
+			"dimensions":  map[string]any{"width": 160.0, "height": 34.0},
+		}
+		s := scale(cfg)
+		v8.NormalizeScales(s)
+		Expect(s.Configs["s1"]).To(Equal(cfg))
+	})
+
+	It("Should leave every other symbol untouched", func() {
+		cfg := msgpack.EncodedJSON{
+			"variant":     "valve",
+			"orientation": "left",
+			"dimensions":  map[string]any{"width": 60.0},
+		}
+		s := scale(cfg)
+		v8.NormalizeScales(s)
+		Expect(s.Configs["s1"]).To(Equal(cfg))
+	})
+
+	It("Should leave a scale it has already normalized untouched", func() {
+		s := scale(msgpack.EncodedJSON{
+			"variant":    "scale",
+			"dimensions": map[string]any{"width": 60.0},
+		})
+		v8.NormalizeScales(s)
+		once := s.Configs["s1"]["dimensions"]
+		v8.NormalizeScales(s)
+		Expect(s.Configs["s1"]["dimensions"]).To(Equal(once))
+	})
+})
