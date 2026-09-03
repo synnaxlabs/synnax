@@ -14,6 +14,9 @@ import { z } from "zod";
 import { telem } from "@/telem/aether";
 import { Staleness } from "@/vis/staleness";
 
+/** Side the ticks and the readout sit on until the user moves them. */
+export const DEFAULT_SIDE: location.Outer = "right";
+
 /** Stored shape of a live scale indicator, shared by every symbol that renders one. */
 export const configZ = z.object({
   ...Staleness.configZ.shape,
@@ -28,7 +31,8 @@ export const configZ = z.object({
   showFill: z.boolean().default(true),
   showCaret: z.boolean().default(true),
   showScale: z.boolean().default(true),
-  side: location.xZ.default("right"),
+  side: location.outerZ.default(DEFAULT_SIDE),
+  caretSide: location.outerZ.default(DEFAULT_SIDE),
   level: text.levelZ.default("small"),
 });
 export type Config = z.infer<typeof configZ>;
