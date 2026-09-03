@@ -25,6 +25,7 @@ export const defaultConfig = (t: Theming.Theme): Config => ({
   variant: VARIANT,
   orientation: "left",
   color: t.colors.primary.z,
+  size: "medium",
   label: Label.defaultConfig(NAME),
   control: { show: true },
   sink: telem.sinkPipeline("boolean", {
