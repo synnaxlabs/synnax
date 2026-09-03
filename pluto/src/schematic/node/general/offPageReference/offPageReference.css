@@ -10,6 +10,12 @@
  */
 
 .pluto-arrow {
+    /* Symbol containers unfill every svg. Restore fill-based icons. */
+    .pluto-icon[fill="currentColor"] {
+        fill: currentcolor;
+        stroke-width: 0;
+    }
+
     &.pluto--location-top {
         transform: rotate(-90deg);
     }
@@ -21,7 +27,8 @@
     &.pluto--location-left {
         transform: rotate(180deg);
 
-        .pluto-text {
+        .pluto-text,
+        .pluto-icon {
             transform: rotate(180deg);
         }
     }
@@ -45,6 +52,9 @@
             );
 
             .bg {
+                display: flex;
+                align-items: center;
+                gap: 1rem;
                 clip-path: polygon(
                     0 0,
                     calc(100% - 2rem) 0,
