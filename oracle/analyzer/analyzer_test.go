@@ -1856,7 +1856,7 @@ Entry struct {
 				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(ContainSubstring(
-					`struct C inherits a conflicting field "shared" from both A and B`,
+					`struct C inherits field "shared" from both A and B`,
 				))
 			},
 		)
@@ -1881,25 +1881,18 @@ Entry struct {
 			},
 		)
 
-		It("Should handle diamond inheritance", func(ctx SpecContext) {
+		It("Should reject diamond inheritance", func(ctx SpecContext) {
 			source := `
 				Base struct { base string }
 				Left struct extends Base { left string }
 				Right struct extends Base { right string }
 				Diamond struct extends Left, Right { }
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.Ok()).To(BeTrue())
-
-			dType := table.MustGet("test.Diamond")
-			allFields := resolution.UnifiedFields(dType, table)
-			// base appears once (from Left path), left, right
-			Expect(allFields).To(HaveLen(3))
-			fieldNames := make([]string, len(allFields))
-			for i, f := range allFields {
-				fieldNames[i] = f.Name
-			}
-			Expect(fieldNames).To(ContainElements("base", "left", "right"))
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(ContainSubstring(
+				`struct Diamond inherits field "base" from both Left and Right`,
+			))
 		})
 
 		It(
@@ -2110,7 +2103,7 @@ Entry struct {
 				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(ContainSubstring(
-					`action Combine inherits a conflicting field "a" from both A and B`,
+					`action Combine inherits field "a" from both A and B`,
 				))
 			},
 		)
@@ -3513,7 +3506,7 @@ Mode enum {
 				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(ContainSubstring(
-					`union Foo inherits a conflicting field "name" from both Ident and Audited`,
+					`union Foo inherits field "name" from both Ident and Audited`,
 				))
 			},
 		)

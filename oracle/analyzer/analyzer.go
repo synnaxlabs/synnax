@@ -1828,11 +1828,10 @@ func validateExtends(c *analysisCtx, typ resolution.Type) {
 	}
 }
 
-// reportInheritedFieldConflicts reports every field name two of the parents contribute
-// from different declarations. Parents unify left to right, so a shared name silently
-// takes the leftmost parent's field and drops the other. A name both parents inherit
-// from one common ancestor is the same field, not a conflict. Names in omitted never
-// reach the child.
+// reportInheritedFieldConflicts reports every field name that two of the parents
+// contribute. Parents unify left to right, so a shared name silently takes the leftmost
+// parent's field and drops the other, even when both parents inherit the name from one
+// ancestor. Names in omitted never reach the child.
 func reportInheritedFieldConflicts(
 	c *analysisCtx,
 	subject string,
@@ -1842,7 +1841,6 @@ func reportInheritedFieldConflicts(
 	if len(extends) < 2 {
 		return
 	}
-	declaredBy := make(map[string]string)
 	inheritedFrom := make(map[string]string)
 	for _, ext := range extends {
 		parent, ok := ext.Resolve(c.table)
@@ -1852,57 +1850,24 @@ func reportInheritedFieldConflicts(
 		if _, isStruct := parent.Form.(resolution.StructForm); !isStruct {
 			continue
 		}
-		declarers := fieldDeclarers(parent, c.table)
 		for _, f := range resolution.UnifiedFields(parent, c.table) {
 			if omitted.Contains(f.Name) {
 				continue
 			}
-			declarer, seen := declaredBy[f.Name]
-			if !seen {
-				declaredBy[f.Name] = declarers[f.Name]
-				inheritedFrom[f.Name] = parent.Name
+			if first, seen := inheritedFrom[f.Name]; seen {
+				c.report(diagnostics.Errorf(
+					nil,
+					"%s inherits field %q from both %s and %s",
+					subject,
+					f.Name,
+					first,
+					parent.Name,
+				))
 				continue
 			}
-			if declarer == declarers[f.Name] {
-				continue
-			}
-			c.report(diagnostics.Errorf(
-				nil,
-				"%s inherits a conflicting field %q from both %s and %s",
-				subject,
-				f.Name,
-				inheritedFrom[f.Name],
-				parent.Name,
-			))
+			inheritedFrom[f.Name] = parent.Name
 		}
 	}
-}
-
-// fieldDeclarers maps each field a struct contributes to the qualified name of the type
-// that declares it, in the order UnifiedFields unifies parents.
-func fieldDeclarers(typ resolution.Type, table *resolution.Table) map[string]string {
-	form, ok := typ.Form.(resolution.StructForm)
-	if !ok {
-		return nil
-	}
-	declarers := make(map[string]string, len(form.Fields))
-	for _, ext := range form.Extends {
-		parent, ok := ext.Resolve(table)
-		if !ok {
-			continue
-		}
-		parentDeclarers := fieldDeclarers(parent, table)
-		for _, f := range resolution.UnifiedFields(parent, table) {
-			if _, exists := declarers[f.Name]; exists || form.IsFieldOmitted(f.Name) {
-				continue
-			}
-			declarers[f.Name] = parentDeclarers[f.Name]
-		}
-	}
-	for _, f := range form.Fields {
-		declarers[f.Name] = typ.QualifiedName
-	}
-	return declarers
 }
 
 // validateActionExtends checks that every action's extends clause names a struct type,
@@ -2071,7 +2036,7 @@ func validateTypeParams(c *analysisCtx, typ resolution.Type) {
 //   - At least one variant is declared.
 //   - Variant names (the JSON discriminator string values) are unique.
 //   - Each Extends target resolves to a struct type.
-//   - No two base structs contribute different fields under one name.
+//   - No two base structs contribute the same field name.
 //   - Each variant references a struct type.
 //   - Neither the base structs nor the variant structs redeclare the
 //     discriminator field; the union declaration owns it exclusively.

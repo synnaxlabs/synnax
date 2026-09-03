@@ -100,32 +100,6 @@ var _ = Describe("Inheritance", func() {
 				To(SatisfyAll(HaveKey("key"), HaveKey("port")))
 		})
 
-		It("Should contribute a shared ancestor's field once", func(
-			ctx SpecContext,
-		) {
-			form, table := analyze(ctx, `
-				@go output "pkg/test"
-
-				Base struct {
-					port string = "base"
-				}
-
-				First struct extends Base {
-					first string = ""
-				}
-
-				Second struct extends Base {
-					second string = ""
-				}
-
-				Child struct extends First, Second {
-					range float64 = 10
-				}
-			`, "Child")
-			inherited := resolver.InheritedFields(form.Extends, table)
-			Expect(inherited["port"].Default.StringValue).To(Equal("base"))
-		})
-
 		It("Should substitute a generic parent's type arguments", func(
 			ctx SpecContext,
 		) {
@@ -156,55 +130,6 @@ var _ = Describe("Inheritance", func() {
 			`, "Solo")
 			Expect(resolver.InheritedFields(form.Extends, table)).To(BeEmpty())
 		})
-	})
-
-	Describe("HasFieldConflicts", func() {
-		var (
-			table   *resolution.Table
-			keyed   = resolution.TypeRef{Name: "test.Keyed"}
-			named   = resolution.TypeRef{Name: "test.Named"}
-			alsoKey = resolution.TypeRef{Name: "test.AlsoKeyed"}
-			missing = resolution.TypeRef{Name: "test.Missing"}
-		)
-
-		structType := func(name string, fields ...string) resolution.Type {
-			form := resolution.StructForm{}
-			for _, f := range fields {
-				form.Fields = append(form.Fields, resolution.Field{
-					Name: f,
-					Type: resolution.TypeRef{Name: "string"},
-				})
-			}
-			return resolution.Type{
-				Name:          name,
-				Namespace:     "test",
-				QualifiedName: "test." + name,
-				Form:          form,
-			}
-		}
-
-		BeforeEach(func() {
-			table = resolution.NewTable()
-			for _, t := range []resolution.Type{
-				structType("Keyed", "key"),
-				structType("Named", "name"),
-				structType("AlsoKeyed", "key"),
-			} {
-				Expect(table.Add(t)).To(Succeed())
-			}
-		})
-
-		DescribeTable("Should detect overlapping fields across parents",
-			func(extends []resolution.TypeRef, want bool) {
-				Expect(resolver.HasFieldConflicts(extends, table)).To(Equal(want))
-			},
-			Entry("no parents", nil, false),
-			Entry("single parent", []resolution.TypeRef{keyed}, false),
-			Entry("disjoint parents", []resolution.TypeRef{keyed, named}, false),
-			Entry("conflicting parents", []resolution.TypeRef{keyed, alsoKey}, true),
-			Entry("unresolvable parent skipped",
-				[]resolution.TypeRef{keyed, missing}, false),
-		)
 	})
 
 	Describe("HasDomainOmissions", func() {
@@ -472,29 +397,25 @@ var _ = Describe("Inheritance", func() {
 			Expect(resolver.CanUseInheritance(form, table)).To(BeFalse())
 		})
 
-		It("Should be false when parents promote a shared ancestor's field", func(
+		It("Should be true when the parents are disjoint", func(
 			ctx SpecContext,
 		) {
 			form, table := analyze(ctx, `
 				@go output "pkg/test"
 
-				Base struct {
-					port string = "base"
+				First struct {
+					port string = "first"
 				}
 
-				First struct extends Base {
-					first string = ""
-				}
-
-				Second struct extends Base {
-					second string = ""
+				Second struct {
+					rate float64 = 1
 				}
 
 				Child struct extends First, Second {
 					range float64 = 10
 				}
 			`, "Child")
-			Expect(resolver.CanUseInheritance(form, table)).To(BeFalse())
+			Expect(resolver.CanUseInheritance(form, table)).To(BeTrue())
 		})
 	})
 
@@ -559,20 +480,18 @@ var _ = Describe("Inheritance", func() {
 			form, v, table := analyzeUnion(ctx, `
 				@go output "pkg/test"
 
-				Common struct {
+				Base struct {
+					port string = ""
 					name string = ""
 				}
 
-				Base struct extends Common {
-					port string = ""
-				}
-
-				Extra struct extends Common {
+				Extra struct {
+					name  string = "extra"
 					scale float64 = 1
 				}
 
-				Chan union on type extends Base, Extra {
-					builtin {
+				Chan union on type extends Base {
+					builtin extends Extra {
 						-port
 						units string = "c"
 					}

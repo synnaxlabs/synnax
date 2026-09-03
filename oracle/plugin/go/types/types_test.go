@@ -1510,54 +1510,6 @@ var _ = Describe("Go Types Plugin", func() {
 			)
 
 			It(
-				"Should flatten fields when parents promote a shared ancestor's field",
-				func(ctx SpecContext) {
-					source := `
-				@go output "core/entities"
-
-				Base struct {
-					shared string
-				}
-
-				A struct extends Base {
-					a int32
-				}
-
-				B struct extends Base {
-					b int32
-				}
-
-				C struct extends A, B {
-					c bool
-				}
-			`
-					table, diag := analyzer.AnalyzeSource(
-						ctx,
-						source,
-						"entities",
-						loader,
-					)
-					Expect(diag.Ok()).To(BeTrue())
-
-					req := &plugin.Request{
-						Resolutions: table,
-					}
-
-					resp := MustSucceed(goPlugin.Generate(req))
-
-					content := string(resp.Files[0].Content)
-					// C should have flattened fields (no embedding due to conflict)
-					Expect(content).To(ContainSubstring(`type C struct {`))
-					Expect(content).NotTo(ContainSubstring("\tA\n"))
-					Expect(content).NotTo(ContainSubstring("\tB\n"))
-					Expect(content).To(ContainSubstring(`Shared string`))
-					Expect(content).To(ContainSubstring(`A int32`))
-					Expect(content).To(ContainSubstring(`B int32`))
-					Expect(content).To(ContainSubstring(`C bool`))
-				},
-			)
-
-			It(
 				"Should flatten fields when multiple extends has omitted fields",
 				func(ctx SpecContext) {
 					source := `
