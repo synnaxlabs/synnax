@@ -8,9 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, lineplot } from "@synnaxlabs/client";
-import { Channel, Input, LinePlot } from "@synnaxlabs/pluto";
+import { Channel, Flex, Input, LinePlot } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
+import { CustomRangeInput } from "@/feature/lineplot/CustomRangeInput";
 import { Range } from "@/platform/range";
 import { Session } from "@/session";
 
@@ -101,6 +102,9 @@ export const XAxisRangeSelect = ({
     [dispatch, axisKey],
   );
   return (
-    <Range.SelectMultipleInputItem value={value} onChange={handleChange} {...rest} />
+    <Flex.Box x grow>
+      <Range.SelectMultipleInputItem value={value} onChange={handleChange} {...rest} />
+      {value.includes(Range.CUSTOM_KEY) && <CustomRangeInput />}
+    </Flex.Box>
   );
 };

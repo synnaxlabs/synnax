@@ -175,6 +175,10 @@ export const useXAxisRanges = Scope.bindHook(
   ),
 );
 
+export const useCustomRange = Scope.bindHook(
+  createSelector(({ ranges }) => ranges.custom),
+);
+
 interface XAxisBaseReturn {
   axis: lineplot.Axis;
   channel: lineplot.Channels[lineplot.XAxisKey];

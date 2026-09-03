@@ -65,6 +65,28 @@ TimeRangeBounded = TimeRange {
     @ts hand
 }
 
+NumericTimeSpan = TimeSpan {
+    @cpp omit
+    @doc value """
+        is a TimeSpan alias whose TypeScript form is a plain number, for plain-data
+        document state.
+    """
+    @go omit
+    @py omit
+    @ts hand
+}
+
+NumericTimeStamp = TimeStamp {
+    @cpp omit
+    @doc value """
+        is a TimeStamp alias whose TypeScript form is a plain number, for plain-data
+        document state.
+    """
+    @go omit
+    @py omit
+    @ts hand
+}
+
 Rate float64 {
     @cpp hand
     @doc value """

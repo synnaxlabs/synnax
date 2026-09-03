@@ -24,6 +24,7 @@ import (
 	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	text "github.com/synnaxlabs/x/text/versions/v0"
 )
 
@@ -235,6 +236,21 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
+	Describe("CustomRange", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v5.CustomRange) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v5.CustomRange
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("dynamic variant", v5.CustomRange{Variant: v5.DynamicCustomRange{Span: telem.TimeSpan(2)}}),
+			Entry("static variant", v5.CustomRange{Variant: v5.StaticCustomRange{Start: telem.TimeStamp(2), End: telem.TimeStamp(3)}}),
+		)
+	})
 	Describe("Legend", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v5.Legend) {
@@ -338,99 +354,103 @@ var _ = Describe("Codec", func() {
 					Y3: []channel.Key{channel.Key(23)},
 					Y4: []channel.Key{channel.Key(24)},
 				},
-				Ranges: v5.Ranges{X1: []string{"test_25"}, X2: []string{"test_26"}},
+				Ranges: v5.Ranges{
+					X1:     []string{"test_25"},
+					X2:     []string{"test_26"},
+					Custom: new(v5.CustomRange{Variant: v5.DynamicCustomRange{Span: telem.TimeSpan(29)}}),
+				},
 				Axes: v5.Axes{
 					X1: v5.Axis{
 						Key:            v5.AxisKey("x1"),
-						Label:          "test_30",
+						Label:          "test_32",
 						LabelDirection: spatial.Direction("x"),
 						LabelLevel:     text.Level("h1"),
 						Bounds:         spatial.Bounds{},
 						ManualBounds:   v5.ManualBounds{Lower: true, Upper: false},
-						TickSpacing:    37.5,
+						TickSpacing:    39.5,
 						Type:           new(v5.TickType("linear")),
 					},
 					X2: v5.Axis{
 						Key:            v5.AxisKey("x1"),
-						Label:          "test_41",
+						Label:          "test_43",
 						LabelDirection: spatial.Direction("x"),
 						LabelLevel:     text.Level("h1"),
 						Bounds:         spatial.Bounds{},
 						ManualBounds:   v5.ManualBounds{Lower: false, Upper: true},
-						TickSpacing:    48.5,
+						TickSpacing:    50.5,
 						Type:           new(v5.TickType("linear")),
 					},
 					Y1: v5.Axis{
 						Key:            v5.AxisKey("x1"),
-						Label:          "test_52",
+						Label:          "test_54",
 						LabelDirection: spatial.Direction("x"),
 						LabelLevel:     text.Level("h1"),
 						Bounds:         spatial.Bounds{},
 						ManualBounds:   v5.ManualBounds{Lower: true, Upper: false},
-						TickSpacing:    59.5,
+						TickSpacing:    61.5,
 						Type:           new(v5.TickType("linear")),
 					},
 					Y2: v5.Axis{
 						Key:            v5.AxisKey("x1"),
-						Label:          "test_63",
+						Label:          "test_65",
 						LabelDirection: spatial.Direction("x"),
 						LabelLevel:     text.Level("h1"),
 						Bounds:         spatial.Bounds{},
 						ManualBounds:   v5.ManualBounds{Lower: false, Upper: true},
-						TickSpacing:    70.5,
+						TickSpacing:    72.5,
 						Type:           new(v5.TickType("linear")),
 					},
 					Y3: v5.Axis{
 						Key:            v5.AxisKey("x1"),
-						Label:          "test_74",
+						Label:          "test_76",
 						LabelDirection: spatial.Direction("x"),
 						LabelLevel:     text.Level("h1"),
 						Bounds:         spatial.Bounds{},
 						ManualBounds:   v5.ManualBounds{Lower: true, Upper: false},
-						TickSpacing:    81.5,
+						TickSpacing:    83.5,
 						Type:           new(v5.TickType("linear")),
 					},
 					Y4: v5.Axis{
 						Key:            v5.AxisKey("x1"),
-						Label:          "test_85",
+						Label:          "test_87",
 						LabelDirection: spatial.Direction("x"),
 						LabelLevel:     text.Level("h1"),
 						Bounds:         spatial.Bounds{},
 						ManualBounds:   v5.ManualBounds{Lower: false, Upper: true},
-						TickSpacing:    92.5,
+						TickSpacing:    94.5,
 						Type:           new(v5.TickType("linear")),
 					},
 				},
 				Lines: []v5.Line{
 					{
-						Key:   "test_95",
-						Label: new(string("test_96")),
+						Key:   "test_97",
+						Label: new(string("test_98")),
 						Color: new(color.Color{
-							R: 99,
-							G: 100,
-							B: 101,
-							A: 101.5,
+							R: 101,
+							G: 102,
+							B: 103,
+							A: 103.5,
 						}),
-						StrokeWidth:    102.5,
-						Downsample:     104,
+						StrokeWidth:    104.5,
+						Downsample:     106,
 						DownsampleMode: v5.DownsampleMode("average"),
 					},
 				},
 				Rules: []v5.Rule{
 					{
-						Key:   "test_106",
-						Label: "test_107",
+						Key:   "test_108",
+						Label: "test_109",
 						Color: new(color.Color{
-							R: 110,
-							G: 111,
-							B: 112,
-							A: 112.5,
+							R: 112,
+							G: 113,
+							B: 114,
+							A: 114.5,
 						}),
 						Axis:      v5.AxisKey("x1"),
-						LineWidth: 114.5,
-						LineDash:  115.5,
-						Units:     "test_116",
-						Position:  117.5,
+						LineWidth: 116.5,
+						LineDash:  117.5,
+						Units:     "test_118",
+						Position:  119.5,
 					},
 				},
 			}),
@@ -455,7 +475,11 @@ var _ = Describe("Codec", func() {
 					Y3: nil,
 					Y4: nil,
 				},
-				Ranges: v5.Ranges{X1: nil, X2: nil},
+				Ranges: v5.Ranges{
+					X1:     nil,
+					X2:     nil,
+					Custom: nil,
+				},
 				Axes: v5.Axes{
 					X1: v5.Axis{
 						Key:            v5.AxisKey(""),
@@ -545,66 +569,70 @@ var _ = Describe("Codec", func() {
 					Y3: []channel.Key{},
 					Y4: []channel.Key{},
 				},
-				Ranges: v5.Ranges{X1: []string{}, X2: []string{}},
+				Ranges: v5.Ranges{
+					X1:     []string{},
+					X2:     []string{},
+					Custom: new(v5.CustomRange{Variant: v5.DynamicCustomRange{Span: telem.TimeSpan(29)}}),
+				},
 				Axes: v5.Axes{
 					X1: v5.Axis{
 						Key:            v5.AxisKey("x1"),
-						Label:          "test_30",
+						Label:          "test_32",
 						LabelDirection: spatial.Direction("x"),
 						LabelLevel:     text.Level("h1"),
 						Bounds:         spatial.Bounds{},
 						ManualBounds:   v5.ManualBounds{Lower: true, Upper: false},
-						TickSpacing:    37.5,
+						TickSpacing:    39.5,
 						Type:           new(v5.TickType("linear")),
 					},
 					X2: v5.Axis{
 						Key:            v5.AxisKey("x1"),
-						Label:          "test_41",
+						Label:          "test_43",
 						LabelDirection: spatial.Direction("x"),
 						LabelLevel:     text.Level("h1"),
 						Bounds:         spatial.Bounds{},
 						ManualBounds:   v5.ManualBounds{Lower: false, Upper: true},
-						TickSpacing:    48.5,
+						TickSpacing:    50.5,
 						Type:           new(v5.TickType("linear")),
 					},
 					Y1: v5.Axis{
 						Key:            v5.AxisKey("x1"),
-						Label:          "test_52",
+						Label:          "test_54",
 						LabelDirection: spatial.Direction("x"),
 						LabelLevel:     text.Level("h1"),
 						Bounds:         spatial.Bounds{},
 						ManualBounds:   v5.ManualBounds{Lower: true, Upper: false},
-						TickSpacing:    59.5,
+						TickSpacing:    61.5,
 						Type:           new(v5.TickType("linear")),
 					},
 					Y2: v5.Axis{
 						Key:            v5.AxisKey("x1"),
-						Label:          "test_63",
+						Label:          "test_65",
 						LabelDirection: spatial.Direction("x"),
 						LabelLevel:     text.Level("h1"),
 						Bounds:         spatial.Bounds{},
 						ManualBounds:   v5.ManualBounds{Lower: false, Upper: true},
-						TickSpacing:    70.5,
+						TickSpacing:    72.5,
 						Type:           new(v5.TickType("linear")),
 					},
 					Y3: v5.Axis{
 						Key:            v5.AxisKey("x1"),
-						Label:          "test_74",
+						Label:          "test_76",
 						LabelDirection: spatial.Direction("x"),
 						LabelLevel:     text.Level("h1"),
 						Bounds:         spatial.Bounds{},
 						ManualBounds:   v5.ManualBounds{Lower: true, Upper: false},
-						TickSpacing:    81.5,
+						TickSpacing:    83.5,
 						Type:           new(v5.TickType("linear")),
 					},
 					Y4: v5.Axis{
 						Key:            v5.AxisKey("x1"),
-						Label:          "test_85",
+						Label:          "test_87",
 						LabelDirection: spatial.Direction("x"),
 						LabelLevel:     text.Level("h1"),
 						Bounds:         spatial.Bounds{},
 						ManualBounds:   v5.ManualBounds{Lower: false, Upper: true},
-						TickSpacing:    92.5,
+						TickSpacing:    94.5,
 						Type:           new(v5.TickType("linear")),
 					},
 				},
@@ -639,9 +667,21 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v5.Ranges{X1: []string{"test_1"}, X2: []string{"test_2"}}),
-			Entry("zero values", v5.Ranges{X1: nil, X2: nil}),
-			Entry("empty collections", v5.Ranges{X1: []string{}, X2: []string{}}),
+			Entry("fully populated", v5.Ranges{
+				X1:     []string{"test_1"},
+				X2:     []string{"test_2"},
+				Custom: new(v5.CustomRange{Variant: v5.DynamicCustomRange{Span: telem.TimeSpan(5)}}),
+			}),
+			Entry("zero values", v5.Ranges{
+				X1:     nil,
+				X2:     nil,
+				Custom: nil,
+			}),
+			Entry("empty collections", v5.Ranges{
+				X1:     []string{},
+				X2:     []string{},
+				Custom: new(v5.CustomRange{Variant: v5.DynamicCustomRange{Span: telem.TimeSpan(5)}}),
+			}),
 		)
 	})
 	Describe("Rule", func() {
@@ -827,6 +867,23 @@ func BenchmarkEncodeDecodeChannels(b *testing.B) {
 	}
 }
 
+func BenchmarkEncodeDecodeCustomRange(b *testing.B) {
+	seed := v5.CustomRange{Variant: v5.DynamicCustomRange{Span: telem.TimeSpan(2)}}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v5.CustomRange
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodeLegend(b *testing.B) {
 	seed := v5.Legend{
 		Hidden: true,
@@ -909,99 +966,103 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 			Y3: []channel.Key{channel.Key(23)},
 			Y4: []channel.Key{channel.Key(24)},
 		},
-		Ranges: v5.Ranges{X1: []string{"test_25"}, X2: []string{"test_26"}},
+		Ranges: v5.Ranges{
+			X1:     []string{"test_25"},
+			X2:     []string{"test_26"},
+			Custom: new(v5.CustomRange{Variant: v5.DynamicCustomRange{Span: telem.TimeSpan(29)}}),
+		},
 		Axes: v5.Axes{
 			X1: v5.Axis{
 				Key:            v5.AxisKey("x1"),
-				Label:          "test_30",
+				Label:          "test_32",
 				LabelDirection: spatial.Direction("x"),
 				LabelLevel:     text.Level("h1"),
 				Bounds:         spatial.Bounds{},
 				ManualBounds:   v5.ManualBounds{Lower: true, Upper: false},
-				TickSpacing:    37.5,
+				TickSpacing:    39.5,
 				Type:           new(v5.TickType("linear")),
 			},
 			X2: v5.Axis{
 				Key:            v5.AxisKey("x1"),
-				Label:          "test_41",
+				Label:          "test_43",
 				LabelDirection: spatial.Direction("x"),
 				LabelLevel:     text.Level("h1"),
 				Bounds:         spatial.Bounds{},
 				ManualBounds:   v5.ManualBounds{Lower: false, Upper: true},
-				TickSpacing:    48.5,
+				TickSpacing:    50.5,
 				Type:           new(v5.TickType("linear")),
 			},
 			Y1: v5.Axis{
 				Key:            v5.AxisKey("x1"),
-				Label:          "test_52",
+				Label:          "test_54",
 				LabelDirection: spatial.Direction("x"),
 				LabelLevel:     text.Level("h1"),
 				Bounds:         spatial.Bounds{},
 				ManualBounds:   v5.ManualBounds{Lower: true, Upper: false},
-				TickSpacing:    59.5,
+				TickSpacing:    61.5,
 				Type:           new(v5.TickType("linear")),
 			},
 			Y2: v5.Axis{
 				Key:            v5.AxisKey("x1"),
-				Label:          "test_63",
+				Label:          "test_65",
 				LabelDirection: spatial.Direction("x"),
 				LabelLevel:     text.Level("h1"),
 				Bounds:         spatial.Bounds{},
 				ManualBounds:   v5.ManualBounds{Lower: false, Upper: true},
-				TickSpacing:    70.5,
+				TickSpacing:    72.5,
 				Type:           new(v5.TickType("linear")),
 			},
 			Y3: v5.Axis{
 				Key:            v5.AxisKey("x1"),
-				Label:          "test_74",
+				Label:          "test_76",
 				LabelDirection: spatial.Direction("x"),
 				LabelLevel:     text.Level("h1"),
 				Bounds:         spatial.Bounds{},
 				ManualBounds:   v5.ManualBounds{Lower: true, Upper: false},
-				TickSpacing:    81.5,
+				TickSpacing:    83.5,
 				Type:           new(v5.TickType("linear")),
 			},
 			Y4: v5.Axis{
 				Key:            v5.AxisKey("x1"),
-				Label:          "test_85",
+				Label:          "test_87",
 				LabelDirection: spatial.Direction("x"),
 				LabelLevel:     text.Level("h1"),
 				Bounds:         spatial.Bounds{},
 				ManualBounds:   v5.ManualBounds{Lower: false, Upper: true},
-				TickSpacing:    92.5,
+				TickSpacing:    94.5,
 				Type:           new(v5.TickType("linear")),
 			},
 		},
 		Lines: []v5.Line{
 			{
-				Key:   "test_95",
-				Label: new(string("test_96")),
+				Key:   "test_97",
+				Label: new(string("test_98")),
 				Color: new(color.Color{
-					R: 99,
-					G: 100,
-					B: 101,
-					A: 101.5,
+					R: 101,
+					G: 102,
+					B: 103,
+					A: 103.5,
 				}),
-				StrokeWidth:    102.5,
-				Downsample:     104,
+				StrokeWidth:    104.5,
+				Downsample:     106,
 				DownsampleMode: v5.DownsampleMode("average"),
 			},
 		},
 		Rules: []v5.Rule{
 			{
-				Key:   "test_106",
-				Label: "test_107",
+				Key:   "test_108",
+				Label: "test_109",
 				Color: new(color.Color{
-					R: 110,
-					G: 111,
-					B: 112,
-					A: 112.5,
+					R: 112,
+					G: 113,
+					B: 114,
+					A: 114.5,
 				}),
 				Axis:      v5.AxisKey("x1"),
-				LineWidth: 114.5,
-				LineDash:  115.5,
-				Units:     "test_116",
-				Position:  117.5,
+				LineWidth: 116.5,
+				LineDash:  117.5,
+				Units:     "test_118",
+				Position:  119.5,
 			},
 		},
 	}
@@ -1038,7 +1099,11 @@ func BenchmarkEncodeDecodeManualBounds(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeRanges(b *testing.B) {
-	seed := v5.Ranges{X1: []string{"test_1"}, X2: []string{"test_2"}}
+	seed := v5.Ranges{
+		X1:     []string{"test_1"},
+		X2:     []string{"test_2"},
+		Custom: new(v5.CustomRange{Variant: v5.DynamicCustomRange{Span: telem.TimeSpan(5)}}),
+	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -1388,6 +1453,45 @@ func FuzzDecodeChannels(f *testing.F) {
 	})
 }
 
+func FuzzDecodeCustomRange(f *testing.F) {
+	{
+		seed := v5.CustomRange{Variant: v5.DynamicCustomRange{Span: telem.TimeSpan(2)}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v5.CustomRange{Variant: v5.StaticCustomRange{Start: telem.TimeStamp(2), End: telem.TimeStamp(3)}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v5.CustomRange
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v5.CustomRange
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
 func FuzzDecodeLegend(f *testing.F) {
 	{
 		seed := v5.Legend{
@@ -1530,99 +1634,103 @@ func FuzzDecodeLinePlot(f *testing.F) {
 				Y3: []channel.Key{channel.Key(23)},
 				Y4: []channel.Key{channel.Key(24)},
 			},
-			Ranges: v5.Ranges{X1: []string{"test_25"}, X2: []string{"test_26"}},
+			Ranges: v5.Ranges{
+				X1:     []string{"test_25"},
+				X2:     []string{"test_26"},
+				Custom: new(v5.CustomRange{Variant: v5.DynamicCustomRange{Span: telem.TimeSpan(29)}}),
+			},
 			Axes: v5.Axes{
 				X1: v5.Axis{
 					Key:            v5.AxisKey("x1"),
-					Label:          "test_30",
+					Label:          "test_32",
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
 					ManualBounds:   v5.ManualBounds{Lower: true, Upper: false},
-					TickSpacing:    37.5,
+					TickSpacing:    39.5,
 					Type:           new(v5.TickType("linear")),
 				},
 				X2: v5.Axis{
 					Key:            v5.AxisKey("x1"),
-					Label:          "test_41",
+					Label:          "test_43",
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
 					ManualBounds:   v5.ManualBounds{Lower: false, Upper: true},
-					TickSpacing:    48.5,
+					TickSpacing:    50.5,
 					Type:           new(v5.TickType("linear")),
 				},
 				Y1: v5.Axis{
 					Key:            v5.AxisKey("x1"),
-					Label:          "test_52",
+					Label:          "test_54",
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
 					ManualBounds:   v5.ManualBounds{Lower: true, Upper: false},
-					TickSpacing:    59.5,
+					TickSpacing:    61.5,
 					Type:           new(v5.TickType("linear")),
 				},
 				Y2: v5.Axis{
 					Key:            v5.AxisKey("x1"),
-					Label:          "test_63",
+					Label:          "test_65",
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
 					ManualBounds:   v5.ManualBounds{Lower: false, Upper: true},
-					TickSpacing:    70.5,
+					TickSpacing:    72.5,
 					Type:           new(v5.TickType("linear")),
 				},
 				Y3: v5.Axis{
 					Key:            v5.AxisKey("x1"),
-					Label:          "test_74",
+					Label:          "test_76",
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
 					ManualBounds:   v5.ManualBounds{Lower: true, Upper: false},
-					TickSpacing:    81.5,
+					TickSpacing:    83.5,
 					Type:           new(v5.TickType("linear")),
 				},
 				Y4: v5.Axis{
 					Key:            v5.AxisKey("x1"),
-					Label:          "test_85",
+					Label:          "test_87",
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
 					ManualBounds:   v5.ManualBounds{Lower: false, Upper: true},
-					TickSpacing:    92.5,
+					TickSpacing:    94.5,
 					Type:           new(v5.TickType("linear")),
 				},
 			},
 			Lines: []v5.Line{
 				{
-					Key:   "test_95",
-					Label: new(string("test_96")),
+					Key:   "test_97",
+					Label: new(string("test_98")),
 					Color: new(color.Color{
-						R: 99,
-						G: 100,
-						B: 101,
-						A: 101.5,
+						R: 101,
+						G: 102,
+						B: 103,
+						A: 103.5,
 					}),
-					StrokeWidth:    102.5,
-					Downsample:     104,
+					StrokeWidth:    104.5,
+					Downsample:     106,
 					DownsampleMode: v5.DownsampleMode("average"),
 				},
 			},
 			Rules: []v5.Rule{
 				{
-					Key:   "test_106",
-					Label: "test_107",
+					Key:   "test_108",
+					Label: "test_109",
 					Color: new(color.Color{
-						R: 110,
-						G: 111,
-						B: 112,
-						A: 112.5,
+						R: 112,
+						G: 113,
+						B: 114,
+						A: 114.5,
 					}),
 					Axis:      v5.AxisKey("x1"),
-					LineWidth: 114.5,
-					LineDash:  115.5,
-					Units:     "test_116",
-					Position:  117.5,
+					LineWidth: 116.5,
+					LineDash:  117.5,
+					Units:     "test_118",
+					Position:  119.5,
 				},
 			},
 		}
@@ -1654,7 +1762,11 @@ func FuzzDecodeLinePlot(f *testing.F) {
 				Y3: nil,
 				Y4: nil,
 			},
-			Ranges: v5.Ranges{X1: nil, X2: nil},
+			Ranges: v5.Ranges{
+				X1:     nil,
+				X2:     nil,
+				Custom: nil,
+			},
 			Axes: v5.Axes{
 				X1: v5.Axis{
 					Key:            v5.AxisKey(""),
@@ -1751,66 +1863,70 @@ func FuzzDecodeLinePlot(f *testing.F) {
 				Y3: []channel.Key{},
 				Y4: []channel.Key{},
 			},
-			Ranges: v5.Ranges{X1: []string{}, X2: []string{}},
+			Ranges: v5.Ranges{
+				X1:     []string{},
+				X2:     []string{},
+				Custom: new(v5.CustomRange{Variant: v5.DynamicCustomRange{Span: telem.TimeSpan(29)}}),
+			},
 			Axes: v5.Axes{
 				X1: v5.Axis{
 					Key:            v5.AxisKey("x1"),
-					Label:          "test_30",
+					Label:          "test_32",
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
 					ManualBounds:   v5.ManualBounds{Lower: true, Upper: false},
-					TickSpacing:    37.5,
+					TickSpacing:    39.5,
 					Type:           new(v5.TickType("linear")),
 				},
 				X2: v5.Axis{
 					Key:            v5.AxisKey("x1"),
-					Label:          "test_41",
+					Label:          "test_43",
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
 					ManualBounds:   v5.ManualBounds{Lower: false, Upper: true},
-					TickSpacing:    48.5,
+					TickSpacing:    50.5,
 					Type:           new(v5.TickType("linear")),
 				},
 				Y1: v5.Axis{
 					Key:            v5.AxisKey("x1"),
-					Label:          "test_52",
+					Label:          "test_54",
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
 					ManualBounds:   v5.ManualBounds{Lower: true, Upper: false},
-					TickSpacing:    59.5,
+					TickSpacing:    61.5,
 					Type:           new(v5.TickType("linear")),
 				},
 				Y2: v5.Axis{
 					Key:            v5.AxisKey("x1"),
-					Label:          "test_63",
+					Label:          "test_65",
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
 					ManualBounds:   v5.ManualBounds{Lower: false, Upper: true},
-					TickSpacing:    70.5,
+					TickSpacing:    72.5,
 					Type:           new(v5.TickType("linear")),
 				},
 				Y3: v5.Axis{
 					Key:            v5.AxisKey("x1"),
-					Label:          "test_74",
+					Label:          "test_76",
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
 					ManualBounds:   v5.ManualBounds{Lower: true, Upper: false},
-					TickSpacing:    81.5,
+					TickSpacing:    83.5,
 					Type:           new(v5.TickType("linear")),
 				},
 				Y4: v5.Axis{
 					Key:            v5.AxisKey("x1"),
-					Label:          "test_85",
+					Label:          "test_87",
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
 					ManualBounds:   v5.ManualBounds{Lower: false, Upper: true},
-					TickSpacing:    92.5,
+					TickSpacing:    94.5,
 					Type:           new(v5.TickType("linear")),
 				},
 			},
@@ -1886,7 +2002,11 @@ func FuzzDecodeManualBounds(f *testing.F) {
 
 func FuzzDecodeRanges(f *testing.F) {
 	{
-		seed := v5.Ranges{X1: []string{"test_1"}, X2: []string{"test_2"}}
+		seed := v5.Ranges{
+			X1:     []string{"test_1"},
+			X2:     []string{"test_2"},
+			Custom: new(v5.CustomRange{Variant: v5.DynamicCustomRange{Span: telem.TimeSpan(5)}}),
+		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -1894,7 +2014,11 @@ func FuzzDecodeRanges(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v5.Ranges{X1: nil, X2: nil}
+		seed := v5.Ranges{
+			X1:     nil,
+			X2:     nil,
+			Custom: nil,
+		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -1902,7 +2026,11 @@ func FuzzDecodeRanges(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v5.Ranges{X1: []string{}, X2: []string{}}
+		seed := v5.Ranges{
+			X1:     []string{},
+			X2:     []string{},
+			Custom: new(v5.CustomRange{Variant: v5.DynamicCustomRange{Span: telem.TimeSpan(5)}}),
+		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)

@@ -1936,6 +1936,25 @@ export const numericTimeRangeZ = z.object({
  */
 export interface NumericTimeRange extends z.infer<typeof numericTimeRangeZ> {}
 
+// Go marshals telem int64s as decimal strings in JSON, so both forms decode.
+const wireInt64Z = z.union([z.number(), z.string().transform(Number)]);
+
+export const numericTimeSpanZ = wireInt64Z;
+
+/**
+ * A time span backed by a number instead of a TimeSpan/BigInt.
+ * Involves a loss of precision, but can be useful for serialization.
+ */
+export type NumericTimeSpan = z.infer<typeof numericTimeSpanZ>;
+
+export const numericTimeStampZ = wireInt64Z;
+
+/**
+ * A timestamp backed by a number instead of a TimeStamp/BigInt.
+ * Involves a loss of precision, but can be useful for serialization.
+ */
+export type NumericTimeStamp = z.infer<typeof numericTimeStampZ>;
+
 export const typedArrayZ = z.union([
   z.instanceof(Uint8Array),
   z.instanceof(Uint16Array),

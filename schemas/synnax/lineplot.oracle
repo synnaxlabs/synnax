@@ -10,6 +10,7 @@
 import "schemas/synnax/channel"
 import "schemas/x/color"
 import "schemas/x/spatial"
+import "schemas/x/telem"
 import "schemas/x/text"
 
 @go output "core/pkg/service/lineplot"
@@ -119,8 +120,34 @@ Channels struct {
     @go marshal
 }
 
+CustomRange union on variant {
+    dynamic {
+        span telem.TimeSpan = 0 {
+            @doc value "is the span of the window, which ends now."
+            @ts type   telem.NumericTimeSpan
+        }
+
+        @doc value "is a rolling window."
+    }
+    static {
+        start telem.TimeStamp = 0 {
+            @doc value "is the inclusive start of the fixed window."
+            @ts type   telem.NumericTimeStamp
+        }
+        end   telem.TimeStamp = 0 {
+            @doc value "is the exclusive end of the fixed window."
+            @ts type   telem.NumericTimeStamp
+        }
+
+        @doc value "is a fixed window."
+    }
+
+    @doc value  "is the window a plot's synthetic \"custom\" range key resolves to."
+    @go marshal
+}
+
 Ranges struct {
-    x1 string[] {
+    x1     string[]     {
         @doc value """
             are the range keys plotted against the x1 axis. Range keys are opaque
             strings rather than UUIDs because the console layers synthetic
@@ -128,8 +155,11 @@ Ranges struct {
             ranges; the server stores whatever the client sends.
         """
     }
-    x2 string[] {
+    x2     string[]     {
         @doc value "are the range keys plotted against the x2 axis."
+    }
+    custom CustomRange? {
+        @doc value "is the window the \"custom\" range key resolves to."
     }
 
     @doc value  "binds range keys to each x-axis."
@@ -430,6 +460,15 @@ LinePlot struct {
             with ranges. Ranges absent from the new set are removed and their lines
             dropped; ranges not previously present are added. Existing ranges keep their
             line styling.
+        """
+    }
+
+    action SetCustomRange {
+        custom CustomRange?
+
+        @doc value """
+            sets the window the "custom" range key resolves to. A null custom clears the
+            window.
         """
     }
 

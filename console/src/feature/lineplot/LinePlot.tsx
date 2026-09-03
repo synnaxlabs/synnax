@@ -210,8 +210,16 @@ const Internal = (): ReactElement => {
           ? { variant: "dynamic", span: new TimeSpan(r.span) }
           : { variant: "static", timeRange: new TimeRange(r.timeRange) },
       );
+    const { custom } = ranges;
+    if (custom != null)
+      m.set(
+        Range.CUSTOM_KEY,
+        custom.variant === "dynamic"
+          ? { variant: "dynamic", span: new TimeSpan(custom.span) }
+          : { variant: "static", timeRange: new TimeRange(custom.start, custom.end) },
+      );
     return m;
-  }, [resolved]);
+  }, [resolved, ranges.custom]);
 
   const hiddenLineKeys = Session.LinePlot.useSelectHiddenLines();
   const hiddenLines = useMemo(() => new Set(hiddenLineKeys), [hiddenLineKeys]);

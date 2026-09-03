@@ -15,7 +15,9 @@ import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/errors"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	text "github.com/synnaxlabs/x/text/versions/v0"
 )
 
@@ -289,6 +291,62 @@ func (c *Channels) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
+func (cr CustomRange) EncodeOrc(w *orc.Writer) error {
+	switch v := cr.Variant.(type) {
+	case DynamicCustomRange:
+		w.String("dynamic")
+		w.Int64(int64(v.Span))
+	case StaticCustomRange:
+		w.String("static")
+		w.Int64(int64(v.Start))
+		w.Int64(int64(v.End))
+	default:
+		return errors.Newf("CustomRange: nil or unknown variant %T", cr.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (cr *CustomRange) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.String()
+	if err != nil {
+		return err
+	}
+	switch tag {
+	case "dynamic":
+		var v DynamicCustomRange
+		{
+			rawV, err := r.Int64()
+			if err != nil {
+				return err
+			}
+			v.Span = telem.TimeSpan(rawV)
+		}
+		cr.Variant = v
+	case "static":
+		var v StaticCustomRange
+		{
+			rawV, err := r.Int64()
+			if err != nil {
+				return err
+			}
+			v.Start = telem.TimeStamp(rawV)
+		}
+		{
+			rawV, err := r.Int64()
+			if err != nil {
+				return err
+			}
+			v.End = telem.TimeStamp(rawV)
+		}
+		cr.Variant = v
+	default:
+		return errors.Newf("CustomRange: unknown variant %q", tag)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
 func (lv Legend) EncodeOrc(w *orc.Writer) error {
 	w.Bool(lv.Hidden)
 	if err := lv.Position.EncodeOrc(w); err != nil {
@@ -518,6 +576,14 @@ func (rv Ranges) EncodeOrc(w *orc.Writer) error {
 			w.String(rv.X2[i])
 		}
 	}
+	if rv.Custom != nil {
+		w.Bool(true)
+		if err := rv.Custom.EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
 	return nil
 }
 
@@ -557,6 +623,19 @@ func (rv *Ranges) DecodeOrc(r *orc.Reader) error {
 					return err
 				}
 			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv CustomRange
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			rv.Custom = &hv
 		}
 	}
 	return nil
