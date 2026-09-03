@@ -100,18 +100,22 @@ var _ = Describe("Inheritance", func() {
 				To(SatisfyAll(HaveKey("key"), HaveKey("port")))
 		})
 
-		It("Should let the leftmost parent win a name collision", func(
+		It("Should contribute a shared ancestor's field once", func(
 			ctx SpecContext,
 		) {
 			form, table := analyze(ctx, `
 				@go output "pkg/test"
 
-				First struct {
-					port string = "first"
+				Base struct {
+					port string = "base"
 				}
 
-				Second struct {
-					port string = "second"
+				First struct extends Base {
+					first string = ""
+				}
+
+				Second struct extends Base {
+					second string = ""
 				}
 
 				Child struct extends First, Second {
@@ -119,7 +123,7 @@ var _ = Describe("Inheritance", func() {
 				}
 			`, "Child")
 			inherited := resolver.InheritedFields(form.Extends, table)
-			Expect(inherited["port"].Default.StringValue).To(Equal("first"))
+			Expect(inherited["port"].Default.StringValue).To(Equal("base"))
 		})
 
 		It("Should substitute a generic parent's type arguments", func(
@@ -468,18 +472,22 @@ var _ = Describe("Inheritance", func() {
 			Expect(resolver.CanUseInheritance(form, table)).To(BeFalse())
 		})
 
-		It("Should be false when parents declare the same field", func(
+		It("Should be false when parents promote a shared ancestor's field", func(
 			ctx SpecContext,
 		) {
 			form, table := analyze(ctx, `
 				@go output "pkg/test"
 
-				First struct {
-					port string = "first"
+				Base struct {
+					port string = "base"
 				}
 
-				Second struct {
-					port string = "second"
+				First struct extends Base {
+					first string = ""
+				}
+
+				Second struct extends Base {
+					second string = ""
 				}
 
 				Child struct extends First, Second {
@@ -551,13 +559,15 @@ var _ = Describe("Inheritance", func() {
 			form, v, table := analyzeUnion(ctx, `
 				@go output "pkg/test"
 
-				Base struct {
-					port string = ""
+				Common struct {
 					name string = ""
 				}
 
-				Extra struct {
-					name  string = "extra"
+				Base struct extends Common {
+					port string = ""
+				}
+
+				Extra struct extends Common {
 					scale float64 = 1
 				}
 

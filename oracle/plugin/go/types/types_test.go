@@ -1510,18 +1510,20 @@ var _ = Describe("Go Types Plugin", func() {
 			)
 
 			It(
-				"Should flatten fields when multiple extends have field conflicts",
+				"Should flatten fields when parents promote a shared ancestor's field",
 				func(ctx SpecContext) {
 					source := `
 				@go output "core/entities"
 
-				A struct {
+				Base struct {
 					shared string
+				}
+
+				A struct extends Base {
 					a int32
 				}
 
-				B struct {
-					shared string
+				B struct extends Base {
 					b int32
 				}
 

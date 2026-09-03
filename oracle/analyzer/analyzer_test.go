@@ -1846,23 +1846,38 @@ Entry struct {
 		)
 
 		It(
-			"Should use first parent's field when names conflict",
+			"Should reject parents that declare the same field",
 			func(ctx SpecContext) {
 				source := `
 				A struct { shared int32 }
 				B struct { shared string }
 				C struct extends A, B { }
 			`
+				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.Error()).To(ContainSubstring(
+					`struct C inherits a conflicting field "shared" from both A and B`,
+				))
+			},
+		)
+
+		It(
+			"Should accept parents that share a field the child omits",
+			func(ctx SpecContext) {
+				source := `
+				A struct { shared int32 }
+				B struct { shared string }
+				C struct extends A, B {
+					-shared
+					c bool
+				}
+			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
-				cType := table.MustGet("test.C")
-				allFields := resolution.UnifiedFields(cType, table)
+				allFields := resolution.UnifiedFields(table.MustGet("test.C"), table)
 				Expect(allFields).To(HaveLen(1))
-				Expect(
-					allFields[0].Type.Name,
-				).To(Equal("int32"))
-				// From A (first parent)
+				Expect(allFields[0].Name).To(Equal("c"))
 			},
 		)
 
@@ -2048,14 +2063,13 @@ Entry struct {
 		)
 
 		It(
-			"Should flatten fields from multiple extended structs (first wins)",
+			"Should flatten fields from multiple extended structs",
 			func(ctx SpecContext) {
 				source := `
 				A struct {
 					a string
 				}
 				B struct {
-					a int32
 					b string
 				}
 
@@ -2073,7 +2087,31 @@ Entry struct {
 					names[i] = f.Name
 				}
 				Expect(names).To(Equal([]string{"a", "b"}))
-				Expect(findField(action.Fields, "a").Type.Name).To(Equal("string"))
+			},
+		)
+
+		It(
+			"Should reject extended structs that declare the same field",
+			func(ctx SpecContext) {
+				source := `
+				A struct {
+					a string
+				}
+				B struct {
+					a int32
+				}
+
+				Container struct {
+					key uuid
+
+					action Combine extends A, B {}
+				}
+			`
+				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.Error()).To(ContainSubstring(
+					`action Combine inherits a conflicting field "a" from both A and B`,
+				))
 			},
 		)
 
@@ -3456,6 +3494,27 @@ Mode enum {
 						`union Foo variant "a" must reference a struct type, got: test.Color`,
 					),
 				)
+			},
+		)
+
+		It(
+			"Should error when base structs declare the same field",
+			func(ctx SpecContext) {
+				source := `
+				Ident struct { name string }
+				Audited struct { name string }
+
+				A struct {}
+
+				Foo union on type extends Ident, Audited {
+					a A
+				}
+			`
+				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.Error()).To(ContainSubstring(
+					`union Foo inherits a conflicting field "name" from both Ident and Audited`,
+				))
 			},
 		)
 
