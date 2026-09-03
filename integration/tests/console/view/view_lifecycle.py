@@ -120,9 +120,7 @@ class ViewLifecycle(ConsoleCase):
         """Wait for a range row to leave the list without the explorer's scroll
         sweep. Filtered views are small, fully mounted lists."""
         ranges = self.console.ranges.explorer
-        self.console.layout.wait_for_hidden(
-            self.console.layout.get_list_item(ranges.ITEM_SELECTOR, name)
-        )
+        self.console.layout.wait_for_hidden(ranges.get_mounted_item(name))
 
     def _relabel_range(self, name: str, label_name: str) -> None:
         """Add a label to a range via its overview, then return to the explorer."""
