@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { schematic } from "@synnaxlabs/client";
-import { color, type record, type text } from "@synnaxlabs/x";
+import { ontology, schematic } from "@synnaxlabs/client";
+import { color, type text } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { Component } from "@/component";
@@ -18,6 +18,14 @@ import { Form as Base } from "@/form";
 import { Project } from "@/project";
 import { Form } from "@/schematic/node/common/form";
 import { Orientation } from "@/schematic/node/common/orientation";
+import {
+  type Page,
+  PAGE_ICONS,
+  PAGE_TYPES,
+  pageTypeZ,
+  pageZ,
+  parsePage,
+} from "@/schematic/node/general/offPageReference/config";
 import { type FormProps } from "@/schematic/node/spec";
 import { Select } from "@/select";
 import { Status } from "@/status/base";
@@ -50,16 +58,19 @@ const ClickModeSelect = Component.renderProp(
   },
 );
 
-const useHandlePageChange = (): ((v: string) => void) => {
+const selectKey = (page: Page): string =>
+  page.key.length === 0 ? "" : ontology.idToString(page);
+
+const useHandlePageChange = (): ((v: string | null) => void) => {
   const theme = Theming.use();
   const ctx = Base.useContext();
   return useCallback(
-    (v: string) => {
-      const prev = ctx.get<string>("page").value;
-      ctx.set("page", v);
-      const hadPage = prev != null && prev.length > 0;
-      const hasPage = v != null && v.length > 0;
-      if (!hadPage && hasPage) ctx.set("color", color.hex(theme.colors.primary.z));
+    (v: string | null) => {
+      const prev = ctx.get<Page | string>("page").value;
+      const cleared = v == null || v.length === 0;
+      ctx.set("page", cleared ? "" : pageZ.parse(ontology.stringIDZ.parse(v)));
+      const hadPage = parsePage(prev).key.length > 0;
+      if (!hadPage && !cleared) ctx.set("color", color.hex(theme.colors.primary.z));
     },
     [ctx, theme],
   );
@@ -68,25 +79,35 @@ const useHandlePageChange = (): ((v: string) => void) => {
 export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
-  const [siblings, setSiblings] = useState<record.KeyedNamed[]>([]);
+  const [siblings, setSiblings] = useState<Select.StaticEntry<string>[]>([]);
   useEffect(() => {
     setSiblings([]);
     if (client == null || schematicKey == null) return;
     handleError(async () => {
+      const children = await Project.retrieveChildren(client, {
+        resourceID: schematic.ontologyID(schematicKey),
+        types: [...PAGE_TYPES],
+      });
       setSiblings(
-        await Project.retrieveChildren(client, {
-          resourceID: schematic.ontologyID(schematicKey),
-          types: ["schematic"],
+        children.flatMap(({ key, name, type }) => {
+          const pageType = pageTypeZ.safeParse(type);
+          if (!pageType.success) return [];
+          const PageIcon = PAGE_ICONS[pageType.data];
+          return {
+            key: ontology.idToString({ type: pageType.data, key }),
+            name,
+            icon: <PageIcon />,
+          };
         }),
       );
-    }, "Failed to retrieve schematic pages");
+    }, "Failed to retrieve project pages");
   }, [client, schematicKey, handleError]);
   const handlePageChange = useHandlePageChange();
   return (
     <Form.Wrapper x align="stretch">
       <Flex.Box x grow align="stretch">
         <Base.TextField path="label.label" label="Label" padHelpText={false} grow />
-        <Base.Field<string>
+        <Base.Field<Page | string>
           path="page"
           label="Page"
           padHelpText={false}
@@ -97,11 +118,11 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
         >
           {({ value }) => (
             <Select.Static
-              value={value}
+              value={selectKey(parsePage(value))}
               onChange={handlePageChange}
               data={siblings}
-              resourceName="schematic"
-              emptyContent="No other schematics in this project"
+              resourceName="page"
+              emptyContent="No other pages in this project"
               allowNone
             />
           )}
