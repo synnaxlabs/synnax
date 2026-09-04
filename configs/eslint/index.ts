@@ -47,7 +47,6 @@ const config: Linter.Config[] = [
       "no-constant-condition": ["error", { checkLoops: false }],
       "no-duplicate-imports": "error",
       "no-loss-of-precision": "error",
-      "no-unmodified-loop-condition": ["error", { checkConditionalExpressions: true }],
       "use-isnan": ["error", { enforceForIndexOf: true }],
       "preserve-caught-error": ["error", { requireCatchParameter: true }],
       "valid-typeof": ["error", { requireStringLiterals: true }],

@@ -85,7 +85,6 @@ const lateFrameStreamer = (frame: framer.Frame): framer.Streamer => {
   let closed = false;
   let emitted = false;
   const next = async (): Promise<IteratorResult<framer.Frame>> => {
-    // eslint-disable-next-line no-unmodified-loop-condition -- close() sets closed.
     while (!closed) await new Promise((resolve) => setTimeout(resolve, 2));
     if (emitted) return { done: true, value: undefined };
     emitted = true;
