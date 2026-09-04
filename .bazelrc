@@ -80,7 +80,10 @@ build:windows --linkopt=user32.lib
 build:windows --copt=/Zc:preprocessor      # Enable C++20 conformant preprocessor (for __VA_OPT__)
 build:windows --copt=/W3     # Use warning level 3 instead of -Wall (which is /W4 + extras on MSVC)
 build:windows --cxxopt=/W3   # Same for C++
-build:windows --copt=/WX     # Treat warnings as errors
+# Warnings are errors for C and C++ only. MASM would apply /WX to the option warnings it
+# emits for every cl flag it does not recognise, failing on assembly with no diagnostic.
+build:windows --cxxopt=/WX
+build:windows --conlyopt=/WX
 build:windows --copt=/wd4514  # 'function': unreferenced inline function has been removed (common in headers)
 build:windows --copt=/wd5039  # pointer/reference to potentially throwing function passed to extern C (Windows SDK headers)
 build:windows --copt=/wd4710  # 'function': function not inlined (informational)
@@ -125,8 +128,8 @@ build:windows --copt=/wd4201  # nonstandard extension used: nameless struct/unio
 build:windows --copt=/wd4324  # structure was padded due to alignment specifier (queue/spsc.h)
 build:windows --copt=/wd4005  # macro redefinition (SOEM wpcap headers vs Windows SDK)
 # MASM reads /WX- as /W followed by X- and rejects it as a non-numeric level (A1013), so
-# assembly gets neither of these flags. It still receives /WX and the /wd flags from the
-# copts above, but it only warns about the ones it does not know.
+# assembly gets neither of these flags, nor the /WX above. It still receives the /wd
+# flags, but only warns about the ones it does not know.
 build:windows --per_file_copt=external/.*,-.*\\.[sS]$,-.*\\.asm$@/WX-,/w
 build:windows --per_file_copt=vendor/.*,-.*\\.[sS]$,-.*\\.asm$@/WX-,/w
 
