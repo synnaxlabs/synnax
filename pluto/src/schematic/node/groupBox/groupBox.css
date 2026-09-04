@@ -10,16 +10,10 @@
  */
 
 .pluto-group-box {
-    border: 2px dashed transparent;
     border-radius: 6px;
 }
 
-.react-flow__node:has(.pluto-group-box) .pluto-symbol__label {
-    display: none;
-}
-
 .react-flow__node.selected .pluto-group-box {
-    border-color: var(--pluto-primary-z) !important;
     background: var(--pluto-primary-z-10);
 }
 
@@ -41,14 +35,6 @@
 }
 
 .pluto-diagram.pluto--editable {
-    .pluto-group-box {
-        border-color: var(--pluto-gray-l9);
-    }
-
-    .react-flow__node:has(.pluto-group-box) .pluto-symbol__label {
-        display: block;
-    }
-
     .react-flow__node.selected .pluto-group-box__move {
         display: flex;
     }

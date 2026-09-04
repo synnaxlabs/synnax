@@ -10,14 +10,11 @@
 import { dimensions } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { Label } from "@/schematic/node/common/label";
-
 export const VARIANT = "groupBox" as const;
 
 export const configZ = z.object({
   variant: z.literal(VARIANT),
   members: z.string().array(),
-  label: Label.configZ.optional(),
   dimensions: dimensions.dimensionsZ,
 });
 export type Config = z.infer<typeof configZ>;

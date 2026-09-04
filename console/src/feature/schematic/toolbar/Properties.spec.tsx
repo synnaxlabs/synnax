@@ -144,14 +144,12 @@ describe("Schematic toolbar Properties", () => {
     });
 
     it("routes a group selected with its members to the group's form", async () => {
-      const { result } = await renderProperties({
+      await renderProperties({
         nodeKeys,
         createConfig: createGroupedConfig,
         sessionState: { selected: ["g1", "n1", "n2"] },
       });
-      await waitFor(() =>
-        expect(getInputByItemLabel(result.container, "Label").value).toBe("Group"),
-      );
+      await screen.findByText("Groups have no editable properties.");
       expect(screen.queryByText("Align")).toBeNull();
     });
   });

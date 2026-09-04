@@ -12,20 +12,17 @@ import { type ReactElement } from "react";
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
 import { Grid } from "@/schematic/node/common/grid";
-import { Label } from "@/schematic/node/common/label";
 import { type Config } from "@/schematic/node/groupBox/config";
 import { Primitive } from "@/schematic/node/groupBox/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
 
 export const Symbol = ({
   nodeKey,
-  onConfigChange,
   selected,
   draggable,
-  config: { label, dimensions },
+  config: { dimensions },
 }: NodeProps<Config>): ReactElement => (
   <Grid.Grid allowCenter allowRotate={false} editable={selected} nodeKey={nodeKey}>
-    <Label.Label config={label} onChange={onConfigChange} />
     <Primitive dimensions={dimensions} />
     {/* Visual anchor only: the whole box drags. A nested group is locked to its
     parent, so it gets no anchor. */}

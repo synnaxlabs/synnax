@@ -9,7 +9,6 @@
 
 import { type ReactElement } from "react";
 
-import { Label } from "@/schematic/node/common/label";
 import { type Config, VARIANT } from "@/schematic/node/groupBox/config";
 import { GroupBoxForm } from "@/schematic/node/groupBox/Form";
 import { Symbol } from "@/schematic/node/groupBox/Symbol";
@@ -22,7 +21,6 @@ const NAME = "Group";
 export const defaultConfig = (): Config => ({
   variant: VARIANT,
   members: [],
-  label: Label.defaultConfig(NAME),
   dimensions: { width: 100, height: 100 },
 });
 

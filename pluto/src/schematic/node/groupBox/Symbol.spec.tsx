@@ -38,12 +38,11 @@ const renderSymbol = (
 
 describe("GroupBox.Symbol", () => {
   it("should size the box to the configured dimensions", () => {
-    const { container, getByText } = renderSymbol();
+    const { container } = renderSymbol();
     const box = container.querySelector<HTMLElement>(".pluto-group-box");
     assert(box != null);
     expect(box.style.width).toBe("100px");
     expect(box.style.height).toBe("100px");
-    expect(getByText("Group")).toBeDefined();
   });
 
   it("should show the move anchor when selected", () => {
