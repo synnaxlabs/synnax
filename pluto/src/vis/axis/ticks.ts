@@ -91,7 +91,11 @@ class TimeTickFactory implements TickFactory {
       }));
     } else {
       this.normalScale.domain([domain.start.date(), domain.end.date()]);
-      const ticks = this.normalScale.ticks(calcTickCount(size, this.props.tickSpacing));
+      const count = calcTickCount(size, this.props.tickSpacing);
+      let ticks = this.normalScale.ticks(count);
+      // Re-request fewer ticks when d3 overshoots the count and crowds the labels.
+      if (ticks.length > count)
+        ticks = this.normalScale.ticks(Math.ceil(count ** 2 / ticks.length));
       this.currTicks = ticks.map((tick) => ({
         label: this.normalTickLabel(tick),
         position: this.normalScale(tick),
