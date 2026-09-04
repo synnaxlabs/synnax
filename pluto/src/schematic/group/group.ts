@@ -222,21 +222,6 @@ export const closure = (
 ): string[] =>
   withMembers([...new Set(keys.map((k) => rootOf(parentOf, k)))], configs);
 
-/**
- * soleRoot returns the one unparented key when every other key in the selection
- * sits inside that key's group tree, and null otherwise.
- */
-export const soleRoot = (
-  keys: readonly string[],
-  parentOf: Map<string, string>,
-): string | null => {
-  const unparented = keys.filter((k) => !parentOf.has(k));
-  if (unparented.length !== 1) return null;
-  const root = unparented[0];
-  for (const k of keys) if (rootOf(parentOf, k) !== root) return null;
-  return root;
-};
-
 /** canUngroup returns whether the selection includes a group. */
 export const canUngroup = (
   selected: readonly string[],
