@@ -60,6 +60,11 @@ build:linux --cxxopt=-fvisibility-inlines-hidden
 # Allow protobuf deprecation warnings without treating them as errors
 build:linux --copt=-Wno-error=deprecated-declarations
 
+# GoogleTest triggers sign-compare inside gtest.h when a test compares a signed to an
+# unsigned integer. GCC reports it against the header, so it cannot be suppressed at the
+# call site.
+build:linux --copt=-Wno-sign-compare
+
 # Allow sequence-point warnings without treating them as errors (wasmtime headers use
 # storage++ in pack expansion which triggers this)
 build:linux --copt=-Wno-error=sequence-point
