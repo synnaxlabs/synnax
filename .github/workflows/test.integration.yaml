@@ -95,12 +95,10 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       VERSION: ${{ steps.version.outputs.VERSION }}
-      SKIP_BUILD:
-        ${{ steps.update-outputs.outputs.SKIP_BUILD ||
-        steps.set-outputs.outputs.SKIP_BUILD }}
-      REF_RUN_ID:
-        ${{ steps.update-outputs.outputs.REF_RUN_ID ||
-        steps.set-outputs.outputs.REF_RUN_ID }}
+      SKIP_BUILD: ${{ steps.check-cache.outputs.SKIP_BUILD }}
+      REF_RUN_ID: ${{ steps.check-cache.outputs.REF_RUN_ID }}
+      DRIVER_REF_RUN_ID: ${{ steps.check-cache.outputs.DRIVER_REF_RUN_ID }}
+      CONSOLE_REF_RUN_ID: ${{ steps.check-cache.outputs.CONSOLE_REF_RUN_ID }}
       FLAGS: ${{ steps.set-outputs.outputs.FLAGS }}
       TEST_MATRIX:
         ${{ steps.set-outputs.outputs.CUSTOM_MATRIX ||
@@ -124,46 +122,22 @@ jobs:
       - name: Set outputs
         id: set-outputs
         env:
-          SKIP_BUILD: ${{ github.event.inputs.SKIP_BUILD || 'false' }}
-          REF_RUN_ID: ${{ github.event.inputs.REF_RUN_ID || '' }}
           FLAGS: ${{ github.event.inputs.FLAGS || '' }}
-          GH_TOKEN: ${{ github.token }}
         run: |
           echo "FLAGS=${FLAGS}" >> $GITHUB_OUTPUT
-          echo "SKIP_BUILD=${SKIP_BUILD}" >> $GITHUB_OUTPUT
           if [ -n "${FLAGS}" ]; then
             SAFE_NAME=$(echo "${FLAGS}" | sed 's/[^a-zA-Z0-9_-]/_/g')
             echo "CUSTOM_MATRIX={\"include\":[{\"name\":\"${SAFE_NAME}\",\"target\":\"\"}]}" >> $GITHUB_OUTPUT
           fi
-          if [ "${SKIP_BUILD}" = "true" ]; then
-            if [ -z "${REF_RUN_ID}" ]; then
-              echo "Empty REF_RUN_ID. Setting SKIP_BUILD to false."
-              echo "SKIP_BUILD=false" >> $GITHUB_OUTPUT
-            else
-              echo "REF_RUN_ID=${REF_RUN_ID}" >> $GITHUB_OUTPUT
-            fi
-          fi
 
       - name: Check for Cached Artifacts
-        if: ${{ steps.set-outputs.outputs.SKIP_BUILD == 'false' }}
         id: check-cache
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          SKIP_BUILD: ${{ github.event.inputs.SKIP_BUILD || 'false' }}
+          REF_RUN_ID: ${{ github.event.inputs.REF_RUN_ID || '' }}
         run: integration/scripts/check_artifact_cache.sh all
-
-      - name: Update Outputs Based on Cache
-        if: ${{ steps.set-outputs.outputs.SKIP_BUILD == 'false' }}
-        id: update-outputs
-        run: |
-          if [ "${{ steps.check-cache.outputs.CACHE_HIT }}" = "true" ]; then
-            echo "Using cached artifacts from run ${{ steps.check-cache.outputs.CACHED_RUN_ID }}"
-            echo "SKIP_BUILD=true" >> $GITHUB_OUTPUT
-            echo "REF_RUN_ID=${{ steps.check-cache.outputs.CACHED_RUN_ID }}" >> $GITHUB_OUTPUT
-          else
-            echo "Using this runs artifacts - ${{ github.run_id }}"
-            echo "REF_RUN_ID=${{ github.run_id }}" >> $GITHUB_OUTPUT
-          fi
 
       - name: Validate Test Coverage
         if: ${{ steps.set-outputs.outputs.FLAGS == '' }}
@@ -174,6 +148,7 @@ jobs:
     needs: setup
     if: needs.setup.outputs.SKIP_BUILD == 'false'
     permissions:
+      actions: read
       contents: write
       packages: write
     uses: ./.github/workflows/build.synnax.yaml
@@ -186,6 +161,8 @@ jobs:
       core: true
       use_simple_artifact_names: true
       version: ${{ needs.setup.outputs.VERSION }}
+      driver_ref_run_id: ${{ needs.setup.outputs.DRIVER_REF_RUN_ID }}
+      console_ref_run_id: ${{ needs.setup.outputs.CONSOLE_REF_RUN_ID }}
     secrets: inherit
 
   test-windows:
