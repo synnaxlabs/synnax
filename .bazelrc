@@ -133,6 +133,12 @@ build:windows --copt=/wd4005  # macro redefinition (SOEM wpcap headers vs Window
 build:windows --per_file_copt=external/.*,-.*\\.[sS]$,-.*\\.asm$@/WX-,/w
 build:windows --per_file_copt=vendor/.*,-.*\\.[sS]$,-.*\\.asm$@/WX-,/w
 
+# Bazel hands the full cl.exe flag set to ml64 for OpenSSL's generated assembly, and
+# MASM mangles the ones it does not know until it writes no object at all. /bigobj,
+# /Zm500 and /showIncludes come from the toolchain itself, so no copt scoping fixes
+# it. Build the C implementations on Windows instead.
+build:windows --@openssl//:use-no-asm-fallback=true
+
 # Allow protobuf deprecation warnings without treating them as errors
 build:windows --copt=/wd4996  # disables warning C4996 (deprecated declarations) for MSVC
 
