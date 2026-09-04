@@ -16,6 +16,14 @@
 }
 
 .pluto-input__switch {
+    /* The gap caps so a big switch keeps a slim knob inset. */
+    --pluto-switch-width: calc(5rem * var(--pluto-switch-scale, 1));
+    --pluto-switch-height: calc(2.5rem * var(--pluto-switch-scale, 1));
+    --pluto-switch-gap: min(0.25rem * var(--pluto-switch-scale, 1), 0.5rem);
+
+    /* Travel = width - knob - both gaps, which reduces to width - height. */
+    --pluto-switch-travel: calc(var(--pluto-switch-width) - var(--pluto-switch-height));
+
     display: flex;
     justify-content: center;
     align-items: center;
@@ -45,9 +53,11 @@
     .pluto-input__switch-indicator {
         position: relative;
         display: inline-block;
-        width: 5rem;
-        height: 2.5rem;
-        border-radius: var(--pluto-border-radius-medium);
+        width: var(--pluto-switch-width);
+        height: var(--pluto-switch-height);
+
+        /* Half the track height: the pill shape holds at every scale. */
+        border-radius: calc(var(--pluto-switch-height) / 2);
         background: var(--pluto-gray-l4);
         cursor: pointer;
         transition: 0.15s;
@@ -56,10 +66,10 @@
     .pluto-input__switch-indicator::before {
         position: absolute;
         content: "";
-        height: 2rem;
-        width: 2rem;
-        left: 0.25rem;
-        bottom: 0.25rem;
+        height: calc(var(--pluto-switch-height) - 2 * var(--pluto-switch-gap));
+        width: calc(var(--pluto-switch-height) - 2 * var(--pluto-switch-gap));
+        left: var(--pluto-switch-gap);
+        bottom: var(--pluto-switch-gap);
         background: var(--pluto-gray-l7);
         transition: 0.15s;
         cursor: pointer;
@@ -71,7 +81,7 @@
     }
 
     input:checked ~ .pluto-input__switch-indicator::before {
-        transform: translateX(2.5rem);
+        transform: translateX(var(--pluto-switch-travel));
         background: var(--pluto-primary-p1);
     }
 
@@ -79,9 +89,11 @@
         * {
             cursor: not-allowed !important;
         }
+
         .pluto-input__switch-indicator {
             background: var(--pluto-gray-l3-50);
         }
+
         .pluto-input__switch-indicator::before {
             background: var(--pluto-gray-l6-70);
         }
