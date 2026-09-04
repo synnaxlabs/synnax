@@ -20,6 +20,7 @@
 
 .react-flow__node.selected .pluto-group-box {
     border-color: var(--pluto-primary-z) !important;
+    background: var(--pluto-primary-z-10);
 }
 
 .pluto-group-box__move {
