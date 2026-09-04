@@ -26,13 +26,13 @@
   },
   "dependencies": {
     "@opentelemetry/api": "catalog:",
-    "@synnaxlabs/x": "workspace:^"
+    "@synnaxlabs/x": "catalog:"
   },
   "devDependencies": {
-    "@synnaxlabs/eslint-config": "workspace:^",
-    "@synnaxlabs/madge": "workspace:^",
-    "@synnaxlabs/tsconfig": "workspace:^",
-    "@synnaxlabs/vite-plugin": "workspace:^",
+    "@synnaxlabs/eslint-config": "catalog:",
+    "@synnaxlabs/madge": "catalog:",
+    "@synnaxlabs/tsconfig": "catalog:",
+    "@synnaxlabs/vite-plugin": "catalog:",
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",

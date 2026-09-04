@@ -18,7 +18,7 @@
     "typescript-eslint": "catalog:"
   },
   "devDependencies": {
-    "@synnaxlabs/tsconfig": "workspace:^",
+    "@synnaxlabs/tsconfig": "catalog:",
     "@types/node": "catalog:",
     "eslint": "catalog:",
     "typescript": "catalog:ts6"

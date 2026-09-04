@@ -15,8 +15,8 @@
     }
   },
   "devDependencies": {
-    "@synnaxlabs/eslint-config": "workspace:^",
-    "@synnaxlabs/tsconfig": "workspace:^",
+    "@synnaxlabs/eslint-config": "catalog:",
+    "@synnaxlabs/tsconfig": "catalog:",
     "eslint": "catalog:",
     "typescript": "catalog:",
     "unplugin-dts": "catalog:",

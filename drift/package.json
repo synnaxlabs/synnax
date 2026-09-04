@@ -23,7 +23,7 @@
     "madge": "madge --circular src"
   },
   "dependencies": {
-    "@synnaxlabs/x": "workspace:^",
+    "@synnaxlabs/x": "catalog:",
     "@tauri-apps/api": "catalog:",
     "zod": "catalog:"
   },
@@ -34,10 +34,10 @@
   },
   "devDependencies": {
     "@reduxjs/toolkit": "catalog:",
-    "@synnaxlabs/eslint-config": "workspace:^",
-    "@synnaxlabs/madge": "workspace:^",
-    "@synnaxlabs/tsconfig": "workspace:^",
-    "@synnaxlabs/vite-plugin": "workspace:^",
+    "@synnaxlabs/eslint-config": "catalog:",
+    "@synnaxlabs/madge": "catalog:",
+    "@synnaxlabs/tsconfig": "catalog:",
+    "@synnaxlabs/vite-plugin": "catalog:",
     "@testing-library/react": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
