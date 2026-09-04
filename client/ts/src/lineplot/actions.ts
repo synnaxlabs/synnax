@@ -25,6 +25,7 @@ import {
   setAxisTickSpacing,
   setAxisType,
   setChannels,
+  setCustomRange,
   setLegendHidden,
   setLegendPosition,
   setLine,
@@ -258,6 +259,19 @@ const handlers: Handlers = {
         ...dropped.map((l) => setLine({ line: actions.snapshotDraft(l) })),
       ],
       targets: [...removed, ...added].map((range) => `range:${range}`),
+    };
+  },
+
+  setCustomRange: (state, payload) => {
+    const old = state.ranges.custom;
+    state.ranges.custom = payload.custom;
+    return {
+      inverse: [
+        setCustomRange({
+          custom: old === undefined ? undefined : actions.snapshotDraft(old),
+        }),
+      ],
+      targets: ["range:custom"],
     };
   },
 

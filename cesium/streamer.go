@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 )
 
@@ -91,7 +92,8 @@ func NewTranslatedStreamer[I, O any](
 		return nil, ErrDBClosed
 	}
 	return &streamer[I, O]{
-		StreamerConfig:    cfg,
+		sendOpenAck:       cfg.SendOpenAck,
+		keys:              set.New(cfg.Channels...),
 		relay:             db.relay,
 		translateResponse: translateResponse,
 		translateRequest:  translateRequest,
@@ -103,7 +105,8 @@ type streamer[I any, O any] struct {
 	relay             *relay
 	translateRequest  func(I) StreamerRequest
 	translateResponse func(StreamerResponse) O
-	StreamerConfig
+	keys              set.Set[channel.Key]
+	sendOpenAck       bool
 }
 
 var _ Streamer[StreamerRequest, StreamerResponse] = (*streamer[StreamerRequest, StreamerResponse])(
@@ -117,7 +120,7 @@ func (s *streamer[I, O]) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	frames, disconnect := s.relay.connect()
 	sCtx.Go(func(ctx context.Context) error {
 		defer disconnect()
-		if s.SendOpenAck {
+		if s.sendOpenAck {
 			if err := signal.SendUnderContext(
 				ctx,
 				s.Out.Inlet(),
@@ -134,9 +137,9 @@ func (s *streamer[I, O]) Flow(sCtx signal.Context, opts ...confluence.Option) {
 				if !ok {
 					return nil
 				}
-				s.Channels = s.translateRequest(req).Channels
+				s.keys = set.New(s.translateRequest(req).Channels...)
 			case rf := <-frames.Outlet():
-				if filtered := rf.frame.KeepKeys(s.Channels); !filtered.Empty() {
+				if filtered := rf.frame.KeepKeys(s.keys); !filtered.Empty() {
 					if err := signal.SendUnderContext(
 						ctx,
 						s.Out.Inlet(),

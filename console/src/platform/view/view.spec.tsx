@@ -67,6 +67,11 @@ Harness.displayName = "Harness";
 
 const client = createTestClient();
 
+/** @returns the name of the tab the view strip shows as selected. */
+const selectedViewName = (): string | null =>
+  screen.getAllByRole("tab").find((tab) => tab.getAttribute("aria-selected") === "true")
+    ?.textContent ?? null;
+
 const createView = async () =>
   await client.views.create({
     name: uniqueName("view"),
@@ -127,6 +132,22 @@ describe("View", () => {
     // hit real channels, so the term must be pure gibberish.
     fireEvent.change(input, { target: { value: uniqueName("zzqjxvwq") } });
     await waitFor(() => expect(screen.getByText("No channels found")).toBeTruthy());
+  });
+
+  it("lays the views out as a tab strip", async () => {
+    const saved = await createView();
+    await renderHarness();
+    const tab = await screen.findByRole("tab", { name: saved.name });
+    expect(screen.getByRole("tablist").contains(tab)).toBe(true);
+    expect(selectedViewName()).toBe("All channels");
+  });
+
+  it("moves the selection to a view whose tab is clicked", async () => {
+    const saved = await createView();
+    await renderHarness();
+    const tab = await screen.findByRole("tab", { name: saved.name });
+    fireEvent.click(tab);
+    await waitFor(() => expect(selectedViewName()).toBe(saved.name));
   });
 
   it("leaves a static view's name plain while a saved view's is editable", async () => {

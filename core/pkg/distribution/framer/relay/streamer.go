@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -28,37 +29,36 @@ type Streamer = confluence.Segment[Request, Response]
 
 type streamer struct {
 	confluence.AbstractLinear[Request, Response]
-	demands confluence.Inlet[demand]
-	relay   *Relay
-	addr    address.Address
-	cfg     StreamerConfig
+	demands       confluence.Inlet[demand]
+	relay         *Relay
+	addr          address.Address
+	sendOpenAck   bool
+	excludeGroups []uint32
+	keys          set.Set[channel.Key]
 }
 
 // StreamerConfig is the configuration for creating a new streamer.
 type StreamerConfig struct {
 	// SendOpenAck sets whether to send an acknowledgment when the streamer has
 	// successfully connected to the relay and is ready to start streaming data.
-	// [OPTIONAL] - defaults to false
+	//
+	// [OPTIONAL] - Defaults to false.
 	SendOpenAck *bool
 	// Keys are the list of channels to read from. This slice may be empty, in
 	// which case no data will be streamed until a new configuration is provided
 	// as a request to the streamer.
-	// [OPTIONAL]
+	//
+	// [OPTIONAL] - Defaults to empty.
 	Keys channel.Keys
-	// ExcludeGroups is a list of writer group IDs whose frames should be filtered
-	// out before delivery. This is used by the telemetry bypass to prevent
-	// duplicate delivery of frames that were already routed via the local bus.
-	// [OPTIONAL]
+	// ExcludeGroups is a list of writer group IDs whose frames should be filtered out
+	// before delivery. This is used by the telemetry bypass to prevent duplicate
+	// delivery of frames that were already routed via the local bus.
+	//
+	// [OPTIONAL] - Defaults to empty.
 	ExcludeGroups []uint32
 }
 
-var (
-	_ config.Config[StreamerConfig] = StreamerConfig{}
-	// DefaultStreamerConfig is the default configuration for opening a new streamer.
-	// This configuration is valid and will create a streamer that does
-	// not stream from any channels.
-	DefaultStreamerConfig = StreamerConfig{SendOpenAck: new(false)}
-)
+var _ config.Config[StreamerConfig] = StreamerConfig{}
 
 // Override implements config.Config.
 func (c StreamerConfig) Override(other StreamerConfig) StreamerConfig {
@@ -79,19 +79,20 @@ func (c StreamerConfig) Validate() error {
 // relay. Each subsequent StreamerConfig overrides the parameters specified in the
 // previous config. See the StreamerConfig struct for information on required fields.
 func (r *Relay) NewStreamer(cfgs ...StreamerConfig) (Streamer, error) {
-	cfg, err := config.New(DefaultStreamerConfig, cfgs...)
+	cfg, err := config.New(StreamerConfig{SendOpenAck: new(false)}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	return &streamer{
-		cfg:     cfg,
-		addr:    address.Rand(),
-		demands: r.demands,
-		relay:   r,
+		sendOpenAck:   *cfg.SendOpenAck,
+		excludeGroups: cfg.ExcludeGroups,
+		keys:          set.New(cfg.Keys...),
+		addr:          address.Rand(),
+		demands:       r.demands,
+		relay:         r,
 	}, nil
 }
 
-// Flow implements confluence.Flow.
 func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
 	o.AttachClosables(s.Out)
@@ -99,18 +100,18 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 		s.demands.Acquire(1)
 		// We only set demands when we start the streamer, avoiding unnecessary overhead
 		// when the streamer is not in use. We also need to make sure we send these
-		// demands before we connect to the delta, otherwise, under extreme load we
-		// may cause deadlock. When an open ack is requested, ack lets us block below
-		// until the relay has applied the demand to its taps, so the ack is a true
-		// readiness signal; otherwise there is nothing to gate and we leave it nil.
+		// demands before we connect to the delta, otherwise, under extreme load we may
+		// cause deadlock. When an open ack is requested, ack lets us block below until
+		// the relay has applied the demand to its taps, so the ack is a true readiness
+		// signal; otherwise there is nothing to gate and we leave it nil.
 		var ack chan struct{}
-		if *s.cfg.SendOpenAck {
+		if s.sendOpenAck {
 			ack = make(chan struct{})
 		}
 		s.demands.Inlet() <- demand{
 			Variant: change.VariantSet,
 			Key:     s.addr,
-			Value:   Request{Keys: s.cfg.Keys},
+			Value:   Request{Keys: s.keys.Slice()},
 			ack:     ack,
 		}
 		// NOTE: BEYOND THIS POINT THERE IS AN INHERENT RISK OF DEADLOCKING THE RELAY.
@@ -121,16 +122,13 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 			// we do this before updating our demands, otherwise we may deadlock.
 			disconnect()
 			// Tell the tapper that we are no longer requesting any channels.
-			s.demands.Inlet() <- demand{
-				Variant: change.VariantDelete,
-				Key:     s.addr,
-			}
+			s.demands.Inlet() <- demand{Variant: change.VariantDelete, Key: s.addr}
 			// If we add this in AttachClosables, it may not be closed at the end of if
 			// the caller does not use the confluence.CloseOutputInletsOnExit option, so
 			// we explicitly close it here.
 			s.demands.Close()
 		}()
-		if *s.cfg.SendOpenAck {
+		if s.sendOpenAck {
 			// Wait for the relay to confirm our demand has been applied before
 			// signaling readiness. For channels served from local storage (host-leased
 			// and free channels alike) this is a true happens-before barrier:
@@ -161,12 +159,8 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 					return nil
 				}
 				req.Keys = lo.Uniq(req.Keys)
-				s.cfg.Keys = req.Keys
-				d := demand{
-					Variant: change.VariantSet,
-					Key:     s.addr,
-					Value:   req,
-				}
+				s.keys = set.New(req.Keys...)
+				d := demand{Variant: change.VariantSet, Key: s.addr, Value: req}
 				if err := signal.SendUnderContext(
 					ctx,
 					s.demands.Inlet(),
@@ -175,10 +169,10 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 					return err
 				}
 			case r := <-responses.Outlet():
-				if r.Group != 0 && slices.Contains(s.cfg.ExcludeGroups, r.Group) {
+				if r.Group != 0 && slices.Contains(s.excludeGroups, r.Group) {
 					continue
 				}
-				if filtered := r.Frame.KeepKeys(s.cfg.Keys); !filtered.Empty() {
+				if filtered := r.Frame.KeepKeys(s.keys); !filtered.Empty() {
 					res := Response{Frame: filtered, Group: r.Group}
 					if err := signal.SendUnderContext(
 						ctx,

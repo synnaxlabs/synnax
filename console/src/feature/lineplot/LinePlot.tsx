@@ -210,8 +210,21 @@ const Internal = (): ReactElement => {
           ? { variant: "dynamic", span: new TimeSpan(r.span) }
           : { variant: "static", timeRange: new TimeRange(r.timeRange) },
       );
+    const { custom } = ranges;
+    if (custom != null)
+      m.set(
+        Range.CUSTOM_KEY,
+        custom.variant === "dynamic"
+          ? { variant: "dynamic", span: new TimeSpan(custom.span) }
+          : {
+              variant: "static",
+              // BigInt, not the constructor: TimeStamp parses a bare string as a
+              // date-time, not a decimal int64.
+              timeRange: new TimeRange(BigInt(custom.start), BigInt(custom.end)),
+            },
+      );
     return m;
-  }, [resolved]);
+  }, [resolved, ranges.custom]);
 
   const hiddenLineKeys = Session.LinePlot.useSelectHiddenLines();
   const hiddenLines = useMemo(() => new Set(hiddenLineKeys), [hiddenLineKeys]);

@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -146,7 +147,7 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](7, 8, 9),
 				},
 			)
-			filtered := fr.KeepKeys([]int32{1, 3})
+			filtered := fr.KeepKeys(set.New[int32](1, 3))
 			Expect(filtered.Count()).To(Equal(2))
 		})
 
@@ -180,7 +181,7 @@ var _ = Describe("Frame", func() {
 						telem.NewSeriesV[int32](7, 8, 9),
 					},
 				)
-				filtered := fr.KeepKeys([]int32{1, 3})
+				filtered := fr.KeepKeys(set.New[int32](1, 3))
 
 				By("Filtering out the new frame")
 				Expect(filtered.KeysSlice()).To(Equal([]int32{1, 3}))
@@ -209,7 +210,7 @@ var _ = Describe("Frame", func() {
 					series[i] = telem.NewSeriesV(i, 1+i, i+2)
 				}
 				fr := telem.MultiFrame(keys, series)
-				filtered := fr.KeepKeys([]int32{1, 3, 5, 7, 9})
+				filtered := fr.KeepKeys(set.New[int32](1, 3, 5, 7, 9))
 				Expect(filtered.KeysSlice()).To(Equal([]int32{1, 3, 5, 7, 9}))
 				Expect(filtered.SeriesSlice()).To(Equal([]telem.Series{
 					telem.NewSeriesV[int32](1, 2, 3),
@@ -230,7 +231,7 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](7, 8, 9),
 				},
 			)
-			filtered := fr.KeepKeys([]int32{1, 3}).KeepKeys([]int32{1})
+			filtered := fr.KeepKeys(set.New[int32](1, 3)).KeepKeys(set.New[int32](1))
 
 			By("Filtering out the new frame")
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1}))
@@ -258,7 +259,7 @@ var _ = Describe("Frame", func() {
 						telem.NewSeriesV[int32](7, 8, 9),
 					},
 				)
-				filtered := fr.KeepKeys([]int32{1048578})
+				filtered := fr.KeepKeys(set.New[int32](1048578))
 				Expect(filtered.Count()).To(Equal(2))
 			},
 		)
@@ -272,7 +273,7 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](7, 8, 9),
 				},
 			)
-			filtered := fr.KeepKeys([]int32{})
+			filtered := fr.KeepKeys(set.New[int32]())
 			Expect(filtered.Count()).To(Equal(0))
 		})
 	})
@@ -455,7 +456,8 @@ var _ = Describe("Frame", func() {
 			)
 
 			// First keep only 1, 2, 3, 4, then exclude 2, 4
-			filtered := fr.KeepKeys([]int32{1, 2, 3, 4}).ExcludeKeys([]int32{2, 4})
+			filtered := fr.KeepKeys(set.New[int32](1, 2, 3, 4)).
+				ExcludeKeys([]int32{2, 4})
 
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 3}))
 			Expect(filtered.SeriesSlice()).To(Equal([]telem.Series{
@@ -672,7 +674,8 @@ var _ = Describe("Frame", func() {
 			)
 
 			// First keep only 1, 2, 3, 4, then exclude 2, 4
-			filtered := fr.KeepKeys([]int32{1, 2, 3, 4}).ExcludeKeys([]int32{2, 4})
+			filtered := fr.KeepKeys(set.New[int32](1, 2, 3, 4)).
+				ExcludeKeys([]int32{2, 4})
 
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 3}))
 			Expect(filtered.SeriesSlice()).To(Equal([]telem.Series{
@@ -719,7 +722,7 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](7, 8, 9),
 				},
 			)
-			filtered := fr.KeepKeys([]int32{})
+			filtered := fr.KeepKeys(set.New[int32]())
 			Expect(filtered.Count()).To(Equal(0))
 		})
 	})
@@ -902,7 +905,8 @@ var _ = Describe("Frame", func() {
 			)
 
 			// First keep only 1, 2, 3, 4, then exclude 2, 4
-			filtered := fr.KeepKeys([]int32{1, 2, 3, 4}).ExcludeKeys([]int32{2, 4})
+			filtered := fr.KeepKeys(set.New[int32](1, 2, 3, 4)).
+				ExcludeKeys([]int32{2, 4})
 
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 3}))
 			Expect(filtered.SeriesSlice()).To(Equal([]telem.Series{
@@ -949,7 +953,7 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](7, 8, 9),
 				},
 			)
-			filtered := fr.KeepKeys([]int32{})
+			filtered := fr.KeepKeys(set.New[int32]())
 			Expect(filtered.Count()).To(Equal(0))
 		})
 	})
@@ -1132,7 +1136,8 @@ var _ = Describe("Frame", func() {
 			)
 
 			// First keep only 1, 2, 3, 4, then exclude 2, 4
-			filtered := fr.KeepKeys([]int32{1, 2, 3, 4}).ExcludeKeys([]int32{2, 4})
+			filtered := fr.KeepKeys(set.New[int32](1, 2, 3, 4)).
+				ExcludeKeys([]int32{2, 4})
 
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 3}))
 			Expect(filtered.SeriesSlice()).To(Equal([]telem.Series{
@@ -1179,7 +1184,7 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](7, 8, 9),
 				},
 			)
-			filtered := fr.KeepKeys([]int32{})
+			filtered := fr.KeepKeys(set.New[int32]())
 			Expect(filtered.Count()).To(Equal(0))
 		})
 	})
@@ -1362,7 +1367,8 @@ var _ = Describe("Frame", func() {
 			)
 
 			// First keep only 1, 2, 3, 4, then exclude 2, 4
-			filtered := fr.KeepKeys([]int32{1, 2, 3, 4}).ExcludeKeys([]int32{2, 4})
+			filtered := fr.KeepKeys(set.New[int32](1, 2, 3, 4)).
+				ExcludeKeys([]int32{2, 4})
 
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 3}))
 			Expect(filtered.SeriesSlice()).To(Equal([]telem.Series{
@@ -1409,7 +1415,7 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](7, 8, 9),
 				},
 			)
-			filtered := fr.KeepKeys([]int32{})
+			filtered := fr.KeepKeys(set.New[int32]())
 			Expect(filtered.Count()).To(Equal(0))
 		})
 	})
@@ -1592,7 +1598,8 @@ var _ = Describe("Frame", func() {
 			)
 
 			// First keep only 1, 2, 3, 4, then exclude 2, 4
-			filtered := fr.KeepKeys([]int32{1, 2, 3, 4}).ExcludeKeys([]int32{2, 4})
+			filtered := fr.KeepKeys(set.New[int32](1, 2, 3, 4)).
+				ExcludeKeys([]int32{2, 4})
 
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 3}))
 			Expect(filtered.SeriesSlice()).To(Equal([]telem.Series{
@@ -1639,7 +1646,7 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](7, 8, 9),
 				},
 			)
-			filtered := fr.KeepKeys([]int32{})
+			filtered := fr.KeepKeys(set.New[int32]())
 			Expect(filtered.Count()).To(Equal(0))
 		})
 	})
@@ -1822,7 +1829,8 @@ var _ = Describe("Frame", func() {
 			)
 
 			// First keep only 1, 2, 3, 4, then exclude 2, 4
-			filtered := fr.KeepKeys([]int32{1, 2, 3, 4}).ExcludeKeys([]int32{2, 4})
+			filtered := fr.KeepKeys(set.New[int32](1, 2, 3, 4)).
+				ExcludeKeys([]int32{2, 4})
 
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 3}))
 			Expect(filtered.SeriesSlice()).To(Equal([]telem.Series{
@@ -1869,7 +1877,7 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](7, 8, 9),
 				},
 			)
-			filtered := fr.KeepKeys([]int32{})
+			filtered := fr.KeepKeys(set.New[int32]())
 			Expect(filtered.Count()).To(Equal(0))
 		})
 	})
@@ -2052,7 +2060,8 @@ var _ = Describe("Frame", func() {
 			)
 
 			// First keep only 1, 2, 3, 4, then exclude 2, 4
-			filtered := fr.KeepKeys([]int32{1, 2, 3, 4}).ExcludeKeys([]int32{2, 4})
+			filtered := fr.KeepKeys(set.New[int32](1, 2, 3, 4)).
+				ExcludeKeys([]int32{2, 4})
 
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 3}))
 			Expect(filtered.SeriesSlice()).To(Equal([]telem.Series{
@@ -2099,7 +2108,7 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](7, 8, 9),
 				},
 			)
-			filtered := fr.KeepKeys([]int32{})
+			filtered := fr.KeepKeys(set.New[int32]())
 			Expect(filtered.Count()).To(Equal(0))
 		})
 	})
@@ -2282,7 +2291,8 @@ var _ = Describe("Frame", func() {
 			)
 
 			// First keep only 1, 2, 3, 4, then exclude 2, 4
-			filtered := fr.KeepKeys([]int32{1, 2, 3, 4}).ExcludeKeys([]int32{2, 4})
+			filtered := fr.KeepKeys(set.New[int32](1, 2, 3, 4)).
+				ExcludeKeys([]int32{2, 4})
 
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 3}))
 			Expect(filtered.SeriesSlice()).To(Equal([]telem.Series{
@@ -2329,7 +2339,7 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](7, 8, 9),
 				},
 			)
-			filtered := fr.KeepKeys([]int32{})
+			filtered := fr.KeepKeys(set.New[int32]())
 			Expect(filtered.Count()).To(Equal(0))
 		})
 	})
@@ -2512,7 +2522,8 @@ var _ = Describe("Frame", func() {
 			)
 
 			// First keep only 1, 2, 3, 4, then exclude 2, 4
-			filtered := fr.KeepKeys([]int32{1, 2, 3, 4}).ExcludeKeys([]int32{2, 4})
+			filtered := fr.KeepKeys(set.New[int32](1, 2, 3, 4)).
+				ExcludeKeys([]int32{2, 4})
 
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 3}))
 			Expect(filtered.SeriesSlice()).To(Equal([]telem.Series{
@@ -2559,7 +2570,7 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](7, 8, 9),
 				},
 			)
-			filtered := fr.KeepKeys([]int32{})
+			filtered := fr.KeepKeys(set.New[int32]())
 			Expect(filtered.Count()).To(Equal(0))
 		})
 	})
@@ -2742,7 +2753,8 @@ var _ = Describe("Frame", func() {
 			)
 
 			// First keep only 1, 2, 3, 4, then exclude 2, 4
-			filtered := fr.KeepKeys([]int32{1, 2, 3, 4}).ExcludeKeys([]int32{2, 4})
+			filtered := fr.KeepKeys(set.New[int32](1, 2, 3, 4)).
+				ExcludeKeys([]int32{2, 4})
 
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 3}))
 			Expect(filtered.SeriesSlice()).To(Equal([]telem.Series{
@@ -2789,7 +2801,7 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](7, 8, 9),
 				},
 			)
-			filtered := fr.KeepKeys([]int32{})
+			filtered := fr.KeepKeys(set.New[int32]())
 			Expect(filtered.Count()).To(Equal(0))
 		})
 	})
@@ -2972,7 +2984,8 @@ var _ = Describe("Frame", func() {
 			)
 
 			// First keep only 1, 2, 3, 4, then exclude 2, 4
-			filtered := fr.KeepKeys([]int32{1, 2, 3, 4}).ExcludeKeys([]int32{2, 4})
+			filtered := fr.KeepKeys(set.New[int32](1, 2, 3, 4)).
+				ExcludeKeys([]int32{2, 4})
 
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 3}))
 			Expect(filtered.SeriesSlice()).To(Equal([]telem.Series{
@@ -3019,7 +3032,7 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](7, 8, 9),
 				},
 			)
-			filtered := fr.KeepKeys([]int32{})
+			filtered := fr.KeepKeys(set.New[int32]())
 			Expect(filtered.Count()).To(Equal(0))
 		})
 	})
@@ -3202,7 +3215,8 @@ var _ = Describe("Frame", func() {
 			)
 
 			// First keep only 1, 2, 3, 4, then exclude 2, 4
-			filtered := fr.KeepKeys([]int32{1, 2, 3, 4}).ExcludeKeys([]int32{2, 4})
+			filtered := fr.KeepKeys(set.New[int32](1, 2, 3, 4)).
+				ExcludeKeys([]int32{2, 4})
 
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 3}))
 			Expect(filtered.SeriesSlice()).To(Equal([]telem.Series{
@@ -3249,7 +3263,7 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](7, 8, 9),
 				},
 			)
-			filtered := fr.KeepKeys([]int32{})
+			filtered := fr.KeepKeys(set.New[int32]())
 			Expect(filtered.Count()).To(Equal(0))
 		})
 	})
@@ -3432,7 +3446,8 @@ var _ = Describe("Frame", func() {
 			)
 
 			// First keep only 1, 2, 3, 4, then exclude 2, 4
-			filtered := fr.KeepKeys([]int32{1, 2, 3, 4}).ExcludeKeys([]int32{2, 4})
+			filtered := fr.KeepKeys(set.New[int32](1, 2, 3, 4)).
+				ExcludeKeys([]int32{2, 4})
 
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 3}))
 			Expect(filtered.SeriesSlice()).To(Equal([]telem.Series{
@@ -3504,7 +3519,7 @@ var _ = Describe("Frame", func() {
 				},
 			)
 
-			filtered := fr.KeepKeys([]int32{1, 3})
+			filtered := fr.KeepKeys(set.New[int32](1, 3))
 			series := make([]telem.Series, 0)
 			for s := range filtered.Series() {
 				series = append(series, s)
@@ -3546,7 +3561,7 @@ var _ = Describe("Frame", func() {
 				},
 			)
 
-			filtered := fr.KeepKeys([]int32{1, 3})
+			filtered := fr.KeepKeys(set.New[int32](1, 3))
 			keys := make([]int32, 0)
 			for k := range filtered.Keys() {
 				keys = append(keys, k)
@@ -3591,7 +3606,7 @@ var _ = Describe("Frame", func() {
 				},
 			)
 
-			filtered := fr.KeepKeys([]int32{1, 3})
+			filtered := fr.KeepKeys(set.New[int32](1, 3))
 			keys := make([]int32, 0)
 			series := make([]telem.Series, 0)
 
@@ -3636,7 +3651,7 @@ var _ = Describe("Frame", func() {
 				},
 			)
 
-			filtered := fr.KeepKeys([]int32{1})
+			filtered := fr.KeepKeys(set.New[int32](1))
 			series := filtered.Get(1)
 			Expect(series).To(Equal(telem.MultiSeries{Series: []telem.Series{
 				telem.NewSeriesV[int32](1, 2),
@@ -3679,7 +3694,7 @@ var _ = Describe("Frame", func() {
 				},
 			)
 
-			filtered := fr.KeepKeys([]int32{4, 5})
+			filtered := fr.KeepKeys(set.New[int32](4, 5))
 			Expect(filtered.Empty()).To(BeTrue())
 		})
 
@@ -3693,7 +3708,7 @@ var _ = Describe("Frame", func() {
 				},
 			)
 
-			filtered := fr.KeepKeys([]int32{1, 2})
+			filtered := fr.KeepKeys(set.New[int32](1, 2))
 			Expect(filtered.Empty()).To(BeFalse())
 		})
 	})
@@ -3751,7 +3766,7 @@ var _ = Describe("Frame", func() {
 		})
 
 		It("Should support early exit with masked frame", func() {
-			filtered := fr.KeepKeys([]int32{1, 3, 5})
+			filtered := fr.KeepKeys(set.New[int32](1, 3, 5))
 			count := 0
 			for range filtered.Series() {
 				count++
@@ -3811,7 +3826,7 @@ var _ = Describe("Frame", func() {
 				},
 			)
 
-			filtered := f.KeepKeys([]int32{1, 3})
+			filtered := f.KeepKeys(set.New[int32](1, 3))
 			str := filtered.String()
 
 			Expect(str).To(ContainSubstring("Frame{"))
@@ -3850,7 +3865,7 @@ var _ = Describe("Frame", func() {
 						telem.NewSeriesV[int64](1, 2),
 						telem.NewSeriesV[int64](3, 4),
 					},
-				).KeepKeys([]int32{1})
+				).KeepKeys(set.New[int32](1))
 				buf := MustSucceed(codec.Encode(ctx, original))
 				var decoded telem.Frame[int32]
 				Expect(codec.Decode(ctx, buf, &decoded)).To(Succeed())
@@ -3904,7 +3919,7 @@ var _ = Describe("Frame", func() {
 			Expect(fr.SeriesAt(-1)).To(Equal(telem.NewSeriesV[int32](7, 8, 9)))
 			Expect(fr.SeriesAt(-3)).To(Equal(telem.NewSeriesV[int32](1, 2, 3)))
 
-			filtered := fr.KeepKeys([]int32{1, 3})
+			filtered := fr.KeepKeys(set.New[int32](1, 3))
 			Expect(filtered.SeriesAt(0)).To(Equal(telem.NewSeriesV[int32](1, 2, 3)))
 			Expect(filtered.SeriesAt(1)).To(Equal(telem.NewSeriesV[int32](7, 8, 9)))
 
@@ -3925,7 +3940,7 @@ var _ = Describe("Frame", func() {
 			Expect(func() { fr.SeriesAt(2) }).To(Panic())
 			Expect(func() { fr.SeriesAt(-3) }).To(Panic())
 
-			filtered := fr.KeepKeys([]int32{1})
+			filtered := fr.KeepKeys(set.New[int32](1))
 			Expect(func() { filtered.SeriesAt(1) }).To(Panic())
 		})
 	})
@@ -3949,7 +3964,7 @@ var _ = Describe("Frame", func() {
 			fr.SetSeriesAt(-1, anotherSeries)
 			Expect(fr.SeriesAt(2)).To(Equal(anotherSeries))
 
-			filtered := fr.KeepKeys([]int32{1, 3})
+			filtered := fr.KeepKeys(set.New[int32](1, 3))
 			replacementSeries := telem.NewSeriesV[int32](16, 17, 18)
 			filtered.SetSeriesAt(1, replacementSeries)
 			Expect(filtered.SeriesAt(1)).To(Equal(replacementSeries))
@@ -3991,7 +4006,7 @@ var _ = Describe("Frame", func() {
 				},
 			)
 
-			filtered := fr.KeepKeys([]int32{1, 3})
+			filtered := fr.KeepKeys(set.New[int32](1, 3))
 
 			Expect(filtered.SeriesSlice()).To(Equal([]telem.Series{
 				telem.NewSeriesV[int32](1, 2, 3),
@@ -4026,7 +4041,7 @@ var _ = Describe("Frame", func() {
 			Expect(keys[1]).To(Equal(AltKey(2)))
 			Expect(keys[2]).To(Equal(AltKey(3)))
 			Expect(reinterpreted.SeriesSlice()).To(Equal(fr.SeriesSlice()))
-			filtered := reinterpreted.KeepKeys([]AltKey{1, 3})
+			filtered := reinterpreted.KeepKeys(set.New[AltKey](1, 3))
 			Expect(filtered.KeysSlice()).To(Equal([]AltKey{1, 3}))
 			Expect(filtered.SeriesSlice()).To(Equal([]telem.Series{
 				telem.NewSeriesV[int32](1, 2, 3),
@@ -4073,7 +4088,7 @@ var _ = Describe("Frame", func() {
 				},
 			)
 
-			filtered := original.KeepKeys([]int32{1, 3})
+			filtered := original.KeepKeys(set.New[int32](1, 3))
 			copied := filtered.ShallowCopy()
 
 			Expect(copied.KeysSlice()).To(Equal([]int32{1, 3}))
@@ -4082,7 +4097,7 @@ var _ = Describe("Frame", func() {
 				telem.NewSeriesV[int32](7, 8, 9),
 			}))
 
-			furtherFiltered := copied.KeepKeys([]int32{1})
+			furtherFiltered := copied.KeepKeys(set.New[int32](1))
 			Expect(furtherFiltered.KeysSlice()).To(Equal([]int32{1}))
 			Expect(filtered.KeysSlice()).To(Equal([]int32{1, 3}))
 		})
@@ -4169,8 +4184,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](16, 17, 18),
 				},
 			)
-			filtered1 := frame1.KeepKeys([]int32{1, 3})
-			filtered2 := frame2.KeepKeys([]int32{4, 6})
+			filtered1 := frame1.KeepKeys(set.New[int32](1, 3))
+			filtered2 := frame2.KeepKeys(set.New[int32](4, 6))
 			extended := filtered1.Extend(filtered2)
 
 			Expect(extended.KeysSlice()).To(Equal([]int32{1, 3, 4, 6}))
@@ -4263,7 +4278,7 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](2),
 					telem.NewSeriesV[int32](3),
 				},
-			).KeepKeys([]int32{1, 3})
+			).KeepKeys(set.New[int32](1, 3))
 			frame2 := telem.MultiFrame(
 				[]int32{4, 5},
 				[]telem.Series{
@@ -4302,7 +4317,7 @@ var _ = Describe("Frame", func() {
 				telem.NewSeriesV[int32](3),
 				telem.NewSeriesV[int32](4),
 				telem.NewSeriesV[int32](5),
-			}).KeepKeys([]int32{3, 5})
+			}).KeepKeys(set.New[int32](3, 5))
 			_ = frame1.Extend(frame2)
 			Expect(frame2.KeysSlice()).To(Equal([]int32{3, 5}))
 			Expect(frame2.Count()).To(Equal(2))
@@ -4313,7 +4328,7 @@ var _ = Describe("Frame", func() {
 				telem.NewSeriesV[int32](1),
 				telem.NewSeriesV[int32](2),
 				telem.NewSeriesV[int32](3),
-			}).KeepKeys([]int32{1, 3})
+			}).KeepKeys(set.New[int32](1, 3))
 			extended := empty.Extend(masked)
 			Expect(extended.KeysSlice()).To(Equal([]int32{1, 3}))
 			Expect(extended.Count()).To(Equal(2))
@@ -4359,7 +4374,7 @@ var _ = Describe("Frame", func() {
 				},
 			)
 
-			filtered := fr.KeepKeys([]int32{1, 3, 5})
+			filtered := fr.KeepKeys(set.New[int32](1, 3, 5))
 
 			indices := make([]int32, 0)
 			series := make([]telem.Series, 0)
@@ -4408,7 +4423,7 @@ var _ = Describe("Frame", func() {
 			Expect(lastValue).To(Equal(int32(7)))
 
 			// Test early exit with masked frame
-			filtered := fr.KeepKeys([]int32{1, 3, 5})
+			filtered := fr.KeepKeys(set.New[int32](1, 3, 5))
 			count = 0
 			lastIndex = -1
 			lastValue = int32(0)
@@ -4445,7 +4460,7 @@ var _ = Describe("Frame", func() {
 			)
 
 			// Select sparse keys
-			filtered := fr.KeepKeys([]int32{10, 50, 90})
+			filtered := fr.KeepKeys(set.New[int32](10, 50, 90))
 
 			indices := make([]int32, 0)
 			seriesValues := make([]int32, 0)
@@ -4503,7 +4518,7 @@ var _ = Describe("Frame", func() {
 						telem.NewSeriesV[int32](7, 8, 9),
 					},
 				)
-				filtered := fr.KeepKeys([]int32{22})
+				filtered := fr.KeepKeys(set.New[int32](22))
 				Expect(filtered.HasData()).To(BeFalse())
 			},
 		)
@@ -4517,7 +4532,7 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](7, 8, 9),
 				},
 			)
-			filtered := fr.KeepKeys([]int32{2})
+			filtered := fr.KeepKeys(set.New[int32](2))
 			Expect(filtered.HasData()).To(BeTrue())
 		})
 	})
@@ -4566,7 +4581,7 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](200),
 				},
 			)
-			filtered := fr.KeepKeys([]int32{20})
+			filtered := fr.KeepKeys(set.New[int32](20))
 			k, s := filtered.At(0)
 			Expect(k).To(Equal(int32(20)))
 			Expect(s).To(Equal(telem.NewSeriesV[int32](200)))
@@ -4625,7 +4640,7 @@ var _ = Describe("Frame", func() {
 				},
 			)
 
-			filtered := fr.KeepKeys([]int32{1, 3})
+			filtered := fr.KeepKeys(set.New[int32](1, 3))
 
 			Expect(
 				filtered.ShouldExcludeRaw(0),
@@ -4650,7 +4665,7 @@ var _ = Describe("Frame", func() {
 			}
 
 			fr := telem.MultiFrame(keys, series)
-			filtered := fr.KeepKeys([]int32{1, 5, 10})
+			filtered := fr.KeepKeys(set.New[int32](1, 5, 10))
 
 			Expect(filtered.ShouldExcludeRaw(0)).To(BeFalse())
 			Expect(filtered.ShouldExcludeRaw(1)).To(BeTrue())
