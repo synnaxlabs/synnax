@@ -22,7 +22,6 @@
     "stylelint": "stylelint \"src/**/*.css\""
   },
   "dependencies": {
-    "@astrojs/markdown-remark": "catalog:",
     "@astrojs/mdx": "catalog:",
     "@astrojs/react": "catalog:",
     "@astrojs/vercel": "catalog:",

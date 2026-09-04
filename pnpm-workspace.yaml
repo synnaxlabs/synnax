@@ -42,7 +42,6 @@ allowBuilds:
 
 catalog:
   '@astrojs/check': ^0.9.10
-  '@astrojs/markdown-remark': ^7.3.0
   '@astrojs/mdx': ^7.0.5
   '@astrojs/react': ^6.0.5
   '@astrojs/vercel': ^11.0.9

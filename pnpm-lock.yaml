@@ -110,9 +110,6 @@ catalogs:
     '@astrojs/check':
       specifier: ^0.9.10
       version: 0.9.10
-    '@astrojs/markdown-remark':
-      specifier: ^7.3.0
-      version: 7.3.0
     '@astrojs/mdx':
       specifier: ^7.0.5
       version: 7.0.5
@@ -805,9 +802,6 @@ importers:
 
   docs/site:
     dependencies:
-      '@astrojs/markdown-remark':
-        specifier: 'catalog:'
-        version: 7.3.0(supports-color@10.2.2)
       '@astrojs/mdx':
         specifier: 'catalog:'
         version: 7.0.5(@astrojs/markdown-satteri@0.3.5)(astro@7.2.10(@astrojs/markdown-remark@7.3.0(supports-color@10.2.2))(@emnapi/core@2.0.0-alpha.3)(@emnapi/runtime@2.0.0-alpha.3)(@types/node@26.1.2)(@vercel/functions@3.7.6(ws@8.21.2))(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))(supports-color@10.2.2)
@@ -7836,6 +7830,7 @@ snapshots:
       vfile: 6.0.3
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   '@astrojs/markdown-satteri@0.3.5':
     dependencies:
@@ -8108,7 +8103,7 @@ snapshots:
     dependencies:
       '@emnapi/core': 1.11.1
       '@emnapi/runtime': 1.11.1
-      '@napi-rs/wasm-runtime': 1.2.2(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)
+      '@napi-rs/wasm-runtime': 1.2.3(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)
     optional: true
 
   '@bruits/satteri-win32-arm64-msvc@0.10.5':
@@ -8752,13 +8747,6 @@ snapshots:
       vfile: 6.0.3
     transitivePeerDependencies:
       - supports-color
-
-  '@napi-rs/wasm-runtime@1.2.2(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)':
-    dependencies:
-      '@emnapi/core': 1.11.1
-      '@emnapi/runtime': 1.11.1
-      '@tybys/wasm-util': 0.10.3
-    optional: true
 
   '@napi-rs/wasm-runtime@1.2.2(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)':
     dependencies:
