@@ -57,9 +57,9 @@ export const Properties = memo((): ReactElement => {
         Select a schematic element to configure its properties
       </Text.Text>
     );
-  const unparented = selected.filter((k) => !parentOf.has(k));
-  if (unparented.length === 1)
-    return <IndividualConfig key={unparented[0]} elKey={unparented[0]} />;
+  const groupKey = Schematic.Group.soleRoot(selected, parentOf);
+  if (groupKey != null && selected.length > 1)
+    return <IndividualConfig key={groupKey} elKey={groupKey} />;
   if (selected.length > 1) return <MultiConfig configByKey={configByKey} />;
   const elKey = selected[0];
   return <IndividualConfig key={elKey} elKey={elKey} />;

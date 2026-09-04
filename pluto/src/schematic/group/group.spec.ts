@@ -20,6 +20,7 @@ import {
   lockedKeys,
   lockMembers,
   remapMembers,
+  soleRoot,
   ungroupActions,
   withMembers,
 } from "@/schematic/group/group";
@@ -406,6 +407,32 @@ describe("group", () => {
 
     it("should pass loose symbols", () => {
       expect(lockedKeys(["l1", "l2"], forestParentOf)).toEqual([]);
+    });
+  });
+
+  describe("soleRoot", () => {
+    it("should resolve a group selected with its members", () => {
+      expect(soleRoot(withMembers(["outer"], forest), forestParentOf)).toEqual("outer");
+    });
+
+    it("should resolve a single loose symbol", () => {
+      expect(soleRoot(["l1"], forestParentOf)).toEqual("l1");
+    });
+
+    it("should resolve a partial selection inside one group tree", () => {
+      expect(soleRoot(["outer", "s6", "mid2"], forestParentOf)).toEqual("outer");
+    });
+
+    it("should reject a member selected without its group", () => {
+      expect(soleRoot(["s6"], forestParentOf)).toBeNull();
+    });
+
+    it("should reject a grouped member beside a loose symbol", () => {
+      expect(soleRoot(["s6", "l1"], forestParentOf)).toBeNull();
+    });
+
+    it("should reject two unparented keys", () => {
+      expect(soleRoot(["l1", "l2"], forestParentOf)).toBeNull();
     });
   });
 
