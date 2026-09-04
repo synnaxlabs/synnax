@@ -21,7 +21,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/typemap"
-	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
+	"github.com/synnaxlabs/oracle/plugin/go/types"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -536,7 +536,7 @@ func (b *testValueBuilder) buildStructFieldExprs(
 	if !ok {
 		return nil, nil
 	}
-	if gotypes.CanEmbed(form, b.table) {
+	if types.CanEmbed(form, b.table) {
 		return b.buildEmbeddedStructFieldExprs(form)
 	}
 	fields := resolution.UnifiedFields(typ, b.table)
