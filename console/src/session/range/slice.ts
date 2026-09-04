@@ -89,6 +89,42 @@ export const BUILT_IN: DynamicState[] = [
     name: "Rolling 30m",
     span: Number(TimeSpan.minutes(30)),
   },
+  {
+    variant: "dynamic",
+    key: "rolling1h",
+    name: "Rolling 1h",
+    span: Number(TimeSpan.hours(1)),
+  },
+  {
+    variant: "dynamic",
+    key: "rolling6h",
+    name: "Rolling 6h",
+    span: Number(TimeSpan.hours(6)),
+  },
+  {
+    variant: "dynamic",
+    key: "rolling12h",
+    name: "Rolling 12h",
+    span: Number(TimeSpan.hours(12)),
+  },
+  {
+    variant: "dynamic",
+    key: "rolling1d",
+    name: "Rolling 1d",
+    span: Number(TimeSpan.days(1)),
+  },
+  {
+    variant: "dynamic",
+    key: "rolling7d",
+    name: "Rolling 7d",
+    span: Number(TimeSpan.days(7)),
+  },
+  {
+    variant: "dynamic",
+    key: "rolling30d",
+    name: "Rolling 30d",
+    span: Number(TimeSpan.days(30)),
+  },
 ];
 
 export const sliceStateZ = z.object({

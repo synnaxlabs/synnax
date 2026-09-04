@@ -72,6 +72,24 @@ type Legend = v5.Legend
 // carry zero or more channels each.
 type Channels = v5.Channels
 
+// CustomRange is the window a plot's synthetic "custom" range key resolves to.
+type CustomRange = v5.CustomRange
+type CustomRangeVariant = v5.CustomRangeVariant
+type CustomRangeType = v5.CustomRangeType
+
+const (
+	// DynamicCustomRangeType is a rolling window.
+	DynamicCustomRangeType CustomRangeType = v5.DynamicCustomRangeType
+	// StaticCustomRangeType is a fixed window.
+	StaticCustomRangeType CustomRangeType = v5.StaticCustomRangeType
+)
+
+// DynamicCustomRange is a rolling window.
+type DynamicCustomRange = v5.DynamicCustomRange
+
+// StaticCustomRange is a fixed window.
+type StaticCustomRange = v5.StaticCustomRange
+
 // Ranges binds range keys to each x-axis.
 type Ranges = v5.Ranges
 
