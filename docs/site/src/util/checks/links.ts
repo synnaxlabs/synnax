@@ -14,8 +14,10 @@ import { type Check, type Context } from "./check.ts";
 import { locate, normalizeRoute, pageFiles, PAGES_DIR } from "./crawl.ts";
 import { attrValues, idValues } from "./html.ts";
 
-// Hosts that block automated requests; entries skip the external check.
-const IGNORED_HOSTS: string[] = [];
+// Hosts that block automated requests or answer too slowly to probe; entries skip the
+// external check. Omron redirects and takes several seconds from a datacenter IP, so it
+// exhausts both attempts and fails the run.
+const IGNORED_HOSTS: string[] = ["automation.omron.com"];
 
 // Sentinel origin for resolving relative hrefs; any other host is external.
 const INTERNAL = "http://internal.invalid";
