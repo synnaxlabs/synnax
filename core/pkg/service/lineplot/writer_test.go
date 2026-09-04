@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/text"
+	"github.com/synnaxlabs/x/union"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -776,6 +777,21 @@ var _ = Describe("Writer", func() {
 						}),
 					).To(Succeed())
 					Expect(retrieve().Ranges.Custom).To(BeNil())
+				},
+			)
+
+			It(
+				"Should reject a SetCustomRange action with no payload",
+				func(ctx SpecContext) {
+					plot := lineplot.LinePlot{Name: "test"}
+					Expect(
+						svc.NewWriter(nil).Create(ctx, proj.Key, &plot),
+					).To(Succeed())
+					Expect(
+						svc.Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
+							{Type: lineplot.ActionTypeSetCustomRange},
+						}),
+					).To(MatchError(union.ErrMissingPayload))
 				},
 			)
 
