@@ -56,8 +56,8 @@ describe("configureStore", () => {
     expect(Object.isFrozen(state.drift.windows[MAIN_WINDOW])).toBe(true);
   });
 
-  // resetInitialState mutates the drift slice in place, so the freeze has to follow
-  // it. Freezing first makes construction throw on the read-only assignment.
+  // resetInitialState mutates the Drift slice in place, so the freeze has to follow it.
+  // Freezing first makes construction throw on the read-only assignment.
   it("should reset transient state before freezing", async () => {
     const store = await configure(stored({ minimized: true }));
     const win = store.getState().drift.windows[MAIN_WINDOW];
