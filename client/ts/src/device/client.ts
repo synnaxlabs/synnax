@@ -276,10 +276,6 @@ export class Client extends query.Retriever<
     return await super.retrieve(rest);
   }
 
-  async create(device: New): Promise<Device>;
-
-  async create(devices: New[]): Promise<Device[]>;
-
   async create<
     Properties extends z.ZodType<record.Unknown>,
     Make extends z.ZodType<string>,

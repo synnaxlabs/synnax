@@ -8,13 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { Device } from "@/platform/device";
 
 describe("device types", () => {
   describe("nameZ", () => {
     it("should accept a non-empty name", () => {
-      expect(Device.nameZ.safeParse("Sensor 1").success).toBe(true);
+      expect(z.validate(Device.nameZ, "Sensor 1")).toBe(true);
     });
 
     it("should reject an empty name", () => {
@@ -27,15 +28,15 @@ describe("device types", () => {
 
   describe("identifierZ", () => {
     it("should accept a valid identifier", () => {
-      expect(Device.identifierZ.safeParse("dev_1").success).toBe(true);
+      expect(z.validate(Device.identifierZ, "dev_1")).toBe(true);
     });
 
     it("should accept a two-character identifier at the lower bound", () => {
-      expect(Device.identifierZ.safeParse("ab").success).toBe(true);
+      expect(z.validate(Device.identifierZ, "ab")).toBe(true);
     });
 
     it("should accept a twelve-character identifier at the upper bound", () => {
-      expect(Device.identifierZ.safeParse("abcdefghijkl").success).toBe(true);
+      expect(z.validate(Device.identifierZ, "abcdefghijkl")).toBe(true);
     });
 
     it("should reject an identifier shorter than two characters", () => {
@@ -48,7 +49,7 @@ describe("device types", () => {
     });
 
     it("should reject an identifier longer than twelve characters", () => {
-      expect(Device.identifierZ.safeParse("abcdefghijklm").success).toBe(false);
+      expect(z.validate(Device.identifierZ, "abcdefghijklm")).toBe(false);
     });
 
     it("should reject an identifier that does not start with a letter", () => {
@@ -59,8 +60,8 @@ describe("device types", () => {
     });
 
     it("should reject an identifier containing spaces or dashes", () => {
-      expect(Device.identifierZ.safeParse("dev-1").success).toBe(false);
-      expect(Device.identifierZ.safeParse("dev 1").success).toBe(false);
+      expect(z.validate(Device.identifierZ, "dev-1")).toBe(false);
+      expect(z.validate(Device.identifierZ, "dev 1")).toBe(false);
     });
   });
 
@@ -73,7 +74,7 @@ describe("device types", () => {
     });
 
     it("should reject a pair missing a channel key", () => {
-      expect(Device.commandStatePairZ.safeParse({ command: 3 }).success).toBe(false);
+      expect(z.validate(Device.commandStatePairZ, { command: 3 })).toBe(false);
     });
   });
 

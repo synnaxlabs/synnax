@@ -545,6 +545,7 @@ export class Client extends query.Retriever<
 
   /**
    * Retrieves a channel from the database using the given key or name.
+   * @param params - The key or the name of the channel to retrieve.
    * @param options - Optional parameters to control the retrieval process.
    * @param options.dataTypes - Limits the query to only channels with the specified
    * data type.
@@ -575,8 +576,6 @@ export class Client extends query.Retriever<
    * @param options.notDataTypes - Limits the query to only channels without the
    * specified
    */
-  async retrieve(params: Key | string, options?: RetrieveOptions): Promise<Channel>;
-
   async retrieve(
     params: PrimitiveParams | Payload[],
     options?: RetrieveOptions,

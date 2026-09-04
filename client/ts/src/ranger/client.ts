@@ -444,7 +444,7 @@ export class Client extends query.Retriever<
       table: composed,
       fetch: async (query) => [(await this.fetchSingle(query)).key],
       compose: ([record]) => record,
-      keyOf: (query) => (keyZ.safeParse(query).success ? query : null),
+      keyOf: (query) => (z.validate(keyZ, query) ? query : null),
       matches: (r, query) => r.key === query || r.name === query,
       single: true,
     });
@@ -576,9 +576,9 @@ export class Client extends query.Retriever<
   }
 
   async retrieve(params: Key | Name): Promise<Range>;
-  async retrieve(params: Key[] | Name[]): Promise<Range[]>;
-  async retrieve(params: CrudeTimeRange): Promise<Range[]>;
-  async retrieve(params: RetrieveRequest): Promise<Range[]>;
+  async retrieve(
+    params: Key[] | Name[] | CrudeTimeRange | RetrieveRequest,
+  ): Promise<Range[]>;
   async retrieve(params: RetrieveParams): Promise<Range | Range[]> {
     // The branches narrow params onto different base overloads.
     if (typeof params === "string") return await super.retrieve(params);
@@ -694,7 +694,7 @@ export class Client extends query.Retriever<
   private async fetchSingle(query: Key | Name): Promise<Range> {
     const cached = this.store.get(query);
     if (cached != null) return this.composeOne(cached);
-    if (keyZ.safeParse(query).success) {
+    if (z.validate(keyZ, query)) {
       const ranges = await this.store.retrieve([query]);
       checkForMultipleOrNoResults("Range", query, ranges, true);
       return this.composeOne(ranges[0]);

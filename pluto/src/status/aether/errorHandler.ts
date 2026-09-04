@@ -16,22 +16,18 @@ export interface Adder {
 }
 
 export interface ErrorHandler {
+  /** Reports the given error, or runs the given function and reports a rejection. */
   (
-    func: () => Promise<void> | void,
+    funcOrExc: unknown,
     message?: string,
     skip?: errors.Matchable | errors.Matchable[],
   ): void;
-  (exc: unknown, message?: string, skip?: errors.Matchable | errors.Matchable[]): void;
 }
 
 export interface AsyncErrorHandler {
+  /** Reports the given error, or runs the given function and reports a rejection. */
   (
-    func: () => Promise<void> | void,
-    message?: string,
-    skip?: errors.Matchable | errors.Matchable[],
-  ): Promise<void>;
-  (
-    exc: unknown,
+    funcOrExc: unknown,
     message?: string,
     skip?: errors.Matchable | errors.Matchable[],
   ): Promise<void>;

@@ -312,11 +312,10 @@ export class Table<
     return this.set(arr);
   }
 
-  /** Returns every entry in the table. */
-  get(): Value[];
+  /** Returns every entry in the table, or every entry the filter accepts. */
+  get(filter?: (value: Value) => boolean): Value[];
   get(key: Key): Value | undefined;
   get(keys: Key[]): Value[];
-  get(filter: (value: Value) => boolean): Value[];
   get(keys?: Key | Key[] | ((value: Value) => boolean)): Value | Value[] | undefined {
     if (keys === undefined) return Array.from(this.entries.values());
     if (typeof keys === "function")

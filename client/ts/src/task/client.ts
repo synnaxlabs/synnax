@@ -600,7 +600,7 @@ export class Client extends query.Retriever<
   ): Promise<Task<S> | Task<S>[]> {
     const { schemas, ...params } =
       typeof rawParams === "string" ? { key: rawParams } : rawParams;
-    const isSingle = singleRetrieveParamsZ.safeParse(params).success;
+    const isSingle = z.validate(singleRetrieveParamsZ, params);
     // Schema-parametrized retrieves validate config/status for one caller;
     // their results are not shared through the cache.
     if (schemas != null) {
@@ -608,11 +608,8 @@ export class Client extends query.Retriever<
       checkForMultipleOrNoResults("Task", params, sugared, isSingle);
       return isSingle ? sugared[0] : sugared;
     }
-    if (isSingle)
-      return (await super.retrieve(params as RetrieveSingleParams)) as Task<S>;
-    return (await super.retrieve(
-      params as RetrieveMultipleParams,
-    )) as unknown as Task<S>[];
+    if (isSingle) return (await super.retrieve(params)) as Task<S>;
+    return (await super.retrieve(params)) as unknown as Task<S>[];
   }
 
   async copy(key: Key, name: string, snapshot: boolean): Promise<Task> {
@@ -898,7 +895,7 @@ export const statusKey = (key: Key): string => ontology.idToString(ontologyID(ke
 const statusTaskKey = (s: status.Status): Key | null => {
   const task = status.detailsOf(s)?.task;
   if (typeof task !== "string") return null;
-  return keyZ.safeParse(task).success ? task : null;
+  return z.validate(keyZ, task) ? task : null;
 };
 
 /**
