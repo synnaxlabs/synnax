@@ -129,7 +129,7 @@ CustomRange union on variant {
             @doc value "is the inclusive start of the fixed window."
             @ts type   telem.StringTimeStamp
         }
-        end telem.TimeStamp {
+        end   telem.TimeStamp {
             @doc value "is the exclusive end of the fixed window."
             @ts type   telem.StringTimeStamp
         }
@@ -142,7 +142,7 @@ CustomRange union on variant {
 }
 
 Ranges struct {
-    x1 string[] {
+    x1     string[]     {
         @doc value """
             are the range keys plotted against the x1 axis. Range keys are opaque
             strings rather than UUIDs because the console layers synthetic
@@ -150,7 +150,7 @@ Ranges struct {
             ranges; the server stores whatever the client sends.
         """
     }
-    x2 string[] {
+    x2     string[]     {
         @doc value "are the range keys plotted against the x2 axis."
     }
     custom CustomRange? {
