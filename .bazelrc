@@ -124,9 +124,9 @@ build:windows --copt=/wd4589  # constructor ignores initializer for virtual base
 build:windows --copt=/wd4201  # nonstandard extension used: nameless struct/union (wasmtime headers)
 build:windows --copt=/wd4324  # structure was padded due to alignment specifier (queue/spsc.h)
 build:windows --copt=/wd4005  # macro redefinition (SOEM wpcap headers vs Windows SDK)
-# MASM reads /WX- as /W followed by X- and rejects it as a non-numeric level
-# (A1013), so assembly gets neither of these flags. It still receives /WX and the /wd
-# flags from the copts above, but it only warns about the ones it does not know.
+# MASM reads /WX- as /W followed by X- and rejects it as a non-numeric level (A1013), so
+# assembly gets neither of these flags. It still receives /WX and the /wd flags from the
+# copts above, but it only warns about the ones it does not know.
 build:windows --per_file_copt=external/.*,-.*\\.[sS]$,-.*\\.asm$@/WX-,/w
 build:windows --per_file_copt=vendor/.*,-.*\\.[sS]$,-.*\\.asm$@/WX-,/w
 
