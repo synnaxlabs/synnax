@@ -47,11 +47,6 @@ build:macos --cxxopt=-fvisibility-inlines-hidden
 
 # Allow protobuf deprecation warnings without treating them as errors
 build:macos --copt=-Wno-error=deprecated-declarations
-# GoogleTest 1.17 headers trigger char8_t → char32_t conversion warning in
-# gtest-printers.h -Wno-unknown-warning-option prevents older Clang from erroring on
-# unrecognized -W flags
-build:macos --copt=-Wno-unknown-warning-option
-build:macos --copt=-Wno-error=character-conversion
 
 # Linux
 build:linux --cxxopt=-std=c++23
@@ -64,7 +59,10 @@ build:linux --cxxopt=-fvisibility-inlines-hidden
 
 # Allow protobuf deprecation warnings without treating them as errors
 build:linux --copt=-Wno-error=deprecated-declarations
-# GoogleTest 1.17 headers trigger sign-compare in test compilation units
+
+# GoogleTest triggers sign-compare inside gtest.h when a test compares a signed to an
+# unsigned integer. GCC reports it against the header, so it cannot be suppressed at the
+# call site.
 build:linux --copt=-Wno-sign-compare
 
 # Allow sequence-point warnings without treating them as errors (wasmtime headers use
@@ -82,7 +80,10 @@ build:windows --linkopt=user32.lib
 build:windows --copt=/Zc:preprocessor      # Enable C++20 conformant preprocessor (for __VA_OPT__)
 build:windows --copt=/W3     # Use warning level 3 instead of -Wall (which is /W4 + extras on MSVC)
 build:windows --cxxopt=/W3   # Same for C++
-build:windows --copt=/WX     # Treat warnings as errors
+# Warnings are errors for C and C++ only. MASM would apply /WX to the option warnings it
+# emits for every cl flag it does not recognise, failing on assembly with no diagnostic.
+build:windows --cxxopt=/WX
+build:windows --conlyopt=/WX
 build:windows --copt=/wd4514  # 'function': unreferenced inline function has been removed (common in headers)
 build:windows --copt=/wd5039  # pointer/reference to potentially throwing function passed to extern C (Windows SDK headers)
 build:windows --copt=/wd4710  # 'function': function not inlined (informational)
@@ -126,8 +127,17 @@ build:windows --copt=/wd4589  # constructor ignores initializer for virtual base
 build:windows --copt=/wd4201  # nonstandard extension used: nameless struct/union (wasmtime headers)
 build:windows --copt=/wd4324  # structure was padded due to alignment specifier (queue/spsc.h)
 build:windows --copt=/wd4005  # macro redefinition (SOEM wpcap headers vs Windows SDK)
-build:windows --per_file_copt=external/.*@/WX-,/w
-build:windows --per_file_copt=vendor/.*@/WX-,/w
+# MASM reads /WX- as /W followed by X- and rejects it as a non-numeric level (A1013), so
+# assembly gets neither of these flags, nor the /WX above. It still receives the /wd
+# flags, but only warns about the ones it does not know.
+build:windows --per_file_copt=external/.*,-.*\\.[sS]$,-.*\\.asm$@/WX-,/w
+build:windows --per_file_copt=vendor/.*,-.*\\.[sS]$,-.*\\.asm$@/WX-,/w
+
+# Bazel hands the full cl.exe flag set to ml64 for OpenSSL's generated assembly, and
+# MASM mangles the ones it does not know until it writes no object at all. /bigobj,
+# /Zm500 and /showIncludes come from the toolchain itself, so no copt scoping fixes it.
+# Build the C implementations on Windows instead.
+build:windows --@openssl//:use-no-asm-fallback=true
 
 # Allow protobuf deprecation warnings without treating them as errors
 build:windows --copt=/wd4996  # disables warning C4996 (deprecated declarations) for MSVC
@@ -143,14 +153,19 @@ build:windows --cxxopt=/MT
 build --output_filter=^//
 
 # Suppress warnings from external dependencies (Bazel modules and vendor/)
-build --per_file_copt=external/.*@-w
-build --per_file_copt=.*\\.cache/bazel/.*@-w
-build --per_file_copt=vendor/.*@-w
+build:macos --per_file_copt=external/.*@-w
+build:macos --per_file_copt=.*\\.cache/bazel/.*@-w
+build:macos --per_file_copt=vendor/.*@-w
+build:linux --per_file_copt=external/.*@-w
+build:linux --per_file_copt=.*\\.cache/bazel/.*@-w
+build:linux --per_file_copt=vendor/.*@-w
 
-# Keep strict warnings for workspace code (but not on Windows where -Wall is too
-# verbose)
-build --copt=-Wall
-build --cxxopt=-Wall
+# Keep strict warnings for workspace code. Windows is deliberately excluded: it uses /W3
+# above, and MASM reads -Wall as /W followed by a non-numeric level (A1013).
+build:macos --copt=-Wall
+build:macos --cxxopt=-Wall
+build:linux --copt=-Wall
+build:linux --cxxopt=-Wall
 
 # ===== Optimization Flags (used with --config=opt) =====
 #
