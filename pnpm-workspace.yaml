@@ -130,7 +130,12 @@ catalog:
   prettier-plugin-astro: ^0.14.1
   prettier-plugin-sh: ^0.19.0
   prettier-plugin-toml: ^2.0.6
-  proxy-memoize: ^3.0.1
+  # Held at 2.x. 3.x throws "'get' on proxy: property ... is a read-only and
+  # non-configurable data property" when a memoized selector reads frozen state,
+  # breaking Console store subscriptions. Failed the project, rename_synchronization,
+  # role_engineer_permissions, and role_operator_permissions integration tests on both
+  # platforms.
+  proxy-memoize: 2.0.3
   react: ^19.2.8
   react-color: ^2.19.3
   react-dom: ^19.2.8
