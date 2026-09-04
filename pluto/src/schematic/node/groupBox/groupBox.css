@@ -17,25 +17,27 @@
     background: var(--pluto-primary-z-10);
 }
 
-.pluto-group-box__move {
+.pluto-group-box__lock {
     display: none;
     position: absolute;
     top: -6rem;
     left: -6rem;
     z-index: 30;
+    will-change: transform;
     width: 3.5rem;
     height: 3.5rem;
     font-size: 2.5rem;
     align-items: center;
     justify-content: center;
+    border: none;
     border-radius: var(--pluto-border-radius);
     background: var(--pluto-primary-z);
     color: var(--pluto-text-on-primary);
-    cursor: grab;
+    cursor: pointer;
 }
 
 .pluto-diagram.pluto--editable {
-    .react-flow__node.selected .pluto-group-box__move {
+    .react-flow__node.selected .pluto-group-box__lock {
         display: flex;
     }
 }

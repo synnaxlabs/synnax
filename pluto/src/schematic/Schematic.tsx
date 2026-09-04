@@ -85,8 +85,8 @@ export const Schematic = ({
   const parentOf = useParentOf();
   const parentOfRef = useSyncedRef(parentOf);
   const lockedNodes = useMemo(
-    () => Group.lockMembers(nodes, parentOf),
-    [nodes, parentOf],
+    () => Group.lockMembers(nodes, parentOf, configs),
+    [nodes, parentOf, configs],
   );
   const dispatch = useSingleDispatch();
   const handleNodesChange = useCallback(

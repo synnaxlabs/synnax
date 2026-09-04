@@ -143,6 +143,43 @@ describe("Schematic toolbar Properties", () => {
       await screen.findByText("Align");
     });
 
+    const createLockedConfig = (key: string): Record<string, unknown> =>
+      key === "g1"
+        ? { ...createGroupedConfig(key), locked: true }
+        : createGroupedConfig(key);
+
+    it("skips a locked group's members when rotating", async () => {
+      const { key, result } = await renderProperties({
+        nodeKeys,
+        createConfig: createLockedConfig,
+        sessionState: { selected: nodeKeys },
+      });
+      await screen.findByText("Align");
+      fireEvent.click(getIconButton(result.container, "rotate-group-cw"));
+      await expect
+        .poll(async () => (await retrieveConfig(key, "n3")).orientation)
+        .toEqual(location.rotate("left", "clockwise"));
+      expect((await retrieveConfig(key, "n1")).orientation).toBe("left");
+    });
+
+    it("skips a locked group's members when applying label props", async () => {
+      const { key, result } = await renderProperties({
+        nodeKeys,
+        createConfig: createLockedConfig,
+        sessionState: { selected: nodeKeys },
+      });
+      await screen.findByText("Align");
+      const input = getInputByItemLabel(result.container, "Label wrap width");
+      fireEvent.change(input, { target: { value: "200" } });
+      fireEvent.blur(input);
+      await expect
+        .poll(async () => (await retrieveConfig(key, "n3")).label)
+        .toMatchObject({ maxInlineSize: 200 });
+      expect((await retrieveConfig(key, "n1")).label).not.toMatchObject({
+        maxInlineSize: 200,
+      });
+    });
+
     it("routes a group selected with its members to the multi form", async () => {
       await renderProperties({
         nodeKeys,

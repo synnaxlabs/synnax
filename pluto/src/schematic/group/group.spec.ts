@@ -21,6 +21,7 @@ import {
   fanOutMoves,
   lockMembers,
   remapMembers,
+  shielded,
   ungroupActions,
   withMembers,
 } from "@/schematic/group/group";
@@ -71,6 +72,11 @@ const forestNodes = [
   node("l3", 70, 70),
 ];
 const forestParentOf = buildParentOf(forest);
+
+const withLocked = (key: string): Record<string, Node.GroupBox.Config> => ({
+  ...forest,
+  [key]: { ...forest[key], locked: true },
+});
 
 describe("group", () => {
   describe("buildParentOf", () => {
@@ -351,7 +357,7 @@ describe("group", () => {
 
   describe("lockMembers", () => {
     it("should mark every grouped symbol as non-draggable", () => {
-      const locked = lockMembers(forestNodes, forestParentOf);
+      const locked = lockMembers(forestNodes, forestParentOf, forest);
       locked.forEach((n, i) => {
         if (forestParentOf.has(n.key))
           expect(n).toEqual({ ...forestNodes[i], draggable: false });
@@ -360,7 +366,15 @@ describe("group", () => {
     });
 
     it("should return the input unchanged when there are no groups", () => {
-      expect(lockMembers(forestNodes, new Map())).toBe(forestNodes);
+      expect(lockMembers(forestNodes, new Map(), {})).toBe(forestNodes);
+    });
+
+    it("should mark a locked group's box as non-draggable", () => {
+      const locked = lockMembers(forestNodes, forestParentOf, withLocked("side"));
+      const byKey = new Map(locked.map((n) => [n.key, n]));
+      expect(byKey.get("side")?.draggable).toBe(false);
+      expect(byKey.get("outer")?.draggable).toBeUndefined();
+      expect(byKey.get("l1")?.draggable).toBeUndefined();
     });
   });
 
@@ -445,6 +459,45 @@ describe("group", () => {
 
     it("should not drill into an unknown key", () => {
       expect(drillIn("nope", forestParentOf, forest)).toBeNull();
+    });
+
+    it("should not drill under a locked root group", () => {
+      const configs = withLocked("outer");
+      expect(drillIn("s6", forestParentOf, configs)).toBeNull();
+      expect(drillIn("mid1", forestParentOf, configs)).toBeNull();
+    });
+
+    it("should not drill under a locked inner group", () => {
+      const configs = withLocked("mid1");
+      expect(drillIn("s2", forestParentOf, configs)).toBeNull();
+      expect(drillIn("s6", forestParentOf, configs)).toBeNull();
+      expect(drillIn("s4", forestParentOf, configs)).toEqual(["s4"]);
+    });
+
+    it("should still drill in a sibling unlocked group", () => {
+      expect(drillIn("s8", forestParentOf, withLocked("outer"))).toEqual(["s8"]);
+    });
+  });
+
+  describe("shielded", () => {
+    it("should shield members of a locked group but not the box itself", () => {
+      const keys = ["side", "s8", "s9", "l1"];
+      expect(shielded(keys, forestParentOf, withLocked("side"))).toEqual(
+        new Set(["s8", "s9"]),
+      );
+    });
+
+    it("should shield the whole subtree of a locked outer group", () => {
+      const keys = withMembers(["outer"], forest);
+      expect(shielded(keys, forestParentOf, withLocked("outer"))).toEqual(
+        new Set(keys.filter((k) => k !== "outer")),
+      );
+    });
+
+    it("should shield nothing when no group is locked", () => {
+      expect(shielded(withMembers(["side"], forest), forestParentOf, forest)).toEqual(
+        new Set(),
+      );
     });
   });
 

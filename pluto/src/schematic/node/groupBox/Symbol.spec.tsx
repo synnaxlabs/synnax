@@ -54,6 +54,12 @@ const box = (container: HTMLElement): HTMLElement => {
   return el;
 };
 
+const chip = (container: HTMLElement): HTMLElement => {
+  const el = container.querySelector<HTMLElement>(".pluto-group-box__lock");
+  assert(el != null);
+  return el;
+};
+
 describe("GroupBox.Symbol", () => {
   it("should size the box to its members' bounds plus padding", () => {
     // Far member edge: m2 at (100, 60) measuring 50x40. Box anchored at (-20, -20):
@@ -107,18 +113,48 @@ describe("GroupBox.Symbol", () => {
     expect(box(container).style.height).toBe("110px");
   });
 
-  it("should show the move anchor when selected", () => {
+  it("should show the lock chip when selected", () => {
     const { container } = renderSymbol({ selected: true });
-    expect(container.querySelector(".pluto-group-box__move")).not.toBeNull();
+    expect(container.querySelector(".pluto-group-box__lock")).not.toBeNull();
   });
 
-  it("should hide the move anchor when not selected", () => {
+  it("should hide the lock chip when not selected", () => {
     const { container } = renderSymbol();
-    expect(container.querySelector(".pluto-group-box__move")).toBeNull();
+    expect(container.querySelector(".pluto-group-box__lock")).toBeNull();
   });
 
-  it("should hide the move anchor on a nested group", () => {
+  it("should hide the lock chip on a nested group", () => {
     const { container } = renderSymbol({ selected: true, draggable: false });
-    expect(container.querySelector(".pluto-group-box__move")).toBeNull();
+    expect(container.querySelector(".pluto-group-box__lock")).toBeNull();
+  });
+
+  it("should keep the chip on a locked, undraggable box", () => {
+    const { container } = renderSymbol({
+      selected: true,
+      draggable: false,
+      config: { ...defaultConfig(), locked: true },
+    });
+    expect(container.querySelector(".pluto-group-box__lock")).not.toBeNull();
+  });
+
+  it("should show the open padlock while unlocked and lock on click", () => {
+    const onConfigChange = vi.fn();
+    const { container } = renderSymbol({ selected: true, onConfigChange });
+    expect(container.querySelector(".pluto-icon--unlock")).not.toBeNull();
+    expect(container.querySelector(".pluto-icon--lock")).toBeNull();
+    fireEvent.click(chip(container));
+    expect(onConfigChange).toHaveBeenCalledWith({ locked: true });
+  });
+
+  it("should show the closed padlock while locked and unlock on click", () => {
+    const onConfigChange = vi.fn();
+    const { container } = renderSymbol({
+      selected: true,
+      onConfigChange,
+      config: { ...defaultConfig(), locked: true },
+    });
+    expect(container.querySelector(".pluto-icon--lock")).not.toBeNull();
+    fireEvent.click(chip(container));
+    expect(onConfigChange).toHaveBeenCalledWith({ locked: false });
   });
 });

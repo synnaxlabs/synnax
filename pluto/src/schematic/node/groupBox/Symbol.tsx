@@ -20,16 +20,20 @@ export const Symbol = ({
   nodeKey,
   selected,
   draggable,
-  config: { members },
+  onConfigChange,
+  config: { members, locked },
 }: NodeProps<Config>): ReactElement => (
   <Grid.Grid allowCenter allowRotate={false} editable={selected} nodeKey={nodeKey}>
     <Primitive nodeKey={nodeKey} members={members} />
-    {/* Visual anchor only: the whole box drags. A nested group is locked to its
-    parent, so it gets no anchor. */}
-    {selected && draggable !== false && (
-      <div className={CSS.BE("group-box", "move")}>
-        <Icon.Pan />
-      </div>
+    {/* A nested group gets no chip. A locked box is undraggable but must keep
+    its chip so it can be unlocked. */}
+    {selected && (locked === true || draggable !== false) && (
+      <button
+        className={CSS.cls("nodrag", CSS.BE("group-box", "lock"))}
+        onClick={() => onConfigChange({ locked: locked !== true })}
+      >
+        {locked === true ? <Icon.Lock /> : <Icon.Unlock />}
+      </button>
     )}
   </Grid.Grid>
 );

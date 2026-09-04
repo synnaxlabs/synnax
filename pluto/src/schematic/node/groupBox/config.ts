@@ -17,5 +17,6 @@ export const PADDING = 20;
 export const configZ = z.object({
   variant: z.literal(VARIANT),
   members: z.string().array(),
+  locked: z.boolean().optional(),
 });
 export type Config = z.infer<typeof configZ>;

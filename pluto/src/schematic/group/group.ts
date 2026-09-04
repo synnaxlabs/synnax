@@ -192,27 +192,59 @@ export const fanOutMoves = (
 };
 
 /**
- * lockMembers marks every symbol inside a group as non-draggable; a group moves
- * its members via fanOutMoves. Returns the input array unchanged when there
- * are no groups.
+ * lockMembers marks grouped symbols and locked group boxes as non-draggable.
+ * Returns the input unchanged when there are no groups.
  */
 export const lockMembers = (
   nodes: schematic.Node[],
   parentOf: Map<string, string>,
+  configs: Record<string, record.Unknown>,
 ): Diagram.Node[] => {
   if (parentOf.size === 0) return nodes;
-  return nodes.map((n) => (parentOf.has(n.key) ? { ...n, draggable: false } : n));
+  const undraggable = (key: string): boolean => {
+    if (parentOf.has(key)) return true;
+    const config = configs[key];
+    return isConfig(config) && config.locked === true;
+  };
+  return nodes.map((n) => (undraggable(n.key) ? { ...n, draggable: false } : n));
+};
+
+// Whether any group containing the key is locked.
+const underLocked = (
+  key: string,
+  parentOf: Map<string, string>,
+  configs: Record<string, record.Unknown>,
+): boolean => {
+  const visited = new Set<string>();
+  let parent = parentOf.get(key);
+  while (parent != null && !visited.has(parent)) {
+    const config = configs[parent];
+    if (isConfig(config) && config.locked === true) return true;
+    visited.add(parent);
+    parent = parentOf.get(parent);
+  }
+  return false;
 };
 
 /**
- * drillIn returns the drilled selection for a grouped member: itself plus, when
- * it is a nested group, its members. Null when the key is in no group.
+ * drillIn returns the member and, for a nested group, its members. Null when
+ * the key is in no group or a containing group is locked.
  */
 export const drillIn = (
   key: string,
   parentOf: Map<string, string>,
   configs: Record<string, record.Unknown>,
-): string[] | null => (parentOf.has(key) ? withMembers([key], configs) : null);
+): string[] | null => {
+  if (!parentOf.has(key) || underLocked(key, parentOf, configs)) return null;
+  return withMembers([key], configs);
+};
+
+/** shielded returns the keys that sit inside a locked group. */
+export const shielded = (
+  keys: readonly string[],
+  parentOf: Map<string, string>,
+  configs: Record<string, record.Unknown>,
+): Set<string> => new Set(keys.filter((k) => underLocked(k, parentOf, configs)));
 
 /** closure resolves each key to its outermost group and includes its members. */
 export const closure = (

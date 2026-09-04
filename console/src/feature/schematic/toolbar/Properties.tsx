@@ -157,6 +157,18 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
     () => selected.filter((k) => !parentOf.has(k)),
     [selected, parentOf],
   );
+  // The selection closure includes group configs, so shielding sees locked flags.
+  const editableByKey = useMemo(() => {
+    const shielded = Schematic.Group.shielded(
+      [...configByKey.keys()],
+      parentOf,
+      Object.fromEntries(configByKey),
+    );
+    if (shielded.size === 0) return configByKey;
+    const m = new Map(configByKey);
+    shielded.forEach((k) => m.delete(k));
+    return m;
+  }, [configByKey, parentOf]);
 
   const nodesByKey = useMemo(() => {
     const m = new Map<string, schematic.Node>();
@@ -181,7 +193,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
 
   const colorGroups = useMemo(() => {
     const groups: Record<color.Hex, string[]> = {};
-    configByKey.forEach((cfg, key) => {
+    editableByKey.forEach((cfg, key) => {
       if (!("color" in cfg) || cfg.color == null) return;
       const hex = color.hex(cfg.color);
       if (!(hex in groups)) groups[hex] = [];
@@ -330,7 +342,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
 
   const rotateOrientationActions = (dir: direction.Angular): schematic.Action[] => {
     const updates: [string, Partial<Schematic.ElementConfig>][] = [];
-    configByKey.forEach((cfg, key) => {
+    editableByKey.forEach((cfg, key) => {
       if (!("orientation" in cfg) || cfg.orientation == null) return;
       updates.push([key, { orientation: location.rotate(cfg.orientation, dir) }]);
     });
@@ -357,7 +369,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
     value: Schematic.Node.Label.Config[K],
   ): void => {
     const updates: [string, Partial<Schematic.ElementConfig>][] = [];
-    configByKey.forEach((cfg, elKey) => {
+    editableByKey.forEach((cfg, elKey) => {
       if (!("label" in cfg) || cfg.label == null) return;
       updates.push([elKey, { label: { ...cfg.label, [key]: value } }]);
     });
