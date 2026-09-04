@@ -10,10 +10,12 @@
 import { type ReactElement } from "react";
 
 import { Form } from "@/schematic/node/common/form";
-import { Label } from "@/schematic/node/common/label";
+import { Text } from "@/text";
 
 export const GroupBoxForm = (): ReactElement => (
   <Form.Wrapper lockable x>
-    <Label.Form path="label" />
+    <Text.Text status="disabled" center>
+      Groups have no editable properties.
+    </Text.Text>
   </Form.Wrapper>
 );

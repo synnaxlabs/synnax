@@ -222,17 +222,23 @@ export const lockMembers = (
   return nodes.map((n) => (parentOf.has(n.key) ? { ...n, draggable: false } : n));
 };
 
-/** lockedKeys returns the grouped symbols in keys whose group is absent. */
-export const lockedKeys = (
+/**
+ * drillIn returns the drilled selection for a grouped member: itself plus, when
+ * it is a nested group, its members. Null when the key is in no group.
+ */
+export const drillIn = (
+  key: string,
+  parentOf: Map<string, string>,
+  configs: Record<string, record.Unknown>,
+): string[] | null => (parentOf.has(key) ? withMembers([key], configs) : null);
+
+/** closure resolves each key to its outermost group and includes its members. */
+export const closure = (
   keys: readonly string[],
   parentOf: Map<string, string>,
-): string[] => {
-  const keySet = new Set(keys);
-  return keys.filter((k) => {
-    const parent = parentOf.get(k);
-    return parent != null && !keySet.has(parent);
-  });
-};
+  configs: Record<string, record.Unknown>,
+): string[] =>
+  withMembers([...new Set(keys.map((k) => rootOf(parentOf, k)))], configs);
 
 /**
  * soleRoot returns the one unparented key when every other key in the selection

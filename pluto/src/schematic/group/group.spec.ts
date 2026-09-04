@@ -17,7 +17,8 @@ import {
   canUngroup,
   createActions,
   fanOutMoves,
-  lockedKeys,
+  closure,
+  drillIn,
   lockMembers,
   remapMembers,
   soleRoot,
@@ -395,18 +396,86 @@ describe("group", () => {
     });
   });
 
-  describe("lockedKeys", () => {
-    it("should return grouped symbols selected without their group", () => {
-      const selected = ["mid2", "s4", "s5", "s6", "l1"];
-      expect(lockedKeys(selected, forestParentOf)).toEqual(["mid2", "s6"]);
+  describe("closure", () => {
+    it("should expand a deep member to its outermost group and its contents", () => {
+      expect(closure(["s6"], forestParentOf, forest)).toEqual([
+        "outer",
+        "mid1",
+        "inner1",
+        "s6",
+        "s7",
+        "s2",
+        "s3",
+        "mid2",
+        "s4",
+        "s5",
+        "s1",
+      ]);
     });
 
-    it("should pass a selection holding the whole group", () => {
-      expect(lockedKeys(["side", "s8", "s9"], forestParentOf)).toEqual([]);
+    it("should pass loose symbols through", () => {
+      expect(closure(["l1", "l2"], forestParentOf, forest)).toEqual(["l1", "l2"]);
     });
 
-    it("should pass loose symbols", () => {
-      expect(lockedKeys(["l1", "l2"], forestParentOf)).toEqual([]);
+    it("should not duplicate a group clicked alongside its member", () => {
+      expect(closure(["s8", "side"], forestParentOf, forest)).toEqual([
+        "side",
+        "s8",
+        "s9",
+      ]);
+    });
+
+    it("should expand each root of a multi-group selection", () => {
+      expect(closure(["s6", "l1", "s8"], forestParentOf, forest)).toEqual([
+        "outer",
+        "l1",
+        "side",
+        "mid1",
+        "inner1",
+        "s6",
+        "s7",
+        "s2",
+        "s3",
+        "mid2",
+        "s4",
+        "s5",
+        "s1",
+        "s9",
+      ]);
+    });
+
+    it("should terminate when corrupt data forms a parent cycle", () => {
+      const configs = { g1: groupConfig(["g2"]), g2: groupConfig(["g1"]) };
+      expect(closure(["g1"], buildParentOf(configs), configs)).toEqual(["g2", "g1"]);
+    });
+  });
+
+  describe("drillIn", () => {
+    it("should select a grouped member alone", () => {
+      expect(drillIn("s6", forestParentOf, forest)).toEqual(["s6"]);
+    });
+
+    it("should select a nested group with its members", () => {
+      expect(drillIn("mid1", forestParentOf, forest)).toEqual([
+        "mid1",
+        "inner1",
+        "s6",
+        "s7",
+        "s2",
+        "s3",
+      ]);
+    });
+
+    it("should not drill into an outermost group", () => {
+      expect(drillIn("outer", forestParentOf, forest)).toBeNull();
+    });
+
+    it("should not drill into a loose symbol", () => {
+      expect(drillIn("l1", forestParentOf, forest)).toBeNull();
+    });
+
+    it("should not drill into an unknown key", () => {
+      expect(drillIn("nope", forestParentOf, forest)).toBeNull();
     });
   });
 
