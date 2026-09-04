@@ -18,8 +18,8 @@
     "check-types": "tsc --noEmit"
   },
   "devDependencies": {
-    "@synnaxlabs/tsconfig": "workspace:^",
-    "@synnaxlabs/vite-plugin": "workspace:^",
+    "@synnaxlabs/tsconfig": "catalog:",
+    "@synnaxlabs/vite-plugin": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:"
   }

@@ -17,11 +17,8 @@ import simpleImportSort from "eslint-plugin-simple-import-sort";
 import globals from "globals";
 import path from "path";
 import tseslint from "typescript-eslint";
-import { fileURLToPath } from "url";
 
-const filename = fileURLToPath(import.meta.url);
-const dirname = path.dirname(filename);
-const gitignorePath = path.join(dirname, "../../.gitignore");
+const gitignorePath = path.join(import.meta.dirname, "../../.gitignore");
 
 const config: Linter.Config[] = [
   includeIgnoreFile(gitignorePath),
@@ -42,13 +39,14 @@ const config: Linter.Config[] = [
         ecmaVersion: "latest",
         sourceType: "module",
         projectService: true,
-        tsconfigRootDir: path.dirname(filename),
+        tsconfigRootDir: import.meta.dirname,
       },
     },
     plugins: { "simple-import-sort": simpleImportSort, "@eslint-react": pluginReact2 },
     rules: {
       "no-constant-condition": ["error", { checkLoops: false }],
       "no-duplicate-imports": "error",
+      "no-loss-of-precision": "error",
       "use-isnan": ["error", { enforceForIndexOf: true }],
       "preserve-caught-error": ["error", { requireCatchParameter: true }],
       "valid-typeof": ["error", { requireStringLiterals: true }],
@@ -98,7 +96,6 @@ const config: Linter.Config[] = [
         "error",
         { props: "never", children: "never" },
       ],
-      "@typescript-eslint/no-empty-object-type": "off",
       "react/no-unescaped-entities": "off",
       "react/jsx-filename-extension": [
         "error",
@@ -123,6 +120,17 @@ const config: Linter.Config[] = [
       ],
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-floating-promises": ["error", { checkThenables: true }],
+      "@typescript-eslint/no-meaningless-void-operator": "error",
+      "@typescript-eslint/no-misused-promises": [
+        "error",
+        { checksConditionals: { flagUnions: "strict" } },
+      ],
+      "@typescript-eslint/no-empty-object-type": [
+        "error",
+        { allowInterfaces: "with-single-extends", allowObjectTypes: "always" },
+      ],
+      "@typescript-eslint/no-mixed-enums": "error",
+      "@typescript-eslint/unified-signatures": "error",
       "@typescript-eslint/require-await": "off",
       "@typescript-eslint/no-duplicate-type-constituents": "off",
       "@typescript-eslint/return-await": ["error", "always"],

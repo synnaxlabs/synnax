@@ -24,15 +24,15 @@
     "madge": "madge --circular src"
   },
   "dependencies": {
-    "@synnaxlabs/alamos": "workspace:^",
-    "@synnaxlabs/x": "workspace:^",
+    "@synnaxlabs/alamos": "catalog:",
+    "@synnaxlabs/x": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@synnaxlabs/eslint-config": "workspace:^",
-    "@synnaxlabs/madge": "workspace:^",
-    "@synnaxlabs/tsconfig": "workspace:^",
-    "@synnaxlabs/vite-plugin": "workspace:^",
+    "@synnaxlabs/eslint-config": "catalog:",
+    "@synnaxlabs/madge": "catalog:",
+    "@synnaxlabs/tsconfig": "catalog:",
+    "@synnaxlabs/vite-plugin": "catalog:",
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",

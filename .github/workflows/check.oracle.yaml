@@ -93,14 +93,10 @@ jobs:
             oracle/go.mod
             oracle/go.sum
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v6
-
-      - name: Set up Node
-        uses: actions/setup-node@v7
+      - name: Set up pnpm and Node
+        uses: pnpm/setup@v2
         with:
-          node-version-file: package.json
-          cache: pnpm
+          cache: true
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -123,9 +119,6 @@ jobs:
         # so this workflow stays in lockstep with test.arc /
         # test.freighter.cpp / test.client / etc.
         run: scripts/install_clang_format.sh
-
-      - name: Install workspace dependencies
-        run: pnpm install --frozen-lockfile
 
       - name: Install Python dependencies
         run: uv sync

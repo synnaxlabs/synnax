@@ -156,7 +156,7 @@ exempt.
 
 ### Rule 5: Type-check via pnpm scripts only
 
-After error-handling changes run `pnpm check-types` and `pnpm lint`. Never raw `npx tsc`
+After error-handling changes run `pnpm check-types` and `pnpm lint`. Never raw `tsc`
 (wrong tsconfig). Mistyped errors silently round-trip as `errors.Unknown`, so type
 errors here are invisible at runtime.
 
@@ -229,7 +229,7 @@ file the tarball omits. Pluto is the only opt-out; its maps are 17MB gzipped.
 
 - pnpm catalog: shared versions in `pnpm-workspace.yaml`; use `catalog:` prefix in
   package.json.
-- Turbo build cache issues: `npx turbo clean`.
+- Turbo build cache issues: `pnpm exec turbo clean`.
 - React 19 (19.1.1) — check for React 18 breaking changes.
 
 ## Visual Verification (Playwright MCP)

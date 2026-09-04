@@ -1314,14 +1314,6 @@ export class TimeRange implements primitive.Stringer, primitive.Hashable {
    * TimeRange.
    * @returns True if the TimeRange contains the given TimeRange or TimeStamp.
    */
-  contains(other: TimeRange): boolean;
-
-  /**
-   * @param ts - The TimeStamp to check if it is contained in the TimeRange.
-   * @returns True if the TimeRange contains the given TimeStamp.
-   */
-  contains(ts: CrudeTimeStamp): boolean;
-
   contains(other: TimeRange | CrudeTimeStamp): boolean {
     if (other instanceof TimeRange)
       return this.contains(other.start) && this.contains(other.end);

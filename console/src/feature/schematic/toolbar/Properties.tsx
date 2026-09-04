@@ -42,6 +42,7 @@ import {
   useCallback,
   useMemo,
 } from "react";
+import { z } from "zod";
 
 import { Symbol } from "@/feature/schematic/symbol";
 import { CSS } from "@/platform/css";
@@ -86,7 +87,7 @@ const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement | null
     "specKey",
     { ctx: formMethods, optional: true },
   );
-  const isCustom = schematic.symbol.keyZ.safeParse(specKey).success && specKey != null;
+  const isCustom = z.validate(schematic.symbol.keyZ, specKey) && specKey != null;
   const openEditModal = Symbol.Edit.useModal();
   let actions: ReactNode = null;
   if (isCustom)

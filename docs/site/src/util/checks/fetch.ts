@@ -88,9 +88,9 @@ const hasAnchor = (body: string, fragment: string): boolean =>
     `\\s(?:id|name)=["']?(?:user-content-)?${escapeRegExp(fragment)}["'\\s>]`,
   ).test(body);
 
-// Retries transient failures with backoff. A GET follows a failed HEAD only when the
-// host answered with a status: a HEAD that hung means the connection is the problem
-// and a GET would just burn another timeout.
+// Retries transient failures with backoff. A GET follows every failed HEAD: a status
+// means the host dislikes the URL, and a dropped connection means it refuses HEAD
+// itself, which some hosts do at the TLS layer.
 const probe = async (url: string): Promise<Probe | null> => {
   // LinkedIn's bot wall answers 999 for live and dead pages alike, so its links
   // cannot be verified either way. A 429 on any host proves nothing about the link.
@@ -100,12 +100,11 @@ const probe = async (url: string): Promise<Probe | null> => {
   let last: number | string = 0;
   for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
     last = await request(url, "HEAD");
-    if (typeof last === "number") {
-      if (ok(last)) return null;
+    if (typeof last !== "number" || !ok(last)) {
       last = await request(url, "GET");
       if (typeof last === "number" && ok(last)) return null;
       if (last === 404 || last === 410) break;
-    }
+    } else return null;
     if (attempt < ATTEMPTS)
       await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
   }
