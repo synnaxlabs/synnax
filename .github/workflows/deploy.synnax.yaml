@@ -175,6 +175,7 @@ jobs:
     needs: [setup, create-release]
     if: needs.setup.result == 'success'
     permissions:
+      actions: read
       contents: write
       packages: write
     uses: ./.github/workflows/build.synnax.yaml

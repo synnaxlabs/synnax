@@ -80,7 +80,8 @@ CORE_PATHS=(
 
 UNION_PATHS=("${DRIVER_PATHS[@]}" "${CONSOLE_PATHS[@]}" "${CORE_PATHS[@]}")
 
-WORKFLOW_FILE="test.integration.yaml"
+# Deploy runs build the same artifacts, so both workflows are reuse sources.
+WORKFLOW_FILES=("test.integration.yaml" "deploy.synnax.yaml")
 
 CACHE_DIR=$(mktemp -d)
 trap 'rm -rf "${CACHE_DIR}"' EXIT
@@ -134,8 +135,11 @@ runs_for_sha() {
     local sha=$1
     local file="${CACHE_DIR}/runs-${sha}"
     if [ ! -f "${file}" ]; then
-        gh api "repos/:owner/:repo/actions/workflows/${WORKFLOW_FILE}/runs?head_sha=${sha}&per_page=20" \
-            --jq '.workflow_runs[].id' > "${file}" 2> /dev/null || true
+        local wf
+        for wf in "${WORKFLOW_FILES[@]}"; do
+            gh api "repos/:owner/:repo/actions/workflows/${wf}/runs?head_sha=${sha}&per_page=20" \
+                --jq '.workflow_runs[].id' 2> /dev/null || true
+        done | sort -rn > "${file}"
     fi
     cat "${file}"
 }
@@ -226,8 +230,10 @@ main() {
     # Candidates older than the 7-day artifact retention cannot hit.
     CANDIDATE_SHAS=$(git rev-list --since=7.days --max-count=30 "${COMPARE_REF}" \
         2> /dev/null || true)
-    RECENT_RUNS=$(gh run list --workflow="${WORKFLOW_FILE}" --limit=25 \
-        --json databaseId,headSha --jq '.[] | "\(.databaseId):\(.headSha)"')
+    RECENT_RUNS=$(for wf in "${WORKFLOW_FILES[@]}"; do
+        gh run list --workflow="${wf}" --limit=25 \
+            --json databaseId,headSha --jq '.[] | "\(.databaseId):\(.headSha)"'
+    done | sort -t: -k1 -rn)
 
     local full_run
     full_run=$(find_reusable_run "full" "${FULL_ARTIFACTS[*]}" "${UNION_PATHS[@]}")
