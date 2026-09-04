@@ -126,9 +126,7 @@ export class Scale<T extends numeric.Value = number> {
    *
    * @example Scale.scale<number>(1).scale(100).pos(1) // => 100
    */
-  static scale<T extends numeric.Value>(upper: T): Scale<T>;
-
-  static scale<T extends numeric.Value>(lower: T, upper: T): Scale<T>;
+  static scale<T extends numeric.Value>(lowerOrUpper: T, upper?: T): Scale<T>;
 
   static scale<T extends numeric.Value>(bound: bounds.Bounds<T>): Scale<T>;
 
@@ -157,14 +155,9 @@ export class Scale<T extends numeric.Value = number> {
    *
    * @example Scale.scale<number>(1).scale(100).pos(1) // => 100
    */
-  scale(upper: T): Scale<T>;
-
-  scale(lower: T, upper: T): Scale<T>;
+  scale(lowerOrUpper: T, upper?: T): Scale<T>;
 
   scale(bounds: bounds.Bounds<T>): Scale<T>;
-
-  /** This overload is for internal use only */
-  scale(upperOrBound: T | bounds.Bounds<T>, upper?: T): Scale<T>;
 
   scale(upperOrBound: T | bounds.Bounds<T>, upper?: T): Scale<T> {
     const b = bounds.construct<T>(upperOrBound, upper);
@@ -180,9 +173,7 @@ export class Scale<T extends numeric.Value = number> {
    *
    * @example Scale.scale(0, 1).clamp(0, 0.5).pos(1) // => 0.5
    */
-  clamp(upper: T): Scale<T>;
-
-  clamp(lower: T, upper: T): Scale<T>;
+  clamp(lowerOrUpper: T, upper?: T): Scale<T>;
 
   clamp(bounds: bounds.Bounds<T>): Scale<T>;
 

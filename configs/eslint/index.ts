@@ -97,7 +97,6 @@ const config: Linter.Config[] = [
         "error",
         { props: "never", children: "never" },
       ],
-      "@typescript-eslint/no-empty-object-type": "off",
       "react/no-unescaped-entities": "off",
       "react/jsx-filename-extension": [
         "error",
@@ -127,7 +126,12 @@ const config: Linter.Config[] = [
         "error",
         { checksConditionals: { flagUnions: "strict" } },
       ],
+      "@typescript-eslint/no-empty-object-type": [
+        "error",
+        { allowInterfaces: "with-single-extends", allowObjectTypes: "always" },
+      ],
       "@typescript-eslint/no-mixed-enums": "error",
+      "@typescript-eslint/unified-signatures": "error",
       "@typescript-eslint/require-await": "off",
       "@typescript-eslint/no-duplicate-type-constituents": "off",
       "@typescript-eslint/return-await": ["error", "always"],

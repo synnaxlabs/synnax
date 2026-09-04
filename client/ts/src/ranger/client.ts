@@ -576,9 +576,9 @@ export class Client extends query.Retriever<
   }
 
   async retrieve(params: Key | Name): Promise<Range>;
-  async retrieve(params: Key[] | Name[]): Promise<Range[]>;
-  async retrieve(params: CrudeTimeRange): Promise<Range[]>;
-  async retrieve(params: RetrieveRequest): Promise<Range[]>;
+  async retrieve(
+    params: Key[] | Name[] | CrudeTimeRange | RetrieveRequest,
+  ): Promise<Range[]>;
   async retrieve(params: RetrieveParams): Promise<Range | Range[]> {
     // The branches narrow params onto different base overloads.
     if (typeof params === "string") return await super.retrieve(params);

@@ -245,10 +245,14 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     );
   }
 
-  getState<V>(path: string, opts?: RequiredGetOptions): FieldState<V>;
-  getState<V>(path: string, opts?: DefaultGetOptions<V>): FieldState<V>;
-  getState<V>(path: string, opts?: OptionalGetOptions): FieldState<V> | null;
-  getState<V>(path: string, opts?: ExtensionGetOptions<V>): FieldState<V> | null;
+  getState<V>(
+    path: string,
+    opts?: RequiredGetOptions | DefaultGetOptions<V>,
+  ): FieldState<V>;
+  getState<V>(
+    path: string,
+    opts?: OptionalGetOptions | ExtensionGetOptions<V>,
+  ): FieldState<V> | null;
 
   getState<V>(path: string, opts: GetOptions<V> = {}): FieldState<V> | null {
     const { optional = false, defaultValue = undefined } = opts;
