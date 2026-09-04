@@ -172,9 +172,7 @@ export const Schematic = ({
   // Clicking a member selects its whole group; delete, copy, and cut then cover it.
   const handleSelectionChange = useCallback(
     (keys: string[]) =>
-      onSelectionChange?.(
-        Group.closure(keys, parentOfRef.current, configsRef.current),
-      ),
+      onSelectionChange?.(Group.closure(keys, parentOfRef.current, configsRef.current)),
     [onSelectionChange],
   );
 
@@ -184,11 +182,7 @@ export const Schematic = ({
   >(
     (e, node) => {
       if (editable) {
-        const drilled = Group.drillIn(
-          node.id,
-          parentOfRef.current,
-          configsRef.current,
-        );
+        const drilled = Group.drillIn(node.id, parentOfRef.current, configsRef.current);
         if (drilled != null) onSelectionChange?.(drilled);
       }
       onNodeDoubleClick?.(e, node);

@@ -251,8 +251,7 @@ export const closure = (
   keys: readonly string[],
   parentOf: Map<string, string>,
   configs: Record<string, record.Unknown>,
-): string[] =>
-  withMembers([...new Set(keys.map((k) => rootOf(parentOf, k)))], configs);
+): string[] => withMembers([...new Set(keys.map((k) => rootOf(parentOf, k)))], configs);
 
 /** canUngroup returns whether the selection includes a group. */
 export const canUngroup = (
