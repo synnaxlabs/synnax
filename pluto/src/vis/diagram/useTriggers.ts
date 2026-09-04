@@ -32,8 +32,8 @@ const CONFIG: Triggers.ModeConfig<Mode> = {
     clear: [Triggers.ESCAPE],
     undo: [Triggers.UNDO],
     redo: [Triggers.REDO],
-    group: [["Control", "G"]],
-    ungroup: [["Control", "U"]],
+    group: [Triggers.GROUP],
+    ungroup: [Triggers.UNGROUP],
     default: [],
   },
 };

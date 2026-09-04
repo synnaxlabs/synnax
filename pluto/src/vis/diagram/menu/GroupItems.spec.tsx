@@ -11,6 +11,7 @@ import { fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Menu } from "@/menu";
+import { Triggers } from "@/triggers";
 import { GroupItems, type GroupItemsProps } from "@/vis/diagram/menu/GroupItems";
 
 const renderItems = (props: Partial<GroupItemsProps> = {}): ReturnType<typeof render> =>
@@ -40,6 +41,19 @@ describe("Diagram.Menu.GroupItems", () => {
     expect(group).toHaveBeenCalledTimes(1);
     fireEvent.click(getByText("Ungroup"));
     expect(ungroup).toHaveBeenCalledTimes(1);
+  });
+
+  it("should advertise the shortcuts its host binds", () => {
+    const { getAllByLabelText } = renderItems();
+    // The entries never bind the shortcut themselves, so a hint that drifted from
+    // Triggers.GROUP / UNGROUP would advertise keys that do nothing.
+    const [groupHint, ungroupHint] = getAllByLabelText("trigger-indicator");
+    const caps = (el: HTMLElement): number =>
+      el.querySelectorAll(".pluto-text--keyboard").length;
+    expect(caps(groupHint)).toBe(Triggers.GROUP.length);
+    expect(caps(ungroupHint)).toBe(Triggers.UNGROUP.length);
+    expect(groupHint.textContent).toContain("G");
+    expect(ungroupHint.textContent).toContain("U");
   });
 
   it("should hide each entry when it does not apply", () => {

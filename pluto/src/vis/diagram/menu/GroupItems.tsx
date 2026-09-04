@@ -11,10 +11,7 @@ import { type ReactElement } from "react";
 
 import { Icon } from "@/icon";
 import { Item } from "@/menu/Item";
-import { type Triggers } from "@/triggers";
-
-const GROUP_TRIGGER: Triggers.Trigger = ["Control", "G"];
-const UNGROUP_TRIGGER: Triggers.Trigger = ["Control", "U"];
+import { Triggers } from "@/triggers";
 
 /** Props for {@link GroupItems}. */
 export interface GroupItemsProps {
@@ -37,13 +34,13 @@ export const GroupItems = ({
 }: GroupItemsProps): ReactElement => (
   <>
     {canGroup && (
-      <Item itemKey="group" onClick={group} triggerIndicator={GROUP_TRIGGER}>
+      <Item itemKey="group" onClick={group} triggerIndicator={Triggers.GROUP}>
         <Icon.Group />
         Group
       </Item>
     )}
     {canUngroup && (
-      <Item itemKey="ungroup" onClick={ungroup} triggerIndicator={UNGROUP_TRIGGER}>
+      <Item itemKey="ungroup" onClick={ungroup} triggerIndicator={Triggers.UNGROUP}>
         <Icon.Ungroup />
         Ungroup
       </Item>

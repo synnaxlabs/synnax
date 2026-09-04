@@ -428,5 +428,9 @@ export const CUT: Trigger = ["Control", "X"];
 export const COPY: Trigger = ["Control", "C"];
 /** The standard paste shortcut. */
 export const PASTE: Trigger = ["Control", "V"];
+/** The standard group shortcut. */
+export const GROUP: Trigger = ["Control", "G"];
+/** The standard ungroup shortcut. */
+export const UNGROUP: Trigger = ["Control", "U"];
 /** The escape key on its own. */
 export const ESCAPE: Trigger = ["Escape"];

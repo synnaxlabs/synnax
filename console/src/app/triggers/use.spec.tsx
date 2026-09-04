@@ -12,7 +12,14 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
 import { Text, Triggers as PTriggers } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
-import { act, fireEvent, renderHook, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -306,6 +313,25 @@ describe("app/triggers", () => {
       const store = await renderWithSelectedPanel();
       act(() => press(CONTROL, "KeyO"));
       expect(openedWindows(store)).toEqual([]);
+    });
+  });
+
+  describe("prevent default", () => {
+    it("should prevent the browser defaults for group and ungroup", () => {
+      render(<PTriggers.Provider {...Triggers.PROVIDER_PROPS} />);
+      hold(CONTROL);
+      // fireEvent returns false when a listener called preventDefault.
+      expect(fireEvent.keyDown(window, { code: "KeyU", ctrlKey: true })).toBe(false);
+      release("KeyU");
+      expect(fireEvent.keyDown(window, { code: "KeyG", ctrlKey: true })).toBe(false);
+      release(CONTROL, "KeyG");
+    });
+
+    it("should leave unlisted combinations alone", () => {
+      render(<PTriggers.Provider {...Triggers.PROVIDER_PROPS} />);
+      hold(CONTROL);
+      expect(fireEvent.keyDown(window, { code: "KeyJ", ctrlKey: true })).toBe(true);
+      release(CONTROL, "KeyJ");
     });
   });
 
