@@ -18,13 +18,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 )
 
 type calculationTransform struct {
 	confluence.UnarySink[Response]
 	confluence.AbstractUnarySource[Response]
-	keepKeys         channel.Keys
+	keepKeys         set.Set[channel.Key]
 	calculators      []*calculator.Calculator
 	accumulatedError error
 	pendingFrames    []framer.Frame
@@ -36,7 +37,7 @@ func newCalculationTransform(
 ) *calculationTransform {
 	return &calculationTransform{
 		calculators:   calculators,
-		keepKeys:      keepKeys,
+		keepKeys:      set.New(keepKeys...),
 		pendingFrames: make([]framer.Frame, 0, 8),
 	}
 }
