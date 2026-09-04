@@ -9,7 +9,7 @@
 
 [project]
 name = "synnax-x"
-version = "0.57.0"
+version = "0.58.0"
 description = "Shared Python utilities for Synnax"
 keywords = ["Synnax"]
 authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
