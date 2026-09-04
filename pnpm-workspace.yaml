@@ -72,7 +72,7 @@ catalog:
   '@tauri-apps/plugin-process': ^2.3.1
   '@tauri-apps/plugin-shell': ^2.3.6
   '@tauri-apps/plugin-store': ^2.4.4
-  '@tauri-apps/plugin-updater': ^2.10.1
+  '@tauri-apps/plugin-updater': ^2.11.0
   '@testing-library/react': ^16.3.2
   '@testing-library/user-event': ^14.6.7
   '@types/d3-scale': ^4.0.9
@@ -86,7 +86,7 @@ catalog:
   '@types/use-sync-external-store': ^1.5.0
   '@types/webgl2': ^0.0.12
   '@types/ws': ^8.18.1
-  '@vitejs/plugin-react': ^6.0.5
+  '@vitejs/plugin-react': ^6.1.1
   '@vitest/coverage-v8': ^4.1.10
   '@xyflow/react': ^12.11.6
   algoliasearch: ^5.56.0
@@ -109,7 +109,7 @@ catalog:
   html-escaper: ^3.0.3
   immer: ^11.1.15
   jsdom: ^30.0.1
-  knip: ^6.31.0
+  knip: ^6.34.0
   madge: ^8.0.0
   mathjs: ^15.2.0
   nanoid: ^6.0.1
@@ -136,7 +136,7 @@ catalog:
   turbo: ^2.10.12
   typescript: ^7.0.2
   typescript-eslint: ^8.69.0
-  unplugin-dts: ^1.0.3
+  unplugin-dts: ^1.1.0
   use-sync-external-store: ^1.6.0
   uuid: ^14.0.2
   vite: ^8.2.0
