@@ -124,8 +124,13 @@ build:windows --copt=/wd4589  # constructor ignores initializer for virtual base
 build:windows --copt=/wd4201  # nonstandard extension used: nameless struct/union (wasmtime headers)
 build:windows --copt=/wd4324  # structure was padded due to alignment specifier (queue/spsc.h)
 build:windows --copt=/wd4005  # macro redefinition (SOEM wpcap headers vs Windows SDK)
-build:windows --per_file_copt=external/.*@/WX-,/w
-build:windows --per_file_copt=vendor/.*@/WX-,/w
+# MASM rejects the MSVC warning flags. It only warns about most of them, but /w is fatal
+# (A1013) because it reads /w as /W<level> and finds no digit. Keep /WX- on every file
+# so the flags it does reject stay non-fatal, and withhold /w from assembly.
+build:windows --per_file_copt=external/.*@/WX-
+build:windows --per_file_copt=vendor/.*@/WX-
+build:windows --per_file_copt=external/.*,-.*\\.[sS]$,-.*\\.asm$@/w
+build:windows --per_file_copt=vendor/.*,-.*\\.[sS]$,-.*\\.asm$@/w
 
 # Allow protobuf deprecation warnings without treating them as errors
 build:windows --copt=/wd4996  # disables warning C4996 (deprecated declarations) for MSVC
@@ -141,9 +146,12 @@ build:windows --cxxopt=/MT
 build --output_filter=^//
 
 # Suppress warnings from external dependencies (Bazel modules and vendor/)
-build --per_file_copt=external/.*@-w
-build --per_file_copt=.*\\.cache/bazel/.*@-w
-build --per_file_copt=vendor/.*@-w
+build:macos --per_file_copt=external/.*@-w
+build:macos --per_file_copt=.*\\.cache/bazel/.*@-w
+build:macos --per_file_copt=vendor/.*@-w
+build:linux --per_file_copt=external/.*@-w
+build:linux --per_file_copt=.*\\.cache/bazel/.*@-w
+build:linux --per_file_copt=vendor/.*@-w
 
 # Keep strict warnings for workspace code (but not on Windows where -Wall is too
 # verbose)
