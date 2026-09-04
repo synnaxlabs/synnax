@@ -151,10 +151,12 @@ build:linux --per_file_copt=external/.*@-w
 build:linux --per_file_copt=.*\\.cache/bazel/.*@-w
 build:linux --per_file_copt=vendor/.*@-w
 
-# Keep strict warnings for workspace code (but not on Windows where -Wall is too
-# verbose)
-build --copt=-Wall
-build --cxxopt=-Wall
+# Keep strict warnings for workspace code. Windows is deliberately excluded: it uses /W3
+# above, and MASM reads -Wall as /W followed by a non-numeric level (A1013).
+build:macos --copt=-Wall
+build:macos --cxxopt=-Wall
+build:linux --copt=-Wall
+build:linux --cxxopt=-Wall
 
 # ===== Optimization Flags (used with --config=opt) =====
 #
