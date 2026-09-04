@@ -25,7 +25,7 @@ export const ValueForm = (): ReactElement => (
       <Tabs.Tab itemKey="redline">Redline</Tabs.Tab>
     </Tabs.Selector>
     <Tabs.Content itemKey="style">
-      <Form.Wrapper lockable x>
+      <Form.Wrapper x>
         <Flex.Box y grow>
           <Label.Form path="label" />
           <Flex.Box x>

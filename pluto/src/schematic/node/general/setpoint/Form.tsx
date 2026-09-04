@@ -84,7 +84,7 @@ export const SetpointForm = (): ReactElement => (
       <Tabs.Tab itemKey="control">Control</Tabs.Tab>
     </Tabs.Selector>
     <Tabs.Content itemKey="style">
-      <Form.Wrapper lockable x align="stretch">
+      <Form.Wrapper x align="stretch">
         <Flex.Box y align="stretch" grow gap="small">
           <Label.Form path="label" />
           <Flex.Box x>

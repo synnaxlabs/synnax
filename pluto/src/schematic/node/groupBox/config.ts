@@ -7,14 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { dimensions } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const VARIANT = "groupBox" as const;
 
+/** PADDING is the gap between a group box's edge and its members' bounds. */
+export const PADDING = 20;
+
 export const configZ = z.object({
   variant: z.literal(VARIANT),
   members: z.string().array(),
-  dimensions: dimensions.dimensionsZ,
 });
 export type Config = z.infer<typeof configZ>;

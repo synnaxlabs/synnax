@@ -386,11 +386,7 @@ describe("schematic clipboard", () => {
         ],
         edges: [],
         configs: {
-          g1: {
-            variant: "groupBox",
-            members: ["n1", "n2"],
-            dimensions: { width: 160, height: 160 },
-          },
+          g1: { variant: "groupBox", members: ["n1", "n2"] },
           n1: { variant: "tank", label: "Pump" },
           n2: { variant: "tank", label: "Valve" },
         },

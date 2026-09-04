@@ -20,10 +20,10 @@ export const Symbol = ({
   nodeKey,
   selected,
   draggable,
-  config: { dimensions },
+  config: { members },
 }: NodeProps<Config>): ReactElement => (
   <Grid.Grid allowCenter allowRotate={false} editable={selected} nodeKey={nodeKey}>
-    <Primitive dimensions={dimensions} />
+    <Primitive nodeKey={nodeKey} members={members} />
     {/* Visual anchor only: the whole box drags. A nested group is locked to its
     parent, so it gets no anchor. */}
     {selected && draggable !== false && (

@@ -259,22 +259,18 @@ export const useAddNode = () => {
  * single undoable step. Returns the keys to select, the new group first, or null
  * when the selection cannot be grouped.
  */
-export const useGroup = (): ((
-  selected: readonly string[],
-  measure: Group.Measure,
-) => string[] | null) => {
+export const useGroup = (): ((selected: readonly string[]) => string[] | null) => {
   const key = Scope.use();
   const client = Synnax.use();
   const dispatch = useSingleDispatch();
   return useCallback(
-    (selected, measure) => {
+    (selected) => {
       const s = client?.schematics.getCached({ key });
       if (!query.isLive(s)) return null;
       const result = Group.createActions({
         selected,
         nodes: s.nodes,
         configs: s.configs,
-        measure,
       });
       if (result == null) return null;
       dispatch(result.actions);

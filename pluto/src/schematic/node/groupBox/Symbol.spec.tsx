@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { render } from "@testing-library/react";
-import { ReactFlowProvider } from "@xyflow/react";
+import { fireEvent, render } from "@testing-library/react";
+import { type Node, ReactFlowProvider, useStoreApi } from "@xyflow/react";
+import { type ReactElement } from "react";
 import { assert, describe, expect, it, vi } from "vitest";
 
 import { Haul } from "@/haul";
@@ -17,18 +18,29 @@ import { defaultConfig } from "@/schematic/node/groupBox/external";
 import { Symbol } from "@/schematic/node/groupBox/Symbol";
 import { type NodeProps } from "@/schematic/node/spec";
 
+const initialNodes: Node[] = [
+  { id: "g1", position: { x: -20, y: -20 }, data: {} },
+  { id: "m1", position: { x: 0, y: 0 }, measured: { width: 40, height: 20 }, data: {} },
+  {
+    id: "m2",
+    position: { x: 100, y: 60 },
+    measured: { width: 50, height: 40 },
+    data: {},
+  },
+];
+
 const renderSymbol = (
   props: Partial<NodeProps<Config>> = {},
 ): ReturnType<typeof render> =>
   render(
-    <ReactFlowProvider>
+    <ReactFlowProvider initialNodes={initialNodes}>
       <Haul.Provider>
         <div data-id="g1">
           <Symbol
             nodeKey="g1"
             selected={false}
             onConfigChange={vi.fn()}
-            config={defaultConfig()}
+            config={{ ...defaultConfig(), members: ["m1", "m2"] }}
             {...props}
           />
         </div>
@@ -36,13 +48,63 @@ const renderSymbol = (
     </ReactFlowProvider>,
   );
 
+const box = (container: HTMLElement): HTMLElement => {
+  const el = container.querySelector<HTMLElement>(".pluto-group-box");
+  assert(el != null);
+  return el;
+};
+
 describe("GroupBox.Symbol", () => {
-  it("should size the box to the configured dimensions", () => {
+  it("should size the box to its members' bounds plus padding", () => {
+    // Far member edge: m2 at (100, 60) measuring 50x40. Box anchored at (-20, -20):
+    // width = 150 - (-20) + 20, height = 100 - (-20) + 20.
     const { container } = renderSymbol();
-    const box = container.querySelector<HTMLElement>(".pluto-group-box");
-    assert(box != null);
-    expect(box.style.width).toBe("100px");
-    expect(box.style.height).toBe("100px");
+    expect(box(container).style.width).toBe("190px");
+    expect(box(container).style.height).toBe("140px");
+  });
+
+  it("should fall back to the padding square without members", () => {
+    const { container } = renderSymbol({ config: defaultConfig() });
+    expect(box(container).style.width).toBe("40px");
+    expect(box(container).style.height).toBe("40px");
+  });
+
+  it("should track a member growing and shrinking", () => {
+    const resized = (m2: { width: number; height: number }): Node[] =>
+      initialNodes.map((n) => (n.id === "m2" ? { ...n, measured: m2 } : n));
+    const Resize = ({
+      label,
+      nodes,
+    }: {
+      label: string;
+      nodes: Node[];
+    }): ReactElement => {
+      const store = useStoreApi();
+      return <button onClick={() => store.getState().setNodes(nodes)}>{label}</button>;
+    };
+    const { container, getByText } = render(
+      <ReactFlowProvider initialNodes={initialNodes}>
+        <Haul.Provider>
+          <div data-id="g1">
+            <Symbol
+              nodeKey="g1"
+              selected={false}
+              onConfigChange={vi.fn()}
+              config={{ ...defaultConfig(), members: ["m1", "m2"] }}
+            />
+          </div>
+          <Resize label="grow" nodes={resized({ width: 80, height: 90 })} />
+          <Resize label="shrink" nodes={resized({ width: 10, height: 10 })} />
+        </Haul.Provider>
+      </ReactFlowProvider>,
+    );
+    expect(box(container).style.width).toBe("190px");
+    fireEvent.click(getByText("grow"));
+    expect(box(container).style.width).toBe("220px");
+    expect(box(container).style.height).toBe("190px");
+    fireEvent.click(getByText("shrink"));
+    expect(box(container).style.width).toBe("150px");
+    expect(box(container).style.height).toBe("110px");
   });
 
   it("should show the move anchor when selected", () => {

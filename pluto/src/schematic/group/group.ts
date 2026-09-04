@@ -8,15 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { compare, type dimensions, type record, uuid } from "@synnaxlabs/x";
+import { compare, type record, uuid } from "@synnaxlabs/x";
 
 import { Node } from "@/schematic/node";
 import { type Diagram } from "@/vis/diagram";
 
-const PADDING = 30;
-
-/** Measure returns a symbol's rendered size, or null when it is not mounted. */
-export type Measure = (key: string) => dimensions.Dimensions | null;
+const { PADDING } = Node.GroupBox;
 
 const isConfig = (c: record.Unknown | undefined): c is Node.GroupBox.Config =>
   c?.variant === Node.GroupBox.VARIANT;
@@ -72,7 +69,6 @@ export interface CreateParams {
   selected: readonly string[];
   nodes: readonly schematic.Node[];
   configs: Record<string, record.Unknown>;
-  measure: Measure;
 }
 
 export interface CreateResult {
@@ -84,39 +80,25 @@ export interface CreateResult {
 /**
  * createActions builds the one-batch group action: a setNode inserting a group
  * whose members are the outermost groups (or ungrouped symbols) the selection
- * resolves to, positioned on their bounding box. Returns null when fewer than
- * two resolve or one is not measurable.
+ * resolves to. The box sizes itself from its members at render time. Returns
+ * null when fewer than two resolve.
  */
 export const createActions = ({
   selected,
   nodes,
   configs,
-  measure,
 }: CreateParams): CreateResult | null => {
   const memberNodes = resolveOutermost(selected, nodes, buildParentOf(configs));
   if (memberNodes.length < 2) return null;
   let minX = Infinity;
   let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
   for (const node of memberNodes) {
-    const dims = measure(node.key);
-    if (dims == null) return null;
     minX = Math.min(minX, node.position.x);
     minY = Math.min(minY, node.position.y);
-    maxX = Math.max(maxX, node.position.x + dims.width);
-    maxY = Math.max(maxY, node.position.y + dims.height);
   }
   const key = uuid.create();
   const members = memberNodes.map((n) => n.key);
-  const config: Node.GroupBox.Config = {
-    ...Node.GroupBox.defaultConfig(),
-    members,
-    dimensions: {
-      width: maxX - minX + 2 * PADDING,
-      height: maxY - minY + 2 * PADDING,
-    },
-  };
+  const config: Node.GroupBox.Config = { ...Node.GroupBox.defaultConfig(), members };
   const node = {
     key,
     position: { x: minX - PADDING, y: minY - PADDING },

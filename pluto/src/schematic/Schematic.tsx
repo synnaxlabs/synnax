@@ -9,7 +9,7 @@
 
 import "@/schematic/Schematic.css";
 
-import { box, type dimensions, TimeSpan, xy } from "@synnaxlabs/x";
+import { box, TimeSpan, xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo, useRef } from "react";
 
 import { type Component } from "@/component";
@@ -149,24 +149,12 @@ export const Schematic = ({
     container: ref,
   });
 
-  // Sizes come from the DOM: measured dimensions are not persisted, and this
-  // component sits outside the React Flow provider.
-  const measure = useCallback((key: string): dimensions.Dimensions | null => {
-    try {
-      const { width, height } = BaseDiagram.selectNode(key).getBoundingClientRect();
-      const zoom = viewportRef.current.zoom;
-      return { width: width / zoom, height: height / zoom };
-    } catch {
-      return null;
-    }
-  }, []);
-
   const group = useGroup();
   const ungroup = useUngroup();
   const handleGroup = useCallback(() => {
-    const selection = group(selectedRef.current ?? [], measure);
+    const selection = group(selectedRef.current ?? []);
     if (selection != null) onSelectionChange?.(selection);
-  }, [group, measure, onSelectionChange]);
+  }, [group, onSelectionChange]);
   const handleUngroup = useCallback(() => {
     const freed = ungroup(selectedRef.current ?? []);
     if (freed != null) onSelectionChange?.(freed);

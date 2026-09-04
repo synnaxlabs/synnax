@@ -84,7 +84,7 @@ export const SelectForm = (): ReactElement => (
       <Tabs.Tab itemKey="options">Options</Tabs.Tab>
     </Tabs.Selector>
     <Tabs.Content itemKey="style">
-      <Form.Wrapper lockable y align="stretch">
+      <Form.Wrapper y align="stretch">
         <Flex.Box y align="stretch" grow gap="small">
           <Label.Form path="label" />
           <Flex.Box x>

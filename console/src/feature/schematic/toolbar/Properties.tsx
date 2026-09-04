@@ -73,7 +73,6 @@ interface IndividualConfigProps {
 const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement | null => {
   const config = Schematic.useElementConfig({ elKey });
   if (config == null) throw new Error(`Element with key ${elKey} not found`);
-  const parentOf = Schematic.useParentOf();
   const schematicKey = Schematic.useKey();
   const dispatch = Schematic.useSingleDispatch();
   const initialValues = useMemo(() => deep.copy(config), [config]);
@@ -110,20 +109,18 @@ const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement | null
   const C = Schematic.ELEMENT_REGISTRY[config.variant];
   return (
     <Flex.Box className={CSS.BE("schematic", "properties")} y>
-      <Schematic.Node.Form.StyleLockContext value={parentOf.has(elKey)}>
-        <Form.Form<typeof Schematic.elementConfigZ> {...formMethods}>
-          {isCustom ? (
-            <CustomVariantForm
-              specKey={specKey}
-              elKey={elKey}
-              actions={actions}
-              VariantForm={C.Form}
-            />
-          ) : (
-            <C.Form key={elKey} actions={actions} schematicKey={schematicKey} />
-          )}
-        </Form.Form>
-      </Schematic.Node.Form.StyleLockContext>
+      <Form.Form<typeof Schematic.elementConfigZ> {...formMethods}>
+        {isCustom ? (
+          <CustomVariantForm
+            specKey={specKey}
+            elKey={elKey}
+            actions={actions}
+            VariantForm={C.Form}
+          />
+        ) : (
+          <C.Form key={elKey} actions={actions} schematicKey={schematicKey} />
+        )}
+      </Form.Form>
     </Flex.Box>
   );
 };

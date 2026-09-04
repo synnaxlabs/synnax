@@ -8,17 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { type dimensions, type record } from "@synnaxlabs/x";
+import { type record } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import {
   buildParentOf,
   canGroup,
   canUngroup,
-  createActions,
-  fanOutMoves,
   closure,
+  createActions,
   drillIn,
+  fanOutMoves,
   lockMembers,
   remapMembers,
   soleRoot,
@@ -36,7 +36,6 @@ const node = (key: string, x = 0, y = 0): schematic.Node => ({
 const groupConfig = (members: string[]): Node.GroupBox.Config => ({
   variant: Node.GroupBox.VARIANT,
   members,
-  dimensions: { width: 100, height: 100 },
 });
 
 const doc = (
@@ -134,13 +133,6 @@ describe("group", () => {
   });
 
   describe("createActions", () => {
-    const flatDims: Record<string, dimensions.Dimensions> = {
-      a: { width: 10, height: 10 },
-      b: { width: 30, height: 10 },
-      c: { width: 20, height: 20 },
-      d: { width: 10, height: 40 },
-      e: { width: 50, height: 5 },
-    };
     const flatNodes = [
       node("a"),
       node("b", 100, 20),
@@ -149,23 +141,21 @@ describe("group", () => {
       node("e", 70, 80),
     ];
 
-    it("should insert a group sized to the members' bounding box", () => {
+    it("should insert a group anchored at the members' min corner", () => {
       const result = createActions({
         selected: ["c", "a", "e", "b", "d"],
         nodes: flatNodes,
         configs: {},
-        measure: (key) => flatDims[key] ?? null,
       });
       const inserted = result?.actions[0];
       expect(result?.actions).toHaveLength(1);
       expect(inserted).toMatchObject({
         type: "set_node",
         setNode: {
-          node: { position: { x: -70, y: -55 }, zIndex: -1 },
+          node: { position: { x: -60, y: -45 }, zIndex: -1 },
           config: {
             variant: "groupBox",
             members: ["c", "a", "e", "b", "d"],
-            dimensions: { width: 230, height: 170 },
           },
         },
       });
@@ -181,24 +171,15 @@ describe("group", () => {
     });
 
     it("should group a member's outermost group, not the member", () => {
-      const dims: Record<string, dimensions.Dimensions> = {
-        outer: { width: 200, height: 150 },
-        l1: { width: 30, height: 30 },
-        side: { width: 90, height: 40 },
-      };
       const result = createActions({
         selected: ["s6", "l1", "s8"],
         nodes: forestNodes,
         configs: forest,
-        measure: (key) => dims[key] ?? null,
       });
       expect(result?.actions[0]).toMatchObject({
         setNode: {
-          node: { position: { x: -30, y: -30 } },
-          config: {
-            members: ["outer", "l1", "side"],
-            dimensions: { width: 260, height: 210 },
-          },
+          node: { position: { x: -20, y: -20 } },
+          config: { members: ["outer", "l1", "side"] },
         },
       });
       expect(result?.selection.slice(1)).toEqual([
@@ -225,7 +206,6 @@ describe("group", () => {
         selected: ["l1"],
         nodes: forestNodes,
         configs: forest,
-        measure: () => null,
       });
       expect(result).toBeNull();
     });
@@ -235,17 +215,6 @@ describe("group", () => {
         selected: withMembers(["side"], forest),
         nodes: forestNodes,
         configs: forest,
-        measure: () => null,
-      });
-      expect(result).toBeNull();
-    });
-
-    it("should return null when a symbol is not measurable", () => {
-      const result = createActions({
-        selected: ["c", "a", "e", "b", "d"],
-        nodes: flatNodes,
-        configs: {},
-        measure: (key) => (key === "d" ? null : (flatDims[key] ?? null)),
       });
       expect(result).toBeNull();
     });
@@ -440,6 +409,7 @@ describe("group", () => {
         "s4",
         "s5",
         "s1",
+        "s8",
         "s9",
       ]);
     });
@@ -606,7 +576,6 @@ describe("group", () => {
         selected: ["a", "b"],
         nodes: [node("a"), node("b", 50, 50)],
         configs: remaining,
-        measure: () => ({ width: 10, height: 10 }),
       });
       const action = regrouped?.actions[0];
       expect(action?.type).toEqual("set_node");

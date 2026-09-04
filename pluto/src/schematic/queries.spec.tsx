@@ -301,11 +301,7 @@ describe("schematic queries", () => {
           actions: [
             schematic.setNode({
               node: { key: "g1", position: { x: 0, y: 0 } },
-              config: {
-                variant: "groupBox",
-                members: ["n1", "n2"],
-                dimensions: { width: 10, height: 10 },
-              },
+              config: { variant: "groupBox", members: ["n1", "n2"] },
             }),
           ],
         });
@@ -746,11 +742,6 @@ describe("schematic queries", () => {
   });
 
   describe("useGroup / useUngroup", () => {
-    const measure = (): { width: number; height: number } => ({
-      width: 10,
-      height: 10,
-    });
-
     const call = async (fn: () => string[] | null): Promise<string[] | null> => {
       let out: string[] | null = null;
       await act(async () => {
@@ -790,7 +781,7 @@ describe("schematic queries", () => {
         }),
         { wrapper: ScopedWrapper },
       );
-      const selection = await call(() => result.current.group(["n1", "n2"], measure));
+      const selection = await call(() => result.current.group(["n1", "n2"]));
       assert(selection != null);
       expect(selection.slice(1)).toEqual(["n1", "n2"]);
       const groupKey = selection[0];
@@ -800,7 +791,7 @@ describe("schematic queries", () => {
         expect(cfg?.members).toEqual(["n1", "n2"]);
         const groupNode = result.current.nodes.find((n) => n.key === groupKey);
         expect(groupNode?.zIndex).toEqual(-1);
-        expect(groupNode?.position).toEqual({ x: -30, y: -30 });
+        expect(groupNode?.position).toEqual({ x: -20, y: -20 });
       });
     });
 
@@ -813,7 +804,7 @@ describe("schematic queries", () => {
         }),
         { wrapper: ScopedWrapper },
       );
-      const selection = await call(() => result.current.group(["n1", "n2"], measure));
+      const selection = await call(() => result.current.group(["n1", "n2"]));
       assert(selection != null);
       const groupKey = selection[0];
       await waitFor(() => expect(result.current.configs[groupKey]).toBeDefined());
@@ -833,7 +824,7 @@ describe("schematic queries", () => {
         }),
         { wrapper: ScopedWrapper },
       );
-      const selection = await call(() => result.current.group(["n1", "n2"], measure));
+      const selection = await call(() => result.current.group(["n1", "n2"]));
       assert(selection != null);
       const groupKey = selection[0];
       await waitFor(() => expect(result.current.configs[groupKey]).toBeDefined());
@@ -849,7 +840,7 @@ describe("schematic queries", () => {
       const { result } = renderHook(() => Schematic.useGroup(), {
         wrapper: ScopedWrapper,
       });
-      const selection = await call(() => result.current(["n1"], measure));
+      const selection = await call(() => result.current(["n1"]));
       expect(selection).toBeNull();
     });
 

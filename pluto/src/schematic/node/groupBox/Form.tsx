@@ -13,7 +13,7 @@ import { Form } from "@/schematic/node/common/form";
 import { Text } from "@/text";
 
 export const GroupBoxForm = (): ReactElement => (
-  <Form.Wrapper lockable x>
+  <Form.Wrapper x>
     <Text.Text status="disabled" center>
       Groups have no editable properties.
     </Text.Text>

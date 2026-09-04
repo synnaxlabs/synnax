@@ -35,7 +35,7 @@ export const StyleForm = ({
   const hasStateOverrides =
     Form.useFieldValue<string>("stateOverrides", { optional: true }) != null;
   return (
-    <Wrapper lockable x align="stretch" empty>
+    <Wrapper x align="stretch" empty>
       <Flex.Box y grow>
         <Label.Form omit={omit} path="label" />
         <Flex.Box x grow>

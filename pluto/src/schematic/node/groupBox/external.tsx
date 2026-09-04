@@ -21,7 +21,6 @@ const NAME = "Group";
 export const defaultConfig = (): Config => ({
   variant: VARIANT,
   members: [],
-  dimensions: { width: 100, height: 100 },
 });
 
 const Preview = (): ReactElement => <div />;
