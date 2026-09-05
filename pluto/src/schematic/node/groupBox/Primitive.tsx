@@ -13,7 +13,7 @@ import { useStore } from "@xyflow/react";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { PADDING } from "@/schematic/node/groupBox/config";
+import { PADDING, TOP_PADDING } from "@/schematic/node/groupBox/config";
 
 export interface PrimitiveProps {
   nodeKey: string;
@@ -48,7 +48,7 @@ export const Primitive = ({
         maxY = Math.max(maxY, y + (node.measured.height ?? 0));
       }
       if (self == null || maxX === -Infinity)
-        return { width: 2 * PADDING, height: 2 * PADDING };
+        return { width: 2 * PADDING, height: TOP_PADDING + PADDING };
       const { x, y } = self.internals.positionAbsolute;
       return { width: maxX - x + PADDING, height: maxY - y + PADDING };
     },

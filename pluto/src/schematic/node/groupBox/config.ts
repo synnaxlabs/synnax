@@ -14,6 +14,9 @@ export const VARIANT = "groupBox" as const;
 /** PADDING is the gap between a group box's edge and its members' bounds. */
 export const PADDING = 20;
 
+/** TOP_PADDING is the larger gap above the members' bounds. */
+export const TOP_PADDING = 40;
+
 export const configZ = z.object({
   variant: z.literal(VARIANT),
   members: z.string().array(),

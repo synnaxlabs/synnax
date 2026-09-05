@@ -791,7 +791,7 @@ describe("schematic queries", () => {
         expect(cfg?.members).toEqual(["n1", "n2"]);
         const groupNode = result.current.nodes.find((n) => n.key === groupKey);
         expect(groupNode?.zIndex).toEqual(-1);
-        expect(groupNode?.position).toEqual({ x: -20, y: -20 });
+        expect(groupNode?.position).toEqual({ x: -20, y: -40 });
       });
     });
 

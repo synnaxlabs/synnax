@@ -19,7 +19,7 @@ import { Symbol } from "@/schematic/node/groupBox/Symbol";
 import { type NodeProps } from "@/schematic/node/spec";
 
 const initialNodes: Node[] = [
-  { id: "g1", position: { x: -20, y: -20 }, data: {} },
+  { id: "g1", position: { x: -20, y: -40 }, data: {} },
   { id: "m1", position: { x: 0, y: 0 }, measured: { width: 40, height: 20 }, data: {} },
   {
     id: "m2",
@@ -62,17 +62,17 @@ const chip = (container: HTMLElement): HTMLElement => {
 
 describe("GroupBox.Symbol", () => {
   it("should size the box to its members' bounds plus padding", () => {
-    // Far member edge: m2 at (100, 60) measuring 50x40. Box anchored at (-20, -20):
-    // width = 150 - (-20) + 20, height = 100 - (-20) + 20.
+    // Far member edge: m2 at (100, 60) measuring 50x40. Box anchored at (-20, -40):
+    // width = 150 - (-20) + 20, height = 100 - (-40) + 20.
     const { container } = renderSymbol();
     expect(box(container).style.width).toBe("190px");
-    expect(box(container).style.height).toBe("140px");
+    expect(box(container).style.height).toBe("160px");
   });
 
-  it("should fall back to the padding square without members", () => {
+  it("should fall back to the padding rectangle without members", () => {
     const { container } = renderSymbol({ config: defaultConfig() });
     expect(box(container).style.width).toBe("40px");
-    expect(box(container).style.height).toBe("40px");
+    expect(box(container).style.height).toBe("60px");
   });
 
   it("should track a member growing and shrinking", () => {
@@ -107,10 +107,10 @@ describe("GroupBox.Symbol", () => {
     expect(box(container).style.width).toBe("190px");
     fireEvent.click(getByText("grow"));
     expect(box(container).style.width).toBe("220px");
-    expect(box(container).style.height).toBe("190px");
+    expect(box(container).style.height).toBe("210px");
     fireEvent.click(getByText("shrink"));
     expect(box(container).style.width).toBe("150px");
-    expect(box(container).style.height).toBe("110px");
+    expect(box(container).style.height).toBe("130px");
   });
 
   it("should show the lock chip when selected", () => {

@@ -157,7 +157,7 @@ describe("group", () => {
       expect(inserted).toMatchObject({
         type: "set_node",
         setNode: {
-          node: { position: { x: -60, y: -45 }, zIndex: -1 },
+          node: { position: { x: -60, y: -65 }, zIndex: -1 },
           config: {
             variant: "groupBox",
             members: ["c", "a", "e", "b", "d"],
@@ -183,7 +183,7 @@ describe("group", () => {
       });
       expect(result?.actions[0]).toMatchObject({
         setNode: {
-          node: { position: { x: -20, y: -20 } },
+          node: { position: { x: -20, y: -40 } },
           config: { members: ["outer", "l1", "side"] },
         },
       });

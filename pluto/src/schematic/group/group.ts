@@ -13,7 +13,7 @@ import { compare, type record, uuid } from "@synnaxlabs/x";
 import { Node } from "@/schematic/node";
 import { type Diagram } from "@/vis/diagram";
 
-const { PADDING } = Node.GroupBox;
+const { PADDING, TOP_PADDING } = Node.GroupBox;
 
 const isConfig = (c: record.Unknown | undefined): c is Node.GroupBox.Config =>
   c?.variant === Node.GroupBox.VARIANT;
@@ -101,7 +101,7 @@ export const createActions = ({
   const config: Node.GroupBox.Config = { ...Node.GroupBox.defaultConfig(), members };
   const node = {
     key,
-    position: { x: minX - PADDING, y: minY - PADDING },
+    position: { x: minX - PADDING, y: minY - TOP_PADDING },
     zIndex: -1,
   };
   return {
