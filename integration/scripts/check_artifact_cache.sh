@@ -16,7 +16,7 @@ PLATFORM=${1:-linux}
 if [ "${PLATFORM}" = "all" ]; then
     OS_NAMES=("linux" "windows")
 else
-    OS_NAMES=("${PLATFORM}")
+    read -r -a OS_NAMES <<< "${PLATFORM}"
 fi
 
 CORE_ARTIFACTS=()

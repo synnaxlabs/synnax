@@ -135,17 +135,18 @@ jobs:
         if: matrix.codegen
         run: scripts/check_go_generate.sh ${{ inputs.directory }}
 
+      # macOS skips race and cover until it runs on stronger machines.
       - name: Test
         timeout-minutes: 150
         run: >-
           go run github.com/onsi/ginkgo/v2/ginkgo -r ${{ runner.os == 'macOS' &&
-          '--procs=2 --compilers=2' || '-p' }} --randomize-all --randomize-suites
-          --fail-on-pending --fail-on-empty --keep-going --cover
-          --coverprofile=cover.out --race --trace --timeout=2h --github-output ${{
-          inputs.ginkgo_flags }}
+          '--procs=2 --compilers=1' || '-p --cover --coverprofile=cover.out --race' }}
+          --randomize-all --randomize-suites --fail-on-pending --fail-on-empty
+          --keep-going --trace --timeout=2h --github-output ${{ inputs.ginkgo_flags }}
         working-directory: ${{ inputs.directory }}
 
       - name: Upload coverage
+        if: runner.os != 'macOS'
         uses: codecov/codecov-action@v7
         with:
           fail_ci_if_error: true
