@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, type scale, TimeRange, TimeStamp } from "@synnaxlabs/x";
+import { bounds, type scale, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { type ScaleLinear, scaleLinear, type ScaleTime, scaleTime } from "d3-scale";
 import { z } from "zod";
 
@@ -96,6 +96,7 @@ class TimeTickFactory implements TickFactory {
       // Re-request fewer ticks when d3 overshoots the count and crowds the labels.
       if (ticks.length > count)
         ticks = this.normalScale.ticks(Math.ceil(count ** 2 / ticks.length));
+      ticks = evenlySpaceTwoDayTicks(ticks, domain);
       this.currTicks = ticks.map((tick) => ({
         label: this.normalTickLabel(tick),
         position: this.normalScale(tick),
@@ -105,20 +106,26 @@ class TimeTickFactory implements TickFactory {
   }
 
   normalTickLabel(date: Date): string {
-    let formatted: string = `${date.getSeconds()}`;
     const ms = date.getMilliseconds();
-    if (ms !== 0) {
-      const millisecondString = Math.round(date.getMilliseconds())
-        .toString()
-        .padStart(3, "0")
-        .replace(/0+$/, "");
-      formatted += `.${millisecondString}`;
+    if (date.getSeconds() !== 0 || ms !== 0) {
+      let formatted: string = `${date.getSeconds()}`;
+      if (ms !== 0) {
+        const millisecondString = Math.round(ms)
+          .toString()
+          .padStart(3, "0")
+          .replace(/0+$/, "");
+        formatted += `.${millisecondString}`;
+      }
+      return `${formatted}s`;
     }
     // If we're on the minute, show the hour and minute in military time
-    if (date.getSeconds() === 0 && ms === 0)
-      formatted = `${date.getHours()}:${date.getMinutes().toString().padStart(2, "0")}`;
-    else formatted += "s";
-    return formatted;
+    if (date.getHours() !== 0 || date.getMinutes() !== 0)
+      return `${date.getHours()}:${date.getMinutes().toString().padStart(2, "0")}`;
+    // Midnight ticks label the finest calendar unit that changed instead.
+    const month = MONTH_FORMAT.format(date);
+    if (date.getDate() !== 1) return `${month} ${date.getDate()}`;
+    if (date.getMonth() !== 0) return month;
+    return `${date.getFullYear()}`;
   }
 }
 
@@ -164,6 +171,42 @@ class LinearTickFactory implements TickFactory {
 const calcTickCount = (size: number, pixelsPerTick: number): number => {
   const tickCount = Math.floor(size / pixelsPerTick);
   return tickCount > 0 ? tickCount : 1;
+};
+
+const DAY_MS = TimeSpan.DAY.milliseconds;
+
+const MONTH_FORMAT = new Intl.DateTimeFormat("default", { month: "short" });
+
+const isLocalMidnight = (date: Date): boolean =>
+  date.getHours() === 0 &&
+  date.getMinutes() === 0 &&
+  date.getSeconds() === 0 &&
+  date.getMilliseconds() === 0;
+
+const localEpochDay = (date: Date): number =>
+  Math.floor((date.getTime() - date.getTimezoneOffset() * 60_000) / DAY_MS);
+
+// d3's two-day tick interval restarts on the first of each month, so ticks at a month
+// boundary can sit one day apart. Rebuild them on a two-day grid anchored to the epoch.
+const evenlySpaceTwoDayTicks = (ticks: Date[], domain: TimeRange): Date[] => {
+  if (ticks.length < 2 || !ticks.every(isLocalMidnight)) return ticks;
+  const gapDays = ticks
+    .slice(1)
+    .map((tick, i) => Math.round((tick.getTime() - ticks[i].getTime()) / DAY_MS));
+  if (!gapDays.every((gap) => gap === 1 || gap === 2) || !gapDays.includes(2))
+    return ticks;
+  const cursor = new Date(domain.start.milliseconds);
+  cursor.setHours(0, 0, 0, 0);
+  if (cursor.getTime() < domain.start.milliseconds)
+    cursor.setDate(cursor.getDate() + 1);
+  if (localEpochDay(cursor) % 2 !== 0) cursor.setDate(cursor.getDate() + 1);
+  const end = domain.end.milliseconds;
+  const rebuilt: Date[] = [];
+  while (cursor.getTime() <= end) {
+    rebuilt.push(new Date(cursor));
+    cursor.setDate(cursor.getDate() + 2);
+  }
+  return rebuilt;
 };
 
 const TICK_FACTORIES: Record<TickType, (props: ParsedTickFactoryProps) => TickFactory> =
