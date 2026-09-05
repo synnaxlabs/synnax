@@ -173,7 +173,9 @@ jobs:
 
   build:
     needs: [setup, create-release]
-    if: needs.setup.result == 'success'
+    if: >-
+      !cancelled() && needs.setup.result == 'success' && needs.create-release.result !=
+      'failure'
     permissions:
       actions: read
       contents: write
@@ -193,6 +195,7 @@ jobs:
       sign_binaries: ${{ github.event_name == 'push' }}
       upload_to_release: ${{ github.event_name == 'push' }}
       version: ${{ needs.setup.outputs.VERSION }}
+      use_simple_artifact_names: true
     secrets: inherit
 
   windows-installer:
@@ -211,7 +214,7 @@ jobs:
       - name: Download Core Binary
         uses: actions/download-artifact@v8
         with:
-          name: synnax-core-v${{ needs.setup.outputs.VERSION }}-windows
+          name: synnax-core-windows
           path: scripts/
 
       - name: Rename Binary for Installer
