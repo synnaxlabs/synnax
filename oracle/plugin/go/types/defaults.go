@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/oracle/domain/validation"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/domain"
+	"github.com/synnaxlabs/oracle/plugin/go/internal/imports"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/set"
@@ -434,10 +435,24 @@ func resolvesToMethodType(ref resolution.TypeRef, data *templateData) bool {
 	return false
 }
 
+// probeData returns a copy of data whose import manager is a scratch instance, so
+// rendering done only to answer a has-own probe registers no imports on the real file.
+func probeData(data *templateData) *templateData {
+	m := imports.NewManager()
+	r := *data.resolver
+	r.ImportAdder = m
+	d := *data
+	d.Manager = m
+	d.resolver = &r
+	return &d
+}
+
 // typeNeedsMethod reports whether the type named by ref emits a recursive method: it
 // has a field satisfying hasOwn, or a nested struct field, slice/array element, map
 // value, or union variant payload that (transitively) does. Generic types and type
 // parameters never emit a method. visited guards against cycles in recursive types.
+// Probing must not leak imports into the emitted file, so hasOwn runs against a
+// scratch-import copy of data.
 func typeNeedsMethod(
 	ref resolution.TypeRef,
 	data *templateData,
@@ -469,11 +484,12 @@ func typeNeedsMethod(
 		if form.IsGeneric() {
 			return false
 		}
+		probe := probeData(data)
 		for _, field := range resolution.UnifiedFields(resolved, data.table) {
 			if skip(field, data) {
 				continue
 			}
-			if hasOwn(field, data) ||
+			if hasOwn(field, probe) ||
 				typeNeedsMethod(field.Type, data, visited, hasOwn, skip) {
 				return true
 			}

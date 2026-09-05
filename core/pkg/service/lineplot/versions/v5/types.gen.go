@@ -12,15 +12,12 @@
 package v5
 
 import (
-	"encoding/json"
 	"strconv"
 
-	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v0"
 	color "github.com/synnaxlabs/x/color/versions/v0"
-	"github.com/synnaxlabs/x/errors"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
-	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	text "github.com/synnaxlabs/x/text/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -209,101 +206,6 @@ type Channels struct {
 	Y4 []channel.Key `json:"y4,omitzero" msgpack:"y4,omitzero"`
 }
 
-type CustomRangeType string
-
-const (
-	DynamicCustomRangeType CustomRangeType = "dynamic"
-	StaticCustomRangeType  CustomRangeType = "static"
-)
-
-type CustomRangeVariant interface {
-	isCustomRangeVariant()
-}
-
-// DynamicCustomRange is a rolling window.
-type DynamicCustomRange struct {
-	// Span is the span of the window, which ends now.
-	Span telem.TimeSpan `json:"span" msgpack:"span"`
-}
-
-func (DynamicCustomRange) isCustomRangeVariant() {}
-
-// StaticCustomRange is a fixed window.
-type StaticCustomRange struct {
-	// Start is the inclusive start of the fixed window.
-	Start telem.TimeStamp `json:"start" msgpack:"start"`
-	// End is the exclusive end of the fixed window.
-	End telem.TimeStamp `json:"end" msgpack:"end"`
-}
-
-func (StaticCustomRange) isCustomRangeVariant() {}
-
-// CustomRange is the window a plot's synthetic "custom" range key resolves to.
-type CustomRange struct {
-	Variant CustomRangeVariant
-}
-
-// MarshalJSON encodes the active variant with its "variant" tag injected.
-func (u CustomRange) MarshalJSON() ([]byte, error) {
-	if u.Variant == nil {
-		return []byte("null"), nil
-	}
-	var t CustomRangeType
-	switch u.Variant.(type) {
-	case DynamicCustomRange:
-		t = DynamicCustomRangeType
-	case StaticCustomRange:
-		t = StaticCustomRangeType
-	default:
-		return nil, errors.Newf("CustomRange: nil or unknown variant %T", u.Variant)
-	}
-	raw, err := json.Marshal(u.Variant)
-	if err != nil {
-		return nil, err
-	}
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		return nil, err
-	}
-	tag, err := json.Marshal(t)
-	if err != nil {
-		return nil, err
-	}
-	fields["variant"] = tag
-	return json.Marshal(fields)
-}
-
-// UnmarshalJSON decodes the variant selected by the "variant" field.
-func (u *CustomRange) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
-		u.Variant = nil
-		return nil
-	}
-	var disc struct {
-		Type CustomRangeType `json:"variant"`
-	}
-	if err := json.Unmarshal(data, &disc); err != nil {
-		return err
-	}
-	switch disc.Type {
-	case DynamicCustomRangeType:
-		var v DynamicCustomRange
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case StaticCustomRangeType:
-		var v StaticCustomRange
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	default:
-		return errors.Newf("CustomRange: unknown variant %q", disc.Type)
-	}
-	return nil
-}
-
 // Ranges binds range keys to each x-axis.
 type Ranges struct {
 	// X1 are the range keys plotted against the x1 axis. Range keys are opaque strings
@@ -313,8 +215,6 @@ type Ranges struct {
 	X1 []string `json:"x1,omitzero" msgpack:"x1,omitzero"`
 	// X2 are the range keys plotted against the x2 axis.
 	X2 []string `json:"x2,omitzero" msgpack:"x2,omitzero"`
-	// Custom is the window the "custom" range key resolves to.
-	Custom *CustomRange `json:"custom,omitempty" msgpack:"custom,omitempty"`
 }
 
 // ManualBounds controls whether an axis uses a manually-set bound on each side
@@ -564,7 +464,6 @@ func (l *LinePlot) ApplyDefaults() {
 // schema constraints.
 func (l LinePlot) Validate() error {
 	v := validate.New("LinePlot")
-	v.NotEmptyString("name", l.Name)
 	v.Exec(func() error { return validate.PathedError(l.Title.Validate(), "title") })
 	v.Exec(func() error { return validate.PathedError(l.Legend.Validate(), "legend") })
 	v.Exec(func() error { return validate.PathedError(l.Axes.Validate(), "axes") })

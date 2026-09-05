@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v5_test
+package v6_test
 
 import (
 	"encoding/json"
@@ -15,7 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v5 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v5"
+	v6 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v6"
 	"github.com/synnaxlabs/x/encoding/orc"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
@@ -25,9 +25,9 @@ import (
 var truncatedErr = SatisfyAny(MatchError(io.EOF), MatchError(io.ErrUnexpectedEOF))
 
 var _ = Describe("CustomRange", func() {
-	dynamic := v5.CustomRange{Variant: v5.DynamicCustomRange{Span: telem.TimeSpan(60)}}
-	static := v5.CustomRange{
-		Variant: v5.StaticCustomRange{
+	dynamic := v6.CustomRange{Variant: v6.DynamicCustomRange{Span: telem.TimeSpan(60)}}
+	static := v6.CustomRange{
+		Variant: v6.StaticCustomRange{
 			Start: telem.TimeStamp(2),
 			End:   telem.TimeStamp(3),
 		},
@@ -52,21 +52,21 @@ var _ = Describe("CustomRange", func() {
 		})
 
 		It("Should encode a nil variant as null", func() {
-			Expect(MustSucceed(json.Marshal(v5.CustomRange{}))).
+			Expect(MustSucceed(json.Marshal(v6.CustomRange{}))).
 				To(Equal([]byte("null")))
 		})
 	})
 
 	Describe("UnmarshalJSON", func() {
 		It("Should round-trip the dynamic variant", func() {
-			var decoded v5.CustomRange
+			var decoded v6.CustomRange
 			Expect(json.Unmarshal(MustSucceed(json.Marshal(dynamic)), &decoded)).
 				To(Succeed())
 			Expect(decoded).To(Equal(dynamic))
 		})
 
 		It("Should round-trip the static variant", func() {
-			var decoded v5.CustomRange
+			var decoded v6.CustomRange
 			Expect(json.Unmarshal(MustSucceed(json.Marshal(static)), &decoded)).
 				To(Succeed())
 			Expect(decoded).To(Equal(static))
@@ -79,20 +79,20 @@ var _ = Describe("CustomRange", func() {
 		})
 
 		It("Should reject an unknown variant", func() {
-			var decoded v5.CustomRange
+			var decoded v6.CustomRange
 			Expect(json.Unmarshal([]byte(`{"variant":"bogus"}`), &decoded)).
 				To(MatchError(ContainSubstring("unknown variant")))
 		})
 
 		It("Should reject malformed JSON", func() {
-			var decoded v5.CustomRange
+			var decoded v6.CustomRange
 			Expect(json.Unmarshal([]byte(`{`), &decoded)).
 				To(MatchError(ContainSubstring("unexpected end of JSON input")))
 		})
 
 		DescribeTable("Should reject a variant with mistyped fields",
 			func(payload string) {
-				var decoded v5.CustomRange
+				var decoded v6.CustomRange
 				Expect(json.Unmarshal([]byte(payload), &decoded)).
 					To(MatchError(ContainSubstring("cannot unmarshal")))
 			},
@@ -104,7 +104,7 @@ var _ = Describe("CustomRange", func() {
 	Describe("EncodeOrc", func() {
 		It("Should reject a nil variant", func() {
 			w := orc.NewWriter(0)
-			Expect(v5.CustomRange{}.EncodeOrc(w)).
+			Expect(v6.CustomRange{}.EncodeOrc(w)).
 				To(MatchError(ContainSubstring("nil or unknown variant")))
 		})
 	})
@@ -115,20 +115,20 @@ var _ = Describe("CustomRange", func() {
 			w.String("bogus")
 			r := orc.NewReader(nil)
 			r.ResetBytes(w.Bytes())
-			var decoded v5.CustomRange
+			var decoded v6.CustomRange
 			Expect(decoded.DecodeOrc(r)).
 				To(MatchError(ContainSubstring("unknown variant")))
 		})
 
 		DescribeTable("Should reject truncated input",
-			func(cr v5.CustomRange) {
+			func(cr v6.CustomRange) {
 				w := orc.NewWriter(0)
 				Expect(cr.EncodeOrc(w)).To(Succeed())
 				full := w.Bytes()
 				for i := range len(full) {
 					r := orc.NewReader(nil)
 					r.ResetBytes(full[:i])
-					var decoded v5.CustomRange
+					var decoded v6.CustomRange
 					Expect(decoded.DecodeOrc(r)).To(truncatedErr)
 				}
 			},
@@ -139,24 +139,24 @@ var _ = Describe("CustomRange", func() {
 })
 
 var _ = Describe("Ranges custom window codec", func() {
-	dynamic := v5.CustomRange{Variant: v5.DynamicCustomRange{Span: telem.TimeSpan(60)}}
+	dynamic := v6.CustomRange{Variant: v6.DynamicCustomRange{Span: telem.TimeSpan(60)}}
 
 	It("Should propagate a custom range encoding failure", func() {
 		w := orc.NewWriter(0)
-		rv := v5.Ranges{Custom: &v5.CustomRange{}}
+		rv := v6.Ranges{Custom: &v6.CustomRange{}}
 		Expect(rv.EncodeOrc(w)).
 			To(MatchError(ContainSubstring("nil or unknown variant")))
 	})
 
 	It("Should reject truncated input with a custom range present", func() {
 		w := orc.NewWriter(0)
-		rv := v5.Ranges{X1: []string{"custom"}, Custom: &dynamic}
+		rv := v6.Ranges{X1: []string{"custom"}, Custom: &dynamic}
 		Expect(rv.EncodeOrc(w)).To(Succeed())
 		full := w.Bytes()
 		for i := range len(full) {
 			r := orc.NewReader(nil)
 			r.ResetBytes(full[:i])
-			var decoded v5.Ranges
+			var decoded v6.Ranges
 			Expect(decoded.DecodeOrc(r)).To(truncatedErr)
 		}
 	})

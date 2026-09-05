@@ -7,19 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package versions
+package v6
 
 import (
-	v0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v0"
+	"context"
+
 	v5 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v5"
-	v6 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v6"
-	"github.com/synnaxlabs/x/migrate"
+	"github.com/synnaxlabs/x/gorp"
 )
 
-// Migrations is the ordered migration chain for stored line plots.
-var Migrations = []migrate.Migration{
-	v0.NormalizeKeys,
-	v0.Migration,
-	v5.Migration,
-	v6.Migration,
+func MigrateLinePlot(ctx context.Context, old v5.LinePlot) (LinePlot, error) {
+	return autoMigrateLinePlot(ctx, old)
 }
+
+func MigrateRanges(ctx context.Context, old v5.Ranges) (Ranges, error) {
+	return autoMigrateRanges(ctx, old)
+}
+
+var Migration = gorp.NewEntryMigration("v58_custom_range", MigrateLinePlot)
