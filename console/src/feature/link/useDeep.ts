@@ -9,7 +9,7 @@
 
 import { Drift } from "@synnaxlabs/drift";
 import { Status, useAsyncEffect } from "@synnaxlabs/pluto";
-import { strings } from "@synnaxlabs/x";
+import { strings, TimeSpan } from "@synnaxlabs/x";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrent, onOpenUrl } from "@tauri-apps/plugin-deep-link";
 import { useEffect, useRef } from "react";
@@ -20,6 +20,8 @@ import { Session } from "@/session";
 const BASE_LINK = `${Link.PREFIX}<cluster-key>`;
 
 const INCORRECT_FORMAT_ERROR_MESSAGE = `Links must be of the form ${BASE_LINK} or ${BASE_LINK}/<resource>/<resource-key>`;
+
+const SETTLE_TIMEOUT = TimeSpan.seconds(30);
 
 // Deps are the runtime bindings useDeep relies on. They default to the live Tauri
 // deep-link plugin and runtime engine; tests inject fakes to drive links without Tauri.
@@ -45,6 +47,7 @@ export const useDeep = (
   if (deps.engine !== "tauri") return;
   const handleError = Status.useErrorHandler();
   const dispatch = Session.useDispatch();
+  const store = Session.useStore();
   const settled = Session.useSettled();
   const settledRef = useRef(settled);
   settledRef.current = settled;
@@ -56,7 +59,13 @@ export const useDeep = (
   }, [settled]);
   const awaitSettled = async (): Promise<void> => {
     if (settledRef.current) return;
-    await new Promise<void>((resolve) => settledWaitersRef.current.push(resolve));
+    await new Promise<void>((resolve, reject) => {
+      settledWaitersRef.current.push(resolve);
+      setTimeout(
+        () => reject(new Error("Timed out waiting for the workspace to settle")),
+        SETTLE_TIMEOUT.milliseconds,
+      );
+    });
   };
   const urlHandler = async (urls: string[]) => {
     try {
@@ -70,11 +79,15 @@ export const useDeep = (
 
       const client = await connect(urlParts[0]);
       if (urlParts.length === 1) return;
+      const coreKey = Session.Core.selectSelectedKey(store.getState());
 
       // Handlers resolve their target through the query cache, which the session
-      // synchronizers fill after connect. On a cold launch or a cluster switch the
+      // synchronizers fill after connect. On a cold launch or a Core switch the
       // handler would otherwise read the cache before its first reconcile pass.
       await awaitSettled();
+      // A later link that switched Cores supersedes this one. The handler would run
+      // against the new Core's session, so drop it.
+      if (Session.Core.selectSelectedKey(store.getState()) !== coreKey) return;
 
       const resource = urlParts[1];
       const resourceKey = urlParts[2];

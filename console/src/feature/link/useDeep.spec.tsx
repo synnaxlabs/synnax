@@ -9,10 +9,12 @@
 
 import { type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { Status } from "@synnaxlabs/pluto";
+import { TimeSpan } from "@synnaxlabs/x";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
-import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { Link } from "@/feature/link";
 import { Link as PlatformLink } from "@/platform/link";
@@ -57,7 +59,11 @@ const setup = async (overrides: Partial<Link.Deps> = {}): Promise<Harness> => {
 };
 
 const CORE_KEY = "local";
+const OTHER_CORE_KEY = "other";
+const THIRD_CORE_KEY = "third";
 
+// All records reach the same live Core, so a Core switch in a spec connects for real
+// while still changing the session's selected Core key.
 const createCoreState = (): Session.Core.SliceState => ({
   ...Session.Core.ZERO_SLICE_STATE,
   cores: {
@@ -65,6 +71,24 @@ const createCoreState = (): Session.Core.SliceState => ({
       key: CORE_KEY,
       name: "Local",
       host: "localhost",
+      port: 9090,
+      username: "synnax",
+      password: "seldon",
+      secure: false,
+    },
+    [OTHER_CORE_KEY]: {
+      key: OTHER_CORE_KEY,
+      name: "Other",
+      host: "127.0.0.1",
+      port: 9090,
+      username: "synnax",
+      password: "seldon",
+      secure: false,
+    },
+    [THIRD_CORE_KEY]: {
+      key: THIRD_CORE_KEY,
+      name: "Third",
+      host: "127.0.0.1",
       port: 9090,
       username: "synnax",
       password: "seldon",
@@ -79,7 +103,7 @@ interface SettledHarness extends Omit<Harness, "connect" | "handlers"> {
   handlers: Record<string, Mock<PlatformLink.Handler>>;
   store: TestStore;
   settled: () => boolean;
-  resolved: Client;
+  statuses: () => Status.NotificationSpec[];
 }
 
 /**
@@ -124,7 +148,10 @@ const setupSettled = async (
   const { result } = renderHook(
     () => {
       Link.useDeep(connect, handlers, deps);
-      return Session.useSettled();
+      return {
+        settled: Session.useSettled(),
+        statuses: Status.useNotifications().statuses,
+      };
     },
     { wrapper: Wrapper },
   );
@@ -134,13 +161,14 @@ const setupSettled = async (
     deps,
     openURL: (urls) => openURL(urls),
     store,
-    settled: () => result.current,
-    resolved,
+    settled: () => result.current.settled,
+    statuses: () => result.current.statuses,
   };
 };
 
 describe("useDeep", () => {
   beforeEach(() => localStorage.clear());
+  afterEach(() => vi.useRealTimers());
 
   it("should open a resource link the app was launched from", async () => {
     const { connect, handlers } = await setup({
@@ -299,10 +327,10 @@ describe("useDeep", () => {
   it("should hold a link when connecting itself unsettles the workspace", async () => {
     const h = await setupSettled();
     await waitFor(() => expect(h.settled()).toBe(true));
-    // Models a cluster switch: the client swap unsettles before connect resolves.
+    // Models a Core switch: the client swap unsettles before connect resolves.
     h.connect.mockImplementation(async () => {
       h.store.dispatch(Session.Persist.beginSwap());
-      return h.resolved;
+      return client();
     });
     h.openURL(["synnax://cluster/c2/schematic/s2"]);
     await waitFor(() => expect(h.connect).toHaveBeenCalledWith("c2"));
@@ -313,9 +341,164 @@ describe("useDeep", () => {
     });
     await waitFor(() =>
       expect(h.handlers.schematic).toHaveBeenCalledWith(
-        expect.objectContaining({ key: "s2", client: h.resolved }),
+        expect.objectContaining({ key: "s2" }),
       ),
     );
+  });
+
+  it("should drop a held link superseded by a Core switch", async () => {
+    const h = await setupSettled();
+    await waitFor(() => expect(h.settled()).toBe(true));
+    act(() => {
+      h.store.dispatch(Session.Persist.beginSwap());
+    });
+    h.openURL(["synnax://cluster/c1/range/r1"]);
+    await waitFor(() => expect(h.connect).toHaveBeenCalledWith("c1"));
+    // The second link switches Cores, so the provider swaps to a fresh client.
+    h.connect.mockImplementation(async () => {
+      h.store.dispatch(Session.Core.select(OTHER_CORE_KEY));
+      return client();
+    });
+    h.openURL(["synnax://cluster/c2/schematic/s2"]);
+    await waitFor(() => expect(h.connect).toHaveBeenCalledWith("c2"));
+    await act(async () => {});
+    act(() => {
+      h.store.dispatch(Session.Persist.endSwap());
+    });
+    await waitFor(() =>
+      expect(h.handlers.schematic).toHaveBeenCalledWith(
+        expect.objectContaining({ key: "s2" }),
+      ),
+    );
+    await act(async () => {});
+    expect(h.handlers.range).not.toHaveBeenCalled();
+  });
+
+  it("should run only the latest of two links racing to different Cores", async () => {
+    const h = await setupSettled();
+    await waitFor(() => expect(h.settled()).toBe(true));
+    act(() => {
+      h.store.dispatch(Session.Persist.beginSwap());
+    });
+    h.openURL(["synnax://cluster/c1/range/r1"]);
+    await waitFor(() => expect(h.connect).toHaveBeenCalledWith("c1"));
+    h.connect.mockImplementation(async () => {
+      h.store.dispatch(Session.Core.select(OTHER_CORE_KEY));
+      return client();
+    });
+    h.openURL(["synnax://cluster/c2/range/r2"]);
+    await waitFor(() => expect(h.connect).toHaveBeenCalledWith("c2"));
+    await act(async () => {});
+    act(() => {
+      h.store.dispatch(Session.Persist.endSwap());
+    });
+    await waitFor(() =>
+      expect(h.handlers.range).toHaveBeenCalledWith(
+        expect.objectContaining({ key: "r2" }),
+      ),
+    );
+    await act(async () => {});
+    expect(h.handlers.range).toHaveBeenCalledTimes(1);
+  });
+
+  it("should drop a held launch link superseded by a runtime Core switch", async () => {
+    const h = await setupSettled(
+      { getCurrentURLs: async () => ["synnax://cluster/c1/range/r1"] },
+      (pre) => pre.dispatch(Session.Persist.beginSwap()),
+    );
+    await waitFor(() => expect(h.connect).toHaveBeenCalledWith("c1"));
+    h.connect.mockImplementation(async () => {
+      h.store.dispatch(Session.Core.select(OTHER_CORE_KEY));
+      return client();
+    });
+    h.openURL(["synnax://cluster/c2/schematic/s2"]);
+    await waitFor(() => expect(h.connect).toHaveBeenCalledWith("c2"));
+    await act(async () => {});
+    act(() => {
+      h.store.dispatch(Session.Persist.endSwap());
+    });
+    await waitFor(() =>
+      expect(h.handlers.schematic).toHaveBeenCalledWith(
+        expect.objectContaining({ key: "s2" }),
+      ),
+    );
+    await act(async () => {});
+    expect(h.handlers.range).not.toHaveBeenCalled();
+  });
+
+  it("should drop every link superseded by a later Core switch", async () => {
+    const h = await setupSettled();
+    await waitFor(() => expect(h.settled()).toBe(true));
+    const switchTo = (key: string) => async () => {
+      h.store.dispatch(Session.Core.select(key));
+      return client();
+    };
+    act(() => {
+      h.store.dispatch(Session.Persist.beginSwap());
+    });
+    h.openURL(["synnax://cluster/c1/range/r1"]);
+    await waitFor(() => expect(h.connect).toHaveBeenCalledWith("c1"));
+    h.connect.mockImplementation(switchTo(OTHER_CORE_KEY));
+    h.openURL(["synnax://cluster/c2/schematic/s2"]);
+    await waitFor(() => expect(h.connect).toHaveBeenCalledWith("c2"));
+    h.connect.mockImplementation(switchTo(THIRD_CORE_KEY));
+    h.openURL(["synnax://cluster/c3/range/r3"]);
+    await waitFor(() => expect(h.connect).toHaveBeenCalledWith("c3"));
+    await act(async () => {});
+    act(() => {
+      h.store.dispatch(Session.Persist.endSwap());
+    });
+    await waitFor(() =>
+      expect(h.handlers.range).toHaveBeenCalledWith(
+        expect.objectContaining({ key: "r3" }),
+      ),
+    );
+    await act(async () => {});
+    expect(h.handlers.range).toHaveBeenCalledTimes(1);
+    expect(h.handlers.schematic).not.toHaveBeenCalled();
+  });
+
+  it("should not run a timed-out link when the workspace settles later", async () => {
+    const h = await setupSettled();
+    await waitFor(() => expect(h.settled()).toBe(true));
+    act(() => {
+      h.store.dispatch(Session.Persist.beginSwap());
+    });
+    vi.useFakeTimers();
+    h.openURL(["synnax://cluster/c1/range/r1"]);
+    await act(async () => {});
+    expect(h.connect).toHaveBeenCalledWith("c1");
+    await act(async () => {
+      vi.advanceTimersByTime(Number(TimeSpan.seconds(31).milliseconds));
+    });
+    vi.useRealTimers();
+    await act(async () => {});
+    act(() => {
+      h.store.dispatch(Session.Persist.endSwap());
+    });
+    await waitFor(() => expect(h.settled()).toBe(true));
+    await act(async () => {});
+    expect(h.handlers.range).not.toHaveBeenCalled();
+  });
+
+  it("should fail a link with an error status when the workspace never settles", async () => {
+    const h = await setupSettled();
+    await waitFor(() => expect(h.settled()).toBe(true));
+    act(() => {
+      h.store.dispatch(Session.Persist.beginSwap());
+    });
+    vi.useFakeTimers();
+    h.openURL(["synnax://cluster/c1/range/r1"]);
+    await act(async () => {});
+    expect(h.connect).toHaveBeenCalledWith("c1");
+    await act(async () => {
+      vi.advanceTimersByTime(Number(TimeSpan.seconds(31).milliseconds));
+    });
+    vi.useRealTimers();
+    await waitFor(() =>
+      expect(h.statuses().some((s) => s.message.includes("Failed to open"))).toBe(true),
+    );
+    expect(h.handlers.range).not.toHaveBeenCalled();
   });
 
   it("should hold a link fired after a settle cycle re-arms the wait", async () => {
