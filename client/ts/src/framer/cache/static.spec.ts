@@ -13,7 +13,7 @@ import {
   MultiSeries,
   Series,
   sleep,
-  type TimeRange,
+  TimeRange,
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
@@ -575,6 +575,172 @@ describe("StaticReadCache", () => {
       expect(c.dirtyRead(tr).gaps).toHaveLength(0);
       await sleep.sleep(TimeSpan.milliseconds(10));
       c.gc();
+      expect(c.dirtyRead(tr).gaps).toHaveLength(1);
+    });
+
+    test("should keep fresh coverage through gc", () => {
+      const c = new Static({});
+      const tr = TimeStamp.seconds(1).spanRange(TimeSpan.seconds(1));
+      c.markFetched(tr);
+      c.gc();
+      expect(c.dirtyRead(tr).gaps).toHaveLength(0);
+    });
+
+    test("should expire a merged span by its oldest mark", async () => {
+      const c = new Static({ staleEntryThreshold: TimeSpan.milliseconds(5) });
+      c.markFetched(TimeStamp.seconds(1).spanRange(TimeSpan.seconds(1)));
+      await sleep.sleep(TimeSpan.milliseconds(10));
+      c.markFetched(TimeStamp.seconds(2).spanRange(TimeSpan.seconds(1)));
+      c.gc();
+      const { gaps } = c.dirtyRead(TimeStamp.seconds(1).spanRange(TimeSpan.seconds(2)));
+      expect(gaps).toHaveLength(1);
+      expect(gaps[0]).toEqual(TimeStamp.seconds(1).spanRange(TimeSpan.seconds(2)));
+    });
+
+    test("should not let a rolling read keep refreshing its own coverage", async () => {
+      const c = new Static({ staleEntryThreshold: TimeSpan.milliseconds(30) });
+      c.markFetched(TimeStamp.seconds(0).spanRange(TimeSpan.seconds(1)));
+      for (let i = 1; i <= 4; i++) {
+        await sleep.sleep(TimeSpan.milliseconds(15));
+        c.markFetched(TimeStamp.seconds(i).spanRange(TimeSpan.seconds(1)));
+      }
+      c.gc();
+      const { gaps } = c.dirtyRead(TimeStamp.seconds(0).spanRange(TimeSpan.seconds(5)));
+      expect(gaps).toHaveLength(1);
+      expect(gaps[0]).toEqual(TimeStamp.seconds(0).spanRange(TimeSpan.seconds(5)));
+    });
+
+    test("should expire disjoint spans independently", async () => {
+      const c = new Static({ staleEntryThreshold: TimeSpan.milliseconds(50) });
+      const a = TimeStamp.seconds(1).spanRange(TimeSpan.seconds(1));
+      const b = TimeStamp.seconds(10).spanRange(TimeSpan.seconds(1));
+      c.markFetched(a);
+      await sleep.sleep(TimeSpan.milliseconds(60));
+      c.markFetched(b);
+      c.gc();
+      expect(c.dirtyRead(a).gaps).toHaveLength(1);
+      expect(c.dirtyRead(b).gaps).toHaveLength(0);
+    });
+
+    test("should treat a fully contained mark as already covered", () => {
+      const c = new Static({});
+      c.markFetched(TimeStamp.seconds(1).spanRange(TimeSpan.seconds(3)));
+      c.markFetched(TimeStamp.seconds(2).spanRange(TimeSpan.seconds(1)));
+      const { gaps } = c.dirtyRead(TimeStamp.seconds(1).spanRange(TimeSpan.seconds(3)));
+      expect(gaps).toHaveLength(0);
+    });
+
+    test("should extend coverage on a partial overlap", () => {
+      const c = new Static({});
+      c.markFetched(TimeStamp.seconds(1).spanRange(TimeSpan.seconds(2)));
+      c.markFetched(TimeStamp.seconds(2).spanRange(TimeSpan.seconds(3)));
+      const { gaps } = c.dirtyRead(TimeStamp.seconds(1).spanRange(TimeSpan.seconds(4)));
+      expect(gaps).toHaveLength(0);
+    });
+
+    test("should merge every span a new mark bridges", () => {
+      const c = new Static({});
+      c.markFetched(TimeStamp.seconds(1).spanRange(TimeSpan.seconds(1)));
+      c.markFetched(TimeStamp.seconds(3).spanRange(TimeSpan.seconds(1)));
+      c.markFetched(TimeStamp.seconds(2).spanRange(TimeSpan.seconds(1)));
+      const { gaps } = c.dirtyRead(TimeStamp.seconds(1).spanRange(TimeSpan.seconds(3)));
+      expect(gaps).toHaveLength(0);
+    });
+
+    test("should keep a one-nanosecond hole between near-adjacent spans", () => {
+      const c = new Static({});
+      const holeStart = TimeStamp.seconds(2);
+      const holeEnd = holeStart.add(TimeSpan.nanoseconds(1));
+      c.markFetched(TimeStamp.seconds(1).range(holeStart));
+      c.markFetched(holeEnd.range(TimeStamp.seconds(3)));
+      const { gaps } = c.dirtyRead(TimeStamp.seconds(1).spanRange(TimeSpan.seconds(2)));
+      expect(gaps).toHaveLength(1);
+      expect(gaps[0]).toEqual(holeStart.range(holeEnd));
+    });
+
+    test("should subtract multiple disjoint spans from one read", () => {
+      const c = new Static({});
+      c.markFetched(TimeStamp.seconds(1).spanRange(TimeSpan.seconds(1)));
+      c.markFetched(TimeStamp.seconds(3).spanRange(TimeSpan.seconds(1)));
+      const { gaps } = c.dirtyRead(TimeStamp.seconds(0).spanRange(TimeSpan.seconds(5)));
+      expect(gaps).toHaveLength(3);
+      expect(gaps[0]).toEqual(TimeStamp.seconds(0).spanRange(TimeSpan.seconds(1)));
+      expect(gaps[1]).toEqual(TimeStamp.seconds(2).spanRange(TimeSpan.seconds(1)));
+      expect(gaps[2]).toEqual(TimeStamp.seconds(4).spanRange(TimeSpan.seconds(1)));
+    });
+
+    test("should ignore an invalid or zero-span mark", () => {
+      const c = new Static({});
+      c.markFetched(new TimeRange(TimeStamp.seconds(2), TimeStamp.seconds(2)));
+      c.markFetched(new TimeRange(TimeStamp.seconds(3), TimeStamp.seconds(1)));
+      const { gaps } = c.dirtyRead(TimeStamp.seconds(1).spanRange(TimeSpan.seconds(3)));
+      expect(gaps).toHaveLength(1);
+    });
+
+    test("should cover an internal gap between fetched entries", () => {
+      const c = new Static({});
+      const write = (tr: TimeRange, data: number[], alignment: bigint) =>
+        c.write(
+          new MultiSeries([
+            new Series({
+              data: new Float32Array(data),
+              dataType: DataType.FLOAT32,
+              timeRange: tr,
+              alignment,
+            }),
+          ]),
+        );
+      write(TimeStamp.seconds(1).range(TimeStamp.seconds(3)), [1, 2], 1n);
+      write(TimeStamp.seconds(4).range(TimeStamp.seconds(6)), [4, 5], 4n);
+      c.markFetched(TimeStamp.seconds(3).range(TimeStamp.seconds(4)));
+      const { gaps } = c.dirtyRead(TimeStamp.seconds(1).range(TimeStamp.seconds(6)));
+      expect(gaps).toHaveLength(0);
+    });
+
+    test("should still return data written into a covered span", () => {
+      const c = new Static({});
+      const tr = TimeStamp.seconds(1).spanRange(TimeSpan.seconds(3));
+      c.markFetched(tr);
+      c.write(
+        new MultiSeries([
+          new Series({
+            data: new Float32Array([1]),
+            dataType: DataType.FLOAT32,
+            timeRange: TimeStamp.seconds(2).spanRange(TimeSpan.seconds(1)),
+            alignment: 0n,
+          }),
+        ]),
+      );
+      const { series, gaps } = c.dirtyRead(tr);
+      expect(series).toHaveLength(1);
+      expect(gaps).toHaveLength(0);
+    });
+
+    test("should not report gaps for a covered span holding only streamed data", () => {
+      const c = new Static({});
+      const tr = TimeStamp.seconds(10).range(TimeStamp.seconds(20));
+      c.write(
+        new MultiSeries([
+          new Series({
+            data: new Float32Array([1]),
+            dataType: DataType.FLOAT32,
+            timeRange: tr,
+            alignment: 0n,
+          }),
+        ]),
+        true,
+      );
+      c.markFetched(tr);
+      const { series, gaps } = c.dirtyRead(tr);
+      expect(series).toHaveLength(1);
+      expect(gaps).toHaveLength(0);
+    });
+
+    test("should clear coverage on close", () => {
+      const c = new Static({});
+      const tr = TimeStamp.seconds(1).spanRange(TimeSpan.seconds(1));
+      c.markFetched(tr);
+      c.close();
       expect(c.dirtyRead(tr).gaps).toHaveLength(1);
     });
   });

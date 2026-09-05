@@ -110,8 +110,15 @@ const isCloneableValue = (
   return false;
 };
 
-const isCloneable = (v: unknown): boolean =>
-  isCloneableValue(v, new Set(), { left: CLONE_CHECK_BUDGET });
+// Object.values can trip an enumerable getter that throws. Treat a throwing value
+// as not cloneable rather than throwing while already handling an error.
+const isCloneable = (v: unknown): boolean => {
+  try {
+    return isCloneableValue(v, new Set(), { left: CLONE_CHECK_BUDGET });
+  } catch {
+    return false;
+  }
+};
 
 /**
  * Returns err unchanged when it survives structured cloning. Otherwise rebuilds it
@@ -126,8 +133,7 @@ const cloneSafeError = (err: Error, depth: number = 8): Error => {
   const { cause } = err;
   if (cause !== undefined && depth > 0)
     if (cause instanceof Error) safe.cause = cloneSafeError(cause, depth - 1);
-    else
-      safe.cause = isCloneable(cause) ? cause : errors.fromUnknown(cause).message;
+    else safe.cause = isCloneable(cause) ? cause : errors.fromUnknown(cause).message;
   return safe;
 };
 

@@ -116,14 +116,18 @@ export class Static {
   markFetched(tr: TimeRange): void {
     if (!tr.isValid || tr.span.isZero) return;
     let { start, end } = tr;
+    // Keep the oldest stamp when merging. A fresh stamp would let a rolling read
+    // refresh its own coverage forever, so late backfill would never be refetched.
+    let addedAt = TimeStamp.now();
     const keep: CoveredRange[] = [];
     for (const c of this.covered)
       if (c.range.end.before(start) || c.range.start.after(end)) keep.push(c);
       else {
         if (c.range.start.before(start)) start = c.range.start;
         if (c.range.end.after(end)) end = c.range.end;
+        if (c.addedAt.before(addedAt)) addedAt = c.addedAt;
       }
-    keep.push({ range: new TimeRange(start, end), addedAt: TimeStamp.now() });
+    keep.push({ range: new TimeRange(start, end), addedAt });
     keep.sort((a, b) => TimeRange.sort(a.range, b.range));
     this.covered = keep;
   }

@@ -780,6 +780,36 @@ describe("fromException", () => {
       expect(() => structuredClone(stored)).not.toThrow();
     });
 
+    it("should rebuild an error carrying a throwing enumerable getter", () => {
+      const err = new Error("boom");
+      Object.defineProperty(err, "trap", {
+        enumerable: true,
+        get() {
+          throw new Error("trapped");
+        },
+      });
+      const stored = status.fromException(err).details.error;
+      // Passing err to expect would trip the getter while vitest inspects it.
+      expect(stored === err).toBe(false);
+      expect(stored.message).toBe("boom");
+      expect(() => structuredClone(stored)).not.toThrow();
+    });
+
+    it("should rebuild when the cause carries a throwing enumerable getter", () => {
+      const cause: Record<string, unknown> = { ok: 1 };
+      Object.defineProperty(cause, "trap", {
+        enumerable: true,
+        get() {
+          throw new Error("trapped");
+        },
+      });
+      const err = new Error("boom", { cause });
+      const stored = status.fromException(err).details.error;
+      expect(stored).not.toBe(err);
+      expect(typeof stored.cause).toBe("string");
+      expect(() => structuredClone(stored)).not.toThrow();
+    });
+
     it("should rebuild conservatively when the clone check budget is exhausted", () => {
       const wide: Record<string, number> = {};
       for (let i = 0; i < 100; i++) wide[`k${i}`] = i;

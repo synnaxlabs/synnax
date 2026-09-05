@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Unreachable } from "@synnaxlabs/freighter";
-import { MultiSeries, TimeRange, TimeSpan } from "@synnaxlabs/x";
+import { id, MultiSeries, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, type Mock, vi } from "vitest";
 
 import { UnexpectedError } from "@/errors";
@@ -16,6 +16,7 @@ import { Cache } from "@/framer/cache/cache";
 import { Reader, type RemoteReader } from "@/framer/cache/reader";
 import { Frame } from "@/framer/frame";
 import { Series } from "@/index";
+import { createTestClient } from "@/testutil";
 
 const basicRemoteReadFunc =
   (fn: Mock): RemoteReader =>
@@ -61,6 +62,37 @@ describe("read", () => {
     expect(res).toHaveLength(0);
     const res2 = await reader.read(tr, 1);
     expect(res2).toHaveLength(0);
+    expect(remoteReadF).toHaveBeenCalledTimes(1);
+    cache.close();
+  });
+
+  it("should cover a span the Core answers with no data after one fetch", async () => {
+    const client = createTestClient();
+    const time = await client.channels.create({
+      name: id.create(),
+      dataType: "timestamp",
+      isIndex: true,
+    });
+    const data = await client.channels.create({
+      name: id.create(),
+      dataType: "float32",
+      index: time.key,
+    });
+    const start = TimeStamp.now();
+    await client.write(start, { [time.key]: [start], [data.key]: [1] });
+    const cache = new Cache();
+    const remoteReadF = vi.fn();
+    const readRemote: RemoteReader = async (tr, keys) => {
+      remoteReadF(tr, keys);
+      return await client.read(tr, keys);
+    };
+    const reader = new Reader({ cache, readRemote });
+    const tr = new TimeRange(
+      start.add(TimeSpan.seconds(10)),
+      start.add(TimeSpan.seconds(20)),
+    );
+    expect(await reader.read(tr, data.key)).toHaveLength(0);
+    expect(await reader.read(tr, data.key)).toHaveLength(0);
     expect(remoteReadF).toHaveBeenCalledTimes(1);
     cache.close();
   });
