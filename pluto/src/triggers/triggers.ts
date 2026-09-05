@@ -422,5 +422,15 @@ export const purgeMouse = (triggers: Trigger[]): Trigger[] =>
 export const UNDO: Trigger = ["Control", "Z"];
 /** The standard redo shortcut. */
 export const REDO: Trigger = ["Control", "Shift", "Z"];
+/** The standard cut shortcut. */
+export const CUT: Trigger = ["Control", "X"];
+/** The standard copy shortcut. */
+export const COPY: Trigger = ["Control", "C"];
+/** The standard paste shortcut. */
+export const PASTE: Trigger = ["Control", "V"];
+/** The standard group shortcut. */
+export const GROUP: Trigger = ["Control", "G"];
+/** The standard ungroup shortcut. */
+export const UNGROUP: Trigger = ["Control", "U"];
 /** The escape key on its own. */
 export const ESCAPE: Trigger = ["Escape"];

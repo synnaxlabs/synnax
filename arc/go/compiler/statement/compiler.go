@@ -19,30 +19,30 @@ import (
 // (return/break/etc)
 func Compile(ctx context.Context[parser.IStatementContext]) (diverged bool, err error) {
 	if varDecl := ctx.AST.VariableDeclaration(); varDecl != nil {
-		return false, compileVariableDeclaration(context.Child(ctx, varDecl))
+		return false, compileVariableDeclaration(ctx.Child(varDecl))
 	}
 	if assign := ctx.AST.Assignment(); assign != nil {
-		return false, compileAssignment(context.Child(ctx, assign))
+		return false, compileAssignment(ctx.Child(assign))
 	}
 	if ifStmt := ctx.AST.IfStatement(); ifStmt != nil {
-		return compileIfStatement(context.Child(ctx, ifStmt))
+		return compileIfStatement(ctx.Child(ifStmt))
 	}
 	if forStmt := ctx.AST.ForStatement(); forStmt != nil {
-		return compileForStatement(context.Child(ctx, forStmt))
+		return compileForStatement(ctx.Child(forStmt))
 	}
 	if ctx.AST.BreakStatement() != nil {
-		return true, compileBreakStatement(context.Child(ctx, ctx.AST.BreakStatement()))
+		return true, compileBreakStatement(ctx.Child(ctx.AST.BreakStatement()))
 	}
 	if ctx.AST.ContinueStatement() != nil {
 		return true, compileContinueStatement(
-			context.Child(ctx, ctx.AST.ContinueStatement()),
+			ctx.Child(ctx.AST.ContinueStatement()),
 		)
 	}
 	if retStmt := ctx.AST.ReturnStatement(); retStmt != nil {
-		return true, compileReturnStatement(context.Child(ctx, retStmt))
+		return true, compileReturnStatement(ctx.Child(retStmt))
 	}
 	if expr := ctx.AST.Expression(); expr != nil {
-		_, err = compileExpressionStatement(context.Child(ctx, expr))
+		_, err = compileExpressionStatement(ctx.Child(expr))
 		return false, err
 	}
 	return false, errors.New("unknown statement type")
@@ -62,7 +62,7 @@ func CompileBlock(
 	blockCtx := ctx.WithScope(blockScope)
 	for _, stmt := range ctx.AST.AllStatement() {
 		var stmtDiverged bool
-		stmtDiverged, err = Compile(context.Child(blockCtx, stmt))
+		stmtDiverged, err = Compile(blockCtx.Child(stmt))
 		if err != nil {
 			return false, err
 		}

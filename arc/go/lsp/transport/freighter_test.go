@@ -536,7 +536,8 @@ var _ = Describe("Transport Failure Modes", func() {
 				Content: `{"jsonrpc":"2.0","method":"initialized","params":{}}`,
 			})).To(Succeed())
 			Eventually(errs, 10*time.Second).Should(
-				Receive(MatchError(ContainSubstring("content length"))))
+				Receive(MatchError(ContainSubstring("content length"))),
+			)
 		},
 	)
 
@@ -546,7 +547,8 @@ var _ = Describe("Transport Failure Modes", func() {
 			client.Send(transport.JSONRPCMessage{Content: "{not json"}),
 		).To(Succeed())
 		Eventually(errs, 10*time.Second).Should(
-			Receive(MatchError(ContainSubstring("parse error"))))
+			Receive(MatchError(ContainSubstring("parse error"))),
+		)
 	})
 
 	It("Should fail the connection when a response exceeds the max length", func() {
@@ -561,6 +563,7 @@ var _ = Describe("Transport Failure Modes", func() {
 			client.Send(transport.JSONRPCMessage{Content: string(content)}),
 		).To(Succeed())
 		Eventually(errs, 10*time.Second).Should(
-			Receive(MatchError(ContainSubstring("content length"))))
+			Receive(MatchError(ContainSubstring("content length"))),
+		)
 	})
 })

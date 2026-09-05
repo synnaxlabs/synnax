@@ -42,18 +42,13 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Set up pnpm
-      uses: pnpm/action-setup@v6
-
-    - name: Set up Node.js
-      uses: actions/setup-node@v7
+    - name: Set up pnpm and Node.js
+      uses: pnpm/setup@v2
       with:
-        node-version-file: package.json
-        cache: pnpm
-
-    - name: Install dependencies
-      shell: bash
-      run: pnpm install
+        cache: true
+        # A separate dest keeps main's pnpm store intact in mixed-version migration
+        # jobs. Safe to drop once main also runs pnpm/setup.
+        dest: ~/setup-pnpm-current
 
     - name: Check types
       if: inputs.lint == 'true'

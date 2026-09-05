@@ -95,14 +95,18 @@ const fakeClipboardEvent = () => {
 };
 
 describe("arc graph clipboard", () => {
-  const setup = async (selected: string[], onPaste?: (keys: string[]) => void) => {
+  const setup = async (
+    selected: string[],
+    onPaste?: (keys: string[]) => void,
+    onCut?: (keys: string[]) => void,
+  ) => {
     const { key } = await createGraphArc();
     await loadArc(key);
     const { result } = renderHook(
       () => ({
         nodes: Arc.useAllNodes({ key }),
         edges: Arc.useAllEdges({ key }),
-        clipboard: useClipboard({ key, selected, onPaste }),
+        clipboard: useClipboard({ key, selected, onPaste, onCut }),
       }),
       { wrapper },
     );
@@ -172,5 +176,53 @@ describe("arc graph clipboard", () => {
       .filter((n) => n.key !== N1 && n.key !== N2)
       .map((n) => n.key);
     expect(onPaste).toHaveBeenCalledWith(newKeys);
+  });
+
+  it("should remove the cut subgraph from the cache", async () => {
+    const { result } = await setup([N1, N2, EDGE_KEY]);
+
+    const e = fakeClipboardEvent();
+    await act(async () => {
+      result.current.clipboard.onCut(e, xy.ZERO);
+    });
+
+    await waitFor(() => expect(result.current.nodes).toHaveLength(0));
+    expect(result.current.edges).toHaveLength(0);
+  });
+
+  it("should remove the connected edge when cutting a node alone", async () => {
+    const { result } = await setup([N1]);
+
+    const e = fakeClipboardEvent();
+    await act(async () => {
+      result.current.clipboard.onCut(e, xy.ZERO);
+    });
+
+    await waitFor(() => expect(result.current.nodes.map((n) => n.key)).toEqual([N2]));
+    expect(result.current.edges).toHaveLength(0);
+  });
+
+  it("should report the surviving selection to onCut", async () => {
+    const onCut = vi.fn();
+    const { result } = await setup([N1], undefined, onCut);
+
+    const e = fakeClipboardEvent();
+    await act(async () => {
+      result.current.clipboard.onCut(e, xy.ZERO);
+    });
+
+    expect(onCut).toHaveBeenCalledWith([]);
+  });
+
+  it("should not change the cache when the selection cuts nothing", async () => {
+    const { result } = await setup(["does-not-exist"]);
+
+    const e = fakeClipboardEvent();
+    await act(async () => {
+      result.current.clipboard.onCut(e, xy.ZERO);
+    });
+
+    expect(result.current.nodes).toHaveLength(2);
+    expect(result.current.edges).toHaveLength(1);
   });
 });

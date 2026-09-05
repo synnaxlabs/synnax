@@ -62,10 +62,10 @@ func (c groupConfig) Override(other groupConfig) groupConfig {
 
 func (c groupConfig) Validate() error {
 	v := validate.New("calculation.group.config")
-	validate.NotNil(v, "framer", c.framer)
-	validate.NotNil(v, "writer", c.writer)
-	validate.NotEmptySlice(v, "calculators", c.calculators)
-	validate.NotNil(v, "on_status_change", c.onStatusChange)
+	v.NotNil("framer", c.framer)
+	v.NotNil("writer", c.writer)
+	v.NotEmptySlice("calculators", c.calculators)
+	v.NotNil("on_status_change", c.onStatusChange)
 	return v.Error()
 }
 
@@ -106,8 +106,8 @@ func openGroup(ctx context.Context, cfgs ...groupConfig) (*group, error) {
 	}
 
 	p := plumber.New()
-	plumber.SetSource[framer.StreamerResponse](p, streamerAddr, strm)
-	plumber.SetSegment[framer.WriterRequest, framer.WriterResponse](p, writerAddr, wrt)
+	p.SetSource[framer.StreamerResponse](streamerAddr, strm)
+	p.SetSegment[framer.WriterRequest, framer.WriterResponse](writerAddr, wrt)
 
 	streamerRequests := confluence.NewStream[framer.StreamerRequest](10)
 	strm.InFrom(streamerRequests)
@@ -117,30 +117,23 @@ func openGroup(ctx context.Context, cfgs ...groupConfig) (*group, error) {
 		onStatusChange:   cfg.onStatusChange,
 	}
 
-	plumber.SetSegment[framer.StreamerResponse, framer.WriterRequest](
-		p,
-		calculatorAddr,
-		c,
-	)
+	p.SetSegment[framer.StreamerResponse, framer.WriterRequest](calculatorAddr, c)
 	o := confluence.NewObservableSubscriber[framer.WriterResponse]()
 	o.OnChange(func(ctx context.Context, res framer.WriterResponse) {
 		cfg.L.DPanic("write of calculated channel value failed", zap.Error(res.Err))
 	})
-	plumber.SetSink[framer.WriterResponse](p, writerObserverAddr, o)
-	plumber.MustConnect[framer.StreamerResponse](
-		p,
+	p.SetSink[framer.WriterResponse](writerObserverAddr, o)
+	p.MustConnect[framer.StreamerResponse](
 		streamerAddr,
 		calculatorAddr,
 		defaultPipelineBufferSize,
 	)
-	plumber.MustConnect[framer.WriterRequest](
-		p,
+	p.MustConnect[framer.WriterRequest](
 		calculatorAddr,
 		writerAddr,
 		defaultPipelineBufferSize,
 	)
-	plumber.MustConnect[framer.WriterResponse](
-		p,
+	p.MustConnect[framer.WriterResponse](
 		writerAddr,
 		writerObserverAddr,
 		defaultPipelineBufferSize,

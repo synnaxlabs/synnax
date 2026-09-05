@@ -2,190 +2,281 @@
 
 ## 0 Summary
 
-The following guide walks you through the setup process for developing Synnax on
-Windows. The setup guide for macOS is available [here](setup-macos.md). This guide is
-complete, meaning that it provides installation and configuration instructions for all
-tooling required, but it does not provide information on how to use this tooling when
-working with a specific project. For that information, see the project's `README.md`.
-Links to all project `README.md` files can be found in the
-[project index](../../README.md).
+This guide walks you through the setup process for developing Synnax on Windows. The
+setup guide for macOS is available [here](setup-macos.md). This guide is complete,
+meaning that it gives installation and configuration instructions for all the tooling
+you need, but it does not tell you how to use that tooling on a specific project. For
+that information, see the project's `README.md`. Links to all project `README.md` files
+are in the [project index](../../README.md).
 
-This guide assumes you're using PowerShell as your terminal of choice. If you're using
-cmd, you may need to vary the commands slightly. Certain tools may require running
-commands as an administrator.
+Sections 1 to 5 set up the tools that every contributor needs. Sections 6 and 7 apply
+only if you work on the Console, and sections 6 and 8 only if you work on the Driver.
 
-As a final note, this guide does not need to be followed verbatim. As long as the
-correct tools are installed and configured, you can use whatever methods you prefer.
+This guide assumes [PowerShell 7](https://github.com/PowerShell/PowerShell) as your
+terminal, and it installs tools with
+[winget](https://learn.microsoft.com/windows/package-manager/), which ships with
+Windows. Some tools ask you to run commands as an administrator.
+
+This guide also does not need to be followed verbatim. As long as the correct tools are
+installed and configured, use whatever methods you prefer.
 
 ## 1 Install Git
 
-The first step is to install Git. The best way of doing so is using the
-[installer](https://git-scm.com/download/win). Validate your installation by running
+Install Git with
 
-```bash
+```powershell
+winget install Git.Git
+```
+
+Open a new shell, then verify the installation by running
+
+```powershell
 git --version
 ```
 
-You should see something like
+The output should look something like
 
-```bash
-git version 2.x.x.windows.x
+```text
+git version 2.55.0.windows.1
 ```
 
 ## 2 Clone the repository
 
-The next step is to clone the Git repository. We recommend cloning it into
-`~/Desktop/synnaxlabs` as it makes it easier to follow the commands in other guides.
+We recommend cloning into `~\Desktop\synnaxlabs`, as it makes the commands in other
+guides easier to follow. The Driver keeps its C++ dependencies in submodules, so clone
+them at the same time.
 
+```powershell
+mkdir ~\Desktop\synnaxlabs
+cd ~\Desktop\synnaxlabs
+git clone --recurse-submodules https://github.com/synnaxlabs/synnax
 ```
-mkdir ~/Desktop/synnaxlabs && cd ~/Desktop/synnaxlabs && git clone https://github.com/synnaxlabs/synnax
+
+If you already cloned the repository without submodules, run
+`git submodule update --init --recursive` in the repository root.
+
+## 3 Set up Go
+
+We use [Go](https://go.dev/) for the Core, Aspen, Cesium, Arc, Freighter, and Oracle.
+Install it with the [installer](https://go.dev/doc/install), or with
+
+```powershell
+winget install GoLang.Go
 ```
 
-## 3 Setup Go
+Verify the installation by running
 
-To install Go, use the instructions from the [Go website](https://go.dev/doc/install).
-To verify your installation, run:
-
-```bash
+```powershell
 go version
 ```
 
-You should see something like
+The output should look something like
 
-```bash
-go 1.20.x windows/amd64
+```text
+go version go1.26.5 windows/amd64
 ```
 
-As additional verification, let's run some test cases to make sure everything is working
-as expected. In the root directory (`~/synnaxlabs/Desktop/synnax`), run
+Each Go module pins its toolchain in `go.mod`. The Core currently does not compile with
+Go 1.27, because a Pebble dependency uses runtime internals that 1.27 removed. If your
+local Go is newer than the pinned version, run `$env:GOTOOLCHAIN = "go1.26.5"` before
+you run commands in `core\`, and Go downloads the correct toolchain for you.
 
-```bash
-cd x/go && go test -v ./...
+As an additional check, run some test cases. In the repository root
+(`~\Desktop\synnaxlabs\synnax`), run
+
+```powershell
+cd x/go
+go test -v ./...
 ```
 
-This will run the tests for the common utilities used across Synnax's go projects. This
-might take a while when you run it for the first time, as Go needs to download many
-packages. Future runs will be much faster. Eventually, you **should see a bunch of green
-output and no red output.**
+This runs the tests for the common utilities that all Synnax Go projects use. The first
+run can take a while, because Go downloads many packages. Later runs are much faster.
+You **should see a lot of green output and no red output.**
 
-## 4 Python
-
-Getting Python setup correctly can be tricky, but luckily you'll only need to do it
-once. To get started, use the installer available
-[here](https://www.python.org/downloads/release/python-31213/). Make sure to check the
-box that says "Add Python 3.12 to PATH". After installing, run
-
-```bash
-python --version
-```
-
-You should see something like
-
-```bash
-Python 3.12.x
-```
+## 4 Set up Python
 
 ### 4.0 Install uv
 
-uv is a fast Python package manager that we use to manage our Python dependencies for
-the various projects in Synnax. To install uv, run:
+We use [uv](https://docs.astral.sh/uv/) to manage Python versions and dependencies.
 
 ```powershell
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+winget install astral-sh.uv
 ```
 
-Then, run
+Open a new shell, then verify the installation by running
 
-```bash
+```powershell
 uv --version
 ```
 
-You should see something like
+The output should look something like
 
-```bash
-uv 0.5.x
+```text
+uv 0.12.0
 ```
 
-If you run into trouble, check out the [uv docs](https://docs.astral.sh/uv/) for more
-information.
+If you have trouble, see the [uv docs](https://docs.astral.sh/uv/).
 
-### 4.1 Install dependencies
+### 4.1 Install Python
 
-Synnax uses a uv workspace with four Python projects: `alamos/py`, `freighter/py`,
-`client/py`, and `integration`. To install the dependencies for all projects, run from
-the repository root:
+uv installs and manages the interpreter, so you do not need a separate Python installer.
+The workspace needs Python 3.12.
 
-```bash
+```powershell
+uv python install 3.12
+```
+
+### 4.2 Install dependencies
+
+Synnax uses a uv workspace with five Python projects: `alamos/py`, `client/py`,
+`freighter/py`, `integration`, and `x/py`. To install the dependencies for all five, run
+this from the repository root:
+
+```powershell
 uv sync
 ```
 
-## 5 Front end build system
+Run Python commands with `uv run`, which selects the workspace interpreter and
+environment for you.
 
-### 5.0 Install Node.js
+## 5 Set up TypeScript
 
-I recommend using nvm to manage Node.js versions. Install nvm using the instructions
-[here](https://github.com/coreybutler/nvm-windows/releases). You want to install and run
-the file titled `nvm-setup.exe`. Then, install the latest version of node with
+### 5.0 Install pnpm and Node.js
 
-```bash
-nvm install 20
+We use [pnpm](https://pnpm.io/) as our package manager. pnpm installs itself and then
+installs Node.js for you, so you do not need nvm or Corepack.
+
+```powershell
+$env:PNPM_VERSION="12"
+Invoke-WebRequest https://get.pnpm.io/install.ps1 -UseBasicParsing | Invoke-Expression
 ```
 
-If your command line prompts you with instructions to use the version, execute it.
+Open a new shell, then install Node.js with
 
-```bash
-If you want to use this version, type
-nvm use 20.x.x
+```powershell
+pnpm runtime set node 24 -g
 ```
 
-Make sure your installation is working by running
+Verify both installations by running
 
-```bash
+```powershell
+pnpm --version
 node --version
 ```
 
-### 5.1 Install pnpm
+The output should look something like
 
-We use pnpm as our package manager of choice. It's a drop-in replacement for npm that
-has a few nice features. To install pnpm, run
-
-```bash
-corepack enable
+```text
+12.1.0
+v24.20.0
 ```
 
-Then, prepare npm by running
+pnpm reads the versions this repository needs from the `devEngines` field in the root
+`package.json`, and downloads them when they are missing. To change the pnpm or Node.js
+version for everyone, edit that field.
 
-```bash
-corepack prepare pnpm@latest --activate
-```
+### 5.1 Install dependencies
 
-### 5.2 Install dependencies
+In the repository root, run
 
-In the root directory of the repository, run
-
-```bash
+```powershell
 pnpm install
 ```
 
-### 5.3 Build the Pluto component library
+### 5.2 Build the Pluto component library
 
-We use [Turborepo](https://turbo.build/repo) to build our various TypeScript projects.
-It has great monorepo support, and intelligently caches builds to speed up development.
-As a test to make sure the build system is working, we'll build the Synnax component
-library, [Pluto](../../pluto) by running
+We use [Turborepo](https://turbo.build/repo) to build our TypeScript projects. It has
+good monorepo support, and caches builds to speed up development. As a test that the
+build system works, build the Synnax component library, [Pluto](../../pluto):
 
-```bash
+```powershell
 pnpm build:pluto
 ```
 
-### 5.4 Start a Pluto dev server
+### 5.3 Start a Pluto dev server
 
-As another test, we'll start a development server for Pluto. We use this server to
-develop components in isolation before integrating them into the main Synnax
-application, [Console](../../console). To start, run
+As another test, start a development server for Pluto. We use this server to develop
+components in isolation before we integrate them into the [Console](../../console).
 
-```bash
+```powershell
 pnpm dev:pluto
 ```
 
-You can now view the Pluto dev server in storybook format at http://localhost:6006.
+Vite serves the component sandbox at [localhost:5173](http://localhost:5173).
+
+## 6 Install the Visual C++ build tools
+
+Rust and the Driver build native code with the Microsoft C++ toolchain. Install it with
+
+```powershell
+winget install Microsoft.VisualStudio.2022.BuildTools --override "--wait --passive --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
+```
+
+## 7 Set up Rust
+
+The [Console](../../console) uses [Tauri](https://tauri.app/), which builds its back end
+with [Rust](https://www.rust-lang.org/). Install Rust with rustup, the toolchain manager
+that Tauri needs.
+
+```powershell
+winget install Rustlang.Rustup
+```
+
+Open a new shell, then verify the installation by running
+
+```powershell
+rustc --version
+```
+
+The output should look something like
+
+```text
+rustc 1.98.0 (88d9e12ae 2026-08-18)
+```
+
+Tauri also needs WebView2, which Windows 11 and current Windows 10 installations
+include. If the Console fails to start with a WebView2 error, install the
+[Evergreen Runtime](https://developer.microsoft.com/microsoft-edge/webview2/).
+
+## 8 Set up C++
+
+You only need this section if you work on the [Driver](../../driver).
+
+### 8.0 Install Bazel
+
+We build the Driver with [Bazel](https://bazel.build/). Install Bazelisk, which reads
+the Bazel version from `.bazeliskrc` and downloads it for you.
+
+```powershell
+winget install Bazel.Bazelisk
+```
+
+Verify the installation from the repository root by running
+
+```powershell
+bazel --version
+```
+
+### 8.1 Install clang-format
+
+We format all C++ with clang-format, which the LLVM toolchain provides.
+
+```powershell
+winget install LLVM.LLVM
+```
+
+CI pins clang-format 22, and other versions format differently. If your diffs show
+formatting changes you did not make, install LLVM 22 from the
+[LLVM releases](https://github.com/llvm/llvm-project/releases) page.
+
+### 8.2 Build the Driver
+
+Make sure the submodules from section 2 and the build tools from section 6 are present,
+then run
+
+```powershell
+bazel build //driver
+```
+
+The first build takes a long time, because Bazel compiles all the vendored dependencies.
+Later builds use the cache.

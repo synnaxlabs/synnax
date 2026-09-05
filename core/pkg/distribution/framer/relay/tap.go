@@ -16,7 +16,6 @@ import (
 	"sync/atomic"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
@@ -25,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
 )
@@ -229,8 +229,7 @@ func (t *tapper) startTap(
 // tapIntoGateway opens a new tap over the host's local storage engine, subscribed to
 // the given channels.
 func (t *tapper) tapIntoGateway(keys channel.Keys) (tap, error) {
-	str, err := cesium.NewTranslatedStreamer(
-		t.TS,
+	str, err := t.TS.NewTranslatedStreamer(
 		ts.StreamerConfig{Channels: keys.Storage()},
 		reqToStorage,
 		resFromStorage,
@@ -256,8 +255,8 @@ func (t *tapper) tapIntoPeer(ctx context.Context, nodeKey node.Key) (tap, error)
 	receiver := &freightfluence.Receiver[Response]{Receiver: stream}
 	sender := &freightfluence.Sender[Request]{Sender: stream}
 	p := plumber.New()
-	plumber.SetSink[Request](p, "sender", sender)
-	plumber.SetSource[Response](p, "receiver", receiver)
+	p.SetSink[Request]("sender", sender)
+	p.SetSource[Response]("receiver", receiver)
 	seg := &plumber.Segment[Request, Response]{Pipeline: p}
 	lo.Must0(seg.RouteOutletFrom("receiver"))
 	lo.Must0(seg.RouteInletTo("sender"))
@@ -281,16 +280,19 @@ type freeWriteTap struct {
 	confluence.AbstractUnarySource[Response]
 	freeWrites confluence.Outlet[Response]
 	// keys is the set of free channels currently being filtered in. It is updated
-	// synchronously by the tapper (setKeys) and read on every free write, so it is
-	// an atomic pointer: the read path takes a single lock-free atomic load and the
-	// write path publishes a new slice without blocking the tapper. nil means no
-	// free channels are demanded yet, in which case all free writes are filtered out.
-	keys atomic.Pointer[channel.Keys]
+	// synchronously by the tapper (setKeys) and read on every free write, so it is an
+	// atomic pointer: the read path takes a single lock-free atomic load and the write
+	// path publishes a new set without blocking the tapper. nil means no free channels
+	// are demanded yet, in which case all free writes are filtered out.
+	keys atomic.Pointer[set.Set[channel.Key]]
 }
 
 // setKeys publishes the set of free channels the tap should filter in. It is safe
 // to call from the tapper goroutine concurrently with the tap's own read loop.
-func (f *freeWriteTap) setKeys(keys channel.Keys) { f.keys.Store(&keys) }
+func (f *freeWriteTap) setKeys(keys channel.Keys) {
+	s := set.New(keys...)
+	f.keys.Store(&s)
+}
 
 func (f *freeWriteTap) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)

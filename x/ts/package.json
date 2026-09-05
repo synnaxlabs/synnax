@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/x",
-  "version": "0.57.1",
+  "version": "0.58.0",
   "type": "module",
   "description": "Common Utilities for Synnax Labs",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/x/ts",
@@ -26,17 +26,17 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@synnaxlabs/eslint-config": "workspace:^",
-    "@synnaxlabs/madge": "workspace:^",
-    "@synnaxlabs/tsconfig": "workspace:^",
-    "@synnaxlabs/vite-plugin": "workspace:^",
+    "@synnaxlabs/eslint-config": "catalog:",
+    "@synnaxlabs/madge": "catalog:",
+    "@synnaxlabs/tsconfig": "catalog:",
+    "@synnaxlabs/vite-plugin": "catalog:",
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
-    "fflate": "^0.8.2",
-    "nanoid": "^6.0.1",
+    "fflate": "catalog:",
+    "nanoid": "catalog:",
     "typescript": "catalog:",
-    "uuid": "^14.0.1",
+    "uuid": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"
   },

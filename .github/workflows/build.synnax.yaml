@@ -118,6 +118,14 @@ on:
         type: string
         required: false
         default: ""
+      driver_ref_run_id:
+        type: string
+        required: false
+        default: ""
+      console_ref_run_id:
+        type: string
+        required: false
+        default: ""
 
 jobs:
   setup:
@@ -207,6 +215,7 @@ jobs:
     if: needs.setup.outputs.matrix != '[]'
     timeout-minutes: 75
     permissions:
+      actions: read
       contents: write
       packages: write
     env:
@@ -252,11 +261,13 @@ jobs:
           repository-cache: false
 
       - name: Install Rust
-        if: inputs.driver
+        if: inputs.driver && inputs.driver_ref_run_id == ''
         uses: actions-rust-lang/setup-rust-toolchain@v1
 
       - name: Build Driver (Windows)
-        if: inputs.driver && matrix.os == 'windows-build-bot'
+        if:
+          inputs.driver && inputs.driver_ref_run_id == '' && matrix.os ==
+          'windows-build-bot'
         shell: bash
         run: |
           export MSYS_NO_PATHCONV=1
@@ -264,7 +275,9 @@ jobs:
             ${{ !inputs.debug && '--config=opt-windows' || '--output_groups=+pdb_file' }} //driver
 
       - name: Upload Windows Debug Symbols
-        if: inputs.driver && inputs.debug && matrix.os == 'windows-build-bot'
+        if:
+          inputs.driver && inputs.driver_ref_run_id == '' && inputs.debug && matrix.os
+          == 'windows-build-bot'
         uses: actions/upload-artifact@v7
         with:
           name:
@@ -277,18 +290,24 @@ jobs:
           if-no-files-found: error
 
       - name: Build Driver (macOS)
-        if: inputs.driver && startsWith(matrix.os, 'macos')
+        if:
+          inputs.driver && inputs.driver_ref_run_id == '' && startsWith(matrix.os,
+          'macos')
         run: |
           bazel build $BAZEL_BUILD_FLAGS \
             --config=opt-unix //driver
 
       - name: Extract Debug Symbols (macOS)
-        if: inputs.driver && inputs.debug && startsWith(matrix.os, 'macos')
+        if:
+          inputs.driver && inputs.driver_ref_run_id == '' && inputs.debug &&
+          startsWith(matrix.os, 'macos')
         run: |
           dsymutil bazel-bin/driver/driver -o bazel-bin/driver/driver.dSYM
 
       - name: Upload macOS Debug Symbols
-        if: inputs.driver && inputs.debug && startsWith(matrix.os, 'macos')
+        if:
+          inputs.driver && inputs.driver_ref_run_id == '' && inputs.debug &&
+          startsWith(matrix.os, 'macos')
         uses: actions/upload-artifact@v7
         with:
           name:
@@ -358,18 +377,24 @@ jobs:
           gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} install_nilinuxrt.sh
 
       - name: Build Driver (Linux)
-        if: inputs.driver && matrix.os == 'ubuntu-build-bot'
+        if:
+          inputs.driver && inputs.driver_ref_run_id == '' && matrix.os ==
+          'ubuntu-build-bot'
         run: |
           bazel build $BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE_FLAGS \
             --config=opt-unix //driver
 
       - name: Extract Debug Symbols (Linux)
-        if: inputs.driver && inputs.debug && matrix.os == 'ubuntu-build-bot'
+        if:
+          inputs.driver && inputs.driver_ref_run_id == '' && inputs.debug && matrix.os
+          == 'ubuntu-build-bot'
         run: |
           objcopy --only-keep-debug bazel-bin/driver/driver bazel-bin/driver/driver.debug
 
       - name: Upload Linux Debug Symbols
-        if: inputs.driver && inputs.debug && matrix.os == 'ubuntu-build-bot'
+        if:
+          inputs.driver && inputs.driver_ref_run_id == '' && inputs.debug && matrix.os
+          == 'ubuntu-build-bot'
         uses: actions/upload-artifact@v7
         with:
           name:
@@ -473,8 +498,26 @@ jobs:
           CodeSigningAccountName -c CodeSigningCertificateProfile -d "Synnax Driver"
           bazel-bin/driver/driver.exe
 
+      - name: Download Cached Driver
+        if: inputs.driver && inputs.driver_ref_run_id != ''
+        uses: actions/download-artifact@v8
+        with:
+          name: synnax-driver-${{ matrix.os-name }}
+          path: bazel-bin/driver
+          run-id: ${{ inputs.driver_ref_run_id }}
+          github-token: ${{ github.token }}
+
+      # The cached binary carries the version stamp of the run that built it.
+      - name: Rename Cached Driver
+        if: inputs.driver && inputs.driver_ref_run_id != ''
+        shell: bash
+        run: |
+          SRC=$(ls bazel-bin/driver/synnax-driver-v*)
+          DST=bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }}
+          [ "$SRC" = "$DST" ] || mv "$SRC" "$DST"
+
       - name: Rename Driver Binary
-        if: inputs.driver
+        if: inputs.driver && inputs.driver_ref_run_id == ''
         shell: bash
         run: |
           mv bazel-bin/driver/driver${{ matrix.executable }} bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }}
@@ -515,25 +558,29 @@ jobs:
         run: |
           Copy-Item -Force bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}.exe core/pkg/driver/assets/driver.exe
 
-      - name: Set up pnpm
-        if: inputs.console
-        uses: pnpm/action-setup@v6
-
-      - name: Set up Node.js
-        if: inputs.console
-        uses: actions/setup-node@v7
+      - name: Set up pnpm and Node.js
+        if: inputs.console && inputs.console_ref_run_id == ''
+        uses: pnpm/setup@v2
         with:
-          node-version-file: package.json
-
-      - name: Install Node Dependencies
-        if: inputs.console
-        run: pnpm install
+          # Build bots keep a local pnpm store, so restoring the GitHub cache tarball
+          # only adds time. Linux stores it on the persistent root volume. Windows uses
+          # D:\pnpm-store on NVMe (same volume as node_modules, wiped on stop/start).
+          cache: ${{ !endsWith(matrix.os, '-build-bot') }}
 
       - name: Build Console Web Assets
-        if: inputs.console
+        if: inputs.console && inputs.console_ref_run_id == ''
         env:
           NODE_OPTIONS: --max_old_space_size=8192
         run: pnpm build:console-vite
+
+      - name: Download Cached Console Assets
+        if: inputs.console && inputs.console_ref_run_id != ''
+        uses: actions/download-artifact@v8
+        with:
+          name: synnax-console-assets-${{ matrix.os-name }}
+          path: console/dist
+          run-id: ${{ inputs.console_ref_run_id }}
+          github-token: ${{ github.token }}
 
       - name: Upload Console Assets as Artifact
         if: inputs.console
@@ -687,7 +734,7 @@ jobs:
       - name: Clean Build Caches (Windows)
         if: always() && matrix.os == 'windows-build-bot'
         shell: powershell
-        run: integration/scripts/CleanBuildCaches.ps1 -MinFreeGB 35
+        run: integration/scripts/CleanBuildCaches.ps1 -MinFreeGB 30
 
   docker:
     name: Build Docker Image
@@ -834,14 +881,11 @@ jobs:
             echo "VERSION=${CONSOLE_VERSION}-${GITHUB_SHA:0:7}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v6
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
+      - name: Set up pnpm and Node.js
+        uses: pnpm/setup@v2
         with:
-          node-version-file: package.json
-          cache: pnpm
+          # The self-hosted mac's label lacks -build-bot, so it still uses the cache.
+          cache: ${{ !endsWith(matrix.os, '-build-bot') }}
 
       - name: Adjust Auto Updater URL for Release Candidate
         if: inputs.sign_binaries && github.ref == 'refs/heads/rc'
@@ -856,9 +900,6 @@ jobs:
         with:
           cache-workspaces: console/src-tauri -> target
           cache-shared-key: ${{ runner.os }}
-
-      - name: Install Dependencies
-        run: pnpm install
 
       - name: Build TypeScript
         run: pnpm build:console-vite

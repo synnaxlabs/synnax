@@ -91,15 +91,15 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("service.channel")
-	validate.NotNil(v, "channel", c.Channel)
-	validate.NotNil(v, "db", c.DB)
-	validate.NotNil(v, "host_provider", c.HostProvider)
-	validate.NotNil(v, "ontology", c.Ontology)
-	validate.NotNil(v, "group", c.Group)
-	validate.NotNil(v, "search", c.Search)
-	validate.NotNil(v, "int_overflow_check", c.IntOverflowCheck)
-	validate.NotNil(v, "status", c.Status)
-	validate.NotNil(v, "validate_names", c.ValidateNames)
+	v.NotNil("channel", c.Channel)
+	v.NotNil("db", c.DB)
+	v.NotNil("host_provider", c.HostProvider)
+	v.NotNil("ontology", c.Ontology)
+	v.NotNil("group", c.Group)
+	v.NotNil("search", c.Search)
+	v.NotNil("int_overflow_check", c.IntOverflowCheck)
+	v.NotNil("status", c.Status)
+	v.NotNil("validate_names", c.ValidateNames)
 	return v.Error()
 }
 

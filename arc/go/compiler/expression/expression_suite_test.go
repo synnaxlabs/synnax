@@ -64,7 +64,7 @@ func expectCompileError(bCtx SpecContext, source, substr string) {
 		Type: types.Series(types.F64()),
 	}))
 	expr := MustSucceed(parser.ParseExpression(source))
-	Expect(expression.Compile(ccontext.Child(ctx, expr))).Error().
+	Expect(expression.Compile(ctx.Child(expr))).Error().
 		To(MatchError(ContainSubstring(substr)))
 }
 
@@ -80,9 +80,7 @@ func compileWithCtx(
 		)
 		exprType = MustSucceedWithOffset[types.Type](
 			2,
-		)(
-			expression.Compile(ccontext.Child(ctx, expr)),
-		)
+		)(expression.Compile(ctx.Child(expr)))
 	)
 	return FinalizeContext(ctx), exprType
 }
@@ -104,9 +102,7 @@ func compileWithCtxAndHint(
 	}
 	exprType := MustSucceedWithOffset[types.Type](
 		2,
-	)(
-		expression.Compile(ccontext.Child(ctx, expr)),
-	)
+	)(expression.Compile(ctx.Child(expr)))
 	return FinalizeContext(ctx), exprType
 }
 
@@ -154,7 +150,7 @@ func compileWithAnalyzer(
 		analyzerCtx.TypeMap,
 		resolve.NewResolver(),
 	)
-	exprType := MustSucceed(expression.Compile(ccontext.Child(compilerCtx, expr)))
+	exprType := MustSucceed(expression.Compile(compilerCtx.Child(expr)))
 	return FinalizeContext(compilerCtx), exprType
 }
 
@@ -247,7 +243,7 @@ func expectSeriesLiteralWithHint(
 		analyzerCtx.TypeMap,
 		resolve.NewResolver(),
 	)
-	exprType := MustSucceed(expression.Compile(ccontext.Child(compilerCtx, parsedExpr)))
+	exprType := MustSucceed(expression.Compile(compilerCtx.Child(parsedExpr)))
 	Expect(FinalizeContext(compilerCtx)).To(MatchOpcodes(expectedOpcodes...))
 	Expect(exprType).To(Equal(hint))
 }

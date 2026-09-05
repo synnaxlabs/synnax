@@ -17,20 +17,21 @@ on:
       - rc
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
+    # Pushes to rc already run this check, so the rc PR run is redundant.
+    if: github.event_name != 'pull_request' || github.head_ref != 'rc'
     name: Check Formatting
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
+      - uses: pnpm/setup@v2
         with:
-          node-version-file: package.json
-          cache: pnpm
-
-      - name: Install Dependencies
-        run: pnpm install
+          cache: true
 
       - name: Check Formatting
         run: pnpm check-format

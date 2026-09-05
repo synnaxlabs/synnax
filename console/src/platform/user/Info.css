@@ -9,14 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-user-badge__dialog {
-    width: 260px;
-
-    .console-user-badge__body {
-        padding: 1.5rem 2rem;
-    }
-
-    .console-user-badge__actions {
-        padding: 1rem;
-    }
+.console-user-info {
+    padding: 1.5rem 2rem;
 }

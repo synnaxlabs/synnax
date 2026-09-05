@@ -89,8 +89,8 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements config.Config.
 func (cfg ServiceConfig) Validate() error {
 	v := validate.New("iterator")
-	validate.NotNil(v, "framer", cfg.Framer)
-	validate.NotNil(v, "channel", cfg.Channel)
+	v.NotNil("framer", cfg.Framer)
+	v.NotNil("channel", cfg.Channel)
 	return v.Error()
 }
 
@@ -119,25 +119,20 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 	if err != nil {
 		return nil, err
 	}
-	plumber.SetSegment(p, "distribution", dist)
+	p.SetSegment("distribution", dist)
 	var routeOutletFrom address.Address = "distribution"
 	if calcTransform != nil {
-		plumber.SetSegment(
-			p,
+		p.SetSegment(
 			"calculation",
 			calcTransform,
 			confluence.DeferErr(calcTransform.close),
 		)
-		plumber.MustConnect[Response](p, routeOutletFrom, "calculation", 25)
+		p.MustConnect[Response](routeOutletFrom, "calculation", 25)
 		routeOutletFrom = "calculation"
 	}
 	if cfg.DownsampleFactor > 1 {
-		plumber.SetSegment(
-			p,
-			"downsampler",
-			newDownsampler(cfg),
-		)
-		plumber.MustConnect[Response](p, routeOutletFrom, "downsampler", 25)
+		p.SetSegment("downsampler", newDownsampler(cfg))
+		p.MustConnect[Response](routeOutletFrom, "downsampler", 25)
 		routeOutletFrom = "downsampler"
 	}
 	return &plumber.Segment[Request, Response]{
@@ -236,7 +231,8 @@ func (s *Service) newCalculationTransform(
 		concreteBaseChannels,
 		func(item channel.Channel, index int) (channel.Key, bool) {
 			return item.Index(), !item.Virtual
-		})...,
+		},
+	)...,
 	))
 
 	// Remove ALL calculated keys (including nested ones) from cfg.Keys

@@ -114,13 +114,13 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements xconfig.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("task")
-	validate.NotNil(v, "db", c.DB)
-	validate.NotNil(v, "ontology", c.Ontology)
-	validate.NotNil(v, "group", c.Group)
-	validate.NotNil(v, "rack", c.Rack)
-	validate.NotNil(v, "status", c.Status)
-	validate.NotNil(v, "search", c.Search)
-	validate.NotNil(v, "imex", c.ImEx)
+	v.NotNil("db", c.DB)
+	v.NotNil("ontology", c.Ontology)
+	v.NotNil("group", c.Group)
+	v.NotNil("rack", c.Rack)
+	v.NotNil("status", c.Status)
+	v.NotNil("search", c.Search)
+	v.NotNil("imex", c.ImEx)
 	v.Ternary("configs", c.Configs.IsZero(), "must be non-zero")
 	return v.Error()
 }
@@ -211,13 +211,13 @@ func OpenService(
 	disconnect := cfg.Rack.OnSuspect(s.onSuspectRack)
 	ok(nil, xio.NoFailCloserFunc(disconnect))
 	if cfg.Signals != nil {
-		pubCfg := signals.GorpPublisherConfigUUID[Task](s.table.Observe())
+		pubCfg := signals.GorpPublisherConfigUUID(s.table.Observe())
 		pubCfg.MarshalSet = func(t Task) ([]byte, error) {
 			t.Config, t.Status = nil, nil
-			return signals.MarshalJSON[Key, Task](t)
+			return signals.MarshalJSON(t)
 		}
 		var sig io.Closer
-		if sig, err = signals.PublishFromGorp(ctx, cfg.Signals, pubCfg); !ok(err, sig) {
+		if sig, err = cfg.Signals.PublishFromGorp(ctx, pubCfg); !ok(err, sig) {
 			return nil, err
 		}
 	}
@@ -237,7 +237,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		otgWriter: s.cfg.Ontology.NewWriter(tx),
 		otg:       s.cfg.Ontology,
 		group:     s.group,
-		status:    status.NewWriter[StatusDetails](s.cfg.Status, tx),
+		status:    s.cfg.Status.NewWriter(tx),
 		table:     s.table,
 		configs:   s.cfg.Configs,
 	}
@@ -268,7 +268,7 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {
 	// A silent rack does not undo the deploy the Driver reported, so its config hash
 	// and rack are carried across rather than rebuilt.
 	var reported []Status
-	if err := status.NewRetrieve[StatusDetails](s.cfg.Status).
+	if err := s.cfg.Status.NewRetrieve[StatusDetails]().
 		Where(status.MatchKeys[StatusDetails](keys...)).
 		Entries(&reported).
 		Exec(ctx, nil); err != nil {
@@ -294,7 +294,7 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {
 			Details:     details,
 		}
 	}
-	if err := status.NewWriter[StatusDetails](s.cfg.Status, nil).
+	if err := s.cfg.Status.NewWriter(nil).
 		SetMany(ctx, &statuses); err != nil {
 		s.cfg.L.Error("failed to set statuses on suspect rack", zap.Error(err))
 	}

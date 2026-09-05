@@ -41,9 +41,9 @@ type SignalsConfig[K comparable, A any] struct {
 // Validate implements config.Config.
 func (c SignalsConfig[K, A]) Validate() error {
 	v := validate.New("actions.signals_config")
-	validate.NotNil(v, "provider", c.Provider)
-	validate.NotNil(v, "state", c.State)
-	validate.NotEmptyString(v, "name", c.Name)
+	v.NotNil("provider", c.Provider)
+	v.NotNil("state", c.State)
+	v.NotEmptyString("name", c.Name)
 	return v.Error()
 }
 
@@ -59,9 +59,8 @@ func PublishSignals[K comparable, A any](
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
-	closer, err := signals.PublishJSON(
+	closer, err := cfg.Provider.PublishJSON(
 		ctx,
-		cfg.Provider,
 		signals.JSONPublisherConfig[Scoped[K, A]]{
 			Name:       fmt.Sprintf("%s_actions", cfg.Name),
 			Observable: cfg.State.observer,

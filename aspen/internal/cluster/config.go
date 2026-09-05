@@ -76,10 +76,10 @@ func (cfg Config) Override(other Config) Config {
 // Validate implements config.Config.
 func (cfg Config) Validate() error {
 	v := validate.New("aspen.cluster")
-	validate.NotEmptyString(v, "host_address", cfg.HostAddress)
-	validate.NotNil(v, "codec", cfg.Codec)
-	validate.NonZero(v, "storage_flush_interval", cfg.StorageFlushInterval)
-	validate.NotEmptySlice(v, "local_key", cfg.StorageKey)
+	v.NotEmptyString("host_address", cfg.HostAddress)
+	v.NotNil("codec", cfg.Codec)
+	v.NonZero("storage_flush_interval", cfg.StorageFlushInterval)
+	v.NotEmptySlice("storage_key", cfg.StorageKey)
 	return v.Error()
 }
 

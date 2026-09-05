@@ -44,9 +44,7 @@ func newChangeID(key string) ontology.ID {
 }
 
 func decodeRelationships(ser []byte) ([]ontology.Relationship, error) {
-	samples := telem.UnmarshalSeries[string](telem.Series{
-		DataType: telem.StringT, Data: ser,
-	})
+	samples := telem.Series{DataType: telem.StringT, Data: ser}.Unmarshal[string]()
 	relationships := make([]ontology.Relationship, 0, len(samples))
 	for _, s := range samples {
 		relationship, err := ontology.ParseRelationship(s)
@@ -59,9 +57,7 @@ func decodeRelationships(ser []byte) ([]ontology.Relationship, error) {
 }
 
 func decodeIDs(ser []byte) ([]ontology.ID, error) {
-	samples := telem.UnmarshalSeries[string](telem.Series{
-		DataType: telem.StringT, Data: ser,
-	})
+	samples := telem.Series{DataType: telem.StringT, Data: ser}.Unmarshal[string]()
 	ids := make([]ontology.ID, 0, len(samples))
 	for _, s := range samples {
 		id, err := ontology.ParseID(s)
@@ -139,7 +135,7 @@ var _ = Describe("Signals", func() {
 				Expect(s.Len()).To(Equal(int64(1)))
 				for s := range s.Samples() {
 					r := ontology.Resource{}
-					Expect((json.Codec).Decode(ctx, s, &r)).To(Succeed())
+					Expect(json.Codec.Decode(ctx, s, &r)).To(Succeed())
 					Expect(r.ID).To(Equal(newChangeID(key)))
 				}
 				requests.Close()

@@ -15,7 +15,7 @@ genrule(
     outs = ["version.h"],
     cmd = """
         echo '#pragma once' > $@ &&
-        echo '#define SYNNAX_VERSION \"'$$(cat $(location VERSION))'\"' >> $@ &&
+        echo '#define SYNNAX_VERSION \"'$$(cat $(execpath VERSION))'\"' >> $@ &&
         echo '#define SYNNAX_DRIVER_VERSION SYNNAX_VERSION' >> $@ &&
         echo '#define SYNNAX_BUILD_TIMESTAMP \"'$$(date "+%Y-%m-%d %H:%M:%S")'\"' >> $@
     """,

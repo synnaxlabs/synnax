@@ -45,8 +45,14 @@ on:
       - x/ts/**
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
+    # Pushes to rc already run these tests, so the rc PR run is redundant.
+    if: github.event_name != 'pull_request' || github.head_ref != 'rc'
     name: Test (${{ matrix.os }})
     env:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}

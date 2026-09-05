@@ -277,7 +277,7 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 				content := ExpectContent(resp, "types.gen.go")
 				content.ToContain(
 					"func (r Range) Validate() error {",
-					`validate.NotEmptyString(v, "name", r.Name)`,
+					`v.NotEmptyString("name", r.Name)`,
 				)
 				content.ToNotContain("r.Parent.Validate()", "r.Item.Validate()")
 			},
@@ -571,7 +571,7 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").ToContain(
 				"func (c Cfg) Validate() error {",
-				`validate.NotEmptyString(v, "name", c.Name)`,
+				`v.NotEmptyString("name", c.Name)`,
 			)
 		})
 
@@ -591,7 +591,7 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			`
 				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 				ExpectContent(resp, "types.gen.go").ToContain(
-					`validate.GreaterThanEq(v, "rack", c.Rack, 1)`,
+					`v.GreaterThanEq("rack", c.Rack, 1)`,
 				)
 			},
 		)
@@ -612,7 +612,7 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			`
 				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 				ExpectContent(resp, "types.gen.go").ToContain(
-					`validate.NonZero(v, "rack", c.Rack)`,
+					`v.NonZero("rack", c.Rack)`,
 				)
 			},
 		)
@@ -629,7 +629,7 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			`
 			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").ToContain(
-				`validate.LessThanEq(v, "level", c.Level, 17)`,
+				`v.LessThanEq("level", c.Level, 17)`,
 			)
 		})
 

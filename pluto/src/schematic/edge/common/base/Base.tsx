@@ -10,6 +10,7 @@
 import { color } from "@synnaxlabs/x";
 import { BaseEdge, type BaseEdgeProps } from "@xyflow/react";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
+import { z } from "zod";
 
 import { CSS } from "@/css";
 import { symbolColorVar } from "@/schematic/symbolColor";
@@ -29,7 +30,7 @@ export const Base = ({
   const style = useMemo<CSSProperties>(() => {
     // A non-color string (e.g. the connection-line preview's CSS variable) is stroked
     // directly and skips the theme transform.
-    if (typeof stroke === "string" && !color.colorZ.safeParse(stroke).success)
+    if (typeof stroke === "string" && !z.validate(color.colorZ, stroke))
       return { ...baseStyle, stroke };
     return {
       ...baseStyle,

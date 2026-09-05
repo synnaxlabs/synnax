@@ -53,9 +53,15 @@ on:
       - x/ts/**
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: Test
+    # Pushes to rc already run these tests, so the rc PR run is redundant.
+    if: github.event_name != 'pull_request' || github.head_ref != 'rc'
     runs-on: ubuntu-latest
     env:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
@@ -72,7 +78,19 @@ jobs:
           coverage_flag: docs
           directory: docs/site
 
+      - name: Diff Changes
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            site:
+              - docs/site/**
+
       - name: Check Site
+        if: >-
+          github.event_name != 'pull_request' || github.base_ref == 'main' ||
+          steps.filter.outputs.site == 'true'
         timeout-minutes: 15
         working-directory: docs/site
         run: pnpm check-site:build && pnpm check-site

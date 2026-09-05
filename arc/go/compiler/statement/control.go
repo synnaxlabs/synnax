@@ -23,9 +23,7 @@ import (
 func compileIfStatement(
 	ctx context.Context[parser.IIfStatementContext],
 ) (diverged bool, err error) {
-	if _, err = expression.Compile(
-		context.Child(ctx, ctx.AST.Expression()),
-	); err != nil {
+	if _, err = expression.Compile(ctx.Child(ctx.AST.Expression())); err != nil {
 		return false, errors.Wrap(err, "failed to compile if condition")
 	}
 
@@ -39,7 +37,7 @@ func compileIfStatement(
 		innerCtx := ctx.EnterBlock()
 
 		// Compile the main if block
-		ifDiverged, err := CompileBlock(context.Child(innerCtx, ctx.AST.Block()))
+		ifDiverged, err := CompileBlock(innerCtx.Child(ctx.AST.Block()))
 		if err != nil {
 			return false, errors.Wrap(err, "failed to compile if block")
 		}
@@ -51,9 +49,7 @@ func compileIfStatement(
 		elseIfCtx := innerCtx
 		for i, elseIfClause := range ctx.AST.AllElseIfClause() {
 			ctx.Writer.WriteElse()
-			_, err := expression.Compile(
-				context.Child(elseIfCtx, elseIfClause.Expression()),
-			)
+			_, err := expression.Compile(elseIfCtx.Child(elseIfClause.Expression()))
 			if err != nil {
 				return false, errors.Wrapf(
 					err,
@@ -63,9 +59,7 @@ func compileIfStatement(
 			}
 			ctx.Writer.WriteIf(wasm.BlockTypeEmpty)
 			elseIfCtx = elseIfCtx.EnterBlock()
-			elseIfDiverged, err := CompileBlock(
-				context.Child(elseIfCtx, elseIfClause.Block()),
-			)
+			elseIfDiverged, err := CompileBlock(elseIfCtx.Child(elseIfClause.Block()))
 			if err != nil {
 				return false, errors.Wrapf(
 					err,
@@ -80,7 +74,7 @@ func compileIfStatement(
 		if hasElseClause {
 			ctx.Writer.WriteElse()
 			elseDiverged, err := CompileBlock(
-				context.Child(elseIfCtx, ctx.AST.ElseClause().Block()),
+				elseIfCtx.Child(ctx.AST.ElseClause().Block()),
 			)
 			if err != nil {
 				return false, errors.Wrap(err, "failed to compile else block")
@@ -111,7 +105,7 @@ func compileIfStatement(
 	// Simple if without else
 	ctx.Writer.WriteIf(wasm.BlockTypeEmpty)
 	innerCtx := ctx.EnterBlock()
-	if _, err = CompileBlock(context.Child(innerCtx, ctx.AST.Block())); err != nil {
+	if _, err = CompileBlock(innerCtx.Child(ctx.AST.Block())); err != nil {
 		return false, errors.Wrap(err, "failed to compile if block")
 	}
 	ctx.Writer.WriteEnd()
@@ -124,7 +118,7 @@ func compileReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 	if expr == nil {
 		return nil
 	}
-	exprType, err := expression.Compile(context.Child(ctx, expr))
+	exprType, err := expression.Compile(ctx.Child(expr))
 	if err != nil {
 		return errors.Wrap(err, "failed to compile return expression")
 	}

@@ -80,6 +80,96 @@ export const exceptionDetailsSchema = z
   })
   .and(record.unknownZ());
 
+// Bounds the clone check so it stays cheap even when errors are created in a tight
+// loop. An exhausted budget reports un-cloneable, which safely over-rebuilds.
+const CLONE_CHECK_BUDGET = 64;
+
+const isCloneableValue = (
+  v: unknown,
+  seen: Set<object>,
+  budget: { left: number },
+): boolean => {
+  if (--budget.left < 0) return false;
+  if (v == null) return true;
+  const t = typeof v;
+  if (t === "function" || t === "symbol") return false;
+  if (t !== "object") return true;
+  const o = v;
+  if (seen.has(o)) return true;
+  seen.add(o);
+  const values = (vals: unknown[]): boolean =>
+    vals.every((e) => isCloneableValue(e, seen, budget));
+  if (o instanceof Error)
+    return isCloneableValue(o.cause, seen, budget) && values(Object.values(o));
+  if (Array.isArray(o)) return values(o);
+  const proto = Object.getPrototypeOf(o);
+  if (proto === Object.prototype || proto === null) return values(Object.values(o));
+  if (o instanceof Date || o instanceof ArrayBuffer || ArrayBuffer.isView(o))
+    return true;
+  // Host objects (an Event, a DOM node) and exotic containers land here.
+  return false;
+};
+
+// Object.values can trip an enumerable getter that throws. Treat a throwing value
+// as not cloneable rather than throwing while already handling an error.
+const isCloneable = (v: unknown): boolean => {
+  try {
+    return isCloneableValue(v, new Set(), { left: CLONE_CHECK_BUDGET });
+  } catch {
+    return false;
+  }
+};
+
+// Returns a cloneable stand-in for an un-cloneable value.
+const cloneSafeValue = (v: unknown, depth: number): unknown => {
+  if (isCloneable(v)) return v;
+  if (v instanceof Error) return cloneSafeError(v, depth);
+  if (depth <= 0) return errors.fromUnknown(v).message;
+  try {
+    if (Array.isArray(v)) return v.map((e) => cloneSafeValue(e, depth - 1));
+    if (typeof v === "object" && v != null) {
+      const out: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(v))
+        if (typeof value !== "function" && typeof value !== "symbol")
+          out[key] = cloneSafeValue(value, depth - 1);
+      return out;
+    }
+  } catch {
+    // Tolerate throwing enumerable getters.
+  }
+  return errors.fromUnknown(v).message;
+};
+
+/**
+ * Returns err unchanged when it survives structured cloning. Otherwise rebuilds it
+ * with the same name, message, stack, and `type`, sanitizing un-cloneable fields and
+ * causes. Statuses cross the worker boundary, where an un-cloneable error kills the
+ * worker.
+ */
+const cloneSafeError = (err: Error, depth: number = 8): Error => {
+  if (isCloneable(err)) return err;
+  const safe = new Error(err.message);
+  safe.name = err.name;
+  safe.stack = err.stack;
+  const { type } = err as { type?: unknown };
+  if (typeof type === "string") (safe as { type?: string }).type = type;
+  try {
+    for (const [key, value] of Object.entries(err))
+      if (key !== "cause" && typeof value !== "function" && typeof value !== "symbol")
+        (safe as unknown as Record<string, unknown>)[key] = cloneSafeValue(
+          value,
+          depth - 1,
+        );
+  } catch {
+    // Tolerate throwing enumerable getters.
+  }
+  const { cause } = err;
+  if (cause !== undefined && depth > 0)
+    if (cause instanceof Error) safe.cause = cloneSafeError(cause, depth - 1);
+    else safe.cause = cloneSafeValue(cause, depth - 1);
+  return safe;
+};
+
 /** Flattens an error's cause chain into one readable line. */
 const causeChain = (err: Error): string | undefined => {
   const parts: string[] = [];
@@ -109,7 +199,7 @@ export const fromException = (
       message != null
         ? [err.message, detail].filter((part) => part != null).join(": ")
         : detail,
-    details: { stack: err.stack ?? "", error: err },
+    details: { stack: err.stack ?? "", error: cloneSafeError(err) },
   };
   // Probe the original (pre-coercion) value so a non-Error throwable with a custom
   // `toStatus()` method still contributes its status fields.

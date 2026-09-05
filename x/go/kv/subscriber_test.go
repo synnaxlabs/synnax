@@ -30,7 +30,7 @@ var _ = Describe("Flush", func() {
 		o := observe.New[dataStruct]()
 		db := DeferClose(memkv.New())
 		codec := gob.Codec
-		flush := &kv.Subscriber[dataStruct]{
+		flush := &kv.Subscriber{
 			Key:         []byte("key"),
 			Store:       db,
 			MinInterval: 5 * time.Millisecond,
@@ -54,7 +54,7 @@ var _ = Describe("Flush", func() {
 	It("Should write the state before returning to the caller", func(ctx SpecContext) {
 		db := DeferClose(memkv.New())
 		codec := gob.Codec
-		flush := &kv.Subscriber[dataStruct]{
+		flush := &kv.Subscriber{
 			Key:     []byte("key"),
 			Store:   db,
 			Encoder: codec,

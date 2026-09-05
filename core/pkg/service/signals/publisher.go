@@ -98,7 +98,7 @@ func (c ObservablePublisherConfig) Validate() error {
 			c.DeleteChannel.Name,
 		)
 	}
-	validate.NotNil(v, "observable", c.Observable)
+	v.NotNil("observable", c.Observable)
 	return v.Error()
 }
 
@@ -213,17 +213,17 @@ func (p *Provider) PublishFromObservable(
 		},
 	}
 	pl := plumber.New()
-	plumber.SetSource(pl, "source", t)
-	plumber.SetSegment(pl, "writer", w)
+	pl.SetSource("source", t)
+	pl.SetSegment("writer", w)
 	responses := &confluence.UnarySink[framer.WriterResponse]{
 		Sink: func(_ context.Context, value framer.WriterResponse) error {
 			p.cfg.L.Error("unexpected writer response", zap.Int("seqNum", value.SeqNum))
 			return nil
 		},
 	}
-	plumber.SetSink(pl, "responses", responses)
-	plumber.MustConnect[framer.WriterRequest](pl, "source", "writer", requestBufferSize)
-	plumber.MustConnect[framer.WriterResponse](pl, "writer", "responses", 10)
+	pl.SetSink("responses", responses)
+	pl.MustConnect[framer.WriterRequest]("source", "writer", requestBufferSize)
+	pl.MustConnect[framer.WriterResponse]("writer", "responses", 10)
 	name := cfg.Name
 	if name == "" {
 		if setEnabled {

@@ -9,7 +9,7 @@
 
 import { type location } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
-import { ReactFlowProvider, ResizeControlVariant } from "@xyflow/react";
+import { type Node, ReactFlowProvider, ResizeControlVariant } from "@xyflow/react";
 import {
   type PropsWithChildren,
   type ReactElement,
@@ -25,16 +25,27 @@ const NODE_KEY = "node-1";
 
 interface GridHostProps extends Omit<Grid.GridProps, "children"> {
   children: ReactNode;
+  initialNodes?: Node[];
 }
 
-// Wraps Grid in a Haul.Provider so drag-and-drop has a context, and inside
-// `data-id={nodeKey}` so reflowPane's selectNode lookup can resolve.
-const GridHost = ({ children, ...rest }: GridHostProps): ReactElement => (
-  <Haul.Provider>
-    <div data-id={rest.nodeKey}>
-      <Grid.Grid {...rest}>{children}</Grid.Grid>
-    </div>
-  </Haul.Provider>
+const lockedNode = (key: string): Node => ({
+  id: key,
+  position: { x: 0, y: 0 },
+  data: {},
+  draggable: false,
+});
+
+// Wraps Grid in a ReactFlowProvider (the lock gate reads the node store) and a
+// Haul.Provider so drag-and-drop has a context, inside `data-id={nodeKey}` so
+// reflowPane's selectNode lookup can resolve.
+const GridHost = ({ children, initialNodes, ...rest }: GridHostProps): ReactElement => (
+  <ReactFlowProvider initialNodes={initialNodes}>
+    <Haul.Provider>
+      <div data-id={rest.nodeKey}>
+        <Grid.Grid {...rest}>{children}</Grid.Grid>
+      </div>
+    </Haul.Provider>
+  </ReactFlowProvider>
 );
 
 const slot = (container: HTMLElement, loc: location.Location): HTMLElement | null =>
@@ -221,6 +232,15 @@ describe("Grid rotate control", () => {
     expect(rotateButton(container)).not.toBeNull();
   });
 
+  it("should hide the rotate button when the node is not draggable", () => {
+    const { container } = render(
+      <GridHost editable nodeKey={NODE_KEY} initialNodes={[lockedNode(NODE_KEY)]}>
+        <div>body</div>
+      </GridHost>,
+    );
+    expect(rotateButton(container)).toBeNull();
+  });
+
   it("should hide the rotate button when allowRotate is false", () => {
     const { container } = render(
       <GridHost editable nodeKey={NODE_KEY} allowRotate={false}>
@@ -262,18 +282,20 @@ describe("Grid editable transitions", () => {
   const Toggle = ({ children }: PropsWithChildren) => {
     const [editable, setEditable] = useState(false);
     return (
-      <Haul.Provider>
-        <div className="react-flow__pane">
-          <div data-id={NODE_KEY}>
-            <button data-testid="toggle" onClick={() => setEditable((v) => !v)}>
-              flip
-            </button>
-            <Grid.Grid editable={editable} nodeKey={NODE_KEY}>
-              {children}
-            </Grid.Grid>
+      <ReactFlowProvider>
+        <Haul.Provider>
+          <div className="react-flow__pane">
+            <div data-id={NODE_KEY}>
+              <button data-testid="toggle" onClick={() => setEditable((v) => !v)}>
+                flip
+              </button>
+              <Grid.Grid editable={editable} nodeKey={NODE_KEY}>
+                {children}
+              </Grid.Grid>
+            </div>
           </div>
-        </div>
-      </Haul.Provider>
+        </Haul.Provider>
+      </ReactFlowProvider>
     );
   };
 
@@ -299,24 +321,28 @@ describe("Grid editable transitions", () => {
     // selectNode must succeed (so we wrap in data-id), but .react-flow__pane
     // is intentionally absent: reflowPane should silently skip in that case.
     const { getByTestId, rerender } = render(
-      <Haul.Provider>
-        <div data-id={NODE_KEY}>
-          <Grid.Grid editable={false} nodeKey={NODE_KEY}>
-            <span data-testid="body">body</span>
-          </Grid.Grid>
-        </div>
-      </Haul.Provider>,
+      <ReactFlowProvider>
+        <Haul.Provider>
+          <div data-id={NODE_KEY}>
+            <Grid.Grid editable={false} nodeKey={NODE_KEY}>
+              <span data-testid="body">body</span>
+            </Grid.Grid>
+          </div>
+        </Haul.Provider>
+      </ReactFlowProvider>,
     );
     expect(getByTestId("body")).toBeTruthy();
     expect(() =>
       rerender(
-        <Haul.Provider>
-          <div data-id={NODE_KEY}>
-            <Grid.Grid editable nodeKey={NODE_KEY}>
-              <span data-testid="body">body</span>
-            </Grid.Grid>
-          </div>
-        </Haul.Provider>,
+        <ReactFlowProvider>
+          <Haul.Provider>
+            <div data-id={NODE_KEY}>
+              <Grid.Grid editable nodeKey={NODE_KEY}>
+                <span data-testid="body">body</span>
+              </Grid.Grid>
+            </div>
+          </Haul.Provider>
+        </ReactFlowProvider>,
       ),
     ).not.toThrow();
   });
@@ -522,8 +548,9 @@ describe("Grid resize controls", () => {
   const ResizableHost = ({
     editable = true,
     onResize,
-  }: Partial<Grid.GridProps>): ReactElement => (
-    <ReactFlowProvider>
+    initialNodes,
+  }: Partial<Grid.GridProps> & { initialNodes?: Node[] }): ReactElement => (
+    <ReactFlowProvider initialNodes={initialNodes}>
       <Haul.Provider>
         <div data-id={NODE_KEY}>
           <Grid.Grid editable={editable} nodeKey={NODE_KEY} onResize={onResize}>
@@ -551,6 +578,13 @@ describe("Grid resize controls", () => {
 
     it("should render no controls when no onResize handler is provided", () => {
       const { container } = render(<ResizableHost />);
+      expect(controlEls(container)).toHaveLength(0);
+    });
+
+    it("should render no controls when the node is not draggable", () => {
+      const { container } = render(
+        <ResizableHost onResize={vi.fn()} initialNodes={[lockedNode(NODE_KEY)]} />,
+      );
       expect(controlEls(container)).toHaveLength(0);
     });
 

@@ -80,11 +80,11 @@ func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 
 func (c FactoryConfig) Validate() error {
 	v := validate.New("arc.task.factory")
-	validate.NotNil(v, "channel", c.Channel)
-	validate.NotNil(v, "framer", c.Framer)
-	validate.NotNil(v, "status", c.Status)
-	validate.NotNil(v, "get_program", c.GetProgram)
-	validate.NotNil(v, "ranger", c.Ranger)
+	v.NotNil("channel", c.Channel)
+	v.NotNil("framer", c.Framer)
+	v.NotNil("status", c.Status)
+	v.NotNil("get_program", c.GetProgram)
+	v.NotNil("ranger", c.Ranger)
 	return v.Error()
 }
 
@@ -167,9 +167,7 @@ func (f *factory) setConfigStatus(
 		Time:    telem.Now(),
 		Details: details,
 	}
-	if err := status.
-		NewWriter[task.StatusDetails](f.cfg.Status, nil).
-		Set(ctx, &stat); err != nil {
+	if err := f.cfg.Status.NewWriter(nil).Set(ctx, &stat); err != nil {
 		f.cfg.L.Error(
 			"failed to set configuration status for task",
 			zap.Stringer("key", t.Key),

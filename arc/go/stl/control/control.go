@@ -10,8 +10,6 @@
 package control
 
 import (
-	"context"
-
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/symbol"
@@ -96,7 +94,7 @@ type Host struct {
 // node factory.
 func NewHost(ab *ProgramState) *Host { return &Host{auth: ab} }
 
-func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+func (h *Host) Create(cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName {
 		return nil, query.ErrNotFound
 	}
@@ -130,8 +128,8 @@ func (s *setAuthority) Next(node.Context) {
 	}
 	s.initialized = true
 	var channelKey *uint32
-	if key := node.NumericInput[uint32](s.State, "channel"); key != 0 {
+	if key := s.NumericInput[uint32]("channel"); key != 0 {
 		channelKey = &key
 	}
-	s.auth.Set(channelKey, node.NumericInput[uint8](s.State, "value"))
+	s.auth.Set(channelKey, s.NumericInput[uint8]("value"))
 }

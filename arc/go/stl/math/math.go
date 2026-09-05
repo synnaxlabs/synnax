@@ -235,25 +235,10 @@ func NewHost(ctx context.Context, rt wazero.Runtime) (*Host, error) {
 			return math.Pow(base, exp)
 		}).Export("pow_f64")
 
-	builder = bindI32Unary[int8](builder, "neg", "i8", func(a int8) int8 { return -a })
-	builder = bindI32Unary[int16](
-		builder,
-		"neg",
-		"i16",
-		func(a int16) int16 { return -a },
-	)
-	builder = bindI32Unary[int32](
-		builder,
-		"neg",
-		"i32",
-		func(a int32) int32 { return -a },
-	)
-	builder = bindI64Unary[int64](
-		builder,
-		"neg",
-		"i64",
-		func(a int64) int64 { return -a },
-	)
+	builder = bindI32Unary(builder, "neg", "i8", func(a int8) int8 { return -a })
+	builder = bindI32Unary(builder, "neg", "i16", func(a int16) int16 { return -a })
+	builder = bindI32Unary(builder, "neg", "i32", func(a int32) int32 { return -a })
+	builder = bindI64Unary(builder, "neg", "i64", func(a int64) int64 { return -a })
 	builder = bindF32Unary(builder, "neg", func(a float32) float32 { return -a })
 	builder = bindF64Unary(builder, "neg", func(a float64) float64 { return -a })
 
@@ -263,7 +248,7 @@ func NewHost(ctx context.Context, rt wazero.Runtime) (*Host, error) {
 	return h, nil
 }
 
-func (h *Host) Create(_ context.Context, nodeCfg node.Config) (node.Node, error) {
+func (*Host) Create(nodeCfg node.Config) (node.Node, error) {
 	if nodeCfg.Node.Type == derivativeSymbolName {
 		return createDerivative(nodeCfg)
 	}
@@ -286,7 +271,7 @@ func (h *Host) Create(_ context.Context, nodeCfg node.Config) (node.Node, error)
 		}
 		nodeCfg.State.InitInput(
 			resetIdx,
-			telem.NewSeriesV[bool](false),
+			telem.NewSeriesV(false),
 			telem.NewSeriesV[telem.TimeStamp](1),
 		)
 	}
@@ -344,7 +329,7 @@ func (r *avgNode) Next(ctx node.Context) {
 
 	inputTime := r.InputTime(r.inputIdx)
 	if r.startTime == 0 && inputTime.Len() > 0 {
-		r.startTime = telem.ValueAt[telem.TimeStamp](inputTime, 0)
+		r.startTime = inputTime.ValueAt[telem.TimeStamp](0)
 	}
 
 	shouldReset := false
@@ -353,19 +338,19 @@ func (r *avgNode) Next(ctx node.Context) {
 		resetData := r.Input(r.resetIdx)
 		resetTime := r.InputTime(r.resetIdx)
 		for i := int64(0); i < resetData.Len(); i++ {
-			ts := telem.ValueAt[telem.TimeStamp](resetTime, int(i))
-			if ts > r.lastResetTime && telem.ValueAt[bool](resetData, int(i)) {
+			ts := resetTime.ValueAt[telem.TimeStamp](int(i))
+			if ts > r.lastResetTime && resetData.ValueAt[bool](int(i)) {
 				shouldReset = true
 				break
 			}
 		}
 		if resetTime.Len() > 0 {
-			r.lastResetTime = telem.ValueAt[telem.TimeStamp](resetTime, -1)
+			r.lastResetTime = resetTime.ValueAt[telem.TimeStamp](-1)
 		}
 	}
 
 	if r.inputs.Duration > 0 && inputTime.Len() > 0 {
-		currentTime := telem.ValueAt[telem.TimeStamp](inputTime, -1)
+		currentTime := inputTime.ValueAt[telem.TimeStamp](-1)
 		if telem.TimeSpan(currentTime-r.startTime) >= r.inputs.Duration {
 			shouldReset = true
 			r.startTime = currentTime
@@ -387,8 +372,8 @@ func (r *avgNode) Next(ctx node.Context) {
 	}
 	r.sampleCount = r.process(inputData, r.sampleCount, r.Output(0))
 	if inputTime.Len() > 0 {
-		lastTimestamp := telem.ValueAt[telem.TimeStamp](inputTime, -1)
-		*r.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](lastTimestamp)
+		lastTimestamp := inputTime.ValueAt[telem.TimeStamp](-1)
+		*r.OutputTime(0) = telem.NewSeriesV(lastTimestamp)
 	}
 	alignment := inputData.Alignment
 	timeRange := inputData.TimeRange

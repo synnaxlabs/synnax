@@ -1314,14 +1314,6 @@ export class TimeRange implements primitive.Stringer, primitive.Hashable {
    * TimeRange.
    * @returns True if the TimeRange contains the given TimeRange or TimeStamp.
    */
-  contains(other: TimeRange): boolean;
-
-  /**
-   * @param ts - The TimeStamp to check if it is contained in the TimeRange.
-   * @returns True if the TimeRange contains the given TimeStamp.
-   */
-  contains(ts: CrudeTimeStamp): boolean;
-
   contains(other: TimeRange | CrudeTimeStamp): boolean {
     if (other instanceof TimeRange)
       return this.contains(other.start) && this.contains(other.end);
@@ -1935,6 +1927,28 @@ export const numericTimeRangeZ = z.object({
  * Involves a loss of precision, but can be useful for serialization.
  */
 export interface NumericTimeRange extends z.infer<typeof numericTimeRangeZ> {}
+
+// Go marshals telem int64s as decimal strings in JSON, so both forms decode.
+const wireInt64Z = z.union([z.number(), z.string().transform(Number)]);
+
+export const numericTimeSpanZ = wireInt64Z;
+
+/**
+ * A time span backed by a number instead of a TimeSpan/BigInt.
+ * Involves a loss of precision, but can be useful for serialization.
+ */
+export type NumericTimeSpan = z.infer<typeof numericTimeSpanZ>;
+
+export const stringTimeStampZ = z.preprocess(
+  (v) => (typeof v === "number" || typeof v === "bigint" ? String(v) : v),
+  z.string(),
+);
+
+/**
+ * A timestamp backed by a decimal string instead of a TimeStamp/BigInt.
+ * Keeps int64 precision in plain-data document state.
+ */
+export type StringTimeStamp = z.infer<typeof stringTimeStampZ>;
 
 export const typedArrayZ = z.union([
   z.instanceof(Uint8Array),

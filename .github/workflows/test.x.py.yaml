@@ -17,7 +17,6 @@ on:
       - codecov.yaml
       - pyproject.toml
       - uv.lock
-      - uv.toml
       - x/py/**
   push:
     branches:
@@ -29,12 +28,17 @@ on:
       - codecov.yaml
       - pyproject.toml
       - uv.lock
-      - uv.toml
       - x/py/**
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
+    # Pushes to rc already run these tests, so the rc PR run is redundant.
+    if: github.event_name != 'pull_request' || github.head_ref != 'rc'
     name: Test (${{ matrix.os }})
     strategy:
       fail-fast: false

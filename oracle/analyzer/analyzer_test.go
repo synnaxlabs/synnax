@@ -1846,45 +1846,53 @@ Entry struct {
 		)
 
 		It(
-			"Should use first parent's field when names conflict",
+			"Should reject parents that declare the same field",
 			func(ctx SpecContext) {
 				source := `
 				A struct { shared int32 }
 				B struct { shared string }
 				C struct extends A, B { }
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-				Expect(diag.Ok()).To(BeTrue())
-
-				cType := table.MustGet("test.C")
-				allFields := resolution.UnifiedFields(cType, table)
-				Expect(allFields).To(HaveLen(1))
-				Expect(
-					allFields[0].Type.Name,
-				).To(Equal("int32"))
-				// From A (first parent)
+				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.Error()).To(ContainSubstring(
+					`struct C inherits field "shared" from both A and B`,
+				))
 			},
 		)
 
-		It("Should handle diamond inheritance", func(ctx SpecContext) {
+		It(
+			"Should accept parents that share a field the child omits",
+			func(ctx SpecContext) {
+				source := `
+				A struct { shared int32 }
+				B struct { shared string }
+				C struct extends A, B {
+					-shared
+					c bool
+				}
+			`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue())
+
+				allFields := resolution.UnifiedFields(table.MustGet("test.C"), table)
+				Expect(allFields).To(HaveLen(1))
+				Expect(allFields[0].Name).To(Equal("c"))
+			},
+		)
+
+		It("Should reject diamond inheritance", func(ctx SpecContext) {
 			source := `
 				Base struct { base string }
 				Left struct extends Base { left string }
 				Right struct extends Base { right string }
 				Diamond struct extends Left, Right { }
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.Ok()).To(BeTrue())
-
-			dType := table.MustGet("test.Diamond")
-			allFields := resolution.UnifiedFields(dType, table)
-			// base appears once (from Left path), left, right
-			Expect(allFields).To(HaveLen(3))
-			fieldNames := make([]string, len(allFields))
-			for i, f := range allFields {
-				fieldNames[i] = f.Name
-			}
-			Expect(fieldNames).To(ContainElements("base", "left", "right"))
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(ContainSubstring(
+				`struct Diamond inherits field "base" from both Left and Right`,
+			))
 		})
 
 		It(
@@ -2048,14 +2056,13 @@ Entry struct {
 		)
 
 		It(
-			"Should flatten fields from multiple extended structs (first wins)",
+			"Should flatten fields from multiple extended structs",
 			func(ctx SpecContext) {
 				source := `
 				A struct {
 					a string
 				}
 				B struct {
-					a int32
 					b string
 				}
 
@@ -2073,7 +2080,31 @@ Entry struct {
 					names[i] = f.Name
 				}
 				Expect(names).To(Equal([]string{"a", "b"}))
-				Expect(findField(action.Fields, "a").Type.Name).To(Equal("string"))
+			},
+		)
+
+		It(
+			"Should reject extended structs that declare the same field",
+			func(ctx SpecContext) {
+				source := `
+				A struct {
+					a string
+				}
+				B struct {
+					a int32
+				}
+
+				Container struct {
+					key uuid
+
+					action Combine extends A, B {}
+				}
+			`
+				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.Error()).To(ContainSubstring(
+					`action Combine inherits field "a" from both A and B`,
+				))
 			},
 		)
 
@@ -3042,7 +3073,8 @@ Mode enum {
 				Expect(viewForm.Fields[0].Name).To(Equal("type"))
 
 				fields := resolution.UnifiedVariantFields(
-					table.MustGet("panel.Tab"), form.Variants[1], table)
+					table.MustGet("panel.Tab"), form.Variants[1], table,
+				)
 				names := make([]string, len(fields))
 				for i, f := range fields {
 					names[i] = f.Name
@@ -3053,7 +3085,8 @@ Mode enum {
 				Expect(empty.Synthetic).To(BeTrue())
 				Expect(empty.Form.(resolution.StructForm).Fields).To(BeEmpty())
 				Expect(table.StructTypes()).NotTo(ContainElement(
-					HaveField("QualifiedName", "panel.TabViewPayload")))
+					HaveField("QualifiedName", "panel.TabViewPayload"),
+				))
 			},
 		)
 
@@ -3454,6 +3487,27 @@ Mode enum {
 						`union Foo variant "a" must reference a struct type, got: test.Color`,
 					),
 				)
+			},
+		)
+
+		It(
+			"Should error when base structs declare the same field",
+			func(ctx SpecContext) {
+				source := `
+				Ident struct { name string }
+				Audited struct { name string }
+
+				A struct {}
+
+				Foo union on type extends Ident, Audited {
+					a A
+				}
+			`
+				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.Error()).To(ContainSubstring(
+					`union Foo inherits field "name" from both Ident and Audited`,
+				))
 			},
 		)
 

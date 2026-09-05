@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { Modbus } from "@/feature/modbus";
 
@@ -25,31 +26,31 @@ describe("Modbus Scan Task Types", () => {
   });
 
   it("should accept null statusData", () => {
-    expect(Modbus.Task.SCAN_SCHEMAS.statusData.safeParse(null).success).toBe(true);
+    expect(z.validate(Modbus.Task.SCAN_SCHEMAS.statusData, null)).toBe(true);
   });
 
   it("should accept undefined statusData", () => {
-    expect(Modbus.Task.SCAN_SCHEMAS.statusData.safeParse(undefined).success).toBe(true);
+    expect(z.validate(Modbus.Task.SCAN_SCHEMAS.statusData, undefined)).toBe(true);
   });
 });
 
 describe("Modbus Read Task Types", () => {
   it("should accept a null statusData", () => {
-    expect(Modbus.Task.READ_SCHEMAS.statusData.safeParse(null).success).toBe(true);
+    expect(z.validate(Modbus.Task.READ_SCHEMAS.statusData, null)).toBe(true);
   });
 });
 
 describe("Modbus Write Task Types", () => {
   it("should accept a null statusData", () => {
-    expect(Modbus.Task.WRITE_SCHEMAS.statusData.safeParse(null).success).toBe(true);
+    expect(z.validate(Modbus.Task.WRITE_SCHEMAS.statusData, null)).toBe(true);
   });
 
   it("should accept a populated statusData", () => {
     expect(
-      Modbus.Task.WRITE_SCHEMAS.statusData.safeParse({
+      z.validate(Modbus.Task.WRITE_SCHEMAS.statusData, {
         running: true,
         message: "ok",
-      }).success,
+      }),
     ).toBe(true);
   });
 });
@@ -85,10 +86,10 @@ describe("draft configs", () => {
   // accept every default config; retrieve parses with it.
   it("should accept the default read config", () => {
     const config = Modbus.Task.READ_SCHEMAS.config.parse({});
-    expect(Modbus.Task.READ_SCHEMAS.config.safeParse(config).success).toBe(true);
+    expect(z.validate(Modbus.Task.READ_SCHEMAS.config, config)).toBe(true);
   });
   it("should accept the default write config", () => {
     const config = Modbus.Task.WRITE_SCHEMAS.config.parse({});
-    expect(Modbus.Task.WRITE_SCHEMAS.config.safeParse(config).success).toBe(true);
+    expect(z.validate(Modbus.Task.WRITE_SCHEMAS.config, config)).toBe(true);
   });
 });

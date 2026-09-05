@@ -46,18 +46,32 @@ export interface StaticProps {
    * be marked as stale and subject to garbage collection.
    * @default TimeSpan.seconds(20) */
   staleEntryThreshold?: TimeSpan;
+  /**
+   * Sets how long a fetched span counts as answered before it is refetched. Bounds
+   * the refetch rate of spans that stay empty, as every refetch opens a short-lived
+   * iterator connection.
+   * @default TimeSpan.minutes(10) */
+  staleCoverageThreshold?: TimeSpan;
 }
 
 export const DEFAULT_STATIC_PROPS: Required<StaticProps> = {
   instrumentation: alamos.NOOP,
   transform: IDENTITY_TRANSFORM,
   staleEntryThreshold: TimeSpan.seconds(20),
+  staleCoverageThreshold: TimeSpan.minutes(10),
 };
 
 interface CacheEntry {
   /** The cached samples, after the transform and any insertion trimming. */
   data: Series;
   /** When the entry entered the cache, for garbage collection staleness. */
+  addedAt: TimeStamp;
+}
+
+interface CoveredRange {
+  /** The fetched span, held even when the fetch returned no samples. */
+  range: TimeRange;
+  /** When the fetch completed. Coverage answers gaps until it goes stale. */
   addedAt: TimeStamp;
 }
 
@@ -71,6 +85,9 @@ interface CacheEntry {
 export class Static {
   private fetched: CacheEntry[] = [];
   private streamed: CacheEntry[] = [];
+  // Sorted, non-overlapping spans already fetched, kept apart from the entries so a
+  // span that returned no samples still counts as answered and is not refetched.
+  private covered: CoveredRange[] = [];
   private readonly props: Required<StaticProps>;
 
   constructor(props: StaticProps) {
@@ -78,8 +95,14 @@ export class Static {
       instrumentation = DEFAULT_STATIC_PROPS.instrumentation,
       transform = DEFAULT_STATIC_PROPS.transform,
       staleEntryThreshold = DEFAULT_STATIC_PROPS.staleEntryThreshold,
+      staleCoverageThreshold = DEFAULT_STATIC_PROPS.staleCoverageThreshold,
     } = props;
-    this.props = { instrumentation, transform, staleEntryThreshold };
+    this.props = {
+      instrumentation,
+      transform,
+      staleEntryThreshold,
+      staleCoverageThreshold,
+    };
   }
 
   /**
@@ -96,6 +119,36 @@ export class Static {
       this.writeOne(this.props.transform.convert(s), entries),
     );
     this.repairIntegrity(series, entries);
+  }
+
+  /**
+   * Records tr as fetched, merging it into the covered set. A covered span counts
+   * as answered even when empty, so it is refetched once it goes stale, not per read.
+   */
+  markFetched(tr: TimeRange): void {
+    if (!tr.isValid || tr.span.isZero) return;
+    let { start, end } = tr;
+    // Live merges keep the oldest stamp so a rolling read cannot refresh its own
+    // coverage forever. Stale records drop, so a refetch restarts their clock.
+    let addedAt = TimeStamp.now();
+    const keep: CoveredRange[] = [];
+    for (const c of this.covered) {
+      if (!this.isLive(c)) continue;
+      if (c.range.end.before(start) || c.range.start.after(end)) keep.push(c);
+      else {
+        if (c.range.start.before(start)) start = c.range.start;
+        if (c.range.end.after(end)) end = c.range.end;
+        if (c.addedAt.before(addedAt)) addedAt = c.addedAt;
+      }
+    }
+    keep.push({ range: new TimeRange(start, end), addedAt });
+    keep.sort((a, b) => TimeRange.sort(a.range, b.range));
+    this.covered = keep;
+  }
+
+  // Coverage answers gaps only until it goes stale. gc merely prunes dead records.
+  private isLive(c: CoveredRange): boolean {
+    return TimeStamp.since(c.addedAt).lessThan(this.props.staleCoverageThreshold);
   }
 
   // Containment, not overlap: a fetch stamped wider than the data it returned
@@ -125,17 +178,41 @@ export class Static {
       entries.filter((e) => e.data.timeRange.overlapsWith(tr)).map((e) => e.data);
     const fetched = overlapping(this.fetched);
     const series = [...fetched, ...overlapping(this.streamed)];
-    if (fetched.length === 0) return { series: new MultiSeries(series), gaps: [tr] };
+    if (fetched.length === 0)
+      return { series: new MultiSeries(series), gaps: this.subtractCovered(tr) };
     const gaps: TimeRange[] = [];
     const pushGap = (start: TimeStamp, end: TimeStamp): void => {
       const gap = new TimeRange(start, end);
-      if (gap.isValid && !gap.span.isZero) gaps.push(gap);
+      if (gap.isValid && !gap.span.isZero) gaps.push(...this.subtractCovered(gap));
     };
     pushGap(tr.start, fetched[0].timeRange.start);
     for (let i = 1; i < fetched.length; i++)
       pushGap(fetched[i - 1].timeRange.end, fetched[i].timeRange.start);
     pushGap(fetched[fetched.length - 1].timeRange.end, tr.end);
     return { series: new MultiSeries(series), gaps };
+  }
+
+  // Removes the covered portions of gap, returning the still-unanswered remainder.
+  private subtractCovered(gap: TimeRange): TimeRange[] {
+    let remaining = [gap];
+    for (const c of this.covered) {
+      if (!this.isLive(c)) continue;
+      const { range } = c;
+      const next: TimeRange[] = [];
+      for (const r of remaining) {
+        if (!range.overlapsWith(r)) {
+          next.push(r);
+          continue;
+        }
+        const before = new TimeRange(r.start, range.start);
+        const after = new TimeRange(range.end, r.end);
+        if (before.isValid && !before.span.isZero) next.push(before);
+        if (after.isValid && !after.span.isZero) next.push(after);
+      }
+      remaining = next;
+      if (remaining.length === 0) break;
+    }
+    return remaining;
   }
 
   /**
@@ -158,6 +235,11 @@ export class Static {
       });
     this.fetched = collect(this.fetched);
     this.streamed = collect(this.streamed);
+    // The client cannot tell "no data yet" from "no data ever" (backfill is legal),
+    // so stale coverage re-opens an empty span to one cheap fetch per staleness
+    // window instead of one per read (space-heater mode). Series purging above is not
+    // affected.
+    this.covered = this.covered.filter((c) => this.isLive(c));
     return res;
   }
 
@@ -165,6 +247,7 @@ export class Static {
   close(): void {
     this.fetched = [];
     this.streamed = [];
+    this.covered = [];
   }
 
   private writeOne(series: Series, entries: CacheEntry[]): void {

@@ -28,7 +28,8 @@ var _ = Describe("Raw", func() {
 					SatisfyAll(
 						MatchError(validate.ErrValidation),
 						MatchError(ContainSubstring("data was not encoded using ORC")),
-					))
+					),
+				)
 			},
 		)
 

@@ -82,6 +82,11 @@ on:
       - x/go/**
       - x/ts/**
   workflow_dispatch:
+    inputs:
+      create_release:
+        description: Create and publish releases (main and rc only)
+        type: boolean
+        default: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -89,9 +94,15 @@ concurrency:
 
 jobs:
   setup:
+    # Pushes to rc already run the release deploy, so the rc PR run is redundant.
+    if: github.event_name != 'pull_request' || github.head_ref != 'rc'
     runs-on: ubuntu-latest
     outputs:
       VERSION: ${{ steps.version.outputs.VERSION }}
+      RELEASE: ${{ steps.release.outputs.RELEASE }}
+      SKIP_BUILD: ${{ steps.check-cache.outputs.SKIP_BUILD }}
+      DRIVER_REF_RUN_ID: ${{ steps.check-cache.outputs.DRIVER_REF_RUN_ID }}
+      CONSOLE_REF_RUN_ID: ${{ steps.check-cache.outputs.CONSOLE_REF_RUN_ID }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v7
@@ -108,10 +119,34 @@ jobs:
             echo "VERSION=$(cat pkg/version/VERSION)-${GITHUB_SHA:0:7}" >> $GITHUB_OUTPUT
           fi
 
+      - name: Determine release mode
+        id: release
+        env:
+          CREATE_RELEASE: ${{ inputs.create_release }}
+        run: |
+          RELEASE=false
+          if [ "${GITHUB_REF}" == "refs/heads/main" ] \
+            || [ "${GITHUB_REF}" == "refs/heads/rc" ]; then
+            if [ "${GITHUB_EVENT_NAME}" == "push" ] \
+              || [ "${CREATE_RELEASE}" == "true" ]; then
+              RELEASE=true
+            fi
+          fi
+          echo "RELEASE=${RELEASE}" >> $GITHUB_OUTPUT
+
+      # Release builds and anything targeting main never reuse cached artifacts.
+      - name: Check for Cached Artifacts
+        id: check-cache
+        if: steps.release.outputs.RELEASE != 'true' && github.base_ref != 'main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: integration/scripts/check_artifact_cache.sh "linux windows macos"
+
   create-release:
     runs-on: ubuntu-latest
     needs: setup
-    if: github.event_name == 'push'
+    if: needs.setup.outputs.RELEASE == 'true'
     permissions:
       contents: write
     outputs:
@@ -173,13 +208,16 @@ jobs:
 
   build:
     needs: [setup, create-release]
-    if: needs.setup.result == 'success'
+    if: >-
+      !cancelled() && needs.setup.result == 'success' && needs.create-release.result !=
+      'failure' && needs.setup.outputs.SKIP_BUILD != 'true'
     permissions:
+      actions: read
       contents: write
       packages: write
     uses: ./.github/workflows/build.synnax.yaml
     with:
-      debug: ${{ github.event_name != 'push' }}
+      debug: ${{ needs.setup.outputs.RELEASE != 'true' }}
       windows: true
       macos: true
       ubuntu: true
@@ -189,16 +227,19 @@ jobs:
       console: true
       console_tauri: true
       core: true
-      sign_binaries: ${{ github.event_name == 'push' }}
-      upload_to_release: ${{ github.event_name == 'push' }}
+      sign_binaries: ${{ needs.setup.outputs.RELEASE == 'true' }}
+      upload_to_release: ${{ needs.setup.outputs.RELEASE == 'true' }}
       version: ${{ needs.setup.outputs.VERSION }}
+      use_simple_artifact_names: true
+      driver_ref_run_id: ${{ needs.setup.outputs.DRIVER_REF_RUN_ID }}
+      console_ref_run_id: ${{ needs.setup.outputs.CONSOLE_REF_RUN_ID }}
     secrets: inherit
 
   windows-installer:
     name: Build Windows Installer
     runs-on: windows-latest
     needs: [setup, build]
-    if: github.event_name == 'push' && !cancelled()
+    if: needs.setup.outputs.RELEASE == 'true' && !cancelled()
     permissions:
       contents: write
     env:
@@ -210,7 +251,7 @@ jobs:
       - name: Download Core Binary
         uses: actions/download-artifact@v8
         with:
-          name: synnax-core-v${{ needs.setup.outputs.VERSION }}-windows
+          name: synnax-core-windows
           path: scripts/
 
       - name: Rename Binary for Installer
@@ -251,7 +292,7 @@ jobs:
     name: Create NI Linux Real-Time Install Script
     runs-on: ubuntu-latest
     needs: [setup, create-release, build]
-    if: github.event_name == 'push' && !cancelled()
+    if: needs.setup.outputs.RELEASE == 'true' && !cancelled()
     permissions:
       contents: write
     env:
@@ -281,7 +322,7 @@ jobs:
     name: Publish Core Release
     runs-on: ubuntu-latest
     needs: [setup, build, windows-installer, ni-install-script]
-    if: github.event_name == 'push'
+    if: needs.setup.outputs.RELEASE == 'true'
     permissions:
       contents: write
     env:
@@ -297,8 +338,10 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    if: github.event_name == 'push' && !cancelled() && github.ref == 'refs/heads/main'
-    needs: [create-release, build]
+    if: >-
+      needs.setup.outputs.RELEASE == 'true' && !cancelled() && github.ref ==
+      'refs/heads/main'
+    needs: [setup, create-release, build]
     env:
       VERSION: ${{ needs.create-release.outputs.CONSOLE_VERSION }}
     steps:
@@ -312,16 +355,12 @@ jobs:
           CONSOLE_VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
           echo "CONSOLE_VERSION=${CONSOLE_VERSION}" >> $GITHUB_OUTPUT
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v6
-        if: github.ref == 'refs/heads/main'
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
+      - name: Set up pnpm and Node.js
+        uses: pnpm/setup@v2
         if: github.ref == 'refs/heads/main'
         with:
-          node-version-file: package.json
-          cache: pnpm
+          cache: true
+          install: false
 
       - name: Add Auto Update JSON File
         uses: actions/github-script@v9

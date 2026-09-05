@@ -62,10 +62,10 @@ var _ config.Config[Config] = Config{}
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("streamer.config")
-	validate.GreaterThanEq(v, "downsample_factor", c.DownsampleFactor, 0)
-	validate.GreaterThanEq(v, "throttle_rate", c.ThrottleRate, 0)
+	v.GreaterThanEq("downsample_factor", c.DownsampleFactor, 0)
+	v.GreaterThanEq("throttle_rate", c.ThrottleRate, 0)
 	if c.KeepAlive != 0 {
-		validate.GreaterThanEq(v, "keep_alive", c.KeepAlive, MinKeepAlive)
+		v.GreaterThanEq("keep_alive", c.KeepAlive, MinKeepAlive)
 	}
 	return v.Error()
 }
@@ -122,9 +122,9 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 func (cfg ServiceConfig) Validate() error {
 	v := validate.New("streamer")
-	validate.NotNil(v, "calculation", cfg.Calculation)
-	validate.NotNil(v, "channel", cfg.Channel)
-	validate.NotNil(v, "framer", cfg.Framer)
+	v.NotNil("calculation", cfg.Calculation)
+	v.NotNil("channel", cfg.Channel)
+	v.NotNil("framer", cfg.Framer)
 	return v.Error()
 }
 
@@ -162,32 +162,22 @@ func (s *Service) New(ctx context.Context, cfgs ...Config) (Streamer, error) {
 	if err != nil {
 		return nil, err
 	}
-	plumber.SetSegment(p, distAddr, dist)
+	p.SetSegment(distAddr, dist)
 	ut, err := s.newCalculationUpdaterTransform(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
-	plumber.SetSegment(p, utAddr, ut)
-	plumber.MustConnect[framer.StreamerRequest](p, utAddr, distAddr, requestBufferSize)
+	p.SetSegment(utAddr, ut)
+	p.MustConnect[framer.StreamerRequest](utAddr, distAddr, requestBufferSize)
 	routeOutletFrom := distAddr
 	if cfg.DownsampleFactor > 1 {
-		plumber.SetSegment(p, downsampleAddr, newDownsampler(cfg))
-		plumber.MustConnect[Response](
-			p,
-			routeOutletFrom,
-			downsampleAddr,
-			responseBufferSize,
-		)
+		p.SetSegment(downsampleAddr, newDownsampler(cfg))
+		p.MustConnect[Response](routeOutletFrom, downsampleAddr, responseBufferSize)
 		routeOutletFrom = downsampleAddr
 	}
 	if cfg.ThrottleRate > 0 {
-		plumber.SetSegment(p, throttleAddr, newThrottle(cfg))
-		plumber.MustConnect[Response](
-			p,
-			routeOutletFrom,
-			throttleAddr,
-			responseBufferSize,
-		)
+		p.SetSegment(throttleAddr, newThrottle(cfg))
+		p.MustConnect[Response](routeOutletFrom, throttleAddr, responseBufferSize)
 		routeOutletFrom = throttleAddr
 	}
 	return &plumber.Segment[Request, Response]{

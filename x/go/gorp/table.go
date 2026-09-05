@@ -152,9 +152,8 @@ func OpenTable[K Key, E Entry[K]](
 		inserts = append(inserts, insert)
 		finishes = append(finishes, finish)
 	}
-	t.disconnectObserver = attachIndexObserver(
+	t.disconnectObserver = cfg.DB.attachIndexObserver(
 		override.Nil[observe.Observable[kv.TxReader]](cfg.DB, cfg.DB.IndexObservable),
-		cfg.DB,
 		cfg.Indexes,
 	)
 	// Populate runs on an isolated signal context: the caller's ctx is the
@@ -216,12 +215,11 @@ func (t *Table[K, E]) runPopulate(
 
 // attachIndexObserver subscribes to src and propagates every set and delete change into
 // every registered index. The returned function unregisters the subscription.
-func attachIndexObserver[K Key, E Entry[K]](
+func (db *DB) attachIndexObserver[K Key, E Entry[K]](
 	src observe.Observable[kv.TxReader],
-	db *DB,
 	indexes []Index[K, E],
 ) func() {
-	return newObservable[K, E](src, db).
+	return db.newObservable[K, E](src).
 		OnChange(func(_ context.Context, changes iter.Seq[change.Change[K, E]]) {
 			for ch := range changes {
 				switch ch.Variant {

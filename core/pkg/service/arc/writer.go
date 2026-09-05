@@ -252,7 +252,7 @@ func (w Writer) syncTask(ctx context.Context, a Arc) error {
 func (w Writer) clearRack(ctx context.Context, taskKeys []task.Key) error {
 	for _, taskKey := range taskKeys {
 		var stat task.Status
-		err := status.NewRetrieve[task.StatusDetails](w.status).
+		err := w.status.NewRetrieve[task.StatusDetails]().
 			Where(status.MatchKeys[task.StatusDetails](task.OntologyID(taskKey).String())).
 			Entry(&stat).
 			Exec(ctx, w.tx)

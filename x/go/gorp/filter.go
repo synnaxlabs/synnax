@@ -251,17 +251,17 @@ func And[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 
 	if anyHasResolver(filters) {
 		f.resolve = func(ctx context.Context, tx Tx) (resolved[K, E], error) {
-			materialized, err := materializeFilters[K, E](ctx, tx, filters)
+			materialized, err := materializeFilters(ctx, tx, filters)
 			if err != nil {
 				return resolved[K, E]{}, err
 			}
-			keys, build := intersectKeys[K, E](materialized)
+			keys, build := intersectKeys(materialized)
 			return resolved[K, E]{keys: keys, build: build}, nil
 		}
 		return f
 	}
 	var build func([]K) keyMembership[K]
-	f.keys, build = intersectKeys[K, E](filters)
+	f.keys, build = intersectKeys(filters)
 	if build != nil && f.keys != nil {
 		f.membership = newLazyMembership(f.keys, build)
 	}
@@ -298,24 +298,24 @@ func Or[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 		// check when keys is nil and dispatches to each child's
 		// scan-fallback eval (set by LookupIndex.Filter /
 		// SortedIndex.Filter).
-		f.eval = orEval[K, E](filters)
+		f.eval = orEval(filters)
 		f.resolve = func(ctx context.Context, tx Tx) (resolved[K, E], error) {
-			materialized, err := materializeFilters[K, E](ctx, tx, filters)
+			materialized, err := materializeFilters(ctx, tx, filters)
 			if err != nil {
 				return resolved[K, E]{}, err
 			}
-			keys, build := unionKeys[K, E](materialized)
+			keys, build := unionKeys(materialized)
 			return resolved[K, E]{
 				keys:  keys,
 				build: build,
-				eval:  orEval[K, E](materialized),
+				eval:  orEval(materialized),
 			}, nil
 		}
 		return f
 	}
 
 	var build func([]K) keyMembership[K]
-	f.keys, build = unionKeys[K, E](filters)
+	f.keys, build = unionKeys(filters)
 	if build != nil && f.keys != nil {
 		f.membership = newLazyMembership(f.keys, build)
 	}
@@ -352,7 +352,7 @@ func Or[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 		}
 	}
 	if !allKeysOnly {
-		f.eval = orEval[K, E](filters)
+		f.eval = orEval(filters)
 	}
 	return f
 }
@@ -403,7 +403,7 @@ func Not[K Key, E Entry[K]](f Filter[K, E]) Filter[K, E] {
 	// skips the keys check and dispatches to f's scan-fallback eval.
 	if f.resolve != nil {
 		return Filter[K, E]{
-			eval: notEval[K, E](f),
+			eval: notEval(f),
 			resolve: func(ctx context.Context, tx Tx) (resolved[K, E], error) {
 				res, err := f.resolve(ctx, tx)
 				if err != nil {
@@ -419,13 +419,13 @@ func Not[K Key, E Entry[K]](f Filter[K, E]) Filter[K, E] {
 				if res.eval != nil {
 					m.eval = res.eval
 				}
-				return resolved[K, E]{eval: notEval[K, E](m)}, nil
+				return resolved[K, E]{eval: notEval(m)}, nil
 			},
 		}
 	}
 	// Eager child (no resolver). Capturing f directly is safe — there
 	// is no resolve writing to it.
-	return Filter[K, E]{eval: notEval[K, E](f)}
+	return Filter[K, E]{eval: notEval(f)}
 }
 
 // notEval returns the per-call eval closure used by Not composition.

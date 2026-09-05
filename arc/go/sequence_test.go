@@ -27,7 +27,7 @@ var _ = Describe("Sequence", func() {
 		ch := fr.Get(key)
 		Expect(ch.Series).ToNot(BeEmpty(), "channel %d not written", key)
 		s := ch.Series[len(ch.Series)-1]
-		vals := telem.UnmarshalSeries[uint8](s)
+		vals := s.Unmarshal[uint8]()
 		Expect(vals).ToNot(BeEmpty())
 		return vals[len(vals)-1]
 	}
@@ -37,7 +37,7 @@ var _ = Describe("Sequence", func() {
 		ch := fr.Get(key)
 		Expect(ch.Series).ToNot(BeEmpty(), "channel %d not written", key)
 		s := ch.Series[len(ch.Series)-1]
-		vals := telem.UnmarshalSeries[float32](s)
+		vals := s.Unmarshal[float32]()
 		Expect(vals).ToNot(BeEmpty())
 		return vals[len(vals)-1]
 	}
@@ -47,7 +47,7 @@ var _ = Describe("Sequence", func() {
 		ch := fr.Get(key)
 		Expect(ch.Series).ToNot(BeEmpty(), "channel %d not written", key)
 		s := ch.Series[len(ch.Series)-1]
-		vals := telem.UnmarshalSeries[string](s)
+		vals := s.Unmarshal[string]()
 		Expect(vals).ToNot(BeEmpty())
 		return vals[len(vals)-1]
 	}
@@ -57,7 +57,7 @@ var _ = Describe("Sequence", func() {
 		ch := fr.Get(key)
 		Expect(ch.Series).ToNot(BeEmpty(), "channel %d not written", key)
 		s := ch.Series[len(ch.Series)-1]
-		vals := telem.UnmarshalSeries[bool](s)
+		vals := s.Unmarshal[bool]()
 		Expect(vals).ToNot(BeEmpty())
 		return vals[len(vals)-1]
 	}
@@ -66,7 +66,7 @@ var _ = Describe("Sequence", func() {
 	countOf := func(fr telem.Frame[uint32], key uint32, want string) int {
 		n := 0
 		for _, s := range fr.Get(key).Series {
-			for _, v := range telem.UnmarshalSeries[string](s) {
+			for _, v := range s.Unmarshal[string]() {
 				if v == want {
 					n++
 				}
@@ -79,7 +79,7 @@ var _ = Describe("Sequence", func() {
 	drainStrings := func(fr telem.Frame[uint32], key uint32) []string {
 		var out []string
 		for _, ser := range fr.Get(key).Series {
-			out = append(out, telem.UnmarshalSeries[string](ser)...)
+			out = append(out, ser.Unmarshal[string]()...)
 		}
 		return out
 	}
@@ -96,7 +96,7 @@ var _ = Describe("Sequence", func() {
 
 	// triggerBool is trigger for a bool channel: it ingests true instead of u8=1.
 	triggerBool := func(h *runtimeHarness, ctx SpecContext, key uint32) {
-		h.Ingest(key, telem.NewSeriesV[bool](true))
+		h.Ingest(key, telem.NewSeriesV(true))
 		for range 5 {
 			h.Tick(ctx, telem.Millisecond)
 			h.channelState.ClearReads()
@@ -671,7 +671,7 @@ var _ = Describe("Sequence", func() {
 			)
 		}
 		pushSrc := func(h *runtimeHarness, ctx SpecContext, v float32) {
-			h.Ingest(101, telem.NewSeriesV[float32](v))
+			h.Ingest(101, telem.NewSeriesV(v))
 			for range 5 {
 				advance(h, ctx, telem.Millisecond)
 			}
@@ -782,7 +782,7 @@ var _ = Describe("Sequence", func() {
 			)
 		}
 		pushC := func(h *runtimeHarness, ctx SpecContext, v uint8) {
-			h.Ingest(202, telem.NewSeriesV[uint8](v))
+			h.Ingest(202, telem.NewSeriesV(v))
 			for range 5 {
 				advance(h, ctx, telem.Millisecond)
 			}
@@ -945,17 +945,17 @@ var _ = Describe("Sequence", func() {
 		assertLast := func(s telem.Series, expected any) {
 			switch e := expected.(type) {
 			case int8:
-				Expect(telem.UnmarshalSeries[int8](s)).To(ContainElement(e))
+				Expect(s.Unmarshal[int8]()).To(ContainElement(e))
 			case int16:
-				Expect(telem.UnmarshalSeries[int16](s)).To(ContainElement(e))
+				Expect(s.Unmarshal[int16]()).To(ContainElement(e))
 			case int32:
-				Expect(telem.UnmarshalSeries[int32](s)).To(ContainElement(e))
+				Expect(s.Unmarshal[int32]()).To(ContainElement(e))
 			case int64:
-				Expect(telem.UnmarshalSeries[int64](s)).To(ContainElement(e))
+				Expect(s.Unmarshal[int64]()).To(ContainElement(e))
 			case float32:
-				Expect(telem.UnmarshalSeries[float32](s)).To(ContainElement(e))
+				Expect(s.Unmarshal[float32]()).To(ContainElement(e))
 			case float64:
-				Expect(telem.UnmarshalSeries[float64](s)).To(ContainElement(e))
+				Expect(s.Unmarshal[float64]()).To(ContainElement(e))
 			}
 		}
 
@@ -1016,7 +1016,7 @@ var _ = Describe("Sequence", func() {
 				s := out.Get(101).Series
 				Expect(s).ToNot(BeEmpty(), "var channel not written")
 				for _, ser := range s {
-					for _, v := range telem.UnmarshalSeries[int64](ser) {
+					for _, v := range ser.Unmarshal[int64]() {
 						Expect(
 							v,
 						).To(Equal(want), "initialized constant must not glitch through its zero value")
@@ -1050,7 +1050,7 @@ var _ = Describe("Sequence", func() {
 				s := out.Get(101).Series
 				Expect(s).ToNot(BeEmpty(), "var channel not written")
 				Expect(
-					telem.UnmarshalSeries[int64](s[len(s)-1]),
+					s[len(s)-1].Unmarshal[int64](),
 				).To(ContainElement(want))
 			},
 			Entry("negated literal", "-100", int64(-100)),
@@ -1910,7 +1910,7 @@ var _ = Describe("Sequence", func() {
 			h.Ingest(102, telem.NewSeriesV[float64](5)) // cpu > 0
 			h.Ingest(
 				101,
-				telem.NewSeriesV[bool](true),
+				telem.NewSeriesV(true),
 			) // trigger -> select true -> enter body
 			h.Tick(ctx, telem.Millisecond)
 			h.channelState.ClearReads()
@@ -1923,7 +1923,7 @@ var _ = Describe("Sequence", func() {
 			h.Ingest(100, telem.NewSeriesV[uint8](1))
 			h.Tick(ctx, telem.Millisecond)
 			h.Ingest(102, telem.NewSeriesV[float64](5))
-			h.Ingest(101, telem.NewSeriesV[bool](true))
+			h.Ingest(101, telem.NewSeriesV(true))
 			h.Tick(ctx, telem.Millisecond)
 			h.channelState.ClearReads()
 			out, _ := h.Flush()
@@ -1945,7 +1945,7 @@ var _ = Describe("Sequence", func() {
 				defer h.Close(ctx)
 				enter(h, ctx)
 				for range 9 { // spam trigger -> re-activate the already-active stage
-					h.Ingest(101, telem.NewSeriesV[bool](true))
+					h.Ingest(101, telem.NewSeriesV(true))
 					h.Tick(ctx, telem.Millisecond)
 					h.channelState.ClearReads()
 				}
@@ -2014,7 +2014,7 @@ var _ = Describe("Sequence", func() {
 
 				h.Ingest(100, telem.NewSeriesV[uint8](1)) // activate WU -> router
 				h.Tick(ctx, telem.Millisecond)
-				h.Ingest(101, telem.NewSeriesV[bool](flag))
+				h.Ingest(101, telem.NewSeriesV(flag))
 				h.Tick(ctx, telem.Millisecond)
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
@@ -2070,7 +2070,7 @@ var _ = Describe("Sequence", func() {
 
 				h.Ingest(100, telem.NewSeriesV[uint8](1)) // activate WU -> router
 				h.Tick(ctx, telem.Millisecond)
-				h.Ingest(101, telem.NewSeriesV[float64](signal))
+				h.Ingest(101, telem.NewSeriesV(signal))
 				h.Tick(ctx, telem.Millisecond)
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
@@ -2109,7 +2109,7 @@ var _ = Describe("Sequence", func() {
 				)
 				defer h.Close(ctx)
 
-				h.Ingest(100, telem.NewSeriesV[bool](true))
+				h.Ingest(100, telem.NewSeriesV(true))
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 101)).To(Equal(uint8(1)),
@@ -2141,7 +2141,7 @@ var _ = Describe("Sequence", func() {
 				)
 				defer h.Close(ctx)
 
-				h.Ingest(101, telem.NewSeriesV[bool](true))
+				h.Ingest(101, telem.NewSeriesV(true))
 				advance(h, ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(out.Get(102).Series).To(BeEmpty(),
@@ -2149,7 +2149,7 @@ var _ = Describe("Sequence", func() {
 
 				h.Ingest(100, telem.NewSeriesV[uint8](1))
 				h.Tick(ctx, telem.Millisecond)
-				h.Ingest(101, telem.NewSeriesV[bool](true))
+				h.Ingest(101, telem.NewSeriesV(true))
 				h.Tick(ctx, telem.Millisecond)
 				out, _ = h.Flush()
 				Expect(lastU8(out, 102)).To(Equal(uint8(1)),
@@ -2180,7 +2180,7 @@ var _ = Describe("Sequence", func() {
 				)
 				defer h.Close(ctx)
 
-				h.Ingest(100, telem.NewSeriesV[bool](true))
+				h.Ingest(100, telem.NewSeriesV(true))
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 101)).To(Equal(uint8(1)),
@@ -2214,7 +2214,7 @@ var _ = Describe("Sequence", func() {
 
 				h.Ingest(100, telem.NewSeriesV[uint8](1))
 				h.Tick(ctx, telem.Millisecond)
-				h.Ingest(101, telem.NewSeriesV[bool](true))
+				h.Ingest(101, telem.NewSeriesV(true))
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 102)).To(Equal(uint8(1)),
@@ -2256,7 +2256,7 @@ var _ = Describe("Sequence", func() {
 
 				h.Ingest(100, telem.NewSeriesV[uint8](1))
 				h.Tick(ctx, telem.Millisecond)
-				h.Ingest(101, telem.NewSeriesV[bool](true))
+				h.Ingest(101, telem.NewSeriesV(true))
 				h.Tick(ctx, telem.Millisecond)
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
@@ -2296,7 +2296,7 @@ var _ = Describe("Sequence", func() {
 
 				h.Ingest(100, telem.NewSeriesV[uint8](1))
 				h.Tick(ctx, telem.Millisecond)
-				h.Ingest(101, telem.NewSeriesV[bool](true))
+				h.Ingest(101, telem.NewSeriesV(true))
 				h.Tick(ctx, telem.Millisecond)
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
@@ -2336,7 +2336,7 @@ var _ = Describe("Sequence", func() {
 
 				h.Ingest(100, telem.NewSeriesV[uint8](1))
 				h.Tick(ctx, telem.Millisecond)
-				h.Ingest(101, telem.NewSeriesV[bool](true))
+				h.Ingest(101, telem.NewSeriesV(true))
 				h.Tick(ctx, telem.Millisecond)
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
@@ -4576,7 +4576,7 @@ var _ = Describe("Sequence", func() {
 				out, _ := h.Flush()
 				var logged []string
 				for _, ser := range out.Get(101).Series {
-					logged = append(logged, telem.UnmarshalSeries[string](ser)...)
+					logged = append(logged, ser.Unmarshal[string]()...)
 				}
 				Expect(logged).To(Equal([]string{"0", "1", "2", "3", "4"}))
 			},
@@ -4630,13 +4630,13 @@ var _ = Describe("Sequence", func() {
 
 			var got []uint8
 			feed := func(v uint8) {
-				h.Ingest(201, telem.NewSeriesV[uint8](v))
+				h.Ingest(201, telem.NewSeriesV(v))
 				for range 5 {
 					advance(h, ctx, telem.Millisecond)
 				}
 				out, _ := h.Flush()
 				for _, s := range out.Get(202).Series {
-					got = append(got, telem.UnmarshalSeries[uint8](s)...)
+					got = append(got, s.Unmarshal[uint8]()...)
 				}
 			}
 			feed(5)
@@ -4664,13 +4664,13 @@ var _ = Describe("Sequence", func() {
 
 			var got []string
 			feed := func(v uint8) {
-				h.Ingest(201, telem.NewSeriesV[uint8](v))
+				h.Ingest(201, telem.NewSeriesV(v))
 				for range 5 {
 					advance(h, ctx, telem.Millisecond)
 				}
 				out, _ := h.Flush()
 				for _, s := range out.Get(202).Series {
-					got = append(got, telem.UnmarshalSeries[string](s)...)
+					got = append(got, s.Unmarshal[string]()...)
 				}
 			}
 			feed(5)
@@ -5109,11 +5109,11 @@ var _ = Describe("Sequence", func() {
 				drain := func() {
 					out, _ := h.Flush()
 					for _, s := range out.Get(101).Series {
-						got = append(got, telem.UnmarshalSeries[uint8](s)...)
+						got = append(got, s.Unmarshal[uint8]()...)
 					}
 				}
 				step := func(val uint8) {
-					h.Ingest(200, telem.NewSeriesV[uint8](val))
+					h.Ingest(200, telem.NewSeriesV(val))
 					for range 5 {
 						advance(h, ctx, telem.Millisecond)
 					}
@@ -5255,7 +5255,7 @@ var _ = Describe("Sequence", func() {
 				drain := func() {
 					out, _ := h.Flush()
 					for _, s := range out.Get(101).Series {
-						got = append(got, telem.UnmarshalSeries[uint8](s)...)
+						got = append(got, s.Unmarshal[uint8]()...)
 					}
 				}
 				trigger(h, ctx, 100)
@@ -5390,7 +5390,7 @@ var _ = Describe("Sequence", func() {
 			drain := func() {
 				out, _ := h.Flush()
 				for _, s := range out.Get(101).Series {
-					got = append(got, telem.UnmarshalSeries[uint8](s)...)
+					got = append(got, s.Unmarshal[uint8]()...)
 				}
 			}
 			// Increments fire once per scope entry; reads fire only on unconsumed
@@ -5434,7 +5434,7 @@ var _ = Describe("Sequence", func() {
 			drain := func() {
 				out, _ := h.Flush()
 				for _, s := range out.Get(101).Series {
-					got = append(got, telem.UnmarshalSeries[uint8](s)...)
+					got = append(got, s.Unmarshal[uint8]()...)
 				}
 			}
 			trigger(h, ctx, 100)
@@ -5673,7 +5673,7 @@ var _ = Describe("Sequence", func() {
 		drainStrings := func(fr telem.Frame[uint32], key uint32) []string {
 			var out []string
 			for _, ser := range fr.Get(key).Series {
-				out = append(out, telem.UnmarshalSeries[string](ser)...)
+				out = append(out, ser.Unmarshal[string]()...)
 			}
 			return out
 		}
@@ -6037,7 +6037,7 @@ var _ = Describe("Sequence", func() {
 			)
 		}
 		pushVal := func(h *runtimeHarness, ctx SpecContext, v uint8) {
-			h.Ingest(301, telem.NewSeriesV[uint8](v))
+			h.Ingest(301, telem.NewSeriesV(v))
 			for range 5 {
 				advance(h, ctx, telem.Millisecond)
 			}
@@ -6258,7 +6258,7 @@ var _ = Describe("Sequence", func() {
 			)
 		}
 		pushTag := func(h *runtimeHarness, ctx SpecContext, v string) {
-			h.Ingest(301, telem.NewSeriesV[string](v))
+			h.Ingest(301, telem.NewSeriesV(v))
 			for range 5 {
 				advance(h, ctx, telem.Millisecond)
 			}
@@ -6344,7 +6344,7 @@ var _ = Describe("Sequence", func() {
 			)
 		}
 		pushTag := func(h *runtimeHarness, ctx SpecContext, v string) {
-			h.Ingest(311, telem.NewSeriesV[string](v))
+			h.Ingest(311, telem.NewSeriesV(v))
 			for range 5 {
 				advance(h, ctx, telem.Millisecond)
 			}
@@ -6431,7 +6431,7 @@ var _ = Describe("Sequence", func() {
 			)
 		}
 		pushData := func(h *runtimeHarness, ctx SpecContext, v float32) {
-			h.Ingest(321, telem.NewSeriesV[float32](v))
+			h.Ingest(321, telem.NewSeriesV(v))
 			for range 5 {
 				advance(h, ctx, telem.Millisecond)
 			}
@@ -6970,7 +6970,7 @@ var _ = Describe("Sequence", func() {
 			)
 			defer h.Close(ctx)
 			for _, sample := range []float32{2.5, 3.5, 4.5} {
-				h.Ingest(365, telem.NewSeriesV[float32](sample))
+				h.Ingest(365, telem.NewSeriesV(sample))
 				for range 5 {
 					advance(h, ctx, telem.Millisecond)
 				}

@@ -146,9 +146,9 @@ const authorityParamsZ = z
     control.authorityZ.optional(),
   ])
   .transform(([value, authority]) => {
-    if (control.authorityZ.safeParse(value).success)
-      return { keys: [], authorities: [value as control.Authority] };
-    if (keyZ.or(nameZ).safeParse(value).success) {
+    if (z.validate(control.authorityZ, value))
+      return { keys: [], authorities: [value] };
+    if (z.validate(keyZ.or(nameZ), value)) {
       if (authority == null)
         throw new Error(
           "authority is required when setting authority for a single channel",
@@ -158,8 +158,7 @@ const authorityParamsZ = z
         authorities: [authority],
       };
     }
-    const oValue = value as Record<channel.Key | channel.Name, control.Authority>;
-    return { keys: Object.keys(oValue), authorities: Object.values(oValue) };
+    return { keys: Object.keys(value), authorities: Object.values(value) };
   });
 
 /**
