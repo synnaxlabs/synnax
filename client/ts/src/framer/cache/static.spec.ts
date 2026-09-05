@@ -521,4 +521,61 @@ describe("StaticReadCache", () => {
       expect(series.length).toEqual(n);
     });
   });
+
+  describe("markFetched", () => {
+    test("should not report a gap for a covered span with no data", () => {
+      const c = new Static({});
+      const tr = TimeStamp.seconds(1).spanRange(TimeSpan.seconds(3));
+      c.markFetched(tr);
+      const { series, gaps } = c.dirtyRead(tr);
+      expect(series).toHaveLength(0);
+      expect(gaps).toHaveLength(0);
+    });
+
+    test("should subtract partial coverage from a gap", () => {
+      const c = new Static({});
+      c.markFetched(TimeStamp.seconds(1).spanRange(TimeSpan.seconds(1)));
+      const { gaps } = c.dirtyRead(TimeStamp.seconds(0).spanRange(TimeSpan.seconds(3)));
+      expect(gaps).toHaveLength(2);
+      expect(gaps[0]).toEqual(TimeStamp.seconds(0).spanRange(TimeSpan.seconds(1)));
+      expect(gaps[1]).toEqual(TimeStamp.seconds(2).spanRange(TimeSpan.seconds(1)));
+    });
+
+    test("should merge adjacent covered spans", () => {
+      const c = new Static({});
+      c.markFetched(TimeStamp.seconds(1).spanRange(TimeSpan.seconds(1)));
+      c.markFetched(TimeStamp.seconds(2).spanRange(TimeSpan.seconds(1)));
+      const { gaps } = c.dirtyRead(TimeStamp.seconds(1).spanRange(TimeSpan.seconds(2)));
+      expect(gaps).toHaveLength(0);
+    });
+
+    test("should cover the trailing gap beyond fetched data", () => {
+      const c = new Static({});
+      const dataTR = TimeStamp.seconds(1).spanRange(TimeSpan.seconds(1));
+      c.write(
+        new MultiSeries([
+          new Series({
+            data: new Float32Array([1]),
+            dataType: DataType.FLOAT32,
+            timeRange: dataTR,
+            alignment: 0n,
+          }),
+        ]),
+      );
+      const read = TimeStamp.seconds(1).spanRange(TimeSpan.seconds(4));
+      expect(c.dirtyRead(read).gaps).toHaveLength(1);
+      c.markFetched(read);
+      expect(c.dirtyRead(read).gaps).toHaveLength(0);
+    });
+
+    test("should expire coverage on gc after the staleness threshold", async () => {
+      const c = new Static({ staleEntryThreshold: TimeSpan.milliseconds(5) });
+      const tr = TimeStamp.seconds(1).spanRange(TimeSpan.seconds(1));
+      c.markFetched(tr);
+      expect(c.dirtyRead(tr).gaps).toHaveLength(0);
+      await sleep.sleep(TimeSpan.milliseconds(10));
+      c.gc();
+      expect(c.dirtyRead(tr).gaps).toHaveLength(1);
+    });
+  });
 });

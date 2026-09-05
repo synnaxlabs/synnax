@@ -48,6 +48,38 @@ describe("read", () => {
     cache.close();
   });
 
+  it("should not refetch a range that returned no data", async () => {
+    const cache = new Cache();
+    const remoteReadF = vi.fn();
+    const readRemote: RemoteReader = async (tr, keys) => {
+      remoteReadF(tr, keys);
+      return new Frame([], []);
+    };
+    const reader = new Reader({ cache, readRemote });
+    const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
+    const res = await reader.read(tr, 1);
+    expect(res).toHaveLength(0);
+    const res2 = await reader.read(tr, 1);
+    expect(res2).toHaveLength(0);
+    expect(remoteReadF).toHaveBeenCalledTimes(1);
+    cache.close();
+  });
+
+  it("should refetch a range whose fetch failed", async () => {
+    const cache = new Cache();
+    const remoteReadF = vi.fn();
+    const readRemote: RemoteReader = async (tr, keys) => {
+      remoteReadF(tr, keys);
+      throw new Error("connection lost");
+    };
+    const reader = new Reader({ cache, readRemote });
+    const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
+    await expect(reader.read(tr, 1)).rejects.toThrow("connection lost");
+    await expect(reader.read(tr, 1)).rejects.toThrow("connection lost");
+    expect(remoteReadF).toHaveBeenCalledTimes(2);
+    cache.close();
+  });
+
   it("should skip a read if the value is in the cache", async () => {
     const cache = new Cache();
     const remoteReadF = vi.fn();

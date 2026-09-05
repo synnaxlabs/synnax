@@ -80,6 +80,57 @@ export const exceptionDetailsSchema = z
   })
   .and(record.unknownZ());
 
+// Bounds the clone check so it stays cheap even when errors are created in a tight
+// loop. An exhausted budget reports un-cloneable, which safely over-rebuilds.
+const CLONE_CHECK_BUDGET = 64;
+
+const isCloneableValue = (
+  v: unknown,
+  seen: Set<object>,
+  budget: { left: number },
+): boolean => {
+  if (--budget.left < 0) return false;
+  if (v == null) return true;
+  const t = typeof v;
+  if (t === "function" || t === "symbol") return false;
+  if (t !== "object") return true;
+  const o = v;
+  if (seen.has(o)) return true;
+  seen.add(o);
+  const values = (vals: unknown[]): boolean =>
+    vals.every((e) => isCloneableValue(e, seen, budget));
+  if (o instanceof Error)
+    return isCloneableValue(o.cause, seen, budget) && values(Object.values(o));
+  if (Array.isArray(o)) return values(o);
+  const proto = Object.getPrototypeOf(o);
+  if (proto === Object.prototype || proto === null) return values(Object.values(o));
+  if (o instanceof Date || o instanceof ArrayBuffer || ArrayBuffer.isView(o))
+    return true;
+  // Host objects (an Event, a DOM node) and exotic containers land here.
+  return false;
+};
+
+const isCloneable = (v: unknown): boolean =>
+  isCloneableValue(v, new Set(), { left: CLONE_CHECK_BUDGET });
+
+/**
+ * Returns err unchanged when it survives structured cloning. Otherwise rebuilds it
+ * with the same name, message, and stack, stringifying any un-cloneable cause.
+ * Statuses cross the worker boundary, so an un-cloneable error would kill the worker.
+ */
+const cloneSafeError = (err: Error, depth: number = 8): Error => {
+  if (isCloneable(err)) return err;
+  const safe = new Error(err.message);
+  safe.name = err.name;
+  safe.stack = err.stack;
+  const { cause } = err;
+  if (cause !== undefined && depth > 0)
+    if (cause instanceof Error) safe.cause = cloneSafeError(cause, depth - 1);
+    else
+      safe.cause = isCloneable(cause) ? cause : errors.fromUnknown(cause).message;
+  return safe;
+};
+
 /** Flattens an error's cause chain into one readable line. */
 const causeChain = (err: Error): string | undefined => {
   const parts: string[] = [];
@@ -109,7 +160,7 @@ export const fromException = (
       message != null
         ? [err.message, detail].filter((part) => part != null).join(": ")
         : detail,
-    details: { stack: err.stack ?? "", error: err },
+    details: { stack: err.stack ?? "", error: cloneSafeError(err) },
   };
   // Probe the original (pre-coercion) value so a non-Error throwable with a custom
   // `toStatus()` method still contributes its status fields.

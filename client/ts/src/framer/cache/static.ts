@@ -61,6 +61,13 @@ interface CacheEntry {
   addedAt: TimeStamp;
 }
 
+interface CoveredRange {
+  /** The fetched span, held even when the fetch returned no samples. */
+  range: TimeRange;
+  /** When the fetch completed, for garbage collection staleness. */
+  addedAt: TimeStamp;
+}
+
 /**
  * A cache for historical channel data that will not be modified after it is written.
  * Fetched and streamed entries are held apart because they measure position in
@@ -71,6 +78,9 @@ interface CacheEntry {
 export class Static {
   private fetched: CacheEntry[] = [];
   private streamed: CacheEntry[] = [];
+  // Sorted, non-overlapping spans already fetched, kept apart from the entries so a
+  // span that returned no samples still counts as answered and is not refetched.
+  private covered: CoveredRange[] = [];
   private readonly props: Required<StaticProps>;
 
   constructor(props: StaticProps) {
@@ -96,6 +106,26 @@ export class Static {
       this.writeOne(this.props.transform.convert(s), entries),
     );
     this.repairIntegrity(series, entries);
+  }
+
+  /**
+   * Records tr as fetched, merging it into the covered set. Gap computation treats
+   * covered spans as answered even when the fetch returned no samples, so an empty
+   * span is fetched once per staleness window instead of on every read.
+   */
+  markFetched(tr: TimeRange): void {
+    if (!tr.isValid || tr.span.isZero) return;
+    let { start, end } = tr;
+    const keep: CoveredRange[] = [];
+    for (const c of this.covered)
+      if (c.range.end.before(start) || c.range.start.after(end)) keep.push(c);
+      else {
+        if (c.range.start.before(start)) start = c.range.start;
+        if (c.range.end.after(end)) end = c.range.end;
+      }
+    keep.push({ range: new TimeRange(start, end), addedAt: TimeStamp.now() });
+    keep.sort((a, b) => TimeRange.sort(a.range, b.range));
+    this.covered = keep;
   }
 
   // Containment, not overlap: a fetch stamped wider than the data it returned
@@ -125,17 +155,39 @@ export class Static {
       entries.filter((e) => e.data.timeRange.overlapsWith(tr)).map((e) => e.data);
     const fetched = overlapping(this.fetched);
     const series = [...fetched, ...overlapping(this.streamed)];
-    if (fetched.length === 0) return { series: new MultiSeries(series), gaps: [tr] };
+    if (fetched.length === 0)
+      return { series: new MultiSeries(series), gaps: this.subtractCovered(tr) };
     const gaps: TimeRange[] = [];
     const pushGap = (start: TimeStamp, end: TimeStamp): void => {
       const gap = new TimeRange(start, end);
-      if (gap.isValid && !gap.span.isZero) gaps.push(gap);
+      if (gap.isValid && !gap.span.isZero) gaps.push(...this.subtractCovered(gap));
     };
     pushGap(tr.start, fetched[0].timeRange.start);
     for (let i = 1; i < fetched.length; i++)
       pushGap(fetched[i - 1].timeRange.end, fetched[i].timeRange.start);
     pushGap(fetched[fetched.length - 1].timeRange.end, tr.end);
     return { series: new MultiSeries(series), gaps };
+  }
+
+  // Removes the covered portions of gap, returning the still-unanswered remainder.
+  private subtractCovered(gap: TimeRange): TimeRange[] {
+    let remaining = [gap];
+    for (const { range } of this.covered) {
+      const next: TimeRange[] = [];
+      for (const r of remaining) {
+        if (!range.overlapsWith(r)) {
+          next.push(r);
+          continue;
+        }
+        const before = new TimeRange(r.start, range.start);
+        const after = new TimeRange(range.end, r.end);
+        if (before.isValid && !before.span.isZero) next.push(before);
+        if (after.isValid && !after.span.isZero) next.push(after);
+      }
+      remaining = next;
+      if (remaining.length === 0) break;
+    }
+    return remaining;
   }
 
   /**
@@ -158,6 +210,11 @@ export class Static {
       });
     this.fetched = collect(this.fetched);
     this.streamed = collect(this.streamed);
+    // Expiring coverage re-opens the span to one fetch per staleness window, so data
+    // committed late (backfill, an uncommitted tail) still gets picked up.
+    this.covered = this.covered.filter((c) =>
+      TimeStamp.since(c.addedAt).lessThan(staleEntryThreshold),
+    );
     return res;
   }
 
@@ -165,6 +222,7 @@ export class Static {
   close(): void {
     this.fetched = [];
     this.streamed = [];
+    this.covered = [];
   }
 
   private writeOne(series: Series, entries: CacheEntry[]): void {
