@@ -1,0 +1,123 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/x/versions/telem/v0"
+
+Key = v0.Key
+
+TickType = v5.TickType
+
+DownsampleMode = v5.DownsampleMode
+
+XAxisKey = v5.XAxisKey
+
+YAxisKey = v5.YAxisKey
+
+AxisKey = v5.AxisKey
+
+Title = v5.Title
+
+Legend = v5.Legend
+
+Channels = v5.Channels
+
+CustomRange union on variant {
+    dynamic {
+        span telem.TimeSpan = 0 {
+            @doc value "is the span of the window, which ends now."
+            @ts type   telem.NumericTimeSpan
+        }
+
+        @doc value "is a rolling window."
+    }
+    static {
+        start telem.TimeStamp {
+            @doc value "is the inclusive start of the fixed window."
+            @ts type   telem.StringTimeStamp
+        }
+        end   telem.TimeStamp {
+            @doc value "is the exclusive end of the fixed window."
+            @ts type   telem.StringTimeStamp
+        }
+
+        @doc value "is a fixed window."
+    }
+
+    @doc value  "is the window a plot's synthetic \"custom\" range key resolves to."
+    @go marshal
+}
+
+Ranges struct {
+    x1     string[]     {
+        @doc value """
+            are the range keys plotted against the x1 axis. Range keys are opaque
+            strings rather than UUIDs because the console layers synthetic
+            rolling-window ranges (e.g. "recent", "rolling1m") alongside persisted
+            ranges; the server stores whatever the client sends.
+        """
+    }
+    x2     string[]     {
+        @doc value "are the range keys plotted against the x2 axis."
+    }
+    custom CustomRange? {
+        @doc value "is the window the \"custom\" range key resolves to."
+    }
+
+    @doc value  "binds range keys to each x-axis."
+    @go marshal
+}
+
+ManualBounds = v5.ManualBounds
+
+Axis = v5.Axis
+
+Axes = v5.Axes
+
+Line = v5.Line
+
+Rule = v5.Rule
+
+LinePlot struct {
+    key      Key = create {
+        @doc value "is the unique identifier for this line plot."
+        @key
+    }
+    name     string   {
+        @doc value "is a human-readable name for the line plot."
+    }
+    title    Title = {} {
+        @doc value "is the plot title configuration."
+    }
+    legend   Legend = {} {
+        @doc value "is the plot legend configuration."
+    }
+    channels Channels = {} {
+        @doc value "binds channel keys to each axis."
+    }
+    ranges   Ranges = {} {
+        @doc value "binds range keys to each x-axis."
+    }
+    axes     Axes = {} {
+        @doc value "bundles per-axis configuration."
+    }
+    lines    Line[]   {
+        @doc value """
+            holds per-line styling and downsampling configuration. Each entry
+            corresponds to one channel and range combination produced by the channels
+            and ranges bindings.
+        """
+    }
+    rules    Rule[]   {
+        @doc value "holds annotation rules drawn over the plot."
+    }
+
+    @go imex
+    @go marshal
+    @go migrate
+}
