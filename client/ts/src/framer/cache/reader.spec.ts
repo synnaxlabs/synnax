@@ -97,6 +97,24 @@ describe("read", () => {
     cache.close();
   });
 
+  it("should refetch an empty range after its coverage expires", async () => {
+    const cache = new Cache({ coverageTTL: TimeSpan.milliseconds(50) });
+    const remoteReadF = vi.fn();
+    const readRemote: RemoteReader = async (tr, keys) => {
+      remoteReadF(tr, keys);
+      return new Frame([], []);
+    };
+    const reader = new Reader({ cache, readRemote });
+    const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
+    await reader.read(tr, 1);
+    await reader.read(tr, 1);
+    expect(remoteReadF).toHaveBeenCalledTimes(1);
+    await new Promise((r) => setTimeout(r, 60));
+    expect(await reader.read(tr, 1)).toHaveLength(0);
+    expect(remoteReadF).toHaveBeenCalledTimes(2);
+    cache.close();
+  });
+
   it("should refetch a range whose fetch failed", async () => {
     const cache = new Cache();
     const remoteReadF = vi.fn();
