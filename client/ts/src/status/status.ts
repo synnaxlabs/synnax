@@ -120,20 +120,53 @@ const isCloneable = (v: unknown): boolean => {
   }
 };
 
+// Returns a cloneable stand-in for an un-cloneable value.
+const cloneSafeValue = (v: unknown, depth: number): unknown => {
+  if (isCloneable(v)) return v;
+  if (v instanceof Error) return cloneSafeError(v, depth);
+  if (depth <= 0) return errors.fromUnknown(v).message;
+  try {
+    if (Array.isArray(v)) return v.map((e) => cloneSafeValue(e, depth - 1));
+    if (typeof v === "object" && v != null) {
+      const out: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(v))
+        if (typeof value !== "function" && typeof value !== "symbol")
+          out[key] = cloneSafeValue(value, depth - 1);
+      return out;
+    }
+  } catch {
+    // Tolerate throwing enumerable getters.
+  }
+  return errors.fromUnknown(v).message;
+};
+
 /**
  * Returns err unchanged when it survives structured cloning. Otherwise rebuilds it
- * with the same name, message, and stack, stringifying any un-cloneable cause.
- * Statuses cross the worker boundary, where an un-cloneable error kills the worker.
+ * with the same name, message, stack, and `type`, sanitizing un-cloneable fields and
+ * causes. Statuses cross the worker boundary, where an un-cloneable error kills the
+ * worker.
  */
 const cloneSafeError = (err: Error, depth: number = 8): Error => {
   if (isCloneable(err)) return err;
   const safe = new Error(err.message);
   safe.name = err.name;
   safe.stack = err.stack;
+  const { type } = err as { type?: unknown };
+  if (typeof type === "string") (safe as { type?: string }).type = type;
+  try {
+    for (const [key, value] of Object.entries(err))
+      if (key !== "cause" && typeof value !== "function" && typeof value !== "symbol")
+        (safe as unknown as Record<string, unknown>)[key] = cloneSafeValue(
+          value,
+          depth - 1,
+        );
+  } catch {
+    // Tolerate throwing enumerable getters.
+  }
   const { cause } = err;
   if (cause !== undefined && depth > 0)
     if (cause instanceof Error) safe.cause = cloneSafeError(cause, depth - 1);
-    else safe.cause = isCloneable(cause) ? cause : errors.fromUnknown(cause).message;
+    else safe.cause = cloneSafeValue(cause, depth - 1);
   return safe;
 };
 
