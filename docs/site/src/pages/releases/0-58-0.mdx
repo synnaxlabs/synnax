@@ -1,0 +1,85 @@
+---
+title: "Version 0.58 Release Notes"
+---
+
+import Release from "@/components/releases/Release.astro";
+import { Divider } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+import { Image, Video } from "@/components/media/Media";
+
+export const components = mdxOverrides;
+
+<Release
+    version="0.58.0"
+    date="Sep 4, 2026"
+    title="Schematic Grouping and Console Improvements"
+>
+
+<Video client:only="react" id="releases/0-58-0/symbol-features" />
+
+Synnax v0.58 brings grouping, cut, copy, and paste to schematics, consistent symbol
+sizes, off-page references to any page, custom ranges for line plots, and a collection
+of smaller improvements across the Console.
+
+<Divider.Divider x />
+
+### Schematic Grouping
+
+Schematic symbols can now be grouped. Select the symbols and press `Ctrl + G`, or use
+the right-click menu. Clicking a member selects the whole group, and double-clicking
+edits a single symbol. Groups can be nested, locked to prevent edits, and ungrouped with
+`Ctrl + U`.
+
+<Divider.Divider x />
+
+### Cut, Copy, and Paste
+
+Schematics and the Arc editor now support cut, copy, and paste from the right-click
+menu. `Ctrl + X` cuts the selection along with its connections.
+
+<Divider.Divider x />
+
+### Symbol Sizing and Rotation
+
+The Value, String display, State indicator, Input, Setpoint, and Select symbols each had
+a slightly different height. They now share the same set of sizes, and Value and String
+display gain a size picker.
+
+The button's size selector and the switch's scale and rotation controls now work.
+
+Scale bars can now be rotated to run horizontally. Existing scales are unchanged.
+
+<Divider.Divider x />
+
+### Off-Page References
+
+Off-page references can now target line plots, logs, and tables in addition to
+schematics, and the symbol shows the icon of the page it points to.
+
+<Divider.Divider x />
+
+### Custom Plot Ranges
+
+<Image client:only="react" id="releases/0-58-0/custom-plot-ranges" />
+
+Line plots can now display a custom rolling time span. Pick `Custom` in the ranges
+dropdown and type a duration like `45m` or `1h 30m`. The built-in list also gains longer
+ranges.
+
+<Divider.Divider x />
+
+### Minor Improvements and Bug Fixes
+
+#### Console
+
+- The view selector above each explorer is now a tab strip that scrolls instead of
+  overflowing.
+- A Core's address can be copied from the connection list and the user menu.
+- Statuses with distinct names notify separately.
+
+#### Schematics
+
+- Value units no longer sit in a filled block.
+- Fit view accounts for symbol labels.
+
+</Release>
