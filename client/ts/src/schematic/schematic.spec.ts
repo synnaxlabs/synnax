@@ -199,6 +199,118 @@ describe("Schematic", () => {
       expect(res.configs).toEqual({ n2: { label: "Tank" } });
     });
 
+    test("removeNode splices the removed member from its group on the Core", async () => {
+      const { schem } = await newProjectSchematic(client);
+      await client.schematics.dispatch(schem.key, [
+        schematic.setNode({ node: { key: "n1", position: { x: 0, y: 0 } } }),
+        schematic.setNode({ node: { key: "n2", position: { x: 1, y: 1 } } }),
+        schematic.setNode({
+          node: { key: "g1", position: { x: -20, y: -20 } },
+          config: { variant: "groupBox", members: ["n1", "n2"] },
+        }),
+      ]);
+      await client.schematics.dispatch(schem.key, [
+        schematic.removeNode({ key: "n1" }),
+      ]);
+      const res = await client.schematics.retrieve(schem.key);
+      expect(res.configs.g1).toEqual({ variant: "groupBox", members: ["n2"] });
+    });
+
+    test("removeNode leaves former members intact when their group is removed", async () => {
+      const { schem } = await newProjectSchematic(client);
+      await client.schematics.dispatch(schem.key, [
+        schematic.setNode({
+          node: { key: "n1", position: { x: 0, y: 0 } },
+          config: { label: "Pump" },
+        }),
+        schematic.setNode({
+          node: { key: "g1", position: { x: -20, y: -20 } },
+          config: { variant: "groupBox", members: ["n1"] },
+        }),
+      ]);
+      await client.schematics.dispatch(schem.key, [
+        schematic.removeNode({ key: "g1" }),
+      ]);
+      const res = await client.schematics.retrieve(schem.key);
+      expect(res.configs).toEqual({ n1: { label: "Pump" } });
+      expect(res.nodes).toHaveLength(1);
+    });
+
+    test("a members write dispatched after the removal wins on the Core", async () => {
+      const { schem } = await newProjectSchematic(client);
+      await client.schematics.dispatch(schem.key, [
+        schematic.setNode({ node: { key: "n1", position: { x: 0, y: 0 } } }),
+        schematic.setNode({
+          node: { key: "g1", position: { x: -20, y: -20 } },
+          config: { variant: "groupBox", members: ["n1"] },
+        }),
+      ]);
+      await client.schematics.dispatch(schem.key, [
+        schematic.removeNode({ key: "n1" }),
+      ]);
+      await client.schematics.dispatch(schem.key, [
+        schematic.setConfig({ key: "g1", config: { members: ["n1", "n3"] } }),
+      ]);
+      const res = await client.schematics.retrieve(schem.key);
+      expect(res.configs.g1).toEqual({ variant: "groupBox", members: ["n1", "n3"] });
+    });
+
+    test("the client and Core reducers agree across a cascade storm", async () => {
+      const { schem } = await newProjectSchematic(client);
+      const n = (key: string) => ({ key, position: { x: 0, y: 0 } });
+      const group = (members: unknown[], extra: Record<string, unknown> = {}) => ({
+        variant: "groupBox",
+        members,
+        ...extra,
+      });
+      await client.schematics.dispatch(schem.key, [
+        schematic.setNode({ node: n("n1"), config: { label: "Pump" } }),
+        schematic.setNode({ node: n("n2"), config: { label: "Tank" } }),
+        schematic.setNode({ node: n("n3") }),
+        schematic.setNode({ node: n("g1"), config: group(["n1", "n2", "n1"]) }),
+        schematic.setNode({ node: n("inner"), config: group(["n1"]) }),
+        schematic.setNode({ node: n("outer"), config: group(["inner"]) }),
+        schematic.setNode({
+          node: n("lockbox"),
+          config: group(["n2"], { locked: true }),
+        }),
+        schematic.setNode({ node: n("selfy"), config: group(["selfy", "n3"]) }),
+        schematic.setNode({ node: n("cycA"), config: group(["cycB"]) }),
+        schematic.setNode({ node: n("cycB"), config: group(["cycA"]) }),
+        schematic.setNode({
+          node: n("t1"),
+          config: { variant: "table", members: ["n1"] },
+        }),
+        schematic.setNode({
+          node: n("malformed"),
+          config: { variant: "groupBox", members: "n1" },
+        }),
+      ]);
+      let local = await client.schematics.retrieve(schem.key);
+      const batches: schematic.Action[][] = [
+        [schematic.removeNode({ key: "n1" })],
+        [
+          schematic.removeNode({ key: "inner" }),
+          schematic.removeNode({ key: "outer" }),
+        ],
+        [
+          schematic.setConfig({ key: "lockbox", config: { members: ["n2", "late"] } }),
+          schematic.removeNode({ key: "n2" }),
+        ],
+        [schematic.removeNode({ key: "selfy" })],
+        [schematic.removeNode({ key: "cycA" })],
+        [schematic.removeNode({ key: "ghost" })],
+      ];
+      for (const batch of batches) {
+        local = schematic.reduceAll(local, batch).next;
+        await client.schematics.dispatch(schem.key, batch);
+        const remote = await client.schematics.retrieve(schem.key);
+        expect(remote.configs).toEqual(local.configs);
+        expect(remote.nodes).toEqual(local.nodes);
+        expect(remote.edges).toEqual(local.edges);
+      }
+    });
+
     test("addEdge appends new edges and is a no-op on duplicate keys", async () => {
       const { schem } = await newProjectSchematic(client);
       const e = (

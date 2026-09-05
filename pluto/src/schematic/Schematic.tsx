@@ -10,7 +10,7 @@
 import "@/schematic/Schematic.css";
 
 import { box, TimeSpan, xy } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useRef } from "react";
+import { type ReactElement, useCallback, useMemo, useRef } from "react";
 
 import { type Component } from "@/component";
 import { CSS } from "@/css";
@@ -24,15 +24,20 @@ import {
   edgeChangesToActions,
   nodeChangesToActions,
 } from "@/schematic/Diagram";
+import { Group } from "@/schematic/group";
 import { canDropHaulItem, filterHaulItems } from "@/schematic/haul";
 import { Node } from "@/schematic/node";
 import {
   useAddNode,
+  useAllConfigs,
   useAllEdges,
   useAllNodes,
+  useGroup,
+  useParentOf,
   useRedo,
   useSingleDispatch,
   useUndo,
+  useUngroup,
 } from "@/schematic/queries";
 import { useKey } from "@/schematic/Suspended";
 import { type Triggers } from "@/triggers";
@@ -59,6 +64,7 @@ export const Schematic = ({
   className,
   viewport,
   onDoubleClick,
+  onNodeDoubleClick,
   onSelectionChange,
   selected,
   enableTriggers,
@@ -73,6 +79,15 @@ export const Schematic = ({
   const nodesRef = useSyncedRef(nodes);
   const edges = useAllEdges();
   const edgesRef = useSyncedRef(edges);
+  const configs = useAllConfigs();
+  const configsRef = useSyncedRef(configs);
+  const selectedRef = useSyncedRef(selected);
+  const parentOf = useParentOf();
+  const parentOfRef = useSyncedRef(parentOf);
+  const lockedNodes = useMemo(
+    () => Group.lockMembers(nodes, parentOf, configs),
+    [nodes, parentOf, configs],
+  );
   const dispatch = useSingleDispatch();
   const handleNodesChange = useCallback(
     (changes: BaseDiagram.NodeChange[]) => dispatch(nodeChangesToActions(changes)),
@@ -134,11 +149,54 @@ export const Schematic = ({
     container: ref,
   });
 
+  const group = useGroup();
+  const ungroup = useUngroup();
+  const handleGroup = useCallback(() => {
+    const selection = group(selectedRef.current ?? []);
+    if (selection != null) onSelectionChange?.(selection);
+  }, [group, onSelectionChange]);
+  const handleUngroup = useCallback(() => {
+    const freed = ungroup(selectedRef.current ?? []);
+    if (freed != null) onSelectionChange?.(freed);
+  }, [ungroup, onSelectionChange]);
+
+  const canGroup = useMemo(
+    () => Group.canGroup(selected ?? [], nodes, parentOf),
+    [selected, nodes, parentOf],
+  );
+  const canUngroup = useMemo(
+    () => Group.canUngroup(selected ?? [], configs),
+    [selected, configs],
+  );
+
+  // Clicking a member selects its whole group; delete, copy, and cut then cover it.
+  const handleSelectionChange = useCallback(
+    (keys: string[]) =>
+      onSelectionChange?.(Group.closure(keys, parentOfRef.current, configsRef.current)),
+    [onSelectionChange],
+  );
+
+  // Double-clicking a grouped member drills in, selecting only that member.
+  const handleNodeDoubleClick = useCallback<
+    NonNullable<BaseDiagram.DiagramProps["onNodeDoubleClick"]>
+  >(
+    (e, node) => {
+      if (editable) {
+        const drilled = Group.drillIn(node.id, parentOfRef.current, configsRef.current);
+        if (drilled != null) onSelectionChange?.(drilled);
+      }
+      onNodeDoubleClick?.(e, node);
+    },
+    [editable, onSelectionChange, onNodeDoubleClick],
+  );
+
   BaseDiagram.useTriggers({
     onSelectAll: handleSelectAll,
     onClearSelection: handleClearSelection,
     onUndo: undo,
     onRedo: redo,
+    onGroup: handleGroup,
+    onUngroup: handleUngroup,
     enabled: enableTriggers,
     editable,
   });
@@ -155,6 +213,17 @@ export const Schematic = ({
               paste={paste}
               hasSelection={(selected?.length ?? 0) > 0}
             />
+            {(canGroup || canUngroup) && (
+              <>
+                <Menu.Divider />
+                <BaseDiagram.Menu.GroupItems
+                  group={handleGroup}
+                  ungroup={handleUngroup}
+                  canGroup={canGroup}
+                  canUngroup={canUngroup}
+                />
+              </>
+            )}
             <Menu.Divider />
             <Menu.UndoRedoItems
               undo={undo}
@@ -179,6 +248,10 @@ export const Schematic = ({
       cut,
       copy,
       paste,
+      canGroup,
+      canUngroup,
+      handleGroup,
+      handleUngroup,
     ],
   );
 
@@ -191,15 +264,16 @@ export const Schematic = ({
       onNodesChange={handleNodesChange}
       onEdgesChange={handleEdgesChange}
       viewport={viewport}
-      onSelectionChange={onSelectionChange}
+      onSelectionChange={handleSelectionChange}
       edgesReconnectable={false}
       editable={editable}
       onDoubleClick={onDoubleClick}
+      onNodeDoubleClick={handleNodeDoubleClick}
       onContextMenu={contextMenu.open}
       onCopy={onCopy}
       onCut={onCut}
       onPaste={onPaste}
-      nodes={nodes}
+      nodes={lockedNodes}
       edges={edges}
       selected={selected}
       {...dropProps}
