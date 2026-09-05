@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Client for the connection badge, connect-core modal, cold connection
+"""Client for the Core badge, connect-core modal, cold connection
 takeover, and the pre-login Core selection surface."""
 
 import re
@@ -21,7 +21,7 @@ class ClusterClient:
     """Client for the Console's cluster connection surfaces."""
 
     MODAL_SELECTOR = ".console-connect-core"
-    BADGE_DIALOG_SELECTOR = ".console-connection-badge__dialog"
+    BADGE_DIALOG_SELECTOR = ".console-core-badge__dialog"
     TROUBLE_SELECTOR = ".console-connection"
 
     def __init__(self, layout: LayoutClient):
@@ -33,15 +33,15 @@ class ClusterClient:
 
     @property
     def badge(self) -> Locator:
-        """The connection badge trigger in the top nav bar."""
-        return self.page.get_by_label("Connection status")
+        """The Core badge trigger in the top nav bar."""
+        return self.page.get_by_label("Core menu")
 
     @property
     def badge_dialog(self) -> Locator:
         return self.page.locator(self.BADGE_DIALOG_SELECTOR)
 
     def open_badge(self) -> None:
-        """Open the connection badge dialog if it is not already open."""
+        """Open the Core badge dialog if it is not already open."""
         if self.badge_dialog.is_visible():
             return
         self.badge.click(timeout=5000)
@@ -55,7 +55,7 @@ class ClusterClient:
 
     def status_state(self) -> Locator:
         """The state label inside the open badge dialog."""
-        return self.badge_dialog.locator(".console-connection-badge__state")
+        return self.badge_dialog.locator(".console-core-badge__state")
 
     def wait_for_status(self, label: str, timeout: float = 15000) -> None:
         """Wait for the open badge dialog to report ``label``.
@@ -69,7 +69,7 @@ class ClusterClient:
     def address(self) -> str:
         """The host:port shown in the open badge dialog."""
         return self.badge_dialog.locator(
-            ".console-connection-badge__address"
+            ".console-core-badge__address"
         ).inner_text()
 
     def retry_now(self) -> None:
@@ -108,8 +108,12 @@ class ClusterClient:
         self.layout.wait_for_hidden(self.modal)
 
     def edit_connection(self, *, host: str, port: int) -> None:
-        """Repoint the active cluster through the badge's "Edit connection"."""
+        """Repoint the active cluster through the badge's "Edit connection".
+
+        The edit button reveals on hovering the name row.
+        """
         self.open_badge()
+        self.badge_dialog.locator(".console-core-badge__name").hover()
         self.badge_dialog.get_by_role("button", name="Edit connection").click(
             timeout=5000
         )
