@@ -46,6 +46,9 @@ runs:
       uses: pnpm/setup@v2
       with:
         cache: true
+        # A separate dest keeps main's pnpm store intact in mixed-version migration
+        # jobs. Safe to drop once main also runs pnpm/setup.
+        dest: ~/setup-pnpm-current
 
     - name: Check types
       if: inputs.lint == 'true'
