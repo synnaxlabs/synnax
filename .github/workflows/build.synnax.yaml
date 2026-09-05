@@ -275,7 +275,9 @@ jobs:
             ${{ !inputs.debug && '--config=opt-windows' || '--output_groups=+pdb_file' }} //driver
 
       - name: Upload Windows Debug Symbols
-        if: inputs.driver && inputs.debug && matrix.os == 'windows-build-bot'
+        if:
+          inputs.driver && inputs.driver_ref_run_id == '' && inputs.debug && matrix.os
+          == 'windows-build-bot'
         uses: actions/upload-artifact@v7
         with:
           name:
@@ -296,12 +298,16 @@ jobs:
             --config=opt-unix //driver
 
       - name: Extract Debug Symbols (macOS)
-        if: inputs.driver && inputs.debug && startsWith(matrix.os, 'macos')
+        if:
+          inputs.driver && inputs.driver_ref_run_id == '' && inputs.debug &&
+          startsWith(matrix.os, 'macos')
         run: |
           dsymutil bazel-bin/driver/driver -o bazel-bin/driver/driver.dSYM
 
       - name: Upload macOS Debug Symbols
-        if: inputs.driver && inputs.debug && startsWith(matrix.os, 'macos')
+        if:
+          inputs.driver && inputs.driver_ref_run_id == '' && inputs.debug &&
+          startsWith(matrix.os, 'macos')
         uses: actions/upload-artifact@v7
         with:
           name:
@@ -379,12 +385,16 @@ jobs:
             --config=opt-unix //driver
 
       - name: Extract Debug Symbols (Linux)
-        if: inputs.driver && inputs.debug && matrix.os == 'ubuntu-build-bot'
+        if:
+          inputs.driver && inputs.driver_ref_run_id == '' && inputs.debug && matrix.os
+          == 'ubuntu-build-bot'
         run: |
           objcopy --only-keep-debug bazel-bin/driver/driver bazel-bin/driver/driver.debug
 
       - name: Upload Linux Debug Symbols
-        if: inputs.driver && inputs.debug && matrix.os == 'ubuntu-build-bot'
+        if:
+          inputs.driver && inputs.driver_ref_run_id == '' && inputs.debug && matrix.os
+          == 'ubuntu-build-bot'
         uses: actions/upload-artifact@v7
         with:
           name:
