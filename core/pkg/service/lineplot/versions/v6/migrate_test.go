@@ -13,6 +13,9 @@ import (
 	"context"
 	"embed"
 	"encoding/hex"
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/google/uuid"
@@ -159,4 +162,34 @@ var _ = Describe("v6 wire format", func() {
 		Expect(orc.Codec.Decode(ctx, loadWire("v6_initial.hex"), &lp)).
 			To(truncatedErr)
 	})
+
+	// The .decoded.json companion is the fixture's human-readable audit form. Run with
+	// UPDATE_DECODED=1 to regenerate it after intentionally replacing the fixture.
+	It("Should match the canonical decoded form", func(ctx SpecContext) {
+		var lp v6.LinePlot
+		Expect(orc.Codec.Decode(ctx, loadWire("v6_initial.hex"), &lp)).To(Succeed())
+		pretty := append(MustSucceed(json.MarshalIndent(lp, "", "  ")), '\n')
+		p := filepath.Join("testdata", "v6_initial.decoded.json")
+		if os.Getenv("UPDATE_DECODED") == "1" {
+			Expect(os.WriteFile(p, pretty, 0o644)).To(Succeed())
+			return
+		}
+		Expect(pretty).To(MatchJSON(MustSucceed(os.ReadFile(p))))
+	})
+
+	It("Should reject every truncation of a stored payload", func(ctx SpecContext) {
+		raw := loadWire("v6_initial.hex")
+		for n := 3; n < len(raw); n++ {
+			var lp v6.LinePlot
+			Expect(orc.Codec.Decode(ctx, raw[:n], &lp)).
+				To(truncatedErr, "prefix length %d", n)
+		}
+	})
+
+	It("Should refuse to encode a custom range with a nil variant",
+		func(ctx SpecContext) {
+			lp := v6.LinePlot{Ranges: v6.Ranges{Custom: &v6.CustomRange{}}}
+			Expect(orc.Codec.Encode(ctx, lp)).Error().
+				To(MatchError(ContainSubstring("nil or unknown variant")))
+		})
 })

@@ -1,0 +1,151 @@
+{
+  "key": "f86c4bec-0bdd-4125-afac-f25d3e3a8711",
+  "name": "Line plot",
+  "title": {
+    "level": "h4",
+    "visible": false
+  },
+  "legend": {
+    "hidden": false,
+    "position": {
+      "x": 50,
+      "y": 50,
+      "root": {
+        "x": "left",
+        "y": "top"
+      },
+      "units": {
+        "x": "px",
+        "y": "px"
+      }
+    }
+  },
+  "channels": {
+    "x1": 0,
+    "x2": 0,
+    "y1": [
+      1048581,
+      1048580
+    ],
+    "y2": [],
+    "y3": [],
+    "y4": []
+  },
+  "ranges": {
+    "x1": [
+      "custom"
+    ],
+    "x2": [],
+    "custom": {
+      "span": "108000000000000",
+      "variant": "dynamic"
+    }
+  },
+  "axes": {
+    "x1": {
+      "key": "x1",
+      "label": "",
+      "label_direction": "x",
+      "label_level": "small",
+      "bounds": {
+        "lower": 0,
+        "upper": 0
+      },
+      "manual_bounds": {
+        "lower": false,
+        "upper": false
+      },
+      "tick_spacing": 75
+    },
+    "x2": {
+      "key": "x2",
+      "label": "",
+      "label_direction": "x",
+      "label_level": "small",
+      "bounds": {
+        "lower": 0,
+        "upper": 0
+      },
+      "manual_bounds": {
+        "lower": false,
+        "upper": false
+      },
+      "tick_spacing": 75
+    },
+    "y1": {
+      "key": "y1",
+      "label": "",
+      "label_direction": "y",
+      "label_level": "small",
+      "bounds": {
+        "lower": 0,
+        "upper": 0
+      },
+      "manual_bounds": {
+        "lower": false,
+        "upper": false
+      },
+      "tick_spacing": 75
+    },
+    "y2": {
+      "key": "y2",
+      "label": "",
+      "label_direction": "y",
+      "label_level": "small",
+      "bounds": {
+        "lower": 0,
+        "upper": 0
+      },
+      "manual_bounds": {
+        "lower": false,
+        "upper": false
+      },
+      "tick_spacing": 75
+    },
+    "y3": {
+      "key": "y3",
+      "label": "",
+      "label_direction": "y",
+      "label_level": "small",
+      "bounds": {
+        "lower": 0,
+        "upper": 0
+      },
+      "manual_bounds": {
+        "lower": false,
+        "upper": false
+      },
+      "tick_spacing": 75
+    },
+    "y4": {
+      "key": "y4",
+      "label": "",
+      "label_direction": "y",
+      "label_level": "small",
+      "bounds": {
+        "lower": 0,
+        "upper": 0
+      },
+      "manual_bounds": {
+        "lower": false,
+        "upper": false
+      },
+      "tick_spacing": 75
+    }
+  },
+  "lines": [
+    {
+      "key": "y1---x1---custom---0---1048581",
+      "stroke_width": 2,
+      "downsample": 1,
+      "downsample_mode": "decimate"
+    },
+    {
+      "key": "y1---x1---custom---0---1048580",
+      "stroke_width": 2,
+      "downsample": 1,
+      "downsample_mode": "decimate"
+    }
+  ],
+  "rules": []
+}
