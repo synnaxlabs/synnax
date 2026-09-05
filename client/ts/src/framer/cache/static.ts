@@ -214,8 +214,10 @@ export class Static {
       });
     this.fetched = collect(this.fetched);
     this.streamed = collect(this.streamed);
-    // Expiring coverage re-opens the span to one fetch per staleness window, so data
-    // committed late (backfill, an uncommitted tail) still gets picked up.
+    // Expiring coverage re-opens the span to one fetch per staleness window, even when
+    // it keeps coming back empty. The client cannot tell "no data yet" from "no data
+    // ever" (backfill is legal), so an uncovered empty span would refetch on every
+    // read (space-heater mode). One cheap empty fetch per window is what lets late data ever appear.
     this.covered = this.covered.filter((c) =>
       TimeStamp.since(c.addedAt).lessThan(staleEntryThreshold),
     );
