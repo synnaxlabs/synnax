@@ -322,7 +322,7 @@ type Panel struct {
 // schema constraints.
 func (p Panel) Validate() error {
 	v := validate.New("Panel")
-	validate.NotEmptyString(v, "name", p.Name)
+	v.NotEmptyString("name", p.Name)
 	v.Exec(func() error { return validate.PathedError(p.Root.Validate(), "root") })
 	if p.Parent != nil {
 		v.Exec(func() error { return validate.PathedError(p.Parent.Validate(), "parent") })

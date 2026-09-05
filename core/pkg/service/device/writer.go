@@ -30,7 +30,7 @@ type Writer struct {
 	tx     gorp.Tx
 	otg    ontology.Writer
 	group  group.Group
-	status status.Writer[StatusDetails]
+	status status.Writer
 	table  *gorp.Table[Key, Device]
 }
 

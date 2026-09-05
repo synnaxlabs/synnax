@@ -70,7 +70,7 @@ func EncodeBundle(p Panel, refs map[ontology.ID]string) (imex.Envelope, error) {
 		Type:    string(ontology.ResourceTypePanel),
 		Name:    p.Name,
 	}
-	if err := imex.Encode(&env, bundleBody{Root: node}); err != nil {
+	if err := env.Encode(bundleBody{Root: node}); err != nil {
 		return imex.Envelope{}, err
 	}
 	return env, nil
@@ -91,7 +91,7 @@ func DecodeBundle(
 			string(ontology.ResourceTypePanel), env.Version, versions.Latest,
 		)
 	}
-	body, err := imex.Decode[bundleBody](ctx, env)
+	body, err := env.Decode[bundleBody](ctx)
 	if err != nil {
 		return Panel{}, err
 	}

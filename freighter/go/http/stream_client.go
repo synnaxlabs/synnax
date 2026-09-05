@@ -45,7 +45,7 @@ type StreamClientConfig struct {
 // Validate implements config.Config.
 func (c StreamClientConfig) Validate() error {
 	v := validate.New("http.stream_client")
-	validate.NotNil(v, "codec", c.Codec)
+	v.NotNil("codec", c.Codec)
 	return v.Error()
 }
 

@@ -78,7 +78,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 
 func (w Writer) validate(v View) error {
 	vld := validate.New("view.view")
-	validate.NotEmptyString(vld, "name", v.Name)
-	validate.NotEmptyString(vld, "type", v.Type)
+	vld.NotEmptyString("name", v.Name)
+	vld.NotEmptyString("type", v.Type)
 	return vld.Error()
 }

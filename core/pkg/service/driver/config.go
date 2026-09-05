@@ -75,13 +75,13 @@ func (c Config) Override(other Config) Config {
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("service.driver")
-	validate.NotNil(v, "db", c.DB)
-	validate.NotNil(v, "rack", c.Rack)
-	validate.NotNil(v, "task", c.Task)
-	validate.NotNil(v, "framer", c.Framer)
-	validate.NotNil(v, "channel", c.Channel)
-	validate.NotNil(v, "status", c.Status)
-	validate.NotEmptySlice(v, "factories", c.Factories)
-	validate.NotNil(v, "host", c.Host)
+	v.NotNil("db", c.DB)
+	v.NotNil("rack", c.Rack)
+	v.NotNil("task", c.Task)
+	v.NotNil("framer", c.Framer)
+	v.NotNil("channel", c.Channel)
+	v.NotNil("status", c.Status)
+	v.NotEmptySlice("factories", c.Factories)
+	v.NotNil("host", c.Host)
 	return v.Error()
 }

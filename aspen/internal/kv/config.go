@@ -110,16 +110,16 @@ func (cfg Config) Override(other Config) Config {
 // Validate implements config.Config.
 func (cfg Config) Validate() error {
 	v := validate.New("aspen.kv.db")
-	validate.NotNil(v, "cluster", cfg.Cluster)
-	validate.NotNil(v, "tx_transport_client", cfg.BatchTransportClient)
-	validate.NotNil(v, "tx_transport_server", cfg.BatchTransportServer)
-	validate.NotNil(v, "feedback_transport_client", cfg.FeedbackTransportClient)
-	validate.NotNil(v, "feedback_transport_server", cfg.FeedbackTransportServer)
-	validate.NotNil(v, "lease_transport_client", cfg.LeaseTransportServer)
-	validate.NotNil(v, "lease_transport_server", cfg.LeaseTransportClient)
-	validate.NotNil(v, "recovery_transport_client", cfg.RecoveryTransportClient)
-	validate.NotNil(v, "recovery_transport_server", cfg.RecoveryTransportServer)
-	validate.NotNil(v, "engine", cfg.Engine)
+	v.NotNil("cluster", cfg.Cluster)
+	v.NotNil("tx_transport_client", cfg.BatchTransportClient)
+	v.NotNil("tx_transport_server", cfg.BatchTransportServer)
+	v.NotNil("feedback_transport_client", cfg.FeedbackTransportClient)
+	v.NotNil("feedback_transport_server", cfg.FeedbackTransportServer)
+	v.NotNil("lease_transport_client", cfg.LeaseTransportClient)
+	v.NotNil("lease_transport_server", cfg.LeaseTransportServer)
+	v.NotNil("recovery_transport_client", cfg.RecoveryTransportClient)
+	v.NotNil("recovery_transport_server", cfg.RecoveryTransportServer)
+	v.NotNil("engine", cfg.Engine)
 	return v.Error()
 }
 

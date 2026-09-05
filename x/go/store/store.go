@@ -123,8 +123,8 @@ func (o ObservableConfig[S, O]) Override(
 
 func (o ObservableConfig[S, O]) Validate() error {
 	v := validate.New("observable")
-	validate.NotNil(v, "store", o.Store)
-	validate.NotNil(v, "transform", o.Transform)
+	v.NotNil("store", o.Store)
+	v.NotNil("transform", o.Transform)
 	return v.Error()
 }
 

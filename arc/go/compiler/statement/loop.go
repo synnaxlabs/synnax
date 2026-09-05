@@ -35,7 +35,7 @@ func compileForStatement(
 	case hasComma && len(idents) == 2:
 		return false, compileForTwoIdent(ctx, clause, expr)
 	case hasDeclare && len(idents) == 1:
-		return false, compileForSingleIdent(ctx, clause, idents[0].GetText(), expr)
+		return false, compileForSingleIdent(ctx, idents[0].GetText(), expr)
 	case expr != nil:
 		return false, compileForCondition(ctx, expr)
 	default:
@@ -45,14 +45,13 @@ func compileForStatement(
 
 func compileForSingleIdent(
 	ctx context.Context[parser.IForStatementContext],
-	clause parser.IForClauseContext,
 	name string,
 	expr parser.IExpressionContext,
 ) error {
 	if funcCall, ok := isRangeCallExpr(expr); ok {
-		return compileForRange(ctx, clause, name, funcCall)
+		return compileForRange(ctx, name, funcCall)
 	}
-	return compileForSeriesIteration(ctx, clause, name, "", expr)
+	return compileForSeriesIteration(ctx, name, "", expr)
 }
 
 func compileForTwoIdent(
@@ -63,7 +62,7 @@ func compileForTwoIdent(
 	idents := clause.AllIDENTIFIER()
 	indexName := idents[0].GetText()
 	elemName := idents[1].GetText()
-	return compileForSeriesIteration(ctx, clause, elemName, indexName, expr)
+	return compileForSeriesIteration(ctx, elemName, indexName, expr)
 }
 
 func isRangeCallExpr(
@@ -97,7 +96,6 @@ func isRangeCallExpr(
 
 func compileForRange(
 	ctx context.Context[parser.IForStatementContext],
-	clause parser.IForClauseContext,
 	name string,
 	funcCall parser.IFunctionCallSuffixContext,
 ) error {
@@ -211,7 +209,7 @@ func compileForRange(
 	})
 
 	if block := ctx.AST.Block(); block != nil {
-		if _, err = CompileBlock(context.Child(bodyCtx, block)); err != nil {
+		if _, err = CompileBlock(bodyCtx.Child(block)); err != nil {
 			return err
 		}
 	}
@@ -244,9 +242,7 @@ func compileForRange(
 
 func compileForSeriesIteration(
 	ctx context.Context[parser.IForStatementContext],
-	clause parser.IForClauseContext,
-	elemName string,
-	indexName string,
+	elemName, indexName string,
 	expr parser.IExpressionContext,
 ) error {
 	loopScope, err := ctx.Scope.GetChildByParserRule(ctx.AST)
@@ -278,7 +274,7 @@ func compileForSeriesIteration(
 	elemIdx := elemSym.ID
 	elemType := elemSym.Type
 
-	if _, err = expression.Compile(context.Child(loopCtx, expr)); err != nil {
+	if _, err = expression.Compile(loopCtx.Child(expr)); err != nil {
 		return err
 	}
 	ctx.Writer.WriteLocalSet(handleIdx)
@@ -330,7 +326,7 @@ func compileForSeriesIteration(
 	})
 
 	if block := ctx.AST.Block(); block != nil {
-		if _, err = CompileBlock(context.Child(bodyCtx, block)); err != nil {
+		if _, err = CompileBlock(bodyCtx.Child(block)); err != nil {
 			return err
 		}
 	}
@@ -380,14 +376,14 @@ func compileForCondition(
 		ContinueDepth: continueDepth,
 	})
 
-	if _, err = expression.Compile(context.Child(bodyCtx, expr)); err != nil {
+	if _, err = expression.Compile(bodyCtx.Child(expr)); err != nil {
 		return err
 	}
 	ctx.Writer.WriteI32Eqz()
 	ctx.Writer.WriteBrIf(1) // br to $break if condition is false
 
 	if block := ctx.AST.Block(); block != nil {
-		if _, err = CompileBlock(context.Child(bodyCtx, block)); err != nil {
+		if _, err = CompileBlock(bodyCtx.Child(block)); err != nil {
 			return err
 		}
 	}
@@ -429,7 +425,7 @@ func compileForInfinite(
 	})
 
 	if block := ctx.AST.Block(); block != nil {
-		if _, err = CompileBlock(context.Child(bodyCtx, block)); err != nil {
+		if _, err = CompileBlock(bodyCtx.Child(block)); err != nil {
 			return err
 		}
 	}
@@ -479,7 +475,7 @@ func compileAndCast(
 	expr parser.IExpressionContext,
 	target types.Type,
 ) error {
-	compiledType, err := expression.Compile(context.Child(ctx, expr))
+	compiledType, err := expression.Compile(ctx.Child(expr))
 	if err != nil {
 		return err
 	}

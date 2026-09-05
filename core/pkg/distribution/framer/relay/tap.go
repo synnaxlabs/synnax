@@ -16,7 +16,6 @@ import (
 	"sync/atomic"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
@@ -230,8 +229,7 @@ func (t *tapper) startTap(
 // tapIntoGateway opens a new tap over the host's local storage engine, subscribed to
 // the given channels.
 func (t *tapper) tapIntoGateway(keys channel.Keys) (tap, error) {
-	str, err := cesium.NewTranslatedStreamer(
-		t.TS,
+	str, err := t.TS.NewTranslatedStreamer(
 		ts.StreamerConfig{Channels: keys.Storage()},
 		reqToStorage,
 		resFromStorage,
@@ -257,8 +255,8 @@ func (t *tapper) tapIntoPeer(ctx context.Context, nodeKey node.Key) (tap, error)
 	receiver := &freightfluence.Receiver[Response]{Receiver: stream}
 	sender := &freightfluence.Sender[Request]{Sender: stream}
 	p := plumber.New()
-	plumber.SetSink[Request](p, "sender", sender)
-	plumber.SetSource[Response](p, "receiver", receiver)
+	p.SetSink[Request]("sender", sender)
+	p.SetSource[Response]("receiver", receiver)
 	seg := &plumber.Segment[Request, Response]{Pipeline: p}
 	lo.Must0(seg.RouteOutletFrom("receiver"))
 	lo.Must0(seg.RouteInletTo("sender"))

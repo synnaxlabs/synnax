@@ -105,11 +105,11 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 // Validate implements config.Config.
 func (c LayerConfig) Validate() error {
 	v := validate.New("distribution")
-	validate.NotNil(v, "storage", c.Storage)
-	validate.NotEmptyString(v, "advertise_address", c.AdvertiseAddress)
-	validate.NotNil(v, "transport", c.Transport)
-	validate.NotNil(v, "aspen_transport", c.AspenTransport)
-	validate.NotNil(v, "gorp_codec", c.GorpCodec)
+	v.NotNil("storage", c.Storage)
+	v.NotEmptyString("advertise_address", c.AdvertiseAddress)
+	v.NotNil("transport", c.Transport)
+	v.NotNil("aspen_transport", c.AspenTransport)
+	v.NotNil("gorp_codec", c.GorpCodec)
 	return v.Error()
 }
 

@@ -853,7 +853,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			o, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
 			Expect(changed).To(BeTrue())
 			Expect(o.Len()).To(BeEquivalentTo(3))
-			result := telem.UnmarshalSeries[float64](o.Get(calc.Key()).Series[0])
+			result := o.Get(calc.Key()).Series[0].Unmarshal[float64]()
 			Expect(result).To(HaveLen(3))
 			Expect(result[0]).To(BeNumerically("~", 0.0, 0.01))
 			Expect(result[1]).To(BeNumerically("~", 10.0, 0.01))
@@ -869,7 +869,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			)
 			o, changed = MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
 			Expect(changed).To(BeTrue())
-			result = telem.UnmarshalSeries[float64](o.Get(calc.Key()).Series[0])
+			result = o.Get(calc.Key()).Series[0].Unmarshal[float64]()
 			Expect(result).To(HaveLen(1))
 			Expect(result[0]).To(BeNumerically("~", 10.0, 0.01))
 		},

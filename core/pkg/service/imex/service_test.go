@@ -44,7 +44,7 @@ func sampleResource(name string) testResource {
 func sampleEnvelope(name string, typ ontology.ResourceType) imex.Envelope {
 	GinkgoHelper()
 	env := imex.Envelope{Version: testVersion, Type: string(typ)}
-	Expect(imex.Encode(&env, sampleResource(name))).To(Succeed())
+	Expect(env.Encode(sampleResource(name))).To(Succeed())
 	return WireRoundTrip(env)
 }
 
@@ -116,7 +116,7 @@ func (s *testService) Import(
 	env imex.Envelope,
 	opts imex.ImportOptions,
 ) (ontology.ID, error) {
-	r, err := imex.Decode[testResource](ctx, env)
+	r, err := env.Decode[testResource](ctx)
 	if err != nil {
 		return ontology.ID{}, err
 	}
@@ -157,8 +157,7 @@ func (s *testService) Export(
 		Version: testVersion,
 		Type:    string(ontology.ResourceTypeChannel),
 	}
-	if err := imex.Encode(
-		&env,
+	if err := env.Encode(
 		testResource{Name: e.Name, FieldOne: e.FieldOne, FieldTwo: e.FieldTwo},
 	); err != nil {
 		return imex.Envelope{}, err
@@ -227,7 +226,7 @@ func (n noopExporter) Type() ontology.ResourceType { return n.typ }
 
 func (n noopExporter) Export(context.Context, ontology.ID) (imex.Envelope, error) {
 	env := imex.Envelope{Version: testVersion, Type: string(n.typ)}
-	if err := imex.Encode(&env, testResource{Name: "noop"}); err != nil {
+	if err := env.Encode(testResource{Name: "noop"}); err != nil {
 		return imex.Envelope{}, err
 	}
 	return env, nil
@@ -712,7 +711,7 @@ var _ = Describe("Service", func() {
 				Expect(env.Type).To(Equal(string(ontology.ResourceTypeChannel)))
 				Expect(env.Name).To(Equal("Round Trip"))
 				roundTripped := MustSucceed(
-					imex.Decode[testResource](ctx, WireRoundTrip(env)),
+					WireRoundTrip(env).Decode[testResource](ctx),
 				)
 				Expect(roundTripped.FieldOne).To(Equal("value"))
 				Expect(roundTripped.FieldTwo).To(Equal(42))

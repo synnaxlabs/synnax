@@ -69,9 +69,9 @@ func mergeAndValidateOptions(o *options) error {
 	o.gcCfg = gcCfg
 	o.fileSize = override.Numeric(1*telem.Gigabyte, o.fileSize)
 	v := validate.New("cesium.options")
-	validate.Positive(v, "relay_buffer_size", o.relayBufferSize)
-	validate.Positive(v, "stream_buffer_size", o.streamBufferSize)
-	validate.Positive(v, "slow_consumer_timeout", o.slowConsumerTimeout)
+	v.Positive("relay_buffer_size", o.relayBufferSize)
+	v.Positive("stream_buffer_size", o.streamBufferSize)
+	v.Positive("slow_consumer_timeout", o.slowConsumerTimeout)
 	return v.Error()
 }
 

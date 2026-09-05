@@ -37,7 +37,7 @@ func Compile(
 	ctx context.Context[parser.IExpressionContext],
 ) (types.Type, error) {
 	if logicalOr := ctx.AST.LogicalOrExpression(); logicalOr != nil {
-		return compileLogicalOr(context.Child(ctx, logicalOr))
+		return compileLogicalOr(ctx.Child(logicalOr))
 	}
 	return types.Type{}, errors.New("unknown expression type")
 }
@@ -47,7 +47,7 @@ func compileLogicalOr(
 ) (types.Type, error) {
 	ands := validateNonZeroArray(ctx.AST.AllLogicalAndExpression(), "logical OR")
 	if len(ands) == 1 {
-		return compileLogicalAnd(context.Child(ctx, ands[0]))
+		return compileLogicalAnd(ctx.Child(ands[0]))
 	}
 	return compileLogicalOrImpl(ctx)
 }
@@ -57,7 +57,7 @@ func compileLogicalAnd(
 ) (types.Type, error) {
 	eqs := validateNonZeroArray(ctx.AST.AllEqualityExpression(), "logical AND")
 	if len(eqs) == 1 {
-		return compileEquality(context.Child(ctx, eqs[0]))
+		return compileEquality(ctx.Child(eqs[0]))
 	}
 	return compileLogicalAndImpl(ctx)
 }
@@ -67,7 +67,7 @@ func compileEquality(
 ) (types.Type, error) {
 	rels := validateNonZeroArray(ctx.AST.AllRelationalExpression(), "equality")
 	if len(rels) == 1 {
-		return compileRelational(context.Child(ctx, rels[0]))
+		return compileRelational(ctx.Child(rels[0]))
 	}
 	return compileBinaryEquality(ctx)
 }
@@ -77,7 +77,7 @@ func compileRelational(
 ) (types.Type, error) {
 	adds := validateNonZeroArray(ctx.AST.AllAdditiveExpression(), "relational")
 	if len(adds) == 1 {
-		return compileAdditive(context.Child(ctx, adds[0]))
+		return compileAdditive(ctx.Child(adds[0]))
 	}
 	return compileBinaryRelational(ctx)
 }
@@ -87,7 +87,7 @@ func compileAdditive(
 ) (types.Type, error) {
 	muls := validateNonZeroArray(ctx.AST.AllMultiplicativeExpression(), "additive")
 	if len(muls) == 1 {
-		return compileMultiplicative(context.Child(ctx, muls[0]))
+		return compileMultiplicative(ctx.Child(muls[0]))
 	}
 	return compileBinaryAdditive(ctx)
 }
@@ -97,7 +97,7 @@ func compileMultiplicative(
 ) (types.Type, error) {
 	unaries := validateNonZeroArray(ctx.AST.AllUnaryExpression(), "multiplicative")
 	if len(unaries) == 1 {
-		return compileUnary(context.Child(ctx, unaries[0]))
+		return compileUnary(ctx.Child(unaries[0]))
 	}
 	return compileBinaryMultiplicative(ctx)
 }
@@ -108,7 +108,7 @@ func compilePower(
 	postfix := ctx.AST.PostfixExpression()
 	validateNonZero(postfix, "power")
 
-	baseType, err := compilePostfix(context.Child(ctx, postfix))
+	baseType, err := compilePostfix(ctx.Child(postfix))
 	if err != nil {
 		return types.Type{}, err
 	}
@@ -118,7 +118,7 @@ func compilePower(
 	}
 
 	_, err = compileUnary(
-		context.Child(ctx, ctx.AST.UnaryExpression()).WithHint(baseType.Unwrap()),
+		ctx.Child(ctx.AST.UnaryExpression()).WithHint(baseType.Unwrap()),
 	)
 	if err != nil {
 		return types.Type{}, err
@@ -163,7 +163,7 @@ func compilePostfix(
 		}
 	}
 
-	currentType, err := compilePrimary(context.Child(ctx, primary))
+	currentType, err := compilePrimary(ctx.Child(primary))
 	if err != nil {
 		return types.Type{}, err
 	}
@@ -218,7 +218,7 @@ func compileFunctionCallExpr(
 				hint = resolved
 			}
 		}
-		argType, err := Compile(context.Child(ctx, arg).WithHint(hint))
+		argType, err := Compile(ctx.Child(arg).WithHint(hint))
 		if err != nil {
 			return types.Type{}, errors.Wrapf(err, "argument %d", i)
 		}
@@ -287,7 +287,7 @@ func compileIndexOrSlice(
 			)
 		}
 		if _, err := Compile(
-			context.Child(ctx, expressions[0]).WithHint(types.I32()),
+			ctx.Child(expressions[0]).WithHint(types.I32()),
 		); err != nil {
 			return types.Type{}, err
 		}
@@ -319,7 +319,7 @@ func compileIndexOrSlice(
 
 	if startExpr != nil {
 		if _, err := Compile(
-			context.Child(ctx, startExpr).WithHint(types.I32()),
+			ctx.Child(startExpr).WithHint(types.I32()),
 		); err != nil {
 			return types.Type{}, err
 		}
@@ -329,7 +329,7 @@ func compileIndexOrSlice(
 
 	if endExpr != nil {
 		if _, err := Compile(
-			context.Child(ctx, endExpr).WithHint(types.I32()),
+			ctx.Child(endExpr).WithHint(types.I32()),
 		); err != nil {
 			return types.Type{}, err
 		}
@@ -346,7 +346,7 @@ func compilePrimary(
 	ctx context.Context[parser.IPrimaryExpressionContext],
 ) (types.Type, error) {
 	if lit := ctx.AST.Literal(); lit != nil {
-		return compileLiteral(context.Child(ctx, lit))
+		return compileLiteral(ctx.Child(lit))
 	}
 	if qid := ctx.AST.QualifiedIdentifier(); qid != nil {
 		head, tail := parser.QualifiedNameParts(qid)
@@ -356,10 +356,10 @@ func compilePrimary(
 		return compileIdentifier(ctx, id.GetText(), "")
 	}
 	if ctx.AST.LPAREN() != nil && ctx.AST.Expression() != nil {
-		return Compile(context.Child(ctx, ctx.AST.Expression()))
+		return Compile(ctx.Child(ctx.AST.Expression()))
 	}
 	if cast := ctx.AST.TypeCast(); cast != nil {
-		return compileTypeCast(context.Child(ctx, cast))
+		return compileTypeCast(ctx.Child(cast))
 	}
 	return types.Type{}, errors.New("unknown primary expression")
 }
@@ -466,7 +466,7 @@ func compileBuiltinLen(
 		)
 	}
 
-	argType, err := Compile(context.Child(ctx, args[0]))
+	argType, err := Compile(ctx.Child(args[0]))
 	if err != nil {
 		return types.Type{}, errors.Wrap(err, "argument 1 of "+funcName)
 	}

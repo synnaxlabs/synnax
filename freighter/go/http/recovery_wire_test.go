@@ -34,7 +34,7 @@ var _ = Describe("Recovery (wire)", func() {
 			func(c fiber.Ctx) error { return c.SendStatus(fiber.StatusOK) },
 		)
 		router := MustSucceed(fhttp.NewRouter())
-		server := fhttp.NewUnaryServer[test.Request, test.Response](router, "/")
+		server := router.NewUnaryServer[test.Request, test.Response]("/")
 		server.Use(recovery.Middleware(alamos.Instrumentation{}))
 
 		panicNext := true

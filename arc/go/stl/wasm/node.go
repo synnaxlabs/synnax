@@ -130,7 +130,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 		if t.Len() == 0 {
 			return
 		}
-		n.params[i] = uint64(telem.ValueAt[uint32](t, -1))
+		n.params[i] = uint64(t.ValueAt[uint32](-1))
 	}
 
 	// A var input references a variable's node; re-read the latest each pass.

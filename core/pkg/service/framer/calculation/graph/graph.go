@@ -50,7 +50,7 @@ func (c Config) Override(other Config) Config {
 
 func (c Config) Validate() error {
 	v := validate.New("calculation.graph")
-	validate.NotNil(v, "channel", c.Channel)
+	v.NotNil("channel", c.Channel)
 	return v.Error()
 }
 

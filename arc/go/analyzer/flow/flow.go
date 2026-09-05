@@ -66,10 +66,10 @@ func Analyze(ctx context.Context[parser.IFlowStatementContext]) {
 			prevNode = nodes[i-1]
 		}
 		isLastNode := i == len(nodes)-1
-		analyzeNode(context.Child(ctx, node), prevNode, isLastNode)
+		analyzeNode(ctx.Child(node), prevNode, isLastNode)
 	}
 	for _, routingTable := range ctx.AST.AllRoutingTable() {
-		analyzeRoutingTable(context.Child(ctx, routingTable))
+		analyzeRoutingTable(ctx.Child(routingTable))
 	}
 	warnNumericTransitions(ctx)
 }
@@ -89,7 +89,7 @@ func warnNumericTransitions[T antlr.ParserRuleContext](ctx context.Context[T]) {
 		if !ok || node.Function() != nil {
 			continue
 		}
-		if !inferFlowNodeOutputType(context.Child(ctx, node)).IsNumeric() {
+		if !inferFlowNodeOutputType(ctx.Child(node)).IsNumeric() {
 			continue
 		}
 		ctx.Diagnostics.Add(diagnostics.Warningf(node,
@@ -104,15 +104,15 @@ func analyzeNode(
 	isLastNode bool,
 ) {
 	if id := ctx.AST.Identifier(); id != nil {
-		analyzeIdentifier(context.Child(ctx, id), prevNode, isLastNode)
+		analyzeIdentifier(ctx.Child(id), prevNode, isLastNode)
 		return
 	}
 	if fn := ctx.AST.Function(); fn != nil {
-		parseFunction(context.Child(ctx, fn), prevNode)
+		parseFunction(ctx.Child(fn), prevNode)
 		return
 	}
 	if expr := ctx.AST.Expression(); expr != nil {
-		AnalyzeSingleExpression(context.Child(ctx, expr))
+		AnalyzeSingleExpression(ctx.Child(expr))
 		return
 	}
 	// NEXT and inline stage/sequence declarations are resolved during sequence
@@ -213,7 +213,7 @@ func resolveUpstreamType(
 		return idSym.Type.Unwrap(), true
 	}
 	if prevExpr := prevNode.Expression(); prevExpr != nil {
-		return atypes.InferFromExpression(context.Child(ctx, prevExpr)).Unwrap(), true
+		return atypes.InferFromExpression(ctx.Child(prevExpr)).Unwrap(), true
 	}
 	if prevFuncNode := prevNode.Function(); prevFuncNode != nil {
 		if hasRoutingTableBetween(ctx) {
@@ -405,7 +405,7 @@ func flowSourceType(
 	prevNode parser.IFlowNodeContext,
 ) (types.Type, string) {
 	if prevExpr := prevNode.Expression(); prevExpr != nil {
-		exprType := atypes.InferFromExpression(context.Child(ctx, prevExpr))
+		exprType := atypes.InferFromExpression(ctx.Child(prevExpr))
 		return exprType, fmt.Sprintf("expression type %s", exprType)
 	}
 	if prevID := prevNode.Identifier(); prevID != nil {
@@ -522,7 +522,7 @@ func inputArguments[T antlr.ParserRuleContext](
 			if expr == nil {
 				continue
 			}
-			expression.Analyze(context.Child(ctx, expr))
+			expression.Analyze(ctx.Child(expr))
 			args = append(args, symbol.Argument{
 				Name: val.IDENTIFIER().GetText(),
 				Expr: expr,
@@ -533,7 +533,7 @@ func inputArguments[T antlr.ParserRuleContext](
 	}
 	if anonVals := braceBlock.AnonymousInputValues(); anonVals != nil {
 		for i, expr := range anonVals.AllExpression() {
-			expression.Analyze(context.Child(ctx, expr))
+			expression.Analyze(ctx.Child(expr))
 			args = append(args, symbol.Argument{
 				Index: i,
 				Expr:  expr,
@@ -601,7 +601,7 @@ func analyzeRoutingTable(ctx context.Context[parser.IRoutingTableContext]) {
 	}
 
 	for _, entry := range ctx.AST.AllRoutingEntry() {
-		warnNumericTransitions(context.Child(ctx, entry))
+		warnNumericTransitions(ctx.Child(entry))
 	}
 
 	if len(nodesBefore) == 0 && len(nodesAfter) > 0 {
@@ -736,7 +736,7 @@ func analyzeOutputRoutingTable(
 		var nodeSourceType types.Type
 		for i, flowNode := range flowNodes {
 			isLastNode := i == len(flowNodes)-1
-			child := context.Child(ctx, flowNode)
+			child := ctx.Child(flowNode)
 			if i == 0 {
 				analyzeNode(child, nil, false)
 				if isLastNode {
@@ -866,7 +866,7 @@ func analyzeInputRoutingTable(
 		_ = paramType
 
 		for i := 0; i < len(flowNodes)-1; i++ {
-			analyzeNode(context.Child(ctx, flowNodes[i]), nil, false)
+			analyzeNode(ctx.Child(flowNodes[i]), nil, false)
 		}
 	}
 }
@@ -939,9 +939,9 @@ func analyzeRoutingTargetWithParam(
 			)
 		}
 	} else if idNode := ctx.AST.Identifier(); idNode != nil {
-		analyzeIdentifier(context.Child(ctx, idNode), prevNode, isLastNode)
+		analyzeIdentifier(ctx.Child(idNode), prevNode, isLastNode)
 	} else if expr := ctx.AST.Expression(); expr != nil {
-		AnalyzeSingleExpression(context.Child(ctx, expr))
+		AnalyzeSingleExpression(ctx.Child(expr))
 	}
 }
 
@@ -949,7 +949,7 @@ func analyzeRoutingTargetWithParam(
 // in a routing-entry chain.
 func inferFlowNodeOutputType(ctx context.Context[parser.IFlowNodeContext]) types.Type {
 	if expr := ctx.AST.Expression(); expr != nil {
-		return atypes.InferFromExpression(context.Child(ctx, expr))
+		return atypes.InferFromExpression(ctx.Child(expr))
 	}
 	if fn := ctx.AST.Function(); fn != nil {
 		fnName := parser.FunctionName(fn)

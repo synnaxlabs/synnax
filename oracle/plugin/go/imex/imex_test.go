@@ -171,7 +171,7 @@ var _ = Describe("Go ImEx Plugin", func() {
 					"const Latest = v3.Version",
 					"func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Log, error)",
 					"case v3.Version:",
-					"return imex.Decode[Log](ctx, env)",
+					"return env.Decode[Log](ctx)",
 				).
 					ToBeValidGoSource()
 				ExpectContent(resp, "core/pkg/service/log/imex.gen.go").ToContain(
@@ -183,7 +183,7 @@ var _ = Describe("Go ImEx Plugin", func() {
 					"var v Log",
 					"Where(MatchKeys(key))",
 					"Version: versions.Latest, Type: string(s.Type()), Name: v.Name,",
-					"imex.Encode(&env, v)",
+					"env.Encode(v)",
 				).ToBeValidGoSource()
 			},
 		)
@@ -305,7 +305,7 @@ Symbol struct {
 				).ToContain(
 					`"github.com/synnaxlabs/synnax/core/pkg/service/log/versions/v2"`,
 					"case v2.Version:",
-					"t2, err := imex.Decode[v2.Log](ctx, env)",
+					"t2, err := env.Decode[v2.Log](ctx)",
 					"t3, err := v3.MigrateLog(ctx, t2)",
 					"return t3, nil",
 				).
@@ -335,7 +335,7 @@ Symbol struct {
 					"core/pkg/service/log/versions/imex.gen.go",
 				).ToContain(
 					"case v2.Version:",
-					"t2, err := imex.Decode[v2.Log](ctx, env)",
+					"t2, err := env.Decode[v2.Log](ctx)",
 					"return t2, nil",
 				).
 					ToBeValidGoSource()

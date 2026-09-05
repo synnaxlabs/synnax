@@ -269,8 +269,8 @@ var _ = Describe("Block Expressions with GlobalResolver", func() {
 			newContent := "return pres"
 			Expect(server.DidChange(ctx, &protocol.DidChangeTextDocumentParams{
 				TextDocument: protocol.VersionedTextDocumentIdentifier{
-					TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: uri},
-					Version:                2,
+					URI:     uri,
+					Version: 2,
 				},
 				ContentChanges: []protocol.TextDocumentContentChangeEvent{
 					&protocol.TextDocumentContentChangeWholeDocument{Text: newContent},

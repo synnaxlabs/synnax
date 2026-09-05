@@ -3756,7 +3756,7 @@ var _ = Describe("Frame", func() {
 			seriesSum := int32(0)
 			for _, s := range fr.Entries() {
 				keyCount++
-				seriesSum += telem.ValueAt[int32](s, 0)
+				seriesSum += s.ValueAt[int32](0)
 				if keyCount == 2 {
 					break
 				}
@@ -4034,7 +4034,7 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](7, 8, 9),
 				},
 			)
-			reinterpreted := telem.UnsafeReinterpretFrameKeysAs[int32, AltKey](fr)
+			reinterpreted := fr.UnsafeReinterpretKeysAs[AltKey]()
 			keys := reinterpreted.KeysSlice()
 			Expect(keys).To(HaveLen(3))
 			Expect(keys[0]).To(Equal(AltKey(1)))
@@ -4412,7 +4412,7 @@ var _ = Describe("Frame", func() {
 			for i, s := range fr.SeriesI() {
 				count++
 				lastIndex = i
-				lastValue = telem.ValueAt[int32](s, 0)
+				lastValue = s.ValueAt[int32](0)
 				if count == 3 {
 					break
 				}
@@ -4431,7 +4431,7 @@ var _ = Describe("Frame", func() {
 			for i, s := range filtered.SeriesI() {
 				count++
 				lastIndex = i
-				lastValue = telem.ValueAt[int32](s, 0)
+				lastValue = s.ValueAt[int32](0)
 				if count == 2 {
 					break
 				}
@@ -4467,7 +4467,7 @@ var _ = Describe("Frame", func() {
 
 			for i, s := range filtered.SeriesI() {
 				indices = append(indices, int32(i))
-				seriesValues = append(seriesValues, telem.ValueAt[int32](s, 0))
+				seriesValues = append(seriesValues, s.ValueAt[int32](0))
 			}
 
 			// Expect consecutive indices 0, 1, 2 despite filtering out many elements

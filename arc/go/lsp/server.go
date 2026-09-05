@@ -115,7 +115,7 @@ func (c Config) Override(other Config) Config {
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("arc.lsp")
-	validate.NotNil(v, "new_root", c.NewRoot)
+	v.NotNil("new_root", c.NewRoot)
 	return v.Error()
 }
 

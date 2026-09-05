@@ -584,10 +584,7 @@ var _ = Describe("Channel", func() {
 							},
 						)
 						Expect(triggered).To(BeTrue())
-						ts := telem.ValueAt[telem.TimeStamp](
-							*nodeState.OutputTime(0),
-							0,
-						)
+						ts := nodeState.OutputTime(0).ValueAt[telem.TimeStamp](0)
 						Expect(ts).To(BeNumerically(">", prevTS),
 							"timestamp must strictly increase across consecutive source outputs")
 						prevTS = ts
@@ -908,13 +905,10 @@ var _ = Describe("Channel", func() {
 			return f
 		}
 		emittedValue := func(nodeKey string) float32 {
-			return telem.ValueAt[float32](*progState.Node(nodeKey).Output(0), -1)
+			return progState.Node(nodeKey).Output(0).ValueAt[float32](-1)
 		}
 		emittedTS := func(nodeKey string) telem.TimeStamp {
-			return telem.ValueAt[telem.TimeStamp](
-				*progState.Node(nodeKey).OutputTime(0),
-				-1,
-			)
+			return progState.Node(nodeKey).OutputTime(0).ValueAt[telem.TimeStamp](-1)
 		}
 		// al builds an alignment in the common shared streaming domain (1).
 		al := func(sample uint32) telem.Alignment { return telem.NewAlignment(1, sample) }
@@ -1389,14 +1383,14 @@ var _ = Describe("Channel", func() {
 
 				outData := *sinkState.Output(0)
 				Expect(outData.Len()).To(Equal(int64(1)))
-				Expect(telem.ValueAt[uint8](outData, 0)).To(Equal(uint8(1)))
+				Expect(outData.ValueAt[uint8](0)).To(Equal(uint8(1)))
 				Expect(outData.Alignment).To(Equal(telem.Alignment(42)))
 				Expect(outData.TimeRange.Start).To(Equal(500 * telem.SecondTS))
 
 				outTime := *sinkState.OutputTime(0)
 				Expect(outTime.Len()).To(Equal(int64(1)))
 				Expect(
-					telem.ValueAt[telem.TimeStamp](outTime, 0),
+					outTime.ValueAt[telem.TimeStamp](0),
 				).To(Equal(501 * telem.SecondTS))
 				Expect(outTime.Alignment).To(Equal(telem.Alignment(42)))
 
@@ -1794,9 +1788,9 @@ var _ = Describe("Source Rebind", func() {
 	})
 
 	ingest := func(key, offset uint32, v float32) {
-		d := telem.NewSeriesV[float32](v)
+		d := telem.NewSeriesV(v)
 		d.Alignment = telem.NewAlignment(1, offset)
-		channelState.Ingest(telem.UnaryFrame[uint32](key, d))
+		channelState.Ingest(telem.UnaryFrame(key, d))
 	}
 
 	It(
@@ -1828,7 +1822,7 @@ var _ = Describe("Source Rebind", func() {
 			)
 			Expect(changed).To(BeTrue())
 			out := *progState.Node("source").Output(0)
-			Expect(telem.ValueAt[float32](out, -1)).To(Equal(float32(7.7)))
+			Expect(out.ValueAt[float32](-1)).To(Equal(float32(7.7)))
 		},
 	)
 

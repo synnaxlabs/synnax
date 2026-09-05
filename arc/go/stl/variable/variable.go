@@ -70,7 +70,7 @@ func (*Host) Create(cfg node.Config) (node.Node, error) {
 // stampNow overwrites ts with a single sample of now, reusing its buffer.
 func stampNow(ts *telem.Series, now telem.TimeStamp) {
 	ts.Resize(1)
-	telem.SetValueAt(*ts, 0, now)
+	ts.SetValueAt(0, now)
 }
 
 // register holds what its variable is mapped to: a value, a channel key, or a

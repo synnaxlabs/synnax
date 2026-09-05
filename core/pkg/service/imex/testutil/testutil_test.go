@@ -32,7 +32,7 @@ var _ = Describe("LoadEnvelope", func() {
 		Expect(env.Version).To(Equal(imex.Version(1)))
 		Expect(env.Type).To(Equal("test"))
 		Expect(env.Name).To(Equal("fixture"))
-		Expect(MustSucceed(imex.Decode[resource](ctx, env))).
+		Expect(MustSucceed(env.Decode[resource](ctx))).
 			To(Equal(resource{Name: "fixture", Field: "value"}))
 	})
 })
@@ -43,12 +43,12 @@ var _ = Describe("WireRoundTrip", func() {
 	) {
 		env := imex.Envelope{Version: 1, Type: "test", Name: "roundtrip"}
 		r := resource{Name: "roundtrip", Field: "value"}
-		Expect(imex.Encode(&env, r)).To(Succeed())
+		Expect(env.Encode(r)).To(Succeed())
 		out := WireRoundTrip(env)
 		Expect(out.Version).To(Equal(imex.Version(1)))
 		Expect(out.Type).To(Equal("test"))
 		Expect(out.Name).To(Equal("roundtrip"))
-		Expect(MustSucceed(imex.Decode[resource](ctx, out))).To(Equal(r))
+		Expect(MustSucceed(out.Decode[resource](ctx))).To(Equal(r))
 	})
 })
 
