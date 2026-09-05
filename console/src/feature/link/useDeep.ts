@@ -12,6 +12,7 @@ import { Status, useAsyncEffect } from "@synnaxlabs/pluto";
 import { strings } from "@synnaxlabs/x";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrent, onOpenUrl } from "@tauri-apps/plugin-deep-link";
+import { useEffect, useRef } from "react";
 
 import { Link } from "@/platform/link";
 import { Session } from "@/session";
@@ -44,6 +45,19 @@ export const useDeep = (
   if (deps.engine !== "tauri") return;
   const handleError = Status.useErrorHandler();
   const dispatch = Session.useDispatch();
+  const settled = Session.useSettled();
+  const settledRef = useRef(settled);
+  settledRef.current = settled;
+  const settledWaitersRef = useRef<(() => void)[]>([]);
+  useEffect(() => {
+    if (!settled) return;
+    settledWaitersRef.current.forEach((resolve) => resolve());
+    settledWaitersRef.current = [];
+  }, [settled]);
+  const awaitSettled = async (): Promise<void> => {
+    if (settledRef.current) return;
+    await new Promise<void>((resolve) => settledWaitersRef.current.push(resolve));
+  };
   const urlHandler = async (urls: string[]) => {
     try {
       dispatch(Drift.focusWindow({}));
@@ -56,6 +70,11 @@ export const useDeep = (
 
       const client = await connect(urlParts[0]);
       if (urlParts.length === 1) return;
+
+      // Handlers resolve their target through the query cache, which the session
+      // synchronizers fill after connect. On a cold launch or a cluster switch the
+      // handler would otherwise read the cache before its first reconcile pass.
+      await awaitSettled();
 
       const resource = urlParts[1];
       const resourceKey = urlParts[2];
