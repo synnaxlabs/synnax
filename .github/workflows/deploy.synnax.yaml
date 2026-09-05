@@ -13,6 +13,7 @@ on:
   push:
     branches:
       - main
+      - rc
     paths:
       - .bazeliskrc
       - .bazelrc
@@ -93,10 +94,15 @@ concurrency:
 
 jobs:
   setup:
+    # Pushes to rc already run the release deploy, so the rc PR run is redundant.
+    if: github.event_name != 'pull_request' || github.head_ref != 'rc'
     runs-on: ubuntu-latest
     outputs:
       VERSION: ${{ steps.version.outputs.VERSION }}
       RELEASE: ${{ steps.release.outputs.RELEASE }}
+      SKIP_BUILD: ${{ steps.check-cache.outputs.SKIP_BUILD }}
+      DRIVER_REF_RUN_ID: ${{ steps.check-cache.outputs.DRIVER_REF_RUN_ID }}
+      CONSOLE_REF_RUN_ID: ${{ steps.check-cache.outputs.CONSOLE_REF_RUN_ID }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v7
@@ -127,6 +133,15 @@ jobs:
             fi
           fi
           echo "RELEASE=${RELEASE}" >> $GITHUB_OUTPUT
+
+      # Release builds and anything targeting main never reuse cached artifacts.
+      - name: Check for Cached Artifacts
+        id: check-cache
+        if: steps.release.outputs.RELEASE != 'true' && github.base_ref != 'main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: integration/scripts/check_artifact_cache.sh "linux windows macos"
 
   create-release:
     runs-on: ubuntu-latest
@@ -195,7 +210,7 @@ jobs:
     needs: [setup, create-release]
     if: >-
       !cancelled() && needs.setup.result == 'success' && needs.create-release.result !=
-      'failure'
+      'failure' && needs.setup.outputs.SKIP_BUILD != 'true'
     permissions:
       actions: read
       contents: write
@@ -216,6 +231,8 @@ jobs:
       upload_to_release: ${{ needs.setup.outputs.RELEASE == 'true' }}
       version: ${{ needs.setup.outputs.VERSION }}
       use_simple_artifact_names: true
+      driver_ref_run_id: ${{ needs.setup.outputs.DRIVER_REF_RUN_ID }}
+      console_ref_run_id: ${{ needs.setup.outputs.CONSOLE_REF_RUN_ID }}
     secrets: inherit
 
   windows-installer:
