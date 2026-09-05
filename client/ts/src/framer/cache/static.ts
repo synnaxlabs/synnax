@@ -51,14 +51,14 @@ export interface StaticProps {
    * the refetch rate of spans that stay empty, as every refetch opens a short-lived
    * iterator connection.
    * @default TimeSpan.minutes(10) */
-  coverageTTL?: TimeSpan;
+  staleCoverageThreshold?: TimeSpan;
 }
 
 export const DEFAULT_STATIC_PROPS: Required<StaticProps> = {
   instrumentation: alamos.NOOP,
   transform: IDENTITY_TRANSFORM,
   staleEntryThreshold: TimeSpan.seconds(20),
-  coverageTTL: TimeSpan.minutes(10),
+  staleCoverageThreshold: TimeSpan.minutes(10),
 };
 
 interface CacheEntry {
@@ -71,7 +71,7 @@ interface CacheEntry {
 interface CoveredRange {
   /** The fetched span, held even when the fetch returned no samples. */
   range: TimeRange;
-  /** When the fetch completed. Coverage answers gaps until addedAt + coverageTTL. */
+  /** When the fetch completed. Coverage answers gaps until it goes stale. */
   addedAt: TimeStamp;
 }
 
@@ -95,9 +95,14 @@ export class Static {
       instrumentation = DEFAULT_STATIC_PROPS.instrumentation,
       transform = DEFAULT_STATIC_PROPS.transform,
       staleEntryThreshold = DEFAULT_STATIC_PROPS.staleEntryThreshold,
-      coverageTTL = DEFAULT_STATIC_PROPS.coverageTTL,
+      staleCoverageThreshold = DEFAULT_STATIC_PROPS.staleCoverageThreshold,
     } = props;
-    this.props = { instrumentation, transform, staleEntryThreshold, coverageTTL };
+    this.props = {
+      instrumentation,
+      transform,
+      staleEntryThreshold,
+      staleCoverageThreshold,
+    };
   }
 
   /**
@@ -117,17 +122,14 @@ export class Static {
   }
 
   /**
-   * Records tr as fetched, merging it into the covered set. Gap computation treats
-   * covered spans as answered even when the fetch returned no samples, so an empty
-   * span is fetched once per coverage TTL instead of on every read.
+   * Records tr as fetched, merging it into the covered set. A covered span counts
+   * as answered even when empty, so it is refetched once it goes stale, not per read.
    */
   markFetched(tr: TimeRange): void {
     if (!tr.isValid || tr.span.isZero) return;
     let { start, end } = tr;
-    // Merging live coverage keeps the oldest stamp. A fresh stamp would let a rolling
-    // read refresh its own coverage forever, so late backfill would never be
-    // refetched. Expired records are dropped, not merged, so a refetch of their span
-    // starts a fresh TTL.
+    // Live merges keep the oldest stamp so a rolling read cannot refresh its own
+    // coverage forever. Stale records drop, so a refetch restarts their clock.
     let addedAt = TimeStamp.now();
     const keep: CoveredRange[] = [];
     for (const c of this.covered) {
@@ -144,9 +146,9 @@ export class Static {
     this.covered = keep;
   }
 
-  // Coverage answers gaps only while its TTL lasts. gc merely prunes dead records.
+  // Coverage answers gaps only until it goes stale. gc merely prunes dead records.
   private isLive(c: CoveredRange): boolean {
-    return TimeStamp.since(c.addedAt).lessThan(this.props.coverageTTL);
+    return TimeStamp.since(c.addedAt).lessThan(this.props.staleCoverageThreshold);
   }
 
   // Containment, not overlap: a fetch stamped wider than the data it returned
@@ -233,10 +235,10 @@ export class Static {
       });
     this.fetched = collect(this.fetched);
     this.streamed = collect(this.streamed);
-    // The client cannot tell "no data yet" from "no data ever" (backfill is legal).
-    // Coverage expiry re-opens an empty span to one cheap fetch per TTL instead of a
-    // refetch on every read (space-heater mode). One periodic empty fetch is what
-    // lets late data ever appear. Series purging above is not affected.
+    // The client cannot tell "no data yet" from "no data ever" (backfill is legal),
+    // so stale coverage re-opens an empty span to one cheap fetch per staleness
+    // window instead of one per read (space-heater mode). Series purging above is not
+    // affected.
     this.covered = this.covered.filter((c) => this.isLive(c));
     return res;
   }

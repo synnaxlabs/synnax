@@ -98,7 +98,7 @@ describe("read", () => {
   });
 
   it("should refetch an empty range after its coverage expires", async () => {
-    const cache = new Cache({ coverageTTL: TimeSpan.milliseconds(50) });
+    const cache = new Cache({ staleCoverageThreshold: TimeSpan.milliseconds(50) });
     const remoteReadF = vi.fn();
     const readRemote: RemoteReader = async (tr, keys) => {
       remoteReadF(tr, keys);

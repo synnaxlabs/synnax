@@ -568,8 +568,8 @@ describe("StaticReadCache", () => {
       expect(c.dirtyRead(read).gaps).toHaveLength(0);
     });
 
-    test("should expire coverage after the coverage TTL", async () => {
-      const c = new Static({ coverageTTL: TimeSpan.milliseconds(5) });
+    test("should expire coverage after the stale coverage threshold", async () => {
+      const c = new Static({ staleCoverageThreshold: TimeSpan.milliseconds(5) });
       const tr = TimeStamp.seconds(1).spanRange(TimeSpan.seconds(1));
       c.markFetched(tr);
       expect(c.dirtyRead(tr).gaps).toHaveLength(0);
@@ -586,13 +586,13 @@ describe("StaticReadCache", () => {
       expect(c.dirtyRead(tr).gaps).toHaveLength(0);
     });
 
-    test("should pin the default coverage TTL and staleness threshold", () => {
-      expect(DEFAULT_STATIC_PROPS.coverageTTL).toEqual(TimeSpan.minutes(10));
+    test("should pin the default staleness thresholds", () => {
+      expect(DEFAULT_STATIC_PROPS.staleCoverageThreshold).toEqual(TimeSpan.minutes(10));
       expect(DEFAULT_STATIC_PROPS.staleEntryThreshold).toEqual(TimeSpan.seconds(20));
     });
 
     test("should apply expiry on read without a gc call", async () => {
-      const c = new Static({ coverageTTL: TimeSpan.milliseconds(50) });
+      const c = new Static({ staleCoverageThreshold: TimeSpan.milliseconds(50) });
       const tr = TimeStamp.seconds(1).spanRange(TimeSpan.seconds(1));
       c.markFetched(tr);
       expect(c.dirtyRead(tr).gaps).toHaveLength(0);
@@ -601,7 +601,7 @@ describe("StaticReadCache", () => {
     });
 
     test("should not extend a new mark with an expired record's bounds", async () => {
-      const c = new Static({ coverageTTL: TimeSpan.milliseconds(50) });
+      const c = new Static({ staleCoverageThreshold: TimeSpan.milliseconds(50) });
       c.markFetched(TimeStamp.seconds(1).spanRange(TimeSpan.seconds(1)));
       await sleep.sleep(TimeSpan.milliseconds(60));
       c.markFetched(TimeStamp.seconds(2).spanRange(TimeSpan.seconds(1)));
@@ -611,7 +611,7 @@ describe("StaticReadCache", () => {
     });
 
     test("should merge a bridging mark with live records only", async () => {
-      const c = new Static({ coverageTTL: TimeSpan.milliseconds(50) });
+      const c = new Static({ staleCoverageThreshold: TimeSpan.milliseconds(50) });
       c.markFetched(TimeStamp.seconds(1).spanRange(TimeSpan.seconds(1)));
       await sleep.sleep(TimeSpan.milliseconds(60));
       c.markFetched(TimeStamp.seconds(3).spanRange(TimeSpan.seconds(1)));
@@ -622,7 +622,7 @@ describe("StaticReadCache", () => {
     });
 
     test("should reopen an expired covered gap between fetched entries", async () => {
-      const c = new Static({ coverageTTL: TimeSpan.milliseconds(50) });
+      const c = new Static({ staleCoverageThreshold: TimeSpan.milliseconds(50) });
       const write = (tr: TimeRange, data: number[], alignment: bigint) =>
         c.write(
           new MultiSeries([
@@ -668,7 +668,7 @@ describe("StaticReadCache", () => {
     });
 
     test("should restart coverage on a refetch of an expired span", async () => {
-      const c = new Static({ coverageTTL: TimeSpan.milliseconds(50) });
+      const c = new Static({ staleCoverageThreshold: TimeSpan.milliseconds(50) });
       const tr = TimeStamp.seconds(1).spanRange(TimeSpan.seconds(1));
       c.markFetched(tr);
       await sleep.sleep(TimeSpan.milliseconds(60));
@@ -678,7 +678,7 @@ describe("StaticReadCache", () => {
     });
 
     test("should expire a merged span by its oldest mark", async () => {
-      const c = new Static({ coverageTTL: TimeSpan.milliseconds(200) });
+      const c = new Static({ staleCoverageThreshold: TimeSpan.milliseconds(200) });
       c.markFetched(TimeStamp.seconds(1).spanRange(TimeSpan.seconds(1)));
       await sleep.sleep(TimeSpan.milliseconds(50));
       c.markFetched(TimeStamp.seconds(2).spanRange(TimeSpan.seconds(1)));
@@ -690,7 +690,7 @@ describe("StaticReadCache", () => {
     });
 
     test("should not let a rolling read keep refreshing its own coverage", async () => {
-      const c = new Static({ coverageTTL: TimeSpan.milliseconds(200) });
+      const c = new Static({ staleCoverageThreshold: TimeSpan.milliseconds(200) });
       c.markFetched(TimeStamp.seconds(0).spanRange(TimeSpan.seconds(1)));
       for (let i = 1; i <= 4; i++) {
         await sleep.sleep(TimeSpan.milliseconds(20));
@@ -704,7 +704,7 @@ describe("StaticReadCache", () => {
     });
 
     test("should expire disjoint spans independently", async () => {
-      const c = new Static({ coverageTTL: TimeSpan.milliseconds(50) });
+      const c = new Static({ staleCoverageThreshold: TimeSpan.milliseconds(50) });
       const a = TimeStamp.seconds(1).spanRange(TimeSpan.seconds(1));
       const b = TimeStamp.seconds(10).spanRange(TimeSpan.seconds(1));
       c.markFetched(a);

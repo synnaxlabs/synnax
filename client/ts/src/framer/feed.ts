@@ -52,6 +52,7 @@ export class Feed {
       dynamicBufferSize,
       gcInterval,
       staleEntryThreshold,
+      staleCoverageThreshold,
       removalDelay,
       breaker,
       batchDebounce,
@@ -62,6 +63,7 @@ export class Feed {
       dynamicBufferSize,
       gcInterval,
       staleEntryThreshold,
+      staleCoverageThreshold,
       instrumentation: instrumentation?.child("cache"),
     });
     this.reader = new Reader({

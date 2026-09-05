@@ -123,7 +123,7 @@ const isCloneable = (v: unknown): boolean => {
 /**
  * Returns err unchanged when it survives structured cloning. Otherwise rebuilds it
  * with the same name, message, and stack, stringifying any un-cloneable cause.
- * Statuses cross the worker boundary, so an un-cloneable error would kill the worker.
+ * Statuses cross the worker boundary, where an un-cloneable error kills the worker.
  */
 const cloneSafeError = (err: Error, depth: number = 8): Error => {
   if (isCloneable(err)) return err;
