@@ -26,7 +26,7 @@
             opacity: 0;
         }
 
-        &:hover .pluto-btn {
+        &:is(:hover, :focus-within) .pluto-btn {
             opacity: 1;
         }
     }
