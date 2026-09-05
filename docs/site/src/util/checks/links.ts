@@ -9,6 +9,7 @@
 
 import fs from "fs";
 import path from "path";
+import { styleText } from "util";
 
 import { type Check, type Context } from "./check.ts";
 import { locate, normalizeRoute, pageFiles, PAGES_DIR } from "./crawl.ts";
@@ -21,6 +22,12 @@ const IGNORED_HOSTS: string[] = ["automation.omron.com"];
 
 // Sentinel origin for resolving relative hrefs; any other host is external.
 const INTERNAL = "http://internal.invalid";
+
+// Release artifact links 404 until the release ships, so a 404 on a URL naming the
+// repo's own version warns instead of failing.
+const PENDING_VERSION = fs
+  .readFileSync("../../core/pkg/version/VERSION", "utf8")
+  .trim();
 
 // npm's website blocks non-browser requests, so package links are validated against
 // the registry API instead: 200 = the package/version exists, 404 = dead.
@@ -120,6 +127,13 @@ export const links = (fullCrawl: boolean): Check => {
           const where = ref.source.startsWith("/")
             ? locate(ref.source, ref.href)
             : ref.source;
+          if (reason.includes("HTTP 404") && ref.href.includes(PENDING_VERSION)) {
+            console.warn(
+              `${styleText(["yellow", "bold"], "links")} ${where} - ${reason} ` +
+                `(pending the ${PENDING_VERSION} release)`,
+            );
+            return;
+          }
           report(`${where} - ${reason}`);
         }),
       );
