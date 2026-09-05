@@ -69,6 +69,10 @@ on:
       - x/ts/**
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   server:
     uses: ./.github/workflows/build.docker.yaml
