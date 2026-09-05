@@ -40,6 +40,7 @@ on:
   push:
     branches:
       - main
+      - rc
     paths:
       - .github/workflows/check.oracle.yaml
       - oracle/**
@@ -66,6 +67,8 @@ concurrency:
 
 jobs:
   check:
+    # Pushes to rc already run this check, so the rc PR run is redundant.
+    if: github.event_name != 'pull_request' || github.head_ref != 'rc'
     name: oracle check
     runs-on: ubuntu-latest
     # Advisory until the existing drift on `rc` is resolved. The check

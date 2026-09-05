@@ -58,28 +58,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  gate:
-    name: Gate
-    runs-on: ubuntu-latest
-    outputs:
-      run: ${{ steps.check.outputs.run }}
-    steps:
-      # An open rc -> main pull request already runs this workflow on every rc
-      # push, so the push run would duplicate it.
-      - name: Check for a Covering Pull Request
-        id: check
-        if: github.event_name == 'push' && github.ref_name == 'rc'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          prs=$(gh pr list --repo "${{ github.repository }}" --head rc \
-            --base main --state open --json number --jq length)
-          if [ "$prs" -gt 0 ]; then echo "run=false" >> "$GITHUB_OUTPUT"; fi
-
   test:
     name: Test
-    needs: gate
-    if: needs.gate.outputs.run != 'false'
+    # Pushes to rc already run these tests, so the rc PR run is redundant.
+    if: github.event_name != 'pull_request' || github.head_ref != 'rc'
     runs-on: ubuntu-latest
     env:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
