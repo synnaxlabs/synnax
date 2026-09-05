@@ -154,7 +154,7 @@ jobs:
             --remote_cache=${{ env.BAZEL_REMOTE_CACHE }} --remote_cache_compression=true \
             --test_env=LSAN_OPTIONS="suppressions=${{ github.workspace }}/scripts/sanitizers/lsan_suppressions.txt" \
             --spawn_strategy=local \
-            --jobs=1 --test_tag_filters=-hardware
+            --local_test_jobs=1 --test_tag_filters=-hardware
 
       - name: Stop Synnax
         if: always()
