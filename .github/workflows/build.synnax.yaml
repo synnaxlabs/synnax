@@ -552,7 +552,10 @@ jobs:
         if: inputs.console && inputs.console_ref_run_id == ''
         uses: pnpm/setup@v2
         with:
-          cache: true
+          # Build bots keep a local pnpm store, so restoring the GitHub cache tarball
+          # only adds time. Linux stores it on the persistent root volume. Windows uses
+          # D:\pnpm-store on NVMe (same volume as node_modules, wiped on stop/start).
+          cache: ${{ !endsWith(matrix.os, '-build-bot') }}
 
       - name: Build Console Web Assets
         if: inputs.console && inputs.console_ref_run_id == ''
@@ -871,7 +874,8 @@ jobs:
       - name: Set up pnpm and Node.js
         uses: pnpm/setup@v2
         with:
-          cache: true
+          # The self-hosted mac's label lacks -build-bot, so it still uses the cache.
+          cache: ${{ !endsWith(matrix.os, '-build-bot') }}
 
       - name: Adjust Auto Updater URL for Release Candidate
         if: inputs.sign_binaries && github.ref == 'refs/heads/rc'
