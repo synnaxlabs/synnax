@@ -639,6 +639,93 @@ describe("remote", () => {
       await new Promise((resolve) => setTimeout(resolve, 5));
       expect(series.refCount).toBe(0);
     });
+
+    describe("loading", () => {
+      it("should report loading while the read is pending and clear on resolve", async () => {
+        let release = (): void => {};
+        const gate = new Promise<void>((resolve) => (release = resolve));
+        c.feed.read = async (): Promise<MultiSeries> => {
+          await gate;
+          return new MultiSeries([]);
+        };
+        const cd = new ChannelData(c, {
+          timeRange: TimeRange.MAX,
+          channel: c.channel.key,
+        });
+        const handleChange = vi.fn();
+        cd.onChange(handleChange);
+        expect(cd.loading()).toBe(true);
+        release();
+        await expect.poll(() => cd.loading()).toBe(false);
+        expect(handleChange).toHaveBeenCalled();
+        cd.cleanup();
+      });
+
+      it("should not report loading for a zero channel or empty time range", () => {
+        const zeroChannel = new ChannelData(c, {
+          timeRange: TimeRange.MAX,
+          channel: 0,
+        });
+        expect(zeroChannel.loading()).toBe(false);
+        const emptyRange = new ChannelData(c, {
+          timeRange: TimeRange.ZERO,
+          channel: c.channel.key,
+        });
+        expect(emptyRange.loading()).toBe(false);
+        expect(c.readMock).not.toHaveBeenCalled();
+        expect(c.retrieveChannelMock).not.toHaveBeenCalled();
+      });
+
+      it("should not report loading for a range within the live buffer", () => {
+        const cd = new ChannelData(c, {
+          timeRange: new TimeRange(TimeStamp.seconds(0), TimeStamp.seconds(30)),
+          channel: c.channel.key,
+        });
+        expect(cd.loading()).toBe(false);
+        expect(c.readMock).not.toHaveBeenCalled();
+      });
+
+      it("should clear loading and notify when the read fails", async () => {
+        c.feed.read = async (): Promise<MultiSeries> => {
+          throw new Error("read exploded");
+        };
+        const cd = new ChannelData(c, {
+          timeRange: TimeRange.MAX,
+          channel: c.channel.key,
+        });
+        const handleChange = vi.fn();
+        cd.onChange(handleChange);
+        expect(cd.loading()).toBe(true);
+        await expect.poll(() => cd.loading()).toBe(false);
+        expect(handleChange).toHaveBeenCalled();
+        cd.cleanup();
+      });
+
+      it("should clear loading immediately with a null client", () => {
+        const cd = new ChannelData(null, { timeRange: TimeRange.MAX, channel: 1 });
+        expect(cd.loading()).toBe(false);
+      });
+
+      it("should stay silent when cleanup precedes the read resolving", async () => {
+        let release = (): void => {};
+        const gate = new Promise<void>((resolve) => (release = resolve));
+        c.feed.read = async (): Promise<MultiSeries> => {
+          await gate;
+          return new MultiSeries([]);
+        };
+        const cd = new ChannelData(c, {
+          timeRange: TimeRange.MAX,
+          channel: c.channel.key,
+        });
+        const handleChange = vi.fn();
+        cd.onChange(handleChange);
+        expect(cd.loading()).toBe(true);
+        cd.cleanup();
+        release();
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        expect(handleChange).not.toHaveBeenCalled();
+      });
+    });
   });
 
   describe("StreamChannelData", () => {
@@ -1302,6 +1389,111 @@ describe("remote", () => {
       expect(b).toStrictEqual(bounds.INVALID);
       expect(data.series).toHaveLength(1);
       expect(data.series[0]).toBe(d);
+    });
+
+    describe("loading", () => {
+      it("should report loading until the back-fill resolves", async () => {
+        let release = (): void => {};
+        const gate = new Promise<void>((resolve) => (release = resolve));
+        c.feed.read = async (): Promise<MultiSeries> => {
+          await gate;
+          return new MultiSeries([]);
+        };
+        const cd = new StreamChannelData(c, {
+          timeSpan: TimeSpan.MAX,
+          channel: c.channel.key,
+        });
+        const handleChange = vi.fn();
+        cd.onChange(handleChange);
+        expect(cd.loading()).toBe(true);
+        await expect.poll(() => c.streamHandler != null).toBe(true);
+        // Live data delivered during the drain must not clear the loading state.
+        const live = new Series({
+          data: new Float32Array([1]),
+          timeRange: new TimeRange(TimeStamp.now(), TimeStamp.MAX),
+        });
+        c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([live])]]));
+        expect(cd.loading()).toBe(true);
+        release();
+        await expect.poll(() => cd.loading()).toBe(false);
+        expect(handleChange).toHaveBeenCalled();
+        cd.cleanup();
+      });
+
+      it("should clear loading on the first failure while the retry continues", async () => {
+        let calls = 0;
+        c.feed.read = async (): Promise<MultiSeries> => {
+          calls++;
+          if (calls === 1) throw new Error("boom");
+          return new MultiSeries([]);
+        };
+        const cd = new StreamChannelData(
+          c,
+          { timeSpan: TimeSpan.MAX, channel: c.channel.key },
+          {},
+          undefined,
+          { sleepFn: async () => {} },
+        );
+        const handleChange = vi.fn();
+        cd.onChange(handleChange);
+        expect(cd.loading()).toBe(true);
+        await expect.poll(() => cd.loading()).toBe(false);
+        expect(handleChange).toHaveBeenCalled();
+        await expect.poll(() => calls >= 2).toBe(true);
+        expect(cd.loading()).toBe(false);
+        cd.cleanup();
+      });
+
+      it("should not report loading for a span within the live buffer", () => {
+        const cd = new StreamChannelData(c, {
+          timeSpan: TimeSpan.seconds(30),
+          channel: c.channel.key,
+        });
+        expect(cd.loading()).toBe(false);
+        expect(c.streamF).not.toHaveBeenCalled();
+      });
+
+      it("should not report loading for a zero channel", () => {
+        const cd = new StreamChannelData(c, { timeSpan: TimeSpan.MAX, channel: 0 });
+        expect(cd.loading()).toBe(false);
+      });
+
+      it("should clear loading immediately with a null client", () => {
+        const cd = new StreamChannelData(null, { timeSpan: TimeSpan.MAX, channel: 1 });
+        expect(cd.loading()).toBe(false);
+      });
+
+      it("should clear loading for a virtual channel without a history read", async () => {
+        c.channel = new channel.Channel({ ...c.channel, virtual: true });
+        const cd = new StreamChannelData(c, {
+          timeSpan: TimeSpan.MAX,
+          channel: c.channel.key,
+        });
+        expect(cd.loading()).toBe(true);
+        await expect.poll(() => cd.loading()).toBe(false);
+        expect(c.readMock).not.toHaveBeenCalled();
+        cd.cleanup();
+      });
+
+      it("should stay silent when cleanup precedes the back-fill resolving", async () => {
+        let release = (): void => {};
+        const gate = new Promise<void>((resolve) => (release = resolve));
+        c.feed.read = async (): Promise<MultiSeries> => {
+          await gate;
+          return new MultiSeries([]);
+        };
+        const cd = new StreamChannelData(c, {
+          timeSpan: TimeSpan.MAX,
+          channel: c.channel.key,
+        });
+        const handleChange = vi.fn();
+        cd.onChange(handleChange);
+        expect(cd.loading()).toBe(true);
+        cd.cleanup();
+        release();
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        expect(handleChange).not.toHaveBeenCalled();
+      });
     });
   });
 

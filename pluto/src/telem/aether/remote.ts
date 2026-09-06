@@ -223,7 +223,7 @@ export class ChannelData
   loading(): boolean {
     if (this.skipLoading || !this.loading_) return false;
     if (!this.valid) void this.read();
-    return true;
+    return this.loading_;
   }
 
   value(): [bounds.Bounds, MultiSeries] {
@@ -334,7 +334,7 @@ export class StreamChannelData
   loading(): boolean {
     if (this.skipLoading || !this.loading_) return false;
     if (!this.valid) void this.read();
-    return true;
+    return this.loading_;
   }
 
   value(): [bounds.Bounds, MultiSeries] {
