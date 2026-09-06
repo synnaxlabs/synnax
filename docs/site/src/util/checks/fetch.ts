@@ -16,8 +16,8 @@ const HEADERS = {
     "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
   accept: "*/*",
 };
-const ATTEMPTS = 2;
-const TIMEOUT_MS = 5000;
+const ATTEMPTS = 3;
+const TIMEOUT_MS = 15000;
 
 const request = async (url: string, method: string): Promise<number | string> => {
   try {
