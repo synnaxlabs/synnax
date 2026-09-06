@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Drift } from "@synnaxlabs/drift";
-import { Status, useAsyncEffect } from "@synnaxlabs/pluto";
+import { Status, Synnax, useAsyncEffect, useSyncedRef } from "@synnaxlabs/pluto";
 import { strings, TimeSpan } from "@synnaxlabs/x";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrent, onOpenUrl } from "@tauri-apps/plugin-deep-link";
@@ -37,6 +37,38 @@ const DEFAULT_DEPS: Deps = {
   onOpenURL: onOpenUrl,
 };
 
+// A link outlives the renders that turn its preconditions true, so callers park here
+// and an effect releases them when met transitions. A timeout rejects parked calls.
+const useWaitFor = (
+  met: boolean,
+  timeout?: TimeSpan,
+  timeoutMessage?: string,
+): (() => Promise<void>) => {
+  const metRef = useRef(met);
+  metRef.current = met;
+  const waitersRef = useRef<(() => void)[]>([]);
+  useEffect(() => {
+    if (!met) return;
+    waitersRef.current.forEach((resolve) => resolve());
+    waitersRef.current = [];
+  }, [met]);
+  return async (): Promise<void> => {
+    if (metRef.current) return;
+    await new Promise<void>((resolve, reject) => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      if (timeout != null)
+        timer = setTimeout(
+          () => reject(new Error(timeoutMessage)),
+          timeout.milliseconds,
+        );
+      waitersRef.current.push(() => {
+        clearTimeout(timer);
+        resolve();
+      });
+    });
+  };
+};
+
 export const useDeep = (
   connect: Link.Connect,
   handlers: Record<string, Link.Handler>,
@@ -48,25 +80,25 @@ export const useDeep = (
   const handleError = Status.useErrorHandler();
   const dispatch = Session.useDispatch();
   const store = Session.useStore();
-  const settled = Session.useSettled();
-  const settledRef = useRef(settled);
-  settledRef.current = settled;
-  const settledWaitersRef = useRef<(() => void)[]>([]);
-  useEffect(() => {
-    if (!settled) return;
-    settledWaitersRef.current.forEach((resolve) => resolve());
-    settledWaitersRef.current = [];
-  }, [settled]);
-  const awaitSettled = async (): Promise<void> => {
-    if (settledRef.current) return;
-    await new Promise<void>((resolve, reject) => {
-      settledWaitersRef.current.push(resolve);
-      setTimeout(
-        () => reject(new Error("Timed out waiting for the workspace to settle")),
-        SETTLE_TIMEOUT.milliseconds,
-      );
-    });
+  const awaitSettled = useWaitFor(
+    Session.useSettled(),
+    SETTLE_TIMEOUT,
+    "Timed out waiting for the workspace to settle",
+  );
+  const waitProject = useWaitFor(Session.Project.useSelectIsAnySelected());
+  const awaitProject = async (): Promise<void> => {
+    dispatch(Session.Link.beginProjectWait());
+    try {
+      await waitProject();
+    } finally {
+      dispatch(Session.Link.endProjectWait());
+    }
   };
+  const awaitPanel = useWaitFor(Session.Panel.useSelectSelected() != null);
+  // A parked link outlives the handlers and client of the render that received it.
+  // Synced refs resolve both at invoke time.
+  const handlersRef = useSyncedRef(handlers);
+  const clientRef = useSyncedRef(Synnax.use());
   const urlHandler = async (urls: string[]) => {
     try {
       dispatch(Drift.focusWindow({}));
@@ -81,20 +113,25 @@ export const useDeep = (
       if (urlParts.length === 1) return;
       const coreKey = Session.Core.selectSelectedKey(store.getState());
 
-      // Handlers resolve their target through the query cache, which the session
-      // synchronizers fill after connect. On a cold launch or a Core switch the
-      // handler would otherwise read the cache before its first reconcile pass.
+      // A link opens only into a ready workspace. It waits for the workspace to settle,
+      // then for a selected project, then for a selected panel to place the tab in.
       await awaitSettled();
+      await awaitProject();
+      await awaitPanel();
+      // The workspace fills the panel cache lazily, so a selection the synchronizers
+      // repaired can stay cold. Retrieve it before placement.
+      const panelKey = Session.Panel.selectSelected(store.getState());
+      if (panelKey != null) await clientRef.current?.panels.retrieve(panelKey);
       // A later link that switched Cores supersedes this one. The handler would run
       // against the new Core's session, so drop it.
       if (Session.Core.selectSelectedKey(store.getState()) !== coreKey) return;
 
       const resource = urlParts[1];
       const resourceKey = urlParts[2];
-      const handle = handlers[resource];
+      const handle = handlersRef.current[resource];
       if (handle == null)
         throw new Error(`Resource type "${resource}" is unknown to Synnax`);
-      await handle({ client, key: resourceKey });
+      await handle({ client: clientRef.current ?? client, key: resourceKey });
     } catch (e) {
       handleError(e, `Failed to open ${strings.naturalLanguageJoin(urls, "link")}`);
     }

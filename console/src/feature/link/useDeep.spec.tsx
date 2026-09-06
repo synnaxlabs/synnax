@@ -7,10 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax as Client } from "@synnaxlabs/client";
+import {
+  type panel,
+  project,
+  query,
+  schematic,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Status } from "@synnaxlabs/pluto";
-import { TimeSpan } from "@synnaxlabs/x";
+import { MAIN_WINDOW } from "@synnaxlabs/drift";
+import { Status, Synnax } from "@synnaxlabs/pluto";
+import { TimeSpan, uuid } from "@synnaxlabs/x";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
@@ -20,12 +27,32 @@ import { Link } from "@/feature/link";
 import { Link as PlatformLink } from "@/platform/link";
 import { Session } from "@/session";
 import {
+  assertDefined,
   createSessionConsoleWrapper,
   renderHookWithConsole,
   type TestStore,
+  uniqueName,
+  withSelectedProject,
 } from "@/testutil";
 
 const client = (): Client => createTestClient();
+
+const createPanel = async (projectKey: project.Key): Promise<panel.Panel> =>
+  await client().panels.create({
+    key: uuid.create(),
+    name: uniqueName("panel"),
+    root: {
+      variant: "leaf",
+      tabs: [
+        {
+          variant: "resource",
+          key: uuid.create(),
+          resource: schematic.ontologyID(uuid.create()),
+        },
+      ],
+    },
+    parent: project.ontologyID(projectKey),
+  });
 
 interface Harness {
   connect: ReturnType<typeof vi.fn>;
@@ -54,7 +81,21 @@ const setup = async (overrides: Partial<Link.Deps> = {}): Promise<Harness> => {
     onOpenURL,
     ...overrides,
   };
-  await renderHookWithConsole(() => Link.useDeep(connect, handlers, deps));
+  // A preloaded project and panel selection meets the readiness gates up front. The
+  // harness has no client, so the panel retrieve before placement is a no-op.
+  await renderHookWithConsole(() => Link.useDeep(connect, handlers, deps), {
+    preloadedState: withSelectedProject(uuid.create(), {
+      [Session.Panel.SLICE_NAME]: {
+        ...Session.Panel.ZERO_SLICE_STATE,
+        windows: {
+          [MAIN_WINDOW]: {
+            ...Session.Panel.ZERO_WINDOW_STATE,
+            selected: uuid.create(),
+          },
+        },
+      },
+    }),
+  });
   return { connect, handlers, deps, openURL: (urls) => openURL(urls) };
 };
 
@@ -104,17 +145,38 @@ interface SettledHarness extends Omit<Harness, "connect" | "handlers"> {
   store: TestStore;
   settled: () => boolean;
   statuses: () => Status.NotificationSpec[];
+  awaitingProject: () => boolean;
+  activeClient: () => Client | null;
+  projectKey: project.Key;
+  panelKey: panel.Key | null;
+}
+
+interface SetupSettledOptions {
+  deps?: Partial<Link.Deps>;
+  /** Runs against the store before the hook mounts. */
+  preMount?: (store: TestStore) => void;
+  /** When false the project is created but left unselected. */
+  projectSelected?: boolean;
+  /** When false no panel is created or selected. */
+  panelSelected?: boolean;
 }
 
 /**
  * Renders useDeep under a live Core with the real synchronizers, so settled reflects
- * production wiring. preMount runs against the store before the hook mounts, letting a
- * spec hold the workspace unsettled while the launch link is handled.
+ * production wiring. A created project and panel are selected by default, so every
+ * readiness gate a spec does not drive itself is met. preMount runs against the store
+ * before the hook mounts, letting a spec hold the workspace unsettled while the launch
+ * link is handled.
  */
 const setupSettled = async (
-  overrides: Partial<Link.Deps> = {},
-  preMount?: (store: TestStore) => void,
+  options: SetupSettledOptions = {},
 ): Promise<SettledHarness> => {
+  const {
+    deps: depOverrides = {},
+    preMount,
+    projectSelected = true,
+    panelSelected = true,
+  } = options;
   const resolved = client();
   const connect: Mock<PlatformLink.Connect> = vi.fn(async () => resolved);
   const handlers: Record<string, Mock<PlatformLink.Handler>> = {
@@ -132,12 +194,20 @@ const setupSettled = async (
     engine: "tauri",
     getCurrentURLs: async () => null,
     onOpenURL,
-    ...overrides,
+    ...depOverrides,
   };
+  const proj = await client().projects.create({
+    name: uniqueName("proj"),
+    layout: {},
+  });
+  const doc = panelSelected ? await createPanel(proj.key) : null;
   const { wrapper: Console, store } = await createSessionConsoleWrapper({
     client: null,
     preloadedState: { [Session.Core.SLICE_NAME]: createCoreState() },
   });
+  if (projectSelected) store.dispatch(Session.Project.select(proj.key));
+  if (doc != null)
+    store.dispatch(Session.Panel.select({ key: doc.key, windowKey: MAIN_WINDOW }));
   preMount?.(store);
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Console>
@@ -151,6 +221,8 @@ const setupSettled = async (
       return {
         settled: Session.useSettled(),
         statuses: Status.useNotifications().statuses,
+        awaitingProject: Session.Link.useSelectAwaitingProject(),
+        client: Synnax.use(),
       };
     },
     { wrapper: Wrapper },
@@ -163,6 +235,10 @@ const setupSettled = async (
     store,
     settled: () => result.current.settled,
     statuses: () => result.current.statuses,
+    awaitingProject: () => result.current.awaitingProject,
+    activeClient: () => result.current.client,
+    projectKey: proj.key,
+    panelKey: doc?.key ?? null,
   };
 };
 
@@ -263,10 +339,10 @@ describe("useDeep", () => {
   });
 
   it("should hold a launch link until the workspace settles", async () => {
-    const { store, connect, handlers } = await setupSettled(
-      { getCurrentURLs: async () => ["synnax://cluster/c1/schematic/s1"] },
-      (pre) => pre.dispatch(Session.Persist.beginSwap()),
-    );
+    const { store, connect, handlers } = await setupSettled({
+      deps: { getCurrentURLs: async () => ["synnax://cluster/c1/schematic/s1"] },
+      preMount: (pre) => pre.dispatch(Session.Persist.beginSwap()),
+    });
     await waitFor(() => expect(connect).toHaveBeenCalledWith("c1"));
     await act(async () => {});
     expect(handlers.schematic).not.toHaveBeenCalled();
@@ -402,10 +478,10 @@ describe("useDeep", () => {
   });
 
   it("should drop a held launch link superseded by a runtime Core switch", async () => {
-    const h = await setupSettled(
-      { getCurrentURLs: async () => ["synnax://cluster/c1/range/r1"] },
-      (pre) => pre.dispatch(Session.Persist.beginSwap()),
-    );
+    const h = await setupSettled({
+      deps: { getCurrentURLs: async () => ["synnax://cluster/c1/range/r1"] },
+      preMount: (pre) => pre.dispatch(Session.Persist.beginSwap()),
+    });
     await waitFor(() => expect(h.connect).toHaveBeenCalledWith("c1"));
     h.connect.mockImplementation(async () => {
       h.store.dispatch(Session.Core.select(OTHER_CORE_KEY));
@@ -526,5 +602,77 @@ describe("useDeep", () => {
         expect.objectContaining({ key: "r2" }),
       ),
     );
+  });
+
+  it("should hold a link until a project is selected", async () => {
+    const h = await setupSettled({ projectSelected: false });
+    await waitFor(() => expect(h.settled()).toBe(true));
+    h.openURL(["synnax://cluster/c1/range/r1"]);
+    await waitFor(() => expect(h.connect).toHaveBeenCalledWith("c1"));
+    await act(async () => {});
+    expect(h.handlers.range).not.toHaveBeenCalled();
+    act(() => {
+      h.store.dispatch(Session.Project.select(h.projectKey));
+    });
+    await waitFor(() =>
+      expect(h.handlers.range).toHaveBeenCalledWith(
+        expect.objectContaining({ key: "r1" }),
+      ),
+    );
+  });
+
+  it("should flag the project wait only while a link waits on it", async () => {
+    const h = await setupSettled({ projectSelected: false });
+    await waitFor(() => expect(h.settled()).toBe(true));
+    expect(h.awaitingProject()).toBe(false);
+    h.openURL(["synnax://cluster/c1/range/r1"]);
+    await waitFor(() => expect(h.awaitingProject()).toBe(true));
+    act(() => {
+      h.store.dispatch(Session.Project.select(h.projectKey));
+    });
+    await waitFor(() => expect(h.handlers.range).toHaveBeenCalled());
+    expect(h.awaitingProject()).toBe(false);
+  });
+
+  it("should hold a link until a panel is selected", async () => {
+    const h = await setupSettled({ panelSelected: false });
+    await waitFor(() => expect(h.settled()).toBe(true));
+    h.openURL(["synnax://cluster/c1/schematic/s1"]);
+    await waitFor(() => expect(h.connect).toHaveBeenCalledWith("c1"));
+    await act(async () => {});
+    expect(h.handlers.schematic).not.toHaveBeenCalled();
+    const doc = await createPanel(h.projectKey);
+    act(() => {
+      h.store.dispatch(Session.Panel.select({ key: doc.key, windowKey: MAIN_WINDOW }));
+    });
+    await waitFor(() =>
+      expect(h.handlers.schematic).toHaveBeenCalledWith(
+        expect.objectContaining({ key: "s1" }),
+      ),
+    );
+  });
+
+  it("should warm the panel cache before the handler runs", async () => {
+    const h = await setupSettled();
+    await waitFor(() => expect(h.settled()).toBe(true));
+    const { panelKey } = h;
+    assertDefined(panelKey);
+    let live: boolean | null = null;
+    h.handlers.range.mockImplementation(async ({ client: received }) => {
+      live = query.isLive(received.panels.getCached(panelKey));
+    });
+    h.openURL(["synnax://cluster/c1/range/r1"]);
+    await waitFor(() => expect(h.handlers.range).toHaveBeenCalled());
+    expect(live).toBe(true);
+  });
+
+  it("should hand the handler the active client, not the connect-time one", async () => {
+    const h = await setupSettled();
+    await waitFor(() => expect(h.settled()).toBe(true));
+    h.openURL(["synnax://cluster/c1/range/r1"]);
+    await waitFor(() => expect(h.handlers.range).toHaveBeenCalled());
+    const received = h.handlers.range.mock.calls[0][0].client;
+    expect(received).toBe(h.activeClient());
+    expect(received).not.toBe(await h.connect.mock.results[0].value);
   });
 });
