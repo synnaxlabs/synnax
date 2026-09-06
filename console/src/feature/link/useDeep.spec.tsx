@@ -577,6 +577,32 @@ describe("useDeep", () => {
     expect(h.handlers.range).not.toHaveBeenCalled();
   });
 
+  it("should not fail a link released before the settle timeout", async () => {
+    const h = await setupSettled();
+    await waitFor(() => expect(h.settled()).toBe(true));
+    act(() => {
+      h.store.dispatch(Session.Persist.beginSwap());
+    });
+    vi.useFakeTimers();
+    h.openURL(["synnax://cluster/c1/range/r1"]);
+    await act(async () => {});
+    expect(h.connect).toHaveBeenCalledWith("c1");
+    act(() => {
+      h.store.dispatch(Session.Persist.endSwap());
+    });
+    await act(async () => {});
+    await act(async () => {
+      vi.advanceTimersByTime(Number(TimeSpan.seconds(31).milliseconds));
+    });
+    vi.useRealTimers();
+    await waitFor(() =>
+      expect(h.handlers.range).toHaveBeenCalledWith(
+        expect.objectContaining({ key: "r1" }),
+      ),
+    );
+    expect(h.statuses().some((s) => s.message.includes("Failed to open"))).toBe(false);
+  });
+
   it("should hold a link fired after a settle cycle re-arms the wait", async () => {
     const h = await setupSettled();
     await waitFor(() => expect(h.settled()).toBe(true));

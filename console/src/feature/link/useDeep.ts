@@ -56,15 +56,16 @@ const useWaitFor = (
     if (metRef.current) return;
     await new Promise<void>((resolve, reject) => {
       let timer: ReturnType<typeof setTimeout> | undefined;
-      if (timeout != null)
-        timer = setTimeout(
-          () => reject(new Error(timeoutMessage)),
-          timeout.milliseconds,
-        );
-      waitersRef.current.push(() => {
+      const release = (): void => {
         clearTimeout(timer);
         resolve();
-      });
+      };
+      if (timeout != null)
+        timer = setTimeout(() => {
+          waitersRef.current = waitersRef.current.filter((w) => w !== release);
+          reject(new Error(timeoutMessage));
+        }, timeout.milliseconds);
+      waitersRef.current.push(release);
     });
   };
 };
@@ -113,8 +114,7 @@ export const useDeep = (
       if (urlParts.length === 1) return;
       const coreKey = Session.Core.selectSelectedKey(store.getState());
 
-      // A link opens only into a ready workspace. It waits for the workspace to settle,
-      // then for a selected project, then for a selected panel to place the tab in.
+      // A link opens only into a ready workspace.
       await awaitSettled();
       await awaitProject();
       await awaitPanel();
