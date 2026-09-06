@@ -211,7 +211,7 @@ const Internal = (): ReactElement => {
           : { variant: "static", timeRange: new TimeRange(r.timeRange) },
       );
     const { custom } = ranges;
-    if (custom != null)
+    if (custom != null && rangeKeys.includes(Range.CUSTOM_KEY))
       m.set(
         Range.CUSTOM_KEY,
         custom.variant === "dynamic"
@@ -224,7 +224,7 @@ const Internal = (): ReactElement => {
             },
       );
     return m;
-  }, [resolved, ranges.custom]);
+  }, [resolved, ranges.custom, rangeKeys]);
 
   const hiddenLineKeys = Session.LinePlot.useSelectHiddenLines();
   const hiddenLines = useMemo(() => new Set(hiddenLineKeys), [hiddenLineKeys]);
