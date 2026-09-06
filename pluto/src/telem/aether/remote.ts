@@ -208,7 +208,7 @@ export class ChannelData
     this.client = client;
     this.onStatusChange = options?.onStatusChange;
     const { channel, timeRange } = this.props;
-    this.skipLoading = channel === 0 || timeRange.span.valueOf() <= LOADING_MIN_SPAN;
+    this.skipLoading = channel === 0 || timeRange.span.isZero;
     this.loading_ = true;
   }
 

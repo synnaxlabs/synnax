@@ -676,13 +676,74 @@ describe("remote", () => {
         expect(c.retrieveChannelMock).not.toHaveBeenCalled();
       });
 
-      it("should not report loading for a range within the live buffer", () => {
+      it("should report loading for a short static range until the read resolves", async () => {
+        let release = (): void => {};
+        const gate = new Promise<void>((resolve) => (release = resolve));
+        c.feed.read = async (): Promise<MultiSeries> => {
+          await gate;
+          return new MultiSeries([]);
+        };
         const cd = new ChannelData(c, {
           timeRange: new TimeRange(TimeStamp.seconds(0), TimeStamp.seconds(30)),
           channel: c.channel.key,
         });
+        const handleChange = vi.fn();
+        cd.onChange(handleChange);
+        // loading() must kick the read itself since draws are suppressed.
+        expect(cd.loading()).toBe(true);
+        expect(c.retrieveChannelMock).toHaveBeenCalled();
+        release();
+        await expect.poll(() => cd.loading()).toBe(false);
+        expect(handleChange).toHaveBeenCalled();
+        cd.cleanup();
+      });
+
+      it("should report loading for a minimal nonzero span", async () => {
+        c.feed.read = async (): Promise<MultiSeries> => new MultiSeries([]);
+        const cd = new ChannelData(c, {
+          timeRange: new TimeRange(TimeStamp.seconds(0), TimeStamp.milliseconds(1)),
+          channel: c.channel.key,
+        });
+        expect(cd.loading()).toBe(true);
+        await expect.poll(() => cd.loading()).toBe(false);
+        cd.cleanup();
+      });
+
+      it("should clear loading and notify when a short static read fails", async () => {
+        c.feed.read = async (): Promise<MultiSeries> => {
+          throw new Error("read exploded");
+        };
+        const cd = new ChannelData(c, {
+          timeRange: new TimeRange(TimeStamp.seconds(0), TimeStamp.seconds(30)),
+          channel: c.channel.key,
+        });
+        const handleChange = vi.fn();
+        cd.onChange(handleChange);
+        expect(cd.loading()).toBe(true);
+        await expect.poll(() => cd.loading()).toBe(false);
+        expect(handleChange).toHaveBeenCalled();
+        cd.cleanup();
+      });
+
+      it("should stay silent when cleanup precedes a short static read", async () => {
+        let release = (): void => {};
+        const gate = new Promise<void>((resolve) => (release = resolve));
+        c.feed.read = async (): Promise<MultiSeries> => {
+          await gate;
+          return new MultiSeries([]);
+        };
+        const cd = new ChannelData(c, {
+          timeRange: new TimeRange(TimeStamp.seconds(0), TimeStamp.seconds(30)),
+          channel: c.channel.key,
+        });
+        const handleChange = vi.fn();
+        cd.onChange(handleChange);
+        expect(cd.loading()).toBe(true);
+        cd.cleanup();
+        release();
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        expect(handleChange).not.toHaveBeenCalled();
         expect(cd.loading()).toBe(false);
-        expect(c.readMock).not.toHaveBeenCalled();
       });
 
       it("should clear loading and notify when the read fails", async () => {
@@ -703,6 +764,14 @@ describe("remote", () => {
 
       it("should clear loading immediately with a null client", () => {
         const cd = new ChannelData(null, { timeRange: TimeRange.MAX, channel: 1 });
+        expect(cd.loading()).toBe(false);
+      });
+
+      it("should clear loading immediately with a null client on a short range", () => {
+        const cd = new ChannelData(null, {
+          timeRange: new TimeRange(TimeStamp.seconds(0), TimeStamp.seconds(30)),
+          channel: 1,
+        });
         expect(cd.loading()).toBe(false);
       });
 
@@ -1447,6 +1516,15 @@ describe("remote", () => {
       it("should not report loading for a span within the live buffer", () => {
         const cd = new StreamChannelData(c, {
           timeSpan: TimeSpan.seconds(30),
+          channel: c.channel.key,
+        });
+        expect(cd.loading()).toBe(false);
+        expect(c.streamF).not.toHaveBeenCalled();
+      });
+
+      it("should not report loading for a span exactly at the live buffer limit", () => {
+        const cd = new StreamChannelData(c, {
+          timeSpan: TimeSpan.minutes(1),
           channel: c.channel.key,
         });
         expect(cd.loading()).toBe(false);
