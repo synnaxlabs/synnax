@@ -82,6 +82,10 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
     return this.childrenOfType<range.Provider>(range.Provider.TYPE);
   }
 
+  get loading(): boolean {
+    return this.yAxes.some((el) => el.loading);
+  }
+
   bounds(hold: boolean): bounds.Bounds {
     const [bound, err] = this.iBounds(hold, this.dataBounds.bind(this));
     if (err != null) throw err;
