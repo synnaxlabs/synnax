@@ -498,12 +498,13 @@ jobs:
           CodeSigningAccountName -c CodeSigningCertificateProfile -d "Synnax Driver"
           bazel-bin/driver/driver.exe
 
+      # A scratch dir avoids leftovers in the persistent bazel output base.
       - name: Download Cached Driver
         if: inputs.driver && inputs.driver_ref_run_id != ''
         uses: actions/download-artifact@v8
         with:
           name: synnax-driver-${{ matrix.os-name }}
-          path: bazel-bin/driver
+          path: ${{ runner.temp }}/cached-driver
           run-id: ${{ inputs.driver_ref_run_id }}
           github-token: ${{ github.token }}
 
@@ -512,9 +513,9 @@ jobs:
         if: inputs.driver && inputs.driver_ref_run_id != ''
         shell: bash
         run: |
-          SRC=$(ls bazel-bin/driver/synnax-driver-v*)
-          DST=bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }}
-          [ "$SRC" = "$DST" ] || mv "$SRC" "$DST"
+          mkdir -p bazel-bin/driver
+          mv "${RUNNER_TEMP}"/cached-driver/synnax-driver-v* \
+            bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }}
 
       - name: Rename Driver Binary
         if: inputs.driver && inputs.driver_ref_run_id == ''
