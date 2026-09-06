@@ -68,7 +68,7 @@ func (s *Service) RetrieveResource(
 	tx gorp.Tx,
 ) (ontology.Resource, error) {
 	var st Status[any]
-	if err := s.NewRetrieve().
+	if err := s.NewRetrieve[any]().
 		Where(MatchKeys[any](key)).
 		Entry(&st).
 		Exec(ctx, tx); err != nil {

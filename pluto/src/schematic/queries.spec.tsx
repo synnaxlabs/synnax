@@ -284,6 +284,34 @@ describe("schematic queries", () => {
       expect(result.current.size).toBe(0);
     });
 
+    it("useParentOf maps members to their group", async () => {
+      const isolated = await createTestSchematic(proj.key);
+      await loadSchematic(Wrapper, isolated.key);
+      const { result } = renderHook(
+        () => ({
+          parentOf: Schematic.useParentOf({ key: isolated.key }),
+          dispatch: Schematic.useDispatch(),
+        }),
+        { wrapper: Wrapper },
+      );
+      expect(result.current.parentOf.size).toBe(0);
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: isolated.key,
+          actions: [
+            schematic.setNode({
+              node: { key: "g1", position: { x: 0, y: 0 } },
+              config: { variant: "groupBox", members: ["n1", "n2"] },
+            }),
+          ],
+        });
+      });
+      await waitFor(() => {
+        expect(result.current.parentOf.get("n1")).toBe("g1");
+        expect(result.current.parentOf.get("n2")).toBe("g1");
+      });
+    });
+
     it("useNodes keeps its reference when an unrelated node changes", async () => {
       const isolated = await createTestSchematic(proj.key);
       await loadSchematic(Wrapper, isolated.key);
@@ -710,6 +738,118 @@ describe("schematic queries", () => {
         expect(getNode("n1")?.position).toEqual({ x: 0, y: 0 });
         expect(getEdgeCfg()?.segments).toEqual(longSegments);
       });
+    });
+  });
+
+  describe("useGroup / useUngroup", () => {
+    const call = async (fn: () => string[] | null): Promise<string[] | null> => {
+      let out: string[] | null = null;
+      await act(async () => {
+        out = fn();
+      });
+      return out;
+    };
+
+    interface GroupCfg {
+      variant?: string;
+      members?: string[];
+    }
+
+    let schem: schematic.Schematic;
+    let ScopedWrapper: FC<PropsWithChildren>;
+
+    beforeEach(async () => {
+      schem = await createTestSchematic(proj.key);
+      await loadSchematic(Wrapper, schem.key);
+      const Scoped: FC<PropsWithChildren> = ({ children }) => (
+        <Wrapper>
+          <Schematic.Scope.Provider value={schem.key}>
+            {children}
+          </Schematic.Scope.Provider>
+        </Wrapper>
+      );
+      Scoped.displayName = "ScopedWrapper";
+      ScopedWrapper = Scoped;
+    });
+
+    it("should insert a group and return the keys to select, group first", async () => {
+      const { result } = renderHook(
+        () => ({
+          group: Schematic.useGroup(),
+          nodes: Schematic.useAllNodes(),
+          configs: Schematic.useAllConfigs(),
+        }),
+        { wrapper: ScopedWrapper },
+      );
+      const selection = await call(() => result.current.group(["n1", "n2"]));
+      assert(selection != null);
+      expect(selection.slice(1)).toEqual(["n1", "n2"]);
+      const groupKey = selection[0];
+      await waitFor(() => {
+        const cfg = result.current.configs[groupKey] as GroupCfg | undefined;
+        expect(cfg?.variant).toEqual("groupBox");
+        expect(cfg?.members).toEqual(["n1", "n2"]);
+        const groupNode = result.current.nodes.find((n) => n.key === groupKey);
+        expect(groupNode?.zIndex).toEqual(-1);
+        expect(groupNode?.position).toEqual({ x: -20, y: -40 });
+      });
+    });
+
+    it("should group as one undoable step", async () => {
+      const { result } = renderHook(
+        () => ({
+          group: Schematic.useGroup(),
+          configs: Schematic.useAllConfigs(),
+          undo: Schematic.useUndo(),
+        }),
+        { wrapper: ScopedWrapper },
+      );
+      const selection = await call(() => result.current.group(["n1", "n2"]));
+      assert(selection != null);
+      const groupKey = selection[0];
+      await waitFor(() => expect(result.current.configs[groupKey]).toBeDefined());
+      await act(async () => {
+        result.current.undo.undo();
+      });
+      await waitFor(() => expect(result.current.configs[groupKey]).toBeUndefined());
+    });
+
+    it("should remove the group on ungroup and return the freed members", async () => {
+      const { result } = renderHook(
+        () => ({
+          group: Schematic.useGroup(),
+          ungroup: Schematic.useUngroup(),
+          nodes: Schematic.useAllNodes(),
+          configs: Schematic.useAllConfigs(),
+        }),
+        { wrapper: ScopedWrapper },
+      );
+      const selection = await call(() => result.current.group(["n1", "n2"]));
+      assert(selection != null);
+      const groupKey = selection[0];
+      await waitFor(() => expect(result.current.configs[groupKey]).toBeDefined());
+      const freed = await call(() => result.current.ungroup([groupKey]));
+      expect(freed).toEqual(["n1", "n2"]);
+      await waitFor(() => {
+        expect(result.current.configs[groupKey]).toBeUndefined();
+        expect(result.current.nodes.some((n) => n.key === groupKey)).toEqual(false);
+      });
+    });
+
+    it("should return null when the selection cannot be grouped", async () => {
+      const { result } = renderHook(() => Schematic.useGroup(), {
+        wrapper: ScopedWrapper,
+      });
+      const selection = await call(() => result.current(["n1"]));
+      expect(selection).toBeNull();
+    });
+
+    it("should return null when ungrouping a selection with no group", async () => {
+      const { result } = renderHook(() => Schematic.useUngroup(), {
+        wrapper: ScopedWrapper,
+      });
+      const freed = await call(() => result.current(["n1"]));
+      expect(freed).toBeNull();
     });
   });
 });

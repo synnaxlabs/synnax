@@ -222,7 +222,7 @@ func (f *formatter) formatFileDomains(domains []parser.IFileDomainContext) {
 	if len(domains) == 0 {
 		return
 	}
-	domains = sortDomainLines(f, domains)
+	domains = f.sortDomainLines(domains)
 
 	// Calculate alignment: max length of "@domain command"
 	maxPrefixLen := 0
@@ -778,7 +778,7 @@ func (f *formatter) currentLineLen() int {
 func (f *formatter) formatInlineDomainsToString(
 	domains []parser.IInlineDomainContext,
 ) string {
-	domains = sortDomainLines(f, domains)
+	domains = f.sortDomainLines(domains)
 	var sb strings.Builder
 	for _, dom := range domains {
 		sb.WriteString(" @")
@@ -1008,7 +1008,7 @@ func (f *formatter) formatFieldWithBraces(
 			)
 		}
 	}
-	domains = sortDomainLines(f, domains)
+	domains = f.sortDomainLines(domains)
 
 	// Calculate alignment: max length of "@domain command"
 	maxPrefixLen := 0
@@ -1097,7 +1097,7 @@ func domainCommand(content parser.IDomainContentContext) string {
 // ("@go marshal" before "@go migrate"), with a stable sort. A group with an attached
 // comment keeps source order: emission tracks a comment watermark, and reordering
 // across a comment would drop it.
-func sortDomainLines[T domainLine](f *formatter, domains []T) []T {
+func (f *formatter) sortDomainLines[T domainLine](domains []T) []T {
 	if len(domains) < 2 {
 		return domains
 	}
@@ -1127,7 +1127,7 @@ func (f *formatter) formatDomains(domains []parser.IDomainContext) {
 	if len(domains) == 0 {
 		return
 	}
-	domains = sortDomainLines(f, domains)
+	domains = f.sortDomainLines(domains)
 
 	// Calculate alignment: max length of "@domain command"
 	maxPrefixLen := 0
@@ -1383,7 +1383,7 @@ func (f *formatter) formatTypeRef(ctx parser.ITypeRefContext) {
 	case *parser.TypeRefMapContext:
 		f.formatMapType(v.MapType())
 		if v.TypeModifiers() != nil {
-			f.formatTypeModifiers(v.TypeModifiers())
+			f.formatTypeModifiers()
 		}
 	case *parser.TypeRefNormalContext:
 		f.formatQualifiedIdent(v.QualifiedIdent())
@@ -1398,7 +1398,7 @@ func (f *formatter) formatTypeRef(ctx parser.ITypeRefContext) {
 			f.write("]")
 		}
 		if v.TypeModifiers() != nil {
-			f.formatTypeModifiers(v.TypeModifiers())
+			f.formatTypeModifiers()
 		}
 	}
 }
@@ -1424,9 +1424,7 @@ func (f *formatter) formatTypeArgs(ctx parser.ITypeArgsContext) {
 	f.write(">")
 }
 
-func (f *formatter) formatTypeModifiers(ctx parser.ITypeModifiersContext) {
-	f.write("?")
-}
+func (f *formatter) formatTypeModifiers() { f.write("?") }
 
 func (f *formatter) formatEnumDef(ctx parser.IEnumDefContext) {
 	f.write(ctx.IDENT().GetText())
@@ -1503,7 +1501,7 @@ func (f *formatter) formatEnumValue(ctx parser.IEnumValueContext, alignTo int) {
 	if body := ctx.EnumValueBody(); body != nil {
 		f.writeLine(" {")
 		f.currentIndent++
-		domains := sortDomainLines(f, body.AllDomain())
+		domains := f.sortDomainLines(body.AllDomain())
 		var maxPrefixLen int
 		for _, dom := range domains {
 			prefixLen := 1 + len(dom.IDENT().GetText())

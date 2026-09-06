@@ -133,7 +133,7 @@ var _ = Describe("Garbage Collection", func() {
 						Expect(
 							frame.SeriesAt(2).TimeRange.End,
 						).To(Equal(33 * telem.SecondTS))
-						series2Data := telem.UnmarshalSeries[int64](frame.SeriesAt(2))
+						series2Data := frame.SeriesAt(2).Unmarshal[int64]()
 						Expect(
 							series2Data,
 						).To(ConsistOf(int64(30), int64(31), int64(32)))
@@ -141,7 +141,7 @@ var _ = Describe("Garbage Collection", func() {
 						Expect(
 							frame.SeriesAt(3).TimeRange.Start,
 						).To(Equal(75 * telem.SecondTS))
-						series3Data := telem.UnmarshalSeries[int64](frame.SeriesAt(3))
+						series3Data := frame.SeriesAt(3).Unmarshal[int64]()
 						Expect(series3Data).To(ConsistOf(
 							int64(75),
 							int64(76),
@@ -496,7 +496,8 @@ var _ = Describe("Garbage Collection", func() {
 						for series := range f.Series() {
 							actual = append(
 								actual,
-								telem.UnmarshalSeries[int64](series)...)
+								series.Unmarshal[int64]()...,
+							)
 						}
 						Expect(actual).To(Equal(expected))
 					},

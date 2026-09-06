@@ -21,10 +21,12 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/typemap"
+	"github.com/synnaxlabs/oracle/plugin/go/types"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 )
 
 type testFileOutput struct {
@@ -534,7 +536,7 @@ func (b *testValueBuilder) buildStructFieldExprs(
 	if !ok {
 		return nil, nil
 	}
-	if resolver.CanUseInheritance(form, b.table) {
+	if types.CanEmbed(form, b.table) {
 		return b.buildEmbeddedStructFieldExprs(form)
 	}
 	fields := resolution.UnifiedFields(typ, b.table)
@@ -544,25 +546,26 @@ func (b *testValueBuilder) buildStructFieldExprs(
 func (b *testValueBuilder) buildEmbeddedStructFieldExprs(
 	form resolution.StructForm,
 ) ([]string, error) {
-	var exprs []string
+	type embed struct {
+		typ    resolution.Type
+		goName string
+		fields []string
+	}
+	var embeds []embed
 	for _, extendsRef := range form.Extends {
 		parent, ok := extendsRef.Resolve(b.table)
 		if !ok {
 			continue
 		}
-		parentGoName := naming.GetGoName(parent)
-		parentGoType, err := b.goTypeName(parent)
-		if err != nil {
-			return nil, err
-		}
 		parentFieldExprs, err := b.buildStructFieldExprs(parent)
 		if err != nil {
 			return nil, err
 		}
-		exprs = append(
-			exprs,
-			parentGoName+": "+b.formatComposite(parentGoType, parentFieldExprs),
-		)
+		embeds = append(embeds, embed{
+			typ:    parent,
+			goName: naming.GetGoName(parent),
+			fields: parentFieldExprs,
+		})
 	}
 	childFieldExprs, err := b.buildFieldExprs(
 		declaredFields(form.Extends, form.Fields, b.table),
@@ -570,8 +573,55 @@ func (b *testValueBuilder) buildEmbeddedStructFieldExprs(
 	if err != nil {
 		return nil, err
 	}
+	// An embedded name outranks a field promoted out of a sibling embed, and Go rejects
+	// a literal keying both an embed and a field promoted out of it. Reserve every
+	// embed name first so a colliding sibling keeps its wrapper.
+	taken := literalKeys(childFieldExprs)
+	for _, e := range embeds {
+		taken.Add(e.goName)
+	}
+	var exprs []string
+	for _, e := range embeds {
+		// A promoted field may key the outer literal directly, so the embedded wrapper
+		// is only needed when the name is already spoken for.
+		if len(e.fields) > 0 && !anyKeyTaken(taken, e.fields) {
+			for _, f := range e.fields {
+				taken.Add(literalKey(f))
+			}
+			exprs = append(exprs, e.fields...)
+			continue
+		}
+		parentGoType, err := b.goTypeName(e.typ)
+		if err != nil {
+			return nil, err
+		}
+		exprs = append(exprs, e.goName+": "+b.formatComposite(parentGoType, e.fields))
+	}
 	exprs = append(exprs, childFieldExprs...)
 	return exprs, nil
+}
+
+// literalKey returns the field name a "Name: value" literal entry sets.
+func literalKey(expr string) string {
+	name, _, _ := strings.Cut(expr, ":")
+	return strings.TrimSpace(name)
+}
+
+func literalKeys(exprs []string) set.Set[string] {
+	keys := make(set.Set[string], len(exprs))
+	for _, e := range exprs {
+		keys.Add(literalKey(e))
+	}
+	return keys
+}
+
+func anyKeyTaken(taken set.Set[string], exprs []string) bool {
+	for _, e := range exprs {
+		if taken.Contains(literalKey(e)) {
+			return true
+		}
+	}
+	return false
 }
 
 // declaredFields drops fields that restate an inherited default without changing
@@ -776,7 +826,8 @@ func (b *testValueBuilder) unionExpr(
 	payload, ok := v.Type.Resolve(b.table)
 	if !ok {
 		return "", errors.Newf(
-			"union %s variant %q: unresolved payload", actual.Name, v.Name)
+			"union %s variant %q: unresolved payload", actual.Name, v.Name,
+		)
 	}
 	if b.depth > 2 {
 		return fmt.Sprintf("%s{Variant: %s{}}", goType, variantType), nil

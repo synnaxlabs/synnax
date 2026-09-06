@@ -51,8 +51,8 @@ var _ config.Config[LayerConfig] = LayerConfig{}
 // Validate implements config.Config.
 func (c LayerConfig) Validate() error {
 	v := validate.New("transport")
-	validate.NotNil(v, "api", c.API)
-	validate.NotNil(v, "router", c.Router)
+	v.NotNil("api", c.API)
+	v.NotNil("router", c.Router)
 	return v.Error()
 }
 

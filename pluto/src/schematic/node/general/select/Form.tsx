@@ -88,8 +88,8 @@ export const SelectForm = (): ReactElement => (
         <Flex.Box y align="stretch" grow gap="small">
           <Label.Form path="label" />
           <Flex.Box x>
-            <Form.SizeField />
             <Form.ColorField path="color" />
+            <Form.SizeField />
             <Base.NumericField
               path="inlineSize"
               label="Width"

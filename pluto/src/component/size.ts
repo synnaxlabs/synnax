@@ -19,5 +19,14 @@ export const size = z.enum(SIZES);
  */
 export type Size = z.infer<typeof size>;
 
+/** Height in pixels for each {@link Size}. Mirrors the `--pluto-height-*` CSS vars. */
+export const HEIGHTS: Record<Size, number> = {
+  tiny: 21,
+  small: 24,
+  medium: 28,
+  large: 36,
+  huge: 48,
+};
+
 /** @returns true if the value is one of {@link SIZES}. */
-export const isSize = (value: unknown): value is Size => size.safeParse(value).success;
+export const isSize = (value: unknown): value is Size => z.validate(size, value);

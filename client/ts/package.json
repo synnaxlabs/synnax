@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/client",
-  "version": "0.57.3",
+  "version": "0.58.0",
   "description": "The Synnax Client Library",
   "keywords": [
     "synnax",
@@ -34,9 +34,9 @@
     "madge": "madge --circular src"
   },
   "dependencies": {
-    "@synnaxlabs/alamos": "workspace:^",
-    "@synnaxlabs/freighter": "workspace:^",
-    "@synnaxlabs/x": "workspace:^",
+    "@synnaxlabs/alamos": "catalog:",
+    "@synnaxlabs/freighter": "catalog:",
+    "@synnaxlabs/x": "catalog:",
     "immer": "catalog:",
     "zod": "catalog:"
   },
@@ -49,10 +49,10 @@
     }
   },
   "devDependencies": {
-    "@synnaxlabs/eslint-config": "workspace:^",
-    "@synnaxlabs/madge": "workspace:^",
-    "@synnaxlabs/tsconfig": "workspace:^",
-    "@synnaxlabs/vite-plugin": "workspace:^",
+    "@synnaxlabs/eslint-config": "catalog:",
+    "@synnaxlabs/madge": "catalog:",
+    "@synnaxlabs/tsconfig": "catalog:",
+    "@synnaxlabs/vite-plugin": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "@types/node": "catalog:",
     "eslint": "catalog:",

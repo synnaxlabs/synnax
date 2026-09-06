@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { json } from "@/json";
 
@@ -38,11 +39,11 @@ describe("json", () => {
     });
 
     it("should reject a pointer that does not start with /", () => {
-      expect(json.pointerZ.safeParse("foo").success).toBe(false);
+      expect(z.validate(json.pointerZ, "foo")).toBe(false);
     });
 
     it("should reject a pointer with a bare tilde", () => {
-      expect(json.pointerZ.safeParse("/a~b").success).toBe(false);
+      expect(z.validate(json.pointerZ, "/a~b")).toBe(false);
     });
   });
 
@@ -64,11 +65,11 @@ describe("json", () => {
     });
 
     it("should reject an object", () => {
-      expect(json.primitiveZ.safeParse({}).success).toBe(false);
+      expect(z.validate(json.primitiveZ, {})).toBe(false);
     });
 
     it("should reject an array", () => {
-      expect(json.primitiveZ.safeParse([]).success).toBe(false);
+      expect(z.validate(json.primitiveZ, [])).toBe(false);
     });
   });
 
@@ -90,7 +91,7 @@ describe("json", () => {
     });
 
     it("should reject an invalid type name", () => {
-      expect(json.primitiveTypeZ.safeParse("object").success).toBe(false);
+      expect(z.validate(json.primitiveTypeZ, "object")).toBe(false);
     });
   });
 });

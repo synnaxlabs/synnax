@@ -13,8 +13,8 @@
     "fix": "eslint --fix"
   },
   "devDependencies": {
-    "@synnaxlabs/eslint-config": "workspace:^",
-    "@synnaxlabs/tsconfig": "workspace:^",
+    "@synnaxlabs/eslint-config": "catalog:",
+    "@synnaxlabs/tsconfig": "catalog:",
     "eslint": "catalog:",
     "stylelint": "catalog:",
     "typescript": "catalog:"

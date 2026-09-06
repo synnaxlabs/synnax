@@ -51,15 +51,10 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 		ShouldNotLeakGoroutines()
 		addr = StartServer(func(reg grpc.ServiceRegistrar, pool *fgrpc.Pool) {
 			sServer := &streamServer{
-				StreamServerCore: fgrpc.StreamServerCore[
-					test.Request, *v1.Request,
-					test.Response, *v1.Response,
-				]{
-					RequestTranslator:  requestTranslator{},
-					ResponseTranslator: responseTranslator{},
-					ServiceDesc:        &v1.TestStreamService_ServiceDesc,
-					Internal:           true,
-				},
+				RequestTranslator:  requestTranslator{},
+				ResponseTranslator: responseTranslator{},
+				ServiceDesc:        &v1.TestStreamService_ServiceDesc,
+				Internal:           true,
 			}
 			sServer.BindTo(reg)
 			server = &sServer.StreamServerCore

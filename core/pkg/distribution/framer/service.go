@@ -71,9 +71,9 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("distribution.framer")
-	validate.NotNil(v, "ts", c.TS)
-	validate.NotNil(v, "transport", c.Transport)
-	validate.NotNil(v, "host_resolver", c.HostResolver)
+	v.NotNil("ts", c.TS)
+	v.NotNil("transport", c.Transport)
+	v.NotNil("host_resolver", c.HostResolver)
 	return v.Error()
 }
 

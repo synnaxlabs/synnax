@@ -148,7 +148,8 @@ var _ = Describe("ResolveNodeTypes", func() {
 		}
 		Expect(analyzer.ResolveNodeTypes(nodes, ir.Edges{}, cs, diag)).To(BeFalse())
 		Expect(diag.String()).To(ContainSubstring(
-			"node 'sel' (select) missing required input 'output'"))
+			"node 'sel' (select) missing required input 'output'",
+		))
 	})
 
 	It("Should not error when an unconnected input has a default value", func() {

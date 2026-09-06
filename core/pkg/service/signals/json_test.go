@@ -102,9 +102,8 @@ var _ = Describe("JSON", func() {
 				Framer:  framerSvc,
 			}))
 			obs = observe.New[jsonPayload]()
-			closer = MustSucceed(signals.PublishJSON(
+			closer = MustSucceed(sigs.PublishJSON(
 				ctx,
-				sigs,
 				signals.JSONPublisherConfig[jsonPayload]{
 					Observable: obs,
 					SetName:    jsonSetChannelName,

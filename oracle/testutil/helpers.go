@@ -175,7 +175,8 @@ func (c *ContentExpectation) ToContain(substrings ...string) *ContentExpectation
 func (c *ContentExpectation) ToBeValidGoSource() *ContentExpectation {
 	ginkgo.GinkgoHelper()
 	xtestutil.MustSucceed(parser.ParseFile(
-		token.NewFileSet(), "", c.content, parser.SkipObjectResolution))
+		token.NewFileSet(), "", c.content, parser.SkipObjectResolution,
+	))
 	return c
 }
 

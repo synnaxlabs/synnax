@@ -281,8 +281,6 @@ export class SugaredOffscreenCanvasRenderingContext2D implements OffscreenCanvas
     return this.wrapped.isPointInStroke(path, x, y);
   }
 
-  stroke(): void;
-  stroke(path: Path2D): void;
   stroke(path?: Path2D): void {
     if (path == null) return this.wrapped.stroke();
     this.wrapped.stroke(path);
@@ -546,8 +544,6 @@ export class SugaredOffscreenCanvasRenderingContext2D implements OffscreenCanvas
     return this.wrapped.getLineDash();
   }
 
-  setLineDash(segments: number[]): void;
-  setLineDash(segments: Iterable<number>): void;
   setLineDash(segments: number[] | Iterable<number>): void {
     const scaled = Array.from(segments).map((v) => this.scale_.x.dim(v));
     this.wrapped.setLineDash(scaled);

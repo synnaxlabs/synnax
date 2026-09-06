@@ -325,7 +325,8 @@ var _ = Describe("Delete", Ordered, func() {
 								30 * telem.SecondTS,
 							),
 							SecondData: []byte{20, 21, 22, 23, 24, 25, 26, 27, 28},
-						}),
+						},
+					),
 					Entry("end before first pointer",
 						MultiPointerSpec{
 							TimeRange: (1 * telem.SecondTS).Range(

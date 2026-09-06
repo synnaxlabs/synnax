@@ -24,6 +24,28 @@ export const selectNode = (key: string): HTMLDivElement => {
   return el as HTMLDivElement;
 };
 
+const NODE_CONTENT_SELECTOR = ".react-flow__node, .react-flow__node *";
+
+/// @returns the screen bounds of every node under root and everything rendered inside
+/// it, or null when no node is rendered. React Flow only measures a node's own box,
+/// which misses content positioned outside it (a label).
+export const selectNodesScreenBounds = (root: HTMLElement): box.Box | null => {
+  let left = Infinity;
+  let top = Infinity;
+  let right = -Infinity;
+  let bottom = -Infinity;
+  root.querySelectorAll(NODE_CONTENT_SELECTOR).forEach((el) => {
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 || r.height === 0) return;
+    left = Math.min(left, r.left);
+    top = Math.min(top, r.top);
+    right = Math.max(right, r.right);
+    bottom = Math.max(bottom, r.bottom);
+  });
+  if (left === Infinity) return null;
+  return box.construct({ x: left, y: top }, { x: right, y: bottom });
+};
+
 /// @returns the box, in flow coordinates, occupied by the given react-flow internal
 /// node. Returns box.ZERO when the node is null or has not been measured yet, which is
 /// the case for the connection target while the user is dragging over empty space.

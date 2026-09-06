@@ -47,7 +47,8 @@ var _ = Describe("Channel", func() {
 							),
 						),
 						MatchError(validate.ErrValidation),
-					))
+					),
+				)
 			},
 		)
 		It("Should allow int64 series to pass as timestamps", func() {

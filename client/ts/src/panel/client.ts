@@ -263,8 +263,6 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
     );
   }
 
-  async delete(key: Key, opts?: query.WriteOptions): Promise<void>;
-  async delete(keys: Key[], opts?: query.WriteOptions): Promise<void>;
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const drop = () => [

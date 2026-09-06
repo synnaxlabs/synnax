@@ -22,7 +22,7 @@ import (
 
 // Subscriber is used to flush an observable that flushes changes
 // to an underlying key-value store.
-type Subscriber[S any] struct {
+type Subscriber struct {
 	alamos.Instrumentation
 	// LastFlush stores the last time the observable was flushed.
 	LastFlush time.Time
@@ -42,7 +42,7 @@ type Subscriber[S any] struct {
 
 // Flush is the handler to bind to the Observable. The write runs on the calling
 // goroutine, so a store closed after its observers stop firing cannot race a flush.
-func (f *Subscriber[S]) Flush(ctx context.Context, state S) {
+func (f *Subscriber) Flush[S any](ctx context.Context, state S) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if time.Since(f.LastFlush) < f.MinInterval {
@@ -53,7 +53,7 @@ func (f *Subscriber[S]) Flush(ctx context.Context, state S) {
 }
 
 // FlushSync synchronously flushes the given state to the store.
-func (f *Subscriber[S]) FlushSync(ctx context.Context, state S) {
+func (f *Subscriber) FlushSync[S any](ctx context.Context, state S) {
 	if err := f.Store.Set(
 		ctx,
 		f.Key,

@@ -303,8 +303,8 @@ func convertNode(
 		if !ok {
 			if viewType, ok := viewLayoutTypes[layout.Type]; ok {
 				tabs = append(tabs, Tab{Variant: ViewTab{
-					TabBase: TabBase{Key: uuid.New()},
-					View:    View{Type: viewType},
+					Key:  uuid.New(),
+					Type: viewType,
 				}})
 				continue
 			}
@@ -327,10 +327,7 @@ func convertNode(
 		if !exists {
 			continue
 		}
-		tabs = append(tabs, Tab{Variant: ResourceTab{
-			TabBase:  TabBase{Key: uuid.New()},
-			Resource: id,
-		}})
+		tabs = append(tabs, Tab{Variant: ResourceTab{Key: uuid.New(), Resource: id}})
 	}
 	if len(tabs) == 0 {
 		return nil, nil
@@ -380,7 +377,7 @@ func convertTaskTab(
 			return nil, err
 		}
 		return &Tab{Variant: ResourceTab{
-			TabBase:  TabBase{Key: uuid.New()},
+			Key:      uuid.New(),
 			Resource: ontology.ID{Type: ontology.ResourceTypeTask, Key: key},
 		}}, nil
 	}

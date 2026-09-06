@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/security"
-	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/synnax/pkg/security/cert/file"
 	"github.com/synnaxlabs/synnax/pkg/security/mock"
 	"github.com/synnaxlabs/synnax/pkg/server"
@@ -31,9 +30,9 @@ var _ = Describe("HttpRedirect", func() {
 		fs := xfs.NewMem()
 		mock.GenerateCerts(fs)
 		prov := MustSucceed(security.NewProvider(security.ProviderConfig{
-			LoaderConfig: cert.LoaderConfig{FS: fs},
-			KeySize:      mock.SmallKeySize,
-			Insecure:     new(false),
+			FS:       fs,
+			KeySize:  mock.SmallKeySize,
+			Insecure: new(false),
 		}))
 		src := MustSucceed(file.NewSource(fs,
 			"/usr/local/synnax/certs/node.crt",

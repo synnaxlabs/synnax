@@ -117,6 +117,7 @@ func (u *UnaryClient[RQ, RS]) Send(
 				u.Network.appendEntry(target, req, res, err)
 			}
 			return oMD, err
-		}))
+		}),
+	)
 	return res, err
 }

@@ -36,17 +36,17 @@ var _ = Describe("MultiListener", func() {
 		fs := xfs.NewMem()
 		mock.GenerateCerts(fs)
 		prov := MustSucceed(security.NewProvider(security.ProviderConfig{
-			LoaderConfig: cert.LoaderConfig{FS: fs},
-			KeySize:      mock.SmallKeySize,
-			Insecure:     new(false),
+			FS:       fs,
+			KeySize:  mock.SmallKeySize,
+			Insecure: new(false),
 		}))
 		portA := MustSucceed(net.FindOpenPort())
 		portB := MustSucceed(net.FindOpenPort())
 		addrA := address.Newf("localhost:%d", portA)
 		addrB := address.Newf("localhost:%d", portB)
 		ca := MustSucceed(cert.NewFactory(cert.FactoryConfig{
-			LoaderConfig: cert.LoaderConfig{FS: fs},
-			KeySize:      mock.SmallKeySize,
+			FS:      fs,
+			KeySize: mock.SmallKeySize,
 		}))
 		srcA := MustSucceed(auto.NewSource(ca, "hostA:1"))
 		srcB := MustSucceed(auto.NewSource(ca, "hostB:1"))
@@ -69,13 +69,13 @@ var _ = Describe("MultiListener", func() {
 		fs := xfs.NewMem()
 		mock.GenerateCerts(fs)
 		prov := MustSucceed(security.NewProvider(security.ProviderConfig{
-			LoaderConfig: cert.LoaderConfig{FS: fs},
-			KeySize:      mock.SmallKeySize,
-			Insecure:     new(false),
+			FS:       fs,
+			KeySize:  mock.SmallKeySize,
+			Insecure: new(false),
 		}))
 		ca := MustSucceed(cert.NewFactory(cert.FactoryConfig{
-			LoaderConfig: cert.LoaderConfig{FS: fs},
-			KeySize:      mock.SmallKeySize,
+			FS:      fs,
+			KeySize: mock.SmallKeySize,
 		}))
 		l := MustSucceed(cert.NewLoader(cert.LoaderConfig{FS: fs}))
 		autoAddr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
@@ -121,9 +121,9 @@ var _ = Describe("MultiListener", func() {
 			foreignL.AbsoluteCACertPath(),
 		)))
 		prov := MustSucceed(security.NewProvider(security.ProviderConfig{
-			LoaderConfig: cert.LoaderConfig{FS: fs},
-			KeySize:      mock.SmallKeySize,
-			Insecure:     new(false),
+			FS:       fs,
+			KeySize:  mock.SmallKeySize,
+			Insecure: new(false),
 		}))
 		addr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
 		src := MustSucceed(file.NewSource(

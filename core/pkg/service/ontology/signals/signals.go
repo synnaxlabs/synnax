@@ -82,13 +82,13 @@ func Publish(
 				DataType: telem.StringT,
 				Internal: true,
 			},
-		})
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
-	relationshipCloser, err := signals.PublishFromGorp(
+	relationshipCloser, err := prov.PublishFromGorp(
 		ctx,
-		prov,
 		signals.GorpPublisherConfig[string, ontology.Relationship]{
 			Observable:     otg.ObserveRelationships(),
 			SetName:        "sy_ontology_relationship_set",

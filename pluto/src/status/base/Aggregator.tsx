@@ -152,7 +152,7 @@ export const useNotifications = ({
     );
 
     const grouped = active.reduce((acc, status) => {
-      const key = `${status.variant}:${status.message}`;
+      const key = `${status.variant}:${status.message}:${status.name}`;
       if (!acc.has(key)) {
         acc.set(key, { ...status, count: 1 });
         return acc;
@@ -177,8 +177,10 @@ export const useNotifications = ({
       if (!prev.has(key)) next.add(key);
       if (existing != null) {
         const silenced = statusesRef.current.filter(
-          ({ message, variant }) =>
-            message === existing.message && variant === existing.variant,
+          ({ message, variant, name }) =>
+            message === existing.message &&
+            variant === existing.variant &&
+            name === existing.name,
         );
         silenced.forEach((status) => next.add(status.key));
       }

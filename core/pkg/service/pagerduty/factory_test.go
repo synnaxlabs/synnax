@@ -173,7 +173,7 @@ var _ = Describe("Factory", func() {
 					Expect(factory.ConfigureTask(ctx, t, "cmd-1")).Error().
 						To(MatchError(ContainSubstring("routing_key")))
 					var stat task.Status
-					Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+					Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 						Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
 						Entry(&stat).Exec(ctx, nil)).To(Succeed())
 					Expect(stat.Variant).To(BeEquivalentTo("error"))
@@ -196,7 +196,7 @@ var _ = Describe("Factory", func() {
 					tsk := MustSucceed(factory.ConfigureTask(ctx, t, cmdKey))
 					Expect(tsk).ToNot(BeNil())
 					var stat task.Status
-					Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+					Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 						Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
 						Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 					Expect(tsk.Stop(true)).To(Succeed())
@@ -207,9 +207,9 @@ var _ = Describe("Factory", func() {
 
 			It("Should configure and auto-start a task", func(ctx context.Context) {
 				cfg := encodeConfig(pd.TaskConfig{
-					StartConfig: task.StartConfig{AutoStart: true},
-					RoutingKey:  strings.Repeat("a", 32),
-					Alerts:      []pd.Alert{{Status: "test-status"}},
+					AutoStart:  true,
+					RoutingKey: strings.Repeat("a", 32),
+					Alerts:     []pd.Alert{{Status: "test-status"}},
 				})
 				t := task.Task{
 					Key: uuid.New(), Name: "PagerDuty Test",
@@ -218,7 +218,7 @@ var _ = Describe("Factory", func() {
 				tsk := MustSucceed(factory.ConfigureTask(ctx, t, "cmd-1"))
 				Expect(tsk).ToNot(BeNil())
 				var stat task.Status
-				Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				Expect(stat.Variant).To(BeEquivalentTo("success"))
@@ -240,7 +240,7 @@ var _ = Describe("Factory", func() {
 					Expect(factory.ConfigureTask(ctx, t, driver.NoCommand)).Error().
 						To(MatchError(ContainSubstring("routing_key")))
 					var stat task.Status
-					Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+					Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 						Where(status.MatchKeys[task.StatusDetails](task.OntologyID(t.Key).String())).
 						Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 				},
@@ -249,9 +249,9 @@ var _ = Describe("Factory", func() {
 			It("Should write an error status for an invalid auto-start config at boot",
 				func(ctx context.Context) {
 					cfg := encodeConfig(pd.TaskConfig{
-						StartConfig: task.StartConfig{AutoStart: true},
-						RoutingKey:  "tooshort",
-						Alerts:      []pd.Alert{{Status: "test-status"}},
+						AutoStart:  true,
+						RoutingKey: "tooshort",
+						Alerts:     []pd.Alert{{Status: "test-status"}},
 					})
 					t := task.Task{
 						Key: uuid.New(), Name: "test", Type: pd.AlertTaskType,
@@ -260,7 +260,7 @@ var _ = Describe("Factory", func() {
 					Expect(factory.ConfigureTask(ctx, t, driver.NoCommand)).Error().
 						To(MatchError(ContainSubstring("routing_key")))
 					var stat task.Status
-					Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+					Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 						Where(status.MatchKeys[task.StatusDetails](task.OntologyID(t.Key).String())).
 						Entry(&stat).Exec(ctx, nil)).To(Succeed())
 					Expect(stat.Variant).To(BeEquivalentTo("error"))
@@ -271,9 +271,9 @@ var _ = Describe("Factory", func() {
 			It("Should auto-start at boot when auto_start is true",
 				func(ctx context.Context) {
 					cfg := encodeConfig(pd.TaskConfig{
-						StartConfig: task.StartConfig{AutoStart: true},
-						RoutingKey:  strings.Repeat("a", 32),
-						Alerts:      []pd.Alert{{Status: "test-status"}},
+						AutoStart:  true,
+						RoutingKey: strings.Repeat("a", 32),
+						Alerts:     []pd.Alert{{Status: "test-status"}},
 					})
 					t := task.Task{
 						Key: uuid.New(), Name: "PagerDuty Test",
@@ -282,7 +282,7 @@ var _ = Describe("Factory", func() {
 					tsk := MustSucceed(factory.ConfigureTask(ctx, t, driver.NoCommand))
 					Expect(tsk).ToNot(BeNil())
 					var stat task.Status
-					Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+					Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 						Where(status.MatchKeys[task.StatusDetails](task.OntologyID(t.Key).String())).
 						Entry(&stat).Exec(ctx, nil)).To(Succeed())
 					Expect(stat.Variant).To(BeEquivalentTo("success"))

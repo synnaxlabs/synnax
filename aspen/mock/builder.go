@@ -66,7 +66,8 @@ func (b *Builder) New(ctx context.Context, opts ...aspen.Option) (*aspen.DB, err
 		dir,
 		addr,
 		b.peerAddresses,
-		append(b.DefaultOptions, opts...)...)
+		append(b.DefaultOptions, opts...)...,
+	)
 	if err != nil {
 		return nil, err
 	}

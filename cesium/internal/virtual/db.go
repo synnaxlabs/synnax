@@ -89,8 +89,8 @@ var (
 // Validate implements config.Config.
 func (cfg Config) Validate() error {
 	v := validate.New("cesium.virtual")
-	validate.NotNil(v, "fs", cfg.FS)
-	validate.NotNil(v, "meta_codec", cfg.MetaCodec)
+	v.NotNil("fs", cfg.FS)
+	v.NotNil("meta_codec", cfg.MetaCodec)
 	return v.Error()
 }
 

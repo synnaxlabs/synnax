@@ -637,7 +637,7 @@ func (w *idxWriter) write(
 			// series can be stamped with a real time range without consulting the
 			// index on disk.
 			idxTimeRange = telem.TimeRange{
-				Start: telem.ValueAt[telem.TimeStamp](series, 0),
+				Start: series.ValueAt[telem.TimeStamp](0),
 				End:   w.idx.highWaterMark + 1,
 			}
 			idxTimeRangeSet = true
@@ -881,7 +881,7 @@ func (w *idxWriter) updateHighWater(s telem.Series) error {
 	if s.DataType != telem.TimestampT && s.DataType != telem.Int64T {
 		return invalidDataTypeError(w.idx.ch, s.DataType)
 	}
-	w.idx.highWaterMark = telem.ValueAt[telem.TimeStamp](s, -1)
+	w.idx.highWaterMark = s.ValueAt[telem.TimeStamp](-1)
 	return nil
 }
 

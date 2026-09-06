@@ -122,10 +122,10 @@ var _ config.Config[WriterConfig] = WriterConfig{}
 // Validate implements config.Config.
 func (c WriterConfig) Validate() error {
 	v := validate.New("cesium.writer_config")
-	validate.NotEmptySlice(v, "channels", c.Channels)
-	validate.NotNil(v, "err_on_unauthorized_open", c.ErrOnUnauthorized)
-	validate.NotNil(v, "sync", c.Sync)
-	validate.NotNil(v, "auto_index", c.AutoIndex)
+	v.NotEmptySlice("channels", c.Channels)
+	v.NotNil("err_on_unauthorized_open", c.ErrOnUnauthorized)
+	v.NotNil("sync", c.Sync)
+	v.NotNil("auto_index", c.AutoIndex)
 	v.Exec(c.ControlSubject.Validate)
 	v.Ternary(
 		"authorities",

@@ -21,20 +21,16 @@ var _ = Describe("Edges", func() {
 		It("Should project graph edges into keyless ir edges", func() {
 			edges := v1.Edges{
 				{
-					Key: "e1",
-					Edge: ir.Edge{
-						Source: ir.Handle{Node: "a", Param: "out"},
-						Target: ir.Handle{Node: "b", Param: "in"},
-						Kind:   ir.EdgeKindContinuous,
-					},
+					Key:    "e1",
+					Source: ir.Handle{Node: "a", Param: "out"},
+					Target: ir.Handle{Node: "b", Param: "in"},
+					Kind:   ir.EdgeKindContinuous,
 				},
 				{
-					Key: "e2",
-					Edge: ir.Edge{
-						Source: ir.Handle{Node: "b", Param: "out"},
-						Target: ir.Handle{Node: "c", Param: "in"},
-						Kind:   ir.EdgeKindConditional,
-					},
+					Key:    "e2",
+					Source: ir.Handle{Node: "b", Param: "out"},
+					Target: ir.Handle{Node: "c", Param: "in"},
+					Kind:   ir.EdgeKindConditional,
 				},
 			}
 			Expect(edges.IR()).To(Equal(ir.Edges{

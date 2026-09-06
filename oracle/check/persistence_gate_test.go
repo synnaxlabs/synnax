@@ -96,7 +96,8 @@ Entry struct {
 		`)
 			Expect(messages(r)).To(ContainElement(
 				"channel.Sibling is persisted but absent from its resource's " +
-					"current version file"))
+					"current version file",
+			))
 		},
 	)
 

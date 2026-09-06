@@ -30,8 +30,8 @@ var _ = Describe("Auto", func() {
 	BeforeEach(func() {
 		fs = xfs.NewMem()
 		ca = MustSucceed(cert.NewFactory(cert.FactoryConfig{
-			LoaderConfig: cert.LoaderConfig{FS: fs},
-			KeySize:      mock.SmallKeySize,
+			FS:      fs,
+			KeySize: mock.SmallKeySize,
 		}))
 	})
 

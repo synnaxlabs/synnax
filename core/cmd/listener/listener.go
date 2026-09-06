@@ -50,7 +50,7 @@ type Config struct {
 // is a silent misconfiguration; remaining per-source rules are enforced at build time.
 func (c Config) Validate() error {
 	v := validate.New("listener")
-	validate.NotEmptyString(v, "address", c.Address)
+	v.NotEmptyString("address", c.Address)
 	v.Ternaryf(
 		"cert",
 		c.Cert.Source != file.SourceType && (c.Cert.Cert != "" || c.Cert.Key != ""),

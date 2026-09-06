@@ -85,8 +85,8 @@ describe("StringDisplay", () => {
       expect(getText(container).textContent).toBe("hello");
     });
 
-    // The box takes its height from the text element's line box, so the element has to
-    // be in the DOM before a value arrives or the symbol renders collapsed.
+    // The text element must already be in the DOM when the first value arrives, so
+    // the value renders into it rather than remounting it.
     it("should render a text element when no value has arrived", () => {
       const { container } = render(<Primitive value="" />);
       expect(getText(container).textContent).toBe("");

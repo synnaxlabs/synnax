@@ -285,19 +285,19 @@ var _ = Describe("Listener", func() {
 			coreFS := xfs.NewMem()
 			mock.GenerateCerts(coreFS)
 			prov = MustSucceed(security.NewProvider(security.ProviderConfig{
-				LoaderConfig: cert.LoaderConfig{FS: coreFS},
-				KeySize:      mock.SmallKeySize,
-				Insecure:     new(false),
+				FS:       coreFS,
+				KeySize:  mock.SmallKeySize,
+				Insecure: new(false),
 			}))
 			coreFC = cert.FactoryConfig{
-				LoaderConfig: cert.LoaderConfig{FS: coreFS},
-				KeySize:      mock.SmallKeySize,
+				FS:      coreFS,
+				KeySize: mock.SmallKeySize,
 			}
 			foreignFS := xfs.NewMem()
 			mock.GenerateCerts(foreignFS)
 			foreignFC = cert.FactoryConfig{
-				LoaderConfig: cert.LoaderConfig{FS: foreignFS},
-				KeySize:      mock.SmallKeySize,
+				FS:      foreignFS,
+				KeySize: mock.SmallKeySize,
 			}
 		})
 

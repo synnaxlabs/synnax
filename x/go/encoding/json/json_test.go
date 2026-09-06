@@ -47,7 +47,8 @@ var _ = Describe("Codec", func() {
 			SatisfyAll(
 				ContainSubstring("failed to encode value"),
 				ContainSubstring("kind=chan, type=chan int"),
-			)),
+			),
+		),
 		)
 	})
 	It("Should add error info with custom type", func(ctx SpecContext) {
@@ -164,7 +165,8 @@ var _ = Describe("NewCodec", func() {
 				SatisfyAll(
 					ContainSubstring("failed to encode value"),
 					ContainSubstring("kind=chan, type=chan int"),
-				)),
+				),
+			),
 			)
 		})
 	})

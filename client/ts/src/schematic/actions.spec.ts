@@ -30,6 +30,11 @@ const edge = (
   target: { node: tgtNode, param: tgtParam },
 });
 
+const groupConfig = (
+  members: unknown[],
+  extra: Record<string, unknown> = {},
+): Record<string, unknown> => ({ variant: "groupBox", members, ...extra });
+
 const empty = (overrides: Partial<schematic.Schematic> = {}): schematic.Schematic =>
   schematic.schematicZ.parse({ name: "Test Schematic", ...overrides });
 
@@ -151,6 +156,295 @@ describe("schematic reducer", () => {
       const out = apply(state, schematic.removeNode({ key: "ghost" }));
       expect(out.nodes).toEqual(state.nodes);
       expect(out.configs).toEqual(state.configs);
+    });
+  });
+
+  describe("removeNode group member cascade", () => {
+    it("should remove the deleted node's key from its group's members", () => {
+      const state = empty({
+        nodes: [node("g1", -20, -20), node("n1", 0, 0), node("n2", 100, 0)],
+        configs: { g1: groupConfig(["n1", "n2"]) },
+      });
+      const out = apply(state, schematic.removeNode({ key: "n1" }));
+      expect(out.configs.g1).toEqual(groupConfig(["n2"]));
+    });
+
+    it("should remove the key from every group that lists it", () => {
+      const state = empty({
+        nodes: [node("g1", 0, 0), node("g2", 0, 0), node("n1", 0, 0)],
+        configs: {
+          g1: groupConfig(["n1", "a"]),
+          g2: groupConfig(["b", "n1"]),
+        },
+      });
+      const out = apply(state, schematic.removeNode({ key: "n1" }));
+      expect(out.configs.g1).toEqual(groupConfig(["a"]));
+      expect(out.configs.g2).toEqual(groupConfig(["b"]));
+    });
+
+    it("should remove duplicate entries of the key from a members list", () => {
+      const state = empty({
+        nodes: [node("g1", 0, 0), node("n1", 0, 0), node("n2", 0, 0)],
+        configs: { g1: groupConfig(["n1", "n2", "n1"]) },
+      });
+      const out = apply(state, schematic.removeNode({ key: "n1" }));
+      expect(out.configs.g1).toEqual(groupConfig(["n2"]));
+    });
+
+    it("should splice a removed group out of the outer group that lists it", () => {
+      const state = empty({
+        nodes: [node("outer", 0, 0), node("inner", 0, 0), node("m1", 0, 0)],
+        configs: {
+          outer: groupConfig(["inner", "x"]),
+          inner: groupConfig(["m1"]),
+        },
+      });
+      const out = apply(state, schematic.removeNode({ key: "inner" }));
+      expect(out.configs.outer).toEqual(groupConfig(["x"]));
+      expect(out.configs.inner).toBeUndefined();
+      expect(out.configs.m1).toBeUndefined();
+    });
+
+    it("should leave a former member's config untouched when its group is removed", () => {
+      const state = empty({
+        nodes: [node("g1", 0, 0), node("m1", 0, 0)],
+        configs: { g1: groupConfig(["m1"]), m1: { label: "Pump" } },
+      });
+      const out = apply(state, schematic.removeNode({ key: "g1" }));
+      expect(out.configs.m1).toEqual({ label: "Pump" });
+      expect(out.configs.g1).toBeUndefined();
+    });
+
+    it("should only affect the removed node's direct group in a nested chain", () => {
+      const state = empty({
+        nodes: [node("outer", 0, 0), node("inner", 0, 0), node("n1", 0, 0)],
+        configs: {
+          outer: groupConfig(["inner"]),
+          inner: groupConfig(["n1", "n2"]),
+        },
+      });
+      const out = apply(state, schematic.removeNode({ key: "n1" }));
+      expect(out.configs.outer).toEqual(groupConfig(["inner"]));
+      expect(out.configs.inner).toEqual(groupConfig(["n2"]));
+    });
+
+    it("should only splice the direct group when the node is three groups deep", () => {
+      const state = empty({
+        nodes: [
+          node("outer", 0, 0),
+          node("mid", 0, 0),
+          node("inner", 0, 0),
+          node("n1", 0, 0),
+        ],
+        configs: {
+          outer: groupConfig(["mid"]),
+          mid: groupConfig(["inner"]),
+          inner: groupConfig(["n1", "n2"]),
+        },
+      });
+      const out = apply(state, schematic.removeNode({ key: "n1" }));
+      expect(out.configs.outer).toEqual(groupConfig(["mid"]));
+      expect(out.configs.mid).toEqual(groupConfig(["inner"]));
+      expect(out.configs.inner).toEqual(groupConfig(["n2"]));
+    });
+
+    it("should cascade for each removal in a multi-remove batch", () => {
+      const state = empty({
+        nodes: [node("g1", 0, 0), node("n1", 0, 0), node("n2", 0, 0)],
+        configs: { g1: groupConfig(["n1", "n2"]) },
+      });
+      const out = apply(
+        state,
+        schematic.removeNode({ key: "n1" }),
+        schematic.removeNode({ key: "n2" }),
+      );
+      expect(out.configs.g1).toEqual(groupConfig([]));
+    });
+
+    it("should preserve the group's other config fields when splicing", () => {
+      const state = empty({
+        nodes: [node("g1", 0, 0), node("n1", 0, 0)],
+        configs: { g1: groupConfig(["n1", "n2"], { locked: true }) },
+      });
+      const out = apply(state, schematic.removeNode({ key: "n1" }));
+      expect(out.configs.g1).toEqual(groupConfig(["n2"], { locked: true }));
+    });
+
+    it("should leave group configs untouched when the removed node is in no group", () => {
+      const state = empty({
+        nodes: [node("g1", 0, 0), node("n1", 0, 0), node("loose", 5, 5)],
+        configs: { g1: groupConfig(["n1"]) },
+      });
+      const out = apply(state, schematic.removeNode({ key: "loose" }));
+      expect(out.configs.g1).toEqual(groupConfig(["n1"]));
+    });
+
+    it("should not touch a non-group config that carries a members field", () => {
+      const state = empty({
+        nodes: [node("t1", 0, 0), node("n1", 0, 0)],
+        configs: { t1: { variant: "table", members: ["n1"] } },
+      });
+      const out = apply(state, schematic.removeNode({ key: "n1" }));
+      expect(out.configs.t1).toEqual({ variant: "table", members: ["n1"] });
+    });
+
+    it("should skip a group config whose members is not an array", () => {
+      const state = empty({
+        nodes: [node("g1", 0, 0), node("n1", 0, 0)],
+        configs: { g1: { variant: "groupBox", members: "n1" } },
+      });
+      const out = apply(state, schematic.removeNode({ key: "n1" }));
+      expect(out.configs.g1).toEqual({ variant: "groupBox", members: "n1" });
+    });
+
+    it("should not cascade on a no-op removal, even for a listed key", () => {
+      const state = empty({
+        nodes: [node("g1", 0, 0), node("n1", 0, 0)],
+        configs: { g1: groupConfig(["n1", "ghost"]) },
+      });
+      const out = apply(state, schematic.removeNode({ key: "ghost" }));
+      expect(out.configs.g1).toEqual(groupConfig(["n1", "ghost"]));
+    });
+
+    it("should skip a config whose variant is not a string", () => {
+      const state = empty({
+        nodes: [node("g1", 0, 0), node("n1", 0, 0)],
+        configs: { g1: { variant: 42, members: ["n1"] } },
+      });
+      const out = apply(state, schematic.removeNode({ key: "n1" }));
+      expect(out.configs.g1).toEqual({ variant: 42, members: ["n1"] });
+    });
+
+    it("should preserve non-string member entries", () => {
+      const state = empty({
+        nodes: [node("g1", 0, 0), node("n1", 0, 0)],
+        configs: { g1: groupConfig([42, "n1", null]) },
+      });
+      const out = apply(state, schematic.removeNode({ key: "n1" }));
+      expect(out.configs.g1).toEqual(groupConfig([42, null]));
+    });
+
+    it("should leave an empty members list untouched", () => {
+      const state = empty({
+        nodes: [node("g1", 0, 0), node("n1", 0, 0)],
+        configs: { g1: groupConfig([]) },
+      });
+      const out = apply(state, schematic.removeNode({ key: "n1" }));
+      expect(out.configs.g1).toEqual(groupConfig([]));
+    });
+
+    it("should drop a self-listing group's config with the node", () => {
+      const state = empty({
+        nodes: [node("g1", 0, 0), node("n1", 0, 0)],
+        configs: { g1: groupConfig(["g1", "n1"]), n1: { label: "Pump" } },
+      });
+      const out = apply(state, schematic.removeNode({ key: "g1" }));
+      expect(out.configs).toEqual({ n1: { label: "Pump" } });
+    });
+
+    it("should splice a membership cycle when one side is removed", () => {
+      const state = empty({
+        nodes: [node("g1", 0, 0), node("g2", 0, 0)],
+        configs: { g1: groupConfig(["g2"]), g2: groupConfig(["g1"]) },
+      });
+      const out = apply(state, schematic.removeNode({ key: "g1" }));
+      expect(out.configs).toEqual({ g2: groupConfig([]) });
+    });
+
+    it("should converge to the same configs regardless of removal order", () => {
+      const build = () =>
+        empty({
+          nodes: [node("g1", 0, 0), node("n1", 0, 0)],
+          configs: { g1: groupConfig(["n1"]), n1: { label: "Pump" } },
+        });
+      const a = apply(
+        build(),
+        schematic.removeNode({ key: "n1" }),
+        schematic.removeNode({ key: "g1" }),
+      );
+      const b = apply(
+        build(),
+        schematic.removeNode({ key: "g1" }),
+        schematic.removeNode({ key: "n1" }),
+      );
+      expect(a.configs).toEqual(b.configs);
+      expect(a.configs).toEqual({});
+      expect(a.nodes).toEqual([]);
+      expect(b.nodes).toEqual([]);
+    });
+
+    it("should splice the key from a large fan of groups", () => {
+      const nodes = [node("n1", 0, 0)];
+      const configs: Record<string, Record<string, unknown>> = {};
+      const expected: Record<string, Record<string, unknown>> = {};
+      for (let i = 0; i < 50; i++) {
+        const key = `g${i}`;
+        nodes.push(node(key, 0, 0));
+        configs[key] = groupConfig(["n1", "other"]);
+        expected[key] = groupConfig(["other"]);
+      }
+      const out = apply(empty({ nodes, configs }), schematic.removeNode({ key: "n1" }));
+      expect(out.configs).toEqual(expected);
+    });
+
+    it("should let a members write applied after the removal win", () => {
+      const state = empty({
+        nodes: [node("g1", 0, 0), node("n1", 0, 0), node("n2", 0, 0)],
+        configs: { g1: groupConfig(["n1", "n2"]) },
+      });
+      const out = apply(
+        state,
+        schematic.removeNode({ key: "n1" }),
+        schematic.setConfig({ key: "g1", config: { members: ["n1", "n2", "n3"] } }),
+      );
+      expect(out.configs.g1).toEqual(groupConfig(["n1", "n2", "n3"]));
+    });
+
+    it("should keep the splice when the removal lands after a members write", () => {
+      const state = empty({
+        nodes: [node("g1", 0, 0), node("n1", 0, 0), node("n2", 0, 0)],
+        configs: { g1: groupConfig(["n1", "n2"]) },
+      });
+      const out = apply(
+        state,
+        schematic.setConfig({ key: "g1", config: { members: ["n1", "n2", "n3"] } }),
+        schematic.removeNode({ key: "n1" }),
+      );
+      expect(out.configs.g1).toEqual(groupConfig(["n2", "n3"]));
+    });
+
+    it("should report the affected group keys as targets", () => {
+      const state = empty({
+        nodes: [node("g1", 0, 0), node("g2", 0, 0), node("n1", 0, 0)],
+        configs: { g1: groupConfig(["n1"]), g2: groupConfig(["other"]) },
+      });
+      const { targets } = schematic.reduceAll(state, [
+        schematic.removeNode({ key: "n1" }),
+      ]);
+      expect(targets).toContain("n1");
+      expect(targets).toContain("g1");
+      expect(targets).not.toContain("g2");
+    });
+
+    it("should report only the removed key as a target when no group lists it", () => {
+      const state = empty({
+        nodes: [node("g1", 0, 0), node("loose", 0, 0)],
+        configs: { g1: groupConfig(["n1"]) },
+      });
+      const { targets } = schematic.reduceAll(state, [
+        schematic.removeNode({ key: "loose" }),
+      ]);
+      expect(targets).toEqual(["loose"]);
+    });
+
+    it("should leave the input state unmodified when cascading", () => {
+      const state = empty({
+        nodes: [node("g1", 0, 0), node("n1", 0, 0)],
+        configs: { g1: groupConfig(["n1", "n2"]) },
+      });
+      const before = structuredClone(state);
+      schematic.reduceAll(state, [schematic.removeNode({ key: "n1" })]);
+      expect(state).toEqual(before);
     });
   });
 
@@ -575,6 +869,99 @@ describe("schematic reducer inverses", () => {
         schematic.removeNode({ key: "ghost" }),
       ]);
       expect(inverse).toEqual([]);
+    });
+  });
+
+  describe("removeNode group member cascade", () => {
+    it("should append a setConfig restoring the group's members to the inverse", () => {
+      const state = empty({
+        nodes: [node("g1", 0, 0), node("n1", 0, 0)],
+        configs: { g1: groupConfig(["a", "n1", "b"]) },
+      });
+      const { inverse } = schematic.reduceAll(state, [
+        schematic.removeNode({ key: "n1" }),
+      ]);
+      expect(inverse).toHaveLength(2);
+      expect(inverse[1]).toEqual(
+        schematic.setConfig({ key: "g1", config: { members: ["a", "n1", "b"] } }),
+      );
+    });
+
+    it("should invert by restoring the node and its membership", () => {
+      const state = empty({
+        nodes: [node("g1", -20, -20), node("n1", 0, 0)],
+        configs: { g1: groupConfig(["n1"]) },
+      });
+      expectRoundTrip(state, [schematic.removeNode({ key: "n1" })]);
+    });
+
+    it("should restore members in their original order", () => {
+      const state = empty({
+        nodes: [node("g1", 0, 0), node("n1", 0, 0)],
+        configs: { g1: groupConfig(["a", "n1", "b"]) },
+      });
+      const { next, inverse } = schematic.reduceAll(state, [
+        schematic.removeNode({ key: "n1" }),
+      ]);
+      const restored = schematic.reduceAll(next, inverse).next;
+      expect(restored.configs.g1).toEqual(groupConfig(["a", "n1", "b"]));
+    });
+
+    it("should restore duplicate member entries on undo", () => {
+      const state = empty({
+        nodes: [node("g1", 0, 0), node("n1", 0, 0)],
+        configs: { g1: groupConfig(["n1", "n1"]) },
+      });
+      const { next, inverse } = schematic.reduceAll(state, [
+        schematic.removeNode({ key: "n1" }),
+      ]);
+      const restored = schematic.reduceAll(next, inverse).next;
+      expect(restored.configs.g1).toEqual(groupConfig(["n1", "n1"]));
+    });
+
+    it("should restore membership in every group that listed the key", () => {
+      const state = empty({
+        nodes: [node("g1", 0, 0), node("g2", 0, 0), node("n1", 0, 0)],
+        configs: {
+          g1: groupConfig(["n1", "a"]),
+          g2: groupConfig(["b", "n1"]),
+        },
+      });
+      const { next, inverse } = schematic.reduceAll(state, [
+        schematic.removeNode({ key: "n1" }),
+      ]);
+      const restored = schematic.reduceAll(next, inverse).next;
+      expect(restored.configs.g1).toEqual(groupConfig(["n1", "a"]));
+      expect(restored.configs.g2).toEqual(groupConfig(["b", "n1"]));
+    });
+
+    it("should restore full membership after undoing a multi-remove batch", () => {
+      const state = empty({
+        nodes: [node("g1", 0, 0), node("n1", 0, 0), node("n2", 0, 0)],
+        configs: { g1: groupConfig(["n1", "n2"]) },
+      });
+      const { next, inverse } = schematic.reduceAll(state, [
+        schematic.removeNode({ key: "n1" }),
+        schematic.removeNode({ key: "n2" }),
+      ]);
+      const restored = schematic.reduceAll(next, inverse).next;
+      expect(restored.configs.g1).toEqual(groupConfig(["n1", "n2"]));
+      const byKey = (ns: schematic.Schematic["nodes"]) =>
+        Object.fromEntries(ns.map((n) => [n.key, n]));
+      expect(byKey(restored.nodes)).toEqual(byKey(state.nodes));
+    });
+
+    it("should splice the member again when the removal is reapplied after undo", () => {
+      const state = empty({
+        nodes: [node("g1", 0, 0), node("n1", 0, 0)],
+        configs: { g1: groupConfig(["n1", "n2"]) },
+      });
+      const action = schematic.removeNode({ key: "n1" });
+      const { next, inverse } = schematic.reduceAll(state, [action]);
+      const restored = schematic.reduceAll(next, inverse).next;
+      const redone = schematic.reduceAll(restored, [action]).next;
+      expect(redone.configs.g1).toEqual(groupConfig(["n2"]));
+      expect(redone.configs.n1).toBeUndefined();
     });
   });
 

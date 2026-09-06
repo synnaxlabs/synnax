@@ -10,8 +10,6 @@
 package op
 
 import (
-	"context"
-
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/x/query"
@@ -35,7 +33,7 @@ func resolveBinary(s *node.State) (lhs, rhs int, err error) {
 	return lhs, rhs, err
 }
 
-func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+func (h *Host) Create(cfg node.Config) (node.Node, error) {
 	if cat, ok := typedOps[cfg.Node.Type]; ok {
 		lhsIdx, rhsIdx, err := resolveBinary(cfg.State)
 		if err != nil {

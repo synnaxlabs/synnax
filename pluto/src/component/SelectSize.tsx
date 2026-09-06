@@ -19,11 +19,13 @@ export interface SelectComponentSizeProps extends Omit<
   "keys"
 > {}
 
-/** A button group for picking a {@link Size}, labeled S, M, and L. */
+/** A button group for picking a {@link Size}, labeled XS through XL. */
 export const SelectSize = (props: SelectComponentSizeProps): ReactElement => (
   <Buttons {...props} keys={SIZES}>
-    <Button itemKey="tiny">S</Button>
-    <Button itemKey="small">M</Button>
-    <Button itemKey="medium">L</Button>
+    <Button itemKey="tiny">XS</Button>
+    <Button itemKey="small">S</Button>
+    <Button itemKey="medium">M</Button>
+    <Button itemKey="large">L</Button>
+    <Button itemKey="huge">XL</Button>
   </Buttons>
 );

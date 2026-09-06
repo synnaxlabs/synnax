@@ -7,12 +7,32 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type status } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/pluto";
 import { act, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, type Mock } from "vitest";
 
 import { Clipboard } from "@/platform/clipboard";
-import { renderHookWithConsole, stubClipboardWriteText } from "@/testutil";
+import {
+  renderHookWithConsole,
+  stubClipboardUnavailable,
+  stubClipboardWriteText,
+  stubCopyCommand,
+  stubCopyCommandThrowing,
+  stubCopyCommandUnavailable,
+} from "@/testutil";
+
+const renderCopy = async () =>
+  await renderHookWithConsole(() => ({
+    copy: Clipboard.useCopy(),
+    notifications: Status.useNotifications(),
+  }));
+
+const hasStatus = (
+  { statuses }: ReturnType<typeof Status.useNotifications>,
+  variant: status.Variant,
+  message: string,
+): boolean => statuses.some((s) => s.variant === variant && s.message === message);
 
 describe("Clipboard.useCopy", () => {
   let writeText: Mock;
@@ -21,37 +41,105 @@ describe("Clipboard.useCopy", () => {
   });
 
   it("writes the text and reports a success status", async () => {
-    const { result } = await renderHookWithConsole(() => ({
-      copy: Clipboard.useCopy(),
-      notifications: Status.useNotifications(),
-    }));
+    const { result } = await renderCopy();
     act(() => result.current.copy("hello", "greeting"));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith("hello"));
     await waitFor(() =>
       expect(
-        result.current.notifications.statuses.some(
-          (s) =>
-            s.variant === "success" && s.message === "Copied greeting to clipboard",
+        hasStatus(
+          result.current.notifications,
+          "success",
+          "Copied greeting to clipboard",
         ),
       ).toBe(true),
     );
   });
 
-  it("reports an error status when the write fails", async () => {
+  // An insecure origin denies the clipboard API, so the copy command carries the text.
+  it("copies through the command when the clipboard API denies the write", async () => {
     writeText = stubClipboardWriteText(async () => {
       throw new Error("denied");
     });
-    const { result } = await renderHookWithConsole(() => ({
-      copy: Clipboard.useCopy(),
-      notifications: Status.useNotifications(),
-    }));
+    const copied = stubCopyCommand();
+    const { result } = await renderCopy();
     act(() => result.current.copy("hello", "greeting"));
     await waitFor(() =>
       expect(
-        result.current.notifications.statuses.some(
-          (s) =>
-            s.variant === "error" &&
-            s.message === "Failed to copy greeting to clipboard",
+        hasStatus(
+          result.current.notifications,
+          "success",
+          "Copied greeting to clipboard",
+        ),
+      ).toBe(true),
+    );
+    expect(copied).toHaveBeenCalledWith("hello");
+  });
+
+  it("copies through the command when the clipboard API is absent", async () => {
+    stubClipboardUnavailable();
+    const copied = stubCopyCommand();
+    const { result } = await renderCopy();
+    act(() => result.current.copy("hello", "greeting"));
+    await waitFor(() => expect(copied).toHaveBeenCalledWith("hello"));
+  });
+
+  it("leaves no scratch element behind after copying through the command", async () => {
+    stubClipboardUnavailable();
+    const copied = stubCopyCommand();
+    const { result } = await renderCopy();
+    act(() => result.current.copy("hello", "greeting"));
+    await waitFor(() => expect(copied).toHaveBeenCalled());
+    expect(document.querySelector("textarea")).toBeNull();
+  });
+
+  it("cleans up and reports an error when the copy command throws", async () => {
+    stubClipboardUnavailable();
+    stubCopyCommandThrowing();
+    const { result } = await renderCopy();
+    act(() => result.current.copy("hello", "greeting"));
+    await waitFor(() =>
+      expect(
+        hasStatus(
+          result.current.notifications,
+          "error",
+          "Failed to copy greeting to clipboard",
+        ),
+      ).toBe(true),
+    );
+    expect(document.querySelector("textarea")).toBeNull();
+  });
+
+  // Pins the behavior for the day an engine drops the deprecated command.
+  it("reports an error status when the copy command is gone", async () => {
+    stubClipboardUnavailable();
+    stubCopyCommandUnavailable();
+    const { result } = await renderCopy();
+    act(() => result.current.copy("hello", "greeting"));
+    await waitFor(() =>
+      expect(
+        hasStatus(
+          result.current.notifications,
+          "error",
+          "Failed to copy greeting to clipboard",
+        ),
+      ).toBe(true),
+    );
+    expect(document.querySelector("textarea")).toBeNull();
+  });
+
+  it("reports an error status when the command also fails", async () => {
+    writeText = stubClipboardWriteText(async () => {
+      throw new Error("denied");
+    });
+    stubCopyCommand(false);
+    const { result } = await renderCopy();
+    act(() => result.current.copy("hello", "greeting"));
+    await waitFor(() =>
+      expect(
+        hasStatus(
+          result.current.notifications,
+          "error",
+          "Failed to copy greeting to clipboard",
         ),
       ).toBe(true),
     );

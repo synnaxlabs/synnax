@@ -155,12 +155,10 @@ var _ = Describe("Control", func() {
 					count := 0
 					cfg.OpenResource = func() (testResource, error) {
 						count++
-						return testResource{
-								value: 11,
-							}, errors.Wrapf(
-								validate.ErrValidation,
-								"could not great gate",
-							)
+						return testResource{value: 11}, errors.Wrapf(
+							validate.ErrValidation,
+							"could not great gate",
+						)
 					}
 					g, t, err := c.OpenGate(cfg)
 					Expect(err).To(MatchError(validate.ErrValidation))

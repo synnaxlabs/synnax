@@ -7,10 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/feature/core/ConnectionBadge.css";
+import "@/feature/core/Badge.css";
 
 import { type connection, status as clientStatus } from "@synnaxlabs/client";
-import { Button, Dialog, Flex, Icon, Synnax, Text, Tooltip } from "@synnaxlabs/pluto";
+import {
+  Button,
+  Dialog,
+  Divider,
+  Flex,
+  Icon,
+  Synnax,
+  Text,
+  Tooltip,
+} from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -18,6 +27,7 @@ import { Clipboard } from "@/platform/clipboard";
 import { Connection } from "@/platform/connection";
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
+import { User } from "@/platform/user";
 import { Session } from "@/session";
 
 interface SummaryProps {
@@ -35,13 +45,14 @@ const Summary = ({ status: { variant, message } }: SummaryProps): ReactElement =
   </Flex.Box>
 );
 
-const Diagnostics = (): ReactElement => {
+const Content = (): ReactElement => {
   const status = Synnax.useConnectionStatus();
   const { variant, details } = status;
   const activeKey = Session.Core.useSelectSelectedKey();
   const core = Session.Core.useSelectSelected();
   const copy = Clipboard.useCopy();
   const openConnect = Core.useConnectModal();
+  const handleLogout = Session.useLogout();
   const { close } = Dialog.useContext();
   const degraded =
     variant === "loading" || variant === "warning" || variant === "error";
@@ -49,18 +60,37 @@ const Diagnostics = (): ReactElement => {
   const copyAddress = (): void => {
     if (core != null) copy(`${core.host}:${core.port}`, "Core address");
   };
+  const editConnection = (): void => {
+    if (activeKey == null) return;
+    close();
+    openConnect({ coreKey: activeKey });
+  };
   return (
     <>
-      <Flex.Box y gap="small" className={CSS.BE("connection-badge", "body")}>
-        <Flex.Box x align="center" gap="medium">
-          <Connection.Indicator className={CSS.BE("connection-badge", "dot")} />
+      <Flex.Box y gap="small" className={CSS.BE("core-badge", "body")}>
+        <Flex.Box
+          x
+          align="center"
+          gap="medium"
+          className={CSS.BE("core-badge", "name")}
+        >
           <Text.Text weight={500} color={10} overflow="ellipsis">
             {core?.name ?? "Core"}
           </Text.Text>
+          {activeKey != null && (
+            <Button.Button
+              aria-label="Edit connection"
+              variant="text"
+              size="tiny"
+              onClick={editConnection}
+            >
+              <Icon.Edit />
+            </Button.Button>
+          )}
           <Text.Text
             status={variant}
             level="small"
-            className={CSS.BE("connection-badge", "state")}
+            className={CSS.BE("core-badge", "state")}
           >
             {Connection.STATUS_LABELS[variant]}
           </Text.Text>
@@ -70,7 +100,7 @@ const Diagnostics = (): ReactElement => {
             x
             align="center"
             gap="small"
-            className={CSS.BE("connection-badge", "address")}
+            className={CSS.BE("core-badge", "address")}
           >
             <Text.Text
               level="small"
@@ -107,24 +137,28 @@ const Diagnostics = (): ReactElement => {
           </Text.Text>
         )}
       </Flex.Box>
+      {activeKey != null && (
+        <>
+          <Divider.Divider x />
+          <User.Info />
+        </>
+      )}
       {(degraded || activeKey != null) && (
-        <Flex.Box x gap="small" className={CSS.BE("connection-badge", "actions")}>
+        <Flex.Box x gap="small" className={CSS.BE("core-badge", "actions")}>
           {degraded && (
             <Connection.Retry variant="filled" size="small" grow justify="center" />
           )}
           {activeKey != null && (
             <Button.Button
-              variant="outlined"
+              onClick={handleLogout}
+              variant="filled"
+              status="error"
               size="small"
               grow
               justify="center"
-              onClick={() => {
-                close();
-                openConnect({ coreKey: activeKey });
-              }}
             >
-              <Icon.Edit />
-              Edit connection
+              <Icon.Logout />
+              Log out
             </Button.Button>
           )}
         </Flex.Box>
@@ -133,9 +167,10 @@ const Diagnostics = (): ReactElement => {
   );
 };
 
-export const ConnectionBadge = (): ReactElement => {
+export const Badge = (): ReactElement => {
   const status = Synnax.useConnectionStatus();
   const { variant } = status;
+  const name = User.useDisplayName();
   return (
     <Dialog.Frame>
       <Tooltip.Dialog location={location.BOTTOM_LEFT}>
@@ -143,22 +178,27 @@ export const ConnectionBadge = (): ReactElement => {
         {/* Button disables itself on "loading" and "disabled", and the badge must
             stay clickable while disconnected. */}
         <Dialog.Trigger
-          aria-label="Connection status"
+          aria-label="Core menu"
           hideCaret
           variant="outlined"
           size="medium"
           rounded="small"
+          gap="small"
           status={clientStatus.removeVariants(variant, ["loading", "disabled"])}
         >
+          <Text.Text className={CSS.BE("core-badge", "user")}>
+            <Icon.User />
+            {name}
+          </Text.Text>
           <Connection.Indicator />
         </Dialog.Trigger>
       </Tooltip.Dialog>
       <Dialog.Dialog
         bordered
         borderColor={7}
-        className={CSS.BE("connection-badge", "dialog")}
+        className={CSS.BE("core-badge", "dialog")}
       >
-        <Diagnostics />
+        <Content />
       </Dialog.Dialog>
     </Dialog.Frame>
   );

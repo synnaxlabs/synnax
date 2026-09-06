@@ -63,7 +63,7 @@ func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, er
 	body["type"] = t.Type
 	body["name"] = t.Name
 	env := imex.Envelope{Version: store.Version()}
-	if err = imex.Encode(&env, body); err != nil {
+	if err = env.Encode(body); err != nil {
 		return imex.Envelope{}, err
 	}
 	return env, nil
@@ -106,7 +106,7 @@ func (s *Service) Import(
 			validate.ErrValidation, "unknown task type %q", env.Type,
 		)
 	}
-	body, err := imex.Decode[map[string]any](ctx, env)
+	body, err := env.Decode[map[string]any](ctx)
 	if err != nil {
 		return ontology.ID{}, err
 	}

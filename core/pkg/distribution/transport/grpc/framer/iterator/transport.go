@@ -63,12 +63,12 @@ func New(pool *fgrpc.Pool) Transport {
 			},
 			ServiceDesc: &pb.IteratorService_ServiceDesc,
 		},
-		server: &server{serverCore: serverCore{
+		server: &server{
 			Internal:           true,
 			RequestTranslator:  pb.IteratorRequestTranslator{},
 			ResponseTranslator: pb.IteratorResponseTranslator{},
 			ServiceDesc:        &pb.IteratorService_ServiceDesc,
-		}},
+		},
 	}
 }
 

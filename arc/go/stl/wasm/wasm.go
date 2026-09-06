@@ -10,7 +10,6 @@
 package wasm
 
 import (
-	"context"
 	"math"
 
 	"github.com/synnaxlabs/arc/runtime/node"
@@ -30,7 +29,7 @@ type Module struct {
 	NodeKeySetter NodeKeySetter
 }
 
-func (w *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+func (w *Module) Create(cfg node.Config) (node.Node, error) {
 	irFn, ok := cfg.Program.Functions.Find(cfg.Node.Type)
 	if !ok {
 		return nil, query.ErrNotFound
@@ -38,6 +37,13 @@ func (w *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	fn := w.Module.ExportedFunction(cfg.Node.Type)
 	if fn == nil {
 		return nil, query.ErrNotFound
+	}
+	def := fn.Definition()
+	if len(irFn.Inputs) != len(def.ParamTypes()) {
+		return nil, errors.Newf(
+			"node %s declares %d inputs, but %q takes %d params",
+			cfg.Node.Key, len(irFn.Inputs), cfg.Node.Type, len(def.ParamTypes()),
+		)
 	}
 	// Each input fills one WASM param slot. Edge-fed inputs (nil Value) are streamed
 	// per sample in Next; literal inputs get their constant value set once here.
@@ -93,6 +99,10 @@ func (w *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		stringOutputs[i] = out.Type.Kind == types.KindString
 	}
 
+	// The reused call stack is separate from params because CallWithStack overwrites it
+	// with the results, and params holds literal values that persist across calls.
+	stack := make([]uint64, max(len(def.ParamTypes()), len(def.ResultTypes())))
+
 	selIdx := -1
 	if idx, err := cfg.State.ResolveInput("$sel"); err == nil {
 		selIdx = idx
@@ -107,6 +117,7 @@ func (w *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		outputValues:  make([]result, len(irFn.Outputs)),
 		memBase:       base,
 		params:        params,
+		stack:         stack,
 		offsets:       make([]int, len(irFn.Outputs)),
 		selIdx:        selIdx,
 		nodeKeySetter: w.NodeKeySetter,

@@ -71,11 +71,12 @@ func (r *recoveryServer) recoverPeer(
 			continue
 		}
 
-		op := Operation{}
-		op.Key = bytes.Clone(dig.Key)
-		op.Version = dig.Version
-		op.Leaseholder = dig.Leaseholder
-		op.Variant = dig.Variant
+		op := Operation{
+			Key:         bytes.Clone(dig.Key),
+			Version:     dig.Version,
+			Leaseholder: dig.Leaseholder,
+			Variant:     dig.Variant,
+		}
 
 		if op.Variant == change.VariantSet {
 			v, closer, getErr := r.Engine.Get(ctx, dig.Key)

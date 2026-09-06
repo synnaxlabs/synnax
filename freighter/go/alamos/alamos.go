@@ -43,7 +43,7 @@ type Config struct {
 // Validate implements config.Config
 func (cfg Config) Validate() error {
 	v := validate.New("falamos.config")
-	validate.NotNil(v, "instrumentation", cfg.Instrumentation)
+	v.NotNil("instrumentation", cfg.Instrumentation)
 	return v.Error()
 }
 
@@ -154,7 +154,8 @@ func log(ctx freighter.Context, err error, cfg Config) {
 	if errors.Skip(err, context.Canceled) != nil {
 		cfg.L.Warn(
 			ctx.Target.String(),
-			append(args, zap.String("error", err.Error()))...)
+			append(args, zap.String("error", err.Error()))...,
+		)
 	} else {
 		cfg.L.Debug(ctx.Target.String(), args...)
 	}

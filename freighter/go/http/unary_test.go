@@ -75,34 +75,29 @@ var _ = BeforeSuite(func() {
 		ctx.Set(fiber.HeaderContentType, "text/plain")
 		return ctx.SendString("just text")
 	})
-	unaryServer = fhttp.NewUnaryServer[test.Request, test.Response](router, "/")
-	unaryServerJSONOnly = fhttp.NewUnaryServer[test.Request, test.Response](
-		router,
+	unaryServer = router.NewUnaryServer[test.Request, test.Response]("/")
+	unaryServerJSONOnly = router.NewUnaryServer[test.Request, test.Response](
 		"/json-only",
 		fhttp.WithRequestDecoders(json.Codec),
 		fhttp.WithResponseEncoders(json.Codec),
 	)
-	unaryServerMsgpackOnly = fhttp.NewUnaryServer[test.Request, test.Response](
-		router,
+	unaryServerMsgpackOnly = router.NewUnaryServer[test.Request, test.Response](
 		"/msgpack-only",
 		fhttp.WithRequestDecoders(msgpack.Codec),
 		fhttp.WithResponseEncoders(msgpack.Codec),
 	)
-	unaryServerFailingEncoder = fhttp.NewUnaryServer[test.Request, test.Response](
-		router,
+	unaryServerFailingEncoder = router.NewUnaryServer[test.Request, test.Response](
 		"/encode-failure",
 		fhttp.WithRequestDecoders(json.Codec),
 		fhttp.WithResponseEncoders(failingEncoder{}),
 	)
-	unaryServerMsgpackErrors = fhttp.NewUnaryServer[test.Request, test.Response](
-		router,
+	unaryServerMsgpackErrors = router.NewUnaryServer[test.Request, test.Response](
 		"/msgpack-errors",
 		fhttp.WithRequestDecoders(json.Codec),
 		fhttp.WithResponseEncoders(failingEncoder{}),
 		fhttp.WithErrorEncoders(msgpack.Codec),
 	)
-	unaryServerNoErrorEncoders = fhttp.NewUnaryServer[test.Request, test.Response](
-		router,
+	unaryServerNoErrorEncoders = router.NewUnaryServer[test.Request, test.Response](
 		"/no-error-encoders",
 		fhttp.WithRequestDecoders(json.Codec),
 		fhttp.WithErrorEncoders(),

@@ -20,6 +20,10 @@ const THEME: Theme = themeZ.parse(SYNNAX_DARK);
 
 const BOX = box.construct({ x: 0, y: 0 }, { width: 60, height: 200 });
 
+const HORIZONTAL = box.construct({ x: 0, y: 0 }, { width: 200, height: 60 });
+
+const GUTTER = scale.gutter({ showScale: true });
+
 const ACCENT = color.construct("#00ff00");
 
 const setup = (state: Record<string, unknown> = {}, value = 50) => {
@@ -60,6 +64,21 @@ const fillRegions = (recorder: canvasTest.Recorder): unknown[][] =>
   recorder.lower2d.calls
     .filter((c) => c.op === "rect" || c.op === "roundRect")
     .map((c) => c.args);
+
+// The rects stroked or filled on the upper canvas, as [x, y, width, height].
+const regions = (recorder: canvasTest.Recorder): number[][] =>
+  recorder.upper2d.calls
+    .filter((c) => c.op === "rect" || c.op === "roundRect")
+    .map((c) => c.args.slice(0, 4) as number[]);
+
+// The color the caret triangle is filled with. Only the caret closes its path, so it is
+// the first fill style set after one.
+const caretFill = (recorder: canvasTest.Recorder): string | undefined => {
+  const { calls } = recorder.upper2d;
+  const closed = calls.findIndex((c) => c.op === "closePath");
+  if (closed < 0) return undefined;
+  return calls.slice(closed).find((c) => c.op === "set:fillStyle")?.args[0] as string;
+};
 
 interface Segment {
   from: xy.XY;
@@ -259,6 +278,107 @@ describe("scale/aether/Scale", () => {
     it("should fill the tick labels with the text color", () => {
       const { recorder } = setup({ showCaret: false, textColor: ACCENT });
       expect(styles(recorder, "fillStyle")).toContain(color.hex(ACCENT));
+    });
+  });
+
+  describe("direction", () => {
+    it("should fill a vertical bar from its bottom edge", () => {
+      const { recorder } = setup({ showCaret: false, showScale: false, color: ACCENT });
+      expect(fillRegions(recorder)[0].slice(0, 4)).toEqual([0, 100, 60, 100]);
+    });
+
+    it("should fill a horizontal bar from its left edge", () => {
+      const { recorder } = setup({
+        box: HORIZONTAL,
+        direction: "x",
+        showCaret: false,
+        showScale: false,
+        color: ACCENT,
+      });
+      expect(fillRegions(recorder)[0].slice(0, 4)).toEqual([0, 0, 100, 60]);
+    });
+
+    it("should move a scale side running along the bar onto the other axis", () => {
+      const { recorder } = setup({
+        box: HORIZONTAL,
+        direction: "x",
+        side: "right",
+        showCaret: false,
+        showFill: false,
+      });
+      const edge = box.height(HORIZONTAL) - GUTTER;
+      expect(
+        segments(recorder).some(({ from, to }) => from.x === to.x && from.y === edge),
+      ).toBe(true);
+    });
+  });
+
+  describe("gutter", () => {
+    it("should reserve room only for a scale drawn inside the box", () => {
+      expect(GUTTER).toBeGreaterThan(0);
+      expect(scale.gutter({ showScale: false })).toEqual(0);
+      expect(scale.gutter({ showScale: true, externalScale: true })).toEqual(0);
+    });
+
+    it("should shrink the bar by the gutter beside it", () => {
+      const { recorder } = setup({ showCaret: false, color: ACCENT });
+      const [x, , width] = fillRegions(recorder)[0] as number[];
+      expect(x).toEqual(0);
+      expect(width).toEqual(box.width(BOX) - GUTTER);
+    });
+
+    it("should hold the bar clear of a scale on the left", () => {
+      const { recorder } = setup({ side: "left", showCaret: false, color: ACCENT });
+      const [x, , width] = fillRegions(recorder)[0] as number[];
+      expect(x).toEqual(GUTTER);
+      expect(width).toEqual(box.width(BOX) - GUTTER);
+    });
+
+    it("should give the bar the whole box when the scale is hidden", () => {
+      const { recorder } = setup({ showScale: false, showCaret: false, color: ACCENT });
+      const [, , width] = fillRegions(recorder)[0] as number[];
+      expect(width).toEqual(box.width(BOX));
+    });
+  });
+
+  describe("readout", () => {
+    it("should place the readout beyond the bar when its side crosses it", () => {
+      const { recorder } = setup({
+        showFill: false,
+        showScale: false,
+        caretSide: "right",
+      });
+      expect(regions(recorder)[0][0]).toBeGreaterThanOrEqual(box.width(BOX));
+    });
+
+    it("should place the readout inside the bar when its side runs along it", () => {
+      const { recorder } = setup({
+        showFill: false,
+        showScale: false,
+        caretSide: "top",
+      });
+      const [x, , width] = regions(recorder)[0];
+      expect(x).toBeGreaterThanOrEqual(0);
+      expect(x + width).toBeLessThanOrEqual(box.width(BOX));
+    });
+
+    it("should contrast the caret against the fill it sits on", () => {
+      const { recorder } = setup({
+        color: ACCENT,
+        showScale: false,
+        caretSide: "bottom",
+      });
+      expect(caretFill(recorder)).toEqual(color.hex(THEME.colors.gray.l1));
+    });
+
+    it("should draw the caret in the value color when there is no fill", () => {
+      const { recorder } = setup({
+        color: ACCENT,
+        showScale: false,
+        showFill: false,
+        caretSide: "bottom",
+      });
+      expect(caretFill(recorder)).toEqual(color.hex(ACCENT));
     });
   });
 });

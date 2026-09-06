@@ -48,11 +48,9 @@ var _ = Describe("Codec", func() {
 							{
 								Name: "test_11",
 								Type: types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
-									},
+									Inputs:        []types.Param{{}},
+									Outputs:       []types.Param{{}},
+									Config:        []types.Param{{}},
 									Kind:          types.Kind(0),
 									Name:          "test_17",
 									Elem:          new(types.Type{}),
@@ -67,11 +65,9 @@ var _ = Describe("Codec", func() {
 							{
 								Name: "test_24",
 								Type: types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
-									},
+									Inputs:        []types.Param{{}},
+									Outputs:       []types.Param{{}},
+									Config:        []types.Param{{}},
 									Kind:          types.Kind(0),
 									Name:          "test_30",
 									Elem:          new(types.Type{}),
@@ -86,11 +82,9 @@ var _ = Describe("Codec", func() {
 							{
 								Name: "test_37",
 								Type: types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
-									},
+									Inputs:        []types.Param{{}},
+									Outputs:       []types.Param{{}},
+									Config:        []types.Param{{}},
 									Kind:          types.Kind(0),
 									Name:          "test_43",
 									Elem:          new(types.Type{}),
@@ -190,11 +184,9 @@ func BenchmarkEncodeDecodeGraph(b *testing.B) {
 					{
 						Name: "test_11",
 						Type: types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{{}},
-								Outputs: []types.Param{{}},
-								Config:  []types.Param{{}},
-							},
+							Inputs:        []types.Param{{}},
+							Outputs:       []types.Param{{}},
+							Config:        []types.Param{{}},
 							Kind:          types.Kind(0),
 							Name:          "test_17",
 							Elem:          new(types.Type{}),
@@ -209,11 +201,9 @@ func BenchmarkEncodeDecodeGraph(b *testing.B) {
 					{
 						Name: "test_24",
 						Type: types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{{}},
-								Outputs: []types.Param{{}},
-								Config:  []types.Param{{}},
-							},
+							Inputs:        []types.Param{{}},
+							Outputs:       []types.Param{{}},
+							Config:        []types.Param{{}},
 							Kind:          types.Kind(0),
 							Name:          "test_30",
 							Elem:          new(types.Type{}),
@@ -228,11 +218,9 @@ func BenchmarkEncodeDecodeGraph(b *testing.B) {
 					{
 						Name: "test_37",
 						Type: types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{{}},
-								Outputs: []types.Param{{}},
-								Config:  []types.Param{{}},
-							},
+							Inputs:        []types.Param{{}},
+							Outputs:       []types.Param{{}},
+							Config:        []types.Param{{}},
 							Kind:          types.Kind(0),
 							Name:          "test_43",
 							Elem:          new(types.Type{}),
@@ -331,11 +319,9 @@ func FuzzDecodeGraph(f *testing.F) {
 						{
 							Name: "test_11",
 							Type: types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
-								},
+								Inputs:        []types.Param{{}},
+								Outputs:       []types.Param{{}},
+								Config:        []types.Param{{}},
 								Kind:          types.Kind(0),
 								Name:          "test_17",
 								Elem:          new(types.Type{}),
@@ -350,11 +336,9 @@ func FuzzDecodeGraph(f *testing.F) {
 						{
 							Name: "test_24",
 							Type: types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
-								},
+								Inputs:        []types.Param{{}},
+								Outputs:       []types.Param{{}},
+								Config:        []types.Param{{}},
 								Kind:          types.Kind(0),
 								Name:          "test_30",
 								Elem:          new(types.Type{}),
@@ -369,11 +353,9 @@ func FuzzDecodeGraph(f *testing.F) {
 						{
 							Name: "test_37",
 							Type: types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
-								},
+								Inputs:        []types.Param{{}},
+								Outputs:       []types.Param{{}},
+								Config:        []types.Param{{}},
 								Kind:          types.Kind(0),
 								Name:          "test_43",
 								Elem:          new(types.Type{}),

@@ -30,7 +30,7 @@ var _ Schema = (*NumberZ)(nil)
 
 // Number is a schema that validates numeric values.
 func Number() NumberZ {
-	n := NumberZ{baseZ: baseZ{dataType: NumberT, expectedType: reflect.TypeFor[int]()}}
+	n := NumberZ{dataType: NumberT, expectedType: reflect.TypeFor[int]()}
 	n.wrapper = n
 	return n
 }

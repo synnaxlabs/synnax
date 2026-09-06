@@ -56,7 +56,7 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 
 				var s status.Status[any]
 				Expect(
-					statusSvc.NewRetrieve().
+					statusSvc.NewRetrieve[any]().
 						Where(status.MatchKeys[any](res.Key)).
 						Entry(&s).
 						Exec(ctx, nil),
@@ -184,7 +184,7 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 				).Error().
 					To(MatchError(access.ErrDenied))
 
-				Expect(statusSvc.NewRetrieve().Where(status.MatchKeys[any](name)).
+				Expect(statusSvc.NewRetrieve[any]().Where(status.MatchKeys[any](name)).
 					Entry(&status.Status[any]{}).
 					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 			},

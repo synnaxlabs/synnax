@@ -80,8 +80,8 @@ func (c *ChannelEntry) ApplyDefaults() {
 func (c ChannelEntry) Validate() error {
 	v := validate.New("ChannelEntry")
 	v.Ternaryf("notation", !c.Notation.IsValid(), "invalid notation: %v", c.Notation)
-	validate.GreaterThanEq(v, "precision", c.Precision, -1)
-	validate.LessThanEq(v, "precision", c.Precision, 17)
+	v.GreaterThanEq("precision", c.Precision, -1)
+	v.LessThanEq("precision", c.Precision, 17)
 	v.Exec(func() error { return validate.PathedError(c.Timestamp.Validate(), "timestamp") })
 	return v.Error()
 }
@@ -115,9 +115,9 @@ func (l *Log) ApplyDefaults() {
 // schema constraints.
 func (l Log) Validate() error {
 	v := validate.New("Log")
-	validate.NotEmptyString(v, "name", l.Name)
-	validate.GreaterThanEq(v, "timestamp_precision", l.TimestampPrecision, 0)
-	validate.LessThanEq(v, "timestamp_precision", l.TimestampPrecision, 3)
+	v.NotEmptyString("name", l.Name)
+	v.GreaterThanEq("timestamp_precision", l.TimestampPrecision, 0)
+	v.LessThanEq("timestamp_precision", l.TimestampPrecision, 3)
 	for i := range l.Channels {
 		v.Exec(func() error { return validate.PathedError(l.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
 	}

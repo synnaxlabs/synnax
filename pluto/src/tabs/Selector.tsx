@@ -272,6 +272,9 @@ const resetTabs = (selector: HTMLElement, snap: boolean): void => {
     tab.style.transform = "";
   });
   if (!snap) return;
+  // Reading the offset forces a reflow so the transition reset applies to the new
+  // positions.
+  // eslint-disable-next-line @typescript-eslint/no-meaningless-void-operator
   void selector.offsetHeight;
   tabs.forEach((tab) => (tab.style.transition = ""));
 };

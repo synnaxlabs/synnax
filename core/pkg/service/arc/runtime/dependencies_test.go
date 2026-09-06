@@ -81,14 +81,12 @@ var _ = Describe("Dependencies", Ordered, func() {
 			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
 
 			prog := arc.Program{
-				IR: ir.IR{
-					Nodes: []ir.Node{
-						{
-							Key:  "read_node",
-							Type: "on",
-							Channels: types.Channels{
-								Read: map[uint32]string{uint32(ch.Key()): "sensor_1"},
-							},
+				Nodes: []ir.Node{
+					{
+						Key:  "read_node",
+						Type: "on",
+						Channels: types.Channels{
+							Read: map[uint32]string{uint32(ch.Key()): "sensor_1"},
 						},
 					},
 				},
@@ -111,15 +109,13 @@ var _ = Describe("Dependencies", Ordered, func() {
 			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
 
 			prog := arc.Program{
-				IR: ir.IR{
-					Nodes: []ir.Node{
-						{
-							Key:  "write_node",
-							Type: "write",
-							Channels: types.Channels{
-								Write: map[uint32]string{
-									uint32(ch.Key()): "actuator_1",
-								},
+				Nodes: []ir.Node{
+					{
+						Key:  "write_node",
+						Type: "write",
+						Channels: types.Channels{
+							Write: map[uint32]string{
+								uint32(ch.Key()): "actuator_1",
 							},
 						},
 					},
@@ -140,14 +136,12 @@ var _ = Describe("Dependencies", Ordered, func() {
 			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
 
 			prog := arc.Program{
-				IR: ir.IR{
-					Nodes: []ir.Node{
-						{
-							Key:  "any_node",
-							Type: "constant",
-							Channels: types.Channels{
-								Write: map[uint32]string{uint32(ch.Key()): "output_1"},
-							},
+				Nodes: []ir.Node{
+					{
+						Key:  "any_node",
+						Type: "constant",
+						Channels: types.Channels{
+							Write: map[uint32]string{uint32(ch.Key()): "output_1"},
 						},
 					},
 				},
@@ -176,15 +170,13 @@ var _ = Describe("Dependencies", Ordered, func() {
 			Expect(channelWriter.Create(ctx, dataCh)).To(Succeed())
 
 			prog := arc.Program{
-				IR: ir.IR{
-					Nodes: []ir.Node{
-						{
-							Key:  "read_node",
-							Type: "on",
-							Channels: types.Channels{
-								Read: map[uint32]string{
-									uint32(dataCh.Key()): "data_with_index",
-								},
+				Nodes: []ir.Node{
+					{
+						Key:  "read_node",
+						Type: "on",
+						Channels: types.Channels{
+							Read: map[uint32]string{
+								uint32(dataCh.Key()): "data_with_index",
 							},
 						},
 					},
@@ -215,15 +207,13 @@ var _ = Describe("Dependencies", Ordered, func() {
 			Expect(channelWriter.Create(ctx, dataCh)).To(Succeed())
 
 			prog := arc.Program{
-				IR: ir.IR{
-					Nodes: []ir.Node{
-						{
-							Key:  "write_node",
-							Type: "write",
-							Channels: types.Channels{
-								Write: map[uint32]string{
-									uint32(dataCh.Key()): "write_data_with_index",
-								},
+				Nodes: []ir.Node{
+					{
+						Key:  "write_node",
+						Type: "write",
+						Channels: types.Channels{
+							Write: map[uint32]string{
+								uint32(dataCh.Key()): "write_data_with_index",
 							},
 						},
 					},
@@ -253,18 +243,16 @@ var _ = Describe("Dependencies", Ordered, func() {
 				Expect(channelWriter.Create(ctx, writeCh)).To(Succeed())
 
 				prog := arc.Program{
-					IR: ir.IR{
-						Nodes: []ir.Node{
-							{
-								Key:  "mixed_node",
-								Type: "transform",
-								Channels: types.Channels{
-									Read: map[uint32]string{
-										uint32(readCh.Key()): "input_sensor",
-									},
-									Write: map[uint32]string{
-										uint32(writeCh.Key()): "output_actuator",
-									},
+					Nodes: []ir.Node{
+						{
+							Key:  "mixed_node",
+							Type: "transform",
+							Channels: types.Channels{
+								Read: map[uint32]string{
+									uint32(readCh.Key()): "input_sensor",
+								},
+								Write: map[uint32]string{
+									uint32(writeCh.Key()): "output_actuator",
 								},
 							},
 						},
@@ -289,24 +277,22 @@ var _ = Describe("Dependencies", Ordered, func() {
 				Expect(channelWriter.Create(ctx, sharedCh)).To(Succeed())
 
 				prog := arc.Program{
-					IR: ir.IR{
-						Nodes: []ir.Node{
-							{
-								Key:  "node_1",
-								Type: "on",
-								Channels: types.Channels{
-									Read: map[uint32]string{
-										uint32(sharedCh.Key()): "shared_channel",
-									},
+					Nodes: []ir.Node{
+						{
+							Key:  "node_1",
+							Type: "on",
+							Channels: types.Channels{
+								Read: map[uint32]string{
+									uint32(sharedCh.Key()): "shared_channel",
 								},
 							},
-							{
-								Key:  "node_2",
-								Type: "on",
-								Channels: types.Channels{
-									Read: map[uint32]string{
-										uint32(sharedCh.Key()): "shared_channel",
-									},
+						},
+						{
+							Key:  "node_2",
+							Type: "on",
+							Channels: types.Channels{
+								Read: map[uint32]string{
+									uint32(sharedCh.Key()): "shared_channel",
 								},
 							},
 						},
@@ -321,9 +307,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 
 		It("Should handle empty module", func(ctx SpecContext) {
 			prog := arc.Program{
-				IR: ir.IR{
-					Nodes: []ir.Node{},
-				},
+				Nodes: []ir.Node{},
 			}
 			deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, prog))
 			Expect(deps.Reads).To(BeEmpty())
@@ -335,13 +319,11 @@ var _ = Describe("Dependencies", Ordered, func() {
 			"Should handle module with nodes that have no channels",
 			func(ctx SpecContext) {
 				prog := arc.Program{
-					IR: ir.IR{
-						Nodes: []ir.Node{
-							{
-								Key:      "constant_node",
-								Type:     "constant",
-								Channels: types.Channels{},
-							},
+					Nodes: []ir.Node{
+						{
+							Key:      "constant_node",
+							Type:     "constant",
+							Channels: types.Channels{},
 						},
 					},
 				}
@@ -355,14 +337,12 @@ var _ = Describe("Dependencies", Ordered, func() {
 
 		It("Should return error when channel retrieval fails", func(ctx SpecContext) {
 			prog := arc.Program{
-				IR: ir.IR{
-					Nodes: []ir.Node{
-						{
-							Key:  "invalid_node",
-							Type: "on",
-							Channels: types.Channels{
-								Read: map[uint32]string{999999: "nonexistent"},
-							},
+				Nodes: []ir.Node{
+					{
+						Key:  "invalid_node",
+						Type: "on",
+						Channels: types.Channels{
+							Read: map[uint32]string{999999: "nonexistent"},
 						},
 					},
 				},
@@ -384,15 +364,13 @@ var _ = Describe("Dependencies", Ordered, func() {
 				Expect(channelWriter.Create(ctx, virtualCh)).To(Succeed())
 
 				prog := arc.Program{
-					IR: ir.IR{
-						Nodes: []ir.Node{
-							{
-								Key:  "read_node",
-								Type: "on",
-								Channels: types.Channels{
-									Read: map[uint32]string{
-										uint32(virtualCh.Key()): "virtual_no_index",
-									},
+					Nodes: []ir.Node{
+						{
+							Key:  "read_node",
+							Type: "on",
+							Channels: types.Channels{
+								Read: map[uint32]string{
+									uint32(virtualCh.Key()): "virtual_no_index",
 								},
 							},
 						},
@@ -491,14 +469,12 @@ var _ = Describe("Dependencies", Ordered, func() {
 				Expect(channelWriter.Create(ctx, authOnlyCh)).To(Succeed())
 
 				prog := arc.Program{
-					IR: ir.IR{
-						Authorities: ir.Authorities{
-							Channels: map[uint32]uint8{
-								uint32(authOnlyCh.Key()): 100,
-							},
+					Authorities: ir.Authorities{
+						Channels: map[uint32]uint8{
+							uint32(authOnlyCh.Key()): 100,
 						},
-						Nodes: []ir.Node{},
 					},
+					Nodes: []ir.Node{},
 				}
 
 				deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, prog))
@@ -543,26 +519,24 @@ var _ = Describe("Dependencies", Ordered, func() {
 				Expect(channelWriter.Create(ctx, writeCh)).To(Succeed())
 
 				prog := arc.Program{
-					IR: ir.IR{
-						Nodes: []ir.Node{
-							{
-								Key:  "read_node",
-								Type: "on",
-								Channels: types.Channels{
-									Read: map[uint32]string{
-										uint32(readCh1.Key()): "complex_read_1",
-										uint32(readCh2.Key()): "complex_read_2",
-									},
+					Nodes: []ir.Node{
+						{
+							Key:  "read_node",
+							Type: "on",
+							Channels: types.Channels{
+								Read: map[uint32]string{
+									uint32(readCh1.Key()): "complex_read_1",
+									uint32(readCh2.Key()): "complex_read_2",
 								},
 							},
-							{
-								Key:  "write_node",
-								Type: "write",
-								Channels: types.Channels{
-									Write: map[uint32]string{
-										uint32(readCh1.Key()): "complex_read_1",
-										uint32(writeCh.Key()): "complex_write",
-									},
+						},
+						{
+							Key:  "write_node",
+							Type: "write",
+							Channels: types.Channels{
+								Write: map[uint32]string{
+									uint32(readCh1.Key()): "complex_read_1",
+									uint32(writeCh.Key()): "complex_write",
 								},
 							},
 						},

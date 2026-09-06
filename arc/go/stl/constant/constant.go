@@ -10,8 +10,6 @@
 package constant
 
 import (
-	"context"
-
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/symbol"
@@ -51,7 +49,7 @@ type Host struct{}
 // NewHost constructs a constant Host.
 func NewHost() *Host { return &Host{} }
 
-func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+func (h *Host) Create(cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName {
 		return nil, query.ErrNotFound
 	}

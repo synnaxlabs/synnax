@@ -369,15 +369,15 @@ func findFuncBody(callSite antlr.ParserRuleContext) parser.IBlockContext {
 func analyzeDeclarations(ctx acontext.Context[parser.IProgramContext]) {
 	for _, item := range ctx.AST.AllTopLevelItem() {
 		if funcDecl := item.FunctionDeclaration(); funcDecl != nil {
-			function.Analyze(acontext.Child(ctx, funcDecl))
+			function.Analyze(ctx.Child(funcDecl))
 		} else if flowStmt := item.FlowStatement(); flowStmt != nil {
-			flow.Analyze(acontext.Child(ctx, flowStmt))
+			flow.Analyze(ctx.Child(flowStmt))
 		} else if seqDecl := item.SequenceDeclaration(); seqDecl != nil {
-			sequence.Analyze(acontext.Child(ctx, seqDecl))
+			sequence.Analyze(ctx.Child(seqDecl))
 		} else if stageDecl := item.StageDeclaration(); stageDecl != nil {
-			sequence.AnalyzeTopLevelStage(acontext.Child(ctx, stageDecl))
+			sequence.AnalyzeTopLevelStage(ctx.Child(stageDecl))
 		} else if varDecl := item.VariableDeclaration(); varDecl != nil {
-			statement.AnalyzeVariableDeclaration(acontext.Child(ctx, varDecl))
+			statement.AnalyzeVariableDeclaration(ctx.Child(varDecl))
 		} else if assign := item.Assignment(); assign != nil {
 			ctx.Diagnostics.Add(diagnostics.Errorf(assign,
 				"cannot reassign a top-level variable; assignment is only valid "+
@@ -417,7 +417,7 @@ func applyTypeSubstitutionsToSymbols[T antlr.ParserRuleContext](
 		scope.Type = ctx.Constraints.ApplySubstitutions(scope.Type)
 	}
 	for _, child := range scope.Children() {
-		applyTypeSubstitutionsToSymbols[T](ctx, child)
+		applyTypeSubstitutionsToSymbols(ctx, child)
 	}
 }
 

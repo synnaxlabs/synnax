@@ -102,12 +102,12 @@ func New(pool *fgrpc.Pool) Transport {
 			},
 			ServiceDesc: &pb.SubscribeService_ServiceDesc,
 		},
-		subscribeServer: &subscribeServer{subscribeServerCore: subscribeServerCore{
+		subscribeServer: &subscribeServer{
 			Internal:           true,
 			RequestTranslator:  pb.SubscribeRequestTranslator,
 			ResponseTranslator: pb.SubscribeResponseTranslator,
 			ServiceDesc:        &pb.SubscribeService_ServiceDesc,
-		}},
+		},
 	}
 }
 

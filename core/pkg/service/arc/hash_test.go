@@ -36,11 +36,9 @@ func graphArc() arc.Arc {
 				{Key: "b", Position: spatial.XY{X: 10, Y: 10}},
 			},
 			Edges: graph.Edges{{
-				Key: "e1",
-				Edge: ir.Edge{
-					Source: ir.Handle{Node: "a", Param: "out"},
-					Target: ir.Handle{Node: "b", Param: "in"},
-				},
+				Key:    "e1",
+				Source: ir.Handle{Node: "a", Param: "out"},
+				Target: ir.Handle{Node: "b", Param: "in"},
 			}},
 			Inputs: map[string]msgpack.EncodedJSON{
 				"a": {"type": "on", "channel": 1},
@@ -109,19 +107,15 @@ var _ = Describe("Hash", func() {
 			reordered := graphArc()
 			reordered.Graph.Nodes[0], reordered.Graph.Nodes[1] = reordered.Graph.Nodes[1], reordered.Graph.Nodes[0]
 			reordered.Graph.Edges = append(graph.Edges{{
-				Key: "e3",
-				Edge: ir.Edge{
-					Source: ir.Handle{Node: "b", Param: "out"},
-					Target: ir.Handle{Node: "a", Param: "in"},
-				},
+				Key:    "e3",
+				Source: ir.Handle{Node: "b", Param: "out"},
+				Target: ir.Handle{Node: "a", Param: "in"},
 			}}, reordered.Graph.Edges...)
 			base := graphArc()
 			base.Graph.Edges = append(base.Graph.Edges, graph.Edge{
-				Key: "e4",
-				Edge: ir.Edge{
-					Source: ir.Handle{Node: "b", Param: "out"},
-					Target: ir.Handle{Node: "a", Param: "in"},
-				},
+				Key:    "e4",
+				Source: ir.Handle{Node: "b", Param: "out"},
+				Target: ir.Handle{Node: "a", Param: "in"},
 			})
 			Expect(MustSucceed(arc.Hash(base))).
 				To(Equal(MustSucceed(arc.Hash(reordered))))

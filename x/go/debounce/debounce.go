@@ -60,10 +60,10 @@ func (c Config) Override(other Config) Config {
 // Validate returns an error if c contains invalid values.
 func (c Config) Validate() error {
 	v := validate.New("debounce")
-	validate.GreaterThan(v, "delay", c.Delay, 0)
-	validate.GreaterThanEq(v, "max_delay", c.MaxDelay, 0)
-	validate.NotNil(v, "clock", c.Clock)
-	validate.NotNil(v, "callback", c.Callback)
+	v.GreaterThan("delay", c.Delay, 0)
+	v.GreaterThanEq("max_delay", c.MaxDelay, 0)
+	v.NotNil("clock", c.Clock)
+	v.NotNil("callback", c.Callback)
 	return v.Error()
 }
 
@@ -119,7 +119,7 @@ func (d *Debouncer) Trigger() {
 		d.fireLocked()
 		return
 	}
-	d.timer = d.cfg.Clock.AfterFunc(delay, func() { d.onTimerFire(gen) })
+	d.timer = d.cfg.Clock.RunAt(now.Add(delay), func() { d.onTimerFire(gen) })
 }
 
 // Stop supersedes any pending timer and cancels any in-flight callback.
@@ -132,9 +132,9 @@ func (d *Debouncer) Stop() {
 	d.firstAtSet = false
 }
 
-// onTimerFire is invoked by Clock.AfterFunc when the timer elapses. The gen check
-// guards against a timer that fired between a concurrent Trigger/Stop calling
-// timer.Stop (which returned false) and the firing goroutine acquiring d.mu.
+// onTimerFire is invoked by Clock.RunAt when the timer elapses. The gen check guards
+// against a timer that fired between a concurrent Trigger/Stop calling timer.Stop
+// (which returned false) and the firing goroutine acquiring d.mu.
 func (d *Debouncer) onTimerFire(gen uint64) {
 	d.mu.Lock()
 	defer d.mu.Unlock()

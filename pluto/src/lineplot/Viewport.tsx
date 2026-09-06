@@ -19,6 +19,8 @@ import {
 
 import { CSS } from "@/css";
 import { useContext } from "@/lineplot/Frame";
+import { Status } from "@/status/base";
+import { Text } from "@/text";
 import { Viewport as Base } from "@/viewport";
 
 export interface ViewportProps extends PropsWithChildren, Base.UseProps {}
@@ -33,7 +35,7 @@ export const Viewport = ({
   onChange,
   ...rest
 }: ViewportProps): ReactElement => {
-  const { setViewport } = useContext("LinePlot.Viewport");
+  const { setViewport, loading, loadingMessage } = useContext("LinePlot.Viewport");
 
   useLayoutEffect(() => {
     setViewport({ box: initial, mode: "zoom", cursor: xy.ZERO, stage: "start" });
@@ -51,6 +53,16 @@ export const Viewport = ({
 
   return (
     <Base.Mask className={CSS.BE("line-plot", "viewport")} {...maskProps}>
+      {loading && (
+        <Status.Loading className={CSS.BE("line-plot", "loading")}>
+          <Status.Orbital />
+          {loadingMessage != null && (
+            <Text.Text className={CSS.BE("line-plot", "loading-message")}>
+              {loadingMessage}
+            </Text.Text>
+          )}
+        </Status.Loading>
+      )}
       {children}
     </Base.Mask>
   );

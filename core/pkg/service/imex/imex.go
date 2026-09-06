@@ -170,9 +170,7 @@ func (e *Envelope) unmarshal(m map[string]any, raw []byte, codec encoding.Codec)
 // Decode materializes the envelope body as T using the codec bound when the envelope
 // was unmarshaled. T may name only the fields it needs. Envelopes built by Encode have
 // no codec bound and must be marshaled and unmarshaled before Decode.
-//
-// Decode is a free function because Go has no generic methods.
-func Decode[T any](ctx context.Context, e Envelope) (T, error) {
+func (e Envelope) Decode[T any](ctx context.Context) (T, error) {
 	var t T
 	if e.codec == nil {
 		return t, errors.New(
@@ -205,7 +203,7 @@ type BodyExporter interface {
 //
 // data may be a map[string]any, which is merged flat; any other value must be a struct.
 // A BodyExporter is reduced through ExportBody instead of directly.
-func Encode[T any](env *Envelope, data T) error {
+func (env *Envelope) Encode[T any](data T) error {
 	value := any(data)
 	if b, ok := value.(BodyExporter); ok {
 		value = b.ExportBody()

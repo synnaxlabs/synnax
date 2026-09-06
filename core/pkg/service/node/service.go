@@ -56,9 +56,9 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("node")
-	validate.NotNil(v, "cluster", c.Cluster)
-	validate.NotNil(v, "ontology", c.Ontology)
-	validate.NotNil(v, "search", c.Search)
+	v.NotNil("cluster", c.Cluster)
+	v.NotNil("ontology", c.Ontology)
+	v.NotNil("search", c.Search)
 	return v.Error()
 }
 

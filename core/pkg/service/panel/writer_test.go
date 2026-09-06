@@ -74,7 +74,7 @@ var _ = Describe("Writer", func() {
 				resource := tabResource(uuid.New())
 				duplicated := func() panel.Tab {
 					return panel.Tab{Variant: panel.ResourceTab{
-						TabBase:  panel.TabBase{Key: uuid.New()},
+						Key:      uuid.New(),
 						Resource: resource,
 					}}
 				}
@@ -83,7 +83,7 @@ var _ = Describe("Writer", func() {
 			}, "duplicate resource in panel tree"),
 			Entry("resource tab type outside the registry", func() panel.Node {
 				return leafNode(panel.Tab{Variant: panel.ResourceTab{
-					TabBase:  panel.TabBase{Key: uuid.New()},
+					Key:      uuid.New(),
 					Resource: ontology.ID{Type: "user", Key: uuid.New().String()},
 				}})
 			}, "resource tab cannot display a user"),
@@ -333,7 +333,7 @@ var _ = Describe("Writer", func() {
 				tabs := MustBeOk(asLeaf(retrieve(ctx, key).Root)).Tabs
 				Expect(tabs).To(HaveLen(1))
 				Expect(tabs[0].Variant).To(Equal(panel.ResourceTab{
-					TabBase:  panel.TabBase{Key: tabKey},
+					Key:      tabKey,
 					Resource: tabResource(tabKey),
 				}))
 			},
