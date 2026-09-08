@@ -57,7 +57,7 @@ func Open(
 	if err = configureTransport(o); !ok(err, o.transport) {
 		return nil, err
 	}
-	// The transport binds in configureTransport, so this is the first point at which a
+	// The transport binds in configureTransport, so this is the first point at which an
 	// operating system-assigned port is known.
 	o.cluster.HostAddress = o.transport.Address()
 	if db.Cluster, err = cluster.Open(ctx, o.cluster); !ok(err, db.Cluster) {
