@@ -807,6 +807,22 @@ class TestHTTPHealthCheck:
         assert hc["method"] == "GET"
         assert hc["headers"] == [{"name": "Accept", "value": "application/json"}]
 
+    def test_health_check_validate_response_flag(self):
+        """Test that validate_response mirrors whether a response is configured."""
+        dev = sy.http.Device(host="localhost:8080")
+        assert dev.properties["health_check"]["validate_response"] is False
+        dev = sy.http.Device(
+            host="localhost:8080",
+            health_check=sy.http.HealthCheck(
+                response=sy.http.ExpectedResponse(
+                    pointer="/status",
+                    expected_value_type="string",
+                    expected_value="ok",
+                ),
+            ),
+        )
+        assert dev.properties["health_check"]["validate_response"] is True
+
 
 @pytest.mark.http
 class TestHTTPDevicePropertyUpdates:

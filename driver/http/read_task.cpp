@@ -290,10 +290,10 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
         this->requests.size() > this->requests.front().max_concurrent_requests &&
         tick > this->cfg.rate.period())
         warnings.push_back(
-            std::to_string(this->requests.size()) + " endpoints polled " +
+            std::to_string(this->requests.size()) + " endpoints (polled " +
             std::to_string(this->requests.front().max_concurrent_requests) +
-            " at a time overran the period, lower the rate or raise max concurrent "
-            "requests on the device"
+            " at a time) overran the period. Lower the rate or raise the max "
+            "concurrent requests in the device properties."
         );
 
     // Process each sampling group atomically: either all fields in the group succeed

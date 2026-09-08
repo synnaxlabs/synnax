@@ -236,7 +236,10 @@ class Device(device.Device):
             "timeout_ms": timeout_ms,
             "max_concurrent_requests": max_concurrent_requests,
             "auth": auth if auth is not None else {"type": "none"},
-            "health_check": health_check.model_dump(exclude_none=True),
+            "health_check": {
+                **health_check.model_dump(exclude_none=True),
+                "validate_response": health_check.response is not None,
+            },
             "read": {},
             "write": {},
             "version": 1,

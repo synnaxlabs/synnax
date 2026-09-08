@@ -1631,7 +1631,7 @@ TEST(HTTPReadTask, CapWarningWhenPollOverrunsPeriod) {
     breaker.stop();
     ASSERT_NIL(res.error);
     EXPECT_EQ(fr.size(), 3);
-    EXPECT_NE(res.warning.find("3 endpoints polled 1 at a time"), std::string::npos);
+    EXPECT_NE(res.warning.find("3 endpoints (polled 1 at a time)"), std::string::npos);
 }
 
 /// @brief more endpoints than slots finishing within the period should not warn.
