@@ -243,11 +243,18 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
                 <Form.SwitchField path="properties.secure" label="HTTPS" />
                 <Form.SwitchField path="properties.verifySsl" label="Verify SSL" />
               </Flex.Box>
-              <Form.NumericField
-                path="properties.timeoutMs"
-                label="Expected response time"
-                inputProps={TIMEOUT_INPUT_PROPS}
-              />
+              <Flex.Box x>
+                <Form.NumericField
+                  path="properties.timeoutMs"
+                  label="Expected response time"
+                  inputProps={TIMEOUT_INPUT_PROPS}
+                />
+                <Form.NumericField
+                  path="properties.maxConcurrentRequests"
+                  label="Max concurrent requests"
+                  inputProps={MAX_CONCURRENT_REQUESTS_INPUT_PROPS}
+                />
+              </Flex.Box>
               <Divider.Divider x />
             </Flex.Box>
             <Flex.Box gap="small">
@@ -441,6 +448,11 @@ const NAME_INPUT_PROPS = {
 const HOST_INPUT_PROPS = { autoFocus: true, placeholder: "www.example.com" } as const;
 
 const TIMEOUT_INPUT_PROPS = { endContent: "ms", style: { width: "23rem" } } as const;
+
+const MAX_CONCURRENT_REQUESTS_INPUT_PROPS = {
+  bounds: { lower: 1, upper: Infinity },
+  style: { width: "23rem" },
+} as const;
 
 const AUTH_TOKEN_INPUT_PROPS = {
   placeholder: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",

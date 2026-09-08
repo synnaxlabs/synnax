@@ -657,6 +657,7 @@ class TestHTTPDevice:
         assert props["secure"] is True
         assert props["verify_ssl"] is True
         assert props["timeout_ms"] == 100
+        assert props["max_concurrent_requests"] == 6
         assert props["auth"] == {"type": "none"}
         assert props["version"] == 1
 
@@ -666,6 +667,7 @@ class TestHTTPDevice:
             host="192.168.1.100:9090",
             secure=False,
             timeout_ms=5000,
+            max_concurrent_requests=2,
             verify_ssl=False,
             auth={"type": "bearer", "token": "my-token"},
             name="My Server",
@@ -675,9 +677,16 @@ class TestHTTPDevice:
         props = dev.properties
         assert props["secure"] is False
         assert props["timeout_ms"] == 5000
+        assert props["max_concurrent_requests"] == 2
         assert props["verify_ssl"] is False
         assert props["auth"]["type"] == "bearer"
         assert props["auth"]["token"] == "my-token"
+
+    @pytest.mark.parametrize("value", [0, -1])
+    def test_device_rejects_non_positive_max_concurrent_requests(self, value: int):
+        """Test that Device rejects a max_concurrent_requests below 1."""
+        with pytest.raises(ValueError):
+            sy.http.Device(host="127.0.0.1:8080", max_concurrent_requests=value)
 
     def test_device_basic_auth(self):
         """Test device with basic authentication."""
@@ -802,6 +811,20 @@ class TestHTTPHealthCheck:
 @pytest.mark.http
 class TestHTTPDevicePropertyUpdates:
     """Tests that device properties are correctly updated with channel mappings."""
+
+    def test_max_concurrent_requests_round_trip(self, client: sy.Synnax):
+        """Test that max_concurrent_requests survives create and retrieve."""
+        rack = client.racks.retrieve_embedded_rack()
+        device = sy.http.Device(
+            host="127.0.0.1:8080",
+            secure=False,
+            max_concurrent_requests=3,
+            name="Test HTTP Cap Device",
+            rack=rack.key,
+        )
+        client.devices.create(device)
+        retrieved = client.devices.retrieve(key=device.key)
+        assert retrieved.properties["max_concurrent_requests"] == 3
 
     def test_read_task_updates_device_properties(self, client: sy.Synnax):
         """Test that configuring a ReadTask updates device properties."""

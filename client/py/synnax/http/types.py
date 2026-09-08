@@ -182,6 +182,7 @@ class Device(device.Device):
     :param host: Host and port of the HTTP server (e.g. "127.0.0.1:8081").
     :param secure: Whether to use HTTPS (True) or HTTP (False).
     :param timeout_ms: Request timeout in milliseconds.
+    :param max_concurrent_requests: Cap on in-flight requests to the server.
     :param verify_ssl: Whether to verify SSL certificates.
     :param auth: Authentication config dict (see examples below).
     :param health_check: Health check endpoint config.
@@ -214,6 +215,7 @@ class Device(device.Device):
         host: str,
         secure: bool = True,
         timeout_ms: int = 100,
+        max_concurrent_requests: int = 6,
         verify_ssl: bool = True,
         auth: dict[str, Any] | None = None,
         health_check: HealthCheck | None = None,
@@ -226,10 +228,13 @@ class Device(device.Device):
             key = str(uuid4())
         if health_check is None:
             health_check = HealthCheck()
+        if max_concurrent_requests < 1:
+            raise ValueError("max_concurrent_requests must be at least 1")
         props: dict[str, Any] = {
             "secure": secure,
             "verify_ssl": verify_ssl,
             "timeout_ms": timeout_ms,
+            "max_concurrent_requests": max_concurrent_requests,
             "auth": auth if auth is not None else {"type": "none"},
             "health_check": health_check.model_dump(exclude_none=True),
             "read": {},

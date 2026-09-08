@@ -187,6 +187,7 @@ export const ZERO_HEALTH_CHECK = {
 export type HealthCheckMethod = HealthCheck["method"];
 
 const defaultTimeoutMs = TimeSpan.milliseconds(100).milliseconds;
+const defaultMaxConcurrentRequests = 6;
 
 const v0PropertiesZ = z.object({
   secure: z.boolean().default(true),
@@ -212,6 +213,11 @@ const v1PropertiesZ = v0PropertiesZ
   .omit({ auth: true, headers: true, queryParams: true, readIndexes: true })
   .extend({
     auth: authConfigZ,
+    maxConcurrentRequests: z
+      .number()
+      .int()
+      .positive("Max concurrent requests must be at least 1")
+      .default(defaultMaxConcurrentRequests),
     healthCheck: healthCheckZ.default(ZERO_HEALTH_CHECK),
     write: z.record(z.string(), channel.keyZ).default({}),
     read: z.record(z.string(), readEndpointPropsZ).default({}),
@@ -244,6 +250,7 @@ export const propertiesZ: z.ZodType<Properties> = v1PropertiesZ.or(
     return {
       ...rest,
       auth: newAuth,
+      maxConcurrentRequests: defaultMaxConcurrentRequests,
       read,
       version: 1,
       healthCheck: ZERO_HEALTH_CHECK,
@@ -257,6 +264,7 @@ export const ZERO_PROPERTIES = {
   verifySsl: true,
   timeoutMs: defaultTimeoutMs,
   auth: ZERO_AUTH_CONFIGS.none,
+  maxConcurrentRequests: defaultMaxConcurrentRequests,
   healthCheck: ZERO_HEALTH_CHECK,
   write: {},
   read: {},
