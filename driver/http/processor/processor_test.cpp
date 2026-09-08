@@ -1801,4 +1801,190 @@ TEST(ProcessorTest, ShutdownFailsActiveAndWaitingRequests) {
     server.stop();
 }
 
+TEST(ProcessorTest, PollTimeoutDoesNotDelayRequestTimeout) {
+    mock::ServerConfig server_cfg;
+    server_cfg.routes = {delayed_route("/slow", 500 * x::telem::MILLISECOND)};
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    auto req = make_request(server.base_url(), "/slow");
+    req.timeout = 100 * x::telem::MILLISECOND;
+
+    Processor proc(1 * x::telem::SECOND);
+    const auto start = std::chrono::steady_clock::now();
+    ASSERT_OCCURRED_AS_P(proc.execute(req), errors::UNREACHABLE_ERROR);
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(500));
+
+    server.stop();
+}
+
+TEST(ProcessorTest, PollTimeoutDoesNotDelayCompletion) {
+    mock::ServerConfig server_cfg;
+    server_cfg.routes = {delayed_route("/fast", 50 * x::telem::MILLISECOND)};
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    auto req = make_request(server.base_url(), "/fast");
+    req.timeout = 5 * x::telem::SECOND;
+
+    Processor proc(1 * x::telem::SECOND);
+    const auto start = std::chrono::steady_clock::now();
+    ASSERT_NIL_P(proc.execute(req));
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(500));
+
+    server.stop();
+}
+
+TEST(ProcessorTest, PollTimeoutDoesNotDelaySubmissionWhileActive) {
+    mock::ServerConfig server_cfg;
+    server_cfg.routes = {
+        delayed_route("/slow", 500 * x::telem::MILLISECOND),
+        delayed_route("/fast", x::telem::TimeSpan()),
+    };
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    auto slow = make_request(server.base_url(), "/slow");
+    slow.timeout = 5 * x::telem::SECOND;
+    auto fast = make_request(server.base_url(), "/fast");
+    fast.timeout = 5 * x::telem::SECOND;
+
+    Processor proc(1 * x::telem::SECOND);
+    std::pair<Response, x::errors::Error> slow_result;
+    std::thread caller([&] { slow_result = proc.execute(slow); });
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+    const auto start = std::chrono::steady_clock::now();
+    ASSERT_NIL_P(proc.execute(fast));
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(300));
+
+    caller.join();
+    ASSERT_NIL(slow_result.second);
+    server.stop();
+}
+
+TEST(ProcessorTest, DefaultPollTimeoutIs100ms) {
+    EXPECT_EQ(DEFAULT_ACTIVE_POLL_TIMEOUT, 100 * x::telem::MILLISECOND);
+}
+
+TEST(ProcessorTest, PollTimeoutDoesNotDelayGateDispatch) {
+    const auto delay = 50 * x::telem::MILLISECOND;
+    mock::ServerConfig server_cfg;
+    server_cfg.routes = {delayed_route("/a", delay), delayed_route("/b", delay)};
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    std::vector<Request> reqs = {
+        make_gated_request(server.base_url(), "/a", 1),
+        make_gated_request(server.base_url(), "/b", 1),
+    };
+    for (auto &req: reqs)
+        req.timeout = 5 * x::telem::SECOND;
+
+    Processor proc(1 * x::telem::SECOND);
+    const auto start = std::chrono::steady_clock::now();
+    const auto results = proc.execute(reqs);
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(500));
+    ASSERT_EQ(results.size(), 2);
+    for (const auto &result: results)
+        ASSERT_NIL(result.second);
+    EXPECT_GE(results[1].first.time_range.start, results[0].first.time_range.end);
+
+    server.stop();
+}
+
+TEST(ProcessorTest, PollTimeoutDoesNotDelaySkip) {
+    mock::ServerConfig server_cfg;
+    server_cfg.routes = {delayed_route("/slow", 500 * x::telem::MILLISECOND)};
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    std::vector<Request> reqs = {
+        make_gated_request(server.base_url(), "/slow", 1),
+        make_gated_request(server.base_url(), "/slow", 1),
+    };
+
+    Processor proc(1 * x::telem::SECOND);
+    const auto start = std::chrono::steady_clock::now();
+    const auto results = proc.execute(reqs);
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(500));
+    ASSERT_EQ(results.size(), 2);
+    ASSERT_OCCURRED_AS_P(results[0], errors::UNREACHABLE_ERROR);
+    ASSERT_OCCURRED_AS_P(results[1], errors::SKIPPED_ERROR);
+
+    server.stop();
+}
+
+TEST(ProcessorTest, PollTimeoutDoesNotDelayFasterServer) {
+    mock::ServerConfig slow_cfg;
+    slow_cfg.routes = {delayed_route("/slow", 500 * x::telem::MILLISECOND)};
+    mock::Server slow_server(slow_cfg);
+    ASSERT_NIL(slow_server.start());
+    mock::ServerConfig fast_cfg;
+    fast_cfg.routes = {delayed_route("/fast", x::telem::TimeSpan())};
+    mock::Server fast_server(fast_cfg);
+    ASSERT_NIL(fast_server.start());
+
+    std::vector<Request> reqs = {
+        make_request(slow_server.base_url(), "/slow"),
+        make_request(fast_server.base_url(), "/fast"),
+    };
+    for (auto &req: reqs)
+        req.timeout = 5 * x::telem::SECOND;
+
+    Processor proc(1 * x::telem::SECOND);
+    const auto start = x::telem::TimeStamp::now();
+    const auto results = proc.execute(reqs);
+    ASSERT_EQ(results.size(), 2);
+    for (const auto &result: results)
+        ASSERT_NIL(result.second);
+    EXPECT_LT(results[1].first.time_range.end - start, 300 * x::telem::MILLISECOND);
+    EXPECT_GE(results[0].first.time_range.end - start, 500 * x::telem::MILLISECOND);
+
+    slow_server.stop();
+    fast_server.stop();
+}
+
+TEST(ProcessorTest, SubmissionWakesIdleLoop) {
+    mock::ServerConfig server_cfg;
+    server_cfg.routes = {delayed_route("/fast", x::telem::TimeSpan())};
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    auto req = make_request(server.base_url(), "/fast");
+    req.timeout = 5 * x::telem::SECOND;
+
+    Processor proc(1 * x::telem::SECOND);
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    const auto start = std::chrono::steady_clock::now();
+    for (int i = 0; i < 5; i++)
+        ASSERT_NIL_P(proc.execute(req));
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(500));
+
+    server.stop();
+}
+
+TEST(ProcessorTest, ShutdownWakesActivePoll) {
+    mock::ServerConfig server_cfg;
+    server_cfg.routes = {delayed_route("/slow", 500 * x::telem::MILLISECOND)};
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    auto req = make_request(server.base_url(), "/slow");
+    req.timeout = 5 * x::telem::SECOND;
+
+    auto proc = std::make_unique<Processor>(1 * x::telem::SECOND);
+    std::pair<Response, x::errors::Error> result;
+    std::thread caller([&] { result = proc->execute(req); });
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+    const auto start = std::chrono::steady_clock::now();
+    proc.reset();
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(300));
+
+    caller.join();
+    ASSERT_OCCURRED_AS_P(result, errors::CRITICAL_ERROR);
+    server.stop();
+}
+
 }

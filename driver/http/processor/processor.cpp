@@ -22,12 +22,6 @@ namespace {
 /// curl_multi_wakeup.
 const auto IDLE_POLL_TIMEOUT = static_cast<long>(x::telem::SECOND.milliseconds());
 
-/// @brief maximum time the event loop blocks between I/O checks while transfers are
-/// in-flight. Caps how long newly submitted requests wait to be picked up when no
-/// socket activity occurs.
-const auto ACTIVE_POLL_TIMEOUT = static_cast<long>(
-    x::telem::MILLISECOND.milliseconds()
-);
 const auto SKIPPED = x::errors::Error(
     http::errors::SKIPPED_ERROR,
     "not sent, an earlier request to the device was unreachable"
@@ -143,7 +137,8 @@ CURL *Processor::create_handle(const Request &req, ActiveTransfer &t) {
     return handle;
 }
 
-Processor::Processor() {
+Processor::Processor(const x::telem::TimeSpan active_poll_timeout):
+    active_poll_timeout_ms(static_cast<int>(active_poll_timeout.milliseconds())) {
     ensure_curl_initialized();
     this->multi = curl_multi_init();
     this->io_thread = std::thread([this] { run(); });
@@ -275,7 +270,13 @@ void Processor::run() {
         }
 
         if (!this->active.empty())
-            curl_multi_poll(this->multi, nullptr, 0, ACTIVE_POLL_TIMEOUT, nullptr);
+            curl_multi_poll(
+                this->multi,
+                nullptr,
+                0,
+                this->active_poll_timeout_ms,
+                nullptr
+            );
     }
 
     const auto err = x::errors::Error(

@@ -31,12 +31,19 @@
 #include "driver/http/types/types.h"
 
 namespace driver::http {
+/// @brief longest the event loop waits between checks while transfers are in flight.
+inline const auto DEFAULT_ACTIVE_POLL_TIMEOUT = 100 * x::telem::MILLISECOND;
+
 /// @brief background event loop that drives all HTTP I/O through a single persistent
 /// curl multi handle. Task threads submit Request objects and block on futures; the
 /// event loop thread owns all curl handles internally.
 class Processor {
 public:
-    Processor();
+    /// @param active_poll_timeout longest wait between checks while transfers are in
+    /// flight. Socket activity, new submissions, and libcurl timers end it early.
+    explicit Processor(
+        x::telem::TimeSpan active_poll_timeout = DEFAULT_ACTIVE_POLL_TIMEOUT
+    );
     ~Processor();
 
     Processor(const Processor &) = delete;
@@ -99,6 +106,7 @@ private:
     void fail_all(const x::errors::Error &err);
 
     CURLM *multi = nullptr;
+    int active_poll_timeout_ms;
     std::thread io_thread;
     std::atomic<bool> running{true};
     std::mutex queue_mutex;
