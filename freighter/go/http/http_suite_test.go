@@ -33,9 +33,6 @@ func newFiberApp(cfg fiber.Config) *fiber.App {
 	return app
 }
 
-// serveApp binds a listener on an ephemeral localhost port, serves the app on it in a
-// background goroutine, and returns the address the app answers on. The caller keeps
-// ownership of the app and must shut it down.
 func serveApp(app *fiber.App) address.Address {
 	GinkgoHelper()
 	lis := MustSucceed(net.Listen("tcp", "localhost:0"))

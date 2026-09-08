@@ -18,16 +18,12 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Grpc", func() {
-	It("Should start a grpc server", func() {
+var _ = Describe("gRPC", func() {
+	It("Should start a gRPC server", func() {
 		b := MustSucceed(server.Serve(server.Config{
 			Listeners: []server.Listener{{Address: "localhost:0"}},
-			Security: server.SecurityConfig{
-				Insecure: new(true),
-			},
-			Branches: []server.Branch{
-				&server.GRPCBranch{},
-			},
+			Security:  server.SecurityConfig{Insecure: new(true)},
+			Branches:  []server.Branch{&server.GRPCBranch{}},
 		}))
 		time.Sleep(10 * time.Millisecond)
 		Expect(b.Close()).To(Succeed())

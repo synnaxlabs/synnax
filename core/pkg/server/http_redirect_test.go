@@ -24,7 +24,7 @@ import (
 )
 
 var _ = Describe("HttpRedirect", func() {
-	It("Should redirect http requests to https", func() {
+	It("Should redirect HTTP requests to HTTPS", func() {
 		fs := xfs.NewMem()
 		mock.GenerateCerts(fs)
 		prov := MustSucceed(security.NewProvider(security.ProviderConfig{

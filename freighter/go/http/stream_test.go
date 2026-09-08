@@ -26,8 +26,6 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// serveRouter serves the router on an ephemeral port, returning once the app is
-// answering requests. All servers must be registered on the router first.
 func serveRouter(router *fhttp.Router) (*fiber.App, address.Address) {
 	GinkgoHelper()
 	app := newFiberApp(fiber.Config{})
