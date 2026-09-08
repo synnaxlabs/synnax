@@ -35,16 +35,17 @@ const (
 )
 
 type IteratorRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Command       int32                  `protobuf:"varint,1,opt,name=command,proto3" json:"command,omitempty"`
-	Stamp         int64                  `protobuf:"varint,2,opt,name=stamp,proto3" json:"stamp,omitempty"`
-	Span          int64                  `protobuf:"varint,3,opt,name=span,proto3" json:"span,omitempty"`
-	Bounds        *pb.TimeRange          `protobuf:"bytes,4,opt,name=bounds,proto3" json:"bounds,omitempty"`
-	Keys          []uint32               `protobuf:"varint,6,rep,packed,name=keys,proto3" json:"keys,omitempty"`
-	ChunkSize     int64                  `protobuf:"varint,7,opt,name=chunk_size,json=chunkSize,proto3" json:"chunk_size,omitempty"`
-	SeqNum        int32                  `protobuf:"varint,8,opt,name=seq_num,json=seqNum,proto3" json:"seq_num,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Command          int32                  `protobuf:"varint,1,opt,name=command,proto3" json:"command,omitempty"`
+	Stamp            int64                  `protobuf:"varint,2,opt,name=stamp,proto3" json:"stamp,omitempty"`
+	Span             int64                  `protobuf:"varint,3,opt,name=span,proto3" json:"span,omitempty"`
+	Bounds           *pb.TimeRange          `protobuf:"bytes,4,opt,name=bounds,proto3" json:"bounds,omitempty"`
+	Keys             []uint32               `protobuf:"varint,6,rep,packed,name=keys,proto3" json:"keys,omitempty"`
+	ChunkSize        int64                  `protobuf:"varint,7,opt,name=chunk_size,json=chunkSize,proto3" json:"chunk_size,omitempty"`
+	SeqNum           int32                  `protobuf:"varint,8,opt,name=seq_num,json=seqNum,proto3" json:"seq_num,omitempty"`
+	DownsampleFactor int32                  `protobuf:"varint,9,opt,name=downsample_factor,json=downsampleFactor,proto3" json:"downsample_factor,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *IteratorRequest) Reset() {
@@ -122,6 +123,13 @@ func (x *IteratorRequest) GetChunkSize() int64 {
 func (x *IteratorRequest) GetSeqNum() int32 {
 	if x != nil {
 		return x.SeqNum
+	}
+	return 0
+}
+
+func (x *IteratorRequest) GetDownsampleFactor() int32 {
+	if x != nil {
+		return x.DownsampleFactor
 	}
 	return 0
 }
@@ -622,7 +630,7 @@ var File_core_pkg_distribution_framer_pb_framer_proto protoreflect.FileDescripto
 
 const file_core_pkg_distribution_framer_pb_framer_proto_rawDesc = "" +
 	"\n" +
-	",core/pkg/distribution/framer/pb/framer.proto\x12\x1asynnax.distribution.framer\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1dx/go/control/pb/control.proto\x1a\x18x/go/errors/errors.proto\x1a\x19x/go/telem/pb/frame.proto\x1a\x19x/go/telem/pb/telem.proto\"\xd0\x01\n" +
+	",core/pkg/distribution/framer/pb/framer.proto\x12\x1asynnax.distribution.framer\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1dx/go/control/pb/control.proto\x1a\x18x/go/errors/errors.proto\x1a\x19x/go/telem/pb/frame.proto\x1a\x19x/go/telem/pb/telem.proto\"\xfd\x01\n" +
 	"\x0fIteratorRequest\x12\x18\n" +
 	"\acommand\x18\x01 \x01(\x05R\acommand\x12\x14\n" +
 	"\x05stamp\x18\x02 \x01(\x03R\x05stamp\x12\x12\n" +
@@ -631,7 +639,8 @@ const file_core_pkg_distribution_framer_pb_framer_proto_rawDesc = "" +
 	"\x04keys\x18\x06 \x03(\rR\x04keys\x12\x1d\n" +
 	"\n" +
 	"chunk_size\x18\a \x01(\x03R\tchunkSize\x12\x17\n" +
-	"\aseq_num\x18\b \x01(\x05R\x06seqNum\"\xde\x01\n" +
+	"\aseq_num\x18\b \x01(\x05R\x06seqNum\x12+\n" +
+	"\x11downsample_factor\x18\t \x01(\x05R\x10downsampleFactor\"\xde\x01\n" +
 	"\x10IteratorResponse\x12\x18\n" +
 	"\avariant\x18\x01 \x01(\x05R\avariant\x12\x18\n" +
 	"\acommand\x18\x02 \x01(\x05R\acommand\x12'\n" +

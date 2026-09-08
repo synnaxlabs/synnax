@@ -48,6 +48,12 @@ type Config struct {
 	//
 	// [OPTIONAL]
 	ChunkSize int64
+	// DownsampleFactor keeps every n-th sample of each series read from storage. The
+	// read is strided at the source, so the discarded samples are never read into
+	// memory. Values below 2 keep every sample.
+	//
+	// [OPTIONAL]
+	DownsampleFactor int
 }
 
 // Validate ensures that Keys is non-empty and contains no free channels, which cannot
@@ -184,8 +190,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 		routeInletTo = peerSenderAddr
 		sender, receivers, err := s.openManyPeers(
 			ctx,
-			cfg.Bounds,
-			cfg.ChunkSize,
+			cfg,
 			batch.Peers,
 			!needGatewayRouting,
 		)
@@ -203,10 +208,9 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 
 	if needGatewayRouting {
 		routeInletTo = gatewayIterAddr
-		gatewayIter, err := s.newGateway(
-			Config{Keys: batch.Gateway, Bounds: cfg.Bounds, ChunkSize: cfg.ChunkSize},
-			!needPeerRouting,
-		)
+		gatewayCfg := cfg
+		gatewayCfg.Keys = batch.Gateway
+		gatewayIter, err := s.newGateway(gatewayCfg, !needPeerRouting)
 		if err != nil {
 			return nil, err
 		}

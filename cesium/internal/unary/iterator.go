@@ -29,6 +29,10 @@ type IteratorConfig struct {
 	// AutoChunkSize sets the maximum size of a chunk that will be returned by the
 	// iterator when using AutoSpan in calls ot Next or Prev.
 	AutoChunkSize int64
+	// DownsampleFactor keeps every n-th sample of each series the iterator reads,
+	// striding the read so the discarded samples are never materialized. Values below
+	// 2 keep every sample.
+	DownsampleFactor int
 }
 
 func (i IteratorConfig) domainIteratorConfig() domain.IteratorConfig {
@@ -39,6 +43,7 @@ func (i IteratorConfig) domainIteratorConfig() domain.IteratorConfig {
 func (i IteratorConfig) Override(other IteratorConfig) IteratorConfig {
 	i.Bounds = override.Zero(i.Bounds, other.Bounds)
 	i.AutoChunkSize = override.Numeric(i.AutoChunkSize, other.AutoChunkSize)
+	i.DownsampleFactor = override.Numeric(i.DownsampleFactor, other.DownsampleFactor)
 	return i
 }
 
@@ -263,12 +268,12 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 			i.err = err
 			return false
 		}
-		series, err := i.read(ctx, dmn, startOffset, endOffset-startOffset)
+		series, srcLen, err := i.read(ctx, dmn, startOffset, endOffset-startOffset)
 		if err != nil && !errors.Is(err, io.EOF) {
 			i.err = err
 			return false
 		}
-		nRemaining -= series.Len()
+		nRemaining -= srcLen
 		i.insert(series)
 		if nRemaining <= 0 || !i.internal.Next() {
 			break
@@ -334,12 +339,17 @@ func (i *Iterator) autoPrev(ctx context.Context) bool {
 			i.err = err
 			return false
 		}
-		series, err := i.read(ctx, alignment, startOffset, endOffset-startOffset)
+		series, srcLen, err := i.read(
+			ctx,
+			alignment,
+			startOffset,
+			endOffset-startOffset,
+		)
 		if err != nil && !errors.Is(err, io.EOF) {
 			i.err = err
 			return false
 		}
-		nRemaining -= series.Len()
+		nRemaining -= srcLen
 		i.insert(series)
 		if nRemaining <= 0 || !i.internal.Prev() {
 			break
@@ -429,7 +439,7 @@ func (i *Iterator) accumulate(ctx context.Context) bool {
 		i.err = err
 		return false
 	}
-	series, err := i.read(ctx, alignment, offset, size)
+	series, _, err := i.read(ctx, alignment, offset, size)
 	if err != nil && !errors.Is(err, io.EOF) {
 		i.err = err
 		return false
@@ -450,30 +460,44 @@ func (i *Iterator) insert(series telem.Series) {
 	}
 }
 
+// read reads the slice [offset, offset+size) of the current domain into a series,
+// keeping every DownsampleFactor-th sample. It returns the series and the number of
+// source samples the slice held, which exceeds the series length when the read is
+// downsampled.
 func (i *Iterator) read(
 	ctx context.Context,
 	alignment telem.Alignment,
 	offset telem.Size,
 	size telem.Size,
-) (series telem.Series, err error) {
+) (series telem.Series, srcLen int64, err error) {
 	series.DataType = i.Channel.DataType
 	series.TimeRange = i.internal.TimeRange().BoundBy(i.view)
-	series.Data = make([]byte, size)
 	// set the first 32 bits to the domain index, and the last 32 bits to the alignment
 	series.Alignment = alignment
 	r, err := i.internal.OpenReader(ctx)
 	if err != nil {
-		return series, err
+		return series, 0, err
 	}
 	defer func() { err = errors.Combine(err, r.Close()) }()
+	if i.DownsampleFactor > 1 {
+		series.Data, srcLen, err = readStrided(
+			r,
+			series.DataType,
+			offset,
+			size,
+			int64(i.DownsampleFactor),
+		)
+		return series, srcLen, err
+	}
+	series.Data = make([]byte, size)
 	n, err := r.ReadAt(series.Data, int64(offset))
 	if err != nil && !errors.Is(err, io.EOF) {
-		return series, err
+		return series, 0, err
 	}
 	if n < len(series.Data) {
 		series.Data = series.Data[:n]
 	}
-	return series, err
+	return series, series.Len(), err
 }
 
 func (i *Iterator) sliceDomain(ctx context.Context) (

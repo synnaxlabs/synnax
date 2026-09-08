@@ -176,13 +176,14 @@ func (IteratorRequestTranslator) Backward(
 		return iterator.Request{}, err
 	}
 	return iterator.Request{
-		Command:   iterator.Command(req.Command),
-		Span:      telem.TimeSpan(req.Span),
-		Bounds:    bounds,
-		Stamp:     telem.TimeStamp(req.Stamp),
-		Keys:      channel.KeysFromUint32(req.Keys),
-		ChunkSize: req.ChunkSize,
-		SeqNum:    int(req.SeqNum),
+		Command:          iterator.Command(req.Command),
+		Span:             telem.TimeSpan(req.Span),
+		Bounds:           bounds,
+		Stamp:            telem.TimeStamp(req.Stamp),
+		Keys:             channel.KeysFromUint32(req.Keys),
+		ChunkSize:        req.ChunkSize,
+		SeqNum:           int(req.SeqNum),
+		DownsampleFactor: int(req.DownsampleFactor),
 	}, nil
 }
 
@@ -196,13 +197,14 @@ func (IteratorRequestTranslator) Forward(
 		return nil, err
 	}
 	return &IteratorRequest{
-		Command:   int32(req.Command),
-		Span:      int64(req.Span),
-		Bounds:    bounds,
-		Stamp:     int64(req.Stamp),
-		Keys:      req.Keys.Uint32(),
-		ChunkSize: req.ChunkSize,
-		SeqNum:    int32(req.SeqNum),
+		Command:          int32(req.Command),
+		Span:             int64(req.Span),
+		Bounds:           bounds,
+		Stamp:            int64(req.Stamp),
+		Keys:             req.Keys.Uint32(),
+		ChunkSize:        req.ChunkSize,
+		SeqNum:           int32(req.SeqNum),
+		DownsampleFactor: int32(req.DownsampleFactor),
 	}, nil
 }
 
