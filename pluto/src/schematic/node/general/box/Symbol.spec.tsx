@@ -50,7 +50,7 @@ const frame = (container: HTMLElement): SVGRectElement | null =>
 // Which element takes the pointer is decided by pointer-events rules in box.css, which
 // jsdom cannot exercise. These cover the structure those rules key on.
 describe("Box.Symbol", () => {
-  it("should render the frame while unselected so the border can select the box", () => {
+  it("should render the frame while unselected so the border can select it", () => {
     const { container } = renderSymbol();
     expect(frame(container)).not.toBeNull();
   });
@@ -61,7 +61,7 @@ describe("Box.Symbol", () => {
     expect(frame(container)?.getAttribute("height")).toBe("100%");
   });
 
-  it("should round the frame with the border radius so the band follows the corners", () => {
+  it("should round the frame so the band follows the corners", () => {
     const { container } = renderSymbol({ config: { ...CONFIG, borderRadius: 12 } });
     expect(frame(container)?.getAttribute("rx")).toBe("12");
   });

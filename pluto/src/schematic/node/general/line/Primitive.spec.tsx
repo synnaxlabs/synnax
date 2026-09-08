@@ -33,7 +33,7 @@ describe("line symbol", () => {
       expect(root.style.getPropertyValue("--pluto-symbol-color")).toBe("255, 0, 0, 1");
     });
 
-    it("should carry the alpha channel so a translucent color stays translucent", () => {
+    it("should carry the alpha channel of a translucent color", () => {
       const { container } = render(<Line color={[255, 0, 0, 0.5]} />);
       expect(getRoot(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
         "255, 0, 0, 0.5",
@@ -114,7 +114,7 @@ describe("line symbol", () => {
   });
 
   describe("lines", () => {
-    it("should draw the hit band and the visible line between the same endpoints", () => {
+    it("should draw the hit band and visible line between the same endpoints", () => {
       const { container } = render(
         <Line start={{ x: 0, y: 30 }} end={{ x: 80, y: 0 }} />,
       );
